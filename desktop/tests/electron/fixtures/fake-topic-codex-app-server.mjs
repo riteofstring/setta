@@ -1019,10 +1019,7 @@ function requestApproval(threadId, turnId) {
       {
         header: "Scope",
         id: "scope",
-        options: [
-          { description: "Use the focused topic.", label: "focused" },
-          { description: "Use the whole workspace.", label: "workspace" },
-        ],
+        isSecret: true,
         question: "Which scope should be used?",
       },
     ],

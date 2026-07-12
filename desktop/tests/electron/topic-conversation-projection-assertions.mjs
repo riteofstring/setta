@@ -119,9 +119,9 @@ function assertAlphaApproval(snapshot, approvalId) {
   if (!request || !resolutionEvent) {
     throw new Error(`Alpha approval lifecycle is incomplete: ${JSON.stringify(snapshot)}`);
   }
-  const answers = resolutionEvent.approvalResolved.resolution.answers;
-  if (answers.length !== 1 || answers[0].answers[0] !== "focused") {
-    throw new Error(`Alpha approval answer is incomplete: ${JSON.stringify(snapshot)}`);
+  const resolution = resolutionEvent.approvalResolved.resolution;
+  if (resolution.answers.length !== 0 || !resolution.secretsRedacted) {
+    throw new Error(`Alpha approval secret was retained: ${JSON.stringify(snapshot)}`);
   }
 }
 

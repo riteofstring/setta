@@ -137,12 +137,11 @@ function backendRequestHeaders(deviceToken, payload) {
 }
 
 async function waitForBackendAccess(recordingDir) {
-  const eventsPath = join(recordingDir, "events.jsonl");
   const startedAt = Date.now();
   let lastError = null;
   while (Date.now() - startedAt < pageLoadTimeoutMs) {
     try {
-      const access = await readBackendAccess(eventsPath);
+      const access = await readBackendAccess(recordingDir);
       if (access) {
         return access;
       }
@@ -154,25 +153,35 @@ async function waitForBackendAccess(recordingDir) {
   throw new Error(`backend access was not recorded: ${lastError?.message ?? "timed out"}`);
 }
 
-async function readBackendAccess(eventsPath) {
-  return backendAccessFromEvents(await readJsonLines(eventsPath));
+async function readBackendAccess(recordingDir) {
+  const events = await readJsonLines(join(recordingDir, "events.jsonl"));
+  const baseURL = backendURLFromEvents(events);
+  if (baseURL === null) {
+    return null;
+  }
+  const manifest = JSON.parse(await readFile(join(recordingDir, "manifest.json"), "utf8"));
+  const appDataDir = nonEmptyString(manifest?.appDataDir) ? manifest.appDataDir : null;
+  if (appDataDir === null) {
+    return null;
+  }
+  const registryPath = join(appDataDir, "electron-user-data", "known-runtimes.json");
+  const registry = JSON.parse(await readFile(registryPath, "utf8"));
+  const deviceToken = localRuntimeDeviceToken(registry, baseURL);
+  return deviceToken === null ? null : { baseURL, deviceToken };
 }
 
-function backendAccessFromEvents(events) {
+function backendURLFromEvents(events) {
   const started = events.find((entry) => entry.type === "backend_started");
-  if (!started) {
-    return null;
-  }
-  return backendAccessFromPayload(started.payload);
+  const url = started?.payload?.url;
+  return nonEmptyString(url) ? url : null;
 }
 
-function backendAccessFromPayload(payload) {
-  const url = payload?.url;
-  const token = payload?.bootstrapToken;
-  if (!nonEmptyString(url) || !nonEmptyString(token)) {
-    return null;
-  }
-  return { baseURL: url, deviceToken: token };
+function localRuntimeDeviceToken(registry, baseURL) {
+  const localRuntime = registry?.runtimes?.find(
+    (runtime) => runtime?.is_local === true && runtime.base_url === baseURL,
+  );
+  const deviceToken = localRuntime?.device_token;
+  return nonEmptyString(deviceToken) ? deviceToken : null;
 }
 
 function nonEmptyString(value) {

@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -107,6 +107,52 @@ export async function createElectronFixture(name) {
   await mkdir(appDataDir, { recursive: true });
   await mkdir(workspaceRoot, { recursive: true });
   return { appDataDir, tempRoot, workspaceRoot };
+}
+
+export async function readLocalRuntimeAccess(appDataDir) {
+  const path = join(appDataDir, "electron-user-data", "known-runtimes.json");
+  const registry = JSON.parse(await readFile(path, "utf8"));
+  const localRuntime = registry?.runtimes?.find((runtime) => runtime?.is_local === true);
+  if (
+    typeof localRuntime?.base_url !== "string" ||
+    localRuntime.base_url === "" ||
+    typeof localRuntime.device_token !== "string" ||
+    localRuntime.device_token === ""
+  ) {
+    throw new Error("protected runtime registry did not contain local backend access");
+  }
+  return { baseURL: localRuntime.base_url, deviceToken: localRuntime.device_token };
+}
+
+export async function assertArtifactsExcludeMarkers(root, markers, description) {
+  if (
+    !Array.isArray(markers) ||
+    markers.length === 0 ||
+    markers.some((marker) => typeof marker !== "string" || marker === "")
+  ) {
+    throw new Error("artifact privacy assertion requires non-empty string markers");
+  }
+  for (const path of await artifactFilePaths(root)) {
+    const content = await readFile(path);
+    for (const marker of markers) {
+      if (content.includes(Buffer.from(marker))) {
+        throw new Error(`${description} leaked into ${path}`);
+      }
+    }
+  }
+}
+
+async function artifactFilePaths(root) {
+  const paths = [];
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      paths.push(...(await artifactFilePaths(path)));
+    } else if (entry.isFile()) {
+      paths.push(path);
+    }
+  }
+  return paths;
 }
 
 export async function launchElectronCdpContext({
@@ -531,7 +577,7 @@ async function crashElectron(child) {
   if (process.platform === "win32") {
     await killWindowsProcessTree(child.pid);
   } else if (child.isolatedProcessGroup && child.pid !== undefined) {
-    process.kill(-child.pid, "SIGKILL");
+    await killPosixProcessTree(child.pid);
   } else {
     child.kill("SIGKILL");
   }
@@ -541,6 +587,109 @@ async function crashElectron(child) {
   ]);
   if (!exited) {
     throw new Error(`Electron process ${child.pid ?? "unknown"} did not exit after SIGKILL`);
+  }
+}
+
+async function killPosixProcessTree(rootPid) {
+  const rows = await readPosixProcessTable();
+  const processIds = descendantProcessIds(rows, rootPid);
+  const controller = rows.find((row) => row.pid === process.pid);
+  if (!controller) {
+    throw new Error("test controller was absent from the POSIX process table");
+  }
+  const processGroups = orderedProcessGroups(rows, processIds, rootPid);
+  if (processGroups.includes(controller.pgid)) {
+    throw new Error("refusing to crash a process group containing the test controller");
+  }
+  for (const processGroup of processGroups) {
+    signalPosixProcessGroup(processGroup);
+  }
+  await waitForPosixProcessTreeExit(processIds);
+}
+
+async function readPosixProcessTable() {
+  const ps = spawn("ps", ["-axo", "pid=,ppid=,pgid="], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  ps.stdout.on("data", (data) => {
+    stdout += data.toString();
+  });
+  ps.stderr.on("data", (data) => {
+    stderr += data.toString();
+  });
+  const code = await new Promise((resolvePromise) => ps.once("exit", resolvePromise));
+  if (code !== 0) {
+    throw new Error(`ps failed while discovering the crash process tree: ${stderr.trim()}`);
+  }
+  return stdout.split("\n").map(parsePosixProcessRow).filter(Boolean);
+}
+
+function parsePosixProcessRow(line) {
+  const [pid, ppid, pgid] = line.trim().split(/\s+/).map(Number);
+  if (![pid, ppid, pgid].every(Number.isSafeInteger)) {
+    return null;
+  }
+  return { pgid, pid, ppid };
+}
+
+function descendantProcessIds(rows, rootPid) {
+  const processIds = new Set([rootPid]);
+  let previousSize = 0;
+  while (processIds.size !== previousSize) {
+    previousSize = processIds.size;
+    for (const row of rows) {
+      if (processIds.has(row.ppid)) {
+        processIds.add(row.pid);
+      }
+    }
+  }
+  return processIds;
+}
+
+function orderedProcessGroups(rows, processIds, rootPid) {
+  const rootProcessGroup = rows.find((row) => row.pid === rootPid)?.pgid;
+  if (!Number.isSafeInteger(rootProcessGroup)) {
+    throw new Error(`Electron process ${rootPid} was absent from the POSIX process table`);
+  }
+  const processGroups = new Set(
+    rows.filter((row) => processIds.has(row.pid)).map((row) => row.pgid),
+  );
+  processGroups.delete(rootProcessGroup);
+  return [...processGroups, rootProcessGroup];
+}
+
+function signalPosixProcessGroup(processGroup) {
+  try {
+    process.kill(-processGroup, "SIGKILL");
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) {
+      throw error;
+    }
+  }
+}
+
+async function waitForPosixProcessTreeExit(processIds) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < shutdownTimeoutMs) {
+    if (![...processIds].some(posixProcessExists)) {
+      return;
+    }
+    await delay(25);
+  }
+  throw new Error(`crashed POSIX process tree did not exit: ${[...processIds].join(", ")}`);
+}
+
+function posixProcessExists(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ESRCH") {
+      return false;
+    }
+    throw error;
   }
 }
 

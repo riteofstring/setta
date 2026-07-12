@@ -309,6 +309,9 @@ func validateStructuredApprovalAnswers(
 		}
 		for _, value := range answer.Answers {
 			if !allowed[value] {
+				if question.Secret {
+					return fmt.Errorf("structured approval answer is not an option for secret question %s", question.ID)
+				}
 				return fmt.Errorf("structured approval answer %q is not an option for question %s", value, question.ID)
 			}
 		}

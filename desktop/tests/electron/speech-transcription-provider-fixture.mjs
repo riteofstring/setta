@@ -3,6 +3,8 @@ import { createServer } from "node:http";
 
 const apiKey = "sk-setta-global-speech-electron-fixture";
 const clientSecret = "ek_setta_global_speech_electron_ephemeral";
+const audioMarker = "setta-audio-secret-20260714!";
+const synthesizedAudio = Buffer.from(audioMarker, "utf8");
 
 export async function startSpeechTranscriptionProviderFixture() {
   const failures = [];
@@ -24,6 +26,8 @@ export async function startSpeechTranscriptionProviderFixture() {
   }
   return {
     apiKey,
+    audioBase64: synthesizedAudio.toString("base64"),
+    audioMarker,
     assertHealthy() {
       if (failures.length > 0) {
         throw new Error(
@@ -57,7 +61,7 @@ async function handleProviderRequest(request, response, requests) {
     const synthesis = assertSynthesisRequest(await readJSONBody(request));
     requests.push({ path: request.url, ...synthesis });
     response.writeHead(200, { "Content-Type": "application/octet-stream" });
-    response.end(Buffer.from([0, 0]));
+    response.end(synthesizedAudio);
     return;
   }
   throw new Error(`unexpected provider request: ${request.method} ${request.url}`);

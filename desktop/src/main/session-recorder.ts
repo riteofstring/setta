@@ -9,11 +9,12 @@ import type {
   PresentationIntent,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
-import type {
-  IpcObservedFailure,
-  IpcObservedFinish,
-  IpcObservedStart,
-  IpcObserver,
+import {
+  ipcChannels,
+  type IpcObservedFailure,
+  type IpcObservedFinish,
+  type IpcObservedStart,
+  type IpcObserver,
 } from "@shared/ipc";
 import type { RendererRecordedEvent } from "@shared/recording";
 
@@ -53,6 +54,37 @@ const defaultScreenshotIntervalMs = 10_000;
 const maxStringLength = 4_000;
 const maxArrayLength = 60;
 const maxObjectKeys = 80;
+const sensitiveRecordingKeys = new Set([
+  "Authorization",
+  "answers",
+  "apiKey",
+  "api_key",
+  "audioBase64",
+  "audio_base64",
+  "authorization",
+  "authUrl",
+  "auth_url",
+  "bootstrapToken",
+  "bootstrap_token",
+  "clientSecret",
+  "client_secret",
+  "deviceToken",
+  "device_token",
+  "loginId",
+  "login_id",
+  "pairingToken",
+  "pairing_token",
+  "userCode",
+  "user_code",
+  "verificationUrl",
+  "verification_url",
+]);
+const sensitiveIpcStartTypes = new Map<string, string>([
+  [ipcChannels.appOpenExternalUrl, "external_url"],
+  [ipcChannels.codexAccountStartLogin, "codex_account_login_request"],
+  [ipcChannels.conversationSubmitApproval, "conversation_approval_submission"],
+  [ipcChannels.runtimeAddByPairingUrl, "runtime_pairing_url"],
+]);
 
 export class SessionRecorder implements RoutingObservationRecorder {
   readonly dir: string;
@@ -168,7 +200,7 @@ export class SessionRecorder implements RoutingObservationRecorder {
         at: timestamp(),
         id,
         method: init.method ?? "GET",
-        requestBody: this.payload(init.body),
+        requestBody: summarizeRecordingValue(init.body),
         type: "backend_http_request",
         url: input.toString(),
       });
@@ -314,7 +346,7 @@ export class SessionRecorder implements RoutingObservationRecorder {
 
   private recordIpcStart(event: IpcObservedStart) {
     this.writeJSONLine(this.ipcStream, {
-      args: this.payload(event.args),
+      args: ipcRecordingValue(event.channel, "start", event.args, this.includePayloads),
       at: timestamp(),
       channel: event.channel,
       id: event.id,
@@ -328,24 +360,25 @@ export class SessionRecorder implements RoutingObservationRecorder {
       channel: event.channel,
       durationMs: event.durationMs,
       id: event.id,
-      result: this.payload(event.result),
+      result: ipcRecordingValue(event.channel, "finish", event.result, this.includePayloads),
       type: "ipc_finish",
     });
   }
 
   private recordIpcFailure(event: IpcObservedFailure) {
+    const error = ipcRecordingFailure(event.channel, event.error);
     this.writeJSONLine(this.ipcStream, {
       at: timestamp(),
       channel: event.channel,
       durationMs: event.durationMs,
-      error: errorPayload(event.error),
+      error,
       id: event.id,
       type: "ipc_failure",
     });
     this.recordEvent("ipc_failure", {
       channel: event.channel,
       durationMs: event.durationMs,
-      error: errorPayload(event.error),
+      error,
       id: event.id,
     });
   }
@@ -353,18 +386,11 @@ export class SessionRecorder implements RoutingObservationRecorder {
   private recordEvent(type: string, payload: unknown) {
     const record: JsonLineRecord = {
       at: timestamp(),
-      payload: sanitizeValue(payload),
+      payload: sanitizeRecordingValue(payload),
       seq: this.nextID(),
       type,
     };
     this.writeJSONLine(this.eventsStream, record);
-  }
-
-  private payload(value: unknown): unknown {
-    if (this.includePayloads) {
-      return sanitizeValue(value);
-    }
-    return summarizeValue(value);
   }
 
   private nextID(): number {
@@ -377,7 +403,7 @@ export class SessionRecorder implements RoutingObservationRecorder {
     if (this.closed) {
       return;
     }
-    stream.write(JSON.stringify(sanitizeValue(value)) + "\n");
+    stream.write(JSON.stringify(sanitizeRecordingValue(value)) + "\n");
   }
 }
 
@@ -436,7 +462,11 @@ function nonNegativeIntegerEnv(value: string | undefined, fallback: number): num
   return parsed;
 }
 
-function sanitizeValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+export function sanitizeRecordingValue(
+  value: unknown,
+  depth = 0,
+  seen = new WeakSet<object>(),
+): unknown {
   if (depth > 8) {
     return "[MaxDepth]";
   }
@@ -447,8 +477,20 @@ function sanitizeValue(value: unknown, depth = 0, seen = new WeakSet<object>()):
   if (value instanceof Error) {
     return errorPayload(value);
   }
+  return sanitizeRecordingComposite(value, depth, seen);
+}
+
+function sanitizeRecordingComposite(value: unknown, depth: number, seen: WeakSet<object>): unknown {
+  if (value instanceof ArrayBuffer) {
+    return { byteLength: value.byteLength, type: "binary" };
+  }
+  if (ArrayBuffer.isView(value)) {
+    return { byteLength: value.byteLength, type: "binary" };
+  }
   if (Array.isArray(value)) {
-    return value.slice(0, maxArrayLength).map((item) => sanitizeValue(item, depth + 1, seen));
+    return value
+      .slice(0, maxArrayLength)
+      .map((item) => sanitizeRecordingValue(item, depth + 1, seen));
   }
   if (value !== null && typeof value === "object") {
     return sanitizeObject(value, depth, seen);
@@ -480,12 +522,14 @@ function sanitizeObject(value: object, depth: number, seen: WeakSet<object>): un
   const record: Record<string, unknown> = {};
   const entries = Object.entries(value).slice(0, maxObjectKeys);
   for (const [key, entryValue] of entries) {
-    record[key] = sanitizeValue(entryValue, depth + 1, seen);
+    record[key] = sensitiveRecordingKeys.has(key)
+      ? redactedRecordingValue("sensitive_value")
+      : sanitizeRecordingValue(entryValue, depth + 1, seen);
   }
   return record;
 }
 
-function summarizeValue(value: unknown): unknown {
+export function summarizeRecordingValue(value: unknown): unknown {
   if (value === null || value === undefined) {
     return value;
   }
@@ -505,6 +549,31 @@ function summarizeValue(value: unknown): unknown {
     type: typeof value,
     value,
   };
+}
+
+export function ipcRecordingValue(
+  channel: string,
+  phase: "finish" | "start",
+  value: unknown,
+  includePayloads: boolean,
+): unknown {
+  const sensitiveType = phase === "start" ? sensitiveIpcStartTypes.get(channel) : undefined;
+  if (sensitiveType !== undefined) {
+    return redactedRecordingValue(sensitiveType);
+  }
+  return includePayloads ? sanitizeRecordingValue(value) : summarizeRecordingValue(value);
+}
+
+export function ipcRecordingFailure(channel: string, error: unknown): unknown {
+  const sensitiveType = sensitiveIpcStartTypes.get(channel);
+  if (sensitiveType !== undefined) {
+    return redactedRecordingValue(`${sensitiveType}_failure`);
+  }
+  return sanitizeRecordingValue(errorPayload(error));
+}
+
+function redactedRecordingValue(type: string): { redacted: true; type: string } {
+  return { redacted: true, type };
 }
 
 function errorPayload(error: unknown) {

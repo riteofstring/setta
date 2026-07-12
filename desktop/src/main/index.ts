@@ -82,7 +82,6 @@ async function prepareBackend(appDataDir: string) {
     attachBackendObservers({
       backend,
       emitBackendProcessStatus,
-      isE2E,
       mainWindow: () => mainWindow,
       recorder: () => recorder,
       runtimeRegistry: () => runtimeRegistry,

@@ -15,7 +15,6 @@ interface BackendExitEvent {
 interface BackendObserverOptions {
   backend: BackendHandle;
   emitBackendProcessStatus: (status: BackendProcessStatus) => void;
-  isE2E: () => boolean;
   mainWindow: () => BrowserWindow | null;
   recorder: () => SessionRecorder | null;
   runtimeRegistry: () => RuntimeRegistryController | null;
@@ -24,7 +23,6 @@ interface BackendObserverOptions {
 
 export function attachBackendObservers(options: BackendObserverOptions): void {
   options.recorder()?.recordAppEvent("backend_started", {
-    ...(options.isE2E() ? { bootstrapToken: options.backend.bootstrapToken } : {}),
     mode: options.backend.mode,
     url: options.backend.url,
   });

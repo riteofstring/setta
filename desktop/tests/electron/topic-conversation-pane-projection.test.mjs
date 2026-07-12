@@ -10,6 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
+  assertArtifactsExcludeMarkers,
   assertBuildExists,
   captureScreenshot,
   clickEnabledButtonByAria,
@@ -97,6 +98,7 @@ const workflowTimeoutMs = 50_000;
 const shellClarificationText = "Clarify the shell topic.";
 const typedMasterOverlayText = "Focus Alpha topic.";
 const paneSpeechTranscript = "  Keep this pane transcript exact.  ";
+const secretApprovalAnswer = "setta-private-approval-answer-20260714";
 const speechRealtimeBrowserFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "speech-realtime-browser-fixture.js",
@@ -127,6 +129,7 @@ let shellMasterInput;
 let sharedMasterSessionId;
 let statusCapturePreemption;
 let statusSpeechPlayback;
+const runtimeDeviceTokens = [];
 
 try {
   context = await launchElectronCdpContext({
@@ -143,6 +146,7 @@ try {
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   let backend = await backendProbe(firstLaunchDir);
+  runtimeDeviceTokens.push(backend.deviceToken);
   const workspaceId = await openWorkspace(context.client);
   await exerciseCodexAccountNotificationWorkflow({
     backend,
@@ -221,6 +225,7 @@ try {
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   backend = await backendProbe(secondLaunchDir);
+  runtimeDeviceTokens.push(backend.deviceToken);
   const restoredWorkspaceId = await openWorkspace(context.client);
   if (restoredWorkspaceId !== workspaceId) {
     throw new Error(
@@ -737,7 +742,7 @@ try {
   );
   assertDriverAction(
     await context.client.driver("topicConversationRespondApproval", {
-      answer: "focused",
+      answer: secretApprovalAnswer,
       conversationId: alpha.id,
     }),
     "answered",
@@ -1128,6 +1133,20 @@ try {
     workspaceId,
     workspaceName: basename(fixture.workspaceRoot),
   });
+  await stopElectronCdpContext(context);
+  context = null;
+  await assertArtifactsExcludeMarkers(
+    artifactDir,
+    [
+      speechProvider.apiKey,
+      speechProvider.clientSecret,
+      speechProvider.audioMarker,
+      speechProvider.audioBase64,
+      secretApprovalAnswer,
+      ...runtimeDeviceTokens,
+    ],
+    "private speech audio, approval, or runtime credential",
+  );
   console.log(`Electron topic conversation production workflow passed: ${artifactDir}`);
 } catch (error) {
   if (context) {

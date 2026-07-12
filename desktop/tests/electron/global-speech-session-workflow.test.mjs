@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /* global console */
 
-import { readdir, readFile, rm } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import process from "node:process";
 
 import {
+  assertArtifactsExcludeMarkers,
   assertBuildExists,
   captureScreenshot,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
+  readLocalRuntimeAccess,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -43,6 +45,7 @@ let firstAcceptedInput;
 let secondAcceptedInput;
 let firstMasterVoiceSelection;
 let secondMasterVoiceSelection;
+const runtimeDeviceTokens = [];
 
 try {
   context = await launchElectronCdpContext({
@@ -55,6 +58,7 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  runtimeDeviceTokens.push((await readLocalRuntimeAccess(fixture.appDataDir)).deviceToken);
 
   const capabilities = await context.client.evaluate("window.setta.speech.readCapabilities()");
   assertConfiguredCapabilities(capabilities);
@@ -99,6 +103,7 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  runtimeDeviceTokens.push((await readLocalRuntimeAccess(fixture.appDataDir)).deviceToken);
   secondMasterVoiceSelection = await context.client.evaluate(
     "window.setta.speech.readMasterVoiceSelection()",
   );
@@ -114,7 +119,11 @@ try {
   await stopElectronCdpContext(context);
   context = null;
 
-  await assertNoSensitiveSpeechArtifacts(artifactDir, [provider.apiKey, provider.clientSecret]);
+  await assertArtifactsExcludeMarkers(
+    artifactDir,
+    [provider.apiKey, provider.clientSecret, ...runtimeDeviceTokens],
+    "private speech or runtime credential",
+  );
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     easyButtonPaneCount,
@@ -280,28 +289,4 @@ async function assertChangedMasterInputConflicts(client, request) {
   if (result?.accepted || !result?.message.includes("already accepted with different content")) {
     throw new Error(`changed master input id did not conflict: ${JSON.stringify(result)}`);
   }
-}
-
-async function assertNoSensitiveSpeechArtifacts(root, markers) {
-  for (const path of await textArtifactPaths(root)) {
-    const content = await readFile(path, "utf8");
-    for (const marker of markers) {
-      if (content.includes(marker)) {
-        throw new Error(`private speech credential leaked into ${path}`);
-      }
-    }
-  }
-}
-
-async function textArtifactPaths(root) {
-  const paths = [];
-  for (const entry of await readdir(root, { withFileTypes: true })) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      paths.push(...(await textArtifactPaths(path)));
-    } else if ([".json", ".jsonl", ".log", ".txt"].includes(extname(entry.name))) {
-      paths.push(path);
-    }
-  }
-  return paths;
 }

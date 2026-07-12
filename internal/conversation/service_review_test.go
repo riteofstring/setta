@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -78,6 +79,24 @@ func TestApprovalIsValidatedBeforeProviderSubmissionAndSecretsAreRedacted(t *tes
 	}
 	if runtime.submittedApproval() != nil {
 		t.Fatal("invalid structured approval reached the provider")
+	}
+	secretValue := "private-approval-answer"
+	_, err = service.SubmitApproval(ctx, workspaceID, conversationID, ConversationApprovalResponse{
+		ApprovalID: approvalID,
+		Decision:   TrajectoryApprovalDecisionAnswered,
+		Answers: []ConversationApprovalAnswer{{
+			QuestionID: "scope",
+			Answers:    []string{secretValue},
+		}},
+	})
+	if err == nil {
+		t.Fatal("secret structured approval accepted a value outside its allowed options")
+	}
+	if strings.Contains(err.Error(), secretValue) {
+		t.Fatalf("secret structured approval error exposed the answer: %v", err)
+	}
+	if runtime.submittedApproval() != nil {
+		t.Fatal("invalid secret structured approval reached the provider")
 	}
 
 	if _, err := service.SubmitApproval(ctx, workspaceID, conversationID, ConversationApprovalResponse{
