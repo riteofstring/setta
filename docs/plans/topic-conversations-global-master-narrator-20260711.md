@@ -2,8 +2,12 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete. All phases are implemented and verified; the plan is
-ready for final audit.
+**Status:** In progress. Phase 3 pane-binding hardening is next: make every
+Easy Button pane require its Go-owned typed conversation binding across layout
+validation, generated desktop contracts, renderer types and creation paths,
+and deterministic Electron persistence coverage. Phase 7 still requires the
+explicit active-master cancellation command promised by the replacement
+surface.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1925,7 +1929,12 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Status:** Complete.
+**Status:** In progress. The conversation-keyed cutover and archive lifecycle
+are complete, but the final audit found that the persisted Go layout contract
+still accepts an `easy-button` pane with a null `easyButtonConfig`, while the
+renderer models the binding as optional and renders an unbound fallback. Every
+valid Easy Button pane must instead carry its typed `conversationId`; invalid
+create, configure, save, and reload paths must fail explicitly.
 
 Implement:
 
@@ -2101,9 +2110,13 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** Complete. Item 4 now includes primary-agent precedence plus the
+**Status:** In progress. Item 4 includes primary-agent precedence plus the
 model-catalog-validated HTTP, generated IPC, settings, persistence, and
 production Electron workflow surfaces for independent role configuration.
+The final audit found no explicit command to cancel an active master operation:
+the route service has only whole-service shutdown cancellation, and the HTTP,
+generated IPC, shell controller, and overlay expose no per-input cancellation
+boundary even though the replacement master surface requires one.
 
 Implement:
 
