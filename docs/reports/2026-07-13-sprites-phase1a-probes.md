@@ -406,6 +406,31 @@ returned "Could not connect", `github.com` returned 200, a guest write to
 `/.sprite/policy` returned "Read-only file system", and the policy reverted
 cleanly to `{"rules":[]}`.
 
+## Access path and lifecycle (URL wake, Proxy, attached-idle)
+
+Tested via `scripts/sprites/phase1a_url_idle.sh` (delegated Codex, high effort).
+
+- **Unauthenticated URL wake.** In the default `auth: sprite` URL mode, an
+  unauthenticated external request returns `HTTP 302` to Sprites auth and does
+  **not** wake compute — status stays `warm`/`cold` (reviewer-verified: 302 and
+  status stayed `warm`). In `auth: public` mode, an unauthenticated request to a
+  live routable HTTP service **does** wake compute to `running`. Implication:
+  keep runtime URLs in `auth: sprite`; a `public` URL is a wake-on-request cost/
+  abuse vector that needs rate controls before use.
+- **Proxy API as a client gateway: not directly usable.** The Proxy transport is
+  `WSS /v1/sprites/{name}/proxy`; an authenticated upgrade reaches `101 Switching
+  Protocols`, an unauthenticated one gets `401`. There is **no scoped/non-org
+  Proxy credential** — direct use requires a Sprites org Bearer token, which must
+  never reach a client (plan rule 6). So client access needs a backend gateway
+  that holds the org token (the Candidate-B direction for the Phase 3 access-path
+  decision), not a direct client-to-Proxy path.
+- **Attached-idle keeps compute active; disconnect is fast.** An idle TTY, an
+  open SSE/event stream, and a held preview HTTP client each keep the Sprite
+  `running` with no Task. Deliberate disconnect drops it to `warm` within ~6s.
+  Combined with the ~1s `suspend` cutoff (A3), idle cost is controllable by
+  disconnecting/suspending promptly — the dominant cost lever from the
+  cost-assumptions table.
+
 ## Phase 1a checklist status
 
 - Fly written inquiry: deferred with recorded justification; pre-beta gate.
@@ -431,9 +456,13 @@ cleanly to `{"rules":[]}`.
   preserves dev egress, and is unbypassable by capability-root guest code (see
   Egress policy — validated). Caveat: apply before untrusted code runs.
 - Unauthenticated URL wake behavior; Proxy API as gateway without exposing org
-  token: not run.
-- Attached-idle behavior (event stream, idle TTY, preview): not run; idle-pause
-  timing still needs a dedicated leave-it-alone measurement.
+  token: done. `auth: sprite` blocks unauth wake (302, stays warm); `auth:
+  public` + service wakes on unauth request. Proxy (`WSS .../proxy`) needs an org
+  Bearer token with no scoped client credential, so a backend gateway is required
+  (Access path and lifecycle).
+- Attached-idle behavior (event stream, idle TTY, preview): done. TTY, SSE, and
+  preview each keep compute `running`; deliberate disconnect drops to `warm` in
+  ~6s (plus the ~1s explicit `suspend`).
 - Checkpoint create/inspect/restore: done (whole-Sprite reset). SQLite/repo-write
   variant and the credential-epoch override check remain for later phases.
 - Destroy disposable + verify: mechanism validated on the leftover Sprite, and
@@ -451,15 +480,37 @@ cleanly to `{"rules":[]}`.
   (`sprite-89c5596b-46e2-4449-84ce-69fd59ec7401`) served the launcher-boundary
   prototype and its independent re-run; the harness self-cleaned (purged its
   temporary `python3-pip`, deleted the test Service) and the Sprite was destroyed
-  and verified absent. The org has no remaining Sprites.
+  and verified absent.
+- Disposable `setta-phase1a-20260713-net` served the egress-policy and
+  URL/Proxy/attached-idle runs (both harnesses reverted policy/URL-auth and
+  cleaned up), then was destroyed and verified absent. The org has no remaining
+  Sprites.
+
+## Phase 1a exit assessment
+
+All Phase 1a exit criteria are met, and no stop-condition fired:
+
+- **One useful root/workload boundary chosen and validated** — the composed
+  launcher (Composed launcher boundary).
+- **Non-destructive hard-cost cutoff proven** — `suspend` in ~1s (A3).
+- **Network boundary validated** — host-enforced domain egress policy,
+  unbypassable by guest (Egress policy — validated).
+- **Checkpoint restore characterized** as a whole-Sprite reset (finding 5); its
+  "cannot become authoritative over a credential epoch" enforcement is a Phase 2
+  control-plane task, not a Sprites capability gap.
+
+The only open Phase 1a item is a business decision, not a technical gate: your
+confirmation of the two cost thresholds and whether `warm` bills resident memory.
 
 ## Next steps
 
-1. Confirm the two proposed cost thresholds (max cost/user, max cutoff lag) and
-   whether `warm` bills resident memory; then finalize the plan tier for the beta.
-2. Apply a Sprites egress policy through the management API and re-run the
-   network matrix to test for bypass (the one remaining containment gate).
-3. Measure idle-pause timing and unauthenticated-URL wake behavior.
-4. Phase 1b: harden the validated launcher (seccomp, cgroup limits, network
-   namespace) and fold the `suspend` cutoff into the control-plane hard-budget
-   design.
+1. **You:** confirm the two cost thresholds (max cost/user ~$25/mo, max cutoff
+   lag <=60s) and, for the cost model, whether `warm` bills resident memory; then
+   pick the beta plan tier.
+2. **Phase 1b:** pin the Sprites Go SDK and build the minimum typed lifecycle
+   adapter (create/inspect/exec/service/policy/checkpoint/restore/destroy) over
+   the proven mechanisms.
+3. **Phase 1b/2:** harden the validated launcher (seccomp, cgroup CPU/mem/PID
+   limits, network namespace), fold `suspend` into the control-plane hard-budget
+   design, and keep runtime URLs in `auth: sprite` with a backend Proxy gateway
+   holding the org token (the Phase 3 access-path direction).
