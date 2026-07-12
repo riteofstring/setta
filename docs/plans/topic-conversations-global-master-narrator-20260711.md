@@ -2,7 +2,9 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete.
+**Status:** In progress. Phase 7 item 4 is next: finish independent role
+configuration, including primary-agent precedence and the required
+model-catalog, HTTP, generated IPC, and settings surfaces.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2073,7 +2075,9 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** Complete.
+**Status:** In progress. Item 4's role-profile store and master/narrator/side
+resolution exist, but primary-agent precedence and the required end-to-end
+configuration surfaces are not implemented.
 
 Implement:
 
@@ -2153,6 +2157,9 @@ Complete the deletion inventory and remove all remaining dead code:
    branches, snapshots, CSS, assets, and tests.
 4. Old app-data paths and test fixtures.
 5. Temporary development scaffolding used during the cutover.
+
+The dedicated topic-conversation plan-loop launcher is retained repository
+automation, not temporary cutover scaffolding.
 
 Run `rg` audits for deleted endpoint names, surface kinds, package imports, old
 storage paths, and compatibility vocabulary.
