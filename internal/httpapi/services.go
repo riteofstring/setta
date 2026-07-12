@@ -78,6 +78,22 @@ type ConversationInputService interface {
 	SubmitInput(context.Context, conversation.ConversationInput) (conversation.AcceptedConversationInput, error)
 }
 
+type RoleConfigurationService interface {
+	ReadModelCatalog(context.Context) (conversation.RoleModelCatalog, error)
+	ReadGlobalConfiguration(context.Context) (conversation.RoleConfiguration, error)
+	ReadConversationConfiguration(context.Context, string, string) (conversation.RoleConfiguration, error)
+	UpdateGlobalConfiguration(
+		context.Context,
+		[]conversation.RoleProfileUpdate,
+	) (conversation.RoleConfiguration, error)
+	UpdateConversationConfiguration(
+		context.Context,
+		string,
+		string,
+		[]conversation.RoleProfileUpdate,
+	) (conversation.RoleConfiguration, error)
+}
+
 type MasterInputService interface {
 	ReadActiveShellInteraction(context.Context) (master.ActiveShellInteraction, error)
 	ReadInputState(context.Context, string) (master.InputRoutingState, error)
@@ -132,6 +148,7 @@ type HandlerConfig struct {
 	ConversationInputService     ConversationInputService
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
+	RoleConfigurationService     RoleConfigurationService
 	MasterInputService           MasterInputService
 	CodexAccountService          CodexAccountService
 	PairingFailureLimiter        *PairingFailureLimiter
@@ -150,6 +167,7 @@ type handler struct {
 	conversationInputService     ConversationInputService
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
+	roleConfigurationService     RoleConfigurationService
 	masterInputService           MasterInputService
 	codexAccountService          CodexAccountService
 	pairingFailureLimiter        *PairingFailureLimiter
@@ -177,6 +195,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		conversationInputService:     config.ConversationInputService,
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
+		roleConfigurationService:     config.RoleConfigurationService,
 		masterInputService:           config.MasterInputService,
 		codexAccountService:          config.CodexAccountService,
 		pairingFailureLimiter:        pairingFailureLimiter,

@@ -43,6 +43,7 @@ const navigatorIgnoredEventTypes = {
   "conversation.narrator_state.updated": true,
   "conversation.queue.updated": true,
   "conversation.resync_required": true,
+  "conversation.role_profile_override.removed": true,
   "conversation.role_profile_override.updated": true,
   "conversation.side_conversation.updated": true,
   "conversation.side_event.appended": true,

@@ -146,6 +146,7 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: snapshot.NarratorState},
 		ConversationNarrationCreatedEventPayload{Type: ConversationEventTypeNarrationCreated, Event: narration},
 		ConversationRoleProfileOverrideUpdatedEventPayload{Type: ConversationEventTypeRoleProfileOverrideUpdated, Override: override},
+		ConversationRoleProfileOverrideRemovedEventPayload{Type: ConversationEventTypeRoleProfileOverrideRemoved, Role: RoleAgent},
 		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: snapshot.PresentationProfile},
 		ConversationBranchCreatedEventPayload{Type: ConversationEventTypeBranchCreated, Branch: branch},
 		ConversationSideConversationUpdatedEventPayload{Type: ConversationEventTypeSideConversationUpdated, SideConversation: side},

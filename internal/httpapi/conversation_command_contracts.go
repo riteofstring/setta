@@ -40,3 +40,18 @@ type UpdateTopicConversationNarratorVoiceRequest struct {
 	ConversationID string                       `json:"conversationId"`
 	Selection      speech.VoiceSelectionRequest `json:"selection"`
 }
+
+type ReadConversationRoleConfigurationRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type UpdateGlobalRoleProfilesRequest struct {
+	Updates []conversation.RoleProfileUpdate `json:"updates"`
+}
+
+type UpdateConversationRoleProfilesRequest struct {
+	WorkspaceID    string                           `json:"workspaceId"`
+	ConversationID string                           `json:"conversationId"`
+	Updates        []conversation.RoleProfileUpdate `json:"updates"`
+}

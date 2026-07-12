@@ -7,12 +7,16 @@ import type {
   AppearanceStatusPalette,
   AppearanceTailwindPalette,
   AppearanceWorkspacePalette,
+  Role,
+  RoleConfiguration,
+  RoleProfile,
 } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
 import { DeveloperSettingsEditor } from "./developer-settings";
+import { RoleConfigurationForm } from "./role-configuration-settings";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
 
 describe("appearance settings", () => {
@@ -22,6 +26,7 @@ describe("appearance settings", () => {
     expect(html).toContain('role="tablist"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain("Theme");
+    expect(html).toContain("AI Roles");
     expect(html).toContain("Shortcuts");
     expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");
@@ -31,6 +36,29 @@ describe("appearance settings", () => {
     expect(html).not.toContain("Chat Defaults");
     expect(html).not.toContain("Terminal Profiles");
     expect(html).not.toContain('data-testid="codex-account-settings"');
+  });
+
+  test("renders independent model and reasoning controls for every AI role", () => {
+    const html = renderToString(
+      <RoleConfigurationForm
+        configuration={sampleRoleConfiguration()}
+        onSave={async () => sampleRoleConfiguration()}
+      />,
+    );
+    const normalizedHtml = html.replaceAll("<!-- -->", "");
+
+    expect(html).toContain('data-testid="role-configuration-settings"');
+    expect(html).toContain("Primary workspace agent for durable topic work.");
+    expect(html).toContain("Lightweight projection, status, and local routing role.");
+    expect(html).toContain("Restricted global topic discovery and routing role.");
+    expect(html).toContain("Read-only focused follow-up and side-conversation role.");
+    expect(html).toContain('aria-label="Agent model"');
+    expect(html).toContain('aria-label="Narrator model"');
+    expect(html).toContain('aria-label="Master model"');
+    expect(html).toContain('aria-label="Side agent model"');
+    expect(normalizedHtml).toContain("Provider catalog validated · 4 models");
+    expect(html).toContain("gpt-5.6-sol");
+    expect(html).toContain("gpt-5.4-mini");
   });
 
   test("renders the developer performance stats toggle", () => {
@@ -159,6 +187,71 @@ describe("appearance settings", () => {
     expect(html).toContain("Warning foreground");
   });
 });
+
+function sampleRoleConfiguration(): RoleConfiguration {
+  const profiles = [
+    sampleRoleProfile("agent", "gpt-5.6-sol", "high"),
+    sampleRoleProfile("narrator", "gpt-5.4-mini", "low"),
+    sampleRoleProfile("master", "gpt-5.6-terra", "medium"),
+    sampleRoleProfile("side_agent", "gpt-5.6-luna", "medium"),
+  ];
+  return {
+    modelCatalog: {
+      defaultModelId: "gpt-5.6-sol",
+      models: profiles.map((profile, index) => ({
+        defaultReasoningEffort: profile.reasoningEffort,
+        defaultServiceTier: null,
+        description: `${profile.modelSelection.modelId} test model`,
+        displayName: profile.modelSelection.modelId ?? "provider default",
+        isDefault: index === 0,
+        modelId: profile.modelSelection.modelId ?? "",
+        provider: "codex",
+        serviceTiers: [],
+        supportedReasoningEfforts: [profile.reasoningEffort],
+      })),
+      provider: "codex",
+    },
+    profiles: profiles.map((profile) => ({
+      builtIn: profile,
+      effective: profile,
+      effectiveSource: "built_in",
+      override: null,
+      resolved: {
+        modelId: profile.modelSelection.modelId ?? "",
+        reasoningEffort: profile.reasoningEffort,
+        serviceTier: null,
+      },
+      role: profile.role,
+    })),
+    schemaVersion: 1,
+    scope: { conversationId: null, kind: "global", workspaceId: null },
+  };
+}
+
+function sampleRoleProfile(role: Role, modelId: string, effort: string): RoleProfile {
+  return {
+    contextBudget: {
+      maxInputBytes: 65536,
+      maxInputTokens: 16384,
+      reservedOutputTokens: 2048,
+    },
+    modelSelection: { mode: "exact", modelId },
+    permissionProfile: {
+      approvalPolicy: role === "narrator" || role === "master" ? "never" : "on-request",
+      approvals: role !== "narrator" && role !== "master",
+      providerPermissionProfile: role === "agent" ? ":workspace" : ":read-only",
+      toolAccess: {
+        allowedTools: [],
+        mode: role === "narrator" ? "none" : "all",
+      },
+      workspaceMutation: role === "agent",
+    },
+    provider: "codex",
+    reasoningEffort: effort,
+    role,
+    serviceTier: null,
+  };
+}
 
 function sampleAppearanceSettings(): AppearanceSettings {
   const tailwind = sampleTailwindPalette();

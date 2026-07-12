@@ -8,6 +8,7 @@ import (
 type Provider string
 type Role string
 type RoleProfileScopeKind string
+type RoleProfileSourceKind string
 type ModelSelectionMode string
 type ReasoningEffort = string
 type ApprovalPolicy string
@@ -25,6 +26,11 @@ const (
 	RoleProfileScopeGlobal       RoleProfileScopeKind = "global"
 	RoleProfileScopeWorkspace    RoleProfileScopeKind = "workspace"
 	RoleProfileScopeConversation RoleProfileScopeKind = "conversation"
+
+	RoleProfileSourceBuiltIn      RoleProfileSourceKind = "built_in"
+	RoleProfileSourceGlobal       RoleProfileSourceKind = "global"
+	RoleProfileSourceWorkspace    RoleProfileSourceKind = "workspace"
+	RoleProfileSourceConversation RoleProfileSourceKind = "conversation"
 
 	ModelSelectionExact           ModelSelectionMode = "exact"
 	ModelSelectionProviderDefault ModelSelectionMode = "provider_default"

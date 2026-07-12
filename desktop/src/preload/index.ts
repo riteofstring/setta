@@ -94,6 +94,13 @@ const api: SettaAPI = {
     waitInteraction: (request) => invoke("masterWaitInteraction", request),
     waitPresentation: (request) => invoke("masterWaitPresentation", request),
   },
+  roles: {
+    readConversation: (request) => invoke("roleConfigurationReadConversation", request),
+    readGlobal: () => invoke("roleConfigurationReadGlobal"),
+    readModels: () => invoke("roleConfigurationReadModels"),
+    updateConversation: (request) => invoke("roleConfigurationUpdateConversation", request),
+    updateGlobal: (request) => invoke("roleConfigurationUpdateGlobal", request),
+  },
   speech: {
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
     createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),

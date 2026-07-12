@@ -560,6 +560,24 @@ describe("conversation store", () => {
     expect(projection(conversationA).snapshot?.conversation.title).toBe("Live title");
   });
 
+  test("removes a persisted role override when the typed removal event arrives", () => {
+    hydrate(conversationA);
+    useConversationStore.getState().applyEvents([
+      conversationEvent(conversationA, 1, {
+        override: roleOverride(conversationA),
+        type: "conversation.role_profile_override.updated",
+      }),
+      conversationEvent(conversationA, 2, {
+        role: "narrator",
+        type: "conversation.role_profile_override.removed",
+      }),
+    ]);
+
+    const current = projection(conversationA).snapshot!;
+    expect(current.roleProfileOverrides).toEqual([]);
+    expect(current.eventCursor.sequence).toBe(2);
+  });
+
   test("rejects cross-conversation snapshot and event payload ownership", () => {
     expect(() =>
       useConversationStore

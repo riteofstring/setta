@@ -2,9 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phase 7 item 4 is next: finish independent role
-configuration, including primary-agent precedence and the required
-model-catalog, HTTP, generated IPC, and settings surfaces.
+**Status:** Complete. All phases are implemented and ready for final audit.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2075,9 +2073,9 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** In progress. Item 4's role-profile store and master/narrator/side
-resolution exist, but primary-agent precedence and the required end-to-end
-configuration surfaces are not implemented.
+**Status:** Complete. Item 4 now includes primary-agent precedence plus the
+model-catalog-validated HTTP, generated IPC, settings, persistence, and
+production Electron workflow surfaces for independent role configuration.
 
 Implement:
 

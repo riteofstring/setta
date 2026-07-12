@@ -36,6 +36,7 @@ const (
 	ConversationEventTypeNarratorStateUpdated       ConversationEventType = "conversation.narrator_state.updated"
 	ConversationEventTypeNarrationCreated           ConversationEventType = "conversation.narration.created"
 	ConversationEventTypeRoleProfileOverrideUpdated ConversationEventType = "conversation.role_profile_override.updated"
+	ConversationEventTypeRoleProfileOverrideRemoved ConversationEventType = "conversation.role_profile_override.removed"
 	ConversationEventTypePresentationProfileUpdated ConversationEventType = "conversation.presentation_profile.updated"
 	ConversationEventTypeBranchCreated              ConversationEventType = "conversation.branch.created"
 	ConversationEventTypeSideConversationUpdated    ConversationEventType = "conversation.side_conversation.updated"
@@ -53,6 +54,7 @@ var conversationEventTypeValues = []ConversationEventType{
 	ConversationEventTypeNarratorStateUpdated,
 	ConversationEventTypeNarrationCreated,
 	ConversationEventTypeRoleProfileOverrideUpdated,
+	ConversationEventTypeRoleProfileOverrideRemoved,
 	ConversationEventTypePresentationProfileUpdated,
 	ConversationEventTypeBranchCreated,
 	ConversationEventTypeSideConversationUpdated,
@@ -168,11 +170,6 @@ type ConversationNarratorStateUpdatedEventPayload struct {
 type ConversationNarrationCreatedEventPayload struct {
 	Type  ConversationEventType `json:"type"`
 	Event NarrationEvent        `json:"event"`
-}
-
-type ConversationRoleProfileOverrideUpdatedEventPayload struct {
-	Type     ConversationEventType `json:"type"`
-	Override RoleProfileOverride   `json:"override"`
 }
 
 type ConversationPresentationProfileUpdatedEventPayload struct {
@@ -744,23 +741,6 @@ func (payload ConversationNarrationCreatedEventPayload) validateConversationEven
 	return validateEventPayloadOwner("conversation.narration.created", payload.Event.ConversationID, conversationID)
 }
 
-func (payload ConversationRoleProfileOverrideUpdatedEventPayload) conversationEventType() ConversationEventType {
-	return ConversationEventTypeRoleProfileOverrideUpdated
-}
-
-func (payload ConversationRoleProfileOverrideUpdatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
-	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
-		return err
-	}
-	if err := payload.Override.Validate(); err != nil {
-		return err
-	}
-	if payload.Override.ScopeKind != RoleProfileScopeConversation || payload.Override.ScopeID != conversationID {
-		return fmt.Errorf("conversation.role_profile_override.updated payload ownership does not match event")
-	}
-	return nil
-}
-
 func (payload ConversationPresentationProfileUpdatedEventPayload) conversationEventType() ConversationEventType {
 	return ConversationEventTypePresentationProfileUpdated
 }
@@ -871,6 +851,7 @@ func ContractUnions() []ContractUnion {
 			contractEventVariant(ConversationEventTypeNarratorStateUpdated, ConversationNarratorStateUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeNarrationCreated, ConversationNarrationCreatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeRoleProfileOverrideUpdated, ConversationRoleProfileOverrideUpdatedEventPayload{}),
+			contractEventVariant(ConversationEventTypeRoleProfileOverrideRemoved, ConversationRoleProfileOverrideRemovedEventPayload{}),
 			contractEventVariant(ConversationEventTypePresentationProfileUpdated, ConversationPresentationProfileUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeBranchCreated, ConversationBranchCreatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeSideConversationUpdated, ConversationSideConversationUpdatedEventPayload{}),
@@ -953,6 +934,7 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("Provider", ProviderCodex),
 		contractValueSet("Role", RoleMaster, RoleAgent, RoleNarrator, RoleSideAgent),
 		contractValueSet("RoleProfileScopeKind", RoleProfileScopeGlobal, RoleProfileScopeWorkspace, RoleProfileScopeConversation),
+		contractValueSet("RoleProfileSourceKind", RoleProfileSourceBuiltIn, RoleProfileSourceGlobal, RoleProfileSourceWorkspace, RoleProfileSourceConversation),
 		contractValueSet("ModelSelectionMode", ModelSelectionExact, ModelSelectionProviderDefault),
 		contractValueSet("ApprovalPolicy", ApprovalPolicyUnlessTrusted, ApprovalPolicyOnRequest, ApprovalPolicyNever),
 		contractValueSet("ToolAccessMode", ToolAccessAll, ToolAccessAllowlist, ToolAccessNone),

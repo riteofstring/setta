@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 44;
-export const backendContractSchemaHash = "sha256:40bb9a38d9dd09d35707418453810d5218ed4ccc5b0a38f2a1a8ed7da6ff4f3d";
+export const backendProtocolVersion = 45;
+export const backendContractSchemaHash = "sha256:f5b1ac6929b1273f82c950ae40df34a835eb3144dad963d1a73aedb26abe3962";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -996,9 +996,9 @@ export function decodeSideConversationStatus(value: unknown, label = "SideConver
   }
 }
 
-export type ConversationEventType = "conversation.updated" | "conversation.turn.updated" | "conversation.queue.updated" | "conversation.thread_binding.updated" | "conversation.trajectory.appended" | "conversation.artifact.created" | "conversation.narrator_state.updated" | "conversation.narration.created" | "conversation.role_profile_override.updated" | "conversation.presentation_profile.updated" | "conversation.branch.created" | "conversation.side_conversation.updated" | "conversation.side_event.appended" | "conversation.resync_required";
+export type ConversationEventType = "conversation.updated" | "conversation.turn.updated" | "conversation.queue.updated" | "conversation.thread_binding.updated" | "conversation.trajectory.appended" | "conversation.artifact.created" | "conversation.narrator_state.updated" | "conversation.narration.created" | "conversation.role_profile_override.updated" | "conversation.role_profile_override.removed" | "conversation.presentation_profile.updated" | "conversation.branch.created" | "conversation.side_conversation.updated" | "conversation.side_event.appended" | "conversation.resync_required";
 
-export const conversationEventTypeValues = ["conversation.updated", "conversation.turn.updated", "conversation.queue.updated", "conversation.thread_binding.updated", "conversation.trajectory.appended", "conversation.artifact.created", "conversation.narrator_state.updated", "conversation.narration.created", "conversation.role_profile_override.updated", "conversation.presentation_profile.updated", "conversation.branch.created", "conversation.side_conversation.updated", "conversation.side_event.appended", "conversation.resync_required"] as const satisfies readonly ConversationEventType[];
+export const conversationEventTypeValues = ["conversation.updated", "conversation.turn.updated", "conversation.queue.updated", "conversation.thread_binding.updated", "conversation.trajectory.appended", "conversation.artifact.created", "conversation.narrator_state.updated", "conversation.narration.created", "conversation.role_profile_override.updated", "conversation.role_profile_override.removed", "conversation.presentation_profile.updated", "conversation.branch.created", "conversation.side_conversation.updated", "conversation.side_event.appended", "conversation.resync_required"] as const satisfies readonly ConversationEventType[];
 
 export function decodeConversationEventType(value: unknown, label = "ConversationEventType"): ConversationEventType {
   const decoded = decodeString(value, label);
@@ -1020,6 +1020,8 @@ export function decodeConversationEventType(value: unknown, label = "Conversatio
     case "conversation.narration.created":
       return decoded;
     case "conversation.role_profile_override.updated":
+      return decoded;
+    case "conversation.role_profile_override.removed":
       return decoded;
     case "conversation.presentation_profile.updated":
       return decoded;
@@ -1096,6 +1098,26 @@ export function decodeConversationRouteDecisionKind(value: unknown, label = "Con
     case "escalate_to_master":
       return decoded;
     case "clarify":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RoleProfileSourceKind = "built_in" | "global" | "workspace" | "conversation";
+
+export const roleProfileSourceKindValues = ["built_in", "global", "workspace", "conversation"] as const satisfies readonly RoleProfileSourceKind[];
+
+export function decodeRoleProfileSourceKind(value: unknown, label = "RoleProfileSourceKind"): RoleProfileSourceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "built_in":
+      return decoded;
+    case "global":
+      return decoded;
+    case "workspace":
+      return decoded;
+    case "conversation":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2428,6 +2450,11 @@ export interface ConversationRoleProfileOverrideUpdatedEventPayload {
   override: RoleProfileOverride;
 }
 
+export interface ConversationRoleProfileOverrideRemovedEventPayload {
+  type: "conversation.role_profile_override.removed";
+  role: Role;
+}
+
 export interface ConversationPresentationProfileUpdatedEventPayload {
   type: "conversation.presentation_profile.updated";
   profile: ConversationPresentationProfile;
@@ -2654,6 +2681,72 @@ export interface DiscardConversationInputRequest {
   workspaceId: string;
   conversationId: string;
   inputId: string;
+}
+
+export interface RoleModelOption {
+  provider: Provider;
+  modelId: string;
+  displayName: string;
+  description: string;
+  defaultReasoningEffort: string;
+  supportedReasoningEfforts: string[];
+  serviceTiers: string[];
+  defaultServiceTier: string | null;
+  isDefault: boolean;
+}
+
+export interface RoleModelCatalog {
+  provider: Provider;
+  defaultModelId: string;
+  models: RoleModelOption[];
+}
+
+export interface RoleConfigurationScope {
+  kind: RoleProfileScopeKind;
+  workspaceId: string | null;
+  conversationId: string | null;
+}
+
+export interface ResolvedRoleProfileSelection {
+  modelId: string;
+  reasoningEffort: string;
+  serviceTier: string | null;
+}
+
+export interface RoleProfileConfiguration {
+  role: Role;
+  builtIn: RoleProfile;
+  override: RoleProfileOverride | null;
+  effective: RoleProfile;
+  effectiveSource: RoleProfileSourceKind;
+  resolved: ResolvedRoleProfileSelection;
+}
+
+export interface RoleConfiguration {
+  schemaVersion: number;
+  scope: RoleConfigurationScope;
+  profiles: RoleProfileConfiguration[];
+  modelCatalog: RoleModelCatalog;
+}
+
+export interface RoleProfileUpdate {
+  role: Role;
+  profile: RoleProfile | null;
+}
+
+export interface UpdateGlobalRoleProfilesRequest {
+  updates: RoleProfileUpdate[];
+}
+
+export interface ReadConversationRoleConfigurationRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface UpdateConversationRoleProfilesRequest {
+  workspaceId: string;
+  conversationId: string;
+  updates: RoleProfileUpdate[];
 }
 
 export interface MasterInput {
@@ -3112,6 +3205,7 @@ export type ConversationEventPayload =
   | ConversationNarratorStateUpdatedEventPayload
   | ConversationNarrationCreatedEventPayload
   | ConversationRoleProfileOverrideUpdatedEventPayload
+  | ConversationRoleProfileOverrideRemovedEventPayload
   | ConversationPresentationProfileUpdatedEventPayload
   | ConversationBranchCreatedEventPayload
   | ConversationSideConversationUpdatedEventPayload
@@ -3267,6 +3361,29 @@ export const backendEndpoints = {
   DiscardConversationInput: {
     method: "POST",
     path: "/conversations/inputs/discard",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadRoleModelCatalog: {
+    method: "GET",
+    path: "/roles/models",
+  },
+  ReadGlobalRoleConfiguration: {
+    method: "GET",
+    path: "/roles/configuration/global",
+  },
+  UpdateGlobalRoleProfiles: {
+    method: "POST",
+    path: "/roles/configuration/global/update",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadConversationRoleConfiguration: {
+    method: "POST",
+    path: "/conversations/roles/read",
+    requestBodyLimitBytes: 4194304,
+  },
+  UpdateConversationRoleProfiles: {
+    method: "POST",
+    path: "/conversations/roles/update",
     requestBodyLimitBytes: 4194304,
   },
   ReadActiveMasterShellInteraction: {
@@ -4945,6 +5062,15 @@ export function decodeConversationRoleProfileOverrideUpdatedEventPayload(value: 
   };
 }
 
+export function decodeConversationRoleProfileOverrideRemovedEventPayload(value: unknown): ConversationRoleProfileOverrideRemovedEventPayload {
+  const record = assertRecord(value, "ConversationRoleProfileOverrideRemovedEventPayload");
+  assertKnownFields(record, "ConversationRoleProfileOverrideRemovedEventPayload", ["type", "role"]);
+  return {
+    type: decodeContractLiteral(decodeConversationEventType(requireField(record, "type", "ConversationRoleProfileOverrideRemovedEventPayload"), "ConversationRoleProfileOverrideRemovedEventPayload.type"), "conversation.role_profile_override.removed", "ConversationRoleProfileOverrideRemovedEventPayload.type"),
+    role: decodeRole(requireField(record, "role", "ConversationRoleProfileOverrideRemovedEventPayload"), "ConversationRoleProfileOverrideRemovedEventPayload.role"),
+  };
+}
+
 export function decodeConversationPresentationProfileUpdatedEventPayload(value: unknown): ConversationPresentationProfileUpdatedEventPayload {
   const record = assertRecord(value, "ConversationPresentationProfileUpdatedEventPayload");
   assertKnownFields(record, "ConversationPresentationProfileUpdatedEventPayload", ["type", "profile"]);
@@ -5332,6 +5458,112 @@ export function decodeDiscardConversationInputRequest(value: unknown): DiscardCo
     workspaceId: decodeString(requireField(record, "workspaceId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.inputId"),
+  };
+}
+
+export function decodeRoleModelOption(value: unknown): RoleModelOption {
+  const record = assertRecord(value, "RoleModelOption");
+  assertKnownFields(record, "RoleModelOption", ["provider", "modelId", "displayName", "description", "defaultReasoningEffort", "supportedReasoningEfforts", "serviceTiers", "defaultServiceTier", "isDefault"]);
+  return {
+    provider: decodeProvider(requireField(record, "provider", "RoleModelOption"), "RoleModelOption.provider"),
+    modelId: decodeString(requireField(record, "modelId", "RoleModelOption"), "RoleModelOption.modelId"),
+    displayName: decodeString(requireField(record, "displayName", "RoleModelOption"), "RoleModelOption.displayName"),
+    description: decodeString(requireField(record, "description", "RoleModelOption"), "RoleModelOption.description"),
+    defaultReasoningEffort: decodeString(requireField(record, "defaultReasoningEffort", "RoleModelOption"), "RoleModelOption.defaultReasoningEffort"),
+    supportedReasoningEfforts: decodeArray(requireField(record, "supportedReasoningEfforts", "RoleModelOption"), "RoleModelOption.supportedReasoningEfforts", (item) => decodeString(item, "RoleModelOption.supportedReasoningEfforts item")),
+    serviceTiers: decodeArray(requireField(record, "serviceTiers", "RoleModelOption"), "RoleModelOption.serviceTiers", (item) => decodeString(item, "RoleModelOption.serviceTiers item")),
+    defaultServiceTier: decodeNullable(requireField(record, "defaultServiceTier", "RoleModelOption"), "RoleModelOption.defaultServiceTier", (item) => decodeString(item, "RoleModelOption.defaultServiceTier")),
+    isDefault: decodeBoolean(requireField(record, "isDefault", "RoleModelOption"), "RoleModelOption.isDefault"),
+  };
+}
+
+export function decodeRoleModelCatalog(value: unknown): RoleModelCatalog {
+  const record = assertRecord(value, "RoleModelCatalog");
+  assertKnownFields(record, "RoleModelCatalog", ["provider", "defaultModelId", "models"]);
+  return {
+    provider: decodeProvider(requireField(record, "provider", "RoleModelCatalog"), "RoleModelCatalog.provider"),
+    defaultModelId: decodeString(requireField(record, "defaultModelId", "RoleModelCatalog"), "RoleModelCatalog.defaultModelId"),
+    models: decodeArray(requireField(record, "models", "RoleModelCatalog"), "RoleModelCatalog.models", (item) => decodeRoleModelOption(item)),
+  };
+}
+
+export function decodeRoleConfigurationScope(value: unknown): RoleConfigurationScope {
+  const record = assertRecord(value, "RoleConfigurationScope");
+  assertKnownFields(record, "RoleConfigurationScope", ["kind", "workspaceId", "conversationId"]);
+  return {
+    kind: decodeRoleProfileScopeKind(requireField(record, "kind", "RoleConfigurationScope"), "RoleConfigurationScope.kind"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "RoleConfigurationScope"), "RoleConfigurationScope.workspaceId", (item) => decodeString(item, "RoleConfigurationScope.workspaceId")),
+    conversationId: decodeNullable(requireField(record, "conversationId", "RoleConfigurationScope"), "RoleConfigurationScope.conversationId", (item) => decodeString(item, "RoleConfigurationScope.conversationId")),
+  };
+}
+
+export function decodeResolvedRoleProfileSelection(value: unknown): ResolvedRoleProfileSelection {
+  const record = assertRecord(value, "ResolvedRoleProfileSelection");
+  assertKnownFields(record, "ResolvedRoleProfileSelection", ["modelId", "reasoningEffort", "serviceTier"]);
+  return {
+    modelId: decodeString(requireField(record, "modelId", "ResolvedRoleProfileSelection"), "ResolvedRoleProfileSelection.modelId"),
+    reasoningEffort: decodeString(requireField(record, "reasoningEffort", "ResolvedRoleProfileSelection"), "ResolvedRoleProfileSelection.reasoningEffort"),
+    serviceTier: decodeNullable(requireField(record, "serviceTier", "ResolvedRoleProfileSelection"), "ResolvedRoleProfileSelection.serviceTier", (item) => decodeString(item, "ResolvedRoleProfileSelection.serviceTier")),
+  };
+}
+
+export function decodeRoleProfileConfiguration(value: unknown): RoleProfileConfiguration {
+  const record = assertRecord(value, "RoleProfileConfiguration");
+  assertKnownFields(record, "RoleProfileConfiguration", ["role", "builtIn", "override", "effective", "effectiveSource", "resolved"]);
+  return {
+    role: decodeRole(requireField(record, "role", "RoleProfileConfiguration"), "RoleProfileConfiguration.role"),
+    builtIn: decodeRoleProfile(requireField(record, "builtIn", "RoleProfileConfiguration")),
+    override: decodeNullable(requireField(record, "override", "RoleProfileConfiguration"), "RoleProfileConfiguration.override", (item) => decodeRoleProfileOverride(item)),
+    effective: decodeRoleProfile(requireField(record, "effective", "RoleProfileConfiguration")),
+    effectiveSource: decodeRoleProfileSourceKind(requireField(record, "effectiveSource", "RoleProfileConfiguration"), "RoleProfileConfiguration.effectiveSource"),
+    resolved: decodeResolvedRoleProfileSelection(requireField(record, "resolved", "RoleProfileConfiguration")),
+  };
+}
+
+export function decodeRoleConfiguration(value: unknown): RoleConfiguration {
+  const record = assertRecord(value, "RoleConfiguration");
+  assertKnownFields(record, "RoleConfiguration", ["schemaVersion", "scope", "profiles", "modelCatalog"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RoleConfiguration"), "RoleConfiguration.schemaVersion"),
+    scope: decodeRoleConfigurationScope(requireField(record, "scope", "RoleConfiguration")),
+    profiles: decodeArray(requireField(record, "profiles", "RoleConfiguration"), "RoleConfiguration.profiles", (item) => decodeRoleProfileConfiguration(item)),
+    modelCatalog: decodeRoleModelCatalog(requireField(record, "modelCatalog", "RoleConfiguration")),
+  };
+}
+
+export function decodeRoleProfileUpdate(value: unknown): RoleProfileUpdate {
+  const record = assertRecord(value, "RoleProfileUpdate");
+  assertKnownFields(record, "RoleProfileUpdate", ["role", "profile"]);
+  return {
+    role: decodeRole(requireField(record, "role", "RoleProfileUpdate"), "RoleProfileUpdate.role"),
+    profile: decodeNullable(requireField(record, "profile", "RoleProfileUpdate"), "RoleProfileUpdate.profile", (item) => decodeRoleProfile(item)),
+  };
+}
+
+export function decodeUpdateGlobalRoleProfilesRequest(value: unknown): UpdateGlobalRoleProfilesRequest {
+  const record = assertRecord(value, "UpdateGlobalRoleProfilesRequest");
+  assertKnownFields(record, "UpdateGlobalRoleProfilesRequest", ["updates"]);
+  return {
+    updates: decodeArray(requireField(record, "updates", "UpdateGlobalRoleProfilesRequest"), "UpdateGlobalRoleProfilesRequest.updates", (item) => decodeRoleProfileUpdate(item)),
+  };
+}
+
+export function decodeReadConversationRoleConfigurationRequest(value: unknown): ReadConversationRoleConfigurationRequest {
+  const record = assertRecord(value, "ReadConversationRoleConfigurationRequest");
+  assertKnownFields(record, "ReadConversationRoleConfigurationRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationRoleConfigurationRequest"), "ReadConversationRoleConfigurationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ReadConversationRoleConfigurationRequest"), "ReadConversationRoleConfigurationRequest.conversationId"),
+  };
+}
+
+export function decodeUpdateConversationRoleProfilesRequest(value: unknown): UpdateConversationRoleProfilesRequest {
+  const record = assertRecord(value, "UpdateConversationRoleProfilesRequest");
+  assertKnownFields(record, "UpdateConversationRoleProfilesRequest", ["workspaceId", "conversationId", "updates"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateConversationRoleProfilesRequest"), "UpdateConversationRoleProfilesRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "UpdateConversationRoleProfilesRequest"), "UpdateConversationRoleProfilesRequest.conversationId"),
+    updates: decodeArray(requireField(record, "updates", "UpdateConversationRoleProfilesRequest"), "UpdateConversationRoleProfilesRequest.updates", (item) => decodeRoleProfileUpdate(item)),
   };
 }
 
@@ -6100,6 +6332,8 @@ export function decodeConversationEventPayload(value: unknown): ConversationEven
       return decodeConversationNarrationCreatedEventPayload(value);
     case "conversation.role_profile_override.updated":
       return decodeConversationRoleProfileOverrideUpdatedEventPayload(value);
+    case "conversation.role_profile_override.removed":
+      return decodeConversationRoleProfileOverrideRemovedEventPayload(value);
     case "conversation.presentation_profile.updated":
       return decodeConversationPresentationProfileUpdatedEventPayload(value);
     case "conversation.branch.created":
@@ -6146,6 +6380,11 @@ export interface BackendClient {
   waitConversationInputRoutingState: (request: ReadConversationInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   retryConversationInput: (request: RetryConversationInputRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   discardConversationInput: (request: DiscardConversationInputRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
+  readRoleModelCatalog: (options?: BackendRequestOptions) => Promise<RoleModelCatalog>;
+  readGlobalRoleConfiguration: (options?: BackendRequestOptions) => Promise<RoleConfiguration>;
+  updateGlobalRoleProfiles: (request: UpdateGlobalRoleProfilesRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
+  readConversationRoleConfiguration: (request: ReadConversationRoleConfigurationRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
+  updateConversationRoleProfiles: (request: UpdateConversationRoleProfilesRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
   readActiveMasterShellInteraction: (options?: BackendRequestOptions) => Promise<ActiveShellInteraction>;
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
@@ -6432,6 +6671,51 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationInputRoutingState,
       endpoint: backendEndpoints.DiscardConversationInput,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readRoleModelCatalog: (options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRoleModelCatalog,
+      endpoint: backendEndpoints.ReadRoleModelCatalog,
+      fetchImpl,
+      requestPayload: undefined,
+      signal: options?.signal,
+    }),
+    readGlobalRoleConfiguration: (options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRoleConfiguration,
+      endpoint: backendEndpoints.ReadGlobalRoleConfiguration,
+      fetchImpl,
+      requestPayload: undefined,
+      signal: options?.signal,
+    }),
+    updateGlobalRoleProfiles: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRoleConfiguration,
+      endpoint: backendEndpoints.UpdateGlobalRoleProfiles,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readConversationRoleConfiguration: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRoleConfiguration,
+      endpoint: backendEndpoints.ReadConversationRoleConfiguration,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    updateConversationRoleProfiles: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRoleConfiguration,
+      endpoint: backendEndpoints.UpdateConversationRoleProfiles,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

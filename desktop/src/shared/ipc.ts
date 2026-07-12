@@ -17,6 +17,10 @@ import type {
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
 import { masterIpcChannels, type MasterIpcContract } from "./master-ipc";
+import {
+  roleConfigurationIpcChannels,
+  type RoleConfigurationIpcContract,
+} from "./role-configuration-ipc";
 import { speechIpcChannels, type SpeechIpcContract } from "./speech-ipc";
 import type {
   AppWindowDragPoint,
@@ -51,6 +55,7 @@ export const ipcChannels = {
   runtimeSwitch: "runtimes:switch",
   ...conversationIpcChannels,
   ...masterIpcChannels,
+  ...roleConfigurationIpcChannels,
   ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
@@ -84,7 +89,8 @@ export const ipcEvents = {
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
 } as const;
 
-interface IpcContract extends ConversationIpc, MasterIpcContract, SpeechIpcContract {
+interface IpcContract
+  extends ConversationIpc, MasterIpcContract, RoleConfigurationIpcContract, SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];

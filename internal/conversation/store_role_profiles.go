@@ -34,7 +34,7 @@ func (store *Store) ReadEffectiveRoleProfile(
 	if err := validateIdentifier("role profile conversation id", conversationID); err != nil {
 		return RoleProfile{}, err
 	}
-	if err := builtIn.Validate(); err != nil {
+	if err := validateConfigurableRoleProfile(builtIn); err != nil {
 		return RoleProfile{}, fmt.Errorf("built-in role profile: %w", err)
 	}
 
@@ -79,7 +79,7 @@ func (store *Store) ReadEffectiveGlobalRoleProfile(
 	if ctx == nil {
 		return RoleProfile{}, errors.New("global role profile read context is required")
 	}
-	if err := builtIn.Validate(); err != nil {
+	if err := validateConfigurableRoleProfile(builtIn); err != nil {
 		return RoleProfile{}, fmt.Errorf("built-in global role profile: %w", err)
 	}
 
@@ -185,6 +185,9 @@ func scanEffectiveRoleProfileOverride(rows sqlScanner, requestedRole Role) (Role
 		return RoleProfileOverride{}, fmt.Errorf("decode %s role profile override: %w", storedRole, err)
 	}
 	if err := override.Validate(); err != nil {
+		return RoleProfileOverride{}, err
+	}
+	if err := validateConfigurableRoleProfile(override.Profile); err != nil {
 		return RoleProfileOverride{}, err
 	}
 	if storedRole != requestedRole || override.Profile.Role != storedRole {

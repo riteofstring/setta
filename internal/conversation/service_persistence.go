@@ -183,13 +183,33 @@ func (service *Service) snapshotLocked(
 	return snapshot, nil
 }
 
-func roleProfileForTurn(snapshot ConversationSnapshot) RoleProfile {
-	for _, override := range snapshot.RoleProfileOverrides {
-		if override.Profile.Role == RoleAgent {
-			return override.Profile
-		}
+func validatePrimaryAgentModelResolution(
+	requested agent.Invocation,
+	resolved agent.ResolvedInvocation,
+) error {
+	if !equalAgentInvocation(requested, resolved.Requested) {
+		return fmt.Errorf("provider model resolver changed the requested primary-agent invocation")
 	}
-	return DefaultAgentRoleProfile()
+	if resolved.Model == "" || resolved.ReasoningEffort == "" {
+		return fmt.Errorf("provider model resolver returned incomplete primary-agent settings")
+	}
+	if !requested.ModelSelectionProviderDefault && resolved.Model != requested.Model {
+		return fmt.Errorf("exact primary-agent model resolved as %s, want %s", resolved.Model, requested.Model)
+	}
+	if resolved.ReasoningEffort != requested.ReasoningEffort {
+		return fmt.Errorf(
+			"primary-agent reasoning effort resolved as %s, want %s",
+			resolved.ReasoningEffort,
+			requested.ReasoningEffort,
+		)
+	}
+	if requested.ServiceTier != nil && !equalOptionalAgentString(requested.ServiceTier, resolved.ServiceTier) {
+		return fmt.Errorf("primary-agent service tier changed during provider resolution")
+	}
+	if resolved.PermissionMode != requested.PermissionMode || resolved.ApprovalMode != requested.ApprovalMode {
+		return fmt.Errorf("provider model resolver changed primary-agent permission or approval mode")
+	}
+	return nil
 }
 
 func findConversationTurn(snapshot ConversationSnapshot, turnID string) (ConversationTurn, error) {

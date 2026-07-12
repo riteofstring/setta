@@ -231,13 +231,24 @@ func (service *Service) createTopic(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	profile := DefaultAgentRoleProfile()
+	profile, err := service.store.ReadEffectiveWorkspaceRoleProfile(
+		ctx,
+		workspaceID,
+		DefaultAgentRoleProfile(),
+	)
+	if err != nil {
+		return ConversationSnapshot{}, fmt.Errorf("read topic agent role profile: %w", err)
+	}
 	invocation, err := agentInvocation(profile)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if _, err := service.agent.ResolveInvocation(ctx, invocation); err != nil {
+	resolved, err := service.agent.ResolveInvocation(ctx, invocation)
+	if err != nil {
 		return ConversationSnapshot{}, fmt.Errorf("resolve topic agent profile: %w", err)
+	}
+	if err := validatePrimaryAgentModelResolution(invocation, resolved); err != nil {
+		return ConversationSnapshot{}, fmt.Errorf("validate topic agent profile: %w", err)
 	}
 	thread, err := service.agent.StartThread(ctx, agent.StartThreadRequest{
 		WorkspaceRoot:         workspaceSummary.RootPath,

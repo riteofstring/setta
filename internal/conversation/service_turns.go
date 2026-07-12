@@ -160,12 +160,32 @@ func (service *Service) acceptTurn(
 	queueOrdinal int,
 	turnID string,
 ) (ConversationTurn, error) {
+	profile, err := service.store.ReadEffectiveRoleProfile(
+		ctx,
+		snapshot.Conversation.WorkspaceID,
+		snapshot.Conversation.ID,
+		DefaultAgentRoleProfile(),
+	)
+	if err != nil {
+		return ConversationTurn{}, fmt.Errorf("read topic agent role profile: %w", err)
+	}
+	invocation, err := agentInvocation(profile)
+	if err != nil {
+		return ConversationTurn{}, err
+	}
+	resolved, err := service.agent.ResolveInvocation(ctx, invocation)
+	if err != nil {
+		return ConversationTurn{}, fmt.Errorf("resolve topic agent profile: %w", err)
+	}
+	if err := validatePrimaryAgentModelResolution(invocation, resolved); err != nil {
+		return ConversationTurn{}, fmt.Errorf("validate topic agent profile: %w", err)
+	}
 	ids, err := service.newAcceptedTurnIDs(queueOrdinal > 0, turnID)
 	if err != nil {
 		return ConversationTurn{}, err
 	}
 	now := advanceTimestamp(snapshot.Conversation.UpdatedAt, service.timestamp())
-	mutation := buildAcceptedTurnMutation(snapshot, text, delivery, queueOrdinal, now, ids)
+	mutation := buildAcceptedTurnMutation(snapshot, text, delivery, queueOrdinal, now, ids, profile)
 	publications, err := service.publications(
 		mutation.turn.ConversationID,
 		now,
@@ -222,6 +242,7 @@ func buildAcceptedTurnMutation(
 	queueOrdinal int,
 	now string,
 	ids acceptedTurnIDs,
+	profile RoleProfile,
 ) acceptedTurnMutation {
 	turn := ConversationTurn{
 		ID:                   ids.turnID,
@@ -230,7 +251,7 @@ func buildAcceptedTurnMutation(
 		Delivery:             delivery,
 		Status:               TurnStatusQueued,
 		AcceptedAt:           now,
-		RequestedRoleProfile: roleProfileForTurn(snapshot),
+		RequestedRoleProfile: profile,
 	}
 	conversation := snapshot.Conversation
 	if delivery == TurnDeliveryNormal {

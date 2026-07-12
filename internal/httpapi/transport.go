@@ -70,6 +70,22 @@ func requireConversationNavigatorService(
 	return service
 }
 
+func requireRoleConfigurationService(
+	response http.ResponseWriter,
+	service RoleConfigurationService,
+) RoleConfigurationService {
+	if service == nil {
+		writeError(
+			response,
+			http.StatusServiceUnavailable,
+			"role_configuration_service_unavailable",
+			"role configuration service is not available",
+		)
+		return nil
+	}
+	return service
+}
+
 func requireMasterInputService(
 	response http.ResponseWriter,
 	service MasterInputService,

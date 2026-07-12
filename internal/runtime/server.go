@@ -85,6 +85,7 @@ type runtimeServices struct {
 	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
+	roleConfigurationService *conversation.RoleConfigurationService
 	speechService            *speech.Service
 	workspaceUIService       *workspaceui.Service
 	workspaceService         *workspacesession.Service
@@ -271,6 +272,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		masterRouteService:       baseServices.masterRouteService,
 		masterSessionService:     baseServices.masterSessionService,
 		narratorService:          baseServices.narratorService,
+		roleConfigurationService: baseServices.roleConfigurationService,
 		speechService:            baseServices.speechService,
 		workspaceUIService:       baseServices.workspaceUIService,
 		workspaceService:         baseServices.workspaceService,

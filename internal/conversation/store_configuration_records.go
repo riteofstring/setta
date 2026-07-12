@@ -275,6 +275,9 @@ func (transaction *WriteTransaction) UpsertRoleProfileOverride(override RoleProf
 	if err := override.Validate(); err != nil {
 		return err
 	}
+	if err := validateConfigurableRoleProfile(override.Profile); err != nil {
+		return fmt.Errorf("configure %s role profile override: %w", override.Profile.Role, err)
+	}
 	if override.ScopeKind == RoleProfileScopeConversation {
 		if err := transaction.requireConversationCoversSequence(
 			override.ScopeID,

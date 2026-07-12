@@ -17,6 +17,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		ConversationInputService:     services.conversationInputService,
 		ConversationNavigatorService: services.conversationService,
 		ConversationService:          services.conversationService,
+		RoleConfigurationService:     services.roleConfigurationService,
 		MasterInputService:           services.masterInputService,
 		CodexAccountService:          services.codexAccountService,
 		RuntimeAuthService:           services.authStore,

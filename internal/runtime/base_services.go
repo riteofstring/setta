@@ -32,6 +32,7 @@ type runtimeBaseServices struct {
 	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
+	roleConfigurationService *conversation.RoleConfigurationService
 	speechService            *speech.Service
 	workspaceService         *workspacesession.Service
 	workspaceUIService       *workspaceui.Service
@@ -64,6 +65,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		masterRouteService:       foundation.masterRouteService,
 		masterSessionService:     foundation.masterSessionService,
 		narratorService:          foundation.narratorService,
+		roleConfigurationService: foundation.roleConfigurationService,
 		speechService:            speechService,
 		workspaceService:         foundation.workspaceService,
 		workspaceUIService:       foundation.workspaceUIService,
@@ -95,6 +97,7 @@ type runtimeFoundation struct {
 	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
+	roleConfigurationService *conversation.RoleConfigurationService
 	workspaceService         *workspacesession.Service
 	workspaceUIService       *workspaceui.Service
 }
@@ -151,6 +154,14 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	codexManager := agentServices.codexManager
 	masterSessionService := agentServices.masterSessionService
 	narratorService := agentServices.narratorService
+	roleConfigurationService, err := conversation.NewRoleConfigurationService(
+		conversationStore,
+		agentServices.agentRuntime,
+	)
+	if err != nil {
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create role configuration service: %w", err)
+	}
 	conversationServices, err := newRuntimeConversationServices(
 		config,
 		conversationStore,
@@ -173,6 +184,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		masterInputService:       masterInputService,
 		masterSessionService:     masterSessionService,
 		narratorService:          narratorService,
+		roleConfigurationService: roleConfigurationService,
 		workspaceService:         workspaceService,
 		workspaceUIService:       workspaceUIService,
 	}

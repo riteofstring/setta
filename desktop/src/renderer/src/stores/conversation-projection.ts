@@ -325,6 +325,12 @@ const payloadHandlers = {
       ),
     };
   },
+  "conversation.role_profile_override.removed": (snapshot, payload) => ({
+    ...snapshot,
+    roleProfileOverrides: snapshot.roleProfileOverrides.filter(
+      (override) => override.profile.role !== payload.role,
+    ),
+  }),
   "conversation.presentation_profile.updated": (snapshot, payload) => {
     assertOwner(
       "conversation.presentation_profile.updated",
@@ -457,6 +463,8 @@ function applyPresentationPayload(
       return payloadHandlers["conversation.narration.created"](snapshot, payload);
     case "conversation.role_profile_override.updated":
       return payloadHandlers["conversation.role_profile_override.updated"](snapshot, payload);
+    case "conversation.role_profile_override.removed":
+      return payloadHandlers["conversation.role_profile_override.removed"](snapshot, payload);
     case "conversation.presentation_profile.updated":
       return payloadHandlers["conversation.presentation_profile.updated"](snapshot, payload);
     case "conversation.branch.created":
