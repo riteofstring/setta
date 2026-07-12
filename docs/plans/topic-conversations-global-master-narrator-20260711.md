@@ -2661,9 +2661,10 @@ Implementation is in progress under this plan.
   owns a lazily created actor/mailbox per durable conversation. Each actor uses
   stable FIFO ordering within the plan's explicit priority classes: terminal
   and approval-required projection, explicit status, other automatic
-  projection, recoverable retry, then checkpoint maintenance. Work for one
-  conversation prepares and commits serially, while different conversation
-  actors can run concurrently.
+  projection, recoverable retry, then checkpoint maintenance. Commit-eligible
+  work for one conversation prepares and commits serially, while different
+  conversation actors can run concurrently. A cancelled checkpoint provider
+  call may still be returning while the next commit-eligible invocation runs.
 - 2026-07-12: External narrator work now returns a prepared commit to the actor
   instead of mutating narrator state directly. Every invocation receives a
   monotonically increasing per-conversation generation. Higher-priority work
@@ -2686,3 +2687,17 @@ Implementation is in progress under this plan.
   yet composed into a production, HTTP, renderer, or provider path; the Codex
   source reference was not needed. Phase 4 item 2, durable context/checkpoint
   materialization and cursor invariants, is next with no external blocker.
+- 2026-07-12: Phase 4 item 1 review corrected recoverable-retry scheduling so
+  the retry marker no longer replaces the projection, status, or checkpoint
+  operation kind that later workers need to materialize the right typed
+  context. Checkpoint retries remain low-priority checkpoint maintenance and
+  can therefore be superseded by terminal, approval-required, status, or
+  automatic projection work; their late responses remain unable to commit.
+  The completion note now also distinguishes serialized commit-eligible work
+  from a cancelled checkpoint provider call that is still returning. Focused
+  validation passed with 100 race-enabled narrator mailbox repetitions and a
+  joint race-enabled conversation/narration run. Final formatting and changed-
+  file quality checks passed. Generated inputs and outputs changed: none.
+  Electron and live-provider workflows remained out of scope because this
+  scheduling boundary is not composed into a production path. Phase 4 item 2
+  was not started.

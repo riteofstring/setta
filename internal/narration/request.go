@@ -12,18 +12,21 @@ type RequestKind string
 const (
 	RequestKindProjection RequestKind = "projection"
 	RequestKindStatus     RequestKind = "status"
-	RequestKindRetry      RequestKind = "retry"
 	RequestKindCheckpoint RequestKind = "checkpoint"
 )
 
 // Request is the scheduling envelope for one narrator actor operation. Later
 // projector phases attach their typed context to the durable identifiers in
-// this envelope; mailbox ordering depends only on kind and trigger.
+// this envelope; mailbox ordering depends only on kind, trigger, and whether
+// the operation is a recoverable retry.
 type Request struct {
 	ID             string
 	ConversationID string
 	Kind           RequestKind
 	Trigger        conversation.NarrationTrigger
+	// RecoverableRetry changes scheduling priority without erasing the
+	// projection, status, or checkpoint operation that must be prepared.
+	RecoverableRetry bool
 }
 
 func (request Request) Validate() error {
@@ -48,14 +51,6 @@ func (request Request) Validate() error {
 				"narrator status request %s requires trigger %q",
 				request.ID,
 				conversation.NarrationTriggerExplicitStatusRequested,
-			)
-		}
-	case RequestKindRetry:
-		if !isNarrationTrigger(request.Trigger) {
-			return fmt.Errorf(
-				"narrator retry request %s has unsupported trigger %q",
-				request.ID,
-				request.Trigger,
 			)
 		}
 	case RequestKindCheckpoint:
@@ -94,10 +89,4 @@ func isProjectionTrigger(trigger conversation.NarrationTrigger) bool {
 	default:
 		return false
 	}
-}
-
-func isNarrationTrigger(trigger conversation.NarrationTrigger) bool {
-	return isProjectionTrigger(trigger) ||
-		trigger == conversation.NarrationTriggerExplicitStatusRequested ||
-		trigger == conversation.NarrationTriggerCheckpointWindowExceeded
 }

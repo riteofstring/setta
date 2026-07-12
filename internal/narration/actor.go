@@ -387,6 +387,15 @@ func (state *actorState) stop() {
 }
 
 func requestPriority(request Request) mailboxPriority {
+	// A retried checkpoint is still low-priority maintenance. Keeping its
+	// operation kind intact also ensures higher-priority work can supersede it
+	// and later workers can materialize checkpoint context deterministically.
+	if request.Kind == RequestKindCheckpoint {
+		return priorityCheckpoint
+	}
+	if request.RecoverableRetry {
+		return priorityRetry
+	}
 	if request.Kind == RequestKindProjection {
 		switch request.Trigger {
 		case conversation.NarrationTriggerTurnTerminal,
@@ -399,10 +408,6 @@ func requestPriority(request Request) mailboxPriority {
 	switch request.Kind {
 	case RequestKindStatus:
 		return priorityStatus
-	case RequestKindRetry:
-		return priorityRetry
-	case RequestKindCheckpoint:
-		return priorityCheckpoint
 	default:
 		panic(fmt.Sprintf("validated narrator request has unsupported kind %q", request.Kind))
 	}

@@ -62,6 +62,7 @@ func TestRegistryPrioritizesOneConversationMailbox(t *testing.T) {
 
 	receipts := []*Receipt{
 		submitTestRequest(t, registry, checkpointRequest("checkpoint", "conversation-priority")),
+		submitTestRequest(t, registry, checkpointRetryRequest("checkpoint-retry", "conversation-priority")),
 		submitTestRequest(t, registry, retryRequest("retry", "conversation-priority")),
 		submitTestRequest(t, registry, projectionRequest(
 			"automatic",
@@ -89,7 +90,16 @@ func TestRegistryPrioritizesOneConversationMailbox(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	want := []string{"blocker", "terminal", "approval", "status", "automatic", "retry", "checkpoint"}
+	want := []string{
+		"blocker",
+		"terminal",
+		"approval",
+		"status",
+		"automatic",
+		"retry",
+		"checkpoint",
+		"checkpoint-retry",
+	}
 	if !reflect.DeepEqual(committed, want) {
 		t.Fatalf("committed order = %v, want %v", committed, want)
 	}
@@ -149,7 +159,7 @@ func TestRegistryRunsDifferentConversationActorsConcurrently(t *testing.T) {
 	shutdownTestRegistry(t, registry)
 }
 
-func TestCheckpointIsCancelledAndItsLateResponseCannotCommit(t *testing.T) {
+func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) {
 	checkpointStarted := make(chan struct{})
 	checkpointCancelled := make(chan struct{})
 	releaseLateResponse := make(chan struct{})
@@ -176,7 +186,7 @@ func TestCheckpointIsCancelledAndItsLateResponseCannotCommit(t *testing.T) {
 		}, nil
 	})
 	registry := newTestRegistry(t, worker)
-	checkpoint := submitTestRequest(t, registry, checkpointRequest("checkpoint", "conversation-stale"))
+	checkpoint := submitTestRequest(t, registry, checkpointRetryRequest("checkpoint", "conversation-stale"))
 	waitSignal(t, checkpointStarted, "checkpoint start")
 	status := submitTestRequest(t, registry, statusRequest("status", "conversation-stale"))
 	waitSignal(t, checkpointCancelled, "checkpoint cancellation")
@@ -276,10 +286,11 @@ func TestRequestValidationRejectsMismatchedKindsAndTriggers(t *testing.T) {
 		{
 			name: "unknown retry trigger",
 			request: Request{
-				ID:             "retry",
-				ConversationID: "conversation",
-				Kind:           RequestKindRetry,
-				Trigger:        conversation.NarrationTrigger("unknown"),
+				ID:               "retry",
+				ConversationID:   "conversation",
+				Kind:             RequestKindProjection,
+				Trigger:          conversation.NarrationTrigger("unknown"),
+				RecoverableRetry: true,
 			},
 		},
 		{
@@ -304,6 +315,7 @@ func TestRequestValidationRejectsMismatchedKindsAndTriggers(t *testing.T) {
 		statusRequest("status", "conversation"),
 		retryRequest("retry", "conversation"),
 		checkpointRequest("checkpoint", "conversation"),
+		checkpointRetryRequest("checkpoint-retry", "conversation"),
 	} {
 		if err := request.Validate(); err != nil {
 			t.Errorf("Validate(%s): %v", request.ID, err)
@@ -397,10 +409,11 @@ func statusRequest(id string, conversationID string) Request {
 
 func retryRequest(id string, conversationID string) Request {
 	return Request{
-		ID:             id,
-		ConversationID: conversationID,
-		Kind:           RequestKindRetry,
-		Trigger:        conversation.NarrationTriggerPhaseActivityCompleted,
+		ID:               id,
+		ConversationID:   conversationID,
+		Kind:             RequestKindProjection,
+		Trigger:          conversation.NarrationTriggerPhaseActivityCompleted,
+		RecoverableRetry: true,
 	}
 }
 
@@ -411,4 +424,10 @@ func checkpointRequest(id string, conversationID string) Request {
 		Kind:           RequestKindCheckpoint,
 		Trigger:        conversation.NarrationTriggerCheckpointWindowExceeded,
 	}
+}
+
+func checkpointRetryRequest(id string, conversationID string) Request {
+	request := checkpointRequest(id, conversationID)
+	request.RecoverableRetry = true
+	return request
 }
