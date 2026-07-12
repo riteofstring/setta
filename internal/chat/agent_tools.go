@@ -56,7 +56,6 @@ type AgentToolSchema struct {
 	Required             []string
 	Properties           map[string]AgentToolSchema
 	Items                *AgentToolSchema
-	OneOf                []AgentToolSchema
 	Enum                 []string
 	AdditionalProperties *bool
 }
@@ -236,11 +235,6 @@ func validateAgentToolSchemaProperties(schema AgentToolSchema, label string) err
 			return fmt.Errorf("%s property name is required", label)
 		}
 		if err := validateAgentToolSchema(property, label+"."+name); err != nil {
-			return err
-		}
-	}
-	for index, branch := range schema.OneOf {
-		if err := validateAgentToolSchema(branch, fmt.Sprintf("%s.oneOf[%d]", label, index)); err != nil {
 			return err
 		}
 	}

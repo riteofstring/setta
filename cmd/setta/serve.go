@@ -10,7 +10,6 @@ import (
 	"io"
 
 	"setta/internal/runtime"
-	"setta/internal/speech"
 )
 
 type serveOptions struct {
@@ -19,7 +18,6 @@ type serveOptions struct {
 	DisplayName string
 	Host        string
 	Port        int
-	Speech      speech.OpenAIClientConfig
 	Tailnet     bool
 }
 
@@ -51,15 +49,10 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	if err != nil {
 		return serveOptions{}, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(deps.getenv, deps.unsetenv)
-	if err != nil {
-		return serveOptions{}, err
-	}
 	options := serveOptions{
 		AppDataDir: appDataDir,
 		Host:       runtime.DefaultConfig().Host,
 		Port:       defaultServePort,
-		Speech:     speechConfig,
 	}
 	flagSet := newFlagSet("setta serve", deps.stderr)
 	flagSet.StringVar(&options.AppDataDir, "app-data-dir", options.AppDataDir, "directory for persisted Setta app state")
@@ -93,7 +86,19 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 
 func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serveInstance, error) {
 	var readyBuffer bytes.Buffer
-	config := serveRuntimeConfig(options, deps, &readyBuffer)
+	config := runtime.DefaultConfig()
+	config.AllowRemote = options.Tailnet
+	config.AppDataDir = options.AppDataDir
+	config.Host = options.Host
+	config.Port = options.Port
+	config.RuntimeDisplayName = options.DisplayName
+	config.SkipBootstrapDeviceSession = true
+	config.Stderr = deps.stderr
+	config.Stdout = &readyBuffer
+	config.Version = version
+	if options.ChatHarness != "" {
+		config.ChatHarness = options.ChatHarness
+	}
 
 	server, err := runtime.Start(ctx, config)
 	if err != nil {
@@ -138,24 +143,6 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 		server:     server,
 		state:      state,
 	}, nil
-}
-
-func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Writer) runtime.Config {
-	config := runtime.DefaultConfig()
-	config.AllowRemote = options.Tailnet
-	config.AppDataDir = options.AppDataDir
-	config.Host = options.Host
-	config.Port = options.Port
-	config.RuntimeDisplayName = options.DisplayName
-	config.SkipBootstrapDeviceSession = true
-	config.Stderr = deps.stderr
-	config.Stdout = readyWriter
-	config.Version = version
-	config.Speech = options.Speech
-	if options.ChatHarness != "" {
-		config.ChatHarness = options.ChatHarness
-	}
-	return config
 }
 
 func decodeReadyEvent(reader io.Reader) (runtime.ReadyEvent, error) {

@@ -137,7 +137,7 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 	if err != nil {
 		return err
 	}
-	tool, ok := harness.agentToolRegistry().Lookup(call.Namespace, call.Tool)
+	tool, ok := harness.config.Tools.Lookup(call.Namespace, call.Tool)
 	item := codexDynamicToolRunItem(call, tool, ok)
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
