@@ -316,6 +316,9 @@ func recoverRuntimeConversationServices(
 	conversationService *conversation.Service,
 	narratorService *narration.Service,
 ) error {
+	if err := conversationService.RecoverAgentTurns(context.Background()); err != nil {
+		return fmt.Errorf("recover agent turns: %w", err)
+	}
 	if err := conversationService.RecoverSideConversations(context.Background()); err != nil {
 		return fmt.Errorf("recover side conversations: %w", err)
 	}

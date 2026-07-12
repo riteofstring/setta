@@ -88,7 +88,8 @@ fi
 if [[ "${run_deterministic}" -eq 1 ]]; then
   echo "Deterministic Electron topic-conversation workflow..."
   if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
-    --workflow topic-conversation-pane-projection; then
+    --workflow topic-conversation-pane-projection \
+    --workflow topic-conversation-crash-recovery; then
     passed_workflows+=("deterministic-electron")
   else
     status=1

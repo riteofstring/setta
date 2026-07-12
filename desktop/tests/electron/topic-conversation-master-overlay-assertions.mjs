@@ -276,11 +276,24 @@ export async function waitForMasterRouteDecision(backend, inputId, timeoutMs) {
 
 export function assertMasterRouteDecision(
   state,
-  { expectedInputId, expectedKind, expectedSessionId, expectedTargetId },
+  {
+    expectedInputId,
+    expectedKind,
+    expectedRoutingAttempt = 1,
+    expectedSessionId,
+    expectedTargetId,
+  },
 ) {
   const record = state?.decision;
   if (
-    !masterRouteDecisionIsValid(state, record, expectedInputId, expectedKind, expectedSessionId)
+    !masterRouteDecisionIsValid(
+      state,
+      record,
+      expectedInputId,
+      expectedKind,
+      expectedRoutingAttempt,
+      expectedSessionId,
+    )
   ) {
     throw new Error(`invalid durable master route decision: ${JSON.stringify(state)}`);
   }
@@ -318,33 +331,46 @@ function masterRouteDecisionIsValid(
   record,
   expectedInputId,
   expectedKind,
+  expectedRoutingAttempt,
   expectedSessionId,
 ) {
   const invocation = record?.resolvedInvocation;
   const configuration = invocation?.configuration;
   return [
-    masterRouteStateIsDecided(state, expectedInputId),
-    masterRouteRecordMatches(record, expectedInputId, expectedKind, expectedSessionId),
+    masterRouteStateIsDecided(state, expectedInputId, expectedRoutingAttempt),
+    masterRouteRecordMatches(
+      record,
+      expectedInputId,
+      expectedKind,
+      expectedRoutingAttempt,
+      expectedSessionId,
+    ),
     masterRouteInvocationIsAudited(invocation),
     masterRouteConfigurationIsRestricted(configuration),
     masterRouteContextIsRedacted(record?.context),
   ].every(Boolean);
 }
 
-function masterRouteStateIsDecided(state, expectedInputId) {
+function masterRouteStateIsDecided(state, expectedInputId, expectedRoutingAttempt) {
   return [
     state?.status === "decided",
-    state?.routingAttempt === 1,
+    state?.routingAttempt === expectedRoutingAttempt,
     state?.routingStartedAt === null,
     state?.failure === null,
     state?.input?.input?.id === expectedInputId,
   ].every(Boolean);
 }
 
-function masterRouteRecordMatches(record, expectedInputId, expectedKind, expectedSessionId) {
+function masterRouteRecordMatches(
+  record,
+  expectedInputId,
+  expectedKind,
+  expectedRoutingAttempt,
+  expectedSessionId,
+) {
   return [
     record?.inputId === expectedInputId,
-    record?.routingAttempt === 1,
+    record?.routingAttempt === expectedRoutingAttempt,
     record?.decision?.kind === expectedKind,
     validMasterRouteCommand(record?.resultingCommand, expectedKind),
     matchesOptionalValue(record?.masterSessionId, expectedSessionId),

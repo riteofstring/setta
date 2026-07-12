@@ -462,7 +462,18 @@ func (service *Service) prepareTurnTerminal(
 	if len(snapshot.Queue) > 0 {
 		conversationStatus = ConversationStatusWorking
 	}
-	conversationStatus, err = applyProviderTerminalOutcome(&turn, &trajectory, event, now, conversationStatus)
+	interruptionReason := active.interruptionReason
+	if interruptionReason == "" {
+		interruptionReason = TurnInterruptionProviderInterrupted
+	}
+	conversationStatus, err = applyProviderTerminalOutcome(
+		&turn,
+		&trajectory,
+		event,
+		now,
+		conversationStatus,
+		interruptionReason,
+	)
 	if err != nil {
 		return turnTerminalMutation{}, err
 	}
@@ -490,6 +501,7 @@ func applyProviderTerminalOutcome(
 	event agent.Event,
 	now string,
 	conversationStatus ConversationStatus,
+	interruptionReason TurnInterruptionReason,
 ) (ConversationStatus, error) {
 	switch event.Terminal.Outcome {
 	case agent.TurnOutcomeCompleted:
@@ -501,7 +513,7 @@ func applyProviderTerminalOutcome(
 		turn.Status = TurnStatusCancelled
 		turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeCancelled, now, nil))
 		trajectory.Kind = TrajectoryEventTurnInterrupted
-		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionProviderInterrupted}
+		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: interruptionReason}
 	case agent.TurnOutcomeFailed:
 		failure := providerFailure("provider_turn_failed", event.Terminal.Error)
 		turn.Status = TurnStatusFailed

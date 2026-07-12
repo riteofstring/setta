@@ -114,6 +114,7 @@ export async function launchElectronCdpContext({
   electronArgs = [],
   extraEnv = {},
   fixture,
+  isolatedProcessGroup = false,
   unsetEnv = [],
   visible = false,
 }) {
@@ -127,6 +128,7 @@ export async function launchElectronCdpContext({
     electronArgs,
     extraEnv,
     fixture,
+    isolatedProcessGroup,
     unsetEnv,
     visible,
   });
@@ -143,6 +145,15 @@ export async function stopElectronCdpContext(context) {
   context.client?.close();
   await writeElectronOutput(context);
   await stopElectron(context.electron);
+}
+
+export async function crashElectronCdpContext(context) {
+  if (!context) {
+    return;
+  }
+  context.client?.close();
+  await crashElectron(context.electron);
+  await writeElectronOutput(context);
 }
 
 export function assertBuildExists() {
@@ -471,6 +482,7 @@ function launchElectron({
   electronArgs,
   extraEnv,
   fixture,
+  isolatedProcessGroup,
   unsetEnv,
   visible,
 }) {
@@ -497,14 +509,59 @@ function launchElectron({
     [`--remote-debugging-port=${debugPort}`, ...electronArgs, "."],
     {
       cwd: desktopRoot,
+      detached: isolatedProcessGroup && process.platform !== "win32",
       env,
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
+  electron.isolatedProcessGroup = isolatedProcessGroup && process.platform !== "win32";
   electron.logs = [];
   electron.stdout.on("data", (data) => appendLog(electron.logs, data));
   electron.stderr.on("data", (data) => appendLog(electron.logs, data));
   return electron;
+}
+
+async function crashElectron(child) {
+  if (child.exitCode !== null) {
+    return;
+  }
+  const exitPromise = new Promise((resolvePromise) => {
+    child.once("exit", resolvePromise);
+  });
+  if (process.platform === "win32") {
+    await killWindowsProcessTree(child.pid);
+  } else if (child.isolatedProcessGroup && child.pid !== undefined) {
+    process.kill(-child.pid, "SIGKILL");
+  } else {
+    child.kill("SIGKILL");
+  }
+  const exited = await Promise.race([
+    exitPromise.then(() => true),
+    delay(shutdownTimeoutMs).then(() => false),
+  ]);
+  if (!exited) {
+    throw new Error(`Electron process ${child.pid ?? "unknown"} did not exit after SIGKILL`);
+  }
+}
+
+async function killWindowsProcessTree(pid) {
+  if (pid === undefined) {
+    throw new Error("Electron process id is unavailable for crash simulation");
+  }
+  const killer = spawn("taskkill", ["/PID", String(pid), "/T", "/F"], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  killer.stdout.on("data", (data) => {
+    output += data.toString();
+  });
+  killer.stderr.on("data", (data) => {
+    output += data.toString();
+  });
+  const code = await new Promise((resolvePromise) => killer.once("exit", resolvePromise));
+  if (code !== 0) {
+    throw new Error(`taskkill failed for Electron process ${pid}: ${output.trim()}`);
+  }
 }
 
 function isPageNavigationTransient(error) {

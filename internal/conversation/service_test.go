@@ -703,6 +703,41 @@ func (runtime *serviceTestAgentRuntime) InterruptProviderTurn(_ context.Context,
 	return nil
 }
 
+func (runtime *serviceTestAgentRuntime) ReconcileTurn(
+	_ context.Context,
+	threadID string,
+	turnID string,
+) (agent.TurnResult, bool, error) {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	thread, ok := runtime.providerThreads[threadID]
+	if !ok {
+		return agent.TurnResult{}, false, fmt.Errorf("provider thread %s was not found", threadID)
+	}
+	for _, turn := range thread.Turns {
+		if turn.ID != turnID {
+			continue
+		}
+		result := agent.TurnResult{ProviderThreadID: threadID, ProviderTurnID: turnID}
+		switch turn.Status {
+		case "inProgress":
+			return result, true, nil
+		case "completed":
+			result.Outcome = agent.TurnOutcomeCompleted
+		case "interrupted":
+			result.Outcome = agent.TurnOutcomeInterrupted
+		case "failed":
+			message := "scripted provider turn failed"
+			result.Outcome = agent.TurnOutcomeFailed
+			result.Error = &message
+		default:
+			return agent.TurnResult{}, false, fmt.Errorf("unsupported provider turn status %s", turn.Status)
+		}
+		return result, false, nil
+	}
+	return agent.TurnResult{}, false, fmt.Errorf("provider turn %s was not found", turnID)
+}
+
 func (runtime *serviceTestAgentRuntime) SubmitApproval(response agent.ApprovalResponse) error {
 	runtime.mu.Lock()
 	copy := response

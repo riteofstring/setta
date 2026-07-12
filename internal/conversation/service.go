@@ -21,6 +21,7 @@ type AgentRuntime interface {
 	ForkThread(context.Context, agent.ForkThreadRequest) (agent.Thread, error)
 	InjectItems(context.Context, string, []agent.InjectedTextItem) error
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
+	ReconcileTurn(context.Context, string, string) (agent.TurnResult, bool, error)
 	SteerTurn(context.Context, agent.TurnControlRequest) error
 	InterruptTurn(context.Context, agent.TurnControlRequest) error
 	InterruptProviderTurn(context.Context, string, string) error
@@ -64,14 +65,15 @@ type Service struct {
 }
 
 type activeConversationTurn struct {
-	conversationID   string
-	providerThreadID string
-	providerTurnID   string
-	queueOrdinal     int
-	request          agent.TurnRequest
-	roleProfile      RoleProfile
-	turnID           string
-	workspaceID      string
+	conversationID     string
+	interruptionReason TurnInterruptionReason
+	providerThreadID   string
+	providerTurnID     string
+	queueOrdinal       int
+	request            agent.TurnRequest
+	roleProfile        RoleProfile
+	turnID             string
+	workspaceID        string
 }
 
 type activeSideConversationTurn struct {

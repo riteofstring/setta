@@ -13,6 +13,7 @@ const turns = new Map(persistedState.turns.map((turn) => [turn.id, turn]));
 const heldTurns = new Map();
 const pendingApprovals = new Map();
 const failedNarratorObjectives = new Set();
+const heldStructuredKeys = new Set(persistedState.heldStructuredKeys);
 let account = null;
 const methodHandlers = new Map([
   ["account/login/start", startAccountLogin],
@@ -425,6 +426,9 @@ function startTurn(message) {
 
 function emitStructuredTurn(threadId, turnId, text, outputSchema) {
   const context = JSON.parse(text);
+  if (holdStructuredTurnOnce(context)) {
+    return;
+  }
   if (context.kind === "master_route") {
     emitStructuredMasterRoute(threadId, turnId, context, outputSchema);
     return;
@@ -518,11 +522,22 @@ function validMasterEscalationInput(input) {
 }
 
 const scriptedMasterRouteDecisionByText = new Map([
+  ["Crash master route.", scriptedMasterCrashDecision],
   ["Focus Alpha topic.", scriptedMasterFocusDecision],
   ["Create Gamma topic.", scriptedMasterCreateDecision],
   ["Open an Alpha side.", scriptedMasterSideDecision],
   ["Fork Alpha topic.", scriptedMasterForkDecision],
 ]);
+
+function scriptedMasterCrashDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("answer_global"),
+    schema.includes('"answer_global"'),
+  ].every(Boolean);
+  return valid
+    ? { kind: "answer_global", text: "The crashed master route recovered exactly once." }
+    : null;
+}
 
 function scriptedMasterRouteDecision(context, schema) {
   const input = context.input?.input;
@@ -821,6 +836,38 @@ function emitStructuredProjection(threadId, turnId, context) {
   completeTurn(threadId, turnId, "completed");
 }
 
+function holdStructuredTurnOnce(context) {
+  const key = structuredHoldKey(context);
+  if (key === null || heldStructuredKeys.has(key)) {
+    return false;
+  }
+  heldStructuredKeys.add(key);
+  persistState();
+  return true;
+}
+
+function structuredHoldKey(context) {
+  if (isCrashMasterRoute(context)) {
+    return "master:crash-route";
+  }
+  if (isCrashNarratorProjection(context)) {
+    return "narrator:crash-projection";
+  }
+  return null;
+}
+
+function isCrashMasterRoute(context) {
+  return context.kind === "master_route" && context.input?.input?.text === "Crash master route.";
+}
+
+function isCrashNarratorProjection(context) {
+  return (
+    context.kind === "projection" &&
+    context.requestedChannel === "terminal_projection" &&
+    context.authoritative?.currentInstructions?.objective?.text === "crash narrator"
+  );
+}
+
 function emitTurnScenario(threadId, turnId, text) {
   emitTextDelta(threadId, turnId, `Streaming ${text}. `);
   if (text.includes("narration backlog")) {
@@ -995,6 +1042,7 @@ function completeTurn(threadId, turnId, status, message = "") {
 function readPersistedState() {
   const empty = {
     approvalCounter: 0,
+    heldStructuredKeys: [],
     threadCounter: 0,
     threads: [],
     turnCounter: 0,
@@ -1006,6 +1054,7 @@ function readPersistedState() {
   const state = JSON.parse(readFileSync(persistedStatePath, "utf8"));
   if (
     !Number.isInteger(state.approvalCounter) ||
+    !Array.isArray(state.heldStructuredKeys) ||
     !Number.isInteger(state.threadCounter) ||
     !Number.isInteger(state.turnCounter) ||
     !Array.isArray(state.threads) ||
@@ -1013,7 +1062,22 @@ function readPersistedState() {
   ) {
     throw new Error("fake topic Codex state is malformed");
   }
+  interruptStaleDurableTurns(state);
+  writeFileSync(persistedStatePath, `${JSON.stringify(state)}\n`, "utf8");
   return state;
+}
+
+function interruptStaleDurableTurns(state) {
+  const durableTurnIds = new Set(
+    state.threads
+      .filter((thread) => thread.ephemeral !== true)
+      .flatMap((thread) => (Array.isArray(thread.turnIds) ? thread.turnIds : [])),
+  );
+  state.turns = state.turns.map((turn) =>
+    durableTurnIds.has(turn.id) && turn.status === "inProgress"
+      ? { ...turn, status: "interrupted" }
+      : turn,
+  );
 }
 
 function persistState() {
@@ -1024,6 +1088,7 @@ function persistState() {
     persistedStatePath,
     `${JSON.stringify({
       approvalCounter,
+      heldStructuredKeys: [...heldStructuredKeys],
       threadCounter,
       threads: [...threads.values()],
       turnCounter,

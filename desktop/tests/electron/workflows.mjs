@@ -15,6 +15,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "topic-conversation-crash-recovery.test.mjs",
+    name: "topic-conversation-crash-recovery",
+    tiers: ["required"],
+  },
+  {
     file: "microphone-permissions-workflow.test.mjs",
     name: "microphone-permissions",
     tiers: ["required"],
