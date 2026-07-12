@@ -13,7 +13,7 @@ type LayoutObserver interface {
 }
 
 type WorkspaceResolver interface {
-	ResolveWorkspace(id string) (workspace.WorkspaceSummary, error)
+	LookupWorkspace(id string) (workspace.WorkspaceSummary, error)
 }
 
 type Service struct {
@@ -45,7 +45,7 @@ func NewService(
 }
 
 func (service *Service) ReadLayout(workspaceID string) (WorkspaceUILayoutReadResult, error) {
-	if _, err := service.resolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.resolver.LookupWorkspace(workspaceID); err != nil {
 		return WorkspaceUILayoutReadResult{}, err
 	}
 	service.mu.Lock()
@@ -62,7 +62,7 @@ func (service *Service) ReadLayout(workspaceID string) (WorkspaceUILayoutReadRes
 }
 
 func (service *Service) SaveLayout(layout WorkspaceUILayout) (WorkspaceUILayout, error) {
-	if _, err := service.resolver.ResolveWorkspace(layout.WorkspaceID); err != nil {
+	if _, err := service.resolver.LookupWorkspace(layout.WorkspaceID); err != nil {
 		return WorkspaceUILayout{}, err
 	}
 	service.mu.Lock()

@@ -24,6 +24,8 @@ type AppearanceService interface {
 type WorkspaceService interface {
 	Close(id string) (workspacesession.WorkspaceSession, error)
 	OpenLocalFolder(rootPath string) (workspace.WorkspaceSummary, workspacesession.WorkspaceSession, error)
+	Relocate(id string, rootPath string) (workspace.WorkspaceSummary, workspacesession.WorkspaceSession, error)
+	RefreshAvailability(id string) (workspacesession.WorkspaceSession, error)
 	RemoveRecent(id string) (workspacesession.WorkspaceSession, error)
 	Reorder(ids []string) (workspacesession.WorkspaceSession, error)
 	Select(id string) (workspacesession.WorkspaceSession, error)

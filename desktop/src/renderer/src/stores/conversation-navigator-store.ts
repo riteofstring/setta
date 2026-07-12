@@ -20,9 +20,7 @@ interface ConversationNavigatorStore {
   applyEvent: (event: ConversationEvent) => void;
   applyEvents: (events: readonly ConversationEvent[]) => void;
   loadMore: (workspaceId: string) => Promise<void>;
-  query: string;
   resetRuntimeState: () => void;
-  setQuery: (query: string) => void;
   syncWorkspaces: (workspaceIds: readonly string[]) => Promise<void>;
   upsertSnapshot: (snapshot: ConversationSnapshot) => void;
   workspaces: Readonly<Record<string, ConversationNavigatorWorkspaceState | undefined>>;
@@ -58,7 +56,6 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
 
   async function loadPage(workspaceId: string, cursor: NavigatorCursor | null) {
     const requestGeneration = generation;
-    const query = get().query;
     set((state) => ({
       workspaces: {
         ...state.workspaces,
@@ -74,7 +71,7 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
       const page = await window.setta.conversations.list({
         cursor,
         limit: navigatorPageLimit,
-        query,
+        query: "",
         workspaceId,
       });
       if (requestGeneration !== generation || !activeWorkspaceIds.has(workspaceId)) {
@@ -118,18 +115,10 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
       }
       await loadPage(workspaceId, workspace.nextCursor);
     },
-    query: "",
     resetRuntimeState: () => {
       generation += 1;
       activeWorkspaceIds = new Set();
-      set({ query: "", workspaces: {} });
-    },
-    setQuery: (query) => {
-      if (query === get().query) {
-        return;
-      }
-      generation += 1;
-      set({ query, workspaces: {} });
+      set({ workspaces: {} });
     },
     syncWorkspaces: async (workspaceIds) => {
       activeWorkspaceIds = new Set(workspaceIds);
@@ -151,10 +140,7 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
         set((state) => removeNavigatorConversation(state, workspaceId, snapshot.conversation.id));
         return;
       }
-      // A bounded snapshot is not evidence that the conversation matches the
-      // backend-owned navigator query. Keep filtered pages authoritative
-      // instead of guessing at full-text search semantics in the renderer.
-      if (get().query.trim() !== "" || !activeWorkspaceIds.has(workspaceId)) {
+      if (!activeWorkspaceIds.has(workspaceId)) {
         return;
       }
       const current = get().workspaces[workspaceId] ?? {

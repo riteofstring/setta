@@ -50,6 +50,11 @@ describe("typed IPC adapters", () => {
       })),
       recentWorkspaces: [],
       selectedWorkspaceId: ids[0] ?? "",
+      workspaceAvailabilities: ids.map((id) => ({
+        available: true,
+        unavailableReason: "",
+        workspaceId: id,
+      })),
     }));
 
     const handler = handlers.get(ipcChannels.workspaceReorder);
@@ -84,6 +89,7 @@ describe("typed IPC adapters", () => {
         activeWorkspaces: [],
         recentWorkspaces: [],
         selectedWorkspaceId: id,
+        workspaceAvailabilities: [],
       }),
       { failed, finished, started },
     );

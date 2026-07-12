@@ -374,7 +374,9 @@ export interface SettaAPI {
     close: (id: string) => Promise<WorkspaceSession>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
     openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
+    relocateLocalFolder: (id: string) => Promise<OpenWorkspaceResponse | null>;
     readUILayout: (workspaceId: string) => Promise<WorkspaceUILayoutReadResult>;
+    refreshAvailability: (id: string) => Promise<WorkspaceSession>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
     saveUILayout: (layout: WorkspaceUILayout) => Promise<WorkspaceUILayout>;

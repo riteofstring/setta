@@ -71,6 +71,7 @@ interface EngineMutableState {
   columns: WorkspaceColumn[];
   nextColumnSequence: number;
   nextPaneSequence: number;
+  nextSurfaceSequence: number;
   paneById: Map<PaneId, WorkspacePane>;
 }
 
@@ -123,13 +124,15 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
       : this.insertColumnAfter(request.adjacentToColumnId, request.widthSpec);
     const sequence = this.nextPaneSequence;
     this.nextPaneSequence += 1;
+    const surfaceSequence = this.nextSurfaceSequence;
+    this.nextSurfaceSequence += 1;
     const pane: WorkspacePane = {
       columnId: targetColumn.columnId,
       heat: (sequence * 37) % 100,
       paneId: `workspace_pane_${sequence}`,
       sequence,
       subtitle: request.subtitle ?? "workspace surface",
-      surfaceId: `workspace_surface_${sequence}`,
+      surfaceId: `workspace_surface_${surfaceSequence}`,
       title: request.title ?? `Pane ${String(sequence + 1).padStart(3, "0")}`,
       tone: request.tone ?? "slate",
       weight: request.weight ?? 1,
@@ -172,16 +175,16 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
       throw new Error(`unknown workspace pane ${paneId}`);
     }
     const paneSurface = paneSurfaceForRequest(request, pane);
-    const sequence = this.nextPaneSequence;
-    this.nextPaneSequence += 1;
+    const surfaceSequence = this.nextSurfaceSequence;
+    this.nextSurfaceSequence += 1;
     this.paneById.set(paneId, {
       columnId: pane.columnId,
-      heat: (sequence * 37) % 100,
+      heat: (surfaceSequence * 37) % 100,
       heightPx: pane.heightPx,
       paneId: pane.paneId,
       sequence: pane.sequence,
       subtitle: request.subtitle ?? pane.subtitle,
-      surfaceId: `workspace_surface_${sequence}`,
+      surfaceId: `workspace_surface_${surfaceSequence}`,
       title: request.title ?? pane.title,
       tone: request.tone ?? pane.tone,
       weight: request.weight ?? pane.weight,
@@ -478,6 +481,7 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
       columns: this.columns.map((column) => ({ ...column, paneIds: [...column.paneIds] })),
       nextColumnSequence: this.nextColumnSequence,
       nextPaneSequence: this.nextPaneSequence,
+      nextSurfaceSequence: this.nextSurfaceSequence,
       paneById: new Map(this.paneById),
     };
   }
@@ -486,6 +490,7 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     this.columns = saved.columns;
     this.nextColumnSequence = saved.nextColumnSequence;
     this.nextPaneSequence = saved.nextPaneSequence;
+    this.nextSurfaceSequence = saved.nextSurfaceSequence;
     this.paneById = saved.paneById;
   }
 

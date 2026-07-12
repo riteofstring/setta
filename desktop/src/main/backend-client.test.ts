@@ -135,5 +135,8 @@ function workspaceSession(): WorkspaceSession {
       },
     ],
     selectedWorkspaceId: "workspace_api",
+    workspaceAvailabilities: [
+      { available: true, unavailableReason: "", workspaceId: "workspace_api" },
+    ],
   };
 }

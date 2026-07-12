@@ -77,6 +77,8 @@ describe("preload workspace API", () => {
       "openLocalFolder",
       "openPath",
       "readUILayout",
+      "refreshAvailability",
+      "relocateLocalFolder",
       "removeRecent",
       "reorder",
       "saveUILayout",
@@ -95,6 +97,8 @@ describe("preload workspace API", () => {
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
     await api.workspace.readUILayout("workspace_api");
+    await api.workspace.refreshAvailability("workspace_api");
+    await api.workspace.relocateLocalFolder("workspace_api");
     await api.workspace.saveUILayout(layout);
     await api.workspace.select("workspace_api");
     await api.workspace.close("workspace_api");
@@ -106,6 +110,8 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
       [ipcChannels.workspaceReadUILayout, "workspace_api"],
+      [ipcChannels.workspaceRefreshAvailability, "workspace_api"],
+      [ipcChannels.workspaceRelocateLocalFolder, "workspace_api"],
       [ipcChannels.workspaceSaveUILayout, layout],
       [ipcChannels.workspaceSelect, "workspace_api"],
       [ipcChannels.workspaceClose, "workspace_api"],

@@ -1,4 +1,4 @@
-import { FolderClosed, FolderOpen, LoaderCircle, X } from "lucide-react";
+import { AlertTriangle, FolderClosed, FolderOpen, LoaderCircle, X } from "lucide-react";
 
 import { cn } from "../lib/utils";
 import { SidebarIconButton } from "./sidebar-header-actions";
@@ -28,6 +28,7 @@ export function SidebarNavigationRow({
             lineageParentTitle={item.lineageParentTitle}
             openPaneCount={item.openPaneCount}
             present={() => runCommand(item.commands.primary)}
+            readOnly={item.readOnly}
           />
         </div>
       );
@@ -63,7 +64,7 @@ function ActiveWorkspaceRow({
   item: Extract<SidebarNavigationItem, { kind: "activeWorkspace" }>;
   runCommand: (command: SidebarNavigationCommand) => Promise<void>;
 }) {
-  const FolderIcon = item.expanded ? FolderOpen : FolderClosed;
+  const FolderIcon = item.available ? (item.expanded ? FolderOpen : FolderClosed) : AlertTriangle;
   return (
     <div className="group grid h-9 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-accent/55">
       <button
@@ -71,12 +72,19 @@ function ActiveWorkspaceRow({
         aria-expanded={item.expanded}
         className="grid h-9 min-w-0 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 px-2 text-left"
         data-testid="active-workspace-select"
+        data-workspace-available={item.available}
+        data-workspace-id={item.workspace.id}
         disabled={busy}
         onClick={() => void runCommand(item.commands.primary)}
-        title={item.workspace.rootPath}
+        title={
+          item.available ? item.workspace.rootPath : `${item.workspace.rootPath} (unavailable)`
+        }
         type="button"
       >
-        <FolderIcon className="h-3.5 w-3.5 text-muted-foreground" />
+        <FolderIcon
+          aria-label={item.available ? undefined : "Workspace unavailable"}
+          className={cn("h-3.5 w-3.5 text-muted-foreground", !item.available && "text-amber-400")}
+        />
         <span
           className={cn(
             "truncate text-xs",
@@ -117,7 +125,14 @@ function RecentWorkspaceRow({
         title={item.workspace.rootPath}
         type="button"
       >
-        <FolderClosed className="h-3.5 w-3.5" />
+        {item.available ? (
+          <FolderClosed className="h-3.5 w-3.5" />
+        ) : (
+          <AlertTriangle
+            aria-label="Workspace unavailable"
+            className="h-3.5 w-3.5 text-amber-400"
+          />
+        )}
         <span className="truncate text-xs">{item.label}</span>
       </button>
       <div className="mr-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">

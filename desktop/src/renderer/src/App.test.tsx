@@ -53,7 +53,8 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="workspace-layout-area"');
     expect(html).toContain('data-desktop-platform="darwin"');
     expect(html).toContain('data-testid="workspace-empty-state"');
-    expect(html).toContain("Open a workspace");
+    expect(html).toContain("Choose a project folder");
+    expect(html).toContain('data-testid="choose-project-folder"');
     expect(html).toContain('data-pane-count="0"');
     expect(html).toContain('data-workspace-mode="workspace"');
     expect(html).not.toContain('data-testid="workspace-layout-status"');
@@ -125,12 +126,13 @@ describe("workspace renderer states", () => {
         removeRecent={async () => {}}
         selectWorkspace={async () => {}}
         selectedWorkspaceId=""
+        workspaceAvailabilities={[]}
       />,
     );
 
     expect(html).toContain("Conversations");
-    expect(hasAriaLabel(html, "Search conversations")).toBe(true);
-    expect(hasAriaLabel(html, "New conversation")).toBe(false);
+    expect(hasAriaLabel(html, "Search conversations")).toBe(false);
+    expect(hasAriaLabel(html, "Create topic conversation")).toBe(false);
     expect(hasAriaLabel(html, "Open project folder")).toBe(true);
   });
 
@@ -163,6 +165,7 @@ describe("workspace renderer states", () => {
         removeRecent={async () => {}}
         selectWorkspace={async () => {}}
         selectedWorkspaceId="workspace_web"
+        workspaceAvailabilities={availableWorkspaces([api, web])}
       />,
     );
 
@@ -188,6 +191,7 @@ describe("workspace renderer states", () => {
         selectWorkspace={async () => {}}
         selectedWorkspaceId=""
         workspaceError="workspace path does not exist"
+        workspaceAvailabilities={[]}
       />,
     );
 
@@ -225,6 +229,7 @@ describe("workspace renderer states", () => {
         removeRecent={async () => {}}
         selectWorkspace={async () => {}}
         selectedWorkspaceId="workspace_web"
+        workspaceAvailabilities={availableWorkspaces([api, web])}
       />,
     );
 
@@ -265,6 +270,7 @@ describe("workspace renderer states", () => {
         removeRecent={async () => {}}
         selectWorkspace={async () => {}}
         selectedWorkspaceId="workspace_web"
+        workspaceAvailabilities={availableWorkspaces([web])}
       />,
     );
 
@@ -298,6 +304,7 @@ describe("workspace renderer states", () => {
         removeRecent={async () => {}}
         selectWorkspace={async () => {}}
         selectedWorkspaceId="workspace_web"
+        workspaceAvailabilities={availableWorkspaces([web])}
       />,
     );
 
@@ -332,6 +339,7 @@ describe("workspace renderer states", () => {
         removeRecent={async () => {}}
         selectWorkspace={async () => {}}
         selectedWorkspaceId="workspace_web"
+        workspaceAvailabilities={availableWorkspaces([web])}
       />,
     );
 
@@ -362,6 +370,7 @@ describe("workspace renderer states", () => {
         removeRecent={async () => {}}
         selectWorkspace={async () => {}}
         selectedWorkspaceId="workspace_0"
+        workspaceAvailabilities={availableWorkspaces(workspaces)}
       />,
     );
 
@@ -373,6 +382,14 @@ describe("workspace renderer states", () => {
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
+}
+
+function availableWorkspaces(workspaces: readonly { id: string }[]) {
+  return workspaces.map((workspace) => ({
+    available: true,
+    unavailableReason: "",
+    workspaceId: workspace.id,
+  }));
 }
 function hasAriaLabel(html: string, label: string) {
   return html.includes(`aria-label="${escapeAttribute(label)}"`);

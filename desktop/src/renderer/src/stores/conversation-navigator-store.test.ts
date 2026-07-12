@@ -73,34 +73,6 @@ describe("conversation navigator store", () => {
     ).toEqual(["conversation_a", "conversation_b"]);
   });
 
-  test("invalidates an in-flight page when the search changes", async () => {
-    let resolveFirst: ((page: NavigatorPage) => void) | undefined;
-    const first = new Promise<NavigatorPage>((resolve) => {
-      resolveFirst = resolve;
-    });
-    const list = vi
-      .fn()
-      .mockReturnValueOnce(first)
-      .mockResolvedValueOnce({
-        items: [navigatorItem("conversation_matching", "workspace_api")],
-        nextCursor: null,
-      });
-    installConversationAPI(list);
-
-    const initialLoad = useConversationNavigatorStore.getState().syncWorkspaces(["workspace_api"]);
-    useConversationNavigatorStore.getState().setQuery("matching");
-    await useConversationNavigatorStore.getState().syncWorkspaces(["workspace_api"]);
-    resolveFirst?.({
-      items: [navigatorItem("conversation_stale", "workspace_api")],
-      nextCursor: null,
-    });
-    await initialLoad;
-
-    expect(
-      useConversationNavigatorStore.getState().workspaces.workspace_api?.items[0]?.conversation.id,
-    ).toBe("conversation_matching");
-  });
-
   test("does not restore a workspace removed while its page is loading", async () => {
     let resolvePage: ((page: NavigatorPage) => void) | undefined;
     installConversationAPI(
@@ -140,16 +112,17 @@ describe("conversation navigator store", () => {
     });
   });
 
-  test("does not inject snapshots into backend-owned filtered results", async () => {
+  test("adds a newly created snapshot to an active navigator", async () => {
     installConversationAPI(vi.fn(async () => ({ items: [], nextCursor: null })));
-    useConversationNavigatorStore.getState().setQuery("matching");
     await useConversationNavigatorStore.getState().syncWorkspaces(["workspace_api"]);
 
     useConversationNavigatorStore
       .getState()
       .upsertSnapshot(navigatorSnapshot("conversation_unmatched", "workspace_api"));
 
-    expect(useConversationNavigatorStore.getState().workspaces.workspace_api?.items).toEqual([]);
+    expect(
+      useConversationNavigatorStore.getState().workspaces.workspace_api?.items[0]?.conversation.id,
+    ).toBe("conversation_unmatched");
   });
 
   test("removes archived conversations from snapshots and live projection events", async () => {

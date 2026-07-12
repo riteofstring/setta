@@ -160,6 +160,8 @@ try {
   let backend = await backendProbe(firstLaunchDir);
   runtimeDeviceTokens.push(backend.deviceToken);
   const workspaceId = await openWorkspace(context.client);
+  const initialConversation = await waitForInitialConversation(backend, workspaceId);
+  await assertInitialEasyButtonExperience(context.client, initialConversation.conversation.id);
   await exerciseCodexAccountNotificationWorkflow({
     backend,
     client: context.client,
@@ -1183,6 +1185,32 @@ async function openWorkspace(client) {
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+async function waitForInitialConversation(backend, workspaceId) {
+  const page = await waitForBackendState(
+    () => listTopics(backend, workspaceId),
+    (current) =>
+      current.items.length === 1 && current.items[0]?.conversation.title === "New conversation",
+    workflowTimeoutMs,
+  );
+  return page.items[0];
+}
+
+async function assertInitialEasyButtonExperience(client, conversationId) {
+  await waitForState(
+    client,
+    driverCallExpression("topicConversationStartupState", { conversationId }),
+    (state) =>
+      !state.createControlPresent &&
+      !state.searchControlPresent &&
+      state.visiblePaneCount === 1 &&
+      state.easyButtonPaneCount === 1 &&
+      state.emptyFramePaneCount === 0 &&
+      state.matchingSurfaceCount === 1,
+    workflowTimeoutMs,
+  );
+  await waitForNavigator(client, conversationId, 1, workflowTimeoutMs);
 }
 
 async function waitForAutomaticNarrationStatusPlayback(

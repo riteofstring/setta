@@ -29,7 +29,7 @@ old-field aliases, or silent fallbacks for the replaced architecture.
 
 ### Required reversals of recently implemented work
 
-Two recently completed slices on the current branch implemented product
+Three recently completed slices on the current branch implemented product
 decisions that have since been rejected. They must be undone end to end rather
 than hidden, deprecated, or retained for compatibility:
 
@@ -47,8 +47,25 @@ than hidden, deprecated, or retained for compatibility:
    current Route label but retains narrator-routing semantics. Every ordinary
    pane text or finalized voice input first reaches the conversation
    narrator/router, which alone chooses the typed outcome.
+3. The conversation navigator was implemented with a fixed `Search
+   conversations` field and manual `New topic` form while a new workspace still
+   opened on an empty frame. Remove the renderer search state and both controls.
+   When a workspace becomes available, restore an existing Easy Button pane,
+   otherwise present its most recent durable conversation, and if none exists
+   create one initial `New conversation` whose Easy Button consumes the default
+   empty frame. Keep the underlying typed retrieval and creation capabilities
+   used by the master, narrator/router, and domain services; they are not
+   sidebar workflows.
+4. Startup previously assumed a valid selected workspace. Make workspace
+   availability backend-owned and explicit. With no workspace, show one
+   `Choose project folder` surface and create no unbound Easy Button. If a
+   persisted folder is missing or unreadable, preserve its identity, navigator
+   history, and layouts as read-only; exclude it from new work and model
+   routing; and expose `Retry`, identity-preserving `Locate folder…`, and
+   `Close workspace` recovery. Do not add migrations or replacement workspace
+   copies.
 
-Do not satisfy either reversal by merely hiding renderer controls. Remove
+Do not satisfy these reversals by merely hiding renderer controls. Remove
 newly dead backend branches, persisted fields, generated contracts, IPC
 surfaces, styles, fixtures, and tests. Retain operational controls such as
 Stop, approvals, retry/discard, returning from an active side conversation,
@@ -95,10 +112,16 @@ environment:
 
 The intended experience is:
 
-1. The user opens Setta with global microphone capture enabled.
-2. The user asks the master to bring up a recent conversation about a topic.
-3. The master retrieves the conversation, focuses an existing pane or opens a
-   new Easy Button pane, and reports what it did.
+1. When a readable workspace exists, the user opens Setta and lands in a
+   focused Easy Button. Setta restores an open conversation, presents the most
+   recent conversation, or creates the workspace's initial conversation when
+   necessary. A fresh install first asks for a project folder; an unavailable
+   persisted folder restores history read-only with recovery actions. Global
+   microphone capture is available from the shell.
+2. The user may work immediately in that conversation or ask the master to
+   bring up a different recent conversation about a topic.
+3. The master retrieves the requested conversation, focuses an existing pane
+   or opens a new Easy Button pane, and reports what it did.
 4. The user submits more work through that Easy Button by text or voice. Its
    lightweight narrator/router recognizes that the input belongs to the
    current topic and dispatches it to the heavy agent, then continues observing
@@ -166,11 +189,20 @@ selection are distinct state. The navigator is virtualized and paginated or
 incrementally loaded so every durable conversation remains addressable without
 rendering an unbounded DOM.
 
+The navigator has no fixed search field or manual new-topic form. The master
+performs semantic retrieval and creates conversations through typed routing
+decisions; the conversation narrator/router may also create a destination when
+its typed side, fork, or escalation decision requires one. Opening an available
+workspace therefore provides an immediately usable Easy Button without a
+separate sidebar creation step. A fresh runtime first asks for a project folder
+because an Easy Button always has a real workspace and conversation binding.
+An unavailable persisted workspace remains navigable and read-only until
+retried, relocated without changing its id, or closed.
+
 The intended information architecture is:
 
 ```text
 Ask Setta…  [microphone state]    fixed global master entry
-Search conversations…            fixed navigator filter
 Workspace A
   Pinned / working topics
   Recent topics
@@ -1354,8 +1386,8 @@ conversation index.
 The left conversation navigator reads this Setta-owned index/projection rather
 than listing raw Codex threads. Semantically every non-archived durable
 conversation is available, while the visible UI may prioritize pinned,
-working, waiting, and recent rows and retrieve older rows through search or
-incremental paging. Grouping by workspace remains useful because topic agents
+working, waiting, and recent rows and retrieve older rows through incremental
+paging. Grouping by workspace remains useful because topic agents
 operate against workspace roots; global search may cross those groups.
 
 Each row exposes title, recency, running/waiting/error or unread state, durable
@@ -1932,12 +1964,21 @@ Implement:
 3. Make `EasyButtonSurface` a pure projection of its pane's conversation.
 4. Remove the one-Easy-Button pane limit.
 5. Replace the selected-chat sidebar with the virtualized conversation
-   navigator and deterministic focus-existing-or-open behavior.
-6. Support create, send, queue, steer, stop, approval, artifact, terminal
-   result, close pane, reopen pane, and reload through production paths.
-7. Delete the old Easy Run store, service, endpoints, IPC, renderer store, and
+   navigator and deterministic focus-existing-or-open behavior. Do not add a
+   sidebar search field or manual new-topic form.
+6. On workspace availability, keep a restored Easy Button, otherwise present
+   the most recent conversation, or create and present one initial conversation
+   when the navigator is authoritatively empty. Consume the sole default empty
+   frame rather than opening a second pane. With no workspace, show an explicit
+   folder chooser and create nothing. For a missing or unreadable workspace,
+   restore existing history read-only, never create or route new work, and
+   offer Retry, identity-preserving Locate, and Close.
+7. Support routed and initial creation, send, queue, steer, stop, approval,
+   artifact, terminal result, close pane, reopen pane, and reload through
+   production paths.
+8. Delete the old Easy Run store, service, endpoints, IPC, renderer store, and
    persisted shapes.
-8. Archive settled durable topic conversations through the production service,
+9. Archive settled durable topic conversations through the production service,
    HTTP registry, generated desktop IPC, and renderer navigator while retaining
    any open pane as a read-only projection.
 
@@ -1948,6 +1989,11 @@ Exit criteria:
 - reopening/focusing a conversation restores its projection
 - one navigator row represents the conversation even when multiple panes show
   it, and a conversation with no pane remains navigable
+- a workspace with no restored Easy Button opens its most recent conversation,
+  or one initial conversation when empty, without sidebar search/create controls
+- a fresh runtime creates no unbound conversation before a project folder is
+  selected; a missing workspace preserves its id/history read-only and becomes
+  writable again after identity-preserving relocation
 - archiving a settled conversation removes it from the navigator and topic
   index, preserves an already-open read-only pane, and survives reload/restart
 - no Easy Run endpoint, type, store, or persisted directory remains
@@ -2250,6 +2296,12 @@ Cover:
   labels
 - one navigator row per durable conversation across zero, one, or multiple
   panes; workspace grouping, paging, and large-list virtualization
+- workspace startup restores or opens one focused Easy Button, creates one
+  initial conversation only when necessary, consumes the default empty frame,
+  and exposes no sidebar search or manual topic-creation controls
+- first run explicitly chooses a project folder; unavailable workspaces remain
+  visible and read-only, are absent from model-routing context, and recover by
+  retry, identity-preserving relocation, or close
 - active master interaction state shared across sidebar, shortcut, app chrome,
   shell text, and shell voice entry points
 - shell microphone activation opens the overlay; close/reload/restart restores
@@ -2274,11 +2326,17 @@ Cover:
 Through production Electron/main/preload/renderer/HTTP/store paths with
 temporary app data and a scripted Codex app-server, cover:
 
-1. Open a workspace and create two topic conversations through the left
-   navigator and global text master surface.
-2. Open one Easy Button pane for each conversation, verify distinct palettes,
-   then open a second view of one conversation and verify it retains one
-   navigator row and the same palette.
+1. Start with no workspace and verify Setta creates no conversation until the
+   explicit folder chooser succeeds. Then verify one initial conversation
+   appears in one focused Easy Button, the default empty frame is gone, and the
+   navigator has no search or manual topic-creation controls. Delete that
+   folder, restart, verify the same workspace/conversation restore read-only
+   without provider work, then locate a replacement folder and verify the same
+   identity becomes writable.
+2. Create two additional topic conversations through typed master or local
+   routing decisions. Open one Easy Button pane for each, verify distinct
+   palettes, then open a second view of one conversation and verify it retains
+   one navigator row and the same palette.
 3. Start both agents and receive interleaved streamed events.
 4. Submit natural-language inputs that the narrator routes as queue and steer
    for one conversation without affecting the other. Verify those durable
@@ -2401,9 +2459,17 @@ This plan is complete only when all of the following are true:
 - Multiple conversations can work concurrently in one workspace.
 - Easy Button panes are keyed by conversation and may be absent while work
   continues.
+- With a workspace available, Setta starts in a focused Easy Button: it keeps a
+  restored pane, otherwise presents the most recent conversation, or creates
+  one initial conversation when none exists. The sole default empty frame is
+  consumed.
+- With no workspace, Setta asks for a project folder and creates no unbound
+  conversation. A missing or unreadable workspace preserves its durable
+  identity and history read-only, is excluded from new work/model routing, and
+  supports Retry, identity-preserving Locate, and Close.
 - The left pane remains as a virtualized workspace-grouped navigator with one
   row per durable conversation; selecting a row focuses an existing pane or
-  opens one.
+  opens one. It has no fixed search field or manual new-topic form.
 - The master can retrieve, focus, open, create, and route conversations through
   typed decisions.
 - The same global master is reachable through shell voice and shell-owned text

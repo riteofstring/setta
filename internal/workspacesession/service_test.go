@@ -85,6 +85,55 @@ func TestServiceResolveWorkspaceRejectsMissingRoot(t *testing.T) {
 	if _, err := service.ResolveWorkspace(summary.ID); err == nil {
 		t.Fatal("resolve workspace succeeded, want missing root error")
 	}
+	refreshed, err := service.RefreshAvailability(summary.ID)
+	if err != nil {
+		t.Fatalf("refresh workspace availability: %v", err)
+	}
+	availability, err := refreshed.Availability(summary.ID)
+	if err != nil {
+		t.Fatalf("read workspace availability: %v", err)
+	}
+	if availability.Available || !strings.Contains(availability.UnavailableReason, "does not exist") {
+		t.Fatalf("availability = %+v, want unavailable missing path", availability)
+	}
+}
+
+func TestServiceRelocatePreservesWorkspaceAndMakesItAvailable(t *testing.T) {
+	appStore := newTestStore(t)
+	service := newTestService(t, appStore, nil, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+		mustTime(t, "2026-05-29T20:05:00Z"),
+		mustTime(t, "2026-05-29T20:10:00Z"),
+	})
+	originalRoot := t.TempDir()
+	summary, _, err := service.OpenLocalFolder(originalRoot)
+	if err != nil {
+		t.Fatalf("open original: %v", err)
+	}
+	if err := os.RemoveAll(originalRoot); err != nil {
+		t.Fatalf("remove original root: %v", err)
+	}
+	replacementRoot := t.TempDir()
+
+	relocated, session, err := service.Relocate(summary.ID, replacementRoot)
+	if err != nil {
+		t.Fatalf("relocate workspace: %v", err)
+	}
+	if relocated.ID != summary.ID || session.SelectedWorkspaceID != summary.ID {
+		t.Fatalf("relocated workspace = %+v session = %+v, want stable selected id %s", relocated, session, summary.ID)
+	}
+	availability, err := session.Availability(summary.ID)
+	if err != nil || !availability.Available {
+		t.Fatalf("availability = %+v err=%v, want available", availability, err)
+	}
+
+	reopened, _, err := service.OpenLocalFolder(replacementRoot)
+	if err != nil {
+		t.Fatalf("reopen relocated root: %v", err)
+	}
+	if reopened.ID != summary.ID {
+		t.Fatalf("reopened id = %s, want preserved %s", reopened.ID, summary.ID)
+	}
 }
 
 func TestServiceResolveActiveWorkspaceRejectsClosedRecentWorkspace(t *testing.T) {

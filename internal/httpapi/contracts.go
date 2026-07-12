@@ -67,6 +67,15 @@ type OpenWorkspaceResponse struct {
 	Session   workspacesession.WorkspaceSession `json:"session"`
 }
 
+type RelocateWorkspaceRequest struct {
+	ID       string `json:"id"`
+	RootPath string `json:"rootPath"`
+}
+
+type RefreshWorkspaceAvailabilityRequest struct {
+	ID string `json:"id"`
+}
+
 type SelectWorkspaceRequest struct {
 	ID string `json:"id"`
 }

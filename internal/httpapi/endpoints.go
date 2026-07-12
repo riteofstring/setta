@@ -54,6 +54,8 @@ var apiEndpoints = []endpoint{
 	post[UpdateAppearanceSettingsRequest, appearance.AppearanceSettings]("UpdateAppearanceSettings", "/appearance/settings", handler.updateAppearanceSettings),
 	get[workspacesession.WorkspaceSession]("WorkspaceSession", "/workspace-session", handler.workspaceSession),
 	post[OpenWorkspaceRequest, OpenWorkspaceResponse]("OpenWorkspace", "/workspaces/open", handler.openWorkspace),
+	post[RelocateWorkspaceRequest, OpenWorkspaceResponse]("RelocateWorkspace", "/workspaces/relocate", handler.relocateWorkspace),
+	post[RefreshWorkspaceAvailabilityRequest, workspacesession.WorkspaceSession]("RefreshWorkspaceAvailability", "/workspaces/availability/refresh", handler.refreshWorkspaceAvailability),
 	post[SelectWorkspaceRequest, workspacesession.WorkspaceSession]("SelectWorkspace", "/workspaces/select", handler.selectWorkspace),
 	post[CloseWorkspaceRequest, workspacesession.WorkspaceSession]("CloseWorkspace", "/workspaces/close", handler.closeWorkspace),
 	post[ReorderWorkspaceRequest, workspacesession.WorkspaceSession]("ReorderWorkspace", "/workspaces/reorder", handler.reorderWorkspaces),

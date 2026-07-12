@@ -12,6 +12,7 @@ export function ConversationNavigatorRow({
   lineageParentTitle,
   openPaneCount,
   present,
+  readOnly,
 }: {
   archive: () => Promise<void>;
   busy: boolean;
@@ -20,6 +21,7 @@ export function ConversationNavigatorRow({
   lineageParentTitle: string | null;
   openPaneCount: number;
   present: () => Promise<void>;
+  readOnly: boolean;
 }) {
   const { conversation, presentationProfile } = item;
   const archiveAllowed = conversation.status === "idle" || conversation.status === "failed";
@@ -36,6 +38,7 @@ export function ConversationNavigatorRow({
         data-conversation-palette={presentationProfile.resolvedPaletteId}
         data-parent-conversation-id={item.branch?.parentConversationId}
         data-testid="conversation-navigator-item"
+        data-workspace-read-only={readOnly}
         disabled={busy}
         onClick={() => void present()}
         style={conversationPaletteStyle(presentationProfile.resolvedPaletteId)}
@@ -56,10 +59,14 @@ export function ConversationNavigatorRow({
         className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm bg-background/95 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-focus-within/conversation-row:opacity-100 group-hover/conversation-row:opacity-100"
         data-conversation-id={conversation.id}
         data-testid="conversation-archive"
-        disabled={busy || !archiveAllowed}
+        disabled={busy || readOnly || !archiveAllowed}
         onClick={() => void archive()}
         title={
-          archiveAllowed ? `Archive ${conversation.title}` : "Finish active work before archiving"
+          readOnly
+            ? "Workspace unavailable"
+            : archiveAllowed
+              ? `Archive ${conversation.title}`
+              : "Finish active work before archiving"
         }
         type="button"
       >

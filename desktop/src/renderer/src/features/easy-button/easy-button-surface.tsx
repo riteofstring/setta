@@ -24,6 +24,7 @@ import type {
 } from "../global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../global-speech/speech-capture-destination";
 import { useConversationStore } from "../../stores/conversation-store";
+import { workspaceAvailability, useWorkspaceStore } from "../../stores/workspace-store";
 import { retainConversationProjection } from "../../stores/conversation-projection-runtime";
 import { conversationPaletteStyle } from "./conversation-palette-style";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
@@ -107,6 +108,9 @@ export function EasyButtonSurface({
   speechPresentation,
   workspaceId,
 }: EasyButtonSurfaceProps) {
+  const workspaceSession = useWorkspaceStore((state) => state.session);
+  const workspaceAvailable =
+    workspaceAvailability(workspaceSession, workspaceId)?.available ?? false;
   const projection = useConversationStore((state) =>
     easyButtonConversationProjection(state.conversations, conversationId),
   );
@@ -116,13 +120,14 @@ export function EasyButtonSurface({
     }
     return retainConversationProjection(workspaceId, conversationId);
   }, [conversationId, workspaceId]);
-  const commands = useEasyButtonConversationCommands(
-    workspaceId ?? null,
+  const commands = useEasyButtonConversationCommands({
     conversationId,
     paneId,
     projection,
     speechCapture,
-  );
+    workspaceAvailable,
+    workspaceId: workspaceId ?? null,
+  });
   const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
   const parentTitle = useConversationNavigatorStore((state) => {
     const parentConversationId = projection?.snapshot?.branch?.parentConversationId;
@@ -137,7 +142,14 @@ export function EasyButtonSurface({
   });
   const projectedView = easyButtonProjectionView(conversationId, projection, paneId, parentTitle);
   const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
-  return <EasyButtonProjectionSurface commands={commands} speech={speech} view={view} />;
+  return (
+    <EasyButtonProjectionSurface
+      commands={commands}
+      readOnly={!workspaceAvailable}
+      speech={speech}
+      view={view}
+    />
+  );
 }
 
 export function easyButtonConversationProjection(
@@ -167,10 +179,12 @@ function composerPlaceholder(
 
 export function EasyButtonProjectionSurface({
   commands,
+  readOnly = false,
   speech,
   view,
 }: {
   commands?: EasyButtonConversationCommands;
+  readOnly?: boolean;
   speech?: PaneSpeechPresentation | null;
   view: EasyButtonProjectionView;
 }) {
@@ -202,17 +216,24 @@ export function EasyButtonProjectionSurface({
       ref={rootRef}
       style={conversationPaletteStyle(view.paletteId)}
     >
-      <EasyButtonProjectionContent commands={commands} speech={speech} view={view} />
+      <EasyButtonProjectionContent
+        commands={commands}
+        readOnly={readOnly}
+        speech={speech}
+        view={view}
+      />
     </section>
   );
 }
 
 function EasyButtonProjectionContent({
   commands,
+  readOnly,
   speech,
   view,
 }: {
   commands: EasyButtonConversationCommands | undefined;
+  readOnly: boolean;
   speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
 }) {
@@ -234,18 +255,18 @@ function EasyButtonProjectionContent({
           </div>
           {view.presentationProfile && view.workspaceId ? (
             <ConversationPresentationConfiguration
-              archived={view.archived}
+              archived={view.archived || readOnly}
               profile={view.presentationProfile}
               workspaceId={view.workspaceId}
             />
           ) : null}
           <ConversationControl commands={commands} view={view} />
           <CaptionSlot view={view} />
-          <ConversationActionSlot commands={commands} view={view} />
+          <ConversationActionSlot commands={readOnly ? undefined : commands} view={view} />
         </div>
       </main>
       <ArtifactRail artifacts={view.artifacts} />
-      <ConversationComposer commands={commands} speech={speech} view={view} />
+      <ConversationComposer commands={commands} readOnly={readOnly} speech={speech} view={view} />
     </>
   );
 }
@@ -330,10 +351,12 @@ function ConversationActionSlot({
 
 function ConversationComposer({
   commands,
+  readOnly,
   speech,
   view,
 }: {
   commands: EasyButtonConversationCommands | undefined;
+  readOnly: boolean;
   speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
 }) {
@@ -348,7 +371,11 @@ function ConversationComposer({
       onInput={bindings.onInput}
       onSubmit={bindings.onSubmit}
       onVoiceCapture={bindings.onVoiceCapture}
-      placeholder={composerPlaceholder(view, commands)}
+      placeholder={
+        readOnly
+          ? "Workspace folder unavailable — conversation is read-only"
+          : composerPlaceholder(view, commands)
+      }
       speech={speech}
     />
   );

@@ -27,6 +27,40 @@ func (handler handler) openWorkspace(response http.ResponseWriter, request *http
 	writeJSON(response, http.StatusOK, OpenWorkspaceResponse{Workspace: workspaceSummary, Session: session})
 }
 
+func (handler handler) relocateWorkspace(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	var payload RelocateWorkspaceRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	workspaceSummary, session, err := service.Relocate(payload.ID, payload.RootPath)
+	if err != nil {
+		writeWorkspaceError(response, "relocate_workspace_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, OpenWorkspaceResponse{Workspace: workspaceSummary, Session: session})
+}
+
+func (handler handler) refreshWorkspaceAvailability(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	var payload RefreshWorkspaceAvailabilityRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	session, err := service.RefreshAvailability(payload.ID)
+	if err != nil {
+		writeWorkspaceError(response, "refresh_workspace_availability_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, session)
+}
+
 func (handler handler) selectWorkspace(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceService(response, handler.workspaceService)
 	if service == nil {

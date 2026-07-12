@@ -85,7 +85,10 @@ import type {
   WorkspaceLayoutAreaProps,
   WorkspaceLayoutRuntimeAreaProps,
 } from "./workspace-layout-area-contract";
-import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
+import {
+  WorkspaceAvailabilityNotice,
+  WorkspaceFirstRunSurface,
+} from "./workspace-availability-surface";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import { useWorkspaceLayoutSnapshot, useWorkspaceLayoutTarget } from "./workspace-layout-state";
 import {
@@ -116,7 +119,7 @@ export function WorkspaceLayoutArea({
   const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
   const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, mode);
   if (!workspace && mode === "workspace") {
-    return <WorkspaceNoWorkspaceState platform={platform} status={workspaceTarget.status} />;
+    return <WorkspaceFirstRunSurface platform={platform} status={workspaceTarget.status} />;
   }
   if (layoutLoad.status === "loading") {
     return <WorkspaceLayoutLoading mode={mode} platform={platform} workspaceId={workspaceId} />;
@@ -881,6 +884,7 @@ function WorkspaceLayoutRuntimeArea({
       data-testid="workspace-layout-area"
       ref={rootRef}
     >
+      <WorkspaceAvailabilityNotice workspaceId={workspaceId} workspaceName={workspaceName} />
       <WorkspaceLayoutRecoveryNotice
         message={layoutRecoveryMessage}
         onDismiss={() => setLayoutRecoveryDismissed(true)}

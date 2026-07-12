@@ -56,11 +56,58 @@ func TestWorkspaceEndpointsOpenSelectReorderCloseAndRemoveRecent(t *testing.T) {
 	assertIDs(t, "recent after remove web", removedRecent.RecentWorkspaces, []string{openAPI.Workspace.ID})
 }
 
+func TestWorkspaceRelocateEndpointPreservesIdentity(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+		mustTime(t, "2026-05-29T20:05:00Z"),
+	})
+	originalRoot := t.TempDir()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: originalRoot}, http.StatusOK)
+	if err := os.RemoveAll(originalRoot); err != nil {
+		t.Fatalf("remove original root: %v", err)
+	}
+
+	relocated := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/relocate", RelocateWorkspaceRequest{
+		ID:       opened.Workspace.ID,
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	if relocated.Workspace.ID != opened.Workspace.ID || relocated.Session.SelectedWorkspaceID != opened.Workspace.ID {
+		t.Fatalf("relocated response = %+v, want preserved workspace id %s", relocated, opened.Workspace.ID)
+	}
+	availability, err := relocated.Session.Availability(opened.Workspace.ID)
+	if err != nil || !availability.Available {
+		t.Fatalf("relocated availability = %+v err=%v, want available", availability, err)
+	}
+}
+
+func TestWorkspaceAvailabilityRefreshEndpointReportsMissingRoot(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	rootPath := t.TempDir()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: rootPath}, http.StatusOK)
+	if err := os.RemoveAll(rootPath); err != nil {
+		t.Fatalf("remove workspace root: %v", err)
+	}
+
+	refreshed := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/availability/refresh", RefreshWorkspaceAvailabilityRequest{
+		ID: opened.Workspace.ID,
+	}, http.StatusOK)
+	availability, err := refreshed.Availability(opened.Workspace.ID)
+	if err != nil {
+		t.Fatalf("read refreshed availability: %v", err)
+	}
+	if availability.Available || !strings.Contains(availability.UnavailableReason, "does not exist") {
+		t.Fatalf("availability = %+v, want missing root", availability)
+	}
+}
+
 func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, nil, []time.Time{
 		mustTime(t, "2026-05-29T20:00:00Z"),
 	})
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	rootPath := t.TempDir()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: rootPath}, http.StatusOK)
 	layout := workspaceUILayout(opened.Workspace.ID)
 
 	saved := postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
@@ -84,6 +131,15 @@ func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	}
 	if _, err := os.Stat(workspaceui.StateFilePath(appDataDir, opened.Workspace.ID)); err != nil {
 		t.Fatalf("stat workspace UI state: %v", err)
+	}
+	if err := os.RemoveAll(rootPath); err != nil {
+		t.Fatalf("remove workspace root: %v", err)
+	}
+	readMissingRoot := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if readMissingRoot.Layout == nil || readMissingRoot.Layout.WorkspaceID != opened.Workspace.ID {
+		t.Fatalf("layout after root removal = %+v, want preserved layout", readMissingRoot)
 	}
 }
 

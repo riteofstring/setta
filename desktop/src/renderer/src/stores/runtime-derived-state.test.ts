@@ -21,7 +21,6 @@ describe("runtime-derived renderer state reset", () => {
       status: "ready",
     });
     useConversationNavigatorStore.setState({
-      query: "stale topic",
       workspaces: {
         workspace_local: {
           error: null,
@@ -67,10 +66,7 @@ describe("runtime-derived renderer state reset", () => {
       session: null,
       status: "idle",
     });
-    expect(useConversationNavigatorStore.getState()).toMatchObject({
-      query: "",
-      workspaces: {},
-    });
+    expect(useConversationNavigatorStore.getState()).toMatchObject({ workspaces: {} });
     expect(useConversationPaneStore.getState().workspaces.size).toBe(0);
     expect(useConversationRoutingStore.getState().presentations.size).toBe(0);
   });
@@ -88,5 +84,6 @@ function workspaceSession(workspaceId: string): WorkspaceSession {
     ],
     recentWorkspaces: [],
     selectedWorkspaceId: workspaceId,
+    workspaceAvailabilities: [{ available: true, unavailableReason: "", workspaceId }],
   };
 }

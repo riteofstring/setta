@@ -98,7 +98,7 @@ describe("conversation navigator sidebar model", () => {
     });
   });
 
-  test("represents loading, empty search, error, and incremental paging explicitly", () => {
+  test("represents loading, empty, error, and incremental paging explicitly", () => {
     const api = workspace("workspace_api", "api");
     const input = navigationInput([api]);
     input.conversationWorkspaces = {
@@ -109,12 +109,11 @@ describe("conversation navigator sidebar model", () => {
       label: "Loading conversations…",
     });
 
-    input.conversationQuery = "missing";
     input.conversationWorkspaces = {
       [api.id]: { error: null, items: [], loading: false, nextCursor: null },
     };
     expect(selectSidebarNavigationItems(input)[1]).toMatchObject({
-      label: "No matching conversations",
+      label: "No conversations",
     });
 
     input.conversationWorkspaces = {
@@ -158,11 +157,15 @@ function navigationInput(activeWorkspaces: WorkspaceSummary[]): SidebarNavigatio
   return {
     activeWorkspaces,
     conversationPanes: new Map(),
-    conversationQuery: "",
     conversationWorkspaces: {},
     expandedWorkspaceIds: new Set(activeWorkspaces.map((workspace) => workspace.id)),
     recentWorkspaces: [],
     selectedWorkspaceId: activeWorkspaces[0]?.id ?? "",
+    workspaceAvailabilities: activeWorkspaces.map((workspace) => ({
+      available: true,
+      unavailableReason: "",
+      workspaceId: workspace.id,
+    })),
   };
 }
 

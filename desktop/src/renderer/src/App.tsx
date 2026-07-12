@@ -17,6 +17,7 @@ import { ResizablePane } from "./components/resizable-pane";
 import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
+import { useInitialEasyButtonPane } from "./features/easy-button/initial-easy-button-pane";
 import { AppShellMasterProvider } from "./features/global-master/app-shell-master";
 import type {
   AppShellMasterController,
@@ -54,6 +55,7 @@ import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store
 import {
   type WorkspaceOperation,
   type WorkspaceStatus,
+  workspaceAvailability,
   useWorkspaceStore,
 } from "./stores/workspace-store";
 
@@ -67,6 +69,10 @@ export function App() {
 
 function SettaApp({ setta }: { setta: SettaAPI }) {
   const workspace = useWorkspaceViewState();
+  const activeWorkspaceIds = useMemo(
+    () => workspace.activeWorkspaces.map((activeWorkspace) => activeWorkspace.id),
+    [workspace.activeWorkspaces],
+  );
   const masterInputFocusHints = useMasterInputFocusHints(workspace.selectedWorkspaceId);
   const platform = setta.app.platform;
   const viewport = useViewportSize();
@@ -151,6 +157,18 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     },
     [applyConversationPresentationRequest],
   );
+  const setInitialConversationError = useCallback((message: string | null) => {
+    setConversationPresentationError(message);
+  }, []);
+  useInitialEasyButtonPane({
+    activeWorkspaceIds,
+    connectedRuntimeId: runtime.connectedRuntimeId,
+    onError: setInitialConversationError,
+    presentConversation: presentConversationRequest,
+    selectedWorkspaceId: workspace.selectedWorkspaceId,
+    selectedWorkspaceAvailable: workspace.selectedWorkspaceAvailable,
+    setta,
+  });
   const presentConversation = useCallback(
     async (workspaceId: string, conversationId: string, title: string): Promise<void> => {
       try {
@@ -449,6 +467,7 @@ function ProjectPane({
       showLogoHeader={mobileOverlay}
       sidebarWidth={mobileOverlay ? viewportWidth : width}
       workspaceError={workspace.error}
+      workspaceAvailabilities={workspace.workspaceAvailabilities}
     />
   );
 
@@ -627,34 +646,57 @@ function ShellTopBarButton({
 }
 
 function useWorkspaceViewState() {
-  const clearError = useWorkspaceStore((state) => state.clearError);
-  const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
-  const error = useWorkspaceStore((state) => state.error);
-  const openLocalFolder = useWorkspaceStore((state) => state.openLocalFolder);
-  const openWorkspacePath = useWorkspaceStore((state) => state.openWorkspacePath);
-  const operation = useWorkspaceStore((state) => state.operation);
-  const removeRecent = useWorkspaceStore((state) => state.removeRecent);
-  const selectWorkspace = useWorkspaceStore((state) => state.selectWorkspace);
-  const session = useWorkspaceStore((state) => state.session);
-  const status = useWorkspaceStore((state) => state.status);
-  const selectedWorkspace = useSelectedWorkspace(session);
+  const state = useWorkspaceStore((workspaceState) => workspaceState);
+  const selectedWorkspace = useSelectedWorkspace(state.session);
+  return workspaceViewState(state, selectedWorkspace);
+}
 
+function workspaceViewState(
+  state: ReturnType<typeof useWorkspaceStore.getState>,
+  selectedWorkspace: WorkspaceSession["activeWorkspaces"][number] | null,
+) {
   return {
-    activeWorkspaces: session?.activeWorkspaces ?? [],
-    busy: operation !== null || status === "loading",
-    clearError,
-    closeWorkspace,
-    error,
-    openLocalFolder,
-    openWorkspacePath,
-    operation,
-    recentWorkspaces: session?.recentWorkspaces ?? [],
-    removeRecent,
-    selectWorkspace,
-    selectedWorkspace,
-    selectedWorkspaceId: session?.selectedWorkspaceId ?? "",
-    status,
+    ...workspaceSessionViewState(state.session, selectedWorkspace),
+    busy: workspaceOperationBusy(state.operation, state.status),
+    clearError: state.clearError,
+    closeWorkspace: state.closeWorkspace,
+    error: state.error,
+    openLocalFolder: state.openLocalFolder,
+    openWorkspacePath: state.openWorkspacePath,
+    operation: state.operation,
+    removeRecent: state.removeRecent,
+    selectWorkspace: state.selectWorkspace,
+    status: state.status,
   };
+}
+
+function workspaceSessionViewState(
+  session: WorkspaceSession | null,
+  selectedWorkspace: WorkspaceSession["activeWorkspaces"][number] | null,
+) {
+  if (!session) {
+    return {
+      activeWorkspaces: [],
+      recentWorkspaces: [],
+      selectedWorkspace,
+      selectedWorkspaceAvailable: false,
+      selectedWorkspaceId: "",
+      workspaceAvailabilities: [],
+    };
+  }
+  const selectedAvailability = workspaceAvailability(session, session.selectedWorkspaceId);
+  return {
+    activeWorkspaces: session.activeWorkspaces,
+    recentWorkspaces: session.recentWorkspaces,
+    selectedWorkspace,
+    selectedWorkspaceAvailable: selectedAvailability?.available ?? false,
+    selectedWorkspaceId: session.selectedWorkspaceId,
+    workspaceAvailabilities: session.workspaceAvailabilities,
+  };
+}
+
+function workspaceOperationBusy(operation: WorkspaceOperation, status: WorkspaceStatus): boolean {
+  return operation !== null || status === "loading";
 }
 
 function useSelectedWorkspace(session: WorkspaceSession | null) {

@@ -4,7 +4,7 @@
 import { delimiter, join } from "node:path";
 import process from "node:process";
 
-import { backendProbe } from "./electron-workflow-harness.mjs";
+import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
@@ -21,7 +21,7 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import { createTopic } from "./topic-conversation-fork-workflow.mjs";
+import { createTopic, listTopics } from "./topic-conversation-fork-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-presentation-configuration";
@@ -58,15 +58,9 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  const backend = await backendProbe(firstLaunchDir);
+  let backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
-  const alpha = await createTopic(
-    context.client,
-    backend,
-    workspaceId,
-    "Presentation alpha",
-    workflowTimeoutMs,
-  );
+  const alpha = await waitForInitialTopic(backend, workspaceId);
   const beta = await createTopic(
     context.client,
     backend,
@@ -136,6 +130,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
+  backend = await backendProbe(secondLaunchDir);
   const restoredWorkspaceId = await openWorkspace(context.client);
   assertEqual(restoredWorkspaceId, workspaceId, "restored presentation workspace");
   await openVoiceSettings(context.client);
@@ -164,9 +159,19 @@ try {
   await waitForConversationSettings(context.client, alpha.id, "blue", "ballad", false);
 
   const gammaTitle = "Presentation default narrator";
-  const created = await context.client.driver("topicConversationCreate", { title: gammaTitle });
-  if (!created.created) {
-    throw new Error("Topic creation control was unavailable for narrator-default verification");
+  const createdGamma = await backend.post("/conversations/create", {
+    title: gammaTitle,
+    workspaceId,
+  });
+  const gammaPresentation = await context.client.driver("topicConversationRequestPresentation", {
+    conversationId: createdGamma.conversation.id,
+    title: createdGamma.conversation.title,
+    workspaceId,
+  });
+  if (gammaPresentation.kind !== "opened" && gammaPresentation.kind !== "focused") {
+    throw new Error(
+      `default narrator topic could not be presented: ${JSON.stringify(gammaPresentation)}`,
+    );
   }
   const gamma = await waitForState(
     context.client,
@@ -282,6 +287,23 @@ async function openWorkspace(client) {
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+async function waitForInitialTopic(backend, workspaceId) {
+  const page = await waitForBackendState(
+    () => listTopics(backend, workspaceId),
+    (current) =>
+      current.items.length === 1 && current.items[0]?.conversation.title === "New conversation",
+    workflowTimeoutMs,
+  );
+  const item = page.items[0];
+  return {
+    id: item.conversation.id,
+    narratorVoiceId: item.presentationProfile.resolvedNarratorVoiceId,
+    narratorVoiceSelection: item.presentationProfile.narratorVoiceSelection,
+    paletteId: item.presentationProfile.resolvedPaletteId,
+    title: item.conversation.title,
+  };
 }
 
 async function openVoiceSettings(client) {

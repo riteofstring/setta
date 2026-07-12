@@ -1,4 +1,4 @@
-/* global Event, HTMLElement, HTMLInputElement, MutationObserver, PerformanceObserver, document, performance, requestAnimationFrame, window */
+/* global Event, HTMLButtonElement, HTMLElement, MutationObserver, PerformanceObserver, document, performance, requestAnimationFrame, window */
 
 (() => {
   const version = "setta-topic-conversation-performance-driver-v2";
@@ -10,6 +10,7 @@
       throw new Error("base Setta E2E driver is not installed");
     }
     Object.assign(driver, {
+      topicConversationNavigatorActivateWorkspace,
       topicConversationNavigatorLoadMore,
       topicConversationNavigatorScroll,
       topicConversationNavigatorSnapshot,
@@ -62,10 +63,8 @@
 
   function topicConversationNavigatorSnapshot() {
     const list = document.querySelector('[data-testid="conversation-navigation-list"]');
-    const search = document.querySelector('input[aria-label="Search conversations"]');
-    const searchQuery = search instanceof HTMLInputElement ? search.value : "";
     if (!(list instanceof HTMLElement)) {
-      return emptyNavigatorSnapshot(searchQuery);
+      return emptyNavigatorSnapshot();
     }
     const renderedItems = list.querySelectorAll(
       '[data-testid="active-workspace-item"], [data-testid="conversation-more-item"], [data-testid="conversation-navigator-row"], [data-testid="conversation-status-item"], [data-testid="recent-workspace-item"]',
@@ -89,11 +88,10 @@
       renderedWorkspaceCount: list.querySelectorAll('[data-testid="active-workspace-item"]').length,
       scrollHeight: list.scrollHeight,
       scrollTop: list.scrollTop,
-      searchQuery,
     };
   }
 
-  function emptyNavigatorSnapshot(searchQuery) {
+  function emptyNavigatorSnapshot() {
     return {
       bodyDescendantCount: document.body.querySelectorAll("*").length,
       clientHeight: 0,
@@ -105,7 +103,6 @@
       renderedWorkspaceCount: 0,
       scrollHeight: 0,
       scrollTop: 0,
-      searchQuery,
     };
   }
 
@@ -130,6 +127,17 @@
       document.querySelectorAll('[data-testid="conversation-more-item"] button'),
     ).find((button) => !button.disabled);
     if (!(candidate instanceof HTMLElement)) {
+      return { clicked: false };
+    }
+    candidate.click();
+    return { clicked: true };
+  }
+
+  function topicConversationNavigatorActivateWorkspace({ workspaceId }) {
+    const candidate = Array.from(
+      document.querySelectorAll('[data-testid="active-workspace-select"]'),
+    ).find((button) => button instanceof HTMLElement && button.dataset.workspaceId === workspaceId);
+    if (!(candidate instanceof HTMLButtonElement) || candidate.disabled) {
       return { clicked: false };
     }
     candidate.click();
@@ -169,8 +177,6 @@
       attributeRecords: 0,
       callbackCount: 0,
       characterDataRecords: 0,
-      paletteIdentityAttributeRecords: 0,
-      paletteIdentityChanges: 0,
       recordCount: 0,
       removedNodes: 0,
     };
@@ -186,20 +192,6 @@
         mutations.removedNodes += record.removedNodes.length;
         if (record.type === "attributes") {
           mutations.attributeRecords += 1;
-          if (record.attributeName === "data-conversation-palette") {
-            mutations.paletteIdentityAttributeRecords += 1;
-            const nextPaletteId =
-              record.target instanceof HTMLElement
-                ? record.target.getAttribute("data-conversation-palette")
-                : null;
-            if (
-              record.oldValue !== null &&
-              nextPaletteId !== null &&
-              record.oldValue !== nextPaletteId
-            ) {
-              mutations.paletteIdentityChanges += 1;
-            }
-          }
         } else if (record.type === "characterData") {
           mutations.characterDataRecords += 1;
         }
@@ -207,7 +199,6 @@
     });
     mutationObserver.observe(document.body, {
       attributes: true,
-      attributeOldValue: true,
       characterData: true,
       childList: true,
       subtree: true,

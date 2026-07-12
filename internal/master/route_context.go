@@ -458,16 +458,27 @@ func (point RouteForkPoint) Validate() error {
 func routeWorkspaceContexts(
 	session workspacesession.WorkspaceSession,
 ) ([]RouteWorkspaceContext, []string, error) {
-	if len(session.ActiveWorkspaces) > MaxRouteActiveWorkspaces {
+	availableIDs, err := session.AvailableActiveWorkspaceIDs()
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolve master route workspace availability: %w", err)
+	}
+	if len(availableIDs) > MaxRouteActiveWorkspaces {
 		return nil, nil, fmt.Errorf(
 			"master route context exceeds %d active workspaces",
 			MaxRouteActiveWorkspaces,
 		)
 	}
-	contexts := make([]RouteWorkspaceContext, 0, len(session.ActiveWorkspaces))
-	ids := make([]string, 0, len(session.ActiveWorkspaces))
+	available := make(map[string]bool, len(availableIDs))
+	for _, id := range availableIDs {
+		available[id] = true
+	}
+	contexts := make([]RouteWorkspaceContext, 0, len(availableIDs))
+	ids := make([]string, 0, len(availableIDs))
 	seen := map[string]bool{}
 	for _, summary := range session.ActiveWorkspaces {
+		if !available[summary.ID] {
+			continue
+		}
 		if err := validateRouteReference("master route open workspace id", summary.ID); err != nil {
 			return nil, nil, err
 		}

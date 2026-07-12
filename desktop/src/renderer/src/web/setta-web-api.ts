@@ -310,7 +310,15 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         return requireClient().openWorkspace({ rootPath });
       },
       openPath: (rootPath) => requireClient().openWorkspace({ rootPath }),
+      relocateLocalFolder: async (id) => {
+        const rootPath = window.prompt("New workspace path")?.trim() ?? "";
+        if (rootPath === "") {
+          return null;
+        }
+        return requireClient().relocateWorkspace({ id, rootPath });
+      },
       readUILayout: (workspaceId) => requireClient().readWorkspaceUILayout({ workspaceId }),
+      refreshAvailability: (id) => requireClient().refreshWorkspaceAvailability({ id }),
       removeRecent: (id) => requireClient().removeRecentWorkspace({ id }),
       reorder: (ids) => requireClient().reorderWorkspace({ ids }),
       saveUILayout: (layout) => requireClient().saveWorkspaceUILayout({ layout }),

@@ -1,13 +1,13 @@
-import type { WorkspaceSummary } from "@generated/backend";
-import { AlertTriangle, Plus, Search, X } from "lucide-react";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { WorkspaceAvailability, WorkspaceSummary } from "@generated/backend";
+import { AlertTriangle, X } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 import { MasterSidebarLauncher } from "../features/global-master/app-shell-master-surface";
 import { useConversationNavigatorStore } from "../stores/conversation-navigator-store";
-import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
 import { useConversationPaneStore } from "../stores/conversation-pane-store";
+import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
 import { RuntimePicker, RuntimePickerAddButton } from "./runtime-picker";
 import {
   defaultSidebarSections,
@@ -56,6 +56,7 @@ interface WorkspaceSidebarProps {
   sidebarWidth?: number;
   masterUnavailable?: boolean;
   workspaceError?: string | null;
+  workspaceAvailabilities: readonly WorkspaceAvailability[];
 }
 
 type NormalizedWorkspaceSidebarProps = Omit<
@@ -106,6 +107,7 @@ function WorkspaceSidebarContent({
   sidebarWidth,
   masterUnavailable = false,
   workspaceError,
+  workspaceAvailabilities,
 }: NormalizedWorkspaceSidebarProps) {
   const [navigationError, setNavigationError] = useState<string | null>(null);
   const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<ReadonlySet<string>>(
@@ -114,7 +116,6 @@ function WorkspaceSidebarContent({
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
   const [runtimePairingOpen, setRuntimePairingOpen] = useState(false);
-  const conversationQuery = useConversationNavigatorStore((state) => state.query);
   const subscribedConversationWorkspaces = useConversationNavigatorStore(
     (state) => state.workspaces,
   );
@@ -122,19 +123,12 @@ function WorkspaceSidebarContent({
     Object.keys(subscribedConversationWorkspaces).length > 0
       ? subscribedConversationWorkspaces
       : useConversationNavigatorStore.getState().workspaces;
-  const setConversationQuery = useConversationNavigatorStore((state) => state.setQuery);
-  const syncConversationWorkspaces = useConversationNavigatorStore((state) => state.syncWorkspaces);
   const loadMoreConversations = useConversationNavigatorStore((state) => state.loadMore);
   const subscribedConversationPanes = useConversationPaneStore((state) => state.workspaces);
   const conversationPanes =
     subscribedConversationPanes.size > 0
       ? subscribedConversationPanes
       : useConversationPaneStore.getState().workspaces;
-  const activeWorkspaceKey = activeWorkspaces.map((workspace) => workspace.id).join("\u0000");
-
-  useEffect(() => {
-    void syncConversationWorkspaces(activeWorkspaces.map((workspace) => workspace.id));
-  }, [activeWorkspaceKey, activeWorkspaces, conversationQuery, syncConversationWorkspaces]);
   useEffect(() => {
     if (!selectedWorkspaceId) {
       return;
@@ -143,13 +137,6 @@ function WorkspaceSidebarContent({
       current.has(selectedWorkspaceId) ? current : new Set([...current, selectedWorkspaceId]),
     );
   }, [selectedWorkspaceId]);
-  useEffect(() => {
-    if (conversationQuery.trim() === "") {
-      return;
-    }
-    setExpandedWorkspaceIds(new Set(activeWorkspaces.map((workspace) => workspace.id)));
-  }, [activeWorkspaceKey, activeWorkspaces, conversationQuery]);
-
   const visibleError = navigationError ?? conversationPresentationError ?? workspaceError;
   function dismissVisibleError() {
     if (navigationError) {
@@ -192,29 +179,6 @@ function WorkspaceSidebarContent({
         >
           <RuntimePicker adding={runtimePairingOpen} setAdding={setRuntimePairingOpen} />
         </SidebarAccordionSection>
-        <ConversationSearch query={conversationQuery} setQuery={setConversationQuery} />
-        <ConversationCreate
-          disabled={busy || !selectedWorkspaceId}
-          onCreated={async (title) => {
-            setNavigationError(null);
-            try {
-              const snapshot = await window.setta.conversations.create({
-                title,
-                workspaceId: selectedWorkspaceId,
-              });
-              hydrateConversationProjectionSnapshot(snapshot);
-              await presentConversation(
-                selectedWorkspaceId,
-                snapshot.conversation.id,
-                snapshot.conversation.title,
-              );
-              return true;
-            } catch (error) {
-              setNavigationError(errorMessage(error));
-              return false;
-            }
-          }}
-        />
         <SidebarOperationError message={visibleError} onDismiss={dismissVisibleError} />
       </div>
       <div
@@ -239,7 +203,6 @@ function WorkspaceSidebarContent({
               activeWorkspaces={activeWorkspaces}
               busy={busy}
               conversationPanes={conversationPanes}
-              conversationQuery={conversationQuery}
               conversationWorkspaces={conversationWorkspaces}
               expandedWorkspaceIds={expandedWorkspaceIds}
               loadMoreConversations={loadMoreConversations}
@@ -250,6 +213,7 @@ function WorkspaceSidebarContent({
               removeRecent={removeRecent}
               selectWorkspace={selectWorkspace}
               selectedWorkspaceId={selectedWorkspaceId}
+              workspaceAvailabilities={workspaceAvailabilities}
               setExpandedWorkspaceIds={setExpandedWorkspaceIds}
               closeWorkspace={closeWorkspace}
             />
@@ -274,59 +238,6 @@ function WorkspaceMasterLauncher({
   return <MasterSidebarLauncher disabled={disabled} onOpen={onOpen} />;
 }
 
-function ConversationCreate({
-  disabled,
-  onCreated,
-}: {
-  disabled: boolean;
-  onCreated: (title: string) => Promise<boolean>;
-}) {
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState("");
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const requestedTitle = title.trim();
-    if (disabled || creating || !requestedTitle) {
-      return;
-    }
-    setCreating(true);
-    try {
-      if (await onCreated(requestedTitle)) {
-        setTitle("");
-      }
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  return (
-    <form
-      className="mt-2 grid h-8 grid-cols-[minmax(0,1fr)_28px] items-center rounded-sm border border-border/70"
-      data-testid="conversation-create-form"
-      onSubmit={submit}
-    >
-      <input
-        aria-label="New topic title"
-        className="min-w-0 bg-transparent px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground"
-        disabled={disabled || creating}
-        maxLength={200}
-        onChange={(event) => setTitle(event.target.value)}
-        placeholder="New topic…"
-        value={title}
-      />
-      <button
-        aria-label="Create topic conversation"
-        className="grid h-full place-items-center border-l border-border/70 text-muted-foreground disabled:opacity-50"
-        disabled={disabled || creating || title.trim() === ""}
-        type="submit"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-    </form>
-  );
-}
-
 function normalizeWorkspaceSidebarProps(
   props: WorkspaceSidebarProps,
 ): NormalizedWorkspaceSidebarProps {
@@ -342,34 +253,11 @@ function normalizeWorkspaceSidebarProps(
   };
 }
 
-function ConversationSearch({
-  query,
-  setQuery,
-}: {
-  query: string;
-  setQuery: (value: string) => void;
-}) {
-  return (
-    <label className="mt-2 grid h-8 grid-cols-[16px_minmax(0,1fr)] items-center gap-1 rounded-sm border border-border/70 px-2 text-muted-foreground focus-within:border-ring focus-within:text-foreground">
-      <Search className="h-3.5 w-3.5" />
-      <input
-        aria-label="Search conversations"
-        className="min-w-0 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search conversations…"
-        type="search"
-        value={query}
-      />
-    </label>
-  );
-}
-
 function ConversationNavigationList({
   activeWorkspaces,
   busy,
   closeWorkspace,
   conversationPanes,
-  conversationQuery,
   conversationWorkspaces,
   expandedWorkspaceIds,
   loadMoreConversations,
@@ -380,6 +268,7 @@ function ConversationNavigationList({
   removeRecent,
   selectWorkspace,
   selectedWorkspaceId,
+  workspaceAvailabilities,
   setExpandedWorkspaceIds,
 }: Pick<
   WorkspaceSidebarProps,
@@ -392,9 +281,9 @@ function ConversationNavigationList({
   | "removeRecent"
   | "selectWorkspace"
   | "selectedWorkspaceId"
+  | "workspaceAvailabilities"
 > & {
   conversationPanes: ReturnType<typeof useConversationPaneStore.getState>["workspaces"];
-  conversationQuery: string;
   conversationWorkspaces: ReturnType<typeof useConversationNavigatorStore.getState>["workspaces"];
   expandedWorkspaceIds: ReadonlySet<string>;
   loadMoreConversations: (workspaceId: string) => Promise<void>;
@@ -407,20 +296,20 @@ function ConversationNavigationList({
       selectSidebarNavigationItems({
         activeWorkspaces,
         conversationPanes,
-        conversationQuery,
         conversationWorkspaces,
         expandedWorkspaceIds,
         recentWorkspaces,
         selectedWorkspaceId,
+        workspaceAvailabilities,
       }),
     [
       activeWorkspaces,
       conversationPanes,
-      conversationQuery,
       conversationWorkspaces,
       expandedWorkspaceIds,
       recentWorkspaces,
       selectedWorkspaceId,
+      workspaceAvailabilities,
     ],
   );
 

@@ -12,43 +12,15 @@ export async function createTopic(
   timeoutMs,
   { allowCatalogExhaustion = false } = {},
 ) {
-  const before = await listTopics(backend, workspaceId);
-  assertDriverAction(await client.driver("topicConversationCreate", { title }), "created");
-  const page = await waitForBackendState(
-    async () => listTopics(backend, workspaceId),
-    (current) =>
-      current.items.length === Math.min(before.items.length + 1, navigatorPageLimit) &&
-      current.items.some((item) => item.conversation.title === title),
-    timeoutMs,
-  );
-  const item = page.items.find((candidate) => candidate.conversation.title === title);
-  if (!item) {
-    throw new Error(`created topic ${title} was not listed: ${JSON.stringify(page)}`);
-  }
-  if (
-    item.presentationProfile.narratorVoiceSelection !== "auto_distinct" ||
-    item.presentationProfile.requestedNarratorVoiceId !== null ||
-    typeof item.presentationProfile.resolvedNarratorVoiceId !== "string" ||
-    !validNarratorVoiceReuse(item.presentationProfile.narratorVoiceReuse, allowCatalogExhaustion)
-  ) {
-    throw new Error(
-      `created topic ${title} has an invalid durable narrator voice selection: ${JSON.stringify(item.presentationProfile)}`,
-    );
-  }
-  await waitForConversationSurface(
-    client,
-    item.conversation.id,
-    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
-    timeoutMs,
-  );
-  await waitForPersistedConversationPane(backend, workspaceId, item.conversation.id, timeoutMs);
+  const item = await createAndListTopic({ backend, timeoutMs, title, workspaceId });
+  assertCreatedTopicVoice(item, title, allowCatalogExhaustion);
+  await presentCreatedTopic({ backend, client, item, timeoutMs, workspaceId });
   const presentedPage = await listTopics(backend, workspaceId);
-  const presentedItem = presentedPage.items.find(
+  const presentedItem = requireListedTopic(
+    presentedPage,
     (candidate) => candidate.conversation.id === item.conversation.id,
+    `presented topic ${title}`,
   );
-  if (!presentedItem) {
-    throw new Error(`presented topic ${title} was not listed: ${JSON.stringify(presentedPage)}`);
-  }
   return {
     id: presentedItem.conversation.id,
     narratorVoiceId: presentedItem.presentationProfile.resolvedNarratorVoiceId,
@@ -56,6 +28,68 @@ export async function createTopic(
     paletteId: presentedItem.presentationProfile.resolvedPaletteId,
     title,
   };
+}
+
+async function createAndListTopic({ backend, timeoutMs, title, workspaceId }) {
+  const before = await listTopics(backend, workspaceId);
+  const created = await backend.post("/conversations/create", { title, workspaceId });
+  if (created.conversation?.title !== title || created.conversation?.workspaceId !== workspaceId) {
+    throw new Error(`created topic did not match its request: ${JSON.stringify(created)}`);
+  }
+  const page = await waitForBackendState(
+    async () => listTopics(backend, workspaceId),
+    (current) =>
+      current.items.length === Math.min(before.items.length + 1, navigatorPageLimit) &&
+      current.items.some((item) => item.conversation.title === title),
+    timeoutMs,
+  );
+  return requireListedTopic(
+    page,
+    (candidate) => candidate.conversation.title === title,
+    `created topic ${title}`,
+  );
+}
+
+function requireListedTopic(page, matches, description) {
+  const item = page.items.find(matches);
+  if (!item) {
+    throw new Error(`${description} was not listed: ${JSON.stringify(page)}`);
+  }
+  return item;
+}
+
+function assertCreatedTopicVoice(item, title, allowCatalogExhaustion) {
+  const profile = item.presentationProfile;
+  const valid =
+    profile.narratorVoiceSelection === "auto_distinct" &&
+    profile.requestedNarratorVoiceId === null &&
+    typeof profile.resolvedNarratorVoiceId === "string" &&
+    validNarratorVoiceReuse(profile.narratorVoiceReuse, allowCatalogExhaustion);
+  if (!valid) {
+    throw new Error(
+      `created topic ${title} has an invalid durable narrator voice selection: ${JSON.stringify(profile)}`,
+    );
+  }
+}
+
+async function presentCreatedTopic({ backend, client, item, timeoutMs, workspaceId }) {
+  const conversationId = item.conversation.id;
+  const presentation = await client.driver("topicConversationRequestPresentation", {
+    conversationId,
+    title: item.conversation.title,
+    workspaceId,
+  });
+  if (presentation.kind !== "opened" && presentation.kind !== "focused") {
+    throw new Error(`created topic could not be presented: ${JSON.stringify(presentation)}`);
+  }
+  await waitForConversationSurface(
+    client,
+    conversationId,
+    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
+    timeoutMs,
+  );
+  await waitForConversationNavigatorRow(client, conversationId, timeoutMs);
+  await waitForPersistedConversationPane(backend, workspaceId, conversationId, timeoutMs);
 }
 
 export function waitForPersistedConversationPane(backend, workspaceId, conversationId, timeoutMs) {

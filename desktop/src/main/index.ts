@@ -225,6 +225,13 @@ function testOpenWorkspaceRoot() {
   return process.env.SETTA_E2E_OPEN_WORKSPACE_ROOT ?? "";
 }
 
+function testRelocateWorkspaceRoot() {
+  if (!isE2E()) {
+    return "";
+  }
+  return process.env.SETTA_E2E_RELOCATE_WORKSPACE_ROOT ?? "";
+}
+
 function mainWindowInitialSize() {
   return {
     height: e2eWindowDimension("SETTA_E2E_WINDOW_HEIGHT", 820),
@@ -450,6 +457,40 @@ function registerIpc() {
     "workspaceOpenPath",
     async (_event, rootPath) => {
       return requireBackendClient().openWorkspace({ rootPath });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workspaceRelocateLocalFolder",
+    async (_event, id) => {
+      const scriptedRoot = testRelocateWorkspaceRoot();
+      if (scriptedRoot) {
+        return requireBackendClient().relocateWorkspace({ id, rootPath: scriptedRoot });
+      }
+      const options: OpenDialogOptions = {
+        properties: ["openDirectory"],
+        title: "Locate Workspace Folder",
+      };
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, options)
+        : await dialog.showOpenDialog(options);
+      if (result.canceled) {
+        return null;
+      }
+      const rootPath = result.filePaths[0];
+      if (!rootPath) {
+        throw new Error("locate folder dialog returned no selected path");
+      }
+      return requireBackendClient().relocateWorkspace({ id, rootPath });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workspaceRefreshAvailability",
+    async (_event, id) => {
+      return requireBackendClient().refreshWorkspaceAvailability({ id });
     },
     ipcObserver,
   );

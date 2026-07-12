@@ -25,11 +25,13 @@ func NewService(store *appstate.Store, manager *workspace.Manager) (*Service, er
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
+	service := &Service{
 		manager: manager,
 		session: session,
 		store:   store,
-	}, nil
+	}
+	service.refreshAllAvailabilityLocked()
+	return service, nil
 }
 
 func (service *Service) Session() WorkspaceSession {
@@ -37,6 +39,13 @@ func (service *Service) Session() WorkspaceSession {
 	defer service.mu.Unlock()
 
 	return service.session.Clone()
+}
+
+func (service *Service) LookupWorkspace(id string) (workspace.WorkspaceSummary, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	return service.session.Workspace(id)
 }
 
 func (service *Service) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
@@ -79,7 +88,11 @@ func (service *Service) OpenLocalFolder(rootPath string) (workspace.WorkspaceSum
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	summary, _, err := service.manager.OpenLocal(rootPath)
+	canonicalRootPath, err := workspace.ValidateLocalRootPath(rootPath)
+	if err != nil {
+		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
+	}
+	summary, err := service.openLocalFolderLocked(canonicalRootPath)
 	if err != nil {
 		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
 	}
@@ -87,11 +100,59 @@ func (service *Service) OpenLocalFolder(rootPath string) (workspace.WorkspaceSum
 	if err := next.Open(summary); err != nil {
 		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
 	}
+	next.setAvailability(inspectWorkspaceAvailability(summary))
 	if err := service.store.Save(next.AppState()); err != nil {
 		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
 	}
 	service.session = next
 	return summary, service.session.Clone(), nil
+}
+
+func (service *Service) Relocate(id string, rootPath string) (workspace.WorkspaceSummary, WorkspaceSession, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	if _, err := service.session.Workspace(id); err != nil {
+		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
+	}
+	canonicalRootPath, err := workspace.ValidateLocalRootPath(rootPath)
+	if err != nil {
+		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
+	}
+	for _, existing := range service.session.RecentWorkspaces {
+		if existing.ID != id && existing.RootPath == canonicalRootPath {
+			return workspace.WorkspaceSummary{}, WorkspaceSession{}, fmt.Errorf(
+				"workspace path is already owned by %s",
+				existing.ID,
+			)
+		}
+	}
+	summary, _, err := service.manager.Relocate(id, canonicalRootPath)
+	if err != nil {
+		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
+	}
+	next := service.session.Clone()
+	if err := next.Relocate(summary); err != nil {
+		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
+	}
+	next.setAvailability(inspectWorkspaceAvailability(summary))
+	if err := service.store.Save(next.AppState()); err != nil {
+		return workspace.WorkspaceSummary{}, WorkspaceSession{}, err
+	}
+	service.session = next
+	return summary, service.session.Clone(), nil
+}
+
+func (service *Service) RefreshAvailability(id string) (WorkspaceSession, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	summary, err := service.session.Workspace(id)
+	if err != nil {
+		return WorkspaceSession{}, err
+	}
+	service.session.setAvailability(inspectWorkspaceAvailability(summary))
+	return service.session.Clone(), nil
 }
 
 func (service *Service) Select(id string) (WorkspaceSession, error) {
@@ -152,4 +213,39 @@ func (service *Service) RemoveRecent(id string) (WorkspaceSession, error) {
 	}
 	service.session = next
 	return service.session.Clone(), nil
+}
+
+func (service *Service) openLocalFolderLocked(rootPath string) (workspace.WorkspaceSummary, error) {
+	for _, existing := range service.session.RecentWorkspaces {
+		if existing.RootPath != rootPath {
+			continue
+		}
+		summary, _, err := service.manager.Relocate(existing.ID, rootPath)
+		return summary, err
+	}
+	summary, _, err := service.manager.OpenLocal(rootPath)
+	return summary, err
+}
+
+func (service *Service) refreshAllAvailabilityLocked() {
+	service.session.WorkspaceAvailabilities = make(
+		[]WorkspaceAvailability,
+		0,
+		len(service.session.RecentWorkspaces),
+	)
+	for _, summary := range service.session.RecentWorkspaces {
+		service.session.WorkspaceAvailabilities = append(
+			service.session.WorkspaceAvailabilities,
+			inspectWorkspaceAvailability(summary),
+		)
+	}
+}
+
+func inspectWorkspaceAvailability(summary workspace.WorkspaceSummary) WorkspaceAvailability {
+	availability := WorkspaceAvailability{WorkspaceID: summary.ID, Available: true}
+	if _, err := workspace.ValidateLocalRootPath(summary.RootPath); err != nil {
+		availability.Available = false
+		availability.UnavailableReason = err.Error()
+	}
+	return availability
 }

@@ -15,6 +15,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "workspace-first-run-recovery.test.mjs",
+    name: "workspace-first-run-recovery",
+    tiers: ["required"],
+  },
+  {
     file: "topic-conversation-archive-workflow.test.mjs",
     name: "topic-conversation-archive",
     tiers: ["required"],

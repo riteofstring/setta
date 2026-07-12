@@ -79,13 +79,23 @@ function usePendingSideCreationCompletion(
   }, [conversationId, paneId, snapshot, workspaceId]);
 }
 
-export function useEasyButtonConversationCommands(
-  workspaceId: string | null,
-  conversationId: string,
-  paneId: string | null,
-  projection: ConversationProjection | undefined,
-  speechCapture: SpeechCaptureRequester | undefined,
-): EasyButtonConversationCommands {
+interface EasyButtonConversationCommandOptions {
+  conversationId: string;
+  paneId: string | null;
+  projection: ConversationProjection | undefined;
+  speechCapture: SpeechCaptureRequester | undefined;
+  workspaceAvailable: boolean;
+  workspaceId: string | null;
+}
+
+export function useEasyButtonConversationCommands({
+  conversationId,
+  paneId,
+  projection,
+  speechCapture,
+  workspaceAvailable,
+  workspaceId,
+}: EasyButtonConversationCommandOptions): EasyButtonConversationCommands {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +116,7 @@ export function useEasyButtonConversationCommands(
       setError(value);
     }
   };
-  const available = conversationCommandsAvailable(workspaceId, projection);
+  const available = workspaceAvailable && conversationCommandsAvailable(workspaceId, projection);
   const canSubmit = conversationInputCanSubmit(available, pending, input) && !failedInput;
   const applySettledRoutingState = useCallback(
     async (state: ConversationInputRoutingState): Promise<void> => {

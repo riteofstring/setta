@@ -2,7 +2,7 @@ import type { OpenWorkspaceResponse, WorkspaceSession } from "@generated/backend
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { useWorkspaceStore } from "./workspace-store";
+import { workspaceAvailability, useWorkspaceStore } from "./workspace-store";
 
 describe("workspace store", () => {
   beforeEach(() => {
@@ -62,6 +62,28 @@ describe("workspace store", () => {
 
     expect(useWorkspaceStore.getState().session).toEqual(session);
     expect(useWorkspaceStore.getState().operation).toBeNull();
+  });
+
+  test("relocates a workspace without changing its identity", async () => {
+    const session = workspaceSession("workspace_api");
+    const workspace = firstWorkspace(session);
+    session.activeWorkspaces[0] = {
+      ...workspace,
+      rootPath: "/tmp/api-relocated",
+    };
+    installSettaAPI({
+      workspace: {
+        relocateLocalFolder: vi.fn().mockResolvedValue({
+          session,
+          workspace: firstWorkspace(session),
+        }),
+      },
+    });
+
+    await useWorkspaceStore.getState().relocateWorkspace("workspace_api");
+
+    expect(useWorkspaceStore.getState().session).toEqual(session);
+    expect(workspaceAvailability(session, "workspace_api")?.available).toBe(true);
   });
 
   test("select close reorder and remove recent replace state from backend responses", async () => {
@@ -274,7 +296,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     close: async () => fallbackSession,
     openLocalFolder: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     openPath: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
+    relocateLocalFolder: async () => ({
+      session: fallbackSession,
+      workspace: fallbackWorkspace,
+    }),
     readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
+    refreshAvailability: async () => fallbackSession,
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
     saveUILayout: async (layout) => layout,
@@ -348,5 +375,10 @@ function workspaceSession(selectedWorkspaceId: string): WorkspaceSession {
       },
     ],
     selectedWorkspaceId,
+    workspaceAvailabilities: ["workspace_api", "workspace_web"].map((workspaceId) => ({
+      available: true,
+      unavailableReason: "",
+      workspaceId,
+    })),
   };
 }

@@ -302,7 +302,7 @@ func (discardingLayoutObserver) ObserveWorkspaceUILayout(WorkspaceUILayout) erro
 
 type testResolver map[string]string
 
-func (resolver testResolver) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
+func (resolver testResolver) LookupWorkspace(id string) (workspace.WorkspaceSummary, error) {
 	rootPath, ok := resolver[id]
 	if !ok {
 		return workspace.WorkspaceSummary{}, errors.New("workspace not found: " + id)

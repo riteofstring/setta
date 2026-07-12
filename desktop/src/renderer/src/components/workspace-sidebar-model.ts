@@ -1,4 +1,4 @@
-import type { NavigatorItem, WorkspaceSummary } from "@generated/backend";
+import type { NavigatorItem, WorkspaceAvailability, WorkspaceSummary } from "@generated/backend";
 
 import type { ConversationNavigatorWorkspaceState } from "../stores/conversation-navigator-store";
 import type { ConversationPaneWorkspaceState } from "../stores/conversation-pane-store";
@@ -34,6 +34,7 @@ export type SidebarNavigationItem =
         primary: SidebarNavigationCommand;
       };
       expanded: boolean;
+      available: boolean;
       id: string;
       kind: "activeWorkspace";
       label: string;
@@ -49,6 +50,7 @@ export type SidebarNavigationItem =
       label: string;
       lineageParentTitle: string | null;
       openPaneCount: number;
+      readOnly: boolean;
     }
   | {
       id: string;
@@ -71,6 +73,7 @@ export type SidebarNavigationItem =
       };
       id: string;
       kind: "recentWorkspace";
+      available: boolean;
       label: string;
       workspace: WorkspaceSummary;
     };
@@ -78,36 +81,40 @@ export type SidebarNavigationItem =
 export interface SidebarNavigationInput {
   activeWorkspaces: readonly WorkspaceSummary[];
   conversationPanes: ReadonlyMap<string, ConversationPaneWorkspaceState>;
-  conversationQuery: string;
   conversationWorkspaces: Readonly<Record<string, ConversationNavigatorWorkspaceState | undefined>>;
   expandedWorkspaceIds: ReadonlySet<string>;
   recentWorkspaces: readonly WorkspaceSummary[];
   selectedWorkspaceId: string;
+  workspaceAvailabilities: readonly WorkspaceAvailability[];
 }
 
 export function selectSidebarNavigationItems({
   activeWorkspaces,
   conversationPanes,
-  conversationQuery,
   conversationWorkspaces,
   expandedWorkspaceIds,
   recentWorkspaces,
   selectedWorkspaceId,
+  workspaceAvailabilities,
 }: SidebarNavigationInput): SidebarNavigationItem[] {
   const items: SidebarNavigationItem[] = [];
   const activeWorkspaceIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
+  const availabilityByWorkspaceId = new Map(
+    workspaceAvailabilities.map((availability) => [availability.workspaceId, availability]),
+  );
 
   for (const workspace of activeWorkspaces) {
     const selected = workspace.id === selectedWorkspaceId;
     const expanded = expandedWorkspaceIds.has(workspace.id);
-    items.push(activeWorkspaceItem(workspace, selected, expanded));
+    const available = availabilityByWorkspaceId.get(workspace.id)?.available ?? false;
+    items.push(activeWorkspaceItem(workspace, selected, expanded, available));
     if (expanded) {
       items.push(
         ...conversationItems(
           workspace.id,
           conversationWorkspaces[workspace.id],
           conversationPanes.get(workspace.id),
-          conversationQuery,
+          available,
         ),
       );
     }
@@ -129,6 +136,7 @@ export function selectSidebarNavigationItems({
       id: `recent-workspace:${workspace.id}`,
       kind: "recentWorkspace",
       label: workspace.displayName,
+      available: availabilityByWorkspaceId.get(workspace.id)?.available ?? false,
       workspace,
     });
   }
@@ -140,6 +148,7 @@ function activeWorkspaceItem(
   workspace: WorkspaceSummary,
   selected: boolean,
   expanded: boolean,
+  available: boolean,
 ): SidebarNavigationItem {
   return {
     commands: {
@@ -152,6 +161,7 @@ function activeWorkspaceItem(
       },
     },
     expanded,
+    available,
     id: `active-workspace:${workspace.id}`,
     kind: "activeWorkspace",
     label: workspace.displayName,
@@ -164,7 +174,7 @@ function conversationItems(
   workspaceId: string,
   workspace: ConversationNavigatorWorkspaceState | undefined,
   panes: ConversationPaneWorkspaceState | undefined,
-  query: string,
+  workspaceAvailable: boolean,
 ): SidebarNavigationItem[] {
   if (!workspace || (workspace.loading && workspace.items.length === 0)) {
     return [conversationStatusItem(workspaceId, "Loading conversations…")];
@@ -176,9 +186,9 @@ function conversationItems(
     workspace.items.map((item) => [item.conversation.id, item.conversation.title] as const),
   );
   const items = workspace.items.map((item) =>
-    conversationItem(workspaceId, panes, item, titlesByConversationId),
+    conversationItem(workspaceId, panes, item, titlesByConversationId, workspaceAvailable),
   );
-  appendConversationNavigationTail(items, workspaceId, workspace, query);
+  appendConversationNavigationTail(items, workspaceId, workspace);
   return items;
 }
 
@@ -187,6 +197,7 @@ function conversationItem(
   panes: ConversationPaneWorkspaceState | undefined,
   item: NavigatorItem,
   titlesByConversationId: ReadonlyMap<string, string>,
+  workspaceAvailable: boolean,
 ): SidebarNavigationItem {
   const conversationId = item.conversation.id;
   return {
@@ -213,6 +224,7 @@ function conversationItem(
       ? (titlesByConversationId.get(item.branch.parentConversationId) ?? null)
       : null,
     openPaneCount: panes?.paneIdsByConversationId.get(conversationId)?.length ?? 0,
+    readOnly: !workspaceAvailable,
   };
 }
 
@@ -220,17 +232,11 @@ function appendConversationNavigationTail(
   items: SidebarNavigationItem[],
   workspaceId: string,
   workspace: ConversationNavigatorWorkspaceState,
-  query: string,
 ): void {
   if (workspace.error) {
     items.push(conversationStatusItem(workspaceId, workspace.error));
   } else if (workspace.items.length === 0) {
-    items.push(
-      conversationStatusItem(
-        workspaceId,
-        query.trim() === "" ? "No conversations" : "No matching conversations",
-      ),
-    );
+    items.push(conversationStatusItem(workspaceId, "No conversations"));
   }
   if (workspace.nextCursor) {
     items.push({

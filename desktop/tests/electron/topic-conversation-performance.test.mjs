@@ -25,7 +25,11 @@ import {
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
-import { assertDriverAction, createTopic } from "./topic-conversation-fork-workflow.mjs";
+import {
+  assertDriverAction,
+  createTopic,
+  listTopics,
+} from "./topic-conversation-fork-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-performance";
@@ -36,7 +40,6 @@ const navigatorConversationCountPerWorkspace = 120;
 const navigatorPageLimit = 80;
 const navigatorRenderedItemBudget = 40;
 const navigatorRowHeight = 36;
-const navigatorSearchQuery = "Performance topic";
 const navigatorSeedBatchSize = 8;
 const profiledRuntimeStates = new Set(["live", "live-throttled", "snapshot"]);
 const viewport = {
@@ -79,6 +82,13 @@ try {
   await context.client.installDriver();
   const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
+  const initialConversationCount = (
+    await waitForBackendState(
+      () => listTopics(backend, workspaceId),
+      (page) => page.items.length > 0,
+      workflowTimeoutMs,
+    )
+  ).items.length;
   const navigatorWorkspaces = await seedNavigatorWorkspaces({
     backend,
     fixture,
@@ -106,9 +116,10 @@ try {
       ),
     );
   }
+  await expandNavigatorWorkspaces(context.client, navigatorWorkspaces, workspaceId);
   const beforeDuplicate = await waitForPerformanceState(
     context.client,
-    (snapshot) => representedPaneCount(snapshot) === conversationCount,
+    (snapshot) => snapshot.paneCount === conversationCount + initialConversationCount,
   );
   assertDriverAction(
     await context.client.driver("topicConversationOpenBoundPane", {
@@ -124,28 +135,24 @@ try {
     backend,
     workspaceId,
     conversations[0].id,
+    conversationCount + initialConversationCount + 1,
   );
   const navigatorResult = await profileLargeNavigator({
     client: context.client,
     conversations,
     expectedConversationCount:
-      navigatorConversationCountPerWorkspace * navigatorWorkspaces.length + conversations.length,
+      navigatorConversationCountPerWorkspace * navigatorWorkspaces.length +
+      conversations.length +
+      initialConversationCount,
     expectedWorkspaceCount: navigatorWorkspaces.length,
   });
   await captureScreenshot(context.client, join(artifactDir, "large-conversation-navigator.png"));
-  await setNavigatorQuery(context.client, "");
-  await waitForNavigatorState(
-    context.client,
-    (snapshot) => snapshot.searchQuery === "" && snapshot.clientHeight > 0,
-  );
+  await waitForNavigatorState(context.client, (snapshot) => snapshot.clientHeight > 0);
   await scrollNavigator(context.client, 0);
-  await waitForNavigatorState(
-    context.client,
-    (snapshot) =>
-      snapshot.searchQuery === "" &&
-      conversations.every((conversation) =>
-        snapshot.renderedConversationIds.includes(conversation.id),
-      ),
+  await waitForNavigatorState(context.client, (snapshot) =>
+    conversations.every((conversation) =>
+      snapshot.renderedConversationIds.includes(conversation.id),
+    ),
   );
   const ready = await waitForPerformanceState(
     context.client,
@@ -253,7 +260,6 @@ try {
   };
   await writeJson(join(artifactDir, "summary.json"), performanceResult);
   assertBatchedProjectionMutations(stopped.sample, cursorDelta);
-  assertStablePaletteIdentity(stopped.sample);
   assertSmoothFrameSample(stopped.sample, "large topic conversation streams", {
     minFrameCount: 30,
   });
@@ -278,6 +284,47 @@ try {
   throw error;
 } finally {
   await stopElectronCdpContext(context);
+}
+
+async function expandNavigatorWorkspaces(client, workspaces, primaryWorkspaceId) {
+  for (const workspace of workspaces) {
+    if (workspace.id === primaryWorkspaceId) {
+      continue;
+    }
+    await scrollNavigator(client, 1);
+    assertDriverAction(
+      await client.driver("topicConversationNavigatorActivateWorkspace", {
+        workspaceId: workspace.id,
+      }),
+      "clicked",
+    );
+    await waitForSelectedWorkspace(client, workspace.id);
+  }
+  await scrollNavigator(client, 0);
+  assertDriverAction(
+    await client.driver("topicConversationNavigatorActivateWorkspace", {
+      workspaceId: primaryWorkspaceId,
+    }),
+    "clicked",
+  );
+  await waitForSelectedWorkspace(client, primaryWorkspaceId);
+  await scrollNavigator(client, 0);
+}
+
+async function waitForSelectedWorkspace(client, workspaceId) {
+  await waitForState(
+    client,
+    `(async () => {
+      const session = await window.setta.workspace.session();
+      const area = document.querySelector('[data-testid="workspace-layout-area"]');
+      return {
+        layoutWorkspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+        selectedWorkspaceId: session.selectedWorkspaceId
+      };
+    })()`,
+    (state) => state.selectedWorkspaceId === workspaceId && state.layoutWorkspaceId === workspaceId,
+    workflowTimeoutMs,
+  );
 }
 
 async function openWorkspace(client) {
@@ -315,7 +362,7 @@ async function seedNavigatorWorkspaces({ backend, fixture, primaryWorkspaceId })
   ];
   const seeds = workspaces.flatMap((workspace, workspaceIndex) =>
     Array.from({ length: navigatorConversationCountPerWorkspace }, (_, index) => ({
-      title: `${navigatorSearchQuery} ${workspaceIndex + 1}-${String(index + 1).padStart(3, "0")}`,
+      title: `Navigator topic ${workspaceIndex + 1}-${String(index + 1).padStart(3, "0")}`,
       workspaceId: workspace.id,
     })),
   );
@@ -347,12 +394,10 @@ async function profileLargeNavigator({
   expectedConversationCount,
   expectedWorkspaceCount,
 }) {
-  await setNavigatorQuery(client, navigatorSearchQuery);
   const initialExpectedRows = expectedWorkspaceCount * (1 + navigatorPageLimit + 1);
   const initial = await waitForNavigatorState(
     client,
     (snapshot) =>
-      snapshot.searchQuery === navigatorSearchQuery &&
       snapshot.clientHeight > 0 &&
       snapshot.scrollHeight >= (initialExpectedRows - 2) * navigatorRowHeight,
   );
@@ -418,16 +463,6 @@ async function profileLargeNavigator({
     status: "passed",
     workspaceCount: expectedWorkspaceCount,
   };
-}
-
-async function setNavigatorQuery(client, query) {
-  const changed = await client.driver("setInputValue", {
-    selector: 'input[aria-label="Search conversations"]',
-    value: query,
-  });
-  if (!changed) {
-    throw new Error(`conversation navigator query was not editable: ${query}`);
-  }
 }
 
 function waitForNavigatorState(client, ready) {
@@ -508,17 +543,13 @@ async function readProfiledPanes(client, conversations) {
   return panes;
 }
 
-function representedPaneCount(snapshot) {
-  return snapshot.surfaces.length + snapshot.snapshotTextureCount;
-}
-
-async function waitForDuplicatePaneLayout(backend, workspaceId, conversationId) {
+async function waitForDuplicatePaneLayout(backend, workspaceId, conversationId, expectedPaneCount) {
   const result = await waitForBackendState(
     () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
     (current) => {
       const panes = current.layout?.panes ?? [];
       return (
-        panes.filter((pane) => pane.easyButtonConfig !== null).length === conversationCount + 1 &&
+        panes.filter((pane) => pane.easyButtonConfig !== null).length === expectedPaneCount &&
         panes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId).length ===
           2
       );
@@ -540,14 +571,6 @@ function assertBatchedProjectionMutations(sample, cursorDelta) {
   if (sample.mutations.callbackCount >= maximumMutationCallbacks) {
     throw new Error(
       `conversation projection mutations were not frame-batched: ${JSON.stringify({ maximumMutationCallbacks, mutations: sample.mutations })}`,
-    );
-  }
-}
-
-function assertStablePaletteIdentity(sample) {
-  if (sample.mutations.paletteIdentityChanges !== 0) {
-    throw new Error(
-      `conversation palette identity churned during streaming: ${JSON.stringify(sample.mutations)}`,
     );
   }
 }

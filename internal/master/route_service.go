@@ -269,13 +269,12 @@ func (service *RouteService) materializeClaimedInput(
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindConfigurationInvalid, err)
 	}
-	retrieval, queryTruncated, err := CandidateRequestForInput(work.Input.Input)
+	workspaceSession, retrieval, queryTruncated, candidates, err := service.retrieveAvailableCandidates(
+		ctx,
+		work.Input.Input,
+	)
 	if err != nil {
-		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindInternal, err)
-	}
-	candidates, err := service.candidates.RetrieveCandidates(ctx, retrieval)
-	if err != nil {
-		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
+		return RouteContextMaterialization{}, err
 	}
 	contextConversationIDs, err := service.store.ListMasterRouteContextConversationIDs(
 		ctx,
@@ -292,6 +291,7 @@ func (service *RouteService) materializeClaimedInput(
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
+	targets = routeTargetsForWorkspaces(targets, retrieval.WorkspaceIDs)
 	if err := validateRequiredRouteTargets(work.Input.Input, candidates, targets); err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
@@ -302,7 +302,7 @@ func (service *RouteService) materializeClaimedInput(
 	materialized, err := MaterializeRouteContext(
 		work,
 		session,
-		service.workspaces.Session(),
+		workspaceSession,
 		retrieval,
 		queryTruncated,
 		candidates,
@@ -317,6 +317,56 @@ func (service *RouteService) materializeClaimedInput(
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
 	return materialized, nil
+}
+
+func (service *RouteService) retrieveAvailableCandidates(
+	ctx context.Context,
+	input MasterInput,
+) (
+	workspacesession.WorkspaceSession,
+	conversationindex.CandidateRequest,
+	bool,
+	[]conversationindex.Candidate,
+	error,
+) {
+	retrieval, queryTruncated, err := CandidateRequestForInput(input)
+	if err != nil {
+		return workspacesession.WorkspaceSession{}, retrieval, false, nil,
+			NewRouteAttemptFailure(RouteFailureKindInternal, err)
+	}
+	workspaceSession := service.workspaces.Session()
+	availableWorkspaceIDs, err := workspaceSession.AvailableActiveWorkspaceIDs()
+	if err != nil {
+		return workspaceSession, retrieval, queryTruncated, nil,
+			NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
+	}
+	retrieval.WorkspaceIDs = availableWorkspaceIDs
+	if len(availableWorkspaceIDs) == 0 {
+		return workspaceSession, retrieval, queryTruncated, []conversationindex.Candidate{}, nil
+	}
+	candidates, err := service.candidates.RetrieveCandidates(ctx, retrieval)
+	if err != nil {
+		return workspaceSession, retrieval, queryTruncated, nil,
+			NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
+	}
+	return workspaceSession, retrieval, queryTruncated, candidates, nil
+}
+
+func routeTargetsForWorkspaces(
+	targets []RouteConversationTarget,
+	workspaceIDs []string,
+) []RouteConversationTarget {
+	available := make(map[string]bool, len(workspaceIDs))
+	for _, workspaceID := range workspaceIDs {
+		available[workspaceID] = true
+	}
+	filtered := make([]RouteConversationTarget, 0, len(targets))
+	for _, target := range targets {
+		if available[target.WorkspaceID] {
+			filtered = append(filtered, target)
+		}
+	}
+	return filtered
 }
 
 func (service *RouteService) commitGeneratedRoute(

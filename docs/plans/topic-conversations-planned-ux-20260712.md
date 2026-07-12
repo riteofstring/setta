@@ -2,7 +2,36 @@ The app feels like one global assistant managing multiple durable topic conversa
 
 ### Starting from the app shell
 
+When a workspace is available, Setta starts with an Easy Button already open
+and focused. It restores an existing open conversation pane when possible;
+otherwise it opens the workspace's most recent conversation. A workspace with
+no conversations receives one initial `New conversation`, and its Easy Button
+replaces the default empty frame. The user does not have to create a topic
+before making the first request.
+
+On a completely fresh Setta install there is no workspace identity to bind an
+Easy Button to, so Setta does not fabricate an unbound conversation. The shell
+shows one explicit `Choose project folder` action. Choosing a readable folder
+opens it as the selected workspace, creates the initial conversation only when
+that workspace is authoritatively empty, and then lands in its focused Easy
+Button.
+
+If a previously opened project folder has been deleted or is no longer
+readable, the workspace and its durable conversations remain visible. Its
+restored Easy Buttons are read-only, the sidebar marks the workspace
+unavailable, and Setta does not create work or include that workspace in
+master/narrator routing or model calls. A workspace notice offers `Retry`,
+`Locate folder…`, and `Close workspace`. Locating a replacement folder keeps
+the original workspace identity, conversation history, layouts, palettes, and
+voices; it does not create a replacement workspace or migration copy.
+
 The left sidebar lists every durable conversation, grouped by workspace. There is one row per conversation, whether it has zero, one, or several open panes.
+
+The sidebar is a passive navigator. It has no `New topic` form or `Search
+conversations` field. New conversations and semantic retrieval happen through
+the master or a conversation narrator/router, so they use the same intelligent
+routing model as voice and pane text instead of introducing a separate sidebar
+workflow.
 
 At the top is `Ask Setta`. It opens the global master action overlay, which can
 also be reached through a keyboard shortcut or app-chrome control. The fixed

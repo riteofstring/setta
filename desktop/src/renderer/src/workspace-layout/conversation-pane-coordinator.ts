@@ -128,6 +128,11 @@ export function presentConversationPane(
     tone: "cyan",
     widthSpec: { unit: "proportion", value: 1 },
   } as const;
+  const onlyPane = store.toScene().panes.length === 1 ? store.toScene().panes[0] : undefined;
+  if (onlyPane?.surfaceKind === "empty-frame") {
+    clearMaximizedPane(store);
+    return { kind: "opened", paneId: store.configurePane(onlyPane.paneId, paneRequest) };
+  }
   if (!store.canOpenPane(paneRequest)) {
     return {
       kind: "blocked",

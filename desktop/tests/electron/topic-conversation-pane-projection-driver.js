@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v21";
+  const version = "setta-topic-conversation-pane-projection-driver-v23";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -12,9 +12,9 @@
       topicConversationPaneProjectionVersion: version,
       topicConversationArchiveFromNavigator,
       topicConversationCloseOneBoundPane,
-      topicConversationCreate,
       topicConversationDenyApproval,
       topicConversationEndSide,
+      topicConversationFirstRunState,
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
@@ -22,6 +22,8 @@
       topicConversationShellSpeechCapture,
       topicConversationShellSpeechState,
       topicConversationPresentFromNavigator,
+      topicConversationRequestPresentation,
+      topicConversationStartupState,
       topicConversationSubmitAndClose,
       topicConversationStop,
       topicConversationSubmit,
@@ -30,6 +32,7 @@
       topicConversationSurfaceStates,
       topicConversationTogglePaneMaximized,
       topicConversationVoiceCapture,
+      topicConversationWorkspaceAvailabilityState,
       topicConversationWorkspaceOpenState,
     });
   }
@@ -43,6 +46,55 @@
       expectedWorkspaceId: workspaceId,
       openButtonReady: button instanceof HTMLButtonElement && !button.disabled,
       workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
+    };
+  }
+
+  function topicConversationFirstRunState() {
+    return {
+      chooseFolder: Boolean(document.querySelector('[data-testid="choose-project-folder"]')),
+      easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
+      emptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
+      newTopic: Boolean(document.querySelector('[aria-label="Create topic conversation"]')),
+      search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
+    };
+  }
+
+  function topicConversationWorkspaceAvailabilityState({ conversationId }) {
+    const surfaces = Array.from(
+      document.querySelectorAll('[data-testid="easy-button-surface"]'),
+    ).filter((surface) => datasetValue(surface, "conversationId") === conversationId);
+    const surface = surfaces[0];
+    const input = surface?.querySelector('[data-testid="easy-button-input"]');
+    return {
+      inputDisabled: input instanceof HTMLInputElement ? input.disabled : true,
+      placeholder: input instanceof HTMLInputElement ? input.placeholder : "",
+      projectionStatus: datasetValue(surface, "easyButtonProjection"),
+      surfaceCount: surfaces.length,
+      unavailableNotice: Boolean(
+        document.querySelector('[data-testid="workspace-unavailable-notice"]'),
+      ),
+    };
+  }
+
+  function topicConversationStartupState({ conversationId }) {
+    const visibleHosts = Array.from(
+      document.querySelectorAll('[data-testid="workspace-pane-host"][data-visible="true"]'),
+    );
+    return {
+      createControlPresent:
+        document.querySelector('[data-testid="conversation-create-form"]') !== null,
+      easyButtonPaneCount: visibleHosts.filter(
+        (host) => datasetValue(host, "surfaceKind") === "easy-button",
+      ).length,
+      emptyFramePaneCount: visibleHosts.filter(
+        (host) => datasetValue(host, "surfaceKind") === "empty-frame",
+      ).length,
+      matchingSurfaceCount: Array.from(
+        document.querySelectorAll('[data-testid="easy-button-surface"]'),
+      ).filter((surface) => datasetValue(surface, "conversationId") === conversationId).length,
+      searchControlPresent:
+        document.querySelector('input[aria-label="Search conversations"]') !== null,
+      visiblePaneCount: visibleHosts.length,
     };
   }
 
@@ -150,17 +202,6 @@
       ),
       workspaceId: datasetValue(area, "workspaceId"),
     };
-  }
-
-  function topicConversationCreate({ title }) {
-    const form = document.querySelector('[data-testid="conversation-create-form"]');
-    const input = form?.querySelector('input[aria-label="New topic title"]');
-    if (!(input instanceof HTMLInputElement) || input.disabled || !input.form) {
-      return { created: false, title };
-    }
-    setInputValue(input, title);
-    input.form.requestSubmit();
-    return { created: true, title };
   }
 
   function topicConversationSubmit({ conversationId, paneId = null, text }) {
@@ -381,6 +422,18 @@
     }
     row.click();
     return { clicked: true, conversationId };
+  }
+
+  async function topicConversationRequestPresentation({ conversationId, title, workspaceId }) {
+    const detail = {
+      completion: null,
+      request: { conversationId, title, workspaceId },
+    };
+    window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
+    if (!(detail.completion instanceof Promise)) {
+      return { kind: "blocked", reason: "conversation pane coordinator unavailable" };
+    }
+    return detail.completion;
   }
 
   function topicConversationArchiveFromNavigator({ confirm = true, conversationId }) {

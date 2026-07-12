@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 55;
-export const backendContractSchemaHash = "sha256:28fb0e4a965470044303af004f05ccaf45fcf6c572e206cf82bf1261699ba7c3";
+export const backendProtocolVersion = 57;
+export const backendContractSchemaHash = "sha256:60745be67f662015b331802e6ba8592b7c8c576f409ef18067b09070960378bf";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1660,10 +1660,17 @@ export interface WorkspaceSummary {
   lastOpenedAt: string;
 }
 
+export interface WorkspaceAvailability {
+  workspaceId: string;
+  available: boolean;
+  unavailableReason: string;
+}
+
 export interface WorkspaceSession {
   selectedWorkspaceId: string;
   activeWorkspaces: WorkspaceSummary[];
   recentWorkspaces: WorkspaceSummary[];
+  workspaceAvailabilities: WorkspaceAvailability[];
 }
 
 export interface OpenWorkspaceRequest {
@@ -1673,6 +1680,15 @@ export interface OpenWorkspaceRequest {
 export interface OpenWorkspaceResponse {
   workspace: WorkspaceSummary;
   session: WorkspaceSession;
+}
+
+export interface RelocateWorkspaceRequest {
+  id: string;
+  rootPath: string;
+}
+
+export interface RefreshWorkspaceAvailabilityRequest {
+  id: string;
 }
 
 export interface SelectWorkspaceRequest {
@@ -3304,6 +3320,16 @@ export const backendEndpoints = {
     path: "/workspaces/open",
     requestBodyLimitBytes: 4194304,
   },
+  RelocateWorkspace: {
+    method: "POST",
+    path: "/workspaces/relocate",
+    requestBodyLimitBytes: 4194304,
+  },
+  RefreshWorkspaceAvailability: {
+    method: "POST",
+    path: "/workspaces/availability/refresh",
+    requestBodyLimitBytes: 4194304,
+  },
   SelectWorkspace: {
     method: "POST",
     path: "/workspaces/select",
@@ -3840,13 +3866,24 @@ export function decodeWorkspaceSummary(value: unknown): WorkspaceSummary {
   };
 }
 
+export function decodeWorkspaceAvailability(value: unknown): WorkspaceAvailability {
+  const record = assertRecord(value, "WorkspaceAvailability");
+  assertKnownFields(record, "WorkspaceAvailability", ["workspaceId", "available", "unavailableReason"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceAvailability"), "WorkspaceAvailability.workspaceId"),
+    available: decodeBoolean(requireField(record, "available", "WorkspaceAvailability"), "WorkspaceAvailability.available"),
+    unavailableReason: decodeString(requireField(record, "unavailableReason", "WorkspaceAvailability"), "WorkspaceAvailability.unavailableReason"),
+  };
+}
+
 export function decodeWorkspaceSession(value: unknown): WorkspaceSession {
   const record = assertRecord(value, "WorkspaceSession");
-  assertKnownFields(record, "WorkspaceSession", ["selectedWorkspaceId", "activeWorkspaces", "recentWorkspaces"]);
+  assertKnownFields(record, "WorkspaceSession", ["selectedWorkspaceId", "activeWorkspaces", "recentWorkspaces", "workspaceAvailabilities"]);
   return {
     selectedWorkspaceId: decodeString(requireField(record, "selectedWorkspaceId", "WorkspaceSession"), "WorkspaceSession.selectedWorkspaceId"),
     activeWorkspaces: decodeArray(requireField(record, "activeWorkspaces", "WorkspaceSession"), "WorkspaceSession.activeWorkspaces", (item) => decodeWorkspaceSummary(item)),
     recentWorkspaces: decodeArray(requireField(record, "recentWorkspaces", "WorkspaceSession"), "WorkspaceSession.recentWorkspaces", (item) => decodeWorkspaceSummary(item)),
+    workspaceAvailabilities: decodeArray(requireField(record, "workspaceAvailabilities", "WorkspaceSession"), "WorkspaceSession.workspaceAvailabilities", (item) => decodeWorkspaceAvailability(item)),
   };
 }
 
@@ -3864,6 +3901,23 @@ export function decodeOpenWorkspaceResponse(value: unknown): OpenWorkspaceRespon
   return {
     workspace: decodeWorkspaceSummary(requireField(record, "workspace", "OpenWorkspaceResponse")),
     session: decodeWorkspaceSession(requireField(record, "session", "OpenWorkspaceResponse")),
+  };
+}
+
+export function decodeRelocateWorkspaceRequest(value: unknown): RelocateWorkspaceRequest {
+  const record = assertRecord(value, "RelocateWorkspaceRequest");
+  assertKnownFields(record, "RelocateWorkspaceRequest", ["id", "rootPath"]);
+  return {
+    id: decodeString(requireField(record, "id", "RelocateWorkspaceRequest"), "RelocateWorkspaceRequest.id"),
+    rootPath: decodeString(requireField(record, "rootPath", "RelocateWorkspaceRequest"), "RelocateWorkspaceRequest.rootPath"),
+  };
+}
+
+export function decodeRefreshWorkspaceAvailabilityRequest(value: unknown): RefreshWorkspaceAvailabilityRequest {
+  const record = assertRecord(value, "RefreshWorkspaceAvailabilityRequest");
+  assertKnownFields(record, "RefreshWorkspaceAvailabilityRequest", ["id"]);
+  return {
+    id: decodeString(requireField(record, "id", "RefreshWorkspaceAvailabilityRequest"), "RefreshWorkspaceAvailabilityRequest.id"),
   };
 }
 
@@ -6513,6 +6567,8 @@ export interface BackendClient {
   updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest, options?: BackendRequestOptions) => Promise<AppearanceSettings>;
   workspaceSession: (options?: BackendRequestOptions) => Promise<WorkspaceSession>;
   openWorkspace: (request: OpenWorkspaceRequest, options?: BackendRequestOptions) => Promise<OpenWorkspaceResponse>;
+  relocateWorkspace: (request: RelocateWorkspaceRequest, options?: BackendRequestOptions) => Promise<OpenWorkspaceResponse>;
+  refreshWorkspaceAvailability: (request: RefreshWorkspaceAvailabilityRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
   selectWorkspace: (request: SelectWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
   closeWorkspace: (request: CloseWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
   reorderWorkspace: (request: ReorderWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
@@ -6658,6 +6714,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeOpenWorkspaceResponse,
       endpoint: backendEndpoints.OpenWorkspace,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    relocateWorkspace: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeOpenWorkspaceResponse,
+      endpoint: backendEndpoints.RelocateWorkspace,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    refreshWorkspaceAvailability: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceSession,
+      endpoint: backendEndpoints.RefreshWorkspaceAvailability,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

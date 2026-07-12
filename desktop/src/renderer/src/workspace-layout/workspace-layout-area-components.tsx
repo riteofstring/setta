@@ -31,6 +31,69 @@ export function WorkspaceLayoutRecoveryNotice({
   );
 }
 
+export function WorkspaceUnavailableNotice({
+  busy,
+  error,
+  onClose,
+  onLocate,
+  onRetry,
+  reason,
+  workspaceName,
+}: {
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onLocate: () => void;
+  onRetry: () => void;
+  reason: string;
+  workspaceName: string;
+}) {
+  return (
+    <div
+      className="app-no-drag absolute top-10 right-3 left-3 z-[60] flex min-w-0 items-start gap-2 rounded-sm border border-amber-500/35 bg-amber-950/90 px-3 py-2.5 text-xs text-amber-100 shadow-lg"
+      data-testid="workspace-unavailable-notice"
+      role="alert"
+    >
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="grid min-w-0 flex-1 gap-2">
+        <div>
+          <div className="font-medium">{workspaceName} is unavailable</div>
+          <div className="mt-0.5 break-words leading-4 text-amber-100/75">
+            Its conversations are read-only until the project folder is available again. {reason}
+          </div>
+          {error ? <div className="mt-1 break-words text-red-200">{error}</div> : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            aria-label="Retry workspace folder"
+            disabled={busy}
+            onClick={onRetry}
+            type="button"
+          >
+            Retry
+          </button>
+          <button
+            aria-label="Locate workspace folder"
+            disabled={busy}
+            onClick={onLocate}
+            type="button"
+          >
+            Locate folder…
+          </button>
+          <button
+            aria-label="Close unavailable workspace"
+            disabled={busy}
+            onClick={onClose}
+            type="button"
+          >
+            Close workspace
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WorkspacePaneHost({
   refCallback,
 }: {

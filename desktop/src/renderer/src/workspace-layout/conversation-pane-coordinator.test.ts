@@ -31,6 +31,7 @@ describe("conversation pane coordinator", () => {
 
   test("opens a typed Easy Button view when the conversation has no pane", () => {
     const store = workspaceStore();
+    const initialPaneId = store.focusedPaneId();
 
     const result = presentConversationPane(store, {
       conversationId: "conversation_zero_panes",
@@ -38,7 +39,7 @@ describe("conversation pane coordinator", () => {
       workspaceId: "workspace_api",
     });
 
-    expect(result.kind).toBe("opened");
+    expect(result).toEqual({ kind: "opened", paneId: initialPaneId });
     const pane = store
       .toScene()
       .panes.find(
@@ -48,6 +49,10 @@ describe("conversation pane coordinator", () => {
       surfaceKind: "easy-button",
       title: "Persistent topic",
     });
+    expect(store.toScene().totalPanes).toBe(1);
+    expect(store.toScene().panes.some((candidate) => candidate.surfaceKind === "empty-frame")).toBe(
+      false,
+    );
   });
 
   test("honors a validated preferred pane before the most recently focused matching view", () => {

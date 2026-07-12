@@ -67,7 +67,9 @@ export const ipcChannels = {
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
+  workspaceRelocateLocalFolder: "workspace:relocate-local-folder",
   workspaceReadUILayout: "workspace:read-ui-layout",
+  workspaceRefreshAvailability: "workspace:refresh-availability",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
   workspaceSaveUILayout: "workspace:save-ui-layout",
@@ -203,9 +205,17 @@ interface IpcContract
     args: [rootPath: string];
     result: OpenWorkspaceResponse;
   };
+  workspaceRelocateLocalFolder: {
+    args: [id: string];
+    result: OpenWorkspaceResponse | null;
+  };
   workspaceReadUILayout: {
     args: [workspaceId: string];
     result: WorkspaceUILayoutReadResult;
+  };
+  workspaceRefreshAvailability: {
+    args: [id: string];
+    result: WorkspaceSession;
   };
   workspaceRemoveRecent: {
     args: [id: string];
