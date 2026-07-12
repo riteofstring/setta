@@ -56,7 +56,7 @@ describe("global speech conversation submission", () => {
     expect(harness.requests).toHaveLength(1);
   });
 
-  test("retains a failed transcript and retries the exact frozen input", async () => {
+  test("retries the exact frozen input and accepts its advanced durable status", async () => {
     const retry = deferred<AcceptedConversationInput>();
     const submit = vi
       .fn<(request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>>()
@@ -86,10 +86,13 @@ describe("global speech conversation submission", () => {
     harness.controller.retry();
     expect(harness.requests).toHaveLength(2);
     expect(harness.requests[1]!.input).toBe(harness.requests[0]!.input);
-    retry.resolve(acceptedFor(harness.requests[1]!));
+    retry.resolve({ ...acceptedFor(harness.requests[1]!), status: "routing" });
     await flushPromises();
 
-    expect(harness.controller.getSnapshot().submission.type).toBe("accepted");
+    expect(harness.controller.getSnapshot().submission).toMatchObject({
+      accepted: { status: "routing" },
+      type: "accepted",
+    });
     expect(info).toHaveBeenCalledWith(
       "Conversation voice input submission failed: inputId=capture_retry",
     );

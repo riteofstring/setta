@@ -1,7 +1,8 @@
-import type {
-  AcceptedConversationInput,
-  ConversationInput,
-  SubmitConversationInputRequest,
+import {
+  conversationInputStatusValues,
+  type AcceptedConversationInput,
+  type ConversationInput,
+  type SubmitConversationInputRequest,
 } from "@generated/backend";
 
 import type {
@@ -31,6 +32,8 @@ export interface GlobalSpeechConversationSubmissionDependencies {
     request: SubmitConversationInputRequest,
   ) => Promise<AcceptedConversationInput>;
 }
+
+const conversationInputStatuses = new Set(conversationInputStatusValues);
 
 export class GlobalSpeechConversationSubmissionController {
   private readonly dependencies: GlobalSpeechConversationSubmissionDependencies;
@@ -211,7 +214,7 @@ function acceptedConversationInputMatches(
   return (
     Number.isSafeInteger(accepted.sequence) &&
     accepted.sequence > 0 &&
-    accepted.status === "accepted" &&
+    conversationInputStatuses.has(accepted.status) &&
     accepted.acceptedAt !== "" &&
     conversationInputsEqual(accepted.input, input)
   );
