@@ -102,7 +102,6 @@ try {
     "Crash narrator and speech topic",
     workflowTimeoutMs,
   );
-
   await submitTopicInput(context.client, agentTopic.id, "seed crash branch");
   await waitForConversationSnapshot(
     backend,
@@ -139,6 +138,27 @@ try {
     );
   }
 
+  await submitTopicInput(context.client, agentTopic.id, "resume queued after crash");
+  const queuedBeforeCrash = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    agentTopic.id,
+    (snapshot) =>
+      snapshot.queue.length === 1 &&
+      snapshot.turns.turns.some(
+        (turn) =>
+          turn.delivery === "queued" &&
+          turn.status === "queued" &&
+          turn.authoredInput.text === "resume queued after crash",
+      ),
+  );
+  const crashedQueuedTurn = queuedBeforeCrash.turns.turns.find(
+    (turn) => turn.delivery === "queued" && turn.authoredInput.text === "resume queued after crash",
+  );
+  if (!crashedQueuedTurn) {
+    throw new Error(`queued crash turn was not durable: ${JSON.stringify(queuedBeforeCrash)}`);
+  }
+
   await submitTopicInput(context.client, agentTopic.id, "hold restart side");
   const branchBeforeCrash = await waitForConversationSnapshot(
     backend,
@@ -158,6 +178,28 @@ try {
   if (!crashedSide) {
     throw new Error(`active crash side was not durable: ${JSON.stringify(branchBeforeCrash)}`);
   }
+
+  const unlinkedAgentTopic = await createTopic(
+    context.client,
+    backend,
+    workspaceId,
+    "Crash before provider link topic",
+    workflowTimeoutMs,
+  );
+  await submitTopicInput(context.client, unlinkedAgentTopic.id, "crash before provider link");
+  await waitForFakeCodexTurnStartHold(fakeCodex.statePath, "agent:pre-provider-link");
+  const unlinkedAgentBeforeCrash = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    unlinkedAgentTopic.id,
+    (snapshot) =>
+      snapshot.conversation.status === "working" &&
+      snapshot.queue.length === 0 &&
+      snapshot.turns.turns.length === 1 &&
+      snapshot.turns.turns[0]?.status === "queued" &&
+      snapshot.turns.turns[0]?.providerTurnId === null,
+  );
+  const unlinkedAgentTurn = unlinkedAgentBeforeCrash.turns.turns[0];
 
   const masterInput = await exerciseMasterOverlayEntryPoints({
     artifactDirectory: firstLaunchDir,
@@ -272,7 +314,17 @@ try {
           event.turnId === crashedAgentTurn.id &&
           event.kind === "turn_interrupted" &&
           event.turnInterrupted?.reason === "reconciliation",
-      ),
+      ) &&
+      snapshot.turns.turns.some(
+        (turn) => turn.id === crashedQueuedTurn.id && turn.status === "completed",
+      ) &&
+      snapshot.queue.length === 0,
+  );
+  const unlinkedAgentAfterCrash = await waitForConversationSnapshot(
+    restartedBackend,
+    workspaceId,
+    unlinkedAgentTopic.id,
+    (snapshot) => unlinkedAgentFailedAfterRestart(snapshot, unlinkedAgentTurn.id),
   );
   const branchAfterCrash = await waitForConversationSnapshot(
     restartedBackend,
@@ -324,6 +376,7 @@ try {
     branchAfterCrash,
     branchBeforeCrash,
     crashedAgentTurnId: crashedAgentTurn.id,
+    crashedQueuedTurnId: crashedQueuedTurn.id,
     crashedSideId: crashedSide.id,
     masterAfterCrash,
     masterBeforeCrash,
@@ -332,6 +385,8 @@ try {
     speechAfterCrash,
     speechBeforeCrash,
     status: "passed",
+    unlinkedAgentAfterCrash,
+    unlinkedAgentBeforeCrash,
     workspaceId,
   });
   console.log(`Electron topic conversation crash recovery workflow passed: ${artifactDir}`);
@@ -420,6 +475,22 @@ function speechSafelyResetAfterRestart(state) {
   );
 }
 
+function unlinkedAgentFailedAfterRestart(snapshot, turnId) {
+  const [turn = {}] = snapshot.turns.turns;
+  const { error = {} } = turn;
+  return [
+    snapshot.conversation.status === "failed",
+    snapshot.turns.turns.length === 1,
+    turn.id === turnId,
+    turn.status === "failed",
+    turn.startedAt === null,
+    turn.providerTurnId === null,
+    error.code === "agent_runtime_failed",
+    error.retryable === true,
+    String(error.message).includes("provider identity was not committed before restart"),
+  ].every(Boolean);
+}
+
 async function submitTopicInput(client, conversationId, text) {
   assertDriverAction(
     await client.driver("topicConversationSubmit", { conversationId, text }),
@@ -452,6 +523,14 @@ async function waitForFakeCodexHold(statePath, key) {
   await waitForBackendState(
     async () => JSON.parse(await readFile(statePath, "utf8")),
     (state) => state.heldStructuredKeys?.includes(key) === true,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForFakeCodexTurnStartHold(statePath, key) {
+  await waitForBackendState(
+    async () => JSON.parse(await readFile(statePath, "utf8")),
+    (state) => state.heldTurnStartKeys?.includes(key) === true,
     workflowTimeoutMs,
   );
 }

@@ -14,6 +14,7 @@ const heldTurns = new Map();
 const pendingApprovals = new Map();
 const failedNarratorObjectives = new Set();
 const heldStructuredKeys = new Set(persistedState.heldStructuredKeys);
+const heldTurnStartKeys = new Set(persistedState.heldTurnStartKeys);
 let account = null;
 const methodHandlers = new Map([
   ["account/login/start", startAccountLogin],
@@ -413,8 +414,11 @@ function startTurn(message) {
   turns.set(turnId, turn);
   thread.turnIds.push(turnId);
   persistState();
-  respond(message.id, { turn });
   const text = turnInputText(message.params);
+  if (holdTurnStartOnce(text)) {
+    return;
+  }
+  respond(message.id, { turn });
   setImmediate(() => {
     if (message.params?.outputSchema) {
       emitStructuredTurn(threadId, turnId, text, message.params.outputSchema);
@@ -422,6 +426,16 @@ function startTurn(message) {
     }
     emitTurnScenario(threadId, turnId, text);
   });
+}
+
+function holdTurnStartOnce(text) {
+  const key = text === "crash before provider link" ? "agent:pre-provider-link" : null;
+  if (key === null || heldTurnStartKeys.has(key)) {
+    return false;
+  }
+  heldTurnStartKeys.add(key);
+  persistState();
+  return true;
 }
 
 function emitStructuredTurn(threadId, turnId, text, outputSchema) {
@@ -1043,6 +1057,7 @@ function readPersistedState() {
   const empty = {
     approvalCounter: 0,
     heldStructuredKeys: [],
+    heldTurnStartKeys: [],
     threadCounter: 0,
     threads: [],
     turnCounter: 0,
@@ -1052,19 +1067,24 @@ function readPersistedState() {
     return empty;
   }
   const state = JSON.parse(readFileSync(persistedStatePath, "utf8"));
-  if (
-    !Number.isInteger(state.approvalCounter) ||
-    !Array.isArray(state.heldStructuredKeys) ||
-    !Number.isInteger(state.threadCounter) ||
-    !Number.isInteger(state.turnCounter) ||
-    !Array.isArray(state.threads) ||
-    !Array.isArray(state.turns)
-  ) {
+  if (!persistedStateIsValid(state)) {
     throw new Error("fake topic Codex state is malformed");
   }
   interruptStaleDurableTurns(state);
   writeFileSync(persistedStatePath, `${JSON.stringify(state)}\n`, "utf8");
   return state;
+}
+
+function persistedStateIsValid(state) {
+  return [
+    Number.isInteger(state.approvalCounter),
+    Array.isArray(state.heldStructuredKeys),
+    Array.isArray(state.heldTurnStartKeys),
+    Number.isInteger(state.threadCounter),
+    Number.isInteger(state.turnCounter),
+    Array.isArray(state.threads),
+    Array.isArray(state.turns),
+  ].every(Boolean);
 }
 
 function interruptStaleDurableTurns(state) {
@@ -1089,6 +1109,7 @@ function persistState() {
     `${JSON.stringify({
       approvalCounter,
       heldStructuredKeys: [...heldStructuredKeys],
+      heldTurnStartKeys: [...heldTurnStartKeys],
       threadCounter,
       threads: [...threads.values()],
       turnCounter,

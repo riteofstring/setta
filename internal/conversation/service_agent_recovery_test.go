@@ -100,6 +100,98 @@ func TestRecoverAgentTurnsPersistsProviderLookupFailure(t *testing.T) {
 	}
 }
 
+func TestRecoverAgentTurnsFailsAcceptedTurnWithoutProviderIdentity(t *testing.T) {
+	store, original, originalRuntime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	created, err := original.CreateTopic(ctx, workspaceID, "Unlinked provider recovery")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	accepted, err := original.acceptTurn(
+		ctx,
+		created,
+		"provider acceptance is ambiguous",
+		TurnDeliveryNormal,
+		0,
+		"turn_unlinked_recovery",
+	)
+	if err != nil {
+		t.Fatalf("acceptTurn: %v", err)
+	}
+	if accepted.Status != TurnStatusQueued || accepted.ProviderTurnID != nil {
+		t.Fatalf("accepted unlinked turn = %+v", accepted)
+	}
+
+	restartedRuntime := cloneServiceTestAgentRuntimeForRestart(originalRuntime)
+	restarted, err := NewService(store, original.workspaces, restartedRuntime)
+	if err != nil {
+		t.Fatalf("NewService after crash: %v", err)
+	}
+	cleanupRecoveryServices(t, store, restarted, original)
+
+	if err := restarted.RecoverAgentTurns(ctx); err != nil {
+		t.Fatalf("RecoverAgentTurns: %v", err)
+	}
+	recovered := assertServiceSnapshot(t, restarted, workspaceID, created.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusFailed
+	})
+	turn := latestSnapshotTurn(recovered)
+	if recovered.Conversation.Status != ConversationStatusFailed || turn.ID != accepted.ID ||
+		turn.ProviderTurnID != nil || turn.StartedAt != nil || turn.Error == nil ||
+		turn.Error.Code != "agent_runtime_failed" || !turn.Error.Retryable ||
+		!strings.Contains(turn.Error.Message, "provider identity was not committed") {
+		t.Fatalf("recovered unlinked turn = %+v, conversation = %+v", turn, recovered.Conversation)
+	}
+	if requests := restartedRuntime.turnRequests(); len(requests) != 0 {
+		t.Fatalf("unlinked provider input was replayed: %+v", requests)
+	}
+}
+
+func TestRecoverAgentTurnsPromotesQueueWithoutRunningTurn(t *testing.T) {
+	store, original, originalRuntime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	created, err := original.CreateTopic(ctx, workspaceID, "Stranded queue recovery")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	accepted, err := original.acceptTurn(
+		ctx,
+		created,
+		"promote after terminal crash",
+		TurnDeliveryQueued,
+		1,
+		"turn_stranded_queue_recovery",
+	)
+	if err != nil {
+		t.Fatalf("acceptTurn: %v", err)
+	}
+	if accepted.Status != TurnStatusQueued {
+		t.Fatalf("accepted queued turn = %+v", accepted)
+	}
+
+	restartedRuntime := cloneServiceTestAgentRuntimeForRestart(originalRuntime)
+	restarted, err := NewService(store, original.workspaces, restartedRuntime)
+	if err != nil {
+		t.Fatalf("NewService after crash: %v", err)
+	}
+	cleanupRecoveryServices(t, store, restarted, original)
+
+	if err := restarted.RecoverAgentTurns(ctx); err != nil {
+		t.Fatalf("RecoverAgentTurns: %v", err)
+	}
+	restartedRuntime.waitForStart(t, "promote after terminal crash")
+	recovered := assertServiceSnapshot(t, restarted, workspaceID, created.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted && len(snapshot.Queue) == 0
+	})
+	turn := latestSnapshotTurn(recovered)
+	if recovered.Conversation.Status != ConversationStatusIdle || turn.ID != accepted.ID ||
+		turn.Delivery != TurnDeliveryQueued {
+		t.Fatalf("recovered queued turn = %+v, conversation = %+v", turn, recovered.Conversation)
+	}
+}
+
 func cloneServiceTestAgentRuntimeForRestart(
 	original *serviceTestAgentRuntime,
 ) *serviceTestAgentRuntime {

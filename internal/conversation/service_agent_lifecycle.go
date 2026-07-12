@@ -73,42 +73,60 @@ func (service *Service) finishRunTurn(active *activeConversationTurn, runErr err
 }
 
 func (service *Service) promoteNextTurn(workspaceID string, conversationID string) {
-	if service.requireOpen() != nil {
-		return
+	_ = service.promoteNextTurnWithResult(context.Background(), workspaceID, conversationID)
+}
+
+func (service *Service) promoteNextTurnWithResult(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+) error {
+	if err := service.requireOpen(); err != nil {
+		return err
 	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
 	if service.activeFor(conversationID) != nil {
-		return
+		return nil
 	}
-	snapshot, err := service.store.ReadSnapshot(context.Background(), workspaceID, conversationID)
-	if err != nil || len(snapshot.Queue) == 0 {
-		return
+	snapshot, err := service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	if err != nil {
+		return err
+	}
+	if len(snapshot.Queue) == 0 {
+		return nil
 	}
 	queued := snapshot.Queue[0]
 	turn, err := findConversationTurn(snapshot, queued.TurnID)
 	if err != nil {
-		return
+		return err
 	}
 	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
-		_ = service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
+		persistErr := service.persistUnexpectedTurnEnd(ctx, &activeConversationTurn{
 			conversationID: conversationID,
 			queueOrdinal:   queued.Ordinal,
 			turnID:         turn.ID,
 			workspaceID:    workspaceID,
 		}, err)
-		return
+		if persistErr != nil {
+			return errors.Join(err, fmt.Errorf("persist queued turn workspace recovery failure: %w", persistErr))
+		}
+		return nil
 	}
 	if err := service.launchTurnLocked(workspaceSummary.RootPath, workspaceID, turn, queued.Ordinal); err != nil {
-		_ = service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
+		persistErr := service.persistUnexpectedTurnEnd(ctx, &activeConversationTurn{
 			conversationID: conversationID,
 			queueOrdinal:   queued.Ordinal,
 			turnID:         turn.ID,
 			workspaceID:    workspaceID,
 		}, err)
+		if persistErr != nil {
+			return errors.Join(err, fmt.Errorf("persist queued turn launch recovery failure: %w", persistErr))
+		}
 	}
+	return nil
 }
 
 func (service *Service) handleAgentEvent(
