@@ -464,46 +464,6 @@ export async function assertRunsDrainedSequentially(backend, workspaceId, conver
   }
 }
 
-export async function assertTranscriptSequence(client, expectedTexts) {
-  const value = await client.driver("chatTranscriptRows");
-  let cursor = 0;
-  for (const expected of expectedTexts) {
-    const index = value.rows.findIndex((row, rowIndex) => {
-      return rowIndex >= cursor && row.text.includes(expected);
-    });
-    if (index === -1) {
-      throw new Error(
-        `transcript did not contain ${expected} after index ${cursor}: ${JSON.stringify(value.rows)}`,
-      );
-    }
-    cursor = index + 1;
-  }
-}
-
-export async function assertNoVisibleUserMessage(client, text) {
-  const value = await client.driver("visibleUserMessageTexts");
-  const matches = value.rows.filter((rowText) => rowText.includes(text));
-  if (matches.length > 0) {
-    throw new Error(`found visible user message ${text}: ${JSON.stringify(value.rows)}`);
-  }
-}
-
-export async function assertChatLayout(client) {
-  const metrics = await client.driver("chatLayoutMetrics");
-  if (!metrics.pane || !metrics.transcript || !metrics.composer) {
-    throw new Error(`chat layout metrics missing required regions: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.transcript.height < 160 || metrics.scrollerClientHeight < 120) {
-    throw new Error(`transcript region collapsed: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.transcript.bottom > metrics.composer.top + 1) {
-    throw new Error(`transcript overlaps composer: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.composer.bottom > metrics.pane.bottom + 1) {
-    throw new Error(`composer escapes chat pane: ${JSON.stringify(metrics)}`);
-  }
-}
-
 export async function assertQueuedRunNotPromoted(
   backend,
   workspaceId,

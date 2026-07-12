@@ -329,10 +329,7 @@ function WorkspaceLayoutRuntimeArea({
         if (runtime.store.canOpenPane(request)) {
           runtime.store.openPane(request);
         } else {
-          const paneId = runtime.store.focusPaneBySurfaceKind(surfaceKind);
-          if (paneId !== null && request.workflowNodeDetailsConfig) {
-            runtime.store.configurePane(paneId, request);
-          }
+          runtime.store.focusPaneBySurfaceKind(surfaceKind);
         }
         runtime.store.ensureFocusedColumnVisible(stageViewport());
         runtime.store.snapScrollToTarget();

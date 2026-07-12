@@ -464,13 +464,7 @@ function snapshotScrollKey(root: Element): string {
   }
   return Array.from(
     root.querySelectorAll<HTMLElement>(
-      [
-        "[data-snapshot-scroller='true']",
-        "[data-testid='chat-transcript-scroller']",
-        ".overflow-auto",
-        ".overflow-y-auto",
-        ".workspace-fake-long-chat-scroll",
-      ].join(","),
+      ["[data-snapshot-scroller='true']", ".overflow-auto", ".overflow-y-auto"].join(","),
     ),
   )
     .map((element) => `${Math.round(element.scrollTop)},${Math.round(element.scrollLeft)}`)

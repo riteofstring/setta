@@ -2,8 +2,6 @@ import type { WorkspaceMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
 import {
   canHostResizeHandle,
-  formatBytes,
-  formatPixels,
   paneActionButtonClassName,
   paneActionButtonLabel,
   paneActionStateKey,
@@ -107,9 +105,6 @@ export class PresentationEngine {
       overlay: this.dropPreviewOverlay,
     });
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
-    this.metrics.recordCanvasStats(this.surfaceRegistry.canvasStats());
-    this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
-    this.metrics.recordTerminalStats(this.surfaceRegistry.terminalStats());
     writeCounts.nativeBoundsUpdates = nativeFlush?.batchSent ? 1 : 0;
     return writeCounts;
   }
@@ -214,16 +209,9 @@ export class PresentationEngine {
       `resize ${snapshot.resize.frameCount}/${snapshot.resize.p95FrameTime.toFixed(
         2,
       )}/${snapshot.resize.deferredHeavyViewportWrites}/${snapshot.resize.heavyViewportWrites}/${snapshot.reactCommitsDuringResize}`,
-      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${snapshot.canvasRendererResizeCount}/${snapshot.canvasTickerFramesWhileFrozen}/${formatPixels(snapshot.canvasBackingStorePixels)}/${formatBytes(
-        snapshot.canvasGpuMemoryEstimateBytes,
-      )}`,
-      `terminal ${snapshot.liveTerminalRendererCount}/${snapshot.terminalDirtyRows}/${snapshot.terminalPendingOutputChunks}`,
       `snapshot ${snapshot.snapshotFreshTextureUses}/${snapshot.snapshotStaleTextureUses}/${snapshot.snapshotMissingTextureUses}/${snapshot.snapshotCaptureRequestsDuringTransition}`,
-      `graph ${snapshot.liveGitGraphPaneCount}/${snapshot.gitGraphRenderer ?? "none"}/${Math.round(
-        snapshot.gitGraphProgress * 100,
-      )}%/${snapshot.gitGraphWorkerBatches}${snapshot.gitGraphWorkerPending ? "+" : ""}`,
       `runtime ${runtimeSummary.live}/${runtimeSummary.snapshot}/${runtimeSummary.liveThrottled}/${runtimeSummary.hidden}`,
-      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} canvas ${runtimeSummary.budget.maxLiveWebGpuCanvases} terminal ${runtimeSummary.budget.maxLiveTerminalRenderers}`,
+      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} snapshot ${runtimeSummary.budget.maxSnapshotPanes}`,
     ].join(" | ");
   }
 

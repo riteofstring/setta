@@ -13,13 +13,7 @@ import {
   paneResizePreviewForPointerMove,
   type PaneResizeSession,
 } from "./pane-resize-session";
-import type {
-  WorkspaceColumn,
-  WorkspacePane,
-  WorkspaceScene,
-  PaneLimitPolicy,
-  Rect,
-} from "./types";
+import type { WorkspaceColumn, WorkspaceScene, PaneLimitPolicy, Rect } from "./types";
 import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
 
 const viewport: Rect = {
@@ -38,7 +32,7 @@ describe("workspace layout store", () => {
     const store = createStore();
 
     const openedPaneId = store.openPane({
-      surfaceKind: "terminal",
+      surfaceKind: "browser",
       title: "Build",
       tone: "green",
     });
@@ -249,9 +243,9 @@ describe("workspace layout store", () => {
     const before = store.toScene().paneById.get(emptyPaneId);
 
     store.configurePane(emptyPaneId, {
-      subtitle: "workspace command surface",
-      surfaceKind: "terminal",
-      title: "Terminal",
+      subtitle: "workspace browser surface",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "green",
     });
 
@@ -260,9 +254,9 @@ describe("workspace layout store", () => {
     expect(configured).toMatchObject({
       paneId: emptyPaneId,
       sequence: before?.sequence,
-      subtitle: "workspace command surface",
-      surfaceKind: "terminal",
-      title: "Terminal",
+      subtitle: "workspace browser surface",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "green",
     });
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
@@ -327,30 +321,6 @@ describe("workspace layout store", () => {
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
   });
 
-  test("reconfigures a workflow node details pane target despite the one-pane limit", () => {
-    const store = createStore({ "workflow-node-details": 1 });
-    const firstTarget = workflowNodeDetailsConfig("workspace_api", "activity");
-    const secondTarget = workflowNodeDetailsConfig("workspace_api", "review");
-    const paneId = store.openPane({
-      surfaceKind: "workflow-node-details",
-      title: "Workflow Node",
-      workflowNodeDetailsConfig: firstTarget,
-    });
-    const before = store.toScene().paneById.get(paneId);
-
-    expect(() =>
-      store.configurePane(paneId, {
-        surfaceKind: "workflow-node-details",
-        title: "Workflow Node",
-        workflowNodeDetailsConfig: secondTarget,
-      }),
-    ).not.toThrow();
-
-    const configured = store.toScene().paneById.get(paneId);
-    expect(configured?.workflowNodeDetailsConfig).toEqual(secondTarget);
-    expect(configured?.surfaceId).not.toBe(before?.surfaceId);
-  });
-
   test("preserves an easy button binding only while the pane remains an easy button", () => {
     const store = createStore({ "easy-button": 2 });
     const easyButtonConfig = { conversationId: "conversation-1" };
@@ -364,8 +334,8 @@ describe("workspace layout store", () => {
     expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
 
     store.configurePane(paneId, {
-      surfaceKind: "terminal",
-      title: "Terminal",
+      surfaceKind: "browser",
+      title: "Browser",
     });
     expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toBeUndefined();
   });
@@ -1180,29 +1150,6 @@ function focusState(snapshot: ReturnType<WorkspaceLayoutStore["getSnapshot"]>) {
     focusedColumnIndex: snapshot.focusedColumnIndex,
     focusedPaneId: snapshot.focusedPaneId,
     focusedRowIndex: snapshot.focusedRowIndex,
-  };
-}
-
-function workflowNodeDetailsConfig(
-  workspaceId: string,
-  nodeId: string,
-): NonNullable<WorkspacePane["workflowNodeDetailsConfig"]> {
-  return {
-    definitionId: "workflow_definition_test",
-    definitionName: "Review Workflow",
-    definitionVersionId: "workflow_version_test",
-    definitionVersionNumber: 1,
-    executionId: "workflow_execution_test",
-    nodeId,
-    nodeExecutionId: `workflow_node_execution_${nodeId}`,
-    nodeKind: "action",
-    nodeLabel: nodeId,
-    nodeStatus: "succeeded",
-    projectionIncomingEdges: [],
-    projectionOutgoingEdges: [],
-    versionMismatch: false,
-    viewMode: "run",
-    workspaceId,
   };
 }
 

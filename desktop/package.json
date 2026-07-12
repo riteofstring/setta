@@ -10,7 +10,6 @@
     "dev": "electron-vite dev",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "generate:workflow-graph-font": "node scripts/generate-workflow-graph-font.mjs",
     "deadcode": "knip --no-config-hints",
     "lint": "eslint .",
     "test": "vitest run src",
@@ -30,7 +29,6 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@pixi/msdf-bmfont-xml": "3.0.0",
     "@swc/core": "1.15.33",
     "@tailwindcss/vite": "4.3.0",
     "@types/node": "25.9.1",

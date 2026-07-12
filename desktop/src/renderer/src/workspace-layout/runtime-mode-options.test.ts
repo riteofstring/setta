@@ -35,7 +35,7 @@ describe("workspace runtime mode options", () => {
     });
   });
 
-  test("keeps unfocused benchmark canvases frozen while sizing workspace budgets to the scene", () => {
+  test("uses the benchmark defaults while sizing workspace budgets to the scene", () => {
     const benchmarkScene = generateBenchmarkScene();
     const { scene: workspaceScene } = createRealWorkspaceScene({
       storedLayout: null,
@@ -43,15 +43,11 @@ describe("workspace runtime mode options", () => {
       workspaceName: "Repo",
     });
 
-    expect(runtimePolicyBudgetForRuntime("benchmark", benchmarkScene)).toStrictEqual({
-      ...DEFAULT_PANE_BUDGET,
-      maxLiveWebGpuCanvases: 0,
-    });
+    expect(runtimePolicyBudgetForRuntime("benchmark", benchmarkScene)).toStrictEqual(
+      DEFAULT_PANE_BUDGET,
+    );
     expect(runtimePolicyBudgetForRuntime("workspace", workspaceScene)).toStrictEqual({
-      maxLiveBrowserPanes: workspaceScene.totalPanes,
       maxLiveHeavyDomPanes: workspaceScene.totalPanes,
-      maxLiveTerminalRenderers: workspaceScene.totalPanes,
-      maxLiveWebGpuCanvases: workspaceScene.totalPanes,
       maxSnapshotPanes: workspaceScene.totalPanes,
     });
   });

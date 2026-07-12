@@ -4,127 +4,48 @@ import { PaneRuntimePolicy } from "./runtime-policy";
 import type { PaneRenderItem, PaneRuntimeBudget, SurfaceKind } from "./types";
 
 const budget: PaneRuntimeBudget = {
-  maxLiveBrowserPanes: 6,
   maxLiveHeavyDomPanes: 1,
-  maxLiveTerminalRenderers: 8,
-  maxLiveWebGpuCanvases: 1,
   maxSnapshotPanes: 8,
 };
 
 describe("workspace pane runtime policy", () => {
-  test("keeps focused surfaces live while enforcing visible heavy budgets", () => {
+  test("keeps focused surfaces live while enforcing the heavy DOM budget", () => {
     const items = [
       renderItem("light", "fake-dom", false),
       renderItem("focused-heavy", "fake-heavy-dom", true),
       renderItem("heavy-over-budget", "fake-heavy-dom", false),
-      renderItem("canvas-live", "workflow-graph", false),
-      renderItem("canvas-over-budget", "workflow-graph", false),
+      renderItem("browser", "browser", false),
     ];
+
     const summary = new PaneRuntimePolicy(budget).apply(items, "idle");
 
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+    expect(runtimeStates(items)).toEqual([
       ["light", "live"],
       ["focused-heavy", "live"],
       ["heavy-over-budget", "snapshot"],
-      ["canvas-live", "live"],
-      ["canvas-over-budget", "snapshot"],
+      ["browser", "live"],
     ]);
     expect(summary).toMatchObject({
       hidden: 0,
       live: 3,
       liveThrottled: 0,
-      snapshot: 2,
-      total: 5,
+      snapshot: 1,
+      total: 4,
     });
   });
 
-  test("freezes heavy and canvas surfaces during movement", () => {
-    const items = [
-      renderItem("focused-canvas", "workflow-graph", true),
-      renderItem("focused-chat", "chat-dom", true),
-      renderItem("moving-heavy", "fake-heavy-dom", false),
-      renderItem("moving-long-chat", "fake-long-chat", false),
-      renderItem("moving-chat", "chat-dom", false),
-      renderItem("moving-canvas", "workflow-graph", false),
-      renderItem("moving-light", "fake-dom", false),
-      renderItem("moving-settings", "settings-dom", false),
-    ];
-
-    const summary = new PaneRuntimePolicy(budget).apply(items, "moving");
-
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-canvas", "live-throttled"],
-      ["focused-chat", "live-throttled"],
-      ["moving-heavy", "live-throttled"],
-      ["moving-long-chat", "live-throttled"],
-      ["moving-chat", "live-throttled"],
-      ["moving-canvas", "live-throttled"],
-      ["moving-light", "live"],
-      ["moving-settings", "live-throttled"],
-    ]);
-    expect(summary.liveThrottled).toBe(7);
-    expect(summary.snapshot).toBe(0);
-    expect(summary.budget.maxLiveWebGpuCanvases).toBe(1);
-  });
-
-  test("keeps rendered workspace surfaces live during movement when movement degradation is disabled", () => {
-    const workspaceBudget = {
-      ...budget,
-      maxLiveHeavyDomPanes: 4,
-      maxLiveTerminalRenderers: 4,
-      maxLiveWebGpuCanvases: 4,
-    };
-    const items = [
-      renderItem("moving-heavy", "fake-heavy-dom", false),
-      renderItem("moving-chat", "chat-dom", false),
-      renderItem("moving-canvas", "workflow-graph", false),
-      renderItem("moving-terminal", "terminal", false),
-    ];
-
-    const summary = new PaneRuntimePolicy(workspaceBudget, {
-      degradeDuringMovement: false,
-    }).apply(items, "moving");
-
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["moving-heavy", "live"],
-      ["moving-chat", "live"],
-      ["moving-canvas", "live"],
-      ["moving-terminal", "live"],
-    ]);
-    expect(summary.live).toBe(4);
-    expect(summary.snapshot).toBe(0);
-  });
-
-  test("uses throttling instead of opaque fallback when snapshot budget is exhausted", () => {
-    const items = [
-      renderItem("heavy-1", "fake-heavy-dom", false),
-      renderItem("heavy-2", "fake-heavy-dom", false),
-    ];
-    const noSnapshots = {
-      ...budget,
-      maxLiveHeavyDomPanes: 0,
-      maxSnapshotPanes: 0,
-    };
-
-    const summary = new PaneRuntimePolicy(noSnapshots).apply(items, "idle");
-
-    expect(items.map((item) => item.runtimeState)).toEqual(["live-throttled", "live-throttled"]);
-    expect(summary.liveThrottled).toBe(2);
-  });
-
-  test("budgets easy button panes as heavy DOM surfaces", () => {
-    const noHeavyDom = {
-      ...budget,
-      maxLiveHeavyDomPanes: 0,
-    };
+  test("budgets Easy Button panes as heavy DOM surfaces", () => {
     const items = [
       renderItem("focused-easy", "easy-button", true),
       renderItem("background-easy", "easy-button", false),
     ];
 
-    const summary = new PaneRuntimePolicy(noHeavyDom).apply(items, "idle");
+    const summary = new PaneRuntimePolicy({ ...budget, maxLiveHeavyDomPanes: 0 }).apply(
+      items,
+      "idle",
+    );
 
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+    expect(runtimeStates(items)).toEqual([
       ["focused-easy", "live"],
       ["background-easy", "snapshot"],
     ]);
@@ -132,119 +53,91 @@ describe("workspace pane runtime policy", () => {
     expect(summary.snapshot).toBe(1);
   });
 
-  test("keeps a focused workflow graph live when unfocused graph canvases are frozen", () => {
-    const noUnfocusedCanvases = {
-      ...budget,
-      maxLiveWebGpuCanvases: 0,
-    };
+  test("freezes expensive DOM surfaces during movement", () => {
     const items = [
-      renderItem("focused-graph", "workflow-graph", true),
-      renderItem("background-graph", "workflow-graph", false),
+      renderItem("focused-easy", "easy-button", true),
+      renderItem("moving-heavy", "fake-heavy-dom", false),
+      renderItem("moving-light", "fake-dom", false),
+      renderItem("moving-settings", "settings-dom", false),
     ];
 
-    const summary = new PaneRuntimePolicy(noUnfocusedCanvases).apply(items, "idle");
+    const summary = new PaneRuntimePolicy(budget).apply(items, "moving");
 
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-graph", "live"],
-      ["background-graph", "snapshot"],
+    expect(runtimeStates(items)).toEqual([
+      ["focused-easy", "live-throttled"],
+      ["moving-heavy", "live-throttled"],
+      ["moving-light", "live"],
+      ["moving-settings", "live-throttled"],
     ]);
-    expect(summary.live).toBe(1);
-    expect(summary.snapshot).toBe(1);
-  });
-
-  test("keeps all visible browser panes live without applying the browser budget", () => {
-    const items = [
-      renderItem("focused-browser", "browser", true),
-      renderItem("browser-1", "browser", false),
-      renderItem("browser-2", "browser", false),
-    ];
-    const oneBrowser = {
-      ...budget,
-      maxLiveBrowserPanes: 1,
-    };
-
-    const summary = new PaneRuntimePolicy(oneBrowser).apply(items, "idle");
-
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-browser", "live"],
-      ["browser-1", "live"],
-      ["browser-2", "live"],
-    ]);
-    expect(summary.live).toBe(3);
+    expect(summary.liveThrottled).toBe(3);
     expect(summary.snapshot).toBe(0);
   });
 
-  test("snapshots visible browser panes during movement", () => {
+  test("snapshots browser panes during movement", () => {
     const items = [
       renderItem("focused-browser", "browser", true),
-      renderItem("browser-1", "browser", false),
-      renderItem("browser-2", "browser", false),
-      renderItem("browser-over-budget", "browser", false),
+      renderItem("background-browser", "browser", false),
     ];
-    const twoBrowsers = {
-      ...budget,
-      maxLiveBrowserPanes: 2,
-    };
 
-    const summary = new PaneRuntimePolicy(twoBrowsers).apply(items, "moving");
+    const summary = new PaneRuntimePolicy(budget).apply(items, "moving");
 
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+    expect(runtimeStates(items)).toEqual([
       ["focused-browser", "snapshot"],
-      ["browser-1", "snapshot"],
-      ["browser-2", "snapshot"],
-      ["browser-over-budget", "snapshot"],
+      ["background-browser", "snapshot"],
     ]);
-    expect(summary.live).toBe(0);
-    expect(summary.snapshot).toBe(4);
+    expect(summary.snapshot).toBe(2);
   });
 
-  test("budgets terminal renderers and freezes renderers during movement", () => {
+  test("keeps rendered workspace surfaces live when movement degradation is disabled", () => {
     const items = [
-      renderItem("terminal-focused", "terminal", true),
-      renderItem("terminal-live", "terminal", false),
-      renderItem("terminal-over-budget", "terminal", false),
-      renderItem("graph-moving", "git-graph", false),
+      renderItem("moving-heavy", "fake-heavy-dom", false),
+      renderItem("moving-easy", "easy-button", false),
+      renderItem("moving-browser", "browser", false),
+      renderItem("moving-settings", "settings-dom", false),
     ];
-    const twoTerminals = {
-      ...budget,
-      maxLiveTerminalRenderers: 2,
-    };
 
-    const idleSummary = new PaneRuntimePolicy(twoTerminals).apply(items.slice(0, 3), "idle");
+    const summary = new PaneRuntimePolicy(
+      { ...budget, maxLiveHeavyDomPanes: 4 },
+      { degradeDuringMovement: false },
+    ).apply(items, "moving");
 
-    expect(items.slice(0, 3).map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["terminal-focused", "live"],
-      ["terminal-live", "live"],
-      ["terminal-over-budget", "snapshot"],
+    expect(runtimeStates(items)).toEqual([
+      ["moving-heavy", "live"],
+      ["moving-easy", "live"],
+      ["moving-browser", "live"],
+      ["moving-settings", "live"],
     ]);
-    expect(idleSummary.live).toBe(2);
-    expect(idleSummary.snapshot).toBe(1);
-
-    const movingSummary = new PaneRuntimePolicy(twoTerminals).apply(items, "moving");
-
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["terminal-focused", "live-throttled"],
-      ["terminal-live", "live-throttled"],
-      ["terminal-over-budget", "live-throttled"],
-      ["graph-moving", "live-throttled"],
-    ]);
-    expect(movingSummary.liveThrottled).toBe(4);
-    expect(movingSummary.snapshot).toBe(0);
+    expect(summary.live).toBe(4);
   });
 
-  test("freezes visible overview panes even when focused", () => {
+  test("uses throttling when the snapshot budget is exhausted", () => {
     const items = [
-      { ...renderItem("focused-browser", "browser", true), presentationMode: "overview" },
-      { ...renderItem("overview-terminal", "terminal", false), presentationMode: "overview" },
-      { ...renderItem("overview-settings", "settings-dom", false), presentationMode: "overview" },
-      { ...renderItem("overview-light", "fake-dom", false), presentationMode: "overview" },
-    ] satisfies PaneRenderItem[];
+      renderItem("heavy-1", "fake-heavy-dom", false),
+      renderItem("heavy-2", "fake-heavy-dom", false),
+    ];
+
+    const summary = new PaneRuntimePolicy({
+      maxLiveHeavyDomPanes: 0,
+      maxSnapshotPanes: 0,
+    }).apply(items, "idle");
+
+    expect(items.map((item) => item.runtimeState)).toEqual(["live-throttled", "live-throttled"]);
+    expect(summary.liveThrottled).toBe(2);
+  });
+
+  test("freezes every visible overview pane even when focused", () => {
+    const items = [
+      overviewItem("focused-browser", "browser", true),
+      overviewItem("overview-easy", "easy-button", false),
+      overviewItem("overview-settings", "settings-dom", false),
+      overviewItem("overview-light", "fake-dom", false),
+    ];
 
     const summary = new PaneRuntimePolicy(budget).apply(items, "idle");
 
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+    expect(runtimeStates(items)).toEqual([
       ["focused-browser", "snapshot"],
-      ["overview-terminal", "live-throttled"],
+      ["overview-easy", "live-throttled"],
       ["overview-settings", "live-throttled"],
       ["overview-light", "live-throttled"],
     ]);
@@ -253,105 +146,56 @@ describe("workspace pane runtime policy", () => {
   });
 
   test("keeps workspace overview panes live when overview degradation is disabled", () => {
-    const workspaceBudget = {
-      ...budget,
-      maxLiveHeavyDomPanes: 4,
-      maxLiveTerminalRenderers: 4,
-      maxLiveWebGpuCanvases: 4,
-    };
     const items = [
-      { ...renderItem("focused-browser", "browser", true), presentationMode: "overview" },
-      { ...renderItem("overview-terminal", "terminal", false), presentationMode: "overview" },
-      { ...renderItem("overview-settings", "settings-dom", false), presentationMode: "overview" },
-      { ...renderItem("overview-light", "fake-dom", false), presentationMode: "overview" },
-    ] satisfies PaneRenderItem[];
+      overviewItem("focused-browser", "browser", true),
+      overviewItem("overview-easy", "easy-button", false),
+      overviewItem("overview-settings", "settings-dom", false),
+      overviewItem("overview-light", "fake-dom", false),
+    ];
 
-    const summary = new PaneRuntimePolicy(workspaceBudget, {
-      degradeDuringMovement: false,
-      degradeOverview: false,
-    }).apply(items, "idle");
+    const summary = new PaneRuntimePolicy(
+      { ...budget, maxLiveHeavyDomPanes: 4 },
+      { degradeDuringMovement: false, degradeOverview: false },
+    ).apply(items, "idle");
 
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-browser", "live"],
-      ["overview-terminal", "live"],
-      ["overview-settings", "live"],
-      ["overview-light", "live"],
-    ]);
+    expect(items.every((item) => item.runtimeState === "live")).toBe(true);
     expect(summary.live).toBe(4);
-    expect(summary.snapshot).toBe(0);
   });
 
-  test("freezes workspace overview panes only during active resize", () => {
-    const workspaceBudget = {
-      ...budget,
-      maxLiveHeavyDomPanes: 4,
-      maxLiveTerminalRenderers: 4,
-      maxLiveWebGpuCanvases: 4,
-    };
-    const idleItems = [
-      { ...renderItem("focused-browser", "browser", true), presentationMode: "overview" },
-      { ...renderItem("overview-chat", "chat-dom", false), presentationMode: "overview" },
-      { ...renderItem("overview-terminal", "terminal", false), presentationMode: "overview" },
-      { ...renderItem("overview-settings", "settings-dom", false), presentationMode: "overview" },
-    ] satisfies PaneRenderItem[];
-    const resizingItems = idleItems.map((item) => ({ ...item, resizing: true }));
-    const policy = new PaneRuntimePolicy(workspaceBudget, {
-      degradeDuringMovement: false,
-      degradeOverview: false,
-    });
-
-    policy.apply(idleItems, "idle");
-    expect(idleItems.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-browser", "live"],
-      ["overview-chat", "live"],
-      ["overview-terminal", "live"],
-      ["overview-settings", "live"],
-    ]);
-
-    policy.apply(resizingItems, "moving");
-    expect(resizingItems.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-browser", "snapshot"],
-      ["overview-chat", "live"],
-      ["overview-terminal", "live-throttled"],
-      ["overview-settings", "live-throttled"],
-    ]);
-  });
-
-  test("degrades expensive unfocused panes but keeps real chat live during active resize", () => {
-    const workspaceBudget = {
-      ...budget,
-      maxLiveHeavyDomPanes: 4,
-      maxLiveTerminalRenderers: 4,
-      maxLiveWebGpuCanvases: 4,
-    };
+  test("snapshots only unfocused heavy DOM panes during active resize", () => {
     const items = [
-      { ...renderItem("focused-canvas", "workflow-graph", true), resizing: true },
-      { ...renderItem("resizing-chat", "chat-dom", false), resizing: true },
-      { ...renderItem("resizing-heavy", "fake-heavy-dom", false), resizing: true },
-      { ...renderItem("resizing-canvas", "workflow-graph", false), resizing: true },
-      { ...renderItem("resizing-terminal", "terminal", false), resizing: true },
-      { ...renderItem("resizing-browser", "browser", false), resizing: true },
-      { ...renderItem("resizing-settings", "settings-dom", false), resizing: true },
-      { ...renderItem("resizing-graph", "git-graph", false), resizing: true },
-    ] satisfies PaneRenderItem[];
+      resizingItem("focused-heavy", "fake-heavy-dom", true),
+      resizingItem("background-heavy", "fake-heavy-dom", false),
+      resizingItem("browser", "browser", false),
+      resizingItem("settings", "settings-dom", false),
+    ];
 
-    const summary = new PaneRuntimePolicy(workspaceBudget, {
-      degradeDuringMovement: false,
-    }).apply(items, "moving");
+    const summary = new PaneRuntimePolicy(
+      { ...budget, maxLiveHeavyDomPanes: 4 },
+      { degradeDuringMovement: false },
+    ).apply(items, "moving");
 
-    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["focused-canvas", "live"],
-      ["resizing-chat", "live"],
-      ["resizing-heavy", "snapshot"],
-      ["resizing-canvas", "snapshot"],
-      ["resizing-terminal", "snapshot"],
-      ["resizing-browser", "live"],
-      ["resizing-settings", "live"],
-      ["resizing-graph", "live"],
+    expect(runtimeStates(items)).toEqual([
+      ["focused-heavy", "live"],
+      ["background-heavy", "snapshot"],
+      ["browser", "live"],
+      ["settings", "live"],
     ]);
-    expect(summary.snapshot).toBe(3);
+    expect(summary.snapshot).toBe(1);
   });
 });
+
+function overviewItem(paneId: string, surfaceKind: SurfaceKind, focused: boolean): PaneRenderItem {
+  return { ...renderItem(paneId, surfaceKind, focused), presentationMode: "overview" };
+}
+
+function resizingItem(paneId: string, surfaceKind: SurfaceKind, focused: boolean): PaneRenderItem {
+  return { ...renderItem(paneId, surfaceKind, focused), resizing: true };
+}
+
+function runtimeStates(items: readonly PaneRenderItem[]) {
+  return items.map((item) => [item.paneId, item.runtimeState]);
+}
 
 function renderItem(paneId: string, surfaceKind: SurfaceKind, focused: boolean): PaneRenderItem {
   return {

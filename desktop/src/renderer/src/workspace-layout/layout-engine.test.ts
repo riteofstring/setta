@@ -37,31 +37,26 @@ describe("workspace browser-pane layout engine", () => {
     });
   });
 
-  test("generates the Phase 6 terminal/git graph benchmark scene without losing earlier surfaces", () => {
+  test("generates a mixed DOM and browser benchmark scene", () => {
     const scene = generateBenchmarkScene();
     const browserPanes = scene.panes.filter((pane) => pane.surfaceKind === "browser");
-    const gitGraphPanes = scene.panes.filter((pane) => pane.surfaceKind === "git-graph");
-    const workflowGraphPanes = scene.panes.filter((pane) => pane.surfaceKind === "workflow-graph");
-    const terminalPanes = scene.panes.filter((pane) => pane.surfaceKind === "fake-terminal");
+    const heavyDomPanes = scene.panes.filter((pane) => pane.surfaceKind === "fake-heavy-dom");
 
-    expect(scene.id).toBe("phase-6-terminal-git-graph-benchmark");
+    expect(scene.id).toBe("workspace-dom-browser-benchmark");
     expect(scene.totalPanes).toBe(phaseOneFakePaneCount);
     expect(scene.targetVisiblePanes).toBe(phaseOneVisiblePaneCount);
     expect(scene.visibleColumnCount).toBe(8);
     expect(scene.panesPerColumn).toBe(5);
     expect(scene.columns).toHaveLength(100);
     expect(scene.paneById.get("workspace_pane_0")?.surfaceKind).toBe("fake-dom");
-    expect(scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("fake-long-chat");
+    expect(scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("fake-heavy-dom");
     expect(scene.paneById.get("workspace_pane_2")?.surfaceKind).toBe("settings-dom");
-    expect(scene.paneById.get("workspace_pane_3")?.surfaceKind).toBe("chat-dom");
-    expect(scene.paneById.get("workspace_pane_4")?.surfaceKind).toBe("workflow-graph");
-    expect(scene.paneById.get("workspace_pane_5")?.surfaceKind).toBe("fake-terminal");
-    expect(scene.paneById.get("workspace_pane_6")?.surfaceKind).toBe("git-graph");
-    expect(scene.panes.some((pane) => pane.surfaceKind === "fake-heavy-dom")).toBe(true);
-    expect(workflowGraphPanes.length).toBeGreaterThanOrEqual(20);
-    expect(gitGraphPanes.length).toBeGreaterThanOrEqual(6);
-    expect(terminalPanes.length).toBeGreaterThanOrEqual(6);
-    expect(browserPanes.length).toBeGreaterThanOrEqual(20);
+    expect(scene.paneById.get("workspace_pane_3")?.surfaceKind).toBe("fake-dom");
+    expect(scene.paneById.get("workspace_pane_4")?.surfaceKind).toBe("fake-heavy-dom");
+    expect(scene.paneById.get("workspace_pane_5")?.surfaceKind).toBe("fake-heavy-dom");
+    expect(scene.paneById.get("workspace_pane_6")?.surfaceKind).toBe("fake-heavy-dom");
+    expect(heavyDomPanes).toHaveLength(148);
+    expect(browserPanes).toHaveLength(62);
     expect(
       scene.panes
         .slice(0, phaseOneVisiblePaneCount)
@@ -384,7 +379,7 @@ describe("real workspace layout column sizing", () => {
     const engine = new WorkspaceLikeLayoutEngine(createSparseGeneratedPaneScene());
 
     const paneId = engine.openPane({
-      surfaceKind: "terminal",
+      surfaceKind: "browser",
       title: "Build",
     });
 
@@ -1031,7 +1026,7 @@ describe("real workspace layout column sizing", () => {
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
     store.splitFocusedPaneToPlane("down");
 
-    store.focusPaneBySurfaceKind("chat-dom");
+    store.focusPaneBySurfaceKind("empty-frame");
     const focusedPaneBeforeMove = store.focusedPaneId();
     store.moveFocus("left");
 
@@ -1332,13 +1327,13 @@ function createRealEngine(
   const builder = new WorkspaceLikeLayoutEngine(scene);
   builder.openPane({
     adjacentToColumnId: "workspace_column_3",
-    surfaceKind: "terminal",
+    surfaceKind: "browser",
     title: "Logs",
     tone: "green",
   });
   builder.openPane({
     adjacentToColumnId: "workspace_column_4",
-    surfaceKind: "chat-dom",
+    surfaceKind: "fake-heavy-dom",
     title: "Notes",
     tone: "cyan",
   });
@@ -1369,8 +1364,8 @@ function createSparseGeneratedPaneScene(): WorkspaceScene {
       sequence: 0,
       subtitle: "Repo",
       surfaceId: "workspace_surface_0",
-      surfaceKind: "chat-dom",
-      title: "Chat",
+      surfaceKind: "empty-frame",
+      title: "Frame",
       tone: "cyan",
       weight: 1,
     },
@@ -1381,8 +1376,8 @@ function createSparseGeneratedPaneScene(): WorkspaceScene {
       sequence: 8,
       subtitle: "Old",
       surfaceId: "workspace_surface_8",
-      surfaceKind: "chat-dom",
-      title: "Old Chat",
+      surfaceKind: "settings-dom",
+      title: "Settings",
       tone: "cyan",
       weight: 1,
     },

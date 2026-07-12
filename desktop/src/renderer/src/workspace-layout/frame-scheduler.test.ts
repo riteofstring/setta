@@ -230,7 +230,7 @@ describe("workspace frame scheduler", () => {
     raf.flush(16);
     const terminalPaneId = store.openPane({
       subtitle: "command surface",
-      surfaceKind: "terminal",
+      surfaceKind: "fake-heavy-dom",
       title: "Terminal",
       tone: "green",
     });
@@ -489,13 +489,10 @@ function emptyPresentationWriteCounts(): PresentationWriteCounts {
   return {
     boxWrites: 0,
     browserViewportWrites: 0,
-    canvasViewportWrites: 0,
     deferredHeavyViewportWrites: 0,
-    gitGraphViewportWrites: 0,
     heavyViewportWrites: 0,
     nativeBoundsUpdates: 0,
     surfaceViewportWrites: 0,
-    terminalViewportWrites: 0,
     transformWrites: 0,
   };
 }

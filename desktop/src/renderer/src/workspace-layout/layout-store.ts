@@ -13,7 +13,6 @@ import type {
   PaneInsertionPlacement,
   Rect,
   SurfaceKind,
-  TerminalPaneConfig,
 } from "./types";
 
 export interface WorkspaceLayoutSnapshot {
@@ -564,11 +563,6 @@ export class WorkspaceLayoutStore {
 
   hasPaneDropPreview(): boolean {
     return this.engine.hasPaneReorderPreview();
-  }
-
-  setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
-    this.engine.setPaneTerminalConfig(paneId, terminalConfig);
-    this.notify();
   }
 
   resizePaneColumn(paneId: PaneId, width: ColumnWidthSpec): ColumnId | null {

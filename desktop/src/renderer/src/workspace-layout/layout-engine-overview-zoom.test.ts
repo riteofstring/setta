@@ -246,13 +246,13 @@ function createRealEngine(): WorkspaceLikeLayoutEngine {
   const builder = new WorkspaceLikeLayoutEngine(scene);
   builder.openPane({
     adjacentToColumnId: "workspace_column_3",
-    surfaceKind: "terminal",
+    surfaceKind: "browser",
     title: "Logs",
     tone: "green",
   });
   builder.openPane({
     adjacentToColumnId: "workspace_column_4",
-    surfaceKind: "chat-dom",
+    surfaceKind: "fake-heavy-dom",
     title: "Notes",
     tone: "cyan",
   });

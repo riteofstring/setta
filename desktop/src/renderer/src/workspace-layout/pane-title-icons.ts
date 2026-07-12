@@ -11,14 +11,6 @@ type PaneChromeIconNode = readonly [
 type PaneChromeIconElement = Element & { dataset: DOMStringMap };
 
 const paneChromeIconNodes = {
-  chat: [
-    [
-      "path",
-      {
-        d: "M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z",
-      },
-    ],
-  ],
   document: [
     [
       "path",
@@ -30,13 +22,6 @@ const paneChromeIconNodes = {
     ["path", { d: "M10 9H8" }],
     ["path", { d: "M16 13H8" }],
     ["path", { d: "M16 17H8" }],
-  ],
-  network: [
-    ["rect", { height: "6", rx: "1", width: "6", x: "16", y: "16" }],
-    ["rect", { height: "6", rx: "1", width: "6", x: "2", y: "16" }],
-    ["rect", { height: "6", rx: "1", width: "6", x: "9", y: "2" }],
-    ["path", { d: "M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" }],
-    ["path", { d: "M12 12V8" }],
   ],
   settings: [
     [
@@ -57,16 +42,6 @@ const paneChromeIconNodes = {
     ["path", { d: "M20 2v4" }],
     ["path", { d: "M22 4h-4" }],
     ["circle", { cx: "4", cy: "20", r: "1" }],
-  ],
-  terminal: [
-    ["path", { d: "m7 11 2-2-2-2" }],
-    ["path", { d: "M11 13h4" }],
-    ["rect", { height: "18", rx: "2", ry: "2", width: "18", x: "3", y: "3" }],
-  ],
-  workflow: [
-    ["rect", { height: "8", rx: "2", width: "8", x: "3", y: "3" }],
-    ["path", { d: "M7 11v4a2 2 0 0 0 2 2h4" }],
-    ["rect", { height: "8", rx: "2", width: "8", x: "13", y: "13" }],
   ],
 } satisfies Record<PaneChromeIconName, readonly PaneChromeIconNode[]>;
 

@@ -42,11 +42,6 @@ const runtimePolicyOptionsByMode = {
     degradeOverviewDuringResize: boolean;
   }
 >;
-const benchmarkPaneRuntimeBudget = {
-  ...DEFAULT_PANE_BUDGET,
-  maxLiveWebGpuCanvases: 0,
-} satisfies PaneRuntimeBudget;
-
 export function browserPaneCountForScene(scene: WorkspaceScene): number {
   return scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
 }
@@ -109,10 +104,7 @@ export function runtimePolicyBudgetForRuntime(
   mode: WorkspaceSceneMode,
   scene: WorkspaceScene,
 ): PaneRuntimeBudget {
-  if (mode === "benchmark") {
-    return benchmarkPaneRuntimeBudget;
-  }
-  return workspaceRuntimeBudgetForScene(scene);
+  return mode === "benchmark" ? benchmarkRuntimeBudget() : workspaceRuntimeBudgetForScene(scene);
 }
 
 export function benchmarkSceneOptionsFromSearch(search: string): BenchmarkSceneOptions {
@@ -148,12 +140,13 @@ export function snapshotStaticFallbackForRuntime(mode: WorkspaceSceneMode): bool
 function workspaceRuntimeBudgetForScene(scene: WorkspaceScene): PaneRuntimeBudget {
   const visiblePaneBudget = Math.max(1, scene.totalPanes);
   return {
-    maxLiveBrowserPanes: visiblePaneBudget,
     maxLiveHeavyDomPanes: visiblePaneBudget,
-    maxLiveTerminalRenderers: visiblePaneBudget,
-    maxLiveWebGpuCanvases: visiblePaneBudget,
     maxSnapshotPanes: visiblePaneBudget,
   };
+}
+
+function benchmarkRuntimeBudget(): PaneRuntimeBudget {
+  return { ...DEFAULT_PANE_BUDGET };
 }
 
 function optionalPositiveIntegerParam(params: URLSearchParams, key: string): number | undefined {
