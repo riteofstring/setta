@@ -54,6 +54,20 @@ runtime picker.
 One logical runtime per user does not mean one continuously running VM per
 user. A Sprite preserves its filesystem while idle and wakes on demand.
 
+## Simplicity Rule
+
+Cloud Dev must be simpler than the infrastructure it hides. The ordinary user
+signs in, opens a repository or conversation, and works from desktop or phone.
+There is no provider setup or runtime management flow.
+
+The private-beta implementation starts with one CPU provider, one Sprite per
+user, one Go control-plane deployable plus its database and secret store, one
+runtime release line, one beta package, and one active agent workload per user.
+If Candidate B wins, keep its thin gateway in that deployable until measured
+scale or isolation requires a split. Desktop and phone use the same control and
+runtime protocols. Each new service or abstraction must remove more complexity
+than it adds or satisfy a recorded security, durability, or cost gate.
+
 ## Why Sprites Is the First CPU Provider
 
 Fly Sprites is the current first provider because its documented product model
@@ -87,11 +101,14 @@ Official references:
 - [Working with Sprites](https://docs.sprites.dev/working-with-sprites/)
 - [Keeping a Sprite running](https://docs.sprites.dev/keeping-sprites-running/)
 - [Sprites lifecycle and persistence](https://docs.sprites.dev/concepts/lifecycle/)
+- [Sprites networking](https://docs.sprites.dev/concepts/networking/)
 - [Sprites services](https://docs.sprites.dev/concepts/services/)
+- [Sprites checkpoints](https://docs.sprites.dev/concepts/checkpoints/)
 - [Sprite maintenance](https://docs.sprites.dev/sprite-maintenance/)
 - [Sprites API](https://docs.sprites.dev/api/dev-latest/)
 - [Sprites policy API](https://docs.sprites.dev/api/dev-latest/policy/)
 - [Sprites checkpoints API](https://docs.sprites.dev/api/dev-latest/checkpoints/)
+- [Sprites Proxy API](https://docs.sprites.dev/api/dev-latest/proxy/)
 - [Sprites connectors](https://docs.sprites.dev/concepts/connectors/)
 
 The current public pages are internally inconsistent about checkpoint
@@ -99,6 +116,31 @@ creation and restore semantics. The API describes filesystem snapshots without
 interrupting running processes, while the working guide describes process and
 in-memory capture and processes stopping during creation. Phase 1 must treat
 those semantics as unknown and record live, versioned probes.
+
+## Pre-Code Cost Baseline
+
+At the 2026-07-13 review, Sprites publishes these usage rates:
+
+| Resource | Published rate | Approximate monthly equivalent |
+| --- | ---: | ---: |
+| CPU | $0.07 per CPU-hour | workload-dependent |
+| Memory | $0.04375 per GB-hour | workload-dependent |
+| Hot storage | $0.000683 per GB-hour | $0.50 per GB-month |
+| Cold storage | $0.000027 per GB-hour | $0.02 per GB-month |
+
+The documented metering minima are 6.25% CPU and 0.25 GB of memory for each
+second that a Sprite is active. At both minima, continuously active compute has
+an approximate floor of $0.0153 per hour, or $11.18 over 730 active hours,
+before hot storage, actual workload use, gateway bandwidth, support, or margin.
+This is not a cost forecast. It is an early warning that an idle-looking client,
+terminal, preview, or forgotten heartbeat can still create material cost.
+
+Before provider adapter work begins, Phase 1a must turn these public rates into
+a small assumptions table for three cases: retained but cold, attached but not
+doing useful work, and an active agent. Record a maximum acceptable monthly
+provider cost per beta user and the maximum cutoff-enforcement lag. Phase 1c
+replaces assumptions with measurements; Phase 6 turns the measured envelope
+into one simple beta package. Revalidate all rates before relying on them.
 
 ## GPU Decision
 
@@ -190,6 +232,25 @@ evidence is recorded in this plan.
     signup occurred. Provisioning requires an explicit beta allowlist or an
     active runtime entitlement established by the product's eligibility and
     payment policy.
+18. Sprite checkpoints are whole-runtime rollback tools. They are not a
+    per-project undo feature: restoring project A can also roll back project B,
+    databases, runtime state, and every other file in the Sprite. V1 exposes
+    restore only as an explicit whole-Sprite recovery or maintenance action,
+    with a fresh safety checkpoint or export and a clear impact warning.
+19. Anything expected to survive a cold wake must be on the persistent
+    filesystem or reconstructible from an authoritative source. Process memory
+    and `/tmp` are caches, not durable session, transcript, queue, or replay
+    state.
+20. Keep private-beta scheduling deliberately small: one active agent workload
+    per user by default, using the existing queue semantics for additional
+    work, plus measured hard caps for terminals and previews. Do not build a
+    general resource scheduler for v1.
+21. Start with one private-beta package, one included usage allowance, and one
+    hard cost cap. Do not add tiers, metered overages, or machine-size choices
+    until measured demand justifies them.
+22. Ordinary users see one automatic Cloud Dev experience from desktop or
+    phone. Provider, region, machine size, runtime, Task, checkpoint, and
+    gateway controls remain internal or operator-only.
 
 ## Branch and Commit Protocol
 
@@ -328,6 +389,8 @@ User
   id
   identity_provider_subject
   status
+  active_runtime_id
+  runtime_generation
 
 Subscription
   user_id
@@ -345,6 +408,7 @@ Runtime
   provider_kind
   provider_resource_id
   provider_observation  typed provider-adapter observation, not a core state
+  provider_placement    typed adapter-owned placement observation
   endpoint
   runtime_identity
   credential_epoch
@@ -395,6 +459,12 @@ runtime provisioning state. Provider power observations such as `running` or
 `cold` remain adapter-owned because Sprites does not expose every warm/cold
 transition as a stable control-plane state.
 
+`User.active_runtime_id` is the single authoritative default assignment.
+Replacement may create a new provisioning Runtime while the old Runtime is
+still ready or deleting, then atomically advance `active_runtime_id` and
+`runtime_generation`. Do not encode replacement as a constraint that forbids
+the old and new provider resources from coexisting briefly.
+
 Do not add heuristic state inference from error strings. Use provider response
 fields, runtime health/identity responses, and explicit operation records.
 
@@ -424,6 +494,8 @@ and code inside a sleeping Sprite cannot rate-limit the request that wakes it.
 Candidate A is viable only if Fly or another pre-wake edge can enforce useful
 abuse controls without turning that edge into an unbounded Setta relay. An
 unguessable URL and an in-runtime rate limiter do not solve wake abuse.
+Candidate A also fails if developer-level guest access can modify or replace
+the in-Sprite authentication authority.
 
 ### Candidate B: private Sprite URL through a small Setta gateway
 
@@ -437,6 +509,11 @@ and authenticate the gateway-to-runtime hop separately. The design must prove
 how this works when both Fly URL authentication and the current Setta runtime
 would otherwise consume an `Authorization: Bearer` header. Provider and gateway
 logs must redact credentials and single-use WebSocket tickets.
+
+Test the provider's authenticated Proxy API as the first Candidate B transport
+variant. It may avoid the header collision while keeping the organization token
+only at the gateway. It is an implementation choice inside Candidate B, not a
+third product architecture.
 
 Advantages: private Sprite URLs, centralized suspension, and no public runtime
 surface.
@@ -452,7 +529,8 @@ record:
 - warm and cold connection latency;
 - interactive terminal p50/p95;
 - reconnect behavior across sleep/wake;
-- unauthenticated wake behavior and rate limiting;
+- whether unauthenticated requests to private and public Sprite URLs wake
+  compute, plus rate limiting;
 - provider token exposure analysis;
 - gateway bandwidth and operating cost;
 - mobile network transition behavior;
@@ -464,6 +542,20 @@ connection time, interactive p95 latency, reconnect time, revocation latency,
 and maximum unauthenticated wake cost. Phase 1 measurements may inform the
 budgets, but the budgets must be written before comparing the final candidates
 so the decision cannot be retrofitted to the preferred result.
+
+### Connection and idle policy
+
+Current Sprites documentation counts open TCP connections and running TTY
+sessions as activity. An attached client therefore does not need a Task merely
+to stay connected, but it may keep compute billable. Tasks are reserved for
+bounded background work that must continue after every client disconnects.
+
+Recurring disconnect and reconnect is normal operation, not merely failure
+recovery. Before choosing the access path, define one simple policy for idle UI
+event streams, terminals, and previews: when each disconnects or closes, what
+state persists, what the user sees, and how quickly the next interaction
+reconnects. Measure attached-idle cost separately from active agent cost. Do not
+keep a Sprite awake solely to make the UI appear continuously connected.
 
 ### Credential authority gate
 
@@ -518,8 +610,10 @@ durable worker/reconciler, lease or leader-election mechanism, backup, and
 availability expectations. Provider mutations must be represented by durable
 operations with unique idempotency keys, leases or fencing, bounded retry
 classification, and retained ambiguous outcomes. A database uniqueness
-constraint must enforce at most one live default runtime per user; a
-deterministic provider name alone is insufficient concurrency control.
+constraint or locked assignment update must enforce one authoritative
+`active_runtime_id` per user; a deterministic provider name alone is
+insufficient concurrency control. A replacement candidate may coexist with the
+old runtime until an atomic assignment cutover succeeds.
 
 Identity and billing choices are not implementation prerequisites for the
 provider PoC. The intended initial product split is Clerk for authentication
@@ -569,9 +663,23 @@ state without control-plane reconciliation, or keep compute billing active
 outside Setta's hard budget, stop the proof of concept and reassess the
 provider/runtime boundary.
 
-Network policy must be tested against real developer operations. A policy that
-breaks Git, package managers, model APIs, or normal preview access is not
-acceptable, but broad outbound access must be an explicit higher-risk mode.
+The root boundary is a product decision, not merely a Unix-permissions detail.
+Current Sprites guides use `sudo`, while the Setta product should support normal
+package and container workflows. Phase 1a must compare only two deliberately
+simple models: a constrained host account that still passes representative
+developer workflows, or a root-capable workload container or namespace that
+cannot reach the management socket or protected Setta state. Probe Docker,
+Podman or a simpler rootless container path rather than assuming nested
+containers work. Do not build a custom sandbox framework. If neither model
+provides useful developer ergonomics and a trustworthy boundary, stop.
+
+Current provider documentation says an enforced network policy blocks raw-IP
+and private-IP connections and is read-only inside the Sprite. Verify those
+claims live with IP literals, alternate resolvers, DNS-over-HTTPS, SMTP by IP,
+pre-existing connections, and privilege/capability changes. Also test real Git,
+package-manager, container-registry, model-API, and preview workflows. A policy
+that fails either abuse containment or ordinary development is not a proven
+boundary; broad outbound access must remain an explicit higher-risk mode.
 
 ## Implementation Phases
 
@@ -586,65 +694,105 @@ acceptable, but broad outbound access must be an explicit higher-risk mode.
 
 Exit: the clean platform branch and source branch are both recoverable.
 
-### Phase 1: build a Sprites provider and runtime-boundary proof of concept
+### Phase 1: settle Sprites viability before provider engineering
+
+Phase 1 is ordered by kill probability. Do not start the adapter before Phase
+1a exits cleanly.
+
+#### Phase 1a: run cheap stop-condition probes
 
 - [ ] Send Fly an early written inquiry covering customer-per-Sprite use,
   expected retained and active counts, placement, API limits, billing data,
   encryption and data handling, support, and abuse escalation. Final
-  commercial confirmation remains a beta gate, but do not defer discovery
-  until the end of implementation.
-- [ ] Record the Sprites API/SDK version used and pin any direct dependency
-  exactly through `./update_dependencies.sh`. If the SDK has no release tag,
-  pin an exact commit-derived Go pseudo-version.
-- [ ] Record live capability probes for name and label support, URL auth,
-  Services, Tasks, network/resource/privilege policies, checkpoints, usage or
-  billing measurements, placement, and deletion. Do not treat `dev-latest`
-  documentation or connector label examples as a stable contract.
-- [ ] Define a narrow typed provider interface for create, inspect, exec,
+  commercial confirmation remains a beta gate, but do not defer discovery.
+- [ ] Turn the pre-code cost baseline into retained-cold, attached-idle, and
+  active-agent assumptions. Record the maximum acceptable provider cost per
+  beta user and cutoff-enforcement lag before writing provider code.
+- [ ] Create one disposable Sprite through the documented CLI or raw API and
+  record the exact CLI, API, base-image, and environment versions used.
+- [ ] Build a capability and permission matrix from an ordinary process,
+  `sudo` or root, and any proposed workload boundary. Probe Tasks, Services,
+  checkpoint create/list/restore, signals, protected files, and every other
+  management-socket endpoint actually present. Separately prove whether URL
+  authentication, Ports, Proxy, exec, policy, and deletion are guest-reachable;
+  do not infer management-socket scope from the external API index.
+- [ ] Probe the two simple root models from the security baseline. Exercise
+  `sudo apt`, Docker or Podman, rootless containers, cgroups, mount namespaces,
+  bind mounts, and cold wake. Prove a root-capable workload cannot reach the
+  management socket, protected Setta state, or the trusted supervisor.
+- [ ] Prove a control-plane action can stop further billable compute within a
+  hard deadline even when hostile code maintains a Task, TTY, open connection,
+  or busy process. If the only cutoff is destructive Sprite deletion, record
+  that as a failed hard-budget proof rather than hiding it behind estimates.
+- [ ] Apply the proposed network and privilege policies from outside the
+  Sprite. Test raw IP, private IP, alternate DNS, DNS-over-HTTPS, SMTP by IP,
+  pre-existing connections, raw sockets, and ordinary developer operations.
+- [ ] Measure whether unauthenticated requests to private and public Sprite
+  URLs wake compute. Record whether the authenticated Proxy API is a viable
+  gateway transport without exposing the organization token.
+- [ ] Probe attached-idle behavior for an application event stream, an idle
+  TTY, and a preview. Record which mechanisms keep compute active without a
+  Task and how quickly deliberate disconnect/reconnect works.
+- [ ] Create a checkpoint during representative SQLite and repository writes,
+  inspect it without restoring, then restore it. Record filesystem consistency,
+  process/memory/connection behavior, whole-Sprite impact, and whether restored
+  code can override a newer credential epoch or desired release.
+- [ ] Destroy the disposable Sprite and verify deletion.
+
+Exit: choose and record one useful root/workload boundary, prove a
+non-destructive hard-cost cutoff, validate the network boundary, and confirm
+that checkpoint restore cannot silently become authoritative. Failure of any
+one is a stop condition; no adapter code is written.
+
+#### Phase 1b: build the minimum lifecycle adapter
+
+- [ ] Record the Sprites API/SDK version and pin the Go SDK exactly through
+  `./update_dependencies.sh`. If it has no release tag, pin an exact
+  commit-derived pseudo-version.
+- [ ] Probe name and label support, URL settings, Services, policies,
+  checkpoints, usage observations, placement, and deletion against the pinned
+  version. Do not treat `dev-latest` or connector examples as a contract.
+- [ ] Define the smallest typed provider interface for create, inspect, exec,
   URL settings, service, policy, checkpoint, restore, and destroy. Keep the
   in-Sprite Tasks integration behind a separate Setta workload-lease boundary.
-- [ ] Implement the Sprites adapter without leaking Fly response types into
-  core lifecycle types.
-- [ ] Use deterministic Setta-owned Sprite names. Use provider labels only if
-  the pinned create/inspect API proves them.
-- [ ] Create one Sprite from an automated Go test/harness.
-- [ ] Write a file and repository, allow the Sprite to idle, wake it, and prove
-  filesystem persistence.
-- [ ] Install and start a minimal Setta runtime as a Sprite Service.
-- [ ] Prove service restart after Sprite sleep/wake.
-- [ ] Start a bounded background agent-like job, disconnect every client, hold
-  the Sprite active through a renewable Task, prove the job continues, then
-  release the Task and prove the Sprite can idle. Prove stale Tasks expire
-  after a simulated runtime crash.
-- [ ] Prove an OS/process isolation design in which arbitrary workspace code
-  cannot write runtime auth/release/audit state, signal the trusted runtime,
-  invoke forbidden management-socket operations, or maintain billing outside
-  Setta's enforced workload lease and budget.
-- [ ] Create a checkpoint while representative SQLite and repository writes
-  are active, verify consistency, mutate state, restore it, and prove rollback.
-  Determine and record exactly what happens to running processes, open
-  connections, and memory; do not infer those semantics from the phrase
-  "complete filesystem state."
-- [ ] Prove the post-restore runtime can be forced to re-attest and accept the
-  control plane's newer credential epoch and desired release rather than
-  treating restored security state as authoritative.
-- [ ] Determine whether authoritative per-Sprite usage and cost measurements
-  exist. If they do not, design and validate the conservative Setta-side
-  measurement and hard-cutoff mechanism before claiming budget enforcement.
-- [ ] Measure warm/cold wake latency, regional placement behavior, resource
-  use, active Task time, hot/cold storage, checkpoint growth, and provider
-  cost from at least the intended beta geographies.
-- [ ] Write a first unit-economics envelope with explicit assumptions for
-  active CPU/memory, retained storage, checkpoint retention, egress or gateway
-  bandwidth, support margin, and maximum allowed per-user cost.
-- [ ] Destroy only the disposable test Sprite and verify deletion.
+- [ ] Implement the adapter without leaking Fly response types into core state.
+  Use deterministic Setta-owned names and labels only if the pinned API proves
+  them.
+- [ ] Through one automated Go harness, create a Sprite, prove filesystem
+  persistence across warm and confirmed-cold wake, install a minimal Setta Service,
+  prove Service restart, checkpoint and restore, then destroy and verify absent.
+- [ ] Run a bounded agent-like job, disconnect every client, hold the Sprite
+  through a short renewable Task, finish, release it, and prove a simulated
+  supervisor crash lets the stale Task expire.
 
-Exit: provider lifecycle, background-work semantics, isolation, restore,
-placement, metering, and an initial cost envelope are proved without product
-UI. Any failed isolation or hard-budget proof triggers a stop condition.
+Exit: the minimal provider lifecycle, persistence, Service, Task, restore, and
+cleanup behavior work through typed Go code without product UI.
+
+#### Phase 1c: measure capacity and unit economics
+
+- [ ] Determine whether authoritative per-Sprite usage and cost observations
+  exist and how quickly they arrive. Validate the conservative Setta-side
+  measurement and hard-cutoff path chosen in Phase 1a.
+- [ ] Measure warm and confirmed-cold wake, attached-idle time, active Task time,
+  CPU, memory-policy behavior, hot/cold storage, checkpoint growth, Proxy or
+  gateway bandwidth, and actual provider cost.
+- [ ] Measure the fixed Sprite shape with one agent, the maximum proposed beta
+  concurrency, terminals, builds, and previews. Record contention and disk
+  pressure; do not build an automatic scheduler.
+- [ ] Measure placement and interactive latency from the intended beta
+  geographies without adding a user-facing region picker.
+- [ ] Replace the pre-code assumptions with a measured unit-economics envelope
+  covering retained storage, attached idle, active work, checkpoint retention,
+  bandwidth, support margin, and the maximum per-user cost.
+
+Exit: the measured capacity and cost envelope supports one bounded beta package
+and the latency budgets needed for the access-path decision.
 
 ### Phase 2: port the generic runtime foundation
 
+- [ ] Build the smallest repeatable developer loop that installs one signed
+  local runtime build on a disposable test Sprite, verifies health, and rolls
+  back by reinstalling the prior build. Do not wait for fleet orchestration.
 - [ ] Port runtime identity and feature reporting.
 - [ ] Port service/install verification without Tailscale assumptions and
   preserve the trusted-runtime/untrusted-workload identity separation proved
@@ -662,9 +810,12 @@ UI. Any failed isolation or hard-budget proof triggers a stop condition.
 - [ ] Add structured capability diagnostics for the Setta release, Codex
   binary and authentication, workload-lease integration, policy, disk space,
   and protected runtime state.
+- [ ] Persist any session, run, queue, transcript, terminal replay, and
+  reconnect state that must survive a cold wake under the protected persistent
+  runtime path. Keep `/tmp` and process memory non-authoritative.
 - [ ] Add deterministic tests for bootstrapping, pairing, revocation, restart,
-  mismatched runtime identity, credential epochs, and post-restore
-  re-attestation.
+  mismatched runtime identity, credential epochs, warm wake, confirmed-cold wake,
+  and post-restore re-attestation.
 
 Exit: a freshly provisioned Sprite proves it is the intended runtime and can
 authenticate a Setta device without provider credentials.
@@ -674,8 +825,8 @@ authenticate a Setta device without provider credentials.
 - [ ] Implement the minimum Candidate A experiment, including measurement of
   wakes caused before in-runtime authentication can run.
 - [ ] Implement the minimum Candidate B experiment without making it a
-  production service, including separate Fly-edge and gateway-to-runtime
-  authentication.
+  production service, including the Proxy API transport first and separate
+  Fly-edge and gateway-to-runtime authentication.
 - [ ] Evaluate a provider-native pre-wake Setta authentication mechanism if
   Fly offers one. Do not call a Setta forwarding proxy a separate direct-path
   candidate merely because it is small.
@@ -685,6 +836,9 @@ authenticate a Setta device without provider credentials.
 - [ ] Select one access path and delete the losing experiment.
 - [ ] Add authentication, credential-epoch, revocation, rate-limit,
   suspension, log-redaction, and wake-abuse tests for the selected path.
+- [ ] Apply the connection and idle policy to UI event streams, terminals, and
+  previews. Measure recurring reconnect behavior and attached-idle cost; do not
+  create Tasks merely to preserve idle client attachments.
 - [ ] Verify desktop and a representative real mobile device, using a minimal
   test client, can reconnect after the laptop closes and across a mobile
   network transition. This does not select the product phone architecture.
@@ -703,8 +857,10 @@ is required by the end user.
 - [ ] Run deterministic local latency profiles.
 - [ ] Run the identical workload against the Sprite over the access path
   selected in Phase 3 and compare it with the recorded budgets.
-- [ ] Verify reload, reconnect, Sprite sleep/wake, multi-pane output, terminal
-  close, and backend crash behavior through production paths.
+- [ ] Verify reload, recurring idle reconnect, warm wake, confirmed-cold wake,
+  multi-pane output, terminal close, and backend crash behavior through
+  production paths. Prove expected transcript and replay state survives even
+  though processes and `/tmp` do not.
 - [ ] Choose and test the multi-device terminal resize policy so desktop and
   phone attachments cannot continuously resize one shared PTY.
 
@@ -718,8 +874,9 @@ path.
   and availability expectations.
 - [ ] Define Go-owned user, entitlement, runtime, device, runtime-access-grant,
   operation, provider-observation, usage, and progress-event contracts.
-- [ ] Enforce one live default runtime per user with a database uniqueness
-  constraint and durable idempotency keys.
+- [ ] Enforce one authoritative active runtime assignment per user with locked
+  or atomic updates and durable idempotency keys. Test replacement with the old
+  deleting Runtime and new provisioning Runtime present together.
 - [ ] Implement idempotent `ensureRuntime` and reconciliation.
 - [ ] Handle create timeouts by inspecting deterministic identity before
   retrying.
@@ -731,6 +888,11 @@ path.
   progress. Do not add a polling watch.
 - [ ] Add content-free audit events, typed measurement intervals, workload
   lease enforcement, and per-user hard budget enforcement.
+- [ ] Add a minimal alert path for provisioning and wake failure spikes,
+  reconciliation backlog, provider errors, unexpectedly old Tasks or active
+  sessions, approaching hard budgets, and failed cutoff actions. Reuse the
+  existing operational stack if one exists; do not introduce a second platform
+  solely for this beta.
 - [ ] Add production-path E2E coverage with a scripted fake provider for
   concurrent ensure calls, ambiguous create success, timeout, throttling,
   malformed responses, capacity failure, control-plane restart, lease expiry,
@@ -746,6 +908,9 @@ lose mutation intent, suspension, or budget enforcement.
 
 ### Phase 6: integrate the automatic product experience
 
+- [ ] Choose one private-beta price, included usage allowance, and hard cost
+  cap from the Phase 1c envelope. Do not launch tiers, metered overages, or
+  machine-size choices.
 - [ ] Integrate Clerk authentication and map immutable external subjects to
   Setta users without provisioning on signup alone.
 - [ ] Integrate Stripe Billing checkout, subscription webhooks, entitlement
@@ -753,6 +918,9 @@ lose mutation intent, suspension, or budget enforcement.
 - [ ] Define the beta eligibility rule that permits Sprite creation and the
   capability thresholds that require verified payment or stronger identity.
 - [ ] Resolve the user's runtime automatically.
+- [ ] Enforce the initial one-active-agent limit through existing queue
+  semantics and measured terminal/preview caps. Keep those limits automatic;
+  do not expose a scheduler or runtime-sizing UI.
 - [ ] Show only high-level states: preparing, waking, ready, needs attention,
   suspended, and exporting.
 - [ ] Keep provider names, machine sizes, and runtime selection out of the
@@ -769,6 +937,9 @@ lose mutation intent, suspension, or budget enforcement.
   without including repository or terminal content in the payload.
 - [ ] Verify the desktop can close while agents continue under renewable,
   budget-bound workload leases.
+- [ ] Verify an idle desktop or phone disconnects according to policy, the
+  Sprite becomes eligible to pause when no useful work remains, and the next
+  interaction reconnects without asking the user to manage the runtime.
 - [ ] Verify the phone can observe, steer, approve, open artifacts, and use a
   terminal through the recorded phone architecture.
 - [ ] Add the required deterministic cloud-chat Electron workflow through
@@ -784,7 +955,7 @@ lose mutation intent, suspension, or budget enforcement.
 Exit: cloud development behaves like a Setta capability, not a cloud setup
 wizard.
 
-### Phase 7: implement durability and fleet operations
+### Phase 7: implement durability and small-fleet operations
 
 - [ ] Define the off-provider export and backup format for repositories,
   uncommitted work, non-repository files, Setta runtime state, and explicitly
@@ -795,9 +966,10 @@ wizard.
 - [ ] Run a destructive restore drill and record recovery-point and
   recovery-time results. A successful export without a restore is not proof of
   recoverability.
-- [ ] Implement signed, staged Setta fleet upgrades using desired/observed
-  releases, compatibility gates, rollout caps, failure diagnosis, and rollback
-  that does not restore obsolete auth state.
+- [ ] Implement one signed runtime release artifact and two rollout rings: an
+  internal test Sprite, then the capped beta fleet. Use desired/observed release,
+  a concurrency cap, health verification, failure diagnosis, and rollback that
+  does not restore obsolete auth state. Do not build a general fleet platform.
 - [ ] Define and exercise the persistent Sprite OS, Codex, and toolchain
   security-update process.
 - [ ] Implement disk-pressure, 100 GB ceiling, checkpoint-retention, cache
@@ -811,6 +983,10 @@ wizard.
 - [ ] Verify provider encryption in transit and at rest, deletion semantics,
   data-removal timing, backup deletion, data residency, and any legal-hold
   exception with written provider evidence.
+- [ ] Have the founders use the production path as their daily cloud
+  development environment for a recorded interval. Resolve every data-loss,
+  security, runaway-cost, wake/reconnect, and operator-critical issue before
+  inviting external beta users.
 
 Exit: source and product state can be recovered off-provider, the fleet can be
 upgraded safely, storage exhaustion is survivable, and untrusted previews do
@@ -859,28 +1035,39 @@ The first end-to-end demonstration is complete only when all of the following
 happen in one disposable test account:
 
 1. Setta ensures a Sprite without asking the user for Fly credentials.
-2. The Setta runtime installs and becomes healthy.
-3. A real repository is opened from desktop.
-4. A terminal and agent run inside the Sprite.
-5. The active agent acquires and renews a budget-bound Sprite workload lease.
-6. The laptop application closes and every client disconnects.
-7. Work continues without a client, completes, and releases the workload
+2. The selected root/workload boundary prevents workspace code from reaching
+   protected Setta state or forbidden management operations while normal
+   package and container workflows still work.
+3. The Setta runtime installs and becomes healthy.
+4. A real repository is opened from desktop.
+5. A terminal and one active agent run inside the Sprite; additional agent work
+   queues without exposing scheduling controls to the user.
+6. The active agent acquires and renews a budget-bound Sprite workload lease.
+7. The laptop application closes and every client disconnects.
+8. Work continues without a client, completes, and releases the workload
    lease; a simulated runtime crash proves a stale lease expires.
-8. The phone reconnects through the recorded phone architecture and observes
+9. The phone reconnects through the recorded phone architecture and observes
    the same workspace.
-9. The Sprite becomes idle without losing its filesystem.
-10. A later request wakes it and reconnects automatically.
-11. A device or credential epoch is revoked in the control plane.
-12. A checkpoint is created, a deliberate breakage is introduced, and the
-    checkpoint restores the workspace.
-13. Post-restore attestation applies the current desired release and credential
+10. Idle UI streams disconnect according to policy and the Sprite becomes
+    eligible to pause without losing its filesystem.
+11. A normal warm wake reconnects automatically.
+12. A confirmed-cold wake restarts Services and restores the expected transcript,
+    queue, and replay state without relying on process memory or `/tmp`.
+13. A device or credential epoch is revoked in the control plane.
+14. A whole-Sprite safety checkpoint is created, a deliberate breakage is
+    introduced, the impact warning is shown, and the checkpoint restores the
+    workspace.
+15. Post-restore attestation applies the current desired release and credential
     epoch; the revoked access is not resurrected.
-14. The selected access path proves suspension, WebSocket reconnection, and
+16. The selected access path proves suspension, WebSocket reconnection, and
     credential redaction through its production path.
-15. The test records placement, wake and terminal latency, active Task time,
-    CPU/memory measurements, storage/checkpoint growth, gateway bandwidth when
-    applicable, and actual provider cost.
-16. The disposable Sprite is destroyed intentionally and verified absent.
+17. A hostile or forgotten activity mechanism hits the hard budget and the
+    control plane stops further billable compute without deleting user data.
+18. The test records placement, warm/cold wake and terminal latency,
+    attached-idle and active Task time, CPU/memory measurements,
+    storage/checkpoint growth, gateway bandwidth when applicable, and actual
+    provider cost.
+19. The disposable Sprite is destroyed intentionally and verified absent.
 
 This demonstrates technical viability. It does not by itself prove provider
 permission, public scale, billing correctness, abuse operations, or durable
@@ -894,6 +1081,13 @@ backup safety.
 - Tailscale, Headscale, or SSH as the ordinary product transport.
 - One Sprite per project.
 - Shared multi-user Linux accounts inside one Sprite.
+- Per-project undo through whole-Sprite checkpoint restore.
+- Scheduled or cron-like agent runs initiated while every client is offline;
+  the control plane may add an alarm-clock capability only after v1.
+- Multiple private-beta price tiers, metered overages, user-selected machine
+  sizes, or a general workload scheduler.
+- A general fleet-orchestration platform beyond one internal ring and one
+  capped beta ring.
 - A Setta-funded GPU subscription before provider permission and cost controls.
 - Production deployment hosting for applications created in Setta.
 - Treating a PWA as the predetermined mobile application architecture.
@@ -910,6 +1104,9 @@ Stop and reassess rather than hiding the problem if any of these occur:
 - The trusted Setta runtime cannot be isolated from arbitrary workspace and
   agent code sufficiently to protect auth, release, usage, audit, and service
   control state.
+- Neither a constrained host account nor a root-capable workload boundary can
+  preserve representative package/container workflows while excluding the
+  management socket and protected Setta state.
 - Untrusted Sprite code can invoke management or activity mechanisms that
   bypass Setta suspension, restore authority, or hard spend limits and those
   mechanisms cannot be restricted or reconciled safely.
@@ -922,10 +1119,19 @@ Stop and reassess rather than hiding the problem if any of these occur:
 - Provider cost cannot be bounded before work starts.
 - Authoritative or conservative usage measurements arrive too late to enforce
   the promised per-user hard budget.
+- Further billable compute cannot be stopped within the hard-budget deadline
+  without permanently deleting the user's Sprite.
+- Attached-idle terminals, previews, or clients make the one-package beta
+  economics unworkable even with deliberate disconnect/reconnect.
+- The documented network policy can be bypassed through raw IP, alternate
+  resolution, privilege changes, or another tested path and Setta cannot close
+  the gap without a new operationally affordable enforcement layer.
 - Public endpoints can be cheaply forced awake despite rate controls, and the
   gateway alternative is operationally unaffordable.
 - Neither provider-native placement nor a workable regional strategy can meet
   the recorded interactive latency budgets for intended beta users.
+- The fixed Sprite shape cannot support the initial one-agent workload plus
+  bounded terminals and previews without unacceptable contention.
 - The provider API changes too quickly to support a small stable adapter.
 - Support or abuse obligations exceed what two founders can operate during a
   capped private beta.
@@ -958,3 +1164,11 @@ Stop and reassess rather than hiding the problem if any of these occur:
   its origin branch, but a fresh comparison could not be authenticated from
   this worktree. The user will handle the independent push or backup and
   confirm the remote state.
+- 2026-07-13: Reconciled a second plan review and rechecked all 16 source
+  inventory commits. Reordered Phase 1 into cheap stop-condition probes,
+  minimal lifecycle engineering, and measurement; added the root/container,
+  management-socket, non-destructive cost-cutoff, network-policy, attached-idle,
+  whole-Sprite restore, confirmed-cold durability, fixed-capacity, replacement,
+  monitoring, dogfooding, and pricing gates. Kept the user experience to one
+  automatic Cloud Dev path and reduced the beta to one active agent, one
+  package, and two release rings.
