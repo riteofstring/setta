@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-13
 
-**Status:** Plan of record. Phase 0 is complete; Phase 1a is in progress
-(access re-established, leftover probe Sprite characterized and destroyed;
-structured probe battery pending). See
+**Status:** Plan of record. Phase 0 complete. Phase 1a technical exit criteria
+met — no stop-condition fired; only the two cost thresholds await confirmation.
+Phase 1b (typed lifecycle adapter) is next. See
 `docs/reports/2026-07-13-sprites-phase1a-probes.md`.
 
 **Branch:** `setta-3-cloud-platform`, created from `setta-3` at
@@ -1290,3 +1290,23 @@ Stop and reassess rather than hiding the problem if any of these occur:
   (max ~$25/user/mo, cutoff lag <=60s) pending confirmation. Disposable Sprite
   destroyed; org empty. Evidence in
   `docs/reports/2026-07-13-sprites-phase1a-probes.md`.
+- 2026-07-13: Completed the remaining Phase 1a gates on a fresh disposable Sprite
+  (`setta-phase1a-20260713-net`, delegated Codex high effort, then destroyed;
+  org empty). (1) NETWORK BOUNDARY VALIDATED: Sprites enforces a DNS-domain
+  egress policy via `POST /v1/sprites/{name}/policy/network`; an allowlist +
+  `deny *` blocks raw IP, RFC1918, DoH-by-IP, SMTP:25, and ICMP while preserving
+  git/pip/HTTPS, and is unbypassable by capability-root guest code
+  (`/.sprite/policy` read-only, socket routes 404, sudo+`cap_net_raw` cannot
+  reach denied IPs) — host-side enforcement; the only caveat is that pre-existing
+  connections survive a later tightening, so policy is applied at provisioning.
+  Independently re-verified. (2) URL WAKE: `auth: sprite` blocks unauthenticated
+  wake (302, stays warm; reviewer-verified); `auth: public` + a live service
+  wakes on unauth request. (3) PROXY: `WSS /v1/sprites/{name}/proxy` needs a
+  Sprites org Bearer token with no scoped client credential, so client access
+  requires a backend gateway holding the org token (Phase 3 Candidate B). (4)
+  ATTACHED-IDLE: idle TTY/SSE/preview keep compute `running`; deliberate
+  disconnect drops to `warm` in ~6s. Phase 1a technical exit criteria are all
+  met and no stop-condition fired; the only open item is confirming the two cost
+  thresholds and whether `warm` bills memory. Next is Phase 1b (typed lifecycle
+  adapter). Evidence and harnesses in
+  `docs/reports/2026-07-13-sprites-phase1a-probes.md` and `scripts/sprites/`.
