@@ -107,6 +107,23 @@ export function runtimePolicyBudgetForRuntime(
   return mode === "benchmark" ? benchmarkRuntimeBudget() : workspaceRuntimeBudgetForScene(scene);
 }
 
+// The workspace runtime budget must track the LIVE pane count, not the count from
+// the scene the runtime was first created with — otherwise a workspace that opened
+// with a single pane keeps a budget of 1 and freezes every unfocused pane.
+export function runtimePolicyBudgetForPaneCount(
+  mode: WorkspaceSceneMode,
+  paneCount: number,
+): PaneRuntimeBudget {
+  if (mode === "benchmark") {
+    return benchmarkRuntimeBudget();
+  }
+  const visiblePaneBudget = Math.max(1, paneCount);
+  return {
+    maxLiveHeavyDomPanes: visiblePaneBudget,
+    maxSnapshotPanes: visiblePaneBudget,
+  };
+}
+
 export function benchmarkSceneOptionsFromSearch(search: string): BenchmarkSceneOptions {
   const params = new URLSearchParams(search);
   const paneCount = optionalPositiveIntegerParam(params, "workspaceBenchmarkPaneCount");

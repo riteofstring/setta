@@ -4,7 +4,7 @@ import type { WorkspaceLayoutSnapshot, WorkspaceLayoutStore } from "./layout-sto
 import type { WorkspaceMetricsCollector } from "./metrics";
 import { interpolatePaneRenderItems } from "./pane-render-interpolation";
 import type { PerformanceReportWriter } from "./performance-report";
-import type { LayoutFrameInput, PaneRenderItem, Rect } from "./types";
+import type { LayoutFrameInput, PaneRenderItem, PaneRuntimeBudget, Rect } from "./types";
 import type { PresentationEngine } from "./presentation-engine";
 import type { PaneRuntimePolicy } from "./runtime-policy";
 import { ResizePhaseTracker } from "./resize-phase-tracker";
@@ -18,6 +18,7 @@ interface FrameSchedulerDependencies {
   layoutStore: WorkspaceLayoutStore;
   metrics: WorkspaceMetricsCollector;
   movementOverride?: () => boolean;
+  paneRuntimeBudgetProvider?: () => PaneRuntimeBudget;
   presentation: PresentationEngine;
   reportWriter: PerformanceReportWriter | null;
   runtimePolicy: PaneRuntimePolicy;
@@ -63,6 +64,7 @@ export class FrameScheduler {
   private readonly layoutStore: WorkspaceLayoutStore;
   private readonly metrics: WorkspaceMetricsCollector;
   private readonly movementOverride: () => boolean;
+  private readonly paneRuntimeBudgetProvider: (() => PaneRuntimeBudget) | null;
   private readonly presentation: PresentationEngine;
   private readonly reportWriter: PerformanceReportWriter | null;
   private readonly runtimePolicy: PaneRuntimePolicy;
@@ -74,6 +76,7 @@ export class FrameScheduler {
     this.layoutStore = dependencies.layoutStore;
     this.metrics = dependencies.metrics;
     this.movementOverride = dependencies.movementOverride ?? (() => false);
+    this.paneRuntimeBudgetProvider = dependencies.paneRuntimeBudgetProvider ?? null;
     this.presentation = dependencies.presentation;
     this.reportWriter = dependencies.reportWriter;
     this.runtimePolicy = dependencies.runtimePolicy;
@@ -172,6 +175,13 @@ export class FrameScheduler {
     });
     for (const item of this.items) {
       item.resizing = resizePhase === "active";
+    }
+    // Keep the runtime budget in sync with the live pane count. The policy is
+    // created once from the initial scene, so without this a workspace that opened
+    // with a single pane would keep maxLiveHeavyDomPanes=1 forever — freezing every
+    // unfocused pane and stranding a neighbor when another pane closes.
+    if (this.paneRuntimeBudgetProvider) {
+      this.runtimePolicy.setBudget(this.paneRuntimeBudgetProvider());
     }
     this.runtimePolicy.apply(
       this.items,

@@ -16,7 +16,7 @@ import {
   syncPaneResizePreview as syncPaneResizePreviewElement,
 } from "./pane-resize-preview";
 import { installWindowResizeReportHooks } from "./performance-report";
-import { hostPoolSizeForRuntime } from "./runtime-mode-options";
+import { hostPoolSizeForRuntime, runtimePolicyBudgetForPaneCount } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
 import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runtime";
 import {
@@ -364,6 +364,8 @@ function WorkspaceLayoutRuntimeArea({
         paneDragSessionRef.current !== null ||
         overviewDragSessionRef.current !== null ||
         overviewPanSessionRef.current !== null,
+      paneRuntimeBudgetProvider: () =>
+        runtimePolicyBudgetForPaneCount(runtime.mode, runtime.engine.paneCount()),
       presentation: runtime.presentation,
       reportWriter: runtime.reportWriter,
       runtimePolicy: runtime.runtimePolicy,

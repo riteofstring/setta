@@ -58,7 +58,7 @@ export class PaneRuntimePolicy {
   private readonly degradeDuringResize: boolean;
 
   constructor(
-    private readonly budget: PaneRuntimeBudget = DEFAULT_PANE_BUDGET,
+    private budget: PaneRuntimeBudget = DEFAULT_PANE_BUDGET,
     options: PaneRuntimePolicyOptions = {},
   ) {
     this.degradeOverview = options.degradeOverview ?? true;
@@ -66,6 +66,10 @@ export class PaneRuntimePolicy {
     this.degradeDuringMovement = options.degradeDuringMovement ?? true;
     this.degradeDuringResize = options.degradeDuringResize ?? true;
     this.summary = emptySummary(budget);
+  }
+
+  setBudget(budget: PaneRuntimeBudget): void {
+    this.budget = budget;
   }
 
   apply(items: PaneRenderItem[], movementPhase: "idle" | "moving"): PaneRuntimeSummary {
