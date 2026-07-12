@@ -34,6 +34,12 @@ export function registerRoleConfigurationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "roleConfigurationReadWorkspace",
+    async (_event, request) => requireBackendClient().readWorkspaceRoleConfiguration(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "roleConfigurationUpdateConversation",
     async (_event, request) => requireBackendClient().updateConversationRoleProfiles(request),
     ipcObserver,
@@ -42,6 +48,12 @@ export function registerRoleConfigurationIpcHandlers({
     ipcMain,
     "roleConfigurationUpdateGlobal",
     async (_event, request) => requireBackendClient().updateGlobalRoleProfiles(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "roleConfigurationUpdateWorkspace",
+    async (_event, request) => requireBackendClient().updateWorkspaceRoleProfiles(request),
     ipcObserver,
   );
 }

@@ -1,7 +1,7 @@
 /* global Event, HTMLButtonElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-role-configuration-driver-v2";
+  const version = "setta-topic-conversation-role-configuration-driver-v3";
   const driver = globalThis.__settaE2EDriver;
   if (!driver) {
     throw new Error("base Setta E2E driver is not installed");
@@ -16,11 +16,14 @@
     roleConfigurationOpenTab,
     roleConfigurationResetConversationAgent,
     roleConfigurationResetGlobalAgent,
+    roleConfigurationResetWorkspaceAgent,
     roleConfigurationSave,
     roleConfigurationSelectAgentModel,
+    roleConfigurationSelectScope,
     roleConfigurationSettingsState,
     roleConfigurationSubmitInput,
     roleConfigurationTurnState,
+    roleConfigurationWorkspaceAgent,
   });
 
   function roleConfigurationOpenSettings() {
@@ -64,6 +67,7 @@
       modelControlCount: 0,
       modelOptionCount: 0,
       roles: [],
+      scope: "",
     };
   }
 
@@ -80,6 +84,7 @@
       modelControlCount: form.querySelectorAll('select[aria-label$=" model"]').length,
       modelOptionCount: selectOptionCount(agentModel),
       roles: Array.from(form.querySelectorAll("fieldset")).map(roleName),
+      scope: form.getAttribute("data-role-configuration-scope") ?? "",
     };
   }
 
@@ -119,12 +124,30 @@
     return { changed: true };
   }
 
+  function roleConfigurationSelectScope({ scope }) {
+    const select = document.querySelector('select[aria-label="AI role configuration scope"]');
+    if (!(select instanceof HTMLSelectElement)) {
+      return { changed: false };
+    }
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+    if (!setter) {
+      return { changed: false };
+    }
+    setter.call(select, scope);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    return { changed: true };
+  }
+
   function roleConfigurationSave() {
     return clickRoleConfigurationButton("Save", "saved");
   }
 
   function roleConfigurationResetGlobalAgent() {
     return clickRoleConfigurationButton("Use built-in agent", "reset");
+  }
+
+  function roleConfigurationResetWorkspaceAgent() {
+    return clickRoleConfigurationButton("Use inherited agent", "reset");
   }
 
   function clickRoleConfigurationButton(label, resultField) {
@@ -141,6 +164,11 @@
 
   async function roleConfigurationGlobalAgent() {
     const configuration = await requireRolesAPI().readGlobal();
+    return roleAgentSummary(configuration);
+  }
+
+  async function roleConfigurationWorkspaceAgent({ workspaceId }) {
+    const configuration = await requireRolesAPI().readWorkspace({ workspaceId });
     return roleAgentSummary(configuration);
   }
 

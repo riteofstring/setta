@@ -58,10 +58,10 @@ try {
   const workspaceId = await openWorkspace(context.client);
   await openRoleSettings(context.client);
 
-  const initial = await waitForRoleSettings(context.client, "gpt-5.6-sol", "high", false);
-  assertRoleInventory(initial);
+  const initial = await waitForRoleSettings(context.client, "gpt-5.6-sol", "high", false, "global");
+  assertRoleInventory(initial, ["agent", "narrator", "master", "side_agent"]);
   await selectAgentModel(context.client, "gpt-5.6-terra");
-  await waitForRoleSettings(context.client, "gpt-5.6-terra", "medium", true);
+  await waitForRoleSettings(context.client, "gpt-5.6-terra", "medium", true, "global");
   await saveRoleSettings(context.client);
   const configured = await waitForGlobalAgentConfiguration(
     context.client,
@@ -70,6 +70,40 @@ try {
     true,
   );
   await captureScreenshot(context.client, join(artifactDir, "configured-global-agent.png"));
+
+  await selectRoleScope(context.client, "workspace");
+  const workspaceInherited = await waitForRoleSettings(
+    context.client,
+    "gpt-5.6-terra",
+    "medium",
+    false,
+    "workspace",
+  );
+  assertRoleInventory(workspaceInherited, ["agent", "narrator", "side_agent"]);
+  await waitForWorkspaceAgentConfiguration(
+    context.client,
+    workspaceId,
+    "gpt-5.6-terra",
+    "global",
+    false,
+  );
+  await selectAgentModel(context.client, "gpt-5.6-luna");
+  await waitForRoleSettings(context.client, "gpt-5.6-luna", "medium", true, "workspace");
+  await saveRoleSettings(context.client);
+  const workspaceConfigured = await waitForWorkspaceAgentConfiguration(
+    context.client,
+    workspaceId,
+    "gpt-5.6-luna",
+    "workspace",
+    true,
+  );
+  const firstWorkspaceTopic = await createTopic(
+    context.client,
+    workspaceId,
+    "Workspace role precedence before restart",
+  );
+  assertEqual(firstWorkspaceTopic.model, "gpt-5.6-luna", "workspace primary-agent model");
+  await captureScreenshot(context.client, join(artifactDir, "configured-workspace-agent.png"));
 
   await stopElectronCdpContext(context);
   context = null;
@@ -87,18 +121,44 @@ try {
   const restoredWorkspaceId = await openWorkspace(context.client);
   assertEqual(restoredWorkspaceId, workspaceId, "restored role-configuration workspace");
   await openRoleSettings(context.client);
-  const reloaded = await waitForRoleSettings(context.client, "gpt-5.6-terra", "medium", false);
+  const reloaded = await waitForRoleSettings(
+    context.client,
+    "gpt-5.6-terra",
+    "medium",
+    false,
+    "global",
+  );
   await waitForGlobalAgentConfiguration(context.client, "gpt-5.6-terra", "global", true);
 
-  const globalTopic = await createTopic(context.client, workspaceId, "Global role precedence");
-  assertEqual(globalTopic.model, "gpt-5.6-terra", "global primary-agent thread model");
+  await selectRoleScope(context.client, "workspace");
+  const workspaceReloaded = await waitForRoleSettings(
+    context.client,
+    "gpt-5.6-luna",
+    "medium",
+    false,
+    "workspace",
+  );
+  const workspaceReloadedConfiguration = await waitForWorkspaceAgentConfiguration(
+    context.client,
+    workspaceId,
+    "gpt-5.6-luna",
+    "workspace",
+    true,
+  );
+
+  const workspaceTopic = await createTopic(
+    context.client,
+    workspaceId,
+    "Workspace role precedence",
+  );
+  assertEqual(workspaceTopic.model, "gpt-5.6-luna", "workspace primary-agent thread model");
 
   const conversationConfigured = await configureConversationAgent(
     context.client,
     workspaceId,
-    globalTopic.conversationId,
-    "gpt-5.6-luna",
-    "medium",
+    workspaceTopic.conversationId,
+    "gpt-5.6-sol",
+    "high",
   );
   assertEqual(
     conversationConfigured.effectiveSource,
@@ -108,25 +168,45 @@ try {
   const turn = await submitAndWaitForAgentTurn(
     context.client,
     workspaceId,
-    globalTopic.conversationId,
+    workspaceTopic.conversationId,
   );
   assertEqual(turn.status, "completed", "conversation role-precedence turn status");
-  assertEqual(turn.requestedModel, "gpt-5.6-luna", "conversation requested agent model");
-  assertEqual(turn.resolvedModel, "gpt-5.6-luna", "conversation resolved agent model");
+  assertEqual(turn.requestedModel, "gpt-5.6-sol", "conversation requested agent model");
+  assertEqual(turn.resolvedModel, "gpt-5.6-sol", "conversation resolved agent model");
 
-  const fork = await createAndWaitForFork(context.client, workspaceId, globalTopic.conversationId);
-  assertEqual(fork.threadModel, "gpt-5.6-terra", "durable fork thread model");
-  assertEqual(fork.requestedModel, "gpt-5.6-terra", "durable fork requested agent model");
-  assertEqual(fork.resolvedModel, "gpt-5.6-terra", "durable fork resolved agent model");
+  const fork = await createAndWaitForFork(
+    context.client,
+    workspaceId,
+    workspaceTopic.conversationId,
+  );
+  assertEqual(fork.threadModel, "gpt-5.6-luna", "durable fork thread model");
+  assertEqual(fork.requestedModel, "gpt-5.6-luna", "durable fork requested agent model");
+  assertEqual(fork.resolvedModel, "gpt-5.6-luna", "durable fork resolved agent model");
 
   const conversationReset = await resetConversationAgent(
     context.client,
     workspaceId,
-    globalTopic.conversationId,
+    workspaceTopic.conversationId,
   );
-  assertEqual(conversationReset.effectiveSource, "global", "conversation reset source");
-  assertEqual(conversationReset.modelId, "gpt-5.6-terra", "conversation reset model");
+  assertEqual(conversationReset.effectiveSource, "workspace", "conversation reset source");
+  assertEqual(conversationReset.modelId, "gpt-5.6-luna", "conversation reset model");
 
+  const workspaceReset = await resetWorkspaceAgentFromSettings(context.client);
+  const workspaceResetConfiguration = await waitForWorkspaceAgentConfiguration(
+    context.client,
+    workspaceId,
+    "gpt-5.6-terra",
+    "global",
+    false,
+  );
+  const globalInheritedTopic = await createTopic(
+    context.client,
+    workspaceId,
+    "Global role precedence after workspace reset",
+  );
+  assertEqual(globalInheritedTopic.model, "gpt-5.6-terra", "global inherited agent model");
+
+  await selectRoleScope(context.client, "global");
   await resetGlobalAgentFromSettings(context.client);
   const reset = await waitForGlobalAgentConfiguration(
     context.client,
@@ -144,13 +224,21 @@ try {
     configured,
     conversationConfigured,
     conversationReset,
+    firstWorkspaceTopic,
     fork,
-    globalTopic,
+    globalInheritedTopic,
     initial,
     reloaded,
     reset,
     status: "passed",
     turn,
+    workspaceConfigured,
+    workspaceInherited,
+    workspaceReloaded,
+    workspaceReloadedConfiguration,
+    workspaceReset,
+    workspaceResetConfiguration,
+    workspaceTopic,
     workspaceId,
   });
   console.log(`Electron topic role configuration workflow passed: ${artifactDir}`);
@@ -189,7 +277,8 @@ async function openRoleSettings(client) {
   await waitForSelector(client, '[data-testid="role-configuration-settings"]', workflowTimeoutMs);
 }
 
-function waitForRoleSettings(client, modelId, effort, dirty) {
+function waitForRoleSettings(client, modelId, effort, dirty, scope) {
+  const controlCount = scope === "workspace" ? 3 : 4;
   return waitForState(
     client,
     driverCallExpression("roleConfigurationSettingsState", {}),
@@ -197,19 +286,27 @@ function waitForRoleSettings(client, modelId, effort, dirty) {
       state.agentModel === modelId &&
       state.agentEffort === effort &&
       state.dirty === dirty &&
-      state.modelControlCount === 4 &&
-      state.effortControlCount === 4,
+      state.scope === scope &&
+      state.modelControlCount === controlCount &&
+      state.effortControlCount === controlCount,
     workflowTimeoutMs,
   );
 }
 
-function assertRoleInventory(state) {
+function assertRoleInventory(state, roles) {
   if (
-    JSON.stringify(state.roles) !== JSON.stringify(["agent", "narrator", "master", "side_agent"]) ||
+    JSON.stringify(state.roles) !== JSON.stringify(roles) ||
     state.modelOptionCount !== 5 ||
     state.catalogStatus !== "Provider catalog validated · 4 models"
   ) {
     throw new Error(`AI role inventory drifted: ${JSON.stringify(state)}`);
+  }
+}
+
+async function selectRoleScope(client, scope) {
+  const result = await client.driver("roleConfigurationSelectScope", { scope });
+  if (!result.changed) {
+    throw new Error(`Role configuration scope ${scope} was not selectable`);
   }
 }
 
@@ -231,6 +328,24 @@ function waitForGlobalAgentConfiguration(client, modelId, effectiveSource, hasOv
   return waitForState(
     client,
     driverCallExpression("roleConfigurationGlobalAgent", {}),
+    (state) =>
+      state.modelId === modelId &&
+      state.effectiveSource === effectiveSource &&
+      state.hasOverride === hasOverride,
+    workflowTimeoutMs,
+  );
+}
+
+function waitForWorkspaceAgentConfiguration(
+  client,
+  workspaceId,
+  modelId,
+  effectiveSource,
+  hasOverride,
+) {
+  return waitForState(
+    client,
+    driverCallExpression("roleConfigurationWorkspaceAgent", { workspaceId }),
     (state) =>
       state.modelId === modelId &&
       state.effectiveSource === effectiveSource &&
@@ -311,8 +426,18 @@ async function resetGlobalAgentFromSettings(client) {
   if (!result.reset) {
     throw new Error("Global agent reset button was not clickable");
   }
-  await waitForRoleSettings(client, "gpt-5.6-sol", "high", true);
+  await waitForRoleSettings(client, "gpt-5.6-sol", "high", true, "global");
   await saveRoleSettings(client);
+}
+
+async function resetWorkspaceAgentFromSettings(client) {
+  const result = await client.driver("roleConfigurationResetWorkspaceAgent");
+  if (!result.reset) {
+    throw new Error("Workspace agent reset button was not clickable");
+  }
+  await waitForRoleSettings(client, "gpt-5.6-luna", "medium", true, "workspace");
+  await saveRoleSettings(client);
+  return waitForRoleSettings(client, "gpt-5.6-terra", "medium", false, "workspace");
 }
 
 function workspaceIdExpression() {

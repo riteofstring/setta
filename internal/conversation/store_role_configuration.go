@@ -167,14 +167,26 @@ func queryRoleConfigurationOverrides(
 ) ([]RoleProfileOverride, error) {
 	var rows *sql.Rows
 	var err error
-	if scope.Kind == RoleProfileScopeGlobal {
+	switch scope.Kind {
+	case RoleProfileScopeGlobal:
 		rows, err = reader.QueryContext(ctx, `
 SELECT scope_kind, scope_id, role, provider, profile_json, updated_at
 FROM role_profile_overrides
 WHERE scope_kind = 'global' AND scope_id = ''
 ORDER BY role ASC
 `)
-	} else {
+	case RoleProfileScopeWorkspace:
+		rows, err = reader.QueryContext(ctx, `
+SELECT scope_kind, scope_id, role, provider, profile_json, updated_at
+FROM role_profile_overrides
+WHERE (scope_kind = 'global' AND scope_id = '')
+   OR (scope_kind = 'workspace' AND scope_id = ?)
+ORDER BY role ASC, CASE scope_kind
+  WHEN 'global' THEN 0
+  WHEN 'workspace' THEN 1
+END ASC
+`, *scope.WorkspaceID)
+	case RoleProfileScopeConversation:
 		rows, err = reader.QueryContext(ctx, `
 SELECT scope_kind, scope_id, role, provider, profile_json, updated_at
 FROM role_profile_overrides
@@ -187,6 +199,8 @@ ORDER BY role ASC, CASE scope_kind
   WHEN 'conversation' THEN 2
 END ASC
 `, *scope.WorkspaceID, *scope.ConversationID)
+	default:
+		return nil, fmt.Errorf("query role configuration overrides at unsupported scope %q", scope.Kind)
 	}
 	if err != nil {
 		return nil, err
@@ -328,6 +342,10 @@ func (transaction *WriteTransaction) validateRoleProfileOverrideRemoval(
 	case RoleProfileScopeGlobal:
 		if scopeID != "" {
 			return errors.New("global role profile override scope id must be empty")
+		}
+	case RoleProfileScopeWorkspace:
+		if err := validateIdentifier("workspace role profile override scope id", scopeID); err != nil {
+			return err
 		}
 	case RoleProfileScopeConversation:
 		if err := validateIdentifier("conversation role profile override scope id", scopeID); err != nil {

@@ -47,6 +47,42 @@ func TestRoleConfigurationEndpointsExposeCatalogAndValidatedScopeUpdates(t *test
 		t.Fatalf("global role updates = %+v", service.globalUpdates)
 	}
 
+	workspaceRequest := ReadWorkspaceRoleConfigurationRequest{
+		WorkspaceID: "workspace-role-http",
+	}
+	workspaceConfiguration := postJSON[conversation.RoleConfiguration](
+		t,
+		handler,
+		"/workspaces/roles/read",
+		workspaceRequest,
+		http.StatusOK,
+	)
+	if err := workspaceConfiguration.Validate(); err != nil {
+		t.Fatalf("workspace role configuration response: %v", err)
+	}
+	if service.workspaceID != workspaceRequest.WorkspaceID {
+		t.Fatalf("workspace role read identity = %s", service.workspaceID)
+	}
+
+	narratorProfile := conversation.DefaultNarratorRoleProfile()
+	postJSON[conversation.RoleConfiguration](
+		t,
+		handler,
+		"/workspaces/roles/update",
+		UpdateWorkspaceRoleProfilesRequest{
+			WorkspaceID: workspaceRequest.WorkspaceID,
+			Updates: []conversation.RoleProfileUpdate{{
+				Role:    conversation.RoleNarrator,
+				Profile: &narratorProfile,
+			}},
+		},
+		http.StatusOK,
+	)
+	if len(service.workspaceUpdates) != 1 ||
+		service.workspaceUpdates[0].Role != conversation.RoleNarrator {
+		t.Fatalf("workspace role updates = %+v", service.workspaceUpdates)
+	}
+
 	request := ReadConversationRoleConfigurationRequest{
 		WorkspaceID:    "workspace-role-http",
 		ConversationID: "conversation-role-http",
@@ -65,7 +101,6 @@ func TestRoleConfigurationEndpointsExposeCatalogAndValidatedScopeUpdates(t *test
 		t.Fatalf("conversation role read identity = %s/%s", service.workspaceID, service.conversationID)
 	}
 
-	narratorProfile := conversation.DefaultNarratorRoleProfile()
 	postJSON[conversation.RoleConfiguration](
 		t,
 		handler,
@@ -105,6 +140,16 @@ func TestRoleConfigurationEndpointsRejectInvalidIdentityAndUnavailableService(t 
 	if errorResponse.Error.Code != "invalid_conversation_role_configuration_request" {
 		t.Fatalf("invalid identity error = %+v", errorResponse.Error)
 	}
+	errorResponse = postJSON[ErrorResponse](
+		t,
+		handler,
+		"/workspaces/roles/read",
+		ReadWorkspaceRoleConfigurationRequest{WorkspaceID: " workspace-role-http"},
+		http.StatusBadRequest,
+	)
+	if errorResponse.Error.Code != "invalid_workspace_role_configuration_request" {
+		t.Fatalf("invalid workspace identity error = %+v", errorResponse.Error)
+	}
 
 	unavailable := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata: BackendMetadata{Name: BackendName, Version: "test"},
@@ -124,6 +169,7 @@ type recordingRoleConfigurationHTTPService struct {
 	workspaceID         string
 	conversationID      string
 	globalUpdates       []conversation.RoleProfileUpdate
+	workspaceUpdates    []conversation.RoleProfileUpdate
 	conversationUpdates []conversation.RoleProfileUpdate
 }
 
@@ -137,6 +183,18 @@ func (service *recordingRoleConfigurationHTTPService) ReadGlobalConfiguration(
 	context.Context,
 ) (conversation.RoleConfiguration, error) {
 	return validHTTPRoleConfiguration(conversation.RoleProfileScopeGlobal, "", ""), nil
+}
+
+func (service *recordingRoleConfigurationHTTPService) ReadWorkspaceConfiguration(
+	_ context.Context,
+	workspaceID string,
+) (conversation.RoleConfiguration, error) {
+	service.workspaceID = workspaceID
+	return validHTTPRoleConfiguration(
+		conversation.RoleProfileScopeWorkspace,
+		workspaceID,
+		"",
+	), nil
 }
 
 func (service *recordingRoleConfigurationHTTPService) ReadConversationConfiguration(
@@ -159,6 +217,20 @@ func (service *recordingRoleConfigurationHTTPService) UpdateGlobalConfiguration(
 ) (conversation.RoleConfiguration, error) {
 	service.globalUpdates = updates
 	return validHTTPRoleConfiguration(conversation.RoleProfileScopeGlobal, "", ""), nil
+}
+
+func (service *recordingRoleConfigurationHTTPService) UpdateWorkspaceConfiguration(
+	_ context.Context,
+	workspaceID string,
+	updates []conversation.RoleProfileUpdate,
+) (conversation.RoleConfiguration, error) {
+	service.workspaceID = workspaceID
+	service.workspaceUpdates = updates
+	return validHTTPRoleConfiguration(
+		conversation.RoleProfileScopeWorkspace,
+		workspaceID,
+		"",
+	), nil
 }
 
 func (service *recordingRoleConfigurationHTTPService) UpdateConversationConfiguration(
@@ -189,7 +261,15 @@ func validHTTPRoleConfiguration(
 		conversation.RoleMaster,
 		conversation.RoleSideAgent,
 	}
-	if scopeKind == conversation.RoleProfileScopeConversation {
+	switch scopeKind {
+	case conversation.RoleProfileScopeWorkspace:
+		scope.WorkspaceID = &workspaceID
+		roles = []conversation.Role{
+			conversation.RoleAgent,
+			conversation.RoleNarrator,
+			conversation.RoleSideAgent,
+		}
+	case conversation.RoleProfileScopeConversation:
 		scope.WorkspaceID = &workspaceID
 		scope.ConversationID = &conversationID
 		roles = []conversation.Role{

@@ -50,8 +50,17 @@ type ReadConversationRoleConfigurationRequest struct {
 	ConversationID string `json:"conversationId"`
 }
 
+type ReadWorkspaceRoleConfigurationRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
 type UpdateGlobalRoleProfilesRequest struct {
 	Updates []conversation.RoleProfileUpdate `json:"updates"`
+}
+
+type UpdateWorkspaceRoleProfilesRequest struct {
+	WorkspaceID string                           `json:"workspaceId"`
+	Updates     []conversation.RoleProfileUpdate `json:"updates"`
 }
 
 type UpdateConversationRoleProfilesRequest struct {

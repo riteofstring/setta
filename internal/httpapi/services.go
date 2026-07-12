@@ -82,9 +82,15 @@ type ConversationInputService interface {
 type RoleConfigurationService interface {
 	ReadModelCatalog(context.Context) (conversation.RoleModelCatalog, error)
 	ReadGlobalConfiguration(context.Context) (conversation.RoleConfiguration, error)
+	ReadWorkspaceConfiguration(context.Context, string) (conversation.RoleConfiguration, error)
 	ReadConversationConfiguration(context.Context, string, string) (conversation.RoleConfiguration, error)
 	UpdateGlobalConfiguration(
 		context.Context,
+		[]conversation.RoleProfileUpdate,
+	) (conversation.RoleConfiguration, error)
+	UpdateWorkspaceConfiguration(
+		context.Context,
+		string,
 		[]conversation.RoleProfileUpdate,
 	) (conversation.RoleConfiguration, error)
 	UpdateConversationConfiguration(

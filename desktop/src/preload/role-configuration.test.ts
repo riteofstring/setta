@@ -26,21 +26,33 @@ describe("preload role configuration API", () => {
       workspaceId: "workspace_roles",
     };
     const globalUpdate = { updates: [{ profile: null, role: "agent" as const }] };
+    const workspaceRequest = { workspaceId: "workspace_roles" };
+    const workspaceUpdate = { ...workspaceRequest, ...globalUpdate };
     const conversationUpdate = { ...conversationRequest, ...globalUpdate };
 
     await api.roles!.readModels();
     await api.roles!.readGlobal();
+    await api.roles!.readWorkspace(workspaceRequest);
     await api.roles!.readConversation(conversationRequest);
     await api.roles!.updateGlobal(globalUpdate);
+    await api.roles!.updateWorkspace(workspaceUpdate);
     await api.roles!.updateConversation(conversationUpdate);
 
     expect(invoke).toHaveBeenCalledWith(ipcChannels.roleConfigurationReadModels);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.roleConfigurationReadGlobal);
     expect(invoke).toHaveBeenCalledWith(
+      ipcChannels.roleConfigurationReadWorkspace,
+      workspaceRequest,
+    );
+    expect(invoke).toHaveBeenCalledWith(
       ipcChannels.roleConfigurationReadConversation,
       conversationRequest,
     );
     expect(invoke).toHaveBeenCalledWith(ipcChannels.roleConfigurationUpdateGlobal, globalUpdate);
+    expect(invoke).toHaveBeenCalledWith(
+      ipcChannels.roleConfigurationUpdateWorkspace,
+      workspaceUpdate,
+    );
     expect(invoke).toHaveBeenCalledWith(
       ipcChannels.roleConfigurationUpdateConversation,
       conversationUpdate,

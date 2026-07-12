@@ -100,8 +100,10 @@ const api: SettaAPI = {
     readConversation: (request) => invoke("roleConfigurationReadConversation", request),
     readGlobal: () => invoke("roleConfigurationReadGlobal"),
     readModels: () => invoke("roleConfigurationReadModels"),
+    readWorkspace: (request) => invoke("roleConfigurationReadWorkspace", request),
     updateConversation: (request) => invoke("roleConfigurationUpdateConversation", request),
     updateGlobal: (request) => invoke("roleConfigurationUpdateGlobal", request),
+    updateWorkspace: (request) => invoke("roleConfigurationUpdateWorkspace", request),
   },
   speech: {
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),

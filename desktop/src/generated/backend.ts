@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 49;
-export const backendContractSchemaHash = "sha256:f267053d0a21b95d4d9ac9eab72176c87ec89138b413d372ac8f20cf706773bb";
+export const backendProtocolVersion = 50;
+export const backendContractSchemaHash = "sha256:831d4685006fd261a335b4766ec8c603599b9283e8b4c5f66d48a9df26b55c01";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -2769,6 +2769,15 @@ export interface UpdateGlobalRoleProfilesRequest {
   updates: RoleProfileUpdate[];
 }
 
+export interface ReadWorkspaceRoleConfigurationRequest {
+  workspaceId: string;
+}
+
+export interface UpdateWorkspaceRoleProfilesRequest {
+  workspaceId: string;
+  updates: RoleProfileUpdate[];
+}
+
 export interface ReadConversationRoleConfigurationRequest {
   workspaceId: string;
   conversationId: string;
@@ -3427,6 +3436,16 @@ export const backendEndpoints = {
   UpdateGlobalRoleProfiles: {
     method: "POST",
     path: "/roles/configuration/global/update",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadWorkspaceRoleConfiguration: {
+    method: "POST",
+    path: "/workspaces/roles/read",
+    requestBodyLimitBytes: 4194304,
+  },
+  UpdateWorkspaceRoleProfiles: {
+    method: "POST",
+    path: "/workspaces/roles/update",
     requestBodyLimitBytes: 4194304,
   },
   ReadConversationRoleConfiguration: {
@@ -5677,6 +5696,23 @@ export function decodeUpdateGlobalRoleProfilesRequest(value: unknown): UpdateGlo
   };
 }
 
+export function decodeReadWorkspaceRoleConfigurationRequest(value: unknown): ReadWorkspaceRoleConfigurationRequest {
+  const record = assertRecord(value, "ReadWorkspaceRoleConfigurationRequest");
+  assertKnownFields(record, "ReadWorkspaceRoleConfigurationRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceRoleConfigurationRequest"), "ReadWorkspaceRoleConfigurationRequest.workspaceId"),
+  };
+}
+
+export function decodeUpdateWorkspaceRoleProfilesRequest(value: unknown): UpdateWorkspaceRoleProfilesRequest {
+  const record = assertRecord(value, "UpdateWorkspaceRoleProfilesRequest");
+  assertKnownFields(record, "UpdateWorkspaceRoleProfilesRequest", ["workspaceId", "updates"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateWorkspaceRoleProfilesRequest"), "UpdateWorkspaceRoleProfilesRequest.workspaceId"),
+    updates: decodeArray(requireField(record, "updates", "UpdateWorkspaceRoleProfilesRequest"), "UpdateWorkspaceRoleProfilesRequest.updates", (item) => decodeRoleProfileUpdate(item)),
+  };
+}
+
 export function decodeReadConversationRoleConfigurationRequest(value: unknown): ReadConversationRoleConfigurationRequest {
   const record = assertRecord(value, "ReadConversationRoleConfigurationRequest");
   assertKnownFields(record, "ReadConversationRoleConfigurationRequest", ["workspaceId", "conversationId"]);
@@ -6542,6 +6578,8 @@ export interface BackendClient {
   readRoleModelCatalog: (options?: BackendRequestOptions) => Promise<RoleModelCatalog>;
   readGlobalRoleConfiguration: (options?: BackendRequestOptions) => Promise<RoleConfiguration>;
   updateGlobalRoleProfiles: (request: UpdateGlobalRoleProfilesRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
+  readWorkspaceRoleConfiguration: (request: ReadWorkspaceRoleConfigurationRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
+  updateWorkspaceRoleProfiles: (request: UpdateWorkspaceRoleProfilesRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
   readConversationRoleConfiguration: (request: ReadConversationRoleConfigurationRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
   updateConversationRoleProfiles: (request: UpdateConversationRoleProfilesRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
   readActiveMasterShellInteraction: (options?: BackendRequestOptions) => Promise<ActiveShellInteraction>;
@@ -6869,6 +6907,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRoleConfiguration,
       endpoint: backendEndpoints.UpdateGlobalRoleProfiles,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readWorkspaceRoleConfiguration: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRoleConfiguration,
+      endpoint: backendEndpoints.ReadWorkspaceRoleConfiguration,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    updateWorkspaceRoleProfiles: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRoleConfiguration,
+      endpoint: backendEndpoints.UpdateWorkspaceRoleProfiles,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -108,6 +109,133 @@ func TestRoleModelOptionAllowsProviderModelWithoutDescription(t *testing.T) {
 	if err := roleModelOption(model).Validate(); err != nil {
 		t.Fatalf("validate provider model without description: %v", err)
 	}
+}
+
+func TestRoleConfigurationServiceReadsUpdatesAndAuditsWorkspacePrecedence(t *testing.T) {
+	store := newTestStore(t)
+	service, err := NewRoleConfigurationService(store, newRoleConfigurationTestCatalog())
+	if err != nil {
+		t.Fatalf("NewRoleConfigurationService: %v", err)
+	}
+	workspaceID := "workspace-role-configuration-service"
+
+	globalProfile := DefaultAgentRoleProfile()
+	globalModelID := "gpt-5.6-terra"
+	globalProfile.ModelSelection = ModelSelection{Mode: ModelSelectionExact, ModelID: &globalModelID}
+	globalProfile.ReasoningEffort = ReasoningEffortMedium
+	if _, err := service.UpdateGlobalConfiguration(
+		context.Background(),
+		[]RoleProfileUpdate{{Role: RoleAgent, Profile: &globalProfile}},
+	); err != nil {
+		t.Fatalf("UpdateGlobalConfiguration: %v", err)
+	}
+
+	configuration, err := service.ReadWorkspaceConfiguration(context.Background(), workspaceID)
+	if err != nil {
+		t.Fatalf("ReadWorkspaceConfiguration: %v", err)
+	}
+	if err := configuration.Validate(); err != nil {
+		t.Fatalf("validate workspace configuration: %v", err)
+	}
+	assertWorkspaceRoleConfiguration(t, configuration, workspaceID)
+	assertEffectiveRoleConfiguration(
+		t,
+		configuration,
+		RoleAgent,
+		RoleProfileSourceGlobal,
+		globalModelID,
+		nil,
+		"",
+	)
+
+	workspaceProfile := DefaultAgentRoleProfile()
+	workspaceModelID := "gpt-5.6-luna"
+	workspaceProfile.ModelSelection = ModelSelection{
+		Mode:    ModelSelectionExact,
+		ModelID: &workspaceModelID,
+	}
+	workspaceProfile.ReasoningEffort = ReasoningEffortMedium
+	configuration, err = service.UpdateWorkspaceConfiguration(
+		context.Background(),
+		workspaceID,
+		[]RoleProfileUpdate{{Role: RoleAgent, Profile: &workspaceProfile}},
+	)
+	if err != nil {
+		t.Fatalf("UpdateWorkspaceConfiguration: %v", err)
+	}
+	assertEffectiveRoleConfiguration(
+		t,
+		configuration,
+		RoleAgent,
+		RoleProfileSourceWorkspace,
+		workspaceModelID,
+		roleProfileScopeKindPointer(RoleProfileScopeWorkspace),
+		workspaceID,
+	)
+	assertLatestRoleConfigurationAudit(
+		t,
+		store,
+		RoleProfileScopeWorkspace,
+		workspaceID,
+		RoleAgent,
+		false,
+	)
+	topic := transactionTestConversation("conversation-workspace-role-configuration-service")
+	topic.WorkspaceID = workspaceID
+	persistRoleProfileTestMutation(t, store, "create-workspace-role-configuration-topic", func(transaction *WriteTransaction) error {
+		return transaction.InsertConversation(topic)
+	})
+	conversationConfiguration, err := service.ReadConversationConfiguration(
+		context.Background(),
+		workspaceID,
+		topic.ID,
+	)
+	if err != nil {
+		t.Fatalf("ReadConversationConfiguration with workspace override: %v", err)
+	}
+	assertEffectiveRoleConfiguration(
+		t,
+		conversationConfiguration,
+		RoleAgent,
+		RoleProfileSourceWorkspace,
+		workspaceModelID,
+		nil,
+		"",
+	)
+
+	if _, err := service.UpdateWorkspaceConfiguration(
+		context.Background(),
+		workspaceID,
+		[]RoleProfileUpdate{{Role: RoleMaster, Profile: nil}},
+	); err == nil || !containsError(err, "role master cannot be configured at workspace scope") {
+		t.Fatalf("workspace master update error = %v", err)
+	}
+
+	configuration, err = service.UpdateWorkspaceConfiguration(
+		context.Background(),
+		workspaceID,
+		[]RoleProfileUpdate{{Role: RoleAgent, Profile: nil}},
+	)
+	if err != nil {
+		t.Fatalf("reset workspace agent: %v", err)
+	}
+	assertEffectiveRoleConfiguration(
+		t,
+		configuration,
+		RoleAgent,
+		RoleProfileSourceGlobal,
+		globalModelID,
+		nil,
+		"",
+	)
+	assertLatestRoleConfigurationAudit(
+		t,
+		store,
+		RoleProfileScopeWorkspace,
+		workspaceID,
+		RoleAgent,
+		true,
+	)
 }
 
 func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *testing.T) {
@@ -360,6 +488,59 @@ func roleConfigurationProfile(
 	return RoleProfileConfiguration{}
 }
 
+func assertWorkspaceRoleConfiguration(
+	t *testing.T,
+	configuration RoleConfiguration,
+	workspaceID string,
+) {
+	t.Helper()
+	if configuration.Scope.Kind != RoleProfileScopeWorkspace ||
+		configuration.Scope.WorkspaceID == nil ||
+		*configuration.Scope.WorkspaceID != workspaceID ||
+		configuration.Scope.ConversationID != nil {
+		t.Fatalf("workspace scope = %+v", configuration.Scope)
+	}
+	if len(configuration.Profiles) != 3 {
+		t.Fatalf("workspace profiles = %d, want 3", len(configuration.Profiles))
+	}
+	for _, profile := range configuration.Profiles {
+		if profile.Role == RoleMaster {
+			t.Fatal("workspace role configuration exposed the global-only master role")
+		}
+	}
+}
+
+func assertEffectiveRoleConfiguration(
+	t *testing.T,
+	configuration RoleConfiguration,
+	role Role,
+	wantSource RoleProfileSourceKind,
+	wantModelID string,
+	wantOverrideScope *RoleProfileScopeKind,
+	wantOverrideID string,
+) {
+	t.Helper()
+	profile := roleConfigurationProfile(t, configuration, role)
+	if profile.EffectiveSource != wantSource || profile.Resolved.ModelID != wantModelID {
+		t.Fatalf("effective %s role configuration = %+v", role, profile)
+	}
+	if wantOverrideScope == nil {
+		if profile.Override != nil {
+			t.Fatalf("effective %s role has unexpected override %+v", role, profile.Override)
+		}
+		return
+	}
+	if profile.Override == nil ||
+		profile.Override.ScopeKind != *wantOverrideScope ||
+		profile.Override.ScopeID != wantOverrideID {
+		t.Fatalf("effective %s role override = %+v", role, profile.Override)
+	}
+}
+
+func roleProfileScopeKindPointer(scope RoleProfileScopeKind) *RoleProfileScopeKind {
+	return &scope
+}
+
 func roleConfigurationAgentOverride(
 	scope RoleProfileScopeKind,
 	scopeID string,
@@ -411,6 +592,44 @@ func assertLatestRoleConfigurationEvent(
 	}
 	if len(events) == 0 || events[len(events)-1].Kind != string(want) {
 		t.Fatalf("latest role configuration event = %+v, want %s", events, want)
+	}
+}
+
+func assertLatestRoleConfigurationAudit(
+	t *testing.T,
+	store *Store,
+	scopeKind RoleProfileScopeKind,
+	scopeID string,
+	role Role,
+	removed bool,
+) {
+	t.Helper()
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		roleConfigurationAuditStreamID,
+		0,
+		MaxCommittedEventReadLimit,
+	)
+	if err != nil {
+		t.Fatalf("ReadCommittedStreamEvents: %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatal("role configuration audit stream is empty")
+	}
+	latest := events[len(events)-1]
+	if latest.Kind != "role_profile_configuration.updated" {
+		t.Fatalf("latest role configuration audit kind = %s", latest.Kind)
+	}
+	var payload roleConfigurationAuditPayload
+	if err := json.Unmarshal(latest.Payload, &payload); err != nil {
+		t.Fatalf("decode role configuration audit: %v", err)
+	}
+	if payload.ScopeKind != scopeKind || payload.ScopeID != scopeID || len(payload.Changes) != 1 {
+		t.Fatalf("role configuration audit payload = %+v", payload)
+	}
+	change := payload.Changes[0]
+	if change.Role != role || change.Removed != removed || (change.Profile == nil) != removed {
+		t.Fatalf("role configuration audit change = %+v", change)
 	}
 }
 

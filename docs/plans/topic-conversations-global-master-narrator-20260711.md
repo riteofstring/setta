@@ -2,17 +2,17 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. The repeated whole-plan final audit on 2026-07-15
-reopened Phase 7 item 4 and Phase 9 items 6-7. Workspace-scoped role overrides
-participate in backend resolution but cannot be read or updated through the
-production service, HTTP, generated IPC, or settings paths. Automatic
-presentation identity also treats every non-archived topic as active and
-visible, so dormant pane-free conversations can force avoidable palette reuse
-among simultaneously visible conversations and narrator-voice reuse among
-simultaneously active narrators. The next step is to complete the Phase 7
-workspace role-configuration path and its deterministic Electron coverage;
-Phase 9 active/visible identity allocation and exhaustion/reload coverage
-follow.
+**Status:** In progress. The Phase 7 workspace role-configuration gap reopened
+by the repeated whole-plan final audit on 2026-07-15 is complete. Workspace
+overrides now have model-catalog-validated service, HTTP, generated IPC, and
+settings paths, durable scope-qualified audit, global-to-workspace-to-
+conversation precedence, reset/reload behavior, and deterministic Electron
+coverage. Phase 9 items 6-7 remain reopened: automatic presentation identity
+still treats every non-archived topic as active and visible, so dormant
+pane-free conversations can force avoidable palette reuse among simultaneously
+visible conversations and narrator-voice reuse among simultaneously active
+narrators. The next step is Phase 9 active/visible identity allocation and
+exhaustion/reload coverage.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2118,14 +2118,21 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** In progress. Items 1-3 and 5-11 are implemented. Item 4 is reopened:
-global and conversation role configuration have model-catalog-validated
-production surfaces, and stored workspace overrides participate in effective
-resolution, but production scope validation accepts only global and
-conversation scopes. There is no workspace read/update service, HTTP,
-generated IPC, settings, audit, or deterministic Electron workflow path, so a
-fresh production app cannot create the workspace precedence layer defined by
-this plan.
+**Status:** Complete. Items 1-11 are implemented. The reopened item 4 now
+includes eligible workspace-scoped role overrides through production scope
+validation, service, HTTP, generated IPC, and selected-workspace settings
+paths. Workspace updates and removals emit durable scope-qualified audit
+events, master remains global-only, and effective resolution follows built-in
+to global to workspace to conversation precedence.
+
+Workspace-scope completion verification on 2026-07-15 passed focused backend,
+HTTP, generated-contract, main/preload IPC, renderer, typecheck, production
+desktop, and embedded-web checks. The expanded production Electron workflow
+proved workspace override creation, restart persistence, fork inheritance,
+conversation precedence, and workspace/global reset behavior. All seven
+deterministic topic-conversation workflows and the complete
+ChatGPT-authenticated live Codex agent-protocol, side-isolation, and production
+topic-conversation matrix passed with `OPENAI_API_KEY` removed.
 
 Completion verification on 2026-07-15 passed focused backend and renderer
 tests, generated-contract validation, the production desktop and web builds,

@@ -196,21 +196,45 @@ func (selection ResolvedRoleProfileSelection) Validate(catalog RoleModelCatalog)
 func (scope RoleConfigurationScope) Validate() error {
 	switch scope.Kind {
 	case RoleProfileScopeGlobal:
-		if scope.WorkspaceID != nil || scope.ConversationID != nil {
-			return fmt.Errorf("global role configuration scope must not include workspace or conversation ids")
-		}
+		return validateGlobalRoleConfigurationScope(scope)
+	case RoleProfileScopeWorkspace:
+		return validateWorkspaceRoleConfigurationScope(scope)
 	case RoleProfileScopeConversation:
-		if err := validateOptionalIdentifier("role configuration workspace id", scope.WorkspaceID); err != nil {
-			return err
-		}
-		if err := validateOptionalIdentifier("role configuration conversation id", scope.ConversationID); err != nil {
-			return err
-		}
-		if scope.WorkspaceID == nil || scope.ConversationID == nil {
-			return fmt.Errorf("conversation role configuration scope requires workspace and conversation ids")
-		}
+		return validateConversationRoleConfigurationScope(scope)
 	default:
 		return fmt.Errorf("unsupported role configuration scope %q", scope.Kind)
+	}
+}
+
+func validateGlobalRoleConfigurationScope(scope RoleConfigurationScope) error {
+	if scope.WorkspaceID != nil || scope.ConversationID != nil {
+		return fmt.Errorf("global role configuration scope must not include workspace or conversation ids")
+	}
+	return nil
+}
+
+func validateWorkspaceRoleConfigurationScope(scope RoleConfigurationScope) error {
+	if err := validateOptionalIdentifier("role configuration workspace id", scope.WorkspaceID); err != nil {
+		return err
+	}
+	if scope.WorkspaceID == nil {
+		return fmt.Errorf("workspace role configuration scope requires workspace id")
+	}
+	if scope.ConversationID != nil {
+		return fmt.Errorf("workspace role configuration scope must not include conversation id")
+	}
+	return nil
+}
+
+func validateConversationRoleConfigurationScope(scope RoleConfigurationScope) error {
+	if err := validateOptionalIdentifier("role configuration workspace id", scope.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateOptionalIdentifier("role configuration conversation id", scope.ConversationID); err != nil {
+		return err
+	}
+	if scope.WorkspaceID == nil || scope.ConversationID == nil {
+		return fmt.Errorf("conversation role configuration scope requires workspace and conversation ids")
 	}
 	return nil
 }
@@ -262,9 +286,15 @@ func (configuration RoleProfileConfiguration) validateOverride(
 		configuration.Override.Profile.Role != configuration.Role {
 		return fmt.Errorf("role %s override does not match requested scope", configuration.Role)
 	}
-	if scope.Kind == RoleProfileScopeConversation &&
-		configuration.Override.ScopeID != *scope.ConversationID {
-		return fmt.Errorf("role %s override does not match requested conversation", configuration.Role)
+	switch scope.Kind {
+	case RoleProfileScopeWorkspace:
+		if configuration.Override.ScopeID != *scope.WorkspaceID {
+			return fmt.Errorf("role %s override does not match requested workspace", configuration.Role)
+		}
+	case RoleProfileScopeConversation:
+		if configuration.Override.ScopeID != *scope.ConversationID {
+			return fmt.Errorf("role %s override does not match requested conversation", configuration.Role)
+		}
 	}
 	return nil
 }
@@ -336,10 +366,14 @@ func (catalog RoleModelCatalog) model(modelID string) *RoleModelOption {
 }
 
 func configurableRoles(scope RoleProfileScopeKind) []Role {
-	if scope == RoleProfileScopeConversation {
+	switch scope {
+	case RoleProfileScopeWorkspace, RoleProfileScopeConversation:
 		return []Role{RoleAgent, RoleNarrator, RoleSideAgent}
+	case RoleProfileScopeGlobal:
+		return []Role{RoleAgent, RoleNarrator, RoleMaster, RoleSideAgent}
+	default:
+		return nil
 	}
-	return []Role{RoleAgent, RoleNarrator, RoleMaster, RoleSideAgent}
 }
 
 func containsRole(roles []Role, target Role) bool {

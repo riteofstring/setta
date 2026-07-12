@@ -82,6 +82,24 @@ func (service *RoleConfigurationService) ReadGlobalConfiguration(
 	)
 }
 
+func (service *RoleConfigurationService) ReadWorkspaceConfiguration(
+	ctx context.Context,
+	workspaceID string,
+) (RoleConfiguration, error) {
+	if err := service.validateRequest(ctx); err != nil {
+		return RoleConfiguration{}, err
+	}
+	scope := workspaceRoleConfigurationScope(workspaceID)
+	if err := scope.Validate(); err != nil {
+		return RoleConfiguration{}, err
+	}
+	catalog, err := service.readModelCatalog(ctx)
+	if err != nil {
+		return RoleConfiguration{}, err
+	}
+	return service.readConfigurationWithCatalog(ctx, scope, catalog)
+}
+
 func (service *RoleConfigurationService) ReadConversationConfiguration(
 	ctx context.Context,
 	workspaceID string,
@@ -108,6 +126,18 @@ func (service *RoleConfigurationService) UpdateGlobalConfiguration(
 	return service.updateConfiguration(
 		ctx,
 		RoleConfigurationScope{Kind: RoleProfileScopeGlobal},
+		updates,
+	)
+}
+
+func (service *RoleConfigurationService) UpdateWorkspaceConfiguration(
+	ctx context.Context,
+	workspaceID string,
+	updates []RoleProfileUpdate,
+) (RoleConfiguration, error) {
+	return service.updateConfiguration(
+		ctx,
+		workspaceRoleConfigurationScope(workspaceID),
 		updates,
 	)
 }
@@ -448,12 +478,12 @@ func (service *RoleConfigurationService) commitRoleProfileChanges(
 	scope RoleConfigurationScope,
 	changes []roleProfileChange,
 ) error {
-	scopeID := ""
-	if scope.Kind == RoleProfileScopeConversation {
-		scopeID = *scope.ConversationID
+	scopeID, err := roleConfigurationScopeID(scope)
+	if err != nil {
+		return err
 	}
 	committedAt := service.now().UTC().Format(time.RFC3339Nano)
-	_, err := service.store.Transact(ctx, "update role profile configuration", func(transaction *WriteTransaction) error {
+	_, err = service.store.Transact(ctx, "update role profile configuration", func(transaction *WriteTransaction) error {
 		previousUpdatedAt := committedAt
 		for index, change := range changes {
 			updatedAt := committedAt
@@ -493,7 +523,7 @@ func (service *RoleConfigurationService) commitRoleProfileChanges(
 				committedAt,
 			)
 		}
-		return service.appendGlobalRoleConfigurationAudit(
+		return service.appendRoleConfigurationAudit(
 			transaction,
 			scope,
 			changes,
@@ -551,12 +581,16 @@ func (service *RoleConfigurationService) appendConversationRoleConfigurationEven
 	return nil
 }
 
-func (service *RoleConfigurationService) appendGlobalRoleConfigurationAudit(
+func (service *RoleConfigurationService) appendRoleConfigurationAudit(
 	transaction *WriteTransaction,
 	scope RoleConfigurationScope,
 	changes []roleProfileChange,
 	committedAt string,
 ) error {
+	scopeID, err := roleConfigurationScopeID(scope)
+	if err != nil {
+		return err
+	}
 	payloadChanges := make([]roleConfigurationChange, 0, len(changes))
 	for _, change := range changes {
 		payloadChanges = append(payloadChanges, roleConfigurationChange{
@@ -575,11 +609,19 @@ func (service *RoleConfigurationService) appendGlobalRoleConfigurationAudit(
 		Kind:     "role_profile_configuration.updated",
 		Payload: roleConfigurationAuditPayload{
 			ScopeKind: scope.Kind,
+			ScopeID:   scopeID,
 			Changes:   payloadChanges,
 		},
 		CommittedAt: committedAt,
 	})
 	return err
+}
+
+func workspaceRoleConfigurationScope(workspaceID string) RoleConfigurationScope {
+	return RoleConfigurationScope{
+		Kind:        RoleProfileScopeWorkspace,
+		WorkspaceID: cloneStringPointer(&workspaceID),
+	}
 }
 
 func conversationRoleConfigurationScope(
@@ -590,5 +632,18 @@ func conversationRoleConfigurationScope(
 		Kind:           RoleProfileScopeConversation,
 		WorkspaceID:    cloneStringPointer(&workspaceID),
 		ConversationID: cloneStringPointer(&conversationID),
+	}
+}
+
+func roleConfigurationScopeID(scope RoleConfigurationScope) (string, error) {
+	switch scope.Kind {
+	case RoleProfileScopeGlobal:
+		return "", nil
+	case RoleProfileScopeWorkspace:
+		return *scope.WorkspaceID, nil
+	case RoleProfileScopeConversation:
+		return *scope.ConversationID, nil
+	default:
+		return "", fmt.Errorf("unsupported role configuration scope %q", scope.Kind)
 	}
 }

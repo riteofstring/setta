@@ -4,12 +4,14 @@ import type {
   RoleModelOption,
   RoleProfile,
   RoleProfileConfiguration,
+  RoleProfileScopeKind,
   RoleProfileUpdate,
 } from "@generated/backend";
 import { BrainCircuit, Loader2, RotateCcw, Save } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "./ui/button";
+import { useWorkspaceStore } from "../stores/workspace-store";
 
 const providerDefaultValue = "__provider_default__";
 
@@ -23,9 +25,32 @@ interface RoleConfigurationFormProps {
   onSave: (updates: RoleProfileUpdate[]) => Promise<RoleConfiguration>;
 }
 
+type EditableRoleConfigurationScope = Extract<RoleProfileScopeKind, "global" | "workspace">;
+
+interface RoleConfigurationSelection {
+  scope: EditableRoleConfigurationScope;
+  workspaceId: string;
+}
+
 export function RoleConfigurationSettings() {
   const [configuration, setConfiguration] = useState<RoleConfiguration | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scope, setScope] = useState<EditableRoleConfigurationScope>("global");
+  const selectedWorkspaceId = useWorkspaceStore(
+    (state) => state.session?.selectedWorkspaceId ?? "",
+  );
+  const selectedWorkspaceName = useWorkspaceStore((state) => {
+    const selectedWorkspaceId = state.session?.selectedWorkspaceId;
+    return (
+      state.session?.activeWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId)
+        ?.displayName ?? ""
+    );
+  });
+  const selectionRef = useRef<RoleConfigurationSelection>({
+    scope,
+    workspaceId: selectedWorkspaceId,
+  });
+  selectionRef.current = { scope, workspaceId: selectedWorkspaceId };
 
   useEffect(() => {
     const roles = window.setta.roles;
@@ -33,8 +58,19 @@ export function RoleConfigurationSettings() {
       setError("Role configuration is unavailable in this client.");
       return;
     }
+    if (scope === "workspace" && selectedWorkspaceId === "") {
+      setConfiguration(null);
+      setError("Open a workspace to configure workspace role overrides.");
+      return;
+    }
     let active = true;
-    void roles.readGlobal().then(
+    setConfiguration(null);
+    setError(null);
+    const read =
+      scope === "global"
+        ? roles.readGlobal()
+        : roles.readWorkspace({ workspaceId: selectedWorkspaceId });
+    void read.then(
       (next) => {
         if (active) {
           setConfiguration(next);
@@ -50,33 +86,76 @@ export function RoleConfigurationSettings() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [scope, selectedWorkspaceId]);
 
+  let content: ReactNode;
   if (error) {
-    return <RoleConfigurationMessage kind="error">{error}</RoleConfigurationMessage>;
-  }
-  if (!configuration) {
-    return (
+    content = <RoleConfigurationMessage kind="error">{error}</RoleConfigurationMessage>;
+  } else if (!configuration) {
+    content = (
       <RoleConfigurationMessage kind="loading">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Loading role configuration
       </RoleConfigurationMessage>
     );
+  } else {
+    content = (
+      <RoleConfigurationForm
+        configuration={configuration}
+        onSave={async (updates) => {
+          const roles = window.setta.roles;
+          if (!roles) {
+            throw new Error("Role configuration is unavailable in this client.");
+          }
+          const next =
+            scope === "global"
+              ? await roles.updateGlobal({ updates })
+              : await roles.updateWorkspace({ workspaceId: selectedWorkspaceId, updates });
+          if (roleConfigurationMatchesSelection(next, selectionRef.current)) {
+            setConfiguration(next);
+          }
+          return next;
+        }}
+      />
+    );
   }
 
   return (
-    <RoleConfigurationForm
-      configuration={configuration}
-      onSave={async (updates) => {
-        const roles = window.setta.roles;
-        if (!roles) {
-          throw new Error("Role configuration is unavailable in this client.");
-        }
-        const next = await roles.updateGlobal({ updates });
-        setConfiguration(next);
-        return next;
-      }}
-    />
+    <div className="grid gap-3" data-testid="role-configuration-scope-settings">
+      <label className="grid max-w-sm gap-1 text-[11px] text-muted-foreground">
+        Configuration scope
+        <select
+          aria-label="AI role configuration scope"
+          className="h-8 rounded-sm border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring"
+          onChange={(event) => {
+            const next = event.currentTarget.value;
+            if (next !== "global" && next !== "workspace") {
+              throw new Error(`Unsupported role configuration scope ${next}.`);
+            }
+            setScope(next);
+          }}
+          value={scope}
+        >
+          <option value="global">Global defaults</option>
+          <option disabled={selectedWorkspaceId === ""} value="workspace">
+            {selectedWorkspaceName === ""
+              ? "Selected workspace"
+              : `Workspace · ${selectedWorkspaceName}`}
+          </option>
+        </select>
+      </label>
+      {content}
+    </div>
+  );
+}
+
+function roleConfigurationMatchesSelection(
+  configuration: RoleConfiguration,
+  selection: RoleConfigurationSelection,
+): boolean {
+  return (
+    configuration.scope.kind === selection.scope &&
+    (selection.scope === "global" || configuration.scope.workspaceId === selection.workspaceId)
   );
 }
 
@@ -107,6 +186,7 @@ export function RoleConfigurationForm({ configuration, onSave }: RoleConfigurati
   return (
     <form
       className="grid gap-3"
+      data-role-configuration-scope={configuration.scope.kind}
       data-testid="role-configuration-settings"
       onSubmit={(event) => {
         event.preventDefault();
@@ -202,7 +282,9 @@ export function RoleConfigurationForm({ configuration, onSave }: RoleConfigurati
               onReset={() =>
                 updateDraft(profile.role, () => ({
                   clearOverride: true,
-                  profile: cloneRoleProfile(profile.builtIn),
+                  profile: cloneRoleProfile(
+                    configuration.scope.kind === "global" ? profile.builtIn : profile.effective,
+                  ),
                 }))
               }
               onServiceTierChange={(serviceTier) =>
@@ -211,6 +293,7 @@ export function RoleConfigurationForm({ configuration, onSave }: RoleConfigurati
                   profile: { ...current.profile, serviceTier },
                 }))
               }
+              scope={configuration.scope.kind}
             />
           );
         })}
@@ -228,6 +311,7 @@ function RoleProfileCard({
   onModelChange,
   onReset,
   onServiceTierChange,
+  scope,
 }: {
   configuration: RoleProfileConfiguration;
   disabled: boolean;
@@ -237,10 +321,11 @@ function RoleProfileCard({
   onModelChange: (model: string) => void;
   onReset: () => void;
   onServiceTierChange: (serviceTier: string | null) => void;
+  scope: RoleProfileScopeKind;
 }) {
   const selectedModel = selectedRoleModel(draft.profile, models);
   const metadata = roleMetadata[configuration.role];
-  const overrideLabel = roleOverrideLabel(configuration, draft);
+  const overrideLabel = roleOverrideLabel(configuration, draft, scope);
   const modelValue =
     draft.profile.modelSelection.mode === "provider_default"
       ? providerDefaultValue
@@ -331,17 +416,30 @@ function RoleProfileCard({
         onClick={onReset}
         type="button"
       >
-        Use built-in {metadata.label.toLowerCase()}
+        {roleResetButtonLabel(scope, metadata.label)}
       </Button>
     </fieldset>
   );
 }
 
-function roleOverrideLabel(configuration: RoleProfileConfiguration, draft: RoleDraft): string {
+function roleOverrideLabel(
+  configuration: RoleProfileConfiguration,
+  draft: RoleDraft,
+  scope: RoleProfileScopeKind,
+): string {
   if (draft.clearOverride) {
-    return "Built-in after save";
+    return scope === "global" ? "Built-in after save" : "Inherited after save";
   }
-  return configuration.override ? "Global override" : "Built-in";
+  if (configuration.override) {
+    return `${roleScopeLabels[scope]} override`;
+  }
+  return configuration.effectiveSource === "built_in"
+    ? "Built-in"
+    : `Inherited from ${roleSourceLabels[configuration.effectiveSource]}`;
+}
+
+function roleResetButtonLabel(scope: RoleProfileScopeKind, roleLabel: string): string {
+  return `Use ${scope === "global" ? "built-in" : "inherited"} ${roleLabel.toLowerCase()}`;
 }
 
 function RoleConfigurationMessage({
@@ -488,3 +586,16 @@ const roleMetadata = {
     label: "Side agent",
   },
 } satisfies Record<Role, { description: string; label: string }>;
+
+const roleScopeLabels = {
+  conversation: "Conversation",
+  global: "Global",
+  workspace: "Workspace",
+} satisfies Record<RoleProfileScopeKind, string>;
+
+const roleSourceLabels = {
+  built_in: "built-in",
+  conversation: "conversation",
+  global: "global",
+  workspace: "workspace",
+} satisfies Record<RoleProfileConfiguration["effectiveSource"], string>;

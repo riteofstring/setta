@@ -31,6 +31,7 @@ import type {
   ReadMasterInputRoutingStateRequest,
   RefreshCodexAccountRequest,
   ReadConversationRoleConfigurationRequest,
+  ReadWorkspaceRoleConfigurationRequest,
   RetryConversationInputRequest,
   RoleConfiguration,
   RoleModelCatalog,
@@ -50,6 +51,7 @@ import type {
   UpdateAppearanceSettingsRequest,
   UpdateConversationRoleProfilesRequest,
   UpdateGlobalRoleProfilesRequest,
+  UpdateWorkspaceRoleProfilesRequest,
   UpdateTopicConversationPresentationRequest,
   VoiceSelectionRequest,
   WorkspaceUILayout,
@@ -337,10 +339,12 @@ export interface SettaAPI {
     ) => Promise<RoleConfiguration>;
     readGlobal: () => Promise<RoleConfiguration>;
     readModels: () => Promise<RoleModelCatalog>;
+    readWorkspace: (request: ReadWorkspaceRoleConfigurationRequest) => Promise<RoleConfiguration>;
     updateConversation: (
       request: UpdateConversationRoleProfilesRequest,
     ) => Promise<RoleConfiguration>;
     updateGlobal: (request: UpdateGlobalRoleProfilesRequest) => Promise<RoleConfiguration>;
+    updateWorkspace: (request: UpdateWorkspaceRoleProfilesRequest) => Promise<RoleConfiguration>;
   };
   speech: {
     cancelSynthesis?: (operationId: string) => Promise<void>;

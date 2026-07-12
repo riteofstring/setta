@@ -17,7 +17,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
 import { DeveloperSettingsEditor } from "./developer-settings";
-import { RoleConfigurationForm } from "./role-configuration-settings";
+import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
 import { ConversationPresentationConfiguration } from "./presentation-configuration-settings";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
 
@@ -95,6 +95,37 @@ describe("appearance settings", () => {
     expect(normalizedHtml).toContain("Provider catalog validated · 4 models");
     expect(html).toContain("gpt-5.6-sol");
     expect(html).toContain("gpt-5.4-mini");
+  });
+
+  test("offers global and selected-workspace role configuration scopes", () => {
+    const html = renderToString(<RoleConfigurationSettings />);
+
+    expect(html).toContain('data-testid="role-configuration-scope-settings"');
+    expect(html).toContain('aria-label="AI role configuration scope"');
+    expect(html).toContain("Global defaults");
+    expect(html).toContain("Selected workspace");
+  });
+
+  test("renders workspace overrides without the global-only master role", () => {
+    const configuration = sampleRoleConfiguration();
+    const workspaceId = "workspace-role-settings";
+    configuration.scope = {
+      conversationId: null,
+      kind: "workspace",
+      workspaceId,
+    };
+    configuration.profiles = configuration.profiles
+      .filter((profile) => profile.role !== "master")
+      .map((profile) => ({ ...profile, effectiveSource: "global" as const }));
+    const html = renderToString(
+      <RoleConfigurationForm configuration={configuration} onSave={async () => configuration} />,
+    );
+    const normalizedHtml = html.replaceAll("<!-- -->", "");
+
+    expect(html).toContain('data-role-configuration-scope="workspace"');
+    expect(html).toContain("Inherited from global");
+    expect(normalizedHtml).toContain("Use inherited agent");
+    expect(html).not.toContain('aria-label="Master model"');
   });
 
   test("renders the developer performance stats toggle", () => {

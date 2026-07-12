@@ -78,6 +78,8 @@ var apiEndpoints = []endpoint{
 	get[conversation.RoleModelCatalog]("ReadRoleModelCatalog", "/roles/models", handler.readRoleModelCatalog),
 	get[conversation.RoleConfiguration]("ReadGlobalRoleConfiguration", "/roles/configuration/global", handler.readGlobalRoleConfiguration),
 	post[UpdateGlobalRoleProfilesRequest, conversation.RoleConfiguration]("UpdateGlobalRoleProfiles", "/roles/configuration/global/update", handler.updateGlobalRoleProfiles),
+	post[ReadWorkspaceRoleConfigurationRequest, conversation.RoleConfiguration]("ReadWorkspaceRoleConfiguration", "/workspaces/roles/read", handler.readWorkspaceRoleConfiguration),
+	post[UpdateWorkspaceRoleProfilesRequest, conversation.RoleConfiguration]("UpdateWorkspaceRoleProfiles", "/workspaces/roles/update", handler.updateWorkspaceRoleProfiles),
 	post[ReadConversationRoleConfigurationRequest, conversation.RoleConfiguration]("ReadConversationRoleConfiguration", "/conversations/roles/read", handler.readConversationRoleConfiguration),
 	post[UpdateConversationRoleProfilesRequest, conversation.RoleConfiguration]("UpdateConversationRoleProfiles", "/conversations/roles/update", handler.updateConversationRoleProfiles),
 	get[master.ActiveShellInteraction]("ReadActiveMasterShellInteraction", "/master/interaction/active", handler.readActiveMasterShellInteraction),
