@@ -1275,3 +1275,18 @@ Stop and reassess rather than hiding the problem if any of these occur:
   egress policy and re-test for bypass. Remaining Phase 1a work: cost-assumptions
   table, idle-pause/attached-idle timing, applied-policy bypass, unauthenticated
   URL wake, and `warm` cost.
+- 2026-07-13: Validated the composed launcher boundary
+  (`scripts/sprites/phase1a_launcher_boundary.sh`, delegated Codex high effort,
+  then re-run independently by the reviewer). Trusted code uses `sudo` only to
+  create a mount/PID namespace and mask `/.sprite` (incl. the management socket)
+  with tmpfs, then `setpriv` drops to uid 65534 with `no_new_privs` and empty
+  capability sets before `exec`. Verified: full containment (socket absent,
+  `CapEff=0`, `no_new_privs=1`, sudo and setuid escalation blocked, `/root` and
+  trusted state unreadable) with full dev ergonomics (git/pip/cc/python/HTTPS),
+  and it works as a `sprite-env` Service entrypoint. The isolation gap is now a
+  build task with a proven design; remaining hardening (seccomp, cgroup limits,
+  network namespace) is Phase 1b/2. Also built the Phase 1a cost-assumptions
+  table (retained-cold, attached-idle, active-agent) with proposed thresholds
+  (max ~$25/user/mo, cutoff lag <=60s) pending confirmation. Disposable Sprite
+  destroyed; org empty. Evidence in
+  `docs/reports/2026-07-13-sprites-phase1a-probes.md`.
