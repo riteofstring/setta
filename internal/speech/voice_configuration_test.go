@@ -87,6 +87,34 @@ func TestVoiceSelectionsRequireTypedAvailableExactValues(t *testing.T) {
 	}
 }
 
+func TestNarratorVoiceDefaultIsExplicitValidatedAndCloneSafe(t *testing.T) {
+	value := DefaultNarratorVoiceSelection("2026-07-12T18:00:00Z")
+	if value.Selection != VoiceSelectionAutoDistinct || value.RequestedVoiceID != nil {
+		t.Fatalf("default narrator voice = %+v", value)
+	}
+	if err := value.Validate(); err != nil {
+		t.Fatalf("validate default narrator voice: %v", err)
+	}
+	cedar := SpeechVoiceCedar
+	value.Selection = VoiceSelectionExact
+	value.RequestedVoiceID = &cedar
+	if err := value.Validate(); err != nil {
+		t.Fatalf("validate exact narrator default: %v", err)
+	}
+	cloned := CloneNarratorVoiceDefault(value)
+	*cloned.RequestedVoiceID = SpeechVoiceAsh
+	if *value.RequestedVoiceID != SpeechVoiceCedar {
+		t.Fatalf("narrator voice default clone mutated source: %+v", value)
+	}
+	update := NewNarratorVoiceDefaultUpdate(value, NarratorVoiceDefault{
+		Selection: VoiceSelectionAutoDistinct,
+		UpdatedAt: "2026-07-12T18:00:01Z",
+	})
+	if err := update.Validate(); err != nil {
+		t.Fatalf("validate narrator default update: %v", err)
+	}
+}
+
 func TestNarratorVoiceAllocationIsDistinctStableAndExplicitOnExhaustion(t *testing.T) {
 	catalog := []SpeechVoiceID{SpeechVoiceAlloy, SpeechVoiceAsh, SpeechVoiceMarin}
 	first, err := allocateNarratorVoice(catalog, SpeechVoiceMarin, nil)

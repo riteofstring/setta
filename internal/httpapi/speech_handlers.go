@@ -51,6 +51,36 @@ func (handler handler) updateMasterVoiceSelection(response http.ResponseWriter, 
 	writeJSON(response, http.StatusOK, selection)
 }
 
+func (handler handler) readNarratorVoiceDefault(response http.ResponseWriter, request *http.Request) {
+	service := requireSpeechService(response, handler.speechService)
+	if service == nil {
+		return
+	}
+	value, err := service.ReadNarratorVoiceDefault(request.Context())
+	if err != nil {
+		writeSpeechVoiceConfigurationError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, value)
+}
+
+func (handler handler) updateNarratorVoiceDefault(response http.ResponseWriter, request *http.Request) {
+	service := requireSpeechService(response, handler.speechService)
+	if service == nil {
+		return
+	}
+	var payload speech.VoiceSelectionRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	value, err := service.UpdateNarratorVoiceDefault(request.Context(), payload)
+	if err != nil {
+		writeSpeechVoiceConfigurationError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, value)
+}
+
 func (handler handler) createSpeechTranscriptionSession(response http.ResponseWriter, request *http.Request) {
 	service := requireSpeechService(response, handler.speechService)
 	if service == nil {

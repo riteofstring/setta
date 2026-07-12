@@ -104,7 +104,7 @@ func TestSpeechServiceUnconfiguredTranscriptionDoesNotCallProvider(t *testing.T)
 	}
 }
 
-func TestSpeechServiceInitializesAndReadsStableMasterVoiceSelection(t *testing.T) {
+func TestSpeechServiceInitializesAndReadsStableVoiceConfiguration(t *testing.T) {
 	store := &serviceTestVoiceConfigurationStore{}
 	now := time.Date(2026, 7, 12, 18, 0, 0, 0, time.UTC)
 	service, err := NewService(context.Background(), ServiceConfig{
@@ -133,6 +133,27 @@ func TestSpeechServiceInitializesAndReadsStableMasterVoiceSelection(t *testing.T
 	}
 	if reloaded.ResolvedVoiceID == nil || *reloaded.ResolvedVoiceID != SpeechVoiceMarin {
 		t.Fatalf("reloaded master voice selection = %+v, err=%v", reloaded, err)
+	}
+	narratorDefault, err := service.ReadNarratorVoiceDefault(context.Background())
+	if err != nil {
+		t.Fatalf("read narrator voice default: %v", err)
+	}
+	if narratorDefault.Selection != VoiceSelectionAutoDistinct ||
+		narratorDefault.RequestedVoiceID != nil ||
+		narratorDefault.UpdatedAt != "2026-07-12T18:00:00Z" {
+		t.Fatalf("narrator voice default = %+v", narratorDefault)
+	}
+	now = now.Add(time.Second)
+	updatedDefault, err := service.UpdateNarratorVoiceDefault(
+		context.Background(),
+		VoiceSelectionRequest{
+			Selection:        VoiceSelectionExact,
+			RequestedVoiceID: voiceIDPointer(SpeechVoiceCedar),
+		},
+	)
+	if err != nil || updatedDefault.RequestedVoiceID == nil ||
+		*updatedDefault.RequestedVoiceID != SpeechVoiceCedar {
+		t.Fatalf("updated narrator voice default = %+v, err=%v", updatedDefault, err)
 	}
 }
 
@@ -226,7 +247,8 @@ type serviceTestSourceResolver struct {
 }
 
 type serviceTestVoiceConfigurationStore struct {
-	selection *MasterVoiceSelection
+	narratorDefault *NarratorVoiceDefault
+	selection       *MasterVoiceSelection
 }
 
 func (store *serviceTestVoiceConfigurationStore) EnsureMasterVoiceSelection(
@@ -240,6 +262,17 @@ func (store *serviceTestVoiceConfigurationStore) EnsureMasterVoiceSelection(
 	return CloneMasterVoiceSelection(*store.selection), nil
 }
 
+func (store *serviceTestVoiceConfigurationStore) EnsureNarratorVoiceDefault(
+	_ context.Context,
+	initial NarratorVoiceDefault,
+) (NarratorVoiceDefault, error) {
+	if store.narratorDefault == nil {
+		cloned := CloneNarratorVoiceDefault(initial)
+		store.narratorDefault = &cloned
+	}
+	return CloneNarratorVoiceDefault(*store.narratorDefault), nil
+}
+
 func (store *serviceTestVoiceConfigurationStore) ReadMasterVoiceSelection(
 	context.Context,
 ) (MasterVoiceSelection, error) {
@@ -247,6 +280,15 @@ func (store *serviceTestVoiceConfigurationStore) ReadMasterVoiceSelection(
 		return MasterVoiceSelection{}, errors.New("master voice selection is missing")
 	}
 	return CloneMasterVoiceSelection(*store.selection), nil
+}
+
+func (store *serviceTestVoiceConfigurationStore) ReadNarratorVoiceDefault(
+	context.Context,
+) (NarratorVoiceDefault, error) {
+	if store.narratorDefault == nil {
+		return NarratorVoiceDefault{}, errors.New("narrator voice default is missing")
+	}
+	return CloneNarratorVoiceDefault(*store.narratorDefault), nil
 }
 
 func (store *serviceTestVoiceConfigurationStore) UpdateMasterVoiceSelection(
@@ -261,6 +303,27 @@ func (store *serviceTestVoiceConfigurationStore) UpdateMasterVoiceSelection(
 	cloned := CloneMasterVoiceSelection(selection)
 	store.selection = &cloned
 	return CloneMasterVoiceSelection(cloned), nil
+}
+
+func (store *serviceTestVoiceConfigurationStore) UpdateNarratorVoiceDefault(
+	_ context.Context,
+	request VoiceSelectionRequest,
+	updatedAt string,
+) (NarratorVoiceDefault, error) {
+	if err := request.Validate(); err != nil {
+		return NarratorVoiceDefault{}, err
+	}
+	value := NarratorVoiceDefault{
+		Selection:        request.Selection,
+		RequestedVoiceID: cloneVoiceID(request.RequestedVoiceID),
+		UpdatedAt:        updatedAt,
+	}
+	if err := value.Validate(); err != nil {
+		return NarratorVoiceDefault{}, err
+	}
+	cloned := CloneNarratorVoiceDefault(value)
+	store.narratorDefault = &cloned
+	return CloneNarratorVoiceDefault(cloned), nil
 }
 
 func (provider *serviceTestProvider) Configured() bool {

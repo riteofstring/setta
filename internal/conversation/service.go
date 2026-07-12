@@ -87,6 +87,19 @@ type activeSideConversationTurn struct {
 	workspaceID          string
 }
 
+type conversationPresentationCreation struct {
+	Profile               ConversationPresentationProfile
+	RelatedProfileUpdates []ConversationPresentationProfile
+	MasterVoiceCurrent    *speech.MasterVoiceSelection
+	MasterVoiceUpdate     *speech.MasterVoiceSelection
+}
+
+type preparedCreationMasterVoiceUpdate struct {
+	current  speech.MasterVoiceSelection
+	resolved speech.MasterVoiceSelection
+	draft    CommittedEventDraft
+}
+
 type CommandConflictError struct {
 	ConversationID string
 	Reason         string
@@ -283,8 +296,8 @@ func (service *Service) createTopic(
 		UpdatedAt:       now,
 	}
 	service.createMu.Lock()
-	var presentation ConversationPresentationProfile
-	err = service.store.withVoiceConfigurationLock(func() error {
+	var presentation conversationPresentationCreation
+	err = service.store.withPresentationConfigurationLock(func() error {
 		var presentationErr error
 		presentation, presentationErr = service.initialPresentationProfile(ctx, workspaceID, conversationID, now)
 		if presentationErr != nil {
@@ -305,14 +318,47 @@ func (service *Service) persistCreatedConversation(
 	conversation TopicConversation,
 	binding AgentThreadBinding,
 	narrator NarratorState,
-	presentation ConversationPresentationProfile,
+	presentation conversationPresentationCreation,
 	branch *ConversationBranch,
 ) error {
+	publications, err := service.prepareCreatedConversationPublications(
+		conversation,
+		binding,
+		narrator,
+		presentation,
+		branch,
+	)
+	if err != nil {
+		return err
+	}
+	masterUpdate, err := prepareCreationMasterVoiceUpdate(presentation)
+	if err != nil {
+		return err
+	}
+	_, err = service.store.Transact(ctx, "create topic conversation", func(transaction *WriteTransaction) error {
+		if err := persistCreatedConversationRecords(transaction, conversation, binding, narrator, branch); err != nil {
+			return err
+		}
+		if err := persistCreatedConversationPresentation(transaction, presentation, masterUpdate); err != nil {
+			return err
+		}
+		return appendPublications(transaction, publications)
+	})
+	return err
+}
+
+func (service *Service) prepareCreatedConversationPublications(
+	conversation TopicConversation,
+	binding AgentThreadBinding,
+	narrator NarratorState,
+	presentation conversationPresentationCreation,
+	branch *ConversationBranch,
+) ([]preparedPublication, error) {
 	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: conversation},
 		ConversationThreadBindingUpdatedEventPayload{Type: ConversationEventTypeThreadBindingUpdated, Binding: binding},
 		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: narrator},
-		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: presentation},
+		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: presentation.Profile},
 	}
 	if branch != nil {
 		payloads = append(payloads, ConversationBranchCreatedEventPayload{
@@ -322,29 +368,99 @@ func (service *Service) persistCreatedConversation(
 	}
 	publications, err := service.publications(conversation.ID, conversation.UpdatedAt, payloads...)
 	if err != nil {
+		return nil, err
+	}
+	relatedPublications, _, err := service.preparePresentationPublications(
+		presentation.RelatedProfileUpdates,
+		"",
+	)
+	if err != nil {
+		return nil, err
+	}
+	return append(publications, relatedPublications...), nil
+}
+
+func prepareCreationMasterVoiceUpdate(
+	presentation conversationPresentationCreation,
+) (*preparedCreationMasterVoiceUpdate, error) {
+	if presentation.MasterVoiceUpdate == nil {
+		return nil, nil
+	}
+	if presentation.MasterVoiceCurrent == nil {
+		return nil, errors.New("presentation creation master voice update requires current selection")
+	}
+	eventID, err := randomServiceID("speech_event")
+	if err != nil {
+		return nil, err
+	}
+	payload := speech.NewMasterVoiceSelectionUpdate(
+		*presentation.MasterVoiceCurrent,
+		*presentation.MasterVoiceUpdate,
+		speech.MasterVoiceSelectionUpdateNarratorAssignment,
+	)
+	if err := payload.Validate(); err != nil {
+		return nil, err
+	}
+	return &preparedCreationMasterVoiceUpdate{
+		current:  *presentation.MasterVoiceCurrent,
+		resolved: *presentation.MasterVoiceUpdate,
+		draft: CommittedEventDraft{
+			ID:          eventID,
+			StreamID:    speech.MasterVoiceSelectionStreamID,
+			Kind:        speech.MasterVoiceSelectionUpdatedEventKind,
+			Payload:     payload,
+			CommittedAt: presentation.MasterVoiceUpdate.UpdatedAt,
+		},
+	}, nil
+}
+
+func persistCreatedConversationRecords(
+	transaction *WriteTransaction,
+	conversation TopicConversation,
+	binding AgentThreadBinding,
+	narrator NarratorState,
+	branch *ConversationBranch,
+) error {
+	if err := transaction.InsertConversation(conversation); err != nil {
 		return err
 	}
-	_, err = service.store.Transact(ctx, "create topic conversation", func(transaction *WriteTransaction) error {
-		if err := transaction.InsertConversation(conversation); err != nil {
+	if branch != nil {
+		if err := transaction.InsertConversationBranch(*branch); err != nil {
 			return err
 		}
-		if branch != nil {
-			if err := transaction.InsertConversationBranch(*branch); err != nil {
-				return err
-			}
-		}
-		if err := transaction.UpsertAgentThreadBinding(binding); err != nil {
+	}
+	if err := transaction.UpsertAgentThreadBinding(binding); err != nil {
+		return err
+	}
+	return transaction.InsertNarratorState(narrator)
+}
+
+func persistCreatedConversationPresentation(
+	transaction *WriteTransaction,
+	presentation conversationPresentationCreation,
+	masterUpdate *preparedCreationMasterVoiceUpdate,
+) error {
+	if masterUpdate != nil {
+		if err := transaction.UpdateMasterVoiceSelection(
+			masterUpdate.current.UpdatedAt,
+			masterUpdate.resolved,
+		); err != nil {
 			return err
 		}
-		if err := transaction.InsertNarratorState(narrator); err != nil {
+	}
+	for _, update := range presentation.RelatedProfileUpdates {
+		if err := transaction.UpsertConversationPresentationProfile(update); err != nil {
 			return err
 		}
-		if err := transaction.UpsertConversationPresentationProfile(presentation); err != nil {
-			return err
-		}
-		return appendPublications(transaction, publications)
-	})
-	return err
+	}
+	if err := transaction.UpsertConversationPresentationProfile(presentation.Profile); err != nil {
+		return err
+	}
+	if masterUpdate != nil {
+		_, err := transaction.AppendCommittedEvent(masterUpdate.draft)
+		return err
+	}
+	return nil
 }
 
 func (service *Service) initialPresentationProfile(
@@ -352,13 +468,32 @@ func (service *Service) initialPresentationProfile(
 	workspaceID string,
 	conversationID string,
 	updatedAt string,
-) (ConversationPresentationProfile, error) {
+) (conversationPresentationCreation, error) {
+	usage, err := service.workspacePaletteUsage(ctx, workspaceID)
+	if err != nil {
+		return conversationPresentationCreation{}, err
+	}
+	paletteID, reuse := leastUsedPalette(usage)
+	return service.initialNarratorPresentation(
+		ctx,
+		workspaceID,
+		conversationID,
+		paletteID,
+		reuse,
+		updatedAt,
+	)
+}
+
+func (service *Service) workspacePaletteUsage(
+	ctx context.Context,
+	workspaceID string,
+) (map[conversationpalette.ConversationPaletteID][]string, error) {
 	usage := map[conversationpalette.ConversationPaletteID][]string{}
 	var cursor *NavigatorCursor
 	for {
 		page, err := service.store.ListNavigatorPage(ctx, workspaceID, "", cursor, MaxNavigatorPageLimit)
 		if err != nil {
-			return ConversationPresentationProfile{}, err
+			return nil, err
 		}
 		for _, item := range page.Items {
 			id := item.PresentationProfile.ResolvedPaletteID
@@ -369,37 +504,92 @@ func (service *Service) initialPresentationProfile(
 		}
 		cursor = page.NextCursor
 	}
-	paletteID, reuse := leastUsedPalette(usage)
+	return usage, nil
+}
+
+func (service *Service) initialNarratorPresentation(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	paletteID conversationpalette.ConversationPaletteID,
+	paletteReuse *PresentationReuse,
+	updatedAt string,
+) (conversationPresentationCreation, error) {
 	master, err := service.store.ReadMasterVoiceSelection(ctx)
 	if err != nil {
-		return ConversationPresentationProfile{}, fmt.Errorf("read master voice selection: %w", err)
+		return conversationPresentationCreation{}, fmt.Errorf("read master voice selection: %w", err)
 	}
 	if master.ResolvedVoiceID == nil {
-		return ConversationPresentationProfile{}, errors.New("master voice selection has no resolved voice")
+		return conversationPresentationCreation{}, errors.New("master voice selection has no resolved voice")
 	}
 	presentations, err := service.store.readActiveConversationPresentations(ctx)
 	if err != nil {
-		return ConversationPresentationProfile{}, err
+		return conversationPresentationCreation{}, err
 	}
-	voiceAllocation, err := speech.AllocateNarratorVoice(
+	narratorDefault, err := service.store.ReadNarratorVoiceDefault(ctx)
+	if err != nil {
+		return conversationPresentationCreation{}, err
+	}
+	profile := ConversationPresentationProfile{
+		ConversationID:           conversationID,
+		PaletteSelection:         PresentationSelectionAutoDistinct,
+		ResolvedPaletteID:        paletteID,
+		PaletteReuse:             paletteReuse,
+		NarratorVoiceSelection:   narratorDefault.Selection,
+		RequestedNarratorVoiceID: cloneVoiceID(narratorDefault.RequestedVoiceID),
+		NarratorSpeechEnabled:    true,
+		UpdatedAt:                "",
+	}
+	voiceUpdates, err := resolveNarratorVoiceUpdates(
+		presentations,
+		profile,
+		narratorDefault.Request(),
 		*master.ResolvedVoiceID,
-		narratorVoiceAssignments(presentations, nil),
+		updatedAt,
 	)
 	if err != nil {
-		return ConversationPresentationProfile{}, err
+		return conversationPresentationCreation{}, err
 	}
-	resolvedVoiceID := voiceAllocation.VoiceID
-	return ConversationPresentationProfile{
-		ConversationID:          conversationID,
-		PaletteSelection:        PresentationSelectionAutoDistinct,
-		ResolvedPaletteID:       paletteID,
-		PaletteReuse:            reuse,
-		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
-		ResolvedNarratorVoiceID: &resolvedVoiceID,
-		NarratorVoiceReuse:      presentationReuseFromVoiceAllocation(voiceAllocation),
-		NarratorSpeechEnabled:   true,
-		UpdatedAt:               updatedAt,
-	}, nil
+	profile = profileAfterUpdates(profile, voiceUpdates)
+	presentationsWithNew := append(
+		append([]activeConversationPresentation(nil), presentations...),
+		activeConversationPresentation{
+			WorkspaceID: workspaceID,
+			CreatedAt:   updatedAt,
+			Profile:     profile,
+		},
+	)
+	voiceUpdates, masterUpdate, err := service.refreshAutomaticMasterAfterNarratorUpdates(
+		master,
+		presentationsWithNew,
+		voiceUpdates,
+	)
+	if err != nil {
+		return conversationPresentationCreation{}, err
+	}
+	profile = profileAfterUpdates(profile, voiceUpdates)
+	result := conversationPresentationCreation{
+		Profile:               profile,
+		RelatedProfileUpdates: presentationUpdatesExcept(voiceUpdates, conversationID),
+	}
+	if masterUpdate != nil {
+		result.MasterVoiceCurrent = &master
+		result.MasterVoiceUpdate = masterUpdate
+	}
+	return result, nil
+}
+
+func presentationUpdatesExcept(
+	updates []ConversationPresentationProfile,
+	conversationID string,
+) []ConversationPresentationProfile {
+	result := make([]ConversationPresentationProfile, 0, len(updates))
+	for _, update := range updates {
+		if update.ConversationID != conversationID {
+			result = append(result, update)
+		}
+	}
+	return result
 }
 
 func leastUsedPalette(

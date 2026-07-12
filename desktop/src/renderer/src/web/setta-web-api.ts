@@ -225,8 +225,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         });
         conversationEventStreams.set(key, stream);
       },
-      updateNarratorVoice: (request) =>
-        requireClient().updateTopicConversationNarratorVoice(request),
+      updatePresentation: (request) => requireClient().updateTopicConversationPresentation(request),
       waitInputState: (request) => requireClient().waitConversationInputRoutingState(request),
     },
     master: {

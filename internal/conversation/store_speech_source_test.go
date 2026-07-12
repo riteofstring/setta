@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestStoreResolvesAuthoritativeNarrationSpeechSourceAndVoice(t *testing.T) {
@@ -49,6 +50,35 @@ func TestStoreResolvesAuthoritativeNarrationSpeechSourceAndVoice(t *testing.T) {
 		EventID:        event.ID,
 		ConversationID: &wrongConversationID,
 	})
+	assertSpeechSourceUnavailable(t, err)
+
+	disabledProfile := ConversationPresentationProfile{
+		ConversationID:          conversationID,
+		PaletteSelection:        PresentationSelectionAutoDistinct,
+		ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: speechVoiceIDPointer(speech.SpeechVoiceAlloy),
+		NarratorSpeechEnabled:   false,
+		UpdatedAt:               "2026-07-11T11:00:00Z",
+	}
+	_, err = store.Transact(context.Background(), "disable narrator speech", func(transaction *WriteTransaction) error {
+		if err := transaction.UpsertConversationPresentationProfile(disabledProfile); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"narrator-speech-disabled",
+			"conversation:conversation-1",
+			ConversationPresentationProfileUpdatedEventPayload{
+				Type:    ConversationEventTypePresentationProfileUpdated,
+				Profile: disabledProfile,
+			},
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("disable narrator speech: %v", err)
+	}
+	_, err = store.ResolveSpeechSource(context.Background(), source)
 	assertSpeechSourceUnavailable(t, err)
 }
 

@@ -11,6 +11,10 @@ const (
 	MasterVoiceSelectionInitializedEventID   = "speech-master-voice-selection-initialized"
 	MasterVoiceSelectionInitializedEventKind = "speech.master_voice_selection.initialized"
 	MasterVoiceSelectionUpdatedEventKind     = "speech.master_voice_selection.updated"
+	NarratorVoiceDefaultStreamID             = "speech:narrator-voice-default"
+	NarratorVoiceDefaultInitializedEventID   = "speech-narrator-voice-default-initialized"
+	NarratorVoiceDefaultInitializedEventKind = "speech.narrator_voice_default.initialized"
+	NarratorVoiceDefaultUpdatedEventKind     = "speech.narrator_voice_default.updated"
 )
 
 func SynthesisVoiceCatalog() SpeechVoiceCatalog {
@@ -39,6 +43,98 @@ func DefaultMasterVoiceSelection(updatedAt string) MasterVoiceSelection {
 		ResolvedVoiceID:  &resolved,
 		UpdatedAt:        updatedAt,
 	}
+}
+
+func DefaultNarratorVoiceSelection(updatedAt string) NarratorVoiceDefault {
+	return NarratorVoiceDefault{
+		Selection: VoiceSelectionAutoDistinct,
+		UpdatedAt: updatedAt,
+	}
+}
+
+func NewNarratorVoiceDefaultInitialization(
+	value NarratorVoiceDefault,
+) NarratorVoiceDefaultInitialization {
+	return NarratorVoiceDefaultInitialization{
+		Catalog: SynthesisVoiceCatalog(),
+		Default: CloneNarratorVoiceDefault(value),
+	}
+}
+
+func NewNarratorVoiceDefaultUpdate(
+	previous NarratorVoiceDefault,
+	value NarratorVoiceDefault,
+) NarratorVoiceDefaultUpdate {
+	return NarratorVoiceDefaultUpdate{
+		Catalog:  SynthesisVoiceCatalog(),
+		Previous: CloneNarratorVoiceDefault(previous),
+		Default:  CloneNarratorVoiceDefault(value),
+	}
+}
+
+func (initialization NarratorVoiceDefaultInitialization) Validate() error {
+	available, err := validateVoiceCatalogSnapshot(initialization.Catalog)
+	if err != nil {
+		return fmt.Errorf("narrator voice default initialization catalog: %w", err)
+	}
+	return initialization.Default.validateAgainstCatalog(func(voiceID SpeechVoiceID) bool {
+		return available[voiceID]
+	})
+}
+
+func (update NarratorVoiceDefaultUpdate) Validate() error {
+	available, err := validateVoiceCatalogSnapshot(update.Catalog)
+	if err != nil {
+		return fmt.Errorf("narrator voice default update catalog: %w", err)
+	}
+	validate := func(value NarratorVoiceDefault) error {
+		return value.validateAgainstCatalog(func(voiceID SpeechVoiceID) bool {
+			return available[voiceID]
+		})
+	}
+	if err := validate(update.Previous); err != nil {
+		return fmt.Errorf("narrator voice default update previous value: %w", err)
+	}
+	if err := validate(update.Default); err != nil {
+		return fmt.Errorf("narrator voice default update value: %w", err)
+	}
+	previousAt, _ := time.Parse(time.RFC3339Nano, update.Previous.UpdatedAt)
+	updatedAt, _ := time.Parse(time.RFC3339Nano, update.Default.UpdatedAt)
+	if !updatedAt.After(previousAt) {
+		return errors.New("narrator voice default update timestamp must advance")
+	}
+	return nil
+}
+
+func (value NarratorVoiceDefault) Validate() error {
+	return value.validateAgainstCatalog(LookupVoice)
+}
+
+func (value NarratorVoiceDefault) validateAgainstCatalog(
+	available func(SpeechVoiceID) bool,
+) error {
+	if err := validateVoiceSelectionRequestAgainstCatalog(
+		VoiceSelectionRequest{
+			Selection:        value.Selection,
+			RequestedVoiceID: value.RequestedVoiceID,
+		},
+		available,
+	); err != nil {
+		return fmt.Errorf("narrator voice default: %w", err)
+	}
+	return validateCanonicalTimestamp("narrator voice default updatedAt", value.UpdatedAt)
+}
+
+func (value NarratorVoiceDefault) Request() VoiceSelectionRequest {
+	return VoiceSelectionRequest{
+		Selection:        value.Selection,
+		RequestedVoiceID: cloneVoiceID(value.RequestedVoiceID),
+	}
+}
+
+func CloneNarratorVoiceDefault(value NarratorVoiceDefault) NarratorVoiceDefault {
+	value.RequestedVoiceID = cloneVoiceID(value.RequestedVoiceID)
+	return value
 }
 
 func NewMasterVoiceSelectionInitialization(
@@ -91,7 +187,8 @@ func (update MasterVoiceSelectionUpdate) Validate() error {
 	}
 	switch update.Reason {
 	case MasterVoiceSelectionUpdateUserOverride,
-		MasterVoiceSelectionUpdateNarratorOverride:
+		MasterVoiceSelectionUpdateNarratorOverride,
+		MasterVoiceSelectionUpdateNarratorAssignment:
 	default:
 		return fmt.Errorf("unsupported master voice selection update reason %q", update.Reason)
 	}

@@ -7,6 +7,7 @@ import type {
   AppearanceStatusPalette,
   AppearanceTailwindPalette,
   AppearanceWorkspacePalette,
+  ConversationPresentationProfile,
   Role,
   RoleConfiguration,
   RoleProfile,
@@ -17,6 +18,7 @@ import { describe, expect, test, vi } from "vitest";
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { RoleConfigurationForm } from "./role-configuration-settings";
+import { ConversationPresentationConfiguration } from "./presentation-configuration-settings";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
 
 describe("appearance settings", () => {
@@ -27,6 +29,7 @@ describe("appearance settings", () => {
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain("Theme");
     expect(html).toContain("AI Roles");
+    expect(html).toContain("Voices");
     expect(html).toContain("Shortcuts");
     expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");
@@ -36,6 +39,39 @@ describe("appearance settings", () => {
     expect(html).not.toContain("Chat Defaults");
     expect(html).not.toContain("Terminal Profiles");
     expect(html).not.toContain('data-testid="codex-account-settings"');
+  });
+
+  test("renders backend-owned per-conversation presentation controls", () => {
+    const profile: ConversationPresentationProfile = {
+      conversationId: "conversation-presentation",
+      narratorSpeechEnabled: true,
+      narratorVoiceReuse: null,
+      narratorVoiceSelection: "auto_distinct",
+      paletteReuse: null,
+      paletteSelection: "exact",
+      requestedNarratorVoiceId: null,
+      requestedPaletteId: "blue",
+      resolvedNarratorVoiceId: "alloy",
+      resolvedPaletteId: "blue",
+      updatedAt: "2026-07-14T12:00:00Z",
+    };
+
+    const html = renderToString(
+      <ConversationPresentationConfiguration
+        archived={false}
+        profile={profile}
+        workspaceId="workspace-presentation"
+      />,
+    );
+
+    expect(html).toContain('data-testid="conversation-presentation-configuration"');
+    expect(html).toContain('aria-label="Conversation color selection"');
+    expect(html).toContain('aria-label="Conversation narrator voice selection"');
+    expect(html).toContain('aria-label="Speak narrator updates"');
+    expect(html).toContain('value="auto_distinct"');
+    expect(html).toContain('value="blue" selected=""');
+    expect(html).toContain("Sky");
+    expect(html).toContain("Teal");
   });
 
   test("renders independent model and reasoning controls for every AI role", () => {

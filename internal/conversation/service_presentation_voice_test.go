@@ -8,7 +8,250 @@ import (
 	"time"
 
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
+
+func TestServiceAppliesPersistedNarratorVoiceDefaultToNewConversations(t *testing.T) {
+	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownCtx)
+		_ = store.Close()
+	})
+	existing, err := service.CreateTopic(context.Background(), workspaceID, "Existing automatic voice")
+	if err != nil {
+		t.Fatalf("create existing automatic topic: %v", err)
+	}
+	assertNarratorVoice(
+		t,
+		existing.PresentationProfile,
+		speech.VoiceSelectionAutoDistinct,
+		speech.SpeechVoiceAlloy,
+		nil,
+	)
+	alloy := speech.SpeechVoiceAlloy
+	if _, err := store.UpdateNarratorVoiceDefault(
+		context.Background(),
+		speech.VoiceSelectionRequest{
+			Selection:        speech.VoiceSelectionExact,
+			RequestedVoiceID: &alloy,
+		},
+		"2026-07-11T20:00:01Z",
+	); err != nil {
+		t.Fatalf("update narrator voice default: %v", err)
+	}
+	exact, err := service.CreateTopic(context.Background(), workspaceID, "Exact default voice")
+	if err != nil {
+		t.Fatalf("create exact-default topic: %v", err)
+	}
+	assertNarratorVoice(t, exact.PresentationProfile, speech.VoiceSelectionExact, alloy, nil)
+	if exact.PresentationProfile.RequestedNarratorVoiceID == nil ||
+		*exact.PresentationProfile.RequestedNarratorVoiceID != alloy {
+		t.Fatalf("exact default profile = %+v", exact.PresentationProfile)
+	}
+	existingAfter, err := service.ReadSnapshot(
+		context.Background(),
+		workspaceID,
+		existing.Conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("read reassigned existing topic: %v", err)
+	}
+	assertNarratorVoice(
+		t,
+		existingAfter.PresentationProfile,
+		speech.VoiceSelectionAutoDistinct,
+		speech.SpeechVoiceAsh,
+		nil,
+	)
+	if _, err := store.UpdateNarratorVoiceDefault(
+		context.Background(),
+		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionAutoDistinct},
+		"2026-07-11T20:00:02Z",
+	); err != nil {
+		t.Fatalf("restore automatic narrator default: %v", err)
+	}
+	automatic, err := service.CreateTopic(context.Background(), workspaceID, "Automatic default voice")
+	if err != nil {
+		t.Fatalf("create automatic-default topic: %v", err)
+	}
+	assertNarratorVoice(
+		t,
+		automatic.PresentationProfile,
+		speech.VoiceSelectionAutoDistinct,
+		speech.SpeechVoiceBallad,
+		nil,
+	)
+}
+
+func TestServiceKeepsAutomaticMasterDistinctFromExactNarratorDefaultAtCreation(t *testing.T) {
+	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownCtx)
+		_ = store.Close()
+	})
+	ctx := context.Background()
+	master, err := store.UpdateMasterVoiceSelection(
+		ctx,
+		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionAutoDistinct},
+		"2026-07-11T20:00:01Z",
+	)
+	if err != nil {
+		t.Fatalf("set automatic master voice: %v", err)
+	}
+	if master.ResolvedVoiceID == nil || *master.ResolvedVoiceID != speech.SpeechVoiceAlloy {
+		t.Fatalf("automatic master selection = %+v", master)
+	}
+	alloy := speech.SpeechVoiceAlloy
+	if _, err := store.UpdateNarratorVoiceDefault(
+		ctx,
+		speech.VoiceSelectionRequest{
+			Selection:        speech.VoiceSelectionExact,
+			RequestedVoiceID: &alloy,
+		},
+		"2026-07-11T20:00:02Z",
+	); err != nil {
+		t.Fatalf("set exact narrator default: %v", err)
+	}
+
+	created, err := service.CreateTopic(ctx, workspaceID, "Exact default conflicts with master")
+	if err != nil {
+		t.Fatalf("create exact-default topic: %v", err)
+	}
+	assertNarratorVoice(t, created.PresentationProfile, speech.VoiceSelectionExact, alloy, nil)
+	master, err = store.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		t.Fatalf("read reassigned automatic master: %v", err)
+	}
+	if master.Selection != speech.VoiceSelectionAutoDistinct ||
+		master.ResolvedVoiceID == nil ||
+		*master.ResolvedVoiceID != speech.SpeechVoiceAsh ||
+		master.Reuse != nil {
+		t.Fatalf("reassigned automatic master selection = %+v", master)
+	}
+}
+
+func TestServiceUpdatesPaletteAndNarratorSpeechAsOnePersistedPresentation(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, service, _, workspaceID := newConversationServiceTestHarness(t, appDataDir)
+	ctx := context.Background()
+	alpha := createPresentationTestTopic(t, ctx, service, workspaceID, "Alpha presentation")
+	beta := createPresentationTestTopic(t, ctx, service, workspaceID, "Beta presentation")
+	settings := PresentationSettingsForProfile(alpha.PresentationProfile)
+	settings.PaletteSelection = PresentationSelectionRequest{
+		Selection:          PresentationSelectionExact,
+		RequestedPaletteID: paletteIDPointer(conversationpalette.ConversationPaletteBlue),
+	}
+	settings.NarratorSpeechEnabled = false
+	updated := updatePresentationForTest(t, ctx, service, workspaceID, alpha.Conversation.ID, settings)
+	assertExactBluePresentation(t, updated)
+	betaAfter := readPresentationTestSnapshot(t, ctx, service, workspaceID, beta.Conversation.ID)
+	assertAutomaticSkyPresentation(t, betaAfter.PresentationProfile)
+	repeated := updatePresentationForTest(t, ctx, service, workspaceID, alpha.Conversation.ID, settings)
+	if repeated.UpdatedAt != updated.UpdatedAt {
+		t.Fatalf("idempotent presentation update = %+v", repeated)
+	}
+
+	reopened := restartPresentationTestStore(t, appDataDir, service, store)
+	restored := readPresentationTestSnapshot(t, ctx, reopened, workspaceID, alpha.Conversation.ID)
+	assertExactBluePresentation(t, restored.PresentationProfile)
+}
+
+type presentationSnapshotReader interface {
+	ReadSnapshot(context.Context, string, string) (ConversationSnapshot, error)
+}
+
+func createPresentationTestTopic(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+	title string,
+) ConversationSnapshot {
+	t.Helper()
+	created, err := service.CreateTopic(ctx, workspaceID, title)
+	if err != nil {
+		t.Fatalf("create %q: %v", title, err)
+	}
+	return created
+}
+
+func updatePresentationForTest(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+	conversationID string,
+	settings ConversationPresentationSettings,
+) ConversationPresentationProfile {
+	t.Helper()
+	updated, err := service.UpdatePresentationProfile(ctx, workspaceID, conversationID, settings)
+	if err != nil {
+		t.Fatalf("update presentation: %v", err)
+	}
+	return updated
+}
+
+func readPresentationTestSnapshot(
+	t *testing.T,
+	ctx context.Context,
+	reader presentationSnapshotReader,
+	workspaceID string,
+	conversationID string,
+) ConversationSnapshot {
+	t.Helper()
+	snapshot, err := reader.ReadSnapshot(ctx, workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("read presentation snapshot: %v", err)
+	}
+	return snapshot
+}
+
+func assertExactBluePresentation(t *testing.T, profile ConversationPresentationProfile) {
+	t.Helper()
+	if profile.PaletteSelection != PresentationSelectionExact ||
+		profile.RequestedPaletteID == nil ||
+		*profile.RequestedPaletteID != conversationpalette.ConversationPaletteBlue ||
+		profile.ResolvedPaletteID != conversationpalette.ConversationPaletteBlue ||
+		profile.PaletteReuse != nil || profile.NarratorSpeechEnabled {
+		t.Fatalf("exact blue presentation = %+v", profile)
+	}
+}
+
+func assertAutomaticSkyPresentation(t *testing.T, profile ConversationPresentationProfile) {
+	t.Helper()
+	if profile.PaletteSelection != PresentationSelectionAutoDistinct ||
+		profile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
+		profile.PaletteReuse != nil {
+		t.Fatalf("automatic sky presentation = %+v", profile)
+	}
+}
+
+func restartPresentationTestStore(
+	t *testing.T,
+	appDataDir string,
+	service *Service,
+	store *Store,
+) *Store {
+	t.Helper()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := service.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shutdown service: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	reopened, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	return reopened
+}
 
 func TestServiceAllocatesStableDistinctNarratorVoicesAndAppliesExactOverrides(t *testing.T) {
 	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
@@ -30,8 +273,10 @@ func TestServiceAllocatesStableDistinctNarratorVoicesAndAppliesExactOverrides(t 
 	assertNarratorVoice(t, alpha.PresentationProfile, speech.VoiceSelectionAutoDistinct, speech.SpeechVoiceAlloy, nil)
 	assertNarratorVoice(t, beta.PresentationProfile, speech.VoiceSelectionAutoDistinct, speech.SpeechVoiceAsh, nil)
 
-	updated, err := service.UpdateNarratorVoiceSelection(
+	updated, err := updateTestNarratorVoiceSelection(
+		t,
 		ctx,
+		service,
 		workspaceID,
 		alpha.Conversation.ID,
 		speech.VoiceSelectionRequest{
@@ -50,8 +295,10 @@ func TestServiceAllocatesStableDistinctNarratorVoicesAndAppliesExactOverrides(t 
 	assertNarratorVoice(t, betaAfter.PresentationProfile, speech.VoiceSelectionAutoDistinct, speech.SpeechVoiceAlloy, nil)
 
 	missing := speech.SpeechVoiceID("retired")
-	_, err = service.UpdateNarratorVoiceSelection(
+	_, err = updateTestNarratorVoiceSelection(
+		t,
 		ctx,
+		service,
 		workspaceID,
 		alpha.Conversation.ID,
 		speech.VoiceSelectionRequest{
@@ -68,8 +315,10 @@ func TestServiceAllocatesStableDistinctNarratorVoicesAndAppliesExactOverrides(t 
 	}
 	assertNarratorVoice(t, stable.PresentationProfile, speech.VoiceSelectionExact, speech.SpeechVoiceAsh, nil)
 
-	automatic, err := service.UpdateNarratorVoiceSelection(
+	automatic, err := updateTestNarratorVoiceSelection(
+		t,
 		ctx,
+		service,
 		workspaceID,
 		alpha.Conversation.ID,
 		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionAutoDistinct},
@@ -78,8 +327,10 @@ func TestServiceAllocatesStableDistinctNarratorVoicesAndAppliesExactOverrides(t 
 		t.Fatalf("restore automatic alpha voice: %v", err)
 	}
 	assertNarratorVoice(t, automatic, speech.VoiceSelectionAutoDistinct, speech.SpeechVoiceAsh, nil)
-	repeated, err := service.UpdateNarratorVoiceSelection(
+	repeated, err := updateTestNarratorVoiceSelection(
+		t,
 		ctx,
+		service,
 		workspaceID,
 		alpha.Conversation.ID,
 		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionAutoDistinct},
@@ -223,8 +474,10 @@ func TestExactNarratorOverrideReassignsAutomaticMasterAndPersists(t *testing.T) 
 		t.Fatalf("automatic master selection = %+v", automaticMaster)
 	}
 
-	updated, err := service.UpdateNarratorVoiceSelection(
+	updated, err := updateTestNarratorVoiceSelection(
+		t,
 		ctx,
+		service,
 		workspaceID,
 		alpha.Conversation.ID,
 		speech.VoiceSelectionRequest{
@@ -323,8 +576,10 @@ func TestAutomaticMasterVoiceRecordsAndPersistsFiniteCatalogReuse(t *testing.T) 
 		conversations = append(conversations, created)
 	}
 	for index, voiceID := range catalog {
-		if _, err := service.UpdateNarratorVoiceSelection(
+		if _, err := updateTestNarratorVoiceSelection(
+			t,
 			ctx,
+			service,
 			workspaceID,
 			conversations[index].Conversation.ID,
 			speech.VoiceSelectionRequest{
@@ -397,4 +652,28 @@ func assertNarratorVoice(
 		fmt.Sprint(profile.NarratorVoiceReuse.ConflictingConversationIDs) != fmt.Sprint(conflicts) {
 		t.Fatalf("narrator voice reuse = %+v, want conflicts %v", profile.NarratorVoiceReuse, conflicts)
 	}
+}
+
+func updateTestNarratorVoiceSelection(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+	conversationID string,
+	request speech.VoiceSelectionRequest,
+) (ConversationPresentationProfile, error) {
+	t.Helper()
+	snapshot, err := service.ReadSnapshot(ctx, workspaceID, conversationID)
+	if err != nil {
+		return ConversationPresentationProfile{}, err
+	}
+	settings := PresentationSettingsForProfile(snapshot.PresentationProfile)
+	settings.NarratorVoiceSelection = request
+	return service.UpdatePresentationProfile(ctx, workspaceID, conversationID, settings)
+}
+
+func paletteIDPointer(
+	value conversationpalette.ConversationPaletteID,
+) *conversationpalette.ConversationPaletteID {
+	return &value
 }

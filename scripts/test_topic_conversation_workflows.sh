@@ -91,6 +91,7 @@ if [[ "${run_deterministic}" -eq 1 ]]; then
     --workflow topic-conversation-pane-projection \
     --workflow topic-conversation-archive \
     --workflow topic-conversation-role-configuration \
+    --workflow topic-conversation-presentation-configuration \
     --workflow topic-conversation-palette-identity \
     --workflow topic-conversation-crash-recovery \
     --workflow topic-conversation-speech-arbitration; then

@@ -86,7 +86,7 @@ const api: SettaAPI = {
     submitInput: (request) => invoke("conversationSubmitInput", request),
     submitApproval: (request) => invoke("conversationSubmitApproval", request),
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
-    updateNarratorVoice: (request) => invoke("conversationUpdateNarratorVoice", request),
+    updatePresentation: (request) => invoke("conversationUpdatePresentation", request),
   },
   master: {
     readActiveInteraction: () => invoke("masterReadActiveInteraction"),
@@ -107,8 +107,10 @@ const api: SettaAPI = {
     createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
     readCapabilities: () => invoke("speechReadCapabilities"),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
+    readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
     updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
+    updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),

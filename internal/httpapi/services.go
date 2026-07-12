@@ -47,11 +47,11 @@ type ConversationService interface {
 		string,
 		conversation.ConversationApprovalResponse,
 	) (conversation.ConversationSnapshot, error)
-	UpdateNarratorVoiceSelection(
+	UpdatePresentationProfile(
 		context.Context,
 		string,
 		string,
-		speech.VoiceSelectionRequest,
+		conversation.ConversationPresentationSettings,
 	) (conversation.ConversationPresentationProfile, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SubscribeEvents(
@@ -107,10 +107,15 @@ type MasterInputService interface {
 type SpeechService interface {
 	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
 	ReadMasterVoiceSelection(context.Context) (speech.MasterVoiceSelection, error)
+	ReadNarratorVoiceDefault(context.Context) (speech.NarratorVoiceDefault, error)
 	UpdateMasterVoiceSelection(
 		context.Context,
 		speech.VoiceSelectionRequest,
 	) (speech.MasterVoiceSelection, error)
+	UpdateNarratorVoiceDefault(
+		context.Context,
+		speech.VoiceSelectionRequest,
+	) (speech.NarratorVoiceDefault, error)
 	CreateTranscriptionSession(context.Context, string) (speech.SpeechTranscriptionSession, error)
 	SynthesizeSpeech(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechAudio, error)
 }

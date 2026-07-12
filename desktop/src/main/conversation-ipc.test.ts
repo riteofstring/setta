@@ -87,7 +87,7 @@ describe("conversation IPC handlers", () => {
         status: "accepted" as const,
       })),
       submitTopicConversationApproval: vi.fn(async () => snapshot),
-      updateTopicConversationNarratorVoice: vi.fn(async () => ({
+      updateTopicConversationPresentation: vi.fn(async () => ({
         conversationId: "conversation_api",
         narratorSpeechEnabled: true,
         narratorVoiceReuse: null,
@@ -156,11 +156,18 @@ describe("conversation IPC handlers", () => {
       ...target,
       response: { answers: [], approvalId: "approval", decision: "approved", response: "" },
     });
-    const voiceRequest = {
+    const presentationRequest = {
       ...target,
-      selection: { requestedVoiceId: "cedar" as const, selection: "exact" as const },
+      settings: {
+        narratorSpeechEnabled: false,
+        narratorVoiceSelection: {
+          requestedVoiceId: "cedar" as const,
+          selection: "exact" as const,
+        },
+        paletteSelection: { requestedPaletteId: "violet" as const, selection: "exact" as const },
+      },
     };
-    await invokeHandler(handlers, ipcChannels.conversationUpdateNarratorVoice, voiceRequest);
+    await invokeHandler(handlers, ipcChannels.conversationUpdatePresentation, presentationRequest);
     const subscription = {
       ...target,
       cursor: { sequence: 4, streamId: "conversation:conversation_api" },
@@ -193,7 +200,9 @@ describe("conversation IPC handlers", () => {
     expect(backendMethods.retryConversationInput).toHaveBeenCalledWith(inputStateRequest);
     expect(backendMethods.discardConversationInput).toHaveBeenCalledWith(inputStateRequest);
     expect(routingObservability.recordConversationInputRoutingState).toHaveBeenCalledTimes(4);
-    expect(backendMethods.updateTopicConversationNarratorVoice).toHaveBeenCalledWith(voiceRequest);
+    expect(backendMethods.updateTopicConversationPresentation).toHaveBeenCalledWith(
+      presentationRequest,
+    );
     expect(conversationEvents.subscribe).toHaveBeenCalledWith(
       sender,
       subscription,

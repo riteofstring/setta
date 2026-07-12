@@ -1,5 +1,6 @@
 import type {
   MasterVoiceSelection,
+  NarratorVoiceDefault,
   SpeechAudio,
   SpeechCapabilities,
   SpeechSynthesisRequest,
@@ -12,8 +13,10 @@ export const speechIpcChannels = {
   speechCreateTranscriptionSession: "speech:create-transcription-session",
   speechReadCapabilities: "speech:read-capabilities",
   speechReadMasterVoiceSelection: "speech:read-master-voice-selection",
+  speechReadNarratorVoiceDefault: "speech:read-narrator-voice-default",
   speechSynthesize: "speech:synthesize",
   speechUpdateMasterVoiceSelection: "speech:update-master-voice-selection",
+  speechUpdateNarratorVoiceDefault: "speech:update-narrator-voice-default",
 } as const;
 
 export interface SpeechSynthesisIpcRequest {
@@ -44,6 +47,10 @@ export interface SpeechIpcContract {
     args: [];
     result: MasterVoiceSelection;
   };
+  speechReadNarratorVoiceDefault: {
+    args: [];
+    result: NarratorVoiceDefault;
+  };
   speechSynthesize: {
     args: [operation: SpeechSynthesisIpcRequest];
     result: SpeechAudio;
@@ -51,5 +58,9 @@ export interface SpeechIpcContract {
   speechUpdateMasterVoiceSelection: {
     args: [request: VoiceSelectionRequest];
     result: MasterVoiceSelection;
+  };
+  speechUpdateNarratorVoiceDefault: {
+    args: [request: VoiceSelectionRequest];
+    result: NarratorVoiceDefault;
   };
 }

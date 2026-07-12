@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   type Artifact,
   type ConversationPaletteID,
+  type ConversationPresentationProfile,
   type ConversationSnapshot,
   type ConversationTurn,
   type NarrationEvent,
@@ -14,6 +15,7 @@ import {
 } from "@generated/backend";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
+import { ConversationPresentationConfiguration } from "../../components/presentation-configuration-settings";
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
 import type {
@@ -90,6 +92,7 @@ export interface EasyButtonProjectionView {
   narratorDegradation: string | null;
   paletteId: ConversationPaletteID | null;
   pendingApproval: PendingConversationApproval | null;
+  presentationProfile: ConversationPresentationProfile | null;
   projectionStatus: EasyButtonProjectionStatus;
   queuedTurnCount: number;
   statusTone: EasyButtonStatusTone;
@@ -100,6 +103,7 @@ export interface EasyButtonProjectionView {
   trajectoryEventCount: number;
   trajectoryHasEarlier: boolean;
   viewState: EasyButtonViewState;
+  workspaceId: string | null;
 }
 
 export function EasyButtonSurface({
@@ -234,6 +238,13 @@ function EasyButtonProjectionContent({
           <div className="easy-button-agent-chip-slot">
             <AgentChip activeAgentCount={view.activeAgentCount} viewState={view.viewState} />
           </div>
+          {view.presentationProfile && view.workspaceId ? (
+            <ConversationPresentationConfiguration
+              archived={view.archived}
+              profile={view.presentationProfile}
+              workspaceId={view.workspaceId}
+            />
+          ) : null}
           <ConversationControl commands={commands} view={view} />
           <CaptionSlot view={view} />
           <ConversationActionSlot commands={commands} view={view} />
@@ -422,6 +433,7 @@ function projectConversationSnapshot(
       snapshot.conversation.status === "waiting_for_approval" && runningTurnId
         ? pendingConversationApproval(snapshot.trajectory.events, runningTurnId)
         : null,
+    presentationProfile: snapshot.presentationProfile,
     projectionStatus,
     queuedTurnCount: snapshot.queue.length,
     statusTone,
@@ -437,6 +449,7 @@ function projectConversationSnapshot(
     trajectoryEventCount: snapshot.trajectory.events.length,
     trajectoryHasEarlier: snapshot.trajectory.hasEarlier,
     viewState,
+    workspaceId: snapshot.conversation.workspaceId,
   };
 }
 
@@ -495,6 +508,7 @@ function unavailableView(options: {
     narratorDegradation: null,
     paletteId: null,
     pendingApproval: null,
+    presentationProfile: null,
     projectionStatus: options.projectionStatus,
     queuedTurnCount: 0,
     statusTone: "none",
@@ -505,6 +519,7 @@ function unavailableView(options: {
     trajectoryEventCount: 0,
     trajectoryHasEarlier: false,
     viewState: "idle",
+    workspaceId: null,
   };
 }
 

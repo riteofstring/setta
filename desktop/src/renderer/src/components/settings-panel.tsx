@@ -36,6 +36,7 @@ import { CodexAccountSettings } from "./codex-account-settings";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
 import { RoleConfigurationSettings } from "./role-configuration-settings";
+import { PresentationConfigurationSettings } from "./presentation-configuration-settings";
 import { ShortcutSettingsEditor } from "./shortcut-settings";
 import {
   AccordionSection,
@@ -119,6 +120,7 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
       />
     ),
     roles: <RoleConfigurationSettings />,
+    speech: <PresentationConfigurationSettings />,
     shortcuts: (
       <ShortcutSettingsEditor
         dirty={dirty}

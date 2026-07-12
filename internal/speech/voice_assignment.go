@@ -7,12 +7,22 @@ import (
 )
 
 func (request VoiceSelectionRequest) Validate() error {
+	return validateVoiceSelectionRequestAgainstCatalog(request, LookupVoice)
+}
+
+func validateVoiceSelectionRequestAgainstCatalog(
+	request VoiceSelectionRequest,
+	available func(SpeechVoiceID) bool,
+) error {
+	if available == nil {
+		return errors.New("voice catalog lookup is required")
+	}
 	switch request.Selection {
 	case VoiceSelectionExact:
 		if request.RequestedVoiceID == nil {
 			return errors.New("exact voice selection requires requested voice id")
 		}
-		if !LookupVoice(*request.RequestedVoiceID) {
+		if !available(*request.RequestedVoiceID) {
 			return unavailableVoiceError(*request.RequestedVoiceID)
 		}
 		return nil

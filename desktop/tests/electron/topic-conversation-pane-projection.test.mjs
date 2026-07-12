@@ -174,7 +174,7 @@ try {
     workflowTimeoutMs,
   );
   alpha.narratorVoiceId = narratorVoice(reassignedPage, alpha.id);
-  const betaVoice = await updateNarratorVoice(context.client, {
+  const betaVoice = await context.client.driver("presentationConfigurationUpdateNarratorVoice", {
     conversationId: beta.id,
     selection: { requestedVoiceId: "cedar", selection: "exact" },
     workspaceId,
@@ -1206,15 +1206,18 @@ async function assertUnavailableExactVoiceErrors(client, workspaceId, conversati
 }
 
 async function rejectedVoiceUpdate(client, target, request) {
-  return client.evaluate(`(async () => {
-    try {
-      const api = ${target === "master" ? "window.setta.speech.updateMasterVoiceSelection" : "window.setta.conversations.updateNarratorVoice"};
-      await api(${JSON.stringify(request)});
-      return { message: "", rejected: false };
-    } catch (error) {
-      return { message: String(error?.message ?? error), rejected: true };
+  try {
+    if (target === "master") {
+      await client.evaluate(
+        `window.setta.speech.updateMasterVoiceSelection(${JSON.stringify(request)})`,
+      );
+    } else {
+      await client.driver("presentationConfigurationUpdateNarratorVoice", request);
     }
-  })()`);
+    return { message: "", rejected: false };
+  } catch (error) {
+    return { message: String(error?.message ?? error), rejected: true };
+  }
 }
 
 function assertUnavailableVoiceError(result, target) {
@@ -1310,12 +1313,6 @@ function assertPersistedNarratorVoice(page, conversation) {
 async function updateMasterVoice(client, request) {
   return client.evaluate(
     `window.setta.speech.updateMasterVoiceSelection(${JSON.stringify(request)})`,
-  );
-}
-
-async function updateNarratorVoice(client, request) {
-  return client.evaluate(
-    `window.setta.conversations.updateNarratorVoice(${JSON.stringify(request)})`,
   );
 }
 

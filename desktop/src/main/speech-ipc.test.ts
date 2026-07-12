@@ -45,6 +45,11 @@ describe("speech IPC handlers", () => {
         selection: "exact",
         updatedAt: "2026-07-12T18:00:00Z",
       })),
+      readNarratorVoiceDefault: vi.fn(async () => ({
+        requestedVoiceId: null,
+        selection: "auto_distinct" as const,
+        updatedAt: "2026-07-12T18:00:00Z",
+      })),
       synthesizeSpeech: vi.fn(async (request) => ({
         audioBase64,
         format: "wav",
@@ -58,6 +63,11 @@ describe("speech IPC handlers", () => {
         selection: "exact",
         updatedAt: "2026-07-12T18:00:01Z",
       })),
+      updateNarratorVoiceDefault: vi.fn(async () => ({
+        requestedVoiceId: "ash" as const,
+        selection: "exact" as const,
+        updatedAt: "2026-07-12T18:00:01Z",
+      })),
     } as unknown as BackendClient;
     const observer = observerSpies();
 
@@ -69,10 +79,16 @@ describe("speech IPC handlers", () => {
 
     const capabilities = await invoke(handlers, ipcChannels.speechReadCapabilities);
     const masterVoice = await invoke(handlers, ipcChannels.speechReadMasterVoiceSelection);
+    const narratorDefault = await invoke(handlers, ipcChannels.speechReadNarratorVoiceDefault);
     const updatedMasterVoice = await invoke(
       handlers,
       ipcChannels.speechUpdateMasterVoiceSelection,
       { requestedVoiceId: "cedar", selection: "exact" },
+    );
+    const updatedNarratorDefault = await invoke(
+      handlers,
+      ipcChannels.speechUpdateNarratorVoiceDefault,
+      { requestedVoiceId: "ash", selection: "exact" },
     );
     const session = await invoke(handlers, ipcChannels.speechCreateTranscriptionSession);
     const synthesisRequest = {
@@ -92,17 +108,21 @@ describe("speech IPC handlers", () => {
     expect(capabilities).toMatchObject({ providerStatus: "configured" });
     expect(masterVoice).toMatchObject({ resolvedVoiceId: "marin", selection: "exact" });
     expect(updatedMasterVoice).toMatchObject({ resolvedVoiceId: "cedar", selection: "exact" });
+    expect(narratorDefault).toMatchObject({ requestedVoiceId: null, selection: "auto_distinct" });
+    expect(updatedNarratorDefault).toMatchObject({ requestedVoiceId: "ash", selection: "exact" });
     expect(session).toMatchObject({ clientSecret });
     expect(audio).toMatchObject({ audioBase64, resolvedVoiceId: "cedar" });
     expect(backend.synthesizeSpeech).toHaveBeenCalledWith(synthesisRequest, {
       signal: expect.any(AbortSignal),
     });
-    expect(observer.finished).toHaveBeenCalledTimes(5);
+    expect(observer.finished).toHaveBeenCalledTimes(7);
     const observedResults = observer.finished.mock.calls.map(([event]) => event.result);
     expect(observedResults).toEqual([
       capabilities,
       masterVoice,
+      narratorDefault,
       updatedMasterVoice,
+      updatedNarratorDefault,
       { redacted: true, type: "speech_transcription_session" },
       {
         format: "wav",

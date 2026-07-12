@@ -129,7 +129,7 @@ func (store *Store) UpdateMasterVoiceSelection(
 		return speech.MasterVoiceSelection{}, err
 	}
 	var result speech.MasterVoiceSelection
-	err := store.withVoiceConfigurationLock(func() error {
+	err := store.withPresentationConfigurationLock(func() error {
 		var err error
 		result, err = store.updateMasterVoiceSelectionLocked(ctx, request, updatedAt)
 		return err

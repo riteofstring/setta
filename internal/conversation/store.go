@@ -96,7 +96,7 @@ type Store struct {
 	outboxMu   sync.Mutex
 	outboxWake chan struct{}
 
-	voiceConfigurationMu sync.Mutex
+	presentationConfigurationMu sync.Mutex
 }
 
 func WithWriteQueueCapacity(capacity int) StoreOption {

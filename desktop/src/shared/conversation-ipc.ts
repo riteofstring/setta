@@ -16,7 +16,7 @@ import type {
   StopTopicConversationTurnRequest,
   SubmitConversationInputRequest,
   SubmitTopicConversationApprovalRequest,
-  UpdateTopicConversationNarratorVoiceRequest,
+  UpdateTopicConversationPresentationRequest,
 } from "@generated/backend";
 
 export const conversationIpcChannels = {
@@ -35,7 +35,7 @@ export const conversationIpcChannels = {
   conversationSubmitInput: "conversation:submit-input",
   conversationSubmitApproval: "conversation:submit-approval",
   conversationSubscribeEvents: "conversation:subscribe-events",
-  conversationUpdateNarratorVoice: "conversation:update-narrator-voice",
+  conversationUpdatePresentation: "conversation:update-presentation",
 } as const;
 
 export interface ConversationEventSubscriptionRequest {
@@ -111,8 +111,8 @@ export interface ConversationIpc {
     args: [request: ConversationEventSubscriptionRequest];
     result: void;
   };
-  conversationUpdateNarratorVoice: {
-    args: [request: UpdateTopicConversationNarratorVoiceRequest];
+  conversationUpdatePresentation: {
+    args: [request: UpdateTopicConversationPresentationRequest];
     result: ConversationSnapshot["presentationProfile"];
   };
 }

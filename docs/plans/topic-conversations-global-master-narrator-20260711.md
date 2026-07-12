@@ -2,10 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phase 5 presentation configuration is next: complete
-the missing backend-owned default narrator voice, per-conversation palette and
-narrator-speech settings, user-facing settings UI, generated desktop contracts,
-and deterministic Electron workflow coverage.
+**Status:** Complete. All phases are implemented and verified; the plan is
+ready for final audit.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1993,25 +1991,42 @@ Exit criteria:
 
 ### Phase 5: Global speech infrastructure
 
-**Status:** In progress. Global capture, playback, and stable voice assignment
-are complete, but the required presentation-configuration surface is not. The
-current production boundary can update the master voice and a conversation's
-narrator voice, but it has no persisted global default narrator voice mode, no
-per-conversation palette override or narrator-speech toggle, and no user-facing
-settings workflow for these controls.
+**Status:** Complete. Global capture, playback, stable voice assignment, and
+the presentation-configuration surface are implemented. The production
+boundary persists the global default narrator voice mode, updates a
+conversation's palette, narrator voice, and narrator-speech setting atomically,
+exposes generated desktop contracts, and provides global and per-conversation
+settings UI with deterministic Electron restart coverage.
+
+Completion verification on 2026-07-14 passed focused backend and renderer
+tests, generated-contract validation, the production desktop build,
+`./check_quality.sh --all` including all 17 required Electron workflows, and
+the live ChatGPT-authenticated Codex workflow with `OPENAI_API_KEY` removed.
+The supply-chain gate passed release-age, lockfile, exact-version, and Go
+vulnerability checks. npm retired the endpoint used by `pnpm audit` with HTTP
+410; its supported bulk-advisory endpoint reported two low-severity advisories
+and no advisories at or above the repository's moderate failure threshold for
+the installed lock-resolved dependency graph.
 
 The completed slice included the now-rejected pane input-mode plumbing. Phase 7
 item 8 removes that plumbing while retaining the app-global capture, delivery,
 voice, and playback infrastructure.
 
-Existing foundation:
+Completed implementation:
 
 - app-shell microphone controller and global preference
 - finalized shell transcript delivery to durable master intake
 - typed provider voice catalog plus global master and per-conversation narrator
   voice-selection foundations
+- persisted exact or `auto_distinct` global narrator default applied to new
+  topic conversations
+- atomic per-conversation exact or automatic palette and narrator-voice
+  overrides plus the visual-only narration toggle
+- generated HTTP, Electron main/preload, renderer, and backend contract surfaces
+- desktop settings controls and deterministic production-path restart,
+  collision-reassignment, and persistence coverage
 
-Remaining sequence:
+Completed sequence:
 
 1. Add Go-owned `ConversationInput` validation, schema, idempotent persistence,
    committed intake event, and focused store tests. Do not add HTTP, generated,

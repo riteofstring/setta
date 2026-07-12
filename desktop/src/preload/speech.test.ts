@@ -23,6 +23,7 @@ describe("preload speech API", () => {
     const api = exposed.setta as SettaAPI;
     await api.speech.readCapabilities();
     await api.speech.readMasterVoiceSelection?.();
+    await api.speech.readNarratorVoiceDefault?.();
     await api.speech.synthesize?.(
       {
         resolvedVoiceId: "cedar",
@@ -39,11 +40,16 @@ describe("preload speech API", () => {
       requestedVoiceId: "cedar",
       selection: "exact",
     });
+    await api.speech.updateNarratorVoiceDefault?.({
+      requestedVoiceId: "ash",
+      selection: "exact",
+    });
     await api.speech.createTranscriptionSession();
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
       [ipcChannels.speechReadMasterVoiceSelection],
+      [ipcChannels.speechReadNarratorVoiceDefault],
       [
         ipcChannels.speechSynthesize,
         {
@@ -62,6 +68,10 @@ describe("preload speech API", () => {
       [
         ipcChannels.speechUpdateMasterVoiceSelection,
         { requestedVoiceId: "cedar", selection: "exact" },
+      ],
+      [
+        ipcChannels.speechUpdateNarratorVoiceDefault,
+        { requestedVoiceId: "ash", selection: "exact" },
       ],
       [ipcChannels.speechCreateTranscriptionSession],
     ]);

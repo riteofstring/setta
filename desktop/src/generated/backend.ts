@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 46;
-export const backendContractSchemaHash = "sha256:c2903a0c29b0b2bb1b48f8da094fc8c46bc32bc84c356fe5b08180e7317e708f";
+export const backendProtocolVersion = 47;
+export const backendContractSchemaHash = "sha256:0bcae6a2ffa4c6639f6ef6d78ef40fb98a49faa1bf70c8ebf472081435264219";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -2394,15 +2394,26 @@ export interface SubmitTopicConversationApprovalRequest {
   response: ConversationApprovalResponse;
 }
 
+export interface PresentationSelectionRequest {
+  selection: PresentationSelectionMode;
+  requestedPaletteId: ConversationPaletteID | null;
+}
+
 export interface VoiceSelectionRequest {
   selection: VoiceSelectionMode;
   requestedVoiceId: SpeechVoiceID | null;
 }
 
-export interface UpdateTopicConversationNarratorVoiceRequest {
+export interface ConversationPresentationSettings {
+  paletteSelection: PresentationSelectionRequest;
+  narratorVoiceSelection: VoiceSelectionRequest;
+  narratorSpeechEnabled: boolean;
+}
+
+export interface UpdateTopicConversationPresentationRequest {
   workspaceId: string;
   conversationId: string;
-  selection: VoiceSelectionRequest;
+  settings: ConversationPresentationSettings;
 }
 
 export interface SubscribeConversationEventsRequest {
@@ -3107,6 +3118,12 @@ export interface MasterVoiceSelection {
   updatedAt: string;
 }
 
+export interface NarratorVoiceDefault {
+  selection: VoiceSelectionMode;
+  requestedVoiceId: SpeechVoiceID | null;
+  updatedAt: string;
+}
+
 export interface CreateSpeechTranscriptionSessionRequest {
 }
 
@@ -3339,9 +3356,9 @@ export const backendEndpoints = {
     path: "/conversations/approvals/submit",
     requestBodyLimitBytes: 4194304,
   },
-  UpdateTopicConversationNarratorVoice: {
+  UpdateTopicConversationPresentation: {
     method: "POST",
-    path: "/conversations/presentation/narrator-voice/update",
+    path: "/conversations/presentation/update",
     requestBodyLimitBytes: 4194304,
   },
   ConversationEventStream: {
@@ -3436,6 +3453,15 @@ export const backendEndpoints = {
   UpdateMasterVoiceSelection: {
     method: "POST",
     path: "/speech/voices/master/update",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadNarratorVoiceDefault: {
+    method: "GET",
+    path: "/speech/voices/narrator-default",
+  },
+  UpdateNarratorVoiceDefault: {
+    method: "POST",
+    path: "/speech/voices/narrator-default/update",
     requestBodyLimitBytes: 4194304,
   },
   CreateSpeechTranscriptionSession: {
@@ -4972,6 +4998,15 @@ export function decodeSubmitTopicConversationApprovalRequest(value: unknown): Su
   };
 }
 
+export function decodePresentationSelectionRequest(value: unknown): PresentationSelectionRequest {
+  const record = assertRecord(value, "PresentationSelectionRequest");
+  assertKnownFields(record, "PresentationSelectionRequest", ["selection", "requestedPaletteId"]);
+  return {
+    selection: decodePresentationSelectionMode(requireField(record, "selection", "PresentationSelectionRequest"), "PresentationSelectionRequest.selection"),
+    requestedPaletteId: decodeNullable(requireField(record, "requestedPaletteId", "PresentationSelectionRequest"), "PresentationSelectionRequest.requestedPaletteId", (item) => decodeConversationPaletteID(item, "PresentationSelectionRequest.requestedPaletteId")),
+  };
+}
+
 export function decodeVoiceSelectionRequest(value: unknown): VoiceSelectionRequest {
   const record = assertRecord(value, "VoiceSelectionRequest");
   assertKnownFields(record, "VoiceSelectionRequest", ["selection", "requestedVoiceId"]);
@@ -4981,13 +5016,23 @@ export function decodeVoiceSelectionRequest(value: unknown): VoiceSelectionReque
   };
 }
 
-export function decodeUpdateTopicConversationNarratorVoiceRequest(value: unknown): UpdateTopicConversationNarratorVoiceRequest {
-  const record = assertRecord(value, "UpdateTopicConversationNarratorVoiceRequest");
-  assertKnownFields(record, "UpdateTopicConversationNarratorVoiceRequest", ["workspaceId", "conversationId", "selection"]);
+export function decodeConversationPresentationSettings(value: unknown): ConversationPresentationSettings {
+  const record = assertRecord(value, "ConversationPresentationSettings");
+  assertKnownFields(record, "ConversationPresentationSettings", ["paletteSelection", "narratorVoiceSelection", "narratorSpeechEnabled"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateTopicConversationNarratorVoiceRequest"), "UpdateTopicConversationNarratorVoiceRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "UpdateTopicConversationNarratorVoiceRequest"), "UpdateTopicConversationNarratorVoiceRequest.conversationId"),
-    selection: decodeVoiceSelectionRequest(requireField(record, "selection", "UpdateTopicConversationNarratorVoiceRequest")),
+    paletteSelection: decodePresentationSelectionRequest(requireField(record, "paletteSelection", "ConversationPresentationSettings")),
+    narratorVoiceSelection: decodeVoiceSelectionRequest(requireField(record, "narratorVoiceSelection", "ConversationPresentationSettings")),
+    narratorSpeechEnabled: decodeBoolean(requireField(record, "narratorSpeechEnabled", "ConversationPresentationSettings"), "ConversationPresentationSettings.narratorSpeechEnabled"),
+  };
+}
+
+export function decodeUpdateTopicConversationPresentationRequest(value: unknown): UpdateTopicConversationPresentationRequest {
+  const record = assertRecord(value, "UpdateTopicConversationPresentationRequest");
+  assertKnownFields(record, "UpdateTopicConversationPresentationRequest", ["workspaceId", "conversationId", "settings"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateTopicConversationPresentationRequest"), "UpdateTopicConversationPresentationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "UpdateTopicConversationPresentationRequest"), "UpdateTopicConversationPresentationRequest.conversationId"),
+    settings: decodeConversationPresentationSettings(requireField(record, "settings", "UpdateTopicConversationPresentationRequest")),
   };
 }
 
@@ -6172,6 +6217,16 @@ export function decodeMasterVoiceSelection(value: unknown): MasterVoiceSelection
   };
 }
 
+export function decodeNarratorVoiceDefault(value: unknown): NarratorVoiceDefault {
+  const record = assertRecord(value, "NarratorVoiceDefault");
+  assertKnownFields(record, "NarratorVoiceDefault", ["selection", "requestedVoiceId", "updatedAt"]);
+  return {
+    selection: decodeVoiceSelectionMode(requireField(record, "selection", "NarratorVoiceDefault"), "NarratorVoiceDefault.selection"),
+    requestedVoiceId: decodeNullable(requireField(record, "requestedVoiceId", "NarratorVoiceDefault"), "NarratorVoiceDefault.requestedVoiceId", (item) => decodeSpeechVoiceID(item, "NarratorVoiceDefault.requestedVoiceId")),
+    updatedAt: decodeString(requireField(record, "updatedAt", "NarratorVoiceDefault"), "NarratorVoiceDefault.updatedAt"),
+  };
+}
+
 export function decodeCreateSpeechTranscriptionSessionRequest(value: unknown): CreateSpeechTranscriptionSessionRequest {
   const record = assertRecord(value, "CreateSpeechTranscriptionSessionRequest");
   assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", []);
@@ -6394,7 +6449,7 @@ export interface BackendClient {
   listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
   stopTopicConversationTurn: (request: StopTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   submitTopicConversationApproval: (request: SubmitTopicConversationApprovalRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
-  updateTopicConversationNarratorVoice: (request: UpdateTopicConversationNarratorVoiceRequest, options?: BackendRequestOptions) => Promise<ConversationPresentationProfile>;
+  updateTopicConversationPresentation: (request: UpdateTopicConversationPresentationRequest, options?: BackendRequestOptions) => Promise<ConversationPresentationProfile>;
   submitConversationInput: (request: SubmitConversationInputRequest, options?: BackendRequestOptions) => Promise<AcceptedConversationInput>;
   readConversationInputRoutingState: (request: ReadConversationInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   waitConversationInputRoutingState: (request: ReadConversationInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
@@ -6414,6 +6469,8 @@ export interface BackendClient {
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   readMasterVoiceSelection: (options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
+  readNarratorVoiceDefault: (options?: BackendRequestOptions) => Promise<NarratorVoiceDefault>;
+  updateNarratorVoiceDefault: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<NarratorVoiceDefault>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
   synthesizeSpeech: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
   readCodexAccount: (options?: BackendRequestOptions) => Promise<CodexAccountState>;
@@ -6650,11 +6707,11 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
-    updateTopicConversationNarratorVoice: (request, options) => requestBackend({
+    updateTopicConversationPresentation: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationPresentationProfile,
-      endpoint: backendEndpoints.UpdateTopicConversationNarratorVoice,
+      endpoint: backendEndpoints.UpdateTopicConversationPresentation,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
@@ -6826,6 +6883,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeMasterVoiceSelection,
       endpoint: backendEndpoints.UpdateMasterVoiceSelection,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readNarratorVoiceDefault: (options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeNarratorVoiceDefault,
+      endpoint: backendEndpoints.ReadNarratorVoiceDefault,
+      fetchImpl,
+      requestPayload: undefined,
+      signal: options?.signal,
+    }),
+    updateNarratorVoiceDefault: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeNarratorVoiceDefault,
+      endpoint: backendEndpoints.UpdateNarratorVoiceDefault,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

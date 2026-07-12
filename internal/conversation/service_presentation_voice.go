@@ -5,28 +5,29 @@ import (
 	"fmt"
 
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
-func (service *Service) UpdateNarratorVoiceSelection(
+func (service *Service) UpdatePresentationProfile(
 	ctx context.Context,
 	workspaceID string,
 	conversationID string,
-	request speech.VoiceSelectionRequest,
+	settings ConversationPresentationSettings,
 ) (ConversationPresentationProfile, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationPresentationProfile{}, err
 	}
-	if err := request.Validate(); err != nil {
+	if err := settings.Validate(); err != nil {
 		return ConversationPresentationProfile{}, err
 	}
 	var result ConversationPresentationProfile
-	err := service.store.withVoiceConfigurationLock(func() error {
+	err := service.store.withPresentationConfigurationLock(func() error {
 		var err error
-		result, err = service.updateNarratorVoiceSelectionLocked(
+		result, err = service.updatePresentationProfileLocked(
 			ctx,
 			workspaceID,
 			conversationID,
-			request,
+			settings,
 		)
 		return err
 	})
@@ -36,64 +37,184 @@ func (service *Service) UpdateNarratorVoiceSelection(
 	return result, nil
 }
 
-func (service *Service) updateNarratorVoiceSelectionLocked(
+func (service *Service) updatePresentationProfileLocked(
 	ctx context.Context,
 	workspaceID string,
 	conversationID string,
-	request speech.VoiceSelectionRequest,
+	settings ConversationPresentationSettings,
 ) (ConversationPresentationProfile, error) {
 	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)
 	if err != nil {
 		return ConversationPresentationProfile{}, err
 	}
 	current := snapshot.PresentationProfile
-	if narratorVoiceSelectionMatchesRequest(current, request) {
+	if presentationSettingsMatchProfile(current, settings) {
 		return current, nil
-	}
-	master, err := service.store.ReadMasterVoiceSelection(ctx)
-	if err != nil {
-		return ConversationPresentationProfile{}, err
-	}
-	if master.ResolvedVoiceID == nil {
-		return ConversationPresentationProfile{}, fmt.Errorf("master voice selection has no resolved voice")
 	}
 	presentations, err := service.store.readActiveConversationPresentations(ctx)
 	if err != nil {
 		return ConversationPresentationProfile{}, err
 	}
-	updates, err := resolveNarratorVoiceUpdates(
-		presentations,
+	updates, master, masterUpdate, err := service.resolvePresentationSettings(
+		ctx,
+		workspaceID,
 		current,
-		request,
-		*master.ResolvedVoiceID,
+		settings,
+		presentations,
 		service.timestamp(),
 	)
 	if err != nil {
 		return ConversationPresentationProfile{}, err
 	}
-	updates, masterUpdate, err := service.refreshAutomaticMasterAfterNarratorUpdates(
+	return service.commitResolvedPresentationSettings(
+		ctx,
+		conversationID,
+		updates,
 		master,
+		masterUpdate,
+	)
+}
+
+func (service *Service) resolvePresentationSettings(
+	ctx context.Context,
+	workspaceID string,
+	current ConversationPresentationProfile,
+	settings ConversationPresentationSettings,
+	presentations []activeConversationPresentation,
+	updatedAt string,
+) (
+	[]ConversationPresentationProfile,
+	*speech.MasterVoiceSelection,
+	*speech.MasterVoiceSelection,
+	error,
+) {
+	updates := narratorSpeechProfileUpdates(current, settings.NarratorSpeechEnabled, updatedAt)
+	updates, err := resolveRequestedPaletteSetting(
 		presentations,
+		current,
+		workspaceID,
+		settings.PaletteSelection,
+		updatedAt,
 		updates,
 	)
 	if err != nil {
-		return ConversationPresentationProfile{}, err
+		return nil, nil, nil, err
 	}
-	publications, result, err := service.prepareNarratorVoicePublications(updates, conversationID)
+	updates, master, err := service.resolveRequestedNarratorSetting(
+		ctx,
+		presentations,
+		current,
+		settings.NarratorVoiceSelection,
+		updatedAt,
+		updates,
+	)
+	if err != nil || master == nil {
+		return updates, master, nil, err
+	}
+	updates, masterUpdate, err := service.refreshAutomaticMasterAfterNarratorUpdates(
+		*master,
+		presentations,
+		updates,
+	)
+	return updates, master, masterUpdate, err
+}
+
+func narratorSpeechProfileUpdates(
+	current ConversationPresentationProfile,
+	enabled bool,
+	updatedAt string,
+) []ConversationPresentationProfile {
+	updates := make([]ConversationPresentationProfile, 0, 1)
+	if current.NarratorSpeechEnabled != enabled {
+		current.NarratorSpeechEnabled = enabled
+		current.UpdatedAt = advanceTimestamp(current.UpdatedAt, updatedAt)
+		updates = append(updates, current)
+	}
+	return updates
+}
+
+func resolveRequestedPaletteSetting(
+	presentations []activeConversationPresentation,
+	current ConversationPresentationProfile,
+	workspaceID string,
+	request PresentationSelectionRequest,
+	updatedAt string,
+	updates []ConversationPresentationProfile,
+) ([]ConversationPresentationProfile, error) {
+	current = profileAfterUpdates(current, updates)
+	if paletteSelectionMatchesRequest(current, request) {
+		return updates, nil
+	}
+	paletteUpdates, err := resolvePaletteUpdates(
+		applyPresentationProfileUpdates(presentations, updates),
+		current,
+		workspaceID,
+		request,
+		updatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return mergePresentationProfileUpdates(updates, paletteUpdates), nil
+}
+
+func (service *Service) resolveRequestedNarratorSetting(
+	ctx context.Context,
+	presentations []activeConversationPresentation,
+	current ConversationPresentationProfile,
+	request speech.VoiceSelectionRequest,
+	updatedAt string,
+	updates []ConversationPresentationProfile,
+) ([]ConversationPresentationProfile, *speech.MasterVoiceSelection, error) {
+	current = profileAfterUpdates(current, updates)
+	if narratorVoiceSelectionMatchesRequest(current, request) {
+		return updates, nil, nil
+	}
+	master, err := service.store.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if master.ResolvedVoiceID == nil {
+		return nil, nil, fmt.Errorf("master voice selection has no resolved voice")
+	}
+	voiceUpdates, err := resolveNarratorVoiceUpdates(
+		applyPresentationProfileUpdates(presentations, updates),
+		current,
+		request,
+		*master.ResolvedVoiceID,
+		updatedAt,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return mergePresentationProfileUpdates(updates, voiceUpdates), &master, nil
+}
+
+func (service *Service) commitResolvedPresentationSettings(
+	ctx context.Context,
+	conversationID string,
+	updates []ConversationPresentationProfile,
+	master *speech.MasterVoiceSelection,
+	masterUpdate *speech.MasterVoiceSelection,
+) (ConversationPresentationProfile, error) {
+	publications, result, err := service.preparePresentationPublications(updates, conversationID)
 	if err != nil {
 		return ConversationPresentationProfile{}, err
 	}
 	if masterUpdate != nil {
+		if master == nil {
+			return ConversationPresentationProfile{}, fmt.Errorf("master voice update requires current selection")
+		}
 		err = service.store.commitMasterVoiceUpdate(
 			ctx,
-			master,
+			*master,
 			*masterUpdate,
 			updates,
 			publications,
 			speech.MasterVoiceSelectionUpdateNarratorOverride,
 		)
 	} else {
-		err = service.commitNarratorVoiceUpdates(ctx, updates, publications)
+		err = service.commitPresentationUpdates(ctx, updates, publications)
 	}
 	if err != nil {
 		return ConversationPresentationProfile{}, err
@@ -188,7 +309,7 @@ func mergePresentationProfileUpdates(
 	return result
 }
 
-func (service *Service) prepareNarratorVoicePublications(
+func (service *Service) preparePresentationPublications(
 	updates []ConversationPresentationProfile,
 	requestedConversationID string,
 ) ([]preparedPublication, ConversationPresentationProfile, error) {
@@ -214,12 +335,12 @@ func (service *Service) prepareNarratorVoicePublications(
 	return publications, result, nil
 }
 
-func (service *Service) commitNarratorVoiceUpdates(
+func (service *Service) commitPresentationUpdates(
 	ctx context.Context,
 	updates []ConversationPresentationProfile,
 	publications []preparedPublication,
 ) error {
-	_, err := service.store.Transact(ctx, "update narrator voice selection", func(transaction *WriteTransaction) error {
+	_, err := service.store.Transact(ctx, "update conversation presentation", func(transaction *WriteTransaction) error {
 		for _, update := range updates {
 			if err := transaction.UpsertConversationPresentationProfile(update); err != nil {
 				return err
@@ -228,6 +349,40 @@ func (service *Service) commitNarratorVoiceUpdates(
 		return appendPublications(transaction, publications)
 	})
 	return err
+}
+
+func presentationSettingsMatchProfile(
+	profile ConversationPresentationProfile,
+	settings ConversationPresentationSettings,
+) bool {
+	return profile.NarratorSpeechEnabled == settings.NarratorSpeechEnabled &&
+		paletteSelectionMatchesRequest(profile, settings.PaletteSelection) &&
+		narratorVoiceSelectionMatchesRequest(profile, settings.NarratorVoiceSelection)
+}
+
+func paletteSelectionMatchesRequest(
+	profile ConversationPresentationProfile,
+	request PresentationSelectionRequest,
+) bool {
+	if profile.PaletteSelection != request.Selection {
+		return false
+	}
+	if request.Selection == PresentationSelectionAutoDistinct {
+		return true
+	}
+	return paletteIDsEqual(profile.RequestedPaletteID, request.RequestedPaletteID)
+}
+
+func profileAfterUpdates(
+	profile ConversationPresentationProfile,
+	updates []ConversationPresentationProfile,
+) ConversationPresentationProfile {
+	for _, update := range updates {
+		if update.ConversationID == profile.ConversationID {
+			return update
+		}
+	}
+	return profile
 }
 
 func narratorVoiceSelectionMatchesRequest(
@@ -343,6 +498,113 @@ func cloneVoiceID(value *speech.SpeechVoiceID) *speech.SpeechVoiceID {
 }
 
 func voiceIDsEqual(left *speech.SpeechVoiceID, right *speech.SpeechVoiceID) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func resolvePaletteUpdates(
+	presentations []activeConversationPresentation,
+	current ConversationPresentationProfile,
+	workspaceID string,
+	request PresentationSelectionRequest,
+	updatedAt string,
+) ([]ConversationPresentationProfile, error) {
+	excluded := map[string]bool{current.ConversationID: true}
+	affected := make([]ConversationPresentationProfile, 0)
+	if request.Selection == PresentationSelectionExact {
+		for _, presentation := range presentations {
+			profile := presentation.Profile
+			if presentation.WorkspaceID != workspaceID ||
+				profile.ConversationID == current.ConversationID ||
+				profile.PaletteSelection != PresentationSelectionAutoDistinct ||
+				profile.ResolvedPaletteID != *request.RequestedPaletteID {
+				continue
+			}
+			excluded[profile.ConversationID] = true
+			affected = append(affected, profile)
+		}
+	}
+	usage := paletteUsage(presentations, workspaceID, excluded)
+	selected, err := resolveRequestedPalette(current, request, usage, updatedAt)
+	if err != nil {
+		return nil, err
+	}
+	updates := []ConversationPresentationProfile{selected}
+	addPaletteUsage(usage, selected)
+	for _, profile := range affected {
+		resolvedPaletteID, reuse := leastUsedPalette(usage)
+		profile.RequestedPaletteID = nil
+		profile.ResolvedPaletteID = resolvedPaletteID
+		profile.PaletteReuse = reuse
+		profile.UpdatedAt = advanceTimestamp(profile.UpdatedAt, updatedAt)
+		if err := profile.Validate(); err != nil {
+			return nil, err
+		}
+		updates = append(updates, profile)
+		addPaletteUsage(usage, profile)
+	}
+	return updates, nil
+}
+
+func resolveRequestedPalette(
+	profile ConversationPresentationProfile,
+	request PresentationSelectionRequest,
+	usage map[conversationpalette.ConversationPaletteID][]string,
+	updatedAt string,
+) (ConversationPresentationProfile, error) {
+	profile.PaletteSelection = request.Selection
+	profile.RequestedPaletteID = clonePaletteID(request.RequestedPaletteID)
+	profile.PaletteReuse = nil
+	switch request.Selection {
+	case PresentationSelectionExact:
+		profile.ResolvedPaletteID = *request.RequestedPaletteID
+	case PresentationSelectionAutoDistinct:
+		profile.ResolvedPaletteID, profile.PaletteReuse = leastUsedPalette(usage)
+	default:
+		return ConversationPresentationProfile{}, fmt.Errorf(
+			"unsupported palette selection mode %q",
+			request.Selection,
+		)
+	}
+	profile.UpdatedAt = advanceTimestamp(profile.UpdatedAt, updatedAt)
+	if err := profile.Validate(); err != nil {
+		return ConversationPresentationProfile{}, err
+	}
+	return profile, nil
+}
+
+func paletteUsage(
+	presentations []activeConversationPresentation,
+	workspaceID string,
+	excluded map[string]bool,
+) map[conversationpalette.ConversationPaletteID][]string {
+	usage := map[conversationpalette.ConversationPaletteID][]string{}
+	for _, presentation := range presentations {
+		profile := presentation.Profile
+		if presentation.WorkspaceID != workspaceID || excluded[profile.ConversationID] {
+			continue
+		}
+		addPaletteUsage(usage, profile)
+	}
+	return usage
+}
+
+func addPaletteUsage(
+	usage map[conversationpalette.ConversationPaletteID][]string,
+	profile ConversationPresentationProfile,
+) {
+	usage[profile.ResolvedPaletteID] = append(
+		usage[profile.ResolvedPaletteID],
+		profile.ConversationID,
+	)
+}
+
+func paletteIDsEqual(
+	left *conversationpalette.ConversationPaletteID,
+	right *conversationpalette.ConversationPaletteID,
+) bool {
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}

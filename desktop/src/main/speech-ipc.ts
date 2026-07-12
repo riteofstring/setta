@@ -30,8 +30,20 @@ export function registerSpeechIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "speechReadNarratorVoiceDefault",
+    async () => requireBackendClient().readNarratorVoiceDefault(),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "speechReadMasterVoiceSelection",
     async () => requireBackendClient().readMasterVoiceSelection(),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "speechUpdateNarratorVoiceDefault",
+    async (_event, request) => requireBackendClient().updateNarratorVoiceDefault(request),
     ipcObserver,
   );
   handleIpc(

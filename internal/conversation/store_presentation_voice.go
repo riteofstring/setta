@@ -15,15 +15,15 @@ type activeConversationPresentation struct {
 	Profile     ConversationPresentationProfile
 }
 
-func (store *Store) withVoiceConfigurationLock(run func() error) error {
+func (store *Store) withPresentationConfigurationLock(run func() error) error {
 	if store == nil {
 		return errors.New("conversation store is required")
 	}
 	if run == nil {
-		return errors.New("voice configuration operation is required")
+		return errors.New("presentation configuration operation is required")
 	}
-	store.voiceConfigurationMu.Lock()
-	defer store.voiceConfigurationMu.Unlock()
+	store.presentationConfigurationMu.Lock()
+	defer store.presentationConfigurationMu.Unlock()
 	return run()
 }
 

@@ -337,12 +337,12 @@ func writeSpeechVoiceConfigurationError(response http.ResponseWriter, err error)
 	writeSpeechError(response, "invalid_speech_voice_configuration", err)
 }
 
-func writeConversationVoiceConfigurationError(response http.ResponseWriter, err error) {
+func writeConversationPresentationConfigurationError(response http.ResponseWriter, err error) {
 	if _, ok := speech.AsError(err); ok {
 		writeSpeechError(response, "invalid_speech_voice_configuration", err)
 		return
 	}
-	writeConversationError(response, "update_conversation_voice_configuration_failed", err)
+	writeConversationError(response, "update_conversation_presentation_failed", err)
 }
 
 func speechErrorHTTPStatus(code speech.ErrorCode) int {

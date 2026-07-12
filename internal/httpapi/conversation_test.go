@@ -104,25 +104,36 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 	}
 
 	alloy := speech.SpeechVoiceAlloy
+	violet := conversationpalette.ConversationPaletteViolet
 	profile := postJSON[conversation.ConversationPresentationProfile](
 		t,
 		handler,
-		"/conversations/presentation/narrator-voice/update",
-		UpdateTopicConversationNarratorVoiceRequest{
+		"/conversations/presentation/update",
+		UpdateTopicConversationPresentationRequest{
 			WorkspaceID:    "workspace-api",
 			ConversationID: "conversation-api",
-			Selection: speech.VoiceSelectionRequest{
-				Selection:        speech.VoiceSelectionExact,
-				RequestedVoiceID: &alloy,
+			Settings: conversation.ConversationPresentationSettings{
+				PaletteSelection: conversation.PresentationSelectionRequest{
+					Selection:          conversation.PresentationSelectionExact,
+					RequestedPaletteID: &violet,
+				},
+				NarratorVoiceSelection: speech.VoiceSelectionRequest{
+					Selection:        speech.VoiceSelectionExact,
+					RequestedVoiceID: &alloy,
+				},
+				NarratorSpeechEnabled: false,
 			},
 		},
 		http.StatusOK,
 	)
-	if service.command != "update_narrator_voice" ||
-		service.voiceSelection.RequestedVoiceID == nil ||
-		*service.voiceSelection.RequestedVoiceID != alloy ||
+	if service.command != "update_presentation" ||
+		service.presentationSettings.NarratorVoiceSelection.RequestedVoiceID == nil ||
+		*service.presentationSettings.NarratorVoiceSelection.RequestedVoiceID != alloy ||
+		service.presentationSettings.PaletteSelection.RequestedPaletteID == nil ||
+		*service.presentationSettings.PaletteSelection.RequestedPaletteID != violet ||
+		service.presentationSettings.NarratorSpeechEnabled ||
 		profile.ResolvedNarratorVoiceID == nil {
-		t.Fatalf("narrator voice command=%q selection=%+v profile=%+v", service.command, service.voiceSelection, profile)
+		t.Fatalf("presentation command=%q settings=%+v profile=%+v", service.command, service.presentationSettings, profile)
 	}
 }
 
@@ -161,10 +172,10 @@ func assertSideConversationCommands(t *testing.T, handler http.Handler, service 
 	}
 }
 
-func TestTopicConversationNarratorVoiceMapsUnavailableExactSelection(t *testing.T) {
+func TestTopicConversationPresentationMapsUnavailableExactVoiceSelection(t *testing.T) {
 	service := newHTTPTestConversationService(t)
 	missing := speech.SpeechVoiceID("retired")
-	service.voiceSelectionErr = &speech.Error{
+	service.presentationSettingsErr = &speech.Error{
 		Code:    speech.ErrorVoiceUnavailable,
 		Message: "Speech voice retired is unavailable.",
 	}
@@ -175,13 +186,19 @@ func TestTopicConversationNarratorVoiceMapsUnavailableExactSelection(t *testing.
 	response := postJSON[ErrorResponse](
 		t,
 		handler,
-		"/conversations/presentation/narrator-voice/update",
-		UpdateTopicConversationNarratorVoiceRequest{
+		"/conversations/presentation/update",
+		UpdateTopicConversationPresentationRequest{
 			WorkspaceID:    "workspace-api",
 			ConversationID: "conversation-api",
-			Selection: speech.VoiceSelectionRequest{
-				Selection:        speech.VoiceSelectionExact,
-				RequestedVoiceID: &missing,
+			Settings: conversation.ConversationPresentationSettings{
+				PaletteSelection: conversation.PresentationSelectionRequest{
+					Selection: conversation.PresentationSelectionAutoDistinct,
+				},
+				NarratorVoiceSelection: speech.VoiceSelectionRequest{
+					Selection:        speech.VoiceSelectionExact,
+					RequestedVoiceID: &missing,
+				},
+				NarratorSpeechEnabled: true,
 			},
 		},
 		http.StatusUnprocessableEntity,
@@ -419,8 +436,8 @@ type httpTestConversationService struct {
 	commandParentPaneID     string
 	commandText             string
 	approval                conversation.ConversationApprovalResponse
-	voiceSelection          speech.VoiceSelectionRequest
-	voiceSelectionErr       error
+	presentationSettings    conversation.ConversationPresentationSettings
+	presentationSettingsErr error
 }
 
 func (service *httpTestConversationService) CreateTopic(
@@ -473,15 +490,15 @@ func (service *httpTestConversationService) DisposeSideConversation(
 	return service.snapshot, nil
 }
 
-func (service *httpTestConversationService) UpdateNarratorVoiceSelection(
+func (service *httpTestConversationService) UpdatePresentationProfile(
 	_ context.Context,
 	workspaceID string,
 	conversationID string,
-	selection speech.VoiceSelectionRequest,
+	settings conversation.ConversationPresentationSettings,
 ) (conversation.ConversationPresentationProfile, error) {
-	service.recordCommand("update_narrator_voice", workspaceID, conversationID, "")
-	service.voiceSelection = selection
-	return service.snapshot.PresentationProfile, service.voiceSelectionErr
+	service.recordCommand("update_presentation", workspaceID, conversationID, "")
+	service.presentationSettings = settings
+	return service.snapshot.PresentationProfile, service.presentationSettingsErr
 }
 
 func (service *httpTestConversationService) StopTurn(

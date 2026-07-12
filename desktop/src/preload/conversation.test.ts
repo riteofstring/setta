@@ -28,7 +28,7 @@ describe("preload topic conversation API", () => {
       "submitApproval",
       "submitInput",
       "subscribe",
-      "updateNarratorVoice",
+      "updatePresentation",
       "waitInputState",
     ]);
     const listRequest = {
@@ -79,9 +79,19 @@ describe("preload topic conversation API", () => {
       ...target,
       inputId: inputRequest.input.id,
     };
-    const voiceRequest = {
+    const presentationRequest = {
       ...target,
-      selection: { requestedVoiceId: "cedar" as const, selection: "exact" as const },
+      settings: {
+        narratorSpeechEnabled: false,
+        narratorVoiceSelection: {
+          requestedVoiceId: "cedar" as const,
+          selection: "exact" as const,
+        },
+        paletteSelection: {
+          requestedPaletteId: "violet" as const,
+          selection: "exact" as const,
+        },
+      },
     };
     await invokeConversationCommands(api, {
       approval,
@@ -93,7 +103,7 @@ describe("preload topic conversation API", () => {
       sideTurnRequest,
       subscription,
       target,
-      voiceRequest,
+      presentationRequest,
     });
     const listener = vi.fn();
     const unsubscribe = api.conversations.onEvent(listener);
@@ -118,7 +128,7 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationSubmitApproval, approval],
       [ipcChannels.conversationSubscribeEvents, subscription],
       [ipcChannels.conversationReleaseEvents, release],
-      [ipcChannels.conversationUpdateNarratorVoice, voiceRequest],
+      [ipcChannels.conversationUpdatePresentation, presentationRequest],
     ]);
     expect(listener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.conversationEvent, handler);
@@ -162,7 +172,9 @@ async function invokeConversationCommands(
     sideTurnRequest: Parameters<NonNullable<SettaAPI["conversations"]["sendSide"]>>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: Parameters<SettaAPI["conversations"]["read"]>[0];
-    voiceRequest: Parameters<NonNullable<SettaAPI["conversations"]["updateNarratorVoice"]>>[0];
+    presentationRequest: Parameters<
+      NonNullable<SettaAPI["conversations"]["updatePresentation"]>
+    >[0];
   },
 ) {
   const sendSide = requireConversationCommand(api.conversations.sendSide, "side conversation send");
@@ -205,7 +217,7 @@ async function invokeConversationCommands(
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);
-  await api.conversations.updateNarratorVoice?.(requests.voiceRequest);
+  await api.conversations.updatePresentation?.(requests.presentationRequest);
 }
 
 function requireConversationCommand<Command>(command: Command | undefined, label: string): Command {

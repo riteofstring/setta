@@ -33,12 +33,19 @@ func (resolve SourceResolverFunc) ResolveSpeechSource(
 
 type VoiceConfigurationStore interface {
 	EnsureMasterVoiceSelection(context.Context, MasterVoiceSelection) (MasterVoiceSelection, error)
+	EnsureNarratorVoiceDefault(context.Context, NarratorVoiceDefault) (NarratorVoiceDefault, error)
 	ReadMasterVoiceSelection(context.Context) (MasterVoiceSelection, error)
+	ReadNarratorVoiceDefault(context.Context) (NarratorVoiceDefault, error)
 	UpdateMasterVoiceSelection(
 		context.Context,
 		VoiceSelectionRequest,
 		string,
 	) (MasterVoiceSelection, error)
+	UpdateNarratorVoiceDefault(
+		context.Context,
+		VoiceSelectionRequest,
+		string,
+	) (NarratorVoiceDefault, error)
 }
 
 type ServiceConfig struct {
@@ -85,6 +92,17 @@ func NewService(ctx context.Context, config ServiceConfig) (*Service, error) {
 	}
 	if err := stored.Validate(); err != nil {
 		return nil, fmt.Errorf("validate initialized master voice selection: %w", err)
+	}
+	narratorDefault := DefaultNarratorVoiceSelection(now().UTC().Format(time.RFC3339Nano))
+	storedNarratorDefault, err := service.voiceConfigurationStore.EnsureNarratorVoiceDefault(
+		ctx,
+		narratorDefault,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("initialize narrator voice default: %w", err)
+	}
+	if err := storedNarratorDefault.Validate(); err != nil {
+		return nil, fmt.Errorf("validate initialized narrator voice default: %w", err)
 	}
 	return service, nil
 }
@@ -230,6 +248,46 @@ func (service *Service) UpdateMasterVoiceSelection(
 		return MasterVoiceSelection{}, fmt.Errorf("validate updated master voice selection: %w", err)
 	}
 	return CloneMasterVoiceSelection(selection), nil
+}
+
+func (service *Service) ReadNarratorVoiceDefault(
+	ctx context.Context,
+) (NarratorVoiceDefault, error) {
+	if service == nil || service.voiceConfigurationStore == nil {
+		return NarratorVoiceDefault{}, errors.New("speech service is required")
+	}
+	value, err := service.voiceConfigurationStore.ReadNarratorVoiceDefault(ctx)
+	if err != nil {
+		return NarratorVoiceDefault{}, err
+	}
+	if err := value.Validate(); err != nil {
+		return NarratorVoiceDefault{}, fmt.Errorf("validate persisted narrator voice default: %w", err)
+	}
+	return CloneNarratorVoiceDefault(value), nil
+}
+
+func (service *Service) UpdateNarratorVoiceDefault(
+	ctx context.Context,
+	request VoiceSelectionRequest,
+) (NarratorVoiceDefault, error) {
+	if service == nil || service.voiceConfigurationStore == nil {
+		return NarratorVoiceDefault{}, errors.New("speech service is required")
+	}
+	if err := request.Validate(); err != nil {
+		return NarratorVoiceDefault{}, err
+	}
+	value, err := service.voiceConfigurationStore.UpdateNarratorVoiceDefault(
+		ctx,
+		request,
+		service.now().UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return NarratorVoiceDefault{}, err
+	}
+	if err := value.Validate(); err != nil {
+		return NarratorVoiceDefault{}, fmt.Errorf("validate updated narrator voice default: %w", err)
+	}
+	return CloneNarratorVoiceDefault(value), nil
 }
 
 func (service *Service) requireConfigured() error {

@@ -24,6 +24,7 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 	service := &fakeHTTPSpeechService{
 		capabilities:         validHTTPSpeechCapabilities(),
 		masterVoiceSelection: speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z"),
+		narratorVoiceDefault: speech.DefaultNarratorVoiceSelection("2026-07-12T18:00:00Z"),
 		session: speech.SpeechTranscriptionSession{
 			ClientSecret:                "ek_test_http",
 			ExpiresAt:                   "2099-07-10T12:00:00Z",
@@ -73,6 +74,29 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 		service.masterVoiceUpdate.RequestedVoiceID == nil || *service.masterVoiceUpdate.RequestedVoiceID != cedar {
 		t.Fatalf("updated master voice=%+v request=%+v", updated, service.masterVoiceUpdate)
 	}
+	narratorDefault := getSpeechJSONWithToken[speech.NarratorVoiceDefault](
+		t,
+		handler,
+		"/speech/voices/narrator-default",
+		token,
+		http.StatusOK,
+	)
+	if !reflect.DeepEqual(narratorDefault, service.narratorVoiceDefault) {
+		t.Fatalf("narrator voice default = %+v, want %+v", narratorDefault, service.narratorVoiceDefault)
+	}
+	updatedDefault := postJSONWithToken[speech.NarratorVoiceDefault](
+		t,
+		handler,
+		"/speech/voices/narrator-default/update",
+		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionExact, RequestedVoiceID: &cedar},
+		token,
+		http.StatusOK,
+	)
+	if updatedDefault.RequestedVoiceID == nil || *updatedDefault.RequestedVoiceID != cedar ||
+		service.narratorVoiceDefaultUpdate.RequestedVoiceID == nil ||
+		*service.narratorVoiceDefaultUpdate.RequestedVoiceID != cedar {
+		t.Fatalf("updated narrator default=%+v request=%+v", updatedDefault, service.narratorVoiceDefaultUpdate)
+	}
 	created := postJSONWithToken[speech.SpeechTranscriptionSession](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, token, http.StatusOK)
 	if created != service.session || service.transcriptionDeviceID != device.ID {
 		t.Fatalf("created=%+v device=%q", created, service.transcriptionDeviceID)
@@ -111,6 +135,8 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 		{method: http.MethodGet, path: "/speech/capabilities"},
 		{method: http.MethodGet, path: "/speech/voices/master"},
 		{method: http.MethodPost, path: "/speech/voices/master/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
+		{method: http.MethodGet, path: "/speech/voices/narrator-default"},
+		{method: http.MethodPost, path: "/speech/voices/narrator-default/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
 		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{}`},
 		{method: http.MethodPost, path: "/speech/synthesis", body: `{"source":{"speaker":"master","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
 	}
@@ -286,19 +312,23 @@ func TestSpeechEndpointRejectsOversizedRequestBeforeAuthenticationOrDecode(t *te
 }
 
 type fakeHTTPSpeechService struct {
-	capabilities            speech.SpeechCapabilities
-	capabilitiesErr         error
-	masterVoiceSelection    speech.MasterVoiceSelection
-	masterVoiceSelectionErr error
-	masterVoiceUpdate       speech.VoiceSelectionRequest
-	masterVoiceUpdateErr    error
-	synthesisAudio          speech.SpeechAudio
-	synthesisErr            error
-	synthesisRequest        speech.SpeechSynthesisRequest
-	session                 speech.SpeechTranscriptionSession
-	transcriptionErr        error
-	transcriptionDeviceID   string
-	calls                   int
+	capabilities                  speech.SpeechCapabilities
+	capabilitiesErr               error
+	masterVoiceSelection          speech.MasterVoiceSelection
+	masterVoiceSelectionErr       error
+	masterVoiceUpdate             speech.VoiceSelectionRequest
+	masterVoiceUpdateErr          error
+	narratorVoiceDefault          speech.NarratorVoiceDefault
+	narratorVoiceDefaultErr       error
+	narratorVoiceDefaultUpdate    speech.VoiceSelectionRequest
+	narratorVoiceDefaultUpdateErr error
+	synthesisAudio                speech.SpeechAudio
+	synthesisErr                  error
+	synthesisRequest              speech.SpeechSynthesisRequest
+	session                       speech.SpeechTranscriptionSession
+	transcriptionErr              error
+	transcriptionDeviceID         string
+	calls                         int
 }
 
 func (service *fakeHTTPSpeechService) ReadCapabilities(context.Context) (speech.SpeechCapabilities, error) {
@@ -309,6 +339,13 @@ func (service *fakeHTTPSpeechService) ReadCapabilities(context.Context) (speech.
 func (service *fakeHTTPSpeechService) ReadMasterVoiceSelection(context.Context) (speech.MasterVoiceSelection, error) {
 	service.calls++
 	return service.masterVoiceSelection, service.masterVoiceSelectionErr
+}
+
+func (service *fakeHTTPSpeechService) ReadNarratorVoiceDefault(
+	context.Context,
+) (speech.NarratorVoiceDefault, error) {
+	service.calls++
+	return service.narratorVoiceDefault, service.narratorVoiceDefaultErr
 }
 
 func (service *fakeHTTPSpeechService) UpdateMasterVoiceSelection(
@@ -325,6 +362,21 @@ func (service *fakeHTTPSpeechService) UpdateMasterVoiceSelection(
 	selection.RequestedVoiceID = request.RequestedVoiceID
 	selection.ResolvedVoiceID = request.RequestedVoiceID
 	return selection, nil
+}
+
+func (service *fakeHTTPSpeechService) UpdateNarratorVoiceDefault(
+	_ context.Context,
+	request speech.VoiceSelectionRequest,
+) (speech.NarratorVoiceDefault, error) {
+	service.calls++
+	service.narratorVoiceDefaultUpdate = request
+	if service.narratorVoiceDefaultUpdateErr != nil {
+		return speech.NarratorVoiceDefault{}, service.narratorVoiceDefaultUpdateErr
+	}
+	value := service.narratorVoiceDefault
+	value.Selection = request.Selection
+	value.RequestedVoiceID = request.RequestedVoiceID
+	return value, nil
 }
 
 func (service *fakeHTTPSpeechService) CreateTranscriptionSession(_ context.Context, deviceID string) (speech.SpeechTranscriptionSession, error) {

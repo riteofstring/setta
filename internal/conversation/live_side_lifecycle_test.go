@@ -357,6 +357,12 @@ func newLiveSideConversationService(
 	); err != nil {
 		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
 	}
+	if _, err := store.EnsureNarratorVoiceDefault(
+		context.Background(),
+		speech.DefaultNarratorVoiceSelection("2026-07-13T12:00:00Z"),
+	); err != nil {
+		t.Fatalf("EnsureNarratorVoiceDefault: %v", err)
+	}
 	workspaceID := "workspace-live-side"
 	service, err := NewService(
 		store,

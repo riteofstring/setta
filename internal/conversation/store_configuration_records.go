@@ -492,3 +492,32 @@ WHERE singleton = 1 AND updated_at = ?
 	}
 	return transaction.recordStateMutation()
 }
+
+func (transaction *WriteTransaction) UpdateNarratorVoiceDefault(
+	expectedUpdatedAt string,
+	value speech.NarratorVoiceDefault,
+) error {
+	if err := transaction.ensureActive(); err != nil {
+		return err
+	}
+	if err := value.Validate(); err != nil {
+		return err
+	}
+	result, err := transaction.tx.ExecContext(transaction.ctx, `
+UPDATE narrator_voice_default
+SET selection = ?, requested_voice_id = ?, updated_at = ?
+WHERE singleton = 1 AND updated_at = ?
+`,
+		value.Selection,
+		nullableString(voiceIDPointerString(value.RequestedVoiceID)),
+		value.UpdatedAt,
+		expectedUpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("update narrator voice default: %w", err)
+	}
+	if err := requireOneRow(result, "narrator voice default", "singleton", "configuration changed concurrently"); err != nil {
+		return err
+	}
+	return transaction.recordStateMutation()
+}

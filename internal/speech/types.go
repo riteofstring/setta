@@ -88,6 +88,26 @@ type MasterVoiceSelection struct {
 	UpdatedAt        string             `json:"updatedAt"`
 }
 
+// NarratorVoiceDefault owns the selection applied when a topic conversation is
+// created. Automatic selections resolve independently for each conversation;
+// exact selections remain exact.
+type NarratorVoiceDefault struct {
+	Selection        VoiceSelectionMode `json:"selection"`
+	RequestedVoiceID *SpeechVoiceID     `json:"requestedVoiceId"`
+	UpdatedAt        string             `json:"updatedAt"`
+}
+
+type NarratorVoiceDefaultInitialization struct {
+	Catalog SpeechVoiceCatalog   `json:"catalog"`
+	Default NarratorVoiceDefault `json:"default"`
+}
+
+type NarratorVoiceDefaultUpdate struct {
+	Catalog  SpeechVoiceCatalog   `json:"catalog"`
+	Previous NarratorVoiceDefault `json:"previous"`
+	Default  NarratorVoiceDefault `json:"default"`
+}
+
 type MasterVoiceSelectionInitialization struct {
 	Catalog   SpeechVoiceCatalog   `json:"catalog"`
 	Selection MasterVoiceSelection `json:"selection"`
@@ -96,8 +116,9 @@ type MasterVoiceSelectionInitialization struct {
 type MasterVoiceSelectionUpdateReason string
 
 const (
-	MasterVoiceSelectionUpdateUserOverride     MasterVoiceSelectionUpdateReason = "user_override"
-	MasterVoiceSelectionUpdateNarratorOverride MasterVoiceSelectionUpdateReason = "narrator_override"
+	MasterVoiceSelectionUpdateUserOverride       MasterVoiceSelectionUpdateReason = "user_override"
+	MasterVoiceSelectionUpdateNarratorOverride   MasterVoiceSelectionUpdateReason = "narrator_override"
+	MasterVoiceSelectionUpdateNarratorAssignment MasterVoiceSelectionUpdateReason = "narrator_assignment"
 )
 
 type MasterVoiceSelectionUpdate struct {

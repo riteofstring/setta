@@ -317,6 +317,17 @@ CREATE TABLE master_voice_selection (
   CHECK ((selection = 'exact' AND requested_voice_id IS NOT NULL) OR selection = 'auto_distinct')
 ) STRICT;
 
+CREATE TABLE narrator_voice_default (
+  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+  selection TEXT NOT NULL CHECK (selection IN ('auto_distinct', 'exact')),
+  requested_voice_id TEXT,
+  updated_at TEXT NOT NULL,
+  CHECK (
+    (selection = 'exact' AND requested_voice_id IS NOT NULL)
+    OR (selection = 'auto_distinct' AND requested_voice_id IS NULL)
+  )
+) STRICT;
+
 CREATE TABLE master_sessions (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   id TEXT NOT NULL UNIQUE,

@@ -19,6 +19,7 @@ import type {
   ListTopicConversationsRequest,
   LogoutCodexAccountRequest,
   MasterVoiceSelection,
+  NarratorVoiceDefault,
   NavigatorPage,
   OpenWorkspaceResponse,
   PresentationIntent,
@@ -48,7 +49,7 @@ import type {
   UpdateAppearanceSettingsRequest,
   UpdateConversationRoleProfilesRequest,
   UpdateGlobalRoleProfilesRequest,
-  UpdateTopicConversationNarratorVoiceRequest,
+  UpdateTopicConversationPresentationRequest,
   VoiceSelectionRequest,
   WorkspaceUILayout,
   WorkspaceUILayoutReadResult,
@@ -310,8 +311,8 @@ export interface SettaAPI {
     ) => Promise<ConversationSnapshot>;
     submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;
     subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
-    updateNarratorVoice?: (
-      request: UpdateTopicConversationNarratorVoiceRequest,
+    updatePresentation?: (
+      request: UpdateTopicConversationPresentationRequest,
     ) => Promise<ConversationPresentationProfile>;
     waitInputState?: (
       request: ReadConversationInputRoutingStateRequest,
@@ -344,8 +345,10 @@ export interface SettaAPI {
     createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
+    readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
+    updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

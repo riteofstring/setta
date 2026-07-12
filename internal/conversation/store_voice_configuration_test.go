@@ -153,6 +153,55 @@ WHERE singleton = 1
 	}
 }
 
+func TestStorePersistsAndUpdatesNarratorVoiceDefaultAcrossRestart(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	initial := speech.DefaultNarratorVoiceSelection("2026-07-12T18:00:00Z")
+	value, err := store.EnsureNarratorVoiceDefault(context.Background(), initial)
+	if err != nil || value.Selection != speech.VoiceSelectionAutoDistinct {
+		t.Fatalf("initial narrator voice default = %+v, err=%v", value, err)
+	}
+	cedar := speech.SpeechVoiceCedar
+	updated, err := store.UpdateNarratorVoiceDefault(
+		context.Background(),
+		speech.VoiceSelectionRequest{
+			Selection:        speech.VoiceSelectionExact,
+			RequestedVoiceID: &cedar,
+		},
+		"2026-07-12T18:00:01Z",
+	)
+	if err != nil || updated.RequestedVoiceID == nil || *updated.RequestedVoiceID != cedar {
+		t.Fatalf("updated narrator voice default = %+v, err=%v", updated, err)
+	}
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		speech.NarratorVoiceDefaultStreamID,
+		0,
+		10,
+	)
+	if err != nil || len(events) != 2 ||
+		events[0].ID != speech.NarratorVoiceDefaultInitializedEventID ||
+		events[1].Kind != speech.NarratorVoiceDefaultUpdatedEventKind {
+		t.Fatalf("narrator voice default events = %+v, err=%v", events, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	reopened, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	restored, err := reopened.ReadNarratorVoiceDefault(context.Background())
+	if err != nil || restored.RequestedVoiceID == nil || *restored.RequestedVoiceID != cedar ||
+		restored.UpdatedAt != updated.UpdatedAt {
+		t.Fatalf("restored narrator voice default = %+v, err=%v", restored, err)
+	}
+}
+
 func assertMasterVoiceInitializationEvent(
 	t *testing.T,
 	store *Store,

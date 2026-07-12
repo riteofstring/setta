@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"setta/internal/conversation"
-	"setta/internal/speech"
 )
 
 type CreateTopicConversationRequest struct {
@@ -40,10 +39,10 @@ type SubmitTopicConversationApprovalRequest struct {
 	Response       conversation.ConversationApprovalResponse `json:"response"`
 }
 
-type UpdateTopicConversationNarratorVoiceRequest struct {
-	WorkspaceID    string                       `json:"workspaceId"`
-	ConversationID string                       `json:"conversationId"`
-	Selection      speech.VoiceSelectionRequest `json:"selection"`
+type UpdateTopicConversationPresentationRequest struct {
+	WorkspaceID    string                                        `json:"workspaceId"`
+	ConversationID string                                        `json:"conversationId"`
+	Settings       conversation.ConversationPresentationSettings `json:"settings"`
 }
 
 type ReadConversationRoleConfigurationRequest struct {

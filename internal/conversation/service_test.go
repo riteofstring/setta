@@ -291,6 +291,12 @@ func newConversationServiceTestHarness(
 	); err != nil {
 		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
 	}
+	if _, err := store.EnsureNarratorVoiceDefault(
+		context.Background(),
+		speech.DefaultNarratorVoiceSelection("2026-07-11T20:00:00Z"),
+	); err != nil {
+		t.Fatalf("EnsureNarratorVoiceDefault: %v", err)
+	}
 	workspaceRoot := t.TempDir()
 	workspaceID := "workspace-service"
 	runtime := newServiceTestAgentRuntime()

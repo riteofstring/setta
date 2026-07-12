@@ -173,7 +173,7 @@ func (handler handler) submitTopicConversationApproval(response http.ResponseWri
 	writeConversationSnapshot(response, snapshot)
 }
 
-func (handler handler) updateTopicConversationNarratorVoice(
+func (handler handler) updateTopicConversationPresentation(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
@@ -181,22 +181,22 @@ func (handler handler) updateTopicConversationNarratorVoice(
 	if service == nil {
 		return
 	}
-	var payload UpdateTopicConversationNarratorVoiceRequest
+	var payload UpdateTopicConversationPresentationRequest
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
 	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_narrator_voice_request", err.Error())
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_presentation_request", err.Error())
 		return
 	}
-	profile, err := service.UpdateNarratorVoiceSelection(
+	profile, err := service.UpdatePresentationProfile(
 		request.Context(),
 		payload.WorkspaceID,
 		payload.ConversationID,
-		payload.Selection,
+		payload.Settings,
 	)
 	if err != nil {
-		writeConversationVoiceConfigurationError(response, err)
+		writeConversationPresentationConfigurationError(response, err)
 		return
 	}
 	if err := profile.Validate(); err != nil {
