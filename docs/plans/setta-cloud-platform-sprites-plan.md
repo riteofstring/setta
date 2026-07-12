@@ -1241,3 +1241,18 @@ Stop and reassess rather than hiding the problem if any of these occur:
   `docs/reports/2026-07-13-sprites-phase1a-probes.md`. Adversarial probes
   (socket authorization, network bypass, hostile-load cost cutoff) held for
   explicit go-ahead.
+- 2026-07-13: Ran the Phase 1a characterization battery on a clean disposable
+  Sprite (`setta-phase1a-20260713-char`) via a committed, delegated Codex
+  harness (`scripts/sprites/phase1a_characterize.sh`, medium effort). Headline
+  isolation result: the default `sprite` workload account is capability-root by
+  default — a broad ambient capability set including `cap_dac_override` and
+  `cap_sys_admin` (verified by writing `/root` directly), plus passwordless sudo
+  and a world-writable `/.sprite/api.sock`. Unix user separation is therefore no
+  boundary; a real internal boundary must be constructed. Corrected the earlier
+  entry: podman is NOT in the base image (the 5.7.0 seen on the leftover Sprite
+  was prior-session install); namespace primitives (`unshare -Ur`, cgroup v2)
+  do work. Checkpoint restore rolls back the overlay filesystem and kills
+  running processes (whole-Sprite reset). Adversarial probes (management-socket
+  authorization from the guest, network-policy bypass, hard-cost cutoff under
+  hostile load) remain held for explicit go-ahead. Evidence and harness in
+  `docs/reports/2026-07-13-sprites-phase1a-probes.md`.
