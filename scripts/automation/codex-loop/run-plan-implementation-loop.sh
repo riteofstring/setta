@@ -4,9 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PLAN_PATH="docs/plans/topic-conversations-global-master-narrator-20260711.md"
-COMPLETION_SENTINEL="TOPIC_CONVERSATIONS_IMPLEMENTATION_COMPLETE"
-FINAL_AUDIT_SENTINEL="TOPIC_CONVERSATIONS_READY_FOR_FINAL_AUDIT"
+PLAN_PATH=""
+COMPLETION_SENTINEL="PLAN_IMPLEMENTATION_COMPLETE"
+FINAL_AUDIT_SENTINEL="PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT"
 MODEL="gpt-5.6-sol"
 AGENT_ONE_REASONING_EFFORT="xhigh"
 AGENT_TWO_REASONING_EFFORT="max"
@@ -19,17 +19,17 @@ ACTIVE_CODEX_PID=""
 
 usage() {
   cat <<'EOF'
-Usage: scripts/automation/codex-loop/run-topic-conversations-plan-loop.sh [options]
+Usage: scripts/automation/codex-loop/run-plan-implementation-loop.sh PLAN_PATH [options]
 
-Runs two fresh Codex agents in a loop for:
-  docs/plans/topic-conversations-global-master-narrator-20260711.md
+Runs two fresh Codex agents in a loop for the repository-relative plan document
+passed as PLAN_PATH.
 
 Agent 1 implements the next coherent plan slice. Agent 2 reviews only that
 slice and fixes it as needed. When Agent 1 finds no remaining step, Agent 2
 performs a separate whole-plan completion audit.
 
 The loop succeeds only when Agent 2's final message is exactly:
-  TOPIC_CONVERSATIONS_IMPLEMENTATION_COMPLETE
+  PLAN_IMPLEMENTATION_COMPLETE
 
 Review findings, failing checks, and incomplete plan work advance to another
 iteration. The loop has no iteration cap and does not stop before the separate
@@ -311,13 +311,31 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
-    *)
+    -*)
       echo "Unknown argument: $1" >&2
       usage >&2
       exit 1
       ;;
+    *)
+      if [[ -n "${PLAN_PATH}" ]]; then
+        echo "Unexpected argument: $1" >&2
+        usage >&2
+        exit 1
+      fi
+      PLAN_PATH="$1"
+      shift
+      ;;
   esac
 done
+if [[ -z "${PLAN_PATH}" ]]; then
+  echo "Missing required PLAN_PATH" >&2
+  usage >&2
+  exit 1
+fi
+if [[ "${PLAN_PATH}" == /* ]]; then
+  echo "PLAN_PATH must be relative to the repository root" >&2
+  exit 1
+fi
 if [[ ! -f "${ROOT_DIR}/${PLAN_PATH}" ]]; then
   echo "Plan file not found: ${ROOT_DIR}/${PLAN_PATH}" >&2
   exit 1
@@ -363,7 +381,7 @@ if [[ -z "${OUTPUT_DIR}" ]]; then
     exit 1
   fi
   mkdir -p "${output_base_dir}"
-  OUTPUT_DIR="$(mktemp -d "${output_base_dir}/topic-conversations-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
+  OUTPUT_DIR="$(mktemp -d "${output_base_dir}/plan-implementation-loop.$(date '+%Y%m%d-%H%M%S').XXXXXX")"
 else
   OUTPUT_DIR="$(resolve_path_without_creating "${OUTPUT_DIR}")"
 fi
