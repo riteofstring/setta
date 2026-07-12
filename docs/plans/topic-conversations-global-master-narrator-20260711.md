@@ -3132,3 +3132,10 @@ Implementation is in progress under this plan.
   production workflows passed independently. The supply-chain audit again
   reports the pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4,
   fixed in 1.26.5; this slice changes no dependency manifest or toolchain pin.
+- 2026-07-12: The Phase 5 item 1 review corrected the app-shell provider's
+  development lifecycle under the repository's React `StrictMode` root. The
+  initial effect replay can no longer permanently dispose the sole capture
+  controller: replay remount cancels the pending teardown, while a real
+  unmount still disposes the controller and its media resources. Focused
+  regression coverage exercises both replay and controller replacement, and
+  the retained PWA build was regenerated. Phase 5 item 2 was not started.

@@ -40,6 +40,7 @@ export function AppShellSpeechCaptureProvider({
   const [controller] = useState(
     () => new AppShellSpeechCaptureController(browserControllerDependencies(setta)),
   );
+  const [effectLifetime] = useState(() => new AppShellSpeechCaptureEffectLifetime());
   const snapshot = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
@@ -47,16 +48,51 @@ export function AppShellSpeechCaptureProvider({
   );
   const context = useMemo(() => ({ controller, snapshot }), [controller, snapshot]);
 
+  useEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
   useEffect(() => {
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);
-  useEffect(() => () => controller.dispose(), [controller]);
 
   return (
     <AppShellSpeechCaptureContext.Provider value={context}>
       {children}
     </AppShellSpeechCaptureContext.Provider>
   );
+}
+
+interface SpeechCaptureControllerDisposable {
+  dispose: () => void;
+}
+
+interface PendingControllerDisposal {
+  canceled: boolean;
+  controller: SpeechCaptureControllerDisposable;
+}
+
+export class AppShellSpeechCaptureEffectLifetime {
+  private pendingDisposal: PendingControllerDisposal | null = null;
+
+  constructor(private readonly schedule: (handler: () => void) => void = queueMicrotask) {}
+
+  mount(controller: SpeechCaptureControllerDisposable): () => void {
+    if (this.pendingDisposal?.controller === controller) {
+      this.pendingDisposal.canceled = true;
+      this.pendingDisposal = null;
+    }
+    return () => {
+      const pending = { canceled: false, controller } satisfies PendingControllerDisposal;
+      this.pendingDisposal = pending;
+      this.schedule(() => {
+        if (pending.canceled) {
+          return;
+        }
+        if (this.pendingDisposal === pending) {
+          this.pendingDisposal = null;
+        }
+        controller.dispose();
+      });
+    };
+  }
 }
 
 function browserControllerDependencies(
