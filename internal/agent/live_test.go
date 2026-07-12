@@ -321,7 +321,14 @@ func createLiveActiveForks(t *testing.T, fixture liveFixture, parent liveActiveP
 	})
 	activeAtFork := append([]ThreadTurn{}, active.Turns...)
 	assertLiveForkDidNotWait(t, parent.done, "ephemeral active-turn fork")
-	if err := fixture.runtime.InjectItems(fixture.ctx, active.ID, []InjectedTextItem{{Role: "user", Text: "Active side boundary marker."}}); err != nil {
+	if err := fixture.runtime.InjectItems(fixture.ctx, active.ID, []InjectedTextItem{
+		{Role: "user", Text: "Active side boundary marker."},
+		{
+			Role: "developer",
+			Text: `Setta authoritative side context reference.
+{"type":"side_in_flight_context_frame","sourceTrajectorySequence":1,"currentObjective":{"input":{"text":"Run the active parent command."},"delivery":"normal","status":"running"},"acceptedSteering":[],"currentPlan":null,"activeActivities":[{"kind":"command","title":"sleep 12"}],"pendingApprovals":[],"artifacts":[]}`,
+		},
+	}); err != nil {
 		t.Fatalf("active-fork InjectItems: %v", err)
 	}
 	return liveForkSnapshots{completedBoundary: completedBoundary, audit: audit, auditAtFork: auditAtFork, active: active, activeAtFork: activeAtFork}

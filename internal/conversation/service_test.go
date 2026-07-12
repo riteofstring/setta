@@ -246,6 +246,8 @@ type serviceTestAgentRuntime struct {
 	forkErr         error
 	forkRequests    []agent.ForkThreadRequest
 	forkResponse    *agent.Thread
+	injectErr       error
+	injections      []serviceTestInjection
 	lastApproval    *agent.ApprovalResponse
 	resolveRequests []agent.Invocation
 	runRequests     []agent.TurnRequest
@@ -253,6 +255,11 @@ type serviceTestAgentRuntime struct {
 	threads         int
 	turns           int
 	unsubscribed    []string
+}
+
+type serviceTestInjection struct {
+	threadID string
+	items    []agent.InjectedTextItem
 }
 
 func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
@@ -317,6 +324,18 @@ func (runtime *serviceTestAgentRuntime) ForkThread(
 	}, nil
 }
 
+func (runtime *serviceTestAgentRuntime) InjectItems(
+	_ context.Context,
+	threadID string,
+	items []agent.InjectedTextItem,
+) error {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	copyItems := append([]agent.InjectedTextItem{}, items...)
+	runtime.injections = append(runtime.injections, serviceTestInjection{threadID: threadID, items: copyItems})
+	return runtime.injectErr
+}
+
 func (runtime *serviceTestAgentRuntime) RunTurn(
 	ctx context.Context,
 	request agent.TurnRequest,
@@ -356,6 +375,11 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 		if err := runtime.runApprovalScenario(ctx, text == "secret approval", sink, base, control); err != nil {
 			return agent.TurnResult{}, err
 		}
+	case "hold side context":
+		if err := runtime.emitSideContextScenario(sink, base); err != nil {
+			return agent.TurnResult{}, err
+		}
+		return runtime.runSideContextHeldScenario(ctx, sink, base, control)
 	case "subagent":
 		if err := runtime.emitSubagentLifecycle(sink, base); err != nil {
 			return agent.TurnResult{}, err
@@ -381,6 +405,96 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 		return runtime.runHeldScenario(ctx, text, sink, base, control)
 	}
 	return runtime.emitCompletedTurn(sink, base, text)
+}
+
+func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
+	sink agent.EventSink,
+	base agent.Event,
+) error {
+	reasoning := base
+	reasoning.Kind = agent.EventKindReasoningSummary
+	reasoning.Text = &agent.TextEvent{
+		ProviderItemID: "provider-reasoning-side-context",
+		Text:           "PRIVATE_REASONING_MUST_NOT_ENTER_SIDE_CONTEXT",
+	}
+	if err := sink.HandleAgentEvent(reasoning); err != nil {
+		return err
+	}
+	explanation := "Inspect the active parent state without changing it."
+	plan := base
+	plan.Kind = agent.EventKindPlanChanged
+	plan.Plan = &agent.PlanEvent{
+		Explanation: &explanation,
+		Steps: []agent.PlanStep{
+			{Step: "Inspect authoritative state", Status: "inProgress"},
+			{Step: "Finish parent work", Status: "pending"},
+		},
+	}
+	if err := sink.HandleAgentEvent(plan); err != nil {
+		return err
+	}
+	artifact := base
+	artifact.Kind = agent.EventKindActivityCompleted
+	artifact.Activity = &agent.ActivityEvent{
+		ProviderItemID: "provider-artifact-side-context",
+		Kind:           agent.ActivityKindArtifact,
+		Status:         "completed",
+		Title:          "Side context result",
+		Summary:        "/tmp/side-context-result.md",
+	}
+	if err := sink.HandleAgentEvent(artifact); err != nil {
+		return err
+	}
+	activity := base
+	activity.Kind = agent.EventKindActivityStarted
+	activity.Activity = &agent.ActivityEvent{
+		ProviderItemID: "provider-command-side-context",
+		Kind:           agent.ActivityKindCommand,
+		Status:         "inProgress",
+		Title:          "sleep 12",
+	}
+	if err := sink.HandleAgentEvent(activity); err != nil {
+		return err
+	}
+	activity.Kind = agent.EventKindActivityUpdated
+	activity.Activity.Summary = "Waiting for the active parent command."
+	if err := sink.HandleAgentEvent(activity); err != nil {
+		return err
+	}
+	approval := base
+	approval.Kind = agent.EventKindApprovalRequested
+	approval.Approval = &agent.ApprovalRequest{
+		ID:             "provider-approval-side-context",
+		ProviderItemID: "provider-approval-item-side-context",
+		Kind:           agent.ApprovalKindCommand,
+		Title:          "Allow inspection",
+		Body:           "Approve the parent inspection command.",
+		Command:        "inspect parent",
+	}
+	return sink.HandleAgentEvent(approval)
+}
+
+func (runtime *serviceTestAgentRuntime) runSideContextHeldScenario(
+	ctx context.Context,
+	sink agent.EventSink,
+	base agent.Event,
+	control <-chan string,
+) (agent.TurnResult, error) {
+	for {
+		select {
+		case action := <-control:
+			switch action {
+			case "steer":
+				continue
+			case "interrupt":
+				return runtime.emitTerminal(sink, base, agent.TurnOutcomeInterrupted)
+			default:
+				return agent.TurnResult{}, fmt.Errorf("unsupported side context control %q", action)
+			}
+		case <-ctx.Done():
+			return agent.TurnResult{}, ctx.Err()
+		}
+	}
 }
 
 func (runtime *serviceTestAgentRuntime) runApprovalScenario(
@@ -582,6 +696,19 @@ func (runtime *serviceTestAgentRuntime) unsubscribedThreads() []string {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	return append([]string{}, runtime.unsubscribed...)
+}
+
+func (runtime *serviceTestAgentRuntime) injectedThreadItems() []serviceTestInjection {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	result := make([]serviceTestInjection, 0, len(runtime.injections))
+	for _, injection := range runtime.injections {
+		result = append(result, serviceTestInjection{
+			threadID: injection.threadID,
+			items:    append([]agent.InjectedTextItem{}, injection.items...),
+		})
+	}
+	return result
 }
 
 func (runtime *serviceTestAgentRuntime) submittedApproval() *agent.ApprovalResponse {

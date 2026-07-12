@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -36,6 +37,7 @@ func TestServiceCreatesEphemeralSideForkForParentPane(t *testing.T) {
 	side := requireOnlySideConversation(t, created)
 	assertActiveSideConversation(t, side, working, profile)
 	assertSideForkRequest(t, runtime, working, profile)
+	assertSideContextInjection(t, runtime, side, "hold")
 	assertSideCreationEvents(t, service, workspaceID, parentID, working.EventCursor)
 	assertSideAbsentFromNavigator(t, service, workspaceID, side.ID)
 	assertParentExecutionUnchangedBySide(t, working, created)
@@ -48,6 +50,122 @@ func TestServiceCreatesEphemeralSideForkForParentPane(t *testing.T) {
 	}
 	if _, err := service.StopTurn(ctx, workspaceID, parentID); err != nil {
 		t.Fatalf("StopTurn: %v", err)
+	}
+}
+
+func TestServiceInjectsTypedAuthoritativeSideContextBeforeActivation(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Typed side context")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	parentID := parent.Conversation.ID
+	if _, err := service.SendTurn(ctx, workspaceID, parentID, "hold side context"); err != nil {
+		t.Fatalf("SendTurn: %v", err)
+	}
+	runtime.waitForStart(t, "hold side context")
+	working := assertServiceSnapshot(t, service, workspaceID, parentID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Conversation.Status == ConversationStatusWaitingForApproval &&
+			containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventPlanChanged) &&
+			containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventActivityProgressed) &&
+			containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventArtifactEmitted) &&
+			containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventApprovalRequested)
+	})
+	if _, err := service.SteerTurn(ctx, workspaceID, parentID, "Keep the active constraint authoritative."); err != nil {
+		t.Fatalf("SteerTurn: %v", err)
+	}
+	steered := assertServiceSnapshot(t, service, workspaceID, parentID, func(snapshot ConversationSnapshot) bool {
+		return containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventTurnSteered)
+	})
+	created, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-typed-context")
+	if err != nil {
+		t.Fatalf("CreateSideConversation: %v", err)
+	}
+	side := requireOnlySideConversation(t, created)
+	frame, serialized := assertSideContextInjection(t, runtime, side, "hold side context")
+	assertTypedSideContextFrame(t, frame, steered.Conversation.LastTrajectorySequence, working)
+	assertSideContextSanitized(t, serialized)
+	if _, err := service.StopTurn(ctx, workspaceID, parentID); err != nil {
+		t.Fatalf("StopTurn: %v", err)
+	}
+}
+
+func assertTypedSideContextFrame(
+	t *testing.T,
+	frame SideInFlightContextFrame,
+	wantSourceSequence int,
+	working ConversationSnapshot,
+) {
+	t.Helper()
+	if frame.SourceTrajectorySequence != wantSourceSequence || frame.CurrentObjective == nil {
+		t.Fatalf("side in-flight context frame = %+v, working = %+v", frame, working)
+	}
+	if frame.CurrentObjective.Input.Text != "hold side context" || frame.CurrentObjective.Status != TurnStatusRunning {
+		t.Fatalf("side current objective = %+v", frame.CurrentObjective)
+	}
+	if len(frame.AcceptedSteering) != 1 ||
+		frame.AcceptedSteering[0].Input.Text != "Keep the active constraint authoritative." {
+		t.Fatalf("side accepted steering = %+v", frame.AcceptedSteering)
+	}
+	if frame.CurrentPlan == nil {
+		t.Fatalf("side current plan = nil")
+	}
+	if len(frame.ActiveActivities) != 1 || frame.ActiveActivities[0].Command == nil ||
+		*frame.ActiveActivities[0].Command != "sleep 12" {
+		t.Fatalf("side active activities = %+v", frame.ActiveActivities)
+	}
+	if len(frame.PendingApprovals) != 1 || frame.PendingApprovals[0].Title != "Allow inspection" {
+		t.Fatalf("side pending approvals = %+v", frame.PendingApprovals)
+	}
+	if len(frame.Artifacts) != 1 || frame.Artifacts[0].URI != "/tmp/side-context-result.md" {
+		t.Fatalf("side artifacts = %+v", frame.Artifacts)
+	}
+}
+
+func assertSideContextSanitized(t *testing.T, serialized string) {
+	t.Helper()
+	for _, forbidden := range []string{
+		"PRIVATE_REASONING_MUST_NOT_ENTER_SIDE_CONTEXT",
+		`"providerItemId"`,
+		`"providerThreadId"`,
+		`"providerTurnId"`,
+		`"processId"`,
+	} {
+		if strings.Contains(serialized, forbidden) {
+			t.Fatalf("side context contains forbidden %q: %s", forbidden, serialized)
+		}
+	}
+}
+
+func TestServiceFailsSideWhenContextInjectionIsRejected(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Rejected side context")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	runtime.injectErr = errors.New("scripted side context rejection")
+	_, err = service.CreateSideConversation(ctx, workspaceID, parent.Conversation.ID, "pane-rejected-context")
+	if err == nil || !strings.Contains(err.Error(), "scripted side context rejection") {
+		t.Fatalf("CreateSideConversation injection error = %v", err)
+	}
+	snapshot, readErr := service.ReadSnapshot(ctx, workspaceID, parent.Conversation.ID)
+	if readErr != nil {
+		t.Fatalf("ReadSnapshot: %v", readErr)
+	}
+	side := requireOnlySideConversation(t, snapshot)
+	if side.Status != SideConversationStatusFailed ||
+		side.Failure == nil ||
+		side.Failure.Code != "side_context_injection_failed" ||
+		side.ProviderThreadID == nil ||
+		side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID == nil ||
+		*side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID != *side.ProviderThreadID {
+		t.Fatalf("failed side injection audit = %+v", side)
+	}
+	unsubscribed := runtime.unsubscribedThreads()
+	if len(unsubscribed) != 1 || unsubscribed[0] != *side.ProviderThreadID {
+		t.Fatalf("unsubscribed side threads = %v, side = %+v", unsubscribed, side)
 	}
 }
 
@@ -243,6 +361,12 @@ func assertActiveSideConversation(
 	profile RoleProfile,
 ) {
 	t.Helper()
+	assertActiveSideLinkage(t, side, parent)
+	assertActiveSideInvocation(t, side, profile)
+}
+
+func assertActiveSideLinkage(t *testing.T, side SideConversation, parent ConversationSnapshot) {
+	t.Helper()
 	parentTurn := latestSnapshotTurn(parent)
 	if side.ParentConversationID != parent.Conversation.ID ||
 		side.ParentPaneID != "pane-side" ||
@@ -254,6 +378,10 @@ func assertActiveSideConversation(
 		side.ProviderThreadID == nil {
 		t.Fatalf("active side linkage = %+v, parent = %+v", side, parent)
 	}
+}
+
+func assertActiveSideInvocation(t *testing.T, side SideConversation, profile RoleProfile) {
+	t.Helper()
 	invocation := side.ResolvedSideAgentInvocation
 	if invocation.Role != RoleSideAgent ||
 		invocation.Requested.ModelSelection.ModelID == nil ||
@@ -262,11 +390,55 @@ func assertActiveSideConversation(
 		invocation.Resolved.ReasoningEffort != profile.ReasoningEffort ||
 		invocation.Resolved.PermissionProfile.ProviderPermissionProfile != ":read-only" ||
 		invocation.Resolved.PermissionProfile.WorkspaceMutation ||
+		invocation.ContextUsage.InputBytes <= 0 ||
 		invocation.Outcome != InvocationOutcomeRunning ||
 		invocation.ProviderReferences.ThreadID == nil ||
 		*invocation.ProviderReferences.ThreadID != *side.ProviderThreadID {
 		t.Fatalf("side invocation = %+v", invocation)
 	}
+}
+
+func assertSideContextInjection(
+	t *testing.T,
+	runtime *serviceTestAgentRuntime,
+	side SideConversation,
+	wantObjective string,
+) (SideInFlightContextFrame, string) {
+	t.Helper()
+	injections := runtime.injectedThreadItems()
+	if len(injections) != 1 || side.ProviderThreadID == nil || injections[0].threadID != *side.ProviderThreadID {
+		t.Fatalf("side context injections = %+v, side = %+v", injections, side)
+	}
+	items := injections[0].items
+	if len(items) != 2 ||
+		items[0].Role != "user" ||
+		!strings.Contains(items[0].Text, "Side conversation boundary.") ||
+		!strings.Contains(items[0].Text, "inherited history") ||
+		items[1].Role != "developer" ||
+		!strings.HasPrefix(items[1].Text, sideInFlightContextFrameHeader+"\n") {
+		t.Fatalf("side injected items = %+v", items)
+	}
+	serialized := strings.TrimPrefix(items[1].Text, sideInFlightContextFrameHeader+"\n")
+	var frame SideInFlightContextFrame
+	if err := json.Unmarshal([]byte(serialized), &frame); err != nil {
+		t.Fatalf("decode side context frame: %v\n%s", err, serialized)
+	}
+	if err := frame.Validate(); err != nil {
+		t.Fatalf("validate side context frame: %v\n%+v", err, frame)
+	}
+	if frame.CurrentObjective == nil || frame.CurrentObjective.Input.Text != wantObjective {
+		t.Fatalf("side current objective = %+v, want %q", frame.CurrentObjective, wantObjective)
+	}
+	return frame, serialized
+}
+
+func containsTrajectoryKind(events []TrajectoryEvent, kind TrajectoryEventKind) bool {
+	for _, event := range events {
+		if event.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func assertSideForkRequest(

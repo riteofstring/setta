@@ -200,13 +200,39 @@ func foldNarratorTurnTrajectory(
 	turnID string,
 	projection *NarratorCurrentTurnProjection,
 ) error {
-	rows, err := reader.QueryContext(ctx, `
+	return foldNarratorTurnTrajectoryBounded(ctx, reader, turnID, nil, projection)
+}
+
+func foldNarratorTurnTrajectoryThroughSequence(
+	ctx context.Context,
+	reader snapshotReader,
+	turnID string,
+	throughSequence int,
+	projection *NarratorCurrentTurnProjection,
+) error {
+	return foldNarratorTurnTrajectoryBounded(ctx, reader, turnID, &throughSequence, projection)
+}
+
+func foldNarratorTurnTrajectoryBounded(
+	ctx context.Context,
+	reader snapshotReader,
+	turnID string,
+	throughSequence *int,
+	projection *NarratorCurrentTurnProjection,
+) error {
+	query := `
 SELECT id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
        provider_event_id, provider_thread_id, provider_turn_id, payload_json
 FROM trajectory_events
 WHERE turn_id = ?
-ORDER BY sequence ASC
-`, turnID)
+`
+	arguments := []any{turnID}
+	if throughSequence != nil {
+		query += " AND sequence <= ?\n"
+		arguments = append(arguments, *throughSequence)
+	}
+	query += "ORDER BY sequence ASC\n"
+	rows, err := reader.QueryContext(ctx, query, arguments...)
 	if err != nil {
 		return err
 	}

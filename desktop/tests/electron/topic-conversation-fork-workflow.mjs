@@ -518,7 +518,8 @@ function assertSideInvocation(side, context) {
   );
   assertCondition(
     invocation.outcome === "running" &&
-      invocation.providerReferences.threadId === side.providerThreadId,
+      invocation.providerReferences.threadId === side.providerThreadId &&
+      invocation.contextUsage.inputBytes > 0,
     "side invocation lifecycle drifted",
     context,
   );

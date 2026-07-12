@@ -18,6 +18,7 @@ const methodHandlers = new Map([
   ["initialized", () => {}],
   ["model/list", listModels],
   ["thread/fork", forkThread],
+  ["thread/inject_items", injectThreadItems],
   ["thread/start", startThread],
   ["thread/resume", resumeThread],
   ["thread/read", readThread],
@@ -176,6 +177,92 @@ function validEphemeralSideSettings(params) {
     config.model_reasoning_effort === "medium",
     instructions.includes("ephemeral side conversation"),
   ].every(Boolean);
+}
+
+function injectThreadItems(message) {
+  const request = sideContextInjectionRequest(message);
+  if (!request) return;
+  const boundary = injectedMessageText(request.items[0], "user");
+  const context = injectedMessageText(request.items[1], "developer");
+  if (!validSideBoundary(boundary, context)) {
+    respondError(message.id, -32602, "side boundary instructions drifted");
+    return;
+  }
+  const frameStart = context.indexOf("{");
+  if (frameStart < 0) {
+    respondError(message.id, -32602, "side context frame JSON is missing");
+    return;
+  }
+  const frame = JSON.parse(context.slice(frameStart));
+  if (!validSideContextFrame(frame)) {
+    respondError(message.id, -32602, "side in-flight context frame drifted");
+    return;
+  }
+  request.thread.sideContextFrame = frame;
+  persistState();
+  respond(message.id, {});
+}
+
+function sideContextInjectionRequest(message) {
+  const params = message.params ?? {};
+  const threadId = requiredString(params, "threadId");
+  const thread = threads.get(threadId);
+  if (!thread || thread.ephemeral !== true || !thread.forkedFromId) {
+    respondError(message.id, -32602, `thread ${threadId} is not an ephemeral side fork`);
+    return;
+  }
+  const items = params.items;
+  if (!Array.isArray(items) || items.length !== 2) {
+    respondError(message.id, -32602, "side context injection requires boundary and frame items");
+    return null;
+  }
+  return { items, thread };
+}
+
+function validSideBoundary(boundary, context) {
+  return [
+    boundary.includes("Side conversation boundary."),
+    boundary.includes("Everything before this boundary is inherited history"),
+    boundary.includes("Only messages submitted after this boundary are active"),
+    context.includes("typed SideInFlightContextFrame"),
+  ].every(Boolean);
+}
+
+function injectedMessageText(item, role) {
+  if (!Array.isArray(item?.content)) return "";
+  const [content] = item.content;
+  const valid = [
+    item.type === "message",
+    item.role === role,
+    item.content.length === 1,
+    content?.type === "input_text",
+    typeof content?.text === "string",
+  ].every(Boolean);
+  if (!valid) return "";
+  return content.text;
+}
+
+function validSideContextFrame(frame) {
+  if (
+    frame?.type !== "side_in_flight_context_frame" ||
+    !Number.isInteger(frame.sourceTrajectorySequence) ||
+    frame.sourceTrajectorySequence < 0 ||
+    !Array.isArray(frame.acceptedSteering) ||
+    !Array.isArray(frame.activeActivities) ||
+    !Array.isArray(frame.pendingApprovals) ||
+    !Array.isArray(frame.artifacts)
+  ) {
+    return false;
+  }
+  const serialized = JSON.stringify(frame);
+  return ![
+    '"providerItemId"',
+    '"providerThreadId"',
+    '"providerTurnId"',
+    '"processId"',
+    '"privateReasoning"',
+    '"rawToolOutput"',
+  ].some((forbidden) => serialized.includes(forbidden));
 }
 
 function resumeThread(message) {

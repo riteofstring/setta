@@ -19,6 +19,7 @@ type AgentRuntime interface {
 	ResolveInvocation(context.Context, agent.Invocation) (agent.ResolvedInvocation, error)
 	StartThread(context.Context, agent.StartThreadRequest) (agent.Thread, error)
 	ForkThread(context.Context, agent.ForkThreadRequest) (agent.Thread, error)
+	InjectItems(context.Context, string, []agent.InjectedTextItem) error
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
 	SteerTurn(context.Context, agent.TurnControlRequest) error
 	InterruptTurn(context.Context, agent.TurnControlRequest) error
