@@ -1,13 +1,11 @@
-import type { WorkspaceSummary } from "@generated/backend";
-import { AlertTriangle, Plus, Search, X } from "lucide-react";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { Run, RunLiveness, WorkspaceSummary } from "@generated/backend";
+import { AlertTriangle, X } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
-import { MasterSidebarLauncher } from "../features/global-master/app-shell-master-surface";
-import { useConversationNavigatorStore } from "../stores/conversation-navigator-store";
-import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
-import { useConversationPaneStore } from "../stores/conversation-pane-store";
+import { useChatStore } from "../stores/chat-store";
+import { useWorkflowDefinitionStore } from "../stores/workflow-definition-store";
 import { RuntimePicker, RuntimePickerAddButton } from "./runtime-picker";
 import {
   defaultSidebarSections,
@@ -15,154 +13,261 @@ import {
   type SidebarSectionId,
   type SidebarSectionState,
 } from "./sidebar-accordion";
-import { ProjectFolderButton } from "./sidebar-header-actions";
-import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
-import { SettaLogoMark } from "./setta-logo-mark";
 import {
   selectSidebarNavigationItems,
   type SidebarNavigationCommand,
   type SidebarNavigationItem,
 } from "./workspace-sidebar-model";
-import { SidebarNavigationRow } from "./workspace-sidebar-navigation-rows";
+import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
+import { ProjectFolderButton } from "./sidebar-header-actions";
+import { SidebarShortcuts } from "./sidebar-shortcuts";
+import { SettaLogoMark } from "./setta-logo-mark";
+import {
+  conversationCorruptionLabels,
+  SidebarNavigationRow,
+  sidebarWorkspaceDiagnostics,
+  type SidebarWorkspaceConversationState,
+  type SidebarWorkspaceWorkflowDefinitionState,
+} from "./workspace-sidebar-navigation-rows";
 
-const sidebarNavigationMaxHeight = 480;
-const sidebarNavigationRowHeight = 36;
+const chatHistoryLimit = 80;
+const sidebarNavigationMaxHeight = 360;
+const sidebarNavigationRowHeight = 28;
 const workspaceListOverscan = 6;
 const noScrollAnchoringStyle = { overflowAnchor: "none" } satisfies CSSProperties;
 const noop = () => {};
 
+function initialExpandedWorkspaceIds(selectedWorkspaceId: string): ReadonlySet<string> {
+  return new Set(selectedWorkspaceId ? [selectedWorkspaceId] : []);
+}
+
+function populatedRecordOrFallback<T extends Record<string, unknown>>(
+  subscribed: T,
+  fallback: T,
+): T {
+  return Object.keys(subscribed).length > 0 ? subscribed : fallback;
+}
+
+function sidebarProjectsEmpty(
+  activeWorkspaces: readonly WorkspaceSummary[],
+  inactiveRecentWorkspaces: readonly WorkspaceSummary[],
+) {
+  return activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0;
+}
+
+function sidebarVisibleError(navigationError: string | null, workspaceError: string | null) {
+  return navigationError ?? workspaceError;
+}
+
+function dismissSidebarVisibleError(
+  navigationError: string | null,
+  setNavigationError: (message: string | null) => void,
+  clearWorkspaceError: () => void,
+) {
+  if (navigationError !== null) {
+    setNavigationError(null);
+    return;
+  }
+  clearWorkspaceError();
+}
+
 interface WorkspaceSidebarProps {
-  activeWorkspaces: readonly WorkspaceSummary[];
+  activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
+  activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
-  clearConversationPresentationError?: () => void;
   clearWorkspaceError?: () => void;
   closeWorkspace: (id: string) => Promise<void>;
-  conversationPresentationError?: string | null;
+  createConversation: (title?: string) => Promise<void>;
+  createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  deleteConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
-  openMasterOverlay?: () => void;
-  openSettingsPane: () => void;
+  openWorkflowGraphPane: () => void;
   openWorkspacePath: (rootPath: string) => Promise<void>;
-  presentConversation: (
-    workspaceId: string,
-    conversationId: string,
-    title: string,
-  ) => Promise<void>;
-  recentWorkspaces: readonly WorkspaceSummary[];
+  openSettingsPane: () => void;
+  recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
+  selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
+  selectedConversationId: string;
   selectedWorkspaceId: string;
+  setConversationPinned: (
+    conversationId: string,
+    pinned: boolean,
+    workspaceId?: string,
+  ) => Promise<void>;
   showFooterSettings?: boolean;
   showLogoHeader?: boolean;
   sidebarWidth?: number;
-  masterUnavailable?: boolean;
   workspaceError?: string | null;
 }
 
-type NormalizedWorkspaceSidebarProps = Omit<
-  WorkspaceSidebarProps,
-  | "clearConversationPresentationError"
-  | "clearWorkspaceError"
-  | "conversationPresentationError"
-  | "showFooterSettings"
-  | "showLogoHeader"
-  | "sidebarWidth"
-  | "workspaceError"
-> &
-  Required<
-    Pick<
-      WorkspaceSidebarProps,
-      | "clearConversationPresentationError"
-      | "clearWorkspaceError"
-      | "conversationPresentationError"
-      | "showFooterSettings"
-      | "showLogoHeader"
-      | "sidebarWidth"
-      | "workspaceError"
-    >
-  >;
-
-export function WorkspaceSidebar(props: WorkspaceSidebarProps) {
-  return <WorkspaceSidebarContent {...normalizeWorkspaceSidebarProps(props)} />;
+interface VirtualWorkspaceListProps {
+  items: SidebarNavigationItem[];
+  renderItem: (item: SidebarNavigationItem) => ReactNode;
+  rowHeight: number;
+  testId: string;
 }
 
-function WorkspaceSidebarContent({
+export function WorkspaceSidebar({
+  activeRun,
+  activeRunLiveness,
   activeWorkspaces,
   busy,
-  clearConversationPresentationError,
-  clearWorkspaceError,
+  clearWorkspaceError = noop,
   closeWorkspace,
-  conversationPresentationError,
+  createConversation,
+  createWorkspaceConversation,
+  deleteConversation,
   openLocalFolder,
-  openMasterOverlay,
-  openSettingsPane,
+  openWorkflowGraphPane,
   openWorkspacePath,
-  presentConversation,
+  openSettingsPane,
   recentWorkspaces,
   removeRecent,
+  selectConversation,
   selectWorkspace,
+  selectedConversationId,
   selectedWorkspaceId,
-  showFooterSettings,
-  showLogoHeader,
-  sidebarWidth,
-  masterUnavailable = false,
-  workspaceError,
-}: NormalizedWorkspaceSidebarProps) {
+  setConversationPinned,
+  showFooterSettings = true,
+  showLogoHeader = true,
+  sidebarWidth = 220,
+  workspaceError = null,
+}: WorkspaceSidebarProps) {
   const [navigationError, setNavigationError] = useState<string | null>(null);
-  const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<ReadonlySet<string>>(
-    () => new Set(selectedWorkspaceId ? [selectedWorkspaceId] : []),
+  const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<ReadonlySet<string>>(() =>
+    initialExpandedWorkspaceIds(selectedWorkspaceId),
   );
+  const subscribedWorkspaceConversationLists = useChatStore(
+    (state) => state.conversationListsByWorkspaceId,
+  );
+  const currentWorkspaceConversationLists = useChatStore.getState().conversationListsByWorkspaceId;
+  const workspaceConversationLists = populatedRecordOrFallback(
+    subscribedWorkspaceConversationLists,
+    currentWorkspaceConversationLists,
+  );
+  const ensureWorkspaceConversationList = useChatStore(
+    (state) => state.ensureWorkspaceConversationList,
+  );
+  const clearClosedWorkspaceConversationLists = useChatStore(
+    (state) => state.clearClosedWorkspaceConversationLists,
+  );
+  const subscribedWorkspaceWorkflowDefinitionLists = useWorkflowDefinitionStore(
+    (state) => state.workflowDefinitionsByWorkspaceId,
+  );
+  const currentWorkspaceWorkflowDefinitionLists =
+    useWorkflowDefinitionStore.getState().workflowDefinitionsByWorkspaceId;
+  const workspaceWorkflowDefinitionLists = populatedRecordOrFallback(
+    subscribedWorkspaceWorkflowDefinitionLists,
+    currentWorkspaceWorkflowDefinitionLists,
+  );
+  const selectedWorkflowDefinitionIdsByWorkspaceId = useWorkflowDefinitionStore(
+    (state) => state.selectedDefinitionIdsByWorkspaceId,
+  );
+  const ensureWorkspaceWorkflowDefinitions = useWorkflowDefinitionStore(
+    (state) => state.ensureWorkspaceWorkflowDefinitions,
+  );
+  const selectWorkflowDefinition = useWorkflowDefinitionStore(
+    (state) => state.selectWorkflowDefinition,
+  );
+  const clearClosedWorkspaceWorkflowDefinitions = useWorkflowDefinitionStore(
+    (state) => state.clearClosedWorkspaceWorkflowDefinitions,
+  );
+  const chatCreateBusy = useChatStore((state) => state.operation === "creating");
+  const conversationSelectionBusy = useChatStore((state) => state.operation === "loading");
+  const activeWorkspaceIds = useMemo(
+    () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
+    [activeWorkspaces],
+  );
+  const inactiveRecentWorkspaces = useMemo(
+    () => recentWorkspaces.filter((workspace) => !activeWorkspaceIds.has(workspace.id)),
+    [activeWorkspaceIds, recentWorkspaces],
+  );
+  const projectsEmpty = sidebarProjectsEmpty(activeWorkspaces, inactiveRecentWorkspaces);
+  const visibleError = sidebarVisibleError(navigationError, workspaceError);
+  const dismissVisibleError = () =>
+    dismissSidebarVisibleError(navigationError, setNavigationError, clearWorkspaceError);
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
   const [runtimePairingOpen, setRuntimePairingOpen] = useState(false);
-  const conversationQuery = useConversationNavigatorStore((state) => state.query);
-  const subscribedConversationWorkspaces = useConversationNavigatorStore(
-    (state) => state.workspaces,
-  );
-  const conversationWorkspaces =
-    Object.keys(subscribedConversationWorkspaces).length > 0
-      ? subscribedConversationWorkspaces
-      : useConversationNavigatorStore.getState().workspaces;
-  const setConversationQuery = useConversationNavigatorStore((state) => state.setQuery);
-  const syncConversationWorkspaces = useConversationNavigatorStore((state) => state.syncWorkspaces);
-  const loadMoreConversations = useConversationNavigatorStore((state) => state.loadMore);
-  const subscribedConversationPanes = useConversationPaneStore((state) => state.workspaces);
-  const conversationPanes =
-    subscribedConversationPanes.size > 0
-      ? subscribedConversationPanes
-      : useConversationPaneStore.getState().workspaces;
-  const activeWorkspaceKey = activeWorkspaces.map((workspace) => workspace.id).join("\u0000");
 
   useEffect(() => {
-    void syncConversationWorkspaces(activeWorkspaces.map((workspace) => workspace.id));
-  }, [activeWorkspaceKey, activeWorkspaces, conversationQuery, syncConversationWorkspaces]);
-  useEffect(() => {
-    if (!selectedWorkspaceId) {
-      return;
+    if (selectedWorkspaceId) {
+      setExpandedWorkspaceIds((current) => {
+        if (current.has(selectedWorkspaceId)) {
+          return current;
+        }
+        return new Set([...current, selectedWorkspaceId]);
+      });
     }
-    setExpandedWorkspaceIds((current) =>
-      current.has(selectedWorkspaceId) ? current : new Set([...current, selectedWorkspaceId]),
-    );
   }, [selectedWorkspaceId]);
-  useEffect(() => {
-    if (conversationQuery.trim() === "") {
-      return;
-    }
-    setExpandedWorkspaceIds(new Set(activeWorkspaces.map((workspace) => workspace.id)));
-  }, [activeWorkspaceKey, activeWorkspaces, conversationQuery]);
 
-  const visibleError = navigationError ?? conversationPresentationError ?? workspaceError;
-  function dismissVisibleError() {
-    if (navigationError) {
-      setNavigationError(null);
-    } else if (conversationPresentationError) {
-      clearConversationPresentationError();
-    } else {
-      clearWorkspaceError();
+  useEffect(() => {
+    clearClosedWorkspaceConversationLists(activeWorkspaces.map((workspace) => workspace.id));
+    clearClosedWorkspaceWorkflowDefinitions(activeWorkspaces.map((workspace) => workspace.id));
+  }, [
+    activeWorkspaces,
+    clearClosedWorkspaceConversationLists,
+    clearClosedWorkspaceWorkflowDefinitions,
+  ]);
+
+  useEffect(() => {
+    for (const workspace of activeWorkspaces) {
+      if (!expandedWorkspaceIds.has(workspace.id) || workspace.id === selectedWorkspaceId) {
+        continue;
+      }
+      const list = workspaceConversationLists[workspace.id];
+      if (list?.loading || (list && list.error === null)) {
+        continue;
+      }
+      void ensureWorkspaceConversationList(workspace.id);
     }
+  }, [
+    activeWorkspaces,
+    ensureWorkspaceConversationList,
+    expandedWorkspaceIds,
+    selectedWorkspaceId,
+    workspaceConversationLists,
+  ]);
+
+  useEffect(() => {
+    for (const workspace of activeWorkspaces) {
+      if (!expandedWorkspaceIds.has(workspace.id)) {
+        continue;
+      }
+      const list = workspaceWorkflowDefinitionLists[workspace.id];
+      if (list?.loading || (list && list.error === null)) {
+        continue;
+      }
+      void ensureWorkspaceWorkflowDefinitions(workspace.id);
+    }
+  }, [
+    activeWorkspaces,
+    ensureWorkspaceWorkflowDefinitions,
+    expandedWorkspaceIds,
+    workspaceWorkflowDefinitionLists,
+  ]);
+
+  function setWorkspaceExpanded(workspaceId: string, expanded: boolean) {
+    setExpandedWorkspaceIds((current) => {
+      const next = new Set(current);
+      if (expanded) {
+        next.add(workspaceId);
+      } else {
+        next.delete(workspaceId);
+      }
+      return next;
+    });
   }
+
   function setSectionOpen(sectionId: SidebarSectionId, open: boolean) {
-    setSections((current) => ({ ...current, [sectionId]: { ...current[sectionId], open } }));
+    setSections((current) => ({
+      ...current,
+      [sectionId]: { ...current[sectionId], open },
+    }));
   }
+
   function setSectionHeight(sectionId: SidebarSectionId, height: number) {
     setSections((current) => ({
       ...current,
@@ -176,8 +281,10 @@ function WorkspaceSidebarContent({
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <SidebarLogoHeader visible={showLogoHeader} />
-      <div className="setta-sidebar-content-shell shrink-0 px-1 pb-2">
-        <WorkspaceMasterLauncher disabled={masterUnavailable} onOpen={openMasterOverlay} />
+      <div
+        className="setta-sidebar-content-shell shrink-0 px-1 pb-2"
+        data-testid="sidebar-shortcuts-shell"
+      >
         <SidebarAccordionSection
           action={
             <RuntimePickerAddButton adding={runtimePairingOpen} setAdding={setRuntimePairingOpen} />
@@ -192,29 +299,21 @@ function WorkspaceSidebarContent({
         >
           <RuntimePicker adding={runtimePairingOpen} setAdding={setRuntimePairingOpen} />
         </SidebarAccordionSection>
-        <ConversationSearch query={conversationQuery} setQuery={setConversationQuery} />
-        <ConversationCreate
-          disabled={busy || !selectedWorkspaceId}
-          onCreated={async (title) => {
-            setNavigationError(null);
-            try {
-              const snapshot = await window.setta.conversations.create({
-                title,
-                workspaceId: selectedWorkspaceId,
-              });
-              hydrateConversationProjectionSnapshot(snapshot);
-              await presentConversation(
-                selectedWorkspaceId,
-                snapshot.conversation.id,
-                snapshot.conversation.title,
-              );
-              return true;
-            } catch (error) {
-              setNavigationError(errorMessage(error));
-              return false;
-            }
-          }}
-        />
+        <SidebarAccordionSection
+          height={sections.shortcuts.height}
+          onHeightChange={(height) => setSectionHeight("shortcuts", height)}
+          onOpenChange={(open) => setSectionOpen("shortcuts", open)}
+          open={sections.shortcuts.open}
+          resized={sections.shortcuts.resized}
+          testId="shortcuts-section"
+          title="Shortcuts"
+        >
+          <SidebarShortcuts
+            busy={sidebarShortcutsBusy(busy, chatCreateBusy)}
+            createConversation={createConversation}
+            hasWorkspace={selectedWorkspaceId !== ""}
+          />
+        </SidebarAccordionSection>
         <SidebarOperationError message={visibleError} onDismiss={dismissVisibleError} />
       </div>
       <div
@@ -222,320 +321,65 @@ function WorkspaceSidebarContent({
         data-testid="sidebar-scrollable-sections"
         style={noScrollAnchoringStyle}
       >
-        <SidebarAccordionSection
-          action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
-          height={sections.projects.height}
-          onHeightChange={(height) => setSectionHeight("projects", height)}
-          onOpenChange={(open) => setSectionOpen("projects", open)}
-          open={sections.projects.open}
-          resized={sections.projects.resized}
-          testId="projects-section"
-          title="Conversations"
-        >
-          {activeWorkspaces.length === 0 && recentWorkspaces.length === 0 ? (
-            <EmptySectionSpace />
-          ) : (
-            <ConversationNavigationList
-              activeWorkspaces={activeWorkspaces}
-              busy={busy}
-              conversationPanes={conversationPanes}
-              conversationQuery={conversationQuery}
-              conversationWorkspaces={conversationWorkspaces}
-              expandedWorkspaceIds={expandedWorkspaceIds}
-              loadMoreConversations={loadMoreConversations}
-              onCommandError={setNavigationError}
-              openWorkspacePath={openWorkspacePath}
-              presentConversation={presentConversation}
-              recentWorkspaces={recentWorkspaces}
-              removeRecent={removeRecent}
-              selectWorkspace={selectWorkspace}
-              selectedWorkspaceId={selectedWorkspaceId}
-              setExpandedWorkspaceIds={setExpandedWorkspaceIds}
-              closeWorkspace={closeWorkspace}
-            />
-          )}
-        </SidebarAccordionSection>
+        <div className="grid gap-2">
+          <SidebarAccordionSection
+            action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
+            height={sections.projects.height}
+            onHeightChange={(height) => setSectionHeight("projects", height)}
+            onOpenChange={(open) => setSectionOpen("projects", open)}
+            open={sections.projects.open}
+            resized={sections.projects.resized}
+            testId="projects-section"
+            title="Projects"
+          >
+            {projectsEmpty ? (
+              <EmptySectionSpace />
+            ) : (
+              <>
+                <ProjectNavigationList
+                  activeRun={activeRun}
+                  activeRunLiveness={activeRunLiveness}
+                  busy={busy}
+                  chatCreateBusy={chatCreateBusy}
+                  conversationSelectionBusy={conversationSelectionBusy}
+                  closeWorkspace={closeWorkspace}
+                  createWorkspaceConversation={createWorkspaceConversation}
+                  deleteConversation={deleteConversation}
+                  expandedWorkspaceIds={expandedWorkspaceIds}
+                  onCommandError={setNavigationError}
+                  openWorkflowGraphPane={openWorkflowGraphPane}
+                  openWorkspacePath={openWorkspacePath}
+                  recentWorkspaces={recentWorkspaces}
+                  removeRecent={removeRecent}
+                  selectConversation={selectConversation}
+                  selectWorkflowDefinition={selectWorkflowDefinition}
+                  selectWorkspace={selectWorkspace}
+                  selectedConversationId={selectedConversationId}
+                  selectedWorkflowDefinitionIdsByWorkspaceId={
+                    selectedWorkflowDefinitionIdsByWorkspaceId
+                  }
+                  selectedWorkspaceId={selectedWorkspaceId}
+                  setConversationPinned={setConversationPinned}
+                  setWorkspaceExpanded={setWorkspaceExpanded}
+                  workspaceConversationLists={workspaceConversationLists}
+                  workspaceWorkflowDefinitionLists={workspaceWorkflowDefinitionLists}
+                  activeWorkspaces={activeWorkspaces}
+                />
+              </>
+            )}
+          </SidebarAccordionSection>
+        </div>
       </div>
       <SidebarFooterSettings onOpenSettings={openSettingsPane} visible={showFooterSettings} />
     </aside>
   );
 }
 
-function WorkspaceMasterLauncher({
-  disabled,
-  onOpen,
-}: {
-  disabled: boolean;
-  onOpen: (() => void) | undefined;
-}) {
-  if (!onOpen) {
+function SidebarLogoHeader({ visible }: { visible: boolean }) {
+  if (!visible) {
     return null;
   }
-  return <MasterSidebarLauncher disabled={disabled} onOpen={onOpen} />;
-}
-
-function ConversationCreate({
-  disabled,
-  onCreated,
-}: {
-  disabled: boolean;
-  onCreated: (title: string) => Promise<boolean>;
-}) {
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState("");
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const requestedTitle = title.trim();
-    if (disabled || creating || !requestedTitle) {
-      return;
-    }
-    setCreating(true);
-    try {
-      if (await onCreated(requestedTitle)) {
-        setTitle("");
-      }
-    } finally {
-      setCreating(false);
-    }
-  }
-
   return (
-    <form
-      className="mt-2 grid h-8 grid-cols-[minmax(0,1fr)_28px] items-center rounded-sm border border-border/70"
-      data-testid="conversation-create-form"
-      onSubmit={submit}
-    >
-      <input
-        aria-label="New topic title"
-        className="min-w-0 bg-transparent px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground"
-        disabled={disabled || creating}
-        maxLength={200}
-        onChange={(event) => setTitle(event.target.value)}
-        placeholder="New topic…"
-        value={title}
-      />
-      <button
-        aria-label="Create topic conversation"
-        className="grid h-full place-items-center border-l border-border/70 text-muted-foreground disabled:opacity-50"
-        disabled={disabled || creating || title.trim() === ""}
-        type="submit"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-    </form>
-  );
-}
-
-function normalizeWorkspaceSidebarProps(
-  props: WorkspaceSidebarProps,
-): NormalizedWorkspaceSidebarProps {
-  return {
-    ...props,
-    clearConversationPresentationError: props.clearConversationPresentationError ?? noop,
-    clearWorkspaceError: props.clearWorkspaceError ?? noop,
-    conversationPresentationError: props.conversationPresentationError ?? null,
-    showFooterSettings: props.showFooterSettings ?? true,
-    showLogoHeader: props.showLogoHeader ?? true,
-    sidebarWidth: props.sidebarWidth ?? 220,
-    workspaceError: props.workspaceError ?? null,
-  };
-}
-
-function ConversationSearch({
-  query,
-  setQuery,
-}: {
-  query: string;
-  setQuery: (value: string) => void;
-}) {
-  return (
-    <label className="mt-2 grid h-8 grid-cols-[16px_minmax(0,1fr)] items-center gap-1 rounded-sm border border-border/70 px-2 text-muted-foreground focus-within:border-ring focus-within:text-foreground">
-      <Search className="h-3.5 w-3.5" />
-      <input
-        aria-label="Search conversations"
-        className="min-w-0 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search conversations…"
-        type="search"
-        value={query}
-      />
-    </label>
-  );
-}
-
-function ConversationNavigationList({
-  activeWorkspaces,
-  busy,
-  closeWorkspace,
-  conversationPanes,
-  conversationQuery,
-  conversationWorkspaces,
-  expandedWorkspaceIds,
-  loadMoreConversations,
-  onCommandError,
-  openWorkspacePath,
-  presentConversation,
-  recentWorkspaces,
-  removeRecent,
-  selectWorkspace,
-  selectedWorkspaceId,
-  setExpandedWorkspaceIds,
-}: Pick<
-  WorkspaceSidebarProps,
-  | "activeWorkspaces"
-  | "busy"
-  | "closeWorkspace"
-  | "openWorkspacePath"
-  | "presentConversation"
-  | "recentWorkspaces"
-  | "removeRecent"
-  | "selectWorkspace"
-  | "selectedWorkspaceId"
-> & {
-  conversationPanes: ReturnType<typeof useConversationPaneStore.getState>["workspaces"];
-  conversationQuery: string;
-  conversationWorkspaces: ReturnType<typeof useConversationNavigatorStore.getState>["workspaces"];
-  expandedWorkspaceIds: ReadonlySet<string>;
-  loadMoreConversations: (workspaceId: string) => Promise<void>;
-  onCommandError: (message: string | null) => void;
-  setExpandedWorkspaceIds: (update: (current: ReadonlySet<string>) => ReadonlySet<string>) => void;
-}) {
-  const items = useMemo(
-    () =>
-      selectSidebarNavigationItems({
-        activeWorkspaces,
-        conversationPanes,
-        conversationQuery,
-        conversationWorkspaces,
-        expandedWorkspaceIds,
-        recentWorkspaces,
-        selectedWorkspaceId,
-      }),
-    [
-      activeWorkspaces,
-      conversationPanes,
-      conversationQuery,
-      conversationWorkspaces,
-      expandedWorkspaceIds,
-      recentWorkspaces,
-      selectedWorkspaceId,
-    ],
-  );
-
-  async function runCommand(command: SidebarNavigationCommand) {
-    onCommandError(null);
-    try {
-      await executeSidebarNavigationCommand(command, {
-        closeWorkspace,
-        loadMoreConversations,
-        openWorkspacePath,
-        presentConversation,
-        removeRecent,
-        selectWorkspace,
-        selectedWorkspaceId,
-        setExpandedWorkspaceIds,
-      });
-    } catch (error) {
-      onCommandError(errorMessage(error));
-    }
-  }
-
-  return (
-    <div
-      aria-label="Conversations"
-      className="min-h-0 overflow-hidden"
-      data-testid="active-workspace-list"
-      style={sidebarNavigationListStyle(items.length)}
-    >
-      <VirtualWorkspaceList
-        items={items}
-        renderItem={(item) => (
-          <SidebarNavigationRow busy={busy} item={item} runCommand={runCommand} />
-        )}
-      />
-    </div>
-  );
-}
-
-interface SidebarCommandActions {
-  closeWorkspace: WorkspaceSidebarProps["closeWorkspace"];
-  loadMoreConversations: (workspaceId: string) => Promise<void>;
-  openWorkspacePath: WorkspaceSidebarProps["openWorkspacePath"];
-  presentConversation: WorkspaceSidebarProps["presentConversation"];
-  removeRecent: WorkspaceSidebarProps["removeRecent"];
-  selectWorkspace: WorkspaceSidebarProps["selectWorkspace"];
-  selectedWorkspaceId: string;
-  setExpandedWorkspaceIds: (update: (current: ReadonlySet<string>) => ReadonlySet<string>) => void;
-}
-
-async function executeSidebarNavigationCommand(
-  command: SidebarNavigationCommand,
-  actions: SidebarCommandActions,
-): Promise<void> {
-  switch (command.type) {
-    case "activateWorkspace":
-      actions.setExpandedWorkspaceIds((current) => {
-        const next = new Set(current);
-        if (command.nextExpanded) next.add(command.workspaceId);
-        else next.delete(command.workspaceId);
-        return next;
-      });
-      if (command.selectWorkspace) await actions.selectWorkspace(command.workspaceId);
-      return;
-    case "closeWorkspace":
-      await actions.closeWorkspace(command.workspaceId);
-      return;
-    case "loadMoreConversations":
-      await actions.loadMoreConversations(command.workspaceId);
-      return;
-    case "openRecentWorkspace":
-      await actions.openWorkspacePath(command.rootPath);
-      return;
-    case "presentConversation":
-      if (command.workspaceId !== actions.selectedWorkspaceId) {
-        await actions.selectWorkspace(command.workspaceId);
-      }
-      await actions.presentConversation(command.workspaceId, command.conversationId, command.title);
-      return;
-    case "removeRecentWorkspace":
-      await actions.removeRecent(command.workspaceId);
-      return;
-    default:
-      assertNever(command);
-  }
-}
-
-function VirtualWorkspaceList({
-  items,
-  renderItem,
-}: {
-  items: SidebarNavigationItem[];
-  renderItem: (item: SidebarNavigationItem) => ReactNode;
-}) {
-  return (
-    <Virtuoso
-      className="h-full min-h-0 overflow-y-auto overscroll-contain"
-      data={items}
-      data-testid="conversation-navigation-list"
-      fixedItemHeight={sidebarNavigationRowHeight}
-      initialItemCount={Math.min(
-        items.length,
-        Math.ceil(sidebarNavigationMaxHeight / sidebarNavigationRowHeight) + workspaceListOverscan,
-      )}
-      itemContent={(_, item) => (
-        <div data-testid={sidebarItemTestId(item)} style={{ height: sidebarNavigationRowHeight }}>
-          {renderItem(item)}
-        </div>
-      )}
-      overscan={workspaceListOverscan * sidebarNavigationRowHeight}
-      style={noScrollAnchoringStyle}
-    />
-  );
-}
-
-function SidebarLogoHeader({ visible }: { visible: boolean }) {
-  return visible ? (
     <div
       className="setta-sidebar-logo-shell app-drag flex h-[50px] shrink-0 items-center justify-end px-4"
       data-setta-shell-title-bar="true"
@@ -543,7 +387,7 @@ function SidebarLogoHeader({ visible }: { visible: boolean }) {
     >
       <SettaLogoMark height={14} />
     </div>
-  ) : null;
+  );
 }
 
 function SidebarFooterSettings({
@@ -553,11 +397,21 @@ function SidebarFooterSettings({
   onOpenSettings: () => void;
   visible: boolean;
 }) {
-  return visible ? (
-    <div className="setta-sidebar-footer grid shrink-0 gap-0.5 px-1 py-1">
+  if (!visible) {
+    return null;
+  }
+  return (
+    <div
+      className="setta-sidebar-footer grid shrink-0 gap-0.5 px-1 py-1"
+      data-testid="sidebar-memory-footer"
+    >
       <SidebarSettingsButton onOpenSettings={onOpenSettings} />
     </div>
-  ) : null;
+  );
+}
+
+function sidebarShortcutsBusy(busy: boolean, chatCreateBusy: boolean) {
+  return busy || chatCreateBusy;
 }
 
 function SidebarOperationError({
@@ -567,7 +421,10 @@ function SidebarOperationError({
   message: string | null;
   onDismiss: () => void;
 }) {
-  return message ? (
+  if (!message) {
+    return null;
+  }
+  return (
     <div
       className="mt-2 flex min-w-0 items-start gap-2 rounded-sm border border-destructive/35 bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
       data-testid="workspace-operation-error"
@@ -575,15 +432,268 @@ function SidebarOperationError({
     >
       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <div className="min-w-0 flex-1 break-words leading-4">{message}</div>
-      <button aria-label="Dismiss workspace error" onClick={onDismiss} type="button">
+      <button
+        aria-label="Dismiss workspace error"
+        className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-destructive/80 hover:bg-destructive/15 hover:text-destructive focus-visible:bg-destructive/15 focus-visible:text-destructive"
+        onClick={onDismiss}
+        title="Dismiss workspace error"
+        type="button"
+      >
         <X className="h-3 w-3" />
       </button>
     </div>
-  ) : null;
+  );
+}
+
+function ProjectNavigationList({
+  activeRun,
+  activeRunLiveness,
+  activeWorkspaces,
+  busy,
+  chatCreateBusy,
+  conversationSelectionBusy,
+  closeWorkspace,
+  createWorkspaceConversation,
+  deleteConversation,
+  expandedWorkspaceIds,
+  onCommandError,
+  openWorkflowGraphPane,
+  openWorkspacePath,
+  recentWorkspaces,
+  removeRecent,
+  selectConversation,
+  selectWorkflowDefinition,
+  selectWorkspace,
+  selectedConversationId,
+  selectedWorkflowDefinitionIdsByWorkspaceId,
+  selectedWorkspaceId,
+  setConversationPinned,
+  setWorkspaceExpanded,
+  workspaceConversationLists,
+  workspaceWorkflowDefinitionLists,
+}: {
+  activeRun: Run | null;
+  activeRunLiveness: RunLiveness | null;
+  activeWorkspaces: WorkspaceSummary[];
+  busy: boolean;
+  chatCreateBusy: boolean;
+  conversationSelectionBusy: boolean;
+  closeWorkspace: (id: string) => Promise<void>;
+  createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  deleteConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
+  expandedWorkspaceIds: ReadonlySet<string>;
+  onCommandError: (message: string | null) => void;
+  openWorkflowGraphPane: () => void;
+  openWorkspacePath: (rootPath: string) => Promise<void>;
+  recentWorkspaces: WorkspaceSummary[];
+  removeRecent: (id: string) => Promise<void>;
+  selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
+  selectWorkflowDefinition: (workspaceId: string, definitionId: string) => void;
+  selectWorkspace: (id: string) => Promise<void>;
+  selectedConversationId: string;
+  selectedWorkflowDefinitionIdsByWorkspaceId: Record<string, string | undefined>;
+  selectedWorkspaceId: string;
+  setConversationPinned: (
+    conversationId: string,
+    pinned: boolean,
+    workspaceId?: string,
+  ) => Promise<void>;
+  setWorkspaceExpanded: (workspaceId: string, expanded: boolean) => void;
+  workspaceConversationLists: Record<string, SidebarWorkspaceConversationState | undefined>;
+  workspaceWorkflowDefinitionLists: Record<
+    string,
+    SidebarWorkspaceWorkflowDefinitionState | undefined
+  >;
+}) {
+  const [visibleConversationLimit, setVisibleConversationLimit] = useState(chatHistoryLimit);
+  const items = useMemo(
+    () =>
+      selectSidebarNavigationItems({
+        activeWorkspaces,
+        expandedWorkspaceIds,
+        recentWorkspaces,
+        selectedConversationId,
+        selectedWorkflowDefinitionIdsByWorkspaceId,
+        selectedWorkspaceId,
+        visibleConversationLimit,
+        workspaceConversationLists,
+        workspaceWorkflowDefinitionLists,
+      }),
+    [
+      activeWorkspaces,
+      expandedWorkspaceIds,
+      recentWorkspaces,
+      selectedConversationId,
+      selectedWorkflowDefinitionIdsByWorkspaceId,
+      selectedWorkspaceId,
+      visibleConversationLimit,
+      workspaceConversationLists,
+      workspaceWorkflowDefinitionLists,
+    ],
+  );
+  const corruptionLabelsByConversationId = useMemo(
+    () => conversationCorruptionLabels(sidebarWorkspaceDiagnostics(workspaceConversationLists)),
+    [workspaceConversationLists],
+  );
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  async function runCommand(command: SidebarNavigationCommand) {
+    onCommandError(null);
+    try {
+      switch (command.type) {
+        case "activateWorkspace":
+          await runActivateWorkspaceCommand(command);
+          return;
+        case "createWorkspaceConversation":
+          await runCreateWorkspaceConversationCommand(command);
+          return;
+        case "selectWorkflowDefinition":
+          await runSelectWorkflowDefinitionCommand(command);
+          return;
+        default:
+          await runBasicNavigationCommand(command);
+      }
+    } catch (error) {
+      onCommandError(errorMessage(error));
+    }
+  }
+
+  async function runActivateWorkspaceCommand(
+    command: Extract<SidebarNavigationCommand, { type: "activateWorkspace" }>,
+  ) {
+    setWorkspaceExpanded(command.workspaceId, command.nextExpanded);
+    if (command.selectWorkspace) {
+      await selectWorkspace(command.workspaceId);
+    }
+  }
+
+  async function runCreateWorkspaceConversationCommand(
+    command: Extract<SidebarNavigationCommand, { type: "createWorkspaceConversation" }>,
+  ) {
+    setWorkspaceExpanded(command.workspaceId, true);
+    if (command.workspaceId !== selectedWorkspaceId) {
+      await selectWorkspace(command.workspaceId);
+    }
+    await createWorkspaceConversation(command.workspaceId);
+  }
+
+  async function runSelectWorkflowDefinitionCommand(
+    command: Extract<SidebarNavigationCommand, { type: "selectWorkflowDefinition" }>,
+  ) {
+    if (command.workspaceId !== selectedWorkspaceId) {
+      await selectWorkspace(command.workspaceId);
+    }
+    selectWorkflowDefinition(command.workspaceId, command.definitionId);
+    openWorkflowGraphPane();
+  }
+
+  async function runBasicNavigationCommand(
+    command: Exclude<
+      SidebarNavigationCommand,
+      Extract<
+        SidebarNavigationCommand,
+        {
+          type: "activateWorkspace" | "createWorkspaceConversation" | "selectWorkflowDefinition";
+        }
+      >
+    >,
+  ) {
+    switch (command.type) {
+      case "closeWorkspace":
+        await closeWorkspace(command.workspaceId);
+        return;
+      case "deleteConversation":
+        await deleteConversation(command.conversationId, command.workspaceId);
+        return;
+      case "openRecentWorkspace":
+        await openWorkspacePath(command.rootPath);
+        return;
+      case "removeRecentWorkspace":
+        await removeRecent(command.workspaceId);
+        return;
+      case "selectConversation":
+        if (command.workspaceId !== selectedWorkspaceId) {
+          await selectWorkspace(command.workspaceId);
+        }
+        await selectConversation(command.conversationId, command.workspaceId);
+        return;
+      case "setConversationPinned":
+        await setConversationPinned(command.conversationId, command.pinned, command.workspaceId);
+        return;
+      case "showMoreConversations":
+        setVisibleConversationLimit((current) => current + chatHistoryLimit);
+        return;
+      default:
+        assertNever(command);
+    }
+  }
+
+  return (
+    <div
+      className="min-h-0 overflow-hidden"
+      aria-label="Projects"
+      data-testid="active-workspace-list"
+      style={sidebarNavigationListStyle(items.length)}
+    >
+      <VirtualWorkspaceList
+        items={items}
+        renderItem={(item) => (
+          <SidebarNavigationRow
+            activeRun={activeRun}
+            activeRunLiveness={activeRunLiveness}
+            busy={busy}
+            chatCreateBusy={chatCreateBusy}
+            conversationSelectionBusy={conversationSelectionBusy}
+            workspaceConversationLists={workspaceConversationLists}
+            workspaceWorkflowDefinitionLists={workspaceWorkflowDefinitionLists}
+            corruptionLabelsByConversationId={corruptionLabelsByConversationId}
+            item={item}
+            runCommand={runCommand}
+          />
+        )}
+        rowHeight={sidebarNavigationRowHeight}
+        testId="sidebar-navigation-list"
+      />
+    </div>
+  );
+}
+
+function VirtualWorkspaceList({ items, renderItem, rowHeight, testId }: VirtualWorkspaceListProps) {
+  return (
+    <Virtuoso
+      className="h-full min-h-0 overflow-y-auto overscroll-contain"
+      data={items}
+      data-testid={testId}
+      fixedItemHeight={rowHeight}
+      initialItemCount={Math.min(
+        items.length,
+        Math.ceil(sidebarNavigationMaxHeight / rowHeight) + workspaceListOverscan,
+      )}
+      itemContent={(_, item) => (
+        <div
+          data-testid={sidebarItemTestId(item)}
+          style={{ height: rowHeight, ...noScrollAnchoringStyle }}
+        >
+          {renderItem(item)}
+        </div>
+      )}
+      overscan={workspaceListOverscan * rowHeight}
+      style={noScrollAnchoringStyle}
+    />
+  );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Sidebar command failed";
 }
 
 function sidebarNavigationListStyle(itemCount: number): CSSProperties {
-  return { height: Math.min(itemCount * sidebarNavigationRowHeight, sidebarNavigationMaxHeight) };
+  return {
+    height: Math.min(itemCount * sidebarNavigationRowHeight, sidebarNavigationMaxHeight),
+  };
 }
 
 function sidebarItemTestId(item: SidebarNavigationItem) {
@@ -591,22 +701,24 @@ function sidebarItemTestId(item: SidebarNavigationItem) {
     case "activeWorkspace":
       return "active-workspace-item";
     case "conversation":
-      return "conversation-navigator-row";
-    case "conversationStatus":
-      return "conversation-status-item";
-    case "loadMoreConversations":
+      return "conversation-sidebar-item";
+    case "emptyConversationList":
+      return "conversation-empty-item";
+    case "emptyWorkflowList":
+      return "workflow-empty-item";
+    case "moreConversations":
       return "conversation-more-item";
     case "recentWorkspace":
       return "recent-workspace-item";
+    case "sectionHeader":
+      return "workspace-sidebar-section-item";
+    case "workflowDefinition":
+      return "workflow-definition-item";
     default:
       return assertNever(item);
   }
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Conversation navigation failed";
-}
-
 function assertNever(value: never): never {
-  throw new Error(`Unsupported sidebar value: ${JSON.stringify(value)}`);
+  throw new Error(`Unsupported sidebar navigation item: ${JSON.stringify(value)}`);
 }

@@ -77,39 +77,54 @@
 
 .workspace-frozen-dom-visual,
 .workspace-frozen-dom-visual [data-snapshot-scroller="true"],
+.workspace-frozen-dom-visual [data-testid="chat-transcript-scroller"],
 .workspace-frozen-dom-visual .overflow-auto,
 .workspace-frozen-dom-visual .overflow-y-auto,
+.workspace-frozen-dom-visual .workspace-fake-long-chat-scroll,
 .workspace-snapshot-texture [data-snapshot-scroller="true"],
 .workspace-snapshot-texture .overflow-auto,
 .workspace-snapshot-texture .overflow-y-auto,
+.workspace-snapshot-texture .workspace-fake-long-chat-scroll,
 .workspace-react-dom-surface[data-scrollbars-suppressed="true"],
 .workspace-react-dom-surface[data-scrollbars-suppressed="true"] [data-snapshot-scroller="true"],
 .workspace-react-dom-surface[data-scrollbars-suppressed="true"] .overflow-auto,
 .workspace-react-dom-surface[data-scrollbars-suppressed="true"] .overflow-y-auto,
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"] .workspace-fake-long-chat-scroll,
 .workspace-pane-host[data-moving="true"] .workspace-react-dom-surface .overflow-auto,
-.workspace-pane-host[data-moving="true"] .workspace-react-dom-surface .overflow-y-auto {
+.workspace-pane-host[data-moving="true"] .workspace-react-dom-surface .overflow-y-auto,
+.workspace-pane-host[data-moving="true"]
+  .workspace-react-dom-surface
+  .workspace-fake-long-chat-scroll {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
 .workspace-frozen-dom-visual::-webkit-scrollbar,
 .workspace-frozen-dom-visual [data-snapshot-scroller="true"]::-webkit-scrollbar,
+.workspace-frozen-dom-visual [data-testid="chat-transcript-scroller"]::-webkit-scrollbar,
 .workspace-frozen-dom-visual .overflow-auto::-webkit-scrollbar,
 .workspace-frozen-dom-visual .overflow-y-auto::-webkit-scrollbar,
+.workspace-frozen-dom-visual .workspace-fake-long-chat-scroll::-webkit-scrollbar,
 .workspace-snapshot-texture [data-snapshot-scroller="true"]::-webkit-scrollbar,
 .workspace-snapshot-texture .overflow-auto::-webkit-scrollbar,
 .workspace-snapshot-texture .overflow-y-auto::-webkit-scrollbar,
+.workspace-snapshot-texture .workspace-fake-long-chat-scroll::-webkit-scrollbar,
 .workspace-react-dom-surface[data-scrollbars-suppressed="true"]::-webkit-scrollbar,
 .workspace-react-dom-surface[data-scrollbars-suppressed="true"]
   [data-snapshot-scroller="true"]::-webkit-scrollbar,
 .workspace-react-dom-surface[data-scrollbars-suppressed="true"] .overflow-auto::-webkit-scrollbar,
 .workspace-react-dom-surface[data-scrollbars-suppressed="true"] .overflow-y-auto::-webkit-scrollbar,
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"]
+  .workspace-fake-long-chat-scroll::-webkit-scrollbar,
 .workspace-pane-host[data-moving="true"]
   .workspace-react-dom-surface
   .overflow-auto::-webkit-scrollbar,
 .workspace-pane-host[data-moving="true"]
   .workspace-react-dom-surface
-  .overflow-y-auto::-webkit-scrollbar {
+  .overflow-y-auto::-webkit-scrollbar,
+.workspace-pane-host[data-moving="true"]
+  .workspace-react-dom-surface
+  .workspace-fake-long-chat-scroll::-webkit-scrollbar {
   display: none;
   height: 0;
   width: 0;

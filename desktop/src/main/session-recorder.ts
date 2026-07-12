@@ -3,11 +3,6 @@ import { createWriteStream, mkdirSync, writeFileSync, type WriteStream } from "n
 import { writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
-import type {
-  ConversationInputRoutingState,
-  InputRoutingState,
-  PresentationIntent,
-} from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import type {
   IpcObservedFailure,
@@ -16,8 +11,6 @@ import type {
   IpcObserver,
 } from "@shared/ipc";
 import type { RendererRecordedEvent } from "@shared/recording";
-
-import { RouteObservability, type RoutingObservationRecorder } from "./routing-observability";
 
 interface SessionRecorderMetadata {
   appDataDir: string;
@@ -54,7 +47,7 @@ const maxStringLength = 4_000;
 const maxArrayLength = 60;
 const maxObjectKeys = 80;
 
-export class SessionRecorder implements RoutingObservationRecorder {
+export class SessionRecorder {
   readonly dir: string;
 
   private readonly backendHTTPStream: WriteStream;
@@ -64,7 +57,6 @@ export class SessionRecorder implements RoutingObservationRecorder {
   private readonly ipcStream: WriteStream;
   private readonly rendererConsoleStream: WriteStream;
   private readonly rendererEventsStream: WriteStream;
-  private readonly routeObservability: RouteObservability;
   private readonly screenshotDir: string;
   private readonly screenshotIntervalMs: number;
 
@@ -77,9 +69,6 @@ export class SessionRecorder implements RoutingObservationRecorder {
     this.includePayloads = options.includePayloads;
     this.screenshotIntervalMs = options.screenshotIntervalMs;
     this.screenshotDir = join(this.dir, "screenshots");
-    this.routeObservability = new RouteObservability((type, payload) => {
-      this.recordEvent(type, payload);
-    });
 
     mkdirSync(this.screenshotDir, { recursive: true });
     this.eventsStream = createWriteStream(join(this.dir, "events.jsonl"), { flags: "a" });
@@ -227,26 +216,6 @@ export class SessionRecorder implements RoutingObservationRecorder {
 
   recordAppEvent(type: string, payload: unknown) {
     this.recordEvent(type, payload);
-  }
-
-  recordConversationInputRoutingState(state: ConversationInputRoutingState): void {
-    this.routeObservability.recordConversationInputRoutingState(state);
-  }
-
-  recordMasterInputRoutingState(state: InputRoutingState): void {
-    this.routeObservability.recordMasterInputRoutingState(state);
-  }
-
-  recordMasterPresentationIntent(intent: PresentationIntent): void {
-    this.routeObservability.recordMasterPresentationIntent(intent);
-  }
-
-  recordRoutingObservationFailure(
-    scope: "conversation" | "master",
-    inputId: string,
-    error: unknown,
-  ): void {
-    this.routeObservability.recordRoutingObservationFailure(scope, inputId, error);
   }
 
   recordRendererEvent(event: RendererRecordedEvent) {

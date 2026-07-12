@@ -8,10 +8,11 @@ import (
 
 	"setta/internal/appearance"
 	"setta/internal/appstate"
-	"setta/internal/conversation"
+	"setta/internal/chat"
 	"setta/internal/jsonio"
-	"setta/internal/master"
-	"setta/internal/speech"
+	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
+	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui"
 )
@@ -32,6 +33,14 @@ func requireWorkspaceUIService(response http.ResponseWriter, service WorkspaceUI
 	return service
 }
 
+func requireWorkspaceActivityService(response http.ResponseWriter, service WorkspaceActivityService) WorkspaceActivityService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "workspace_activity_service_unavailable", "workspace activity service is not available")
+		return nil
+	}
+	return service
+}
+
 func requireAppearanceService(response http.ResponseWriter, service AppearanceService) AppearanceService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "appearance_service_unavailable", "appearance service is not available")
@@ -40,50 +49,9 @@ func requireAppearanceService(response http.ResponseWriter, service AppearanceSe
 	return service
 }
 
-func requireConversationService(response http.ResponseWriter, service ConversationService) ConversationService {
+func requireChatService(response http.ResponseWriter, service ChatService) ChatService {
 	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "conversation_service_unavailable", "conversation service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireConversationInputService(
-	response http.ResponseWriter,
-	service ConversationInputService,
-) ConversationInputService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "conversation_input_service_unavailable", "conversation input service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireConversationNavigatorService(
-	response http.ResponseWriter,
-	service ConversationNavigatorService,
-) ConversationNavigatorService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "conversation_navigator_service_unavailable", "conversation navigator service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireMasterInputService(
-	response http.ResponseWriter,
-	service MasterInputService,
-) MasterInputService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "master_input_service_unavailable", "master input service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireSpeechService(response http.ResponseWriter, service SpeechService) SpeechService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "speech_service_unavailable", "speech service is not available")
+		writeError(response, http.StatusServiceUnavailable, "chat_service_unavailable", "chat service is not available")
 		return nil
 	}
 	return service
@@ -97,9 +65,41 @@ func requireCodexAccountService(response http.ResponseWriter, service CodexAccou
 	return service
 }
 
+func requireWorkflowService(response http.ResponseWriter, service WorkflowService) WorkflowService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "workflow_service_unavailable", "workflow service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireSemanticGraphService(response http.ResponseWriter, service SemanticGraphService) SemanticGraphService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "semantic_graph_service_unavailable", "semantic graph service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireTerminalService(response http.ResponseWriter, service TerminalService) TerminalService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "terminal_service_unavailable", "terminal service is not available")
+		return nil
+	}
+	return service
+}
+
 func requireRuntimeAuthService(response http.ResponseWriter, service RuntimeAuthService) RuntimeAuthService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "runtime_auth_service_unavailable", "runtime auth service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireNotifyService(response http.ResponseWriter, service NotifyService) NotifyService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "notify_service_unavailable", "notify service is not available")
 		return nil
 	}
 	return service
@@ -178,176 +178,83 @@ func writeAppearanceError(response http.ResponseWriter, code string, err error) 
 	writeError(response, status, code, err.Error())
 }
 
-func writeConversationError(response http.ResponseWriter, code string, err error) {
+func writeChatError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
-	if conversation.IsConversationNotFound(err) {
-		writeError(response, http.StatusNotFound, "conversation_not_found", err.Error())
+	if commandErr, ok := chat.IsChatCommandError(err); ok {
+		writeError(response, status, string(commandErr.Code), commandErr.Error())
 		return
 	}
-	if conversation.IsCommandConflict(err) {
-		status = http.StatusConflict
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_conversation_state", err.Error())
+	if operationErr, ok := chat.IsChatOperationError(err); ok {
+		writeError(response, http.StatusConflict, string(operationErr.Code), operationErr.Error())
 		return
 	}
-	if conversation.IsPersistenceError(err) {
+	if chat.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_chat_state", err.Error())
+		return
+	}
+	if chat.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())
 }
 
-func writeConversationInputError(response http.ResponseWriter, err error) {
-	if conversation.IsInvalidConversationInputReceipt(err) {
-		writeError(response, http.StatusInternalServerError, "invalid_conversation_input_receipt", err.Error())
-		return
-	}
-	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeCancelled) {
-		writeError(response, http.StatusRequestTimeout, "conversation_input_write_cancelled", err.Error())
-		return
-	}
-	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeSaturated) {
-		writeError(response, http.StatusTooManyRequests, "conversation_input_write_saturated", err.Error())
-		return
-	}
-	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "conversation_input_store_unavailable", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "conversation_input_store_unavailable", err.Error())
-		return
-	}
-	if conversation.IsConversationInputConflict(err) {
-		writeError(response, http.StatusConflict, "conversation_input_conflict", err.Error())
-		return
-	}
-	if conversation.IsConversationNotFound(err) {
-		writeError(response, http.StatusNotFound, "conversation_not_found", err.Error())
-		return
-	}
-	if conversation.IsStateConflict(err) {
-		writeError(response, http.StatusConflict, "conversation_input_state_conflict", err.Error())
-		return
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_conversation_input_state", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "persist_conversation_input_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_conversation_input", err.Error())
-}
-
-func writeMasterInputError(response http.ResponseWriter, err error) {
-	if master.IsInputConflict(err) {
-		writeError(response, http.StatusConflict, "master_input_conflict", err.Error())
-		return
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "persist_master_input_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_input", err.Error())
-}
-
-func writeMasterShellInteractionError(response http.ResponseWriter, err error) {
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	writeError(response, http.StatusInternalServerError, "read_master_shell_interaction_failed", err.Error())
-}
-
-func writeMasterInputStateError(response http.ResponseWriter, err error) {
-	if conversation.IsStateConflict(err) {
-		writeError(response, http.StatusConflict, "master_input_state_conflict", err.Error())
-		return
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "read_master_input_state_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_input_state_request", err.Error())
-}
-
-func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_speech_source_state", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "read_speech_source_failed", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "speech_source_store_unavailable", err.Error())
-		return
-	}
-	if speechError, ok := speech.AsError(err); ok {
-		writeError(response, speechErrorHTTPStatus(speechError.Code), string(speechError.Code), speechError.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, fallbackCode, err.Error())
-}
-
-func writeSpeechVoiceConfigurationError(response http.ResponseWriter, err error) {
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_speech_voice_configuration", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "read_speech_voice_configuration_failed", err.Error())
-		return
-	}
-	writeSpeechError(response, "invalid_speech_voice_configuration", err)
-}
-
-func writeConversationVoiceConfigurationError(response http.ResponseWriter, err error) {
-	if _, ok := speech.AsError(err); ok {
-		writeSpeechError(response, "invalid_speech_voice_configuration", err)
-		return
-	}
-	writeConversationError(response, "update_conversation_voice_configuration_failed", err)
-}
-
-func speechErrorHTTPStatus(code speech.ErrorCode) int {
-	switch code {
-	case speech.ErrorRateLimited:
-		return http.StatusTooManyRequests
-	case speech.ErrorProviderRejected, speech.ErrorProviderResponseMalformed, speech.ErrorAudioTooLarge:
-		return http.StatusBadGateway
-	case speech.ErrorNotConfigured, speech.ErrorProviderUnavailable:
-		return http.StatusServiceUnavailable
-	case speech.ErrorSourceUnavailable:
-		return http.StatusConflict
-	case speech.ErrorVoiceUnavailable:
-		return http.StatusUnprocessableEntity
-	default:
-		return http.StatusInternalServerError
-	}
-}
-
 func writeCodexAccountError(response http.ResponseWriter, code string, err error) {
 	writeError(response, http.StatusBadRequest, code, err.Error())
+}
+
+func writeWorkflowError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	var validationErr *orchestrator.ValidationError
+	if errors.As(err, &validationErr) {
+		writeError(response, status, "workflow_validation_failed", validationErr.Error())
+		return
+	}
+	if conflict, ok := orchestrator.IsWorkflowExecutionAlreadyRunning(err); ok {
+		activeExecution := conflict.ActiveExecution
+		writeAPIError(response, http.StatusConflict, APIError{
+			Code:            orchestrator.WorkflowExecutionAlreadyRunningCode,
+			Message:         conflict.Error(),
+			ActiveExecution: &activeExecution,
+		})
+		return
+	}
+	if orchestrator.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_workflow_state", err.Error())
+		return
+	}
+	if orchestrator.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeSemanticGraphError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if semanticgraph.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_semantic_graph_state", err.Error())
+		return
+	}
+	if semanticgraph.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeTerminalError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	var unsupported terminal.UnsupportedPlatformError
+	if errors.As(err, &unsupported) {
+		writeError(response, http.StatusNotImplemented, "terminal_unsupported", unsupported.Error())
+		return
+	}
+	if terminal.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_terminal_state", err.Error())
+		return
+	}
+	if terminal.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
 }
 
 func writeError(response http.ResponseWriter, status int, code string, message string) {

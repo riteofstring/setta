@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"setta/internal/httpapi"
-	"setta/internal/speech"
+	"setta/internal/runtime"
 )
 
 const testRuntimeID = "0123456789abcdef0123456789abcdef"
@@ -97,107 +97,6 @@ func TestServeOptionsDisplayNameFromEnvAndFlag(t *testing.T) {
 	}
 }
 
-func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
-	deps := testDeps()
-	var cleared string
-	deps.getenv = func(name string) string {
-		switch name {
-		case "SETTA_E2E":
-			return "1"
-		case speech.APIKeyEnvironmentVariable:
-			return "sk-openai-speech-serve"
-		case speech.E2EBaseURLEnvironmentVariable:
-			return "http://127.0.0.1:24892/v1"
-		default:
-			return ""
-		}
-	}
-	deps.unsetenv = func(name string) error {
-		cleared = name
-		return nil
-	}
-
-	options, err := serveOptionsFromArgs(context.Background(), []string{
-		"--app-data-dir", t.TempDir(),
-	}, deps)
-	if err != nil {
-		t.Fatalf("serve options: %v", err)
-	}
-	if options.Speech.APIKey != "sk-openai-speech-serve" {
-		t.Fatalf("speech API key = %q, want OpenAI API key", options.Speech.APIKey)
-	}
-	if options.Speech.BaseURL != "http://127.0.0.1:24892/v1" || !options.Speech.AllowTestBaseURL {
-		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech)
-	}
-
-	config := serveRuntimeConfig(options, deps, io.Discard)
-	if !reflect.DeepEqual(config.Speech, options.Speech) {
-		t.Fatalf("runtime speech config = %+v, want %+v", config.Speech, options.Speech)
-	}
-	if cleared != speech.APIKeyEnvironmentVariable {
-		t.Fatalf("cleared environment variable = %q, want %q", cleared, speech.APIKeyEnvironmentVariable)
-	}
-}
-
-func TestServeOptionsClearsSpeechCredentialBeforeTailnetCommand(t *testing.T) {
-	env := map[string]string{
-		speech.APIKeyEnvironmentVariable: "sk-setta-speech-tailnet",
-	}
-	deps := testDeps()
-	deps.getenv = func(name string) string { return env[name] }
-	deps.unsetenv = func(name string) error {
-		delete(env, name)
-		return nil
-	}
-	deps.commandRunner = func(context.Context, string, ...string) ([]byte, error) {
-		if value := env[speech.APIKeyEnvironmentVariable]; value != "" {
-			return nil, fmt.Errorf("tailnet helper inherited speech credential")
-		}
-		return []byte("100.64.0.12\n"), nil
-	}
-
-	options, err := serveOptionsFromArgs(context.Background(), []string{
-		"--app-data-dir", t.TempDir(),
-		"--tailnet",
-	}, deps)
-	if err != nil {
-		t.Fatalf("serve options: %v", err)
-	}
-	if options.Host != "100.64.0.12" || options.Speech.APIKey != "sk-setta-speech-tailnet" {
-		t.Fatalf("serve options = %+v, want retained config and tailnet host", options)
-	}
-}
-
-func TestServeOptionsRejectsSpeechBaseURLWithoutE2E(t *testing.T) {
-	deps := testDeps()
-	deps.getenv = func(name string) string {
-		if name == speech.E2EBaseURLEnvironmentVariable {
-			return "http://127.0.0.1:24892/v1"
-		}
-		return ""
-	}
-
-	_, err := serveOptionsFromArgs(context.Background(), []string{
-		"--app-data-dir", t.TempDir(),
-	}, deps)
-	if err == nil || !strings.Contains(err.Error(), "requires SETTA_E2E=1") {
-		t.Fatalf("error = %v, want SETTA_E2E guard error", err)
-	}
-}
-
-func TestServeOptionsRejectsUnclearedSpeechCredential(t *testing.T) {
-	deps := testDeps()
-	clearErr := errors.New("environment is read-only")
-	deps.unsetenv = func(string) error { return clearErr }
-
-	_, err := serveOptionsFromArgs(context.Background(), []string{
-		"--app-data-dir", t.TempDir(),
-	}, deps)
-	if !errors.Is(err, clearErr) || !strings.Contains(err.Error(), speech.APIKeyEnvironmentVariable) {
-		t.Fatalf("error = %v, want wrapped speech credential clear failure", err)
-	}
-}
-
 func TestServeOptionsTailnetResolvesNumericIPv4(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()
@@ -220,6 +119,49 @@ func TestServeOptionsTailnetResolvesNumericIPv4(t *testing.T) {
 	}
 	if !options.Tailnet {
 		t.Fatal("tailnet = false, want true")
+	}
+}
+
+func TestServeOptionsHonorsGuardedE2EChatHarness(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.getenv = func(name string) string {
+		switch name {
+		case "SETTA_E2E":
+			return "1"
+		case "SETTA_E2E_CHAT_HARNESS":
+			return string(runtime.ChatHarnessScriptedWorkflow)
+		default:
+			return ""
+		}
+	}
+
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", appDataDir,
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if options.ChatHarness != runtime.ChatHarnessScriptedWorkflow {
+		t.Fatalf("chat harness = %q, want scripted workflow", options.ChatHarness)
+	}
+}
+
+func TestServeOptionsRejectsE2EChatHarnessWithoutE2E(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.getenv = func(name string) string {
+		if name == "SETTA_E2E_CHAT_HARNESS" {
+			return string(runtime.ChatHarnessScriptedWorkflow)
+		}
+		return ""
+	}
+
+	_, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", appDataDir,
+	}, deps)
+	if err == nil || !strings.Contains(err.Error(), "SETTA_E2E_CHAT_HARNESS requires SETTA_E2E=1") {
+		t.Fatalf("error = %v, want SETTA_E2E guard error", err)
 	}
 }
 
@@ -446,9 +388,6 @@ func testDeps() cliDeps {
 		},
 		getenv: func(string) string {
 			return ""
-		},
-		unsetenv: func(string) error {
-			return nil
 		},
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 		now: func() time.Time {

@@ -74,6 +74,9 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
+    extraEnv: {
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+    },
     fixture,
     visible: options.visible,
   });
@@ -113,15 +116,11 @@ try {
     requiredFocusedPaneId: "multirow_pane_1",
   });
   const clickPreservationChecks = [
+    await assertVisiblePaneClickFocusesWithoutReveal(context.client, multiRowSnapshot, "terminal"),
     await assertVisiblePaneClickFocusesWithoutReveal(
       context.client,
       multiRowSnapshot,
-      "empty-frame",
-    ),
-    await assertVisiblePaneClickFocusesWithoutReveal(
-      context.client,
-      multiRowSnapshot,
-      "easy-button",
+      "workflow-graph",
     ),
   ];
   await captureScreenshot(context.client, join(artifactDir, "multirow-live-panes.png"));
@@ -259,7 +258,8 @@ function paneSnapshotMatches(snapshot, options) {
     paneSnapshotStructureMatches(snapshot, options) &&
     paneSnapshotRequiredPanesMatch(snapshot, options) &&
     paneSnapshotHostsAreLive(snapshot) &&
-    paneSnapshotSurvivorKindsMatch(snapshot)
+    paneSnapshotTerminalHostsReady(snapshot) &&
+    paneSnapshotWorkflowHostsReady(snapshot)
   );
 }
 
@@ -303,15 +303,29 @@ function paneSnapshotHostsAreLive(snapshot) {
   );
 }
 
-function paneSnapshotSurvivorKindsMatch(snapshot) {
-  const surfaceKinds = new Set(snapshot.intersectingHosts.map((host) => host.surfaceKind));
+function paneSnapshotTerminalHostsReady(snapshot) {
+  const terminalHosts = hostsForSurfaceKind(snapshot, "terminal");
   return (
-    surfaceKinds.has("easy-button") &&
-    surfaceKinds.has("empty-frame") &&
-    snapshot.intersectingHosts.every(
-      (host) => host.surfaceKind === "easy-button" || host.surfaceKind === "empty-frame",
+    terminalHosts.length > 0 &&
+    terminalHosts.every(
+      (host) =>
+        host.hasTerminalViewport &&
+        host.terminalStatus !== "" &&
+        host.terminalSessionId.startsWith("terminal_"),
     )
   );
+}
+
+function paneSnapshotWorkflowHostsReady(snapshot) {
+  const workflowHosts = hostsForSurfaceKind(snapshot, "workflow-graph");
+  return (
+    workflowHosts.length > 0 &&
+    workflowHosts.every((host) => host.hasWorkflowGraphHost && host.hasWorkflowGraphSurface)
+  );
+}
+
+function hostsForSurfaceKind(snapshot, surfaceKind) {
+  return snapshot.intersectingHosts.filter((host) => host.surfaceKind === surfaceKind);
 }
 
 async function waitForVerticalResizeTarget(client, { adjacentPaneId, paneId }) {
@@ -419,13 +433,20 @@ function ultraWideLayout(workspaceId) {
     const surfaceKind = productSurfaceKindForPane(index);
     return {
       columnId: `workspace_column_${index}`,
-      easyButtonConfig: null,
       heat: (index * 37) % 100,
       paneId: `workspace_pane_${index}`,
       sequence: index,
       subtitle: "ultra-wide visibility fixture",
       surfaceId: `workspace_surface_${index}`,
       surfaceKind,
+      terminalConfig:
+        surfaceKind === "terminal"
+          ? {
+              cwdOverride: "",
+              profileId: "",
+              titleOverride: "",
+            }
+          : null,
       title: `Pane ${String(index + 1).padStart(2, "0")}`,
       tone: ["cyan", "green", "orange", "pink", "slate"][index % 5],
       weight: 1,
@@ -456,13 +477,20 @@ function multiRowLayout(workspaceId) {
     const surfaceKind = multiRowSurfaceKind(columnIndex, rowIndex);
     return {
       columnId: `multirow_column_${columnIndex}`,
-      easyButtonConfig: null,
       heat: (index * 41) % 100,
       paneId: `multirow_pane_${index}`,
       sequence: index,
       subtitle: "multi-row visibility fixture",
       surfaceId: `multirow_surface_${index}`,
       surfaceKind,
+      terminalConfig:
+        surfaceKind === "terminal"
+          ? {
+              cwdOverride: "",
+              profileId: "",
+              titleOverride: "",
+            }
+          : null,
       title: `Row ${rowIndex + 1} Pane ${columnIndex + 1}`,
       tone: ["cyan", "green", "orange", "pink", "slate"][index % 5],
       weight: 1,
@@ -491,13 +519,20 @@ function verticalStackLayout(workspaceId) {
     const surfaceKind = verticalStackSurfaceKind(index);
     return {
       columnId: "vertical_stack_column_0",
-      easyButtonConfig: null,
       heat: (index * 29) % 100,
       paneId: `vertical_pane_${index}`,
       sequence: index,
       subtitle: "vertical stack row-height fixture",
       surfaceId: `vertical_surface_${index}`,
       surfaceKind,
+      terminalConfig:
+        surfaceKind === "terminal"
+          ? {
+              cwdOverride: "",
+              profileId: "",
+              titleOverride: "",
+            }
+          : null,
       title: `Vertical Pane ${String(index + 1).padStart(2, "0")}`,
       tone: ["cyan", "green", "orange", "pink", "slate"][index % 5],
       weight: index === 0 ? 50 : 1,
@@ -524,13 +559,16 @@ function verticalStackLayout(workspaceId) {
 }
 
 function productSurfaceKindForPane(index) {
-  return ["empty-frame", "easy-button"][index % 2];
+  return ["chat-dom", "empty-frame", "workflow-graph", "terminal"][index % 4];
 }
 
 function multiRowSurfaceKind(columnIndex, rowIndex) {
-  return (columnIndex + rowIndex) % 2 === 0 ? "empty-frame" : "easy-button";
+  if (rowIndex === 1) {
+    return columnIndex % 2 === 0 ? "terminal" : "workflow-graph";
+  }
+  return ["chat-dom", "workflow-graph", "terminal"][columnIndex % 3];
 }
 
 function verticalStackSurfaceKind(index) {
-  return ["empty-frame", "easy-button"][index % 2];
+  return ["terminal", "workflow-graph", "chat-dom"][index % 3];
 }

@@ -1,7 +1,8 @@
-import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
+import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
+import { GitGraphSurfaceAdapter } from "./git-graph-surface-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
+import { SyntheticTerminalSurfaceAdapter } from "./synthetic-terminal-surface-adapter";
 import {
   applySnapshotScrollOffsets,
   cloneSnapshotNode,
@@ -10,6 +11,7 @@ import {
   renderFakePaneContent,
   renderSnapshotContent,
 } from "./surface-dom-content";
+import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import type {
   FreezeReason,
   WorkspacePane,
@@ -34,9 +36,7 @@ export interface SnapshotSurfaceAdapterOptions {
 }
 
 export interface DefaultSurfaceAdapterOptions {
-  speechCapture?: SpeechCaptureRequester;
-  speechPresentation?: GlobalSpeechPresentationSource;
-  workspaceId?: string;
+  workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
 export type EmptyFrameOptionsProvider = () => readonly EmptyFrameOption[];
@@ -464,7 +464,13 @@ function snapshotScrollKey(root: Element): string {
   }
   return Array.from(
     root.querySelectorAll<HTMLElement>(
-      ["[data-snapshot-scroller='true']", ".overflow-auto", ".overflow-y-auto"].join(","),
+      [
+        "[data-snapshot-scroller='true']",
+        "[data-testid='chat-transcript-scroller']",
+        ".overflow-auto",
+        ".overflow-y-auto",
+        ".workspace-fake-long-chat-scroll",
+      ].join(","),
     ),
   )
     .map((element) => `${Math.round(element.scrollTop)},${Math.round(element.scrollLeft)}`)
@@ -504,32 +510,32 @@ export function createDefaultSurfaceAdapter(
   pane: WorkspacePane,
   options: DefaultSurfaceAdapterOptions = {},
 ): SurfaceAdapter {
-  const factory = defaultSurfaceAdapterFactories[pane.surfaceKind];
-  if (!factory) {
-    throw new Error(`unsupported workspace surface kind: ${pane.surfaceKind}`);
-  }
-  return factory(pane, options);
+  return defaultSurfaceAdapterFactories[pane.surfaceKind](pane, options);
 }
 
-type DefaultSurfaceAdapterFactory = (
-  pane: WorkspacePane,
-  options: DefaultSurfaceAdapterOptions,
-) => SurfaceAdapter;
-
-const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurfaceAdapterFactory>> = {
+const defaultSurfaceAdapterFactories = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
-  "easy-button": (pane, options) =>
-    createReactDomSurfaceAdapter(pane, undefined, {
-      speechCapture: options.speechCapture,
-      speechPresentation: options.speechPresentation,
-      workspaceId: options.workspaceId,
-    }),
+  "chat-dom": (pane) => createReactDomSurfaceAdapter(pane),
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
+  "fake-long-chat": (pane) => createReactDomSurfaceAdapter(pane),
+  "fake-terminal": (pane) => new SyntheticTerminalSurfaceAdapter(pane),
+  "git-graph": (pane) => new GitGraphSurfaceAdapter(pane),
+  "workflow-graph": (pane, options) =>
+    createReactDomSurfaceAdapter(pane, undefined, {
+      workflowGraphSyntheticGraphFallback: options.workflowGraphSyntheticGraphFallback,
+    }),
   "settings-dom": (pane) => createReactDomSurfaceAdapter(pane),
+  "semantic-node-details": (pane) => createReactDomSurfaceAdapter(pane),
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
-};
+  terminal: (pane) => new TerminalSurfaceAdapter(pane),
+  "workflow-node-details": (pane) => createReactDomSurfaceAdapter(pane),
+  "workflow-settings": (pane) => createReactDomSurfaceAdapter(pane),
+} satisfies Record<
+  SurfaceKind,
+  (pane: WorkspacePane, options: DefaultSurfaceAdapterOptions) => SurfaceAdapter
+>;
 
 function performanceNow(): number {
   if (typeof performance === "undefined") {

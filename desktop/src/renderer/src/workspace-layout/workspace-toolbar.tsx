@@ -1,4 +1,13 @@
-import { Globe, Plus, Settings, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  Columns2,
+  Globe,
+  MessageSquarePlus,
+  Plus,
+  Settings,
+  Terminal,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import {
   type ComponentType,
   type ReactNode,
@@ -85,16 +94,34 @@ export function WorkspaceToolbar({
 
 export const openPaneActions = [
   {
+    Icon: MessageSquarePlus,
+    label: "Chat",
+    request: openPaneRequest("Chat", "chat workspace surface", "chat-dom", "cyan"),
+    shortcutKey: "c",
+  },
+  {
     Icon: Globe,
     label: "Browser",
     request: openPaneRequest("Browser", "browser surface", "browser", "green"),
     shortcutKey: "b",
   },
   {
+    Icon: Terminal,
+    label: "Terminal",
+    request: openPaneRequest("Terminal", "command surface", "terminal", "green"),
+    shortcutKey: "t",
+  },
+  {
     Icon: Settings,
     label: "Settings",
     request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
     shortcutKey: "s",
+  },
+  {
+    Icon: Columns2,
+    label: "Workflow Graph",
+    request: openPaneRequest("Workflow Graph", "workflow graph", "workflow-graph", "cyan"),
+    shortcutKey: "v",
   },
 ] satisfies Array<{
   Icon: ComponentType<{ className?: string }>;

@@ -11,18 +11,19 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/chat"
 	"setta/internal/httpapi"
 )
 
 type contractSpec struct {
-	ConversationPaletteCatalog []generatedValueSpec
-	Endpoints                  []endpointSpec
-	ErrorResponse              reflect.Type
-	Interfaces                 []interfaceSpec
-	ProtocolVersion            int
-	SchemaHash                 string
-	Unions                     []unionSpec
-	ValueSets                  []valueSetSpec
+	Endpoints       []endpointSpec
+	ErrorResponse   reflect.Type
+	Events          []eventSpec
+	Interfaces      []interfaceSpec
+	ProtocolVersion int
+	SchemaHash      string
+	Unions          []unionSpec
+	ValueSets       []valueSetSpec
 }
 
 type endpointSpec struct {
@@ -38,9 +39,8 @@ type endpointSpec struct {
 }
 
 type interfaceSpec struct {
-	Name          string
-	Type          reflect.Type
-	FieldLiterals map[string]string
+	Name string
+	Type reflect.Type
 }
 
 type unionSpec struct {
@@ -61,6 +61,12 @@ type valueSetSpec struct {
 	Values []string
 }
 
+type eventSpec struct {
+	Name    string
+	Payload reflect.Type
+	Type    string
+}
+
 type contractCollector struct {
 	specs          []interfaceSpec
 	states         map[reflect.Type]visitState
@@ -71,7 +77,6 @@ type contractCollector struct {
 	valueSets      map[string]valueSetSpec
 	usedValueSets  []valueSetSpec
 	usedValueNames map[string]bool
-	fieldLiterals  map[reflect.Type]map[string]string
 }
 
 type visitState int
@@ -86,7 +91,7 @@ func main() {
 	protocolSnapshotPath := flag.String("protocol-snapshot", "internal/httpapi/contract_schema_snapshot.json", "generated protocol schema snapshot path")
 	flag.Parse()
 
-	specs, err := contractSpecs(httpapi.Contracts())
+	specs, err := contractSpecs(httpapi.Contracts(), chat.EventContracts())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "collect contracts: %v\n", err)
 		os.Exit(1)
@@ -112,7 +117,7 @@ func main() {
 	}
 }
 
-func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
+func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContractSchema) (contractSpec, error) {
 	schemaHash, err := httpapi.ContractSchemaHash(schema)
 	if err != nil {
 		return contractSpec{}, err
@@ -128,7 +133,6 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 		usedUnions:     map[reflect.Type]bool{},
 		valueSets:      valueSets,
 		usedValueNames: map[string]bool{},
-		fieldLiterals:  map[reflect.Type]map[string]string{},
 	}
 	endpoints, err := endpointSpecs(schema.Endpoints, &collector)
 	if err != nil {
@@ -138,22 +142,19 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 	if err != nil {
 		return contractSpec{}, err
 	}
-	conversationPaletteCatalog, err := conversationPaletteCatalogSpecs(
-		collector.usedValueNames["ConversationPaletteID"],
-	)
+	events, err := eventSpecs(eventSchema, &collector)
 	if err != nil {
 		return contractSpec{}, err
 	}
-	collector.attachFieldLiterals()
 	return contractSpec{
-		ConversationPaletteCatalog: conversationPaletteCatalog,
-		Endpoints:                  endpoints,
-		ErrorResponse:              errorResponse,
-		Interfaces:                 collector.specs,
-		ProtocolVersion:            httpapi.ProtocolVersion,
-		SchemaHash:                 schemaHash,
-		Unions:                     collector.unions,
-		ValueSets:                  collector.usedValueSets,
+		Endpoints:       endpoints,
+		ErrorResponse:   errorResponse,
+		Events:          events,
+		Interfaces:      collector.specs,
+		ProtocolVersion: httpapi.ProtocolVersion,
+		SchemaHash:      schemaHash,
+		Unions:          collector.unions,
+		ValueSets:       collector.usedValueSets,
 	}, nil
 }
 func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractCollector) ([]endpointSpec, error) {
@@ -246,6 +247,9 @@ func validateRouteContract(endpoint httpapi.ContractEndpoint) error {
 }
 
 func validateRouteRequestContract(endpoint httpapi.ContractEndpoint) error {
+	if endpoint.Method == http.MethodGet && endpoint.Request != nil {
+		return fmt.Errorf("%s GET endpoint must not declare a request body", endpoint.Name)
+	}
 	if endpoint.Method == http.MethodGet && endpoint.RequestBodyLimitBytes != 0 {
 		return fmt.Errorf("%s GET endpoint must not declare a request body limit", endpoint.Name)
 	}
@@ -278,6 +282,47 @@ func validateRouteResponseContract(endpoint httpapi.ContractEndpoint) error {
 		return fmt.Errorf("%s has empty response type", endpoint.Name)
 	}
 	return nil
+}
+
+func eventSpecs(schema chat.EventContractSchema, collector *contractCollector) ([]eventSpec, error) {
+	names := map[string]bool{}
+	types := map[string]bool{}
+	specs := make([]eventSpec, 0, len(schema.Events))
+	for index, event := range schema.Events {
+		spec, err := validateEvent(index, event, names, types)
+		if err != nil {
+			return nil, err
+		}
+		if err := collector.add(event.Payload); err != nil {
+			return nil, fmt.Errorf("%s payload: %w", event.Name, err)
+		}
+		specs = append(specs, spec)
+	}
+	return specs, nil
+}
+
+func validateEvent(index int, event chat.EventContract, names map[string]bool, types map[string]bool) (eventSpec, error) {
+	if event.Name == "" {
+		return eventSpec{}, fmt.Errorf("event %d has empty name", index)
+	}
+	if !isTypeScriptIdentifier(event.Name) || !isUpperASCII(event.Name[0]) {
+		return eventSpec{}, fmt.Errorf("%s has unsupported event name", event.Name)
+	}
+	if names[event.Name] {
+		return eventSpec{}, fmt.Errorf("duplicate event name %s", event.Name)
+	}
+	names[event.Name] = true
+	if event.Type == "" {
+		return eventSpec{}, fmt.Errorf("%s has empty event type", event.Name)
+	}
+	if types[event.Type] {
+		return eventSpec{}, fmt.Errorf("duplicate event type %s", event.Type)
+	}
+	types[event.Type] = true
+	if event.Payload == nil || event.Payload.Kind() != reflect.Struct || event.Payload.Name() == "" {
+		return eventSpec{}, fmt.Errorf("%s has unsupported payload type %s", event.Name, event.Payload)
+	}
+	return eventSpec{Name: event.Name, Payload: event.Payload, Type: event.Type}, nil
 }
 
 func errorResponseSpec(errorResponses []reflect.Type, collector *contractCollector) (reflect.Type, error) {
@@ -340,9 +385,6 @@ func (collector *contractCollector) addUnion(goType reflect.Type) error {
 	}
 	collector.usedUnions[goType] = true
 	for _, variant := range spec.Variants {
-		if err := collector.registerUnionVariantDiscriminator(spec, variant); err != nil {
-			return err
-		}
 		if err := collector.add(variant.Type); err != nil {
 			return fmt.Errorf("%s.%s variant: %w", spec.Name, variant.Name, err)
 		}
@@ -446,22 +488,26 @@ func (collector *contractCollector) addStructFields(goType reflect.Type) error {
 	return nil
 }
 
+func skipContractField(field reflect.StructField, jsonName string) bool {
+	return field.PkgPath != "" || jsonName == "-"
+}
+
 func render(buffer *bytes.Buffer, specs contractSpec) error {
 	buffer.WriteString("// Code generated by go run ./cmd/generate-contracts; DO NOT EDIT.\n\n")
 	renderRuntimeImports(buffer, specs)
 	renderProtocolMetadata(buffer, specs)
 	renderValueSets(buffer, specs.ValueSets)
-	renderConversationPaletteCatalog(buffer, specs.ConversationPaletteCatalog)
-	renderContractLiteralDecoder(buffer, specs.Interfaces)
 	if err := renderInterfaces(buffer, specs.Interfaces); err != nil {
 		return err
 	}
 	renderUnions(buffer, specs.Unions)
+	renderEventUnion(buffer, specs.Events)
 	renderEndpointDescriptors(buffer, specs.Endpoints)
 	if err := renderDecoders(buffer, specs.Interfaces); err != nil {
 		return err
 	}
 	renderUnionDecoders(buffer, specs.Unions)
+	renderEventDecoders(buffer, specs.Events)
 	renderClient(buffer, specs)
 	return nil
 }
@@ -469,6 +515,40 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 func renderProtocolMetadata(buffer *bytes.Buffer, specs contractSpec) {
 	fmt.Fprintf(buffer, "export const backendProtocolVersion = %d;\n", specs.ProtocolVersion)
 	fmt.Fprintf(buffer, "export const backendContractSchemaHash = %q;\n\n", specs.SchemaHash)
+}
+
+func renderValueSets(buffer *bytes.Buffer, specs []valueSetSpec) {
+	for _, spec := range specs {
+		fmt.Fprintf(buffer, "export type %s = %s;\n\n", spec.Name, literalUnion(spec.Values))
+		fmt.Fprintf(buffer, "export const %sValues = [%s] as const satisfies readonly %s[];\n\n", lowerCamel(spec.Name), literalList(spec.Values), spec.Name)
+		fmt.Fprintf(buffer, "export function decode%s(value: unknown, label = %q): %s {\n", spec.Name, spec.Name, spec.Name)
+		buffer.WriteString("  const decoded = decodeString(value, label);\n")
+		buffer.WriteString("  switch (decoded) {\n")
+		for _, value := range spec.Values {
+			fmt.Fprintf(buffer, "    case %q:\n", value)
+			buffer.WriteString("      return decoded;\n")
+		}
+		buffer.WriteString("    default:\n")
+		buffer.WriteString("      throw new Error(label + \" is unsupported: \" + decoded);\n")
+		buffer.WriteString("  }\n")
+		buffer.WriteString("}\n\n")
+	}
+}
+
+func literalList(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, fmt.Sprintf("%q", value))
+	}
+	return strings.Join(quoted, ", ")
+}
+
+func literalUnion(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, fmt.Sprintf("%q", value))
+	}
+	return strings.Join(quoted, " | ")
 }
 
 func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec) error {
@@ -483,15 +563,9 @@ func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec) error {
 			if field.PkgPath != "" || name == "-" {
 				continue
 			}
-			tsType := ""
-			if literal, ok := spec.FieldLiterals[name]; ok {
-				tsType = fmt.Sprintf("%q", literal)
-			} else {
-				var err error
-				tsType, err = typeScriptType(field.Type)
-				if err != nil {
-					return fmt.Errorf("%s.%s: %w", spec.Name, field.Name, err)
-				}
+			tsType, err := typeScriptType(field.Type)
+			if err != nil {
+				return fmt.Errorf("%s.%s: %w", spec.Name, field.Name, err)
 			}
 			fmt.Fprintf(buffer, "  %s: %s;\n", name, tsType)
 		}
@@ -511,6 +585,35 @@ func renderUnions(buffer *bytes.Buffer, specs []unionSpec) {
 			fmt.Fprintf(buffer, "%s%s\n", prefix, variant.Name)
 		}
 		buffer.WriteString(";\n\n")
+	}
+}
+
+func renderEventUnion(buffer *bytes.Buffer, events []eventSpec) {
+	if len(events) == 0 {
+		return
+	}
+	buffer.WriteString("export type ChatEvent =\n")
+	for index, event := range events {
+		prefix := "  | "
+		if index == 0 {
+			prefix = "  "
+		}
+		fmt.Fprintf(buffer, "%s%s\n", prefix, event.Name)
+	}
+	buffer.WriteString(";\n\n")
+	for _, event := range events {
+		fmt.Fprintf(buffer, "export interface %s {\n", event.Name)
+		buffer.WriteString("  schemaVersion: number;\n")
+		buffer.WriteString("  streamId: string;\n")
+		buffer.WriteString("  sequence: number;\n")
+		buffer.WriteString("  eventId: string;\n")
+		fmt.Fprintf(buffer, "  type: %q;\n", event.Type)
+		buffer.WriteString("  emittedAt: string;\n")
+		buffer.WriteString("  workspaceId: string;\n")
+		buffer.WriteString("  conversationId: string;\n")
+		buffer.WriteString("  runId: string;\n")
+		fmt.Fprintf(buffer, "  payload: %s;\n", typeName(event.Payload))
+		buffer.WriteString("}\n\n")
 	}
 }
 
@@ -538,6 +641,40 @@ func renderUnionDecoders(buffer *bytes.Buffer, specs []unionSpec) {
 		buffer.WriteString("  }\n")
 		buffer.WriteString("}\n\n")
 	}
+}
+
+func renderEventDecoders(buffer *bytes.Buffer, events []eventSpec) {
+	if len(events) == 0 {
+		return
+	}
+	buffer.WriteString("export function decodeChatEvent(value: unknown): ChatEvent {\n")
+	buffer.WriteString("  const record = assertRecord(value, \"ChatEvent\");\n")
+	buffer.WriteString("  const type = decodeString(requireField(record, \"type\", \"ChatEvent\"), \"ChatEvent.type\");\n")
+	buffer.WriteString("  switch (type) {\n")
+	for _, event := range events {
+		fmt.Fprintf(buffer, "    case %q:\n", event.Type)
+		fmt.Fprintf(buffer, "      return decode%sFromRecord(record);\n", event.Name)
+	}
+	buffer.WriteString("    default:\n")
+	buffer.WriteString("      throw new Error(\"ChatEvent.type is unsupported: \" + type);\n")
+	buffer.WriteString("  }\n")
+	buffer.WriteString("}\n\n")
+	for _, event := range events {
+		renderEventDecoder(buffer, event)
+	}
+}
+
+func renderEventDecoder(buffer *bytes.Buffer, event eventSpec) {
+	fmt.Fprintf(buffer, "export function decode%s(value: unknown): %s {\n", event.Name, event.Name)
+	fmt.Fprintf(buffer, "  return decode%sFromRecord(assertRecord(value, %q));\n", event.Name, event.Name)
+	buffer.WriteString("}\n\n")
+	fmt.Fprintf(buffer, "function decode%sFromRecord(record: Record<string, unknown>): %s {\n", event.Name, event.Name)
+	fmt.Fprintf(buffer, "  const base = decodeBackendEventBase(record, %q, %q);\n", event.Name, event.Type)
+	buffer.WriteString("  return {\n")
+	buffer.WriteString("    ...base,\n")
+	fmt.Fprintf(buffer, "    payload: %s(requireField(record, \"payload\", %q)),\n", decoderFunctionName(event.Payload), event.Name)
+	buffer.WriteString("  };\n")
+	buffer.WriteString("}\n\n")
 }
 
 func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
@@ -575,9 +712,6 @@ func renderStructDecoderFields(buffer *bytes.Buffer, spec interfaceSpec) error {
 		if err != nil {
 			return fmt.Errorf("%s.%s: %w", spec.Name, field.Name, err)
 		}
-		if literal, ok := spec.FieldLiterals[name]; ok {
-			decoded = fmt.Sprintf("decodeContractLiteral(%s, %q, %q)", decoded, literal, spec.Name+"."+name)
-		}
 		fmt.Fprintf(buffer, "    %s: %s,\n", name, decoded)
 	}
 	return nil
@@ -610,19 +744,19 @@ func renderClientMethod(buffer *bytes.Buffer, endpoint endpointSpec, semicolon b
 		suffix = ";"
 	}
 	if endpoint.Request == nil {
-		fmt.Fprintf(buffer, "  %s: (options?: BackendRequestOptions) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Response), suffix)
+		fmt.Fprintf(buffer, "  %s: () => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Response), suffix)
 		return
 	}
-	fmt.Fprintf(buffer, "  %s: (request: %s, options?: BackendRequestOptions) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Request), typeName(endpoint.Response), suffix)
+	fmt.Fprintf(buffer, "  %s: (request: %s) => Promise<%s>%s\n", endpoint.OperationName, typeName(endpoint.Request), typeName(endpoint.Response), suffix)
 }
 
 func renderClientOperation(buffer *bytes.Buffer, endpoint endpointSpec, errorResponse reflect.Type) {
 	if endpoint.Request == nil {
-		fmt.Fprintf(buffer, "    %s: (options) => requestBackend({\n", endpoint.OperationName)
+		fmt.Fprintf(buffer, "    %s: () => requestBackend({\n", endpoint.OperationName)
 		renderRequestBackendProperties(buffer, endpoint, errorResponse, "undefined")
 		return
 	}
-	fmt.Fprintf(buffer, "    %s: (request, options) => requestBackend({\n", endpoint.OperationName)
+	fmt.Fprintf(buffer, "    %s: (request) => requestBackend({\n", endpoint.OperationName)
 	renderRequestBackendProperties(buffer, endpoint, errorResponse, "request")
 }
 
@@ -633,7 +767,6 @@ func renderRequestBackendProperties(buffer *bytes.Buffer, endpoint endpointSpec,
 	fmt.Fprintf(buffer, "      endpoint: backendEndpoints.%s,\n", endpoint.Name)
 	buffer.WriteString("      fetchImpl,\n")
 	fmt.Fprintf(buffer, "      requestPayload: %s,\n", requestPayload)
-	buffer.WriteString("      signal: options?.signal,\n")
 	buffer.WriteString("    }),\n")
 }
 

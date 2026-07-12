@@ -9,7 +9,13 @@ export interface PaneChromeTitleModel {
   truncation: PaneTitleTruncation;
 }
 
-export type PaneChromeIconName = "document" | "settings" | "sparkles";
+export type PaneChromeIconName =
+  | "chat"
+  | "document"
+  | "network"
+  | "settings"
+  | "terminal"
+  | "workflow";
 
 interface PaneTitleOverride {
   fullTitle?: string;
@@ -18,9 +24,19 @@ interface PaneTitleOverride {
 }
 
 const fallbackTitle = "Pane";
+const terminalFallbackTitle = "Terminal";
+const chatFallbackTitle = "Chat";
 const paneChromeIconsBySurfaceKind: Partial<Record<SurfaceKind, PaneChromeIconName>> = {
-  "easy-button": "sparkles",
+  "chat-dom": "chat",
+  "fake-long-chat": "chat",
+  "fake-terminal": "terminal",
+  "git-graph": "network",
+  "semantic-node-details": "network",
   "settings-dom": "settings",
+  terminal: "terminal",
+  "workflow-graph": "workflow",
+  "workflow-node-details": "workflow",
+  "workflow-settings": "workflow",
 };
 
 export function paneChromeTitleModel(
@@ -32,7 +48,25 @@ export function paneChromeTitleModel(
     fullTitle: nonEmptyTitle(override?.fullTitle) ?? title,
     icon: paneChromeIconName(pane.surfaceKind),
     title,
-    truncation: override?.truncation ?? defaultPaneTitleTruncation(),
+    truncation: override?.truncation ?? defaultPaneTitleTruncation(pane.surfaceKind),
+  };
+}
+
+export function terminalPaneTitle(cwd: string): PaneTitleOverride {
+  const title = nonEmptyTitle(cwd) ?? terminalFallbackTitle;
+  return {
+    fullTitle: title,
+    title,
+    truncation: "start",
+  };
+}
+
+export function chatPaneTitle(title: string): PaneTitleOverride {
+  const normalized = nonEmptyTitle(title) ?? chatFallbackTitle;
+  return {
+    fullTitle: normalized,
+    title: normalized,
+    truncation: "end",
   };
 }
 
@@ -105,11 +139,18 @@ function findChildWithClass(root: ParentNode, className: string): Element | null
 }
 
 function defaultPaneTitle(pane: WorkspacePane): string {
+  if (pane.surfaceKind === "terminal") {
+    return (
+      nonEmptyTitle(pane.terminalConfig?.cwdOverride) ??
+      nonEmptyTitle(pane.title) ??
+      terminalFallbackTitle
+    );
+  }
   return nonEmptyTitle(pane.title) ?? fallbackTitle;
 }
 
-function defaultPaneTitleTruncation(): PaneTitleTruncation {
-  return "end";
+function defaultPaneTitleTruncation(surfaceKind: SurfaceKind): PaneTitleTruncation {
+  return surfaceKind === "terminal" || surfaceKind === "fake-terminal" ? "start" : "end";
 }
 
 function paneTitleTruncation(value: string | undefined): PaneTitleTruncation {

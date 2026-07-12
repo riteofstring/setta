@@ -32,6 +32,7 @@ import {
   seedPreviewStops,
   settingsFromSeed,
 } from "./appearance-seed-palette";
+import { ChatDefaultsSettings } from "./chat-defaults-settings";
 import { CodexAccountSettings } from "./codex-account-settings";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
@@ -47,6 +48,7 @@ import {
 import { settingsSubtabs, type SettingsSubtab } from "./settings-subtabs";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { TerminalProfilesSettings } from "./terminal-profiles-settings";
 import { cn } from "../lib/utils";
 import {
   appearanceSettingsEqual,
@@ -103,6 +105,7 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
   const status = useAppearanceStore((state) => state.status);
   const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
   const contentBySubtab = {
+    "chat-defaults": <ChatDefaultsSettings />,
     "codex-account": <CodexAccountSettings />,
     developer: (
       <DeveloperSettingsEditor
@@ -128,6 +131,7 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
         status={status}
       />
     ),
+    "terminal-profiles": <TerminalProfilesSettings />,
     theme: (
       <AppearanceSettingsEditor
         defaultPresetId={defaultPresetId}
