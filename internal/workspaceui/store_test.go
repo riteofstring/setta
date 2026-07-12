@@ -36,7 +36,12 @@ func TestStorePersistsWorkspaceUILayout(t *testing.T) {
 	if loaded.Layout.Columns[0].PreviousProportionWidth == nil || *loaded.Layout.Columns[0].PreviousProportionWidth != 0.42 {
 		t.Fatalf("previous proportion width = %#v", loaded.Layout.Columns[0].PreviousProportionWidth)
 	}
-	if _, err := os.Stat(StateFilePath(appDataDir, layout.WorkspaceID)); err != nil {
+	path := StateFilePath(appDataDir, layout.WorkspaceID)
+	wantPath := filepath.Join(appDataDir, "workspace-ui", layout.WorkspaceID, "layout.json")
+	if path != wantPath {
+		t.Fatalf("state path = %q, want %q", path, wantPath)
+	}
+	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("stat layout file: %v", err)
 	}
 }

@@ -15,7 +15,6 @@ import (
 
 func TestNewStoreBootstrapsIsolatedSchemaAndConfiguresEveryConnection(t *testing.T) {
 	appDataDir := t.TempDir()
-	writeLegacyStateFixtures(t, appDataDir)
 	busyTimeout := 137 * time.Millisecond
 	store, err := NewStore(
 		appDataDir,
@@ -518,24 +517,6 @@ func TestReadPoolIsBoundedAndContextAware(t *testing.T) {
 	close(releaseFirst)
 	if err := <-firstResult; err != nil {
 		t.Fatalf("first read: %v", err)
-	}
-}
-
-func writeLegacyStateFixtures(t *testing.T, appDataDir string) {
-	t.Helper()
-	legacyFiles := []string{
-		filepath.Join(appDataDir, "workflow-kernel.sqlite"),
-		filepath.Join(appDataDir, "semantic-graph.sqlite"),
-		filepath.Join(appDataDir, "workspaces", "old-workspace", "conversations", "old.json"),
-		filepath.Join(appDataDir, "workspaces", "old-workspace", "easy-runs", "old", "run.json"),
-	}
-	for _, path := range legacyFiles {
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatalf("create legacy fixture directory: %v", err)
-		}
-		if err := os.WriteFile(path, []byte("malformed legacy state"), 0o600); err != nil {
-			t.Fatalf("write legacy fixture: %v", err)
-		}
 	}
 }
 

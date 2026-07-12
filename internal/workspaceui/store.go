@@ -12,7 +12,10 @@ import (
 	"setta/internal/jsonio"
 )
 
-const stateFileName = "ui-state.json"
+const (
+	stateDirectoryName = "workspace-ui"
+	stateFileName      = "layout.json"
+)
 
 type Store struct {
 	appDataDir string
@@ -66,7 +69,7 @@ func NewStore(appDataDir string) (*Store, error) {
 }
 
 func StateFilePath(appDataDir string, workspaceID string) string {
-	return filepath.Join(appDataDir, "workspaces", workspaceID, stateFileName)
+	return filepath.Join(appDataDir, stateDirectoryName, workspaceID, stateFileName)
 }
 
 func (store *Store) LoadLayout(workspaceID string) (WorkspaceUILayoutReadResult, error) {
@@ -108,7 +111,7 @@ func (store *Store) SaveLayout(layout WorkspaceUILayout) (WorkspaceUILayout, err
 		return WorkspaceUILayout{}, &PersistenceError{Operation: "create workspace UI state directory", Path: filepath.Dir(path), Err: err}
 	}
 
-	file, err := os.CreateTemp(filepath.Dir(path), ".ui-state-*.tmp")
+	file, err := os.CreateTemp(filepath.Dir(path), ".layout-*.tmp")
 	if err != nil {
 		return WorkspaceUILayout{}, &PersistenceError{Operation: "create workspace UI state temp file", Path: filepath.Dir(path), Err: err}
 	}
