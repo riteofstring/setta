@@ -1,9 +1,10 @@
-import type {
-  ColumnWidthSpec as PersistedColumnWidthSpec,
-  PaneTone as PersistedPaneTone,
-  WorkspaceUIColumn,
-  WorkspaceUILayout,
-  WorkspaceUIPane,
+import {
+  workspaceUILayoutSchemaVersion,
+  type ColumnWidthSpec as PersistedColumnWidthSpec,
+  type PaneTone as PersistedPaneTone,
+  type WorkspaceUIColumn,
+  type WorkspaceUILayout,
+  type WorkspaceUIPane,
 } from "@generated/backend";
 
 import type {
@@ -17,7 +18,6 @@ import type {
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
-const realWorkspaceLayoutSchemaVersion = 1;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 export const defaultRealWorkspacePaneLimits = {
@@ -98,7 +98,7 @@ export function workspaceUILayoutFromScene(
     })),
     focusedPaneId,
     panes: scene.panes.map(workspacePaneToPersisted),
-    schemaVersion: realWorkspaceLayoutSchemaVersion,
+    schemaVersion: workspaceUILayoutSchemaVersion,
     workspaceId,
   };
 }

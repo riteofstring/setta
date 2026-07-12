@@ -1,4 +1,8 @@
-import type { SurfaceKind, WorkspaceUIPane } from "@generated/backend";
+import {
+  workspaceUILayoutSchemaVersion,
+  type SurfaceKind,
+  type WorkspaceUIPane,
+} from "@generated/backend";
 
 import { createRealWorkspaceScene, type RealWorkspaceSceneOptions } from "./workspace-scene";
 
@@ -30,7 +34,7 @@ export function createWorkspaceLayoutTestScene(options: RealWorkspaceSceneOption
       })),
       focusedPaneId: "workspace_pane_0",
       panes: layoutTestSurfaces.map(storedTestPane),
-      schemaVersion: 1,
+      schemaVersion: workspaceUILayoutSchemaVersion,
       workspaceId: options.workspaceId,
     },
   });

@@ -21,6 +21,8 @@ import {
 export const backendProtocolVersion = 49;
 export const backendContractSchemaHash = "sha256:f267053d0a21b95d4d9ac9eab72176c87ec89138b413d372ac8f20cf706773bb";
 
+export const workspaceUILayoutSchemaVersion = 1;
+
 export const conversationSnapshotLimits = {
   artifacts: 100,
   narrationEvents: 100,

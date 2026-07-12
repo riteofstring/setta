@@ -1,4 +1,4 @@
-import type { WorkspaceUILayout } from "@generated/backend";
+import { workspaceUILayoutSchemaVersion, type WorkspaceUILayout } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
@@ -72,7 +72,7 @@ describe("real workspace layout scene", () => {
 
     expect(persisted).toMatchObject({
       focusedPaneId: paneId,
-      schemaVersion: 1,
+      schemaVersion: workspaceUILayoutSchemaVersion,
       workspaceId,
     });
     expect(restored.focusedPaneId).toBe(paneId);
@@ -197,7 +197,7 @@ function storedLayout(workspaceId: string, paneIds: string[]): WorkspaceUILayout
     columns: [storedColumn("workspace_column_0", 0, paneIds)],
     focusedPaneId: paneIds[0] ?? "",
     panes: [storedPane("workspace_pane_0", "workspace_column_0", "workspace_surface_0", "Frame")],
-    schemaVersion: 1,
+    schemaVersion: workspaceUILayoutSchemaVersion,
     workspaceId,
   };
 }

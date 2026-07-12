@@ -281,6 +281,28 @@ func TestConversationSnapshotLimitsRenderFromGoOwner(t *testing.T) {
 	}
 }
 
+func TestWorkspaceUILayoutSchemaVersionRendersFromGoOwner(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints:      []httpapi.ContractEndpoint{contractEndpoint("ContractTest", "/contract-test")},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	})
+	if err != nil {
+		t.Fatalf("collect contracts: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	want := fmt.Sprintf(
+		"export const workspaceUILayoutSchemaVersion = %d;",
+		workspaceui.SchemaVersion,
+	)
+	if !strings.Contains(buffer.String(), want) {
+		t.Fatalf("generated output is missing Go-owned workspace layout schema version %q:\n%s", want, buffer.String())
+	}
+}
+
 func TestConversationEventUnionRendersExactDiscriminators(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{{
