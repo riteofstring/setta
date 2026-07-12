@@ -2,14 +2,17 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete. Phases 1-9 are implemented and verified. The 2026-07-15
-Phase 9 item 5 follow-up added concurrent production topic conversations,
-narrator-routed steering, isolated cancellation, and forced-process-restart
-reconciliation to the live backend workflow. The standard ChatGPT-authenticated
-gate now runs that production workflow together with the Codex protocol
-discovery/fork/injection and active-side-isolation suites, always with
-`OPENAI_API_KEY` unset. The plan is ready for the repeated whole-plan final
-audit.
+**Status:** In progress. The repeated 2026-07-15 whole-plan audit reopened the
+Phase 1 generated-contract exit criterion. Go owns the workspace layout schema
+version as `workspaceui.SchemaVersion`, but the renderer independently writes
+the same value through handwritten `realWorkspaceLayoutSchemaVersion = 1`.
+That cross-language mirror means generated TypeScript does not yet fully match
+Go-owned contract values. All seven deterministic Electron workflows and the
+complete ChatGPT-authenticated live matrix passed during this audit, with
+`OPENAI_API_KEY` unset for live tests. The next step is to export the Go-owned
+schema version through contract generation, consume the generated value in the
+renderer, regenerate affected output, and repeat focused and production-path
+verification before the next whole-plan audit.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1859,7 +1862,12 @@ Exit criteria:
 
 ### Phase 1: New persistence and core contracts
 
-**Status:** Complete.
+**Status:** In progress. Persistence behavior and the conversation contracts
+are implemented, but the repeated 2026-07-15 audit reopened the generated
+contract exit criterion. `desktop/src/renderer/src/workspace-layout/workspace-scene.ts`
+handwrites workspace layout schema version `1` even though
+`internal/workspaceui.SchemaVersion` owns that value in Go. Replace the mirror
+with a generated TypeScript value before closing this phase again.
 
 Implement:
 
@@ -2451,6 +2459,20 @@ and then rerun this audit.
 production HTTP/runtime/store boundaries, plus the existing agent-protocol and
 active-side live suites. The new subprocess-backed case closes the concurrent
 topic, steering, cancellation, and restart/reload gaps identified above.
+
+**Repeated final-audit result (2026-07-15):** Incomplete. The standard gate
+passed all seven deterministic Electron workflows and all three
+ChatGPT-authenticated live suites, including the production topic-conversation
+controls/restart case, with `OPENAI_API_KEY` unset. The remaining blocker is a
+manual cross-language contract mirror: Go owns workspace layout schema version
+`1` as `workspaceui.SchemaVersion`, while the renderer independently declares
+`realWorkspaceLayoutSchemaVersion = 1` and uses it when creating
+`WorkspaceUILayout`. This violates the Phase 1 no-manual-mirrors exit criterion
+and the final requirement that generated TypeScript match Go-owned contracts.
+Export the owner-defined version through the contract generator, replace the
+renderer constant with the generated value, regenerate affected output, run
+focused workspace-layout/contract tests and the required production gates, and
+then repeat this audit.
 
 ### Performance
 
