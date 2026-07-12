@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-8 and Phase 9 items 1-7 are complete. Phase 9
-items 8-9 remain.
+**Status:** In progress. Phases 0-8 and Phase 9 items 1-8 are complete. Phase 9
+item 9 remains.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2167,7 +2167,7 @@ Exit criteria:
 
 ### Phase 9: Hardening and acceptance
 
-**Status:** In progress. Items 1-7 are complete. Items 8-9 remain.
+**Status:** In progress. Items 1-8 are complete. Item 9 remains.
 
 1. Exercise crashes and restarts during agent, narrator, master, speech, and
    branch operations.
