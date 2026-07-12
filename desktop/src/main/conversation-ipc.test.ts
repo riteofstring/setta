@@ -17,12 +17,14 @@ describe("conversation IPC handlers", () => {
     const backendMethods = {
       askTopicConversationNarratorStatus: vi.fn(async () => snapshot),
       createSideConversation: vi.fn(async () => snapshot),
+      disposeSideConversation: vi.fn(async () => snapshot),
       createTopicConversation: vi.fn(async () => snapshot),
       forkTopicConversation: vi.fn(async () => snapshot),
       listTopicConversations,
       queueTopicConversationTurn: vi.fn(async () => snapshot),
       readConversationSnapshot: vi.fn(async () => snapshot),
       sendTopicConversationTurn: vi.fn(async () => snapshot),
+      sendSideConversationTurn: vi.fn(async () => snapshot),
       steerTopicConversationTurn: vi.fn(async () => snapshot),
       stopTopicConversationTurn: vi.fn(async () => snapshot),
       submitConversationInput: vi.fn(async (request: SubmitConversationInputRequest) => ({
@@ -75,6 +77,20 @@ describe("conversation IPC handlers", () => {
       workspaceId: "workspace_api",
     };
     await invokeHandler(handlers, ipcChannels.conversationCreateSide, sideRequest);
+    const sideTurnRequest = {
+      parentConversationId: "conversation_api",
+      sideConversationId: "side_api",
+      text: "Ask the side",
+      workspaceId: "workspace_api",
+    };
+    const sideDisposeRequest = {
+      parentConversationId: "conversation_api",
+      parentPaneId: "pane_api",
+      sideConversationId: "side_api",
+      workspaceId: "workspace_api",
+    };
+    await invokeHandler(handlers, ipcChannels.conversationSendSideTurn, sideTurnRequest);
+    await invokeHandler(handlers, ipcChannels.conversationDisposeSide, sideDisposeRequest);
     await requiredHandler(handlers, ipcChannels.conversationCreateTopic)({} as IpcMainInvokeEvent, {
       title: "Topic",
       workspaceId: "workspace_api",
@@ -120,6 +136,8 @@ describe("conversation IPC handlers", () => {
       question: "What is happening?",
     });
     expect(backendMethods.createSideConversation).toHaveBeenCalledWith(sideRequest);
+    expect(backendMethods.sendSideConversationTurn).toHaveBeenCalledWith(sideTurnRequest);
+    expect(backendMethods.disposeSideConversation).toHaveBeenCalledWith(sideDisposeRequest);
     expect(backendMethods.createTopicConversation).toHaveBeenCalledWith({
       title: "Topic",
       workspaceId: "workspace_api",

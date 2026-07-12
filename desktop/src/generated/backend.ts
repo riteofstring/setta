@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 29;
-export const backendContractSchemaHash = "sha256:bccad7cd68989237f9e08785841f0d4b0b03ed5f27492dd67d21b028bb8cdb72";
+export const backendProtocolVersion = 30;
+export const backendContractSchemaHash = "sha256:6f960c3819a7530cdd85fb97a92e94e4d0d633666be8aca94b7432bd58e7b66d";
 
 export type DeviceScope = "full";
 
@@ -1447,9 +1447,9 @@ export function decodeSideConversationStatus(value: unknown, label = "SideConver
   }
 }
 
-export type ConversationEventType = "conversation.updated" | "conversation.turn.updated" | "conversation.queue.updated" | "conversation.thread_binding.updated" | "conversation.trajectory.appended" | "conversation.artifact.created" | "conversation.narrator_state.updated" | "conversation.narration.created" | "conversation.role_profile_override.updated" | "conversation.presentation_profile.updated" | "conversation.branch.created" | "conversation.side_conversation.updated" | "conversation.resync_required";
+export type ConversationEventType = "conversation.updated" | "conversation.turn.updated" | "conversation.queue.updated" | "conversation.thread_binding.updated" | "conversation.trajectory.appended" | "conversation.artifact.created" | "conversation.narrator_state.updated" | "conversation.narration.created" | "conversation.role_profile_override.updated" | "conversation.presentation_profile.updated" | "conversation.branch.created" | "conversation.side_conversation.updated" | "conversation.side_event.appended" | "conversation.resync_required";
 
-export const conversationEventTypeValues = ["conversation.updated", "conversation.turn.updated", "conversation.queue.updated", "conversation.thread_binding.updated", "conversation.trajectory.appended", "conversation.artifact.created", "conversation.narrator_state.updated", "conversation.narration.created", "conversation.role_profile_override.updated", "conversation.presentation_profile.updated", "conversation.branch.created", "conversation.side_conversation.updated", "conversation.resync_required"] as const satisfies readonly ConversationEventType[];
+export const conversationEventTypeValues = ["conversation.updated", "conversation.turn.updated", "conversation.queue.updated", "conversation.thread_binding.updated", "conversation.trajectory.appended", "conversation.artifact.created", "conversation.narrator_state.updated", "conversation.narration.created", "conversation.role_profile_override.updated", "conversation.presentation_profile.updated", "conversation.branch.created", "conversation.side_conversation.updated", "conversation.side_event.appended", "conversation.resync_required"] as const satisfies readonly ConversationEventType[];
 
 export function decodeConversationEventType(value: unknown, label = "ConversationEventType"): ConversationEventType {
   const decoded = decodeString(value, label);
@@ -1477,6 +1477,8 @@ export function decodeConversationEventType(value: unknown, label = "Conversatio
     case "conversation.branch.created":
       return decoded;
     case "conversation.side_conversation.updated":
+      return decoded;
+    case "conversation.side_event.appended":
       return decoded;
     case "conversation.resync_required":
       return decoded;
@@ -4751,15 +4753,33 @@ export interface SideConversation {
   id: string;
   parentConversationId: string;
   parentPaneId: string;
+  parentStatus: ConversationStatus;
   providerThreadId: string | null;
+  sourceProviderThreadId: string;
   sourceProviderTurnId: string | null;
   sourceTrajectorySequence: number;
+  lastEventSequence: number;
+  activeTurnId: string | null;
+  activeProviderTurnId: string | null;
   status: SideConversationStatus;
   resolvedSideAgentInvocation: ResolvedInvocation;
   createdAt: string;
   updatedAt: string;
   disposedAt: string | null;
   failure: Failure | null;
+}
+
+export interface SideConversationEvent {
+  streamSequence: number;
+  parentConversationId: string;
+  sideConversationId: string;
+  event: TrajectoryEvent;
+}
+
+export interface ConversationSideEventWindow {
+  events: SideConversationEvent[];
+  hasEarlier: boolean;
+  limit: number;
 }
 
 export interface ConversationEventCursor {
@@ -4781,6 +4801,7 @@ export interface ConversationSnapshot {
   presentationProfile: ConversationPresentationProfile;
   branch: ConversationBranch | null;
   sideConversations: SideConversation[];
+  sideEvents: ConversationSideEventWindow;
   eventCursor: ConversationEventCursor;
 }
 
@@ -4795,6 +4816,20 @@ export interface CreateSideConversationRequest {
   workspaceId: string;
   parentConversationId: string;
   parentPaneId: string;
+}
+
+export interface SendSideConversationTurnRequest {
+  workspaceId: string;
+  parentConversationId: string;
+  sideConversationId: string;
+  text: string;
+}
+
+export interface DisposeSideConversationRequest {
+  workspaceId: string;
+  parentConversationId: string;
+  parentPaneId: string;
+  sideConversationId: string;
 }
 
 export interface ReadConversationSnapshotRequest {
@@ -4941,6 +4976,11 @@ export interface ConversationBranchCreatedEventPayload {
 export interface ConversationSideConversationUpdatedEventPayload {
   type: "conversation.side_conversation.updated";
   sideConversation: SideConversation;
+}
+
+export interface ConversationSideEventAppendedEventPayload {
+  type: "conversation.side_event.appended";
+  event: SideConversationEvent;
 }
 
 export interface ConversationResyncRequiredEventPayload {
@@ -8077,6 +8117,7 @@ export type ConversationEventPayload =
   | ConversationPresentationProfileUpdatedEventPayload
   | ConversationBranchCreatedEventPayload
   | ConversationSideConversationUpdatedEventPayload
+  | ConversationSideEventAppendedEventPayload
   | ConversationResyncRequiredEventPayload
 ;
 
@@ -8570,6 +8611,16 @@ export const backendEndpoints = {
   CreateSideConversation: {
     method: "POST",
     path: "/conversations/sides/create",
+    requestBodyLimitBytes: 4194304,
+  },
+  SendSideConversationTurn: {
+    method: "POST",
+    path: "/conversations/sides/turns/send",
+    requestBodyLimitBytes: 4194304,
+  },
+  DisposeSideConversation: {
+    method: "POST",
+    path: "/conversations/sides/dispose",
     requestBodyLimitBytes: 4194304,
   },
   ReadConversationSnapshot: {
@@ -10883,20 +10934,46 @@ export function decodeConversationBranch(value: unknown): ConversationBranch {
 
 export function decodeSideConversation(value: unknown): SideConversation {
   const record = assertRecord(value, "SideConversation");
-  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentPaneId", "providerThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
+  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentPaneId", "parentStatus", "providerThreadId", "sourceProviderThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "activeProviderTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
   return {
     id: decodeString(requireField(record, "id", "SideConversation"), "SideConversation.id"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "SideConversation"), "SideConversation.parentConversationId"),
     parentPaneId: decodeString(requireField(record, "parentPaneId", "SideConversation"), "SideConversation.parentPaneId"),
+    parentStatus: decodeConversationStatus(requireField(record, "parentStatus", "SideConversation"), "SideConversation.parentStatus"),
     providerThreadId: decodeNullable(requireField(record, "providerThreadId", "SideConversation"), "SideConversation.providerThreadId", (item) => decodeString(item, "SideConversation.providerThreadId")),
+    sourceProviderThreadId: decodeString(requireField(record, "sourceProviderThreadId", "SideConversation"), "SideConversation.sourceProviderThreadId"),
     sourceProviderTurnId: decodeNullable(requireField(record, "sourceProviderTurnId", "SideConversation"), "SideConversation.sourceProviderTurnId", (item) => decodeString(item, "SideConversation.sourceProviderTurnId")),
     sourceTrajectorySequence: decodeInteger(requireField(record, "sourceTrajectorySequence", "SideConversation"), "SideConversation.sourceTrajectorySequence"),
+    lastEventSequence: decodeInteger(requireField(record, "lastEventSequence", "SideConversation"), "SideConversation.lastEventSequence"),
+    activeTurnId: decodeNullable(requireField(record, "activeTurnId", "SideConversation"), "SideConversation.activeTurnId", (item) => decodeString(item, "SideConversation.activeTurnId")),
+    activeProviderTurnId: decodeNullable(requireField(record, "activeProviderTurnId", "SideConversation"), "SideConversation.activeProviderTurnId", (item) => decodeString(item, "SideConversation.activeProviderTurnId")),
     status: decodeSideConversationStatus(requireField(record, "status", "SideConversation"), "SideConversation.status"),
     resolvedSideAgentInvocation: decodeResolvedInvocation(requireField(record, "resolvedSideAgentInvocation", "SideConversation")),
     createdAt: decodeString(requireField(record, "createdAt", "SideConversation"), "SideConversation.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "SideConversation"), "SideConversation.updatedAt"),
     disposedAt: decodeNullable(requireField(record, "disposedAt", "SideConversation"), "SideConversation.disposedAt", (item) => decodeString(item, "SideConversation.disposedAt")),
     failure: decodeNullable(requireField(record, "failure", "SideConversation"), "SideConversation.failure", (item) => decodeFailure(item)),
+  };
+}
+
+export function decodeSideConversationEvent(value: unknown): SideConversationEvent {
+  const record = assertRecord(value, "SideConversationEvent");
+  assertKnownFields(record, "SideConversationEvent", ["streamSequence", "parentConversationId", "sideConversationId", "event"]);
+  return {
+    streamSequence: decodeInteger(requireField(record, "streamSequence", "SideConversationEvent"), "SideConversationEvent.streamSequence"),
+    parentConversationId: decodeString(requireField(record, "parentConversationId", "SideConversationEvent"), "SideConversationEvent.parentConversationId"),
+    sideConversationId: decodeString(requireField(record, "sideConversationId", "SideConversationEvent"), "SideConversationEvent.sideConversationId"),
+    event: decodeTrajectoryEvent(requireField(record, "event", "SideConversationEvent")),
+  };
+}
+
+export function decodeConversationSideEventWindow(value: unknown): ConversationSideEventWindow {
+  const record = assertRecord(value, "ConversationSideEventWindow");
+  assertKnownFields(record, "ConversationSideEventWindow", ["events", "hasEarlier", "limit"]);
+  return {
+    events: decodeArray(requireField(record, "events", "ConversationSideEventWindow"), "ConversationSideEventWindow.events", (item) => decodeSideConversationEvent(item)),
+    hasEarlier: decodeBoolean(requireField(record, "hasEarlier", "ConversationSideEventWindow"), "ConversationSideEventWindow.hasEarlier"),
+    limit: decodeInteger(requireField(record, "limit", "ConversationSideEventWindow"), "ConversationSideEventWindow.limit"),
   };
 }
 
@@ -10911,7 +10988,7 @@ export function decodeConversationEventCursor(value: unknown): ConversationEvent
 
 export function decodeConversationSnapshot(value: unknown): ConversationSnapshot {
   const record = assertRecord(value, "ConversationSnapshot");
-  assertKnownFields(record, "ConversationSnapshot", ["schemaVersion", "conversation", "turns", "queue", "threadBinding", "trajectory", "artifacts", "narratorState", "narration", "roleProfileOverrides", "presentationProfile", "branch", "sideConversations", "eventCursor"]);
+  assertKnownFields(record, "ConversationSnapshot", ["schemaVersion", "conversation", "turns", "queue", "threadBinding", "trajectory", "artifacts", "narratorState", "narration", "roleProfileOverrides", "presentationProfile", "branch", "sideConversations", "sideEvents", "eventCursor"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ConversationSnapshot"), "ConversationSnapshot.schemaVersion"),
     conversation: decodeTopicConversation(requireField(record, "conversation", "ConversationSnapshot")),
@@ -10926,6 +11003,7 @@ export function decodeConversationSnapshot(value: unknown): ConversationSnapshot
     presentationProfile: decodeConversationPresentationProfile(requireField(record, "presentationProfile", "ConversationSnapshot")),
     branch: decodeNullable(requireField(record, "branch", "ConversationSnapshot"), "ConversationSnapshot.branch", (item) => decodeConversationBranch(item)),
     sideConversations: decodeArray(requireField(record, "sideConversations", "ConversationSnapshot"), "ConversationSnapshot.sideConversations", (item) => decodeSideConversation(item)),
+    sideEvents: decodeConversationSideEventWindow(requireField(record, "sideEvents", "ConversationSnapshot")),
     eventCursor: decodeConversationEventCursor(requireField(record, "eventCursor", "ConversationSnapshot")),
   };
 }
@@ -10948,6 +11026,28 @@ export function decodeCreateSideConversationRequest(value: unknown): CreateSideC
     workspaceId: decodeString(requireField(record, "workspaceId", "CreateSideConversationRequest"), "CreateSideConversationRequest.workspaceId"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "CreateSideConversationRequest"), "CreateSideConversationRequest.parentConversationId"),
     parentPaneId: decodeString(requireField(record, "parentPaneId", "CreateSideConversationRequest"), "CreateSideConversationRequest.parentPaneId"),
+  };
+}
+
+export function decodeSendSideConversationTurnRequest(value: unknown): SendSideConversationTurnRequest {
+  const record = assertRecord(value, "SendSideConversationTurnRequest");
+  assertKnownFields(record, "SendSideConversationTurnRequest", ["workspaceId", "parentConversationId", "sideConversationId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SendSideConversationTurnRequest"), "SendSideConversationTurnRequest.workspaceId"),
+    parentConversationId: decodeString(requireField(record, "parentConversationId", "SendSideConversationTurnRequest"), "SendSideConversationTurnRequest.parentConversationId"),
+    sideConversationId: decodeString(requireField(record, "sideConversationId", "SendSideConversationTurnRequest"), "SendSideConversationTurnRequest.sideConversationId"),
+    text: decodeString(requireField(record, "text", "SendSideConversationTurnRequest"), "SendSideConversationTurnRequest.text"),
+  };
+}
+
+export function decodeDisposeSideConversationRequest(value: unknown): DisposeSideConversationRequest {
+  const record = assertRecord(value, "DisposeSideConversationRequest");
+  assertKnownFields(record, "DisposeSideConversationRequest", ["workspaceId", "parentConversationId", "parentPaneId", "sideConversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "DisposeSideConversationRequest"), "DisposeSideConversationRequest.workspaceId"),
+    parentConversationId: decodeString(requireField(record, "parentConversationId", "DisposeSideConversationRequest"), "DisposeSideConversationRequest.parentConversationId"),
+    parentPaneId: decodeString(requireField(record, "parentPaneId", "DisposeSideConversationRequest"), "DisposeSideConversationRequest.parentPaneId"),
+    sideConversationId: decodeString(requireField(record, "sideConversationId", "DisposeSideConversationRequest"), "DisposeSideConversationRequest.sideConversationId"),
   };
 }
 
@@ -11202,6 +11302,15 @@ export function decodeConversationSideConversationUpdatedEventPayload(value: unk
   return {
     type: decodeContractLiteral(decodeConversationEventType(requireField(record, "type", "ConversationSideConversationUpdatedEventPayload"), "ConversationSideConversationUpdatedEventPayload.type"), "conversation.side_conversation.updated", "ConversationSideConversationUpdatedEventPayload.type"),
     sideConversation: decodeSideConversation(requireField(record, "sideConversation", "ConversationSideConversationUpdatedEventPayload")),
+  };
+}
+
+export function decodeConversationSideEventAppendedEventPayload(value: unknown): ConversationSideEventAppendedEventPayload {
+  const record = assertRecord(value, "ConversationSideEventAppendedEventPayload");
+  assertKnownFields(record, "ConversationSideEventAppendedEventPayload", ["type", "event"]);
+  return {
+    type: decodeContractLiteral(decodeConversationEventType(requireField(record, "type", "ConversationSideEventAppendedEventPayload"), "ConversationSideEventAppendedEventPayload.type"), "conversation.side_event.appended", "ConversationSideEventAppendedEventPayload.type"),
+    event: decodeSideConversationEvent(requireField(record, "event", "ConversationSideEventAppendedEventPayload")),
   };
 }
 
@@ -15825,6 +15934,8 @@ export function decodeConversationEventPayload(value: unknown): ConversationEven
       return decodeConversationBranchCreatedEventPayload(value);
     case "conversation.side_conversation.updated":
       return decodeConversationSideConversationUpdatedEventPayload(value);
+    case "conversation.side_event.appended":
+      return decodeConversationSideEventAppendedEventPayload(value);
     case "conversation.resync_required":
       return decodeConversationResyncRequiredEventPayload(value);
     default:
@@ -16232,6 +16343,8 @@ export interface BackendClient {
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   forkTopicConversation: (request: ForkTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   createSideConversation: (request: CreateSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  sendSideConversationTurn: (request: SendSideConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  disposeSideConversation: (request: DisposeSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
   sendTopicConversationTurn: (request: SendTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
@@ -16599,6 +16712,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.CreateSideConversation,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    sendSideConversationTurn: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.SendSideConversationTurn,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    disposeSideConversation: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.DisposeSideConversation,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

@@ -429,6 +429,7 @@ function conversationSnapshot(
     roleProfileOverrides: [],
     schemaVersion: 1,
     sideConversations: [],
+    sideEvents: { events: [], hasEarlier: false, limit: 200 },
     threadBinding: null,
     trajectory: {
       events: [userInputTrajectory(conversationId, options.turn.id, title)],

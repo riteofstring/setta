@@ -56,7 +56,11 @@ export async function exerciseSideAndDurableForkWorkflow(args) {
     ...args,
     parentSnapshot,
   });
-  return { ...durableFork, side };
+  const restartSide = await createOpenEphemeralSide({
+    ...args,
+    parentSnapshot,
+  });
+  return { ...durableFork, restartSide, side };
 }
 
 export async function exerciseEphemeralSideForkFailure({
@@ -152,6 +156,65 @@ export async function exerciseEphemeralSideForkWorkflow({
     timeoutMs,
   );
   assertSideDidNotContaminateParent(parentSnapshot, parentAfterSide);
+  const sent = await sendSideTurn(client, {
+    parentConversationId: parentTopic.id,
+    sideConversationId: side.id,
+    text: "side lifecycle answer",
+    workspaceId,
+  });
+  const answered = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.eventCursor.sequence >= sent.eventCursor.sequence &&
+      snapshot.sideConversations.some(
+        (candidate) =>
+          candidate.id === side.id &&
+          candidate.activeTurnId === null &&
+          candidate.activeProviderTurnId === null,
+      ) &&
+      snapshot.sideEvents.events.some(
+        (event) =>
+          event.sideConversationId === side.id &&
+          event.event.kind === "agent_message_completed" &&
+          event.event.agentMessageCompleted?.text === "Completed side lifecycle answer.",
+      ) &&
+      snapshot.sideEvents.events.some(
+        (event) => event.sideConversationId === side.id && event.event.kind === "turn_completed",
+      ),
+    timeoutMs,
+  );
+  assertSideDidNotContaminateParent(parentAfterSide, answered);
+  assertCondition(
+    answered.sideEvents.events
+      .filter((event) => event.sideConversationId === side.id)
+      .every((event) => event.event.conversationId === side.id),
+    "side event escaped its isolated ledger",
+    { answered, side },
+  );
+  const disposedResponse = await disposeSide(client, {
+    parentConversationId: parentTopic.id,
+    parentPaneId: parentPane.paneId,
+    sideConversationId: side.id,
+    workspaceId,
+  });
+  const disposed = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.eventCursor.sequence >= disposedResponse.eventCursor.sequence &&
+      snapshot.sideConversations.some(
+        (candidate) =>
+          candidate.id === side.id &&
+          candidate.status === "disposing" &&
+          candidate.disposedAt !== null &&
+          candidate.resolvedSideAgentInvocation.outcome === "cancelled",
+      ),
+    timeoutMs,
+  );
+  assertSideDidNotContaminateParent(answered, disposed);
   const page = await backend.post("/conversations/navigator/list", {
     cursor: null,
     limit: 100,
@@ -163,7 +226,55 @@ export async function exerciseEphemeralSideForkWorkflow({
     "ephemeral side entered the durable conversation navigator",
     { page, side },
   );
-  return { parentSnapshot: parentAfterSide, side };
+  return {
+    parentSnapshot: disposed,
+    side: disposed.sideConversations.find((candidate) => candidate.id === side.id),
+  };
+}
+
+async function createOpenEphemeralSide({
+  backend,
+  client,
+  parentSnapshot,
+  parentTopic,
+  timeoutMs,
+  workspaceId,
+}) {
+  const surfaces = await waitForConversationSurfaces(
+    client,
+    (candidates) => conversationSurfaces(candidates, parentTopic.id).length > 0,
+    timeoutMs,
+  );
+  const parentPane = conversationSurfaces(surfaces.surfaces, parentTopic.id)[0];
+  assertCondition(parentPane?.paneId, "parent pane is unavailable for restart side", { surfaces });
+  const created = await createSide(client, {
+    parentConversationId: parentTopic.id,
+    parentPaneId: parentPane.paneId,
+    workspaceId,
+  });
+  const side = assertEphemeralSideCreation(created, parentSnapshot, parentPane.paneId);
+  await sendSideTurn(client, {
+    parentConversationId: parentTopic.id,
+    sideConversationId: side.id,
+    text: "hold restart side",
+    workspaceId,
+  });
+  const active = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.sideConversations.some(
+        (candidate) =>
+          candidate.id === side.id &&
+          candidate.disposedAt === null &&
+          candidate.activeTurnId !== null &&
+          candidate.activeProviderTurnId !== null,
+      ),
+    timeoutMs,
+  );
+  assertSideDidNotContaminateParent(parentSnapshot, active);
+  return active.sideConversations.find((candidate) => candidate.id === side.id);
 }
 
 export async function exerciseDurableForkWorkflow({
@@ -397,6 +508,14 @@ async function createSide(client, request) {
   return client.evaluate(`window.setta.conversations.createSide(${JSON.stringify(request)})`);
 }
 
+async function sendSideTurn(client, request) {
+  return client.evaluate(`window.setta.conversations.sendSide(${JSON.stringify(request)})`);
+}
+
+async function disposeSide(client, request) {
+  return client.evaluate(`window.setta.conversations.disposeSide(${JSON.stringify(request)})`);
+}
+
 async function rejectSideCreation(client, request) {
   return client.evaluate(`(async () => {
     try {
@@ -470,13 +589,21 @@ function narratorObservedThroughTerminalSequence(snapshot) {
 }
 
 function assertEphemeralSideCreation(created, parent, paneId) {
-  const side = created.sideConversations.find((candidate) => candidate.parentPaneId === paneId);
+  const side = [...created.sideConversations]
+    .reverse()
+    .find((candidate) => candidate.parentPaneId === paneId);
   const sourceTurn = parent.turns.turns.at(-1);
   const context = { created, paneId, parent, side, sourceTurn };
   assertCondition(side, "side record is missing from parent snapshot", context);
   assertCondition(
     side.parentConversationId === parent.conversation.id,
     "side parent drifted",
+    context,
+  );
+  assertCondition(
+    side.parentStatus === parent.conversation.status &&
+      side.sourceProviderThreadId === parent.threadBinding?.threadId,
+    "side parent status or source thread projection drifted",
     context,
   );
   assertCondition(side.status === "active" && side.failure === null, "side is not active", context);

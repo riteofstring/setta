@@ -79,6 +79,14 @@ type ThreadTurn struct {
 	Items  []ThreadItemSummary `json:"items"`
 }
 
+type ThreadUnsubscribeStatus string
+
+const (
+	ThreadUnsubscribeStatusNotLoaded     ThreadUnsubscribeStatus = "not_loaded"
+	ThreadUnsubscribeStatusNotSubscribed ThreadUnsubscribeStatus = "not_subscribed"
+	ThreadUnsubscribeStatusUnsubscribed  ThreadUnsubscribeStatus = "unsubscribed"
+)
+
 type ThreadItemSummary struct {
 	ID     string `json:"id"`
 	Type   string `json:"type"`

@@ -111,7 +111,9 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ID:                          "side-1",
 		ParentConversationID:        conversationID,
 		ParentPaneID:                "pane-1",
+		ParentStatus:                snapshot.Conversation.Status,
 		ProviderThreadID:            stringPointer("provider-side-thread"),
+		SourceProviderThreadID:      "provider-thread-1",
 		SourceProviderTurnID:        stringPointer("provider-turn-1"),
 		SourceTrajectorySequence:    1,
 		Status:                      SideConversationStatusActive,
@@ -120,6 +122,17 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		UpdatedAt:                   testTimeStarted,
 	}
 	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = stringPointer("provider-side-thread")
+	sideEventTrajectory := trajectory
+	sideEventTrajectory.ID = "side-event-1"
+	sideEventTrajectory.ConversationID = side.ID
+	sideEventTrajectory.Sequence = 1
+	side.LastEventSequence = 1
+	sideEvent := SideConversationEvent{
+		StreamSequence:       1,
+		ParentConversationID: conversationID,
+		SideConversationID:   side.ID,
+		Event:                sideEventTrajectory,
+	}
 	override := snapshot.RoleProfileOverrides[0]
 	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: snapshot.Conversation},
@@ -134,6 +147,7 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: snapshot.PresentationProfile},
 		ConversationBranchCreatedEventPayload{Type: ConversationEventTypeBranchCreated, Branch: branch},
 		ConversationSideConversationUpdatedEventPayload{Type: ConversationEventTypeSideConversationUpdated, SideConversation: side},
+		ConversationSideEventAppendedEventPayload{Type: ConversationEventTypeSideEventAppended, Event: sideEvent},
 		ConversationResyncRequiredEventPayload{
 			Type:              ConversationEventTypeResyncRequired,
 			Reason:            "The requested cursor does not belong to this conversation.",
@@ -270,6 +284,7 @@ func validConversationSnapshot() ConversationSnapshot {
 		RoleProfileOverrides: []RoleProfileOverride{{ScopeKind: RoleProfileScopeConversation, ScopeID: conversation.ID, Profile: validRoleProfile(RoleAgent), UpdatedAt: testTimeStarted}},
 		PresentationProfile:  presentation,
 		SideConversations:    []SideConversation{},
+		SideEvents:           ConversationSideEventWindow{Events: []SideConversationEvent{}, Limit: MaxSnapshotSideEvents},
 		EventCursor:          ConversationEventCursor{StreamID: streamID},
 	}
 }

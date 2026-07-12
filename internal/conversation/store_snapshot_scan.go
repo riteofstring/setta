@@ -346,15 +346,19 @@ func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 
 func scanSideConversation(scanner sqlScanner) (SideConversation, error) {
 	var value SideConversation
-	var providerThreadID, sourceProviderTurnID, disposedAt, failureJSON sql.NullString
+	var providerThreadID, sourceProviderTurnID, activeTurnID, activeProviderTurnID, disposedAt, failureJSON sql.NullString
 	var invocationJSON string
 	err := scanner.Scan(
 		&value.ID,
 		&value.ParentConversationID,
 		&value.ParentPaneID,
 		&providerThreadID,
+		&value.SourceProviderThreadID,
 		&sourceProviderTurnID,
 		&value.SourceTrajectorySequence,
+		&value.LastEventSequence,
+		&activeTurnID,
+		&activeProviderTurnID,
 		&value.Status,
 		&invocationJSON,
 		&value.CreatedAt,
@@ -367,6 +371,8 @@ func scanSideConversation(scanner sqlScanner) (SideConversation, error) {
 	}
 	value.ProviderThreadID = optionalScannedString(providerThreadID)
 	value.SourceProviderTurnID = optionalScannedString(sourceProviderTurnID)
+	value.ActiveTurnID = optionalScannedString(activeTurnID)
+	value.ActiveProviderTurnID = optionalScannedString(activeProviderTurnID)
 	value.DisposedAt = optionalScannedString(disposedAt)
 	if err := decodeJSON("side invocation", invocationJSON, &value.ResolvedSideAgentInvocation); err != nil {
 		return SideConversation{}, err

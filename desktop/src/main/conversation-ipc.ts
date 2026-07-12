@@ -25,6 +25,12 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationDisposeSide",
+    async (_event, request) => requireBackendClient().disposeSideConversation(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationCreateSide",
     async (_event, request) => requireBackendClient().createSideConversation(request),
     ipcObserver,
@@ -57,6 +63,12 @@ export function registerConversationIpcHandlers({
     ipcMain,
     "conversationSendTurn",
     async (_event, request) => requireBackendClient().sendTopicConversationTurn(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "conversationSendSideTurn",
+    async (_event, request) => requireBackendClient().sendSideConversationTurn(request),
     ipcObserver,
   );
   handleIpc(

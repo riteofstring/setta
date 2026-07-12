@@ -44,6 +44,7 @@ const navigatorIgnoredEventTypes = {
   "conversation.resync_required": true,
   "conversation.role_profile_override.updated": true,
   "conversation.side_conversation.updated": true,
+  "conversation.side_event.appended": true,
   "conversation.thread_binding.updated": true,
   "conversation.trajectory.appended": true,
   "conversation.turn.updated": true,

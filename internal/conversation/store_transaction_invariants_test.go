@@ -166,6 +166,8 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 		ID:                          "side-failed",
 		ParentConversationID:        seed.conversation.ID,
 		ParentPaneID:                "pane-1",
+		ParentStatus:                seed.conversation.Status,
+		SourceProviderThreadID:      "provider-thread-parent",
 		SourceTrajectorySequence:    1,
 		Status:                      SideConversationStatusFailed,
 		ResolvedSideAgentInvocation: validInvocation(RoleSideAgent, InvocationOutcomeFailed),

@@ -204,7 +204,14 @@ const payloadHandlers = {
       payload.conversation.workspaceId,
       snapshot.conversation.workspaceId,
     );
-    return { ...snapshot, conversation: payload.conversation };
+    return {
+      ...snapshot,
+      conversation: payload.conversation,
+      sideConversations: snapshot.sideConversations.map((side) => ({
+        ...side,
+        parentStatus: payload.conversation.status,
+      })),
+    };
   },
   "conversation.turn.updated": (snapshot, payload) => {
     assertOwner("conversation.turn.updated", payload.turn.conversationId, snapshot.conversation.id);
@@ -326,6 +333,29 @@ const payloadHandlers = {
       ),
     };
   },
+  "conversation.side_event.appended": (snapshot, payload) => {
+    assertOwner(
+      "conversation.side_event.appended",
+      payload.event.parentConversationId,
+      snapshot.conversation.id,
+    );
+    if (!snapshot.sideConversations.some((side) => side.id === payload.event.sideConversationId)) {
+      throw new Error("conversation.side_event.appended has no projected side conversation.");
+    }
+    const events = snapshot.sideEvents.events
+      .filter((event) => event.event.id !== payload.event.event.id)
+      .concat(payload.event)
+      .sort((left, right) => left.streamSequence - right.streamSequence);
+    const overflow = Math.max(0, events.length - snapshot.sideEvents.limit);
+    return {
+      ...snapshot,
+      sideEvents: {
+        events: overflow > 0 ? events.slice(overflow) : events,
+        hasEarlier: snapshot.sideEvents.hasEarlier || overflow > 0,
+        limit: snapshot.sideEvents.limit,
+      },
+    };
+  },
   "conversation.resync_required": (snapshot) => snapshot,
 } satisfies ConversationPayloadHandlers;
 
@@ -384,6 +414,8 @@ function applyPresentationPayload(
       return payloadHandlers["conversation.branch.created"](snapshot, payload);
     case "conversation.side_conversation.updated":
       return payloadHandlers["conversation.side_conversation.updated"](snapshot, payload);
+    case "conversation.side_event.appended":
+      return payloadHandlers["conversation.side_event.appended"](snapshot, payload);
     default:
       return assertNever(payload);
   }
@@ -422,6 +454,7 @@ function cloneSnapshot(snapshot: ConversationSnapshot): ConversationSnapshot {
     queue: [...snapshot.queue],
     roleProfileOverrides: [...snapshot.roleProfileOverrides],
     sideConversations: [...snapshot.sideConversations],
+    sideEvents: { ...snapshot.sideEvents, events: [...snapshot.sideEvents.events] },
     trajectory: { ...snapshot.trajectory, events: [...snapshot.trajectory.events] },
     turns: { ...snapshot.turns, turns: [...snapshot.turns.turns] },
   };

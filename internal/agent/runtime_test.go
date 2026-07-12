@@ -165,6 +165,10 @@ func assertFakeForkAndCleanup(t *testing.T, ctx context.Context, runtime *Runtim
 	if err := runtime.UnsubscribeThread(ctx, forked.ID); err != nil {
 		t.Fatalf("UnsubscribeThread: %v", err)
 	}
+	status, err := runtime.UnsubscribeThreadWithStatus(ctx, "thread-not-loaded")
+	if err != nil || status != ThreadUnsubscribeStatusNotLoaded {
+		t.Fatalf("UnsubscribeThreadWithStatus = %s, %v", status, err)
+	}
 	terminated, err := runtime.TerminateBackgroundProcess(ctx, thread.ID, "process-1")
 	if err != nil || !terminated {
 		t.Fatalf("TerminateBackgroundProcess = %t, %v", terminated, err)

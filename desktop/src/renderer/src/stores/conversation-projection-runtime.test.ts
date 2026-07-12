@@ -173,6 +173,7 @@ function conversationSnapshot(sequence: number): ConversationSnapshot {
     roleProfileOverrides: [],
     schemaVersion: 1,
     sideConversations: [],
+    sideEvents: { events: [], hasEarlier: false, limit: 200 },
     threadBinding: null,
     trajectory: { events: [], hasEarlier: false },
     turns: { hasEarlier: false, turns: [] },

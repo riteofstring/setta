@@ -4,6 +4,7 @@ import type {
   ConversationEventCursor,
   ConversationSnapshot,
   CreateSideConversationRequest,
+  DisposeSideConversationRequest,
   CreateTopicConversationRequest,
   ForkTopicConversationRequest,
   ListTopicConversationsRequest,
@@ -11,6 +12,7 @@ import type {
   QueueTopicConversationTurnRequest,
   ReadConversationSnapshotRequest,
   SendTopicConversationTurnRequest,
+  SendSideConversationTurnRequest,
   SteerTopicConversationTurnRequest,
   StopTopicConversationTurnRequest,
   SubmitConversationInputRequest,
@@ -21,6 +23,7 @@ import type {
 export const conversationIpcChannels = {
   conversationAskNarratorStatus: "conversation:ask-narrator-status",
   conversationCreateSide: "conversation:create-side",
+  conversationDisposeSide: "conversation:dispose-side",
   conversationCreateTopic: "conversation:create-topic",
   conversationForkTopic: "conversation:fork-topic",
   conversationListTopicConversations: "conversation:list-topic-conversations",
@@ -28,6 +31,7 @@ export const conversationIpcChannels = {
   conversationReadSnapshot: "conversation:read-snapshot",
   conversationReleaseEvents: "conversation:release-events",
   conversationSendTurn: "conversation:send-turn",
+  conversationSendSideTurn: "conversation:send-side-turn",
   conversationSteerTurn: "conversation:steer-turn",
   conversationStopTurn: "conversation:stop-turn",
   conversationSubmitInput: "conversation:submit-input",
@@ -57,6 +61,10 @@ export interface ConversationIpc {
     args: [request: CreateSideConversationRequest];
     result: ConversationSnapshot;
   };
+  conversationDisposeSide: {
+    args: [request: DisposeSideConversationRequest];
+    result: ConversationSnapshot;
+  };
   conversationCreateTopic: {
     args: [request: CreateTopicConversationRequest];
     result: ConversationSnapshot;
@@ -83,6 +91,10 @@ export interface ConversationIpc {
   };
   conversationSendTurn: {
     args: [request: SendTopicConversationTurnRequest];
+    result: ConversationSnapshot;
+  };
+  conversationSendSideTurn: {
+    args: [request: SendSideConversationTurnRequest];
     result: ConversationSnapshot;
   };
   conversationSteerTurn: {

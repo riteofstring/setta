@@ -87,18 +87,38 @@ CREATE TABLE side_conversations (
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   parent_pane_id TEXT NOT NULL,
   provider_thread_id TEXT,
+  source_provider_thread_id TEXT NOT NULL,
   source_provider_turn_id TEXT,
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
+  last_event_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_event_sequence >= 0),
+  active_turn_id TEXT,
+  active_provider_turn_id TEXT,
   status TEXT NOT NULL CHECK (status IN ('preparing', 'active', 'disposing', 'failed')),
   resolved_side_agent_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_side_agent_invocation_json)),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   disposed_at TEXT,
-  failure_json TEXT CHECK (failure_json IS NULL OR json_valid(failure_json))
+  failure_json TEXT CHECK (failure_json IS NULL OR json_valid(failure_json)),
+  CHECK (active_provider_turn_id IS NULL OR active_turn_id IS NOT NULL),
+  CHECK (disposed_at IS NULL OR active_turn_id IS NULL)
 ) STRICT;
 
 CREATE INDEX side_conversations_parent_status_idx
   ON side_conversations(parent_conversation_id, status, created_at, id);
+
+CREATE TABLE side_conversation_events (
+  stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  side_conversation_id TEXT NOT NULL REFERENCES side_conversations(id) ON DELETE CASCADE,
+  sequence INTEGER NOT NULL CHECK (sequence > 0),
+  turn_id TEXT,
+  emitted_at TEXT NOT NULL,
+  event_json TEXT NOT NULL CHECK (json_valid(event_json)),
+  UNIQUE(side_conversation_id, sequence)
+) STRICT;
+
+CREATE INDEX side_conversation_events_side_sequence_idx
+  ON side_conversation_events(side_conversation_id, sequence);
 
 CREATE TABLE agent_thread_bindings (
   conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,

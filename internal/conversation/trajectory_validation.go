@@ -249,8 +249,9 @@ func validateTrajectoryTurnStarted(payload *TrajectoryTurnStarted) error {
 	if err := payload.Invocation.Validate(); err != nil {
 		return err
 	}
-	if payload.Invocation.Role != RoleAgent || payload.Invocation.Outcome != InvocationOutcomeRunning {
-		return fmt.Errorf("turn start requires a running agent invocation")
+	if (payload.Invocation.Role != RoleAgent && payload.Invocation.Role != RoleSideAgent) ||
+		payload.Invocation.Outcome != InvocationOutcomeRunning {
+		return fmt.Errorf("turn start requires a running agent or side-agent invocation")
 	}
 	return nil
 }

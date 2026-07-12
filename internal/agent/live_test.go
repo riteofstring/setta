@@ -242,7 +242,7 @@ func characterizeLiveActiveFork(t *testing.T, fixture liveFixture, _ Thread) {
 	t.Helper()
 	fixture = newLiveActiveFixture(t, fixture)
 	parent := startLiveActiveParent(fixture)
-	parent.sink.waitForKind(t, EventKindActivityStarted)
+	waitForLiveParentActivity(t, parent)
 	drainLiveParentSignals(parent)
 	sideInvocation := liveSideInvocation()
 	forks := createLiveActiveForks(t, fixture, parent, sideInvocation)
@@ -251,6 +251,30 @@ func characterizeLiveActiveFork(t *testing.T, fixture liveFixture, _ Thread) {
 	assertLiveForkIsolation(t, fixture, forks, sideInvocation)
 	logLiveForkCharacterization(t, forks)
 	unsubscribeLiveForks(t, fixture, forks)
+}
+
+func waitForLiveParentActivity(t *testing.T, parent liveActiveParent) {
+	t.Helper()
+	timer := time.NewTimer(45 * time.Second)
+	defer timer.Stop()
+	for {
+		select {
+		case event := <-parent.sink.events:
+			if event.Kind == EventKindActivityStarted {
+				return
+			}
+		case <-parent.done:
+			events := parent.sink.snapshot()
+			for _, event := range events {
+				if event.Kind == EventKindActivityStarted {
+					return
+				}
+			}
+			t.Fatalf("active parent completed before starting provider activity; events = %+v", events)
+		case <-timer.C:
+			t.Fatalf("timed out waiting for active parent provider activity; events = %+v", parent.sink.snapshot())
+		}
+	}
 }
 
 func newLiveActiveFixture(t *testing.T, fixture liveFixture) liveFixture {

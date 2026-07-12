@@ -39,7 +39,9 @@ import type {
   ConversationSnapshot,
   ConversationListItem,
   CreateSideConversationRequest,
+  DisposeSideConversationRequest,
   CreateTopicConversationRequest,
+  SendSideConversationTurnRequest,
   ForkTopicConversationRequest,
   CreateSemanticEdgeRequest,
   CreateSemanticNodeRequest,
@@ -421,6 +423,7 @@ export interface SettaAPI {
       request: AskTopicConversationNarratorStatusRequest,
     ) => Promise<ConversationSnapshot>;
     createSide?: (request: CreateSideConversationRequest) => Promise<ConversationSnapshot>;
+    disposeSide?: (request: DisposeSideConversationRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     fork: (request: ForkTopicConversationRequest) => Promise<ConversationSnapshot>;
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
@@ -429,6 +432,7 @@ export interface SettaAPI {
     read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
     release: (request: ConversationEventReleaseRequest) => Promise<void>;
     send: (request: SendTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
+    sendSide?: (request: SendSideConversationTurnRequest) => Promise<ConversationSnapshot>;
     steer: (request: SteerTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     stop: (request: StopTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;

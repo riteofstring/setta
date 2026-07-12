@@ -112,6 +112,76 @@ func (handler handler) createSideConversation(response http.ResponseWriter, requ
 	writeConversationSnapshot(response, snapshot)
 }
 
+func (handler handler) sendSideConversationTurn(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload SendSideConversationTurnRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ParentConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_side_conversation_turn_request", err.Error())
+		return
+	}
+	if strings.TrimSpace(payload.SideConversationID) == "" || payload.SideConversationID != strings.TrimSpace(payload.SideConversationID) {
+		writeError(response, http.StatusBadRequest, "invalid_side_conversation_turn_request", "side conversation id is required without surrounding whitespace")
+		return
+	}
+	snapshot, err := service.SendSideConversationTurn(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ParentConversationID,
+		payload.SideConversationID,
+		payload.Text,
+	)
+	if err != nil {
+		writeConversationError(response, "send_side_conversation_turn_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
+func (handler handler) disposeSideConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload DisposeSideConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ParentConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_side_conversation_dispose_request", err.Error())
+		return
+	}
+	for _, field := range []struct {
+		label string
+		value string
+	}{
+		{label: "parent pane id", value: payload.ParentPaneID},
+		{label: "side conversation id", value: payload.SideConversationID},
+	} {
+		if strings.TrimSpace(field.value) == "" || field.value != strings.TrimSpace(field.value) {
+			writeError(response, http.StatusBadRequest, "invalid_side_conversation_dispose_request", field.label+" is required without surrounding whitespace")
+			return
+		}
+	}
+	snapshot, err := service.DisposeSideConversation(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ParentConversationID,
+		payload.ParentPaneID,
+		payload.SideConversationID,
+	)
+	if err != nil {
+		writeConversationError(response, "dispose_side_conversation_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
 func (handler handler) sendTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
 	handler.runTopicConversationTextCommand(response, request, "send", func(
 		ctx context.Context,

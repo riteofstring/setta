@@ -28,9 +28,14 @@ type SideConversation struct {
 	ID                          string                 `json:"id"`
 	ParentConversationID        string                 `json:"parentConversationId"`
 	ParentPaneID                string                 `json:"parentPaneId"`
+	ParentStatus                ConversationStatus     `json:"parentStatus"`
 	ProviderThreadID            *string                `json:"providerThreadId"`
+	SourceProviderThreadID      string                 `json:"sourceProviderThreadId"`
 	SourceProviderTurnID        *string                `json:"sourceProviderTurnId"`
 	SourceTrajectorySequence    int                    `json:"sourceTrajectorySequence"`
+	LastEventSequence           int                    `json:"lastEventSequence"`
+	ActiveTurnID                *string                `json:"activeTurnId"`
+	ActiveProviderTurnID        *string                `json:"activeProviderTurnId"`
 	Status                      SideConversationStatus `json:"status"`
 	ResolvedSideAgentInvocation ResolvedInvocation     `json:"resolvedSideAgentInvocation"`
 	CreatedAt                   string                 `json:"createdAt"`
@@ -85,6 +90,19 @@ func (side SideConversation) Validate() error {
 }
 
 func validateSideConversationIdentity(side SideConversation) error {
+	if err := validateSideConversationIdentifiers(side); err != nil {
+		return err
+	}
+	if !validConversationStatus(side.ParentStatus) {
+		return fmt.Errorf("side conversation %s has unsupported parent status %q", side.ID, side.ParentStatus)
+	}
+	if !validSideConversationStatus(side.Status) {
+		return fmt.Errorf("side conversation %s has unsupported status %q", side.ID, side.Status)
+	}
+	return validateSideConversationSequenceState(side)
+}
+
+func validateSideConversationIdentifiers(side SideConversation) error {
 	if err := validateIdentifier("side conversation id", side.ID); err != nil {
 		return err
 	}
@@ -97,14 +115,30 @@ func validateSideConversationIdentity(side SideConversation) error {
 	if err := validateOptionalIdentifier("side conversation provider thread id", side.ProviderThreadID); err != nil {
 		return err
 	}
+	if err := validateIdentifier("side conversation source provider thread id", side.SourceProviderThreadID); err != nil {
+		return err
+	}
 	if err := validateOptionalIdentifier("side conversation source provider turn id", side.SourceProviderTurnID); err != nil {
 		return err
 	}
+	if err := validateOptionalIdentifier("side conversation active turn id", side.ActiveTurnID); err != nil {
+		return err
+	}
+	if err := validateOptionalIdentifier("side conversation active provider turn id", side.ActiveProviderTurnID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateSideConversationSequenceState(side SideConversation) error {
 	if side.SourceTrajectorySequence < 0 {
 		return fmt.Errorf("side conversation %s source trajectory sequence must be non-negative", side.ID)
 	}
-	if !validSideConversationStatus(side.Status) {
-		return fmt.Errorf("side conversation %s has unsupported status %q", side.ID, side.Status)
+	if side.LastEventSequence < 0 {
+		return fmt.Errorf("side conversation %s last event sequence must be non-negative", side.ID)
+	}
+	if side.ActiveProviderTurnID != nil && side.ActiveTurnID == nil {
+		return fmt.Errorf("side conversation %s provider turn requires an active turn", side.ID)
 	}
 	return nil
 }
@@ -167,7 +201,7 @@ func validateSideConversationLifecycle(side SideConversation, hasDisposed bool) 
 }
 
 func validatePreparingSideConversation(side SideConversation, hasDisposed bool) error {
-	if side.ProviderThreadID != nil || hasDisposed || side.Failure != nil {
+	if side.ProviderThreadID != nil || side.ActiveTurnID != nil || hasDisposed || side.Failure != nil {
 		return fmt.Errorf("preparing side conversation %s contains active or terminal state", side.ID)
 	}
 	return nil
@@ -184,12 +218,18 @@ func validateDisposingSideConversation(side SideConversation) error {
 	if side.ProviderThreadID == nil || side.Failure != nil {
 		return fmt.Errorf("disposing side conversation %s must have provider thread and no failure", side.ID)
 	}
+	if side.DisposedAt != nil && side.ActiveTurnID != nil {
+		return fmt.Errorf("disposed side conversation %s cannot retain an active turn", side.ID)
+	}
 	return nil
 }
 
 func validateFailedSideConversation(side SideConversation) error {
 	if side.Failure == nil {
 		return fmt.Errorf("failed side conversation %s requires failure", side.ID)
+	}
+	if side.DisposedAt != nil && side.ActiveTurnID != nil {
+		return fmt.Errorf("disposed failed side conversation %s cannot retain an active turn", side.ID)
 	}
 	return nil
 }

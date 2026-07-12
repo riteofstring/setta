@@ -426,7 +426,15 @@ function interruptTurn(message) {
   const turnId = requiredString(message.params, "turnId");
   const held = heldTurns.get(turnId);
   if (!held) {
-    respondError(message.id, -32602, `turn ${turnId} is not interruptible`);
+    const threadId = requiredString(message.params, "threadId");
+    const persistedTurn = turns.get(turnId);
+    const persistedThread = threads.get(threadId);
+    if (persistedTurn?.status !== "inProgress" || !persistedThread?.turnIds.includes(turnId)) {
+      respondError(message.id, -32602, `turn ${turnId} is not interruptible`);
+      return;
+    }
+    respond(message.id, {});
+    completeTurn(threadId, turnId, "interrupted");
     return;
   }
   heldTurns.delete(turnId);

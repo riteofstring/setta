@@ -92,7 +92,11 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 		}
 		writeFakeAgentResponse(message["id"], map[string]any{})
 	case "thread/unsubscribe":
-		writeFakeAgentResponse(message["id"], map[string]any{"status": "unsubscribed"})
+		status := "unsubscribed"
+		if fakeAgentRequiredString(fakeAgentParams(message), "threadId") == "thread-not-loaded" {
+			status = "notLoaded"
+		}
+		writeFakeAgentResponse(message["id"], map[string]any{"status": status})
 	case "thread/backgroundTerminals/terminate":
 		writeFakeAgentResponse(message["id"], map[string]any{"terminated": true})
 	case "turn/start":

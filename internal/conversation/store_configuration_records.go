@@ -90,17 +90,22 @@ func (transaction *WriteTransaction) InsertSideConversation(side SideConversatio
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO side_conversations (
   id, parent_conversation_id, parent_pane_id, provider_thread_id,
-  source_provider_turn_id, source_trajectory_sequence, status,
+  source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
+  last_event_sequence, active_turn_id, active_provider_turn_id, status,
   resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
   failure_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		side.ID,
 		side.ParentConversationID,
 		side.ParentPaneID,
 		nullableString(side.ProviderThreadID),
+		side.SourceProviderThreadID,
 		nullableString(side.SourceProviderTurnID),
 		side.SourceTrajectorySequence,
+		side.LastEventSequence,
+		nullableString(side.ActiveTurnID),
+		nullableString(side.ActiveProviderTurnID),
 		side.Status,
 		invocationJSON,
 		side.CreatedAt,
@@ -134,12 +139,14 @@ func (transaction *WriteTransaction) UpdateSideConversation(
 	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
 UPDATE side_conversations
-SET provider_thread_id = ?, source_provider_turn_id = ?, status = ?,
+SET provider_thread_id = ?, source_provider_turn_id = ?, last_event_sequence = ?,
+    active_turn_id = ?, active_provider_turn_id = ?, status = ?,
     resolved_side_agent_invocation_json = ?, updated_at = ?, disposed_at = ?,
     failure_json = ?
 WHERE id = ?
   AND parent_conversation_id = ?
   AND parent_pane_id = ?
+  AND source_provider_thread_id = ?
   AND source_trajectory_sequence = ?
   AND created_at = ?
   AND status = ?
@@ -147,6 +154,9 @@ WHERE id = ?
 `,
 		nullableString(side.ProviderThreadID),
 		nullableString(side.SourceProviderTurnID),
+		side.LastEventSequence,
+		nullableString(side.ActiveTurnID),
+		nullableString(side.ActiveProviderTurnID),
 		side.Status,
 		invocationJSON,
 		side.UpdatedAt,
@@ -155,6 +165,7 @@ WHERE id = ?
 		side.ID,
 		side.ParentConversationID,
 		side.ParentPaneID,
+		side.SourceProviderThreadID,
 		side.SourceTrajectorySequence,
 		side.CreatedAt,
 		expected.Status,
@@ -167,6 +178,66 @@ WHERE id = ?
 		return err
 	}
 	return transaction.recordStateMutation()
+}
+
+func (transaction *WriteTransaction) InsertSideConversationEvent(
+	parentConversationID string,
+	event TrajectoryEvent,
+) (SideConversationEvent, error) {
+	if err := transaction.ensureActive(); err != nil {
+		return SideConversationEvent{}, err
+	}
+	if err := validateIdentifier("side event parent conversation id", parentConversationID); err != nil {
+		return SideConversationEvent{}, err
+	}
+	if err := event.Validate(); err != nil {
+		return SideConversationEvent{}, err
+	}
+	var matches bool
+	if err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT EXISTS(
+  SELECT 1
+  FROM side_conversations
+  WHERE id = ?
+    AND parent_conversation_id = ?
+    AND last_event_sequence = ?
+)
+`, event.ConversationID, parentConversationID, event.Sequence).Scan(&matches); err != nil {
+		return SideConversationEvent{}, fmt.Errorf("verify side event %s ownership: %w", event.ID, err)
+	}
+	if !matches {
+		return SideConversationEvent{}, stateConflict(
+			"side conversation event",
+			event.ID,
+			"side owner or event sequence does not match",
+		)
+	}
+	encoded, err := encodeJSONColumn("side conversation event", event)
+	if err != nil {
+		return SideConversationEvent{}, err
+	}
+	result, err := transaction.tx.ExecContext(transaction.ctx, `
+INSERT INTO side_conversation_events (
+  id, side_conversation_id, sequence, turn_id, emitted_at, event_json
+) VALUES (?, ?, ?, ?, ?, ?)
+`, event.ID, event.ConversationID, event.Sequence, nullableString(event.TurnID), event.EmittedAt, encoded)
+	if err != nil {
+		return SideConversationEvent{}, fmt.Errorf("insert side conversation event %s: %w", event.ID, err)
+	}
+	streamSequence, err := result.LastInsertId()
+	if err != nil {
+		return SideConversationEvent{}, fmt.Errorf("read side conversation event %s stream sequence: %w", event.ID, err)
+	}
+	wrapped := SideConversationEvent{
+		StreamSequence:       int(streamSequence),
+		ParentConversationID: parentConversationID,
+		SideConversationID:   event.ConversationID,
+		Event:                event,
+	}
+	if err := wrapped.Validate(); err != nil {
+		return SideConversationEvent{}, err
+	}
+	return wrapped, transaction.recordStateMutation()
 }
 
 func validateSideConversationUpdate(expected SideConversationExpectation, side SideConversation) error {

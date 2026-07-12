@@ -172,15 +172,22 @@ WHERE child_conversation_id = ?
 	return &branch, nil
 }
 
-func readSnapshotSides(ctx context.Context, reader snapshotReader, conversationID string) ([]SideConversation, error) {
+func readSnapshotSides(
+	ctx context.Context,
+	reader snapshotReader,
+	conversationID string,
+	parentStatus ConversationStatus,
+) ([]SideConversation, error) {
 	rows, err := reader.QueryContext(ctx, `
 SELECT id, parent_conversation_id, parent_pane_id, provider_thread_id,
-       source_provider_turn_id, source_trajectory_sequence, status,
+       source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
+       last_event_sequence, active_turn_id, active_provider_turn_id, status,
        resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
        failure_json
 FROM (
   SELECT id, parent_conversation_id, parent_pane_id, provider_thread_id,
-         source_provider_turn_id, source_trajectory_sequence, status,
+         source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
+         last_event_sequence, active_turn_id, active_provider_turn_id, status,
          resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
          failure_json
   FROM side_conversations
@@ -201,7 +208,66 @@ ORDER BY created_at ASC, id ASC
 		if scanErr != nil {
 			return nil, scanErr
 		}
+		side.ParentStatus = parentStatus
 		sides = append(sides, side)
 	}
 	return sides, rows.Err()
+}
+
+func readSnapshotSideEvents(
+	ctx context.Context,
+	reader snapshotReader,
+	conversationID string,
+) (ConversationSideEventWindow, error) {
+	rows, err := reader.QueryContext(ctx, `
+WITH selected_sides AS (
+  SELECT id
+  FROM side_conversations
+  WHERE parent_conversation_id = ?
+  ORDER BY CASE WHEN status = 'failed' THEN 1 ELSE 0 END ASC,
+           created_at DESC, id DESC
+  LIMIT ?
+)
+SELECT event.stream_sequence, side.parent_conversation_id,
+       event.side_conversation_id, event.event_json
+FROM side_conversation_events AS event
+JOIN selected_sides ON selected_sides.id = event.side_conversation_id
+JOIN side_conversations AS side ON side.id = event.side_conversation_id
+ORDER BY event.stream_sequence DESC
+LIMIT ?
+`, conversationID, MaxSnapshotSideConversations, MaxSnapshotSideEvents+1)
+	if err != nil {
+		return ConversationSideEventWindow{}, err
+	}
+	defer rows.Close()
+	events := make([]SideConversationEvent, 0, MaxSnapshotSideEvents+1)
+	for rows.Next() {
+		var event SideConversationEvent
+		var encoded string
+		if err := rows.Scan(
+			&event.StreamSequence,
+			&event.ParentConversationID,
+			&event.SideConversationID,
+			&encoded,
+		); err != nil {
+			return ConversationSideEventWindow{}, err
+		}
+		if err := decodeJSON("side conversation event", encoded, &event.Event); err != nil {
+			return ConversationSideEventWindow{}, err
+		}
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return ConversationSideEventWindow{}, err
+	}
+	hasEarlier := len(events) > MaxSnapshotSideEvents
+	if hasEarlier {
+		events = events[:MaxSnapshotSideEvents]
+	}
+	reverseSlice(events)
+	return ConversationSideEventWindow{
+		Events:     events,
+		HasEarlier: hasEarlier,
+		Limit:      MaxSnapshotSideEvents,
+	}, nil
 }

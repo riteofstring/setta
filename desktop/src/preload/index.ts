@@ -126,6 +126,7 @@ const api: SettaAPI = {
   conversations: {
     askStatus: (request) => invoke("conversationAskNarratorStatus", request),
     createSide: (request) => invoke("conversationCreateSide", request),
+    disposeSide: (request) => invoke("conversationDisposeSide", request),
     create: (request) => invoke("conversationCreateTopic", request),
     fork: (request) => invoke("conversationForkTopic", request),
     list: (request) => invoke("conversationListTopicConversations", request),
@@ -138,6 +139,7 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.conversationEvent, handler);
       };
     },
+    sendSide: (request) => invoke("conversationSendSideTurn", request),
     queue: (request) => invoke("conversationQueueTurn", request),
     read: (request) => invoke("conversationReadSnapshot", request),
     release: (request) => invoke("conversationReleaseEvents", request),

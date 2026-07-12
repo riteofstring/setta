@@ -141,7 +141,11 @@ func readConversationSnapshotExtended(
 	if err != nil {
 		return err
 	}
-	snapshot.SideConversations, err = readSnapshotSides(ctx, reader, conversationID)
+	snapshot.SideConversations, err = readSnapshotSides(ctx, reader, conversationID, snapshot.Conversation.Status)
+	if err != nil {
+		return err
+	}
+	snapshot.SideEvents, err = readSnapshotSideEvents(ctx, reader, conversationID)
 	if err != nil {
 		return err
 	}

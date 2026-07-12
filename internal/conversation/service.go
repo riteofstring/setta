@@ -23,8 +23,10 @@ type AgentRuntime interface {
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
 	SteerTurn(context.Context, agent.TurnControlRequest) error
 	InterruptTurn(context.Context, agent.TurnControlRequest) error
+	InterruptProviderTurn(context.Context, string, string) error
 	SubmitApproval(agent.ApprovalResponse) error
 	UnsubscribeThread(context.Context, string) error
+	UnsubscribeThreadWithStatus(context.Context, string) (agent.ThreadUnsubscribeStatus, error)
 }
 
 type WorkspaceResolver interface {
@@ -47,11 +49,12 @@ type Service struct {
 	now        func() time.Time
 	narration  NarrationTrajectoryObserver
 
-	createMu sync.Mutex
-	locksMu  sync.Mutex
-	locks    map[string]*sync.Mutex
-	activeMu sync.Mutex
-	active   map[string]*activeConversationTurn
+	createMu    sync.Mutex
+	locksMu     sync.Mutex
+	locks       map[string]*sync.Mutex
+	activeMu    sync.Mutex
+	active      map[string]*activeConversationTurn
+	activeSides map[string]*activeSideConversationTurn
 
 	lifecycleCtx    context.Context
 	lifecycleCancel context.CancelFunc
@@ -69,6 +72,17 @@ type activeConversationTurn struct {
 	roleProfile      RoleProfile
 	turnID           string
 	workspaceID      string
+}
+
+type activeSideConversationTurn struct {
+	cancel               context.CancelFunc
+	ctx                  context.Context
+	done                 chan struct{}
+	parentConversationID string
+	request              agent.TurnRequest
+	sideConversationID   string
+	turnID               string
+	workspaceID          string
 }
 
 type CommandConflictError struct {
@@ -143,6 +157,7 @@ func NewService(
 		narration:       config.narrationObserver,
 		locks:           map[string]*sync.Mutex{},
 		active:          map[string]*activeConversationTurn{},
+		activeSides:     map[string]*activeSideConversationTurn{},
 		lifecycleCtx:    lifecycleCtx,
 		lifecycleCancel: lifecycleCancel,
 	}, nil

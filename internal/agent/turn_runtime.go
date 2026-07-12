@@ -162,6 +162,26 @@ func (runtime *Runtime) InterruptTurn(ctx context.Context, request TurnControlRe
 	return nil
 }
 
+// InterruptProviderTurn targets a provider-owned turn without requiring the
+// in-memory RunTurn attachment. It is used to clean up ephemeral threads after
+// a Setta restart, when no local active-turn session can exist.
+func (runtime *Runtime) InterruptProviderTurn(ctx context.Context, threadID string, turnID string) error {
+	if strings.TrimSpace(threadID) == "" || strings.TrimSpace(turnID) == "" {
+		return errors.New("provider turn interruption requires thread and turn ids")
+	}
+	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
+		ThreadID: threadID,
+		TurnID:   turnID,
+	})
+	if err != nil {
+		return fmt.Errorf("interrupt provider turn %s: %w", turnID, err)
+	}
+	if _, err := codexapp.DecodeTurnInterruptResponse(raw); err != nil {
+		return fmt.Errorf("decode provider turn interruption %s: %w", turnID, err)
+	}
+	return nil
+}
+
 func (runtime *Runtime) ReconcileTurn(ctx context.Context, threadID string, turnID string) (TurnResult, bool, error) {
 	if strings.TrimSpace(threadID) == "" || strings.TrimSpace(turnID) == "" {
 		return TurnResult{}, false, errors.New("reconcile requires provider thread and turn ids")

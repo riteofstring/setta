@@ -192,17 +192,35 @@ func (runtime *Runtime) InjectItems(ctx context.Context, threadID string, items 
 }
 
 func (runtime *Runtime) UnsubscribeThread(ctx context.Context, threadID string) error {
+	_, err := runtime.UnsubscribeThreadWithStatus(ctx, threadID)
+	return err
+}
+
+func (runtime *Runtime) UnsubscribeThreadWithStatus(
+	ctx context.Context,
+	threadID string,
+) (ThreadUnsubscribeStatus, error) {
 	if strings.TrimSpace(threadID) == "" {
-		return errors.New("provider thread id is required")
+		return "", errors.New("provider thread id is required")
 	}
 	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadUnsubscribe, codexapp.ThreadUnsubscribeParams{ThreadID: threadID})
 	if err != nil {
-		return fmt.Errorf("unsubscribe agent thread %s: %w", threadID, err)
+		return "", fmt.Errorf("unsubscribe agent thread %s: %w", threadID, err)
 	}
-	if _, err := codexapp.DecodeThreadUnsubscribeResponse(raw); err != nil {
-		return fmt.Errorf("decode agent thread unsubscribe %s: %w", threadID, err)
+	response, err := codexapp.DecodeThreadUnsubscribeResponse(raw)
+	if err != nil {
+		return "", fmt.Errorf("decode agent thread unsubscribe %s: %w", threadID, err)
 	}
-	return nil
+	switch response.Status {
+	case codexapp.ThreadUnsubscribeStatusNotLoaded:
+		return ThreadUnsubscribeStatusNotLoaded, nil
+	case codexapp.ThreadUnsubscribeStatusNotSubscribed:
+		return ThreadUnsubscribeStatusNotSubscribed, nil
+	case codexapp.ThreadUnsubscribeStatusUnsubscribed:
+		return ThreadUnsubscribeStatusUnsubscribed, nil
+	default:
+		return "", fmt.Errorf("unsubscribe agent thread %s returned unsupported status %q", threadID, response.Status)
+	}
 }
 
 func (runtime *Runtime) TerminateBackgroundProcess(ctx context.Context, threadID string, processID string) (bool, error) {

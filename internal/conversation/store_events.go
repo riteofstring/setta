@@ -221,5 +221,6 @@ var conversationEventPayloadConstructors = map[ConversationEventType]func() Conv
 	ConversationEventTypePresentationProfileUpdated: func() ConversationEventPayload { return &ConversationPresentationProfileUpdatedEventPayload{} },
 	ConversationEventTypeBranchCreated:              func() ConversationEventPayload { return &ConversationBranchCreatedEventPayload{} },
 	ConversationEventTypeSideConversationUpdated:    func() ConversationEventPayload { return &ConversationSideConversationUpdatedEventPayload{} },
+	ConversationEventTypeSideEventAppended:          func() ConversationEventPayload { return &ConversationSideEventAppendedEventPayload{} },
 	ConversationEventTypeResyncRequired:             func() ConversationEventPayload { return &ConversationResyncRequiredEventPayload{} },
 }

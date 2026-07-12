@@ -240,21 +240,24 @@ func (resolver serviceTestWorkspaceResolver) ResolveActiveWorkspace(id string) (
 }
 
 type serviceTestAgentRuntime struct {
-	mu              sync.Mutex
-	controls        map[string]chan string
-	controlLog      []string
-	forkErr         error
-	forkRequests    []agent.ForkThreadRequest
-	forkResponse    *agent.Thread
-	injectErr       error
-	injections      []serviceTestInjection
-	lastApproval    *agent.ApprovalResponse
-	resolveRequests []agent.Invocation
-	runRequests     []agent.TurnRequest
-	started         chan string
-	threads         int
-	turns           int
-	unsubscribed    []string
+	mu                   sync.Mutex
+	controls             map[string]chan string
+	controlLog           []string
+	forkErr              error
+	forkRequests         []agent.ForkThreadRequest
+	forkResponse         *agent.Thread
+	injectErr            error
+	injections           []serviceTestInjection
+	lastApproval         *agent.ApprovalResponse
+	resolveRequests      []agent.Invocation
+	runRequests          []agent.TurnRequest
+	started              chan string
+	providerThreads      map[string]agent.Thread
+	interruptProviderErr error
+	unsubscribeErr       error
+	threads              int
+	turns                int
+	unsubscribed         []string
 }
 
 type serviceTestInjection struct {
@@ -264,8 +267,9 @@ type serviceTestInjection struct {
 
 func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
 	return &serviceTestAgentRuntime{
-		controls: map[string]chan string{},
-		started:  make(chan string, MaxSnapshotQueuedTurns+4),
+		controls:        map[string]chan string{},
+		started:         make(chan string, MaxSnapshotQueuedTurns+4),
+		providerThreads: map[string]agent.Thread{},
 	}
 }
 
@@ -293,11 +297,13 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	runtime.threads++
-	return agent.Thread{
+	thread := agent.Thread{
 		ID:        fmt.Sprintf("provider-thread-%d", runtime.threads),
 		SessionID: fmt.Sprintf("session-%d", runtime.threads),
 		Model:     "gpt-5.6-sol",
-	}, nil
+	}
+	runtime.providerThreads[thread.ID] = thread
+	return thread, nil
 }
 
 func (runtime *serviceTestAgentRuntime) ForkThread(
@@ -311,17 +317,20 @@ func (runtime *serviceTestAgentRuntime) ForkThread(
 		return agent.Thread{}, runtime.forkErr
 	}
 	if runtime.forkResponse != nil {
+		runtime.providerThreads[runtime.forkResponse.ID] = *runtime.forkResponse
 		return *runtime.forkResponse, nil
 	}
 	runtime.threads++
 	parentThreadID := request.ParentThreadID
-	return agent.Thread{
+	thread := agent.Thread{
 		ID:           fmt.Sprintf("provider-thread-%d", runtime.threads),
 		SessionID:    fmt.Sprintf("session-%d", runtime.threads),
 		Model:        request.Invocation.Model,
 		Ephemeral:    request.Ephemeral,
 		ForkedFromID: &parentThreadID,
-	}, nil
+	}
+	runtime.providerThreads[thread.ID] = thread
+	return thread, nil
 }
 
 func (runtime *serviceTestAgentRuntime) InjectItems(
@@ -347,6 +356,10 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 	providerTurnID := fmt.Sprintf("provider-turn-%d", runtime.turns)
 	control := make(chan string, 1)
 	runtime.controls[providerTurnID] = control
+	thread := runtime.providerThreads[request.ProviderThreadID]
+	thread.Turns = append(thread.Turns, agent.ThreadTurn{ID: providerTurnID, Status: "inProgress", Items: []agent.ThreadItemSummary{}})
+	thread.TurnCount = len(thread.Turns)
+	runtime.providerThreads[request.ProviderThreadID] = thread
 	runtime.mu.Unlock()
 	base := agent.Event{
 		ConversationID:   request.ConversationID,
@@ -360,7 +373,32 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 		return agent.TurnResult{}, err
 	}
 	runtime.started <- request.Text
-	return runtime.runTestTurnScenario(ctx, request.Text, sink, base, control)
+	result, err := runtime.runTestTurnScenario(ctx, request.Text, sink, base, control)
+	runtime.mu.Lock()
+	thread = runtime.providerThreads[request.ProviderThreadID]
+	if request.Text == "side reroute" {
+		thread.Model = "gpt-5.4-mini"
+	}
+	for index := range thread.Turns {
+		if thread.Turns[index].ID != providerTurnID {
+			continue
+		}
+		switch result.Outcome {
+		case agent.TurnOutcomeCompleted:
+			thread.Turns[index].Status = "completed"
+		case agent.TurnOutcomeInterrupted:
+			thread.Turns[index].Status = "interrupted"
+		case agent.TurnOutcomeFailed:
+			thread.Turns[index].Status = "failed"
+		default:
+			if err != nil {
+				thread.Turns[index].Status = "failed"
+			}
+		}
+	}
+	runtime.providerThreads[request.ProviderThreadID] = thread
+	runtime.mu.Unlock()
+	return result, err
 }
 
 func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
@@ -399,6 +437,17 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 			Text:           "must not persist",
 		}
 		if err := sink.HandleAgentEvent(mismatched); err != nil {
+			return agent.TurnResult{}, err
+		}
+	case "side reroute":
+		rerouted := base
+		rerouted.Kind = agent.EventKindModelRerouted
+		rerouted.ModelReroute = &agent.ModelRerouteEvent{
+			FromModel: "gpt-5.6-luna",
+			ToModel:   "gpt-5.4-mini",
+			Reason:    "provider_reroute",
+		}
+		if err := sink.HandleAgentEvent(rerouted); err != nil {
 			return agent.TurnResult{}, err
 		}
 	case "hold", "hold cancel", "hold fail", "hold after failure":
@@ -631,6 +680,29 @@ func (runtime *serviceTestAgentRuntime) InterruptTurn(_ context.Context, request
 	return nil
 }
 
+func (runtime *serviceTestAgentRuntime) InterruptProviderTurn(_ context.Context, threadID string, turnID string) error {
+	runtime.mu.Lock()
+	if runtime.interruptProviderErr != nil {
+		err := runtime.interruptProviderErr
+		runtime.mu.Unlock()
+		return err
+	}
+	control := runtime.controls[turnID]
+	thread := runtime.providerThreads[threadID]
+	for index := range thread.Turns {
+		if thread.Turns[index].ID == turnID {
+			thread.Turns[index].Status = "interrupted"
+		}
+	}
+	runtime.providerThreads[threadID] = thread
+	runtime.controlLog = append(runtime.controlLog, turnID+":provider-interrupt")
+	runtime.mu.Unlock()
+	if control != nil {
+		control <- "interrupt"
+	}
+	return nil
+}
+
 func (runtime *serviceTestAgentRuntime) SubmitApproval(response agent.ApprovalResponse) error {
 	runtime.mu.Lock()
 	copy := response
@@ -642,10 +714,24 @@ func (runtime *serviceTestAgentRuntime) SubmitApproval(response agent.ApprovalRe
 }
 
 func (runtime *serviceTestAgentRuntime) UnsubscribeThread(_ context.Context, threadID string) error {
+	_, err := runtime.UnsubscribeThreadWithStatus(context.Background(), threadID)
+	return err
+}
+
+func (runtime *serviceTestAgentRuntime) UnsubscribeThreadWithStatus(
+	_ context.Context,
+	threadID string,
+) (agent.ThreadUnsubscribeStatus, error) {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
+	if runtime.unsubscribeErr != nil {
+		return "", runtime.unsubscribeErr
+	}
 	runtime.unsubscribed = append(runtime.unsubscribed, threadID)
-	return nil
+	if _, ok := runtime.providerThreads[threadID]; !ok {
+		return agent.ThreadUnsubscribeStatusNotLoaded, nil
+	}
+	return agent.ThreadUnsubscribeStatusUnsubscribed, nil
 }
 
 func (runtime *serviceTestAgentRuntime) signal(providerTurnID string, value string) {

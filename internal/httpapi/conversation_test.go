@@ -69,20 +69,7 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 	)
 	assertForkTopicCommand(t, service, forked)
 
-	postJSON[conversation.ConversationSnapshot](
-		t,
-		handler,
-		"/conversations/sides/create",
-		CreateSideConversationRequest{
-			WorkspaceID:          "workspace-api",
-			ParentConversationID: "conversation-api",
-			ParentPaneID:         "pane-api",
-		},
-		http.StatusOK,
-	)
-	if service.command != "create_side" || service.commandParentPaneID != "pane-api" {
-		t.Fatalf("side command = %q pane = %q", service.command, service.commandParentPaneID)
-	}
+	assertSideConversationCommands(t, handler, service)
 
 	for _, command := range []struct {
 		name string
@@ -177,6 +164,56 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		*service.voiceSelection.RequestedVoiceID != alloy ||
 		profile.ResolvedNarratorVoiceID == nil {
 		t.Fatalf("narrator voice command=%q selection=%+v profile=%+v", service.command, service.voiceSelection, profile)
+	}
+}
+
+func assertSideConversationCommands(t *testing.T, handler http.Handler, service *httpTestConversationService) {
+	t.Helper()
+	postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/sides/create",
+		CreateSideConversationRequest{
+			WorkspaceID:          "workspace-api",
+			ParentConversationID: "conversation-api",
+			ParentPaneID:         "pane-api",
+		},
+		http.StatusOK,
+	)
+	if service.command != "create_side" || service.commandParentPaneID != "pane-api" {
+		t.Fatalf("side command = %q pane = %q", service.command, service.commandParentPaneID)
+	}
+
+	postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/sides/turns/send",
+		SendSideConversationTurnRequest{
+			WorkspaceID:          "workspace-api",
+			ParentConversationID: "conversation-api",
+			SideConversationID:   "side-api",
+			Text:                 "side question",
+		},
+		http.StatusOK,
+	)
+	if service.command != "send_side" || service.commandConversationID != "side-api" || service.commandText != "side question" {
+		t.Fatalf("send side command = %q side = %q text = %q", service.command, service.commandConversationID, service.commandText)
+	}
+
+	postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/sides/dispose",
+		DisposeSideConversationRequest{
+			WorkspaceID:          "workspace-api",
+			ParentConversationID: "conversation-api",
+			ParentPaneID:         "pane-api",
+			SideConversationID:   "side-api",
+		},
+		http.StatusOK,
+	)
+	if service.command != "dispose_side" || service.commandConversationID != "side-api" || service.commandParentPaneID != "pane-api" {
+		t.Fatalf("dispose side command = %q side = %q pane = %q", service.command, service.commandConversationID, service.commandParentPaneID)
 	}
 }
 
@@ -558,6 +595,29 @@ func (service *httpTestConversationService) CreateSideConversation(
 	return service.snapshot, nil
 }
 
+func (service *httpTestConversationService) SendSideConversationTurn(
+	_ context.Context,
+	workspaceID string,
+	parentConversationID string,
+	sideConversationID string,
+	text string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("send_side", workspaceID, sideConversationID, text)
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) DisposeSideConversation(
+	_ context.Context,
+	workspaceID string,
+	parentConversationID string,
+	parentPaneID string,
+	sideConversationID string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("dispose_side", workspaceID, sideConversationID, "")
+	service.commandParentPaneID = parentPaneID
+	return service.snapshot, nil
+}
+
 func (service *httpTestConversationService) UpdateNarratorVoiceSelection(
 	_ context.Context,
 	workspaceID string,
@@ -664,7 +724,11 @@ func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {
 			UpdatedAt:               httpConversationTestTime,
 		},
 		SideConversations: []conversation.SideConversation{},
-		EventCursor:       conversation.ConversationEventCursor{StreamID: streamID},
+		SideEvents: conversation.ConversationSideEventWindow{
+			Events: []conversation.SideConversationEvent{},
+			Limit:  conversation.MaxSnapshotSideEvents,
+		},
+		EventCursor: conversation.ConversationEventCursor{StreamID: streamID},
 	}}
 }
 

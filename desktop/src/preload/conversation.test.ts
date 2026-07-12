@@ -16,6 +16,7 @@ describe("preload topic conversation API", () => {
       "askStatus",
       "create",
       "createSide",
+      "disposeSide",
       "fork",
       "list",
       "onEvent",
@@ -23,6 +24,7 @@ describe("preload topic conversation API", () => {
       "read",
       "release",
       "send",
+      "sendSide",
       "steer",
       "stop",
       "submitApproval",
@@ -46,6 +48,18 @@ describe("preload topic conversation API", () => {
     const sideRequest = {
       parentConversationId: target.conversationId,
       parentPaneId: "pane_api",
+      workspaceId: target.workspaceId,
+    };
+    const sideTurnRequest = {
+      parentConversationId: target.conversationId,
+      sideConversationId: "side_api",
+      text: "Ask the side",
+      workspaceId: target.workspaceId,
+    };
+    const sideDisposeRequest = {
+      parentConversationId: target.conversationId,
+      parentPaneId: sideRequest.parentPaneId,
+      sideConversationId: sideTurnRequest.sideConversationId,
       workspaceId: target.workspaceId,
     };
     const turn = { ...target, text: "Continue the topic" };
@@ -86,6 +100,8 @@ describe("preload topic conversation API", () => {
       listRequest,
       release,
       sideRequest,
+      sideDisposeRequest,
+      sideTurnRequest,
       subscription,
       target,
       turn,
@@ -101,6 +117,8 @@ describe("preload topic conversation API", () => {
     expectInvokeCalls(invoke, [
       [ipcChannels.conversationAskNarratorStatus, { ...target, question: "What is happening?" }],
       [ipcChannels.conversationCreateSide, sideRequest],
+      [ipcChannels.conversationSendSideTurn, sideTurnRequest],
+      [ipcChannels.conversationDisposeSide, sideDisposeRequest],
       [ipcChannels.conversationCreateTopic, { title: "API topic", workspaceId: "workspace_api" }],
       [ipcChannels.conversationForkTopic, forkRequest],
       [ipcChannels.conversationListTopicConversations, listRequest],
@@ -154,6 +172,8 @@ async function invokeConversationCommands(
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
     release: Parameters<SettaAPI["conversations"]["release"]>[0];
     sideRequest: Parameters<NonNullable<SettaAPI["conversations"]["createSide"]>>[0];
+    sideDisposeRequest: Parameters<NonNullable<SettaAPI["conversations"]["disposeSide"]>>[0];
+    sideTurnRequest: Parameters<NonNullable<SettaAPI["conversations"]["sendSide"]>>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: Parameters<SettaAPI["conversations"]["read"]>[0];
     turn: Parameters<SettaAPI["conversations"]["send"]>[0];
@@ -166,6 +186,13 @@ async function invokeConversationCommands(
     throw new Error("side conversation creation is unavailable");
   }
   await createSide(requests.sideRequest);
+  const sendSide = api.conversations.sendSide;
+  const disposeSide = api.conversations.disposeSide;
+  if (!sendSide || !disposeSide) {
+    throw new Error("side conversation lifecycle is unavailable");
+  }
+  await sendSide(requests.sideTurnRequest);
+  await disposeSide(requests.sideDisposeRequest);
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
   await api.conversations.fork(requests.forkRequest);
   await api.conversations.list(requests.listRequest);

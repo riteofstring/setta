@@ -44,6 +44,7 @@ import {
   listTopics,
   waitForNavigator,
 } from "./topic-conversation-fork-workflow.mjs";
+import { verifySideConversationRestart } from "./topic-conversation-side-restart-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
@@ -662,6 +663,7 @@ try {
     forkSnapshot: alphaForkSnapshot,
     forkTerminalSnapshot: alphaForkTerminalSnapshot,
     forkTopic: alphaFork,
+    restartSide: alphaRestartSide,
     side: alphaSide,
   } = await exerciseSideAndDurableForkWorkflow({
     backend,
@@ -703,28 +705,30 @@ try {
     alphaFork,
     0,
   );
-  const alphaForkReloadedSnapshot = await waitForConversationSnapshot(
+  const sideRestart = await verifySideConversationRestart({
+    alpha,
+    alphaFork,
+    alphaForkTerminalSnapshot,
+    alphaRestartSide,
+    alphaSide,
+    artifactDir,
     backend,
+    context,
+    fakeCodex,
+    fixture,
+    openWorkspace,
+    speechProvider,
+    visible: options.visible,
+    waitForConversationSnapshot,
     workspaceId,
-    alphaFork.id,
-    (snapshot) =>
-      snapshot.eventCursor.sequence === alphaForkTerminalSnapshot.eventCursor.sequence &&
-      snapshot.turns.turns[0]?.status === "completed" &&
-      snapshot.branch?.parentConversationId === alpha.id,
-  );
-  const alphaSideReloadedSnapshot = await waitForConversationSnapshot(
-    backend,
-    workspaceId,
-    alpha.id,
-    (snapshot) =>
-      snapshot.sideConversations.some(
-        (side) =>
-          side.id === alphaSide.id &&
-          side.status === "active" &&
-          side.providerThreadId === alphaSide.providerThreadId,
-      ),
-  );
-  await captureScreenshot(context.client, join(artifactDir, "commands-reloaded.png"));
+  });
+  context = sideRestart.context;
+  const {
+    alphaForkReloadedSnapshot,
+    alphaRestartSideRecoveredSnapshot,
+    alphaRestartSideReloadedSnapshot,
+    alphaSideReloadedSnapshot,
+  } = sideRestart;
 
   await writeJson(join(artifactDir, "summary.json"), {
     alpha,
@@ -738,6 +742,9 @@ try {
     alphaForkReloadedSnapshot,
     alphaSide,
     alphaSideReloadedSnapshot,
+    alphaRestartSide,
+    alphaRestartSideReloadedSnapshot,
+    alphaRestartSideRecoveredSnapshot,
     alphaSnapshot,
     artifactDir,
     beta,

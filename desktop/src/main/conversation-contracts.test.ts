@@ -64,5 +64,6 @@ const eventDispositionByType = {
   "conversation.presentation_profile.updated": (payload) => payload.profile.resolvedPaletteId,
   "conversation.branch.created": (payload) => payload.branch.kind,
   "conversation.side_conversation.updated": (payload) => payload.sideConversation.status,
+  "conversation.side_event.appended": (payload) => payload.event.event.kind,
   "conversation.resync_required": (payload) => (payload.reason.length > 0 ? "resync" : "invalid"),
 } satisfies ConversationEventDispositionMap;

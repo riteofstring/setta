@@ -160,6 +160,14 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		_ = conversationStore.Close()
 		return runtimeFoundation{}, fmt.Errorf("create conversation service: %w", err)
 	}
+	if err := conversationService.RecoverSideConversations(context.Background()); err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+		_ = conversationService.Shutdown(shutdownCtx)
+		_ = narratorService.Shutdown(shutdownCtx)
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("recover side conversations: %w", err)
+	}
 	if err := narratorService.RecoverCommittedTrajectory(context.Background()); err != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
 		defer cancel()

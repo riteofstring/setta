@@ -97,8 +97,9 @@ describe("conversation store", () => {
     expect(current.presentationProfile.resolvedPaletteId).toBe("violet");
     expect(current.branch?.parentConversationId).toBe("conversation_parent");
     expect(current.sideConversations.map((side) => side.id)).toEqual(["side_a"]);
+    expect(current.sideEvents.events.map((event) => event.event.id)).toEqual(["side_trajectory_a"]);
     expect(current.eventCursor).toEqual({
-      sequence: 12,
+      sequence: 13,
       streamId: conversationStreamId(conversationA),
     });
   });
@@ -124,6 +125,24 @@ describe("conversation store", () => {
     expect(projection(conversationB).snapshot?.conversation.title).toBe("Topic B");
     expect(projection(conversationA).snapshot?.eventCursor.sequence).toBe(2);
     expect(projection(conversationB).snapshot?.eventCursor.sequence).toBe(2);
+  });
+
+  test("projects parent status changes onto an open side conversation", () => {
+    hydrate(conversationA);
+    useConversationStore.getState().applyEvents([
+      conversationEvent(conversationA, 1, {
+        sideConversation: sideConversation(conversationA),
+        type: "conversation.side_conversation.updated",
+      }),
+      conversationEvent(conversationA, 2, {
+        conversation: {
+          ...topicConversation(conversationA, "Parent failed"),
+          status: "failed",
+        },
+        type: "conversation.updated",
+      }),
+    ]);
+    expect(projection(conversationA).snapshot?.sideConversations[0]?.parentStatus).toBe("failed");
   });
 
   test("ignores duplicate envelopes without notifying subscribers", () => {
@@ -460,6 +479,18 @@ function allProjectionEvents(conversationId: string): ConversationEvent[] {
       sideConversation: sideConversation(conversationId),
       type: "conversation.side_conversation.updated",
     }),
+    conversationEvent(conversationId, 13, {
+      event: {
+        event: {
+          ...trajectoryEvent("side_a"),
+          id: "side_trajectory_a",
+        },
+        parentConversationId: conversationId,
+        sideConversationId: "side_a",
+        streamSequence: 1,
+      },
+      type: "conversation.side_event.appended",
+    }),
   ];
 }
 
@@ -528,6 +559,7 @@ function conversationSnapshot(
     roleProfileOverrides: [],
     schemaVersion: 1,
     sideConversations: [],
+    sideEvents: { events: [], hasEarlier: false, limit: 200 },
     threadBinding: null,
     trajectory: { events: [], hasEarlier: false },
     turns: { hasEarlier: false, turns: [] },
@@ -715,16 +747,21 @@ function branch(conversationId: string): ConversationBranch {
 
 function sideConversation(conversationId: string): SideConversation {
   return {
+    activeProviderTurnId: null,
+    activeTurnId: null,
     createdAt: timestamp,
     disposedAt: null,
     failure: null,
     id: "side_a",
     parentConversationId: conversationId,
     parentPaneId: "pane_a",
+    parentStatus: "working",
     providerThreadId: "thread_side",
     resolvedSideAgentInvocation: resolvedInvocation("side_agent"),
     sourceProviderTurnId: "turn_provider",
+    sourceProviderThreadId: "thread_parent",
     sourceTrajectorySequence: 1,
+    lastEventSequence: 1,
     status: "active",
     updatedAt: timestamp,
   };

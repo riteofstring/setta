@@ -23,6 +23,20 @@ type CreateSideConversationRequest struct {
 	ParentPaneID         string `json:"parentPaneId"`
 }
 
+type SendSideConversationTurnRequest struct {
+	WorkspaceID          string `json:"workspaceId"`
+	ParentConversationID string `json:"parentConversationId"`
+	SideConversationID   string `json:"sideConversationId"`
+	Text                 string `json:"text"`
+}
+
+type DisposeSideConversationRequest struct {
+	WorkspaceID          string `json:"workspaceId"`
+	ParentConversationID string `json:"parentConversationId"`
+	ParentPaneID         string `json:"parentPaneId"`
+	SideConversationID   string `json:"sideConversationId"`
+}
+
 type SendTopicConversationTurnRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`

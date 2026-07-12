@@ -21,6 +21,7 @@ const (
 	MaxSnapshotNarrationEvents   = 100
 	MaxSnapshotRoleOverrides     = 4
 	MaxSnapshotSideConversations = 32
+	MaxSnapshotSideEvents        = 200
 )
 
 type ConversationEventType string
@@ -38,6 +39,7 @@ const (
 	ConversationEventTypePresentationProfileUpdated ConversationEventType = "conversation.presentation_profile.updated"
 	ConversationEventTypeBranchCreated              ConversationEventType = "conversation.branch.created"
 	ConversationEventTypeSideConversationUpdated    ConversationEventType = "conversation.side_conversation.updated"
+	ConversationEventTypeSideEventAppended          ConversationEventType = "conversation.side_event.appended"
 	ConversationEventTypeResyncRequired             ConversationEventType = "conversation.resync_required"
 )
 
@@ -54,6 +56,7 @@ var conversationEventTypeValues = []ConversationEventType{
 	ConversationEventTypePresentationProfileUpdated,
 	ConversationEventTypeBranchCreated,
 	ConversationEventTypeSideConversationUpdated,
+	ConversationEventTypeSideEventAppended,
 	ConversationEventTypeResyncRequired,
 }
 
@@ -99,6 +102,7 @@ type ConversationSnapshot struct {
 	PresentationProfile  ConversationPresentationProfile `json:"presentationProfile"`
 	Branch               *ConversationBranch             `json:"branch"`
 	SideConversations    []SideConversation              `json:"sideConversations"`
+	SideEvents           ConversationSideEventWindow     `json:"sideEvents"`
 	EventCursor          ConversationEventCursor         `json:"eventCursor"`
 }
 
@@ -184,6 +188,11 @@ type ConversationBranchCreatedEventPayload struct {
 type ConversationSideConversationUpdatedEventPayload struct {
 	Type             ConversationEventType `json:"type"`
 	SideConversation SideConversation      `json:"sideConversation"`
+}
+
+type ConversationSideEventAppendedEventPayload struct {
+	Type  ConversationEventType `json:"type"`
+	Event SideConversationEvent `json:"event"`
 }
 
 type ConversationResyncRequiredEventPayload struct {
@@ -294,6 +303,9 @@ func validateSnapshotConfiguration(snapshot ConversationSnapshot, conversationID
 		return err
 	}
 	if err := validateSnapshotSides(snapshot.SideConversations, conversationID, snapshot.Conversation.LastTrajectorySequence); err != nil {
+		return err
+	}
+	if err := validateSnapshotSideEvents(snapshot.SideEvents, snapshot.SideConversations, conversationID); err != nil {
 		return err
 	}
 	return nil
@@ -873,6 +885,7 @@ func ContractUnions() []ContractUnion {
 			contractEventVariant(ConversationEventTypePresentationProfileUpdated, ConversationPresentationProfileUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeBranchCreated, ConversationBranchCreatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeSideConversationUpdated, ConversationSideConversationUpdatedEventPayload{}),
+			contractEventVariant(ConversationEventTypeSideEventAppended, ConversationSideEventAppendedEventPayload{}),
 			contractEventVariant(ConversationEventTypeResyncRequired, ConversationResyncRequiredEventPayload{}),
 		},
 	}}

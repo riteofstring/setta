@@ -108,39 +108,52 @@ func (service *Service) startPreparedSideConversation(
 			prepared,
 			"side_thread_fork_failed",
 			nil,
+			false,
 			err,
 		)
 	}
 	if err := validateSideForkThread(thread, prepared.parentThreadID, prepared.resolved.Model); err != nil {
-		service.unsubscribeRejectedSideFork(thread.ID, prepared.parentThreadID)
+		providerThreadID, disposed, cleanupErr := service.cleanupRejectedSideFork(
+			thread.ID,
+			prepared.parentThreadID,
+		)
 		return service.failPreparingSideConversation(
 			prepared,
 			"side_thread_fork_failed",
-			nil,
-			err,
+			providerThreadID,
+			disposed,
+			errors.Join(err, cleanupErr),
 		)
 	}
 	if err := service.agent.InjectItems(ctx, thread.ID, prepared.injectedItems); err != nil {
 		failure := fmt.Errorf("inject side boundary and in-flight context: %w", err)
+		disposed := false
 		if unsubscribeErr := service.agent.UnsubscribeThread(context.Background(), thread.ID); unsubscribeErr != nil {
 			failure = errors.Join(failure, fmt.Errorf("unsubscribe unprepared side thread: %w", unsubscribeErr))
+		} else {
+			disposed = true
 		}
 		return service.failPreparingSideConversation(
 			prepared,
 			"side_context_injection_failed",
 			&thread.ID,
+			disposed,
 			failure,
 		)
 	}
 	if err := service.activateSideConversation(ctx, prepared, thread); err != nil {
 		failure := err
+		disposed := false
 		if unsubscribeErr := service.agent.UnsubscribeThread(context.Background(), thread.ID); unsubscribeErr != nil {
 			failure = errors.Join(failure, fmt.Errorf("unsubscribe uncommitted side thread: %w", unsubscribeErr))
+		} else {
+			disposed = true
 		}
 		return service.failPreparingSideConversation(
 			prepared,
 			"side_activation_failed",
 			&thread.ID,
+			disposed,
 			failure,
 		)
 	}
@@ -167,7 +180,11 @@ SELECT EXISTS(
   FROM side_conversations
   WHERE parent_conversation_id = ?
     AND parent_pane_id = ?
-    AND status IN ('preparing', 'active', 'disposing')
+    AND disposed_at IS NULL
+    AND (
+      status IN ('preparing', 'active', 'disposing')
+      OR (status = 'failed' AND provider_thread_id IS NOT NULL)
+    )
 )
 `, parentConversationID, parentPaneID).Scan(&exists)
 	})
@@ -332,6 +349,8 @@ func (service *Service) persistPreparingSideConversation(
 		ID:                       sideID,
 		ParentConversationID:     parentConversationID,
 		ParentPaneID:             parentPaneID,
+		ParentStatus:             snapshot.Conversation.Status,
+		SourceProviderThreadID:   snapshot.ThreadBinding.ThreadID,
 		SourceProviderTurnID:     latestProviderTurnID(snapshot.Turns.Turns),
 		SourceTrajectorySequence: snapshot.Conversation.LastTrajectorySequence,
 		Status:                   SideConversationStatusPreparing,
@@ -489,6 +508,7 @@ func (service *Service) failPreparingSideConversation(
 	prepared preparedSideConversation,
 	code string,
 	providerThreadID *string,
+	providerDisposed bool,
 	cause error,
 ) error {
 	diagnosticID, idErr := service.newID("side_diagnostic")
@@ -499,6 +519,9 @@ func (service *Service) failPreparingSideConversation(
 	failed.Status = SideConversationStatusFailed
 	failed.UpdatedAt = advanceTimestamp(failed.UpdatedAt, service.timestamp())
 	failed.ProviderThreadID = cloneStringPointer(providerThreadID)
+	if providerDisposed {
+		failed.DisposedAt = &failed.UpdatedAt
+	}
 	failed.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = cloneStringPointer(providerThreadID)
 	failure := Failure{
 		Code:                code,
@@ -556,6 +579,43 @@ func (service *Service) persistSideConversation(
 	return err
 }
 
+func (service *Service) persistSideConversationEvent(
+	ctx context.Context,
+	expected SideConversationExpectation,
+	side SideConversation,
+	event TrajectoryEvent,
+) error {
+	if event.ConversationID != side.ID || event.Sequence != side.LastEventSequence {
+		return fmt.Errorf("side event %s does not match side %s sequence %d", event.ID, side.ID, side.LastEventSequence)
+	}
+	_, err := service.store.Transact(ctx, "persist side conversation event", func(transaction *WriteTransaction) error {
+		if err := transaction.UpdateSideConversation(expected, side); err != nil {
+			return err
+		}
+		wrapped, err := transaction.InsertSideConversationEvent(side.ParentConversationID, event)
+		if err != nil {
+			return err
+		}
+		publications, err := service.publications(
+			side.ParentConversationID,
+			side.UpdatedAt,
+			ConversationSideConversationUpdatedEventPayload{
+				Type:             ConversationEventTypeSideConversationUpdated,
+				SideConversation: side,
+			},
+			ConversationSideEventAppendedEventPayload{
+				Type:  ConversationEventTypeSideEventAppended,
+				Event: wrapped,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		return appendPublications(transaction, publications)
+	})
+	return err
+}
+
 func validateSideForkThread(thread agent.Thread, parentThreadID string, modelID string) error {
 	if err := thread.Validate(); err != nil {
 		return fmt.Errorf("provider returned an invalid side fork thread: %w", err)
@@ -575,9 +635,15 @@ func validateSideForkThread(thread agent.Thread, parentThreadID string, modelID 
 	return nil
 }
 
-func (service *Service) unsubscribeRejectedSideFork(threadID string, parentThreadID string) {
+func (service *Service) cleanupRejectedSideFork(
+	threadID string,
+	parentThreadID string,
+) (*string, bool, error) {
 	if threadID == "" || threadID == parentThreadID {
-		return
+		return nil, false, nil
 	}
-	_ = service.agent.UnsubscribeThread(context.Background(), threadID)
+	if err := service.agent.UnsubscribeThread(context.Background(), threadID); err != nil {
+		return &threadID, false, fmt.Errorf("unsubscribe rejected side fork %s: %w", threadID, err)
+	}
+	return &threadID, true, nil
 }
