@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"setta/internal/workspace"
 )
 
 const safetyIdentifierPrefix = "setta-device-"
@@ -19,30 +17,20 @@ type Provider interface {
 	CreateTranscriptionClientSecret(context.Context, string) (SpeechTranscriptionClientSecret, error)
 }
 
-type WorkspaceResolver interface {
-	ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error)
-}
-
 type ServiceConfig struct {
-	Provider   Provider
-	Workspaces WorkspaceResolver
+	Provider Provider
 }
 
 type Service struct {
-	provider   Provider
-	workspaces WorkspaceResolver
+	provider Provider
 }
 
 func NewService(config ServiceConfig) (*Service, error) {
 	if config.Provider == nil {
 		return nil, errors.New("speech provider is required")
 	}
-	if config.Workspaces == nil {
-		return nil, errors.New("speech workspace resolver is required")
-	}
 	return &Service{
-		provider:   config.Provider,
-		workspaces: config.Workspaces,
+		provider: config.Provider,
 	}, nil
 }
 
@@ -70,11 +58,8 @@ func (service *Service) ReadCapabilities(context.Context) (SpeechCapabilities, e
 	return capabilities, nil
 }
 
-func (service *Service) CreateTranscriptionSession(ctx context.Context, workspaceID string, deviceID string) (SpeechTranscriptionSession, error) {
+func (service *Service) CreateTranscriptionSession(ctx context.Context, deviceID string) (SpeechTranscriptionSession, error) {
 	if err := service.requireConfigured(); err != nil {
-		return SpeechTranscriptionSession{}, err
-	}
-	if err := service.requireWorkspace(workspaceID); err != nil {
 		return SpeechTranscriptionSession{}, err
 	}
 	safetyIdentifier, err := deviceSafetyIdentifier(deviceID)
@@ -106,20 +91,6 @@ func (service *Service) requireConfigured() error {
 	}
 	if !service.provider.Configured() {
 		return classifiedError(ErrorNotConfigured, "OpenAI speech is not configured.", nil)
-	}
-	return nil
-}
-
-func (service *Service) requireWorkspace(workspaceID string) error {
-	if err := validateSourceID("speech workspace id", workspaceID); err != nil {
-		return err
-	}
-	summary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
-	if err != nil {
-		return err
-	}
-	if summary.ID != workspaceID {
-		return fmt.Errorf("resolved speech workspace id = %q, want %q", summary.ID, workspaceID)
 	}
 	return nil
 }

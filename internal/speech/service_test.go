@@ -6,26 +6,11 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"setta/internal/workspace"
 )
 
 func TestNewSpeechServiceRequiresDependencies(t *testing.T) {
-	configuredProvider := &serviceTestProvider{configured: true}
-	workspaces := newServiceTestWorkspaceResolver()
-	tests := []struct {
-		name   string
-		config ServiceConfig
-	}{
-		{name: "provider", config: ServiceConfig{Workspaces: workspaces}},
-		{name: "workspaces", config: ServiceConfig{Provider: configuredProvider}},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewService(test.config); err == nil {
-				t.Fatal("NewService unexpectedly succeeded")
-			}
-		})
+	if _, err := NewService(ServiceConfig{}); err == nil {
+		t.Fatal("NewService unexpectedly succeeded")
 	}
 }
 
@@ -51,7 +36,7 @@ func TestSpeechServiceReportsConfiguredAndTextOnlyCapabilities(t *testing.T) {
 	}
 }
 
-func TestSpeechServiceCreatesScopedTranscriptionSession(t *testing.T) {
+func TestSpeechServiceCreatesDeviceScopedTranscriptionSession(t *testing.T) {
 	expiresAt := time.Now().Add(5 * time.Minute).UTC().Truncate(time.Second)
 	provider := &serviceTestProvider{
 		configured: true,
@@ -62,7 +47,7 @@ func TestSpeechServiceCreatesScopedTranscriptionSession(t *testing.T) {
 	}
 	service := newServiceTestService(t, provider)
 
-	session, err := service.CreateTranscriptionSession(context.Background(), "workspace_api", "device_sensitive_principal")
+	session, err := service.CreateTranscriptionSession(context.Background(), "device_sensitive_principal")
 	if err != nil {
 		t.Fatalf("create transcription session: %v", err)
 	}
@@ -102,33 +87,16 @@ func TestDeviceSafetyIdentifierIsStableAndDeviceScoped(t *testing.T) {
 	}
 }
 
-func TestSpeechServiceRejectsUnknownWorkspaceBeforeProvider(t *testing.T) {
-	provider := &serviceTestProvider{configured: true}
-	resolver := &serviceTestWorkspaceResolver{workspaces: map[string]workspace.WorkspaceSummary{}}
-	service, err := NewService(ServiceConfig{Provider: provider, Workspaces: resolver})
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	_, err = service.CreateTranscriptionSession(context.Background(), "workspace_missing", "device_one")
-	if err == nil || !strings.Contains(err.Error(), "workspace not found") {
-		t.Fatalf("transcription error = %v, want missing workspace", err)
-	}
-	if provider.transcriptionCalls != 0 || resolver.calls != 1 {
-		t.Fatalf("unexpected work provider=%+v workspaceCalls=%d", provider, resolver.calls)
-	}
-}
-
-func TestSpeechServiceUnconfiguredTranscriptionDoesNotReadWorkspaceOrCallProvider(t *testing.T) {
+func TestSpeechServiceUnconfiguredTranscriptionDoesNotCallProvider(t *testing.T) {
 	provider := &serviceTestProvider{}
-	resolver := &serviceTestWorkspaceResolver{}
-	service, err := NewService(ServiceConfig{Provider: provider, Workspaces: resolver})
+	service, err := NewService(ServiceConfig{Provider: provider})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
-	_, err = service.CreateTranscriptionSession(context.Background(), "workspace_missing", "device_one")
+	_, err = service.CreateTranscriptionSession(context.Background(), "device_one")
 	assertSpeechServiceErrorCode(t, err, ErrorNotConfigured)
-	if provider.transcriptionCalls != 0 || resolver.calls != 0 {
-		t.Fatalf("unexpected work provider=%+v workspaceCalls=%d", provider, resolver.calls)
+	if provider.transcriptionCalls != 0 {
+		t.Fatalf("unexpected provider calls: %+v", provider)
 	}
 }
 
@@ -136,7 +104,7 @@ func TestSpeechServicePreservesTranscriptionProviderFailure(t *testing.T) {
 	providerFailure := errors.New("transcription provider failed")
 	provider := &serviceTestProvider{configured: true, transcriptionErr: providerFailure}
 	service := newServiceTestService(t, provider)
-	_, err := service.CreateTranscriptionSession(context.Background(), "workspace_api", "device_one")
+	_, err := service.CreateTranscriptionSession(context.Background(), "device_one")
 	if !errors.Is(err, providerFailure) {
 		t.Fatalf("error = %v, want provider failure", err)
 	}
@@ -160,31 +128,9 @@ func (provider *serviceTestProvider) CreateTranscriptionClientSecret(_ context.C
 	return provider.clientSecret, provider.transcriptionErr
 }
 
-type serviceTestWorkspaceResolver struct {
-	workspaces map[string]workspace.WorkspaceSummary
-	calls      int
-}
-
-func (resolver *serviceTestWorkspaceResolver) ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error) {
-	resolver.calls++
-	if summary, ok := resolver.workspaces[id]; ok {
-		return summary, nil
-	}
-	return workspace.WorkspaceSummary{}, errors.New("workspace not found")
-}
-
-func newServiceTestWorkspaceResolver() *serviceTestWorkspaceResolver {
-	return &serviceTestWorkspaceResolver{workspaces: map[string]workspace.WorkspaceSummary{
-		"workspace_api": {ID: "workspace_api"},
-	}}
-}
-
 func newServiceTestService(t *testing.T, provider Provider) *Service {
 	t.Helper()
-	service, err := NewService(ServiceConfig{
-		Provider:   provider,
-		Workspaces: newServiceTestWorkspaceResolver(),
-	})
+	service, err := NewService(ServiceConfig{Provider: provider})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}

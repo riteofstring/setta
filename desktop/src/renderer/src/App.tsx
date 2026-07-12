@@ -17,6 +17,7 @@ import { ResizablePane } from "./components/resizable-pane";
 import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
+import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import { cn } from "./lib/utils";
 import {
   WorkspaceLayoutArea,
@@ -49,7 +50,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const viewport = useViewportSize();
   useAppearanceSettings();
   useBackendLifecycle(setta);
-  const runtimeUnavailable = useRuntimeLifecycle(setta);
+  const runtime = useRuntimeLifecycle(setta);
   useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
@@ -108,7 +109,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }, [setta]);
   useEffect(() => setta.conversations.onEvent(handleConversationProjectionEvent), [setta]);
 
-  return (
+  const shell = (
     <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <AppChromeControls
         mobileViewport={mobileViewport}
@@ -128,7 +129,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           setWidth={setProjectPaneWidth}
           viewportWidth={viewport.width}
           width={effectiveProjectPaneWidth}
-          runtimeUnavailable={runtimeUnavailable}
+          runtimeUnavailable={runtime.controlsDisabled}
           workspace={workspace}
         />
         <WorkspaceLayoutArea
@@ -142,6 +143,14 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         />
       </main>
     </div>
+  );
+  if (!setta.workspaceNativeViews) {
+    return shell;
+  }
+  return (
+    <AppShellSpeechCaptureProvider runtimeId={runtime.connectedRuntimeId} setta={setta}>
+      {shell}
+    </AppShellSpeechCaptureProvider>
   );
 }
 
@@ -225,7 +234,10 @@ function useRuntimeLifecycle(setta: SettaAPI) {
     void loadWorkspaceSession();
   }, [activeConnectedRuntimeId, loadWorkspaceSession]);
 
-  return runtimeControlsDisabled(runtimeSnapshot);
+  return {
+    connectedRuntimeId: activeConnectedRuntimeId,
+    controlsDisabled: runtimeControlsDisabled(runtimeSnapshot),
+  };
 }
 
 function useAppearanceSettings() {

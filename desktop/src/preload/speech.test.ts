@@ -21,14 +21,12 @@ describe("preload speech API", () => {
     }));
     await import("./index");
     const api = exposed.setta as SettaAPI;
-    const sessionRequest = { workspaceId: "workspace_api" };
-
     await api.speech.readCapabilities();
-    await api.speech.createTranscriptionSession(sessionRequest);
+    await api.speech.createTranscriptionSession();
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
-      [ipcChannels.speechCreateTranscriptionSession, sessionRequest],
+      [ipcChannels.speechCreateTranscriptionSession],
     ]);
   });
 });

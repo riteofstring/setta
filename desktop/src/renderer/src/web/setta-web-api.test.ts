@@ -139,16 +139,14 @@ describe("web SettaAPI unpaired runtime state", () => {
     requests.length = 0;
 
     const capabilities = await api.speech.readCapabilities();
-    const session = await api.speech.createTranscriptionSession({
-      workspaceId: "workspace_api",
-    });
+    const session = await api.speech.createTranscriptionSession();
     expect(capabilities.providerStatus).toBe("configured");
     expect(session.clientSecret).toBe("ek_web_ephemeral");
     expect(requests).toEqual([
       { authorization: "Bearer token_web", body: null, path: "/speech/capabilities" },
       {
         authorization: "Bearer token_web",
-        body: { workspaceId: "workspace_api" },
+        body: {},
         path: "/speech/transcription/sessions",
       },
     ]);

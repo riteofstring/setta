@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 20;
-export const backendContractSchemaHash = "sha256:ce4baee8df18009547feec2251419398a51e084b4bf3a23222ba65aa32b2ba6e";
+export const backendProtocolVersion = 21;
+export const backendContractSchemaHash = "sha256:0319a9efc5ea626d6cbad63c615d091444deadbf3be80192288e84b5c15e1194";
 
 export type DeviceScope = "full";
 
@@ -4773,7 +4773,6 @@ export interface SpeechCapabilities {
 }
 
 export interface CreateSpeechTranscriptionSessionRequest {
-  workspaceId: string;
 }
 
 export interface SpeechTranscriptionSession {
@@ -10889,9 +10888,8 @@ export function decodeSpeechCapabilities(value: unknown): SpeechCapabilities {
 
 export function decodeCreateSpeechTranscriptionSessionRequest(value: unknown): CreateSpeechTranscriptionSessionRequest {
   const record = assertRecord(value, "CreateSpeechTranscriptionSessionRequest");
-  assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", ["workspaceId"]);
+  assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", []);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "CreateSpeechTranscriptionSessionRequest"), "CreateSpeechTranscriptionSessionRequest.workspaceId"),
   };
 }
 

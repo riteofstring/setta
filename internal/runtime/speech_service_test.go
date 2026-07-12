@@ -37,7 +37,7 @@ func TestRuntimeServesTextOnlySpeechCapabilitiesAndTypedFailures(t *testing.T) {
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{WorkspaceID: "workspace_unconfigured"},
+		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusServiceUnavailable,
 	)
 	if failure.Error.Code != string(speech.ErrorNotConfigured) || failure.Error.OperationApplied {
@@ -60,10 +60,6 @@ func TestConfiguredRuntimeServesSpeechCapabilitiesAndTranscription(t *testing.T)
 
 	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 10*time.Second)
 	baseURL := "http://" + server.Addr()
-	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
-		RootPath: t.TempDir(),
-	}, http.StatusOK)
-
 	capabilities := getRuntimeJSON[speech.SpeechCapabilities](t, client, baseURL, "/speech/capabilities")
 	if capabilities.ProviderStatus != speech.SpeechProviderStatusConfigured {
 		t.Fatalf("speech provider status = %q, want configured", capabilities.ProviderStatus)
@@ -73,7 +69,7 @@ func TestConfiguredRuntimeServesSpeechCapabilitiesAndTranscription(t *testing.T)
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{WorkspaceID: opened.Workspace.ID},
+		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusOK,
 	)
 	if session.ClientSecret != runtimeSpeechTranscriptionSecret {

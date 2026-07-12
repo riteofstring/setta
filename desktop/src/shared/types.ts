@@ -118,7 +118,6 @@ import type {
   SpeechTranscriptionSession,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
-  CreateSpeechTranscriptionSessionRequest,
   SteerTopicConversationTurnRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
@@ -424,9 +423,7 @@ export interface SettaAPI {
     subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
   };
   speech: {
-    createTranscriptionSession: (
-      request: CreateSpeechTranscriptionSessionRequest,
-    ) => Promise<SpeechTranscriptionSession>;
+    createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
   };
   appearance: {

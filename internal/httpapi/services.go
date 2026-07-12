@@ -84,7 +84,7 @@ type NarratorStatusService interface {
 
 type SpeechService interface {
 	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
-	CreateTranscriptionSession(context.Context, string, string) (speech.SpeechTranscriptionSession, error)
+	CreateTranscriptionSession(context.Context, string) (speech.SpeechTranscriptionSession, error)
 }
 
 type ChatService interface {

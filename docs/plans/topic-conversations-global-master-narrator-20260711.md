@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-4 are complete; Phase 5 is next
+**Status:** In progress; Phases 0-4 and Phase 5 item 1 are complete; Phase 5
+item 2 is next
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1688,6 +1689,8 @@ Exit criteria:
 
 ### Phase 5: Global speech cutover
 
+**Progress:** Item 1 complete.
+
 Implement:
 
 1. App-shell microphone controller and global preference.
@@ -3083,3 +3086,49 @@ Implementation is in progress under this plan.
   ChatGPT-authenticated live topic/narrator verification passed with
   `OPENAI_API_KEY` removed. Generated inputs and outputs changed: none. Phase 5
   remains next and was not started.
+- 2026-07-12: Completed Phase 5 item 1. Realtime microphone capture and its
+  OpenAI WebRTC protocol machinery moved out of `features/easy-button` into a
+  desktop application-shell speech owner. One shell-mounted controller now
+  owns the sole media-stream/track lease, capability loading, permission and
+  provider failure states, transcript preview, commit/cancel/timeout teardown,
+  runtime-switch and disconnect cancellation, and a finalized transcript
+  handoff record for the next routing slice. The controller is mounted once
+  above the workspace layout and remains independent of Easy Button pane
+  presence or churn; the frozen PWA does not mount this new desktop lifecycle.
+- 2026-07-12: Global microphone enablement is an explicit persisted
+  `enabled`/`disabled` device preference. A missing preference starts disabled
+  and enabling it never requests microphone access by itself. Corrupt,
+  unreadable, or unwritable storage is a typed visible controller failure
+  rather than a silent reset. Disabling capture tears down an active lease.
+  The transcription-session credential endpoint is now app-global and scoped
+  only to the authenticated device: its Go-owned request contract has no
+  workspace field, the removed `workspaceId` is rejected, and the speech
+  service no longer depends on workspace selection or an open workspace.
+- 2026-07-12: Backend protocol version 21, the contract schema snapshot,
+  generated TypeScript, IPC/preload/web client surfaces, and the retained web
+  build were regenerated from the Go endpoint owner. Focused speech, HTTP, and
+  runtime tests passed with the race detector; all 1,124 desktop tests,
+  typecheck, lint, dead-code analysis, desktop/web production builds, and the
+  embedded web-app test passed. The new deterministic production Electron
+  workflow created a credential with zero Easy Button panes through the real
+  renderer/preload/main/authenticated HTTP/runtime/provider path and verified
+  credential redaction; evidence is under
+  `.recordings/global-speech-session/20260712T161439616Z/`. The production
+  microphone-permission and topic-conversation workflows also passed at
+  `.recordings/microphone-permissions/20260712T160131801Z/` and
+  `.recordings/topic-conversation-pane-projection/20260712T160142922Z/`.
+  Generated-contract reproduction was clean. The Codex source reference was
+  not needed because this slice changes no Codex protocol behavior. Phase 5
+  item 2, submitting finalized global transcription to the master boundary, is
+  next.
+- 2026-07-12: Final formatting and changed-file quality verification passed.
+  The required broad gate cleared all 33 Go packages, file and complexity
+  limits, formatting, static analysis, all desktop tests, typecheck,
+  dead-code analysis, and the production build. Its Electron manifest then
+  stopped in the previously recorded retired chat workflow at the removed
+  `New chat` control, before reaching this slice's newly registered speech
+  workflow; that run also logged the existing temporary-workspace terminal
+  attach failure. The focused global-speech, microphone-permission, and topic
+  production workflows passed independently. The supply-chain audit again
+  reports the pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4,
+  fixed in 1.26.5; this slice changes no dependency manifest or toolchain pin.

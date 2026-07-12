@@ -2,146 +2,153 @@ import type { SpeechCapabilities, SpeechTranscriptionSession } from "@generated/
 import { describe, expect, test, vi } from "vitest";
 
 import {
+  AppShellSpeechCaptureController,
+  type AppShellSpeechCaptureControllerDependencies,
+  type SpeechCaptureFailureCode,
+} from "./app-shell-speech-capture-controller";
+import {
   RealtimeTranscriptionError,
   type RealtimeTranscriptionErrorCode,
 } from "./realtime-transcription-error";
-import {
-  type CreateRealtimeTranscriptionTransportOptions,
-  type RealtimeTranscriptionTransport,
+import type { RealtimeTranscriptionUpdate } from "./realtime-transcription-session";
+import type {
+  CreateRealtimeTranscriptionTransportOptions,
+  RealtimeTranscriptionTransport,
 } from "./realtime-transcription-transport";
-import {
-  SpeechCaptureController,
-  type SpeechCaptureControllerDependencies,
-  type SpeechCaptureFailureCode,
-  type SpeechCaptureState,
-} from "./speech-capture-controller";
 
-describe("Easy Button speech capture controller", () => {
-  test("runs permission, connection, listening, commit, delta, and exact completion in order", async () => {
+describe("app-shell speech capture controller", () => {
+  test("keeps the default global preference disabled without requesting the microphone", async () => {
     const harness = createHarness();
+    await harness.controller.synchronizeRuntime("runtime_capture");
 
-    const start = harness.controller.start(startOptions());
-    expect(harness.stateTypes()).toEqual(["requesting_permission"]);
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "configured" },
+      preference: { enabled: false, type: "ready" },
+      runtimeId: "runtime_capture",
+    });
+    await harness.controller.start();
+
+    expect(harness.currentCapture()).toEqual({
+      code: "microphone_disabled",
+      message: "Global microphone capture is disabled.",
+      type: "failed",
+    });
+    expect(harness.mediaConstraints).toEqual([]);
+    expect(harness.controller.setEnabled(true)).toEqual({ enabled: true, type: "ready" });
+    expect(harness.preferenceWrites).toEqual([true]);
+  });
+
+  test("runs one global permission, connection, preview, commit, and completion lifecycle", async () => {
+    const harness = createHarness();
+    await harness.connectAndEnable();
+
+    const start = harness.controller.start();
+    expect(harness.currentCapture()).toMatchObject({
+      captureSessionId: "capture_1",
+      transcript: "",
+      type: "requesting_permission",
+    });
     await harness.waitForTransport();
     expect(harness.mediaConstraints).toEqual([{ audio: true, video: false }]);
-    expect(harness.sessionWorkspaceIds).toEqual(["workspace_capture"]);
-    expect(harness.stateTypes()).toEqual(["requesting_permission", "connecting"]);
+    expect(harness.transcriptionSessionCalls).toBe(1);
     expect(harness.timerDelayMs).toBe(120_000);
 
     harness.transport.resolveReady();
     await start;
-    expect(harness.currentState()).toMatchObject({
-      captureSessionId: "capture_1",
-      intent: "start",
-      transcript: "",
-      type: "listening",
-    });
+    expect(harness.currentCapture()).toMatchObject({ type: "listening" });
 
     harness.controller.commit();
     expect(harness.transport.commit).toHaveBeenCalledOnce();
     harness.transport.delta("partial words");
-    expect(harness.currentState()).toMatchObject({
+    expect(harness.currentCapture()).toMatchObject({
       transcript: "partial words",
       type: "committing",
     });
     harness.transport.complete("  Provider final, unchanged.  ");
-    await flushPromises();
 
-    expect(harness.completions).toEqual([
-      {
-        context: { runtimeId: "runtime_capture", workspaceId: "workspace_capture" },
-        intent: "start",
-        transcript: "  Provider final, unchanged.  ",
-      },
-    ]);
-    expect(harness.currentState()).toEqual({ type: "idle" });
+    expect(harness.currentCapture()).toEqual({ type: "idle" });
+    expect(harness.controller.getSnapshot().completedTranscript).toEqual({
+      captureSessionId: "capture_1",
+      runtimeId: "runtime_capture",
+      transcript: "  Provider final, unchanged.  ",
+    });
+    expect(harness.controller.consumeCompletedTranscript("capture_other")).toBeNull();
+    expect(harness.controller.consumeCompletedTranscript("capture_1")).toMatchObject({
+      transcript: "  Provider final, unchanged.  ",
+    });
+    expect(harness.controller.getSnapshot().completedTranscript).toBeNull();
     expect(harness.transport.close).toHaveBeenCalledOnce();
     expect(harness.track.stop).toHaveBeenCalledOnce();
     expect(harness.clearTimer).toHaveBeenCalledOnce();
   });
 
-  test("keeps committing until the completed-transcript consumer finishes", async () => {
-    const completion = deferred<void>();
-    const harness = createHarness({
-      onCompletedTranscript: () => completion.promise,
-    });
-    const start = harness.controller.start(startOptions({ intent: "steer" }));
-    await harness.waitForTransport();
-    harness.transport.resolveReady();
-    await start;
-
-    harness.controller.commit();
-    harness.transport.complete("Steer exactly this.");
-    await flushPromises();
-    expect(harness.currentState()).toMatchObject({
-      intent: "steer",
-      transcript: "Steer exactly this.",
-      type: "committing",
-    });
-
-    completion.resolve();
-    await flushPromises();
-    expect(harness.currentState()).toEqual({ type: "idle" });
-  });
-
-  test("rejects an empty authoritative completion without handing off partial text", async () => {
-    const harness = createHarness();
-    const start = harness.controller.start(startOptions());
-    await harness.waitForTransport();
-    harness.transport.resolveReady();
-    await start;
-
-    harness.controller.commit();
-    harness.transport.delta("non-authoritative partial");
-    harness.transport.complete("  \n  ");
-    await flushPromises();
-
-    expect(harness.completions).toEqual([]);
-    expect(harness.currentState()).toEqual({
-      code: "no_speech",
-      message: "No speech was detected. Please try again.",
-      type: "failed",
-    });
-  });
-
-  test("Escape-style cancellation during permission ignores the late stream and preserves no state", async () => {
+  test("runtime disconnect cancels permission and rejects its late stream", async () => {
     const media = deferred<MediaStream>();
     const harness = createHarness({ getUserMedia: () => media.promise });
+    await harness.connectAndEnable();
 
-    const start = harness.controller.start(startOptions());
-    harness.controller.cancel();
-    expect(harness.currentState()).toEqual({ type: "idle" });
+    const start = harness.controller.start();
+    await harness.controller.synchronizeRuntime(null);
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "disconnected" },
+      capture: { type: "idle" },
+      runtimeId: null,
+    });
 
     media.resolve(harness.stream);
     await start;
     expect(harness.track.stop).toHaveBeenCalledOnce();
-    expect(harness.sessionWorkspaceIds).toEqual([]);
+    expect(harness.transcriptionSessionCalls).toBe(0);
     expect(harness.transports).toEqual([]);
   });
 
-  test("cancellation while connected closes transport, timer, and every media track", async () => {
+  test("disabling the global preference tears down an active lease without changing runtime scope", async () => {
     const harness = createHarness();
-    const start = harness.controller.start(startOptions());
+    await harness.connectAndEnable();
+    const start = harness.controller.start();
     await harness.waitForTransport();
-
-    harness.controller.cancel();
-    harness.transport.rejectReady("aborted");
+    harness.transport.resolveReady();
     await start;
 
-    expect(harness.currentState()).toEqual({ type: "idle" });
+    harness.controller.setEnabled(false);
+
+    expect(harness.currentCapture()).toEqual({ type: "idle" });
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      preference: { enabled: false, type: "ready" },
+      runtimeId: "runtime_capture",
+    });
     expect(harness.transport.close).toHaveBeenCalledOnce();
     expect(harness.track.stop).toHaveBeenCalledOnce();
-    expect(harness.clearTimer).toHaveBeenCalledOnce();
   });
 
-  test("the backend recording-duration limit visibly fails and tears down capture", async () => {
+  test("ignores a late capability response from the previous runtime", async () => {
+    const first = deferred<SpeechCapabilities>();
+    const second = deferred<SpeechCapabilities>();
+    const reads = [first.promise, second.promise];
+    const harness = createHarness({ readCapabilities: () => reads.shift()! });
+
+    const connectFirst = harness.controller.synchronizeRuntime("runtime_first");
+    const connectSecond = harness.controller.synchronizeRuntime("runtime_second");
+    second.resolve(capabilities());
+    await connectSecond;
+    first.resolve(capabilities({ providerStatus: "not_configured" }));
+    await connectFirst;
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "configured" },
+      runtimeId: "runtime_second",
+    });
+  });
+
+  test("the recording-duration limit visibly fails and tears down capture", async () => {
     const session = deferred<SpeechTranscriptionSession>();
     const harness = createHarness({ createTranscriptionSession: () => session.promise });
-    const start = harness.controller.start(startOptions());
-    await harness.waitForState("connecting");
+    await harness.connectAndEnable();
+    const start = harness.controller.start();
+    await harness.waitForCapture("connecting");
 
     harness.fireTimer();
-    expect(harness.currentState()).toEqual({
+    expect(harness.currentCapture()).toEqual({
       code: "duration_limit",
       message: "Voice recording reached the 120-second limit. Please try again.",
       type: "failed",
@@ -166,12 +173,13 @@ describe("Easy Button speech capture controller", () => {
           throw Object.assign(new Error("private device prose"), { name });
         },
       });
+      await harness.connectAndEnable();
 
-      await harness.controller.start(startOptions());
+      await harness.controller.start();
 
-      expect(harness.currentState()).toMatchObject({ code, type: "failed" });
-      expect(failedMessage(harness.currentState())).not.toContain("private");
-      expect(harness.sessionWorkspaceIds).toEqual([]);
+      expect(harness.currentCapture()).toMatchObject({ code, type: "failed" });
+      expect(failedMessage(harness.currentCapture())).not.toContain("private");
+      expect(harness.transcriptionSessionCalls).toBe(0);
     },
   );
 
@@ -189,47 +197,46 @@ describe("Easy Button speech capture controller", () => {
     "transcript_too_large",
     "transcription_failed",
   ] satisfies Exclude<RealtimeTranscriptionErrorCode, "aborted">[])(
-    "maps Realtime %s to a typed visible failure and rejects late completion",
+    "maps Realtime %s to a typed failure and rejects late completion",
     async (code) => {
       const harness = createHarness();
-      const start = harness.controller.start(startOptions());
+      await harness.connectAndEnable();
+      const start = harness.controller.start();
       await harness.waitForTransport();
 
       harness.transport.fail(code);
       await start;
       harness.transport.complete("late transcript");
-      await flushPromises();
 
-      expect(harness.currentState()).toMatchObject({ code, type: "failed" });
-      expect(harness.completions).toEqual([]);
+      expect(harness.currentCapture()).toMatchObject({ code, type: "failed" });
+      expect(harness.controller.getSnapshot().completedTranscript).toBeNull();
       expect(harness.track.stop).toHaveBeenCalledOnce();
     },
   );
 
-  test("keeps the runtime's safe session error and stops the already-open microphone", async () => {
-    const harness = createHarness({
-      createTranscriptionSession: async () => {
-        throw new Error("OpenAI speech rate limit or quota was reached.");
+  test("reports capability, preference, support, and configuration failures before microphone access", async () => {
+    const capabilityFailure = createHarness({
+      readCapabilities: async () => {
+        throw new Error("private runtime failure");
       },
     });
-
-    await harness.controller.start(startOptions());
-
-    expect(harness.currentState()).toEqual({
-      code: "session_failed",
-      message: "OpenAI speech rate limit or quota was reached.",
+    await capabilityFailure.controller.synchronizeRuntime("runtime_capture");
+    capabilityFailure.controller.setEnabled(true);
+    await capabilityFailure.controller.start();
+    expect(capabilityFailure.currentCapture()).toEqual({
+      code: "capabilities_unavailable",
+      message: "Voice capabilities could not be read from the runtime.",
       type: "failed",
     });
-    expect(harness.track.stop).toHaveBeenCalledOnce();
-  });
 
-  test("fails before microphone access when configuration or browser support is invalid", async () => {
-    const notConfigured = createHarness();
-    await notConfigured.controller.start(
-      startOptions({ capabilities: capabilities({ providerStatus: "not_configured" }) }),
-    );
-    expect(notConfigured.currentState()).toMatchObject({
-      code: "not_configured",
+    const preferenceFailure = createHarness({
+      readPreference: () => ({ message: "Preference is corrupt.", type: "failed" }),
+    });
+    await preferenceFailure.controller.synchronizeRuntime("runtime_capture");
+    await preferenceFailure.controller.start();
+    expect(preferenceFailure.currentCapture()).toEqual({
+      code: "preference_unavailable",
+      message: "Preference is corrupt.",
       type: "failed",
     });
 
@@ -240,25 +247,24 @@ describe("Easy Button speech capture controller", () => {
         supported: false,
       }),
     });
-    await insecure.controller.start(startOptions());
-    expect(insecure.currentState()).toEqual({
-      code: "insecure_context",
-      message: "Voice capture requires HTTPS.",
+    await insecure.connectAndEnable();
+    await insecure.controller.start();
+    expect(insecure.currentCapture()).toMatchObject({ code: "insecure_context", type: "failed" });
+
+    const notConfigured = createHarness({
+      readCapabilities: async () => capabilities({ providerStatus: "not_configured" }),
+    });
+    await notConfigured.connectAndEnable();
+    await notConfigured.controller.start();
+    expect(notConfigured.currentCapture()).toMatchObject({
+      code: "not_configured",
       type: "failed",
     });
 
-    const invalidLimits = createHarness();
-    await invalidLimits.controller.start(
-      startOptions({ capabilities: capabilities({ maximumRecordingSeconds: 0 }) }),
-    );
-    expect(invalidLimits.currentState()).toMatchObject({
-      code: "session_failed",
-      type: "failed",
-    });
-
-    expect(notConfigured.mediaConstraints).toEqual([]);
+    expect(capabilityFailure.mediaConstraints).toEqual([]);
+    expect(preferenceFailure.mediaConstraints).toEqual([]);
     expect(insecure.mediaConstraints).toEqual([]);
-    expect(invalidLimits.mediaConstraints).toEqual([]);
+    expect(notConfigured.mediaConstraints).toEqual([]);
   });
 
   test("rejects changed backend limits and allows a failed capture to retry cleanly", async () => {
@@ -269,20 +275,22 @@ describe("Easy Button speech capture controller", () => {
     const harness = createHarness({
       createTranscriptionSession: async () => sessions.shift()!,
     });
+    await harness.connectAndEnable();
 
-    await harness.controller.start(startOptions());
-    expect(harness.currentState()).toMatchObject({ code: "invalid_session", type: "failed" });
+    await harness.controller.start();
+    expect(harness.currentCapture()).toMatchObject({ code: "invalid_session", type: "failed" });
 
-    const retry = harness.controller.start(startOptions({ intent: "steer" }));
+    const retry = harness.controller.start();
     await harness.waitForTransport();
     harness.transport.resolveReady();
     await retry;
-    expect(harness.currentState()).toMatchObject({ intent: "steer", type: "listening" });
+    expect(harness.currentCapture()).toMatchObject({ type: "listening" });
   });
 
-  test("dispose is idempotent and prevents late provider callbacks", async () => {
+  test("dispose is idempotent, closes resources, and prevents reuse or late provider callbacks", async () => {
     const harness = createHarness();
-    const start = harness.controller.start(startOptions());
+    await harness.connectAndEnable();
+    const start = harness.controller.start();
     await harness.waitForTransport();
 
     harness.controller.dispose();
@@ -291,49 +299,43 @@ describe("Easy Button speech capture controller", () => {
     await start;
     harness.transport.delta("late");
 
-    expect(harness.currentState()).toEqual({ type: "idle" });
-    expect(harness.completions).toEqual([]);
+    expect(harness.controller.getSnapshot().completedTranscript).toBeNull();
+    expect(harness.transport.close).toHaveBeenCalledOnce();
     expect(harness.track.stop).toHaveBeenCalledOnce();
+    expect(() => harness.controller.cancel()).toThrow("controller is disposed");
   });
 });
 
 interface HarnessOverrides {
-  createTranscriptionSession?: (workspaceId: string) => Promise<SpeechTranscriptionSession>;
+  createTranscriptionSession?: () => Promise<SpeechTranscriptionSession>;
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
-  onCompletedTranscript?: (
-    transcript: string,
-    intent: "start" | "steer",
-    context: { runtimeId: string; workspaceId: string },
-  ) => Promise<void> | void;
-  support?: SpeechCaptureControllerDependencies["support"];
+  readCapabilities?: () => Promise<SpeechCapabilities>;
+  readPreference?: AppShellSpeechCaptureControllerDependencies["readPreference"];
+  support?: AppShellSpeechCaptureControllerDependencies["support"];
+  writePreference?: AppShellSpeechCaptureControllerDependencies["writePreference"];
 }
 
 function createHarness(overrides: HarnessOverrides = {}) {
-  const states: SpeechCaptureState[] = [];
-  const completions: Array<{
-    context: { runtimeId: string; workspaceId: string };
-    intent: "start" | "steer";
-    transcript: string;
-  }> = [];
   const track = fakeAudioTrack();
   const stream = fakeMediaStream(track);
   const transports: FakeTransport[] = [];
   const mediaConstraints: MediaStreamConstraints[] = [];
-  const sessionWorkspaceIds: string[] = [];
+  const preferenceWrites: boolean[] = [];
   let timerHandler: (() => void) | null = null;
   let timerDelayMs = 0;
   let captureOrdinal = 0;
+  let transcriptionSessionCalls = 0;
   const clearTimer = vi.fn();
-  const dependencies: SpeechCaptureControllerDependencies = {
+  const dependencies: AppShellSpeechCaptureControllerDependencies = {
     clearTimeout: clearTimer,
     createCaptureSessionId: () => {
       captureOrdinal += 1;
       return `capture_${captureOrdinal}`;
     },
-    createTranscriptionSession: async (workspaceId) => {
-      sessionWorkspaceIds.push(workspaceId);
+    createTranscriptionSession: async () => {
+      transcriptionSessionCalls += 1;
       return overrides.createTranscriptionSession
-        ? overrides.createTranscriptionSession(workspaceId)
+        ? overrides.createTranscriptionSession()
         : transcriptionSession();
     },
     createTransport: (options) => {
@@ -345,26 +347,31 @@ function createHarness(overrides: HarnessOverrides = {}) {
       mediaConstraints.push(constraints);
       return overrides.getUserMedia ? overrides.getUserMedia(constraints) : stream;
     },
+    readCapabilities: overrides.readCapabilities ?? (async () => capabilities()),
+    readPreference:
+      overrides.readPreference ?? (() => ({ enabled: false, type: "ready" as const })),
     setTimeout: (handler, delayMs) => {
       timerHandler = handler;
       timerDelayMs = delayMs;
       return Symbol("timer");
     },
     support: overrides.support ?? (() => ({ supported: true })),
+    writePreference:
+      overrides.writePreference ??
+      ((enabled) => {
+        preferenceWrites.push(enabled);
+        return { enabled, type: "ready" };
+      }),
   };
-  const controller = new SpeechCaptureController({
-    dependencies,
-    onCompletedTranscript: async (transcript, intent, context) => {
-      completions.push({ context, intent, transcript });
-      await overrides.onCompletedTranscript?.(transcript, intent, context);
-    },
-    onStateChange: (state) => states.push(state),
-  });
+  const controller = new AppShellSpeechCaptureController(dependencies);
   return {
     clearTimer,
-    completions,
+    connectAndEnable: async () => {
+      await controller.synchronizeRuntime("runtime_capture");
+      controller.setEnabled(true);
+    },
     controller,
-    currentState: () => controller.state,
+    currentCapture: () => controller.getSnapshot().capture,
     fireTimer: () => {
       if (!timerHandler) {
         throw new Error("capture duration timer was not installed");
@@ -372,14 +379,15 @@ function createHarness(overrides: HarnessOverrides = {}) {
       timerHandler();
     },
     mediaConstraints,
-    sessionWorkspaceIds,
-    stateTypes: () => states.map((state) => state.type),
-    states,
+    preferenceWrites,
     stream,
     get timerDelayMs() {
       return timerDelayMs;
     },
     track,
+    get transcriptionSessionCalls() {
+      return transcriptionSessionCalls;
+    },
     get transport() {
       const transport = transports.at(-1);
       if (!transport) {
@@ -388,9 +396,9 @@ function createHarness(overrides: HarnessOverrides = {}) {
       return transport;
     },
     transports,
-    waitForState: async (type: SpeechCaptureState["type"]) => {
+    waitForCapture: async (type: ReturnType<typeof controller.getSnapshot>["capture"]["type"]) => {
       for (let attempt = 0; attempt < 20; attempt += 1) {
-        if (controller.state.type === type) {
+        if (controller.getSnapshot().capture.type === type) {
           return;
         }
         await flushPromises();
@@ -425,7 +433,7 @@ class FakeTransport implements RealtimeTranscriptionTransport {
   }
 
   complete(transcript: string): void {
-    this.options.onTranscript({
+    this.emit({
       captureSessionId: this.options.captureSessionId,
       itemId: "item_current",
       providerSessionId: "session_current",
@@ -435,7 +443,7 @@ class FakeTransport implements RealtimeTranscriptionTransport {
   }
 
   delta(transcript: string): void {
-    this.options.onTranscript({
+    this.emit({
       captureSessionId: this.options.captureSessionId,
       delta: transcript,
       itemId: "item_current",
@@ -461,20 +469,10 @@ class FakeTransport implements RealtimeTranscriptionTransport {
       providerSessionId: "session_current",
     });
   }
-}
 
-function startOptions(
-  overrides: {
-    capabilities?: SpeechCapabilities;
-    intent?: "start" | "steer";
-  } = {},
-) {
-  return {
-    capabilities: overrides.capabilities ?? capabilities(),
-    intent: overrides.intent ?? ("start" as const),
-    runtimeId: "runtime_capture",
-    workspaceId: "workspace_capture",
-  };
+  private emit(update: RealtimeTranscriptionUpdate): void {
+    this.options.onTranscript(update);
+  }
 }
 
 function capabilities(overrides: Partial<SpeechCapabilities> = {}): SpeechCapabilities {
@@ -522,7 +520,9 @@ function fakeMediaStream(track: MediaStreamTrack): MediaStream {
   } as unknown as MediaStream;
 }
 
-function failedMessage(state: SpeechCaptureState): string {
+function failedMessage(
+  state: ReturnType<AppShellSpeechCaptureController["getSnapshot"]>["capture"],
+): string {
   return state.type === "failed" ? state.message : "";
 }
 

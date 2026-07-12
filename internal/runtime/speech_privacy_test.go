@@ -46,17 +46,13 @@ func TestRuntimeKeepsSpeechSecretsAndAudioOutOfOutputAndPersistence(t *testing.T
 	}
 	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 10*time.Second)
 	baseURL := "http://" + server.Addr()
-	workspaceRoot := t.TempDir()
-	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
-		RootPath: workspaceRoot,
-	}, http.StatusOK)
 
 	session := postRuntimeJSON[speech.SpeechTranscriptionSession](
 		t,
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{WorkspaceID: opened.Workspace.ID},
+		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusOK,
 	)
 	if session.ClientSecret != runtimeSpeechTranscriptionSecret {
@@ -68,7 +64,6 @@ func TestRuntimeKeepsSpeechSecretsAndAudioOutOfOutputAndPersistence(t *testing.T
 	assertNoRuntimeSpeechMarkers(t, "runtime stdout", stdout.Bytes(), markers)
 	assertNoRuntimeSpeechMarkers(t, "runtime stderr", stderr.Bytes(), markers)
 	assertNoRuntimeSpeechMarkersInDirectory(t, appDataDir, markers)
-	assertNoRuntimeSpeechMarkersInDirectory(t, workspaceRoot, markers)
 }
 
 func runtimeSpeechPrivateMarkers() map[string][]byte {

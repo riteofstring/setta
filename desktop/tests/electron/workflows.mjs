@@ -41,6 +41,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "global-speech-session-workflow.test.mjs",
+    name: "global-speech-session",
+    tiers: ["required"],
+  },
+  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
     tiers: ["required"],

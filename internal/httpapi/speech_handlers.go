@@ -31,7 +31,7 @@ func (handler handler) createSpeechTranscriptionSession(response http.ResponseWr
 		writeError(response, http.StatusInternalServerError, "authenticated_device_session_missing", "authenticated device session is missing")
 		return
 	}
-	session, err := service.CreateTranscriptionSession(request.Context(), payload.WorkspaceID, device.ID)
+	session, err := service.CreateTranscriptionSession(request.Context(), device.ID)
 	if err != nil {
 		writeSpeechError(response, "create_speech_transcription_session_failed", err)
 		return

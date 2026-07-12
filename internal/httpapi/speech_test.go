@@ -41,11 +41,9 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 	if capabilities != service.capabilities {
 		t.Fatalf("capabilities = %+v, want %+v", capabilities, service.capabilities)
 	}
-	created := postJSONWithToken[speech.SpeechTranscriptionSession](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{
-		WorkspaceID: "workspace_api",
-	}, token, http.StatusOK)
-	if created != service.session || service.transcriptionWorkspaceID != "workspace_api" || service.transcriptionDeviceID != device.ID {
-		t.Fatalf("created=%+v workspace=%q device=%q", created, service.transcriptionWorkspaceID, service.transcriptionDeviceID)
+	created := postJSONWithToken[speech.SpeechTranscriptionSession](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, token, http.StatusOK)
+	if created != service.session || service.transcriptionDeviceID != device.ID {
+		t.Fatalf("created=%+v device=%q", created, service.transcriptionDeviceID)
 	}
 }
 
@@ -108,9 +106,7 @@ func TestSpeechEndpointMapsTypedFailures(t *testing.T) {
 				Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
 				SpeechService: service,
 			})
-			response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{
-				WorkspaceID: "workspace_api",
-			}, test.wantStatus)
+			response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, test.wantStatus)
 			if response.Error.Code != string(test.code) || response.Error.Message != "safe classified speech failure" || response.Error.OperationApplied {
 				t.Fatalf("error = %+v", response.Error)
 			}
@@ -119,16 +115,26 @@ func TestSpeechEndpointMapsTypedFailures(t *testing.T) {
 }
 
 func TestSpeechEndpointMapsUnclassifiedFailureWithoutChangingOperationState(t *testing.T) {
-	service := &fakeHTTPSpeechService{transcriptionErr: errors.New("workspace is not open")}
+	service := &fakeHTTPSpeechService{transcriptionErr: errors.New("speech provider failed")}
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
 		SpeechService: service,
 	})
-	response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{
-		WorkspaceID: "workspace_missing",
-	}, http.StatusBadRequest)
+	response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, http.StatusBadRequest)
 	if response.Error.Code != "create_speech_transcription_session_failed" || response.Error.OperationApplied {
 		t.Fatalf("error = %+v", response.Error)
+	}
+}
+
+func TestSpeechEndpointRejectsRemovedWorkspaceScope(t *testing.T) {
+	service := &fakeHTTPSpeechService{}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
+		SpeechService: service,
+	})
+	response := postRaw[ErrorResponse](t, handler, "/speech/transcription/sessions", `{"workspaceId":"workspace_old"}`, http.StatusBadRequest)
+	if response.Error.Code != "invalid_json" || service.calls != 0 {
+		t.Fatalf("error=%+v serviceCalls=%d", response.Error, service.calls)
 	}
 }
 
@@ -142,13 +148,12 @@ func TestSpeechEndpointRejectsOversizedRequestBeforeAuthenticationOrDecode(t *te
 }
 
 type fakeHTTPSpeechService struct {
-	capabilities             speech.SpeechCapabilities
-	capabilitiesErr          error
-	session                  speech.SpeechTranscriptionSession
-	transcriptionErr         error
-	transcriptionWorkspaceID string
-	transcriptionDeviceID    string
-	calls                    int
+	capabilities          speech.SpeechCapabilities
+	capabilitiesErr       error
+	session               speech.SpeechTranscriptionSession
+	transcriptionErr      error
+	transcriptionDeviceID string
+	calls                 int
 }
 
 func (service *fakeHTTPSpeechService) ReadCapabilities(context.Context) (speech.SpeechCapabilities, error) {
@@ -156,9 +161,8 @@ func (service *fakeHTTPSpeechService) ReadCapabilities(context.Context) (speech.
 	return service.capabilities, service.capabilitiesErr
 }
 
-func (service *fakeHTTPSpeechService) CreateTranscriptionSession(_ context.Context, workspaceID string, deviceID string) (speech.SpeechTranscriptionSession, error) {
+func (service *fakeHTTPSpeechService) CreateTranscriptionSession(_ context.Context, deviceID string) (speech.SpeechTranscriptionSession, error) {
 	service.calls++
-	service.transcriptionWorkspaceID = workspaceID
 	service.transcriptionDeviceID = deviceID
 	return service.session, service.transcriptionErr
 }

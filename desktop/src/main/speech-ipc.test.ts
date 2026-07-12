@@ -44,10 +44,9 @@ describe("speech IPC handlers", () => {
     });
 
     const capabilities = await invoke(handlers, ipcChannels.speechReadCapabilities);
-    const request = { workspaceId: "workspace_api" };
-    const session = await invoke(handlers, ipcChannels.speechCreateTranscriptionSession, request);
+    const session = await invoke(handlers, ipcChannels.speechCreateTranscriptionSession);
 
-    expect(backend.createSpeechTranscriptionSession).toHaveBeenCalledWith(request);
+    expect(backend.createSpeechTranscriptionSession).toHaveBeenCalledWith({});
     expect(capabilities).toMatchObject({ providerStatus: "configured" });
     expect(session).toMatchObject({ clientSecret });
     expect(observer.finished).toHaveBeenCalledTimes(2);

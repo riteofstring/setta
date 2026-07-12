@@ -1,12 +1,12 @@
 import type { SpeechCapabilities } from "@generated/backend";
 
-import {
-  browserSpeechCaptureSupport,
-  type SpeechCaptureContext,
-  type SpeechCaptureFailureCode,
-} from "./speech-capture-controller";
+import type {
+  SpeechCaptureFailureCode,
+  SpeechCaptureSupport,
+} from "./app-shell-speech-capture-controller";
 
 export type SpeechCaptureAvailability =
+  | { type: "disconnected" }
   | { type: "loading" }
   | { capabilities: SpeechCapabilities; type: "configured" }
   | { message: string; type: "not_configured" }
@@ -18,20 +18,9 @@ export type SpeechCaptureAvailability =
     }
   | { message: string; type: "failed" };
 
-export function sameCaptureContext(
-  captureContext: SpeechCaptureContext,
-  currentContext: SpeechCaptureContext | null,
-): boolean {
-  return (
-    currentContext !== null &&
-    captureContext.runtimeId === currentContext.runtimeId &&
-    captureContext.workspaceId === currentContext.workspaceId
-  );
-}
-
 export function speechAvailabilityForCapabilities(
   capabilities: SpeechCapabilities,
-  support = browserSpeechCaptureSupport(),
+  support: SpeechCaptureSupport,
 ): SpeechCaptureAvailability {
   if (!support.supported) {
     return { ...support, capabilities, type: "unsupported" };
@@ -41,6 +30,14 @@ export function speechAvailabilityForCapabilities(
       message: "Voice needs OPENAI_API_KEY on the runtime. Typed requests still work.",
       type: "not_configured",
     };
+  }
+  if (
+    !Number.isInteger(capabilities.maximumRecordingSeconds) ||
+    capabilities.maximumRecordingSeconds < 1 ||
+    !Number.isInteger(capabilities.maximumTranscriptCharacters) ||
+    capabilities.maximumTranscriptCharacters < 1
+  ) {
+    return { message: "The runtime returned invalid voice-capture limits.", type: "failed" };
   }
   return { capabilities, type: "configured" };
 }

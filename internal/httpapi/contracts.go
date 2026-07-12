@@ -155,9 +155,7 @@ type SubscribeConversationEventsRequest struct {
 	ConversationID string `json:"conversationId"`
 }
 
-type CreateSpeechTranscriptionSessionRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-}
+type CreateSpeechTranscriptionSessionRequest struct{}
 
 type ReadWorkflowExecutionActivityRequest struct {
 	WorkspaceID string `json:"workspaceId"`

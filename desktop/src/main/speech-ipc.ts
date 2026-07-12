@@ -23,7 +23,7 @@ export function registerSpeechIpcHandlers({
   handleIpc(
     ipcMain,
     "speechCreateTranscriptionSession",
-    async (_event, request) => requireBackendClient().createSpeechTranscriptionSession(request),
+    async () => requireBackendClient().createSpeechTranscriptionSession({}),
     observerWithRedactedResult(ipcObserver),
   );
 }

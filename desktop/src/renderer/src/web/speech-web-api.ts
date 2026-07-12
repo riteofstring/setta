@@ -3,8 +3,7 @@ import type { SettaAPI } from "@shared/types";
 
 export function createSpeechWebAPI(requireClient: () => BackendClient): SettaAPI["speech"] {
   return {
-    createTranscriptionSession: (request) =>
-      requireClient().createSpeechTranscriptionSession(request),
+    createTranscriptionSession: () => requireClient().createSpeechTranscriptionSession({}),
     readCapabilities: () => requireClient().readSpeechCapabilities(),
   };
 }

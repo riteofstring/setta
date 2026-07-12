@@ -146,7 +146,7 @@ const api: SettaAPI = {
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
   },
   speech: {
-    createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
+    createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
     readCapabilities: () => invoke("speechReadCapabilities"),
   },
   appearance: {

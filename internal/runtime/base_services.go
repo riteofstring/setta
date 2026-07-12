@@ -54,7 +54,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
-	speechService, err := newSpeechService(config.Speech, foundation.workspaceService)
+	speechService, err := newSpeechService(config.Speech)
 	if err != nil {
 		closeRuntimeServicesBeforeSpeechFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err

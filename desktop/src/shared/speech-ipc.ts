@@ -1,8 +1,4 @@
-import type {
-  CreateSpeechTranscriptionSessionRequest,
-  SpeechCapabilities,
-  SpeechTranscriptionSession,
-} from "@generated/backend";
+import type { SpeechCapabilities, SpeechTranscriptionSession } from "@generated/backend";
 
 export const speechIpcChannels = {
   speechCreateTranscriptionSession: "speech:create-transcription-session",
@@ -11,7 +7,7 @@ export const speechIpcChannels = {
 
 export interface SpeechIpcContract {
   speechCreateTranscriptionSession: {
-    args: [request: CreateSpeechTranscriptionSessionRequest];
+    args: [];
     result: SpeechTranscriptionSession;
   };
   speechReadCapabilities: {
