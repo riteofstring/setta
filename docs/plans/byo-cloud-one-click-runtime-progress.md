@@ -2,14 +2,18 @@
 
 **Plan:** [BYO Cloud One-Click Runtime Plan](./byo-cloud-one-click-runtime-plan.md)
 **Initialized:** 2026-07-06
-**Current phase:** Phase 1A: Mobile Runtime Foundation
-**Overall status:** Phase 1A verified 2026-07-11 except the PWA HTTPS item,
-which is blocked on enabling HTTPS certificates for the tailnet in the
-Tailscale admin console (user action). A code audit the same day found
-Phases 1B-5 substantially implemented with tests (only Phase 4's guarded
-idle auto-stop is intentionally absent); their checklist items remain
-unchecked pending per-item verification passes and their live completion
-gates, several of which require real cloud provisioning runs.
+**Current phase:** Phase 1B: Seeded Pairing + Tailnet Watch
+**Overall status:** Phase 1A complete 2026-07-12: all six items verified,
+including the phone PWA over ts.net HTTPS after tailnet HTTPS enablement.
+The deliverable-gate caveat is that `setta-devbox` runs a hand-made user
+unit rather than the `install.sh` system unit (the install shape itself is
+covered by `install_verification_test.sh` on the same box), and doctor's
+source-control probes are red because the box has no GitHub SSH setup. A
+code audit on 2026-07-11 found Phases 1B-5 substantially implemented with
+tests (only Phase 4's guarded idle auto-stop is intentionally absent);
+their checklist items remain unchecked pending per-item verification passes
+and their live completion gates, several of which require real cloud
+provisioning runs.
 
 ## Tracking Rules
 
@@ -29,7 +33,7 @@ gates, several of which require real cloud provisioning runs.
 
 | Phase | Status | Completion gate |
 | --- | --- | --- |
-| Phase 1A: Mobile Runtime Foundation | In progress | Manually prepared Linux VM runs Setta as a service; doctor reports runtime/mobile readiness; phone PWA works through the `ts.net` URL after normal pairing. |
+| Phase 1A: Mobile Runtime Foundation | Complete (2026-07-12) | Manually prepared Linux VM runs Setta as a service; doctor reports runtime/mobile readiness; phone PWA works through the `ts.net` URL after normal pairing. |
 | Phase 1B: Seeded Pairing + Tailnet Watch | Not started | Hand-provisioned runtime with a seeded pairing hash pairs automatically after joining the tailnet. |
 | Phase 1C: Cloud-Init Bootstrap + Release Authenticity | Not started | Generated cloud-init works on one verified Tier 2 provider, pairs automatically, and preserves the phone PWA path. |
 | Phase 2: Existing Machine SSH Launch | Not started | User can point Setta at an SSH-reachable machine and end with a paired, Tailscale-connected, phone-reachable runtime. |
@@ -73,15 +77,14 @@ Checklist:
   `scripts/release/install_verification_test.sh` passed on the Linux
   devbox (it is Darwin-skipped locally). Note: `setta-devbox` itself
   still runs a hand-made user unit predating `install.sh`.
-- [ ] Make the runtime-served PWA reachable through `tailscale serve` on an
+- [x] Make the runtime-served PWA reachable through `tailscale serve` on an
   official Tailscale tailnet with HTTPS enabled.
-  Verification: blocked on a user action 2026-07-11.
-  `setta service configure-tailscale-serve` configured TLS-terminated
-  443 -> 7345 (tailnet only) on `setta-devbox` and
-  `tailscale serve status` confirms it, but certificate minting fails:
-  `tailscale cert` reports "HTTPS cert support is not enabled/configured
-  for your tailnet". Enabling HTTPS in the Tailscale admin console is
-  required before `doctor` PWA TLS and the phone PWA path can go green.
+  Verification: `setta service configure-tailscale-serve` configured
+  TLS-terminated 443 -> 7345 (tailnet only) on `setta-devbox`
+  2026-07-11; after tailnet HTTPS was enabled in the Tailscale admin
+  console, `https://setta-devbox.tail426530.ts.net/manifest.webmanifest`
+  returned 200 from another tailnet device and
+  `setta doctor --json` reported `pwa.tlsValid: true` (2026-07-12).
 - [x] Add the authenticated runtime API and desktop UI for "Pair another
   device" so the desktop can display a QR/pairing URL for the phone.
   Verification: `POST /pairing/create-device` and desktop wiring
