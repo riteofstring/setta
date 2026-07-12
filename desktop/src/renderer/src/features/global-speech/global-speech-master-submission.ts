@@ -4,6 +4,8 @@ import type {
   SubmitMasterInputRequest,
 } from "@generated/backend";
 
+import { canonicalSpeechInputTimestamp } from "./speech-input-submission";
+
 export interface MasterInputFocusHints {
   focusedConversationId: string | null;
   focusedPaneId: string | null;
@@ -72,7 +74,7 @@ export class GlobalSpeechMasterSubmissionController {
       focusedWorkspaceId: focus.focusedWorkspaceId,
       id: captureSessionId,
       modality: "voice",
-      submittedAt: canonicalUTCTimestamp(this.dependencies.now()),
+      submittedAt: canonicalSpeechInputTimestamp(this.dependencies.now()),
       text: transcript,
     } satisfies MasterInput);
     const completedTranscript = { captureSessionId, input, runtimeId, transcript };
@@ -197,15 +199,6 @@ export class GlobalSpeechMasterSubmissionController {
       throw new Error("global speech master submission controller is disposed");
     }
   }
-}
-
-function canonicalUTCTimestamp(value: Date): string {
-  if (!Number.isFinite(value.getTime())) {
-    throw new Error("master input timestamp is invalid");
-  }
-  return value
-    .toISOString()
-    .replace(/\.([0-9]*?[1-9])?0+Z$/, (_match, digits?: string) => (digits ? `.${digits}Z` : "Z"));
 }
 
 function acceptedMasterInputMatches(accepted: AcceptedMasterInput, input: MasterInput): boolean {

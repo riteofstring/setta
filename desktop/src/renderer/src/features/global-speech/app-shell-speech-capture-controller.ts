@@ -11,6 +11,11 @@ import type {
   RealtimeTranscriptionTransport,
 } from "./realtime-transcription-transport";
 import {
+  type ConversationInputSubmissionState,
+  GlobalSpeechConversationSubmissionController,
+  type GlobalSpeechConversationSubmissionDependencies,
+} from "./global-speech-conversation-submission";
+import {
   type CompletedGlobalSpeechTranscript,
   GlobalSpeechMasterSubmissionController,
   type GlobalSpeechMasterSubmissionDependencies,
@@ -31,6 +36,7 @@ export type SpeechCaptureFailureCode =
   | "capabilities_unavailable"
   | "connection_failed"
   | "connection_lost"
+  | "conversation_submission_failed"
   | "conversation_submission_pending"
   | "duration_limit"
   | "insecure_context"
@@ -87,12 +93,14 @@ export interface AppShellSpeechCaptureSnapshot {
   capture: SpeechCaptureState;
   completedConversationTranscript: CompletedConversationSpeechTranscript | null;
   completedTranscript: CompletedGlobalSpeechTranscript | null;
+  conversationSubmission: ConversationInputSubmissionState;
   masterSubmission: MasterInputSubmissionState;
   preference: GlobalMicrophonePreference;
   runtimeId: string | null;
 }
 
-export interface AppShellSpeechCaptureControllerDependencies extends GlobalSpeechMasterSubmissionDependencies {
+export interface AppShellSpeechCaptureControllerDependencies
+  extends GlobalSpeechConversationSubmissionDependencies, GlobalSpeechMasterSubmissionDependencies {
   clearTimeout: (handle: unknown) => void;
   createCaptureSessionId: () => string;
   createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
@@ -111,6 +119,7 @@ export class AppShellSpeechCaptureController {
 
   private activeLifecycle: number | null = null;
   private capabilityGeneration = 0;
+  private readonly conversationSubmission: GlobalSpeechConversationSubmissionController;
   private disposed = false;
   private durationTimer: unknown = null;
   private lifecycleSequence = 0;
@@ -121,12 +130,14 @@ export class AppShellSpeechCaptureController {
 
   constructor(dependencies: AppShellSpeechCaptureControllerDependencies) {
     this.dependencies = dependencies;
+    this.conversationSubmission = new GlobalSpeechConversationSubmissionController(dependencies);
     this.masterSubmission = new GlobalSpeechMasterSubmissionController(dependencies);
     this.snapshotValue = {
       availability: { type: "disconnected" },
       capture: { type: "idle" },
       completedConversationTranscript: null,
       completedTranscript: null,
+      conversationSubmission: { type: "idle" },
       masterSubmission: { type: "idle" },
       preference: dependencies.readPreference(),
       runtimeId: null,
@@ -136,6 +147,13 @@ export class AppShellSpeechCaptureController {
       this.updateSnapshot({
         completedTranscript: snapshot.completedTranscript,
         masterSubmission: snapshot.submission,
+      });
+    });
+    this.conversationSubmission.subscribe(() => {
+      const snapshot = this.conversationSubmission.getSnapshot();
+      this.updateSnapshot({
+        completedConversationTranscript: snapshot.completedTranscript,
+        conversationSubmission: snapshot.submission,
       });
     });
   }
@@ -155,6 +173,7 @@ export class AppShellSpeechCaptureController {
     this.capabilityGeneration += 1;
     const generation = this.capabilityGeneration;
     this.resetCapture();
+    this.conversationSubmission.reset();
     this.masterSubmission.reset();
     this.updateSnapshot({
       availability: runtimeId ? { type: "loading" } : { type: "disconnected" },
@@ -198,15 +217,10 @@ export class AppShellSpeechCaptureController {
   start = async (requestedCapture: SpeechCaptureRequest): Promise<void> => {
     this.assertUsable();
     const request = freezeSpeechCaptureRequest(requestedCapture);
-    const submissionFailure = submissionCaptureFailure(
-      this.snapshotValue.completedConversationTranscript,
-      this.snapshotValue.completedTranscript,
-      this.snapshotValue.masterSubmission,
-    );
-    if (submissionFailure) {
-      this.updateSnapshot({ capture: { ...submissionFailure, type: "failed" } });
+    if (this.captureRequestBlocked(request)) {
       return;
     }
+    this.conversationSubmission.clearAccepted();
     this.masterSubmission.clearAccepted();
     this.resetCapture();
     this.updateSnapshot({ capture: { type: "idle" } });
@@ -295,9 +309,21 @@ export class AppShellSpeechCaptureController {
     this.masterSubmission.retry();
   };
 
+  retryConversationSubmission = (): void => {
+    this.assertUsable();
+    this.updateSnapshot({ capture: { type: "idle" } });
+    this.conversationSubmission.retry();
+  };
+
   discardCompletedTranscript = (): void => {
     this.assertUsable();
     this.masterSubmission.discard();
+    this.updateSnapshot({ capture: { type: "idle" } });
+  };
+
+  discardCompletedConversationTranscript = (): void => {
+    this.assertUsable();
+    this.conversationSubmission.discard();
     this.updateSnapshot({ capture: { type: "idle" } });
   };
 
@@ -308,6 +334,7 @@ export class AppShellSpeechCaptureController {
     this.disposed = true;
     this.capabilityGeneration += 1;
     this.resetCapture();
+    this.conversationSubmission.dispose();
     this.masterSubmission.dispose();
     this.listeners.clear();
   };
@@ -332,6 +359,37 @@ export class AppShellSpeechCaptureController {
         },
       });
     }
+  }
+
+  private handleActiveCaptureRequest(request: SpeechCaptureRequest): boolean {
+    const activeRequest = activeCaptureRequest(this.snapshotValue.capture);
+    if (!activeRequest) {
+      return false;
+    }
+    if (!speechCaptureRequestsEqual(activeRequest, request)) {
+      throw new Error("another global speech capture is already active");
+    }
+    if (this.snapshotValue.capture.type === "listening") {
+      this.commit();
+    }
+    return true;
+  }
+
+  private captureRequestBlocked(request: SpeechCaptureRequest): boolean {
+    if (this.handleActiveCaptureRequest(request)) {
+      return true;
+    }
+    const failure = submissionCaptureFailure(
+      this.snapshotValue.completedConversationTranscript,
+      this.snapshotValue.completedTranscript,
+      this.snapshotValue.conversationSubmission,
+      this.snapshotValue.masterSubmission,
+    );
+    if (!failure) {
+      return false;
+    }
+    this.updateSnapshot({ capture: { ...failure, type: "failed" } });
+    return true;
   }
 
   private captureStartFailure(): { code: SpeechCaptureFailureCode; message: string } | null {
@@ -422,17 +480,15 @@ export class AppShellSpeechCaptureController {
         this.masterSubmission.submitTranscript(captureSessionId, runtimeId, transcript);
         return;
       case "conversation":
-        this.updateSnapshot({
-          completedConversationTranscript: Object.freeze({
-            captureSessionId,
-            request: conversationSpeechCaptureRequest(
-              request.destination.conversationId,
-              requiredConversationSourcePane(request.sourcePaneId),
-              request.destination.inputMode,
-            ),
-            runtimeId,
-            transcript,
-          }),
+        this.conversationSubmission.submitTranscript({
+          captureSessionId,
+          request: conversationSpeechCaptureRequest(
+            request.destination.conversationId,
+            requiredConversationSourcePane(request.sourcePaneId),
+            request.destination.inputMode,
+          ),
+          runtimeId,
+          transcript,
         });
         return;
       default:
@@ -540,15 +596,43 @@ function requiredConversationSourcePane(sourcePaneId: string | null): string {
 function submissionCaptureFailure(
   completedConversationTranscript: CompletedConversationSpeechTranscript | null,
   completedMasterTranscript: CompletedGlobalSpeechTranscript | null,
+  conversationSubmission: ConversationInputSubmissionState,
   masterSubmission: MasterInputSubmissionState,
 ): { code: SpeechCaptureFailureCode; message: string } | null {
-  if (completedConversationTranscript) {
-    return {
-      code: "conversation_submission_pending",
-      message: "The previous conversation voice request is awaiting durable delivery.",
-    };
+  const conversationFailure = conversationSubmissionCaptureFailure(
+    completedConversationTranscript,
+    conversationSubmission,
+  );
+  if (conversationFailure) {
+    return conversationFailure;
   }
   return masterSubmissionCaptureFailure(completedMasterTranscript, masterSubmission);
+}
+
+function conversationSubmissionCaptureFailure(
+  completedTranscript: CompletedConversationSpeechTranscript | null,
+  submission: ConversationInputSubmissionState,
+): { code: SpeechCaptureFailureCode; message: string } | null {
+  if (!completedTranscript) {
+    if (submission.type === "submitting" || submission.type === "failed") {
+      throw new Error("conversation submission state is missing its completed transcript");
+    }
+    return null;
+  }
+  switch (submission.type) {
+    case "submitting":
+      return {
+        code: "conversation_submission_pending",
+        message: "The previous conversation voice request is awaiting durable delivery.",
+      };
+    case "failed":
+      return { code: "conversation_submission_failed", message: submission.message };
+    case "accepted":
+    case "idle":
+      throw new Error("completed transcript has an invalid conversation submission state");
+    default:
+      return assertNever(submission);
+  }
 }
 
 function masterSubmissionCaptureFailure(
@@ -653,6 +737,41 @@ function captureSessionId(state: SpeechCaptureState): string | null {
     case "idle":
     case "failed":
       return null;
+  }
+}
+
+function activeCaptureRequest(state: SpeechCaptureState): SpeechCaptureRequest | null {
+  switch (state.type) {
+    case "requesting_permission":
+    case "connecting":
+    case "listening":
+    case "committing":
+      return state.request;
+    case "idle":
+    case "failed":
+      return null;
+  }
+}
+
+function speechCaptureRequestsEqual(
+  left: SpeechCaptureRequest,
+  right: SpeechCaptureRequest,
+): boolean {
+  if (left.destination.type !== right.destination.type) {
+    return false;
+  }
+  switch (left.destination.type) {
+    case "master":
+      return right.destination.type === "master" && left.sourcePaneId === right.sourcePaneId;
+    case "conversation":
+      return (
+        right.destination.type === "conversation" &&
+        left.destination.conversationId === right.destination.conversationId &&
+        left.destination.inputMode === right.destination.inputMode &&
+        left.sourcePaneId === right.sourcePaneId
+      );
+    default:
+      return assertNever(left.destination);
   }
 }
 

@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v8";
+  const version = "setta-topic-conversation-pane-projection-driver-v9";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -24,6 +24,7 @@
       topicConversationSurfaceState,
       topicConversationSurfaceStates,
       topicConversationTogglePaneMaximized,
+      topicConversationVoiceCapture,
       topicConversationWorkspaceOpenState,
     });
   }
@@ -128,6 +129,17 @@
     setInputValue(input, text);
     input.form.requestSubmit();
     return { conversationId, submitted: true };
+  }
+
+  function topicConversationVoiceCapture({ conversationId }) {
+    const button = conversationSurface(conversationId)?.querySelector(
+      '[data-testid="easy-button-voice-capture"]',
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { conversationId, requested: false };
+    }
+    button.click();
+    return { conversationId, requested: true };
   }
 
   function topicConversationAskStatus({ conversationId, question }) {

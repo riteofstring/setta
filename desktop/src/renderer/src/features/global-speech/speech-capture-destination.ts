@@ -1,4 +1,8 @@
-import { conversationInputModeValues, type ConversationInputMode } from "@generated/backend";
+import {
+  conversationInputModeValues,
+  type ConversationInput,
+  type ConversationInputMode,
+} from "@generated/backend";
 
 type SpeechCaptureDestination =
   | Readonly<{ type: "master" }>
@@ -31,11 +35,15 @@ export interface SpeechCaptureRequester {
   start: (request: SpeechCaptureRequest) => Promise<void>;
 }
 
-export interface CompletedConversationSpeechTranscript {
+export interface FinalizedConversationSpeechTranscript {
   readonly captureSessionId: string;
   readonly request: ConversationSpeechCaptureRequest;
   readonly runtimeId: string;
   readonly transcript: string;
+}
+
+export interface CompletedConversationSpeechTranscript extends FinalizedConversationSpeechTranscript {
+  readonly input: ConversationInput;
 }
 
 const conversationInputModes = new Set<ConversationInputMode>(conversationInputModeValues);

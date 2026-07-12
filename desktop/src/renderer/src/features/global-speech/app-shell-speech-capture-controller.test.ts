@@ -1,10 +1,12 @@
 import {
   speechVoiceIDValues,
+  type AcceptedConversationInput,
   type AcceptedMasterInput,
   type ConversationInputMode,
   type SpeechCapabilities,
   type SpeechTranscriptionSession,
   type SubmitMasterInputRequest,
+  type SubmitConversationInputRequest,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
@@ -152,6 +154,16 @@ describe("app-shell speech capture controller", () => {
     expect(harness.masterInputRequests).toEqual([]);
     expect(harness.controller.getSnapshot().completedConversationTranscript).toEqual({
       captureSessionId: "capture_1",
+      input: {
+        conversationId: "conversation_original",
+        id: "capture_1",
+        modality: "voice",
+        replyToInputId: null,
+        requestedMode: "route",
+        sourcePaneId: "pane_original",
+        submittedAt: "2026-07-12T18:00:00Z",
+        text: "Keep this pane-local request frozen",
+      },
       request: {
         destination: {
           conversationId: "conversation_original",
@@ -163,6 +175,9 @@ describe("app-shell speech capture controller", () => {
       runtimeId: "runtime_capture",
       transcript: "Keep this pane-local request frozen",
     });
+    expect(harness.conversationInputRequests).toEqual([
+      { input: harness.controller.getSnapshot().completedConversationTranscript!.input },
+    ]);
 
     await harness.controller.start(
       conversationSpeechCaptureRequest("conversation_second", "pane_second", "queue"),
@@ -220,6 +235,141 @@ describe("app-shell speech capture controller", () => {
       masterSubmission: { type: "accepted" },
     });
     info.mockRestore();
+  });
+
+  test("retains failed conversation delivery for exact retry and explicit discard", async () => {
+    const acceptedRetry = deferred<AcceptedConversationInput>();
+    const submit = vi
+      .fn<(request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>>()
+      .mockRejectedValueOnce(new Error("private runtime failure"))
+      .mockImplementationOnce(() => acceptedRetry.promise);
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const harness = createHarness({ submitConversationInput: submit });
+    await harness.connectAndEnable();
+    const start = harness.controller.start(
+      conversationSpeechCaptureRequest("conversation_retry", "pane_retry", "fork"),
+    );
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await start;
+    harness.controller.commit();
+    harness.transport.complete("Retry this pane transcript");
+    await harness.waitForConversationSubmission("failed");
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      completedConversationTranscript: {
+        input: {
+          conversationId: "conversation_retry",
+          requestedMode: "fork",
+          sourcePaneId: "pane_retry",
+          text: "Retry this pane transcript",
+        },
+      },
+      conversationSubmission: {
+        message:
+          "Setta could not accept the conversation voice request. Retry without recording it again.",
+        type: "failed",
+      },
+    });
+    await harness.controller.start(
+      conversationSpeechCaptureRequest("conversation_other", "pane_other", "route"),
+    );
+    expect(harness.currentCapture()).toMatchObject({
+      code: "conversation_submission_failed",
+      type: "failed",
+    });
+
+    harness.controller.retryConversationSubmission();
+    expect(harness.conversationInputRequests).toHaveLength(2);
+    expect(harness.conversationInputRequests[1]!.input).toBe(
+      harness.conversationInputRequests[0]!.input,
+    );
+    acceptedRetry.resolve({
+      acceptedAt: "2026-07-12T18:00:02Z",
+      input: harness.conversationInputRequests[1]!.input,
+      sequence: 1,
+      status: "accepted",
+    });
+    await flushPromises();
+    expect(harness.controller.getSnapshot().conversationSubmission.type).toBe("accepted");
+
+    const failedDiscard = createHarness({
+      submitConversationInput: async () => {
+        throw new Error("discard failure");
+      },
+    });
+    await failedDiscard.connectAndEnable();
+    const discardStart = failedDiscard.controller.start(
+      conversationSpeechCaptureRequest("conversation_discard", "pane_discard", "route"),
+    );
+    await failedDiscard.waitForTransport();
+    failedDiscard.transport.resolveReady();
+    await discardStart;
+    failedDiscard.controller.commit();
+    failedDiscard.transport.complete("Discard this pane transcript");
+    await failedDiscard.waitForConversationSubmission("failed");
+    failedDiscard.controller.discardCompletedConversationTranscript();
+    expect(failedDiscard.controller.getSnapshot()).toMatchObject({
+      completedConversationTranscript: null,
+      conversationSubmission: { type: "idle" },
+    });
+    info.mockRestore();
+  });
+
+  test("runtime switch clears pane delivery and rejects its late receipt", async () => {
+    const pending = deferred<AcceptedConversationInput>();
+    const harness = createHarness({ submitConversationInput: () => pending.promise });
+    await harness.connectAndEnable();
+    const start = harness.controller.start(
+      conversationSpeechCaptureRequest("conversation_old", "pane_old", "route"),
+    );
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await start;
+    harness.controller.commit();
+    harness.transport.complete("Do not cross runtimes");
+    await harness.waitForConversationSubmission("submitting");
+    const staleRequest = harness.conversationInputRequests[0]!;
+
+    await harness.controller.synchronizeRuntime("runtime_second");
+    pending.resolve({
+      acceptedAt: "2026-07-12T18:00:02Z",
+      input: staleRequest.input,
+      sequence: 1,
+      status: "accepted",
+    });
+    await flushPromises();
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "configured" },
+      completedConversationTranscript: null,
+      conversationSubmission: { type: "idle" },
+      runtimeId: "runtime_second",
+    });
+  });
+
+  test("a repeated pane capture request commits only its matching active capture", async () => {
+    const harness = createHarness();
+    await harness.connectAndEnable();
+    const request = conversationSpeechCaptureRequest("conversation_toggle", "pane_toggle", "route");
+    const start = harness.controller.start(request);
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await start;
+
+    await expect(
+      harness.controller.start(
+        conversationSpeechCaptureRequest("conversation_other", "pane_other", "route"),
+      ),
+    ).rejects.toThrow("another global speech capture is already active");
+    expect(harness.currentCapture()).toMatchObject({
+      request,
+      type: "listening",
+    });
+
+    await harness.controller.start(request);
+    expect(harness.currentCapture()).toMatchObject({ type: "committing" });
+    expect(harness.transport.commit).toHaveBeenCalledOnce();
   });
 
   test("runtime disconnect cancels permission and rejects its late stream", async () => {
@@ -451,6 +601,9 @@ interface HarnessOverrides {
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   readCapabilities?: () => Promise<SpeechCapabilities>;
   readPreference?: AppShellSpeechCaptureControllerDependencies["readPreference"];
+  submitConversationInput?: (
+    request: SubmitConversationInputRequest,
+  ) => Promise<AcceptedConversationInput>;
   submitMasterInput?: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
   support?: AppShellSpeechCaptureControllerDependencies["support"];
   writePreference?: AppShellSpeechCaptureControllerDependencies["writePreference"];
@@ -462,6 +615,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const transports: FakeTransport[] = [];
   const mediaConstraints: MediaStreamConstraints[] = [];
   const preferenceWrites: boolean[] = [];
+  const conversationInputRequests: SubmitConversationInputRequest[] = [];
   let timerHandler: (() => void) | null = null;
   let timerDelayMs = 0;
   let captureOrdinal = 0;
@@ -515,6 +669,18 @@ function createHarness(overrides: HarnessOverrides = {}) {
         sequence: 1,
       };
     },
+    submitConversationInput: async (request) => {
+      conversationInputRequests.push(request);
+      if (overrides.submitConversationInput) {
+        return overrides.submitConversationInput(request);
+      }
+      return {
+        acceptedAt: "2026-07-12T18:00:01Z",
+        input: request.input,
+        sequence: 1,
+        status: "accepted",
+      };
+    },
     writePreference:
       overrides.writePreference ??
       ((enabled) => {
@@ -530,6 +696,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
       controller.setEnabled(true);
     },
     controller,
+    conversationInputRequests,
     currentCapture: () => controller.getSnapshot().capture,
     fireTimer: () => {
       if (!timerHandler) {
@@ -576,6 +743,17 @@ function createHarness(overrides: HarnessOverrides = {}) {
         await flushPromises();
       }
       throw new Error(`master submission did not reach ${type}`);
+    },
+    waitForConversationSubmission: async (
+      type: ReturnType<typeof controller.getSnapshot>["conversationSubmission"]["type"],
+    ) => {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        if (controller.getSnapshot().conversationSubmission.type === type) {
+          return;
+        }
+        await flushPromises();
+      }
+      throw new Error(`conversation submission did not reach ${type}`);
     },
     waitForTransport: async () => {
       for (let attempt = 0; attempt < 20; attempt += 1) {

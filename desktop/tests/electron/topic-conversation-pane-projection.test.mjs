@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /* global console */
 
-import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, delimiter, dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { backendProbe, waitForBackendState } from "./chat-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
@@ -23,16 +24,22 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
 const workflowTimeoutMs = 50_000;
 const expectedNarratorStatusReply =
   "The primary topic agent is still working and has not been steered or interrupted.";
+const paneSpeechTranscript = "  Keep this pane transcript exact.  ";
 const fakeTopicCodexFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
   "fake-topic-codex-app-server.mjs",
+);
+const speechRealtimeBrowserFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "speech-realtime-browser-fixture.js",
 );
 
 if (options.help) {
@@ -50,45 +57,84 @@ const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName)
 await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
 const fakeCodex = await installFakeTopicCodex(fixture);
+const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 
 try {
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
+      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+      SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
     },
     fixture,
     visible: options.visible,
   });
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
 
   const alpha = await createTopic(context.client, backend, workspaceId, "Alpha topic");
   const beta = await createTopic(context.client, backend, workspaceId, "Beta topic");
-  const initial = await waitForConversationSurfaces(
+  let initial = await waitForConversationSurfaces(
+    context.client,
+    (surfaces) =>
+      hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
+  );
+  await enableGlobalMicrophone(context.client);
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
+  await installScriptedRealtimeBrowser(context.client);
+  initial = await waitForConversationSurfaces(
     context.client,
     (surfaces) =>
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
   assertPaneVoiceCaptureRequests(initial.surfaces, alpha.id, beta.id);
-  const conversationInputRequest = paneConversationInputRequest(
-    alpha.id,
-    requiredConversationSurface(initial.surfaces, alpha.id).paneId,
+  const alphaPaneId = requiredConversationSurface(initial.surfaces, alpha.id).paneId;
+  assertDriverAction(
+    await context.client.driver("topicConversationVoiceCapture", {
+      conversationId: alpha.id,
+    }),
+    "requested",
   );
-  const acceptedConversationInput = await submitConversationInput(
+  await waitForState(
     context.client,
-    conversationInputRequest,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    (state) => state.channelOpen && state.connectionCount === 1,
+    workflowTimeoutMs,
   );
+  assertDriverAction(
+    await context.client.driver("topicConversationVoiceCapture", {
+      conversationId: alpha.id,
+    }),
+    "requested",
+  );
+  await waitForState(
+    context.client,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    (state) => state.commitCount === 1,
+    workflowTimeoutMs,
+  );
+  const recordedConversationInput = await waitForRecordedPaneSpeechInput(
+    artifactDir,
+    alpha.id,
+    alphaPaneId,
+  );
+  const conversationInputRequest = recordedConversationInput.request;
+  const acceptedConversationInput = recordedConversationInput.accepted;
   assertIdempotentConversationInput(
     acceptedConversationInput,
     await submitConversationInput(context.client, conversationInputRequest),
     conversationInputRequest.input,
   );
   await assertChangedConversationInputConflicts(context.client, conversationInputRequest);
+  speechProvider.assertHealthy();
 
   await context.client.driver("topicConversationOpenBoundPane", { conversationId: alpha.id });
   const duplicated = await waitForConversationSurfaces(
@@ -407,6 +453,7 @@ try {
   throw error;
 } finally {
   await stopElectronCdpContext(context);
+  await speechProvider.close();
 }
 
 async function installFakeTopicCodex(fixture) {
@@ -493,23 +540,111 @@ function listTopics(backend, workspaceId) {
   });
 }
 
-function paneConversationInputRequest(conversationId, sourcePaneId) {
-  return {
-    input: {
-      conversationId,
-      id: "conversation_input_alpha_e2e",
-      modality: "voice",
-      replyToInputId: null,
-      requestedMode: "route",
-      sourcePaneId,
-      submittedAt: "2026-07-12T18:00:00Z",
-      text: "  Keep this pane transcript exact.  ",
-    },
-  };
-}
-
 async function submitConversationInput(client, request) {
   return client.evaluate(`window.setta.conversations.submitInput(${JSON.stringify(request)})`);
+}
+
+async function enableGlobalMicrophone(client) {
+  await client.evaluate(
+    'localStorage.setItem("setta.global-speech.microphone-enabled.v1", "enabled")',
+  );
+}
+
+async function installScriptedRealtimeBrowser(client) {
+  await client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
+  await client.evaluate(
+    `globalThis.__settaSpeechRealtimeBrowserFixture.setTranscript(${JSON.stringify(paneSpeechTranscript)})`,
+  );
+}
+
+async function waitForRecordedPaneSpeechInput(artifactDirectory, conversationId, sourcePaneId) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
+    const starts = events.filter(
+      (event) =>
+        event.type === "ipc_start" &&
+        event.channel === "conversation:submit-input" &&
+        event.args?.[0]?.input?.conversationId === conversationId &&
+        event.args[0].input.sourcePaneId === sourcePaneId &&
+        event.args[0].input.text === paneSpeechTranscript,
+    );
+    const masterStarts = events.filter(
+      (event) =>
+        event.type === "ipc_start" &&
+        event.channel === "master:submit-input" &&
+        event.args?.[0]?.input?.text === paneSpeechTranscript,
+    );
+    if (masterStarts.length > 0) {
+      throw new Error("pane speech transcript was submitted to the global master");
+    }
+    if (starts.length > 1) {
+      throw new Error(`pane speech transcript was submitted more than once: ${starts.length}`);
+    }
+    const start = starts[0];
+    const finish = start
+      ? events.find(
+          (event) =>
+            event.type === "ipc_finish" &&
+            event.channel === "conversation:submit-input" &&
+            event.id === start.id,
+        )
+      : null;
+    if (start && finish) {
+      const request = start.args[0];
+      assertRecordedPaneSpeechInput(request.input, conversationId, sourcePaneId);
+      return { accepted: finish.result, request };
+    }
+    await delay(50);
+  }
+  throw new Error("timed out waiting for durable pane speech input delivery");
+}
+
+async function readJsonLinesWhileAppending(path) {
+  let content;
+  try {
+    content = await readFile(path, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+  const events = [];
+  for (const line of content.split("\n")) {
+    if (line.trim() === "") {
+      continue;
+    }
+    try {
+      events.push(JSON.parse(line));
+    } catch {
+      break;
+    }
+  }
+  return events;
+}
+
+function assertRecordedPaneSpeechInput(input, conversationId, sourcePaneId) {
+  assertPaneSpeechField(input, "conversationId", conversationId);
+  assertPaneSpeechField(input, "sourcePaneId", sourcePaneId);
+  assertPaneSpeechField(input, "replyToInputId", null);
+  assertPaneSpeechField(input, "modality", "voice");
+  assertPaneSpeechField(input, "requestedMode", "route");
+  assertPaneSpeechField(input, "text", paneSpeechTranscript);
+  assertNonEmptyPaneSpeechField(input, "id");
+  assertNonEmptyPaneSpeechField(input, "submittedAt");
+}
+
+function assertPaneSpeechField(input, field, expected) {
+  if (input?.[field] !== expected) {
+    throw new Error(`invalid pane speech input ${field}: ${JSON.stringify(input)}`);
+  }
+}
+
+function assertNonEmptyPaneSpeechField(input, field) {
+  if (typeof input?.[field] !== "string" || input[field].length === 0) {
+    throw new Error(`invalid pane speech input ${field}: ${JSON.stringify(input)}`);
+  }
 }
 
 function assertIdempotentConversationInput(first, duplicate, expectedInput) {

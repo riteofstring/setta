@@ -131,6 +131,12 @@ function browserControllerDependencies(
       }
       return setta.master.submitInput(request);
     },
+    submitConversationInput: (request) => {
+      if (!setta.conversations.submitInput) {
+        return Promise.reject(new Error("the desktop conversation input boundary is unavailable"));
+      }
+      return setta.conversations.submitInput(request);
+    },
     writePreference: writeBrowserGlobalMicrophonePreference,
   };
 }
