@@ -70,6 +70,10 @@ const sensitiveRecordingKeys = new Set([
   "client_secret",
   "deviceToken",
   "device_token",
+  "iconDataUrl",
+  "icon_data_url",
+  "imageDataUrl",
+  "image_data_url",
   "loginId",
   "login_id",
   "pairingToken",
@@ -84,6 +88,9 @@ const sensitiveIpcStartTypes = new Map<string, string>([
   [ipcChannels.codexAccountStartLogin, "codex_account_login_request"],
   [ipcChannels.conversationSubmitApproval, "conversation_approval_submission"],
   [ipcChannels.runtimeAddByPairingUrl, "runtime_pairing_url"],
+]);
+const sensitiveRecordingEventTypes = new Map<string, string>([
+  ["external_url_open_blocked", "external_url"],
 ]);
 
 export class SessionRecorder implements RoutingObservationRecorder {
@@ -386,7 +393,7 @@ export class SessionRecorder implements RoutingObservationRecorder {
   private recordEvent(type: string, payload: unknown) {
     const record: JsonLineRecord = {
       at: timestamp(),
-      payload: sanitizeRecordingValue(payload),
+      payload: recordingEventValue(type, payload),
       seq: this.nextID(),
       type,
     };
@@ -570,6 +577,13 @@ export function ipcRecordingFailure(channel: string, error: unknown): unknown {
     return redactedRecordingValue(`${sensitiveType}_failure`);
   }
   return sanitizeRecordingValue(errorPayload(error));
+}
+
+export function recordingEventValue(type: string, payload: unknown): unknown {
+  const sensitiveType = sensitiveRecordingEventTypes.get(type);
+  return sensitiveType === undefined
+    ? sanitizeRecordingValue(payload)
+    : redactedRecordingValue(sensitiveType);
 }
 
 function redactedRecordingValue(type: string): { redacted: true; type: string } {

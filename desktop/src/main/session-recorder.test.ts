@@ -5,6 +5,7 @@ import { ipcChannels } from "@shared/ipc";
 import {
   ipcRecordingFailure,
   ipcRecordingValue,
+  recordingEventValue,
   sanitizeRecordingValue,
   summarizeRecordingValue,
 } from "./session-recorder";
@@ -20,6 +21,8 @@ describe("session recording privacy", () => {
           apiKey: "private-api-key",
           bootstrap_token: "private-runtime-token",
           clientSecret: "private-client-secret",
+          iconDataUrl: "data:image/png;base64,private-editor-icon",
+          imageDataUrl: "data:image/png;base64,private-renderer-capture",
           title: "safe title",
         },
         response: {
@@ -33,6 +36,8 @@ describe("session recording privacy", () => {
         apiKey: redacted,
         bootstrap_token: redacted,
         clientSecret: redacted,
+        iconDataUrl: redacted,
+        imageDataUrl: redacted,
         title: "safe title",
       },
       response: {
@@ -109,5 +114,13 @@ describe("session recording privacy", () => {
       type: "conversation_approval_submission_failure",
     });
     expect(JSON.stringify(recorded)).not.toContain(privateAnswer);
+  });
+
+  test("redacts credential-bearing external URL events", () => {
+    const privateURL = "https://example.invalid/callback?code=private-authorization-code";
+    const recorded = recordingEventValue("external_url_open_blocked", { url: privateURL });
+
+    expect(recorded).toEqual({ redacted: true, type: "external_url" });
+    expect(JSON.stringify(recorded)).not.toContain(privateURL);
   });
 });

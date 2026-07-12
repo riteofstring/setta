@@ -54,6 +54,7 @@ func TestReadRestrictedModelThreadConfigDisablesEffectiveExternalCapabilities(t 
 		"plugins",
 		"prevent_idle_sleep",
 		"realtime_conversation",
+		"secret_auth_storage",
 		"shell_snapshot",
 		"shell_tool",
 		"terminal_visualization_instructions",

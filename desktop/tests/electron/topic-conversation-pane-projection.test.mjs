@@ -1138,6 +1138,8 @@ try {
   await assertArtifactsExcludeMarkers(
     artifactDir,
     [
+      "https://chatgpt.com/auth/fake-topic",
+      "data:image/png;base64,",
       speechProvider.apiKey,
       speechProvider.clientSecret,
       speechProvider.audioMarker,

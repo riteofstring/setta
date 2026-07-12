@@ -147,6 +147,7 @@ func restrictedModelThreadConfig(
 		"request_permissions_tool",
 		"request_rule",
 		"search_tool",
+		"secret_auth_storage",
 		"shell_snapshot",
 		"shell_tool",
 		"shell_zsh_fork",

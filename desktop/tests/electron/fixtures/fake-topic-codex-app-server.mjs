@@ -1270,6 +1270,7 @@ function assertRestrictedFeatures(features) {
   assertCondition(features.hooks === false, "hooks feature");
   assertCondition(features.multi_agent === false, "multi-agent feature");
   assertCondition(features.plugins === false, "plugins feature");
+  assertCondition(features.secret_auth_storage === false, "secret auth storage feature");
   assertCondition(features.shell_snapshot === false, "shell snapshot feature");
   assertCondition(features.shell_tool === false, "shell feature");
   assertCondition(features.tool_call_mcp_elicitation === false, "MCP elicitation feature");
