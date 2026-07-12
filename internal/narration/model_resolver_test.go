@@ -155,6 +155,48 @@ func TestModelResolverRejectsCatalogReasoningFallback(t *testing.T) {
 	}
 }
 
+func TestModelResolverRejectsCatalogMutationOfRequestedServiceTier(t *testing.T) {
+	profile := conversation.DefaultNarratorRoleProfile()
+	requestedTier := "priority"
+	profile.ServiceTier = &requestedTier
+	catalog := &modelResolverCatalog{mutatedRequestedServiceTier: "batch"}
+	resolver := newTestModelResolver(t, &modelResolverProfileSource{profile: &profile}, catalog)
+
+	_, err := resolver.Resolve(context.Background(), "workspace-1", "conversation-1")
+	if err == nil || !strings.Contains(err.Error(), "changed the requested narrator invocation") {
+		t.Fatalf("mutated catalog request error = %v, want immutable-request failure", err)
+	}
+	if profile.ServiceTier == nil || *profile.ServiceTier != requestedTier {
+		t.Fatalf("requested profile service tier = %v, want %s", profile.ServiceTier, requestedTier)
+	}
+}
+
+func TestModelResolverRejectsCatalogServiceTierFallback(t *testing.T) {
+	profile := conversation.DefaultNarratorRoleProfile()
+	requestedTier := "priority"
+	profile.ServiceTier = &requestedTier
+	catalog := &modelResolverCatalog{resolvedServiceTier: "batch"}
+	resolver := newTestModelResolver(t, &modelResolverProfileSource{profile: &profile}, catalog)
+
+	_, err := resolver.Resolve(context.Background(), "workspace-1", "conversation-1")
+	if err == nil || !strings.Contains(err.Error(), "service tier resolved as batch, want priority") {
+		t.Fatalf("service tier fallback error = %v, want actionable exact-tier mismatch", err)
+	}
+}
+
+func TestModelResolverValidatesProviderDefaultCatalogSettings(t *testing.T) {
+	profile := conversation.DefaultNarratorRoleProfile()
+	profile.ModelSelection = conversation.ModelSelection{Mode: conversation.ModelSelectionProviderDefault}
+	catalog := &modelResolverCatalog{resolvedModel: " malformed-provider-default"}
+	resolver := newTestModelResolver(t, &modelResolverProfileSource{profile: &profile}, catalog)
+
+	_, err := resolver.Resolve(context.Background(), "workspace-1", "conversation-1")
+	if err == nil || !strings.Contains(err.Error(), "validate resolved narrator settings") ||
+		!strings.Contains(err.Error(), "must not have surrounding whitespace") {
+		t.Fatalf("malformed provider-default settings error = %v, want resolved-settings validation", err)
+	}
+}
+
 func TestModelResolverValidatesConstructionAndRequests(t *testing.T) {
 	catalog := &modelResolverCatalog{}
 	if _, err := NewModelResolver(nil, catalog); err == nil {
@@ -195,11 +237,13 @@ func (source *modelResolverProfileSource) ReadEffectiveRoleProfile(
 }
 
 type modelResolverCatalog struct {
-	calls                   int
-	err                     error
-	request                 agent.Invocation
-	resolvedModel           string
-	resolvedReasoningEffort string
+	calls                       int
+	err                         error
+	request                     agent.Invocation
+	mutatedRequestedServiceTier string
+	resolvedModel               string
+	resolvedReasoningEffort     string
+	resolvedServiceTier         string
 }
 
 func (catalog *modelResolverCatalog) ResolveInvocation(
@@ -207,10 +251,13 @@ func (catalog *modelResolverCatalog) ResolveInvocation(
 	request agent.Invocation,
 ) (agent.ResolvedInvocation, error) {
 	catalog.calls++
-	catalog.request = request
 	if catalog.err != nil {
 		return agent.ResolvedInvocation{}, catalog.err
 	}
+	if catalog.mutatedRequestedServiceTier != "" && request.ServiceTier != nil {
+		*request.ServiceTier = catalog.mutatedRequestedServiceTier
+	}
+	catalog.request = request
 	model := request.Model
 	if request.ModelSelectionProviderDefault {
 		model = "gpt-provider-default"
@@ -222,11 +269,15 @@ func (catalog *modelResolverCatalog) ResolveInvocation(
 	if catalog.resolvedReasoningEffort != "" {
 		reasoningEffort = catalog.resolvedReasoningEffort
 	}
+	serviceTier := cloneOptionalString(request.ServiceTier)
+	if catalog.resolvedServiceTier != "" {
+		serviceTier = &catalog.resolvedServiceTier
+	}
 	return agent.ResolvedInvocation{
 		Requested:       request,
 		Model:           model,
 		ReasoningEffort: reasoningEffort,
-		ServiceTier:     cloneOptionalString(request.ServiceTier),
+		ServiceTier:     serviceTier,
 		PermissionMode:  request.PermissionMode,
 		ApprovalMode:    request.ApprovalMode,
 	}, nil

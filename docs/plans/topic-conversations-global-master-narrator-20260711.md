@@ -2782,3 +2782,15 @@ Implementation is in progress under this plan.
   reference was not needed. Phase 4 item 4, typed triggers and schema-
   constrained fresh narrator/checkpoint calls, is next with no external
   blocker.
+- 2026-07-12: The Phase 4 item 3 review froze the pointer-bearing requested
+  service tier before crossing the model-catalog boundary, so an in-place
+  catalog mutation can no longer alter both sides of the no-reroute comparison
+  and silently replace an exact request. Catalog results now also pass the
+  durable resolved-settings validation before they can enter invocation audit,
+  and an exact tier mismatch reports the actual returned value rather than a
+  pointer address. Regression tests cover request mutation, exact-tier
+  fallback, and malformed provider-default results. Focused vet and package
+  quality checks, joint race-enabled agent/conversation/narration tests, 100
+  repeated race-enabled role-profile reads, and 200 repeated race-enabled
+  narrator resolver runs passed. Generated inputs and outputs changed: none.
+  Phase 4 item 4 remains next and was not started.

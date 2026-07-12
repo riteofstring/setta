@@ -84,23 +84,44 @@ func (resolver *ModelResolver) Resolve(
 	if err != nil {
 		return ModelResolution{}, fmt.Errorf("configure narrator role profile for conversation %s: %w", conversationID, err)
 	}
-	resolved, err := resolver.catalog.ResolveInvocation(ctx, invocation)
+	// Keep the requested invocation immutable across the catalog boundary. An
+	// implementation receives pointer-bearing service-tier state and must not be
+	// able to mutate the request that is used to detect a silent reroute.
+	catalogRequest := invocation
+	catalogRequest.ServiceTier = cloneOptionalString(invocation.ServiceTier)
+	resolved, err := resolver.catalog.ResolveInvocation(ctx, catalogRequest)
 	if err != nil {
 		return ModelResolution{}, fmt.Errorf("resolve narrator model for conversation %s: %w", conversationID, err)
 	}
-	if err := validateNarratorModelResolution(invocation, resolved); err != nil {
+	settings, err := validatedNarratorSettings(profile, invocation, resolved)
+	if err != nil {
 		return ModelResolution{}, fmt.Errorf("validate narrator model for conversation %s: %w", conversationID, err)
 	}
 	return ModelResolution{
 		RequestedProfile: profile,
 		Invocation:       invocation,
-		Settings: conversation.ResolvedInvocationSettings{
-			ModelID:           resolved.Model,
-			ReasoningEffort:   conversation.ReasoningEffort(resolved.ReasoningEffort),
-			ServiceTier:       cloneOptionalString(resolved.ServiceTier),
-			PermissionProfile: profile.PermissionProfile,
-		},
+		Settings:         settings,
 	}, nil
+}
+
+func validatedNarratorSettings(
+	profile conversation.RoleProfile,
+	requested agent.Invocation,
+	resolved agent.ResolvedInvocation,
+) (conversation.ResolvedInvocationSettings, error) {
+	if err := validateNarratorModelResolution(requested, resolved); err != nil {
+		return conversation.ResolvedInvocationSettings{}, err
+	}
+	settings := conversation.ResolvedInvocationSettings{
+		ModelID:           resolved.Model,
+		ReasoningEffort:   conversation.ReasoningEffort(resolved.ReasoningEffort),
+		ServiceTier:       cloneOptionalString(resolved.ServiceTier),
+		PermissionProfile: profile.PermissionProfile,
+	}
+	if err := settings.Validate(); err != nil {
+		return conversation.ResolvedInvocationSettings{}, fmt.Errorf("validate resolved narrator settings: %w", err)
+	}
+	return settings, nil
 }
 
 func narratorInvocation(profile conversation.RoleProfile) (agent.Invocation, error) {
@@ -170,13 +191,24 @@ func validateNarratorModelResolution(requested agent.Invocation, resolved agent.
 			requested.ReasoningEffort,
 		)
 	}
-	if requested.ServiceTier != nil && !sameOptionalString(requested.ServiceTier, resolved.ServiceTier) {
-		return fmt.Errorf("narrator service tier resolved as %v, want %s", resolved.ServiceTier, *requested.ServiceTier)
+	if err := validateNarratorServiceTierResolution(requested.ServiceTier, resolved.ServiceTier); err != nil {
+		return err
 	}
 	if resolved.PermissionMode != agent.PermissionModeReadOnly || resolved.ApprovalMode != agent.ApprovalModeNever {
 		return errors.New("provider model resolver changed narrator permission or approval mode")
 	}
 	return nil
+}
+
+func validateNarratorServiceTierResolution(requested *string, resolved *string) error {
+	if requested == nil || sameOptionalString(requested, resolved) {
+		return nil
+	}
+	resolvedTier := "<nil>"
+	if resolved != nil {
+		resolvedTier = *resolved
+	}
+	return fmt.Errorf("narrator service tier resolved as %s, want %s", resolvedTier, *requested)
 }
 
 func sameAgentInvocation(left agent.Invocation, right agent.Invocation) bool {
