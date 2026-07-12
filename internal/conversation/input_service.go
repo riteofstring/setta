@@ -9,6 +9,9 @@ import (
 
 type ConversationInputStore interface {
 	AcceptConversationInput(context.Context, ConversationInput, string) (AcceptedConversationInput, error)
+	DiscardConversationInputRouting(context.Context, string, string, string, string) error
+	ReadConversationInputRoutingState(context.Context, string, string, string) (ConversationInputRoutingState, error)
+	RetryConversationInputRouting(context.Context, string, string) (AcceptedConversationInput, error)
 }
 
 type InputService struct {
@@ -75,4 +78,78 @@ func (service *InputService) SubmitInput(
 		}
 	}
 	return CloneAcceptedConversationInput(accepted), nil
+}
+
+func (service *InputService) ReadInputState(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (ConversationInputRoutingState, error) {
+	if service == nil || service.store == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input service is unavailable")
+	}
+	if ctx == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input state context is required")
+	}
+	state, err := service.store.ReadConversationInputRoutingState(
+		ctx,
+		workspaceID,
+		conversationID,
+		inputID,
+	)
+	if err != nil {
+		return ConversationInputRoutingState{}, err
+	}
+	if err := state.Validate(); err != nil {
+		return ConversationInputRoutingState{}, &invalidConversationInputReceiptError{cause: err}
+	}
+	return cloneConversationInputRoutingState(state), nil
+}
+
+func (service *InputService) RetryInput(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (ConversationInputRoutingState, error) {
+	if service == nil || service.store == nil || service.now == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input service is unavailable")
+	}
+	if ctx == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input retry context is required")
+	}
+	if _, err := service.store.ReadConversationInputRoutingState(ctx, workspaceID, conversationID, inputID); err != nil {
+		return ConversationInputRoutingState{}, err
+	}
+	retriedAt := service.now().UTC().Format(time.RFC3339Nano)
+	if _, err := service.store.RetryConversationInputRouting(ctx, inputID, retriedAt); err != nil {
+		return ConversationInputRoutingState{}, err
+	}
+	return service.ReadInputState(ctx, workspaceID, conversationID, inputID)
+}
+
+func (service *InputService) DiscardInput(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (ConversationInputRoutingState, error) {
+	if service == nil || service.store == nil || service.now == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input service is unavailable")
+	}
+	if ctx == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input discard context is required")
+	}
+	discardedAt := service.now().UTC().Format(time.RFC3339Nano)
+	if err := service.store.DiscardConversationInputRouting(
+		ctx,
+		workspaceID,
+		conversationID,
+		inputID,
+		discardedAt,
+	); err != nil {
+		return ConversationInputRoutingState{}, err
+	}
+	return service.ReadInputState(ctx, workspaceID, conversationID, inputID)
 }

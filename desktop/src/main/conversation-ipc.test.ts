@@ -18,11 +18,55 @@ describe("conversation IPC handlers", () => {
       askTopicConversationNarratorStatus: vi.fn(async () => snapshot),
       createSideConversation: vi.fn(async () => snapshot),
       disposeSideConversation: vi.fn(async () => snapshot),
+      discardConversationInput: vi.fn(async () => ({
+        clarificationReply: null,
+        decisions: [],
+        input: {
+          acceptedAt: "2026-07-12T18:00:01Z",
+          failure: {
+            code: "conversation_input_discarded",
+            diagnosticReference: "",
+            message: "The conversation input was discarded.",
+            retryable: false,
+          },
+          input: conversationInputRequest().input,
+          routingAttempt: 0,
+          routingStartedAt: null,
+          sequence: 1,
+          status: "failed" as const,
+        },
+      })),
       createTopicConversation: vi.fn(async () => snapshot),
       forkTopicConversation: vi.fn(async () => snapshot),
       listTopicConversations,
       queueTopicConversationTurn: vi.fn(async () => snapshot),
+      readConversationInputRoutingState: vi.fn(async () => ({
+        clarificationReply: null,
+        decisions: [],
+        input: {
+          acceptedAt: "2026-07-12T18:00:01Z",
+          failure: null,
+          input: conversationInputRequest().input,
+          routingAttempt: 0,
+          routingStartedAt: null,
+          sequence: 1,
+          status: "accepted" as const,
+        },
+      })),
       readConversationSnapshot: vi.fn(async () => snapshot),
+      retryConversationInput: vi.fn(async () => ({
+        clarificationReply: null,
+        decisions: [],
+        input: {
+          acceptedAt: "2026-07-12T18:00:01Z",
+          failure: null,
+          input: conversationInputRequest().input,
+          routingAttempt: 1,
+          routingStartedAt: null,
+          sequence: 1,
+          status: "accepted" as const,
+        },
+      })),
       sendTopicConversationTurn: vi.fn(async () => snapshot),
       sendSideConversationTurn: vi.fn(async () => snapshot),
       steerTopicConversationTurn: vi.fn(async () => snapshot),
@@ -109,6 +153,13 @@ describe("conversation IPC handlers", () => {
     await invokeHandler(handlers, ipcChannels.conversationStopTurn, target);
     const inputRequest = conversationInputRequest();
     await invokeHandler(handlers, ipcChannels.conversationSubmitInput, inputRequest);
+    const inputStateRequest = {
+      ...target,
+      inputId: inputRequest.input.id,
+    };
+    await invokeHandler(handlers, ipcChannels.conversationReadInputState, inputStateRequest);
+    await invokeHandler(handlers, ipcChannels.conversationRetryInput, inputStateRequest);
+    await invokeHandler(handlers, ipcChannels.conversationDiscardInput, inputStateRequest);
     await invokeHandler(handlers, ipcChannels.conversationSubmitApproval, {
       ...target,
       response: { answers: [], approvalId: "approval", decision: "approved", response: "" },
@@ -149,6 +200,11 @@ describe("conversation IPC handlers", () => {
     expect(backendMethods.steerTopicConversationTurn).toHaveBeenCalledWith(turn);
     expect(backendMethods.stopTopicConversationTurn).toHaveBeenCalledWith(target);
     expect(backendMethods.submitConversationInput).toHaveBeenCalledWith(inputRequest);
+    expect(backendMethods.readConversationInputRoutingState).toHaveBeenCalledWith(
+      inputStateRequest,
+    );
+    expect(backendMethods.retryConversationInput).toHaveBeenCalledWith(inputStateRequest);
+    expect(backendMethods.discardConversationInput).toHaveBeenCalledWith(inputStateRequest);
     expect(backendMethods.updateTopicConversationNarratorVoice).toHaveBeenCalledWith(voiceRequest);
     expect(conversationEvents.subscribe).toHaveBeenCalledWith(
       sender,

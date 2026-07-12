@@ -23,20 +23,59 @@ CREATE TABLE conversation_inputs (
   input_modality TEXT NOT NULL CHECK (input_modality IN ('text', 'voice')),
   requested_mode TEXT NOT NULL CHECK (requested_mode IN ('route', 'send', 'queue', 'steer', 'ask_narrator', 'side', 'fork')),
   status TEXT NOT NULL CHECK (status IN ('accepted', 'routing', 'awaiting_clarification', 'dispatched', 'failed')),
+  routing_attempt INTEGER NOT NULL DEFAULT 0 CHECK (routing_attempt >= 0),
+  routing_started_at TEXT,
+  failure_json TEXT CHECK (failure_json IS NULL OR json_valid(failure_json)),
   submitted_at TEXT NOT NULL,
   accepted_at TEXT NOT NULL,
   UNIQUE(conversation_id, id),
   FOREIGN KEY (conversation_id, reply_to_input_id)
     REFERENCES conversation_inputs(conversation_id, id),
-  CHECK (reply_to_input_id IS NULL OR reply_to_input_id <> id)
+  CHECK (reply_to_input_id IS NULL OR reply_to_input_id <> id),
+  CHECK (
+    (status = 'routing' AND routing_started_at IS NOT NULL)
+    OR (status <> 'routing' AND routing_started_at IS NULL)
+  ),
+  CHECK (
+    (status = 'failed' AND failure_json IS NOT NULL)
+    OR (status <> 'failed' AND failure_json IS NULL)
+  )
 ) STRICT;
 
 CREATE INDEX conversation_inputs_conversation_status_sequence_idx
   ON conversation_inputs(conversation_id, status, sequence);
 
-CREATE INDEX conversation_inputs_reply_idx
+CREATE UNIQUE INDEX conversation_inputs_one_clarification_reply_idx
   ON conversation_inputs(conversation_id, reply_to_input_id)
   WHERE reply_to_input_id IS NOT NULL;
+
+CREATE TABLE conversation_route_decisions (
+  stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  input_id TEXT NOT NULL,
+  clarification_input_id TEXT,
+  decision_ordinal INTEGER NOT NULL CHECK (decision_ordinal IN (1, 2)),
+  routing_attempt INTEGER NOT NULL CHECK (routing_attempt > 0),
+  source TEXT NOT NULL CHECK (source IN ('conversation_router', 'explicit')),
+  route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
+  resulting_command_json TEXT NOT NULL CHECK (json_valid(resulting_command_json)),
+  decided_at TEXT NOT NULL,
+  UNIQUE(conversation_id, input_id, decision_ordinal),
+  UNIQUE(conversation_id, clarification_input_id),
+  FOREIGN KEY (conversation_id, input_id)
+    REFERENCES conversation_inputs(conversation_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (conversation_id, clarification_input_id)
+    REFERENCES conversation_inputs(conversation_id, id) ON DELETE CASCADE,
+  CHECK (
+    (decision_ordinal = 1 AND clarification_input_id IS NULL)
+    OR (decision_ordinal = 2 AND clarification_input_id IS NOT NULL)
+  ),
+  CHECK (clarification_input_id IS NULL OR clarification_input_id <> input_id)
+) STRICT;
+
+CREATE INDEX conversation_route_decisions_input_stream_idx
+  ON conversation_route_decisions(conversation_id, input_id, stream_sequence);
 
 CREATE TABLE conversation_turns (
   id TEXT PRIMARY KEY,

@@ -35,10 +35,12 @@ import type {
   ComposerPromptHistoryPage,
   Conversation,
   ConversationEvent,
+  ConversationInputRoutingState,
   ConversationPresentationProfile,
   ConversationSnapshot,
   ConversationListItem,
   CreateSideConversationRequest,
+  DiscardConversationInputRequest,
   DisposeSideConversationRequest,
   CreateTopicConversationRequest,
   SendSideConversationTurnRequest,
@@ -80,6 +82,7 @@ import type {
   ReconcileChatRunsResponse,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
+  ReadConversationInputRoutingStateRequest,
   ReadConversationSnapshotRequest,
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
@@ -93,6 +96,7 @@ import type {
   ReasoningEffort,
   RefreshCodexAccountRequest,
   RetryWorkflowNodeRunLivenessRequest,
+  RetryConversationInputRequest,
   ResizeTerminalRequest,
   ReviewCartographerPatchRequest,
   Run,
@@ -423,14 +427,21 @@ export interface SettaAPI {
       request: AskTopicConversationNarratorStatusRequest,
     ) => Promise<ConversationSnapshot>;
     createSide?: (request: CreateSideConversationRequest) => Promise<ConversationSnapshot>;
+    discardInput?: (
+      request: DiscardConversationInputRequest,
+    ) => Promise<ConversationInputRoutingState>;
     disposeSide?: (request: DisposeSideConversationRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     fork: (request: ForkTopicConversationRequest) => Promise<ConversationSnapshot>;
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
     onEvent: (listener: (event: ConversationEvent) => void) => () => void;
     queue: (request: QueueTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
+    readInputState?: (
+      request: ReadConversationInputRoutingStateRequest,
+    ) => Promise<ConversationInputRoutingState>;
     read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
     release: (request: ConversationEventReleaseRequest) => Promise<void>;
+    retryInput?: (request: RetryConversationInputRequest) => Promise<ConversationInputRoutingState>;
     send: (request: SendTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     sendSide?: (request: SendSideConversationTurnRequest) => Promise<ConversationSnapshot>;
     steer: (request: SteerTopicConversationTurnRequest) => Promise<ConversationSnapshot>;

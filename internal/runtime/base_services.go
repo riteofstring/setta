@@ -130,10 +130,9 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
 	}
-	conversationInputService, err := conversation.NewInputService(conversationStore)
+	conversationInputService, err := newConversationInputService(conversationStore)
 	if err != nil {
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, fmt.Errorf("create conversation input service: %w", err)
+		return runtimeFoundation{}, err
 	}
 	masterInputService, err := master.NewService(conversationStore)
 	if err != nil {
@@ -187,4 +186,20 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		workspaceService:         workspaceService,
 		workspaceUIService:       workspaceUIService,
 	}, nil
+}
+
+func newConversationInputService(store *conversation.Store) (*conversation.InputService, error) {
+	service, err := conversation.NewInputService(store)
+	if err != nil {
+		_ = store.Close()
+		return nil, fmt.Errorf("create conversation input service: %w", err)
+	}
+	if _, err := store.RecoverConversationInputRouting(
+		context.Background(),
+		time.Now().UTC().Format(time.RFC3339Nano),
+	); err != nil {
+		_ = store.Close()
+		return nil, fmt.Errorf("recover conversation input routing: %w", err)
+	}
+	return service, nil
 }

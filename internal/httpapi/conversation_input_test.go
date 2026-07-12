@@ -45,6 +45,100 @@ func TestConversationInputEndpointAcceptsTypedPaneSubmission(t *testing.T) {
 	}
 }
 
+func TestConversationInputEndpointReadsBoundedRoutingState(t *testing.T) {
+	input := validSubmitConversationInputRequest().Input
+	service := &fakeHTTPConversationInputService{state: conversation.ConversationInputRoutingState{
+		Input: conversation.ConversationInputState{
+			Sequence:   1,
+			Input:      input,
+			Status:     conversation.ConversationInputStatusAccepted,
+			AcceptedAt: "2026-07-12T18:00:01Z",
+		},
+		Decisions: []conversation.ConversationRouteDecisionRecord{},
+	}}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationInputService: service,
+		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
+	})
+	state := postJSON[conversation.ConversationInputRoutingState](
+		t,
+		handler,
+		"/conversations/inputs/state/read",
+		ReadConversationInputRoutingStateRequest{
+			WorkspaceID:    "workspace_alpha",
+			ConversationID: input.ConversationID,
+			InputID:        input.ID,
+		},
+		http.StatusOK,
+	)
+	if state.Input.Input.ID != input.ID || state.Decisions == nil ||
+		service.workspaceID != "workspace_alpha" ||
+		service.conversationID != input.ConversationID || service.inputID != input.ID {
+		t.Fatalf("state=%+v service=%+v", state, service)
+	}
+}
+
+func TestConversationInputEndpointRetriesAndDiscardsRoutingState(t *testing.T) {
+	input := validSubmitConversationInputRequest().Input
+	state := conversation.ConversationInputRoutingState{
+		Input: conversation.ConversationInputState{
+			Sequence:   1,
+			Input:      input,
+			Status:     conversation.ConversationInputStatusAccepted,
+			AcceptedAt: "2026-07-12T18:00:01Z",
+		},
+		Decisions: []conversation.ConversationRouteDecisionRecord{},
+	}
+	tests := []struct {
+		name       string
+		path       string
+		request    any
+		wantAction string
+	}{
+		{
+			name: "retry",
+			path: "/conversations/inputs/retry",
+			request: RetryConversationInputRequest{
+				WorkspaceID:    "workspace_alpha",
+				ConversationID: input.ConversationID,
+				InputID:        input.ID,
+			},
+			wantAction: "retry",
+		},
+		{
+			name: "discard",
+			path: "/conversations/inputs/discard",
+			request: DiscardConversationInputRequest{
+				WorkspaceID:    "workspace_alpha",
+				ConversationID: input.ConversationID,
+				InputID:        input.ID,
+			},
+			wantAction: "discard",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := &fakeHTTPConversationInputService{state: state}
+			handler := newAuthenticatedTestHandler(t, HandlerConfig{
+				ConversationInputService: service,
+				Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
+			})
+			got := postJSON[conversation.ConversationInputRoutingState](
+				t,
+				handler,
+				test.path,
+				test.request,
+				http.StatusOK,
+			)
+			if got.Input.Input.ID != input.ID || service.action != test.wantAction ||
+				service.workspaceID != "workspace_alpha" ||
+				service.conversationID != input.ConversationID || service.inputID != input.ID {
+				t.Fatalf("state=%+v service=%+v", got, service)
+			}
+		})
+	}
+}
+
 func TestConversationInputEndpointRequiresServiceAndMapsTypedFailures(t *testing.T) {
 	missing := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata: BackendMetadata{Name: BackendName, Version: "test"},
@@ -201,12 +295,44 @@ func TestConversationInputEndpointRejectsUnknownAndOversizedPayloads(t *testing.
 }
 
 type fakeHTTPConversationInputService struct {
-	calls int
-	err   error
-	input conversation.ConversationInput
+	action         string
+	calls          int
+	conversationID string
+	err            error
+	input          conversation.ConversationInput
+	inputID        string
+	state          conversation.ConversationInputRoutingState
+	workspaceID    string
+}
+
+func (service *fakeHTTPConversationInputService) DiscardInput(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (conversation.ConversationInputRoutingState, error) {
+	service.calls++
+	service.action = "discard"
+	service.workspaceID = workspaceID
+	service.conversationID = conversationID
+	service.inputID = inputID
+	if service.err != nil {
+		return conversation.ConversationInputRoutingState{}, service.err
+	}
+	return service.state, nil
 }
 
 type invalidHTTPConversationInputStore struct{}
+
+func (invalidHTTPConversationInputStore) DiscardConversationInputRouting(
+	context.Context,
+	string,
+	string,
+	string,
+	string,
+) error {
+	return errors.New("not implemented")
+}
 
 func (invalidHTTPConversationInputStore) AcceptConversationInput(
 	_ context.Context,
@@ -218,6 +344,23 @@ func (invalidHTTPConversationInputStore) AcceptConversationInput(
 		Status:     conversation.ConversationInputStatusAccepted,
 		AcceptedAt: acceptedAt,
 	}, nil
+}
+
+func (invalidHTTPConversationInputStore) ReadConversationInputRoutingState(
+	context.Context,
+	string,
+	string,
+	string,
+) (conversation.ConversationInputRoutingState, error) {
+	return conversation.ConversationInputRoutingState{}, errors.New("not implemented")
+}
+
+func (invalidHTTPConversationInputStore) RetryConversationInputRouting(
+	context.Context,
+	string,
+	string,
+) (conversation.AcceptedConversationInput, error) {
+	return conversation.AcceptedConversationInput{}, errors.New("not implemented")
 }
 
 func (service *fakeHTTPConversationInputService) SubmitInput(
@@ -235,6 +378,39 @@ func (service *fakeHTTPConversationInputService) SubmitInput(
 		Status:     conversation.ConversationInputStatusAccepted,
 		AcceptedAt: "2026-07-12T18:00:01Z",
 	}, nil
+}
+
+func (service *fakeHTTPConversationInputService) ReadInputState(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (conversation.ConversationInputRoutingState, error) {
+	service.calls++
+	service.workspaceID = workspaceID
+	service.conversationID = conversationID
+	service.inputID = inputID
+	if service.err != nil {
+		return conversation.ConversationInputRoutingState{}, service.err
+	}
+	return service.state, nil
+}
+
+func (service *fakeHTTPConversationInputService) RetryInput(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (conversation.ConversationInputRoutingState, error) {
+	service.calls++
+	service.action = "retry"
+	service.workspaceID = workspaceID
+	service.conversationID = conversationID
+	service.inputID = inputID
+	if service.err != nil {
+		return conversation.ConversationInputRoutingState{}, service.err
+	}
+	return service.state, nil
 }
 
 func validSubmitConversationInputRequest() SubmitConversationInputRequest {

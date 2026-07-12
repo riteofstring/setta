@@ -43,6 +43,12 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationDiscardInput",
+    async (_event, request) => requireBackendClient().discardConversationInput(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationForkTopic",
     async (_event, request) => requireBackendClient().forkTopicConversation(request),
     ipcObserver,
@@ -55,8 +61,20 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationReadInputState",
+    async (_event, request) => requireBackendClient().readConversationInputRoutingState(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationReadSnapshot",
     async (_event, request) => requireBackendClient().readConversationSnapshot(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "conversationRetryInput",
+    async (_event, request) => requireBackendClient().retryConversationInput(request),
     ipcObserver,
   );
   handleIpc(

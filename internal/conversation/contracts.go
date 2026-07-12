@@ -886,7 +886,7 @@ func contractEventVariant[T ConversationEventPayload](kind ConversationEventType
 }
 
 func ContractTaggedUnions() []ContractTaggedUnion {
-	return []ContractTaggedUnion{
+	unions := []ContractTaggedUnion{
 		{
 			Discriminator: "kind",
 			Type:          reflect.TypeFor[TrajectoryEvent](),
@@ -939,13 +939,12 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 			},
 		},
 	}
+	return append(unions, conversationInputContractTaggedUnions()...)
 }
 
 func ContractValueSets() []ContractValueSet {
-	return []ContractValueSet{
-		contractValueSet("ConversationInputModality", ConversationInputModalityText, ConversationInputModalityVoice),
-		contractValueSet("ConversationInputMode", ConversationInputModeRoute, ConversationInputModeSend, ConversationInputModeQueue, ConversationInputModeSteer, ConversationInputModeAskNarrator, ConversationInputModeSide, ConversationInputModeFork),
-		contractValueSet("ConversationInputStatus", ConversationInputStatusAccepted, ConversationInputStatusRouting, ConversationInputStatusAwaitingClarification, ConversationInputStatusDispatched, ConversationInputStatusFailed),
+	sets := conversationInputContractValueSets()
+	return append(sets, []ContractValueSet{
 		contractValueSet("ConversationStatus", ConversationStatusIdle, ConversationStatusWorking, ConversationStatusWaitingForApproval, ConversationStatusFailed),
 		contractValueSet("TurnDelivery", TurnDeliveryNormal, TurnDeliveryQueued, TurnDeliverySteering),
 		contractValueSet("TurnStatus", TurnStatusQueued, TurnStatusRunning, TurnStatusCompleted, TurnStatusCancelled, TurnStatusFailed),
@@ -982,7 +981,7 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("TurnInterruptionReason", TurnInterruptionUserRequested, TurnInterruptionProviderInterrupted, TurnInterruptionRuntimeShutdown, TurnInterruptionReconciliation),
 		{Name: "ConversationEventType", Values: stringValues(conversationEventTypeValues)},
 		{Name: "ConversationPaletteID", Values: stringValues(conversationpalette.IDs())},
-	}
+	}...)
 }
 
 func contractValueSet[T ~string](name string, values ...T) ContractValueSet {

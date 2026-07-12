@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -156,6 +157,28 @@ func requireConversationInputReplyTarget(
 	if reply.Input.ConversationID != input.ConversationID {
 		return stateConflict("conversation input reply", *input.ReplyToInputID, "reply target belongs to another conversation")
 	}
+	if reply.Input.ReplyToInputID != nil {
+		return stateConflict("conversation input reply", *input.ReplyToInputID, "reply target is itself a clarification reply")
+	}
+	if reply.Status != ConversationInputStatusAwaitingClarification {
+		return stateConflict("conversation input reply", *input.ReplyToInputID, "reply target is not awaiting clarification")
+	}
+	if input.RequestedMode != ConversationInputModeRoute {
+		return stateConflict("conversation input reply", input.ID, "clarification replies must use route mode")
+	}
+	var existingReplyID string
+	err = tx.QueryRowContext(ctx, `
+SELECT id
+FROM conversation_inputs
+WHERE conversation_id = ? AND reply_to_input_id = ?
+LIMIT 1
+`, input.ConversationID, *input.ReplyToInputID).Scan(&existingReplyID)
+	if err == nil {
+		return stateConflict("conversation input reply", *input.ReplyToInputID, "clarification already has a reply")
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("inspect conversation input clarification reply: %w", err)
+	}
 	return nil
 }
 
@@ -227,40 +250,98 @@ func readConversationInputRow(
 	inputID string,
 	dbPath string,
 ) (AcceptedConversationInput, bool, error) {
-	var accepted AcceptedConversationInput
+	record, found, err := readConversationInputRecord(ctx, query, inputID, dbPath)
+	return record.Accepted, found, err
+}
+
+type conversationInputRecord struct {
+	Accepted         AcceptedConversationInput
+	RoutingAttempt   int
+	RoutingStartedAt *string
+	Failure          *Failure
+}
+
+func readConversationInputRecord(
+	ctx context.Context,
+	query conversationInputQuery,
+	inputID string,
+	dbPath string,
+) (conversationInputRecord, bool, error) {
+	var record conversationInputRecord
 	var sourcePaneID sql.NullString
 	var replyToInputID sql.NullString
+	var routingStartedAt sql.NullString
+	var failureJSON sql.NullString
 	err := query.QueryRowContext(ctx, `
 SELECT sequence, id, conversation_id, source_pane_id, reply_to_input_id,
-       input_text, input_modality, requested_mode, status, submitted_at, accepted_at
+       input_text, input_modality, requested_mode, status, routing_attempt,
+       routing_started_at, failure_json, submitted_at, accepted_at
 FROM conversation_inputs
 WHERE id = ?
 `, inputID).Scan(
-		&accepted.Sequence,
-		&accepted.Input.ID,
-		&accepted.Input.ConversationID,
+		&record.Accepted.Sequence,
+		&record.Accepted.Input.ID,
+		&record.Accepted.Input.ConversationID,
 		&sourcePaneID,
 		&replyToInputID,
-		&accepted.Input.Text,
-		&accepted.Input.Modality,
-		&accepted.Input.RequestedMode,
-		&accepted.Status,
-		&accepted.Input.SubmittedAt,
-		&accepted.AcceptedAt,
+		&record.Accepted.Input.Text,
+		&record.Accepted.Input.Modality,
+		&record.Accepted.Input.RequestedMode,
+		&record.Accepted.Status,
+		&record.RoutingAttempt,
+		&routingStartedAt,
+		&failureJSON,
+		&record.Accepted.Input.SubmittedAt,
+		&record.Accepted.AcceptedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return AcceptedConversationInput{}, false, nil
+		return conversationInputRecord{}, false, nil
 	}
 	if err != nil {
-		return AcceptedConversationInput{}, false, fmt.Errorf("read conversation input %s: %w", inputID, err)
+		return conversationInputRecord{}, false, fmt.Errorf("read conversation input %s: %w", inputID, err)
 	}
-	accepted.Input.SourcePaneID = optionalScannedString(sourcePaneID)
-	accepted.Input.ReplyToInputID = optionalScannedString(replyToInputID)
-	if err := accepted.Validate(); err != nil {
-		return AcceptedConversationInput{}, false, &CorruptStateError{
+	record.Accepted.Input.SourcePaneID = optionalScannedString(sourcePaneID)
+	record.Accepted.Input.ReplyToInputID = optionalScannedString(replyToInputID)
+	record.RoutingStartedAt = optionalScannedString(routingStartedAt)
+	if failureJSON.Valid {
+		var failure Failure
+		if err := json.Unmarshal([]byte(failureJSON.String), &failure); err != nil {
+			return conversationInputRecord{}, false, &CorruptStateError{
+				Path: dbPath,
+				Err:  fmt.Errorf("decode conversation input %s failure: %w", inputID, err),
+			}
+		}
+		record.Failure = &failure
+	}
+	if err := validateConversationInputRecord(record); err != nil {
+		return conversationInputRecord{}, false, &CorruptStateError{
 			Path: dbPath,
 			Err:  fmt.Errorf("decode conversation input %s: %w", inputID, err),
 		}
 	}
-	return accepted, true, nil
+	return record, true, nil
+}
+
+func validateConversationInputRecord(record conversationInputRecord) error {
+	return record.state().Validate()
+}
+
+func (record conversationInputRecord) state() ConversationInputState {
+	return ConversationInputState{
+		Sequence:         record.Accepted.Sequence,
+		Input:            cloneConversationInput(record.Accepted.Input),
+		Status:           record.Accepted.Status,
+		AcceptedAt:       record.Accepted.AcceptedAt,
+		RoutingAttempt:   record.RoutingAttempt,
+		RoutingStartedAt: cloneStringPointer(record.RoutingStartedAt),
+		Failure:          cloneFailurePointer(record.Failure),
+	}
+}
+
+func cloneFailurePointer(failure *Failure) *Failure {
+	if failure == nil {
+		return nil
+	}
+	cloned := *failure
+	return &cloned
 }

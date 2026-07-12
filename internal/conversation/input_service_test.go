@@ -83,12 +83,51 @@ func TestInputServicePreservesTypedStoreConflict(t *testing.T) {
 	}
 }
 
+func TestInputServiceReadsRetriesAndDiscardsDurableRoutingState(t *testing.T) {
+	input := validConversationInputServiceInput()
+	store := &recordingConversationInputStore{
+		acceptedAt: "2026-07-12T18:00:01Z",
+		input:      input,
+	}
+	service, err := newInputService(store, func() time.Time {
+		return time.Date(2026, 7, 12, 18, 0, 2, 0, time.UTC)
+	})
+	if err != nil {
+		t.Fatalf("newInputService: %v", err)
+	}
+	state, err := service.ReadInputState(context.Background(), "workspace", input.ConversationID, input.ID)
+	if err != nil {
+		t.Fatalf("ReadInputState: %v", err)
+	}
+	if state.Input.Input.ID != input.ID {
+		t.Fatalf("routing state = %+v", state)
+	}
+	if _, err := service.RetryInput(context.Background(), "workspace", input.ConversationID, input.ID); err != nil {
+		t.Fatalf("RetryInput: %v", err)
+	}
+	if store.retriedAt != "2026-07-12T18:00:02Z" || store.inputID != input.ID {
+		t.Fatalf("retry capture = %+v", store)
+	}
+	if _, err := service.DiscardInput(context.Background(), "workspace", input.ConversationID, input.ID); err != nil {
+		t.Fatalf("DiscardInput: %v", err)
+	}
+	if store.discardedAt != "2026-07-12T18:00:02Z" ||
+		store.workspaceID != "workspace" || store.conversationID != input.ConversationID {
+		t.Fatalf("discard capture = %+v", store)
+	}
+}
+
 type recordingConversationInputStore struct {
 	acceptedAt     string
+	conversationID string
+	discardedAt    string
 	differentInput bool
 	err            error
 	input          ConversationInput
+	inputID        string
 	invalid        bool
+	retriedAt      string
+	workspaceID    string
 }
 
 func (store *recordingConversationInputStore) AcceptConversationInput(
@@ -114,6 +153,67 @@ func (store *recordingConversationInputStore) AcceptConversationInput(
 		accepted.Input.Text = "different input"
 	}
 	return accepted, nil
+}
+
+func (store *recordingConversationInputStore) DiscardConversationInputRouting(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+	discardedAt string,
+) error {
+	store.workspaceID = workspaceID
+	store.conversationID = conversationID
+	store.inputID = inputID
+	store.discardedAt = discardedAt
+	return store.err
+}
+
+func (store *recordingConversationInputStore) ReadConversationInputRoutingState(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (ConversationInputRoutingState, error) {
+	store.workspaceID = workspaceID
+	store.conversationID = conversationID
+	store.inputID = inputID
+	if store.err != nil {
+		return ConversationInputRoutingState{}, store.err
+	}
+	accepted := AcceptedConversationInput{
+		Sequence:   1,
+		Input:      cloneConversationInput(store.input),
+		Status:     ConversationInputStatusAccepted,
+		AcceptedAt: store.acceptedAt,
+	}
+	return ConversationInputRoutingState{
+		Input: ConversationInputState{
+			Sequence:   accepted.Sequence,
+			Input:      accepted.Input,
+			Status:     accepted.Status,
+			AcceptedAt: accepted.AcceptedAt,
+		},
+		Decisions: []ConversationRouteDecisionRecord{},
+	}, nil
+}
+
+func (store *recordingConversationInputStore) RetryConversationInputRouting(
+	_ context.Context,
+	inputID string,
+	retriedAt string,
+) (AcceptedConversationInput, error) {
+	store.inputID = inputID
+	store.retriedAt = retriedAt
+	if store.err != nil {
+		return AcceptedConversationInput{}, store.err
+	}
+	return AcceptedConversationInput{
+		Sequence:   1,
+		Input:      cloneConversationInput(store.input),
+		Status:     ConversationInputStatusAccepted,
+		AcceptedAt: store.acceptedAt,
+	}, nil
 }
 
 func validConversationInputServiceInput() ConversationInput {

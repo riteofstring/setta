@@ -2,8 +2,9 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-6 are complete. AI routing,
-obsolete-surface deletion, and final acceptance remain.
+**Status:** In progress. Phases 0-6 and Phase 7 item 1 are complete.
+Conversation-local AI routing, global master cutover, obsolete-surface deletion,
+and final acceptance remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1998,6 +1999,8 @@ Exit criteria:
   synthetic or heuristic fallback
 
 ### Phase 7: Master, conversation index, and AI routing cutover
+
+**Status:** In progress. Item 1 is complete.
 
 Implement:
 

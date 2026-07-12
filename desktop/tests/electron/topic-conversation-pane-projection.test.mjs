@@ -46,6 +46,15 @@ import {
   waitForNavigator,
 } from "./topic-conversation-fork-workflow.mjs";
 import { verifySideConversationRestart } from "./topic-conversation-side-restart-workflow.mjs";
+import {
+  assertAcceptedConversationInputRoutingState,
+  assertChangedConversationInputConflicts,
+  assertDiscardedConversationInputRoutingState,
+  assertIdempotentConversationInput,
+  discardConversationInput,
+  readConversationInputRoutingState,
+  submitConversationInput,
+} from "./topic-conversation-input-routing-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
@@ -251,6 +260,10 @@ try {
   assertIdempotentConversationInput(
     acceptedConversationInput,
     await submitConversationInput(context.client, conversationInputRequest),
+    conversationInputRequest.input,
+  );
+  assertAcceptedConversationInputRoutingState(
+    await readConversationInputRoutingState(context.client, workspaceId, conversationInputRequest),
     conversationInputRequest.input,
   );
   await assertChangedConversationInputConflicts(context.client, conversationInputRequest);
@@ -696,6 +709,18 @@ try {
     await submitConversationInput(context.client, conversationInputRequest),
     conversationInputRequest.input,
   );
+  assertAcceptedConversationInputRoutingState(
+    await readConversationInputRoutingState(context.client, workspaceId, conversationInputRequest),
+    conversationInputRequest.input,
+  );
+  assertDiscardedConversationInputRoutingState(
+    await discardConversationInput(context.client, workspaceId, conversationInputRequest),
+    conversationInputRequest.input,
+  );
+  assertDiscardedConversationInputRoutingState(
+    await discardConversationInput(context.client, workspaceId, conversationInputRequest),
+    conversationInputRequest.input,
+  );
   const reloaded = await verifyReloadedConversationProjections({
     alpha,
     beta,
@@ -949,10 +974,6 @@ function assertPersistedNarratorVoice(page, conversation) {
   }
 }
 
-async function submitConversationInput(client, request) {
-  return client.evaluate(`window.setta.conversations.submitInput(${JSON.stringify(request)})`);
-}
-
 async function updateMasterVoice(client, request) {
   return client.evaluate(
     `window.setta.speech.updateMasterVoiceSelection(${JSON.stringify(request)})`,
@@ -1188,61 +1209,6 @@ function assertPaneSpeechField(input, field, expected) {
 function assertNonEmptyPaneSpeechField(input, field) {
   if (typeof input?.[field] !== "string" || input[field].length === 0) {
     throw new Error(`invalid pane speech input ${field}: ${JSON.stringify(input)}`);
-  }
-}
-
-function assertIdempotentConversationInput(first, duplicate, expectedInput) {
-  if (!validConversationInputReceipt(first, expectedInput) || !sameInputReceipt(first, duplicate)) {
-    throw new Error(
-      `conversation input was not accepted idempotently: ${JSON.stringify({ duplicate, first })}`,
-    );
-  }
-}
-
-function validConversationInputReceipt(receipt, expectedInput) {
-  return (
-    receipt?.sequence === 1 &&
-    receipt.status === "accepted" &&
-    conversationInputsEqual(receipt.input, expectedInput)
-  );
-}
-
-function sameInputReceipt(first, duplicate) {
-  return (
-    duplicate?.sequence === first.sequence &&
-    duplicate.status === first.status &&
-    duplicate.acceptedAt === first.acceptedAt &&
-    conversationInputsEqual(duplicate.input, first.input)
-  );
-}
-
-function conversationInputsEqual(left, right) {
-  return (
-    left?.id === right.id &&
-    left.conversationId === right.conversationId &&
-    left.sourcePaneId === right.sourcePaneId &&
-    left.replyToInputId === right.replyToInputId &&
-    left.text === right.text &&
-    left.modality === right.modality &&
-    left.requestedMode === right.requestedMode &&
-    left.submittedAt === right.submittedAt
-  );
-}
-
-async function assertChangedConversationInputConflicts(client, request) {
-  const changed = {
-    input: { ...request.input, text: "Changed content for the same conversation input id" },
-  };
-  const result = await client.evaluate(`(async () => {
-    try {
-      await window.setta.conversations.submitInput(${JSON.stringify(changed)});
-      return { accepted: true, message: "" };
-    } catch (error) {
-      return { accepted: false, message: error instanceof Error ? error.message : String(error) };
-    }
-  })()`);
-  if (result?.accepted || !result?.message.includes("already accepted with different content")) {
-    throw new Error(`changed conversation input id did not conflict: ${JSON.stringify(result)}`);
   }
 }
 

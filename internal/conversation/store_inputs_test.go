@@ -176,6 +176,14 @@ func TestStoreValidatesConversationInputTargetsAtomically(t *testing.T) {
 	if _, err := store.AcceptConversationInput(context.Background(), parent, "2026-07-12T18:00:01Z"); err != nil {
 		t.Fatalf("accept parent input: %v", err)
 	}
+	if _, err := store.writer.ExecContext(
+		context.Background(),
+		`UPDATE conversation_inputs SET status = ?, routing_attempt = 1 WHERE id = ?`,
+		ConversationInputStatusAwaitingClarification,
+		parent.ID,
+	); err != nil {
+		t.Fatalf("mark parent awaiting clarification: %v", err)
+	}
 	child := validConversationInput("input_child")
 	child.ReplyToInputID = &parent.ID
 	if _, err := store.AcceptConversationInput(context.Background(), child, "2026-07-12T18:00:02Z"); err != nil {

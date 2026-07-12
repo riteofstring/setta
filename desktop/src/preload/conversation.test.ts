@@ -16,13 +16,16 @@ describe("preload topic conversation API", () => {
       "askStatus",
       "create",
       "createSide",
+      "discardInput",
       "disposeSide",
       "fork",
       "list",
       "onEvent",
       "queue",
       "read",
+      "readInputState",
       "release",
+      "retryInput",
       "send",
       "sendSide",
       "steer",
@@ -89,6 +92,10 @@ describe("preload topic conversation API", () => {
         text: "Route this pane input",
       },
     };
+    const inputStateRequest = {
+      ...target,
+      inputId: inputRequest.input.id,
+    };
     const voiceRequest = {
       ...target,
       selection: { requestedVoiceId: "cedar" as const, selection: "exact" as const },
@@ -97,6 +104,7 @@ describe("preload topic conversation API", () => {
       approval,
       forkRequest,
       inputRequest,
+      inputStateRequest,
       listRequest,
       release,
       sideRequest,
@@ -128,6 +136,9 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationSteerTurn, turn],
       [ipcChannels.conversationStopTurn, target],
       [ipcChannels.conversationSubmitInput, inputRequest],
+      [ipcChannels.conversationReadInputState, inputStateRequest],
+      [ipcChannels.conversationRetryInput, inputStateRequest],
+      [ipcChannels.conversationDiscardInput, inputStateRequest],
       [ipcChannels.conversationSubmitApproval, approval],
       [ipcChannels.conversationSubscribeEvents, subscription],
       [ipcChannels.conversationReleaseEvents, release],
@@ -169,6 +180,7 @@ async function invokeConversationCommands(
     approval: Parameters<SettaAPI["conversations"]["submitApproval"]>[0];
     forkRequest: Parameters<SettaAPI["conversations"]["fork"]>[0];
     inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
+    inputStateRequest: Parameters<NonNullable<SettaAPI["conversations"]["readInputState"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
     release: Parameters<SettaAPI["conversations"]["release"]>[0];
     sideRequest: Parameters<NonNullable<SettaAPI["conversations"]["createSide"]>>[0];
@@ -206,6 +218,18 @@ async function invokeConversationCommands(
     throw new Error("conversation input intake is unavailable");
   }
   await submitInput(requests.inputRequest);
+  const readInputState = api.conversations.readInputState;
+  if (!readInputState) {
+    throw new Error("conversation input routing state is unavailable");
+  }
+  await readInputState(requests.inputStateRequest);
+  const retryInput = api.conversations.retryInput;
+  const discardInput = api.conversations.discardInput;
+  if (!retryInput || !discardInput) {
+    throw new Error("conversation input routing lifecycle is unavailable");
+  }
+  await retryInput(requests.inputStateRequest);
+  await discardInput(requests.inputStateRequest);
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);
