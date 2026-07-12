@@ -1,66 +1,62 @@
-import type { CorruptionSummary, WorkspaceSession } from "@generated/backend";
+import type { WorkspaceSession } from "@generated/backend";
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { useChatStore } from "./chat-store";
+import { useConversationNavigatorStore } from "./conversation-navigator-store";
+import { useConversationPaneStore } from "./conversation-pane-store";
+import { useConversationRoutingStore } from "./conversation-routing-store";
 import { resetRuntimeDerivedRendererState } from "./runtime-derived-state";
-import { useSemanticGraphStore } from "./semantic-graph-store";
-import { useWorkflowDefinitionStore } from "./workflow-definition-store";
-import { useWorkflowEditorStore } from "./workflow-editor-store";
 import { useWorkspaceStore } from "./workspace-store";
 
 describe("runtime-derived renderer state reset", () => {
   beforeEach(() => {
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true);
-    useChatStore.setState(useChatStore.getInitialState(), true);
-    useWorkflowDefinitionStore.setState(useWorkflowDefinitionStore.getInitialState(), true);
-    useWorkflowEditorStore.setState(useWorkflowEditorStore.getInitialState(), true);
-    useSemanticGraphStore.setState(useSemanticGraphStore.getInitialState(), true);
+    useConversationNavigatorStore.setState(useConversationNavigatorStore.getInitialState(), true);
+    useConversationPaneStore.setState(useConversationPaneStore.getInitialState(), true);
+    useConversationRoutingStore.setState(useConversationRoutingStore.getInitialState(), true);
   });
 
-  test("clears workspace chat workflow and semantic state together", () => {
+  test("clears workspace and topic-conversation presentation state together", () => {
     useWorkspaceStore.setState({
       session: workspaceSession("workspace_local"),
       status: "ready",
     });
-    useChatStore.setState({
-      conversationListsByWorkspaceId: {
+    useConversationNavigatorStore.setState({
+      query: "stale topic",
+      workspaces: {
         workspace_local: {
-          conversations: [],
-          corruption: emptyCorruption(),
-          diagnostics: [],
           error: null,
+          items: [],
           loading: false,
+          nextCursor: null,
         },
       },
-      lastEventSequence: 42,
-      lastEventStreamId: "stream_local",
-      status: "ready",
-      workspaceId: "workspace_local",
     });
-    useWorkflowDefinitionStore.setState({
-      selectedDefinitionIdsByWorkspaceId: { workspace_local: "definition_local" },
-      workflowDefinitionsByWorkspaceId: {
-        workspace_local: { definitions: [], error: null, loading: false },
-      },
+    useConversationPaneStore.setState({
+      workspaces: new Map([
+        [
+          "workspace_local",
+          {
+            focusedConversationId: "conversation_local",
+            focusedPaneId: "pane_local",
+            paneIdsByConversationId: new Map([["conversation_local", ["pane_local"]]]),
+          },
+        ],
+      ]),
     });
-    useWorkflowEditorStore.setState({
-      activityFocusRequestSeq: 3,
-      selectedWorkflowSettingsTarget: {
-        definitionDescription: "",
-        definitionId: "definition_local",
-        definitionName: "Local workflow",
-        editable: true,
-        viewMode: "draft",
-        workspaceId: "workspace_local",
-      },
-    });
-    useSemanticGraphStore.setState({
-      selectedNodeTarget: {
-        nodeId: "semantic_local",
-        nodeKind: "concept",
-        nodeLabel: "Local node",
-        workspaceId: "workspace_local",
-      },
+    useConversationRoutingStore.setState({
+      presentations: new Map([
+        [
+          JSON.stringify(["workspace_local", "conversation_local"]),
+          {
+            clarification: null,
+            inputId: "input_local",
+            masterReply: null,
+            routingAttempt: 1,
+            routingFailure: null,
+            sequence: 1,
+          },
+        ],
+      ]),
     });
 
     resetRuntimeDerivedRendererState();
@@ -71,25 +67,12 @@ describe("runtime-derived renderer state reset", () => {
       session: null,
       status: "idle",
     });
-    expect(useChatStore.getState()).toMatchObject({
-      conversationListsByWorkspaceId: {},
-      lastEventSequence: 0,
-      lastEventStreamId: "",
-      selectedConversation: null,
-      status: "idle",
-      workspaceId: null,
+    expect(useConversationNavigatorStore.getState()).toMatchObject({
+      query: "",
+      workspaces: {},
     });
-    expect(useWorkflowDefinitionStore.getState()).toMatchObject({
-      selectedDefinitionIdsByWorkspaceId: {},
-      workflowDefinitionsByWorkspaceId: {},
-    });
-    expect(useWorkflowEditorStore.getState()).toMatchObject({
-      activityFocusRequestSeq: 0,
-      selectedNodeActivityFocus: null,
-      selectedNodeTarget: null,
-      selectedWorkflowSettingsTarget: null,
-    });
-    expect(useSemanticGraphStore.getState().selectedNodeTarget).toBeNull();
+    expect(useConversationPaneStore.getState().workspaces.size).toBe(0);
+    expect(useConversationRoutingStore.getState().presentations.size).toBe(0);
   });
 });
 
@@ -105,14 +88,5 @@ function workspaceSession(workspaceId: string): WorkspaceSession {
     ],
     recentWorkspaces: [],
     selectedWorkspaceId: workspaceId,
-  };
-}
-
-function emptyCorruption(): CorruptionSummary {
-  return {
-    byKind: [],
-    bySeverity: [],
-    hasCorruption: false,
-    total: 0,
   };
 }

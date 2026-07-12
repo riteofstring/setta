@@ -1,6 +1,8 @@
 package workspacesession
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	"setta/internal/appstate"
@@ -37,13 +39,6 @@ func (service *Service) Session() WorkspaceSession {
 	return service.session.Clone()
 }
 
-func (service *Service) SelectedConversationIDs() map[string]string {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	return service.session.SelectedConversationIDs()
-}
-
 func (service *Service) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
@@ -52,6 +47,26 @@ func (service *Service) ResolveWorkspace(id string) (workspace.WorkspaceSummary,
 	if err != nil {
 		return workspace.WorkspaceSummary{}, err
 	}
+	rootPath, err := workspace.ValidateLocalRootPath(summary.RootPath)
+	if err != nil {
+		return workspace.WorkspaceSummary{}, err
+	}
+	summary.RootPath = rootPath
+	return summary, nil
+}
+
+func (service *Service) ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	if id == "" {
+		return workspace.WorkspaceSummary{}, errors.New("workspace id is required")
+	}
+	index := activeIndex(service.session.ActiveWorkspaces, id)
+	if index < 0 {
+		return workspace.WorkspaceSummary{}, fmt.Errorf("workspace is not active: %s", id)
+	}
+	summary := service.session.ActiveWorkspaces[index]
 	rootPath, err := workspace.ValidateLocalRootPath(summary.RootPath)
 	if err != nil {
 		return workspace.WorkspaceSummary{}, err
@@ -92,21 +107,6 @@ func (service *Service) Select(id string) (WorkspaceSession, error) {
 	}
 	service.session = next
 	return service.session.Clone(), nil
-}
-
-func (service *Service) SetSelectedConversation(workspaceID string, conversationID string) (map[string]string, error) {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	next := service.session.Clone()
-	if err := next.SetSelectedConversation(workspaceID, conversationID); err != nil {
-		return nil, err
-	}
-	if err := service.store.Save(next.AppState()); err != nil {
-		return nil, err
-	}
-	service.session = next
-	return service.session.SelectedConversationIDs(), nil
 }
 
 func (service *Service) Close(id string) (WorkspaceSession, error) {

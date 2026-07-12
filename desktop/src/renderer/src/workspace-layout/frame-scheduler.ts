@@ -321,15 +321,12 @@ export class FrameScheduler {
     this.metrics.recordFrame({
       boxWrites: writeCounts.boxWrites,
       browserViewportWrites: writeCounts.browserViewportWrites,
-      canvasViewportWrites: writeCounts.canvasViewportWrites,
       deferredHeavyViewportWrites: writeCounts.deferredHeavyViewportWrites,
       frameTime,
-      gitGraphViewportWrites: writeCounts.gitGraphViewportWrites,
       heavyViewportWrites: writeCounts.heavyViewportWrites,
       nativeBoundsUpdates: writeCounts.nativeBoundsUpdates,
       resizePhase: resizePhaseAfterRender,
       surfaceViewportWrites: writeCounts.surfaceViewportWrites,
-      terminalViewportWrites: writeCounts.terminalViewportWrites,
       transformWrites: writeCounts.transformWrites,
       visiblePaneCount: this.items.length,
     });

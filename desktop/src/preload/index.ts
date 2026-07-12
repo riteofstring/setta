@@ -1,15 +1,9 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import {
-  decodeChatEvent,
-  decodeSemanticGraphChangeEvent,
-  decodeTerminalEvent,
-  decodeWorkspaceActivityEvent,
-  decodeWorkflowEvent,
-} from "@generated/backend";
+import { decodeCodexAccountChangeEvent, decodeConversationEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
+import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
-  BackendEventStreamStatus,
   BackendProcessStatus,
   DesktopPlatform,
   KnownRuntimeView,
@@ -23,32 +17,10 @@ import type {
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
-const appFlags = {
-  workflowGraphDebug:
-    process.env.SETTA_E2E === "1" || process.env.SETTA_WORKFLOW_GRAPH_DEBUG === "1",
-  workflowGraphSyntheticGraph: parseWorkflowGraphSyntheticGraph(process.env),
-};
-const workspaceBrowserViewKeys = new Set<string>([
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-  "ArrowUp",
-  "Backspace",
-  "Delete",
-  "Enter",
-  "b",
-  "c",
-  "g",
-  "n",
-  "o",
-  "s",
-  "t",
-  "v",
-] satisfies WorkspaceBrowserViewKeyEvent["key"][]);
+const workspaceBrowserViewKeys = new Set<string>(workspaceBrowserViewKeyValues);
 
 const api: SettaAPI = {
   app: {
-    flags: appFlags,
     installedEditors: () => invoke("appInstalledEditors"),
     captureRendererRegion: (request) => invoke("appCaptureRendererRegion", request),
     endWindowDrag: () => invoke("appWindowDragEnd"),
@@ -63,15 +35,6 @@ const api: SettaAPI = {
   },
   backend: {
     health: () => invoke("backendHealth"),
-    onEventStreamStatus: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeBackendEventStreamStatus(payload));
-      };
-      ipcRenderer.on(ipcEvents.backendEventStreamStatus, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.backendEventStreamStatus, handler);
-      };
-    },
     onProcessStatus: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeBackendProcessStatus(payload));
@@ -98,29 +61,59 @@ const api: SettaAPI = {
     remove: (runtimeId) => invoke("runtimeRemove", runtimeId),
     switch: (runtimeId) => invoke("runtimeSwitch", runtimeId),
   },
-  workspaceActivity: {
+  conversations: {
+    archive: (request) => invoke("conversationArchiveTopic", request),
+    disposeSide: (request) => invoke("conversationDisposeSide", request),
+    discardInput: (request) => invoke("conversationDiscardInput", request),
+    create: (request) => invoke("conversationCreateTopic", request),
+    list: (request) => invoke("conversationListTopicConversations", request),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeWorkspaceActivityEvent(payload));
+        listener(decodeConversationEvent(payload));
       };
-      ipcRenderer.on(ipcEvents.workspaceActivityEvent, handler);
+      ipcRenderer.on(ipcEvents.conversationEvent, handler);
       return () => {
-        ipcRenderer.removeListener(ipcEvents.workspaceActivityEvent, handler);
+        ipcRenderer.removeListener(ipcEvents.conversationEvent, handler);
       };
     },
-    snapshot: async (workspaceId, limit) => {
-      const response = await invoke("workspaceActivitySnapshot", workspaceId, limit);
-      return response.snapshot;
-    },
-    executionSnapshot: async (workspaceId, executionId, limit) => {
-      const response = await invoke(
-        "workspaceActivityExecutionSnapshot",
-        workspaceId,
-        executionId,
-        limit,
-      );
-      return response.snapshot;
-    },
+    sendSide: (request) => invoke("conversationSendSideTurn", request),
+    readInputState: (request) => invoke("conversationReadInputState", request),
+    waitInputState: (request) => invoke("conversationWaitInputState", request),
+    read: (request) => invoke("conversationReadSnapshot", request),
+    release: (request) => invoke("conversationReleaseEvents", request),
+    retryInput: (request) => invoke("conversationRetryInput", request),
+    stop: (request) => invoke("conversationStopTurn", request),
+    submitInput: (request) => invoke("conversationSubmitInput", request),
+    submitApproval: (request) => invoke("conversationSubmitApproval", request),
+    subscribe: (request) => invoke("conversationSubscribeEvents", request),
+    updatePresentation: (request) => invoke("conversationUpdatePresentation", request),
+  },
+  master: {
+    cancelInput: (request) => invoke("masterCancelInput", request),
+    readActiveInteraction: () => invoke("masterReadActiveInteraction"),
+    resolvePresentation: (request) => invoke("masterResolvePresentation", request),
+    submitInput: (request) => invoke("masterSubmitInput", request),
+    waitInteraction: (request) => invoke("masterWaitInteraction", request),
+    waitPresentation: (request) => invoke("masterWaitPresentation", request),
+  },
+  roles: {
+    readConversation: (request) => invoke("roleConfigurationReadConversation", request),
+    readGlobal: () => invoke("roleConfigurationReadGlobal"),
+    readModels: () => invoke("roleConfigurationReadModels"),
+    readWorkspace: (request) => invoke("roleConfigurationReadWorkspace", request),
+    updateConversation: (request) => invoke("roleConfigurationUpdateConversation", request),
+    updateGlobal: (request) => invoke("roleConfigurationUpdateGlobal", request),
+    updateWorkspace: (request) => invoke("roleConfigurationUpdateWorkspace", request),
+  },
+  speech: {
+    cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
+    createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
+    readCapabilities: () => invoke("speechReadCapabilities"),
+    readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
+    readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
+    synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
+    updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
+    updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),
@@ -153,251 +146,21 @@ const api: SettaAPI = {
     teardownBrowserViews: (workspaceId: string) =>
       invoke("workspaceBrowserViewsTeardown", workspaceId),
   },
-  terminal: {
-    attach: (workspaceId: string, paneId: string) => invoke("terminalAttach", workspaceId, paneId),
-    close: (request) => invoke("terminalClose", request),
-    createProfile: (request) => invoke("terminalCreateProfile", request),
-    create: (workspaceId, paneId, options) =>
-      invoke(
-        "terminalCreate",
-        workspaceId,
-        paneId,
-        options.profileId ?? "",
-        options.cwd ?? "",
-        options.cols,
-        options.rows,
-      ),
-    deleteProfile: (request) => invoke("terminalDeleteProfile", request),
-    input: (input) => invoke("terminalInput", input),
-    listProfiles: () => invoke("terminalListProfiles"),
-    onEvent: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeTerminalEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.terminalEvent, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.terminalEvent, handler);
-      };
-    },
-    resize: (request) => invoke("terminalResize", request),
-    selectDefaultProfile: (request) => invoke("terminalSelectDefaultProfile", request),
-    updateProfile: (request) => invoke("terminalUpdateProfile", request),
-  },
-  chat: {
-    activeRun: (workspaceId: string, conversationId: string) =>
-      invoke("chatActiveRun", workspaceId, conversationId),
-    cancelRun: (workspaceId: string, conversationId: string) =>
-      invoke("chatCancelRun", workspaceId, conversationId),
-    reconcileRuns: (request) => invoke("chatReconcileRuns", request),
-    createConversation: (workspaceId: string, title: string) =>
-      invoke("chatCreateConversation", workspaceId, title),
-    deleteConversation: (workspaceId: string, conversationId: string) =>
-      invoke("chatDeleteConversation", workspaceId, conversationId),
-    editQueuedMessage: (workspaceId: string, conversationId: string, messageId: string, input) =>
-      invoke("chatEditQueuedMessage", workspaceId, conversationId, messageId, input),
-    createImageAttachmentFromBytes: (
-      workspaceId: string,
-      conversationId: string,
-      fileName: string,
-      dataBase64: string,
-    ) =>
-      invoke(
-        "chatCreateImageAttachmentFromBytes",
-        workspaceId,
-        conversationId,
-        fileName,
-        dataBase64,
-      ),
-    selectImageAttachments: (workspaceId: string, conversationId: string, maxCount: number) =>
-      invoke("chatSelectImageAttachments", workspaceId, conversationId, maxCount),
-    executeCommand: (workspaceId: string, conversationId: string, raw: string, options) =>
-      invoke(
-        "chatExecuteCommand",
-        workspaceId,
-        conversationId,
-        raw,
-        options?.confirmGoalReplacement ?? false,
-      ),
-    readCodexDefaults: () => invoke("chatReadCodexDefaults"),
-    openCodexModelPicker: (workspaceId: string, conversationId: string) =>
-      invoke("chatOpenCodexModelPicker", workspaceId, conversationId),
-    openCodexPermissionPicker: (workspaceId: string, conversationId: string) =>
-      invoke("chatOpenCodexPermissionPicker", workspaceId, conversationId),
-    setCodexModel: (workspaceId: string, conversationId: string, modelId: string) =>
-      invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
-    setCodexPermissionPreset: (workspaceId: string, conversationId: string, preset, confirmed) =>
-      invoke("chatSetCodexPermissionPreset", workspaceId, conversationId, preset, confirmed),
-    setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
-      invoke("chatSetCodexReasoningEffort", workspaceId, conversationId, effort),
-    updateCodexDefaults: (request) => invoke("chatUpdateCodexDefaults", request),
-    setConversationPinned: (workspaceId: string, conversationId: string, pinned: boolean) =>
-      invoke("chatSetConversationPinned", workspaceId, conversationId, pinned),
-    listCommands: (workspaceId: string, conversationId: string) =>
-      invoke("chatListCommands", workspaceId, conversationId),
-    listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
-    markConversationRead: (workspaceId: string, conversationId: string) =>
-      invoke("chatMarkConversationRead", workspaceId, conversationId),
-    messagePage: (
-      workspaceId: string,
-      conversationId: string,
-      beforeBlockOrdinal: number,
-      limit: number,
-    ) => invoke("chatMessagePage", workspaceId, conversationId, beforeBlockOrdinal, limit),
-    listComposerPromptHistory: (
-      workspaceId: string,
-      conversationId: string,
-      beforeOrdinal: number,
-      limit: number,
-    ) => invoke("chatListComposerPromptHistory", workspaceId, conversationId, beforeOrdinal, limit),
-    onEvent: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeChatEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.chatEvent, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.chatEvent, handler);
-      };
-    },
-    queueMessage: (workspaceId: string, conversationId: string, input) =>
-      invoke("chatQueueMessage", workspaceId, conversationId, input),
-    removeQueuedMessage: (workspaceId: string, conversationId: string, messageId: string) =>
-      invoke("chatRemoveQueuedMessage", workspaceId, conversationId, messageId),
-    runActivity: (workspaceId: string, runId: string, afterItemId: string, limit: number) =>
-      invoke("chatRunActivity", workspaceId, runId, afterItemId, limit),
-    runItemOutput: (
-      workspaceId: string,
-      runId: string,
-      runItemId: string,
-      afterOrdinal: number,
-      limit: number,
-    ) => invoke("chatRunItemOutput", workspaceId, runId, runItemId, afterOrdinal, limit),
-    listBackgroundTerminals: (workspaceId: string, conversationId: string) =>
-      invoke("chatListBackgroundTerminals", workspaceId, conversationId),
-    getBackgroundTerminalOutput: (
-      workspaceId: string,
-      conversationId: string,
-      processId: string,
-      afterOrdinal: number,
-      limit: number,
-    ) =>
-      invoke(
-        "chatGetBackgroundTerminalOutput",
-        workspaceId,
-        conversationId,
-        processId,
-        afterOrdinal,
-        limit,
-      ),
-    killBackgroundTerminal: (workspaceId: string, conversationId: string, processId: string) =>
-      invoke("chatKillBackgroundTerminal", workspaceId, conversationId, processId),
-    killAllBackgroundTerminals: (workspaceId: string, conversationId: string) =>
-      invoke("chatKillAllBackgroundTerminals", workspaceId, conversationId),
-    sendMessage: (workspaceId: string, conversationId: string, input) =>
-      invoke("chatSendMessage", workspaceId, conversationId, input),
-    sendSteeringImmediately: (workspaceId: string, conversationId: string, input) =>
-      invoke("chatSendSteeringImmediately", workspaceId, conversationId, input ?? null),
-    steerMessage: (workspaceId: string, conversationId: string, input) =>
-      invoke("chatSteerMessage", workspaceId, conversationId, input),
-    submitApproval: (input) => invoke("chatSubmitApproval", input),
-  },
   codexAccount: {
     cancelLogin: (request) => invoke("codexAccountCancelLogin", request),
     logout: (request) => invoke("codexAccountLogout", request),
+    onChanged: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeCodexAccountChangeEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.codexAccountChange, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.codexAccountChange, handler);
+      };
+    },
     read: () => invoke("codexAccountRead"),
     refresh: (request) => invoke("codexAccountRefresh", request),
     startLogin: (request) => invoke("codexAccountStartLogin", request),
-  },
-  semanticGraph: {
-    attachChatMessage: (request) => invoke("semanticGraphAttachChatMessage", request),
-    attachChatRun: (request) => invoke("semanticGraphAttachChatRun", request),
-    attachFileRange: (request) => invoke("semanticGraphAttachFileRange", request),
-    attachRunItem: (request) => invoke("semanticGraphAttachRunItem", request),
-    attachWorkflowExecution: (request) => invoke("semanticGraphAttachWorkflowExecution", request),
-    attachWorkflowNode: (request) => invoke("semanticGraphAttachWorkflowNode", request),
-    acceptCartographerPatch: (request) => invoke("semanticGraphCartographerPatchAccept", request),
-    buildCartographerWindow: (request) => invoke("semanticGraphCartographerWindowBuild", request),
-    processCartographerWindow: (request) =>
-      invoke("semanticGraphCartographerWindowProcess", request),
-    readCartographerProcessingState: (request) =>
-      invoke("semanticGraphCartographerProcessingState", request),
-    createEdge: (request) => invoke("semanticGraphCreateEdge", request),
-    createNode: (request) => invoke("semanticGraphCreateNode", request),
-    createSteeringDirective: (request) => invoke("semanticGraphCreateSteeringDirective", request),
-    dismissNode: (request) => invoke("semanticGraphDismissNode", request),
-    endActivity: (request) => invoke("semanticGraphActivityEnd", request),
-    listCartographerCursors: (request) => invoke("semanticGraphCartographerCursorList", request),
-    listCartographerPatches: (request) => invoke("semanticGraphCartographerPatchList", request),
-    listCartographerRuns: (request) => invoke("semanticGraphCartographerRunList", request),
-    listCartographerWindows: (request) => invoke("semanticGraphCartographerWindowList", request),
-    listActivity: (request) => invoke("semanticGraphActivityList", request),
-    listActivityPage: (request) => invoke("semanticGraphActivityPage", request),
-    listContextPacks: (request) => invoke("semanticGraphContextPackList", request),
-    listEvidence: (request) => invoke("semanticGraphEvidenceList", request),
-    mergeNodes: (request) => invoke("semanticGraphMergeNodes", request),
-    onEvent: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeSemanticGraphChangeEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.semanticGraphEvent, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.semanticGraphEvent, handler);
-      };
-    },
-    promoteNode: (request) => invoke("semanticGraphPromoteNode", request),
-    read: (request) => invoke("semanticGraphRead", request),
-    readActivitySummary: (request) => invoke("semanticGraphActivitySummary", request),
-    readCartographerRun: (request) => invoke("semanticGraphCartographerRunRead", request),
-    readContextPack: (request) => invoke("semanticGraphContextPackRead", request),
-    readEventHistory: (request) => invoke("semanticGraphEventHistory", request),
-    readNodeDetail: (request) => invoke("semanticGraphNodeDetail", request),
-    readSteeringState: (request) => invoke("semanticGraphSteeringRead", request),
-    rejectCartographerPatch: (request) => invoke("semanticGraphCartographerPatchReject", request),
-    removeEdge: (request) => invoke("semanticGraphRemoveEdge", request),
-    renameNode: (request) => invoke("semanticGraphRenameNode", request),
-    splitNode: (request) => invoke("semanticGraphSplitNode", request),
-    updateEdge: (request) => invoke("semanticGraphUpdateEdge", request),
-    updateLayoutPositions: (request) => invoke("semanticGraphLayoutUpdate", request),
-    updateNode: (request) => invoke("semanticGraphUpdateNode", request),
-    updateSteeringDirective: (request) => invoke("semanticGraphUpdateSteeringDirective", request),
-  },
-  workflow: {
-    cancelExecution: (workspaceId, executionId) =>
-      invoke("workflowCancelExecution", workspaceId, executionId),
-    createDefinition: (workspaceId, name, description, graph) =>
-      invoke("workflowCreateDefinition", workspaceId, name, description, graph),
-    deleteDefinition: (workspaceId, definitionId) =>
-      invoke("workflowDeleteDefinition", workspaceId, definitionId),
-    executionEvents: (workspaceId, executionId, beforeOrdinal, limit) =>
-      invoke("workflowExecutionEvents", workspaceId, executionId, beforeOrdinal, limit),
-    graphProjection: (workspaceId, definitionId = "", versionId = "", executionId = "") =>
-      invoke("workflowGraphProjection", workspaceId, definitionId, versionId, executionId),
-    listDefinitions: (workspaceId) => invoke("workflowListDefinitions", workspaceId),
-    listExecutions: (workspaceId, definitionId, limit) =>
-      invoke("workflowListExecutions", workspaceId, definitionId, limit),
-    onEvent: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeWorkflowEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.workflowEvent, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.workflowEvent, handler);
-      };
-    },
-    readDefinition: (workspaceId, definitionId) =>
-      invoke("workflowReadDefinition", workspaceId, definitionId),
-    readExecution: (workspaceId, executionId) =>
-      invoke("workflowReadExecution", workspaceId, executionId),
-    readNodeTrajectory: (request) => invoke("workflowReadNodeTrajectory", request),
-    retryNodeRunLiveness: (request) => invoke("workflowRetryNodeRunLiveness", request),
-    startExecution: (workspaceId, definitionId, versionId = "") =>
-      invoke("workflowStartExecution", workspaceId, definitionId, versionId),
-    steerNodeRun: (request) => invoke("workflowSteerNodeRun", request),
-    stopNodeRun: (request) => invoke("workflowStopNodeRun", request),
-    submitApproval: (request) => invoke("workflowSubmitApproval", request),
-    updateDefinition: (workspaceId, definitionId, name, description, graph) =>
-      invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),
-    validateDefinition: (workspaceId, graph) =>
-      invoke("workflowValidateDefinition", workspaceId, graph),
   },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
@@ -408,46 +171,12 @@ const api: SettaAPI = {
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
     saveUILayout: (layout) => invoke("workspaceSaveUILayout", layout),
     select: (id: string) => invoke("workspaceSelect", id),
-    selectedConversations: () => invoke("workspaceSelectedConversations"),
-    setSelectedConversation: (workspaceId: string, conversationId: string) =>
-      invoke("workspaceSetSelectedConversation", workspaceId, conversationId),
     session: () => invoke("workspaceSession"),
   },
 };
 
 installRendererRecorder(ipcRenderer);
 contextBridge.exposeInMainWorld("setta", api);
-
-function parseWorkflowGraphSyntheticGraph(env: NodeJS.ProcessEnv) {
-  const nodeCount = optionalPositiveIntegerEnv(
-    env.SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT,
-    "SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT",
-  );
-  const edgesPerNode = optionalPositiveIntegerEnv(
-    env.SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE,
-    "SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE",
-  );
-  if (nodeCount === null && edgesPerNode === null) {
-    return null;
-  }
-  if (nodeCount === null || edgesPerNode === null) {
-    throw new Error(
-      "SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT and SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE must be set together",
-    );
-  }
-  return { edgesPerNode, nodeCount };
-}
-
-function optionalPositiveIntegerEnv(value: string | undefined, name: string) {
-  if (value === undefined || value === "") {
-    return null;
-  }
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer: ${value}`);
-  }
-  return parsed;
-}
 
 function decodeBackendProcessStatus(value: unknown): BackendProcessStatus {
   const record = assertStatusRecord(value, "BackendProcessStatus");
@@ -469,48 +198,6 @@ function decodeBackendProcessStatus(value: unknown): BackendProcessStatus {
     };
   }
   throw new Error("BackendProcessStatus.status is unsupported: " + status);
-}
-
-function decodeBackendEventStreamStatus(value: unknown): BackendEventStreamStatus {
-  const record = assertStatusRecord(value, "BackendEventStreamStatus");
-  const status = stringField(record, "status", "BackendEventStreamStatus");
-  const message = stringField(record, "message", "BackendEventStreamStatus");
-  if (status === "connecting") {
-    return {
-      attempt: integerField(record, "attempt", "BackendEventStreamStatus"),
-      message,
-      status,
-    };
-  }
-  if (status === "connected") {
-    return {
-      lastSequence: integerField(record, "lastSequence", "BackendEventStreamStatus"),
-      lastStreamId: stringField(record, "lastStreamId", "BackendEventStreamStatus"),
-      message,
-      status,
-    };
-  }
-  if (status === "reconnecting") {
-    return {
-      attempt: integerField(record, "attempt", "BackendEventStreamStatus"),
-      lastSequence: integerField(record, "lastSequence", "BackendEventStreamStatus"),
-      lastStreamId: stringField(record, "lastStreamId", "BackendEventStreamStatus"),
-      message,
-      status,
-    };
-  }
-  if (status === "resyncing") {
-    return {
-      lastSequence: integerField(record, "lastSequence", "BackendEventStreamStatus"),
-      lastStreamId: stringField(record, "lastStreamId", "BackendEventStreamStatus"),
-      message,
-      status,
-    };
-  }
-  if (status === "stopped") {
-    return { message, status };
-  }
-  throw new Error("BackendEventStreamStatus.status is unsupported: " + status);
 }
 
 function decodeRuntimeRegistrySnapshot(value: unknown): RuntimeRegistrySnapshot {
@@ -696,12 +383,4 @@ function requireRuntimeField(
     throw new Error(label + "." + field + " is required");
   }
   return record[field];
-}
-
-function integerField(record: Record<string, unknown>, field: string, label: string): number {
-  const value = record[field];
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    throw new Error(label + "." + field + " must be an integer");
-  }
-  return value;
 }

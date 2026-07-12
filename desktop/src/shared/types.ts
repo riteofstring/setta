@@ -1,144 +1,67 @@
 import type {
+  AcceptedConversationInput,
+  AcceptedMasterInput,
+  ActiveShellInteraction,
+  ArchiveTopicConversationRequest,
   AppearancePresetList,
   AppearanceSettings,
-  AttachSemanticNodeToChatMessageRequest,
-  AttachSemanticNodeToChatRunRequest,
-  AttachSemanticNodeToFileRangeRequest,
-  AttachSemanticNodeToRunItemRequest,
-  AttachSemanticNodeToWorkflowExecutionRequest,
-  AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
-  BackgroundTerminalListProjection,
-  BackgroundTerminalOutputPage,
-  BackgroundTerminalProcess,
-  BuildCartographerWindowRequest,
+  CancelMasterInputRequest,
   CancelCodexLoginRequest,
-  CartographerCursorList,
-  CartographerPatchList,
-  CartographerPatchReviewResult,
-  CartographerProcessingState,
-  CartographerRunList,
-  CartographerRunReadResponse,
-  CartographerWindowBuildResult,
-  CartographerWindowList,
-  CartographerWindowProcessResult,
-  ChatCommandExecuteResult,
-  ChatCommandListResult,
-  ChatCodexDefaultsView,
-  ChatEvent,
-  ChatInput,
-  ChatPermissionPresetID,
+  CodexAccountChangeEvent,
   CodexAccountState,
-  ComposerPromptHistoryPage,
-  Conversation,
-  ConversationListItem,
-  CreateSemanticEdgeRequest,
-  CreateSemanticNodeRequest,
-  CreateSemanticSteeringDirectiveRequest,
-  CloseTerminalRequest,
-  CloseTerminalResponse,
-  CreateTerminalProfileRequest,
-  DeleteTerminalProfileRequest,
-  DeleteWorkflowDefinitionResponse,
-  EndSemanticActivityRequest,
-  GetActiveRunResponse,
-  ImmediateSteeringResult,
-  ImageAttachment,
-  ListCartographerCursorsRequest,
-  ListCartographerPatchesRequest,
-  ListCartographerRunsRequest,
-  ListCartographerWindowsRequest,
-  ListConversationsResponse,
-  ListWorkflowExecutionsResponse,
-  ListSemanticContextPacksRequest,
-  ListWorkflowDefinitionsResponse,
+  ConversationEvent,
+  ConversationInputRoutingState,
+  ConversationPresentationProfile,
+  ConversationSnapshot,
+  CreateTopicConversationRequest,
+  DiscardConversationInputRequest,
+  DisposeSideConversationRequest,
+  ListTopicConversationsRequest,
   LogoutCodexAccountRequest,
-  MergeSemanticNodesRequest,
-  MessagePage,
+  MasterVoiceSelection,
+  NarratorVoiceDefault,
+  NavigatorPage,
   OpenWorkspaceResponse,
-  ProcessCartographerWindowRequest,
-  QueueEditResult,
-  QueueMessageResult,
-  QueueRemoveResult,
-  ReadCartographerProcessingStateRequest,
-  ReconcileChatRunsRequest,
-  ReconcileChatRunsResponse,
-  RenameSemanticNodeRequest,
-  ReadCartographerRunRequest,
-  ReadSemanticActivitySummaryRequest,
-  ReadSemanticContextPackRequest,
-  ReadSemanticEventHistoryRequest,
-  ReadSemanticGraphRequest,
-  ReadSemanticNodeDetailRequest,
-  ReadSemanticNodeDetailResponse,
-  ReadSemanticSteeringStateRequest,
-  ReadWorkflowGraphProjectionResponse,
-  ReadWorkflowNodeTrajectoryRequest,
-  ReasoningEffort,
+  PresentationIntent,
+  PresentationResolution,
+  PresentationResolutionRequest,
+  ReadConversationInputRoutingStateRequest,
+  ReadConversationSnapshotRequest,
+  ReadMasterInputRoutingStateRequest,
   RefreshCodexAccountRequest,
-  RetryWorkflowNodeRunLivenessRequest,
-  ResizeTerminalRequest,
-  ReviewCartographerPatchRequest,
-  Run,
-  RunActivityPage,
-  RunLivenessReconciliationResult,
-  RunItemOutputPage,
+  ReadConversationRoleConfigurationRequest,
+  ReadWorkspaceRoleConfigurationRequest,
+  RetryConversationInputRequest,
+  RoleConfiguration,
+  RoleModelCatalog,
   RuntimeInfrastructureProvider,
-  ListSemanticActivityPageRequest,
-  ListSemanticActivityRequest,
-  ListSemanticEvidenceRequest,
-  SemanticActivityEndResult,
-  SemanticActivityList,
-  SemanticActivityPage,
-  SemanticActivitySummary,
-  SemanticAttachmentResult,
-  SemanticContextPackList,
-  SemanticContextPackReadResponse,
-  SemanticEdgeOperationRequest,
-  SemanticEventHistory,
-  SemanticEvidenceList,
-  SemanticGraph,
-  SemanticGraphChangeEvent,
-  SemanticLayoutPositionList,
-  SemanticMutationResult,
-  SemanticNodeOperationRequest,
-  SemanticSteeringState,
-  SendMessageResult,
-  SelectDefaultTerminalProfileRequest,
+  SendSideConversationTurnRequest,
+  ShellInteractionState,
+  SpeechAudio,
+  SpeechCapabilities,
+  SpeechSynthesisRequest,
+  SpeechTranscriptionSession,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
-  SteerMessageResult,
-  SteerWorkflowNodeRunRequest,
-  SplitSemanticNodeRequest,
-  SubmitApprovalRequest,
-  StopWorkflowNodeRunRequest,
-  SubmitWorkflowApprovalRequest,
-  TerminalEvent,
-  TerminalInputRequest,
-  TerminalInputResponse,
-  TerminalProfileList,
-  TerminalSessionResponse,
+  StopTopicConversationTurnRequest,
+  SubmitConversationInputRequest,
+  SubmitMasterInputRequest,
+  SubmitTopicConversationApprovalRequest,
   UpdateAppearanceSettingsRequest,
-  UpdateChatCodexDefaultsRequest,
-  UpdateSemanticEdgeRequest,
-  UpdateSemanticLayoutPositionsRequest,
-  UpdateSemanticNodeRequest,
-  UpdateSemanticSteeringDirectiveRequest,
-  UpdateTerminalProfileRequest,
-  WorkflowAgentTrajectoryPage,
-  WorkflowDefinition,
-  WorkflowEvent,
-  WorkflowExecution,
-  WorkflowExecutionEventPage,
-  WorkflowGraph,
-  WorkflowValidationResult,
-  WorkspaceActivityEvent,
-  WorkspaceActivitySnapshot,
-  WorkspaceSelectedConversations,
+  UpdateConversationRoleProfilesRequest,
+  UpdateGlobalRoleProfilesRequest,
+  UpdateWorkspaceRoleProfilesRequest,
+  UpdateTopicConversationPresentationRequest,
+  VoiceSelectionRequest,
   WorkspaceUILayout,
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
+import type {
+  ConversationEventReleaseRequest,
+  ConversationEventSubscriptionRequest,
+} from "./conversation-ipc";
 
 export interface RuntimeVersions {
   app: string;
@@ -224,22 +147,26 @@ export interface WorkspaceBrowserViewBatch {
   workspaceId: string;
 }
 
-export type WorkspaceBrowserViewKey =
-  | "ArrowDown"
-  | "ArrowLeft"
-  | "ArrowRight"
-  | "ArrowUp"
-  | "Backspace"
-  | "Delete"
-  | "Enter"
-  | "b"
-  | "c"
-  | "g"
-  | "n"
-  | "o"
-  | "s"
-  | "t"
-  | "v";
+export const workspaceBrowserViewKeyValues = [
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "Backspace",
+  "Delete",
+  "Enter",
+  "b",
+  "c",
+  "g",
+  "k",
+  "n",
+  "o",
+  "s",
+  "t",
+  "v",
+] as const;
+
+export type WorkspaceBrowserViewKey = (typeof workspaceBrowserViewKeyValues)[number];
 
 export interface WorkspaceBrowserViewKeyEvent {
   altKey: boolean;
@@ -338,19 +265,8 @@ export interface RuntimeRegistrySnapshot {
   switching: boolean;
 }
 
-export interface ChatCommandExecutionOptions {
-  confirmGoalReplacement?: boolean;
-}
-
 export interface SettaAPI {
   app: {
-    flags: {
-      workflowGraphDebug: boolean;
-      workflowGraphSyntheticGraph: {
-        edgesPerNode: number;
-        nodeCount: number;
-      } | null;
-    };
     installedEditors: () => Promise<InstalledEditorApp[]>;
     captureRendererRegion: (
       request: RendererRegionCaptureRequest,
@@ -366,7 +282,6 @@ export interface SettaAPI {
   };
   backend: {
     health: () => Promise<BackendHealth>;
-    onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
   runtimes: {
@@ -377,14 +292,69 @@ export interface SettaAPI {
     remove: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
     switch: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
   };
-  workspaceActivity: {
-    onEvent: (listener: (event: WorkspaceActivityEvent) => void) => () => void;
-    snapshot: (workspaceId: string, limit: number) => Promise<WorkspaceActivitySnapshot>;
-    executionSnapshot: (
-      workspaceId: string,
-      executionId: string,
-      limit: number,
-    ) => Promise<WorkspaceActivitySnapshot>;
+  conversations: {
+    archive: (request: ArchiveTopicConversationRequest) => Promise<ConversationSnapshot>;
+    create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
+    discardInput?: (
+      request: DiscardConversationInputRequest,
+    ) => Promise<ConversationInputRoutingState>;
+    disposeSide?: (request: DisposeSideConversationRequest) => Promise<ConversationSnapshot>;
+    list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
+    onEvent: (listener: (event: ConversationEvent) => void) => () => void;
+    read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
+    readInputState?: (
+      request: ReadConversationInputRoutingStateRequest,
+    ) => Promise<ConversationInputRoutingState>;
+    release: (request: ConversationEventReleaseRequest) => Promise<void>;
+    retryInput?: (request: RetryConversationInputRequest) => Promise<ConversationInputRoutingState>;
+    sendSide?: (request: SendSideConversationTurnRequest) => Promise<ConversationSnapshot>;
+    stop: (request: StopTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
+    submitApproval: (
+      request: SubmitTopicConversationApprovalRequest,
+    ) => Promise<ConversationSnapshot>;
+    submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;
+    subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
+    updatePresentation: (
+      request: UpdateTopicConversationPresentationRequest,
+    ) => Promise<ConversationPresentationProfile>;
+    waitInputState?: (
+      request: ReadConversationInputRoutingStateRequest,
+    ) => Promise<ConversationInputRoutingState>;
+  };
+  master?: {
+    cancelInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
+    readActiveInteraction: () => Promise<ActiveShellInteraction>;
+    resolvePresentation: (
+      request: PresentationResolutionRequest,
+    ) => Promise<PresentationResolution>;
+    submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
+    waitInteraction: (
+      request: ReadMasterInputRoutingStateRequest,
+    ) => Promise<ShellInteractionState>;
+    waitPresentation: (request: ReadMasterInputRoutingStateRequest) => Promise<PresentationIntent>;
+  };
+  roles?: {
+    readConversation: (
+      request: ReadConversationRoleConfigurationRequest,
+    ) => Promise<RoleConfiguration>;
+    readGlobal: () => Promise<RoleConfiguration>;
+    readModels: () => Promise<RoleModelCatalog>;
+    readWorkspace: (request: ReadWorkspaceRoleConfigurationRequest) => Promise<RoleConfiguration>;
+    updateConversation: (
+      request: UpdateConversationRoleProfilesRequest,
+    ) => Promise<RoleConfiguration>;
+    updateGlobal: (request: UpdateGlobalRoleProfilesRequest) => Promise<RoleConfiguration>;
+    updateWorkspace: (request: UpdateWorkspaceRoleProfilesRequest) => Promise<RoleConfiguration>;
+  };
+  speech: {
+    cancelSynthesis?: (operationId: string) => Promise<void>;
+    createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
+    readCapabilities: () => Promise<SpeechCapabilities>;
+    readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
+    readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
+    synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
+    updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
+    updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;
@@ -400,30 +370,6 @@ export interface SettaAPI {
     readBrowserViewStats: () => Promise<WorkspaceBrowserViewStats>;
     teardownBrowserViews: (workspaceId: string) => Promise<WorkspaceBrowserViewStats>;
   };
-  terminal: {
-    attach: (workspaceId: string, paneId: string) => Promise<TerminalSessionResponse>;
-    close: (request: CloseTerminalRequest) => Promise<CloseTerminalResponse>;
-    createProfile: (request: CreateTerminalProfileRequest) => Promise<TerminalProfileList>;
-    create: (
-      workspaceId: string,
-      paneId: string,
-      options: {
-        cols: number;
-        cwd?: string;
-        profileId?: string;
-        rows: number;
-      },
-    ) => Promise<TerminalSessionResponse>;
-    deleteProfile: (request: DeleteTerminalProfileRequest) => Promise<TerminalProfileList>;
-    input: (input: TerminalInputRequest) => Promise<TerminalInputResponse>;
-    listProfiles: () => Promise<TerminalProfileList>;
-    onEvent: (listener: (event: TerminalEvent) => void) => () => void;
-    resize: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
-    selectDefaultProfile: (
-      request: SelectDefaultTerminalProfileRequest,
-    ) => Promise<TerminalProfileList>;
-    updateProfile: (request: UpdateTerminalProfileRequest) => Promise<TerminalProfileList>;
-  };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
@@ -433,310 +379,14 @@ export interface SettaAPI {
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
     saveUILayout: (layout: WorkspaceUILayout) => Promise<WorkspaceUILayout>;
     select: (id: string) => Promise<WorkspaceSession>;
-    selectedConversations: () => Promise<WorkspaceSelectedConversations>;
-    setSelectedConversation: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<WorkspaceSelectedConversations>;
     session: () => Promise<WorkspaceSession>;
-  };
-  chat: {
-    activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
-    cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
-    reconcileRuns: (request: ReconcileChatRunsRequest) => Promise<ReconcileChatRunsResponse>;
-    createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
-    deleteConversation: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<ListConversationsResponse>;
-    editQueuedMessage: (
-      workspaceId: string,
-      conversationId: string,
-      messageId: string,
-      input: ChatInput,
-    ) => Promise<QueueEditResult>;
-    createImageAttachmentFromBytes: (
-      workspaceId: string,
-      conversationId: string,
-      fileName: string,
-      dataBase64: string,
-    ) => Promise<ImageAttachment>;
-    selectImageAttachments: (
-      workspaceId: string,
-      conversationId: string,
-      maxCount: number,
-    ) => Promise<ImageAttachment[]>;
-    executeCommand: (
-      workspaceId: string,
-      conversationId: string,
-      raw: string,
-      options?: ChatCommandExecutionOptions,
-    ) => Promise<ChatCommandExecuteResult>;
-    readCodexDefaults: () => Promise<ChatCodexDefaultsView>;
-    openCodexModelPicker: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<ChatCommandExecuteResult>;
-    openCodexPermissionPicker: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<ChatCommandExecuteResult>;
-    setCodexModel: (
-      workspaceId: string,
-      conversationId: string,
-      modelId: string,
-    ) => Promise<ChatCommandExecuteResult>;
-    setCodexPermissionPreset: (
-      workspaceId: string,
-      conversationId: string,
-      preset: ChatPermissionPresetID,
-      confirmed: boolean,
-    ) => Promise<ChatCommandExecuteResult>;
-    setCodexReasoningEffort: (
-      workspaceId: string,
-      conversationId: string,
-      effort: ReasoningEffort,
-    ) => Promise<ChatCommandExecuteResult>;
-    updateCodexDefaults: (
-      request: UpdateChatCodexDefaultsRequest,
-    ) => Promise<ChatCodexDefaultsView>;
-    setConversationPinned: (
-      workspaceId: string,
-      conversationId: string,
-      pinned: boolean,
-    ) => Promise<ConversationListItem>;
-    listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
-    listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
-    markConversationRead: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<ConversationListItem>;
-    messagePage: (
-      workspaceId: string,
-      conversationId: string,
-      beforeBlockOrdinal: number,
-      limit: number,
-    ) => Promise<MessagePage>;
-    listComposerPromptHistory: (
-      workspaceId: string,
-      conversationId: string,
-      beforeOrdinal: number,
-      limit: number,
-    ) => Promise<ComposerPromptHistoryPage>;
-    queueMessage: (
-      workspaceId: string,
-      conversationId: string,
-      input: ChatInput,
-    ) => Promise<QueueMessageResult>;
-    removeQueuedMessage: (
-      workspaceId: string,
-      conversationId: string,
-      messageId: string,
-    ) => Promise<QueueRemoveResult>;
-    runActivity: (
-      workspaceId: string,
-      runId: string,
-      afterItemId: string,
-      limit: number,
-    ) => Promise<RunActivityPage>;
-    runItemOutput: (
-      workspaceId: string,
-      runId: string,
-      runItemId: string,
-      afterOrdinal: number,
-      limit: number,
-    ) => Promise<RunItemOutputPage>;
-    listBackgroundTerminals: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<BackgroundTerminalListProjection>;
-    getBackgroundTerminalOutput: (
-      workspaceId: string,
-      conversationId: string,
-      processId: string,
-      afterOrdinal: number,
-      limit: number,
-    ) => Promise<BackgroundTerminalOutputPage>;
-    killBackgroundTerminal: (
-      workspaceId: string,
-      conversationId: string,
-      processId: string,
-    ) => Promise<BackgroundTerminalProcess>;
-    killAllBackgroundTerminals: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<BackgroundTerminalListProjection>;
-    sendMessage: (
-      workspaceId: string,
-      conversationId: string,
-      input: ChatInput,
-    ) => Promise<SendMessageResult>;
-    sendSteeringImmediately: (
-      workspaceId: string,
-      conversationId: string,
-      input?: ChatInput,
-    ) => Promise<ImmediateSteeringResult>;
-    steerMessage: (
-      workspaceId: string,
-      conversationId: string,
-      input: ChatInput,
-    ) => Promise<SteerMessageResult>;
-    onEvent: (listener: (event: ChatEvent) => void) => () => void;
-    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };
   codexAccount: {
     cancelLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
     logout: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
+    onChanged: (listener: (event: CodexAccountChangeEvent) => void) => () => void;
     read: () => Promise<CodexAccountState>;
     refresh: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
     startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
-  };
-  semanticGraph: {
-    attachChatMessage: (
-      request: AttachSemanticNodeToChatMessageRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachChatRun: (
-      request: AttachSemanticNodeToChatRunRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachFileRange: (
-      request: AttachSemanticNodeToFileRangeRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachRunItem: (
-      request: AttachSemanticNodeToRunItemRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachWorkflowExecution: (
-      request: AttachSemanticNodeToWorkflowExecutionRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachWorkflowNode: (
-      request: AttachSemanticNodeToWorkflowNodeRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    buildCartographerWindow: (
-      request: BuildCartographerWindowRequest,
-    ) => Promise<CartographerWindowBuildResult>;
-    processCartographerWindow: (
-      request: ProcessCartographerWindowRequest,
-    ) => Promise<CartographerWindowProcessResult>;
-    readCartographerProcessingState: (
-      request: ReadCartographerProcessingStateRequest,
-    ) => Promise<CartographerProcessingState>;
-    listCartographerCursors: (
-      request: ListCartographerCursorsRequest,
-    ) => Promise<CartographerCursorList>;
-    listCartographerPatches: (
-      request: ListCartographerPatchesRequest,
-    ) => Promise<CartographerPatchList>;
-    listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
-    listCartographerWindows: (
-      request: ListCartographerWindowsRequest,
-    ) => Promise<CartographerWindowList>;
-    readCartographerRun: (
-      request: ReadCartographerRunRequest,
-    ) => Promise<CartographerRunReadResponse>;
-    acceptCartographerPatch: (
-      request: ReviewCartographerPatchRequest,
-    ) => Promise<CartographerPatchReviewResult>;
-    rejectCartographerPatch: (
-      request: ReviewCartographerPatchRequest,
-    ) => Promise<CartographerPatchReviewResult>;
-    createEdge: (request: CreateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
-    createNode: (request: CreateSemanticNodeRequest) => Promise<SemanticMutationResult>;
-    createSteeringDirective: (
-      request: CreateSemanticSteeringDirectiveRequest,
-    ) => Promise<SemanticMutationResult>;
-    dismissNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
-    endActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
-    listActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
-    listActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
-    listContextPacks: (
-      request: ListSemanticContextPacksRequest,
-    ) => Promise<SemanticContextPackList>;
-    listEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
-    mergeNodes: (request: MergeSemanticNodesRequest) => Promise<SemanticMutationResult>;
-    onEvent: (listener: (event: SemanticGraphChangeEvent) => void) => () => void;
-    promoteNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
-    read: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
-    readActivitySummary: (
-      request: ReadSemanticActivitySummaryRequest,
-    ) => Promise<SemanticActivitySummary>;
-    readContextPack: (
-      request: ReadSemanticContextPackRequest,
-    ) => Promise<SemanticContextPackReadResponse>;
-    readEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
-    readNodeDetail: (
-      request: ReadSemanticNodeDetailRequest,
-    ) => Promise<ReadSemanticNodeDetailResponse>;
-    readSteeringState: (
-      request: ReadSemanticSteeringStateRequest,
-    ) => Promise<SemanticSteeringState>;
-    removeEdge: (request: SemanticEdgeOperationRequest) => Promise<SemanticMutationResult>;
-    renameNode: (request: RenameSemanticNodeRequest) => Promise<SemanticMutationResult>;
-    splitNode: (request: SplitSemanticNodeRequest) => Promise<SemanticMutationResult>;
-    updateEdge: (request: UpdateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
-    updateLayoutPositions: (
-      request: UpdateSemanticLayoutPositionsRequest,
-    ) => Promise<SemanticLayoutPositionList>;
-    updateNode: (request: UpdateSemanticNodeRequest) => Promise<SemanticMutationResult>;
-    updateSteeringDirective: (
-      request: UpdateSemanticSteeringDirectiveRequest,
-    ) => Promise<SemanticMutationResult>;
-  };
-  workflow: {
-    cancelExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
-    createDefinition: (
-      workspaceId: string,
-      name: string,
-      description: string,
-      graph: WorkflowGraph,
-    ) => Promise<WorkflowDefinition>;
-    deleteDefinition: (
-      workspaceId: string,
-      definitionId: string,
-    ) => Promise<DeleteWorkflowDefinitionResponse>;
-    executionEvents: (
-      workspaceId: string,
-      executionId: string,
-      beforeOrdinal: number,
-      limit: number,
-    ) => Promise<WorkflowExecutionEventPage>;
-    graphProjection: (
-      workspaceId: string,
-      definitionId?: string,
-      versionId?: string,
-      executionId?: string,
-    ) => Promise<ReadWorkflowGraphProjectionResponse>;
-    listDefinitions: (workspaceId: string) => Promise<ListWorkflowDefinitionsResponse>;
-    listExecutions: (
-      workspaceId: string,
-      definitionId: string,
-      limit: number,
-    ) => Promise<ListWorkflowExecutionsResponse>;
-    onEvent: (listener: (event: WorkflowEvent) => void) => () => void;
-    readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
-    readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
-    readNodeTrajectory: (
-      request: ReadWorkflowNodeTrajectoryRequest,
-    ) => Promise<WorkflowAgentTrajectoryPage>;
-    retryNodeRunLiveness: (
-      request: RetryWorkflowNodeRunLivenessRequest,
-    ) => Promise<RunLivenessReconciliationResult>;
-    startExecution: (
-      workspaceId: string,
-      definitionId: string,
-      versionId?: string,
-    ) => Promise<WorkflowExecution>;
-    steerNodeRun: (request: SteerWorkflowNodeRunRequest) => Promise<SteerMessageResult>;
-    stopNodeRun: (request: StopWorkflowNodeRunRequest) => Promise<WorkflowExecution>;
-    submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
-    updateDefinition: (
-      workspaceId: string,
-      definitionId: string,
-      name: string,
-      description: string,
-      graph: WorkflowGraph,
-    ) => Promise<WorkflowDefinition>;
-    validateDefinition: (
-      workspaceId: string,
-      graph: WorkflowGraph,
-    ) => Promise<WorkflowValidationResult>;
   };
 }

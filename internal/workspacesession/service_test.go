@@ -3,6 +3,7 @@ package workspacesession
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,9 +34,6 @@ func TestServicePersistsWorkspaceSessionAcrossRestart(t *testing.T) {
 	if _, err := service.Select(apiSummary.ID); err != nil {
 		t.Fatalf("select api: %v", err)
 	}
-	if _, err := service.SetSelectedConversation(apiSummary.ID, "conversation_api"); err != nil {
-		t.Fatalf("set selected api conversation: %v", err)
-	}
 
 	restartedManager, err := workspace.NewManager(filepath.Dir(appStore.Path()))
 	if err != nil {
@@ -49,9 +47,6 @@ func TestServicePersistsWorkspaceSessionAcrossRestart(t *testing.T) {
 
 	if session.SelectedWorkspaceID != apiSummary.ID {
 		t.Fatalf("selected after restart = %q, want %s", session.SelectedWorkspaceID, apiSummary.ID)
-	}
-	if selected := restarted.SelectedConversationIDs(); selected[apiSummary.ID] != "conversation_api" {
-		t.Fatalf("selected conversation ids after restart = %#v", selected)
 	}
 	assertIDs(t, "active after restart", session.ActiveWorkspaces, []string{webSummary.ID, apiSummary.ID})
 	assertIDs(t, "recent after restart", session.RecentWorkspaces, []string{webSummary.ID, apiSummary.ID})
@@ -89,6 +84,27 @@ func TestServiceResolveWorkspaceRejectsMissingRoot(t *testing.T) {
 
 	if _, err := service.ResolveWorkspace(summary.ID); err == nil {
 		t.Fatal("resolve workspace succeeded, want missing root error")
+	}
+}
+
+func TestServiceResolveActiveWorkspaceRejectsClosedRecentWorkspace(t *testing.T) {
+	appStore := newTestStore(t)
+	service := newTestService(t, appStore, []string{"workspace_api"}, []time.Time{mustTime(t, "2026-05-29T20:00:00Z")})
+	summary, _, err := service.OpenLocalFolder(t.TempDir())
+	if err != nil {
+		t.Fatalf("open api: %v", err)
+	}
+	if resolved, err := service.ResolveActiveWorkspace(summary.ID); err != nil || resolved.ID != summary.ID {
+		t.Fatalf("resolve active workspace = %+v err=%v", resolved, err)
+	}
+	if _, err := service.Close(summary.ID); err != nil {
+		t.Fatalf("close api: %v", err)
+	}
+	if resolved, err := service.ResolveWorkspace(summary.ID); err != nil || resolved.ID != summary.ID {
+		t.Fatalf("resolve recent workspace = %+v err=%v", resolved, err)
+	}
+	if _, err := service.ResolveActiveWorkspace(summary.ID); err == nil || !strings.Contains(err.Error(), "workspace is not active") {
+		t.Fatalf("resolve closed active workspace error = %v", err)
 	}
 }
 

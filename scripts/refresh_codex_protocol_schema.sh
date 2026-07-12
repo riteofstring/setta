@@ -58,6 +58,8 @@ cp "${experimental_schema_root}/json/v2/ThreadBackgroundTerminalsTerminateParams
 cp "${experimental_schema_root}/json/v2/ThreadBackgroundTerminalsTerminateResponse.json" "${snapshot_dir}/json_experimental/v2/ThreadBackgroundTerminalsTerminateResponse.json"
 cp "${experimental_schema_root}/json/v2/ThreadResumeParams.json" "${snapshot_dir}/json_experimental/v2/ThreadResumeParams.json"
 cp "${experimental_schema_root}/json/v2/ThreadResumeResponse.json" "${snapshot_dir}/json_experimental/v2/ThreadResumeResponse.json"
+cp "${experimental_schema_root}/json/v2/ThreadSearchParams.json" "${snapshot_dir}/json_experimental/v2/ThreadSearchParams.json"
+cp "${experimental_schema_root}/json/v2/ThreadSearchResponse.json" "${snapshot_dir}/json_experimental/v2/ThreadSearchResponse.json"
 cp "${experimental_schema_root}/json/v2/ThreadSettingsUpdateParams.json" "${snapshot_dir}/json_experimental/v2/ThreadSettingsUpdateParams.json"
 cp "${experimental_schema_root}/json/v2/ThreadStartParams.json" "${snapshot_dir}/json_experimental/v2/ThreadStartParams.json"
 cp "${experimental_schema_root}/json/v2/ThreadStartResponse.json" "${snapshot_dir}/json_experimental/v2/ThreadStartResponse.json"

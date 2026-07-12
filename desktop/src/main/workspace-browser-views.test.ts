@@ -376,6 +376,35 @@ describe("workspace WebContentsView registry", () => {
     });
   });
 
+  test("forwards the global master shortcut from native browser panes", () => {
+    const owner = new FakeOwnerWindow();
+    const view = new FakeNativeView();
+    const registry = new WebContentsViewRegistry({
+      createClipView: () => new FakeNativeView() as never,
+      createView: () => view as never,
+      windowFromIpcEvent: () => owner as never,
+    });
+
+    registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
+    const controlEvent = view.webContents.emitBeforeInput("K", { control: true });
+    const modifiedEvent = view.webContents.emitBeforeInput("K", { control: true, shift: true });
+
+    expect(controlEvent.prevented).toBe(true);
+    expect(modifiedEvent.prevented).toBe(false);
+    expect(owner.webContents.sent).toContainEqual({
+      channel: ipcEvents.workspaceBrowserViewKey,
+      payload: {
+        altKey: false,
+        ctrlKey: true,
+        key: "k",
+        metaKey: false,
+        shiftKey: false,
+        surfaceId: "surface-1",
+        workspaceId: "phase-4-browser-pane-benchmark",
+      },
+    });
+  });
+
   test("captures settled browser view snapshots for renderer texture handoff", async () => {
     const owner = new FakeOwnerWindow();
     const view = new FakeNativeView();

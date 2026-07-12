@@ -11,10 +11,9 @@ import (
 )
 
 type WorkspaceSession struct {
-	SelectedWorkspaceID                  string                       `json:"selectedWorkspaceId"`
-	SelectedConversationIDsByWorkspaceID map[string]string            `json:"-"`
-	ActiveWorkspaces                     []workspace.WorkspaceSummary `json:"activeWorkspaces"`
-	RecentWorkspaces                     []workspace.WorkspaceSummary `json:"recentWorkspaces"`
+	SelectedWorkspaceID string                       `json:"selectedWorkspaceId"`
+	ActiveWorkspaces    []workspace.WorkspaceSummary `json:"activeWorkspaces"`
+	RecentWorkspaces    []workspace.WorkspaceSummary `json:"recentWorkspaces"`
 }
 
 func FromAppState(state appstate.State) (WorkspaceSession, error) {
@@ -33,10 +32,9 @@ func FromAppState(state appstate.State) (WorkspaceSession, error) {
 	}
 
 	session := WorkspaceSession{
-		SelectedWorkspaceID:                  state.SelectedWorkspaceID,
-		SelectedConversationIDsByWorkspaceID: cloneSelectedConversationIDs(state.SelectedConversationIDsByWorkspaceID),
-		ActiveWorkspaces:                     activeWorkspaces,
-		RecentWorkspaces:                     cloneSummaries(state.RecentWorkspaces),
+		SelectedWorkspaceID: state.SelectedWorkspaceID,
+		ActiveWorkspaces:    activeWorkspaces,
+		RecentWorkspaces:    cloneSummaries(state.RecentWorkspaces),
 	}
 	if err := sortRecent(session.RecentWorkspaces); err != nil {
 		return WorkspaceSession{}, err
@@ -46,10 +44,9 @@ func FromAppState(state appstate.State) (WorkspaceSession, error) {
 
 func (session WorkspaceSession) Clone() WorkspaceSession {
 	return WorkspaceSession{
-		SelectedWorkspaceID:                  session.SelectedWorkspaceID,
-		SelectedConversationIDsByWorkspaceID: cloneSelectedConversationIDs(session.SelectedConversationIDsByWorkspaceID),
-		ActiveWorkspaces:                     cloneSummaries(session.ActiveWorkspaces),
-		RecentWorkspaces:                     cloneSummaries(session.RecentWorkspaces),
+		SelectedWorkspaceID: session.SelectedWorkspaceID,
+		ActiveWorkspaces:    cloneSummaries(session.ActiveWorkspaces),
+		RecentWorkspaces:    cloneSummaries(session.RecentWorkspaces),
 	}
 }
 
@@ -59,11 +56,10 @@ func (session WorkspaceSession) AppState() appstate.State {
 		activeIDs = append(activeIDs, summary.ID)
 	}
 	return appstate.State{
-		SchemaVersion:                        appstate.SchemaVersion,
-		SelectedWorkspaceID:                  session.SelectedWorkspaceID,
-		SelectedConversationIDsByWorkspaceID: cloneSelectedConversationIDs(session.SelectedConversationIDsByWorkspaceID),
-		ActiveWorkspaceIDs:                   activeIDs,
-		RecentWorkspaces:                     cloneSummaries(session.RecentWorkspaces),
+		SchemaVersion:       appstate.SchemaVersion,
+		SelectedWorkspaceID: session.SelectedWorkspaceID,
+		ActiveWorkspaceIDs:  activeIDs,
+		RecentWorkspaces:    cloneSummaries(session.RecentWorkspaces),
 	}
 }
 
@@ -173,32 +169,10 @@ func (session *WorkspaceSession) RemoveRecent(id string) error {
 	for index, summary := range session.RecentWorkspaces {
 		if summary.ID == id {
 			session.RecentWorkspaces = append(session.RecentWorkspaces[:index], session.RecentWorkspaces[index+1:]...)
-			delete(session.SelectedConversationIDsByWorkspaceID, id)
 			return nil
 		}
 	}
 	return fmt.Errorf("recent workspace not found: %s", id)
-}
-
-func (session *WorkspaceSession) SetSelectedConversation(workspaceID string, conversationID string) error {
-	if workspaceID == "" {
-		return errors.New("workspace id is required")
-	}
-	if conversationID == "" {
-		return errors.New("conversation id is required")
-	}
-	if _, err := session.Workspace(workspaceID); err != nil {
-		return err
-	}
-	if session.SelectedConversationIDsByWorkspaceID == nil {
-		session.SelectedConversationIDsByWorkspaceID = map[string]string{}
-	}
-	session.SelectedConversationIDsByWorkspaceID[workspaceID] = conversationID
-	return nil
-}
-
-func (session WorkspaceSession) SelectedConversationIDs() map[string]string {
-	return cloneSelectedConversationIDs(session.SelectedConversationIDsByWorkspaceID)
 }
 
 func validateSummary(summary workspace.WorkspaceSummary) error {
@@ -256,15 +230,4 @@ func cloneSummaries(summaries []workspace.WorkspaceSummary) []workspace.Workspac
 		return []workspace.WorkspaceSummary{}
 	}
 	return append([]workspace.WorkspaceSummary{}, summaries...)
-}
-
-func cloneSelectedConversationIDs(values map[string]string) map[string]string {
-	if values == nil {
-		return map[string]string{}
-	}
-	clone := make(map[string]string, len(values))
-	for workspaceID, conversationID := range values {
-		clone[workspaceID] = conversationID
-	}
-	return clone
 }

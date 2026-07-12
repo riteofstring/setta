@@ -2,8 +2,6 @@ import type { WorkspaceMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
 import {
   canHostResizeHandle,
-  formatBytes,
-  formatPixels,
   paneActionButtonClassName,
   paneActionButtonLabel,
   paneActionStateKey,
@@ -27,6 +25,7 @@ import {
 import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
 import { paneChromeTitleModel, paneTitleOverrideFromHost } from "./pane-title-metadata";
 import { createPaneTitleSlot, syncPaneTitleSlot } from "./pane-title-icons";
+import { notifyReactDomSurfaceHostChanged } from "./react-dom-surface-events";
 import type { WorkspacePane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
 
 export interface PresentationApplyOptions {
@@ -106,14 +105,16 @@ export class PresentationEngine {
       overlay: this.dropPreviewOverlay,
     });
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
-    this.metrics.recordCanvasStats(this.surfaceRegistry.canvasStats());
-    this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
-    this.metrics.recordTerminalStats(this.surfaceRegistry.terminalStats());
     writeCounts.nativeBoundsUpdates = nativeFlush?.batchSent ? 1 : 0;
     return writeCounts;
   }
 
   mount(hosts: readonly HTMLElement[], debugOverlay: HTMLElement | null): void {
+    this.syncHosts(hosts);
+    this.debugOverlay = debugOverlay;
+  }
+
+  syncHosts(hosts: readonly HTMLElement[]): void {
     this.bindings = hosts.map((host) => ({
       contentPaneId: host.dataset.paneId ?? null,
       host,
@@ -132,7 +133,6 @@ export class PresentationEngine {
       lastWidth: -1,
       lastZ: -1,
     }));
-    this.debugOverlay = debugOverlay;
   }
 
   setDebugOverlay(debugOverlay: HTMLElement | null): void {
@@ -209,16 +209,9 @@ export class PresentationEngine {
       `resize ${snapshot.resize.frameCount}/${snapshot.resize.p95FrameTime.toFixed(
         2,
       )}/${snapshot.resize.deferredHeavyViewportWrites}/${snapshot.resize.heavyViewportWrites}/${snapshot.reactCommitsDuringResize}`,
-      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${snapshot.canvasRendererResizeCount}/${snapshot.canvasTickerFramesWhileFrozen}/${formatPixels(snapshot.canvasBackingStorePixels)}/${formatBytes(
-        snapshot.canvasGpuMemoryEstimateBytes,
-      )}`,
-      `terminal ${snapshot.liveTerminalRendererCount}/${snapshot.terminalDirtyRows}/${snapshot.terminalPendingOutputChunks}`,
       `snapshot ${snapshot.snapshotFreshTextureUses}/${snapshot.snapshotStaleTextureUses}/${snapshot.snapshotMissingTextureUses}/${snapshot.snapshotCaptureRequestsDuringTransition}`,
-      `graph ${snapshot.liveGitGraphPaneCount}/${snapshot.gitGraphRenderer ?? "none"}/${Math.round(
-        snapshot.gitGraphProgress * 100,
-      )}%/${snapshot.gitGraphWorkerBatches}${snapshot.gitGraphWorkerPending ? "+" : ""}`,
       `runtime ${runtimeSummary.live}/${runtimeSummary.snapshot}/${runtimeSummary.liveThrottled}/${runtimeSummary.hidden}`,
-      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} canvas ${runtimeSummary.budget.maxLiveWebGpuCanvases} terminal ${runtimeSummary.budget.maxLiveTerminalRenderers}`,
+      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} snapshot ${runtimeSummary.budget.maxSnapshotPanes}`,
     ].join(" | ");
   }
 
@@ -450,6 +443,12 @@ export class PresentationEngine {
     actionStrip.className = "workspace-pane-action-strip app-no-drag";
     actionStrip.dataset.workspacePaneActionStrip = "true";
     topBar.append(actionStrip);
+    const reactSurface = Array.from(topBar.parentElement?.children ?? []).find((child) =>
+      child.classList.contains("workspace-react-dom-surface"),
+    );
+    if (reactSurface) {
+      notifyReactDomSurfaceHostChanged(reactSurface);
+    }
     return actionStrip;
   }
 
