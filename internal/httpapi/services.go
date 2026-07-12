@@ -51,13 +51,8 @@ type WorkspaceActivityService interface {
 
 type ConversationService interface {
 	CreateTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	ForkTopic(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
-	CreateSideConversation(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
 	SendSideConversationTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 	DisposeSideConversation(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
-	SendTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
-	QueueTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
-	SteerTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
 	StopTurn(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SubmitApproval(
 		context.Context,
@@ -87,10 +82,6 @@ type ConversationNavigatorService interface {
 		*conversation.NavigatorCursor,
 		int,
 	) (conversation.NavigatorPage, error)
-}
-
-type NarratorStatusService interface {
-	AskStatus(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
 }
 
 type ConversationInputService interface {
@@ -286,7 +277,6 @@ type HandlerConfig struct {
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
 	MasterInputService           MasterInputService
-	NarratorStatusService        NarratorStatusService
 	CodexAccountService          CodexAccountService
 	NotifyService                NotifyService
 	PairingFailureLimiter        *PairingFailureLimiter
@@ -311,7 +301,6 @@ type handler struct {
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
 	masterInputService           MasterInputService
-	narratorStatusService        NarratorStatusService
 	codexAccountService          CodexAccountService
 	notifyService                NotifyService
 	pairingFailureLimiter        *PairingFailureLimiter
@@ -345,7 +334,6 @@ func NewHandler(config HandlerConfig) http.Handler {
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
 		masterInputService:           config.MasterInputService,
-		narratorStatusService:        config.NarratorStatusService,
 		codexAccountService:          config.CodexAccountService,
 		notifyService:                config.NotifyService,
 		pairingFailureLimiter:        pairingFailureLimiter,

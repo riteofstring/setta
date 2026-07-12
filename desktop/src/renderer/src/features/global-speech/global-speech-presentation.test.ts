@@ -26,7 +26,7 @@ describe("global speech presentation", () => {
     const snapshot = captureSnapshot({
       capture: {
         captureSessionId: "capture-alpha",
-        request: conversationSpeechCaptureRequest("conversation-alpha", "pane-alpha", "route"),
+        request: conversationSpeechCaptureRequest("conversation-alpha", "pane-alpha"),
         transcript: "partial words",
         type: "listening",
       },
@@ -46,7 +46,6 @@ describe("global speech presentation", () => {
       }),
     ).toMatchObject({
       activityLabel: "Listening",
-      captureInputMode: "route",
       captureScope: "this_pane",
       captureState: "listening",
       transcriptPreview: "partial words",
@@ -134,11 +133,7 @@ describe("global speech presentation", () => {
         completedConversationTranscript: {
           captureSessionId: input.id,
           input,
-          request: conversationSpeechCaptureRequest(
-            input.conversationId,
-            input.sourcePaneId!,
-            input.requestedMode,
-          ),
+          request: conversationSpeechCaptureRequest(input.conversationId, input.sourcePaneId!),
           runtimeId: "runtime-speech",
           transcript: input.text,
         },
@@ -155,7 +150,6 @@ describe("global speech presentation", () => {
       retry: "conversation",
       source: {
         conversationId: "conversation-alpha",
-        inputMode: "route",
         sourcePaneId: "pane-alpha",
         type: "conversation",
       },
@@ -219,7 +213,6 @@ function conversationInput(): ConversationInput {
     id: "capture-alpha",
     modality: "voice",
     replyToInputId: null,
-    requestedMode: "route",
     sourcePaneId: "pane-alpha",
     submittedAt: "2026-07-12T20:00:00Z",
     text: "Exact frozen transcript.",

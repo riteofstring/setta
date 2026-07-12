@@ -223,7 +223,7 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 		ChildConversationID:      "conversation-child",
 		ParentConversationID:     "conversation-parent",
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceExplicit,
+		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           "turn-4",
 		SourceTrajectorySequence: 19,
 		ProviderMetadata:         map[string]string{"providerForkThreadId": "thread-child"},

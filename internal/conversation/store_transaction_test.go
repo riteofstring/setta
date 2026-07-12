@@ -464,7 +464,7 @@ func TestTransactionRejectsForkFromIncompleteParentTurnAtomically(t *testing.T) 
 		ChildConversationID:      child.ID,
 		ParentConversationID:     seed.conversation.ID,
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceExplicit,
+		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           seed.queuedTurn.ID,
 		SourceTrajectorySequence: 1,
 		ProviderMetadata:         map[string]string{},

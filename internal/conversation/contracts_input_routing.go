@@ -30,9 +30,7 @@ func conversationInputContractTaggedUnions() []ContractTaggedUnion {
 func conversationInputContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
 		contractValueSet("ConversationInputModality", ConversationInputModalityText, ConversationInputModalityVoice),
-		contractValueSet("ConversationInputMode", ConversationInputModeRoute, ConversationInputModeSend, ConversationInputModeQueue, ConversationInputModeSteer, ConversationInputModeAskNarrator, ConversationInputModeSide, ConversationInputModeFork),
 		contractValueSet("ConversationInputStatus", ConversationInputStatusAccepted, ConversationInputStatusRouting, ConversationInputStatusAwaitingClarification, ConversationInputStatusDispatched, ConversationInputStatusFailed),
 		contractValueSet("ConversationRouteDecisionKind", ConversationRouteDecisionKindSendToParent, ConversationRouteDecisionKindQueueParentTurn, ConversationRouteDecisionKindSteerParentTurn, ConversationRouteDecisionKindAnswerAsNarrator, ConversationRouteDecisionKindCreateSideConversation, ConversationRouteDecisionKindForkConversation, ConversationRouteDecisionKindEscalateToMaster, ConversationRouteDecisionKindClarify),
-		contractValueSet("ConversationRouteDecisionSource", ConversationRouteDecisionSourceRouter, ConversationRouteDecisionSourceExplicit),
 	}
 }

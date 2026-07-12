@@ -789,7 +789,7 @@ function branch(conversationId: string): ConversationBranch {
   return {
     childConversationId: conversationId,
     createdAt: timestamp,
-    decisionSource: "explicit",
+    decisionSource: "conversation_router",
     forkedAtTurnId: "turn_parent",
     kind: "fork",
     parentConversationId: "conversation_parent",

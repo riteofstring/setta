@@ -796,7 +796,7 @@
   border: 1px solid var(--easy-button-border);
   border-radius: 999px;
   display: flex;
-  max-width: 560px;
+  flex: 1 1 auto;
   min-width: 0;
   padding: 0 12px 0 16px;
   position: relative;

@@ -86,7 +86,7 @@ func TestBranchDecisionScopeKeepsPaneAuthorityOutsideModelDecision(t *testing.T)
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
 		ParentPaneID:         &paneID,
-		Source:               BranchDecisionSourceExplicit,
+		Source:               BranchDecisionSourceConversationRouter,
 	}).Validate(fork); err == nil {
 		t.Fatal("fork decision accepted an arbitrary pane command")
 	}

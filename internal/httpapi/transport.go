@@ -12,7 +12,6 @@ import (
 	"setta/internal/conversation"
 	"setta/internal/jsonio"
 	"setta/internal/master"
-	"setta/internal/narration"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
 	"setta/internal/speech"
@@ -86,17 +85,6 @@ func requireConversationNavigatorService(
 ) ConversationNavigatorService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "conversation_navigator_service_unavailable", "conversation navigator service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireNarratorStatusService(
-	response http.ResponseWriter,
-	service NarratorStatusService,
-) NarratorStatusService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "narrator_status_service_unavailable", "narrator status service is not available")
 		return nil
 	}
 	return service
@@ -323,15 +311,6 @@ func writeConversationInputError(response http.ResponseWriter, err error) {
 		return
 	}
 	writeError(response, http.StatusBadRequest, "invalid_conversation_input", err.Error())
-}
-
-func writeNarratorStatusError(response http.ResponseWriter, err error) {
-	var degraded *narration.DegradedError
-	if errors.As(err, &degraded) {
-		writeError(response, http.StatusServiceUnavailable, "narrator_status_unavailable", degraded.Error())
-		return
-	}
-	writeConversationError(response, "ask_topic_conversation_narrator_status_failed", err)
 }
 
 func writeMasterInputError(response http.ResponseWriter, err error) {

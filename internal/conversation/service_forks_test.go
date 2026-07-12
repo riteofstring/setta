@@ -16,7 +16,7 @@ func TestServiceCreatesIndependentDurableForkFromCompletedTurn(t *testing.T) {
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	parentID := parent.Conversation.ID
-	if _, err := service.SendTurn(ctx, workspaceID, parentID, "parent foundation"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, "parent foundation"); err != nil {
 		t.Fatalf("SendTurn parent foundation: %v", err)
 	}
 	runtime.waitForStart(t, "parent foundation")
@@ -24,7 +24,7 @@ func TestServiceCreatesIndependentDurableForkFromCompletedTurn(t *testing.T) {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
 	})
 	sourceTurn := latestSnapshotTurn(completed)
-	if _, err := service.SendTurn(ctx, workspaceID, parentID, "hold"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, "hold"); err != nil {
 		t.Fatalf("SendTurn active parent: %v", err)
 	}
 	runtime.waitForStart(t, "hold")
@@ -33,20 +33,20 @@ func TestServiceCreatesIndependentDurableForkFromCompletedTurn(t *testing.T) {
 			latestSnapshotTurn(snapshot).Status == TurnStatusRunning
 	})
 
-	child, err := service.ForkTopic(
+	child, err := service.forkRouterTopicForTest(
 		ctx,
 		workspaceID,
 		parentID,
 		sourceTurn.ID,
-		"Durable child",
-	)
+		"Durable child")
+
 	if err != nil {
 		t.Fatalf("ForkTopic: %v", err)
 	}
 	assertDurableForkSnapshot(t, child, working, sourceTurn)
 	assertDurableForkProviderRequest(t, runtime, completed, sourceTurn)
 
-	if _, err := service.SendTurn(ctx, workspaceID, child.Conversation.ID, "child work"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, child.Conversation.ID, "child work"); err != nil {
 		t.Fatalf("SendTurn child: %v", err)
 	}
 	runtime.waitForStart(t, "child work")
@@ -65,7 +65,7 @@ func TestServiceCreatesIndependentDurableForkFromCompletedTurn(t *testing.T) {
 		childRequest.ProviderThreadID != child.ThreadBinding.ThreadID {
 		t.Fatalf("child turn request = %+v, want child conversation and forked thread", childRequest)
 	}
-	if _, err := service.SteerTurn(ctx, workspaceID, parentID, "finish parent"); err != nil {
+	if _, err := service.steerTestTurn(ctx, workspaceID, parentID, "finish parent"); err != nil {
 		t.Fatalf("SteerTurn parent: %v", err)
 	}
 	assertServiceSnapshot(t, service, workspaceID, parentID, func(snapshot ConversationSnapshot) bool {
@@ -94,20 +94,20 @@ func TestServiceRejectsIncompleteDurableForkBeforeProviderCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, parent.Conversation.ID, "hold cancel"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parent.Conversation.ID, "hold cancel"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold cancel")
 	working := assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusRunning
 	})
-	_, err = service.ForkTopic(
+	_, err = service.forkRouterTopicForTest(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
 		latestSnapshotTurn(working).ID,
-		"Rejected child",
-	)
+		"Rejected child")
+
 	if !IsCommandConflict(err) {
 		t.Fatalf("ForkTopic running turn error = %T %v, want conflict", err, err)
 	}
@@ -126,7 +126,7 @@ func TestServiceRejectsMismatchedProviderForkLineageWithoutPersistingChild(t *te
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "foundation")
@@ -136,13 +136,13 @@ func TestServiceRejectsMismatchedProviderForkLineageWithoutPersistingChild(t *te
 	wrongParent := "provider-thread-other"
 	providerFork := agentThreadForForkTest("provider-thread-invalid", wrongParent)
 	runtime.forkResponse = &providerFork
-	_, err = service.ForkTopic(
+	_, err = service.forkRouterTopicForTest(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
 		latestSnapshotTurn(completed).ID,
-		"Invalid child",
-	)
+		"Invalid child")
+
 	if err == nil {
 		t.Fatalf("ForkTopic mismatched provider lineage error = %v", err)
 	}
@@ -165,7 +165,7 @@ func TestServiceDoesNotUnsubscribeParentWhenProviderReusesParentThread(t *testin
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "foundation")
@@ -176,13 +176,13 @@ func TestServiceDoesNotUnsubscribeParentWhenProviderReusesParentThread(t *testin
 	providerFork := agentThreadForForkTest(parentThreadID, parentThreadID)
 	runtime.forkResponse = &providerFork
 
-	_, err = service.ForkTopic(
+	_, err = service.forkRouterTopicForTest(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
 		latestSnapshotTurn(completed).ID,
-		"Rejected reused parent",
-	)
+		"Rejected reused parent")
+
 	if err == nil {
 		t.Fatal("ForkTopic accepted a reused parent provider thread")
 	}
@@ -205,7 +205,7 @@ func TestServiceDoesNotPersistChildWhenProviderForkFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "foundation")
@@ -213,13 +213,13 @@ func TestServiceDoesNotPersistChildWhenProviderForkFails(t *testing.T) {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
 	})
 	runtime.forkErr = errors.New("scripted provider fork failure")
-	_, err = service.ForkTopic(
+	_, err = service.forkRouterTopicForTest(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
 		latestSnapshotTurn(completed).ID,
-		"Missing child",
-	)
+		"Missing child")
+
 	if err == nil || err.Error() != "scripted provider fork failure" {
 		t.Fatalf("ForkTopic provider failure = %v", err)
 	}
@@ -251,7 +251,7 @@ func assertDurableForkSnapshot(
 		branch.ParentConversationID != parent.Conversation.ID ||
 		branch.ForkedAtTurnID != sourceTurn.ID ||
 		branch.SourceTrajectorySequence != turnTrajectoryBoundary(parent, sourceTurn.ID) ||
-		branch.DecisionSource != BranchDecisionSourceExplicit ||
+		branch.DecisionSource != BranchDecisionSourceConversationRouter ||
 		branch.ProviderMetadata[branchMetadataProviderForkThreadID] != child.ThreadBinding.ThreadID {
 		t.Fatalf("durable fork lineage = %+v", branch)
 	}

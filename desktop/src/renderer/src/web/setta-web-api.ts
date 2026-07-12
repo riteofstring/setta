@@ -249,9 +249,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
       submitApproval: (input) => requireClient().submitApproval(input),
     },
     conversations: {
-      askStatus: (request) => requireClient().askTopicConversationNarratorStatus(request),
       create: (request) => requireClient().createTopicConversation(request),
-      fork: (request) => requireClient().forkTopicConversation(request),
       list: (request) => requireClient().listTopicConversations(request),
       onEvent: (listener) => {
         conversationEventListeners.add(listener);
@@ -259,7 +257,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           conversationEventListeners.delete(listener);
         };
       },
-      queue: (request) => requireClient().queueTopicConversationTurn(request),
       read: (request) => requireClient().readConversationSnapshot(request),
       release: async (request) => {
         const key = conversationStreamKey(request.workspaceId, request.conversationId);
@@ -273,8 +270,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
           conversationEventStreams.delete(key);
         }
       },
-      send: (request) => requireClient().sendTopicConversationTurn(request),
-      steer: (request) => requireClient().steerTopicConversationTurn(request),
       stop: (request) => requireClient().stopTopicConversationTurn(request),
       submitApproval: (request) => requireClient().submitTopicConversationApproval(request),
       subscribe: async (request) => {

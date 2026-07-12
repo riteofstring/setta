@@ -64,15 +64,6 @@ func validateConversationRouteQuestion(label string, question string) error {
 	return nil
 }
 
-func validConversationRouteDecisionSource(source ConversationRouteDecisionSource) bool {
-	switch source {
-	case ConversationRouteDecisionSourceRouter, ConversationRouteDecisionSourceExplicit:
-		return true
-	default:
-		return false
-	}
-}
-
 func conversationRouteCommandKey(commit ConversationRouteDecisionCommit) (string, error) {
 	switch commit.ResultingCommand.Kind {
 	case ConversationRouteDecisionKindSendToParent:

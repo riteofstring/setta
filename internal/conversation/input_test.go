@@ -15,7 +15,6 @@ func TestNormalizeConversationInputPreservesTextAndNormalizesUTCMetadata(t *test
 		ReplyToInputID: &replyToInputID,
 		Text:           "  Keep the pane transcript exact.  ",
 		Modality:       ConversationInputModalityVoice,
-		RequestedMode:  ConversationInputModeRoute,
 		SubmittedAt:    "2026-07-12T18:00:00.000Z",
 	}
 
@@ -36,31 +35,19 @@ func TestNormalizeConversationInputPreservesTextAndNormalizesUTCMetadata(t *test
 	}
 }
 
-func TestNormalizeConversationInputAcceptsEveryOwnedModeAndModality(t *testing.T) {
-	modes := []ConversationInputMode{
-		ConversationInputModeRoute,
-		ConversationInputModeSend,
-		ConversationInputModeQueue,
-		ConversationInputModeSteer,
-		ConversationInputModeAskNarrator,
-		ConversationInputModeSide,
-		ConversationInputModeFork,
-	}
+func TestNormalizeConversationInputAcceptsEveryOwnedModality(t *testing.T) {
 	modalities := []ConversationInputModality{
 		ConversationInputModalityText,
 		ConversationInputModalityVoice,
 	}
-	for _, mode := range modes {
-		for _, modality := range modalities {
-			t.Run(string(mode)+"/"+string(modality), func(t *testing.T) {
-				input := validConversationInput("input_" + string(mode))
-				input.RequestedMode = mode
-				input.Modality = modality
-				if _, err := NormalizeConversationInput(input); err != nil {
-					t.Fatalf("NormalizeConversationInput: %v", err)
-				}
-			})
-		}
+	for _, modality := range modalities {
+		t.Run(string(modality), func(t *testing.T) {
+			input := validConversationInput("input_" + string(modality))
+			input.Modality = modality
+			if _, err := NormalizeConversationInput(input); err != nil {
+				t.Fatalf("NormalizeConversationInput: %v", err)
+			}
+		})
 	}
 }
 
@@ -83,7 +70,6 @@ func TestNormalizeConversationInputRejectsInvalidContracts(t *testing.T) {
 		{name: "blank text", mutate: func(input *ConversationInput) { input.Text = " \n " }},
 		{name: "oversized text", mutate: func(input *ConversationInput) { input.Text = strings.Repeat("x", MaxConversationInputTextBytes+1) }},
 		{name: "unknown modality", mutate: func(input *ConversationInput) { input.Modality = "audio" }},
-		{name: "unknown mode", mutate: func(input *ConversationInput) { input.RequestedMode = "guess" }},
 		{name: "non UTC timestamp", mutate: func(input *ConversationInput) { input.SubmittedAt = "2026-07-12T11:00:00-07:00" }},
 		{name: "invalid timestamp", mutate: func(input *ConversationInput) { input.SubmittedAt = "today" }},
 	}
@@ -167,7 +153,6 @@ func validConversationInput(inputID string) ConversationInput {
 		ConversationID: "conversation_alpha",
 		Text:           "Route this request",
 		Modality:       ConversationInputModalityText,
-		RequestedMode:  ConversationInputModeRoute,
 		SubmittedAt:    "2026-07-12T18:00:00Z",
 	}
 }

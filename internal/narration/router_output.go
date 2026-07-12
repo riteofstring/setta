@@ -14,25 +14,19 @@ type conversationRouteWireEnvelope struct {
 	Decision json.RawMessage `json:"decision"`
 }
 
-type conversationRouteWireKind struct {
-	Kind conversation.ConversationRouteDecisionKind `json:"kind"`
-}
-
-type conversationRouteWireAuthoredInput struct {
-	Kind          conversation.ConversationRouteDecisionKind `json:"kind"`
-	AuthoredInput string                                     `json:"authoredInput"`
-}
-
-type conversationRouteWireQuestion struct {
-	Kind     conversation.ConversationRouteDecisionKind `json:"kind"`
-	Question string                                     `json:"question"`
-}
-
-type conversationRouteWireFork struct {
+type conversationRouteWireDecision struct {
 	Kind           conversation.ConversationRouteDecisionKind `json:"kind"`
-	AuthoredInput  string                                     `json:"authoredInput"`
-	ForkedAtTurnID string                                     `json:"forkedAtTurnId"`
-	ProposedTitle  string                                     `json:"proposedTitle"`
+	AuthoredInput  json.RawMessage                            `json:"authoredInput"`
+	Question       json.RawMessage                            `json:"question"`
+	ForkedAtTurnID json.RawMessage                            `json:"forkedAtTurnId"`
+	ProposedTitle  json.RawMessage                            `json:"proposedTitle"`
+}
+
+type decodedConversationRouteWireDecision struct {
+	authoredInput  *string
+	question       *string
+	forkedAtTurnID *string
+	proposedTitle  *string
 }
 
 func conversationRouteOutputSchema(
@@ -45,47 +39,53 @@ func conversationRouteOutputSchema(
 	for _, point := range context.ValidCompletedForkPoints {
 		forkPointIDs = append(forkPointIDs, point.TurnID)
 	}
-	variants := make([]any, 0, len(context.AllowedDecisionKinds))
+	allowedKinds := make([]string, 0, len(context.AllowedDecisionKinds))
 	for _, kind := range context.AllowedDecisionKinds {
-		variant, err := conversationRouteDecisionOutputSchema(kind, forkPointIDs)
-		if err != nil {
-			return nil, err
-		}
-		variants = append(variants, variant)
+		allowedKinds = append(allowedKinds, string(kind))
+	}
+	forkPointSchema := map[string]any{"type": "null"}
+	if len(forkPointIDs) > 0 {
+		forkPointSchema = nullableConversationRouteSchema(
+			enumValuesStringSchema(forkPointIDs),
+			"For fork_conversation, select one supplied completed parent turn id; otherwise null.",
+		)
 	}
 	return marshalOutputSchema(strictObjectSchema(map[string]any{
-		"decision": map[string]any{"anyOf": variants},
+		"decision": strictObjectSchema(map[string]any{
+			"kind": describedConversationRouteSchema(
+				enumValuesStringSchema(allowedKinds),
+				conversationRouteKindSchemaDescription,
+			),
+			"authoredInput": nullableConversationRouteSchema(
+				boundedStringSchema(conversation.MaxAuthoredInputBytes),
+				"For a parent, side, fork, or master route, copy the applicable user request; otherwise null. Never return placeholder text.",
+			),
+			"question": nullableConversationRouteSchema(
+				boundedStringSchema(conversation.MaxConversationRouteQuestionBytes),
+				"For answer_as_narrator, copy the user's status question; for clarify, ask one necessary routing question; otherwise null.",
+			),
+			"forkedAtTurnId": forkPointSchema,
+			"proposedTitle": nullableConversationRouteSchema(
+				boundedStringSchema(conversation.MaxConversationTitleBytes),
+				"For fork_conversation, provide a concise durable child title; otherwise null.",
+			),
+		}),
 	}))
 }
 
-func conversationRouteDecisionOutputSchema(
-	kind conversation.ConversationRouteDecisionKind,
-	forkPointIDs []string,
-) (map[string]any, error) {
-	properties := map[string]any{"kind": enumStringSchema(string(kind))}
-	switch kind {
-	case conversation.ConversationRouteDecisionKindSendToParent,
-		conversation.ConversationRouteDecisionKindQueueParentTurn,
-		conversation.ConversationRouteDecisionKindSteerParentTurn,
-		conversation.ConversationRouteDecisionKindCreateSideConversation,
-		conversation.ConversationRouteDecisionKindEscalateToMaster:
-		properties["authoredInput"] = boundedStringSchema(conversation.MaxAuthoredInputBytes)
-	case conversation.ConversationRouteDecisionKindAnswerAsNarrator:
-		properties["question"] = boundedStringSchema(conversation.MaxConversationRouteQuestionBytes)
-	case conversation.ConversationRouteDecisionKindForkConversation:
-		if len(forkPointIDs) == 0 {
-			return nil, errors.New("fork conversation route output schema requires a completed fork point")
-		}
-		properties["authoredInput"] = boundedStringSchema(conversation.MaxAuthoredInputBytes)
-		properties["forkedAtTurnId"] = enumValuesStringSchema(forkPointIDs)
-		properties["proposedTitle"] = boundedStringSchema(conversation.MaxConversationTitleBytes)
-	case conversation.ConversationRouteDecisionKindClarify:
-		properties["question"] = boundedStringSchema(conversation.MaxConversationRouteQuestionBytes)
-	default:
-		return nil, fmt.Errorf("unsupported conversation route output kind %q", kind)
-	}
-	return strictObjectSchema(properties), nil
+func describedConversationRouteSchema(schema map[string]any, description string) map[string]any {
+	schema["description"] = description
+	return schema
 }
+
+func nullableConversationRouteSchema(schema map[string]any, description string) map[string]any {
+	return map[string]any{
+		"anyOf":       []any{schema, map[string]any{"type": "null"}},
+		"description": description,
+	}
+}
+
+const conversationRouteKindSchemaDescription = "Select exactly one allowed routing label. send_to_parent starts actionable topic work while idle; queue_parent_turn preserves distinct follow-up work until the active turn completes; steer_parent_turn changes the active turn; answer_as_narrator delegates only an existing status or trajectory question; create_side_conversation isolates a bounded pane tangent; fork_conversation creates an explicitly durable child topic; escalate_to_master delegates an unrelated app-global request; clarify asks only for materially missing routing intent."
 
 func decodeConversationRouteOutput(
 	raw json.RawMessage,
@@ -95,17 +95,17 @@ func decodeConversationRouteOutput(
 	if err := decodeConversationRouteWire(raw, &envelope); err != nil {
 		return conversation.ConversationRouteDecision{}, err
 	}
-	var header conversationRouteWireKind
-	if err := json.Unmarshal(envelope.Decision, &header); err != nil {
-		return conversation.ConversationRouteDecision{}, fmt.Errorf("decode conversation router decision kind: %w", err)
+	var wire conversationRouteWireDecision
+	if err := decodeConversationRouteWire(envelope.Decision, &wire); err != nil {
+		return conversation.ConversationRouteDecision{}, err
 	}
-	if !conversationRouteDecisionKindIncluded(context.AllowedDecisionKinds, header.Kind) {
+	if !conversationRouteDecisionKindIncluded(context.AllowedDecisionKinds, wire.Kind) {
 		return conversation.ConversationRouteDecision{}, fmt.Errorf(
 			"conversation router returned disallowed decision kind %q",
-			header.Kind,
+			wire.Kind,
 		)
 	}
-	decision, err := decodeConversationRouteDecision(envelope.Decision, header.Kind)
+	decision, err := decodeConversationRouteDecision(wire)
 	if err != nil {
 		return conversation.ConversationRouteDecision{}, err
 	}
@@ -120,51 +120,125 @@ func decodeConversationRouteOutput(
 }
 
 func decodeConversationRouteDecision(
-	raw json.RawMessage,
-	kind conversation.ConversationRouteDecisionKind,
+	wire conversationRouteWireDecision,
 ) (conversation.ConversationRouteDecision, error) {
-	switch kind {
+	fields, err := decodeConversationRouteWireFields(wire)
+	if err != nil {
+		return conversation.ConversationRouteDecision{}, err
+	}
+	switch wire.Kind {
 	case conversation.ConversationRouteDecisionKindSendToParent,
 		conversation.ConversationRouteDecisionKindQueueParentTurn,
 		conversation.ConversationRouteDecisionKindSteerParentTurn,
 		conversation.ConversationRouteDecisionKindCreateSideConversation,
 		conversation.ConversationRouteDecisionKindEscalateToMaster:
-		var wire conversationRouteWireAuthoredInput
-		if err := decodeConversationRouteWire(raw, &wire); err != nil {
-			return conversation.ConversationRouteDecision{}, err
-		}
-		return conversationRouteAuthoredDecision(kind, conversation.AuthoredInput{Text: wire.AuthoredInput})
+		return decodeConversationRouteAuthoredDecision(wire.Kind, fields)
 	case conversation.ConversationRouteDecisionKindAnswerAsNarrator,
 		conversation.ConversationRouteDecisionKindClarify:
-		var wire conversationRouteWireQuestion
-		if err := decodeConversationRouteWire(raw, &wire); err != nil {
-			return conversation.ConversationRouteDecision{}, err
-		}
-		if kind == conversation.ConversationRouteDecisionKindAnswerAsNarrator {
-			return conversation.ConversationRouteDecision{
-				Kind:             kind,
-				AnswerAsNarrator: &conversation.AnswerAsNarratorConversationRouteDecision{Question: wire.Question},
-			}, nil
-		}
-		return conversation.ConversationRouteDecision{
-			Kind: kind, Clarify: &conversation.ClarifyConversationRouteDecision{Question: wire.Question},
-		}, nil
+		return decodeConversationRouteQuestionDecision(wire.Kind, fields)
 	case conversation.ConversationRouteDecisionKindForkConversation:
-		var wire conversationRouteWireFork
-		if err := decodeConversationRouteWire(raw, &wire); err != nil {
-			return conversation.ConversationRouteDecision{}, err
-		}
-		return conversation.ConversationRouteDecision{
-			Kind: kind,
-			ForkConversation: &conversation.ForkConversationRouteDecision{
-				ForkedAtTurnID: wire.ForkedAtTurnID,
-				Input:          conversation.AuthoredInput{Text: wire.AuthoredInput},
-				ProposedTitle:  wire.ProposedTitle,
-			},
-		}, nil
+		return decodeConversationRouteForkDecision(wire.Kind, fields)
 	default:
-		return conversation.ConversationRouteDecision{}, fmt.Errorf("unsupported conversation route output kind %q", kind)
+		return conversation.ConversationRouteDecision{}, fmt.Errorf("unsupported conversation route output kind %q", wire.Kind)
 	}
+}
+
+func decodeConversationRouteWireFields(
+	wire conversationRouteWireDecision,
+) (decodedConversationRouteWireDecision, error) {
+	authoredInput, err := decodeNullableConversationRouteString(wire.AuthoredInput, "authoredInput")
+	if err != nil {
+		return decodedConversationRouteWireDecision{}, err
+	}
+	question, err := decodeNullableConversationRouteString(wire.Question, "question")
+	if err != nil {
+		return decodedConversationRouteWireDecision{}, err
+	}
+	forkedAtTurnID, err := decodeNullableConversationRouteString(wire.ForkedAtTurnID, "forkedAtTurnId")
+	if err != nil {
+		return decodedConversationRouteWireDecision{}, err
+	}
+	proposedTitle, err := decodeNullableConversationRouteString(wire.ProposedTitle, "proposedTitle")
+	if err != nil {
+		return decodedConversationRouteWireDecision{}, err
+	}
+	return decodedConversationRouteWireDecision{
+		authoredInput:  authoredInput,
+		question:       question,
+		forkedAtTurnID: forkedAtTurnID,
+		proposedTitle:  proposedTitle,
+	}, nil
+}
+
+func (fields decodedConversationRouteWireDecision) matches(
+	authoredInput bool,
+	question bool,
+	forkedAtTurnID bool,
+	proposedTitle bool,
+) bool {
+	return (fields.authoredInput != nil) == authoredInput &&
+		(fields.question != nil) == question &&
+		(fields.forkedAtTurnID != nil) == forkedAtTurnID &&
+		(fields.proposedTitle != nil) == proposedTitle
+}
+
+func decodeConversationRouteAuthoredDecision(
+	kind conversation.ConversationRouteDecisionKind,
+	fields decodedConversationRouteWireDecision,
+) (conversation.ConversationRouteDecision, error) {
+	if !fields.matches(true, false, false, false) {
+		return conversation.ConversationRouteDecision{}, fmt.Errorf("conversation route %s has invalid payload fields", kind)
+	}
+	return conversationRouteAuthoredDecision(kind, conversation.AuthoredInput{Text: *fields.authoredInput})
+}
+
+func decodeConversationRouteQuestionDecision(
+	kind conversation.ConversationRouteDecisionKind,
+	fields decodedConversationRouteWireDecision,
+) (conversation.ConversationRouteDecision, error) {
+	if !fields.matches(false, true, false, false) {
+		return conversation.ConversationRouteDecision{}, fmt.Errorf("conversation route %s has invalid payload fields", kind)
+	}
+	if kind == conversation.ConversationRouteDecisionKindAnswerAsNarrator {
+		return conversation.ConversationRouteDecision{
+			Kind:             kind,
+			AnswerAsNarrator: &conversation.AnswerAsNarratorConversationRouteDecision{Question: *fields.question},
+		}, nil
+	}
+	return conversation.ConversationRouteDecision{
+		Kind: kind, Clarify: &conversation.ClarifyConversationRouteDecision{Question: *fields.question},
+	}, nil
+}
+
+func decodeConversationRouteForkDecision(
+	kind conversation.ConversationRouteDecisionKind,
+	fields decodedConversationRouteWireDecision,
+) (conversation.ConversationRouteDecision, error) {
+	if !fields.matches(true, false, true, true) {
+		return conversation.ConversationRouteDecision{}, fmt.Errorf("conversation route %s has invalid payload fields", kind)
+	}
+	return conversation.ConversationRouteDecision{
+		Kind: kind,
+		ForkConversation: &conversation.ForkConversationRouteDecision{
+			ForkedAtTurnID: *fields.forkedAtTurnID,
+			Input:          conversation.AuthoredInput{Text: *fields.authoredInput},
+			ProposedTitle:  *fields.proposedTitle,
+		},
+	}, nil
+}
+
+func decodeNullableConversationRouteString(raw json.RawMessage, field string) (*string, error) {
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("conversation router output field %s is required", field)
+	}
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil, nil
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, fmt.Errorf("decode conversation router output field %s: %w", field, err)
+	}
+	return &value, nil
 }
 
 func conversationRouteAuthoredDecision(

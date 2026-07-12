@@ -29,10 +29,7 @@ import {
   pendingConversationApproval,
   type PendingConversationApproval,
 } from "./easy-button-approval-projection";
-import {
-  EasyButtonConversationComposer,
-  type EasyButtonForkPoint,
-} from "./easy-button-conversation-composer";
+import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
 import {
   type EasyButtonConversationCommands,
   useEasyButtonConversationCommands,
@@ -85,7 +82,6 @@ export interface EasyButtonProjectionView {
   currentFocus: string;
   error: string | null;
   focusStatus: EasyButtonFocusStatus;
-  forkPoints: EasyButtonForkPoint[];
   helperCopy: string;
   lineage: EasyButtonForkLineage | null;
   milestones: EasyButtonMilestone[];
@@ -161,7 +157,7 @@ function composerPlaceholder(
   if (commands.clarificationQuestion) {
     return "Answer the narrator’s clarification…";
   }
-  return view.viewState === "working" ? "Queue or steer more work…" : "Ask this topic agent…";
+  return view.viewState === "working" ? "Send another request…" : "Ask this topic agent…";
 }
 
 export function EasyButtonProjectionSurface({
@@ -331,20 +327,12 @@ function ConversationComposer({
       available={bindings.available}
       canSubmit={bindings.canSubmit}
       clarificationQuestion={commands?.clarificationQuestion ?? null}
-      forkPoints={view.forkPoints}
       input={bindings.input}
-      onFork={bindings.onFork}
       onInput={bindings.onInput}
-      onQueue={bindings.onQueue}
-      onSend={bindings.onSend}
-      onSide={bindings.onSide}
-      onStatus={bindings.onStatus}
-      onSteer={bindings.onSteer}
       onSubmit={bindings.onSubmit}
       onVoiceCapture={bindings.onVoiceCapture}
       placeholder={composerPlaceholder(view, commands)}
       speech={speech}
-      working={view.viewState === "working"}
     />
   );
 }
@@ -411,7 +399,6 @@ function projectConversationSnapshot(
     currentFocus: snapshot.narratorState.currentFocus,
     error: conversationProjectionError(projection, latestTurn),
     focusStatus: narratorFocusStatus(snapshot.narratorState),
-    forkPoints: completedForkPoints(snapshot.turns.turns),
     helperCopy: conversationHelperCopy(snapshot.conversation, latestTurn, projectionStatus),
     lineage: forkLineage(snapshot.branch, parentTitle),
     milestones: milestoneViews(snapshot.narration.events, snapshot.turns.turns),
@@ -484,7 +471,6 @@ function unavailableView(options: {
     currentFocus: "",
     error: options.error,
     focusStatus: "none",
-    forkPoints: [],
     helperCopy: options.helperCopy,
     lineage: null,
     milestones: [],
@@ -500,24 +486,6 @@ function unavailableView(options: {
     title: "Easy Button",
     viewState: "idle",
   };
-}
-
-function completedForkPoints(turns: readonly ConversationTurn[]): EasyButtonForkPoint[] {
-  return turns
-    .filter((turn) => turn.status === "completed" && turn.providerTurnId !== null)
-    .toReversed()
-    .map((turn) => ({
-      label: forkPointLabel(turn),
-      turnId: turn.id,
-    }));
-}
-
-function forkPointLabel(turn: ConversationTurn): string {
-  const input = turn.authoredInput.text.trim();
-  if (input.length <= 72) {
-    return input;
-  }
-  return `${input.slice(0, 69)}…`;
 }
 
 function resolvedProjectionStatus(projection: ConversationProjection): EasyButtonProjectionStatus {

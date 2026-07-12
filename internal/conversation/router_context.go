@@ -56,9 +56,6 @@ func (request ConversationRouterContextReadRequest) Validate() error {
 	if err := request.Work.Validate(); err != nil {
 		return err
 	}
-	if request.Work.Input.Input.RequestedMode != ConversationInputModeRoute {
-		return errors.New("conversation router context requires route input mode")
-	}
 	for _, limit := range []struct {
 		label string
 		value int
@@ -141,7 +138,6 @@ func validateConversationRouterSourceBounds(
 func conversationRouterContextAudit(source ConversationRouterContextSource) ConversationRouteContextAudit {
 	audit := ConversationRouteContextAudit{
 		InputSequence:                source.Work.Input.Sequence,
-		RequestedMode:                source.Work.Input.Input.RequestedMode,
 		LatestTrajectorySequence:     source.Conversation.LastTrajectorySequence,
 		AvailableTrajectoryRange:     cloneTrajectorySequenceRange(source.Trajectory.AvailableRange),
 		IncludedTrajectoryRange:      cloneTrajectorySequenceRange(source.Trajectory.IncludedRange),

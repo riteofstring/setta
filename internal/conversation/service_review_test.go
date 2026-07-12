@@ -15,14 +15,14 @@ func TestQueueWhileApprovalPendingPreservesApprovalState(t *testing.T) {
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	conversationID := created.Conversation.ID
-	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "approval"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "approval"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "approval")
 	waiting := assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
 		return snapshot.Conversation.Status == ConversationStatusWaitingForApproval
 	})
-	if _, err := service.QueueTurn(ctx, workspaceID, conversationID, "queued after approval"); err != nil {
+	if _, err := service.queueTestTurn(ctx, workspaceID, conversationID, "queued after approval"); err != nil {
 		t.Fatalf("QueueTurn: %v", err)
 	}
 	queued, err := service.ReadSnapshot(ctx, workspaceID, conversationID)
@@ -59,7 +59,7 @@ func TestApprovalIsValidatedBeforeProviderSubmissionAndSecretsAreRedacted(t *tes
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	conversationID := created.Conversation.ID
-	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "secret approval"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "secret approval"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "secret approval")
@@ -114,7 +114,7 @@ func TestControlValidatesWorkspaceBeforeProviderSideEffect(t *testing.T) {
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	conversationID := created.Conversation.ID
-	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "hold cancel"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "hold cancel"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold cancel")
@@ -144,13 +144,13 @@ func TestFullQueueSnapshotRetainsControllableRunningTurn(t *testing.T) {
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	conversationID := created.Conversation.ID
-	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "hold cancel"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "hold cancel"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold cancel")
 	var full ConversationSnapshot
 	for index := 0; index < MaxSnapshotQueuedTurns; index++ {
-		full, err = service.QueueTurn(ctx, workspaceID, conversationID, "hold cancel")
+		full, err = service.queueTestTurn(ctx, workspaceID, conversationID, "hold cancel")
 		if err != nil {
 			t.Fatalf("QueueTurn %d: %v", index, err)
 		}
@@ -161,7 +161,7 @@ func TestFullQueueSnapshotRetainsControllableRunningTurn(t *testing.T) {
 	if _, err := findRunningTurn(full); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.QueueTurn(ctx, workspaceID, conversationID, "overflow"); !IsCommandConflict(err) {
+	if _, err := service.queueTestTurn(ctx, workspaceID, conversationID, "overflow"); !IsCommandConflict(err) {
 		t.Fatalf("overflow QueueTurn error = %v, want conflict", err)
 	}
 	if _, err := service.StopTurn(ctx, workspaceID, conversationID); err != nil {
@@ -185,14 +185,14 @@ func TestFailedTurnKeepsQueuedPromotionWorking(t *testing.T) {
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	conversationID := created.Conversation.ID
-	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "hold fail"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "hold fail"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold fail")
-	if _, err := service.QueueTurn(ctx, workspaceID, conversationID, "hold after failure"); err != nil {
+	if _, err := service.queueTestTurn(ctx, workspaceID, conversationID, "hold after failure"); err != nil {
 		t.Fatalf("QueueTurn: %v", err)
 	}
-	if _, err := service.SteerTurn(ctx, workspaceID, conversationID, "release failure"); err != nil {
+	if _, err := service.steerTestTurn(ctx, workspaceID, conversationID, "release failure"); err != nil {
 		t.Fatalf("SteerTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold after failure")
@@ -220,7 +220,7 @@ func TestSubagentActivityProjectsTypedLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, created.Conversation.ID, "subagent"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, created.Conversation.ID, "subagent"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "subagent")
@@ -251,7 +251,7 @@ func TestRuntimeCompletionRequiresDurableTerminalNotification(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, created.Conversation.ID, "missing terminal"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, created.Conversation.ID, "missing terminal"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "missing terminal")
@@ -270,7 +270,7 @@ func TestProviderEventScopeMismatchFailsTurnWithoutPersistingEvent(t *testing.T)
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, created.Conversation.ID, "mismatched provider scope"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, created.Conversation.ID, "mismatched provider scope"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "mismatched provider scope")

@@ -47,30 +47,6 @@ type preparedSideConversation struct {
 	parentConversationID string
 }
 
-// CreateSideConversation forks an ephemeral provider thread, injects its
-// authoritative boundary/context, and associates it with exactly one parent
-// conversation and originating pane.
-func (service *Service) CreateSideConversation(
-	ctx context.Context,
-	workspaceID string,
-	parentConversationID string,
-	parentPaneID string,
-) (ConversationSnapshot, error) {
-	return service.ExecuteBranchDecision(
-		ctx,
-		workspaceID,
-		BranchDecisionExecutionScope{
-			ParentConversationID: parentConversationID,
-			ParentPaneID:         &parentPaneID,
-			Source:               BranchDecisionSourceExplicit,
-		},
-		BranchDecision{
-			Kind:                   BranchDecisionKindCreateSideConversation,
-			CreateSideConversation: &CreateSideConversationBranchDecision{},
-		},
-	)
-}
-
 func (service *Service) executeSideConversationDecision(
 	ctx context.Context,
 	workspaceID string,

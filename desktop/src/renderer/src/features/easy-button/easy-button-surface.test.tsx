@@ -15,7 +15,6 @@ import type {
   TrajectoryApprovalRequest,
   TrajectoryEvent,
 } from "@generated/backend";
-import { conversationInputModeValues } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -102,30 +101,7 @@ describe("Easy Button topic conversation projection", () => {
     expect(unloaded).toContain("Conversation projection is not loaded");
   });
 
-  test.each(conversationInputModeValues)(
-    "requests %s voice capture for the bound conversation and source pane",
-    async (inputMode) => {
-      const start = vi.fn(async () => {});
-
-      await requestEasyButtonSpeechCapture(
-        { start },
-        "conversation_voice",
-        "pane_voice",
-        inputMode,
-      );
-
-      expect(start).toHaveBeenCalledWith({
-        destination: {
-          conversationId: "conversation_voice",
-          inputMode,
-          type: "conversation",
-        },
-        sourcePaneId: "pane_voice",
-      });
-    },
-  );
-
-  test("defaults an ordinary pane voice request to AI routing", async () => {
+  test("routes a pane voice request through the bound conversation and source pane", async () => {
     const start = vi.fn(async () => {});
 
     await requestEasyButtonSpeechCapture({ start }, "conversation_voice", "pane_voice");
@@ -133,37 +109,31 @@ describe("Easy Button topic conversation projection", () => {
     expect(start).toHaveBeenCalledWith({
       destination: {
         conversationId: "conversation_voice",
-        inputMode: "route",
         type: "conversation",
       },
       sourcePaneId: "pane_voice",
     });
   });
 
-  test.each(conversationInputModeValues)(
-    "creates a typed %s pane text input without changing the authored text",
-    (inputMode) => {
-      expect(
-        createEasyButtonTextConversationInput({
-          conversationId: "conversation_text",
-          id: `input_${inputMode}`,
-          inputMode,
-          paneId: "pane_text",
-          submittedAt: timestamp,
-          text: "Keep this request exact",
-        }),
-      ).toEqual({
+  test("creates one routed pane text input without changing the authored text", () => {
+    expect(
+      createEasyButtonTextConversationInput({
         conversationId: "conversation_text",
-        id: `input_${inputMode}`,
-        modality: "text",
-        replyToInputId: null,
-        requestedMode: inputMode,
-        sourcePaneId: "pane_text",
+        id: "input_text",
+        paneId: "pane_text",
         submittedAt: timestamp,
         text: "Keep this request exact",
-      });
-    },
-  );
+      }),
+    ).toEqual({
+      conversationId: "conversation_text",
+      id: "input_text",
+      modality: "text",
+      replyToInputId: null,
+      sourcePaneId: "pane_text",
+      submittedAt: timestamp,
+      text: "Keep this request exact",
+    });
+  });
 
   test("canonicalizes generated pane text timestamps for durable receipt comparison", () => {
     vi.useFakeTimers();
@@ -335,7 +305,7 @@ describe("Easy Button topic conversation projection", () => {
     snapshot.branch = {
       childConversationId: snapshot.conversation.id,
       createdAt: timestamp,
-      decisionSource: "explicit",
+      decisionSource: "conversation_router",
       forkedAtTurnId: "turn_parent",
       kind: "fork",
       parentConversationId: "conversation_parent",
@@ -444,7 +414,6 @@ describe("Easy Button topic conversation projection", () => {
           activityLabel: "Narrator speaking",
           captureScope: "none",
           captureState: "idle",
-          captureInputMode: null,
           playbackScope: "this_conversation",
           playbackState: "speaking",
           transcriptPreview: null,
@@ -469,8 +438,6 @@ describe("Easy Button topic conversation projection", () => {
         canSubmit={false}
         input=""
         onInput={() => {}}
-        onStatus={() => {}}
-        onSteer={() => {}}
         onSubmit={undefined}
         onVoiceCapture={() => {}}
         placeholder="Conversation command pending"
@@ -479,14 +446,12 @@ describe("Easy Button topic conversation projection", () => {
           activityLabel: "Listening",
           captureScope: "this_pane",
           captureState: "listening",
-          captureInputMode: "fork",
           playbackScope: "none",
           playbackState: "idle",
           transcriptPreview: "Keep listening",
           voiceControlDisabled: false,
           voiceControlLabel: "Finish this voice request",
         }}
-        working
       />,
     );
     const voiceButton = html.match(
@@ -496,39 +461,31 @@ describe("Easy Button topic conversation projection", () => {
     expect(voiceButton).toBeDefined();
     expect(voiceButton).toContain('aria-label="Finish this voice request"');
     expect(voiceButton).not.toContain("disabled");
-    expect(html).toContain('<option value="fork" selected="">Fork voice</option>');
-    expect(html).toMatch(/data-testid="easy-button-voice-mode"[^>]*disabled/);
+    expect(html).not.toContain('data-testid="easy-button-voice-mode"');
     expect(html).toContain('data-testid="easy-button-speech-transcript"');
     expect(html).toContain("Keep listening");
   });
 
-  test("renders route-default text with explicit send, side, and fork controls", () => {
+  test("renders one Send action and keeps the microphone outside the text form", () => {
     const html = renderToString(
       <EasyButtonConversationComposer
         available
         canSubmit
-        forkPoints={[{ label: "Completed parent work", turnId: "turn_completed" }]}
         input="Investigate a tangent"
-        onFork={() => {}}
         onInput={() => {}}
-        onSend={() => {}}
-        onSide={() => {}}
-        onStatus={() => {}}
-        onSteer={() => {}}
         onSubmit={undefined}
-        onVoiceCapture={undefined}
+        onVoiceCapture={() => {}}
         placeholder="Ask this topic agent…"
         speech={null}
-        working={false}
       />,
     );
 
-    expect(html).toContain('data-testid="easy-button-side-start"');
-    expect(html).toContain('data-testid="easy-button-fork-start"');
-    expect(html).toContain('data-testid="easy-button-send"');
     expect(html).toContain('data-testid="easy-button-submit"');
-    expect(html).toContain(">Route</button>");
-    expect(html).toContain('aria-label="Create a durable fork"');
+    expect(html.match(/>Send<\/button>/g)).toHaveLength(1);
+    expect(html).not.toMatch(/easy-button-(queue|steer|side-start|fork-start|status-request)/);
+    expect(html.indexOf("</form>")).toBeLessThan(
+      html.indexOf('data-testid="easy-button-voice-capture"'),
+    );
   });
 
   test("presents a local router clarification as a linked reply", () => {
@@ -539,13 +496,10 @@ describe("Easy Button topic conversation projection", () => {
         clarificationQuestion="Which exact pane request should I send?"
         input="Send the clarified request"
         onInput={() => {}}
-        onStatus={undefined}
-        onSteer={undefined}
         onSubmit={() => {}}
         onVoiceCapture={undefined}
         placeholder="Answer the narrator’s clarification…"
         speech={null}
-        working={false}
       />,
     );
 
@@ -791,7 +745,7 @@ function sideConversation(snapshot: ConversationSnapshot, parentPaneId: string):
     activeProviderTurnId: null,
     activeTurnId: null,
     createdAt: timestamp,
-    decisionSource: "explicit",
+    decisionSource: "conversation_router",
     disposedAt: null,
     failure: null,
     id: "side_conversation",

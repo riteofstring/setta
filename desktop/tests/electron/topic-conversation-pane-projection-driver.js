@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v15";
+  const version = "setta-topic-conversation-pane-projection-driver-v16";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -10,12 +10,10 @@
     }
     Object.assign(driver, {
       topicConversationPaneProjectionVersion: version,
-      topicConversationAskStatus,
       topicConversationCloseOneBoundPane,
       topicConversationCreate,
       topicConversationDenyApproval,
       topicConversationEndSide,
-      topicConversationCreateFork,
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
@@ -23,11 +21,7 @@
       topicConversationShellSpeechCapture,
       topicConversationShellSpeechState,
       topicConversationPresentFromNavigator,
-      topicConversationQueue,
-      topicConversationSend,
-      topicConversationSteer,
-      topicConversationStartSide,
-      topicConversationStartSideAndClose,
+      topicConversationSubmitAndClose,
       topicConversationStop,
       topicConversationSubmit,
       topicConversationSendSide,
@@ -167,73 +161,17 @@
     return { conversationId, submitted: true };
   }
 
-  function topicConversationQueue({ conversationId, text }) {
-    return topicConversationExplicitDelivery({
-      action: "queued",
-      buttonTestId: "easy-button-queue",
-      conversationId,
-      text,
-    });
-  }
-
-  function topicConversationSend({ conversationId, text }) {
-    return topicConversationExplicitDelivery({
-      action: "sent",
-      buttonTestId: "easy-button-send",
-      conversationId,
-      text,
-    });
-  }
-
-  function topicConversationExplicitDelivery({ action, buttonTestId, conversationId, text }) {
-    const surface = conversationSurface(conversationId);
-    const input = surface?.querySelector('[data-testid="easy-button-input"]');
-    const button = surface?.querySelector(`[data-testid="${buttonTestId}"]`);
-    if (
-      !(input instanceof HTMLInputElement) ||
-      input.disabled ||
-      !(button instanceof HTMLButtonElement)
-    ) {
-      return { [action]: false, conversationId };
-    }
-    setInputValue(input, text);
-    if (button.disabled) {
-      return { [action]: false, conversationId };
-    }
-    button.click();
-    return { [action]: true, conversationId };
-  }
-
-  function topicConversationStartSide({ conversationId, text }) {
-    const surface = conversationSurface(conversationId);
-    const input = surface?.querySelector('[data-testid="easy-button-input"]');
-    const button = surface?.querySelector('[data-testid="easy-button-side-start"]');
-    if (
-      !(input instanceof HTMLInputElement) ||
-      input.disabled ||
-      !(button instanceof HTMLButtonElement)
-    ) {
-      return { conversationId, started: false };
-    }
-    setInputValue(input, text);
-    if (button.disabled) {
-      return { conversationId, started: false };
-    }
-    button.click();
-    return { conversationId, started: true };
-  }
-
-  function topicConversationStartSideAndClose({ conversationId, text }) {
-    const started = topicConversationStartSide({ conversationId, text });
-    if (!started.started) {
-      return { closing: false, conversationId, started: false };
+  function topicConversationSubmitAndClose({ conversationId, text }) {
+    const submitted = topicConversationSubmit({ conversationId, text });
+    if (!submitted.submitted) {
+      return { closing: false, conversationId, submitted: false };
     }
     const closing = topicConversationCloseOneBoundPane({ conversationId });
     return {
       closing: closing.clicked,
       conversationId,
       paneId: closing.paneId,
-      started: true,
+      submitted: true,
     };
   }
 
@@ -267,21 +205,6 @@
     return { conversationId, ended: true };
   }
 
-  function topicConversationCreateFork({ conversationId, forkedAtTurnId, title }) {
-    const surface = conversationSurface(conversationId);
-    const input = surface?.querySelector('[data-testid="easy-button-input"]');
-    const button = surface?.querySelector('[data-testid="easy-button-fork-start"]');
-    if (!(input instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) {
-      return { conversationId, created: false };
-    }
-    setInputValue(input, title);
-    if (button.disabled) {
-      return { conversationId, created: false };
-    }
-    button.click();
-    return { conversationId, created: true, forkedAtTurnId };
-  }
-
   function topicConversationOpenParent({ conversationId }) {
     const button = conversationSurface(conversationId)?.querySelector(
       '[data-testid="easy-button-open-parent"]',
@@ -293,29 +216,14 @@
     return { conversationId, opened: true };
   }
 
-  function topicConversationVoiceCapture({ conversationId, inputMode }) {
+  function topicConversationVoiceCapture({ conversationId }) {
     const surface = conversationSurface(conversationId);
-    const mode = surface?.querySelector('[data-testid="easy-button-voice-mode"]');
-    if (!selectVoiceInputMode(mode, inputMode)) {
-      return { conversationId, requested: false };
-    }
     const button = surface?.querySelector('[data-testid="easy-button-voice-capture"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { conversationId, requested: false };
     }
     button.click();
-    return { conversationId, inputMode: mode?.value ?? "", requested: true };
-  }
-
-  function selectVoiceInputMode(mode, inputMode) {
-    if (inputMode === undefined) {
-      return true;
-    }
-    if (!(mode instanceof HTMLSelectElement) || mode.disabled) {
-      return false;
-    }
-    setFormControlValue(mode, inputMode);
-    return true;
+    return { conversationId, requested: true };
   }
 
   function topicConversationShellSpeechCapture() {
@@ -341,44 +249,6 @@
       stopAvailable: stop instanceof HTMLButtonElement && !stop.disabled,
       transcriptText: elementText(status?.querySelector('[data-testid="shell-speech-transcript"]')),
     };
-  }
-
-  function topicConversationAskStatus({ conversationId, question }) {
-    const surface = conversationSurface(conversationId);
-    const input = surface?.querySelector('[data-testid="easy-button-input"]');
-    const button = surface?.querySelector('[data-testid="easy-button-status-request"]');
-    if (
-      !(input instanceof HTMLInputElement) ||
-      input.disabled ||
-      !(button instanceof HTMLButtonElement)
-    ) {
-      return { asked: false, conversationId };
-    }
-    setInputValue(input, question);
-    if (button.disabled) {
-      return { asked: false, conversationId };
-    }
-    button.click();
-    return { asked: true, conversationId };
-  }
-
-  function topicConversationSteer({ conversationId, text }) {
-    const surface = conversationSurface(conversationId);
-    const input = surface?.querySelector('[data-testid="easy-button-input"]');
-    const button = surface?.querySelector('[data-testid="easy-button-steer"]');
-    if (
-      !(input instanceof HTMLInputElement) ||
-      input.disabled ||
-      !(button instanceof HTMLButtonElement)
-    ) {
-      return { conversationId, steered: false };
-    }
-    setInputValue(input, text);
-    if (button.disabled) {
-      return { conversationId, steered: false };
-    }
-    button.click();
-    return { conversationId, steered: true };
   }
 
   function topicConversationStop({ conversationId }) {

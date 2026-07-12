@@ -106,7 +106,6 @@ func TestStoreRejectsChangedConversationInputIdempotencyKey(t *testing.T) {
 	}{
 		{name: "text", mutate: func(input *ConversationInput) { input.Text = "Changed request" }},
 		{name: "conversation", mutate: func(input *ConversationInput) { input.ConversationID = "conversation_beta" }},
-		{name: "mode", mutate: func(input *ConversationInput) { input.RequestedMode = ConversationInputModeSteer }},
 		{name: "modality", mutate: func(input *ConversationInput) { input.Modality = ConversationInputModalityVoice }},
 		{name: "submitted timestamp", mutate: func(input *ConversationInput) { input.SubmittedAt = "2026-07-12T18:00:02Z" }},
 		{name: "source pane", mutate: func(input *ConversationInput) { paneID := "pane_changed"; input.SourcePaneID = &paneID }},

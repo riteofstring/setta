@@ -2,10 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-6 and Phase 7 items 1-7 are complete. Phase 7
-item 8 remains reopened as a deliberate reversal of a recently implemented
-user interface. Pane focus/open behavior, route observability, obsolete-surface
-deletion, and final acceptance also remain.
+**Status:** In progress. Phases 0-6 and Phase 7 items 1-8 are complete. Phase 7
+items 9-10 remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2076,8 +2074,7 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** In progress. Items 1-7 are complete. Item 8 requires the explicit
-reversal below; items 9-10 remain.
+**Status:** In progress. Items 1-8 are complete; items 9-10 remain.
 
 Implement:
 

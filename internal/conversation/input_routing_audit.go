@@ -6,35 +6,17 @@ import (
 )
 
 func validateConversationRouteDecisionAudit(
-	source ConversationRouteDecisionSource,
 	clarificationInputID *string,
 	decisionKind ConversationRouteDecisionKind,
 	routerContext *ConversationRouteContextAudit,
 	resolvedInvocation *ResolvedInvocation,
 ) error {
-	switch source {
-	case ConversationRouteDecisionSourceExplicit:
-		return validateExplicitConversationRouteDecisionAudit(routerContext, resolvedInvocation)
-	case ConversationRouteDecisionSourceRouter:
-		return validateRouterConversationRouteDecisionAudit(
-			clarificationInputID,
-			decisionKind,
-			routerContext,
-			resolvedInvocation,
-		)
-	default:
-		return fmt.Errorf("unsupported conversation route decision source %q", source)
-	}
-}
-
-func validateExplicitConversationRouteDecisionAudit(
-	routerContext *ConversationRouteContextAudit,
-	resolvedInvocation *ResolvedInvocation,
-) error {
-	if routerContext != nil || resolvedInvocation != nil {
-		return errors.New("explicit conversation route decision must not contain router invocation audit")
-	}
-	return nil
+	return validateRouterConversationRouteDecisionAudit(
+		clarificationInputID,
+		decisionKind,
+		routerContext,
+		resolvedInvocation,
+	)
 }
 
 func validateRouterConversationRouteDecisionAudit(
@@ -106,9 +88,6 @@ func validateConversationRouteAuditIdentity(audit ConversationRouteContextAudit)
 	}
 	if audit.ClarificationInputSequence != nil && *audit.ClarificationInputSequence <= audit.InputSequence {
 		return errors.New("conversation route clarification sequence must follow the routed input")
-	}
-	if audit.RequestedMode != ConversationInputModeRoute {
-		return fmt.Errorf("conversation route context requested mode must be route, got %q", audit.RequestedMode)
 	}
 	if audit.LatestTrajectorySequence < 0 || audit.PriorNarrationCount < 0 ||
 		audit.PriorRouteDecisionCount < 0 || audit.ValidCompletedForkPointCount < 0 {

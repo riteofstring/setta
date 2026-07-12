@@ -151,7 +151,6 @@ export async function waitForRecordedPaneSpeechInput(
   transcript,
   timeoutMs,
   occurrence = 1,
-  inputMode = "route",
 ) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -178,7 +177,6 @@ export async function waitForRecordedPaneSpeechInput(
         conversationId,
         sourcePaneId,
         transcript,
-        inputMode,
       );
       return completed;
     }
@@ -212,12 +210,11 @@ function completedConversationInputIPC(start, events) {
   return finish ? { accepted: finish.result, request: start.args[0] } : null;
 }
 
-function assertRecordedPaneSpeechInput(input, conversationId, sourcePaneId, transcript, inputMode) {
+function assertRecordedPaneSpeechInput(input, conversationId, sourcePaneId, transcript) {
   assertPaneSpeechField(input, "conversationId", conversationId);
   assertPaneSpeechField(input, "sourcePaneId", sourcePaneId);
   assertPaneSpeechField(input, "replyToInputId", null);
   assertPaneSpeechField(input, "modality", "voice");
-  assertPaneSpeechField(input, "requestedMode", inputMode);
   assertPaneSpeechField(input, "text", transcript);
   assertNonEmptyPaneSpeechField(input, "id");
   assertNonEmptyPaneSpeechField(input, "submittedAt");

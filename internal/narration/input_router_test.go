@@ -273,44 +273,6 @@ func TestConversationInputRouterClassifiesCommandIDFailureAsInternal(t *testing.
 	}
 }
 
-func TestConversationInputRouterBypassesModelForExplicitQueueAndExecutesCommittedCommand(t *testing.T) {
-	fixture := newStatusServiceFixture(t, nil)
-	router := configuredFixtureInputRouter(fixture.service.inputRouter)
-	executor := &recordingConversationRouteCommandExecutor{}
-	router.executor = executor
-	inputService := fixtureInputService(t, fixture.store)
-	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
-		ID:             "input-explicit-queue",
-		ConversationID: fixture.conversationID,
-		Text:           "Keep this exact queue request.",
-		Modality:       conversation.ConversationInputModalityText,
-		RequestedMode:  conversation.ConversationInputModeQueue,
-		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
-	})
-	if err != nil {
-		t.Fatalf("SubmitInput: %v", err)
-	}
-	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
-		t.Fatalf("ProcessNext = %t, %v", processed, err)
-	}
-	state := readFixtureRoutingState(t, fixture, accepted.Input.ID)
-	if state.Input.Status != conversation.ConversationInputStatusDispatched ||
-		len(state.Decisions) != 1 {
-		t.Fatalf("explicit queue state = %+v", state)
-	}
-	record := state.Decisions[0]
-	if record.Source != conversation.ConversationRouteDecisionSourceExplicit ||
-		record.RouterContext != nil || record.ResolvedInvocation != nil ||
-		record.Decision.Kind != conversation.ConversationRouteDecisionKindQueueParentTurn ||
-		record.ResultingCommand.QueueParentTurn.AuthoredInput.Text != accepted.Input.Text {
-		t.Fatalf("explicit queue decision = %+v", record)
-	}
-	if len(executor.records) != 1 || executor.records[0].ID != record.ID {
-		t.Fatalf("executed records = %+v", executor.records)
-	}
-	assertFixtureRouterProviderRequests(t, fixture.provider, 0)
-}
-
 func TestConversationInputRouterReplaysCommittedCommandBeforeNewInput(t *testing.T) {
 	fixture := newStatusServiceFixture(t, nil)
 	router := configuredFixtureInputRouter(fixture.service.inputRouter)
@@ -318,11 +280,10 @@ func TestConversationInputRouterReplaysCommittedCommandBeforeNewInput(t *testing
 	router.executor = executor
 	inputService := fixtureInputService(t, fixture.store)
 	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
-		ID:             "input-explicit-replay",
+		ID:             "input-route-replay",
 		ConversationID: fixture.conversationID,
 		Text:           "Replay this exact queue request.",
 		Modality:       conversation.ConversationInputModalityText,
-		RequestedMode:  conversation.ConversationInputModeQueue,
 		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
 	})
 	if err != nil {
@@ -358,11 +319,10 @@ func TestConversationRouteQueueRetriesCommittedCommandWithoutAnotherNotification
 	router.executor = executor
 	inputService := fixtureInputService(t, fixture.store)
 	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
-		ID:             "input-explicit-queue-worker-retry",
+		ID:             "input-route-queue-worker-retry",
 		ConversationID: fixture.conversationID,
 		Text:           "Retry this committed queue command in process.",
 		Modality:       conversation.ConversationInputModalityText,
-		RequestedMode:  conversation.ConversationInputModeQueue,
 		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
 	})
 	if err != nil {
@@ -421,7 +381,13 @@ func TestConversationRouteOutputDecodesEveryAllowedStrictVariant(t *testing.T) {
 	}
 	for _, kind := range kinds {
 		t.Run(string(kind), func(t *testing.T) {
-			output := map[string]any{"kind": string(kind)}
+			output := map[string]any{
+				"authoredInput":  nil,
+				"forkedAtTurnId": nil,
+				"kind":           string(kind),
+				"proposedTitle":  nil,
+				"question":       nil,
+			}
 			switch kind {
 			case conversation.ConversationRouteDecisionKindAnswerAsNarrator,
 				conversation.ConversationRouteDecisionKindClarify:
@@ -443,9 +409,17 @@ func TestConversationRouteOutputDecodesEveryAllowedStrictVariant(t *testing.T) {
 			}
 		})
 	}
-	invalid := json.RawMessage(`{"decision":{"kind":"clarify","question":"Again?","extra":true}}`)
+	invalid := json.RawMessage(`{"decision":{"kind":"clarify","authoredInput":null,"question":"Again?","forkedAtTurnId":null,"proposedTitle":null,"extra":true}}`)
 	if _, err := decodeConversationRouteOutput(invalid, contextBundle); err == nil {
 		t.Fatal("conversation router accepted unknown output field")
+	}
+	mismatched := json.RawMessage(`{"decision":{"kind":"send_to_parent","authoredInput":"Continue.","question":"Status?","forkedAtTurnId":null,"proposedTitle":null}}`)
+	if _, err := decodeConversationRouteOutput(mismatched, contextBundle); err == nil {
+		t.Fatal("conversation router accepted payload fields from two decision branches")
+	}
+	missing := json.RawMessage(`{"decision":{"kind":"send_to_parent","authoredInput":"Continue.","question":null,"forkedAtTurnId":null}}`)
+	if _, err := decodeConversationRouteOutput(missing, contextBundle); err == nil {
+		t.Fatal("conversation router accepted a missing required wire field")
 	}
 	assertConversationRouteOutputSchema(t, contextBundle)
 }
@@ -462,17 +436,20 @@ func assertConversationRouteOutputSchema(t *testing.T, contextBundle Conversatio
 	}
 	properties := schema["properties"].(map[string]any)
 	decision := properties["decision"].(map[string]any)
-	variants := decision["anyOf"].([]any)
+	decisionProperties := decision["properties"].(map[string]any)
+	kind := decisionProperties["kind"].(map[string]any)
+	values := kind["enum"].([]any)
 	if schema["type"] != "object" || schema["additionalProperties"] != false ||
-		len(properties) != 1 || len(variants) != len(contextBundle.AllowedDecisionKinds) {
-		t.Fatalf("conversation route output schema is not a strict bounded union: %+v", schema)
+		len(properties) != 1 || decision["type"] != "object" ||
+		decision["additionalProperties"] != false || len(decisionProperties) != 5 ||
+		len(decision["required"].([]any)) != len(decisionProperties) ||
+		len(values) != len(contextBundle.AllowedDecisionKinds) {
+		t.Fatalf("conversation route output schema is not a strict bounded decision: %+v", schema)
 	}
-	for _, rawVariant := range variants {
-		variant := rawVariant.(map[string]any)
-		variantProperties := variant["properties"].(map[string]any)
-		if variant["type"] != "object" || variant["additionalProperties"] != false ||
-			len(variant["required"].([]any)) != len(variantProperties) {
-			t.Fatalf("conversation route output variant is not strict: %+v", variant)
+	for _, field := range []string{"authoredInput", "forkedAtTurnId", "proposedTitle", "question"} {
+		fieldSchema := decisionProperties[field].(map[string]any)
+		if len(fieldSchema["anyOf"].([]any)) != 2 {
+			t.Fatalf("conversation route output field %s is not nullable and bounded: %+v", field, fieldSchema)
 		}
 	}
 }
@@ -568,18 +545,6 @@ func configuredFixtureInputRouter(router *ConversationInputRouter) *Conversation
 	return router
 }
 
-type recordingConversationRouteCommandExecutor struct {
-	records []conversation.ConversationRouteDecisionRecord
-}
-
-func (executor *recordingConversationRouteCommandExecutor) ExecuteConversationRouteCommand(
-	_ context.Context,
-	record conversation.ConversationRouteDecisionRecord,
-) error {
-	executor.records = append(executor.records, record)
-	return nil
-}
-
 type failingConversationRouteCommandExecutor struct {
 	failuresRemaining int
 	records           []conversation.ConversationRouteDecisionRecord
@@ -624,7 +589,6 @@ func submitFixtureRouteInput(
 		ReplyToInputID: replyTo,
 		Text:           text,
 		Modality:       conversation.ConversationInputModalityText,
-		RequestedMode:  conversation.ConversationInputModeRoute,
 		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
 	})
 	if err != nil {
@@ -669,6 +633,19 @@ func assertFixtureRouterProviderRequests(
 			t.Fatalf("router provider authority = %+v", request)
 		}
 		input := string(request.Input)
+		var contextBundle ConversationRouteContextBundle
+		if err := json.Unmarshal(request.Input, &contextBundle); err != nil {
+			t.Fatalf("decode router provider context: %v", err)
+		}
+		wantTask := ConversationRouteTask{
+			Operation:       routeTaskOperation,
+			InputSemantics:  routeTaskInputSemantics,
+			OutputSemantics: routeTaskOutputSemantics,
+			Directive:       routeTaskDirective,
+		}
+		if contextBundle.Task != wantTask {
+			t.Fatalf("router provider task = %+v, want %+v", contextBundle.Task, wantTask)
+		}
 		for _, forbidden := range []string{"provider-primary-thread", "provider-primary-turn"} {
 			if strings.Contains(input, forbidden) {
 				t.Fatalf("router context leaked provider reference %q: %s", forbidden, input)

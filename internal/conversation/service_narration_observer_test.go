@@ -30,14 +30,14 @@ func TestServicePublishesCommittedAgentLifecycleToNarrationObserver(t *testing.T
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, created.Conversation.ID, "hold"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, created.Conversation.ID, "hold"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold")
 	started := readNarrationObservation(t, observer.observations)
 	assertNarrationObservationContains(t, started, TrajectoryEventTurnStarted, false)
 
-	if _, err := service.SteerTurn(ctx, workspaceID, created.Conversation.ID, "finish observation"); err != nil {
+	if _, err := service.steerTestTurn(ctx, workspaceID, created.Conversation.ID, "finish observation"); err != nil {
 		t.Fatalf("SteerTurn: %v", err)
 	}
 	observedKinds := map[TrajectoryEventKind]bool{}

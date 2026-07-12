@@ -1,3 +1,12 @@
+.easy-button-composer-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  max-width: 640px;
+  min-width: 0;
+  width: 100%;
+}
+
 .easy-button-agent-text {
   color: var(--easy-button-muted);
   font-size: 12.5px;
@@ -98,11 +107,6 @@
 }
 
 .easy-button-approval-actions button,
-.easy-button-status-chip,
-.easy-button-steer-chip,
-.easy-button-side-chip,
-.easy-button-fork-chip,
-.easy-button-delivery-chip,
 .easy-button-voice-chip,
 .easy-button-enter-chip {
   background: transparent;
@@ -118,68 +122,17 @@
 }
 
 .easy-button-approval-actions button:disabled,
-.easy-button-status-chip:disabled,
-.easy-button-steer-chip:disabled,
-.easy-button-side-chip:disabled,
-.easy-button-fork-chip:disabled,
-.easy-button-delivery-chip:disabled,
 .easy-button-voice-chip:disabled,
 .easy-button-enter-chip:disabled {
   cursor: default;
   opacity: 0.5;
 }
 
-.easy-button-status-chip,
-.easy-button-steer-chip,
-.easy-button-side-chip,
-.easy-button-fork-chip,
-.easy-button-delivery-chip,
 .easy-button-voice-chip {
   border: 0;
   flex: 0 0 auto;
   font-size: 11px;
   padding: 4px 7px;
-}
-
-.easy-button-side-chip,
-.easy-button-fork-chip {
-  align-items: center;
-  color: var(--easy-button-muted);
-  display: inline-flex;
-  gap: 4px;
-}
-
-.easy-button-side-chip > svg,
-.easy-button-fork-chip > svg {
-  height: 12px;
-  width: 12px;
-}
-
-.easy-button-status-chip {
-  color: var(--easy-button-muted);
-}
-
-.easy-button-steer-chip {
-  color: var(--easy-button-primary);
-}
-
-.easy-button-delivery-chip {
-  color: var(--easy-button-primary);
-}
-
-.easy-button-voice-mode {
-  background: transparent;
-  border: 0;
-  color: var(--easy-button-faint);
-  flex: 0 1 72px;
-  font-family: var(--setta-font-mono);
-  font-size: 9px;
-  min-width: 48px;
-  outline: none;
-}
-
-.easy-button-voice-mode:disabled {
-  opacity: 0.5;
 }
 
 .easy-button-voice-chip {

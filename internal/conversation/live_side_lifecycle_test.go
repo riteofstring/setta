@@ -58,7 +58,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		liveSideParentStarting,
 		liveSideParentFinished,
 	)
-	if _, err := service.SendTurn(ctx, workspaceID, parentID, activeRequest); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, activeRequest); err != nil {
 		t.Fatalf("SendTurn active parent: %v", err)
 	}
 	working := awaitLiveConversationSnapshot(
@@ -78,7 +78,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		t.Fatalf("active parent turn has no provider identity: %+v", activeTurn)
 	}
 
-	created, err := service.CreateSideConversation(ctx, workspaceID, parentID, liveSideParentPaneID)
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, liveSideParentPaneID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -429,7 +429,7 @@ func runLiveSideParentBaseline(
 	parentID string,
 ) {
 	t.Helper()
-	if _, err := service.SendTurn(ctx, workspaceID, parentID, "Reply with exactly SETTA_LIVE_SIDE_BASELINE_OK."); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, "Reply with exactly SETTA_LIVE_SIDE_BASELINE_OK."); err != nil {
 		t.Fatalf("SendTurn baseline: %v", err)
 	}
 	awaitLiveConversationSnapshot(
@@ -517,7 +517,7 @@ func assertLiveSideCreatedDuringParentTurn(
 		latestSnapshotTurn(created).Status != TurnStatusRunning ||
 		side.ParentConversationID != created.Conversation.ID ||
 		side.ParentPaneID != liveSideParentPaneID ||
-		side.DecisionSource != BranchDecisionSourceExplicit ||
+		side.DecisionSource != BranchDecisionSourceConversationRouter ||
 		side.Status != SideConversationStatusActive ||
 		side.ParentStatus != ConversationStatusWorking ||
 		side.SourceProviderThreadID != working.ThreadBinding.ThreadID ||

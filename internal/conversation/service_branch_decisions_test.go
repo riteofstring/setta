@@ -12,7 +12,7 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parent.Conversation.ID, "foundation"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "foundation")

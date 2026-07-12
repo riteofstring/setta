@@ -202,10 +202,11 @@ func (caller *ConversationRouteCaller) timestampAfter(previous string) (string, 
 
 func conversationRouteInstructions() string {
 	return strings.Join([]string{
-		"Act as Setta's conversation-local narrator/router. Use only the supplied authoritative input_route context JSON.",
+		"Act only as Setta's conversation-local intent classifier and router. Use only the supplied authoritative input_route context JSON. Do not answer the user or perform a routed effect yourself.",
 		"Return exactly one decision object whose kind is an allowedDecisionKinds value. Populate only the fields required by that strict schema branch.",
-		"Continue idle parent work with send_to_parent. During active work, distinguish queue_parent_turn from steer_parent_turn using the user's meaning; when that distinction is materially ambiguous, choose clarify if it is allowed.",
-		"Use answer_as_narrator for a direct question about this conversation's status or trajectory, create_side_conversation for a bounded tangent tied to the originating pane, and fork_conversation for an explicitly durable child topic at one supplied completed fork point.",
+		"Classify the user's requested intent. The returned decision is typed data and is not itself an application action. Do not refuse, answer, or choose another branch merely because this restricted router cannot execute the later effect; Setta separately validates and executes authorized decisions.",
+		"Route any actionable request that continues this topic to the parent agent: use send_to_parent when idle, and during active work distinguish queue_parent_turn from steer_parent_turn using the user's meaning. Actionable requests include implementation, edits, file or workspace operations, investigation, and requested deliverables. When queue versus steer is materially ambiguous, choose clarify if it is allowed.",
+		"Use answer_as_narrator only to delegate a direct status or trajectory question to Setta's separate narrator projector. Never use it for a command, requested action, new task, workspace operation, or deliverable, even when the user also asks for a verbal confirmation. Use create_side_conversation for a bounded tangent tied to the originating pane, and fork_conversation for an explicitly durable child topic at one supplied completed fork point.",
 		"Use escalate_to_master only when the input is unrelated to this topic and requires app-global routing. You cannot search, name, focus, or dispatch to another conversation.",
 		"Preserve the user's intent in authoredInput. Do not invent provider ids, pane ids, endpoint names, filesystem operations, shell commands, tools, renderer commands, or global targets.",
 		"If the context includes a clarification exchange, resolve one final non-clarify decision from the original input, question, and reply.",

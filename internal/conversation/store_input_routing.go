@@ -40,48 +40,6 @@ func (store *Store) ClaimNextConversationInput(
 			store.dbPath,
 			conversationID,
 			startedAt,
-			false,
-		)
-		return claimErr
-	})
-	if errors.Is(err, errNoConversationInputRoutingWork) {
-		return ConversationInputRoutingWork{}, false, nil
-	}
-	if err != nil {
-		return ConversationInputRoutingWork{}, false, err
-	}
-	return cloneConversationInputRoutingWork(work), true, nil
-}
-
-// ClaimNextConversationRouteInput claims only AI-routed work. An earlier
-// explicit override remains an ordering barrier for its later executor; the
-// local model must never reinterpret or skip that user-authored mode.
-func (store *Store) ClaimNextConversationRouteInput(
-	ctx context.Context,
-	conversationID string,
-	startedAt string,
-) (ConversationInputRoutingWork, bool, error) {
-	if store == nil {
-		return ConversationInputRoutingWork{}, false, errors.New("conversation store is required")
-	}
-	if ctx == nil {
-		return ConversationInputRoutingWork{}, false, errors.New("conversation input routing context is required")
-	}
-	if err := validateConversationInputReference("conversation input routing conversation id", conversationID); err != nil {
-		return ConversationInputRoutingWork{}, false, err
-	}
-	if _, err := validateTimestamp("conversation input routing startedAt", startedAt); err != nil {
-		return ConversationInputRoutingWork{}, false, err
-	}
-	var work ConversationInputRoutingWork
-	_, err := store.Transact(ctx, "claim conversation router input", func(transaction *WriteTransaction) error {
-		var claimErr error
-		work, claimErr = claimNextConversationInputTransaction(
-			transaction,
-			store.dbPath,
-			conversationID,
-			startedAt,
-			true,
 		)
 		return claimErr
 	})
@@ -99,7 +57,6 @@ func claimNextConversationInputTransaction(
 	dbPath string,
 	conversationID string,
 	startedAt string,
-	routeOnly bool,
 ) (ConversationInputRoutingWork, error) {
 	root, found, err := readOldestPendingConversationInput(transaction.ctx, transaction.tx, conversationID, dbPath)
 	if err != nil {
@@ -108,10 +65,6 @@ func claimNextConversationInputTransaction(
 	if !found {
 		return ConversationInputRoutingWork{}, errNoConversationInputRoutingWork
 	}
-	if routeOnly && root.Accepted.Input.RequestedMode != ConversationInputModeRoute {
-		return ConversationInputRoutingWork{}, errNoConversationInputRoutingWork
-	}
-
 	active, reply, priorClarification, err := resolveConversationInputRoutingClaimTarget(
 		transaction.ctx,
 		transaction.tx,
@@ -395,9 +348,6 @@ func prepareConversationRouteDecisionCommit(
 	if err != nil {
 		return conversationInputRecord{}, conversationInputRecord{}, err
 	}
-	if err := validateConversationRouteMode(root.Accepted.Input, commit); err != nil {
-		return conversationInputRecord{}, conversationInputRecord{}, err
-	}
 	if err := validateConversationRouteAuditInputSequences(root, active, commit); err != nil {
 		return conversationInputRecord{}, conversationInputRecord{}, err
 	}
@@ -426,9 +376,6 @@ func validateConversationRouteAuditInputSequences(
 	active conversationInputRecord,
 	commit ConversationRouteDecisionCommit,
 ) error {
-	if commit.Source != ConversationRouteDecisionSourceRouter {
-		return nil
-	}
 	if commit.RouterContext.InputSequence != root.Accepted.Sequence {
 		return stateConflict(
 			"conversation route decision",
@@ -502,9 +449,9 @@ func insertConversationRouteDecisionRecord(
 	if err := transaction.tx.QueryRowContext(transaction.ctx, `
 INSERT INTO conversation_route_decisions (
   id, conversation_id, input_id, clarification_input_id, decision_ordinal,
-  routing_attempt, source, router_context_json, resolved_invocation_json,
+	  routing_attempt, router_context_json, resolved_invocation_json,
   route_decision_json, resulting_command_json, resulting_command_key, decided_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING stream_sequence
 `,
 		record.ID,
@@ -513,7 +460,6 @@ RETURNING stream_sequence
 		nullableString(record.ClarificationInputID),
 		conversationRouteDecisionOrdinal(commit),
 		record.RoutingAttempt,
-		record.Source,
 		routerContextJSON,
 		resolvedInvocationJSON,
 		string(decisionJSON),
@@ -539,7 +485,6 @@ func conversationRouteDecisionRecordFromCommit(commit ConversationRouteDecisionC
 		InputID:              commit.InputID,
 		ClarificationInputID: cloneStringPointer(commit.ClarificationInputID),
 		RoutingAttempt:       commit.RoutingAttempt,
-		Source:               commit.Source,
 		RouterContext:        cloneConversationRouteContextAudit(commit.RouterContext),
 		ResolvedInvocation:   cloneConversationRouteResolvedInvocation(commit.ResolvedInvocation),
 		Decision:             cloneConversationRouteDecision(commit.Decision),
@@ -666,79 +611,6 @@ func validateConversationRouteClarificationReply(
 	}
 	if reply.RoutingAttempt != commit.RoutingAttempt {
 		return stateConflict("conversation input", *commit.ClarificationInputID, "clarification routing attempt number changed")
-	}
-	return nil
-}
-
-func validateConversationRouteMode(
-	input ConversationInput,
-	commit ConversationRouteDecisionCommit,
-) error {
-	if input.RequestedMode == ConversationInputModeRoute {
-		if commit.Source != ConversationRouteDecisionSourceRouter {
-			return stateConflict("conversation input", input.ID, "route mode requires a conversation-router decision")
-		}
-		return nil
-	}
-	if commit.Source != ConversationRouteDecisionSourceExplicit {
-		return stateConflict("conversation input", input.ID, "explicit input mode requires an explicit decision")
-	}
-	if commit.ClarificationInputID != nil {
-		return stateConflict("conversation input", input.ID, "explicit input modes cannot answer a router clarification")
-	}
-	wantKind, err := conversationRouteDecisionKindForMode(input.RequestedMode)
-	if err != nil {
-		return err
-	}
-	if commit.Decision.Kind != wantKind {
-		return stateConflict(
-			"conversation input",
-			input.ID,
-			fmt.Sprintf("explicit mode %s requires decision %s", input.RequestedMode, wantKind),
-		)
-	}
-	return validateExplicitConversationRouteText(input, commit.Decision)
-}
-
-func conversationRouteDecisionKindForMode(mode ConversationInputMode) (ConversationRouteDecisionKind, error) {
-	switch mode {
-	case ConversationInputModeSend:
-		return ConversationRouteDecisionKindSendToParent, nil
-	case ConversationInputModeQueue:
-		return ConversationRouteDecisionKindQueueParentTurn, nil
-	case ConversationInputModeSteer:
-		return ConversationRouteDecisionKindSteerParentTurn, nil
-	case ConversationInputModeAskNarrator:
-		return ConversationRouteDecisionKindAnswerAsNarrator, nil
-	case ConversationInputModeSide:
-		return ConversationRouteDecisionKindCreateSideConversation, nil
-	case ConversationInputModeFork:
-		return ConversationRouteDecisionKindForkConversation, nil
-	default:
-		return "", fmt.Errorf("unsupported explicit conversation input mode %q", mode)
-	}
-}
-
-func validateExplicitConversationRouteText(input ConversationInput, decision ConversationRouteDecision) error {
-	var decidedText string
-	switch decision.Kind {
-	case ConversationRouteDecisionKindSendToParent:
-		decidedText = decision.SendToParent.AuthoredInput.Text
-	case ConversationRouteDecisionKindQueueParentTurn:
-		decidedText = decision.QueueParentTurn.AuthoredInput.Text
-	case ConversationRouteDecisionKindSteerParentTurn:
-		decidedText = decision.SteerParentTurn.AuthoredInput.Text
-	case ConversationRouteDecisionKindAnswerAsNarrator:
-		decidedText = decision.AnswerAsNarrator.Question
-	case ConversationRouteDecisionKindCreateSideConversation:
-		decidedText = decision.CreateSideConversation.Input.Text
-	case ConversationRouteDecisionKindForkConversation:
-		decidedText = decision.ForkConversation.Input.Text
-	default:
-		return fmt.Errorf("unsupported explicit conversation route decision %q", decision.Kind)
-	}
-	if decidedText != input.Text {
-		return stateConflict("conversation input", input.ID, "explicit routing changed the submitted text")
 	}
 	return nil
 }

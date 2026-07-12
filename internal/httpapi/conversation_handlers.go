@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,7 +8,6 @@ import (
 	"strings"
 
 	"setta/internal/conversation"
-	"setta/internal/narration"
 )
 
 func (handler handler) createTopicConversation(response http.ResponseWriter, request *http.Request) {
@@ -28,85 +26,6 @@ func (handler handler) createTopicConversation(response http.ResponseWriter, req
 	snapshot, err := service.CreateTopic(request.Context(), payload.WorkspaceID, payload.Title)
 	if err != nil {
 		writeConversationError(response, "create_topic_conversation_failed", err)
-		return
-	}
-	writeConversationSnapshot(response, snapshot)
-}
-
-func (handler handler) forkTopicConversation(response http.ResponseWriter, request *http.Request) {
-	service := requireConversationService(response, handler.conversationService)
-	if service == nil {
-		return
-	}
-	var payload ForkTopicConversationRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	if err := validateConversationRequestIdentity(
-		payload.WorkspaceID,
-		payload.ParentConversationID,
-	); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_fork_request", err.Error())
-		return
-	}
-	if strings.TrimSpace(payload.ForkedAtTurnID) == "" ||
-		payload.ForkedAtTurnID != strings.TrimSpace(payload.ForkedAtTurnID) {
-		writeError(
-			response,
-			http.StatusBadRequest,
-			"invalid_topic_conversation_fork_request",
-			"fork source turn id is required without surrounding whitespace",
-		)
-		return
-	}
-	snapshot, err := service.ForkTopic(
-		request.Context(),
-		payload.WorkspaceID,
-		payload.ParentConversationID,
-		payload.ForkedAtTurnID,
-		payload.Title,
-	)
-	if err != nil {
-		writeConversationError(response, "fork_topic_conversation_failed", err)
-		return
-	}
-	writeConversationSnapshot(response, snapshot)
-}
-
-func (handler handler) createSideConversation(response http.ResponseWriter, request *http.Request) {
-	service := requireConversationService(response, handler.conversationService)
-	if service == nil {
-		return
-	}
-	var payload CreateSideConversationRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	if err := validateConversationRequestIdentity(
-		payload.WorkspaceID,
-		payload.ParentConversationID,
-	); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_side_conversation_create_request", err.Error())
-		return
-	}
-	if strings.TrimSpace(payload.ParentPaneID) == "" ||
-		payload.ParentPaneID != strings.TrimSpace(payload.ParentPaneID) {
-		writeError(
-			response,
-			http.StatusBadRequest,
-			"invalid_side_conversation_create_request",
-			"parent pane id is required without surrounding whitespace",
-		)
-		return
-	}
-	snapshot, err := service.CreateSideConversation(
-		request.Context(),
-		payload.WorkspaceID,
-		payload.ParentConversationID,
-		payload.ParentPaneID,
-	)
-	if err != nil {
-		writeConversationError(response, "create_side_conversation_failed", err)
 		return
 	}
 	writeConversationSnapshot(response, snapshot)
@@ -182,76 +101,6 @@ func (handler handler) disposeSideConversation(response http.ResponseWriter, req
 	writeConversationSnapshot(response, snapshot)
 }
 
-func (handler handler) sendTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
-	handler.runTopicConversationTextCommand(response, request, "send", func(
-		ctx context.Context,
-		service ConversationService,
-		workspaceID string,
-		conversationID string,
-		text string,
-	) (conversation.ConversationSnapshot, error) {
-		return service.SendTurn(ctx, workspaceID, conversationID, text)
-	})
-}
-
-func (handler handler) queueTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
-	handler.runTopicConversationTextCommand(response, request, "queue", func(
-		ctx context.Context,
-		service ConversationService,
-		workspaceID string,
-		conversationID string,
-		text string,
-	) (conversation.ConversationSnapshot, error) {
-		return service.QueueTurn(ctx, workspaceID, conversationID, text)
-	})
-}
-
-func (handler handler) steerTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
-	handler.runTopicConversationTextCommand(response, request, "steer", func(
-		ctx context.Context,
-		service ConversationService,
-		workspaceID string,
-		conversationID string,
-		text string,
-	) (conversation.ConversationSnapshot, error) {
-		return service.SteerTurn(ctx, workspaceID, conversationID, text)
-	})
-}
-
-type topicConversationTextCommand func(
-	context.Context,
-	ConversationService,
-	string,
-	string,
-	string,
-) (conversation.ConversationSnapshot, error)
-
-func (handler handler) runTopicConversationTextCommand(
-	response http.ResponseWriter,
-	request *http.Request,
-	command string,
-	run topicConversationTextCommand,
-) {
-	service := requireConversationService(response, handler.conversationService)
-	if service == nil {
-		return
-	}
-	var payload SendTopicConversationTurnRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_"+command+"_request", err.Error())
-		return
-	}
-	snapshot, err := run(request.Context(), service, payload.WorkspaceID, payload.ConversationID, payload.Text)
-	if err != nil {
-		writeConversationError(response, command+"_topic_conversation_turn_failed", err)
-		return
-	}
-	writeConversationSnapshot(response, snapshot)
-}
-
 func (handler handler) stopTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
 	service := requireConversationService(response, handler.conversationService)
 	if service == nil {
@@ -294,39 +143,6 @@ func (handler handler) submitTopicConversationApproval(response http.ResponseWri
 	)
 	if err != nil {
 		writeConversationError(response, "submit_topic_conversation_approval_failed", err)
-		return
-	}
-	writeConversationSnapshot(response, snapshot)
-}
-
-func (handler handler) askTopicConversationNarratorStatus(
-	response http.ResponseWriter,
-	request *http.Request,
-) {
-	service := requireNarratorStatusService(response, handler.narratorStatusService)
-	if service == nil {
-		return
-	}
-	var payload AskTopicConversationNarratorStatusRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_narrator_status_request", err.Error())
-		return
-	}
-	if err := narration.ValidateStatusQuestion(payload.Question); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_narrator_status_request", err.Error())
-		return
-	}
-	snapshot, err := service.AskStatus(
-		request.Context(),
-		payload.WorkspaceID,
-		payload.ConversationID,
-		payload.Question,
-	)
-	if err != nil {
-		writeNarratorStatusError(response, err)
 		return
 	}
 	writeConversationSnapshot(response, snapshot)

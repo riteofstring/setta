@@ -6,9 +6,8 @@ import (
 )
 
 // ExecuteBranchDecision is the only service entry point that dispatches a
-// side/fork decision. Explicit HTTP commands and future constrained routing
-// actors supply different trusted sources but share the same validation and
-// provider-reference resolution.
+// side/fork decision. Constrained routing actors supply different trusted
+// sources but share the same validation and provider-reference resolution.
 func (service *Service) ExecuteBranchDecision(
 	ctx context.Context,
 	workspaceID string,

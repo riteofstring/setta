@@ -311,12 +311,9 @@ func validateConversationRouteSideMetadata(
 	record ConversationRouteDecisionRecord,
 	command *CreateSideConversationRouteCommand,
 ) error {
-	expectedSource, err := routeBranchDecisionSource(record.Source)
-	if err != nil {
-		return err
-	}
 	if metadata.parentConversationID != record.ConversationID ||
-		metadata.parentPaneID != command.ParentPaneID || metadata.source != expectedSource {
+		metadata.parentPaneID != command.ParentPaneID ||
+		metadata.source != BranchDecisionSourceConversationRouter {
 		return stateConflict(
 			"conversation route side conversation",
 			command.SideConversationID,
@@ -390,11 +387,9 @@ WHERE child_conversation_id = ?
 	if err != nil {
 		return false, err
 	}
-	expectedSource, err := routeBranchDecisionSource(record.Source)
-	if err != nil {
-		return false, err
-	}
-	if parentConversationID != record.ConversationID || source != expectedSource || forkedAtTurnID != command.ForkedAtTurnID {
+	if parentConversationID != record.ConversationID ||
+		source != BranchDecisionSourceConversationRouter ||
+		forkedAtTurnID != command.ForkedAtTurnID {
 		return false, stateConflict("conversation route fork", command.ChildConversationID, "stored effect does not match its command")
 	}
 	return readConversationRouteTurnEffect(

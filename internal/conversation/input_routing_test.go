@@ -136,7 +136,6 @@ func TestConversationInputRoutingStateRejectsImpossibleLifecycleCombinations(t *
 		ConversationID: "conversation_alpha",
 		Text:           "Route this request.",
 		Modality:       ConversationInputModalityText,
-		RequestedMode:  ConversationInputModeRoute,
 		SubmittedAt:    "2026-07-13T18:00:00Z",
 	}
 	decision, command := validConversationRouteDecisionAndCommand(
@@ -301,10 +300,8 @@ func validConversationRouteDecisionCommit(
 		ConversationID: "conversation_alpha",
 		InputID:        "input_alpha",
 		RoutingAttempt: 1,
-		Source:         ConversationRouteDecisionSourceRouter,
 		RouterContext: &ConversationRouteContextAudit{
 			InputSequence:        1,
-			RequestedMode:        ConversationInputModeRoute,
 			AllowedDecisionKinds: []ConversationRouteDecisionKind{decision.Kind},
 		},
 		ResolvedInvocation: &invocation,

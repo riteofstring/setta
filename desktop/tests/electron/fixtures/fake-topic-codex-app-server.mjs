@@ -553,10 +553,7 @@ function emitStructuredInputRoute(threadId, turnId, context) {
     completeTurn(threadId, turnId, "failed", "input router context drifted");
     return;
   }
-  const decision =
-    routeKind === "clarify"
-      ? { kind: routeKind, question: "Which exact pane request should I send?" }
-      : { authoredInput, kind: routeKind };
+  const decision = structuredInputRouteDecision(context, routeKind, authoredInput);
   emitAgentMessage(
     threadId,
     turnId,
@@ -565,6 +562,34 @@ function emitStructuredInputRoute(threadId, turnId, context) {
     }),
   );
   completeTurn(threadId, turnId, "completed");
+}
+
+function structuredInputRouteDecision(context, routeKind, authoredInput) {
+  const decision = {
+    authoredInput: null,
+    forkedAtTurnId: null,
+    kind: routeKind,
+    proposedTitle: null,
+    question: null,
+  };
+  switch (routeKind) {
+    case "answer_as_narrator":
+      decision.question = authoredInput;
+      return decision;
+    case "clarify":
+      decision.question = "Which exact pane request should I send?";
+      return decision;
+    case "fork_conversation": {
+      const forkPoint = context.validCompletedForkPoints.at(-1);
+      decision.authoredInput = authoredInput;
+      decision.forkedAtTurnId = forkPoint.turnId;
+      decision.proposedTitle = authoredInput;
+      return decision;
+    }
+    default:
+      decision.authoredInput = authoredInput;
+      return decision;
+  }
 }
 
 function structuredInputRouteKind(context, allowed) {
@@ -582,15 +607,49 @@ function specialStructuredInputRouteKind(context, allowed) {
   if (isMasterEscalationRoute(context, allowed)) {
     return "escalate_to_master";
   }
-  if (
-    context.input?.input?.text === "clarify pane request" &&
-    !context.input?.clarificationReply &&
-    allowed.includes("clarify")
-  ) {
-    return "clarify";
+  const clarification = structuredInputClarificationRouteKind(context, allowed);
+  if (clarification) {
+    return clarification;
+  }
+  const text = structuredInputRouteText(context);
+  for (const route of exactStructuredInputRoutes) {
+    if (route.inputs.has(text) && allowed.includes(route.kind)) {
+      return route.kind;
+    }
   }
   return null;
 }
+
+function structuredInputRouteText(context) {
+  const input = context.input ?? {};
+  return input.clarificationReply?.text ?? input.input?.text;
+}
+
+function structuredInputClarificationRouteKind(context, allowed) {
+  return context.input?.input?.text === "clarify pane request" &&
+    !context.input?.clarificationReply &&
+    allowed.includes("clarify")
+    ? "clarify"
+    : null;
+}
+
+const sideConversationInputs = new Set([
+  "fail side presentation",
+  "hold close while side creation is pending",
+  "hold pane-close side",
+  "hold restart side",
+  "side lifecycle answer",
+  "side provider failure",
+]);
+
+const steeringInputs = new Set(["finish the parent after side work", "steer alpha now"]);
+
+const exactStructuredInputRoutes = [
+  { inputs: new Set(["What is the primary agent doing?"]), kind: "answer_as_narrator" },
+  { inputs: sideConversationInputs, kind: "create_side_conversation" },
+  { inputs: new Set(["Alpha topic fork"]), kind: "fork_conversation" },
+  { inputs: steeringInputs, kind: "steer_parent_turn" },
+];
 
 function conversationStatusRouteKind(context, allowed) {
   const status = context.authoritative?.conversation?.status;

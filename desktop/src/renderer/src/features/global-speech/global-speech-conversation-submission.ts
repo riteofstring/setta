@@ -200,7 +200,6 @@ function conversationInputForTranscript(
     id: completed.captureSessionId,
     modality: "voice",
     replyToInputId: null,
-    requestedMode: completed.request.destination.inputMode,
     sourcePaneId: completed.request.sourcePaneId,
     submittedAt: canonicalSpeechInputTimestamp(now),
     text: completed.transcript,
@@ -228,7 +227,6 @@ function conversationInputsEqual(left: ConversationInput, right: ConversationInp
     left.replyToInputId === right.replyToInputId &&
     left.text === right.text &&
     left.modality === right.modality &&
-    left.requestedMode === right.requestedMode &&
     left.submittedAt === right.submittedAt
   );
 }

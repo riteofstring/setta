@@ -13,22 +13,16 @@ describe("preload topic conversation API", () => {
   test("exposes typed commands and events through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposeConversationAPI();
     expect(Object.keys(api.conversations).sort()).toEqual([
-      "askStatus",
       "create",
-      "createSide",
       "discardInput",
       "disposeSide",
-      "fork",
       "list",
       "onEvent",
-      "queue",
       "read",
       "readInputState",
       "release",
       "retryInput",
-      "send",
       "sendSide",
-      "steer",
       "stop",
       "submitApproval",
       "submitInput",
@@ -43,17 +37,6 @@ describe("preload topic conversation API", () => {
       workspaceId: "workspace_api",
     };
     const target = { conversationId: "conversation_api", workspaceId: "workspace_api" };
-    const forkRequest = {
-      forkedAtTurnId: "turn_api",
-      parentConversationId: target.conversationId,
-      title: "Forked API topic",
-      workspaceId: target.workspaceId,
-    };
-    const sideRequest = {
-      parentConversationId: target.conversationId,
-      parentPaneId: "pane_api",
-      workspaceId: target.workspaceId,
-    };
     const sideTurnRequest = {
       parentConversationId: target.conversationId,
       sideConversationId: "side_api",
@@ -62,11 +45,10 @@ describe("preload topic conversation API", () => {
     };
     const sideDisposeRequest = {
       parentConversationId: target.conversationId,
-      parentPaneId: sideRequest.parentPaneId,
+      parentPaneId: "pane_api",
       sideConversationId: sideTurnRequest.sideConversationId,
       workspaceId: target.workspaceId,
     };
-    const turn = { ...target, text: "Continue the topic" };
     const subscription = {
       ...target,
       cursor: { sequence: 3, streamId: "conversation_stream_test" },
@@ -87,7 +69,6 @@ describe("preload topic conversation API", () => {
         id: "input_api",
         modality: "voice" as const,
         replyToInputId: null,
-        requestedMode: "route" as const,
         sourcePaneId: "pane_api",
         submittedAt: "2026-07-12T18:00:00Z",
         text: "Route this pane input",
@@ -103,17 +84,14 @@ describe("preload topic conversation API", () => {
     };
     await invokeConversationCommands(api, {
       approval,
-      forkRequest,
       inputRequest,
       inputStateRequest,
       listRequest,
       release,
-      sideRequest,
       sideDisposeRequest,
       sideTurnRequest,
       subscription,
       target,
-      turn,
       voiceRequest,
     });
     const listener = vi.fn();
@@ -124,17 +102,11 @@ describe("preload topic conversation API", () => {
     unsubscribe();
 
     expectInvokeCalls(invoke, [
-      [ipcChannels.conversationAskNarratorStatus, { ...target, question: "What is happening?" }],
-      [ipcChannels.conversationCreateSide, sideRequest],
       [ipcChannels.conversationSendSideTurn, sideTurnRequest],
       [ipcChannels.conversationDisposeSide, sideDisposeRequest],
       [ipcChannels.conversationCreateTopic, { title: "API topic", workspaceId: "workspace_api" }],
-      [ipcChannels.conversationForkTopic, forkRequest],
       [ipcChannels.conversationListTopicConversations, listRequest],
       [ipcChannels.conversationReadSnapshot, target],
-      [ipcChannels.conversationSendTurn, turn],
-      [ipcChannels.conversationQueueTurn, turn],
-      [ipcChannels.conversationSteerTurn, turn],
       [ipcChannels.conversationStopTurn, target],
       [ipcChannels.conversationSubmitInput, inputRequest],
       [ipcChannels.conversationReadInputState, inputStateRequest],
@@ -180,26 +152,17 @@ async function invokeConversationCommands(
   api: SettaAPI,
   requests: {
     approval: Parameters<SettaAPI["conversations"]["submitApproval"]>[0];
-    forkRequest: Parameters<SettaAPI["conversations"]["fork"]>[0];
     inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
     inputStateRequest: Parameters<NonNullable<SettaAPI["conversations"]["readInputState"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
     release: Parameters<SettaAPI["conversations"]["release"]>[0];
-    sideRequest: Parameters<NonNullable<SettaAPI["conversations"]["createSide"]>>[0];
     sideDisposeRequest: Parameters<NonNullable<SettaAPI["conversations"]["disposeSide"]>>[0];
     sideTurnRequest: Parameters<NonNullable<SettaAPI["conversations"]["sendSide"]>>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: Parameters<SettaAPI["conversations"]["read"]>[0];
-    turn: Parameters<SettaAPI["conversations"]["send"]>[0];
     voiceRequest: Parameters<NonNullable<SettaAPI["conversations"]["updateNarratorVoice"]>>[0];
   },
 ) {
-  await api.conversations.askStatus({ ...requests.target, question: "What is happening?" });
-  const createSide = requireConversationCommand(
-    api.conversations.createSide,
-    "side conversation creation",
-  );
-  await createSide(requests.sideRequest);
   const sendSide = requireConversationCommand(api.conversations.sendSide, "side conversation send");
   const disposeSide = requireConversationCommand(
     api.conversations.disposeSide,
@@ -208,12 +171,8 @@ async function invokeConversationCommands(
   await sendSide(requests.sideTurnRequest);
   await disposeSide(requests.sideDisposeRequest);
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
-  await api.conversations.fork(requests.forkRequest);
   await api.conversations.list(requests.listRequest);
   await api.conversations.read(requests.target);
-  await api.conversations.send(requests.turn);
-  await api.conversations.queue(requests.turn);
-  await api.conversations.steer(requests.turn);
   await api.conversations.stop(requests.target);
   const submitInput = requireConversationCommand(
     api.conversations.submitInput,

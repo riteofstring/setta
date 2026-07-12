@@ -2,7 +2,6 @@ import {
   speechVoiceIDValues,
   type AcceptedConversationInput,
   type AcceptedMasterInput,
-  type ConversationInputMode,
   type SpeechCapabilities,
   type SpeechTranscriptionSession,
   type SubmitMasterInputRequest,
@@ -145,13 +144,12 @@ describe("app-shell speech capture controller", () => {
     expect(onCaptureEnd).toHaveBeenCalledOnce();
   });
 
-  test("freezes a pane conversation destination and mode for the full capture lifecycle", async () => {
+  test("freezes a pane conversation destination for the full capture lifecycle", async () => {
     const harness = createHarness();
     await harness.connectAndEnable();
     const requestedCapture = {
       destination: {
         conversationId: "conversation_original",
-        inputMode: "route" as ConversationInputMode,
         type: "conversation" as const,
       },
       sourcePaneId: "pane_original",
@@ -159,14 +157,12 @@ describe("app-shell speech capture controller", () => {
 
     const start = harness.controller.start(requestedCapture);
     requestedCapture.destination.conversationId = "conversation_changed";
-    requestedCapture.destination.inputMode = "steer";
     requestedCapture.sourcePaneId = "pane_changed";
 
     expect(harness.currentCapture()).toMatchObject({
       request: {
         destination: {
           conversationId: "conversation_original",
-          inputMode: "route",
           type: "conversation",
         },
         sourcePaneId: "pane_original",
@@ -191,7 +187,6 @@ describe("app-shell speech capture controller", () => {
         id: "capture_1",
         modality: "voice",
         replyToInputId: null,
-        requestedMode: "route",
         sourcePaneId: "pane_original",
         submittedAt: "2026-07-12T18:00:00Z",
         text: "Keep this pane-local request frozen",
@@ -199,7 +194,6 @@ describe("app-shell speech capture controller", () => {
       request: {
         destination: {
           conversationId: "conversation_original",
-          inputMode: "route",
           type: "conversation",
         },
         sourcePaneId: "pane_original",
@@ -212,7 +206,7 @@ describe("app-shell speech capture controller", () => {
     ]);
 
     await harness.controller.start(
-      conversationSpeechCaptureRequest("conversation_second", "pane_second", "queue"),
+      conversationSpeechCaptureRequest("conversation_second", "pane_second"),
     );
     expect(harness.currentCapture()).toMatchObject({
       code: "conversation_submission_pending",
@@ -322,7 +316,7 @@ describe("app-shell speech capture controller", () => {
     const harness = createHarness({ submitConversationInput: submit });
     await harness.connectAndEnable();
     const start = harness.controller.start(
-      conversationSpeechCaptureRequest("conversation_retry", "pane_retry", "fork"),
+      conversationSpeechCaptureRequest("conversation_retry", "pane_retry"),
     );
     await harness.waitForTransport();
     harness.transport.resolveReady();
@@ -335,7 +329,6 @@ describe("app-shell speech capture controller", () => {
       completedConversationTranscript: {
         input: {
           conversationId: "conversation_retry",
-          requestedMode: "fork",
           sourcePaneId: "pane_retry",
           text: "Retry this pane transcript",
         },
@@ -347,7 +340,7 @@ describe("app-shell speech capture controller", () => {
       },
     });
     await harness.controller.start(
-      conversationSpeechCaptureRequest("conversation_other", "pane_other", "route"),
+      conversationSpeechCaptureRequest("conversation_other", "pane_other"),
     );
     expect(harness.currentCapture()).toMatchObject({
       code: "conversation_submission_failed",
@@ -375,7 +368,7 @@ describe("app-shell speech capture controller", () => {
     });
     await failedDiscard.connectAndEnable();
     const discardStart = failedDiscard.controller.start(
-      conversationSpeechCaptureRequest("conversation_discard", "pane_discard", "route"),
+      conversationSpeechCaptureRequest("conversation_discard", "pane_discard"),
     );
     await failedDiscard.waitForTransport();
     failedDiscard.transport.resolveReady();
@@ -396,7 +389,7 @@ describe("app-shell speech capture controller", () => {
     const harness = createHarness({ submitConversationInput: () => pending.promise });
     await harness.connectAndEnable();
     const start = harness.controller.start(
-      conversationSpeechCaptureRequest("conversation_old", "pane_old", "route"),
+      conversationSpeechCaptureRequest("conversation_old", "pane_old"),
     );
     await harness.waitForTransport();
     harness.transport.resolveReady();
@@ -426,7 +419,7 @@ describe("app-shell speech capture controller", () => {
   test("a repeated pane capture request commits only its matching active capture", async () => {
     const harness = createHarness();
     await harness.connectAndEnable();
-    const request = conversationSpeechCaptureRequest("conversation_toggle", "pane_toggle", "route");
+    const request = conversationSpeechCaptureRequest("conversation_toggle", "pane_toggle");
     const start = harness.controller.start(request);
     await harness.waitForTransport();
     harness.transport.resolveReady();
@@ -434,7 +427,7 @@ describe("app-shell speech capture controller", () => {
 
     await expect(
       harness.controller.start(
-        conversationSpeechCaptureRequest("conversation_other", "pane_other", "route"),
+        conversationSpeechCaptureRequest("conversation_other", "pane_other"),
       ),
     ).rejects.toThrow("another global speech capture is already active");
     expect(harness.currentCapture()).toMatchObject({

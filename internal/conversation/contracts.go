@@ -959,7 +959,7 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("InvocationOutcome", InvocationOutcomeRunning, InvocationOutcomeSucceeded, InvocationOutcomeFailed, InvocationOutcomeCancelled),
 		contractValueSet("BranchKind", BranchKindFork),
 		contractValueSet("BranchDecisionKind", BranchDecisionKindCreateSideConversation, BranchDecisionKindForkConversation),
-		contractValueSet("BranchDecisionSource", BranchDecisionSourceExplicit, BranchDecisionSourceConversationRouter, BranchDecisionSourceMaster),
+		contractValueSet("BranchDecisionSource", BranchDecisionSourceConversationRouter, BranchDecisionSourceMaster),
 		contractValueSet("SideConversationStatus", SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing, SideConversationStatusFailed),
 		contractValueSet("NarratorStatus", NarratorStatusReady, NarratorStatusRunning, NarratorStatusDegraded),
 		contractValueSet("NarrationEventKind", NarrationEventKindMilestone, NarrationEventKindStatusReply, NarrationEventKindFinalSummary, NarrationEventKindTopicDescriptor),

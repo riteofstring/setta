@@ -20,19 +20,20 @@ import (
 
 const serviceTestTimestamp = "2026-07-12T12:00:00Z"
 
-func TestServiceAskStatusPersistsReadOnlyReply(t *testing.T) {
+func TestServiceAskRoutedStatusPersistsReadOnlyReply(t *testing.T) {
 	fixture := newStatusServiceFixture(t, nil)
 	question := "What is happening with this topic?"
 	before := readStatusServiceSnapshot(t, fixture)
 
-	snapshot, err := fixture.service.AskStatus(
+	snapshot, err := fixture.service.AskRoutedStatus(
 		context.Background(),
 		fixture.workspace.ID,
 		fixture.conversationID,
+		"narrator_status_test",
 		question,
 	)
 	if err != nil {
-		t.Fatalf("AskStatus: %v", err)
+		t.Fatalf("AskRoutedStatus: %v", err)
 	}
 	assertStatusPreservesPrimaryAgent(t, before, snapshot)
 	assertStatusNarrationReply(t, snapshot, question)
@@ -125,18 +126,19 @@ func assertStatusProviderRequest(
 	}
 }
 
-func TestServiceAskStatusReturnsCommittedDegradation(t *testing.T) {
+func TestServiceAskRoutedStatusReturnsCommittedDegradation(t *testing.T) {
 	fixture := newStatusServiceFixture(t, errors.New("provider is unavailable"))
 
-	_, err := fixture.service.AskStatus(
+	_, err := fixture.service.AskRoutedStatus(
 		context.Background(),
 		fixture.workspace.ID,
 		fixture.conversationID,
+		"narrator_status_test",
 		"Can the narrator report status?",
 	)
 	var degraded *DegradedError
 	if !errors.As(err, &degraded) {
-		t.Fatalf("AskStatus error = %T %v, want DegradedError", err, err)
+		t.Fatalf("AskRoutedStatus error = %T %v, want DegradedError", err, err)
 	}
 	if degraded.Degradation.Code != string(FailureKindProviderUnavailable) ||
 		degraded.Degradation.DiagnosticReference == "" {
@@ -463,7 +465,13 @@ func (runtime *statusServiceAgentRuntime) runConversationRouteCall(
 	if contextBundle.Input.ClarificationReply != nil {
 		text = contextBundle.Input.ClarificationReply.Text
 	}
-	decision := map[string]any{"kind": string(kind)}
+	decision := map[string]any{
+		"authoredInput":  nil,
+		"forkedAtTurnId": nil,
+		"kind":           string(kind),
+		"proposedTitle":  nil,
+		"question":       nil,
+	}
 	switch kind {
 	case conversation.ConversationRouteDecisionKindAnswerAsNarrator:
 		decision["question"] = text

@@ -20,7 +20,6 @@ const (
 )
 
 type ConversationRouteDecisionKind string
-type ConversationRouteDecisionSource string
 
 const (
 	ConversationRouteDecisionKindSendToParent           ConversationRouteDecisionKind = "send_to_parent"
@@ -31,9 +30,6 @@ const (
 	ConversationRouteDecisionKindForkConversation       ConversationRouteDecisionKind = "fork_conversation"
 	ConversationRouteDecisionKindEscalateToMaster       ConversationRouteDecisionKind = "escalate_to_master"
 	ConversationRouteDecisionKindClarify                ConversationRouteDecisionKind = "clarify"
-
-	ConversationRouteDecisionSourceRouter   ConversationRouteDecisionSource = "conversation_router"
-	ConversationRouteDecisionSourceExplicit ConversationRouteDecisionSource = "explicit"
 )
 
 type SendToParentConversationRouteDecision struct {
@@ -145,32 +141,30 @@ type ConversationRouteCommand struct {
 }
 
 type ConversationRouteDecisionCommit struct {
-	ID                   string                          `json:"id"`
-	ConversationID       string                          `json:"conversationId"`
-	InputID              string                          `json:"inputId"`
-	ClarificationInputID *string                         `json:"clarificationInputId"`
-	RoutingAttempt       int                             `json:"routingAttempt"`
-	Source               ConversationRouteDecisionSource `json:"source"`
-	RouterContext        *ConversationRouteContextAudit  `json:"routerContext"`
-	ResolvedInvocation   *ResolvedInvocation             `json:"resolvedInvocation"`
-	Decision             ConversationRouteDecision       `json:"decision"`
-	ResultingCommand     ConversationRouteCommand        `json:"resultingCommand"`
-	DecidedAt            string                          `json:"decidedAt"`
+	ID                   string                         `json:"id"`
+	ConversationID       string                         `json:"conversationId"`
+	InputID              string                         `json:"inputId"`
+	ClarificationInputID *string                        `json:"clarificationInputId"`
+	RoutingAttempt       int                            `json:"routingAttempt"`
+	RouterContext        *ConversationRouteContextAudit `json:"routerContext"`
+	ResolvedInvocation   *ResolvedInvocation            `json:"resolvedInvocation"`
+	Decision             ConversationRouteDecision      `json:"decision"`
+	ResultingCommand     ConversationRouteCommand       `json:"resultingCommand"`
+	DecidedAt            string                         `json:"decidedAt"`
 }
 
 type ConversationRouteDecisionRecord struct {
-	StreamSequence       int                             `json:"streamSequence"`
-	ID                   string                          `json:"id"`
-	ConversationID       string                          `json:"conversationId"`
-	InputID              string                          `json:"inputId"`
-	ClarificationInputID *string                         `json:"clarificationInputId"`
-	RoutingAttempt       int                             `json:"routingAttempt"`
-	Source               ConversationRouteDecisionSource `json:"source"`
-	RouterContext        *ConversationRouteContextAudit  `json:"routerContext"`
-	ResolvedInvocation   *ResolvedInvocation             `json:"resolvedInvocation"`
-	Decision             ConversationRouteDecision       `json:"decision"`
-	ResultingCommand     ConversationRouteCommand        `json:"resultingCommand"`
-	DecidedAt            string                          `json:"decidedAt"`
+	StreamSequence       int                            `json:"streamSequence"`
+	ID                   string                         `json:"id"`
+	ConversationID       string                         `json:"conversationId"`
+	InputID              string                         `json:"inputId"`
+	ClarificationInputID *string                        `json:"clarificationInputId"`
+	RoutingAttempt       int                            `json:"routingAttempt"`
+	RouterContext        *ConversationRouteContextAudit `json:"routerContext"`
+	ResolvedInvocation   *ResolvedInvocation            `json:"resolvedInvocation"`
+	Decision             ConversationRouteDecision      `json:"decision"`
+	ResultingCommand     ConversationRouteCommand       `json:"resultingCommand"`
+	DecidedAt            string                         `json:"decidedAt"`
 }
 
 // ConversationRouteContextAudit records the bounded authority supplied to a
@@ -180,7 +174,6 @@ type ConversationRouteDecisionRecord struct {
 type ConversationRouteContextAudit struct {
 	InputSequence                int                             `json:"inputSequence"`
 	ClarificationInputSequence   *int                            `json:"clarificationInputSequence"`
-	RequestedMode                ConversationInputMode           `json:"requestedMode"`
 	LatestTrajectorySequence     int                             `json:"latestTrajectorySequence"`
 	AvailableTrajectoryRange     *TrajectorySequenceRange        `json:"availableTrajectoryRange"`
 	IncludedTrajectoryRange      *TrajectorySequenceRange        `json:"includedTrajectoryRange"`
@@ -509,7 +502,6 @@ func (commit ConversationRouteDecisionCommit) Validate() error {
 		commit.InputID,
 		commit.ClarificationInputID,
 		commit.RoutingAttempt,
-		commit.Source,
 		commit.RouterContext,
 		commit.ResolvedInvocation,
 		commit.Decision,
@@ -528,7 +520,6 @@ func (record ConversationRouteDecisionRecord) Validate() error {
 		record.InputID,
 		record.ClarificationInputID,
 		record.RoutingAttempt,
-		record.Source,
 		record.RouterContext,
 		record.ResolvedInvocation,
 		record.Decision,
@@ -543,7 +534,6 @@ func validateConversationRouteDecisionEnvelope(
 	inputID string,
 	clarificationInputID *string,
 	routingAttempt int,
-	source ConversationRouteDecisionSource,
 	routerContext *ConversationRouteContextAudit,
 	resolvedInvocation *ResolvedInvocation,
 	decision ConversationRouteDecision,
@@ -556,11 +546,7 @@ func validateConversationRouteDecisionEnvelope(
 	if routingAttempt <= 0 {
 		return errors.New("conversation route decision routing attempt must be positive")
 	}
-	if !validConversationRouteDecisionSource(source) {
-		return fmt.Errorf("unsupported conversation route decision source %q", source)
-	}
 	if err := validateConversationRouteDecisionAudit(
-		source,
 		clarificationInputID,
 		decision.Kind,
 		routerContext,

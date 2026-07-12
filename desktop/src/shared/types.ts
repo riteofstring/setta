@@ -1,7 +1,6 @@
 import type {
   AcceptedConversationInput,
   AcceptedMasterInput,
-  AskTopicConversationNarratorStatusRequest,
   AppearancePresetList,
   AppearanceSettings,
   AttachSemanticNodeToChatMessageRequest,
@@ -39,12 +38,10 @@ import type {
   ConversationPresentationProfile,
   ConversationSnapshot,
   ConversationListItem,
-  CreateSideConversationRequest,
   DiscardConversationInputRequest,
   DisposeSideConversationRequest,
   CreateTopicConversationRequest,
   SendSideConversationTurnRequest,
-  ForkTopicConversationRequest,
   CreateSemanticEdgeRequest,
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
@@ -75,7 +72,6 @@ import type {
   NavigatorPage,
   ProcessCartographerWindowRequest,
   QueueEditResult,
-  QueueTopicConversationTurnRequest,
   QueueMessageResult,
   QueueRemoveResult,
   ReadCartographerProcessingStateRequest,
@@ -127,7 +123,6 @@ import type {
   SemanticNodeOperationRequest,
   SemanticSteeringState,
   SendMessageResult,
-  SendTopicConversationTurnRequest,
   SelectDefaultTerminalProfileRequest,
   SpeechCapabilities,
   SpeechAudio,
@@ -135,7 +130,6 @@ import type {
   SpeechTranscriptionSession,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
-  SteerTopicConversationTurnRequest,
   SteerMessageResult,
   SteerWorkflowNodeRunRequest,
   SplitSemanticNodeRequest,
@@ -430,19 +424,13 @@ export interface SettaAPI {
     ) => Promise<WorkspaceActivitySnapshot>;
   };
   conversations: {
-    askStatus: (
-      request: AskTopicConversationNarratorStatusRequest,
-    ) => Promise<ConversationSnapshot>;
-    createSide?: (request: CreateSideConversationRequest) => Promise<ConversationSnapshot>;
     discardInput?: (
       request: DiscardConversationInputRequest,
     ) => Promise<ConversationInputRoutingState>;
     disposeSide?: (request: DisposeSideConversationRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
-    fork: (request: ForkTopicConversationRequest) => Promise<ConversationSnapshot>;
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
     onEvent: (listener: (event: ConversationEvent) => void) => () => void;
-    queue: (request: QueueTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     readInputState?: (
       request: ReadConversationInputRoutingStateRequest,
     ) => Promise<ConversationInputRoutingState>;
@@ -452,9 +440,7 @@ export interface SettaAPI {
     read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
     release: (request: ConversationEventReleaseRequest) => Promise<void>;
     retryInput?: (request: RetryConversationInputRequest) => Promise<ConversationInputRoutingState>;
-    send: (request: SendTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     sendSide?: (request: SendSideConversationTurnRequest) => Promise<ConversationSnapshot>;
-    steer: (request: SteerTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     stop: (request: StopTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;
     submitApproval: (

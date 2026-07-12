@@ -8,15 +8,6 @@ import (
 	"setta/internal/agent"
 )
 
-func (service *Service) SendTurn(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-	text string,
-) (ConversationSnapshot, error) {
-	return service.sendTurn(ctx, workspaceID, conversationID, text, "")
-}
-
 func (service *Service) sendTurn(
 	ctx context.Context,
 	workspaceID string,
@@ -65,15 +56,6 @@ func (service *Service) sendTurn(
 		return ConversationSnapshot{}, err
 	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
-}
-
-func (service *Service) QueueTurn(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-	text string,
-) (ConversationSnapshot, error) {
-	return service.queueTurn(ctx, workspaceID, conversationID, text, "")
 }
 
 func (service *Service) queueTurn(
@@ -349,15 +331,6 @@ func (service *Service) commitAcceptedTurn(
 		return appendPublications(transaction, publications)
 	})
 	return err
-}
-
-func (service *Service) SteerTurn(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-	text string,
-) (ConversationSnapshot, error) {
-	return service.steerTurn(ctx, workspaceID, conversationID, text, "", "")
 }
 
 func (service *Service) steerTurn(

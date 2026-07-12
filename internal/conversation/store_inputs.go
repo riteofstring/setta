@@ -102,8 +102,8 @@ func acceptConversationInputTransaction(
 	if err := tx.QueryRowContext(ctx, `
 INSERT INTO conversation_inputs (
   id, conversation_id, source_pane_id, reply_to_input_id, input_text,
-  input_modality, requested_mode, status, submitted_at, accepted_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  input_modality, status, submitted_at, accepted_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING sequence
 `,
 		input.ID,
@@ -112,7 +112,6 @@ RETURNING sequence
 		nullableString(input.ReplyToInputID),
 		input.Text,
 		input.Modality,
-		input.RequestedMode,
 		accepted.Status,
 		input.SubmittedAt,
 		acceptedAt,
@@ -169,9 +168,6 @@ func requireConversationInputReplyTarget(
 	}
 	if reply.Status != ConversationInputStatusAwaitingClarification {
 		return stateConflict("conversation input reply", *input.ReplyToInputID, "reply target is not awaiting clarification")
-	}
-	if input.RequestedMode != ConversationInputModeRoute {
-		return stateConflict("conversation input reply", input.ID, "clarification replies must use route mode")
 	}
 	var existingReplyID string
 	err = tx.QueryRowContext(ctx, `
@@ -281,7 +277,7 @@ func readConversationInputRecord(
 	var failureJSON sql.NullString
 	err := query.QueryRowContext(ctx, `
 SELECT sequence, id, conversation_id, source_pane_id, reply_to_input_id,
-       input_text, input_modality, requested_mode, status, routing_attempt,
+       input_text, input_modality, status, routing_attempt,
        routing_started_at, failure_json, submitted_at, accepted_at
 FROM conversation_inputs
 WHERE id = ?
@@ -293,7 +289,6 @@ WHERE id = ?
 		&replyToInputID,
 		&record.Accepted.Input.Text,
 		&record.Accepted.Input.Modality,
-		&record.Accepted.Input.RequestedMode,
 		&record.Accepted.Status,
 		&record.RoutingAttempt,
 		&routingStartedAt,

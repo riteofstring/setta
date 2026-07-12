@@ -50,15 +50,49 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	}
 
 	var latestSnapshot conversation.ConversationSnapshot
-	for index, prompt := range []string{
-		"Reply with exactly TOPIC_ONE_OK.",
-		"Reply with exactly TOPIC_TWO_OK.",
+	for index, task := range []struct {
+		expected string
+		text     string
+	}{
+		{
+			expected: "TOPIC_ONE_OK",
+			text:     "Produce the next parent-agent topic deliverable as exactly TOPIC_ONE_OK, with no other text.",
+		},
+		{
+			expected: "TOPIC_TWO_OK",
+			text:     "Produce the next parent-agent topic deliverable as exactly TOPIC_TWO_OK, with no other text.",
+		},
 	} {
-		postRuntimeJSON[conversation.ConversationSnapshot](t, client, baseURL, "/conversations/turns/send", httpapi.SendTopicConversationTurnRequest{
-			WorkspaceID:    opened.Workspace.ID,
-			ConversationID: created.Conversation.ID,
-			Text:           prompt,
-		}, http.StatusOK)
+		accepted := postRuntimeJSON[conversation.AcceptedConversationInput](
+			t,
+			client,
+			baseURL,
+			"/conversations/inputs/submit",
+			httpapi.SubmitConversationInputRequest{Input: conversation.ConversationInput{
+				ID:             fmt.Sprintf("live-topic-conversation-turn-%d", index+1),
+				ConversationID: created.Conversation.ID,
+				Text:           task.text,
+				Modality:       conversation.ConversationInputModalityText,
+				SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+			}},
+			http.StatusAccepted,
+		)
+		routed := waitForRuntimeLiveConversationRoute(
+			t,
+			client,
+			baseURL,
+			opened.Workspace.ID,
+			created.Conversation.ID,
+			accepted,
+		)
+		if len(routed.Decisions) != 1 ||
+			routed.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindSendToParent {
+			encoded, err := json.MarshalIndent(routed.Decisions, "", "  ")
+			if err != nil {
+				t.Fatalf("encode invalid live topic input route: %v", err)
+			}
+			t.Fatalf("live topic input route = %s, want send", encoded)
+		}
 		snapshot := waitForRuntimeLiveTopicTurns(
 			t,
 			client,
@@ -71,8 +105,8 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		if latestTurn.Status != conversation.TurnStatusCompleted {
 			t.Fatalf("live topic turn %d status = %s, want completed", index+1, latestTurn.Status)
 		}
-		if !runtimeTopicTrajectoryHasCompletedText(snapshot, latestTurn.ID) {
-			t.Fatalf("live topic turn %s has no completed public agent text", latestTurn.ID)
+		if !runtimeTopicTrajectoryHasCompletedText(snapshot, latestTurn.ID, task.expected) {
+			t.Fatalf("live topic turn %s has no completed public agent text containing %s", latestTurn.ID, task.expected)
 		}
 		if !runtimeTopicHasFinalNarration(snapshot, latestTurn.ID) {
 			t.Fatalf("live topic turn %s has no automatic narrator final summary", latestTurn.ID)
@@ -83,35 +117,19 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		latestSnapshot = snapshot
 	}
 
-	status := postRuntimeJSON[conversation.ConversationSnapshot](
-		t,
-		client,
-		baseURL,
-		"/conversations/narrator/status",
-		httpapi.AskTopicConversationNarratorStatusRequest{
-			WorkspaceID:    opened.Workspace.ID,
-			ConversationID: created.Conversation.ID,
-			Question:       "Has the latest topic turn completed, and what did it produce?",
-		},
-		http.StatusOK,
-	)
-	assertRuntimeLiveNarratorStatus(t, latestSnapshot, status)
-
-	routerInput := conversation.ConversationInput{
-		ID:             "live-topic-conversation-route",
-		ConversationID: created.Conversation.ID,
-		Text: "Answer as this conversation's narrator: did both completed topic turns succeed? " +
-			"Do not send new work to the parent agent.",
-		Modality:      conversation.ConversationInputModalityText,
-		RequestedMode: conversation.ConversationInputModeRoute,
-		SubmittedAt:   time.Now().UTC().Format(time.RFC3339Nano),
-	}
 	accepted := postRuntimeJSON[conversation.AcceptedConversationInput](
 		t,
 		client,
 		baseURL,
 		"/conversations/inputs/submit",
-		httpapi.SubmitConversationInputRequest{Input: routerInput},
+		httpapi.SubmitConversationInputRequest{Input: conversation.ConversationInput{
+			ID:             "live-topic-conversation-status",
+			ConversationID: created.Conversation.ID,
+			Text: "Answer as this conversation's narrator: Has the latest topic turn completed, and what did it produce? " +
+				"Do not send new work to the parent agent.",
+			Modality:    conversation.ConversationInputModalityText,
+			SubmittedAt: time.Now().UTC().Format(time.RFC3339Nano),
+		}},
 		http.StatusAccepted,
 	)
 	routed := waitForRuntimeLiveConversationRoute(
@@ -122,19 +140,19 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		created.Conversation.ID,
 		accepted,
 	)
-	assertRuntimeLiveConversationRoute(t, status, routed)
-	afterRoute := postRuntimeJSON[conversation.ConversationSnapshot](
+	assertRuntimeLiveConversationRoute(t, latestSnapshot, routed)
+	question := routed.Decisions[0].ResultingCommand.AnswerAsNarrator.Question
+	afterRoute := waitForRuntimeLiveNarratorStatus(
 		t,
 		client,
 		baseURL,
-		"/conversations/snapshot/read",
-		httpapi.ReadConversationSnapshotRequest{
-			WorkspaceID:    opened.Workspace.ID,
-			ConversationID: created.Conversation.ID,
-		},
-		http.StatusOK,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		latestSnapshot,
+		question,
 	)
-	assertRuntimeLiveConversationRouteIsolation(t, status, afterRoute)
+	assertRuntimeLiveNarratorStatus(t, latestSnapshot, afterRoute, question)
+	assertRuntimeLiveConversationRouteIsolation(t, latestSnapshot, afterRoute)
 
 	masterInput := master.MasterInput{
 		ID:                    "live-master-route-answer",
@@ -248,7 +266,7 @@ func waitForRuntimeLiveConversationRoute(
 		case conversation.ConversationInputStatusFailed,
 			conversation.ConversationInputStatusAwaitingClarification:
 			t.Fatalf(
-				"live conversation router did not resolve the explicit narrator question: failure=%+v state=%+v",
+				"live conversation router did not resolve the input: failure=%+v state=%+v",
 				last.Input.Failure,
 				last,
 			)
@@ -278,8 +296,7 @@ func assertRuntimeLiveConversationRouteDecision(
 	record conversation.ConversationRouteDecisionRecord,
 ) {
 	t.Helper()
-	if record.Source != conversation.ConversationRouteDecisionSourceRouter ||
-		record.Decision.Kind != conversation.ConversationRouteDecisionKindAnswerAsNarrator ||
+	if record.Decision.Kind != conversation.ConversationRouteDecisionKindAnswerAsNarrator ||
 		record.Decision.AnswerAsNarrator == nil ||
 		strings.TrimSpace(record.Decision.AnswerAsNarrator.Question) == "" ||
 		record.ResultingCommand.AnswerAsNarrator == nil ||
@@ -319,8 +336,6 @@ func assertRuntimeLiveConversationRouteIsolation(
 ) {
 	t.Helper()
 	if after.Conversation.LastTrajectorySequence != before.Conversation.LastTrajectorySequence ||
-		after.NarratorState.ObservedThroughSequence != before.NarratorState.ObservedThroughSequence ||
-		after.NarratorState.CheckpointThroughSequence != before.NarratorState.CheckpointThroughSequence ||
 		len(after.Turns.Turns) != len(before.Turns.Turns) ||
 		after.ThreadBinding == nil || before.ThreadBinding == nil ||
 		after.ThreadBinding.ThreadID != before.ThreadBinding.ThreadID {
@@ -332,29 +347,106 @@ func assertRuntimeLiveNarratorStatus(
 	t *testing.T,
 	before conversation.ConversationSnapshot,
 	after conversation.ConversationSnapshot,
+	question string,
 ) {
 	t.Helper()
-	if len(after.Narration.Events) != len(before.Narration.Events)+1 {
-		t.Fatalf("live narrator status events = %+v, before = %+v", after.Narration, before.Narration)
+	beforeIDs := make(map[string]bool, len(before.Narration.Events))
+	for _, event := range before.Narration.Events {
+		beforeIDs[event.ID] = true
 	}
-	reply := after.Narration.Events[len(after.Narration.Events)-1]
-	if reply.Kind != conversation.NarrationEventKindStatusReply || reply.StatusReply == nil ||
-		reply.StatusReply.Question != "Has the latest topic turn completed, and what did it produce?" ||
-		strings.TrimSpace(reply.StatusReply.Text) == "" {
-		t.Fatalf("live narrator status reply = %+v", reply)
+	replies := make([]conversation.NarrationEvent, 0, 1)
+	newEventKinds := make([]conversation.NarrationEventKind, 0)
+	statusQuestions := make([]string, 0)
+	for _, event := range after.Narration.Events {
+		if beforeIDs[event.ID] {
+			continue
+		}
+		newEventKinds = append(newEventKinds, event.Kind)
+		if event.StatusReply != nil {
+			statusQuestions = append(statusQuestions, event.StatusReply.Question)
+		}
+		if event.Kind != conversation.NarrationEventKindStatusReply ||
+			event.StatusReply == nil || event.StatusReply.Question != question {
+			continue
+		}
+		replies = append(replies, event)
 	}
+	if len(replies) != 1 || strings.TrimSpace(replies[0].StatusReply.Text) == "" {
+		t.Fatalf(
+			"live narrator matching status replies = %+v, want one; new kinds=%v status questions=%q narrator status=%s degradation=%+v",
+			replies,
+			newEventKinds,
+			statusQuestions,
+			after.NarratorState.Status,
+			after.NarratorState.Degradation,
+		)
+	}
+	reply := replies[0]
 	if reply.ResolvedInvocation.Role != conversation.RoleNarrator ||
 		reply.ResolvedInvocation.Resolved.ModelID != "gpt-5.4-mini" {
 		t.Fatalf("live narrator invocation = %+v", reply.ResolvedInvocation)
 	}
 	if after.Conversation.LastTrajectorySequence != before.Conversation.LastTrajectorySequence ||
-		after.NarratorState.ObservedThroughSequence != before.NarratorState.ObservedThroughSequence ||
-		after.NarratorState.CheckpointThroughSequence != before.NarratorState.CheckpointThroughSequence ||
 		len(after.Turns.Turns) != len(before.Turns.Turns) ||
 		after.ThreadBinding == nil || before.ThreadBinding == nil ||
 		after.ThreadBinding.ThreadID != before.ThreadBinding.ThreadID {
 		t.Fatalf("live narrator status mutated topic work: before=%+v after=%+v", before, after)
 	}
+}
+
+func waitForRuntimeLiveNarratorStatus(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	workspaceID string,
+	conversationID string,
+	before conversation.ConversationSnapshot,
+	question string,
+) conversation.ConversationSnapshot {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Minute)
+	var last conversation.ConversationSnapshot
+	for time.Now().Before(deadline) {
+		last = postRuntimeJSON[conversation.ConversationSnapshot](
+			t,
+			client,
+			baseURL,
+			"/conversations/snapshot/read",
+			httpapi.ReadConversationSnapshotRequest{
+				WorkspaceID:    workspaceID,
+				ConversationID: conversationID,
+			},
+			http.StatusOK,
+		)
+		if runtimeLiveHasNewNarratorStatusReply(before, last, question) {
+			return last
+		}
+		if last.NarratorState.Degradation != nil {
+			t.Fatalf("live routed narrator status degraded: %+v", *last.NarratorState.Degradation)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for live routed narrator status; last state = %+v", last.NarratorState)
+	return conversation.ConversationSnapshot{}
+}
+
+func runtimeLiveHasNewNarratorStatusReply(
+	before conversation.ConversationSnapshot,
+	after conversation.ConversationSnapshot,
+	question string,
+) bool {
+	beforeIDs := make(map[string]bool, len(before.Narration.Events))
+	for _, event := range before.Narration.Events {
+		beforeIDs[event.ID] = true
+	}
+	for _, event := range after.Narration.Events {
+		if !beforeIDs[event.ID] && event.Kind == conversation.NarrationEventKindStatusReply &&
+			event.StatusReply != nil && event.StatusReply.Question == question &&
+			strings.TrimSpace(event.StatusReply.Text) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func waitForRuntimeLiveTopicTurns(
@@ -389,12 +481,16 @@ func waitForRuntimeLiveTopicTurns(
 	return conversation.ConversationSnapshot{}
 }
 
-func runtimeTopicTrajectoryHasCompletedText(snapshot conversation.ConversationSnapshot, turnID string) bool {
+func runtimeTopicTrajectoryHasCompletedText(
+	snapshot conversation.ConversationSnapshot,
+	turnID string,
+	expected string,
+) bool {
 	for _, event := range snapshot.Trajectory.Events {
 		if event.TurnID == nil || *event.TurnID != turnID || event.AgentMessageCompleted == nil {
 			continue
 		}
-		if strings.TrimSpace(event.AgentMessageCompleted.Text) != "" {
+		if strings.Contains(event.AgentMessageCompleted.Text, expected) {
 			return true
 		}
 	}

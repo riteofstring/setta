@@ -237,95 +237,6 @@ func assertRoutedMasterInput(
 	}
 }
 
-func TestStoreExplicitConversationInputModesConstrainDecisionWithoutRewriting(t *testing.T) {
-	tests := []struct {
-		name   string
-		mutate func(*ConversationRouteDecisionCommit)
-	}{
-		{
-			name: "router source",
-			mutate: func(commit *ConversationRouteDecisionCommit) {
-				commit.Source = ConversationRouteDecisionSourceRouter
-				routerCommit := validConversationRouteDecisionCommit(
-					commit.ID,
-					commit.Decision,
-					commit.ResultingCommand,
-				)
-				commit.RouterContext = routerCommit.RouterContext
-				commit.ResolvedInvocation = routerCommit.ResolvedInvocation
-			},
-		},
-		{
-			name: "wrong decision family",
-			mutate: func(commit *ConversationRouteDecisionCommit) {
-				commit.Decision, commit.ResultingCommand = validConversationRouteDecisionAndCommand(
-					ConversationRouteDecisionKindAnswerAsNarrator,
-					"Route this request",
-				)
-				commit.RouterContext = nil
-				commit.ResolvedInvocation = nil
-			},
-		},
-		{
-			name: "rewritten input",
-			mutate: func(commit *ConversationRouteDecisionCommit) {
-				commit.Decision, commit.ResultingCommand = validConversationRouteDecisionAndCommand(
-					ConversationRouteDecisionKindSendToParent,
-					"A rewritten request",
-				)
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store := newTestStore(t)
-			seedConversationInputTargets(t, store, "conversation_alpha")
-			input := validConversationInput("input_explicit")
-			input.RequestedMode = ConversationInputModeSend
-			acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
-			work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
-			decision, command := validConversationRouteDecisionAndCommand(
-				ConversationRouteDecisionKindSendToParent,
-				input.Text,
-			)
-			commit := validConversationRouteDecisionCommit("decision_explicit", decision, command)
-			commit.InputID = input.ID
-			commit.Source = ConversationRouteDecisionSourceExplicit
-			commit.RouterContext = nil
-			commit.ResolvedInvocation = nil
-			commit.RoutingAttempt = work.RoutingAttempt
-			commit.DecidedAt = "2026-07-12T18:00:03Z"
-			test.mutate(&commit)
-			if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
-				t.Fatalf("CommitConversationRouteDecision error = %T %v, want state conflict", err, err)
-			}
-			assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
-		})
-	}
-
-	store := newTestStore(t)
-	seedConversationInputTargets(t, store, "conversation_alpha")
-	input := validConversationInput("input_explicit_success")
-	input.RequestedMode = ConversationInputModeSend
-	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
-	work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
-	decision, command := validConversationRouteDecisionAndCommand(
-		ConversationRouteDecisionKindSendToParent,
-		input.Text,
-	)
-	commit := validConversationRouteDecisionCommit("decision_explicit_success", decision, command)
-	commit.InputID = input.ID
-	commit.Source = ConversationRouteDecisionSourceExplicit
-	commit.RouterContext = nil
-	commit.ResolvedInvocation = nil
-	commit.RoutingAttempt = work.RoutingAttempt
-	commit.DecidedAt = "2026-07-12T18:00:03Z"
-	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
-		t.Fatalf("valid explicit decision: %v", err)
-	}
-	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusDispatched)
-}
-
 func TestStoreKeepsClarificationLinkedAndBlocksLaterInputsUntilResolution(t *testing.T) {
 	store := newTestStore(t)
 	seedConversationInputTargets(t, store, "conversation_alpha")
@@ -361,11 +272,6 @@ func TestStoreKeepsClarificationLinkedAndBlocksLaterInputsUntilResolution(t *tes
 	reply.ReplyToInputID = &root.ID
 	reply.Text = "Make it a durable fork."
 	reply.SubmittedAt = "2026-07-12T18:00:07Z"
-	reply.RequestedMode = ConversationInputModeQueue
-	if _, err := store.AcceptConversationInput(context.Background(), reply, "2026-07-12T18:00:08Z"); !IsStateConflict(err) {
-		t.Fatalf("non-route clarification reply error = %T %v, want state conflict", err, err)
-	}
-	reply.RequestedMode = ConversationInputModeRoute
 	acceptConversationRoutingInput(t, store, reply, "2026-07-12T18:00:08Z")
 	pendingReplyState, err := store.ReadConversationInputRoutingState(
 		context.Background(),
@@ -1048,9 +954,9 @@ func TestStoreRecoversConversationInputsAcrossBoundedBatches(t *testing.T) {
 		for index := 0; index < inputCount; index++ {
 			_, err := tx.ExecContext(ctx, `
 INSERT INTO conversation_inputs (
-  id, conversation_id, input_text, input_modality, requested_mode, status,
+  id, conversation_id, input_text, input_modality, status,
   routing_attempt, routing_started_at, submitted_at, accepted_at
-) VALUES (?, ?, 'recover me', 'text', 'route', 'routing', 1,
+) VALUES (?, ?, 'recover me', 'text', 'routing', 1,
           '2026-07-12T18:00:01Z', '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z')
 `, fmt.Sprintf("input_batched_recovery_%d", index), conversationID)
 			if err != nil {
@@ -1337,7 +1243,7 @@ INSERT INTO side_conversations (
   source_provider_thread_id, source_trajectory_sequence, status,
   resolved_side_agent_invocation_json, created_at, updated_at
 ) VALUES (
-  'side_existing', ?, ?, 'explicit', 'provider_parent', 0, 'preparing',
+  'side_existing', ?, ?, 'conversation_router', 'provider_parent', 0, 'preparing',
   '{}', '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z'
 )
 `, conversationID, paneID)

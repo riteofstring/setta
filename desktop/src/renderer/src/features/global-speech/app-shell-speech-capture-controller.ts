@@ -506,7 +506,6 @@ export class AppShellSpeechCaptureController {
           request: conversationSpeechCaptureRequest(
             request.destination.conversationId,
             requiredConversationSourcePane(request.sourcePaneId),
-            request.destination.inputMode,
           ),
           runtimeId,
           transcript,
@@ -840,7 +839,6 @@ function speechCaptureRequestsEqual(
       return (
         right.destination.type === "conversation" &&
         left.destination.conversationId === right.destination.conversationId &&
-        left.destination.inputMode === right.destination.inputMode &&
         left.sourcePaneId === right.sourcePaneId
       );
     default:

@@ -156,11 +156,11 @@ export async function exerciseEphemeralSideForkFailure({
     surfaces,
   });
   assertDriverAction(
-    await client.driver("topicConversationStartSide", {
+    await client.driver("topicConversationSubmit", {
       conversationId: parentTopic.id,
       text: "side provider failure",
     }),
-    "started",
+    "submitted",
   );
   const failedSnapshot = await waitForConversationSnapshot(
     backend,
@@ -213,11 +213,11 @@ export async function exerciseEphemeralSideForkWorkflow({
   const parentPane = conversationSurfaces(surfaces.surfaces, parentTopic.id)[0];
   assertCondition(parentPane?.paneId, "parent pane is unavailable for side fork", { surfaces });
   assertDriverAction(
-    await client.driver("topicConversationStartSide", {
+    await client.driver("topicConversationSubmit", {
       conversationId: parentTopic.id,
       text: "side lifecycle answer",
     }),
-    "started",
+    "submitted",
   );
   const sidePresentation = await waitForConversationSurface(
     client,
@@ -330,11 +330,11 @@ async function exerciseSideTurnFailurePresentation({
     timeoutMs,
   );
   assertDriverAction(
-    await client.driver("topicConversationStartSide", {
+    await client.driver("topicConversationSubmit", {
       conversationId: parentTopic.id,
       text: "fail side presentation",
     }),
-    "started",
+    "submitted",
   );
   const failedPresentation = await waitForConversationSurface(
     client,
@@ -454,11 +454,11 @@ async function exercisePendingSidePaneClose({
     timeoutMs,
   );
   const knownSideIds = new Set(parentSnapshot.sideConversations.map((side) => side.id));
-  const action = await client.driver("topicConversationStartSideAndClose", {
+  const action = await client.driver("topicConversationSubmitAndClose", {
     conversationId: parentTopic.id,
     text: "hold close while side creation is pending",
   });
-  assertDriverAction(action, "started");
+  assertDriverAction(action, "submitted");
   assertDriverAction(action, "closing");
   const disposed = await waitForConversationSnapshot(
     backend,
@@ -482,7 +482,7 @@ async function exercisePendingSidePaneClose({
   assertCondition(
     disposedSide &&
       disposedSide.parentConversationId === parentTopic.id &&
-      disposedSide.decisionSource === "explicit",
+      disposedSide.decisionSource === "conversation_router",
     "closing during side creation orphaned or rebound the pane-owned side",
     { disposed, parentSnapshot, parentSurface },
   );
@@ -522,11 +522,11 @@ async function exercisePaneCloseSideDisposal({
     timeoutMs,
   );
   assertDriverAction(
-    await client.driver("topicConversationStartSide", {
+    await client.driver("topicConversationSubmit", {
       conversationId: parentTopic.id,
       text: "hold pane-close side",
     }),
-    "started",
+    "submitted",
   );
   const sidePresentation = await waitForConversationSurface(
     client,
@@ -614,11 +614,11 @@ async function finishWorkingParent({
   workspaceId,
 }) {
   assertDriverAction(
-    await client.driver("topicConversationSteer", {
+    await client.driver("topicConversationSubmit", {
       conversationId: parentTopic.id,
       text: "finish the parent after side work",
     }),
-    "steered",
+    "submitted",
   );
   const completed = await waitForConversationSnapshot(
     backend,
@@ -660,11 +660,11 @@ async function createOpenEphemeralSide({
   const parentPane = conversationSurfaces(surfaces.surfaces, parentTopic.id)[0];
   assertCondition(parentPane?.paneId, "parent pane is unavailable for restart side", { surfaces });
   assertDriverAction(
-    await client.driver("topicConversationStartSide", {
+    await client.driver("topicConversationSubmit", {
       conversationId: parentTopic.id,
       text: "hold restart side",
     }),
-    "started",
+    "submitted",
   );
   const sidePresentation = await waitForConversationSurface(
     client,
@@ -727,12 +727,11 @@ export async function exerciseDurableForkWorkflow({
     parentSnapshot,
   });
   assertDriverAction(
-    await client.driver("topicConversationCreateFork", {
+    await client.driver("topicConversationSubmit", {
       conversationId: parentTopic.id,
-      forkedAtTurnId: sourceTurn.id,
-      title: forkTitle,
+      text: forkTitle,
     }),
-    "created",
+    "submitted",
   );
   const forkPage = await waitForBackendState(
     async () => listTopics(backend, workspaceId),
@@ -1002,7 +1001,7 @@ function assertForkBranchFields(branch, forked, parent, sourceTurn, context) {
 }
 
 function assertForkProviderFields(branch, forked, context) {
-  assertForkField(branch?.decisionSource === "explicit", "decision source", context);
+  assertForkField(branch?.decisionSource === "conversation_router", "decision source", context);
   assertForkField(
     branch?.providerMetadata?.providerForkThreadId === forked.threadBinding?.threadId,
     "provider fork thread",
@@ -1126,7 +1125,11 @@ function assertEphemeralSideCreation(snapshot, parent, paneId, sideId) {
     "side parent drifted",
     context,
   );
-  assertCondition(side.decisionSource === "explicit", "side decision source drifted", context);
+  assertCondition(
+    side.decisionSource === "conversation_router",
+    "side decision source drifted",
+    context,
+  );
   assertCondition(
     side.parentStatus === parent.conversation.status &&
       side.sourceProviderThreadId === parent.threadBinding?.threadId,

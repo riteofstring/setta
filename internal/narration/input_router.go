@@ -69,8 +69,8 @@ func NewConversationInputRouter(
 
 // ProcessNext claims at most one local input. The store claim enforces
 // conversation submission order, while different router instances may run
-// concurrently for different conversations. Route mode uses the local model;
-// explicit modes commit their exact command without classification.
+// concurrently for different conversations. Every claimed input is classified
+// by the local narrator/router.
 func (router *ConversationInputRouter) ProcessNext(
 	ctx context.Context,
 	conversationID string,
@@ -156,9 +156,6 @@ func (router *ConversationInputRouter) routeClaimedInput(
 	ctx context.Context,
 	work conversation.ConversationInputRoutingWork,
 ) (conversation.ConversationRouteDecisionRecord, error) {
-	if work.Input.Input.RequestedMode != conversation.ConversationInputModeRoute {
-		return router.routeClaimedExplicitInput(ctx, work)
-	}
 	workspaceID, limits, err := router.contextLimits(ctx, work.Input.Input.ConversationID)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
@@ -214,7 +211,6 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 		InputID:              work.Input.Input.ID,
 		ClarificationInputID: conversationRouteClarificationInputID(work),
 		RoutingAttempt:       work.RoutingAttempt,
-		Source:               conversation.ConversationRouteDecisionSourceRouter,
 		RouterContext:        &audit,
 		ResolvedInvocation:   &invocation,
 		Decision:             call.Decision,

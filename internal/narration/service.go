@@ -164,25 +164,6 @@ func ValidateStatusQuestion(question string) error {
 	return nil
 }
 
-// AskStatus submits a read-only narrator operation and waits for its durable
-// reply. The primary-agent runtime is not part of this command surface: no
-// turn, steering, interrupt, queue, or approval method is available here.
-func (service *Service) AskStatus(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-	question string,
-) (conversation.ConversationSnapshot, error) {
-	if service == nil || service.newID == nil {
-		return conversation.ConversationSnapshot{}, errors.New("narrator service is required")
-	}
-	requestID, err := service.newID("narrator_status")
-	if err != nil {
-		return conversation.ConversationSnapshot{}, err
-	}
-	return service.askStatus(ctx, workspaceID, conversationID, requestID, question)
-}
-
 // AskRoutedStatus executes one already validated route command while
 // preserving the request id committed with its originating input decision.
 func (service *Service) AskRoutedStatus(

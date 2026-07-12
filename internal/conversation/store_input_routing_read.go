@@ -97,7 +97,7 @@ func (store *Store) ReadNextPendingConversationRouteCommand(
 		row := reader.QueryRowContext(ctx, `
 SELECT decision.stream_sequence, decision.id, decision.conversation_id,
        decision.input_id, decision.clarification_input_id,
-       decision.routing_attempt, decision.source, decision.router_context_json,
+       decision.routing_attempt, decision.router_context_json,
        decision.resolved_invocation_json, decision.route_decision_json,
        decision.resulting_command_json, decision.resulting_command_key,
        decision.decided_at
@@ -396,7 +396,7 @@ func readConversationRouteDecisionRows(
 ) ([]ConversationRouteDecisionRecord, error) {
 	rows, err := query.QueryContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, router_context_json, resolved_invocation_json,
+       routing_attempt, router_context_json, resolved_invocation_json,
        route_decision_json, resulting_command_json, resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE input_id = ?
@@ -434,7 +434,7 @@ func readConversationRouteDecisionOrdinal(
 ) (ConversationRouteDecisionRecord, bool, error) {
 	row := query.QueryRowContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, router_context_json, resolved_invocation_json,
+       routing_attempt, router_context_json, resolved_invocation_json,
        route_decision_json, resulting_command_json, resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE conversation_id = ? AND input_id = ? AND decision_ordinal = ?
@@ -454,7 +454,7 @@ func readConversationRouteDecisionID(
 ) (ConversationRouteDecisionRecord, bool, error) {
 	row := query.QueryRowContext(ctx, `
 SELECT stream_sequence, id, conversation_id, input_id, clarification_input_id,
-       routing_attempt, source, router_context_json, resolved_invocation_json,
+       routing_attempt, router_context_json, resolved_invocation_json,
        route_decision_json, resulting_command_json, resulting_command_key, decided_at
 FROM conversation_route_decisions
 WHERE id = ?
@@ -475,7 +475,6 @@ func equalConversationRouteDecisionCommit(
 		record.InputID == commit.InputID &&
 		equalOptionalString(record.ClarificationInputID, commit.ClarificationInputID) &&
 		record.RoutingAttempt == commit.RoutingAttempt &&
-		record.Source == commit.Source &&
 		reflect.DeepEqual(record.RouterContext, commit.RouterContext) &&
 		reflect.DeepEqual(record.ResolvedInvocation, commit.ResolvedInvocation) &&
 		reflect.DeepEqual(record.Decision, commit.Decision) &&
@@ -501,7 +500,6 @@ func scanConversationRouteDecision(
 		&record.InputID,
 		&clarificationInputID,
 		&record.RoutingAttempt,
-		&record.Source,
 		&routerContextJSON,
 		&resolvedInvocationJSON,
 		&decisionJSON,

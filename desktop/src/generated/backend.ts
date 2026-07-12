@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 38;
-export const backendContractSchemaHash = "sha256:c60c2cffabfa4559fe4c3b63df701907ac75fe050defad7abbe81acf38687171";
+export const backendProtocolVersion = 39;
+export const backendContractSchemaHash = "sha256:d767d4d9d419cf155ad280f7d22328c3f1f13b2f94aa7b7b73954e4799dc64bb";
 
 export type DeviceScope = "full";
 
@@ -1427,15 +1427,13 @@ export function decodeBranchKind(value: unknown, label = "BranchKind"): BranchKi
   }
 }
 
-export type BranchDecisionSource = "explicit" | "conversation_router" | "master";
+export type BranchDecisionSource = "conversation_router" | "master";
 
-export const branchDecisionSourceValues = ["explicit", "conversation_router", "master"] as const satisfies readonly BranchDecisionSource[];
+export const branchDecisionSourceValues = ["conversation_router", "master"] as const satisfies readonly BranchDecisionSource[];
 
 export function decodeBranchDecisionSource(value: unknown, label = "BranchDecisionSource"): BranchDecisionSource {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "explicit":
-      return decoded;
     case "conversation_router":
       return decoded;
     case "master":
@@ -1521,32 +1519,6 @@ export function decodeConversationInputModality(value: unknown, label = "Convers
   }
 }
 
-export type ConversationInputMode = "route" | "send" | "queue" | "steer" | "ask_narrator" | "side" | "fork";
-
-export const conversationInputModeValues = ["route", "send", "queue", "steer", "ask_narrator", "side", "fork"] as const satisfies readonly ConversationInputMode[];
-
-export function decodeConversationInputMode(value: unknown, label = "ConversationInputMode"): ConversationInputMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "route":
-      return decoded;
-    case "send":
-      return decoded;
-    case "queue":
-      return decoded;
-    case "steer":
-      return decoded;
-    case "ask_narrator":
-      return decoded;
-    case "side":
-      return decoded;
-    case "fork":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type ConversationInputStatus = "accepted" | "routing" | "awaiting_clarification" | "dispatched" | "failed";
 
 export const conversationInputStatusValues = ["accepted", "routing", "awaiting_clarification", "dispatched", "failed"] as const satisfies readonly ConversationInputStatus[];
@@ -1563,22 +1535,6 @@ export function decodeConversationInputStatus(value: unknown, label = "Conversat
     case "dispatched":
       return decoded;
     case "failed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ConversationRouteDecisionSource = "conversation_router" | "explicit";
-
-export const conversationRouteDecisionSourceValues = ["conversation_router", "explicit"] as const satisfies readonly ConversationRouteDecisionSource[];
-
-export function decodeConversationRouteDecisionSource(value: unknown, label = "ConversationRouteDecisionSource"): ConversationRouteDecisionSource {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "conversation_router":
-      return decoded;
-    case "explicit":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4937,19 +4893,6 @@ export interface ConversationSnapshot {
   eventCursor: ConversationEventCursor;
 }
 
-export interface ForkTopicConversationRequest {
-  workspaceId: string;
-  parentConversationId: string;
-  forkedAtTurnId: string;
-  title: string;
-}
-
-export interface CreateSideConversationRequest {
-  workspaceId: string;
-  parentConversationId: string;
-  parentPaneId: string;
-}
-
 export interface SendSideConversationTurnRequest {
   workspaceId: string;
   parentConversationId: string;
@@ -4992,24 +4935,6 @@ export interface NavigatorPage {
   nextCursor: NavigatorCursor | null;
 }
 
-export interface SendTopicConversationTurnRequest {
-  workspaceId: string;
-  conversationId: string;
-  text: string;
-}
-
-export interface QueueTopicConversationTurnRequest {
-  workspaceId: string;
-  conversationId: string;
-  text: string;
-}
-
-export interface SteerTopicConversationTurnRequest {
-  workspaceId: string;
-  conversationId: string;
-  text: string;
-}
-
 export interface StopTopicConversationTurnRequest {
   workspaceId: string;
   conversationId: string;
@@ -5026,12 +4951,6 @@ export interface SubmitTopicConversationApprovalRequest {
   workspaceId: string;
   conversationId: string;
   response: ConversationApprovalResponse;
-}
-
-export interface AskTopicConversationNarratorStatusRequest {
-  workspaceId: string;
-  conversationId: string;
-  question: string;
 }
 
 export interface VoiceSelectionRequest {
@@ -5142,7 +5061,6 @@ export interface ConversationInput {
   replyToInputId: string | null;
   text: string;
   modality: ConversationInputModality;
-  requestedMode: ConversationInputMode;
   submittedAt: string;
 }
 
@@ -5181,7 +5099,6 @@ export interface TrajectorySequenceRange {
 export interface ConversationRouteContextAudit {
   inputSequence: number;
   clarificationInputSequence: number | null;
-  requestedMode: ConversationInputMode;
   latestTrajectorySequence: number;
   availableTrajectoryRange: TrajectorySequenceRange | null;
   includedTrajectoryRange: TrajectorySequenceRange | null;
@@ -5300,7 +5217,6 @@ export interface ConversationRouteDecisionRecord {
   inputId: string;
   clarificationInputId: string | null;
   routingAttempt: number;
-  source: ConversationRouteDecisionSource;
   routerContext: ConversationRouteContextAudit | null;
   resolvedInvocation: ResolvedInvocation | null;
   decision: ConversationRouteDecision;
@@ -9082,16 +8998,6 @@ export const backendEndpoints = {
     path: "/conversations/create",
     requestBodyLimitBytes: 4194304,
   },
-  ForkTopicConversation: {
-    method: "POST",
-    path: "/conversations/forks/create",
-    requestBodyLimitBytes: 4194304,
-  },
-  CreateSideConversation: {
-    method: "POST",
-    path: "/conversations/sides/create",
-    requestBodyLimitBytes: 4194304,
-  },
   SendSideConversationTurn: {
     method: "POST",
     path: "/conversations/sides/turns/send",
@@ -9112,21 +9018,6 @@ export const backendEndpoints = {
     path: "/conversations/navigator/list",
     requestBodyLimitBytes: 4194304,
   },
-  SendTopicConversationTurn: {
-    method: "POST",
-    path: "/conversations/turns/send",
-    requestBodyLimitBytes: 4194304,
-  },
-  QueueTopicConversationTurn: {
-    method: "POST",
-    path: "/conversations/turns/queue",
-    requestBodyLimitBytes: 4194304,
-  },
-  SteerTopicConversationTurn: {
-    method: "POST",
-    path: "/conversations/turns/steer",
-    requestBodyLimitBytes: 4194304,
-  },
   StopTopicConversationTurn: {
     method: "POST",
     path: "/conversations/turns/stop",
@@ -9135,11 +9026,6 @@ export const backendEndpoints = {
   SubmitTopicConversationApproval: {
     method: "POST",
     path: "/conversations/approvals/submit",
-    requestBodyLimitBytes: 4194304,
-  },
-  AskTopicConversationNarratorStatus: {
-    method: "POST",
-    path: "/conversations/narrator/status",
     requestBodyLimitBytes: 4194304,
   },
   UpdateTopicConversationNarratorVoice: {
@@ -11523,27 +11409,6 @@ export function decodeConversationSnapshot(value: unknown): ConversationSnapshot
   };
 }
 
-export function decodeForkTopicConversationRequest(value: unknown): ForkTopicConversationRequest {
-  const record = assertRecord(value, "ForkTopicConversationRequest");
-  assertKnownFields(record, "ForkTopicConversationRequest", ["workspaceId", "parentConversationId", "forkedAtTurnId", "title"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.workspaceId"),
-    parentConversationId: decodeString(requireField(record, "parentConversationId", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.parentConversationId"),
-    forkedAtTurnId: decodeString(requireField(record, "forkedAtTurnId", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.forkedAtTurnId"),
-    title: decodeString(requireField(record, "title", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.title"),
-  };
-}
-
-export function decodeCreateSideConversationRequest(value: unknown): CreateSideConversationRequest {
-  const record = assertRecord(value, "CreateSideConversationRequest");
-  assertKnownFields(record, "CreateSideConversationRequest", ["workspaceId", "parentConversationId", "parentPaneId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "CreateSideConversationRequest"), "CreateSideConversationRequest.workspaceId"),
-    parentConversationId: decodeString(requireField(record, "parentConversationId", "CreateSideConversationRequest"), "CreateSideConversationRequest.parentConversationId"),
-    parentPaneId: decodeString(requireField(record, "parentPaneId", "CreateSideConversationRequest"), "CreateSideConversationRequest.parentPaneId"),
-  };
-}
-
 export function decodeSendSideConversationTurnRequest(value: unknown): SendSideConversationTurnRequest {
   const record = assertRecord(value, "SendSideConversationTurnRequest");
   assertKnownFields(record, "SendSideConversationTurnRequest", ["workspaceId", "parentConversationId", "sideConversationId", "text"]);
@@ -11614,36 +11479,6 @@ export function decodeNavigatorPage(value: unknown): NavigatorPage {
   };
 }
 
-export function decodeSendTopicConversationTurnRequest(value: unknown): SendTopicConversationTurnRequest {
-  const record = assertRecord(value, "SendTopicConversationTurnRequest");
-  assertKnownFields(record, "SendTopicConversationTurnRequest", ["workspaceId", "conversationId", "text"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SendTopicConversationTurnRequest"), "SendTopicConversationTurnRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "SendTopicConversationTurnRequest"), "SendTopicConversationTurnRequest.conversationId"),
-    text: decodeString(requireField(record, "text", "SendTopicConversationTurnRequest"), "SendTopicConversationTurnRequest.text"),
-  };
-}
-
-export function decodeQueueTopicConversationTurnRequest(value: unknown): QueueTopicConversationTurnRequest {
-  const record = assertRecord(value, "QueueTopicConversationTurnRequest");
-  assertKnownFields(record, "QueueTopicConversationTurnRequest", ["workspaceId", "conversationId", "text"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "QueueTopicConversationTurnRequest"), "QueueTopicConversationTurnRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "QueueTopicConversationTurnRequest"), "QueueTopicConversationTurnRequest.conversationId"),
-    text: decodeString(requireField(record, "text", "QueueTopicConversationTurnRequest"), "QueueTopicConversationTurnRequest.text"),
-  };
-}
-
-export function decodeSteerTopicConversationTurnRequest(value: unknown): SteerTopicConversationTurnRequest {
-  const record = assertRecord(value, "SteerTopicConversationTurnRequest");
-  assertKnownFields(record, "SteerTopicConversationTurnRequest", ["workspaceId", "conversationId", "text"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SteerTopicConversationTurnRequest"), "SteerTopicConversationTurnRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "SteerTopicConversationTurnRequest"), "SteerTopicConversationTurnRequest.conversationId"),
-    text: decodeString(requireField(record, "text", "SteerTopicConversationTurnRequest"), "SteerTopicConversationTurnRequest.text"),
-  };
-}
-
 export function decodeStopTopicConversationTurnRequest(value: unknown): StopTopicConversationTurnRequest {
   const record = assertRecord(value, "StopTopicConversationTurnRequest");
   assertKnownFields(record, "StopTopicConversationTurnRequest", ["workspaceId", "conversationId"]);
@@ -11671,16 +11506,6 @@ export function decodeSubmitTopicConversationApprovalRequest(value: unknown): Su
     workspaceId: decodeString(requireField(record, "workspaceId", "SubmitTopicConversationApprovalRequest"), "SubmitTopicConversationApprovalRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SubmitTopicConversationApprovalRequest"), "SubmitTopicConversationApprovalRequest.conversationId"),
     response: decodeConversationApprovalResponse(requireField(record, "response", "SubmitTopicConversationApprovalRequest")),
-  };
-}
-
-export function decodeAskTopicConversationNarratorStatusRequest(value: unknown): AskTopicConversationNarratorStatusRequest {
-  const record = assertRecord(value, "AskTopicConversationNarratorStatusRequest");
-  assertKnownFields(record, "AskTopicConversationNarratorStatusRequest", ["workspaceId", "conversationId", "question"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "AskTopicConversationNarratorStatusRequest"), "AskTopicConversationNarratorStatusRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "AskTopicConversationNarratorStatusRequest"), "AskTopicConversationNarratorStatusRequest.conversationId"),
-    question: decodeString(requireField(record, "question", "AskTopicConversationNarratorStatusRequest"), "AskTopicConversationNarratorStatusRequest.question"),
   };
 }
 
@@ -11859,7 +11684,7 @@ export function decodeConversationEvent(value: unknown): ConversationEvent {
 
 export function decodeConversationInput(value: unknown): ConversationInput {
   const record = assertRecord(value, "ConversationInput");
-  assertKnownFields(record, "ConversationInput", ["id", "conversationId", "sourcePaneId", "replyToInputId", "text", "modality", "requestedMode", "submittedAt"]);
+  assertKnownFields(record, "ConversationInput", ["id", "conversationId", "sourcePaneId", "replyToInputId", "text", "modality", "submittedAt"]);
   return {
     id: decodeString(requireField(record, "id", "ConversationInput"), "ConversationInput.id"),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationInput"), "ConversationInput.conversationId"),
@@ -11867,7 +11692,6 @@ export function decodeConversationInput(value: unknown): ConversationInput {
     replyToInputId: decodeNullable(requireField(record, "replyToInputId", "ConversationInput"), "ConversationInput.replyToInputId", (item) => decodeString(item, "ConversationInput.replyToInputId")),
     text: decodeString(requireField(record, "text", "ConversationInput"), "ConversationInput.text"),
     modality: decodeConversationInputModality(requireField(record, "modality", "ConversationInput"), "ConversationInput.modality"),
-    requestedMode: decodeConversationInputMode(requireField(record, "requestedMode", "ConversationInput"), "ConversationInput.requestedMode"),
     submittedAt: decodeString(requireField(record, "submittedAt", "ConversationInput"), "ConversationInput.submittedAt"),
   };
 }
@@ -11926,11 +11750,10 @@ export function decodeTrajectorySequenceRange(value: unknown): TrajectorySequenc
 
 export function decodeConversationRouteContextAudit(value: unknown): ConversationRouteContextAudit {
   const record = assertRecord(value, "ConversationRouteContextAudit");
-  assertKnownFields(record, "ConversationRouteContextAudit", ["inputSequence", "clarificationInputSequence", "requestedMode", "latestTrajectorySequence", "availableTrajectoryRange", "includedTrajectoryRange", "priorNarrationCount", "priorRouteDecisionCount", "validCompletedForkPointCount", "allowedDecisionKinds"]);
+  assertKnownFields(record, "ConversationRouteContextAudit", ["inputSequence", "clarificationInputSequence", "latestTrajectorySequence", "availableTrajectoryRange", "includedTrajectoryRange", "priorNarrationCount", "priorRouteDecisionCount", "validCompletedForkPointCount", "allowedDecisionKinds"]);
   return {
     inputSequence: decodeInteger(requireField(record, "inputSequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.inputSequence"),
     clarificationInputSequence: decodeNullable(requireField(record, "clarificationInputSequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.clarificationInputSequence", (item) => decodeInteger(item, "ConversationRouteContextAudit.clarificationInputSequence")),
-    requestedMode: decodeConversationInputMode(requireField(record, "requestedMode", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.requestedMode"),
     latestTrajectorySequence: decodeInteger(requireField(record, "latestTrajectorySequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.latestTrajectorySequence"),
     availableTrajectoryRange: decodeNullable(requireField(record, "availableTrajectoryRange", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.availableTrajectoryRange", (item) => decodeTrajectorySequenceRange(item)),
     includedTrajectoryRange: decodeNullable(requireField(record, "includedTrajectoryRange", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.includedTrajectoryRange", (item) => decodeTrajectorySequenceRange(item)),
@@ -12139,7 +11962,7 @@ export function decodeConversationRouteCommand(value: unknown): ConversationRout
 
 export function decodeConversationRouteDecisionRecord(value: unknown): ConversationRouteDecisionRecord {
   const record = assertRecord(value, "ConversationRouteDecisionRecord");
-  assertKnownFields(record, "ConversationRouteDecisionRecord", ["streamSequence", "id", "conversationId", "inputId", "clarificationInputId", "routingAttempt", "source", "routerContext", "resolvedInvocation", "decision", "resultingCommand", "decidedAt"]);
+  assertKnownFields(record, "ConversationRouteDecisionRecord", ["streamSequence", "id", "conversationId", "inputId", "clarificationInputId", "routingAttempt", "routerContext", "resolvedInvocation", "decision", "resultingCommand", "decidedAt"]);
   return {
     streamSequence: decodeInteger(requireField(record, "streamSequence", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.streamSequence"),
     id: decodeString(requireField(record, "id", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.id"),
@@ -12147,7 +11970,6 @@ export function decodeConversationRouteDecisionRecord(value: unknown): Conversat
     inputId: decodeString(requireField(record, "inputId", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.inputId"),
     clarificationInputId: decodeNullable(requireField(record, "clarificationInputId", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.clarificationInputId", (item) => decodeString(item, "ConversationRouteDecisionRecord.clarificationInputId")),
     routingAttempt: decodeInteger(requireField(record, "routingAttempt", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.routingAttempt"),
-    source: decodeConversationRouteDecisionSource(requireField(record, "source", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.source"),
     routerContext: decodeNullable(requireField(record, "routerContext", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.routerContext", (item) => decodeConversationRouteContextAudit(item)),
     resolvedInvocation: decodeNullable(requireField(record, "resolvedInvocation", "ConversationRouteDecisionRecord"), "ConversationRouteDecisionRecord.resolvedInvocation", (item) => decodeResolvedInvocation(item)),
     decision: decodeConversationRouteDecision(requireField(record, "decision", "ConversationRouteDecisionRecord")),
@@ -17438,18 +17260,12 @@ export interface BackendClient {
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest, options?: BackendRequestOptions) => Promise<ReadWorkspaceActivitySnapshotResponse>;
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest, options?: BackendRequestOptions) => Promise<ReadWorkflowExecutionActivityResponse>;
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
-  forkTopicConversation: (request: ForkTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
-  createSideConversation: (request: CreateSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   sendSideConversationTurn: (request: SendSideConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   disposeSideConversation: (request: DisposeSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
-  sendTopicConversationTurn: (request: SendTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
-  queueTopicConversationTurn: (request: QueueTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
-  steerTopicConversationTurn: (request: SteerTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   stopTopicConversationTurn: (request: StopTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   submitTopicConversationApproval: (request: SubmitTopicConversationApprovalRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
-  askTopicConversationNarratorStatus: (request: AskTopicConversationNarratorStatusRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   updateTopicConversationNarratorVoice: (request: UpdateTopicConversationNarratorVoiceRequest, options?: BackendRequestOptions) => Promise<ConversationPresentationProfile>;
   submitConversationInput: (request: SubmitConversationInputRequest, options?: BackendRequestOptions) => Promise<AcceptedConversationInput>;
   readConversationInputRoutingState: (request: ReadConversationInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
@@ -17802,24 +17618,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
-    forkTopicConversation: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationSnapshot,
-      endpoint: backendEndpoints.ForkTopicConversation,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    createSideConversation: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationSnapshot,
-      endpoint: backendEndpoints.CreateSideConversation,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
     sendSideConversationTurn: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -17856,33 +17654,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
-    sendTopicConversationTurn: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationSnapshot,
-      endpoint: backendEndpoints.SendTopicConversationTurn,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    queueTopicConversationTurn: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationSnapshot,
-      endpoint: backendEndpoints.QueueTopicConversationTurn,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    steerTopicConversationTurn: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationSnapshot,
-      endpoint: backendEndpoints.SteerTopicConversationTurn,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
     stopTopicConversationTurn: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -17897,15 +17668,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.SubmitTopicConversationApproval,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    askTopicConversationNarratorStatus: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationSnapshot,
-      endpoint: backendEndpoints.AskTopicConversationNarratorStatus,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

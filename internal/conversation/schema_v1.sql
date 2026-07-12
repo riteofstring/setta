@@ -21,7 +21,6 @@ CREATE TABLE conversation_inputs (
   reply_to_input_id TEXT,
   input_text TEXT NOT NULL,
   input_modality TEXT NOT NULL CHECK (input_modality IN ('text', 'voice')),
-  requested_mode TEXT NOT NULL CHECK (requested_mode IN ('route', 'send', 'queue', 'steer', 'ask_narrator', 'side', 'fork')),
   status TEXT NOT NULL CHECK (status IN ('accepted', 'routing', 'awaiting_clarification', 'dispatched', 'failed')),
   routing_attempt INTEGER NOT NULL DEFAULT 0 CHECK (routing_attempt >= 0),
   routing_started_at TEXT,
@@ -57,9 +56,8 @@ CREATE TABLE conversation_route_decisions (
   clarification_input_id TEXT,
   decision_ordinal INTEGER NOT NULL CHECK (decision_ordinal IN (1, 2)),
   routing_attempt INTEGER NOT NULL CHECK (routing_attempt > 0),
-  source TEXT NOT NULL CHECK (source IN ('conversation_router', 'explicit')),
-  router_context_json TEXT CHECK (router_context_json IS NULL OR json_valid(router_context_json)),
-  resolved_invocation_json TEXT CHECK (resolved_invocation_json IS NULL OR json_valid(resolved_invocation_json)),
+  router_context_json TEXT NOT NULL CHECK (json_valid(router_context_json)),
+  resolved_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_invocation_json)),
   route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
   resulting_command_json TEXT NOT NULL CHECK (json_valid(resulting_command_json)),
   resulting_command_key TEXT NOT NULL UNIQUE,
@@ -73,10 +71,6 @@ CREATE TABLE conversation_route_decisions (
   CHECK (
     (decision_ordinal = 1 AND clarification_input_id IS NULL)
     OR (decision_ordinal = 2 AND clarification_input_id IS NOT NULL)
-  ),
-  CHECK (
-    (source = 'conversation_router' AND router_context_json IS NOT NULL AND resolved_invocation_json IS NOT NULL)
-    OR (source = 'explicit' AND router_context_json IS NULL AND resolved_invocation_json IS NULL)
   ),
   CHECK (clarification_input_id IS NULL OR clarification_input_id <> input_id)
 ) STRICT;
@@ -123,7 +117,7 @@ CREATE TABLE conversation_branches (
   child_conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id),
   branch_kind TEXT NOT NULL CHECK (branch_kind = 'fork'),
-  decision_source TEXT NOT NULL CHECK (decision_source IN ('explicit', 'conversation_router', 'master')),
+  decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'master')),
   forked_at_turn_id TEXT NOT NULL REFERENCES conversation_turns(id),
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
   provider_metadata_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(provider_metadata_json)),
@@ -138,7 +132,7 @@ CREATE TABLE side_conversations (
   id TEXT PRIMARY KEY,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   parent_pane_id TEXT NOT NULL,
-  decision_source TEXT NOT NULL CHECK (decision_source IN ('explicit', 'conversation_router', 'master')),
+  decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'master')),
   provider_thread_id TEXT,
   source_provider_thread_id TEXT NOT NULL,
   source_provider_turn_id TEXT,

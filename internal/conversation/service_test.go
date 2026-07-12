@@ -57,7 +57,7 @@ func exerciseQueuedServiceTurns(
 	subscription ConversationEventSubscription,
 ) {
 	t.Helper()
-	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "hold"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "hold"); err != nil {
 		t.Fatalf("SendTurn hold: %v", err)
 	}
 	runtime.waitForStart(t, "hold")
@@ -68,13 +68,13 @@ func exerciseQueuedServiceTurns(
 		t.Fatalf("first live event sequence = %d, want after %d", event.Sequence, created.EventCursor.Sequence)
 	}
 
-	if _, err := service.QueueTurn(ctx, workspaceID, conversationID, "queued artifact"); err != nil {
+	if _, err := service.queueTestTurn(ctx, workspaceID, conversationID, "queued artifact"); err != nil {
 		t.Fatalf("QueueTurn: %v", err)
 	}
-	if _, err := service.QueueTurn(ctx, workspaceID, conversationID, "queued artifact two"); err != nil {
+	if _, err := service.queueTestTurn(ctx, workspaceID, conversationID, "queued artifact two"); err != nil {
 		t.Fatalf("QueueTurn second: %v", err)
 	}
-	if _, err := service.SteerTurn(ctx, workspaceID, conversationID, "finish held work"); err != nil {
+	if _, err := service.steerTestTurn(ctx, workspaceID, conversationID, "finish held work"); err != nil {
 		t.Fatalf("SteerTurn: %v", err)
 	}
 	runtime.waitForStart(t, "queued artifact")
@@ -98,7 +98,7 @@ func exerciseServiceApproval(
 	conversationID string,
 ) {
 	t.Helper()
-	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "approval"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "approval"); err != nil {
 		t.Fatalf("SendTurn approval: %v", err)
 	}
 	runtime.waitForStart(t, "approval")
@@ -130,7 +130,7 @@ func exerciseServiceCancellation(
 	conversationID string,
 ) {
 	t.Helper()
-	if _, err := service.SendTurn(ctx, workspaceID, conversationID, "hold cancel"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "hold cancel"); err != nil {
 		t.Fatalf("SendTurn cancel: %v", err)
 	}
 	runtime.waitForStart(t, "hold cancel")

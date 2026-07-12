@@ -1,23 +1,17 @@
 import type {
   AcceptedConversationInput,
-  AskTopicConversationNarratorStatusRequest,
   ConversationEventCursor,
   ConversationSnapshot,
-  CreateSideConversationRequest,
   DiscardConversationInputRequest,
   DisposeSideConversationRequest,
   CreateTopicConversationRequest,
-  ForkTopicConversationRequest,
   ListTopicConversationsRequest,
   NavigatorPage,
-  QueueTopicConversationTurnRequest,
   ReadConversationInputRoutingStateRequest,
   ConversationInputRoutingState,
   ReadConversationSnapshotRequest,
   RetryConversationInputRequest,
-  SendTopicConversationTurnRequest,
   SendSideConversationTurnRequest,
-  SteerTopicConversationTurnRequest,
   StopTopicConversationTurnRequest,
   SubmitConversationInputRequest,
   SubmitTopicConversationApprovalRequest,
@@ -25,22 +19,16 @@ import type {
 } from "@generated/backend";
 
 export const conversationIpcChannels = {
-  conversationAskNarratorStatus: "conversation:ask-narrator-status",
-  conversationCreateSide: "conversation:create-side",
   conversationDiscardInput: "conversation:discard-input",
   conversationDisposeSide: "conversation:dispose-side",
   conversationCreateTopic: "conversation:create-topic",
-  conversationForkTopic: "conversation:fork-topic",
   conversationListTopicConversations: "conversation:list-topic-conversations",
-  conversationQueueTurn: "conversation:queue-turn",
   conversationReadInputState: "conversation:read-input-state",
   conversationWaitInputState: "conversation:wait-input-state",
   conversationReadSnapshot: "conversation:read-snapshot",
   conversationReleaseEvents: "conversation:release-events",
   conversationRetryInput: "conversation:retry-input",
-  conversationSendTurn: "conversation:send-turn",
   conversationSendSideTurn: "conversation:send-side-turn",
-  conversationSteerTurn: "conversation:steer-turn",
   conversationStopTurn: "conversation:stop-turn",
   conversationSubmitInput: "conversation:submit-input",
   conversationSubmitApproval: "conversation:submit-approval",
@@ -61,14 +49,6 @@ export interface ConversationEventReleaseRequest {
 }
 
 export interface ConversationIpc {
-  conversationAskNarratorStatus: {
-    args: [request: AskTopicConversationNarratorStatusRequest];
-    result: ConversationSnapshot;
-  };
-  conversationCreateSide: {
-    args: [request: CreateSideConversationRequest];
-    result: ConversationSnapshot;
-  };
   conversationDisposeSide: {
     args: [request: DisposeSideConversationRequest];
     result: ConversationSnapshot;
@@ -81,17 +61,9 @@ export interface ConversationIpc {
     args: [request: DiscardConversationInputRequest];
     result: ConversationInputRoutingState;
   };
-  conversationForkTopic: {
-    args: [request: ForkTopicConversationRequest];
-    result: ConversationSnapshot;
-  };
   conversationListTopicConversations: {
     args: [request: ListTopicConversationsRequest];
     result: NavigatorPage;
-  };
-  conversationQueueTurn: {
-    args: [request: QueueTopicConversationTurnRequest];
-    result: ConversationSnapshot;
   };
   conversationReadInputState: {
     args: [request: ReadConversationInputRoutingStateRequest];
@@ -113,16 +85,8 @@ export interface ConversationIpc {
     args: [request: RetryConversationInputRequest];
     result: ConversationInputRoutingState;
   };
-  conversationSendTurn: {
-    args: [request: SendTopicConversationTurnRequest];
-    result: ConversationSnapshot;
-  };
   conversationSendSideTurn: {
     args: [request: SendSideConversationTurnRequest];
-    result: ConversationSnapshot;
-  };
-  conversationSteerTurn: {
-    args: [request: SteerTopicConversationTurnRequest];
     result: ConversationSnapshot;
   };
   conversationStopTurn: {

@@ -12,7 +12,6 @@ const (
 	BranchDecisionKindCreateSideConversation BranchDecisionKind = "create_side_conversation"
 	BranchDecisionKindForkConversation       BranchDecisionKind = "fork_conversation"
 
-	BranchDecisionSourceExplicit           BranchDecisionSource = "explicit"
 	BranchDecisionSourceConversationRouter BranchDecisionSource = "conversation_router"
 	BranchDecisionSourceMaster             BranchDecisionSource = "master"
 )
@@ -29,8 +28,8 @@ type ForkConversationBranchDecision struct {
 	ProposedTitle  string `json:"proposedTitle"`
 }
 
-// BranchDecision is the restricted payload shared by explicit controls and
-// AI-authored routing. Exactly one branch must match Kind.
+// BranchDecision is the restricted payload shared by the conversation router
+// and global master. Exactly one branch must match Kind.
 type BranchDecision struct {
 	Kind                   BranchDecisionKind                    `json:"kind"`
 	CreateSideConversation *CreateSideConversationBranchDecision `json:"createSideConversation"`
@@ -39,7 +38,7 @@ type BranchDecision struct {
 
 // BranchDecisionExecutionScope is trusted application context and is never
 // part of the model decision schema. A side pane is supplied only after the
-// pane coordinator or originating local control has resolved it.
+// pane coordinator or originating conversation has resolved it.
 type BranchDecisionExecutionScope struct {
 	ParentConversationID string
 	ParentPaneID         *string
@@ -116,8 +115,7 @@ func (scope BranchDecisionExecutionScope) validateForkConversation() error {
 
 func validBranchDecisionSource(source BranchDecisionSource) bool {
 	switch source {
-	case BranchDecisionSourceExplicit,
-		BranchDecisionSourceConversationRouter,
+	case BranchDecisionSourceConversationRouter,
 		BranchDecisionSourceMaster:
 		return true
 	default:

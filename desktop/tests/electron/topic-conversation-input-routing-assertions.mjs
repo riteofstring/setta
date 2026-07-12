@@ -18,7 +18,6 @@ export async function waitForRecordedTextConversationInput(
   artifactDirectory,
   conversationId,
   text,
-  inputMode,
   timeoutMs,
   replyToInputId = null,
 ) {
@@ -31,7 +30,6 @@ export async function waitForRecordedTextConversationInput(
         event.channel === "conversation:submit-input" &&
         event.args?.[0]?.input?.conversationId === conversationId &&
         event.args[0].input.modality === "text" &&
-        event.args[0].input.requestedMode === inputMode &&
         event.args[0].input.text === text,
     );
     const finish = start
@@ -44,28 +42,21 @@ export async function waitForRecordedTextConversationInput(
       : null;
     if (start && finish) {
       const request = start.args[0];
-      assertRecordedTextConversationInput(
-        request.input,
-        conversationId,
-        text,
-        inputMode,
-        replyToInputId,
-      );
+      assertRecordedTextConversationInput(request.input, conversationId, text, replyToInputId);
       return { accepted: finish.result, request };
     }
     await delay(20);
   }
   throw new Error(
-    `timed out waiting for ${inputMode} pane text input ${JSON.stringify({ conversationId, text })}`,
+    `timed out waiting for pane text input ${JSON.stringify({ conversationId, text })}`,
   );
 }
 
-export async function assertRecordedExplicitTextInput({
+export async function assertRecordedRoutedTextInput({
   artifactDirectory,
   client,
   conversationId,
   expectedKind,
-  inputMode,
   text,
   timeoutMs,
   workspaceId,
@@ -74,7 +65,6 @@ export async function assertRecordedExplicitTextInput({
     artifactDirectory,
     conversationId,
     text,
-    inputMode,
     timeoutMs,
   );
   const state = await waitForBackendState(
@@ -82,17 +72,11 @@ export async function assertRecordedExplicitTextInput({
     (candidate) => candidate.input?.status === "dispatched",
     timeoutMs,
   );
-  assertExplicitConversationInputRoutingState(state, recorded.accepted.input, expectedKind);
+  assertRoutedConversationInputDecision(state, recorded.accepted.input, expectedKind);
   return { ...recorded, state };
 }
 
-function assertRecordedTextConversationInput(
-  input,
-  conversationId,
-  text,
-  inputMode,
-  replyToInputId,
-) {
+function assertRecordedTextConversationInput(input, conversationId, text, replyToInputId) {
   assertEqualJSON(
     conversationInputSummary(input),
     {
@@ -100,7 +84,6 @@ function assertRecordedTextConversationInput(
       conversationId,
       modality: "text",
       replyToInputId,
-      requestedMode: inputMode,
       text,
     },
     "recorded pane text conversation input",
@@ -199,9 +182,10 @@ export function assertQueuedConversationInputRoutingState(
   );
 }
 
-export function assertExplicitConversationInputRoutingState(state, expectedInput, expectedKind) {
+export function assertRoutedConversationInputDecision(state, expectedInput, expectedKind) {
+  const decision = state.decisions?.[0];
   assertEqualJSON(
-    explicitConversationInputRoutingSummary(state),
+    routedConversationInputDecisionSummary(state),
     {
       commandKind: expectedKind,
       commandText: expectedInput.text,
@@ -209,13 +193,31 @@ export function assertExplicitConversationInputRoutingState(state, expectedInput
       decisionText: expectedInput.text,
       decisions: 1,
       input: conversationInputSummary(expectedInput),
-      resolvedInvocation: null,
-      routerContext: null,
-      source: "explicit",
       status: "dispatched",
     },
-    "explicit conversation input routing",
+    "routed conversation input decision",
   );
+  if (!decision?.routerContext?.allowedDecisionKinds?.includes(expectedKind)) {
+    throw new Error(`routed decision was outside its authority: ${JSON.stringify(decision)}`);
+  }
+  assertConversationRouterInvocation(decision.resolvedInvocation);
+}
+
+function routedConversationInputDecisionSummary(state) {
+  const decisions = state.decisions ?? [];
+  const inputState = state.input ?? {};
+  const decision = decisions[0] ?? {};
+  const command = decision.resultingCommand ?? {};
+  const routed = decision.decision ?? {};
+  return {
+    commandKind: command.kind,
+    commandText: routeText(command),
+    decisionKind: routed.kind,
+    decisionText: routeText(routed),
+    decisions: decisions.length,
+    input: conversationInputSummary(inputState.input),
+    status: inputState.status,
+  };
 }
 
 export function assertPaneClarificationExchange(state, root, reply) {
@@ -227,7 +229,6 @@ export function assertPaneClarificationExchange(state, root, reply) {
       clarificationQuestion: initial.decision.clarify.question,
       finalCommandKind: final.resultingCommand.kind,
       finalCommandText: final.resultingCommand.sendToParent.authoredInput.text,
-      finalSource: final.source,
       replyId: state.clarificationReply.input.id,
       replyReplyToInputId: state.clarificationReply.input.replyToInputId,
       replyStatus: state.clarificationReply.status,
@@ -239,7 +240,6 @@ export function assertPaneClarificationExchange(state, root, reply) {
       clarificationQuestion: "Which exact pane request should I send?",
       finalCommandKind: "send_to_parent",
       finalCommandText: reply.accepted.input.text,
-      finalSource: "conversation_router",
       replyId: reply.accepted.input.id,
       replyReplyToInputId: root.accepted.input.id,
       replyStatus: "dispatched",
@@ -250,40 +250,7 @@ export function assertPaneClarificationExchange(state, root, reply) {
   );
 }
 
-function explicitConversationInputRoutingSummary(state) {
-  const inputState = state.input ?? {};
-  const decisions = state.decisions ?? [];
-  const decision = explicitDecisionRecordSummary(decisions[0]);
-  return {
-    commandKind: decision.commandKind,
-    commandText: decision.commandText,
-    decisionKind: decision.decisionKind,
-    decisionText: decision.decisionText,
-    decisions: decisions.length,
-    input: conversationInputSummary(inputState.input),
-    resolvedInvocation: decision.resolvedInvocation,
-    routerContext: decision.routerContext,
-    source: decision.source,
-    status: inputState.status,
-  };
-}
-
-function explicitDecisionRecordSummary(record) {
-  const decisionRecord = record ?? {};
-  const command = decisionRecord.resultingCommand ?? {};
-  const decision = decisionRecord.decision ?? {};
-  return {
-    commandKind: command.kind,
-    commandText: explicitRouteText(command),
-    decisionKind: decision.kind,
-    decisionText: explicitRouteText(decision),
-    resolvedInvocation: decisionRecord.resolvedInvocation,
-    routerContext: decisionRecord.routerContext,
-    source: decisionRecord.source,
-  };
-}
-
-const explicitRouteTextReaders = Object.freeze({
+const routeTextReaders = Object.freeze({
   answer_as_narrator: (route) => route.answerAsNarrator?.question,
   create_side_conversation: (route) => route.createSideConversation?.input?.text,
   fork_conversation: (route) => route.forkConversation?.input?.text,
@@ -292,8 +259,8 @@ const explicitRouteTextReaders = Object.freeze({
   steer_parent_turn: (route) => route.steerParentTurn?.authoredInput?.text,
 });
 
-function explicitRouteText(route) {
-  return explicitRouteTextReaders[route?.kind]?.(route);
+function routeText(route) {
+  return routeTextReaders[route?.kind]?.(route);
 }
 
 export function assertEscalatedConversationInputRoutingState(
@@ -321,7 +288,6 @@ export function assertEscalatedConversationInputRoutingState(
     decisionKind: decision.decision.kind,
     decisionText: decision.decision.escalateToMaster?.input?.text,
     masterInputId: decision.resultingCommand.escalateToMaster?.masterInputId,
-    source: decision.source,
   };
   const expected = {
     commandKind: "escalate_to_master",
@@ -329,7 +295,6 @@ export function assertEscalatedConversationInputRoutingState(
     decisionKind: "escalate_to_master",
     decisionText: expectedInput.text,
     masterInputId: actual.masterInputId,
-    source: "conversation_router",
   };
   assertEqualJSON(actual, expected, "conversation-router master escalation");
   assertNonEmptyString(actual.masterInputId, "routed master input id");
@@ -342,7 +307,6 @@ export async function escalateToMaster(client, topic, paneId, workspaceId) {
       id: "conversation_input_master_escalation",
       modality: "voice",
       replyToInputId: null,
-      requestedMode: "route",
       sourcePaneId: paneId,
       submittedAt: "2026-07-13T20:00:00Z",
       text: "route unrelated request through global master",
@@ -434,14 +398,12 @@ function assertConversationRouterDecision(decision, expectedInput, expectedRoute
     commandText: command?.authoredInput?.text,
     decisionKind: decision.decision.kind,
     decisionText: routed?.authoredInput?.text,
-    source: decision.source,
   };
   const expected = {
     commandKind: expectedRoute.kind,
     commandText: expectedInput.text,
     decisionKind: expectedRoute.kind,
     decisionText: expectedInput.text,
-    source: "conversation_router",
   };
   assertEqualJSON(actual, expected, "conversation-router decision");
   assertNonEmptyString(command?.turnId, "conversation-router parent turn id");
@@ -464,7 +426,6 @@ function assertIdleConversationRouterContextAudit(audit, inputSequence) {
     latestTrajectorySequence: audit.latestTrajectorySequence,
     priorNarrationCount: audit.priorNarrationCount,
     priorRouteDecisionCount: audit.priorRouteDecisionCount,
-    requestedMode: audit.requestedMode,
     validCompletedForkPointCount: audit.validCompletedForkPointCount,
   };
   const expected = {
@@ -476,7 +437,6 @@ function assertIdleConversationRouterContextAudit(audit, inputSequence) {
     latestTrajectorySequence: 0,
     priorNarrationCount: 0,
     priorRouteDecisionCount: 0,
-    requestedMode: "route",
     validCompletedForkPointCount: 0,
   };
   assertEqualJSON(actual, expected, "conversation-router context audit");
@@ -504,7 +464,6 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
       inputSequence: audit.inputSequence,
       priorNarrationCount: audit.priorNarrationCount,
       priorRouteDecisionCount: audit.priorRouteDecisionCount,
-      requestedMode: audit.requestedMode,
       validCompletedForkPointCount: audit.validCompletedForkPointCount,
     },
     {
@@ -515,7 +474,6 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
       inputSequence,
       priorNarrationCount: 3,
       priorRouteDecisionCount: 3,
-      requestedMode: "route",
       validCompletedForkPointCount: 1,
     },
     "working conversation-router context audit",
@@ -669,7 +627,6 @@ function conversationInputSummary(input) {
     id: input?.id,
     modality: input?.modality,
     replyToInputId: input?.replyToInputId,
-    requestedMode: input?.requestedMode,
     sourcePaneId: input?.sourcePaneId,
     submittedAt: input?.submittedAt,
     text: input?.text,

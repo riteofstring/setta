@@ -8,13 +8,13 @@ import {
 import { conversationSpeechCaptureRequest } from "./speech-capture-destination";
 
 describe("global speech conversation submission", () => {
-  test("delivers one finalized pane transcript to its frozen conversation and mode", async () => {
+  test("delivers one finalized pane transcript to its frozen conversation", async () => {
     const pending = deferred<AcceptedConversationInput>();
     const harness = createHarness({ submitConversationInput: vi.fn(() => pending.promise) });
 
     harness.controller.submitTranscript({
       captureSessionId: "capture_alpha",
-      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha", "queue"),
+      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha"),
       runtimeId: "runtime_alpha",
       transcript: "  Exact pane transcript.  ",
     });
@@ -35,7 +35,6 @@ describe("global speech conversation submission", () => {
           id: "capture_alpha",
           modality: "voice",
           replyToInputId: null,
-          requestedMode: "queue",
           sourcePaneId: "pane_alpha",
           submittedAt: "2026-07-12T18:00:00.12Z",
           text: "  Exact pane transcript.  ",
@@ -67,7 +66,7 @@ describe("global speech conversation submission", () => {
 
     harness.controller.submitTranscript({
       captureSessionId: "capture_retry",
-      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha", "steer"),
+      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha"),
       runtimeId: "runtime_alpha",
       transcript: "Retry this pane request",
     });
@@ -104,7 +103,7 @@ describe("global speech conversation submission", () => {
     const harness = createHarness({ submitConversationInput: () => pending.promise });
     harness.controller.submitTranscript({
       captureSessionId: "capture_old",
-      request: conversationSpeechCaptureRequest("conversation_old", "pane_old", "route"),
+      request: conversationSpeechCaptureRequest("conversation_old", "pane_old"),
       runtimeId: "runtime_old",
       transcript: "Old runtime request",
     });
@@ -126,14 +125,14 @@ describe("global speech conversation submission", () => {
     const harness = createHarness({ submitConversationInput: () => pending.promise });
     harness.controller.submitTranscript({
       captureSessionId: "capture_mismatch",
-      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha", "route"),
+      request: conversationSpeechCaptureRequest("conversation_alpha", "pane_alpha"),
       runtimeId: "runtime_alpha",
       transcript: "Original pane request",
     });
     expect(() => harness.controller.discard()).toThrow("cannot be discarded");
 
     const receipt = acceptedFor(harness.requests[0]!);
-    receipt.input = { ...receipt.input, requestedMode: "send" };
+    receipt.input = { ...receipt.input, sourcePaneId: "pane_other" };
     pending.resolve(receipt);
     await flushPromises();
 

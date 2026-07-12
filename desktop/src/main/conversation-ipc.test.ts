@@ -15,8 +15,6 @@ describe("conversation IPC handlers", () => {
     const listTopicConversations = vi.fn(async () => page);
     const snapshot = { conversation: { id: "conversation_api" } };
     const backendMethods = {
-      askTopicConversationNarratorStatus: vi.fn(async () => snapshot),
-      createSideConversation: vi.fn(async () => snapshot),
       disposeSideConversation: vi.fn(async () => snapshot),
       discardConversationInput: vi.fn(async () => ({
         clarificationReply: null,
@@ -37,9 +35,7 @@ describe("conversation IPC handlers", () => {
         },
       })),
       createTopicConversation: vi.fn(async () => snapshot),
-      forkTopicConversation: vi.fn(async () => snapshot),
       listTopicConversations,
-      queueTopicConversationTurn: vi.fn(async () => snapshot),
       readConversationInputRoutingState: vi.fn(async () => ({
         clarificationReply: null,
         decisions: [],
@@ -80,9 +76,7 @@ describe("conversation IPC handlers", () => {
           status: "accepted" as const,
         },
       })),
-      sendTopicConversationTurn: vi.fn(async () => snapshot),
       sendSideConversationTurn: vi.fn(async () => snapshot),
-      steerTopicConversationTurn: vi.fn(async () => snapshot),
       stopTopicConversationTurn: vi.fn(async () => snapshot),
       submitConversationInput: vi.fn(async (request: SubmitConversationInputRequest) => ({
         acceptedAt: "2026-07-12T18:00:01Z",
@@ -122,18 +116,7 @@ describe("conversation IPC handlers", () => {
     expect(listTopicConversations).toHaveBeenCalledWith(request);
 
     const target = { conversationId: "conversation_api", workspaceId: "workspace_api" };
-    const turn = { ...target, text: "work" };
     const sender = { id: 7 };
-    await invokeHandler(handlers, ipcChannels.conversationAskNarratorStatus, {
-      ...target,
-      question: "What is happening?",
-    });
-    const sideRequest = {
-      parentConversationId: "conversation_api",
-      parentPaneId: "pane_api",
-      workspaceId: "workspace_api",
-    };
-    await invokeHandler(handlers, ipcChannels.conversationCreateSide, sideRequest);
     const sideTurnRequest = {
       parentConversationId: "conversation_api",
       sideConversationId: "side_api",
@@ -152,17 +135,7 @@ describe("conversation IPC handlers", () => {
       title: "Topic",
       workspaceId: "workspace_api",
     });
-    const forkRequest = {
-      forkedAtTurnId: "turn_api",
-      parentConversationId: "conversation_api",
-      title: "Forked topic",
-      workspaceId: "workspace_api",
-    };
-    await invokeHandler(handlers, ipcChannels.conversationForkTopic, forkRequest);
     await invokeHandler(handlers, ipcChannels.conversationReadSnapshot, target);
-    await invokeHandler(handlers, ipcChannels.conversationSendTurn, turn);
-    await invokeHandler(handlers, ipcChannels.conversationQueueTurn, turn);
-    await invokeHandler(handlers, ipcChannels.conversationSteerTurn, turn);
     await invokeHandler(handlers, ipcChannels.conversationStopTurn, target);
     const inputRequest = conversationInputRequest();
     await invokeHandler(handlers, ipcChannels.conversationSubmitInput, inputRequest);
@@ -196,22 +169,13 @@ describe("conversation IPC handlers", () => {
       { ...target, keepAlive: true },
     );
 
-    expect(backendMethods.askTopicConversationNarratorStatus).toHaveBeenCalledWith({
-      ...target,
-      question: "What is happening?",
-    });
-    expect(backendMethods.createSideConversation).toHaveBeenCalledWith(sideRequest);
     expect(backendMethods.sendSideConversationTurn).toHaveBeenCalledWith(sideTurnRequest);
     expect(backendMethods.disposeSideConversation).toHaveBeenCalledWith(sideDisposeRequest);
     expect(backendMethods.createTopicConversation).toHaveBeenCalledWith({
       title: "Topic",
       workspaceId: "workspace_api",
     });
-    expect(backendMethods.forkTopicConversation).toHaveBeenCalledWith(forkRequest);
     expect(backendMethods.readConversationSnapshot).toHaveBeenCalledWith(target);
-    expect(backendMethods.sendTopicConversationTurn).toHaveBeenCalledWith(turn);
-    expect(backendMethods.queueTopicConversationTurn).toHaveBeenCalledWith(turn);
-    expect(backendMethods.steerTopicConversationTurn).toHaveBeenCalledWith(turn);
     expect(backendMethods.stopTopicConversationTurn).toHaveBeenCalledWith(target);
     expect(backendMethods.submitConversationInput).toHaveBeenCalledWith(inputRequest);
     expect(backendMethods.readConversationInputRoutingState).toHaveBeenCalledWith(
@@ -239,7 +203,6 @@ function conversationInputRequest(): SubmitConversationInputRequest {
       id: "input_api",
       modality: "voice",
       replyToInputId: null,
-      requestedMode: "route",
       sourcePaneId: "pane_api",
       submittedAt: "2026-07-12T18:00:00Z",
       text: "Route this pane input",

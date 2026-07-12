@@ -15,7 +15,6 @@ type conversationRouteCommandService interface {
 		string,
 		string,
 		string,
-		conversation.ConversationRouteDecisionSource,
 		conversation.ConversationRouteCommand,
 	) (conversation.ConversationSnapshot, error)
 }
@@ -120,7 +119,6 @@ func (executor *conversationRouteCommandExecutor) executeConversationRouteComman
 			workspaceID,
 			record.ConversationID,
 			record.ID,
-			record.Source,
 			record.ResultingCommand,
 		)
 		return err

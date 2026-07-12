@@ -19,20 +19,8 @@ export function registerConversationIpcHandlers({
 }: ConversationIpcRegistration): void {
   handleIpc(
     ipcMain,
-    "conversationAskNarratorStatus",
-    async (_event, request) => requireBackendClient().askTopicConversationNarratorStatus(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "conversationDisposeSide",
     async (_event, request) => requireBackendClient().disposeSideConversation(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "conversationCreateSide",
-    async (_event, request) => requireBackendClient().createSideConversation(request),
     ipcObserver,
   );
   handleIpc(
@@ -45,12 +33,6 @@ export function registerConversationIpcHandlers({
     ipcMain,
     "conversationDiscardInput",
     async (_event, request) => requireBackendClient().discardConversationInput(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "conversationForkTopic",
-    async (_event, request) => requireBackendClient().forkTopicConversation(request),
     ipcObserver,
   );
   handleIpc(
@@ -85,26 +67,8 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "conversationSendTurn",
-    async (_event, request) => requireBackendClient().sendTopicConversationTurn(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "conversationSendSideTurn",
     async (_event, request) => requireBackendClient().sendSideConversationTurn(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "conversationQueueTurn",
-    async (_event, request) => requireBackendClient().queueTopicConversationTurn(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "conversationSteerTurn",
-    async (_event, request) => requireBackendClient().steerTopicConversationTurn(request),
     ipcObserver,
   );
   handleIpc(

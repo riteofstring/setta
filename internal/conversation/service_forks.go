@@ -15,33 +15,6 @@ const (
 	branchMetadataSourceProviderTurnID   = "sourceProviderTurnId"
 )
 
-// ForkTopic creates an independent durable conversation from parent history
-// through one completed Setta turn. Provider ids are resolved from durable
-// state and never accepted from the caller.
-func (service *Service) ForkTopic(
-	ctx context.Context,
-	workspaceID string,
-	parentConversationID string,
-	forkedAtTurnID string,
-	title string,
-) (ConversationSnapshot, error) {
-	return service.ExecuteBranchDecision(
-		ctx,
-		workspaceID,
-		BranchDecisionExecutionScope{
-			ParentConversationID: parentConversationID,
-			Source:               BranchDecisionSourceExplicit,
-		},
-		BranchDecision{
-			Kind: BranchDecisionKindForkConversation,
-			ForkConversation: &ForkConversationBranchDecision{
-				ForkedAtTurnID: forkedAtTurnID,
-				ProposedTitle:  title,
-			},
-		},
-	)
-}
-
 func (service *Service) executeDurableForkDecision(
 	ctx context.Context,
 	workspaceID string,

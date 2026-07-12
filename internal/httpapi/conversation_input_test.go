@@ -23,7 +23,6 @@ func TestConversationInputEndpointAcceptsTypedPaneSubmission(t *testing.T) {
 		SourcePaneID:   &paneID,
 		Text:           "  Keep the finalized transcript exact.  ",
 		Modality:       conversation.ConversationInputModalityVoice,
-		RequestedMode:  conversation.ConversationInputModeRoute,
 		SubmittedAt:    "2026-07-12T18:00:00Z",
 	}
 
@@ -306,7 +305,7 @@ func TestConversationInputEndpointRejectsUnknownAndOversizedPayloads(t *testing.
 		t,
 		handler,
 		"/conversations/inputs/submit",
-		`{"input":{"id":"input","conversationId":"conversation","sourcePaneId":null,"replyToInputId":null,"text":"request","modality":"voice","requestedMode":"route","submittedAt":"2026-07-12T18:00:00Z","workspaceId":"removed"}}`,
+		`{"input":{"id":"input","conversationId":"conversation","sourcePaneId":null,"replyToInputId":null,"text":"request","modality":"voice","submittedAt":"2026-07-12T18:00:00Z","workspaceId":"removed"}}`,
 		http.StatusBadRequest,
 	)
 	if unknown.Error.Code != "invalid_json" || service.calls != 0 {
@@ -476,7 +475,6 @@ func validSubmitConversationInputRequest() SubmitConversationInputRequest {
 		ConversationID: "conversation_alpha",
 		Text:           "Route this request",
 		Modality:       conversation.ConversationInputModalityVoice,
-		RequestedMode:  conversation.ConversationInputModeRoute,
 		SubmittedAt:    "2026-07-12T18:00:00Z",
 	}}
 }

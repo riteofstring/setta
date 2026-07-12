@@ -74,9 +74,9 @@ import { verifySideConversationRestart } from "./topic-conversation-side-restart
 import {
   assertChangedConversationInputConflicts,
   assertDispatchedConversationInputRoutingState,
-  assertExplicitConversationInputRoutingState,
   assertPaneClarificationExchange,
-  assertRecordedExplicitTextInput,
+  assertRecordedRoutedTextInput,
+  assertRoutedConversationInputDecision,
   assertRoutedConversationInputReceipt,
   escalateToMaster,
   readConversationInputRoutingState,
@@ -375,7 +375,6 @@ try {
     secondLaunchDir,
     alpha.id,
     "clarify pane request",
-    "route",
     workflowTimeoutMs,
   );
   await waitForConversationSurface(
@@ -394,7 +393,6 @@ try {
     secondLaunchDir,
     alpha.id,
     "send the clarified pane request",
-    "route",
     workflowTimeoutMs,
     clarificationRoot.accepted.input.id,
   );
@@ -443,7 +441,6 @@ try {
     secondLaunchDir,
     alpha.id,
     "hold alpha",
-    "route",
     workflowTimeoutMs,
   );
   const routedTextState = await waitForBackendState(
@@ -452,8 +449,9 @@ try {
     workflowTimeoutMs,
   );
   if (
-    routedTextState.decisions?.[0]?.source !== "conversation_router" ||
-    routedTextState.decisions[0].decision?.kind !== "send_to_parent"
+    routedTextState.decisions?.[0]?.decision?.kind !== "send_to_parent" ||
+    !routedTextState.decisions[0].routerContext ||
+    !routedTextState.decisions[0].resolvedInvocation
   ) {
     throw new Error(
       `pane text did not use local route by default: ${JSON.stringify(routedTextState)}`,
@@ -494,11 +492,11 @@ try {
     "globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(false)",
   );
   assertDriverAction(
-    await context.client.driver("topicConversationAskStatus", {
+    await context.client.driver("topicConversationSubmit", {
       conversationId: alpha.id,
-      question: statusQuestion,
+      text: statusQuestion,
     }),
-    "asked",
+    "submitted",
   );
   const statusWhileWorking = await waitForConversationSurfaces(context.client, (surfaces) => {
     const alphaSurfaces = conversationSurfaces(surfaces, alpha.id);
@@ -522,12 +520,11 @@ try {
     (snapshot) => snapshot.narration.events.some((event) => event.kind === "status_reply"),
   );
   assertNarratorStatusIsolation(alphaBeforeStatus, alphaAfterStatus, statusQuestion);
-  await assertRecordedExplicitTextInput({
+  await assertRecordedRoutedTextInput({
     artifactDirectory: secondLaunchDir,
     client: context.client,
     conversationId: alpha.id,
     expectedKind: "answer_as_narrator",
-    inputMode: "ask_narrator",
     text: statusQuestion,
     timeoutMs: workflowTimeoutMs,
     workspaceId,
@@ -568,7 +565,6 @@ try {
   assertDriverAction(
     await context.client.driver("topicConversationVoiceCapture", {
       conversationId: alpha.id,
-      inputMode: "queue",
     }),
     "requested",
   );
@@ -611,7 +607,6 @@ try {
     paneSpeechTranscript,
     workflowTimeoutMs,
     2,
-    "queue",
   );
   const workingConversationInputRequest = workingInput.request;
   const acceptedWorkingConversationInput = workingInput.accepted;
@@ -625,7 +620,7 @@ try {
     (state) => state.input?.status === "dispatched",
     workflowTimeoutMs,
   );
-  assertExplicitConversationInputRoutingState(
+  assertRoutedConversationInputDecision(
     routedWorkingConversationInput,
     acceptedWorkingConversationInput.input,
     "queue_parent_turn",
@@ -654,13 +649,12 @@ try {
     expectedKinds: ["queue_agent_turn", "steer_active_turn"],
   });
 
-  await submitExplicitQueueAndWait(context.client, alpha.id, "artifact alpha", 2);
-  await assertRecordedExplicitTextInput({
+  await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 2);
+  await assertRecordedRoutedTextInput({
     artifactDirectory: secondLaunchDir,
     client: context.client,
     conversationId: alpha.id,
     expectedKind: "queue_parent_turn",
-    inputMode: "queue",
     text: "artifact alpha",
     timeoutMs: workflowTimeoutMs,
     workspaceId,
@@ -718,18 +712,17 @@ try {
   );
 
   assertDriverAction(
-    await context.client.driver("topicConversationSteer", {
+    await context.client.driver("topicConversationSubmit", {
       conversationId: alpha.id,
       text: "steer alpha now",
     }),
-    "steered",
+    "submitted",
   );
-  await assertRecordedExplicitTextInput({
+  await assertRecordedRoutedTextInput({
     artifactDirectory: secondLaunchDir,
     client: context.client,
     conversationId: alpha.id,
     expectedKind: "steer_parent_turn",
-    inputMode: "steer",
     text: "steer alpha now",
     timeoutMs: workflowTimeoutMs,
     workspaceId,
@@ -848,18 +841,17 @@ try {
       surface.summaryText === "Narrator completed hold beta.",
   );
   assertDriverAction(
-    await context.client.driver("topicConversationSend", {
+    await context.client.driver("topicConversationSubmit", {
       conversationId: beta.id,
       text: "narration backlog fail beta",
     }),
-    "sent",
+    "submitted",
   );
-  await assertRecordedExplicitTextInput({
+  await assertRecordedRoutedTextInput({
     artifactDirectory: secondLaunchDir,
     client: context.client,
     conversationId: beta.id,
     expectedKind: "send_to_parent",
-    inputMode: "send",
     text: "narration backlog fail beta",
     timeoutMs: workflowTimeoutMs,
     workspaceId,
@@ -966,22 +958,20 @@ try {
     timeoutMs: workflowTimeoutMs,
     workspaceId,
   });
-  await assertRecordedExplicitTextInput({
+  await assertRecordedRoutedTextInput({
     artifactDirectory: secondLaunchDir,
     client: context.client,
     conversationId: alpha.id,
     expectedKind: "create_side_conversation",
-    inputMode: "side",
     text: "side lifecycle answer",
     timeoutMs: workflowTimeoutMs,
     workspaceId,
   });
-  await assertRecordedExplicitTextInput({
+  await assertRecordedRoutedTextInput({
     artifactDirectory: secondLaunchDir,
     client: context.client,
     conversationId: alpha.id,
     expectedKind: "fork_conversation",
-    inputMode: "fork",
     text: "Alpha topic fork",
     timeoutMs: workflowTimeoutMs,
     workspaceId,
@@ -1013,7 +1003,7 @@ try {
     acceptedConversationInput.input,
     acceptedConversationInput.sequence,
   );
-  assertExplicitConversationInputRoutingState(
+  assertRoutedConversationInputDecision(
     await readConversationInputRoutingState(
       context.client,
       workspaceId,
@@ -1066,7 +1056,7 @@ try {
     acceptedConversationInput.input,
     acceptedConversationInput.sequence,
   );
-  assertExplicitConversationInputRoutingState(
+  assertRoutedConversationInputDecision(
     await readConversationInputRoutingState(
       context.client,
       workspaceId,
@@ -1445,18 +1435,6 @@ async function submitAndWaitForQueue(client, conversationId, text, queueCount) {
   assertDriverAction(
     await client.driver("topicConversationSubmit", { conversationId, text }),
     "submitted",
-  );
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) => surface.queueCount === queueCount,
-  );
-}
-
-async function submitExplicitQueueAndWait(client, conversationId, text, queueCount) {
-  assertDriverAction(
-    await client.driver("topicConversationQueue", { conversationId, text }),
-    "queued",
   );
   await waitForConversationSurface(
     client,

@@ -7,15 +7,14 @@ import (
 )
 
 // ExecuteRouteCommand dispatches one already validated and durably recorded
-// conversation-local command through the same production services as direct
-// conversation controls. IDs carried by the command remain the IDs of the
-// resulting turn, side conversation, or durable child.
+// conversation-local command through the production conversation services.
+// IDs carried by the command remain the IDs of the resulting turn, side
+// conversation, or durable child.
 func (service *Service) ExecuteRouteCommand(
 	ctx context.Context,
 	workspaceID string,
 	conversationID string,
 	decisionID string,
-	source ConversationRouteDecisionSource,
 	command ConversationRouteCommand,
 ) (ConversationSnapshot, error) {
 	if err := validateRouteCommandExecution(
@@ -62,7 +61,6 @@ func (service *Service) ExecuteRouteCommand(
 			ctx,
 			workspaceID,
 			conversationID,
-			source,
 			command,
 		)
 	case ConversationRouteDecisionKindForkConversation:
@@ -70,7 +68,6 @@ func (service *Service) ExecuteRouteCommand(
 			ctx,
 			workspaceID,
 			conversationID,
-			source,
 			command,
 		)
 	case ConversationRouteDecisionKindAnswerAsNarrator,
@@ -111,14 +108,9 @@ func (service *Service) executeRoutedSideConversation(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
-	source ConversationRouteDecisionSource,
 	command ConversationRouteCommand,
 ) (ConversationSnapshot, error) {
 	payload := command.CreateSideConversation
-	branchSource, err := routeBranchDecisionSource(source)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
 	sideConversationID := payload.SideConversationID
 	parentPaneID := payload.ParentPaneID
 	parentSnapshot, err := service.store.ReadSnapshot(ctx, workspaceID, parentConversationID)
@@ -133,7 +125,7 @@ func (service *Service) executeRoutedSideConversation(
 				ParentConversationID: parentConversationID,
 				ParentPaneID:         &parentPaneID,
 				SideConversationID:   &sideConversationID,
-				Source:               branchSource,
+				Source:               BranchDecisionSourceConversationRouter,
 			},
 			BranchDecision{
 				Kind:                   BranchDecisionKindCreateSideConversation,
@@ -158,24 +150,19 @@ func (service *Service) executeRoutedForkConversation(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
-	source ConversationRouteDecisionSource,
 	command ConversationRouteCommand,
 ) (ConversationSnapshot, error) {
 	payload := command.ForkConversation
-	branchSource, err := routeBranchDecisionSource(source)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
 	childConversationID := payload.ChildConversationID
 	childWorkspaceID, readErr := service.store.ReadConversationWorkspaceID(ctx, childConversationID)
 	if errors.Is(readErr, ErrConversationNotFound) {
-		_, err = service.ExecuteBranchDecision(
+		_, err := service.ExecuteBranchDecision(
 			ctx,
 			workspaceID,
 			BranchDecisionExecutionScope{
 				ParentConversationID: parentConversationID,
 				ChildConversationID:  &childConversationID,
-				Source:               branchSource,
+				Source:               BranchDecisionSourceConversationRouter,
 			},
 			BranchDecision{
 				Kind: BranchDecisionKindForkConversation,
@@ -204,15 +191,4 @@ func (service *Service) executeRoutedForkConversation(
 		payload.Input.Text,
 		payload.TurnID,
 	)
-}
-
-func routeBranchDecisionSource(source ConversationRouteDecisionSource) (BranchDecisionSource, error) {
-	switch source {
-	case ConversationRouteDecisionSourceRouter:
-		return BranchDecisionSourceConversationRouter, nil
-	case ConversationRouteDecisionSourceExplicit:
-		return BranchDecisionSourceExplicit, nil
-	default:
-		return "", fmt.Errorf("unsupported conversation route decision source %q", source)
-	}
 }

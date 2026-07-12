@@ -20,7 +20,7 @@ func TestServiceCreatesEphemeralSideForkForParentPane(t *testing.T) {
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	parentID := parent.Conversation.ID
-	if _, err := service.SendTurn(ctx, workspaceID, parentID, "hold"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, "hold"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold")
@@ -31,7 +31,7 @@ func TestServiceCreatesEphemeralSideForkForParentPane(t *testing.T) {
 	profile := sideAgentOverride("gpt-side-exact")
 	persistSideAgentOverride(t, store, parentID, profile)
 
-	created, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-side")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, "pane-side")
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestServiceCreatesEphemeralSideForkForParentPane(t *testing.T) {
 	assertSideAbsentFromNavigator(t, service, workspaceID, side.ID)
 	assertParentExecutionUnchangedBySide(t, working, created)
 
-	if _, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-side"); !IsCommandConflict(err) {
+	if _, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, "pane-side"); !IsCommandConflict(err) {
 		t.Fatalf("duplicate pane side error = %T %v, want conflict", err, err)
 	}
 	if len(runtime.sideForkRequests()) != 1 {
@@ -62,7 +62,7 @@ func TestServiceInjectsTypedAuthoritativeSideContextBeforeActivation(t *testing.
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	parentID := parent.Conversation.ID
-	if _, err := service.SendTurn(ctx, workspaceID, parentID, "hold side context"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, "hold side context"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold side context")
@@ -73,13 +73,13 @@ func TestServiceInjectsTypedAuthoritativeSideContextBeforeActivation(t *testing.
 			containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventArtifactEmitted) &&
 			containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventApprovalRequested)
 	})
-	if _, err := service.SteerTurn(ctx, workspaceID, parentID, "Keep the active constraint authoritative."); err != nil {
+	if _, err := service.steerTestTurn(ctx, workspaceID, parentID, "Keep the active constraint authoritative."); err != nil {
 		t.Fatalf("SteerTurn: %v", err)
 	}
 	steered := assertServiceSnapshot(t, service, workspaceID, parentID, func(snapshot ConversationSnapshot) bool {
 		return containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventTurnSteered)
 	})
-	created, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-typed-context")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, "pane-typed-context")
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestServiceFailsSideWhenContextInjectionIsRejected(t *testing.T) {
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	runtime.injectErr = errors.New("scripted side context rejection")
-	_, err = service.CreateSideConversation(ctx, workspaceID, parent.Conversation.ID, "pane-rejected-context")
+	_, err = service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-rejected-context")
 	if err == nil || !strings.Contains(err.Error(), "scripted side context rejection") {
 		t.Fatalf("CreateSideConversation injection error = %v", err)
 	}
@@ -178,12 +178,12 @@ func TestServicePersistsFailedSideWhenProviderRejectsFork(t *testing.T) {
 		t.Fatalf("CreateTopic: %v", err)
 	}
 	runtime.forkErr = errors.New("scripted side fork failure")
-	_, err = service.CreateSideConversation(
+	_, err = service.createRouterSideConversationForTest(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
-		"pane-failed-side",
-	)
+		"pane-failed-side")
+
 	if err == nil || !strings.Contains(err.Error(), "scripted side fork failure") {
 		t.Fatalf("CreateSideConversation failure = %v", err)
 	}
@@ -315,7 +315,7 @@ func prepareSideBeforeParentStartsWorking(
 		resolved,
 		invocation,
 		nil,
-		BranchDecisionSourceExplicit,
+		BranchDecisionSourceConversationRouter,
 	)
 	if err != nil {
 		t.Fatalf("persistPreparingSideConversation: %v", err)
@@ -323,7 +323,7 @@ func prepareSideBeforeParentStartsWorking(
 	if prepared.side.ParentStatus != ConversationStatusIdle {
 		t.Fatalf("preparing parent status = %s, want idle", prepared.side.ParentStatus)
 	}
-	if _, err := service.SendTurn(ctx, workspaceID, parent.Conversation.ID, "hold"); err != nil {
+	if _, err := service.sendTestTurn(ctx, workspaceID, parent.Conversation.ID, "hold"); err != nil {
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold")
@@ -363,7 +363,7 @@ func TestServiceRejectsInvalidSideForkWithoutUnsubscribingParent(t *testing.T) {
 		Ephemeral:    true,
 		ForkedFromID: &parentThreadID,
 	}
-	_, err = service.CreateSideConversation(ctx, workspaceID, parent.Conversation.ID, "pane-invalid")
+	_, err = service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-invalid")
 	if err == nil || !strings.Contains(err.Error(), "reused the parent thread id") {
 		t.Fatalf("CreateSideConversation invalid provider result = %v", err)
 	}
@@ -383,12 +383,12 @@ func TestServiceSideSnapshotRetainsOpenSideOverBoundedFailedHistory(t *testing.T
 	runtime.forkErr = errors.New("scripted bounded side failure")
 	firstFailedSideID := ""
 	for index := 0; index < MaxSnapshotSideConversations+3; index++ {
-		_, err := service.CreateSideConversation(
+		_, err := service.createRouterSideConversationForTest(
 			ctx,
 			workspaceID,
 			parentID,
-			fmt.Sprintf("pane-failed-%02d", index),
-		)
+			fmt.Sprintf("pane-failed-%02d", index))
+
 		if err == nil || !strings.Contains(err.Error(), "scripted bounded side failure") {
 			t.Fatalf("CreateSideConversation failure %d = %v", index, err)
 		}
@@ -401,7 +401,7 @@ func TestServiceSideSnapshotRetainsOpenSideOverBoundedFailedHistory(t *testing.T
 		}
 	}
 	runtime.forkErr = nil
-	created, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-active-newest")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, "pane-active-newest")
 	if err != nil {
 		t.Fatalf("CreateSideConversation active: %v", err)
 	}
@@ -425,12 +425,12 @@ func TestServiceUsesAuthoritativeOpenSideStateOutsideBoundedSnapshot(t *testing.
 	firstSideID := ""
 	latest := ConversationSnapshot{}
 	for index := 0; index < MaxSnapshotSideConversations+1; index++ {
-		latest, err = service.CreateSideConversation(
+		latest, err = service.createRouterSideConversationForTest(
 			ctx,
 			workspaceID,
 			parentID,
-			fmt.Sprintf("pane-open-%02d", index),
-		)
+			fmt.Sprintf("pane-open-%02d", index))
+
 		if err != nil {
 			t.Fatalf("CreateSideConversation %d: %v", index, err)
 		}
@@ -442,7 +442,7 @@ func TestServiceUsesAuthoritativeOpenSideStateOutsideBoundedSnapshot(t *testing.
 		t.Fatalf("precondition failed: oldest open side remained in bounded snapshot: %+v", latest.SideConversations)
 	}
 	providerCalls := len(runtime.sideForkRequests())
-	if _, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-open-00"); !IsCommandConflict(err) {
+	if _, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, "pane-open-00"); !IsCommandConflict(err) {
 		t.Fatalf("duplicate old pane error = %T %v, want conflict", err, err)
 	}
 	if got := len(runtime.sideForkRequests()); got != providerCalls {
@@ -570,7 +570,7 @@ func assertActiveSideLinkage(t *testing.T, side SideConversation, parent Convers
 	parentTurn := latestSnapshotTurn(parent)
 	if side.ParentConversationID != parent.Conversation.ID ||
 		side.ParentPaneID != "pane-side" ||
-		side.DecisionSource != BranchDecisionSourceExplicit ||
+		side.DecisionSource != BranchDecisionSourceConversationRouter ||
 		side.SourceTrajectorySequence != parent.Conversation.LastTrajectorySequence ||
 		side.SourceProviderTurnID == nil ||
 		parentTurn.ProviderTurnID == nil ||

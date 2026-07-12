@@ -18,20 +18,11 @@ const (
 )
 
 type ConversationInputModality string
-type ConversationInputMode string
 type ConversationInputStatus string
 
 const (
 	ConversationInputModalityText  ConversationInputModality = "text"
 	ConversationInputModalityVoice ConversationInputModality = "voice"
-
-	ConversationInputModeRoute       ConversationInputMode = "route"
-	ConversationInputModeSend        ConversationInputMode = "send"
-	ConversationInputModeQueue       ConversationInputMode = "queue"
-	ConversationInputModeSteer       ConversationInputMode = "steer"
-	ConversationInputModeAskNarrator ConversationInputMode = "ask_narrator"
-	ConversationInputModeSide        ConversationInputMode = "side"
-	ConversationInputModeFork        ConversationInputMode = "fork"
 
 	ConversationInputStatusAccepted              ConversationInputStatus = "accepted"
 	ConversationInputStatusRouting               ConversationInputStatus = "routing"
@@ -51,7 +42,6 @@ type ConversationInput struct {
 	ReplyToInputID *string                   `json:"replyToInputId"`
 	Text           string                    `json:"text"`
 	Modality       ConversationInputModality `json:"modality"`
-	RequestedMode  ConversationInputMode     `json:"requestedMode"`
 	SubmittedAt    string                    `json:"submittedAt"`
 }
 
@@ -125,9 +115,6 @@ func validateConversationInputContent(input ConversationInput) error {
 	if !validConversationInputModality(input.Modality) {
 		return fmt.Errorf("unsupported conversation input modality %q", input.Modality)
 	}
-	if !validConversationInputMode(input.RequestedMode) {
-		return fmt.Errorf("unsupported conversation input mode %q", input.RequestedMode)
-	}
 	return nil
 }
 
@@ -178,7 +165,6 @@ func EqualConversationInputs(left ConversationInput, right ConversationInput) bo
 		equalOptionalString(left.ReplyToInputID, right.ReplyToInputID) &&
 		left.Text == right.Text &&
 		left.Modality == right.Modality &&
-		left.RequestedMode == right.RequestedMode &&
 		left.SubmittedAt == right.SubmittedAt
 }
 
@@ -204,21 +190,6 @@ func ConversationInputAcceptedEventID(inputID string) (string, error) {
 func validConversationInputModality(modality ConversationInputModality) bool {
 	switch modality {
 	case ConversationInputModalityText, ConversationInputModalityVoice:
-		return true
-	default:
-		return false
-	}
-}
-
-func validConversationInputMode(mode ConversationInputMode) bool {
-	switch mode {
-	case ConversationInputModeRoute,
-		ConversationInputModeSend,
-		ConversationInputModeQueue,
-		ConversationInputModeSteer,
-		ConversationInputModeAskNarrator,
-		ConversationInputModeSide,
-		ConversationInputModeFork:
 		return true
 	default:
 		return false

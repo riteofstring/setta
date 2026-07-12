@@ -95,13 +95,18 @@ func TestConversationRouteCommandExecutorRejectsMissingAtomicMasterEffect(t *tes
 }
 
 func routedNarratorStatusDecisionRecord() conversation.ConversationRouteDecisionRecord {
+	invocation := routedNarratorInvocation()
 	return conversation.ConversationRouteDecisionRecord{
 		StreamSequence: 1,
 		ID:             "conversation_route_decision_test",
 		ConversationID: "conversation_test",
 		InputID:        "conversation_input_test",
 		RoutingAttempt: 1,
-		Source:         conversation.ConversationRouteDecisionSourceExplicit,
+		RouterContext: &conversation.ConversationRouteContextAudit{
+			InputSequence:        1,
+			AllowedDecisionKinds: []conversation.ConversationRouteDecisionKind{conversation.ConversationRouteDecisionKindAnswerAsNarrator},
+		},
+		ResolvedInvocation: &invocation,
 		Decision: conversation.ConversationRouteDecision{
 			Kind: conversation.ConversationRouteDecisionKindAnswerAsNarrator,
 			AnswerAsNarrator: &conversation.AnswerAsNarratorConversationRouteDecision{
@@ -116,6 +121,42 @@ func routedNarratorStatusDecisionRecord() conversation.ConversationRouteDecision
 			},
 		},
 		DecidedAt: "2026-07-13T20:00:00Z",
+	}
+}
+
+func routedNarratorInvocation() conversation.ResolvedInvocation {
+	profile := conversation.DefaultNarratorRoleProfile()
+	threadID := "provider_thread_test"
+	turnID := "provider_turn_test"
+	requestID := "provider_request_test"
+	responseID := "provider_response_test"
+	endedAt := "2026-07-13T20:00:00Z"
+	return conversation.ResolvedInvocation{
+		ID:        "invocation_route_decision_test",
+		Role:      conversation.RoleNarrator,
+		Provider:  conversation.ProviderCodex,
+		Requested: profile,
+		Resolved: conversation.ResolvedInvocationSettings{
+			ModelID:           "gpt-5.4-mini",
+			ReasoningEffort:   profile.ReasoningEffort,
+			PermissionProfile: profile.PermissionProfile,
+		},
+		ContextUsage: conversation.InvocationContextUsage{
+			InputBytes:            100,
+			EstimatedInputTokens:  25,
+			OutputBytes:           40,
+			EstimatedOutputTokens: 10,
+		},
+		ProviderReferences: conversation.InvocationProviderReferences{
+			ThreadID:   &threadID,
+			TurnID:     &turnID,
+			RequestID:  &requestID,
+			ResponseID: &responseID,
+		},
+		ModelReroutes: []conversation.InvocationModelReroute{},
+		StartedAt:     "2026-07-13T19:59:59Z",
+		EndedAt:       &endedAt,
+		Outcome:       conversation.InvocationOutcomeSucceeded,
 	}
 }
 
@@ -162,7 +203,6 @@ func (*routeCommandExecutorConversations) ExecuteRouteCommand(
 	string,
 	string,
 	string,
-	conversation.ConversationRouteDecisionSource,
 	conversation.ConversationRouteCommand,
 ) (conversation.ConversationSnapshot, error) {
 	return conversation.ConversationSnapshot{}, errors.New("unexpected conversation command")

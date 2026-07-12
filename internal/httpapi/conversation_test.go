@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"setta/internal/conversation"
-	"setta/internal/narration"
 	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
@@ -39,9 +38,8 @@ func TestReadConversationSnapshotUsesTypedServiceBoundary(t *testing.T) {
 func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 	service := newHTTPTestConversationService(t)
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		ConversationService:   service,
-		NarratorStatusService: service,
-		Metadata:              BackendMetadata{Name: BackendName, Version: "test"},
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
 	})
 
 	created := postJSON[conversation.ConversationSnapshot](
@@ -55,45 +53,7 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t.Fatalf("create command = %q snapshot = %+v", service.command, created.Conversation)
 	}
 
-	forked := postJSON[conversation.ConversationSnapshot](
-		t,
-		handler,
-		"/conversations/forks/create",
-		ForkTopicConversationRequest{
-			WorkspaceID:          "workspace-api",
-			ParentConversationID: "conversation-api",
-			ForkedAtTurnID:       "turn-api",
-			Title:                "Forked topic",
-		},
-		http.StatusOK,
-	)
-	assertForkTopicCommand(t, service, forked)
-
 	assertSideConversationCommands(t, handler, service)
-
-	for _, command := range []struct {
-		name string
-		path string
-	}{
-		{name: "send", path: "/conversations/turns/send"},
-		{name: "queue", path: "/conversations/turns/queue"},
-		{name: "steer", path: "/conversations/turns/steer"},
-	} {
-		postJSON[conversation.ConversationSnapshot](
-			t,
-			handler,
-			command.path,
-			SendTopicConversationTurnRequest{
-				WorkspaceID:    "workspace-api",
-				ConversationID: "conversation-api",
-				Text:           command.name + " text",
-			},
-			http.StatusOK,
-		)
-		if service.command != command.name || service.commandText != command.name+" text" {
-			t.Fatalf("%s service command = %q text = %q", command.name, service.command, service.commandText)
-		}
-	}
 
 	postJSON[conversation.ConversationSnapshot](
 		t,
@@ -129,21 +89,6 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t.Fatalf("last command scope = %q/%q", service.commandWorkspaceID, service.commandConversationID)
 	}
 
-	postJSON[conversation.ConversationSnapshot](
-		t,
-		handler,
-		"/conversations/narrator/status",
-		AskTopicConversationNarratorStatusRequest{
-			WorkspaceID:    "workspace-api",
-			ConversationID: "conversation-api",
-			Question:       "What is happening now?",
-		},
-		http.StatusOK,
-	)
-	if service.command != "status" || service.commandText != "What is happening now?" {
-		t.Fatalf("status service command = %q question = %q", service.command, service.commandText)
-	}
-
 	alloy := speech.SpeechVoiceAlloy
 	profile := postJSON[conversation.ConversationPresentationProfile](
 		t,
@@ -169,21 +114,6 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 
 func assertSideConversationCommands(t *testing.T, handler http.Handler, service *httpTestConversationService) {
 	t.Helper()
-	postJSON[conversation.ConversationSnapshot](
-		t,
-		handler,
-		"/conversations/sides/create",
-		CreateSideConversationRequest{
-			WorkspaceID:          "workspace-api",
-			ParentConversationID: "conversation-api",
-			ParentPaneID:         "pane-api",
-		},
-		http.StatusOK,
-	)
-	if service.command != "create_side" || service.commandParentPaneID != "pane-api" {
-		t.Fatalf("side command = %q pane = %q", service.command, service.commandParentPaneID)
-	}
-
 	postJSON[conversation.ConversationSnapshot](
 		t,
 		handler,
@@ -217,21 +147,6 @@ func assertSideConversationCommands(t *testing.T, handler http.Handler, service 
 	}
 }
 
-func assertForkTopicCommand(
-	t *testing.T,
-	service *httpTestConversationService,
-	forked conversation.ConversationSnapshot,
-) {
-	t.Helper()
-	if service.command != "fork" ||
-		service.commandForkedAtTurnID != "turn-api" ||
-		service.commandTitle != "Forked topic" ||
-		forked.Branch == nil ||
-		forked.Branch.ParentConversationID != "conversation-api" {
-		t.Fatalf("fork command = %q snapshot = %+v", service.command, forked)
-	}
-}
-
 func TestTopicConversationNarratorVoiceMapsUnavailableExactSelection(t *testing.T) {
 	service := newHTTPTestConversationService(t)
 	missing := speech.SpeechVoiceID("retired")
@@ -259,67 +174,6 @@ func TestTopicConversationNarratorVoiceMapsUnavailableExactSelection(t *testing.
 	)
 	if response.Error.Code != string(speech.ErrorVoiceUnavailable) {
 		t.Fatalf("narrator voice error = %+v", response.Error)
-	}
-}
-
-func TestAskNarratorStatusRejectsInvalidQuestionBeforeService(t *testing.T) {
-	service := newHTTPTestConversationService(t)
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		NarratorStatusService: service,
-		Metadata:              BackendMetadata{Name: BackendName, Version: "test"},
-	})
-
-	response := postJSON[ErrorResponse](
-		t,
-		handler,
-		"/conversations/narrator/status",
-		AskTopicConversationNarratorStatusRequest{
-			WorkspaceID:    "workspace-api",
-			ConversationID: "conversation-api",
-			Question:       " status with whitespace ",
-		},
-		http.StatusBadRequest,
-	)
-	if response.Error.Code != "invalid_topic_conversation_narrator_status_request" {
-		t.Fatalf("narrator status error code = %q", response.Error.Code)
-	}
-	if service.statusCalled {
-		t.Fatal("invalid narrator status request reached service")
-	}
-}
-
-func TestAskNarratorStatusReturnsTypedDegradation(t *testing.T) {
-	service := newHTTPTestConversationService(t)
-	service.statusErr = &narration.DegradedError{
-		RequestID:  "narrator-status-request",
-		Generation: 1,
-		Degradation: conversation.NarratorDegradation{
-			Code:                "provider_unavailable",
-			Message:             "Narration is temporarily unavailable.",
-			Retryable:           true,
-			DiagnosticReference: "narrator-diagnostic",
-			DegradedAt:          httpConversationTestTime,
-		},
-	}
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		NarratorStatusService: service,
-		Metadata:              BackendMetadata{Name: BackendName, Version: "test"},
-	})
-
-	response := postJSON[ErrorResponse](
-		t,
-		handler,
-		"/conversations/narrator/status",
-		AskTopicConversationNarratorStatusRequest{
-			WorkspaceID:    "workspace-api",
-			ConversationID: "conversation-api",
-			Question:       "What is happening?",
-		},
-		http.StatusServiceUnavailable,
-	)
-	if response.Error.Code != "narrator_status_unavailable" ||
-		!strings.Contains(response.Error.Message, "narrator-diagnostic") {
-		t.Fatalf("narrator degradation response = %+v", response.Error)
 	}
 }
 
@@ -520,26 +374,11 @@ type httpTestConversationService struct {
 	command                 string
 	commandWorkspaceID      string
 	commandConversationID   string
-	commandForkedAtTurnID   string
 	commandParentPaneID     string
 	commandText             string
-	commandTitle            string
 	approval                conversation.ConversationApprovalResponse
-	statusCalled            bool
-	statusErr               error
 	voiceSelection          speech.VoiceSelectionRequest
 	voiceSelectionErr       error
-}
-
-func (service *httpTestConversationService) AskStatus(
-	_ context.Context,
-	workspaceID string,
-	conversationID string,
-	question string,
-) (conversation.ConversationSnapshot, error) {
-	service.statusCalled = true
-	service.recordCommand("status", workspaceID, conversationID, question)
-	return service.snapshot, service.statusErr
 }
 
 func (service *httpTestConversationService) CreateTopic(
@@ -551,48 +390,6 @@ func (service *httpTestConversationService) CreateTopic(
 	service.commandWorkspaceID = workspaceID
 	service.snapshot.Conversation.WorkspaceID = workspaceID
 	service.snapshot.Conversation.Title = title
-	return service.snapshot, nil
-}
-
-func (service *httpTestConversationService) ForkTopic(
-	_ context.Context,
-	workspaceID string,
-	parentConversationID string,
-	forkedAtTurnID string,
-	title string,
-) (conversation.ConversationSnapshot, error) {
-	service.recordCommand("fork", workspaceID, parentConversationID, "")
-	service.commandForkedAtTurnID = forkedAtTurnID
-	service.commandTitle = title
-	forked := service.snapshot
-	forked.Conversation.ID = "conversation-fork-api"
-	forked.Conversation.Title = title
-	forked.Conversation.TopicDescriptor = title
-	forked.NarratorState.ConversationID = forked.Conversation.ID
-	forked.NarratorState.TopicDescriptor = title
-	forked.PresentationProfile.ConversationID = forked.Conversation.ID
-	forked.Branch = &conversation.ConversationBranch{
-		ChildConversationID:      forked.Conversation.ID,
-		ParentConversationID:     parentConversationID,
-		Kind:                     conversation.BranchKindFork,
-		DecisionSource:           conversation.BranchDecisionSourceExplicit,
-		ForkedAtTurnID:           forkedAtTurnID,
-		SourceTrajectorySequence: 0,
-		ProviderMetadata:         map[string]string{},
-		CreatedAt:                httpConversationTestTime,
-	}
-	forked.EventCursor.StreamID = "conversation:" + forked.Conversation.ID
-	return forked, nil
-}
-
-func (service *httpTestConversationService) CreateSideConversation(
-	_ context.Context,
-	workspaceID string,
-	parentConversationID string,
-	parentPaneID string,
-) (conversation.ConversationSnapshot, error) {
-	service.recordCommand("create_side", workspaceID, parentConversationID, "")
-	service.commandParentPaneID = parentPaneID
 	return service.snapshot, nil
 }
 
@@ -628,36 +425,6 @@ func (service *httpTestConversationService) UpdateNarratorVoiceSelection(
 	service.recordCommand("update_narrator_voice", workspaceID, conversationID, "")
 	service.voiceSelection = selection
 	return service.snapshot.PresentationProfile, service.voiceSelectionErr
-}
-
-func (service *httpTestConversationService) SendTurn(
-	_ context.Context,
-	workspaceID string,
-	conversationID string,
-	text string,
-) (conversation.ConversationSnapshot, error) {
-	service.recordCommand("send", workspaceID, conversationID, text)
-	return service.snapshot, nil
-}
-
-func (service *httpTestConversationService) QueueTurn(
-	_ context.Context,
-	workspaceID string,
-	conversationID string,
-	text string,
-) (conversation.ConversationSnapshot, error) {
-	service.recordCommand("queue", workspaceID, conversationID, text)
-	return service.snapshot, nil
-}
-
-func (service *httpTestConversationService) SteerTurn(
-	_ context.Context,
-	workspaceID string,
-	conversationID string,
-	text string,
-) (conversation.ConversationSnapshot, error) {
-	service.recordCommand("steer", workspaceID, conversationID, text)
-	return service.snapshot, nil
 }
 
 func (service *httpTestConversationService) StopTurn(

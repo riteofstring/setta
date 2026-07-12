@@ -109,12 +109,9 @@ const api: SettaAPI = {
     },
   },
   conversations: {
-    askStatus: (request) => invoke("conversationAskNarratorStatus", request),
-    createSide: (request) => invoke("conversationCreateSide", request),
     disposeSide: (request) => invoke("conversationDisposeSide", request),
     discardInput: (request) => invoke("conversationDiscardInput", request),
     create: (request) => invoke("conversationCreateTopic", request),
-    fork: (request) => invoke("conversationForkTopic", request),
     list: (request) => invoke("conversationListTopicConversations", request),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
@@ -126,14 +123,11 @@ const api: SettaAPI = {
       };
     },
     sendSide: (request) => invoke("conversationSendSideTurn", request),
-    queue: (request) => invoke("conversationQueueTurn", request),
     readInputState: (request) => invoke("conversationReadInputState", request),
     waitInputState: (request) => invoke("conversationWaitInputState", request),
     read: (request) => invoke("conversationReadSnapshot", request),
     release: (request) => invoke("conversationReleaseEvents", request),
     retryInput: (request) => invoke("conversationRetryInput", request),
-    send: (request) => invoke("conversationSendTurn", request),
-    steer: (request) => invoke("conversationSteerTurn", request),
     stop: (request) => invoke("conversationStopTurn", request),
     submitInput: (request) => invoke("conversationSubmitInput", request),
     submitApproval: (request) => invoke("conversationSubmitApproval", request),

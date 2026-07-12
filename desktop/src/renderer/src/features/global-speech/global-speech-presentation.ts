@@ -1,4 +1,4 @@
-import type { ConversationInput, ConversationInputMode } from "@generated/backend";
+import type { ConversationInput } from "@generated/backend";
 
 import type {
   AppShellSpeechCaptureController,
@@ -16,7 +16,6 @@ type GlobalSpeechSource =
   | { conversationId: null; sourcePaneId: null; type: "master" }
   | {
       conversationId: string;
-      inputMode: ConversationInputMode | null;
       sourcePaneId: string;
       type: "conversation";
     };
@@ -57,7 +56,6 @@ export interface PaneSpeechPresentation {
   activityLabel: string | null;
   captureScope: PaneSpeechSourceScope;
   captureState: GlobalSpeechCapturePresentation["state"];
-  captureInputMode: ConversationInputMode | null;
   playbackScope: PaneSpeechSourceScope;
   playbackState: SpeechPlaybackState["type"];
   transcriptPreview: string | null;
@@ -205,7 +203,6 @@ export function paneSpeechPresentation(
     activityLabel: activity?.label ?? null,
     captureScope,
     captureState: capture.state,
-    captureInputMode: paneCaptureInputMode(capture, captureScope),
     playbackScope,
     playbackState: playback.state.type,
     transcriptPreview:
@@ -213,16 +210,6 @@ export function paneSpeechPresentation(
     voiceControlDisabled: control.disabled,
     voiceControlLabel: control.label,
   };
-}
-
-function paneCaptureInputMode(
-  capture: GlobalSpeechCapturePresentation,
-  captureScope: PaneSpeechSourceScope,
-): ConversationInputMode | null {
-  if (captureScope !== "this_pane" || capture.source?.type !== "conversation") {
-    return null;
-  }
-  return capture.source.inputMode;
 }
 
 export function shellSpeechCaptureAction(
@@ -412,7 +399,6 @@ function captureRequestSource(request: SpeechCaptureRequest): GlobalSpeechSource
       }
       return {
         conversationId: request.destination.conversationId,
-        inputMode: request.destination.inputMode,
         sourcePaneId: request.sourcePaneId,
         type: "conversation",
       };
@@ -427,7 +413,6 @@ function conversationInputSource(input: ConversationInput): GlobalSpeechSource {
   }
   return {
     conversationId: input.conversationId,
-    inputMode: input.requestedMode,
     sourcePaneId: input.sourcePaneId,
     type: "conversation",
   };
@@ -451,7 +436,6 @@ function playbackStateSource(state: SpeechPlaybackState): GlobalSpeechSource | n
       }
       return {
         conversationId: state.intent.source.conversationId,
-        inputMode: null,
         sourcePaneId: "",
         type: "conversation",
       };

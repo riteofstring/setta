@@ -2,7 +2,6 @@ import type {
   AcceptedConversationInput,
   ConversationApprovalAnswer,
   ConversationInput,
-  ConversationInputMode,
   ConversationInputRoutingState,
   ConversationSnapshot,
   TrajectoryApprovalDecision,
@@ -25,26 +24,20 @@ import {
 import { openSideConversationForPane } from "./easy-button-side-projection";
 
 export interface EasyButtonConversationCommands {
-  askStatus: () => void;
   available: boolean;
   canSubmit: boolean;
   clarificationQuestion: string | null;
   disposeSide: (sideConversationId: string) => void;
   error: string | null;
-  fork: () => void;
   input: string;
   pending: boolean;
   presentRelatedConversation: (conversationId: string, title: string | null) => void;
-  queue: () => void;
   discardFailedInput: () => void;
-  requestVoiceCapture: ((inputMode?: ConversationInputMode) => void) | undefined;
+  requestVoiceCapture: (() => void) | undefined;
   retryFailedInput: () => void;
   routingFailure: { message: string; retryable: boolean } | null;
-  send: () => void;
   sendSide: (sideConversationId: string, text: string) => Promise<boolean>;
   setInput: (input: string) => void;
-  startSide: (() => void) | undefined;
-  steer: () => void;
   stop: () => void;
   submit: (event: FormEvent<HTMLFormElement>) => void;
   submitApproval: (
@@ -141,19 +134,18 @@ export function useEasyButtonConversationCommands(
     }
   }
 
-  async function runInput(inputMode: ConversationInputMode): Promise<boolean> {
+  async function runInput(): Promise<boolean> {
     setPending(true);
     setError(null);
     try {
       const target = requireTarget();
       const submitted = createEasyButtonTextConversationInput({
         conversationId: target.conversationId,
-        inputMode,
         paneId,
         replyToInputId: clarification?.inputId ?? null,
         text: input.trim(),
       });
-      beginPendingSideCreationForInput(inputMode, target, paneId);
+      beginPendingSideCreationForInput(target, paneId);
       const accepted = await requireConversationInputSubmitter()({ input: submitted });
       assertAcceptedConversationInput(accepted, submitted);
       if (commandScopeIsCurrent()) {
@@ -170,13 +162,12 @@ export function useEasyButtonConversationCommands(
       if (routingError) {
         throw new Error(routingError);
       }
-      finishPendingSideCreationForInput(inputMode, workspaceId, conversationId, paneId);
       return true;
     } catch (commandError) {
-      finishPendingSideCreationForInput(inputMode, workspaceId, conversationId, paneId);
       setScopedError(errorMessage(commandError));
       return false;
     } finally {
+      finishPendingSideCreationForInput(workspaceId, conversationId, paneId);
       if (commandScopeIsCurrent()) {
         setPending(false);
       }
@@ -250,12 +241,6 @@ export function useEasyButtonConversationCommands(
   }
 
   return {
-    askStatus: () => {
-      if (!canSubmit || clarification) {
-        return;
-      }
-      void runInput("ask_narrator");
-    },
     available,
     canSubmit,
     clarificationQuestion: clarification?.question ?? null,
@@ -277,11 +262,6 @@ export function useEasyButtonConversationCommands(
       );
     },
     error,
-    fork: () => {
-      if (canSubmit && !clarification) {
-        void runInput("fork");
-      }
-    },
     input,
     pending,
     presentRelatedConversation: (targetConversationId, title) => {
@@ -301,16 +281,6 @@ export function useEasyButtonConversationCommands(
     routingFailure: failedInput
       ? { message: failedInput.message, retryable: failedInput.retryable }
       : null,
-    queue: () => {
-      if (canSubmit && !clarification) {
-        void runInput("queue");
-      }
-    },
-    send: () => {
-      if (canSubmit && !clarification) {
-        void runInput("send");
-      }
-    },
     sendSide: async (sideConversationId, text) => {
       if (!available || pending) {
         return false;
@@ -328,13 +298,6 @@ export function useEasyButtonConversationCommands(
       );
     },
     setInput,
-    startSide: createSideInputCommand(available && !clarification, paneId, canSubmit, runInput),
-    steer: () => {
-      if (!canSubmit || clarification) {
-        return;
-      }
-      void runInput("steer");
-    },
     stop: () => {
       if (!available || pending) {
         return;
@@ -347,7 +310,7 @@ export function useEasyButtonConversationCommands(
       if (!canSubmit) {
         return;
       }
-      void runInput("route");
+      void runInput();
     },
     submitApproval: (approval, decision, answers) => {
       if (!available || pending) {
@@ -386,39 +349,21 @@ function conversationInputCanSubmit(available: boolean, pending: boolean, input:
   return available && !pending && input.trim() !== "";
 }
 
-function createSideInputCommand(
-  available: boolean,
-  paneId: string | null,
-  canSubmit: boolean,
-  runInput: (inputMode: ConversationInputMode) => Promise<boolean>,
-): (() => void) | undefined {
-  if (!available || !paneId) {
-    return undefined;
-  }
-  return () => {
-    if (canSubmit) {
-      void runInput("side");
-    }
-  };
-}
-
 function beginPendingSideCreationForInput(
-  inputMode: ConversationInputMode,
   target: { conversationId: string; workspaceId: string },
   paneId: string | null,
 ): void {
-  if (inputMode === "side" && paneId) {
+  if (paneId) {
     beginPendingSideCreation(target.workspaceId, target.conversationId, paneId);
   }
 }
 
 function finishPendingSideCreationForInput(
-  inputMode: ConversationInputMode,
   workspaceId: string | null,
   conversationId: string | null,
   paneId: string | null,
 ): void {
-  if (inputMode === "side" && workspaceId && conversationId && paneId) {
+  if (workspaceId && conversationId && paneId) {
     finishPendingSideCreation(workspaceId, conversationId, paneId);
   }
 }
@@ -478,7 +423,6 @@ function sideCreationKey(workspaceId: string, conversationId: string, paneId: st
 export function createEasyButtonTextConversationInput({
   conversationId,
   id = globalThis.crypto.randomUUID(),
-  inputMode = "route",
   paneId,
   replyToInputId = null,
   submittedAt = canonicalSpeechInputTimestamp(new Date()),
@@ -486,7 +430,6 @@ export function createEasyButtonTextConversationInput({
 }: {
   conversationId: string;
   id?: string;
-  inputMode?: ConversationInputMode;
   paneId: string | null;
   replyToInputId?: string | null;
   submittedAt?: string;
@@ -497,7 +440,6 @@ export function createEasyButtonTextConversationInput({
     id,
     modality: "text",
     replyToInputId,
-    requestedMode: inputMode,
     sourcePaneId: paneId,
     submittedAt,
     text,
@@ -698,9 +640,8 @@ export function requestEasyButtonSpeechCapture(
   speechCapture: SpeechCaptureRequester,
   conversationId: string,
   paneId: string,
-  inputMode: ConversationInputMode = "route",
 ): Promise<void> {
-  return speechCapture.start(conversationSpeechCaptureRequest(conversationId, paneId, inputMode));
+  return speechCapture.start(conversationSpeechCaptureRequest(conversationId, paneId));
 }
 
 function createVoiceCaptureCommand({
@@ -715,13 +656,13 @@ function createVoiceCaptureCommand({
   paneId: string | null;
   setError: (error: string | null) => void;
   speechCapture: SpeechCaptureRequester | undefined;
-}): ((inputMode?: ConversationInputMode) => void) | undefined {
+}): (() => void) | undefined {
   if (!available || !conversationId || !paneId || !speechCapture) {
     return undefined;
   }
-  return (inputMode = "route") => {
+  return () => {
     setError(null);
-    void requestEasyButtonSpeechCapture(speechCapture, conversationId, paneId, inputMode).catch(
+    void requestEasyButtonSpeechCapture(speechCapture, conversationId, paneId).catch(
       (captureError: unknown) => setError(errorMessage(captureError)),
     );
   };

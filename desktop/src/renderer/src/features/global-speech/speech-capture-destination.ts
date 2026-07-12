@@ -1,14 +1,9 @@
-import {
-  conversationInputModeValues,
-  type ConversationInput,
-  type ConversationInputMode,
-} from "@generated/backend";
+import type { ConversationInput } from "@generated/backend";
 
 type SpeechCaptureDestination =
   | Readonly<{ type: "master" }>
   | Readonly<{
       conversationId: string;
-      inputMode: ConversationInputMode;
       type: "conversation";
     }>;
 
@@ -46,8 +41,6 @@ export interface CompletedConversationSpeechTranscript extends FinalizedConversa
   readonly input: ConversationInput;
 }
 
-const conversationInputModes = new Set<ConversationInputMode>(conversationInputModeValues);
-
 export function masterSpeechCaptureRequest(): MasterSpeechCaptureRequest {
   return Object.freeze({
     destination: Object.freeze({ type: "master" }),
@@ -58,15 +51,11 @@ export function masterSpeechCaptureRequest(): MasterSpeechCaptureRequest {
 export function conversationSpeechCaptureRequest(
   conversationId: string,
   sourcePaneId: string,
-  inputMode: ConversationInputMode,
 ): ConversationSpeechCaptureRequest {
   assertCaptureIdentifier("conversation", conversationId);
   assertCaptureIdentifier("source pane", sourcePaneId);
-  if (!conversationInputModes.has(inputMode)) {
-    throw new Error(`unsupported conversation speech input mode ${inputMode}`);
-  }
   return Object.freeze({
-    destination: Object.freeze({ conversationId, inputMode, type: "conversation" }),
+    destination: Object.freeze({ conversationId, type: "conversation" }),
     sourcePaneId,
   });
 }
@@ -85,7 +74,6 @@ export function freezeSpeechCaptureRequest(request: SpeechCaptureRequest): Speec
       return conversationSpeechCaptureRequest(
         request.destination.conversationId,
         request.sourcePaneId,
-        request.destination.inputMode,
       );
     default:
       return assertNever(request.destination);

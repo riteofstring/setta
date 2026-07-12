@@ -74,7 +74,7 @@ describe("conversation navigator sidebar model", () => {
     child.branch = {
       childConversationId: child.conversation.id,
       createdAt: testTime,
-      decisionSource: "explicit",
+      decisionSource: "conversation_router",
       forkedAtTurnId: "turn_parent",
       kind: "fork",
       parentConversationId: parent.conversation.id,
