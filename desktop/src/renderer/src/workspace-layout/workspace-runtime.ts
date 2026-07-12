@@ -21,13 +21,11 @@ import {
   runtimePolicyOptionsForRuntime,
   sceneForRuntime,
   snapshotStaticFallbackForRuntime,
-  workflowGraphSyntheticGraphFallbackForRuntime,
   type WorkspaceSceneMode,
 } from "./runtime-mode-options";
 import { PaneRuntimePolicy } from "./runtime-policy";
 import { createDefaultSurfaceAdapter, EmptyFrameSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
-import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import type { WorkspacePane } from "./types";
 
 export function createWorkspaceRuntime({
@@ -73,7 +71,6 @@ export function createWorkspaceRuntime({
     workspaceId: scene.id,
   });
   const createSurfaceAdapter = createSurfaceAdapterFactory(store, nativeViewBoundsBatcher, {
-    mode,
     speechCapture,
     speechPresentation,
     workspaceId,
@@ -115,15 +112,11 @@ function createSurfaceAdapterFactory(
   store: WorkspaceLayoutStore,
   nativeViewBoundsBatcher: NativeViewBoundsBatcher,
   options: {
-    mode: WorkspaceSceneMode;
     speechCapture: SpeechCaptureRequester | undefined;
     speechPresentation: GlobalSpeechPresentationSource | undefined;
     workspaceId: string;
   },
 ) {
-  const workflowGraphSyntheticGraphFallback = workflowGraphSyntheticGraphFallbackForRuntime(
-    options.mode,
-  );
   return (pane: WorkspacePane) => {
     if (pane.surfaceKind === "browser") {
       return new BrowserSurfaceProxyAdapter(pane, nativeViewBoundsBatcher);
@@ -131,13 +124,9 @@ function createSurfaceAdapterFactory(
     if (pane.surfaceKind === "empty-frame") {
       return new EmptyFrameSurfaceAdapter(pane, () => emptyFrameOptionsForStore(store));
     }
-    if (pane.surfaceKind === "terminal") {
-      return new TerminalSurfaceAdapter(pane, options.workspaceId);
-    }
     return createDefaultSurfaceAdapter(pane, {
       speechCapture: options.speechCapture,
       speechPresentation: options.speechPresentation,
-      workflowGraphSyntheticGraphFallback,
       workspaceId: options.workspaceId,
     });
   };

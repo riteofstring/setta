@@ -20,23 +20,17 @@ describe("real workspace layout scene", () => {
     expect(result.focusedPaneId).toBe("workspace_pane_0");
     expect(result.layoutRecovery).toBeNull();
     expect(result.scene.id).toBe("workspace_api");
-    expect(result.scene.columns).toHaveLength(4);
+    expect(result.scene.columns).toHaveLength(1);
     expect(result.scene.defaultColumnWidthSpec).toEqual({ unit: "px", value: 520 });
     expect(result.scene.renderOverscanColumns).toBe(2);
-    expect(result.scene.visibleColumnCount).toBe(3);
-    expect(result.scene.totalPanes).toBe(4);
+    expect(result.scene.visibleColumnCount).toBe(1);
+    expect(result.scene.totalPanes).toBe(1);
     expect(result.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
-    expect(result.scene.columns.map((column) => column.slotIndex)).toEqual([0, 1, 2, 3]);
+    expect(result.scene.columns.map((column) => column.slotIndex)).toEqual([0]);
     expect(result.scene.columns.map((column) => column.widthSpec)).toEqual([
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);
     expect(result.scene.columns.map((column) => column.idealWidthSpec)).toEqual([
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);
     expect(
@@ -44,13 +38,12 @@ describe("real workspace layout scene", () => {
         const paneId = column.paneIds[0];
         return paneId ? result.scene.paneById.get(paneId)?.title : "";
       }),
-    ).toEqual(["Chat", "Terminal", "Workflow Graph", "Settings"]);
+    ).toEqual(["New frame"]);
     expect(result.scene.paneById.get("workspace_pane_0")).toMatchObject({
       subtitle: "Repo",
-      surfaceKind: "chat-dom",
-      title: "Chat",
+      surfaceKind: "empty-frame",
+      title: "New frame",
     });
-    expect(result.scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("terminal");
   });
 
   test("defines default pane limits for addable real workspace surfaces", () => {
@@ -109,8 +102,8 @@ describe("real workspace layout scene", () => {
     });
     expect(restored.focusedPaneId).toBe(paneId);
     expect(restored.layoutRecovery).toBeNull();
-    expect(restored.scene.totalPanes).toBe(5);
-    expect(restored.scene.columns).toHaveLength(5);
+    expect(restored.scene.totalPanes).toBe(2);
+    expect(restored.scene.columns).toHaveLength(2);
     expect(restored.scene.paneById.get(paneId)).toMatchObject({
       surfaceKind: "terminal",
       terminalConfig: {

@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-7 are complete. Phases 8-9 remain.
+**Status:** In progress. Phases 0-7 and Phase 8 item 1 are complete. Phase 8
+items 2-5 and Phase 9 remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2139,6 +2140,8 @@ Exit criteria:
   renderer operations
 
 ### Phase 8: Obsolete surface and backend eradication
+
+**Status:** In progress. Item 1 is complete; items 2-5 remain.
 
 Complete the deletion inventory and remove all remaining dead code:
 

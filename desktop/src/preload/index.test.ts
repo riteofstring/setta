@@ -2,11 +2,11 @@ import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type {
+  ChatInput,
   UpdateAppearanceSettingsRequest,
   UpdateChatCodexDefaultsRequest,
 } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
-import { chatTextInput } from "../renderer/src/lib/chat-input";
 import {
   chatEvent,
   terminalEvent,
@@ -1473,6 +1473,12 @@ describe("preload workspace API", () => {
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.workflowEvent, handler);
   });
 });
+
+function chatTextInput(text: string): ChatInput {
+  return {
+    parts: [{ image: null, text: { format: "plain", text }, type: "text" }],
+  };
+}
 
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {
   expect(invoke).toHaveBeenCalledTimes(calls.length);

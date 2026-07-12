@@ -1,10 +1,7 @@
-import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
-import { GitGraphSurfaceAdapter } from "./git-graph-surface-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
-import { SyntheticTerminalSurfaceAdapter } from "./synthetic-terminal-surface-adapter";
 import {
   applySnapshotScrollOffsets,
   cloneSnapshotNode,
@@ -13,7 +10,6 @@ import {
   renderFakePaneContent,
   renderSnapshotContent,
 } from "./surface-dom-content";
-import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import type {
   FreezeReason,
   WorkspacePane,
@@ -41,7 +37,6 @@ export interface DefaultSurfaceAdapterOptions {
   speechCapture?: SpeechCaptureRequester;
   speechPresentation?: GlobalSpeechPresentationSource;
   workspaceId?: string;
-  workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
 export type EmptyFrameOptionsProvider = () => readonly EmptyFrameOption[];
@@ -515,12 +510,20 @@ export function createDefaultSurfaceAdapter(
   pane: WorkspacePane,
   options: DefaultSurfaceAdapterOptions = {},
 ): SurfaceAdapter {
-  return defaultSurfaceAdapterFactories[pane.surfaceKind](pane, options);
+  const factory = defaultSurfaceAdapterFactories[pane.surfaceKind];
+  if (!factory) {
+    throw new Error(`unsupported workspace surface kind: ${pane.surfaceKind}`);
+  }
+  return factory(pane, options);
 }
 
-const defaultSurfaceAdapterFactories = {
+type DefaultSurfaceAdapterFactory = (
+  pane: WorkspacePane,
+  options: DefaultSurfaceAdapterOptions,
+) => SurfaceAdapter;
+
+const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurfaceAdapterFactory>> = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
-  "chat-dom": (pane) => createReactDomSurfaceAdapter(pane),
   "easy-button": (pane, options) =>
     createReactDomSurfaceAdapter(pane, undefined, {
       speechCapture: options.speechCapture,
@@ -530,23 +533,9 @@ const defaultSurfaceAdapterFactories = {
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
-  "fake-long-chat": (pane) => createReactDomSurfaceAdapter(pane),
-  "fake-terminal": (pane) => new SyntheticTerminalSurfaceAdapter(pane),
-  "git-graph": (pane) => new GitGraphSurfaceAdapter(pane),
-  "workflow-graph": (pane, options) =>
-    createReactDomSurfaceAdapter(pane, undefined, {
-      workflowGraphSyntheticGraphFallback: options.workflowGraphSyntheticGraphFallback,
-    }),
   "settings-dom": (pane) => createReactDomSurfaceAdapter(pane),
-  "semantic-node-details": (pane) => createReactDomSurfaceAdapter(pane),
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
-  terminal: (pane) => new TerminalSurfaceAdapter(pane),
-  "workflow-node-details": (pane) => createReactDomSurfaceAdapter(pane),
-  "workflow-settings": (pane) => createReactDomSurfaceAdapter(pane),
-} satisfies Record<
-  SurfaceKind,
-  (pane: WorkspacePane, options: DefaultSurfaceAdapterOptions) => SurfaceAdapter
->;
+};
 
 function performanceNow(): number {
   if (typeof performance === "undefined") {

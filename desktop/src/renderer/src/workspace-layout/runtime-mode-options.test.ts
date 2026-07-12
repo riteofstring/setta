@@ -9,7 +9,6 @@ import {
   presentationOptionsForRuntime,
   runtimePolicyBudgetForRuntime,
   runtimePolicyOptionsForRuntime,
-  workflowGraphSyntheticGraphFallbackForRuntime,
 } from "./runtime-mode-options";
 import type { PaneRenderItem, SurfaceKind } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
@@ -81,11 +80,11 @@ describe("workspace runtime mode options", () => {
   test("keeps every visible workspace surface live in a moving resize frame", () => {
     const scene = generateBenchmarkScene({ paneCount: 10, targetVisiblePanes: 10 });
     const items = [
-      renderItem("chat", "chat-dom"),
-      renderItem("terminal", "terminal"),
-      renderItem("graph", "workflow-graph"),
+      renderItem("conversation", "easy-button"),
+      renderItem("browser", "browser"),
+      renderItem("heavy", "fake-heavy-dom"),
       renderItem("settings", "settings-dom"),
-      renderItem("details", "workflow-node-details"),
+      renderItem("empty", "empty-frame"),
     ].map((item) => ({ ...item, resizing: true }));
     const policy = new PaneRuntimePolicy(
       runtimePolicyBudgetForRuntime("workspace", { ...scene, totalPanes: items.length }),
@@ -95,23 +94,15 @@ describe("workspace runtime mode options", () => {
     const summary = policy.apply(items, "moving");
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["chat", "live"],
-      ["terminal", "live"],
-      ["graph", "live"],
+      ["conversation", "live"],
+      ["browser", "live"],
+      ["heavy", "live"],
       ["settings", "live"],
-      ["details", "live"],
+      ["empty", "live"],
     ]);
     expect(summary.live).toBe(items.length);
     expect(summary.snapshot).toBe(0);
     expect(summary.liveThrottled).toBe(0);
-  });
-
-  test("uses a synthetic workflow graph fallback only for the benchmark stress scene", () => {
-    expect(workflowGraphSyntheticGraphFallbackForRuntime("benchmark")).toStrictEqual({
-      edgesPerNode: 2,
-      nodeCount: 500,
-    });
-    expect(workflowGraphSyntheticGraphFallbackForRuntime("workspace")).toBeUndefined();
   });
 
   test("parses explicit benchmark scene sizing from the URL search", () => {

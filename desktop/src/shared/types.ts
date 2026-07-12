@@ -378,7 +378,7 @@ export interface RuntimeRegistrySnapshot {
   switching: boolean;
 }
 
-export interface ChatCommandExecutionOptions {
+interface ChatCommandExecutionOptions {
   confirmGoalReplacement?: boolean;
 }
 

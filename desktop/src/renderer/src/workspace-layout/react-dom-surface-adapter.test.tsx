@@ -3,7 +3,6 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import { registerWorkflowGraphRuntimeHandle } from "../features/workspace-graph/workflow-graph-runtime-registry";
 import { reactDomSurfaceHostChangedEvent } from "./react-dom-surface-events";
 import {
   createReactDomSurfaceAdapter,
@@ -29,8 +28,8 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("fake-long-chat"),
-      () => "long chat surface",
+      fakePane("fake-heavy-dom"),
+      () => "heavy DOM surface",
       rootFactory,
     );
 
@@ -43,7 +42,7 @@ describe("workspace React DOM surface adapter", () => {
     adapter.resume("focused");
 
     expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render", "render"]);
-    expect(host.dataset.surfaceKind).toBe("fake-long-chat");
+    expect(host.dataset.surfaceKind).toBe("fake-heavy-dom");
     expect(host.dataset.surfaceViewport).toBe("180x120");
     expect(host.dataset.surfaceFocused).toBe("true");
     expect(host.dataset.surfaceFrozen).toBe("false");
@@ -118,8 +117,8 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("chat-dom"),
-      () => "chat surface",
+      fakePane("easy-button"),
+      () => "conversation surface",
       rootFactory,
     );
 
@@ -145,15 +144,15 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("chat-dom"),
-      () => "chat surface",
+      fakePane("easy-button"),
+      () => "conversation surface",
       rootFactory,
     );
 
     adapter.mount(host);
     const container = requireFakeChild(fakeChildrenOf(host), 0);
     const message = host.ownerDocument.createElement("article");
-    message.textContent = "Visible frozen chat transcript";
+    message.textContent = "Visible frozen conversation projection";
     container.append(message as unknown as FakeChildNode);
 
     adapter.freeze("runtime-policy");
@@ -162,7 +161,7 @@ describe("workspace React DOM surface adapter", () => {
     expect(container.dataset.liveFrozenHidden).toBe("true");
     expect(frozenVisual.className).toBe("workspace-frozen-dom-visual");
     expect(frozenVisual.children[0]?.children[0]?.textContent).toBe(
-      "Visible frozen chat transcript",
+      "Visible frozen conversation projection",
     );
 
     adapter.resume("visible");
@@ -172,7 +171,7 @@ describe("workspace React DOM surface adapter", () => {
   });
 
   test("activates React DOM surfaces when visible without pane focus", () => {
-    const surfaceStates: Array<{ activated: boolean; focused: boolean; interactive: boolean }> = [];
+    const surfaceStates: Array<{ activated: boolean; focused: boolean }> = [];
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot() {
         return new RecordingRoot([]);
@@ -181,8 +180,8 @@ describe("workspace React DOM surface adapter", () => {
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
       fakePane("settings-dom"),
-      ({ activated, focused, interactive }) => {
-        surfaceStates.push({ activated, focused, interactive });
+      ({ activated, focused }) => {
+        surfaceStates.push({ activated, focused });
         return activated ? "loaded settings" : "unloaded settings";
       },
       rootFactory,
@@ -192,15 +191,15 @@ describe("workspace React DOM surface adapter", () => {
     adapter.setVisible(true);
 
     expect(surfaceStates).toEqual([
-      { activated: false, focused: false, interactive: false },
-      { activated: true, focused: false, interactive: false },
+      { activated: false, focused: false },
+      { activated: true, focused: false },
     ]);
     expect(host.dataset.surfaceFocused).toBe("false");
     expect(host.dataset.surfaceVisible).toBe("true");
   });
 
   test("rerenders React DOM surfaces when focus changes", () => {
-    const surfaceStates: Array<{ activated: boolean; focused: boolean; interactive: boolean }> = [];
+    const surfaceStates: Array<{ activated: boolean; focused: boolean }> = [];
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot() {
         return new RecordingRoot([]);
@@ -209,8 +208,8 @@ describe("workspace React DOM surface adapter", () => {
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
       fakePane("settings-dom"),
-      ({ activated, focused, interactive }) => {
-        surfaceStates.push({ activated, focused, interactive });
+      ({ activated, focused }) => {
+        surfaceStates.push({ activated, focused });
         return focused ? "active settings" : "inactive settings";
       },
       rootFactory,
@@ -222,70 +221,10 @@ describe("workspace React DOM surface adapter", () => {
     adapter.setFocused(false);
 
     expect(surfaceStates).toEqual([
-      { activated: false, focused: false, interactive: false },
-      { activated: true, focused: true, interactive: false },
-      { activated: true, focused: false, interactive: false },
+      { activated: false, focused: false },
+      { activated: true, focused: true },
+      { activated: true, focused: false },
     ]);
-  });
-
-  test("mounts workflow graph as a React surface with canvas runtime stats", () => {
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return new RecordingRoot([]);
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(fakePane("workflow-graph"), rootFactory);
-
-    adapter.mount(host);
-    adapter.setVisible(true);
-
-    expect(host.dataset.surfaceKind).toBe("workflow-graph");
-    expect(adapter.getCanvasStats()).toMatchObject({
-      backingStorePixels: null,
-      gpuMemoryEstimateBytes: null,
-      liveCanvasPaneCount: 1,
-      rendererResizeCount: 0,
-      renderedFrames: 0,
-      tickerFramesWhileFrozen: 0,
-    });
-
-    adapter.setVisible(false);
-
-    expect(adapter.getCanvasStats().liveCanvasPaneCount).toBe(0);
-  });
-
-  test("passes synthetic graph fallback to workflow graph surfaces", () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(fakePane("workflow-graph"), rootFactory, {
-      workflowGraphSyntheticGraphFallback: {
-        edgesPerNode: 2,
-        nodeCount: 500,
-      },
-    });
-
-    adapter.mount(host);
-    const renderedNode = root.renderedNodes.at(-1);
-    if (
-      !isValidElement<{
-        syntheticGraphFallback?: unknown;
-        surfaceId?: string;
-      }>(renderedNode)
-    ) {
-      throw new Error("workflow graph surface did not render a React element");
-    }
-
-    expect(renderedNode.props.surfaceId).toBe("surface");
-    expect(renderedNode.props.syntheticGraphFallback).toStrictEqual({
-      edgesPerNode: 2,
-      nodeCount: 500,
-    });
   });
 
   test("mounts the easy button as an idle React DOM surface", () => {
@@ -325,88 +264,6 @@ describe("workspace React DOM surface adapter", () => {
     expect(renderedNode.props.speechCapture).toBe(speechCapture);
     expect(renderedNode.props.speechPresentation).toBe(speechPresentation);
     expect(renderedNode.props.workspaceId).toBe("workspace_test");
-  });
-
-  test("forwards workflow graph visible live state to the renderer runtime handle", () => {
-    vi.stubGlobal("window", {});
-    const focusedStates: boolean[] = [];
-    const frozenStates: boolean[] = [];
-    const unregister = registerWorkflowGraphRuntimeHandle("surface", {
-      setFocused(focused) {
-        focusedStates.push(focused);
-      },
-      setFrozen(frozen) {
-        frozenStates.push(frozen);
-      },
-    });
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return new RecordingRoot([]);
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(fakePane("workflow-graph"), rootFactory);
-
-    try {
-      adapter.mount(host);
-      adapter.setVisible(true);
-      adapter.freeze("snapshot");
-      adapter.resume("visible");
-      adapter.setVisible(false);
-
-      expect(focusedStates).toEqual([true, false, true, false]);
-      expect(frozenStates).toEqual([false, true, false, false]);
-    } finally {
-      unregister();
-    }
-  });
-
-  test("caches workflow graph canvas stats while frozen", () => {
-    let frameCount = 12;
-    const getSnapshot = vi.fn(() => ({
-      canvas: {
-        height: 50,
-        width: 100,
-      },
-      render: {
-        frameCount: frameCount++,
-        rendererResizeCount: 3,
-        tickerFramesWhileFrozen: 0,
-      },
-    }));
-    vi.stubGlobal("window", {
-      __settaWorkflowGraphDebug: {
-        getSnapshot,
-        getSurfaceIds: () => ["surface"],
-        tryGetSnapshot: getSnapshot,
-      },
-    });
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return new RecordingRoot([]);
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(fakePane("workflow-graph"), rootFactory);
-
-    adapter.mount(host);
-    adapter.setVisible(true);
-    adapter.freeze("runtime-policy");
-
-    const frozenStats = adapter.getCanvasStats();
-
-    expect(adapter.getCanvasStats()).toEqual(frozenStats);
-    expect(getSnapshot).toHaveBeenCalledTimes(1);
-    expect(frozenStats).toMatchObject({
-      backingStorePixels: 5000,
-      liveCanvasPaneCount: 0,
-      renderedFrames: 12,
-      rendererResizeCount: 3,
-    });
-
-    adapter.resume("visible");
-    expect(adapter.getCanvasStats().renderedFrames).toBe(13);
-    expect(getSnapshot).toHaveBeenCalledTimes(2);
   });
 });
 

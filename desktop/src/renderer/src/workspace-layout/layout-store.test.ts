@@ -20,7 +20,7 @@ import type {
   PaneLimitPolicy,
   Rect,
 } from "./types";
-import { createRealWorkspaceScene } from "./workspace-scene";
+import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
 
 const viewport: Rect = {
   height: 900,
@@ -693,11 +693,7 @@ describe("workspace layout store", () => {
       configurable: true,
       value: {},
     });
-    const { scene } = createRealWorkspaceScene({
-      storedLayout: null,
-      workspaceId: "setta:workspace-layout:store-initial-snap",
-      workspaceName: "Repo",
-    });
+    const { scene } = createLayoutStoreTestScene("setta:workspace-layout:store-initial-snap");
     const store = new WorkspaceLayoutStore(
       new WorkspaceLikeLayoutEngine(scene),
       scene,
@@ -1173,11 +1169,7 @@ function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
     configurable: true,
     value: {},
   });
-  const { focusedPaneId, scene } = createRealWorkspaceScene({
-    storedLayout: null,
-    workspaceId: "setta:workspace-layout:store-test",
-    workspaceName: "Repo",
-  });
+  const { focusedPaneId, scene } = createLayoutStoreTestScene("setta:workspace-layout:store-test");
   return new WorkspaceLayoutStore(new WorkspaceLikeLayoutEngine(scene), scene, focusedPaneId, {
     paneLimits,
   });
@@ -1222,11 +1214,9 @@ function createOverviewZoomFixture(): {
     configurable: true,
     value: {},
   });
-  const { focusedPaneId, scene } = createRealWorkspaceScene({
-    storedLayout: null,
-    workspaceId: "setta:workspace-layout:store-overview-zoom",
-    workspaceName: "Repo",
-  });
+  const { focusedPaneId, scene } = createLayoutStoreTestScene(
+    "setta:workspace-layout:store-overview-zoom",
+  );
   const engine = new WorkspaceLikeLayoutEngine(scene);
   const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
   return { engine, store };
@@ -1251,16 +1241,22 @@ function createOverflowingOverviewStore(): WorkspaceLayoutStore {
     configurable: true,
     value: {},
   });
-  const { focusedPaneId, scene } = createRealWorkspaceScene({
-    storedLayout: null,
-    workspaceId: "setta:workspace-layout:store-overview-pan",
-    workspaceName: "Repo",
-  });
+  const { focusedPaneId, scene } = createLayoutStoreTestScene(
+    "setta:workspace-layout:store-overview-pan",
+  );
   return new WorkspaceLayoutStore(
     new WorkspaceLikeLayoutEngine(scene, { overviewCardMinWidthPx: 360 }),
     scene,
     focusedPaneId,
   );
+}
+
+function createLayoutStoreTestScene(workspaceId: string) {
+  return createWorkspaceLayoutTestScene({
+    storedLayout: null,
+    workspaceId,
+    workspaceName: "Repo",
+  });
 }
 
 function columnForPane(scene: WorkspaceScene, paneId: string): WorkspaceColumn | undefined {

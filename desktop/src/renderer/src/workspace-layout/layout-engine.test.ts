@@ -15,7 +15,7 @@ import type {
   SurfaceId,
   SurfaceKind,
 } from "./types";
-import { createRealWorkspaceScene } from "./workspace-scene";
+import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
 
 const viewport: Rect = {
   height: 900,
@@ -160,7 +160,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("uses resized row height when spacing vertical planes", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resized-plane-spacing",
       workspaceName: "Repo",
@@ -208,7 +208,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps same-slot columns in vertical planes at the same width", () => {
-    const { scene } = createRealWorkspaceScene({
+    const { scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:vertical-lane-width",
       workspaceName: "Repo",
@@ -309,7 +309,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("navigation snaps focused pane left edge to the viewport lane", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:left-snap",
       workspaceName: "Repo",
@@ -333,7 +333,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("navigation keeps split-down panes in the current vertical camera row", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:top-snap",
       workspaceName: "Repo",
@@ -360,7 +360,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps every pane attached to a visible column after moving out of a vertical stack", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:move-stack-pane",
       workspaceName: "Repo",
@@ -871,7 +871,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("overview keeps split-down panes vertically stacked inside their column", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:overview-stack",
       workspaceName: "Repo",
@@ -889,7 +889,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("split to plane below creates a separate horizontal plane and snaps into view", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:split-plane-below",
       workspaceName: "Repo",
@@ -922,7 +922,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("split to plane above the first plane keeps persisted plane indexes non-negative", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:split-plane-above-first",
       workspaceName: "Repo",
@@ -941,7 +941,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("split to plane below inserts at the focused horizontal slot", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:split-plane-slot",
       workspaceName: "Repo",
@@ -988,7 +988,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("up and down navigation crosses horizontal planes by visual position", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:plane-navigation",
       workspaceName: "Repo",
@@ -1005,7 +1005,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("right navigation stops at the end of the current horizontal plane", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:right-wrap-plane",
       workspaceName: "Repo",
@@ -1022,7 +1022,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("left navigation stops at the beginning of the current horizontal plane", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:left-wrap-plane",
       workspaceName: "Repo",
@@ -1039,7 +1039,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("left and right navigation stay on a single-pane horizontal plane", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:single-pane-plane-wrap",
       workspaceName: "Repo",
@@ -1056,7 +1056,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("overview lays out separate horizontal planes vertically", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:overview-planes",
       workspaceName: "Repo",
@@ -1075,7 +1075,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("overview applies vertical scroll offset as pan", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:overview-pan",
       workspaceName: "Repo",
@@ -1132,7 +1132,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps the focused column visible after a viewport resize", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resize-focus",
       workspaceName: "Repo",
@@ -1160,7 +1160,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps the focused column to the right of a reserved sidebar inset", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:sidebar-resize-focus",
       workspaceName: "Repo",
@@ -1194,7 +1194,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps the focused end column snapped left as width narrows", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resize-end-focus",
       workspaceName: "Repo",
@@ -1226,7 +1226,7 @@ describe("real workspace layout column sizing", () => {
   });
 
   test("keeps split-down panes in their plane during viewport height resize", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-layout:resize-row-focus",
       workspaceName: "Repo",
@@ -1324,7 +1324,7 @@ function maxVisualWidth(items: readonly PaneRenderItem[]): number {
 function createRealEngine(
   options?: ConstructorParameters<typeof WorkspaceLikeLayoutEngine>[1],
 ): WorkspaceLikeLayoutEngine {
-  const { scene } = createRealWorkspaceScene({
+  const { scene } = createWorkspaceLayoutTestScene({
     storedLayout: null,
     workspaceId: "setta:workspace-layout:engine-test",
     workspaceName: "Repo",

@@ -42,17 +42,10 @@ describe("workspace toolbar", () => {
     expect(visible).toContain('data-testid="workspace-performance-stats"');
   });
 
-  test("registers the easy button open action as a full-width pane", () => {
-    expect(openPaneActions).toContainEqual(
-      expect.objectContaining({
-        label: "Easy Button",
-        request: expect.objectContaining({
-          surfaceKind: "easy-button",
-          tone: "cyan",
-          widthSpec: { unit: "proportion", value: 1 },
-        }),
-        shortcutKey: "e",
-      }),
+  test("registers only generic surviving workspace surfaces", () => {
+    expect(openPaneActions.map(({ label }) => label)).toEqual(["Browser", "Settings"]);
+    expect(openPaneActions).not.toContainEqual(
+      expect.objectContaining({ request: expect.objectContaining({ surfaceKind: "easy-button" }) }),
     );
   });
 });

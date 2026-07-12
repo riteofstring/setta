@@ -2,7 +2,7 @@ import type { PresentationIntent, WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import { PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   compactProjectPaneWidth,
@@ -44,8 +44,6 @@ import {
 } from "./workspace-layout/conversation-pane-coordinator";
 import type { WorkspaceSurfaceFocusRequest } from "./workspace-layout/workspace-layout-area-runtime";
 import { useAppearanceStore } from "./stores/appearance-store";
-import { useChatStore } from "./stores/chat-store";
-import { runChatBackgroundAction } from "./stores/chat-background-actions";
 import {
   type ConversationPaneWorkspaceState,
   useConversationPaneStore,
@@ -73,9 +71,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const platform = setta.app.platform;
   const viewport = useViewportSize();
   useAppearanceSettings();
-  useBackendLifecycle(setta);
   const runtime = useRuntimeLifecycle(setta);
-  useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [workspaceSurfaceFocusRequest, setWorkspaceSurfaceFocusRequest] =
@@ -188,11 +184,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     window.addEventListener(conversationPaneNavigationRequestEvent, navigate);
     return () => window.removeEventListener(conversationPaneNavigationRequestEvent, navigate);
   }, [presentConversationRequest]);
-  useEffect(() => {
-    return setta.chat.onEvent((event) => {
-      useChatStore.getState().handleEvent(event);
-    });
-  }, [setta]);
   useEffect(() => setta.conversations.onEvent(handleConversationProjectionEvent), [setta]);
 
   const shell = ({
@@ -351,24 +342,6 @@ function AppRuntimeContractError() {
   );
 }
 
-function useBackendLifecycle(setta: SettaAPI) {
-  useEffect(() => {
-    return setta.backend.onProcessStatus((processStatus) => {
-      useChatStore.getState().handleBackendProcessStatus(processStatus);
-    });
-  }, [setta]);
-
-  useEffect(() => {
-    return setta.backend.onEventStreamStatus((eventStream) => {
-      if (eventStream.status === "resyncing") {
-        runChatBackgroundAction("event-stream-resync", () =>
-          useChatStore.getState().resyncActiveConversation(),
-        );
-      }
-    });
-  }, [setta]);
-}
-
 function useRuntimeLifecycle(setta: SettaAPI) {
   const loadRuntimes = useRuntimeStore((state) => state.load);
   const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
@@ -416,17 +389,6 @@ function useAppearanceSettings() {
   useEffect(() => {
     void loadAppearance();
   }, [loadAppearance]);
-}
-
-function useSelectedWorkspaceChatSync(workspaceId: string | null) {
-  const syncWorkspaceChat = useChatStore((state) => state.syncWorkspaceChat);
-  const storeWorkspaceId = useChatStore((state) => state.workspaceId);
-  useLayoutEffect(() => {
-    if (!workspaceId || workspaceId === storeWorkspaceId) {
-      return;
-    }
-    runChatBackgroundAction("workspace-chat-sync", () => syncWorkspaceChat(workspaceId));
-  }, [storeWorkspaceId, syncWorkspaceChat, workspaceId]);
 }
 
 type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;

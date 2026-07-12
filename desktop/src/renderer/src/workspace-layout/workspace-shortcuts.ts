@@ -51,13 +51,6 @@ export function workspaceShortcutModifierMatches(
   }
 }
 
-export function isTerminalSafeWorkspaceArrowNavigationShortcut(
-  event: WorkspaceShortcutKeyEvent,
-  shortcuts: AppearanceShortcutsSettings = currentShortcutsSettings(),
-): boolean {
-  return isWorkspaceArrowNavigationShortcut(event, shortcuts);
-}
-
 export function workspaceArrowDirection(key: string): PaneDirection {
   switch (key) {
     case "ArrowDown":
@@ -71,20 +64,6 @@ export function workspaceArrowDirection(key: string): PaneDirection {
     default:
       throw new Error(`unsupported workspace focus key: ${key}`);
   }
-}
-
-export function workspaceShortcutKeyboardEventInit(
-  event: KeyboardEvent,
-): KeyboardEventInit & { key: string } {
-  return {
-    altKey: event.altKey,
-    bubbles: true,
-    cancelable: true,
-    ctrlKey: event.ctrlKey,
-    key: event.key,
-    metaKey: event.metaKey,
-    shiftKey: event.shiftKey,
-  };
 }
 
 function isWorkspaceArrowKey(

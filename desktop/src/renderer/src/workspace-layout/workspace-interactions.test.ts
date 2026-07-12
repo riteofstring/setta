@@ -86,33 +86,6 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
   });
 
-  test("accepts Mod+Alt+Arrow rerouted from terminal surfaces", () => {
-    const context = workspaceKeyContext();
-    const terminalTarget = new FakeElement({ terminal: true });
-    const event = keyboardEvent({
-      altKey: true,
-      key: "ArrowDown",
-      metaKey: true,
-      target: terminalTarget,
-    });
-
-    handleWorkspaceKeyDown({ ...context, event });
-
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.moveFocus).toHaveBeenCalledWith("down", context.viewport);
-  });
-
-  test("ignores bare arrows from terminal surfaces", () => {
-    const context = workspaceKeyContext();
-    const terminalTarget = new FakeElement({ terminal: true });
-    const event = keyboardEvent({ key: "ArrowDown", target: terminalTarget });
-
-    handleWorkspaceKeyDown({ ...context, event });
-
-    expect(event.preventDefault).not.toHaveBeenCalled();
-    expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
-  });
-
   test("uses Mod+Alt+Enter for plane splits", () => {
     const context = workspaceKeyContext();
     const event = keyboardEvent({ altKey: true, key: "Enter", metaKey: true });
@@ -171,23 +144,15 @@ describe("workspace keyboard interactions", () => {
     );
   });
 
-  test("opens a full-width easy button pane with Mod+Alt+E", () => {
+  test("does not expose a generic shortcut for conversation-bound panes", () => {
     const context = workspaceKeyContext();
     const event = keyboardEvent({ altKey: true, key: "e", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.canOpenPane).toHaveBeenCalledWith(
-      expect.objectContaining({ surfaceKind: "easy-button" }),
-    );
-    expect(context.runtime.store.openPane).toHaveBeenCalledWith(
-      expect.objectContaining({
-        surfaceKind: "easy-button",
-        title: "Easy Button",
-        widthSpec: { unit: "proportion", value: 1 },
-      }),
-    );
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(context.runtime.store.canOpenPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.openPane).not.toHaveBeenCalled();
   });
 
   test("uses active shortcut settings for forwarded BrowserView arrows", () => {

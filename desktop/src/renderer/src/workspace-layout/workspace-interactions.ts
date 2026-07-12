@@ -10,14 +10,12 @@ import {
   wheelDeltaModePixelFactor,
 } from "./overview-wheel-gesture";
 import { paneFocusTargetFromClick } from "./pane-focus-click";
-import { eventTargetsTerminalSurface } from "./terminal-surface-utils";
 import {
   interpretWorkspaceTrackpadWheel,
   workspaceWheelNavigationTargetFromEventTarget,
 } from "./trackpad-navigation";
 import type { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
 import {
-  isTerminalSafeWorkspaceArrowNavigationShortcut,
   isWorkspaceArrowNavigationShortcut,
   workspaceShortcutModifierMatches,
   workspaceArrowDirection,
@@ -304,12 +302,6 @@ export function handleWorkspaceKeyDown({
   shortcuts?: AppearanceShortcutsSettings;
   viewportProvider: () => Rect;
 }): void {
-  if (
-    eventTargetsTerminalSurface(event) &&
-    !isTerminalSafeWorkspaceArrowNavigationShortcut(event, shortcuts)
-  ) {
-    return;
-  }
   handleWorkspaceKeyAction({
     event,
     persistLayout,

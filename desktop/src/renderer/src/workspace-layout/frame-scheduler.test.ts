@@ -7,7 +7,7 @@ import { WorkspaceMetricsCollector } from "./metrics";
 import { PaneRuntimePolicy } from "./runtime-policy";
 import type { LayoutFrameInput, PaneRenderItem, Rect } from "./types";
 import type { PresentationEngine, PresentationWriteCounts } from "./presentation-engine";
-import { createRealWorkspaceScene } from "./workspace-scene";
+import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
 
 describe("workspace frame scheduler", () => {
   let raf: InstalledRaf;
@@ -208,7 +208,7 @@ describe("workspace frame scheduler", () => {
   });
 
   test("converges scroll after opening a terminal pane during workspace boot", () => {
-    const { focusedPaneId, scene } = createRealWorkspaceScene({
+    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
       storedLayout: null,
       workspaceId: "setta:workspace-frame-scheduler-open-terminal",
       workspaceName: "Repo",

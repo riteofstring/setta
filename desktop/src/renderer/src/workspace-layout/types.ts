@@ -218,7 +218,7 @@ export interface CanvasSurfaceStats {
   tickerFramesWhileFrozen: number;
 }
 
-export type GitGraphRendererKind = "canvas" | "dom" | "svg";
+type GitGraphRendererKind = "canvas" | "dom" | "svg";
 
 export interface GitGraphSurfaceStats {
   completed: boolean;

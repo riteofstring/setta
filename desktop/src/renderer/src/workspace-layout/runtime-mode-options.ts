@@ -1,4 +1,3 @@
-import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import type { WorkspaceUILayout } from "@generated/backend";
 import {
   generateBenchmarkScene,
@@ -43,10 +42,6 @@ const runtimePolicyOptionsByMode = {
     degradeOverviewDuringResize: boolean;
   }
 >;
-const benchmarkWorkflowGraphSyntheticGraph = {
-  edgesPerNode: 2,
-  nodeCount: 500,
-} satisfies NonNullable<SyntheticWorkflowGraphOptions>;
 const benchmarkPaneRuntimeBudget = {
   ...DEFAULT_PANE_BUDGET,
   maxLiveWebGpuCanvases: 0,
@@ -148,12 +143,6 @@ export function sceneForRuntime(
 
 export function snapshotStaticFallbackForRuntime(mode: WorkspaceSceneMode): boolean {
   return mode === "workspace";
-}
-
-export function workflowGraphSyntheticGraphFallbackForRuntime(
-  mode: WorkspaceSceneMode,
-): SyntheticWorkflowGraphOptions | undefined {
-  return mode === "benchmark" ? benchmarkWorkflowGraphSyntheticGraph : undefined;
 }
 
 function workspaceRuntimeBudgetForScene(scene: WorkspaceScene): PaneRuntimeBudget {
