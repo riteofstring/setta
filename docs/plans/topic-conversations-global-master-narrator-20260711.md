@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-4 are complete. Phase 5 items 1 and 3 are
-complete; item 2 is partially complete, and restoring direct Easy Button voice
-delivery is the next work before item 4
+**Status:** In progress. Phases 0-4 and the initial global-speech foundations
+are complete. AI routing, side/fork execution, the remaining speech work,
+obsolete-surface deletion, and final acceptance remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -40,8 +40,11 @@ environment:
   questions.
 - A global **master** receives shell-level speech or text, finds or creates the
   right topic conversation, routes work, and asks the renderer to focus or open
-  panes. Input started inside an Easy Button bypasses the master and is sent
-  directly to that pane's topic conversation.
+  panes.
+- Input started inside an Easy Button goes to that conversation's lightweight
+  **narrator/router**. It decides whether to continue, queue, or steer the
+  parent agent; answer as narrator; create a side conversation or durable fork;
+  escalate an unrelated topic to the master; or ask for clarification.
 - An Easy Button pane is a view of a topic conversation. A conversation may
   have no pane, one pane, or multiple panes.
 - Multiple topic conversations may run concurrently in one workspace. Each
@@ -67,15 +70,17 @@ The intended experience is:
 2. The user asks the master to bring up a recent conversation about a topic.
 3. The master retrieves the conversation, focuses an existing pane or opens a
    new Easy Button pane, and reports what it did.
-4. The user submits more work through that Easy Button by text or voice. The
-   input goes directly to the topic conversation; its heavy agent runs while
-   its lightweight narrator observes and emits presentation events.
-5. The user asks for an update through the conversation's status action, or
-   asks the master to get an update. The request reaches that conversation's
-   narrator without steering or interrupting the agent.
-6. If the user changes topics, the master either routes to another existing
-   topic, creates a new one, asks for clarification, or deliberately creates a
-   side conversation.
+4. The user submits more work through that Easy Button by text or voice. Its
+   lightweight narrator/router recognizes that the input belongs to the
+   current topic and dispatches it to the heavy agent, then continues observing
+   and emitting presentation events.
+5. The user asks for an update naturally in the pane, uses its explicit status
+   action, or asks the master. The request reaches that conversation's narrator
+   without steering or interrupting the agent.
+6. If the user introduces a tangent, the conversation narrator/router may open
+   an ephemeral side conversation or create a durable fork. If the input is
+   unrelated, it escalates to the master, which finds or creates the right
+   topic conversation.
 7. Conversation work and narration continue even when no Easy Button pane is
    mounted.
 
@@ -145,7 +150,7 @@ Workspace B
 Runtime/account/settings          fixed shell controls
 ```
 
-### Shell master input is multimodal; Easy Button input is direct
+### Shell input is globally routed; Easy Button input is conversation-routed
 
 Shell-originated voice and text are two input modalities for the same global
 master session and routing pipeline. The shell provides a compact `Ask Setta`
@@ -163,39 +168,50 @@ same master interaction history.
 
 An Easy Button composer and microphone have deliberately different scope from
 the shell master controls. Text or voice started inside an Easy Button is
-explicitly addressed to that topic conversation and does not create a master
-input or route decision. Text or voice started from `Ask Setta`, the global
-shortcut, app chrome, or globally listening shell entry point is routed by the
-master and includes the focused workspace/conversation as a hint, not as a
-forced destination.
+addressed to that topic conversation's narrator/router, which makes a typed
+conversation-local routing decision. It does not enter the global master by
+default. Text or voice started from `Ask Setta`, the global shortcut, app
+chrome, or globally listening shell entry point is routed by the master and
+includes the focused workspace/conversation as a hint, not as a forced
+destination.
 
 The application-level speech controller owns both kinds of capture, but it is
 not an implicit router. The initiating control supplies a typed destination at
 capture start, and that destination remains fixed even if pane focus changes
-while transcription is in progress.
+while transcription is in progress. A normal Easy Button submission requests
+AI routing; an explicit user action may instead force send, queue, steer,
+status, side, or fork semantics.
 
-### Master owns cross-conversation routing
+### Master and narrator have different routing scopes
 
 The master is the only actor authorized to make app-global routing decisions.
-A topic narrator may identify that an utterance appears unrelated or propose a
-side conversation, but it may not directly move the user to another topic,
-create panes, or dispatch work to another conversation.
+A topic narrator/router is authorized to make typed decisions within its bound
+conversation: dispatch to the parent agent, answer a status question, create an
+ephemeral side conversation, create a durable child fork, or ask for
+clarification. It may also escalate an input to the master, but it may not
+search, focus, or dispatch to arbitrary unrelated conversations itself.
 
-The master has conversation-management and presentation tools. It does not
-have shell, filesystem mutation, or unrestricted workspace tools. Workspace
-work is delegated to the chosen topic agent.
+Both actors emit constrained decisions; neither directly manipulates renderer
+state or receives unrestricted shell/filesystem tools. The backend validates
+and executes the decision, and the pane coordinator applies any resulting
+presentation intent. Workspace work is delegated to the chosen topic or side
+agent.
 
 ### Narrator is persistent logically and reconstructable physically
 
 Narrator continuity lives in Setta-owned durable state, not only in a model
 thread. The narrator has a durable cursor, checkpoint, prior outputs, current
-focus, and topic descriptor per conversation.
+focus, topic descriptor, and prior input-routing decisions per conversation.
 
 The first implementation uses fresh schema-constrained narrator model calls.
 Every call is rehydrated from the authoritative trajectory and previous
 narration state. A persistent provider narrator thread is not required for
 correctness and is not part of this plan. It may be evaluated later only as a
 measured latency or cost optimization.
+
+Projection and input routing use the same independently configurable
+lightweight narrator role and durable context, but separate strict call schemas.
+Routing a user input never advances the narrator's trajectory projection cursor.
 
 ### Narration has distinct presentation channels
 
@@ -212,6 +228,10 @@ the product later wants periodic spoken updates regardless of phase change,
 that is a separate `status_update` policy and event type, not a relaxation of
 milestone semantics.
 
+A conversation routing decision is a control output, not a fifth narration
+presentation channel. It has its own durable input, schema, validation, and
+audit record.
+
 ### Voice is global
 
 One application-level speech coordinator owns the microphone lease,
@@ -223,16 +243,20 @@ destination:
 ```text
 SpeechCaptureDestination =
   master
-  conversation(conversationId, action)
+  conversation(conversationId, inputMode)
 
-ConversationSpeechAction = send | queue | steer | ask_narrator
+ConversationInputMode =
+  route | send | queue | steer | ask_narrator | side | fork
 ```
 
 Shell master controls request `master`. An Easy Button requests its bound
-`conversationId` and the action selected by its control. The destination and
-action are frozen when capture begins; transcript keywords and later focus are
-never used to infer or change them. Easy Button panes render controls and
-shared state, but do not own capture or playback controllers.
+`conversationId`; ordinary capture uses `route`, while an explicit control may
+select a forced mode. The destination and requested mode are frozen when
+capture begins. Later focus and renderer keyword heuristics never change them;
+in `route` mode, the lightweight narrator/router makes the semantic decision
+from the transcript and authoritative conversation context. Easy Button panes
+render controls and shared state, but do not own capture or playback
+controllers.
 
 ### Presentation identity belongs to the conversation
 
@@ -331,7 +355,8 @@ This plan does not include:
   the provider, while the domain remains insulated from Codex identifiers and
   wire payloads
 - automatic creation of a new conversation when routing confidence is
-  genuinely ambiguous; the master asks a clarification question instead
+  genuinely ambiguous; the responsible master or narrator/router asks a
+  clarification question instead
 - speech wake-word selection or continuous-listening privacy UX details beyond
   the ownership and lifecycle boundary needed by the architecture
 - PWA feature work, PWA parity, PWA-specific acceptance, or deletion of the
@@ -343,10 +368,10 @@ This plan does not include:
   conversations and explicit reuse is allowed when a finite catalog is
   exhausted
 
-## Current-State Findings That Require The Refactor
+## Baseline Findings That Motivated The Refactor
 
-The current repository cannot express the target behavior without changing
-its primary ownership boundaries:
+At the plan's 2026-07-11 baseline, the repository could not express the target
+behavior without changing its primary ownership boundaries:
 
 - `internal/easyrun/service.go` rejects a new start when any Easy Run is working
   in the workspace.
@@ -441,24 +466,21 @@ provider history.
 ## Target Architecture
 
 ```text
-Shell microphone / shell master text input
-                   |
-                   v
-             Master actor
-                   |
-        deterministic candidate retrieval
-                   |
-                   v
-         typed RouteDecision
-             /           \
-            v             v
- Conversation registry   Pane coordinator <--- Left conversation navigator
-            |             focus/open view       ^
-            |                                   |
-            +---------- topic projections ------+
-            |
-            v
- Topic conversation actor <--- Easy Button text / pane-targeted voice
+Shell text / shell voice ---> Master router <--- escalated unrelated pane input
+                                  |
+                       global RouteDecision
+                                  |
+Easy Button text / pane voice     v
+              |          Conversation registry ---> Pane coordinator
+              v                    ^                       ^
+ Conversation narrator/router     |                       |
+              |                    |                       |
+   ConversationRouteDecision -----+-----------------------+
+       |          |          |
+       |          |          +--> durable fork conversation
+       |          +-------------> ephemeral side conversation
+       v
+ Topic conversation actor
       |              |
       v              v
  Agent runtime    Narrator projector
@@ -486,13 +508,14 @@ internal/agent
   provider notification normalization, liveness, model catalog
 
 internal/conversation
-  topic conversation aggregate, turns, artifacts, trajectory ledger,
+  topic conversation aggregate, durable input intake, local route decisions,
+  validated decision execution, turns, artifacts, trajectory ledger,
   persistence, event stream, snapshots, branch relationships, presentation
   profile persistence
 
 internal/narration
-  narrator context builder, durable state, actor mailbox, triggers,
-  structured output validation, narration events
+  narrator context builder, durable state, actor mailbox, input router,
+  triggers, routing/projection output validation, narration events
 
 internal/conversationindex
   global topic cards, full-text candidate retrieval, recency ranking,
@@ -541,7 +564,8 @@ EasyButtonSurface
   receives conversationId from pane config
   selects only that conversation's projection
   derives semantic color tokens from the conversation presentation profile
-  emits direct conversation commands and conversation-targeted capture requests
+  submits ordinary text/voice to conversation routing and supports explicit
+  user-selected command overrides
   renders focus, milestones, artifacts, summary, approval/status controls
 ```
 
@@ -604,6 +628,54 @@ interrupted disposal and retain an audit record, but do not surface it through
 normal conversation list/search contracts. A later explicit promotion feature
 would create a new durable fork; it would not mutate this record into a topic
 conversation.
+
+### ConversationInput and local route decision
+
+Every ordinary Easy Button text or voice submission first becomes a durable,
+idempotent conversation input rather than an agent turn:
+
+```text
+ConversationInput
+  id
+  conversationId
+  sourcePaneId?
+  replyToInputId?
+  text
+  modality: text | voice
+  requestedMode: route | send | queue | steer | ask_narrator | side | fork
+  status: accepted | routing | awaiting_clarification | dispatched | failed
+  submittedAt
+```
+
+`route` is the normal mode. The lightweight conversation narrator/router reads
+the input with authoritative parent context and emits one strict decision:
+
+```text
+ConversationRouteDecision =
+  send_to_parent(authoredInput)
+  queue_parent_turn(authoredInput)
+  steer_parent_turn(authoredInput)
+  answer_as_narrator(question)
+  create_side_conversation(input)
+  fork_conversation(forkedAtTurnId, input, proposedTitle)
+  escalate_to_master(input)
+  clarify(question)
+```
+
+An explicit non-`route` mode is a user override and deterministically selects
+the corresponding decision family; the model does not reinterpret it. The
+backend validates conversation state, fork point, scope, and permissions before
+atomically recording and executing any decision. A model decision never names
+an endpoint, pane id, provider thread id, or arbitrary conversation outside its
+bound parent. Unrelated-topic escalation carries the original input and parent
+context reference to the master, which owns global retrieval and destination
+selection.
+
+For a working parent, `queue_parent_turn` preserves the active turn and
+`steer_parent_turn` changes it. The narrator/router selects between them from
+the user's meaning and current turn state; when that distinction is materially
+ambiguous it emits `clarify` instead of silently defaulting. Explicit Queue or
+Steer controls override that classification.
 
 ### ConversationTurn
 
@@ -798,6 +870,7 @@ multiple conversations must serialize at that writer without exposing raw
 The initial schema includes logical tables for:
 
 - conversations
+- conversation input intake and local route decisions
 - conversation branches
 - ephemeral side-conversation lifecycle/audit records
 - thread bindings
@@ -817,18 +890,20 @@ not force every setting or layout operation into full event sourcing.
 
 Critical transactions include:
 
-1. Persist accepted input, create/queue a turn, and append the corresponding
+1. Persist an accepted conversation input and its committed intake event.
+2. Persist a validated local route decision and the resulting parent command,
+   side/fork record, clarification, narrator request, or master escalation.
+3. Create/queue a turn and append the corresponding trajectory event.
+4. Apply a normalized provider notification, update turn state, and append its
    trajectory event.
-2. Apply a normalized provider notification, update turn state, and append its
-   trajectory event.
-3. Persist working/terminal narrator projection output and its permitted
+5. Persist working/terminal narrator projection output and its permitted
    `observedThroughSequence` advance atomically; persist a status reply without
    changing that projection cursor.
-4. Persist a narrator checkpoint and advance `checkpointThroughSequence`
+6. Persist a narrator checkpoint and advance `checkpointThroughSequence`
    atomically without changing `observedThroughSequence`.
-5. Create a conversation branch and its provider binding atomically after the
+7. Create a conversation branch and its provider binding atomically after the
    provider fork succeeds.
-6. Apply a master route decision and persist the resulting conversation command
+8. Apply a master route decision and persist the resulting conversation command
    before emitting a presentation intent.
 
 Publication uses an in-process outbox/event-hub boundary sourced from committed
@@ -888,9 +963,40 @@ typed controls.
 
 ## Narrator Architecture
 
+### Projector and input router
+
+The narrator is one logical lightweight AI role with two coordinated,
+reconstructable responsibilities per topic conversation:
+
+- the **projector** observes agent trajectory and produces milestones, status
+  replies, final summaries, topic descriptors, and checkpoints
+- the **input router** classifies ordinary pane input before it becomes agent
+  work and emits a `ConversationRouteDecision`
+
+The input router is not a renderer heuristic and does not share the global
+master's arbitrary conversation index. It receives the durable input, parent
+conversation identity and topic, current objective and turn state, active
+steering and plan, recent authoritative trajectory, prior narration and local
+routing decisions, valid completed fork points, and the exact bounded set of
+allowed decision variants. This is enough to decide whether an input continues
+the current work, asks about it, branches from it, or requires global routing.
+
+Input routing uses fresh schema-constrained model calls resolved through the
+conversation's narrator role profile. It does not wait behind automatic
+projection or checkpoint work, does not advance projection/checkpoint cursors,
+and serializes accepted inputs in submission order. A clarification leaves the
+input pending and links the next answer through `replyToInputId`; the router
+then resolves one final decision from the combined exchange.
+
+Explicit send, queue, steer, narrator-status, side, and fork controls remain
+available as user overrides. They select a constrained decision family without
+asking the model to infer intent. Ordinary text and voice default to AI routing,
+so users do not have to choose a mode before speaking.
+
 ### Actor and cursor
 
-Each topic conversation has one narrator mailbox. The mailbox serializes:
+Each topic conversation has one narrator projector mailbox. The mailbox
+serializes:
 
 - automatic projection requests
 - explicit status questions
@@ -1079,6 +1185,10 @@ generate a mechanical replacement highlight or pretend the agent stopped.
 An explicit user status request receives a clear failure response if narration
 cannot run. It is not silently rerouted to the workspace agent.
 
+Input-router failure leaves the durable conversation input undispatched and
+retryable with an explicit diagnostic. It never silently converts the input
+into parent-agent work, a master input, a side conversation, or a fork.
+
 ## Master And Routing Architecture
 
 ### Shell master surface
@@ -1102,15 +1212,22 @@ palette. Collapsing or reopening it does not create or resume a different
 provider thread.
 
 Every master submission normalizes into one contract containing input id,
-text, modality (`text` or `voice`), timestamp, and optional focused workspace,
-conversation, and pane hints. Routing behavior does not diverge by modality.
-The renderer may show interim shell voice transcription, but only a finalized
-master submission enters master history. Easy Button text and pane-targeted
-voice use direct conversation commands and never enter this contract.
+text, modality (`text` or `voice`), source (`shell` or
+`conversation_escalation`), timestamp, and optional focused/originating
+workspace, conversation, pane, and conversation-input ids. Routing behavior
+does not diverge by modality. The renderer may show interim shell voice
+transcription, but only a finalized master submission enters master history.
+Easy Button input first enters its local narrator/router; only an explicit
+`escalate_to_master` decision creates a linked master input.
 
 The master surface is not a topic conversation and does not appear as a row in
 the conversation navigator. Its recent transcript and audit information are
 available from the overlay.
+
+Replies to shell input stay in the shared master overlay. A route result or
+clarification caused by pane escalation is also delivered to the originating
+pane, while remaining part of the same durable master session. It does not
+create a per-pane master.
 
 ### Master session
 
@@ -1196,13 +1313,16 @@ that the requested operation is allowed. The model does not emit renderer DOM
 commands or arbitrary endpoint names.
 
 The master chooses `send_to_agent`, `queue_agent_turn`, or
-`steer_active_turn` explicitly. Queueing preserves the active turn and schedules
-a later turn; steering changes the active turn. If a shell-originated request
-targets a working conversation but does not make that distinction clear, the
-master asks a clarification rather than guessing. Direct Easy Button controls
-invoke the corresponding conversation command without creating a
-`RouteDecision`; a narrator can answer status but cannot send, queue, or steer
-agent work.
+`steer_active_turn` explicitly. Queueing preserves the active turn and
+schedules a later turn; steering changes the active turn. If an app-global
+request targets a working conversation but does not make that distinction
+clear, the master asks a clarification rather than guessing.
+
+The conversation narrator/router makes the equivalent decision within its
+bound parent through `ConversationRouteDecision`, including side, fork, and
+escalation outcomes. A local decision is not a global `RouteDecision`, and an
+explicit Easy Button action may bypass model classification while using the
+same validated executor.
 
 Each decision records:
 
@@ -1244,6 +1364,38 @@ Use separate domain meanings:
 - **Side conversation:** an ephemeral child associated with a parent pane and
   fork point. It is not included in global topic retrieval and does not append
   messages or model output to the parent thread.
+
+Both routing levels may choose these outcomes. The global master may emit
+`create_side_conversation` or `fork_conversation` for shell input or an
+escalated pane input. A conversation narrator/router may emit the corresponding
+local decision only for its own parent. Explicit Side and Fork pane actions
+request the same validated operations without model classification.
+
+The routing policy is semantic and schema-constrained:
+
+- continue, queue, or steer the parent when the input belongs to the same work
+- use a side conversation for a related, temporary tangent that benefits from
+  parent context but should not alter the parent agent's turn or durable topic
+- use a fork for a related direction that should persist independently with its
+  own future turns, narrator, navigator row, and panes
+- escalate from the pane narrator to the master when the input is unrelated or
+  may belong to another existing global topic
+- clarify when the intended parent, fork point, or durable-versus-ephemeral
+  choice is materially ambiguous
+
+Do not implement this with transcript keywords, renderer heuristics, or a
+silent default from side to fork. The model selects a typed decision from the
+supplied valid actions, and the backend owns validation and execution.
+
+A pane-local side decision uses the originating pane. A master-authored side
+decision first asks the pane coordinator to focus an existing parent pane or
+open one, then binds the ephemeral side to the resolved pane. If no renderer is
+available, the master decision remains durably pending and cancellable until a
+coordinator reconnects; it does not start an invisible pane-owned side session.
+If the originating pane for a local decision disappears before binding, that
+decision fails explicitly and remains retryable rather than silently choosing a
+different pane. A durable fork has no presentation dependency and may continue
+with zero open panes.
 
 The side agent has its own explicit role profile. It does not inherit narrator
 or primary-agent settings implicitly, even though the Codex TUI currently
@@ -1292,25 +1444,31 @@ speech controller. One controller owns:
 - transcription session creation and teardown
 - global enabled/disabled preference
 - capture state and transcript preview
-- the frozen destination and action for the active capture
+- the frozen destination and requested input mode for the active capture
 - delivery of finalized text to that typed destination
 - explicit cancellation on runtime disconnect or sign-out
 
 Starting capture from a shell master entry point targets `master`; its finalized
 transcript becomes a `MasterInput`. Starting capture from an Easy Button targets
-the pane's bound conversation and bypasses the master. The pane makes the
-conversation action explicit before capture:
+the pane's bound conversation and enters its narrator/router. It bypasses the
+master unless the local AI later emits `escalate_to_master`. Ordinary pane
+capture uses `route`, so the user does not choose an action before speaking.
+Optional explicit controls may force:
 
-- `send` starts normal work when the conversation is idle
+- `send` to start normal parent work when idle
 - `queue` schedules later work without changing the active turn
 - `steer` modifies the active turn
 - `ask_narrator` requests a read-only status reply
+- `side` creates an ephemeral side conversation from the parent
+- `fork` creates a durable child conversation from a validated completed turn
 
-The UI may present those actions contextually, but the controller and backend
-never infer them from transcript wording. Closing or changing focus away from
-the initiating pane does not retarget an active capture; the original durable
-conversation remains the destination. User cancellation or runtime disconnect
-cancels it, and an unavailable destination fails explicitly.
+The renderer never infers those actions from transcript wording. In `route`
+mode, the narrator/router makes the semantic choice through its strict model
+schema. Closing or changing focus away from the initiating pane does not
+retarget an active capture; the original durable conversation and source pane
+reference remain the origin. User cancellation or runtime disconnect cancels
+it, and an unavailable destination or presentation-dependent side action fails
+explicitly.
 
 The provider transcription endpoint remains app-global and is not
 parameterized by an implicit selected conversation. Runtime/auth identity
@@ -1452,8 +1610,11 @@ The replacement surface needs endpoints or streams for these operations:
 - list/search topic conversations
 - create/read/archive a topic conversation
 - read a conversation snapshot
-- send or queue a turn
-- steer or stop the active turn
+- submit/retry/discard a durable conversation input in `route` or explicit mode
+- read local routing clarification and decision state
+- execute validated send, queue, steer, narrator-status, side, fork, and master
+  escalation outcomes
+- stop the active turn
 - submit an approval or structured input response
 - ask the narrator for status
 - create a side conversation
@@ -1465,7 +1626,7 @@ The replacement surface needs endpoints or streams for these operations:
 ### Master commands
 
 - read master state
-- submit shell-originated text/transcribed utterance
+- submit shell-originated or linked conversation-escalation input
 - subscribe to master replies and presentation intents
 - cancel an active master operation
 
@@ -1485,7 +1646,8 @@ The replacement surface needs endpoints or streams for these operations:
 
 - read speech capabilities
 - create/cancel transcription sessions
-- dispatch a finalized transcript to its frozen master or conversation target
+- dispatch a finalized transcript to its frozen master or conversation-input
+  target and requested mode
 - synthesize a typed narration/master source event
 
 Conversation and master event unions have exhaustive payload branches. The
@@ -1619,7 +1781,7 @@ Exit criteria:
 
 ### Phase 1: New persistence and core contracts
 
-**Progress:** Complete.
+**Status:** Complete.
 
 Implement:
 
@@ -1650,9 +1812,8 @@ Exit criteria:
 
 ### Phase 2: Codex agent runtime extraction
 
-**Progress:** Complete. The live snapshot result requires the typed Phase 7
-in-flight context frame specified above; the active side path is no longer
-blocked on unknown provider behavior.
+**Status:** Complete. The characterized live snapshot requires the typed Phase
+6 in-flight context frame specified above.
 
 Implement:
 
@@ -1668,7 +1829,7 @@ Implement:
    and injects boundary items through the new runtime.
 7. Establish, with deterministic and live tests against the pinned Codex
    revision, the exact active-turn `thread/fork` snapshot semantics that the
-   Phase 7 side-conversation design depends on. Record which persisted and
+   Phase 6 side-conversation design depends on. Record which persisted and
    in-flight history items the child receives at the fork boundary, whether the
    parent continues without interruption, and confirm that later parent events
    do not leak into the child snapshot.
@@ -1677,7 +1838,7 @@ The scripted provider proves Setta's request and lifecycle handling but is not
 evidence of live Codex snapshot behavior. If ChatGPT-authenticated live testing
 is unavailable or the result is inconclusive, record the test as skipped and
 leave the active-turn side path blocked. Completed-turn durable forks may
-proceed. If live behavior exposes a context gap, revise Phase 7 explicitly as
+proceed. If live behavior exposes a context gap, revise Phase 6 explicitly as
 required by the side-conversation section; do not make the fake provider
 simulate the desired answer and call it proof.
 
@@ -1688,11 +1849,11 @@ Exit criteria:
 - restart/reload resumes or reports missing provider state explicitly
 - no new code depends on chat presentation types
 - live active-turn fork snapshot semantics are established and recorded, or
-  the dependent Phase 7 path is explicitly blocked rather than assumed
+  the dependent Phase 6 path is explicitly blocked rather than assumed
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Progress:** Complete.
+**Status:** Complete.
 
 Implement:
 
@@ -1720,7 +1881,7 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Complete.
+**Status:** Complete.
 
 Implement:
 
@@ -1751,19 +1912,19 @@ Exit criteria:
 - asking for status returns a narrator reply while the agent continues
 - a narrator process/session failure can be recovered from Setta state
 
-### Phase 5: Global speech cutover
+### Phase 5: Global speech infrastructure
 
-**Progress:** Items 1 and 3 are complete. Item 2 is partially complete: the
-shell-to-master branch exists, but direct Easy Button voice delivery does not.
-Correct item 2 before starting item 4.
+**Status:** In progress. The app-shell capture owner, shell master intake, and
+typed voice-catalog/selection foundations exist. Next, replace the master-only
+final transcript handoff with the typed destination and durable pane-input
+intake in item 2; then continue with item 4.
 
 Implement:
 
 1. App-shell microphone controller and global preference.
-2. Typed finalized-transcript delivery from the global controller: shell
-   capture to the master boundary, and Easy Button capture directly to its
-   frozen conversation/action destination without a master input or route
-   decision.
+2. Typed capture destination and requested input mode frozen at capture start.
+   Shell transcripts enter master intake; pane transcripts enter durable
+   conversation input intake in default `route` or explicit override mode.
 3. Typed provider voice catalog plus global master and per-conversation
    narrator voice selections.
 4. Stable `auto_distinct` allocator, exact overrides, finite-catalog reuse, and
@@ -1775,80 +1936,93 @@ Implement:
 8. Delete Easy Button-owned speech controllers, Easy Run speech endpoints, and
    pane-local playback subscriptions.
 
-This phase targets the desktop app shell. Do not add or repair PWA speech
-behavior or PWA-specific acceptance coverage, and do not delete the retained
-PWA.
-
 Exit criteria:
 
 - microphone capture works with no Easy Button pane mounted
 - opening or closing panes does not restart global capture
 - shell-originated voice enters the master pipeline
-- Easy Button-originated voice goes directly to the bound conversation and
-  creates no master input or route decision
-- pane voice send, queue, steer, and narrator-status actions are explicit and
-  deterministic; no transcript keyword or focus heuristic selects among them
+- Easy Button-originated voice enters the bound conversation's durable input
+  intake with `route` by default and does not become a global master input
+- explicit pane voice modes survive transcription exactly; the renderer does
+  not infer intent from transcript text or final focus
 - narration from multiple conversations is queued and attributed correctly
 - the master and active narrators use stable distinct voices when available;
   restart preserves assignments and finite-catalog reuse is visible
 - recording preempts playback according to explicit policy
 - highlights/final summaries/status replies have deterministic speech behavior
 
-### Phase 6: Master and conversation index
+This phase targets the desktop app shell. It establishes capture and playback
+infrastructure, not the final AI input-routing cutover. Do not add or repair PWA
+speech behavior or PWA-specific acceptance coverage, and do not delete the
+retained PWA.
+
+### Phase 6: Side conversations and durable forks
 
 Implement:
 
-1. Topic-card index and bounded candidate retrieval.
-2. Durable restricted master thread and role configuration.
-3. One shell-owned master interaction controller accepting normalized
-   shell-originated voice and text input. Easy Button input is outside this
-   controller and remains directly conversation-addressed.
-4. Compact left-pane launcher plus an expanded, conversational master overlay
-   reachable by global shortcut and app chrome while the pane is collapsed.
-5. Strict `RouteDecision` generation and validation.
-6. Conversation commands and renderer presentation intents.
-7. Pane focus/open coordinator behavior shared by master decisions and direct
-   navigator selection.
-8. Clarification behavior for ambiguous routing without dismissing the master
-   overlay.
-9. Route/model/context observability in desktop recordings.
-
-Exit criteria:
-
-- the master can find and open a recent topic by description
-- it focuses an existing pane rather than duplicating it when policy says so
-- global typed master input remains available when the left pane is collapsed
-  and shares history/routing behavior with shell voice input
-- the master distinguishes send, queue, and steer explicitly when routing to a
-  working conversation, and asks for clarification when the requested delivery
-  is ambiguous
-- unrelated work creates a new conversation only after an unambiguous route
-- direct status questions route to the narrator, not the primary agent
-- the master cannot invoke filesystem or shell mutation directly
-
-### Phase 7: Side conversations and durable forks
-
-Implement:
-
-1. Durable fork through `thread/fork` at a completed turn.
+1. Durable fork through `thread/fork` at a validated completed turn.
 2. Ephemeral `thread/fork` linked to parent and pane, using the resolved
    `side_agent` profile.
-3. Side boundary injection and hidden inherited transcript matching the Codex
-   source lifecycle.
-4. Active-parent status projection, isolated events, disposal, and failure
-   handling.
-5. Parent/child presentation and durable-fork lineage controls.
-6. Re-verification of the active-turn fork snapshot semantics established in
-   Phase 2, now exercised through the full side-conversation lifecycle.
+3. Side boundary and typed in-flight context-frame injection matching the
+   characterized Codex lifecycle.
+4. Active-parent status projection, isolated events, disposal, restart, and
+   explicit failure handling.
+5. One validated backend executor for explicit or AI-authored side/fork
+   decisions; the model never receives provider ids or arbitrary pane commands.
+6. Parent/child presentation and durable-fork lineage controls.
+7. Re-verification of the active-turn fork snapshot semantics established in
+   Phase 2 through the full side-conversation lifecycle.
 
 Exit criteria:
 
 - side output never enters the parent agent thread or transcript history
-- durable forks appear as independent indexed topic conversations
-- side conversations are not returned by global topic search
-- branch source turn/trajectory sequence is auditable
-- no synthetic in-flight context fallback exists without an explicitly proven
-  and designed provider gap
+- durable forks appear as independent topic conversations with their own agent,
+  narrator, navigator row, and panes
+- side conversations remain associated with the parent pane and are absent
+  from global topic search
+- branch source turn/trajectory sequence and decision source are auditable
+- the active side lifecycle uses the proven typed context correction and no
+  synthetic or heuristic fallback
+
+### Phase 7: Master, conversation index, and AI routing cutover
+
+Implement:
+
+1. Complete the `ConversationInput` lifecycle with clarification and
+   `ConversationRouteDecision` contracts, ordered processing, and atomic
+   validated execution.
+2. Conversation-local input router using the lightweight narrator role,
+   authoritative context, strict output, and independent invocation audit.
+3. Topic-card index and bounded global candidate retrieval.
+4. Durable restricted master thread and independent role configuration.
+5. One shell-owned master controller shared by shell text and voice, including
+   linked pane escalations and source-aware clarification delivery.
+6. Compact left-pane launcher plus the conversational master overlay reachable
+   by global shortcut and app chrome while the navigator is collapsed.
+7. Strict global `RouteDecision` generation and validation.
+8. Pane text and voice cut over to local `route` by default, with explicit
+   send, queue, steer, status, side, and fork overrides.
+9. Pane focus/open behavior shared by validated master/local decisions and
+   direct navigator selection.
+10. Route/model/context observability in desktop recordings.
+
+Exit criteria:
+
+- ordinary pane text and voice reach the conversation narrator/router before
+  becoming agent work
+- the local AI can choose parent send/queue/steer, narrator answer, side, fork,
+  master escalation, or clarification from one strict schema
+- side/fork choices execute through the Phase 6 lifecycle and never contaminate
+  the parent
+- unrelated pane input reaches the global master, which finds or creates the
+  destination and returns clarification to the originating pane when needed
+- the master can find and open a recent topic, reusing an existing pane when
+  policy says so
+- shell text and voice share one durable master session even when the navigator
+  is collapsed
+- explicit user modes override AI classification without separate legacy paths
+- neither routing AI can invoke unrestricted filesystem, shell, endpoint, or
+  renderer operations
 
 ### Phase 8: Obsolete surface and backend eradication
 
@@ -1923,11 +2097,17 @@ Cover:
 - status-only context/reply persistence without projection-cursor advancement
   or later milestone suppression
 - current constraints and steering overriding historical checkpoint text
+- conversation-input idempotency, clarification linkage, ordered routing, and
+  restart recovery
+- local routing context bounds and strict decisions for parent send/queue/steer,
+  narrator answer, side, fork, master escalation, and clarification
+- explicit input-mode overrides that bypass classification without bypassing
+  backend validation
 - normalized master input validation, idempotent durable acceptance, changed-key
   conflicts, committed intake events, concurrent retries, and restart reads
-- typed speech destination/action validation and direct conversation delivery
-- route decision validation, explicit send/queue/steer semantics, and missing
-  targets
+- typed speech destination/input-mode validation and conversation-input delivery
+- global route decision validation, explicit send/queue/steer semantics, linked
+  pane escalations, and missing targets
 - topic index retrieval and archive filtering
 - side/fork parent relationships and isolation
 - role-profile precedence and model/effort validation
@@ -1953,11 +2133,13 @@ Cover:
   shell text, and shell voice entry points
 - explicit scope separation between shell master text/voice and Easy Button
   conversation text/voice
+- pane clarification and routing-result state shared across duplicate views of
+  one conversation without leaking into another conversation
 - global capture state independent of pane mounts
 - finalized shell transcripts submitted exactly once to the master boundary,
   with exact-input retry, failure retention, and stale-runtime result rejection
 - finalized Easy Button transcripts delivered exactly once to their frozen
-  conversation/action target without creating master history or routing state
+  conversation input target in default `route` or explicit override mode
 - global playback priority, preemption, and attribution
 - exhaustive generated event unions
 - large-event-list rendering and batching
@@ -1987,15 +2169,19 @@ temporary app data and a scripted Codex app-server, cover:
 10. Use shell speech with no pane, one pane, and multiple panes; verify the
     master and active narrators receive distinct stable voices when available
     and explicit reuse when the catalog is exhausted.
-11. Start voice capture from an Easy Button while idle and while working;
-    exercise direct send, queue, steer, and narrator status, then prove no
-    `MasterInput` or master route decision was created for any of them.
-12. Route typed and spoken shell master input to an existing topic, explicitly
-    distinguish queue from steer, focus its pane, create a new topic, retain an
-    ambiguous clarification in the master overlay, and open a side conversation
-    while the parent is active.
-13. Fork a durable conversation and verify parent/child isolation.
-14. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
+11. Submit ordinary text and voice from an Easy Button and exercise every local
+    AI decision: parent send, queue, steer, narrator answer, side, fork, master
+    escalation, and clarification. Verify explicit action overrides skip model
+    classification while using the same executor.
+12. Prove non-escalated pane input creates no `MasterInput`; prove an unrelated
+    pane input creates exactly one linked escalation and returns any master
+    clarification to its originating pane.
+13. Route typed and spoken shell master input to an existing topic, focus its
+    pane, create a new topic, choose side and fork outcomes, and retain an
+    ambiguous clarification in the master overlay.
+14. Verify side and durable-fork isolation, disposal/restart behavior, lineage,
+    navigator visibility, and parent continuation.
+15. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
 
 The scripted provider must exercise production code paths rather than mocks or
 test-only bypasses. Treat it as a first-class, separately budgeted
@@ -2069,27 +2255,26 @@ without adding emergency logging. Record structured events for:
 - model/effort/service tier/permission profile
 - lifecycle and liveness changes
 
-### Narrator invocation
+### Narrator invocation and local routing
 
-- conversation/turn ids
-- call kind (`projection`, `status`, `terminal`, or `checkpoint`) and typed
-  trigger/maintenance reason
-- context kind, checkpoint, included sequence range(s), and any intentionally
-  omitted status-only backlog range
-- pre-call `checkpointThroughSequence` and `observedThroughSequence`, proposed
-  checkpoint/cursor-advance range, cursor-advance decision, and post-commit
-  cursors
-- invocation generation token plus completed, cancelled, superseded, stale, or
-  committed outcome
+- conversation id and turn id when applicable
+- call kind (`input_route`, `projection`, `status`, `terminal`, or `checkpoint`)
+  and typed trigger/maintenance reason
 - event counts by kind and input size/token estimate
-- previous milestone/final-summary counts
 - requested and resolved model/effort
-- structured output or validation failure
-- cursor commit
+- completed, cancelled, superseded, stale, committed, or failed outcome
+- for routing: conversation input and clarification-parent ids, requested mode,
+  authoritative context sequence/range, allowed decision variants, structured
+  decision, validation result, and executed effect
+- for projection/status/checkpoint: context kind, checkpoint, included sequence
+  range(s), intentionally omitted status-only backlog range, pre/post cursors,
+  proposed cursor advance, prior milestone/final-summary counts, structured
+  output, validation result, and commit decision
 
 ### Master routing
 
-- shell input source and focused-conversation hint
+- shell or conversation-escalation source, originating input id, and
+  focused/originating conversation hint
 - candidate conversation ids and retrieval metadata
 - route decision and validation result
 - presentation intent
@@ -2108,7 +2293,7 @@ without adding emergency logging. Record structured events for:
 ### Speech
 
 - capture lifecycle and transcription operation id
-- capture origin plus the frozen master or conversation/action destination
+- capture origin plus the frozen master or conversation/input-mode destination
 - finalized transcript delivery command id, target, result, and failure
 - narration/master source event id
 - requested selection mode, requested exact voice if any, resolved voice id,
@@ -2137,9 +2322,15 @@ This plan is complete only when all of the following are true:
   typed decisions.
 - The same global master is reachable through shell voice and shell-owned text
   UI, including while the left pane is collapsed.
-- Easy Button text and voice go directly to the pane's bound conversation and
-  never pass through the master; voice send, queue, steer, and narrator-status
-  intent is explicit at capture start.
+- Ordinary Easy Button text and voice enter the bound conversation's
+  lightweight narrator/router, not the heavy agent or global master directly.
+- The conversation narrator/router can choose parent send/queue/steer, narrator
+  answer, ephemeral side, durable fork, global escalation, or clarification
+  through a strict typed decision.
+- Explicit pane actions can force send, queue, steer, narrator status, side, or
+  fork without creating a parallel command path.
+- Only a typed local escalation sends pane input to the global master, and any
+  clarification remains linked to the originating pane and input.
 - Asking for an update reaches the narrator without steering the primary agent.
 - Narrator input includes an authoritative recent trajectory plus prior
   narration, not only new digest fragments.
@@ -2156,7 +2347,8 @@ This plan is complete only when all of the following are true:
 - Different visible conversations use stable accessible palettes when
   available, while multiple panes for the same conversation share one palette
   and color is never the sole identifier.
-- Side conversations and forks do not contaminate parent threads.
+- Both the master and a conversation narrator/router can select side or fork
+  when in scope; side conversations and forks do not contaminate parent threads.
 - Provider thread list/search/read/fork/item-injection primitives are supported
   through generated contracts and verified live.
 - Chat, terminal, workflow, git, semantic graph, workspace activity, and old
@@ -2171,1208 +2363,3 @@ This plan is complete only when all of the following are true:
   broad visual restyling.
 - Final performance reports show that multiple live Easy Button panes and large
   trajectories remain within established workspace UI budgets.
-
-## Progress Log
-
-- 2026-07-11: Plan reviewed and the motivating current-state findings verified
-  against the code (one-active-run gate, one-Easy-Button-pane limit, singleton
-  Easy Run store, narrator model coupled to agent settings, lossy narrator
-  digest, fresh ephemeral thread per structured call). Folded in the SQLite
-  single-writer model, the narrator checkpoint-generation mechanism,
-  scripted-provider budgeting, and an early Phase 2 proof of active-turn fork
-  snapshot semantics. Settled two open decisions: the master is app-global
-  (per-workspace rejected) and the semantic graph/cartographer are deleted
-  entirely.
-- 2026-07-11: Follow-up review made checkpoint coverage subordinate to the
-  contiguous observed cursor, added ordered backlog catch-up and low-priority
-  checkpoint cancellation, kept current constraints authoritative outside
-  historical summaries, made the SQLite writer queue lifecycle explicit, and
-  replaced flake-tolerance wording with deterministic E2E synchronization
-  requirements. Live active-turn fork behavior is now a Phase 7 prerequisite,
-  not something the scripted provider may claim to prove.
-
-Implementation is in progress under this plan.
-
-- 2026-07-11: Completed the Phase 0 freeze/baseline slice. The
-  [functional and performance baseline](../reports/performance/topic-conversations-phase0-baseline-20260711.md)
-  records a fresh production Electron Easy Button workflow and 1,200 ms idle,
-  working, terminal, and frozen-working frame samples. The
-  [ownership and configuration inventory](../reports/topic-conversations-phase0-inventory-20260711.md)
-  reviews all 146 endpoint registrations, backend/renderer/desktop owners,
-  obsolete persistence paths, generated contract and supported-protocol
-  fingerprints, the pinned Codex source, live ChatGPT auth and `model/list`,
-  exact independent role defaults, the synthesis voice catalog/selection
-  modes, and the initial seven-palette accessible catalog. This closes the
-  Phase 0 exit criteria without changing production code or reading legacy
-  state through a new path.
-- 2026-07-11: Phase 0 verification passed with `pnpm -C desktop build`, the
-  deterministic production-path `easy-button-pane-workflow.test.mjs`, the
-  production-path `easy-button-pane-performance.test.mjs`, and
-  `env -u OPENAI_API_KEY node desktop/tests/electron/chat-live-auth.mjs`.
-  The authenticated app-server returned every selected role model and effort
-  from `model/list`. Generated outputs changed: none; the exact schema and file
-  hashes are recorded in the inventory. Remaining work starts at Phase 1's new
-  SQLite persistence/core-contract owner. There is no blocker to Phase 1. Live
-  active-turn fork snapshot semantics remain deliberately unclaimed and must
-  still be established in Phase 2 before the dependent Phase 7 active side
-  path; neither Phase 0 scripted workflow is evidence for that prerequisite.
-- 2026-07-11: Completed Phase 1 item 1. The new `internal/conversation` owner
-  bootstraps schema version 1 only at
-  `<app-data>/topic-conversations/conversations.sqlite`; malformed legacy files
-  placed at the inventoried old paths are ignored, while a malformed,
-  unsupported, incomplete, or nonempty unversioned database at the new path is
-  rejected explicitly. The version-1 schema establishes the plan-owned tables,
-  named indexes, and FTS5 topic-search boundary for conversations, turns and
-  queue entries, branches and side-conversation audit state, thread bindings,
-  trajectory and artifacts, narrator state and output, role/presentation
-  configuration, topic documents, master state and decisions, pane bindings,
-  and committed events. Domain types and transaction-specific methods remain
-  Phase 1 items 2-3; this slice does not expose a compatibility or legacy read
-  path.
-- 2026-07-11: The store holds one dedicated SQLite writer connection behind a
-  bounded queue and a fixed query-only read pool. Every held connection applies
-  and verifies `foreign_keys`, `journal_mode=WAL`, `synchronous=NORMAL`, and a
-  bounded `busy_timeout`; readers additionally verify `query_only`. Write
-  admission reports typed `cancelled`, `saturated`, and `store_closed`
-  outcomes, accepted jobs always receive a result, and shutdown closes
-  admission before draining accepted writes. Focused verification passed with
-  `./scripts/go.sh test -race ./internal/conversation` and
-  `./check_quality.sh --files internal/conversation/store.go
-  internal/conversation/store_schema.go internal/conversation/store_test.go
-  internal/conversation/schema_v1.sql`. Generated inputs and outputs changed:
-  none. The next incomplete step is Phase 1 item 2, the Go-owned domain types;
-  there is no blocker.
-- 2026-07-11: Final slice verification also passed `./scripts/format.sh` and
-  `./check_quality.sh --git-changes`. An additional `./check_quality.sh --all`
-  run passed every Go package, static analysis, desktop formatting/typecheck,
-  all 1,139 Vitest tests, and the production build, then stopped in the
-  pre-existing `codex-protocol-notifications` Electron workflow because the
-  completed fake-provider run never projected its assistant text. The focused
-  `node tests/electron/chat-workflows.test.mjs --codex-protocol-only` rerun
-  reproduced the same timeout; `internal/conversation` is not imported by any
-  runtime composition root in this slice. The additionally run supply-chain
-  gate reached `govulncheck` and reported `GO-2026-5856` in the repository-pinned
-  Go 1.26.4 standard library, fixed in Go 1.26.5, with example traces through
-  existing runtime, semantic-graph, generator, and speech code. No dependency
-  manifest or pinned toolchain was changed as part of this persistence step.
-- 2026-07-11: Phase 1 item 1 review corrected the version-1 schema's role
-  override scope to include the plan-owned workspace layer between global and
-  conversation overrides. Focused coverage now accepts all three valid scope
-  shapes and rejects an empty workspace scope. The review also removed the
-  hardcoded table/index inventory mirror: schema validation derives every
-  owned definition from `schema_v1.sql` and compares the normalized stored SQL,
-  so a version-1 database with the right object names but a wrong table or
-  index definition is rejected as corrupt rather than failing later at use.
-  Verification passed with the race-enabled focused conversation test and the
-  focused `./check_quality.sh --files` gate.
-  Generated inputs and outputs changed: none. Phase 1 item 2 remains next and
-  there is no external blocker.
-- 2026-07-11: Completed Phase 1 item 2. `internal/conversation` now owns the
-  durable topic-conversation, turn/queue, Codex thread-binding, artifact,
-  branch, ephemeral-side, role-profile, resolved-invocation audit,
-  presentation-profile, narrator-state, narration-event, and normalized
-  trajectory types. Domain validation makes lifecycle state explicit, keeps
-  provider ids replaceable rather than using them as Setta identity, enforces
-  `checkpointThroughSequence <= observedThroughSequence`, separates the four
-  narration channels, and rejects mismatched or multiply populated trajectory
-  and narration payload branches. The 27 trajectory variants cover the
-  plan-owned turn, public agent text/reasoning, plan, activity, file-change,
-  approval, subagent, artifact, liveness, provider-lifecycle, and model-reroute
-  facts without importing legacy chat/Easy Run types or Codex wire objects.
-- 2026-07-11: Role profiles now model exact versus explicit
-  `provider_default` selection, provider-advertised reasoning-effort strings,
-  service tier, explicit tool/approval/mutation permissions, context budgets,
-  all three override scopes, and requested-versus-resolved invocation audit.
-  The clean `internal/workspaceui/conversationpalette` owner defines the seven
-  approved accessible palettes and semantic token pairs in deterministic
-  allocator order; conversation presentation profiles persist exact or
-  `auto_distinct` palette/voice selection and explicit catalog-exhaustion
-  reuse. Focused race tests, repository formatting, and the git-change quality
-  gate passed for both new owners. Generated inputs and outputs changed: none;
-  these domain types are
-  deliberately not registered as HTTP/event surfaces until Phase 1 item 4.
-  No production composition root changed, so a chat/Electron workflow gate is
-  not evidence needed for this isolated type slice. Phase 1 item 3 is next,
-  with no external blocker.
-- 2026-07-11: The Phase 1 item 2 review tightened the committed domain
-  invariants before persistence helpers begin. A turn's accepted role profile
-  and provider turn reference must now match its resolved invocation, and
-  running/completed/failed/cancelled turn status cannot disagree with the
-  invocation outcome. Model-reroute audit chains must begin at the resolved
-  model. Status-only narrator calls cannot emit milestones or topic
-  descriptors, narrator degradation records require diagnostic references and
-  coherent timestamps, presentation reuse cannot identify the owning
-  conversation as its own conflict, and structured-input questions/resolutions
-  reject ambiguous shapes. Focused race tests and the focused quality gate pass
-  for `internal/conversation` and `internal/workspaceui/conversationpalette`.
-  Generated inputs and outputs changed: none. Phase 1 item 3 remains next, with
-  no external blocker.
-- 2026-07-11: Completed Phase 1 item 3. The conversation store now exposes a
-  bounded-writer transaction boundary whose value expires with its callback;
-  validated helpers persist every Phase 1 aggregate record without exposing a
-  raw SQL transaction. A transaction that mutates current state must append at
-  least one committed event, so conversation/turn/queue/trajectory changes,
-  narrator cursor/output changes, presentation and role configuration, and
-  fork/binding creation can commit or roll back with their publication record
-  as one unit. Optimistic expectations reject stale conversation, turn,
-  narrator, side-conversation, queue, and trajectory updates explicitly.
-  Trajectory appends advance only the next contiguous per-conversation
-  sequence; narrator state/output writes enforce source coverage; artifact and
-  binding references are conversation-owned; and a durable fork helper accepts
-  only a completed parent turn.
-- 2026-07-11: The committed-event outbox assigns a durable global commit
-  sequence and an independent contiguous sequence per stream inside the writer
-  transaction. Bounded global and per-stream reads replay records after a crash
-  or restart, payloads are copied at the boundary, and waiters use commit
-  notifications plus a durable reread rather than polling. Invalid, null, or
-  duplicate records roll back atomically, SQL nullable JSON remains SQL
-  `NULL`, state-only transactions are rejected, and a transaction object
-  cannot be used after commit. Focused verification passed with
-  `./scripts/go.sh test -race ./internal/conversation` and the focused
-  `./check_quality.sh --files` gate. No schema, dependency, generated input,
-  generated output, runtime composition root, or Codex protocol surface
-  changed, so no production Electron or live-provider workflow is implicated
-  by this isolated persistence slice. Phase 1 item 4 is next, with no external
-  blocker. Final repository formatting and `./check_quality.sh --git-changes`
-  also passed; 100 repeated outbox wake/restart-focused runs were clean. The
-  supply-chain gate again reached `govulncheck` and reported the pre-existing
-  `GO-2026-5856` in repository-pinned Go 1.26.4, fixed in Go 1.26.5. This slice
-  did not change the pinned toolchain or any dependency manifest.
-- 2026-07-11: The Phase 1 item 3 review closed persistence-boundary gaps before
-  generated contracts begin. New conversations must now start at trajectory
-  sequence zero, so callers cannot create a ledger whose missing prefix can
-  never be filled. Turn and ephemeral-side updates enforce forward lifecycle
-  transitions, queue rows cannot be reordered after their turn is promoted,
-  and durable forks cannot cross workspace roots. Narrator checkpoint text,
-  topic descriptors, and current focus are tied to their owning cursor or
-  revision, preventing a same-version overwrite from silently changing
-  reconstructable state. Focused rollback tests cover every rejected path and
-  the valid atomic queue-promotion path. Race-enabled conversation tests and
-  the focused quality gate pass. Generated inputs and outputs changed: none.
-  Phase 1 item 4 remains next, with no external blocker.
-- 2026-07-11: Completed Phase 1 item 4. `internal/conversation` now owns a
-  bounded cold-start `ConversationSnapshot` with explicit recent turn,
-  trajectory, artifact, and narration windows; queue, narrator cursor,
-  presentation identity, lineage, side-lifecycle, role-override, and durable
-  event-cursor state remain conversation-keyed and validate ownership and
-  source coverage. The new `ConversationEvent` envelope carries a sealed
-  thirteen-variant payload union for conversation, turn, queue, binding,
-  trajectory, artifact, narrator, narration, role, presentation, branch, side,
-  and resync changes. Event ids are durable conversation-stream cursors, and
-  malformed cross-conversation ownership or mismatched discriminators fail at
-  the contract boundary.
-- 2026-07-11: The HTTP endpoint registry now owns `ReadConversationSnapshot`
-  and `ConversationEventStream`, including their request and stream roots; no
-  parallel generator type list was added. Protocol version 14 and the schema
-  snapshot were regenerated with `desktop/src/generated/backend.ts`. The
-  generator now projects registered union discriminators as exact TypeScript
-  literals and validates them at decode time, so renderer switches over all
-  conversation event variants narrow exhaustively and support `never`
-  assertions. The transport service seam is deliberately not installed in the
-  production runtime composition root in this contract-only slice; the
-  conversation store/service production wiring remains part of the Phase 3
-  cutover rather than a second live domain path.
-- 2026-07-11: Item 4 verification passed race-enabled conversation tests and
-  the new HTTP handler tests, the complete non-race HTTP and generator suites,
-  generated-artifact reproducibility, the focused generated TypeScript decoder
-  tests, desktop typecheck/build, and the deterministic production Electron
-  Easy Button workflow. Running the entire legacy HTTP package under the race
-  detector additionally exposed pre-existing chat/workflow response races in
-  old harness transcript objects; the traces do not enter the new conversation
-  package or handlers, and the narrowed new-handler race run is clean. The next
-  incomplete step is Phase 1 item 5's focused store hardening matrix; there is
-  no blocker.
-- 2026-07-11: Completed Phase 1 item 5 and the phase exit review. The focused
-  matrix now proves that a failed publication rolls back both narrator cursor
-  and narration output, corrupt committed records are rejected with a typed
-  corruption error after restart, and concurrent aggregate transactions
-  serialize state plus publication without surfacing SQLite lock errors. The
-  existing matrix also covers schema corruption, state/event/cursor atomicity,
-  queue backpressure and cancellation, accepted-write draining, deterministic
-  shutdown, read-pool bounds, outbox wake/replay, and restart. Phase 2 is next;
-  there is no external blocker.
-- 2026-07-11: Completed Phase 2. `internal/agent` now owns Codex thread
-  start/resume/read/list/search/fork/injection/unsubscribe, turn execution,
-  per-conversation concurrency, steering, interruption, approvals, model
-  catalog validation, reconciliation, background-process termination, and
-  normalized provider events without importing chat presentation types. The
-  Go-owned supported-protocol registry includes fork, list, experimental
-  search, item injection, and unsubscribe; generated protocol contracts were
-  regenerated from the pinned schema inputs.
-- 2026-07-11: The race-enabled scripted app-server suite passed sequential and
-  concurrent conversations, strict thread primitives, model resolution,
-  streaming normalization, steering, cancellation, approval response, and
-  restart reconciliation paths. The ChatGPT-authenticated live suite passed
-  without `OPENAI_API_KEY`, including exact role-model availability, durable
-  multi-turn threads, concurrent conversations, read/list/search, completed
-  forks, injection, and active-turn snapshot isolation. The live
-  characterization proved that the active fork omits the in-flight command
-  while retaining current user input and commentary; Phase 7 therefore owns
-  the typed normalized `SideInFlightContextFrame` correction now specified in
-  the plan. There is no external blocker to Phase 3.
-- 2026-07-11: Completed Phase 3 item 1. `internal/workspaceui` now owns
-  `EasyButtonPaneConfig{conversationId}`, and `WorkspaceUIPane` carries its
-  typed nullable envelope rather than an untyped metadata bag. Supplied
-  bindings are valid only on Easy Button panes and require an exact nonblank
-  conversation id. The renderer imports the generated config, preserves it
-  through pane open/configure and layout save/reload, and clears it when a pane
-  changes to another surface kind. Backend protocol version 15, the contract
-  schema snapshot, and `desktop/src/generated/backend.ts` were regenerated
-  from the Go-owned endpoint graph; reproducible regeneration produced no
-  further diff.
-- 2026-07-11: Focused verification passed the race-enabled workspace UI store
-  suite, the race-enabled workspace layout HTTP tests, the complete non-race
-  HTTP and contract-generator suites, 59 focused renderer layout tests,
-  desktop typecheck/build, and the deterministic production Electron Easy
-  Button workflow including close, reopen, and reload. This contract slice
-  does not invent a conversation id for the legacy Easy Run toolbar path;
-  production conversation-keyed state and creation/binding remain Phase 3
-  items 2-6. Item 2, the normalized conversation-keyed renderer state, is next
-  with no external blocker.
-- 2026-07-11: The additionally run `./check_quality.sh --all` passed repository
-  formatting/static analysis, every changed owner, all 1,143 Vitest tests, and
-  the production build, but it was not clean. The obsolete `internal/chat`
-  protocol-coverage test nondeterministically inspected its sink before all
-  notification callbacks completed: a single focused run and ten race-enabled
-  repetitions passed, while 100 non-race repetitions reproduced different
-  missing tail notifications. The required Electron manifest later reached
-  the previously recorded `codex-protocol-notifications` timeout. Neither
-  failure enters the workspace UI contract or renderer layout paths changed by
-  this slice; the dedicated production Easy Button workflow is clean.
-- 2026-07-11: Completed Phase 3 item 2. The renderer now has one normalized
-  Zustand `Map<conversationId, ConversationProjection>` whose entries own a
-  bounded generated snapshot plus independent load, error, cursor, and typed
-  resynchronization state. Snapshot hydration rejects cross-workspace or
-  cross-conversation ownership and cannot regress a projection after newer
-  live events. Event application is immutable and batched: an interleaved
-  event batch produces one store commit, replaces only affected conversation
-  projections, and preserves referential identity for every unrelated topic
-  selector.
-- 2026-07-11: The generated thirteen-variant conversation event union is
-  applied through an exhaustive `satisfies` mapping. Duplicate envelopes are
-  ignored without notifying subscribers; pre-hydration events, schema or
-  stream changes, sequence gaps, and server-requested resyncs retain an
-  explicit minimum snapshot cursor, so an older reload cannot silently clear
-  stale state. Focused coverage exercises every payload branch, two
-  interleaved conversations, batching/reference stability, cursor recovery,
-  stale snapshot races, cleanup, and ownership rejection. The focused desktop
-  quality gate passed formatting, lint/complexity, typecheck, all 1,154 Vitest
-  tests, production build, and dead-code analysis after removing three unused
-  type exports. The deterministic production Electron Easy Button workflow
-  also passed and recorded under `.recordings/easy-button-pane/`.
-- 2026-07-11: The currently mounted legacy Easy Button continues to read only
-  `useEasyRunStore` until Phase 3 item 3 switches the surface to its typed pane
-  `conversationId`; no mirror, adapter, or dual read/write was added between
-  the stores. Generated inputs and outputs changed: none. Phase 3 item 3, making
-  `EasyButtonSurface` a pure projection of its bound conversation, is next with
-  no external blocker.
-- 2026-07-11: ChatGPT authentication was available without `OPENAI_API_KEY`.
-  The live Codex Electron regression completed its real goal, ordinary-message,
-  and image turns, then did not pass the unrelated legacy semantic-cartographer
-  smoke: it timed out waiting for a workflow-generated graph update. Evidence
-  is under `test-results/electron-integration/chat-workflows/live-codex/`. The
-  new conversation store is not imported by the production surface until item
-  3, and the failing semantic path does not enter the changed files; this live
-  result is therefore recorded as a regression failure, not treated as proof
-  of conversation-store provider integration or expanded into obsolete-path
-  repair in this slice.
-- 2026-07-11: The Phase 3 item 2 review fixed control-event ordering in the
-  normalized renderer store. A server-required resync now retains its typed
-  reason and authoritative current cursor when it arrives before hydration or
-  with a duplicate or gapped envelope; an older control envelope cannot be
-  discarded merely because its payload reports a newer committed cursor.
-  Existing later resync coverage is never reduced. The review also preserves
-  snapshot-load errors while pre-hydration events record required recovery,
-  avoids no-op Zustand commits for rejected stale snapshots, and dispatches
-  the generated event union through an explicit exhaustive `never` branch.
-  Focused regression coverage passes. Phase 3 item 3 remains next; this review
-  did not connect the store to `EasyButtonSurface` or begin the next plan item.
-- 2026-07-11: Completed Phase 3 item 3. The React surface adapter now passes
-  the pane's typed `conversationId` into `EasyButtonSurface`, which subscribes
-  to only that entry in the normalized conversation map. The surface no longer
-  reads selected-workspace state or `useEasyRunStore`. Its bounded presentation
-  is derived entirely from the generated conversation snapshot: conversation
-  execution state, exact-turn terminal outcome, narrator current focus and
-  degradation, milestone and final-summary channels, artifacts, active
-  subagents, and the resolved palette identity. Missing bindings, unloaded or
-  failed projections, and resynchronization are explicit states rather than
-  legacy fallbacks.
-- 2026-07-11: Legacy Easy Run submission and pane-owned speech presentation
-  are detached from the mounted Easy Button, and the now-unreachable React
-  speech presentation/hook/style layer was removed. Conversation controls remain
-  visibly unavailable until Phase 3 item 6 adds their production command
-  contracts; this slice does not dispatch a topic request into old Easy Run or
-  chat state. Lower-level capture/playback provider primitives are not claimed
-  as the Phase 5 global speech cutover and remain for that dedicated lifecycle
-  work.
-- 2026-07-11: Focused projection, rail, summary, adapter, and surviving speech
-  helper coverage passed, as did all 1,161 renderer tests, desktop typecheck,
-  production build, and dead-code analysis. The new deterministic production
-  Electron `topic-conversation-pane-projection` workflow passed through the
-  real workspace-layout HTTP/main/preload/renderer path, preserving the typed
-  binding across reload and proving an absent snapshot remains an explicit
-  unloaded conversation projection; evidence is under
-  `.recordings/topic-conversation-pane-projection/`. Generated inputs and
-  outputs changed: none. The supply-chain gate again reached `govulncheck` and
-  reported the pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4,
-  fixed in Go 1.26.5; this slice changed no dependency manifest or toolchain
-  pin.
-- 2026-07-11: ChatGPT authentication remained available without
-  `OPENAI_API_KEY`. The live Codex Electron regression reached the obsolete
-  semantic-cartographer smoke after its real provider work, then timed out
-  waiting for the expected graph update; evidence is under
-  `test-results/electron-integration/chat-workflows/live-codex/`. The new topic
-  projection has no provider transport until Phase 3 item 6 and is not involved
-  in that legacy semantic path, so the result is recorded as a regression
-  failure rather than provider proof. Phase 3 item 4, removing the one-Easy-Button
-  pane limit, is next with no external blocker.
-- 2026-07-11: The Phase 3 item 3 review fixed three projection gaps without
-  beginning item 4. The contract generator now emits the complete accessible
-  palette catalog and dark/light semantic renderer tokens directly from the
-  Go-owned `conversationpalette.Catalog`; `EasyButtonSurface` applies those
-  exact tokens instead of recording only a palette id while every pane retained
-  the cyan default. Retained snapshots now expose loading and failed refreshes
-  in visible helper copy, and cancelled turns use explicit cancelled copy,
-  accessible labeling, and a stop glyph rather than a success check.
-- 2026-07-11: The review also removed obsolete pane-owned Easy Button, speech,
-  performance, and live workflows from the active Electron manifest after
-  confirming the former required Easy Button workflow timed out against the
-  deliberately disabled legacy input. The replacement
-  `topic-conversation-pane-projection` workflow remains required; the standalone
-  historical files remain for the later planned obsolete-path deletion rather
-  than expanding this review into that step. Focused generator/catalog and
-  renderer tests passed, all 1,163 desktop tests passed, and desktop typecheck,
-  lint, dead-code analysis, production build, and the deterministic production
-  Electron topic-projection workflow passed. The generated backend TypeScript
-  changed; the HTTP contract schema snapshot did not. The final broad gate
-  cleared file limits, every Go package, formatting/static analysis, all desktop
-  tests, and the build, then reproduced the previously recorded unrelated
-  `codex-protocol-notifications` Electron timeout after all preceding chat cases
-  passed; focused production evidence for this slice remained clean. The
-  supply-chain audit likewise reproduced the existing `GO-2026-5856` finding in
-  pinned Go 1.26.4, fixed in 1.26.5; no dependency or toolchain pin changed.
-  Phase 3 item 4 remains next with no external blocker.
-- 2026-07-11: Completed Phase 3 item 4. The production workspace policy no
-  longer treats Easy Button as a singleton: it uses the same bounded ten-pane
-  allowance as the other repeatable workspace surfaces. Multiple panes may
-  carry the same typed `conversationId`, and layout serialization/reload keeps
-  their pane and surface identities distinct while preserving the shared
-  conversation binding.
-- 2026-07-11: Focused workspace-scene and layout-store coverage passed (60
-  tests), as did desktop typecheck and the production build. The deterministic
-  production Electron `topic-conversation-pane-projection` workflow opened a
-  second view through the real renderer pane-open event, observed both bindings
-  in the workspace-layout HTTP store, reloaded the application, and rendered
-  both bound projections under distinct pane ids. Evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T032258683Z/`.
-  Generated inputs and outputs changed: none. Phase 3 item 5, the virtualized
-  conversation navigator and deterministic focus-existing-or-open behavior,
-  is next with no external blocker.
-- 2026-07-11: The Phase 3 item 4 review fixed the workspace host pool remaining
-  frozen at its initial pane count. A second Easy Button binding was persisted,
-  but from a one-pane restored layout only the newly focused surface could mount
-  until reload. The runtime area now sizes and remounts its presentation host
-  pool from the current scene after pane-count changes. The deterministic
-  production Electron workflow now requires both same-conversation views to be
-  rendered with distinct pane ids immediately after the real pane-open event and
-  again after reload. Focused layout tests, desktop typecheck/build, and the
-  corrected Electron workflow passed. Phase 3 item 5 remains next; this review
-  did not begin the navigator work.
-- 2026-07-11: Completed Phase 3 item 5. The runtime now exposes a generated,
-  authenticated topic-conversation navigator endpoint backed by the durable
-  conversation store. It returns non-archived conversations with their owned
-  presentation profiles and optional branch lineage, uses deterministic
-  `updatedAt DESC, id ASC` keyset pagination, supports bounded title/topic
-  search, and rejects corrupt ownership or missing profile state. Backend
-  protocol version 16, the contract schema snapshot, and generated TypeScript
-  were regenerated from the Go-owned endpoint registry.
-- 2026-07-11: The selected-chat sidebar was replaced with a workspace-grouped
-  virtualized conversation navigator. Its normalized renderer store isolates
-  workspace pages and stale search generations; durable rows expose topic
-  status, stable generated palette identity, branch attribution, pane count,
-  and pane focus without using global chat selection. One conversation produces
-  one row across zero, one, or multiple views. Activation focuses the most
-  recently focused matching Easy Button pane or opens a typed bound pane when
-  none exists, while layout persistence and reload preserve the binding.
-- 2026-07-11: Focused conversation, HTTP, runtime, IPC/preload, navigator-store,
-  pane-index, coordinator, sidebar, and application coverage passed. The clean
-  changed-file quality gate passed file and complexity limits, Go vet/tests and
-  static analysis, all 1,173 desktop tests, formatting, lint, typecheck,
-  dead-code analysis, and the production build. The deterministic production
-  Electron topic-conversation workflow proved one row for two views, focus
-  without a third view, zero-pane navigation, reopen, and reload through real
-  Electron/main/preload/renderer/HTTP/store paths. Evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T044850767Z/`.
-- 2026-07-11: The broad quality gate cleared all Go packages and all non-Electron
-  desktop gates, then the required legacy chat workflow reached its retired
-  `New chat` sidebar action and stopped; its workspace-open assertion now uses
-  the replacement navigator labels. That old selected-chat action is not a
-  valid navigator contract, and Phase 3 item 6 owns replacement topic create and
-  command paths, so the failure is recorded rather than reintroducing an old
-  sidebar control. The supply-chain audit again reported the pre-existing
-  `GO-2026-5856` in repository-pinned Go 1.26.4, fixed in Go 1.26.5; no
-  dependency or toolchain pin changed. The Codex source reference was not
-  needed because this slice introduced no provider-protocol behavior. Phase 3
-  item 6 is next.
-- 2026-07-11: The Phase 3 item 5 review fixed navigator activation while an
-  unrelated pane was maximized. The runtime previously focused or opened the
-  requested conversation and then unmaximized the old pane, whose layout-store
-  side effect restored focus to that old pane. Maximization teardown now belongs
-  to the pane coordinator and runs before the requested focus/open mutation,
-  while blocked presentations leave the existing maximized view intact. Focused
-  coordinator regressions cover existing and newly opened conversation panes.
-  The deterministic production Electron workflow now maximizes a non-topic
-  pane, activates the durable navigator row, and requires the intended existing
-  topic pane to become focused with maximization cleared before continuing its
-  close, reopen, persistence, and reload checks. Desktop typecheck/build, focused
-  renderer tests, focused conversation/HTTP/runtime Go suites, and the corrected
-  Electron workflow passed; evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T050345370Z/`. Phase 3
-  item 6 remains next; this review did not begin it.
-- 2026-07-11: Completed Phase 3 item 6. The production conversation service now
-  owns topic creation, snapshot/event replay, send, queue, steer, stop,
-  structured approval response, durable agent progress, artifacts, terminal
-  outcomes, queue promotion, restart reads, and bounded shutdown on top of the
-  Phase 2 Codex runtime. The authenticated endpoint registry owns those command
-  contracts; protocol version 17, the contract schema snapshot, and
-  `desktop/src/generated/backend.ts` were regenerated from the Go owners. The
-  Electron main process keeps one ordered SSE stream per conversation target,
-  preload/web APIs expose the generated command boundary, and the renderer
-  projection runtime shares a conversation across duplicate panes while
-  retaining active zero-pane subscriptions through close, reopen, and reload.
-- 2026-07-11: The Easy Button and navigator now provide production topic
-  creation and conversation-keyed send/queue/steer/stop controls, structured
-  approval answers, live agent output, artifact projection, queued-work state,
-  and explicit completed/cancelled/failed results. Deterministic verification
-  exercised two concurrent conversations, duplicate panes, active-run close and
-  reopen, active-run reload, queue promotion, steering, approval, artifact,
-  cancellation, failure, persistence, and final reload through the real
-  Electron/main/preload/renderer/HTTP/SQLite paths. Evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T065249015Z/`. All
-  1,176 desktop tests, desktop typecheck/build, focused conversation/HTTP/runtime
-  Go tests, the new HTTP path under the race detector, and conversation snapshot
-  contention repeated under the race detector passed. The test matrix caught
-  and corrected queue ordinals after promotion and cross-generation snapshot
-  reads by compacting the durable queue atomically and assembling each snapshot
-  in one SQLite read transaction.
-- 2026-07-11: ChatGPT-authenticated live verification passed without
-  `OPENAI_API_KEY`. The new backend workflow created a topic and completed two
-  sequential production HTTP turns on one durable Codex thread; the established
-  live thread lifecycle, concurrent execution, fork, and active-turn snapshot
-  characterization also remained clean. Generated inputs and outputs changed:
-  the HTTP endpoint graph/protocol input, contract schema snapshot, and generated
-  backend TypeScript. The Codex source reference was not needed because the new
-  service consumes the already established Phase 2 normalized runtime rather
-  than adding provider-protocol behavior. Phase 3 item 7, deleting the obsolete
-  Easy Run path, is next with no external blocker.
-- 2026-07-11: Final formatting, file-size, complexity, vet, static analysis,
-  generated-contract reproducibility, desktop typecheck, all 1,176 tests,
-  dead-code analysis, production build, focused race checks, and the dedicated
-  production Electron workflow passed on the final tree. The final
-  `./check_quality.sh --git-changes` gate was clean. The broad quality gate was
-  not clean: the previously recorded nondeterministic legacy `internal/chat`
-  goal-operation test observed its sink before notification callbacks completed,
-  and the required legacy chat Electron workflow stopped at its removed `New
-  chat` sidebar control. Neither path enters the new topic service or workflow;
-  Phase 3 item 7 and the later obsolete-product deletion phases own removal of
-  those retired surfaces rather than reintroducing them.
-- 2026-07-11: The post-refactor live backend topic workflow passed again with
-  ChatGPT auth and no `OPENAI_API_KEY`. A repeat of the broader Phase 2 live
-  lifecycle/fork characterization timed out in its existing signaling sink after
-  the same test had passed earlier in this slice; no `internal/agent` behavior
-  changed between those runs, so the timeout is recorded rather than treated as
-  contrary provider evidence. The supply-chain audit again reported the
-  pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4, fixed in Go 1.26.5;
-  this slice changed no dependency manifest or toolchain pin.
-- 2026-07-11: The Phase 3 item 6 review hardened the conversation command
-  lifecycle without beginning item 7. A full queue now retains its controllable
-  running turn, queueing during approval preserves the approval state, terminal
-  failure keeps accepted promotion working, controls validate durable workspace
-  and provider scope before side effects, missing terminal notifications fail
-  explicitly, and shutdown admission no longer races the turn wait group.
-  Approval decisions are request-specific, denial persists without invalid
-  free-form text, secret questions stay masked and their answers are redacted
-  from durable trajectory, stale approvals are not projected, and Codex
-  subagent activity projects through the typed lifecycle. Authoritative event
-  cursor rollback and resync-read races are handled in both desktop and web
-  projections, while filtered navigator pages remain backend-owned. Protocol
-  version 18, the contract schema snapshot, and generated backend TypeScript
-  were regenerated from the Go owners.
-- 2026-07-11: Review verification passed the conversation package and focused
-  conversation HTTP endpoints under the race detector, all 1,184 desktop tests,
-  desktop typecheck/build/lint/dead-code checks, the clean
-  `./check_quality.sh --git-changes` gate, the ChatGPT-authenticated live topic
-  workflow, and the live thread/fork characterization without `OPENAI_API_KEY`.
-  The production Electron workflow passed with queueing, steering, structured
-  approval, command denial, terminal outcomes, close/reopen, active reload, and
-  persistence evidence under
-  `.recordings/topic-conversation-pane-projection/20260712T075055072Z/`. The
-  broad gate reached the already retired chat Electron workflow and failed on
-  its removed `New chat` control; a deliberately broad HTTP race run likewise
-  reproduced pre-existing legacy chat/workflow response mutation races. The
-  supply-chain audit still reports only the recorded Go 1.26.4
-  `GO-2026-5856` finding. Phase 3 item 7 remains next and was not started.
-- 2026-07-12: Completed Phase 3 item 7 and the Phase 3 cutover. The obsolete
-  `internal/easyrun` store, service, narrator, event stream, artifact tool, and
-  persisted JSON shapes were deleted together with their HTTP handlers,
-  runtime wiring, desktop event forwarder, IPC/preload API, web API, renderer
-  store, pane-local submission/playback consumers, and retired production-path
-  fixtures. The old hidden-chat turn path, Easy Run conversation metadata,
-  harness surfaces, dynamic artifact tool registration, and special Codex
-  developer instructions were removed rather than retained as compatibility
-  contracts. Easy Run summary/highlight synthesis endpoints were necessarily
-  removed with their deleted persistence owner; the provider transcription and
-  synthesis primitives remain available for the Phase 5 global speech design.
-- 2026-07-12: Protocol version 19, the HTTP contract schema snapshot, generated
-  backend TypeScript, and the checked-in web build were regenerated from the Go
-  endpoint and domain owners. Production and generated-source audits find no
-  Easy Run endpoint, type, store, IPC channel, event stream, web client method,
-  or persistence writer. The sole retained old-path literal is a negative
-  `internal/conversation` store test fixture that proves malformed legacy
-  `workspaces/<id>/easy-runs` data is ignored; it is not a production read or
-  write path. The Codex source reference was not needed because this deletion
-  added no provider-protocol behavior.
-- 2026-07-12: Focused chat, speech, HTTP, runtime, generator, renderer, web,
-  main-process, and preload checks passed, as did all 1,122 desktop tests,
-  desktop typecheck/lint/dead-code/build, generated-contract reproducibility,
-  and the deterministic production Electron topic-conversation workflow.
-  Evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T081319550Z/`.
-  ChatGPT-authenticated live topic verification passed without
-  `OPENAI_API_KEY`. The broad gate cleared file/shell/tooling checks, every
-  changed-path static check, all desktop unit tests, build, and dead-code
-  analysis; its full Go pass reproduced a nondeterministic legacy chat harness
-  process-exit failure that passed immediately in isolation, and the Electron
-  manifest then reached the already retired chat workflow and failed at its
-  removed `New chat` control. The replacement topic workflow remained clean.
-  The supply-chain audit again reports the pre-existing `GO-2026-5856` in
-  repository-pinned Go 1.26.4, fixed in 1.26.5. Phase 4 item 1, the
-  priority-aware narrator actor/mailbox, is next.
-- 2026-07-12: Clarified two retained boundaries before Phase 4. The existing
-  PWA remains checked in but is frozen outside this plan: no feature-parity,
-  replacement-wiring, repair, or PWA acceptance work is required, and deleting
-  it requires a separate future plan. Generic local/remote runtime
-  connectivity also survives, including pairing, registry, picker, connection
-  state/transport, external-backend attachment, and related account/auth
-  ownership. Product-specific events may be removed from those shared owners,
-  but the connection boundary itself must remain.
-- 2026-07-12: Completed Phase 4 item 1. The new `internal/narration` boundary
-  owns a lazily created actor/mailbox per durable conversation. Each actor uses
-  stable FIFO ordering within the plan's explicit priority classes: terminal
-  and approval-required projection, explicit status, other automatic
-  projection, recoverable retry, then checkpoint maintenance. Commit-eligible
-  work for one conversation prepares and commits serially, while different
-  conversation actors can run concurrently. A cancelled checkpoint provider
-  call may still be returning while the next commit-eligible invocation runs.
-- 2026-07-12: External narrator work now returns a prepared commit to the actor
-  instead of mutating narrator state directly. Every invocation receives a
-  monotonically increasing per-conversation generation. Higher-priority work
-  cancels an in-flight checkpoint, completes it with a typed superseded
-  outcome, invalidates that generation, and immediately makes the next request
-  commit-eligible; even a deliberately late checkpoint response cannot execute
-  its prepared commit. Shutdown closes admission, cancels active work, rejects
-  pending work explicitly, and waits for preparation workers within the
-  caller's deadline.
-- 2026-07-12: Focused validation passed with the new narrator package's vet and
-  quality checks, 100 repeated race-enabled mailbox test runs, and a
-  race-enabled joint run of `internal/conversation` and `internal/narration`.
-  The tests cover exact priority order, terminal ordering behind an in-flight
-  working projection, explicit-status checkpoint preemption, stale-response
-  rejection, same-conversation serialization, cross-conversation concurrency,
-  request validation, and deterministic shutdown. Final
-  `./scripts/format.sh` and `./check_quality.sh --git-changes` runs passed.
-  Generated inputs and outputs changed: none. Deterministic Electron and live
-  Codex workflows were not run because this isolated scheduling boundary is not
-  yet composed into a production, HTTP, renderer, or provider path; the Codex
-  source reference was not needed. Phase 4 item 2, durable context/checkpoint
-  materialization and cursor invariants, is next with no external blocker.
-- 2026-07-12: Phase 4 item 1 review corrected recoverable-retry scheduling so
-  the retry marker no longer replaces the projection, status, or checkpoint
-  operation kind that later workers need to materialize the right typed
-  context. Checkpoint retries remain low-priority checkpoint maintenance and
-  can therefore be superseded by terminal, approval-required, status, or
-  automatic projection work; their late responses remain unable to commit.
-  The completion note now also distinguishes serialized commit-eligible work
-  from a cancelled checkpoint provider call that is still returning. Focused
-  validation passed with 100 race-enabled narrator mailbox repetitions and a
-  joint race-enabled conversation/narration run. Final formatting and changed-
-  file quality checks passed. Generated inputs and outputs changed: none.
-  Electron and live-provider workflows remained out of scope because this
-  scheduling boundary is not composed into a production path. Phase 4 item 2
-  was not started.
-- 2026-07-12: Completed Phase 4 item 2. The conversation store now assembles
-  one read-transaction narrator source snapshot containing the durable cursor,
-  target turn objective and every accepted steer, latest plan, active
-  activity/approval/subagent projections, artifact metadata, all active-turn
-  milestones, bounded recent final summaries, and the exact trajectory window
-  requested by projection, status, or checkpoint work. Map-backed active state
-  is sorted deterministically, projection/checkpoint reads return the earliest
-  contiguous prefix after the durable checkpoint, and status reads return the
-  latest contiguous suffix with explicit omitted-trajectory and
-  omitted-unobserved ranges.
-- 2026-07-12: `internal/narration` now owns typed projection, status, and
-  checkpoint bundles with exact JSON-byte accounting and deterministic
-  trimming. Current objective and steering carry an explicit authority marker
-  over historical checkpoint text; required current fields, artifacts, prior
-  milestones, and requested continuity summaries fail with a typed budget
-  error instead of being silently truncated. Projection context exposes the
-  contiguous evaluation range and rejects a future observed-cursor advance
-  outside it. An over-budget observed tail returns a typed checkpoint-required
-  result, so catch-up compacts only already-evaluated prefixes and resumes at
-  the exact next sequence rather than jumping to recent events. Status remains
-  read-only and can omit an old unobserved middle only when the omission is
-  represented explicitly.
-- 2026-07-12: Checkpoint output is constrained to the exact requested range end
-  and a bounded nonempty historical summary. The SQLite commit verifies every
-  sequence in the checkpoint prefix, never crosses the optimistic observed
-  cursor, changes only checkpoint-owned narrator fields, and publishes the
-  updated narrator state atomically. Stale expectations, missing trajectory,
-  and failed publication leave both cursor and text unchanged; the actor's
-  existing generation invalidation remains the outer guard against a late
-  superseded provider response. Focused conversation/narration tests and vet,
-  the changed-file quality gate, the joint race-enabled suites, 50 repeated
-  race-enabled materializer runs, and 30 repeated race-enabled persistence
-  runs passed. Final repository formatting and
-  `./check_quality.sh --git-changes` passed. Generated inputs and outputs
-  changed: none. Electron and live Codex workflows were not run because this
-  store/materialization boundary is not composed into a production HTTP,
-  renderer, or provider call path; the Codex source reference was not needed.
-  Phase 4 item 3, independent lightweight narrator-model resolution, is next
-  with no external blocker.
-- 2026-07-12: The Phase 4 item 2 review froze every projection read and bundle
-  to the trajectory sequence accumulated for that request. A delayed working
-  or earlier-turn projection therefore cannot consume a later terminal event
-  or later turn and advance the durable cursor past work that still requires
-  its own evaluation. Status materialization now also requires the newest
-  complete trajectory event whenever post-checkpoint trajectory exists; if
-  that event and the authoritative current state do not fit together, it
-  returns the typed context-budget error instead of silently omitting current
-  evidence while claiming the latest source cursor. Store-backed cutoff tests,
-  materializer regressions, focused vet and package tests, joint race-enabled
-  tests, 50 repeated race-enabled materializer runs, and 30 repeated
-  race-enabled persistence runs passed. Generated inputs and outputs changed:
-  none. Phase 4 item 3 remains next and was not started.
-- 2026-07-12: Completed Phase 4 item 3. The backend role-profile owner now
-  keeps the primary-agent and narrator defaults together while preserving
-  independent exact selections. The narrator release default is the approved
-  `gpt-5.4-mini` model at `low` effort, with a 64 KiB byte budget, 16,384
-  estimated input tokens, 2,048 reserved output tokens, read-only provider
-  permissions, no tools, no workspace mutation, and no approvals. It never
-  reads the primary agent's `gpt-5.6-sol`/`high` profile.
-- 2026-07-12: The conversation store resolves complete role profiles in one
-  read transaction using the declared built-in, global, workspace, then
-  conversation precedence. It verifies conversation/workspace ownership,
-  validates every stored profile, and reports malformed or role/provider-
-  inconsistent configuration as corrupt state. `internal/narration` now owns
-  a model resolver that reads only the narrator hierarchy and calls the real
-  `internal/agent` catalog boundary before every future narrator invocation.
-  Missing models and unsupported efforts or tiers preserve the actionable
-  catalog failure; exact model or effort changes are rejected instead of being
-  treated as a silent fallback. Unsafe narrator overrides are rejected before
-  catalog lookup unless they remain read-only, tool-free, mutation-free, and
-  approval-free.
-- 2026-07-12: Focused conversation/narration tests and vet, the changed-file
-  quality gate, the joint race-enabled agent/conversation/narration suites, 50
-  repeated race-enabled role-profile persistence runs, and 100 repeated race-
-  enabled narrator resolver runs passed. Generated inputs and outputs changed:
-  none. Deterministic Electron and live Codex workflows were not run because
-  item 3 introduces a store/catalog resolution boundary but does not yet
-  compose a provider call, HTTP path, or renderer behavior; the Codex source
-  reference was not needed. Phase 4 item 4, typed triggers and schema-
-  constrained fresh narrator/checkpoint calls, is next with no external
-  blocker.
-- 2026-07-12: The Phase 4 item 3 review froze the pointer-bearing requested
-  service tier before crossing the model-catalog boundary, so an in-place
-  catalog mutation can no longer alter both sides of the no-reroute comparison
-  and silently replace an exact request. Catalog results now also pass the
-  durable resolved-settings validation before they can enter invocation audit,
-  and an exact tier mismatch reports the actual returned value rather than a
-  pointer address. Regression tests cover request mutation, exact-tier
-  fallback, and malformed provider-default results. Focused vet and package
-  quality checks, joint race-enabled agent/conversation/narration tests, 100
-  repeated race-enabled role-profile reads, and 200 repeated race-enabled
-  narrator resolver runs passed. Generated inputs and outputs changed: none.
-  Phase 4 item 4 remains next and was not started.
-- 2026-07-12: Completed Phase 4 item 4. `internal/agent` now owns one generic
-  fresh structured-call primitive that creates a new ephemeral provider thread
-  per invocation without reserving the topic conversation's primary-turn
-  slot. Every call explicitly disables provider model fallback, approvals,
-  selected environments and capability roots, dynamic tools, web search,
-  image generation, and workspace project-instruction loading; it uses a
-  read-only turn sandbox and rejects any provider tool activity or server
-  request. A cancelled or rejected call interrupts its provider turn and waits
-  for the matching terminal notification before closing its session, while a
-  completed call accepts exactly one completed assistant JSON object.
-- 2026-07-12: `internal/narration` now carries the typed explicit-status and
-  checkpoint triggers inside their materialized bundles, alongside the
-  existing projection trigger. Its caller validates exactly one context branch,
-  resolves the independent narrator profile and live model catalog immediately
-  before every call, verifies the exact materialized JSON byte count against
-  the resolved role budget, and retains generation, trigger, model, provider
-  references, and structured input/output sizes for the later invocation
-  audit. Working, terminal, status, and checkpoint calls each receive only
-  their exact strict root-object schema; every property is required, nullable
-  topic descriptors are explicit, and unknown or cross-channel fields are
-  rejected.
-- 2026-07-12: Projection validation constrains cursor advances to the supplied
-  contiguous evaluation window, requires a nonempty Current focus of at most
-  320 Unicode characters, permits at most three 240-character milestones, and
-  rejects exact duplicates within the call or against prior active-turn
-  milestones. Final summaries and status replies are bounded to 1,200
-  characters, topic descriptors to 320, and voice-ready fields reject control
-  characters. Status output must report the exact read-only source sequence;
-  checkpoint output must cover the exact requested observed prefix and remains
-  subject to its byte bound.
-- 2026-07-12: The Codex source reference confirmed that `outputSchema` is
-  strict and turn-scoped, final structured output is delivered as the agent
-  message text, ephemeral threads are in-memory/pathless, and an explicit empty
-  environment selection removes shell execution surfaces. Focused agent,
-  conversation, and narration tests and vet passed, as did the changed-file
-  quality gate, joint race-enabled suites, 100 repeated race-enabled provider
-  calls, and 100 repeated race-enabled narrator validations. The deterministic
-  production Electron topic workflow passed at
-  `.recordings/topic-conversation-pane-projection/20260712T105134041Z/`.
-  ChatGPT-authenticated live structured-output and full thread/fork lifecycle
-  tests passed with `OPENAI_API_KEY` removed; the full live run first exposed
-  and then corrected a test-only active-parent signal-channel saturation bug.
-  Generated inputs and outputs changed: none. Phase 4 item 5, narration output
-  persistence and committed events, is next with no external blocker.
-- 2026-07-12: The Phase 4 item 4 review pinned provider-default selections and
-  default service tiers to the exact model-catalog resolution before starting
-  the fresh provider thread. The generic structured-call boundary now requires
-  that catalog-resolved exact model and effort, so its no-fallback check also
-  covers roles configured to select the provider default. Narrator output is
-  validated against a frozen copy of the exact serialized context rather than
-  caller-owned context that can change while the provider runs, and failed
-  output validation returns the generation, trigger, resolved model, provider
-  references, and input/output sizes needed by the later invocation audit.
-- 2026-07-12: The same review made a zero-valued status source sequence
-  explicitly required and kept interruption cleanup attached after rejecting
-  a provider request until the matching terminal notification arrives.
-  Focused tests and vet, joint race-enabled agent/conversation/narration tests,
-  50 repeated race-enabled structured-provider runs, and 100 repeated
-  race-enabled narrator-caller validations passed. The deterministic production
-  Electron topic workflow passed at
-  `.recordings/topic-conversation-pane-projection/20260712T112315304Z/`, and
-  ChatGPT-authenticated live structured-output and full thread/fork lifecycle
-  tests passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
-  changed: none. Phase 4 item 5 remains next and was not started.
-- 2026-07-12: Completed Phase 4 item 5. Successful working and terminal
-  projections now commit their permitted contiguous observed-cursor advance,
-  current focus revision, immutable milestones, optional topic descriptor, and
-  required final summary in one serialized SQLite writer transaction. Topic
-  descriptor output updates both reconstructable narrator state and the durable
-  conversation projection. Every state, conversation, and narration mutation
-  publishes its existing typed conversation event from the same transaction;
-  a failed publication, stale cursor, or gapped trajectory rolls back the
-  entire output commit. Terminal commits additionally require a terminal turn
-  and matching terminal trajectory event at the exact source boundary.
-- 2026-07-12: Explicit status replies use a separate atomic commit that records
-  the question, answer, source range, and successful narrator invocation while
-  preserving `observedThroughSequence`, checkpoint state, current focus, and
-  focus revision exactly. The narrator output adapter freezes and revalidates
-  the structured result before returning the actor's bounded commit closure,
-  records exact requested/resolved model settings, provider thread/turn/request
-  references, context byte counts, and call timing, and rejects mismatched
-  generations or caller-owned mutation. Checkpoint calls now use the same
-  prepared-commit adapter without acquiring a second persistence path.
-- 2026-07-12: Focused file/complexity, vet, test, and dead-code gates passed,
-  as did the joint race-enabled conversation/narration suites, 50 repeated
-  race-enabled output-adapter runs, 30 repeated race-enabled persistence runs,
-  desktop typecheck/build, and the deterministic production Electron topic
-  workflow at
-  `.recordings/topic-conversation-pane-projection/20260712T115524632Z/`.
-  ChatGPT-authenticated live structured output passed with `OPENAI_API_KEY`
-  removed. The unchanged full Phase 2 live fork characterization was not clean:
-  one run's semantic isolation probe answered `YES`, and its focused rerun did
-  not receive `activity_started` before the existing wait expired. No
-  `internal/agent` code changed in this slice, so these results are recorded as
-  live-characterization failures rather than evidence against the successful
-  narrator call or persistence path. Generated inputs and outputs changed:
-  none; the Codex source reference was not needed because no provider protocol
-  behavior changed. Phase 4 item 6, typed degradation and retry behavior, is
-  next with no implementation blocker.
-- 2026-07-12: The Phase 4 item 5 review bound every prepared output commit to
-  the exact serialized context, workspace root, resolved model audit, provider
-  references, structured result, and call timeline validated by the caller. A
-  same-sized context mutation or altered result metadata can no longer rebind
-  a successful provider response before the actor commits it. The obsolete
-  exported checkpoint-preparation helper was removed, leaving projection,
-  status, and checkpoint output on the one caller-witnessed adapter path.
-- 2026-07-12: Terminal output schemas and local validation now require the
-  observed cursor to reach the supplied terminal boundary, and persistence
-  requires completed/interrupted/failed trajectory events to match the durable
-  completed/cancelled/failed turn outcome. Focused file/complexity, vet, test,
-  dead-code, race, and repeated output/persistence checks passed. Desktop
-  typecheck/build and the deterministic production Electron topic workflow
-  passed at
-  `.recordings/topic-conversation-pane-projection/20260712T121756057Z/`.
-  ChatGPT-authenticated live structured output passed with `OPENAI_API_KEY`
-  removed. Generated inputs and outputs changed: none. Phase 4 item 6 remains
-  next and was not started.
-- 2026-07-12: Completed Phase 4 item 6. Narrator failures now cross an explicit
-  typed boundary for provider unavailability, invalid provider output, model
-  configuration, required-context budget, durable-state availability or
-  corruption, and internal-contract failure. Classification is based on the
-  stage that observed the error or repository-owned typed errors; no error-text
-  heuristic decides retryability. A failed attempt atomically persists a safe
-  `NarratorDegradation` plus its conversation-stream state event while retaining
-  both cursors, the checkpoint, current focus, topic descriptor, prior
-  narration, and the primary agent turn unchanged. The submitting boundary
-  receives a typed degraded error with the diagnostic reference only after that
-  state commit succeeds.
-- 2026-07-12: Recoverable projection and checkpoint failures use the narrator
-  actor's finite one-, five-, and thirty-second retry policy. Each timer is
-  push-based, cancellable on shutdown, preserves the original typed operation,
-  increments an explicit attempt, and enters below new automatic/status/urgent
-  work; a checkpoint retry remains supersedable by higher-priority work. A
-  failed degradation commit cannot schedule a retry, exact status requests do
-  not produce a delayed unsolicited answer, and nonrecoverable or exhausted
-  failures remain visibly degraded. A successful projection, status call, or
-  checkpoint retry clears degradation. The Easy Button renders the persisted
-  safe failure message while retaining the last valid focus instead of adding
-  a mechanical replacement highlight or implying that the agent stopped.
-- 2026-07-12: Focused conversation/narration tests, vet, file/complexity and
-  dead-code checks passed, as did the joint race-enabled suites and 100 repeated
-  race-enabled retry ordering, checkpoint supersession, and shutdown runs. All
-  1,122 desktop tests, desktop typecheck, production build, and the deterministic
-  production Electron topic workflow passed; evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T124318056Z/`.
-  ChatGPT-authenticated live structured output and the live backend topic
-  workflow passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
-  changed: none; the Codex source reference was not needed because this slice
-  adds failure handling around the established structured-call protocol rather
-  than changing provider wire behavior. Phase 4 item 7, the explicit narrator
-  status command path, is next with no implementation blocker.
-- 2026-07-12: The Phase 4 item 6 review preserved repository-owned durable-state
-  failure types through narrator model resolution and now classifies SQLite
-  persistence failures and a closed conversation store as retryable state
-  unavailability instead of configuration or internal-contract failures. The
-  actor also batches ready external work and delayed retries before selecting
-  the next request or committing a completed checkpoint, so a retry that became
-  eligible during checkpoint work cannot lose its higher mailbox priority and
-  allow that checkpoint generation to commit.
-- 2026-07-12: Focused narrator and renderer tests, narrator vet, 50 repeated
-  race-enabled narrator runs, the joint race-enabled conversation/narration
-  suites, all 1,122 desktop tests, desktop typecheck/build, and the deterministic
-  production Electron topic workflow passed. Workflow evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T130345713Z/`.
-  ChatGPT-authenticated live structured output and the live backend topic
-  workflow passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
-  changed: none. Phase 4 item 7 remains next and was not started.
-- 2026-07-12: Completed Phase 4 item 7. The
-  production runtime now composes the durable narrator materializer,
-  independent role/model resolver, fresh structured caller, typed output
-  committer, degradation handler, and per-conversation priority mailbox behind
-  an explicit `AskTopicConversationNarratorStatus` command. Its typed status
-  operation carries the exact workspace and question, resolves only the
-  narrator profile, selects the authoritative current turn without creating an
-  agent turn, and exposes no send, queue, steer, interrupt, or approval method.
-  Successful calls atomically persist the immutable `status_reply` and
-  invocation audit, return a refreshed conversation snapshot, preserve both
-  narrator projection cursors, and publish through the existing conversation
-  stream. Typed degradation returns a safe diagnostic-bearing service error
-  after the degradation state commits; explicit status calls do not schedule
-  unsolicited retries.
-- 2026-07-12: The Easy Button composer now has a separate `Ask status` action
-  for the exact entered question and renders the latest question/reply channel
-  independently from agent text, milestones, and terminal summaries. Protocol
-  version 20, the HTTP contract schema snapshot, and generated backend
-  TypeScript were regenerated from the endpoint registry. Focused HTTP,
-  narrator, conversation, IPC/preload, renderer, typecheck, build, and
-  race-enabled tests passed. The deterministic production Electron workflow
-  asked Alpha's narrator while Alpha and Beta primary turns were both held;
-  both Alpha panes received the reply, Beta received none, and before/after
-  SQLite snapshots retained the same running turn id, provider turn id,
-  working state, trajectory sequence/window, and narrator projection cursors.
-  Evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T135316778Z/`.
-- 2026-07-12: ChatGPT-authenticated live verification passed with
-  `OPENAI_API_KEY` removed. The production runtime completed two durable topic
-  turns, invoked the configured exact `gpt-5.4-mini` narrator through the new
-  status endpoint, persisted a nonempty schema-constrained reply and narrator
-  invocation audit, and preserved the topic's provider thread, turns,
-  trajectory boundary, and projection/checkpoint cursors. The Codex source
-  reference was not needed because this slice composes the already established
-  and source-verified fresh structured-call primitive without changing provider
-  protocol behavior. The final changed-files quality gate passed; the
-  supply-chain gate reached only the repository-pinned Go 1.26.4
-  `GO-2026-5856` finding, fixed in Go 1.26.5. The broad quality gate passed
-  every Go package and all non-Electron desktop checks, then stopped only in
-  the previously recorded legacy chat workflow at its removed `New chat`
-  control; the replacement topic workflow passed independently. The Phase 4
-  exit review remains before Phase 5 begins.
-- 2026-07-12: The Phase 4 item 7 review now binds any actor retry directive to
-  the exact typed status workspace and question, closing the new pointer-bearing
-  operation's retry-validation gap. The deterministic production Electron
-  workflow also requires the durable status question/reply to survive its
-  active-work reload; it passed at
-  `.recordings/topic-conversation-pane-projection/20260712T141005228Z/`.
-- 2026-07-12: The same review corrected the premature Phase 4 completion
-  marker. The production narrator service currently submits only explicit
-  status work; no conversation-lifecycle owner schedules working or terminal
-  projection, ordered catch-up, or checkpoint maintenance. The recorded
-  terminal paths therefore contain only the explicit `status_reply` and still
-  use the agent-text fallback for summaries. Completing that production
-  composition and its deterministic backlog/milestone coverage remains the
-  Phase 4 exit work; Phase 5 was not started.
-- 2026-07-12: Focused narration and narrator-status HTTP tests passed with the
-  race detector, as did the IPC/preload/renderer tests, desktop typecheck and
-  production build. ChatGPT-authenticated live topic/narrator verification
-  passed with `OPENAI_API_KEY` removed. A whole-package HTTP race run reached
-  pre-existing retired chat/workflow tests and reported their response/harness
-  races; the narrowed changed-path status handlers passed independently, and
-  this review did not modify those unrelated legacy paths. Generated inputs
-  and outputs changed: none.
-- 2026-07-12: Completed the Phase 4 exit by composing the narrator projector
-  into the production conversation lifecycle. Conversation mutations now emit
-  typed trajectory observations only after their durable transaction commits.
-  The narrator maps those observations to exact working and terminal triggers,
-  coalesces cancellable progress windows without polling, serializes terminal
-  targets, defers later working projection behind pending terminal work, and
-  catches each frozen source boundary up in contiguous context-sized windows.
-  Completion feedback schedules proactive or required checkpoint compaction,
-  resumes the exact projection after a checkpoint, preserves actor retry and
-  supersession ordering, and clears all timers and tasks during shutdown.
-- 2026-07-12: Runtime startup now performs a one-shot durable recovery scan for
-  running tails and provider/system terminal events beyond each narrator
-  cursor, so a process failure between the trajectory commit and observer
-  delivery is recovered from Setta state without polling. Production-path tests
-  cover post-commit observation, delayed progress projection, a recoverable
-  provider outage, oversized ordered backlog catch-up, checkpoint/resume, two
-  terminal turns arriving during active projection, final-summary ordering,
-  restart recovery, and clean shutdown. The focused conversation/narration
-  suites passed, as did 50 repeated race-enabled projector and recovery runs.
-- 2026-07-12: The deterministic production Electron topic workflow exercised
-  automatic milestones and final summaries across approval, denial,
-  cancellation, failure, queue promotion, steering, reload, a scripted first
-  narrator outage, and an oversized backlog. Every terminal turn received its
-  narrator final, both observed cursors reached the durable trajectory tail,
-  Beta compacted through sequence 22 before completing through sequence 27,
-  and its transient degradation cleared. Evidence is under
-  `.recordings/topic-conversation-pane-projection/20260712T145857141Z/`.
-  ChatGPT-authenticated live topic verification passed with `OPENAI_API_KEY`
-  removed and required automatic final summaries from the exact configured
-  `gpt-5.4-mini` narrator.
-- 2026-07-12: `./scripts/format.sh` and the final changed-files quality gate
-  passed, including vet, the live runtime suite, all 1,123 desktop tests,
-  typecheck, production builds, and dead-code checks. The broad gate passed all
-  33 Go packages and every non-Electron desktop check, then stopped in the
-  previously recorded legacy chat workflow before this feature ran: terminal
-  attach failed for its temporary workspace and the removed `New chat` control
-  was absent. The supply-chain gate reached only the repository-pinned Go
-  1.26.4 `GO-2026-5856` finding, fixed in Go 1.26.5; no dependency or generated
-  input/output changed. The Codex source reference was not needed because this
-  work composes the existing source-verified structured-call protocol rather
-  than changing provider behavior. Phase 5 is next.
-- 2026-07-12: The Phase 4 exit review mapped failed agent activities to the
-  typed phase-completion trigger and separated proactive checkpoint authority
-  from checkpoint-and-resume authority. Proactive maintenance now resolves the
-  actual current turn when it runs, while a resume checkpoint must remain bound
-  to the exact frozen projection turn and workspace. Finite terminal retries no
-  longer wedge the in-process terminal queue after exhaustion: a later durable
-  observation or successful status call can re-admit the oldest missed
-  terminal boundary without polling or an unbounded retry loop.
-- 2026-07-12: The same review now tears down the conversation service, narrator
-  service, Codex manager, and conversation store if later runtime construction
-  fails after narrator recovery has started. Focused projector regressions
-  passed repeatedly with the race detector. The deterministic production
-  Electron workflow passed at
-  `.recordings/topic-conversation-pane-projection/20260712T152856460Z/`, and
-  ChatGPT-authenticated live topic/narrator verification passed with
-  `OPENAI_API_KEY` removed. Generated inputs and outputs changed: none. Phase 5
-  remains next and was not started.
-- 2026-07-12: Completed Phase 5 item 1. Realtime microphone capture and its
-  OpenAI WebRTC protocol machinery moved out of `features/easy-button` into a
-  desktop application-shell speech owner. One shell-mounted controller now
-  owns the sole media-stream/track lease, capability loading, permission and
-  provider failure states, transcript preview, commit/cancel/timeout teardown,
-  runtime-switch and disconnect cancellation, and a finalized transcript
-  handoff record for the next routing slice. The controller is mounted once
-  above the workspace layout and remains independent of Easy Button pane
-  presence or churn; the frozen PWA does not mount this new desktop lifecycle.
-- 2026-07-12: Global microphone enablement is an explicit persisted
-  `enabled`/`disabled` device preference. A missing preference starts disabled
-  and enabling it never requests microphone access by itself. Corrupt,
-  unreadable, or unwritable storage is a typed visible controller failure
-  rather than a silent reset. Disabling capture tears down an active lease.
-  The transcription-session credential endpoint is now app-global and scoped
-  only to the authenticated device: its Go-owned request contract has no
-  workspace field, the removed `workspaceId` is rejected, and the speech
-  service no longer depends on workspace selection or an open workspace.
-- 2026-07-12: Backend protocol version 21, the contract schema snapshot,
-  generated TypeScript, IPC/preload/web client surfaces, and the retained web
-  build were regenerated from the Go endpoint owner. Focused speech, HTTP, and
-  runtime tests passed with the race detector; all 1,124 desktop tests,
-  typecheck, lint, dead-code analysis, desktop/web production builds, and the
-  embedded web-app test passed. The new deterministic production Electron
-  workflow created a credential with zero Easy Button panes through the real
-  renderer/preload/main/authenticated HTTP/runtime/provider path and verified
-  credential redaction; evidence is under
-  `.recordings/global-speech-session/20260712T161439616Z/`. The production
-  microphone-permission and topic-conversation workflows also passed at
-  `.recordings/microphone-permissions/20260712T160131801Z/` and
-  `.recordings/topic-conversation-pane-projection/20260712T160142922Z/`.
-  Generated-contract reproduction was clean. The Codex source reference was
-  not needed because this slice changes no Codex protocol behavior. Phase 5
-  item 2, submitting finalized global transcription to the master boundary, is
-  next.
-- 2026-07-12: Final formatting and changed-file quality verification passed.
-  The required broad gate cleared all 33 Go packages, file and complexity
-  limits, formatting, static analysis, all desktop tests, typecheck,
-  dead-code analysis, and the production build. Its Electron manifest then
-  stopped in the previously recorded retired chat workflow at the removed
-  `New chat` control, before reaching this slice's newly registered speech
-  workflow; that run also logged the existing temporary-workspace terminal
-  attach failure. The focused global-speech, microphone-permission, and topic
-  production workflows passed independently. The supply-chain audit again
-  reports the pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4,
-  fixed in 1.26.5; this slice changes no dependency manifest or toolchain pin.
-- 2026-07-12: The Phase 5 item 1 review corrected the app-shell provider's
-  development lifecycle under the repository's React `StrictMode` root. The
-  initial effect replay can no longer permanently dispose the sole capture
-  controller: replay remount cancels the pending teardown, while a real
-  unmount still disposes the controller and its media resources. Focused
-  regression coverage exercises both replay and controller replacement, and
-  the retained PWA build was regenerated. Phase 5 item 2 was not started.
-- 2026-07-12: Completed Phase 5 item 2. The new Go-owned `internal/master`
-  boundary normalizes text and voice submissions into one typed `MasterInput`
-  containing an idempotency id, exact input text, modality, canonical UTC
-  submission time, and optional focused workspace/conversation/pane hints.
-  The conversation database now accepts each normalized input through its
-  serialized writer, returns the original receipt for an exact duplicate,
-  rejects changed content under the same id, and atomically appends one
-  `master.input.accepted` committed event. This is deliberately a durable
-  pending intake only: Phase 6 still owns the master session, candidate
-  retrieval, model call, route decision, and resulting command.
-- 2026-07-12: Protocol version 22 adds the authenticated
-  `SubmitMasterInput` endpoint and generated request, input, modality, and
-  receipt types. The endpoint is wired through the active-runtime Electron
-  main/preload boundary. Finalized shell transcripts use their capture-session
-  id as the durable input id, freeze the exact transcript and focus hints at
-  finalization, and submit automatically. A failed submission retains that
-  exact frozen input for retry, prevents a second recording from overtaking it,
-  and exposes an explicit discard; retry reuses the same id, timestamp, text,
-  modality, and hints. Runtime changes invalidate stale responses rather than
-  applying a receipt from the previous runtime. The retained PWA does not gain
-  this desktop-only speech wiring.
-- 2026-07-12: Focused Go, HTTP, runtime compile, TypeScript, and race-enabled
-  tests passed, including 50 repetitions of 24 concurrent duplicate intake
-  submissions. All 1,133 desktop tests, typecheck, desktop and retained-web
-  production builds, and generated-contract reproduction passed. The final
-  deterministic two-launch Electron workflow accepted an input with zero Easy
-  Button panes, proved exact duplicate idempotency and changed-content
-  conflict behavior, then proved the original receipt survived restart at
-  `.recordings/global-speech-session/20260712T172137764Z/`. The production
-  microphone-permission and topic-conversation workflows also passed at
-  `.recordings/microphone-permissions/20260712T172154214Z/` and
-  `.recordings/topic-conversation-pane-projection/20260712T172205307Z/`.
-  The Codex source reference was not needed because this intake slice changes
-  no Codex provider protocol or behavior. Phase 5 item 3, typed voice catalog
-  and stable master/narrator selections, is next.
-- 2026-07-12: Final formatting and changed-file quality verification passed.
-  The required broad gate cleared all 34 Go packages, file and complexity
-  limits, formatting, static analysis, all desktop tests, typecheck, dead-code
-  analysis, and the production build. Its Electron manifest then stopped in
-  the previously recorded retired chat workflow at the removed `New chat`
-  control and logged the existing temporary-workspace terminal attach failure;
-  the relevant focused production workflows passed independently. The
-  package-wide HTTP race run likewise reaches only the already documented
-  retired chat/workflow races, while the master HTTP tests and complete master
-  and conversation packages pass with the race detector. The supply-chain
-  audit again reports the pre-existing `GO-2026-5856` in repository-pinned Go
-  1.26.4, fixed in 1.26.5; this slice changes no dependency manifest or
-  toolchain pin.
-- 2026-07-12: The Phase 5 item 2 review connected the finalized transcript's
-  focus snapshot to the production pane index. Master voice inputs now retain
-  the selected workspace's actual focused pane and, when that pane is an Easy
-  Button view, its bound topic conversation. Focus changes between duplicate
-  views of one conversation still update the pane hint, while a focused
-  non-conversation pane keeps its pane hint with no false conversation hint.
-  Phase 5 item 3 was not started.
-- 2026-07-12: Generated-contract reproduction was clean. The complete 1,135
-  desktop tests, typecheck, production build, focused race-enabled master HTTP
-  tests, and complete race-enabled master and conversation packages passed.
-  Deterministic production Electron workflows passed for global speech intake,
-  microphone permission, and topic-conversation pane projection at
-  `.recordings/global-speech-session/20260712T174407255Z/`,
-  `.recordings/microphone-permissions/20260712T174407236Z/`, and
-  `.recordings/topic-conversation-pane-projection/20260712T174407250Z/`.
-  The package-wide HTTP race run reached only the already documented retired
-  chat/workflow races outside this iteration's files.
-- 2026-07-12: Completed Phase 5 item 3. The checked OpenAI speech-contract
-  registry now owns the approved 13-voice catalog in deterministic order, and
-  the OpenAI contract generator emits its Go `SpeechVoiceID` values and default
-  `marin` identity. Backend contract generation consumes those Go-owned values,
-  so protocol version 23 exposes an exhaustive voice-id union, a typed catalog
-  with provider and source-version identity, typed exact/automatic selection
-  modes, and typed narrator voice fields without a handwritten TypeScript or
-  renderer catalog. The old public singleton `synthesisVoice` capability was
-  replaced by this catalog.
-- 2026-07-12: The app-global master voice selection is initialized exactly once
-  as exact `marin` through the conversation store's serialized writer, read
-  through a dedicated authenticated speech endpoint, and wired through the
-  desktop main/preload boundary. Existing selections are validated against the
-  current catalog and preserved rather than overwritten at restart; missing,
-  malformed, unavailable, or unsupported persisted state fails explicitly.
-  Conversation presentation profiles now use the same speech-owned voice-id
-  and selection types. New narrators retain durable `auto_distinct` mode with
-  no fabricated resolution; Phase 5 item 4 still owns allocation, exact update
-  commands, finite-catalog reuse, and catalog-change re-resolution.
-- 2026-07-12: Focused generator, speech, conversation, HTTP, runtime, TypeScript,
-  and race-enabled tests passed. All 1,135 desktop tests, desktop and retained
-  web production builds, and generated-output reproduction passed. The
-  two-launch production Electron speech workflow verified the 13-entry catalog
-  with zero Easy Button panes and preserved the exact master selection across
-  restart at `.recordings/global-speech-session/20260712T182101784Z/`. The
-  production topic and microphone workflows passed at
-  `.recordings/topic-conversation-pane-projection/20260712T181046376Z/` and
-  `.recordings/microphone-permissions/20260712T181105229Z/`; created topics
-  exposed the durable unresolved automatic narrator mode. The Codex source
-  reference was not needed because this slice changes the separate OpenAI
-  speech contract and no Codex app-server protocol behavior. Phase 5 item 4 is
-  next with no implementation blocker.
-- 2026-07-12: Final formatting and changed-files quality verification passed,
-  including the live runtime suite, Go vet/tests/static analysis, TypeScript
-  lint and complexity checks, all 1,135 desktop tests, typecheck, dead-code
-  analysis, and the production build. The broad gate cleared all 34 Go
-  packages and every non-Electron check, then stopped in the previously
-  documented retired chat workflow because the removed `New chat` control was
-  absent; it also logged the existing temporary-workspace terminal attach
-  failure. The focused global-speech, topic-conversation, and microphone
-  production workflows passed independently. The supply-chain audit again
-  reports the pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4,
-  fixed in Go 1.26.5; no dependency manifest or toolchain pin changed.
-- 2026-07-12: The Phase 5 item 3 review made the first master-voice assignment
-  obey the conversation store's committed-publication invariant. The selection
-  row and one catalog-stamped `speech.master_voice_selection.initialized` fact
-  now commit atomically on a dedicated durable stream and wake outbox
-  subscribers only after commit. Restart validation requires both halves,
-  rejects a missing selection, a missing or malformed initialization fact, and
-  no longer silently recreates an initialized selection as `marin`. Historical
-  initialization facts validate against their captured catalog rather than the
-  current catalog, preserving an auditable basis for the catalog-change work
-  deliberately left to item 4.
-- 2026-07-12: Review verification passed regenerated-output reproduction,
-  focused race-enabled generator, speech, conversation, and speech-HTTP tests,
-  the changed-file quality gate, all 1,135 desktop tests, typecheck, production
-  build, and deterministic production Electron workflows at
-  `.recordings/global-speech-session/20260712T185710883Z/` and
-  `.recordings/topic-conversation-pane-projection/20260712T185726646Z/`. The
-  broad gate again cleared all 34 Go packages and every non-Electron check,
-  then reached only the already documented retired chat workflow's missing
-  `New chat` control and temporary-terminal attach error. The supply-chain
-  audit again reached only repository-pinned Go 1.26.4's pre-existing
-  `GO-2026-5856`, fixed in Go 1.26.5. Review regeneration changed no generated
-  output, no dependency or toolchain input changed, and Phase 5 item 4 was not
-  started.
-- 2026-07-12: Corrected the Phase 5 voice-routing scope before further
-  implementation. Global speech means one app-shell owner for microphone,
-  transcription, enablement, and playback; it does not mean every transcript
-  is master input. Shell-originated capture still goes to the global master,
-  while capture initiated from an Easy Button must go directly to that pane's
-  bound conversation with an explicit `send`, `queue`, `steer`, or
-  `ask_narrator` action frozen at capture start. The completed shell-to-master
-  intake is retained, but Phase 5 item 2 is now correctly marked partial until
-  the direct pane path and its production-path proof exist. Item 4 must not
-  begin first. This was a plan-only correction; no production behavior changed.
