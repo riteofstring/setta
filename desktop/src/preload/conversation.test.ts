@@ -172,9 +172,7 @@ async function invokeConversationCommands(
     sideTurnRequest: Parameters<NonNullable<SettaAPI["conversations"]["sendSide"]>>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: Parameters<SettaAPI["conversations"]["read"]>[0];
-    presentationRequest: Parameters<
-      NonNullable<SettaAPI["conversations"]["updatePresentation"]>
-    >[0];
+    presentationRequest: Parameters<SettaAPI["conversations"]["updatePresentation"]>[0];
   },
 ) {
   const sendSide = requireConversationCommand(api.conversations.sendSide, "side conversation send");
@@ -217,7 +215,7 @@ async function invokeConversationCommands(
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);
-  await api.conversations.updatePresentation?.(requests.presentationRequest);
+  await api.conversations.updatePresentation(requests.presentationRequest);
 }
 
 function requireConversationCommand<Command>(command: Command | undefined, label: string): Command {

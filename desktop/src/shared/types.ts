@@ -311,7 +311,7 @@ export interface SettaAPI {
     ) => Promise<ConversationSnapshot>;
     submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;
     subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
-    updatePresentation?: (
+    updatePresentation: (
       request: UpdateTopicConversationPresentationRequest,
     ) => Promise<ConversationPresentationProfile>;
     waitInputState?: (

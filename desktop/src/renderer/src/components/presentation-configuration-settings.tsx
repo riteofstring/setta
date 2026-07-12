@@ -95,9 +95,13 @@ function GlobalVoiceConfigurationForm({
 
   useEffect(() => {
     setMasterDraft(voiceSelectionValue(configuration.master));
+    setError(null);
+  }, [configuration.master]);
+
+  useEffect(() => {
     setNarratorDraft(voiceSelectionValue(configuration.narratorDefault));
     setError(null);
-  }, [configuration.master, configuration.narratorDefault]);
+  }, [configuration.narratorDefault]);
 
   const masterDirty = masterDraft !== voiceSelectionValue(configuration.master);
   const narratorDirty = narratorDraft !== voiceSelectionValue(configuration.narratorDefault);
@@ -315,17 +319,17 @@ export function ConversationPresentationConfiguration({
     setError(null);
   };
   const save = () => {
-    const update = window.setta.conversations.updatePresentation;
-    if (!update || archived || saving || !dirty) {
+    if (archived || saving || !dirty) {
       return;
     }
     setSaving(true);
     setError(null);
-    void update({
-      conversationId: profile.conversationId,
-      settings,
-      workspaceId,
-    })
+    void window.setta.conversations
+      .updatePresentation({
+        conversationId: profile.conversationId,
+        settings,
+        workspaceId,
+      })
       .then((updated) => {
         if (updated.conversationId !== profile.conversationId) {
           throw new Error("Updated presentation profile belongs to another conversation.");

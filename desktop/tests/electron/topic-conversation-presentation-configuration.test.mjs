@@ -81,8 +81,7 @@ try {
   assertEqual(initialGlobal.narratorDefaultOptionCount, 14, "narrator voice option count");
   assertEqual(initialGlobal.catalogStatus, "Voice catalog · 13 voices", "voice catalog status");
 
-  await configureGlobalVoice(context.client, "master", "cedar");
-  await configureGlobalVoice(context.client, "narrator", "ash");
+  await configureGlobalVoices(context.client, "cedar", "ash");
   const configuredGlobal = await waitForGlobalConfiguration(context.client, "cedar", "ash");
 
   await presentConversation(context.client, alpha.id);
@@ -316,7 +315,36 @@ function waitForGlobalSettings(client, masterSelection, narratorDefaultSelection
   );
 }
 
-async function configureGlobalVoice(client, target, value) {
+async function configureGlobalVoices(client, masterValue, narratorValue) {
+  await selectGlobalVoice(client, "master", masterValue);
+  await selectGlobalVoice(client, "narrator", narratorValue);
+
+  await saveGlobalVoice(client, "master");
+  await waitForState(
+    client,
+    driverCallExpression("presentationConfigurationGlobalState", {}),
+    (state) =>
+      state.masterSelection === masterValue &&
+      !state.masterSaveEnabled &&
+      state.narratorDefaultSelection === narratorValue &&
+      state.narratorDefaultSaveEnabled,
+    workflowTimeoutMs,
+  );
+
+  await saveGlobalVoice(client, "narrator");
+  await waitForState(
+    client,
+    driverCallExpression("presentationConfigurationGlobalState", {}),
+    (state) =>
+      state.masterSelection === masterValue &&
+      !state.masterSaveEnabled &&
+      state.narratorDefaultSelection === narratorValue &&
+      !state.narratorDefaultSaveEnabled,
+    workflowTimeoutMs,
+  );
+}
+
+async function selectGlobalVoice(client, target, value) {
   const selected = await client.driver("presentationConfigurationSelectGlobal", { target, value });
   if (!selected.changed) {
     throw new Error(`${target} voice selection did not change to ${value}`);
@@ -330,19 +358,13 @@ async function configureGlobalVoice(client, target, value) {
         : state.narratorDefaultSelection === value && state.narratorDefaultSaveEnabled,
     workflowTimeoutMs,
   );
+}
+
+async function saveGlobalVoice(client, target) {
   const saved = await client.driver("presentationConfigurationSaveGlobal", { target });
   if (!saved.saved) {
     throw new Error(`${target} voice Save button was not clickable`);
   }
-  await waitForState(
-    client,
-    driverCallExpression("presentationConfigurationGlobalState", {}),
-    (state) =>
-      target === "master"
-        ? state.masterSelection === value && !state.masterSaveEnabled
-        : state.narratorDefaultSelection === value && !state.narratorDefaultSaveEnabled,
-    workflowTimeoutMs,
-  );
 }
 
 function waitForGlobalConfiguration(client, masterVoiceId, narratorDefaultVoiceId) {
