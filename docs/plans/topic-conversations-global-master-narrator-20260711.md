@@ -2370,8 +2370,8 @@ After the implementation is stable and generated outputs are current:
 ```
 
 The supply-chain gate is required if SQLite or other dependency manifests and
-lockfiles change. Run the deterministic and live chat/agent workflow gates
-required by `AGENTS.md` before the final source commit.
+lockfiles change. Run the deterministic and live topic-conversation workflow
+gates required by `AGENTS.md` before the final source commit.
 
 ## Recording And Observability Requirements
 

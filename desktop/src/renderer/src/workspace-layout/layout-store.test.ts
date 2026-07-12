@@ -78,26 +78,26 @@ describe("workspace layout store", () => {
     const store = createStore();
 
     store.moveFocus("right");
-    const terminalPaneId = store.focusedPaneId();
+    const conversationPaneId = store.focusedPaneId();
     store.moveFocusedPane("left");
 
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 0,
-      focusedPaneId: terminalPaneId,
+      focusedPaneId: conversationPaneId,
       focusedRowIndex: 1,
     });
-    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", terminalPaneId]);
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", conversationPaneId]);
     expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2"]);
 
     store.moveFocusedPane("right");
 
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
-      focusedPaneId: terminalPaneId,
+      focusedPaneId: conversationPaneId,
       focusedRowIndex: 1,
     });
     expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0"]);
-    expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2", terminalPaneId]);
+    expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2", conversationPaneId]);
   });
 
   test("moves panes up and down inside a vertical stack", () => {

@@ -241,7 +241,7 @@ function workspacePaneSnapshots() {
     const conversation = host.querySelector<HTMLElement>('[data-testid="easy-button-surface"]');
     return [
       {
-        conversationId: truncate(conversation?.dataset.conversationId ?? ""),
+        conversation: conversationPaneSnapshot(conversation),
         focused: host.dataset.focused === "true",
         paneId: truncate(paneId),
         rect: elementRect(host),
@@ -251,6 +251,31 @@ function workspacePaneSnapshots() {
       },
     ];
   });
+}
+
+function conversationPaneSnapshot(conversation: HTMLElement | null) {
+  if (!conversation) {
+    return null;
+  }
+  return {
+    captureScope: recordedDataValue(conversation, "easyButtonCaptureScope"),
+    captureState: recordedDataValue(conversation, "easyButtonCapture"),
+    focusStatus: recordedDataValue(conversation, "easyButtonFocus"),
+    id: recordedDataValue(conversation, "conversationId"),
+    paletteId: recordedDataValue(conversation, "conversationPalette"),
+    playbackScope: recordedDataValue(conversation, "easyButtonPlaybackScope"),
+    playbackState: recordedDataValue(conversation, "easyButtonPlayback"),
+    projectionStatus: recordedDataValue(conversation, "easyButtonProjection"),
+    queueCount: nonNegativeInteger(conversation.dataset.easyButtonQueueCount),
+    sideConversationId: recordedDataValue(conversation, "easyButtonSideId"),
+    sideStatus: recordedDataValue(conversation, "easyButtonSideStatus"),
+    statusTone: recordedDataValue(conversation, "easyButtonStatus"),
+    viewState: recordedDataValue(conversation, "easyButtonState"),
+  };
+}
+
+function recordedDataValue(element: HTMLElement, name: string): string {
+  return truncate(element.dataset[name] ?? "");
 }
 
 function elementRect(element: Element) {

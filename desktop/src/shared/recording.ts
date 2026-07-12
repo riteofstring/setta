@@ -81,13 +81,29 @@ interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
 }
 
 interface RendererPaneSnapshot {
-  conversationId: string;
+  conversation: RendererConversationPaneSnapshot | null;
   focused: boolean;
   paneId: string;
   rect: RendererRect;
   runtimeState: string;
   surfaceKind: string;
   visible: boolean;
+}
+
+interface RendererConversationPaneSnapshot {
+  captureScope: string;
+  captureState: string;
+  focusStatus: string;
+  id: string;
+  paletteId: string;
+  playbackScope: string;
+  playbackState: string;
+  projectionStatus: string;
+  queueCount: number;
+  sideConversationId: string;
+  sideStatus: string;
+  statusTone: string;
+  viewState: string;
 }
 
 interface RendererRect {

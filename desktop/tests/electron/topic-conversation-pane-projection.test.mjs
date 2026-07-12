@@ -36,6 +36,7 @@ import {
   waitForMasterRouteDecision,
 } from "./topic-conversation-master-overlay-assertions.mjs";
 import { exerciseMasterPaneRouting } from "./topic-conversation-master-pane-routing.mjs";
+import { assertRecordedPaneLayouts } from "./topic-conversation-layout-recording.mjs";
 import {
   assertRecordedConversationRouteObservability,
   assertRecordedMasterRouteObservability,
@@ -1009,6 +1010,7 @@ try {
     workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));
+  await assertRecordedPaneLayouts(secondLaunchDir, [alpha.id, beta.id], workflowTimeoutMs);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
