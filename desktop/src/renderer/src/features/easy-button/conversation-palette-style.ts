@@ -26,3 +26,21 @@ export function conversationPaletteStyle(
     "--conversation-focus-ring-light": palette.light.conversationFocusRing,
   };
 }
+
+export function applyConversationPaletteStyle(
+  element: HTMLElement,
+  paletteId: ConversationPaletteID,
+): () => void {
+  const style = conversationPaletteStyle(paletteId);
+  if (!style) {
+    throw new Error(`Conversation palette ${paletteId} did not resolve to semantic tokens.`);
+  }
+  for (const [name, value] of Object.entries(style)) {
+    element.style.setProperty(name, value);
+  }
+  return () => {
+    for (const name of Object.keys(style)) {
+      element.style.removeProperty(name);
+    }
+  };
+}

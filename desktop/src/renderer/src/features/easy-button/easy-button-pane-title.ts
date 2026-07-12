@@ -1,6 +1,7 @@
 import { type RefObject, useEffect } from "react";
 
 import { setHostPaneChromeTitle } from "../../workspace-layout/pane-title-metadata";
+import { applyConversationPaletteStyle } from "./conversation-palette-style";
 import type { EasyButtonProjectionView } from "./easy-button-surface";
 
 export function useEasyButtonPaneTitle(
@@ -19,7 +20,29 @@ export function useEasyButtonPaneTitle(
       title,
       truncation: "end",
     });
-  }, [rootRef, view]);
+    if (!view.conversationId || !view.paletteId) {
+      return;
+    }
+    host.dataset.conversationId = view.conversationId;
+    host.dataset.conversationPalette = view.paletteId;
+    host.classList.add("conversation-presentation-identity");
+    const removePaletteStyle = applyConversationPaletteStyle(host, view.paletteId);
+    return () => {
+      removePaletteStyle();
+      if (host.dataset.conversationId === view.conversationId) {
+        delete host.dataset.conversationId;
+        delete host.dataset.conversationPalette;
+        host.classList.remove("conversation-presentation-identity");
+      }
+    };
+  }, [
+    rootRef,
+    view.conversationId,
+    view.paletteId,
+    view.projectionStatus,
+    view.title,
+    view.viewState,
+  ]);
 }
 
 function paneTitleSuffix(view: EasyButtonProjectionView): string {

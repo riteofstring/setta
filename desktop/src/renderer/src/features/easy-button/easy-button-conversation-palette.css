@@ -9,3 +9,18 @@
   --conversation-accent-foreground: var(--conversation-accent-foreground-light, var(--setta-50));
   --conversation-focus-ring: var(--conversation-focus-ring-light, var(--accent-cyan));
 }
+
+.workspace-pane-host[data-surface-kind="easy-button"][data-conversation-palette]
+  .workspace-pane-title-icon {
+  background: var(--conversation-accent);
+  border-radius: 4px;
+  color: var(--conversation-accent-foreground);
+  height: 16px;
+  padding: 2px;
+  width: 16px;
+}
+
+.workspace-pane-host[data-surface-kind="easy-button"][data-conversation-palette]
+  .workspace-pane-top-bar {
+  border-bottom-color: color-mix(in oklch, var(--conversation-accent) 34%, transparent);
+}

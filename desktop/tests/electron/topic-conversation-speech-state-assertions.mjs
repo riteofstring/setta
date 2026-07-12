@@ -15,10 +15,28 @@ export function assertDistinctConversationPalettes(surfaces, alphaId, betaId) {
   const alpha = surfaces.find((surface) => surface.conversationId === alphaId);
   const beta = surfaces.find((surface) => surface.conversationId === betaId);
   assertState(
-    [alpha?.paletteId, beta?.paletteId, alpha?.paletteId !== beta?.paletteId],
+    [
+      hasConversationPaletteIdentity(alpha, alphaId),
+      hasConversationPaletteIdentity(beta, betaId),
+      conversationPalettesAreDistinct(alpha, beta),
+    ],
     "topic palettes were not distinct",
     { alpha, beta },
   );
+}
+
+function hasConversationPaletteIdentity(surface, conversationId) {
+  return (
+    surface !== undefined &&
+    surface.paletteId !== "" &&
+    surface.hostAccentDark !== "" &&
+    surface.hostConversationId === conversationId &&
+    surface.hostPaletteId === surface.paletteId
+  );
+}
+
+function conversationPalettesAreDistinct(left, right) {
+  return left !== undefined && right !== undefined && left.paletteId !== right.paletteId;
 }
 
 export async function safeTopicConversationSurfaceStates(client) {

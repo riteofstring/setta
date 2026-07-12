@@ -11,6 +11,7 @@ import (
 	"setta/internal/agent"
 	"setta/internal/speech"
 	"setta/internal/workspace"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {
@@ -26,6 +27,105 @@ func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {
 	exerciseServiceApproval(t, ctx, service, runtime, workspaceID, conversationID)
 	exerciseServiceCancellation(t, ctx, service, runtime, workspaceID, conversationID)
 	assertReloadedServiceState(t, ctx, store, service, appDataDir, workspaceID, conversationID)
+}
+
+func TestServiceAllocatesStableDistinctConversationPalettes(t *testing.T) {
+	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownContext)
+		_ = store.Close()
+	})
+	ctx := context.Background()
+
+	paletteIDs := conversationpalette.IDs()
+	created := make([]ConversationSnapshot, 0, len(paletteIDs))
+	for index, wantPaletteID := range paletteIDs {
+		snapshot := createPaletteTestTopic(
+			t,
+			ctx,
+			service,
+			workspaceID,
+			fmt.Sprintf("Palette %d", index+1),
+		)
+		if snapshot.PresentationProfile.ResolvedPaletteID != wantPaletteID ||
+			snapshot.PresentationProfile.PaletteReuse != nil {
+			t.Fatalf(
+				"topic %d presentation = %+v, want distinct palette %q without reuse",
+				index+1,
+				snapshot.PresentationProfile,
+				wantPaletteID,
+			)
+		}
+		created = append(created, snapshot)
+	}
+
+	exhausted := createPaletteTestTopic(t, ctx, service, workspaceID, "Palette exhausted")
+	reuse := exhausted.PresentationProfile.PaletteReuse
+	if exhausted.PresentationProfile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
+		reuse == nil ||
+		reuse.Reason != PresentationReuseCatalogExhausted ||
+		reuse.ResolvedChoiceID != string(conversationpalette.ConversationPaletteSky) ||
+		len(reuse.ConflictingConversationIDs) != 1 ||
+		reuse.ConflictingConversationIDs[0] != created[0].Conversation.ID {
+		t.Fatalf("exhausted palette presentation = %+v", exhausted.PresentationProfile)
+	}
+
+	alpha := created[0]
+	replacePaletteTestPaneBindings(t, store, workspaceID, []WorkspacePaneBinding{
+		{PaneID: "pane-alpha-primary", ConversationID: alpha.Conversation.ID, Focused: true},
+		{PaneID: "pane-alpha-duplicate", ConversationID: alpha.Conversation.ID},
+	})
+	alphaWithDuplicateViews, err := service.ReadSnapshot(ctx, workspaceID, alpha.Conversation.ID)
+	if err != nil {
+		t.Fatalf("read alpha with duplicate views: %v", err)
+	}
+	if alphaWithDuplicateViews.PresentationProfile.PaletteSelection !=
+		alpha.PresentationProfile.PaletteSelection ||
+		alphaWithDuplicateViews.PresentationProfile.RequestedPaletteID != nil ||
+		alphaWithDuplicateViews.PresentationProfile.ResolvedPaletteID !=
+			alpha.PresentationProfile.ResolvedPaletteID ||
+		alphaWithDuplicateViews.PresentationProfile.PaletteReuse != nil ||
+		alphaWithDuplicateViews.PresentationProfile.UpdatedAt != alpha.PresentationProfile.UpdatedAt {
+		t.Fatalf(
+			"duplicate views changed presentation: got %+v want %+v",
+			alphaWithDuplicateViews.PresentationProfile,
+			alpha.PresentationProfile,
+		)
+	}
+}
+
+func createPaletteTestTopic(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+	title string,
+) ConversationSnapshot {
+	t.Helper()
+	snapshot, err := service.CreateTopic(ctx, workspaceID, title)
+	if err != nil {
+		t.Fatalf("create %s topic: %v", title, err)
+	}
+	return snapshot
+}
+
+func replacePaletteTestPaneBindings(
+	t *testing.T,
+	store *Store,
+	workspaceID string,
+	bindings []WorkspacePaneBinding,
+) {
+	t.Helper()
+	if err := store.ReplaceWorkspacePaneBindings(
+		context.Background(),
+		workspaceID,
+		bindings,
+		"2026-07-14T20:00:00Z",
+	); err != nil {
+		t.Fatalf("replace palette test pane bindings: %v", err)
+	}
 }
 
 func createSubscribedServiceTopic(

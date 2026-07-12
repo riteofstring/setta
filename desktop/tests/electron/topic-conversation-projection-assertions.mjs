@@ -7,7 +7,18 @@ export function assertDuplicateConversationPalette(surfaces, conversationId) {
   const duplicates = conversationSurfaces(surfaces, conversationId);
   const palettes = new Set(duplicates.map((surface) => surface.paletteId));
   const paneIds = new Set(duplicates.map((surface) => surface.paneId));
-  if (duplicates.length !== 2 || palettes.size !== 1 || paneIds.size !== 2 || palettes.has("")) {
+  if (
+    duplicates.length !== 2 ||
+    palettes.size !== 1 ||
+    paneIds.size !== 2 ||
+    palettes.has("") ||
+    duplicates.some(
+      (surface) =>
+        surface.hostAccentDark === "" ||
+        surface.hostConversationId !== conversationId ||
+        surface.hostPaletteId !== surface.paletteId,
+    )
+  ) {
     throw new Error(`duplicate topic views diverged: ${JSON.stringify(duplicates)}`);
   }
 }
