@@ -1,6 +1,7 @@
 import {
   speechVoiceIDValues,
   type AcceptedMasterInput,
+  type ConversationInputMode,
   type SpeechCapabilities,
   type SpeechTranscriptionSession,
   type SubmitMasterInputRequest,
@@ -19,7 +20,6 @@ import {
 import {
   conversationSpeechCaptureRequest,
   masterSpeechCaptureRequest,
-  type SpeechCaptureRequest,
 } from "./speech-capture-destination";
 import type { RealtimeTranscriptionUpdate } from "./realtime-transcription-session";
 import type {
@@ -114,11 +114,11 @@ describe("app-shell speech capture controller", () => {
   test("freezes a pane conversation destination and mode for the full capture lifecycle", async () => {
     const harness = createHarness();
     await harness.connectAndEnable();
-    const requestedCapture: SpeechCaptureRequest = {
+    const requestedCapture = {
       destination: {
         conversationId: "conversation_original",
-        inputMode: "route",
-        type: "conversation",
+        inputMode: "route" as ConversationInputMode,
+        type: "conversation" as const,
       },
       sourcePaneId: "pane_original",
     };

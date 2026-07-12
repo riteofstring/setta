@@ -1,22 +1,22 @@
 import { conversationInputModeValues, type ConversationInputMode } from "@generated/backend";
 
 type SpeechCaptureDestination =
-  | { type: "master" }
-  | {
+  | Readonly<{ type: "master" }>
+  | Readonly<{
       conversationId: string;
       inputMode: ConversationInputMode;
       type: "conversation";
-    };
+    }>;
 
 export type SpeechCaptureRequest =
-  | {
+  | Readonly<{
       destination: Extract<SpeechCaptureDestination, { type: "master" }>;
       sourcePaneId: null;
-    }
-  | {
+    }>
+  | Readonly<{
       destination: Extract<SpeechCaptureDestination, { type: "conversation" }>;
       sourcePaneId: string;
-    };
+    }>;
 
 export type ConversationSpeechCaptureRequest = Extract<
   SpeechCaptureRequest,
@@ -32,10 +32,10 @@ export interface SpeechCaptureRequester {
 }
 
 export interface CompletedConversationSpeechTranscript {
-  captureSessionId: string;
-  request: ConversationSpeechCaptureRequest;
-  runtimeId: string;
-  transcript: string;
+  readonly captureSessionId: string;
+  readonly request: ConversationSpeechCaptureRequest;
+  readonly runtimeId: string;
+  readonly transcript: string;
 }
 
 const conversationInputModes = new Set<ConversationInputMode>(conversationInputModeValues);
