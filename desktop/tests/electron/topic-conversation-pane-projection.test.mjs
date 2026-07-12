@@ -61,6 +61,7 @@ const fixture = await createElectronFixture(workflowName);
 const fakeCodex = await installFakeTopicCodex(fixture);
 const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
+let noPaneTerminalSpeech;
 let statusCapturePreemption;
 let statusSpeechPlayback;
 
@@ -460,9 +461,54 @@ try {
       surface.summaryText === "Narrator completed command approval denial.",
   );
 
+  const synthesisRequestCountBeforeNoPaneStop = speechProvider.requests.length;
+  await closeConversationPane(context.client, beta.id);
+  await waitForConversationSurfaces(
+    context.client,
+    (surfaces) => conversationSurfaces(surfaces, beta.id).length === 0,
+  );
+  await waitForRecordedConversationKeepAlive(secondLaunchDir, beta.id);
+  await context.client.evaluate(
+    `window.setta.conversations.stop(${JSON.stringify({ conversationId: beta.id, workspaceId })})`,
+  );
+  const stoppedWithoutPane = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    beta.id,
+    (snapshot) =>
+      snapshot.turns.turns[0]?.status === "cancelled" &&
+      snapshot.narration.events.some(
+        (event) => event.kind === "final_summary" && event.turnId === snapshot.turns.turns[0]?.id,
+      ),
+  );
+  const noPaneFinal = stoppedWithoutPane.narration.events.find(
+    (event) =>
+      event.kind === "final_summary" && event.turnId === stoppedWithoutPane.turns.turns[0]?.id,
+  );
+  if (!noPaneFinal) {
+    throw new Error("terminal narration was unavailable after stopping a pane-free conversation");
+  }
+  const recordedNoPaneSynthesis = await waitForRecordedSpeechSynthesis(
+    secondLaunchDir,
+    noPaneFinal.id,
+  );
+  assertRecordedNarrationSynthesis(
+    recordedNoPaneSynthesis,
+    beta.id,
+    noPaneFinal.id,
+    beta.narratorVoiceId,
+  );
+  noPaneTerminalSpeech = await waitForNarrationProviderRequest(
+    speechProvider,
+    synthesisRequestCountBeforeNoPaneStop,
+    noPaneFinal.finalSummary.text,
+    beta.narratorVoiceId,
+  );
   assertDriverAction(
-    await context.client.driver("topicConversationStop", { conversationId: beta.id }),
-    "stopped",
+    await context.client.driver("topicConversationPresentFromNavigator", {
+      conversationId: beta.id,
+    }),
+    "clicked",
   );
   await waitForConversationSurface(
     context.client,
@@ -557,6 +603,7 @@ try {
     conversationInput: acceptedConversationInput,
     duplicated,
     exhaustedVoice,
+    noPaneTerminalSpeech,
     reloaded,
     reopenedWorking,
     reloadedWorking,
@@ -837,6 +884,31 @@ async function waitForAutomaticNarrationStatusPlayback(
   throw new Error("automatic narrator status playback did not reach the speech provider");
 }
 
+async function waitForNarrationProviderRequest(
+  provider,
+  initialRequestCount,
+  text,
+  resolvedVoiceId,
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const request = provider.requests
+      .slice(initialRequestCount)
+      .find(
+        (candidate) =>
+          candidate.path === "/v1/audio/speech" &&
+          candidate.input === text &&
+          candidate.voice === resolvedVoiceId,
+      );
+    if (request) {
+      provider.assertHealthy();
+      return request;
+    }
+    await delay(20);
+  }
+  throw new Error("pane-free terminal narration playback did not reach the speech provider");
+}
+
 function assertRecordedNarrationSynthesis(
   event,
   conversationId,
@@ -894,6 +966,25 @@ async function waitForRecordedSpeechSynthesis(artifactDirectory, narrationEventI
     await delay(20);
   }
   throw new Error(`speech synthesis IPC was not recorded for narration ${narrationEventId}`);
+}
+
+async function waitForRecordedConversationKeepAlive(artifactDirectory, conversationId) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
+    const release = events.find(
+      (event) =>
+        event.type === "ipc_start" &&
+        event.channel === "conversation:release-events" &&
+        event.args?.[0]?.conversationId === conversationId &&
+        event.args[0].keepAlive === true,
+    );
+    if (release && events.some((event) => event.type === "ipc_finish" && event.id === release.id)) {
+      return release;
+    }
+    await delay(20);
+  }
+  throw new Error(`conversation stream was not retained for pane-free work ${conversationId}`);
 }
 
 async function waitForRecordedPaneSpeechInput(artifactDirectory, conversationId, sourcePaneId) {

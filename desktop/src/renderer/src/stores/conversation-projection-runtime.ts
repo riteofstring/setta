@@ -95,17 +95,36 @@ function releaseConversationProjection(
     return;
   }
   retainedProjections.delete(key);
-  const status = useConversationStore.getState().conversations.get(conversationId)?.snapshot
-    ?.conversation.status;
+  const snapshot = useConversationStore.getState().conversations.get(conversationId)?.snapshot;
   void window.setta.conversations
     .release({
       conversationId,
-      keepAlive: status === "working" || status === "waiting_for_approval",
+      keepAlive: snapshot ? conversationProjectionNeedsKeepAlive(snapshot) : false,
       workspaceId,
     })
     .catch((error: unknown) => {
       console.error(`Failed to release conversation stream ${conversationId}`, error);
     });
+}
+
+export function conversationProjectionNeedsKeepAlive(snapshot: ConversationSnapshot): boolean {
+  if (!snapshot.presentationProfile.narratorSpeechEnabled) {
+    return false;
+  }
+  const status = snapshot.conversation.status;
+  if (status === "working" || status === "waiting_for_approval") {
+    return true;
+  }
+  if (snapshot.narratorState.degradation?.retryable === false) {
+    return false;
+  }
+  const latestTurn = snapshot.turns.turns.at(-1);
+  if (!latestTurn) {
+    return false;
+  }
+  return !snapshot.narration.events.some(
+    (event) => event.kind === "final_summary" && event.turnId === latestTurn.id,
+  );
 }
 
 function resyncConversationProjection(workspaceId: string, conversationId: string): Promise<void> {

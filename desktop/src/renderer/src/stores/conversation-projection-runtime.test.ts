@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { useConversationNavigatorStore } from "./conversation-navigator-store";
 import {
+  conversationProjectionNeedsKeepAlive,
   handleConversationProjectionEvent,
   resetConversationProjectionRuntime,
 } from "./conversation-projection-runtime";
@@ -73,6 +74,34 @@ describe("conversation projection runtime", () => {
     await Promise.resolve();
 
     expect(useConversationStore.getState().conversations.size).toBe(0);
+  });
+
+  test("retains terminal speech streams only while final narration can still arrive", () => {
+    const working = conversationSnapshot(1);
+    working.conversation.status = "working";
+    expect(conversationProjectionNeedsKeepAlive(working)).toBe(true);
+
+    const terminal = terminalConversationSnapshot();
+    expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(true);
+
+    terminal.narration.events.push({
+      conversationId,
+      id: "narration_final",
+      kind: "final_summary",
+      turnId: "turn_terminal",
+    } as ConversationSnapshot["narration"]["events"][number]);
+    expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
+
+    terminal.narration.events = [];
+    terminal.narratorState.status = "degraded";
+    terminal.narratorState.degradation = {
+      retryable: false,
+    } as NonNullable<ConversationSnapshot["narratorState"]["degradation"]>;
+    expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
+
+    terminal.narratorState.degradation = null;
+    terminal.presentationProfile.narratorSpeechEnabled = false;
+    expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
   });
 });
 
@@ -148,6 +177,17 @@ function conversationSnapshot(sequence: number): ConversationSnapshot {
     trajectory: { events: [], hasEarlier: false },
     turns: { hasEarlier: false, turns: [] },
   };
+}
+
+function terminalConversationSnapshot(): ConversationSnapshot {
+  const snapshot = conversationSnapshot(1);
+  snapshot.conversation.status = "idle";
+  snapshot.turns.turns.push({
+    conversationId,
+    id: "turn_terminal",
+    status: "completed",
+  } as ConversationSnapshot["turns"]["turns"][number]);
+  return snapshot;
 }
 
 function topicConversation(title: string): TopicConversation {

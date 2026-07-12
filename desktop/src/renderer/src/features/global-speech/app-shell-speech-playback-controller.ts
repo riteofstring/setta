@@ -66,9 +66,26 @@ export interface SpeechPlaybackControllerDependencies {
   createAudio: (url: string) => PlaybackAudio;
   createObjectURL: (blob: Blob) => string;
   decodeBase64: (value: string) => Uint8Array;
+  logPlayback: (observation: SpeechPlaybackObservation) => void;
   logSupersession: (decision: SpeechPlaybackSupersessionDecision) => void;
   revokeObjectURL: (url: string) => void;
   synthesize: (request: SpeechSynthesisRequest, signal: AbortSignal) => Promise<SpeechAudio>;
+}
+
+export interface SpeechPlaybackObservation {
+  action: "completed" | "dropped" | "enqueued" | "failed" | "play" | "preempted";
+  intent: SpeechPlaybackIntent;
+  priority: number;
+  queuePosition: number | null;
+  reason:
+    | "automatic"
+    | "capture"
+    | "higher_priority"
+    | "playback_failed"
+    | "replay"
+    | "reset"
+    | "user"
+    | null;
 }
 
 export interface SpeechPlaybackSupersessionDecision {
@@ -106,6 +123,7 @@ export class AppShellSpeechPlaybackController {
   private abortController: AbortController | null = null;
   private activeItem: QueuedSpeech | null = null;
   private activePlayback: ActivePlayback | null = null;
+  private captureActive = false;
   private disposed = false;
   private lifecycle = 0;
   private nextSequence = 1;
@@ -141,12 +159,12 @@ export class AppShellSpeechPlaybackController {
       return;
     }
     this.automaticSourceKeys.add(automaticKey);
-    this.enqueue(item);
+    this.enqueue(item, "automatic");
   };
 
   replay = (intent: SpeechPlaybackIntent): void => {
     this.assertUsable();
-    this.enqueue(this.createItem(intent));
+    this.enqueue(this.createItem(intent), "replay");
   };
 
   stop = (): void => {
@@ -154,13 +172,47 @@ export class AppShellSpeechPlaybackController {
   };
 
   preemptForCapture = (): void => {
-    this.stopWithReason("capture");
-  };
-
-  reset = (): void => {
+    this.assertUsable();
+    if (this.captureActive) {
+      return;
+    }
+    this.captureActive = true;
+    const active = this.activeItem;
+    if (!active) {
+      this.publishSnapshot(this.snapshotValue.state);
+      return;
+    }
+    const wasSpeaking = this.activePlayback !== null;
     this.lifecycle += 1;
     this.abortController?.abort();
     this.abortController = null;
+    this.stopActiveAudio();
+    this.activeItem = null;
+    if (!wasSpeaking) {
+      this.queue.push(active);
+      this.sortQueue();
+      this.observe(active, "preempted", "capture", this.queuePosition(active));
+    } else {
+      this.observe(active, "dropped", "capture", null);
+    }
+    this.transition({ intent: active.intent, reason: "capture", type: "stopped" });
+  };
+
+  resumeAfterCapture = (): void => {
+    if (this.disposed || !this.captureActive) {
+      return;
+    }
+    this.captureActive = false;
+    this.publishSnapshot(this.snapshotValue.state);
+    this.playNext();
+  };
+
+  reset = (): void => {
+    this.observeDiscardedWork("reset");
+    this.lifecycle += 1;
+    this.abortController?.abort();
+    this.abortController = null;
+    this.captureActive = false;
     this.queue = [];
     this.stopActiveAudio();
     this.activeItem = null;
@@ -178,7 +230,7 @@ export class AppShellSpeechPlaybackController {
     this.listeners.clear();
   };
 
-  private enqueue(item: QueuedSpeech): void {
+  private enqueue(item: QueuedSpeech, reason: "automatic" | "replay"): void {
     if (this.disposed || this.hasPendingSource(item.sourceKey)) {
       return;
     }
@@ -188,6 +240,7 @@ export class AppShellSpeechPlaybackController {
     this.queue.push(item);
     this.sortQueue();
     this.preemptLowerPrioritySynthesis(item);
+    this.observe(item, "enqueued", reason, this.queuePosition(item));
     this.publishSnapshot(this.snapshotValue.state);
     this.playNext();
   }
@@ -244,10 +297,11 @@ export class AppShellSpeechPlaybackController {
     this.activeItem = null;
     this.queue.push(active);
     this.sortQueue();
+    this.observe(active, "preempted", "higher_priority", this.queuePosition(active));
   }
 
   private playNext(): void {
-    if (this.disposed || this.activeItem || this.queue.length === 0) {
+    if (this.disposed || this.captureActive || this.activeItem || this.queue.length === 0) {
       return;
     }
     const item = this.queue.shift();
@@ -355,6 +409,7 @@ export class AppShellSpeechPlaybackController {
     audio.addEventListener("ended", ended);
     audio.addEventListener("error", failed);
     this.transition({ intent: item.intent, type: "speaking" });
+    this.observe(item, "play", null, 0);
     try {
       void audio.play().catch((error: unknown) => {
         if (this.isCurrent(item, lifecycle) && this.activePlayback?.audio === audio) {
@@ -373,6 +428,7 @@ export class AppShellSpeechPlaybackController {
     this.removeActiveAudioListeners();
     this.activePlayback = null;
     this.activeItem = null;
+    this.observe(item, "completed", null, null);
     this.transition({ type: "idle" });
     this.playNext();
   }
@@ -387,6 +443,7 @@ export class AppShellSpeechPlaybackController {
     this.cancelActiveSynthesis();
     this.stopActiveAudio();
     this.activeItem = null;
+    this.observe(item, "failed", "playback_failed", null);
     this.transition({ intent: item.intent, message, type: "failed" });
     this.playNext();
   }
@@ -396,6 +453,8 @@ export class AppShellSpeechPlaybackController {
     if (!this.activeItem && this.queue.length === 0) {
       return;
     }
+    const active = this.activeItem;
+    const queued = [...this.queue];
     const stoppedIntent = this.activeItem?.intent ?? this.queue[0]?.intent;
     this.lifecycle += 1;
     this.abortController?.abort();
@@ -403,6 +462,7 @@ export class AppShellSpeechPlaybackController {
     this.queue = [];
     this.stopActiveAudio();
     this.activeItem = null;
+    this.observeDroppedWork(active, queued, reason);
     if (stoppedIntent) {
       this.transition({ intent: stoppedIntent, reason, type: "stopped" });
     }
@@ -433,6 +493,46 @@ export class AppShellSpeechPlaybackController {
     this.queue.sort(
       (left, right) => right.priority - left.priority || left.sequence - right.sequence,
     );
+  }
+
+  private queuePosition(item: QueuedSpeech): number {
+    const position = this.queue.indexOf(item);
+    if (position < 0) {
+      throw new Error("speech playback item is missing from its queue");
+    }
+    return position + 1;
+  }
+
+  private observeDiscardedWork(reason: "reset"): void {
+    this.observeDroppedWork(this.activeItem, this.queue, reason);
+  }
+
+  private observeDroppedWork(
+    active: QueuedSpeech | null,
+    queued: readonly QueuedSpeech[],
+    reason: "capture" | "reset" | "user",
+  ): void {
+    if (active) {
+      this.observe(active, "dropped", reason, null);
+    }
+    for (const item of queued) {
+      this.observe(item, "dropped", reason, null);
+    }
+  }
+
+  private observe(
+    item: QueuedSpeech,
+    action: SpeechPlaybackObservation["action"],
+    reason: SpeechPlaybackObservation["reason"],
+    queuePosition: number | null,
+  ): void {
+    this.dependencies.logPlayback({
+      action,
+      intent: copySpeechPlaybackIntent(item.intent),
+      priority: item.priority,
+      queuePosition,
+      reason,
+    });
   }
 
   private stopActiveAudio(): void {

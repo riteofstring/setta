@@ -161,6 +161,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       {(playback) => (
         <AppShellSpeechCaptureProvider
           focusHints={masterInputFocusHints}
+          onCaptureEnd={playback.resumeAfterCapture}
           onCaptureStart={playback.preemptForCapture}
           runtimeId={runtime.connectedRuntimeId}
           setta={setta}

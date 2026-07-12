@@ -114,11 +114,11 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
     createAudio: (url) => new Audio(url),
     createObjectURL: (blob) => URL.createObjectURL(blob),
     decodeBase64,
+    logPlayback: (observation) => {
+      console.info(JSON.stringify({ type: "speech_playback", ...observation }));
+    },
     logSupersession: (decision) => {
-      console.info(
-        `Speech playback superseded source=${decision.superseded.source.eventId} ` +
-          `by=${decision.superseding.source.eventId} reason=${decision.reason}`,
-      );
+      console.info(JSON.stringify({ type: "speech_playback_supersession", ...decision }));
     },
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     synthesize: (request, signal) => {

@@ -87,6 +87,7 @@ function playbackController(): AppShellSpeechPlaybackController {
     },
     createObjectURL: () => "blob:unused",
     decodeBase64: () => new Uint8Array(),
+    logPlayback: () => {},
     logSupersession: () => {},
     revokeObjectURL: () => {},
     synthesize: () => new Promise(() => {}),

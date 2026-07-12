@@ -12,6 +12,7 @@ import {
   speechPlaybackPriority,
   type NarratorSpeechPlaybackIntent,
   type SpeechPlaybackControllerDependencies,
+  type SpeechPlaybackObservation,
   type SpeechPlaybackSupersessionDecision,
 } from "./app-shell-speech-playback-controller";
 
@@ -102,6 +103,21 @@ describe("app-shell speech playback controller", () => {
       "direct-second",
       "final",
       "queued",
+    ]);
+    expect(
+      harness.observations
+        .filter((observation) => observation.action === "enqueued")
+        .map((observation) => [
+          observation.intent.source.eventId,
+          observation.priority,
+          observation.queuePosition,
+        ]),
+    ).toEqual([
+      ["speaking", 1, 1],
+      ["queued", 1, 1],
+      ["final", 2, 1],
+      ["direct-first", 4, 1],
+      ["direct-second", 4, 2],
     ]);
 
     harness.audios[0]!.emit("ended");
@@ -201,24 +217,46 @@ describe("app-shell speech playback controller", () => {
     expect(harness.snapshot().queued).toEqual([milestone]);
   });
 
-  test("capture preemption aborts synthesis, stops audio, and clears every queued source", async () => {
+  test("capture preemption holds unplayed work until the full recording lifecycle ends", async () => {
     const synthesizing = createHarness();
-    synthesizing.controller.enqueueAutomatic(intent("milestone", "synthesizing"));
-    synthesizing.controller.enqueueAutomatic(intent("status_reply", "queued-direct"));
+    const synthesizingIntent = intent("status_reply", "synthesizing");
+    const queuedMilestone = intent("milestone", "queued-milestone");
+    const queuedAttention = intent("attention", "queued-during-capture");
+    synthesizing.controller.enqueueAutomatic(synthesizingIntent);
+    synthesizing.controller.enqueueAutomatic(queuedMilestone);
     const activeSignal = synthesizing.signals.at(-1)!;
 
     synthesizing.controller.preemptForCapture();
+    synthesizing.controller.enqueueAutomatic(queuedAttention);
 
     expect(activeSignal.aborted).toBe(true);
     expect(synthesizing.snapshot()).toMatchObject({
-      queued: [],
+      queued: [synthesizingIntent, queuedAttention, queuedMilestone],
       state: { reason: "capture", type: "stopped" },
     });
+    expect(synthesizing.requests).toHaveLength(1);
+    expect(synthesizing.observations).toContainEqual(
+      expect.objectContaining({
+        action: "preempted",
+        queuePosition: 1,
+        reason: "capture",
+      }),
+    );
+
+    synthesizing.controller.resumeAfterCapture();
+
+    expect(synthesizing.requests.map((request) => request.source.eventId)).toEqual([
+      "synthesizing",
+      "synthesizing",
+    ]);
 
     const speaking = createHarness();
-    speaking.controller.enqueueAutomatic(intent("status_reply", "speaking"));
+    const speakingIntent = intent("status_reply", "speaking");
+    const queuedAfterSpeaking = intent("milestone", "after-speaking");
+    speaking.controller.enqueueAutomatic(speakingIntent);
     speaking.resolveSynthesis(0);
     await flushPromises();
+    speaking.controller.enqueueAutomatic(queuedAfterSpeaking);
     const audio = speaking.audios[0]!;
     audio.currentTime = 4;
 
@@ -227,6 +265,18 @@ describe("app-shell speech playback controller", () => {
     expect(audio.pause).toHaveBeenCalledOnce();
     expect(audio.currentTime).toBe(0);
     expect(speaking.snapshot().state).toMatchObject({ reason: "capture", type: "stopped" });
+    expect(speaking.snapshot().queued).toEqual([queuedAfterSpeaking]);
+    expect(speaking.requests).toHaveLength(1);
+    expect(speaking.observations).toContainEqual(
+      expect.objectContaining({ action: "dropped", reason: "capture" }),
+    );
+
+    speaking.controller.resumeAfterCapture();
+
+    expect(speaking.requests.map((request) => request.source.eventId)).toEqual([
+      "speaking",
+      "after-speaking",
+    ]);
   });
 
   test("validates source attribution and reuses bounded cached audio for replay", async () => {
@@ -310,6 +360,7 @@ function createHarness(
   const results: Array<Deferred<SpeechAudio>> = [];
   const audios: FakeAudio[] = [];
   const supersessions: SpeechPlaybackSupersessionDecision[] = [];
+  const observations: SpeechPlaybackObservation[] = [];
   const revokedURLs: string[] = [];
   const dependencies: SpeechPlaybackControllerDependencies = {
     createAbortController: () => new AbortController(),
@@ -320,6 +371,7 @@ function createHarness(
     },
     createObjectURL: () => `blob:speech-${audios.length + 1}`,
     decodeBase64: () => new Uint8Array([82, 73, 70, 70]),
+    logPlayback: (observation) => observations.push(observation),
     logSupersession: (decision) => supersessions.push(decision),
     revokeObjectURL: (url) => revokedURLs.push(url),
     synthesize: (request, signal) => {
@@ -334,6 +386,7 @@ function createHarness(
   return {
     audios,
     controller,
+    observations,
     requests,
     resolveSynthesis: (index: number) => {
       const request = requests[index];

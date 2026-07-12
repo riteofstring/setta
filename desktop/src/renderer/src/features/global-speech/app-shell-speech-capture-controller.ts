@@ -106,6 +106,7 @@ export interface AppShellSpeechCaptureControllerDependencies
   createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
   createTransport: typeof createRealtimeTranscriptionTransport;
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  onCaptureEnd: () => void;
   onCaptureStart: () => void;
   readCapabilities: () => Promise<SpeechCapabilities>;
   readPreference: () => GlobalMicrophonePreference;
@@ -173,7 +174,7 @@ export class AppShellSpeechCaptureController {
     }
     this.capabilityGeneration += 1;
     const generation = this.capabilityGeneration;
-    this.resetCapture();
+    this.resetCapture(false);
     this.conversationSubmission.reset();
     this.masterSubmission.reset();
     this.updateSnapshot({
@@ -223,7 +224,7 @@ export class AppShellSpeechCaptureController {
     }
     this.conversationSubmission.clearAccepted();
     this.masterSubmission.clearAccepted();
-    this.resetCapture();
+    this.resetCapture(false);
     this.updateSnapshot({ capture: { type: "idle" } });
     const startFailure = this.captureStartFailure();
     if (startFailure) {
@@ -335,7 +336,7 @@ export class AppShellSpeechCaptureController {
     }
     this.disposed = true;
     this.capabilityGeneration += 1;
-    this.resetCapture();
+    this.resetCapture(false);
     this.conversationSubmission.dispose();
     this.masterSubmission.dispose();
     this.listeners.clear();
@@ -556,7 +557,8 @@ export class AppShellSpeechCaptureController {
     );
   }
 
-  private resetCapture(): void {
+  private resetCapture(notifyCaptureEnd = true): void {
+    const captureEnded = this.activeLifecycle !== null;
     this.activeLifecycle = null;
     if (this.durationTimer !== null) {
       this.dependencies.clearTimeout(this.durationTimer);
@@ -567,6 +569,9 @@ export class AppShellSpeechCaptureController {
     if (this.stream) {
       stopMediaStream(this.stream);
       this.stream = null;
+    }
+    if (captureEnded && notifyCaptureEnd) {
+      this.dependencies.onCaptureEnd();
     }
   }
 
