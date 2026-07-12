@@ -2,14 +2,17 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete. Phases 1-9 are implemented and verified. The 2026-07-15
-Phase 1 follow-up now exports `workspaceui.SchemaVersion` as generated
-TypeScript `workspaceUILayoutSchemaVersion`, and workspace layout serialization
-consumes that generated value instead of a handwritten renderer mirror. Focused
-generator, workspace layout, renderer contract, and type checks passed, followed
-by a fresh production build, all seven deterministic Electron workflows, and
-the complete ChatGPT-authenticated live matrix with `OPENAI_API_KEY` unset. The
-plan is ready for the repeated whole-plan final audit.
+**Status:** In progress. The repeated whole-plan final audit on 2026-07-15
+reopened Phase 7 item 4 and Phase 9 items 6-7. Workspace-scoped role overrides
+participate in backend resolution but cannot be read or updated through the
+production service, HTTP, generated IPC, or settings paths. Automatic
+presentation identity also treats every non-archived topic as active and
+visible, so dormant pane-free conversations can force avoidable palette reuse
+among simultaneously visible conversations and narrator-voice reuse among
+simultaneously active narrators. The next step is to complete the Phase 7
+workspace role-configuration path and its deterministic Electron coverage;
+Phase 9 active/visible identity allocation and exhaustion/reload coverage
+follow.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2115,10 +2118,14 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** Complete. Items 1-11 are implemented. Item 4 includes primary-agent
-precedence plus the model-catalog-validated HTTP, generated IPC, settings,
-persistence, and production Electron workflow surfaces for independent role
-configuration.
+**Status:** In progress. Items 1-3 and 5-11 are implemented. Item 4 is reopened:
+global and conversation role configuration have model-catalog-validated
+production surfaces, and stored workspace overrides participate in effective
+resolution, but production scope validation accepts only global and
+conversation scopes. There is no workspace read/update service, HTTP,
+generated IPC, settings, audit, or deterministic Electron workflow path, so a
+fresh production app cannot create the workspace precedence layer defined by
+this plan.
 
 Completion verification on 2026-07-15 passed focused backend and renderer
 tests, generated-contract validation, the production desktop and web builds,
@@ -2139,7 +2146,10 @@ Implement:
 2. Conversation-local input router using the lightweight narrator role,
    authoritative context, strict output, and independent invocation audit.
 3. Topic-card index and bounded global candidate retrieval.
-4. Durable restricted master thread and independent role configuration.
+4. Durable restricted master thread and independent role configuration,
+   including production read/update support for eligible workspace-scoped role
+   overrides, effective-precedence validation, generated IPC and settings
+   surfaces, durable audit, and deterministic Electron coverage.
 5. One shell-owned master controller shared by shell text and voice, including
    linked pane escalations and source-aware clarification delivery.
 6. Compact left-pane launcher plus an action-oriented master overlay reachable
@@ -2232,14 +2242,25 @@ Exit criteria:
 
 ### Phase 9: Hardening and acceptance
 
-**Status:** Complete. The reopened item 5 is closed. The production live suite
-now proves two isolated topics running simultaneously, an AI-authored local
-steering decision accepted by the active Codex turn, cancellation isolated to
-its target topic, and reload from the same durable app data after the backend
-process is killed during active work. Startup reconciles the exact persisted
-provider thread/turn into a terminal cancellation with the typed
-`reconciliation` reason. Its event-driven waits use the production input wait
-and conversation event-stream boundaries rather than timing polls.
+**Status:** In progress. The reopened item 5 is closed, but items 6-7 are
+reopened. Palette and narrator-voice allocation currently count every
+non-archived conversation presentation profile. The plan instead defines
+palette uniqueness across concurrently visible conversations and voice
+uniqueness across active narrators; dormant pane-free topics must not consume
+those finite-capacity sets or produce a false `catalog_exhausted` reuse reason.
+The correction must preserve exact overrides and stable automatic assignments
+when they do not conflict, resolve automatic conflicts deterministically as
+pane visibility and narrator activity change, and cover catalog exhaustion,
+duplicate panes, reload, and dormant-topic pressure through focused and
+production Electron tests.
+
+The production live suite proves two isolated topics running simultaneously,
+an AI-authored local steering decision accepted by the active Codex turn,
+cancellation isolated to its target topic, and reload from the same durable app
+data after the backend process is killed during active work. Startup reconciles
+the exact persisted provider thread/turn into a terminal cancellation with the
+typed `reconciliation` reason. Its event-driven waits use the production input
+wait and conversation event-stream boundaries rather than timing polls.
 
 The standard live gate also runs the existing Codex thread
 read/list/search/fork/injection characterization and the full active-side
