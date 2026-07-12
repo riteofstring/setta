@@ -27,7 +27,7 @@ import {
   syncPaneResizePreview as syncPaneResizePreviewElement,
 } from "./pane-resize-preview";
 import { installWindowResizeReportHooks } from "./performance-report";
-import { hostPoolSizeForRuntime, type WorkspaceSceneMode } from "./runtime-mode-options";
+import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
 import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runtime";
 import {
@@ -39,7 +39,7 @@ import {
 import {
   installWindowReportHooksForRuntime,
   observeStageResize,
-  usePresentationHostPool,
+  requireWorkspaceLayoutElements,
 } from "./workspace-layout-area-mount";
 import { viewportRect } from "./workspace-layout-area-geometry";
 import {
@@ -231,7 +231,6 @@ function WorkspaceLayoutRuntimeArea({
   const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
-  const hostPoolSize = hostPoolSizeForRuntime(mode, currentScene);
   const [overviewGhostTarget, setOverviewGhostTargetState] = useState<OverviewGhostTarget | null>(
     null,
   );
@@ -284,7 +283,6 @@ function WorkspaceLayoutRuntimeArea({
   useEffect(() => {
     schedulerRef.current?.requestFrame();
   }, [nativeViewOverlayActive]);
-  usePresentationHostPool({ hostPoolSize, hostRefs, rootRef, runtime, schedulerRef, stageRef });
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
       clearOverviewInsertPreview();
@@ -340,11 +338,13 @@ function WorkspaceLayoutRuntimeArea({
     };
   }, [runLayoutAction, runtime, stageViewport]);
   useEffect(() => {
-    const root = rootRef.current;
-    const stage = stageRef.current;
-    if (!root || !stage) {
-      throw new Error("workspace layout did not mount");
-    }
+    const { hosts, root, stage } = requireWorkspaceLayoutElements({
+      hostPoolSize: runtime.hostPoolSize,
+      hostRefs: hostRefs.current,
+      root: rootRef.current,
+      stage: stageRef.current,
+    });
+    runtime.presentation.mount(hosts, debugRef.current);
     runtime.presentation.setDropPreviewOverlay(paneDropPreviewRef.current);
     installWindowReportHooksForRuntime(runtime);
     const viewportProvider = () => viewportRect(stage, projectPaneWidthRef.current);
@@ -905,7 +905,7 @@ function WorkspaceLayoutRuntimeArea({
           ref={paneDropPreviewRef}
         />
         <Profiler id="workspace-pane-hosts" onRender={() => runtime.metrics.recordReactCommit()}>
-          {Array.from({ length: hostPoolSize }, (_, index) => (
+          {Array.from({ length: runtime.hostPoolSize }, (_, index) => (
             <WorkspacePaneHost
               key={`workspace_host_${index}`}
               refCallback={(host) => {

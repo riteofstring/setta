@@ -11,6 +11,7 @@ import { PresentationEngine } from "./presentation-engine";
 import {
   browserPaneCountForScene,
   createRealSceneForRuntime,
+  hostPoolSizeForRuntime,
   initialFocusedPaneIdForRuntime,
   paneLimitsForRuntime,
   presentationOptionsForRuntime,
@@ -81,6 +82,7 @@ export function createWorkspaceRuntime({
   return {
     browserPaneCount,
     engine,
+    hostPoolSize: hostPoolSizeForRuntime(mode, scene),
     layoutRecovery: realScene?.layoutRecovery ?? null,
     metrics,
     mode,

@@ -9,11 +9,8 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
-	"setta/internal/conversation"
-	"setta/internal/easyrun"
 	"setta/internal/orchestrator"
 	"setta/internal/semanticgraph"
-	"setta/internal/speech"
 	"setta/internal/terminal"
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
@@ -33,13 +30,17 @@ type ContractEndpoint struct {
 	Response              reflect.Type
 	StreamEvent           reflect.Type
 	Streaming             bool
+	DuplexClientMessage   reflect.Type
+	DuplexServerMessage   reflect.Type
+	Duplex                bool
 	RequestBodyLimitBytes int64
 }
 
 type endpoint struct {
 	ContractEndpoint
-	Handler         routeHandler
-	Unauthenticated bool
+	Handler             routeHandler
+	TicketAuthenticated bool
+	Unauthenticated     bool
 }
 
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
@@ -53,6 +54,8 @@ var apiEndpoints = []endpoint{
 	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
 	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
 	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
+	unauthenticated(post[SetupAttestationRequest, SetupAttestationResponse]("SetupAttestation", "/setup/attestation", handler.setupAttestation)),
+	post[CreateDevicePairingRequest, CreateDevicePairingResponse]("CreateDevicePairing", "/pairing/create-device", handler.createDevicePairing),
 	post[UpdateRuntimeDisplayNameRequest, RuntimeInfoResponse]("UpdateRuntimeDisplayName", "/runtime/display-name/update", handler.updateRuntimeDisplayName),
 	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
 	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),
@@ -75,17 +78,6 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkspaceActivitySnapshotRequest, ReadWorkspaceActivitySnapshotResponse]("ReadWorkspaceActivitySnapshot", "/workspace-activity/snapshot", handler.readWorkspaceActivitySnapshot),
 	post[ReadWorkflowExecutionActivityRequest, ReadWorkflowExecutionActivityResponse]("ReadWorkflowExecutionActivity", "/workspace-activity/execution-snapshot", handler.readWorkflowExecutionActivity),
 	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
-	getWithQuery[ReadEasyRunSnapshotRequest, easyrun.EasyRunSnapshot]("ReadEasyRunSnapshot", "/easy-runs/snapshot", handler.readEasyRunSnapshot),
-	post[StartEasyRunRequest, easyrun.EasyRun]("StartEasyRun", "/easy-runs/start", handler.startEasyRun),
-	post[SteerEasyRunRequest, easyrun.EasyRun]("SteerEasyRun", "/easy-runs/steer", handler.steerEasyRun),
-	post[StopEasyRunRequest, easyrun.EasyRun]("StopEasyRun", "/easy-runs/stop", handler.stopEasyRun),
-	streamEvent[easyrun.EasyRunEvent]("EasyRunEventStream", "/easy-runs/events", handler.easyRunEventStream),
-	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),
-	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
-	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
-	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
-	postWithRequestBodyLimit[SynthesizeEasyRunSummaryRequest, speech.SpeechAudio]("SynthesizeEasyRunSummary", "/speech/easy-runs/summary", speechRequestBodyLimitBytes, handler.synthesizeEasyRunSummary),
-	postWithRequestBodyLimit[SynthesizeEasyRunHighlightRequest, speech.SpeechAudio]("SynthesizeEasyRunHighlight", "/speech/easy-runs/highlight", speechRequestBodyLimitBytes, handler.synthesizeEasyRunHighlight),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),
@@ -183,7 +175,8 @@ var apiEndpoints = []endpoint{
 	streamEvent[semanticgraph.SemanticGraphChangeEvent]("SemanticGraphChangeEventStream", "/semantic-graph/events/changes", handler.semanticGraphChangeEventStream),
 	post[CreateTerminalRequest, TerminalSessionResponse]("CreateTerminal", "/terminals/create", handler.createTerminal),
 	post[AttachTerminalRequest, TerminalSessionResponse]("AttachTerminal", "/terminals/attach", handler.attachTerminal),
-	post[TerminalInputRequest, TerminalInputResponse]("TerminalInput", "/terminals/input", handler.terminalInput),
+	post[CreateTerminalStreamTicketRequest, CreateTerminalStreamTicketResponse]("CreateTerminalStreamTicket", "/terminals/stream/ticket", handler.createTerminalStreamTicket),
+	duplex[terminal.TerminalStreamClientMessage, terminal.TerminalStreamServerMessage]("TerminalStream", "/terminals/stream", handler.terminalStream),
 	post[ResizeTerminalRequest, TerminalSessionResponse]("ResizeTerminal", "/terminals/resize", handler.resizeTerminal),
 	post[CloseTerminalRequest, CloseTerminalResponse]("CloseTerminal", "/terminals/close", handler.closeTerminal),
 	get[terminal.TerminalProfileList]("ListTerminalProfiles", "/terminals/profiles", handler.listTerminalProfiles),
@@ -191,7 +184,6 @@ var apiEndpoints = []endpoint{
 	post[UpdateTerminalProfileRequest, terminal.TerminalProfileList]("UpdateTerminalProfile", "/terminals/profiles/update", handler.updateTerminalProfile),
 	post[DeleteTerminalProfileRequest, terminal.TerminalProfileList]("DeleteTerminalProfile", "/terminals/profiles/delete", handler.deleteTerminalProfile),
 	post[SelectDefaultTerminalProfileRequest, terminal.TerminalProfileList]("SelectDefaultTerminalProfile", "/terminals/profiles/default", handler.selectDefaultTerminalProfile),
-	streamEvent[terminal.TerminalEvent]("TerminalEventStream", "/terminals/events", handler.terminalEventStream),
 	get[codexaccount.CodexAccountState]("ReadCodexAccount", "/codex/account", handler.readCodexAccount),
 	post[codexaccount.RefreshCodexAccountRequest, codexaccount.CodexAccountState]("RefreshCodexAccount", "/codex/account/refresh", handler.refreshCodexAccount),
 	post[codexaccount.StartCodexLoginRequest, codexaccount.StartCodexLoginResponse]("StartCodexLogin", "/codex/account/login/start", handler.startCodexLogin),
@@ -259,19 +251,6 @@ func get[Response any](name string, path string, handler routeHandler) endpoint 
 	}
 }
 
-func getWithQuery[Request any, Response any](name string, path string, handler routeHandler) endpoint {
-	return endpoint{
-		ContractEndpoint: ContractEndpoint{
-			Name:     name,
-			Method:   http.MethodGet,
-			Path:     path,
-			Request:  reflect.TypeFor[Request](),
-			Response: reflect.TypeFor[Response](),
-		},
-		Handler: handler,
-	}
-}
-
 func stream(name string, path string, handler routeHandler) endpoint {
 	return endpoint{
 		ContractEndpoint: ContractEndpoint{
@@ -297,17 +276,19 @@ func streamEvent[StreamEvent any](name string, path string, handler routeHandler
 	}
 }
 
-func streamEventWithQuery[Request any, StreamEvent any](name string, path string, handler routeHandler) endpoint {
+func duplex[ClientMessage any, ServerMessage any](name string, path string, handler routeHandler) endpoint {
 	return endpoint{
 		ContractEndpoint: ContractEndpoint{
-			Name:        name,
-			Method:      http.MethodGet,
-			Path:        path,
-			Request:     reflect.TypeFor[Request](),
-			StreamEvent: reflect.TypeFor[StreamEvent](),
-			Streaming:   true,
+			Name:                name,
+			Method:              http.MethodGet,
+			Path:                path,
+			Streaming:           true,
+			Duplex:              true,
+			DuplexClientMessage: reflect.TypeFor[ClientMessage](),
+			DuplexServerMessage: reflect.TypeFor[ServerMessage](),
 		},
-		Handler: handler,
+		Handler:             handler,
+		TicketAuthenticated: true,
 	}
 }
 

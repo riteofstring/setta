@@ -203,9 +203,6 @@ func validatePane(layoutWorkspaceID string, pane WorkspaceUIPane, index int, pat
 	if err := validatePaneValues(pane, index, path); err != nil {
 		return err
 	}
-	if err := validatePaneEasyButtonConfig(pane, index, path); err != nil {
-		return err
-	}
 	if err := validatePaneTerminalConfig(pane, index, path); err != nil {
 		return err
 	}
@@ -243,23 +240,6 @@ func validatePaneValues(pane WorkspaceUIPane, index int, path string) error {
 	}
 	if pane.Sequence < 0 {
 		return corruptStateErrorf(path, "panes[%d].sequence must be non-negative", index)
-	}
-	return nil
-}
-
-func validatePaneEasyButtonConfig(pane WorkspaceUIPane, index int, path string) error {
-	config := pane.EasyButtonConfig
-	if config == nil {
-		return nil
-	}
-	if pane.SurfaceKind != SurfaceKindEasyButton {
-		return corruptStateErrorf(path, "panes[%d].easyButtonConfig is only valid for easy-button panes", index)
-	}
-	if config.ConversationID == "" {
-		return corruptStateErrorf(path, "panes[%d].easyButtonConfig.conversationId is required", index)
-	}
-	if strings.TrimSpace(config.ConversationID) != config.ConversationID {
-		return corruptStateErrorf(path, "panes[%d].easyButtonConfig.conversationId must not have surrounding whitespace", index)
 	}
 	return nil
 }
@@ -527,7 +507,6 @@ func validColumnWidthUnit(unit ColumnWidthUnit) bool {
 func validSurfaceKind(kind SurfaceKind) bool {
 	switch kind {
 	case SurfaceKindChatDOM,
-		SurfaceKindEasyButton,
 		SurfaceKindEmptyFrame,
 		SurfaceKindWorkflowGraph,
 		SurfaceKindSettingsDOM,
