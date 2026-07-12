@@ -4,13 +4,31 @@ The app feels like one global assistant managing multiple durable topic conversa
 
 The left sidebar lists every durable conversation, grouped by workspace. There is one row per conversation, whether it has zero, one, or several open panes.
 
-At the top is `Ask Setta`. It opens the global master overlay, which can also be reached through a keyboard shortcut, app-chrome control, or shell-level microphone.
+At the top is `Ask Setta`. It opens the global master action overlay, which can
+also be reached through a keyboard shortcut or app-chrome control. The fixed
+shell microphone starts a voice request to the same master and opens the same
+active interaction.
 
 You can say or type:
 
 > Bring up my recent conversation about speech routing.
 
-The master searches your conversations, focuses an existing pane or opens one, and tells you what it did. If multiple conversations might match, it asks a clarification and keeps the overlay open.
+The master searches your conversations, focuses an existing pane or opens one,
+and tells you what it did. If multiple conversations might match, it asks a
+clarification and keeps the overlay open.
+
+The overlay is not a master chat and does not contain a list of previous master
+requests. It shows only the current request, its progress, an unresolved
+clarification when one exists, and the immediate result. A successful action
+that opens or focuses a conversation clears the interaction and dismisses the
+overlay so the destination is visible. An informational result remains only
+until it is dismissed or replaced by a new request. Completed interactions do
+not reappear as scrollback when the overlay is reopened.
+
+Closing the overlay does not cancel routing. An unresolved clarification
+survives close, reload, and restart and calls attention back to the overlay.
+The hidden master session, inputs, route decisions, and audit records remain
+durable without becoming user-facing transcript history.
 
 ### Working inside an Easy Button
 
@@ -80,7 +98,20 @@ Suppose you say inside the speech-routing pane:
 
 The local narrator recognizes that this is not part of the current topic and escalates it to the global master. The master searches globally, focuses or opens the billing conversation, or asks a clarification.
 
-The response appears back at the originating pane as needed, but it still uses the one global master session—there is no separate per-pane master.
+The response appears back at the originating pane as needed, but it still uses
+the one global master session—there is no separate per-pane master and the
+escalation does not populate a master-history surface.
+
+### Where history lives
+
+Durable user-facing history belongs to topic conversations. Worker output,
+narrator milestones, status answers, approvals, artifacts, and summaries are
+projected together in the Easy Button for that topic. The worker, narrator,
+master, and provider sessions do not receive separate transcript UIs.
+
+The master is a coordinator. If an exchange becomes substantive enough to
+need durable user-visible history, the master creates or routes to a topic
+conversation instead of continuing a separate global chat.
 
 ### Status and narration
 
@@ -100,8 +131,18 @@ Voice follows the surface where capture begins:
 - Shell microphone → global master.
 - Easy Button microphone → that conversation’s narrator/router.
 
-One app-level speech controller owns the actual microphone, transcription, and playback resources. “Global microphone” describes ownership and availability; it does not mean every utterance goes to the master.
+One app-level speech controller owns the actual microphone, transcription, and
+playback resources. “Global microphone” describes ownership and availability;
+it does not mean every utterance goes to the master.
+
+For this plan, the explicit shell interaction is click-to-talk: click the
+fixed shell microphone control to enable it when necessary, open the active
+master interaction, and begin capture; click the same control again to finish
+and submit. The active transcript preview belongs to that one request. A
+microphone started inside an Easy Button instead remains visibly bound to that
+conversation.
 
 The master has a stable voice, and every conversation narrator receives a stable, preferably distinct voice. Conversations also receive distinct color palettes, while duplicate panes showing the same conversation share its voice and palette.
 
-The precise push-to-talk, wake phrase, or continuous-listening interaction is intentionally still undecided.
+Wake phrase and continuous-listening behavior remain future decisions. Merely
+enabling the global microphone does not make the app continuously listen.

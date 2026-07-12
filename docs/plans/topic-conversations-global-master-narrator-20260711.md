@@ -2,9 +2,10 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-6 and Phase 7 items 1-8 are complete. Pane
-focus/open behavior, route observability, obsolete-surface deletion, and final
-acceptance remain.
+**Status:** In progress. Phases 0-6 and Phase 7 items 1-5 and 7-8 are complete.
+The revised history-free master surface in Phase 7 item 6, pane focus/open
+behavior, route observability, obsolete-surface deletion, and final acceptance
+remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -41,6 +42,9 @@ environment:
 - A global **master** receives shell-level speech or text, finds or creates the
   right topic conversation, routes work, and asks the renderer to focus or open
   panes.
+- The master is presented as one active routing interaction, not as a separate
+  chat or completed-request transcript. Its durable session and audit state
+  remain hidden.
 - Input started inside an Easy Button goes to that conversation's lightweight
   **narrator/router**. It decides whether to continue, queue, or steer the
   parent agent; answer as narrator; create a side conversation or durable fork;
@@ -150,28 +154,54 @@ Workspace B
 Runtime/account/settings          fixed shell controls
 ```
 
+### User-facing history belongs to topic conversations
+
+The durable topic conversation is the only user-facing history surface. Its
+Easy Button projection combines primary-agent work, narrator milestones and
+status answers, approvals, artifacts, summaries, and user turns. Do not expose
+separate narrator, primary-agent, master, provider, or side-thread transcripts
+as parallel chat histories.
+
+The master remains durable internally because routing, clarification,
+idempotency, recovery, and audit require it. That persistence does not imply a
+visible scrollback. The shell master surface presents only one active root
+request, its current processing state, its unresolved clarification chain, and
+its immediate result. Completed master interactions are not hydrated or
+rendered as a list.
+
+If a master exchange becomes substantive enough to need durable user-visible
+history, the master must route to or create a topic conversation. Do not turn
+the shell overlay into another conversation aggregate.
+
 ### Shell input is globally routed; Easy Button input is conversation-routed
 
 Shell-originated voice and text are two input modalities for the same global
 master session and routing pipeline. The shell provides a compact `Ask Setta`
 launcher in the fixed portion of the left navigator. Activating it opens an
-expanded master overlay with a text composer, recent master exchanges, route
-results, and room for clarification turns. A global keyboard shortcut and an
-app-chrome control open the same overlay when the left pane is collapsed;
-these are presentations of one controller, not separate master sessions.
+expanded master overlay with a text composer and one active routing
+interaction. A global keyboard shortcut and an app-chrome control open the
+same overlay when the left pane is collapsed; these are presentations of one
+controller, not separate master sessions.
 
-The overlay may look and behave like a command palette for quick requests, but
-it is not dismiss-on-submit command execution. It remains open when the master
-asks a clarification or returns a conversational answer. Voice transcripts
-and typed submissions started from a shell master entry point appear in the
-same master interaction history.
+The overlay behaves like an action-oriented command palette, not a master chat.
+While a request is active it shows that request, progress, the current
+clarification when one is unresolved, and the immediate result. A successful
+focus/open/create action dismisses or clears the overlay so the destination is
+visible. A non-navigating answer remains only until dismissed or replaced.
+Closing the overlay does not cancel routing, and an unresolved clarification
+survives close, reload, and restart. Completed interactions never rehydrate as
+scrollback.
+
+Shell text and finalized shell voice still enter the same hidden master
+session. That shared session is a routing and continuity boundary, not a
+user-facing interaction history.
 
 An Easy Button composer and microphone have deliberately different scope from
 the shell master controls. Text or voice started inside an Easy Button is
 addressed to that topic conversation's narrator/router, which makes a typed
 conversation-local routing decision. It does not enter the global master by
 default. Text or voice started from `Ask Setta`, the global shortcut, app
-chrome, or globally listening shell entry point is routed by the master and
+chrome, or the fixed shell microphone control is routed by the master and
 includes the focused workspace/conversation as a hint, not as a forced
 destination.
 
@@ -358,7 +388,8 @@ This plan does not include:
   genuinely ambiguous; the responsible master or narrator/router asks a
   clarification question instead
 - speech wake-word selection or continuous-listening privacy UX details beyond
-  the ownership and lifecycle boundary needed by the architecture
+  the explicit click-to-talk baseline and ownership/lifecycle boundary needed
+  by the architecture
 - PWA feature work, PWA parity, PWA-specific acceptance, or deletion of the
   retained PWA
 - removal of local/remote runtime pairing, discovery, selection, or connection
@@ -1205,29 +1236,40 @@ shell voice transcription ------+
 
 The compact left-pane control is always above the scrollable conversation
 list. It may accept a short one-line submission directly, but focus or a
-multi-line request expands the overlay. The overlay retains the recent master
-exchange, candidate/route result presentation, and unresolved clarification so
-it behaves conversationally rather than like a fire-and-forget command
-palette. Collapsing or reopening it does not create or resume a different
-provider thread.
+multi-line request expands the overlay. The overlay owns one active shell
+interaction: its root request, processing state, unresolved clarification, and
+immediate result. It must not list completed inputs or expose master audit
+records. Collapsing or reopening it does not create or resume a different
+provider thread, but only an unresolved active interaction is restored to the
+surface.
 
 Every master submission normalizes into one contract containing input id,
 text, modality (`text` or `voice`), source (`shell` or
 `conversation_escalation`), timestamp, and optional focused/originating
 workspace, conversation, pane, and conversation-input ids. Routing behavior
 does not diverge by modality. The renderer may show interim shell voice
-transcription, but only a finalized master submission enters master history.
+transcription, but only a finalized master submission enters durable master
+intake and routing state.
+
 Easy Button input first enters its local narrator/router; only an explicit
 `escalate_to_master` decision creates a linked master input.
 
 The master surface is not a topic conversation and does not appear as a row in
-the conversation navigator. Its recent transcript and audit information are
-available from the overlay.
+the conversation navigator. It has no recent-transcript or audit UI. Logs and
+desktop recordings expose structured audit data for diagnosis without turning
+that data into product scrollback.
 
-Replies to shell input stay in the shared master overlay. A route result or
-clarification caused by pane escalation is also delivered to the originating
-pane, while remaining part of the same durable master session. It does not
-create a per-pane master.
+The active shell request, clarification, and immediate result use the shared
+master overlay. A route result or clarification caused by pane escalation is
+delivered to the originating pane instead of populating the shell overlay.
+Both paths still use the same durable hidden master session; neither creates a
+per-pane master.
+
+The baseline voice interaction for this plan is explicit click-to-talk. The
+fixed shell microphone control opens the active master interaction and starts
+capture, enabling the global preference first when necessary. The same control
+finishes and submits the request. Wake phrase and continuous-listening behavior
+remain future decisions.
 
 ### Master session
 
@@ -1479,11 +1521,13 @@ not provider transcription state and not a focused-pane lookup performed after
 the transcript is finalized.
 
 Global microphone enablement means capture is available throughout the app; it
-does not force every capture through the master.
-
-The plan does not settle whether global enablement means push-to-talk, local
-voice activity detection, or a wake phrase. Those UX decisions must not change
-the ownership boundary or create one microphone controller per pane.
+does not force every capture through the master and does not mean the app is
+continuously listening. This plan's baseline is an explicit shell or pane
+click-to-talk control: activate it to begin capture and activate it again to
+finish. Starting shell capture opens the active master interaction. Local voice
+activity detection, continuous listening, and wake phrases remain future
+decisions and must not change the ownership boundary or create one microphone
+controller per pane.
 
 ### Playback
 
@@ -1627,10 +1671,15 @@ The replacement surface needs endpoints or streams for these operations:
 
 ### Master commands
 
-- read master state
+- read the active shell interaction and unresolved clarification state
 - submit shell-originated or linked conversation-escalation input
 - subscribe to master replies and presentation intents
 - cancel an active master operation
+
+Do not expose a recent-master-input or master-transcript read boundary solely
+for renderer scrollback. Durable master inputs and route decisions remain
+backend-owned for idempotency, recovery, semantic context, and structured
+audit.
 
 ### Role configuration
 
@@ -2000,7 +2049,8 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** In progress. Items 1-8 are complete.
+**Status:** In progress. Items 1-5 and 7-8 are complete. Item 6 requires the
+history-free active-interaction correction; items 9-10 remain.
 
 Implement:
 
@@ -2013,8 +2063,14 @@ Implement:
 4. Durable restricted master thread and independent role configuration.
 5. One shell-owned master controller shared by shell text and voice, including
    linked pane escalations and source-aware clarification delivery.
-6. Compact left-pane launcher plus the conversational master overlay reachable
-   by global shortcut and app chrome while the navigator is collapsed.
+6. Compact left-pane launcher plus an action-oriented master overlay reachable
+   by global shortcut, app chrome, and the shell microphone while the navigator
+   is collapsed. Remove the completed-request history renderer and any
+   recent-master-input read endpoint, IPC surface, or controller state whose
+   only consumer was that renderer. Retain durable master inputs, route
+   decisions, provider session state, and recording audit. Present only the
+   active shell request, unresolved clarification, processing state, and
+   immediate result; successful navigation clears or dismisses the overlay.
 7. Strict global `RouteDecision` generation and validation.
 8. Pane text and voice cut over to local `route` by default, with explicit
    send, queue, steer, status, side, and fork overrides.
@@ -2036,6 +2092,11 @@ Exit criteria:
   policy says so
 - shell text and voice share one durable master session even when the navigator
   is collapsed
+- only topic conversations expose durable user-facing history; the master
+  overlay never hydrates or renders completed-request scrollback
+- an unresolved shell clarification survives close/reload/restart, while a
+  completed interaction clears and shell microphone activation opens the
+  active interaction
 - explicit user modes override AI classification without separate legacy paths
 - neither routing AI can invoke unrestricted filesystem, shell, endpoint, or
   renderer operations
@@ -2121,6 +2182,8 @@ Cover:
   backend validation
 - normalized master input validation, idempotent durable acceptance, changed-key
   conflicts, committed intake events, concurrent retries, and restart reads
+- active shell-master interaction recovery, clarification continuity, terminal
+  clearing, and the absence of a completed-input scrollback projection
 - typed speech destination/input-mode validation and conversation-input delivery
 - global route decision validation, explicit send/queue/steer semantics, linked
   pane escalations, and missing targets
@@ -2145,8 +2208,11 @@ Cover:
   labels
 - one navigator row per durable conversation across zero, one, or multiple
   panes; workspace grouping, paging, and large-list virtualization
-- master launcher/overlay state shared across sidebar, shortcut, app chrome,
+- active master interaction state shared across sidebar, shortcut, app chrome,
   shell text, and shell voice entry points
+- shell microphone activation opens the overlay; close/reload/restart restores
+  only an unresolved clarification, successful navigation clears the active
+  interaction, and completed requests never render as scrollback
 - explicit scope separation between shell master text/voice and Easy Button
   conversation text/voice
 - pane clarification and routing-result state shared across duplicate views of
@@ -2194,7 +2260,10 @@ temporary app data and a scripted Codex app-server, cover:
     clarification to its originating pane.
 13. Route typed and spoken shell master input to an existing topic, focus its
     pane, create a new topic, choose side and fork outcomes, and retain an
-    ambiguous clarification in the master overlay.
+    ambiguous clarification in the master overlay across close/reload. Verify
+    shell microphone activation opens that active interaction, successful
+    navigation clears or dismisses it, and completed requests do not accumulate
+    into master scrollback.
 14. Verify side and durable-fork isolation, disposal/restart behavior, lineage,
     navigator visibility, and parent continuation.
 15. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
@@ -2338,6 +2407,11 @@ This plan is complete only when all of the following are true:
   typed decisions.
 - The same global master is reachable through shell voice and shell-owned text
   UI, including while the left pane is collapsed.
+- Only topic conversations expose durable user-facing history. The master
+  overlay shows one active request, unresolved clarification, or immediate
+  result and never hydrates completed-request scrollback.
+- The explicit shell microphone control opens the active master interaction;
+  global enablement alone never implies continuous listening.
 - Ordinary Easy Button text and voice enter the bound conversation's
   lightweight narrator/router, not the heavy agent or global master directly.
 - The conversation narrator/router can choose parent send/queue/steer, narrator
