@@ -405,11 +405,12 @@ func populateMasterInputRoutingTerminalState(
 		}
 	}
 	if state.Status == master.InputRoutingStatusFailed {
-		failure, err := readMasterInputRoutingFailure(ctx, reader, inputID, dbPath)
+		failure, attempt, err := readMasterInputRoutingFailure(ctx, reader, inputID, dbPath)
 		if err != nil {
 			return err
 		}
 		state.Failure = &failure
+		state.InvocationAttempt = &attempt
 	}
 	if state.Status == master.InputRoutingStatusCancelled {
 		cancellation, err := readMasterInputRoutingCancellation(ctx, reader, inputID, dbPath)
@@ -428,19 +429,31 @@ func readMasterInputRoutingCancellation(
 	dbPath string,
 ) (master.InputRoutingCancellation, error) {
 	var cancellation master.InputRoutingCancellation
+	var invocationAttemptJSON sql.NullString
 	if err := reader.QueryRowContext(ctx, `
-SELECT input_id, routing_attempt, cancelled_at
+SELECT input_id, routing_attempt, invocation_attempt_json, cancelled_at
 FROM master_input_cancellations
 WHERE input_id = ?
 `, inputID).Scan(
 		&cancellation.InputID,
 		&cancellation.RoutingAttempt,
+		&invocationAttemptJSON,
 		&cancellation.CancelledAt,
 	); err != nil {
 		return master.InputRoutingCancellation{}, &CorruptStateError{
 			Path: dbPath,
 			Err:  fmt.Errorf("read master input routing cancellation %s: %w", inputID, err),
 		}
+	}
+	if invocationAttemptJSON.Valid {
+		var attempt master.RouteInvocationAttempt
+		if err := jsonio.DecodeSingle(bytes.NewBufferString(invocationAttemptJSON.String), &attempt); err != nil {
+			return master.InputRoutingCancellation{}, &CorruptStateError{
+				Path: dbPath,
+				Err:  fmt.Errorf("decode master input routing cancellation invocation attempt %s: %w", inputID, err),
+			}
+		}
+		cancellation.InvocationAttempt = &attempt
 	}
 	if err := cancellation.Validate(); err != nil {
 		return master.InputRoutingCancellation{}, &CorruptStateError{
@@ -456,23 +469,29 @@ func readMasterInputRoutingFailure(
 	reader masterInputQuery,
 	inputID string,
 	dbPath string,
-) (master.RouteFailure, error) {
+) (master.RouteFailure, master.RouteInvocationAttempt, error) {
 	var encoded string
 	if err := reader.QueryRowContext(ctx, `
 SELECT routing_failure_json
 FROM master_inputs
 WHERE id = ?
-`, inputID).Scan(&encoded); err != nil {
-		return master.RouteFailure{}, err
+	`, inputID).Scan(&encoded); err != nil {
+		return master.RouteFailure{}, master.RouteInvocationAttempt{}, err
 	}
-	var failure master.RouteFailure
-	if err := jsonio.DecodeSingle(bytes.NewBufferString(encoded), &failure); err != nil {
-		return master.RouteFailure{}, &CorruptStateError{
+	var stored storedMasterInputRoutingFailure
+	if err := jsonio.DecodeSingle(bytes.NewBufferString(encoded), &stored); err != nil {
+		return master.RouteFailure{}, master.RouteInvocationAttempt{}, &CorruptStateError{
 			Path: dbPath,
 			Err:  fmt.Errorf("decode master route failure: %w", err),
 		}
 	}
-	return failure, nil
+	failure := master.RouteFailure{
+		Code:                stored.Code,
+		Message:             stored.Message,
+		Retryable:           stored.Retryable,
+		DiagnosticReference: stored.DiagnosticReference,
+	}
+	return failure, stored.InvocationAttempt, nil
 }
 
 func equalOptionalStrings(left *string, right *string) bool {

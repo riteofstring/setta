@@ -2,19 +2,16 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. A repeated whole-plan audit on 2026-07-15 found the
-effective-invocation-audit and desktop-recording requirements incomplete.
-Successful projection and status calls retain invocation metadata through
-narration events, and successful local/master routing decisions retain it in
-their decision records. However, a successful checkpoint call bypasses
-`successfulInvocation` and commits only checkpoint state; failed narrator
-attempts commit only degradation state; failed local and master routes are
-recorded with `invocationAvailable: false`; and the desktop recorder reduces
-forwarded conversation events to envelope identifiers rather than recording the
-required bounded invocation and narrator-context details. The next step is a
-Go-owned typed invocation-attempt audit and secret-safe recording projection for
-every affected call kind and terminal outcome, including an atomic checkpoint
-audit commit, followed by focused and production-path recording coverage.
+**Status:** Implemented; ready for a repeated whole-plan final audit. The
+2026-07-15 invocation-audit follow-up added a Go-owned terminal attempt record
+for conversation-local routing and every narrator call kind, a separate
+Go-owned master-route attempt record, atomic successful checkpoint audit
+commits, and durable failed, cancelled, superseded, and stale outcomes. The
+desktop recorder now emits bounded secret-safe agent, narrator, checkpoint,
+thread-binding, trajectory, and routing projections. Focused tests, all 25 Go
+packages, 766 desktop tests, production desktop and embedded-web builds, all 17
+required Electron workflows, and the complete ChatGPT-authenticated live Codex
+matrix pass.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1977,11 +1974,15 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Status:** Incomplete (reopened by the 2026-07-15 repeated whole-plan audit).
-Successful projection and status outputs persist a resolved invocation, but
-successful checkpoint calls discard the same metadata, while failed,
-cancelled, superseded, and stale narrator attempts do not produce the required
-typed invocation/context/outcome audit or desktop recording event.
+**Status:** Complete. Every narrator call kind now produces a Go-owned bounded
+invocation-attempt audit with trigger, context ranges and cursors, prior-output
+counts, requested and resolved configuration, provider references, byte usage,
+timing, validation, commit decision, and terminal outcome. Successful
+projection, status, terminal, and checkpoint output commits publish the attempt
+atomically with their state; failure commits retain partial call context, and
+cancelled, superseded, and stale actor work publishes its typed terminal audit.
+Secret-safe desktop recording projections and focused store, actor, service,
+committer, and production Electron coverage verify the lifecycle.
 
 Implement:
 
@@ -2124,16 +2125,18 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** Incomplete (reopened by the 2026-07-15 repeated whole-plan audit).
-Items 1-11 routing behavior is implemented, and the reopened item 4 includes
+**Status:** Complete. Items 1-11 routing behavior is implemented, and the
+reopened item 4 includes
 eligible workspace-scoped role overrides through production scope validation,
 service, HTTP, generated IPC, and selected-workspace settings paths. Workspace
 updates and removals emit durable scope-qualified audit events, master remains
 global-only, and effective resolution follows built-in to global to workspace
-to conversation precedence. The remaining gap is the independent invocation
-audit for unsuccessful local and master routing calls: their durable failure
-and cancellation records do not retain the attempted resolved invocation and
-terminal model-call outcome.
+to conversation precedence. Successful and unsuccessful local and master
+routing calls now retain independent typed invocation attempts, including
+partial context/configuration on failure and an explicit terminal outcome for
+master cancellation. Their durable state transitions publish matching audit
+events atomically, and schema-version-2 desktop observations retain the bounded
+attempt metadata without authored or model-produced private text.
 
 Workspace-scope completion verification on 2026-07-15 passed focused backend,
 HTTP, generated-contract, main/preload IPC, renderer, typecheck, production
@@ -2259,17 +2262,19 @@ Exit criteria:
 
 ### Phase 9: Hardening and acceptance
 
-**Status:** Incomplete (reopened by the 2026-07-15 repeated whole-plan audit).
-Functional, live-provider, performance, speech, and presentation-identity work
-is complete, but item 4 and the recording/observability acceptance remain open:
-the desktop recording path does not expose the required bounded agent/narrator
-invocation lifecycle, checkpoint context/commit decision, or unsuccessful
-local/master routing invocation metadata. Items 6-7 allocate palette capacity
-from durable open pane bindings and narrator-voice capacity from speech-enabled
-active narrator state. Narrators remain active while visible, working, waiting
-for approval, running, or catching up unobserved trajectory, so pane-free work
-retains a stable voice without allowing dormant idle topics to consume the
-finite catalog. Duplicate panes count as one conversation identity. Automatic
+**Status:** Complete. Functional, live-provider, performance, speech,
+presentation-identity, permission/secret-handling, and recording observability
+acceptance are complete. The desktop recording path exposes bounded
+agent/narrator invocation lifecycle, checkpoint context and commit decision,
+thread binding, terminal trajectory, and unsuccessful local/master routing
+attempt metadata while omitting authored inputs, narrator output text, failure
+messages, model-reroute reasons, and provider lifecycle messages. Items 6-7
+allocate palette capacity from durable open pane bindings and narrator-voice
+capacity from speech-enabled active narrator state. Narrators remain active
+while visible, working, waiting for approval, running, or catching up
+unobserved trajectory, so pane-free work retains a stable voice without
+allowing dormant idle topics to consume the finite catalog. Duplicate panes
+count as one conversation identity. Automatic
 reuse metadata is explicit at exhaustion and clears when capacity returns;
 exact inactive overrides do not displace active assignments, and exact
 activation preserves non-conflicting automatic identities before resolving real
@@ -2574,6 +2579,34 @@ the affected paths; commit checkpoint success atomically with its cursor and
 summary; project secret-safe structured events into desktop recordings; then
 add focused store/actor/recorder tests and a deterministic production Electron
 recording workflow before rerunning the required gates and whole-plan audit.
+
+**Invocation-audit follow-up (2026-07-15):** Resolved. Protocol 51 adds the
+Go-owned `InvocationAttempt` conversation event and master
+`RouteInvocationAttempt` audit. Projection, status, terminal, and checkpoint
+successes commit attempts atomically with their durable outputs; narrator
+failure commits retain the materialized context and partial model-call witness;
+cancelled, superseded, and stale actor completions publish explicit terminal
+attempts; and failed or cancelled local/master routing state retains and emits
+the same bounded audit. The desktop recorder now projects semantic
+`conversation_invocation_attempted`, `agent_invocation_observed`,
+`narrator_output_observed`, `agent_thread_binding_observed`, and
+`agent_trajectory_observed` events plus schema-version-2 routing observations.
+Recorder tests and the production Electron workflow assert completed
+checkpoint, failed narrator, terminal agent/narrator, thread, and trajectory
+evidence while proving private text is absent.
+
+Verification passed focused conversation, narration, master, HTTP, and runtime
+Go tests; all 766 desktop tests; typechecking; production desktop and embedded
+web builds; and `./check_quality.sh --all`, including all 25 Go packages and all
+17 required Electron workflows. The production recording is
+`.recordings/topic-conversation-pane-projection/20260715T171411713Z`. The
+standard live gate passed the ChatGPT-authenticated Codex agent-protocol,
+side-isolation, and production topic-conversation suites with `OPENAI_API_KEY`
+unset. Supply-chain module hygiene, exact-version, lockfile, release-age, and Go
+vulnerability checks passed. npm's retired legacy audit endpoint returned HTTP
+410; the supported bulk-advisory endpoint reported two low-severity advisories
+and none at or above the repository's moderate failure threshold. The plan is
+ready for a repeated whole-plan final audit.
 
 ### Performance
 

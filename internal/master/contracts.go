@@ -108,5 +108,33 @@ func ContractValueSets() []ContractValueSet {
 				string(MasterReplyKindAnswer),
 			},
 		},
+		{
+			Name:   "RouteInvocationCallKind",
+			Values: []string{string(RouteInvocationCallRoute)},
+		},
+		{
+			Name: "RouteInvocationAttemptOutcome",
+			Values: []string{
+				string(RouteInvocationOutcomeCompleted),
+				string(RouteInvocationOutcomeFailed),
+				string(RouteInvocationOutcomeCancelled),
+			},
+		},
+		{
+			Name: "RouteInvocationValidationResult",
+			Values: []string{
+				string(RouteInvocationValidationNotRun),
+				string(RouteInvocationValidationPassed),
+				string(RouteInvocationValidationFailed),
+			},
+		},
+		{
+			Name: "RouteInvocationCommitDecision",
+			Values: []string{
+				string(RouteInvocationCommitOutput),
+				string(RouteInvocationCommitFailure),
+				string(RouteInvocationCommitCancel),
+			},
+		},
 	}
 }

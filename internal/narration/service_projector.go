@@ -394,15 +394,23 @@ func (service *Service) startTask(task func(context.Context)) {
 }
 
 func (service *Service) handleCompletion(completion Completion) {
+	if completion.Stale {
+		service.recordNonCommittedInvocation(completion, conversation.InvocationAttemptOutcomeStale)
+		return
+	}
 	if completion.Err != nil {
 		if errors.Is(completion.Err, ErrCheckpointSuperseded) &&
 			completion.Request.Kind == RequestKindCheckpoint &&
 			completion.Request.Checkpoint != nil {
+			service.recordNonCommittedInvocation(completion, conversation.InvocationAttemptOutcomeSuperseded)
 			service.submitCheckpoint(
 				completion.Request.ConversationID,
 				*completion.Request.Checkpoint,
 			)
 			return
+		}
+		if errors.Is(completion.Err, ErrMailboxClosed) {
+			service.recordNonCommittedInvocation(completion, conversation.InvocationAttemptOutcomeCancelled)
 		}
 		if !completion.RetryScheduled {
 			service.releaseRequestTerminalProjection(completion.Request)
@@ -559,7 +567,7 @@ func (service *Service) Shutdown(ctx context.Context) error {
 	}()
 	select {
 	case <-done:
-		return registryErr
+		return errors.Join(registryErr, service.invocationAuditError())
 	case <-ctx.Done():
 		return errors.Join(registryErr, ctx.Err())
 	}

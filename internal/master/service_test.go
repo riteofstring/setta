@@ -84,7 +84,18 @@ func TestServiceCancelsOneActiveInputThroughTheRoutedBoundary(t *testing.T) {
 		Cancellation: &InputRoutingCancellation{
 			InputID:        input.ID,
 			RoutingAttempt: 1,
-			CancelledAt:    "2026-07-12T18:00:02Z",
+			InvocationAttempt: &RouteInvocationAttempt{
+				ID:               "input-cancel-route-attempt",
+				CallKind:         RouteInvocationCallRoute,
+				InputID:          input.ID,
+				RoutingAttempt:   1,
+				StartedAt:        "2026-07-12T18:00:01Z",
+				EndedAt:          "2026-07-12T18:00:02Z",
+				ValidationResult: RouteInvocationValidationNotRun,
+				CommitDecision:   RouteInvocationCommitCancel,
+				Outcome:          RouteInvocationOutcomeCancelled,
+			},
+			CancelledAt: "2026-07-12T18:00:02Z",
 		},
 	}}
 	service, err := newService(store, func() time.Time {

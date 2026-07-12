@@ -141,16 +141,18 @@ type ConversationRouteCommand struct {
 }
 
 type ConversationRouteDecisionCommit struct {
-	ID                   string                        `json:"id"`
-	ConversationID       string                        `json:"conversationId"`
-	InputID              string                        `json:"inputId"`
-	ClarificationInputID *string                       `json:"clarificationInputId"`
-	RoutingAttempt       int                           `json:"routingAttempt"`
-	RouterContext        ConversationRouteContextAudit `json:"routerContext"`
-	ResolvedInvocation   ResolvedInvocation            `json:"resolvedInvocation"`
-	Decision             ConversationRouteDecision     `json:"decision"`
-	ResultingCommand     ConversationRouteCommand      `json:"resultingCommand"`
-	DecidedAt            string                        `json:"decidedAt"`
+	ID                           string                        `json:"id"`
+	ConversationID               string                        `json:"conversationId"`
+	InputID                      string                        `json:"inputId"`
+	ClarificationInputID         *string                       `json:"clarificationInputId"`
+	RoutingAttempt               int                           `json:"routingAttempt"`
+	RouterContext                ConversationRouteContextAudit `json:"routerContext"`
+	ResolvedInvocation           ResolvedInvocation            `json:"resolvedInvocation"`
+	InvocationAttempt            InvocationAttempt             `json:"invocationAttempt"`
+	InvocationAttemptCommittedID string                        `json:"invocationAttemptCommittedId"`
+	Decision                     ConversationRouteDecision     `json:"decision"`
+	ResultingCommand             ConversationRouteCommand      `json:"resultingCommand"`
+	DecidedAt                    string                        `json:"decidedAt"`
 }
 
 type ConversationRouteDecisionRecord struct {
@@ -195,12 +197,14 @@ type ConversationInputRoutingWork struct {
 }
 
 type ConversationInputRoutingFailure struct {
-	ConversationID       string  `json:"conversationId"`
-	InputID              string  `json:"inputId"`
-	ClarificationInputID *string `json:"clarificationInputId"`
-	RoutingAttempt       int     `json:"routingAttempt"`
-	Failure              Failure `json:"failure"`
-	FailedAt             string  `json:"failedAt"`
+	ConversationID               string            `json:"conversationId"`
+	InputID                      string            `json:"inputId"`
+	ClarificationInputID         *string           `json:"clarificationInputId"`
+	RoutingAttempt               int               `json:"routingAttempt"`
+	Failure                      Failure           `json:"failure"`
+	InvocationAttempt            InvocationAttempt `json:"invocationAttempt"`
+	InvocationAttemptCommittedID string            `json:"invocationAttemptCommittedId"`
+	FailedAt                     string            `json:"failedAt"`
 }
 
 type ConversationInputRoutingRetry struct {
@@ -225,13 +229,14 @@ type ConversationInputDiscard struct {
 }
 
 type ConversationInputState struct {
-	Sequence         int                     `json:"sequence"`
-	Input            ConversationInput       `json:"input"`
-	Status           ConversationInputStatus `json:"status"`
-	AcceptedAt       string                  `json:"acceptedAt"`
-	RoutingAttempt   int                     `json:"routingAttempt"`
-	RoutingStartedAt *string                 `json:"routingStartedAt"`
-	Failure          *Failure                `json:"failure"`
+	Sequence          int                     `json:"sequence"`
+	Input             ConversationInput       `json:"input"`
+	Status            ConversationInputStatus `json:"status"`
+	AcceptedAt        string                  `json:"acceptedAt"`
+	RoutingAttempt    int                     `json:"routingAttempt"`
+	RoutingStartedAt  *string                 `json:"routingStartedAt"`
+	Failure           *Failure                `json:"failure"`
+	InvocationAttempt *InvocationAttempt      `json:"invocationAttempt"`
 }
 
 // ConversationInputRoutingState is the bounded durable read model for one
@@ -496,7 +501,7 @@ func (command ConversationRouteCommand) payloadCount() int {
 }
 
 func (commit ConversationRouteDecisionCommit) Validate() error {
-	return validateConversationRouteDecisionEnvelope(
+	if err := validateConversationRouteDecisionEnvelope(
 		commit.ID,
 		commit.ConversationID,
 		commit.InputID,
@@ -507,7 +512,16 @@ func (commit ConversationRouteDecisionCommit) Validate() error {
 		commit.Decision,
 		commit.ResultingCommand,
 		commit.DecidedAt,
-	)
+	); err != nil {
+		return err
+	}
+	if err := validateIdentifier("conversation route invocation attempt committed event id", commit.InvocationAttemptCommittedID); err != nil {
+		return err
+	}
+	if err := validateSuccessfulConversationRouteAttempt(commit); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (record ConversationRouteDecisionRecord) Validate() error {
@@ -768,6 +782,9 @@ func validateAcceptedConversationInputState(state ConversationInputState) error 
 	if state.Failure != nil {
 		return errors.New("accepted conversation input contains a failure")
 	}
+	if state.InvocationAttempt != nil {
+		return errors.New("accepted conversation input contains an invocation attempt")
+	}
 	return nil
 }
 
@@ -780,6 +797,9 @@ func validateRoutingConversationInputState(state ConversationInputState) error {
 	}
 	if state.Failure != nil {
 		return errors.New("routing conversation input contains a failure")
+	}
+	if state.InvocationAttempt != nil {
+		return errors.New("routing conversation input contains an invocation attempt")
 	}
 	startedAt, err := validateTimestamp("conversation input routing startedAt", *state.RoutingStartedAt)
 	if err != nil {
@@ -805,6 +825,9 @@ func validateRoutedConversationInputState(state ConversationInputState) error {
 	if state.Failure != nil {
 		return errors.New("routed conversation input contains a failure")
 	}
+	if state.InvocationAttempt != nil {
+		return errors.New("routed conversation input contains an invocation attempt")
+	}
 	return nil
 }
 
@@ -821,7 +844,19 @@ func validateFailedConversationInputState(state ConversationInputState) error {
 	if !state.Failure.Retryable && state.Failure.Code != ConversationInputDiscardedFailureCode {
 		return errors.New("non-retryable conversation input failure must be an explicit discard")
 	}
-	return state.Failure.Validate()
+	if err := state.Failure.Validate(); err != nil {
+		return err
+	}
+	if !state.Failure.Retryable {
+		if state.InvocationAttempt != nil {
+			return errors.New("discarded conversation input contains an invocation attempt")
+		}
+		return nil
+	}
+	if state.InvocationAttempt == nil {
+		return errors.New("retryable failed conversation input has no invocation attempt")
+	}
+	return validateFailedConversationInputAttempt(state)
 }
 
 func (state ConversationInputRoutingState) Validate() error {

@@ -51,6 +51,7 @@ type Worker interface {
 type Invocation struct {
 	Request    Request
 	Generation uint64
+	StartedAt  string
 }
 
 type Receipt struct {
@@ -110,6 +111,9 @@ type submission struct {
 
 type invocationResult struct {
 	generation uint64
+	request    Request
+	startedAt  string
+	endedAt    string
 	work       PreparedWork
 	err        error
 }
@@ -118,7 +122,7 @@ type activeInvocation struct {
 	queued     queuedRequest
 	generation uint64
 	cancel     context.CancelFunc
-	result     <-chan invocationResult
+	startedAt  string
 }
 
 type conversationActor struct {
@@ -130,6 +134,7 @@ type conversationActor struct {
 	rootCancel     context.CancelFunc
 	submissions    chan submission
 	retries        chan queuedRequest
+	results        chan invocationResult
 	stop           chan struct{}
 	loopDone       chan struct{}
 	done           chan struct{}
@@ -153,6 +158,7 @@ func newConversationActor(
 		rootCancel:     rootCancel,
 		submissions:    make(chan submission),
 		retries:        make(chan queuedRequest),
+		results:        make(chan invocationResult),
 		stop:           make(chan struct{}),
 		loopDone:       make(chan struct{}),
 		done:           make(chan struct{}),
@@ -222,19 +228,18 @@ func (actor *conversationActor) run() {
 	state := actorState{}
 	for {
 		if actor.stopping() {
-			state.stop()
+			state.stop(actor)
 			return
 		}
 		state.startNext(actor)
-		result := state.activeResult()
 		select {
 		case <-actor.stop:
-			state.stop()
+			state.stop(actor)
 			return
 		case command := <-actor.submissions:
 			if actor.stopping() {
 				rejectSubmission(command, ErrMailboxClosed)
-				state.stop()
+				state.stop(actor)
 				return
 			}
 			state.accept(actor, command)
@@ -245,13 +250,13 @@ func (actor *conversationActor) run() {
 					retry.request.ID,
 					ErrMailboxClosed,
 				))
-				state.stop()
+				state.stop(actor)
 				return
 			}
 			state.acceptQueued(actor, retry)
-		case prepared := <-result:
+		case prepared := <-actor.results:
 			if actor.stopping() {
-				state.stop()
+				state.stop(actor)
 				return
 			}
 			state.drainReadyWork(actor)
@@ -337,7 +342,14 @@ func (state *actorState) supersedeCheckpoint(actor *conversationActor) {
 		active.queued.request.ID,
 		ErrCheckpointSuperseded,
 	)
-	actor.complete(active.queued, err, false)
+	actor.complete(
+		active.queued,
+		err,
+		false,
+		active.generation,
+		active.startedAt,
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
 	state.active = nil
 }
 
@@ -351,13 +363,13 @@ func (state *actorState) startNext(actor *conversationActor) {
 	}
 	state.nextGeneration++
 	generation := state.nextGeneration
+	startedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	invocationCtx, cancel := context.WithCancel(actor.rootCtx)
-	result := make(chan invocationResult, 1)
 	state.active = &activeInvocation{
 		queued:     queued,
 		generation: generation,
 		cancel:     cancel,
-		result:     result,
+		startedAt:  startedAt,
 	}
 	actor.workers.Add(1)
 	go func() {
@@ -365,8 +377,21 @@ func (state *actorState) startNext(actor *conversationActor) {
 		work, err := actor.worker.Prepare(invocationCtx, Invocation{
 			Request:    queued.request,
 			Generation: generation,
+			StartedAt:  startedAt,
 		})
-		result <- invocationResult{generation: generation, work: work, err: err}
+		endedAt := time.Now().UTC().Format(time.RFC3339Nano)
+		result := invocationResult{
+			generation: generation,
+			request:    cloneRequest(queued.request),
+			startedAt:  startedAt,
+			endedAt:    endedAt,
+			work:       work,
+			err:        err,
+		}
+		select {
+		case actor.results <- result:
+		case <-actor.rootCtx.Done():
+		}
 	}()
 }
 
@@ -383,16 +408,17 @@ func (state *actorState) popNext() (queuedRequest, bool) {
 	return queuedRequest{}, false
 }
 
-func (state *actorState) activeResult() <-chan invocationResult {
-	if state.active == nil {
-		return nil
-	}
-	return state.active.result
-}
-
 func (state *actorState) finish(actor *conversationActor, result invocationResult) {
 	active := state.active
 	if active == nil || active.generation != result.generation {
+		actor.observe(Completion{
+			Request:    cloneRequest(result.request),
+			Err:        result.err,
+			Generation: result.generation,
+			StartedAt:  result.startedAt,
+			EndedAt:    result.endedAt,
+			Stale:      true,
+		})
 		return
 	}
 	active.cancel()
@@ -402,7 +428,7 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 			"prepare narrator request %s: %w",
 			active.queued.request.ID,
 			result.err,
-		), false)
+		), false, active.generation, active.startedAt, result.endedAt)
 		return
 	}
 	if err := validatePreparedWork(active.queued.request, result.work); err != nil {
@@ -410,7 +436,7 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 			"prepare narrator request %s: %w",
 			active.queued.request.ID,
 			err,
-		), false)
+		), false, active.generation, active.startedAt, result.endedAt)
 		return
 	}
 	if err := result.work.Commit(actor.rootCtx); err != nil {
@@ -418,27 +444,44 @@ func (state *actorState) finish(actor *conversationActor, result invocationResul
 			"commit narrator request %s: %w",
 			active.queued.request.ID,
 			err,
-		), false)
+		), false, active.generation, active.startedAt, time.Now().UTC().Format(time.RFC3339Nano))
 		return
 	}
 	if result.work.Retry != nil {
 		actor.scheduleRetry(*result.work.Retry)
 	}
-	actor.complete(active.queued, result.work.CompletionError, result.work.Retry != nil)
+	actor.complete(
+		active.queued,
+		result.work.CompletionError,
+		result.work.Retry != nil,
+		active.generation,
+		active.startedAt,
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
 }
 
 func (actor *conversationActor) complete(
 	queued queuedRequest,
 	err error,
 	retryScheduled bool,
+	generation uint64,
+	startedAt string,
+	endedAt string,
 ) {
 	queued.receipt.complete(err)
+	actor.observe(Completion{
+		Request:        cloneRequest(queued.request),
+		Err:            err,
+		RetryScheduled: retryScheduled,
+		Generation:     generation,
+		StartedAt:      startedAt,
+		EndedAt:        endedAt,
+	})
+}
+
+func (actor *conversationActor) observe(completion Completion) {
 	if actor.observer != nil {
-		actor.observer(Completion{
-			Request:        cloneRequest(queued.request),
-			Err:            err,
-			RetryScheduled: retryScheduled,
-		})
+		actor.observer(completion)
 	}
 }
 
@@ -555,14 +598,14 @@ func (actor *conversationActor) scheduleRetry(directive RetryDirective) {
 	}()
 }
 
-func (state *actorState) stop() {
+func (state *actorState) stop(actor *conversationActor) {
 	if state.active != nil {
 		state.active.cancel()
-		state.active.queued.receipt.complete(fmt.Errorf(
+		actor.complete(state.active.queued, fmt.Errorf(
 			"narrator request %s: %w",
 			state.active.queued.request.ID,
 			ErrMailboxClosed,
-		))
+		), false, state.active.generation, state.active.startedAt, time.Now().UTC().Format(time.RFC3339Nano))
 		state.active = nil
 	}
 	for priority := mailboxPriority(0); priority < mailboxPriorityCount; priority++ {

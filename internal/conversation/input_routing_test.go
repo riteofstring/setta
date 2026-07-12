@@ -295,7 +295,9 @@ func validConversationRouteDecisionCommit(
 ) ConversationRouteDecisionCommit {
 	invocation := validInvocation(RoleNarrator, InvocationOutcomeSucceeded)
 	invocation.ID = "invocation_" + id
-	return ConversationRouteDecisionCommit{
+	invocation.StartedAt = "2026-07-11T19:59:58Z"
+	invocation.EndedAt = stringPointer("2026-07-11T19:59:59Z")
+	return withTestConversationRouteAttempt(ConversationRouteDecisionCommit{
 		ID:             id,
 		ConversationID: "conversation_alpha",
 		InputID:        "input_alpha",
@@ -308,5 +310,5 @@ func validConversationRouteDecisionCommit(
 		Decision:           decision,
 		ResultingCommand:   command,
 		DecidedAt:          "2026-07-13T18:00:01Z",
-	}
+	})
 }

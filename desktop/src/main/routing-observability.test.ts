@@ -1,12 +1,15 @@
 import { Buffer } from "node:buffer";
 
 import type {
+  ConversationInputState,
   ConversationInputRoutingState,
   InputRoutingState,
+  InvocationAttempt,
   PermissionProfile,
   PresentationIntent,
   ResolvedInvocation,
   RoleProfile,
+  RouteInvocationAttempt,
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
@@ -55,7 +58,7 @@ describe("route observability", () => {
           kind: "send_to_parent",
           turnId: "turn_alpha",
         },
-        schemaVersion: 1,
+        schemaVersion: 2,
         validationResult: "committed",
       },
       type: "conversation_route_observed",
@@ -86,13 +89,14 @@ describe("route observability", () => {
       routingStartedAt: null,
       sequence: 4,
       status: "dispatched",
+      invocationAttempt: null,
     };
     const decision = state.decisions[0];
     if (decision === undefined) {
       throw new Error("conversation routing fixture has no decision");
     }
-    decision.clarificationInputId = state.clarificationReply.input.id;
-    decision.routerContext.clarificationInputSequence = state.clarificationReply.sequence;
+    decision.clarificationInputId = state.clarificationReply!.input.id;
+    decision.routerContext.clarificationInputSequence = state.clarificationReply!.sequence;
 
     observability.recordConversationInputRoutingState(state);
 
@@ -146,9 +150,10 @@ describe("route observability", () => {
       routingStartedAt: null,
       sequence: 4,
       status: "dispatched",
+      invocationAttempt: null,
     };
-    final.clarificationInputId = state.clarificationReply.input.id;
-    final.routerContext.clarificationInputSequence = state.clarificationReply.sequence;
+    final.clarificationInputId = state.clarificationReply!.input.id;
+    final.routerContext.clarificationInputSequence = state.clarificationReply!.sequence;
     state.decisions = [initial, final];
 
     observability.recordConversationInputRoutingState(state);
@@ -166,10 +171,10 @@ describe("route observability", () => {
     expect(events[1]).toMatchObject({
       payload: {
         clarification: {
-          inputId: state.clarificationReply.input.id,
+          inputId: state.clarificationReply!.input.id,
           parentInputId: state.input.input.id,
         },
-        clarificationInputId: state.clarificationReply.input.id,
+        clarificationInputId: state.clarificationReply!.input.id,
         decisionId: final.id,
         executionStatus: "dispatched",
       },
@@ -212,7 +217,11 @@ describe("route observability", () => {
       routingStartedAt: null,
       sequence: 4,
       status: "failed",
+      invocationAttempt: null,
     };
+    state.clarificationReply!.invocationAttempt = failedConversationRouteAttempt(
+      state.clarificationReply!,
+    );
 
     observability.recordConversationInputRoutingState(state);
 
@@ -278,6 +287,11 @@ describe("route observability", () => {
           inputBytes: 512,
           outputBytes: 48,
         },
+        invocationAttempt: {
+          commitDecision: "output_committed",
+          outcome: "completed",
+          validationResult: "passed",
+        },
         masterSessionId: "master_session",
         resultingEffect: {
           kind: "focus_conversation",
@@ -287,8 +301,8 @@ describe("route observability", () => {
             workspaceId: "workspace_alpha",
           },
         },
-        schemaVersion: 1,
-        validationResult: "committed",
+        schemaVersion: 2,
+        validationResult: "passed",
       },
       type: "master_route_observed",
     });
@@ -304,7 +318,7 @@ describe("route observability", () => {
           },
         },
         intentId: "master_intent_alpha",
-        schemaVersion: 1,
+        schemaVersion: 2,
       },
       type: "master_presentation_observed",
     });
@@ -323,6 +337,7 @@ describe("route observability", () => {
       cancellation: {
         cancelledAt: "2026-07-14T11:00:02Z",
         inputId: decided.input.input.id,
+        invocationAttempt: cancelledMasterRouteAttempt(decided.input.input.id),
         routingAttempt: 1,
       },
       decision: null,
@@ -338,6 +353,8 @@ describe("route observability", () => {
           cancelledAt: "2026-07-14T11:00:02Z",
           inputId: "master_input_alpha",
           inputTextBytes: Buffer.byteLength("Open private Alpha topic", "utf8"),
+          invocationAvailable: true,
+          outcome: "cancelled",
           routingAttempt: 1,
         }),
         type: "master_route_cancelled",
@@ -360,6 +377,9 @@ describe("route observability", () => {
       message: "Private provider failure detail",
       retryable: true,
     };
+    failedConversation.input.invocationAttempt = failedConversationRouteAttempt(
+      failedConversation.input,
+    );
 
     observability.recordConversationInputRoutingState(failedConversation);
     observability.recordConversationInputRoutingState(failedConversation);
@@ -377,15 +397,15 @@ describe("route observability", () => {
     expect(events).toMatchObject([
       {
         payload: {
-          contextAvailable: false,
+          contextAvailable: true,
           failure: {
             code: "model_unavailable",
             diagnosticReference: "diagnostic_alpha",
             retryable: true,
           },
           inputId: "conversation_input_alpha",
-          invocationAvailable: false,
-          schemaVersion: 1,
+          invocationAvailable: true,
+          schemaVersion: 2,
         },
         type: "conversation_route_failed",
       },
@@ -396,7 +416,7 @@ describe("route observability", () => {
             name: "Error",
           },
           inputId: "master_input_alpha",
-          schemaVersion: 1,
+          schemaVersion: 2,
           scope: "master",
         },
         type: "route_observation_failed",
@@ -472,7 +492,74 @@ function conversationRoutingState(): ConversationInputRoutingState {
       routingStartedAt: null,
       sequence: 3,
       status: "dispatched",
+      invocationAttempt: null,
     },
+  };
+}
+
+function failedConversationRouteAttempt(state: ConversationInputState): InvocationAttempt {
+  if (state.failure === null) {
+    throw new Error("failed conversation routing fixture requires a failure");
+  }
+  const clarificationInputId = state.input.replyToInputId === null ? null : state.input.id;
+  return {
+    callKind: "input_route",
+    commitDecision: "failure_committed",
+    context: {
+      allowedDecisionKinds: ["send_to_parent", "clarify"],
+      availableRange: { end: 8, start: 1 },
+      clarificationInputId,
+      evaluationRange: null,
+      eventCounts: [],
+      includedRanges: [{ end: 8, start: 4 }],
+      inputId: state.input.replyToInputId ?? state.input.id,
+      materialized: true,
+      omittedStatusOnlyRange: null,
+      omittedUnobservedRange: null,
+      postCursor: null,
+      preCursor: null,
+      priorFinalSummaryCount: 0,
+      priorMilestoneCount: 2,
+      priorRouteDecisionCount: 1,
+      proposedCheckpointThrough: null,
+      proposedObservedThrough: null,
+      remainingRange: null,
+      requestedThroughSequence: null,
+      sourceThroughSequence: 8,
+      validCompletedForkPointCount: 1,
+    },
+    contextUsage: {
+      estimatedInputTokens: 0,
+      estimatedOutputTokens: 0,
+      inputBytes: 420,
+      outputBytes: 0,
+    },
+    conversationId: state.input.conversationId,
+    endedAt: "2026-07-14T10:00:05Z",
+    failure: state.failure,
+    generation: state.routingAttempt,
+    id: `failed-route-${state.input.id}-${state.routingAttempt}`,
+    outcome: "failed",
+    output: {
+      checkpointSummaryBytes: 0,
+      finalSummaryBytes: 0,
+      milestoneCount: 0,
+      statusReplyBytes: 0,
+      structuredKind: null,
+      topicDescriptorBytes: 0,
+    },
+    providerReferences: {
+      requestId: "failed-route-request",
+      responseId: null,
+      threadId: null,
+      turnId: null,
+    },
+    requested: null,
+    resolved: null,
+    startedAt: state.acceptedAt,
+    trigger: null,
+    turnId: null,
+    validationResult: "not_run",
   };
 }
 
@@ -652,6 +739,7 @@ function masterRoutingState(): InputRoutingState {
         providerTurnId: "master_turn_alpha",
         startedAt: "2026-07-14T11:00:02Z",
       },
+      invocationAttempt: completedMasterRouteAttempt(),
       resultingCommand: {
         answerGlobal: null,
         askNarrator: null,
@@ -670,6 +758,7 @@ function masterRoutingState(): InputRoutingState {
     },
     cancellation: null,
     failure: null,
+    invocationAttempt: null,
     input: {
       acceptedAt: "2026-07-14T11:00:01Z",
       input,
@@ -684,6 +773,92 @@ function masterRoutingState(): InputRoutingState {
     routingAttempt: 1,
     routingStartedAt: null,
     status: "decided",
+  };
+}
+
+function completedMasterRouteAttempt(): RouteInvocationAttempt {
+  return {
+    callKind: "route",
+    commitDecision: "output_committed",
+    configuration: {
+      maxInputBytes: 32_768,
+      requestedApprovalMode: "never",
+      requestedModel: "master-model",
+      requestedPermissionMode: "none",
+      requestedProfile: { role: "master" },
+      requestedReasoningEffort: "medium",
+      requestedServiceTier: null,
+      resolvedApprovalMode: "never",
+      resolvedModel: "master-model",
+      resolvedPermissionMode: "none",
+      resolvedReasoningEffort: "medium",
+      resolvedServiceTier: null,
+    },
+    context: {
+      activeWorkspaceIds: ["workspace_alpha"],
+      candidateQuery: "Open private Alpha topic",
+      candidateQueryTruncated: false,
+      focusedConversationId: "conversation_alpha",
+      focusedWorkspaceId: "workspace_alpha",
+      includedCandidateIds: ["conversation_alpha"],
+      inputSequence: 9,
+      originatingConversationId: null,
+      priorDecisionCount: 3,
+      retrievedCandidates: [
+        {
+          conversationId: "conversation_alpha",
+          lexicalRank: 0.25,
+          workspaceId: "workspace_alpha",
+        },
+      ],
+      targetAuthorities: [
+        {
+          allowedDecisionKinds: ["focus_conversation"],
+          completedForkTurnIds: [],
+          conversationId: "conversation_alpha",
+          workspaceId: "workspace_alpha",
+        },
+      ],
+    },
+    decisionKind: "focus_conversation",
+    endedAt: "2026-07-14T11:00:03Z",
+    failure: null,
+    id: "master_request_alpha",
+    inputBytes: 512,
+    inputId: "master_input_alpha",
+    masterSessionId: "master_session",
+    outcome: "completed",
+    outputBytes: 48,
+    providerRequestId: "master_request_alpha",
+    providerThreadId: "master_thread",
+    providerTurnId: "master_turn_alpha",
+    routingAttempt: 1,
+    startedAt: "2026-07-14T11:00:02Z",
+    validationResult: "passed",
+  };
+}
+
+function cancelledMasterRouteAttempt(inputId: string): RouteInvocationAttempt {
+  return {
+    callKind: "route",
+    commitDecision: "cancelled",
+    configuration: null,
+    context: null,
+    decisionKind: null,
+    endedAt: "2026-07-14T11:00:02Z",
+    failure: null,
+    id: `cancelled-route-${inputId}`,
+    inputBytes: 0,
+    inputId,
+    masterSessionId: null,
+    outcome: "cancelled",
+    outputBytes: 0,
+    providerRequestId: null,
+    providerThreadId: null,
+    providerTurnId: null,
+    routingAttempt: 1,
+    startedAt: "2026-07-14T11:00:01Z",
+    validationResult: "not_run",
   };
 }
 

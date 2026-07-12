@@ -59,6 +59,10 @@ type ConversationPresentationPayload = Exclude<
   AppliedConversationEventPayload,
   ConversationExecutionPayload
 >;
+type ProjectedConversationPresentationPayload = Exclude<
+  ConversationPresentationPayload,
+  { type: "conversation.invocation_attempted" }
+>;
 
 const conversationExecutionPayloadTypes = new Set<AppliedConversationEventPayload["type"]>([
   "conversation.updated",
@@ -307,6 +311,7 @@ const payloadHandlers = {
       },
     };
   },
+  "conversation.invocation_attempted": (snapshot) => snapshot,
   "conversation.role_profile_override.updated": (snapshot, payload) => {
     assertOwner(
       "conversation.role_profile_override.updated",
@@ -455,6 +460,16 @@ function applyExecutionPayload(
 function applyPresentationPayload(
   snapshot: ConversationSnapshot,
   payload: ConversationPresentationPayload,
+): ConversationSnapshot {
+  if (payload.type === "conversation.invocation_attempted") {
+    return payloadHandlers["conversation.invocation_attempted"](snapshot);
+  }
+  return applyProjectedPresentationPayload(snapshot, payload);
+}
+
+function applyProjectedPresentationPayload(
+  snapshot: ConversationSnapshot,
+  payload: ProjectedConversationPresentationPayload,
 ): ConversationSnapshot {
   switch (payload.type) {
     case "conversation.narrator_state.updated":

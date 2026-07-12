@@ -40,7 +40,14 @@ func TestCommitNarratorDegradationPreservesLastValidProjectionAndPublishesState(
 		t.Fatalf("persisted narrator state = %+v, want %+v", after, committed)
 	}
 	assertNarratorDegradationDidNotChangeAgent(t, store, seed.turnID)
-	assertNarratorDegradationPublication(t, store, seed.conversationID, request.CommittedEventID, committed)
+	assertNarratorDegradationPublication(
+		t,
+		store,
+		seed.conversationID,
+		request.CommittedEventID,
+		committed,
+		request.InvocationAttempt,
+	)
 }
 
 func TestCommitNarratorDegradationIsOptimisticAndAtomic(t *testing.T) {
@@ -123,14 +130,14 @@ func TestSuccessfulCheckpointRetryClearsDegradation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("commit checkpoint degradation before retry: %v", err)
 	}
-	recovered, err := store.CommitNarratorCheckpoint(context.Background(), NarratorCheckpointCommit{
+	recovered, err := store.CommitNarratorCheckpoint(context.Background(), withTestNarratorCheckpointAttempt(NarratorCheckpointCommit{
 		ConversationID:         seed.conversationID,
 		Expected:               narratorExpectation(degraded),
 		CoveredThroughSequence: 4,
 		HistoricalSummary:      "The successful checkpoint retry compacted the observed prefix.",
 		CommittedEventID:       "checkpoint-retry-recovered",
 		CommittedAt:            narratorRetryTime,
-	})
+	}, 6))
 	if err != nil {
 		t.Fatalf("commit successful checkpoint retry: %v", err)
 	}
@@ -199,7 +206,7 @@ func narratorDegradationCommit(
 	state NarratorState,
 	eventID string,
 ) NarratorDegradationCommit {
-	return NarratorDegradationCommit{
+	return withTestNarratorDegradationAttempt(NarratorDegradationCommit{
 		ConversationID: conversationID,
 		Expected:       narratorExpectation(state),
 		Degradation: NarratorDegradation{
@@ -211,7 +218,7 @@ func narratorDegradationCommit(
 		},
 		CommittedEventID: eventID,
 		CommittedAt:      narratorDegradedTime,
-	}
+	}, 1)
 }
 
 func assertNarratorDegradationPreservedProjection(
@@ -245,6 +252,7 @@ func assertNarratorDegradationPublication(
 	conversationID string,
 	eventID string,
 	want NarratorState,
+	wantAttempt InvocationAttempt,
 ) {
 	t.Helper()
 	streamID, err := ConversationStreamID(conversationID)
@@ -260,16 +268,29 @@ func assertNarratorDegradationPublication(
 	if err != nil {
 		t.Fatalf("read degradation publication: %v", err)
 	}
-	last := events[len(events)-1]
-	if last.ID != eventID || last.Kind != string(ConversationEventTypeNarratorStateUpdated) {
-		t.Fatalf("degradation publication = %+v", last)
+	if len(events) < 2 {
+		t.Fatalf("degradation publications = %+v", events)
 	}
-	decoded, err := conversationEventFromCommitted(last, "workspace-1", conversationID)
+	stateEvent := events[len(events)-2]
+	attemptEvent := events[len(events)-1]
+	if stateEvent.ID != eventID || stateEvent.Kind != string(ConversationEventTypeNarratorStateUpdated) ||
+		attemptEvent.Kind != string(ConversationEventTypeInvocationAttempted) {
+		t.Fatalf("degradation publications = %+v", events)
+	}
+	decoded, err := conversationEventFromCommitted(stateEvent, "workspace-1", conversationID)
 	if err != nil {
 		t.Fatalf("decode degradation publication: %v", err)
 	}
 	payload, ok := decoded.Payload.(*ConversationNarratorStateUpdatedEventPayload)
 	if !ok || payload == nil || !reflect.DeepEqual(payload.State, want) {
 		t.Fatalf("degradation event payload = %T %+v, want %+v", decoded.Payload, decoded.Payload, want)
+	}
+	decodedAttempt, err := conversationEventFromCommitted(attemptEvent, "workspace-1", conversationID)
+	if err != nil {
+		t.Fatalf("decode degradation invocation attempt: %v", err)
+	}
+	attemptPayload, ok := decodedAttempt.Payload.(*ConversationInvocationAttemptedEventPayload)
+	if !ok || attemptPayload == nil || !reflect.DeepEqual(attemptPayload.Attempt, wantAttempt) {
+		t.Fatalf("degradation invocation payload = %T %+v, want %+v", decodedAttempt.Payload, decodedAttempt.Payload, wantAttempt)
 	}
 }

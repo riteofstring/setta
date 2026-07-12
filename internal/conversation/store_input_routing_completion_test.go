@@ -27,6 +27,7 @@ func TestStoreRecoversAndCompletesCommittedConversationRouteCommands(t *testing.
 	commit.InputID = input.ID
 	commit.RoutingAttempt = work.RoutingAttempt
 	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	commit = withTestConversationRouteAttempt(commit)
 	record, err := store.CommitConversationRouteDecision(context.Background(), commit)
 	if err != nil {
 		t.Fatalf("CommitConversationRouteDecision: %v", err)

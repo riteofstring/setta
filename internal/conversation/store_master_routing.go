@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	"setta/internal/jsonio"
 	"setta/internal/master"
@@ -499,6 +498,13 @@ WHERE id = ? AND routing_status = ? AND routing_attempt = ? AND routing_started_
 	}); err != nil {
 		return master.RouteDecisionRecord{}, err
 	}
+	if err := appendMasterRouteInvocationAttemptEvent(
+		transaction,
+		commit.InvocationAttempt,
+		commit.DecidedAt,
+	); err != nil {
+		return master.RouteDecisionRecord{}, err
+	}
 	return record, nil
 }
 
@@ -611,6 +617,10 @@ func insertMasterRouteDecision(
 	if err != nil {
 		return master.RouteDecisionRecord{}, err
 	}
+	attemptJSON, err := encodeJSONColumn("master route invocation attempt", commit.InvocationAttempt)
+	if err != nil {
+		return master.RouteDecisionRecord{}, err
+	}
 	decisionJSON, err := encodeJSONColumn("master route decision", commit.Decision)
 	if err != nil {
 		return master.RouteDecisionRecord{}, err
@@ -626,6 +636,7 @@ func insertMasterRouteDecision(
 		RoutingAttempt:     commit.RoutingAttempt,
 		Context:            commit.Context,
 		ResolvedInvocation: commit.ResolvedInvocation,
+		InvocationAttempt:  commit.InvocationAttempt,
 		Decision:           commit.Decision,
 		ResultingCommand:   commit.ResultingCommand,
 		DecidedAt:          commit.DecidedAt,
@@ -633,9 +644,9 @@ func insertMasterRouteDecision(
 	if err := transaction.tx.QueryRowContext(transaction.ctx, `
 INSERT INTO master_route_decisions (
   id, master_session_id, input_id, routing_attempt,
-  candidate_context_json, resolved_invocation_json, route_decision_json,
+  candidate_context_json, resolved_invocation_json, invocation_attempt_json, route_decision_json,
   resulting_command_json, decided_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING stream_sequence
 `,
 		record.ID,
@@ -644,6 +655,7 @@ RETURNING stream_sequence
 		record.RoutingAttempt,
 		contextJSON,
 		invocationJSON,
+		attemptJSON,
 		decisionJSON,
 		commandJSON,
 		record.DecidedAt,
@@ -661,7 +673,7 @@ RETURNING stream_sequence
 
 const masterRouteDecisionSelect = `
 SELECT stream_sequence, id, master_session_id, input_id, routing_attempt,
-       candidate_context_json, resolved_invocation_json, route_decision_json,
+       candidate_context_json, resolved_invocation_json, invocation_attempt_json, route_decision_json,
        resulting_command_json, decided_at
 FROM master_route_decisions
 `
@@ -675,7 +687,7 @@ func scanMasterRouteDecision(
 	dbPath string,
 ) (master.RouteDecisionRecord, error) {
 	var record master.RouteDecisionRecord
-	var contextJSON, invocationJSON, decisionJSON, commandJSON string
+	var contextJSON, invocationJSON, attemptJSON, decisionJSON, commandJSON string
 	if err := scanner.Scan(
 		&record.StreamSequence,
 		&record.ID,
@@ -684,6 +696,7 @@ func scanMasterRouteDecision(
 		&record.RoutingAttempt,
 		&contextJSON,
 		&invocationJSON,
+		&attemptJSON,
 		&decisionJSON,
 		&commandJSON,
 		&record.DecidedAt,
@@ -697,6 +710,7 @@ func scanMasterRouteDecision(
 	}{
 		{label: "master route context audit", source: contextJSON, target: &record.Context},
 		{label: "master route resolved invocation", source: invocationJSON, target: &record.ResolvedInvocation},
+		{label: "master route invocation attempt", source: attemptJSON, target: &record.InvocationAttempt},
 		{label: "master route decision", source: decisionJSON, target: &record.Decision},
 		{label: "master route command", source: commandJSON, target: &record.ResultingCommand},
 	} {
@@ -801,7 +815,13 @@ func failMasterInputRoutingTransaction(
 	if failed.Before(started) {
 		return errors.New("master input routing failure cannot precede its attempt")
 	}
-	failureJSON, err := encodeJSONColumn("master input routing failure", failure.Failure)
+	failureJSON, err := encodeJSONColumn("master input routing failure", storedMasterInputRoutingFailure{
+		Code:                failure.Failure.Code,
+		Message:             failure.Failure.Message,
+		Retryable:           failure.Failure.Retryable,
+		DiagnosticReference: failure.Failure.DiagnosticReference,
+		InvocationAttempt:   failure.InvocationAttempt,
+	})
 	if err != nil {
 		return err
 	}
@@ -826,168 +846,14 @@ WHERE id = ? AND routing_status = ? AND routing_attempt = ? AND routing_started_
 	if err := transaction.recordStateMutation(); err != nil {
 		return err
 	}
-	_, err = transaction.AppendCommittedEvent(CommittedEventDraft{
+	if _, err = transaction.AppendCommittedEvent(CommittedEventDraft{
 		ID:          master.RouteRoutingEventID("failed", failure.InputID, failure.RoutingAttempt),
 		StreamID:    master.RouteDecisionCommittedStream,
 		Kind:        master.RouteInputRoutingFailedKind,
 		Payload:     failure,
 		CommittedAt: failure.FailedAt,
-	})
-	return err
-}
-
-func (store *Store) RecoverMasterInputRouting(ctx context.Context, recoveredAt string) error {
-	if err := validateMasterInputRoutingRecoveryRequest(store, ctx, recoveredAt); err != nil {
+	}); err != nil {
 		return err
 	}
-	for {
-		recovered, err := store.recoverMasterInputRoutingBatch(ctx, recoveredAt)
-		if errors.Is(err, errNoMasterInputRoutingWork) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if recovered < maxMasterRoutingRecoveryBatch {
-			return nil
-		}
-	}
-}
-
-func validateMasterInputRoutingRecoveryRequest(
-	store *Store,
-	ctx context.Context,
-	recoveredAt string,
-) error {
-	if store == nil {
-		return errors.New("conversation store is required")
-	}
-	if ctx == nil {
-		return errors.New("master input routing recovery context is required")
-	}
-	_, err := validateTimestamp("master input routing recoveredAt", recoveredAt)
-	return err
-}
-
-func (store *Store) recoverMasterInputRoutingBatch(
-	ctx context.Context,
-	recoveredAt string,
-) (int, error) {
-	recovered := 0
-	_, err := store.Transact(ctx, "recover master input routing", func(transaction *WriteTransaction) error {
-		var transactionErr error
-		recovered, transactionErr = recoverMasterInputRoutingTransaction(transaction, recoveredAt)
-		return transactionErr
-	})
-	return recovered, err
-}
-
-type masterRoutingRecoveryCandidate struct {
-	inputID   string
-	attempt   int
-	startedAt string
-}
-
-func recoverMasterInputRoutingTransaction(
-	transaction *WriteTransaction,
-	recoveredAt string,
-) (int, error) {
-	candidates, err := readMasterRoutingRecoveryCandidates(transaction)
-	if err != nil {
-		return 0, err
-	}
-	if len(candidates) == 0 {
-		return 0, errNoMasterInputRoutingWork
-	}
-	recoveredTime, _ := validateTimestamp("master input routing recoveredAt", recoveredAt)
-	for index, candidate := range candidates {
-		if err := recoverMasterInputRoutingCandidate(
-			transaction,
-			recoveredTime,
-			recoveredAt,
-			candidate,
-		); err != nil {
-			return index, err
-		}
-	}
-	return len(candidates), nil
-}
-
-func readMasterRoutingRecoveryCandidates(
-	transaction *WriteTransaction,
-) ([]masterRoutingRecoveryCandidate, error) {
-	rows, err := transaction.tx.QueryContext(transaction.ctx, `
-SELECT id, routing_attempt, routing_started_at
-FROM master_inputs
-WHERE routing_status = ?
-ORDER BY sequence
-LIMIT ?
-`, master.InputRoutingStatusRouting, maxMasterRoutingRecoveryBatch)
-	if err != nil {
-		return nil, fmt.Errorf("list master input routing recovery: %w", err)
-	}
-	candidates := []masterRoutingRecoveryCandidate{}
-	for rows.Next() {
-		var candidate masterRoutingRecoveryCandidate
-		if err := rows.Scan(&candidate.inputID, &candidate.attempt, &candidate.startedAt); err != nil {
-			_ = rows.Close()
-			return nil, err
-		}
-		candidates = append(candidates, candidate)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return candidates, nil
-}
-
-func recoverMasterInputRoutingCandidate(
-	transaction *WriteTransaction,
-	recoveredTime time.Time,
-	recoveredAt string,
-	candidate masterRoutingRecoveryCandidate,
-) error {
-	started, err := validateTimestamp("master input routing startedAt", candidate.startedAt)
-	if err != nil {
-		return err
-	}
-	if recoveredTime.Before(started) {
-		return errors.New("master input routing recovery cannot precede its attempt")
-	}
-	result, err := transaction.tx.ExecContext(transaction.ctx, `
-UPDATE master_inputs
-SET routing_status = ?, routing_started_at = NULL, routing_failure_json = NULL
-WHERE id = ? AND routing_status = ? AND routing_attempt = ? AND routing_started_at = ?
-`,
-		master.InputRoutingStatusAccepted,
-		candidate.inputID,
-		master.InputRoutingStatusRouting,
-		candidate.attempt,
-		candidate.startedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("recover master input routing %s: %w", candidate.inputID, err)
-	}
-	if err := requireOneRow(result, "master input", candidate.inputID, "routing attempt changed before recovery"); err != nil {
-		return err
-	}
-	if err := transaction.recordStateMutation(); err != nil {
-		return err
-	}
-	recovery := master.InputRoutingRecovery{
-		InputID:        candidate.inputID,
-		RoutingAttempt: candidate.attempt,
-		RecoveredAt:    recoveredAt,
-	}
-	_, err = transaction.AppendCommittedEvent(CommittedEventDraft{
-		ID:          master.RouteRoutingEventID("recovered", candidate.inputID, candidate.attempt),
-		StreamID:    master.RouteDecisionCommittedStream,
-		Kind:        master.RouteInputRoutingRecoveredKind,
-		Payload:     recovery,
-		CommittedAt: recoveredAt,
-	})
-	return err
+	return appendMasterRouteInvocationAttemptEvent(transaction, failure.InvocationAttempt, failure.FailedAt)
 }

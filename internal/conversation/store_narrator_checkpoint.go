@@ -8,20 +8,46 @@ import (
 )
 
 type NarratorCheckpointCommit struct {
-	ConversationID         string
-	Expected               NarratorStateExpectation
-	CoveredThroughSequence int
-	HistoricalSummary      string
-	CommittedEventID       string
-	CommittedAt            string
+	ConversationID               string
+	Expected                     NarratorStateExpectation
+	CoveredThroughSequence       int
+	HistoricalSummary            string
+	CommittedEventID             string
+	ResolvedInvocation           ResolvedInvocation
+	InvocationAttempt            InvocationAttempt
+	InvocationAttemptCommittedID string
+	CommittedAt                  string
 }
 
 func (request NarratorCheckpointCommit) Validate() error {
+	if err := validateNarratorCheckpointIdentity(request); err != nil {
+		return err
+	}
+	if err := validateNarratorCheckpointCoverage(request); err != nil {
+		return err
+	}
+	if err := validateNarratorOutputAudit(request.Expected, request.ResolvedInvocation, request.CommittedAt); err != nil {
+		return err
+	}
+	if err := validateSuccessfulNarratorAttempt(request.InvocationAttempt, request.ResolvedInvocation, request.CommittedAt); err != nil {
+		return err
+	}
+	return validateNarratorCheckpointAttempt(request)
+}
+
+func validateNarratorCheckpointIdentity(request NarratorCheckpointCommit) error {
 	if err := validateIdentifier("narrator checkpoint conversation id", request.ConversationID); err != nil {
 		return err
 	}
 	if err := validateIdentifier("narrator checkpoint committed event id", request.CommittedEventID); err != nil {
 		return err
+	}
+	if err := validateIdentifier("narrator checkpoint invocation attempt committed event id", request.InvocationAttemptCommittedID); err != nil {
+		return err
+	}
+	if request.CommittedEventID == request.InvocationAttemptCommittedID ||
+		request.ResolvedInvocation.ID == request.InvocationAttemptCommittedID {
+		return fmt.Errorf("narrator checkpoint commit ids must be distinct")
 	}
 	if err := validateTrimmedText("narrator checkpoint historical summary", request.HistoricalSummary); err != nil {
 		return err
@@ -29,6 +55,10 @@ func (request NarratorCheckpointCommit) Validate() error {
 	if _, err := validateTimestamp("narrator checkpoint committedAt", request.CommittedAt); err != nil {
 		return err
 	}
+	return validateNarratorExpectedVersion(request.Expected, request.ConversationID)
+}
+
+func validateNarratorCheckpointCoverage(request NarratorCheckpointCommit) error {
 	if err := validateNarratorExpectedVersion(request.Expected, request.ConversationID); err != nil {
 		return err
 	}
@@ -45,6 +75,26 @@ func (request NarratorCheckpointCommit) Validate() error {
 			request.CoveredThroughSequence,
 			request.Expected.ObservedThroughSequence,
 		)
+	}
+	return nil
+}
+
+func validateNarratorCheckpointAttempt(request NarratorCheckpointCommit) error {
+	attempt := request.InvocationAttempt
+	if !invocationAttemptChecksPass(
+		attempt.CallKind == InvocationAttemptCallCheckpoint,
+		attempt.ConversationID == request.ConversationID,
+		invocationAttemptTriggerEquals(attempt.Trigger, NarrationTriggerCheckpointWindowExceeded),
+		attempt.Context.Materialized,
+		invocationAttemptIntEquals(attempt.Context.ProposedCheckpointThrough, request.CoveredThroughSequence),
+		attempt.Output.StructuredKind != nil,
+		attempt.Output.CheckpointSummaryBytes == len(request.HistoricalSummary),
+		attempt.Output.MilestoneCount == 0,
+		attempt.Output.StatusReplyBytes == 0,
+		attempt.Output.FinalSummaryBytes == 0,
+		attempt.Output.TopicDescriptorBytes == 0,
+	) {
+		return fmt.Errorf("narrator checkpoint invocation attempt does not match checkpoint coverage")
 	}
 	return nil
 }
@@ -99,6 +149,14 @@ func (store *Store) CommitNarratorCheckpoint(
 			CommittedAt: request.CommittedAt,
 		})
 		if err != nil {
+			return err
+		}
+		if err := appendInvocationAttemptEvent(
+			transaction,
+			request.InvocationAttemptCommittedID,
+			request.InvocationAttempt,
+			request.CommittedAt,
+		); err != nil {
 			return err
 		}
 		committed = state

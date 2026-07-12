@@ -8,7 +8,6 @@ import (
 	"math"
 	"reflect"
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -28,6 +27,7 @@ const (
 	RouteInputRoutingFailedKind    = "master.route_failed"
 	RouteInputRoutingRecoveredKind = "master.route_recovered"
 	RouteInputRoutingCancelledKind = "master.route_cancelled"
+	RouteInvocationAttemptedKind   = "master.route_invocation_attempted"
 	RouteDecisionCommittedKind     = "master.route_decided"
 	RouteDecisionCommittedStream   = "master:routes"
 )
@@ -174,28 +174,30 @@ type RouteContextAudit struct {
 }
 
 type RouteDecisionCommit struct {
-	ID                 string               `json:"id"`
-	MasterSessionID    string               `json:"masterSessionId"`
-	InputID            string               `json:"inputId"`
-	RoutingAttempt     int                  `json:"routingAttempt"`
-	Context            RouteContextAudit    `json:"context"`
-	ResolvedInvocation RouteInvocationAudit `json:"resolvedInvocation"`
-	Decision           RouteDecision        `json:"decision"`
-	ResultingCommand   RouteCommand         `json:"resultingCommand"`
-	DecidedAt          string               `json:"decidedAt"`
+	ID                 string                 `json:"id"`
+	MasterSessionID    string                 `json:"masterSessionId"`
+	InputID            string                 `json:"inputId"`
+	RoutingAttempt     int                    `json:"routingAttempt"`
+	Context            RouteContextAudit      `json:"context"`
+	ResolvedInvocation RouteInvocationAudit   `json:"resolvedInvocation"`
+	InvocationAttempt  RouteInvocationAttempt `json:"invocationAttempt"`
+	Decision           RouteDecision          `json:"decision"`
+	ResultingCommand   RouteCommand           `json:"resultingCommand"`
+	DecidedAt          string                 `json:"decidedAt"`
 }
 
 type RouteDecisionRecord struct {
-	StreamSequence     int                  `json:"streamSequence"`
-	ID                 string               `json:"id"`
-	MasterSessionID    string               `json:"masterSessionId"`
-	InputID            string               `json:"inputId"`
-	RoutingAttempt     int                  `json:"routingAttempt"`
-	Context            RouteContextAudit    `json:"context"`
-	ResolvedInvocation RouteInvocationAudit `json:"resolvedInvocation"`
-	Decision           RouteDecision        `json:"decision"`
-	ResultingCommand   RouteCommand         `json:"resultingCommand"`
-	DecidedAt          string               `json:"decidedAt"`
+	StreamSequence     int                    `json:"streamSequence"`
+	ID                 string                 `json:"id"`
+	MasterSessionID    string                 `json:"masterSessionId"`
+	InputID            string                 `json:"inputId"`
+	RoutingAttempt     int                    `json:"routingAttempt"`
+	Context            RouteContextAudit      `json:"context"`
+	ResolvedInvocation RouteInvocationAudit   `json:"resolvedInvocation"`
+	InvocationAttempt  RouteInvocationAttempt `json:"invocationAttempt"`
+	Decision           RouteDecision          `json:"decision"`
+	ResultingCommand   RouteCommand           `json:"resultingCommand"`
+	DecidedAt          string                 `json:"decidedAt"`
 }
 
 type RouteFailure struct {
@@ -206,10 +208,11 @@ type RouteFailure struct {
 }
 
 type InputRoutingFailure struct {
-	InputID        string       `json:"inputId"`
-	RoutingAttempt int          `json:"routingAttempt"`
-	Failure        RouteFailure `json:"failure"`
-	FailedAt       string       `json:"failedAt"`
+	InputID           string                 `json:"inputId"`
+	RoutingAttempt    int                    `json:"routingAttempt"`
+	Failure           RouteFailure           `json:"failure"`
+	InvocationAttempt RouteInvocationAttempt `json:"invocationAttempt"`
+	FailedAt          string                 `json:"failedAt"`
 }
 
 type InputRoutingRecovery struct {
@@ -225,13 +228,14 @@ type InputRoutingWork struct {
 }
 
 type InputRoutingState struct {
-	Input            AcceptedMasterInput       `json:"input"`
-	Status           InputRoutingStatus        `json:"status"`
-	RoutingAttempt   int                       `json:"routingAttempt"`
-	RoutingStartedAt *string                   `json:"routingStartedAt"`
-	Decision         *RouteDecisionRecord      `json:"decision"`
-	Cancellation     *InputRoutingCancellation `json:"cancellation"`
-	Failure          *RouteFailure             `json:"failure"`
+	Input             AcceptedMasterInput       `json:"input"`
+	Status            InputRoutingStatus        `json:"status"`
+	RoutingAttempt    int                       `json:"routingAttempt"`
+	RoutingStartedAt  *string                   `json:"routingStartedAt"`
+	Decision          *RouteDecisionRecord      `json:"decision"`
+	Cancellation      *InputRoutingCancellation `json:"cancellation"`
+	Failure           *RouteFailure             `json:"failure"`
+	InvocationAttempt *RouteInvocationAttempt   `json:"invocationAttempt"`
 }
 
 func (decision RouteDecision) Validate() error {
@@ -726,6 +730,9 @@ func validateRouteDecisionCommitContent(commit RouteDecisionCommit) error {
 	if err := commit.ResolvedInvocation.Validate(); err != nil {
 		return err
 	}
+	if err := validateCompletedRouteInvocationAttempt(commit); err != nil {
+		return err
+	}
 	if err := commit.Decision.Validate(); err != nil {
 		return err
 	}
@@ -762,6 +769,7 @@ func (record RouteDecisionRecord) Validate() error {
 		RoutingAttempt:     record.RoutingAttempt,
 		Context:            record.Context,
 		ResolvedInvocation: record.ResolvedInvocation,
+		InvocationAttempt:  record.InvocationAttempt,
 		Decision:           record.Decision,
 		ResultingCommand:   record.ResultingCommand,
 		DecidedAt:          record.DecidedAt,
@@ -790,6 +798,9 @@ func (failure InputRoutingFailure) Validate() error {
 		return errors.New("master input routing failure attempt must be positive")
 	}
 	if err := failure.Failure.Validate(); err != nil {
+		return err
+	}
+	if err := validateFailedRouteInvocationAttempt(failure); err != nil {
 		return err
 	}
 	failedAt, err := normalizeTimestamp("master input routing failedAt", failure.FailedAt)
@@ -856,7 +867,7 @@ func (state InputRoutingState) Validate() error {
 }
 
 func validateAcceptedInputRoutingState(state InputRoutingState) error {
-	if state.RoutingStartedAt != nil || state.Decision != nil || state.Cancellation != nil || state.Failure != nil {
+	if state.RoutingStartedAt != nil || state.Decision != nil || state.Cancellation != nil || state.Failure != nil || state.InvocationAttempt != nil {
 		return errors.New("accepted master input routing state contains terminal or active state")
 	}
 	return nil
@@ -864,7 +875,7 @@ func validateAcceptedInputRoutingState(state InputRoutingState) error {
 
 func validateActiveInputRoutingState(state InputRoutingState) error {
 	if state.RoutingAttempt <= 0 || state.RoutingStartedAt == nil || state.Decision != nil ||
-		state.Cancellation != nil || state.Failure != nil {
+		state.Cancellation != nil || state.Failure != nil || state.InvocationAttempt != nil {
 		return errors.New("routing master input state is incomplete")
 	}
 	_, err := normalizeTimestamp("master input routing startedAt", *state.RoutingStartedAt)
@@ -872,7 +883,7 @@ func validateActiveInputRoutingState(state InputRoutingState) error {
 }
 
 func validateDecidedInputRoutingState(state InputRoutingState) error {
-	if state.RoutingStartedAt != nil || state.Decision == nil || state.Cancellation != nil || state.Failure != nil {
+	if state.RoutingStartedAt != nil || state.Decision == nil || state.Cancellation != nil || state.Failure != nil || state.InvocationAttempt != nil {
 		return errors.New("decided master input routing state is incomplete")
 	}
 	if err := state.Decision.Validate(); err != nil {
@@ -887,10 +898,19 @@ func validateDecidedInputRoutingState(state InputRoutingState) error {
 
 func validateFailedInputRoutingState(state InputRoutingState) error {
 	if state.RoutingAttempt <= 0 || state.RoutingStartedAt != nil || state.Decision != nil ||
-		state.Cancellation != nil || state.Failure == nil {
+		state.Cancellation != nil || state.Failure == nil || state.InvocationAttempt == nil {
 		return errors.New("failed master input routing state is incomplete")
 	}
-	return state.Failure.Validate()
+	if err := state.Failure.Validate(); err != nil {
+		return err
+	}
+	return validateFailedRouteInvocationAttempt(InputRoutingFailure{
+		InputID:           state.Input.Input.ID,
+		RoutingAttempt:    state.RoutingAttempt,
+		Failure:           *state.Failure,
+		InvocationAttempt: *state.InvocationAttempt,
+		FailedAt:          state.InvocationAttempt.EndedAt,
+	})
 }
 
 func (audit RouteContextAudit) ValidateDecision(decision RouteDecision) error {
@@ -944,57 +964,4 @@ func decisionAuthorityReferences(decision RouteDecision) (RouteDecisionKind, str
 	default:
 		return decision.Kind, "", "", ""
 	}
-}
-
-func validateRouteConversationInput(conversationID string, input string) error {
-	if err := validateRouteReference("master route conversation id", conversationID); err != nil {
-		return err
-	}
-	return validateRouteText("master route authored input", input, MaxRouteAuthoredInputBytes)
-}
-
-func validateRouteReference(label string, value string) error {
-	return validateBoundedIdentifier(label, value, MaxRouteReferenceBytes)
-}
-
-func validateRouteText(label string, value string, maximum int) error {
-	if strings.TrimSpace(value) == "" || strings.TrimSpace(value) != value {
-		return fmt.Errorf("%s must be non-empty without surrounding whitespace", label)
-	}
-	if len(value) > maximum {
-		return fmt.Errorf("%s exceeds %d bytes", label, maximum)
-	}
-	return nil
-}
-
-func validateUniqueRouteReferences(label string, values []string) error {
-	seen := map[string]bool{}
-	for _, value := range values {
-		if err := validateRouteReference("master route "+label, value); err != nil {
-			return err
-		}
-		if seen[value] {
-			return fmt.Errorf("master route context repeats %s %s", label, value)
-		}
-		seen[value] = true
-	}
-	return nil
-}
-
-func validateUniqueRouteDecisionKinds(kinds []RouteDecisionKind) error {
-	seen := map[RouteDecisionKind]bool{}
-	for _, kind := range kinds {
-		if !validRouteDecisionKind(kind) {
-			return fmt.Errorf("unsupported master route decision kind %q", kind)
-		}
-		if kind == RouteDecisionKindCreateConversation || kind == RouteDecisionKindClarify ||
-			kind == RouteDecisionKindAnswerGlobal {
-			return fmt.Errorf("master route target authority cannot carry global decision kind %s", kind)
-		}
-		if seen[kind] {
-			return fmt.Errorf("master route target authority repeats decision kind %s", kind)
-		}
-		seen[kind] = true
-	}
-	return nil
 }

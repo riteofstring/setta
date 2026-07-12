@@ -288,6 +288,10 @@ func (handler *FailureHandler) Prepare(
 	if err != nil {
 		return PreparedWork{}, err
 	}
+	attemptEventID, err := handler.newID("conversation_event")
+	if err != nil {
+		return PreparedWork{}, err
+	}
 	degradation := conversation.NarratorDegradation{
 		Code:                spec.code,
 		Message:             spec.message,
@@ -295,12 +299,24 @@ func (handler *FailureHandler) Prepare(
 		DiagnosticReference: diagnosticID,
 		DegradedAt:          degradedAt,
 	}
+	attemptFailure := conversation.Failure{
+		Code:                degradation.Code,
+		Message:             degradation.Message,
+		Retryable:           degradation.Retryable,
+		DiagnosticReference: degradation.DiagnosticReference,
+	}
+	attempt, err := failedNarratorAttempt(invocation, cause, attemptFailure, degradedAt)
+	if err != nil {
+		return PreparedWork{}, err
+	}
 	commit := conversation.NarratorDegradationCommit{
-		ConversationID:   invocation.Request.ConversationID,
-		Expected:         narratorStateExpectation(narratorCursor(state)),
-		Degradation:      degradation,
-		CommittedEventID: eventID,
-		CommittedAt:      degradedAt,
+		ConversationID:               invocation.Request.ConversationID,
+		Expected:                     narratorStateExpectation(narratorCursor(state)),
+		Degradation:                  degradation,
+		CommittedEventID:             eventID,
+		InvocationAttempt:            attempt,
+		InvocationAttemptCommittedID: attemptEventID,
+		CommittedAt:                  degradedAt,
 	}
 	if err := commit.Validate(); err != nil {
 		return PreparedWork{}, err
@@ -344,6 +360,9 @@ func validateFailurePreparation(
 	}
 	if invocation.Generation == 0 {
 		return errors.New("narrator failure generation must be positive")
+	}
+	if _, err := canonicalNarratorTime("narrator failure attempt startedAt", invocation.StartedAt); err != nil {
+		return err
 	}
 	if cause == nil {
 		return errors.New("narrator failure cause is required")

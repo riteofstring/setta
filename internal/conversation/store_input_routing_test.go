@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"setta/internal/master"
@@ -43,6 +44,7 @@ func TestStoreClaimsAndDispatchesConversationInputsInConversationOrder(t *testin
 	commit.ConversationID = first.ConversationID
 	commit.InputID = first.ID
 	commit.DecidedAt = "2026-07-12T18:00:06Z"
+	commit = withTestConversationRouteAttempt(commit)
 	record, err := store.CommitConversationRouteDecision(context.Background(), commit)
 	if err != nil {
 		t.Fatalf("CommitConversationRouteDecision: %v", err)
@@ -50,6 +52,7 @@ func TestStoreClaimsAndDispatchesConversationInputsInConversationOrder(t *testin
 	if record.StreamSequence != 1 || record.InputID != first.ID {
 		t.Fatalf("decision record = %+v", record)
 	}
+	assertLatestConversationInvocationAttempt(t, store, first.ConversationID, commit.InvocationAttempt)
 	duplicate, err := store.CommitConversationRouteDecision(context.Background(), commit)
 	if err != nil {
 		t.Fatalf("idempotent CommitConversationRouteDecision: %v", err)
@@ -130,6 +133,7 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 			commit.InputID = input.ID
 			commit.RoutingAttempt = work.RoutingAttempt
 			commit.DecidedAt = "2026-07-12T18:00:03Z"
+			commit = withTestConversationRouteAttempt(commit)
 			record, err := store.CommitConversationRouteDecision(context.Background(), commit)
 			if err != nil {
 				t.Fatalf("CommitConversationRouteDecision(%s): %v", kind, err)
@@ -174,6 +178,7 @@ func TestStoreRecognizesDurableRoutedTurnEffect(t *testing.T) {
 	commit.InputID = input.ID
 	commit.RoutingAttempt = work.RoutingAttempt
 	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	commit = withTestConversationRouteAttempt(commit)
 	record, err := store.CommitConversationRouteDecision(context.Background(), commit)
 	if err != nil {
 		t.Fatalf("CommitConversationRouteDecision: %v", err)
@@ -256,6 +261,7 @@ func TestStoreKeepsClarificationLinkedAndBlocksLaterInputsUntilResolution(t *tes
 	clarification.InputID = root.ID
 	clarification.DecidedAt = "2026-07-12T18:00:05Z"
 	clarification.RoutingAttempt = work.RoutingAttempt
+	clarification = withTestConversationRouteAttempt(clarification)
 	if _, err := store.CommitConversationRouteDecision(context.Background(), clarification); err != nil {
 		t.Fatalf("commit clarification: %v", err)
 	}
@@ -308,6 +314,7 @@ func TestStoreKeepsClarificationLinkedAndBlocksLaterInputsUntilResolution(t *tes
 	final.RouterContext.ClarificationInputSequence = &clarificationSequence
 	final.RoutingAttempt = combined.RoutingAttempt
 	final.DecidedAt = "2026-07-12T18:00:11Z"
+	final = withTestConversationRouteAttempt(final)
 	if _, err := store.CommitConversationRouteDecision(context.Background(), final); err != nil {
 		t.Fatalf("commit clarified decision: %v", err)
 	}
@@ -343,7 +350,7 @@ func TestStoreFailsRetriesAndRecoversConversationInputRouting(t *testing.T) {
 	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
 	acceptConversationRoutingInput(t, store, later, "2026-07-12T18:00:01.000000001Z")
 	work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
-	failure := ConversationInputRoutingFailure{
+	failure := withTestConversationRoutingFailureAttempt(ConversationInputRoutingFailure{
 		ConversationID: input.ConversationID,
 		InputID:        input.ID,
 		RoutingAttempt: work.RoutingAttempt,
@@ -354,10 +361,11 @@ func TestStoreFailsRetriesAndRecoversConversationInputRouting(t *testing.T) {
 			DiagnosticReference: "routing-diagnostic-1",
 		},
 		FailedAt: "2026-07-12T18:00:03Z",
-	}
+	})
 	if err := store.FailConversationInputRouting(context.Background(), failure); err != nil {
 		t.Fatalf("FailConversationInputRouting: %v", err)
 	}
+	assertLatestConversationInvocationAttempt(t, store, input.ConversationID, failure.InvocationAttempt)
 	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusFailed)
 	if _, found, err := store.ClaimNextConversationInput(
 		context.Background(),
@@ -403,7 +411,7 @@ func assertNonRetryableRoutingDiscardUnblocksNext(
 	routingAttempt int,
 ) {
 	t.Helper()
-	failure := ConversationInputRoutingFailure{
+	failure := withTestConversationRoutingFailureAttempt(ConversationInputRoutingFailure{
 		ConversationID: input.ConversationID,
 		InputID:        input.ID,
 		RoutingAttempt: routingAttempt,
@@ -414,7 +422,7 @@ func assertNonRetryableRoutingDiscardUnblocksNext(
 			DiagnosticReference: "routing-diagnostic-1",
 		},
 		FailedAt: "2026-07-12T18:00:09Z",
-	}
+	})
 	if err := store.FailConversationInputRouting(context.Background(), failure); err == nil {
 		t.Fatal("non-retryable router failure succeeded without explicit discard")
 	}
@@ -489,6 +497,7 @@ func TestStoreDiscardsAClarificationExchangeAsOneOrderedInput(t *testing.T) {
 	commit.InputID = root.ID
 	commit.RoutingAttempt = work.RoutingAttempt
 	commit.DecidedAt = "2026-07-12T18:00:05Z"
+	commit = withTestConversationRouteAttempt(commit)
 	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
 		t.Fatalf("commit clarification before discard: %v", err)
 	}
@@ -536,6 +545,7 @@ func TestStoreRollsBackConversationRouteDecisionAndStatusTogether(t *testing.T) 
 	commit.ConversationID = input.ConversationID
 	commit.InputID = input.ID
 	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	commit = withTestConversationRouteAttempt(commit)
 	appendTestOutboxEvents(t, store, []CommittedEventDraft{
 		transactionTestEventDraft(
 			"conversation-route-decision:"+commit.ID,
@@ -568,6 +578,7 @@ func TestStoreRollsBackMasterEscalationAndDecisionTogether(t *testing.T) {
 	commit := validConversationRouteDecisionCommit("decision_atomic_master", decision, command)
 	commit.InputID = input.ID
 	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	commit = withTestConversationRouteAttempt(commit)
 	appendTestOutboxEvents(t, store, []CommittedEventDraft{
 		transactionTestEventDraft(
 			master.AcceptedInputEventID(command.EscalateToMaster.MasterInputID),
@@ -651,6 +662,7 @@ func TestStoreReservesConversationRouteCommandIdentifiers(t *testing.T) {
 		commit.RouterContext.InputSequence = work.Input.Sequence
 		commit.RoutingAttempt = work.RoutingAttempt
 		commit.DecidedAt = fmt.Sprintf("2026-07-12T18:00:0%dZ", index*2+4)
+		commit = withTestConversationRouteAttempt(commit)
 		_, err := store.CommitConversationRouteDecision(context.Background(), commit)
 		if index == 0 {
 			if err != nil {
@@ -691,6 +703,7 @@ func TestStoreRejectsConversationRouterAuditForAnotherDurableInput(t *testing.T)
 	commit.InputID = beta.ID
 	commit.RoutingAttempt = work.RoutingAttempt
 	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	commit = withTestConversationRouteAttempt(commit)
 	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
 		t.Fatalf("mismatched router input sequence error = %T %v, want state conflict", err, err)
 	}
@@ -742,6 +755,7 @@ func TestStoreRejectsConversationRouteCommandsThatCannotExecute(t *testing.T) {
 		commit.InputID = input.ID
 		commit.RoutingAttempt = work.RoutingAttempt
 		commit.DecidedAt = "2026-07-12T18:00:03Z"
+		commit = withTestConversationRouteAttempt(commit)
 		if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
 			t.Fatalf("full queue decision error = %T %v, want state conflict", err, err)
 		}
@@ -770,6 +784,7 @@ func TestStoreRejectsConversationRouteCommandsThatCannotExecute(t *testing.T) {
 		commit.InputID = input.ID
 		commit.RoutingAttempt = work.RoutingAttempt
 		commit.DecidedAt = "2026-07-12T18:00:03Z"
+		commit = withTestConversationRouteAttempt(commit)
 		if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
 			t.Fatalf("occupied side pane decision error = %T %v, want state conflict", err, err)
 		}
@@ -791,6 +806,7 @@ func TestStoreRejectsMalformedPersistedConversationRouteDecision(t *testing.T) {
 	commit.InputID = input.ID
 	commit.RoutingAttempt = work.RoutingAttempt
 	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	commit = withTestConversationRouteAttempt(commit)
 	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
 		t.Fatalf("commit route decision: %v", err)
 	}
@@ -853,6 +869,7 @@ WHERE id = ?
 			commit.RouterContext.InputSequence = work.Input.Sequence
 			commit.RoutingAttempt = work.RoutingAttempt
 			commit.DecidedAt = "2026-07-12T18:00:03Z"
+			commit = withTestConversationRouteAttempt(commit)
 			if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
 				t.Fatalf("commit route decision: %v", err)
 			}
@@ -895,7 +912,7 @@ func TestStoreScopesConversationInputRetryInsideMutation(t *testing.T) {
 	input := validConversationInput("input_scoped_retry")
 	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
 	work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
-	if err := store.FailConversationInputRouting(context.Background(), ConversationInputRoutingFailure{
+	if err := store.FailConversationInputRouting(context.Background(), withTestConversationRoutingFailureAttempt(ConversationInputRoutingFailure{
 		ConversationID: input.ConversationID,
 		InputID:        input.ID,
 		RoutingAttempt: work.RoutingAttempt,
@@ -905,7 +922,7 @@ func TestStoreScopesConversationInputRetryInsideMutation(t *testing.T) {
 			Retryable: true,
 		},
 		FailedAt: "2026-07-12T18:00:03Z",
-	}); err != nil {
+	})); err != nil {
 		t.Fatalf("fail routing: %v", err)
 	}
 	if _, err := store.RetryConversationInputRouting(
@@ -1151,6 +1168,43 @@ func assertConversationInputRoutingEventKinds(
 			t.Errorf("conversation input event %d kind = %s, want %s", index, event.Kind, want[index])
 		}
 	}
+}
+
+func assertLatestConversationInvocationAttempt(
+	t *testing.T,
+	store *Store,
+	conversationID string,
+	want InvocationAttempt,
+) {
+	t.Helper()
+	streamID, err := ConversationStreamID(conversationID)
+	if err != nil {
+		t.Fatalf("ConversationStreamID: %v", err)
+	}
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		streamID,
+		0,
+		MaxCommittedEventReadLimit,
+	)
+	if err != nil {
+		t.Fatalf("ReadCommittedStreamEvents: %v", err)
+	}
+	for index := len(events) - 1; index >= 0; index-- {
+		if events[index].Kind != string(ConversationEventTypeInvocationAttempted) {
+			continue
+		}
+		decoded, err := conversationEventFromCommitted(events[index], "workspace", conversationID)
+		if err != nil {
+			t.Fatalf("decode invocation attempt event: %v", err)
+		}
+		payload, ok := decoded.Payload.(*ConversationInvocationAttemptedEventPayload)
+		if !ok || payload == nil || !reflect.DeepEqual(payload.Attempt, want) {
+			t.Fatalf("invocation attempt payload = %T %+v, want %+v", decoded.Payload, decoded.Payload, want)
+		}
+		return
+	}
+	t.Fatalf("conversation %s has no invocation attempt event", conversationID)
 }
 
 func seedConversationRouteRunningTurn(t *testing.T, store *Store, conversationID string) {

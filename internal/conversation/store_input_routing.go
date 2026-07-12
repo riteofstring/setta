@@ -311,6 +311,14 @@ func commitConversationRouteDecisionTransaction(
 	); err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
+	if err := appendInvocationAttemptEvent(
+		transaction,
+		commit.InvocationAttemptCommittedID,
+		commit.InvocationAttempt,
+		commit.DecidedAt,
+	); err != nil {
+		return ConversationRouteDecisionRecord{}, err
+	}
 	return record, nil
 }
 

@@ -115,6 +115,7 @@ func TestTopicIndexUsesRoutedTurnIdentityAndPreservesRepeatedRequests(t *testing
 	commit.RouterContext.InputSequence = accepted.Sequence
 	commit.RoutingAttempt = work.RoutingAttempt
 	commit.DecidedAt = "2026-07-13T18:00:04Z"
+	commit = withTestConversationRouteAttempt(commit)
 	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err != nil {
 		t.Fatalf("CommitConversationRouteDecision: %v", err)
 	}

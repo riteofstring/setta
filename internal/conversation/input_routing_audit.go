@@ -3,7 +3,146 @@ package conversation
 import (
 	"errors"
 	"fmt"
+	"reflect"
 )
+
+func validateSuccessfulConversationRouteAttempt(commit ConversationRouteDecisionCommit) error {
+	attempt := commit.InvocationAttempt
+	if err := attempt.Validate(); err != nil {
+		return fmt.Errorf("conversation-router invocation attempt: %w", err)
+	}
+	if err := validateConversationRouteResolvedAttempt(attempt, commit); err != nil {
+		return err
+	}
+	if err := validateConversationRouteContextAttempt(attempt, commit); err != nil {
+		return err
+	}
+	return validateInvocationAttemptCommitTime(attempt, commit.DecidedAt)
+}
+
+func validateConversationRouteResolvedAttempt(
+	attempt InvocationAttempt,
+	commit ConversationRouteDecisionCommit,
+) error {
+	invocation := commit.ResolvedInvocation
+	if !invocationAttemptChecksPass(
+		attempt.CallKind == InvocationAttemptCallInputRoute,
+		attempt.ConversationID == commit.ConversationID,
+		attempt.Generation == commit.RoutingAttempt,
+		attempt.Trigger == nil,
+		attempt.Outcome == InvocationAttemptOutcomeCompleted,
+		attempt.CommitDecision == InvocationCommitOutputCommitted,
+		attempt.Requested != nil,
+		attempt.Resolved != nil,
+		resolvedInvocationEndedAtMatches(attempt, invocation),
+	) {
+		return errors.New("conversation-router invocation attempt does not match resolved invocation")
+	}
+	if !invocationAttemptChecksPass(
+		reflect.DeepEqual(*attempt.Requested, invocation.Requested),
+		reflect.DeepEqual(*attempt.Resolved, invocation.Resolved),
+		attempt.ContextUsage == invocation.ContextUsage,
+		reflect.DeepEqual(attempt.ProviderReferences, invocation.ProviderReferences),
+		attempt.StartedAt == invocation.StartedAt,
+	) {
+		return errors.New("conversation-router invocation attempt does not match resolved invocation")
+	}
+	return nil
+}
+
+func validateConversationRouteContextAttempt(
+	attempt InvocationAttempt,
+	commit ConversationRouteDecisionCommit,
+) error {
+	contextAudit := commit.RouterContext
+	decisionKind := string(commit.Decision.Kind)
+	includedRanges := []TrajectorySequenceRange{}
+	if contextAudit.IncludedTrajectoryRange != nil {
+		includedRanges = append(includedRanges, *contextAudit.IncludedTrajectoryRange)
+	}
+	if !invocationAttemptChecksPass(
+		attempt.Context.Materialized,
+		invocationAttemptStringEquals(attempt.Context.InputID, commit.InputID),
+		equalOptionalString(attempt.Context.ClarificationInputID, commit.ClarificationInputID),
+		attempt.Context.SourceThroughSequence == contextAudit.LatestTrajectorySequence,
+		reflect.DeepEqual(attempt.Context.AvailableRange, contextAudit.AvailableTrajectoryRange),
+		reflect.DeepEqual(attempt.Context.IncludedRanges, includedRanges),
+		attempt.Context.PriorMilestoneCount == contextAudit.PriorNarrationCount,
+		attempt.Context.PriorRouteDecisionCount == contextAudit.PriorRouteDecisionCount,
+		attempt.Context.ValidCompletedForkPointCount == contextAudit.ValidCompletedForkPointCount,
+		reflect.DeepEqual(attempt.Context.AllowedDecisionKinds, contextAudit.AllowedDecisionKinds),
+		invocationAttemptStringEquals(attempt.Output.StructuredKind, decisionKind),
+	) {
+		return errors.New("conversation-router invocation attempt does not match router context")
+	}
+	return nil
+}
+
+func validateFailedConversationRouteAttempt(
+	attempt InvocationAttempt,
+	conversationID string,
+	inputID string,
+	clarificationInputID *string,
+	routingAttempt int,
+	failure Failure,
+	committedAt string,
+) error {
+	if err := attempt.Validate(); err != nil {
+		return fmt.Errorf("conversation-router invocation attempt: %w", err)
+	}
+	if !invocationAttemptChecksPass(
+		attempt.ConversationID == conversationID,
+		attempt.CallKind == InvocationAttemptCallInputRoute,
+		attempt.Generation == routingAttempt,
+		attempt.Outcome == InvocationAttemptOutcomeFailed,
+		attempt.CommitDecision == InvocationCommitFailureCommitted,
+		invocationAttemptFailureEquals(attempt.Failure, failure),
+		invocationAttemptStringEquals(attempt.Context.InputID, inputID),
+		equalOptionalString(attempt.Context.ClarificationInputID, clarificationInputID),
+	) {
+		return errors.New("conversation-router failed invocation attempt does not match routing failure")
+	}
+	return validateInvocationAttemptCommitTime(attempt, committedAt)
+}
+
+func resolvedInvocationEndedAtMatches(attempt InvocationAttempt, invocation ResolvedInvocation) bool {
+	return invocation.EndedAt != nil && attempt.EndedAt == *invocation.EndedAt
+}
+
+func invocationAttemptStringEquals(actual *string, want string) bool {
+	return actual != nil && *actual == want
+}
+
+func invocationAttemptFailureEquals(actual *Failure, want Failure) bool {
+	return actual != nil && reflect.DeepEqual(*actual, want)
+}
+
+func validateFailedConversationInputAttempt(state ConversationInputState) error {
+	return validateFailedConversationRouteAttempt(
+		*state.InvocationAttempt,
+		state.Input.ConversationID,
+		conversationRouteRootInputID(state.Input),
+		conversationRouteStateClarificationInputID(state.Input),
+		state.RoutingAttempt,
+		*state.Failure,
+		state.InvocationAttempt.EndedAt,
+	)
+}
+
+func conversationRouteRootInputID(input ConversationInput) string {
+	if input.ReplyToInputID != nil {
+		return *input.ReplyToInputID
+	}
+	return input.ID
+}
+
+func conversationRouteStateClarificationInputID(input ConversationInput) *string {
+	if input.ReplyToInputID == nil {
+		return nil
+	}
+	id := input.ID
+	return &id
+}
 
 func validateConversationRouteDecisionAudit(
 	clarificationInputID *string,

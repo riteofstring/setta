@@ -118,11 +118,15 @@ func (worker *serviceAttemptWorker) prepareProjection(
 	if noWork {
 		return noOpPreparedCommit, nil
 	}
+	request := CallRequest{Projection: &bundle}
+	if err := requireBundleWorkspace(bundle.Authoritative, operation.WorkspaceID, "projection"); err != nil {
+		return nil, &narratorCallAttemptError{request: request, cause: err}
+	}
 	workspaceRoot, err := worker.resolveWorkspaceRoot(operation.WorkspaceID)
 	if err != nil {
-		return nil, err
+		return nil, &narratorCallAttemptError{request: request, cause: err}
 	}
-	return worker.callAndPrepare(ctx, invocation, workspaceRoot, CallRequest{Projection: &bundle})
+	return worker.callAndPrepare(ctx, invocation, workspaceRoot, request)
 }
 
 func (worker *serviceAttemptWorker) materializeProjection(
@@ -162,9 +166,6 @@ func (worker *serviceAttemptWorker) materializeProjection(
 			return ProjectionContextBundle{}, false, err
 		}
 	}
-	if err := requireBundleWorkspace(bundle.Authoritative, operation.WorkspaceID, "projection"); err != nil {
-		return ProjectionContextBundle{}, false, err
-	}
 	return bundle, false, nil
 }
 
@@ -186,14 +187,15 @@ func (worker *serviceAttemptWorker) prepareStatus(
 	if err != nil {
 		return nil, err
 	}
+	request := CallRequest{Status: &bundle}
 	if err := requireBundleWorkspace(bundle.Authoritative, operation.WorkspaceID, "status"); err != nil {
-		return nil, err
+		return nil, &narratorCallAttemptError{request: request, cause: err}
 	}
 	workspaceRoot, err := worker.resolveWorkspaceRoot(operation.WorkspaceID)
 	if err != nil {
-		return nil, err
+		return nil, &narratorCallAttemptError{request: request, cause: err}
 	}
-	return worker.callAndPrepare(ctx, invocation, workspaceRoot, CallRequest{Status: &bundle})
+	return worker.callAndPrepare(ctx, invocation, workspaceRoot, request)
 }
 
 func (worker *serviceAttemptWorker) prepareCheckpoint(
@@ -218,14 +220,15 @@ func (worker *serviceAttemptWorker) prepareCheckpoint(
 	if err != nil {
 		return nil, err
 	}
+	request := CallRequest{Checkpoint: &bundle}
 	if err := requireBundleWorkspace(bundle.Authoritative, operation.WorkspaceID, "checkpoint"); err != nil {
-		return nil, err
+		return nil, &narratorCallAttemptError{request: request, cause: err}
 	}
 	workspaceRoot, err := worker.resolveWorkspaceRoot(operation.WorkspaceID)
 	if err != nil {
-		return nil, err
+		return nil, &narratorCallAttemptError{request: request, cause: err}
 	}
-	return worker.callAndPrepare(ctx, invocation, workspaceRoot, CallRequest{Checkpoint: &bundle})
+	return worker.callAndPrepare(ctx, invocation, workspaceRoot, request)
 }
 
 func (worker *serviceAttemptWorker) callAndPrepare(
@@ -239,11 +242,15 @@ func (worker *serviceAttemptWorker) callAndPrepare(
 	request.WorkspaceRoot = workspaceRoot
 	result, err := worker.caller.Call(ctx, request)
 	if err != nil {
-		return nil, err
+		return nil, &narratorCallAttemptError{request: request, result: result, cause: err}
 	}
 	commit, err := worker.committer.Prepare(request, result)
 	if err != nil {
-		return nil, NewAttemptFailure(FailureKindInternal, err)
+		return nil, &narratorCallAttemptError{
+			request: request,
+			result:  result,
+			cause:   NewAttemptFailure(FailureKindInternal, err),
+		}
 	}
 	return commit, nil
 }

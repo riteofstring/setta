@@ -6,11 +6,13 @@ import type {
   ConversationPresentationTarget,
   ConversationRouteCommand,
   ConversationRouteDecision,
+  InvocationAttempt,
   InputRoutingState,
   PresentationIntent,
   RouteCommand,
   RouteContextAudit,
   RouteDecision,
+  RouteInvocationAttempt,
 } from "@generated/backend";
 
 export type RoutingObservationEventType =
@@ -35,7 +37,7 @@ export interface RoutingObservationRecorder {
 
 type EmitRoutingObservation = (type: RoutingObservationEventType, payload: unknown) => void;
 
-const routingObservationSchemaVersion = 1;
+const routingObservationSchemaVersion = 2;
 
 // RouteObservability turns durable routing records into bounded, semantic
 // desktop-recording events. User-authored and model-authored text is represented
@@ -53,6 +55,11 @@ export class RouteObservability implements RoutingObservationRecorder {
   constructor(private readonly emit: EmitRoutingObservation) {}
 
   recordConversationInputRoutingState(state: ConversationInputRoutingState): void {
+    this.recordConversationDecisions(state);
+    this.recordConversationFailure(state);
+  }
+
+  private recordConversationDecisions(state: ConversationInputRoutingState): void {
     for (const record of state.decisions) {
       if (this.conversationDecisionIds.has(record.id)) {
         continue;
@@ -82,101 +89,138 @@ export class RouteObservability implements RoutingObservationRecorder {
       });
       this.conversationDecisionIds.add(record.id);
     }
+  }
+
+  private recordConversationFailure(state: ConversationInputRoutingState): void {
     const failedInput = failedConversationInput(state);
     if (failedInput === null) {
       return;
     }
     const failure = requiredFailure(failedInput);
+    const invocationAttempt = failedInput.invocationAttempt;
     const failureKey = `${failedInput.input.id}:${failedInput.routingAttempt}:${failure.code}`;
     if (this.conversationFailureKeys.has(failureKey)) {
       return;
     }
+    const attempt = summarizeConversationTerminalAttempt(invocationAttempt);
     this.emit("conversation_route_failed", {
       callKind: "input_route",
-      clarification: summarizeConversationClarification(
-        state,
-        failedInput.input.replyToInputId === null ? null : failedInput.input.id,
-      ),
+      clarification: summarizeConversationFailureClarification(state, failedInput),
       clarificationParentInputId: failedInput.input.replyToInputId,
-      contextAvailable: false,
+      context: attempt.context,
+      contextAvailable: attempt.contextAvailable,
       conversationId: failedInput.input.conversationId,
       failure: summarizeFailure(failure),
       inputId: failedInput.input.id,
       inputModality: failedInput.input.modality,
       inputTextBytes: utf8Bytes(failedInput.input.text),
-      invocationAvailable: false,
+      invocation: attempt.invocation,
+      invocationAvailable: attempt.invocationAvailable,
+      commitDecision: attempt.commitDecision,
+      outcome: attempt.outcome,
       routingAttempt: failedInput.routingAttempt,
       schemaVersion: routingObservationSchemaVersion,
       sourcePaneId: failedInput.input.sourcePaneId,
       submittedAt: failedInput.input.submittedAt,
+      validationResult: attempt.validationResult,
     });
     this.conversationFailureKeys.add(failureKey);
   }
 
   recordMasterInputRoutingState(state: InputRoutingState): void {
-    if (state.decision !== null && !this.masterDecisionIds.has(state.decision.id)) {
-      const input = state.input.input;
-      const record = state.decision;
-      this.emit("master_route_observed", {
-        acceptedAt: state.input.acceptedAt,
-        callKind: "route",
-        context: summarizeMasterContext(record.context),
-        decidedAt: record.decidedAt,
-        decision: summarizeMasterDecision(record.decision),
-        decisionId: record.id,
-        executionStatus: state.status,
-        focusedConversationId: input.focusedConversationId,
-        focusedPaneId: input.focusedPaneId,
-        focusedWorkspaceId: input.focusedWorkspaceId,
-        inputId: record.inputId,
-        inputModality: input.modality,
-        inputSequence: state.input.sequence,
-        inputSource: input.source,
-        inputTextBytes: utf8Bytes(input.text),
-        invocation: record.resolvedInvocation,
-        masterSessionId: record.masterSessionId,
-        originatingConversationId: state.input.replyDelivery.originatingConversationId,
-        originatingConversationInputId: state.input.replyDelivery.originatingConversationInputId,
-        originatingPaneId: state.input.replyDelivery.originatingPaneId,
-        originatingWorkspaceId: state.input.replyDelivery.originatingWorkspaceId,
-        resultingEffect: summarizeMasterCommand(record.resultingCommand),
-        routingAttempt: record.routingAttempt,
-        schemaVersion: routingObservationSchemaVersion,
-        streamSequence: record.streamSequence,
-        submittedAt: input.submittedAt,
-        validationResult: "committed",
-      });
-      this.masterDecisionIds.add(state.decision.id);
-    }
-    if (state.status === "cancelled" && state.cancellation !== null) {
-      const cancellationKey = `${state.cancellation.inputId}:${state.cancellation.routingAttempt}`;
-      if (this.masterCancellationKeys.has(cancellationKey)) {
-        return;
-      }
-      const input = state.input.input;
-      this.emit("master_route_cancelled", {
-        acceptedAt: state.input.acceptedAt,
-        callKind: "route",
-        cancelledAt: state.cancellation.cancelledAt,
-        focusedConversationId: input.focusedConversationId,
-        focusedPaneId: input.focusedPaneId,
-        focusedWorkspaceId: input.focusedWorkspaceId,
-        inputId: input.id,
-        inputModality: input.modality,
-        inputSequence: state.input.sequence,
-        inputSource: input.source,
-        inputTextBytes: utf8Bytes(input.text),
-        originatingConversationId: state.input.replyDelivery.originatingConversationId,
-        originatingConversationInputId: state.input.replyDelivery.originatingConversationInputId,
-        originatingPaneId: state.input.replyDelivery.originatingPaneId,
-        originatingWorkspaceId: state.input.replyDelivery.originatingWorkspaceId,
-        routingAttempt: state.cancellation.routingAttempt,
-        schemaVersion: routingObservationSchemaVersion,
-        submittedAt: input.submittedAt,
-      });
-      this.masterCancellationKeys.add(cancellationKey);
+    this.recordMasterDecision(state);
+    this.recordMasterCancellation(state);
+    this.recordMasterFailure(state);
+  }
+
+  private recordMasterDecision(state: InputRoutingState): void {
+    const record = state.decision;
+    if (record === null) {
       return;
     }
+    if (this.masterDecisionIds.has(record.id)) {
+      return;
+    }
+    const input = state.input.input;
+    this.emit("master_route_observed", {
+      acceptedAt: state.input.acceptedAt,
+      callKind: "route",
+      context: summarizeMasterContext(record.context),
+      decidedAt: record.decidedAt,
+      decision: summarizeMasterDecision(record.decision),
+      decisionId: record.id,
+      executionStatus: state.status,
+      focusedConversationId: input.focusedConversationId,
+      focusedPaneId: input.focusedPaneId,
+      focusedWorkspaceId: input.focusedWorkspaceId,
+      inputId: record.inputId,
+      inputModality: input.modality,
+      inputSequence: state.input.sequence,
+      inputSource: input.source,
+      inputTextBytes: utf8Bytes(input.text),
+      invocation: record.resolvedInvocation,
+      invocationAttempt: summarizeMasterRouteAttempt(record.invocationAttempt),
+      commitDecision: record.invocationAttempt.commitDecision,
+      outcome: record.invocationAttempt.outcome,
+      masterSessionId: record.masterSessionId,
+      originatingConversationId: state.input.replyDelivery.originatingConversationId,
+      originatingConversationInputId: state.input.replyDelivery.originatingConversationInputId,
+      originatingPaneId: state.input.replyDelivery.originatingPaneId,
+      originatingWorkspaceId: state.input.replyDelivery.originatingWorkspaceId,
+      resultingEffect: summarizeMasterCommand(record.resultingCommand),
+      routingAttempt: record.routingAttempt,
+      schemaVersion: routingObservationSchemaVersion,
+      streamSequence: record.streamSequence,
+      submittedAt: input.submittedAt,
+      validationResult: record.invocationAttempt.validationResult,
+    });
+    this.masterDecisionIds.add(record.id);
+  }
+
+  private recordMasterCancellation(state: InputRoutingState): void {
+    if (state.status !== "cancelled") {
+      return;
+    }
+    const cancellation = state.cancellation;
+    if (cancellation === null) {
+      return;
+    }
+    const cancellationKey = `${cancellation.inputId}:${cancellation.routingAttempt}`;
+    if (this.masterCancellationKeys.has(cancellationKey)) {
+      return;
+    }
+    const input = state.input.input;
+    const attempt = summarizeMasterTerminalAttempt(cancellation.invocationAttempt);
+    this.emit("master_route_cancelled", {
+      acceptedAt: state.input.acceptedAt,
+      callKind: "route",
+      cancelledAt: cancellation.cancelledAt,
+      commitDecision: attempt.commitDecision,
+      context: attempt.context,
+      focusedConversationId: input.focusedConversationId,
+      focusedPaneId: input.focusedPaneId,
+      focusedWorkspaceId: input.focusedWorkspaceId,
+      inputId: input.id,
+      inputModality: input.modality,
+      inputSequence: state.input.sequence,
+      inputSource: input.source,
+      inputTextBytes: utf8Bytes(input.text),
+      invocation: attempt.invocation,
+      invocationAvailable: attempt.invocationAvailable,
+      outcome: attempt.outcome,
+      originatingConversationId: state.input.replyDelivery.originatingConversationId,
+      originatingConversationInputId: state.input.replyDelivery.originatingConversationInputId,
+      originatingPaneId: state.input.replyDelivery.originatingPaneId,
+      originatingWorkspaceId: state.input.replyDelivery.originatingWorkspaceId,
+      routingAttempt: cancellation.routingAttempt,
+      schemaVersion: routingObservationSchemaVersion,
+      submittedAt: input.submittedAt,
+      validationResult: attempt.validationResult,
+    });
+    this.masterCancellationKeys.add(cancellationKey);
+  }
+
+  private recordMasterFailure(state: InputRoutingState): void {
     if (state.status !== "failed" || state.failure === null) {
       return;
     }
@@ -185,10 +229,13 @@ export class RouteObservability implements RoutingObservationRecorder {
       return;
     }
     const input = state.input.input;
+    const attempt = summarizeMasterTerminalAttempt(state.invocationAttempt);
     this.emit("master_route_failed", {
       acceptedAt: state.input.acceptedAt,
       callKind: "route",
-      contextAvailable: false,
+      commitDecision: attempt.commitDecision,
+      context: attempt.context,
+      contextAvailable: attempt.contextAvailable,
       failure: summarizeFailure(state.failure),
       focusedConversationId: input.focusedConversationId,
       focusedPaneId: input.focusedPaneId,
@@ -198,7 +245,9 @@ export class RouteObservability implements RoutingObservationRecorder {
       inputSequence: state.input.sequence,
       inputSource: input.source,
       inputTextBytes: utf8Bytes(input.text),
-      invocationAvailable: false,
+      invocation: attempt.invocation,
+      invocationAvailable: attempt.invocationAvailable,
+      outcome: attempt.outcome,
       originatingConversationId: state.input.replyDelivery.originatingConversationId,
       originatingConversationInputId: state.input.replyDelivery.originatingConversationInputId,
       originatingPaneId: state.input.replyDelivery.originatingPaneId,
@@ -206,6 +255,7 @@ export class RouteObservability implements RoutingObservationRecorder {
       routingAttempt: state.routingAttempt,
       schemaVersion: routingObservationSchemaVersion,
       submittedAt: input.submittedAt,
+      validationResult: attempt.validationResult,
     });
     this.masterFailureKeys.add(failureKey);
   }
@@ -245,6 +295,90 @@ export class RouteObservability implements RoutingObservationRecorder {
     });
     this.observationFailureKeys.add(failureKey);
   }
+}
+
+function summarizeConversationFailureClarification(
+  state: ConversationInputRoutingState,
+  failedInput: ConversationInputState,
+) {
+  if (failedInput.input.replyToInputId === null) {
+    return null;
+  }
+  return summarizeConversationClarification(state, failedInput.input.id);
+}
+
+function summarizeConversationTerminalAttempt(attempt: InvocationAttempt | null) {
+  if (attempt === null) {
+    return {
+      commitDecision: null,
+      context: null,
+      contextAvailable: false,
+      invocation: null,
+      invocationAvailable: false,
+      outcome: null,
+      validationResult: null,
+    };
+  }
+  return {
+    commitDecision: attempt.commitDecision,
+    context: attempt.context,
+    contextAvailable: attempt.context.materialized,
+    invocation: summarizeConversationRouteAttempt(attempt),
+    invocationAvailable: true,
+    outcome: attempt.outcome,
+    validationResult: attempt.validationResult,
+  };
+}
+
+function summarizeMasterTerminalAttempt(attempt: RouteInvocationAttempt | null) {
+  if (attempt === null) {
+    return {
+      commitDecision: null,
+      context: null,
+      contextAvailable: false,
+      invocation: null,
+      invocationAvailable: false,
+      outcome: null,
+      validationResult: null,
+    };
+  }
+  return {
+    commitDecision: attempt.commitDecision,
+    context: summarizeMasterAttemptContext(attempt.context),
+    contextAvailable: attempt.context !== null,
+    invocation: summarizeMasterRouteAttempt(attempt),
+    invocationAvailable: true,
+    outcome: attempt.outcome,
+    validationResult: attempt.validationResult,
+  };
+}
+
+function summarizeMasterAttemptContext(context: RouteContextAudit | null) {
+  if (context === null) {
+    return null;
+  }
+  return summarizeMasterContext(context);
+}
+
+function summarizeConversationRouteAttempt(attempt: InvocationAttempt | null) {
+  if (attempt === null) {
+    return null;
+  }
+  return {
+    ...attempt,
+    failure: attempt.failure === null ? null : summarizeFailure(attempt.failure),
+  };
+}
+
+function summarizeMasterRouteAttempt(attempt: RouteInvocationAttempt | null) {
+  if (attempt === null) {
+    return null;
+  }
+  return {
+    ...attempt,
+    context: attempt.context === null ? null : summarizeMasterContext(attempt.context),
+    failure: attempt.failure === null ? null : summarizeFailure(attempt.failure),
+  };
 }
 
 function summarizeConversationClarification(

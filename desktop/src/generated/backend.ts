@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 50;
-export const backendContractSchemaHash = "sha256:831d4685006fd261a335b4766ec8c603599b9283e8b4c5f66d48a9df26b55c01";
+export const backendProtocolVersion = 51;
+export const backendContractSchemaHash = "sha256:7600f549a5d2e7705dbdaa7e97ea2c68179000b9705163cde4eb5c5166fe1f72";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -998,9 +998,9 @@ export function decodeSideConversationStatus(value: unknown, label = "SideConver
   }
 }
 
-export type ConversationEventType = "conversation.updated" | "conversation.turn.updated" | "conversation.queue.updated" | "conversation.thread_binding.updated" | "conversation.trajectory.appended" | "conversation.artifact.created" | "conversation.narrator_state.updated" | "conversation.narration.created" | "conversation.role_profile_override.updated" | "conversation.role_profile_override.removed" | "conversation.presentation_profile.updated" | "conversation.branch.created" | "conversation.side_conversation.updated" | "conversation.side_event.appended" | "conversation.resync_required";
+export type ConversationEventType = "conversation.updated" | "conversation.turn.updated" | "conversation.queue.updated" | "conversation.thread_binding.updated" | "conversation.trajectory.appended" | "conversation.artifact.created" | "conversation.narrator_state.updated" | "conversation.narration.created" | "conversation.invocation_attempted" | "conversation.role_profile_override.updated" | "conversation.role_profile_override.removed" | "conversation.presentation_profile.updated" | "conversation.branch.created" | "conversation.side_conversation.updated" | "conversation.side_event.appended" | "conversation.resync_required";
 
-export const conversationEventTypeValues = ["conversation.updated", "conversation.turn.updated", "conversation.queue.updated", "conversation.thread_binding.updated", "conversation.trajectory.appended", "conversation.artifact.created", "conversation.narrator_state.updated", "conversation.narration.created", "conversation.role_profile_override.updated", "conversation.role_profile_override.removed", "conversation.presentation_profile.updated", "conversation.branch.created", "conversation.side_conversation.updated", "conversation.side_event.appended", "conversation.resync_required"] as const satisfies readonly ConversationEventType[];
+export const conversationEventTypeValues = ["conversation.updated", "conversation.turn.updated", "conversation.queue.updated", "conversation.thread_binding.updated", "conversation.trajectory.appended", "conversation.artifact.created", "conversation.narrator_state.updated", "conversation.narration.created", "conversation.invocation_attempted", "conversation.role_profile_override.updated", "conversation.role_profile_override.removed", "conversation.presentation_profile.updated", "conversation.branch.created", "conversation.side_conversation.updated", "conversation.side_event.appended", "conversation.resync_required"] as const satisfies readonly ConversationEventType[];
 
 export function decodeConversationEventType(value: unknown, label = "ConversationEventType"): ConversationEventType {
   const decoded = decodeString(value, label);
@@ -1021,6 +1021,8 @@ export function decodeConversationEventType(value: unknown, label = "Conversatio
       return decoded;
     case "conversation.narration.created":
       return decoded;
+    case "conversation.invocation_attempted":
+      return decoded;
     case "conversation.role_profile_override.updated":
       return decoded;
     case "conversation.role_profile_override.removed":
@@ -1034,6 +1036,118 @@ export function decodeConversationEventType(value: unknown, label = "Conversatio
     case "conversation.side_event.appended":
       return decoded;
     case "conversation.resync_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type InvocationAttemptCallKind = "input_route" | "projection" | "status" | "terminal" | "checkpoint";
+
+export const invocationAttemptCallKindValues = ["input_route", "projection", "status", "terminal", "checkpoint"] as const satisfies readonly InvocationAttemptCallKind[];
+
+export function decodeInvocationAttemptCallKind(value: unknown, label = "InvocationAttemptCallKind"): InvocationAttemptCallKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "input_route":
+      return decoded;
+    case "projection":
+      return decoded;
+    case "status":
+      return decoded;
+    case "terminal":
+      return decoded;
+    case "checkpoint":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ConversationRouteDecisionKind = "send_to_parent" | "queue_parent_turn" | "steer_parent_turn" | "answer_as_narrator" | "create_side_conversation" | "fork_conversation" | "escalate_to_master" | "clarify";
+
+export const conversationRouteDecisionKindValues = ["send_to_parent", "queue_parent_turn", "steer_parent_turn", "answer_as_narrator", "create_side_conversation", "fork_conversation", "escalate_to_master", "clarify"] as const satisfies readonly ConversationRouteDecisionKind[];
+
+export function decodeConversationRouteDecisionKind(value: unknown, label = "ConversationRouteDecisionKind"): ConversationRouteDecisionKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "send_to_parent":
+      return decoded;
+    case "queue_parent_turn":
+      return decoded;
+    case "steer_parent_turn":
+      return decoded;
+    case "answer_as_narrator":
+      return decoded;
+    case "create_side_conversation":
+      return decoded;
+    case "fork_conversation":
+      return decoded;
+    case "escalate_to_master":
+      return decoded;
+    case "clarify":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type InvocationAttemptOutcome = "completed" | "failed" | "cancelled" | "superseded" | "stale";
+
+export const invocationAttemptOutcomeValues = ["completed", "failed", "cancelled", "superseded", "stale"] as const satisfies readonly InvocationAttemptOutcome[];
+
+export function decodeInvocationAttemptOutcome(value: unknown, label = "InvocationAttemptOutcome"): InvocationAttemptOutcome {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "completed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "superseded":
+      return decoded;
+    case "stale":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type InvocationValidationResult = "not_run" | "passed" | "failed";
+
+export const invocationValidationResultValues = ["not_run", "passed", "failed"] as const satisfies readonly InvocationValidationResult[];
+
+export function decodeInvocationValidationResult(value: unknown, label = "InvocationValidationResult"): InvocationValidationResult {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "not_run":
+      return decoded;
+    case "passed":
+      return decoded;
+    case "failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type InvocationCommitDecision = "output_committed" | "failure_committed" | "cancelled" | "superseded" | "rejected_stale";
+
+export const invocationCommitDecisionValues = ["output_committed", "failure_committed", "cancelled", "superseded", "rejected_stale"] as const satisfies readonly InvocationCommitDecision[];
+
+export function decodeInvocationCommitDecision(value: unknown, label = "InvocationCommitDecision"): InvocationCommitDecision {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "output_committed":
+      return decoded;
+    case "failure_committed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "superseded":
+      return decoded;
+    case "rejected_stale":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1072,34 +1186,6 @@ export function decodeConversationInputStatus(value: unknown, label = "Conversat
     case "dispatched":
       return decoded;
     case "failed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ConversationRouteDecisionKind = "send_to_parent" | "queue_parent_turn" | "steer_parent_turn" | "answer_as_narrator" | "create_side_conversation" | "fork_conversation" | "escalate_to_master" | "clarify";
-
-export const conversationRouteDecisionKindValues = ["send_to_parent", "queue_parent_turn", "steer_parent_turn", "answer_as_narrator", "create_side_conversation", "fork_conversation", "escalate_to_master", "clarify"] as const satisfies readonly ConversationRouteDecisionKind[];
-
-export function decodeConversationRouteDecisionKind(value: unknown, label = "ConversationRouteDecisionKind"): ConversationRouteDecisionKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "send_to_parent":
-      return decoded;
-    case "queue_parent_turn":
-      return decoded;
-    case "steer_parent_turn":
-      return decoded;
-    case "answer_as_narrator":
-      return decoded;
-    case "create_side_conversation":
-      return decoded;
-    case "fork_conversation":
-      return decoded;
-    case "escalate_to_master":
-      return decoded;
-    case "clarify":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1206,6 +1292,74 @@ export function decodeRouteDecisionKind(value: unknown, label = "RouteDecisionKi
     case "clarify":
       return decoded;
     case "answer_global":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RouteInvocationCallKind = "route";
+
+export const routeInvocationCallKindValues = ["route"] as const satisfies readonly RouteInvocationCallKind[];
+
+export function decodeRouteInvocationCallKind(value: unknown, label = "RouteInvocationCallKind"): RouteInvocationCallKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "route":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RouteInvocationValidationResult = "not_run" | "passed" | "failed";
+
+export const routeInvocationValidationResultValues = ["not_run", "passed", "failed"] as const satisfies readonly RouteInvocationValidationResult[];
+
+export function decodeRouteInvocationValidationResult(value: unknown, label = "RouteInvocationValidationResult"): RouteInvocationValidationResult {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "not_run":
+      return decoded;
+    case "passed":
+      return decoded;
+    case "failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RouteInvocationCommitDecision = "output_committed" | "failure_committed" | "cancelled";
+
+export const routeInvocationCommitDecisionValues = ["output_committed", "failure_committed", "cancelled"] as const satisfies readonly RouteInvocationCommitDecision[];
+
+export function decodeRouteInvocationCommitDecision(value: unknown, label = "RouteInvocationCommitDecision"): RouteInvocationCommitDecision {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "output_committed":
+      return decoded;
+    case "failure_committed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RouteInvocationAttemptOutcome = "completed" | "failed" | "cancelled";
+
+export const routeInvocationAttemptOutcomeValues = ["completed", "failed", "cancelled"] as const satisfies readonly RouteInvocationAttemptOutcome[];
+
+export function decodeRouteInvocationAttemptOutcome(value: unknown, label = "RouteInvocationAttemptOutcome"): RouteInvocationAttemptOutcome {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "completed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2476,6 +2630,82 @@ export interface ConversationNarrationCreatedEventPayload {
   event: NarrationEvent;
 }
 
+export interface TrajectorySequenceRange {
+  start: number;
+  end: number;
+}
+
+export interface InvocationAttemptCursorAudit {
+  observedThroughSequence: number;
+  checkpointThroughSequence: number;
+  currentFocusRevision: number;
+  updatedAt: string;
+}
+
+export interface InvocationAttemptEventCount {
+  kind: TrajectoryEventKind;
+  count: number;
+}
+
+export interface InvocationAttemptContextAudit {
+  materialized: boolean;
+  inputId: string | null;
+  clarificationInputId: string | null;
+  requestedThroughSequence: number | null;
+  sourceThroughSequence: number;
+  availableRange: TrajectorySequenceRange | null;
+  includedRanges: TrajectorySequenceRange[];
+  evaluationRange: TrajectorySequenceRange | null;
+  remainingRange: TrajectorySequenceRange | null;
+  omittedStatusOnlyRange: TrajectorySequenceRange | null;
+  omittedUnobservedRange: TrajectorySequenceRange | null;
+  preCursor: InvocationAttemptCursorAudit | null;
+  postCursor: InvocationAttemptCursorAudit | null;
+  proposedObservedThrough: number | null;
+  proposedCheckpointThrough: number | null;
+  priorMilestoneCount: number;
+  priorFinalSummaryCount: number;
+  priorRouteDecisionCount: number;
+  validCompletedForkPointCount: number;
+  eventCounts: InvocationAttemptEventCount[];
+  allowedDecisionKinds: ConversationRouteDecisionKind[];
+}
+
+export interface InvocationAttemptOutputAudit {
+  structuredKind: string | null;
+  milestoneCount: number;
+  statusReplyBytes: number;
+  finalSummaryBytes: number;
+  topicDescriptorBytes: number;
+  checkpointSummaryBytes: number;
+}
+
+export interface InvocationAttempt {
+  id: string;
+  conversationId: string;
+  turnId: string | null;
+  callKind: InvocationAttemptCallKind;
+  trigger: NarrationTrigger | null;
+  generation: number;
+  context: InvocationAttemptContextAudit;
+  requested: RoleProfile | null;
+  resolved: ResolvedInvocationSettings | null;
+  contextUsage: InvocationContextUsage;
+  providerReferences: InvocationProviderReferences;
+  startedAt: string;
+  endedAt: string;
+  outcome: InvocationAttemptOutcome;
+  validationResult: InvocationValidationResult;
+  commitDecision: InvocationCommitDecision;
+  output: InvocationAttemptOutputAudit;
+  failure: Failure | null;
+}
+
+export interface ConversationInvocationAttemptedEventPayload {
+  type: "conversation.invocation_attempted";
+  attempt: InvocationAttempt;
+}
+
 export interface ConversationRoleProfileOverrideUpdatedEventPayload {
   type: "conversation.role_profile_override.updated";
   override: RoleProfileOverride;
@@ -2561,11 +2791,7 @@ export interface ConversationInputState {
   routingAttempt: number;
   routingStartedAt: string | null;
   failure: Failure | null;
-}
-
-export interface TrajectorySequenceRange {
-  start: number;
-  end: number;
+  invocationAttempt: InvocationAttempt | null;
 }
 
 export interface ConversationRouteContextAudit {
@@ -2963,6 +3189,35 @@ export interface RouteInvocationAudit {
   endedAt: string;
 }
 
+export interface RouteFailure {
+  code: string;
+  message: string;
+  retryable: boolean;
+  diagnosticReference: string;
+}
+
+export interface RouteInvocationAttempt {
+  id: string;
+  callKind: RouteInvocationCallKind;
+  masterSessionId: string | null;
+  inputId: string;
+  routingAttempt: number;
+  context: RouteContextAudit | null;
+  configuration: RouteModelConfigurationAudit | null;
+  providerRequestId: string | null;
+  providerThreadId: string | null;
+  providerTurnId: string | null;
+  inputBytes: number;
+  outputBytes: number;
+  startedAt: string;
+  endedAt: string;
+  decisionKind: RouteDecisionKind | null;
+  validationResult: RouteInvocationValidationResult;
+  commitDecision: RouteInvocationCommitDecision;
+  outcome: RouteInvocationAttemptOutcome;
+  failure: RouteFailure | null;
+}
+
 export interface ConversationPresentationTarget {
   workspaceId: string;
   conversationId: string;
@@ -3049,6 +3304,7 @@ export interface RouteDecisionRecord {
   routingAttempt: number;
   context: RouteContextAudit;
   resolvedInvocation: RouteInvocationAudit;
+  invocationAttempt: RouteInvocationAttempt;
   decision: RouteDecision;
   resultingCommand: RouteCommand;
   decidedAt: string;
@@ -3057,14 +3313,8 @@ export interface RouteDecisionRecord {
 export interface InputRoutingCancellation {
   inputId: string;
   routingAttempt: number;
+  invocationAttempt: RouteInvocationAttempt | null;
   cancelledAt: string;
-}
-
-export interface RouteFailure {
-  code: string;
-  message: string;
-  retryable: boolean;
-  diagnosticReference: string;
 }
 
 export interface InputRoutingState {
@@ -3075,6 +3325,7 @@ export interface InputRoutingState {
   decision: RouteDecisionRecord | null;
   cancellation: InputRoutingCancellation | null;
   failure: RouteFailure | null;
+  invocationAttempt: RouteInvocationAttempt | null;
 }
 
 export interface FocusExistingConversationPaneIntent {
@@ -3261,6 +3512,7 @@ export type ConversationEventPayload =
   | ConversationArtifactCreatedEventPayload
   | ConversationNarratorStateUpdatedEventPayload
   | ConversationNarrationCreatedEventPayload
+  | ConversationInvocationAttemptedEventPayload
   | ConversationRoleProfileOverrideUpdatedEventPayload
   | ConversationRoleProfileOverrideRemovedEventPayload
   | ConversationPresentationProfileUpdatedEventPayload
@@ -5201,6 +5453,110 @@ export function decodeConversationNarrationCreatedEventPayload(value: unknown): 
   };
 }
 
+export function decodeTrajectorySequenceRange(value: unknown): TrajectorySequenceRange {
+  const record = assertRecord(value, "TrajectorySequenceRange");
+  assertKnownFields(record, "TrajectorySequenceRange", ["start", "end"]);
+  return {
+    start: decodeInteger(requireField(record, "start", "TrajectorySequenceRange"), "TrajectorySequenceRange.start"),
+    end: decodeInteger(requireField(record, "end", "TrajectorySequenceRange"), "TrajectorySequenceRange.end"),
+  };
+}
+
+export function decodeInvocationAttemptCursorAudit(value: unknown): InvocationAttemptCursorAudit {
+  const record = assertRecord(value, "InvocationAttemptCursorAudit");
+  assertKnownFields(record, "InvocationAttemptCursorAudit", ["observedThroughSequence", "checkpointThroughSequence", "currentFocusRevision", "updatedAt"]);
+  return {
+    observedThroughSequence: decodeInteger(requireField(record, "observedThroughSequence", "InvocationAttemptCursorAudit"), "InvocationAttemptCursorAudit.observedThroughSequence"),
+    checkpointThroughSequence: decodeInteger(requireField(record, "checkpointThroughSequence", "InvocationAttemptCursorAudit"), "InvocationAttemptCursorAudit.checkpointThroughSequence"),
+    currentFocusRevision: decodeInteger(requireField(record, "currentFocusRevision", "InvocationAttemptCursorAudit"), "InvocationAttemptCursorAudit.currentFocusRevision"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "InvocationAttemptCursorAudit"), "InvocationAttemptCursorAudit.updatedAt"),
+  };
+}
+
+export function decodeInvocationAttemptEventCount(value: unknown): InvocationAttemptEventCount {
+  const record = assertRecord(value, "InvocationAttemptEventCount");
+  assertKnownFields(record, "InvocationAttemptEventCount", ["kind", "count"]);
+  return {
+    kind: decodeTrajectoryEventKind(requireField(record, "kind", "InvocationAttemptEventCount"), "InvocationAttemptEventCount.kind"),
+    count: decodeInteger(requireField(record, "count", "InvocationAttemptEventCount"), "InvocationAttemptEventCount.count"),
+  };
+}
+
+export function decodeInvocationAttemptContextAudit(value: unknown): InvocationAttemptContextAudit {
+  const record = assertRecord(value, "InvocationAttemptContextAudit");
+  assertKnownFields(record, "InvocationAttemptContextAudit", ["materialized", "inputId", "clarificationInputId", "requestedThroughSequence", "sourceThroughSequence", "availableRange", "includedRanges", "evaluationRange", "remainingRange", "omittedStatusOnlyRange", "omittedUnobservedRange", "preCursor", "postCursor", "proposedObservedThrough", "proposedCheckpointThrough", "priorMilestoneCount", "priorFinalSummaryCount", "priorRouteDecisionCount", "validCompletedForkPointCount", "eventCounts", "allowedDecisionKinds"]);
+  return {
+    materialized: decodeBoolean(requireField(record, "materialized", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.materialized"),
+    inputId: decodeNullable(requireField(record, "inputId", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.inputId", (item) => decodeString(item, "InvocationAttemptContextAudit.inputId")),
+    clarificationInputId: decodeNullable(requireField(record, "clarificationInputId", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.clarificationInputId", (item) => decodeString(item, "InvocationAttemptContextAudit.clarificationInputId")),
+    requestedThroughSequence: decodeNullable(requireField(record, "requestedThroughSequence", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.requestedThroughSequence", (item) => decodeInteger(item, "InvocationAttemptContextAudit.requestedThroughSequence")),
+    sourceThroughSequence: decodeInteger(requireField(record, "sourceThroughSequence", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.sourceThroughSequence"),
+    availableRange: decodeNullable(requireField(record, "availableRange", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.availableRange", (item) => decodeTrajectorySequenceRange(item)),
+    includedRanges: decodeArray(requireField(record, "includedRanges", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.includedRanges", (item) => decodeTrajectorySequenceRange(item)),
+    evaluationRange: decodeNullable(requireField(record, "evaluationRange", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.evaluationRange", (item) => decodeTrajectorySequenceRange(item)),
+    remainingRange: decodeNullable(requireField(record, "remainingRange", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.remainingRange", (item) => decodeTrajectorySequenceRange(item)),
+    omittedStatusOnlyRange: decodeNullable(requireField(record, "omittedStatusOnlyRange", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.omittedStatusOnlyRange", (item) => decodeTrajectorySequenceRange(item)),
+    omittedUnobservedRange: decodeNullable(requireField(record, "omittedUnobservedRange", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.omittedUnobservedRange", (item) => decodeTrajectorySequenceRange(item)),
+    preCursor: decodeNullable(requireField(record, "preCursor", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.preCursor", (item) => decodeInvocationAttemptCursorAudit(item)),
+    postCursor: decodeNullable(requireField(record, "postCursor", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.postCursor", (item) => decodeInvocationAttemptCursorAudit(item)),
+    proposedObservedThrough: decodeNullable(requireField(record, "proposedObservedThrough", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.proposedObservedThrough", (item) => decodeInteger(item, "InvocationAttemptContextAudit.proposedObservedThrough")),
+    proposedCheckpointThrough: decodeNullable(requireField(record, "proposedCheckpointThrough", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.proposedCheckpointThrough", (item) => decodeInteger(item, "InvocationAttemptContextAudit.proposedCheckpointThrough")),
+    priorMilestoneCount: decodeInteger(requireField(record, "priorMilestoneCount", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.priorMilestoneCount"),
+    priorFinalSummaryCount: decodeInteger(requireField(record, "priorFinalSummaryCount", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.priorFinalSummaryCount"),
+    priorRouteDecisionCount: decodeInteger(requireField(record, "priorRouteDecisionCount", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.priorRouteDecisionCount"),
+    validCompletedForkPointCount: decodeInteger(requireField(record, "validCompletedForkPointCount", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.validCompletedForkPointCount"),
+    eventCounts: decodeArray(requireField(record, "eventCounts", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.eventCounts", (item) => decodeInvocationAttemptEventCount(item)),
+    allowedDecisionKinds: decodeArray(requireField(record, "allowedDecisionKinds", "InvocationAttemptContextAudit"), "InvocationAttemptContextAudit.allowedDecisionKinds", (item) => decodeConversationRouteDecisionKind(item, "InvocationAttemptContextAudit.allowedDecisionKinds item")),
+  };
+}
+
+export function decodeInvocationAttemptOutputAudit(value: unknown): InvocationAttemptOutputAudit {
+  const record = assertRecord(value, "InvocationAttemptOutputAudit");
+  assertKnownFields(record, "InvocationAttemptOutputAudit", ["structuredKind", "milestoneCount", "statusReplyBytes", "finalSummaryBytes", "topicDescriptorBytes", "checkpointSummaryBytes"]);
+  return {
+    structuredKind: decodeNullable(requireField(record, "structuredKind", "InvocationAttemptOutputAudit"), "InvocationAttemptOutputAudit.structuredKind", (item) => decodeString(item, "InvocationAttemptOutputAudit.structuredKind")),
+    milestoneCount: decodeInteger(requireField(record, "milestoneCount", "InvocationAttemptOutputAudit"), "InvocationAttemptOutputAudit.milestoneCount"),
+    statusReplyBytes: decodeInteger(requireField(record, "statusReplyBytes", "InvocationAttemptOutputAudit"), "InvocationAttemptOutputAudit.statusReplyBytes"),
+    finalSummaryBytes: decodeInteger(requireField(record, "finalSummaryBytes", "InvocationAttemptOutputAudit"), "InvocationAttemptOutputAudit.finalSummaryBytes"),
+    topicDescriptorBytes: decodeInteger(requireField(record, "topicDescriptorBytes", "InvocationAttemptOutputAudit"), "InvocationAttemptOutputAudit.topicDescriptorBytes"),
+    checkpointSummaryBytes: decodeInteger(requireField(record, "checkpointSummaryBytes", "InvocationAttemptOutputAudit"), "InvocationAttemptOutputAudit.checkpointSummaryBytes"),
+  };
+}
+
+export function decodeInvocationAttempt(value: unknown): InvocationAttempt {
+  const record = assertRecord(value, "InvocationAttempt");
+  assertKnownFields(record, "InvocationAttempt", ["id", "conversationId", "turnId", "callKind", "trigger", "generation", "context", "requested", "resolved", "contextUsage", "providerReferences", "startedAt", "endedAt", "outcome", "validationResult", "commitDecision", "output", "failure"]);
+  return {
+    id: decodeString(requireField(record, "id", "InvocationAttempt"), "InvocationAttempt.id"),
+    conversationId: decodeString(requireField(record, "conversationId", "InvocationAttempt"), "InvocationAttempt.conversationId"),
+    turnId: decodeNullable(requireField(record, "turnId", "InvocationAttempt"), "InvocationAttempt.turnId", (item) => decodeString(item, "InvocationAttempt.turnId")),
+    callKind: decodeInvocationAttemptCallKind(requireField(record, "callKind", "InvocationAttempt"), "InvocationAttempt.callKind"),
+    trigger: decodeNullable(requireField(record, "trigger", "InvocationAttempt"), "InvocationAttempt.trigger", (item) => decodeNarrationTrigger(item, "InvocationAttempt.trigger")),
+    generation: decodeInteger(requireField(record, "generation", "InvocationAttempt"), "InvocationAttempt.generation"),
+    context: decodeInvocationAttemptContextAudit(requireField(record, "context", "InvocationAttempt")),
+    requested: decodeNullable(requireField(record, "requested", "InvocationAttempt"), "InvocationAttempt.requested", (item) => decodeRoleProfile(item)),
+    resolved: decodeNullable(requireField(record, "resolved", "InvocationAttempt"), "InvocationAttempt.resolved", (item) => decodeResolvedInvocationSettings(item)),
+    contextUsage: decodeInvocationContextUsage(requireField(record, "contextUsage", "InvocationAttempt")),
+    providerReferences: decodeInvocationProviderReferences(requireField(record, "providerReferences", "InvocationAttempt")),
+    startedAt: decodeString(requireField(record, "startedAt", "InvocationAttempt"), "InvocationAttempt.startedAt"),
+    endedAt: decodeString(requireField(record, "endedAt", "InvocationAttempt"), "InvocationAttempt.endedAt"),
+    outcome: decodeInvocationAttemptOutcome(requireField(record, "outcome", "InvocationAttempt"), "InvocationAttempt.outcome"),
+    validationResult: decodeInvocationValidationResult(requireField(record, "validationResult", "InvocationAttempt"), "InvocationAttempt.validationResult"),
+    commitDecision: decodeInvocationCommitDecision(requireField(record, "commitDecision", "InvocationAttempt"), "InvocationAttempt.commitDecision"),
+    output: decodeInvocationAttemptOutputAudit(requireField(record, "output", "InvocationAttempt")),
+    failure: decodeNullable(requireField(record, "failure", "InvocationAttempt"), "InvocationAttempt.failure", (item) => decodeFailure(item)),
+  };
+}
+
+export function decodeConversationInvocationAttemptedEventPayload(value: unknown): ConversationInvocationAttemptedEventPayload {
+  const record = assertRecord(value, "ConversationInvocationAttemptedEventPayload");
+  assertKnownFields(record, "ConversationInvocationAttemptedEventPayload", ["type", "attempt"]);
+  return {
+    type: decodeContractLiteral(decodeConversationEventType(requireField(record, "type", "ConversationInvocationAttemptedEventPayload"), "ConversationInvocationAttemptedEventPayload.type"), "conversation.invocation_attempted", "ConversationInvocationAttemptedEventPayload.type"),
+    attempt: decodeInvocationAttempt(requireField(record, "attempt", "ConversationInvocationAttemptedEventPayload")),
+  };
+}
+
 export function decodeConversationRoleProfileOverrideUpdatedEventPayload(value: unknown): ConversationRoleProfileOverrideUpdatedEventPayload {
   const record = assertRecord(value, "ConversationRoleProfileOverrideUpdatedEventPayload");
   assertKnownFields(record, "ConversationRoleProfileOverrideUpdatedEventPayload", ["type", "override"]);
@@ -5328,7 +5684,7 @@ export function decodeReadConversationInputRoutingStateRequest(value: unknown): 
 
 export function decodeConversationInputState(value: unknown): ConversationInputState {
   const record = assertRecord(value, "ConversationInputState");
-  assertKnownFields(record, "ConversationInputState", ["sequence", "input", "status", "acceptedAt", "routingAttempt", "routingStartedAt", "failure"]);
+  assertKnownFields(record, "ConversationInputState", ["sequence", "input", "status", "acceptedAt", "routingAttempt", "routingStartedAt", "failure", "invocationAttempt"]);
   return {
     sequence: decodeInteger(requireField(record, "sequence", "ConversationInputState"), "ConversationInputState.sequence"),
     input: decodeConversationInput(requireField(record, "input", "ConversationInputState")),
@@ -5337,15 +5693,7 @@ export function decodeConversationInputState(value: unknown): ConversationInputS
     routingAttempt: decodeInteger(requireField(record, "routingAttempt", "ConversationInputState"), "ConversationInputState.routingAttempt"),
     routingStartedAt: decodeNullable(requireField(record, "routingStartedAt", "ConversationInputState"), "ConversationInputState.routingStartedAt", (item) => decodeString(item, "ConversationInputState.routingStartedAt")),
     failure: decodeNullable(requireField(record, "failure", "ConversationInputState"), "ConversationInputState.failure", (item) => decodeFailure(item)),
-  };
-}
-
-export function decodeTrajectorySequenceRange(value: unknown): TrajectorySequenceRange {
-  const record = assertRecord(value, "TrajectorySequenceRange");
-  assertKnownFields(record, "TrajectorySequenceRange", ["start", "end"]);
-  return {
-    start: decodeInteger(requireField(record, "start", "TrajectorySequenceRange"), "TrajectorySequenceRange.start"),
-    end: decodeInteger(requireField(record, "end", "TrajectorySequenceRange"), "TrajectorySequenceRange.end"),
+    invocationAttempt: decodeNullable(requireField(record, "invocationAttempt", "ConversationInputState"), "ConversationInputState.invocationAttempt", (item) => decodeInvocationAttempt(item)),
   };
 }
 
@@ -6019,6 +6367,43 @@ export function decodeRouteInvocationAudit(value: unknown): RouteInvocationAudit
   };
 }
 
+export function decodeRouteFailure(value: unknown): RouteFailure {
+  const record = assertRecord(value, "RouteFailure");
+  assertKnownFields(record, "RouteFailure", ["code", "message", "retryable", "diagnosticReference"]);
+  return {
+    code: decodeString(requireField(record, "code", "RouteFailure"), "RouteFailure.code"),
+    message: decodeString(requireField(record, "message", "RouteFailure"), "RouteFailure.message"),
+    retryable: decodeBoolean(requireField(record, "retryable", "RouteFailure"), "RouteFailure.retryable"),
+    diagnosticReference: decodeString(requireField(record, "diagnosticReference", "RouteFailure"), "RouteFailure.diagnosticReference"),
+  };
+}
+
+export function decodeRouteInvocationAttempt(value: unknown): RouteInvocationAttempt {
+  const record = assertRecord(value, "RouteInvocationAttempt");
+  assertKnownFields(record, "RouteInvocationAttempt", ["id", "callKind", "masterSessionId", "inputId", "routingAttempt", "context", "configuration", "providerRequestId", "providerThreadId", "providerTurnId", "inputBytes", "outputBytes", "startedAt", "endedAt", "decisionKind", "validationResult", "commitDecision", "outcome", "failure"]);
+  return {
+    id: decodeString(requireField(record, "id", "RouteInvocationAttempt"), "RouteInvocationAttempt.id"),
+    callKind: decodeRouteInvocationCallKind(requireField(record, "callKind", "RouteInvocationAttempt"), "RouteInvocationAttempt.callKind"),
+    masterSessionId: decodeNullable(requireField(record, "masterSessionId", "RouteInvocationAttempt"), "RouteInvocationAttempt.masterSessionId", (item) => decodeString(item, "RouteInvocationAttempt.masterSessionId")),
+    inputId: decodeString(requireField(record, "inputId", "RouteInvocationAttempt"), "RouteInvocationAttempt.inputId"),
+    routingAttempt: decodeInteger(requireField(record, "routingAttempt", "RouteInvocationAttempt"), "RouteInvocationAttempt.routingAttempt"),
+    context: decodeNullable(requireField(record, "context", "RouteInvocationAttempt"), "RouteInvocationAttempt.context", (item) => decodeRouteContextAudit(item)),
+    configuration: decodeNullable(requireField(record, "configuration", "RouteInvocationAttempt"), "RouteInvocationAttempt.configuration", (item) => decodeRouteModelConfigurationAudit(item)),
+    providerRequestId: decodeNullable(requireField(record, "providerRequestId", "RouteInvocationAttempt"), "RouteInvocationAttempt.providerRequestId", (item) => decodeString(item, "RouteInvocationAttempt.providerRequestId")),
+    providerThreadId: decodeNullable(requireField(record, "providerThreadId", "RouteInvocationAttempt"), "RouteInvocationAttempt.providerThreadId", (item) => decodeString(item, "RouteInvocationAttempt.providerThreadId")),
+    providerTurnId: decodeNullable(requireField(record, "providerTurnId", "RouteInvocationAttempt"), "RouteInvocationAttempt.providerTurnId", (item) => decodeString(item, "RouteInvocationAttempt.providerTurnId")),
+    inputBytes: decodeInteger(requireField(record, "inputBytes", "RouteInvocationAttempt"), "RouteInvocationAttempt.inputBytes"),
+    outputBytes: decodeInteger(requireField(record, "outputBytes", "RouteInvocationAttempt"), "RouteInvocationAttempt.outputBytes"),
+    startedAt: decodeString(requireField(record, "startedAt", "RouteInvocationAttempt"), "RouteInvocationAttempt.startedAt"),
+    endedAt: decodeString(requireField(record, "endedAt", "RouteInvocationAttempt"), "RouteInvocationAttempt.endedAt"),
+    decisionKind: decodeNullable(requireField(record, "decisionKind", "RouteInvocationAttempt"), "RouteInvocationAttempt.decisionKind", (item) => decodeRouteDecisionKind(item, "RouteInvocationAttempt.decisionKind")),
+    validationResult: decodeRouteInvocationValidationResult(requireField(record, "validationResult", "RouteInvocationAttempt"), "RouteInvocationAttempt.validationResult"),
+    commitDecision: decodeRouteInvocationCommitDecision(requireField(record, "commitDecision", "RouteInvocationAttempt"), "RouteInvocationAttempt.commitDecision"),
+    outcome: decodeRouteInvocationAttemptOutcome(requireField(record, "outcome", "RouteInvocationAttempt"), "RouteInvocationAttempt.outcome"),
+    failure: decodeNullable(requireField(record, "failure", "RouteInvocationAttempt"), "RouteInvocationAttempt.failure", (item) => decodeRouteFailure(item)),
+  };
+}
+
 export function decodeConversationPresentationTarget(value: unknown): ConversationPresentationTarget {
   const record = assertRecord(value, "ConversationPresentationTarget");
   assertKnownFields(record, "ConversationPresentationTarget", ["workspaceId", "conversationId", "title", "preferredPaneId"]);
@@ -6160,7 +6545,7 @@ export function decodeRouteCommand(value: unknown): RouteCommand {
 
 export function decodeRouteDecisionRecord(value: unknown): RouteDecisionRecord {
   const record = assertRecord(value, "RouteDecisionRecord");
-  assertKnownFields(record, "RouteDecisionRecord", ["streamSequence", "id", "masterSessionId", "inputId", "routingAttempt", "context", "resolvedInvocation", "decision", "resultingCommand", "decidedAt"]);
+  assertKnownFields(record, "RouteDecisionRecord", ["streamSequence", "id", "masterSessionId", "inputId", "routingAttempt", "context", "resolvedInvocation", "invocationAttempt", "decision", "resultingCommand", "decidedAt"]);
   return {
     streamSequence: decodeInteger(requireField(record, "streamSequence", "RouteDecisionRecord"), "RouteDecisionRecord.streamSequence"),
     id: decodeString(requireField(record, "id", "RouteDecisionRecord"), "RouteDecisionRecord.id"),
@@ -6169,6 +6554,7 @@ export function decodeRouteDecisionRecord(value: unknown): RouteDecisionRecord {
     routingAttempt: decodeInteger(requireField(record, "routingAttempt", "RouteDecisionRecord"), "RouteDecisionRecord.routingAttempt"),
     context: decodeRouteContextAudit(requireField(record, "context", "RouteDecisionRecord")),
     resolvedInvocation: decodeRouteInvocationAudit(requireField(record, "resolvedInvocation", "RouteDecisionRecord")),
+    invocationAttempt: decodeRouteInvocationAttempt(requireField(record, "invocationAttempt", "RouteDecisionRecord")),
     decision: decodeRouteDecision(requireField(record, "decision", "RouteDecisionRecord")),
     resultingCommand: decodeRouteCommand(requireField(record, "resultingCommand", "RouteDecisionRecord")),
     decidedAt: decodeString(requireField(record, "decidedAt", "RouteDecisionRecord"), "RouteDecisionRecord.decidedAt"),
@@ -6177,28 +6563,18 @@ export function decodeRouteDecisionRecord(value: unknown): RouteDecisionRecord {
 
 export function decodeInputRoutingCancellation(value: unknown): InputRoutingCancellation {
   const record = assertRecord(value, "InputRoutingCancellation");
-  assertKnownFields(record, "InputRoutingCancellation", ["inputId", "routingAttempt", "cancelledAt"]);
+  assertKnownFields(record, "InputRoutingCancellation", ["inputId", "routingAttempt", "invocationAttempt", "cancelledAt"]);
   return {
     inputId: decodeString(requireField(record, "inputId", "InputRoutingCancellation"), "InputRoutingCancellation.inputId"),
     routingAttempt: decodeInteger(requireField(record, "routingAttempt", "InputRoutingCancellation"), "InputRoutingCancellation.routingAttempt"),
+    invocationAttempt: decodeNullable(requireField(record, "invocationAttempt", "InputRoutingCancellation"), "InputRoutingCancellation.invocationAttempt", (item) => decodeRouteInvocationAttempt(item)),
     cancelledAt: decodeString(requireField(record, "cancelledAt", "InputRoutingCancellation"), "InputRoutingCancellation.cancelledAt"),
-  };
-}
-
-export function decodeRouteFailure(value: unknown): RouteFailure {
-  const record = assertRecord(value, "RouteFailure");
-  assertKnownFields(record, "RouteFailure", ["code", "message", "retryable", "diagnosticReference"]);
-  return {
-    code: decodeString(requireField(record, "code", "RouteFailure"), "RouteFailure.code"),
-    message: decodeString(requireField(record, "message", "RouteFailure"), "RouteFailure.message"),
-    retryable: decodeBoolean(requireField(record, "retryable", "RouteFailure"), "RouteFailure.retryable"),
-    diagnosticReference: decodeString(requireField(record, "diagnosticReference", "RouteFailure"), "RouteFailure.diagnosticReference"),
   };
 }
 
 export function decodeInputRoutingState(value: unknown): InputRoutingState {
   const record = assertRecord(value, "InputRoutingState");
-  assertKnownFields(record, "InputRoutingState", ["input", "status", "routingAttempt", "routingStartedAt", "decision", "cancellation", "failure"]);
+  assertKnownFields(record, "InputRoutingState", ["input", "status", "routingAttempt", "routingStartedAt", "decision", "cancellation", "failure", "invocationAttempt"]);
   return {
     input: decodeAcceptedMasterInput(requireField(record, "input", "InputRoutingState")),
     status: decodeInputRoutingStatus(requireField(record, "status", "InputRoutingState"), "InputRoutingState.status"),
@@ -6207,6 +6583,7 @@ export function decodeInputRoutingState(value: unknown): InputRoutingState {
     decision: decodeNullable(requireField(record, "decision", "InputRoutingState"), "InputRoutingState.decision", (item) => decodeRouteDecisionRecord(item)),
     cancellation: decodeNullable(requireField(record, "cancellation", "InputRoutingState"), "InputRoutingState.cancellation", (item) => decodeInputRoutingCancellation(item)),
     failure: decodeNullable(requireField(record, "failure", "InputRoutingState"), "InputRoutingState.failure", (item) => decodeRouteFailure(item)),
+    invocationAttempt: decodeNullable(requireField(record, "invocationAttempt", "InputRoutingState"), "InputRoutingState.invocationAttempt", (item) => decodeRouteInvocationAttempt(item)),
   };
 }
 
@@ -6524,6 +6901,8 @@ export function decodeConversationEventPayload(value: unknown): ConversationEven
       return decodeConversationNarratorStateUpdatedEventPayload(value);
     case "conversation.narration.created":
       return decodeConversationNarrationCreatedEventPayload(value);
+    case "conversation.invocation_attempted":
+      return decodeConversationInvocationAttemptedEventPayload(value);
     case "conversation.role_profile_override.updated":
       return decodeConversationRoleProfileOverrideUpdatedEventPayload(value);
     case "conversation.role_profile_override.removed":

@@ -82,6 +82,24 @@ func (caller *RouteCaller) Call(
 	requestID string,
 	materialized RouteContextMaterialization,
 ) (RouteCallResult, error) {
+	return caller.call(ctx, requestID, materialized, nil)
+}
+
+func (caller *RouteCaller) CallObserved(
+	ctx context.Context,
+	requestID string,
+	materialized RouteContextMaterialization,
+	started func(RouteCallResult),
+) (RouteCallResult, error) {
+	return caller.call(ctx, requestID, materialized, started)
+}
+
+func (caller *RouteCaller) call(
+	ctx context.Context,
+	requestID string,
+	materialized RouteContextMaterialization,
+	started func(RouteCallResult),
+) (RouteCallResult, error) {
 	if err := validateRouteCallRequest(caller, ctx, requestID, materialized); err != nil {
 		return RouteCallResult{}, err
 	}
@@ -93,6 +111,12 @@ func (caller *RouteCaller) Call(
 		RequestID:  requestID,
 		InputBytes: len(materialized.Input),
 		StartedAt:  caller.timestamp(),
+	}
+	if started != nil {
+		started(result)
+	}
+	if err := ctx.Err(); err != nil {
+		return result, err
 	}
 	provider, err := caller.sessions.RunStructuredTurn(ctx, StructuredSessionTurnRequest{
 		ID:           requestID,

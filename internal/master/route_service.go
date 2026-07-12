@@ -18,7 +18,7 @@ import (
 type RouteStore interface {
 	ReadPendingMasterRouteCommand(context.Context) (RouteDecisionRecord, *string, bool, error)
 	ClaimNextMasterRouteInput(context.Context, string) (InputRoutingWork, bool, error)
-	CancelMasterInputRouting(context.Context, string, string) (InputRoutingState, error)
+	CancelMasterInputRouting(context.Context, string, string, *RouteInvocationAttempt) (InputRoutingState, error)
 	ListMasterRouteContextConversationIDs(context.Context, int) ([]string, error)
 	ReadMasterRouteTargets(context.Context, []string, int) ([]RouteConversationTarget, error)
 	ListRecentMasterRouteDecisions(context.Context, int) ([]RouteDecisionRecord, error)
@@ -69,6 +69,9 @@ type RouteService struct {
 type activeRouteInput struct {
 	inputID string
 	cancel  context.CancelFunc
+	work    InputRoutingWork
+	stateMu sync.Mutex
+	state   masterRouteAttemptState
 }
 
 func NewRouteService(
@@ -150,7 +153,7 @@ func (service *RouteService) processNextRouteInput(ctx context.Context) (bool, e
 		return false, err
 	}
 	defer service.clearActiveInput(active)
-	if err := service.routeOrFailClaimedInput(routeCtx, work); err != nil {
+	if err := service.routeOrFailClaimedInput(routeCtx, work, active); err != nil {
 		if errors.Is(err, context.Canceled) && ctx.Err() == nil {
 			return true, nil
 		}
@@ -169,7 +172,7 @@ func (service *RouteService) claimNextInput(
 		return InputRoutingWork{}, nil, nil, false, err
 	}
 	routeCtx, cancel := context.WithCancel(ctx)
-	active := &activeRouteInput{inputID: work.Input.Input.ID, cancel: cancel}
+	active := &activeRouteInput{inputID: work.Input.Input.ID, cancel: cancel, work: work}
 	service.active = active
 	return work, routeCtx, active, true, nil
 }
@@ -197,7 +200,19 @@ func (service *RouteService) CancelMasterInputRouting(
 	}
 	service.activeMu.Lock()
 	defer service.activeMu.Unlock()
-	state, err := service.store.CancelMasterInputRouting(ctx, inputID, cancelledAt)
+	var invocationAttempt *RouteInvocationAttempt
+	if service.active != nil && service.active.inputID == inputID {
+		attempt, buildErr := cancelledMasterRouteAttempt(
+			service.active.work,
+			service.active.snapshotAttemptState(),
+			cancelledAt,
+		)
+		if buildErr != nil {
+			return InputRoutingState{}, buildErr
+		}
+		invocationAttempt = &attempt
+	}
+	state, err := service.store.CancelMasterInputRouting(ctx, inputID, cancelledAt, invocationAttempt)
 	if err != nil {
 		return InputRoutingState{}, err
 	}
@@ -228,8 +243,9 @@ func validateRouteServiceRequest(service *RouteService, ctx context.Context) err
 func (service *RouteService) routeOrFailClaimedInput(
 	ctx context.Context,
 	work InputRoutingWork,
+	active *activeRouteInput,
 ) error {
-	err := service.routeClaimedInput(ctx, work)
+	err := service.routeClaimedInput(ctx, work, active)
 	if err == nil {
 		return nil
 	}
@@ -245,8 +261,14 @@ func (service *RouteService) routeOrFailClaimedInput(
 func (service *RouteService) routeClaimedInput(
 	ctx context.Context,
 	work InputRoutingWork,
-) error {
-	materialized, err := service.materializeClaimedInput(ctx, work)
+	active *activeRouteInput,
+) (err error) {
+	defer func() {
+		if err != nil {
+			err = &masterRouteAttemptError{state: active.snapshotAttemptState(), cause: err}
+		}
+	}()
+	materialized, err := service.materializeClaimedInput(ctx, work, active)
 	if err != nil {
 		return err
 	}
@@ -254,7 +276,11 @@ func (service *RouteService) routeClaimedInput(
 	if err != nil {
 		return NewRouteAttemptFailure(RouteFailureKindInternal, err)
 	}
-	call, err := service.caller.Call(ctx, requestID, materialized)
+	active.setAttemptCall(RouteCallResult{RequestID: requestID, InputBytes: len(materialized.Input)})
+	call, err := service.caller.CallObserved(ctx, requestID, materialized, func(started RouteCallResult) {
+		service.observeActiveRouteCall(active, started)
+	})
+	active.setAttemptCall(call)
 	if err != nil {
 		return err
 	}
@@ -264,11 +290,13 @@ func (service *RouteService) routeClaimedInput(
 func (service *RouteService) materializeClaimedInput(
 	ctx context.Context,
 	work InputRoutingWork,
+	active *activeRouteInput,
 ) (RouteContextMaterialization, error) {
 	session, err := service.sessions.EnsureSession(ctx)
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindConfigurationInvalid, err)
 	}
+	active.setAttemptSession(session)
 	retrieval, queryTruncated, err := CandidateRequestForInput(work.Input.Input)
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindInternal, err)
@@ -316,6 +344,7 @@ func (service *RouteService) materializeClaimedInput(
 		}
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
+	active.setAttemptMaterialization(materialized)
 	return materialized, nil
 }
 
@@ -351,6 +380,7 @@ func (service *RouteService) commitGeneratedRoute(
 		RoutingAttempt:     work.RoutingAttempt,
 		Context:            materialized.Audit,
 		ResolvedInvocation: invocation,
+		InvocationAttempt:  successfulMasterRouteAttempt(work, materialized, call, invocation),
 		Decision:           call.Decision,
 		ResultingCommand:   command,
 		DecidedAt:          decidedAt,
@@ -403,7 +433,20 @@ func (service *RouteService) failClaimedInput(
 		},
 		FailedAt: failedAt,
 	}
+	attempt, err := failedMasterRouteAttempt(work, cause, failure.Failure, failedAt)
+	if err != nil {
+		return err
+	}
+	failure.InvocationAttempt = attempt
 	return service.store.FailMasterInputRouting(ctx, failure)
+}
+
+func (service *RouteService) observeActiveRouteCall(active *activeRouteInput, call RouteCallResult) {
+	service.activeMu.Lock()
+	defer service.activeMu.Unlock()
+	if service.active == active {
+		active.setAttemptCall(call)
+	}
 }
 
 func routeContextTargetIDs(

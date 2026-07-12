@@ -1,12 +1,17 @@
 import type { BrowserWindow } from "electron";
+import { Buffer } from "node:buffer";
 import { createWriteStream, mkdirSync, writeFileSync, type WriteStream } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import type {
+  ConversationEvent,
   ConversationInputRoutingState,
+  InvocationAttempt,
   InputRoutingState,
   PresentationIntent,
+  ResolvedInvocation,
+  TrajectoryEvent,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import {
@@ -19,6 +24,7 @@ import {
 import type { RendererRecordedEvent } from "@shared/recording";
 
 import { RouteObservability, type RoutingObservationRecorder } from "./routing-observability";
+import { recordedConversationEventTypes } from "./session-recorder-conversation-events";
 
 interface SessionRecorderMetadata {
   appDataDir: string;
@@ -108,6 +114,7 @@ export class SessionRecorder implements RoutingObservationRecorder {
   private readonly screenshotIntervalMs: number;
 
   private closed = false;
+  private readonly conversationEventIDs = new Set<string>();
   private eventSeq = 1;
   private screenshotSeq = 1;
 
@@ -272,6 +279,17 @@ export class SessionRecorder implements RoutingObservationRecorder {
     this.routeObservability.recordConversationInputRoutingState(state);
   }
 
+  recordConversationEvent(event: ConversationEvent): void {
+    const key = `${event.conversationId}:${event.eventId}`;
+    if (this.conversationEventIDs.has(key)) {
+      return;
+    }
+    for (const projected of conversationRecordingEvents(event)) {
+      this.recordEvent(projected.type, projected.payload);
+    }
+    this.conversationEventIDs.add(key);
+  }
+
   recordMasterInputRoutingState(state: InputRoutingState): void {
     this.routeObservability.recordMasterInputRoutingState(state);
   }
@@ -412,6 +430,344 @@ export class SessionRecorder implements RoutingObservationRecorder {
     }
     stream.write(JSON.stringify(sanitizeRecordingValue(value)) + "\n");
   }
+}
+
+interface ConversationRecordingEvent {
+  type: string;
+  payload: unknown;
+}
+
+export function conversationRecordingEvents(
+  event: ConversationEvent,
+): ConversationRecordingEvent[] {
+  const envelope = {
+    conversationId: event.conversationId,
+    eventId: event.eventId,
+    sequence: event.sequence,
+    workspaceId: event.workspaceId,
+  };
+  switch (event.payload.type) {
+    case "conversation.invocation_attempted":
+      return recordedInvocationAttempt(event.payload.attempt, envelope);
+    case "conversation.turn.updated":
+      return recordedAgentInvocation(event.payload.turn, envelope);
+    case "conversation.narration.created":
+      return recordedNarratorOutput(event.payload.event, envelope);
+    case "conversation.thread_binding.updated":
+      return recordedThreadBinding(event.payload.binding, envelope);
+    case "conversation.trajectory.appended":
+      return recordedAgentTrajectory(event.payload.event, envelope);
+    default:
+      void recordedConversationEventTypes[event.payload.type];
+      return [
+        {
+          type: "conversation_event_forwarded",
+          payload: { ...envelope, type: event.payload.type },
+        },
+      ];
+  }
+}
+
+type ConversationRecordingEnvelope = Pick<
+  ConversationEvent,
+  "conversationId" | "eventId" | "sequence" | "workspaceId"
+>;
+
+function recordedInvocationAttempt(
+  attempt: InvocationAttempt,
+  envelope: ConversationRecordingEnvelope,
+): ConversationRecordingEvent[] {
+  return [
+    {
+      type: "conversation_invocation_attempted",
+      payload: { ...envelope, attempt: summarizeConversationInvocationAttempt(attempt) },
+    },
+  ];
+}
+
+function recordedAgentInvocation(
+  turn: Extract<ConversationEvent["payload"], { type: "conversation.turn.updated" }>["turn"],
+  envelope: ConversationRecordingEnvelope,
+): ConversationRecordingEvent[] {
+  return [
+    {
+      type: "agent_invocation_observed",
+      payload: {
+        ...envelope,
+        acceptedAt: turn.acceptedAt,
+        authoredInputBytes: utf8RecordingBytes(turn.authoredInput.text),
+        delivery: turn.delivery,
+        endedAt: turn.endedAt,
+        error: summarizeRecordedFailure(turn.error),
+        providerTurnId: turn.providerTurnId,
+        requestedRoleProfile: turn.requestedRoleProfile,
+        resolvedInvocation: summarizeResolvedInvocation(turn.resolvedInvocation),
+        startedAt: turn.startedAt,
+        status: turn.status,
+        turnId: turn.id,
+      },
+    },
+  ];
+}
+
+function recordedNarratorOutput(
+  narration: Extract<
+    ConversationEvent["payload"],
+    { type: "conversation.narration.created" }
+  >["event"],
+  envelope: ConversationRecordingEnvelope,
+): ConversationRecordingEvent[] {
+  return [
+    {
+      type: "narrator_output_observed",
+      payload: {
+        ...envelope,
+        createdAt: narration.createdAt,
+        kind: narration.kind,
+        narrationId: narration.id,
+        output: recordedNarrationOutputBytes(narration),
+        resolvedInvocation: summarizeResolvedInvocation(narration.resolvedInvocation),
+        sourceSequenceEnd: narration.sourceSequenceEnd,
+        sourceSequenceStart: narration.sourceSequenceStart,
+        streamSequence: narration.streamSequence,
+        trigger: narration.trigger,
+        turnId: narration.turnId,
+      },
+    },
+  ];
+}
+
+function recordedNarrationOutputBytes(
+  narration: Extract<
+    ConversationEvent["payload"],
+    { type: "conversation.narration.created" }
+  >["event"],
+) {
+  return {
+    finalSummaryBytes: recordedNarrationTextBytes(narration.finalSummary),
+    milestoneBytes: recordedNarrationTextBytes(narration.milestone),
+    statusQuestionBytes: recordedStatusQuestionBytes(narration.statusReply),
+    statusReplyBytes: recordedNarrationTextBytes(narration.statusReply),
+    topicDescriptorBytes: recordedNarrationTextBytes(narration.topicDescriptor),
+  };
+}
+
+function recordedNarrationTextBytes(value: { text: string } | null): number {
+  if (value === null) {
+    return 0;
+  }
+  return utf8RecordingBytes(value.text);
+}
+
+function recordedStatusQuestionBytes(value: { question: string } | null): number {
+  if (value === null) {
+    return 0;
+  }
+  return utf8RecordingBytes(value.question);
+}
+
+function recordedThreadBinding(
+  binding: Extract<
+    ConversationEvent["payload"],
+    { type: "conversation.thread_binding.updated" }
+  >["binding"],
+  envelope: ConversationRecordingEnvelope,
+): ConversationRecordingEvent[] {
+  return [
+    {
+      type: "agent_thread_binding_observed",
+      payload: {
+        ...envelope,
+        bindingStatus: binding.status,
+        createdAt: binding.createdAt,
+        lastResumedAt: binding.lastResumedAt,
+        lastTurnId: binding.lastTurnId,
+        metadataKeys: Object.keys(binding.providerMetadata).sort(),
+        provider: binding.provider,
+        providerThreadId: binding.threadId,
+      },
+    },
+  ];
+}
+
+function recordedAgentTrajectory(
+  trajectory: TrajectoryEvent,
+  envelope: ConversationRecordingEnvelope,
+): ConversationRecordingEvent[] {
+  return [
+    {
+      type: "agent_trajectory_observed",
+      payload: { ...envelope, ...summarizeAgentTrajectoryEvent(trajectory) },
+    },
+  ];
+}
+
+function summarizeConversationInvocationAttempt(attempt: InvocationAttempt) {
+  return {
+    ...attempt,
+    failure: summarizeRecordedFailure(attempt.failure),
+  };
+}
+
+function summarizeResolvedInvocation(invocation: ResolvedInvocation | null) {
+  if (invocation === null) {
+    return null;
+  }
+  return {
+    contextUsage: invocation.contextUsage,
+    endedAt: invocation.endedAt,
+    failure: summarizeRecordedFailure(invocation.failure),
+    id: invocation.id,
+    modelReroutes: invocation.modelReroutes.map((reroute) => ({
+      fromModelId: reroute.fromModelId,
+      reasonBytes: utf8RecordingBytes(reroute.reason),
+      toModelId: reroute.toModelId,
+    })),
+    outcome: invocation.outcome,
+    provider: invocation.provider,
+    providerReferences: invocation.providerReferences,
+    requested: invocation.requested,
+    resolved: invocation.resolved,
+    role: invocation.role,
+    startedAt: invocation.startedAt,
+  };
+}
+
+function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
+  return {
+    actor: event.actor,
+    agentLiveness: summarizeAgentLiveness(event),
+    emittedAt: event.emittedAt,
+    eventKind: event.kind,
+    failure: summarizeTrajectoryFailure(event),
+    modelReroute: summarizeTrajectoryModelReroute(event),
+    providerEventId: event.providerEventId,
+    providerLifecycle: summarizeProviderLifecycle(event),
+    providerThreadId: event.providerThreadId,
+    providerTurnId: event.providerTurnId,
+    textBytes: trajectoryTextBytes(event),
+    trajectoryEventId: event.id,
+    trajectorySequence: event.sequence,
+    turnId: event.turnId,
+    turnInterruptionReason: summarizeTurnInterruptionReason(event),
+    turnInvocation: summarizeTurnInvocation(event),
+    turnUsage: summarizeTurnUsage(event),
+  };
+}
+
+function summarizeAgentLiveness(event: TrajectoryEvent) {
+  const changed = event.agentLivenessChanged;
+  if (changed === null) {
+    return null;
+  }
+  return {
+    cancellable: changed.liveness.cancellable,
+    lastProviderEventAt: changed.liveness.lastProviderEventAt,
+    lastReconciledAt: changed.liveness.lastReconciledAt,
+    messageBytes: utf8RecordingBytes(changed.liveness.message),
+    reason: changed.liveness.reason,
+    retryable: changed.liveness.retryable,
+    status: changed.liveness.status,
+    steerable: changed.liveness.steerable,
+  };
+}
+
+function summarizeTrajectoryFailure(event: TrajectoryEvent) {
+  if (event.turnFailed !== null) {
+    return summarizeRecordedFailure(event.turnFailed.failure);
+  }
+  if (event.activityFailed !== null) {
+    return summarizeRecordedFailure(event.activityFailed.failure);
+  }
+  return null;
+}
+
+function summarizeTrajectoryModelReroute(event: TrajectoryEvent) {
+  if (event.modelRerouted === null) {
+    return null;
+  }
+  return {
+    fromModelId: event.modelRerouted.reroute.fromModelId,
+    reasonBytes: utf8RecordingBytes(event.modelRerouted.reroute.reason),
+    toModelId: event.modelRerouted.reroute.toModelId,
+  };
+}
+
+function summarizeProviderLifecycle(event: TrajectoryEvent) {
+  if (event.providerLifecycleChanged === null) {
+    return null;
+  }
+  return {
+    messageBytes: utf8RecordingBytes(event.providerLifecycleChanged.lifecycle.message),
+    provider: event.providerLifecycleChanged.lifecycle.provider,
+    status: event.providerLifecycleChanged.lifecycle.status,
+  };
+}
+
+function summarizeTurnInterruptionReason(event: TrajectoryEvent) {
+  if (event.turnInterrupted === null) {
+    return null;
+  }
+  return event.turnInterrupted.reason;
+}
+
+function summarizeTurnInvocation(event: TrajectoryEvent) {
+  if (event.turnStarted === null) {
+    return null;
+  }
+  return summarizeResolvedInvocation(event.turnStarted.invocation);
+}
+
+function summarizeTurnUsage(event: TrajectoryEvent) {
+  if (event.turnCompleted === null) {
+    return null;
+  }
+  return event.turnCompleted.usage;
+}
+
+function trajectoryTextBytes(event: TrajectoryEvent): number {
+  if (event.userInputAccepted !== null) {
+    return utf8RecordingBytes(event.userInputAccepted.input.text);
+  }
+  if (event.turnSteered !== null) {
+    return utf8RecordingBytes(event.turnSteered.input.text);
+  }
+  if (event.agentPublicTextDelta !== null) {
+    return utf8RecordingBytes(event.agentPublicTextDelta.delta);
+  }
+  if (event.agentMessageCompleted !== null) {
+    return utf8RecordingBytes(event.agentMessageCompleted.text);
+  }
+  if (event.publicReasoningSummaryUpdated !== null) {
+    return event.publicReasoningSummaryUpdated.summary.reduce(
+      (total, value) => total + utf8RecordingBytes(value),
+      0,
+    );
+  }
+  return 0;
+}
+
+function summarizeRecordedFailure(
+  failure: {
+    code: string;
+    diagnosticReference: string;
+    message: string;
+    retryable: boolean;
+  } | null,
+) {
+  if (failure === null) {
+    return null;
+  }
+  return {
+    code: failure.code,
+    diagnosticReference: failure.diagnosticReference,
+    messageBytes: utf8RecordingBytes(failure.message),
+    retryable: failure.retryable,
+  };
+}
+
+function utf8RecordingBytes(value: string): number {
+  return Buffer.byteLength(value, "utf8");
 }
 
 export function createSessionRecorder(

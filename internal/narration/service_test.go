@@ -152,12 +152,121 @@ func TestServiceAskRoutedStatusReturnsCommittedDegradation(t *testing.T) {
 	if readErr != nil {
 		t.Fatalf("ReadSnapshot after degradation: %v", readErr)
 	}
+	assertStatusDegradationSnapshot(t, snapshot)
+	attempt := readLatestServiceInvocationAttempt(t, fixture.store, fixture.conversationID)
+	assertFailedStatusInvocationContext(t, attempt, snapshot)
+	assertFailedStatusInvocationTerminal(t, attempt, degraded.Degradation)
+}
+
+func assertStatusDegradationSnapshot(t *testing.T, snapshot conversation.ConversationSnapshot) {
+	t.Helper()
 	if snapshot.NarratorState.Status != conversation.NarratorStatusDegraded ||
 		snapshot.NarratorState.Degradation == nil || len(snapshot.Narration.Events) != 0 ||
 		snapshot.Conversation.Status != conversation.ConversationStatusWorking ||
 		len(snapshot.Turns.Turns) != 1 || snapshot.Turns.Turns[0].Status != conversation.TurnStatusRunning {
 		t.Fatalf("degraded status snapshot = %+v", snapshot)
 	}
+}
+
+func assertFailedStatusInvocationContext(
+	t *testing.T,
+	attempt conversation.InvocationAttempt,
+	snapshot conversation.ConversationSnapshot,
+) {
+	t.Helper()
+	if attempt.CallKind != conversation.InvocationAttemptCallStatus ||
+		attempt.Trigger == nil || *attempt.Trigger != conversation.NarrationTriggerExplicitStatusRequested ||
+		!attempt.Context.Materialized || attempt.Context.PreCursor == nil ||
+		attempt.Context.SourceThroughSequence != snapshot.Conversation.LastTrajectorySequence ||
+		len(attempt.Context.IncludedRanges) == 0 || attempt.Requested == nil ||
+		attempt.Requested.Role != conversation.RoleNarrator || attempt.Resolved == nil ||
+		attempt.Resolved.ModelID != "gpt-5.4-mini" || attempt.ContextUsage.InputBytes <= 0 {
+		t.Fatalf("failed status invocation context audit = %+v", attempt)
+	}
+}
+
+func assertFailedStatusInvocationTerminal(
+	t *testing.T,
+	attempt conversation.InvocationAttempt,
+	degradation conversation.NarratorDegradation,
+) {
+	t.Helper()
+	if attempt.ProviderReferences.RequestID == nil ||
+		*attempt.ProviderReferences.RequestID != "narrator_status_test" ||
+		attempt.Outcome != conversation.InvocationAttemptOutcomeFailed ||
+		attempt.ValidationResult != conversation.InvocationValidationNotRun ||
+		attempt.CommitDecision != conversation.InvocationCommitFailureCommitted ||
+		attempt.Failure == nil || attempt.Failure.Code != degradation.Code {
+		t.Fatalf("failed status invocation audit = %+v", attempt)
+	}
+}
+
+func TestServiceShutdownReportsInvocationAuditPersistenceFailure(t *testing.T) {
+	store, err := conversation.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	workspaceSummary := workspace.WorkspaceSummary{
+		ID:       "workspace-invocation-audit",
+		RootPath: filepath.Clean(t.TempDir()),
+	}
+	service, err := NewService(
+		store,
+		statusServiceWorkspaceResolver{summary: workspaceSummary},
+		&statusServiceAgentRuntime{},
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close store: %v", err)
+	}
+	service.recordNonCommittedInvocation(Completion{
+		Request:    statusRequest("cancelled-audit", "conversation-invocation-audit"),
+		Err:        ErrMailboxClosed,
+		Generation: 1,
+		StartedAt:  "2026-07-15T10:00:00Z",
+		EndedAt:    "2026-07-15T10:00:01Z",
+	}, conversation.InvocationAttemptOutcomeCancelled)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	err = service.Shutdown(ctx)
+	if !errors.Is(err, conversation.ErrStoreClosed) {
+		t.Fatalf("Shutdown error = %T %v, want ErrStoreClosed", err, err)
+	}
+}
+
+func readLatestServiceInvocationAttempt(
+	t *testing.T,
+	store *conversation.Store,
+	conversationID string,
+) conversation.InvocationAttempt {
+	t.Helper()
+	streamID, err := conversation.ConversationStreamID(conversationID)
+	if err != nil {
+		t.Fatalf("ConversationStreamID: %v", err)
+	}
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		streamID,
+		0,
+		conversation.MaxCommittedEventReadLimit,
+	)
+	if err != nil {
+		t.Fatalf("ReadCommittedStreamEvents: %v", err)
+	}
+	for index := len(events) - 1; index >= 0; index-- {
+		if events[index].Kind != string(conversation.ConversationEventTypeInvocationAttempted) {
+			continue
+		}
+		var payload conversation.ConversationInvocationAttemptedEventPayload
+		if err := json.Unmarshal(events[index].Payload, &payload); err != nil {
+			t.Fatalf("decode invocation attempt event: %v", err)
+		}
+		return payload.Attempt
+	}
+	t.Fatalf("conversation %s has no invocation attempt event", conversationID)
+	return conversation.InvocationAttempt{}
 }
 
 func TestValidateStatusQuestion(t *testing.T) {

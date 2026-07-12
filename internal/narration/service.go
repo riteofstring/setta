@@ -78,14 +78,15 @@ type Service struct {
 	progressWindow         time.Duration
 	checkpointWindowEvents int
 
-	lifecycleCtx    context.Context
-	lifecycleCancel context.CancelFunc
-	lifecycleMu     sync.Mutex
-	closing         bool
-	progress        map[string]*progressWindow
-	terminal        map[string]*terminalProjectionQueue
-	routing         map[string]*conversationRouteQueue
-	tasks           sync.WaitGroup
+	lifecycleCtx          context.Context
+	lifecycleCancel       context.CancelFunc
+	lifecycleMu           sync.Mutex
+	closing               bool
+	progress              map[string]*progressWindow
+	terminal              map[string]*terminalProjectionQueue
+	routing               map[string]*conversationRouteQueue
+	invocationAuditErrors []error
+	tasks                 sync.WaitGroup
 }
 
 func NewService(

@@ -130,7 +130,7 @@ func TestStoreCommitsMasterRouteDecisionAtomicallyAndIdempotently(t *testing.T) 
 	assertIdempotentMasterRouteCommit(t, store, commit, record)
 	assertChangedMasterRouteCommitRejected(t, store, commit)
 	assertCommittedMasterRouteState(t, store, accepted.Input.ID)
-	assertCommittedMasterRouteEvents(t, store)
+	assertCommittedMasterRouteEvents(t, store, commit.InvocationAttempt)
 }
 
 func TestStoreCompletesMasterCommandBeforePublishingPresentationIntent(t *testing.T) {
@@ -378,33 +378,7 @@ func TestStoreWaitsForMasterInputTerminalStateWithoutPolling(t *testing.T) {
 func TestStoreCancelsAcceptedAndActiveMasterRoutingIdempotently(t *testing.T) {
 	store := newTestStore(t)
 	ready := seedMasterRouteState(t, store)
-	accepted := acceptMasterRouteTestInput(
-		t,
-		store,
-		"master-input-cancel-accepted",
-		"2026-07-11T20:01:00Z",
-	)
-	acceptedState, err := store.CancelMasterInputRouting(
-		context.Background(),
-		accepted.Input.ID,
-		"2026-07-11T20:03:00Z",
-	)
-	if err != nil {
-		t.Fatalf("cancel accepted master input: %v", err)
-	}
-	assertCancelledMasterRoutingState(t, acceptedState, accepted.Input.ID, 0)
-	idempotent, err := store.CancelMasterInputRouting(
-		context.Background(),
-		accepted.Input.ID,
-		"2026-07-11T20:04:00Z",
-	)
-	if err != nil {
-		t.Fatalf("idempotent accepted cancellation: %v", err)
-	}
-	assertCancelledMasterRoutingState(t, idempotent, accepted.Input.ID, 0)
-	if idempotent.Cancellation.CancelledAt != "2026-07-11T20:03:00Z" {
-		t.Fatalf("idempotent cancellation changed durable time: %+v", idempotent.Cancellation)
-	}
+	assertAcceptedMasterRoutingCancellation(t, store)
 
 	active := acceptMasterRouteTestInput(
 		t,
@@ -428,10 +402,12 @@ func TestStoreCancelsAcceptedAndActiveMasterRoutingIdempotently(t *testing.T) {
 			waited <- state
 		}
 	}()
+	cancellationAttempt := testMasterRoutingCancellationAttempt(work, "2026-07-11T20:06:00Z")
 	activeState, err := store.CancelMasterInputRouting(
 		context.Background(),
 		active.Input.ID,
 		"2026-07-11T20:06:00Z",
+		&cancellationAttempt,
 	)
 	if err != nil {
 		t.Fatalf("cancel active master input: %v", err)
@@ -454,6 +430,48 @@ func TestStoreCancelsAcceptedAndActiveMasterRoutingIdempotently(t *testing.T) {
 	if err != nil || interaction.State != nil {
 		t.Fatalf("cancelled shell interaction=%+v err=%v, want empty", interaction, err)
 	}
+	assertMasterCancellationAuditEvents(t, store, cancellationAttempt)
+}
+
+func assertAcceptedMasterRoutingCancellation(t *testing.T, store *Store) {
+	t.Helper()
+	accepted := acceptMasterRouteTestInput(
+		t,
+		store,
+		"master-input-cancel-accepted",
+		"2026-07-11T20:01:00Z",
+	)
+	acceptedState, err := store.CancelMasterInputRouting(
+		context.Background(),
+		accepted.Input.ID,
+		"2026-07-11T20:03:00Z",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("cancel accepted master input: %v", err)
+	}
+	assertCancelledMasterRoutingState(t, acceptedState, accepted.Input.ID, 0)
+	idempotent, err := store.CancelMasterInputRouting(
+		context.Background(),
+		accepted.Input.ID,
+		"2026-07-11T20:04:00Z",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("idempotent accepted cancellation: %v", err)
+	}
+	assertCancelledMasterRoutingState(t, idempotent, accepted.Input.ID, 0)
+	if idempotent.Cancellation.CancelledAt != "2026-07-11T20:03:00Z" {
+		t.Fatalf("idempotent cancellation changed durable time: %+v", idempotent.Cancellation)
+	}
+}
+
+func assertMasterCancellationAuditEvents(
+	t *testing.T,
+	store *Store,
+	wantAttempt master.RouteInvocationAttempt,
+) {
+	t.Helper()
 	events, err := store.ReadCommittedStreamEvents(
 		context.Background(),
 		master.RouteDecisionCommittedStream,
@@ -463,11 +481,13 @@ func TestStoreCancelsAcceptedAndActiveMasterRoutingIdempotently(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read master cancellation events: %v", err)
 	}
-	if len(events) != 3 || events[0].Kind != master.RouteInputRoutingCancelledKind ||
+	if len(events) != 4 || events[0].Kind != master.RouteInputRoutingCancelledKind ||
 		events[1].Kind != master.RouteInputRoutingStartedKind ||
-		events[2].Kind != master.RouteInputRoutingCancelledKind {
+		events[2].Kind != master.RouteInputRoutingCancelledKind ||
+		events[3].Kind != master.RouteInvocationAttemptedKind {
 		t.Fatalf("master cancellation events=%+v", events)
 	}
+	assertMasterInvocationAttemptPayload(t, events[3].Payload, wantAttempt)
 }
 
 func assertCancelledMasterRoutingState(
@@ -544,6 +564,8 @@ func assertChangedMasterRouteCommitRejected(
 		AnswerGlobal: &master.MasterAnswerGlobalRouteDecision{Text: "Changed answer."},
 	}
 	changed.ResultingCommand = masterRouteTestCommand(changed.Decision)
+	changedDecisionKind := changed.Decision.Kind
+	changed.InvocationAttempt.DecisionKind = &changedDecisionKind
 	if _, err := store.CommitMasterRouteDecision(context.Background(), changed); !IsStateConflict(err) {
 		t.Fatalf("changed route commit error = %T %v, want state conflict", err, err)
 	}
@@ -561,7 +583,11 @@ func assertCommittedMasterRouteState(t *testing.T, store *Store, inputID string)
 	}
 }
 
-func assertCommittedMasterRouteEvents(t *testing.T, store *Store) {
+func assertCommittedMasterRouteEvents(
+	t *testing.T,
+	store *Store,
+	wantAttempt master.RouteInvocationAttempt,
+) {
 	t.Helper()
 	events, err := store.ReadCommittedStreamEvents(
 		context.Background(),
@@ -572,10 +598,12 @@ func assertCommittedMasterRouteEvents(t *testing.T, store *Store) {
 	if err != nil {
 		t.Fatalf("ReadCommittedStreamEvents: %v", err)
 	}
-	if len(events) != 2 || events[0].Kind != master.RouteInputRoutingStartedKind ||
-		events[1].Kind != master.RouteDecisionCommittedKind {
+	if len(events) != 3 || events[0].Kind != master.RouteInputRoutingStartedKind ||
+		events[1].Kind != master.RouteDecisionCommittedKind ||
+		events[2].Kind != master.RouteInvocationAttemptedKind {
 		t.Fatalf("master route events = %+v", events)
 	}
+	assertMasterInvocationAttemptPayload(t, events[2].Payload, wantAttempt)
 }
 
 func TestStoreRecoversAndFailsMasterRoutingWithoutLosingAttemptHistory(t *testing.T) {
@@ -597,7 +625,7 @@ func TestStoreRecoversAndFailsMasterRoutingWithoutLosingAttemptHistory(t *testin
 	if err != nil || !found || second.RoutingAttempt != first.RoutingAttempt+1 {
 		t.Fatalf("second claim = %+v found=%t err=%v", second, found, err)
 	}
-	failure := master.InputRoutingFailure{
+	failure := withTestMasterRoutingFailureAttempt(master.InputRoutingFailure{
 		InputID:        accepted.Input.ID,
 		RoutingAttempt: second.RoutingAttempt,
 		Failure: master.RouteFailure{
@@ -607,14 +635,48 @@ func TestStoreRecoversAndFailsMasterRoutingWithoutLosingAttemptHistory(t *testin
 			DiagnosticReference: "master_route:recovery:2",
 		},
 		FailedAt: "2026-07-11T20:06:00Z",
-	}
+	}, second.RoutingStartedAt)
 	if err := store.FailMasterInputRouting(context.Background(), failure); err != nil {
 		t.Fatalf("FailMasterInputRouting: %v", err)
 	}
 	failed, err := store.ReadMasterInputRoutingState(context.Background(), accepted.Input.ID)
 	if err != nil || failed.Status != master.InputRoutingStatusFailed || failed.Failure == nil ||
-		failed.Failure.DiagnosticReference != failure.Failure.DiagnosticReference {
+		failed.Failure.DiagnosticReference != failure.Failure.DiagnosticReference ||
+		failed.InvocationAttempt == nil {
 		t.Fatalf("failed state = %+v err=%v", failed, err)
+	}
+	assertMasterInvocationAttemptValue(t, *failed.InvocationAttempt, failure.InvocationAttempt)
+}
+
+func assertMasterInvocationAttemptPayload(
+	t *testing.T,
+	payload json.RawMessage,
+	want master.RouteInvocationAttempt,
+) {
+	t.Helper()
+	var got master.RouteInvocationAttempt
+	if err := json.Unmarshal(payload, &got); err != nil {
+		t.Fatalf("decode master invocation attempt: %v", err)
+	}
+	assertMasterInvocationAttemptValue(t, got, want)
+}
+
+func assertMasterInvocationAttemptValue(
+	t *testing.T,
+	got master.RouteInvocationAttempt,
+	want master.RouteInvocationAttempt,
+) {
+	t.Helper()
+	gotJSON, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal master invocation attempt: %v", err)
+	}
+	wantJSON, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("marshal wanted master invocation attempt: %v", err)
+	}
+	if !bytes.Equal(gotJSON, wantJSON) {
+		t.Fatalf("master invocation attempt = %s, want %s", gotJSON, wantJSON)
 	}
 }
 
@@ -750,7 +812,7 @@ func masterRouteTestCommit(
 	if err != nil {
 		t.Fatalf("NewRouteModelConfigurationAudit: %v", err)
 	}
-	return master.RouteDecisionCommit{
+	return withTestMasterRouteAttempt(master.RouteDecisionCommit{
 		ID:              "master-route-decision-" + work.Input.Input.ID,
 		MasterSessionID: session.ID,
 		InputID:         work.Input.Input.ID,
@@ -783,7 +845,7 @@ func masterRouteTestCommit(
 		Decision:         decision,
 		ResultingCommand: masterRouteTestCommand(decision),
 		DecidedAt:        "2026-07-11T20:04:03Z",
-	}
+	})
 }
 
 func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {

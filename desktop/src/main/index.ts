@@ -56,13 +56,7 @@ const conversationEvents = new ConversationEventRegistry({
     return { baseURL: runtime.baseUrl, fetchImpl: backendFetch() };
   },
   recordEvent: (event) => {
-    recorder?.recordAppEvent("conversation_event_forwarded", {
-      conversationId: event.conversationId,
-      eventId: event.eventId,
-      sequence: event.sequence,
-      type: event.payload.type,
-      workspaceId: event.workspaceId,
-    });
+    recorder?.recordConversationEvent(event);
   },
 });
 const compactWindowMinHeight = 320;

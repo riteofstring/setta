@@ -217,6 +217,7 @@ var conversationEventPayloadConstructors = map[ConversationEventType]func() Conv
 	ConversationEventTypeArtifactCreated:            func() ConversationEventPayload { return &ConversationArtifactCreatedEventPayload{} },
 	ConversationEventTypeNarratorStateUpdated:       func() ConversationEventPayload { return &ConversationNarratorStateUpdatedEventPayload{} },
 	ConversationEventTypeNarrationCreated:           func() ConversationEventPayload { return &ConversationNarrationCreatedEventPayload{} },
+	ConversationEventTypeInvocationAttempted:        func() ConversationEventPayload { return &ConversationInvocationAttemptedEventPayload{} },
 	ConversationEventTypeRoleProfileOverrideUpdated: func() ConversationEventPayload { return &ConversationRoleProfileOverrideUpdatedEventPayload{} },
 	ConversationEventTypeRoleProfileOverrideRemoved: func() ConversationEventPayload { return &ConversationRoleProfileOverrideRemovedEventPayload{} },
 	ConversationEventTypePresentationProfileUpdated: func() ConversationEventPayload { return &ConversationPresentationProfileUpdatedEventPayload{} },

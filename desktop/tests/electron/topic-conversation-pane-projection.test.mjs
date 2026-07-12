@@ -53,6 +53,7 @@ import {
 } from "./topic-conversation-narrator-voice-workflow.mjs";
 import { assertRecordedPaneLayouts } from "./topic-conversation-layout-recording.mjs";
 import {
+  assertRecordedConversationInvocationObservability,
   assertRecordedConversationRouteObservability,
   assertRecordedMasterRouteObservability,
 } from "./topic-conversation-routing-observability.mjs";
@@ -1003,6 +1004,12 @@ try {
   assertAlphaLifecycle(alphaSnapshot, awaitingApproval.approvalId);
   assertDeniedApproval(alphaSnapshot, awaitingDenial.approvalId);
   assertBetaLifecycle(betaSnapshot);
+  await assertRecordedConversationInvocationObservability({
+    artifactDirectory: secondLaunchDir,
+    requireFailedAttempt: true,
+    snapshot: betaSnapshot,
+    timeoutMs: workflowTimeoutMs,
+  });
 
   const {
     forkComplete: alphaForkComplete,

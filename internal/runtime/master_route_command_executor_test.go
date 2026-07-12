@@ -70,7 +70,7 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			Question:       "What is the current status?",
 		},
 	}
-	return master.RouteDecisionRecord{
+	record := master.RouteDecisionRecord{
 		StreamSequence:  1,
 		ID:              "master_route_decision_test",
 		MasterSessionID: "master_session_test",
@@ -124,6 +124,34 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 		},
 		DecidedAt: "2026-07-14T20:00:00Z",
 	}
+	sessionID := record.MasterSessionID
+	contextAudit := record.Context
+	configuration := record.ResolvedInvocation.Configuration
+	requestID := record.ResolvedInvocation.ProviderRequestID
+	threadID := record.ResolvedInvocation.ProviderThreadID
+	turnID := record.ResolvedInvocation.ProviderTurnID
+	decisionKind := record.Decision.Kind
+	record.InvocationAttempt = master.RouteInvocationAttempt{
+		ID:                requestID,
+		CallKind:          master.RouteInvocationCallRoute,
+		MasterSessionID:   &sessionID,
+		InputID:           record.InputID,
+		RoutingAttempt:    record.RoutingAttempt,
+		Context:           &contextAudit,
+		Configuration:     &configuration,
+		ProviderRequestID: &requestID,
+		ProviderThreadID:  &threadID,
+		ProviderTurnID:    &turnID,
+		InputBytes:        record.ResolvedInvocation.InputBytes,
+		OutputBytes:       record.ResolvedInvocation.OutputBytes,
+		StartedAt:         record.ResolvedInvocation.StartedAt,
+		EndedAt:           record.ResolvedInvocation.EndedAt,
+		DecisionKind:      &decisionKind,
+		ValidationResult:  master.RouteInvocationValidationPassed,
+		CommitDecision:    master.RouteInvocationCommitOutput,
+		Outcome:           master.RouteInvocationOutcomeCompleted,
+	}
+	return record
 }
 
 type masterRouteCommandExecutorStore struct {

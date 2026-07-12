@@ -32,6 +32,20 @@ func (failure ConversationInputRoutingFailure) Validate() error {
 	if err := failure.Failure.Validate(); err != nil {
 		return err
 	}
+	if err := validateIdentifier("conversation input routing failure invocation attempt committed event id", failure.InvocationAttemptCommittedID); err != nil {
+		return err
+	}
+	if err := validateFailedConversationRouteAttempt(
+		failure.InvocationAttempt,
+		failure.ConversationID,
+		failure.InputID,
+		failure.ClarificationInputID,
+		failure.RoutingAttempt,
+		failure.Failure,
+		failure.FailedAt,
+	); err != nil {
+		return err
+	}
 	_, err := validateTimestamp("conversation input routing failedAt", failure.FailedAt)
 	return err
 }
@@ -132,6 +146,7 @@ func cloneConversationRouteDecisionCommit(commit ConversationRouteDecisionCommit
 	commit.ClarificationInputID = cloneStringPointer(commit.ClarificationInputID)
 	commit.RouterContext = cloneConversationRouteContextAudit(commit.RouterContext)
 	commit.ResolvedInvocation = cloneConversationRouteResolvedInvocation(commit.ResolvedInvocation)
+	commit.InvocationAttempt = cloneInvocationAttempt(commit.InvocationAttempt)
 	commit.Decision = cloneConversationRouteDecision(commit.Decision)
 	commit.ResultingCommand = cloneConversationRouteCommand(commit.ResultingCommand)
 	return commit
@@ -209,6 +224,10 @@ func cloneConversationInputState(state ConversationInputState) ConversationInput
 	if state.Failure != nil {
 		failure := *state.Failure
 		state.Failure = &failure
+	}
+	if state.InvocationAttempt != nil {
+		attempt := cloneInvocationAttempt(*state.InvocationAttempt)
+		state.InvocationAttempt = &attempt
 	}
 	return state
 }

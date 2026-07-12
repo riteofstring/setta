@@ -40,6 +40,7 @@ type NavigatorIgnoredEventType = Exclude<
 const navigatorIgnoredEventTypes = {
   "conversation.artifact.created": true,
   "conversation.narration.created": true,
+  "conversation.invocation_attempted": true,
   "conversation.narrator_state.updated": true,
   "conversation.queue.updated": true,
   "conversation.resync_required": true,

@@ -35,6 +35,7 @@ const (
 	ConversationEventTypeArtifactCreated            ConversationEventType = "conversation.artifact.created"
 	ConversationEventTypeNarratorStateUpdated       ConversationEventType = "conversation.narrator_state.updated"
 	ConversationEventTypeNarrationCreated           ConversationEventType = "conversation.narration.created"
+	ConversationEventTypeInvocationAttempted        ConversationEventType = "conversation.invocation_attempted"
 	ConversationEventTypeRoleProfileOverrideUpdated ConversationEventType = "conversation.role_profile_override.updated"
 	ConversationEventTypeRoleProfileOverrideRemoved ConversationEventType = "conversation.role_profile_override.removed"
 	ConversationEventTypePresentationProfileUpdated ConversationEventType = "conversation.presentation_profile.updated"
@@ -53,6 +54,7 @@ var conversationEventTypeValues = []ConversationEventType{
 	ConversationEventTypeArtifactCreated,
 	ConversationEventTypeNarratorStateUpdated,
 	ConversationEventTypeNarrationCreated,
+	ConversationEventTypeInvocationAttempted,
 	ConversationEventTypeRoleProfileOverrideUpdated,
 	ConversationEventTypeRoleProfileOverrideRemoved,
 	ConversationEventTypePresentationProfileUpdated,
@@ -170,6 +172,11 @@ type ConversationNarratorStateUpdatedEventPayload struct {
 type ConversationNarrationCreatedEventPayload struct {
 	Type  ConversationEventType `json:"type"`
 	Event NarrationEvent        `json:"event"`
+}
+
+type ConversationInvocationAttemptedEventPayload struct {
+	Type    ConversationEventType `json:"type"`
+	Attempt InvocationAttempt     `json:"attempt"`
 }
 
 type ConversationPresentationProfileUpdatedEventPayload struct {
@@ -741,6 +748,20 @@ func (payload ConversationNarrationCreatedEventPayload) validateConversationEven
 	return validateEventPayloadOwner("conversation.narration.created", payload.Event.ConversationID, conversationID)
 }
 
+func (payload ConversationInvocationAttemptedEventPayload) conversationEventType() ConversationEventType {
+	return ConversationEventTypeInvocationAttempted
+}
+
+func (payload ConversationInvocationAttemptedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
+	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
+		return err
+	}
+	if err := payload.Attempt.Validate(); err != nil {
+		return err
+	}
+	return validateEventPayloadOwner("conversation.invocation_attempted", payload.Attempt.ConversationID, conversationID)
+}
+
 func (payload ConversationPresentationProfileUpdatedEventPayload) conversationEventType() ConversationEventType {
 	return ConversationEventTypePresentationProfileUpdated
 }
@@ -850,6 +871,7 @@ func ContractUnions() []ContractUnion {
 			contractEventVariant(ConversationEventTypeArtifactCreated, ConversationArtifactCreatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeNarratorStateUpdated, ConversationNarratorStateUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeNarrationCreated, ConversationNarrationCreatedEventPayload{}),
+			contractEventVariant(ConversationEventTypeInvocationAttempted, ConversationInvocationAttemptedEventPayload{}),
 			contractEventVariant(ConversationEventTypeRoleProfileOverrideUpdated, ConversationRoleProfileOverrideUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeRoleProfileOverrideRemoved, ConversationRoleProfileOverrideRemovedEventPayload{}),
 			contractEventVariant(ConversationEventTypePresentationProfileUpdated, ConversationPresentationProfileUpdatedEventPayload{}),
@@ -939,6 +961,10 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("ApprovalPolicy", ApprovalPolicyUnlessTrusted, ApprovalPolicyOnRequest, ApprovalPolicyNever),
 		contractValueSet("ToolAccessMode", ToolAccessAll, ToolAccessAllowlist, ToolAccessNone),
 		contractValueSet("InvocationOutcome", InvocationOutcomeRunning, InvocationOutcomeSucceeded, InvocationOutcomeFailed, InvocationOutcomeCancelled),
+		contractValueSet("InvocationAttemptCallKind", InvocationAttemptCallInputRoute, InvocationAttemptCallProjection, InvocationAttemptCallStatus, InvocationAttemptCallTerminal, InvocationAttemptCallCheckpoint),
+		contractValueSet("InvocationAttemptOutcome", InvocationAttemptOutcomeCompleted, InvocationAttemptOutcomeFailed, InvocationAttemptOutcomeCancelled, InvocationAttemptOutcomeSuperseded, InvocationAttemptOutcomeStale),
+		contractValueSet("InvocationValidationResult", InvocationValidationNotRun, InvocationValidationPassed, InvocationValidationFailed),
+		contractValueSet("InvocationCommitDecision", InvocationCommitOutputCommitted, InvocationCommitFailureCommitted, InvocationCommitCancelled, InvocationCommitSuperseded, InvocationCommitRejectedStale),
 		contractValueSet("BranchKind", BranchKindFork),
 		contractValueSet("BranchDecisionKind", BranchDecisionKindCreateSideConversation, BranchDecisionKindForkConversation),
 		contractValueSet("BranchDecisionSource", BranchDecisionSourceConversationRouter, BranchDecisionSourceMaster),
@@ -964,16 +990,4 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ConversationEventType", Values: stringValues(conversationEventTypeValues)},
 		{Name: "ConversationPaletteID", Values: stringValues(conversationpalette.IDs())},
 	}...)
-}
-
-func contractValueSet[T ~string](name string, values ...T) ContractValueSet {
-	return ContractValueSet{Name: name, Values: stringValues(values)}
-}
-
-func stringValues[T ~string](values []T) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		result = append(result, string(value))
-	}
-	return result
 }

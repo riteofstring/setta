@@ -3,7 +3,6 @@ package conversation
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -48,19 +47,28 @@ func failConversationInputRoutingTransaction(
 	if err := validateConversationInputRoutingFailureTime(active, failure); err != nil {
 		return err
 	}
-	failureJSON, err := json.Marshal(failure.Failure)
+	attempt := cloneInvocationAttempt(failure.InvocationAttempt)
+	failureJSON, err := encodeConversationInputFailure(failure.Failure, &attempt)
 	if err != nil {
 		return fmt.Errorf("encode conversation input routing failure: %w", err)
 	}
 	if err := applyConversationInputRoutingFailure(transaction, activeID, failure, string(failureJSON)); err != nil {
 		return err
 	}
-	return appendConversationInputRoutingEvent(
+	if err := appendConversationInputRoutingEvent(
 		transaction,
 		failure.ConversationID,
 		conversationInputRoutingEventID("failed", activeID, failure.RoutingAttempt),
 		ConversationInputRoutingFailedEventKind,
 		failure,
+		failure.FailedAt,
+	); err != nil {
+		return err
+	}
+	return appendInvocationAttemptEvent(
+		transaction,
+		failure.InvocationAttemptCommittedID,
+		failure.InvocationAttempt,
 		failure.FailedAt,
 	)
 }
@@ -474,15 +482,15 @@ func validateConversationInputDiscardStatus(record conversationInputRecord) erro
 }
 
 func conversationInputDiscardFailureJSON() (string, error) {
-	payload, err := json.Marshal(Failure{
+	payload, err := encodeConversationInputFailure(Failure{
 		Code:      ConversationInputDiscardedFailureCode,
 		Message:   "The conversation input was discarded.",
 		Retryable: false,
-	})
+	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("encode discarded conversation input failure: %w", err)
 	}
-	return string(payload), nil
+	return payload, nil
 }
 
 func discardConversationInputExchange(
