@@ -74,6 +74,7 @@ try {
     "Alpha palette identity",
     workflowTimeoutMs,
   );
+  await disposeInitialEasyButtonPane(context.client, [alpha.id]);
   const beta = await createTopic(
     context.client,
     backend,
@@ -240,6 +241,41 @@ async function openWorkspace(client) {
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+async function disposeInitialEasyButtonPane(client, keptConversationIds) {
+  // The first-run feature guarantees an easy-button pane on an empty workspace, so
+  // this test's topics open alongside an auto "New conversation" pane. Close it
+  // while exactly one real pane exists (the survivor stays focused/live, and there
+  // is no far neighbor to strand), restoring the pristine layout the palette checks
+  // assume. `useInitialEasyButtonPane` marks the workspace handled, so it is not
+  // recreated.
+  const kept = new Set(keptConversationIds);
+  const state = await waitForState(
+    client,
+    driverCallExpression("topicConversationSurfaceStates", {}),
+    (current) =>
+      keptConversationIds.every((id) =>
+        current.surfaces.some((surface) => surface.conversationId === id),
+      ) && current.surfaces.some((surface) => !kept.has(surface.conversationId)),
+    workflowTimeoutMs,
+  );
+  const auto = state.surfaces.find((surface) => !kept.has(surface.conversationId));
+  assertDriverAction(
+    await client.driver("topicConversationCloseOneBoundPane", {
+      conversationId: auto.conversationId,
+    }),
+    "clicked",
+  );
+  await waitForState(
+    client,
+    driverCallExpression("topicConversationSurfaceStates", {}),
+    (current) =>
+      keptConversationIds.every((id) =>
+        current.surfaces.some((surface) => surface.conversationId === id),
+      ) && current.surfaces.every((surface) => kept.has(surface.conversationId)),
+    workflowTimeoutMs,
+  );
 }
 
 async function createDormantPresentationTopics(client, workspaceId, count) {
