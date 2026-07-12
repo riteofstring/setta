@@ -154,13 +154,26 @@ Workspace B
 Runtime/account/settings          fixed shell controls
 ```
 
-### User-facing history belongs to topic conversations
+### User-facing work is a topic projection, not a transcript
 
-The durable topic conversation is the only user-facing history surface. Its
-Easy Button projection combines primary-agent work, narrator milestones and
-status answers, approvals, artifacts, summaries, and user turns. Do not expose
-separate narrator, primary-agent, master, provider, or side-thread transcripts
-as parallel chat histories.
+The topic conversation durably owns accepted inputs, turns, steering, queueing,
+agent trajectory, narrator state, artifacts, and provider references. That
+underlying history exists for execution, model context, recovery, and audit;
+it is not rendered as user-message scrollback.
+
+An Easy Button restores one evolving projection of the topic:
+
+- persisted conversation title and identity
+- narrator-controlled `currentFocus`, initially derived from the first request
+  and revised as later work changes the active objective
+- accumulated milestones and artifacts
+- current work, queue, approval, error, side, and lineage state
+- latest narrator status reply and latest terminal summary
+
+Later user inputs, queued requests, and steering instructions do not become
+message bubbles or a visible request list. Their effects appear through the
+updated focus and projection. Do not expose separate narrator, primary-agent,
+master, provider, or side-thread transcripts as parallel chat histories.
 
 The master remains durable internally because routing, clarification,
 idempotency, recovery, and audit require it. That persistence does not imply a
@@ -169,9 +182,10 @@ request, its current processing state, its unresolved clarification chain, and
 its immediate result. Completed master interactions are not hydrated or
 rendered as a list.
 
-If a master exchange becomes substantive enough to need durable user-visible
-history, the master must route to or create a topic conversation. Do not turn
-the shell overlay into another conversation aggregate.
+If a master exchange becomes substantive enough to need durable work, the
+master must route to or create a topic conversation whose result appears
+through that topic's projection. Do not turn the shell overlay into another
+conversation aggregate.
 
 ### Shell input is globally routed; Easy Button input is conversation-routed
 
@@ -2092,8 +2106,9 @@ Exit criteria:
   policy says so
 - shell text and voice share one durable master session even when the navigator
   is collapsed
-- only topic conversations expose durable user-facing history; the master
-  overlay never hydrates or renders completed-request scrollback
+- topic inputs and turns remain durable but hidden; the Easy Button restores an
+  evolving current-state projection rather than request scrollback, and the
+  master overlay never hydrates or renders completed requests
 - an unresolved shell clarification survives close/reload/restart, while a
   completed interaction clears and shell microphone activation opens the
   active interaction
@@ -2203,6 +2218,9 @@ Cover:
 - multiple Easy Button pane isolation
 - pane focus/open reuse policy
 - pane close without conversation cancellation
+- initial work seeds the topic projection; later send/queue/steer inputs update
+  `currentFocus`, queue, milestones, artifacts, and terminal state without
+  rendering user-message bubbles or a request list
 - stable accessible conversation palettes: distinct visible conversations when
   available, identical palettes for duplicate views, and non-color identity
   labels
@@ -2238,7 +2256,9 @@ temporary app data and a scripted Codex app-server, cover:
    then open a second view of one conversation and verify it retains one
    navigator row and the same palette.
 3. Start both agents and receive interleaved streamed events.
-4. Queue and steer one conversation without affecting the other.
+4. Queue and steer one conversation without affecting the other. Verify those
+   durable inputs update the topic projection without appearing as message
+   scrollback.
 5. Ask one narrator for status while its agent remains active.
 6. Accumulate an over-budget trajectory while narration is unavailable, then
    recover through ordered catch-up; verify checkpoint maintenance cannot hide
@@ -2407,9 +2427,10 @@ This plan is complete only when all of the following are true:
   typed decisions.
 - The same global master is reachable through shell voice and shell-owned text
   UI, including while the left pane is collapsed.
-- Only topic conversations expose durable user-facing history. The master
-  overlay shows one active request, unresolved clarification, or immediate
-  result and never hydrates completed-request scrollback.
+- Topic inputs and turns remain durable but hidden. The Easy Button restores an
+  evolving current-state projection rather than a request transcript, and the
+  master overlay shows only one active request, unresolved clarification, or
+  immediate result.
 - The explicit shell microphone control opens the active master interaction;
   global enablement alone never implies continuous listening.
 - Ordinary Easy Button text and voice enter the bound conversation's

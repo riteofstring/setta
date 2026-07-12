@@ -86,7 +86,7 @@ The narrator or global master can decide this should be a fork. The fork inherit
 - Its own narrator.
 - Its own voice and color palette.
 - Its own navigator row.
-- Its own panes and future history.
+- Its own panes, underlying trajectory, and visible projection.
 
 The parent and fork can continue concurrently without affecting each other.
 
@@ -102,16 +102,31 @@ The response appears back at the originating pane as needed, but it still uses
 the one global master session—there is no separate per-pane master and the
 escalation does not populate a master-history surface.
 
-### Where history lives
+### What an Easy Button preserves and shows
 
-Durable user-facing history belongs to topic conversations. Worker output,
-narrator milestones, status answers, approvals, artifacts, and summaries are
-projected together in the Easy Button for that topic. The worker, narrator,
-master, and provider sessions do not receive separate transcript UIs.
+The underlying topic conversation durably preserves all accepted inputs,
+turns, steering, queueing, agent trajectory, narrator state, and provider
+references for execution and reconstruction. That underlying history is not a
+user-facing message transcript.
+
+The Easy Button restores an evolving topic projection:
+
+- The conversation title and identity.
+- The narrator-controlled `Current focus`, initially derived from the first
+  request and revised as later work changes the active objective.
+- Accumulated NOW milestones and artifacts.
+- Current work, queue, approval, error, and side-conversation state.
+- The latest narrator status answer and latest terminal summary.
+
+Later requests, queued inputs, and steering instructions do not appear as
+message bubbles or a scrollback list. Their effects become visible through the
+updated focus and projection. The worker, narrator, master, side agent, and
+provider sessions do not receive separate transcript UIs.
 
 The master is a coordinator. If an exchange becomes substantive enough to
-need durable user-visible history, the master creates or routes to a topic
-conversation instead of continuing a separate global chat.
+need durable work, the master creates or routes to a topic conversation so its
+result is represented by that topic's projection instead of a separate global
+chat.
 
 ### Status and narration
 
