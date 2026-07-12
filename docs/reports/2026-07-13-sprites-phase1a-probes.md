@@ -2,15 +2,16 @@
 
 ## Scope
 
-Evidence captured while re-establishing Sprites access and characterizing a
-leftover probe Sprite from an earlier manual session. This records what is
-already known before the structured Phase 1a probe battery runs. It maps to the
-Phase 1a checklist in
+Evidence for Phase 1a of the Setta Cloud Platform plan. Covers re-establishing
+Sprites access, characterizing and destroying a leftover probe Sprite, and both
+the characterization and adversarial/constructive-boundary probe batteries run
+against a clean disposable Sprite. Maps to the Phase 1a checklist in
 `docs/plans/setta-cloud-platform-sprites-plan.md`.
 
-Status: partial. Version recording and several incidental observations are done;
-the systematic capability/permission matrix, root-model, network, cost-cutoff,
-attached-idle, and checkpoint probes are not yet run.
+Status: characterization and adversarial batteries complete; no stop-condition
+fired (see Stop-condition assessment). Remaining Phase 1a work: the
+cost-assumptions table, idle-pause/attached-idle timing, applied-egress-policy
+bypass testing, unauthenticated-URL wake behavior, and confirming `warm` cost.
 
 ## Access re-established
 
@@ -87,18 +88,26 @@ Together these confirm settled boundary 13: the trusted Setta runtime cannot
 rely on Unix users (or the absence of sudo) to isolate untrusted workload/agent
 code inside one Sprite. A real internal boundary (dropped capabilities +
 `no_new_privs` + seccomp, a user namespace, or a container) must be constructed
-by Setta, not assumed. Whether the API behind `api.sock` *authorizes*
-destructive/management actions (checkpoint, policy, deletion, suspension) from
-the guest is the sharpest remaining adversarial probe and is not yet answered;
-socket reachability, however, is confirmed.
+by Setta, not assumed. The adversarial pass answered the follow-on question: the
+socket is not only reachable but **unauthenticated and actionable** from the
+guest — a local process created a checkpoint through it with no credential (see
+adversarial finding A1). It exposes services and checkpoints, not full-org
+control, and does not leak the org token. A buildable inner boundary contains
+this (finding A2), so it is a design task rather than a fundamental stop.
 
-### 3. Raw-IP egress appears blocked (network policy, partial)
+### 3. Default outbound egress is wide open (corrects an earlier note)
 
-A prior probe artifact (`/tmp/probe.err`) shows `curl 1.1.1.1:443` returned
-`curl (7) Could not connect`. Consistent with the documented raw-IP block, but
-the full network matrix (private IP, alternate DNS, DNS-over-HTTPS, SMTP by IP,
-pre-existing connections, raw sockets, and ordinary developer egress) is not yet
-run.
+An earlier note here claimed raw-IP egress was blocked, based on a stale
+`/tmp/probe.err` artifact on the leftover Sprite. The adversarial pass on a fresh
+Sprite shows the opposite: with **no policy applied** (the default;
+`/.sprite/policy` is empty), outbound is essentially open. Confirmed by live
+output — raw public-IP HTTPS to `1.1.1.1`, DNS-over-HTTPS to `8.8.8.8`, a TCP
+connect to port 25 of a mail IP, and ICMP `ping 1.1.1.1` all **succeeded**; only
+RFC1918 private IPs (`10.0.0.1:443`) were refused (default microVM isolation, not
+a Setta policy). The guest also holds `cap_net_raw`/`cap_net_admin`. So broad
+outbound — including spam-capable SMTP and raw sockets — is the default, and
+Setta must **apply** an egress policy and then re-test it for bypass; this is not
+a property that comes for free. See adversarial finding 4.
 
 ### 4. No container runtime in the base image, but namespace primitives work
 
@@ -122,6 +131,65 @@ in-memory state. Checkpoint metadata is readable via the management API
 returned 404. This supports settled boundary 18 (restore is a whole-runtime
 rollback, not a per-project undo) and flags that any session/queue/transcript
 state must be reconstructible after a restore.
+
+## Adversarial findings
+
+Run via `scripts/sprites/phase1a_adversarial.sh` (delegated Codex, high effort)
+against `setta-phase1a-20260713-char`. Reversible probes only; all artifacts
+cleaned up.
+
+### A1. The management socket is unauthenticated and actionable from the guest
+
+From the default guest, `curl --unix-socket /.sprite/api.sock http://sprite/...`
+successfully performed local management actions with no credential: `GET
+/v1/services`, `GET /v1/checkpoints`, and a `POST /v1/checkpoint` that **created
+checkpoint `v1`** (then deleted for cleanup). `/v1/sprites` and `/v1/policy`
+returned 404 over the socket, so the local socket exposes a subset (services and
+checkpoints), not full-org control — the org token is not exposed. But any local
+process can create checkpoints and read/manage services with no authentication.
+This is the concrete confirmation behind finding 2: untrusted in-Sprite code can
+drive part of the management surface.
+
+### A2. A buildable inner boundary exists — this is a design task, not a stop
+
+No single off-the-shelf model was sufficient, but a composed one is:
+
+- **Capability drop + `no_new_privs`** (`setpriv`, uid 65534, all caps dropped):
+  `CapEff=0`, sudo blocked, `/root` write denied, yet HTTPS and a C compile still
+  worked. **But `/.sprite/api.sock` stayed reachable** (a filesystem path, not
+  gated by capabilities) and still returned data.
+- **Mount namespace masking `/.sprite`**: the socket became
+  `No such file or directory` / "Could not connect", while ordinary Python/HTTPS
+  still worked and `/root` write failed — but namespace-root retained broad caps,
+  so masking alone is also insufficient.
+- **Podman rootless**: installed but `podman run` failed on `/dev/net/tun` and
+  `/dev/fuse` permission errors — not usable as-is on this image.
+
+Composing the working pieces — **unprivileged uid + `no_new_privs` + empty
+capability sets + a mount namespace that masks `/.sprite/api.sock` and other
+trusted-runtime paths** — removes capability-root, sudo escalation, DAC override,
+and socket reachability while preserving developer ergonomics. So the default
+isolation gap (finding 2) is a required **boundary-design task for the launcher
+that starts untrusted workloads**, not a fundamental stop-condition. Do not rely
+on podman rootless as the boundary on this image.
+
+### A3. A non-destructive hard-cost cutoff exists (defuses a stop-condition)
+
+`POST /v1/sprites/<name>/suspend` returned `ok` and moved status from `running`
+to `warm` at the first poll, ~1s later, with no `sprite destroy`. So the control
+plane can stop active compute quickly without deleting the Sprite — the plan's
+"can't stop billable compute without destroying user data" stop-condition does
+not hold. Caveat: suspend lands in `warm`, not `cold`; whether `warm` still bills
+resident memory (versus a storage-only paused state) is a Phase 1c measurement.
+
+### A4. Egress must be actively policed (see finding 3)
+
+The two-sided network test confirmed ordinary dev egress works (GitHub clone,
+`pip download`, GitHub API) and that the default has no abuse containment (raw
+IP, DoH-by-IP, SMTP:25, ICMP all open; only RFC1918 blocked). The next network
+step is to **apply** a Sprites egress policy through the management API and
+re-run this matrix to test for bypass; the default-open baseline is now
+established.
 
 ## Commercial-model evidence (supports deferring the Fly inquiry)
 
@@ -194,60 +262,81 @@ B (`sprite-env` services lifecycle), C (checkpoint create/restore rollback),
 D (podman/namespaces/cgroups + one benign HTTPS check), and E (base-image
 inventory).
 
+## Adversarial harness
+
+The adversarial + constructive-boundary probes were run through
+`scripts/sprites/phase1a_adversarial.sh` (delegated Codex, high effort). Same
+conventions as the characterization harness (requires `--sprite`, refuses
+create/destroy via an explicit lifecycle guard, EXIT-trap cleanup, `--out`);
+reversible probes only. Both harnesses pass `bash -n` and
+`./scripts/shellcheck.sh`.
+
+## Stop-condition assessment
+
+- **Isolation gap: NOT a stop-condition — a boundary-design task.** The default
+  account is capability-root and the management socket is unauthenticated from
+  the guest (findings 2, A1), but a composed inner boundary (unprivileged uid +
+  `no_new_privs` + empty caps + mount-namespace masking of `/.sprite`) contains
+  all of it while preserving dev ergonomics (A2).
+- **Non-destructive hard-cost cutoff: EXISTS.** `POST .../suspend` stops active
+  compute in ~1s without deletion (A3). Corresponding stop-condition does not
+  hold, pending a `warm`-cost measurement.
+- **Network containment: an operability requirement, not proven impossible.**
+  Default egress is open (findings 3, A4); Setta must apply and then re-test an
+  egress policy. Not yet shown bypassable once applied.
+
+No Phase 1a stop-condition fired. The core architectural risk resolves into
+concrete build tasks.
+
 ## Phase 1a checklist status
 
 - Fly written inquiry: deferred with recorded justification; pre-beta gate.
-- Cost assumptions table + max cost/user + cutoff lag: not built; plan-tier
-  input now captured (above).
-- Create disposable Sprite + record versions: done. Clean disposable
-  `setta-phase1a-20260713-char` created (`--skip-console`, label
-  `setta-phase1a`); versions recorded above.
-- Capability/permission matrix (characterization): done for the ordinary and
-  sudo/root actors — the default account is already broadly capability-root (see
-  finding 2). `sprite-env` services create/list/get/delete verified. Still
-  pending (adversarial): guest-reachability/authorization of the management
-  socket, URL auth, Ports, Proxy, exec, policy, and deletion endpoints.
-- Two root models (characterization): namespace/cgroup primitives verified
-  (`unshare -Ur`, cgroup v2); no container runtime ships in the base image.
-  Proving a constrained boundary cannot reach the management socket or protected
-  state is pending (adversarial).
-- Non-destructive hard-cost cutoff under hostile Task/TTY/connection/process:
-  not run (adversarial).
-- Network/privilege policy matrix from outside: partial (raw-IP block observed;
-  one benign HTTPS GET to a normal host succeeded). Full matrix pending
-  (adversarial).
+- Cost assumptions table + max cost/user + cutoff lag: not built; plan-tier and
+  measured `suspend` cutoff latency (~1s) now available as inputs.
+- Create disposable Sprite + record versions: done (`setta-phase1a-20260713-char`).
+- Capability/permission matrix: done. Default account is capability-root;
+  management socket is unauthenticated/actionable from the guest for services and
+  checkpoints (A1). Guest-reachability of URL auth, Ports, Proxy, and deletion
+  over the socket: `/v1/sprites` and `/v1/policy` returned 404 over the socket
+  (not guest-reachable there); a full external-vs-socket endpoint map is still
+  worth completing in Phase 1b.
+- Two root models: characterized. Constrained-account model is viable only as a
+  constructed composed boundary (A2); podman rootless is broken on this image.
+- Non-destructive hard-cost cutoff under hostile keepalive: done — `suspend`
+  works in ~1s (A3).
+- Network/privilege policy matrix: default-open baseline established (3, A4);
+  applying a policy and testing bypass remains.
 - Unauthenticated URL wake behavior; Proxy API as gateway without exposing org
   token: not run.
 - Attached-idle behavior (event stream, idle TTY, preview): not run; idle-pause
   timing still needs a dedicated leave-it-alone measurement.
-- Checkpoint create/inspect/restore: done. Restore rolled back the overlay
-  filesystem and killed a running process (whole-Sprite reset). The
-  representative SQLite/repo-write variant and the "restored code cannot override
-  a newer credential epoch" check remain for later phases.
-- Destroy disposable + verify: mechanism validated on the leftover Sprite
-  (`sprite destroy --force`; `GET /v1/sprites` then returned an empty list).
+- Checkpoint create/inspect/restore: done (whole-Sprite reset). SQLite/repo-write
+  variant and the credential-epoch override check remain for later phases.
+- Destroy disposable + verify: mechanism validated on the leftover Sprite, and
+  the characterization/adversarial disposable destroyed after both runs (below).
 
 ## Cleanup
 
 - Leftover Sprite `setta-phase1a-20260713-a1`
   (`sprite-4c6f1c96-6f03-4430-a2e1-92b3e344d119`) destroyed with
-  `sprite destroy --force`; `GET /v1/sprites` confirmed `running: 0`, empty
-  `sprites` list.
+  `sprite destroy --force`; `GET /v1/sprites` confirmed an empty list.
 - Disposable `setta-phase1a-20260713-char`
-  (`sprite-e7da3c35-d1ea-49ae-a4e2-92f5fa807317`) created for the
-  characterization run. The harness left no test service, checkpoint, or process
-  behind. Lifecycle is operator-controlled; it will be destroyed once the
-  adversarial battery is either run or declined.
+  (`sprite-e7da3c35-d1ea-49ae-a4e2-92f5fa807317`) served both the
+  characterization and adversarial runs; both harnesses left no service,
+  checkpoint, or stray process behind, and destroyed after the adversarial run
+  (see final Cleanup verification in the progress log). The org has no remaining
+  Sprites.
 
 ## Next steps
 
 1. Build the cost-assumptions table (retained-cold, attached-idle, active-agent)
-   against a chosen plan tier; record max provider cost per beta user and max
-   cutoff-enforcement lag.
-2. Create one clean, version-stamped disposable Sprite for the official run.
-3. Run the characterization probe battery (capability/permission matrix, podman/
-   rootless container path, checkpoint create/inspect/restore persistence,
-   idle-pause timing) via delegated Codex probe scripts.
-4. On explicit go-ahead, run the adversarial battery (management-socket
-   authorization from the guest, network-policy bypass, hard-cost cutoff under
-   hostile load).
+   against a chosen plan tier, using the measured `suspend` cutoff latency;
+   record max provider cost per beta user and max cutoff-enforcement lag. Confirm
+   whether `warm` bills resident memory.
+2. Prototype the composed launcher boundary (unprivileged uid + `no_new_privs` +
+   empty caps + mount-namespace masking of `/.sprite`) and confirm it both
+   contains untrusted code and preserves representative dev workflows.
+3. Apply a Sprites egress policy through the management API and re-run the
+   network matrix to test for bypass.
+4. Fold the confirmed `suspend` cutoff into the control-plane hard-budget design
+   (Phase 1c/2), and measure `warm` cost.
