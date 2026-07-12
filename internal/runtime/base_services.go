@@ -10,6 +10,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
+	"setta/internal/conversationindex"
 	"setta/internal/master"
 	"setta/internal/narration"
 	"setta/internal/orchestrator"
@@ -24,6 +25,7 @@ type runtimeBaseServices struct {
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
+	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
 	narratorService          *narration.Service
@@ -69,6 +71,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		codexManager:             foundation.codexManager,
 		conversationService:      foundation.conversationService,
 		conversationInputService: foundation.conversationInputService,
+		conversationIndexService: foundation.conversationIndexService,
 		conversationStore:        foundation.conversationStore,
 		masterInputService:       foundation.masterInputService,
 		narratorService:          foundation.narratorService,
@@ -106,6 +109,7 @@ type runtimeFoundation struct {
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
+	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
 	narratorService          *narration.Service
@@ -129,6 +133,11 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	conversationStore, err := conversation.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
+	}
+	conversationIndexService, err := conversationindex.NewService(conversationStore, workspaceService)
+	if err != nil {
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, fmt.Errorf("create conversation index service: %w", err)
 	}
 	masterInputService, err := master.NewService(conversationStore)
 	if err != nil {
@@ -176,6 +185,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		codexManager:             codexManager,
 		conversationService:      conversationService,
 		conversationInputService: conversationInputService,
+		conversationIndexService: conversationIndexService,
 		conversationStore:        conversationStore,
 		masterInputService:       masterInputService,
 		narratorService:          narratorService,

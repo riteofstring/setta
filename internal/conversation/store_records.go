@@ -43,6 +43,9 @@ INSERT INTO conversations (
 	if err != nil {
 		return fmt.Errorf("insert conversation %s: %w", conversation.ID, err)
 	}
+	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, conversation.ID); err != nil {
+		return fmt.Errorf("index inserted conversation %s: %w", conversation.ID, err)
+	}
 	return transaction.recordStateMutation()
 }
 
@@ -81,6 +84,9 @@ WHERE id = ?
 	}
 	if err := requireOneRow(result, "conversation", conversation.ID, "projection expectation did not match"); err != nil {
 		return err
+	}
+	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, conversation.ID); err != nil {
+		return fmt.Errorf("index updated conversation %s: %w", conversation.ID, err)
 	}
 	return transaction.recordStateMutation()
 }
@@ -130,6 +136,9 @@ INSERT INTO conversation_turns (
 	)
 	if err != nil {
 		return fmt.Errorf("insert conversation turn %s: %w", turn.ID, err)
+	}
+	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, turn.ConversationID); err != nil {
+		return fmt.Errorf("index conversation turn %s: %w", turn.ID, err)
 	}
 	return transaction.recordStateMutation()
 }

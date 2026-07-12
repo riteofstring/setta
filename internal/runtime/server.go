@@ -24,6 +24,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
+	"setta/internal/conversationindex"
 	"setta/internal/httpapi"
 	"setta/internal/master"
 	"setta/internal/narration"
@@ -113,6 +114,7 @@ type runtimeServices struct {
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
+	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
 	narratorService          *narration.Service
@@ -355,6 +357,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		codexManager:             baseServices.codexManager,
 		conversationService:      baseServices.conversationService,
 		conversationInputService: baseServices.conversationInputService,
+		conversationIndexService: baseServices.conversationIndexService,
 		conversationStore:        baseServices.conversationStore,
 		masterInputService:       baseServices.masterInputService,
 		narratorService:          baseServices.narratorService,

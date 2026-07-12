@@ -122,6 +122,9 @@ RETURNING sequence
 	if err := appendConversationInputAcceptedEvent(ctx, tx, accepted); err != nil {
 		return AcceptedConversationInput{}, false, err
 	}
+	if err := rebuildTopicIndexDocument(ctx, tx, input.ConversationID); err != nil {
+		return AcceptedConversationInput{}, false, fmt.Errorf("index conversation input %s: %w", input.ID, err)
+	}
 	return accepted, true, nil
 }
 

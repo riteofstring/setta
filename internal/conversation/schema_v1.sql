@@ -256,19 +256,25 @@ CREATE TABLE topic_index_documents (
   workspace_id TEXT NOT NULL,
   title TEXT NOT NULL,
   topic_descriptor TEXT NOT NULL,
-  keywords TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL
+  recent_user_requests_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(recent_user_requests_json)),
+  recent_final_summaries_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(recent_final_summaries_json)),
+  updated_at TEXT NOT NULL,
+  updated_sort_key TEXT NOT NULL
 ) STRICT;
 
 CREATE INDEX topic_index_documents_workspace_updated_idx
-  ON topic_index_documents(workspace_id, updated_at DESC, conversation_id);
+  ON topic_index_documents(workspace_id, updated_sort_key DESC, conversation_id);
+
+CREATE INDEX topic_index_documents_updated_idx
+  ON topic_index_documents(updated_sort_key DESC, conversation_id);
 
 CREATE VIRTUAL TABLE topic_index_search USING fts5(
   conversation_id UNINDEXED,
   workspace_id UNINDEXED,
   title,
   topic_descriptor,
-  keywords,
+  recent_user_requests,
+  recent_final_summaries,
   tokenize = 'unicode61'
 );
 
