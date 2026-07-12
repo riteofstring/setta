@@ -142,6 +142,16 @@ func validateRouteInvocationTimeline(attempt RouteInvocationAttempt) error {
 }
 
 func validateRouteInvocationResult(attempt RouteInvocationAttempt) error {
+	switch attempt.ValidationResult {
+	case RouteInvocationValidationNotRun,
+		RouteInvocationValidationPassed,
+		RouteInvocationValidationFailed:
+	default:
+		return fmt.Errorf(
+			"unsupported master route invocation validation result %q",
+			attempt.ValidationResult,
+		)
+	}
 	if attempt.DecisionKind != nil && !validRouteDecisionKind(*attempt.DecisionKind) {
 		return fmt.Errorf("unsupported master route invocation decision kind %q", *attempt.DecisionKind)
 	}

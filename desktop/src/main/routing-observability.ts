@@ -9,6 +9,7 @@ import type {
   InvocationAttempt,
   InputRoutingState,
   PresentationIntent,
+  ResolvedInvocation,
   RouteCommand,
   RouteContextAudit,
   RouteDecision,
@@ -78,7 +79,7 @@ export class RouteObservability implements RoutingObservationRecorder {
         inputId: record.inputId,
         inputModality: input.modality,
         inputTextBytes: utf8Bytes(input.text),
-        invocation: record.resolvedInvocation,
+        invocation: summarizeConversationResolvedInvocation(record.resolvedInvocation),
         resultingEffect: summarizeConversationCommand(record.resultingCommand),
         routingAttempt: record.routingAttempt,
         schemaVersion: routingObservationSchemaVersion,
@@ -367,6 +368,18 @@ function summarizeConversationRouteAttempt(attempt: InvocationAttempt | null) {
   return {
     ...attempt,
     failure: attempt.failure === null ? null : summarizeFailure(attempt.failure),
+  };
+}
+
+function summarizeConversationResolvedInvocation(invocation: ResolvedInvocation) {
+  return {
+    ...invocation,
+    failure: invocation.failure === null ? null : summarizeFailure(invocation.failure),
+    modelReroutes: invocation.modelReroutes.map((reroute) => ({
+      fromModelId: reroute.fromModelId,
+      reasonBytes: utf8Bytes(reroute.reason),
+      toModelId: reroute.toModelId,
+    })),
   };
 }
 

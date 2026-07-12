@@ -27,6 +27,18 @@ describe("route observability", () => {
       events.push({ payload, type });
     });
     const state = conversationRoutingState();
+    const rerouteReason = "Private local route model-reroute reason";
+    const decision = state.decisions[0];
+    if (decision === undefined) {
+      throw new Error("conversation routing fixture has no decision");
+    }
+    decision.resolvedInvocation.modelReroutes = [
+      {
+        fromModelId: "requested-narrator-model",
+        reason: rerouteReason,
+        toModelId: "narrator-model",
+      },
+    ];
 
     observability.recordConversationInputRoutingState(state);
     observability.recordConversationInputRoutingState(state);
@@ -50,6 +62,13 @@ describe("route observability", () => {
         inputTextBytes: Buffer.byteLength("Route private local text", "utf8"),
         invocation: {
           contextUsage: { inputBytes: 420, outputBytes: 64 },
+          modelReroutes: [
+            {
+              fromModelId: "requested-narrator-model",
+              reasonBytes: Buffer.byteLength(rerouteReason, "utf8"),
+              toModelId: "narrator-model",
+            },
+          ],
           requested: { role: "narrator" },
           resolved: { modelId: "narrator-model" },
         },
@@ -64,6 +83,7 @@ describe("route observability", () => {
       type: "conversation_route_observed",
     });
     expect(JSON.stringify(events)).not.toContain("Route private local text");
+    expect(JSON.stringify(events)).not.toContain(rerouteReason);
   });
 
   test("records redacted clarification linkage for the final local route", () => {

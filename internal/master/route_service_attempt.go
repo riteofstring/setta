@@ -1,6 +1,7 @@
 package master
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"time"
@@ -199,7 +200,8 @@ func terminalMasterRouteAttemptID(work InputRoutingWork, call RouteCallResult) s
 	if call.RequestID != "" {
 		return call.RequestID
 	}
-	return fmt.Sprintf("master-route-attempt:%s:%d", work.Input.Input.ID, work.RoutingAttempt)
+	inputDigest := sha256.Sum256([]byte(work.Input.Input.ID))
+	return fmt.Sprintf("master-route-attempt:%x:%d", inputDigest, work.RoutingAttempt)
 }
 
 func terminalMasterRouteStartedAt(

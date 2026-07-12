@@ -24,7 +24,6 @@ import {
 import type { RendererRecordedEvent } from "@shared/recording";
 
 import { RouteObservability, type RoutingObservationRecorder } from "./routing-observability";
-import { recordedConversationEventTypes } from "./session-recorder-conversation-events";
 
 interface SessionRecorderMetadata {
   appDataDir: string;
@@ -458,7 +457,6 @@ export function conversationRecordingEvents(
     case "conversation.trajectory.appended":
       return recordedAgentTrajectory(event.payload.event, envelope);
     default:
-      void recordedConversationEventTypes[event.payload.type];
       return [
         {
           type: "conversation_event_forwarded",

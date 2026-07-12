@@ -144,6 +144,9 @@ func validateInvocationAttemptIdentity(attempt InvocationAttempt) error {
 }
 
 func validateInvocationAttemptMetadata(attempt InvocationAttempt) error {
+	if err := validateInvocationAttemptValidationResult(attempt.ValidationResult); err != nil {
+		return err
+	}
 	if err := validateInvocationAttemptModel(attempt); err != nil {
 		return err
 	}
@@ -160,6 +163,15 @@ func validateInvocationAttemptMetadata(attempt InvocationAttempt) error {
 		return err
 	}
 	return validateInvocationAttemptTerminalState(attempt)
+}
+
+func validateInvocationAttemptValidationResult(result InvocationValidationResult) error {
+	switch result {
+	case InvocationValidationNotRun, InvocationValidationPassed, InvocationValidationFailed:
+		return nil
+	default:
+		return fmt.Errorf("unsupported invocation attempt validation result %q", result)
+	}
 }
 
 func validateInvocationAttemptKind(attempt InvocationAttempt) error {

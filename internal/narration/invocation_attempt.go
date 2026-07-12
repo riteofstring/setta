@@ -105,16 +105,14 @@ func failedNarratorAttempt(
 			InputBytes:  result.InputBytes,
 			OutputBytes: result.OutputBytes,
 		},
-		ProviderReferences: conversation.InvocationProviderReferences{
-			RequestID: stringPointer(invocation.Request.ID),
-		},
-		StartedAt:        startedAt,
-		EndedAt:          endedAt,
-		Outcome:          conversation.InvocationAttemptOutcomeFailed,
-		ValidationResult: failedNarratorValidation(cause),
-		CommitDecision:   conversation.InvocationCommitFailureCommitted,
-		Output:           conversation.InvocationAttemptOutputAudit{},
-		Failure:          &failure,
+		ProviderReferences: conversation.InvocationProviderReferences{},
+		StartedAt:          startedAt,
+		EndedAt:            endedAt,
+		Outcome:            conversation.InvocationAttemptOutcomeFailed,
+		ValidationResult:   failedNarratorValidation(cause),
+		CommitDecision:     conversation.InvocationCommitFailureCommitted,
+		Output:             conversation.InvocationAttemptOutputAudit{},
+		Failure:            &failure,
 	}
 	if result.Model.RequestedProfile.Role != "" {
 		requested := cloneAttemptRoleProfile(result.Model.RequestedProfile)
@@ -126,6 +124,9 @@ func failedNarratorAttempt(
 	}
 	if result.ProviderThreadID != "" {
 		attempt.ProviderReferences.ThreadID = stringPointer(result.ProviderThreadID)
+	}
+	if result.RequestID != "" {
+		attempt.ProviderReferences.RequestID = stringPointer(result.RequestID)
 	}
 	if result.ProviderTurnID != "" {
 		attempt.ProviderReferences.TurnID = stringPointer(result.ProviderTurnID)
