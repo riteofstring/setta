@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   createBackendClient,
@@ -30,9 +31,14 @@ import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
+import { registerConversationIpcHandlers } from "./conversation-ipc";
+import { ConversationEventRegistry } from "./conversation-event-registry";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import { registerMasterIpcHandlers } from "./master-ipc";
+import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
+import { registerSpeechIpcHandlers } from "./speech-ipc";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { startSemanticGraphEventForwarding } from "./semantic-graph-event-forwarding-stream";
@@ -63,6 +69,24 @@ let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
 const backendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
+const conversationEvents = new ConversationEventRegistry({
+  backendConnection: () => {
+    const runtime = activeRuntime();
+    if (!runtime) {
+      throw new Error(runtimeUnavailableMessage());
+    }
+    return { baseURL: runtime.baseUrl, fetchImpl: backendFetch() };
+  },
+  recordEvent: (event) => {
+    recorder?.recordAppEvent("conversation_event_forwarded", {
+      conversationId: event.conversationId,
+      eventId: event.eventId,
+      sequence: event.sequence,
+      type: event.payload.type,
+      workspaceId: event.workspaceId,
+    });
+  },
+});
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
 const backendRequestDrainTimeoutMs = 1_500;
@@ -273,6 +297,7 @@ async function stopBackendEventStreams() {
     stopTerminalEventStreamForwarding(),
     stopWorkspaceActivityEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
+    conversationEvents.stopAll(),
   ]);
 }
 
@@ -397,6 +422,7 @@ function e2eWindowDimension(envName: string, fallback: number) {
 
 async function createWindow() {
   const windowSize = mainWindowInitialSize();
+  const trustedRendererURL = mainRendererDocumentURL();
   mainWindow = new BrowserWindow({
     backgroundColor: "#18181b",
     height: windowSize.height,
@@ -419,6 +445,11 @@ async function createWindow() {
       sandbox: true,
     },
     width: windowSize.width,
+  });
+  configureMainRendererMicrophonePermissions({
+    session: mainWindow.webContents.session,
+    trustedRendererURL,
+    trustedWebContents: mainWindow.webContents,
   });
   recorder?.attachWindow(mainWindow);
 
@@ -454,6 +485,20 @@ async function createWindow() {
       }
     }, 0);
   }
+}
+
+function mainRendererDocumentURL(): string {
+  if (process.env.ELECTRON_RENDERER_URL) {
+    return rendererURLWithE2EQuery(process.env.ELECTRON_RENDERER_URL);
+  }
+  const url = pathToFileURL(join(__dirname, "../renderer/index.html"));
+  const query = rendererE2EQuery();
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
 }
 
 function rendererURLWithE2EQuery(rawURL: string): string {
@@ -626,6 +671,14 @@ function registerIpc() {
     ipcObserver,
   );
   registerWorkspaceActivityIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerSpeechIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerMasterIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerConversationIpcHandlers({
+    conversationEvents,
+    ipcMain,
+    ipcObserver,
+    requireBackendClient,
+  });
   registerChatIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerChatCodexIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });

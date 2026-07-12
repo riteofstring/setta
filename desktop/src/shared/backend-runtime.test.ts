@@ -7,6 +7,7 @@ import {
   decodeBoolean,
   decodeInteger,
   decodeString,
+  isBackendRequestError,
   requestBackend,
   requireField,
   type BackendFetch,
@@ -119,17 +120,89 @@ describe("backend runtime requests", () => {
     expect(call.init.headers).toEqual({ "Content-Type": "application/json" });
   });
 
-  test("throws decoded backend error messages", async () => {
-    await expect(
-      requestBackend({
-        baseURL: "http://127.0.0.1:41000",
-        decodeErrorResponse: decodeRuntimeError,
-        decodeResponse: decodeOKPayload,
-        endpoint: { method: "GET", path: "/payload" },
-        fetchImpl: async () => jsonResponse({ error: { message: "backend failed" } }, 500),
-        requestPayload: undefined,
-      }),
-    ).rejects.toThrow("backend failed");
+  test("passes request cancellation to the fetch boundary", async () => {
+    const controller = new AbortController();
+    let receivedSignal: AbortSignal | null = null;
+    const request = requestBackend({
+      baseURL: "http://127.0.0.1:41000",
+      decodeErrorResponse: decodeRuntimeError,
+      decodeResponse: decodeOKPayload,
+      endpoint: { method: "POST", path: "/payload" },
+      fetchImpl: async (_input, init) => {
+        receivedSignal = init.signal ?? null;
+        return new Promise((_resolve, reject) => {
+          receivedSignal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+            { once: true },
+          );
+        });
+      },
+      requestPayload: { id: "workspace_api" },
+      signal: controller.signal,
+    });
+
+    controller.abort();
+
+    expect(receivedSignal).toBe(controller.signal);
+    await expect(request).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  test("throws decoded backend error facts", async () => {
+    const request = requestBackend({
+      baseURL: "http://127.0.0.1:41000",
+      decodeErrorResponse: decodeRuntimeError,
+      decodeResponse: decodeOKPayload,
+      endpoint: { method: "GET", path: "/payload" },
+      fetchImpl: async () =>
+        jsonResponse(
+          {
+            error: {
+              code: "operation_partially_failed",
+              message: "backend failed after applying the operation",
+              operationApplied: true,
+            },
+          },
+          500,
+        ),
+      requestPayload: undefined,
+    });
+
+    const error = await request.then(
+      () => null,
+      (failure: unknown) => failure,
+    );
+
+    expect(error?.constructor).toBe(Error);
+    expect(isBackendRequestError(error)).toBe(true);
+    expect(error).toMatchObject({
+      code: "operation_partially_failed",
+      message: "backend failed after applying the operation",
+      operationApplied: true,
+    });
+  });
+
+  test("serializes GET request payloads as query parameters", async () => {
+    const calls: FetchCall[] = [];
+    const fetchImpl: BackendFetch = async (input, init) => {
+      calls.push({ init, input });
+      return jsonResponse({ ok: true });
+    };
+
+    await requestBackend({
+      baseURL: "http://127.0.0.1:41000",
+      decodeErrorResponse: decodeRuntimeError,
+      decodeResponse: decodeOKPayload,
+      endpoint: { method: "GET", path: "/snapshot" },
+      fetchImpl,
+      requestPayload: { active: true, limit: 4, workspaceId: "workspace_api" },
+    });
+
+    const call = onlyCall(calls);
+    expect(call.input.toString()).toBe(
+      "http://127.0.0.1:41000/snapshot?active=true&limit=4&workspaceId=workspace_api",
+    );
+    expect(call.init).toEqual({ method: "GET" });
   });
 });
 
@@ -144,7 +217,9 @@ interface OKPayload {
 
 interface RuntimeErrorPayload {
   error: {
+    code: string;
     message: string;
+    operationApplied: boolean;
   };
 }
 
@@ -160,10 +235,15 @@ function decodeRuntimeError(value: unknown): RuntimeErrorPayload {
   const record = assertRecord(value, "RuntimeErrorPayload");
   assertKnownFields(record, "RuntimeErrorPayload", ["error"]);
   const error = assertRecord(requireField(record, "error", "RuntimeErrorPayload"), "RuntimeError");
-  assertKnownFields(error, "RuntimeError", ["message"]);
+  assertKnownFields(error, "RuntimeError", ["code", "message", "operationApplied"]);
   return {
     error: {
+      code: decodeString(requireField(error, "code", "RuntimeError"), "RuntimeError.code"),
       message: decodeString(requireField(error, "message", "RuntimeError"), "RuntimeError.message"),
+      operationApplied: decodeBoolean(
+        requireField(error, "operationApplied", "RuntimeError"),
+        "RuntimeError.operationApplied",
+      ),
     },
   };
 }

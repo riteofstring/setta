@@ -1,5 +1,16 @@
 import type { WorkspacePane, OpenPaneRequest, TerminalPaneConfig } from "./types";
 
+export function easyButtonConfigForRequest(
+  request: OpenPaneRequest,
+  existing?: WorkspacePane,
+): WorkspacePane["easyButtonConfig"] {
+  const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
+  if (surfaceKind !== "easy-button") {
+    return undefined;
+  }
+  return request.easyButtonConfig ?? existing?.easyButtonConfig;
+}
+
 export function terminalConfigForRequest(
   request: OpenPaneRequest,
   existing?: WorkspacePane,

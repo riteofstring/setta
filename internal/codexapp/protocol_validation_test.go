@@ -58,10 +58,12 @@ func TestDecodeThreadBackgroundTerminalsTerminateResponse(t *testing.T) {
 	if !decoded.Terminated {
 		t.Fatalf("terminated = false, want true")
 	}
+	if _, err := DecodeThreadBackgroundTerminalsTerminateResponse(json.RawMessage(`{"terminated":true,"status":"ok"}`)); err != nil {
+		t.Fatalf("decode response with upstream-allowed additional field: %v", err)
+	}
 
 	for name, raw := range map[string]string{
 		"missing terminated": `{"ok":true}`,
-		"unknown field":      `{"terminated":true,"status":"ok"}`,
 		"wrong type":         `{"terminated":"yes"}`,
 	} {
 		t.Run(name, func(t *testing.T) {

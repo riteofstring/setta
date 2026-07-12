@@ -18,7 +18,7 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	if request.StructuredTask == nil {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured task is required", ErrUnsupportedHarnessTask)
 	}
-	if request.Surface != HarnessSurfaceSemanticCartographer {
+	if !isStructuredHarnessSurface(request.Surface) {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured surface %s", ErrUnsupportedHarnessTask, request.Surface)
 	}
 	if request.TurnMode != HarnessTurnStructuredTask {

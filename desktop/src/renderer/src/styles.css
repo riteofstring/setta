@@ -4,6 +4,10 @@
 @import "./workspace-resize-preview.css";
 @import "./workspace-snapshot.css";
 @import "./workspace-pane-chrome.css";
+@import "./features/easy-button/easy-button-conversation-palette.css";
+@import "./features/easy-button/easy-button.css";
+@import "./features/easy-button/easy-button-conversation-controls.css";
+@import "./features/easy-button/easy-button-side-presentation.css";
 
 @theme inline {
   --color-background: var(--background);
@@ -346,6 +350,120 @@ h3 {
   min-width: 0;
 }
 
+.setta-shell-speech-status {
+  align-items: center;
+  background: color-mix(in oklch, var(--setta-900) 72%, transparent);
+  border: 1px solid color-mix(in oklch, var(--setta-600) 42%, transparent);
+  border-radius: 999px;
+  display: flex;
+  gap: 4px;
+  left: 50%;
+  max-width: min(46vw, 460px);
+  min-width: 30px;
+  padding: 1px 4px;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.setta-shell-speech-button,
+.setta-shell-speech-stop {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: color-mix(in oklch, var(--setta-150) 82%, transparent);
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 0;
+}
+
+.setta-shell-speech-button {
+  border-radius: 50%;
+  height: 24px;
+  width: 24px;
+}
+
+.setta-shell-speech-button svg {
+  height: 13px;
+  width: 13px;
+}
+
+.setta-shell-speech-stop {
+  border-radius: 4px;
+  height: 20px;
+  width: 20px;
+}
+
+.setta-shell-speech-stop svg {
+  height: 11px;
+  width: 11px;
+}
+
+.setta-shell-speech-button:hover:not(:disabled),
+.setta-shell-speech-button:focus-visible,
+.setta-shell-speech-stop:hover,
+.setta-shell-speech-stop:focus-visible {
+  background: color-mix(in oklch, var(--foreground) 8%, transparent);
+  color: var(--setta-50);
+  outline: none;
+}
+
+.setta-shell-speech-button:focus-visible,
+.setta-shell-speech-stop:focus-visible {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 62%, transparent);
+}
+
+.setta-shell-speech-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.setta-shell-speech-status[data-speech-capture="listening"] {
+  border-color: color-mix(in oklch, var(--accent-cyan) 58%, transparent);
+  color: var(--accent-cyan);
+}
+
+.setta-shell-speech-status[data-speech-capture="failed"],
+.setta-shell-speech-status[data-speech-playback="failed"] {
+  border-color: color-mix(in oklch, var(--status-critical-muted) 58%, transparent);
+}
+
+.setta-shell-speech-status[data-speech-playback="speaking"] .setta-shell-speech-button {
+  color: var(--accent-cyan);
+}
+
+.setta-shell-speech-label {
+  align-items: center;
+  color: var(--setta-200);
+  display: flex;
+  font-size: 10.5px;
+  gap: 5px;
+  max-width: 360px;
+  min-width: 0;
+  padding-right: 3px;
+}
+
+.setta-shell-speech-state-label,
+.setta-shell-speech-transcript {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-shell-speech-state-label {
+  flex: 0 1 auto;
+}
+
+.setta-shell-speech-transcript {
+  color: var(--setta-300);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.setta-shell-speech-spinner {
+  animation: setta-shell-speech-spin 900ms linear infinite;
+}
+
 .setta-shell-top-bar-button {
   align-items: center;
   background: transparent;
@@ -373,6 +491,24 @@ h3 {
 .setta-shell-top-bar-button.is-active {
   background: transparent;
   color: var(--primary);
+}
+
+@keyframes setta-shell-speech-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 720px) {
+  .setta-shell-speech-label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setta-shell-speech-spinner {
+    animation: none;
+  }
 }
 
 .setta-shell-top-bar-button:disabled {
