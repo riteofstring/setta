@@ -20,8 +20,10 @@ func ValidateSpeechCapabilities(capabilities SpeechCapabilities) error {
 	}{
 		{label: "transcription model", got: capabilities.TranscriptionModel, want: TranscriptionModel},
 		{label: "synthesis model", got: capabilities.SynthesisModel, want: SynthesisModel},
-		{label: "synthesis voice", got: capabilities.SynthesisVoice, want: SynthesisVoice},
 		{label: "AI voice disclosure", got: capabilities.AIVoiceDisclosure, want: AIVoiceDisclosure},
+	}
+	if err := validateSpeechVoiceCatalog(capabilities.VoiceCatalog); err != nil {
+		return err
 	}
 	for _, check := range checks {
 		if check.got != check.want {
@@ -36,6 +38,25 @@ func ValidateSpeechCapabilities(capabilities SpeechCapabilities) error {
 	}
 	if capabilities.MaximumSynthesisCharacters != MaximumSynthesisCharacters {
 		return fmt.Errorf("speech maximum synthesis characters = %d, want %d", capabilities.MaximumSynthesisCharacters, MaximumSynthesisCharacters)
+	}
+	return nil
+}
+
+func validateSpeechVoiceCatalog(catalog SpeechVoiceCatalog) error {
+	want := SynthesisVoiceCatalog()
+	if catalog.Provider != want.Provider {
+		return fmt.Errorf("speech voice catalog provider = %q, want %q", catalog.Provider, want.Provider)
+	}
+	if catalog.Version != want.Version {
+		return fmt.Errorf("speech voice catalog version = %q, want %q", catalog.Version, want.Version)
+	}
+	if len(catalog.VoiceIDs) != len(want.VoiceIDs) {
+		return fmt.Errorf("speech voice catalog length = %d, want %d", len(catalog.VoiceIDs), len(want.VoiceIDs))
+	}
+	for index, voiceID := range catalog.VoiceIDs {
+		if voiceID != want.VoiceIDs[index] {
+			return fmt.Errorf("speech voice catalog[%d] = %q, want %q", index, voiceID, want.VoiceIDs[index])
+		}
 	}
 	return nil
 }

@@ -2,6 +2,8 @@
 
 package speech
 
+type SpeechVoiceID string
+
 const (
 	openAIContractSourceCommit                        = "5162af98d3147432c14680df789e8e12d4891e6b"
 	openAIContractAPIVersion                          = "2.3.0"
@@ -18,14 +20,34 @@ const (
 	TranscriptionModel                                = "gpt-realtime-whisper"
 	TranscriptionDelay                                = "medium"
 	SynthesisModel                                    = "gpt-4o-mini-tts"
-	SynthesisVoice                                    = "marin"
-	OpenAISynthesisResponseFormat                     = "pcm"
-	realtimeClientSecretTTLSeconds                    = 600
-	MaximumSynthesisCharacters                        = 4096
-	OpenAIWebRTCURL                                   = openAIBaseURL + openAICreateRealtimeCallPath
+)
+
+const (
+	SpeechVoiceAlloy   SpeechVoiceID = "alloy"
+	SpeechVoiceAsh     SpeechVoiceID = "ash"
+	SpeechVoiceBallad  SpeechVoiceID = "ballad"
+	SpeechVoiceCoral   SpeechVoiceID = "coral"
+	SpeechVoiceEcho    SpeechVoiceID = "echo"
+	SpeechVoiceFable   SpeechVoiceID = "fable"
+	SpeechVoiceOnyx    SpeechVoiceID = "onyx"
+	SpeechVoiceNova    SpeechVoiceID = "nova"
+	SpeechVoiceSage    SpeechVoiceID = "sage"
+	SpeechVoiceShimmer SpeechVoiceID = "shimmer"
+	SpeechVoiceVerse   SpeechVoiceID = "verse"
+	SpeechVoiceMarin   SpeechVoiceID = "marin"
+	SpeechVoiceCedar   SpeechVoiceID = "cedar"
+	SynthesisVoice     SpeechVoiceID = SpeechVoiceMarin
+)
+
+const (
+	OpenAISynthesisResponseFormat  = "pcm"
+	realtimeClientSecretTTLSeconds = 600
+	MaximumSynthesisCharacters     = 4096
+	OpenAIWebRTCURL                = openAIBaseURL + openAICreateRealtimeCallPath
 )
 
 var (
+	openAISpeechVoiceIDs                                   = [...]SpeechVoiceID{"alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse", "marin", "cedar"}
 	openAICreateSpeechWireResponseMediaTypes               = [...]string{"application/octet-stream", "audio/pcm"}
 	openAICreateRealtimeCallWireResponseMediaTypes         = [...]string{"application/sdp", "text/plain"}
 	openAICreateRealtimeClientSecretWireResponseMediaTypes = [...]string{"application/json"}

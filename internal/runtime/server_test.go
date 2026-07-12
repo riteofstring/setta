@@ -83,7 +83,7 @@ func TestRuntimeServesDurableConversationNavigator(t *testing.T) {
 				ConversationID:         topic.ID,
 				PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
 				ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
-				NarratorVoiceSelection: conversation.PresentationSelectionAutoDistinct,
+				NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
 				NarratorSpeechEnabled:  true,
 				UpdatedAt:              topic.UpdatedAt,
 			},

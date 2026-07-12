@@ -15,12 +15,30 @@ func TestBuildGenerationModelExtractsSupportedOpenAIContracts(t *testing.T) {
 	if model.ServerURL != "https://api.openai.test/v1" || model.MaximumSynthesisCharacters != 4096 {
 		t.Fatalf("generated model metadata = %+v", model)
 	}
+	if strings.Join(model.Speech.VoiceCatalog, ",") != "alloy,marin" {
+		t.Fatalf("generated voice catalog = %v", model.Speech.VoiceCatalog)
+	}
 	if len(model.Operations) != 3 || len(model.ClientEvents) != 1 || len(model.Events) != len(supported.RealtimeServerEvents) {
 		t.Fatalf("generated contract counts = operations %d, client events %d, server events %d", len(model.Operations), len(model.ClientEvents), len(model.Events))
 	}
 	completed := eventNamed(t, model.Events, "transcriptionCompleted")
 	if !containsAll(completed.Required, "usage", "transcript", "content_index") {
 		t.Fatalf("completed required fields = %v", completed.Required)
+	}
+	goSource, err := renderGoContracts(model)
+	if err != nil {
+		t.Fatalf("render Go contracts: %v", err)
+	}
+	for _, expected := range []string{
+		"type SpeechVoiceID string",
+		`SpeechVoiceAlloy SpeechVoiceID = "alloy"`,
+		`SpeechVoiceMarin SpeechVoiceID = "marin"`,
+		"SynthesisVoice SpeechVoiceID = SpeechVoiceMarin",
+		`openAISpeechVoiceIDs = [...]SpeechVoiceID{"alloy", "marin"}`,
+	} {
+		if !strings.Contains(string(goSource), expected) {
+			t.Fatalf("generated Go contracts are missing %q:\n%s", expected, goSource)
+		}
 	}
 }
 
@@ -43,6 +61,13 @@ func TestBuildGenerationModelRejectsSelectedContractDrift(t *testing.T) {
 				document.Components.Schemas["CreateSpeechRequest"].Properties["response_format"].Enum = []any{"wav"}
 			},
 			want: "does not support response format",
+		},
+		{
+			name: "speech voice catalog",
+			mutate: func(document *openAPIDocument) {
+				document.Components.Schemas["Voice"].AnyOf = []*openAPISchema{{Type: "string", Enum: []any{"marin"}}}
+			},
+			want: "does not accept catalog voice",
 		},
 		{
 			name: "realtime response media type",
@@ -269,7 +294,12 @@ func supportedContractFixture() supportedContracts {
 			{Name: "error", Schema: "RealtimeServerEventError", Type: "error"},
 			{Name: "rateLimitsUpdated", Schema: "RealtimeServerEventRateLimitsUpdated", Type: "rate_limits.updated"},
 		},
-		Speech: supportedSpeech{Model: "gpt-4o-mini-tts", ResponseFormat: "pcm", Voice: "marin"},
+		Speech: supportedSpeech{
+			Model:          "gpt-4o-mini-tts",
+			ResponseFormat: "pcm",
+			Voice:          "marin",
+			VoiceCatalog:   []string{"alloy", "marin"},
+		},
 		Transcription: supportedTranscription{
 			ClientSecretTTLSeconds: 600,
 			Delay:                  "medium",

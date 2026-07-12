@@ -9,8 +9,14 @@ import (
 )
 
 func TestNewSpeechServiceRequiresDependencies(t *testing.T) {
-	if _, err := NewService(ServiceConfig{}); err == nil {
+	if _, err := NewService(context.Background(), ServiceConfig{}); err == nil {
 		t.Fatal("NewService unexpectedly succeeded")
+	}
+	if _, err := NewService(nil, ServiceConfig{
+		Provider:                &serviceTestProvider{},
+		VoiceConfigurationStore: &serviceTestVoiceConfigurationStore{},
+	}); err == nil {
+		t.Fatal("NewService unexpectedly accepted a nil context")
 	}
 }
 
@@ -89,14 +95,42 @@ func TestDeviceSafetyIdentifierIsStableAndDeviceScoped(t *testing.T) {
 
 func TestSpeechServiceUnconfiguredTranscriptionDoesNotCallProvider(t *testing.T) {
 	provider := &serviceTestProvider{}
-	service, err := NewService(ServiceConfig{Provider: provider})
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	_, err = service.CreateTranscriptionSession(context.Background(), "device_one")
+	service := newServiceTestService(t, provider)
+	_, err := service.CreateTranscriptionSession(context.Background(), "device_one")
 	assertSpeechServiceErrorCode(t, err, ErrorNotConfigured)
 	if provider.transcriptionCalls != 0 {
 		t.Fatalf("unexpected provider calls: %+v", provider)
+	}
+}
+
+func TestSpeechServiceInitializesAndReadsStableMasterVoiceSelection(t *testing.T) {
+	store := &serviceTestVoiceConfigurationStore{}
+	now := time.Date(2026, 7, 12, 18, 0, 0, 0, time.UTC)
+	service, err := NewService(context.Background(), ServiceConfig{
+		Provider:                &serviceTestProvider{},
+		VoiceConfigurationStore: store,
+		Now:                     func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	selection, err := service.ReadMasterVoiceSelection(context.Background())
+	if err != nil {
+		t.Fatalf("read master voice selection: %v", err)
+	}
+	if selection.Selection != VoiceSelectionExact || selection.RequestedVoiceID == nil ||
+		selection.ResolvedVoiceID == nil || *selection.RequestedVoiceID != SpeechVoiceMarin ||
+		*selection.ResolvedVoiceID != SpeechVoiceMarin ||
+		selection.UpdatedAt != "2026-07-12T18:00:00Z" {
+		t.Fatalf("master voice selection = %+v", selection)
+	}
+	*selection.ResolvedVoiceID = SpeechVoiceCedar
+	reloaded, err := service.ReadMasterVoiceSelection(context.Background())
+	if err != nil {
+		t.Fatalf("reload master voice selection: %v", err)
+	}
+	if reloaded.ResolvedVoiceID == nil || *reloaded.ResolvedVoiceID != SpeechVoiceMarin {
+		t.Fatalf("reloaded master voice selection = %+v, err=%v", reloaded, err)
 	}
 }
 
@@ -118,6 +152,30 @@ type serviceTestProvider struct {
 	transcriptionCalls int
 }
 
+type serviceTestVoiceConfigurationStore struct {
+	selection *MasterVoiceSelection
+}
+
+func (store *serviceTestVoiceConfigurationStore) EnsureMasterVoiceSelection(
+	_ context.Context,
+	initial MasterVoiceSelection,
+) (MasterVoiceSelection, error) {
+	if store.selection == nil {
+		cloned := CloneMasterVoiceSelection(initial)
+		store.selection = &cloned
+	}
+	return CloneMasterVoiceSelection(*store.selection), nil
+}
+
+func (store *serviceTestVoiceConfigurationStore) ReadMasterVoiceSelection(
+	context.Context,
+) (MasterVoiceSelection, error) {
+	if store.selection == nil {
+		return MasterVoiceSelection{}, errors.New("master voice selection is missing")
+	}
+	return CloneMasterVoiceSelection(*store.selection), nil
+}
+
 func (provider *serviceTestProvider) Configured() bool {
 	return provider.configured
 }
@@ -130,7 +188,13 @@ func (provider *serviceTestProvider) CreateTranscriptionClientSecret(_ context.C
 
 func newServiceTestService(t *testing.T, provider Provider) *Service {
 	t.Helper()
-	service, err := NewService(ServiceConfig{Provider: provider})
+	service, err := NewService(context.Background(), ServiceConfig{
+		Provider:                provider,
+		VoiceConfigurationStore: &serviceTestVoiceConfigurationStore{},
+		Now: func() time.Time {
+			return time.Date(2026, 7, 12, 18, 0, 0, 0, time.UTC)
+		},
+	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}

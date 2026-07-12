@@ -22,6 +22,12 @@ export function registerSpeechIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "speechReadMasterVoiceSelection",
+    async () => requireBackendClient().readMasterVoiceSelection(),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "speechCreateTranscriptionSession",
     async () => requireBackendClient().createSpeechTranscriptionSession({}),
     observerWithRedactedResult(ipcObserver),

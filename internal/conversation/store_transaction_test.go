@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -519,8 +520,8 @@ func seedTransactionConversation(t *testing.T, store *Store) transactionSeed {
 		ConversationID:          seed.conversation.ID,
 		PaletteSelection:        PresentationSelectionAutoDistinct,
 		ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
-		NarratorVoiceSelection:  PresentationSelectionAutoDistinct,
-		ResolvedNarratorVoiceID: stringPointer("alloy"),
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: speechVoiceIDPointer(speech.SpeechVoiceAlloy),
 		NarratorSpeechEnabled:   true,
 		UpdatedAt:               testTimeStarted,
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -240,8 +241,8 @@ func validConversationSnapshot() ConversationSnapshot {
 		ConversationID:          conversation.ID,
 		PaletteSelection:        PresentationSelectionAutoDistinct,
 		ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
-		NarratorVoiceSelection:  PresentationSelectionAutoDistinct,
-		ResolvedNarratorVoiceID: stringPointer("alloy"),
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: speechVoiceIDPointer(speech.SpeechVoiceAlloy),
 		NarratorSpeechEnabled:   true,
 		UpdatedAt:               testTimeStarted,
 	}

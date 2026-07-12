@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -327,9 +328,9 @@ func navigatorPresentationProfile(row navigatorRow) (ConversationPresentationPro
 		RequestedPaletteID:       requestedPaletteID,
 		ResolvedPaletteID:        conversationpalette.ConversationPaletteID(row.resolvedPaletteID.String),
 		PaletteReuse:             paletteReuse,
-		NarratorVoiceSelection:   PresentationSelectionMode(row.narratorVoiceSelection.String),
-		RequestedNarratorVoiceID: optionalScannedString(row.requestedNarratorVoiceID),
-		ResolvedNarratorVoiceID:  optionalScannedString(row.resolvedNarratorVoiceID),
+		NarratorVoiceSelection:   speech.VoiceSelectionMode(row.narratorVoiceSelection.String),
+		RequestedNarratorVoiceID: optionalSpeechVoiceID(row.requestedNarratorVoiceID),
+		ResolvedNarratorVoiceID:  optionalSpeechVoiceID(row.resolvedNarratorVoiceID),
 		NarratorVoiceReuse:       narratorVoiceReuse,
 		NarratorSpeechEnabled:    row.narratorSpeechEnabled.Int64 == 1,
 		UpdatedAt:                row.presentationProfileUpdatedAt.String,

@@ -440,6 +440,16 @@ async function createTopic(client, backend, workspaceId, title) {
   if (!item) {
     throw new Error(`created topic ${title} was not listed: ${JSON.stringify(page)}`);
   }
+  if (
+    item.presentationProfile.narratorVoiceSelection !== "auto_distinct" ||
+    item.presentationProfile.requestedNarratorVoiceId !== null ||
+    item.presentationProfile.resolvedNarratorVoiceId !== null ||
+    item.presentationProfile.narratorVoiceReuse !== null
+  ) {
+    throw new Error(
+      `created topic ${title} has an invalid durable narrator voice selection: ${JSON.stringify(item.presentationProfile)}`,
+    );
+  }
   await waitForConversationSurface(
     client,
     item.conversation.id,
@@ -447,6 +457,7 @@ async function createTopic(client, backend, workspaceId, title) {
   );
   return {
     id: item.conversation.id,
+    narratorVoiceSelection: item.presentationProfile.narratorVoiceSelection,
     paletteId: item.presentationProfile.resolvedPaletteId,
     title,
   };

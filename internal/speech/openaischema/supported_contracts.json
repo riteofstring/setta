@@ -90,7 +90,22 @@
   "speech": {
     "model": "gpt-4o-mini-tts",
     "responseFormat": "pcm",
-    "voice": "marin"
+    "voice": "marin",
+    "voiceCatalog": [
+      "alloy",
+      "ash",
+      "ballad",
+      "coral",
+      "echo",
+      "fable",
+      "onyx",
+      "nova",
+      "sage",
+      "shimmer",
+      "verse",
+      "marin",
+      "cedar"
+    ]
   },
   "transcription": {
     "clientSecretTTLSeconds": 600,

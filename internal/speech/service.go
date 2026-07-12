@@ -17,21 +17,49 @@ type Provider interface {
 	CreateTranscriptionClientSecret(context.Context, string) (SpeechTranscriptionClientSecret, error)
 }
 
+type VoiceConfigurationStore interface {
+	EnsureMasterVoiceSelection(context.Context, MasterVoiceSelection) (MasterVoiceSelection, error)
+	ReadMasterVoiceSelection(context.Context) (MasterVoiceSelection, error)
+}
+
 type ServiceConfig struct {
-	Provider Provider
+	Provider                Provider
+	VoiceConfigurationStore VoiceConfigurationStore
+	Now                     func() time.Time
 }
 
 type Service struct {
-	provider Provider
+	provider                Provider
+	voiceConfigurationStore VoiceConfigurationStore
 }
 
-func NewService(config ServiceConfig) (*Service, error) {
+func NewService(ctx context.Context, config ServiceConfig) (*Service, error) {
+	if ctx == nil {
+		return nil, errors.New("speech service initialization context is required")
+	}
 	if config.Provider == nil {
 		return nil, errors.New("speech provider is required")
 	}
-	return &Service{
-		provider: config.Provider,
-	}, nil
+	if config.VoiceConfigurationStore == nil {
+		return nil, errors.New("speech voice configuration store is required")
+	}
+	now := config.Now
+	if now == nil {
+		now = time.Now
+	}
+	service := &Service{
+		provider:                config.Provider,
+		voiceConfigurationStore: config.VoiceConfigurationStore,
+	}
+	initial := DefaultMasterVoiceSelection(now().UTC().Format(time.RFC3339Nano))
+	stored, err := service.voiceConfigurationStore.EnsureMasterVoiceSelection(ctx, initial)
+	if err != nil {
+		return nil, fmt.Errorf("initialize master voice selection: %w", err)
+	}
+	if err := stored.Validate(); err != nil {
+		return nil, fmt.Errorf("validate initialized master voice selection: %w", err)
+	}
+	return service, nil
 }
 
 func (service *Service) ReadCapabilities(context.Context) (SpeechCapabilities, error) {
@@ -46,7 +74,7 @@ func (service *Service) ReadCapabilities(context.Context) (SpeechCapabilities, e
 		ProviderStatus:              status,
 		TranscriptionModel:          TranscriptionModel,
 		SynthesisModel:              SynthesisModel,
-		SynthesisVoice:              SynthesisVoice,
+		VoiceCatalog:                SynthesisVoiceCatalog(),
 		MaximumRecordingSeconds:     MaximumRecordingSeconds,
 		MaximumTranscriptCharacters: MaximumTranscriptCharacters,
 		MaximumSynthesisCharacters:  MaximumSynthesisCharacters,
@@ -83,6 +111,20 @@ func (service *Service) CreateTranscriptionSession(ctx context.Context, deviceID
 		return SpeechTranscriptionSession{}, err
 	}
 	return session, nil
+}
+
+func (service *Service) ReadMasterVoiceSelection(ctx context.Context) (MasterVoiceSelection, error) {
+	if service == nil || service.voiceConfigurationStore == nil {
+		return MasterVoiceSelection{}, errors.New("speech service is required")
+	}
+	selection, err := service.voiceConfigurationStore.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		return MasterVoiceSelection{}, err
+	}
+	if err := selection.Validate(); err != nil {
+		return MasterVoiceSelection{}, fmt.Errorf("validate persisted master voice selection: %w", err)
+	}
+	return CloneMasterVoiceSelection(selection), nil
 }
 
 func (service *Service) requireConfigured() error {

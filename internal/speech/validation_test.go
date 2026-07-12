@@ -13,7 +13,7 @@ func validSpeechCapabilities() SpeechCapabilities {
 		ProviderStatus:              SpeechProviderStatusConfigured,
 		TranscriptionModel:          TranscriptionModel,
 		SynthesisModel:              SynthesisModel,
-		SynthesisVoice:              SynthesisVoice,
+		VoiceCatalog:                SynthesisVoiceCatalog(),
 		MaximumRecordingSeconds:     MaximumRecordingSeconds,
 		MaximumTranscriptCharacters: MaximumTranscriptCharacters,
 		MaximumSynthesisCharacters:  MaximumSynthesisCharacters,
@@ -39,7 +39,7 @@ func TestValidateSpeechCapabilities(t *testing.T) {
 		{name: "status", mutate: func(value *SpeechCapabilities) { value.ProviderStatus = "unknown" }},
 		{name: "transcription model", mutate: func(value *SpeechCapabilities) { value.TranscriptionModel = "other" }},
 		{name: "synthesis model", mutate: func(value *SpeechCapabilities) { value.SynthesisModel = "other" }},
-		{name: "voice", mutate: func(value *SpeechCapabilities) { value.SynthesisVoice = "other" }},
+		{name: "voice catalog", mutate: func(value *SpeechCapabilities) { value.VoiceCatalog.VoiceIDs[0] = "other" }},
 		{name: "recording limit", mutate: func(value *SpeechCapabilities) { value.MaximumRecordingSeconds-- }},
 		{name: "transcript limit", mutate: func(value *SpeechCapabilities) { value.MaximumTranscriptCharacters-- }},
 		{name: "synthesis limit", mutate: func(value *SpeechCapabilities) { value.MaximumSynthesisCharacters-- }},
@@ -158,13 +158,18 @@ func TestValidateWAVRequiresOddChunkPadding(t *testing.T) {
 	}
 }
 
-func TestSpeechContractValueSetOwnsProviderStatuses(t *testing.T) {
+func TestSpeechContractValueSetsOwnProviderAndVoiceValues(t *testing.T) {
 	sets := ContractValueSets()
-	if len(sets) != 1 || sets[0].Name != "SpeechProviderStatus" {
+	if len(sets) != 4 || sets[0].Name != "SpeechProviderStatus" ||
+		sets[1].Name != "SpeechProvider" || sets[2].Name != "VoiceSelectionMode" ||
+		sets[3].Name != "SpeechVoiceID" {
 		t.Fatalf("value sets = %+v", sets)
 	}
 	want := []string{string(SpeechProviderStatusConfigured), string(SpeechProviderStatusNotConfigured)}
 	if strings.Join(sets[0].Values, ",") != strings.Join(want, ",") {
 		t.Fatalf("provider statuses = %v, want %v", sets[0].Values, want)
+	}
+	if strings.Join(sets[3].Values, ",") != strings.Join(stringValues(openAISpeechVoiceIDs[:]), ",") {
+		t.Fatalf("voice ids = %v, want %v", sets[3].Values, openAISpeechVoiceIDs)
 	}
 }

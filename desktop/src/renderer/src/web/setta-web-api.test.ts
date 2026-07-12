@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { backendProtocolVersion } from "@generated/backend";
+import { backendProtocolVersion, speechVoiceIDValues } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { authenticatedWebFetch, createWebSettaAPI } from "./setta-web-api";
 
@@ -217,8 +217,12 @@ function webSpeechResponse(path: string): Response | null {
         maximumTranscriptCharacters: 8000,
         providerStatus: "configured",
         synthesisModel: "gpt-4o-mini-tts",
-        synthesisVoice: "marin",
         transcriptionModel: "gpt-realtime-whisper",
+        voiceCatalog: {
+          provider: "openai",
+          version: "test",
+          voiceIds: [...speechVoiceIDValues],
+        },
       });
     case "/speech/transcription/sessions":
       return jsonResponse({

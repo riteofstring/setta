@@ -17,6 +17,19 @@ func (handler handler) readSpeechCapabilities(response http.ResponseWriter, requ
 	writeJSON(response, http.StatusOK, capabilities)
 }
 
+func (handler handler) readMasterVoiceSelection(response http.ResponseWriter, request *http.Request) {
+	service := requireSpeechService(response, handler.speechService)
+	if service == nil {
+		return
+	}
+	selection, err := service.ReadMasterVoiceSelection(request.Context())
+	if err != nil {
+		writeSpeechVoiceConfigurationError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, selection)
+}
+
 func (handler handler) createSpeechTranscriptionSession(response http.ResponseWriter, request *http.Request) {
 	service := requireSpeechService(response, handler.speechService)
 	if service == nil {

@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-4 and Phase 5 items 1-2 are complete; Phase 5
-item 3 is next
+**Status:** In progress; Phases 0-4 and Phase 5 items 1-3 are complete; Phase 5
+item 4 is next
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1689,7 +1689,7 @@ Exit criteria:
 
 ### Phase 5: Global speech cutover
 
-**Progress:** Items 1-2 complete.
+**Progress:** Items 1-3 complete.
 
 Implement:
 
@@ -3208,3 +3208,46 @@ Implementation is in progress under this plan.
   `.recordings/topic-conversation-pane-projection/20260712T174407250Z/`.
   The package-wide HTTP race run reached only the already documented retired
   chat/workflow races outside this iteration's files.
+- 2026-07-12: Completed Phase 5 item 3. The checked OpenAI speech-contract
+  registry now owns the approved 13-voice catalog in deterministic order, and
+  the OpenAI contract generator emits its Go `SpeechVoiceID` values and default
+  `marin` identity. Backend contract generation consumes those Go-owned values,
+  so protocol version 23 exposes an exhaustive voice-id union, a typed catalog
+  with provider and source-version identity, typed exact/automatic selection
+  modes, and typed narrator voice fields without a handwritten TypeScript or
+  renderer catalog. The old public singleton `synthesisVoice` capability was
+  replaced by this catalog.
+- 2026-07-12: The app-global master voice selection is initialized exactly once
+  as exact `marin` through the conversation store's serialized writer, read
+  through a dedicated authenticated speech endpoint, and wired through the
+  desktop main/preload boundary. Existing selections are validated against the
+  current catalog and preserved rather than overwritten at restart; missing,
+  malformed, unavailable, or unsupported persisted state fails explicitly.
+  Conversation presentation profiles now use the same speech-owned voice-id
+  and selection types. New narrators retain durable `auto_distinct` mode with
+  no fabricated resolution; Phase 5 item 4 still owns allocation, exact update
+  commands, finite-catalog reuse, and catalog-change re-resolution.
+- 2026-07-12: Focused generator, speech, conversation, HTTP, runtime, TypeScript,
+  and race-enabled tests passed. All 1,135 desktop tests, desktop and retained
+  web production builds, and generated-output reproduction passed. The
+  two-launch production Electron speech workflow verified the 13-entry catalog
+  with zero Easy Button panes and preserved the exact master selection across
+  restart at `.recordings/global-speech-session/20260712T182101784Z/`. The
+  production topic and microphone workflows passed at
+  `.recordings/topic-conversation-pane-projection/20260712T181046376Z/` and
+  `.recordings/microphone-permissions/20260712T181105229Z/`; created topics
+  exposed the durable unresolved automatic narrator mode. The Codex source
+  reference was not needed because this slice changes the separate OpenAI
+  speech contract and no Codex app-server protocol behavior. Phase 5 item 4 is
+  next with no implementation blocker.
+- 2026-07-12: Final formatting and changed-files quality verification passed,
+  including the live runtime suite, Go vet/tests/static analysis, TypeScript
+  lint and complexity checks, all 1,135 desktop tests, typecheck, dead-code
+  analysis, and the production build. The broad gate cleared all 34 Go
+  packages and every non-Electron check, then stopped in the previously
+  documented retired chat workflow because the removed `New chat` control was
+  absent; it also logged the existing temporary-workspace terminal attach
+  failure. The focused global-speech, topic-conversation, and microphone
+  production workflows passed independently. The supply-chain audit again
+  reports the pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4,
+  fixed in Go 1.26.5; no dependency manifest or toolchain pin changed.

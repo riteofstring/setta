@@ -1,5 +1,5 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
-import type { BackendClient } from "@generated/backend";
+import { speechVoiceIDValues, type BackendClient } from "@generated/backend";
 import { ipcChannels, type IpcObserver } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
 
@@ -31,8 +31,18 @@ describe("speech IPC handlers", () => {
         maximumTranscriptCharacters: 8000,
         providerStatus: "configured",
         synthesisModel: "gpt-4o-mini-tts",
-        synthesisVoice: "marin",
         transcriptionModel: "gpt-realtime-whisper",
+        voiceCatalog: {
+          provider: "openai",
+          version: "test",
+          voiceIds: [...speechVoiceIDValues],
+        },
+      })),
+      readMasterVoiceSelection: vi.fn(async () => ({
+        requestedVoiceId: "marin",
+        resolvedVoiceId: "marin",
+        selection: "exact",
+        updatedAt: "2026-07-12T18:00:00Z",
       })),
     } as unknown as BackendClient;
     const observer = observerSpies();
@@ -44,15 +54,18 @@ describe("speech IPC handlers", () => {
     });
 
     const capabilities = await invoke(handlers, ipcChannels.speechReadCapabilities);
+    const masterVoice = await invoke(handlers, ipcChannels.speechReadMasterVoiceSelection);
     const session = await invoke(handlers, ipcChannels.speechCreateTranscriptionSession);
 
     expect(backend.createSpeechTranscriptionSession).toHaveBeenCalledWith({});
     expect(capabilities).toMatchObject({ providerStatus: "configured" });
+    expect(masterVoice).toMatchObject({ resolvedVoiceId: "marin", selection: "exact" });
     expect(session).toMatchObject({ clientSecret });
-    expect(observer.finished).toHaveBeenCalledTimes(2);
+    expect(observer.finished).toHaveBeenCalledTimes(3);
     const observedResults = observer.finished.mock.calls.map(([event]) => event.result);
     expect(observedResults).toEqual([
       capabilities,
+      masterVoice,
       { redacted: true, type: "speech_transcription_session" },
     ]);
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(clientSecret);

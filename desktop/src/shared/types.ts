@@ -60,6 +60,7 @@ import type {
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
   MergeSemanticNodesRequest,
+  MasterVoiceSelection,
   MessagePage,
   OpenWorkspaceResponse,
   NavigatorPage,
@@ -430,6 +431,7 @@ export interface SettaAPI {
   speech: {
     createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
+    readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

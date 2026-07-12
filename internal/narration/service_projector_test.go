@@ -13,6 +13,7 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
+	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui/conversationpalette"
 )
@@ -528,7 +529,7 @@ func seedTerminalProjectorConversation(
 		ConversationID:         conversationID,
 		PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
 		ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
-		NarratorVoiceSelection: conversation.PresentationSelectionAutoDistinct,
+		NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
 		NarratorSpeechEnabled:  true,
 		UpdatedAt:              serviceTestTimestamp,
 	}

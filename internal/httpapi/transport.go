@@ -303,6 +303,18 @@ func writeSpeechError(response http.ResponseWriter, fallbackCode string, err err
 	writeError(response, http.StatusBadRequest, fallbackCode, err.Error())
 }
 
+func writeSpeechVoiceConfigurationError(response http.ResponseWriter, err error) {
+	if conversation.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_speech_voice_configuration", err.Error())
+		return
+	}
+	if conversation.IsPersistenceError(err) {
+		writeError(response, http.StatusInternalServerError, "read_speech_voice_configuration_failed", err.Error())
+		return
+	}
+	writeSpeechError(response, "invalid_speech_voice_configuration", err)
+}
+
 func speechErrorHTTPStatus(code speech.ErrorCode) int {
 	switch code {
 	case speech.ErrorRateLimited:

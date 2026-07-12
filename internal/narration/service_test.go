@@ -12,6 +12,7 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
+	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui/conversationpalette"
 )
@@ -240,7 +241,7 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 		ConversationID:         conversationID,
 		PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
 		ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
-		NarratorVoiceSelection: conversation.PresentationSelectionAutoDistinct,
+		NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
 		NarratorSpeechEnabled:  true,
 		UpdatedAt:              serviceTestTimestamp,
 	}

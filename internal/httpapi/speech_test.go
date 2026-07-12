@@ -7,9 +7,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
+	"setta/internal/conversation"
 	"setta/internal/speech"
 )
 
@@ -20,7 +22,8 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 		t.Fatalf("resolve test device ok=%v err=%v", ok, err)
 	}
 	service := &fakeHTTPSpeechService{
-		capabilities: validHTTPSpeechCapabilities(),
+		capabilities:         validHTTPSpeechCapabilities(),
+		masterVoiceSelection: speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z"),
 		session: speech.SpeechTranscriptionSession{
 			ClientSecret:                "ek_test_http",
 			ExpiresAt:                   "2099-07-10T12:00:00Z",
@@ -38,8 +41,12 @@ func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *test
 	})
 
 	capabilities := getSpeechJSONWithToken[speech.SpeechCapabilities](t, handler, "/speech/capabilities", token, http.StatusOK)
-	if capabilities != service.capabilities {
+	if !reflect.DeepEqual(capabilities, service.capabilities) {
 		t.Fatalf("capabilities = %+v, want %+v", capabilities, service.capabilities)
+	}
+	selection := getSpeechJSONWithToken[speech.MasterVoiceSelection](t, handler, "/speech/voices/master", token, http.StatusOK)
+	if !reflect.DeepEqual(selection, service.masterVoiceSelection) {
+		t.Fatalf("master voice selection = %+v, want %+v", selection, service.masterVoiceSelection)
 	}
 	created := postJSONWithToken[speech.SpeechTranscriptionSession](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, token, http.StatusOK)
 	if created != service.session || service.transcriptionDeviceID != device.ID {
@@ -61,6 +68,7 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 		body   string
 	}{
 		{method: http.MethodGet, path: "/speech/capabilities"},
+		{method: http.MethodGet, path: "/speech/voices/master"},
 		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{}`},
 	}
 	for _, test := range tests {
@@ -81,6 +89,39 @@ func TestSpeechEndpointsRequireService(t *testing.T) {
 	response := getJSON[ErrorResponse](t, handler, "/speech/capabilities", http.StatusServiceUnavailable)
 	if response.Error.Code != "speech_service_unavailable" {
 		t.Fatalf("error code = %q, want speech_service_unavailable", response.Error.Code)
+	}
+}
+
+func TestSpeechMasterVoiceEndpointMapsPersistentConfigurationFailures(t *testing.T) {
+	tests := []struct {
+		err        error
+		wantCode   string
+		wantStatus int
+	}{
+		{
+			err:        &conversation.CorruptStateError{Path: "state", Err: errors.New("corrupt")},
+			wantCode:   "corrupt_speech_voice_configuration",
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			err:        &conversation.PersistenceError{Operation: "read", Path: "state", Err: errors.New("unavailable")},
+			wantCode:   "read_speech_voice_configuration_failed",
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.wantCode, func(t *testing.T) {
+			handler := newAuthenticatedTestHandler(t, HandlerConfig{
+				Metadata: BackendMetadata{Name: BackendName, Version: "test"},
+				SpeechService: &fakeHTTPSpeechService{
+					masterVoiceSelectionErr: test.err,
+				},
+			})
+			response := getJSON[ErrorResponse](t, handler, "/speech/voices/master", test.wantStatus)
+			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
+				t.Fatalf("error = %+v", response.Error)
+			}
+		})
 	}
 }
 
@@ -148,17 +189,24 @@ func TestSpeechEndpointRejectsOversizedRequestBeforeAuthenticationOrDecode(t *te
 }
 
 type fakeHTTPSpeechService struct {
-	capabilities          speech.SpeechCapabilities
-	capabilitiesErr       error
-	session               speech.SpeechTranscriptionSession
-	transcriptionErr      error
-	transcriptionDeviceID string
-	calls                 int
+	capabilities            speech.SpeechCapabilities
+	capabilitiesErr         error
+	masterVoiceSelection    speech.MasterVoiceSelection
+	masterVoiceSelectionErr error
+	session                 speech.SpeechTranscriptionSession
+	transcriptionErr        error
+	transcriptionDeviceID   string
+	calls                   int
 }
 
 func (service *fakeHTTPSpeechService) ReadCapabilities(context.Context) (speech.SpeechCapabilities, error) {
 	service.calls++
 	return service.capabilities, service.capabilitiesErr
+}
+
+func (service *fakeHTTPSpeechService) ReadMasterVoiceSelection(context.Context) (speech.MasterVoiceSelection, error) {
+	service.calls++
+	return service.masterVoiceSelection, service.masterVoiceSelectionErr
 }
 
 func (service *fakeHTTPSpeechService) CreateTranscriptionSession(_ context.Context, deviceID string) (speech.SpeechTranscriptionSession, error) {
@@ -172,7 +220,7 @@ func validHTTPSpeechCapabilities() speech.SpeechCapabilities {
 		ProviderStatus:              speech.SpeechProviderStatusConfigured,
 		TranscriptionModel:          speech.TranscriptionModel,
 		SynthesisModel:              speech.SynthesisModel,
-		SynthesisVoice:              speech.SynthesisVoice,
+		VoiceCatalog:                speech.SynthesisVoiceCatalog(),
 		MaximumRecordingSeconds:     speech.MaximumRecordingSeconds,
 		MaximumTranscriptCharacters: speech.MaximumTranscriptCharacters,
 		MaximumSynthesisCharacters:  speech.MaximumSynthesisCharacters,

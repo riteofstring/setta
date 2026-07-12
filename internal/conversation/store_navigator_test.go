@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -256,8 +257,8 @@ func navigatorTestPresentation(conversationID string, updatedAt string) Conversa
 		ConversationID:          conversationID,
 		PaletteSelection:        PresentationSelectionAutoDistinct,
 		ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
-		NarratorVoiceSelection:  PresentationSelectionAutoDistinct,
-		ResolvedNarratorVoiceID: stringPointer("alloy"),
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: speechVoiceIDPointer(speech.SpeechVoiceAlloy),
 		NarratorSpeechEnabled:   true,
 		UpdatedAt:               updatedAt,
 	}

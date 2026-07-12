@@ -10,6 +10,7 @@ import (
 
 	"setta/internal/conversation"
 	"setta/internal/narration"
+	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -504,7 +505,7 @@ func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {
 			ConversationID:         "conversation-api",
 			PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
 			ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
-			NarratorVoiceSelection: conversation.PresentationSelectionAutoDistinct,
+			NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
 			NarratorSpeechEnabled:  true,
 			UpdatedAt:              httpConversationTestTime,
 		},

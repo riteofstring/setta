@@ -3,8 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+var speechVoiceIDPattern = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
 
 func validateSpeechContract(document *openAPIDocument, operations []operationContract, speech supportedSpeech) (int, error) {
 	operation, err := operationNamed(operations, "createSpeech")
@@ -24,10 +27,46 @@ func validateSpeechContract(document *openAPIDocument, operations []operationCon
 	if !schemaPropertyDocumentsValue(document, request, speech.Voice, "voice") {
 		return 0, fmt.Errorf("OpenAI CreateSpeechRequest does not document voice %q", speech.Voice)
 	}
+	if err := validateSpeechVoiceCatalog(document, request, speech); err != nil {
+		return 0, err
+	}
 	if !schemaPropertyDocumentsValue(document, request, speech.ResponseFormat, "response_format") {
 		return 0, fmt.Errorf("OpenAI CreateSpeechRequest does not support response format %q", speech.ResponseFormat)
 	}
 	return positiveSchemaMaxLength(document, request, "input")
+}
+
+func validateSpeechVoiceCatalog(
+	document *openAPIDocument,
+	request *openAPISchema,
+	speech supportedSpeech,
+) error {
+	if len(speech.VoiceCatalog) == 0 {
+		return errors.New("supported OpenAI speech voice catalog is empty")
+	}
+	voiceSchema, err := schemaProperty(document, request, "voice")
+	if err != nil {
+		return fmt.Errorf("OpenAI CreateSpeechRequest voice: %w", err)
+	}
+	seen := make(map[string]bool, len(speech.VoiceCatalog))
+	defaultFound := false
+	for _, voiceID := range speech.VoiceCatalog {
+		if !speechVoiceIDPattern.MatchString(voiceID) {
+			return fmt.Errorf("supported OpenAI speech voice id is invalid: %q", voiceID)
+		}
+		if seen[voiceID] {
+			return fmt.Errorf("supported OpenAI speech voice catalog repeats %q", voiceID)
+		}
+		if !schemaAcceptsStringValue(document, voiceSchema, voiceID, make(map[*openAPISchema]bool)) {
+			return fmt.Errorf("OpenAI CreateSpeechRequest does not accept catalog voice %q", voiceID)
+		}
+		seen[voiceID] = true
+		defaultFound = defaultFound || voiceID == speech.Voice
+	}
+	if !defaultFound {
+		return fmt.Errorf("supported OpenAI speech voice catalog omits default %q", speech.Voice)
+	}
+	return nil
 }
 
 func validateTranscriptionContract(document *openAPIDocument, operations []operationContract, transcription supportedTranscription) error {
@@ -215,6 +254,38 @@ func schemaAcceptsNull(document *openAPIDocument, schema *openAPISchema, visited
 	}
 	for _, branch := range schemaBranches(schema) {
 		if schemaAcceptsNull(document, branch, visited) {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaAcceptsStringValue(
+	document *openAPIDocument,
+	schema *openAPISchema,
+	expected string,
+	visited map[*openAPISchema]bool,
+) bool {
+	if schema == nil || visited[schema] {
+		return false
+	}
+	visited[schema] = true
+	if schema.Ref != "" {
+		resolved, err := resolveSchema(document, schema)
+		return err == nil && schemaAcceptsStringValue(document, resolved, expected, visited)
+	}
+	if schemaType(schema) == "string" {
+		if len(schema.Enum) == 0 {
+			return true
+		}
+		for _, value := range schema.Enum {
+			if value == expected {
+				return true
+			}
+		}
+	}
+	for _, branch := range schemaBranches(schema) {
+		if schemaAcceptsStringValue(document, branch, expected, visited) {
 			return true
 		}
 	}

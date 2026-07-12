@@ -1,17 +1,25 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 
+	"setta/internal/conversation"
 	"setta/internal/speech"
 )
 
-func newSpeechService(config speech.OpenAIClientConfig) (*speech.Service, error) {
+func newSpeechService(
+	config speech.OpenAIClientConfig,
+	store *conversation.Store,
+) (*speech.Service, error) {
 	provider, err := speech.NewOpenAIClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("create OpenAI speech client: %w", err)
 	}
-	service, err := speech.NewService(speech.ServiceConfig{Provider: provider})
+	service, err := speech.NewService(context.Background(), speech.ServiceConfig{
+		Provider:                provider,
+		VoiceConfigurationStore: store,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create speech service: %w", err)
 	}

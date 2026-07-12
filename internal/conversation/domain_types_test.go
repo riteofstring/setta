@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -167,8 +168,8 @@ func TestPresentationProfileMakesAutomaticReuseAndExactOverridesExplicit(t *test
 		ConversationID:          "conversation-1",
 		PaletteSelection:        PresentationSelectionAutoDistinct,
 		ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
-		NarratorVoiceSelection:  PresentationSelectionAutoDistinct,
-		ResolvedNarratorVoiceID: stringPointer("alloy"),
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: speechVoiceIDPointer(speech.SpeechVoiceAlloy),
 		NarratorSpeechEnabled:   true,
 		UpdatedAt:               testTimeStarted,
 	}
@@ -198,17 +199,17 @@ func TestPresentationProfileMakesAutomaticReuseAndExactOverridesExplicit(t *test
 	profile.RequestedPaletteID = &exactPalette
 	profile.ResolvedPaletteID = exactPalette
 	profile.PaletteReuse = nil
-	profile.NarratorVoiceSelection = PresentationSelectionExact
-	profile.RequestedNarratorVoiceID = stringPointer("marin")
-	profile.ResolvedNarratorVoiceID = stringPointer("marin")
+	profile.NarratorVoiceSelection = speech.VoiceSelectionExact
+	profile.RequestedNarratorVoiceID = speechVoiceIDPointer(speech.SpeechVoiceMarin)
+	profile.ResolvedNarratorVoiceID = speechVoiceIDPointer(speech.SpeechVoiceMarin)
 	profile.NarratorVoiceReuse = nil
 	if err := profile.Validate(); err != nil {
 		t.Fatalf("valid exact presentation profile: %v", err)
 	}
 
-	profile.ResolvedNarratorVoiceID = stringPointer("cedar")
+	profile.ResolvedNarratorVoiceID = speechVoiceIDPointer(speech.SpeechVoiceCedar)
 	assertValidationErrorContains(t, profile.Validate(), "want requested")
-	profile.ResolvedNarratorVoiceID = stringPointer("marin")
+	profile.ResolvedNarratorVoiceID = speechVoiceIDPointer(speech.SpeechVoiceMarin)
 	profile.PaletteReuse = &PresentationReuse{
 		Reason:                     PresentationReuseCatalogExhausted,
 		ResolvedChoiceID:           string(exactPalette),
@@ -359,6 +360,10 @@ func testFailure() Failure {
 }
 
 func stringPointer(value string) *string {
+	return &value
+}
+
+func speechVoiceIDPointer(value speech.SpeechVoiceID) *speech.SpeechVoiceID {
 	return &value
 }
 

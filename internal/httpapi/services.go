@@ -89,6 +89,7 @@ type MasterInputService interface {
 
 type SpeechService interface {
 	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
+	ReadMasterVoiceSelection(context.Context) (speech.MasterVoiceSelection, error)
 	CreateTranscriptionSession(context.Context, string) (speech.SpeechTranscriptionSession, error)
 }
 

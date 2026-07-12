@@ -3,10 +3,17 @@ package speech
 import "time"
 
 type SpeechProviderStatus string
+type SpeechProvider string
+type VoiceSelectionMode string
 
 const (
 	SpeechProviderStatusConfigured    SpeechProviderStatus = "configured"
 	SpeechProviderStatusNotConfigured SpeechProviderStatus = "not_configured"
+
+	SpeechProviderOpenAI SpeechProvider = "openai"
+
+	VoiceSelectionAutoDistinct VoiceSelectionMode = "auto_distinct"
+	VoiceSelectionExact        VoiceSelectionMode = "exact"
 )
 
 const (
@@ -25,11 +32,31 @@ var speechProviderStatusValues = []SpeechProviderStatus{
 	SpeechProviderStatusNotConfigured,
 }
 
+var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI}
+
+var voiceSelectionModeValues = []VoiceSelectionMode{
+	VoiceSelectionAutoDistinct,
+	VoiceSelectionExact,
+}
+
+type SpeechVoiceCatalog struct {
+	Provider SpeechProvider  `json:"provider"`
+	Version  string          `json:"version"`
+	VoiceIDs []SpeechVoiceID `json:"voiceIds"`
+}
+
+type MasterVoiceSelection struct {
+	Selection        VoiceSelectionMode `json:"selection"`
+	RequestedVoiceID *SpeechVoiceID     `json:"requestedVoiceId"`
+	ResolvedVoiceID  *SpeechVoiceID     `json:"resolvedVoiceId"`
+	UpdatedAt        string             `json:"updatedAt"`
+}
+
 type SpeechCapabilities struct {
 	ProviderStatus              SpeechProviderStatus `json:"providerStatus"`
 	TranscriptionModel          string               `json:"transcriptionModel"`
 	SynthesisModel              string               `json:"synthesisModel"`
-	SynthesisVoice              string               `json:"synthesisVoice"`
+	VoiceCatalog                SpeechVoiceCatalog   `json:"voiceCatalog"`
 	MaximumRecordingSeconds     int                  `json:"maximumRecordingSeconds"`
 	MaximumTranscriptCharacters int                  `json:"maximumTranscriptCharacters"`
 	MaximumSynthesisCharacters  int                  `json:"maximumSynthesisCharacters"`
@@ -70,10 +97,12 @@ type ContractValueSet struct {
 }
 
 func ContractValueSets() []ContractValueSet {
-	return []ContractValueSet{{
-		Name:   "SpeechProviderStatus",
-		Values: stringValues(speechProviderStatusValues),
-	}}
+	return []ContractValueSet{
+		{Name: "SpeechProviderStatus", Values: stringValues(speechProviderStatusValues)},
+		{Name: "SpeechProvider", Values: stringValues(speechProviderValues)},
+		{Name: "VoiceSelectionMode", Values: stringValues(voiceSelectionModeValues)},
+		{Name: "SpeechVoiceID", Values: stringValues(openAISpeechVoiceIDs[:])},
+	}
 }
 
 func stringValues[T ~string](values []T) []string {

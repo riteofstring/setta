@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"setta/internal/agent"
+	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui/conversationpalette"
 )
@@ -306,7 +307,7 @@ func (service *Service) initialPresentationProfile(
 		PaletteSelection:       PresentationSelectionAutoDistinct,
 		ResolvedPaletteID:      paletteID,
 		PaletteReuse:           reuse,
-		NarratorVoiceSelection: PresentationSelectionAutoDistinct,
+		NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
 		NarratorSpeechEnabled:  true,
 		UpdatedAt:              updatedAt,
 	}, nil

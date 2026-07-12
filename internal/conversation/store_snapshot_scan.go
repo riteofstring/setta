@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -285,8 +286,8 @@ func scanPresentationProfile(scanner sqlScanner) (ConversationPresentationProfil
 		id := conversationpalette.ConversationPaletteID(requestedPaletteID.String)
 		value.RequestedPaletteID = &id
 	}
-	value.RequestedNarratorVoiceID = optionalScannedString(requestedVoiceID)
-	value.ResolvedNarratorVoiceID = optionalScannedString(resolvedVoiceID)
+	value.RequestedNarratorVoiceID = optionalSpeechVoiceID(requestedVoiceID)
+	value.ResolvedNarratorVoiceID = optionalSpeechVoiceID(resolvedVoiceID)
 	value.NarratorSpeechEnabled = speechEnabled == 1
 	if err := decodeOptionalJSON("presentation palette reuse", paletteReuseJSON, &value.PaletteReuse); err != nil {
 		return ConversationPresentationProfile{}, err
@@ -295,6 +296,14 @@ func scanPresentationProfile(scanner sqlScanner) (ConversationPresentationProfil
 		return ConversationPresentationProfile{}, err
 	}
 	return value, nil
+}
+
+func optionalSpeechVoiceID(value sql.NullString) *speech.SpeechVoiceID {
+	if !value.Valid {
+		return nil
+	}
+	voiceID := speech.SpeechVoiceID(value.String)
+	return &voiceID
 }
 
 func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {

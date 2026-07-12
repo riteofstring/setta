@@ -1,8 +1,9 @@
-import type {
-  AcceptedMasterInput,
-  SpeechCapabilities,
-  SpeechTranscriptionSession,
-  SubmitMasterInputRequest,
+import {
+  speechVoiceIDValues,
+  type AcceptedMasterInput,
+  type SpeechCapabilities,
+  type SpeechTranscriptionSession,
+  type SubmitMasterInputRequest,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
@@ -585,8 +586,12 @@ function capabilities(overrides: Partial<SpeechCapabilities> = {}): SpeechCapabi
     maximumTranscriptCharacters: 8000,
     providerStatus: "configured",
     synthesisModel: "gpt-4o-mini-tts",
-    synthesisVoice: "marin",
     transcriptionModel: "gpt-realtime-whisper",
+    voiceCatalog: {
+      provider: "openai",
+      version: "test",
+      voiceIds: [...speechVoiceIDValues],
+    },
     ...overrides,
   };
 }

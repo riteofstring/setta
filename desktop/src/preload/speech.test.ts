@@ -22,10 +22,12 @@ describe("preload speech API", () => {
     await import("./index");
     const api = exposed.setta as SettaAPI;
     await api.speech.readCapabilities();
+    await api.speech.readMasterVoiceSelection?.();
     await api.speech.createTranscriptionSession();
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
+      [ipcChannels.speechReadMasterVoiceSelection],
       [ipcChannels.speechCreateTranscriptionSession],
     ]);
   });

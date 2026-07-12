@@ -1,4 +1,4 @@
-import type { SpeechCapabilities } from "@generated/backend";
+import { speechVoiceIDValues, type SpeechCapabilities } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import { speechAvailabilityForCapabilities } from "./speech-capture-availability";
@@ -44,7 +44,11 @@ function capabilities(providerStatus: SpeechCapabilities["providerStatus"]): Spe
     maximumTranscriptCharacters: 8000,
     providerStatus,
     synthesisModel: "gpt-4o-mini-tts",
-    synthesisVoice: "marin",
     transcriptionModel: "gpt-realtime-whisper",
+    voiceCatalog: {
+      provider: "openai",
+      version: "test",
+      voiceIds: [...speechVoiceIDValues],
+    },
   };
 }

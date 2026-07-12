@@ -3,6 +3,7 @@ package conversation
 import (
 	"fmt"
 
+	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -28,9 +29,9 @@ type ConversationPresentationProfile struct {
 	RequestedPaletteID       *conversationpalette.ConversationPaletteID `json:"requestedPaletteId"`
 	ResolvedPaletteID        conversationpalette.ConversationPaletteID  `json:"resolvedPaletteId"`
 	PaletteReuse             *PresentationReuse                         `json:"paletteReuse"`
-	NarratorVoiceSelection   PresentationSelectionMode                  `json:"narratorVoiceSelection"`
-	RequestedNarratorVoiceID *string                                    `json:"requestedNarratorVoiceId"`
-	ResolvedNarratorVoiceID  *string                                    `json:"resolvedNarratorVoiceId"`
+	NarratorVoiceSelection   speech.VoiceSelectionMode                  `json:"narratorVoiceSelection"`
+	RequestedNarratorVoiceID *speech.SpeechVoiceID                      `json:"requestedNarratorVoiceId"`
+	ResolvedNarratorVoiceID  *speech.SpeechVoiceID                      `json:"resolvedNarratorVoiceId"`
 	NarratorVoiceReuse       *PresentationReuse                         `json:"narratorVoiceReuse"`
 	NarratorSpeechEnabled    bool                                       `json:"narratorSpeechEnabled"`
 	UpdatedAt                string                                     `json:"updatedAt"`
@@ -81,27 +82,37 @@ func (profile ConversationPresentationProfile) Validate() error {
 	if err := validatePresentationReuseOwnership(profile.ConversationID, profile.PaletteReuse); err != nil {
 		return err
 	}
-	resolvedVoiceID := ""
-	if profile.ResolvedNarratorVoiceID != nil {
-		resolvedVoiceID = *profile.ResolvedNarratorVoiceID
-		if err := validateIdentifier("resolved narrator voice id", resolvedVoiceID); err != nil {
-			return err
-		}
-	}
-	if err := validatePresentationSelection(
-		"narrator voice",
+	if err := speech.ValidateVoiceSelection(
 		profile.NarratorVoiceSelection,
 		profile.RequestedNarratorVoiceID,
-		resolvedVoiceID,
-		profile.NarratorVoiceReuse,
+		profile.ResolvedNarratorVoiceID,
 	); err != nil {
-		return fmt.Errorf("presentation profile %s: %w", profile.ConversationID, err)
+		return fmt.Errorf("presentation profile %s narrator voice: %w", profile.ConversationID, err)
+	}
+	if err := validateNarratorVoiceReuse(profile); err != nil {
+		return err
 	}
 	if err := validatePresentationReuseOwnership(profile.ConversationID, profile.NarratorVoiceReuse); err != nil {
 		return err
 	}
 	_, err := validateTimestamp("presentation profile updatedAt", profile.UpdatedAt)
 	return err
+}
+
+func validateNarratorVoiceReuse(profile ConversationPresentationProfile) error {
+	if profile.NarratorVoiceReuse == nil {
+		return nil
+	}
+	if profile.NarratorVoiceSelection == speech.VoiceSelectionExact {
+		return fmt.Errorf("presentation profile %s: exact narrator voice selection must not contain automatic reuse metadata", profile.ConversationID)
+	}
+	if profile.ResolvedNarratorVoiceID == nil {
+		return fmt.Errorf("presentation profile %s: automatic narrator voice reuse requires resolved id", profile.ConversationID)
+	}
+	if err := profile.NarratorVoiceReuse.Validate(string(*profile.ResolvedNarratorVoiceID)); err != nil {
+		return fmt.Errorf("presentation profile %s: narrator voice reuse: %w", profile.ConversationID, err)
+	}
+	return nil
 }
 
 func validatePresentationReuseOwnership(conversationID string, reuse *PresentationReuse) error {
@@ -169,6 +180,14 @@ func validateAutomaticPresentationSelection(label string, requestedID *string, r
 }
 
 func paletteIDPointerString(value *conversationpalette.ConversationPaletteID) *string {
+	if value == nil {
+		return nil
+	}
+	result := string(*value)
+	return &result
+}
+
+func voiceIDPointerString(value *speech.SpeechVoiceID) *string {
 	if value == nil {
 		return nil
 	}

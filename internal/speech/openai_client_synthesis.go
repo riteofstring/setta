@@ -15,10 +15,10 @@ const (
 )
 
 type speechSynthesisRequest struct {
-	Model          string `json:"model"`
-	Input          string `json:"input"`
-	Voice          string `json:"voice"`
-	ResponseFormat string `json:"response_format"`
+	Model          string        `json:"model"`
+	Input          string        `json:"input"`
+	Voice          SpeechVoiceID `json:"voice"`
+	ResponseFormat string        `json:"response_format"`
 }
 
 func (client *OpenAIClient) SynthesizeSpeech(ctx context.Context, text string) (SynthesizedAudio, error) {

@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 22;
-export const backendContractSchemaHash = "sha256:f059c291bfcc72323e6bb18a87d11cb43c75b06fbd8d320ee0c95c1c94c6f4f6";
+export const backendProtocolVersion = 23;
+export const backendContractSchemaHash = "sha256:59a2553afd7720b226afebc726fe4dcf8f04ec9bab2d830dd888aa133dc08019";
 
 export type DeviceScope = "full";
 
@@ -1359,6 +1359,60 @@ export function decodePresentationReuseReason(value: unknown, label = "Presentat
   }
 }
 
+export type VoiceSelectionMode = "auto_distinct" | "exact";
+
+export const voiceSelectionModeValues = ["auto_distinct", "exact"] as const satisfies readonly VoiceSelectionMode[];
+
+export function decodeVoiceSelectionMode(value: unknown, label = "VoiceSelectionMode"): VoiceSelectionMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "auto_distinct":
+      return decoded;
+    case "exact":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SpeechVoiceID = "alloy" | "ash" | "ballad" | "coral" | "echo" | "fable" | "onyx" | "nova" | "sage" | "shimmer" | "verse" | "marin" | "cedar";
+
+export const speechVoiceIDValues = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse", "marin", "cedar"] as const satisfies readonly SpeechVoiceID[];
+
+export function decodeSpeechVoiceID(value: unknown, label = "SpeechVoiceID"): SpeechVoiceID {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "alloy":
+      return decoded;
+    case "ash":
+      return decoded;
+    case "ballad":
+      return decoded;
+    case "coral":
+      return decoded;
+    case "echo":
+      return decoded;
+    case "fable":
+      return decoded;
+    case "onyx":
+      return decoded;
+    case "nova":
+      return decoded;
+    case "sage":
+      return decoded;
+    case "shimmer":
+      return decoded;
+    case "verse":
+      return decoded;
+    case "marin":
+      return decoded;
+    case "cedar":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type BranchKind = "fork";
 
 export const branchKindValues = ["fork"] as const satisfies readonly BranchKind[];
@@ -1457,6 +1511,20 @@ export function decodeSpeechProviderStatus(value: unknown, label = "SpeechProvid
     case "configured":
       return decoded;
     case "not_configured":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SpeechProvider = "openai";
+
+export const speechProviderValues = ["openai"] as const satisfies readonly SpeechProvider[];
+
+export function decodeSpeechProvider(value: unknown, label = "SpeechProvider"): SpeechProvider {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "openai":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4567,9 +4635,9 @@ export interface ConversationPresentationProfile {
   requestedPaletteId: ConversationPaletteID | null;
   resolvedPaletteId: ConversationPaletteID;
   paletteReuse: PresentationReuse | null;
-  narratorVoiceSelection: PresentationSelectionMode;
-  requestedNarratorVoiceId: string | null;
-  resolvedNarratorVoiceId: string | null;
+  narratorVoiceSelection: VoiceSelectionMode;
+  requestedNarratorVoiceId: SpeechVoiceID | null;
+  resolvedNarratorVoiceId: SpeechVoiceID | null;
   narratorVoiceReuse: PresentationReuse | null;
   narratorSpeechEnabled: boolean;
   updatedAt: string;
@@ -4797,15 +4865,28 @@ export interface AcceptedMasterInput {
   acceptedAt: string;
 }
 
+export interface SpeechVoiceCatalog {
+  provider: SpeechProvider;
+  version: string;
+  voiceIds: SpeechVoiceID[];
+}
+
 export interface SpeechCapabilities {
   providerStatus: SpeechProviderStatus;
   transcriptionModel: string;
   synthesisModel: string;
-  synthesisVoice: string;
+  voiceCatalog: SpeechVoiceCatalog;
   maximumRecordingSeconds: number;
   maximumTranscriptCharacters: number;
   maximumSynthesisCharacters: number;
   aiVoiceDisclosure: string;
+}
+
+export interface MasterVoiceSelection {
+  selection: VoiceSelectionMode;
+  requestedVoiceId: SpeechVoiceID | null;
+  resolvedVoiceId: SpeechVoiceID | null;
+  updatedAt: string;
 }
 
 export interface CreateSpeechTranscriptionSessionRequest {
@@ -8368,6 +8449,10 @@ export const backendEndpoints = {
     method: "GET",
     path: "/speech/capabilities",
   },
+  ReadMasterVoiceSelection: {
+    method: "GET",
+    path: "/speech/voices/master",
+  },
   CreateSpeechTranscriptionSession: {
     method: "POST",
     path: "/speech/transcription/sessions",
@@ -10577,9 +10662,9 @@ export function decodeConversationPresentationProfile(value: unknown): Conversat
     requestedPaletteId: decodeNullable(requireField(record, "requestedPaletteId", "ConversationPresentationProfile"), "ConversationPresentationProfile.requestedPaletteId", (item) => decodeConversationPaletteID(item, "ConversationPresentationProfile.requestedPaletteId")),
     resolvedPaletteId: decodeConversationPaletteID(requireField(record, "resolvedPaletteId", "ConversationPresentationProfile"), "ConversationPresentationProfile.resolvedPaletteId"),
     paletteReuse: decodeNullable(requireField(record, "paletteReuse", "ConversationPresentationProfile"), "ConversationPresentationProfile.paletteReuse", (item) => decodePresentationReuse(item)),
-    narratorVoiceSelection: decodePresentationSelectionMode(requireField(record, "narratorVoiceSelection", "ConversationPresentationProfile"), "ConversationPresentationProfile.narratorVoiceSelection"),
-    requestedNarratorVoiceId: decodeNullable(requireField(record, "requestedNarratorVoiceId", "ConversationPresentationProfile"), "ConversationPresentationProfile.requestedNarratorVoiceId", (item) => decodeString(item, "ConversationPresentationProfile.requestedNarratorVoiceId")),
-    resolvedNarratorVoiceId: decodeNullable(requireField(record, "resolvedNarratorVoiceId", "ConversationPresentationProfile"), "ConversationPresentationProfile.resolvedNarratorVoiceId", (item) => decodeString(item, "ConversationPresentationProfile.resolvedNarratorVoiceId")),
+    narratorVoiceSelection: decodeVoiceSelectionMode(requireField(record, "narratorVoiceSelection", "ConversationPresentationProfile"), "ConversationPresentationProfile.narratorVoiceSelection"),
+    requestedNarratorVoiceId: decodeNullable(requireField(record, "requestedNarratorVoiceId", "ConversationPresentationProfile"), "ConversationPresentationProfile.requestedNarratorVoiceId", (item) => decodeSpeechVoiceID(item, "ConversationPresentationProfile.requestedNarratorVoiceId")),
+    resolvedNarratorVoiceId: decodeNullable(requireField(record, "resolvedNarratorVoiceId", "ConversationPresentationProfile"), "ConversationPresentationProfile.resolvedNarratorVoiceId", (item) => decodeSpeechVoiceID(item, "ConversationPresentationProfile.resolvedNarratorVoiceId")),
     narratorVoiceReuse: decodeNullable(requireField(record, "narratorVoiceReuse", "ConversationPresentationProfile"), "ConversationPresentationProfile.narratorVoiceReuse", (item) => decodePresentationReuse(item)),
     narratorSpeechEnabled: decodeBoolean(requireField(record, "narratorSpeechEnabled", "ConversationPresentationProfile"), "ConversationPresentationProfile.narratorSpeechEnabled"),
     updatedAt: decodeString(requireField(record, "updatedAt", "ConversationPresentationProfile"), "ConversationPresentationProfile.updatedAt"),
@@ -10944,18 +11029,39 @@ export function decodeAcceptedMasterInput(value: unknown): AcceptedMasterInput {
   };
 }
 
+export function decodeSpeechVoiceCatalog(value: unknown): SpeechVoiceCatalog {
+  const record = assertRecord(value, "SpeechVoiceCatalog");
+  assertKnownFields(record, "SpeechVoiceCatalog", ["provider", "version", "voiceIds"]);
+  return {
+    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechVoiceCatalog"), "SpeechVoiceCatalog.provider"),
+    version: decodeString(requireField(record, "version", "SpeechVoiceCatalog"), "SpeechVoiceCatalog.version"),
+    voiceIds: decodeArray(requireField(record, "voiceIds", "SpeechVoiceCatalog"), "SpeechVoiceCatalog.voiceIds", (item) => decodeSpeechVoiceID(item, "SpeechVoiceCatalog.voiceIds item")),
+  };
+}
+
 export function decodeSpeechCapabilities(value: unknown): SpeechCapabilities {
   const record = assertRecord(value, "SpeechCapabilities");
-  assertKnownFields(record, "SpeechCapabilities", ["providerStatus", "transcriptionModel", "synthesisModel", "synthesisVoice", "maximumRecordingSeconds", "maximumTranscriptCharacters", "maximumSynthesisCharacters", "aiVoiceDisclosure"]);
+  assertKnownFields(record, "SpeechCapabilities", ["providerStatus", "transcriptionModel", "synthesisModel", "voiceCatalog", "maximumRecordingSeconds", "maximumTranscriptCharacters", "maximumSynthesisCharacters", "aiVoiceDisclosure"]);
   return {
     providerStatus: decodeSpeechProviderStatus(requireField(record, "providerStatus", "SpeechCapabilities"), "SpeechCapabilities.providerStatus"),
     transcriptionModel: decodeString(requireField(record, "transcriptionModel", "SpeechCapabilities"), "SpeechCapabilities.transcriptionModel"),
     synthesisModel: decodeString(requireField(record, "synthesisModel", "SpeechCapabilities"), "SpeechCapabilities.synthesisModel"),
-    synthesisVoice: decodeString(requireField(record, "synthesisVoice", "SpeechCapabilities"), "SpeechCapabilities.synthesisVoice"),
+    voiceCatalog: decodeSpeechVoiceCatalog(requireField(record, "voiceCatalog", "SpeechCapabilities")),
     maximumRecordingSeconds: decodeInteger(requireField(record, "maximumRecordingSeconds", "SpeechCapabilities"), "SpeechCapabilities.maximumRecordingSeconds"),
     maximumTranscriptCharacters: decodeInteger(requireField(record, "maximumTranscriptCharacters", "SpeechCapabilities"), "SpeechCapabilities.maximumTranscriptCharacters"),
     maximumSynthesisCharacters: decodeInteger(requireField(record, "maximumSynthesisCharacters", "SpeechCapabilities"), "SpeechCapabilities.maximumSynthesisCharacters"),
     aiVoiceDisclosure: decodeString(requireField(record, "aiVoiceDisclosure", "SpeechCapabilities"), "SpeechCapabilities.aiVoiceDisclosure"),
+  };
+}
+
+export function decodeMasterVoiceSelection(value: unknown): MasterVoiceSelection {
+  const record = assertRecord(value, "MasterVoiceSelection");
+  assertKnownFields(record, "MasterVoiceSelection", ["selection", "requestedVoiceId", "resolvedVoiceId", "updatedAt"]);
+  return {
+    selection: decodeVoiceSelectionMode(requireField(record, "selection", "MasterVoiceSelection"), "MasterVoiceSelection.selection"),
+    requestedVoiceId: decodeNullable(requireField(record, "requestedVoiceId", "MasterVoiceSelection"), "MasterVoiceSelection.requestedVoiceId", (item) => decodeSpeechVoiceID(item, "MasterVoiceSelection.requestedVoiceId")),
+    resolvedVoiceId: decodeNullable(requireField(record, "resolvedVoiceId", "MasterVoiceSelection"), "MasterVoiceSelection.resolvedVoiceId", (item) => decodeSpeechVoiceID(item, "MasterVoiceSelection.resolvedVoiceId")),
+    updatedAt: decodeString(requireField(record, "updatedAt", "MasterVoiceSelection"), "MasterVoiceSelection.updatedAt"),
   };
 }
 
@@ -15822,6 +15928,7 @@ export interface BackendClient {
   askTopicConversationNarratorStatus: (request: AskTopicConversationNarratorStatusRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
+  readMasterVoiceSelection: (options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
   listConversations: (request: ListConversationsRequest, options?: BackendRequestOptions) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest, options?: BackendRequestOptions) => Promise<Conversation>;
@@ -16246,6 +16353,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechCapabilities,
       endpoint: backendEndpoints.ReadSpeechCapabilities,
+      fetchImpl,
+      requestPayload: undefined,
+      signal: options?.signal,
+    }),
+    readMasterVoiceSelection: (options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeMasterVoiceSelection,
+      endpoint: backendEndpoints.ReadMasterVoiceSelection,
       fetchImpl,
       requestPayload: undefined,
       signal: options?.signal,

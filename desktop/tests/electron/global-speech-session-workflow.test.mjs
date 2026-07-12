@@ -41,6 +41,8 @@ const provider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 let firstAcceptedInput;
 let secondAcceptedInput;
+let firstMasterVoiceSelection;
+let secondMasterVoiceSelection;
 
 try {
   context = await launchElectronCdpContext({
@@ -57,6 +59,10 @@ try {
 
   const capabilities = await context.client.evaluate("window.setta.speech.readCapabilities()");
   assertConfiguredCapabilities(capabilities);
+  firstMasterVoiceSelection = await context.client.evaluate(
+    "window.setta.speech.readMasterVoiceSelection()",
+  );
+  assertMasterVoiceSelection(firstMasterVoiceSelection);
   const session = await context.client.evaluate("window.setta.speech.createTranscriptionSession()");
   assertTranscriptionSession(session, provider.clientSecret);
   const easyButtonPaneCount = await context.client.evaluate(
@@ -95,6 +101,15 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  secondMasterVoiceSelection = await context.client.evaluate(
+    "window.setta.speech.readMasterVoiceSelection()",
+  );
+  assertMasterVoiceSelection(secondMasterVoiceSelection);
+  if (JSON.stringify(secondMasterVoiceSelection) !== JSON.stringify(firstMasterVoiceSelection)) {
+    throw new Error(
+      `master voice selection changed across restart: ${JSON.stringify({ firstMasterVoiceSelection, secondMasterVoiceSelection })}`,
+    );
+  }
   secondAcceptedInput = await submitMasterInput(context.client, masterInputRequest);
   assertIdempotentMasterInput(firstAcceptedInput, secondAcceptedInput, masterInputRequest.input);
   await captureScreenshot(context.client, join(secondLaunchDir, "master-input-restored.png"));
@@ -109,6 +124,7 @@ try {
     masterInputSequence: firstAcceptedInput.sequence,
     providerOperationCount: provider.requests.length,
     restartPreservedMasterInput: firstAcceptedInput.acceptedAt === secondAcceptedInput.acceptedAt,
+    restartPreservedMasterVoice: firstMasterVoiceSelection,
     status: "passed",
   });
   console.log(`Electron global speech session workflow passed: ${artifactDir}`);
@@ -136,6 +152,32 @@ function assertConfiguredCapabilities(capabilities) {
     capabilities.maximumTranscriptCharacters !== 8000
   ) {
     throw new Error(`invalid global speech capabilities: ${JSON.stringify(capabilities)}`);
+  }
+  assertVoiceCatalog(capabilities.voiceCatalog);
+}
+
+function assertVoiceCatalog(catalog) {
+  if (
+    catalog?.provider !== "openai" ||
+    typeof catalog.version !== "string" ||
+    catalog.version.length === 0 ||
+    !Array.isArray(catalog.voiceIds) ||
+    catalog.voiceIds.length !== 13 ||
+    new Set(catalog.voiceIds).size !== 13
+  ) {
+    throw new Error(`invalid speech voice catalog: ${JSON.stringify(catalog)}`);
+  }
+}
+
+function assertMasterVoiceSelection(selection) {
+  if (
+    selection?.selection !== "exact" ||
+    selection.requestedVoiceId !== "marin" ||
+    selection.resolvedVoiceId !== "marin" ||
+    typeof selection.updatedAt !== "string" ||
+    selection.updatedAt.length === 0
+  ) {
+    throw new Error(`invalid global master voice selection: ${JSON.stringify(selection)}`);
   }
 }
 
