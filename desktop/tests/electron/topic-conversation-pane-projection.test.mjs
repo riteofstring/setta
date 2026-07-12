@@ -24,6 +24,12 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  captureMasterHistory,
+  closeMasterOverlay,
+  exerciseMasterOverlayEntryPoints,
+  readJsonLinesWhileAppending,
+} from "./topic-conversation-master-overlay-assertions.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDistinctConversationPalettes,
@@ -61,6 +67,7 @@ const workflowName = "topic-conversation-pane-projection";
 const workflowTimeoutMs = 50_000;
 const expectedNarratorStatusReply =
   "The primary topic agent is still working and has not been steered or interrupted.";
+const typedMasterOverlayText = "Bring up the latest speech routing topic.";
 const paneSpeechTranscript = "  Keep this pane transcript exact.  ";
 const fakeTopicCodexFixture = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -92,6 +99,7 @@ const fakeCodex = await installFakeTopicCodex(fixture);
 const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 let noPaneTerminalSpeech;
+let shellMasterOverlayInput;
 let shellMasterInput;
 let statusCapturePreemption;
 let statusSpeechPlayback;
@@ -189,6 +197,13 @@ try {
     (surfaces) =>
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
+  shellMasterOverlayInput = await exerciseMasterOverlayEntryPoints({
+    artifactDirectory: secondLaunchDir,
+    client: context.client,
+    text: typedMasterOverlayText,
+    timeoutMs: workflowTimeoutMs,
+    workspaceId,
+  });
   const reloadedVoices = await listTopics(backend, workspaceId);
   assertPersistedNarratorVoice(reloadedVoices, alpha);
   assertPersistedNarratorVoice(reloadedVoices, beta);
@@ -651,6 +666,13 @@ try {
     transcript: paneSpeechTranscript,
     workspaceId,
   });
+  await captureMasterHistory({
+    artifactPath: join(artifactDir, "shared-master-text-voice-history.png"),
+    client: context.client,
+    expectedTexts: [typedMasterOverlayText, paneSpeechTranscript],
+    timeoutMs: workflowTimeoutMs,
+  });
+  await closeMasterOverlay(context.client, workflowTimeoutMs);
   assertDriverAction(
     await context.client.driver("topicConversationPresentFromNavigator", {
       conversationId: alpha.id,
@@ -831,6 +853,7 @@ try {
     reloadedWorking,
     reloadedSideFailure,
     shellMasterInput,
+    shellMasterOverlayInput,
     sideFailure,
     sideFailureTopic,
     status: "passed",
@@ -1212,30 +1235,6 @@ async function waitForPaneSpeechInput(
     await delay(50);
   }
   throw new Error(`timed out waiting for durable pane speech input delivery ${occurrence}`);
-}
-
-async function readJsonLinesWhileAppending(path) {
-  let content;
-  try {
-    content = await readFile(path, "utf8");
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return [];
-    }
-    throw error;
-  }
-  const events = [];
-  for (const line of content.split("\n")) {
-    if (line.trim() === "") {
-      continue;
-    }
-    try {
-      events.push(JSON.parse(line));
-    } catch {
-      break;
-    }
-  }
-  return events;
 }
 
 function assertRecordedPaneSpeechInput(input, conversationId, sourcePaneId) {

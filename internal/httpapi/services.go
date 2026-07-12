@@ -101,6 +101,7 @@ type ConversationInputService interface {
 }
 
 type MasterInputService interface {
+	ListRecentInputs(context.Context) (master.RecentMasterInputHistory, error)
 	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
 }
 

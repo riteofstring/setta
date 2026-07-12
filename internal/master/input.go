@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	MaxInputIDBytes   = 512
-	MaxInputTextBytes = 256 * 1024
-	MaxFocusHintBytes = 512
+	MaxInputIDBytes           = 512
+	MaxInputTextBytes         = 256 * 1024
+	MaxFocusHintBytes         = 512
+	RecentMasterInputCapacity = 40
 
 	InputAcceptedEventKind  = "master.input.accepted"
 	InputStreamID           = "master:inputs"
@@ -60,6 +61,11 @@ type AcceptedMasterInput struct {
 	Input         MasterInput         `json:"input"`
 	ReplyDelivery MasterReplyDelivery `json:"replyDelivery"`
 	AcceptedAt    string              `json:"acceptedAt"`
+}
+
+type RecentMasterInputHistory struct {
+	Capacity int                   `json:"capacity"`
+	Inputs   []AcceptedMasterInput `json:"inputs"`
 }
 
 type InputConflictError struct {
@@ -128,6 +134,42 @@ func (accepted AcceptedMasterInput) Validate() error {
 	return nil
 }
 
+func (history RecentMasterInputHistory) Validate() error {
+	if history.Capacity != RecentMasterInputCapacity {
+		return fmt.Errorf(
+			"recent master input history capacity is %d, want %d",
+			history.Capacity,
+			RecentMasterInputCapacity,
+		)
+	}
+	if history.Inputs == nil {
+		return errors.New("recent master input history inputs are required")
+	}
+	if len(history.Inputs) > history.Capacity {
+		return fmt.Errorf(
+			"recent master input history contains %d inputs, capacity is %d",
+			len(history.Inputs),
+			history.Capacity,
+		)
+	}
+	seenIDs := make(map[string]bool, len(history.Inputs))
+	previousSequence := 0
+	for _, accepted := range history.Inputs {
+		if err := accepted.Validate(); err != nil {
+			return fmt.Errorf("recent master input history sequence %d: %w", accepted.Sequence, err)
+		}
+		if accepted.Sequence <= previousSequence {
+			return errors.New("recent master input history must be ordered by increasing sequence")
+		}
+		if seenIDs[accepted.Input.ID] {
+			return fmt.Errorf("recent master input history repeats input %s", accepted.Input.ID)
+		}
+		seenIDs[accepted.Input.ID] = true
+		previousSequence = accepted.Sequence
+	}
+	return nil
+}
+
 func EqualInputs(left MasterInput, right MasterInput) bool {
 	return equalMasterInputCore(left, right) &&
 		equalMasterInputFocus(left, right) &&
@@ -159,6 +201,17 @@ func CloneAcceptedInput(accepted AcceptedMasterInput) AcceptedMasterInput {
 	accepted.Input = cloneInput(accepted.Input)
 	accepted.ReplyDelivery = cloneReplyDelivery(accepted.ReplyDelivery)
 	return accepted
+}
+
+func CloneRecentInputHistory(history RecentMasterInputHistory) RecentMasterInputHistory {
+	cloned := RecentMasterInputHistory{
+		Capacity: history.Capacity,
+		Inputs:   make([]AcceptedMasterInput, len(history.Inputs)),
+	}
+	for index, accepted := range history.Inputs {
+		cloned.Inputs[index] = CloneAcceptedInput(accepted)
+	}
+	return cloned
 }
 
 func ReplyDeliveryForInput(input MasterInput) MasterReplyDelivery {

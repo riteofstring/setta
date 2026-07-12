@@ -27,8 +27,33 @@ describe("app-shell master controller", () => {
     ]);
     expect(harness.controller.getSnapshot()).toMatchObject({
       completedTranscript: null,
+      overlayOpen: true,
+      recentInputs: [
+        { input: { id: "master_input_1", modality: "text" } },
+        { input: { id: "capture_alpha", modality: "voice" } },
+      ],
       runtimeId: "runtime_alpha",
       submission: { accepted: { sequence: 2 }, type: "accepted" },
+    });
+  });
+
+  test("shares a persistent overlay draft across shell entry points", () => {
+    const harness = createHarness();
+    harness.controller.synchronizeRuntime("runtime_alpha");
+
+    harness.controller.openOverlay();
+    harness.controller.setDraft("Bring back the speech routing topic");
+    harness.controller.closeOverlay();
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      draft: "Bring back the speech routing topic",
+      overlayOpen: false,
+    });
+
+    harness.controller.openOverlay();
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      draft: "Bring back the speech routing topic",
+      overlayOpen: true,
     });
   });
 
@@ -76,12 +101,106 @@ describe("app-shell master controller", () => {
 
     expect(harness.controller.getSnapshot()).toEqual({
       completedTranscript: null,
+      draft: "",
+      history: { capacity: 40, type: "ready" },
+      overlayOpen: true,
+      recentInputs: [],
       runtimeId: "runtime_new",
       submission: { type: "idle" },
     });
     expect(() =>
       harness.controller.submitVoiceTranscript("capture_old", "runtime_old", "Stale"),
     ).toThrow("stale runtime");
+  });
+
+  test("keeps recent exchanges through reconnects and isolates them by runtime", async () => {
+    const harness = createHarness();
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    harness.controller.submitText("Alpha request");
+    await flushPromises();
+
+    harness.controller.synchronizeRuntime(null);
+    expect(harness.controller.getSnapshot().recentInputs).toMatchObject([
+      { input: { text: "Alpha request" } },
+    ]);
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    expect(harness.controller.getSnapshot().recentInputs).toMatchObject([
+      { input: { text: "Alpha request" } },
+    ]);
+
+    harness.controller.synchronizeRuntime("runtime_beta");
+    expect(harness.controller.getSnapshot().recentInputs).toEqual([]);
+    harness.controller.submitText("Beta request");
+    await flushPromises();
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    expect(harness.controller.getSnapshot().recentInputs).toMatchObject([
+      { input: { text: "Alpha request" } },
+    ]);
+  });
+
+  test("hydrates durable shell and conversation-escalation history after renderer restart", async () => {
+    const shellRequest: SubmitMasterInputRequest = {
+      input: shellInput("input_shell", "text", "Persisted shell request"),
+    };
+    const escalationInput = {
+      ...shellInput("input_escalation", "text", "Unrelated pane request"),
+      originatingConversationId: "conversation_origin",
+      originatingConversationInputId: "conversation_input_origin",
+      originatingPaneId: "pane_origin",
+      originatingWorkspaceId: "workspace_alpha",
+      source: "conversation_escalation" as const,
+    };
+    const history = {
+      capacity: 40,
+      inputs: [
+        acceptedFor(shellRequest, 3),
+        {
+          acceptedAt: "2026-07-12T18:00:02Z",
+          input: escalationInput,
+          replyDelivery: {
+            originatingConversationId: escalationInput.originatingConversationId,
+            originatingConversationInputId: escalationInput.originatingConversationInputId,
+            originatingPaneId: escalationInput.originatingPaneId,
+            originatingWorkspaceId: escalationInput.originatingWorkspaceId,
+            showInMasterOverlay: true,
+          },
+          sequence: 4,
+        },
+      ],
+    };
+    const harness = createHarness({ readRecentMasterInputs: async () => history });
+
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      history: { capacity: 40, type: "ready" },
+      recentInputs: [
+        { input: { id: "input_shell", source: "shell" }, sequence: 3 },
+        { input: { id: "input_escalation", source: "conversation_escalation" }, sequence: 4 },
+      ],
+    });
+  });
+
+  test("reports a durable history failure and retries it explicitly", async () => {
+    const readRecentMasterInputs = vi
+      .fn<AppShellMasterControllerDependencies["readRecentMasterInputs"]>()
+      .mockRejectedValueOnce(new Error("private backend failure"))
+      .mockResolvedValueOnce({ capacity: 40, inputs: [] });
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const harness = createHarness({ readRecentMasterInputs });
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+
+    expect(harness.controller.getSnapshot().history).toMatchObject({ type: "failed" });
+    harness.controller.retryHistory();
+    await flushPromises();
+    expect(harness.controller.getSnapshot().history).toEqual({ capacity: 40, type: "ready" });
+    expect(readRecentMasterInputs).toHaveBeenCalledTimes(2);
+    expect(info).toHaveBeenCalledWith(
+      "Recent master input history load failed: runtimeId=runtime_alpha",
+    );
+    info.mockRestore();
   });
 
   test("rejects a mismatched receipt and blocks concurrent or active discard", async () => {
@@ -100,8 +219,29 @@ describe("app-shell master controller", () => {
 
     expect(harness.controller.getSnapshot().submission.type).toBe("failed");
     harness.controller.discard();
-    expect(harness.controller.getSnapshot().submission).toEqual({ type: "idle" });
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      overlayOpen: true,
+      recentInputs: [],
+      submission: { type: "idle" },
+    });
     info.mockRestore();
+  });
+
+  test("bounds recent accepted inputs without clearing them with speech status", async () => {
+    const harness = createHarness();
+    harness.controller.synchronizeRuntime("runtime_alpha");
+
+    for (let index = 0; index < 45; index += 1) {
+      harness.controller.submitText(`Request ${index}`);
+      await flushPromises();
+      harness.controller.clearAccepted();
+    }
+
+    const recentInputs = harness.controller.getSnapshot().recentInputs;
+    expect(recentInputs).toHaveLength(40);
+    expect(recentInputs[0]?.input.text).toBe("Request 5");
+    expect(recentInputs.at(-1)?.input.text).toBe("Request 44");
+    expect(Object.isFrozen(recentInputs)).toBe(true);
   });
 });
 
@@ -117,6 +257,7 @@ function createHarness(overrides: Partial<AppShellMasterControllerDependencies> 
       return `master_input_${inputOrdinal}`;
     },
     now: () => new Date("2026-07-12T18:00:00.120Z"),
+    readRecentMasterInputs: async () => ({ capacity: 40, inputs: [] }),
     readFocusHints: () => ({
       focusedConversationId: "conversation_alpha",
       focusedPaneId: "pane_alpha",
@@ -137,7 +278,11 @@ function createHarness(overrides: Partial<AppShellMasterControllerDependencies> 
   return { controller: new AppShellMasterController(dependencies), requests };
 }
 
-function shellInput(id: string, modality: "text" | "voice", text: string) {
+function shellInput(
+  id: string,
+  modality: "text" | "voice",
+  text: string,
+): SubmitMasterInputRequest["input"] {
   return {
     focusedConversationId: "conversation_alpha",
     focusedPaneId: "pane_alpha",

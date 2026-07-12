@@ -61,6 +61,42 @@ func TestServiceRejectsInvalidDependenciesAndStoreResults(t *testing.T) {
 	}
 }
 
+func TestServiceReadsAndClonesValidatedRecentInputHistory(t *testing.T) {
+	input := MasterInput{
+		ID:          "input_history",
+		Text:        "Restore this request",
+		Modality:    MasterInputModalityText,
+		Source:      MasterInputSourceShell,
+		SubmittedAt: "2026-07-12T18:00:00Z",
+	}
+	store := &recordingInputStore{history: RecentMasterInputHistory{
+		Capacity: RecentMasterInputCapacity,
+		Inputs: []AcceptedMasterInput{{
+			Sequence:      1,
+			Input:         input,
+			ReplyDelivery: ReplyDeliveryForInput(input),
+			AcceptedAt:    "2026-07-12T18:00:01Z",
+		}},
+	}}
+	service, err := newService(store, time.Now)
+	if err != nil {
+		t.Fatalf("newService: %v", err)
+	}
+	history, err := service.ListRecentInputs(context.Background())
+	if err != nil {
+		t.Fatalf("ListRecentInputs: %v", err)
+	}
+	history.Inputs[0].Input.Text = "mutated"
+	if store.history.Inputs[0].Input.Text != "Restore this request" {
+		t.Fatalf("history aliases store: %+v", store.history)
+	}
+
+	store.history.Capacity = 0
+	if _, err := service.ListRecentInputs(context.Background()); err == nil {
+		t.Fatal("ListRecentInputs accepted invalid store history")
+	}
+}
+
 func TestServicePreservesTypedStoreConflict(t *testing.T) {
 	conflict := &InputConflictError{InputID: "input_conflict"}
 	service, err := newService(&recordingInputStore{err: conflict}, time.Now)
@@ -82,8 +118,24 @@ func TestServicePreservesTypedStoreConflict(t *testing.T) {
 type recordingInputStore struct {
 	acceptedAt string
 	err        error
+	history    RecentMasterInputHistory
 	input      MasterInput
 	invalid    bool
+}
+
+func (store *recordingInputStore) ListRecentMasterInputs(
+	_ context.Context,
+) (RecentMasterInputHistory, error) {
+	if store.err != nil {
+		return RecentMasterInputHistory{}, store.err
+	}
+	if store.history.Inputs == nil {
+		return RecentMasterInputHistory{
+			Capacity: RecentMasterInputCapacity,
+			Inputs:   []AcceptedMasterInput{},
+		}, nil
+	}
+	return store.history, nil
 }
 
 func (store *recordingInputStore) AcceptMasterInput(

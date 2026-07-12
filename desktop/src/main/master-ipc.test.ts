@@ -24,7 +24,9 @@ describe("master IPC handlers", () => {
       },
       sequence: 7,
     };
+    const history = { capacity: 40, inputs: [accepted] };
     const backend = {
+      readRecentMasterInputs: vi.fn(async () => history),
       submitMasterInput: vi.fn(async () => accepted),
     } as unknown as BackendClient;
     const observer = observerSpies();
@@ -34,8 +36,11 @@ describe("master IPC handlers", () => {
       requireBackendClient: () => backend,
     });
 
+    const loaded = await invoke(handlers, ipcChannels.masterReadRecentInputs);
     const result = await invoke(handlers, ipcChannels.masterSubmitInput, request);
 
+    expect(backend.readRecentMasterInputs).toHaveBeenCalledOnce();
+    expect(loaded).toEqual(history);
     expect(backend.submitMasterInput).toHaveBeenCalledWith(request);
     expect(result).toEqual(accepted);
     expect(observer.finished).toHaveBeenCalledWith(expect.objectContaining({ result: accepted }));
@@ -72,7 +77,7 @@ function observerSpies() {
 async function invoke(
   handlers: Map<string, Parameters<IpcMain["handle"]>[1]>,
   channel: string,
-  request: SubmitMasterInputRequest,
+  request?: SubmitMasterInputRequest,
 ) {
   const handler = handlers.get(channel);
   if (!handler) {

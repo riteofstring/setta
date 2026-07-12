@@ -46,6 +46,79 @@ func TestMasterInputEndpointAcceptsTypedGlobalVoiceSubmission(t *testing.T) {
 	}
 }
 
+func TestMasterInputHistoryEndpointReadsValidatedRecentInputs(t *testing.T) {
+	input := validSubmitMasterInputRequest().Input
+	service := &fakeHTTPMasterInputService{history: master.RecentMasterInputHistory{
+		Capacity: master.RecentMasterInputCapacity,
+		Inputs: []master.AcceptedMasterInput{{
+			Sequence:      1,
+			Input:         input,
+			ReplyDelivery: master.ReplyDeliveryForInput(input),
+			AcceptedAt:    "2026-07-12T18:00:01Z",
+		}},
+	}}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		MasterInputService: service,
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	history := getJSON[master.RecentMasterInputHistory](
+		t,
+		handler,
+		"/master/inputs/recent",
+		http.StatusOK,
+	)
+	if service.listCalls != 1 || len(history.Inputs) != 1 ||
+		!master.EqualInputs(history.Inputs[0].Input, input) {
+		t.Fatalf("history=%+v listCalls=%d", history, service.listCalls)
+	}
+}
+
+func TestMasterInputHistoryEndpointMapsReadAndValidationFailures(t *testing.T) {
+	tests := []struct {
+		err        error
+		history    master.RecentMasterInputHistory
+		wantCode   string
+		wantStatus int
+	}{
+		{
+			err:        &conversation.CorruptStateError{Path: "state", Err: errors.New("corrupt")},
+			wantCode:   "corrupt_master_input_state",
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			err:        errors.New("read failed"),
+			wantCode:   "read_master_input_history_failed",
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			history:    master.RecentMasterInputHistory{Capacity: 0, Inputs: []master.AcceptedMasterInput{}},
+			wantCode:   "invalid_master_input_history",
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.wantCode, func(t *testing.T) {
+			handler := newAuthenticatedTestHandler(t, HandlerConfig{
+				MasterInputService: &fakeHTTPMasterInputService{
+					err:     test.err,
+					history: test.history,
+				},
+				Metadata: BackendMetadata{Name: BackendName, Version: "test"},
+			})
+			response := getJSON[ErrorResponse](
+				t,
+				handler,
+				"/master/inputs/recent",
+				test.wantStatus,
+			)
+			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
+				t.Fatalf("error = %+v", response.Error)
+			}
+		})
+	}
+}
+
 func TestMasterInputEndpointRequiresServiceAndMapsTypedFailures(t *testing.T) {
 	missing := newAuthenticatedTestHandler(t, HandlerConfig{
 		Metadata: BackendMetadata{Name: BackendName, Version: "test"},
@@ -142,9 +215,21 @@ func TestMasterInputEndpointRejectsUnknownAndOversizedPayloads(t *testing.T) {
 }
 
 type fakeHTTPMasterInputService struct {
-	calls int
-	err   error
-	input master.MasterInput
+	calls     int
+	err       error
+	history   master.RecentMasterInputHistory
+	input     master.MasterInput
+	listCalls int
+}
+
+func (service *fakeHTTPMasterInputService) ListRecentInputs(
+	_ context.Context,
+) (master.RecentMasterInputHistory, error) {
+	service.listCalls++
+	if service.err != nil {
+		return master.RecentMasterInputHistory{}, service.err
+	}
+	return service.history, nil
 }
 
 func (service *fakeHTTPMasterInputService) SubmitInput(

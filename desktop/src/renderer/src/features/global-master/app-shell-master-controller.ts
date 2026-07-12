@@ -2,6 +2,7 @@ import type {
   AcceptedMasterInput,
   MasterInput,
   MasterInputModality,
+  RecentMasterInputHistory,
   SubmitMasterInputRequest,
 } from "@generated/backend";
 
@@ -35,8 +36,18 @@ export type MasterInputSubmissionState =
       type: "failed";
     };
 
-interface AppShellMasterSnapshot {
+type MasterInputHistoryState =
+  | { type: "disconnected" }
+  | { type: "loading" }
+  | { capacity: number; type: "ready" }
+  | { message: string; type: "failed" };
+
+export interface AppShellMasterSnapshot {
   completedTranscript: CompletedGlobalSpeechTranscript | null;
+  draft: string;
+  history: MasterInputHistoryState;
+  overlayOpen: boolean;
+  recentInputs: readonly AcceptedMasterInput[];
   runtimeId: string | null;
   submission: MasterInputSubmissionState;
 }
@@ -44,6 +55,7 @@ interface AppShellMasterSnapshot {
 export interface AppShellMasterControllerDependencies {
   createInputId: () => string;
   now: () => Date;
+  readRecentMasterInputs: (runtimeId: string) => Promise<RecentMasterInputHistory>;
   readFocusHints: () => MasterInputFocusHints;
   submitMasterInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
 }
@@ -54,12 +66,20 @@ export interface AppShellMasterControllerDependencies {
 export class AppShellMasterController {
   private readonly dependencies: AppShellMasterControllerDependencies;
   private readonly listeners = new Set<() => void>();
+  private readonly recentInputCapacityByRuntimeId = new Map<string, number>();
+  private readonly recentInputsByRuntimeId = new Map<string, readonly AcceptedMasterInput[]>();
 
   private disposed = false;
   private generation = 0;
+  private historyGeneration = 0;
+  private recentInputsRuntimeId: string | null = null;
   private pending: PendingShellMasterInput | null = null;
   private snapshotValue: AppShellMasterSnapshot = {
     completedTranscript: null,
+    draft: "",
+    history: { type: "disconnected" },
+    overlayOpen: false,
+    recentInputs: [],
     runtimeId: null,
     submission: { type: "idle" },
   };
@@ -81,13 +101,41 @@ export class AppShellMasterController {
       return;
     }
     this.invalidate();
+    this.invalidateHistory();
     this.pending = null;
+    const recentInputs = this.synchronizeRecentInputs(runtimeId);
     this.updateSnapshot({
       completedTranscript: null,
+      history: runtimeId ? { type: "loading" } : { type: "disconnected" },
+      recentInputs,
       runtimeId,
       submission: { type: "idle" },
     });
+    if (runtimeId) {
+      this.loadRecentInputs(runtimeId);
+    }
   }
+
+  openOverlay = (): void => {
+    this.assertUsable();
+    if (!this.snapshotValue.overlayOpen) {
+      this.updateSnapshot({ overlayOpen: true });
+    }
+  };
+
+  closeOverlay = (): void => {
+    this.assertUsable();
+    if (this.snapshotValue.overlayOpen) {
+      this.updateSnapshot({ overlayOpen: false });
+    }
+  };
+
+  setDraft = (draft: string): void => {
+    this.assertUsable();
+    if (draft !== this.snapshotValue.draft) {
+      this.updateSnapshot({ draft });
+    }
+  };
 
   submitText(text: string): string {
     this.assertUsable();
@@ -137,13 +185,26 @@ export class AppShellMasterController {
     }
   }
 
+  retryHistory = (): void => {
+    this.assertUsable();
+    const runtimeId = this.snapshotValue.runtimeId;
+    if (!runtimeId || this.snapshotValue.history.type !== "failed") {
+      return;
+    }
+    this.updateSnapshot({ history: { type: "loading" } });
+    this.loadRecentInputs(runtimeId);
+  };
+
   dispose(): void {
     if (this.disposed) {
       return;
     }
     this.disposed = true;
     this.invalidate();
+    this.invalidateHistory();
     this.pending = null;
+    this.recentInputCapacityByRuntimeId.clear();
+    this.recentInputsByRuntimeId.clear();
     this.listeners.clear();
   }
 
@@ -180,6 +241,7 @@ export class AppShellMasterController {
     this.pending = pending;
     this.updateSnapshot({
       completedTranscript,
+      overlayOpen: true,
       submission: { input, type: "submitting" },
     });
     this.submitPending(pending);
@@ -214,9 +276,17 @@ export class AppShellMasterController {
       return;
     }
     const durableAccepted = Object.freeze({ ...accepted, input: pending.input });
+    const recentInputs = appendRecentMasterInput(
+      this.snapshotValue.recentInputs,
+      durableAccepted,
+      this.recentInputCapacityByRuntimeId.get(pending.runtimeId) ?? null,
+    );
+    this.recentInputsByRuntimeId.set(pending.runtimeId, recentInputs);
+    this.recentInputsRuntimeId = pending.runtimeId;
     this.pending = null;
     this.updateSnapshot({
       completedTranscript: null,
+      recentInputs,
       submission: { accepted: durableAccepted, type: "accepted" },
     });
   }
@@ -256,6 +326,84 @@ export class AppShellMasterController {
     this.generation += 1;
   }
 
+  private invalidateHistory(): void {
+    this.historyGeneration += 1;
+  }
+
+  private loadRecentInputs(runtimeId: string): void {
+    this.historyGeneration += 1;
+    const generation = this.historyGeneration;
+    let pending: Promise<RecentMasterInputHistory>;
+    try {
+      pending = this.dependencies.readRecentMasterInputs(runtimeId);
+    } catch {
+      this.handleHistoryFailure(generation, runtimeId);
+      return;
+    }
+    void pending.then(
+      (history) => this.handleHistoryLoaded(generation, runtimeId, history),
+      () => this.handleHistoryFailure(generation, runtimeId),
+    );
+  }
+
+  private handleHistoryLoaded(
+    generation: number,
+    runtimeId: string,
+    history: RecentMasterInputHistory,
+  ): void {
+    if (!this.isCurrentHistory(generation, runtimeId) || !validRecentMasterInputHistory(history)) {
+      if (this.isCurrentHistory(generation, runtimeId)) {
+        this.handleHistoryFailure(generation, runtimeId);
+      }
+      return;
+    }
+    const recentInputs = mergeRecentMasterInputs(
+      history.inputs,
+      this.snapshotValue.recentInputs,
+      history.capacity,
+    );
+    this.recentInputCapacityByRuntimeId.set(runtimeId, history.capacity);
+    this.recentInputsByRuntimeId.set(runtimeId, recentInputs);
+    this.recentInputsRuntimeId = runtimeId;
+    this.updateSnapshot({
+      history: { capacity: history.capacity, type: "ready" },
+      recentInputs,
+    });
+  }
+
+  private handleHistoryFailure(generation: number, runtimeId: string): void {
+    if (!this.isCurrentHistory(generation, runtimeId)) {
+      return;
+    }
+    console.info(`Recent master input history load failed: runtimeId=${runtimeId}`);
+    this.updateSnapshot({
+      history: {
+        message:
+          "Setta could not load the durable master history. Retry to restore recent exchanges.",
+        type: "failed",
+      },
+    });
+  }
+
+  private isCurrentHistory(generation: number, runtimeId: string): boolean {
+    return (
+      !this.disposed &&
+      generation === this.historyGeneration &&
+      runtimeId === this.snapshotValue.runtimeId
+    );
+  }
+
+  private synchronizeRecentInputs(runtimeId: string | null): readonly AcceptedMasterInput[] {
+    if (this.recentInputsRuntimeId) {
+      this.recentInputsByRuntimeId.set(this.recentInputsRuntimeId, this.snapshotValue.recentInputs);
+    }
+    if (!runtimeId || runtimeId === this.recentInputsRuntimeId) {
+      return this.snapshotValue.recentInputs;
+    }
+    this.recentInputsRuntimeId = runtimeId;
+    return this.recentInputsByRuntimeId.get(runtimeId) ?? [];
+  }
+
   private updateSnapshot(update: Partial<AppShellMasterSnapshot>): void {
     this.snapshotValue = { ...this.snapshotValue, ...update };
     for (const listener of this.listeners) {
@@ -270,17 +418,107 @@ export class AppShellMasterController {
   }
 }
 
+function appendRecentMasterInput(
+  recentInputs: readonly AcceptedMasterInput[],
+  accepted: AcceptedMasterInput,
+  capacity: number | null,
+): readonly AcceptedMasterInput[] {
+  const next = [
+    ...recentInputs.filter((candidate) => candidate.input.id !== accepted.input.id),
+    accepted,
+  ];
+  return Object.freeze(capacity === null ? next : next.slice(-capacity));
+}
+
+function mergeRecentMasterInputs(
+  durableInputs: readonly AcceptedMasterInput[],
+  localInputs: readonly AcceptedMasterInput[],
+  capacity: number,
+): readonly AcceptedMasterInput[] {
+  const byID = new Map<string, AcceptedMasterInput>();
+  for (const accepted of [...localInputs, ...durableInputs]) {
+    byID.set(accepted.input.id, accepted);
+  }
+  return Object.freeze(
+    [...byID.values()].sort((left, right) => left.sequence - right.sequence).slice(-capacity),
+  );
+}
+
+function validRecentMasterInputHistory(history: RecentMasterInputHistory): boolean {
+  if (
+    !Number.isSafeInteger(history.capacity) ||
+    history.capacity <= 0 ||
+    history.inputs.length > history.capacity
+  ) {
+    return false;
+  }
+  let previousSequence = 0;
+  const inputIDs = new Set<string>();
+  for (const accepted of history.inputs) {
+    if (
+      !validAcceptedMasterInput(accepted) ||
+      accepted.sequence <= previousSequence ||
+      inputIDs.has(accepted.input.id)
+    ) {
+      return false;
+    }
+    previousSequence = accepted.sequence;
+    inputIDs.add(accepted.input.id);
+  }
+  return true;
+}
+
 function acceptedMasterInputMatches(accepted: AcceptedMasterInput, input: MasterInput): boolean {
+  return validAcceptedMasterInput(accepted) && masterInputsEqual(accepted.input, input);
+}
+
+function validAcceptedMasterInput(accepted: AcceptedMasterInput): boolean {
   return (
     Number.isSafeInteger(accepted.sequence) &&
     accepted.sequence > 0 &&
     accepted.acceptedAt !== "" &&
     accepted.replyDelivery.showInMasterOverlay &&
-    accepted.replyDelivery.originatingWorkspaceId === null &&
-    accepted.replyDelivery.originatingConversationId === null &&
-    accepted.replyDelivery.originatingPaneId === null &&
-    accepted.replyDelivery.originatingConversationInputId === null &&
-    masterInputsEqual(accepted.input, input)
+    validReplyDelivery(accepted)
+  );
+}
+
+function validReplyDelivery(accepted: AcceptedMasterInput): boolean {
+  switch (accepted.input.source) {
+    case "conversation_escalation":
+      return conversationEscalationDeliveryMatches(accepted);
+    case "shell":
+      return shellDeliveryMatches(accepted);
+    default:
+      return assertNever(accepted.input.source);
+  }
+}
+
+function conversationEscalationDeliveryMatches(accepted: AcceptedMasterInput): boolean {
+  const input = accepted.input;
+  const delivery = accepted.replyDelivery;
+  return (
+    input.originatingWorkspaceId !== null &&
+    input.originatingConversationId !== null &&
+    input.originatingConversationInputId !== null &&
+    delivery.originatingWorkspaceId === input.originatingWorkspaceId &&
+    delivery.originatingConversationId === input.originatingConversationId &&
+    delivery.originatingPaneId === input.originatingPaneId &&
+    delivery.originatingConversationInputId === input.originatingConversationInputId
+  );
+}
+
+function shellDeliveryMatches(accepted: AcceptedMasterInput): boolean {
+  const input = accepted.input;
+  const delivery = accepted.replyDelivery;
+  return (
+    input.originatingWorkspaceId === null &&
+    input.originatingConversationId === null &&
+    input.originatingPaneId === null &&
+    input.originatingConversationInputId === null &&
+    delivery.originatingWorkspaceId === null &&
+    delivery.originatingConversationId === null &&
+    delivery.originatingPaneId === null &&
+    delivery.originatingConversationInputId === null
   );
 }
 

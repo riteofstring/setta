@@ -24,6 +24,12 @@ export function AppShellMasterProvider({
       new AppShellMasterController({
         createInputId: () => globalThis.crypto.randomUUID(),
         now: () => new Date(),
+        readRecentMasterInputs: () => {
+          if (!setta.master) {
+            return Promise.reject(new Error("the desktop master history boundary is unavailable"));
+          }
+          return setta.master.readRecentInputs();
+        },
         readFocusHints: () => focusHintsRef.current,
         submitMasterInput: (request) => {
           if (!setta.master) {

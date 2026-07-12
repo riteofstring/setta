@@ -9,6 +9,24 @@ import (
 
 type InputStore interface {
 	AcceptMasterInput(context.Context, MasterInput, string) (AcceptedMasterInput, error)
+	ListRecentMasterInputs(context.Context) (RecentMasterInputHistory, error)
+}
+
+func (service *Service) ListRecentInputs(ctx context.Context) (RecentMasterInputHistory, error) {
+	if service == nil || service.store == nil {
+		return RecentMasterInputHistory{}, errors.New("master input service is unavailable")
+	}
+	if ctx == nil {
+		return RecentMasterInputHistory{}, errors.New("master input context is required")
+	}
+	history, err := service.store.ListRecentMasterInputs(ctx)
+	if err != nil {
+		return RecentMasterInputHistory{}, err
+	}
+	if err := history.Validate(); err != nil {
+		return RecentMasterInputHistory{}, fmt.Errorf("master input store returned invalid history: %w", err)
+	}
+	return CloneRecentInputHistory(history), nil
 }
 
 type Service struct {

@@ -1,6 +1,6 @@
 import type { WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import { PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -18,7 +18,14 @@ import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AppShellMasterProvider } from "./features/global-master/app-shell-master";
-import type { MasterInputFocusHints } from "./features/global-master/app-shell-master-controller";
+import type {
+  AppShellMasterController,
+  MasterInputFocusHints,
+} from "./features/global-master/app-shell-master-controller";
+import {
+  AppShellMasterSurface,
+  masterOverlayShortcutLabel,
+} from "./features/global-master/app-shell-master-surface";
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
@@ -118,13 +125,26 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }, [setta]);
   useEffect(() => setta.conversations.onEvent(handleConversationProjectionEvent), [setta]);
 
-  const shell = (
-    speechCapture?: AppShellSpeechCaptureController,
-    speechPresentation?: GlobalSpeechPresentationSource,
-  ) => (
-    <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground">
+  const shell = ({
+    master,
+    masterOverlayOpen = false,
+    speechCapture,
+    speechPresentation,
+  }: {
+    master?: AppShellMasterController;
+    masterOverlayOpen?: boolean;
+    speechCapture?: AppShellSpeechCaptureController;
+    speechPresentation?: GlobalSpeechPresentationSource;
+  } = {}) => (
+    <div
+      aria-hidden={masterOverlayOpen || undefined}
+      className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground"
+      inert={masterOverlayOpen || undefined}
+    >
       <AppChromeControls
         globalSpeechAvailable={Boolean(speechCapture)}
+        master={master}
+        masterOverlayOpen={masterOverlayOpen}
         mobileViewport={mobileViewport}
         openSettingsPane={openSettingsPane}
         platform={platform}
@@ -135,6 +155,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         <ProjectPane
           clearConversationPresentationError={() => setConversationPresentationError(null)}
           conversationPresentationError={conversationPresentationError}
+          master={master}
           mobileOverlay={mobileViewport}
           open={projectPaneOpen}
           openSettingsPane={openSettingsPane}
@@ -153,6 +174,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           platform={platform}
           projectPaneOpen={projectPaneOpen}
           projectPaneWidth={mobileViewport || !projectPaneOpen ? 0 : effectiveProjectPaneWidth}
+          shellOverlayActive={masterOverlayOpen}
           speechCapture={speechCapture}
           speechPresentation={speechPresentation}
         />
@@ -179,7 +201,18 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
               runtimeId={runtime.connectedRuntimeId}
               setta={setta}
             >
-              {(speechCapture, speechPresentation) => shell(speechCapture, speechPresentation)}
+              {(speechCapture, speechPresentation) => (
+                <AppShellMasterSurface controller={master} platform={platform}>
+                  {(masterOverlayOpen) =>
+                    shell({
+                      master,
+                      masterOverlayOpen,
+                      speechCapture,
+                      speechPresentation,
+                    })
+                  }
+                </AppShellMasterSurface>
+              )}
             </AppShellSpeechCaptureProvider>
           )}
         </AppShellSpeechPlaybackProvider>
@@ -329,6 +362,7 @@ type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
 function ProjectPane({
   clearConversationPresentationError,
   conversationPresentationError,
+  master,
   mobileOverlay,
   open,
   openSettingsPane,
@@ -341,6 +375,7 @@ function ProjectPane({
 }: {
   clearConversationPresentationError: () => void;
   conversationPresentationError: string | null;
+  master: AppShellMasterController | undefined;
   mobileOverlay: boolean;
   open: boolean;
   openSettingsPane: () => void;
@@ -367,7 +402,9 @@ function ProjectPane({
       clearWorkspaceError={workspace.clearError}
       closeWorkspace={workspace.closeWorkspace}
       conversationPresentationError={conversationPresentationError}
+      masterUnavailable={runtimeUnavailable}
       openLocalFolder={workspace.openLocalFolder}
+      openMasterOverlay={master?.openOverlay}
       openSettingsPane={openSettingsPane}
       openWorkspacePath={workspace.openWorkspacePath}
       presentConversation={presentConversation}
@@ -419,6 +456,8 @@ export function sidebarWorkspaceBusy(
 
 function AppChromeControls({
   globalSpeechAvailable,
+  master,
+  masterOverlayOpen,
   mobileViewport,
   openSettingsPane,
   platform,
@@ -426,6 +465,8 @@ function AppChromeControls({
   setProjectPaneOpen,
 }: {
   globalSpeechAvailable: boolean;
+  master: AppShellMasterController | undefined;
+  masterOverlayOpen: boolean;
   mobileViewport: boolean;
   openSettingsPane: () => void;
   platform: DesktopPlatform;
@@ -438,6 +479,8 @@ function AppChromeControls({
   return (
     <DesktopShellTopBar
       globalSpeechAvailable={globalSpeechAvailable}
+      master={master}
+      masterOverlayOpen={masterOverlayOpen}
       onOpenSettings={openSettingsPane}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
@@ -448,12 +491,16 @@ function AppChromeControls({
 
 function DesktopShellTopBar({
   globalSpeechAvailable,
+  master,
+  masterOverlayOpen,
   onOpenSettings,
   platform,
   projectPaneOpen,
   setProjectPaneOpen,
 }: {
   globalSpeechAvailable: boolean;
+  master: AppShellMasterController | undefined;
+  masterOverlayOpen: boolean;
   onOpenSettings: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -482,6 +529,16 @@ function DesktopShellTopBar({
             >
               <ProjectPaneIcon className="h-3.5 w-3.5" />
             </ShellTopBarButton>
+            {master ? (
+              <ShellTopBarButton
+                active={masterOverlayOpen}
+                label={`Ask Setta (${masterOverlayShortcutLabel(platform)})`}
+                onClick={master.openOverlay}
+                testId="master-overlay-button"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+              </ShellTopBarButton>
+            ) : null}
             <ShellTopBarButton
               label="Open settings"
               onClick={onOpenSettings}

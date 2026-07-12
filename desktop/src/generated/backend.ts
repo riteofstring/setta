@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 34;
-export const backendContractSchemaHash = "sha256:1d9e6f6558415f4eaf50af8a2c072e630f8683a358f09ed8de99bd7febd61be2";
+export const backendProtocolVersion = 35;
+export const backendContractSchemaHash = "sha256:7504b5736918c39d086ba533bdac59af297a236edb1d4f19d34c3aec4994d1a7";
 
 export type DeviceScope = "full";
 
@@ -5287,10 +5287,6 @@ export interface MasterInput {
   originatingConversationInputId: string | null;
 }
 
-export interface SubmitMasterInputRequest {
-  input: MasterInput;
-}
-
 export interface MasterReplyDelivery {
   showInMasterOverlay: boolean;
   originatingWorkspaceId: string | null;
@@ -5304,6 +5300,15 @@ export interface AcceptedMasterInput {
   input: MasterInput;
   replyDelivery: MasterReplyDelivery;
   acceptedAt: string;
+}
+
+export interface RecentMasterInputHistory {
+  capacity: number;
+  inputs: AcceptedMasterInput[];
+}
+
+export interface SubmitMasterInputRequest {
+  input: MasterInput;
 }
 
 export interface SpeechVoiceCatalog {
@@ -8953,6 +8958,10 @@ export const backendEndpoints = {
     path: "/conversations/inputs/discard",
     requestBodyLimitBytes: 4194304,
   },
+  ReadRecentMasterInputs: {
+    method: "GET",
+    path: "/master/inputs/recent",
+  },
   SubmitMasterInput: {
     method: "POST",
     path: "/master/inputs/submit",
@@ -11966,14 +11975,6 @@ export function decodeMasterInput(value: unknown): MasterInput {
   };
 }
 
-export function decodeSubmitMasterInputRequest(value: unknown): SubmitMasterInputRequest {
-  const record = assertRecord(value, "SubmitMasterInputRequest");
-  assertKnownFields(record, "SubmitMasterInputRequest", ["input"]);
-  return {
-    input: decodeMasterInput(requireField(record, "input", "SubmitMasterInputRequest")),
-  };
-}
-
 export function decodeMasterReplyDelivery(value: unknown): MasterReplyDelivery {
   const record = assertRecord(value, "MasterReplyDelivery");
   assertKnownFields(record, "MasterReplyDelivery", ["showInMasterOverlay", "originatingWorkspaceId", "originatingConversationId", "originatingPaneId", "originatingConversationInputId"]);
@@ -11994,6 +11995,23 @@ export function decodeAcceptedMasterInput(value: unknown): AcceptedMasterInput {
     input: decodeMasterInput(requireField(record, "input", "AcceptedMasterInput")),
     replyDelivery: decodeMasterReplyDelivery(requireField(record, "replyDelivery", "AcceptedMasterInput")),
     acceptedAt: decodeString(requireField(record, "acceptedAt", "AcceptedMasterInput"), "AcceptedMasterInput.acceptedAt"),
+  };
+}
+
+export function decodeRecentMasterInputHistory(value: unknown): RecentMasterInputHistory {
+  const record = assertRecord(value, "RecentMasterInputHistory");
+  assertKnownFields(record, "RecentMasterInputHistory", ["capacity", "inputs"]);
+  return {
+    capacity: decodeInteger(requireField(record, "capacity", "RecentMasterInputHistory"), "RecentMasterInputHistory.capacity"),
+    inputs: decodeArray(requireField(record, "inputs", "RecentMasterInputHistory"), "RecentMasterInputHistory.inputs", (item) => decodeAcceptedMasterInput(item)),
+  };
+}
+
+export function decodeSubmitMasterInputRequest(value: unknown): SubmitMasterInputRequest {
+  const record = assertRecord(value, "SubmitMasterInputRequest");
+  assertKnownFields(record, "SubmitMasterInputRequest", ["input"]);
+  return {
+    input: decodeMasterInput(requireField(record, "input", "SubmitMasterInputRequest")),
   };
 }
 
@@ -16947,6 +16965,7 @@ export interface BackendClient {
   readConversationInputRoutingState: (request: ReadConversationInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   retryConversationInput: (request: RetryConversationInputRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   discardConversationInput: (request: DiscardConversationInputRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
+  readRecentMasterInputs: (options?: BackendRequestOptions) => Promise<RecentMasterInputHistory>;
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   readMasterVoiceSelection: (options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
@@ -17441,6 +17460,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       endpoint: backendEndpoints.DiscardConversationInput,
       fetchImpl,
       requestPayload: request,
+      signal: options?.signal,
+    }),
+    readRecentMasterInputs: (options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRecentMasterInputHistory,
+      endpoint: backendEndpoints.ReadRecentMasterInputs,
+      fetchImpl,
+      requestPayload: undefined,
       signal: options?.signal,
     }),
     submitMasterInput: (request, options) => requestBackend({

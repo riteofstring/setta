@@ -16,6 +16,12 @@ export function registerMasterIpcHandlers({
 }: MasterIpcRegistration): void {
   handleIpc(
     ipcMain,
+    "masterReadRecentInputs",
+    async () => requireBackendClient().readRecentMasterInputs(),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "masterSubmitInput",
     async (_event, request) => requireBackendClient().submitMasterInput(request),
     ipcObserver,

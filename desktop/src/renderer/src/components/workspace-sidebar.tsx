@@ -4,6 +4,7 @@ import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
+import { MasterSidebarLauncher } from "../features/global-master/app-shell-master-surface";
 import { useConversationNavigatorStore } from "../stores/conversation-navigator-store";
 import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
 import { useConversationPaneStore } from "../stores/conversation-pane-store";
@@ -38,6 +39,7 @@ interface WorkspaceSidebarProps {
   closeWorkspace: (id: string) => Promise<void>;
   conversationPresentationError?: string | null;
   openLocalFolder: () => Promise<void>;
+  openMasterOverlay?: () => void;
   openSettingsPane: () => void;
   openWorkspacePath: (rootPath: string) => Promise<void>;
   presentConversation: (
@@ -52,6 +54,7 @@ interface WorkspaceSidebarProps {
   showFooterSettings?: boolean;
   showLogoHeader?: boolean;
   sidebarWidth?: number;
+  masterUnavailable?: boolean;
   workspaceError?: string | null;
 }
 
@@ -90,6 +93,7 @@ function WorkspaceSidebarContent({
   closeWorkspace,
   conversationPresentationError,
   openLocalFolder,
+  openMasterOverlay,
   openSettingsPane,
   openWorkspacePath,
   presentConversation,
@@ -100,6 +104,7 @@ function WorkspaceSidebarContent({
   showFooterSettings,
   showLogoHeader,
   sidebarWidth,
+  masterUnavailable = false,
   workspaceError,
 }: NormalizedWorkspaceSidebarProps) {
   const [navigationError, setNavigationError] = useState<string | null>(null);
@@ -172,6 +177,7 @@ function WorkspaceSidebarContent({
     >
       <SidebarLogoHeader visible={showLogoHeader} />
       <div className="setta-sidebar-content-shell shrink-0 px-1 pb-2">
+        <WorkspaceMasterLauncher disabled={masterUnavailable} onOpen={openMasterOverlay} />
         <SidebarAccordionSection
           action={
             <RuntimePickerAddButton adding={runtimePairingOpen} setAdding={setRuntimePairingOpen} />
@@ -253,6 +259,19 @@ function WorkspaceSidebarContent({
       <SidebarFooterSettings onOpenSettings={openSettingsPane} visible={showFooterSettings} />
     </aside>
   );
+}
+
+function WorkspaceMasterLauncher({
+  disabled,
+  onOpen,
+}: {
+  disabled: boolean;
+  onOpen: (() => void) | undefined;
+}) {
+  if (!onOpen) {
+    return null;
+  }
+  return <MasterSidebarLauncher disabled={disabled} onOpen={onOpen} />;
 }
 
 function ConversationCreate({

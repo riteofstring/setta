@@ -1,17 +1,10 @@
-import type { DesktopPlatform } from "@shared/types";
-import type { WorkspaceUILayout } from "@generated/backend";
 import { Profiler, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isMobileViewportWidth } from "../app-layout";
-import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import { useAppearanceStore } from "../stores/appearance-store";
 import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
-import {
-  type WorkspaceConversationFocusRequest,
-  useConversationPaneRuntime,
-} from "./conversation-pane-runtime";
+import { useConversationPaneRuntime } from "./conversation-pane-runtime";
 import {
   finishOverviewPanSession,
   beginOverviewPanSession,
@@ -23,7 +16,7 @@ import {
   syncPaneResizePreview as syncPaneResizePreviewElement,
 } from "./pane-resize-preview";
 import { installWindowResizeReportHooks } from "./performance-report";
-import { hostPoolSizeForRuntime, type WorkspaceSceneMode } from "./runtime-mode-options";
+import { hostPoolSizeForRuntime } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
 import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runtime";
 import {
@@ -84,11 +77,14 @@ import {
   WorkspacePaneHost,
 } from "./workspace-layout-area-components";
 import {
-  type WorkspaceSurfaceFocusRequest,
   workspaceBenchmarkShouldRun,
   workspaceRuntimeIdentity,
   workspaceSceneMode,
 } from "./workspace-layout-area-runtime";
+import type {
+  WorkspaceLayoutAreaProps,
+  WorkspaceLayoutRuntimeAreaProps,
+} from "./workspace-layout-area-contract";
 import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import { useWorkspaceLayoutSnapshot, useWorkspaceLayoutTarget } from "./workspace-layout-state";
@@ -110,19 +106,10 @@ export function WorkspaceLayoutArea({
   platform,
   projectPaneOpen,
   projectPaneWidth,
+  shellOverlayActive = false,
   speechCapture,
   speechPresentation,
-}: {
-  focusConversationRequest?: WorkspaceConversationFocusRequest | null;
-  focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
-  onConversationPresentationError?: (message: string | null) => void;
-  onToggleProjectPane: () => void;
-  platform: DesktopPlatform;
-  projectPaneOpen: boolean;
-  projectPaneWidth: number;
-  speechCapture?: SpeechCaptureRequester;
-  speechPresentation?: GlobalSpeechPresentationSource;
-}) {
+}: WorkspaceLayoutAreaProps) {
   const workspaceTarget = useWorkspaceLayoutTarget();
   const workspace = workspaceTarget.workspace;
   const mode = workspaceSceneMode();
@@ -146,6 +133,7 @@ export function WorkspaceLayoutArea({
       platform={platform}
       projectPaneOpen={projectPaneOpen}
       projectPaneWidth={projectPaneWidth}
+      shellOverlayActive={shellOverlayActive}
       speechCapture={speechCapture}
       speechPresentation={speechPresentation}
       workspaceId={workspaceId}
@@ -165,26 +153,12 @@ function WorkspaceLayoutRuntimeArea({
   platform,
   projectPaneOpen,
   projectPaneWidth,
+  shellOverlayActive,
   speechCapture,
   speechPresentation,
   workspaceId,
   workspaceName,
-}: {
-  focusConversationRequest: WorkspaceConversationFocusRequest | null;
-  focusSurfaceRequest: WorkspaceSurfaceFocusRequest | null;
-  initialLayout: WorkspaceUILayout | null;
-  layoutLoadError: string | null;
-  mode: WorkspaceSceneMode;
-  onToggleProjectPane: () => void;
-  onConversationPresentationError?: (message: string | null) => void;
-  platform: DesktopPlatform;
-  projectPaneOpen: boolean;
-  projectPaneWidth: number;
-  speechCapture: SpeechCaptureRequester | undefined;
-  speechPresentation: GlobalSpeechPresentationSource | undefined;
-  workspaceId: string;
-  workspaceName: string;
-}) {
+}: WorkspaceLayoutRuntimeAreaProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const debugRef = useRef<HTMLDivElement | null>(null);
@@ -254,6 +228,7 @@ function WorkspaceLayoutRuntimeArea({
     null,
   );
   const [nativeViewOverlayActive, setNativeViewOverlayActive] = useState(false);
+  const nativeViewsOccluded = nativeViewOverlayActive || shellOverlayActive;
 
   const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
     if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
@@ -302,7 +277,7 @@ function WorkspaceLayoutRuntimeArea({
   }, [projectPaneWidth, runtime, stageViewport]);
   useEffect(() => {
     schedulerRef.current?.requestFrame();
-  }, [nativeViewOverlayActive]);
+  }, [nativeViewsOccluded]);
   usePresentationHostPool({ hostPoolSize, hostRefs, rootRef, runtime, schedulerRef, stageRef });
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
@@ -901,7 +876,7 @@ function WorkspaceLayoutRuntimeArea({
       data-desktop-platform={platform}
       data-maximized-pane-id={layoutSnapshot.maximizedPaneId ?? ""}
       data-native-view-clip-left={projectPaneWidth}
-      data-native-view-overlay-active={nativeViewOverlayActive}
+      data-native-view-overlay-active={nativeViewsOccluded}
       data-pane-count={currentScene.totalPanes}
       data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}

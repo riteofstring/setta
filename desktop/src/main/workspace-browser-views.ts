@@ -731,6 +731,7 @@ const browserViewCommandKeys = new Set<string>([
   "b",
   "c",
   "g",
+  "k",
   "n",
   "o",
   "s",
@@ -777,6 +778,9 @@ function shouldForwardWorkspaceBrowserViewKey(
   }
   if (key === "Enter" && workspaceModifier) {
     return true;
+  }
+  if (key === "k") {
+    return !input.alt && !input.shift && (input.meta || Boolean(input.control));
   }
   return input.meta && isBrowserViewCommandKey(key);
 }

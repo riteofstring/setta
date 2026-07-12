@@ -754,6 +754,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const masterController = new AppShellMasterController({
     createInputId: () => "unused_text_input",
     now: dependencies.now,
+    readRecentMasterInputs: async () => ({ capacity: 40, inputs: [] }),
     readFocusHints: () => ({
       focusedConversationId: null,
       focusedPaneId: null,

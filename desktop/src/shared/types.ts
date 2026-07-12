@@ -69,6 +69,7 @@ import type {
   LogoutCodexAccountRequest,
   MergeSemanticNodesRequest,
   MasterVoiceSelection,
+  RecentMasterInputHistory,
   MessagePage,
   OpenWorkspaceResponse,
   NavigatorPage,
@@ -271,6 +272,7 @@ export type WorkspaceBrowserViewKey =
   | "b"
   | "c"
   | "g"
+  | "k"
   | "n"
   | "o"
   | "s"
@@ -456,6 +458,7 @@ export interface SettaAPI {
     ) => Promise<ConversationPresentationProfile>;
   };
   master?: {
+    readRecentInputs: () => Promise<RecentMasterInputHistory>;
     submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
   };
   speech: {
