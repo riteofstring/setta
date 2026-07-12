@@ -526,12 +526,13 @@ func seedTerminalProjectorConversation(
 		UpdatedAt:       serviceTestTimestamp,
 	}
 	presentation := conversation.ConversationPresentationProfile{
-		ConversationID:         conversationID,
-		PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
-		ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
-		NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
-		NarratorSpeechEnabled:  true,
-		UpdatedAt:              serviceTestTimestamp,
+		ConversationID:          conversationID,
+		PaletteSelection:        conversation.PresentationSelectionAutoDistinct,
+		ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: narrationTestVoiceIDPointer(speech.SpeechVoiceAlloy),
+		NarratorSpeechEnabled:   true,
+		UpdatedAt:               serviceTestTimestamp,
 	}
 	_, err := store.Transact(context.Background(), "seed terminal projector", func(tx *conversation.WriteTransaction) error {
 		if err := tx.InsertConversation(record); err != nil {

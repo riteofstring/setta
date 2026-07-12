@@ -366,6 +366,14 @@ func writeSpeechVoiceConfigurationError(response http.ResponseWriter, err error)
 	writeSpeechError(response, "invalid_speech_voice_configuration", err)
 }
 
+func writeConversationVoiceConfigurationError(response http.ResponseWriter, err error) {
+	if _, ok := speech.AsError(err); ok {
+		writeSpeechError(response, "invalid_speech_voice_configuration", err)
+		return
+	}
+	writeConversationError(response, "update_conversation_voice_configuration_failed", err)
+}
+
 func speechErrorHTTPStatus(code speech.ErrorCode) int {
 	switch code {
 	case speech.ErrorRateLimited:
@@ -376,6 +384,8 @@ func speechErrorHTTPStatus(code speech.ErrorCode) int {
 		return http.StatusServiceUnavailable
 	case speech.ErrorSourceUnavailable:
 		return http.StatusConflict
+	case speech.ErrorVoiceUnavailable:
+		return http.StatusUnprocessableEntity
 	default:
 		return http.StatusInternalServerError
 	}

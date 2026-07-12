@@ -61,6 +61,12 @@ type ConversationService interface {
 		string,
 		conversation.ConversationApprovalResponse,
 	) (conversation.ConversationSnapshot, error)
+	UpdateNarratorVoiceSelection(
+		context.Context,
+		string,
+		string,
+		speech.VoiceSelectionRequest,
+	) (conversation.ConversationPresentationProfile, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SubscribeEvents(
 		conversation.ConversationEventCursor,
@@ -94,6 +100,10 @@ type MasterInputService interface {
 type SpeechService interface {
 	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
 	ReadMasterVoiceSelection(context.Context) (speech.MasterVoiceSelection, error)
+	UpdateMasterVoiceSelection(
+		context.Context,
+		speech.VoiceSelectionRequest,
+	) (speech.MasterVoiceSelection, error)
 	CreateTranscriptionSession(context.Context, string) (speech.SpeechTranscriptionSession, error)
 }
 

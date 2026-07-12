@@ -112,6 +112,185 @@ func (store *Store) ReadMasterVoiceSelection(
 	return speech.CloneMasterVoiceSelection(selection), nil
 }
 
+func (store *Store) UpdateMasterVoiceSelection(
+	ctx context.Context,
+	request speech.VoiceSelectionRequest,
+	updatedAt string,
+) (speech.MasterVoiceSelection, error) {
+	if ctx == nil {
+		return speech.MasterVoiceSelection{}, errors.New("master voice selection update context is required")
+	}
+	if err := request.Validate(); err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	var result speech.MasterVoiceSelection
+	err := store.withVoiceConfigurationLock(func() error {
+		var err error
+		result, err = store.updateMasterVoiceSelectionLocked(ctx, request, updatedAt)
+		return err
+	})
+	if err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	return speech.CloneMasterVoiceSelection(result), nil
+}
+
+func (store *Store) updateMasterVoiceSelectionLocked(
+	ctx context.Context,
+	request speech.VoiceSelectionRequest,
+	updatedAt string,
+) (speech.MasterVoiceSelection, error) {
+	current, err := store.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	if masterVoiceSelectionMatchesRequest(current, request) {
+		return current, nil
+	}
+	presentations, err := store.readActiveConversationPresentations(ctx)
+	if err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	resolved, err := speech.ResolveMasterVoiceSelection(
+		request,
+		narratorVoiceAssignments(presentations, nil),
+		advanceTimestamp(current.UpdatedAt, updatedAt),
+	)
+	if err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	updates, err := narratorUpdatesForMasterVoice(
+		presentations,
+		*resolved.ResolvedVoiceID,
+		resolved.UpdatedAt,
+	)
+	if err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	profilePublications, err := store.prepareMasterVoiceProfilePublications(updates)
+	if err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	if err := store.commitMasterVoiceUpdate(ctx, current, resolved, updates, profilePublications); err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	return resolved, nil
+}
+
+func (store *Store) prepareMasterVoiceProfilePublications(
+	updates []ConversationPresentationProfile,
+) ([]preparedPublication, error) {
+	publications := make([]preparedPublication, 0, len(updates))
+	for _, update := range updates {
+		eventID, err := randomServiceID("conversation_event")
+		if err != nil {
+			return nil, err
+		}
+		streamID, err := ConversationStreamID(update.ConversationID)
+		if err != nil {
+			return nil, err
+		}
+		publications = append(publications, preparedPublication{draft: CommittedEventDraft{
+			ID:       eventID,
+			StreamID: streamID,
+			Kind:     string(ConversationEventTypePresentationProfileUpdated),
+			Payload: ConversationPresentationProfileUpdatedEventPayload{
+				Type:    ConversationEventTypePresentationProfileUpdated,
+				Profile: update,
+			},
+			CommittedAt: update.UpdatedAt,
+		}})
+	}
+	return publications, nil
+}
+
+func (store *Store) commitMasterVoiceUpdate(
+	ctx context.Context,
+	current speech.MasterVoiceSelection,
+	resolved speech.MasterVoiceSelection,
+	updates []ConversationPresentationProfile,
+	profilePublications []preparedPublication,
+) error {
+	masterEventID, err := randomServiceID("speech_event")
+	if err != nil {
+		return err
+	}
+	selectionUpdate := speech.NewMasterVoiceSelectionUpdate(current, resolved)
+	if err := selectionUpdate.Validate(); err != nil {
+		return err
+	}
+	_, err = store.Transact(ctx, "update master voice configuration", func(transaction *WriteTransaction) error {
+		if err := transaction.UpdateMasterVoiceSelection(current.UpdatedAt, resolved); err != nil {
+			return err
+		}
+		for _, update := range updates {
+			if err := transaction.UpsertConversationPresentationProfile(update); err != nil {
+				return err
+			}
+		}
+		if _, err := transaction.AppendCommittedEvent(CommittedEventDraft{
+			ID:          masterEventID,
+			StreamID:    speech.MasterVoiceSelectionStreamID,
+			Kind:        speech.MasterVoiceSelectionUpdatedEventKind,
+			Payload:     selectionUpdate,
+			CommittedAt: resolved.UpdatedAt,
+		}); err != nil {
+			return err
+		}
+		return appendPublications(transaction, profilePublications)
+	})
+	return err
+}
+
+func masterVoiceSelectionMatchesRequest(
+	selection speech.MasterVoiceSelection,
+	request speech.VoiceSelectionRequest,
+) bool {
+	if selection.Selection != request.Selection {
+		return false
+	}
+	if request.Selection == speech.VoiceSelectionAutoDistinct {
+		return true
+	}
+	return voiceIDsEqual(selection.RequestedVoiceID, request.RequestedVoiceID)
+}
+
+func narratorUpdatesForMasterVoice(
+	presentations []activeConversationPresentation,
+	masterVoiceID speech.SpeechVoiceID,
+	updatedAt string,
+) ([]ConversationPresentationProfile, error) {
+	excluded := map[string]bool{}
+	affected := make([]ConversationPresentationProfile, 0)
+	for _, presentation := range presentations {
+		profile := presentation.Profile
+		if profile.NarratorVoiceSelection != speech.VoiceSelectionAutoDistinct ||
+			profile.ResolvedNarratorVoiceID == nil ||
+			*profile.ResolvedNarratorVoiceID != masterVoiceID {
+			continue
+		}
+		excluded[profile.ConversationID] = true
+		affected = append(affected, profile)
+	}
+	assignments := narratorVoiceAssignments(presentations, excluded)
+	updates := make([]ConversationPresentationProfile, 0, len(affected))
+	for _, profile := range affected {
+		allocation, err := speech.AllocateNarratorVoice(masterVoiceID, assignments)
+		if err != nil {
+			return nil, err
+		}
+		profile.ResolvedNarratorVoiceID = voiceIDPointer(allocation.VoiceID)
+		profile.NarratorVoiceReuse = presentationReuseFromVoiceAllocation(allocation)
+		profile.UpdatedAt = advanceTimestamp(profile.UpdatedAt, updatedAt)
+		if err := profile.Validate(); err != nil {
+			return nil, err
+		}
+		updates = append(updates, profile)
+		assignments = append(assignments, narratorVoiceAssignment(profile))
+	}
+	return updates, nil
+}
+
 type masterVoiceSelectionQuery interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }

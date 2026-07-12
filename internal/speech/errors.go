@@ -1,6 +1,9 @@
 package speech
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type ErrorCode string
 
@@ -12,6 +15,7 @@ const (
 	ErrorProviderResponseMalformed ErrorCode = "speech_provider_response_malformed"
 	ErrorAudioTooLarge             ErrorCode = "speech_audio_too_large"
 	ErrorSourceUnavailable         ErrorCode = "speech_source_unavailable"
+	ErrorVoiceUnavailable          ErrorCode = "speech_voice_unavailable"
 )
 
 type Error struct {
@@ -44,4 +48,12 @@ func AsError(err error) (*Error, bool) {
 
 func classifiedError(code ErrorCode, message string, err error) error {
 	return &Error{Code: code, Message: message, Err: err}
+}
+
+func unavailableVoiceError(voiceID SpeechVoiceID) error {
+	return classifiedError(
+		ErrorVoiceUnavailable,
+		fmt.Sprintf("Speech voice %q is not available in catalog %s.", voiceID, SynthesisVoiceCatalog().Version),
+		nil,
+	)
 }

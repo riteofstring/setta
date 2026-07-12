@@ -145,6 +145,7 @@ const api: SettaAPI = {
     submitInput: (request) => invoke("conversationSubmitInput", request),
     submitApproval: (request) => invoke("conversationSubmitApproval", request),
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
+    updateNarratorVoice: (request) => invoke("conversationUpdateNarratorVoice", request),
   },
   master: {
     submitInput: (request) => invoke("masterSubmitInput", request),
@@ -153,6 +154,7 @@ const api: SettaAPI = {
     createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
     readCapabilities: () => invoke("speechReadCapabilities"),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
+    updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),

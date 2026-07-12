@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"setta/internal/agent"
+	"setta/internal/speech"
 	"setta/internal/workspace"
 )
 
@@ -184,6 +185,12 @@ func newConversationServiceTestHarness(
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
+	if _, err := store.EnsureMasterVoiceSelection(
+		context.Background(),
+		speech.DefaultMasterVoiceSelection("2026-07-11T20:00:00Z"),
+	); err != nil {
+		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+	}
 	workspaceRoot := t.TempDir()
 	workspaceID := "workspace-service"
 	runtime := newServiceTestAgentRuntime()
@@ -238,6 +245,7 @@ type serviceTestAgentRuntime struct {
 	controlLog   []string
 	lastApproval *agent.ApprovalResponse
 	started      chan string
+	threads      int
 	turns        int
 }
 
@@ -266,7 +274,14 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 	context.Context,
 	agent.StartThreadRequest,
 ) (agent.Thread, error) {
-	return agent.Thread{ID: "provider-thread", SessionID: "session", Model: "gpt-5.6-sol"}, nil
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	runtime.threads++
+	return agent.Thread{
+		ID:        fmt.Sprintf("provider-thread-%d", runtime.threads),
+		SessionID: fmt.Sprintf("session-%d", runtime.threads),
+		Model:     "gpt-5.6-sol",
+	}, nil
 }
 
 func (runtime *serviceTestAgentRuntime) RunTurn(

@@ -55,7 +55,7 @@ func TestVoiceSelectionsRequireTypedAvailableExactValues(t *testing.T) {
 	}{
 		{name: "mode", mutate: func(value *MasterVoiceSelection) { value.Selection = "unknown" }, want: "unsupported"},
 		{name: "requested missing", mutate: func(value *MasterVoiceSelection) { value.RequestedVoiceID = nil }, want: "requires requested"},
-		{name: "requested unavailable", mutate: func(value *MasterVoiceSelection) { value.RequestedVoiceID = voiceIDPointer("missing") }, want: "unavailable"},
+		{name: "requested unavailable", mutate: func(value *MasterVoiceSelection) { value.RequestedVoiceID = voiceIDPointer("missing") }, want: "not available"},
 		{name: "resolved missing", mutate: func(value *MasterVoiceSelection) { value.ResolvedVoiceID = nil }, want: "requires resolved"},
 		{name: "resolved mismatch", mutate: func(value *MasterVoiceSelection) { value.ResolvedVoiceID = voiceIDPointer(SpeechVoiceCedar) }, want: "want requested"},
 		{name: "timestamp", mutate: func(value *MasterVoiceSelection) { value.UpdatedAt = "2026-07-12T11:00:00-07:00" }, want: "canonical UTC"},
@@ -74,12 +74,61 @@ func TestVoiceSelectionsRequireTypedAvailableExactValues(t *testing.T) {
 		Selection: VoiceSelectionAutoDistinct,
 		UpdatedAt: "2026-07-12T18:00:00Z",
 	}
-	if err := auto.Validate(); err != nil {
-		t.Fatalf("validate unresolved automatic selection: %v", err)
+	if err := auto.Validate(); err == nil || !strings.Contains(err.Error(), "requires resolved") {
+		t.Fatalf("unresolved automatic selection error = %v", err)
 	}
 	auto.RequestedVoiceID = voiceIDPointer(SpeechVoiceAlloy)
 	if err := auto.Validate(); err == nil || !strings.Contains(err.Error(), "must not contain requested") {
 		t.Fatalf("automatic requested voice error = %v", err)
+	}
+}
+
+func TestNarratorVoiceAllocationIsDistinctStableAndExplicitOnExhaustion(t *testing.T) {
+	catalog := []SpeechVoiceID{SpeechVoiceAlloy, SpeechVoiceAsh, SpeechVoiceMarin}
+	first, err := allocateNarratorVoice(catalog, SpeechVoiceMarin, nil)
+	if err != nil || first.VoiceID != SpeechVoiceAlloy || first.Reuse != nil {
+		t.Fatalf("first allocation = %+v, err=%v", first, err)
+	}
+	second, err := allocateNarratorVoice(catalog, SpeechVoiceMarin, []NarratorVoiceAssignment{{
+		ConversationID: "conversation-a",
+		VoiceID:        first.VoiceID,
+	}})
+	if err != nil || second.VoiceID != SpeechVoiceAsh || second.Reuse != nil {
+		t.Fatalf("second allocation = %+v, err=%v", second, err)
+	}
+	exhausted, err := allocateNarratorVoice(catalog, SpeechVoiceMarin, []NarratorVoiceAssignment{
+		{ConversationID: "conversation-b", VoiceID: second.VoiceID},
+		{ConversationID: "conversation-a", VoiceID: first.VoiceID},
+	})
+	if err != nil || exhausted.VoiceID != SpeechVoiceAlloy || exhausted.Reuse == nil {
+		t.Fatalf("exhausted allocation = %+v, err=%v", exhausted, err)
+	}
+	if got := strings.Join(exhausted.Reuse.ConflictingConversationIDs, ","); got != "conversation-a" {
+		t.Fatalf("reuse conflicts = %q, want conversation-a", got)
+	}
+	if exhausted.Reuse.Reason != VoiceReuseCatalogExhausted {
+		t.Fatalf("reuse reason = %q", exhausted.Reuse.Reason)
+	}
+}
+
+func TestVoiceSelectionRequestsFailSpecificallyForUnavailableExactVoices(t *testing.T) {
+	missing := SpeechVoiceID("retired")
+	err := (VoiceSelectionRequest{
+		Selection:        VoiceSelectionExact,
+		RequestedVoiceID: &missing,
+	}).Validate()
+	speechError, ok := AsError(err)
+	if !ok || speechError.Code != ErrorVoiceUnavailable || !strings.Contains(err.Error(), "retired") {
+		t.Fatalf("unavailable exact voice error = %T %v", err, err)
+	}
+
+	resolved, err := ResolveMasterVoiceSelection(
+		VoiceSelectionRequest{Selection: VoiceSelectionAutoDistinct},
+		[]NarratorVoiceAssignment{{ConversationID: "conversation-a", VoiceID: SpeechVoiceAlloy}},
+		"2026-07-12T18:00:00Z",
+	)
+	if err != nil || resolved.ResolvedVoiceID == nil || *resolved.ResolvedVoiceID != SpeechVoiceAsh {
+		t.Fatalf("automatic master selection = %+v, err=%v", resolved, err)
 	}
 }
 

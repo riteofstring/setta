@@ -127,6 +127,58 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 	if service.command != "status" || service.commandText != "What is happening now?" {
 		t.Fatalf("status service command = %q question = %q", service.command, service.commandText)
 	}
+
+	alloy := speech.SpeechVoiceAlloy
+	profile := postJSON[conversation.ConversationPresentationProfile](
+		t,
+		handler,
+		"/conversations/presentation/narrator-voice/update",
+		UpdateTopicConversationNarratorVoiceRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+			Selection: speech.VoiceSelectionRequest{
+				Selection:        speech.VoiceSelectionExact,
+				RequestedVoiceID: &alloy,
+			},
+		},
+		http.StatusOK,
+	)
+	if service.command != "update_narrator_voice" ||
+		service.voiceSelection.RequestedVoiceID == nil ||
+		*service.voiceSelection.RequestedVoiceID != alloy ||
+		profile.ResolvedNarratorVoiceID == nil {
+		t.Fatalf("narrator voice command=%q selection=%+v profile=%+v", service.command, service.voiceSelection, profile)
+	}
+}
+
+func TestTopicConversationNarratorVoiceMapsUnavailableExactSelection(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	missing := speech.SpeechVoiceID("retired")
+	service.voiceSelectionErr = &speech.Error{
+		Code:    speech.ErrorVoiceUnavailable,
+		Message: "Speech voice retired is unavailable.",
+	}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+	})
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/conversations/presentation/narrator-voice/update",
+		UpdateTopicConversationNarratorVoiceRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+			Selection: speech.VoiceSelectionRequest{
+				Selection:        speech.VoiceSelectionExact,
+				RequestedVoiceID: &missing,
+			},
+		},
+		http.StatusUnprocessableEntity,
+	)
+	if response.Error.Code != string(speech.ErrorVoiceUnavailable) {
+		t.Fatalf("narrator voice error = %+v", response.Error)
+	}
 }
 
 func TestAskNarratorStatusRejectsInvalidQuestionBeforeService(t *testing.T) {
@@ -391,6 +443,8 @@ type httpTestConversationService struct {
 	approval                conversation.ConversationApprovalResponse
 	statusCalled            bool
 	statusErr               error
+	voiceSelection          speech.VoiceSelectionRequest
+	voiceSelectionErr       error
 }
 
 func (service *httpTestConversationService) AskStatus(
@@ -414,6 +468,17 @@ func (service *httpTestConversationService) CreateTopic(
 	service.snapshot.Conversation.WorkspaceID = workspaceID
 	service.snapshot.Conversation.Title = title
 	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) UpdateNarratorVoiceSelection(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	selection speech.VoiceSelectionRequest,
+) (conversation.ConversationPresentationProfile, error) {
+	service.recordCommand("update_narrator_voice", workspaceID, conversationID, "")
+	service.voiceSelection = selection
+	return service.snapshot.PresentationProfile, service.voiceSelectionErr
 }
 
 func (service *httpTestConversationService) SendTurn(
@@ -502,16 +567,21 @@ func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {
 		Narration:            conversation.ConversationNarrationWindow{Events: []conversation.NarrationEvent{}},
 		RoleProfileOverrides: []conversation.RoleProfileOverride{},
 		PresentationProfile: conversation.ConversationPresentationProfile{
-			ConversationID:         "conversation-api",
-			PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
-			ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
-			NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
-			NarratorSpeechEnabled:  true,
-			UpdatedAt:              httpConversationTestTime,
+			ConversationID:          "conversation-api",
+			PaletteSelection:        conversation.PresentationSelectionAutoDistinct,
+			ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
+			NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+			ResolvedNarratorVoiceID: voiceIDPointerForHTTPTest(speech.SpeechVoiceAlloy),
+			NarratorSpeechEnabled:   true,
+			UpdatedAt:               httpConversationTestTime,
 		},
 		SideConversations: []conversation.SideConversation{},
 		EventCursor:       conversation.ConversationEventCursor{StreamID: streamID},
 	}}
+}
+
+func voiceIDPointerForHTTPTest(value speech.SpeechVoiceID) *speech.SpeechVoiceID {
+	return &value
 }
 
 func (service *httpTestConversationService) ReadSnapshot(

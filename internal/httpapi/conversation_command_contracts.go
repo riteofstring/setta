@@ -1,6 +1,9 @@
 package httpapi
 
-import "setta/internal/conversation"
+import (
+	"setta/internal/conversation"
+	"setta/internal/speech"
+)
 
 type CreateTopicConversationRequest struct {
 	WorkspaceID string `json:"workspaceId"`
@@ -40,4 +43,10 @@ type AskTopicConversationNarratorStatusRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 	Question       string `json:"question"`
+}
+
+type UpdateTopicConversationNarratorVoiceRequest struct {
+	WorkspaceID    string                       `json:"workspaceId"`
+	ConversationID string                       `json:"conversationId"`
+	Selection      speech.VoiceSelectionRequest `json:"selection"`
 }

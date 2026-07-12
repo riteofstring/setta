@@ -89,6 +89,9 @@ func (profile ConversationPresentationProfile) Validate() error {
 	); err != nil {
 		return fmt.Errorf("presentation profile %s narrator voice: %w", profile.ConversationID, err)
 	}
+	if profile.ResolvedNarratorVoiceID == nil {
+		return fmt.Errorf("presentation profile %s narrator voice requires resolved id", profile.ConversationID)
+	}
 	if err := validateNarratorVoiceReuse(profile); err != nil {
 		return err
 	}
@@ -193,4 +196,17 @@ func voiceIDPointerString(value *speech.SpeechVoiceID) *string {
 	}
 	result := string(*value)
 	return &result
+}
+
+func presentationReuseFromVoiceAllocation(
+	allocation speech.NarratorVoiceAllocation,
+) *PresentationReuse {
+	if allocation.Reuse == nil {
+		return nil
+	}
+	return &PresentationReuse{
+		Reason:                     PresentationReuseCatalogExhausted,
+		ResolvedChoiceID:           string(allocation.Reuse.ResolvedVoiceID),
+		ConflictingConversationIDs: append([]string(nil), allocation.Reuse.ConflictingConversationIDs...),
+	}
 }

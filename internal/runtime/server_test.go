@@ -74,18 +74,20 @@ func TestRuntimeServesDurableConversationNavigator(t *testing.T) {
 		CreatedAt:   "2026-07-11T20:00:00Z",
 		UpdatedAt:   "2026-07-11T20:00:00Z",
 	}
+	resolvedNarratorVoiceID := speech.SpeechVoiceAlloy
 	_, err = store.Transact(context.Background(), "seed runtime navigator", func(transaction *conversation.WriteTransaction) error {
 		if err := transaction.InsertConversation(topic); err != nil {
 			return err
 		}
 		if err := transaction.UpsertConversationPresentationProfile(
 			conversation.ConversationPresentationProfile{
-				ConversationID:         topic.ID,
-				PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
-				ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
-				NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
-				NarratorSpeechEnabled:  true,
-				UpdatedAt:              topic.UpdatedAt,
+				ConversationID:          topic.ID,
+				PaletteSelection:        conversation.PresentationSelectionAutoDistinct,
+				ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
+				NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+				ResolvedNarratorVoiceID: &resolvedNarratorVoiceID,
+				NarratorSpeechEnabled:   true,
+				UpdatedAt:               topic.UpdatedAt,
 			},
 		); err != nil {
 			return err

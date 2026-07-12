@@ -176,6 +176,20 @@ func (store *serviceTestVoiceConfigurationStore) ReadMasterVoiceSelection(
 	return CloneMasterVoiceSelection(*store.selection), nil
 }
 
+func (store *serviceTestVoiceConfigurationStore) UpdateMasterVoiceSelection(
+	_ context.Context,
+	request VoiceSelectionRequest,
+	updatedAt string,
+) (MasterVoiceSelection, error) {
+	selection, err := ResolveMasterVoiceSelection(request, nil, updatedAt)
+	if err != nil {
+		return MasterVoiceSelection{}, err
+	}
+	cloned := CloneMasterVoiceSelection(selection)
+	store.selection = &cloned
+	return CloneMasterVoiceSelection(cloned), nil
+}
+
 func (provider *serviceTestProvider) Configured() bool {
 	return provider.configured
 }

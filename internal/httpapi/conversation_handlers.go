@@ -183,6 +183,39 @@ func (handler handler) askTopicConversationNarratorStatus(
 	writeConversationSnapshot(response, snapshot)
 }
 
+func (handler handler) updateTopicConversationNarratorVoice(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload UpdateTopicConversationNarratorVoiceRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_narrator_voice_request", err.Error())
+		return
+	}
+	profile, err := service.UpdateNarratorVoiceSelection(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ConversationID,
+		payload.Selection,
+	)
+	if err != nil {
+		writeConversationVoiceConfigurationError(response, err)
+		return
+	}
+	if err := profile.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_conversation_presentation_profile", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, profile)
+}
+
 func writeConversationSnapshot(response http.ResponseWriter, snapshot conversation.ConversationSnapshot) {
 	if err := snapshot.Validate(); err != nil {
 		writeError(response, http.StatusInternalServerError, "invalid_conversation_snapshot", err.Error())

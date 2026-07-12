@@ -238,12 +238,13 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 		UpdatedAt:       serviceTestTimestamp,
 	}
 	presentation := conversation.ConversationPresentationProfile{
-		ConversationID:         conversationID,
-		PaletteSelection:       conversation.PresentationSelectionAutoDistinct,
-		ResolvedPaletteID:      conversationpalette.ConversationPaletteSky,
-		NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
-		NarratorSpeechEnabled:  true,
-		UpdatedAt:              serviceTestTimestamp,
+		ConversationID:          conversationID,
+		PaletteSelection:        conversation.PresentationSelectionAutoDistinct,
+		ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: narrationTestVoiceIDPointer(speech.SpeechVoiceAlloy),
+		NarratorSpeechEnabled:   true,
+		UpdatedAt:               serviceTestTimestamp,
 	}
 	turn, binding, trajectory := statusServiceActiveTurn(conversationID)
 	_, err := store.Transact(context.Background(), "seed narrator status service", func(tx *conversation.WriteTransaction) error {
@@ -279,6 +280,10 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 	if err != nil {
 		t.Fatalf("seed status service conversation: %v", err)
 	}
+}
+
+func narrationTestVoiceIDPointer(value speech.SpeechVoiceID) *speech.SpeechVoiceID {
+	return &value
 }
 
 func statusServiceActiveTurn(

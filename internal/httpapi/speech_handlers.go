@@ -1,6 +1,10 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+
+	"setta/internal/speech"
+)
 
 const speechRequestBodyLimitBytes int64 = 16 * 1024
 
@@ -23,6 +27,23 @@ func (handler handler) readMasterVoiceSelection(response http.ResponseWriter, re
 		return
 	}
 	selection, err := service.ReadMasterVoiceSelection(request.Context())
+	if err != nil {
+		writeSpeechVoiceConfigurationError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, selection)
+}
+
+func (handler handler) updateMasterVoiceSelection(response http.ResponseWriter, request *http.Request) {
+	service := requireSpeechService(response, handler.speechService)
+	if service == nil {
+		return
+	}
+	var payload speech.VoiceSelectionRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	selection, err := service.UpdateMasterVoiceSelection(request.Context(), payload)
 	if err != nil {
 		writeSpeechVoiceConfigurationError(response, err)
 		return

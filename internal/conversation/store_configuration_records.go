@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"setta/internal/speech"
 )
 
 type SideConversationExpectation struct {
@@ -373,6 +375,37 @@ ON CONFLICT(conversation_id) DO UPDATE SET
 	)
 	if err != nil {
 		return fmt.Errorf("upsert presentation profile for %s: %w", profile.ConversationID, err)
+	}
+	return transaction.recordStateMutation()
+}
+
+func (transaction *WriteTransaction) UpdateMasterVoiceSelection(
+	expectedUpdatedAt string,
+	selection speech.MasterVoiceSelection,
+) error {
+	if err := transaction.ensureActive(); err != nil {
+		return err
+	}
+	if err := selection.Validate(); err != nil {
+		return err
+	}
+	result, err := transaction.tx.ExecContext(transaction.ctx, `
+UPDATE master_voice_selection
+SET selection = ?, requested_voice_id = ?, resolved_voice_id = ?,
+    reuse_json = NULL, updated_at = ?
+WHERE singleton = 1 AND updated_at = ?
+`,
+		selection.Selection,
+		nullableString(voiceIDPointerString(selection.RequestedVoiceID)),
+		nullableString(voiceIDPointerString(selection.ResolvedVoiceID)),
+		selection.UpdatedAt,
+		expectedUpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("update master voice selection: %w", err)
+	}
+	if err := requireOneRow(result, "master voice selection", "singleton", "configuration changed concurrently"); err != nil {
+		return err
 	}
 	return transaction.recordStateMutation()
 }

@@ -79,6 +79,35 @@ try {
 
   const alpha = await createTopic(context.client, backend, workspaceId, "Alpha topic");
   const beta = await createTopic(context.client, backend, workspaceId, "Beta topic");
+  assertDistinctNarratorVoices(alpha, beta, "marin");
+  const masterVoice = await updateMasterVoice(context.client, {
+    requestedVoiceId: "alloy",
+    selection: "exact",
+  });
+  if (masterVoice.resolvedVoiceId !== "alloy") {
+    throw new Error(
+      `master voice override did not resolve exactly: ${JSON.stringify(masterVoice)}`,
+    );
+  }
+  const reassignedPage = await waitForBackendState(
+    async () => listTopics(backend, workspaceId),
+    (page) => narratorVoice(page, alpha.id) === "ballad" && narratorVoice(page, beta.id) === "ash",
+    workflowTimeoutMs,
+  );
+  alpha.narratorVoiceId = narratorVoice(reassignedPage, alpha.id);
+  const betaVoice = await updateNarratorVoice(context.client, {
+    conversationId: beta.id,
+    selection: { requestedVoiceId: "cedar", selection: "exact" },
+    workspaceId,
+  });
+  if (
+    betaVoice.narratorVoiceSelection !== "exact" ||
+    betaVoice.requestedNarratorVoiceId !== "cedar" ||
+    betaVoice.resolvedNarratorVoiceId !== "cedar"
+  ) {
+    throw new Error(`narrator exact voice override drifted: ${JSON.stringify(betaVoice)}`);
+  }
+  beta.narratorVoiceId = "cedar";
   let initial = await waitForConversationSurfaces(
     context.client,
     (surfaces) =>
@@ -94,6 +123,9 @@ try {
     (surfaces) =>
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
+  const reloadedVoices = await listTopics(backend, workspaceId);
+  assertPersistedNarratorVoice(reloadedVoices, alpha);
+  assertPersistedNarratorVoice(reloadedVoices, beta);
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
   assertPaneVoiceCaptureRequests(initial.surfaces, alpha.id, beta.id);
   const alphaPaneId = requiredConversationSurface(initial.surfaces, alpha.id).paneId;
@@ -511,7 +543,7 @@ async function createTopic(client, backend, workspaceId, title) {
   if (
     item.presentationProfile.narratorVoiceSelection !== "auto_distinct" ||
     item.presentationProfile.requestedNarratorVoiceId !== null ||
-    item.presentationProfile.resolvedNarratorVoiceId !== null ||
+    typeof item.presentationProfile.resolvedNarratorVoiceId !== "string" ||
     item.presentationProfile.narratorVoiceReuse !== null
   ) {
     throw new Error(
@@ -525,10 +557,37 @@ async function createTopic(client, backend, workspaceId, title) {
   );
   return {
     id: item.conversation.id,
+    narratorVoiceId: item.presentationProfile.resolvedNarratorVoiceId,
     narratorVoiceSelection: item.presentationProfile.narratorVoiceSelection,
     paletteId: item.presentationProfile.resolvedPaletteId,
     title,
   };
+}
+
+function assertDistinctNarratorVoices(alpha, beta, masterVoiceId) {
+  if (
+    alpha.narratorVoiceId === beta.narratorVoiceId ||
+    alpha.narratorVoiceId === masterVoiceId ||
+    beta.narratorVoiceId === masterVoiceId
+  ) {
+    throw new Error(
+      `automatic narrator voices are not distinct: ${JSON.stringify({ alpha, beta, masterVoiceId })}`,
+    );
+  }
+}
+
+function narratorVoice(page, conversationId) {
+  return page.items.find((item) => item.conversation.id === conversationId)?.presentationProfile
+    .resolvedNarratorVoiceId;
+}
+
+function assertPersistedNarratorVoice(page, conversation) {
+  const item = page.items.find((candidate) => candidate.conversation.id === conversation.id);
+  if (!item || item.presentationProfile.resolvedNarratorVoiceId !== conversation.narratorVoiceId) {
+    throw new Error(
+      `narrator voice did not survive reload: ${JSON.stringify({ conversation, item })}`,
+    );
+  }
 }
 
 function listTopics(backend, workspaceId) {
@@ -542,6 +601,18 @@ function listTopics(backend, workspaceId) {
 
 async function submitConversationInput(client, request) {
   return client.evaluate(`window.setta.conversations.submitInput(${JSON.stringify(request)})`);
+}
+
+async function updateMasterVoice(client, request) {
+  return client.evaluate(
+    `window.setta.speech.updateMasterVoiceSelection(${JSON.stringify(request)})`,
+  );
+}
+
+async function updateNarratorVoice(client, request) {
+  return client.evaluate(
+    `window.setta.conversations.updateNarratorVoice(${JSON.stringify(request)})`,
+  );
 }
 
 async function enableGlobalMicrophone(client) {

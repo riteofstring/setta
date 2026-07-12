@@ -44,6 +44,12 @@ describe("speech IPC handlers", () => {
         selection: "exact",
         updatedAt: "2026-07-12T18:00:00Z",
       })),
+      updateMasterVoiceSelection: vi.fn(async () => ({
+        requestedVoiceId: "cedar",
+        resolvedVoiceId: "cedar",
+        selection: "exact",
+        updatedAt: "2026-07-12T18:00:01Z",
+      })),
     } as unknown as BackendClient;
     const observer = observerSpies();
 
@@ -55,17 +61,24 @@ describe("speech IPC handlers", () => {
 
     const capabilities = await invoke(handlers, ipcChannels.speechReadCapabilities);
     const masterVoice = await invoke(handlers, ipcChannels.speechReadMasterVoiceSelection);
+    const updatedMasterVoice = await invoke(
+      handlers,
+      ipcChannels.speechUpdateMasterVoiceSelection,
+      { requestedVoiceId: "cedar", selection: "exact" },
+    );
     const session = await invoke(handlers, ipcChannels.speechCreateTranscriptionSession);
 
     expect(backend.createSpeechTranscriptionSession).toHaveBeenCalledWith({});
     expect(capabilities).toMatchObject({ providerStatus: "configured" });
     expect(masterVoice).toMatchObject({ resolvedVoiceId: "marin", selection: "exact" });
+    expect(updatedMasterVoice).toMatchObject({ resolvedVoiceId: "cedar", selection: "exact" });
     expect(session).toMatchObject({ clientSecret });
-    expect(observer.finished).toHaveBeenCalledTimes(3);
+    expect(observer.finished).toHaveBeenCalledTimes(4);
     const observedResults = observer.finished.mock.calls.map(([event]) => event.result);
     expect(observedResults).toEqual([
       capabilities,
       masterVoice,
+      updatedMasterVoice,
       { redacted: true, type: "speech_transcription_session" },
     ]);
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(clientSecret);

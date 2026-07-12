@@ -35,6 +35,7 @@ import type {
   ComposerPromptHistoryPage,
   Conversation,
   ConversationEvent,
+  ConversationPresentationProfile,
   ConversationSnapshot,
   ConversationListItem,
   CreateTopicConversationRequest,
@@ -144,6 +145,8 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  UpdateTopicConversationNarratorVoiceRequest,
+  VoiceSelectionRequest,
   WorkflowAgentTrajectoryPage,
   WorkflowDefinition,
   WorkflowEvent,
@@ -427,6 +430,9 @@ export interface SettaAPI {
       request: SubmitTopicConversationApprovalRequest,
     ) => Promise<ConversationSnapshot>;
     subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
+    updateNarratorVoice?: (
+      request: UpdateTopicConversationNarratorVoiceRequest,
+    ) => Promise<ConversationPresentationProfile>;
   };
   master?: {
     submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
@@ -435,6 +441,7 @@ export interface SettaAPI {
     createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
+    updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

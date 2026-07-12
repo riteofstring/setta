@@ -79,6 +79,12 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationUpdateNarratorVoice",
+    async (_event, request) => requireBackendClient().updateTopicConversationNarratorVoice(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationSubscribeEvents",
     async (event, request) => {
       conversationEvents.subscribe(event.sender, request, request.cursor);

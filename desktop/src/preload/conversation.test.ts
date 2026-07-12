@@ -26,6 +26,7 @@ describe("preload topic conversation API", () => {
       "submitApproval",
       "submitInput",
       "subscribe",
+      "updateNarratorVoice",
     ]);
     const listRequest = {
       cursor: null,
@@ -61,6 +62,10 @@ describe("preload topic conversation API", () => {
         text: "Route this pane input",
       },
     };
+    const voiceRequest = {
+      ...target,
+      selection: { requestedVoiceId: "cedar" as const, selection: "exact" as const },
+    };
     await invokeConversationCommands(api, {
       approval,
       inputRequest,
@@ -69,6 +74,7 @@ describe("preload topic conversation API", () => {
       subscription,
       target,
       turn,
+      voiceRequest,
     });
     const listener = vi.fn();
     const unsubscribe = api.conversations.onEvent(listener);
@@ -90,6 +96,7 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationSubmitApproval, approval],
       [ipcChannels.conversationSubscribeEvents, subscription],
       [ipcChannels.conversationReleaseEvents, release],
+      [ipcChannels.conversationUpdateNarratorVoice, voiceRequest],
     ]);
     expect(listener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.conversationEvent, handler);
@@ -131,6 +138,7 @@ async function invokeConversationCommands(
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: Parameters<SettaAPI["conversations"]["read"]>[0];
     turn: Parameters<SettaAPI["conversations"]["send"]>[0];
+    voiceRequest: Parameters<NonNullable<SettaAPI["conversations"]["updateNarratorVoice"]>>[0];
   },
 ) {
   await api.conversations.askStatus({ ...requests.target, question: "What is happening?" });
@@ -149,6 +157,7 @@ async function invokeConversationCommands(
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);
+  await api.conversations.updateNarratorVoice?.(requests.voiceRequest);
 }
 
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {

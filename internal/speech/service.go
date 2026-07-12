@@ -20,6 +20,11 @@ type Provider interface {
 type VoiceConfigurationStore interface {
 	EnsureMasterVoiceSelection(context.Context, MasterVoiceSelection) (MasterVoiceSelection, error)
 	ReadMasterVoiceSelection(context.Context) (MasterVoiceSelection, error)
+	UpdateMasterVoiceSelection(
+		context.Context,
+		VoiceSelectionRequest,
+		string,
+	) (MasterVoiceSelection, error)
 }
 
 type ServiceConfig struct {
@@ -31,6 +36,7 @@ type ServiceConfig struct {
 type Service struct {
 	provider                Provider
 	voiceConfigurationStore VoiceConfigurationStore
+	now                     func() time.Time
 }
 
 func NewService(ctx context.Context, config ServiceConfig) (*Service, error) {
@@ -50,6 +56,7 @@ func NewService(ctx context.Context, config ServiceConfig) (*Service, error) {
 	service := &Service{
 		provider:                config.Provider,
 		voiceConfigurationStore: config.VoiceConfigurationStore,
+		now:                     now,
 	}
 	initial := DefaultMasterVoiceSelection(now().UTC().Format(time.RFC3339Nano))
 	stored, err := service.voiceConfigurationStore.EnsureMasterVoiceSelection(ctx, initial)
@@ -123,6 +130,30 @@ func (service *Service) ReadMasterVoiceSelection(ctx context.Context) (MasterVoi
 	}
 	if err := selection.Validate(); err != nil {
 		return MasterVoiceSelection{}, fmt.Errorf("validate persisted master voice selection: %w", err)
+	}
+	return CloneMasterVoiceSelection(selection), nil
+}
+
+func (service *Service) UpdateMasterVoiceSelection(
+	ctx context.Context,
+	request VoiceSelectionRequest,
+) (MasterVoiceSelection, error) {
+	if service == nil || service.voiceConfigurationStore == nil {
+		return MasterVoiceSelection{}, errors.New("speech service is required")
+	}
+	if err := request.Validate(); err != nil {
+		return MasterVoiceSelection{}, err
+	}
+	selection, err := service.voiceConfigurationStore.UpdateMasterVoiceSelection(
+		ctx,
+		request,
+		service.now().UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return MasterVoiceSelection{}, err
+	}
+	if err := selection.Validate(); err != nil {
+		return MasterVoiceSelection{}, fmt.Errorf("validate updated master voice selection: %w", err)
 	}
 	return CloneMasterVoiceSelection(selection), nil
 }

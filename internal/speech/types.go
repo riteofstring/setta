@@ -5,6 +5,7 @@ import "time"
 type SpeechProviderStatus string
 type SpeechProvider string
 type VoiceSelectionMode string
+type VoiceReuseReason string
 
 const (
 	SpeechProviderStatusConfigured    SpeechProviderStatus = "configured"
@@ -14,6 +15,8 @@ const (
 
 	VoiceSelectionAutoDistinct VoiceSelectionMode = "auto_distinct"
 	VoiceSelectionExact        VoiceSelectionMode = "exact"
+
+	VoiceReuseCatalogExhausted VoiceReuseReason = "catalog_exhausted"
 )
 
 const (
@@ -45,6 +48,27 @@ type SpeechVoiceCatalog struct {
 	VoiceIDs []SpeechVoiceID `json:"voiceIds"`
 }
 
+type VoiceSelectionRequest struct {
+	Selection        VoiceSelectionMode `json:"selection"`
+	RequestedVoiceID *SpeechVoiceID     `json:"requestedVoiceId"`
+}
+
+type VoiceReuse struct {
+	Reason                     VoiceReuseReason `json:"reason"`
+	ResolvedVoiceID            SpeechVoiceID    `json:"resolvedVoiceId"`
+	ConflictingConversationIDs []string         `json:"conflictingConversationIds"`
+}
+
+type NarratorVoiceAssignment struct {
+	ConversationID string
+	VoiceID        SpeechVoiceID
+}
+
+type NarratorVoiceAllocation struct {
+	VoiceID SpeechVoiceID
+	Reuse   *VoiceReuse
+}
+
 type MasterVoiceSelection struct {
 	Selection        VoiceSelectionMode `json:"selection"`
 	RequestedVoiceID *SpeechVoiceID     `json:"requestedVoiceId"`
@@ -55,6 +79,17 @@ type MasterVoiceSelection struct {
 type MasterVoiceSelectionInitialization struct {
 	Catalog   SpeechVoiceCatalog   `json:"catalog"`
 	Selection MasterVoiceSelection `json:"selection"`
+}
+
+type MasterVoiceSelectionUpdateReason string
+
+const MasterVoiceSelectionUpdateUserOverride MasterVoiceSelectionUpdateReason = "user_override"
+
+type MasterVoiceSelectionUpdate struct {
+	Catalog   SpeechVoiceCatalog               `json:"catalog"`
+	Previous  MasterVoiceSelection             `json:"previous"`
+	Selection MasterVoiceSelection             `json:"selection"`
+	Reason    MasterVoiceSelectionUpdateReason `json:"reason"`
 }
 
 type SpeechCapabilities struct {

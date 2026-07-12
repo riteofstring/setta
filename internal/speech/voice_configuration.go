@@ -10,6 +10,7 @@ const (
 	MasterVoiceSelectionStreamID             = "speech:master-voice-selection"
 	MasterVoiceSelectionInitializedEventID   = "speech-master-voice-selection-initialized"
 	MasterVoiceSelectionInitializedEventKind = "speech.master_voice_selection.initialized"
+	MasterVoiceSelectionUpdatedEventKind     = "speech.master_voice_selection.updated"
 )
 
 func SynthesisVoiceCatalog() SpeechVoiceCatalog {
@@ -49,6 +50,18 @@ func NewMasterVoiceSelectionInitialization(
 	}
 }
 
+func NewMasterVoiceSelectionUpdate(
+	previous MasterVoiceSelection,
+	selection MasterVoiceSelection,
+) MasterVoiceSelectionUpdate {
+	return MasterVoiceSelectionUpdate{
+		Catalog:   SynthesisVoiceCatalog(),
+		Previous:  CloneMasterVoiceSelection(previous),
+		Selection: CloneMasterVoiceSelection(selection),
+		Reason:    MasterVoiceSelectionUpdateUserOverride,
+	}
+}
+
 func (initialization MasterVoiceSelectionInitialization) Validate() error {
 	available, err := validateVoiceCatalogSnapshot(initialization.Catalog)
 	if err != nil {
@@ -57,6 +70,33 @@ func (initialization MasterVoiceSelectionInitialization) Validate() error {
 	return initialization.Selection.validateAgainstCatalog(func(voiceID SpeechVoiceID) bool {
 		return available[voiceID]
 	})
+}
+
+func (update MasterVoiceSelectionUpdate) Validate() error {
+	available, err := validateVoiceCatalogSnapshot(update.Catalog)
+	if err != nil {
+		return fmt.Errorf("master voice selection update catalog: %w", err)
+	}
+	validateAgainstSnapshot := func(selection MasterVoiceSelection) error {
+		return selection.validateAgainstCatalog(func(voiceID SpeechVoiceID) bool {
+			return available[voiceID]
+		})
+	}
+	if err := validateAgainstSnapshot(update.Previous); err != nil {
+		return fmt.Errorf("master voice selection update previous value: %w", err)
+	}
+	if err := validateAgainstSnapshot(update.Selection); err != nil {
+		return fmt.Errorf("master voice selection update value: %w", err)
+	}
+	if update.Reason != MasterVoiceSelectionUpdateUserOverride {
+		return fmt.Errorf("unsupported master voice selection update reason %q", update.Reason)
+	}
+	previousAt, _ := time.Parse(time.RFC3339Nano, update.Previous.UpdatedAt)
+	updatedAt, _ := time.Parse(time.RFC3339Nano, update.Selection.UpdatedAt)
+	if !updatedAt.After(previousAt) {
+		return errors.New("master voice selection update timestamp must advance")
+	}
+	return nil
 }
 
 func CloneMasterVoiceSelection(selection MasterVoiceSelection) MasterVoiceSelection {
@@ -79,6 +119,9 @@ func (selection MasterVoiceSelection) validateAgainstCatalog(
 		available,
 	); err != nil {
 		return fmt.Errorf("master voice selection: %w", err)
+	}
+	if selection.ResolvedVoiceID == nil {
+		return errors.New("master voice selection requires resolved voice id")
 	}
 	return validateCanonicalTimestamp("master voice selection updatedAt", selection.UpdatedAt)
 }
@@ -124,7 +167,7 @@ func validateExactVoiceSelection(
 		return errors.New("exact voice selection requires requested voice id")
 	}
 	if !available(*requestedVoiceID) {
-		return fmt.Errorf("exact voice selection requested unavailable voice %q", *requestedVoiceID)
+		return unavailableVoiceError(*requestedVoiceID)
 	}
 	if resolvedVoiceID == nil {
 		return errors.New("exact voice selection requires resolved voice id")

@@ -263,39 +263,56 @@ func scanNarrationEvent(scanner sqlScanner) (NarrationEvent, error) {
 
 func scanPresentationProfile(scanner sqlScanner) (ConversationPresentationProfile, error) {
 	var value ConversationPresentationProfile
-	var requestedPaletteID, paletteReuseJSON sql.NullString
-	var requestedVoiceID, resolvedVoiceID, voiceReuseJSON sql.NullString
-	var speechEnabled int
-	err := scanner.Scan(
-		&value.ConversationID,
-		&value.PaletteSelection,
-		&requestedPaletteID,
-		&value.ResolvedPaletteID,
-		&paletteReuseJSON,
-		&value.NarratorVoiceSelection,
-		&requestedVoiceID,
-		&resolvedVoiceID,
-		&voiceReuseJSON,
-		&speechEnabled,
-		&value.UpdatedAt,
-	)
-	if err != nil {
+	var state presentationProfileScanState
+	if err := scanner.Scan(state.targets(&value)...); err != nil {
 		return ConversationPresentationProfile{}, err
 	}
-	if requestedPaletteID.Valid {
-		id := conversationpalette.ConversationPaletteID(requestedPaletteID.String)
-		value.RequestedPaletteID = &id
-	}
-	value.RequestedNarratorVoiceID = optionalSpeechVoiceID(requestedVoiceID)
-	value.ResolvedNarratorVoiceID = optionalSpeechVoiceID(resolvedVoiceID)
-	value.NarratorSpeechEnabled = speechEnabled == 1
-	if err := decodeOptionalJSON("presentation palette reuse", paletteReuseJSON, &value.PaletteReuse); err != nil {
-		return ConversationPresentationProfile{}, err
-	}
-	if err := decodeOptionalJSON("presentation voice reuse", voiceReuseJSON, &value.NarratorVoiceReuse); err != nil {
+	if err := state.finish(&value); err != nil {
 		return ConversationPresentationProfile{}, err
 	}
 	return value, nil
+}
+
+type presentationProfileScanState struct {
+	requestedPaletteID sql.NullString
+	paletteReuseJSON   sql.NullString
+	requestedVoiceID   sql.NullString
+	resolvedVoiceID    sql.NullString
+	voiceReuseJSON     sql.NullString
+	speechEnabled      int
+}
+
+func (state *presentationProfileScanState) targets(value *ConversationPresentationProfile) []any {
+	return []any{
+		&value.ConversationID,
+		&value.PaletteSelection,
+		&state.requestedPaletteID,
+		&value.ResolvedPaletteID,
+		&state.paletteReuseJSON,
+		&value.NarratorVoiceSelection,
+		&state.requestedVoiceID,
+		&state.resolvedVoiceID,
+		&state.voiceReuseJSON,
+		&state.speechEnabled,
+		&value.UpdatedAt,
+	}
+}
+
+func (state *presentationProfileScanState) finish(value *ConversationPresentationProfile) error {
+	if state.requestedPaletteID.Valid {
+		id := conversationpalette.ConversationPaletteID(state.requestedPaletteID.String)
+		value.RequestedPaletteID = &id
+	}
+	value.RequestedNarratorVoiceID = optionalSpeechVoiceID(state.requestedVoiceID)
+	value.ResolvedNarratorVoiceID = optionalSpeechVoiceID(state.resolvedVoiceID)
+	value.NarratorSpeechEnabled = state.speechEnabled == 1
+	if err := decodeOptionalJSON("presentation palette reuse", state.paletteReuseJSON, &value.PaletteReuse); err != nil {
+		return err
+	}
+	if err := decodeOptionalJSON("presentation voice reuse", state.voiceReuseJSON, &value.NarratorVoiceReuse); err != nil {
+		return err
+	}
+	return nil
 }
 
 func optionalSpeechVoiceID(value sql.NullString) *speech.SpeechVoiceID {

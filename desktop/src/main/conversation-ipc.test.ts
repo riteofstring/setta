@@ -30,6 +30,19 @@ describe("conversation IPC handlers", () => {
         status: "accepted" as const,
       })),
       submitTopicConversationApproval: vi.fn(async () => snapshot),
+      updateTopicConversationNarratorVoice: vi.fn(async () => ({
+        conversationId: "conversation_api",
+        narratorSpeechEnabled: true,
+        narratorVoiceReuse: null,
+        narratorVoiceSelection: "exact" as const,
+        paletteReuse: null,
+        paletteSelection: "auto_distinct" as const,
+        requestedNarratorVoiceId: "cedar" as const,
+        requestedPaletteId: null,
+        resolvedNarratorVoiceId: "cedar" as const,
+        resolvedPaletteId: "sky" as const,
+        updatedAt: "2026-07-12T18:00:00Z",
+      })),
     };
     const backend = backendMethods as unknown as BackendClient;
     const conversationEvents = {
@@ -69,6 +82,11 @@ describe("conversation IPC handlers", () => {
       ...target,
       response: { answers: [], approvalId: "approval", decision: "approved", response: "" },
     });
+    const voiceRequest = {
+      ...target,
+      selection: { requestedVoiceId: "cedar" as const, selection: "exact" as const },
+    };
+    await invokeHandler(handlers, ipcChannels.conversationUpdateNarratorVoice, voiceRequest);
     const subscription = {
       ...target,
       cursor: { sequence: 4, streamId: "conversation:conversation_api" },
@@ -96,6 +114,7 @@ describe("conversation IPC handlers", () => {
     expect(backendMethods.steerTopicConversationTurn).toHaveBeenCalledWith(turn);
     expect(backendMethods.stopTopicConversationTurn).toHaveBeenCalledWith(target);
     expect(backendMethods.submitConversationInput).toHaveBeenCalledWith(inputRequest);
+    expect(backendMethods.updateTopicConversationNarratorVoice).toHaveBeenCalledWith(voiceRequest);
     expect(conversationEvents.subscribe).toHaveBeenCalledWith(
       sender,
       subscription,

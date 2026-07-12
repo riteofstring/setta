@@ -233,10 +233,15 @@ func (service *Service) CreateTopic(
 		UpdatedAt:       now,
 	}
 	service.createMu.Lock()
-	presentation, err := service.initialPresentationProfile(ctx, workspaceID, conversationID, now)
-	if err == nil {
-		err = service.persistCreatedConversation(ctx, conversation, binding, narrator, presentation)
-	}
+	var presentation ConversationPresentationProfile
+	err = service.store.withVoiceConfigurationLock(func() error {
+		var presentationErr error
+		presentation, presentationErr = service.initialPresentationProfile(ctx, workspaceID, conversationID, now)
+		if presentationErr != nil {
+			return presentationErr
+		}
+		return service.persistCreatedConversation(ctx, conversation, binding, narrator, presentation)
+	})
 	service.createMu.Unlock()
 	if err != nil {
 		_ = service.agent.UnsubscribeThread(context.Background(), thread.ID)
@@ -302,14 +307,35 @@ func (service *Service) initialPresentationProfile(
 		cursor = page.NextCursor
 	}
 	paletteID, reuse := leastUsedPalette(usage)
+	master, err := service.store.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		return ConversationPresentationProfile{}, fmt.Errorf("read master voice selection: %w", err)
+	}
+	if master.ResolvedVoiceID == nil {
+		return ConversationPresentationProfile{}, errors.New("master voice selection has no resolved voice")
+	}
+	presentations, err := service.store.readActiveConversationPresentations(ctx)
+	if err != nil {
+		return ConversationPresentationProfile{}, err
+	}
+	voiceAllocation, err := speech.AllocateNarratorVoice(
+		*master.ResolvedVoiceID,
+		narratorVoiceAssignments(presentations, nil),
+	)
+	if err != nil {
+		return ConversationPresentationProfile{}, err
+	}
+	resolvedVoiceID := voiceAllocation.VoiceID
 	return ConversationPresentationProfile{
-		ConversationID:         conversationID,
-		PaletteSelection:       PresentationSelectionAutoDistinct,
-		ResolvedPaletteID:      paletteID,
-		PaletteReuse:           reuse,
-		NarratorVoiceSelection: speech.VoiceSelectionAutoDistinct,
-		NarratorSpeechEnabled:  true,
-		UpdatedAt:              updatedAt,
+		ConversationID:          conversationID,
+		PaletteSelection:        PresentationSelectionAutoDistinct,
+		ResolvedPaletteID:       paletteID,
+		PaletteReuse:            reuse,
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: &resolvedVoiceID,
+		NarratorVoiceReuse:      presentationReuseFromVoiceAllocation(voiceAllocation),
+		NarratorSpeechEnabled:   true,
+		UpdatedAt:               updatedAt,
 	}, nil
 }
 
