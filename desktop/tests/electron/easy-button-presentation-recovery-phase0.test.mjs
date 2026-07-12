@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* global console */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -171,6 +171,7 @@ try {
 } finally {
   await stopElectronCdpContext(context);
   await speechProvider.close();
+  await rm(fixture.tempRoot, { force: true, recursive: true });
 }
 
 async function openWorkspace(client) {
