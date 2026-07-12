@@ -25,7 +25,11 @@ func (store *Store) EnsureMasterVoiceSelection(
 	}
 	var selection speech.MasterVoiceSelection
 	initialized := false
-	err := store.write(ctx, "initialize master voice selection", func(ctx context.Context, tx *sql.Tx) error {
+	reuseJSON, err := encodeOptionalJSONColumn("initial master voice reuse", initial.Reuse)
+	if err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
+	err = store.write(ctx, "initialize master voice selection", func(ctx context.Context, tx *sql.Tx) error {
 		stored, selectionFound, markerFound, err := inspectMasterVoiceSelectionState(
 			ctx,
 			tx,
@@ -50,11 +54,12 @@ func (store *Store) EnsureMasterVoiceSelection(
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO master_voice_selection (
   singleton, selection, requested_voice_id, resolved_voice_id, reuse_json, updated_at
-) VALUES (1, ?, ?, ?, NULL, ?)
+) VALUES (1, ?, ?, ?, ?, ?)
 `,
 			initial.Selection,
 			nullableString(voiceIDPointerString(initial.RequestedVoiceID)),
 			nullableString(voiceIDPointerString(initial.ResolvedVoiceID)),
+			reuseJSON,
 			initial.UpdatedAt,
 		); err != nil {
 			return err
@@ -167,11 +172,26 @@ func (store *Store) updateMasterVoiceSelectionLocked(
 	if err != nil {
 		return speech.MasterVoiceSelection{}, err
 	}
+	resolved.Reuse = masterVoiceReuseAfterNarratorUpdates(
+		presentations,
+		updates,
+		*resolved.ResolvedVoiceID,
+	)
+	if err := resolved.Validate(); err != nil {
+		return speech.MasterVoiceSelection{}, err
+	}
 	profilePublications, err := store.prepareMasterVoiceProfilePublications(updates)
 	if err != nil {
 		return speech.MasterVoiceSelection{}, err
 	}
-	if err := store.commitMasterVoiceUpdate(ctx, current, resolved, updates, profilePublications); err != nil {
+	if err := store.commitMasterVoiceUpdate(
+		ctx,
+		current,
+		resolved,
+		updates,
+		profilePublications,
+		speech.MasterVoiceSelectionUpdateUserOverride,
+	); err != nil {
 		return speech.MasterVoiceSelection{}, err
 	}
 	return resolved, nil
@@ -210,12 +230,13 @@ func (store *Store) commitMasterVoiceUpdate(
 	resolved speech.MasterVoiceSelection,
 	updates []ConversationPresentationProfile,
 	profilePublications []preparedPublication,
+	reason speech.MasterVoiceSelectionUpdateReason,
 ) error {
 	masterEventID, err := randomServiceID("speech_event")
 	if err != nil {
 		return err
 	}
-	selectionUpdate := speech.NewMasterVoiceSelectionUpdate(current, resolved)
+	selectionUpdate := speech.NewMasterVoiceSelectionUpdate(current, resolved, reason)
 	if err := selectionUpdate.Validate(); err != nil {
 		return err
 	}
@@ -291,6 +312,25 @@ func narratorUpdatesForMasterVoice(
 	return updates, nil
 }
 
+func masterVoiceReuseAfterNarratorUpdates(
+	presentations []activeConversationPresentation,
+	updates []ConversationPresentationProfile,
+	masterVoiceID speech.SpeechVoiceID,
+) *speech.VoiceReuse {
+	updatedByConversationID := make(map[string]ConversationPresentationProfile, len(updates))
+	for _, update := range updates {
+		updatedByConversationID[update.ConversationID] = update
+	}
+	final := make([]activeConversationPresentation, 0, len(presentations))
+	for _, presentation := range presentations {
+		if update, ok := updatedByConversationID[presentation.Profile.ConversationID]; ok {
+			presentation.Profile = update
+		}
+		final = append(final, presentation)
+	}
+	return speech.VoiceReuseForAssignments(masterVoiceID, narratorVoiceAssignments(final, nil))
+}
+
 type masterVoiceSelectionQuery interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
@@ -361,14 +401,14 @@ WHERE singleton = 1
 	if err != nil {
 		return speech.MasterVoiceSelection{}, false, err
 	}
-	if reuseJSON.Valid {
-		return speech.MasterVoiceSelection{}, false, corruptMasterVoiceConfiguration(
-			dbPath,
-			"master voice selection contains unsupported reuse metadata",
-		)
-	}
 	selection.RequestedVoiceID = scannedSpeechVoiceID(requestedVoiceID)
 	selection.ResolvedVoiceID = scannedSpeechVoiceID(resolvedVoiceID)
+	if err := decodeOptionalJSON("master voice reuse", reuseJSON, &selection.Reuse); err != nil {
+		return speech.MasterVoiceSelection{}, false, &CorruptStateError{
+			Path: dbPath,
+			Err:  err,
+		}
+	}
 	if err := selection.Validate(); err != nil {
 		return speech.MasterVoiceSelection{}, false, &CorruptStateError{
 			Path: dbPath,

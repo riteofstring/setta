@@ -54,6 +54,8 @@ if (!options.skipBuild) {
 }
 
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
+const firstLaunchDir = join(artifactDir, "first-launch");
+const secondLaunchDir = join(artifactDir, "second-launch");
 await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
 const fakeCodex = await installFakeTopicCodex(fixture);
@@ -62,19 +64,20 @@ let context = null;
 
 try {
   context = await launchElectronCdpContext({
-    artifactDir,
+    artifactDir: firstLaunchDir,
     extraEnv: {
       OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
+      SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  const backend = await backendProbe(artifactDir);
+  let backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
 
   const alpha = await createTopic(context.client, backend, workspaceId, "Alpha topic");
@@ -108,17 +111,35 @@ try {
     throw new Error(`narrator exact voice override drifted: ${JSON.stringify(betaVoice)}`);
   }
   beta.narratorVoiceId = "cedar";
-  let initial = await waitForConversationSurfaces(
-    context.client,
-    (surfaces) =>
-      hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
-  );
+  await assertUnavailableExactVoiceErrors(context.client, workspaceId, alpha.id);
+  const exhaustedVoice = await exhaustNarratorVoiceCatalog(context.client, workspaceId);
   await enableGlobalMicrophone(context.client);
-  await reloadPage(context.client);
+  await stopElectronCdpContext(context);
+  context = null;
+
+  context = await launchElectronCdpContext({
+    artifactDir: secondLaunchDir,
+    extraEnv: {
+      OPENAI_API_KEY: speechProvider.apiKey,
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+      SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
+      SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
+    },
+    fixture,
+    visible: options.visible,
+  });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
+  backend = await backendProbe(secondLaunchDir);
+  const restoredWorkspaceId = await openWorkspace(context.client);
+  if (restoredWorkspaceId !== workspaceId) {
+    throw new Error(
+      `workspace changed across application restart: ${JSON.stringify({ restoredWorkspaceId, workspaceId })}`,
+    );
+  }
   await installScriptedRealtimeBrowser(context.client);
-  initial = await waitForConversationSurfaces(
+  const initial = await waitForConversationSurfaces(
     context.client,
     (surfaces) =>
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
@@ -126,6 +147,19 @@ try {
   const reloadedVoices = await listTopics(backend, workspaceId);
   assertPersistedNarratorVoice(reloadedVoices, alpha);
   assertPersistedNarratorVoice(reloadedVoices, beta);
+  assertPersistedNarratorVoice(reloadedVoices, exhaustedVoice);
+  const restoredMasterVoice = await context.client.evaluate(
+    "window.setta.speech.readMasterVoiceSelection()",
+  );
+  if (
+    restoredMasterVoice.selection !== "exact" ||
+    restoredMasterVoice.requestedVoiceId !== "alloy" ||
+    restoredMasterVoice.resolvedVoiceId !== "alloy"
+  ) {
+    throw new Error(
+      `master voice did not survive application restart: ${JSON.stringify(restoredMasterVoice)}`,
+    );
+  }
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
   assertPaneVoiceCaptureRequests(initial.surfaces, alpha.id, beta.id);
   const alphaPaneId = requiredConversationSurface(initial.surfaces, alpha.id).paneId;
@@ -154,7 +188,7 @@ try {
     workflowTimeoutMs,
   );
   const recordedConversationInput = await waitForRecordedPaneSpeechInput(
-    artifactDir,
+    secondLaunchDir,
     alpha.id,
     alphaPaneId,
   );
@@ -461,6 +495,7 @@ try {
     concurrent,
     conversationInput: acceptedConversationInput,
     duplicated,
+    exhaustedVoice,
     reloaded,
     reopenedWorking,
     reloadedWorking,
@@ -490,6 +525,7 @@ try {
 
 async function installFakeTopicCodex(fixture) {
   const binDir = join(fixture.tempRoot, "fake-topic-bin");
+  const statePath = join(fixture.tempRoot, "fake-topic-codex-state.json");
   await mkdir(binDir, { recursive: true });
   const scriptPath = join(binDir, "fake-topic-codex-app-server.mjs");
   await copyFile(fakeTopicCodexFixture, scriptPath);
@@ -500,7 +536,7 @@ async function installFakeTopicCodex(fixture) {
     await writeFile(commandPath, `#!/usr/bin/env sh\nexec node "${scriptPath}" "$@"\n`, "utf8");
     await chmod(commandPath, 0o755);
   }
-  return { binDir };
+  return { binDir, statePath };
 }
 
 async function openWorkspace(client) {
@@ -564,6 +600,90 @@ async function createTopic(client, backend, workspaceId, title) {
   };
 }
 
+async function assertUnavailableExactVoiceErrors(client, workspaceId, conversationId) {
+  const narratorError = await rejectedVoiceUpdate(client, "narrator", {
+    conversationId,
+    selection: { requestedVoiceId: "retired", selection: "exact" },
+    workspaceId,
+  });
+  assertUnavailableVoiceError(narratorError, "narrator");
+  const masterError = await rejectedVoiceUpdate(client, "master", {
+    requestedVoiceId: "retired",
+    selection: "exact",
+  });
+  assertUnavailableVoiceError(masterError, "master");
+}
+
+async function rejectedVoiceUpdate(client, target, request) {
+  return client.evaluate(`(async () => {
+    try {
+      const api = ${target === "master" ? "window.setta.speech.updateMasterVoiceSelection" : "window.setta.conversations.updateNarratorVoice"};
+      await api(${JSON.stringify(request)});
+      return { message: "", rejected: false };
+    } catch (error) {
+      return { message: String(error?.message ?? error), rejected: true };
+    }
+  })()`);
+}
+
+function assertUnavailableVoiceError(result, target) {
+  if (
+    !result.rejected ||
+    !result.message.includes("retired") ||
+    !result.message.includes("not available")
+  ) {
+    throw new Error(`${target} unavailable exact voice result drifted: ${JSON.stringify(result)}`);
+  }
+}
+
+async function exhaustNarratorVoiceCatalog(client, workspaceId) {
+  const capabilities = await client.evaluate("window.setta.speech.readCapabilities()");
+  const master = await client.evaluate("window.setta.speech.readMasterVoiceSelection()");
+  const page = await client.evaluate(
+    `window.setta.conversations.list(${JSON.stringify({ cursor: null, limit: 80, query: "", workspaceId })})`,
+  );
+  const availableNarratorVoices = capabilities.voiceCatalog.voiceIds.filter(
+    (voiceId) => voiceId !== master.resolvedVoiceId,
+  );
+  const creationCount = availableNarratorVoices.length - page.items.length + 1;
+  if (creationCount < 1) {
+    throw new Error(
+      `voice exhaustion precondition is invalid: ${JSON.stringify({ availableNarratorVoices, page })}`,
+    );
+  }
+  let exhausted = null;
+  for (let index = 0; index < creationCount; index += 1) {
+    exhausted = await client.evaluate(
+      `window.setta.conversations.create(${JSON.stringify({
+        title: `Voice exhaustion topic ${String(index + 1).padStart(2, "0")}`,
+        workspaceId,
+      })})`,
+    );
+  }
+  return explicitNarratorReuse(exhausted, master.resolvedVoiceId);
+}
+
+function explicitNarratorReuse(exhausted, masterVoiceId) {
+  if (exhausted === null) {
+    throw new Error("finite narrator catalog exhaustion created no conversation");
+  }
+  const profile = exhausted.presentationProfile;
+  if (
+    profile.narratorVoiceSelection !== "auto_distinct" ||
+    profile.resolvedNarratorVoiceId === masterVoiceId ||
+    profile.narratorVoiceReuse?.reason !== "catalog_exhausted" ||
+    profile.narratorVoiceReuse.conflictingConversationIds.length === 0
+  ) {
+    throw new Error(`finite narrator catalog reuse is not explicit: ${JSON.stringify(exhausted)}`);
+  }
+  return {
+    id: exhausted.conversation.id,
+    narratorVoiceId: profile.resolvedNarratorVoiceId,
+    narratorVoiceReuse: profile.narratorVoiceReuse,
+    title: exhausted.conversation.title,
+  };
+}
+
 function assertDistinctNarratorVoices(alpha, beta, masterVoiceId) {
   if (
     alpha.narratorVoiceId === beta.narratorVoiceId ||
@@ -583,9 +703,15 @@ function narratorVoice(page, conversationId) {
 
 function assertPersistedNarratorVoice(page, conversation) {
   const item = page.items.find((candidate) => candidate.conversation.id === conversation.id);
-  if (!item || item.presentationProfile.resolvedNarratorVoiceId !== conversation.narratorVoiceId) {
+  if (
+    !item ||
+    item.presentationProfile.resolvedNarratorVoiceId !== conversation.narratorVoiceId ||
+    (conversation.narratorVoiceReuse !== undefined &&
+      JSON.stringify(item.presentationProfile.narratorVoiceReuse) !==
+        JSON.stringify(conversation.narratorVoiceReuse))
+  ) {
     throw new Error(
-      `narrator voice did not survive reload: ${JSON.stringify({ conversation, item })}`,
+      `narrator voice did not survive restart: ${JSON.stringify({ conversation, item })}`,
     );
   }
 }

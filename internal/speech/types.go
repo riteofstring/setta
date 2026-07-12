@@ -42,6 +42,8 @@ var voiceSelectionModeValues = []VoiceSelectionMode{
 	VoiceSelectionExact,
 }
 
+var voiceReuseReasonValues = []VoiceReuseReason{VoiceReuseCatalogExhausted}
+
 type SpeechVoiceCatalog struct {
 	Provider SpeechProvider  `json:"provider"`
 	Version  string          `json:"version"`
@@ -73,6 +75,7 @@ type MasterVoiceSelection struct {
 	Selection        VoiceSelectionMode `json:"selection"`
 	RequestedVoiceID *SpeechVoiceID     `json:"requestedVoiceId"`
 	ResolvedVoiceID  *SpeechVoiceID     `json:"resolvedVoiceId"`
+	Reuse            *VoiceReuse        `json:"reuse"`
 	UpdatedAt        string             `json:"updatedAt"`
 }
 
@@ -83,7 +86,10 @@ type MasterVoiceSelectionInitialization struct {
 
 type MasterVoiceSelectionUpdateReason string
 
-const MasterVoiceSelectionUpdateUserOverride MasterVoiceSelectionUpdateReason = "user_override"
+const (
+	MasterVoiceSelectionUpdateUserOverride     MasterVoiceSelectionUpdateReason = "user_override"
+	MasterVoiceSelectionUpdateNarratorOverride MasterVoiceSelectionUpdateReason = "narrator_override"
+)
 
 type MasterVoiceSelectionUpdate struct {
 	Catalog   SpeechVoiceCatalog               `json:"catalog"`
@@ -141,6 +147,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SpeechProviderStatus", Values: stringValues(speechProviderStatusValues)},
 		{Name: "SpeechProvider", Values: stringValues(speechProviderValues)},
 		{Name: "VoiceSelectionMode", Values: stringValues(voiceSelectionModeValues)},
+		{Name: "VoiceReuseReason", Values: stringValues(voiceReuseReasonValues)},
 		{Name: "SpeechVoiceID", Values: stringValues(openAISpeechVoiceIDs[:])},
 	}
 }

@@ -1,6 +1,7 @@
 package speech
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -58,6 +59,9 @@ func TestVoiceSelectionsRequireTypedAvailableExactValues(t *testing.T) {
 		{name: "requested unavailable", mutate: func(value *MasterVoiceSelection) { value.RequestedVoiceID = voiceIDPointer("missing") }, want: "not available"},
 		{name: "resolved missing", mutate: func(value *MasterVoiceSelection) { value.ResolvedVoiceID = nil }, want: "requires resolved"},
 		{name: "resolved mismatch", mutate: func(value *MasterVoiceSelection) { value.ResolvedVoiceID = voiceIDPointer(SpeechVoiceCedar) }, want: "want requested"},
+		{name: "exact reuse", mutate: func(value *MasterVoiceSelection) {
+			value.Reuse = VoiceReuseForAssignments(SpeechVoiceMarin, []NarratorVoiceAssignment{{ConversationID: "conversation-a", VoiceID: SpeechVoiceMarin}})
+		}, want: "must not contain"},
 		{name: "timestamp", mutate: func(value *MasterVoiceSelection) { value.UpdatedAt = "2026-07-12T11:00:00-07:00" }, want: "canonical UTC"},
 	}
 	for _, test := range tests {
@@ -129,6 +133,55 @@ func TestVoiceSelectionRequestsFailSpecificallyForUnavailableExactVoices(t *test
 	)
 	if err != nil || resolved.ResolvedVoiceID == nil || *resolved.ResolvedVoiceID != SpeechVoiceAsh {
 		t.Fatalf("automatic master selection = %+v, err=%v", resolved, err)
+	}
+	assignments := make([]NarratorVoiceAssignment, 0, len(SynthesisVoiceCatalog().VoiceIDs))
+	for index, voiceID := range SynthesisVoiceCatalog().VoiceIDs {
+		assignments = append(assignments, NarratorVoiceAssignment{
+			ConversationID: fmt.Sprintf("conversation-%02d", index),
+			VoiceID:        voiceID,
+		})
+	}
+	exhausted, err := ResolveMasterVoiceSelection(
+		VoiceSelectionRequest{Selection: VoiceSelectionAutoDistinct},
+		assignments,
+		"2026-07-12T18:00:00Z",
+	)
+	if err != nil || exhausted.ResolvedVoiceID == nil || *exhausted.ResolvedVoiceID != SpeechVoiceAlloy ||
+		exhausted.Reuse == nil || len(exhausted.Reuse.ConflictingConversationIDs) != 1 ||
+		exhausted.Reuse.ConflictingConversationIDs[0] != "conversation-00" {
+		t.Fatalf("exhausted automatic master selection = %+v, err=%v", exhausted, err)
+	}
+}
+
+func TestAutomaticMasterRefreshPrefersStabilityUntilDistinctnessRequiresChange(t *testing.T) {
+	previous, err := ResolveMasterVoiceSelection(
+		VoiceSelectionRequest{Selection: VoiceSelectionAutoDistinct},
+		[]NarratorVoiceAssignment{{ConversationID: "conversation-a", VoiceID: SpeechVoiceAlloy}},
+		"2026-07-12T18:00:00Z",
+	)
+	if err != nil || previous.ResolvedVoiceID == nil || *previous.ResolvedVoiceID != SpeechVoiceAsh {
+		t.Fatalf("initial automatic master = %+v, err=%v", previous, err)
+	}
+	stable, changed, err := RefreshAutomaticMasterVoiceSelection(
+		previous,
+		[]NarratorVoiceAssignment{{ConversationID: "conversation-a", VoiceID: SpeechVoiceAlloy}},
+		"2026-07-12T18:01:00Z",
+	)
+	if err != nil || changed || stable.UpdatedAt != previous.UpdatedAt ||
+		stable.ResolvedVoiceID == nil || *stable.ResolvedVoiceID != SpeechVoiceAsh {
+		t.Fatalf("stable automatic master = %+v, changed=%v, err=%v", stable, changed, err)
+	}
+	refreshed, changed, err := RefreshAutomaticMasterVoiceSelection(
+		previous,
+		[]NarratorVoiceAssignment{
+			{ConversationID: "conversation-a", VoiceID: SpeechVoiceAlloy},
+			{ConversationID: "conversation-b", VoiceID: SpeechVoiceAsh},
+		},
+		"2026-07-12T18:01:00Z",
+	)
+	if err != nil || !changed || refreshed.ResolvedVoiceID == nil ||
+		*refreshed.ResolvedVoiceID != SpeechVoiceBallad || refreshed.Reuse != nil {
+		t.Fatalf("refreshed automatic master = %+v, changed=%v, err=%v", refreshed, changed, err)
 	}
 }
 

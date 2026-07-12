@@ -160,16 +160,19 @@ func TestValidateWAVRequiresOddChunkPadding(t *testing.T) {
 
 func TestSpeechContractValueSetsOwnProviderAndVoiceValues(t *testing.T) {
 	sets := ContractValueSets()
-	if len(sets) != 4 || sets[0].Name != "SpeechProviderStatus" ||
+	if len(sets) != 5 || sets[0].Name != "SpeechProviderStatus" ||
 		sets[1].Name != "SpeechProvider" || sets[2].Name != "VoiceSelectionMode" ||
-		sets[3].Name != "SpeechVoiceID" {
+		sets[3].Name != "VoiceReuseReason" || sets[4].Name != "SpeechVoiceID" {
 		t.Fatalf("value sets = %+v", sets)
 	}
 	want := []string{string(SpeechProviderStatusConfigured), string(SpeechProviderStatusNotConfigured)}
 	if strings.Join(sets[0].Values, ",") != strings.Join(want, ",") {
 		t.Fatalf("provider statuses = %v, want %v", sets[0].Values, want)
 	}
-	if strings.Join(sets[3].Values, ",") != strings.Join(stringValues(openAISpeechVoiceIDs[:]), ",") {
-		t.Fatalf("voice ids = %v, want %v", sets[3].Values, openAISpeechVoiceIDs)
+	if strings.Join(sets[3].Values, ",") != string(VoiceReuseCatalogExhausted) {
+		t.Fatalf("voice reuse reasons = %v", sets[3].Values)
+	}
+	if strings.Join(sets[4].Values, ",") != strings.Join(stringValues(openAISpeechVoiceIDs[:]), ",") {
+		t.Fatalf("voice ids = %v, want %v", sets[4].Values, openAISpeechVoiceIDs)
 	}
 }

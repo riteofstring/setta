@@ -1,12 +1,15 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import readline from "node:readline";
 import { setImmediate } from "node:timers";
 
-let threadCounter = 0;
-let turnCounter = 0;
-let approvalCounter = 0;
-const threads = new Map();
-const turns = new Map();
+const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
+const persistedState = readPersistedState();
+let threadCounter = persistedState.threadCounter;
+let turnCounter = persistedState.turnCounter;
+let approvalCounter = persistedState.approvalCounter;
+const threads = new Map(persistedState.threads.map((thread) => [thread.id, thread]));
+const turns = new Map(persistedState.turns.map((turn) => [turn.id, turn]));
 const heldTurns = new Map();
 const pendingApprovals = new Map();
 const failedNarratorObjectives = new Set();
@@ -80,6 +83,7 @@ function startThread(message) {
     turnIds: [],
   };
   threads.set(threadId, state);
+  persistState();
   respond(message.id, threadOperationResponse(fakeThread(threadId), state));
 }
 
@@ -92,6 +96,7 @@ function resumeThread(message) {
     turnIds: [],
   };
   threads.set(threadId, state);
+  persistState();
   respond(message.id, threadOperationResponse(fakeThread(threadId), state));
 }
 
@@ -122,6 +127,7 @@ function startTurn(message) {
   const turn = fakeTurn(turnId, "inProgress");
   turns.set(turnId, turn);
   thread.turnIds.push(turnId);
+  persistState();
   respond(message.id, { turn });
   const text = turnInputText(message.params);
   setImmediate(() => {
@@ -252,6 +258,7 @@ function interruptTurn(message) {
 
 function requestApproval(threadId, turnId) {
   approvalCounter += 1;
+  persistState();
   const requestId = `topic-approval-${approvalCounter}`;
   pendingApprovals.set(requestId, { threadId, turnId });
   request(requestId, "item/tool/requestUserInput", {
@@ -274,6 +281,7 @@ function requestApproval(threadId, turnId) {
 
 function requestCommandApproval(threadId, turnId) {
   approvalCounter += 1;
+  persistState();
   const requestId = `topic-approval-${approvalCounter}`;
   pendingApprovals.set(requestId, { threadId, turnId });
   request(requestId, "item/commandExecution/requestApproval", {
@@ -348,7 +356,49 @@ function completeTurn(threadId, turnId, status, message = "") {
     turn.error = { message };
   }
   turns.set(turnId, turn);
+  persistState();
   notify("turn/completed", { threadId, turn });
+}
+
+function readPersistedState() {
+  const empty = {
+    approvalCounter: 0,
+    threadCounter: 0,
+    threads: [],
+    turnCounter: 0,
+    turns: [],
+  };
+  if (persistedStatePath === "" || !existsSync(persistedStatePath)) {
+    return empty;
+  }
+  const state = JSON.parse(readFileSync(persistedStatePath, "utf8"));
+  if (
+    !Number.isInteger(state.approvalCounter) ||
+    !Number.isInteger(state.threadCounter) ||
+    !Number.isInteger(state.turnCounter) ||
+    !Array.isArray(state.threads) ||
+    !Array.isArray(state.turns)
+  ) {
+    throw new Error("fake topic Codex state is malformed");
+  }
+  return state;
+}
+
+function persistState() {
+  if (persistedStatePath === "") {
+    return;
+  }
+  writeFileSync(
+    persistedStatePath,
+    `${JSON.stringify({
+      approvalCounter,
+      threadCounter,
+      threads: [...threads.values()],
+      turnCounter,
+      turns: [...turns.values()],
+    })}\n`,
+    "utf8",
+  );
 }
 
 function fakeModel(id, effort, isDefault) {

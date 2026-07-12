@@ -389,15 +389,20 @@ func (transaction *WriteTransaction) UpdateMasterVoiceSelection(
 	if err := selection.Validate(); err != nil {
 		return err
 	}
+	reuseJSON, err := encodeOptionalJSONColumn("master voice reuse", selection.Reuse)
+	if err != nil {
+		return err
+	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
 UPDATE master_voice_selection
 SET selection = ?, requested_voice_id = ?, resolved_voice_id = ?,
-    reuse_json = NULL, updated_at = ?
+    reuse_json = ?, updated_at = ?
 WHERE singleton = 1 AND updated_at = ?
 `,
 		selection.Selection,
 		nullableString(voiceIDPointerString(selection.RequestedVoiceID)),
 		nullableString(voiceIDPointerString(selection.ResolvedVoiceID)),
+		reuseJSON,
 		selection.UpdatedAt,
 		expectedUpdatedAt,
 	)

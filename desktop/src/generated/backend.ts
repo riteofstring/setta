@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 25;
-export const backendContractSchemaHash = "sha256:499fc5ccbcb116ca6d30b4435e30e2adeb7a800e1ae6255a1a464042b2640673";
+export const backendProtocolVersion = 26;
+export const backendContractSchemaHash = "sha256:960e5c4f814f28eb1181dde650be88a5f29f6f3b3c888b8c48b8e96c9ce8a06f";
 
 export type DeviceScope = "full";
 
@@ -1589,6 +1589,20 @@ export function decodeSpeechProvider(value: unknown, label = "SpeechProvider"): 
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "openai":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type VoiceReuseReason = "catalog_exhausted";
+
+export const voiceReuseReasonValues = ["catalog_exhausted"] as const satisfies readonly VoiceReuseReason[];
+
+export function decodeVoiceReuseReason(value: unknown, label = "VoiceReuseReason"): VoiceReuseReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "catalog_exhausted":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -4979,10 +4993,17 @@ export interface SpeechCapabilities {
   aiVoiceDisclosure: string;
 }
 
+export interface VoiceReuse {
+  reason: VoiceReuseReason;
+  resolvedVoiceId: SpeechVoiceID;
+  conflictingConversationIds: string[];
+}
+
 export interface MasterVoiceSelection {
   selection: VoiceSelectionMode;
   requestedVoiceId: SpeechVoiceID | null;
   resolvedVoiceId: SpeechVoiceID | null;
+  reuse: VoiceReuse | null;
   updatedAt: string;
 }
 
@@ -11219,13 +11240,24 @@ export function decodeSpeechCapabilities(value: unknown): SpeechCapabilities {
   };
 }
 
+export function decodeVoiceReuse(value: unknown): VoiceReuse {
+  const record = assertRecord(value, "VoiceReuse");
+  assertKnownFields(record, "VoiceReuse", ["reason", "resolvedVoiceId", "conflictingConversationIds"]);
+  return {
+    reason: decodeVoiceReuseReason(requireField(record, "reason", "VoiceReuse"), "VoiceReuse.reason"),
+    resolvedVoiceId: decodeSpeechVoiceID(requireField(record, "resolvedVoiceId", "VoiceReuse"), "VoiceReuse.resolvedVoiceId"),
+    conflictingConversationIds: decodeArray(requireField(record, "conflictingConversationIds", "VoiceReuse"), "VoiceReuse.conflictingConversationIds", (item) => decodeString(item, "VoiceReuse.conflictingConversationIds item")),
+  };
+}
+
 export function decodeMasterVoiceSelection(value: unknown): MasterVoiceSelection {
   const record = assertRecord(value, "MasterVoiceSelection");
-  assertKnownFields(record, "MasterVoiceSelection", ["selection", "requestedVoiceId", "resolvedVoiceId", "updatedAt"]);
+  assertKnownFields(record, "MasterVoiceSelection", ["selection", "requestedVoiceId", "resolvedVoiceId", "reuse", "updatedAt"]);
   return {
     selection: decodeVoiceSelectionMode(requireField(record, "selection", "MasterVoiceSelection"), "MasterVoiceSelection.selection"),
     requestedVoiceId: decodeNullable(requireField(record, "requestedVoiceId", "MasterVoiceSelection"), "MasterVoiceSelection.requestedVoiceId", (item) => decodeSpeechVoiceID(item, "MasterVoiceSelection.requestedVoiceId")),
     resolvedVoiceId: decodeNullable(requireField(record, "resolvedVoiceId", "MasterVoiceSelection"), "MasterVoiceSelection.resolvedVoiceId", (item) => decodeSpeechVoiceID(item, "MasterVoiceSelection.resolvedVoiceId")),
+    reuse: decodeNullable(requireField(record, "reuse", "MasterVoiceSelection"), "MasterVoiceSelection.reuse", (item) => decodeVoiceReuse(item)),
     updatedAt: decodeString(requireField(record, "updatedAt", "MasterVoiceSelection"), "MasterVoiceSelection.updatedAt"),
   };
 }

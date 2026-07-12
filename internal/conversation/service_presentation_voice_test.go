@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -196,6 +197,178 @@ func TestMasterVoiceOverrideReassignsConflictingAutomaticNarratorAndPersists(t *
 	}
 	if restored.ResolvedVoiceID == nil || *restored.ResolvedVoiceID != speech.SpeechVoiceAlloy {
 		t.Fatalf("restored master voice = %+v", restored)
+	}
+}
+
+func TestExactNarratorOverrideReassignsAutomaticMasterAndPersists(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, service, _, workspaceID := newConversationServiceTestHarness(t, appDataDir)
+	ctx := context.Background()
+	alpha, err := service.CreateTopic(ctx, workspaceID, "Alpha claims master voice")
+	if err != nil {
+		t.Fatalf("create alpha: %v", err)
+	}
+	if _, err := service.CreateTopic(ctx, workspaceID, "Beta keeps narrator voice"); err != nil {
+		t.Fatalf("create beta: %v", err)
+	}
+	automaticMaster, err := store.UpdateMasterVoiceSelection(
+		ctx,
+		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionAutoDistinct},
+		"2026-07-11T21:00:00Z",
+	)
+	if err != nil {
+		t.Fatalf("make master automatic: %v", err)
+	}
+	if automaticMaster.ResolvedVoiceID == nil || *automaticMaster.ResolvedVoiceID != speech.SpeechVoiceBallad {
+		t.Fatalf("automatic master selection = %+v", automaticMaster)
+	}
+
+	updated, err := service.UpdateNarratorVoiceSelection(
+		ctx,
+		workspaceID,
+		alpha.Conversation.ID,
+		speech.VoiceSelectionRequest{
+			Selection:        speech.VoiceSelectionExact,
+			RequestedVoiceID: voiceIDPointer(*automaticMaster.ResolvedVoiceID),
+		},
+	)
+	if err != nil {
+		t.Fatalf("set exact narrator to automatic master voice: %v", err)
+	}
+	assertNarratorVoice(
+		t,
+		updated,
+		speech.VoiceSelectionExact,
+		speech.SpeechVoiceBallad,
+		nil,
+	)
+	reassignedMaster, err := store.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		t.Fatalf("read reassigned automatic master: %v", err)
+	}
+	if reassignedMaster.Selection != speech.VoiceSelectionAutoDistinct ||
+		reassignedMaster.ResolvedVoiceID == nil ||
+		*reassignedMaster.ResolvedVoiceID != speech.SpeechVoiceAlloy ||
+		reassignedMaster.Reuse != nil {
+		t.Fatalf("reassigned automatic master = %+v", reassignedMaster)
+	}
+	assertMasterVoiceUpdateReason(
+		t,
+		store,
+		3,
+		speech.MasterVoiceSelectionUpdateNarratorOverride,
+	)
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := service.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shutdown service: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	reopened, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	restored, err := reopened.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		t.Fatalf("read restored automatic master: %v", err)
+	}
+	if restored.ResolvedVoiceID == nil || *restored.ResolvedVoiceID != speech.SpeechVoiceAlloy {
+		t.Fatalf("restored automatic master = %+v", restored)
+	}
+}
+
+func assertMasterVoiceUpdateReason(
+	t *testing.T,
+	store *Store,
+	wantEventCount int,
+	wantReason speech.MasterVoiceSelectionUpdateReason,
+) {
+	t.Helper()
+	events, err := store.ReadCommittedStreamEvents(
+		context.Background(),
+		speech.MasterVoiceSelectionStreamID,
+		0,
+		10,
+	)
+	if err != nil {
+		t.Fatalf("read master voice events: %v", err)
+	}
+	if len(events) != wantEventCount {
+		t.Fatalf("master voice events = %+v", events)
+	}
+	var update speech.MasterVoiceSelectionUpdate
+	if err := json.Unmarshal(events[len(events)-1].Payload, &update); err != nil {
+		t.Fatalf("decode master voice update: %v", err)
+	}
+	if update.Reason != wantReason {
+		t.Fatalf("master voice update reason = %q, want %q", update.Reason, wantReason)
+	}
+}
+
+func TestAutomaticMasterVoiceRecordsAndPersistsFiniteCatalogReuse(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, service, _, workspaceID := newConversationServiceTestHarness(t, appDataDir)
+	ctx := context.Background()
+	catalog := speech.SynthesisVoiceCatalog().VoiceIDs
+	conversations := make([]ConversationSnapshot, 0, len(catalog))
+	for index := range catalog {
+		created, err := service.CreateTopic(ctx, workspaceID, fmt.Sprintf("Exact voice %02d", index+1))
+		if err != nil {
+			t.Fatalf("create exact voice topic %d: %v", index+1, err)
+		}
+		conversations = append(conversations, created)
+	}
+	for index, voiceID := range catalog {
+		if _, err := service.UpdateNarratorVoiceSelection(
+			ctx,
+			workspaceID,
+			conversations[index].Conversation.ID,
+			speech.VoiceSelectionRequest{
+				Selection:        speech.VoiceSelectionExact,
+				RequestedVoiceID: voiceIDPointer(voiceID),
+			},
+		); err != nil {
+			t.Fatalf("set exact narrator voice %s: %v", voiceID, err)
+		}
+	}
+	updated, err := store.UpdateMasterVoiceSelection(
+		ctx,
+		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionAutoDistinct},
+		"2026-07-11T22:00:00Z",
+	)
+	if err != nil {
+		t.Fatalf("update automatic master voice: %v", err)
+	}
+	if updated.ResolvedVoiceID == nil || *updated.ResolvedVoiceID != speech.SpeechVoiceAlloy ||
+		updated.Reuse == nil || updated.Reuse.ResolvedVoiceID != speech.SpeechVoiceAlloy ||
+		fmt.Sprint(updated.Reuse.ConflictingConversationIDs) != fmt.Sprint([]string{conversations[0].Conversation.ID}) {
+		t.Fatalf("automatic master reuse = %+v", updated)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := service.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shutdown service: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	reopened, err := NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	restored, err := reopened.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		t.Fatalf("read restored automatic master voice: %v", err)
+	}
+	if restored.Reuse == nil ||
+		fmt.Sprint(restored.Reuse.ConflictingConversationIDs) != fmt.Sprint(updated.Reuse.ConflictingConversationIDs) {
+		t.Fatalf("restored automatic master reuse = %+v, want %+v", restored, updated)
 	}
 }
 

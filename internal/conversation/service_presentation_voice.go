@@ -71,14 +71,121 @@ func (service *Service) updateNarratorVoiceSelectionLocked(
 	if err != nil {
 		return ConversationPresentationProfile{}, err
 	}
+	updates, masterUpdate, err := service.refreshAutomaticMasterAfterNarratorUpdates(
+		master,
+		presentations,
+		updates,
+	)
+	if err != nil {
+		return ConversationPresentationProfile{}, err
+	}
 	publications, result, err := service.prepareNarratorVoicePublications(updates, conversationID)
 	if err != nil {
 		return ConversationPresentationProfile{}, err
 	}
-	if err := service.commitNarratorVoiceUpdates(ctx, updates, publications); err != nil {
+	if masterUpdate != nil {
+		err = service.store.commitMasterVoiceUpdate(
+			ctx,
+			master,
+			*masterUpdate,
+			updates,
+			publications,
+			speech.MasterVoiceSelectionUpdateNarratorOverride,
+		)
+	} else {
+		err = service.commitNarratorVoiceUpdates(ctx, updates, publications)
+	}
+	if err != nil {
 		return ConversationPresentationProfile{}, err
 	}
 	return result, nil
+}
+
+func (service *Service) refreshAutomaticMasterAfterNarratorUpdates(
+	master speech.MasterVoiceSelection,
+	presentations []activeConversationPresentation,
+	updates []ConversationPresentationProfile,
+) ([]ConversationPresentationProfile, *speech.MasterVoiceSelection, error) {
+	if master.Selection != speech.VoiceSelectionAutoDistinct {
+		return updates, nil, nil
+	}
+	presentationsAfterUpdate := applyPresentationProfileUpdates(presentations, updates)
+	refreshed, changed, err := speech.RefreshAutomaticMasterVoiceSelection(
+		master,
+		narratorVoiceAssignments(presentationsAfterUpdate, nil),
+		advanceTimestamp(master.UpdatedAt, service.timestamp()),
+	)
+	if err != nil || !changed {
+		return updates, nil, err
+	}
+	followups, err := narratorUpdatesForMasterVoice(
+		presentationsAfterUpdate,
+		*refreshed.ResolvedVoiceID,
+		refreshed.UpdatedAt,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	updates = mergePresentationProfileUpdates(updates, followups)
+	for index := range updates {
+		updates[index].UpdatedAt = advanceTimestamp(updates[index].UpdatedAt, refreshed.UpdatedAt)
+		if err := updates[index].Validate(); err != nil {
+			return nil, nil, err
+		}
+	}
+	finalPresentations := applyPresentationProfileUpdates(presentations, updates)
+	refreshed.Reuse = speech.VoiceReuseForAssignments(
+		*refreshed.ResolvedVoiceID,
+		narratorVoiceAssignments(finalPresentations, nil),
+	)
+	if err := refreshed.Validate(); err != nil {
+		return nil, nil, err
+	}
+	return updates, &refreshed, nil
+}
+
+func applyPresentationProfileUpdates(
+	presentations []activeConversationPresentation,
+	updates []ConversationPresentationProfile,
+) []activeConversationPresentation {
+	updatedByConversationID := make(map[string]ConversationPresentationProfile, len(updates))
+	for _, update := range updates {
+		updatedByConversationID[update.ConversationID] = update
+	}
+	result := make([]activeConversationPresentation, 0, len(presentations))
+	for _, presentation := range presentations {
+		if update, ok := updatedByConversationID[presentation.Profile.ConversationID]; ok {
+			presentation.Profile = update
+		}
+		result = append(result, presentation)
+	}
+	return result
+}
+
+func mergePresentationProfileUpdates(
+	initial []ConversationPresentationProfile,
+	followups []ConversationPresentationProfile,
+) []ConversationPresentationProfile {
+	followupByConversationID := make(map[string]ConversationPresentationProfile, len(followups))
+	for _, followup := range followups {
+		followupByConversationID[followup.ConversationID] = followup
+	}
+	result := make([]ConversationPresentationProfile, 0, len(initial)+len(followups))
+	seen := make(map[string]bool, len(initial)+len(followups))
+	for _, update := range initial {
+		if followup, ok := followupByConversationID[update.ConversationID]; ok {
+			update = followup
+		}
+		result = append(result, update)
+		seen[update.ConversationID] = true
+	}
+	for _, followup := range followups {
+		if seen[followup.ConversationID] {
+			continue
+		}
+		result = append(result, followup)
+	}
+	return result
 }
 
 func (service *Service) prepareNarratorVoicePublications(

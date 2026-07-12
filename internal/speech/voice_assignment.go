@@ -35,11 +35,13 @@ func ResolveMasterVoiceSelection(
 		return MasterVoiceSelection{}, err
 	}
 	var resolved SpeechVoiceID
+	var reuse *VoiceReuse
 	switch request.Selection {
 	case VoiceSelectionExact:
 		resolved = *request.RequestedVoiceID
 	case VoiceSelectionAutoDistinct:
 		resolved = leastUsedVoice(SynthesisVoiceCatalog().VoiceIDs, assignments)
+		reuse = VoiceReuseForAssignments(resolved, assignments)
 	default:
 		return MasterVoiceSelection{}, fmt.Errorf("unsupported voice selection mode %q", request.Selection)
 	}
@@ -47,12 +49,45 @@ func ResolveMasterVoiceSelection(
 		Selection:        request.Selection,
 		RequestedVoiceID: cloneVoiceID(request.RequestedVoiceID),
 		ResolvedVoiceID:  cloneVoiceID(&resolved),
+		Reuse:            reuse,
 		UpdatedAt:        updatedAt,
 	}
 	if err := selection.Validate(); err != nil {
 		return MasterVoiceSelection{}, err
 	}
 	return selection, nil
+}
+
+func RefreshAutomaticMasterVoiceSelection(
+	previous MasterVoiceSelection,
+	assignments []NarratorVoiceAssignment,
+	updatedAt string,
+) (MasterVoiceSelection, bool, error) {
+	if err := previous.Validate(); err != nil {
+		return MasterVoiceSelection{}, false, err
+	}
+	if previous.Selection != VoiceSelectionAutoDistinct || previous.ResolvedVoiceID == nil {
+		return MasterVoiceSelection{}, false, errors.New("automatic master voice selection is required")
+	}
+	resolved := leastUsedVoicePreferring(
+		SynthesisVoiceCatalog().VoiceIDs,
+		assignments,
+		*previous.ResolvedVoiceID,
+	)
+	reuse := VoiceReuseForAssignments(resolved, assignments)
+	if resolved == *previous.ResolvedVoiceID && voiceReuseEqual(reuse, previous.Reuse) {
+		return CloneMasterVoiceSelection(previous), false, nil
+	}
+	selection := MasterVoiceSelection{
+		Selection:       VoiceSelectionAutoDistinct,
+		ResolvedVoiceID: cloneVoiceID(&resolved),
+		Reuse:           reuse,
+		UpdatedAt:       updatedAt,
+	}
+	if err := selection.Validate(); err != nil {
+		return MasterVoiceSelection{}, false, err
+	}
+	return selection, true, nil
 }
 
 func AllocateNarratorVoice(
@@ -83,16 +118,24 @@ func allocateNarratorVoice(
 		return NarratorVoiceAllocation{}, errors.New("speech voice catalog has no narrator voice distinct from the master")
 	}
 	selected := leastUsedVoice(choices, assignments)
-	conflicts := conflictingConversationIDs(selected, assignments)
 	allocation := NarratorVoiceAllocation{VoiceID: selected}
-	if len(conflicts) > 0 {
-		allocation.Reuse = &VoiceReuse{
-			Reason:                     VoiceReuseCatalogExhausted,
-			ResolvedVoiceID:            selected,
-			ConflictingConversationIDs: conflicts,
-		}
-	}
+	allocation.Reuse = VoiceReuseForAssignments(selected, assignments)
 	return allocation, nil
+}
+
+func VoiceReuseForAssignments(
+	voiceID SpeechVoiceID,
+	assignments []NarratorVoiceAssignment,
+) *VoiceReuse {
+	conflicts := conflictingConversationIDs(voiceID, assignments)
+	if len(conflicts) == 0 {
+		return nil
+	}
+	return &VoiceReuse{
+		Reason:                     VoiceReuseCatalogExhausted,
+		ResolvedVoiceID:            voiceID,
+		ConflictingConversationIDs: conflicts,
+	}
 }
 
 func leastUsedVoice(
@@ -110,6 +153,47 @@ func leastUsedVoice(
 		}
 	}
 	return selected
+}
+
+func leastUsedVoicePreferring(
+	choices []SpeechVoiceID,
+	assignments []NarratorVoiceAssignment,
+	preferred SpeechVoiceID,
+) SpeechVoiceID {
+	selected := leastUsedVoice(choices, assignments)
+	selectedUsage := voiceUsage(selected, assignments)
+	for _, candidate := range choices {
+		if candidate == preferred && voiceUsage(candidate, assignments) == selectedUsage {
+			return candidate
+		}
+	}
+	return selected
+}
+
+func voiceUsage(voiceID SpeechVoiceID, assignments []NarratorVoiceAssignment) int {
+	usage := 0
+	for _, assignment := range assignments {
+		if assignment.VoiceID == voiceID {
+			usage++
+		}
+	}
+	return usage
+}
+
+func voiceReuseEqual(left *VoiceReuse, right *VoiceReuse) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	if left.Reason != right.Reason || left.ResolvedVoiceID != right.ResolvedVoiceID ||
+		len(left.ConflictingConversationIDs) != len(right.ConflictingConversationIDs) {
+		return false
+	}
+	for index := range left.ConflictingConversationIDs {
+		if left.ConflictingConversationIDs[index] != right.ConflictingConversationIDs[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func conflictingConversationIDs(
@@ -130,10 +214,20 @@ func conflictingConversationIDs(
 }
 
 func (reuse VoiceReuse) Validate(resolvedVoiceID SpeechVoiceID) error {
+	return reuse.validateAgainstCatalog(resolvedVoiceID, LookupVoice)
+}
+
+func (reuse VoiceReuse) validateAgainstCatalog(
+	resolvedVoiceID SpeechVoiceID,
+	available func(SpeechVoiceID) bool,
+) error {
 	if reuse.Reason != VoiceReuseCatalogExhausted {
 		return fmt.Errorf("unsupported voice reuse reason %q", reuse.Reason)
 	}
-	if !LookupVoice(reuse.ResolvedVoiceID) {
+	if available == nil {
+		return errors.New("voice reuse catalog lookup is required")
+	}
+	if !available(reuse.ResolvedVoiceID) {
 		return unavailableVoiceError(reuse.ResolvedVoiceID)
 	}
 	if reuse.ResolvedVoiceID != resolvedVoiceID {

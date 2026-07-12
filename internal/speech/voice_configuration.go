@@ -53,12 +53,13 @@ func NewMasterVoiceSelectionInitialization(
 func NewMasterVoiceSelectionUpdate(
 	previous MasterVoiceSelection,
 	selection MasterVoiceSelection,
+	reason MasterVoiceSelectionUpdateReason,
 ) MasterVoiceSelectionUpdate {
 	return MasterVoiceSelectionUpdate{
 		Catalog:   SynthesisVoiceCatalog(),
 		Previous:  CloneMasterVoiceSelection(previous),
 		Selection: CloneMasterVoiceSelection(selection),
-		Reason:    MasterVoiceSelectionUpdateUserOverride,
+		Reason:    reason,
 	}
 }
 
@@ -88,7 +89,10 @@ func (update MasterVoiceSelectionUpdate) Validate() error {
 	if err := validateAgainstSnapshot(update.Selection); err != nil {
 		return fmt.Errorf("master voice selection update value: %w", err)
 	}
-	if update.Reason != MasterVoiceSelectionUpdateUserOverride {
+	switch update.Reason {
+	case MasterVoiceSelectionUpdateUserOverride,
+		MasterVoiceSelectionUpdateNarratorOverride:
+	default:
 		return fmt.Errorf("unsupported master voice selection update reason %q", update.Reason)
 	}
 	previousAt, _ := time.Parse(time.RFC3339Nano, update.Previous.UpdatedAt)
@@ -102,6 +106,7 @@ func (update MasterVoiceSelectionUpdate) Validate() error {
 func CloneMasterVoiceSelection(selection MasterVoiceSelection) MasterVoiceSelection {
 	selection.RequestedVoiceID = cloneVoiceID(selection.RequestedVoiceID)
 	selection.ResolvedVoiceID = cloneVoiceID(selection.ResolvedVoiceID)
+	selection.Reuse = cloneVoiceReuse(selection.Reuse)
 	return selection
 }
 
@@ -122,6 +127,14 @@ func (selection MasterVoiceSelection) validateAgainstCatalog(
 	}
 	if selection.ResolvedVoiceID == nil {
 		return errors.New("master voice selection requires resolved voice id")
+	}
+	if selection.Reuse != nil {
+		if selection.Selection == VoiceSelectionExact {
+			return errors.New("exact master voice selection must not contain automatic reuse metadata")
+		}
+		if err := selection.Reuse.validateAgainstCatalog(*selection.ResolvedVoiceID, available); err != nil {
+			return fmt.Errorf("master voice selection reuse: %w", err)
+		}
 	}
 	return validateCanonicalTimestamp("master voice selection updatedAt", selection.UpdatedAt)
 }
@@ -239,5 +252,14 @@ func cloneVoiceID(value *SpeechVoiceID) *SpeechVoiceID {
 		return nil
 	}
 	result := *value
+	return &result
+}
+
+func cloneVoiceReuse(value *VoiceReuse) *VoiceReuse {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	result.ConflictingConversationIDs = append([]string(nil), value.ConflictingConversationIDs...)
 	return &result
 }
