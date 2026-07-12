@@ -109,6 +109,7 @@ try {
     beta,
     false,
   );
+  await assertReducedMotionNavigatorPresentation(context.client, alpha);
   await waitForPersistedTopicPanes(backend, workspaceId, alpha.id, beta.id);
   await captureScreenshot(context.client, join(artifactDir, "duplicate-palette-identity.png"));
 
@@ -252,13 +253,39 @@ function assertPalettePanePresentation(surfaces, alpha, beta) {
       surface.topBarBackgroundImage !== "" &&
       surface.topBarBackgroundImage !== "none",
   );
-  const distinct = alphaSurfaces.every(
-    (surface) => surface.hostFocusRing !== betaSurfaces[0]?.hostFocusRing,
+  const alphaTopBarBackgrounds = new Set(
+    alphaSurfaces.map((surface) => surface.topBarBackgroundImage),
   );
+  const betaSurface = betaSurfaces[0];
+  const distinct =
+    betaSurface !== undefined &&
+    alphaTopBarBackgrounds.size === 1 &&
+    alphaSurfaces.every(
+      (surface) =>
+        surface.hostFocusRing !== betaSurface.hostFocusRing &&
+        surface.hostFocusShadow !== betaSurface.hostFocusShadow &&
+        surface.topBarBackgroundImage !== betaSurface.topBarBackgroundImage,
+    );
   if (!presented || !distinct) {
     throw new Error(
       `conversation palette pane presentation mismatch: ${JSON.stringify({ alphaSurfaces, betaSurfaces })}`,
     );
+  }
+}
+
+async function assertReducedMotionNavigatorPresentation(client, topic) {
+  await client.call("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  try {
+    const state = await waitForNavigator(client, topic.id, 2, workflowTimeoutMs);
+    if (state.presentationTransitionDuration !== "0s") {
+      throw new Error(
+        `conversation palette navigator ignored reduced motion: ${JSON.stringify({ state, topic })}`,
+      );
+    }
+  } finally {
+    await client.call("Emulation.setEmulatedMedia", { features: [] });
   }
 }
 

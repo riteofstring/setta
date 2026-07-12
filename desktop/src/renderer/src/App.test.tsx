@@ -303,7 +303,7 @@ describe("workspace renderer states", () => {
 
     expect(hasAriaLabel(html, "Conversation working")).toBe(true);
     expect(html).toContain('data-conversation-palette="sky"');
-    expect(html).toContain("conversation-navigator-row");
+    expect(html).toContain('class="conversation-navigator-row conversation-presentation-identity');
   });
 
   test("renders approval waiting as a distinct navigator status", () => {

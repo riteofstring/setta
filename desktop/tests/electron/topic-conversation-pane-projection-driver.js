@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v19";
+  const version = "setta-topic-conversation-pane-projection-driver-v20";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -354,6 +354,7 @@
         parentConversationId: "",
         presentationBoxShadow: "",
         presentationFocusRing: "",
+        presentationTransitionDuration: "",
       };
     }
     return {
@@ -365,6 +366,7 @@
       parentConversationId: datasetValue(row, "parentConversationId"),
       presentationBoxShadow: computedStyleValue(row, "box-shadow"),
       presentationFocusRing: computedStyleValue(row, "--conversation-focus-ring"),
+      presentationTransitionDuration: computedStyleValue(row, "transition-duration"),
     };
   }
 

@@ -31,6 +31,12 @@
   outline-offset: -2px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .conversation-navigator-row {
+    transition: none;
+  }
+}
+
 .workspace-pane-host.conversation-presentation-identity[data-conversation-palette] {
   --workspace-pane-focus-ring: var(--conversation-focus-ring);
   --workspace-pane-focus-shadow: color-mix(in oklch, var(--conversation-accent) 28%, transparent);
