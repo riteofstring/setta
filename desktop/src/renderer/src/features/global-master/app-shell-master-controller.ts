@@ -195,8 +195,17 @@ export class AppShellMasterController {
       throw new Error("a submitting master input cannot be discarded");
     }
     this.invalidateSubmission();
+    this.invalidateInteraction();
     this.pending = null;
-    this.updateSnapshot({ completedTranscript: null, submission: { type: "idle" } });
+    const runtimeId = this.snapshotValue.runtimeId;
+    this.updateSnapshot({
+      completedTranscript: null,
+      interaction: runtimeId ? { type: "loading" } : { type: "disconnected" },
+      submission: { type: "idle" },
+    });
+    if (runtimeId) {
+      this.loadActiveInteraction(runtimeId);
+    }
   }
 
   clearAccepted(): void {
@@ -218,6 +227,9 @@ export class AppShellMasterController {
         this.loadActiveInteraction(runtimeId);
         return;
       case "observation_failed":
+        this.updateSnapshot({
+          interaction: { state: this.snapshotValue.interaction.state, type: "active" },
+        });
         this.observeInteraction(runtimeId, this.snapshotValue.interaction.state);
         return;
       case "active":

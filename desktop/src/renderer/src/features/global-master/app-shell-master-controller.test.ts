@@ -186,14 +186,11 @@ describe("app-shell master controller", () => {
   });
 
   test("reconnects a failed routing-state wait without resubmitting the input", async () => {
+    const retriedObservation = deferred<ShellInteractionState>();
     const wait = vi
       .fn<AppShellMasterControllerDependencies["waitShellInteraction"]>()
       .mockRejectedValueOnce(new Error("connection lost"))
-      .mockImplementationOnce(async ({ inputId }) => {
-        const request = harness.requests.find((candidate) => candidate.input.id === inputId);
-        if (!request) throw new Error("request missing");
-        return decidedState(acceptedFor(request, 1), "answer_global");
-      });
+      .mockImplementationOnce(() => retriedObservation.promise);
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const harness = createHarness({ waitShellInteraction: wait });
     harness.controller.synchronizeRuntime("runtime_alpha");
@@ -202,12 +199,56 @@ describe("app-shell master controller", () => {
     await waitForInteractionType(harness.controller, "observation_failed");
 
     harness.controller.retryInteraction();
+    expect(harness.controller.getSnapshot().interaction).toMatchObject({
+      state: { status: "accepted" },
+      type: "active",
+    });
+    harness.controller.retryInteraction();
+    expect(wait).toHaveBeenCalledTimes(2);
+    retriedObservation.resolve(decidedState(acceptedFor(harness.requests[0]!, 1), "answer_global"));
     await waitForInteraction(harness.controller, "decided");
     expect(harness.requests).toHaveLength(1);
     expect(wait).toHaveBeenCalledTimes(2);
     expect(info).toHaveBeenCalledWith(
       "Active master routing observation failed: inputId=master_input_1",
     );
+    info.mockRestore();
+  });
+
+  test("restores durable clarification state after discarding an uncertain reply failure", async () => {
+    const request = { input: shellInput("input_clarify", "text", "Bring up that topic") };
+    const clarification = decidedState(acceptedFor(request, 3), "clarify");
+    const readActiveInteraction = vi
+      .fn<AppShellMasterControllerDependencies["readActiveInteraction"]>()
+      .mockResolvedValue({ state: clarification });
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const harness = createHarness({
+      readActiveInteraction,
+      submitMasterInput: async () => {
+        throw new Error("connection lost before the receipt arrived");
+      },
+    });
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    harness.controller.submitText("The speech routing topic");
+    await waitForSubmission(harness.controller, "failed");
+
+    harness.controller.discard();
+    expect(harness.controller.getSnapshot().interaction).toEqual({ type: "loading" });
+    await flushPromises();
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      interaction: {
+        state: {
+          decision: { clarify: { question: "Which topic did you mean?" } },
+          input: { id: "input_clarify" },
+          status: "decided",
+        },
+        type: "active",
+      },
+      submission: { type: "idle" },
+    });
+    expect(readActiveInteraction).toHaveBeenCalledTimes(2);
     info.mockRestore();
   });
 
@@ -240,6 +281,7 @@ describe("app-shell master controller", () => {
     pending.resolve(receipt);
     await waitForSubmission(harness.controller, "failed");
     harness.controller.discard();
+    await flushPromises();
 
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: { type: "idle" },
