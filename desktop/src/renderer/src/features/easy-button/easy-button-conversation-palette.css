@@ -1,0 +1,11 @@
+.conversation-presentation-identity {
+  --conversation-accent: var(--conversation-accent-dark, var(--accent-cyan));
+  --conversation-accent-foreground: var(--conversation-accent-foreground-dark, var(--setta-975));
+  --conversation-focus-ring: var(--conversation-focus-ring-dark, var(--accent-cyan));
+}
+
+[data-color-mode="light"] .conversation-presentation-identity {
+  --conversation-accent: var(--conversation-accent-light, var(--accent-cyan));
+  --conversation-accent-foreground: var(--conversation-accent-foreground-light, var(--setta-50));
+  --conversation-focus-ring: var(--conversation-focus-ring-light, var(--accent-cyan));
+}

@@ -1,4 +1,5 @@
 node_modules
+.recordings
 out
 dist
 coverage
