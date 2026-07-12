@@ -319,17 +319,12 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   }
 
   private capturePresentationIdentity(sourceHost: HTMLElement): void {
-    if (this.pane.surfaceKind !== "easy-button") {
+    if (!conversationPaletteIdentitySourceMatchesPane(this.pane, sourceHost)) {
       return;
     }
     const identity = readConversationPanePaletteIdentity(sourceHost);
-    const currentIdentity = this.presentationIdentity;
-    if (
-      !identity ||
-      (currentIdentity !== null &&
-        identity.conversationId === currentIdentity.conversationId &&
-        identity.paletteId === currentIdentity.paletteId)
-    ) {
+    ensureConversationPaletteIdentityMatchesPane(this.pane, identity);
+    if (sameConversationPaletteIdentity(identity, this.presentationIdentity)) {
       return;
     }
     this.presentationIdentity = identity;
@@ -408,6 +403,36 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
       error instanceof Error ? error.message : error,
     );
   }
+}
+
+function conversationPaletteIdentitySourceMatchesPane(
+  pane: WorkspacePane,
+  sourceHost: HTMLElement,
+): boolean {
+  return pane.surfaceKind === "easy-button" && sourceHost.dataset.surfaceId === pane.surfaceId;
+}
+
+function ensureConversationPaletteIdentityMatchesPane(
+  pane: WorkspacePane,
+  identity: ConversationPaletteIdentity | null,
+): void {
+  const expectedConversationId = pane.easyButtonConfig?.conversationId;
+  if (!identity || identity.conversationId === expectedConversationId) {
+    return;
+  }
+  throw new Error(
+    `snapshot source ${pane.surfaceId} exposes conversation ${identity.conversationId}; expected ${expectedConversationId ?? "an unbound Easy Button"}`,
+  );
+}
+
+function sameConversationPaletteIdentity(
+  left: ConversationPaletteIdentity | null,
+  right: ConversationPaletteIdentity | null,
+): boolean {
+  if (!left || !right) {
+    return left === right;
+  }
+  return left.conversationId === right.conversationId && left.paletteId === right.paletteId;
 }
 
 function bitmapCaptureRequestForHost(sourceHost: HTMLElement): BitmapCaptureRequest | null {

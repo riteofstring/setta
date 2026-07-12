@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { conversationPaletteCatalog } from "@generated/backend";
+import { conversationPaletteCatalog, type ConversationPaletteID } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 
 import { claimConversationPaletteIdentity } from "../features/easy-button/conversation-palette-identity";
@@ -356,6 +356,67 @@ describe("workspace surface registry", () => {
     expect(host.dataset.conversationPalette).toBeUndefined();
     expect(host.classList.contains("conversation-presentation-identity")).toBe(false);
     expect(host.style.getPropertyValue("--conversation-accent-dark")).toBe("");
+  });
+
+  test("clears a stale conversation palette during snapshot handoff", () => {
+    const pane = {
+      ...fakePane("easy-button"),
+      easyButtonConfig: { conversationId: "conversation_alpha" },
+    };
+    const adapter = new ConversationTexturedSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => adapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    const releaseClearedIdentity = claimConversationPaletteIdentity(host, null);
+    registry.syncHost(host, renderItem(pane, "snapshot"), { resizePhase: "idle" });
+
+    expect(host.dataset.conversationId).toBeUndefined();
+    expect(host.dataset.conversationPalette).toBeUndefined();
+    expect(host.classList.contains("conversation-presentation-identity")).toBe(false);
+    expect(host.style.getPropertyValue("--conversation-accent-dark")).toBe("");
+
+    releaseClearedIdentity();
+  });
+
+  test("does not copy another conversation identity from a recycled snapshot host", () => {
+    const alpha = {
+      ...fakePane("easy-button"),
+      easyButtonConfig: { conversationId: "conversation_alpha" },
+      title: "Alpha pane",
+    };
+    const beta = {
+      ...fakePane("easy-button", 1),
+      easyButtonConfig: { conversationId: "conversation_beta" },
+      title: "Beta pane",
+    };
+    const alphaAdapter = new ConversationTexturedSurfaceAdapter(alpha, "conversation_alpha", "sky");
+    const betaAdapter = new ConversationTexturedSurfaceAdapter(beta, "conversation_beta", "blue");
+    const adapters = new Map([
+      [alpha.surfaceId, alphaAdapter],
+      [beta.surfaceId, betaAdapter],
+    ]);
+    const registry = new SurfaceRegistry(
+      [alpha, beta],
+      (pane) => adapters.get(pane.surfaceId) ?? new RecordingSurfaceAdapter(pane),
+    );
+    const betaHost = createFakeHost();
+    const recycledHost = createFakeHost();
+
+    registry.syncHost(betaHost, renderItem(beta, "live"), { resizePhase: "idle" });
+    registry.releaseHost(betaHost);
+    registry.syncHost(recycledHost, renderItem(alpha, "live"), { resizePhase: "idle" });
+    registry.syncHost(recycledHost, renderItem(beta, "snapshot"), { resizePhase: "idle" });
+
+    expect(recycledHost.dataset.conversationId).toBe("conversation_beta");
+    expect(recycledHost.dataset.conversationPalette).toBe("blue");
+    expect(recycledHost.style.getPropertyValue("--conversation-accent-dark")).toBe(
+      conversationPaletteCatalog.blue.dark.conversationAccent,
+    );
+    const snapshotContent = requireFakeChild(fakeChildrenOf(recycledHost), 0);
+    const snapshotLabel = requireFakeChild(snapshotContent.children, 0);
+    expect(snapshotContent.className).toBe("workspace-pane-content workspace-snapshot-surface");
+    expect(snapshotLabel.textContent).toBe("Beta pane");
   });
 
   test("preserves nested scroller offsets in DOM pane snapshots", () => {
@@ -885,11 +946,20 @@ class TexturedSurfaceAdapter extends RecordingSurfaceAdapter {
 class ConversationTexturedSurfaceAdapter extends TexturedSurfaceAdapter {
   private releasePresentationIdentity: (() => void) | null = null;
 
+  constructor(
+    pane: WorkspacePane,
+    private readonly conversationId = "conversation_alpha",
+    private readonly paletteId: ConversationPaletteID = "sky",
+  ) {
+    super(pane);
+  }
+
   override mount(host: HTMLElement): void {
     super.mount(host);
+    host.dataset.surfaceId = this.surfaceId;
     this.releasePresentationIdentity = claimConversationPaletteIdentity(host, {
-      conversationId: "conversation_alpha",
-      paletteId: "sky",
+      conversationId: this.conversationId,
+      paletteId: this.paletteId,
     });
   }
 

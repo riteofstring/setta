@@ -234,7 +234,7 @@ export class SurfaceRegistry {
     if (adapter !== record.snapshotAdapter) {
       return null;
     }
-    if (!existing) {
+    if (!existing || existing.surfaceId !== item.surfaceId) {
       return record.snapshotAdapter.textureFreshnessForHost(null);
     }
     if (snapshotTransitionStartup(item, options)) {
