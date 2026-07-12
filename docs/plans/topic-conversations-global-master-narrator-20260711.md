@@ -3066,3 +3066,20 @@ Implementation is in progress under this plan.
   input/output changed. The Codex source reference was not needed because this
   work composes the existing source-verified structured-call protocol rather
   than changing provider behavior. Phase 5 is next.
+- 2026-07-12: The Phase 4 exit review mapped failed agent activities to the
+  typed phase-completion trigger and separated proactive checkpoint authority
+  from checkpoint-and-resume authority. Proactive maintenance now resolves the
+  actual current turn when it runs, while a resume checkpoint must remain bound
+  to the exact frozen projection turn and workspace. Finite terminal retries no
+  longer wedge the in-process terminal queue after exhaustion: a later durable
+  observation or successful status call can re-admit the oldest missed
+  terminal boundary without polling or an unbounded retry loop.
+- 2026-07-12: The same review now tears down the conversation service, narrator
+  service, Codex manager, and conversation store if later runtime construction
+  fails after narrator recovery has started. Focused projector regressions
+  passed repeatedly with the race detector. The deterministic production
+  Electron workflow passed at
+  `.recordings/topic-conversation-pane-projection/20260712T152856460Z/`, and
+  ChatGPT-authenticated live topic/narrator verification passed with
+  `OPENAI_API_KEY` removed. Generated inputs and outputs changed: none. Phase 5
+  remains next and was not started.

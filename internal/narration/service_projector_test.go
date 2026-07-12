@@ -77,6 +77,80 @@ func TestServiceRecoversCommittedTerminalBacklogAfterRestart(t *testing.T) {
 	}
 }
 
+func TestServiceReadmitsTerminalProjectionAfterRetryExhaustion(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
+	provider := &projectorTestAgentRuntime{failProjectionCalls: 4}
+	service := newProjectorTestService(t, store, provider, WithServiceRetryWait(
+		func(ctx context.Context, _ time.Duration) error {
+			return ctx.Err()
+		},
+	))
+
+	observation := conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         turnID,
+		Trajectory:     []conversation.TrajectoryEvent{terminal},
+		Terminal:       true,
+	}
+	service.ObserveCommittedTrajectory(observation)
+	waitForTerminalProjectorIdle(t, service, provider, conversationID, 4)
+	provider.setProjectionFailures(0)
+
+	// A replay or later durable observation is an explicit push signal to try
+	// the oldest terminal boundary again; no polling or unbounded retry loop is
+	// needed after the finite retry policy is exhausted.
+	service.ObserveCommittedTrajectory(observation)
+	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		return current.NarratorState.ObservedThroughSequence == terminal.Sequence &&
+			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+	})
+	assertTerminalProjectorState(t, snapshot, turnID)
+}
+
+func TestServiceProactiveCheckpointUsesCurrentTurnAuthority(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, firstTurnID, firstTerminal := seedTerminalProjectorConversation(t, store)
+	secondTurnID, _, _ := appendSecondTerminalProjectorTurn(t, store, conversationID)
+	provider := &projectorTestAgentRuntime{}
+	service := newProjectorTestService(t, store, provider)
+	service.checkpointWindowEvents = 1
+
+	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         firstTurnID,
+		Trajectory:     []conversation.TrajectoryEvent{firstTerminal},
+		Terminal:       true,
+	})
+	waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		return current.NarratorState.ObservedThroughSequence == firstTerminal.Sequence &&
+			current.NarratorState.CheckpointThroughSequence == firstTerminal.Sequence
+	})
+
+	for _, call := range provider.snapshotCalls() {
+		if call.kind == ContextKindCheckpoint && call.checkpointRangeEnd == firstTerminal.Sequence {
+			if call.turnID != secondTurnID {
+				t.Fatalf("proactive checkpoint turn = %s, want current turn %s: %+v", call.turnID, secondTurnID, call)
+			}
+			return
+		}
+	}
+	t.Fatalf("proactive checkpoint through %d was not called: %+v", firstTerminal.Sequence, provider.snapshotCalls())
+}
+
+func TestObservationTriggerTreatsFailedActivityAsPhaseCompletion(t *testing.T) {
+	trigger, immediate := observationTrigger(conversation.NarrationTrajectoryObservation{
+		Trajectory: []conversation.TrajectoryEvent{{
+			Kind: conversation.TrajectoryEventActivityFailed,
+		}},
+	})
+	if !immediate || trigger != conversation.NarrationTriggerPhaseActivityCompleted {
+		t.Fatalf("failed activity trigger = %s, immediate %t", trigger, immediate)
+	}
+}
+
 func TestServiceSchedulesProgressWindowWithoutPolling(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID := "conversation-progress-window"
@@ -316,12 +390,16 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 			CoveredThroughSequence: bundle.RequestedRange.End,
 			HistoricalSummary:      fmt.Sprintf("History through sequence %d.", bundle.RequestedRange.End),
 		})
-		return projectorTestCall{
+		call := projectorTestCall{
 			kind:                 kind,
 			trigger:              bundle.Trigger,
 			checkpointRangeStart: bundle.RequestedRange.Start,
 			checkpointRangeEnd:   bundle.RequestedRange.End,
-		}, encoded, err
+		}
+		if bundle.Authoritative.CurrentInstructions != nil {
+			call.turnID = bundle.Authoritative.CurrentInstructions.TurnID
+		}
+		return call, encoded, err
 	default:
 		return projectorTestCall{}, nil, fmt.Errorf("unsupported projector context %q", kind)
 	}
@@ -331,6 +409,12 @@ func (runtime *projectorTestAgentRuntime) snapshotCalls() []projectorTestCall {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	return append([]projectorTestCall{}, runtime.calls...)
+}
+
+func (runtime *projectorTestAgentRuntime) setProjectionFailures(count int) {
+	runtime.mu.Lock()
+	runtime.failProjectionCalls = count
+	runtime.mu.Unlock()
 }
 
 func newProjectorTestStore(t *testing.T) *conversation.Store {
@@ -603,6 +687,30 @@ func waitForProjectorSnapshot(
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for projector snapshot: %+v", snapshot)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func waitForTerminalProjectorIdle(
+	t *testing.T,
+	service *Service,
+	provider *projectorTestAgentRuntime,
+	conversationID string,
+	wantCalls int,
+) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		service.lifecycleMu.Lock()
+		queue := service.terminal[conversationID]
+		idle := queue != nil && !queue.activeInFlight
+		service.lifecycleMu.Unlock()
+		if idle && len(provider.snapshotCalls()) >= wantCalls {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for terminal projector retry exhaustion")
 		}
 		time.Sleep(5 * time.Millisecond)
 	}

@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"setta/internal/agent"
 	"setta/internal/appearance"
@@ -35,10 +36,10 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
-	closeConversationStoreOnFailure := true
+	closeFoundationOnFailure := true
 	defer func() {
-		if closeConversationStoreOnFailure {
-			_ = foundation.conversationStore.Close()
+		if closeFoundationOnFailure {
+			shutdownRuntimeFoundation(foundation, config.ShutdownTimeout)
 		}
 	}()
 	chatService, err := newChatService(config.AppDataDir, foundation.workspaceService, foundation.codexManager, config.ChatHarness)
@@ -58,7 +59,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		closeRuntimeServicesBeforeSpeechFailure(chatService, workflowService, workflowStore)
 		return runtimeBaseServices{}, err
 	}
-	closeConversationStoreOnFailure = false
+	closeFoundationOnFailure = false
 	return runtimeBaseServices{
 		appearanceService:   foundation.appearanceService,
 		chatService:         chatService,
@@ -72,6 +73,17 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		workflowService:     workflowService,
 		workflowStore:       workflowStore,
 	}, nil
+}
+
+func shutdownRuntimeFoundation(foundation runtimeFoundation, timeout time.Duration) {
+	serviceCtx, cancelServices := context.WithTimeout(context.Background(), timeout)
+	_ = foundation.conversationService.Shutdown(serviceCtx)
+	_ = foundation.narratorService.Shutdown(serviceCtx)
+	cancelServices()
+	managerCtx, cancelManager := context.WithTimeout(context.Background(), timeout)
+	_ = foundation.codexManager.Shutdown(managerCtx)
+	cancelManager()
+	_ = foundation.conversationStore.Close()
 }
 
 func closeRuntimeServicesBeforeSpeechFailure(

@@ -80,11 +80,17 @@ func (operation CheckpointOperation) Validate() error {
 		}
 		return nil
 	}
+	if operation.TurnID == nil {
+		return fmt.Errorf("narrator checkpoint resume projection requires its target turn")
+	}
 	if err := operation.ResumeProjection.Validate(); err != nil {
 		return fmt.Errorf("narrator checkpoint resume projection: %w", err)
 	}
 	if operation.ResumeProjection.WorkspaceID != operation.WorkspaceID {
 		return fmt.Errorf("narrator checkpoint resume projection changed workspace")
+	}
+	if operation.ResumeProjection.TurnID != *operation.TurnID {
+		return fmt.Errorf("narrator checkpoint resume projection changed target turn")
 	}
 	if !isProjectionTrigger(operation.ResumeTrigger) {
 		return fmt.Errorf("narrator checkpoint has unsupported resume trigger %q", operation.ResumeTrigger)
