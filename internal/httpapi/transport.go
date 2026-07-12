@@ -282,6 +282,22 @@ func writeConversationError(response http.ResponseWriter, code string, err error
 }
 
 func writeConversationInputError(response http.ResponseWriter, err error) {
+	if conversation.IsInvalidConversationInputReceipt(err) {
+		writeError(response, http.StatusInternalServerError, "invalid_conversation_input_receipt", err.Error())
+		return
+	}
+	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeCancelled) {
+		writeError(response, http.StatusRequestTimeout, "conversation_input_write_cancelled", err.Error())
+		return
+	}
+	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeSaturated) {
+		writeError(response, http.StatusTooManyRequests, "conversation_input_write_saturated", err.Error())
+		return
+	}
+	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeStoreClosed) {
+		writeError(response, http.StatusServiceUnavailable, "conversation_input_store_unavailable", err.Error())
+		return
+	}
 	if conversation.IsConversationInputConflict(err) {
 		writeError(response, http.StatusConflict, "conversation_input_conflict", err.Error())
 		return

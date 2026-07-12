@@ -16,6 +16,23 @@ type InputService struct {
 	now   func() time.Time
 }
 
+type invalidConversationInputReceiptError struct {
+	cause error
+}
+
+func (err *invalidConversationInputReceiptError) Error() string {
+	return fmt.Sprintf("conversation input store returned an invalid receipt: %v", err.cause)
+}
+
+func (err *invalidConversationInputReceiptError) Unwrap() error {
+	return err.cause
+}
+
+func IsInvalidConversationInputReceipt(err error) bool {
+	var receiptError *invalidConversationInputReceiptError
+	return errors.As(err, &receiptError)
+}
+
 func NewInputService(store ConversationInputStore) (*InputService, error) {
 	return newInputService(store, time.Now)
 }
@@ -50,10 +67,12 @@ func (service *InputService) SubmitInput(
 		return AcceptedConversationInput{}, err
 	}
 	if err := accepted.Validate(); err != nil {
-		return AcceptedConversationInput{}, fmt.Errorf("conversation input store returned an invalid record: %w", err)
+		return AcceptedConversationInput{}, &invalidConversationInputReceiptError{cause: err}
 	}
 	if !EqualConversationInputs(accepted.Input, normalized) {
-		return AcceptedConversationInput{}, errors.New("conversation input store returned a different input")
+		return AcceptedConversationInput{}, &invalidConversationInputReceiptError{
+			cause: errors.New("receipt input differs from the submitted input"),
+		}
 	}
 	return CloneAcceptedConversationInput(accepted), nil
 }

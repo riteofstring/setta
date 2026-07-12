@@ -46,13 +46,23 @@ func TestInputServiceRejectsInvalidDependenciesAndStoreResults(t *testing.T) {
 	if _, err := NewInputService(nil); err == nil {
 		t.Fatal("NewInputService(nil) succeeded")
 	}
-	service, err := newInputService(&recordingConversationInputStore{invalid: true}, time.Now)
-	if err != nil {
-		t.Fatalf("newInputService: %v", err)
-	}
-	_, err = service.SubmitInput(context.Background(), validConversationInputServiceInput())
-	if err == nil {
-		t.Fatal("SubmitInput accepted invalid store result")
+	for _, test := range []struct {
+		name  string
+		store *recordingConversationInputStore
+	}{
+		{name: "invalid receipt", store: &recordingConversationInputStore{invalid: true}},
+		{name: "different input", store: &recordingConversationInputStore{differentInput: true}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			service, err := newInputService(test.store, time.Now)
+			if err != nil {
+				t.Fatalf("newInputService: %v", err)
+			}
+			_, err = service.SubmitInput(context.Background(), validConversationInputServiceInput())
+			if !IsInvalidConversationInputReceipt(err) {
+				t.Fatalf("SubmitInput error = %v, want invalid receipt", err)
+			}
+		})
 	}
 }
 
@@ -74,10 +84,11 @@ func TestInputServicePreservesTypedStoreConflict(t *testing.T) {
 }
 
 type recordingConversationInputStore struct {
-	acceptedAt string
-	err        error
-	input      ConversationInput
-	invalid    bool
+	acceptedAt     string
+	differentInput bool
+	err            error
+	input          ConversationInput
+	invalid        bool
 }
 
 func (store *recordingConversationInputStore) AcceptConversationInput(
@@ -98,6 +109,9 @@ func (store *recordingConversationInputStore) AcceptConversationInput(
 	}
 	if store.invalid {
 		accepted.Sequence = 0
+	}
+	if store.differentInput {
+		accepted.Input.Text = "different input"
 	}
 	return accepted, nil
 }

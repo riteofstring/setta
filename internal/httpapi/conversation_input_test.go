@@ -91,6 +91,35 @@ func TestConversationInputEndpointRequiresServiceAndMapsTypedFailures(t *testing
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
+			err: &conversation.WriteOutcomeError{
+				Operation: "accept conversation input",
+				Outcome:   conversation.WriteOutcomeCancelled,
+				Err: errors.Join(
+					context.Canceled,
+					&conversation.PersistenceError{Operation: "rollback", Path: "state", Err: errors.New("closed")},
+				),
+			},
+			wantCode:   "conversation_input_write_cancelled",
+			wantStatus: http.StatusRequestTimeout,
+		},
+		{
+			err: &conversation.WriteOutcomeError{
+				Operation: "accept conversation input",
+				Outcome:   conversation.WriteOutcomeSaturated,
+			},
+			wantCode:   "conversation_input_write_saturated",
+			wantStatus: http.StatusTooManyRequests,
+		},
+		{
+			err: &conversation.WriteOutcomeError{
+				Operation: "accept conversation input",
+				Outcome:   conversation.WriteOutcomeStoreClosed,
+				Err:       conversation.ErrStoreClosed,
+			},
+			wantCode:   "conversation_input_store_unavailable",
+			wantStatus: http.StatusServiceUnavailable,
+		},
+		{
 			err:        errors.New("invalid input"),
 			wantCode:   "invalid_conversation_input",
 			wantStatus: http.StatusBadRequest,
@@ -113,6 +142,27 @@ func TestConversationInputEndpointRequiresServiceAndMapsTypedFailures(t *testing
 				t.Fatalf("error = %+v", response.Error)
 			}
 		})
+	}
+}
+
+func TestConversationInputEndpointReportsInvalidStoreReceiptAsServerFailure(t *testing.T) {
+	service, err := conversation.NewInputService(invalidHTTPConversationInputStore{})
+	if err != nil {
+		t.Fatalf("NewInputService: %v", err)
+	}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationInputService: service,
+		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
+	})
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/conversations/inputs/submit",
+		validSubmitConversationInputRequest(),
+		http.StatusInternalServerError,
+	)
+	if response.Error.Code != "invalid_conversation_input_receipt" || response.Error.OperationApplied {
+		t.Fatalf("error = %+v", response.Error)
 	}
 }
 
@@ -154,6 +204,20 @@ type fakeHTTPConversationInputService struct {
 	calls int
 	err   error
 	input conversation.ConversationInput
+}
+
+type invalidHTTPConversationInputStore struct{}
+
+func (invalidHTTPConversationInputStore) AcceptConversationInput(
+	_ context.Context,
+	input conversation.ConversationInput,
+	acceptedAt string,
+) (conversation.AcceptedConversationInput, error) {
+	return conversation.AcceptedConversationInput{
+		Input:      input,
+		Status:     conversation.ConversationInputStatusAccepted,
+		AcceptedAt: acceptedAt,
+	}, nil
 }
 
 func (service *fakeHTTPConversationInputService) SubmitInput(
