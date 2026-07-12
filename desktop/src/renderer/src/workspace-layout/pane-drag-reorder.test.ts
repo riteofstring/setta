@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import {
   applyPaneDrop,
+  beginPaneDragSession,
   paneDropTargetFromPointer,
   syncPaneDropTarget,
   updatePaneDragSession,
@@ -13,6 +14,22 @@ import type { WorkspaceColumn, WorkspacePane, WorkspaceScene } from "./types";
 describe("pane drag drop intent hit-testing", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  test("does not capture the pointer from an interactive title-bar control", () => {
+    vi.stubGlobal("Element", FakePaneDragElement);
+    const target = new FakePaneDragElement();
+    const event = {
+      clientX: 120,
+      clientY: 52,
+      pointerId: 1,
+      target,
+    } as unknown as PointerEvent;
+
+    const session = beginPaneDragSession(event, { dataset: {} } as HTMLElement);
+
+    expect(session).toBeNull();
+    expect(target.setPointerCapture).not.toHaveBeenCalled();
   });
 
   test("maps the target center band to a row drop across columns", () => {
@@ -873,4 +890,16 @@ function pointerEvent({ clientX, clientY }: { clientX: number; clientY: number }
     clientX,
     clientY,
   } as PointerEvent;
+}
+
+class FakePaneDragElement {
+  readonly dataset = { paneId: "source_pane" };
+  readonly setPointerCapture = vi.fn();
+
+  closest(selector: string): FakePaneDragElement | null {
+    return selector === '[data-workspace-pane-interactive-control="true"]' ||
+      selector === '[data-workspace-pane-drag-handle="true"]'
+      ? this
+      : null;
+  }
 }

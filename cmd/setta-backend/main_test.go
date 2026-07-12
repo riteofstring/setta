@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"strings"
 	"testing"
 
-	"setta/internal/runtime"
+	"setta/internal/speech"
 )
 
 func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
@@ -13,7 +15,7 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 
 	appDataDir := t.TempDir()
 
-	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv)
+	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -37,84 +39,99 @@ func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {
 			return "abc"
 		}
 		return ""
-	})
+	}, ignoreUnsetenv)
 	if err == nil {
 		t.Fatal("config succeeded, want error")
 	}
 }
 
-func TestConfigFromArgsUsesScriptedWorkflowHarnessEnvWithE2EGuard(t *testing.T) {
+func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
+	config, err := configFromArgs([]string{
+		"--app-data-dir",
+		t.TempDir(),
+		"--skip-bootstrap-device-session",
+	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
+	}
+	if !config.SkipBootstrapDeviceSession {
+		t.Fatal("skip bootstrap device session = false, want true")
+	}
+}
+
+func TestConfigFromArgsMapsSpeechEnvironment(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	var cleared string
 	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E" {
+		switch name {
+		case "SETTA_E2E":
 			return "1"
+		case speech.APIKeyEnvironmentVariable:
+			return "sk-openai-speech-backend"
+		case speech.E2EBaseURLEnvironmentVariable:
+			return "http://127.0.0.1:24891/v1"
+		default:
+			return ""
 		}
-		if name == "SETTA_E2E_CHAT_HARNESS" {
-			return string(runtime.ChatHarnessScriptedWorkflow)
-		}
-		return ""
+	}, func(name string) error {
+		cleared = name
+		return nil
 	})
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
-	if config.ChatHarness != runtime.ChatHarnessScriptedWorkflow {
-		t.Fatalf("chat harness = %q, want %q", config.ChatHarness, runtime.ChatHarnessScriptedWorkflow)
+	if config.Speech.APIKey != "sk-openai-speech-backend" {
+		t.Fatalf("speech API key = %q, want OpenAI API key", config.Speech.APIKey)
+	}
+	if config.Speech.BaseURL != "http://127.0.0.1:24891/v1" || !config.Speech.AllowTestBaseURL {
+		t.Fatalf("speech provider config = %+v, want guarded E2E URL", config.Speech)
+	}
+	if cleared != speech.APIKeyEnvironmentVariable {
+		t.Fatalf("cleared environment variable = %q, want %q", cleared, speech.APIKeyEnvironmentVariable)
 	}
 }
 
-func TestConfigFromArgsRejectsScriptedWorkflowHarnessWithoutE2EGuard(t *testing.T) {
+func TestConfigFromArgsRejectsSpeechBaseURLWithoutE2EGuard(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
 	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E_CHAT_HARNESS" {
-			return string(runtime.ChatHarnessScriptedWorkflow)
+		if name == speech.E2EBaseURLEnvironmentVariable {
+			return "http://127.0.0.1:24891/v1"
 		}
 		return ""
-	})
-	if err == nil {
-		t.Fatal("config succeeded, want SETTA_E2E guard error")
+	}, ignoreUnsetenv)
+	if err == nil || !strings.Contains(err.Error(), "requires SETTA_E2E=1") {
+		t.Fatalf("error = %v, want SETTA_E2E guard error", err)
 	}
 }
 
-func TestConfigFromArgsDisablesAutomaticCartographerWithE2EGuard(t *testing.T) {
+func TestConfigFromArgsRejectsUnclearedSpeechCredential(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	clearErr := errors.New("environment is read-only")
 
-	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E" {
-			return "1"
-		}
-		if name == "SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER" {
-			return "1"
-		}
-		return ""
-	})
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
-	}
-	if !config.DisableAutomaticCartographerProcessing {
-		t.Fatal("automatic cartographer processing was not disabled")
-	}
-}
-
-func TestConfigFromArgsRejectsAutomaticCartographerDisableWithoutE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER" {
-			return "1"
-		}
-		return ""
-	})
-	if err == nil {
-		t.Fatal("config succeeded, want SETTA_E2E guard error")
+	_, err := configFromArgs(
+		[]string{"--app-data-dir", t.TempDir()},
+		&stdout,
+		&stderr,
+		emptyEnv,
+		func(string) error { return clearErr },
+	)
+	if !errors.Is(err, clearErr) || !strings.Contains(err.Error(), speech.APIKeyEnvironmentVariable) {
+		t.Fatalf("error = %v, want wrapped speech credential clear failure", err)
 	}
 }
 
 func emptyEnv(string) string {
 	return ""
+}
+
+func ignoreUnsetenv(string) error {
+	return nil
 }

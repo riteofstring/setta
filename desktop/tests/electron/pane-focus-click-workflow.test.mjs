@@ -4,7 +4,7 @@
 import { basename, join } from "node:path";
 import process from "node:process";
 
-import { backendProbe } from "./chat-workflow-harness.mjs";
+import { backendProbe } from "./electron-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
@@ -20,16 +20,9 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
-import {
-  terminalScrollbackSearchExpression,
-  terminalSnapshotExpression,
-  terminalSnapshotsExpression,
-} from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
-const terminalContentClickCommand = "printf 'SETTA_PANE_CONTENT_CLICK_OK\\n'";
-const terminalContentClickOutput = "SETTA_PANE_CONTENT_CLICK_OK";
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -56,9 +49,6 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
-    extraEnv: {
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
-    },
     fixture,
     visible: options.visible,
   });
@@ -68,30 +58,25 @@ try {
   const seededWorkspaceId = await seedTwoPaneWorkspaceLayout(backend, fixture.workspaceRoot);
   await waitForWorkspaceLayoutArea(context.client);
   await openSeededWorkspaceInRenderer(context.client, seededWorkspaceId);
-  await waitForTerminalReady(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
 
   const { beforeContentState, scenario } = await prepareTwoPaneFocusScenario(context.client);
   const beforeContentLayout = beforeContentState.layout;
 
-  await clickPaneContent(context.client, scenario.terminalPaneId);
+  await clickPaneContent(context.client, scenario.contentPaneId);
   await waitForPaneFocusState(
     context.client,
-    "terminal focused after content click",
-    (state) => state.layout.focusedPaneId === scenario.terminalPaneId,
+    "pane focused after content click",
+    (state) => state.layout.focusedPaneId === scenario.contentPaneId,
   );
-  await sendTerminalCommand(context.client, scenario.terminalPaneId, terminalContentClickCommand);
-  await waitForTerminalText(context.client, terminalContentClickOutput, scenario.terminalPaneId);
   const afterContentState = await readPaneFocusState(context.client);
   assertLayoutPositionUnchanged(
     beforeContentLayout,
     afterContentState.layout,
-    "terminal content click",
+    "pane content click",
   );
-  if (afterContentState.layout.focusedPaneId !== scenario.terminalPaneId) {
-    throw new Error(
-      `terminal content click did not focus terminal: ${JSON.stringify(afterContentState)}`,
-    );
+  if (afterContentState.layout.focusedPaneId !== scenario.contentPaneId) {
+    throw new Error(`pane content click did not focus pane: ${JSON.stringify(afterContentState)}`);
   }
   await captureScreenshot(context.client, join(artifactDir, "after-content-click.png"));
 
@@ -103,7 +88,7 @@ try {
       state.layout.focusedPaneId === scenario.focusAwayPaneId &&
       layoutSettled(state.layout) &&
       state.scenario.ok &&
-      state.scenario.terminalPaneId === scenario.terminalPaneId &&
+      state.scenario.contentPaneId === scenario.contentPaneId &&
       state.scenario.focusAwayPaneId === scenario.focusAwayPaneId,
   );
   await captureScreenshot(context.client, join(artifactDir, "after-top-click.png"));
@@ -143,29 +128,6 @@ async function waitForWorkspaceLayoutArea(client) {
     "workspace layout area",
     (state) => state.ready,
     (state) => state,
-  );
-}
-
-async function waitForTerminalReady(client) {
-  return waitForLoggedState(
-    client,
-    terminalSnapshotsExpression(),
-    "terminal ready",
-    (snapshots) =>
-      Array.isArray(snapshots) &&
-      snapshots.some(
-        (snapshot) =>
-          snapshot.exists &&
-          snapshot.visible &&
-          snapshot.xtermReady &&
-          snapshot.sessionId.startsWith("terminal_") &&
-          snapshot.statusText !== "" &&
-          snapshot.statusText !== "Starting shell" &&
-          snapshot.titleText === snapshot.statusText,
-      ),
-    (snapshots) => ({
-      terminals: Array.isArray(snapshots) ? snapshots.map(summarizeTerminalSnapshot) : snapshots,
-    }),
   );
 }
 
@@ -230,9 +192,9 @@ async function waitForFocusAwayScenarioState(client, scenario, label) {
       layoutSettled(state.layout) &&
       state.scenario.ok &&
       state.scenario.minimal &&
-      state.scenario.terminalPaneId === scenario.terminalPaneId &&
+      state.scenario.contentPaneId === scenario.contentPaneId &&
       state.scenario.focusAwayPaneId === scenario.focusAwayPaneId &&
-      terminalReadyForWorkflowClick(state, scenario.terminalPaneId) &&
+      contentReadyForWorkflowClick(state, scenario.contentPaneId) &&
       focusAwayReadyForWorkflowClick(state, scenario.focusAwayPaneId),
   );
 }
@@ -262,53 +224,13 @@ async function clickPaneTopBar(client, paneId, label) {
 async function clickPaneContent(client, paneId) {
   const point = await paneClickPoint(client, paneId, "content");
   if (!point.ok) {
-    throw new Error(`terminal content click point unavailable: ${JSON.stringify(point)}`);
+    throw new Error(`pane content click point unavailable: ${JSON.stringify(point)}`);
   }
   await dispatchMouseClick(client, point);
 }
 
 async function paneClickPoint(client, paneId, targetKind) {
   return client.driver("paneClickPoint", { paneId, targetKind });
-}
-
-async function sendTerminalCommand(client, paneId, text) {
-  await waitForLoggedState(
-    client,
-    terminalSnapshotExpression({ paneId }),
-    "terminal focused for command",
-    (snapshot) => snapshot.focused && snapshot.visible && snapshot.xtermReady,
-    summarizeTerminalSnapshot,
-  );
-  await client.call("Input.insertText", { text });
-  await pressTerminalEnter(client);
-}
-
-async function pressTerminalEnter(client) {
-  await client.call("Input.dispatchKeyEvent", {
-    code: "Enter",
-    key: "Enter",
-    nativeVirtualKeyCode: 13,
-    text: "\r",
-    type: "keyDown",
-    windowsVirtualKeyCode: 13,
-  });
-  await client.call("Input.dispatchKeyEvent", {
-    code: "Enter",
-    key: "Enter",
-    nativeVirtualKeyCode: 13,
-    type: "keyUp",
-    windowsVirtualKeyCode: 13,
-  });
-}
-
-async function waitForTerminalText(client, expectedText, paneId) {
-  return waitForLoggedState(
-    client,
-    terminalScrollbackSearchExpression(expectedText, { paneId }),
-    `terminal text ${expectedText}`,
-    (snapshot) => snapshot.found,
-    summarizeTerminalSnapshot,
-  );
 }
 
 async function waitForLoggedState(client, expression, label, predicate, summarize) {
@@ -366,9 +288,9 @@ function layoutPositionsEqual(left, right) {
   );
 }
 
-function terminalReadyForWorkflowClick(state, paneId) {
+function contentReadyForWorkflowClick(state, paneId) {
   return state.panes.some(
-    (pane) => pane.paneId === paneId && pane.stageContained && pane.terminalReady,
+    (pane) => pane.paneId === paneId && pane.stageContained && pane.contentClickable,
   );
 }
 
@@ -388,29 +310,16 @@ async function safePaneFocusState(client) {
   }
 }
 
-function summarizeTerminalSnapshot(snapshot) {
-  return {
-    exists: snapshot.exists,
-    focused: snapshot.focused,
-    found: snapshot.found,
-    paneId: snapshot.paneId,
-    sessionId: snapshot.sessionId,
-    statusText: snapshot.statusText,
-    visible: snapshot.visible,
-    xtermReady: snapshot.xtermReady,
-  };
-}
-
 function summarizePaneFocusState(state) {
   return {
     layout: state.layout,
     ok: state.ok,
     panes: state.panes?.map((pane) => ({
+      contentClickable: pane.contentClickable,
       focused: pane.focused,
       paneId: pane.paneId,
       stageContained: pane.stageContained,
       surfaceKind: pane.surfaceKind,
-      terminalReady: pane.terminalReady,
       topBarClickable: pane.topBarClickable,
     })),
     reason: state.reason,
@@ -466,31 +375,27 @@ function twoPaneWorkspaceUILayout(workspaceId) {
     panes: [
       {
         columnId: "workspace_column_0",
+        easyButtonConfig: null,
         heat: 0,
         paneId: "workspace_pane_0",
         sequence: 0,
-        subtitle: "workspace graph",
+        subtitle: "empty workspace pane",
         surfaceId: "workspace_surface_0",
-        surfaceKind: "workflow-graph",
-        terminalConfig: null,
-        title: "Workflow Graph",
+        surfaceKind: "empty-frame",
+        title: "Empty Frame 1",
         tone: "cyan",
         weight: 1,
       },
       {
         columnId: "workspace_column_1",
+        easyButtonConfig: null,
         heat: 37,
         paneId: "workspace_pane_1",
         sequence: 1,
-        subtitle: "terminal",
+        subtitle: "empty workspace pane",
         surfaceId: "workspace_surface_1",
-        surfaceKind: "terminal",
-        terminalConfig: {
-          cwdOverride: "",
-          profileId: "default",
-          titleOverride: "",
-        },
-        title: "Terminal",
+        surfaceKind: "empty-frame",
+        title: "Empty Frame 2",
         tone: "green",
         weight: 1,
       },

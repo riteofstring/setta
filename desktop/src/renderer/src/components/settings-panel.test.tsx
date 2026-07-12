@@ -22,13 +22,14 @@ describe("appearance settings", () => {
     expect(html).toContain('role="tablist"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain("Theme");
-    expect(html).toContain("Chat Defaults");
     expect(html).toContain("Shortcuts");
     expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");
     expect(html).toContain("bg-transparent");
     expect(html).toContain('role="tabpanel"');
     expect(html).toContain("Loading theme settings");
+    expect(html).not.toContain("Chat Defaults");
+    expect(html).not.toContain("Terminal Profiles");
     expect(html).not.toContain('data-testid="codex-account-settings"');
   });
 

@@ -1,24 +1,18 @@
 import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
-import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
-import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
-import { SemanticNodeDetailsSurface } from "../features/workspace-graph/semantic-node-details-surface";
-import { WorkflowNodeDetailsSurface } from "../features/workspace-graph/workflow-node-details-surface";
-import { WorkflowSettingsSurface } from "../features/workspace-graph/workflow-settings-surface";
-import { workflowGraphRuntimeHandle } from "../features/workspace-graph/workflow-graph-runtime-registry";
-import {
-  FakeLongChatSurface,
-  WorkspaceChatSurface,
-  WorkspaceSettingsSurface,
-} from "./workspace-dom-surfaces";
+import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
+import { requestEasyButtonPaneClose } from "../features/easy-button/easy-button-conversation-commands";
+import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
+import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
+import { WorkspaceSettingsSurface } from "./workspace-dom-surfaces";
 import {
   applySnapshotScrollOffsets,
   cloneSnapshotNode,
   recordSnapshotScrollOffsets,
 } from "./surface-dom-content";
+import { notifyReactDomSurfaceHostChanged } from "./react-dom-surface-events";
 import type {
-  CanvasSurfaceStats,
   FreezeReason,
   WorkspacePane,
   PaneSnapshot,
@@ -27,6 +21,8 @@ import type {
   SurfaceAdapter,
   SurfaceId,
   SurfaceKind,
+  SurfacePaneCloseRequest,
+  SurfacePaneCloseResult,
   ViewportChangeReason,
 } from "./types";
 
@@ -42,11 +38,12 @@ export interface ReactSurfaceRootFactory {
 export interface ReactDomSurfaceState {
   activated: boolean;
   focused: boolean;
-  interactive: boolean;
 }
 
 export interface ReactDomSurfaceAdapterOptions {
-  workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
+  speechCapture?: SpeechCaptureRequester;
+  speechPresentation?: GlobalSpeechPresentationSource;
+  workspaceId?: string;
 }
 
 const defaultRootFactory: ReactSurfaceRootFactory = {
@@ -65,7 +62,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   private host: HTMLElement | null = null;
   private root: ReactSurfaceRoot | null = null;
   private activated = false;
-  private frozenCanvasStats: CanvasSurfaceStats | null = null;
   private scrollbarSuppressionToken = 0;
   private visible = false;
 
@@ -73,6 +69,9 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     private readonly pane: WorkspacePane,
     private readonly renderSurface: (state: ReactDomSurfaceState) => ReactNode,
     private readonly rootFactory: ReactSurfaceRootFactory = defaultRootFactory,
+    private readonly paneCloseRequest?: (
+      request: SurfacePaneCloseRequest,
+    ) => Promise<SurfacePaneCloseResult>,
   ) {
     this.kind = pane.surfaceKind;
   }
@@ -106,6 +105,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
     host.replaceChildren(this.container);
+    notifyReactDomSurfaceHostChanged(this.container);
     this.restoreParkedScrollOffsets();
     if (!this.root) {
       this.root = this.rootFactory.createRoot(this.container);
@@ -119,24 +119,23 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       recordSnapshotScrollOffsets(this.container);
     }
     this.removeFrozenVisual();
-    this.frozenCanvasStats = null;
     this.host?.replaceChildren();
+    if (this.container) {
+      notifyReactDomSurfaceHostChanged(this.container);
+    }
     this.host = null;
     this.visible = false;
   }
 
   setVisible(visible: boolean): void {
-    const wasInteractive = this.workflowGraphInteractive();
     this.visible = visible;
     const activatedChanged = visible && !this.activated;
     if (visible) {
       this.activated = true;
     }
-    const interactiveChanged = wasInteractive !== this.workflowGraphInteractive();
-    if (activatedChanged || interactiveChanged) {
+    if (activatedChanged) {
       this.renderCurrentSurface();
     }
-    this.syncWorkflowGraphRuntimeState();
     this.syncHostState();
   }
 
@@ -148,7 +147,6 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
       return;
     }
     this.focused = focused;
-    this.syncWorkflowGraphRuntimeState();
     this.renderCurrentSurface();
     this.syncHostState();
   }
@@ -162,30 +160,18 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 
   freeze(reason: FreezeReason): void {
-    const wasInteractive = this.workflowGraphInteractive();
     if (!this.frozen) {
       this.installFrozenVisual();
     }
     this.frozen = true;
-    this.frozenCanvasStats = null;
-    this.syncWorkflowGraphRuntimeState();
-    if (wasInteractive !== this.workflowGraphInteractive()) {
-      this.renderCurrentSurface();
-    }
     this.host?.setAttribute("data-freeze-reason", reason);
     this.syncHostState();
   }
 
   resume(reason: ResumeReason): void {
-    const wasInteractive = this.workflowGraphInteractive();
     const wasFrozen = this.frozen;
     this.frozen = false;
     this.removeFrozenVisual();
-    this.frozenCanvasStats = null;
-    this.syncWorkflowGraphRuntimeState();
-    if (wasInteractive !== this.workflowGraphInteractive()) {
-      this.renderCurrentSurface();
-    }
     this.host?.setAttribute("data-resume-reason", reason);
     if (wasFrozen) {
       this.suppressLiveScrollbars();
@@ -201,25 +187,8 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     });
   }
 
-  getCanvasStats(): CanvasSurfaceStats {
-    if (this.kind !== "workflow-graph") {
-      return emptyCanvasStats();
-    }
-    const state = {
-      frozen: this.frozen,
-      mounted: this.host !== null,
-      visible: this.visible,
-    };
-    if (this.frozen) {
-      this.frozenCanvasStats ??= canvasStatsForWorkflowGraphSnapshot(
-        workflowGraphDebugSnapshot(this.surfaceId),
-        state,
-      );
-      return this.frozenCanvasStats;
-    }
-    this.frozenCanvasStats = null;
-    const snapshot = workflowGraphDebugSnapshot(this.surfaceId);
-    return canvasStatsForWorkflowGraphSnapshot(snapshot, state);
+  requestPaneClose(request: SurfacePaneCloseRequest): Promise<SurfacePaneCloseResult> {
+    return this.paneCloseRequest?.(request) ?? Promise.resolve({ removePane: true });
   }
 
   destroy(): void {
@@ -262,33 +231,16 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     }
   }
 
-  private syncWorkflowGraphRuntimeState(): void {
-    if (this.kind !== "workflow-graph") {
-      return;
-    }
-    const handle = workflowGraphRuntimeHandle(this.surfaceId);
-    handle?.setFocused(this.workflowGraphInteractive());
-    handle?.setFrozen(this.frozen);
-  }
-
-  private workflowGraphInteractive(): boolean {
-    return this.kind === "workflow-graph" && this.visible && !this.frozen;
-  }
-
   private renderCurrentSurface(): void {
     this.root?.render(
       this.renderSurface({
         activated: this.activated,
         focused: this.focused,
-        interactive: this.workflowGraphInteractive(),
       }),
     );
   }
 
   private installFrozenVisual(): void {
-    if (this.kind === "workflow-graph") {
-      return;
-    }
     const host = this.host;
     const container = this.container;
     if (!host || !container) {
@@ -383,52 +335,55 @@ export function createReactDomSurfaceAdapter(
   rootFactory?: ReactSurfaceRootFactory,
   options: ReactDomSurfaceAdapterOptions = {},
 ): ReactDomSurfaceAdapter {
-  if (pane.surfaceKind === "chat-dom") {
-    return new ReactDomSurfaceAdapter(pane, () => <WorkspaceChatSurface />, rootFactory);
-  }
-  if (pane.surfaceKind === "fake-long-chat") {
-    return new ReactDomSurfaceAdapter(pane, () => <FakeLongChatSurface pane={pane} />, rootFactory);
-  }
-  if (pane.surfaceKind === "workflow-graph") {
+  const renderSurface = reactDomSurfaceRenderFactories[pane.surfaceKind]?.(pane, options);
+  if (renderSurface) {
     return new ReactDomSurfaceAdapter(
       pane,
-      ({ interactive }) => (
-        <WorkflowGraphSurface
-          debugEnabled={workflowGraphDebugEnabled()}
-          focused={interactive}
-          syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
-          surfaceId={pane.surfaceId}
-        />
-      ),
+      renderSurface,
       rootFactory,
+      easyButtonPaneCloseRequest(pane, options),
     );
-  }
-  if (pane.surfaceKind === "settings-dom") {
-    return new ReactDomSurfaceAdapter(
-      pane,
-      ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
-      rootFactory,
-    );
-  }
-  if (pane.surfaceKind === "semantic-node-details") {
-    return new ReactDomSurfaceAdapter(pane, () => <SemanticNodeDetailsSurface />, rootFactory);
-  }
-  if (pane.surfaceKind === "workflow-node-details") {
-    return new ReactDomSurfaceAdapter(
-      pane,
-      () => <WorkflowNodeDetailsSurface pane={pane} />,
-      rootFactory,
-    );
-  }
-  if (pane.surfaceKind === "workflow-settings") {
-    return new ReactDomSurfaceAdapter(pane, () => <WorkflowSettingsSurface />, rootFactory);
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
 
-function workflowGraphDebugEnabled(): boolean {
-  return typeof window !== "undefined" && Boolean(window.setta?.app.flags.workflowGraphDebug);
+function easyButtonPaneCloseRequest(
+  pane: WorkspacePane,
+  options: ReactDomSurfaceAdapterOptions,
+): ((request: SurfacePaneCloseRequest) => Promise<SurfacePaneCloseResult>) | undefined {
+  const conversationId = pane.easyButtonConfig?.conversationId;
+  const workspaceId = options.workspaceId;
+  if (pane.surfaceKind !== "easy-button" || !conversationId || !workspaceId) {
+    return undefined;
+  }
+  return (request) =>
+    requestEasyButtonPaneClose({
+      confirm: request.confirm,
+      conversationId,
+      paneId: pane.paneId,
+      workspaceId,
+    });
 }
+
+type ReactDomSurfaceRenderFactory = (
+  pane: WorkspacePane,
+  options: ReactDomSurfaceAdapterOptions,
+) => (state: ReactDomSurfaceState) => ReactNode;
+
+const reactDomSurfaceRenderFactories: Partial<Record<SurfaceKind, ReactDomSurfaceRenderFactory>> = {
+  "easy-button": (pane, options) => () => (
+    <EasyButtonSurface
+      conversationId={pane.easyButtonConfig?.conversationId ?? null}
+      paneId={pane.paneId}
+      speechCapture={options.speechCapture}
+      speechPresentation={options.speechPresentation}
+      workspaceId={options.workspaceId ?? null}
+    />
+  ),
+  "settings-dom":
+    () =>
+    ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
+};
 
 function performanceNow(): number {
   if (typeof performance === "undefined") {
@@ -436,97 +391,6 @@ function performanceNow(): number {
   }
   return performance.now();
 }
-
-function emptyCanvasStats(): CanvasSurfaceStats {
-  return {
-    backingStorePixels: null,
-    drawCalls: 0,
-    farZoomSimplified: false,
-    gpuMemoryEstimateBytes: null,
-    liveCanvasPaneCount: 0,
-    rendererResizeCount: 0,
-    renderedFrames: 0,
-    tickerFramesWhileFrozen: 0,
-  };
-}
-
-function workflowGraphDebugSnapshot(surfaceId: SurfaceId): WorkflowGraphDebugSnapshot | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const api = window.__settaWorkflowGraphDebug;
-  return api?.tryGetSnapshot(surfaceId) ?? null;
-}
-
-function canvasStatsForWorkflowGraphSnapshot(
-  snapshot: WorkflowGraphDebugSnapshot | null,
-  state: { frozen: boolean; mounted: boolean; visible: boolean },
-): CanvasSurfaceStats {
-  const backingStorePixels = workflowGraphBackingStorePixels(snapshot);
-  const renderStats = workflowGraphRenderStats(snapshot);
-  return {
-    backingStorePixels,
-    drawCalls: 0,
-    farZoomSimplified: false,
-    gpuMemoryEstimateBytes: workflowGraphGpuMemoryEstimateBytes(backingStorePixels),
-    liveCanvasPaneCount: workflowGraphLiveCanvasPaneCount(state),
-    ...renderStats,
-  };
-}
-
-function workflowGraphBackingStorePixels(
-  snapshot: WorkflowGraphDebugSnapshot | null,
-): number | null {
-  if (!snapshot) {
-    return null;
-  }
-  return snapshot.canvas.width * snapshot.canvas.height;
-}
-
-function workflowGraphGpuMemoryEstimateBytes(backingStorePixels: number | null): number | null {
-  if (backingStorePixels === null) {
-    return null;
-  }
-  return backingStorePixels * 4;
-}
-
-function workflowGraphLiveCanvasPaneCount(state: {
-  frozen: boolean;
-  mounted: boolean;
-  visible: boolean;
-}): number {
-  if (!state.visible) {
-    return 0;
-  }
-  if (state.frozen) {
-    return 0;
-  }
-  if (!state.mounted) {
-    return 0;
-  }
-  return 1;
-}
-
-function workflowGraphRenderStats(
-  snapshot: WorkflowGraphDebugSnapshot | null,
-): Pick<CanvasSurfaceStats, "renderedFrames" | "rendererResizeCount" | "tickerFramesWhileFrozen"> {
-  if (!snapshot) {
-    return {
-      renderedFrames: 0,
-      rendererResizeCount: 0,
-      tickerFramesWhileFrozen: 0,
-    };
-  }
-  return {
-    renderedFrames: snapshot.render.frameCount,
-    rendererResizeCount: snapshot.render.rendererResizeCount,
-    tickerFramesWhileFrozen: snapshot.render.tickerFramesWhileFrozen,
-  };
-}
-
-type WorkflowGraphDebugSnapshot = ReturnType<
-  NonNullable<Window["__settaWorkflowGraphDebug"]>["getSnapshot"]
->;
 
 function deferReactRootUnmount(root: ReactSurfaceRoot): void {
   if (typeof queueMicrotask === "function") {

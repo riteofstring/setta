@@ -1,35 +1,14 @@
-import type { WorkspacePane, OpenPaneRequest, TerminalPaneConfig } from "./types";
+import type { WorkspacePane, OpenPaneRequest } from "./types";
 
-export function terminalConfigForRequest(
+export function easyButtonConfigForRequest(
   request: OpenPaneRequest,
   existing?: WorkspacePane,
-): TerminalPaneConfig | undefined {
+): WorkspacePane["easyButtonConfig"] {
   const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
-  if (surfaceKind !== "terminal") {
+  if (surfaceKind !== "easy-button") {
     return undefined;
   }
-  return normalizeTerminalPaneConfig(request.terminalConfig ?? existing?.terminalConfig);
-}
-
-export function workflowNodeDetailsConfigForRequest(
-  request: OpenPaneRequest,
-  existing?: WorkspacePane,
-): WorkspacePane["workflowNodeDetailsConfig"] {
-  const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
-  if (surfaceKind !== "workflow-node-details") {
-    return undefined;
-  }
-  return request.workflowNodeDetailsConfig ?? existing?.workflowNodeDetailsConfig;
-}
-
-export function normalizeTerminalPaneConfig(
-  config: TerminalPaneConfig | undefined,
-): TerminalPaneConfig {
-  return {
-    cwdOverride: normalizedOptionalString(config?.cwdOverride),
-    profileId: normalizedOptionalString(config?.profileId) ?? "",
-    titleOverride: normalizedOptionalString(config?.titleOverride),
-  };
+  return request.easyButtonConfig ?? existing?.easyButtonConfig;
 }
 
 export function normalizedPaneWeight(value: number): number {
@@ -41,12 +20,4 @@ export function normalizedPaneHeightPx(value: number | null | undefined): number
     return null;
   }
   return Number.isFinite(value) ? Math.max(96, Math.round(value)) : null;
-}
-
-function normalizedOptionalString(value: string | undefined): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed;
 }

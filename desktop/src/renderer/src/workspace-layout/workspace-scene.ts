@@ -1,9 +1,8 @@
 import type {
   ColumnWidthSpec as PersistedColumnWidthSpec,
+  EasyButtonPaneConfig,
   PaneTone as PersistedPaneTone,
   SurfaceKind as PersistedSurfaceKind,
-  TerminalPaneConfig as PersistedTerminalPaneConfig,
-  WorkflowNodeDetailsPaneConfig,
   WorkspaceUIColumn,
   WorkspaceUILayout,
   WorkspaceUIPane,
@@ -18,7 +17,6 @@ import type {
   PaneLimitPolicy,
   PaneId,
   ProductSurfaceKind,
-  TerminalPaneConfig,
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
@@ -27,13 +25,9 @@ const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 const realWorkspaceSurfaceKinds = productSurfaceKinds;
 export const defaultRealWorkspacePaneLimits = {
-  "chat-dom": 10,
-  "workflow-graph": 10,
+  "easy-button": 10,
+  "empty-frame": 10,
   "settings-dom": 1,
-  "semantic-node-details": 1,
-  terminal: 10,
-  "workflow-node-details": 1,
-  "workflow-settings": 1,
 } satisfies PaneLimitPolicy;
 
 export interface RealWorkspaceSceneOptions {
@@ -122,33 +116,8 @@ function createDefaultRealWorkspaceScene(
       columnId: "workspace_column_0",
       sequence: 0,
       subtitle: workspaceName,
-      surfaceKind: "chat-dom",
-      title: "Chat",
-      tone: "cyan",
-      weight: 1.6,
-    }),
-    createPane({
-      columnId: "workspace_column_1",
-      sequence: 1,
-      subtitle: "workspace command surface",
-      surfaceKind: "terminal",
-      title: "Terminal",
-      tone: "green",
-    }),
-    createPane({
-      columnId: "workspace_column_2",
-      sequence: 2,
-      subtitle: "workflow graph",
-      surfaceKind: "workflow-graph",
-      title: "Workflow Graph",
-      tone: "cyan",
-    }),
-    createPane({
-      columnId: "workspace_column_3",
-      sequence: 3,
-      subtitle: "workspace settings",
-      surfaceKind: "settings-dom",
-      title: "Settings",
+      surfaceKind: "empty-frame",
+      title: "New frame",
       tone: "slate",
     }),
   ];
@@ -206,70 +175,38 @@ function workspaceColumnFromPersisted(column: WorkspaceUIColumn): WorkspaceColum
 function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
   return {
     columnId: pane.columnId,
+    easyButtonConfig: easyButtonConfigFromPersisted(pane.easyButtonConfig),
     heat: pane.heat,
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
     surfaceKind: pane.surfaceKind,
-    terminalConfig: pane.terminalConfig
-      ? terminalConfigFromPersisted(pane.terminalConfig)
-      : undefined,
     title: pane.title,
     tone: pane.tone,
     weight: pane.weight,
-    workflowNodeDetailsConfig: workflowNodeDetailsConfigFromPersisted(
-      pane.workflowNodeDetailsConfig,
-    ),
   };
 }
 
-function workflowNodeDetailsConfigFromPersisted(
-  config: WorkflowNodeDetailsPaneConfig | null,
-): WorkflowNodeDetailsPaneConfig | undefined {
+function easyButtonConfigFromPersisted(
+  config: EasyButtonPaneConfig | null,
+): EasyButtonPaneConfig | undefined {
   return config ?? undefined;
-}
-
-function terminalConfigFromPersisted(config: PersistedTerminalPaneConfig): TerminalPaneConfig {
-  const terminalConfig: TerminalPaneConfig = {
-    profileId: config.profileId,
-  };
-  if (config.cwdOverride !== "") {
-    terminalConfig.cwdOverride = config.cwdOverride;
-  }
-  if (config.titleOverride !== "") {
-    terminalConfig.titleOverride = config.titleOverride;
-  }
-  return terminalConfig;
 }
 
 function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
   return {
     columnId: pane.columnId,
+    easyButtonConfig: pane.easyButtonConfig ?? null,
     heat: pane.heat,
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
     surfaceKind: persistedSurfaceKind(pane.surfaceKind),
-    terminalConfig: pane.terminalConfig ? terminalConfigToPersisted(pane.terminalConfig) : null,
     title: pane.title,
     tone: persistedPaneTone(pane.tone),
     weight: pane.weight,
-    workflowNodeDetailsConfig: pane.workflowNodeDetailsConfig ?? null,
-  };
-}
-
-function terminalConfigToPersisted(
-  config: WorkspacePane["terminalConfig"],
-): PersistedTerminalPaneConfig {
-  if (!config) {
-    throw new Error("terminal config is required");
-  }
-  return {
-    cwdOverride: config.cwdOverride ?? "",
-    profileId: config.profileId,
-    titleOverride: config.titleOverride ?? "",
   };
 }
 

@@ -2,13 +2,16 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
-	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/conversation"
 	"setta/internal/httpapi"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 type ContractTestLeaf struct {
@@ -27,8 +30,7 @@ type ContractTestResponse struct {
 }
 
 type ContractTaggedUnionResponse struct {
-	Blocks []chat.TranscriptBlock `json:"blocks"`
-	Item   chat.RunItem           `json:"item"`
+	Trajectory conversation.TrajectoryEvent `json:"trajectory"`
 }
 
 type ContractTestError struct {
@@ -50,7 +52,7 @@ func TestContractSpecsCollectsEndpointGraph(t *testing.T) {
 			RequestBodyLimitBytes: 1024,
 		}},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
+	})
 	if err != nil {
 		t.Fatalf("collect contract specs: %v", err)
 	}
@@ -81,7 +83,7 @@ func TestContractSpecsRejectsDuplicateEndpointNames(t *testing.T) {
 			contractEndpoint("ContractTest", "/contract-test-again"),
 		},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
+	})
 
 	if err == nil {
 		t.Fatal("collect contracts succeeded, want duplicate name error")
@@ -98,7 +100,7 @@ func TestContractSpecsRejectsDuplicateEndpointRoutes(t *testing.T) {
 			contractEndpoint("ContractTestAgain", "/contract-test"),
 		},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
+	})
 
 	if err == nil {
 		t.Fatal("collect contracts succeeded, want duplicate route error")
@@ -114,7 +116,7 @@ func TestContractSpecsRejectsPostEndpointWithoutRequestBodyLimit(t *testing.T) {
 	_, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints:      []httpapi.ContractEndpoint{endpoint},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
+	})
 
 	if err == nil {
 		t.Fatal("collect contracts succeeded, want missing request body limit error")
@@ -124,7 +126,7 @@ func TestContractSpecsRejectsPostEndpointWithoutRequestBodyLimit(t *testing.T) {
 	}
 }
 
-func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
+func TestContractSpecsCollectEndpointAndValueSetSemantics(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{
 			contractEndpoint("ContractTest", "/contract-test"),
@@ -135,10 +137,10 @@ func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
 				Response: reflect.TypeFor[ContractTestLeaf](),
 			},
 			{
-				Name:     "ContractTestRun",
+				Name:     "ContractTestConversation",
 				Method:   "GET",
-				Path:     "/contract-test/run",
-				Response: reflect.TypeFor[chat.Run](),
+				Path:     "/contract-test/conversation",
+				Response: reflect.TypeFor[conversation.ConversationSnapshot](),
 			},
 			{
 				Name:     "ContractTestCodexAccount",
@@ -148,12 +150,6 @@ func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
 			},
 		},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{
-		Events: []chat.EventContract{{
-			Name:    "ChatContractTestEvent",
-			Type:    "chat.contract_test",
-			Payload: reflect.TypeFor[ContractTestResponse](),
-		}},
 	})
 	if err != nil {
 		t.Fatalf("collect contracts: %v", err)
@@ -163,11 +159,7 @@ func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
 		specs.Endpoints[1].OperationName != "contractTestHealth" {
 		t.Fatalf("endpoints = %+v, want lower-camel operation names", specs.Endpoints)
 	}
-	if len(specs.Events) != 1 || specs.Events[0].Type != "chat.contract_test" ||
-		specs.Events[0].Payload != reflect.TypeFor[ContractTestResponse]() {
-		t.Fatalf("events = %+v, want contract test event payload", specs.Events)
-	}
-	helpers := decoderHelperUsage(specs.Interfaces, specs.Events)
+	helpers := decoderHelperUsage(specs.Interfaces)
 	if !helpers.Array || !helpers.Integer || !helpers.IntegerMap || !helpers.Map || !helpers.Nullable || !helpers.Number || !helpers.String {
 		t.Fatalf("decoder helpers = %+v, want semantic helper usage for test graph", helpers)
 	}
@@ -175,8 +167,8 @@ func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
 		name  string
 		value string
 	}{
-		{name: "RunStatus", value: string(chat.RunStatusCompleted)},
-		{name: "ApprovalKind", value: string(chat.ApprovalKindPermission)},
+		{name: "ConversationStatus", value: string(conversation.ConversationStatusIdle)},
+		{name: "TrajectoryApprovalKind", value: string(conversation.TrajectoryApprovalKindPermission)},
 		{name: "CodexAccountStatus", value: string(codexaccount.AccountStatusSignedIn)},
 		{name: "CodexLoginType", value: string(codexaccount.LoginTypeChatGPT)},
 		{name: "CodexChatGPTPlanType", value: string(codexaccount.ChatGPTPlanPlus)},
@@ -191,7 +183,7 @@ func TestRenderProducesGeneratedClientSmoke(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints:      []httpapi.ContractEndpoint{contractEndpoint("ContractTest", "/contract-test")},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
+	})
 	if err != nil {
 		t.Fatalf("collect contracts: %v", err)
 	}
@@ -218,23 +210,18 @@ func TestRenderProducesGeneratedClientSmoke(t *testing.T) {
 	}
 }
 
-func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
+func TestConversationPaletteCatalogRendersFromGoOwner(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{{
-			Name:                  "ContractCommands",
-			Method:                "POST",
-			Path:                  "/contract-commands",
-			Request:               reflect.TypeFor[ContractTestRequest](),
-			Response:              reflect.TypeFor[chat.ChatCommandListResult](),
-			RequestBodyLimitBytes: 1024,
+			Name:     "ContractConversationSnapshot",
+			Method:   "GET",
+			Path:     "/contract-conversation-snapshot",
+			Response: reflect.TypeFor[conversation.ConversationSnapshot](),
 		}},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
+	})
 	if err != nil {
-		t.Fatalf("collect contract specs: %v", err)
-	}
-	if len(specs.Unions) != 1 || specs.Unions[0].Name != "ChatCommandArgumentSpec" {
-		t.Fatalf("unions = %+v, want ChatCommandArgumentSpec", specs.Unions)
+		t.Fatalf("collect contracts: %v", err)
 	}
 
 	var buffer bytes.Buffer
@@ -242,15 +229,58 @@ func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
 		t.Fatalf("render contracts: %v", err)
 	}
 	output := buffer.String()
+	if !strings.Contains(output, "export const conversationPaletteCatalog = {") ||
+		!strings.Contains(
+			output,
+			"as const satisfies Readonly<Record<ConversationPaletteID, unknown>>;",
+		) {
+		t.Fatalf("generated output is missing the typed conversation palette catalog:\n%s", output)
+	}
+	for _, palette := range conversationpalette.Catalog() {
+		encoded, marshalErr := json.Marshal(palette)
+		if marshalErr != nil {
+			t.Fatalf("marshal palette %q: %v", palette.ID, marshalErr)
+		}
+		want := fmt.Sprintf("  %q: %s,", palette.ID, encoded)
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output is missing Go-owned palette %q:\n%s", palette.ID, output)
+		}
+	}
+}
+
+func TestConversationEventUnionRendersExactDiscriminators(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractConversationEvent",
+			Method:   "GET",
+			Path:     "/contract-conversation-event",
+			Response: reflect.TypeFor[conversation.ConversationEvent](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	})
+	if err != nil {
+		t.Fatalf("collect conversation event contracts: %v", err)
+	}
+	if len(specs.Unions) != 1 || specs.Unions[0].Name != "ConversationEventPayload" {
+		t.Fatalf("unions = %+v, want ConversationEventPayload", specs.Unions)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render conversation event contracts: %v", err)
+	}
+	output := buffer.String()
 	for _, want := range []string{
-		"export type ChatCommandArgumentSpec =",
-		"ChatCommandLiteralArgumentSpec",
-		"export function decodeChatCommandArgumentSpec(value: unknown): ChatCommandArgumentSpec",
-		"case \"literal\":",
-		"case \"free_text\":",
+		"export type ConversationEventPayload =",
+		"export interface ConversationUpdatedEventPayload {\n  type: \"conversation.updated\";",
+		"export interface ConversationResyncRequiredEventPayload {\n  type: \"conversation.resync_required\";",
+		"decodeContractLiteral(decodeConversationEventType(",
+		"export function decodeConversationEventPayload(value: unknown): ConversationEventPayload",
+		"case \"conversation.presentation_profile.updated\":",
+		"case \"conversation.resync_required\":",
 	} {
 		if !strings.Contains(output, want) {
-			t.Fatalf("generated output missing %q:\n%s", want, output)
+			t.Fatalf("generated conversation union missing %q:\n%s", want, output)
 		}
 	}
 }
@@ -258,15 +288,15 @@ func TestContractSpecsRenderRegisteredUnion(t *testing.T) {
 func TestRenderTaggedUnionStructValidatesBranchInvariant(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{{
-			Name:                  "ContractBlockPage",
+			Name:                  "ContractTrajectory",
 			Method:                "POST",
-			Path:                  "/contract-block-page",
+			Path:                  "/contract-trajectory",
 			Request:               reflect.TypeFor[ContractTestRequest](),
 			Response:              reflect.TypeFor[ContractTaggedUnionResponse](),
 			RequestBodyLimitBytes: 1024,
 		}},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
+	})
 	if err != nil {
 		t.Fatalf("collect contract specs: %v", err)
 	}
@@ -278,14 +308,11 @@ func TestRenderTaggedUnionStructValidatesBranchInvariant(t *testing.T) {
 	output := buffer.String()
 	for _, want := range []string{
 		"  assertTaggedUnionBranch,\n",
-		"export function decodeTranscriptBlock(value: unknown): TranscriptBlock {",
-		"const result: TranscriptBlock = {",
-		"assertTaggedUnionBranch(\"TranscriptBlock\", result.kind, {",
-		"\"assistant_text\": result.assistantText,",
-		"\"run_status\": result.runStatus,",
-		"export function decodeRunItemDetails(value: unknown): RunItemDetails {",
-		"assertTaggedUnionBranch(\"RunItemDetails\", result.kind, {",
-		"\"plan\": result.plan,",
+		"export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {",
+		"const result: TrajectoryEvent = {",
+		"assertTaggedUnionBranch(\"TrajectoryEvent\", result.kind, {",
+		"\"turn_started\": result.turnStarted,",
+		"\"approval_requested\": result.approvalRequested,",
 		"return result;",
 	} {
 		if !strings.Contains(output, want) {

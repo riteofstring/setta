@@ -13,14 +13,8 @@ import {
   paneResizePreviewForPointerMove,
   type PaneResizeSession,
 } from "./pane-resize-session";
-import type {
-  WorkspaceColumn,
-  WorkspacePane,
-  WorkspaceScene,
-  PaneLimitPolicy,
-  Rect,
-} from "./types";
-import { createRealWorkspaceScene } from "./workspace-scene";
+import type { WorkspaceColumn, WorkspaceScene, PaneLimitPolicy, Rect } from "./types";
+import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
 
 const viewport: Rect = {
   height: 900,
@@ -38,7 +32,7 @@ describe("workspace layout store", () => {
     const store = createStore();
 
     const openedPaneId = store.openPane({
-      surfaceKind: "terminal",
+      surfaceKind: "browser",
       title: "Build",
       tone: "green",
     });
@@ -84,26 +78,26 @@ describe("workspace layout store", () => {
     const store = createStore();
 
     store.moveFocus("right");
-    const terminalPaneId = store.focusedPaneId();
+    const conversationPaneId = store.focusedPaneId();
     store.moveFocusedPane("left");
 
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 0,
-      focusedPaneId: terminalPaneId,
+      focusedPaneId: conversationPaneId,
       focusedRowIndex: 1,
     });
-    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", terminalPaneId]);
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", conversationPaneId]);
     expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2"]);
 
     store.moveFocusedPane("right");
 
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
-      focusedPaneId: terminalPaneId,
+      focusedPaneId: conversationPaneId,
       focusedRowIndex: 1,
     });
     expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0"]);
-    expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2", terminalPaneId]);
+    expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2", conversationPaneId]);
   });
 
   test("moves panes up and down inside a vertical stack", () => {
@@ -159,7 +153,7 @@ describe("workspace layout store", () => {
 
   test("enforces configured pane limits for explicit opens", () => {
     const store = createStore({
-      "chat-dom": 10,
+      "easy-button": 10,
       "settings-dom": 1,
     });
 
@@ -174,15 +168,15 @@ describe("workspace layout store", () => {
       "workspace pane limit reached for settings-dom",
     );
 
-    expect(store.canOpenPane({ surfaceKind: "chat-dom" })).toBe(true);
+    expect(store.canOpenPane({ surfaceKind: "easy-button" })).toBe(true);
     for (let index = 1; index < 10; index += 1) {
-      store.openPane({ surfaceKind: "chat-dom", title: `Chat ${index}` });
+      store.openPane({ surfaceKind: "easy-button", title: `Topic ${index}` });
     }
-    expect(store.paneLimitState({ surfaceKind: "chat-dom" })).toEqual({
+    expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
       allowed: false,
       count: 10,
       limit: 10,
-      surfaceKind: "chat-dom",
+      surfaceKind: "easy-button",
     });
   });
 
@@ -249,9 +243,9 @@ describe("workspace layout store", () => {
     const before = store.toScene().paneById.get(emptyPaneId);
 
     store.configurePane(emptyPaneId, {
-      subtitle: "workspace command surface",
-      surfaceKind: "terminal",
-      title: "Terminal",
+      subtitle: "workspace browser surface",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "green",
     });
 
@@ -260,9 +254,9 @@ describe("workspace layout store", () => {
     expect(configured).toMatchObject({
       paneId: emptyPaneId,
       sequence: before?.sequence,
-      subtitle: "workspace command surface",
-      surfaceKind: "terminal",
-      title: "Terminal",
+      subtitle: "workspace browser surface",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "green",
     });
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
@@ -327,28 +321,23 @@ describe("workspace layout store", () => {
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
   });
 
-  test("reconfigures a workflow node details pane target despite the one-pane limit", () => {
-    const store = createStore({ "workflow-node-details": 1 });
-    const firstTarget = workflowNodeDetailsConfig("workspace_api", "activity");
-    const secondTarget = workflowNodeDetailsConfig("workspace_api", "review");
+  test("preserves an easy button binding only while the pane remains an easy button", () => {
+    const store = createStore({ "easy-button": 2 });
+    const easyButtonConfig = { conversationId: "conversation-1" };
     const paneId = store.openPane({
-      surfaceKind: "workflow-node-details",
-      title: "Workflow Node",
-      workflowNodeDetailsConfig: firstTarget,
+      easyButtonConfig,
+      surfaceKind: "easy-button",
+      title: "Topic",
     });
-    const before = store.toScene().paneById.get(paneId);
 
-    expect(() =>
-      store.configurePane(paneId, {
-        surfaceKind: "workflow-node-details",
-        title: "Workflow Node",
-        workflowNodeDetailsConfig: secondTarget,
-      }),
-    ).not.toThrow();
+    store.configurePane(paneId, { title: "Renamed topic" });
+    expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
 
-    const configured = store.toScene().paneById.get(paneId);
-    expect(configured?.workflowNodeDetailsConfig).toEqual(secondTarget);
-    expect(configured?.surfaceId).not.toBe(before?.surfaceId);
+    store.configurePane(paneId, {
+      surfaceKind: "browser",
+      title: "Browser",
+    });
+    expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toBeUndefined();
   });
 
   test("uses the current row count inside a stacked column", () => {
@@ -674,11 +663,7 @@ describe("workspace layout store", () => {
       configurable: true,
       value: {},
     });
-    const { scene } = createRealWorkspaceScene({
-      storedLayout: null,
-      workspaceId: "setta:workspace-layout:store-initial-snap",
-      workspaceName: "Repo",
-    });
+    const { scene } = createLayoutStoreTestScene("setta:workspace-layout:store-initial-snap");
     const store = new WorkspaceLayoutStore(
       new WorkspaceLikeLayoutEngine(scene),
       scene,
@@ -1154,11 +1139,7 @@ function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
     configurable: true,
     value: {},
   });
-  const { focusedPaneId, scene } = createRealWorkspaceScene({
-    storedLayout: null,
-    workspaceId: "setta:workspace-layout:store-test",
-    workspaceName: "Repo",
-  });
+  const { focusedPaneId, scene } = createLayoutStoreTestScene("setta:workspace-layout:store-test");
   return new WorkspaceLayoutStore(new WorkspaceLikeLayoutEngine(scene), scene, focusedPaneId, {
     paneLimits,
   });
@@ -1172,29 +1153,6 @@ function focusState(snapshot: ReturnType<WorkspaceLayoutStore["getSnapshot"]>) {
   };
 }
 
-function workflowNodeDetailsConfig(
-  workspaceId: string,
-  nodeId: string,
-): NonNullable<WorkspacePane["workflowNodeDetailsConfig"]> {
-  return {
-    definitionId: "workflow_definition_test",
-    definitionName: "Review Workflow",
-    definitionVersionId: "workflow_version_test",
-    definitionVersionNumber: 1,
-    executionId: "workflow_execution_test",
-    nodeId,
-    nodeExecutionId: `workflow_node_execution_${nodeId}`,
-    nodeKind: "action",
-    nodeLabel: nodeId,
-    nodeStatus: "succeeded",
-    projectionIncomingEdges: [],
-    projectionOutgoingEdges: [],
-    versionMismatch: false,
-    viewMode: "run",
-    workspaceId,
-  };
-}
-
 function createOverviewZoomFixture(): {
   engine: WorkspaceLikeLayoutEngine;
   store: WorkspaceLayoutStore;
@@ -1203,11 +1161,9 @@ function createOverviewZoomFixture(): {
     configurable: true,
     value: {},
   });
-  const { focusedPaneId, scene } = createRealWorkspaceScene({
-    storedLayout: null,
-    workspaceId: "setta:workspace-layout:store-overview-zoom",
-    workspaceName: "Repo",
-  });
+  const { focusedPaneId, scene } = createLayoutStoreTestScene(
+    "setta:workspace-layout:store-overview-zoom",
+  );
   const engine = new WorkspaceLikeLayoutEngine(scene);
   const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
   return { engine, store };
@@ -1232,16 +1188,22 @@ function createOverflowingOverviewStore(): WorkspaceLayoutStore {
     configurable: true,
     value: {},
   });
-  const { focusedPaneId, scene } = createRealWorkspaceScene({
-    storedLayout: null,
-    workspaceId: "setta:workspace-layout:store-overview-pan",
-    workspaceName: "Repo",
-  });
+  const { focusedPaneId, scene } = createLayoutStoreTestScene(
+    "setta:workspace-layout:store-overview-pan",
+  );
   return new WorkspaceLayoutStore(
     new WorkspaceLikeLayoutEngine(scene, { overviewCardMinWidthPx: 360 }),
     scene,
     focusedPaneId,
   );
+}
+
+function createLayoutStoreTestScene(workspaceId: string) {
+  return createWorkspaceLayoutTestScene({
+    storedLayout: null,
+    workspaceId,
+    workspaceName: "Repo",
+  });
 }
 
 function columnForPane(scene: WorkspaceScene, paneId: string): WorkspaceColumn | undefined {

@@ -1,59 +1,49 @@
 import { describe, expect, test } from "vitest";
 
-import { chatPaneTitle, paneChromeTitleModel, terminalPaneTitle } from "./pane-title-metadata";
+import { paneChromeTitleModel } from "./pane-title-metadata";
 import type { WorkspacePane } from "./types";
 
 describe("pane chrome title metadata", () => {
-  test("derives terminal cwd titles with left truncation", () => {
-    const model = paneChromeTitleModel(
-      fakePane("terminal", "Terminal"),
-      terminalPaneTitle("/home/ubuntu/dev"),
-    );
-
-    expect(model).toMatchObject({
-      fullTitle: "/home/ubuntu/dev",
-      icon: "terminal",
-      title: "/home/ubuntu/dev",
-      truncation: "start",
+  test("applies a surface-provided title override", () => {
+    const model = paneChromeTitleModel(fakePane("browser", "Browser"), {
+      fullTitle: "Setta documentation",
+      title: "Documentation",
+      truncation: "end",
     });
-  });
-
-  test("falls terminal panes back to the terminal label before a cwd is known", () => {
-    const model = paneChromeTitleModel(fakePane("terminal", "Build shell"), terminalPaneTitle(""));
 
     expect(model).toMatchObject({
-      icon: "terminal",
-      title: "Terminal",
-      truncation: "start",
-    });
-  });
-
-  test("derives chat titles from the sidebar conversation label", () => {
-    const model = paneChromeTitleModel(
-      fakePane("chat-dom", "Chat"),
-      chatPaneTitle("Investigate terminal replay"),
-    );
-
-    expect(model).toMatchObject({
-      fullTitle: "Investigate terminal replay",
-      icon: "chat",
-      title: "Investigate terminal replay",
+      fullTitle: "Setta documentation",
+      icon: "document",
+      title: "Documentation",
       truncation: "end",
     });
   });
 
-  test("keeps the rest of the pane system icon and title driven by surface kind", () => {
-    expect(paneChromeTitleModel(fakePane("workflow-graph", "Workflow Graph"))).toMatchObject({
-      icon: "workflow",
-      title: "Workflow Graph",
+  test("falls back to the pane title when an override is blank", () => {
+    const model = paneChromeTitleModel(fakePane("empty-frame", "New frame"), {
+      title: "  ",
     });
+
+    expect(model).toMatchObject({
+      fullTitle: "New frame",
+      icon: "document",
+      title: "New frame",
+      truncation: "end",
+    });
+  });
+
+  test("keeps pane icons and titles driven by surviving surface kinds", () => {
     expect(paneChromeTitleModel(fakePane("settings-dom", "Settings"))).toMatchObject({
       icon: "settings",
       title: "Settings",
     });
-    expect(paneChromeTitleModel(fakePane("semantic-node-details", "Semantic Node"))).toMatchObject({
-      icon: "network",
-      title: "Semantic Node",
+    expect(paneChromeTitleModel(fakePane("easy-button", "Easy Button"))).toMatchObject({
+      icon: "sparkles",
+      title: "Easy Button",
+    });
+    expect(paneChromeTitleModel(fakePane("browser", "Browser"))).toMatchObject({
+      icon: "document",
+      title: "Browser",
     });
   });
 });

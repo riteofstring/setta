@@ -1,4 +1,4 @@
-import type { WorkflowNodeDetailsPaneConfig, WorkspaceUILayout } from "@generated/backend";
+import type { WorkspaceUILayout } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
@@ -20,69 +20,43 @@ describe("real workspace layout scene", () => {
     expect(result.focusedPaneId).toBe("workspace_pane_0");
     expect(result.layoutRecovery).toBeNull();
     expect(result.scene.id).toBe("workspace_api");
-    expect(result.scene.columns).toHaveLength(4);
+    expect(result.scene.columns).toHaveLength(1);
     expect(result.scene.defaultColumnWidthSpec).toEqual({ unit: "px", value: 520 });
     expect(result.scene.renderOverscanColumns).toBe(2);
-    expect(result.scene.visibleColumnCount).toBe(3);
-    expect(result.scene.totalPanes).toBe(4);
-    expect(result.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
-    expect(result.scene.columns.map((column) => column.slotIndex)).toEqual([0, 1, 2, 3]);
-    expect(result.scene.columns.map((column) => column.widthSpec)).toEqual([
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-    ]);
-    expect(result.scene.columns.map((column) => column.idealWidthSpec)).toEqual([
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-    ]);
-    expect(
-      result.scene.columns.map((column) => {
-        const paneId = column.paneIds[0];
-        return paneId ? result.scene.paneById.get(paneId)?.title : "";
-      }),
-    ).toEqual(["Chat", "Terminal", "Workflow Graph", "Settings"]);
+    expect(result.scene.visibleColumnCount).toBe(1);
+    expect(result.scene.totalPanes).toBe(1);
+    expect(result.scene.columns.map((column) => column.slotIndex)).toEqual([0]);
     expect(result.scene.paneById.get("workspace_pane_0")).toMatchObject({
       subtitle: "Repo",
-      surfaceKind: "chat-dom",
-      title: "Chat",
+      surfaceKind: "empty-frame",
+      title: "New frame",
     });
-    expect(result.scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("terminal");
   });
 
-  test("defines default pane limits for addable real workspace surfaces", () => {
+  test("defines default pane limits for surviving workspace surfaces", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
-      "chat-dom": 10,
-      "semantic-node-details": 1,
+      "easy-button": 10,
+      "empty-frame": 10,
       "settings-dom": 1,
-      terminal: 10,
-      "workflow-graph": 10,
-      "workflow-node-details": 1,
-      "workflow-settings": 1,
     });
   });
 
-  test("serializes and restores the real workspace layout through the backend contract shape", () => {
+  test("serializes and restores the workspace layout through the backend contract shape", () => {
     const workspaceId = "workspace_api";
     const initial = createRealWorkspaceScene({
       storedLayout: null,
       workspaceId,
       workspaceName: "Repo",
     });
-    const engine = new WorkspaceLikeLayoutEngine(initial.scene);
-    const store = new WorkspaceLayoutStore(engine, initial.scene, initial.focusedPaneId);
+    const store = new WorkspaceLayoutStore(
+      new WorkspaceLikeLayoutEngine(initial.scene),
+      initial.scene,
+      initial.focusedPaneId,
+    );
     const paneId = store.openPane({
-      surfaceKind: "terminal",
-      terminalConfig: {
-        cwdOverride: "/tmp/repo",
-        profileId: "default",
-        titleOverride: "Build shell",
-      },
-      title: "Build",
-      tone: "green",
+      surfaceKind: "settings-dom",
+      title: "Settings",
+      tone: "slate",
     });
 
     const persisted = workspaceUILayoutFromScene(
@@ -101,73 +75,82 @@ describe("real workspace layout scene", () => {
       schemaVersion: 1,
       workspaceId,
     });
-    expect(persisted.panes.find((pane) => pane.paneId === paneId)?.terminalConfig).toEqual({
-      cwdOverride: "/tmp/repo",
-      profileId: "default",
-      titleOverride: "Build shell",
-    });
     expect(restored.focusedPaneId).toBe(paneId);
     expect(restored.layoutRecovery).toBeNull();
-    expect(restored.scene.totalPanes).toBe(5);
-    expect(restored.scene.columns).toHaveLength(5);
+    expect(restored.scene.totalPanes).toBe(2);
     expect(restored.scene.paneById.get(paneId)).toMatchObject({
-      surfaceKind: "terminal",
-      terminalConfig: {
-        cwdOverride: "/tmp/repo",
-        profileId: "default",
-        titleOverride: "Build shell",
-      },
-      title: "Build",
-      tone: "green",
-    });
-    expect(restored.scene.columns[1]?.paneIds).toEqual([paneId]);
-    expect(restored.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
-  });
-
-  test("omits empty terminal override fields when restoring local runtime state", () => {
-    const restored = createRealWorkspaceScene({
-      storedLayout: {
-        ...storedLayout("workspace_api", ["workspace_pane_0"]),
-        panes: [
-          {
-            ...storedPane(
-              "workspace_pane_0",
-              "workspace_column_0",
-              "workspace_surface_0",
-              "Terminal",
-            ),
-            surfaceKind: "terminal",
-            terminalConfig: {
-              cwdOverride: "",
-              profileId: "default",
-              titleOverride: "",
-            },
-          },
-        ],
-      },
-      workspaceId: "workspace_api",
-      workspaceName: "Repo",
-    });
-
-    expect(restored.scene.paneById.get("workspace_pane_0")?.terminalConfig).toEqual({
-      profileId: "default",
+      surfaceKind: "settings-dom",
+      title: "Settings",
+      tone: "slate",
     });
   });
 
-  test("serializes and restores workflow node details pane targets", () => {
+  test("serializes and restores an easy button conversation binding", () => {
     const workspaceId = "workspace_api";
     const initial = createRealWorkspaceScene({
       storedLayout: null,
       workspaceId,
       workspaceName: "Repo",
     });
-    const engine = new WorkspaceLikeLayoutEngine(initial.scene);
-    const store = new WorkspaceLayoutStore(engine, initial.scene, initial.focusedPaneId);
-    const config = workflowNodeDetailsConfig(workspaceId);
+    const store = new WorkspaceLayoutStore(
+      new WorkspaceLikeLayoutEngine(initial.scene),
+      initial.scene,
+      initial.focusedPaneId,
+    );
+    const easyButtonConfig = { conversationId: "conversation-1" };
     const paneId = store.openPane({
-      surfaceKind: "workflow-node-details",
-      title: "Workflow Node",
-      workflowNodeDetailsConfig: config,
+      easyButtonConfig,
+      surfaceKind: "easy-button",
+      title: "Topic",
+    });
+
+    const persisted = workspaceUILayoutFromScene(
+      workspaceId,
+      store.toScene(),
+      store.focusedPaneId(),
+    );
+    const restored = createRealWorkspaceScene({
+      storedLayout: persisted,
+      workspaceId,
+      workspaceName: "Ignored after restore",
+    });
+
+    expect(persisted.panes.find((pane) => pane.paneId === paneId)?.easyButtonConfig).toEqual(
+      easyButtonConfig,
+    );
+    expect(restored.scene.paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
+  });
+
+  test("opens and restores multiple easy button views of one conversation", () => {
+    const workspaceId = "workspace_api";
+    const initial = createRealWorkspaceScene({
+      storedLayout: null,
+      workspaceId,
+      workspaceName: "Repo",
+    });
+    const store = new WorkspaceLayoutStore(
+      new WorkspaceLikeLayoutEngine(initial.scene),
+      initial.scene,
+      initial.focusedPaneId,
+      { paneLimits: defaultRealWorkspacePaneLimits },
+    );
+    const easyButtonConfig = { conversationId: "conversation-1" };
+    const firstPaneId = store.openPane({
+      easyButtonConfig,
+      surfaceKind: "easy-button",
+      title: "Topic",
+    });
+    const secondPaneId = store.openPane({
+      easyButtonConfig,
+      surfaceKind: "easy-button",
+      title: "Topic copy",
+    });
+
+    expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
+      allowed: true,
+      count: 2,
+      limit: 10,
+      surfaceKind: "easy-button",
     });
 
     const persisted = workspaceUILayoutFromScene(
@@ -182,9 +165,10 @@ describe("real workspace layout scene", () => {
     });
 
     expect(
-      persisted.panes.find((pane) => pane.paneId === paneId)?.workflowNodeDetailsConfig,
-    ).toEqual(config);
-    expect(restored.scene.paneById.get(paneId)?.workflowNodeDetailsConfig).toEqual(config);
+      [firstPaneId, secondPaneId].map(
+        (paneId) => restored.scene.paneById.get(paneId)?.easyButtonConfig,
+      ),
+    ).toEqual([easyButtonConfig, easyButtonConfig]);
   });
 
   test("drops persisted columns that reference missing pane metadata", () => {
@@ -212,7 +196,7 @@ function storedLayout(workspaceId: string, paneIds: string[]): WorkspaceUILayout
   return {
     columns: [storedColumn("workspace_column_0", 0, paneIds)],
     focusedPaneId: paneIds[0] ?? "",
-    panes: [storedPane("workspace_pane_0", "workspace_column_0", "workspace_surface_0", "Chat")],
+    panes: [storedPane("workspace_pane_0", "workspace_column_0", "workspace_surface_0", "Frame")],
     schemaVersion: 1,
     workspaceId,
   };
@@ -234,36 +218,15 @@ function storedColumn(columnId: string, index: number, paneIds: string[]) {
 function storedPane(paneId: string, columnId: string, surfaceId: string, title: string) {
   return {
     columnId,
+    easyButtonConfig: null,
     heat: 0,
     paneId,
     sequence: 0,
     subtitle: "Repo",
     surfaceId,
-    surfaceKind: "chat-dom" as const,
-    terminalConfig: null,
+    surfaceKind: "empty-frame" as const,
     title,
-    tone: "cyan" as const,
+    tone: "slate" as const,
     weight: 1,
-    workflowNodeDetailsConfig: null,
-  };
-}
-
-function workflowNodeDetailsConfig(workspaceId: string): WorkflowNodeDetailsPaneConfig {
-  return {
-    definitionId: "workflow_definition_test",
-    definitionName: "Review Workflow",
-    definitionVersionId: "workflow_version_test",
-    definitionVersionNumber: 1,
-    executionId: "workflow_execution_test",
-    nodeId: "activity",
-    nodeExecutionId: "workflow_node_execution_test",
-    nodeKind: "action",
-    nodeLabel: "Activity",
-    nodeStatus: "succeeded",
-    projectionIncomingEdges: [],
-    projectionOutgoingEdges: [],
-    versionMismatch: false,
-    viewMode: "run",
-    workspaceId,
   };
 }
