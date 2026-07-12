@@ -65,12 +65,12 @@ const pendingSideCreationByPane = new Map<string, PendingSideCreation>();
 
 function usePendingSideCreationCompletion(
   workspaceId: string | null,
-  conversationId: string | null,
+  conversationId: string,
   paneId: string | null,
   snapshot: ConversationSnapshot | null | undefined,
 ): void {
   useEffect(() => {
-    if (!workspaceId || !conversationId || !paneId || !snapshot) {
+    if (!workspaceId || !paneId || !snapshot) {
       return;
     }
     if (openSideConversationForPane(snapshot, paneId)) {
@@ -81,7 +81,7 @@ function usePendingSideCreationCompletion(
 
 export function useEasyButtonConversationCommands(
   workspaceId: string | null,
-  conversationId: string | null,
+  conversationId: string,
   paneId: string | null,
   projection: ConversationProjection | undefined,
   speechCapture: SpeechCaptureRequester | undefined,
@@ -106,7 +106,7 @@ export function useEasyButtonConversationCommands(
       setError(value);
     }
   };
-  const available = conversationCommandsAvailable(workspaceId, conversationId, projection);
+  const available = conversationCommandsAvailable(workspaceId, projection);
   const canSubmit = conversationInputCanSubmit(available, pending, input) && !failedInput;
   const applySettledRoutingState = useCallback(
     async (state: ConversationInputRoutingState): Promise<void> => {
@@ -396,10 +396,9 @@ function conversationRoutingFailurePresentation(
 
 function conversationCommandsAvailable(
   workspaceId: string | null,
-  conversationId: string | null,
   projection: ConversationProjection | undefined,
 ): boolean {
-  if (!workspaceId || !conversationId || projection?.status !== "ready") {
+  if (!workspaceId || projection?.status !== "ready") {
     return false;
   }
   return Boolean(
@@ -424,10 +423,10 @@ function beginPendingSideCreationForInput(
 
 function finishPendingSideCreationForInput(
   workspaceId: string | null,
-  conversationId: string | null,
+  conversationId: string,
   paneId: string | null,
 ): void {
-  if (workspaceId && conversationId && paneId) {
+  if (workspaceId && paneId) {
     finishPendingSideCreation(workspaceId, conversationId, paneId);
   }
 }
@@ -562,7 +561,7 @@ function requireConversationInputDiscard(): NonNullable<
 function requireConversationRoutingScope(
   state: ConversationInputRoutingState,
   scope: {
-    conversationId: string | null;
+    conversationId: string;
     paneId: string | null;
     workspaceId: string | null;
   },
@@ -570,7 +569,6 @@ function requireConversationRoutingScope(
   const submitted = state.clarificationReply ?? state.input;
   const matches = [
     Boolean(scope.workspaceId),
-    Boolean(scope.conversationId),
     submitted.input.conversationId === scope.conversationId,
     submitted.input.sourcePaneId === scope.paneId,
   ].every(Boolean);
@@ -581,12 +579,9 @@ function requireConversationRoutingScope(
 }
 
 function requireConversationRoutingTarget(
-  conversationId: string | null,
+  conversationId: string,
   workspaceId: string | null,
 ): { conversationId: string; workspaceId: string } {
-  if (!conversationId) {
-    throw new Error("Conversation routing requires a conversation target.");
-  }
   if (!workspaceId) {
     throw new Error("Conversation routing requires a workspace target.");
   }
@@ -687,13 +682,13 @@ function createVoiceCaptureCommand({
   workspaceId,
 }: {
   available: boolean;
-  conversationId: string | null;
+  conversationId: string;
   paneId: string | null;
   setError: (error: string | null) => void;
   speechCapture: SpeechCaptureRequester | undefined;
   workspaceId: string | null;
 }): (() => void) | undefined {
-  if (!available || !workspaceId || !conversationId || !paneId || !speechCapture) {
+  if (!available || !workspaceId || !paneId || !speechCapture) {
     return undefined;
   }
   return () => {

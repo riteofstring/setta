@@ -335,7 +335,7 @@ export function createReactDomSurfaceAdapter(
   rootFactory?: ReactSurfaceRootFactory,
   options: ReactDomSurfaceAdapterOptions = {},
 ): ReactDomSurfaceAdapter {
-  const renderSurface = reactDomSurfaceRenderFactories[pane.surfaceKind]?.(pane, options);
+  const renderSurface = reactDomSurfaceRenderFactory(pane, options);
   if (renderSurface) {
     return new ReactDomSurfaceAdapter(
       pane,
@@ -351,9 +351,12 @@ function easyButtonPaneCloseRequest(
   pane: WorkspacePane,
   options: ReactDomSurfaceAdapterOptions,
 ): ((request: SurfacePaneCloseRequest) => Promise<SurfacePaneCloseResult>) | undefined {
-  const conversationId = pane.easyButtonConfig?.conversationId;
+  if (pane.surfaceKind !== "easy-button") {
+    return undefined;
+  }
+  const conversationId = pane.easyButtonConfig.conversationId;
   const workspaceId = options.workspaceId;
-  if (pane.surfaceKind !== "easy-button" || !conversationId || !workspaceId) {
+  if (!workspaceId) {
     return undefined;
   }
   return (request) =>
@@ -365,25 +368,29 @@ function easyButtonPaneCloseRequest(
     });
 }
 
-type ReactDomSurfaceRenderFactory = (
+function reactDomSurfaceRenderFactory(
   pane: WorkspacePane,
   options: ReactDomSurfaceAdapterOptions,
-) => (state: ReactDomSurfaceState) => ReactNode;
-
-const reactDomSurfaceRenderFactories: Partial<Record<SurfaceKind, ReactDomSurfaceRenderFactory>> = {
-  "easy-button": (pane, options) => () => (
-    <EasyButtonSurface
-      conversationId={pane.easyButtonConfig?.conversationId ?? null}
-      paneId={pane.paneId}
-      speechCapture={options.speechCapture}
-      speechPresentation={options.speechPresentation}
-      workspaceId={options.workspaceId ?? null}
-    />
-  ),
-  "settings-dom":
-    () =>
-    ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
-};
+): ((state: ReactDomSurfaceState) => ReactNode) | undefined {
+  switch (pane.surfaceKind) {
+    case "easy-button":
+      return () => (
+        <EasyButtonSurface
+          conversationId={pane.easyButtonConfig.conversationId}
+          paneId={pane.paneId}
+          speechCapture={options.speechCapture}
+          speechPresentation={options.speechPresentation}
+          workspaceId={options.workspaceId ?? null}
+        />
+      );
+    case "settings-dom":
+      return ({ activated, focused }) => (
+        <WorkspaceSettingsSurface active={focused} loaded={activated} />
+      );
+    default:
+      return undefined;
+  }
+}
 
 function performanceNow(): number {
   if (typeof performance === "undefined") {

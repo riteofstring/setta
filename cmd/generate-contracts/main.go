@@ -407,6 +407,11 @@ func (collector *contractCollector) addStruct(goType reflect.Type) error {
 	if err != nil {
 		return err
 	}
+	if discriminated, ok := contractDiscriminatedStructForType(goType); ok {
+		if err := validateDiscriminatedStruct(goType, discriminated, collector.valueSets); err != nil {
+			return err
+		}
+	}
 	if err := collector.registerStructName(name, goType); err != nil {
 		return err
 	}
@@ -513,6 +518,12 @@ func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec) error {
 		if spec.Type.Kind() != reflect.Struct {
 			return fmt.Errorf("%s must be generated from a struct", spec.Name)
 		}
+		if discriminated, ok := contractDiscriminatedStructForType(spec.Type); ok {
+			if err := renderDiscriminatedStructType(buffer, spec, discriminated); err != nil {
+				return err
+			}
+			continue
+		}
 		fmt.Fprintf(buffer, "export interface %s {\n", spec.Name)
 		for index := range spec.Type.NumField() {
 			field := spec.Type.Field(index)
@@ -581,6 +592,9 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 	fmt.Fprintf(buffer, "export function %s(value: unknown): %s {\n", decoderFunctionName(spec.Type), spec.Name)
 	fmt.Fprintf(buffer, "  const record = assertRecord(value, %q);\n", spec.Name)
 	fmt.Fprintf(buffer, "  assertKnownFields(record, %q, [%s]);\n", spec.Name, fieldNameLiterals(spec.Type))
+	if discriminated, ok := contractDiscriminatedStructForType(spec.Type); ok {
+		return renderDiscriminatedStructDecoder(buffer, spec, discriminated)
+	}
 	taggedUnion, isTagged := contractTaggedUnionForType(spec.Type)
 	if !isTagged {
 		buffer.WriteString("  return {\n")

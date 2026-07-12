@@ -49,16 +49,22 @@ describe("pane chrome title metadata", () => {
 });
 
 function fakePane(surfaceKind: WorkspacePane["surfaceKind"], title: string): WorkspacePane {
-  return {
+  const fields = {
     columnId: "column_test",
     heat: 0,
     paneId: "pane_test",
     sequence: 0,
     subtitle: "",
     surfaceId: "surface_test",
-    surfaceKind,
     title,
-    tone: "slate",
+    tone: "slate" as const,
     weight: 1,
   };
+  return surfaceKind === "easy-button"
+    ? {
+        ...fields,
+        easyButtonConfig: { conversationId: "conversation_test" },
+        surfaceKind,
+      }
+    : { ...fields, surfaceKind };
 }

@@ -245,11 +245,14 @@ func validatePaneValues(pane WorkspaceUIPane, index int, path string) error {
 
 func validatePaneEasyButtonConfig(pane WorkspaceUIPane, index int, path string) error {
 	config := pane.EasyButtonConfig
+	if pane.SurfaceKind == SurfaceKindEasyButton && config == nil {
+		return corruptStateErrorf(path, "panes[%d].easyButtonConfig is required for easy-button panes", index)
+	}
+	if pane.SurfaceKind != SurfaceKindEasyButton && config != nil {
+		return corruptStateErrorf(path, "panes[%d].easyButtonConfig is only valid for easy-button panes", index)
+	}
 	if config == nil {
 		return nil
-	}
-	if pane.SurfaceKind != SurfaceKindEasyButton {
-		return corruptStateErrorf(path, "panes[%d].easyButtonConfig is only valid for easy-button panes", index)
 	}
 	if config.ConversationID == "" {
 		return corruptStateErrorf(path, "panes[%d].easyButtonConfig.conversationId is required", index)

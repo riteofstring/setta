@@ -338,7 +338,7 @@ export class WorkspaceLayoutStore {
     return this.paneLimitState(request).allowed;
   }
 
-  paneLimitState(request: OpenPaneRequest): WorkspacePaneLimitState {
+  paneLimitState(request: { surfaceKind?: SurfaceKind }): WorkspacePaneLimitState {
     const surfaceKind = request.surfaceKind ?? null;
     if (!surfaceKind) {
       return {

@@ -13,7 +13,13 @@ import {
   paneResizePreviewForPointerMove,
   type PaneResizeSession,
 } from "./pane-resize-session";
-import type { WorkspaceColumn, WorkspaceScene, PaneLimitPolicy, Rect } from "./types";
+import type {
+  WorkspaceColumn,
+  WorkspaceScene,
+  OpenPaneRequest,
+  PaneLimitPolicy,
+  Rect,
+} from "./types";
 import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
 
 const viewport: Rect = {
@@ -168,9 +174,18 @@ describe("workspace layout store", () => {
       "workspace pane limit reached for settings-dom",
     );
 
-    expect(store.canOpenPane({ surfaceKind: "easy-button" })).toBe(true);
+    expect(
+      store.canOpenPane({
+        easyButtonConfig: { conversationId: "conversation_0" },
+        surfaceKind: "easy-button",
+      }),
+    ).toBe(true);
     for (let index = 1; index < 10; index += 1) {
-      store.openPane({ surfaceKind: "easy-button", title: `Topic ${index}` });
+      store.openPane({
+        easyButtonConfig: { conversationId: `conversation_${index}` },
+        surfaceKind: "easy-button",
+        title: `Topic ${index}`,
+      });
     }
     expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
       allowed: false,
@@ -338,6 +353,50 @@ describe("workspace layout store", () => {
       title: "Browser",
     });
     expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toBeUndefined();
+  });
+
+  test("rejects invalid easy button bindings before pane creation mutates layout", () => {
+    const invalidRequests = [
+      { surfaceKind: "easy-button", title: "Missing binding" },
+      {
+        easyButtonConfig: { conversationId: "" },
+        surfaceKind: "easy-button",
+        title: "Empty binding",
+      },
+      {
+        easyButtonConfig: { conversationId: " conversation_1" },
+        surfaceKind: "easy-button",
+        title: "Whitespace binding",
+      },
+      {
+        easyButtonConfig: { conversationId: "conversation_1" },
+        surfaceKind: "empty-frame",
+      },
+    ] as unknown as OpenPaneRequest[];
+    const store = createStore();
+    const before = store.toScene();
+
+    for (const request of invalidRequests) {
+      expect(() => store.openPane(request)).toThrow();
+    }
+
+    expect(store.toScene().totalPanes).toBe(before.totalPanes);
+    expect(store.toScene().columns).toEqual(before.columns);
+  });
+
+  test("rejects an invalid easy button configuration without replacing the pane", () => {
+    const store = createStore();
+    const emptyPaneId = store.openEmptyFrame();
+    const before = store.toScene().paneById.get(emptyPaneId);
+    const invalidRequest = {
+      surfaceKind: "easy-button",
+      title: "Missing binding",
+    } as unknown as OpenPaneRequest;
+
+    expect(() => store.configurePane(emptyPaneId, invalidRequest)).toThrow(
+      "easy-button panes require an easyButtonConfig conversation binding",
+    );
+    expect(store.toScene().paneById.get(emptyPaneId)).toEqual(before);
   });
 
   test("uses the current row count inside a stacked column", () => {

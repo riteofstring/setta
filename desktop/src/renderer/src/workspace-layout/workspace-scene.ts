@@ -1,14 +1,11 @@
 import type {
   ColumnWidthSpec as PersistedColumnWidthSpec,
-  EasyButtonPaneConfig,
   PaneTone as PersistedPaneTone,
-  SurfaceKind as PersistedSurfaceKind,
   WorkspaceUIColumn,
   WorkspaceUILayout,
   WorkspaceUIPane,
 } from "@generated/backend";
 
-import { productSurfaceKinds } from "./types";
 import type {
   ColumnWidthSpec,
   WorkspaceColumn,
@@ -23,7 +20,6 @@ const realWorkspaceVisibleColumnCount = 3;
 const realWorkspaceLayoutSchemaVersion = 1;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
-const realWorkspaceSurfaceKinds = productSurfaceKinds;
 export const defaultRealWorkspacePaneLimits = {
   "easy-button": 10,
   "empty-frame": 10,
@@ -51,7 +47,7 @@ interface CreatePaneInput {
   columnId: string;
   sequence: number;
   subtitle: string;
-  surfaceKind: ProductSurfaceKind;
+  surfaceKind: Exclude<ProductSurfaceKind, "easy-button">;
   title: string;
   tone: WorkspacePane["tone"];
   weight?: number;
@@ -173,41 +169,55 @@ function workspaceColumnFromPersisted(column: WorkspaceUIColumn): WorkspaceColum
 }
 
 function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
-  return {
+  const fields = {
     columnId: pane.columnId,
-    easyButtonConfig: easyButtonConfigFromPersisted(pane.easyButtonConfig),
     heat: pane.heat,
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
-    surfaceKind: pane.surfaceKind,
     title: pane.title,
     tone: pane.tone,
     weight: pane.weight,
   };
-}
-
-function easyButtonConfigFromPersisted(
-  config: EasyButtonPaneConfig | null,
-): EasyButtonPaneConfig | undefined {
-  return config ?? undefined;
+  switch (pane.surfaceKind) {
+    case "easy-button":
+      return {
+        ...fields,
+        easyButtonConfig: pane.easyButtonConfig,
+        surfaceKind: pane.surfaceKind,
+      };
+    case "empty-frame":
+    case "settings-dom":
+      return { ...fields, surfaceKind: pane.surfaceKind };
+  }
 }
 
 function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
-  return {
+  const fields = {
     columnId: pane.columnId,
-    easyButtonConfig: pane.easyButtonConfig ?? null,
     heat: pane.heat,
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
-    surfaceKind: persistedSurfaceKind(pane.surfaceKind),
     title: pane.title,
     tone: persistedPaneTone(pane.tone),
     weight: pane.weight,
   };
+  switch (pane.surfaceKind) {
+    case "easy-button":
+      return {
+        ...fields,
+        easyButtonConfig: pane.easyButtonConfig,
+        surfaceKind: pane.surfaceKind,
+      };
+    case "empty-frame":
+    case "settings-dom":
+      return { ...fields, easyButtonConfig: null, surfaceKind: pane.surfaceKind };
+    default:
+      return persistedDiagnosticPaneError(pane.surfaceKind);
+  }
 }
 
 function workspaceColumnWidthSpec(spec: PersistedColumnWidthSpec): ColumnWidthSpec {
@@ -224,11 +234,8 @@ function persistedColumnWidthSpec(spec: ColumnWidthSpec): PersistedColumnWidthSp
   };
 }
 
-function persistedSurfaceKind(surfaceKind: WorkspacePane["surfaceKind"]): PersistedSurfaceKind {
-  if (!isRealWorkspaceSurfaceKind(surfaceKind)) {
-    throw new Error(`real workspace layout cannot persist diagnostic surface kind: ${surfaceKind}`);
-  }
-  return surfaceKind;
+function persistedDiagnosticPaneError(surfaceKind: string): never {
+  throw new Error(`real workspace layout cannot persist diagnostic surface kind: ${surfaceKind}`);
 }
 
 function persistedPaneTone(tone: WorkspacePane["tone"]): PersistedPaneTone {
@@ -319,12 +326,6 @@ function uniqueSurfaceId(pane: WorkspacePane, usedSurfaceIds: Set<string>): stri
   }
   usedSurfaceIds.add(candidate);
   return candidate;
-}
-
-function isRealWorkspaceSurfaceKind(value: unknown): value is ProductSurfaceKind {
-  return (
-    typeof value === "string" && realWorkspaceSurfaceKinds.includes(value as ProductSurfaceKind)
-  );
 }
 
 function isFiniteNumber(value: unknown): value is number {

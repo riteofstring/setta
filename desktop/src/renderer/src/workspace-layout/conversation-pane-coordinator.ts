@@ -108,7 +108,7 @@ export function presentConversationPane(
     .panes.filter(
       (pane) =>
         pane.surfaceKind === "easy-button" &&
-        pane.easyButtonConfig?.conversationId === request.conversationId,
+        pane.easyButtonConfig.conversationId === request.conversationId,
     )
     .map((pane) => pane.paneId);
   const existingPaneId =

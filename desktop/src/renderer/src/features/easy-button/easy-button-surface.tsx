@@ -61,15 +61,9 @@ import {
 type EasyButtonViewState = "idle" | "working" | "complete";
 type EasyButtonStatusTone = "none" | "completed" | "failed" | "stopped";
 type EasyButtonFocusStatus = "none" | "current" | "updating" | "stale";
-type EasyButtonProjectionStatus =
-  | "binding_required"
-  | "unloaded"
-  | "loading"
-  | "ready"
-  | "error"
-  | "resyncing";
+type EasyButtonProjectionStatus = "unloaded" | "loading" | "ready" | "error" | "resyncing";
 interface EasyButtonSurfaceProps {
-  conversationId: string | null;
+  conversationId: string;
   paneId?: string | null;
   speechCapture?: SpeechCaptureRequester;
   speechPresentation?: GlobalSpeechPresentationSource;
@@ -81,7 +75,7 @@ export interface EasyButtonProjectionView {
   agentText: string;
   archived: boolean;
   artifacts: Artifact[];
-  conversationId: string | null;
+  conversationId: string;
   currentFocus: string;
   error: string | null;
   eventCursorSequence: number;
@@ -117,7 +111,7 @@ export function EasyButtonSurface({
     easyButtonConversationProjection(state.conversations, conversationId),
   );
   useEffect(() => {
-    if (!conversationId || !workspaceId) {
+    if (!workspaceId) {
       return;
     }
     return retainConversationProjection(workspaceId, conversationId);
@@ -148,9 +142,9 @@ export function EasyButtonSurface({
 
 export function easyButtonConversationProjection(
   conversations: ReadonlyMap<string, ConversationProjection>,
-  conversationId: string | null,
+  conversationId: string,
 ): ConversationProjection | undefined {
-  return conversationId ? conversations.get(conversationId) : undefined;
+  return conversations.get(conversationId);
 }
 
 function composerPlaceholder(
@@ -187,7 +181,7 @@ export function EasyButtonProjectionSurface({
     <section
       aria-label={`Easy Button: ${view.title}`}
       className="conversation-presentation-identity easy-button-surface"
-      data-conversation-id={view.conversationId ?? undefined}
+      data-conversation-id={view.conversationId}
       data-conversation-palette={view.paletteId ?? undefined}
       data-easy-button-archived={view.archived}
       data-easy-button-focus={view.focusStatus}
@@ -361,19 +355,11 @@ function ConversationComposer({
 }
 
 export function easyButtonProjectionView(
-  conversationId: string | null,
+  conversationId: string,
   projection: ConversationProjection | undefined,
   paneId: string | null = null,
   parentTitle: string | null = null,
 ): EasyButtonProjectionView {
-  if (!conversationId) {
-    return unavailableView({
-      conversationId: null,
-      error: "This Easy Button pane is not bound to a topic conversation.",
-      helperCopy: "Conversation binding required",
-      projectionStatus: "binding_required",
-    });
-  }
   if (!projection) {
     return unavailableView({
       conversationId,
@@ -487,7 +473,7 @@ function conversationProjectionError(
 }
 
 function unavailableView(options: {
-  conversationId: string | null;
+  conversationId: string;
   error: string | null;
   helperCopy: string;
   projectionStatus: EasyButtonProjectionStatus;
@@ -532,8 +518,6 @@ function resolvedProjectionStatus(projection: ConversationProjection): EasyButto
 
 function projectionHelperCopy(status: EasyButtonProjectionStatus): string {
   switch (status) {
-    case "binding_required":
-      return "Conversation binding required";
     case "unloaded":
       return "Conversation projection is not loaded";
     case "loading":

@@ -12,7 +12,7 @@ import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import type { EmptyFrameOption } from "./surface-adapters";
-import type { WorkspacePane, OpenPaneRequest, SurfaceKind } from "./types";
+import type { WorkspacePane, NonEasyButtonSurfaceKind, OpenPaneRequest } from "./types";
 
 export function WorkspaceToolbar({
   onNativeOverlayActiveChange,
@@ -273,7 +273,7 @@ function shortcutLabelForAction(label: string): string | null {
 function openPaneRequest(
   title: string,
   subtitle: string,
-  surfaceKind: SurfaceKind,
+  surfaceKind: NonEasyButtonSurfaceKind,
   tone: WorkspacePane["tone"],
 ): OpenPaneRequest {
   return {

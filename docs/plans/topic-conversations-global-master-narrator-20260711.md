@@ -2,12 +2,10 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phase 3 pane-binding hardening is next: make every
-Easy Button pane require its Go-owned typed conversation binding across layout
-validation, generated desktop contracts, renderer types and creation paths,
-and deterministic Electron persistence coverage. Phase 7 still requires the
-explicit active-master cancellation command promised by the replacement
-surface.
+**Status:** In progress. Phase 7 active-master cancellation is next: add the
+explicit per-input cancellation command promised by the replacement surface
+across the route service, HTTP and generated IPC contracts, shell controller,
+overlay, persistence semantics, and deterministic production workflow.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1929,12 +1927,13 @@ Exit criteria:
 
 ### Phase 3: Conversation-keyed Easy Button cutover
 
-**Status:** In progress. The conversation-keyed cutover and archive lifecycle
-are complete, but the final audit found that the persisted Go layout contract
-still accepts an `easy-button` pane with a null `easyButtonConfig`, while the
-renderer models the binding as optional and renders an unbound fallback. Every
-valid Easy Button pane must instead carry its typed `conversationId`; invalid
-create, configure, save, and reload paths must fail explicitly.
+**Status:** Complete. Every Easy Button pane now requires its Go-owned typed
+conversation binding. Layout save and reload reject null or invalid bindings;
+the generated desktop contract and decoder expose a discriminated pane union;
+renderer pane, request, creation, configuration, and surface paths cannot
+produce or render an unbound Easy Button; and deterministic Electron coverage
+proves the binding survives restart/reload while invalid persistence fails
+without replacing the valid layout.
 
 Implement:
 

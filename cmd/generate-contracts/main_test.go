@@ -11,6 +11,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
+	"setta/internal/workspaceui"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -349,6 +350,40 @@ func TestRenderTaggedUnionStructValidatesBranchInvariant(t *testing.T) {
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("generated output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestRenderWorkspaceUIPaneRequiresDiscriminatedConversationBinding(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractWorkspaceUILayout",
+			Method:   "GET",
+			Path:     "/contract-workspace-ui-layout",
+			Response: reflect.TypeFor[workspaceui.WorkspaceUILayout](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	})
+	if err != nil {
+		t.Fatalf("collect workspace UI contracts: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render workspace UI contracts: %v", err)
+	}
+	output := buffer.String()
+	for _, want := range []string{
+		"export type WorkspaceUIPane = {",
+		"surfaceKind: \"easy-button\";\n      easyButtonConfig: EasyButtonPaneConfig;",
+		"surfaceKind: \"empty-frame\";\n      easyButtonConfig: null;",
+		"surfaceKind: \"settings-dom\";\n      easyButtonConfig: null;",
+		"switch (result.surfaceKind)",
+		"WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button",
+		"WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated workspace UI contract missing %q:\n%s", want, output)
 		}
 	}
 }

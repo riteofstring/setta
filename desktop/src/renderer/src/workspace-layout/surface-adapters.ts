@@ -408,20 +408,20 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
 function conversationPaletteIdentitySourceMatchesPane(
   pane: WorkspacePane,
   sourceHost: HTMLElement,
-): boolean {
+): pane is Extract<WorkspacePane, { surfaceKind: "easy-button" }> {
   return pane.surfaceKind === "easy-button" && sourceHost.dataset.surfaceId === pane.surfaceId;
 }
 
 function ensureConversationPaletteIdentityMatchesPane(
-  pane: WorkspacePane,
+  pane: Extract<WorkspacePane, { surfaceKind: "easy-button" }>,
   identity: ConversationPaletteIdentity | null,
 ): void {
-  const expectedConversationId = pane.easyButtonConfig?.conversationId;
+  const expectedConversationId = pane.easyButtonConfig.conversationId;
   if (!identity || identity.conversationId === expectedConversationId) {
     return;
   }
   throw new Error(
-    `snapshot source ${pane.surfaceId} exposes conversation ${identity.conversationId}; expected ${expectedConversationId ?? "an unbound Easy Button"}`,
+    `snapshot source ${pane.surfaceId} exposes conversation ${identity.conversationId}; expected ${expectedConversationId}`,
   );
 }
 

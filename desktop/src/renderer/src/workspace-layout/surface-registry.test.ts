@@ -8,7 +8,9 @@ import { SurfaceRegistry } from "./surface-registry";
 import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type {
   FreezeReason,
+  EasyButtonWorkspacePane,
   WorkspacePane,
+  NonEasyButtonSurfaceKind,
   PaneRenderItem,
   Rect,
   ResumeReason,
@@ -1010,20 +1012,32 @@ function requireFakeChild(children: FakeChildNode[], index: number): FakeChildNo
   return child;
 }
 
+function fakePane(surfaceKind: "easy-button", sequence?: number): EasyButtonWorkspacePane;
+function fakePane(
+  surfaceKind: NonEasyButtonSurfaceKind,
+  sequence?: number,
+): Exclude<WorkspacePane, { surfaceKind: "easy-button" }>;
+function fakePane(surfaceKind: SurfaceKind, sequence?: number): WorkspacePane;
 function fakePane(surfaceKind: SurfaceKind, sequence = 0): WorkspacePane {
   const suffix = sequence === 0 ? "" : `-${sequence}`;
-  return {
+  const fields = {
     columnId: `column${suffix}`,
     heat: 42,
     paneId: `pane${suffix}`,
     sequence,
     subtitle: "test",
     surfaceId: `surface${suffix}`,
-    surfaceKind,
     title: "Pane",
-    tone: "cyan",
+    tone: "cyan" as const,
     weight: 1,
   };
+  return surfaceKind === "easy-button"
+    ? {
+        ...fields,
+        easyButtonConfig: { conversationId: `conversation${suffix || "_test"}` },
+        surfaceKind,
+      }
+    : { ...fields, surfaceKind };
 }
 
 function renderItem(

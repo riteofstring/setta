@@ -577,16 +577,22 @@ function mountBrowserStage(
 }
 
 function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
-  return {
+  const fields = {
     columnId: "column",
     heat: 42,
     paneId: "pane",
     sequence: 0,
     subtitle: "test",
     surfaceId: "surface",
-    surfaceKind,
     title: "Pane",
-    tone: "cyan",
+    tone: "cyan" as const,
     weight: 1,
   };
+  return surfaceKind === "easy-button"
+    ? {
+        ...fields,
+        easyButtonConfig: { conversationId: "conversation_test" },
+        surfaceKind,
+      }
+    : { ...fields, surfaceKind };
 }

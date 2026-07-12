@@ -1,5 +1,7 @@
 package workspaceui
 
+import "reflect"
+
 const SchemaVersion = 1
 
 type ColumnWidthUnit string
@@ -77,6 +79,46 @@ type WorkspaceUILayoutReadResult struct {
 type ContractValueSet struct {
 	Name   string
 	Values []string
+}
+
+type ContractDiscriminatedStruct struct {
+	Type          reflect.Type
+	Discriminator string
+	Variants      []ContractDiscriminatedStructVariant
+}
+
+type ContractDiscriminatedStructVariant struct {
+	DiscriminatorValue string
+	Fields             []ContractDiscriminatedStructField
+}
+
+type ContractDiscriminatedStructField struct {
+	Name    string
+	NonNull bool
+}
+
+func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
+	return []ContractDiscriminatedStruct{{
+		Type:          reflect.TypeFor[WorkspaceUIPane](),
+		Discriminator: "surfaceKind",
+		Variants: []ContractDiscriminatedStructVariant{
+			{
+				DiscriminatorValue: string(SurfaceKindEasyButton),
+				Fields: []ContractDiscriminatedStructField{{
+					Name:    "easyButtonConfig",
+					NonNull: true,
+				}},
+			},
+			{
+				DiscriminatorValue: string(SurfaceKindEmptyFrame),
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
+			},
+			{
+				DiscriminatorValue: string(SurfaceKindSettingsDOM),
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
+			},
+		},
+	}}
 }
 
 func ContractValueSets() []ContractValueSet {

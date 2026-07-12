@@ -91,6 +91,7 @@ import {
   waitForRecordedTextConversationInput,
 } from "./topic-conversation-input-routing-assertions.mjs";
 import { exerciseCodexAccountNotificationWorkflow } from "./topic-conversation-codex-account-workflow.mjs";
+import { assertEasyButtonBindingPersistence } from "./topic-conversation-pane-binding-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
@@ -257,6 +258,7 @@ try {
     (surfaces) =>
       hasReadyConversation(surfaces, alpha.id) && hasReadyConversation(surfaces, beta.id),
   );
+  await assertEasyButtonBindingPersistence(backend, workspaceId, [alpha.id, beta.id], alpha.id);
   const alphaPaneId = requiredConversationSurface(initial.surfaces, alpha.id).paneId;
   shellMasterOverlayInput = await exerciseMasterOverlayEntryPoints({
     artifactDirectory: secondLaunchDir,

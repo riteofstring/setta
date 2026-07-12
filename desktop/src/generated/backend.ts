@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 47;
-export const backendContractSchemaHash = "sha256:0bcae6a2ffa4c6639f6ef6d78ef40fb98a49faa1bf70c8ebf472081435264219";
+export const backendProtocolVersion = 48;
+export const backendContractSchemaHash = "sha256:c83a9676c26115686efd595547b987afaa3d238077ec539b957fe7cf0c4f7764";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -1711,19 +1711,30 @@ export interface EasyButtonPaneConfig {
   conversationId: string;
 }
 
-export interface WorkspaceUIPane {
+export type WorkspaceUIPane = {
   columnId: string;
-  easyButtonConfig: EasyButtonPaneConfig | null;
   heat: number;
   paneId: string;
   sequence: number;
   subtitle: string;
   surfaceId: string;
-  surfaceKind: SurfaceKind;
   title: string;
   tone: PaneTone;
   weight: number;
-}
+} & (
+  | {
+      surfaceKind: "easy-button";
+      easyButtonConfig: EasyButtonPaneConfig;
+    }
+  | {
+      surfaceKind: "empty-frame";
+      easyButtonConfig: null;
+    }
+  | {
+      surfaceKind: "settings-dom";
+      easyButtonConfig: null;
+    }
+);
 
 export interface WorkspaceUILayout {
   schemaVersion: number;
@@ -3909,7 +3920,7 @@ export function decodeEasyButtonPaneConfig(value: unknown): EasyButtonPaneConfig
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
   assertKnownFields(record, "WorkspaceUIPane", ["columnId", "easyButtonConfig", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
-  return {
+  const result = {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
     easyButtonConfig: decodeNullable(requireField(record, "easyButtonConfig", "WorkspaceUIPane"), "WorkspaceUIPane.easyButtonConfig", (item) => decodeEasyButtonPaneConfig(item)),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
@@ -3922,6 +3933,40 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
     tone: decodePaneTone(requireField(record, "tone", "WorkspaceUIPane"), "WorkspaceUIPane.tone"),
     weight: decodeNumber(requireField(record, "weight", "WorkspaceUIPane"), "WorkspaceUIPane.weight"),
   };
+  switch (result.surfaceKind) {
+    case "easy-button": {
+      if (result.easyButtonConfig === null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button");
+      }
+      return {
+        ...result,
+        surfaceKind: "easy-button",
+        easyButtonConfig: result.easyButtonConfig,
+      };
+    }
+    case "empty-frame": {
+      if (result.easyButtonConfig !== null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame");
+      }
+      return {
+        ...result,
+        surfaceKind: "empty-frame",
+        easyButtonConfig: null,
+      };
+    }
+    case "settings-dom": {
+      if (result.easyButtonConfig !== null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is settings-dom");
+      }
+      return {
+        ...result,
+        surfaceKind: "settings-dom",
+        easyButtonConfig: null,
+      };
+    }
+    default:
+      throw new Error("WorkspaceUIPane.surfaceKind is unsupported: " + result.surfaceKind);
+  }
 }
 
 export function decodeWorkspaceUILayout(value: unknown): WorkspaceUILayout {

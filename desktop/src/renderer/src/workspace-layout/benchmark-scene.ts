@@ -1,4 +1,10 @@
-import type { WorkspaceColumn, WorkspacePane, WorkspaceScene, SurfaceKind } from "./types";
+import type {
+  WorkspaceColumn,
+  WorkspacePane,
+  WorkspaceScene,
+  NonEasyButtonSurfaceKind,
+  SurfaceKind,
+} from "./types";
 
 export const phaseOneFakePaneCount = 500;
 export const phaseOneVisiblePaneCount = 40;
@@ -6,7 +12,7 @@ export const phaseOneVisiblePaneCount = 40;
 const defaultPanesPerColumn = 5;
 const toneSequence = ["cyan", "green", "orange", "pink", "slate"] as const;
 const workKinds = ["notes", "diff", "trace", "task", "search"] as const;
-const seededSurfaceKinds = new Map<number, SurfaceKind>([
+const seededSurfaceKinds = new Map<number, NonEasyButtonSurfaceKind>([
   [1, "fake-heavy-dom"],
   [2, "settings-dom"],
   [3, "fake-dom"],
@@ -98,7 +104,7 @@ function createFakePane(columnId: string, sequence: number, rowIndex: number): W
   };
 }
 
-function fakeSurfaceKind(sequence: number): SurfaceKind {
+function fakeSurfaceKind(sequence: number): NonEasyButtonSurfaceKind {
   const seededKind = seededSurfaceKinds.get(sequence);
   if (seededKind) {
     return seededKind;

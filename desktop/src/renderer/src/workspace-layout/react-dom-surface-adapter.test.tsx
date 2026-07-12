@@ -248,7 +248,7 @@ describe("workspace React DOM surface adapter", () => {
     const renderedNode = root.renderedNodes.at(-1);
     if (
       !isValidElement<{
-        conversationId: string | null;
+        conversationId: string;
         paneId: string;
         speechCapture: typeof speechCapture;
         speechPresentation: GlobalSpeechPresentationSource;
@@ -289,20 +289,24 @@ function waitForMicrotask(): Promise<void> {
 }
 
 function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
-  return {
+  const fields = {
     columnId: "column",
-    easyButtonConfig:
-      surfaceKind === "easy-button" ? { conversationId: "conversation_test" } : undefined,
     heat: 42,
     paneId: "pane",
     sequence: 0,
     subtitle: "test",
     surfaceId: "surface",
-    surfaceKind,
     title: "Pane",
-    tone: "cyan",
+    tone: "cyan" as const,
     weight: 1,
   };
+  return surfaceKind === "easy-button"
+    ? {
+        ...fields,
+        easyButtonConfig: { conversationId: "conversation_test" },
+        surfaceKind,
+      }
+    : { ...fields, surfaceKind };
 }
 
 interface FakeChildNode {

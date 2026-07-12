@@ -87,6 +87,25 @@ func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	}
 }
 
+func TestWorkspaceUILayoutEndpointRejectsEasyButtonPaneWithoutConversationBinding(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+	layout.Panes[0].EasyButtonConfig = nil
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
+		Layout: layout,
+	}, http.StatusInternalServerError)
+	if errResponse.Error.Code != "corrupt_workspace_ui_state" {
+		t.Fatalf("error code = %q, want corrupt_workspace_ui_state", errResponse.Error.Code)
+	}
+	if !strings.Contains(errResponse.Error.Message, "easyButtonConfig is required for easy-button panes") {
+		t.Fatalf("error message = %q, want missing Easy Button binding", errResponse.Error.Message)
+	}
+}
+
 func TestWorkspaceUILayoutEndpointRejectsUnknownWorkspace(t *testing.T) {
 	handler := newWorkspaceHandler(t, nil, nil)
 

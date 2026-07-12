@@ -79,9 +79,6 @@ function syncPaneChromeTitle(host: HTMLElement, view: EasyButtonPanePresentation
 }
 
 function paneTitleSuffix(view: EasyButtonPanePresentation): string {
-  if (view.projectionStatus === "binding_required") {
-    return "conversation required";
-  }
   if (view.projectionStatus === "loading" || view.projectionStatus === "resyncing") {
     return "loading";
   }

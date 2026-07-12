@@ -47,10 +47,10 @@ function conversationPaneWorkspaceState(
   const paneIdsByConversationId = new Map<string, string[]>();
   let focusedConversationId: string | null = null;
   for (const pane of scene.panes) {
-    const conversationId = pane.easyButtonConfig?.conversationId;
-    if (pane.surfaceKind !== "easy-button" || !conversationId) {
+    if (pane.surfaceKind !== "easy-button") {
       continue;
     }
+    const conversationId = pane.easyButtonConfig.conversationId;
     const paneIds = paneIdsByConversationId.get(conversationId) ?? [];
     paneIds.push(pane.paneId);
     paneIdsByConversationId.set(conversationId, paneIds);

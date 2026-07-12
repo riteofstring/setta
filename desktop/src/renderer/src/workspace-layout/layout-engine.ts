@@ -25,9 +25,9 @@ import {
   scrollOffsetForColumn,
 } from "./layout-engine-helpers";
 import {
-  easyButtonConfigForRequest,
   normalizedPaneHeightPx,
   normalizedPaneWeight,
+  paneSurfaceForRequest,
 } from "./layout-engine-normalization";
 import {
   paneInHorizontalVisualDirection,
@@ -117,6 +117,7 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
   }
 
   openPane(request: OpenPaneRequest): PaneId {
+    const paneSurface = paneSurfaceForRequest(request);
     const targetColumn = request.columnId
       ? this.requireColumn(request.columnId)
       : this.insertColumnAfter(request.adjacentToColumnId, request.widthSpec);
@@ -124,16 +125,15 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     this.nextPaneSequence += 1;
     const pane: WorkspacePane = {
       columnId: targetColumn.columnId,
-      easyButtonConfig: easyButtonConfigForRequest(request),
       heat: (sequence * 37) % 100,
       paneId: `workspace_pane_${sequence}`,
       sequence,
       subtitle: request.subtitle ?? "workspace surface",
       surfaceId: `workspace_surface_${sequence}`,
-      surfaceKind: request.surfaceKind ?? "empty-frame",
       title: request.title ?? `Pane ${String(sequence + 1).padStart(3, "0")}`,
       tone: request.tone ?? "slate",
       weight: request.weight ?? 1,
+      ...paneSurface,
     };
     this.paneById.set(pane.paneId, pane);
     targetColumn.paneIds.push(pane.paneId);
@@ -168,18 +168,21 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     if (!pane) {
       throw new Error(`unknown workspace pane ${paneId}`);
     }
+    const paneSurface = paneSurfaceForRequest(request, pane);
     const sequence = this.nextPaneSequence;
     this.nextPaneSequence += 1;
     this.paneById.set(paneId, {
-      ...pane,
-      easyButtonConfig: easyButtonConfigForRequest(request, pane),
+      columnId: pane.columnId,
       heat: (sequence * 37) % 100,
+      heightPx: pane.heightPx,
+      paneId: pane.paneId,
+      sequence: pane.sequence,
       subtitle: request.subtitle ?? pane.subtitle,
       surfaceId: `workspace_surface_${sequence}`,
-      surfaceKind: request.surfaceKind ?? pane.surfaceKind,
       title: request.title ?? pane.title,
       tone: request.tone ?? pane.tone,
       weight: request.weight ?? pane.weight,
+      ...paneSurface,
     });
     return paneId;
   }

@@ -59,6 +59,31 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 	return result
 }
 
+func contractDiscriminatedStructs() map[reflect.Type]discriminatedStructSpec {
+	result := map[reflect.Type]discriminatedStructSpec{}
+	for _, contract := range workspaceui.ContractDiscriminatedStructs() {
+		variants := make([]discriminatedStructVariant, 0, len(contract.Variants))
+		for _, variant := range contract.Variants {
+			fields := make([]discriminatedStructField, 0, len(variant.Fields))
+			for _, field := range variant.Fields {
+				fields = append(fields, discriminatedStructField{
+					Name:    field.Name,
+					NonNull: field.NonNull,
+				})
+			}
+			variants = append(variants, discriminatedStructVariant{
+				DiscriminatorValue: variant.DiscriminatorValue,
+				Fields:             fields,
+			})
+		}
+		result[contract.Type] = discriminatedStructSpec{
+			Discriminator: contract.Discriminator,
+			Variants:      variants,
+		}
+	}
+	return result
+}
+
 type contractValueSet struct {
 	Name   string
 	Values []string

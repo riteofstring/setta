@@ -91,12 +91,9 @@ describe("Easy Button topic conversation projection", () => {
     expect(beta).not.toContain("Alpha topic milestone");
   });
 
-  test("reports an unbound or unloaded pane without reading selected-workspace state", () => {
-    const unbound = renderToString(<EasyButtonSurface conversationId={null} />);
+  test("reports an unloaded bound pane without reading selected-workspace state", () => {
     const unloaded = renderToString(<EasyButtonSurface conversationId="conversation_unloaded" />);
 
-    expect(unbound).toContain('data-easy-button-projection="binding_required"');
-    expect(unbound).toContain("This Easy Button pane is not bound to a topic conversation.");
     expect(unloaded).toContain('data-conversation-id="conversation_unloaded"');
     expect(unloaded).toContain('data-easy-button-projection="unloaded"');
     expect(unloaded).toContain("Conversation projection is not loaded");

@@ -1,6 +1,7 @@
 package workspaceui
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -130,28 +131,34 @@ func TestStorePersistsEasyButtonPaneConfig(t *testing.T) {
 
 func TestStoreRejectsInvalidEasyButtonPaneConfig(t *testing.T) {
 	tests := []struct {
-		name           string
-		surfaceKind    SurfaceKind
-		conversationID string
-		want           string
+		name        string
+		surfaceKind SurfaceKind
+		config      *EasyButtonPaneConfig
+		want        string
 	}{
 		{
-			name:           "missing conversation",
-			surfaceKind:    SurfaceKindEasyButton,
-			conversationID: "",
-			want:           "conversationId is required",
+			name:        "missing config",
+			surfaceKind: SurfaceKindEasyButton,
+			config:      nil,
+			want:        "easyButtonConfig is required for easy-button panes",
 		},
 		{
-			name:           "surrounding whitespace",
-			surfaceKind:    SurfaceKindEasyButton,
-			conversationID: " conversation-1",
-			want:           "must not have surrounding whitespace",
+			name:        "missing conversation",
+			surfaceKind: SurfaceKindEasyButton,
+			config:      &EasyButtonPaneConfig{},
+			want:        "conversationId is required",
 		},
 		{
-			name:           "wrong surface",
-			surfaceKind:    SurfaceKindEmptyFrame,
-			conversationID: "conversation-1",
-			want:           "only valid for easy-button panes",
+			name:        "surrounding whitespace",
+			surfaceKind: SurfaceKindEasyButton,
+			config:      &EasyButtonPaneConfig{ConversationID: " conversation-1"},
+			want:        "must not have surrounding whitespace",
+		},
+		{
+			name:        "wrong surface",
+			surfaceKind: SurfaceKindEmptyFrame,
+			config:      &EasyButtonPaneConfig{ConversationID: "conversation-1"},
+			want:        "only valid for easy-button panes",
 		},
 	}
 
@@ -160,7 +167,7 @@ func TestStoreRejectsInvalidEasyButtonPaneConfig(t *testing.T) {
 			store := newTestStore(t, t.TempDir())
 			layout := testLayout("workspace_api")
 			layout.Panes[0].SurfaceKind = test.surfaceKind
-			layout.Panes[0].EasyButtonConfig = &EasyButtonPaneConfig{ConversationID: test.conversationID}
+			layout.Panes[0].EasyButtonConfig = test.config
 
 			_, err := store.SaveLayout(layout)
 			if err == nil {
@@ -170,6 +177,32 @@ func TestStoreRejectsInvalidEasyButtonPaneConfig(t *testing.T) {
 				t.Fatalf("error = %T %v, want corrupt state containing %q", err, err, test.want)
 			}
 		})
+	}
+}
+
+func TestStoreRejectsPersistedEasyButtonPaneWithoutConversationBinding(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := newTestStore(t, appDataDir)
+	layout := testLayout("workspace_api")
+	layout.Panes[0].EasyButtonConfig = nil
+	payload, err := json.Marshal(layout)
+	if err != nil {
+		t.Fatalf("marshal invalid layout fixture: %v", err)
+	}
+	path := StateFilePath(appDataDir, layout.WorkspaceID)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create state dir: %v", err)
+	}
+	if err := os.WriteFile(path, payload, 0o644); err != nil {
+		t.Fatalf("write invalid layout fixture: %v", err)
+	}
+
+	_, err = store.LoadLayout(layout.WorkspaceID)
+	if err == nil {
+		t.Fatal("load succeeded, want missing Easy Button binding error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "easyButtonConfig is required for easy-button panes") {
+		t.Fatalf("error = %T %v, want missing Easy Button binding corrupt state", err, err)
 	}
 }
 

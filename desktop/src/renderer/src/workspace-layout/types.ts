@@ -1,14 +1,13 @@
-import type { EasyButtonPaneConfig } from "@generated/backend";
+import type { EasyButtonPaneConfig, SurfaceKind as PersistedSurfaceKind } from "@generated/backend";
 
 export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
 
-export const productSurfaceKinds = ["easy-button", "empty-frame", "settings-dom"] as const;
-
-export type ProductSurfaceKind = (typeof productSurfaceKinds)[number];
+export type ProductSurfaceKind = PersistedSurfaceKind;
 type DiagnosticSurfaceKind = "browser" | "fake-dom" | "fake-heavy-dom" | "snapshot";
 export type SurfaceKind = ProductSurfaceKind | DiagnosticSurfaceKind;
+export type NonEasyButtonSurfaceKind = Exclude<SurfaceKind, "easy-button">;
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 
@@ -39,20 +38,30 @@ export interface ColumnWidthSpec {
   unit: "proportion" | "px";
 }
 
-export interface WorkspacePane {
+interface WorkspacePaneFields {
   columnId: ColumnId;
-  easyButtonConfig?: EasyButtonPaneConfig;
   heat: number;
   heightPx?: number;
   paneId: PaneId;
   sequence: number;
   subtitle: string;
   surfaceId: SurfaceId;
-  surfaceKind: SurfaceKind;
   title: string;
   tone: "cyan" | "green" | "orange" | "pink" | "slate";
   weight: number;
 }
+
+export type EasyButtonWorkspacePane = WorkspacePaneFields & {
+  easyButtonConfig: EasyButtonPaneConfig;
+  surfaceKind: "easy-button";
+};
+
+export type WorkspacePane =
+  | EasyButtonWorkspacePane
+  | (WorkspacePaneFields & {
+      easyButtonConfig?: never;
+      surfaceKind: NonEasyButtonSurfaceKind;
+    });
 
 export interface WorkspaceColumn {
   columnId: ColumnId;
@@ -81,17 +90,25 @@ export interface WorkspaceScene {
   visibleColumnCount: number;
 }
 
-export interface OpenPaneRequest {
+interface OpenPaneRequestFields {
   adjacentToColumnId?: ColumnId;
   columnId?: ColumnId;
-  easyButtonConfig?: EasyButtonPaneConfig;
   subtitle?: string;
-  surfaceKind?: SurfaceKind;
   title?: string;
   tone?: WorkspacePane["tone"];
   weight?: number;
   widthSpec?: ColumnWidthSpec;
 }
+
+export type OpenPaneRequest =
+  | (OpenPaneRequestFields & {
+      easyButtonConfig: EasyButtonPaneConfig;
+      surfaceKind: "easy-button";
+    })
+  | (OpenPaneRequestFields & {
+      easyButtonConfig?: never;
+      surfaceKind?: NonEasyButtonSurfaceKind;
+    });
 
 export type PaneInsertionPlacement = "above" | "below" | "right";
 export type PaneDropPlacement = "after" | "before";

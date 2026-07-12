@@ -1,4 +1,4 @@
-import type { SurfaceKind } from "@generated/backend";
+import type { SurfaceKind, WorkspaceUIPane } from "@generated/backend";
 
 import { createRealWorkspaceScene, type RealWorkspaceSceneOptions } from "./workspace-scene";
 
@@ -29,21 +29,34 @@ export function createWorkspaceLayoutTestScene(options: RealWorkspaceSceneOption
         widthSpec: { unit: "px", value: 520 },
       })),
       focusedPaneId: "workspace_pane_0",
-      panes: layoutTestSurfaces.map((surface, index) => ({
-        columnId: `workspace_column_${index}`,
-        easyButtonConfig: null,
-        heat: index * 20,
-        paneId: `workspace_pane_${index}`,
-        sequence: index,
-        subtitle: "layout test surface",
-        surfaceId: `workspace_surface_${index}`,
-        surfaceKind: surface.surfaceKind,
-        title: surface.title,
-        tone: surface.tone,
-        weight: surface.weight,
-      })),
+      panes: layoutTestSurfaces.map(storedTestPane),
       schemaVersion: 1,
       workspaceId: options.workspaceId,
     },
   });
+}
+
+function storedTestPane(
+  surface: (typeof layoutTestSurfaces)[number],
+  index: number,
+): WorkspaceUIPane {
+  const fields = {
+    columnId: `workspace_column_${index}`,
+    heat: index * 20,
+    paneId: `workspace_pane_${index}`,
+    sequence: index,
+    subtitle: "layout test surface",
+    surfaceId: `workspace_surface_${index}`,
+    title: surface.title,
+    tone: surface.tone,
+    weight: surface.weight,
+  };
+  if (surface.surfaceKind === "easy-button") {
+    return {
+      ...fields,
+      easyButtonConfig: { conversationId: "conversation_layout_test" },
+      surfaceKind: surface.surfaceKind,
+    };
+  }
+  return { ...fields, easyButtonConfig: null, surfaceKind: surface.surfaceKind };
 }
