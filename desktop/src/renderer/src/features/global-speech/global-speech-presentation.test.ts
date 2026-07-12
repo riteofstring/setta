@@ -14,6 +14,7 @@ import {
   globalSpeechCapturePresentation,
   paneSpeechPresentation,
   shellSpeechCaptureAction,
+  shellSpeechCaptureControlLabel,
   shellSpeechCaptureLabel,
   shellSpeechPlaybackLabel,
   shellSpeechStatusLabel,
@@ -34,6 +35,9 @@ describe("global speech presentation", () => {
     const playback = idlePlayback();
 
     expect(shellSpeechCaptureAction(capture)).toBe("commit");
+    expect(shellSpeechCaptureControlLabel(capture, "Alpha topic")).toBe(
+      "Finish the voice request for Alpha topic",
+    );
     expect(shellSpeechCaptureLabel(capture, "Alpha topic")).toBe("Listening for Alpha topic");
     expect(
       paneSpeechPresentation(capture, playback, {
@@ -44,6 +48,7 @@ describe("global speech presentation", () => {
       activityLabel: "Listening",
       captureScope: "this_pane",
       captureState: "listening",
+      transcriptPreview: "partial words",
       voiceControlDisabled: false,
       voiceControlLabel: "Finish this voice request",
     });
@@ -55,6 +60,7 @@ describe("global speech presentation", () => {
     ).toMatchObject({
       activityLabel: "Listening in another view",
       captureScope: "this_conversation",
+      transcriptPreview: null,
       voiceControlDisabled: true,
     });
     expect(
@@ -65,6 +71,7 @@ describe("global speech presentation", () => {
     ).toMatchObject({
       activityLabel: "Listening for another topic",
       captureScope: "other_conversation",
+      transcriptPreview: null,
       voiceControlDisabled: true,
     });
   });
@@ -116,6 +123,9 @@ describe("global speech presentation", () => {
     );
     expect(disabled).toEqual({ source: null, state: "disabled" });
     expect(shellSpeechCaptureAction(disabled)).toBe("enable_and_start");
+    expect(shellSpeechCaptureControlLabel(disabled)).toBe(
+      "Enable the microphone and start a voice request for Setta",
+    );
 
     const input = conversationInput();
     const failed = globalSpeechCapturePresentation(
@@ -150,6 +160,9 @@ describe("global speech presentation", () => {
       state: "failed",
     });
     expect(shellSpeechCaptureAction(failed)).toBe("retry_conversation");
+    expect(shellSpeechCaptureControlLabel(failed, "Alpha topic")).toBe(
+      "Retry the voice request for Alpha topic",
+    );
   });
 });
 

@@ -107,6 +107,9 @@
             speechActivityText: elementText(
               surface.querySelector('[data-testid="easy-button-speech-activity"]'),
             ),
+            speechTranscriptText: elementText(
+              surface.querySelector('[data-testid="easy-button-speech-transcript"]'),
+            ),
             title: surface.getAttribute("aria-label") ?? "",
             voiceCaptureLabel: voiceCapture?.getAttribute("aria-label") ?? "",
             voiceCaptureAvailable:
@@ -172,6 +175,7 @@
       playbackState: datasetValue(status, "speechPlayback"),
       sourceConversationId: datasetValue(status, "speechSourceConversation"),
       stopAvailable: stop instanceof HTMLButtonElement && !stop.disabled,
+      transcriptText: elementText(status?.querySelector('[data-testid="shell-speech-transcript"]')),
     };
   }
 

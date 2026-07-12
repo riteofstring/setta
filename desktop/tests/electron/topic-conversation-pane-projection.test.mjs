@@ -193,6 +193,7 @@ try {
     conversationId: alpha.id,
     conversationTitle: alpha.title,
     sourcePaneId: alphaPaneId,
+    transcriptPreview: paneSpeechTranscript.trim(),
     timeoutMs: workflowTimeoutMs,
   });
   assertDriverAction(
@@ -359,6 +360,7 @@ try {
     conversationId: alpha.id,
     conversationTitle: alpha.title,
     sourcePaneId: alphaPaneId,
+    transcriptPreview: paneSpeechTranscript.trim(),
     timeoutMs: workflowTimeoutMs,
   });
   assertDriverAction(

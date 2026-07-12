@@ -165,10 +165,21 @@
   min-width: 0;
 }
 
-.easy-button-speech-activity > span {
+.easy-button-speech-activity-label,
+.easy-button-speech-transcript {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.easy-button-speech-activity-label {
+  flex: 0 1 auto;
+}
+
+.easy-button-speech-transcript {
+  color: var(--easy-button-secondary);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .easy-button-speech-activity > svg {
@@ -214,7 +225,8 @@
 }
 
 @media (max-width: 780px) {
-  .easy-button-speech-activity > span {
+  .easy-button-speech-activity-label,
+  .easy-button-speech-transcript {
     display: none;
   }
 }

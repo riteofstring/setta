@@ -22,9 +22,11 @@ import {
   paneSpeechPresentation,
   type PaneSpeechPresentation,
   shellSpeechCaptureAction,
+  shellSpeechCaptureControlLabel,
   shellSpeechCaptureLabel,
   shellSpeechPlaybackLabel,
   shellSpeechStatusLabel,
+  speechCaptureTranscriptPreview,
   speechPresentationConversationId,
 } from "./global-speech-presentation";
 import { masterSpeechCaptureRequest } from "./speech-capture-destination";
@@ -37,6 +39,7 @@ export function AppShellSpeechStatus() {
 interface ShellSpeechStatusModel {
   action: ReturnType<typeof shellSpeechCaptureAction>;
   capture: GlobalSpeechCapturePresentation;
+  captureControlLabel: string;
   captureController: AppShellSpeechCaptureController;
   captureLabel: string;
   playbackController: AppShellSpeechPlaybackController;
@@ -65,6 +68,7 @@ function useShellSpeechStatusModel(): ShellSpeechStatusModel | null {
   return {
     action: shellSpeechCaptureAction(capture),
     capture,
+    captureControlLabel: shellSpeechCaptureControlLabel(capture, sourceConversationTitle),
     captureController: captureContext.controller,
     captureLabel: shellSpeechCaptureLabel(capture, sourceConversationTitle),
     playbackController: playbackContext.controller,
@@ -113,12 +117,12 @@ function ShellSpeechStatusView({ model }: { model: ShellSpeechStatusModel }) {
       data-testid="shell-speech-status"
     >
       <button
-        aria-label={model.captureLabel}
+        aria-label={model.captureControlLabel}
         className="setta-shell-speech-button"
         data-testid="shell-speech-capture-control"
         disabled={model.action === null}
         onClick={() => executeShellCaptureAction(model.captureController, model.action)}
-        title={model.captureLabel}
+        title={model.captureControlLabel}
         type="button"
       >
         <ShellCaptureGlyph capture={model.capture} />
@@ -234,19 +238,30 @@ export function PaneSpeechActivityIndicator({
   if (!presentation?.activityLabel || !presentation.activityKind) {
     return null;
   }
+  const label = speechActivityAccessibleLabel(presentation);
   return (
     <span
-      aria-live="polite"
+      aria-label={label}
       className="easy-button-speech-activity"
       data-speech-activity={presentation.activityKind}
       data-testid="easy-button-speech-activity"
-      role="status"
-      title={presentation.activityLabel}
+      title={label}
     >
       <PaneSpeechActivityGlyph kind={presentation.activityKind} />
-      <span>{presentation.activityLabel}</span>
+      <span className="easy-button-speech-activity-label">{presentation.activityLabel}</span>
+      {presentation.transcriptPreview ? (
+        <span className="easy-button-speech-transcript" data-testid="easy-button-speech-transcript">
+          “{presentation.transcriptPreview}”
+        </span>
+      ) : null}
     </span>
   );
+}
+
+function speechActivityAccessibleLabel(presentation: PaneSpeechPresentation): string {
+  return presentation.transcriptPreview
+    ? `${presentation.activityLabel}: ${presentation.transcriptPreview}`
+    : (presentation.activityLabel ?? "");
 }
 
 function PlaybackStopButton({
@@ -406,9 +421,15 @@ function ShellSpeechStatusText({
   label: string | null;
 }) {
   const visibleLabel = shellSpeechStatusLabel(capture, captureLabel, label);
+  const transcriptPreview = speechCaptureTranscriptPreview(capture);
   return visibleLabel ? (
     <span className="setta-shell-speech-label" data-testid="shell-speech-label" role="status">
-      {visibleLabel}
+      <span className="setta-shell-speech-state-label">{visibleLabel}</span>
+      {transcriptPreview ? (
+        <span className="setta-shell-speech-transcript" data-testid="shell-speech-transcript">
+          “{transcriptPreview}”
+        </span>
+      ) : null}
     </span>
   ) : null;
 }

@@ -26,6 +26,7 @@ import {
   easyButtonProjectionView,
 } from "./easy-button-surface";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
+import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
 import { requestEasyButtonSpeechCapture } from "./easy-button-conversation-commands";
 
 const workspaceId = "workspace_topic";
@@ -180,6 +181,7 @@ describe("Easy Button topic conversation projection", () => {
           captureState: "idle",
           playbackScope: "this_conversation",
           playbackState: "speaking",
+          transcriptPreview: null,
           voiceControlDisabled: false,
           voiceControlLabel: "Start a voice request for this conversation",
         }}
@@ -192,6 +194,43 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain('data-easy-button-playback-scope="this_conversation"');
     expect(html).toContain('data-speech-activity="speaking"');
     expect(html).toContain("Narrator speaking");
+  });
+
+  test("keeps the source pane finish control available while a conversation command is pending", () => {
+    const html = renderToString(
+      <EasyButtonConversationComposer
+        available={false}
+        canSubmit={false}
+        input=""
+        onInput={() => {}}
+        onStatus={() => {}}
+        onSteer={() => {}}
+        onSubmit={undefined}
+        onVoiceCapture={() => {}}
+        placeholder="Conversation command pending"
+        speech={{
+          activityKind: "capture",
+          activityLabel: "Listening",
+          captureScope: "this_pane",
+          captureState: "listening",
+          playbackScope: "none",
+          playbackState: "idle",
+          transcriptPreview: "Keep listening",
+          voiceControlDisabled: false,
+          voiceControlLabel: "Finish this voice request",
+        }}
+        working
+      />,
+    );
+    const voiceButton = html.match(
+      /<button[^>]*data-testid="easy-button-voice-capture"[^>]*>/,
+    )?.[0];
+
+    expect(voiceButton).toBeDefined();
+    expect(voiceButton).toContain('aria-label="Finish this voice request"');
+    expect(voiceButton).not.toContain("disabled");
+    expect(html).toContain('data-testid="easy-button-speech-transcript"');
+    expect(html).toContain("Keep listening");
   });
 
   test("projects approval, degradation, and resynchronization explicitly", () => {

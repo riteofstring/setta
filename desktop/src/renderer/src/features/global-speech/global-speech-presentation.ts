@@ -54,6 +54,7 @@ export interface PaneSpeechPresentation {
   captureState: GlobalSpeechCapturePresentation["state"];
   playbackScope: PaneSpeechSourceScope;
   playbackState: SpeechPlaybackState["type"];
+  transcriptPreview: string | null;
   voiceControlDisabled: boolean;
   voiceControlLabel: string;
 }
@@ -200,6 +201,8 @@ export function paneSpeechPresentation(
     captureState: capture.state,
     playbackScope,
     playbackState: playback.state.type,
+    transcriptPreview:
+      captureScope === "this_pane" ? speechCaptureTranscriptPreview(capture) : null,
     voiceControlDisabled: control.disabled,
     voiceControlLabel: control.label,
   };
@@ -251,6 +254,22 @@ export function shellSpeechCaptureLabel(
   return shellCaptureLabelers[capture.state](destination);
 }
 
+export function shellSpeechCaptureControlLabel(
+  capture: GlobalSpeechCapturePresentation,
+  sourceConversationTitle: string | null = null,
+): string {
+  const destination = speechSourceLabel(capture.source, sourceConversationTitle);
+  if (capture.state === "failed") {
+    return capture.retry === null
+      ? "Start a new voice request for Setta"
+      : `Retry the voice request for ${destination}`;
+  }
+  if (capture.state === "unavailable") {
+    return capture.message;
+  }
+  return shellCaptureControlLabelers[capture.state](destination);
+}
+
 const shellCaptureLabelers = {
   committing: (destination) => `Finishing the voice request for ${destination}`,
   connecting: (destination) => `Connecting voice capture for ${destination}`,
@@ -263,6 +282,29 @@ const shellCaptureLabelers = {
   Exclude<GlobalSpeechCapturePresentation["state"], "failed" | "unavailable">,
   (destination: string) => string
 >;
+
+const shellCaptureControlLabelers = {
+  committing: (destination) => `Finishing the voice request for ${destination}`,
+  connecting: (destination) => `Cancel the voice request for ${destination}`,
+  disabled: () => "Enable the microphone and start a voice request for Setta",
+  idle: () => "Start a voice request for Setta",
+  listening: (destination) => `Finish the voice request for ${destination}`,
+  requesting_permission: (destination) => `Cancel the voice request for ${destination}`,
+  submitting: (destination) => `Sending the voice request to ${destination}`,
+} satisfies Record<
+  Exclude<GlobalSpeechCapturePresentation["state"], "failed" | "unavailable">,
+  (destination: string) => string
+>;
+
+export function speechCaptureTranscriptPreview(
+  capture: GlobalSpeechCapturePresentation,
+): string | null {
+  if (!("transcript" in capture)) {
+    return null;
+  }
+  const transcript = capture.transcript.trim();
+  return transcript === "" ? null : transcript;
+}
 
 export function shellSpeechPlaybackLabel(
   playback: SpeechPlaybackSnapshot,

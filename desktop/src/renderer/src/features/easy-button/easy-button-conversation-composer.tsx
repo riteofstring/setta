@@ -108,9 +108,11 @@ function conversationVoiceControl(
       label: "Start a voice request for this conversation",
     };
   }
+  const finishesCapture =
+    speech.captureState === "listening" && speech.captureScope === "this_pane";
   return {
-    disabled: !available || speech.voiceControlDisabled,
-    finishesCapture: speech.captureState === "listening" && speech.captureScope === "this_pane",
+    disabled: finishesCapture ? false : !available || speech.voiceControlDisabled,
+    finishesCapture,
     label: speech.voiceControlLabel,
   };
 }

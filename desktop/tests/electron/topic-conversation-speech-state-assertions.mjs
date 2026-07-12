@@ -35,23 +35,37 @@ export async function verifyConversationCapturePresentation({
   conversationId,
   conversationTitle,
   sourcePaneId,
+  transcriptPreview,
   timeoutMs,
 }) {
+  await emitTranscriptPreview(client, transcriptPreview);
   const state = await waitForConversationSurfaces(
     client,
-    (surfaces) => surfaces.every((surface) => surface.captureState === "listening"),
+    (surfaces) =>
+      surfaces.every((surface) => surface.captureState === "listening") &&
+      surfaces.some((surface) => surface.speechTranscriptText.includes(transcriptPreview)),
     timeoutMs,
   );
-  assertConversationCaptureAttribution(state.surfaces, conversationId, sourcePaneId);
+  assertConversationCaptureAttribution(
+    state.surfaces,
+    conversationId,
+    sourcePaneId,
+    transcriptPreview,
+  );
   const shell = await waitForShellSpeechState(
     client,
     (candidate) =>
       candidate.captureState === "listening" && candidate.sourceConversationId === conversationId,
     timeoutMs,
   );
-  const expectedLabel = `Listening for ${conversationTitle}`;
+  const expectedActionLabel = `Finish the voice request for ${conversationTitle}`;
+  const expectedStatusLabel = `Listening for ${conversationTitle}`;
   assertState(
-    [shell.captureLabel === expectedLabel, shell.label.includes(expectedLabel)],
+    [
+      shell.captureLabel === expectedActionLabel,
+      shell.label.includes(expectedStatusLabel),
+      shell.transcriptText.includes(transcriptPreview),
+    ],
     `shell capture did not attribute ${conversationTitle}`,
     shell,
   );
@@ -102,8 +116,18 @@ export async function exercisePaneFreeShellCapture({
     (state) => state.captureState === "listening" && state.sourceConversationId === "",
     timeoutMs,
   );
+  await emitTranscriptPreview(client, transcript.trim());
+  const preview = await waitForShellSpeechState(
+    client,
+    (state) => state.transcriptText.includes(transcript.trim()),
+    timeoutMs,
+  );
   assertState(
-    [listening.captureLabel === "Listening for Setta"],
+    [
+      listening.captureLabel === "Finish the voice request for Setta",
+      listening.label.includes("Listening for Setta"),
+      preview.transcriptText.includes(transcript.trim()),
+    ],
     "pane-free shell capture did not target the master",
     listening,
   );
@@ -156,9 +180,14 @@ function assertIdleShellSpeech(state) {
   );
 }
 
-function assertConversationCaptureAttribution(surfaces, conversationId, sourcePaneId) {
+function assertConversationCaptureAttribution(
+  surfaces,
+  conversationId,
+  sourcePaneId,
+  transcriptPreview,
+) {
   for (const surface of surfaces) {
-    assertCaptureSurface(surface, conversationId, sourcePaneId);
+    assertCaptureSurface(surface, conversationId, sourcePaneId, transcriptPreview);
   }
 }
 
@@ -227,7 +256,7 @@ function completedIPC(start, events) {
   return finish ? { accepted: finish.result, request: start.args[0] } : null;
 }
 
-function assertCaptureSurface(surface, conversationId, sourcePaneId) {
+function assertCaptureSurface(surface, conversationId, sourcePaneId, transcriptPreview) {
   if (surface.captureState !== "listening") {
     throw new Error(`pane did not render global capture: ${JSON.stringify(surface)}`);
   }
@@ -236,7 +265,7 @@ function assertCaptureSurface(surface, conversationId, sourcePaneId) {
     return;
   }
   if (surface.paneId === sourcePaneId) {
-    assertSourcePaneCapture(surface);
+    assertSourcePaneCapture(surface, transcriptPreview);
     return;
   }
   assertDuplicateViewCapture(surface);
@@ -248,19 +277,21 @@ function assertOtherConversationCapture(surface) {
       surface.captureScope === "other_conversation",
       !surface.voiceCaptureAvailable,
       surface.speechActivityText.includes("another topic"),
+      surface.speechTranscriptText === "",
     ],
     "other topic claimed global capture",
     surface,
   );
 }
 
-function assertSourcePaneCapture(surface) {
+function assertSourcePaneCapture(surface, transcriptPreview) {
   assertState(
     [
       surface.captureScope === "this_pane",
       surface.voiceCaptureAvailable,
       surface.voiceCaptureLabel === "Finish this voice request",
-      surface.speechActivityText === "Listening",
+      surface.speechActivityText.includes("Listening"),
+      surface.speechTranscriptText.includes(transcriptPreview),
     ],
     "source pane did not own its capture",
     surface,
@@ -273,6 +304,7 @@ function assertDuplicateViewCapture(surface) {
       surface.captureScope === "this_conversation",
       !surface.voiceCaptureAvailable,
       surface.speechActivityText.includes("another view"),
+      surface.speechTranscriptText === "",
     ],
     "duplicate topic view claimed source-pane capture",
     surface,
@@ -333,6 +365,12 @@ function waitForShellSpeechState(client, ready, timeoutMs) {
     driverCallExpression("topicConversationShellSpeechState", {}),
     ready,
     timeoutMs,
+  );
+}
+
+async function emitTranscriptPreview(client, transcript) {
+  await client.evaluate(
+    `globalThis.__settaSpeechRealtimeBrowserFixture.emitTranscriptDelta(${JSON.stringify(transcript)})`,
   );
 }
 

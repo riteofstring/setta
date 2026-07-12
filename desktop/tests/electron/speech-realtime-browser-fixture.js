@@ -11,6 +11,7 @@
   const originalPeerConnection = globalThis.RTCPeerConnection;
   const originalAudio = globalThis.Audio;
   const activeAudio = new Set();
+  let activeChannel = null;
   const state = {
     audioAutoEnd: true,
     audioCreateCount: 0,
@@ -20,6 +21,7 @@
     channelOpen: false,
     commitCount: 0,
     connectionCount: 0,
+    deltaCount: 0,
     mediaRequestCount: 0,
     stoppedTrackCount: 0,
     transcript: "Keep this pane transcript exact.",
@@ -77,6 +79,9 @@
 
     close() {
       this.readyState = "closed";
+      if (activeChannel === this) {
+        activeChannel = null;
+      }
     }
 
     open() {
@@ -108,6 +113,20 @@
       });
     }
 
+    emitTranscriptDelta(delta) {
+      if (this.readyState !== "open") {
+        throw new Error("scripted Realtime data channel is not open");
+      }
+      state.deltaCount += 1;
+      this.emit({
+        content_index: 0,
+        delta,
+        event_id: `event_delta_${state.deltaCount}`,
+        item_id: `item_scripted_${state.commitCount + 1}`,
+        type: "conversation.item.input_audio_transcription.delta",
+      });
+    }
+
     emit(event) {
       this.onmessage?.(new MessageEvent("message", { data: JSON.stringify(event) }));
     }
@@ -132,6 +151,7 @@
         throw new Error(`unexpected scripted Realtime data channel ${label}`);
       }
       this.channel = new ScriptedDataChannel();
+      activeChannel = this.channel;
       return this.channel;
     }
 
@@ -188,6 +208,7 @@
       }
     },
     restore() {
+      activeChannel = null;
       globalThis.Audio = originalAudio;
       globalThis.fetch = originalFetch;
       globalThis.RTCPeerConnection = originalPeerConnection;
@@ -196,6 +217,12 @@
     },
     setTranscript(transcript) {
       state.transcript = transcript;
+    },
+    emitTranscriptDelta(delta) {
+      if (!activeChannel) {
+        throw new Error("scripted Realtime data channel is unavailable");
+      }
+      activeChannel.emitTranscriptDelta(delta);
     },
     setAudioAutoEnd(autoEnd) {
       state.audioAutoEnd = autoEnd;

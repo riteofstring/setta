@@ -432,13 +432,31 @@ h3 {
 }
 
 .setta-shell-speech-label {
+  align-items: center;
   color: var(--setta-200);
+  display: flex;
   font-size: 10.5px;
+  gap: 5px;
   max-width: 360px;
-  overflow: hidden;
+  min-width: 0;
   padding-right: 3px;
+}
+
+.setta-shell-speech-state-label,
+.setta-shell-speech-transcript {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.setta-shell-speech-state-label {
+  flex: 0 1 auto;
+}
+
+.setta-shell-speech-transcript {
+  color: var(--setta-300);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .setta-shell-speech-spinner {
