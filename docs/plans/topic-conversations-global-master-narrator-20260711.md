@@ -2,8 +2,9 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-4 and Phase 5 items 1-3 are complete; Phase 5
-item 4 is next
+**Status:** In progress; Phases 0-4 are complete. Phase 5 items 1 and 3 are
+complete; item 2 is partially complete, and restoring direct Easy Button voice
+delivery is the next work before item 4
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -37,15 +38,17 @@ environment:
 - A lightweight **narrator** observes that agent's authoritative trajectory,
   produces sparse milestones and final summaries, and answers direct status
   questions.
-- A global **master** receives app-level speech or text, finds or creates the
+- A global **master** receives shell-level speech or text, finds or creates the
   right topic conversation, routes work, and asks the renderer to focus or open
-  panes.
+  panes. Input started inside an Easy Button bypasses the master and is sent
+  directly to that pane's topic conversation.
 - An Easy Button pane is a view of a topic conversation. A conversation may
   have no pane, one pane, or multiple panes.
 - Multiple topic conversations may run concurrently in one workspace. Each
   conversation still serializes its own primary turns.
-- The microphone and speech queue belong to the application shell, not an Easy
-  Button component.
+- The microphone lease, transcription lifecycle, and speech queue belong to the
+  application shell, not an Easy Button component. Capture ownership is global;
+  each capture still has an explicit master or conversation destination.
 - The master has a stable global voice, and each topic narrator has a stable
   per-conversation voice selected to be distinct from other active speakers
   when the synthesis catalog permits it.
@@ -64,9 +67,11 @@ The intended experience is:
 2. The user asks the master to bring up a recent conversation about a topic.
 3. The master retrieves the conversation, focuses an existing pane or opens a
    new Easy Button pane, and reports what it did.
-4. The user submits more work to that topic. Its heavy agent runs while its
-   lightweight narrator observes and emits presentation events.
-5. The user asks for an update. The request routes to that conversation's
+4. The user submits more work through that Easy Button by text or voice. The
+   input goes directly to the topic conversation; its heavy agent runs while
+   its lightweight narrator observes and emits presentation events.
+5. The user asks for an update through the conversation's status action, or
+   asks the master to get an update. The request reaches that conversation's
    narrator without steering or interrupting the agent.
 6. If the user changes topics, the master either routes to another existing
    topic, creates a new one, asks for clarification, or deliberately creates a
@@ -140,26 +145,34 @@ Workspace B
 Runtime/account/settings          fixed shell controls
 ```
 
-### Master input is shell-owned and multimodal
+### Shell master input is multimodal; Easy Button input is direct
 
-Voice and text are two input modalities for the same global master session and
-routing pipeline. The shell provides a compact `Ask Setta` launcher in the
-fixed portion of the left navigator. Activating it opens an expanded master
-overlay with a text composer, recent master exchanges, route results, and room
-for clarification turns. A global keyboard shortcut and an app-chrome control
-open the same overlay when the left pane is collapsed; these are presentations
-of one controller, not separate master sessions.
+Shell-originated voice and text are two input modalities for the same global
+master session and routing pipeline. The shell provides a compact `Ask Setta`
+launcher in the fixed portion of the left navigator. Activating it opens an
+expanded master overlay with a text composer, recent master exchanges, route
+results, and room for clarification turns. A global keyboard shortcut and an
+app-chrome control open the same overlay when the left pane is collapsed;
+these are presentations of one controller, not separate master sessions.
 
 The overlay may look and behave like a command palette for quick requests, but
 it is not dismiss-on-submit command execution. It remains open when the master
 asks a clarification or returns a conversational answer. Voice transcripts
-and typed submissions appear in the same master interaction history.
+and typed submissions started from a shell master entry point appear in the
+same master interaction history.
 
-An Easy Button composer and the global master composer have deliberately
-different scope. Input sent from an Easy Button is explicitly addressed to
-that topic conversation. Input sent from the shell master surface is globally
-routed and includes the focused workspace/conversation as a hint, not as a
+An Easy Button composer and microphone have deliberately different scope from
+the shell master controls. Text or voice started inside an Easy Button is
+explicitly addressed to that topic conversation and does not create a master
+input or route decision. Text or voice started from `Ask Setta`, the global
+shortcut, app chrome, or globally listening shell entry point is routed by the
+master and includes the focused workspace/conversation as a hint, not as a
 forced destination.
+
+The application-level speech controller owns both kinds of capture, but it is
+not an implicit router. The initiating control supplies a typed destination at
+capture start, and that destination remains fixed even if pane focus changes
+while transcription is in progress.
 
 ### Master owns cross-conversation routing
 
@@ -203,8 +216,23 @@ milestone semantics.
 
 One application-level speech coordinator owns the microphone lease,
 transcription lifecycle, global enablement, playback queue, preemption, and
-source attribution. Easy Button panes render controls and state but do not own
-capture or playback controllers.
+source attribution. Here, global describes resource ownership and availability,
+not the destination of every utterance. A capture request has one explicit
+destination:
+
+```text
+SpeechCaptureDestination =
+  master
+  conversation(conversationId, action)
+
+ConversationSpeechAction = send | queue | steer | ask_narrator
+```
+
+Shell master controls request `master`. An Easy Button requests its bound
+`conversationId` and the action selected by its control. The destination and
+action are frozen when capture begins; transcript keywords and later focus are
+never used to infer or change them. Easy Button panes render controls and
+shared state, but do not own capture or playback controllers.
 
 ### Presentation identity belongs to the conversation
 
@@ -413,7 +441,7 @@ provider history.
 ## Target Architecture
 
 ```text
-Global microphone / shell master text input
+Shell microphone / shell master text input
                    |
                    v
              Master actor
@@ -430,7 +458,7 @@ Global microphone / shell master text input
             +---------- topic projections ------+
             |
             v
- Topic conversation actor
+ Topic conversation actor <--- Easy Button text / pane-targeted voice
       |              |
       v              v
  Agent runtime    Narrator projector
@@ -493,9 +521,9 @@ The renderer target is:
 
 ```text
 application shell
-  global speech store/controller
-  one master input/presentation controller shared by voice, text, launcher,
-  shortcut, and overlay
+  global speech store/controller with one frozen destination per capture
+  one master input/presentation controller shared by shell voice, shell text,
+  launcher, shortcut, and overlay
   workspace and pane coordinator
 
 ConversationNavigator
@@ -513,7 +541,7 @@ EasyButtonSurface
   receives conversationId from pane config
   selects only that conversation's projection
   derives semantic color tokens from the conversation presentation profile
-  emits conversation commands
+  emits direct conversation commands and conversation-targeted capture requests
   renders focus, milestones, artifacts, summary, approval/status controls
 ```
 
@@ -1062,7 +1090,7 @@ multiple entry points:
 left-pane Ask Setta launcher ---+
 global keyboard shortcut -------+--> master overlay --> MasterInput
 app-chrome master control ------+
-global voice transcription -----+
+shell voice transcription ------+
 ```
 
 The compact left-pane control is always above the scrollable conversation
@@ -1073,11 +1101,12 @@ it behaves conversationally rather than like a fire-and-forget command
 palette. Collapsing or reopening it does not create or resume a different
 provider thread.
 
-Every submission normalizes into one contract containing input id, text,
-modality (`text` or `voice`), timestamp, and optional focused workspace,
+Every master submission normalizes into one contract containing input id,
+text, modality (`text` or `voice`), timestamp, and optional focused workspace,
 conversation, and pane hints. Routing behavior does not diverge by modality.
-The renderer may show interim voice transcription, but only a finalized
-submission enters master history.
+The renderer may show interim shell voice transcription, but only a finalized
+master submission enters master history. Easy Button text and pane-targeted
+voice use direct conversation commands and never enter this contract.
 
 The master surface is not a topic conversation and does not appear as a row in
 the conversation navigator. Its recent transcript and audit information are
@@ -1151,6 +1180,8 @@ Master output is strict, typed, and auditable:
 ```text
 RouteDecision =
   send_to_agent(conversationId, authoredInput)
+  queue_agent_turn(conversationId, authoredInput)
+  steer_active_turn(conversationId, authoredInput)
   ask_narrator(conversationId, question)
   focus_conversation(conversationId)
   create_conversation(workspaceId, initialInput, proposedTitle)
@@ -1163,6 +1194,15 @@ RouteDecision =
 The backend validates that referenced conversations and workspaces exist and
 that the requested operation is allowed. The model does not emit renderer DOM
 commands or arbitrary endpoint names.
+
+The master chooses `send_to_agent`, `queue_agent_turn`, or
+`steer_active_turn` explicitly. Queueing preserves the active turn and schedules
+a later turn; steering changes the active turn. If a shell-originated request
+targets a working conversation but does not make that distinction clear, the
+master asks a clarification rather than guessing. Direct Easy Button controls
+invoke the corresponding conversation command without creating a
+`RouteDecision`; a narrator can answer status but cannot send, queue, or steer
+agent work.
 
 Each decision records:
 
@@ -1252,11 +1292,34 @@ speech controller. One controller owns:
 - transcription session creation and teardown
 - global enabled/disabled preference
 - capture state and transcript preview
-- submission of completed text to the master
+- the frozen destination and action for the active capture
+- delivery of finalized text to that typed destination
 - explicit cancellation on runtime disconnect or sign-out
 
-The transcription endpoint becomes app-global. It is not parameterized by the
-currently selected Easy Run. Runtime/auth identity remains explicit.
+Starting capture from a shell master entry point targets `master`; its finalized
+transcript becomes a `MasterInput`. Starting capture from an Easy Button targets
+the pane's bound conversation and bypasses the master. The pane makes the
+conversation action explicit before capture:
+
+- `send` starts normal work when the conversation is idle
+- `queue` schedules later work without changing the active turn
+- `steer` modifies the active turn
+- `ask_narrator` requests a read-only status reply
+
+The UI may present those actions contextually, but the controller and backend
+never infer them from transcript wording. Closing or changing focus away from
+the initiating pane does not retarget an active capture; the original durable
+conversation remains the destination. User cancellation or runtime disconnect
+cancels it, and an unavailable destination fails explicitly.
+
+The provider transcription endpoint remains app-global and is not
+parameterized by an implicit selected conversation. Runtime/auth identity
+remains explicit. Capture destination is a separate typed application command,
+not provider transcription state and not a focused-pane lookup performed after
+the transcript is finalized.
+
+Global microphone enablement means capture is available throughout the app; it
+does not force every capture through the master.
 
 The plan does not settle whether global enablement means push-to-talk, local
 voice activity detection, or a wake phrase. Those UX decisions must not change
@@ -1402,7 +1465,7 @@ The replacement surface needs endpoints or streams for these operations:
 ### Master commands
 
 - read master state
-- submit global text/transcribed utterance
+- submit shell-originated text/transcribed utterance
 - subscribe to master replies and presentation intents
 - cancel an active master operation
 
@@ -1422,6 +1485,7 @@ The replacement surface needs endpoints or streams for these operations:
 
 - read speech capabilities
 - create/cancel transcription sessions
+- dispatch a finalized transcript to its frozen master or conversation target
 - synthesize a typed narration/master source event
 
 Conversation and master event unions have exhaustive payload branches. The
@@ -1689,12 +1753,17 @@ Exit criteria:
 
 ### Phase 5: Global speech cutover
 
-**Progress:** Items 1-3 complete.
+**Progress:** Items 1 and 3 are complete. Item 2 is partially complete: the
+shell-to-master branch exists, but direct Easy Button voice delivery does not.
+Correct item 2 before starting item 4.
 
 Implement:
 
 1. App-shell microphone controller and global preference.
-2. Global transcription submission to the master boundary.
+2. Typed finalized-transcript delivery from the global controller: shell
+   capture to the master boundary, and Easy Button capture directly to its
+   frozen conversation/action destination without a master input or route
+   decision.
 3. Typed provider voice catalog plus global master and per-conversation
    narrator voice selections.
 4. Stable `auto_distinct` allocator, exact overrides, finite-catalog reuse, and
@@ -1714,6 +1783,11 @@ Exit criteria:
 
 - microphone capture works with no Easy Button pane mounted
 - opening or closing panes does not restart global capture
+- shell-originated voice enters the master pipeline
+- Easy Button-originated voice goes directly to the bound conversation and
+  creates no master input or route decision
+- pane voice send, queue, steer, and narrator-status actions are explicit and
+  deterministic; no transcript keyword or focus heuristic selects among them
 - narration from multiple conversations is queued and attributed correctly
 - the master and active narrators use stable distinct voices when available;
   restart preserves assignments and finite-catalog reuse is visible
@@ -1726,8 +1800,9 @@ Implement:
 
 1. Topic-card index and bounded candidate retrieval.
 2. Durable restricted master thread and role configuration.
-3. One shell-owned master interaction controller accepting normalized voice and
-   text input.
+3. One shell-owned master interaction controller accepting normalized
+   shell-originated voice and text input. Easy Button input is outside this
+   controller and remains directly conversation-addressed.
 4. Compact left-pane launcher plus an expanded, conversational master overlay
    reachable by global shortcut and app chrome while the pane is collapsed.
 5. Strict `RouteDecision` generation and validation.
@@ -1743,7 +1818,10 @@ Exit criteria:
 - the master can find and open a recent topic by description
 - it focuses an existing pane rather than duplicating it when policy says so
 - global typed master input remains available when the left pane is collapsed
-  and shares history/routing behavior with voice input
+  and shares history/routing behavior with shell voice input
+- the master distinguishes send, queue, and steer explicitly when routing to a
+  working conversation, and asks for clarification when the requested delivery
+  is ambiguous
 - unrelated work creates a new conversation only after an unambiguous route
 - direct status questions route to the narrator, not the primary agent
 - the master cannot invoke filesystem or shell mutation directly
@@ -1847,7 +1925,9 @@ Cover:
 - current constraints and steering overriding historical checkpoint text
 - normalized master input validation, idempotent durable acceptance, changed-key
   conflicts, committed intake events, concurrent retries, and restart reads
-- route decision validation and missing targets
+- typed speech destination/action validation and direct conversation delivery
+- route decision validation, explicit send/queue/steer semantics, and missing
+  targets
 - topic index retrieval and archive filtering
 - side/fork parent relationships and isolation
 - role-profile precedence and model/effort validation
@@ -1870,12 +1950,14 @@ Cover:
 - one navigator row per durable conversation across zero, one, or multiple
   panes; workspace grouping, paging, and large-list virtualization
 - master launcher/overlay state shared across sidebar, shortcut, app chrome,
-  text, and voice entry points
-- explicit scope separation between the global master composer and an Easy
-  Button conversation composer
+  shell text, and shell voice entry points
+- explicit scope separation between shell master text/voice and Easy Button
+  conversation text/voice
 - global capture state independent of pane mounts
-- finalized global transcripts submitted exactly once to the master boundary,
+- finalized shell transcripts submitted exactly once to the master boundary,
   with exact-input retry, failure retention, and stale-runtime result rejection
+- finalized Easy Button transcripts delivered exactly once to their frozen
+  conversation/action target without creating master history or routing state
 - global playback priority, preemption, and attribution
 - exhaustive generated event unions
 - large-event-list rendering and batching
@@ -1902,14 +1984,18 @@ temporary app data and a scripted Codex app-server, cover:
 8. Close a working pane, let work continue, and reopen it.
 9. Restart/reload during active work and reconcile provider state while
    preserving voice and palette assignments.
-10. Use global speech with no pane, one pane, and multiple panes; verify the
-   master and active narrators receive distinct stable voices when available
-   and explicit reuse when the catalog is exhausted.
-11. Route typed and spoken master input to an existing topic, focus its pane,
-    create a new topic, retain an ambiguous clarification in the master
-    overlay, and open a side conversation while the parent is active.
-12. Fork a durable conversation and verify parent/child isolation.
-13. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
+10. Use shell speech with no pane, one pane, and multiple panes; verify the
+    master and active narrators receive distinct stable voices when available
+    and explicit reuse when the catalog is exhausted.
+11. Start voice capture from an Easy Button while idle and while working;
+    exercise direct send, queue, steer, and narrator status, then prove no
+    `MasterInput` or master route decision was created for any of them.
+12. Route typed and spoken shell master input to an existing topic, explicitly
+    distinguish queue from steer, focus its pane, create a new topic, retain an
+    ambiguous clarification in the master overlay, and open a side conversation
+    while the parent is active.
+13. Fork a durable conversation and verify parent/child isolation.
+14. Verify old chat/terminal/workflow/git panes and endpoints do not exist.
 
 The scripted provider must exercise production code paths rather than mocks or
 test-only bypasses. Treat it as a first-class, separately budgeted
@@ -2003,12 +2089,13 @@ without adding emergency logging. Record structured events for:
 
 ### Master routing
 
-- input source and focused-conversation hint
+- shell input source and focused-conversation hint
 - candidate conversation ids and retrieval metadata
 - route decision and validation result
 - presentation intent
 - requested/resolved model metadata
-- shared master interaction/session id across text and voice entry surfaces
+- shared master interaction/session id across shell text and shell voice entry
+  surfaces
 
 ### Presentation identity
 
@@ -2021,6 +2108,8 @@ without adding emergency logging. Record structured events for:
 ### Speech
 
 - capture lifecycle and transcription operation id
+- capture origin plus the frozen master or conversation/action destination
+- finalized transcript delivery command id, target, result, and failure
 - narration/master source event id
 - requested selection mode, requested exact voice if any, resolved voice id,
   catalog version, and allocation/reuse reason
@@ -2046,8 +2135,11 @@ This plan is complete only when all of the following are true:
   opens one.
 - The master can retrieve, focus, open, create, and route conversations through
   typed decisions.
-- The same global master is reachable through voice and shell-owned text UI,
-  including while the left pane is collapsed.
+- The same global master is reachable through shell voice and shell-owned text
+  UI, including while the left pane is collapsed.
+- Easy Button text and voice go directly to the pane's bound conversation and
+  never pass through the master; voice send, queue, steer, and narrator-status
+  intent is explicit at capture start.
 - Asking for an update reaches the narrator without steering the primary agent.
 - Narrator input includes an authoritative recent trajectory plus prior
   narration, not only new digest fragments.
@@ -3274,3 +3366,13 @@ Implementation is in progress under this plan.
   `GO-2026-5856`, fixed in Go 1.26.5. Review regeneration changed no generated
   output, no dependency or toolchain input changed, and Phase 5 item 4 was not
   started.
+- 2026-07-12: Corrected the Phase 5 voice-routing scope before further
+  implementation. Global speech means one app-shell owner for microphone,
+  transcription, enablement, and playback; it does not mean every transcript
+  is master input. Shell-originated capture still goes to the global master,
+  while capture initiated from an Easy Button must go directly to that pane's
+  bound conversation with an explicit `send`, `queue`, `steer`, or
+  `ask_narrator` action frozen at capture start. The completed shell-to-master
+  intake is retained, but Phase 5 item 2 is now correctly marked partial until
+  the direct pane path and its production-path proof exist. Item 4 must not
+  begin first. This was a plan-only correction; no production behavior changed.
