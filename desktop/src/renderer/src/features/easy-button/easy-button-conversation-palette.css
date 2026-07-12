@@ -10,7 +10,38 @@
   --conversation-focus-ring: var(--conversation-focus-ring-light, var(--accent-cyan));
 }
 
-.workspace-pane-host[data-surface-kind="easy-button"][data-conversation-palette]
+.conversation-navigator-row {
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease;
+}
+
+.conversation-navigator-row:hover:not(:disabled) {
+  background-color: color-mix(in oklch, var(--conversation-accent) 8%, var(--accent));
+}
+
+.conversation-navigator-row[aria-current="page"] {
+  background-color: color-mix(in oklch, var(--conversation-accent) 12%, var(--accent));
+  box-shadow: inset 2px 0 0 color-mix(in oklch, var(--conversation-accent) 82%, transparent);
+}
+
+.conversation-navigator-row:focus-visible {
+  outline: 2px solid var(--conversation-focus-ring);
+  outline-offset: -2px;
+}
+
+.workspace-pane-host.conversation-presentation-identity[data-conversation-palette] {
+  --workspace-pane-focus-ring: var(--conversation-focus-ring);
+  --workspace-pane-focus-shadow: color-mix(in oklch, var(--conversation-accent) 28%, transparent);
+}
+
+[data-color-mode="light"]
+  .workspace-pane-host.conversation-presentation-identity[data-conversation-palette] {
+  --workspace-pane-focus-shadow: color-mix(in oklch, var(--conversation-accent) 20%, transparent);
+}
+
+.workspace-pane-host.conversation-presentation-identity[data-conversation-palette]
   .workspace-pane-title-icon {
   background: var(--conversation-accent);
   border-radius: 4px;
@@ -20,7 +51,12 @@
   width: 16px;
 }
 
-.workspace-pane-host[data-surface-kind="easy-button"][data-conversation-palette]
+.workspace-pane-host.conversation-presentation-identity[data-conversation-palette]
   .workspace-pane-top-bar {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--conversation-accent) 14%, var(--workspace-pane-title-bar-surface)) 0,
+    var(--workspace-pane-title-bar-surface) 48%
+  );
   border-bottom-color: color-mix(in oklch, var(--conversation-accent) 34%, transparent);
 }

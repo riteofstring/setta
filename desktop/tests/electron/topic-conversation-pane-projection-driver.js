@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v18";
+  const version = "setta-topic-conversation-pane-projection-driver-v19";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -71,6 +71,7 @@
       surfaces: Array.from(document.querySelectorAll('[data-testid="easy-button-surface"]')).map(
         (surface) => {
           const host = surface.closest('[data-testid="workspace-pane-host"]');
+          const topBar = host?.querySelector(".workspace-pane-top-bar");
           const helper = surface.querySelector('[data-testid="easy-button-helper"]');
           const error = surface.querySelector('[data-testid="easy-button-error"]');
           const input = surface.querySelector('[data-testid="easy-button-input"]');
@@ -106,6 +107,8 @@
             helperText: elementText(helper),
             hostAccentDark: host.style.getPropertyValue("--conversation-accent-dark"),
             hostConversationId: datasetValue(host, "conversationId"),
+            hostFocusRing: computedStyleValue(host, "--workspace-pane-focus-ring"),
+            hostFocusShadow: computedStyleValue(host, "--workspace-pane-focus-shadow"),
             hostPaletteId: datasetValue(host, "conversationPalette"),
             inputDisabled: inputIsDisabled(input),
             paneId: datasetValue(host, "paneId"),
@@ -133,6 +136,7 @@
               surface.querySelector('[data-testid="easy-button-speech-transcript"]'),
             ),
             title: surface.getAttribute("aria-label") ?? "",
+            topBarBackgroundImage: computedStyleValue(topBar, "background-image"),
             trajectoryEventCount: Number(datasetValue(surface, "easyButtonTrajectoryCount") || "0"),
             trajectoryHasEarlier:
               datasetValue(surface, "easyButtonTrajectoryHasEarlier") === "true",
@@ -325,17 +329,42 @@
     const openViews = Array.from(
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).filter((surface) => datasetValue(surface, "conversationId") === conversationId);
+    const rowPresentation = conversationNavigatorRowPresentation(rows[0]);
     return {
-      conversationId: rows.length === 1 ? datasetValue(rows[0], "conversationId") : "",
+      ...rowPresentation,
+      conversationId: rows.length === 1 ? rowPresentation.conversationId : "",
       focusedPaneId:
         document
           .querySelector('[data-testid="workspace-pane-host"][data-focused="true"]')
           ?.getAttribute("data-pane-id") ?? "",
-      label: rows[0]?.getAttribute("aria-label") ?? "",
       maximizedPaneId: datasetValue(area, "maximizedPaneId"),
       openViewCount: openViews.length,
-      parentConversationId: datasetValue(rows[0], "parentConversationId"),
       rowCount: rows.length,
+    };
+  }
+
+  function conversationNavigatorRowPresentation(row) {
+    if (!(row instanceof HTMLElement)) {
+      return {
+        accentDark: "",
+        conversationId: "",
+        current: "",
+        label: "",
+        paletteId: "",
+        parentConversationId: "",
+        presentationBoxShadow: "",
+        presentationFocusRing: "",
+      };
+    }
+    return {
+      accentDark: row.style.getPropertyValue("--conversation-accent-dark"),
+      conversationId: datasetValue(row, "conversationId"),
+      current: row.getAttribute("aria-current") ?? "",
+      label: row.getAttribute("aria-label") ?? "",
+      paletteId: datasetValue(row, "conversationPalette"),
+      parentConversationId: datasetValue(row, "parentConversationId"),
+      presentationBoxShadow: computedStyleValue(row, "box-shadow"),
+      presentationFocusRing: computedStyleValue(row, "--conversation-focus-ring"),
     };
   }
 
@@ -390,6 +419,12 @@
 
   function elementText(element) {
     return element?.textContent ?? "";
+  }
+
+  function computedStyleValue(element, property) {
+    return element instanceof HTMLElement
+      ? window.getComputedStyle(element).getPropertyValue(property).trim()
+      : "";
   }
 
   function inputIsDisabled(element) {

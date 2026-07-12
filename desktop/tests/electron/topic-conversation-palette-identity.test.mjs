@@ -83,6 +83,7 @@ try {
   const initial = await waitForPaletteSurfaces(context.client, alpha.id, beta.id, 1);
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
   assertExactTopicIdentity(initial.surfaces, alpha, beta, 1);
+  assertPalettePanePresentation(initial.surfaces, alpha, beta);
 
   assertDriverAction(
     await context.client.driver("topicConversationOpenBoundPane", {
@@ -94,7 +95,20 @@ try {
   assertDuplicateConversationPalette(duplicated.surfaces, alpha.id);
   assertDistinctConversationPalettes(duplicated.surfaces, alpha.id, beta.id);
   assertExactTopicIdentity(duplicated.surfaces, alpha, beta, 2);
-  assertNavigator(await waitForNavigator(context.client, alpha.id, 2, workflowTimeoutMs), alpha, 2);
+  assertPalettePanePresentation(duplicated.surfaces, alpha, beta);
+  const duplicatedAlphaNavigator = await waitForNavigator(
+    context.client,
+    alpha.id,
+    2,
+    workflowTimeoutMs,
+  );
+  assertNavigator(duplicatedAlphaNavigator, alpha, 2);
+  assertPaletteNavigatorPresentation(duplicatedAlphaNavigator, alpha, true);
+  assertPaletteNavigatorPresentation(
+    await waitForNavigator(context.client, beta.id, 1, workflowTimeoutMs),
+    beta,
+    false,
+  );
   await waitForPersistedTopicPanes(backend, workspaceId, alpha.id, beta.id);
   await captureScreenshot(context.client, join(artifactDir, "duplicate-palette-identity.png"));
 
@@ -105,9 +119,24 @@ try {
   assertDuplicateConversationPalette(reloaded.surfaces, alpha.id);
   assertDistinctConversationPalettes(reloaded.surfaces, alpha.id, beta.id);
   assertExactTopicIdentity(reloaded.surfaces, alpha, beta, 2);
+  assertPalettePanePresentation(reloaded.surfaces, alpha, beta);
   assertStableReloadIdentity(beforeReload, paletteSurfaceIdentity(reloaded.surfaces));
-  assertNavigator(await waitForNavigator(context.client, alpha.id, 2, workflowTimeoutMs), alpha, 2);
-  assertNavigator(await waitForNavigator(context.client, beta.id, 1, workflowTimeoutMs), beta, 1);
+  const reloadedAlphaNavigator = await waitForNavigator(
+    context.client,
+    alpha.id,
+    2,
+    workflowTimeoutMs,
+  );
+  const reloadedBetaNavigator = await waitForNavigator(
+    context.client,
+    beta.id,
+    1,
+    workflowTimeoutMs,
+  );
+  assertNavigator(reloadedAlphaNavigator, alpha, 2);
+  assertNavigator(reloadedBetaNavigator, beta, 1);
+  assertPaletteNavigatorPresentation(reloadedAlphaNavigator, alpha, false);
+  assertPaletteNavigatorPresentation(reloadedBetaNavigator, beta, false);
   await captureScreenshot(context.client, join(artifactDir, "reloaded-palette-identity.png"));
   await writeJson(join(artifactDir, "summary.json"), {
     alpha,
@@ -209,6 +238,41 @@ function assertExactTopicIdentity(surfaces, alpha, beta, alphaPaneCount) {
   if (!valid) {
     throw new Error(
       `conversation palette identity mismatch: ${JSON.stringify({ alpha, alphaSurfaces, beta, betaSurfaces })}`,
+    );
+  }
+}
+
+function assertPalettePanePresentation(surfaces, alpha, beta) {
+  const alphaSurfaces = conversationSurfaces(surfaces, alpha.id);
+  const betaSurfaces = conversationSurfaces(surfaces, beta.id);
+  const presented = [...alphaSurfaces, ...betaSurfaces].every(
+    (surface) =>
+      surface.hostFocusRing === surface.hostAccentDark &&
+      surface.hostFocusShadow !== "" &&
+      surface.topBarBackgroundImage !== "" &&
+      surface.topBarBackgroundImage !== "none",
+  );
+  const distinct = alphaSurfaces.every(
+    (surface) => surface.hostFocusRing !== betaSurfaces[0]?.hostFocusRing,
+  );
+  if (!presented || !distinct) {
+    throw new Error(
+      `conversation palette pane presentation mismatch: ${JSON.stringify({ alphaSurfaces, betaSurfaces })}`,
+    );
+  }
+}
+
+function assertPaletteNavigatorPresentation(state, topic, expectCurrent) {
+  const current = state.current === "page";
+  if (
+    state.paletteId !== topic.paletteId ||
+    state.accentDark === "" ||
+    state.presentationFocusRing !== state.accentDark ||
+    current !== expectCurrent ||
+    (expectCurrent && state.presentationBoxShadow === "none")
+  ) {
+    throw new Error(
+      `conversation palette navigator presentation mismatch: ${JSON.stringify({ expectCurrent, state, topic })}`,
     );
   }
 }

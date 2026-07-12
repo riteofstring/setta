@@ -25,10 +25,11 @@ export function ConversationNavigatorRow({
       aria-current={focused ? "page" : undefined}
       aria-label={conversationRowLabel(item, lineageParentTitle, openPaneCount)}
       className={cn(
-        "conversation-presentation-identity group/conversation-row grid h-9 w-full min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:bg-accent/70 hover:text-foreground",
-        focused ? "bg-accent/55 text-foreground" : "text-muted-foreground",
+        "conversation-navigator-row conversation-presentation-identity group/conversation-row grid h-9 w-full min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:text-foreground",
+        focused ? "text-foreground" : "text-muted-foreground",
       )}
       data-conversation-id={conversation.id}
+      data-conversation-palette={presentationProfile.resolvedPaletteId}
       data-parent-conversation-id={item.branch?.parentConversationId}
       data-testid="conversation-navigator-item"
       disabled={busy}
