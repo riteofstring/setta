@@ -312,7 +312,8 @@ Cost levers this exposes:
 4. The per-user **hard budget must trigger suspend** (non-destructive) before
    overspend.
 
-Proposed thresholds — **NEEDS YOUR CONFIRMATION** (business calls):
+Thresholds — **adopted provisionally 2026-07-13**, to be revisited with Phase 1c
+measurements (owner deferred the business call, chose these working values):
 - **Maximum acceptable provider cost per beta user: ~$25/month.** Covers a
   moderately active user; heavier usage is throttled/suspended by the hard
   budget. Should map to a chosen plan tier's per-user allocation rather than raw
@@ -446,9 +447,9 @@ Tested via `scripts/sprites/phase1a_url_idle.sh` (delegated Codex, high effort).
 - Two root models: characterized and resolved. The constrained-account model is
   viable as a validated composed launcher (see Composed launcher boundary);
   podman rootless is broken on this image.
-- Cost-assumptions table: built (retained-cold, attached-idle, active-agent) with
-  proposed max-cost-per-user (~$25/mo) and max cutoff lag (<=60s) pending
-  confirmation. See Cost assumptions table.
+- Cost-assumptions table: built (retained-cold, attached-idle, active-agent);
+  max-cost-per-user (~$25/mo) and max cutoff lag (<=60s) adopted provisionally,
+  to revisit with Phase 1c measurements. See Cost assumptions table.
 - Non-destructive hard-cost cutoff under hostile keepalive: done — `suspend`
   works in ~1s (A3).
 - Network/privilege policy matrix: done. Default-open baseline established
@@ -499,14 +500,16 @@ All Phase 1a exit criteria are met, and no stop-condition fired:
   "cannot become authoritative over a credential epoch" enforcement is a Phase 2
   control-plane task, not a Sprites capability gap.
 
-The only open Phase 1a item is a business decision, not a technical gate: your
-confirmation of the two cost thresholds and whether `warm` bills resident memory.
+Phase 1a is closed. The two cost thresholds were adopted provisionally
+(~$25/user/month, ≤60s cutoff lag) to be revisited with Phase 1c measurements;
+whether `warm` bills resident memory is deferred to Phase 1b/1c when usage data
+is available.
 
 ## Next steps
 
-1. **You:** confirm the two cost thresholds (max cost/user ~$25/mo, max cutoff
-   lag <=60s) and, for the cost model, whether `warm` bills resident memory; then
-   pick the beta plan tier.
+1. Cost thresholds adopted provisionally (~$25/user/mo, <=60s cutoff lag); pick
+   the beta plan tier and confirm whether `warm` bills memory during Phase 1c
+   measurement.
 2. **Phase 1b:** pin the Sprites Go SDK and build the minimum typed lifecycle
    adapter (create/inspect/exec/service/policy/checkpoint/restore/destroy) over
    the proven mechanisms.

@@ -2,9 +2,10 @@
 
 **Date:** 2026-07-13
 
-**Status:** Plan of record. Phase 0 complete. Phase 1a technical exit criteria
-met — no stop-condition fired; only the two cost thresholds await confirmation.
-Phase 1b (typed lifecycle adapter) is next. See
+**Status:** Plan of record. Phase 0 complete. Phase 1a complete — no
+stop-condition fired; cost thresholds adopted provisionally (~$25/user/mo,
+<=60s cutoff lag), to revisit with Phase 1c measurements. Phase 1b (typed
+lifecycle adapter) is next. See
 `docs/reports/2026-07-13-sprites-phase1a-probes.md`.
 
 **Branch:** `setta-3-cloud-platform`, created from `setta-3` at
@@ -1310,3 +1311,6 @@ Stop and reassess rather than hiding the problem if any of these occur:
   thresholds and whether `warm` bills memory. Next is Phase 1b (typed lifecycle
   adapter). Evidence and harnesses in
   `docs/reports/2026-07-13-sprites-phase1a-probes.md` and `scripts/sprites/`.
+- 2026-07-13: Owner deferred the cost business decision and adopted the proposed
+  thresholds provisionally (~$25/user/mo, <=60s cutoff lag), to be revisited with
+  Phase 1c measurements. Phase 1a is closed; Phase 1b is next.
