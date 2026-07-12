@@ -963,8 +963,6 @@ function resolvedInvocation(role: Role): ResolvedInvocation {
   const requested = roleProfile(role);
   return {
     contextUsage: {
-      estimatedInputTokens: 10,
-      estimatedOutputTokens: 5,
       inputBytes: 40,
       outputBytes: 20,
     },

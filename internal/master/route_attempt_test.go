@@ -54,35 +54,3 @@ func TestTerminalMasterRouteAttemptIDIsBoundedForMaximumInputID(t *testing.T) {
 		t.Fatalf("synthetic attempt id has %d bytes, want at most %d", len(attempt.ID), MaxRouteReferenceBytes)
 	}
 }
-
-func TestCancelledMasterRouteAttemptRetainsObservedTokenUsage(t *testing.T) {
-	materialized, err := freezeRouteContext(fullTestRouteContext(), 1024*1024)
-	if err != nil {
-		t.Fatalf("freezeRouteContext: %v", err)
-	}
-	work := InputRoutingWork{
-		Input:            materialized.Bundle.Input,
-		RoutingAttempt:   1,
-		RoutingStartedAt: "2026-07-15T10:00:00Z",
-	}
-	exactInputTokens := materialized.EstimatedInputTokens + 37
-	call := RouteCallResult{
-		RequestID:    "master-route-cancel-usage",
-		InputBytes:   len(materialized.Input),
-		InputTokens:  exactInputTokens,
-		OutputBytes:  80,
-		OutputTokens: 29,
-		StartedAt:    "2026-07-15T10:00:00Z",
-	}
-	attempt, err := cancelledMasterRouteAttempt(
-		work,
-		masterRouteAttemptState{call: &call, materialized: &materialized},
-		"2026-07-15T10:00:01Z",
-	)
-	if err != nil {
-		t.Fatalf("cancelledMasterRouteAttempt: %v", err)
-	}
-	if attempt.EstimatedInputTokens != exactInputTokens || attempt.EstimatedOutputTokens != 29 {
-		t.Fatalf("cancelled master route token usage = %+v", attempt)
-	}
-}

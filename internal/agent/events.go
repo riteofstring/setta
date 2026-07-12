@@ -113,7 +113,6 @@ type ModelRerouteEvent struct {
 type TerminalEvent struct {
 	Outcome TurnOutcome `json:"outcome"`
 	Error   *string     `json:"error,omitempty"`
-	Usage   *TokenUsage `json:"usage,omitempty"`
 }
 
 type LifecycleEvent struct {
@@ -215,11 +214,6 @@ func validateModelRerouteEvent(event Event) error {
 func validateTerminalEvent(event Event) error {
 	if event.Terminal == nil {
 		return errors.New("agent terminal event requires terminal payload")
-	}
-	if event.Terminal.Usage != nil {
-		if err := event.Terminal.Usage.Validate(); err != nil {
-			return fmt.Errorf("agent terminal token usage: %w", err)
-		}
 	}
 	return nil
 }

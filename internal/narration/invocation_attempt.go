@@ -47,10 +47,8 @@ func successfulNarratorAttempt(
 		Requested:      &requested,
 		Resolved:       &resolved,
 		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:            result.InputBytes,
-			EstimatedInputTokens:  result.InputTokens,
-			OutputBytes:           result.OutputBytes,
-			EstimatedOutputTokens: result.OutputTokens,
+			InputBytes:  result.InputBytes,
+			OutputBytes: result.OutputBytes,
 		},
 		ProviderReferences: conversation.InvocationProviderReferences{
 			ThreadID:  &threadID,
@@ -104,10 +102,8 @@ func failedNarratorAttempt(
 		Generation:     int(invocation.Generation),
 		Context:        contextAudit,
 		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:            result.InputBytes,
-			EstimatedInputTokens:  result.InputTokens,
-			OutputBytes:           result.OutputBytes,
-			EstimatedOutputTokens: result.OutputTokens,
+			InputBytes:  result.InputBytes,
+			OutputBytes: result.OutputBytes,
 		},
 		ProviderReferences: conversation.InvocationProviderReferences{},
 		StartedAt:          startedAt,
@@ -145,48 +141,30 @@ func nonCommittedNarratorAttempt(
 	completion Completion,
 	outcome conversation.InvocationAttemptOutcome,
 ) (conversation.InvocationAttempt, error) {
-	callRequest := CallRequest{}
-	callResult := CallResult{}
-	if completion.ProviderRequest != nil {
-		callRequest = *completion.ProviderRequest
-	}
-	if completion.ProviderResult != nil {
-		callResult = *completion.ProviderResult
-	}
-	contextAudit, turnID, err := failedNarratorAttemptContext(completion.Request, callRequest)
+	contextAudit, turnID, err := failedNarratorAttemptContext(completion.Request, CallRequest{})
 	if err != nil {
 		return conversation.InvocationAttempt{}, err
 	}
-	startedAt := completion.StartedAt
-	if callResult.StartedAt != "" {
-		startedAt = callResult.StartedAt
-	}
-	endedAt, err := normalizedAttemptEnd(startedAt, completion.EndedAt, callResult.EndedAt)
+	endedAt, err := normalizedAttemptEnd(completion.StartedAt, completion.EndedAt, "")
 	if err != nil {
 		return conversation.InvocationAttempt{}, err
 	}
 	attempt := conversation.InvocationAttempt{
-		ID:             completion.Request.ID,
-		ConversationID: completion.Request.ConversationID,
-		TurnID:         turnID,
-		CallKind:       narratorRequestCallKind(completion.Request),
-		Trigger:        narrationTriggerPointer(completion.Request.Trigger),
-		Generation:     int(completion.Generation),
-		Context:        contextAudit,
-		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:            callResult.InputBytes,
-			EstimatedInputTokens:  callResult.InputTokens,
-			OutputBytes:           callResult.OutputBytes,
-			EstimatedOutputTokens: callResult.OutputTokens,
-		},
+		ID:                 completion.Request.ID,
+		ConversationID:     completion.Request.ConversationID,
+		TurnID:             turnID,
+		CallKind:           narratorRequestCallKind(completion.Request),
+		Trigger:            narrationTriggerPointer(completion.Request.Trigger),
+		Generation:         int(completion.Generation),
+		Context:            contextAudit,
+		ContextUsage:       conversation.InvocationContextUsage{},
 		ProviderReferences: conversation.InvocationProviderReferences{},
-		StartedAt:          startedAt,
+		StartedAt:          completion.StartedAt,
 		EndedAt:            endedAt,
 		Outcome:            outcome,
 		ValidationResult:   conversation.InvocationValidationNotRun,
 		Output:             conversation.InvocationAttemptOutputAudit{},
 	}
-	applyNonCommittedNarratorCall(&attempt, callResult)
 	switch outcome {
 	case conversation.InvocationAttemptOutcomeCancelled:
 		attempt.CommitDecision = conversation.InvocationCommitCancelled
@@ -201,37 +179,6 @@ func nonCommittedNarratorAttempt(
 		return conversation.InvocationAttempt{}, fmt.Errorf("build non-committed narrator attempt: %w", err)
 	}
 	return attempt, nil
-}
-
-func applyNonCommittedNarratorCall(
-	attempt *conversation.InvocationAttempt,
-	result CallResult,
-) {
-	if result.Model.RequestedProfile.Role != "" {
-		requested := cloneAttemptRoleProfile(result.Model.RequestedProfile)
-		attempt.Requested = &requested
-	}
-	if result.Model.Settings.ModelID != "" {
-		resolved := cloneAttemptResolvedSettings(result.Model.Settings)
-		attempt.Resolved = &resolved
-	}
-	if result.RequestID != "" {
-		attempt.ProviderReferences.RequestID = stringPointer(result.RequestID)
-	}
-	if result.ProviderThreadID != "" {
-		attempt.ProviderReferences.ThreadID = stringPointer(result.ProviderThreadID)
-	}
-	if result.ProviderTurnID != "" {
-		attempt.ProviderReferences.TurnID = stringPointer(result.ProviderTurnID)
-	}
-	if result.NarratorOutput != nil || result.CheckpointOutput != nil {
-		attempt.ValidationResult = conversation.InvocationValidationPassed
-		attempt.Output = narratorAttemptOutput(result)
-		return
-	}
-	if len(result.StructuredOutput) > 0 {
-		attempt.ValidationResult = conversation.InvocationValidationFailed
-	}
 }
 
 func narratorAttemptContext(

@@ -192,23 +192,6 @@ type TurnResult struct {
 	ProviderTurnID   string      `json:"providerTurnId"`
 	Outcome          TurnOutcome `json:"outcome"`
 	Error            *string     `json:"error,omitempty"`
-	Usage            *TokenUsage `json:"usage,omitempty"`
-}
-
-type TokenUsage struct {
-	InputTokens       int `json:"inputTokens"`
-	CachedInputTokens int `json:"cachedInputTokens"`
-	OutputTokens      int `json:"outputTokens"`
-}
-
-func (usage TokenUsage) Validate() error {
-	if usage.InputTokens < 0 || usage.CachedInputTokens < 0 || usage.OutputTokens < 0 {
-		return errors.New("agent token usage values must be non-negative")
-	}
-	if usage.CachedInputTokens > usage.InputTokens {
-		return errors.New("agent cached input tokens exceed input tokens")
-	}
-	return nil
 }
 
 type TurnOutcome string

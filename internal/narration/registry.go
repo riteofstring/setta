@@ -23,15 +23,13 @@ type registryConfig struct {
 // reported independently, allowing the production projector to continue a
 // multi-window catch-up only after the exact retry eventually succeeds.
 type Completion struct {
-	Request         Request
-	ProviderRequest *CallRequest
-	ProviderResult  *CallResult
-	Err             error
-	RetryScheduled  bool
-	Generation      uint64
-	StartedAt       string
-	EndedAt         string
-	Stale           bool
+	Request        Request
+	Err            error
+	RetryScheduled bool
+	Generation     uint64
+	StartedAt      string
+	EndedAt        string
+	Stale          bool
 }
 
 // CompletionObserver must return promptly. The production observer only

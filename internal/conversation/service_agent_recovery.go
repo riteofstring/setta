@@ -132,7 +132,6 @@ func (service *Service) recoverAgentTurn(
 		Terminal: &agent.TerminalEvent{
 			Outcome: result.Outcome,
 			Error:   result.Error,
-			Usage:   result.Usage,
 		},
 	}
 	if err := event.Validate(); err != nil {

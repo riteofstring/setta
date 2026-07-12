@@ -98,26 +98,24 @@ func successfulMasterRouteAttempt(
 	turnID := call.ProviderTurnID
 	decisionKind := call.Decision.Kind
 	return RouteInvocationAttempt{
-		ID:                    call.RequestID,
-		CallKind:              RouteInvocationCallRoute,
-		MasterSessionID:       &sessionID,
-		InputID:               work.Input.Input.ID,
-		RoutingAttempt:        work.RoutingAttempt,
-		Context:               &contextAudit,
-		Configuration:         &configuration,
-		ProviderRequestID:     &requestID,
-		ProviderThreadID:      &threadID,
-		ProviderTurnID:        &turnID,
-		InputBytes:            call.InputBytes,
-		EstimatedInputTokens:  call.InputTokens,
-		OutputBytes:           call.OutputBytes,
-		EstimatedOutputTokens: call.OutputTokens,
-		StartedAt:             call.StartedAt,
-		EndedAt:               call.EndedAt,
-		DecisionKind:          &decisionKind,
-		ValidationResult:      RouteInvocationValidationPassed,
-		CommitDecision:        RouteInvocationCommitOutput,
-		Outcome:               RouteInvocationOutcomeCompleted,
+		ID:                call.RequestID,
+		CallKind:          RouteInvocationCallRoute,
+		MasterSessionID:   &sessionID,
+		InputID:           work.Input.Input.ID,
+		RoutingAttempt:    work.RoutingAttempt,
+		Context:           &contextAudit,
+		Configuration:     &configuration,
+		ProviderRequestID: &requestID,
+		ProviderThreadID:  &threadID,
+		ProviderTurnID:    &turnID,
+		InputBytes:        call.InputBytes,
+		OutputBytes:       call.OutputBytes,
+		StartedAt:         call.StartedAt,
+		EndedAt:           call.EndedAt,
+		DecisionKind:      &decisionKind,
+		ValidationResult:  RouteInvocationValidationPassed,
+		CommitDecision:    RouteInvocationCommitOutput,
+		Outcome:           RouteInvocationOutcomeCompleted,
 	}
 }
 
@@ -173,17 +171,15 @@ func terminalMasterRouteAttempt(
 		return RouteInvocationAttempt{}, err
 	}
 	attempt := RouteInvocationAttempt{
-		ID:                    terminalMasterRouteAttemptID(work, call),
-		CallKind:              RouteInvocationCallRoute,
-		InputID:               work.Input.Input.ID,
-		RoutingAttempt:        work.RoutingAttempt,
-		InputBytes:            call.InputBytes,
-		EstimatedInputTokens:  call.InputTokens,
-		OutputBytes:           call.OutputBytes,
-		EstimatedOutputTokens: call.OutputTokens,
-		StartedAt:             startedAt,
-		EndedAt:               endedAt,
-		ValidationResult:      masterRouteAttemptValidation(call),
+		ID:               terminalMasterRouteAttemptID(work, call),
+		CallKind:         RouteInvocationCallRoute,
+		InputID:          work.Input.Input.ID,
+		RoutingAttempt:   work.RoutingAttempt,
+		InputBytes:       call.InputBytes,
+		OutputBytes:      call.OutputBytes,
+		StartedAt:        startedAt,
+		EndedAt:          endedAt,
+		ValidationResult: masterRouteAttemptValidation(call),
 	}
 	applyMasterRouteAttemptMaterialization(&attempt, state.materialized)
 	if err := applyMasterRouteAttemptConfiguration(&attempt, state.session, call); err != nil {
@@ -237,9 +233,6 @@ func applyMasterRouteAttemptMaterialization(
 	contextAudit := cloneRouteContextAudit(materialized.Audit)
 	attempt.Context = &contextAudit
 	attempt.InputBytes = len(materialized.Input)
-	if attempt.EstimatedInputTokens == 0 {
-		attempt.EstimatedInputTokens = materialized.EstimatedInputTokens
-	}
 	sessionID := materialized.Bundle.SessionID
 	attempt.MasterSessionID = &sessionID
 }

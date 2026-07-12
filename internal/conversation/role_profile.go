@@ -107,10 +107,8 @@ type ResolvedInvocationSettings struct {
 }
 
 type InvocationContextUsage struct {
-	InputBytes            int `json:"inputBytes"`
-	EstimatedInputTokens  int `json:"estimatedInputTokens"`
-	OutputBytes           int `json:"outputBytes"`
-	EstimatedOutputTokens int `json:"estimatedOutputTokens"`
+	InputBytes  int `json:"inputBytes"`
+	OutputBytes int `json:"outputBytes"`
 }
 
 type InvocationProviderReferences struct {
@@ -291,7 +289,7 @@ func (settings ResolvedInvocationSettings) Validate() error {
 }
 
 func (usage InvocationContextUsage) Validate() error {
-	if usage.InputBytes < 0 || usage.EstimatedInputTokens < 0 || usage.OutputBytes < 0 || usage.EstimatedOutputTokens < 0 {
+	if usage.InputBytes < 0 || usage.OutputBytes < 0 {
 		return fmt.Errorf("invocation context usage values must be non-negative")
 	}
 	return nil

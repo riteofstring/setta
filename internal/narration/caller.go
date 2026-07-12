@@ -11,7 +11,6 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
-	"setta/internal/tokenestimate"
 )
 
 type FreshStructuredCallProvider interface {
@@ -46,9 +45,7 @@ type CallResult struct {
 	ProviderThreadID string
 	ProviderTurnID   string
 	InputBytes       int
-	InputTokens      int
 	OutputBytes      int
-	OutputTokens     int
 	StructuredOutput json.RawMessage
 	NarratorOutput   *NarratorCallOutput
 	CheckpointOutput *CheckpointOutput
@@ -99,22 +96,6 @@ func NewCaller(
 }
 
 func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult, error) {
-	return caller.call(ctx, request, nil)
-}
-
-func (caller *Caller) CallObserved(
-	ctx context.Context,
-	request CallRequest,
-	observe func(CallRequest, CallResult),
-) (CallResult, error) {
-	return caller.call(ctx, request, observe)
-}
-
-func (caller *Caller) call(
-	ctx context.Context,
-	request CallRequest,
-	observe func(CallRequest, CallResult),
-) (CallResult, error) {
 	if err := validateCaller(caller, ctx); err != nil {
 		return CallResult{}, narratorCallFailure(ctx, FailureKindInternal, err)
 	}
@@ -123,71 +104,21 @@ func (caller *Caller) call(
 		return CallResult{}, narratorCallFailure(ctx, FailureKindInternal, err)
 	}
 	result := preparedCallResult(request, prepared)
-	result.InputTokens, err = tokenestimate.CountBytes(prepared.input)
-	if err != nil {
-		return result, narratorCallFailure(ctx, FailureKindInternal, err)
-	}
-	observedRequest := frozenObservedCallRequest(request, prepared)
 	result.StartedAt = caller.timestamp()
-	observeCallResult(observe, observedRequest, result)
 	resolution, err := caller.resolveModel(ctx, prepared)
 	result.Model = cloneModelResolution(resolution)
-	observeCallResult(observe, observedRequest, result)
 	if err != nil {
 		return result, narratorModelResolutionFailure(ctx, err)
 	}
-	providerResult, providerErr := caller.runProviderCall(ctx, request, prepared, resolution)
+	providerResult, err := caller.runProviderCall(ctx, request, prepared, resolution)
+	if err != nil {
+		return result, narratorCallFailure(ctx, FailureKindProviderUnavailable, err)
+	}
 	result.ProviderThreadID = providerResult.ProviderThreadID
 	result.ProviderTurnID = providerResult.ProviderTurnID
 	result.OutputBytes = len(providerResult.Output)
 	result.StructuredOutput = append(json.RawMessage{}, providerResult.Output...)
-	result.InputTokens, result.OutputTokens, err = structuredCallTokenCounts(
-		result.InputTokens,
-		providerResult,
-	)
-	if err != nil {
-		return result, narratorCallFailure(ctx, FailureKindProviderOutputInvalid, err)
-	}
-	observeCallResult(observe, observedRequest, result)
-	if providerErr != nil {
-		return result, narratorCallFailure(ctx, FailureKindProviderUnavailable, providerErr)
-	}
-	result, err = caller.completeCall(ctx, request, prepared, providerResult, result)
-	observeCallResult(observe, observedRequest, result)
-	if err != nil {
-		return result, err
-	}
-	return result, nil
-}
-
-func structuredCallTokenCounts(
-	estimatedInputTokens int,
-	result agent.FreshStructuredCallResult,
-) (int, int, error) {
-	inputTokens := estimatedInputTokens
-	if result.Usage.InputTokens > 0 {
-		inputTokens = result.Usage.InputTokens
-	}
-	outputTokens := result.Usage.OutputTokens
-	if len(result.Output) > 0 && outputTokens == 0 {
-		counted, err := tokenestimate.CountBytes(result.Output)
-		if err != nil {
-			return 0, 0, err
-		}
-		outputTokens = counted
-	}
-	return inputTokens, outputTokens, nil
-}
-
-func (caller *Caller) completeCall(
-	ctx context.Context,
-	request CallRequest,
-	prepared preparedCallRequest,
-	providerResult agent.FreshStructuredCallResult,
-	result CallResult,
-) (CallResult, error) {
-	endedAt, err := caller.timestampAfter(result.StartedAt)
-	result.EndedAt = endedAt
+	result.EndedAt, err = caller.timestampAfter(result.StartedAt)
 	if err != nil {
 		return result, narratorCallFailure(ctx, FailureKindInternal, err)
 	}
@@ -202,36 +133,6 @@ func (caller *Caller) completeCall(
 	}
 	result.witness = newSuccessfulCallWitness(request.WorkspaceRoot, prepared.input, result)
 	return result, nil
-}
-
-func frozenObservedCallRequest(request CallRequest, prepared preparedCallRequest) CallRequest {
-	observed := CallRequest{
-		ID:            request.ID,
-		Generation:    request.Generation,
-		WorkspaceRoot: request.WorkspaceRoot,
-	}
-	switch prepared.kind {
-	case RequestKindProjection:
-		bundle := prepared.projection
-		observed.Projection = &bundle
-	case RequestKindStatus:
-		bundle := prepared.status
-		observed.Status = &bundle
-	case RequestKindCheckpoint:
-		bundle := prepared.checkpoint
-		observed.Checkpoint = &bundle
-	}
-	return observed
-}
-
-func observeCallResult(
-	observe func(CallRequest, CallResult),
-	request CallRequest,
-	result CallResult,
-) {
-	if observe != nil {
-		observe(request, result)
-	}
 }
 
 func narratorCallFailure(ctx context.Context, kind FailureKind, err error) error {
@@ -335,7 +236,7 @@ func (caller *Caller) runProviderCall(
 	}
 	result, err := caller.provider.RunFreshStructuredCall(ctx, providerRequest)
 	if err != nil {
-		return result, fmt.Errorf(
+		return agent.FreshStructuredCallResult{}, fmt.Errorf(
 			"run narrator %s call for conversation %s: %w",
 			prepared.kind,
 			prepared.conversationID,

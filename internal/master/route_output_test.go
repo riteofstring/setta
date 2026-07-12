@@ -143,9 +143,17 @@ func TestRouteOutputSchemaContainsOnlyAuthorizedSettaReferences(t *testing.T) {
 
 func TestRouteContextMaterializationRejectsProviderInputAndAuditDrift(t *testing.T) {
 	bundle := fullTestRouteContext()
-	materialized, err := freezeRouteContext(bundle, 1024*1024)
+	input, err := json.Marshal(bundle)
 	if err != nil {
-		t.Fatalf("freeze route context: %v", err)
+		t.Fatalf("marshal route context: %v", err)
+	}
+	materialized := RouteContextMaterialization{
+		Bundle: bundle,
+		Audit:  routeContextAuditForBundle(bundle),
+		Input:  input,
+	}
+	if err := materialized.Validate(); err != nil {
+		t.Fatalf("valid materialization: %v", err)
 	}
 
 	driftedInput := materialized

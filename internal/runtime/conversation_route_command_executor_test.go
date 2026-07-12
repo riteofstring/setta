@@ -142,10 +142,8 @@ func routedNarratorInvocation() conversation.ResolvedInvocation {
 			PermissionProfile: profile.PermissionProfile,
 		},
 		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:            100,
-			EstimatedInputTokens:  25,
-			OutputBytes:           40,
-			EstimatedOutputTokens: 10,
+			InputBytes:  100,
+			OutputBytes: 40,
 		},
 		ProviderReferences: conversation.InvocationProviderReferences{
 			ThreadID:   &threadID,

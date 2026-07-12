@@ -250,12 +250,6 @@ type ProviderLifecycle struct {
 	Message  string                  `json:"message"`
 }
 
-type TokenUsage struct {
-	InputTokens       int `json:"inputTokens"`
-	CachedInputTokens int `json:"cachedInputTokens"`
-	OutputTokens      int `json:"outputTokens"`
-}
-
 type TrajectoryUserInputAccepted struct {
 	Input    AuthoredInput `json:"input"`
 	Delivery TurnDelivery  `json:"delivery"`
@@ -279,16 +273,12 @@ type TrajectoryTurnSteered struct {
 
 type TrajectoryTurnInterrupted struct {
 	Reason TurnInterruptionReason `json:"reason"`
-	Usage  TokenUsage             `json:"usage"`
 }
 
-type TrajectoryTurnCompleted struct {
-	Usage TokenUsage `json:"usage"`
-}
+type TrajectoryTurnCompleted struct{}
 
 type TrajectoryTurnFailed struct {
-	Failure Failure    `json:"failure"`
-	Usage   TokenUsage `json:"usage"`
+	Failure Failure `json:"failure"`
 }
 
 type TrajectoryAgentPublicTextDelta struct {

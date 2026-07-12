@@ -56,64 +56,6 @@ func TestCallerPinsProviderDefaultToCatalogResolution(t *testing.T) {
 	}
 }
 
-func TestCallerPrefersExactProviderTokenUsage(t *testing.T) {
-	source := newFakeNarratorContextSource(3)
-	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
-	provider := &recordingFreshStructuredProvider{
-		output: json.RawMessage(`{
-			"kind":"working_projection",
-			"observedThroughSequence":3,
-			"currentFocus":"Recording exact provider usage.",
-			"milestones":[],
-			"topicDescriptor":null
-		}`),
-		usage: agent.TokenUsage{InputTokens: 101, CachedInputTokens: 11, OutputTokens: 29},
-	}
-	result := callProjection(t, newTestCaller(t, provider), bundle)
-	if result.InputTokens != 101 || result.OutputTokens != 29 {
-		t.Fatalf("narrator provider token usage = %+v", result)
-	}
-}
-
-func TestNonCommittedNarratorAttemptRetainsMaterializedTokenUsage(t *testing.T) {
-	source := newFakeNarratorContextSource(3)
-	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
-	request := projectionRequest(
-		"cancelled-narrator-usage",
-		source.conversation.ID,
-		conversation.NarrationTriggerPlanChanged,
-	)
-	attempt, err := nonCommittedNarratorAttempt(Completion{
-		Request: request,
-		ProviderRequest: &CallRequest{
-			ID:         request.ID,
-			Generation: 1,
-			Projection: &bundle,
-		},
-		ProviderResult: &CallResult{
-			RequestID:      request.ID,
-			Generation:     1,
-			Kind:           RequestKindProjection,
-			Trigger:        request.Trigger,
-			ConversationID: request.ConversationID,
-			InputBytes:     bundle.InputBytes,
-			InputTokens:    77,
-			StartedAt:      "2026-07-15T10:00:00Z",
-		},
-		Err:        ErrMailboxClosed,
-		Generation: 1,
-		StartedAt:  "2026-07-15T10:00:00Z",
-		EndedAt:    "2026-07-15T10:00:01Z",
-	}, conversation.InvocationAttemptOutcomeCancelled)
-	if err != nil {
-		t.Fatalf("nonCommittedNarratorAttempt: %v", err)
-	}
-	if !attempt.Context.Materialized || attempt.ContextUsage.InputBytes != bundle.InputBytes ||
-		attempt.ContextUsage.EstimatedInputTokens != 77 {
-		t.Fatalf("cancelled narrator token usage = %+v", attempt)
-	}
-}
-
 func testCallerWorkingProjection(t *testing.T) {
 	source := newFakeNarratorContextSource(3)
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
@@ -427,8 +369,7 @@ func TestCallerRetainsAttemptMetadataWhenOutputValidationFails(t *testing.T) {
 		result.Kind != RequestKindProjection || result.Trigger != conversation.NarrationTriggerPlanChanged ||
 		result.ConversationID != source.conversation.ID || result.Model.Settings.ModelID != "gpt-5.4-mini" ||
 		result.ProviderThreadID == "" || result.ProviderTurnID == "" || result.InputBytes != bundle.InputBytes ||
-		result.InputTokens <= 0 || result.OutputBytes != len(providerOutput) || result.OutputTokens <= 0 ||
-		!reflect.DeepEqual(result.StructuredOutput, providerOutput) {
+		result.OutputBytes != len(providerOutput) || !reflect.DeepEqual(result.StructuredOutput, providerOutput) {
 		t.Fatalf("failed-call audit metadata = %+v", result)
 	}
 	if result.NarratorOutput != nil || result.CheckpointOutput != nil {
@@ -469,7 +410,6 @@ func TestCallerValidatesTypedContextBeforeModelOrProvider(t *testing.T) {
 type recordingFreshStructuredProvider struct {
 	requests     []agent.FreshStructuredCallRequest
 	output       json.RawMessage
-	usage        agent.TokenUsage
 	err          error
 	beforeReturn func()
 }
@@ -491,7 +431,6 @@ func (provider *recordingFreshStructuredProvider) RunFreshStructuredCall(
 		ProviderThreadID: "narrator-provider-thread",
 		ProviderTurnID:   "narrator-provider-turn",
 		Output:           append(json.RawMessage{}, provider.output...),
-		Usage:            provider.usage,
 	}, nil
 }
 
@@ -535,9 +474,6 @@ func callProjection(t *testing.T, caller *Caller, bundle ProjectionContextBundle
 	})
 	if err != nil {
 		t.Fatalf("projection Call: %v", err)
-	}
-	if result.InputTokens <= 0 || result.OutputTokens <= 0 {
-		t.Fatalf("projection token usage = %+v", result)
 	}
 	return result
 }

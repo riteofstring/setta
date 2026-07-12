@@ -61,12 +61,7 @@ describe("route observability", () => {
         inputId: "conversation_input_alpha",
         inputTextBytes: Buffer.byteLength("Route private local text", "utf8"),
         invocation: {
-          contextUsage: {
-            estimatedInputTokens: 105,
-            estimatedOutputTokens: 16,
-            inputBytes: 420,
-            outputBytes: 64,
-          },
+          contextUsage: { inputBytes: 420, outputBytes: 64 },
           modelReroutes: [
             {
               fromModelId: "requested-narrator-model",
@@ -82,7 +77,7 @@ describe("route observability", () => {
           kind: "send_to_parent",
           turnId: "turn_alpha",
         },
-        schemaVersion: 3,
+        schemaVersion: 4,
         validationResult: "committed",
       },
       type: "conversation_route_observed",
@@ -310,9 +305,7 @@ describe("route observability", () => {
             resolvedModel: "master-model",
           },
           inputBytes: 512,
-          estimatedInputTokens: 128,
           outputBytes: 48,
-          estimatedOutputTokens: 12,
         },
         invocationAttempt: {
           commitDecision: "output_committed",
@@ -328,7 +321,7 @@ describe("route observability", () => {
             workspaceId: "workspace_alpha",
           },
         },
-        schemaVersion: 3,
+        schemaVersion: 4,
         validationResult: "passed",
       },
       type: "master_route_observed",
@@ -345,7 +338,7 @@ describe("route observability", () => {
           },
         },
         intentId: "master_intent_alpha",
-        schemaVersion: 3,
+        schemaVersion: 4,
       },
       type: "master_presentation_observed",
     });
@@ -431,16 +424,8 @@ describe("route observability", () => {
             retryable: true,
           },
           inputId: "conversation_input_alpha",
-          invocation: {
-            contextUsage: {
-              estimatedInputTokens: 105,
-              estimatedOutputTokens: 0,
-              inputBytes: 420,
-              outputBytes: 0,
-            },
-          },
           invocationAvailable: true,
-          schemaVersion: 3,
+          schemaVersion: 4,
         },
         type: "conversation_route_failed",
       },
@@ -451,7 +436,7 @@ describe("route observability", () => {
             name: "Error",
           },
           inputId: "master_input_alpha",
-          schemaVersion: 3,
+          schemaVersion: 4,
           scope: "master",
         },
         type: "route_observation_failed",
@@ -564,8 +549,6 @@ function failedConversationRouteAttempt(state: ConversationInputState): Invocati
       validCompletedForkPointCount: 1,
     },
     contextUsage: {
-      estimatedInputTokens: 105,
-      estimatedOutputTokens: 0,
       inputBytes: 420,
       outputBytes: 0,
     },
@@ -630,8 +613,6 @@ function narratorInvocation(): ResolvedInvocation {
   const requested = roleProfile("narrator", "narrator-model");
   return {
     contextUsage: {
-      estimatedInputTokens: 105,
-      estimatedOutputTokens: 16,
       inputBytes: 420,
       outputBytes: 64,
     },
@@ -767,8 +748,6 @@ function masterRoutingState(): InputRoutingState {
           resolvedServiceTier: null,
         },
         endedAt: "2026-07-14T11:00:03Z",
-        estimatedInputTokens: 128,
-        estimatedOutputTokens: 12,
         inputBytes: 512,
         outputBytes: 48,
         providerRequestId: "master_request_alpha",
@@ -861,8 +840,6 @@ function completedMasterRouteAttempt(): RouteInvocationAttempt {
     endedAt: "2026-07-14T11:00:03Z",
     failure: null,
     id: "master_request_alpha",
-    estimatedInputTokens: 128,
-    estimatedOutputTokens: 12,
     inputBytes: 512,
     inputId: "master_input_alpha",
     masterSessionId: "master_session",
@@ -887,8 +864,6 @@ function cancelledMasterRouteAttempt(inputId: string): RouteInvocationAttempt {
     endedAt: "2026-07-14T11:00:02Z",
     failure: null,
     id: `cancelled-route-${inputId}`,
-    estimatedInputTokens: 0,
-    estimatedOutputTokens: 0,
     inputBytes: 0,
     inputId,
     masterSessionId: null,

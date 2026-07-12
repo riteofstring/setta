@@ -1,7 +1,6 @@
 package conversation
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 )
@@ -407,11 +406,6 @@ func validateSuccessfulNarratorInvocation(invocation ResolvedInvocation) error {
 	}
 	if invocation.Role != RoleNarrator || invocation.Outcome != InvocationOutcomeSucceeded {
 		return fmt.Errorf("narrator output requires a successful narrator invocation")
-	}
-	if invocation.ContextUsage.InputBytes <= 0 || invocation.ContextUsage.OutputBytes <= 0 ||
-		invocation.ContextUsage.EstimatedInputTokens <= 0 ||
-		invocation.ContextUsage.EstimatedOutputTokens <= 0 {
-		return errors.New("narrator output invocation requires positive input/output byte and token usage")
 	}
 	return nil
 }

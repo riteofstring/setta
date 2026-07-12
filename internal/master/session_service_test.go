@@ -172,7 +172,6 @@ func TestSessionServiceRunsStructuredTurnsOnTheDurableRestrictedThread(t *testin
 		threads.lastStructuredRequest.ProviderThreadID != "master-provider-thread" ||
 		result.ProviderThreadID != "master-provider-thread" ||
 		result.ProviderTurnID != "master-provider-turn" ||
-		result.Usage != (agent.TokenUsage{InputTokens: 101, CachedInputTokens: 11, OutputTokens: 29}) ||
 		result.Session.Status != SessionStatusReady {
 		t.Fatalf("structured result=%+v request=%+v calls=%d", result, threads.lastStructuredRequest, threads.structuredCalls)
 	}
@@ -201,12 +200,10 @@ func TestSessionServiceRetainsProviderResultWhenReadyTransitionFails(t *testing.
 	if !errors.Is(err, readyErr) {
 		t.Fatalf("RunStructuredTurn error = %v, want %v", err, readyErr)
 	}
-	wantUsage := agent.TokenUsage{InputTokens: 101, CachedInputTokens: 11, OutputTokens: 29}
 	if result.Session.Status != SessionStatusRunning ||
 		result.ProviderThreadID != "master-provider-thread" ||
 		result.ProviderTurnID != "master-provider-turn" ||
-		string(result.Output) != `{"answer":"ok"}` ||
-		result.Usage != wantUsage {
+		string(result.Output) != `{"answer":"ok"}` {
 		t.Fatalf("structured result after ready failure = %+v", result)
 	}
 }
@@ -382,20 +379,14 @@ func (runtime *recordingRestrictedThreadRuntime) RunRestrictedStructuredTurn(
 	if runtime.structuredHook != nil {
 		runtime.structuredHook()
 	}
-	result := agent.RestrictedStructuredTurnResult{
+	if runtime.structuredErr != nil {
+		return agent.RestrictedStructuredTurnResult{}, runtime.structuredErr
+	}
+	return agent.RestrictedStructuredTurnResult{
 		ProviderThreadID: request.ProviderThreadID,
 		ProviderTurnID:   "master-provider-turn",
-		Usage: agent.TokenUsage{
-			InputTokens:       101,
-			CachedInputTokens: 11,
-			OutputTokens:      29,
-		},
-	}
-	if runtime.structuredErr != nil {
-		return result, runtime.structuredErr
-	}
-	result.Output = json.RawMessage(`{"answer":"ok"}`)
-	return result, nil
+		Output:           json.RawMessage(`{"answer":"ok"}`),
+	}, nil
 }
 
 func (runtime *recordingRestrictedThreadRuntime) StartRestrictedThread(

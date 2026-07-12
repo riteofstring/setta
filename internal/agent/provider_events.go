@@ -7,12 +7,7 @@ import (
 	"setta/internal/codexapp"
 )
 
-func (runtime *Runtime) handleProviderEvent(
-	providerEvent codexapp.Event,
-	base Event,
-	sink EventSink,
-	usage *turnTokenUsage,
-) (TurnResult, bool, error) {
+func (runtime *Runtime) handleProviderEvent(providerEvent codexapp.Event, base Event, sink EventSink) (TurnResult, bool, error) {
 	switch providerEvent.Kind {
 	case codexapp.EventLifecycle:
 		message := "provider lifecycle changed"
@@ -42,84 +37,31 @@ func (runtime *Runtime) handleProviderEvent(
 		event.Approval = &approval
 		return TurnResult{}, false, emitAgentEvent(sink, event)
 	case codexapp.EventNotification:
-		return runtime.handleProviderNotification(providerEvent.Message, base, sink, usage)
+		return runtime.handleProviderNotification(providerEvent.Message, base, sink)
 	default:
 		return TurnResult{}, false, fmt.Errorf("unsupported codex session event kind %q", providerEvent.Kind)
 	}
 }
 
-func (runtime *Runtime) handleProviderNotification(
-	message codexapp.Message,
-	base Event,
-	sink EventSink,
-	usage *turnTokenUsage,
-) (TurnResult, bool, error) {
-	if message.Method == codexapp.CodexNotificationThreadTokenUsageUpdated {
-		if err := observeProviderTokenUsage(message.Params, base, usage); err != nil {
-			return TurnResult{}, false, err
-		}
-		return TurnResult{}, false, nil
-	}
+func (runtime *Runtime) handleProviderNotification(message codexapp.Message, base Event, sink EventSink) (TurnResult, bool, error) {
 	events, terminal, err := normalizedProviderNotification(message, base)
 	if err != nil {
 		return TurnResult{}, false, err
 	}
-	terminalUsage, err := emitNormalizedProviderEvents(events, sink, usage)
-	if err != nil {
-		return TurnResult{}, false, err
+	for _, event := range events {
+		if err := emitAgentEvent(sink, event); err != nil {
+			return TurnResult{}, false, err
+		}
 	}
 	if terminal == nil {
 		return TurnResult{}, false, nil
-	}
-	if terminalUsage == nil {
-		return TurnResult{}, false, errors.New("provider terminal notification emitted no terminal usage")
 	}
 	return TurnResult{
 		ProviderThreadID: base.ProviderThreadID,
 		ProviderTurnID:   base.ProviderTurnID,
 		Outcome:          terminal.Outcome,
 		Error:            terminal.Error,
-		Usage:            tokenUsagePointer(*terminalUsage),
 	}, true, nil
-}
-
-func emitNormalizedProviderEvents(
-	events []Event,
-	sink EventSink,
-	usage *turnTokenUsage,
-) (*TokenUsage, error) {
-	var terminalUsage *TokenUsage
-	for _, event := range events {
-		if event.Kind == EventKindAgentTextCompleted && event.Text != nil {
-			if err := usage.addOutput(event.Text.Text); err != nil {
-				return nil, err
-			}
-		}
-		if event.Kind == EventKindTurnTerminal && event.Terminal != nil {
-			value := usage.snapshot()
-			event.Terminal.Usage = tokenUsagePointer(value)
-			terminalUsage = tokenUsagePointer(value)
-		}
-		if err := emitAgentEvent(sink, event); err != nil {
-			return nil, err
-		}
-	}
-	return terminalUsage, nil
-}
-
-func observeProviderTokenUsage(
-	raw []byte,
-	base Event,
-	usage *turnTokenUsage,
-) error {
-	notification, err := codexapp.DecodeThreadTokenUsageUpdatedNotification(raw)
-	if err != nil {
-		return err
-	}
-	if err := requireProviderScope(base, notification.ThreadID, notification.TurnID); err != nil {
-		return err
-	}
-	return usage.observeProvider(notification)
 }
 
 func normalizedProviderNotification(message codexapp.Message, base Event) ([]Event, *TerminalEvent, error) {

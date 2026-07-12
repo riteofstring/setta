@@ -24,7 +24,6 @@ type RestrictedStructuredTurnResult struct {
 	ProviderThreadID string          `json:"providerThreadId"`
 	ProviderTurnID   string          `json:"providerTurnId"`
 	Output           json.RawMessage `json:"output"`
-	Usage            TokenUsage      `json:"usage"`
 }
 
 func (request RestrictedStructuredTurnRequest) Validate() error {
@@ -67,10 +66,6 @@ func (runtime *Runtime) RunRestrictedStructuredTurn(
 	if err := ctx.Err(); err != nil {
 		return RestrictedStructuredTurnResult{}, err
 	}
-	usage, err := newTurnTokenUsage(string(request.Input))
-	if err != nil {
-		return RestrictedStructuredTurnResult{}, err
-	}
 
 	session, err := runtime.manager.NewSession(ctx)
 	if err != nil {
@@ -95,8 +90,6 @@ func (runtime *Runtime) RunRestrictedStructuredTurn(
 	if err != nil {
 		return RestrictedStructuredTurnResult{}, err
 	}
-	result.ProviderThreadID = request.ProviderThreadID
-	result.ProviderTurnID = turnID
 	terminalReceived := false
 	cleanup := structuredTurnCleanup{
 		session:          session,
@@ -104,11 +97,7 @@ func (runtime *Runtime) RunRestrictedStructuredTurn(
 		turnID:           turnID,
 		requestID:        request.ID,
 		terminalReceived: &terminalReceived,
-		usage:            usage,
 	}
-	defer func() {
-		result.Usage = usage.snapshot()
-	}()
 	defer cleanup.apply(&returnErr)
 
 	output, err := runtime.waitForStructuredTurn(
@@ -118,11 +107,13 @@ func (runtime *Runtime) RunRestrictedStructuredTurn(
 		request.ProviderThreadID,
 		turnID,
 		&terminalReceived,
-		usage,
 	)
 	if err != nil {
-		return result, err
+		return RestrictedStructuredTurnResult{}, err
 	}
-	result.Output = output
-	return result, nil
+	return RestrictedStructuredTurnResult{
+		ProviderThreadID: request.ProviderThreadID,
+		ProviderTurnID:   turnID,
+		Output:           output,
+	}, nil
 }

@@ -546,9 +546,7 @@ function masterRouteInvocationIsAudited(invocation) {
     nonEmptyString(invocation?.providerThreadId),
     nonEmptyString(invocation?.providerTurnId),
     invocation?.inputBytes > 0,
-    invocation?.estimatedInputTokens > 0,
     invocation?.outputBytes > 0,
-    invocation?.estimatedOutputTokens > 0,
   ].every(Boolean);
 }
 

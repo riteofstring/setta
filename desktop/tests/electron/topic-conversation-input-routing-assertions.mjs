@@ -557,15 +557,7 @@ function assertConversationRouterInvocation(invocation) {
   };
   assertEqualJSON(actual, expected, "conversation-router invocation");
   assertPositiveNumber(invocation.contextUsage.inputBytes, "conversation-router input bytes");
-  assertPositiveNumber(
-    invocation.contextUsage.estimatedInputTokens,
-    "conversation-router input tokens",
-  );
   assertPositiveNumber(invocation.contextUsage.outputBytes, "conversation-router output bytes");
-  assertPositiveNumber(
-    invocation.contextUsage.estimatedOutputTokens,
-    "conversation-router output tokens",
-  );
   assertNonEmptyString(invocation.providerReferences.threadId, "conversation-router thread id");
   assertNonEmptyString(invocation.providerReferences.turnId, "conversation-router turn id");
   assertNonEmptyString(invocation.providerReferences.requestId, "conversation-router request id");

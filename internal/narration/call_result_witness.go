@@ -30,9 +30,7 @@ type successfulCallMetadata struct {
 	providerThreadID string
 	providerTurnID   string
 	inputBytes       int
-	inputTokens      int
 	outputBytes      int
-	outputTokens     int
 	startedAt        string
 	endedAt          string
 }
@@ -61,9 +59,7 @@ func successfulCallMetadataFor(workspaceRoot string, result CallResult) successf
 		providerThreadID: result.ProviderThreadID,
 		providerTurnID:   result.ProviderTurnID,
 		inputBytes:       result.InputBytes,
-		inputTokens:      result.InputTokens,
 		outputBytes:      result.OutputBytes,
-		outputTokens:     result.OutputTokens,
 		startedAt:        result.StartedAt,
 		endedAt:          result.EndedAt,
 	}

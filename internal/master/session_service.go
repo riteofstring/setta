@@ -55,7 +55,6 @@ type StructuredSessionTurnResult struct {
 	ProviderThreadID string
 	ProviderTurnID   string
 	Output           json.RawMessage
-	Usage            agent.TokenUsage
 }
 
 type SessionService struct {
@@ -190,7 +189,6 @@ func structuredSessionTurnResult(
 		ProviderThreadID: provider.ProviderThreadID,
 		ProviderTurnID:   provider.ProviderTurnID,
 		Output:           append(json.RawMessage{}, provider.Output...),
-		Usage:            provider.Usage,
 	}
 }
 

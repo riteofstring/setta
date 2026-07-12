@@ -291,17 +291,6 @@ export async function exerciseEphemeralSideForkWorkflow({
     timeoutMs,
   );
   const side = assertEphemeralSideCreation(answered, parentSnapshot, parentPane.paneId, sideId);
-  const completedSideTurn = answered.sideEvents.events.find(
-    (event) => event.sideConversationId === side.id && event.event.kind === "turn_completed",
-  );
-  assertCondition(
-    side.resolvedSideAgentInvocation.contextUsage.estimatedInputTokens > 0 &&
-      side.resolvedSideAgentInvocation.contextUsage.estimatedOutputTokens > 0 &&
-      completedSideTurn?.event.turnCompleted?.usage.inputTokens > 0 &&
-      completedSideTurn?.event.turnCompleted?.usage.outputTokens > 0,
-    "side invocation token usage drifted",
-    { answered, side },
-  );
   assertSideDidNotContaminateParent(parentSnapshot, answered);
   assertCondition(
     answered.sideEvents.events
@@ -1230,8 +1219,7 @@ function assertSideInvocation(side, context) {
   assertCondition(
     invocation.outcome === "running" &&
       invocation.providerReferences.threadId === side.providerThreadId &&
-      invocation.contextUsage.inputBytes > 0 &&
-      invocation.contextUsage.estimatedInputTokens > 0,
+      invocation.contextUsage.inputBytes > 0,
     "side invocation lifecycle drifted",
     context,
   );

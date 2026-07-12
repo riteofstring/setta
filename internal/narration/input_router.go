@@ -430,10 +430,8 @@ func (router *ConversationInputRouter) successfulInvocation(
 		Requested: call.Model.RequestedProfile,
 		Resolved:  call.Model.Settings,
 		ContextUsage: conversation.InvocationContextUsage{
-			InputBytes:            call.InputBytes,
-			EstimatedInputTokens:  call.InputTokens,
-			OutputBytes:           call.OutputBytes,
-			EstimatedOutputTokens: call.OutputTokens,
+			InputBytes:  call.InputBytes,
+			OutputBytes: call.OutputBytes,
 		},
 		ProviderReferences: conversation.InvocationProviderReferences{
 			ThreadID:  &threadID,

@@ -688,10 +688,7 @@ func liveSideTurnCompleted(snapshot ConversationSnapshot, sideID string, turnID 
 		if event.SideConversationID == sideID &&
 			event.Event.TurnID != nil &&
 			*event.Event.TurnID == turnID &&
-			event.Event.Kind == TrajectoryEventTurnCompleted &&
-			event.Event.TurnCompleted != nil &&
-			event.Event.TurnCompleted.Usage.InputTokens > 0 &&
-			event.Event.TurnCompleted.Usage.OutputTokens > 0 {
+			event.Event.Kind == TrajectoryEventTurnCompleted {
 			return true
 		}
 	}

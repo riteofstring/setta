@@ -32,7 +32,6 @@ type activeTurn struct {
 	providerThreadID string
 	providerTurnID   string
 	session          *codexapp.Session
-	usage            *turnTokenUsage
 }
 
 type pendingApproval struct {
@@ -105,11 +104,7 @@ func (runtime *Runtime) Shutdown(ctx context.Context) error {
 	return runtime.manager.Shutdown(ctx)
 }
 
-func (runtime *Runtime) reserveTurn(
-	request TurnRequest,
-	session *codexapp.Session,
-	usage *turnTokenUsage,
-) error {
+func (runtime *Runtime) reserveTurn(request TurnRequest, session *codexapp.Session) error {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	if _, exists := runtime.active[request.ConversationID]; exists {
@@ -120,7 +115,6 @@ func (runtime *Runtime) reserveTurn(
 		settaTurnID:      request.TurnID,
 		providerThreadID: request.ProviderThreadID,
 		session:          session,
-		usage:            usage,
 	}
 	return nil
 }

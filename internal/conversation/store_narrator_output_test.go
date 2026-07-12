@@ -258,7 +258,7 @@ func appendTerminalNarratorSource(t *testing.T, store *Store, seed narratorConte
 	terminal := contextTrajectoryEvent(seed.conversationID, seed.turnID, 11, TrajectoryEventTurnCompleted)
 	terminal.EmittedAt = narratorStatusTime
 	terminal.Actor = TrajectoryActorProvider
-	terminal.TurnCompleted = &TrajectoryTurnCompleted{Usage: TokenUsage{}}
+	terminal.TurnCompleted = &TrajectoryTurnCompleted{}
 	_, err := store.Transact(context.Background(), "append terminal narrator source", func(transaction *WriteTransaction) error {
 		if err := transaction.UpdateTurn(TurnStatusRunning, turn); err != nil {
 			return err

@@ -1126,22 +1126,6 @@ function completeTurn(threadId, turnId, status, message = "") {
   }
   turns.set(turnId, turn);
   persistState();
-  const usage = {
-    cachedInputTokens: 11,
-    inputTokens: 101,
-    outputTokens: 29,
-    reasoningOutputTokens: 7,
-    totalTokens: 137,
-  };
-  notify("thread/tokenUsage/updated", {
-    threadId,
-    tokenUsage: {
-      last: usage,
-      modelContextWindow: 200_000,
-      total: usage,
-    },
-    turnId,
-  });
   notify("turn/completed", { threadId, turn });
 }
 

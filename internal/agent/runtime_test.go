@@ -351,7 +351,6 @@ func TestRuntimeRunsSequentialAndConcurrentConversationTurns(t *testing.T) {
 		if result.Outcome != TurnOutcomeCompleted {
 			t.Errorf("turn result = %+v", result)
 		}
-		assertFakeProviderTokenUsage(t, result.Usage)
 	}
 	for index, sink := range sinks {
 		assertEventKinds(t, index, sink.snapshot(), []EventKind{
@@ -370,7 +369,6 @@ func TestRuntimeRunsSequentialAndConcurrentConversationTurns(t *testing.T) {
 	if err != nil || second.Outcome != TurnOutcomeCompleted {
 		t.Fatalf("second sequential RunTurn = %+v, %v", second, err)
 	}
-	assertFakeProviderTokenUsage(t, second.Usage)
 }
 
 func TestRuntimeSteersInterruptsAndResolvesApproval(t *testing.T) {
@@ -406,11 +404,9 @@ func TestRuntimeSteersInterruptsAndResolvesApproval(t *testing.T) {
 		if err := <-errResult; err != nil {
 			t.Fatalf("steered RunTurn: %v", err)
 		}
-		turnResult := <-result
-		if turnResult.Outcome != TurnOutcomeCompleted {
+		if turnResult := <-result; turnResult.Outcome != TurnOutcomeCompleted {
 			t.Fatalf("steered result = %+v", turnResult)
 		}
-		assertFakeProviderTokenUsage(t, turnResult.Usage)
 	})
 
 	t.Run("interrupt", func(t *testing.T) {
@@ -434,11 +430,9 @@ func TestRuntimeSteersInterruptsAndResolvesApproval(t *testing.T) {
 		if err := <-errResult; err != nil {
 			t.Fatalf("interrupted RunTurn: %v", err)
 		}
-		turnResult := <-result
-		if turnResult.Outcome != TurnOutcomeInterrupted {
+		if turnResult := <-result; turnResult.Outcome != TurnOutcomeInterrupted {
 			t.Fatalf("interrupted result = %+v", turnResult)
 		}
-		assertFakeProviderTokenUsage(t, turnResult.Usage)
 	})
 
 	t.Run("approval", func(t *testing.T) {
@@ -462,27 +456,9 @@ func TestRuntimeSteersInterruptsAndResolvesApproval(t *testing.T) {
 		if err := <-errResult; err != nil {
 			t.Fatalf("approved RunTurn: %v", err)
 		}
-		turnResult := <-result
-		if turnResult.Outcome != TurnOutcomeCompleted {
+		if turnResult := <-result; turnResult.Outcome != TurnOutcomeCompleted {
 			t.Fatalf("approved result = %+v", turnResult)
 		}
-		assertFakeProviderTokenUsage(t, turnResult.Usage)
-	})
-
-	t.Run("failure", func(t *testing.T) {
-		sink := &recordingEventSink{}
-		request := testTurnRequest(13, thread.ID, workspace, "failed")
-		result, err := runtime.RunTurn(ctx, request, sink)
-		if err != nil || result.Outcome != TurnOutcomeFailed || result.Error == nil {
-			t.Fatalf("failed RunTurn = %+v, %v", result, err)
-		}
-		assertFakeProviderTokenUsage(t, result.Usage)
-		events := sink.snapshot()
-		terminal := events[len(events)-1]
-		if terminal.Kind != EventKindTurnTerminal || terminal.Terminal == nil {
-			t.Fatalf("failed terminal event = %+v", terminal)
-		}
-		assertFakeProviderTokenUsage(t, terminal.Terminal.Usage)
 	})
 }
 
@@ -595,13 +571,5 @@ func assertEventKinds(t *testing.T, index int, events []Event, want []EventKind)
 		if got[eventIndex] != want[eventIndex] {
 			t.Fatalf("sink %d event kinds = %v, want %v", index, got, want)
 		}
-	}
-}
-
-func assertFakeProviderTokenUsage(t *testing.T, usage *TokenUsage) {
-	t.Helper()
-	want := TokenUsage{InputTokens: 101, CachedInputTokens: 11, OutputTokens: 29}
-	if usage == nil || *usage != want {
-		t.Fatalf("provider token usage = %+v, want %+v", usage, want)
 	}
 }

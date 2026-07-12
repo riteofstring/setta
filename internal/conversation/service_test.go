@@ -283,7 +283,6 @@ func exerciseQueuedServiceTurns(
 	if completed.Conversation.Status != ConversationStatusIdle {
 		t.Fatalf("completed conversation status = %s, want idle", completed.Conversation.Status)
 	}
-	assertServiceInvocationTokenUsage(t, latestSnapshotTurn(completed))
 }
 
 func exerciseServiceApproval(
@@ -340,7 +339,6 @@ func exerciseServiceCancellation(
 	if terminal.Conversation.Status != ConversationStatusIdle {
 		t.Fatalf("cancelled conversation status = %s, want idle", terminal.Conversation.Status)
 	}
-	assertServiceInvocationTokenUsage(t, latestSnapshotTurn(terminal))
 }
 
 func assertReloadedServiceState(
@@ -370,16 +368,6 @@ func assertReloadedServiceState(
 	}
 	if latestSnapshotTurn(reloaded).Status != TurnStatusCancelled || len(reloaded.Artifacts.Artifacts) < 2 {
 		t.Fatalf("reloaded snapshot lost terminal/artifact state: %+v", reloaded)
-	}
-	assertServiceInvocationTokenUsage(t, latestSnapshotTurn(reloaded))
-}
-
-func assertServiceInvocationTokenUsage(t *testing.T, turn ConversationTurn) {
-	t.Helper()
-	if turn.ResolvedInvocation == nil ||
-		turn.ResolvedInvocation.ContextUsage.EstimatedInputTokens != 101 ||
-		turn.ResolvedInvocation.ContextUsage.EstimatedOutputTokens != 29 {
-		t.Fatalf("terminal invocation token usage = %+v", turn.ResolvedInvocation)
 	}
 }
 
@@ -806,14 +794,9 @@ func (runtime *serviceTestAgentRuntime) runHeldScenario(
 		return runtime.emitCompletedTurn(sink, base, text)
 	}
 	message := "scripted held failure"
-	usage := serviceTestProviderTokenUsage()
 	terminal := base
 	terminal.Kind = agent.EventKindTurnTerminal
-	terminal.Terminal = &agent.TerminalEvent{
-		Outcome: agent.TurnOutcomeFailed,
-		Error:   &message,
-		Usage:   usage,
-	}
+	terminal.Terminal = &agent.TerminalEvent{Outcome: agent.TurnOutcomeFailed, Error: &message}
 	if err := sink.HandleAgentEvent(terminal); err != nil {
 		return agent.TurnResult{}, err
 	}
@@ -821,7 +804,6 @@ func (runtime *serviceTestAgentRuntime) runHeldScenario(
 		ProviderThreadID: base.ProviderThreadID,
 		ProviderTurnID:   base.ProviderTurnID,
 		Outcome:          agent.TurnOutcomeFailed,
-		Usage:            usage,
 	}, nil
 }
 
@@ -879,8 +861,7 @@ func (runtime *serviceTestAgentRuntime) emitTerminal(
 ) (agent.TurnResult, error) {
 	terminal := base
 	terminal.Kind = agent.EventKindTurnTerminal
-	usage := serviceTestProviderTokenUsage()
-	terminal.Terminal = &agent.TerminalEvent{Outcome: outcome, Usage: usage}
+	terminal.Terminal = &agent.TerminalEvent{Outcome: outcome}
 	if err := sink.HandleAgentEvent(terminal); err != nil {
 		return agent.TurnResult{}, err
 	}
@@ -888,12 +869,7 @@ func (runtime *serviceTestAgentRuntime) emitTerminal(
 		ProviderThreadID: base.ProviderThreadID,
 		ProviderTurnID:   base.ProviderTurnID,
 		Outcome:          outcome,
-		Usage:            usage,
 	}, nil
-}
-
-func serviceTestProviderTokenUsage() *agent.TokenUsage {
-	return &agent.TokenUsage{InputTokens: 101, CachedInputTokens: 11, OutputTokens: 29}
 }
 
 func (runtime *serviceTestAgentRuntime) SteerTurn(_ context.Context, request agent.TurnControlRequest) error {

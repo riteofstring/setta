@@ -465,14 +465,10 @@ func validateCompletedInvocationAttempt(attempt InvocationAttempt) error {
 		attempt.Failure == nil,
 		attempt.Requested != nil,
 		attempt.Resolved != nil,
-		attempt.ContextUsage.InputBytes > 0,
-		attempt.ContextUsage.EstimatedInputTokens > 0,
-		attempt.ContextUsage.OutputBytes > 0,
-		attempt.ContextUsage.EstimatedOutputTokens > 0,
 		attempt.ValidationResult == InvocationValidationPassed,
 		attempt.CommitDecision == InvocationCommitOutputCommitted,
 	) {
-		return errors.New("completed invocation attempt requires resolved usage and validated committed output")
+		return errors.New("completed invocation attempt requires resolved validated committed output")
 	}
 	return nil
 }

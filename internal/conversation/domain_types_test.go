@@ -335,10 +335,8 @@ func validInvocation(role Role, outcome InvocationOutcome) ResolvedInvocation {
 			PermissionProfile: validRoleProfile(role).PermissionProfile,
 		},
 		ContextUsage: InvocationContextUsage{
-			InputBytes:            1024,
-			EstimatedInputTokens:  256,
-			OutputBytes:           512,
-			EstimatedOutputTokens: 128,
+			InputBytes:  1024,
+			OutputBytes: 512,
 		},
 		ProviderReferences: InvocationProviderReferences{
 			ThreadID:  stringPointer("provider-thread-1"),

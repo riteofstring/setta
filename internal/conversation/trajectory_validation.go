@@ -1,7 +1,6 @@
 package conversation
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -148,9 +147,9 @@ func validateTurnTrajectoryPayload(payload any) (error, bool) {
 	case *TrajectoryTurnInterrupted:
 		return validateTrajectoryTurnInterrupted(value), true
 	case *TrajectoryTurnCompleted:
-		return value.Usage.Validate(), true
+		return nil, true
 	case *TrajectoryTurnFailed:
-		return errors.Join(value.Failure.Validate(), value.Usage.Validate()), true
+		return value.Failure.Validate(), true
 	default:
 		return nil, false
 	}
@@ -261,7 +260,7 @@ func validateTrajectoryTurnInterrupted(payload *TrajectoryTurnInterrupted) error
 	if !validTurnInterruptionReason(payload.Reason) {
 		return fmt.Errorf("unsupported interruption reason %q", payload.Reason)
 	}
-	return payload.Usage.Validate()
+	return nil
 }
 
 func validateAgentTextDelta(payload *TrajectoryAgentPublicTextDelta) error {
@@ -789,16 +788,6 @@ func (lifecycle ProviderLifecycle) Validate() error {
 	}
 	if lifecycle.Status == ProviderLifecycleUnavailable && strings.TrimSpace(lifecycle.Message) == "" {
 		return fmt.Errorf("unavailable provider lifecycle requires message")
-	}
-	return nil
-}
-
-func (usage TokenUsage) Validate() error {
-	if usage.InputTokens < 0 || usage.CachedInputTokens < 0 || usage.OutputTokens < 0 {
-		return fmt.Errorf("token usage values must be non-negative")
-	}
-	if usage.CachedInputTokens > usage.InputTokens {
-		return fmt.Errorf("cached input tokens exceed input tokens")
 	}
 	return nil
 }

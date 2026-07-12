@@ -649,7 +649,6 @@ function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
     turnId: event.turnId,
     turnInterruptionReason: summarizeTurnInterruptionReason(event),
     turnInvocation: summarizeTurnInvocation(event),
-    turnUsage: summarizeTurnUsage(event),
   };
 }
 
@@ -714,19 +713,6 @@ function summarizeTurnInvocation(event: TrajectoryEvent) {
     return null;
   }
   return summarizeResolvedInvocation(event.turnStarted.invocation);
-}
-
-function summarizeTurnUsage(event: TrajectoryEvent) {
-  if (event.turnCompleted !== null) {
-    return event.turnCompleted.usage;
-  }
-  if (event.turnInterrupted !== null) {
-    return event.turnInterrupted.usage;
-  }
-  if (event.turnFailed !== null) {
-    return event.turnFailed.usage;
-  }
-  return null;
 }
 
 function trajectoryTextBytes(event: TrajectoryEvent): number {

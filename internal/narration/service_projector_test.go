@@ -507,7 +507,7 @@ func seedTerminalProjectorConversation(
 		EmittedAt:      endedAt,
 		Kind:           conversation.TrajectoryEventTurnCompleted,
 		Actor:          conversation.TrajectoryActorProvider,
-		TurnCompleted:  &conversation.TrajectoryTurnCompleted{Usage: conversation.TokenUsage{}},
+		TurnCompleted:  &conversation.TrajectoryTurnCompleted{},
 	}
 	trajectory = append(trajectory, terminal)
 	record := conversation.TopicConversation{
@@ -637,7 +637,7 @@ func appendSecondTerminalProjectorTurn(
 		Kind:           conversation.TrajectoryEventTurnCompleted,
 		Actor:          conversation.TrajectoryActorProvider,
 		ProviderTurnID: &providerTurnID,
-		TurnCompleted:  &conversation.TrajectoryTurnCompleted{Usage: conversation.TokenUsage{}},
+		TurnCompleted:  &conversation.TrajectoryTurnCompleted{},
 	}
 	updated := snapshot.Conversation
 	updated.UpdatedAt = endedAt

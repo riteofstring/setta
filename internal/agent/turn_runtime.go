@@ -14,11 +14,7 @@ func (runtime *Runtime) RunTurn(ctx context.Context, request TurnRequest, sink E
 	if err := validateRunTurn(runtime, request, sink); err != nil {
 		return TurnResult{}, err
 	}
-	usage, err := newTurnTokenUsage(request.Text)
-	if err != nil {
-		return TurnResult{}, err
-	}
-	session, err := runtime.openTurnSession(ctx, request, usage)
+	session, err := runtime.openTurnSession(ctx, request)
 	if err != nil {
 		return TurnResult{}, err
 	}
@@ -28,7 +24,7 @@ func (runtime *Runtime) RunTurn(ctx context.Context, request TurnRequest, sink E
 	if err != nil {
 		return TurnResult{}, err
 	}
-	return runtime.waitForProviderTurn(ctx, session, base, sink, usage)
+	return runtime.waitForProviderTurn(ctx, session, base, sink)
 }
 
 func validateRunTurn(runtime *Runtime, request TurnRequest, sink EventSink) error {
@@ -41,11 +37,7 @@ func validateRunTurn(runtime *Runtime, request TurnRequest, sink EventSink) erro
 	return request.Validate()
 }
 
-func (runtime *Runtime) openTurnSession(
-	ctx context.Context,
-	request TurnRequest,
-	usage *turnTokenUsage,
-) (*codexapp.Session, error) {
+func (runtime *Runtime) openTurnSession(ctx context.Context, request TurnRequest) (*codexapp.Session, error) {
 	session, err := runtime.manager.NewSession(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create agent turn session: %w", err)
@@ -54,7 +46,7 @@ func (runtime *Runtime) openTurnSession(
 		session.Close()
 		return nil, err
 	}
-	if err := runtime.reserveTurn(request, session, usage); err != nil {
+	if err := runtime.reserveTurn(request, session); err != nil {
 		session.Close()
 		return nil, err
 	}
@@ -98,13 +90,7 @@ func (runtime *Runtime) startProviderTurn(ctx context.Context, request TurnReque
 	return base, nil
 }
 
-func (runtime *Runtime) waitForProviderTurn(
-	ctx context.Context,
-	session *codexapp.Session,
-	base Event,
-	sink EventSink,
-	usage *turnTokenUsage,
-) (TurnResult, error) {
+func (runtime *Runtime) waitForProviderTurn(ctx context.Context, session *codexapp.Session, base Event, sink EventSink) (TurnResult, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -113,7 +99,7 @@ func (runtime *Runtime) waitForProviderTurn(
 			if !ok {
 				return TurnResult{}, errors.New("agent provider session closed before turn completed")
 			}
-			result, done, err := runtime.handleProviderEvent(providerEvent, base, sink, usage)
+			result, done, err := runtime.handleProviderEvent(providerEvent, base, sink)
 			if err != nil {
 				return TurnResult{}, err
 			}
@@ -134,9 +120,6 @@ func (runtime *Runtime) SteerTurn(ctx context.Context, request TurnControlReques
 	}
 	input, err := textUserInput(request.Text)
 	if err != nil {
-		return err
-	}
-	if err := active.usage.addInput(request.Text); err != nil {
 		return err
 	}
 	raw, err := active.session.Call(ctx, codexapp.CodexMethodTurnSteer, codexapp.TurnSteerParams{

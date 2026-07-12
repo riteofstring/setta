@@ -592,7 +592,6 @@ func assertActiveSideInvocation(t *testing.T, side SideConversation, profile Rol
 		invocation.Resolved.PermissionProfile.ProviderPermissionProfile != ":read-only" ||
 		invocation.Resolved.PermissionProfile.WorkspaceMutation ||
 		invocation.ContextUsage.InputBytes <= 0 ||
-		invocation.ContextUsage.EstimatedInputTokens <= 0 ||
 		invocation.Outcome != InvocationOutcomeRunning ||
 		invocation.ProviderReferences.ThreadID == nil ||
 		*invocation.ProviderReferences.ThreadID != *side.ProviderThreadID {

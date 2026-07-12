@@ -62,8 +62,7 @@ func TestLiveCodexRuntimeFreshStructuredCall(t *testing.T) {
 	if err := json.Unmarshal(result.Output, &output); err != nil {
 		t.Fatalf("decode live structured output: %v", err)
 	}
-	if output.Answer != "FRESH_STRUCTURED_OK" || result.ProviderThreadID == "" || result.ProviderTurnID == "" ||
-		result.Usage.InputTokens <= 0 || result.Usage.OutputTokens <= 0 {
+	if output.Answer != "FRESH_STRUCTURED_OK" || result.ProviderThreadID == "" || result.ProviderTurnID == "" {
 		t.Fatalf("live structured result = %+v, output=%s", result, result.Output)
 	}
 }
@@ -177,8 +176,7 @@ func runLiveRestrictedStructuredTurn(
 	if err := json.Unmarshal(result.Output, &output); err != nil {
 		t.Fatalf("decode durable structured output: %v", err)
 	}
-	if output.Answer != expected || result.ProviderThreadID != threadID || result.ProviderTurnID == "" ||
-		result.Usage.InputTokens <= 0 || result.Usage.OutputTokens <= 0 {
+	if output.Answer != expected || result.ProviderThreadID != threadID || result.ProviderTurnID == "" {
 		t.Fatalf("durable structured result = %+v output=%s", result, result.Output)
 	}
 	return result
@@ -271,9 +269,6 @@ func runLiveTurn(t *testing.T, runtime *Runtime, ctx context.Context, request Tu
 	result, err := runtime.RunTurn(ctx, request, &recordingEventSink{})
 	if err != nil {
 		t.Fatalf("RunTurn: %v", err)
-	}
-	if result.Usage == nil || result.Usage.InputTokens <= 0 || result.Usage.OutputTokens <= 0 {
-		t.Fatalf("live turn token usage = %+v", result)
 	}
 	return result
 }

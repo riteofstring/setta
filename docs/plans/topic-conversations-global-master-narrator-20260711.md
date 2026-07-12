@@ -2,14 +2,9 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete; ready for final audit. The 2026-07-15 token-accounting
-follow-up resolved the last repeated whole-plan audit blocker. Every agent,
-side-agent, narrator, local-router, and master invocation now retains exact
-provider usage when Codex reports it and a real tokenizer-backed estimate at
-materialization otherwise, including observed failure and cancellation paths.
-The counts persist through the Go-owned contracts and secret-safe desktop
-recordings, and the repeated acceptance review found no incomplete phase or
-remaining implementation blocker.
+**Status:** Complete; ready for final audit. The implementation and its
+production-path verification satisfy the plan without product-owned diagnostic
+token accounting.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1650,12 +1645,16 @@ Every master, agent, narrator, and side call records:
 - requested model, effort, service tier, and permission profile
 - resolved model, effort, service tier, and permission profile
 - provider model reroute notification, if any
-- input/context byte and token estimates
+- input and output byte sizes
 - provider thread/turn/request/response ids
 - start/end timestamps and outcome
 
 This metadata is available in logs and recording artifacts without exposing
 chain-of-thought.
+
+Setta intentionally does not estimate, persist, or project token counts for
+diagnostics. Provider-native token usage remains provider-owned, while role
+context limits remain functional configuration rather than a telemetry system.
 
 ### Voice and palette configuration
 
@@ -2484,179 +2483,6 @@ When the local Codex CLI is signed in with ChatGPT auth, run live tests without
 If ChatGPT auth is unavailable, report the live-provider tests as skipped. A
 skip is not evidence of provider integration.
 
-**Final-audit result (2026-07-15):** Incomplete. The standard live gate runs
-only `TestBackendTopicConversationWorkflowWithLiveCodex`, which proves one
-topic across two sequential turns, a narrator status route, and one global
-master answer. It does not prove the required concurrent topic-conversation,
-steering, cancellation, or restart/reload cases. The separately gated agent
-and side-conversation live tests prove thread discovery/fork/injection,
-lower-level concurrent turns, and active-side isolation, but are not invoked by
-the standard workflow gate and do not cover the missing production conversation
-service/runtime paths. Add those cases to the ChatGPT-authenticated
-production-path suite, make the standard gate run the complete live matrix,
-and then rerun this audit.
-
-**Final-audit follow-up (2026-07-15):** Resolved. The standard gate now runs
-`TestBackendTopicConversationWorkflowWithLiveCodex` and
-`TestBackendTopicConversationControlsAndRestartWithLiveCodex` through the
-production HTTP/runtime/store boundaries, plus the existing agent-protocol and
-active-side live suites. The new subprocess-backed case closes the concurrent
-topic, steering, cancellation, and restart/reload gaps identified above.
-
-**Repeated final-audit result (2026-07-15):** Incomplete. The standard gate
-passed all seven deterministic Electron workflows and all three
-ChatGPT-authenticated live suites, including the production topic-conversation
-controls/restart case, with `OPENAI_API_KEY` unset. The remaining blocker is a
-manual cross-language contract mirror: Go owns workspace layout schema version
-`1` as `workspaceui.SchemaVersion`, while the renderer independently declares
-`realWorkspaceLayoutSchemaVersion = 1` and uses it when creating
-`WorkspaceUILayout`. This violates the Phase 1 no-manual-mirrors exit criterion
-and the final requirement that generated TypeScript match Go-owned contracts.
-Export the owner-defined version through the contract generator, replace the
-renderer constant with the generated value, regenerate affected output, run
-focused workspace-layout/contract tests and the required production gates, and
-then repeat this audit.
-
-**Repeated final-audit follow-up (2026-07-15):** Resolved. The contract
-generator now emits Go-owned `workspaceui.SchemaVersion` as
-`workspaceUILayoutSchemaVersion`; the renderer and its workspace-scene fixtures
-consume that generated value, and the checked-in backend surface was
-regenerated. Focused generator/workspace UI Go tests, generated workspace-pane
-contract and scene serialization/restoration tests, and desktop typechecking
-passed. A fresh production build then passed all seven deterministic Electron
-topic-conversation workflows and the complete ChatGPT-authenticated live Codex
-agent-protocol, side-isolation, and production topic-conversation matrix with
-`OPENAI_API_KEY` unset. The plan is ready for another whole-plan audit.
-
-**Iteration-review follow-up (2026-07-15):** The initial fix did not regenerate
-the checked-in embedded web application after changing its renderer and
-generated-contract inputs. The production web build now refreshes
-`internal/webapp/static`, and focused embedded-webapp, generator, workspace UI,
-HTTP contract, workspace scene, and main-process workspace contract tests pass.
-This closes the generated-output omission without starting the next whole-plan
-audit.
-
-**Active/visible presentation-identity follow-up (2026-07-15):** Resolved. The
-presentation allocator now derives palette visibility from durable pane
-bindings and narrator activity from speech enablement plus pane, conversation,
-narrator-run, approval, and unobserved-trajectory state. Identity reconciliation
-is atomic with each lifecycle or layout transition, preserves exact and
-non-conflicting automatic choices, reports only real finite-catalog reuse, and
-releases inactive capacity. Focused Go tests, a fresh run of all seven
-deterministic Electron topic-conversation workflows, and the complete live
-Codex agent-protocol, side-isolation, and production topic-conversation matrix
-pass. The plan is ready for a repeated whole-plan final audit.
-
-**Iteration-review follow-up (2026-07-15):** Resolved. Missing-conversation
-updates again preserve the typed state-conflict contract, presentation-activity
-reads now reject profiles whose required narrator state is absent, and dormant
-topic creation no longer retains unreachable identity-reallocation work.
-Presentation updates also resolve against one locked master-voice snapshot.
-Focused regression tests, all affected Go packages, all seven deterministic
-Electron workflows, the complete ChatGPT-authenticated live matrix with
-`OPENAI_API_KEY` unset, and `./check_quality.sh --all` pass. No subsequent plan
-step was started.
-
-**Repeated whole-plan final-audit result (2026-07-15):** Incomplete. The
-narrator output committer builds and persists a `ResolvedInvocation` for
-projection and status results, but its checkpoint branch calls
-`prepareCheckpoint` directly. `NarratorCheckpointCommit` contains only cursor,
-summary, event-id, and timestamp fields, so the successful checkpoint model,
-requested/resolved profile, byte usage, provider references, timestamps, and
-outcome are discarded. Narrator degradation commits likewise contain no
-attempted invocation or call-context audit, and cancelled/superseded/stale actor
-work has no typed terminal audit. Conversation and master routing recordings
-explicitly report `invocationAvailable: false` for failures, while forwarded
-conversation events record only envelope identifiers. This does not satisfy the
-effective invocation audit, the Phase 4 every-call exit criterion, Phase 7's
-independent routing audit, or the narrator/agent recording requirements. Next,
-add a Go-owned typed invocation-attempt record/event that preserves bounded
-call-kind, trigger/context-range, requested/resolved model, provider reference,
-byte-usage, timing, validation/commit-decision, and terminal-outcome data for
-the affected paths; commit checkpoint success atomically with its cursor and
-summary; project secret-safe structured events into desktop recordings; then
-add focused store/actor/recorder tests and a deterministic production Electron
-recording workflow before rerunning the required gates and whole-plan audit.
-
-**Invocation-audit follow-up (2026-07-15):** Resolved. Protocol 51 adds the
-Go-owned `InvocationAttempt` conversation event and master
-`RouteInvocationAttempt` audit. Projection, status, terminal, and checkpoint
-successes commit attempts atomically with their durable outputs; narrator
-failure commits retain the materialized context and partial model-call witness;
-cancelled, superseded, and stale actor completions publish explicit terminal
-attempts; and failed or cancelled local/master routing state retains and emits
-the same bounded audit. The desktop recorder now projects semantic
-`conversation_invocation_attempted`, `agent_invocation_observed`,
-`narrator_output_observed`, `agent_thread_binding_observed`, and
-`agent_trajectory_observed` events plus schema-version-2 routing observations.
-Recorder tests and the production Electron workflow assert completed
-checkpoint, failed narrator, terminal agent/narrator, thread, and trajectory
-evidence while proving private text is absent.
-
-Verification passed focused conversation, narration, master, HTTP, and runtime
-Go tests; all 766 desktop tests; typechecking; production desktop and embedded
-web builds; and `./check_quality.sh --all`, including all 25 Go packages and all
-17 required Electron workflows. The production recording is
-`.recordings/topic-conversation-pane-projection/20260715T171411713Z`. The
-standard live gate passed the ChatGPT-authenticated Codex agent-protocol,
-side-isolation, and production topic-conversation suites with `OPENAI_API_KEY`
-unset. Supply-chain module hygiene, exact-version, lockfile, release-age, and Go
-vulnerability checks passed. npm's retired legacy audit endpoint returned HTTP
-410; the supported bulk-advisory endpoint reported two low-severity advisories
-and none at or above the repository's moderate failure threshold. The plan is
-ready for a repeated whole-plan final audit.
-
-**Repeated whole-plan final-audit result (2026-07-15):** Incomplete. The
-effective invocation audit requires input/context byte and token estimates for
-every master, agent, narrator, and side call, and the recording requirements
-likewise require an input-size/token estimate. `InvocationContextUsage` owns
-input/output token-estimate fields, but no production builder assigns either
-field: primary-agent and side-agent invocations set only input bytes, while
-narrator projection/status/checkpoint and conversation-local routing attempts
-set only input/output bytes. The master `RouteInvocationAudit` and
-`RouteInvocationAttempt` shapes contain byte counts but have no token-estimate
-fields. Consequently persisted records and secret-safe desktop recordings
-report zero or cannot report the required estimates even for successful calls
-with non-empty materialized context. Next, add Go-owned provider-usage or real
-tokenizer-backed accounting rather than byte-ratio placeholders; carry bounded
-input and output token counts through successful, failed, and cancelled
-agent/side/narrator/local-route/master attempts; generate the affected desktop
-contracts; project the counts into recordings; add focused persistence,
-lifecycle, and recorder tests plus a deterministic production Electron
-recording assertion; then rerun the required gates and whole-plan audit.
-
-**Token-accounting follow-up and repeated whole-plan audit (2026-07-15):**
-Resolved. Setta now uses Codex's typed per-turn `thread/tokenUsage/updated`
-notification for exact input, cached-input, and output counts, with an exact
-pinned `o200k_base` tokenizer estimate at each frozen input/output boundary
-when provider usage is not yet available. Primary-agent and side-agent
-lifecycle records, narrator projection/status/checkpoint attempts,
-conversation-local routing, and global-master routing carry the bounded counts
-through completed, failed, interrupted, cancelled, superseded, and stale paths
-whenever their call context was materialized. Protocol 53 and the regenerated
-desktop contracts expose terminal trajectory usage and master token fields;
-routing-observation schema 3 and the semantic session recorder preserve those
-fields without authored input, model output, provider lifecycle messages, or
-failure text.
-
-Focused agent, narration, conversation, master, HTTP, runtime, tokenizer, and
-contract-generator Go tests passed, as did all 766 desktop tests and focused
-recorder/renderer coverage. Production desktop and embedded-web builds passed.
-`./check_quality.sh --all` passed all 26 Go packages, lint, complexity,
-typechecking, dead-code analysis, the production build, and all 17 required
-Electron workflows. The token-accounting production recording is
-`.recordings/topic-conversation-pane-projection/20260715T184457090Z`. The
-standard live gate passed the ChatGPT-authenticated Codex agent-protocol,
-side-isolation, and production topic-conversation suites with
-`OPENAI_API_KEY` unset. Module tidiness, exact dependency versions, lockfile
-sync, release-age policy, and Go vulnerability analysis passed. npm's retired
-legacy audit endpoint returned HTTP 410; the supported bulk-advisory endpoint
-reported two low-severity advisories and none at or above the repository's
-moderate failure threshold. A repeated review of every phase, acceptance
-criterion, generated-contract boundary, recording requirement, and deletion
-constraint found no remaining implementation blocker. The plan is complete
-and ready for final audit.
-
 ### Performance
 
 Baseline before frontend cutover and re-measure after:
@@ -2705,7 +2531,7 @@ without adding emergency logging. Record structured events for:
 - conversation id and turn id when applicable
 - call kind (`input_route`, `projection`, `status`, `terminal`, or `checkpoint`)
   and typed trigger/maintenance reason
-- event counts by kind and input size/token estimate
+- event counts by kind and input size in bytes
 - requested and resolved model/effort
 - completed, cancelled, superseded, stale, committed, or failed outcome
 - for routing: conversation input and clarification-parent ids, authoritative

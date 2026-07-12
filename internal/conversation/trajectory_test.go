@@ -59,7 +59,7 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			event.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionUserRequested}
 		}},
 		{TrajectoryEventTurnCompleted, func(event *TrajectoryEvent) {
-			event.TurnCompleted = &TrajectoryTurnCompleted{Usage: TokenUsage{InputTokens: 100, CachedInputTokens: 25, OutputTokens: 50}}
+			event.TurnCompleted = &TrajectoryTurnCompleted{}
 		}},
 		{TrajectoryEventTurnFailed, func(event *TrajectoryEvent) {
 			event.TurnFailed = &TrajectoryTurnFailed{Failure: testFailure()}

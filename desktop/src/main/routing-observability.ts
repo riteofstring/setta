@@ -38,7 +38,7 @@ export interface RoutingObservationRecorder {
 
 type EmitRoutingObservation = (type: RoutingObservationEventType, payload: unknown) => void;
 
-const routingObservationSchemaVersion = 3;
+const routingObservationSchemaVersion = 4;
 
 // RouteObservability turns durable routing records into bounded, semantic
 // desktop-recording events. User-authored and model-authored text is represented

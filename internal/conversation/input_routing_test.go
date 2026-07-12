@@ -91,7 +91,7 @@ func TestConversationRouteDecisionRejectsUnsafeOrIncompleteRouterInvocationAudit
 		},
 		{
 			name: "missing input usage",
-			want: "positive input/output byte and token usage",
+			want: "positive input and output byte usage",
 			mutate: func(invocation *ResolvedInvocation) {
 				invocation.ContextUsage.InputBytes = 0
 			},
