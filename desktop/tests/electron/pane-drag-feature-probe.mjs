@@ -28,6 +28,7 @@ const results = [];
 try {
   context = await launchElectronCdpContext({
     artifactDir: options.artifactDir || "/tmp/pane-drag-feature-probe",
+    extraEnv: { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" },
     fixture,
     visible: options.visible,
   });

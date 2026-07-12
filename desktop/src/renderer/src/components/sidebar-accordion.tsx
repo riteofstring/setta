@@ -10,6 +10,7 @@ const noScrollAnchoringStyle = { overflowAnchor: "none" } satisfies CSSPropertie
 export const defaultSidebarSections = {
   projects: { height: 280, open: true, resized: false },
   runtime: { height: 132, open: true, resized: false },
+  shortcuts: { height: 42, open: true, resized: false },
 } satisfies Record<string, SidebarSectionState>;
 
 export type SidebarSectionId = keyof typeof defaultSidebarSections;

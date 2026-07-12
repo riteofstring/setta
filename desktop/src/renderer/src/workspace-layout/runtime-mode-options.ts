@@ -1,3 +1,4 @@
+import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import type { WorkspaceUILayout } from "@generated/backend";
 import {
   generateBenchmarkScene,
@@ -42,6 +43,15 @@ const runtimePolicyOptionsByMode = {
     degradeOverviewDuringResize: boolean;
   }
 >;
+const benchmarkWorkflowGraphSyntheticGraph = {
+  edgesPerNode: 2,
+  nodeCount: 500,
+} satisfies NonNullable<SyntheticWorkflowGraphOptions>;
+const benchmarkPaneRuntimeBudget = {
+  ...DEFAULT_PANE_BUDGET,
+  maxLiveWebGpuCanvases: 0,
+} satisfies PaneRuntimeBudget;
+
 export function browserPaneCountForScene(scene: WorkspaceScene): number {
   return scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
 }
@@ -104,7 +114,10 @@ export function runtimePolicyBudgetForRuntime(
   mode: WorkspaceSceneMode,
   scene: WorkspaceScene,
 ): PaneRuntimeBudget {
-  return mode === "benchmark" ? benchmarkRuntimeBudget() : workspaceRuntimeBudgetForScene(scene);
+  if (mode === "benchmark") {
+    return benchmarkPaneRuntimeBudget;
+  }
+  return workspaceRuntimeBudgetForScene(scene);
 }
 
 export function benchmarkSceneOptionsFromSearch(search: string): BenchmarkSceneOptions {
@@ -137,16 +150,21 @@ export function snapshotStaticFallbackForRuntime(mode: WorkspaceSceneMode): bool
   return mode === "workspace";
 }
 
+export function workflowGraphSyntheticGraphFallbackForRuntime(
+  mode: WorkspaceSceneMode,
+): SyntheticWorkflowGraphOptions | undefined {
+  return mode === "benchmark" ? benchmarkWorkflowGraphSyntheticGraph : undefined;
+}
+
 function workspaceRuntimeBudgetForScene(scene: WorkspaceScene): PaneRuntimeBudget {
   const visiblePaneBudget = Math.max(1, scene.totalPanes);
   return {
+    maxLiveBrowserPanes: visiblePaneBudget,
     maxLiveHeavyDomPanes: visiblePaneBudget,
+    maxLiveTerminalRenderers: visiblePaneBudget,
+    maxLiveWebGpuCanvases: visiblePaneBudget,
     maxSnapshotPanes: visiblePaneBudget,
   };
-}
-
-function benchmarkRuntimeBudget(): PaneRuntimeBudget {
-  return { ...DEFAULT_PANE_BUDGET };
 }
 
 function optionalPositiveIntegerParam(params: URLSearchParams, key: string): number | undefined {

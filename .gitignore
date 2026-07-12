@@ -30,8 +30,6 @@ out/
 # Go/tooling caches
 /.gocache/
 .tools/
-__pycache__/
-*.py[cod]
 
 # Local workspace scratch
 tmp/

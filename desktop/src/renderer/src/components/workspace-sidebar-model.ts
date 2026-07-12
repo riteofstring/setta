@@ -1,36 +1,31 @@
-import type { NavigatorItem, WorkspaceSummary } from "@generated/backend";
-
-import type { ConversationNavigatorWorkspaceState } from "../stores/conversation-navigator-store";
-import type { ConversationPaneWorkspaceState } from "../stores/conversation-pane-store";
+import type {
+  ConversationListItem,
+  WorkflowDefinition,
+  WorkspaceSummary,
+} from "@generated/backend";
 
 export type SidebarNavigationCommand =
-  | {
-      conversationId: string;
-      title: string;
-      type: "archiveConversation";
-      workspaceId: string;
-    }
   | {
       nextExpanded: boolean;
       selectWorkspace: boolean;
       type: "activateWorkspace";
       workspaceId: string;
     }
+  | { type: "createWorkspaceConversation"; workspaceId: string }
   | { type: "closeWorkspace"; workspaceId: string }
-  | { type: "loadMoreConversations"; workspaceId: string }
+  | { type: "deleteConversation"; conversationId: string; workspaceId: string }
   | { type: "openRecentWorkspace"; rootPath: string; workspaceId: string }
-  | {
-      conversationId: string;
-      title: string;
-      type: "presentConversation";
-      workspaceId: string;
-    }
-  | { type: "removeRecentWorkspace"; workspaceId: string };
+  | { type: "removeRecentWorkspace"; workspaceId: string }
+  | { type: "selectConversation"; conversationId: string; workspaceId: string }
+  | { type: "selectWorkflowDefinition"; definitionId: string; workspaceId: string }
+  | { type: "showMoreConversations" }
+  | { type: "setConversationPinned"; conversationId: string; pinned: boolean; workspaceId: string };
 
 export type SidebarNavigationItem =
   | {
       commands: {
         close: SidebarNavigationCommand;
+        createConversation: SidebarNavigationCommand;
         primary: SidebarNavigationCommand;
       };
       expanded: boolean;
@@ -41,27 +36,38 @@ export type SidebarNavigationItem =
       workspace: WorkspaceSummary;
     }
   | {
-      commands: { archive: SidebarNavigationCommand; primary: SidebarNavigationCommand };
-      focused: boolean;
+      commands: {
+        delete: SidebarNavigationCommand;
+        pin: SidebarNavigationCommand;
+        primary: SidebarNavigationCommand;
+      };
+      conversation: ConversationListItem;
       id: string;
-      item: NavigatorItem;
       kind: "conversation";
       label: string;
-      lineageParentTitle: string | null;
-      openPaneCount: number;
+      selected: boolean;
+      unread: boolean;
     }
   | {
       id: string;
-      kind: "conversationStatus";
+      kind: "emptyConversationList";
       label: string;
       workspaceId: string;
     }
   | {
-      commands: { primary: SidebarNavigationCommand };
       id: string;
-      kind: "loadMoreConversations";
+      kind: "emptyWorkflowList";
       label: string;
-      loading: boolean;
+      workspaceId: string;
+    }
+  | {
+      commands: {
+        primary: SidebarNavigationCommand;
+      };
+      hiddenCount: number;
+      id: string;
+      kind: "moreConversations";
+      label: string;
       workspaceId: string;
     }
   | {
@@ -73,26 +79,62 @@ export type SidebarNavigationItem =
       kind: "recentWorkspace";
       label: string;
       workspace: WorkspaceSummary;
+    }
+  | {
+      id: string;
+      kind: "sectionHeader";
+      label: string;
+      section: "conversations" | "workflows";
+      workspaceId: string;
+    }
+  | {
+      commands: {
+        primary: SidebarNavigationCommand;
+      };
+      definition: WorkflowDefinition;
+      id: string;
+      kind: "workflowDefinition";
+      label: string;
+      selected: boolean;
     };
 
 export interface SidebarNavigationInput {
-  activeWorkspaces: readonly WorkspaceSummary[];
-  conversationPanes: ReadonlyMap<string, ConversationPaneWorkspaceState>;
-  conversationQuery: string;
-  conversationWorkspaces: Readonly<Record<string, ConversationNavigatorWorkspaceState | undefined>>;
+  activeWorkspaces: WorkspaceSummary[];
   expandedWorkspaceIds: ReadonlySet<string>;
-  recentWorkspaces: readonly WorkspaceSummary[];
+  recentWorkspaces: WorkspaceSummary[];
+  selectedConversationId: string;
+  selectedWorkflowDefinitionIdsByWorkspaceId: Record<string, string | undefined>;
   selectedWorkspaceId: string;
+  visibleConversationLimit: number;
+  workspaceConversationLists: Record<string, SidebarWorkspaceConversationList | undefined>;
+  workspaceWorkflowDefinitionLists: Record<
+    string,
+    SidebarWorkspaceWorkflowDefinitionList | undefined
+  >;
+}
+
+export interface SidebarWorkspaceConversationList {
+  conversations: ConversationListItem[];
+  error: string | null;
+  loading: boolean;
+}
+
+export interface SidebarWorkspaceWorkflowDefinitionList {
+  definitions: WorkflowDefinition[];
+  error: string | null;
+  loading: boolean;
 }
 
 export function selectSidebarNavigationItems({
   activeWorkspaces,
-  conversationPanes,
-  conversationQuery,
-  conversationWorkspaces,
   expandedWorkspaceIds,
   recentWorkspaces,
+  selectedConversationId,
+  selectedWorkflowDefinitionIdsByWorkspaceId,
   selectedWorkspaceId,
+  visibleConversationLimit,
+  workspaceConversationLists,
+  workspaceWorkflowDefinitionLists,
 }: SidebarNavigationInput): SidebarNavigationItem[] {
   const items: SidebarNavigationItem[] = [];
   const activeWorkspaceIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
@@ -100,15 +142,44 @@ export function selectSidebarNavigationItems({
   for (const workspace of activeWorkspaces) {
     const selected = workspace.id === selectedWorkspaceId;
     const expanded = expandedWorkspaceIds.has(workspace.id);
-    items.push(activeWorkspaceItem(workspace, selected, expanded));
+    items.push({
+      commands: {
+        close: { type: "closeWorkspace", workspaceId: workspace.id },
+        createConversation: { type: "createWorkspaceConversation", workspaceId: workspace.id },
+        primary: {
+          nextExpanded: selected ? !expanded : true,
+          selectWorkspace: !selected,
+          type: "activateWorkspace",
+          workspaceId: workspace.id,
+        },
+      },
+      expanded,
+      id: `active-workspace:${workspace.id}`,
+      kind: "activeWorkspace",
+      label: workspace.displayName,
+      selected,
+      workspace,
+    });
+
     if (expanded) {
+      const workflowRows = workflowItems({
+        selectedWorkflowDefinitionId:
+          selectedWorkflowDefinitionIdsByWorkspaceId[workspace.id] ?? "",
+        workflowDefinitionList: workspaceWorkflowDefinitionLists[workspace.id],
+        workspaceId: workspace.id,
+      });
+      const conversationRows = conversationItems({
+        conversationList: workspaceConversationLists[workspace.id],
+        selectedConversationId: selected ? selectedConversationId : "",
+        visibleConversationLimit,
+        workspaceId: workspace.id,
+      });
       items.push(
-        ...conversationItems(
-          workspace.id,
-          conversationWorkspaces[workspace.id],
-          conversationPanes.get(workspace.id),
-          conversationQuery,
-        ),
+        ...sectionedWorkspaceRows({
+          conversationRows,
+          workflowRows,
+          workspaceId: workspace.id,
+        }),
       );
     }
   }
@@ -136,119 +207,182 @@ export function selectSidebarNavigationItems({
   return items;
 }
 
-function activeWorkspaceItem(
-  workspace: WorkspaceSummary,
-  selected: boolean,
-  expanded: boolean,
-): SidebarNavigationItem {
-  return {
-    commands: {
-      close: { type: "closeWorkspace", workspaceId: workspace.id },
-      primary: {
-        nextExpanded: selected ? !expanded : true,
-        selectWorkspace: !selected,
-        type: "activateWorkspace",
-        workspaceId: workspace.id,
-      },
-    },
-    expanded,
-    id: `active-workspace:${workspace.id}`,
-    kind: "activeWorkspace",
-    label: workspace.displayName,
-    selected,
-    workspace,
-  };
-}
-
-function conversationItems(
-  workspaceId: string,
-  workspace: ConversationNavigatorWorkspaceState | undefined,
-  panes: ConversationPaneWorkspaceState | undefined,
-  query: string,
-): SidebarNavigationItem[] {
-  if (!workspace || (workspace.loading && workspace.items.length === 0)) {
-    return [conversationStatusItem(workspaceId, "Loading conversations…")];
+function sectionedWorkspaceRows({
+  conversationRows,
+  workflowRows,
+  workspaceId,
+}: {
+  conversationRows: SidebarNavigationItem[];
+  workflowRows: SidebarNavigationItem[];
+  workspaceId: string;
+}) {
+  const items: SidebarNavigationItem[] = [];
+  if (workflowRows.length > 0) {
+    items.push(sectionHeaderItem(workspaceId, "workflows", "Workflows"), ...workflowRows);
   }
-  if (workspace.error && workspace.items.length === 0) {
-    return [conversationStatusItem(workspaceId, workspace.error)];
+  if (conversationRows.length > 0) {
+    items.push(
+      sectionHeaderItem(workspaceId, "conversations", "Conversations"),
+      ...conversationRows,
+    );
   }
-  const titlesByConversationId = new Map(
-    workspace.items.map((item) => [item.conversation.id, item.conversation.title] as const),
-  );
-  const items = workspace.items.map((item) =>
-    conversationItem(workspaceId, panes, item, titlesByConversationId),
-  );
-  appendConversationNavigationTail(items, workspaceId, workspace, query);
   return items;
 }
 
-function conversationItem(
+function sectionHeaderItem(
   workspaceId: string,
-  panes: ConversationPaneWorkspaceState | undefined,
-  item: NavigatorItem,
-  titlesByConversationId: ReadonlyMap<string, string>,
-): SidebarNavigationItem {
-  const conversationId = item.conversation.id;
+  section: "conversations" | "workflows",
+  label: string,
+) {
   return {
+    id: `section:${workspaceId}:${section}`,
+    kind: "sectionHeader",
+    label,
+    section,
+    workspaceId,
+  } satisfies SidebarNavigationItem;
+}
+
+function workflowItems({
+  selectedWorkflowDefinitionId,
+  workflowDefinitionList,
+  workspaceId,
+}: {
+  selectedWorkflowDefinitionId: string;
+  workflowDefinitionList: SidebarWorkspaceWorkflowDefinitionList | undefined;
+  workspaceId: string;
+}) {
+  if (
+    !workflowDefinitionList ||
+    (workflowDefinitionList.loading && workflowDefinitionList.definitions.length === 0)
+  ) {
+    return [];
+  }
+  if (workflowDefinitionList.error) {
+    return [workflowStatusItem(workspaceId, workflowDefinitionList.error)];
+  }
+  if (workflowDefinitionList.definitions.length === 0) {
+    return [workflowStatusItem(workspaceId, "No workflows")];
+  }
+  return workflowDefinitionList.definitions.map((definition) => ({
     commands: {
-      archive: {
-        conversationId,
-        title: item.conversation.title,
-        type: "archiveConversation",
-        workspaceId,
-      },
       primary: {
-        conversationId,
-        title: item.conversation.title,
-        type: "presentConversation",
+        definitionId: definition.id,
+        type: "selectWorkflowDefinition",
         workspaceId,
       },
     },
-    focused: panes?.focusedConversationId === conversationId,
-    id: `conversation:${conversationId}`,
-    item,
-    kind: "conversation",
-    label: item.conversation.title,
-    lineageParentTitle: item.branch
-      ? (titlesByConversationId.get(item.branch.parentConversationId) ?? null)
-      : null,
-    openPaneCount: panes?.paneIdsByConversationId.get(conversationId)?.length ?? 0,
-  };
+    definition,
+    id: `workflow:${definition.id}`,
+    kind: "workflowDefinition",
+    label: definition.name,
+    selected: definition.id === selectedWorkflowDefinitionId,
+  })) satisfies SidebarNavigationItem[];
 }
 
-function appendConversationNavigationTail(
-  items: SidebarNavigationItem[],
-  workspaceId: string,
-  workspace: ConversationNavigatorWorkspaceState,
-  query: string,
-): void {
-  if (workspace.error) {
-    items.push(conversationStatusItem(workspaceId, workspace.error));
-  } else if (workspace.items.length === 0) {
-    items.push(
-      conversationStatusItem(
-        workspaceId,
-        query.trim() === "" ? "No conversations" : "No matching conversations",
-      ),
-    );
+function conversationItems({
+  conversationList,
+  selectedConversationId,
+  visibleConversationLimit,
+  workspaceId,
+}: {
+  conversationList: SidebarWorkspaceConversationList | undefined;
+  selectedConversationId: string;
+  visibleConversationLimit: number;
+  workspaceId: string;
+}) {
+  if (
+    !conversationList ||
+    (conversationList.loading && conversationList.conversations.length === 0)
+  ) {
+    return [];
   }
-  if (workspace.nextCursor) {
+  if (conversationList.error) {
+    return [conversationStatusItem(workspaceId, conversationList.error)];
+  }
+  const { conversations } = conversationList;
+  if (conversations.length === 0) {
+    return [conversationStatusItem(workspaceId, "No chats")];
+  }
+
+  const visibleCount = visibleConversationCount(
+    conversations,
+    selectedConversationId,
+    visibleConversationLimit,
+  );
+  const visibleConversations = conversations.slice(0, visibleCount);
+  const items: SidebarNavigationItem[] = visibleConversations.map((conversation) => ({
+    commands: {
+      delete: {
+        conversationId: conversation.conversation.id,
+        type: "deleteConversation",
+        workspaceId,
+      },
+      pin: {
+        conversationId: conversation.conversation.id,
+        pinned: conversation.pinnedAt === "",
+        type: "setConversationPinned",
+        workspaceId,
+      },
+      primary: {
+        conversationId: conversation.conversation.id,
+        type: "selectConversation",
+        workspaceId,
+      },
+    },
+    conversation,
+    id: `conversation:${conversation.conversation.id}`,
+    kind: "conversation",
+    label: conversation.conversation.title,
+    selected: conversation.conversation.id === selectedConversationId,
+    unread: conversation.latestReadRelevantMarker > conversation.readMarker,
+  }));
+
+  if (visibleCount < conversations.length) {
     items.push({
-      commands: { primary: { type: "loadMoreConversations", workspaceId } },
+      commands: {
+        primary: { type: "showMoreConversations" },
+      },
+      hiddenCount: conversations.length - visibleCount,
       id: `conversation-more:${workspaceId}`,
-      kind: "loadMoreConversations",
-      label: workspace.loading ? "Loading older conversations…" : "Load older conversations",
-      loading: workspace.loading,
+      kind: "moreConversations",
+      label: "More chats",
       workspaceId,
     });
   }
+
+  return items;
 }
 
-function conversationStatusItem(workspaceId: string, label: string): SidebarNavigationItem {
+function workflowStatusItem(workspaceId: string, label: string) {
   return {
-    id: `conversation-status:${workspaceId}:${label}`,
-    kind: "conversationStatus",
+    id: `workflow-empty:${workspaceId}`,
+    kind: "emptyWorkflowList",
     label,
     workspaceId,
-  };
+  } satisfies SidebarNavigationItem;
+}
+
+function conversationStatusItem(workspaceId: string, label: string) {
+  return {
+    id: `conversation-empty:${workspaceId}`,
+    kind: "emptyConversationList",
+    label,
+    workspaceId,
+  } satisfies SidebarNavigationItem;
+}
+
+function visibleConversationCount(
+  conversations: ConversationListItem[],
+  selectedConversationId: string,
+  visibleConversationLimit: number,
+) {
+  const safeLimit = Math.max(0, visibleConversationLimit);
+  const selectedIndex = conversations.findIndex(
+    (item) => item.conversation.id === selectedConversationId,
+  );
+  if (selectedIndex >= safeLimit) {
+    return Math.min(conversations.length, selectedIndex + 1);
+  }
+  return Math.min(conversations.length, safeLimit);
 }

@@ -34,7 +34,7 @@ func TestServiceReturnsUnavailableStateWhenAppServerCannotStart(t *testing.T) {
 	manager := codexapp.NewManager(codexapp.ManagerConfig{
 		Process: codexapp.ProcessConfig{Command: "/missing/codex-app-server"},
 	})
-	service, err := NewService(manager)
+	service, err := NewService(manager, nil)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
@@ -49,9 +49,12 @@ func TestServiceReturnsUnavailableStateWhenAppServerCannotStart(t *testing.T) {
 }
 
 func TestServiceStartsLoginAndPublishesNotificationChanges(t *testing.T) {
-	service, manager, changes := newTestService(t, "login")
+	changes := make(chan string, 4)
+	service, manager, _ := newTestService(t, "login")
+	service.onChanged = func(reason string) {
+		changes <- reason
+	}
 	defer shutdownManager(t, manager)
-	waitForChange(t, changes, AccountChangeSnapshotRequired)
 
 	result, err := service.StartLogin(context.Background(), StartCodexLoginRequest{Type: LoginTypeChatGPT})
 	if err != nil {
@@ -60,10 +63,8 @@ func TestServiceStartsLoginAndPublishesNotificationChanges(t *testing.T) {
 	if result.Login.Status != LoginStatusInProgress || result.Login.AuthURL == "" {
 		t.Fatalf("login = %+v, want pending browser login", result.Login)
 	}
-	completed := waitForChange(t, changes, AccountChangeLoginCompleted)
-	if completed.Sequence < 1 {
-		t.Fatalf("login-completed change sequence = %d, want positive", completed.Sequence)
-	}
+	waitForChange(t, changes, "login_completed")
+	waitForChange(t, changes, "account_updated")
 
 	state, err := service.Read(context.Background())
 	if err != nil {
@@ -100,8 +101,9 @@ type fakeAccountState struct {
 	account map[string]any
 }
 
-func newTestService(t *testing.T, mode string) (*Service, *codexapp.Manager, <-chan CodexAccountChangeEvent) {
+func newTestService(t *testing.T, mode string) (*Service, *codexapp.Manager, <-chan string) {
 	t.Helper()
+	changes := make(chan string, 4)
 	manager := codexapp.NewManager(codexapp.ManagerConfig{
 		Process: codexapp.ProcessConfig{
 			Args:    []string{"-test.run=TestCodexAccountFakeAppServer", "--"},
@@ -110,13 +112,13 @@ func newTestService(t *testing.T, mode string) (*Service, *codexapp.Manager, <-c
 		},
 		InitializeParams: map[string]any{"clientInfo": map[string]any{"name": "test"}},
 	})
-	service, err := NewService(manager)
+	service, err := NewService(manager, func(reason string) {
+		changes <- reason
+	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
-	subscription := service.SubscribeChanges()
-	t.Cleanup(subscription.Unsubscribe)
-	return service, manager, subscription.Events()
+	return service, manager, changes
 }
 
 func shutdownManager(t *testing.T, manager *codexapp.Manager) {
@@ -126,21 +128,14 @@ func shutdownManager(t *testing.T, manager *codexapp.Manager) {
 	}
 }
 
-func waitForChange(
-	t *testing.T,
-	changes <-chan CodexAccountChangeEvent,
-	want CodexAccountChangeReason,
-) CodexAccountChangeEvent {
+func waitForChange(t *testing.T, changes <-chan string, want string) {
 	t.Helper()
 	deadline := time.After(2 * time.Second)
 	for {
 		select {
 		case got := <-changes:
-			if err := got.Validate(); err != nil {
-				t.Fatalf("invalid account change event: %v", err)
-			}
-			if got.Reason == want {
-				return got
+			if got == want {
+				return
 			}
 		case <-deadline:
 			t.Fatalf("timed out waiting for account change %s", want)

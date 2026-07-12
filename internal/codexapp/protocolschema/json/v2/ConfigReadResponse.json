@@ -78,7 +78,6 @@
       "enum": [
         "auto",
         "prompt",
-        "writes",
         "approve"
       ],
       "type": "string"
@@ -174,6 +173,7 @@
         {
           "enum": [
             "untrusted",
+            "on-failure",
             "on-request",
             "never"
           ],

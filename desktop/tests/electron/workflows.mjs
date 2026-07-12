@@ -1,5 +1,26 @@
 export const electronWorkflows = [
   {
+    args: ["--deterministic-only"],
+    file: "chat-workflows.test.mjs",
+    name: "chat",
+    tiers: ["required"],
+  },
+  {
+    file: "chat-last-selected-workflow.test.mjs",
+    name: "chat-last-selected",
+    tiers: ["required"],
+  },
+  {
+    file: "prod-record-chat-workflow.test.mjs",
+    name: "prod-record-chat",
+    tiers: ["required"],
+  },
+  {
+    file: "corrupt-chat-workflow.test.mjs",
+    name: "corrupt-chat",
+    tiers: ["required"],
+  },
+  {
     file: "app-window-drag-workflow.test.mjs",
     name: "app-window-drag",
     tiers: ["required"],
@@ -10,53 +31,23 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "topic-conversation-pane-projection.test.mjs",
-    name: "topic-conversation-pane-projection",
-    tiers: ["required"],
-  },
-  {
-    file: "topic-conversation-archive-workflow.test.mjs",
-    name: "topic-conversation-archive",
-    tiers: ["required"],
-  },
-  {
-    file: "topic-conversation-role-configuration.test.mjs",
-    name: "topic-conversation-role-configuration",
-    tiers: ["required"],
-  },
-  {
-    file: "topic-conversation-presentation-configuration.test.mjs",
-    name: "topic-conversation-presentation-configuration",
-    tiers: ["required"],
-  },
-  {
-    file: "topic-conversation-palette-identity.test.mjs",
-    name: "topic-conversation-palette-identity",
-    tiers: ["required"],
-  },
-  {
-    file: "topic-conversation-crash-recovery.test.mjs",
-    name: "topic-conversation-crash-recovery",
-    tiers: ["required"],
-  },
-  {
-    file: "microphone-permissions-workflow.test.mjs",
-    name: "microphone-permissions",
-    tiers: ["required"],
-  },
-  {
-    file: "global-speech-session-workflow.test.mjs",
-    name: "global-speech-session",
-    tiers: ["required"],
-  },
-  {
-    file: "topic-conversation-speech-arbitration.test.mjs",
-    name: "topic-conversation-speech-arbitration",
-    tiers: ["required"],
-  },
-  {
     file: "runtime-picker-workflow.test.mjs",
     name: "runtime-picker",
+    tiers: ["required"],
+  },
+  {
+    file: "terminal-workflow.test.mjs",
+    name: "terminal",
+    tiers: ["required"],
+  },
+  {
+    file: "terminal-profile-workflow.test.mjs",
+    name: "terminal-profile",
+    tiers: ["required"],
+  },
+  {
+    file: "terminal-backend-crash-workflow.test.mjs",
+    name: "terminal-backend-crash",
     tiers: ["required"],
   },
   {
@@ -80,9 +71,69 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "dom-pane-snapshot-scroll-workflow.test.mjs",
+    name: "dom-pane-snapshot-scroll",
+    tiers: ["required"],
+  },
+  {
     file: "mobile-layout-workflow.test.mjs",
     name: "mobile-layout",
     tiers: ["required"],
+  },
+  {
+    file: "workflow-graph-smoke.test.mjs",
+    name: "workflow-graph-smoke",
+    tiers: ["required"],
+  },
+  {
+    file: "workflow-activity-feed.test.mjs",
+    name: "workflow-activity-feed",
+    tiers: ["required"],
+  },
+  {
+    file: "workflow-run-navigation.test.mjs",
+    name: "workflow-run-navigation",
+    tiers: ["required"],
+  },
+  {
+    file: "workflow-graph-interaction-cancellation.test.mjs",
+    name: "workflow-graph-interaction-cancellation",
+    tiers: ["required"],
+  },
+  {
+    file: "workflow-blank-canvas.test.mjs",
+    name: "workflow-blank-canvas",
+    tiers: ["required"],
+  },
+  {
+    file: "semantic-graph-workflow.test.mjs",
+    name: "semantic-graph",
+    tiers: ["required"],
+  },
+  {
+    file: "semantic-cartographer-auto-workflow.test.mjs",
+    name: "semantic-cartographer-auto",
+    tiers: ["required"],
+  },
+  {
+    file: "workflow-graph-scale-validation.test.mjs",
+    name: "workflow-graph-scale-validation",
+    tiers: ["performance"],
+  },
+  {
+    file: "workflow-graph-maximized-4k-overview.test.mjs",
+    name: "workflow-graph-maximized-4k-overview",
+    tiers: ["performance"],
+  },
+  {
+    file: "workflow-graph-maximized-idle-4k.test.mjs",
+    name: "workflow-graph-maximized-idle-4k",
+    tiers: ["performance"],
+  },
+  {
+    file: "terminal-maximized-4k-overview.test.mjs",
+    name: "terminal-maximized-4k-overview",
+    tiers: ["performance"],
   },
   {
     file: "overview-zoom-performance.test.mjs",
@@ -100,9 +151,20 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
-    file: "topic-conversation-performance.test.mjs",
-    name: "topic-conversation-performance",
+    file: "chat-stream-performance.test.mjs",
+    name: "chat-stream-performance",
     tiers: ["performance"],
+  },
+  {
+    file: "chat-long-transcript-performance.test.mjs",
+    name: "chat-long-transcript-performance",
+    tiers: ["performance"],
+  },
+  {
+    args: ["--live-only"],
+    file: "chat-workflows.test.mjs",
+    name: "live-codex-electron",
+    tiers: ["live"],
   },
 ];
 

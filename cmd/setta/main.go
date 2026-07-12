@@ -23,7 +23,6 @@ var version = "dev"
 type cliDeps struct {
 	commandRunner commandRunner
 	getenv        func(string) string
-	unsetenv      func(string) error
 	httpClient    *http.Client
 	now           func() time.Time
 	pid           func() int
@@ -98,9 +97,6 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	}
 	if deps.getenv == nil {
 		deps.getenv = os.Getenv
-	}
-	if deps.unsetenv == nil {
-		deps.unsetenv = os.Unsetenv
 	}
 	if deps.commandRunner == nil {
 		deps.commandRunner = runExternalCommand
