@@ -70,8 +70,10 @@ func (option RoleModelOption) Validate() error {
 	if err := validateTrimmedText("role model display name", option.DisplayName); err != nil {
 		return err
 	}
-	if err := validateTrimmedText("role model description", option.Description); err != nil {
-		return err
+	if option.Description != "" {
+		if err := validateTrimmedText("role model description", option.Description); err != nil {
+			return err
+		}
 	}
 	if err := option.validateReasoningEfforts(); err != nil {
 		return err

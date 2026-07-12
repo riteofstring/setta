@@ -33,7 +33,7 @@ func (service *Service) executeDurableForkDecision(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	invocation, err := service.resolveDurableForkInvocation(ctx)
+	invocation, err := service.resolveDurableForkInvocation(ctx, workspaceID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -136,13 +136,28 @@ func (service *Service) unsubscribeRejectedDurableFork(threadID string, parentTh
 	_ = service.agent.UnsubscribeThread(context.Background(), threadID)
 }
 
-func (service *Service) resolveDurableForkInvocation(ctx context.Context) (agent.Invocation, error) {
-	invocation, err := agentInvocation(DefaultAgentRoleProfile())
+func (service *Service) resolveDurableForkInvocation(
+	ctx context.Context,
+	workspaceID string,
+) (agent.Invocation, error) {
+	profile, err := service.store.ReadEffectiveWorkspaceRoleProfile(
+		ctx,
+		workspaceID,
+		DefaultAgentRoleProfile(),
+	)
+	if err != nil {
+		return agent.Invocation{}, fmt.Errorf("read durable fork agent role profile: %w", err)
+	}
+	invocation, err := agentInvocation(profile)
 	if err != nil {
 		return agent.Invocation{}, err
 	}
-	if _, err := service.agent.ResolveInvocation(ctx, invocation); err != nil {
+	resolved, err := service.agent.ResolveInvocation(ctx, invocation)
+	if err != nil {
 		return agent.Invocation{}, fmt.Errorf("resolve durable fork agent profile: %w", err)
+	}
+	if err := validatePrimaryAgentModelResolution(invocation, resolved); err != nil {
+		return agent.Invocation{}, fmt.Errorf("validate durable fork agent profile: %w", err)
 	}
 	return invocation, nil
 }

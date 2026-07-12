@@ -101,6 +101,15 @@ func TestRoleConfigurationServiceRejectsUnavailableAndUnsupportedSelectionsAtomi
 	}
 }
 
+func TestRoleModelOptionAllowsProviderModelWithoutDescription(t *testing.T) {
+	model := roleConfigurationTestModel("gpt-description-optional", ReasoningEffortMedium, true)
+	model.Description = ""
+
+	if err := roleModelOption(model).Validate(); err != nil {
+		t.Fatalf("validate provider model without description: %v", err)
+	}
+}
+
 func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *testing.T) {
 	store := newTestStore(t)
 	topic := transactionTestConversation("conversation-role-configuration-service")
@@ -259,6 +268,26 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 		t.Fatalf("conversation turn requested profile = %+v", turn.RequestedRoleProfile)
 	}
 	assertLastResolvedAgentModel(t, runtime, "gpt-agent-conversation")
+
+	fork, err := service.forkRouterTopicForTest(
+		ctx,
+		workspaceID,
+		second.Conversation.ID,
+		turn.ID,
+		"Workspace agent precedence fork",
+	)
+	if err != nil {
+		t.Fatalf("ForkTopic with workspace profile: %v", err)
+	}
+	requests := runtime.durableForkRequests()
+	if len(requests) != 1 ||
+		requests[0].Invocation.Model != "gpt-agent-workspace" ||
+		requests[0].Invocation.ReasoningEffort != ReasoningEffortHigh {
+		t.Fatalf("durable fork agent invocation = %+v, want workspace profile", requests)
+	}
+	if fork.ThreadBinding == nil || fork.ThreadBinding.ProviderMetadata["model"] != "gpt-agent-workspace" {
+		t.Fatalf("durable fork thread binding = %+v, want workspace model", fork.ThreadBinding)
+	}
 
 	if first.Conversation.ID == second.Conversation.ID {
 		t.Fatal("precedence test topics unexpectedly reused an id")

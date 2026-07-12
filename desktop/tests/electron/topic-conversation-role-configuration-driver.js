@@ -1,7 +1,7 @@
 /* global Event, HTMLButtonElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-role-configuration-driver-v1";
+  const version = "setta-topic-conversation-role-configuration-driver-v2";
   const driver = globalThis.__settaE2EDriver;
   if (!driver) {
     throw new Error("base Setta E2E driver is not installed");
@@ -10,6 +10,7 @@
     topicConversationRoleConfigurationVersion: version,
     roleConfigurationConfigureConversationAgent,
     roleConfigurationCreateTopic,
+    roleConfigurationForkState,
     roleConfigurationGlobalAgent,
     roleConfigurationOpenSettings,
     roleConfigurationOpenTab,
@@ -190,9 +191,58 @@
     const snapshot = await window.setta.conversations.read({ conversationId, workspaceId });
     const turn = snapshot.turns.turns.find((candidate) => candidate.authoredInput.text === text);
     return {
-      requestedModel: turn?.requestedRoleProfile.modelSelection.modelId ?? "",
-      resolvedModel: turn?.resolvedInvocation?.resolved.modelId ?? "",
+      requestedModel: roleConfigurationTurnRequestedModel(turn),
+      resolvedModel: roleConfigurationTurnResolvedModel(turn),
       status: turn?.status ?? "",
+    };
+  }
+
+  async function roleConfigurationForkState({ title, workspaceId }) {
+    const page = await window.setta.conversations.list({
+      cursor: null,
+      limit: 100,
+      query: title,
+      workspaceId,
+    });
+    const item = page.items.find((candidate) => candidate.conversation.title === title);
+    if (!item) {
+      return emptyRoleConfigurationForkState();
+    }
+    const snapshot = await window.setta.conversations.read({
+      conversationId: item.conversation.id,
+      workspaceId,
+    });
+    return populatedRoleConfigurationForkState(item, snapshot, title);
+  }
+
+  function populatedRoleConfigurationForkState(item, snapshot, title) {
+    const turn = snapshot.turns.turns.find((candidate) => candidate.authoredInput.text === title);
+    return {
+      conversationId: item.conversation.id,
+      parentConversationId: snapshot.branch?.parentConversationId ?? "",
+      requestedModel: roleConfigurationTurnRequestedModel(turn),
+      resolvedModel: roleConfigurationTurnResolvedModel(turn),
+      status: turn?.status ?? "",
+      threadModel: snapshot.threadBinding?.providerMetadata.model ?? "",
+    };
+  }
+
+  function roleConfigurationTurnRequestedModel(turn) {
+    return turn?.requestedRoleProfile.modelSelection.modelId ?? "";
+  }
+
+  function roleConfigurationTurnResolvedModel(turn) {
+    return turn?.resolvedInvocation?.resolved.modelId ?? "";
+  }
+
+  function emptyRoleConfigurationForkState() {
+    return {
+      conversationId: "",
+      parentConversationId: "",
+      requestedModel: "",
+      resolvedModel: "",
+      status: "",
+      threadModel: "",
     };
   }
 

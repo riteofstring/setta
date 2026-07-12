@@ -114,6 +114,11 @@ try {
   assertEqual(turn.requestedModel, "gpt-5.6-luna", "conversation requested agent model");
   assertEqual(turn.resolvedModel, "gpt-5.6-luna", "conversation resolved agent model");
 
+  const fork = await createAndWaitForFork(context.client, workspaceId, globalTopic.conversationId);
+  assertEqual(fork.threadModel, "gpt-5.6-terra", "durable fork thread model");
+  assertEqual(fork.requestedModel, "gpt-5.6-terra", "durable fork requested agent model");
+  assertEqual(fork.resolvedModel, "gpt-5.6-terra", "durable fork resolved agent model");
+
   const conversationReset = await resetConversationAgent(
     context.client,
     workspaceId,
@@ -139,6 +144,7 @@ try {
     configured,
     conversationConfigured,
     conversationReset,
+    fork,
     globalTopic,
     initial,
     reloaded,
@@ -275,6 +281,29 @@ async function resetConversationAgent(client, workspaceId, conversationId) {
     conversationId,
     workspaceId,
   });
+}
+
+async function createAndWaitForFork(client, workspaceId, parentConversationId) {
+  const title = "Alpha topic fork";
+  const submitted = await client.driver("roleConfigurationSubmitInput", {
+    conversationId: parentConversationId,
+    inputId: "role_configuration_fork_input",
+    sourcePaneId: "role_configuration_test_pane",
+    text: title,
+  });
+  if (!submitted.submitted) {
+    throw new Error("Role-configuration fork input was not submitted");
+  }
+  const fork = await waitForState(
+    client,
+    driverCallExpression("roleConfigurationForkState", { title, workspaceId }),
+    (state) =>
+      state.conversationId !== "" && ["cancelled", "completed", "failed"].includes(state.status),
+    workflowTimeoutMs,
+  );
+  assertEqual(fork.parentConversationId, parentConversationId, "durable fork parent");
+  assertEqual(fork.status, "completed", "durable fork initial turn status");
+  return fork;
 }
 
 async function resetGlobalAgentFromSettings(client) {

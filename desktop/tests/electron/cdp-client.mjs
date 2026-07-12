@@ -47,7 +47,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.topicConversationRoleConfigurationVersion === "setta-topic-conversation-role-configuration-driver-v1"',
+      'globalThis.__settaE2EDriver?.topicConversationRoleConfigurationVersion === "setta-topic-conversation-role-configuration-driver-v2"',
     path: join(driverScriptDir, "topic-conversation-role-configuration-driver.js"),
   },
   {

@@ -184,6 +184,7 @@ export function RoleConfigurationForm({ configuration, onSave }: RoleConfigurati
           return (
             <RoleProfileCard
               configuration={profile}
+              disabled={saving}
               draft={draft}
               key={profile.role}
               models={configuration.modelCatalog.models}
@@ -220,6 +221,7 @@ export function RoleConfigurationForm({ configuration, onSave }: RoleConfigurati
 
 function RoleProfileCard({
   configuration,
+  disabled,
   draft,
   models,
   onEffortChange,
@@ -228,6 +230,7 @@ function RoleProfileCard({
   onServiceTierChange,
 }: {
   configuration: RoleProfileConfiguration;
+  disabled: boolean;
   draft: RoleDraft;
   models: RoleModelOption[];
   onEffortChange: (effort: string) => void;
@@ -261,6 +264,7 @@ function RoleProfileCard({
         <select
           aria-label={`${metadata.label} model`}
           className="h-8 min-w-0 rounded-sm border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring"
+          disabled={disabled}
           onChange={(event) => onModelChange(event.currentTarget.value)}
           value={modelValue}
         >
@@ -281,6 +285,7 @@ function RoleProfileCard({
         <select
           aria-label={`${metadata.label} reasoning effort`}
           className="h-8 rounded-sm border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring"
+          disabled={disabled}
           onChange={(event) => onEffortChange(event.currentTarget.value)}
           value={draft.profile.reasoningEffort}
         >
@@ -298,6 +303,7 @@ function RoleProfileCard({
           <select
             aria-label={`${metadata.label} service tier`}
             className="h-8 rounded-sm border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring"
+            disabled={disabled}
             onChange={(event) => onServiceTierChange(event.currentTarget.value || null)}
             value={draft.profile.serviceTier ?? ""}
           >
@@ -321,7 +327,7 @@ function RoleProfileCard({
         </span>
       </div>
       <Button
-        disabled={draft.clearOverride && configuration.override === null}
+        disabled={disabled || (draft.clearOverride && configuration.override === null)}
         onClick={onReset}
         type="button"
       >
