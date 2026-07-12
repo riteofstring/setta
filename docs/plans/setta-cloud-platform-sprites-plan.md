@@ -343,6 +343,11 @@ every phase-exit or stop/go decision.
 Use subagents sparingly and only for concrete, bounded work that can proceed
 independently:
 
+- Follow the owner's effort-selection rule explicitly: use medium reasoning
+  effort for a simpler task and high reasoning effort only when the lead judges
+  that the task's complexity, ambiguity, security impact, or gate consequence
+  requires it. State the selected effort and reason in the delegation; do not
+  default every subagent to high.
 - Default subagents to medium reasoning effort for documentation research,
   evidence collection, mechanical probes, narrow implementation, and focused
   test execution.
@@ -371,6 +376,19 @@ the lead's high setting and still follow the role, concurrency, and ownership
 rules above. Do not add custom-agent configuration until repeated execution
 shows that the prose policy is insufficient or the measured cost/latency gain
 justifies another persistent repository surface.
+
+After an implementation phase satisfies its gates, use Claude Code as a
+read-only independent second opinion before the final broad quality checks.
+Invoke it with `claude -p --model claude-fable-5 --effort high
+--permission-mode plan`; give it the phase requirements, diff, test evidence,
+and unresolved risks. Before relying on the review, verify that the installed
+CLI accepts both flags and retain structured output that identifies
+`claude-fable-5` as the model. Do not silently substitute a different model or
+effort level; if this configuration is unavailable, record the review as
+skipped with the exact failure. Claude's result is advisory: the lead must
+inspect every finding, own any fixes, and make the gate decision. Run the final
+format, quality, and supply-chain checks only after that review and any
+resulting edits are complete.
 
 ### Integration discipline
 
@@ -810,9 +828,30 @@ cleanup behavior work through typed Go code without product UI.
 
 #### Phase 1c: measure capacity and unit economics
 
+Owner-authorized sequencing exception (2026-07-14): Phase 1c work that does
+not depend on confirmed-cold behavior may proceed while the Phase 1b cold soak
+is active. This is a schedule exception, not a passed Phase 1b exit or a waiver
+of its remaining gate. Do not issue live workload, URL, exec, Service, pressure,
+or capacity-test calls against the soak-test organization while that experiment
+is active; use offline analysis or a separately authorized disposable
+organization. The soak experiment owns the confirmed-cold measurement. Phase 2
+does not inherit a claim that Phase 1b passed until the blocked item is resolved
+or the owner explicitly changes the provider decision and gate.
+
+The provider contingency and future-test matrix is recorded in
+`docs/reports/2026-07-14-cloud-runtime-provider-options.md`.
+
 - [ ] Determine whether authoritative per-Sprite usage and cost observations
   exist and how quickly they arrive. Validate the conservative Setta-side
   measurement and hard-cutoff path chosen in Phase 1a.
+  - [x] Audit the public API and pinned SDK: neither currently exposes a
+    documented machine-readable per-Sprite billing/usage surface.
+  - [x] Add provider-neutral usage evidence and exact, versioned rate-card
+    accounting that distinguishes authoritative, conservative, zero, and
+    unavailable values.
+  - [ ] Obtain an authoritative provider source, measure reporting/settlement
+    lag, and reconcile it with trusted Setta counters under enforced resource
+    ceilings. Active time at provider minima is only a lower bound.
 - [ ] Measure warm and confirmed-cold wake, attached-idle time, active Task time,
   CPU, memory-policy behavior, hot/cold storage, checkpoint growth, Proxy or
   gateway bandwidth, and actual provider cost.
@@ -824,6 +863,12 @@ cleanup behavior work through typed Go code without product UI.
 - [ ] Replace the pre-code assumptions with a measured unit-economics envelope
   covering retained storage, attached idle, active work, checkpoint retention,
   bandwidth, support margin, and the maximum per-user cost.
+
+Offline evidence and the remaining live matrix are recorded in
+`docs/reports/2026-07-14-sprites-phase1c-offline-baseline.md`.
+The independently completable accounting, provider-exit backup, measurement
+preparation, support inquiry, and contingency-probe work is tracked in
+`docs/plans/cloud-runtime-resilience-side-plan.md`.
 
 Exit: the measured capacity and cost envelope supports one bounded beta package
 and the latency budgets needed for the access-path decision.
@@ -1000,6 +1045,10 @@ wizard.
 - [ ] Define the off-provider export and backup format for repositories,
   uncommitted work, non-repository files, Setta runtime state, and explicitly
   excluded credentials.
+  The encrypted inactive-restore foundation and its remaining activation limits
+  are implemented by the resilience side plan; store-owned consistent snapshot
+  production, retention, incremental transfer, key management, and live restore
+  drills remain Phase 7 work.
 - [ ] Implement encrypted, user-scoped off-provider backup/export with key
   management, retention, incremental transfer, progress, cancellation, and a
   bounded payment-grace download path.
