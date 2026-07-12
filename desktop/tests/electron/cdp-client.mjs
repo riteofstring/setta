@@ -47,7 +47,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.topicConversationPerformanceVersion === "setta-topic-conversation-performance-driver-v1"',
+      'globalThis.__settaE2EDriver?.topicConversationPerformanceVersion === "setta-topic-conversation-performance-driver-v2"',
     path: join(driverScriptDir, "topic-conversation-performance-driver.js"),
   },
 ];

@@ -2,13 +2,22 @@ import { waitForBackendState } from "./electron-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import { reloadPage, waitForSelector, waitForState } from "./electron-cdp-harness.mjs";
 
-export async function createTopic(client, backend, workspaceId, title, timeoutMs) {
+const navigatorPageLimit = 80;
+
+export async function createTopic(
+  client,
+  backend,
+  workspaceId,
+  title,
+  timeoutMs,
+  { allowCatalogExhaustion = false } = {},
+) {
   const before = await listTopics(backend, workspaceId);
   assertDriverAction(await client.driver("topicConversationCreate", { title }), "created");
   const page = await waitForBackendState(
     async () => listTopics(backend, workspaceId),
     (current) =>
-      current.items.length === before.items.length + 1 &&
+      current.items.length === Math.min(before.items.length + 1, navigatorPageLimit) &&
       current.items.some((item) => item.conversation.title === title),
     timeoutMs,
   );
@@ -20,7 +29,7 @@ export async function createTopic(client, backend, workspaceId, title, timeoutMs
     item.presentationProfile.narratorVoiceSelection !== "auto_distinct" ||
     item.presentationProfile.requestedNarratorVoiceId !== null ||
     typeof item.presentationProfile.resolvedNarratorVoiceId !== "string" ||
-    item.presentationProfile.narratorVoiceReuse !== null
+    !validNarratorVoiceReuse(item.presentationProfile.narratorVoiceReuse, allowCatalogExhaustion)
   ) {
     throw new Error(
       `created topic ${title} has an invalid durable narrator voice selection: ${JSON.stringify(item.presentationProfile)}`,
@@ -41,10 +50,22 @@ export async function createTopic(client, backend, workspaceId, title, timeoutMs
   };
 }
 
+function validNarratorVoiceReuse(reuse, allowCatalogExhaustion) {
+  return (
+    reuse === null ||
+    (allowCatalogExhaustion &&
+      reuse.reason === "catalog_exhausted" &&
+      typeof reuse.resolvedChoiceId === "string" &&
+      reuse.resolvedChoiceId !== "" &&
+      Array.isArray(reuse.conflictingConversationIds) &&
+      reuse.conflictingConversationIds.length > 0)
+  );
+}
+
 export function listTopics(backend, workspaceId) {
   return backend.post("/conversations/navigator/list", {
     cursor: null,
-    limit: 80,
+    limit: navigatorPageLimit,
     query: "",
     workspaceId,
   });

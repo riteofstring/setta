@@ -119,3 +119,93 @@ remained within the observed 120 Hz guardrails, no renderer long task or frame
 over 16.67 ms occurred, projection and DOM growth stayed bounded, and cursor
 throughput exceeded the pre-hardening profile. The final result is functional
 performance acceptance, not a mockup-parity or broad visual-restyling gate.
+
+## Review correction: large navigator and duplicate views
+
+Review found that the initial item 8 record did not measure the required large,
+paged, cross-workspace conversation navigator. The focused workflow was
+extended without changing production app code or beginning Phase 9 item 9. It
+now seeds 120 durable topics in each of two temporary workspace roots, creates
+four newer profiled topics through the renderer, opens a duplicate view of one
+topic, searches the 244-topic collection, loads both older pages through the
+virtualized navigator, and then runs the existing four-topic stream workload.
+
+The two review invocations used:
+
+```sh
+node desktop/tests/electron/topic-conversation-performance.test.mjs \
+  --skip-build \
+  --keep-artifacts \
+  --artifact-dir \
+  .recordings/topic-conversation-phase9-item8-review-final-untraced-20260714
+
+node desktop/tests/electron/topic-conversation-performance.test.mjs \
+  --skip-build \
+  --trace \
+  --keep-artifacts \
+  --artifact-dir \
+  .recordings/topic-conversation-phase9-item8-review-traced-20260714
+```
+
+The navigator profile exercised renderer, preload, authenticated HTTP, and
+SQLite paging paths. Each invocation loaded the initial 80-topic page for both
+workspaces and both remaining page tails. Scroll extent grew from 5,904 px to
+7,452 px and then 8,856 px, while virtualization mounted at most 20 items
+against a 40-item guardrail.
+
+| Navigator metric | Review untraced | Review trace-enabled invocation |
+| --- | ---: | ---: |
+| Durable topic conversations | 244 | 244 |
+| Workspace groups | 2 | 2 |
+| Sample duration | 686.1 ms | 673.6 ms |
+| Frames | 79 | 78 |
+| Average FPS | 120.01 | 120.02 |
+| p50 frame delta | 8.30 ms | 8.30 ms |
+| p95 frame delta | 8.80 ms | 9.10 ms |
+| p99 frame delta | 9.30 ms | 9.30 ms |
+| Maximum frame delta | 9.30 ms | 9.30 ms |
+| Frames over 16.67 ms | 0 | 0 |
+| Renderer long tasks | 0 | 0 |
+| Maximum mounted navigator items | 20 | 20 |
+| Mutation observer callbacks | 59 | 59 |
+| Total mutation records | 1,572 | 1,572 |
+
+The trace begins after the navigator sample so tracing does not distort its
+scroll and paging frame measurements. The second invocation still repeats the
+navigator guard before tracing the subsequent stream workload.
+
+## Review large-collection stream follow-up
+
+The stream workload ran with five Easy Button panes for four topics, including
+two views of one conversation. It asserted every profiled navigator row reached
+`Working` and returned to `Idle`, retained the 200-event projection windows,
+and kept all final pane surfaces at 94 descendants. The production layout also
+exercised two frozen visuals and one snapshot texture while events streamed.
+
+| Stream metric | Review untraced | Review traced |
+| --- | ---: | ---: |
+| Committed cursor delta | 2,716 | 2,717 |
+| Sample duration | 3,868.3 ms | 3,616.7 ms |
+| Average FPS | 119.74 | 118.90 |
+| p95 frame delta | 9.20 ms | 9.00 ms |
+| p99 frame delta | 9.30 ms | 9.30 ms |
+| Maximum frame delta | 15.80 ms | 41.00 ms |
+| Frames over 16.67 ms | 0 | 1 |
+| Renderer long tasks | 0 | 0 |
+| Measured cursor throughput | 702.1 events/s | 751.2 events/s |
+| Mutation observer callbacks | 545 | 505 |
+| Total mutation records | 10,441 | 10,317 |
+| Palette identity attribute applications | 21 | 21 |
+| Non-null palette identity changes | 0 | 0 |
+
+The traced maximum remains isolated from the headline result because trace and
+CPU-profiler startup introduce scheduler stalls. The stable palette assertion
+distinguishes lifecycle remounts from an actual old-to-new palette id change;
+the duplicate, frozen, throttled, and restored panes had no identity change
+during streaming.
+
+Together with the pane-churn, palette-identity, and simultaneous-speech
+workflows above, this review closes the previously missing navigator scrolling,
+paging, large-collection row-update, duplicate-view, hidden/snapshot, and
+semantic palette-token performance evidence required for Phase 9 item 8. It
+does not refine palette presentation or perform any Phase 9 item 9 work.
