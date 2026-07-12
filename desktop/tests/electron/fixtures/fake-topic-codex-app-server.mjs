@@ -487,13 +487,21 @@ function scriptedMasterRouteDecision(context, schema) {
   if (input?.text === "Focus Alpha topic.") {
     return scriptedMasterFocusDecision(context, schema, input);
   }
-  if (input?.source === "conversation_escalation") {
+  if (masterInputNeedsClarification(input)) {
     return scriptedMasterClarificationDecision(context, schema);
   }
-  if (input?.source === "shell" && input.modality === "voice") {
+  if (isShellVoiceMasterInput(input)) {
     return scriptedMasterVoiceDecision(context, schema);
   }
   return null;
+}
+
+function masterInputNeedsClarification(input) {
+  return input?.text === "Clarify the shell topic." || input?.source === "conversation_escalation";
+}
+
+function isShellVoiceMasterInput(input) {
+  return [input?.source === "shell", input?.modality === "voice"].every(Boolean);
 }
 
 function scriptedMasterFocusDecision(context, schema, input) {

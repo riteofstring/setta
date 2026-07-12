@@ -141,8 +141,9 @@ const api: SettaAPI = {
     updateNarratorVoice: (request) => invoke("conversationUpdateNarratorVoice", request),
   },
   master: {
-    readRecentInputs: () => invoke("masterReadRecentInputs"),
+    readActiveInteraction: () => invoke("masterReadActiveInteraction"),
     submitInput: (request) => invoke("masterSubmitInput", request),
+    waitInteraction: (request) => invoke("masterWaitInteraction", request),
   },
   speech: {
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),

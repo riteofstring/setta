@@ -1,21 +1,28 @@
 import type {
   AcceptedMasterInput,
-  RecentMasterInputHistory,
+  ActiveShellInteraction,
+  ReadMasterInputRoutingStateRequest,
+  ShellInteractionState,
   SubmitMasterInputRequest,
 } from "@generated/backend";
 
 export const masterIpcChannels = {
-  masterReadRecentInputs: "master:read-recent-inputs",
+  masterReadActiveInteraction: "master:read-active-interaction",
   masterSubmitInput: "master:submit-input",
+  masterWaitInteraction: "master:wait-interaction",
 } as const;
 
 export interface MasterIpcContract {
-  masterReadRecentInputs: {
+  masterReadActiveInteraction: {
     args: [];
-    result: RecentMasterInputHistory;
+    result: ActiveShellInteraction;
   };
   masterSubmitInput: {
     args: [request: SubmitMasterInputRequest];
     result: AcceptedMasterInput;
+  };
+  masterWaitInteraction: {
+    args: [request: ReadMasterInputRoutingStateRequest];
+    result: ShellInteractionState;
   };
 }

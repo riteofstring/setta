@@ -57,6 +57,7 @@ describe("app-shell speech capture controller", () => {
     await harness.connectAndEnable();
 
     const start = harness.startMaster();
+    expect(harness.masterController.getSnapshot().overlayOpen).toBe(true);
     expect(harness.currentCapture()).toMatchObject({
       captureSessionId: "capture_1",
       transcript: "",
@@ -262,7 +263,6 @@ describe("app-shell speech capture controller", () => {
         originatingConversationInputId: null,
         originatingPaneId: null,
         originatingWorkspaceId: null,
-        showInMasterOverlay: true,
       },
       sequence: 1,
     });
@@ -698,6 +698,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   let captureOrdinal = 0;
   let transcriptionSessionCalls = 0;
   const masterInputRequests: SubmitMasterInputRequest[] = [];
+  const acceptedMasterInputs = new Map<string, AcceptedMasterInput>();
   const clearTimer = vi.fn();
   const dependencies: AppShellSpeechCaptureControllerDependencies = {
     clearTimeout: clearTimer,
@@ -754,7 +755,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const masterController = new AppShellMasterController({
     createInputId: () => "unused_text_input",
     now: dependencies.now,
-    readRecentMasterInputs: async () => ({ capacity: 40, inputs: [] }),
+    readActiveInteraction: async () => ({ state: null }),
     readFocusHints: () => ({
       focusedConversationId: null,
       focusedPaneId: null,
@@ -763,9 +764,11 @@ function createHarness(overrides: HarnessOverrides = {}) {
     submitMasterInput: async (request) => {
       masterInputRequests.push(request);
       if (overrides.submitMasterInput) {
-        return overrides.submitMasterInput(request);
+        const accepted = await overrides.submitMasterInput(request);
+        acceptedMasterInputs.set(request.input.id, accepted);
+        return accepted;
       }
-      return {
+      const accepted = {
         acceptedAt: "2026-07-12T18:00:01Z",
         input: request.input,
         replyDelivery: {
@@ -773,9 +776,26 @@ function createHarness(overrides: HarnessOverrides = {}) {
           originatingConversationInputId: null,
           originatingPaneId: null,
           originatingWorkspaceId: null,
-          showInMasterOverlay: true,
         },
         sequence: 1,
+      };
+      acceptedMasterInputs.set(request.input.id, accepted);
+      return accepted;
+    },
+    waitShellInteraction: async ({ inputId }) => {
+      const accepted = acceptedMasterInputs.get(inputId);
+      if (!accepted) {
+        throw new Error(`accepted master input ${inputId} is unavailable`);
+      }
+      return {
+        decision: null,
+        failure: {
+          code: "test_terminal",
+          message: "Test route settled.",
+          retryable: false,
+        },
+        input: accepted.input,
+        status: "failed",
       };
     },
   });

@@ -1,16 +1,14 @@
 import type {
   AcceptedMasterInput,
+  ActiveShellInteraction,
   MasterInput,
   MasterInputModality,
-  RecentMasterInputHistory,
+  ReadMasterInputRoutingStateRequest,
+  ShellInteractionState,
   SubmitMasterInputRequest,
 } from "@generated/backend";
 
 import { canonicalSpeechInputTimestamp } from "../global-speech/speech-input-submission";
-
-// Until the backend supplies its owned history capacity, retain only the newest
-// local receipt so a failed or stalled hydration cannot create an unbounded DOM.
-const unhydratedRecentInputCapacity = 1;
 
 export interface MasterInputFocusHints {
   focusedConversationId: string | null;
@@ -40,18 +38,19 @@ export type MasterInputSubmissionState =
       type: "failed";
     };
 
-type MasterInputHistoryState =
+export type MasterInteractionState =
   | { type: "disconnected" }
   | { type: "loading" }
-  | { capacity: number; type: "ready" }
-  | { message: string; type: "failed" };
+  | { type: "idle" }
+  | { state: ShellInteractionState; type: "active" }
+  | { message: string; type: "load_failed" }
+  | { message: string; state: ShellInteractionState; type: "observation_failed" };
 
 export interface AppShellMasterSnapshot {
   completedTranscript: CompletedGlobalSpeechTranscript | null;
   draft: string;
-  history: MasterInputHistoryState;
+  interaction: MasterInteractionState;
   overlayOpen: boolean;
-  recentInputs: readonly AcceptedMasterInput[];
   runtimeId: string | null;
   submission: MasterInputSubmissionState;
 }
@@ -59,31 +58,31 @@ export interface AppShellMasterSnapshot {
 export interface AppShellMasterControllerDependencies {
   createInputId: () => string;
   now: () => Date;
-  readRecentMasterInputs: (runtimeId: string) => Promise<RecentMasterInputHistory>;
+  readActiveInteraction: (runtimeId: string) => Promise<ActiveShellInteraction>;
   readFocusHints: () => MasterInputFocusHints;
   submitMasterInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
+  waitShellInteraction: (
+    request: ReadMasterInputRoutingStateRequest,
+  ) => Promise<ShellInteractionState>;
 }
 
-// AppShellMasterController is the sole shell-owned intake controller. Text and
-// finalized voice transcripts use the same runtime generation, focus snapshot,
-// durable submission state, exact retry, and shared master input endpoint.
+// AppShellMasterController owns exactly one transient shell interaction. The
+// backend restores only in-flight work or an unresolved clarification; a
+// completed result remains local until dismissed or replaced and never grows
+// into a request history.
 export class AppShellMasterController {
   private readonly dependencies: AppShellMasterControllerDependencies;
   private readonly listeners = new Set<() => void>();
-  private readonly recentInputCapacityByRuntimeId = new Map<string, number>();
-  private readonly recentInputsByRuntimeId = new Map<string, readonly AcceptedMasterInput[]>();
 
   private disposed = false;
-  private generation = 0;
-  private historyGeneration = 0;
-  private recentInputsRuntimeId: string | null = null;
+  private interactionGeneration = 0;
   private pending: PendingShellMasterInput | null = null;
+  private submissionGeneration = 0;
   private snapshotValue: AppShellMasterSnapshot = {
     completedTranscript: null,
     draft: "",
-    history: { type: "disconnected" },
+    interaction: { type: "disconnected" },
     overlayOpen: false,
-    recentInputs: [],
     runtimeId: null,
     submission: { type: "idle" },
   };
@@ -104,19 +103,17 @@ export class AppShellMasterController {
     if (runtimeId === this.snapshotValue.runtimeId) {
       return;
     }
-    this.invalidate();
-    this.invalidateHistory();
+    this.invalidateSubmission();
+    this.invalidateInteraction();
     this.pending = null;
-    const recentInputs = this.synchronizeRecentInputs(runtimeId);
     this.updateSnapshot({
       completedTranscript: null,
-      history: runtimeId ? { type: "loading" } : { type: "disconnected" },
-      recentInputs,
+      interaction: runtimeId ? { type: "loading" } : { type: "disconnected" },
       runtimeId,
       submission: { type: "idle" },
     });
     if (runtimeId) {
-      this.loadRecentInputs(runtimeId);
+      this.loadActiveInteraction(runtimeId);
     }
   }
 
@@ -129,9 +126,19 @@ export class AppShellMasterController {
 
   closeOverlay = (): void => {
     this.assertUsable();
-    if (this.snapshotValue.overlayOpen) {
-      this.updateSnapshot({ overlayOpen: false });
+    if (!this.snapshotValue.overlayOpen) {
+      return;
     }
+    const update: Partial<AppShellMasterSnapshot> = { overlayOpen: false };
+    if (interactionIsDismissible(this.snapshotValue.interaction)) {
+      update.interaction = this.snapshotValue.runtimeId
+        ? { type: "idle" }
+        : { type: "disconnected" };
+      if (this.snapshotValue.submission.type === "accepted") {
+        update.submission = { type: "idle" };
+      }
+    }
+    this.updateSnapshot(update);
   };
 
   setDraft = (draft: string): void => {
@@ -140,6 +147,16 @@ export class AppShellMasterController {
       this.updateSnapshot({ draft });
     }
   };
+
+  canSubmitInput(): boolean {
+    return (
+      !this.disposed &&
+      this.snapshotValue.runtimeId !== null &&
+      this.pending === null &&
+      this.snapshotValue.submission.type !== "failed" &&
+      !interactionBlocksNewInput(this.snapshotValue.interaction)
+    );
+  }
 
   submitText(text: string): string {
     this.assertUsable();
@@ -177,7 +194,7 @@ export class AppShellMasterController {
     if (this.snapshotValue.submission.type === "submitting") {
       throw new Error("a submitting master input cannot be discarded");
     }
-    this.invalidate();
+    this.invalidateSubmission();
     this.pending = null;
     this.updateSnapshot({ completedTranscript: null, submission: { type: "idle" } });
   }
@@ -189,14 +206,28 @@ export class AppShellMasterController {
     }
   }
 
-  retryHistory = (): void => {
+  retryInteraction = (): void => {
     this.assertUsable();
     const runtimeId = this.snapshotValue.runtimeId;
-    if (!runtimeId || this.snapshotValue.history.type !== "failed") {
+    if (!runtimeId) {
       return;
     }
-    this.updateSnapshot({ history: { type: "loading" } });
-    this.loadRecentInputs(runtimeId);
+    switch (this.snapshotValue.interaction.type) {
+      case "load_failed":
+        this.updateSnapshot({ interaction: { type: "loading" } });
+        this.loadActiveInteraction(runtimeId);
+        return;
+      case "observation_failed":
+        this.observeInteraction(runtimeId, this.snapshotValue.interaction.state);
+        return;
+      case "active":
+      case "disconnected":
+      case "idle":
+      case "loading":
+        return;
+      default:
+        return assertNever(this.snapshotValue.interaction);
+    }
   };
 
   dispose(): void {
@@ -204,11 +235,9 @@ export class AppShellMasterController {
       return;
     }
     this.disposed = true;
-    this.invalidate();
-    this.invalidateHistory();
+    this.invalidateSubmission();
+    this.invalidateInteraction();
     this.pending = null;
-    this.recentInputCapacityByRuntimeId.clear();
-    this.recentInputsByRuntimeId.clear();
     this.listeners.clear();
   }
 
@@ -218,8 +247,8 @@ export class AppShellMasterController {
     text: string,
     voice: Omit<CompletedGlobalSpeechTranscript, "input"> | null,
   ): void {
-    if (this.pending) {
-      throw new Error("a shell master input is already awaiting durable submission");
+    if (!this.canSubmitInput()) {
+      throw new Error("the active master interaction must settle before another request");
     }
     if (text.trim() === "") {
       throw new Error("master input text is required");
@@ -242,9 +271,11 @@ export class AppShellMasterController {
     } satisfies MasterInput);
     const completedTranscript = voice ? { ...voice, input } : null;
     const pending = { input, runtimeId };
+    this.invalidateInteraction();
     this.pending = pending;
     this.updateSnapshot({
       completedTranscript,
+      interaction: { type: "idle" },
       overlayOpen: true,
       submission: { input, type: "submitting" },
     });
@@ -252,18 +283,18 @@ export class AppShellMasterController {
   }
 
   private submitPending(pendingInput: PendingShellMasterInput): void {
-    this.generation += 1;
-    const generation = this.generation;
+    this.submissionGeneration += 1;
+    const generation = this.submissionGeneration;
     let pending: Promise<AcceptedMasterInput>;
     try {
       pending = this.dependencies.submitMasterInput({ input: pendingInput.input });
     } catch {
-      this.handleFailure(generation, pendingInput);
+      this.handleSubmissionFailure(generation, pendingInput);
       return;
     }
     void pending.then(
       (accepted) => this.handleAccepted(generation, pendingInput, accepted),
-      () => this.handleFailure(generation, pendingInput),
+      () => this.handleSubmissionFailure(generation, pendingInput),
     );
   }
 
@@ -272,49 +303,157 @@ export class AppShellMasterController {
     pending: PendingShellMasterInput,
     accepted: AcceptedMasterInput,
   ): void {
-    if (!this.isCurrent(generation, pending)) {
+    if (!this.isCurrentSubmission(generation, pending)) {
       return;
     }
     if (!acceptedMasterInputMatches(accepted, pending.input)) {
-      this.handleFailure(generation, pending);
+      this.handleSubmissionFailure(generation, pending);
       return;
     }
     const durableAccepted = Object.freeze({ ...accepted, input: pending.input });
-    const recentInputs = appendRecentMasterInput(
-      this.snapshotValue.recentInputs,
-      durableAccepted,
-      this.recentInputCapacityByRuntimeId.get(pending.runtimeId) ?? unhydratedRecentInputCapacity,
-    );
-    this.recentInputsByRuntimeId.set(pending.runtimeId, recentInputs);
-    this.recentInputsRuntimeId = pending.runtimeId;
+    const state = acceptedShellInteractionState(durableAccepted);
     this.pending = null;
     this.updateSnapshot({
       completedTranscript: null,
-      recentInputs,
+      interaction: { state, type: "active" },
       submission: { accepted: durableAccepted, type: "accepted" },
     });
+    this.observeInteraction(pending.runtimeId, state);
   }
 
-  private handleFailure(generation: number, pending: PendingShellMasterInput): void {
-    if (!this.isCurrent(generation, pending)) {
+  private handleSubmissionFailure(generation: number, pending: PendingShellMasterInput): void {
+    if (!this.isCurrentSubmission(generation, pending)) {
       return;
     }
     console.info(`Shell master input submission failed: inputId=${pending.input.id}`);
     this.updateSnapshot({
       submission: {
         input: pending.input,
-        message: failureMessage(pending.input.modality),
+        message: submissionFailureMessage(pending.input.modality),
         type: "failed",
       },
     });
   }
 
-  private isCurrent(generation: number, pending: PendingShellMasterInput): boolean {
+  private loadActiveInteraction(runtimeId: string): void {
+    this.interactionGeneration += 1;
+    const generation = this.interactionGeneration;
+    let pending: Promise<ActiveShellInteraction>;
+    try {
+      pending = this.dependencies.readActiveInteraction(runtimeId);
+    } catch {
+      this.handleInteractionLoadFailure(generation, runtimeId);
+      return;
+    }
+    void pending.then(
+      (interaction) => this.handleInteractionLoaded(generation, runtimeId, interaction),
+      () => this.handleInteractionLoadFailure(generation, runtimeId),
+    );
+  }
+
+  private handleInteractionLoaded(
+    generation: number,
+    runtimeId: string,
+    interaction: ActiveShellInteraction,
+  ): void {
+    if (!this.isCurrentInteraction(generation, runtimeId)) {
+      return;
+    }
+    if (!validActiveShellInteraction(interaction)) {
+      this.handleInteractionLoadFailure(generation, runtimeId);
+      return;
+    }
+    if (!interaction.state) {
+      this.updateSnapshot({ interaction: { type: "idle" } });
+      return;
+    }
+    const state = interaction.state;
+    this.updateSnapshot({ interaction: { state, type: "active" } });
+    if (!shellInteractionSettled(state)) {
+      this.observeInteraction(runtimeId, state);
+    }
+  }
+
+  private handleInteractionLoadFailure(generation: number, runtimeId: string): void {
+    if (!this.isCurrentInteraction(generation, runtimeId)) {
+      return;
+    }
+    console.info(`Active master shell interaction load failed: runtimeId=${runtimeId}`);
+    this.updateSnapshot({
+      interaction: {
+        message:
+          "Setta could not restore the active routing interaction. Retry before starting another request.",
+        type: "load_failed",
+      },
+    });
+  }
+
+  private observeInteraction(runtimeId: string, state: ShellInteractionState): void {
+    this.interactionGeneration += 1;
+    const generation = this.interactionGeneration;
+    const request = { inputId: state.input.id } satisfies ReadMasterInputRoutingStateRequest;
+    let pending: Promise<ShellInteractionState>;
+    try {
+      pending = this.dependencies.waitShellInteraction(request);
+    } catch {
+      this.handleObservationFailure(generation, runtimeId, state);
+      return;
+    }
+    void pending.then(
+      (settled) => this.handleInteractionSettled(generation, runtimeId, state, settled),
+      () => this.handleObservationFailure(generation, runtimeId, state),
+    );
+  }
+
+  private handleInteractionSettled(
+    generation: number,
+    runtimeId: string,
+    observed: ShellInteractionState,
+    settled: ShellInteractionState,
+  ): void {
+    if (!this.isCurrentInteraction(generation, runtimeId)) {
+      return;
+    }
+    if (!validSettledShellInteractionState(settled, observed.input)) {
+      this.handleObservationFailure(generation, runtimeId, observed);
+      return;
+    }
+    this.updateSnapshot({ interaction: { state: settled, type: "active" } });
+  }
+
+  private handleObservationFailure(
+    generation: number,
+    runtimeId: string,
+    state: ShellInteractionState,
+  ): void {
+    if (!this.isCurrentInteraction(generation, runtimeId)) {
+      return;
+    }
+    console.info(`Active master routing observation failed: inputId=${state.input.id}`);
+    this.updateSnapshot({
+      interaction: {
+        message:
+          "Setta could not observe the routing result. The durable request is still safe; retry the status connection.",
+        state,
+        type: "observation_failed",
+      },
+    });
+  }
+
+  private isCurrentSubmission(generation: number, pending: PendingShellMasterInput): boolean {
     return (
       !this.disposed &&
-      generation === this.generation &&
+      generation === this.submissionGeneration &&
       this.pending === pending &&
       this.snapshotValue.runtimeId === pending.runtimeId
+    );
+  }
+
+  private isCurrentInteraction(generation: number, runtimeId: string): boolean {
+    return (
+      !this.disposed &&
+      generation === this.interactionGeneration &&
+      runtimeId === this.snapshotValue.runtimeId
     );
   }
 
@@ -326,86 +465,12 @@ export class AppShellMasterController {
     return runtimeId;
   }
 
-  private invalidate(): void {
-    this.generation += 1;
+  private invalidateSubmission(): void {
+    this.submissionGeneration += 1;
   }
 
-  private invalidateHistory(): void {
-    this.historyGeneration += 1;
-  }
-
-  private loadRecentInputs(runtimeId: string): void {
-    this.historyGeneration += 1;
-    const generation = this.historyGeneration;
-    let pending: Promise<RecentMasterInputHistory>;
-    try {
-      pending = this.dependencies.readRecentMasterInputs(runtimeId);
-    } catch {
-      this.handleHistoryFailure(generation, runtimeId);
-      return;
-    }
-    void pending.then(
-      (history) => this.handleHistoryLoaded(generation, runtimeId, history),
-      () => this.handleHistoryFailure(generation, runtimeId),
-    );
-  }
-
-  private handleHistoryLoaded(
-    generation: number,
-    runtimeId: string,
-    history: RecentMasterInputHistory,
-  ): void {
-    if (!this.isCurrentHistory(generation, runtimeId) || !validRecentMasterInputHistory(history)) {
-      if (this.isCurrentHistory(generation, runtimeId)) {
-        this.handleHistoryFailure(generation, runtimeId);
-      }
-      return;
-    }
-    const recentInputs = mergeRecentMasterInputs(
-      history.inputs,
-      this.snapshotValue.recentInputs,
-      history.capacity,
-    );
-    this.recentInputCapacityByRuntimeId.set(runtimeId, history.capacity);
-    this.recentInputsByRuntimeId.set(runtimeId, recentInputs);
-    this.recentInputsRuntimeId = runtimeId;
-    this.updateSnapshot({
-      history: { capacity: history.capacity, type: "ready" },
-      recentInputs,
-    });
-  }
-
-  private handleHistoryFailure(generation: number, runtimeId: string): void {
-    if (!this.isCurrentHistory(generation, runtimeId)) {
-      return;
-    }
-    console.info(`Recent master input history load failed: runtimeId=${runtimeId}`);
-    this.updateSnapshot({
-      history: {
-        message:
-          "Setta could not load the durable master history. Retry to restore recent exchanges.",
-        type: "failed",
-      },
-    });
-  }
-
-  private isCurrentHistory(generation: number, runtimeId: string): boolean {
-    return (
-      !this.disposed &&
-      generation === this.historyGeneration &&
-      runtimeId === this.snapshotValue.runtimeId
-    );
-  }
-
-  private synchronizeRecentInputs(runtimeId: string | null): readonly AcceptedMasterInput[] {
-    if (this.recentInputsRuntimeId) {
-      this.recentInputsByRuntimeId.set(this.recentInputsRuntimeId, this.snapshotValue.recentInputs);
-    }
-    if (!runtimeId || runtimeId === this.recentInputsRuntimeId) {
-      return this.snapshotValue.recentInputs;
-    }
-    this.recentInputsRuntimeId = runtimeId;
-    return this.recentInputsByRuntimeId.get(runtimeId) ?? [];
+  private invalidateInteraction(): void {
+    this.interactionGeneration += 1;
   }
 
   private updateSnapshot(update: Partial<AppShellMasterSnapshot>): void {
@@ -422,54 +487,177 @@ export class AppShellMasterController {
   }
 }
 
-function appendRecentMasterInput(
-  recentInputs: readonly AcceptedMasterInput[],
-  accepted: AcceptedMasterInput,
-  capacity: number,
-): readonly AcceptedMasterInput[] {
-  const next = [
-    ...recentInputs.filter((candidate) => candidate.input.id !== accepted.input.id),
-    accepted,
-  ];
-  return Object.freeze(next.slice(-capacity));
+function acceptedShellInteractionState(accepted: AcceptedMasterInput): ShellInteractionState {
+  return {
+    decision: null,
+    failure: null,
+    input: accepted.input,
+    status: "accepted",
+  };
 }
 
-function mergeRecentMasterInputs(
-  durableInputs: readonly AcceptedMasterInput[],
-  localInputs: readonly AcceptedMasterInput[],
-  capacity: number,
-): readonly AcceptedMasterInput[] {
-  const byID = new Map<string, AcceptedMasterInput>();
-  for (const accepted of [...localInputs, ...durableInputs]) {
-    byID.set(accepted.input.id, accepted);
+function validActiveShellInteraction(interaction: ActiveShellInteraction): boolean {
+  if (interaction.state === null) {
+    return true;
   }
-  return Object.freeze(
-    [...byID.values()].sort((left, right) => left.sequence - right.sequence).slice(-capacity),
+  return (
+    validShellInteractionState(interaction.state) &&
+    interaction.state.input.source === "shell" &&
+    (interaction.state.status === "accepted" ||
+      interaction.state.status === "routing" ||
+      interactionIsClarification(interaction.state))
   );
 }
 
-function validRecentMasterInputHistory(history: RecentMasterInputHistory): boolean {
-  if (
-    !Number.isSafeInteger(history.capacity) ||
-    history.capacity <= 0 ||
-    history.inputs.length > history.capacity
-  ) {
+function validSettledShellInteractionState(
+  state: ShellInteractionState,
+  input: MasterInput,
+): boolean {
+  return (
+    validShellInteractionState(state) &&
+    shellInteractionSettled(state) &&
+    masterInputsEqual(state.input, input)
+  );
+}
+
+function validShellInteractionState(state: ShellInteractionState): boolean {
+  if (!validShellInput(state.input)) {
     return false;
   }
-  let previousSequence = 0;
-  const inputIDs = new Set<string>();
-  for (const accepted of history.inputs) {
-    if (
-      !validAcceptedMasterInput(accepted) ||
-      accepted.sequence <= previousSequence ||
-      inputIDs.has(accepted.input.id)
-    ) {
-      return false;
-    }
-    previousSequence = accepted.sequence;
-    inputIDs.add(accepted.input.id);
+  switch (state.status) {
+    case "accepted":
+      return validAcceptedRoutingState(state);
+    case "routing":
+      return validWorkingRoutingState(state);
+    case "decided":
+      return validDecidedRoutingState(state);
+    case "failed":
+      return validFailedRoutingState(state);
+    default:
+      return assertNever(state.status);
   }
-  return true;
+}
+
+function validShellInput(input: MasterInput): boolean {
+  return [
+    input.id.trim() !== "",
+    input.text.trim() !== "",
+    input.source === "shell",
+    input.submittedAt.trim() !== "",
+    input.originatingWorkspaceId === null,
+    input.originatingConversationId === null,
+    input.originatingPaneId === null,
+    input.originatingConversationInputId === null,
+  ].every(Boolean);
+}
+
+function validAcceptedRoutingState(state: ShellInteractionState): boolean {
+  return [state.decision === null, state.failure === null].every(Boolean);
+}
+
+function validWorkingRoutingState(state: ShellInteractionState): boolean {
+  return [state.decision === null, state.failure === null].every(Boolean);
+}
+
+function validDecidedRoutingState(state: ShellInteractionState): boolean {
+  return [
+    state.failure === null,
+    state.decision !== null,
+    state.decision !== null && validShellRouteDecision(state.decision),
+  ].every(Boolean);
+}
+
+function validFailedRoutingState(state: ShellInteractionState): boolean {
+  return [
+    state.decision === null,
+    state.failure !== null,
+    state.failure?.code.trim() !== "",
+    state.failure?.message.trim() !== "",
+  ].every(Boolean);
+}
+
+function validShellRouteDecision(
+  decision: NonNullable<ShellInteractionState["decision"]>,
+): boolean {
+  const payloads = [
+    decision.answerGlobal,
+    decision.askNarrator,
+    decision.clarify,
+    decision.createConversation,
+    decision.createSideConversation,
+    decision.focusConversation,
+    decision.forkConversation,
+    decision.queueAgentTurn,
+    decision.sendToAgent,
+    decision.steerActiveTurn,
+  ];
+  const selectedPayloadIsPresent = {
+    answer_global: decision.answerGlobal !== null,
+    ask_narrator: decision.askNarrator !== null,
+    clarify: decision.clarify !== null,
+    create_conversation: decision.createConversation !== null,
+    create_side_conversation: decision.createSideConversation !== null,
+    focus_conversation: decision.focusConversation !== null,
+    fork_conversation: decision.forkConversation !== null,
+    queue_agent_turn: decision.queueAgentTurn !== null,
+    send_to_agent: decision.sendToAgent !== null,
+    steer_active_turn: decision.steerActiveTurn !== null,
+  } satisfies Record<typeof decision.kind, boolean>;
+  return [
+    payloads.filter((payload) => payload !== null).length === 1,
+    selectedPayloadIsPresent[decision.kind],
+  ].every(Boolean);
+}
+
+function shellInteractionSettled(state: ShellInteractionState): boolean {
+  switch (state.status) {
+    case "decided":
+    case "failed":
+      return true;
+    case "accepted":
+    case "routing":
+      return false;
+    default:
+      return assertNever(state.status);
+  }
+}
+
+function interactionBlocksNewInput(interaction: MasterInteractionState): boolean {
+  switch (interaction.type) {
+    case "disconnected":
+    case "load_failed":
+    case "loading":
+      return true;
+    case "idle":
+      return false;
+    case "observation_failed":
+      return true;
+    case "active":
+      return !shellInteractionSettled(interaction.state);
+    default:
+      return assertNever(interaction);
+  }
+}
+
+function interactionIsDismissible(interaction: MasterInteractionState): boolean {
+  switch (interaction.type) {
+    case "active":
+      return (
+        shellInteractionSettled(interaction.state) && !interactionIsClarification(interaction.state)
+      );
+    case "disconnected":
+    case "idle":
+    case "load_failed":
+    case "loading":
+    case "observation_failed":
+      return false;
+    default:
+      return assertNever(interaction);
+  }
+}
+
+function interactionIsClarification(state: ShellInteractionState): boolean {
+  return state.status === "decided" && state.decision?.kind === "clarify";
 }
 
 function acceptedMasterInputMatches(accepted: AcceptedMasterInput, input: MasterInput): boolean {
@@ -481,7 +669,6 @@ function validAcceptedMasterInput(accepted: AcceptedMasterInput): boolean {
     Number.isSafeInteger(accepted.sequence) &&
     accepted.sequence > 0 &&
     accepted.acceptedAt !== "" &&
-    accepted.replyDelivery.showInMasterOverlay &&
     validReplyDelivery(accepted)
   );
 }
@@ -561,7 +748,7 @@ function masterInputOriginEqual(left: MasterInput, right: MasterInput): boolean 
   );
 }
 
-function failureMessage(modality: MasterInputModality): string {
+function submissionFailureMessage(modality: MasterInputModality): string {
   switch (modality) {
     case "text":
       return "Setta could not accept the text request. Retry without entering it again.";
@@ -573,5 +760,5 @@ function failureMessage(modality: MasterInputModality): string {
 }
 
 function assertNever(value: never): never {
-  throw new Error(`Unhandled master input modality: ${String(value)}`);
+  throw new Error(`Unhandled master input value: ${String(value)}`);
 }

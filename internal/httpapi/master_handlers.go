@@ -16,21 +16,21 @@ type ReadMasterInputRoutingStateRequest struct {
 	InputID string `json:"inputId"`
 }
 
-func (handler handler) readRecentMasterInputs(response http.ResponseWriter, request *http.Request) {
+func (handler handler) readActiveMasterShellInteraction(response http.ResponseWriter, request *http.Request) {
 	service := requireMasterInputService(response, handler.masterInputService)
 	if service == nil {
 		return
 	}
-	history, err := service.ListRecentInputs(request.Context())
+	interaction, err := service.ReadActiveShellInteraction(request.Context())
 	if err != nil {
-		writeMasterInputHistoryError(response, err)
+		writeMasterShellInteractionError(response, err)
 		return
 	}
-	if err := history.Validate(); err != nil {
-		writeError(response, http.StatusInternalServerError, "invalid_master_input_history", err.Error())
+	if err := interaction.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_master_shell_interaction", err.Error())
 		return
 	}
-	writeJSON(response, http.StatusOK, history)
+	writeJSON(response, http.StatusOK, interaction)
 }
 
 func (handler handler) submitMasterInput(response http.ResponseWriter, request *http.Request) {
@@ -70,6 +70,27 @@ func (handler handler) readMasterInputRoutingState(response http.ResponseWriter,
 	}
 	if err := state.Validate(); err != nil {
 		writeError(response, http.StatusInternalServerError, "invalid_master_input_routing_state", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, state)
+}
+
+func (handler handler) waitMasterShellInteraction(response http.ResponseWriter, request *http.Request) {
+	service := requireMasterInputService(response, handler.masterInputService)
+	if service == nil {
+		return
+	}
+	var payload ReadMasterInputRoutingStateRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	state, err := service.WaitShellInteraction(request.Context(), payload.InputID)
+	if err != nil {
+		writeMasterInputStateError(response, err)
+		return
+	}
+	if err := state.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_master_shell_interaction", err.Error())
 		return
 	}
 	writeJSON(response, http.StatusOK, state)

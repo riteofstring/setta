@@ -24,11 +24,13 @@ export function AppShellMasterProvider({
       new AppShellMasterController({
         createInputId: () => globalThis.crypto.randomUUID(),
         now: () => new Date(),
-        readRecentMasterInputs: () => {
+        readActiveInteraction: () => {
           if (!setta.master) {
-            return Promise.reject(new Error("the desktop master history boundary is unavailable"));
+            return Promise.reject(
+              new Error("the desktop active master interaction boundary is unavailable"),
+            );
           }
-          return setta.master.readRecentInputs();
+          return setta.master.readActiveInteraction();
         },
         readFocusHints: () => focusHintsRef.current,
         submitMasterInput: (request) => {
@@ -36,6 +38,12 @@ export function AppShellMasterProvider({
             return Promise.reject(new Error("the desktop master input boundary is unavailable"));
           }
           return setta.master.submitInput(request);
+        },
+        waitShellInteraction: (request) => {
+          if (!setta.master) {
+            return Promise.reject(new Error("the desktop master state boundary is unavailable"));
+          }
+          return setta.master.waitInteraction(request);
         },
       }),
   );

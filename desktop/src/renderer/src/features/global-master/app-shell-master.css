@@ -164,7 +164,10 @@
   width: 15px;
 }
 
-.setta-master-overlay-history {
+.setta-master-overlay-interaction {
+  align-content: center;
+  display: grid;
+  gap: 12px;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -172,7 +175,8 @@
   scrollbar-gutter: stable;
 }
 
-.setta-master-overlay-history-status {
+.setta-master-overlay-progress,
+.setta-master-overlay-restore-failure {
   align-items: center;
   background: color-mix(in oklch, var(--primary) 6%, transparent);
   border: 1px solid color-mix(in oklch, var(--primary) 20%, var(--setta-700));
@@ -183,23 +187,27 @@
   gap: 7px;
   justify-content: center;
   line-height: 15px;
-  margin-bottom: 14px;
   padding: 8px 10px;
 }
 
-.setta-master-overlay-history-status.is-failed {
+.setta-master-overlay-progress.is-failed,
+.setta-master-overlay-restore-failure {
   background: color-mix(in oklch, var(--status-critical) 8%, transparent);
   border-color: color-mix(in oklch, var(--status-critical) 30%, transparent);
   color: color-mix(in oklch, var(--status-critical) 74%, var(--setta-100));
+}
+
+.setta-master-overlay-restore-failure {
   justify-content: space-between;
 }
 
-.setta-master-overlay-history-status svg {
+.setta-master-overlay-progress svg,
+.setta-master-overlay-restore-failure svg {
   height: 12px;
   width: 12px;
 }
 
-.setta-master-overlay-history-status button {
+.setta-master-overlay-restore-failure button {
   align-items: center;
   background: color-mix(in oklch, var(--setta-800) 76%, transparent);
   border: 1px solid color-mix(in oklch, var(--setta-600) 50%, transparent);
@@ -251,26 +259,11 @@
   margin: 7px 0 0;
 }
 
-.setta-master-overlay-exchanges {
-  display: grid;
-  gap: 16px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.setta-master-overlay-exchange {
-  display: grid;
-  gap: 7px;
-  justify-items: end;
-}
-
 .setta-master-overlay-user-message {
   background: color-mix(in oklch, var(--primary) 9%, var(--setta-850));
   border: 1px solid color-mix(in oklch, var(--primary) 23%, var(--setta-700));
   border-radius: 12px 12px 3px 12px;
   color: var(--setta-100);
-  max-width: min(86%, 560px);
   min-width: 0;
   padding: 9px 11px 10px;
   user-select: text;
@@ -297,28 +290,47 @@
   white-space: pre-wrap;
 }
 
-.setta-master-overlay-receipt {
+.setta-master-overlay-result {
   align-items: center;
-  color: var(--setta-300);
-  display: inline-flex;
-  font-size: 10px;
-  gap: 5px;
-  justify-self: start;
-  line-height: 14px;
-  padding-left: 2px;
+  background: color-mix(in oklch, var(--primary) 6%, var(--setta-875));
+  border: 1px solid color-mix(in oklch, var(--primary) 20%, var(--setta-700));
+  border-radius: 10px;
+  color: var(--setta-200);
+  display: grid;
+  font-size: 11px;
+  gap: 9px;
+  grid-template-columns: 16px minmax(0, 1fr);
+  line-height: 16px;
+  padding: 10px 11px;
 }
 
-.setta-master-overlay-receipt.is-accepted {
-  color: color-mix(in oklch, var(--status-success) 72%, var(--setta-300));
+.setta-master-overlay-result.is-clarification {
+  background: color-mix(in oklch, var(--status-warning) 7%, var(--setta-875));
+  border-color: color-mix(in oklch, var(--status-warning) 24%, var(--setta-700));
 }
 
-.setta-master-overlay-receipt.is-failed {
-  color: color-mix(in oklch, var(--status-critical) 82%, var(--setta-200));
+.setta-master-overlay-result.is-failed {
+  background: color-mix(in oklch, var(--status-critical) 8%, var(--setta-875));
+  border-color: color-mix(in oklch, var(--status-critical) 30%, var(--setta-700));
+  color: color-mix(in oklch, var(--status-critical) 78%, var(--setta-100));
 }
 
-.setta-master-overlay-receipt svg {
-  height: 11px;
-  width: 11px;
+.setta-master-overlay-result > svg {
+  height: 14px;
+  margin-top: 1px;
+  width: 14px;
+}
+
+.setta-master-overlay-result strong {
+  color: var(--setta-100);
+  font-size: 10.5px;
+  font-weight: 620;
+}
+
+.setta-master-overlay-result p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .setta-master-overlay-spinner {
@@ -459,12 +471,12 @@
     min-height: calc(100vh - 24px);
   }
 
-  .setta-master-overlay-history {
+  .setta-master-overlay-interaction {
     padding: 14px;
   }
 
   .setta-master-overlay-user-message {
-    max-width: 94%;
+    width: 100%;
   }
 
   .setta-master-overlay-shortcut {

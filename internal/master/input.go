@@ -8,10 +8,9 @@ import (
 )
 
 const (
-	MaxInputIDBytes           = 512
-	MaxInputTextBytes         = 256 * 1024
-	MaxFocusHintBytes         = 512
-	RecentMasterInputCapacity = 40
+	MaxInputIDBytes   = 512
+	MaxInputTextBytes = 256 * 1024
+	MaxFocusHintBytes = 512
 
 	InputAcceptedEventKind  = "master.input.accepted"
 	InputStreamID           = "master:inputs"
@@ -45,11 +44,10 @@ type MasterInput struct {
 }
 
 // MasterReplyDelivery is derived from the trusted source linkage on a master
-// input. Every reply remains visible in the one shared master overlay; a local
-// escalation additionally carries the exact conversation/input/pane target
-// that may receive the same route result or clarification.
+// input. Shell replies have no originating target and use the active shell
+// interaction. Conversation escalations carry the exact pane/input target and
+// never populate the shell interaction.
 type MasterReplyDelivery struct {
-	ShowInMasterOverlay            bool    `json:"showInMasterOverlay"`
 	OriginatingWorkspaceID         *string `json:"originatingWorkspaceId"`
 	OriginatingConversationID      *string `json:"originatingConversationId"`
 	OriginatingPaneID              *string `json:"originatingPaneId"`
@@ -61,11 +59,6 @@ type AcceptedMasterInput struct {
 	Input         MasterInput         `json:"input"`
 	ReplyDelivery MasterReplyDelivery `json:"replyDelivery"`
 	AcceptedAt    string              `json:"acceptedAt"`
-}
-
-type RecentMasterInputHistory struct {
-	Capacity int                   `json:"capacity"`
-	Inputs   []AcceptedMasterInput `json:"inputs"`
 }
 
 type InputConflictError struct {
@@ -134,42 +127,6 @@ func (accepted AcceptedMasterInput) Validate() error {
 	return nil
 }
 
-func (history RecentMasterInputHistory) Validate() error {
-	if history.Capacity != RecentMasterInputCapacity {
-		return fmt.Errorf(
-			"recent master input history capacity is %d, want %d",
-			history.Capacity,
-			RecentMasterInputCapacity,
-		)
-	}
-	if history.Inputs == nil {
-		return errors.New("recent master input history inputs are required")
-	}
-	if len(history.Inputs) > history.Capacity {
-		return fmt.Errorf(
-			"recent master input history contains %d inputs, capacity is %d",
-			len(history.Inputs),
-			history.Capacity,
-		)
-	}
-	seenIDs := make(map[string]bool, len(history.Inputs))
-	previousSequence := 0
-	for _, accepted := range history.Inputs {
-		if err := accepted.Validate(); err != nil {
-			return fmt.Errorf("recent master input history sequence %d: %w", accepted.Sequence, err)
-		}
-		if accepted.Sequence <= previousSequence {
-			return errors.New("recent master input history must be ordered by increasing sequence")
-		}
-		if seenIDs[accepted.Input.ID] {
-			return fmt.Errorf("recent master input history repeats input %s", accepted.Input.ID)
-		}
-		seenIDs[accepted.Input.ID] = true
-		previousSequence = accepted.Sequence
-	}
-	return nil
-}
-
 func EqualInputs(left MasterInput, right MasterInput) bool {
 	return equalMasterInputCore(left, right) &&
 		equalMasterInputFocus(left, right) &&
@@ -203,19 +160,8 @@ func CloneAcceptedInput(accepted AcceptedMasterInput) AcceptedMasterInput {
 	return accepted
 }
 
-func CloneRecentInputHistory(history RecentMasterInputHistory) RecentMasterInputHistory {
-	cloned := RecentMasterInputHistory{
-		Capacity: history.Capacity,
-		Inputs:   make([]AcceptedMasterInput, len(history.Inputs)),
-	}
-	for index, accepted := range history.Inputs {
-		cloned.Inputs[index] = CloneAcceptedInput(accepted)
-	}
-	return cloned
-}
-
 func ReplyDeliveryForInput(input MasterInput) MasterReplyDelivery {
-	delivery := MasterReplyDelivery{ShowInMasterOverlay: true}
+	delivery := MasterReplyDelivery{}
 	if input.Source != MasterInputSourceConversationEscalation {
 		return delivery
 	}
@@ -227,8 +173,7 @@ func ReplyDeliveryForInput(input MasterInput) MasterReplyDelivery {
 }
 
 func EqualReplyDeliveries(left MasterReplyDelivery, right MasterReplyDelivery) bool {
-	return left.ShowInMasterOverlay == right.ShowInMasterOverlay &&
-		equalOptionalString(left.OriginatingWorkspaceID, right.OriginatingWorkspaceID) &&
+	return equalOptionalString(left.OriginatingWorkspaceID, right.OriginatingWorkspaceID) &&
 		equalOptionalString(left.OriginatingConversationID, right.OriginatingConversationID) &&
 		equalOptionalString(left.OriginatingPaneID, right.OriginatingPaneID) &&
 		equalOptionalString(left.OriginatingConversationInputID, right.OriginatingConversationInputID)

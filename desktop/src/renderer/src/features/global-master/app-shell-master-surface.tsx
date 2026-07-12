@@ -1,8 +1,15 @@
-import type { MasterInput, MasterInputModality, MasterInputSource } from "@generated/backend";
+import type {
+  MasterInput,
+  MasterInputModality,
+  RouteDecision,
+  RouteDecisionKind,
+  ShellInteractionState,
+} from "@generated/backend";
 import type { DesktopPlatform, WorkspaceBrowserViewKeyEvent } from "@shared/types";
 import {
   ArrowUp,
   Check,
+  CircleAlert,
   LoaderCircle,
   MessageCircleMore,
   RotateCcw,
@@ -13,11 +20,10 @@ import {
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import { cn } from "../../lib/utils";
 import type {
   AppShellMasterController,
   AppShellMasterSnapshot,
-  MasterInputSubmissionState,
+  MasterInteractionState,
 } from "./app-shell-master-controller";
 
 interface MasterOverlayShortcutEvent {
@@ -128,10 +134,7 @@ function MasterOverlay({
 }) {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [synchronousError, setSynchronousError] = useState<string | null>(null);
-  const submissionBlocksNewInput =
-    snapshot.submission.type === "submitting" || snapshot.submission.type === "failed";
-  const canSubmit =
-    snapshot.runtimeId !== null && !submissionBlocksNewInput && snapshot.draft.trim() !== "";
+  const canSubmit = controller.canSubmitInput() && snapshot.draft.trim() !== "";
 
   useEffect(() => {
     composerRef.current?.focus();
@@ -202,7 +205,7 @@ function MasterOverlay({
           </button>
         </header>
 
-        <MasterInteractionHistory controller={controller} snapshot={snapshot} />
+        <MasterInteraction controller={controller} snapshot={snapshot} />
 
         <footer className="setta-master-overlay-footer">
           {snapshot.submission.type === "failed" ? (
@@ -242,115 +245,166 @@ function MasterOverlay({
   );
 }
 
-function MasterInteractionHistory({
+function MasterInteraction({
   controller,
   snapshot,
 }: {
   controller: AppShellMasterController;
   snapshot: AppShellMasterSnapshot;
 }) {
-  const pending = pendingMasterInput(snapshot.submission);
-  const empty = snapshot.recentInputs.length === 0 && pending === null;
-  const historyStatus = masterHistoryStatus(controller, snapshot);
-
-  return (
-    <div className="setta-master-overlay-history" data-testid="master-overlay-history">
-      {historyStatus}
-      {empty && historyStatus === null ? (
-        <div className="setta-master-overlay-empty">
-          <span aria-hidden="true" className="setta-master-overlay-empty-icon">
-            <MessageCircleMore />
-          </span>
-          <h2>What should Setta bring into focus?</h2>
-          <p>Find a recent topic, open a conversation, or start work somewhere new.</p>
+  const pendingInput = pendingSubmissionInput(snapshot);
+  if (pendingInput) {
+    return (
+      <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
+        <MasterRequest input={pendingInput.input} />
+        <MasterProgress state={pendingInput.state} />
+      </div>
+    );
+  }
+  switch (snapshot.interaction.type) {
+    case "disconnected":
+    case "idle":
+      return <EmptyMasterInteraction />;
+    case "loading":
+      return (
+        <InteractionStatus>
+          <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
+          Restoring an unresolved master interaction…
+        </InteractionStatus>
+      );
+    case "load_failed":
+      return <InteractionFailure controller={controller} message={snapshot.interaction.message} />;
+    case "observation_failed":
+      return (
+        <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
+          <MasterRequest input={snapshot.interaction.state.input} />
+          <InteractionFailure controller={controller} message={snapshot.interaction.message} />
         </div>
-      ) : (
-        <ol aria-label="Recent master exchanges" className="setta-master-overlay-exchanges">
-          {snapshot.recentInputs.map((accepted) => (
-            <MasterInputExchange input={accepted.input} key={accepted.input.id} state="accepted" />
-          ))}
-          {pending ? (
-            <MasterInputExchange
-              input={pending.input}
-              key={pending.input.id}
-              state={pending.state}
-            />
-          ) : null}
-        </ol>
-      )}
+      );
+    case "active":
+      return <ActiveMasterInteraction state={snapshot.interaction.state} />;
+    default:
+      return assertNever(snapshot.interaction);
+  }
+}
+
+function EmptyMasterInteraction() {
+  return (
+    <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
+      <div className="setta-master-overlay-empty">
+        <span aria-hidden="true" className="setta-master-overlay-empty-icon">
+          <MessageCircleMore />
+        </span>
+        <h2>What should Setta bring into focus?</h2>
+        <p>Find a recent topic, open a conversation, or start work somewhere new.</p>
+      </div>
     </div>
   );
 }
 
-function masterHistoryStatus(
-  controller: AppShellMasterController,
-  snapshot: AppShellMasterSnapshot,
-) {
-  switch (snapshot.history.type) {
-    case "disconnected":
-    case "ready":
-      return null;
-    case "loading":
-      return (
-        <div className="setta-master-overlay-history-status" role="status">
-          <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
-          Restoring recent master exchanges…
-        </div>
-      );
-    case "failed":
-      return (
-        <div className="setta-master-overlay-history-status is-failed" role="alert">
-          <span>{snapshot.history.message}</span>
-          <button onClick={controller.retryHistory} type="button">
-            <RotateCcw aria-hidden="true" />
-            Retry
-          </button>
-        </div>
-      );
-    default:
-      return assertNever(snapshot.history);
-  }
-}
-
-function MasterInputExchange({
-  input,
-  state,
-}: {
-  input: MasterInput;
-  state: "accepted" | "failed" | "submitting";
-}) {
+function ActiveMasterInteraction({ state }: { state: ShellInteractionState }) {
   return (
-    <li className="setta-master-overlay-exchange" data-master-input-id={input.id}>
-      <article className="setta-master-overlay-user-message" data-master-speaker="user">
-        <div className="setta-master-overlay-message-meta">
-          <span>You</span>
-          <span>{masterInputContextLabel(input.modality, input.source)}</span>
-        </div>
-        <p>{input.text}</p>
-      </article>
-      <div
-        className={cn("setta-master-overlay-receipt", `is-${state}`)}
-        data-master-input-state={state}
-        role="status"
-      >
-        <MasterInputStateIcon state={state} />
-        <span>{masterInputStateLabel(state)}</span>
-      </div>
-    </li>
+    <div
+      className="setta-master-overlay-interaction"
+      data-master-input-id={state.input.id}
+      data-master-routing-status={state.status}
+      data-testid="master-active-interaction"
+    >
+      <MasterRequest input={state.input} />
+      <MasterRoutingResult state={state} />
+    </div>
   );
 }
 
-function MasterInputStateIcon({ state }: { state: "accepted" | "failed" | "submitting" }) {
-  switch (state) {
+function MasterRequest({ input }: { input: MasterInput }) {
+  return (
+    <article className="setta-master-overlay-user-message" data-testid="master-active-request">
+      <div className="setta-master-overlay-message-meta">
+        <span>Current request</span>
+        <span>{masterInputModalityLabel(input.modality)}</span>
+      </div>
+      <p>{input.text}</p>
+    </article>
+  );
+}
+
+function MasterRoutingResult({ state }: { state: ShellInteractionState }) {
+  switch (state.status) {
     case "accepted":
-      return <Check aria-hidden="true" />;
+      return <MasterProgress state="accepted" />;
+    case "routing":
+      return <MasterProgress state="routing" />;
     case "failed":
-      return <X aria-hidden="true" />;
-    case "submitting":
-      return <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />;
+      return (
+        <div className="setta-master-overlay-result is-failed" role="alert">
+          <CircleAlert aria-hidden="true" />
+          <div>
+            <strong>Setta could not route this request</strong>
+            <p>{requiredRouteFailure(state).message}</p>
+          </div>
+        </div>
+      );
+    case "decided": {
+      const result = masterDecisionResult(state);
+      return (
+        <div
+          className={`setta-master-overlay-result is-${result.tone}`}
+          data-master-result-kind={result.kind}
+          role="status"
+        >
+          <Check aria-hidden="true" />
+          <div>
+            <strong>{result.heading}</strong>
+            <p>{result.text}</p>
+          </div>
+        </div>
+      );
+    }
     default:
-      return assertNever(state);
+      return assertNever(state.status);
   }
+}
+
+function MasterProgress({ state }: { state: "accepted" | "routing" | "submitting" | "failed" }) {
+  const failed = state === "failed";
+  return (
+    <div className={`setta-master-overlay-progress${failed ? " is-failed" : ""}`} role="status">
+      {failed ? (
+        <CircleAlert aria-hidden="true" />
+      ) : (
+        <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
+      )}
+      {masterProgressLabel(state)}
+    </div>
+  );
+}
+
+function InteractionStatus({ children }: { children: ReactNode }) {
+  return (
+    <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
+      <div className="setta-master-overlay-progress" role="status">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function InteractionFailure({
+  controller,
+  message,
+}: {
+  controller: AppShellMasterController;
+  message: string;
+}) {
+  return (
+    <div className="setta-master-overlay-restore-failure" role="alert">
+      <span>{message}</span>
+      <button onClick={controller.retryInteraction} type="button">
+        <RotateCcw aria-hidden="true" />
+        Retry
+      </button>
+    </div>
+  );
 }
 
 function MasterSubmissionFailureActions({
@@ -380,32 +434,105 @@ function MasterSubmissionFailureActions({
   );
 }
 
-function pendingMasterInput(
-  submission: MasterInputSubmissionState,
+function pendingSubmissionInput(
+  snapshot: AppShellMasterSnapshot,
 ): { input: MasterInput; state: "failed" | "submitting" } | null {
-  switch (submission.type) {
+  switch (snapshot.submission.type) {
     case "failed":
-      return { input: submission.input, state: "failed" };
+      return { input: snapshot.submission.input, state: "failed" };
     case "submitting":
-      return { input: submission.input, state: "submitting" };
+      return { input: snapshot.submission.input, state: "submitting" };
     case "accepted":
     case "idle":
       return null;
     default:
-      return assertNever(submission);
+      return assertNever(snapshot.submission);
   }
 }
 
-function masterInputContextLabel(modality: MasterInputModality, source: MasterInputSource): string {
-  const modalityLabel = masterInputModalityLabel(modality);
-  switch (source) {
-    case "conversation_escalation":
-      return `${modalityLabel} · Conversation escalation`;
-    case "shell":
-      return modalityLabel;
+function masterDecisionResult(state: ShellInteractionState): {
+  heading: string;
+  kind: string;
+  text: string;
+  tone: "answer" | "clarification" | "ready";
+} {
+  const decision = requiredRouteDecision(state);
+  switch (decision.kind) {
+    case "answer_global":
+      return {
+        heading: "Setta answered",
+        kind: decision.kind,
+        text: requiredPayload(decision.answerGlobal, decision.kind).text,
+        tone: "answer",
+      };
+    case "clarify":
+      return {
+        heading: "Setta needs one detail",
+        kind: decision.kind,
+        text: requiredPayload(decision.clarify, decision.kind).question,
+        tone: "clarification",
+      };
     default:
-      return assertNever(source);
+      return masterActionDecisionResult(decision, decision.kind);
   }
+}
+
+type MasterActionDecisionKind = Exclude<RouteDecisionKind, "answer_global" | "clarify">;
+
+function masterActionDecisionResult(decision: RouteDecision, kind: MasterActionDecisionKind) {
+  switch (kind) {
+    case "focus_conversation":
+      requiredPayload(decision.focusConversation, kind);
+      return readyDecision(kind, "Setta selected the topic conversation to bring forward.");
+    case "create_conversation":
+      requiredPayload(decision.createConversation, kind);
+      return readyDecision(kind, "Setta prepared a new topic conversation for this work.");
+    case "send_to_agent":
+      requiredPayload(decision.sendToAgent, kind);
+      return readyDecision(kind, "Setta routed the request to the topic agent.");
+    case "queue_agent_turn":
+      requiredPayload(decision.queueAgentTurn, kind);
+      return readyDecision(kind, "Setta queued the request in the topic conversation.");
+    case "steer_active_turn":
+      requiredPayload(decision.steerActiveTurn, kind);
+      return readyDecision(kind, "Setta directed the active topic work.");
+    case "ask_narrator":
+      requiredPayload(decision.askNarrator, kind);
+      return readyDecision(kind, "Setta sent the question to the topic narrator.");
+    case "create_side_conversation":
+      requiredPayload(decision.createSideConversation, kind);
+      return readyDecision(kind, "Setta selected a temporary side conversation.");
+    case "fork_conversation":
+      requiredPayload(decision.forkConversation, kind);
+      return readyDecision(kind, "Setta selected a durable conversation fork.");
+    default:
+      return assertNever(kind);
+  }
+}
+
+function readyDecision(kind: string, text: string) {
+  return { heading: "Routing decision ready", kind, text, tone: "ready" as const };
+}
+
+function requiredRouteDecision(state: ShellInteractionState) {
+  if (state.status !== "decided" || state.decision === null) {
+    throw new Error("decided master interaction is missing its route decision");
+  }
+  return state.decision;
+}
+
+function requiredRouteFailure(state: ShellInteractionState) {
+  if (state.status !== "failed" || state.failure === null) {
+    throw new Error("failed master interaction is missing its route failure");
+  }
+  return state.failure;
+}
+
+function requiredPayload<T>(payload: T | null, kind: string): T {
+  if (payload === null) {
+    throw new Error(`master route decision ${kind} is missing its payload`);
+  }
+  return payload;
 }
 
 function masterInputModalityLabel(modality: MasterInputModality): string {
@@ -419,14 +546,16 @@ function masterInputModalityLabel(modality: MasterInputModality): string {
   }
 }
 
-function masterInputStateLabel(state: "accepted" | "failed" | "submitting"): string {
+function masterProgressLabel(state: "accepted" | "routing" | "submitting" | "failed"): string {
   switch (state) {
     case "accepted":
-      return "Accepted into the global master session";
+      return "Request accepted; waiting for the global router";
+    case "routing":
+      return "Setta is choosing the next topic action";
+    case "submitting":
+      return "Submitting the active request";
     case "failed":
       return "The request was not accepted";
-    case "submitting":
-      return "Submitting to the global master session";
     default:
       return assertNever(state);
   }
@@ -439,30 +568,74 @@ function masterComposerPlaceholder(snapshot: AppShellMasterSnapshot): string {
   if (snapshot.submission.type === "failed") {
     return "Retry or discard the failed request before sending another";
   }
+  if (snapshot.interaction.type === "active") {
+    return activeInteractionComposerPlaceholder(snapshot.interaction.state);
+  }
+  if (
+    snapshot.interaction.type === "loading" ||
+    snapshot.interaction.type === "load_failed" ||
+    snapshot.interaction.type === "observation_failed"
+  ) {
+    return "Restore the active interaction before continuing";
+  }
   return "Find, open, or start a topic conversation…";
+}
+
+function activeInteractionComposerPlaceholder(state: ShellInteractionState): string {
+  if (state.status !== "decided") {
+    return "Setta is routing the active request…";
+  }
+  return state.decision?.kind === "clarify"
+    ? "Answer Setta’s clarification…"
+    : "Find, open, or start a topic conversation…";
 }
 
 function masterConnectionLabel(snapshot: AppShellMasterSnapshot): string {
   if (!snapshot.runtimeId) {
     return "Runtime disconnected";
   }
-  if (snapshot.history.type === "loading") {
-    return "Restoring history";
-  }
-  if (snapshot.history.type === "failed") {
-    return "History unavailable";
-  }
   switch (snapshot.submission.type) {
-    case "accepted":
-      return "Request accepted";
     case "failed":
       return "Action required";
-    case "idle":
-      return "Ready";
     case "submitting":
       return "Submitting";
+    case "accepted":
+    case "idle":
+      return interactionConnectionLabel(snapshot.interaction);
     default:
       return assertNever(snapshot.submission);
+  }
+}
+
+function interactionConnectionLabel(interaction: MasterInteractionState): string {
+  switch (interaction.type) {
+    case "disconnected":
+      return "Runtime disconnected";
+    case "idle":
+      return "Ready";
+    case "loading":
+      return "Restoring active request";
+    case "load_failed":
+    case "observation_failed":
+      return "Restore required";
+    case "active":
+      return interactionStateLabel(interaction.state);
+    default:
+      return assertNever(interaction);
+  }
+}
+
+function interactionStateLabel(state: ShellInteractionState): string {
+  switch (state.status) {
+    case "accepted":
+    case "routing":
+      return "Routing";
+    case "decided":
+      return state.decision?.kind === "clarify" ? "Reply needed" : "Result ready";
+    case "failed":
+      return "Routing failed";
+    default:
+      return assertNever(state.status);
   }
 }
 

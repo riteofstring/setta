@@ -163,6 +163,101 @@ func (store *Store) ReadMasterInputRoutingState(
 	return master.CloneInputRoutingState(state), nil
 }
 
+// WaitForMasterInputRoutingState blocks on committed-store notifications until
+// the requested input reaches a terminal routing decision or failure. Capturing
+// the wake channel before each read prevents lost notifications without
+// polling.
+func (store *Store) WaitForMasterInputRoutingState(
+	ctx context.Context,
+	inputID string,
+) (master.InputRoutingState, error) {
+	if err := validateMasterInputRoutingStateRequest(store, ctx, inputID); err != nil {
+		return master.InputRoutingState{}, err
+	}
+	for {
+		wake := store.committedEventWakeChannel()
+		state, err := store.ReadMasterInputRoutingState(ctx, inputID)
+		if err != nil {
+			return master.InputRoutingState{}, err
+		}
+		switch state.Status {
+		case master.InputRoutingStatusDecided, master.InputRoutingStatusFailed:
+			return state, nil
+		case master.InputRoutingStatusAccepted, master.InputRoutingStatusRouting:
+		default:
+			return master.InputRoutingState{}, &CorruptStateError{
+				Path: store.dbPath,
+				Err:  fmt.Errorf("unsupported master input routing status %q", state.Status),
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return master.InputRoutingState{}, ctx.Err()
+		case <-store.closing:
+			return master.InputRoutingState{}, ErrStoreClosed
+		case <-wake:
+		}
+	}
+}
+
+func (store *Store) ReadActiveMasterShellInteraction(
+	ctx context.Context,
+) (master.ActiveShellInteraction, error) {
+	if store == nil {
+		return master.ActiveShellInteraction{}, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return master.ActiveShellInteraction{}, errors.New("active master shell interaction context is required")
+	}
+	var interaction master.ActiveShellInteraction
+	err := store.read(ctx, "read active master shell interaction", func(ctx context.Context, connection *sql.Conn) error {
+		reader, err := connection.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		if err != nil {
+			return err
+		}
+		defer func() { _ = reader.Rollback() }()
+		var inputID string
+		err = reader.QueryRowContext(ctx, `
+SELECT id
+FROM master_inputs
+WHERE input_source = ?
+ORDER BY sequence DESC
+LIMIT 1
+`, master.MasterInputSourceShell).Scan(&inputID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return reader.Commit()
+		}
+		if err != nil {
+			return err
+		}
+		state, err := readMasterInputRoutingStateTransaction(ctx, reader, inputID, store.dbPath)
+		if err != nil {
+			return err
+		}
+		projected, err := master.ProjectShellInteractionState(state)
+		if err != nil {
+			return &CorruptStateError{
+				Path: store.dbPath,
+				Err:  fmt.Errorf("project active master shell interaction: %w", err),
+			}
+		}
+		if master.IsRestorableShellInteractionState(projected) {
+			interaction.State = &projected
+		}
+		if err := interaction.Validate(); err != nil {
+			return &CorruptStateError{
+				Path: store.dbPath,
+				Err:  fmt.Errorf("validate active master shell interaction: %w", err),
+			}
+		}
+		return reader.Commit()
+	})
+	if err != nil {
+		return master.ActiveShellInteraction{}, err
+	}
+	return master.CloneActiveShellInteraction(interaction), nil
+}
+
 func validateMasterInputRoutingStateRequest(store *Store, ctx context.Context, inputID string) error {
 	if store == nil {
 		return errors.New("conversation store is required")
@@ -184,6 +279,22 @@ func readMasterInputRoutingStateSnapshot(
 		return master.InputRoutingState{}, err
 	}
 	defer func() { _ = reader.Rollback() }()
+	state, err := readMasterInputRoutingStateTransaction(ctx, reader, inputID, dbPath)
+	if err != nil {
+		return master.InputRoutingState{}, err
+	}
+	if err := reader.Commit(); err != nil {
+		return master.InputRoutingState{}, err
+	}
+	return state, nil
+}
+
+func readMasterInputRoutingStateTransaction(
+	ctx context.Context,
+	reader *sql.Tx,
+	inputID string,
+	dbPath string,
+) (master.InputRoutingState, error) {
 	accepted, status, attempt, startedAt, err := readMasterRouteCommitInput(ctx, reader, inputID, dbPath)
 	if err != nil {
 		return master.InputRoutingState{}, err
@@ -202,9 +313,6 @@ func readMasterInputRoutingStateSnapshot(
 			Path: dbPath,
 			Err:  fmt.Errorf("validate master input routing state %s: %w", inputID, err),
 		}
-	}
-	if err := reader.Commit(); err != nil {
-		return master.InputRoutingState{}, err
 	}
 	return state, nil
 }

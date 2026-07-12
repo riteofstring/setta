@@ -3,7 +3,6 @@ package conversation
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -137,55 +136,6 @@ func TestStoreSerializesConcurrentDuplicateMasterInputAcceptance(t *testing.T) {
 	}
 }
 
-func TestStoreListsBoundedRecentMasterInputsAcrossRestart(t *testing.T) {
-	appDataDir := t.TempDir()
-	store, err := NewStore(appDataDir)
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
-	for index := 1; index <= master.RecentMasterInputCapacity+5; index++ {
-		input := master.MasterInput{
-			ID:          fmt.Sprintf("input_%02d", index),
-			Text:        fmt.Sprintf("Request %d", index),
-			Modality:    master.MasterInputModalityText,
-			Source:      master.MasterInputSourceShell,
-			SubmittedAt: "2026-07-12T18:00:00Z",
-		}
-		if _, err := store.AcceptMasterInput(
-			context.Background(),
-			input,
-			"2026-07-12T18:00:01Z",
-		); err != nil {
-			t.Fatalf("AcceptMasterInput(%d): %v", index, err)
-		}
-	}
-	if err := store.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
-
-	reopened, err := NewStore(appDataDir)
-	if err != nil {
-		t.Fatalf("reopen store: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := reopened.Close(); err != nil {
-			t.Errorf("close reopened store: %v", err)
-		}
-	})
-	history, err := reopened.ListRecentMasterInputs(context.Background())
-	if err != nil {
-		t.Fatalf("ListRecentMasterInputs: %v", err)
-	}
-	if err := history.Validate(); err != nil {
-		t.Fatalf("history validation: %v", err)
-	}
-	if len(history.Inputs) != master.RecentMasterInputCapacity ||
-		history.Inputs[0].Sequence != 6 ||
-		history.Inputs[len(history.Inputs)-1].Sequence != master.RecentMasterInputCapacity+5 {
-		t.Fatalf("recent history = %+v", history)
-	}
-}
-
 func TestStoreClassifiesMalformedMasterInputAsCorruptState(t *testing.T) {
 	store := newTestStore(t)
 	input := master.MasterInput{
@@ -209,8 +159,8 @@ func TestStoreClassifiesMalformedMasterInputAsCorruptState(t *testing.T) {
 	if !IsCorruptStateError(err) {
 		t.Fatalf("ReadMasterInput error = %T %v, want CorruptStateError", err, err)
 	}
-	_, err = store.ListRecentMasterInputs(context.Background())
+	_, err = store.ReadActiveMasterShellInteraction(context.Background())
 	if !IsCorruptStateError(err) {
-		t.Fatalf("ListRecentMasterInputs error = %T %v, want CorruptStateError", err, err)
+		t.Fatalf("ReadActiveMasterShellInteraction error = %T %v, want CorruptStateError", err, err)
 	}
 }

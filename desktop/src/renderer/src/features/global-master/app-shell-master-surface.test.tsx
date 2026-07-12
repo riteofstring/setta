@@ -1,4 +1,8 @@
-import type { AcceptedMasterInput, SubmitMasterInputRequest } from "@generated/backend";
+import type {
+  AcceptedMasterInput,
+  ShellInteractionState,
+  SubmitMasterInputRequest,
+} from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
@@ -11,7 +15,7 @@ import {
 } from "./app-shell-master-surface";
 
 describe("app-shell master surface", () => {
-  test("renders one conversational overlay with the shared draft and accepted history", async () => {
+  test("renders one active routing interaction without completed-request history", async () => {
     const controller = masterController();
     controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
@@ -29,9 +33,23 @@ describe("app-shell master surface", () => {
     html = renderSurface(controller);
 
     expect(html).toContain("Open the latest narrator conversation");
-    expect(html).toContain('data-master-input-state="accepted"');
-    expect(html).toContain("Accepted into the global master session");
-    expect(html).toContain('aria-label="Recent master exchanges"');
+    expect(html).toContain('data-testid="master-active-request"');
+    expect(html).toContain('data-master-result-kind="answer_global"');
+    expect(html).toContain("The global router is ready.");
+    expect(html).not.toContain("Recent master exchanges");
+    expect(html).not.toContain("master-overlay-history");
+  });
+
+  test("renders a restored clarification as the only active result", async () => {
+    const controller = masterController(clarificationState());
+    controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    controller.openOverlay();
+
+    const html = renderSurface(controller);
+    expect(html).toContain('data-master-result-kind="clarify"');
+    expect(html).toContain("Which topic should Setta focus?");
+    expect(html).toContain("Answer Setta’s clarification…");
   });
 
   test("renders the compact sidebar launcher as a distinct entry point", () => {
@@ -61,18 +79,27 @@ function renderSurface(controller: AppShellMasterController): string {
   );
 }
 
-function masterController(): AppShellMasterController {
+function masterController(restored: ShellInteractionState | null = null): AppShellMasterController {
   let inputOrdinal = 0;
   return new AppShellMasterController({
     createInputId: () => `master_input_${++inputOrdinal}`,
     now: () => new Date("2026-07-13T20:00:00Z"),
-    readRecentMasterInputs: async () => ({ capacity: 40, inputs: [] }),
+    readActiveInteraction: async () => ({ state: restored }),
     readFocusHints: () => ({
       focusedConversationId: null,
       focusedPaneId: null,
       focusedWorkspaceId: "workspace_alpha",
     }),
     submitMasterInput: async (request) => acceptedInput(request, inputOrdinal),
+    waitShellInteraction: async ({ inputId }) =>
+      answerState(
+        acceptedInput(
+          {
+            input: masterInput(inputId, "Open the latest narrator conversation"),
+          },
+          inputOrdinal,
+        ),
+      ),
   });
 }
 
@@ -85,21 +112,73 @@ function acceptedInput(request: SubmitMasterInputRequest, sequence: number): Acc
       originatingConversationInputId: null,
       originatingPaneId: null,
       originatingWorkspaceId: null,
-      showInMasterOverlay: true,
     },
     sequence,
   };
 }
 
-function shortcut(
-  overrides: Partial<{
-    altKey: boolean;
-    ctrlKey: boolean;
-    key: string;
-    metaKey: boolean;
-    shiftKey: boolean;
-  }>,
-): boolean {
+function masterInput(id: string, text: string): SubmitMasterInputRequest["input"] {
+  return {
+    focusedConversationId: null,
+    focusedPaneId: null,
+    focusedWorkspaceId: "workspace_alpha",
+    id,
+    modality: "text",
+    originatingConversationId: null,
+    originatingConversationInputId: null,
+    originatingPaneId: null,
+    originatingWorkspaceId: null,
+    source: "shell",
+    submittedAt: "2026-07-13T20:00:00Z",
+    text,
+  };
+}
+
+function answerState(accepted: AcceptedMasterInput): ShellInteractionState {
+  return decidedState(accepted, {
+    answerGlobal: { text: "The global router is ready." },
+    clarify: null,
+    kind: "answer_global",
+  });
+}
+
+function clarificationState(): ShellInteractionState {
+  return decidedState(acceptedInput({ input: masterInput("input_clarify", "Find my topic") }, 1), {
+    answerGlobal: null,
+    clarify: { question: "Which topic should Setta focus?" },
+    kind: "clarify",
+  });
+}
+
+function decidedState(
+  accepted: AcceptedMasterInput,
+  result: {
+    answerGlobal: { text: string } | null;
+    clarify: { question: string } | null;
+    kind: "answer_global" | "clarify";
+  },
+): ShellInteractionState {
+  return {
+    decision: {
+      answerGlobal: result.answerGlobal,
+      askNarrator: null,
+      clarify: result.clarify,
+      createConversation: null,
+      createSideConversation: null,
+      focusConversation: null,
+      forkConversation: null,
+      kind: result.kind,
+      queueAgentTurn: null,
+      sendToAgent: null,
+      steerActiveTurn: null,
+    },
+    failure: null,
+    input: accepted.input,
+    status: "decided",
+  };
+}
+
+function shortcut(overrides: Partial<Parameters<typeof isMasterOverlayShortcut>[0]>) {
   return isMasterOverlayShortcut({
     altKey: false,
     ctrlKey: false,
@@ -110,7 +189,8 @@ function shortcut(
   });
 }
 
-async function flushPromises(): Promise<void> {
+async function flushPromises() {
+  await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
 }

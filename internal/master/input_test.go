@@ -80,7 +80,7 @@ func TestAcceptedInputRequiresNormalizedDurableRecord(t *testing.T) {
 			Source:      MasterInputSourceShell,
 			SubmittedAt: "2026-07-12T18:00:00Z",
 		},
-		ReplyDelivery: MasterReplyDelivery{ShowInMasterOverlay: true},
+		ReplyDelivery: MasterReplyDelivery{},
 		AcceptedAt:    "2026-07-12T18:00:01Z",
 	}
 	if err := accepted.Validate(); err != nil {
@@ -112,8 +112,7 @@ func TestMasterInputSourceLinkageDerivesReplyDelivery(t *testing.T) {
 		t.Fatalf("NormalizeInput escalation: %v", err)
 	}
 	delivery := ReplyDeliveryForInput(escalation)
-	if !delivery.ShowInMasterOverlay ||
-		delivery.OriginatingConversationID == nil ||
+	if delivery.OriginatingConversationID == nil ||
 		*delivery.OriginatingConversationID != conversationID ||
 		delivery.OriginatingPaneID == nil ||
 		*delivery.OriginatingPaneID != paneID ||

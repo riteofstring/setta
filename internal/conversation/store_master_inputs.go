@@ -164,60 +164,6 @@ func (store *Store) ReadMasterInput(
 	return master.CloneAcceptedInput(accepted), found, nil
 }
 
-func (store *Store) ListRecentMasterInputs(
-	ctx context.Context,
-) (master.RecentMasterInputHistory, error) {
-	if store == nil {
-		return master.RecentMasterInputHistory{}, errors.New("conversation store is required")
-	}
-	if ctx == nil {
-		return master.RecentMasterInputHistory{}, errors.New("master input history context is required")
-	}
-	history := master.RecentMasterInputHistory{
-		Capacity: master.RecentMasterInputCapacity,
-		Inputs:   make([]master.AcceptedMasterInput, 0, master.RecentMasterInputCapacity),
-	}
-	err := store.read(ctx, "list recent master inputs", func(ctx context.Context, reader *sql.Conn) error {
-		rows, err := reader.QueryContext(ctx, `
-SELECT sequence, id, input_text, input_modality, input_source, submitted_at, accepted_at,
-       focused_workspace_id, focused_conversation_id, focused_pane_id,
-       originating_workspace_id, originating_conversation_id, originating_pane_id,
-       originating_conversation_input_id
-FROM master_inputs
-ORDER BY sequence DESC
-LIMIT ?
-`, master.RecentMasterInputCapacity)
-		if err != nil {
-			return fmt.Errorf("query recent master inputs: %w", err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			accepted, err := scanMasterInputRow(rows, store.dbPath)
-			if err != nil {
-				return fmt.Errorf("decode recent master input: %w", err)
-			}
-			history.Inputs = append(history.Inputs, accepted)
-		}
-		if err := rows.Err(); err != nil {
-			return fmt.Errorf("iterate recent master inputs: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return master.RecentMasterInputHistory{}, err
-	}
-	for left, right := 0, len(history.Inputs)-1; left < right; left, right = left+1, right-1 {
-		history.Inputs[left], history.Inputs[right] = history.Inputs[right], history.Inputs[left]
-	}
-	if err := history.Validate(); err != nil {
-		return master.RecentMasterInputHistory{}, &CorruptStateError{
-			Path: store.dbPath,
-			Err:  fmt.Errorf("decode recent master input history: %w", err),
-		}
-	}
-	return master.CloneRecentInputHistory(history), nil
-}
-
 type masterInputQuery interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }

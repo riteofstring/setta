@@ -69,7 +69,7 @@ import type {
   LogoutCodexAccountRequest,
   MergeSemanticNodesRequest,
   MasterVoiceSelection,
-  RecentMasterInputHistory,
+  ActiveShellInteraction,
   MessagePage,
   OpenWorkspaceResponse,
   NavigatorPage,
@@ -85,6 +85,8 @@ import type {
   ReadCartographerRunRequest,
   ReadConversationInputRoutingStateRequest,
   ReadConversationSnapshotRequest,
+  ReadMasterInputRoutingStateRequest,
+  ShellInteractionState,
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
   ReadSemanticEventHistoryRequest,
@@ -464,8 +466,11 @@ export interface SettaAPI {
     ) => Promise<ConversationPresentationProfile>;
   };
   master?: {
-    readRecentInputs: () => Promise<RecentMasterInputHistory>;
+    readActiveInteraction: () => Promise<ActiveShellInteraction>;
     submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
+    waitInteraction: (
+      request: ReadMasterInputRoutingStateRequest,
+    ) => Promise<ShellInteractionState>;
   };
   speech: {
     cancelSynthesis?: (operationId: string) => Promise<void>;

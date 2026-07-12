@@ -8,7 +8,7 @@ describe("preload master API", () => {
     vi.doUnmock("electron");
   });
 
-  test("exposes generated master input through typed IPC", async () => {
+  test("exposes active shell interaction and generated master routing through typed IPC", async () => {
     const invoke = vi.fn();
     const exposed: Record<string, unknown> = {};
     vi.doMock("electron", () => ({
@@ -37,11 +37,14 @@ describe("preload master API", () => {
         text: "Route this voice request",
       },
     };
+    const waitRequest = { inputId: request.input.id };
 
-    await api.master!.readRecentInputs();
+    await api.master!.readActiveInteraction();
     await api.master!.submitInput(request);
+    await api.master!.waitInteraction(waitRequest);
 
-    expect(invoke).toHaveBeenCalledWith(ipcChannels.masterReadRecentInputs);
+    expect(invoke).toHaveBeenCalledWith(ipcChannels.masterReadActiveInteraction);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterSubmitInput, request);
+    expect(invoke).toHaveBeenCalledWith(ipcChannels.masterWaitInteraction, waitRequest);
   });
 });

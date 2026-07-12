@@ -61,39 +61,38 @@ func TestServiceRejectsInvalidDependenciesAndStoreResults(t *testing.T) {
 	}
 }
 
-func TestServiceReadsAndClonesValidatedRecentInputHistory(t *testing.T) {
+func TestServiceReadsAndClonesValidatedActiveShellInteraction(t *testing.T) {
 	input := MasterInput{
-		ID:          "input_history",
+		ID:          "input_active",
 		Text:        "Restore this request",
 		Modality:    MasterInputModalityText,
 		Source:      MasterInputSourceShell,
 		SubmittedAt: "2026-07-12T18:00:00Z",
 	}
-	store := &recordingInputStore{history: RecentMasterInputHistory{
-		Capacity: RecentMasterInputCapacity,
-		Inputs: []AcceptedMasterInput{{
-			Sequence:      1,
-			Input:         input,
-			ReplyDelivery: ReplyDeliveryForInput(input),
-			AcceptedAt:    "2026-07-12T18:00:01Z",
-		}},
-	}}
+	state := ShellInteractionState{
+		Input:  input,
+		Status: InputRoutingStatusAccepted,
+	}
+	store := &recordingInputStore{interaction: ActiveShellInteraction{State: &state}}
 	service, err := newService(store, time.Now)
 	if err != nil {
 		t.Fatalf("newService: %v", err)
 	}
-	history, err := service.ListRecentInputs(context.Background())
+	interaction, err := service.ReadActiveShellInteraction(context.Background())
 	if err != nil {
-		t.Fatalf("ListRecentInputs: %v", err)
+		t.Fatalf("ReadActiveShellInteraction: %v", err)
 	}
-	history.Inputs[0].Input.Text = "mutated"
-	if store.history.Inputs[0].Input.Text != "Restore this request" {
-		t.Fatalf("history aliases store: %+v", store.history)
+	interaction.State.Input.Text = "mutated"
+	if store.interaction.State.Input.Text != "Restore this request" {
+		t.Fatalf("interaction aliases store: %+v", store.interaction)
 	}
 
-	store.history.Capacity = 0
-	if _, err := service.ListRecentInputs(context.Background()); err == nil {
-		t.Fatal("ListRecentInputs accepted invalid store history")
+	store.interaction.State.Status = InputRoutingStatusFailed
+	store.interaction.State.Failure = &ShellInteractionFailure{
+		Code: "failed", Message: "failed",
+	}
+	if _, err := service.ReadActiveShellInteraction(context.Background()); err == nil {
+		t.Fatal("ReadActiveShellInteraction accepted a terminal store projection")
 	}
 }
 
@@ -144,6 +143,14 @@ func TestServiceReadsAndClonesMasterInputRoutingState(t *testing.T) {
 	if store.state.Input.Input.Text != input.Text {
 		t.Fatal("routing state aliases store")
 	}
+	waited, err := service.WaitShellInteraction(context.Background(), input.ID)
+	if err != nil {
+		t.Fatalf("WaitShellInteraction: %v", err)
+	}
+	waited.Input.Text = "mutated wait"
+	if store.state.Input.Input.Text != input.Text {
+		t.Fatal("waited routing state aliases store")
+	}
 	store.state.Status = "unsupported"
 	if _, err := service.ReadInputState(context.Background(), input.ID); err == nil {
 		t.Fatal("ReadInputState accepted invalid store state")
@@ -151,12 +158,12 @@ func TestServiceReadsAndClonesMasterInputRoutingState(t *testing.T) {
 }
 
 type recordingInputStore struct {
-	acceptedAt string
-	err        error
-	history    RecentMasterInputHistory
-	input      MasterInput
-	invalid    bool
-	state      InputRoutingState
+	acceptedAt  string
+	err         error
+	interaction ActiveShellInteraction
+	input       MasterInput
+	invalid     bool
+	state       InputRoutingState
 }
 
 func (store *recordingInputStore) ReadMasterInputRoutingState(
@@ -166,19 +173,17 @@ func (store *recordingInputStore) ReadMasterInputRoutingState(
 	return CloneInputRoutingState(store.state), store.err
 }
 
-func (store *recordingInputStore) ListRecentMasterInputs(
+func (store *recordingInputStore) WaitForMasterInputRoutingState(
 	_ context.Context,
-) (RecentMasterInputHistory, error) {
-	if store.err != nil {
-		return RecentMasterInputHistory{}, store.err
-	}
-	if store.history.Inputs == nil {
-		return RecentMasterInputHistory{
-			Capacity: RecentMasterInputCapacity,
-			Inputs:   []AcceptedMasterInput{},
-		}, nil
-	}
-	return store.history, nil
+	_ string,
+) (InputRoutingState, error) {
+	return CloneInputRoutingState(store.state), store.err
+}
+
+func (store *recordingInputStore) ReadActiveMasterShellInteraction(
+	_ context.Context,
+) (ActiveShellInteraction, error) {
+	return CloneActiveShellInteraction(store.interaction), store.err
 }
 
 func (store *recordingInputStore) AcceptMasterInput(

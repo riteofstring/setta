@@ -1,9 +1,12 @@
 package conversation
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"slices"
 	"testing"
+	"time"
 
 	"setta/internal/master"
 )
@@ -128,6 +131,97 @@ func TestStoreCommitsMasterRouteDecisionAtomicallyAndIdempotently(t *testing.T) 
 	assertChangedMasterRouteCommitRejected(t, store, commit)
 	assertCommittedMasterRouteState(t, store, accepted.Input.ID)
 	assertCommittedMasterRouteEvents(t, store)
+}
+
+func TestStoreProjectsOnlyRestorableActiveShellInteraction(t *testing.T) {
+	store := newTestStore(t)
+	ready := seedMasterRouteState(t, store)
+	first := acceptMasterRouteTestInput(t, store, "master-input-clarify", "2026-07-11T20:02:00Z")
+
+	interaction, err := store.ReadActiveMasterShellInteraction(context.Background())
+	if err != nil || interaction.State == nil || interaction.State.Input.ID != first.Input.ID ||
+		interaction.State.Status != master.InputRoutingStatusAccepted {
+		t.Fatalf("accepted active interaction = %+v err=%v", interaction, err)
+	}
+	work := claimMasterRouteCommitWork(t, store, first)
+	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind:    master.RouteDecisionKindClarify,
+		Clarify: &master.MasterClarifyRouteDecision{Question: "Which topic should I focus?"},
+	})
+	commitMasterRouteTestDecision(t, store, commit, first.Input.ID)
+
+	interaction, err = store.ReadActiveMasterShellInteraction(context.Background())
+	if err != nil || interaction.State == nil || interaction.State.Decision == nil ||
+		interaction.State.Decision.Kind != master.RouteDecisionKindClarify {
+		t.Fatalf("clarification active interaction = %+v err=%v", interaction, err)
+	}
+	encoded, err := json.Marshal(interaction)
+	if err != nil {
+		t.Fatalf("marshal active interaction: %v", err)
+	}
+	for _, hiddenAuditField := range [][]byte{
+		[]byte("masterSessionId"),
+		[]byte("resolvedInvocation"),
+		[]byte("providerThreadId"),
+		[]byte("targetAuthorities"),
+	} {
+		if bytes.Contains(encoded, hiddenAuditField) {
+			t.Fatalf("active interaction exposed audit field %q: %s", hiddenAuditField, encoded)
+		}
+	}
+
+	second := acceptMasterRouteTestInput(t, store, "master-input-answer", "2026-07-11T20:05:00Z")
+	work = claimMasterRouteCommitWork(t, store, second)
+	commit = masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind:         master.RouteDecisionKindAnswerGlobal,
+		AnswerGlobal: &master.MasterAnswerGlobalRouteDecision{Text: "The router is ready."},
+	})
+	record, err := store.CommitMasterRouteDecision(context.Background(), commit)
+	if err != nil || record.StreamSequence != 2 || record.InputID != second.Input.ID {
+		t.Fatalf("second master route decision = %+v err=%v", record, err)
+	}
+
+	interaction, err = store.ReadActiveMasterShellInteraction(context.Background())
+	if err != nil || interaction.State != nil {
+		t.Fatalf("completed active interaction = %+v err=%v, want empty", interaction, err)
+	}
+}
+
+func TestStoreWaitsForMasterInputTerminalStateWithoutPolling(t *testing.T) {
+	store := newTestStore(t)
+	ready := seedMasterRouteState(t, store)
+	accepted := acceptMasterRouteTestInput(t, store, "master-input-wait", "2026-07-11T20:02:00Z")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	result := make(chan master.InputRoutingState, 1)
+	errs := make(chan error, 1)
+	go func() {
+		state, err := store.WaitForMasterInputRoutingState(ctx, accepted.Input.ID)
+		if err != nil {
+			errs <- err
+			return
+		}
+		result <- state
+	}()
+
+	work := claimMasterRouteCommitWork(t, store, accepted)
+	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind:         master.RouteDecisionKindAnswerGlobal,
+		AnswerGlobal: &master.MasterAnswerGlobalRouteDecision{Text: "Done."},
+	})
+	commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
+
+	select {
+	case err := <-errs:
+		t.Fatalf("WaitForMasterInputRoutingState: %v", err)
+	case state := <-result:
+		if state.Status != master.InputRoutingStatusDecided || state.Decision == nil ||
+			state.Decision.Decision.Kind != master.RouteDecisionKindAnswerGlobal {
+			t.Fatalf("waited state = %+v", state)
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for terminal master input state")
+	}
 }
 
 func claimMasterRouteCommitWork(

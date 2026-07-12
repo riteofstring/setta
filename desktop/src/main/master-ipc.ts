@@ -16,14 +16,20 @@ export function registerMasterIpcHandlers({
 }: MasterIpcRegistration): void {
   handleIpc(
     ipcMain,
-    "masterReadRecentInputs",
-    async () => requireBackendClient().readRecentMasterInputs(),
+    "masterReadActiveInteraction",
+    async () => requireBackendClient().readActiveMasterShellInteraction(),
     ipcObserver,
   );
   handleIpc(
     ipcMain,
     "masterSubmitInput",
     async (_event, request) => requireBackendClient().submitMasterInput(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "masterWaitInteraction",
+    async (_event, request) => requireBackendClient().waitMasterShellInteraction(request),
     ipcObserver,
   );
 }

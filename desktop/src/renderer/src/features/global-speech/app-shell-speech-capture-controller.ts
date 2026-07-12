@@ -226,6 +226,7 @@ export class AppShellSpeechCaptureController {
   start = async (requestedCapture: SpeechCaptureRequest): Promise<void> => {
     this.assertUsable();
     const request = freezeSpeechCaptureRequest(requestedCapture);
+    openMasterOverlayForCapture(this.masterSubmission, request);
     if (this.captureRequestBlocked(request)) {
       return;
     }
@@ -396,7 +397,17 @@ export class AppShellSpeechCaptureController {
       this.masterSubmission.getSnapshot().submission,
     );
     if (!failure) {
-      return false;
+      if (request.destination.type !== "master" || this.masterSubmission.canSubmitInput()) {
+        return false;
+      }
+      this.updateSnapshot({
+        capture: {
+          code: "master_submission_pending",
+          message: "The active master request must settle before another voice request can start.",
+          type: "failed",
+        },
+      });
+      return true;
     }
     this.updateSnapshot({ capture: { ...failure, type: "failed" } });
     return true;
@@ -597,6 +608,15 @@ export class AppShellSpeechCaptureController {
     if (this.disposed) {
       throw new Error("app-shell speech capture controller is disposed");
     }
+  }
+}
+
+function openMasterOverlayForCapture(
+  masterSubmission: AppShellMasterController,
+  request: SpeechCaptureRequest,
+): void {
+  if (request.destination.type === "master") {
+    masterSubmission.openOverlay();
   }
 }
 

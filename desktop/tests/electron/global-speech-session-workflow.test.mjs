@@ -223,7 +223,6 @@ function assertIdempotentMasterInput(first, duplicate, expectedInput) {
     ...firstSummary,
     input: masterInputSummary(expectedInput),
     replyDelivery: {
-      showInMasterOverlay: true,
       originatingWorkspaceId: null,
       originatingConversationId: null,
       originatingPaneId: null,

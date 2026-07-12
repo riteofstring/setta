@@ -18,14 +18,14 @@ export async function exerciseMasterOverlayEntryPoints({
   timeoutMs,
   workspaceId,
 }) {
-  await assertFixedMasterLauncher(client);
+  await assertFixedMasterLauncher(client, timeoutMs);
   await openFromSidebarAndRetainDraft(client, text, timeoutMs);
   await collapseProjectSidebar(client, timeoutMs);
   await openFromAppChrome(client, text, timeoutMs);
   await openFromGlobalShortcut(client, text, timeoutMs);
 
   await clickEnabledButtonByAria(client, "Send to Setta", timeoutMs);
-  await assertMasterHistory(client, [text], timeoutMs);
+  await assertActiveMasterInteraction(client, { expectedText: text }, timeoutMs);
   const recorded = await waitForRecordedMasterOverlayInput(artifactDirectory, text, timeoutMs);
   assertRecordedTypedMasterInput(recorded, workspaceId);
 
@@ -36,16 +36,44 @@ export async function exerciseMasterOverlayEntryPoints({
   return recorded;
 }
 
-async function assertFixedMasterLauncher(client) {
-  const state = await client.evaluate(`(() => {
-    const launcher = document.querySelector('[data-testid="master-sidebar-launcher"]');
-    const scroll = document.querySelector('[data-testid="sidebar-scrollable-sections"]');
-    return {
-      available: launcher instanceof HTMLButtonElement && !launcher.disabled,
-      insideScrollableNavigator: Boolean(launcher && scroll?.contains(launcher)),
-    };
-  })()`);
-  if (!state.available || state.insideScrollableNavigator) {
+export async function createPersistentMasterClarification({
+  artifactDirectory,
+  backend,
+  client,
+  text,
+  timeoutMs,
+  workspaceId,
+}) {
+  const recorded = await exerciseMasterOverlayEntryPoints({
+    artifactDirectory,
+    client,
+    text,
+    timeoutMs,
+    workspaceId,
+  });
+  const route = await waitForMasterRouteDecision(backend, recorded.accepted.input.id, timeoutMs);
+  assertMasterRouteDecision(route, {
+    expectedInputId: recorded.accepted.input.id,
+    expectedKind: "clarify",
+  });
+  return route;
+}
+
+async function assertFixedMasterLauncher(client, timeoutMs) {
+  const state = await waitForState(
+    client,
+    `(() => {
+      const launcher = document.querySelector('[data-testid="master-sidebar-launcher"]');
+      const scroll = document.querySelector('[data-testid="sidebar-scrollable-sections"]');
+      return {
+        available: launcher instanceof HTMLButtonElement && !launcher.disabled,
+        insideScrollableNavigator: Boolean(launcher && scroll?.contains(launcher)),
+      };
+    })()`,
+    (candidate) => candidate.available,
+    timeoutMs,
+  );
+  if (state.insideScrollableNavigator) {
     throw new Error(
       `master sidebar launcher is not fixed above navigation: ${JSON.stringify(state)}`,
     );
@@ -53,7 +81,7 @@ async function assertFixedMasterLauncher(client) {
 }
 
 async function openFromSidebarAndRetainDraft(client, text, timeoutMs) {
-  await clickMasterSurfaceEntry(client, "master-sidebar-launcher");
+  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
   await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
   await setMasterOverlayDraft(client, text, timeoutMs);
   await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
@@ -74,7 +102,7 @@ async function collapseProjectSidebar(client, timeoutMs) {
 }
 
 async function openFromAppChrome(client, text, timeoutMs) {
-  await clickMasterSurfaceEntry(client, "master-overlay-button");
+  await clickMasterSurfaceEntry(client, "master-overlay-button", timeoutMs);
   await waitForMasterOverlay(client, { draft: text, focused: true }, timeoutMs);
   await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
   await waitForMasterOverlayClosed(client, timeoutMs);
@@ -94,7 +122,16 @@ async function openFromGlobalShortcut(client, text, timeoutMs) {
   }
 }
 
-async function clickMasterSurfaceEntry(client, testId) {
+async function clickMasterSurfaceEntry(client, testId, timeoutMs) {
+  await waitForState(
+    client,
+    `(() => {
+      const button = document.querySelector('[data-testid=${JSON.stringify(testId)}]');
+      return { clickable: button instanceof HTMLButtonElement && !button.disabled };
+    })()`,
+    (state) => state.clickable,
+    timeoutMs,
+  );
   const clicked = await client.evaluate(`(() => {
     const button = document.querySelector('[data-testid=${JSON.stringify(testId)}]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -155,28 +192,65 @@ async function waitForMasterOverlayClosed(client, timeoutMs) {
   );
 }
 
-async function assertMasterHistory(client, expectedTexts, timeoutMs) {
-  const history = await waitForState(
+async function assertActiveMasterInteraction(
+  client,
+  { excludedTexts = [], expectedResultKind, expectedText },
+  timeoutMs,
+) {
+  return waitForState(
     client,
     `(() => ({
       open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
-      entries: Array.from(document.querySelectorAll('[data-master-input-state="accepted"]'))
-        .map((state) => state.closest('[data-master-input-id]')?.querySelector('[data-master-speaker="user"] p')?.textContent ?? ""),
+      interactionCount: document.querySelectorAll('[data-testid="master-active-interaction"]').length,
+      legacyHistoryPresent: Boolean(document.querySelector('[aria-label="Recent master exchanges"]')),
+      requestCount: document.querySelectorAll('[data-testid="master-active-request"]').length,
+      requestText: document.querySelector('[data-testid="master-active-request"] p')?.textContent ?? null,
+      resultKind: document.querySelector('[data-master-result-kind]')?.getAttribute('data-master-result-kind') ?? null,
     }))()`,
-    (state) => state.open && expectedTexts.every((text) => state.entries.includes(text)),
+    (state) =>
+      state.open &&
+      state.interactionCount === 1 &&
+      !state.legacyHistoryPresent &&
+      state.requestCount === 1 &&
+      state.requestText === expectedText &&
+      excludedTexts.every((text) => state.requestText !== text) &&
+      (expectedResultKind === undefined || state.resultKind === expectedResultKind),
     timeoutMs,
   );
-  if (history.entries.length !== new Set(history.entries).size) {
-    throw new Error(
-      `master overlay rendered duplicate accepted inputs: ${JSON.stringify(history)}`,
-    );
-  }
-  return history;
 }
 
-export async function captureMasterHistory({ artifactPath, client, expectedTexts, timeoutMs }) {
-  await assertMasterHistory(client, expectedTexts, timeoutMs);
+export async function captureActiveMasterInteraction({
+  artifactPath,
+  client,
+  excludedTexts,
+  expectedResultKind,
+  expectedText,
+  timeoutMs,
+}) {
+  await assertActiveMasterInteraction(
+    client,
+    { excludedTexts, expectedResultKind, expectedText },
+    timeoutMs,
+  );
   await captureScreenshot(client, artifactPath);
+}
+
+export async function verifyRestoredMasterInteraction({
+  artifactPath,
+  client,
+  expectedResultKind,
+  expectedText,
+  timeoutMs,
+}) {
+  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
+  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
+  await captureActiveMasterInteraction({
+    artifactPath,
+    client,
+    expectedResultKind,
+    expectedText,
+    timeoutMs,
+  });
 }
 
 export async function closeMasterOverlay(client, timeoutMs) {
@@ -396,7 +470,10 @@ function assertRecordedTypedMasterInput(recorded, workspaceId) {
   assertTypedMasterRequest(request, workspaceId, recorded);
   if (
     accepted.input.id !== request.input.id ||
-    accepted.replyDelivery.showInMasterOverlay !== true
+    accepted.replyDelivery.originatingWorkspaceId !== null ||
+    accepted.replyDelivery.originatingConversationId !== null ||
+    accepted.replyDelivery.originatingPaneId !== null ||
+    accepted.replyDelivery.originatingConversationInputId !== null
   ) {
     throw new Error(`typed master overlay receipt drifted: ${JSON.stringify(recorded)}`);
   }

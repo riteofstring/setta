@@ -1,12 +1,16 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
-import type { BackendClient, SubmitMasterInputRequest } from "@generated/backend";
+import type {
+  BackendClient,
+  ReadMasterInputRoutingStateRequest,
+  SubmitMasterInputRequest,
+} from "@generated/backend";
 import { ipcChannels, type IpcObserver } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
 
 import { registerMasterIpcHandlers } from "./master-ipc";
 
 describe("master IPC handlers", () => {
-  test("forwards the generated master input contract to the active runtime", async () => {
+  test("forwards active interaction, submission, and push-based route settlement", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const ipcMain = {
       handle: (channel, handler) => handlers.set(channel, handler),
@@ -20,14 +24,20 @@ describe("master IPC handlers", () => {
         originatingConversationInputId: null,
         originatingPaneId: null,
         originatingWorkspaceId: null,
-        showInMasterOverlay: true,
       },
       sequence: 7,
     };
-    const history = { capacity: 40, inputs: [accepted] };
+    const state = {
+      decision: null,
+      failure: null,
+      input: request.input,
+      status: "accepted" as const,
+    };
+    const interaction = { state };
     const backend = {
-      readRecentMasterInputs: vi.fn(async () => history),
+      readActiveMasterShellInteraction: vi.fn(async () => interaction),
       submitMasterInput: vi.fn(async () => accepted),
+      waitMasterShellInteraction: vi.fn(async () => state),
     } as unknown as BackendClient;
     const observer = observerSpies();
     registerMasterIpcHandlers({
@@ -36,13 +46,17 @@ describe("master IPC handlers", () => {
       requireBackendClient: () => backend,
     });
 
-    const loaded = await invoke(handlers, ipcChannels.masterReadRecentInputs);
-    const result = await invoke(handlers, ipcChannels.masterSubmitInput, request);
+    const loaded = await invoke(handlers, ipcChannels.masterReadActiveInteraction);
+    const submitted = await invoke(handlers, ipcChannels.masterSubmitInput, request);
+    const waitRequest = { inputId: request.input.id };
+    const waited = await invoke(handlers, ipcChannels.masterWaitInteraction, waitRequest);
 
-    expect(backend.readRecentMasterInputs).toHaveBeenCalledOnce();
-    expect(loaded).toEqual(history);
+    expect(backend.readActiveMasterShellInteraction).toHaveBeenCalledOnce();
+    expect(loaded).toEqual(interaction);
     expect(backend.submitMasterInput).toHaveBeenCalledWith(request);
-    expect(result).toEqual(accepted);
+    expect(submitted).toEqual(accepted);
+    expect(backend.waitMasterShellInteraction).toHaveBeenCalledWith(waitRequest);
+    expect(waited).toEqual(state);
     expect(observer.finished).toHaveBeenCalledWith(expect.objectContaining({ result: accepted }));
   });
 });
@@ -77,7 +91,7 @@ function observerSpies() {
 async function invoke(
   handlers: Map<string, Parameters<IpcMain["handle"]>[1]>,
   channel: string,
-  request?: SubmitMasterInputRequest,
+  request?: SubmitMasterInputRequest | ReadMasterInputRoutingStateRequest,
 ) {
   const handler = handlers.get(channel);
   if (!handler) {

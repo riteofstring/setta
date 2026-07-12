@@ -46,31 +46,29 @@ func TestMasterInputEndpointAcceptsTypedGlobalVoiceSubmission(t *testing.T) {
 	}
 }
 
-func TestMasterInputHistoryEndpointReadsValidatedRecentInputs(t *testing.T) {
+func TestActiveMasterShellInteractionEndpointReadsOnlyRestorableState(t *testing.T) {
 	input := validSubmitMasterInputRequest().Input
-	service := &fakeHTTPMasterInputService{history: master.RecentMasterInputHistory{
-		Capacity: master.RecentMasterInputCapacity,
-		Inputs: []master.AcceptedMasterInput{{
-			Sequence:      1,
-			Input:         input,
-			ReplyDelivery: master.ReplyDeliveryForInput(input),
-			AcceptedAt:    "2026-07-12T18:00:01Z",
-		}},
-	}}
+	state := master.ShellInteractionState{
+		Input:  input,
+		Status: master.InputRoutingStatusAccepted,
+	}
+	service := &fakeHTTPMasterInputService{
+		interaction: master.ActiveShellInteraction{State: &state},
+	}
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		MasterInputService: service,
 		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
 	})
 
-	history := getJSON[master.RecentMasterInputHistory](
+	interaction := getJSON[master.ActiveShellInteraction](
 		t,
 		handler,
-		"/master/inputs/recent",
+		"/master/interaction/active",
 		http.StatusOK,
 	)
-	if service.listCalls != 1 || len(history.Inputs) != 1 ||
-		!master.EqualInputs(history.Inputs[0].Input, input) {
-		t.Fatalf("history=%+v listCalls=%d", history, service.listCalls)
+	if service.interactionCalls != 1 || interaction.State == nil ||
+		!master.EqualInputs(interaction.State.Input, input) {
+		t.Fatalf("interaction=%+v calls=%d", interaction, service.interactionCalls)
 	}
 }
 
@@ -100,14 +98,24 @@ func TestMasterInputRoutingStateEndpointReadsValidatedState(t *testing.T) {
 		state.Input.Input.ID != input.ID {
 		t.Fatalf("routing state=%+v inputID=%q", state, service.stateInputID)
 	}
+	waited := postJSON[master.ShellInteractionState](
+		t,
+		handler,
+		"/master/interaction/wait",
+		ReadMasterInputRoutingStateRequest{InputID: input.ID},
+		http.StatusOK,
+	)
+	if service.waitInputID != input.ID || waited.Status != master.InputRoutingStatusAccepted {
+		t.Fatalf("waited routing state=%+v inputID=%q", waited, service.waitInputID)
+	}
 }
 
-func TestMasterInputHistoryEndpointMapsReadAndValidationFailures(t *testing.T) {
+func TestActiveMasterShellInteractionEndpointMapsReadAndValidationFailures(t *testing.T) {
 	tests := []struct {
-		err        error
-		history    master.RecentMasterInputHistory
-		wantCode   string
-		wantStatus int
+		err         error
+		interaction master.ActiveShellInteraction
+		wantCode    string
+		wantStatus  int
 	}{
 		{
 			err:        &conversation.CorruptStateError{Path: "state", Err: errors.New("corrupt")},
@@ -116,28 +124,28 @@ func TestMasterInputHistoryEndpointMapsReadAndValidationFailures(t *testing.T) {
 		},
 		{
 			err:        errors.New("read failed"),
-			wantCode:   "read_master_input_history_failed",
+			wantCode:   "read_master_shell_interaction_failed",
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
-			history:    master.RecentMasterInputHistory{Capacity: 0, Inputs: []master.AcceptedMasterInput{}},
-			wantCode:   "invalid_master_input_history",
-			wantStatus: http.StatusInternalServerError,
+			interaction: invalidActiveMasterShellInteraction(),
+			wantCode:    "invalid_master_shell_interaction",
+			wantStatus:  http.StatusInternalServerError,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.wantCode, func(t *testing.T) {
 			handler := newAuthenticatedTestHandler(t, HandlerConfig{
 				MasterInputService: &fakeHTTPMasterInputService{
-					err:     test.err,
-					history: test.history,
+					err:         test.err,
+					interaction: test.interaction,
 				},
 				Metadata: BackendMetadata{Name: BackendName, Version: "test"},
 			})
 			response := getJSON[ErrorResponse](
 				t,
 				handler,
-				"/master/inputs/recent",
+				"/master/interaction/active",
 				test.wantStatus,
 			)
 			if response.Error.Code != test.wantCode || response.Error.OperationApplied {
@@ -243,13 +251,14 @@ func TestMasterInputEndpointRejectsUnknownAndOversizedPayloads(t *testing.T) {
 }
 
 type fakeHTTPMasterInputService struct {
-	calls        int
-	err          error
-	history      master.RecentMasterInputHistory
-	input        master.MasterInput
-	listCalls    int
-	state        master.InputRoutingState
-	stateInputID string
+	calls            int
+	err              error
+	input            master.MasterInput
+	interaction      master.ActiveShellInteraction
+	interactionCalls int
+	state            master.InputRoutingState
+	stateInputID     string
+	waitInputID      string
 }
 
 func (service *fakeHTTPMasterInputService) ReadInputState(
@@ -260,14 +269,22 @@ func (service *fakeHTTPMasterInputService) ReadInputState(
 	return master.CloneInputRoutingState(service.state), service.err
 }
 
-func (service *fakeHTTPMasterInputService) ListRecentInputs(
+func (service *fakeHTTPMasterInputService) WaitShellInteraction(
 	_ context.Context,
-) (master.RecentMasterInputHistory, error) {
-	service.listCalls++
+	inputID string,
+) (master.ShellInteractionState, error) {
+	service.waitInputID = inputID
 	if service.err != nil {
-		return master.RecentMasterInputHistory{}, service.err
+		return master.ShellInteractionState{}, service.err
 	}
-	return service.history, nil
+	return master.ProjectShellInteractionState(service.state)
+}
+
+func (service *fakeHTTPMasterInputService) ReadActiveShellInteraction(
+	_ context.Context,
+) (master.ActiveShellInteraction, error) {
+	service.interactionCalls++
+	return master.CloneActiveShellInteraction(service.interaction), service.err
 }
 
 func (service *fakeHTTPMasterInputService) SubmitInput(
@@ -295,4 +312,13 @@ func validSubmitMasterInputRequest() SubmitMasterInputRequest {
 		Source:      master.MasterInputSourceShell,
 		SubmittedAt: "2026-07-12T18:00:00Z",
 	}}
+}
+
+func invalidActiveMasterShellInteraction() master.ActiveShellInteraction {
+	input := validSubmitMasterInputRequest().Input
+	state := master.ShellInteractionState{
+		Input:  input,
+		Status: master.InputRoutingStatusFailed,
+	}
+	return master.ActiveShellInteraction{State: &state}
 }

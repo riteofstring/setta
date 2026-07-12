@@ -102,9 +102,10 @@ type ConversationInputService interface {
 }
 
 type MasterInputService interface {
-	ListRecentInputs(context.Context) (master.RecentMasterInputHistory, error)
+	ReadActiveShellInteraction(context.Context) (master.ActiveShellInteraction, error)
 	ReadInputState(context.Context, string) (master.InputRoutingState, error)
 	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
+	WaitShellInteraction(context.Context, string) (master.ShellInteractionState, error)
 }
 
 type SpeechService interface {

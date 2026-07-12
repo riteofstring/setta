@@ -1,4 +1,10 @@
-import type { AcceptedMasterInput, SubmitMasterInputRequest } from "@generated/backend";
+import type {
+  AcceptedMasterInput,
+  RouteDecision,
+  RouteDecisionKind,
+  ShellInteractionState,
+  SubmitMasterInputRequest,
+} from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -7,19 +13,20 @@ import {
 } from "./app-shell-master-controller";
 
 describe("app-shell master controller", () => {
-  test("submits shell text and finalized voice through one source-normalizing controller", async () => {
+  test("submits shell text and finalized voice through one active interaction", async () => {
     const harness = createHarness();
     harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
 
     expect(harness.controller.submitText("  Route this typed request.  ")).toBe("master_input_1");
-    await flushPromises();
+    await waitForInteraction(harness.controller, "decided");
     harness.controller.clearAccepted();
     harness.controller.submitVoiceTranscript(
       "capture_alpha",
       "runtime_alpha",
       "  Exact final voice text.  ",
     );
-    await flushPromises();
+    await waitForInteraction(harness.controller, "decided");
 
     expect(harness.requests.map((request) => request.input)).toEqual([
       shellInput("master_input_1", "text", "  Route this typed request.  "),
@@ -27,32 +34,29 @@ describe("app-shell master controller", () => {
     ]);
     expect(harness.controller.getSnapshot()).toMatchObject({
       completedTranscript: null,
+      interaction: {
+        state: { input: { id: "capture_alpha", modality: "voice" }, status: "decided" },
+        type: "active",
+      },
       overlayOpen: true,
-      recentInputs: [
-        { input: { id: "master_input_1", modality: "text" } },
-        { input: { id: "capture_alpha", modality: "voice" } },
-      ],
       runtimeId: "runtime_alpha",
       submission: { accepted: { sequence: 2 }, type: "accepted" },
     });
   });
 
-  test("shares a persistent overlay draft across shell entry points", () => {
+  test("shares a persistent overlay draft across shell entry points", async () => {
     const harness = createHarness();
     harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
 
     harness.controller.openOverlay();
     harness.controller.setDraft("Bring back the speech routing topic");
     harness.controller.closeOverlay();
-
-    expect(harness.controller.getSnapshot()).toMatchObject({
-      draft: "Bring back the speech routing topic",
-      overlayOpen: false,
-    });
-
     harness.controller.openOverlay();
+
     expect(harness.controller.getSnapshot()).toMatchObject({
       draft: "Bring back the speech routing topic",
+      interaction: { type: "idle" },
       overlayOpen: true,
     });
   });
@@ -66,32 +70,33 @@ describe("app-shell master controller", () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const harness = createHarness({ submitMasterInput: submit });
     harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
 
     harness.controller.submitVoiceTranscript("capture_retry", "runtime_alpha", "Retry this");
     await waitForSubmission(harness.controller, "failed");
-    const failed = harness.controller.getSnapshot();
-    expect(failed.completedTranscript).not.toBeNull();
-    expect(failed.submission).toEqual({
-      input: harness.requests[0]!.input,
-      message: "Setta could not accept the voice request. Retry without recording it again.",
-      type: "failed",
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      completedTranscript: { captureSessionId: "capture_retry", transcript: "Retry this" },
+      submission: {
+        message: "Setta could not accept the voice request. Retry without recording it again.",
+        type: "failed",
+      },
     });
 
     harness.controller.retry();
     expect(harness.requests[1]!.input).toBe(harness.requests[0]!.input);
     retry.resolve(acceptedFor(harness.requests[1]!, 1));
-    await flushPromises();
-    expect(harness.controller.getSnapshot().submission.type).toBe("accepted");
+    await waitForInteraction(harness.controller, "decided");
     expect(info).toHaveBeenCalledWith(
       "Shell master input submission failed: inputId=capture_retry",
     );
     info.mockRestore();
   });
 
-  test("runtime changes invalidate late results and stale voice transcripts", async () => {
+  test("invalidates late submission and interaction results on runtime change", async () => {
     const pending = deferred<AcceptedMasterInput>();
     const harness = createHarness({ submitMasterInput: () => pending.promise });
     harness.controller.synchronizeRuntime("runtime_old");
+    await flushPromises();
     harness.controller.submitText("Old runtime request");
     const request = harness.requests[0]!;
 
@@ -102,9 +107,8 @@ describe("app-shell master controller", () => {
     expect(harness.controller.getSnapshot()).toEqual({
       completedTranscript: null,
       draft: "",
-      history: { capacity: 40, type: "ready" },
+      interaction: { type: "idle" },
       overlayOpen: true,
-      recentInputs: [],
       runtimeId: "runtime_new",
       submission: { type: "idle" },
     });
@@ -113,154 +117,133 @@ describe("app-shell master controller", () => {
     ).toThrow("stale runtime");
   });
 
-  test("keeps recent exchanges through reconnects and isolates them by runtime", async () => {
-    const harness = createHarness();
-    harness.controller.synchronizeRuntime("runtime_alpha");
-    harness.controller.submitText("Alpha request");
-    await flushPromises();
-
-    harness.controller.synchronizeRuntime(null);
-    expect(harness.controller.getSnapshot().recentInputs).toMatchObject([
-      { input: { text: "Alpha request" } },
-    ]);
-    harness.controller.synchronizeRuntime("runtime_alpha");
-    expect(harness.controller.getSnapshot().recentInputs).toMatchObject([
-      { input: { text: "Alpha request" } },
-    ]);
-
-    harness.controller.synchronizeRuntime("runtime_beta");
-    expect(harness.controller.getSnapshot().recentInputs).toEqual([]);
-    harness.controller.submitText("Beta request");
-    await flushPromises();
-    harness.controller.synchronizeRuntime("runtime_alpha");
-    expect(harness.controller.getSnapshot().recentInputs).toMatchObject([
-      { input: { text: "Alpha request" } },
-    ]);
-  });
-
-  test("hydrates durable shell and conversation-escalation history after renderer restart", async () => {
-    const shellRequest: SubmitMasterInputRequest = {
-      input: shellInput("input_shell", "text", "Persisted shell request"),
-    };
-    const escalationInput = {
-      ...shellInput("input_escalation", "text", "Unrelated pane request"),
-      originatingConversationId: "conversation_origin",
-      originatingConversationInputId: "conversation_input_origin",
-      originatingPaneId: "pane_origin",
-      originatingWorkspaceId: "workspace_alpha",
-      source: "conversation_escalation" as const,
-    };
-    const history = {
-      capacity: 40,
-      inputs: [
-        acceptedFor(shellRequest, 3),
-        {
-          acceptedAt: "2026-07-12T18:00:02Z",
-          input: escalationInput,
-          replyDelivery: {
-            originatingConversationId: escalationInput.originatingConversationId,
-            originatingConversationInputId: escalationInput.originatingConversationInputId,
-            originatingPaneId: escalationInput.originatingPaneId,
-            originatingWorkspaceId: escalationInput.originatingWorkspaceId,
-            showInMasterOverlay: true,
-          },
-          sequence: 4,
-        },
-      ],
-    };
-    const harness = createHarness({ readRecentMasterInputs: async () => history });
+  test("restores only an unresolved shell clarification and preserves it while closed", async () => {
+    const request = { input: shellInput("input_clarify", "text", "Bring up that topic") };
+    const clarification = decidedState(acceptedFor(request, 3), "clarify");
+    const harness = createHarness({
+      readActiveInteraction: async () => ({ state: clarification }),
+    });
 
     harness.controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
+    harness.controller.openOverlay();
+    harness.controller.closeOverlay();
 
     expect(harness.controller.getSnapshot()).toMatchObject({
-      history: { capacity: 40, type: "ready" },
-      recentInputs: [
-        { input: { id: "input_shell", source: "shell" }, sequence: 3 },
-        { input: { id: "input_escalation", source: "conversation_escalation" }, sequence: 4 },
-      ],
+      interaction: {
+        state: {
+          decision: { clarify: { question: "Which topic did you mean?" } },
+          status: "decided",
+        },
+        type: "active",
+      },
+      overlayOpen: false,
     });
+    harness.controller.openOverlay();
+    harness.controller.submitText("The speech routing topic");
+    await waitForInteraction(harness.controller, "decided");
+    expect(harness.requests).toHaveLength(1);
   });
 
-  test("reports a durable history failure and retries it explicitly", async () => {
-    const readRecentMasterInputs = vi
-      .fn<AppShellMasterControllerDependencies["readRecentMasterInputs"]>()
+  test("dismisses a completed immediate result instead of retaining scrollback", async () => {
+    const harness = createHarness();
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    harness.controller.submitText("What can you do globally?");
+    await waitForInteraction(harness.controller, "decided");
+
+    harness.controller.closeOverlay();
+    harness.controller.openOverlay();
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      interaction: { type: "idle" },
+      overlayOpen: true,
+    });
+    expect(harness.controller.getSnapshot()).not.toHaveProperty("recentInputs");
+    expect(harness.controller.getSnapshot()).not.toHaveProperty("history");
+  });
+
+  test("reports active-interaction restore failure and retries explicitly", async () => {
+    const readActiveInteraction = vi
+      .fn<AppShellMasterControllerDependencies["readActiveInteraction"]>()
       .mockRejectedValueOnce(new Error("private backend failure"))
-      .mockResolvedValueOnce({ capacity: 40, inputs: [] });
+      .mockResolvedValueOnce({ state: null });
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    const harness = createHarness({ readRecentMasterInputs });
+    const harness = createHarness({ readActiveInteraction });
     harness.controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
 
-    expect(harness.controller.getSnapshot().history).toMatchObject({ type: "failed" });
-    harness.controller.retryHistory();
+    expect(harness.controller.getSnapshot().interaction).toMatchObject({ type: "load_failed" });
+    expect(harness.controller.canSubmitInput()).toBe(false);
+    harness.controller.retryInteraction();
     await flushPromises();
-    expect(harness.controller.getSnapshot().history).toEqual({ capacity: 40, type: "ready" });
-    expect(readRecentMasterInputs).toHaveBeenCalledTimes(2);
+    expect(harness.controller.getSnapshot().interaction).toEqual({ type: "idle" });
+    expect(readActiveInteraction).toHaveBeenCalledTimes(2);
     expect(info).toHaveBeenCalledWith(
-      "Recent master input history load failed: runtimeId=runtime_alpha",
+      "Active master shell interaction load failed: runtimeId=runtime_alpha",
     );
     info.mockRestore();
   });
 
-  test("rejects a mismatched receipt and blocks concurrent or active discard", async () => {
+  test("reconnects a failed routing-state wait without resubmitting the input", async () => {
+    const wait = vi
+      .fn<AppShellMasterControllerDependencies["waitShellInteraction"]>()
+      .mockRejectedValueOnce(new Error("connection lost"))
+      .mockImplementationOnce(async ({ inputId }) => {
+        const request = harness.requests.find((candidate) => candidate.input.id === inputId);
+        if (!request) throw new Error("request missing");
+        return decidedState(acceptedFor(request, 1), "answer_global");
+      });
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const harness = createHarness({ waitShellInteraction: wait });
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    harness.controller.submitText("Observe this once");
+    await waitForInteractionType(harness.controller, "observation_failed");
+
+    harness.controller.retryInteraction();
+    await waitForInteraction(harness.controller, "decided");
+    expect(harness.requests).toHaveLength(1);
+    expect(wait).toHaveBeenCalledTimes(2);
+    expect(info).toHaveBeenCalledWith(
+      "Active master routing observation failed: inputId=master_input_1",
+    );
+    info.mockRestore();
+  });
+
+  test("blocks concurrent root requests until the active route settles", async () => {
+    const pending = deferred<ShellInteractionState>();
+    const harness = createHarness({ waitShellInteraction: () => pending.promise });
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    harness.controller.submitText("First request");
+    await waitForSubmission(harness.controller, "accepted");
+
+    expect(harness.controller.canSubmitInput()).toBe(false);
+    expect(() => harness.controller.submitText("Concurrent request")).toThrow("must settle");
+    pending.resolve(decidedState(acceptedFor(harness.requests[0]!, 1), "answer_global"));
+    await waitForInteraction(harness.controller, "decided");
+    expect(harness.controller.canSubmitInput()).toBe(true);
+  });
+
+  test("rejects a mismatched durable receipt and requires explicit discard", async () => {
     const pending = deferred<AcceptedMasterInput>();
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const harness = createHarness({ submitMasterInput: () => pending.promise });
     harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
     harness.controller.submitText("Original request");
 
-    expect(() => harness.controller.submitText("Concurrent request")).toThrow("already awaiting");
     expect(() => harness.controller.discard()).toThrow("cannot be discarded");
     const receipt = acceptedFor(harness.requests[0]!, 1);
     receipt.input = { ...receipt.input, text: "Different request" };
     pending.resolve(receipt);
-    await flushPromises();
-
-    expect(harness.controller.getSnapshot().submission.type).toBe("failed");
+    await waitForSubmission(harness.controller, "failed");
     harness.controller.discard();
+
     expect(harness.controller.getSnapshot()).toMatchObject({
-      overlayOpen: true,
-      recentInputs: [],
+      interaction: { type: "idle" },
       submission: { type: "idle" },
-    });
-    info.mockRestore();
-  });
-
-  test("bounds recent accepted inputs without clearing them with speech status", async () => {
-    const harness = createHarness();
-    harness.controller.synchronizeRuntime("runtime_alpha");
-
-    for (let index = 0; index < 45; index += 1) {
-      harness.controller.submitText(`Request ${index}`);
-      await flushPromises();
-      harness.controller.clearAccepted();
-    }
-
-    const recentInputs = harness.controller.getSnapshot().recentInputs;
-    expect(recentInputs).toHaveLength(40);
-    expect(recentInputs[0]?.input.text).toBe("Request 5");
-    expect(recentInputs.at(-1)?.input.text).toBe("Request 44");
-    expect(Object.isFrozen(recentInputs)).toBe(true);
-  });
-
-  test("bounds local receipts while durable history is unavailable", async () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    const harness = createHarness({
-      readRecentMasterInputs: async () => Promise.reject(new Error("history unavailable")),
-    });
-    harness.controller.synchronizeRuntime("runtime_alpha");
-    await flushPromises();
-
-    for (let index = 0; index < 5; index += 1) {
-      harness.controller.submitText(`Unhydrated request ${index}`);
-      await flushPromises();
-      harness.controller.clearAccepted();
-    }
-
-    expect(harness.controller.getSnapshot()).toMatchObject({
-      history: { type: "failed" },
-      recentInputs: [{ input: { text: "Unhydrated request 4" } }],
     });
     info.mockRestore();
   });
@@ -272,13 +255,20 @@ function createHarness(overrides: Partial<AppShellMasterControllerDependencies> 
   const submitMasterInput =
     overrides.submitMasterInput ??
     (async (request: SubmitMasterInputRequest) => acceptedFor(request, requests.length));
+  const waitShellInteraction =
+    overrides.waitShellInteraction ??
+    (async ({ inputId }) => {
+      const request = requests.find((candidate) => candidate.input.id === inputId);
+      if (!request) throw new Error(`master input ${inputId} was not submitted`);
+      return decidedState(acceptedFor(request, requests.indexOf(request) + 1), "answer_global");
+    });
   const dependencies: AppShellMasterControllerDependencies = {
     createInputId: () => {
       inputOrdinal += 1;
       return `master_input_${inputOrdinal}`;
     },
     now: () => new Date("2026-07-12T18:00:00.120Z"),
-    readRecentMasterInputs: async () => ({ capacity: 40, inputs: [] }),
+    readActiveInteraction: async () => ({ state: null }),
     readFocusHints: () => ({
       focusedConversationId: "conversation_alpha",
       focusedPaneId: "pane_alpha",
@@ -288,6 +278,7 @@ function createHarness(overrides: Partial<AppShellMasterControllerDependencies> 
       requests.push(request);
       return submitMasterInput(request);
     },
+    waitShellInteraction,
     ...overrides,
   };
   if (overrides.submitMasterInput) {
@@ -329,10 +320,52 @@ function acceptedFor(request: SubmitMasterInputRequest, sequence: number): Accep
       originatingConversationInputId: null,
       originatingPaneId: null,
       originatingWorkspaceId: null,
-      showInMasterOverlay: true,
     },
     sequence,
   };
+}
+
+function decidedState(
+  accepted: AcceptedMasterInput,
+  kind: Extract<RouteDecisionKind, "answer_global" | "clarify" | "focus_conversation">,
+): ShellInteractionState {
+  return {
+    decision: routeDecision(kind),
+    failure: null,
+    input: accepted.input,
+    status: "decided",
+  };
+}
+
+function routeDecision(
+  kind: Extract<RouteDecisionKind, "answer_global" | "clarify" | "focus_conversation">,
+): RouteDecision {
+  const decision: RouteDecision = {
+    answerGlobal: null,
+    askNarrator: null,
+    clarify: null,
+    createConversation: null,
+    createSideConversation: null,
+    focusConversation: null,
+    forkConversation: null,
+    kind,
+    queueAgentTurn: null,
+    sendToAgent: null,
+    steerActiveTurn: null,
+  };
+  switch (kind) {
+    case "answer_global":
+      decision.answerGlobal = { text: "The global router is ready." };
+      return decision;
+    case "clarify":
+      decision.clarify = { question: "Which topic did you mean?" };
+      return decision;
+    case "focus_conversation":
+      decision.focusConversation = { conversationId: "conversation_alpha" };
+      return decision;
+    default:
+      return assertNever(kind);
+  }
 }
 
 function deferred<T>() {
@@ -348,6 +381,7 @@ function deferred<T>() {
 async function flushPromises(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
+  await Promise.resolve();
 }
 
 async function waitForSubmission(
@@ -355,10 +389,35 @@ async function waitForSubmission(
   type: ReturnType<AppShellMasterController["getSnapshot"]>["submission"]["type"],
 ): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    if (controller.getSnapshot().submission.type === type) {
-      return;
-    }
+    if (controller.getSnapshot().submission.type === type) return;
     await flushPromises();
   }
   throw new Error(`master submission did not reach ${type}`);
+}
+
+async function waitForInteraction(
+  controller: AppShellMasterController,
+  status: ShellInteractionState["status"],
+): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const interaction = controller.getSnapshot().interaction;
+    if (interaction.type === "active" && interaction.state.status === status) return;
+    await flushPromises();
+  }
+  throw new Error(`master interaction did not reach ${status}`);
+}
+
+async function waitForInteractionType(
+  controller: AppShellMasterController,
+  type: ReturnType<AppShellMasterController["getSnapshot"]>["interaction"]["type"],
+): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (controller.getSnapshot().interaction.type === type) return;
+    await flushPromises();
+  }
+  throw new Error(`master interaction did not reach ${type}`);
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled test route decision: ${String(value)}`);
 }

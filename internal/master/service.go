@@ -9,25 +9,26 @@ import (
 
 type InputStore interface {
 	AcceptMasterInput(context.Context, MasterInput, string) (AcceptedMasterInput, error)
-	ListRecentMasterInputs(context.Context) (RecentMasterInputHistory, error)
+	ReadActiveMasterShellInteraction(context.Context) (ActiveShellInteraction, error)
 	ReadMasterInputRoutingState(context.Context, string) (InputRoutingState, error)
+	WaitForMasterInputRoutingState(context.Context, string) (InputRoutingState, error)
 }
 
-func (service *Service) ListRecentInputs(ctx context.Context) (RecentMasterInputHistory, error) {
+func (service *Service) ReadActiveShellInteraction(ctx context.Context) (ActiveShellInteraction, error) {
 	if service == nil || service.store == nil {
-		return RecentMasterInputHistory{}, errors.New("master input service is unavailable")
+		return ActiveShellInteraction{}, errors.New("master input service is unavailable")
 	}
 	if ctx == nil {
-		return RecentMasterInputHistory{}, errors.New("master input context is required")
+		return ActiveShellInteraction{}, errors.New("master shell interaction context is required")
 	}
-	history, err := service.store.ListRecentMasterInputs(ctx)
+	interaction, err := service.store.ReadActiveMasterShellInteraction(ctx)
 	if err != nil {
-		return RecentMasterInputHistory{}, err
+		return ActiveShellInteraction{}, err
 	}
-	if err := history.Validate(); err != nil {
-		return RecentMasterInputHistory{}, fmt.Errorf("master input store returned invalid history: %w", err)
+	if err := interaction.Validate(); err != nil {
+		return ActiveShellInteraction{}, fmt.Errorf("master input store returned invalid shell interaction: %w", err)
 	}
-	return CloneRecentInputHistory(history), nil
+	return CloneActiveShellInteraction(interaction), nil
 }
 
 func (service *Service) ReadInputState(ctx context.Context, inputID string) (InputRoutingState, error) {
@@ -45,6 +46,30 @@ func (service *Service) ReadInputState(ctx context.Context, inputID string) (Inp
 		return InputRoutingState{}, fmt.Errorf("master input store returned invalid routing state: %w", err)
 	}
 	return CloneInputRoutingState(state), nil
+}
+
+func (service *Service) WaitShellInteraction(
+	ctx context.Context,
+	inputID string,
+) (ShellInteractionState, error) {
+	if service == nil || service.store == nil {
+		return ShellInteractionState{}, errors.New("master input service is unavailable")
+	}
+	if ctx == nil {
+		return ShellInteractionState{}, errors.New("master shell interaction wait context is required")
+	}
+	state, err := service.store.WaitForMasterInputRoutingState(ctx, inputID)
+	if err != nil {
+		return ShellInteractionState{}, err
+	}
+	interaction, err := ProjectShellInteractionState(state)
+	if err != nil {
+		return ShellInteractionState{}, fmt.Errorf(
+			"master input store returned invalid shell interaction: %w",
+			err,
+		)
+	}
+	return CloneShellInteractionState(interaction), nil
 }
 
 type Service struct {

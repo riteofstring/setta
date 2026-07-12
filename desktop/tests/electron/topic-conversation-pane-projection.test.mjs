@@ -27,10 +27,12 @@ import {
 import {
   assertMasterRouteContextAuthority,
   assertMasterRouteDecision,
-  captureMasterHistory,
+  captureActiveMasterInteraction,
   closeMasterOverlay,
+  createPersistentMasterClarification,
   exerciseMasterOverlayEntryPoints,
   readJsonLinesWhileAppending,
+  verifyRestoredMasterInteraction,
   waitForMasterRouteDecision,
 } from "./topic-conversation-master-overlay-assertions.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
@@ -85,6 +87,7 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
 const workflowTimeoutMs = 50_000;
+const shellClarificationText = "Clarify the shell topic.";
 const typedMasterOverlayText = "Focus Alpha topic.";
 const paneSpeechTranscript = "  Keep this pane transcript exact.  ";
 const fakeTopicCodexFixture = join(
@@ -186,6 +189,15 @@ try {
   await closeConversationPane(context.client, sideFailureTopic.id);
   const exhaustedVoice = await exhaustNarratorVoiceCatalog(context.client, workspaceId);
   await enableGlobalMicrophone(context.client);
+  const shellClarificationRoute = await createPersistentMasterClarification({
+    artifactDirectory: firstLaunchDir,
+    backend,
+    client: context.client,
+    text: shellClarificationText,
+    timeoutMs: workflowTimeoutMs,
+    workspaceId,
+  });
+  sharedMasterSessionId = shellClarificationRoute.decision.masterSessionId;
   await stopElectronCdpContext(context);
   context = null;
 
@@ -210,6 +222,25 @@ try {
       `workspace changed across application restart: ${JSON.stringify({ restoredWorkspaceId, workspaceId })}`,
     );
   }
+  await verifyRestoredMasterInteraction({
+    artifactPath: join(artifactDir, "master-clarification-after-restart.png"),
+    client: context.client,
+    expectedResultKind: "clarify",
+    expectedText: shellClarificationText,
+    timeoutMs: workflowTimeoutMs,
+  });
+  await closeMasterOverlay(context.client, workflowTimeoutMs);
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
+  await verifyRestoredMasterInteraction({
+    artifactPath: join(artifactDir, "master-clarification-after-reload.png"),
+    client: context.client,
+    expectedResultKind: "clarify",
+    expectedText: shellClarificationText,
+    timeoutMs: workflowTimeoutMs,
+  });
+  await closeMasterOverlay(context.client, workflowTimeoutMs);
   await installScriptedRealtimeBrowser(context.client);
   const initial = await waitForConversationSurfaces(
     context.client,
@@ -231,9 +262,9 @@ try {
   assertMasterRouteDecision(typedMasterRoute, {
     expectedInputId: shellMasterOverlayInput.accepted.input.id,
     expectedKind: "focus_conversation",
+    expectedSessionId: sharedMasterSessionId,
     expectedTargetId: alpha.id,
   });
-  sharedMasterSessionId = typedMasterRoute.decision.masterSessionId;
   const reloadedVoices = await listTopics(backend, workspaceId);
   assertPersistedNarratorVoice(reloadedVoices, alpha);
   assertPersistedNarratorVoice(reloadedVoices, beta);
@@ -864,10 +895,12 @@ try {
     expectedKind: "answer_global",
     expectedSessionId: sharedMasterSessionId,
   });
-  await captureMasterHistory({
-    artifactPath: join(artifactDir, "shared-master-text-voice-history.png"),
+  await captureActiveMasterInteraction({
+    artifactPath: join(artifactDir, "master-voice-immediate-result.png"),
     client: context.client,
-    expectedTexts: [typedMasterOverlayText, paneSpeechTranscript],
+    excludedTexts: [typedMasterOverlayText],
+    expectedResultKind: "answer_global",
+    expectedText: paneSpeechTranscript,
     timeoutMs: workflowTimeoutMs,
   });
   await closeMasterOverlay(context.client, workflowTimeoutMs);
