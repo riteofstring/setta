@@ -1,4 +1,4 @@
-import type { WorkflowNodeDetailsPaneConfig } from "@generated/backend";
+import type { EasyButtonPaneConfig, WorkflowNodeDetailsPaneConfig } from "@generated/backend";
 
 export type PaneId = string;
 export type ColumnId = string;
@@ -6,6 +6,7 @@ export type SurfaceId = string;
 
 export const productSurfaceKinds = [
   "chat-dom",
+  "easy-button",
   "empty-frame",
   "workflow-graph",
   "settings-dom",
@@ -57,6 +58,7 @@ export interface ColumnWidthSpec {
 
 export interface WorkspacePane {
   columnId: ColumnId;
+  easyButtonConfig?: EasyButtonPaneConfig;
   heat: number;
   heightPx?: number;
   paneId: PaneId;
@@ -107,6 +109,7 @@ export interface WorkspaceScene {
 export interface OpenPaneRequest {
   adjacentToColumnId?: ColumnId;
   columnId?: ColumnId;
+  easyButtonConfig?: EasyButtonPaneConfig;
   subtitle?: string;
   surfaceKind?: SurfaceKind;
   terminalConfig?: TerminalPaneConfig;

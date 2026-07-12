@@ -22,6 +22,7 @@ describe("generated backend client", () => {
             activeExecution: null,
             code: "select_workspace_failed",
             message: "workspace is not active: workspace_missing",
+            operationApplied: false,
           },
         },
         400,

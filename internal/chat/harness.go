@@ -107,6 +107,10 @@ const (
 	HarnessOutputStrictJSON     HarnessOutputContractKind = "strict_json_schema"
 )
 
+func isStructuredHarnessSurface(surface HarnessSurface) bool {
+	return surface == HarnessSurfaceSemanticCartographer
+}
+
 type HarnessTaskRequest struct {
 	Surface          HarnessSurface          `json:"surface"`
 	HarnessKind      HarnessKind             `json:"harnessKind"`

@@ -41,6 +41,7 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 		fmt.Fprintf(buffer, "  %s,\n", name)
 	}
 	buffer.WriteString("  type BackendFetch,\n")
+	buffer.WriteString("  type BackendRequestOptions,\n")
 	buffer.WriteString("} from \"@shared/backend-runtime\";\n\n")
 }
 
