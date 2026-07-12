@@ -18,6 +18,7 @@ export interface ConversationNavigatorWorkspaceState {
 
 interface ConversationNavigatorStore {
   applyEvent: (event: ConversationEvent) => void;
+  applyEvents: (events: readonly ConversationEvent[]) => void;
   loadMore: (workspaceId: string) => Promise<void>;
   query: string;
   resetRuntimeState: () => void;
@@ -107,22 +108,8 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
   }
 
   return {
-    applyEvent: (event) => {
-      const workspace = get().workspaces[event.workspaceId];
-      if (!workspace) {
-        return;
-      }
-      const items = applyNavigatorEvent(workspace.items, event);
-      if (items === workspace.items) {
-        return;
-      }
-      set((state) => ({
-        workspaces: {
-          ...state.workspaces,
-          [event.workspaceId]: { ...workspace, items },
-        },
-      }));
-    },
+    applyEvent: (event) => set((state) => navigatorEventsPatch(state, [event])),
+    applyEvents: (events) => set((state) => navigatorEventsPatch(state, events)),
     loadMore: async (workspaceId) => {
       const workspace = get().workspaces[workspaceId];
       if (!workspace || workspace.loading || !workspace.nextCursor) {
@@ -194,6 +181,27 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
     workspaces: {},
   };
 });
+
+function navigatorEventsPatch(
+  state: ConversationNavigatorStore,
+  events: readonly ConversationEvent[],
+): ConversationNavigatorStore | Pick<ConversationNavigatorStore, "workspaces"> {
+  let next: Record<string, ConversationNavigatorWorkspaceState | undefined> | null = null;
+  for (const event of events) {
+    const workspaces = next ?? state.workspaces;
+    const workspace = workspaces[event.workspaceId];
+    if (!workspace) {
+      continue;
+    }
+    const items = applyNavigatorEvent(workspace.items, event);
+    if (items === workspace.items) {
+      continue;
+    }
+    next ??= { ...state.workspaces };
+    next[event.workspaceId] = { ...workspace, items };
+  }
+  return next ? { workspaces: next } : state;
+}
 
 function loadedWorkspaceState(
   currentItems: readonly NavigatorItem[],

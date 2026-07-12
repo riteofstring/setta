@@ -883,6 +883,11 @@ function isCrashNarratorProjection(context) {
 }
 
 function emitTurnScenario(threadId, turnId, text) {
+  const profiledEventCount = performanceEventCount(text);
+  if (profiledEventCount !== null) {
+    emitProfiledTurn(threadId, turnId, text, profiledEventCount, 0);
+    return;
+  }
   emitTextDelta(threadId, turnId, `Streaming ${text}. `);
   if (text.includes("narration backlog")) {
     for (let index = 1; index <= 18; index += 1) {
@@ -909,6 +914,31 @@ function emitTurnScenario(threadId, turnId, text) {
     return;
   }
   emitAgentMessage(threadId, turnId, `Completed ${text}.`);
+  completeTurn(threadId, turnId, "completed");
+}
+
+function performanceEventCount(text) {
+  const match = /^Profile exactly (\d+) conversation events for pane \d+\.$/.exec(text);
+  if (!match) {
+    return null;
+  }
+  const count = Number.parseInt(match[1], 10);
+  if (!Number.isInteger(count) || count < 1 || count > 2000) {
+    throw new Error(`profile event count is invalid: ${match[1]}`);
+  }
+  return count;
+}
+
+function emitProfiledTurn(threadId, turnId, text, eventCount, emittedCount) {
+  const chunkEnd = Math.min(eventCount, emittedCount + 8);
+  for (let index = emittedCount; index < chunkEnd; index += 1) {
+    emitTextDelta(threadId, turnId, `profile-${String(index + 1).padStart(4, "0")} `);
+  }
+  if (chunkEnd < eventCount) {
+    setTimeout(() => emitProfiledTurn(threadId, turnId, text, eventCount, chunkEnd), 8);
+    return;
+  }
+  emitAgentMessage(threadId, turnId, `Completed ${text}`);
   completeTurn(threadId, turnId, "completed");
 }
 

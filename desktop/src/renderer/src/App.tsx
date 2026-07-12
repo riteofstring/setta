@@ -48,7 +48,7 @@ import {
   type ConversationPaneWorkspaceState,
   useConversationPaneStore,
 } from "./stores/conversation-pane-store";
-import { handleConversationProjectionEvent } from "./stores/conversation-projection-runtime";
+import { enqueueConversationProjectionEvent } from "./stores/conversation-projection-runtime";
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
 import {
@@ -184,7 +184,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     window.addEventListener(conversationPaneNavigationRequestEvent, navigate);
     return () => window.removeEventListener(conversationPaneNavigationRequestEvent, navigate);
   }, [presentConversationRequest]);
-  useEffect(() => setta.conversations.onEvent(handleConversationProjectionEvent), [setta]);
+  useEffect(() => setta.conversations.onEvent(enqueueConversationProjectionEvent), [setta]);
 
   const shell = ({
     master,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* global console */
 
-import { chmod, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { delimiter, dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 import {
   assertMasterRouteDecision,
   exerciseMasterOverlayEntryPoints,
@@ -46,11 +47,6 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-crash-recovery";
 const workflowTimeoutMs = 50_000;
 const crashTranscript = "crash capture transcript";
-const fakeTopicCodexFixture = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "fixtures",
-  "fake-topic-codex-app-server.mjs",
-);
 const speechRealtimeBrowserFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "speech-realtime-browser-fixture.js",
@@ -563,20 +559,4 @@ async function assertCrashTranscriptWasNotSubmitted(
       `crashed speech capture crossed a durable intake boundary: ${JSON.stringify({ sessionStarted, submitted })}`,
     );
   }
-}
-
-async function installFakeTopicCodex(electronFixture) {
-  const binDir = join(electronFixture.tempRoot, "fake-topic-bin");
-  const statePath = join(electronFixture.tempRoot, "fake-topic-codex-state.json");
-  await mkdir(binDir, { recursive: true });
-  const scriptPath = join(binDir, "fake-topic-codex-app-server.mjs");
-  await copyFile(fakeTopicCodexFixture, scriptPath);
-  if (process.platform === "win32") {
-    await writeFile(join(binDir, "codex.cmd"), `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
-  } else {
-    const commandPath = join(binDir, "codex");
-    await writeFile(commandPath, `#!/usr/bin/env sh\nexec node "${scriptPath}" "$@"\n`, "utf8");
-    await chmod(commandPath, 0o755);
-  }
-  return { binDir, statePath };
 }

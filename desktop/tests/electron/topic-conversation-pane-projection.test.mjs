@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* global console */
 
-import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { basename, delimiter, dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 import {
   assertMasterRouteContextAuthority,
   assertMasterRouteDecision,
@@ -96,11 +97,6 @@ const workflowTimeoutMs = 50_000;
 const shellClarificationText = "Clarify the shell topic.";
 const typedMasterOverlayText = "Focus Alpha topic.";
 const paneSpeechTranscript = "  Keep this pane transcript exact.  ";
-const fakeTopicCodexFixture = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "fixtures",
-  "fake-topic-codex-app-server.mjs",
-);
 const speechRealtimeBrowserFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "speech-realtime-browser-fixture.js",
@@ -1149,22 +1145,6 @@ try {
 } finally {
   await stopElectronCdpContext(context);
   await speechProvider.close();
-}
-
-async function installFakeTopicCodex(fixture) {
-  const binDir = join(fixture.tempRoot, "fake-topic-bin");
-  const statePath = join(fixture.tempRoot, "fake-topic-codex-state.json");
-  await mkdir(binDir, { recursive: true });
-  const scriptPath = join(binDir, "fake-topic-codex-app-server.mjs");
-  await copyFile(fakeTopicCodexFixture, scriptPath);
-  if (process.platform === "win32") {
-    await writeFile(join(binDir, "codex.cmd"), `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
-  } else {
-    const commandPath = join(binDir, "codex");
-    await writeFile(commandPath, `#!/usr/bin/env sh\nexec node "${scriptPath}" "$@"\n`, "utf8");
-    await chmod(commandPath, 0o755);
-  }
-  return { binDir, statePath };
 }
 
 async function openWorkspace(client) {

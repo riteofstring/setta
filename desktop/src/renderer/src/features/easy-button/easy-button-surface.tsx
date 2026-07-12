@@ -81,6 +81,7 @@ export interface EasyButtonProjectionView {
   conversationId: string | null;
   currentFocus: string;
   error: string | null;
+  eventCursorSequence: number;
   focusStatus: EasyButtonFocusStatus;
   helperCopy: string;
   lineage: EasyButtonForkLineage | null;
@@ -95,6 +96,8 @@ export interface EasyButtonProjectionView {
   side: EasyButtonSideView | null;
   terminalSummary: EasyButtonTerminalSummaryRecord | null;
   title: string;
+  trajectoryEventCount: number;
+  trajectoryHasEarlier: boolean;
   viewState: EasyButtonViewState;
 }
 
@@ -179,6 +182,7 @@ export function EasyButtonProjectionSurface({
       data-conversation-id={view.conversationId ?? undefined}
       data-conversation-palette={view.paletteId ?? undefined}
       data-easy-button-focus={view.focusStatus}
+      data-easy-button-event-cursor={view.eventCursorSequence}
       data-easy-button-capture={speech?.captureState}
       data-easy-button-capture-scope={speech?.captureScope}
       data-easy-button-playback={speech?.playbackState}
@@ -189,6 +193,8 @@ export function EasyButtonProjectionSurface({
       data-easy-button-side-status={view.side?.status}
       data-easy-button-state={view.viewState}
       data-easy-button-status={view.statusTone}
+      data-easy-button-trajectory-count={view.trajectoryEventCount}
+      data-easy-button-trajectory-has-earlier={view.trajectoryHasEarlier}
       data-testid="easy-button-surface"
       ref={rootRef}
       style={conversationPaletteStyle(view.paletteId)}
@@ -399,6 +405,7 @@ function projectConversationSnapshot(
     conversationId: snapshot.conversation.id,
     currentFocus: snapshot.narratorState.currentFocus,
     error: conversationProjectionError(projection, latestTurn),
+    eventCursorSequence: snapshot.eventCursor.sequence,
     focusStatus: narratorFocusStatus(snapshot.narratorState),
     helperCopy: conversationHelperCopy(snapshot.conversation, latestTurn, projectionStatus),
     lineage: forkLineage(snapshot.branch, parentTitle),
@@ -421,6 +428,8 @@ function projectConversationSnapshot(
       viewState,
     ),
     title: snapshot.conversation.title,
+    trajectoryEventCount: snapshot.trajectory.events.length,
+    trajectoryHasEarlier: snapshot.trajectory.hasEarlier,
     viewState,
   };
 }
@@ -471,6 +480,7 @@ function unavailableView(options: {
     conversationId: options.conversationId,
     currentFocus: "",
     error: options.error,
+    eventCursorSequence: 0,
     focusStatus: "none",
     helperCopy: options.helperCopy,
     lineage: null,
@@ -485,6 +495,8 @@ function unavailableView(options: {
     side: null,
     terminalSummary: null,
     title: "Easy Button",
+    trajectoryEventCount: 0,
+    trajectoryHasEarlier: false,
     viewState: "idle",
   };
 }

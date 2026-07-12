@@ -1,22 +1,23 @@
-import type {
-  AgentThreadBinding,
-  Artifact,
-  ConversationBranch,
-  ConversationEvent,
-  ConversationEventPayload,
-  ConversationPresentationProfile,
-  ConversationSnapshot,
-  ConversationTurn,
-  NarrationEvent,
-  NarratorState,
-  PermissionProfile,
-  ResolvedInvocation,
-  Role,
-  RoleProfile,
-  RoleProfileOverride,
-  SideConversation,
-  TopicConversation,
-  TrajectoryEvent,
+import {
+  conversationSnapshotLimits,
+  type AgentThreadBinding,
+  type Artifact,
+  type ConversationBranch,
+  type ConversationEvent,
+  type ConversationEventPayload,
+  type ConversationPresentationProfile,
+  type ConversationSnapshot,
+  type ConversationTurn,
+  type NarrationEvent,
+  type NarratorState,
+  type PermissionProfile,
+  type ResolvedInvocation,
+  type Role,
+  type RoleProfile,
+  type RoleProfileOverride,
+  type SideConversation,
+  type TopicConversation,
+  type TrajectoryEvent,
 } from "@generated/backend";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -102,6 +103,125 @@ describe("conversation store", () => {
       sequence: 13,
       streamId: conversationStreamId(conversationA),
     });
+  });
+
+  test("retains Go-owned latest windows while applying live events", () => {
+    const snapshot = conversationSnapshot(conversationA);
+    snapshot.turns.turns = Array.from({ length: conversationSnapshotLimits.turns }, (_, index) => ({
+      ...queuedTurn(conversationA),
+      acceptedAt: orderedTimestamp(index),
+      id: `turn_${index}`,
+    }));
+    snapshot.trajectory.events = Array.from(
+      { length: conversationSnapshotLimits.trajectoryEvents },
+      (_, index) => ({
+        ...trajectoryEvent(conversationA),
+        id: `trajectory_${index}`,
+        sequence: index + 1,
+      }),
+    );
+    snapshot.conversation.lastTrajectorySequence = conversationSnapshotLimits.trajectoryEvents;
+    snapshot.artifacts.artifacts = Array.from(
+      { length: conversationSnapshotLimits.artifacts },
+      (_, index) => ({
+        ...artifact(conversationA),
+        createdAt: orderedTimestamp(index),
+        id: `artifact_${index}`,
+      }),
+    );
+    snapshot.narration.events = Array.from(
+      { length: conversationSnapshotLimits.narrationEvents },
+      (_, index) => ({
+        ...narrationEvent(conversationA),
+        id: `narration_${index}`,
+        streamSequence: index + 1,
+      }),
+    );
+    useConversationStore.getState().hydrateSnapshot(workspaceId, conversationA, snapshot);
+
+    useConversationStore.getState().applyEvents([
+      conversationEvent(conversationA, 1, {
+        turn: {
+          ...queuedTurn(conversationA),
+          acceptedAt: orderedTimestamp(conversationSnapshotLimits.turns),
+          id: "turn_latest",
+        },
+        type: "conversation.turn.updated",
+      }),
+      conversationEvent(conversationA, 2, {
+        event: {
+          ...trajectoryEvent(conversationA),
+          id: "trajectory_latest",
+          sequence: conversationSnapshotLimits.trajectoryEvents + 1,
+        },
+        type: "conversation.trajectory.appended",
+      }),
+      conversationEvent(conversationA, 3, {
+        artifact: {
+          ...artifact(conversationA),
+          createdAt: orderedTimestamp(conversationSnapshotLimits.artifacts),
+          id: "artifact_latest",
+        },
+        type: "conversation.artifact.created",
+      }),
+      conversationEvent(conversationA, 4, {
+        event: {
+          ...narrationEvent(conversationA),
+          id: "narration_latest",
+          streamSequence: conversationSnapshotLimits.narrationEvents + 1,
+        },
+        type: "conversation.narration.created",
+      }),
+    ]);
+
+    const current = projection(conversationA).snapshot!;
+    expect(current.turns).toMatchObject({ hasEarlier: true });
+    expect(current.turns.turns).toHaveLength(conversationSnapshotLimits.turns);
+    expect(current.turns.turns.at(-1)?.id).toBe("turn_latest");
+    expect(current.trajectory).toMatchObject({ hasEarlier: true });
+    expect(current.trajectory.events).toHaveLength(conversationSnapshotLimits.trajectoryEvents);
+    expect(current.trajectory.events.at(0)?.sequence).toBe(2);
+    expect(current.trajectory.events.at(-1)?.id).toBe("trajectory_latest");
+    expect(current.artifacts).toMatchObject({ hasEarlier: true });
+    expect(current.artifacts.artifacts).toHaveLength(conversationSnapshotLimits.artifacts);
+    expect(current.artifacts.artifacts.at(-1)?.id).toBe("artifact_latest");
+    expect(current.narration).toMatchObject({ hasEarlier: true });
+    expect(current.narration.events).toHaveLength(conversationSnapshotLimits.narrationEvents);
+    expect(current.narration.events.at(-1)?.id).toBe("narration_latest");
+  });
+
+  test("requires backend reselection when the selected side window overflows", () => {
+    const snapshot = conversationSnapshot(conversationA);
+    snapshot.sideConversations = Array.from(
+      { length: conversationSnapshotLimits.sideConversations },
+      (_, index) => ({
+        ...sideConversation(conversationA),
+        createdAt: orderedTimestamp(index),
+        id: `side_${index}`,
+        parentStatus: "idle",
+      }),
+    );
+    useConversationStore.getState().hydrateSnapshot(workspaceId, conversationA, snapshot);
+
+    useConversationStore.getState().applyEvent(
+      conversationEvent(conversationA, 1, {
+        sideConversation: {
+          ...sideConversation(conversationA),
+          id: "side_overflow",
+          parentStatus: "idle",
+        },
+        type: "conversation.side_conversation.updated",
+      }),
+    );
+
+    expect(projection(conversationA).resync).toMatchObject({
+      minimumCursor: { sequence: 1, streamId: conversationStreamId(conversationA) },
+      reason: "collection_window_overflow",
+    });
+    expect(projection(conversationA).snapshot?.sideConversations).toHaveLength(
+      conversationSnapshotLimits.sideConversations,
+    );
+    expect(projection(conversationA).snapshot?.eventCursor.sequence).toBe(0);
   });
 
   test("applies interleaved streams to their own conversation cursors", () => {
@@ -882,4 +1002,8 @@ function permissionProfile(): PermissionProfile {
 
 function conversationStreamId(conversationId: string): string {
   return `conversation:${conversationId}`;
+}
+
+function orderedTimestamp(index: number): string {
+  return new Date(Date.UTC(2026, 6, 11, 20, 0, 0, index)).toISOString();
 }

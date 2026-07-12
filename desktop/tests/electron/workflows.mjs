@@ -74,6 +74,11 @@ export const electronWorkflows = [
     name: "niri-navigation-performance",
     tiers: ["performance"],
   },
+  {
+    file: "topic-conversation-performance.test.mjs",
+    name: "topic-conversation-performance",
+    tiers: ["performance"],
+  },
 ];
 
 export function electronWorkflowNames() {

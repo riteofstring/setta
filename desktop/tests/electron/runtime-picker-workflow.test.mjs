@@ -207,7 +207,7 @@ async function waitForRuntimeStatus(client, status, filter = {}) {
     client,
     `(async () => window.setta.runtimes.current())()`,
     (snapshot) => {
-      if (snapshot.connection.status !== status) {
+      if (snapshot.switching || snapshot.connection.status !== status) {
         return false;
       }
       if (filter.runtimeId && snapshot.connection.runtimeId !== filter.runtimeId) {

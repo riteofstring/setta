@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { useConversationNavigatorStore } from "./conversation-navigator-store";
 import {
   conversationProjectionNeedsKeepAlive,
+  enqueueConversationProjectionEvent,
   handleConversationProjectionEvent,
   resetConversationProjectionRuntime,
 } from "./conversation-projection-runtime";
@@ -76,6 +77,48 @@ describe("conversation projection runtime", () => {
     expect(useConversationStore.getState().conversations.size).toBe(0);
   });
 
+  test("applies at most one bounded event batch per animation frame", () => {
+    useConversationStore
+      .getState()
+      .hydrateSnapshot(workspaceId, conversationId, conversationSnapshot(0));
+    const scheduler = manualFrameScheduler();
+    installConversationAPI(vi.fn(), scheduler.windowOverrides);
+    const subscriber = vi.fn();
+    const unsubscribe = useConversationStore.subscribe(subscriber);
+    try {
+      for (let sequence = 1; sequence <= 129; sequence += 1) {
+        enqueueConversationProjectionEvent(conversationUpdatedEvent(sequence));
+      }
+
+      expect(projectionSnapshot()?.eventCursor.sequence).toBe(0);
+      expect(scheduler.pendingFrames()).toBe(1);
+      scheduler.runFrame();
+      expect(projectionSnapshot()?.eventCursor.sequence).toBe(128);
+      expect(subscriber).toHaveBeenCalledTimes(1);
+      expect(scheduler.pendingFrames()).toBe(1);
+      scheduler.runFrame();
+      expect(projectionSnapshot()?.eventCursor.sequence).toBe(129);
+      expect(subscriber).toHaveBeenCalledTimes(2);
+      expect(scheduler.pendingFrames()).toBe(0);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  test("discards a queued frame when the runtime generation resets", () => {
+    useConversationStore
+      .getState()
+      .hydrateSnapshot(workspaceId, conversationId, conversationSnapshot(0));
+    const scheduler = manualFrameScheduler();
+    installConversationAPI(vi.fn(), scheduler.windowOverrides);
+
+    enqueueConversationProjectionEvent(conversationUpdatedEvent(1));
+    resetConversationProjectionRuntime();
+
+    expect(scheduler.pendingFrames()).toBe(0);
+    expect(projectionSnapshot()?.eventCursor.sequence).toBe(0);
+  });
+
   test("retains terminal speech streams only while final narration can still arrive", () => {
     const working = conversationSnapshot(1);
     working.conversation.status = "working";
@@ -105,11 +148,40 @@ describe("conversation projection runtime", () => {
   });
 });
 
-function installConversationAPI(read: (request: unknown) => Promise<ConversationSnapshot>): void {
+function installConversationAPI(
+  read: (request: unknown) => Promise<ConversationSnapshot>,
+  windowOverrides: Record<string, unknown> = {},
+): void {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
-    value: { setta: { conversations: { read } } },
+    value: { ...windowOverrides, setta: { conversations: { read } } },
   });
+}
+
+function manualFrameScheduler() {
+  let nextFrameId = 0;
+  const frames = new Map<number, FrameRequestCallback>();
+  return {
+    pendingFrames: () => frames.size,
+    runFrame: () => {
+      const next = frames.entries().next().value as [number, FrameRequestCallback] | undefined;
+      if (!next) {
+        throw new Error("no conversation projection frame is scheduled");
+      }
+      frames.delete(next[0]);
+      next[1](0);
+    },
+    windowOverrides: {
+      cancelAnimationFrame: (frameId: number) => frames.delete(frameId),
+      clearTimeout: vi.fn(),
+      requestAnimationFrame: (callback: FrameRequestCallback) => {
+        nextFrameId += 1;
+        frames.set(nextFrameId, callback);
+        return nextFrameId;
+      },
+      setTimeout: vi.fn(() => 1),
+    },
+  };
 }
 
 function projectionSnapshot(): ConversationSnapshot | null | undefined {

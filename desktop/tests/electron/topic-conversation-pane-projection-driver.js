@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v16";
+  const version = "setta-topic-conversation-pane-projection-driver-v17";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -102,6 +102,7 @@
             clarificationText: elementText(clarification),
             conversationId: datasetValue(surface, "conversationId"),
             errorText: elementText(error),
+            eventCursorSequence: Number(datasetValue(surface, "easyButtonEventCursor") || "0"),
             helperText: elementText(helper),
             inputDisabled: inputIsDisabled(input),
             paneId: datasetValue(host, "paneId"),
@@ -129,6 +130,9 @@
               surface.querySelector('[data-testid="easy-button-speech-transcript"]'),
             ),
             title: surface.getAttribute("aria-label") ?? "",
+            trajectoryEventCount: Number(datasetValue(surface, "easyButtonTrajectoryCount") || "0"),
+            trajectoryHasEarlier:
+              datasetValue(surface, "easyButtonTrajectoryHasEarlier") === "true",
             voiceCaptureLabel: voiceCapture?.getAttribute("aria-label") ?? "",
             voiceCaptureAvailable:
               voiceCapture instanceof HTMLButtonElement && !voiceCapture.disabled,

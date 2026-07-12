@@ -1,13 +1,15 @@
-import type {
-  ConversationEvent,
-  ConversationEventCursor,
-  ConversationEventPayload,
-  ConversationSnapshot,
+import {
+  conversationSnapshotLimits,
+  type ConversationEvent,
+  type ConversationEventCursor,
+  type ConversationEventPayload,
+  type ConversationSnapshot,
 } from "@generated/backend";
 
 type ConversationProjectionStatus = "unloaded" | "loading" | "ready" | "error";
 
 type ConversationResyncReason =
+  | "collection_window_overflow"
   | "event_before_snapshot"
   | "event_schema_changed"
   | "event_sequence_gap"
@@ -174,6 +176,10 @@ function applyConversationEvent(
   if (disposition !== "next") {
     return projectionWithResync(current, cursorRequirement(current.snapshot, event, disposition));
   }
+  const overflow = collectionWindowOverflowRequirement(current.snapshot, event);
+  if (overflow) {
+    return projectionWithResync(current, overflow);
+  }
   const snapshot = applyPayload(current.snapshot, event.payload);
   return {
     ...current,
@@ -215,15 +221,24 @@ const payloadHandlers = {
   },
   "conversation.turn.updated": (snapshot, payload) => {
     assertOwner("conversation.turn.updated", payload.turn.conversationId, snapshot.conversation.id);
+    const turns = latestOrderedWindow(
+      upsertOrdered(snapshot.turns.turns, payload.turn, (turn) => turn.acceptedAt),
+      conversationSnapshotLimits.turns,
+    );
     return {
       ...snapshot,
       turns: {
-        ...snapshot.turns,
-        turns: upsertOrdered(snapshot.turns.turns, payload.turn, (turn) => turn.acceptedAt),
+        hasEarlier: snapshot.turns.hasEarlier || turns.truncated,
+        turns: turns.items,
       },
     };
   },
   "conversation.queue.updated": (snapshot, payload) => {
+    if (payload.queue.length > conversationSnapshotLimits.queuedTurns) {
+      throw new Error(
+        `conversation.queue.updated exceeds ${conversationSnapshotLimits.queuedTurns} turns.`,
+      );
+    }
     for (const [index, queued] of payload.queue.entries()) {
       assertOwner("conversation.queue.updated", queued.conversationId, snapshot.conversation.id);
       if (queued.ordinal !== index + 1) {
@@ -248,15 +263,19 @@ const payloadHandlers = {
       payload.artifact.conversationId,
       snapshot.conversation.id,
     );
+    const artifacts = latestOrderedWindow(
+      upsertOrdered(
+        snapshot.artifacts.artifacts,
+        payload.artifact,
+        (artifact) => artifact.createdAt,
+      ),
+      conversationSnapshotLimits.artifacts,
+    );
     return {
       ...snapshot,
       artifacts: {
-        ...snapshot.artifacts,
-        artifacts: upsertOrdered(
-          snapshot.artifacts.artifacts,
-          payload.artifact,
-          (artifact) => artifact.createdAt,
-        ),
+        artifacts: artifacts.items,
+        hasEarlier: snapshot.artifacts.hasEarlier || artifacts.truncated,
       },
     };
   },
@@ -274,13 +293,17 @@ const payloadHandlers = {
       payload.event.conversationId,
       snapshot.conversation.id,
     );
+    const events = latestOrderedWindow(
+      upsertOrdered(snapshot.narration.events, payload.event, (event) =>
+        event.streamSequence.toString().padStart(16, "0"),
+      ),
+      conversationSnapshotLimits.narrationEvents,
+    );
     return {
       ...snapshot,
       narration: {
-        ...snapshot.narration,
-        events: upsertOrdered(snapshot.narration.events, payload.event, (event) =>
-          event.streamSequence.toString().padStart(16, "0"),
-        ),
+        events: events.items,
+        hasEarlier: snapshot.narration.hasEarlier || events.truncated,
       },
     };
   },
@@ -459,6 +482,8 @@ function appendTrajectoryEvent(
       `conversation.trajectory.appended sequence ${event.sequence} does not follow ${expectedSequence - 1}`,
     );
   }
+  const events = [...snapshot.trajectory.events, event];
+  const overflow = Math.max(0, events.length - conversationSnapshotLimits.trajectoryEvents);
   return {
     ...snapshot,
     conversation: {
@@ -468,7 +493,10 @@ function appendTrajectoryEvent(
         event.sequence,
       ),
     },
-    trajectory: { ...snapshot.trajectory, events: [...snapshot.trajectory.events, event] },
+    trajectory: {
+      events: overflow > 0 ? events.slice(overflow) : events,
+      hasEarlier: snapshot.trajectory.hasEarlier || overflow > 0,
+    },
   };
 }
 
@@ -511,6 +539,17 @@ function upsertByKey<Item>(
   return next;
 }
 
+function latestOrderedWindow<Item>(
+  items: Item[],
+  limit: number,
+): { items: Item[]; truncated: boolean } {
+  const overflow = Math.max(0, items.length - limit);
+  return {
+    items: overflow > 0 ? items.slice(overflow) : items,
+    truncated: overflow > 0,
+  };
+}
+
 function eventCursorDisposition(
   cursor: ConversationEventCursor,
   event: ConversationEvent,
@@ -541,6 +580,38 @@ function cursorRequirement(
     minimumCursor: cursorFromEvent(event),
     reason: "event_sequence_gap",
   };
+}
+
+function collectionWindowOverflowRequirement(
+  snapshot: ConversationSnapshot,
+  event: ConversationEvent,
+): ConversationResyncRequirement | null {
+  const payload = event.payload;
+  if (
+    payload.type === "conversation.side_conversation.updated" &&
+    snapshot.sideConversations.length >= conversationSnapshotLimits.sideConversations &&
+    !snapshot.sideConversations.some((side) => side.id === payload.sideConversation.id)
+  ) {
+    return {
+      detail: `Conversation side window reached ${conversationSnapshotLimits.sideConversations} records and requires backend reselection.`,
+      minimumCursor: cursorFromEvent(event),
+      reason: "collection_window_overflow",
+    };
+  }
+  if (
+    payload.type === "conversation.role_profile_override.updated" &&
+    snapshot.roleProfileOverrides.length >= conversationSnapshotLimits.roleProfileOverrides &&
+    !snapshot.roleProfileOverrides.some(
+      (override) => override.profile.role === payload.override.profile.role,
+    )
+  ) {
+    return {
+      detail: `Conversation role override window reached ${conversationSnapshotLimits.roleProfileOverrides} records and requires backend reselection.`,
+      minimumCursor: cursorFromEvent(event),
+      reason: "collection_window_overflow",
+    };
+  }
+  return null;
 }
 
 function eventBeforeSnapshotRequirement(event: ConversationEvent): ConversationResyncRequirement {

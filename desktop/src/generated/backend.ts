@@ -21,6 +21,17 @@ import {
 export const backendProtocolVersion = 44;
 export const backendContractSchemaHash = "sha256:40bb9a38d9dd09d35707418453810d5218ed4ccc5b0a38f2a1a8ed7da6ff4f3d";
 
+export const conversationSnapshotLimits = {
+  artifacts: 100,
+  narrationEvents: 100,
+  queuedTurns: 50,
+  roleProfileOverrides: 4,
+  sideConversations: 32,
+  sideEvents: 200,
+  trajectoryEvents: 200,
+  turns: 51,
+} as const;
+
 export type DeviceScope = "full";
 
 export const deviceScopeValues = ["full"] as const satisfies readonly DeviceScope[];

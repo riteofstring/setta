@@ -9,9 +9,17 @@ interface RetainedConversationProjection {
   references: number;
 }
 
+interface ScheduledProjectionFlush {
+  cancel: () => void;
+}
+
+const maximumConversationEventsPerFrame = 128;
+const maximumConversationEventFrameWaitMs = 50;
+const pendingEvents: ConversationEvent[] = [];
 const retainedProjections = new Map<string, RetainedConversationProjection>();
 const resyncs = new Map<string, Promise<void>>();
 let generation = 0;
+let scheduledFlush: ScheduledProjectionFlush | null = null;
 
 export function retainConversationProjection(
   workspaceId: string,
@@ -37,11 +45,32 @@ export function retainConversationProjection(
 }
 
 export function handleConversationProjectionEvent(event: ConversationEvent): void {
-  useConversationStore.getState().applyEvent(event);
-  useConversationNavigatorStore.getState().applyEvent(event);
-  const projection = useConversationStore.getState().conversations.get(event.conversationId);
-  if (projection?.resync) {
-    void resyncConversationProjection(event.workspaceId, event.conversationId);
+  handleConversationProjectionEvents([event]);
+}
+
+export function enqueueConversationProjectionEvent(event: ConversationEvent): void {
+  pendingEvents.push(event);
+  scheduleProjectionFlush();
+}
+
+function handleConversationProjectionEvents(events: readonly ConversationEvent[]): void {
+  if (events.length === 0) {
+    return;
+  }
+  useConversationStore.getState().applyEvents(events);
+  useConversationNavigatorStore.getState().applyEvents(events);
+  const affected = new Map<string, { conversationId: string; workspaceId: string }>();
+  for (const event of events) {
+    affected.set(projectionKey(event.workspaceId, event.conversationId), {
+      conversationId: event.conversationId,
+      workspaceId: event.workspaceId,
+    });
+  }
+  const projections = useConversationStore.getState().conversations;
+  for (const target of affected.values()) {
+    if (projections.get(target.conversationId)?.resync) {
+      void resyncConversationProjection(target.workspaceId, target.conversationId);
+    }
   }
 }
 
@@ -53,8 +82,52 @@ export function hydrateConversationProjectionSnapshot(snapshot: ConversationSnap
 
 export function resetConversationProjectionRuntime(): void {
   generation += 1;
+  scheduledFlush?.cancel();
+  scheduledFlush = null;
+  pendingEvents.length = 0;
   retainedProjections.clear();
   resyncs.clear();
+}
+
+function scheduleProjectionFlush(): void {
+  if (scheduledFlush) {
+    return;
+  }
+  const flushGeneration = generation;
+  let finished = false;
+  const requestFrame = window.requestAnimationFrame.bind(window);
+  const cancelFrame = window.cancelAnimationFrame.bind(window);
+  const setFrameTimeout = window.setTimeout.bind(window);
+  const clearFrameTimeout = window.clearTimeout.bind(window);
+  const complete = () => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    cancelFrame(frameId);
+    clearFrameTimeout(timeoutId);
+    scheduledFlush = null;
+    if (flushGeneration !== generation) {
+      return;
+    }
+    const events = pendingEvents.splice(0, maximumConversationEventsPerFrame);
+    handleConversationProjectionEvents(events);
+    if (pendingEvents.length > 0) {
+      scheduleProjectionFlush();
+    }
+  };
+  const frameId = requestFrame(complete);
+  const timeoutId = setFrameTimeout(complete, maximumConversationEventFrameWaitMs);
+  scheduledFlush = {
+    cancel: () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      cancelFrame(frameId);
+      clearFrameTimeout(timeoutId);
+    },
+  };
 }
 
 async function loadAndSubscribe(

@@ -248,6 +248,38 @@ func TestConversationPaletteCatalogRendersFromGoOwner(t *testing.T) {
 	}
 }
 
+func TestConversationSnapshotLimitsRenderFromGoOwner(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints:      []httpapi.ContractEndpoint{contractEndpoint("ContractTest", "/contract-test")},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	})
+	if err != nil {
+		t.Fatalf("collect contracts: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+	for _, want := range []string{
+		"export const conversationSnapshotLimits = {",
+		fmt.Sprintf("  artifacts: %d,", conversation.MaxSnapshotArtifacts),
+		fmt.Sprintf("  narrationEvents: %d,", conversation.MaxSnapshotNarrationEvents),
+		fmt.Sprintf("  queuedTurns: %d,", conversation.MaxSnapshotQueuedTurns),
+		fmt.Sprintf("  roleProfileOverrides: %d,", conversation.MaxSnapshotRoleOverrides),
+		fmt.Sprintf("  sideConversations: %d,", conversation.MaxSnapshotSideConversations),
+		fmt.Sprintf("  sideEvents: %d,", conversation.MaxSnapshotSideEvents),
+		fmt.Sprintf("  trajectoryEvents: %d,", conversation.MaxSnapshotTrajectoryEvents),
+		fmt.Sprintf("  turns: %d,", conversation.MaxSnapshotTurns),
+		"} as const;",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output is missing Go-owned snapshot limit %q:\n%s", want, output)
+		}
+	}
+}
+
 func TestConversationEventUnionRendersExactDiscriminators(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{{
