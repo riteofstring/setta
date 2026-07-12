@@ -52,6 +52,11 @@ type MasterVoiceSelection struct {
 	UpdatedAt        string             `json:"updatedAt"`
 }
 
+type MasterVoiceSelectionInitialization struct {
+	Catalog   SpeechVoiceCatalog   `json:"catalog"`
+	Selection MasterVoiceSelection `json:"selection"`
+}
+
 type SpeechCapabilities struct {
 	ProviderStatus              SpeechProviderStatus `json:"providerStatus"`
 	TranscriptionModel          string               `json:"transcriptionModel"`

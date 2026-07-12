@@ -3251,3 +3251,26 @@ Implementation is in progress under this plan.
   production workflows passed independently. The supply-chain audit again
   reports the pre-existing `GO-2026-5856` in repository-pinned Go 1.26.4,
   fixed in Go 1.26.5; no dependency manifest or toolchain pin changed.
+- 2026-07-12: The Phase 5 item 3 review made the first master-voice assignment
+  obey the conversation store's committed-publication invariant. The selection
+  row and one catalog-stamped `speech.master_voice_selection.initialized` fact
+  now commit atomically on a dedicated durable stream and wake outbox
+  subscribers only after commit. Restart validation requires both halves,
+  rejects a missing selection, a missing or malformed initialization fact, and
+  no longer silently recreates an initialized selection as `marin`. Historical
+  initialization facts validate against their captured catalog rather than the
+  current catalog, preserving an auditable basis for the catalog-change work
+  deliberately left to item 4.
+- 2026-07-12: Review verification passed regenerated-output reproduction,
+  focused race-enabled generator, speech, conversation, and speech-HTTP tests,
+  the changed-file quality gate, all 1,135 desktop tests, typecheck, production
+  build, and deterministic production Electron workflows at
+  `.recordings/global-speech-session/20260712T185710883Z/` and
+  `.recordings/topic-conversation-pane-projection/20260712T185726646Z/`. The
+  broad gate again cleared all 34 Go packages and every non-Electron check,
+  then reached only the already documented retired chat workflow's missing
+  `New chat` control and temporary-terminal attach error. The supply-chain
+  audit again reached only repository-pinned Go 1.26.4's pre-existing
+  `GO-2026-5856`, fixed in Go 1.26.5. Review regeneration changed no generated
+  output, no dependency or toolchain input changed, and Phase 5 item 4 was not
+  started.

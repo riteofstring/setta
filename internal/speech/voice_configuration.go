@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+const (
+	MasterVoiceSelectionStreamID             = "speech:master-voice-selection"
+	MasterVoiceSelectionInitializedEventID   = "speech-master-voice-selection-initialized"
+	MasterVoiceSelectionInitializedEventKind = "speech.master_voice_selection.initialized"
+)
+
 func SynthesisVoiceCatalog() SpeechVoiceCatalog {
 	return SpeechVoiceCatalog{
 		Provider: SpeechProviderOpenAI,
@@ -34,6 +40,25 @@ func DefaultMasterVoiceSelection(updatedAt string) MasterVoiceSelection {
 	}
 }
 
+func NewMasterVoiceSelectionInitialization(
+	selection MasterVoiceSelection,
+) MasterVoiceSelectionInitialization {
+	return MasterVoiceSelectionInitialization{
+		Catalog:   SynthesisVoiceCatalog(),
+		Selection: CloneMasterVoiceSelection(selection),
+	}
+}
+
+func (initialization MasterVoiceSelectionInitialization) Validate() error {
+	available, err := validateVoiceCatalogSnapshot(initialization.Catalog)
+	if err != nil {
+		return fmt.Errorf("master voice selection initialization catalog: %w", err)
+	}
+	return initialization.Selection.validateAgainstCatalog(func(voiceID SpeechVoiceID) bool {
+		return available[voiceID]
+	})
+}
+
 func CloneMasterVoiceSelection(selection MasterVoiceSelection) MasterVoiceSelection {
 	selection.RequestedVoiceID = cloneVoiceID(selection.RequestedVoiceID)
 	selection.ResolvedVoiceID = cloneVoiceID(selection.ResolvedVoiceID)
@@ -41,10 +66,17 @@ func CloneMasterVoiceSelection(selection MasterVoiceSelection) MasterVoiceSelect
 }
 
 func (selection MasterVoiceSelection) Validate() error {
-	if err := ValidateVoiceSelection(
+	return selection.validateAgainstCatalog(LookupVoice)
+}
+
+func (selection MasterVoiceSelection) validateAgainstCatalog(
+	available func(SpeechVoiceID) bool,
+) error {
+	if err := validateVoiceSelectionAgainstCatalog(
 		selection.Selection,
 		selection.RequestedVoiceID,
 		selection.ResolvedVoiceID,
+		available,
 	); err != nil {
 		return fmt.Errorf("master voice selection: %w", err)
 	}
@@ -56,21 +88,42 @@ func ValidateVoiceSelection(
 	requestedVoiceID *SpeechVoiceID,
 	resolvedVoiceID *SpeechVoiceID,
 ) error {
+	return validateVoiceSelectionAgainstCatalog(
+		mode,
+		requestedVoiceID,
+		resolvedVoiceID,
+		LookupVoice,
+	)
+}
+
+func validateVoiceSelectionAgainstCatalog(
+	mode VoiceSelectionMode,
+	requestedVoiceID *SpeechVoiceID,
+	resolvedVoiceID *SpeechVoiceID,
+	available func(SpeechVoiceID) bool,
+) error {
+	if available == nil {
+		return errors.New("voice catalog lookup is required")
+	}
 	switch mode {
 	case VoiceSelectionExact:
-		return validateExactVoiceSelection(requestedVoiceID, resolvedVoiceID)
+		return validateExactVoiceSelection(requestedVoiceID, resolvedVoiceID, available)
 	case VoiceSelectionAutoDistinct:
-		return validateAutomaticVoiceSelection(requestedVoiceID, resolvedVoiceID)
+		return validateAutomaticVoiceSelection(requestedVoiceID, resolvedVoiceID, available)
 	default:
 		return fmt.Errorf("unsupported voice selection mode %q", mode)
 	}
 }
 
-func validateExactVoiceSelection(requestedVoiceID, resolvedVoiceID *SpeechVoiceID) error {
+func validateExactVoiceSelection(
+	requestedVoiceID *SpeechVoiceID,
+	resolvedVoiceID *SpeechVoiceID,
+	available func(SpeechVoiceID) bool,
+) error {
 	if requestedVoiceID == nil {
 		return errors.New("exact voice selection requires requested voice id")
 	}
-	if !LookupVoice(*requestedVoiceID) {
+	if !available(*requestedVoiceID) {
 		return fmt.Errorf("exact voice selection requested unavailable voice %q", *requestedVoiceID)
 	}
 	if resolvedVoiceID == nil {
@@ -86,14 +139,41 @@ func validateExactVoiceSelection(requestedVoiceID, resolvedVoiceID *SpeechVoiceI
 	return nil
 }
 
-func validateAutomaticVoiceSelection(requestedVoiceID, resolvedVoiceID *SpeechVoiceID) error {
+func validateAutomaticVoiceSelection(
+	requestedVoiceID *SpeechVoiceID,
+	resolvedVoiceID *SpeechVoiceID,
+	available func(SpeechVoiceID) bool,
+) error {
 	if requestedVoiceID != nil {
 		return errors.New("automatic voice selection must not contain requested voice id")
 	}
-	if resolvedVoiceID != nil && !LookupVoice(*resolvedVoiceID) {
+	if resolvedVoiceID != nil && !available(*resolvedVoiceID) {
 		return fmt.Errorf("automatic voice selection resolved unavailable voice %q", *resolvedVoiceID)
 	}
 	return nil
+}
+
+func validateVoiceCatalogSnapshot(catalog SpeechVoiceCatalog) (map[SpeechVoiceID]bool, error) {
+	if !validValue(catalog.Provider, speechProviderValues) {
+		return nil, fmt.Errorf("unsupported speech provider %q", catalog.Provider)
+	}
+	if err := validateRequiredTrimmedText("speech voice catalog version", catalog.Version); err != nil {
+		return nil, err
+	}
+	if len(catalog.VoiceIDs) == 0 {
+		return nil, errors.New("speech voice catalog must contain at least one voice")
+	}
+	available := make(map[SpeechVoiceID]bool, len(catalog.VoiceIDs))
+	for _, voiceID := range catalog.VoiceIDs {
+		if err := validateRequiredTrimmedText("speech voice catalog voice id", string(voiceID)); err != nil {
+			return nil, err
+		}
+		if available[voiceID] {
+			return nil, fmt.Errorf("speech voice catalog repeats voice %q", voiceID)
+		}
+		available[voiceID] = true
+	}
+	return available, nil
 }
 
 func validateCanonicalTimestamp(label string, value string) error {

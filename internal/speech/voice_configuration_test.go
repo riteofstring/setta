@@ -83,6 +83,30 @@ func TestVoiceSelectionsRequireTypedAvailableExactValues(t *testing.T) {
 	}
 }
 
+func TestMasterVoiceInitializationValidatesAgainstItsHistoricalCatalog(t *testing.T) {
+	initialization := NewMasterVoiceSelectionInitialization(
+		DefaultMasterVoiceSelection("2026-07-12T18:00:00Z"),
+	)
+	if err := initialization.Validate(); err != nil {
+		t.Fatalf("validate initialization: %v", err)
+	}
+
+	requested := SpeechVoiceID("retired")
+	resolved := requested
+	initialization.Catalog.Version = "historical-catalog"
+	initialization.Catalog.VoiceIDs = []SpeechVoiceID{requested}
+	initialization.Selection.RequestedVoiceID = &requested
+	initialization.Selection.ResolvedVoiceID = &resolved
+	if err := initialization.Validate(); err != nil {
+		t.Fatalf("validate historical voice no longer in current catalog: %v", err)
+	}
+
+	initialization.Catalog.VoiceIDs = append(initialization.Catalog.VoiceIDs, requested)
+	if err := initialization.Validate(); err == nil || !strings.Contains(err.Error(), "repeats") {
+		t.Fatalf("duplicate historical voice error = %v", err)
+	}
+}
+
 func voiceIDPointer(value SpeechVoiceID) *SpeechVoiceID {
 	result := value
 	return &result
