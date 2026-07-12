@@ -203,7 +203,7 @@ func assertRuntimeLiveMasterRoute(
 			return target.ConversationID == conversationID && target.WorkspaceID == workspaceID
 		}) ||
 		!slices.Contains(record.Context.ActiveWorkspaceIDs, workspaceID) ||
-		record.ResolvedInvocation.Configuration.ResolvedModel != "gpt-5.6-luna" ||
+		record.ResolvedInvocation.Configuration.ResolvedModel != "gpt-5.6-terra" ||
 		record.ResolvedInvocation.Configuration.ResolvedPermissionMode != "read_only" ||
 		record.ResolvedInvocation.Configuration.ResolvedApprovalMode != "never" ||
 		record.ResolvedInvocation.ProviderRequestID == "" ||

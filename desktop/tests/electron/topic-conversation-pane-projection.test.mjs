@@ -25,6 +25,7 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import {
+  assertMasterRouteContextAuthority,
   assertMasterRouteDecision,
   captureMasterHistory,
   closeMasterOverlay,
@@ -500,6 +501,10 @@ try {
     expectedInputId: escalationMasterInputId,
     expectedKind: "clarify",
     expectedSessionId: sharedMasterSessionId,
+  });
+  assertMasterRouteContextAuthority(escalationMasterRoute, {
+    expectedConversationId: beta.id,
+    expectedKinds: ["queue_agent_turn", "steer_active_turn"],
   });
 
   await submitAndWaitForQueue(context.client, alpha.id, "artifact alpha", 1);

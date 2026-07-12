@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"setta/internal/master"
@@ -32,6 +33,82 @@ func TestStoreClaimsMasterRoutingInDurableInputSequence(t *testing.T) {
 	work, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:11:00Z")
 	if err != nil || !found || work.Input.Input.ID != first.ID {
 		t.Fatalf("sequence claim = %+v found=%t err=%v, want %s", work, found, err, first.ID)
+	}
+}
+
+func TestStoreListsActiveAndOpenMasterRouteContextConversations(t *testing.T) {
+	store := newTestStore(t)
+	conversations := []TopicConversation{
+		masterRouteContextTestConversation("route-context-waiting", ConversationStatusWaitingForApproval, "2026-07-11T20:05:00Z"),
+		masterRouteContextTestConversation("route-context-working", ConversationStatusWorking, "2026-07-11T20:06:00Z"),
+		masterRouteContextTestConversation("route-context-failed", ConversationStatusFailed, "2026-07-11T20:07:00Z"),
+		masterRouteContextTestConversation("route-context-open-idle", ConversationStatusIdle, "2026-07-11T20:08:00Z"),
+		masterRouteContextTestConversation("route-context-closed-idle", ConversationStatusIdle, "2026-07-11T20:09:00Z"),
+	}
+	_, err := store.Transact(context.Background(), "seed master route context conversations", func(transaction *WriteTransaction) error {
+		for _, conversation := range conversations {
+			if err := transaction.InsertConversation(conversation); err != nil {
+				return err
+			}
+		}
+		_, err := transaction.tx.ExecContext(transaction.ctx, `
+INSERT INTO pane_bindings (
+  pane_id, workspace_id, conversation_id, created_at, updated_at, last_focused_at
+) VALUES (?, ?, ?, ?, ?, ?)
+`,
+			"route-context-pane",
+			"workspace-route-context",
+			"route-context-open-idle",
+			"2026-07-11T20:00:00Z",
+			"2026-07-11T20:08:00Z",
+			"2026-07-11T20:08:00Z",
+		)
+		if err != nil {
+			return err
+		}
+		_, err = transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"seed-master-route-context-conversations",
+			"master-route-context-test",
+			conversations,
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed route context conversations: %v", err)
+	}
+
+	conversationIDs, err := store.ListMasterRouteContextConversationIDs(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ListMasterRouteContextConversationIDs: %v", err)
+	}
+	want := []string{
+		"route-context-waiting",
+		"route-context-working",
+		"route-context-failed",
+		"route-context-open-idle",
+	}
+	if !slices.Equal(conversationIDs, want) {
+		t.Fatalf("master route context conversations = %v, want %v", conversationIDs, want)
+	}
+	limited, err := store.ListMasterRouteContextConversationIDs(context.Background(), 2)
+	if err != nil || !slices.Equal(limited, want[:2]) {
+		t.Fatalf("limited master route context conversations = %v err=%v", limited, err)
+	}
+}
+
+func masterRouteContextTestConversation(
+	id string,
+	status ConversationStatus,
+	updatedAt string,
+) TopicConversation {
+	return TopicConversation{
+		ID:              id,
+		WorkspaceID:     "workspace-route-context",
+		Title:           id,
+		TopicDescriptor: "Master route context coverage",
+		Status:          status,
+		CreatedAt:       "2026-07-11T20:00:00Z",
+		UpdatedAt:       updatedAt,
 	}
 }
 

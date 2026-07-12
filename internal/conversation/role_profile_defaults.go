@@ -12,7 +12,7 @@ const (
 // only Setta-owned, proposal-oriented capabilities that the backend validates
 // before executing.
 func DefaultMasterRoleProfile() RoleProfile {
-	modelID := "gpt-5.6-luna"
+	modelID := "gpt-5.6-terra"
 	return RoleProfile{
 		Role:            RoleMaster,
 		Provider:        ProviderCodex,

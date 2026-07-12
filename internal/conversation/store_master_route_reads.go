@@ -11,6 +11,102 @@ import (
 	"setta/internal/master"
 )
 
+// ListMasterRouteContextConversationIDs returns the bounded app-global state
+// the master needs in addition to lexical candidates: attention-requiring
+// conversations followed by idle conversations that still have an open pane.
+func (store *Store) ListMasterRouteContextConversationIDs(
+	ctx context.Context,
+	limit int,
+) ([]string, error) {
+	if store == nil {
+		return nil, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return nil, errors.New("master route context conversation context is required")
+	}
+	if limit < 0 || limit > master.MaxRouteConversationTargets {
+		return nil, fmt.Errorf(
+			"master route context conversation limit must be between 0 and %d",
+			master.MaxRouteConversationTargets,
+		)
+	}
+	if limit == 0 {
+		return []string{}, nil
+	}
+
+	conversationIDs := []string{}
+	err := store.read(ctx, "list master route context conversations", func(ctx context.Context, reader *sql.Conn) error {
+		rows, err := reader.QueryContext(ctx, `
+WITH contextual_conversations AS (
+  SELECT
+    conversation.id,
+    conversation.status,
+    substr(conversation.updated_at, 1, 19) || '.' ||
+      substr(
+        CASE
+          WHEN instr(conversation.updated_at, '.') = 20
+            THEN substr(
+              conversation.updated_at,
+              21,
+              length(conversation.updated_at) - 21
+            )
+          ELSE ''
+        END || '000000000',
+        1,
+        9
+      ) AS updated_sort_key
+  FROM conversations AS conversation
+  WHERE conversation.archived_at IS NULL
+    AND (
+      conversation.status <> ?
+      OR EXISTS (
+        SELECT 1
+        FROM pane_bindings AS pane
+        WHERE pane.conversation_id = conversation.id
+      )
+    )
+)
+SELECT id
+FROM contextual_conversations
+ORDER BY
+  CASE status
+    WHEN ? THEN 0
+    WHEN ? THEN 1
+    WHEN ? THEN 2
+    ELSE 3
+  END,
+  updated_sort_key DESC,
+  id
+LIMIT ?
+`,
+			ConversationStatusIdle,
+			ConversationStatusWaitingForApproval,
+			ConversationStatusWorking,
+			ConversationStatusFailed,
+			limit,
+		)
+		if err != nil {
+			return fmt.Errorf("list master route context conversations: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var conversationID string
+			if err := rows.Scan(&conversationID); err != nil {
+				return err
+			}
+			conversationIDs = append(conversationIDs, conversationID)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := validateMasterRouteTargetIDs(conversationIDs); err != nil {
+		return nil, &CorruptStateError{Path: store.dbPath, Err: err}
+	}
+	return conversationIDs, nil
+}
+
 func (store *Store) WaitForPendingMasterRouteInputs(ctx context.Context) error {
 	if store == nil {
 		return errors.New("conversation store is required")

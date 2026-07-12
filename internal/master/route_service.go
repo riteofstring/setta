@@ -17,6 +17,7 @@ import (
 
 type RouteStore interface {
 	ClaimNextMasterRouteInput(context.Context, string) (InputRoutingWork, bool, error)
+	ListMasterRouteContextConversationIDs(context.Context, int) ([]string, error)
 	ReadMasterRouteTargets(context.Context, []string, int) ([]RouteConversationTarget, error)
 	ListRecentMasterRouteDecisions(context.Context, int) ([]RouteDecisionRecord, error)
 	CommitMasterRouteDecision(context.Context, RouteDecisionCommit) (RouteDecisionRecord, error)
@@ -169,7 +170,17 @@ func (service *RouteService) materializeClaimedInput(
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	targetIDs := routeContextTargetIDs(work.Input.Input, candidates)
+	contextConversationIDs, err := service.store.ListMasterRouteContextConversationIDs(
+		ctx,
+		MaxRouteConversationTargets,
+	)
+	if err != nil {
+		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
+	}
+	targetIDs, err := routeContextTargetIDs(work.Input.Input, candidates, contextConversationIDs)
+	if err != nil {
+		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateCorrupt, err)
+	}
 	targets, err := service.store.ReadMasterRouteTargets(ctx, targetIDs, MaxRouteForkPointsPerTarget)
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
@@ -286,14 +297,51 @@ func (service *RouteService) failClaimedInput(
 func routeContextTargetIDs(
 	input MasterInput,
 	candidates []conversationindex.Candidate,
+	contextConversationIDs []string,
+) ([]string, error) {
+	if err := validateRouteContextConversationIDs(contextConversationIDs); err != nil {
+		return nil, err
+	}
+	ids := requiredRouteContextTargetIDs(input, candidates)
+	if len(ids) > MaxRouteConversationTargets {
+		return nil, fmt.Errorf("master route required targets exceed %d conversations", MaxRouteConversationTargets)
+	}
+	return appendRouteContextConversationIDs(ids, contextConversationIDs), nil
+}
+
+func validateRouteContextConversationIDs(conversationIDs []string) error {
+	if conversationIDs == nil {
+		return errors.New("master route context conversation ids must be an array")
+	}
+	if len(conversationIDs) > MaxRouteConversationTargets {
+		return fmt.Errorf("master route context source exceeds %d conversations", MaxRouteConversationTargets)
+	}
+	return validateUniqueRouteReferences("context conversation", conversationIDs)
+}
+
+func requiredRouteContextTargetIDs(
+	input MasterInput,
+	candidates []conversationindex.Candidate,
 ) []string {
-	ids := make([]string, 0, len(candidates)+2)
+	ids := make([]string, 0, MaxRouteConversationTargets)
 	for _, candidate := range candidates {
 		ids = append(ids, candidate.Card.ConversationID)
 	}
 	for _, optional := range []*string{input.FocusedConversationID, input.OriginatingConversationID} {
 		if optional != nil && !slices.Contains(ids, *optional) {
 			ids = append(ids, *optional)
+		}
+	}
+	return ids
+}
+
+func appendRouteContextConversationIDs(ids []string, contextConversationIDs []string) []string {
+	for _, conversationID := range contextConversationIDs {
+		if len(ids) >= MaxRouteConversationTargets {
+			break
+		}
+		if !slices.Contains(ids, conversationID) {
+			ids = append(ids, conversationID)
 		}
 	}
 	return ids

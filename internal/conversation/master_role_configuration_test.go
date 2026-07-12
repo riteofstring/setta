@@ -14,7 +14,7 @@ func TestDefaultMasterRoleProfileOwnsRestrictedIndependentDefaults(t *testing.T)
 		t.Fatalf("validate default master role: %v", err)
 	}
 	if profile.Role != RoleMaster || profile.ModelSelection.Mode != ModelSelectionExact ||
-		profile.ModelSelection.ModelID == nil || *profile.ModelSelection.ModelID != "gpt-5.6-luna" ||
+		profile.ModelSelection.ModelID == nil || *profile.ModelSelection.ModelID != "gpt-5.6-terra" ||
 		profile.ReasoningEffort != ReasoningEffortMedium || profile.ServiceTier != nil ||
 		profile.PermissionProfile.ApprovalPolicy != ApprovalPolicyNever ||
 		profile.PermissionProfile.ProviderPermissionProfile != ":read-only" ||
@@ -29,7 +29,7 @@ func TestDefaultMasterRoleProfileOwnsRestrictedIndependentDefaults(t *testing.T)
 		t.Fatal("default master role returned shared mutable capability state")
 	}
 	if DefaultAgentRoleProfile().ModelSelection.ModelID == nil ||
-		*DefaultAgentRoleProfile().ModelSelection.ModelID == "gpt-5.6-luna" {
+		*DefaultAgentRoleProfile().ModelSelection.ModelID == "gpt-5.6-terra" {
 		t.Fatal("master default leaked into the primary agent role")
 	}
 }

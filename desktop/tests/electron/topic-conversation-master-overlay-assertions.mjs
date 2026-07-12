@@ -213,6 +213,27 @@ export function assertMasterRouteDecision(
   }
 }
 
+export function assertMasterRouteContextAuthority(
+  state,
+  { expectedConversationId, expectedKinds },
+) {
+  const authority = state?.decision?.context?.targetAuthorities?.find(
+    (target) => target.conversationId === expectedConversationId,
+  );
+  if (
+    authority === undefined ||
+    !expectedKinds.every((kind) => authority.allowedDecisionKinds.includes(kind))
+  ) {
+    throw new Error(
+      `master route context omitted active conversation authority: ${JSON.stringify({
+        expectedConversationId,
+        expectedKinds,
+        state,
+      })}`,
+    );
+  }
+}
+
 function masterRouteDecisionIsValid(
   state,
   record,
@@ -279,8 +300,8 @@ function masterRouteConfigurationIsRestricted(configuration) {
 
 function masterRouteModelSelectionMatches(configuration) {
   return [
-    configuration?.requestedModel === "gpt-5.6-luna",
-    configuration?.resolvedModel === "gpt-5.6-luna",
+    configuration?.requestedModel === "gpt-5.6-terra",
+    configuration?.resolvedModel === "gpt-5.6-terra",
     configuration?.requestedReasoningEffort === "medium",
     configuration?.resolvedReasoningEffort === "medium",
   ].every(Boolean);
