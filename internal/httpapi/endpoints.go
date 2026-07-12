@@ -92,6 +92,7 @@ var apiEndpoints = []endpoint{
 	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
 	postWithRequestBodyLimit[SubmitConversationInputRequest, conversation.AcceptedConversationInput]("SubmitConversationInput", "/conversations/inputs/submit", conversationInputRequestBodyLimitBytes, handler.submitConversationInput),
 	post[ReadConversationInputRoutingStateRequest, conversation.ConversationInputRoutingState]("ReadConversationInputRoutingState", "/conversations/inputs/state/read", handler.readConversationInputRoutingState),
+	post[ReadConversationInputRoutingStateRequest, conversation.ConversationInputRoutingState]("WaitConversationInputRoutingState", "/conversations/inputs/state/wait", handler.waitConversationInputRoutingState),
 	post[RetryConversationInputRequest, conversation.ConversationInputRoutingState]("RetryConversationInput", "/conversations/inputs/retry", handler.retryConversationInput),
 	post[DiscardConversationInputRequest, conversation.ConversationInputRoutingState]("DiscardConversationInput", "/conversations/inputs/discard", handler.discardConversationInput),
 	get[master.RecentMasterInputHistory]("ReadRecentMasterInputs", "/master/inputs/recent", handler.readRecentMasterInputs),

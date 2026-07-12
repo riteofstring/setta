@@ -34,6 +34,7 @@ describe("preload topic conversation API", () => {
       "submitInput",
       "subscribe",
       "updateNarratorVoice",
+      "waitInputState",
     ]);
     const listRequest = {
       cursor: null,
@@ -137,6 +138,7 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationStopTurn, target],
       [ipcChannels.conversationSubmitInput, inputRequest],
       [ipcChannels.conversationReadInputState, inputStateRequest],
+      [ipcChannels.conversationWaitInputState, inputStateRequest],
       [ipcChannels.conversationRetryInput, inputStateRequest],
       [ipcChannels.conversationDiscardInput, inputStateRequest],
       [ipcChannels.conversationSubmitApproval, approval],
@@ -193,16 +195,16 @@ async function invokeConversationCommands(
   },
 ) {
   await api.conversations.askStatus({ ...requests.target, question: "What is happening?" });
-  const createSide = api.conversations.createSide;
-  if (!createSide) {
-    throw new Error("side conversation creation is unavailable");
-  }
+  const createSide = requireConversationCommand(
+    api.conversations.createSide,
+    "side conversation creation",
+  );
   await createSide(requests.sideRequest);
-  const sendSide = api.conversations.sendSide;
-  const disposeSide = api.conversations.disposeSide;
-  if (!sendSide || !disposeSide) {
-    throw new Error("side conversation lifecycle is unavailable");
-  }
+  const sendSide = requireConversationCommand(api.conversations.sendSide, "side conversation send");
+  const disposeSide = requireConversationCommand(
+    api.conversations.disposeSide,
+    "side conversation disposal",
+  );
   await sendSide(requests.sideTurnRequest);
   await disposeSide(requests.sideDisposeRequest);
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
@@ -213,27 +215,42 @@ async function invokeConversationCommands(
   await api.conversations.queue(requests.turn);
   await api.conversations.steer(requests.turn);
   await api.conversations.stop(requests.target);
-  const submitInput = api.conversations.submitInput;
-  if (!submitInput) {
-    throw new Error("conversation input intake is unavailable");
-  }
+  const submitInput = requireConversationCommand(
+    api.conversations.submitInput,
+    "conversation input intake",
+  );
   await submitInput(requests.inputRequest);
-  const readInputState = api.conversations.readInputState;
-  if (!readInputState) {
-    throw new Error("conversation input routing state is unavailable");
-  }
+  const readInputState = requireConversationCommand(
+    api.conversations.readInputState,
+    "conversation input routing state",
+  );
   await readInputState(requests.inputStateRequest);
-  const retryInput = api.conversations.retryInput;
-  const discardInput = api.conversations.discardInput;
-  if (!retryInput || !discardInput) {
-    throw new Error("conversation input routing lifecycle is unavailable");
-  }
+  const waitInputState = requireConversationCommand(
+    api.conversations.waitInputState,
+    "conversation input routing settlement",
+  );
+  await waitInputState(requests.inputStateRequest);
+  const retryInput = requireConversationCommand(
+    api.conversations.retryInput,
+    "conversation input routing retry",
+  );
+  const discardInput = requireConversationCommand(
+    api.conversations.discardInput,
+    "conversation input routing discard",
+  );
   await retryInput(requests.inputStateRequest);
   await discardInput(requests.inputStateRequest);
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);
   await api.conversations.updateNarratorVoice?.(requests.voiceRequest);
+}
+
+function requireConversationCommand<Command>(command: Command | undefined, label: string): Command {
+  if (!command) {
+    throw new Error(`${label} is unavailable`);
+  }
+  return command;
 }
 
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {

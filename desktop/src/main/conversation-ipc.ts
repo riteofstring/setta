@@ -67,6 +67,12 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationWaitInputState",
+    async (_event, request) => requireBackendClient().waitConversationInputRoutingState(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationReadSnapshot",
     async (_event, request) => requireBackendClient().readConversationSnapshot(request),
     ipcObserver,

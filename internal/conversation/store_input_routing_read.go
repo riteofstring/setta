@@ -25,23 +25,33 @@ func (store *Store) ListPendingConversationRouteInputs(
 	conversationIDs := []string{}
 	err := store.read(ctx, "list pending conversation router inputs", func(ctx context.Context, reader *sql.Conn) error {
 		rows, err := reader.QueryContext(ctx, `
-SELECT DISTINCT root.conversation_id
-FROM conversation_inputs AS root
-WHERE root.reply_to_input_id IS NULL
-  AND (
-    root.status = ?
-    OR (
+WITH pending_conversations AS (
+  SELECT root.conversation_id
+  FROM conversation_inputs AS root
+  WHERE root.reply_to_input_id IS NULL
+    AND (
       root.status = ?
-      AND EXISTS (
-        SELECT 1
-        FROM conversation_inputs AS reply
-        WHERE reply.conversation_id = root.conversation_id
-          AND reply.reply_to_input_id = root.id
-          AND reply.status = ?
+      OR (
+        root.status = ?
+        AND EXISTS (
+          SELECT 1
+          FROM conversation_inputs AS reply
+          WHERE reply.conversation_id = root.conversation_id
+            AND reply.reply_to_input_id = root.id
+            AND reply.status = ?
+        )
       )
     )
-  )
-ORDER BY root.conversation_id
+  UNION
+  SELECT decision.conversation_id
+  FROM conversation_route_decisions AS decision
+  LEFT JOIN conversation_route_command_completions AS completion
+    ON completion.decision_id = decision.id
+  WHERE completion.decision_id IS NULL
+)
+SELECT conversation_id
+FROM pending_conversations
+ORDER BY conversation_id
 `,
 			ConversationInputStatusAccepted,
 			ConversationInputStatusAwaitingClarification,
@@ -61,6 +71,58 @@ ORDER BY root.conversation_id
 		return rows.Err()
 	})
 	return conversationIDs, err
+}
+
+// ReadNextPendingConversationRouteCommand returns the oldest committed route
+// command whose effect has not been acknowledged. The decision row is the
+// durable command envelope, so startup recovery can replay it without
+// reclassifying the original input.
+func (store *Store) ReadNextPendingConversationRouteCommand(
+	ctx context.Context,
+	conversationID string,
+) (ConversationRouteDecisionRecord, bool, error) {
+	if store == nil {
+		return ConversationRouteDecisionRecord{}, false, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return ConversationRouteDecisionRecord{}, false, errors.New("conversation route command read context is required")
+	}
+	if err := validateConversationInputReference("conversation route command conversation id", conversationID); err != nil {
+		return ConversationRouteDecisionRecord{}, false, err
+	}
+
+	var record ConversationRouteDecisionRecord
+	found := false
+	err := store.read(ctx, "read pending conversation route command", func(ctx context.Context, reader *sql.Conn) error {
+		row := reader.QueryRowContext(ctx, `
+SELECT decision.stream_sequence, decision.id, decision.conversation_id,
+       decision.input_id, decision.clarification_input_id,
+       decision.routing_attempt, decision.source, decision.router_context_json,
+       decision.resolved_invocation_json, decision.route_decision_json,
+       decision.resulting_command_json, decision.resulting_command_key,
+       decision.decided_at
+FROM conversation_route_decisions AS decision
+LEFT JOIN conversation_route_command_completions AS completion
+  ON completion.decision_id = decision.id
+WHERE decision.conversation_id = ? AND completion.decision_id IS NULL
+ORDER BY decision.stream_sequence
+LIMIT 1
+`, conversationID)
+		var readErr error
+		record, readErr = scanConversationRouteDecision(row, store.dbPath)
+		if errors.Is(readErr, sql.ErrNoRows) {
+			return nil
+		}
+		if readErr != nil {
+			return readErr
+		}
+		found = true
+		return nil
+	})
+	if err != nil {
+		return ConversationRouteDecisionRecord{}, false, err
+	}
+	return cloneConversationRouteDecisionRecord(record), found, nil
 }
 
 func (store *Store) ReadConversationRouteDecisions(
@@ -135,6 +197,104 @@ func (store *Store) ReadConversationInputRoutingState(
 		return ConversationInputRoutingState{}, err
 	}
 	return cloneConversationInputRoutingState(state), nil
+}
+
+// WaitForConversationInputRoutingState blocks on the store's commit wake
+// boundary until routing reaches a user-visible terminal state and, for a
+// dispatched decision, its exact command effect is durably acknowledged.
+// Capturing the wake channel before each read avoids a lost notification
+// without polling.
+func (store *Store) WaitForConversationInputRoutingState(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (ConversationInputRoutingState, error) {
+	if store == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input routing wait context is required")
+	}
+	for {
+		wake := store.committedEventWakeChannel()
+		state, err := store.ReadConversationInputRoutingState(
+			ctx,
+			workspaceID,
+			conversationID,
+			inputID,
+		)
+		if err != nil {
+			return ConversationInputRoutingState{}, err
+		}
+		settled, err := store.conversationInputRoutingStateSettled(ctx, state)
+		if err != nil {
+			return ConversationInputRoutingState{}, err
+		}
+		if settled {
+			return state, nil
+		}
+		select {
+		case <-ctx.Done():
+			return ConversationInputRoutingState{}, ctx.Err()
+		case <-store.closing:
+			return ConversationInputRoutingState{}, ErrStoreClosed
+		case <-wake:
+		}
+	}
+}
+
+func (store *Store) conversationInputRoutingStateSettled(
+	ctx context.Context,
+	state ConversationInputRoutingState,
+) (bool, error) {
+	switch state.Input.Status {
+	case ConversationInputStatusFailed:
+		return true, nil
+	case ConversationInputStatusAwaitingClarification:
+		if state.ClarificationReply == nil {
+			return true, nil
+		}
+		switch state.ClarificationReply.Status {
+		case ConversationInputStatusAccepted, ConversationInputStatusRouting:
+			return false, nil
+		case ConversationInputStatusFailed:
+			return true, nil
+		default:
+			return false, &CorruptStateError{
+				Path: store.dbPath,
+				Err: fmt.Errorf(
+					"awaiting conversation input %s has clarification reply %s in status %s",
+					state.Input.Input.ID,
+					state.ClarificationReply.Input.ID,
+					state.ClarificationReply.Status,
+				),
+			}
+		}
+	case ConversationInputStatusAccepted, ConversationInputStatusRouting:
+		return false, nil
+	case ConversationInputStatusDispatched:
+		if len(state.Decisions) == 0 {
+			return false, &CorruptStateError{
+				Path: store.dbPath,
+				Err:  fmt.Errorf("dispatched conversation input %s has no route decision", state.Input.Input.ID),
+			}
+		}
+		decisionID := state.Decisions[len(state.Decisions)-1].ID
+		completed := false
+		err := store.read(ctx, "read conversation route command settlement", func(ctx context.Context, reader *sql.Conn) error {
+			return reader.QueryRowContext(ctx, `
+SELECT EXISTS(
+  SELECT 1
+  FROM conversation_route_command_completions
+  WHERE decision_id = ?
+)
+`, decisionID).Scan(&completed)
+		})
+		return completed, err
+	default:
+		return false, fmt.Errorf("unsupported conversation input routing status %q", state.Input.Status)
+	}
 }
 
 func readConversationInputRoutingState(
@@ -629,6 +789,7 @@ func requireConversationRouteIdentifierAbsent(
 		"side_conversations": true,
 		"conversations":      true,
 		"master_inputs":      true,
+		"trajectory_events":  true,
 	}
 	if !allowed[table] {
 		return fmt.Errorf("unsupported conversation route identifier table %q", table)
@@ -642,6 +803,27 @@ func requireConversationRouteIdentifierAbsent(
 		return fmt.Errorf("inspect conversation route command id %s: %w", id, err)
 	}
 	return stateConflict("conversation route command", id, "command id already exists")
+}
+
+func requireConversationRouteSideTurnIdentifierAbsent(
+	ctx context.Context,
+	tx *sql.Tx,
+	turnID string,
+) error {
+	var found int
+	err := tx.QueryRowContext(ctx, `
+SELECT 1
+FROM side_conversation_events
+WHERE turn_id = ?
+LIMIT 1
+`, turnID).Scan(&found)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect conversation route side turn id %s: %w", turnID, err)
+	}
+	return stateConflict("conversation route command", turnID, "side turn id already exists")
 }
 
 func requireConversationRouteCommandKeyAbsent(

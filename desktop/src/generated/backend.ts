@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 36;
-export const backendContractSchemaHash = "sha256:495b4e7703fdb5f6d7ba6cef40b8db9f53ce949f386955a530cfc9cab694c765";
+export const backendProtocolVersion = 37;
+export const backendContractSchemaHash = "sha256:e71b9aa2e41cc37115508b637e4ef0a0177a4668130ae82cfc58984ac6096e4d";
 
 export type DeviceScope = "full";
 
@@ -5260,12 +5260,14 @@ export interface AnswerAsNarratorConversationRouteCommand {
 export interface CreateSideConversationRouteCommand {
   sideConversationId: string;
   parentPaneId: string;
+  turnId: string;
   input: AuthoredInput;
 }
 
 export interface ForkConversationRouteCommand {
   childConversationId: string;
   forkedAtTurnId: string;
+  turnId: string;
   input: AuthoredInput;
   proposedTitle: string;
 }
@@ -9148,6 +9150,11 @@ export const backendEndpoints = {
     path: "/conversations/inputs/state/read",
     requestBodyLimitBytes: 4194304,
   },
+  WaitConversationInputRoutingState: {
+    method: "POST",
+    path: "/conversations/inputs/state/wait",
+    requestBodyLimitBytes: 4194304,
+  },
   RetryConversationInput: {
     method: "POST",
     path: "/conversations/inputs/retry",
@@ -12049,20 +12056,22 @@ export function decodeAnswerAsNarratorConversationRouteCommand(value: unknown): 
 
 export function decodeCreateSideConversationRouteCommand(value: unknown): CreateSideConversationRouteCommand {
   const record = assertRecord(value, "CreateSideConversationRouteCommand");
-  assertKnownFields(record, "CreateSideConversationRouteCommand", ["sideConversationId", "parentPaneId", "input"]);
+  assertKnownFields(record, "CreateSideConversationRouteCommand", ["sideConversationId", "parentPaneId", "turnId", "input"]);
   return {
     sideConversationId: decodeString(requireField(record, "sideConversationId", "CreateSideConversationRouteCommand"), "CreateSideConversationRouteCommand.sideConversationId"),
     parentPaneId: decodeString(requireField(record, "parentPaneId", "CreateSideConversationRouteCommand"), "CreateSideConversationRouteCommand.parentPaneId"),
+    turnId: decodeString(requireField(record, "turnId", "CreateSideConversationRouteCommand"), "CreateSideConversationRouteCommand.turnId"),
     input: decodeAuthoredInput(requireField(record, "input", "CreateSideConversationRouteCommand")),
   };
 }
 
 export function decodeForkConversationRouteCommand(value: unknown): ForkConversationRouteCommand {
   const record = assertRecord(value, "ForkConversationRouteCommand");
-  assertKnownFields(record, "ForkConversationRouteCommand", ["childConversationId", "forkedAtTurnId", "input", "proposedTitle"]);
+  assertKnownFields(record, "ForkConversationRouteCommand", ["childConversationId", "forkedAtTurnId", "turnId", "input", "proposedTitle"]);
   return {
     childConversationId: decodeString(requireField(record, "childConversationId", "ForkConversationRouteCommand"), "ForkConversationRouteCommand.childConversationId"),
     forkedAtTurnId: decodeString(requireField(record, "forkedAtTurnId", "ForkConversationRouteCommand"), "ForkConversationRouteCommand.forkedAtTurnId"),
+    turnId: decodeString(requireField(record, "turnId", "ForkConversationRouteCommand"), "ForkConversationRouteCommand.turnId"),
     input: decodeAuthoredInput(requireField(record, "input", "ForkConversationRouteCommand")),
     proposedTitle: decodeString(requireField(record, "proposedTitle", "ForkConversationRouteCommand"), "ForkConversationRouteCommand.proposedTitle"),
   };
@@ -17409,6 +17418,7 @@ export interface BackendClient {
   updateTopicConversationNarratorVoice: (request: UpdateTopicConversationNarratorVoiceRequest, options?: BackendRequestOptions) => Promise<ConversationPresentationProfile>;
   submitConversationInput: (request: SubmitConversationInputRequest, options?: BackendRequestOptions) => Promise<AcceptedConversationInput>;
   readConversationInputRoutingState: (request: ReadConversationInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
+  waitConversationInputRoutingState: (request: ReadConversationInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   retryConversationInput: (request: RetryConversationInputRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   discardConversationInput: (request: DiscardConversationInputRequest, options?: BackendRequestOptions) => Promise<ConversationInputRoutingState>;
   readRecentMasterInputs: (options?: BackendRequestOptions) => Promise<RecentMasterInputHistory>;
@@ -17887,6 +17897,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationInputRoutingState,
       endpoint: backendEndpoints.ReadConversationInputRoutingState,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    waitConversationInputRoutingState: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationInputRoutingState,
+      endpoint: backendEndpoints.WaitConversationInputRoutingState,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

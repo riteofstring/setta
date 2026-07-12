@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v14";
+  const version = "setta-topic-conversation-pane-projection-driver-v15";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -97,6 +97,7 @@
             '[data-testid="easy-button-side-transcript"]',
           );
           const lineage = surface.querySelector('[data-testid="easy-button-fork-lineage"]');
+          const clarification = surface.querySelector('[data-testid="easy-button-clarification"]');
           return {
             agentText: elementText(agentText),
             approvalId: datasetValue(approval, "approvalId"),
@@ -104,6 +105,7 @@
             artifactText: Array.from(artifacts).map(elementText).join("\n"),
             captureState: datasetValue(surface, "easyButtonCapture"),
             captureScope: datasetValue(surface, "easyButtonCaptureScope"),
+            clarificationText: elementText(clarification),
             conversationId: datasetValue(surface, "conversationId"),
             errorText: elementText(error),
             helperText: elementText(helper),
@@ -291,15 +293,29 @@
     return { conversationId, opened: true };
   }
 
-  function topicConversationVoiceCapture({ conversationId }) {
-    const button = conversationSurface(conversationId)?.querySelector(
-      '[data-testid="easy-button-voice-capture"]',
-    );
+  function topicConversationVoiceCapture({ conversationId, inputMode }) {
+    const surface = conversationSurface(conversationId);
+    const mode = surface?.querySelector('[data-testid="easy-button-voice-mode"]');
+    if (!selectVoiceInputMode(mode, inputMode)) {
+      return { conversationId, requested: false };
+    }
+    const button = surface?.querySelector('[data-testid="easy-button-voice-capture"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { conversationId, requested: false };
     }
     button.click();
-    return { conversationId, requested: true };
+    return { conversationId, inputMode: mode?.value ?? "", requested: true };
+  }
+
+  function selectVoiceInputMode(mode, inputMode) {
+    if (inputMode === undefined) {
+      return true;
+    }
+    if (!(mode instanceof HTMLSelectElement) || mode.disabled) {
+      return false;
+    }
+    setFormControlValue(mode, inputMode);
+    return true;
   }
 
   function topicConversationShellSpeechCapture() {

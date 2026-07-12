@@ -243,6 +243,7 @@ func validConversationRouteDecisionAndCommand(
 				CreateSideConversation: &CreateSideConversationRouteCommand{
 					SideConversationID: "side_routed",
 					ParentPaneID:       "pane_origin",
+					TurnID:             "side_turn_routed",
 					Input:              input,
 				},
 			}
@@ -259,6 +260,7 @@ func validConversationRouteDecisionAndCommand(
 				ForkConversation: &ForkConversationRouteCommand{
 					ChildConversationID: "conversation_child",
 					ForkedAtTurnID:      "turn_completed",
+					TurnID:              "turn_child_routed",
 					Input:               input,
 					ProposedTitle:       "Durable routed fork",
 				},

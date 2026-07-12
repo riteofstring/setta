@@ -84,6 +84,11 @@ CREATE TABLE conversation_route_decisions (
 CREATE INDEX conversation_route_decisions_input_stream_idx
   ON conversation_route_decisions(conversation_id, input_id, stream_sequence);
 
+CREATE TABLE conversation_route_command_completions (
+  decision_id TEXT PRIMARY KEY REFERENCES conversation_route_decisions(id) ON DELETE CASCADE,
+  completed_at TEXT NOT NULL
+) STRICT;
+
 CREATE TABLE conversation_turns (
   id TEXT PRIMARY KEY,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,

@@ -78,6 +78,15 @@ func (router *ConversationInputRouter) ProcessNext(
 	if err := validateConversationInputRouter(router, ctx); err != nil {
 		return false, err
 	}
+	if router.executor != nil {
+		pending, found, err := router.store.ReadNextPendingConversationRouteCommand(ctx, conversationID)
+		if err != nil {
+			return false, err
+		}
+		if found {
+			return true, router.executeCommittedCommand(ctx, pending)
+		}
+	}
 	startedAt := router.timestamp()
 	work, found, err := router.store.ClaimNextConversationInput(ctx, conversationID, startedAt)
 	if err != nil {
@@ -91,11 +100,26 @@ func (router *ConversationInputRouter) ProcessNext(
 		return true, router.handleClaimedInputError(ctx, work, err)
 	}
 	if router.executor != nil {
-		if err := router.executor.ExecuteConversationRouteCommand(ctx, record); err != nil {
-			return true, &committedConversationRouteCommandError{cause: err}
-		}
+		return true, router.executeCommittedCommand(ctx, record)
 	}
 	return true, nil
+}
+
+func (router *ConversationInputRouter) executeCommittedCommand(
+	ctx context.Context,
+	record conversation.ConversationRouteDecisionRecord,
+) error {
+	if err := router.executor.ExecuteConversationRouteCommand(ctx, record); err != nil {
+		return &committedConversationRouteCommandError{cause: err}
+	}
+	completedAt, err := router.timestampAfter(record.DecidedAt)
+	if err != nil {
+		return &committedConversationRouteCommandError{cause: err}
+	}
+	if err := router.store.CompleteConversationRouteCommand(ctx, record.ID, completedAt); err != nil {
+		return &committedConversationRouteCommandError{cause: err}
+	}
+	return nil
 }
 
 func validateConversationInputRouter(router *ConversationInputRouter, ctx context.Context) error {
@@ -285,11 +309,16 @@ func (router *ConversationInputRouter) buildCommand(
 		return conversationRouteSideCommand(newID, work, decision)
 	case conversation.ConversationRouteDecisionKindForkConversation:
 		childID, err := conversationRouteCommandID(newID, "conversation")
+		if err != nil {
+			return conversation.ConversationRouteCommand{}, err
+		}
+		turnID, err := conversationRouteCommandID(newID, "conversation_turn")
 		return conversation.ConversationRouteCommand{
 			Kind: decision.Kind,
 			ForkConversation: &conversation.ForkConversationRouteCommand{
 				ChildConversationID: childID,
 				ForkedAtTurnID:      decision.ForkConversation.ForkedAtTurnID,
+				TurnID:              turnID,
 				Input:               decision.ForkConversation.Input,
 				ProposedTitle:       decision.ForkConversation.ProposedTitle,
 			},
@@ -361,11 +390,16 @@ func conversationRouteSideCommand(
 		)
 	}
 	sideID, err := conversationRouteCommandID(newID, "side_conversation")
+	if err != nil {
+		return conversation.ConversationRouteCommand{}, err
+	}
+	turnID, err := conversationRouteCommandID(newID, "side_turn")
 	return conversation.ConversationRouteCommand{
 		Kind: decision.Kind,
 		CreateSideConversation: &conversation.CreateSideConversationRouteCommand{
 			SideConversationID: sideID,
 			ParentPaneID:       *work.Input.Input.SourcePaneID,
+			TurnID:             turnID,
 			Input:              decision.CreateSideConversation.Input,
 		},
 	}, err

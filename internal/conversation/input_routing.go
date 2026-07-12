@@ -108,12 +108,14 @@ type AnswerAsNarratorConversationRouteCommand struct {
 type CreateSideConversationRouteCommand struct {
 	SideConversationID string        `json:"sideConversationId"`
 	ParentPaneID       string        `json:"parentPaneId"`
+	TurnID             string        `json:"turnId"`
 	Input              AuthoredInput `json:"input"`
 }
 
 type ForkConversationRouteCommand struct {
 	ChildConversationID string        `json:"childConversationId"`
 	ForkedAtTurnID      string        `json:"forkedAtTurnId"`
+	TurnID              string        `json:"turnId"`
 	Input               AuthoredInput `json:"input"`
 	ProposedTitle       string        `json:"proposedTitle"`
 }
@@ -439,6 +441,9 @@ func validateCreateSideConversationCommand(payload *CreateSideConversationRouteC
 	if err := validateIdentifier("conversation route parent pane id", payload.ParentPaneID); err != nil {
 		return err
 	}
+	if err := validateIdentifier("conversation route side turn id", payload.TurnID); err != nil {
+		return err
+	}
 	return validateConversationRouteAuthoredInput(payload.Input)
 }
 
@@ -450,6 +455,9 @@ func validateForkConversationCommand(payload *ForkConversationRouteCommand) erro
 		return err
 	}
 	if err := validateIdentifier("conversation route fork turn id", payload.ForkedAtTurnID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("conversation route child turn id", payload.TurnID); err != nil {
 		return err
 	}
 	if err := validateConversationRouteAuthoredInput(payload.Input); err != nil {

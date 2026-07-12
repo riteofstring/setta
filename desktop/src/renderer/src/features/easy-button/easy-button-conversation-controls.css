@@ -249,6 +249,27 @@
   animation: easy-button-speech-spin 900ms linear infinite;
 }
 
+.easy-button-clarification {
+  color: var(--easy-button-muted);
+  font-size: 0.78rem;
+  margin: 0 0 0.35rem;
+  max-width: min(42rem, 100%);
+}
+
+.easy-button-routing-recovery {
+  gap: 8px;
+}
+
+.easy-button-routing-recovery button {
+  background: var(--easy-button-plate);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 999px;
+  color: var(--easy-button-ink);
+  cursor: pointer;
+  font: inherit;
+  padding: 5px 10px;
+}
+
 @keyframes easy-button-speech-pulse {
   0%,
   100% {

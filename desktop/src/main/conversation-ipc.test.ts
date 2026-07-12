@@ -53,6 +53,19 @@ describe("conversation IPC handlers", () => {
           status: "accepted" as const,
         },
       })),
+      waitConversationInputRoutingState: vi.fn(async () => ({
+        clarificationReply: null,
+        decisions: [],
+        input: {
+          acceptedAt: "2026-07-12T18:00:01Z",
+          failure: null,
+          input: conversationInputRequest().input,
+          routingAttempt: 0,
+          routingStartedAt: null,
+          sequence: 1,
+          status: "accepted" as const,
+        },
+      })),
       readConversationSnapshot: vi.fn(async () => snapshot),
       retryConversationInput: vi.fn(async () => ({
         clarificationReply: null,
@@ -158,6 +171,7 @@ describe("conversation IPC handlers", () => {
       inputId: inputRequest.input.id,
     };
     await invokeHandler(handlers, ipcChannels.conversationReadInputState, inputStateRequest);
+    await invokeHandler(handlers, ipcChannels.conversationWaitInputState, inputStateRequest);
     await invokeHandler(handlers, ipcChannels.conversationRetryInput, inputStateRequest);
     await invokeHandler(handlers, ipcChannels.conversationDiscardInput, inputStateRequest);
     await invokeHandler(handlers, ipcChannels.conversationSubmitApproval, {
@@ -201,6 +215,9 @@ describe("conversation IPC handlers", () => {
     expect(backendMethods.stopTopicConversationTurn).toHaveBeenCalledWith(target);
     expect(backendMethods.submitConversationInput).toHaveBeenCalledWith(inputRequest);
     expect(backendMethods.readConversationInputRoutingState).toHaveBeenCalledWith(
+      inputStateRequest,
+    );
+    expect(backendMethods.waitConversationInputRoutingState).toHaveBeenCalledWith(
       inputStateRequest,
     );
     expect(backendMethods.retryConversationInput).toHaveBeenCalledWith(inputStateRequest);

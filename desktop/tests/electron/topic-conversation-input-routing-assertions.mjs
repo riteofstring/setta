@@ -20,6 +20,7 @@ export async function waitForRecordedTextConversationInput(
   text,
   inputMode,
   timeoutMs,
+  replyToInputId = null,
 ) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -43,7 +44,13 @@ export async function waitForRecordedTextConversationInput(
       : null;
     if (start && finish) {
       const request = start.args[0];
-      assertRecordedTextConversationInput(request.input, conversationId, text, inputMode);
+      assertRecordedTextConversationInput(
+        request.input,
+        conversationId,
+        text,
+        inputMode,
+        replyToInputId,
+      );
       return { accepted: finish.result, request };
     }
     await delay(20);
@@ -79,14 +86,20 @@ export async function assertRecordedExplicitTextInput({
   return { ...recorded, state };
 }
 
-function assertRecordedTextConversationInput(input, conversationId, text, inputMode) {
+function assertRecordedTextConversationInput(
+  input,
+  conversationId,
+  text,
+  inputMode,
+  replyToInputId,
+) {
   assertEqualJSON(
     conversationInputSummary(input),
     {
       ...conversationInputSummary(input),
       conversationId,
       modality: "text",
-      replyToInputId: null,
+      replyToInputId,
       requestedMode: inputMode,
       text,
     },
@@ -202,6 +215,38 @@ export function assertExplicitConversationInputRoutingState(state, expectedInput
       status: "dispatched",
     },
     "explicit conversation input routing",
+  );
+}
+
+export function assertPaneClarificationExchange(state, root, reply) {
+  const initial = state.decisions[0];
+  const final = state.decisions[1];
+  assertEqualJSON(
+    {
+      clarificationInputId: final.clarificationInputId,
+      clarificationQuestion: initial.decision.clarify.question,
+      finalCommandKind: final.resultingCommand.kind,
+      finalCommandText: final.resultingCommand.sendToParent.authoredInput.text,
+      finalSource: final.source,
+      replyId: state.clarificationReply.input.id,
+      replyReplyToInputId: state.clarificationReply.input.replyToInputId,
+      replyStatus: state.clarificationReply.status,
+      rootId: state.input.input.id,
+      rootStatus: state.input.status,
+    },
+    {
+      clarificationInputId: reply.accepted.input.id,
+      clarificationQuestion: "Which exact pane request should I send?",
+      finalCommandKind: "send_to_parent",
+      finalCommandText: reply.accepted.input.text,
+      finalSource: "conversation_router",
+      replyId: reply.accepted.input.id,
+      replyReplyToInputId: root.accepted.input.id,
+      replyStatus: "dispatched",
+      rootId: root.accepted.input.id,
+      rootStatus: "dispatched",
+    },
+    "pane clarification exchange",
   );
 }
 

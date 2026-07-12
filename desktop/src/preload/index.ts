@@ -128,6 +128,7 @@ const api: SettaAPI = {
     sendSide: (request) => invoke("conversationSendSideTurn", request),
     queue: (request) => invoke("conversationQueueTurn", request),
     readInputState: (request) => invoke("conversationReadInputState", request),
+    waitInputState: (request) => invoke("conversationWaitInputState", request),
     read: (request) => invoke("conversationReadSnapshot", request),
     release: (request) => invoke("conversationReleaseEvents", request),
     retryInput: (request) => invoke("conversationRetryInput", request),

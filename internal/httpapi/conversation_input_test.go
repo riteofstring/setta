@@ -78,6 +78,37 @@ func TestConversationInputEndpointReadsBoundedRoutingState(t *testing.T) {
 	}
 }
 
+func TestConversationInputEndpointWaitsForRoutingSettlement(t *testing.T) {
+	input := validSubmitConversationInputRequest().Input
+	service := &fakeHTTPConversationInputService{state: conversation.ConversationInputRoutingState{
+		Input: conversation.ConversationInputState{
+			Sequence:   1,
+			Input:      input,
+			Status:     conversation.ConversationInputStatusAccepted,
+			AcceptedAt: "2026-07-12T18:00:01Z",
+		},
+		Decisions: []conversation.ConversationRouteDecisionRecord{},
+	}}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationInputService: service,
+		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
+	})
+	state := postJSON[conversation.ConversationInputRoutingState](
+		t,
+		handler,
+		"/conversations/inputs/state/wait",
+		ReadConversationInputRoutingStateRequest{
+			WorkspaceID:    "workspace_alpha",
+			ConversationID: input.ConversationID,
+			InputID:        input.ID,
+		},
+		http.StatusOK,
+	)
+	if state.Input.Input.ID != input.ID || service.action != "wait" {
+		t.Fatalf("state=%+v service=%+v", state, service)
+	}
+}
+
 func TestConversationInputEndpointRetriesAndDiscardsRoutingState(t *testing.T) {
 	input := validSubmitConversationInputRequest().Input
 	state := conversation.ConversationInputRoutingState{
@@ -360,6 +391,15 @@ func (invalidHTTPConversationInputStore) ReadConversationInputRoutingState(
 	return conversation.ConversationInputRoutingState{}, errors.New("not implemented")
 }
 
+func (store invalidHTTPConversationInputStore) WaitForConversationInputRoutingState(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (conversation.ConversationInputRoutingState, error) {
+	return store.ReadConversationInputRoutingState(ctx, workspaceID, conversationID, inputID)
+}
+
 func (invalidHTTPConversationInputStore) RetryConversationInputRouting(
 	context.Context,
 	string,
@@ -401,6 +441,16 @@ func (service *fakeHTTPConversationInputService) ReadInputState(
 		return conversation.ConversationInputRoutingState{}, service.err
 	}
 	return service.state, nil
+}
+
+func (service *fakeHTTPConversationInputService) WaitInputState(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (conversation.ConversationInputRoutingState, error) {
+	service.action = "wait"
+	return service.ReadInputState(ctx, workspaceID, conversationID, inputID)
 }
 
 func (service *fakeHTTPConversationInputService) RetryInput(

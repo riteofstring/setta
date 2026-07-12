@@ -3,11 +3,12 @@ import type {
   ConversationApprovalAnswer,
   ConversationInput,
   ConversationInputMode,
+  ConversationInputRoutingState,
   ConversationSnapshot,
   TrajectoryApprovalDecision,
   TrajectoryApprovalRequest,
 } from "@generated/backend";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { hydrateConversationProjectionSnapshot } from "../../stores/conversation-projection-runtime";
@@ -15,6 +16,7 @@ import {
   conversationSpeechCaptureRequest,
   type SpeechCaptureRequester,
 } from "../global-speech/speech-capture-destination";
+import { acceptedConversationInputMatches } from "../global-speech/global-speech-conversation-submission";
 import { canonicalSpeechInputTimestamp } from "../global-speech/speech-input-submission";
 import {
   requestConversationPanePresentation,
@@ -26,6 +28,7 @@ export interface EasyButtonConversationCommands {
   askStatus: () => void;
   available: boolean;
   canSubmit: boolean;
+  clarificationQuestion: string | null;
   disposeSide: (sideConversationId: string) => void;
   error: string | null;
   fork: () => void;
@@ -33,7 +36,10 @@ export interface EasyButtonConversationCommands {
   pending: boolean;
   presentRelatedConversation: (conversationId: string, title: string | null) => void;
   queue: () => void;
+  discardFailedInput: () => void;
   requestVoiceCapture: ((inputMode?: ConversationInputMode) => void) | undefined;
+  retryFailedInput: () => void;
+  routingFailure: { message: string; retryable: boolean } | null;
   send: () => void;
   sendSide: (sideConversationId: string, text: string) => Promise<boolean>;
   setInput: (input: string) => void;
@@ -81,9 +87,36 @@ export function useEasyButtonConversationCommands(
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clarification, setClarification] = useState<{
+    inputId: string;
+    question: string;
+  } | null>(null);
+  const [failedInput, setFailedInput] = useState<{
+    inputId: string;
+    message: string;
+    retryable: boolean;
+  } | null>(null);
+  const commandScope = JSON.stringify([workspaceId, conversationId, paneId]);
+  const activeCommandScope = useRef(commandScope);
+  useLayoutEffect(() => {
+    activeCommandScope.current = commandScope;
+  }, [commandScope]);
+  const commandScopeIsCurrent = () => activeCommandScope.current === commandScope;
+  const setScopedError = (value: string | null) => {
+    if (commandScopeIsCurrent()) {
+      setError(value);
+    }
+  };
   const available = conversationCommandsAvailable(workspaceId, conversationId, projection);
-  const canSubmit = conversationInputCanSubmit(available, pending, input);
+  const canSubmit = conversationInputCanSubmit(available, pending, input) && !failedInput;
   usePendingSideCreationCompletion(workspaceId, conversationId, paneId, projection?.snapshot);
+  useEffect(() => {
+    setPending(false);
+    setInput("");
+    setError(null);
+    setClarification(null);
+    setFailedInput(null);
+  }, [conversationId, paneId, workspaceId]);
 
   async function run(
     command: () => Promise<ConversationSnapshot>,
@@ -94,15 +127,17 @@ export function useEasyButtonConversationCommands(
     try {
       const snapshot = await command();
       hydrateConversationProjectionSnapshot(snapshot);
-      if (clearInput) {
+      if (clearInput && commandScopeIsCurrent()) {
         setInput("");
       }
       return true;
     } catch (commandError) {
-      setError(errorMessage(commandError));
+      setScopedError(errorMessage(commandError));
       return false;
     } finally {
-      setPending(false);
+      if (commandScopeIsCurrent()) {
+        setPending(false);
+      }
     }
   }
 
@@ -115,19 +150,36 @@ export function useEasyButtonConversationCommands(
         conversationId: target.conversationId,
         inputMode,
         paneId,
+        replyToInputId: clarification?.inputId ?? null,
         text: input.trim(),
       });
       beginPendingSideCreationForInput(inputMode, target, paneId);
       const accepted = await requireConversationInputSubmitter()({ input: submitted });
       assertAcceptedConversationInput(accepted, submitted);
-      setInput("");
+      if (commandScopeIsCurrent()) {
+        setInput("");
+      }
+      const state = await requireConversationInputWaiter()({
+        conversationId: target.conversationId,
+        inputId: submitted.id,
+        workspaceId: target.workspaceId,
+      });
+      const routingError = commandScopeIsCurrent()
+        ? applyConversationInputRoutingState(state, setClarification, setFailedInput)
+        : null;
+      if (routingError) {
+        throw new Error(routingError);
+      }
+      finishPendingSideCreationForInput(inputMode, workspaceId, conversationId, paneId);
       return true;
     } catch (commandError) {
       finishPendingSideCreationForInput(inputMode, workspaceId, conversationId, paneId);
-      setError(errorMessage(commandError));
+      setScopedError(errorMessage(commandError));
       return false;
     } finally {
-      setPending(false);
+      if (commandScopeIsCurrent()) {
+        setPending(false);
+      }
     }
   }
 
@@ -138,15 +190,76 @@ export function useEasyButtonConversationCommands(
     return { conversationId, workspaceId };
   }
 
+  async function retryFailedInput(): Promise<void> {
+    if (!failedInput?.retryable || pending) {
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      const target = requireTarget();
+      await requireConversationInputRetry()({
+        conversationId: target.conversationId,
+        inputId: failedInput.inputId,
+        workspaceId: target.workspaceId,
+      });
+      const state = await requireConversationInputWaiter()({
+        conversationId: target.conversationId,
+        inputId: failedInput.inputId,
+        workspaceId: target.workspaceId,
+      });
+      const routingError = commandScopeIsCurrent()
+        ? applyConversationInputRoutingState(state, setClarification, setFailedInput)
+        : null;
+      if (routingError) {
+        throw new Error(routingError);
+      }
+    } catch (retryError) {
+      setScopedError(errorMessage(retryError));
+    } finally {
+      if (commandScopeIsCurrent()) {
+        setPending(false);
+      }
+    }
+  }
+
+  async function discardFailedInput(): Promise<void> {
+    if (!failedInput || pending) {
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      const target = requireTarget();
+      await requireConversationInputDiscard()({
+        conversationId: target.conversationId,
+        inputId: failedInput.inputId,
+        workspaceId: target.workspaceId,
+      });
+      if (commandScopeIsCurrent()) {
+        setFailedInput(null);
+        setClarification(null);
+      }
+    } catch (discardError) {
+      setScopedError(errorMessage(discardError));
+    } finally {
+      if (commandScopeIsCurrent()) {
+        setPending(false);
+      }
+    }
+  }
+
   return {
     askStatus: () => {
-      if (!canSubmit) {
+      if (!canSubmit || clarification) {
         return;
       }
       void runInput("ask_narrator");
     },
     available,
     canSubmit,
+    clarificationQuestion: clarification?.question ?? null,
+    discardFailedInput: () => void discardFailedInput(),
     disposeSide: (sideConversationId) => {
       if (!available || pending || !paneId) {
         return;
@@ -165,7 +278,7 @@ export function useEasyButtonConversationCommands(
     },
     error,
     fork: () => {
-      if (canSubmit) {
+      if (canSubmit && !clarification) {
         void runInput("fork");
       }
     },
@@ -175,22 +288,26 @@ export function useEasyButtonConversationCommands(
       if (!workspaceId || pending) {
         return;
       }
-      void presentRelatedConversation(workspaceId, targetConversationId, title, setError);
+      void presentRelatedConversation(workspaceId, targetConversationId, title, setScopedError);
     },
     requestVoiceCapture: createVoiceCaptureCommand({
-      available,
+      available: available && !clarification,
       conversationId,
       paneId,
-      setError,
+      setError: setScopedError,
       speechCapture,
     }),
+    retryFailedInput: () => void retryFailedInput(),
+    routingFailure: failedInput
+      ? { message: failedInput.message, retryable: failedInput.retryable }
+      : null,
     queue: () => {
-      if (canSubmit) {
+      if (canSubmit && !clarification) {
         void runInput("queue");
       }
     },
     send: () => {
-      if (canSubmit) {
+      if (canSubmit && !clarification) {
         void runInput("send");
       }
     },
@@ -211,9 +328,9 @@ export function useEasyButtonConversationCommands(
       );
     },
     setInput,
-    startSide: createSideInputCommand(available, paneId, canSubmit, runInput),
+    startSide: createSideInputCommand(available && !clarification, paneId, canSubmit, runInput),
     steer: () => {
-      if (!canSubmit) {
+      if (!canSubmit || clarification) {
         return;
       }
       void runInput("steer");
@@ -363,6 +480,7 @@ export function createEasyButtonTextConversationInput({
   id = globalThis.crypto.randomUUID(),
   inputMode = "route",
   paneId,
+  replyToInputId = null,
   submittedAt = canonicalSpeechInputTimestamp(new Date()),
   text,
 }: {
@@ -370,6 +488,7 @@ export function createEasyButtonTextConversationInput({
   id?: string;
   inputMode?: ConversationInputMode;
   paneId: string | null;
+  replyToInputId?: string | null;
   submittedAt?: string;
   text: string;
 }): ConversationInput {
@@ -377,7 +496,7 @@ export function createEasyButtonTextConversationInput({
     conversationId,
     id,
     modality: "text",
-    replyToInputId: null,
+    replyToInputId,
     requestedMode: inputMode,
     sourcePaneId: paneId,
     submittedAt,
@@ -394,29 +513,6 @@ function assertAcceptedConversationInput(
   }
 }
 
-function acceptedConversationInputMatches(
-  accepted: AcceptedConversationInput,
-  submitted: ConversationInput,
-): boolean {
-  if (!Number.isSafeInteger(accepted.sequence) || accepted.sequence <= 0) {
-    return false;
-  }
-  if (accepted.status !== "accepted" || accepted.acceptedAt === "") {
-    return false;
-  }
-  const fields = [
-    "id",
-    "conversationId",
-    "sourcePaneId",
-    "replyToInputId",
-    "text",
-    "modality",
-    "requestedMode",
-    "submittedAt",
-  ] as const satisfies readonly (keyof ConversationInput)[];
-  return fields.every((field) => accepted.input[field] === submitted[field]);
-}
-
 function requireConversationInputSubmitter(): NonNullable<
   (typeof window.setta.conversations)["submitInput"]
 > {
@@ -425,6 +521,100 @@ function requireConversationInputSubmitter(): NonNullable<
     throw new Error("Conversation input intake is unavailable.");
   }
   return submit;
+}
+
+function requireConversationInputWaiter(): NonNullable<
+  (typeof window.setta.conversations)["waitInputState"]
+> {
+  const wait = window.setta.conversations.waitInputState;
+  if (!wait) {
+    throw new Error("Conversation input routing settlement is unavailable.");
+  }
+  return wait;
+}
+
+function requireConversationInputRetry(): NonNullable<
+  (typeof window.setta.conversations)["retryInput"]
+> {
+  const retry = window.setta.conversations.retryInput;
+  if (!retry) {
+    throw new Error("Conversation input retry is unavailable.");
+  }
+  return retry;
+}
+
+function requireConversationInputDiscard(): NonNullable<
+  (typeof window.setta.conversations)["discardInput"]
+> {
+  const discard = window.setta.conversations.discardInput;
+  if (!discard) {
+    throw new Error("Conversation input discard is unavailable.");
+  }
+  return discard;
+}
+
+type ConversationInputClarification = { inputId: string; question: string };
+type FailedConversationInput = { inputId: string; message: string; retryable: boolean };
+
+function applyConversationInputRoutingState(
+  state: ConversationInputRoutingState,
+  setClarification: (value: ConversationInputClarification | null) => void,
+  setFailedInput: (value: FailedConversationInput | null) => void,
+): string | null {
+  const clarification = conversationInputClarification(state);
+  setClarification(clarification);
+  const failed = failedConversationInputState(state);
+  if (failed) {
+    const failure = conversationRoutingFailure(failed);
+    setFailedInput(failure);
+    return failure.message;
+  }
+  assertConversationInputSettled(state);
+  setFailedInput(null);
+  return null;
+}
+
+function failedConversationInputState(
+  state: ConversationInputRoutingState,
+): ConversationInputRoutingState["input"] | null {
+  if (state.clarificationReply?.status === "failed") {
+    return state.clarificationReply;
+  }
+  return state.input.status === "failed" ? state.input : null;
+}
+
+function conversationRoutingFailure(
+  failed: ConversationInputRoutingState["input"],
+): FailedConversationInput {
+  return {
+    inputId: failed.input.id,
+    message: failed.failure?.message ?? "Conversation input routing failed without a reason.",
+    retryable: failed.failure?.retryable ?? false,
+  };
+}
+
+function assertConversationInputSettled(state: ConversationInputRoutingState): void {
+  switch (state.input.status) {
+    case "awaiting_clarification":
+    case "dispatched":
+      return;
+    default:
+      throw new Error(`Conversation input wait returned unsettled status ${state.input.status}.`);
+  }
+}
+
+function conversationInputClarification(
+  state: ConversationInputRoutingState,
+): ConversationInputClarification | null {
+  if (state.input.status !== "awaiting_clarification") {
+    return null;
+  }
+  const decision = state.decisions.at(-1);
+  const question = decision?.resultingCommand.clarify?.question;
+  if (decision?.resultingCommand.kind !== "clarify" || !question) {
+    throw new Error("Conversation routing requested clarification without a question.");
+  }
+  return { inputId: state.input.input.id, question };
 }
 
 type OptionalConversationCommand = "disposeSide" | "sendSide";

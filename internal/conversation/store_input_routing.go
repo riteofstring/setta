@@ -846,6 +846,15 @@ func validateSteerParentRouteCommandState(
 	if commit.ResultingCommand.SteerParentTurn.TargetTurnID != runningTurnID {
 		return stateConflict("conversation turn", commit.ResultingCommand.SteerParentTurn.TargetTurnID, "steering target is not the active turn")
 	}
+	eventIDs, err := conversationRouteSteeringTrajectoryEventIDs(commit.ID)
+	if err != nil {
+		return err
+	}
+	for _, eventID := range eventIDs {
+		if err := requireConversationRouteIdentifierAbsent(ctx, tx, "trajectory_events", eventID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -868,7 +877,10 @@ func validateCreateSideConversationRouteCommandState(
 	if err := requireConversationRouteSidePaneAvailable(ctx, tx, commit.ConversationID, command.ParentPaneID); err != nil {
 		return err
 	}
-	return requireConversationRouteIdentifierAbsent(ctx, tx, "side_conversations", command.SideConversationID)
+	if err := requireConversationRouteIdentifierAbsent(ctx, tx, "side_conversations", command.SideConversationID); err != nil {
+		return err
+	}
+	return requireConversationRouteSideTurnIdentifierAbsent(ctx, tx, command.TurnID)
 }
 
 func validateForkConversationRouteCommandState(
@@ -879,7 +891,15 @@ func validateForkConversationRouteCommandState(
 	if err := requireConversationRouteCompletedTurn(ctx, tx, commit.ConversationID, commit.Decision.ForkConversation.ForkedAtTurnID); err != nil {
 		return err
 	}
-	return requireConversationRouteIdentifierAbsent(ctx, tx, "conversations", commit.ResultingCommand.ForkConversation.ChildConversationID)
+	if err := requireConversationRouteIdentifierAbsent(ctx, tx, "conversations", commit.ResultingCommand.ForkConversation.ChildConversationID); err != nil {
+		return err
+	}
+	return requireConversationRouteIdentifierAbsent(
+		ctx,
+		tx,
+		"conversation_turns",
+		commit.ResultingCommand.ForkConversation.TurnID,
+	)
 }
 
 func validateClarifyConversationRouteCommandState(commit ConversationRouteDecisionCommit) error {

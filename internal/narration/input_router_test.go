@@ -311,6 +311,96 @@ func TestConversationInputRouterBypassesModelForExplicitQueueAndExecutesCommitte
 	assertFixtureRouterProviderRequests(t, fixture.provider, 0)
 }
 
+func TestConversationInputRouterReplaysCommittedCommandBeforeNewInput(t *testing.T) {
+	fixture := newStatusServiceFixture(t, nil)
+	router := configuredFixtureInputRouter(fixture.service.inputRouter)
+	executor := &failingConversationRouteCommandExecutor{failuresRemaining: 1}
+	router.executor = executor
+	inputService := fixtureInputService(t, fixture.store)
+	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
+		ID:             "input-explicit-replay",
+		ConversationID: fixture.conversationID,
+		Text:           "Replay this exact queue request.",
+		Modality:       conversation.ConversationInputModalityText,
+		RequestedMode:  conversation.ConversationInputModeQueue,
+		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatalf("SubmitInput: %v", err)
+	}
+
+	processed, err := router.ProcessNext(context.Background(), fixture.conversationID)
+	var committed *committedConversationRouteCommandError
+	if !processed || !errors.As(err, &committed) {
+		t.Fatalf("first ProcessNext = %t, %T %v, want committed command failure", processed, err, err)
+	}
+	state := readFixtureRoutingState(t, fixture, accepted.Input.ID)
+	if state.Input.Status != conversation.ConversationInputStatusDispatched || len(state.Decisions) != 1 {
+		t.Fatalf("committed replay state = %+v", state)
+	}
+
+	if processed, err = router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
+		t.Fatalf("replayed ProcessNext = %t, %v", processed, err)
+	}
+	if len(executor.records) != 2 || executor.records[0].ID != state.Decisions[0].ID ||
+		executor.records[1].ID != state.Decisions[0].ID {
+		t.Fatalf("replayed route command records = %+v", executor.records)
+	}
+	if processed, err = router.ProcessNext(context.Background(), fixture.conversationID); err != nil || processed {
+		t.Fatalf("completed ProcessNext = %t, %v", processed, err)
+	}
+}
+
+func TestConversationRouteQueueRetriesCommittedCommandWithoutAnotherNotification(t *testing.T) {
+	fixture := newStatusServiceFixture(t, nil)
+	router := configuredFixtureInputRouter(fixture.service.inputRouter)
+	executor := &failingConversationRouteCommandExecutor{failuresRemaining: 1}
+	router.executor = executor
+	inputService := fixtureInputService(t, fixture.store)
+	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
+		ID:             "input-explicit-queue-worker-retry",
+		ConversationID: fixture.conversationID,
+		Text:           "Retry this committed queue command in process.",
+		Modality:       conversation.ConversationInputModalityText,
+		RequestedMode:  conversation.ConversationInputModeQueue,
+		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatalf("SubmitInput: %v", err)
+	}
+
+	var retryDelays []time.Duration
+	queue := &conversationRouteQueue{notified: true, running: true}
+	service := &Service{
+		inputRouter: router,
+		routing:     map[string]*conversationRouteQueue{fixture.conversationID: queue},
+	}
+	service.retryWait = func(_ context.Context, delay time.Duration) error {
+		retryDelays = append(retryDelays, delay)
+		return nil
+	}
+	service.tasks.Add(1)
+	service.runConversationRouteQueue(context.Background(), fixture.conversationID, queue)
+
+	state := readFixtureRoutingState(t, fixture, accepted.Input.ID)
+	if state.Input.Status != conversation.ConversationInputStatusDispatched ||
+		len(executor.records) != 2 || len(retryDelays) != 1 ||
+		retryDelays[0] != initialRetryDelay {
+		t.Fatalf(
+			"worker retry state=%+v records=%d delays=%v",
+			state,
+			len(executor.records),
+			retryDelays,
+		)
+	}
+	if _, found, err := fixture.store.ReadNextPendingConversationRouteCommand(
+		context.Background(),
+		fixture.conversationID,
+	); err != nil || found {
+		t.Fatalf("pending command after worker retry = %t, %v", found, err)
+	}
+}
+
 func TestConversationRouteOutputDecodesEveryAllowedStrictVariant(t *testing.T) {
 	kinds := []conversation.ConversationRouteDecisionKind{
 		conversation.ConversationRouteDecisionKindSendToParent,
@@ -487,6 +577,23 @@ func (executor *recordingConversationRouteCommandExecutor) ExecuteConversationRo
 	record conversation.ConversationRouteDecisionRecord,
 ) error {
 	executor.records = append(executor.records, record)
+	return nil
+}
+
+type failingConversationRouteCommandExecutor struct {
+	failuresRemaining int
+	records           []conversation.ConversationRouteDecisionRecord
+}
+
+func (executor *failingConversationRouteCommandExecutor) ExecuteConversationRouteCommand(
+	_ context.Context,
+	record conversation.ConversationRouteDecisionRecord,
+) error {
+	executor.records = append(executor.records, record)
+	if executor.failuresRemaining > 0 {
+		executor.failuresRemaining--
+		return errors.New("route command effect unavailable")
+	}
 	return nil
 }
 

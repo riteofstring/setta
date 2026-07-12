@@ -34,6 +34,7 @@ export const conversationIpcChannels = {
   conversationListTopicConversations: "conversation:list-topic-conversations",
   conversationQueueTurn: "conversation:queue-turn",
   conversationReadInputState: "conversation:read-input-state",
+  conversationWaitInputState: "conversation:wait-input-state",
   conversationReadSnapshot: "conversation:read-snapshot",
   conversationReleaseEvents: "conversation:release-events",
   conversationRetryInput: "conversation:retry-input",
@@ -93,6 +94,10 @@ export interface ConversationIpc {
     result: ConversationSnapshot;
   };
   conversationReadInputState: {
+    args: [request: ReadConversationInputRoutingStateRequest];
+    result: ConversationInputRoutingState;
+  };
+  conversationWaitInputState: {
     args: [request: ReadConversationInputRoutingStateRequest];
     result: ConversationInputRoutingState;
   };

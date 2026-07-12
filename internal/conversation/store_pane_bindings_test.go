@@ -97,6 +97,43 @@ func TestStoreRejectsWorkspacePaneBindingForAnotherWorkspace(t *testing.T) {
 	}
 }
 
+func TestStoreResetsPaneBindingHistoryWhenPaneIsRebound(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha", "conversation_beta")
+
+	if err := store.ReplaceWorkspacePaneBindings(
+		context.Background(),
+		"workspace",
+		[]WorkspacePaneBinding{{
+			PaneID:         "pane_reused",
+			ConversationID: "conversation_alpha",
+			Focused:        true,
+		}},
+		"2026-07-13T18:00:00Z",
+	); err != nil {
+		t.Fatalf("replace original pane binding: %v", err)
+	}
+	if err := store.ReplaceWorkspacePaneBindings(
+		context.Background(),
+		"workspace",
+		[]WorkspacePaneBinding{{
+			PaneID:         "pane_reused",
+			ConversationID: "conversation_beta",
+		}},
+		"2026-07-13T18:01:00Z",
+	); err != nil {
+		t.Fatalf("replace rebound pane binding: %v", err)
+	}
+
+	assertStoredWorkspacePaneBinding(t, store, storedWorkspacePaneBinding{
+		paneID:         "pane_reused",
+		conversationID: "conversation_beta",
+		createdAt:      "2026-07-13T18:01:00Z",
+		updatedAt:      "2026-07-13T18:01:00Z",
+		lastFocusedAt:  sql.NullString{},
+	})
+}
+
 type storedWorkspacePaneBinding struct {
 	paneID         string
 	conversationID string

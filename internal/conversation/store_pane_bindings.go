@@ -14,8 +14,9 @@ type WorkspacePaneBinding struct {
 }
 
 type workspacePaneBindingHistory struct {
-	createdAt     string
-	lastFocusedAt sql.NullString
+	conversationID string
+	createdAt      string
+	lastFocusedAt  sql.NullString
 }
 
 // ReplaceWorkspacePaneBindings projects one authoritative workspace layout
@@ -124,7 +125,7 @@ func workspacePaneBindingTimestamps(
 ) (string, any) {
 	createdAt := updatedAt
 	var lastFocusedAt any
-	if previous.createdAt != "" {
+	if previous.conversationID == binding.ConversationID && previous.createdAt != "" {
 		createdAt = previous.createdAt
 		if previous.lastFocusedAt.Valid {
 			lastFocusedAt = previous.lastFocusedAt.String
@@ -142,7 +143,7 @@ func readWorkspacePaneBindingHistory(
 	workspaceID string,
 ) (map[string]workspacePaneBindingHistory, error) {
 	rows, err := tx.QueryContext(ctx, `
-SELECT pane_id, created_at, last_focused_at
+SELECT pane_id, conversation_id, created_at, last_focused_at
 FROM pane_bindings
 WHERE workspace_id = ?
 `, workspaceID)
@@ -155,7 +156,12 @@ WHERE workspace_id = ?
 	for rows.Next() {
 		var paneID string
 		var previous workspacePaneBindingHistory
-		if err := rows.Scan(&paneID, &previous.createdAt, &previous.lastFocusedAt); err != nil {
+		if err := rows.Scan(
+			&paneID,
+			&previous.conversationID,
+			&previous.createdAt,
+			&previous.lastFocusedAt,
+		); err != nil {
 			return nil, fmt.Errorf("scan workspace pane binding history: %w", err)
 		}
 		history[paneID] = previous

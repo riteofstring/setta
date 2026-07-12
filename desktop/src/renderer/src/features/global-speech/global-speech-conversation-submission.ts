@@ -207,7 +207,7 @@ function conversationInputForTranscript(
   });
 }
 
-function acceptedConversationInputMatches(
+export function acceptedConversationInputMatches(
   accepted: AcceptedConversationInput,
   input: ConversationInput,
 ): boolean {

@@ -46,6 +46,7 @@ describe("global speech presentation", () => {
       }),
     ).toMatchObject({
       activityLabel: "Listening",
+      captureInputMode: "route",
       captureScope: "this_pane",
       captureState: "listening",
       transcriptPreview: "partial words",
@@ -154,6 +155,7 @@ describe("global speech presentation", () => {
       retry: "conversation",
       source: {
         conversationId: "conversation-alpha",
+        inputMode: "route",
         sourcePaneId: "pane-alpha",
         type: "conversation",
       },

@@ -12,12 +12,9 @@ func (service *Service) persistSteering(
 	snapshot ConversationSnapshot,
 	turnID string,
 	text string,
+	routeDecisionID string,
 ) error {
-	acceptedID, err := service.newID("trajectory")
-	if err != nil {
-		return err
-	}
-	steeredID, err := service.newID("trajectory")
+	acceptedID, steeredID, err := service.steeringTrajectoryEventIDs(routeDecisionID)
 	if err != nil {
 		return err
 	}
@@ -44,6 +41,19 @@ func (service *Service) persistSteering(
 			},
 		},
 	)
+}
+
+func (service *Service) steeringTrajectoryEventIDs(routeDecisionID string) (string, string, error) {
+	if routeDecisionID != "" {
+		ids, err := conversationRouteSteeringTrajectoryEventIDs(routeDecisionID)
+		return ids[0], ids[1], err
+	}
+	acceptedID, err := service.newID("trajectory")
+	if err != nil {
+		return "", "", err
+	}
+	steeredID, err := service.newID("trajectory")
+	return acceptedID, steeredID, err
 }
 
 func (service *Service) persistInterruption(

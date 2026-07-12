@@ -40,7 +40,7 @@ func (service *Service) ExecuteRouteCommand(
 		)
 	case ConversationRouteDecisionKindQueueParentTurn:
 		payload := command.QueueParentTurn
-		return service.queueTurn(
+		return service.queueRoutedTurn(
 			ctx,
 			workspaceID,
 			conversationID,
@@ -121,29 +121,36 @@ func (service *Service) executeRoutedSideConversation(
 	}
 	sideConversationID := payload.SideConversationID
 	parentPaneID := payload.ParentPaneID
-	_, err = service.ExecuteBranchDecision(
-		ctx,
-		workspaceID,
-		BranchDecisionExecutionScope{
-			ParentConversationID: parentConversationID,
-			ParentPaneID:         &parentPaneID,
-			SideConversationID:   &sideConversationID,
-			Source:               branchSource,
-		},
-		BranchDecision{
-			Kind:                   BranchDecisionKindCreateSideConversation,
-			CreateSideConversation: &CreateSideConversationBranchDecision{},
-		},
-	)
+	parentSnapshot, err := service.store.ReadSnapshot(ctx, workspaceID, parentConversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.SendSideConversationTurn(
+	if _, findErr := findSideConversation(parentSnapshot, sideConversationID); findErr != nil {
+		_, err = service.ExecuteBranchDecision(
+			ctx,
+			workspaceID,
+			BranchDecisionExecutionScope{
+				ParentConversationID: parentConversationID,
+				ParentPaneID:         &parentPaneID,
+				SideConversationID:   &sideConversationID,
+				Source:               branchSource,
+			},
+			BranchDecision{
+				Kind:                   BranchDecisionKindCreateSideConversation,
+				CreateSideConversation: &CreateSideConversationBranchDecision{},
+			},
+		)
+		if err != nil {
+			return ConversationSnapshot{}, err
+		}
+	}
+	return service.sendSideConversationTurn(
 		ctx,
 		workspaceID,
 		parentConversationID,
 		payload.SideConversationID,
 		payload.Input.Text,
+		payload.TurnID,
 	)
 }
 
@@ -160,31 +167,42 @@ func (service *Service) executeRoutedForkConversation(
 		return ConversationSnapshot{}, err
 	}
 	childConversationID := payload.ChildConversationID
-	_, err = service.ExecuteBranchDecision(
-		ctx,
-		workspaceID,
-		BranchDecisionExecutionScope{
-			ParentConversationID: parentConversationID,
-			ChildConversationID:  &childConversationID,
-			Source:               branchSource,
-		},
-		BranchDecision{
-			Kind: BranchDecisionKindForkConversation,
-			ForkConversation: &ForkConversationBranchDecision{
-				ForkedAtTurnID: payload.ForkedAtTurnID,
-				ProposedTitle:  payload.ProposedTitle,
+	childWorkspaceID, readErr := service.store.ReadConversationWorkspaceID(ctx, childConversationID)
+	if errors.Is(readErr, ErrConversationNotFound) {
+		_, err = service.ExecuteBranchDecision(
+			ctx,
+			workspaceID,
+			BranchDecisionExecutionScope{
+				ParentConversationID: parentConversationID,
+				ChildConversationID:  &childConversationID,
+				Source:               branchSource,
 			},
-		},
-	)
-	if err != nil {
-		return ConversationSnapshot{}, err
+			BranchDecision{
+				Kind: BranchDecisionKindForkConversation,
+				ForkConversation: &ForkConversationBranchDecision{
+					ForkedAtTurnID: payload.ForkedAtTurnID,
+					ProposedTitle:  payload.ProposedTitle,
+				},
+			},
+		)
+		if err != nil {
+			return ConversationSnapshot{}, err
+		}
+	} else if readErr != nil {
+		return ConversationSnapshot{}, readErr
+	} else if childWorkspaceID != workspaceID {
+		return ConversationSnapshot{}, stateConflict(
+			"conversation route fork",
+			childConversationID,
+			"stored child belongs to a different workspace",
+		)
 	}
 	return service.sendTurn(
 		ctx,
 		workspaceID,
 		payload.ChildConversationID,
 		payload.Input.Text,
-		"",
+		payload.TurnID,
 	)
 }
 

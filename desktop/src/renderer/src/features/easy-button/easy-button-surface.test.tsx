@@ -444,6 +444,7 @@ describe("Easy Button topic conversation projection", () => {
           activityLabel: "Narrator speaking",
           captureScope: "none",
           captureState: "idle",
+          captureInputMode: null,
           playbackScope: "this_conversation",
           playbackState: "speaking",
           transcriptPreview: null,
@@ -478,6 +479,7 @@ describe("Easy Button topic conversation projection", () => {
           activityLabel: "Listening",
           captureScope: "this_pane",
           captureState: "listening",
+          captureInputMode: "fork",
           playbackScope: "none",
           playbackState: "idle",
           transcriptPreview: "Keep listening",
@@ -494,6 +496,8 @@ describe("Easy Button topic conversation projection", () => {
     expect(voiceButton).toBeDefined();
     expect(voiceButton).toContain('aria-label="Finish this voice request"');
     expect(voiceButton).not.toContain("disabled");
+    expect(html).toContain('<option value="fork" selected="">Fork voice</option>');
+    expect(html).toMatch(/data-testid="easy-button-voice-mode"[^>]*disabled/);
     expect(html).toContain('data-testid="easy-button-speech-transcript"');
     expect(html).toContain("Keep listening");
   });
@@ -525,6 +529,30 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain('data-testid="easy-button-submit"');
     expect(html).toContain(">Route</button>");
     expect(html).toContain('aria-label="Create a durable fork"');
+  });
+
+  test("presents a local router clarification as a linked reply", () => {
+    const html = renderToString(
+      <EasyButtonConversationComposer
+        available
+        canSubmit
+        clarificationQuestion="Which exact pane request should I send?"
+        input="Send the clarified request"
+        onInput={() => {}}
+        onStatus={undefined}
+        onSteer={undefined}
+        onSubmit={() => {}}
+        onVoiceCapture={undefined}
+        placeholder="Answer the narrator’s clarification…"
+        speech={null}
+        working={false}
+      />,
+    );
+
+    expect(html).toContain('data-testid="easy-button-clarification"');
+    expect(html).toContain("Which exact pane request should I send?");
+    expect(html).toContain(">Reply</button>");
+    expect(html).not.toContain('data-testid="easy-button-voice-capture"');
   });
 
   test("projects approval, degradation, and resynchronization explicitly", () => {

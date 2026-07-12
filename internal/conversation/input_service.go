@@ -11,6 +11,7 @@ type ConversationInputStore interface {
 	AcceptConversationInput(context.Context, ConversationInput, string) (AcceptedConversationInput, error)
 	DiscardConversationInputRouting(context.Context, string, string, string, string) error
 	ReadConversationInputRoutingState(context.Context, string, string, string) (ConversationInputRoutingState, error)
+	WaitForConversationInputRoutingState(context.Context, string, string, string) (ConversationInputRoutingState, error)
 	RetryConversationInputRouting(context.Context, string, string, string, string) (AcceptedConversationInput, error)
 }
 
@@ -122,6 +123,33 @@ func (service *InputService) ReadInputState(
 		return ConversationInputRoutingState{}, errors.New("conversation input state context is required")
 	}
 	state, err := service.store.ReadConversationInputRoutingState(
+		ctx,
+		workspaceID,
+		conversationID,
+		inputID,
+	)
+	if err != nil {
+		return ConversationInputRoutingState{}, err
+	}
+	if err := state.Validate(); err != nil {
+		return ConversationInputRoutingState{}, &invalidConversationInputReceiptError{cause: err}
+	}
+	return cloneConversationInputRoutingState(state), nil
+}
+
+func (service *InputService) WaitInputState(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (ConversationInputRoutingState, error) {
+	if service == nil || service.store == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input service is unavailable")
+	}
+	if ctx == nil {
+		return ConversationInputRoutingState{}, errors.New("conversation input state wait context is required")
+	}
+	state, err := service.store.WaitForConversationInputRoutingState(
 		ctx,
 		workspaceID,
 		conversationID,

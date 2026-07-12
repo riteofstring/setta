@@ -531,6 +531,7 @@ function scriptedMasterVoiceDecision(context, schema) {
 
 function emitStructuredInputRoute(threadId, turnId, context) {
   const input = context.input?.input;
+  const authoredInput = context.input?.clarificationReply?.text ?? input?.text;
   const serialized = JSON.stringify(context);
   const allowed = context.allowedDecisionKinds;
   const routeKind = structuredInputRouteKind(context, allowed);
@@ -544,14 +545,15 @@ function emitStructuredInputRoute(threadId, turnId, context) {
     completeTurn(threadId, turnId, "failed", "input router context drifted");
     return;
   }
+  const decision =
+    routeKind === "clarify"
+      ? { kind: routeKind, question: "Which exact pane request should I send?" }
+      : { authoredInput, kind: routeKind };
   emitAgentMessage(
     threadId,
     turnId,
     JSON.stringify({
-      decision: {
-        kind: routeKind,
-        authoredInput: input.text,
-      },
+      decision,
     }),
   );
   completeTurn(threadId, turnId, "completed");
@@ -561,9 +563,28 @@ function structuredInputRouteKind(context, allowed) {
   if (!Array.isArray(allowed)) {
     return null;
   }
+  const specialRoute = specialStructuredInputRouteKind(context, allowed);
+  if (specialRoute) {
+    return specialRoute;
+  }
+  return conversationStatusRouteKind(context, allowed);
+}
+
+function specialStructuredInputRouteKind(context, allowed) {
   if (isMasterEscalationRoute(context, allowed)) {
     return "escalate_to_master";
   }
+  if (
+    context.input?.input?.text === "clarify pane request" &&
+    !context.input?.clarificationReply &&
+    allowed.includes("clarify")
+  ) {
+    return "clarify";
+  }
+  return null;
+}
+
+function conversationStatusRouteKind(context, allowed) {
   const status = context.authoritative?.conversation?.status;
   if (status === "idle") {
     return allowed.includes("send_to_parent") ? "send_to_parent" : null;

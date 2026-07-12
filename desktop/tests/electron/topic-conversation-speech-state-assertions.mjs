@@ -144,6 +144,97 @@ export async function exercisePaneFreeShellCapture({
   return recorded;
 }
 
+export async function waitForRecordedPaneSpeechInput(
+  artifactDirectory,
+  conversationId,
+  sourcePaneId,
+  transcript,
+  timeoutMs,
+  occurrence = 1,
+  inputMode = "route",
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
+    const starts = events.filter(
+      (event) =>
+        event.type === "ipc_start" &&
+        event.channel === "conversation:submit-input" &&
+        event.args?.[0]?.input?.conversationId === conversationId &&
+        event.args[0].input.sourcePaneId === sourcePaneId &&
+        event.args[0].input.text === transcript,
+    );
+    assertPaneSpeechDidNotReachMaster(events, transcript);
+    const uniqueStarts = Array.from(
+      new Map(starts.map((start) => [start.args[0].input.id, start])).values(),
+    );
+    if (uniqueStarts.length > occurrence) {
+      throw new Error(`too many durable pane speech inputs: ${uniqueStarts.length}`);
+    }
+    const completed = completedConversationInputIPC(uniqueStarts[occurrence - 1], events);
+    if (completed) {
+      assertRecordedPaneSpeechInput(
+        completed.request.input,
+        conversationId,
+        sourcePaneId,
+        transcript,
+        inputMode,
+      );
+      return completed;
+    }
+    await delay(50);
+  }
+  throw new Error(`timed out waiting for durable pane speech input delivery ${occurrence}`);
+}
+
+function assertPaneSpeechDidNotReachMaster(events, transcript) {
+  const submittedToMaster = events.some(
+    (event) =>
+      event.type === "ipc_start" &&
+      event.channel === "master:submit-input" &&
+      event.args?.[0]?.input?.text === transcript,
+  );
+  if (submittedToMaster) {
+    throw new Error("pane speech transcript was submitted to the global master");
+  }
+}
+
+function completedConversationInputIPC(start, events) {
+  if (!start) {
+    return null;
+  }
+  const finish = events.find(
+    (event) =>
+      event.type === "ipc_finish" &&
+      event.channel === "conversation:submit-input" &&
+      event.id === start.id,
+  );
+  return finish ? { accepted: finish.result, request: start.args[0] } : null;
+}
+
+function assertRecordedPaneSpeechInput(input, conversationId, sourcePaneId, transcript, inputMode) {
+  assertPaneSpeechField(input, "conversationId", conversationId);
+  assertPaneSpeechField(input, "sourcePaneId", sourcePaneId);
+  assertPaneSpeechField(input, "replyToInputId", null);
+  assertPaneSpeechField(input, "modality", "voice");
+  assertPaneSpeechField(input, "requestedMode", inputMode);
+  assertPaneSpeechField(input, "text", transcript);
+  assertNonEmptyPaneSpeechField(input, "id");
+  assertNonEmptyPaneSpeechField(input, "submittedAt");
+}
+
+function assertPaneSpeechField(input, field, expected) {
+  if (input?.[field] !== expected) {
+    throw new Error(`invalid pane speech input ${field}: ${JSON.stringify(input)}`);
+  }
+}
+
+function assertNonEmptyPaneSpeechField(input, field) {
+  if (typeof input?.[field] !== "string" || input[field].length === 0) {
+    throw new Error(`invalid pane speech input ${field}: ${JSON.stringify(input)}`);
+  }
+}
+
 async function waitForRecordedMasterSpeechInput(artifactDirectory, transcript, timeoutMs) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {

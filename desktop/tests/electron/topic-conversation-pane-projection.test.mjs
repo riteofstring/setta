@@ -41,6 +41,7 @@ import {
   verifyConversationCapturePresentation,
   verifyIdleGlobalSpeech,
   verifyNarratorPlaybackPresentation,
+  waitForRecordedPaneSpeechInput,
 } from "./topic-conversation-speech-state-assertions.mjs";
 import {
   assertDriverAction,
@@ -71,8 +72,9 @@ import { verifySideConversationRestart } from "./topic-conversation-side-restart
 import {
   assertChangedConversationInputConflicts,
   assertDispatchedConversationInputRoutingState,
+  assertExplicitConversationInputRoutingState,
+  assertPaneClarificationExchange,
   assertRecordedExplicitTextInput,
-  assertQueuedConversationInputRoutingState,
   assertRoutedConversationInputReceipt,
   escalateToMaster,
   readConversationInputRoutingState,
@@ -293,7 +295,13 @@ try {
     (state) => state.commitCount === 1,
     workflowTimeoutMs,
   );
-  const paneInput = await waitForPaneSpeechInput(secondLaunchDir, alpha.id, alphaPaneId);
+  const paneInput = await waitForRecordedPaneSpeechInput(
+    secondLaunchDir,
+    alpha.id,
+    alphaPaneId,
+    paneSpeechTranscript,
+    workflowTimeoutMs,
+  );
   const conversationInputRequest = paneInput.request;
   const acceptedConversationInput = paneInput.accepted;
   const routedConversationInput = await waitForBackendState(
@@ -324,6 +332,60 @@ try {
       ),
   );
   speechProvider.assertHealthy();
+
+  assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId: alpha.id,
+      text: "clarify pane request",
+    }),
+    "submitted",
+  );
+  const clarificationRoot = await waitForRecordedTextConversationInput(
+    secondLaunchDir,
+    alpha.id,
+    "clarify pane request",
+    "route",
+    workflowTimeoutMs,
+  );
+  await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) => surface.clarificationText === "Which exact pane request should I send?",
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId: alpha.id,
+      text: "send the clarified pane request",
+    }),
+    "submitted",
+  );
+  const clarificationReply = await waitForRecordedTextConversationInput(
+    secondLaunchDir,
+    alpha.id,
+    "send the clarified pane request",
+    "route",
+    workflowTimeoutMs,
+    clarificationRoot.accepted.input.id,
+  );
+  const clarifiedState = await waitForBackendState(
+    () =>
+      readConversationInputRoutingState(context.client, workspaceId, clarificationReply.request),
+    (state) => state.input?.status === "dispatched",
+    workflowTimeoutMs,
+  );
+  assertPaneClarificationExchange(clarifiedState, clarificationRoot, clarificationReply);
+  await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    alpha.id,
+    (snapshot) =>
+      snapshot.conversation.status === "idle" &&
+      snapshot.turns.turns.some(
+        (turn) =>
+          turn.authoredInput.text === "send the clarified pane request" &&
+          turn.status === "completed",
+      ),
+  );
 
   await context.client.driver("topicConversationOpenBoundPane", { conversationId: alpha.id });
   const duplicated = await waitForConversationSurfaces(
@@ -475,6 +537,7 @@ try {
   assertDriverAction(
     await context.client.driver("topicConversationVoiceCapture", {
       conversationId: alpha.id,
+      inputMode: "queue",
     }),
     "requested",
   );
@@ -510,7 +573,15 @@ try {
   await context.client.evaluate(
     "globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(true)",
   );
-  const workingInput = await waitForPaneSpeechInput(secondLaunchDir, alpha.id, alphaPaneId, 2);
+  const workingInput = await waitForRecordedPaneSpeechInput(
+    secondLaunchDir,
+    alpha.id,
+    alphaPaneId,
+    paneSpeechTranscript,
+    workflowTimeoutMs,
+    2,
+    "queue",
+  );
   const workingConversationInputRequest = workingInput.request;
   const acceptedWorkingConversationInput = workingInput.accepted;
   const routedWorkingConversationInput = await waitForBackendState(
@@ -523,10 +594,10 @@ try {
     (state) => state.input?.status === "dispatched",
     workflowTimeoutMs,
   );
-  assertQueuedConversationInputRoutingState(
+  assertExplicitConversationInputRoutingState(
     routedWorkingConversationInput,
     acceptedWorkingConversationInput.input,
-    acceptedWorkingConversationInput.sequence,
+    "queue_parent_turn",
   );
   assertRoutedConversationInputReceipt(
     acceptedWorkingConversationInput,
@@ -824,7 +895,7 @@ try {
     workspaceId,
     alpha.id,
     (snapshot) =>
-      snapshot.turns.turns.length === 6 &&
+      snapshot.turns.turns.length === 7 &&
       snapshot.turns.turns.every((turn) => turn.status === "completed") &&
       hasFinalNarrationForEveryTurn(snapshot) &&
       narratorCaughtUp(snapshot),
@@ -909,14 +980,14 @@ try {
     acceptedConversationInput.input,
     acceptedConversationInput.sequence,
   );
-  assertQueuedConversationInputRoutingState(
+  assertExplicitConversationInputRoutingState(
     await readConversationInputRoutingState(
       context.client,
       workspaceId,
       workingConversationInputRequest,
     ),
     acceptedWorkingConversationInput.input,
-    acceptedWorkingConversationInput.sequence,
+    "queue_parent_turn",
   );
   await masterEscalation.assertPersisted(context.client);
   const reloaded = await verifyReloadedConversationProjections({
@@ -962,14 +1033,14 @@ try {
     acceptedConversationInput.input,
     acceptedConversationInput.sequence,
   );
-  assertQueuedConversationInputRoutingState(
+  assertExplicitConversationInputRoutingState(
     await readConversationInputRoutingState(
       context.client,
       workspaceId,
       workingConversationInputRequest,
     ),
     acceptedWorkingConversationInput.input,
-    acceptedWorkingConversationInput.sequence,
+    "queue_parent_turn",
   );
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -1335,81 +1406,6 @@ async function waitForRecordedConversationKeepAlive(artifactDirectory, conversat
     await delay(20);
   }
   throw new Error(`conversation stream was not retained for pane-free work ${conversationId}`);
-}
-
-async function waitForPaneSpeechInput(
-  artifactDirectory,
-  conversationId,
-  sourcePaneId,
-  occurrence = 1,
-) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < workflowTimeoutMs) {
-    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
-    const starts = events.filter(
-      (event) =>
-        event.type === "ipc_start" &&
-        event.channel === "conversation:submit-input" &&
-        event.args?.[0]?.input?.conversationId === conversationId &&
-        event.args[0].input.sourcePaneId === sourcePaneId &&
-        event.args[0].input.text === paneSpeechTranscript,
-    );
-    if (
-      events.some(
-        (event) =>
-          event.type === "ipc_start" &&
-          event.channel === "master:submit-input" &&
-          event.args?.[0]?.input?.text === paneSpeechTranscript,
-      )
-    ) {
-      throw new Error("pane speech transcript was submitted to the global master");
-    }
-    const uniqueStarts = Array.from(
-      new Map(starts.map((start) => [start.args[0].input.id, start])).values(),
-    );
-    if (uniqueStarts.length > occurrence) {
-      throw new Error(`too many durable pane speech inputs: ${uniqueStarts.length}`);
-    }
-    const start = uniqueStarts[occurrence - 1];
-    const finish = start
-      ? events.find(
-          (event) =>
-            event.type === "ipc_finish" &&
-            event.channel === "conversation:submit-input" &&
-            event.id === start.id,
-        )
-      : null;
-    if (start && finish) {
-      const request = start.args[0];
-      assertRecordedPaneSpeechInput(request.input, conversationId, sourcePaneId);
-      return { accepted: finish.result, request };
-    }
-    await delay(50);
-  }
-  throw new Error(`timed out waiting for durable pane speech input delivery ${occurrence}`);
-}
-
-function assertRecordedPaneSpeechInput(input, conversationId, sourcePaneId) {
-  assertPaneSpeechField(input, "conversationId", conversationId);
-  assertPaneSpeechField(input, "sourcePaneId", sourcePaneId);
-  assertPaneSpeechField(input, "replyToInputId", null);
-  assertPaneSpeechField(input, "modality", "voice");
-  assertPaneSpeechField(input, "requestedMode", "route");
-  assertPaneSpeechField(input, "text", paneSpeechTranscript);
-  assertNonEmptyPaneSpeechField(input, "id");
-  assertNonEmptyPaneSpeechField(input, "submittedAt");
-}
-
-function assertPaneSpeechField(input, field, expected) {
-  if (input?.[field] !== expected) {
-    throw new Error(`invalid pane speech input ${field}: ${JSON.stringify(input)}`);
-  }
-}
-
-function assertNonEmptyPaneSpeechField(input, field) {
-  if (typeof input?.[field] !== "string" || input[field].length === 0) {
-    throw new Error(`invalid pane speech input ${field}: ${JSON.stringify(input)}`);
-  }
 }
 
 async function submitAndWaitForQueue(client, conversationId, text, queueCount) {

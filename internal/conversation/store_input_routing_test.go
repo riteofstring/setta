@@ -137,6 +137,15 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 			if record.Decision.Kind != kind || record.ResultingCommand.Kind != kind {
 				t.Fatalf("committed route record = %+v", record)
 			}
+			applied, err := store.ConversationRouteCommandApplied(context.Background(), record)
+			if err != nil {
+				t.Fatalf("ConversationRouteCommandApplied(%s): %v", kind, err)
+			}
+			wantApplied := kind == ConversationRouteDecisionKindEscalateToMaster ||
+				kind == ConversationRouteDecisionKindClarify
+			if applied != wantApplied {
+				t.Fatalf("ConversationRouteCommandApplied(%s) = %v, want %v", kind, applied, wantApplied)
+			}
 			wantStatus := ConversationInputStatusDispatched
 			if kind == ConversationRouteDecisionKindClarify {
 				wantStatus = ConversationInputStatusAwaitingClarification
@@ -146,6 +155,45 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 				assertRoutedMasterInput(t, store, input, commit)
 			}
 		})
+	}
+}
+
+func TestStoreRecognizesDurableRoutedTurnEffect(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_effect")
+	input := validConversationInput("input_effect")
+	input.ConversationID = "conversation_effect"
+	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+	work := claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
+	decision, command := validConversationRouteDecisionAndCommand(
+		ConversationRouteDecisionKindSendToParent,
+		input.Text,
+	)
+	commit := validConversationRouteDecisionCommit("decision_effect", decision, command)
+	commit.ConversationID = input.ConversationID
+	commit.InputID = input.ID
+	commit.RoutingAttempt = work.RoutingAttempt
+	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	record, err := store.CommitConversationRouteDecision(context.Background(), commit)
+	if err != nil {
+		t.Fatalf("CommitConversationRouteDecision: %v", err)
+	}
+
+	turn := validConversationTurn(TurnStatusQueued)
+	turn.ID = command.SendToParent.TurnID
+	turn.ConversationID = input.ConversationID
+	turn.AuthoredInput = command.SendToParent.AuthoredInput
+	turn.Delivery = TurnDeliveryNormal
+	turn.AcceptedAt = "2026-07-12T18:00:04Z"
+	err = store.write(context.Background(), "seed routed turn effect", func(ctx context.Context, tx *sql.Tx) error {
+		return insertConversationRouteTestTurn(ctx, tx, turn)
+	})
+	if err != nil {
+		t.Fatalf("seed routed turn effect: %v", err)
+	}
+	applied, err := store.ConversationRouteCommandApplied(context.Background(), record)
+	if err != nil || !applied {
+		t.Fatalf("ConversationRouteCommandApplied = %v, %v, want true", applied, err)
 	}
 }
 
@@ -319,6 +367,21 @@ func TestStoreKeepsClarificationLinkedAndBlocksLaterInputsUntilResolution(t *tes
 	}
 	reply.RequestedMode = ConversationInputModeRoute
 	acceptConversationRoutingInput(t, store, reply, "2026-07-12T18:00:08Z")
+	pendingReplyState, err := store.ReadConversationInputRoutingState(
+		context.Background(),
+		"workspace",
+		root.ConversationID,
+		reply.ID,
+	)
+	if err != nil {
+		t.Fatalf("ReadConversationInputRoutingState pending reply: %v", err)
+	}
+	if settled, err := store.conversationInputRoutingStateSettled(
+		context.Background(),
+		pendingReplyState,
+	); err != nil || settled {
+		t.Fatalf("accepted clarification reply settled = %v, %v, want false", settled, err)
+	}
 	duplicateReply := cloneConversationInput(reply)
 	duplicateReply.ID = "input_second_clarification_reply"
 	if _, err := store.AcceptConversationInput(context.Background(), duplicateReply, "2026-07-12T18:00:09Z"); !IsStateConflict(err) {

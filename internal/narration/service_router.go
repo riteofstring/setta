@@ -3,6 +3,7 @@ package narration
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 type conversationRouteQueue struct {
@@ -74,6 +75,7 @@ func (service *Service) runConversationRouteQueue(
 	queue *conversationRouteQueue,
 ) {
 	defer service.tasks.Done()
+	retryAttempt := 0
 	for {
 		service.lifecycleMu.Lock()
 		if service.closing || service.routing[conversationID] != queue {
@@ -86,7 +88,22 @@ func (service *Service) runConversationRouteQueue(
 
 		for {
 			processed, err := service.inputRouter.ProcessNext(ctx, conversationID)
-			if err != nil || !processed {
+			if err != nil {
+				var committed *committedConversationRouteCommandError
+				if !errors.As(err, &committed) {
+					break
+				}
+				if waitErr := service.retryWait(
+					ctx,
+					conversationRouteCommandRetryDelay(retryAttempt),
+				); waitErr != nil {
+					break
+				}
+				retryAttempt++
+				continue
+			}
+			retryAttempt = 0
+			if !processed {
 				break
 			}
 		}
@@ -104,6 +121,20 @@ func (service *Service) runConversationRouteQueue(
 		delete(service.routing, conversationID)
 		service.lifecycleMu.Unlock()
 		return
+	}
+}
+
+// A committed decision remains the authoritative command after a transient
+// execution failure. Retrying its stable ids on one cancellable timer keeps
+// the in-process path as durable as startup recovery without polling state.
+func conversationRouteCommandRetryDelay(attempt int) time.Duration {
+	switch attempt {
+	case 0:
+		return initialRetryDelay
+	case 1:
+		return secondRetryDelay
+	default:
+		return finalRetryDelay
 	}
 }
 

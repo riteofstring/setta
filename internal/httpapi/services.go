@@ -96,6 +96,7 @@ type NarratorStatusService interface {
 type ConversationInputService interface {
 	DiscardInput(context.Context, string, string, string) (conversation.ConversationInputRoutingState, error)
 	ReadInputState(context.Context, string, string, string) (conversation.ConversationInputRoutingState, error)
+	WaitInputState(context.Context, string, string, string) (conversation.ConversationInputRoutingState, error)
 	RetryInput(context.Context, string, string, string) (conversation.ConversationInputRoutingState, error)
 	SubmitInput(context.Context, conversation.ConversationInput) (conversation.AcceptedConversationInput, error)
 }

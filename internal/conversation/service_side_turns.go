@@ -31,6 +31,24 @@ func (service *Service) SendSideConversationTurn(
 	sideConversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
+	return service.sendSideConversationTurn(
+		ctx,
+		workspaceID,
+		parentConversationID,
+		sideConversationID,
+		text,
+		"",
+	)
+}
+
+func (service *Service) sendSideConversationTurn(
+	ctx context.Context,
+	workspaceID string,
+	parentConversationID string,
+	sideConversationID string,
+	text string,
+	requestedTurnID string,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -41,8 +59,13 @@ func (service *Service) SendSideConversationTurn(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	turnID, err := service.newID("side_turn")
-	if err != nil {
+	turnID := requestedTurnID
+	if turnID == "" {
+		turnID, err = service.newID("side_turn")
+		if err != nil {
+			return ConversationSnapshot{}, err
+		}
+	} else if err := validateIdentifier("routed side turn id", turnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	eventID, err := service.newID("side_event")

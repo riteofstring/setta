@@ -444,6 +444,9 @@ export interface SettaAPI {
     readInputState?: (
       request: ReadConversationInputRoutingStateRequest,
     ) => Promise<ConversationInputRoutingState>;
+    waitInputState?: (
+      request: ReadConversationInputRoutingStateRequest,
+    ) => Promise<ConversationInputRoutingState>;
     read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
     release: (request: ConversationEventReleaseRequest) => Promise<void>;
     retryInput?: (request: RetryConversationInputRequest) => Promise<ConversationInputRoutingState>;

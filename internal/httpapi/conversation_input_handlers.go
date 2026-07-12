@@ -52,6 +52,18 @@ func (handler handler) submitConversationInput(response http.ResponseWriter, req
 }
 
 func (handler handler) readConversationInputRoutingState(response http.ResponseWriter, request *http.Request) {
+	handler.conversationInputRoutingState(response, request, false)
+}
+
+func (handler handler) waitConversationInputRoutingState(response http.ResponseWriter, request *http.Request) {
+	handler.conversationInputRoutingState(response, request, true)
+}
+
+func (handler handler) conversationInputRoutingState(
+	response http.ResponseWriter,
+	request *http.Request,
+	wait bool,
+) {
 	service := requireConversationInputService(response, handler.conversationInputService)
 	if service == nil {
 		return
@@ -60,12 +72,23 @@ func (handler handler) readConversationInputRoutingState(response http.ResponseW
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	state, err := service.ReadInputState(
-		request.Context(),
-		payload.WorkspaceID,
-		payload.ConversationID,
-		payload.InputID,
-	)
+	var state conversation.ConversationInputRoutingState
+	var err error
+	if wait {
+		state, err = service.WaitInputState(
+			request.Context(),
+			payload.WorkspaceID,
+			payload.ConversationID,
+			payload.InputID,
+		)
+	} else {
+		state, err = service.ReadInputState(
+			request.Context(),
+			payload.WorkspaceID,
+			payload.ConversationID,
+			payload.InputID,
+		)
+	}
 	if err != nil {
 		writeConversationInputError(response, err)
 		return

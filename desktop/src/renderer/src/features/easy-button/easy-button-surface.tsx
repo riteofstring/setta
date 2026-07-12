@@ -37,6 +37,7 @@ import {
   type EasyButtonConversationCommands,
   useEasyButtonConversationCommands,
 } from "./easy-button-conversation-commands";
+import { conversationComposerBindings } from "./easy-button-conversation-composer-bindings";
 import {
   type EasyButtonNarratorStatusReply,
   latestNarratorStatusReply,
@@ -157,6 +158,9 @@ function composerPlaceholder(
       ? "Loading conversation…"
       : "Conversation commands are unavailable";
   }
+  if (commands.clarificationQuestion) {
+    return "Answer the narrator’s clarification…";
+  }
   return view.viewState === "working" ? "Queue or steer more work…" : "Ask this topic agent…";
 }
 
@@ -266,6 +270,30 @@ function ConversationActionSlot({
   commands: EasyButtonConversationCommands | undefined;
   view: EasyButtonProjectionView;
 }) {
+  if (commands?.routingFailure) {
+    return (
+      <div className="easy-button-action-slot easy-button-routing-recovery">
+        {commands.routingFailure.retryable ? (
+          <button
+            data-testid="easy-button-input-retry"
+            disabled={commands.pending}
+            onClick={commands.retryFailedInput}
+            type="button"
+          >
+            Retry routing
+          </button>
+        ) : null}
+        <button
+          data-testid="easy-button-input-discard"
+          disabled={commands.pending}
+          onClick={commands.discardFailedInput}
+          type="button"
+        >
+          Discard request
+        </button>
+      </div>
+    );
+  }
   if (view.pendingApproval && commands) {
     return (
       <div className="easy-button-action-slot">
@@ -302,6 +330,7 @@ function ConversationComposer({
     <EasyButtonConversationComposer
       available={bindings.available}
       canSubmit={bindings.canSubmit}
+      clarificationQuestion={commands?.clarificationQuestion ?? null}
       forkPoints={view.forkPoints}
       input={bindings.input}
       onFork={bindings.onFork}
@@ -318,56 +347,6 @@ function ConversationComposer({
       working={view.viewState === "working"}
     />
   );
-}
-
-interface ConversationComposerBindings {
-  available: boolean;
-  canSubmit: boolean;
-  input: string;
-  onFork: EasyButtonConversationCommands["fork"] | undefined;
-  onInput: EasyButtonConversationCommands["setInput"] | undefined;
-  onQueue: EasyButtonConversationCommands["queue"] | undefined;
-  onSend: EasyButtonConversationCommands["send"] | undefined;
-  onSide: EasyButtonConversationCommands["startSide"];
-  onStatus: EasyButtonConversationCommands["askStatus"] | undefined;
-  onSteer: EasyButtonConversationCommands["steer"] | undefined;
-  onSubmit: EasyButtonConversationCommands["submit"] | undefined;
-  onVoiceCapture: EasyButtonConversationCommands["requestVoiceCapture"];
-}
-
-function conversationComposerBindings(
-  commands: EasyButtonConversationCommands | undefined,
-): ConversationComposerBindings {
-  if (!commands) {
-    return {
-      available: false,
-      canSubmit: false,
-      input: "",
-      onFork: undefined,
-      onInput: undefined,
-      onQueue: undefined,
-      onSend: undefined,
-      onSide: undefined,
-      onStatus: undefined,
-      onSteer: undefined,
-      onSubmit: undefined,
-      onVoiceCapture: undefined,
-    };
-  }
-  return {
-    available: commands.available && !commands.pending,
-    canSubmit: commands.canSubmit,
-    input: commands.input,
-    onFork: commands.fork,
-    onInput: commands.setInput,
-    onQueue: commands.queue,
-    onSend: commands.send,
-    onSide: commands.startSide,
-    onStatus: commands.askStatus,
-    onSteer: commands.steer,
-    onSubmit: commands.submit,
-    onVoiceCapture: commands.requestVoiceCapture,
-  };
 }
 
 export function easyButtonProjectionView(

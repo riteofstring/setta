@@ -7,6 +7,13 @@ import (
 
 const conversationRouteTurnCommandKeyPrefix = "conversation_turn:"
 
+func conversationRouteSteeringTrajectoryEventIDs(decisionID string) ([2]string, error) {
+	if err := validateConversationRouteDecisionID(decisionID); err != nil {
+		return [2]string{}, err
+	}
+	return [2]string{decisionID + ":accepted", decisionID + ":steered"}, nil
+}
+
 func (failure ConversationInputRoutingFailure) Validate() error {
 	if err := validateConversationInputReference("conversation input routing failure conversation id", failure.ConversationID); err != nil {
 		return err

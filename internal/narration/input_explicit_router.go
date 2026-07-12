@@ -167,6 +167,10 @@ func (router *ConversationInputRouter) explicitSideDecision(
 			)
 	}
 	sideID, err := conversationRouteCommandID(router.newID, "side_conversation")
+	if err != nil {
+		return conversation.ConversationRouteDecision{}, conversation.ConversationRouteCommand{}, err
+	}
+	turnID, err := conversationRouteCommandID(router.newID, "side_turn")
 	return conversation.ConversationRouteDecision{
 			Kind: conversation.ConversationRouteDecisionKindCreateSideConversation,
 			CreateSideConversation: &conversation.CreateSideConversationRouteDecision{
@@ -177,6 +181,7 @@ func (router *ConversationInputRouter) explicitSideDecision(
 			CreateSideConversation: &conversation.CreateSideConversationRouteCommand{
 				SideConversationID: sideID,
 				ParentPaneID:       *input.SourcePaneID,
+				TurnID:             turnID,
 				Input:              authored,
 			},
 		}, err
@@ -192,6 +197,10 @@ func (router *ConversationInputRouter) explicitForkDecision(
 			continue
 		}
 		childID, err := conversationRouteCommandID(router.newID, "conversation")
+		if err != nil {
+			return conversation.ConversationRouteDecision{}, conversation.ConversationRouteCommand{}, err
+		}
+		turnID, err := conversationRouteCommandID(router.newID, "conversation_turn")
 		decision := conversation.ConversationRouteDecision{
 			Kind: conversation.ConversationRouteDecisionKindForkConversation,
 			ForkConversation: &conversation.ForkConversationRouteDecision{
@@ -205,6 +214,7 @@ func (router *ConversationInputRouter) explicitForkDecision(
 			ForkConversation: &conversation.ForkConversationRouteCommand{
 				ChildConversationID: childID,
 				ForkedAtTurnID:      turn.ID,
+				TurnID:              turnID,
 				Input:               authored,
 				ProposedTitle:       decision.ForkConversation.ProposedTitle,
 			},

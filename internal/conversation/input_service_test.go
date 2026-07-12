@@ -241,6 +241,15 @@ func (store *recordingConversationInputStore) ReadConversationInputRoutingState(
 	}, nil
 }
 
+func (store *recordingConversationInputStore) WaitForConversationInputRoutingState(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	inputID string,
+) (ConversationInputRoutingState, error) {
+	return store.ReadConversationInputRoutingState(ctx, workspaceID, conversationID, inputID)
+}
+
 func (store *recordingConversationInputStore) RetryConversationInputRouting(
 	_ context.Context,
 	workspaceID string,

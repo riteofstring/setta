@@ -83,6 +83,31 @@ func (service *Service) queueTurn(
 	text string,
 	turnID string,
 ) (ConversationSnapshot, error) {
+	return service.queueTurnWithIdlePromotion(ctx, workspaceID, conversationID, text, turnID, false)
+}
+
+// queueRoutedTurn preserves a queue command that was valid when its route
+// decision committed even if the active turn reaches a terminal state before
+// the executor runs. The queued delivery remains auditable and is promoted
+// through the normal lifecycle once the conversation is idle.
+func (service *Service) queueRoutedTurn(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	text string,
+	turnID string,
+) (ConversationSnapshot, error) {
+	return service.queueTurnWithIdlePromotion(ctx, workspaceID, conversationID, text, turnID, true)
+}
+
+func (service *Service) queueTurnWithIdlePromotion(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	text string,
+	turnID string,
+	promoteWhenIdle bool,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -91,18 +116,22 @@ func (service *Service) queueTurn(
 	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
-	defer lock.Unlock()
 	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)
 	if err != nil {
+		lock.Unlock()
 		return ConversationSnapshot{}, err
 	}
-	if _, err := service.activeTurnForQueue(snapshot); err != nil {
-		return ConversationSnapshot{}, &CommandConflictError{
-			ConversationID: conversationID,
-			Reason:         err.Error(),
-		}
+	shouldPromote, err := service.routedQueueIdlePromotion(
+		snapshot,
+		conversationID,
+		promoteWhenIdle,
+	)
+	if err != nil {
+		lock.Unlock()
+		return ConversationSnapshot{}, err
 	}
 	if len(snapshot.Queue) >= MaxSnapshotQueuedTurns {
+		lock.Unlock()
 		return ConversationSnapshot{}, &CommandConflictError{
 			ConversationID: conversationID,
 			Reason:         fmt.Sprintf("queue is limited to %d turns", MaxSnapshotQueuedTurns),
@@ -110,9 +139,35 @@ func (service *Service) queueTurn(
 	}
 	ordinal := len(snapshot.Queue) + 1
 	if _, err := service.acceptTurn(ctx, snapshot, text, TurnDeliveryQueued, ordinal, turnID); err != nil {
+		lock.Unlock()
 		return ConversationSnapshot{}, err
 	}
+	lock.Unlock()
+	if shouldPromote {
+		service.promoteNextTurn(workspaceID, conversationID)
+	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+}
+
+func (service *Service) routedQueueIdlePromotion(
+	snapshot ConversationSnapshot,
+	conversationID string,
+	promoteWhenIdle bool,
+) (bool, error) {
+	_, activeErr := service.activeTurnForQueue(snapshot)
+	if activeErr == nil {
+		return false, nil
+	}
+	canPromote := promoteWhenIdle && service.activeFor(conversationID) == nil &&
+		(snapshot.Conversation.Status == ConversationStatusIdle ||
+			snapshot.Conversation.Status == ConversationStatusFailed)
+	if canPromote {
+		return true, nil
+	}
+	return false, &CommandConflictError{
+		ConversationID: conversationID,
+		Reason:         activeErr.Error(),
+	}
 }
 
 func (service *Service) acceptTurn(
@@ -332,6 +387,7 @@ func (service *Service) steerTurn(
 			Reason:         fmt.Sprintf("steer target changed from %s to %s", expectedTurnID, control.turn.ID),
 		}
 	}
+	routeDecisionID := clientInputID
 	if clientInputID == "" {
 		clientInputID = control.active.turnID + "_steer"
 	} else if err := validateIdentifier("routed steer client input id", clientInputID); err != nil {
@@ -347,7 +403,13 @@ func (service *Service) steerTurn(
 	if err := service.agent.SteerTurn(ctx, request); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if err := service.persistSteering(ctx, control.snapshot, control.turn.ID, text); err != nil {
+	if err := service.persistSteering(
+		ctx,
+		control.snapshot,
+		control.turn.ID,
+		text,
+		routeDecisionID,
+	); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)

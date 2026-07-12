@@ -9,6 +9,7 @@ import type { PaneSpeechPresentation } from "../global-speech/global-speech-pres
 export function EasyButtonConversationComposer({
   available,
   canSubmit,
+  clarificationQuestion = null,
   forkPoints = [],
   input,
   onFork,
@@ -26,6 +27,7 @@ export function EasyButtonConversationComposer({
 }: {
   available: boolean;
   canSubmit: boolean;
+  clarificationQuestion?: string | null;
   forkPoints?: readonly EasyButtonForkPoint[];
   input: string;
   onFork?: (() => void) | undefined;
@@ -42,9 +44,16 @@ export function EasyButtonConversationComposer({
   working: boolean;
 }) {
   const [voiceInputMode, setVoiceInputMode] = useState<ConversationInputMode>("route");
+  const frozenVoiceInputMode = speech?.captureInputMode ?? null;
+  const effectiveVoiceInputMode = frozenVoiceInputMode ?? voiceInputMode;
 
   return (
     <div className="easy-button-footer">
+      {clarificationQuestion ? (
+        <p className="easy-button-clarification" data-testid="easy-button-clarification">
+          {clarificationQuestion}
+        </p>
+      ) : null}
       <form className="easy-button-input-wrap" onSubmit={onSubmit}>
         <input
           aria-label="Easy Button request"
@@ -73,7 +82,8 @@ export function EasyButtonConversationComposer({
         <PaneSpeechActivityIndicator presentation={speech} />
         <ConversationVoiceModeSelect
           available={available}
-          inputMode={voiceInputMode}
+          frozen={frozenVoiceInputMode !== null}
+          inputMode={effectiveVoiceInputMode}
           onInputMode={setVoiceInputMode}
           visible={Boolean(onVoiceCapture)}
         />
@@ -81,7 +91,7 @@ export function EasyButtonConversationComposer({
           available={available}
           onVoiceCapture={onVoiceCapture}
           speech={speech}
-          voiceInputMode={voiceInputMode}
+          voiceInputMode={effectiveVoiceInputMode}
         />
         <button
           className="easy-button-enter-chip"
@@ -89,7 +99,7 @@ export function EasyButtonConversationComposer({
           disabled={!canSubmit}
           type="submit"
         >
-          Route
+          {clarificationQuestion ? "Reply" : "Route"}
         </button>
       </form>
     </div>
@@ -139,11 +149,13 @@ function ConversationVoiceButton({
 
 function ConversationVoiceModeSelect({
   available,
+  frozen,
   inputMode,
   onInputMode,
   visible,
 }: {
   available: boolean;
+  frozen: boolean;
   inputMode: ConversationInputMode;
   onInputMode: (inputMode: ConversationInputMode) => void;
   visible: boolean;
@@ -156,7 +168,7 @@ function ConversationVoiceModeSelect({
       aria-label="Voice input mode"
       className="easy-button-voice-mode"
       data-testid="easy-button-voice-mode"
-      disabled={!available}
+      disabled={!available || frozen}
       onChange={(event) => onInputMode(event.target.value as ConversationInputMode)}
       value={inputMode}
     >
