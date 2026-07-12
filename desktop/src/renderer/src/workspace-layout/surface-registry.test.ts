@@ -1,7 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { conversationPaletteCatalog } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 
+import { claimConversationPaletteIdentity } from "../features/easy-button/conversation-palette-identity";
 import { SurfaceRegistry } from "./surface-registry";
 import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type {
@@ -327,6 +329,33 @@ describe("workspace surface registry", () => {
     expect(texture.className).toBe("workspace-snapshot-texture");
     expect(capturedPane.className).toBe("workspace-textured-source");
     expect(capturedPane.textContent).toBe("live pane texture");
+  });
+
+  test("keeps conversation palette identity on snapshot handoff", () => {
+    const pane = {
+      ...fakePane("easy-button"),
+      easyButtonConfig: { conversationId: "conversation_alpha" },
+    };
+    const adapter = new ConversationTexturedSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => adapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    registry.syncHost(host, renderItem(pane, "snapshot"), { resizePhase: "idle" });
+
+    expect(host.dataset.conversationId).toBe("conversation_alpha");
+    expect(host.dataset.conversationPalette).toBe("sky");
+    expect(host.classList.contains("conversation-presentation-identity")).toBe(true);
+    expect(host.style.getPropertyValue("--conversation-accent-dark")).toBe(
+      conversationPaletteCatalog.sky.dark.conversationAccent,
+    );
+
+    registry.releaseHost(host);
+
+    expect(host.dataset.conversationId).toBeUndefined();
+    expect(host.dataset.conversationPalette).toBeUndefined();
+    expect(host.classList.contains("conversation-presentation-identity")).toBe(false);
+    expect(host.style.getPropertyValue("--conversation-accent-dark")).toBe("");
   });
 
   test("preserves nested scroller offsets in DOM pane snapshots", () => {
@@ -850,6 +879,24 @@ class TexturedSurfaceAdapter extends RecordingSurfaceAdapter {
     texture.className = "workspace-textured-source";
     texture.textContent = "live pane texture";
     host.append(texture);
+  }
+}
+
+class ConversationTexturedSurfaceAdapter extends TexturedSurfaceAdapter {
+  private releasePresentationIdentity: (() => void) | null = null;
+
+  override mount(host: HTMLElement): void {
+    super.mount(host);
+    this.releasePresentationIdentity = claimConversationPaletteIdentity(host, {
+      conversationId: "conversation_alpha",
+      paletteId: "sky",
+    });
+  }
+
+  override unmount(): void {
+    this.releasePresentationIdentity?.();
+    this.releasePresentationIdentity = null;
+    super.unmount();
   }
 }
 

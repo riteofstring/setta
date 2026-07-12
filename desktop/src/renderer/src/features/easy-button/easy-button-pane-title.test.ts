@@ -5,6 +5,36 @@ import { notifyReactDomSurfaceHostChanged } from "../../workspace-layout/react-d
 import { bindEasyButtonPanePresentation } from "./easy-button-pane-title";
 
 describe("Easy Button pane presentation identity", () => {
+  test("keeps one conversation identity on simultaneous pane hosts", () => {
+    const first = fakePaneHost();
+    const second = fakePaneHost();
+    const releaseFirst = bindEasyButtonPanePresentation(fakeParkedSurface(first.element).root, {
+      conversationId: "conversation_alpha",
+      paletteId: "sky",
+      projectionStatus: "ready",
+      title: "Alpha topic",
+      viewState: "working",
+    });
+    const releaseSecond = bindEasyButtonPanePresentation(fakeParkedSurface(second.element).root, {
+      conversationId: "conversation_alpha",
+      paletteId: "sky",
+      projectionStatus: "ready",
+      title: "Alpha topic",
+      viewState: "working",
+    });
+
+    expectPaneIdentity(first, "conversation_alpha", "sky");
+    expectPaneIdentity(second, "conversation_alpha", "sky");
+    expect(first.title.textContent).toBe("Alpha topic · working");
+    expect(second.title.textContent).toBe("Alpha topic · working");
+
+    releaseFirst();
+    expectClearedPaneIdentity(first);
+    expectPaneIdentity(second, "conversation_alpha", "sky");
+    releaseSecond();
+    expectClearedPaneIdentity(second);
+  });
+
   test("moves palette identity with a parked React surface", () => {
     const first = fakePaneHost();
     const second = fakePaneHost();

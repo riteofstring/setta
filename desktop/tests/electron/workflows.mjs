@@ -15,6 +15,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "topic-conversation-palette-identity.test.mjs",
+    name: "topic-conversation-palette-identity",
+    tiers: ["required"],
+  },
+  {
     file: "topic-conversation-crash-recovery.test.mjs",
     name: "topic-conversation-crash-recovery",
     tiers: ["required"],

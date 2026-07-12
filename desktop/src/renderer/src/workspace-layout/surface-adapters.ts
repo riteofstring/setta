@@ -1,5 +1,10 @@
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
+import {
+  claimConversationPaletteIdentity,
+  readConversationPanePaletteIdentity,
+  type ConversationPaletteIdentity,
+} from "../features/easy-button/conversation-palette-identity";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
 import {
@@ -192,6 +197,8 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   private bitmapTexture: HTMLElement | null = null;
   private focused = false;
   private host: HTMLElement | null = null;
+  private presentationIdentity: ConversationPaletteIdentity | null = null;
+  private releasePresentationIdentity: (() => void) | null = null;
   private texture: HTMLElement | null = null;
   private textureCaptureKey: string | null = null;
   private visible = false;
@@ -206,6 +213,7 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   }
 
   captureBitmap(sourceHost: HTMLElement): boolean {
+    this.capturePresentationIdentity(sourceHost);
     const request = bitmapCaptureRequestForHost(sourceHost);
     if (!request || this.bitmapCaptureRequested(request.captureKey)) {
       return false;
@@ -226,6 +234,7 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   }
 
   captureTexture(sourceHost: HTMLElement): SurfaceSnapshotFreshness {
+    this.capturePresentationIdentity(sourceHost);
     if (sourceHost.dataset.presentationMode === "overview" && this.hasCapturedTexture()) {
       return this.textureFreshnessForHost(sourceHost);
     }
@@ -262,10 +271,13 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     host.dataset.surfaceKind = this.kind;
     this.rerenderMountedSnapshot();
     applySnapshotScrollOffsets(host);
+    this.syncPresentationIdentity();
     this.syncHostState();
   }
 
   unmount(): void {
+    this.releasePresentationIdentity?.();
+    this.releasePresentationIdentity = null;
     this.host?.replaceChildren();
     this.host = null;
     this.visible = false;
@@ -304,6 +316,35 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     this.host.dataset.surfaceVisible = String(this.visible);
     this.host.dataset.surfaceFocused = String(this.focused);
     this.host.style.visibility = this.visible ? "visible" : "hidden";
+  }
+
+  private capturePresentationIdentity(sourceHost: HTMLElement): void {
+    if (this.pane.surfaceKind !== "easy-button") {
+      return;
+    }
+    const identity = readConversationPanePaletteIdentity(sourceHost);
+    const currentIdentity = this.presentationIdentity;
+    if (
+      !identity ||
+      (currentIdentity !== null &&
+        identity.conversationId === currentIdentity.conversationId &&
+        identity.paletteId === currentIdentity.paletteId)
+    ) {
+      return;
+    }
+    this.presentationIdentity = identity;
+    this.syncPresentationIdentity();
+  }
+
+  private syncPresentationIdentity(): void {
+    if (!this.host) {
+      return;
+    }
+    this.releasePresentationIdentity?.();
+    this.releasePresentationIdentity = claimConversationPaletteIdentity(
+      this.host,
+      this.presentationIdentity,
+    );
   }
 
   private hasCapturedTexture(): boolean {
