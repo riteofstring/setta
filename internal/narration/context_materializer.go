@@ -261,6 +261,7 @@ func materializeStatus(
 ) (StatusContextBundle, error) {
 	bundle := StatusContextBundle{
 		Kind:                  ContextKindStatus,
+		Trigger:               conversation.NarrationTriggerExplicitStatusRequested,
 		Question:              request.Question,
 		Authoritative:         authoritativeContext(source),
 		PreCallCursor:         narratorCursor(source.NarratorState),
@@ -318,6 +319,7 @@ func materializeCheckpoint(
 	}
 	bundle := CheckpointContextBundle{
 		Kind:                      ContextKindCheckpoint,
+		Trigger:                   conversation.NarrationTriggerCheckpointWindowExceeded,
 		Authoritative:             authoritativeContext(source),
 		HistoricalCheckpoint:      historicalCheckpoint(source.NarratorState),
 		PreCallCursor:             narratorCursor(source.NarratorState),

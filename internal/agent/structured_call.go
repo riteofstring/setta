@@ -1,0 +1,583 @@
+package agent
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"setta/internal/codexapp"
+)
+
+const freshStructuredCleanupTimeout = 5 * time.Second
+
+// FreshStructuredCallRequest describes one isolated, schema-constrained model
+// call. Each request receives a new ephemeral provider thread and may not use
+// tools, mutate the workspace, or request approval.
+type FreshStructuredCallRequest struct {
+	ID                    string          `json:"id"`
+	WorkspaceRoot         string          `json:"workspaceRoot"`
+	Invocation            Invocation      `json:"invocation"`
+	DeveloperInstructions string          `json:"developerInstructions"`
+	Input                 json.RawMessage `json:"input"`
+	OutputSchema          json.RawMessage `json:"outputSchema"`
+}
+
+type FreshStructuredCallResult struct {
+	ProviderThreadID string          `json:"providerThreadId"`
+	ProviderTurnID   string          `json:"providerTurnId"`
+	Output           json.RawMessage `json:"output"`
+}
+
+func (request FreshStructuredCallRequest) Validate() error {
+	if strings.TrimSpace(request.ID) == "" || strings.TrimSpace(request.ID) != request.ID {
+		return errors.New("fresh structured call id must be non-empty without surrounding whitespace")
+	}
+	if err := validateWorkspaceRoot(request.WorkspaceRoot); err != nil {
+		return err
+	}
+	if err := request.Invocation.Validate(); err != nil {
+		return err
+	}
+	if request.Invocation.PermissionMode != PermissionModeReadOnly || request.Invocation.ApprovalMode != ApprovalModeNever {
+		return errors.New("fresh structured call requires read-only permission and no approvals")
+	}
+	if strings.TrimSpace(request.DeveloperInstructions) == "" ||
+		strings.TrimSpace(request.DeveloperInstructions) != request.DeveloperInstructions {
+		return errors.New("fresh structured call developer instructions must be non-empty without surrounding whitespace")
+	}
+	if _, err := strictJSONObject(request.Input, "fresh structured call input"); err != nil {
+		return err
+	}
+	return validateStrictOutputSchema(request.OutputSchema)
+}
+
+// RunFreshStructuredCall starts a new in-memory provider thread for every
+// invocation. It deliberately bypasses the primary-turn reservation map so a
+// narrator or other read-only projector can run while the topic agent is
+// active. Any attempted tool/server request fails the call.
+func (runtime *Runtime) RunFreshStructuredCall(
+	ctx context.Context,
+	request FreshStructuredCallRequest,
+) (result FreshStructuredCallResult, returnErr error) {
+	if err := validateFreshStructuredRuntime(runtime, ctx, request); err != nil {
+		return FreshStructuredCallResult{}, err
+	}
+	session, err := runtime.manager.NewSession(ctx)
+	if err != nil {
+		return FreshStructuredCallResult{}, fmt.Errorf("create fresh structured call session: %w", err)
+	}
+	defer session.Close()
+
+	threadID, err := runtime.startFreshStructuredThread(ctx, session, request)
+	if err != nil {
+		return FreshStructuredCallResult{}, err
+	}
+	turnID, err := runtime.startFreshStructuredTurn(ctx, session, threadID, request)
+	if err != nil {
+		return FreshStructuredCallResult{}, err
+	}
+	terminalReceived := false
+	cleanup := freshStructuredCleanup{
+		session:          session,
+		threadID:         threadID,
+		turnID:           turnID,
+		requestID:        request.ID,
+		terminalReceived: &terminalReceived,
+	}
+	defer cleanup.apply(&returnErr)
+
+	output, err := runtime.waitForFreshStructuredTurn(ctx, session, request.ID, threadID, turnID, &terminalReceived)
+	if err != nil {
+		return FreshStructuredCallResult{}, err
+	}
+	return FreshStructuredCallResult{
+		ProviderThreadID: threadID,
+		ProviderTurnID:   turnID,
+		Output:           output,
+	}, nil
+}
+
+func validateFreshStructuredRuntime(
+	runtime *Runtime,
+	ctx context.Context,
+	request FreshStructuredCallRequest,
+) error {
+	if runtime == nil || runtime.manager == nil {
+		return errors.New("agent runtime is required")
+	}
+	if ctx == nil {
+		return errors.New("fresh structured call context is required")
+	}
+	if err := request.Validate(); err != nil {
+		return err
+	}
+	return ctx.Err()
+}
+
+type freshStructuredCleanup struct {
+	session          *codexapp.Session
+	threadID         string
+	turnID           string
+	requestID        string
+	terminalReceived *bool
+}
+
+func (cleanup freshStructuredCleanup) apply(returnErr *error) {
+	if *cleanup.terminalReceived {
+		return
+	}
+	cleanupErr := interruptFreshStructuredTurn(cleanup.session, cleanup.threadID, cleanup.turnID)
+	if cleanupErr == nil {
+		return
+	}
+	cleanupErr = fmt.Errorf("interrupt unfinished fresh structured call %s: %w", cleanup.requestID, cleanupErr)
+	if *returnErr == nil {
+		*returnErr = cleanupErr
+		return
+	}
+	*returnErr = errors.Join(*returnErr, cleanupErr)
+}
+
+func (runtime *Runtime) startFreshStructuredThread(
+	ctx context.Context,
+	session *codexapp.Session,
+	request FreshStructuredCallRequest,
+) (string, error) {
+	approvalPolicy, sandbox, err := providerThreadPolicies(request.Invocation)
+	if err != nil {
+		return "", err
+	}
+	config, err := freshStructuredThreadConfig()
+	if err != nil {
+		return "", err
+	}
+	allowFallback := false
+	ephemeral := true
+	dynamicTools := []codexapp.DynamicToolSpec{}
+	environments := []codexapp.TurnEnvironmentParams{}
+	capabilityRoots := []codexapp.SelectedCapabilityRoot{}
+	developerInstructions := freshStructuredDeveloperInstructions(request.DeveloperInstructions)
+	params := codexapp.ThreadStartParams{
+		AllowProviderModelFallback: &allowFallback,
+		ApprovalPolicy:             approvalPolicy,
+		Config:                     &config,
+		CWD:                        &request.WorkspaceRoot,
+		DeveloperInstructions:      &developerInstructions,
+		DynamicTools:               &dynamicTools,
+		Environments:               &environments,
+		Ephemeral:                  &ephemeral,
+		Sandbox:                    &sandbox,
+		SelectedCapabilityRoots:    &capabilityRoots,
+		ServiceTier:                cloneString(request.Invocation.ServiceTier),
+	}
+	if !request.Invocation.ModelSelectionProviderDefault {
+		params.Model = &request.Invocation.Model
+	}
+	raw, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
+	if err != nil {
+		return "", fmt.Errorf("start fresh structured call thread: %w", err)
+	}
+	response, err := codexapp.DecodeThreadStartResponse(raw)
+	if err != nil {
+		return "", fmt.Errorf("decode fresh structured call thread: %w", err)
+	}
+	if response.Thread.ID == "" {
+		return "", errors.New("fresh structured call thread response has no provider thread id")
+	}
+	if !response.Thread.Ephemeral {
+		return "", errors.New("fresh structured call provider thread is not ephemeral")
+	}
+	if !request.Invocation.ModelSelectionProviderDefault && response.Model != request.Invocation.Model {
+		return "", fmt.Errorf(
+			"fresh structured call model resolved as %s, want %s",
+			response.Model,
+			request.Invocation.Model,
+		)
+	}
+	if err := session.OwnThread(response.Thread.ID); err != nil {
+		return "", err
+	}
+	return response.Thread.ID, nil
+}
+
+func (runtime *Runtime) startFreshStructuredTurn(
+	ctx context.Context,
+	session *codexapp.Session,
+	threadID string,
+	request FreshStructuredCallRequest,
+) (string, error) {
+	input, err := textUserInput(string(request.Input))
+	if err != nil {
+		return "", err
+	}
+	approvalPolicy, _, err := providerThreadPolicies(request.Invocation)
+	if err != nil {
+		return "", err
+	}
+	sandboxPolicyJSON, err := json.Marshal(map[string]string{"type": "readOnly"})
+	if err != nil {
+		return "", fmt.Errorf("encode fresh structured call sandbox policy: %w", err)
+	}
+	sandboxPolicy := codexapp.SandboxPolicy(sandboxPolicyJSON)
+	params := codexapp.TurnStartParams{
+		ApprovalPolicy:      approvalPolicy,
+		ClientUserMessageId: &request.ID,
+		CWD:                 &request.WorkspaceRoot,
+		Input:               []codexapp.UserInput{input},
+		OutputSchema:        append(json.RawMessage{}, request.OutputSchema...),
+		SandboxPolicy:       &sandboxPolicy,
+		ServiceTier:         cloneString(request.Invocation.ServiceTier),
+		ThreadID:            threadID,
+	}
+	if !request.Invocation.ModelSelectionProviderDefault {
+		params.Model = &request.Invocation.Model
+	}
+	if request.Invocation.ReasoningEffort != "" {
+		effort := codexapp.ReasoningEffort(request.Invocation.ReasoningEffort)
+		params.Effort = &effort
+	}
+	raw, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)
+	if err != nil {
+		return "", fmt.Errorf("start fresh structured call turn: %w", err)
+	}
+	response, err := codexapp.DecodeTurnStartResponse(raw)
+	if err != nil {
+		return "", fmt.Errorf("decode fresh structured call turn: %w", err)
+	}
+	if response.Turn.ID == "" {
+		return "", errors.New("fresh structured call turn response has no provider turn id")
+	}
+	if err := session.OwnTurn(threadID, response.Turn.ID); err != nil {
+		return "", err
+	}
+	return response.Turn.ID, nil
+}
+
+func (runtime *Runtime) waitForFreshStructuredTurn(
+	ctx context.Context,
+	session *codexapp.Session,
+	requestID string,
+	threadID string,
+	turnID string,
+	terminalReceived *bool,
+) (json.RawMessage, error) {
+	base := Event{
+		ConversationID:   "fresh-structured-" + requestID,
+		TurnID:           requestID,
+		ProviderThreadID: threadID,
+		ProviderTurnID:   turnID,
+	}
+	completedMessages := []string{}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case providerEvent, ok := <-session.Events():
+			if !ok {
+				return nil, errors.New("fresh structured call provider session closed before completion")
+			}
+			terminal, err := handleFreshStructuredProviderEvent(providerEvent, base, &completedMessages)
+			if err != nil {
+				return nil, err
+			}
+			if terminal == nil {
+				continue
+			}
+			*terminalReceived = true
+			if terminal.Outcome != TurnOutcomeCompleted {
+				message := string(terminal.Outcome)
+				if terminal.Error != nil {
+					message += ": " + *terminal.Error
+				}
+				return nil, fmt.Errorf("fresh structured call provider turn ended %s", message)
+			}
+			if len(completedMessages) != 1 {
+				return nil, fmt.Errorf(
+					"fresh structured call produced %d completed assistant messages, want exactly one",
+					len(completedMessages),
+				)
+			}
+			return strictJSONObject([]byte(completedMessages[0]), "fresh structured call output")
+		}
+	}
+}
+
+func handleFreshStructuredProviderEvent(
+	providerEvent codexapp.Event,
+	base Event,
+	completedMessages *[]string,
+) (*TerminalEvent, error) {
+	switch providerEvent.Kind {
+	case codexapp.EventRequest:
+		err := fmt.Errorf("fresh structured call attempted disallowed provider request %s", providerEvent.Message.Method)
+		_ = providerEvent.Message.RespondError(-32001, err.Error())
+		return nil, err
+	case codexapp.EventLifecycle:
+		message := "provider lifecycle changed"
+		if providerEvent.Err != nil {
+			message = providerEvent.Err.Error()
+		}
+		return nil, fmt.Errorf("fresh structured call provider lifecycle failed: %s", message)
+	case codexapp.EventLag:
+		return nil, errors.New("fresh structured call provider event stream lagged")
+	case codexapp.EventNotification:
+		events, terminal, err := normalizedProviderNotification(providerEvent.Message, base)
+		if err != nil {
+			return nil, err
+		}
+		for _, event := range events {
+			switch event.Kind {
+			case EventKindAgentTextDelta, EventKindReasoningSummary, EventKindTurnStarted, EventKindTurnTerminal:
+			case EventKindAgentTextCompleted:
+				if event.Text == nil {
+					return nil, errors.New("fresh structured call completed assistant message has no text")
+				}
+				*completedMessages = append(*completedMessages, event.Text.Text)
+			default:
+				return nil, fmt.Errorf("fresh structured call attempted disallowed provider activity %s", event.Kind)
+			}
+		}
+		return terminal, nil
+	default:
+		return nil, fmt.Errorf("unsupported fresh structured call provider event %q", providerEvent.Kind)
+	}
+}
+
+func interruptFreshStructuredTurn(session *codexapp.Session, threadID string, turnID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), freshStructuredCleanupTimeout)
+	defer cancel()
+	raw, err := session.Call(ctx, codexapp.CodexMethodTurnInterrupt, codexapp.TurnInterruptParams{
+		ThreadID: threadID,
+		TurnID:   turnID,
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := codexapp.DecodeTurnInterruptResponse(raw); err != nil {
+		return err
+	}
+	return waitForFreshStructuredTerminal(ctx, session, threadID, turnID)
+}
+
+func waitForFreshStructuredTerminal(
+	ctx context.Context,
+	session *codexapp.Session,
+	threadID string,
+	turnID string,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case event, ok := <-session.Events():
+			if !ok {
+				return errors.New("fresh structured call session closed before interrupted turn became terminal")
+			}
+			matched, err := freshStructuredTerminalNotification(event, threadID, turnID)
+			if err != nil {
+				return err
+			}
+			if matched {
+				return nil
+			}
+		}
+	}
+}
+
+func freshStructuredTerminalNotification(
+	event codexapp.Event,
+	threadID string,
+	turnID string,
+) (bool, error) {
+	switch event.Kind {
+	case codexapp.EventRequest:
+		err := fmt.Errorf("interrupted fresh structured call received provider request %s", event.Message.Method)
+		_ = event.Message.RespondError(-32001, err.Error())
+		return false, err
+	case codexapp.EventLifecycle:
+		return false, errors.New("fresh structured call provider stopped during interruption")
+	case codexapp.EventLag:
+		return false, errors.New("fresh structured call provider event stream lagged during interruption")
+	case codexapp.EventNotification:
+		if event.Message.Method != codexapp.CodexNotificationTurnCompleted {
+			return false, nil
+		}
+		notification, err := codexapp.DecodeTurnCompletedNotification(event.Message.Params)
+		if err != nil {
+			return false, err
+		}
+		if notification.ThreadID != threadID || notification.Turn.ID != turnID {
+			return false, fmt.Errorf(
+				"interrupted fresh structured call terminal scope %s/%s does not match %s/%s",
+				notification.ThreadID,
+				notification.Turn.ID,
+				threadID,
+				turnID,
+			)
+		}
+		return true, nil
+	default:
+		return false, fmt.Errorf("unsupported fresh structured cleanup event %q", event.Kind)
+	}
+}
+
+func freshStructuredThreadConfig() (map[string]json.RawMessage, error) {
+	webSearch, err := json.Marshal("disabled")
+	if err != nil {
+		return nil, err
+	}
+	features, err := json.Marshal(map[string]bool{"image_generation": false})
+	if err != nil {
+		return nil, err
+	}
+	projectDocBytes, err := json.Marshal(0)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]json.RawMessage{
+		"features":              features,
+		"project_doc_max_bytes": projectDocBytes,
+		"web_search":            webSearch,
+	}, nil
+}
+
+func freshStructuredDeveloperInstructions(callInstructions string) string {
+	return strings.Join([]string{
+		"This is an isolated schema-constrained read-only call.",
+		"Use only the supplied JSON input. Do not inspect the workspace, invoke tools, request approval, or return Markdown.",
+		callInstructions,
+	}, "\n\n")
+}
+
+func strictJSONObject(raw []byte, label string) (json.RawMessage, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("%s is required", label)
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &object); err != nil {
+		return nil, fmt.Errorf("%s must be one JSON object: %w", label, err)
+	}
+	if object == nil {
+		return nil, fmt.Errorf("%s must be a JSON object", label)
+	}
+	compact := bytes.Buffer{}
+	if err := json.Compact(&compact, trimmed); err != nil {
+		return nil, fmt.Errorf("compact %s: %w", label, err)
+	}
+	return json.RawMessage(compact.Bytes()), nil
+}
+
+func validateStrictOutputSchema(raw json.RawMessage) error {
+	compacted, err := strictJSONObject(raw, "fresh structured call output schema")
+	if err != nil {
+		return err
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(compacted, &schema); err != nil {
+		return fmt.Errorf("decode fresh structured call output schema: %w", err)
+	}
+	if schema["type"] != "object" {
+		return errors.New("fresh structured call output schema root type must be object")
+	}
+	return validateStrictSchemaNode(schema, "output schema")
+}
+
+func validateStrictSchemaNode(schema map[string]any, path string) error {
+	if variants, ok := schema["anyOf"]; ok {
+		items, ok := variants.([]any)
+		if !ok || len(items) == 0 {
+			return fmt.Errorf("%s anyOf must be a non-empty array", path)
+		}
+		for index, item := range items {
+			child, ok := item.(map[string]any)
+			if !ok {
+				return fmt.Errorf("%s anyOf[%d] must be an object", path, index)
+			}
+			if err := validateStrictSchemaNode(child, fmt.Sprintf("%s.anyOf[%d]", path, index)); err != nil {
+				return err
+			}
+		}
+	}
+	typeName, _ := schema["type"].(string)
+	switch typeName {
+	case "object":
+		return validateStrictObjectSchema(schema, path)
+	case "array":
+		items, ok := schema["items"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("%s array schema requires object items", path)
+		}
+		return validateStrictSchemaNode(items, path+".items")
+	default:
+		return nil
+	}
+}
+
+func validateStrictObjectSchema(schema map[string]any, path string) error {
+	additional, ok := schema["additionalProperties"].(bool)
+	if !ok || additional {
+		return fmt.Errorf("%s object schema must set additionalProperties to false", path)
+	}
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s object schema requires properties", path)
+	}
+	required, err := strictSchemaRequiredFields(schema, path)
+	if err != nil {
+		return err
+	}
+	if err := validateStrictSchemaRequiredProperties(properties, required, path); err != nil {
+		return err
+	}
+	return validateStrictSchemaProperties(properties, path)
+}
+
+func strictSchemaRequiredFields(schema map[string]any, path string) (map[string]bool, error) {
+	requiredValues, ok := schema["required"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s object schema requires a required array", path)
+	}
+	required := make(map[string]bool, len(requiredValues))
+	for _, value := range requiredValues {
+		name, ok := value.(string)
+		if !ok || required[name] {
+			return nil, fmt.Errorf("%s required fields must be unique strings", path)
+		}
+		required[name] = true
+	}
+	return required, nil
+}
+
+func validateStrictSchemaRequiredProperties(
+	properties map[string]any,
+	required map[string]bool,
+	path string,
+) error {
+	if len(required) != len(properties) {
+		return fmt.Errorf("%s strict object schema must require every property", path)
+	}
+	for name := range properties {
+		if !required[name] {
+			return fmt.Errorf("%s property %s is not required", path, name)
+		}
+	}
+	return nil
+}
+
+func validateStrictSchemaProperties(properties map[string]any, path string) error {
+	for name, rawChild := range properties {
+		child, ok := rawChild.(map[string]any)
+		if !ok {
+			return fmt.Errorf("%s property %s schema must be an object", path, name)
+		}
+		if err := validateStrictSchemaNode(child, path+"."+name); err != nil {
+			return err
+		}
+	}
+	return nil
+}

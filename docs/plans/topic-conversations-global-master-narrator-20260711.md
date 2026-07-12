@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-3 and Phase 4 items 1-3 are complete
+**Status:** In progress; Phases 0-3 and Phase 4 items 1-4 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1655,7 +1655,7 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Items 1-3 complete.
+**Progress:** Items 1-4 complete.
 
 Implement:
 
@@ -2794,3 +2794,47 @@ Implementation is in progress under this plan.
   repeated race-enabled role-profile reads, and 200 repeated race-enabled
   narrator resolver runs passed. Generated inputs and outputs changed: none.
   Phase 4 item 4 remains next and was not started.
+- 2026-07-12: Completed Phase 4 item 4. `internal/agent` now owns one generic
+  fresh structured-call primitive that creates a new ephemeral provider thread
+  per invocation without reserving the topic conversation's primary-turn
+  slot. Every call explicitly disables provider model fallback, approvals,
+  selected environments and capability roots, dynamic tools, web search,
+  image generation, and workspace project-instruction loading; it uses a
+  read-only turn sandbox and rejects any provider tool activity or server
+  request. A cancelled or rejected call interrupts its provider turn and waits
+  for the matching terminal notification before closing its session, while a
+  completed call accepts exactly one completed assistant JSON object.
+- 2026-07-12: `internal/narration` now carries the typed explicit-status and
+  checkpoint triggers inside their materialized bundles, alongside the
+  existing projection trigger. Its caller validates exactly one context branch,
+  resolves the independent narrator profile and live model catalog immediately
+  before every call, verifies the exact materialized JSON byte count against
+  the resolved role budget, and retains generation, trigger, model, provider
+  references, and structured input/output sizes for the later invocation
+  audit. Working, terminal, status, and checkpoint calls each receive only
+  their exact strict root-object schema; every property is required, nullable
+  topic descriptors are explicit, and unknown or cross-channel fields are
+  rejected.
+- 2026-07-12: Projection validation constrains cursor advances to the supplied
+  contiguous evaluation window, requires a nonempty Current focus of at most
+  320 Unicode characters, permits at most three 240-character milestones, and
+  rejects exact duplicates within the call or against prior active-turn
+  milestones. Final summaries and status replies are bounded to 1,200
+  characters, topic descriptors to 320, and voice-ready fields reject control
+  characters. Status output must report the exact read-only source sequence;
+  checkpoint output must cover the exact requested observed prefix and remains
+  subject to its byte bound.
+- 2026-07-12: The Codex source reference confirmed that `outputSchema` is
+  strict and turn-scoped, final structured output is delivered as the agent
+  message text, ephemeral threads are in-memory/pathless, and an explicit empty
+  environment selection removes shell execution surfaces. Focused agent,
+  conversation, and narration tests and vet passed, as did the changed-file
+  quality gate, joint race-enabled suites, 100 repeated race-enabled provider
+  calls, and 100 repeated race-enabled narrator validations. The deterministic
+  production Electron topic workflow passed at
+  `.recordings/topic-conversation-pane-projection/20260712T105134041Z/`.
+  ChatGPT-authenticated live structured-output and full thread/fork lifecycle
+  tests passed with `OPENAI_API_KEY` removed; the full live run first exposed
+  and then corrected a test-only active-parent signal-channel saturation bug.
+  Generated inputs and outputs changed: none. Phase 4 item 5, narration output
+  persistence and committed events, is next with no external blocker.

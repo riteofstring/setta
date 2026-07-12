@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type fakeAgentServerState struct {
@@ -14,6 +15,7 @@ type fakeAgentServerState struct {
 	threads        []string
 	heldTurns      map[string]string
 	pending        map[string]fakePendingApproval
+	structured     map[string]bool
 }
 
 type fakePendingApproval struct {
@@ -23,8 +25,9 @@ type fakePendingApproval struct {
 
 func runFakeAgentAppServer() {
 	state := fakeAgentServerState{
-		heldTurns: map[string]string{},
-		pending:   map[string]fakePendingApproval{},
+		heldTurns:  map[string]string{},
+		pending:    map[string]fakePendingApproval{},
+		structured: map[string]bool{},
 	}
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -50,10 +53,7 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 	}
 	switch method {
 	case "thread/start":
-		state.threadCounter++
-		threadID := fmt.Sprintf("thread-%d", state.threadCounter)
-		state.threads = append(state.threads, threadID)
-		writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(fakeAgentThread(threadID), "gpt-agent-test"))
+		handleFakeAgentThreadStart(state, message)
 	case "thread/resume":
 		threadID := fakeAgentStringParam(message, "threadId")
 		writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(fakeAgentThread(threadID), "gpt-agent-test"))
@@ -133,12 +133,75 @@ func handleFakeAgentBootstrapMethod(method string, message map[string]any) bool 
 	return true
 }
 
+func handleFakeAgentThreadStart(state *fakeAgentServerState, message map[string]any) {
+	params := fakeAgentParams(message)
+	state.threadCounter++
+	threadID := fmt.Sprintf("thread-%d", state.threadCounter)
+	thread := fakeAgentThread(threadID)
+	ephemeral, _ := params["ephemeral"].(bool)
+	thread["ephemeral"] = ephemeral
+	model := "gpt-agent-test"
+	if requestedModel, ok := params["model"].(string); ok && requestedModel != "" {
+		model = requestedModel
+	}
+	_, hasDynamicTools := params["dynamicTools"]
+	structured := params["allowProviderModelFallback"] == false && hasDynamicTools
+	if structured {
+		assertFakeFreshStructuredThreadStart(params)
+		state.structured[threadID] = true
+	}
+	if !ephemeral {
+		state.threads = append(state.threads, threadID)
+	}
+	writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(thread, model))
+}
+
+func assertFakeFreshStructuredThreadStart(params map[string]any) {
+	if params["allowProviderModelFallback"] != false {
+		panic("fresh structured thread must disable provider model fallback")
+	}
+	if params["approvalPolicy"] != "never" || params["sandbox"] != "read-only" {
+		panic("fresh structured thread must be read-only with approvals disabled")
+	}
+	if params["model"] != "gpt-narrator-test" {
+		panic("fresh structured thread must use the exact requested model")
+	}
+	if developer, _ := params["developerInstructions"].(string); !strings.Contains(developer, "Do not inspect the workspace") {
+		panic("fresh structured thread is missing restricted developer instructions")
+	}
+	assertFakeEmptyArray(params, "dynamicTools")
+	assertFakeEmptyArray(params, "environments")
+	assertFakeEmptyArray(params, "selectedCapabilityRoots")
+	config, ok := params["config"].(map[string]any)
+	if !ok || config["web_search"] != "disabled" {
+		panic("fresh structured thread must disable web search")
+	}
+	if config["project_doc_max_bytes"] != float64(0) {
+		panic("fresh structured thread must disable workspace project instructions")
+	}
+	features, ok := config["features"].(map[string]any)
+	if !ok || features["image_generation"] != false {
+		panic("fresh structured thread must disable image generation")
+	}
+}
+
+func assertFakeEmptyArray(params map[string]any, field string) {
+	values, ok := params[field].([]any)
+	if !ok || len(values) != 0 {
+		panic("fresh structured thread field " + field + " must be an empty array")
+	}
+}
+
 func handleFakeAgentTurnStart(state *fakeAgentServerState, message map[string]any) {
 	params := fakeAgentParams(message)
 	threadID := fakeAgentRequiredString(params, "threadId")
 	state.turnCounter++
 	turnID := fmt.Sprintf("provider-turn-%d", state.turnCounter)
 	writeFakeAgentResponse(message["id"], map[string]any{"turn": fakeAgentTurn(turnID, "inProgress")})
+	if state.structured[threadID] {
+		handleFakeFreshStructuredTurn(state, params, threadID, turnID)
+		return
+	}
 	text := fakeAgentTurnInputText(params)
 	switch text {
 	case "hold", "interrupt":
@@ -161,6 +224,60 @@ func handleFakeAgentTurnStart(state *fakeAgentServerState, message map[string]an
 	default:
 		writeFakeAgentNormalTurn(threadID, turnID)
 	}
+}
+
+func handleFakeFreshStructuredTurn(
+	state *fakeAgentServerState,
+	params map[string]any,
+	threadID string,
+	turnID string,
+) {
+	assertFakeFreshStructuredTurnStart(params)
+	input := fakeAgentTurnInputText(params)
+	switch input {
+	case `{"mode":"hold"}`:
+		state.heldTurns[turnID] = threadID
+	case `{"mode":"tool"}`:
+		state.heldTurns[turnID] = threadID
+		command := fakeAgentCommandItem("command-"+turnID, "inProgress", nil)
+		writeFakeAgentNotification("item/started", map[string]any{
+			"threadId":    threadID,
+			"turnId":      turnID,
+			"startedAtMs": 1,
+			"item":        command,
+		})
+	case `{"mode":"double"}`:
+		writeFakeStructuredAgentMessage(threadID, turnID, "agent-a-"+turnID, `{"answer":"FIRST"}`)
+		writeFakeStructuredAgentMessage(threadID, turnID, "agent-b-"+turnID, `{"answer":"SECOND"}`)
+		writeFakeAgentTurnCompleted(threadID, turnID, "completed")
+	default:
+		writeFakeStructuredAgentMessage(threadID, turnID, "agent-"+turnID, `{"answer":"STRUCTURED_OK"}`)
+		writeFakeAgentTurnCompleted(threadID, turnID, "completed")
+	}
+}
+
+func assertFakeFreshStructuredTurnStart(params map[string]any) {
+	if params["approvalPolicy"] != "never" || params["model"] != "gpt-narrator-test" || params["effort"] != "low" {
+		panic("fresh structured turn must preserve exact model, effort, and approval policy")
+	}
+	sandbox, ok := params["sandboxPolicy"].(map[string]any)
+	if !ok || sandbox["type"] != "readOnly" {
+		panic("fresh structured turn must use the read-only sandbox policy")
+	}
+	schema, ok := params["outputSchema"].(map[string]any)
+	if !ok || schema["type"] != "object" || schema["additionalProperties"] != false {
+		panic("fresh structured turn is missing its strict output schema")
+	}
+}
+
+func writeFakeStructuredAgentMessage(threadID string, turnID string, itemID string, text string) {
+	item := map[string]any{"id": itemID, "text": text, "type": "agentMessage"}
+	writeFakeAgentNotification("item/completed", map[string]any{
+		"threadId":      threadID,
+		"turnId":        turnID,
+		"completedAtMs": 2,
+		"item":          item,
+	})
 }
 
 func handleFakeAgentTurnSteer(state *fakeAgentServerState, message map[string]any) {

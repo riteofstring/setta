@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,60 @@ import (
 	"testing"
 	"time"
 )
+
+func TestLiveCodexRuntimeFreshStructuredCall(t *testing.T) {
+	requireLiveCodex(t)
+	runtime := NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-structured-test"})
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := runtime.Shutdown(ctx); err != nil {
+			t.Errorf("Shutdown: %v", err)
+		}
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	requireLiveRoleModels(t, runtime, ctx)
+	schema, err := json.Marshal(map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"answer": map[string]any{
+				"type": "string",
+				"enum": []string{"FRESH_STRUCTURED_OK"},
+			},
+		},
+		"required":             []string{"answer"},
+		"additionalProperties": false,
+	})
+	if err != nil {
+		t.Fatalf("marshal live structured schema: %v", err)
+	}
+	result, err := runtime.RunFreshStructuredCall(ctx, FreshStructuredCallRequest{
+		ID:            "live-fresh-structured-call",
+		WorkspaceRoot: t.TempDir(),
+		Invocation: Invocation{
+			Model:           "gpt-5.4-mini",
+			ReasoningEffort: "low",
+			PermissionMode:  PermissionModeReadOnly,
+			ApprovalMode:    ApprovalModeNever,
+		},
+		DeveloperInstructions: "Read the instruction field and return the exact requested answer in the schema.",
+		Input:                 json.RawMessage(`{"instruction":"Return FRESH_STRUCTURED_OK."}`),
+		OutputSchema:          schema,
+	})
+	if err != nil {
+		t.Fatalf("RunFreshStructuredCall: %v", err)
+	}
+	var output struct {
+		Answer string `json:"answer"`
+	}
+	if err := json.Unmarshal(result.Output, &output); err != nil {
+		t.Fatalf("decode live structured output: %v", err)
+	}
+	if output.Answer != "FRESH_STRUCTURED_OK" || result.ProviderThreadID == "" || result.ProviderTurnID == "" {
+		t.Fatalf("live structured result = %+v, output=%s", result, result.Output)
+	}
+}
 
 func TestLiveCodexRuntimeThreadLifecycleAndActiveForkSnapshot(t *testing.T) {
 	requireLiveCodex(t)
@@ -187,6 +242,7 @@ func characterizeLiveActiveFork(t *testing.T, fixture liveFixture, _ Thread) {
 	t.Helper()
 	parent := startLiveActiveParent(fixture)
 	parent.sink.waitForKind(t, EventKindActivityStarted)
+	drainLiveParentSignals(parent)
 	sideInvocation := liveSideInvocation()
 	forks := createLiveActiveForks(t, fixture, parent, sideInvocation)
 	assertLiveActiveSnapshot(t, forks.auditAtFork)
@@ -194,6 +250,18 @@ func characterizeLiveActiveFork(t *testing.T, fixture liveFixture, _ Thread) {
 	assertLiveForkIsolation(t, fixture, forks, sideInvocation)
 	logLiveForkCharacterization(t, forks)
 	unsubscribeLiveForks(t, fixture, forks)
+}
+
+func drainLiveParentSignals(parent liveActiveParent) {
+	go func() {
+		for {
+			select {
+			case <-parent.sink.events:
+			case <-parent.done:
+				return
+			}
+		}
+	}()
 }
 
 func startLiveActiveParent(fixture liveFixture) liveActiveParent {

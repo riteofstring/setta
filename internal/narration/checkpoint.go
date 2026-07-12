@@ -92,6 +92,9 @@ func validateCheckpointBundle(bundle CheckpointContextBundle) error {
 	if bundle.Kind != ContextKindCheckpoint {
 		return fmt.Errorf("checkpoint bundle has context kind %q", bundle.Kind)
 	}
+	if bundle.Trigger != conversation.NarrationTriggerCheckpointWindowExceeded {
+		return fmt.Errorf("checkpoint bundle has trigger %q", bundle.Trigger)
+	}
 	if err := validateCheckpointBundleRange(bundle); err != nil {
 		return err
 	}

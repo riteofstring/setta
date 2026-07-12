@@ -130,6 +130,7 @@ type ProjectionContextBundle struct {
 
 type StatusContextBundle struct {
 	Kind                   ContextKind                           `json:"kind"`
+	Trigger                conversation.NarrationTrigger         `json:"trigger"`
 	Question               string                                `json:"question"`
 	Authoritative          AuthoritativeContext                  `json:"authoritative"`
 	PreCallCursor          NarratorCursor                        `json:"preCallCursor"`
@@ -144,6 +145,7 @@ type StatusContextBundle struct {
 
 type CheckpointContextBundle struct {
 	Kind                      ContextKind                           `json:"kind"`
+	Trigger                   conversation.NarrationTrigger         `json:"trigger"`
 	Authoritative             AuthoritativeContext                  `json:"authoritative"`
 	HistoricalCheckpoint      *HistoricalCheckpoint                 `json:"historicalCheckpoint"`
 	PreCallCursor             NarratorCursor                        `json:"preCallCursor"`
