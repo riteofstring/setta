@@ -4,6 +4,7 @@ import type {
   ConversationEventCursor,
   ConversationSnapshot,
   CreateTopicConversationRequest,
+  ForkTopicConversationRequest,
   ListTopicConversationsRequest,
   NavigatorPage,
   QueueTopicConversationTurnRequest,
@@ -19,6 +20,7 @@ import type {
 export const conversationIpcChannels = {
   conversationAskNarratorStatus: "conversation:ask-narrator-status",
   conversationCreateTopic: "conversation:create-topic",
+  conversationForkTopic: "conversation:fork-topic",
   conversationListTopicConversations: "conversation:list-topic-conversations",
   conversationQueueTurn: "conversation:queue-turn",
   conversationReadSnapshot: "conversation:read-snapshot",
@@ -51,6 +53,10 @@ export interface ConversationIpc {
   };
   conversationCreateTopic: {
     args: [request: CreateTopicConversationRequest];
+    result: ConversationSnapshot;
+  };
+  conversationForkTopic: {
+    args: [request: ForkTopicConversationRequest];
     result: ConversationSnapshot;
   };
   conversationListTopicConversations: {

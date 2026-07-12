@@ -33,6 +33,46 @@ func (handler handler) createTopicConversation(response http.ResponseWriter, req
 	writeConversationSnapshot(response, snapshot)
 }
 
+func (handler handler) forkTopicConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload ForkTopicConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(
+		payload.WorkspaceID,
+		payload.ParentConversationID,
+	); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_fork_request", err.Error())
+		return
+	}
+	if strings.TrimSpace(payload.ForkedAtTurnID) == "" ||
+		payload.ForkedAtTurnID != strings.TrimSpace(payload.ForkedAtTurnID) {
+		writeError(
+			response,
+			http.StatusBadRequest,
+			"invalid_topic_conversation_fork_request",
+			"fork source turn id is required without surrounding whitespace",
+		)
+		return
+	}
+	snapshot, err := service.ForkTopic(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ParentConversationID,
+		payload.ForkedAtTurnID,
+		payload.Title,
+	)
+	if err != nil {
+		writeConversationError(response, "fork_topic_conversation_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
 func (handler handler) sendTopicConversationTurn(response http.ResponseWriter, request *http.Request) {
 	handler.runTopicConversationTextCommand(response, request, "send", func(
 		ctx context.Context,

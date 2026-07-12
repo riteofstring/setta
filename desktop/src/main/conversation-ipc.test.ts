@@ -17,6 +17,7 @@ describe("conversation IPC handlers", () => {
     const backendMethods = {
       askTopicConversationNarratorStatus: vi.fn(async () => snapshot),
       createTopicConversation: vi.fn(async () => snapshot),
+      forkTopicConversation: vi.fn(async () => snapshot),
       listTopicConversations,
       queueTopicConversationTurn: vi.fn(async () => snapshot),
       readConversationSnapshot: vi.fn(async () => snapshot),
@@ -71,6 +72,13 @@ describe("conversation IPC handlers", () => {
       title: "Topic",
       workspaceId: "workspace_api",
     });
+    const forkRequest = {
+      forkedAtTurnId: "turn_api",
+      parentConversationId: "conversation_api",
+      title: "Forked topic",
+      workspaceId: "workspace_api",
+    };
+    await invokeHandler(handlers, ipcChannels.conversationForkTopic, forkRequest);
     await invokeHandler(handlers, ipcChannels.conversationReadSnapshot, target);
     await invokeHandler(handlers, ipcChannels.conversationSendTurn, turn);
     await invokeHandler(handlers, ipcChannels.conversationQueueTurn, turn);
@@ -108,6 +116,7 @@ describe("conversation IPC handlers", () => {
       title: "Topic",
       workspaceId: "workspace_api",
     });
+    expect(backendMethods.forkTopicConversation).toHaveBeenCalledWith(forkRequest);
     expect(backendMethods.readConversationSnapshot).toHaveBeenCalledWith(target);
     expect(backendMethods.sendTopicConversationTurn).toHaveBeenCalledWith(turn);
     expect(backendMethods.queueTopicConversationTurn).toHaveBeenCalledWith(turn);

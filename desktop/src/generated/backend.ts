@@ -20,8 +20,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 27;
-export const backendContractSchemaHash = "sha256:19f5ad29952bb764273a21773dd1be164ff5ed3b481362171900c87e1ed2ad93";
+export const backendProtocolVersion = 28;
+export const backendContractSchemaHash = "sha256:b87705492d537afac4cd305db4fe3f9a16605e3a27dd22db7ed5d7f79485d333";
 
 export type DeviceScope = "full";
 
@@ -4784,6 +4784,13 @@ export interface ConversationSnapshot {
   eventCursor: ConversationEventCursor;
 }
 
+export interface ForkTopicConversationRequest {
+  workspaceId: string;
+  parentConversationId: string;
+  forkedAtTurnId: string;
+  title: string;
+}
+
 export interface ReadConversationSnapshotRequest {
   workspaceId: string;
   conversationId: string;
@@ -8549,6 +8556,11 @@ export const backendEndpoints = {
     path: "/conversations/create",
     requestBodyLimitBytes: 4194304,
   },
+  ForkTopicConversation: {
+    method: "POST",
+    path: "/conversations/forks/create",
+    requestBodyLimitBytes: 4194304,
+  },
   ReadConversationSnapshot: {
     method: "POST",
     path: "/conversations/snapshot/read",
@@ -10904,6 +10916,17 @@ export function decodeConversationSnapshot(value: unknown): ConversationSnapshot
     branch: decodeNullable(requireField(record, "branch", "ConversationSnapshot"), "ConversationSnapshot.branch", (item) => decodeConversationBranch(item)),
     sideConversations: decodeArray(requireField(record, "sideConversations", "ConversationSnapshot"), "ConversationSnapshot.sideConversations", (item) => decodeSideConversation(item)),
     eventCursor: decodeConversationEventCursor(requireField(record, "eventCursor", "ConversationSnapshot")),
+  };
+}
+
+export function decodeForkTopicConversationRequest(value: unknown): ForkTopicConversationRequest {
+  const record = assertRecord(value, "ForkTopicConversationRequest");
+  assertKnownFields(record, "ForkTopicConversationRequest", ["workspaceId", "parentConversationId", "forkedAtTurnId", "title"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.workspaceId"),
+    parentConversationId: decodeString(requireField(record, "parentConversationId", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.parentConversationId"),
+    forkedAtTurnId: decodeString(requireField(record, "forkedAtTurnId", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.forkedAtTurnId"),
+    title: decodeString(requireField(record, "title", "ForkTopicConversationRequest"), "ForkTopicConversationRequest.title"),
   };
 }
 
@@ -16186,6 +16209,7 @@ export interface BackendClient {
   readWorkspaceActivitySnapshot: (request: ReadWorkspaceActivitySnapshotRequest, options?: BackendRequestOptions) => Promise<ReadWorkspaceActivitySnapshotResponse>;
   readWorkflowExecutionActivity: (request: ReadWorkflowExecutionActivityRequest, options?: BackendRequestOptions) => Promise<ReadWorkflowExecutionActivityResponse>;
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  forkTopicConversation: (request: ForkTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
   sendTopicConversationTurn: (request: SendTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
@@ -16535,6 +16559,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.CreateTopicConversation,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    forkTopicConversation: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.ForkTopicConversation,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

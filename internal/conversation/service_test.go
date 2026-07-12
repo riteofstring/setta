@@ -243,10 +243,15 @@ type serviceTestAgentRuntime struct {
 	mu           sync.Mutex
 	controls     map[string]chan string
 	controlLog   []string
+	forkErr      error
+	forkRequests []agent.ForkThreadRequest
+	forkResponse *agent.Thread
 	lastApproval *agent.ApprovalResponse
+	runRequests  []agent.TurnRequest
 	started      chan string
 	threads      int
 	turns        int
+	unsubscribed []string
 }
 
 func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
@@ -284,6 +289,29 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 	}, nil
 }
 
+func (runtime *serviceTestAgentRuntime) ForkThread(
+	_ context.Context,
+	request agent.ForkThreadRequest,
+) (agent.Thread, error) {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	runtime.forkRequests = append(runtime.forkRequests, request)
+	if runtime.forkErr != nil {
+		return agent.Thread{}, runtime.forkErr
+	}
+	if runtime.forkResponse != nil {
+		return *runtime.forkResponse, nil
+	}
+	runtime.threads++
+	parentThreadID := request.ParentThreadID
+	return agent.Thread{
+		ID:           fmt.Sprintf("provider-thread-%d", runtime.threads),
+		SessionID:    fmt.Sprintf("session-%d", runtime.threads),
+		Model:        "gpt-5.6-sol",
+		ForkedFromID: &parentThreadID,
+	}, nil
+}
+
 func (runtime *serviceTestAgentRuntime) RunTurn(
 	ctx context.Context,
 	request agent.TurnRequest,
@@ -291,6 +319,7 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 ) (agent.TurnResult, error) {
 	runtime.mu.Lock()
 	runtime.turns++
+	runtime.runRequests = append(runtime.runRequests, request)
 	providerTurnID := fmt.Sprintf("provider-turn-%d", runtime.turns)
 	control := make(chan string, 1)
 	runtime.controls[providerTurnID] = control
@@ -493,7 +522,12 @@ func (runtime *serviceTestAgentRuntime) SubmitApproval(response agent.ApprovalRe
 	return nil
 }
 
-func (*serviceTestAgentRuntime) UnsubscribeThread(context.Context, string) error { return nil }
+func (runtime *serviceTestAgentRuntime) UnsubscribeThread(_ context.Context, threadID string) error {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	runtime.unsubscribed = append(runtime.unsubscribed, threadID)
+	return nil
+}
 
 func (runtime *serviceTestAgentRuntime) signal(providerTurnID string, value string) {
 	runtime.mu.Lock()
@@ -507,6 +541,24 @@ func (runtime *serviceTestAgentRuntime) controlsSent() []string {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	return append([]string{}, runtime.controlLog...)
+}
+
+func (runtime *serviceTestAgentRuntime) durableForkRequests() []agent.ForkThreadRequest {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	return append([]agent.ForkThreadRequest{}, runtime.forkRequests...)
+}
+
+func (runtime *serviceTestAgentRuntime) turnRequests() []agent.TurnRequest {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	return append([]agent.TurnRequest{}, runtime.runRequests...)
+}
+
+func (runtime *serviceTestAgentRuntime) unsubscribedThreads() []string {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	return append([]string{}, runtime.unsubscribed...)
 }
 
 func (runtime *serviceTestAgentRuntime) submittedApproval() *agent.ApprovalResponse {

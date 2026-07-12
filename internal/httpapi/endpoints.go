@@ -76,6 +76,7 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkflowExecutionActivityRequest, ReadWorkflowExecutionActivityResponse]("ReadWorkflowExecutionActivity", "/workspace-activity/execution-snapshot", handler.readWorkflowExecutionActivity),
 	streamEvent[workspaceactivity.WorkspaceActivityEvent]("WorkspaceActivityEventStream", "/workspace-activity/events", handler.workspaceActivityEventStream),
 	post[CreateTopicConversationRequest, conversation.ConversationSnapshot]("CreateTopicConversation", "/conversations/create", handler.createTopicConversation),
+	post[ForkTopicConversationRequest, conversation.ConversationSnapshot]("ForkTopicConversation", "/conversations/forks/create", handler.forkTopicConversation),
 	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),
 	post[ListTopicConversationsRequest, conversation.NavigatorPage]("ListTopicConversations", "/conversations/navigator/list", handler.listTopicConversations),
 	post[SendTopicConversationTurnRequest, conversation.ConversationSnapshot]("SendTopicConversationTurn", "/conversations/turns/send", handler.sendTopicConversationTurn),

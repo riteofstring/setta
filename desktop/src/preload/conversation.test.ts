@@ -15,6 +15,7 @@ describe("preload topic conversation API", () => {
     expect(Object.keys(api.conversations).sort()).toEqual([
       "askStatus",
       "create",
+      "fork",
       "list",
       "onEvent",
       "queue",
@@ -35,6 +36,12 @@ describe("preload topic conversation API", () => {
       workspaceId: "workspace_api",
     };
     const target = { conversationId: "conversation_api", workspaceId: "workspace_api" };
+    const forkRequest = {
+      forkedAtTurnId: "turn_api",
+      parentConversationId: target.conversationId,
+      title: "Forked API topic",
+      workspaceId: target.workspaceId,
+    };
     const turn = { ...target, text: "Continue the topic" };
     const subscription = {
       ...target,
@@ -68,6 +75,7 @@ describe("preload topic conversation API", () => {
     };
     await invokeConversationCommands(api, {
       approval,
+      forkRequest,
       inputRequest,
       listRequest,
       release,
@@ -86,6 +94,7 @@ describe("preload topic conversation API", () => {
     expectInvokeCalls(invoke, [
       [ipcChannels.conversationAskNarratorStatus, { ...target, question: "What is happening?" }],
       [ipcChannels.conversationCreateTopic, { title: "API topic", workspaceId: "workspace_api" }],
+      [ipcChannels.conversationForkTopic, forkRequest],
       [ipcChannels.conversationListTopicConversations, listRequest],
       [ipcChannels.conversationReadSnapshot, target],
       [ipcChannels.conversationSendTurn, turn],
@@ -132,6 +141,7 @@ async function invokeConversationCommands(
   api: SettaAPI,
   requests: {
     approval: Parameters<SettaAPI["conversations"]["submitApproval"]>[0];
+    forkRequest: Parameters<SettaAPI["conversations"]["fork"]>[0];
     inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
     release: Parameters<SettaAPI["conversations"]["release"]>[0];
@@ -143,6 +153,7 @@ async function invokeConversationCommands(
 ) {
   await api.conversations.askStatus({ ...requests.target, question: "What is happening?" });
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
+  await api.conversations.fork(requests.forkRequest);
   await api.conversations.list(requests.listRequest);
   await api.conversations.read(requests.target);
   await api.conversations.send(requests.turn);

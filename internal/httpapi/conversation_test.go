@@ -55,6 +55,20 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t.Fatalf("create command = %q snapshot = %+v", service.command, created.Conversation)
 	}
 
+	forked := postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/forks/create",
+		ForkTopicConversationRequest{
+			WorkspaceID:          "workspace-api",
+			ParentConversationID: "conversation-api",
+			ForkedAtTurnID:       "turn-api",
+			Title:                "Forked topic",
+		},
+		http.StatusOK,
+	)
+	assertForkTopicCommand(t, service, forked)
+
 	for _, command := range []struct {
 		name string
 		path string
@@ -148,6 +162,21 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		*service.voiceSelection.RequestedVoiceID != alloy ||
 		profile.ResolvedNarratorVoiceID == nil {
 		t.Fatalf("narrator voice command=%q selection=%+v profile=%+v", service.command, service.voiceSelection, profile)
+	}
+}
+
+func assertForkTopicCommand(
+	t *testing.T,
+	service *httpTestConversationService,
+	forked conversation.ConversationSnapshot,
+) {
+	t.Helper()
+	if service.command != "fork" ||
+		service.commandForkedAtTurnID != "turn-api" ||
+		service.commandTitle != "Forked topic" ||
+		forked.Branch == nil ||
+		forked.Branch.ParentConversationID != "conversation-api" {
+		t.Fatalf("fork command = %q snapshot = %+v", service.command, forked)
 	}
 }
 
@@ -439,7 +468,9 @@ type httpTestConversationService struct {
 	command                 string
 	commandWorkspaceID      string
 	commandConversationID   string
+	commandForkedAtTurnID   string
 	commandText             string
+	commandTitle            string
 	approval                conversation.ConversationApprovalResponse
 	statusCalled            bool
 	statusErr               error
@@ -468,6 +499,36 @@ func (service *httpTestConversationService) CreateTopic(
 	service.snapshot.Conversation.WorkspaceID = workspaceID
 	service.snapshot.Conversation.Title = title
 	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) ForkTopic(
+	_ context.Context,
+	workspaceID string,
+	parentConversationID string,
+	forkedAtTurnID string,
+	title string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("fork", workspaceID, parentConversationID, "")
+	service.commandForkedAtTurnID = forkedAtTurnID
+	service.commandTitle = title
+	forked := service.snapshot
+	forked.Conversation.ID = "conversation-fork-api"
+	forked.Conversation.Title = title
+	forked.Conversation.TopicDescriptor = title
+	forked.NarratorState.ConversationID = forked.Conversation.ID
+	forked.NarratorState.TopicDescriptor = title
+	forked.PresentationProfile.ConversationID = forked.Conversation.ID
+	forked.Branch = &conversation.ConversationBranch{
+		ChildConversationID:      forked.Conversation.ID,
+		ParentConversationID:     parentConversationID,
+		Kind:                     conversation.BranchKindFork,
+		ForkedAtTurnID:           forkedAtTurnID,
+		SourceTrajectorySequence: 0,
+		ProviderMetadata:         map[string]string{"decisionSource": "explicit"},
+		CreatedAt:                httpConversationTestTime,
+	}
+	forked.EventCursor.StreamID = "conversation:" + forked.Conversation.ID
+	return forked, nil
 }
 
 func (service *httpTestConversationService) UpdateNarratorVoiceSelection(

@@ -18,6 +18,7 @@ import (
 type AgentRuntime interface {
 	ResolveInvocation(context.Context, agent.Invocation) (agent.ResolvedInvocation, error)
 	StartThread(context.Context, agent.StartThreadRequest) (agent.Thread, error)
+	ForkThread(context.Context, agent.ForkThreadRequest) (agent.Thread, error)
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
 	SteerTurn(context.Context, agent.TurnControlRequest) error
 	InterruptTurn(context.Context, agent.TurnControlRequest) error
@@ -240,7 +241,7 @@ func (service *Service) CreateTopic(
 		if presentationErr != nil {
 			return presentationErr
 		}
-		return service.persistCreatedConversation(ctx, conversation, binding, narrator, presentation)
+		return service.persistCreatedConversation(ctx, conversation, binding, narrator, presentation, nil)
 	})
 	service.createMu.Unlock()
 	if err != nil {
@@ -256,19 +257,32 @@ func (service *Service) persistCreatedConversation(
 	binding AgentThreadBinding,
 	narrator NarratorState,
 	presentation ConversationPresentationProfile,
+	branch *ConversationBranch,
 ) error {
-	publications, err := service.publications(conversation.ID, conversation.UpdatedAt,
+	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: conversation},
 		ConversationThreadBindingUpdatedEventPayload{Type: ConversationEventTypeThreadBindingUpdated, Binding: binding},
 		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: narrator},
 		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: presentation},
-	)
+	}
+	if branch != nil {
+		payloads = append(payloads, ConversationBranchCreatedEventPayload{
+			Type:   ConversationEventTypeBranchCreated,
+			Branch: *branch,
+		})
+	}
+	publications, err := service.publications(conversation.ID, conversation.UpdatedAt, payloads...)
 	if err != nil {
 		return err
 	}
 	_, err = service.store.Transact(ctx, "create topic conversation", func(transaction *WriteTransaction) error {
 		if err := transaction.InsertConversation(conversation); err != nil {
 			return err
+		}
+		if branch != nil {
+			if err := transaction.InsertConversationBranch(*branch); err != nil {
+				return err
+			}
 		}
 		if err := transaction.UpsertAgentThreadBinding(binding); err != nil {
 			return err

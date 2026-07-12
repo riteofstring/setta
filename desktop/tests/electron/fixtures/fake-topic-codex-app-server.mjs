@@ -17,6 +17,7 @@ const methodHandlers = new Map([
   ["initialize", initialize],
   ["initialized", () => {}],
   ["model/list", listModels],
+  ["thread/fork", forkThread],
   ["thread/start", startThread],
   ["thread/resume", resumeThread],
   ["thread/read", readThread],
@@ -85,6 +86,36 @@ function startThread(message) {
   threads.set(threadId, state);
   persistState();
   respond(message.id, threadOperationResponse(fakeThread(threadId), state));
+}
+
+function forkThread(message) {
+  const parentThreadId = requiredString(message.params, "threadId");
+  const parent = threads.get(parentThreadId);
+  if (!parent) {
+    respondError(message.id, -32602, `unknown parent thread ${parentThreadId}`);
+    return;
+  }
+  const lastTurnId = requiredString(message.params, "lastTurnId");
+  const sourceIndex = parent.turnIds.indexOf(lastTurnId);
+  const sourceTurn = turns.get(lastTurnId);
+  if (sourceIndex < 0 || sourceTurn?.status !== "completed") {
+    respondError(message.id, -32602, `fork source ${lastTurnId} is not a completed parent turn`);
+    return;
+  }
+  threadCounter += 1;
+  const threadId = `topic-thread-${threadCounter}`;
+  const state = {
+    ephemeral: message.params?.ephemeral === true,
+    forkedFromId: parentThreadId,
+    id: threadId,
+    model: requiredString(message.params, "model"),
+    turnIds: parent.turnIds.slice(0, sourceIndex + 1),
+  };
+  threads.set(threadId, state);
+  persistState();
+  const thread = fakeThread(threadId);
+  thread.turns = state.turnIds.map((turnId) => turns.get(turnId));
+  respond(message.id, threadOperationResponse(thread, state));
 }
 
 function resumeThread(message) {
@@ -422,6 +453,7 @@ function fakeThread(threadId) {
     createdAt: 1,
     cwd: "/tmp/setta-topic-codex",
     ephemeral: state?.ephemeral === true,
+    forkedFromId: state?.forkedFromId ?? null,
     id: threadId,
     modelProvider: "fake",
     path: state?.ephemeral === true ? null : `/tmp/setta-topic-codex/${threadId}.jsonl`,

@@ -33,6 +33,14 @@ import {
   verifyIdleGlobalSpeech,
   verifyNarratorPlaybackPresentation,
 } from "./topic-conversation-speech-state-assertions.mjs";
+import {
+  assertDriverAction,
+  assertNavigator,
+  conversationSurfaces,
+  exerciseDurableForkWorkflow,
+  hasReadyConversation,
+  waitForNavigator,
+} from "./topic-conversation-fork-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
@@ -234,7 +242,7 @@ try {
       ),
   );
   assertDuplicateConversationPalette(duplicated.surfaces, alpha.id);
-  assertNavigator(await waitForNavigator(context.client, alpha.id, 2), alpha, 2);
+  assertNavigator(await waitForNavigator(context.client, alpha.id, 2, workflowTimeoutMs), alpha, 2);
   await captureScreenshot(context.client, join(artifactDir, "two-topics-and-duplicate.png"));
 
   assertDriverAction(
@@ -388,7 +396,7 @@ try {
     context.client,
     (surfaces) => conversationSurfaces(surfaces, alpha.id).length === 0,
   );
-  assertNavigator(await waitForNavigator(context.client, alpha.id, 0), alpha, 0);
+  assertNavigator(await waitForNavigator(context.client, alpha.id, 0, workflowTimeoutMs), alpha, 0);
   const closedWorkingSnapshot = await waitForConversationSnapshot(
     backend,
     workspaceId,
@@ -626,6 +634,21 @@ try {
   assertDeniedApproval(alphaSnapshot, awaitingDenial.approvalId);
   assertBetaLifecycle(betaSnapshot);
 
+  const {
+    forkComplete: alphaForkComplete,
+    forkSnapshot: alphaForkSnapshot,
+    forkTerminalSnapshot: alphaForkTerminalSnapshot,
+    forkTopic: alphaFork,
+  } = await exerciseDurableForkWorkflow({
+    backend,
+    client: context.client,
+    forkTitle: "Alpha durable fork",
+    parentSnapshot: alphaSnapshot,
+    parentTopic: alpha,
+    timeoutMs: workflowTimeoutMs,
+    workspaceId,
+  });
+
   await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -649,8 +672,22 @@ try {
       ),
   );
   assertReloadedProjection(reloaded.surfaces, alpha, beta);
-  assertNavigator(await waitForNavigator(context.client, alpha.id, 1), alpha, 1);
-  assertNavigator(await waitForNavigator(context.client, beta.id, 1), beta, 1);
+  assertNavigator(await waitForNavigator(context.client, alpha.id, 1, workflowTimeoutMs), alpha, 1);
+  assertNavigator(await waitForNavigator(context.client, beta.id, 1, workflowTimeoutMs), beta, 1);
+  assertNavigator(
+    await waitForNavigator(context.client, alphaFork.id, 0, workflowTimeoutMs),
+    alphaFork,
+    0,
+  );
+  const alphaForkReloadedSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    alphaFork.id,
+    (snapshot) =>
+      snapshot.eventCursor.sequence === alphaForkTerminalSnapshot.eventCursor.sequence &&
+      snapshot.turns.turns[0]?.status === "completed" &&
+      snapshot.branch?.parentConversationId === alpha.id,
+  );
   await captureScreenshot(context.client, join(artifactDir, "commands-reloaded.png"));
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -658,6 +695,11 @@ try {
     alphaAfterStatus,
     alphaBeforeStatus,
     alphaComplete,
+    alphaFork,
+    alphaForkComplete,
+    alphaForkSnapshot,
+    alphaForkTerminalSnapshot,
+    alphaForkReloadedSnapshot,
     alphaSnapshot,
     artifactDir,
     beta,
@@ -1234,25 +1276,6 @@ async function waitForConversationSurface(client, conversationId, ready) {
   return conversationSurfaces(state.surfaces, conversationId)[0];
 }
 
-function conversationSurfaces(surfaces, conversationId) {
-  return surfaces.filter((surface) => surface.conversationId === conversationId);
-}
-
-function hasReadyConversation(surfaces, conversationId) {
-  return conversationSurfaces(surfaces, conversationId).some(
-    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
-  );
-}
-
-async function waitForNavigator(client, conversationId, openViewCount) {
-  return waitForState(
-    client,
-    driverCallExpression("topicConversationNavigatorState", { conversationId }),
-    (state) => state.rowCount === 1 && state.openViewCount === openViewCount,
-    workflowTimeoutMs,
-  );
-}
-
 async function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
   return waitForBackendState(
     async () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
@@ -1261,31 +1284,12 @@ async function waitForConversationSnapshot(backend, workspaceId, conversationId,
   );
 }
 
-function assertDriverAction(result, property) {
-  if (result?.[property] !== true) {
-    throw new Error(`topic conversation action ${property} failed: ${JSON.stringify(result)}`);
-  }
-}
-
 function assertDuplicateConversationPalette(surfaces, conversationId) {
   const duplicates = conversationSurfaces(surfaces, conversationId);
   const palettes = new Set(duplicates.map((surface) => surface.paletteId));
   const paneIds = new Set(duplicates.map((surface) => surface.paneId));
   if (duplicates.length !== 2 || palettes.size !== 1 || paneIds.size !== 2 || palettes.has("")) {
     throw new Error(`duplicate topic views diverged: ${JSON.stringify(duplicates)}`);
-  }
-}
-
-function assertNavigator(state, topic, expectedOpenViews) {
-  if (
-    state.rowCount !== 1 ||
-    state.conversationId !== topic.id ||
-    state.openViewCount !== expectedOpenViews ||
-    !state.label.includes(topic.title)
-  ) {
-    throw new Error(
-      `conversation navigator mismatch: ${JSON.stringify({ expectedOpenViews, state, topic })}`,
-    );
   }
 }
 

@@ -39,6 +39,7 @@ import type {
   ConversationSnapshot,
   ConversationListItem,
   CreateTopicConversationRequest,
+  ForkTopicConversationRequest,
   CreateSemanticEdgeRequest,
   CreateSemanticNodeRequest,
   CreateSemanticSteeringDirectiveRequest,
@@ -419,6 +420,7 @@ export interface SettaAPI {
       request: AskTopicConversationNarratorStatusRequest,
     ) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
+    fork: (request: ForkTopicConversationRequest) => Promise<ConversationSnapshot>;
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
     onEvent: (listener: (event: ConversationEvent) => void) => () => void;
     queue: (request: QueueTopicConversationTurnRequest) => Promise<ConversationSnapshot>;

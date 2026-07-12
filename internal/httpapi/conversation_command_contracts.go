@@ -10,6 +10,13 @@ type CreateTopicConversationRequest struct {
 	Title       string `json:"title"`
 }
 
+type ForkTopicConversationRequest struct {
+	WorkspaceID          string `json:"workspaceId"`
+	ParentConversationID string `json:"parentConversationId"`
+	ForkedAtTurnID       string `json:"forkedAtTurnId"`
+	Title                string `json:"title"`
+}
+
 type SendTopicConversationTurnRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`

@@ -2,8 +2,9 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-5 are complete. AI routing, side/fork
-execution, obsolete-surface deletion, and final acceptance remain.
+**Status:** In progress. Phases 0-5 and Phase 6 durable completed-turn forks
+are complete. Ephemeral sides, AI routing, obsolete-surface deletion, and final
+acceptance remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1966,6 +1967,8 @@ speech behavior or PWA-specific acceptance coverage, and do not delete the
 retained PWA.
 
 ### Phase 6: Side conversations and durable forks
+
+**Status:** In progress. Item 1 is complete.
 
 Implement:
 

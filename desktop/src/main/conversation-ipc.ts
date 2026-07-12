@@ -31,6 +31,12 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationForkTopic",
+    async (_event, request) => requireBackendClient().forkTopicConversation(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationListTopicConversations",
     async (_event, request) => requireBackendClient().listTopicConversations(request),
     ipcObserver,
