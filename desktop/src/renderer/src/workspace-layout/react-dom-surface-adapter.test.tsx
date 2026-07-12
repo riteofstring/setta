@@ -1,10 +1,7 @@
 import { isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
-import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import { registerWorkflowGraphRuntimeHandle } from "../features/workspace-graph/workflow-graph-runtime-registry";
-import { reactDomSurfaceHostChangedEvent } from "./react-dom-surface-events";
 import {
   createReactDomSurfaceAdapter,
   ReactDomSurfaceAdapter,
@@ -79,35 +76,6 @@ describe("workspace React DOM surface adapter", () => {
       "unmount",
     ]);
     expect(adapter.lifecycleState.mounted).toBe(false);
-  });
-
-  test("notifies parked React content when its pane host changes", () => {
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return new RecordingRoot([]);
-      },
-    };
-    const firstHost = createFakeHost();
-    const secondHost = createFakeHost();
-    const adapter = new ReactDomSurfaceAdapter(
-      fakePane("easy-button"),
-      () => "easy button surface",
-      rootFactory,
-    );
-
-    adapter.mount(firstHost);
-    const container = requireFakeChild(fakeChildrenOf(firstHost), 0);
-    const containerElement = container as unknown as HTMLElement;
-    const hostChanges: Array<HTMLElement | null> = [];
-    containerElement.addEventListener(reactDomSurfaceHostChangedEvent, () => {
-      hostChanges.push(containerElement.parentElement);
-    });
-
-    adapter.mount(secondHost);
-
-    expect(hostChanges).toEqual([null, secondHost]);
-    expect(fakeChildrenOf(firstHost)).toHaveLength(0);
-    expect(fakeChildrenOf(secondHost)).toEqual([container]);
   });
 
   test("restores parked DOM scroller offsets when remounting React surfaces", () => {
@@ -288,45 +256,6 @@ describe("workspace React DOM surface adapter", () => {
     });
   });
 
-  test("mounts the easy button as an idle React DOM surface", () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const speechCapture = { start: vi.fn(async () => {}) };
-    const speechPresentation = {} as GlobalSpeechPresentationSource;
-    const adapter = createReactDomSurfaceAdapter(fakePane("easy-button"), rootFactory, {
-      speechCapture,
-      speechPresentation,
-      workspaceId: "workspace_test",
-    });
-
-    adapter.mount(host);
-
-    const renderedNode = root.renderedNodes.at(-1);
-    if (
-      !isValidElement<{
-        conversationId: string | null;
-        paneId: string;
-        speechCapture: typeof speechCapture;
-        speechPresentation: GlobalSpeechPresentationSource;
-        workspaceId: string;
-      }>(renderedNode)
-    ) {
-      throw new Error("easy button surface did not render a React element");
-    }
-    expect(host.dataset.surfaceKind).toBe("easy-button");
-    expect(renderedNode.type).toBe(EasyButtonSurface);
-    expect(renderedNode.props.conversationId).toBe("conversation_test");
-    expect(renderedNode.props.paneId).toBe("pane");
-    expect(renderedNode.props.speechCapture).toBe(speechCapture);
-    expect(renderedNode.props.speechPresentation).toBe(speechPresentation);
-    expect(renderedNode.props.workspaceId).toBe("workspace_test");
-  });
-
   test("forwards workflow graph visible live state to the renderer runtime handle", () => {
     vi.stubGlobal("window", {});
     const focusedStates: boolean[] = [];
@@ -434,8 +363,6 @@ function waitForMicrotask(): Promise<void> {
 function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
   return {
     columnId: "column",
-    easyButtonConfig:
-      surfaceKind === "easy-button" ? { conversationId: "conversation_test" } : undefined,
     heat: 42,
     paneId: "pane",
     sequence: 0,

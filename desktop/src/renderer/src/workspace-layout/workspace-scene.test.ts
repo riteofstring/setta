@@ -56,7 +56,6 @@ describe("real workspace layout scene", () => {
   test("defines default pane limits for addable real workspace surfaces", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
       "chat-dom": 10,
-      "easy-button": 10,
       "semantic-node-details": 1,
       "settings-dom": 1,
       terminal: 10,
@@ -188,87 +187,6 @@ describe("real workspace layout scene", () => {
     expect(restored.scene.paneById.get(paneId)?.workflowNodeDetailsConfig).toEqual(config);
   });
 
-  test("serializes and restores an easy button conversation binding", () => {
-    const workspaceId = "workspace_api";
-    const initial = createRealWorkspaceScene({
-      storedLayout: null,
-      workspaceId,
-      workspaceName: "Repo",
-    });
-    const engine = new WorkspaceLikeLayoutEngine(initial.scene);
-    const store = new WorkspaceLayoutStore(engine, initial.scene, initial.focusedPaneId);
-    const easyButtonConfig = { conversationId: "conversation-1" };
-    const paneId = store.openPane({
-      easyButtonConfig,
-      surfaceKind: "easy-button",
-      title: "Topic",
-    });
-
-    const persisted = workspaceUILayoutFromScene(
-      workspaceId,
-      store.toScene(),
-      store.focusedPaneId(),
-    );
-    const restored = createRealWorkspaceScene({
-      storedLayout: persisted,
-      workspaceId,
-      workspaceName: "Ignored after restore",
-    });
-
-    expect(persisted.panes.find((pane) => pane.paneId === paneId)?.easyButtonConfig).toEqual(
-      easyButtonConfig,
-    );
-    expect(restored.scene.paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
-  });
-
-  test("opens and restores multiple easy button views of one conversation", () => {
-    const workspaceId = "workspace_api";
-    const initial = createRealWorkspaceScene({
-      storedLayout: null,
-      workspaceId,
-      workspaceName: "Repo",
-    });
-    const engine = new WorkspaceLikeLayoutEngine(initial.scene);
-    const store = new WorkspaceLayoutStore(engine, initial.scene, initial.focusedPaneId, {
-      paneLimits: defaultRealWorkspacePaneLimits,
-    });
-    const easyButtonConfig = { conversationId: "conversation-1" };
-    const firstPaneId = store.openPane({
-      easyButtonConfig,
-      surfaceKind: "easy-button",
-      title: "Topic",
-    });
-    const secondPaneId = store.openPane({
-      easyButtonConfig,
-      surfaceKind: "easy-button",
-      title: "Topic copy",
-    });
-
-    expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
-      allowed: true,
-      count: 2,
-      limit: 10,
-      surfaceKind: "easy-button",
-    });
-
-    const persisted = workspaceUILayoutFromScene(
-      workspaceId,
-      store.toScene(),
-      store.focusedPaneId(),
-    );
-    const restored = createRealWorkspaceScene({
-      storedLayout: persisted,
-      workspaceId,
-      workspaceName: "Ignored after restore",
-    });
-
-    expect(
-      [firstPaneId, secondPaneId].map(
-        (paneId) => restored.scene.paneById.get(paneId)?.easyButtonConfig,
-      ),
-    ).toEqual([easyButtonConfig, easyButtonConfig]);
-  });
-
   test("drops persisted columns that reference missing pane metadata", () => {
     const restored = createRealWorkspaceScene({
       storedLayout: {
@@ -316,7 +234,6 @@ function storedColumn(columnId: string, index: number, paneIds: string[]) {
 function storedPane(paneId: string, columnId: string, surfaceId: string, title: string) {
   return {
     columnId,
-    easyButtonConfig: null,
     heat: 0,
     paneId,
     sequence: 0,

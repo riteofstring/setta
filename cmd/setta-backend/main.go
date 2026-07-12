@@ -12,21 +12,14 @@ import (
 	"syscall"
 
 	"setta/internal/runtime"
-	"setta/internal/speech"
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, os.Unsetenv))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv))
 }
 
-func run(
-	args []string,
-	stdout io.Writer,
-	stderr io.Writer,
-	getenv func(string) string,
-	unsetenv func(string) error,
-) int {
-	config, err := configFromArgs(args, stdout, stderr, getenv, unsetenv)
+func run(args []string, stdout io.Writer, stderr io.Writer, getenv func(string) string) int {
+	config, err := configFromArgs(args, stdout, stderr, getenv)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 2
@@ -56,13 +49,7 @@ func run(
 	return 0
 }
 
-func configFromArgs(
-	args []string,
-	stdout io.Writer,
-	stderr io.Writer,
-	getenv func(string) string,
-	unsetenv func(string) error,
-) (runtime.Config, error) {
+func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv func(string) string) (runtime.Config, error) {
 	config := runtime.DefaultConfig()
 	config.Stdout = stdout
 	config.Stderr = stderr
@@ -79,11 +66,6 @@ func configFromArgs(
 	if err != nil {
 		return config, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(getenv, unsetenv)
-	if err != nil {
-		return config, err
-	}
-	config.Speech = speechConfig
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
@@ -92,7 +74,6 @@ func configFromArgs(
 	flagSet.StringVar(&config.RuntimeDisplayName, "display-name", envOrDefault(getenv, "SETTA_RUNTIME_DISPLAY_NAME", config.RuntimeDisplayName), "runtime display name to persist for this Setta instance")
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
-	flagSet.BoolVar(&config.SkipBootstrapDeviceSession, "skip-bootstrap-device-session", config.SkipBootstrapDeviceSession, "do not mint a bootstrap device token on startup")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
 	if harness := getenv("SETTA_E2E_CHAT_HARNESS"); harness != "" {
 		if getenv("SETTA_E2E") != "1" {
@@ -113,10 +94,6 @@ func configFromArgs(
 	if err := flagSet.Parse(args); err != nil {
 		return config, err
 	}
-	return validatedConfig(config)
-}
-
-func validatedConfig(config runtime.Config) (runtime.Config, error) {
 	if err := config.Validate(); err != nil {
 		return config, fmt.Errorf("invalid configuration: %w", err)
 	}

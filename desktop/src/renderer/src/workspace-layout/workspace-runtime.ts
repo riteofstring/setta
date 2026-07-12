@@ -1,6 +1,4 @@
 import type { WorkspaceUILayout } from "@generated/backend";
-import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
@@ -13,6 +11,7 @@ import { PresentationEngine } from "./presentation-engine";
 import {
   browserPaneCountForScene,
   createRealSceneForRuntime,
+  hostPoolSizeForRuntime,
   initialFocusedPaneIdForRuntime,
   paneLimitsForRuntime,
   presentationOptionsForRuntime,
@@ -35,8 +34,6 @@ export function createWorkspaceRuntime({
   mode,
   overviewCardMaxWidthPx,
   overviewCardMinWidthPx,
-  speechCapture,
-  speechPresentation,
   storedLayout,
   workspaceId,
   workspaceName,
@@ -45,8 +42,6 @@ export function createWorkspaceRuntime({
   mode: WorkspaceSceneMode;
   overviewCardMaxWidthPx?: number;
   overviewCardMinWidthPx?: number;
-  speechCapture?: SpeechCaptureRequester;
-  speechPresentation?: GlobalSpeechPresentationSource;
   storedLayout: WorkspaceUILayout | null;
   workspaceId: string;
   workspaceName: string;
@@ -72,12 +67,12 @@ export function createWorkspaceRuntime({
     totalBrowserPanes: browserPaneCount,
     workspaceId: scene.id,
   });
-  const createSurfaceAdapter = createSurfaceAdapterFactory(store, nativeViewBoundsBatcher, {
+  const createSurfaceAdapter = createSurfaceAdapterFactory(
+    store,
+    nativeViewBoundsBatcher,
     mode,
-    speechCapture,
-    speechPresentation,
     workspaceId,
-  });
+  );
   const surfaceRegistry = new SurfaceRegistry(scene.panes, createSurfaceAdapter, {
     metrics,
     snapshotAdapter: {
@@ -87,6 +82,7 @@ export function createWorkspaceRuntime({
   return {
     browserPaneCount,
     engine,
+    hostPoolSize: hostPoolSizeForRuntime(mode, scene),
     layoutRecovery: realScene?.layoutRecovery ?? null,
     metrics,
     mode,
@@ -114,16 +110,10 @@ export type WorkspaceRuntime = ReturnType<typeof createWorkspaceRuntime>;
 function createSurfaceAdapterFactory(
   store: WorkspaceLayoutStore,
   nativeViewBoundsBatcher: NativeViewBoundsBatcher,
-  options: {
-    mode: WorkspaceSceneMode;
-    speechCapture: SpeechCaptureRequester | undefined;
-    speechPresentation: GlobalSpeechPresentationSource | undefined;
-    workspaceId: string;
-  },
+  mode: WorkspaceSceneMode,
+  workspaceId: string,
 ) {
-  const workflowGraphSyntheticGraphFallback = workflowGraphSyntheticGraphFallbackForRuntime(
-    options.mode,
-  );
+  const workflowGraphSyntheticGraphFallback = workflowGraphSyntheticGraphFallbackForRuntime(mode);
   return (pane: WorkspacePane) => {
     if (pane.surfaceKind === "browser") {
       return new BrowserSurfaceProxyAdapter(pane, nativeViewBoundsBatcher);
@@ -132,13 +122,10 @@ function createSurfaceAdapterFactory(
       return new EmptyFrameSurfaceAdapter(pane, () => emptyFrameOptionsForStore(store));
     }
     if (pane.surfaceKind === "terminal") {
-      return new TerminalSurfaceAdapter(pane, options.workspaceId);
+      return new TerminalSurfaceAdapter(pane, workspaceId);
     }
     return createDefaultSurfaceAdapter(pane, {
-      speechCapture: options.speechCapture,
-      speechPresentation: options.speechPresentation,
       workflowGraphSyntheticGraphFallback,
-      workspaceId: options.workspaceId,
     });
   };
 }

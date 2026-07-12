@@ -3,7 +3,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import type { WorkspaceLayoutStore } from "./layout-store";
-import { openPaneActions, WorkspaceToolbar } from "./workspace-toolbar";
+import { WorkspaceToolbar } from "./workspace-toolbar";
 
 describe("workspace toolbar", () => {
   test("renders performance stats in the top bar only when enabled", () => {
@@ -40,20 +40,6 @@ describe("workspace toolbar", () => {
     expect(hidden).not.toContain('aria-label="Add frame to the right"');
     expect(hidden).not.toContain('aria-label="Add frame above or below"');
     expect(visible).toContain('data-testid="workspace-performance-stats"');
-  });
-
-  test("registers the easy button open action as a full-width pane", () => {
-    expect(openPaneActions).toContainEqual(
-      expect.objectContaining({
-        label: "Easy Button",
-        request: expect.objectContaining({
-          surfaceKind: "easy-button",
-          tone: "cyan",
-          widthSpec: { unit: "proportion", value: 1 },
-        }),
-        shortcutKey: "e",
-      }),
-    );
   });
 });
 

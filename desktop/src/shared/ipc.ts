@@ -1,4 +1,5 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
+
 import type {
   AppearancePresetList,
   AppearanceSettings,
@@ -135,9 +136,6 @@ import type {
   WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
-import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
-import { masterIpcChannels, type MasterIpcContract } from "./master-ipc";
-import { speechIpcChannels, type SpeechIpcContract } from "./speech-ipc";
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
@@ -149,6 +147,7 @@ import type {
   RuntimeVersions,
   WorkspaceGitInfo,
 } from "./types";
+
 export const ipcChannels = {
   appInstalledEditors: "app:installed-editors",
   appCaptureRendererRegion: "app:capture-renderer-region",
@@ -202,9 +201,6 @@ export const ipcChannels = {
   chatSelectImageAttachments: "chat:select-image-attachments",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
-  ...conversationIpcChannels,
-  ...masterIpcChannels,
-  ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
   codexAccountRead: "codex-account:read",
@@ -293,6 +289,7 @@ export const ipcChannels = {
   workspaceSetSelectedConversation: "workspace:set-selected-conversation",
   workspaceSession: "workspace:session",
 } as const;
+
 export const ipcMessages = {
   workspaceBrowserViewBatch: "workspace:browser-view-batch",
 } as const;
@@ -302,7 +299,6 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
-  conversationEvent: "conversation:event",
   runtimeConnectionState: "runtimes:connection-state",
   semanticGraphEvent: "semantic-graph:event",
   workspaceActivityEvent: "workspace-activity:event",
@@ -312,7 +308,7 @@ export const ipcEvents = {
   workflowEvent: "workflow:event",
 } as const;
 
-interface IpcContract extends ConversationIpc, MasterIpcContract, SpeechIpcContract {
+interface IpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
@@ -907,6 +903,7 @@ interface IpcContract extends ConversationIpc, MasterIpcContract, SpeechIpcContr
 }
 
 export type IpcChannelKey = keyof IpcContract;
+
 export type RendererIpcInvoke = <Channel extends IpcChannelKey>(
   channel: Channel,
   ...args: IpcContract[Channel]["args"]
@@ -935,12 +932,14 @@ export interface IpcObservedFinish {
   id: number;
   result: unknown;
 }
+
 export interface IpcObservedFailure {
   channel: string;
   durationMs: number;
   error: unknown;
   id: number;
 }
+
 let nextObservedIpcID = 1;
 
 export function createRendererIpcInvoke(renderer: Pick<IpcRenderer, "invoke">): RendererIpcInvoke {

@@ -726,7 +726,6 @@ function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
 function bitmapSnapshotSurfaceKind(kind: SurfaceKind): boolean {
   return (
     kind === "chat-dom" ||
-    kind === "easy-button" ||
     kind === "fake-heavy-dom" ||
     kind === "fake-long-chat" ||
     kind === "terminal" ||
