@@ -36,9 +36,10 @@ it.
 | Management API | `https://api.sprites.dev`, paths under `/v1/...` |
 | Base image | Ubuntu 26.04 LTS ("Resolute Raccoon") |
 | Kernel | `6.12.91-fly`, x86-64 |
-| Default user | `sprite` (uid 1001, gid 1001), non-root |
-| Container runtime present | podman 5.7.0 (docker absent) |
-| Languages | node v22.20.0, python 3.13.7, git 2.53.0, bash 5.3.9 |
+| Default user | `sprite` (uid 1001, gid 1001), nominally non-root but holds a broad ambient capability set (see finding 2) |
+| Container runtime present | none in base image (podman and docker both absent); user namespaces work (`unshare -Ur`, cgroup v2) |
+| Languages/tools (base image) | bash 5.3.9, git 2.53.0, curl 8.18.0, python 3.13.7, Rust 1.90.0, Java 25, GCC 15.2.0, jq 1.8.1 |
+| Agent tooling (base image) | Claude Code 2.1.204, Codex CLI 0.143.0, Gemini 0.50.0; `$HOME` has `.claude`, `.codex`, `.cursor`, `.gemini` |
 | Filesystem | 99 GB overlay (`overlay` on `/`), 324 MB used at rest |
 | In-Sprite mgmt CLI | `sprite-env` (services, checkpoints) under `/.sprite/bin` |
 | Entrypoint | `/.pilot/tini -- "$@"` |
@@ -62,18 +63,34 @@ forgotten or hostile trivial process defeats automatic idle-to-zero. Whether
 idle-pause fires at all under a genuinely quiescent Sprite still needs a clean
 measurement (create fresh, leave untouched, watch for the pause transition).
 
-### 2. Isolation is weak out of the box (security stop-condition)
+### 2. Isolation is effectively nonexistent by default (security stop-condition)
 
-- The default `sprite` account has **passwordless sudo**
-  (`sudo -n true` succeeded; `~/.sudo_as_admin_successful` present).
+Confirmed on a fresh base-image Sprite (`setta-phase1a-20260713-char`), so these
+are defaults, not artifacts of prior tinkering:
+
+- The default `sprite` account (uid 1001) is nominally non-root but carries a
+  **broad ambient Linux capability set** in its effective, permitted,
+  inheritable, bounding, and ambient sets, with `no-new-privs=0`. Decoded
+  `CapEff` = `cap_dac_override, cap_sys_admin, cap_setuid, cap_setgid,
+  cap_chown, cap_fowner, cap_fsetid, cap_kill, cap_setpcap, cap_net_bind_service,
+  cap_net_admin, cap_net_raw, cap_sys_chroot, cap_mknod, cap_audit_write,
+  cap_setfcap`. With `cap_dac_override` the account read/wrote `/root`
+  (mode `drwx------`, root-owned) directly — a live write to
+  `/root/.setta_probe_write` succeeded. So the default workload account is
+  **root-equivalent without even invoking sudo**; Unix user separation provides
+  no boundary at all.
+- The account also has **passwordless sudo** to a full root shell.
 - The management socket `/.sprite/api.sock` is mode `srw-rw-rw-`
   (world-writable), so unprivileged workload code can at least *connect* to it.
 
-Together these mean the default account has a wide blast radius. Whether the API
-behind `api.sock` authorizes destructive/management actions (checkpoint, policy,
-deletion, suspension) when called by the guest user is the sharpest Phase 1a
-adversarial probe and is not yet answered. Reachability of the socket, however,
-is already confirmed.
+Together these confirm settled boundary 13: the trusted Setta runtime cannot
+rely on Unix users (or the absence of sudo) to isolate untrusted workload/agent
+code inside one Sprite. A real internal boundary (dropped capabilities +
+`no_new_privs` + seccomp, a user namespace, or a container) must be constructed
+by Setta, not assumed. Whether the API behind `api.sock` *authorizes*
+destructive/management actions (checkpoint, policy, deletion, suspension) from
+the guest is the sharpest remaining adversarial probe and is not yet answered;
+socket reachability, however, is confirmed.
 
 ### 3. Raw-IP egress appears blocked (network policy, partial)
 
@@ -83,10 +100,28 @@ the full network matrix (private IP, alternate DNS, DNS-over-HTTPS, SMTP by IP,
 pre-existing connections, raw sockets, and ordinary developer egress) is not yet
 run.
 
-### 4. Container path is podman, not docker
+### 4. No container runtime in the base image, but namespace primitives work
 
-podman 5.7.0 is preinstalled; docker is absent. The rootless-container arm of
-the root-model comparison should target podman.
+Neither podman nor docker is present on a fresh base image (the podman 5.7.0
+seen earlier was installed during the prior manual session, not shipped). The
+kernel primitives a rootless runtime needs are present, though: `unshare -Ur id`
+succeeds and reports root inside a new user namespace, `/proc/self/cgroup` is
+cgroup v2 (`0::/`), and the account already holds `cap_sys_admin`. So the
+rootless-container arm of the root-model comparison is feasible but requires
+Setta to install and configure the runtime (e.g. podman) itself.
+
+### 5. Checkpoint restore is a whole-Sprite reset (filesystem + processes)
+
+Driven through the in-Sprite `sprite-env checkpoints` CLI: created a checkpoint,
+modified a marker file under `/home/sprite`, then restored. The marker rolled
+back to its pre-checkpoint content (overlay filesystem rollback confirmed), and
+a `sleep` process that was running before the restore was **gone afterward** —
+restore restarts the environment and does not preserve running processes or
+in-memory state. Checkpoint metadata is readable via the management API
+(`GET /v1/sprites/<name>/checkpoints/<id>`); the in-Sprite `checkpoints get`
+returned 404. This supports settled boundary 18 (restore is a whole-runtime
+rollback, not a per-project undo) and flags that any session/queue/transcript
+state must be reconstructible after a restore.
 
 ## Commercial-model evidence (supports deferring the Fly inquiry)
 
@@ -146,38 +181,63 @@ computer than a pure price race. Container-based rivals (e.g. Daytona) trade
 away the per-Sprite isolation the security model needs. Always-on raw VMs are
 cheaper per core but do not scale to zero.
 
+## Characterization harness
+
+The non-adversarial probes were run through a committed, reusable harness,
+`scripts/sprites/phase1a_characterize.sh` (authored via delegated Codex, medium
+effort). It requires `--sprite <name>`, refuses to call `sprite create`/`sprite
+destroy`, cleans up everything it creates via an EXIT trap, and writes a
+structured Markdown report to `--out`. It was run against
+`setta-phase1a-20260713-char`; the full per-probe command log is retained in the
+run's results file. The harness covers probe A (capability/permission matrix),
+B (`sprite-env` services lifecycle), C (checkpoint create/restore rollback),
+D (podman/namespaces/cgroups + one benign HTTPS check), and E (base-image
+inventory).
+
 ## Phase 1a checklist status
 
 - Fly written inquiry: deferred with recorded justification; pre-beta gate.
 - Cost assumptions table + max cost/user + cutoff lag: not built; plan-tier
   input now captured (above).
-- Create disposable Sprite + record versions: versions recorded; a clean
-  version-stamped disposable for the official run is pending.
-- Capability/permission matrix; Tasks/Services/checkpoint/protected-files/
-  management-socket endpoints; guest-reachability of URL auth/Ports/Proxy/exec/
-  policy/deletion: not run (podman present, sudo, socket mode observed only).
-- Two root models (sudo apt, podman, rootless, cgroups, namespaces, bind
-  mounts, cold wake); prove root workload cannot reach mgmt socket/state: not
-  run.
+- Create disposable Sprite + record versions: done. Clean disposable
+  `setta-phase1a-20260713-char` created (`--skip-console`, label
+  `setta-phase1a`); versions recorded above.
+- Capability/permission matrix (characterization): done for the ordinary and
+  sudo/root actors — the default account is already broadly capability-root (see
+  finding 2). `sprite-env` services create/list/get/delete verified. Still
+  pending (adversarial): guest-reachability/authorization of the management
+  socket, URL auth, Ports, Proxy, exec, policy, and deletion endpoints.
+- Two root models (characterization): namespace/cgroup primitives verified
+  (`unshare -Ur`, cgroup v2); no container runtime ships in the base image.
+  Proving a constrained boundary cannot reach the management socket or protected
+  state is pending (adversarial).
 - Non-destructive hard-cost cutoff under hostile Task/TTY/connection/process:
-  not run.
-- Network/privilege policy matrix from outside: partial (raw-IP block observed).
+  not run (adversarial).
+- Network/privilege policy matrix from outside: partial (raw-IP block observed;
+  one benign HTTPS GET to a normal host succeeded). Full matrix pending
+  (adversarial).
 - Unauthenticated URL wake behavior; Proxy API as gateway without exposing org
   token: not run.
-- Attached-idle behavior (event stream, idle TTY, preview): not run
-  (idle-not-pausing observation noted).
-- Checkpoint during SQLite/repo writes, inspect without restore, restore: not
-  run (checkpoint mechanism mapped: `sprite checkpoint create/list/info`,
-  `sprite restore`).
+- Attached-idle behavior (event stream, idle TTY, preview): not run; idle-pause
+  timing still needs a dedicated leave-it-alone measurement.
+- Checkpoint create/inspect/restore: done. Restore rolled back the overlay
+  filesystem and killed a running process (whole-Sprite reset). The
+  representative SQLite/repo-write variant and the "restored code cannot override
+  a newer credential epoch" check remain for later phases.
 - Destroy disposable + verify: mechanism validated on the leftover Sprite
   (`sprite destroy --force`; `GET /v1/sprites` then returned an empty list).
 
 ## Cleanup
 
-Leftover Sprite `setta-phase1a-20260713-a1`
-(`sprite-4c6f1c96-6f03-4430-a2e1-92b3e344d119`) destroyed with
-`sprite destroy --force`; `GET /v1/sprites` confirmed `running: 0`, empty
-`sprites` list. Org has no remaining Sprites and is not billing compute.
+- Leftover Sprite `setta-phase1a-20260713-a1`
+  (`sprite-4c6f1c96-6f03-4430-a2e1-92b3e344d119`) destroyed with
+  `sprite destroy --force`; `GET /v1/sprites` confirmed `running: 0`, empty
+  `sprites` list.
+- Disposable `setta-phase1a-20260713-char`
+  (`sprite-e7da3c35-d1ea-49ae-a4e2-92f5fa807317`) created for the
+  characterization run. The harness left no test service, checkpoint, or process
+  behind. Lifecycle is operator-controlled; it will be destroyed once the
+  adversarial battery is either run or declined.
 
 ## Next steps
 
