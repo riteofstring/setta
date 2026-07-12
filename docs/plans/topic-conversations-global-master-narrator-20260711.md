@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-3 are complete
+**Status:** In progress; Phases 0-3 and Phase 4 item 1 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1655,6 +1655,8 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
+**Progress:** Item 1 complete.
+
 Implement:
 
 1. Priority-aware narrator actor/mailbox per conversation with stale-generation
@@ -2655,3 +2657,32 @@ Implementation is in progress under this plan.
   state/transport, external-backend attachment, and related account/auth
   ownership. Product-specific events may be removed from those shared owners,
   but the connection boundary itself must remain.
+- 2026-07-12: Completed Phase 4 item 1. The new `internal/narration` boundary
+  owns a lazily created actor/mailbox per durable conversation. Each actor uses
+  stable FIFO ordering within the plan's explicit priority classes: terminal
+  and approval-required projection, explicit status, other automatic
+  projection, recoverable retry, then checkpoint maintenance. Work for one
+  conversation prepares and commits serially, while different conversation
+  actors can run concurrently.
+- 2026-07-12: External narrator work now returns a prepared commit to the actor
+  instead of mutating narrator state directly. Every invocation receives a
+  monotonically increasing per-conversation generation. Higher-priority work
+  cancels an in-flight checkpoint, completes it with a typed superseded
+  outcome, invalidates that generation, and immediately makes the next request
+  commit-eligible; even a deliberately late checkpoint response cannot execute
+  its prepared commit. Shutdown closes admission, cancels active work, rejects
+  pending work explicitly, and waits for preparation workers within the
+  caller's deadline.
+- 2026-07-12: Focused validation passed with the new narrator package's vet and
+  quality checks, 100 repeated race-enabled mailbox test runs, and a
+  race-enabled joint run of `internal/conversation` and `internal/narration`.
+  The tests cover exact priority order, terminal ordering behind an in-flight
+  working projection, explicit-status checkpoint preemption, stale-response
+  rejection, same-conversation serialization, cross-conversation concurrency,
+  request validation, and deterministic shutdown. Final
+  `./scripts/format.sh` and `./check_quality.sh --git-changes` runs passed.
+  Generated inputs and outputs changed: none. Deterministic Electron and live
+  Codex workflows were not run because this isolated scheduling boundary is not
+  yet composed into a production, HTTP, renderer, or provider path; the Codex
+  source reference was not needed. Phase 4 item 2, durable context/checkpoint
+  materialization and cursor invariants, is next with no external blocker.
