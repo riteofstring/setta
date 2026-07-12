@@ -251,6 +251,28 @@ requirements because they affect functional use. The basic conversation color
 identity is implemented with semantic tokens; refining those palettes later
 must not block the architecture cutover.
 
+### The PWA is frozen but retained
+
+The existing PWA is outside this plan's product and acceptance scope. Do not
+spend implementation effort on PWA feature parity, replacement wiring, repair,
+or PWA-specific acceptance coverage. PWA behavior is not a release gate for
+this desktop architecture cutover.
+
+This plan also does not delete the PWA. Retain its entrypoint, manifest,
+service worker, web build, and web-app serving path. Obsolete fixtures or
+contracts coupled only to a deleted product path may be removed without
+building PWA replacements. Any eventual PWA removal belongs to a separate
+future plan.
+
+### Local and remote runtime connectivity survives
+
+Retain the generic local/remote Setta connection boundary: runtime pairing,
+runtime registry, runtime picker, shared connection state and transport,
+external-backend attachment, and their account/auth/settings ownership. Pane
+and product deletion may remove feature-specific events or handlers from these
+surfaces, but it must not remove or desktop-localize the underlying ability to
+connect to either a local or remote runtime.
+
 ### Clean persistence break
 
 The new conversation store uses a new schema and namespace. Existing chat,
@@ -283,6 +305,10 @@ This plan does not include:
   genuinely ambiguous; the master asks a clarification question instead
 - speech wake-word selection or continuous-listening privacy UX details beyond
   the ownership and lifecycle boundary needed by the architecture
+- PWA feature work, PWA parity, PWA-specific acceptance, or deletion of the
+  retained PWA
+- removal of local/remote runtime pairing, discovery, selection, or connection
+  infrastructure
 - guaranteed globally unique voices or colors across an unbounded conversation
   archive; uniqueness is best-effort among simultaneously active/visible
   conversations and explicit reuse is allowed when a finite catalog is
@@ -1447,7 +1473,10 @@ Keep and simplify:
   overview, resize, and persistence machinery
 - Easy Button presentation components that remain useful as pure projections
 - settings and any separately retained browser surface
-- global runtime/workspace connection stores
+- the frozen PWA entrypoint, manifest, service worker, web build, and web-app
+  serving path
+- global runtime/workspace connection stores, including local/remote pairing,
+  registry, picker, transport, and external-backend attachment
 
 ### Backend deletion
 
@@ -1671,6 +1700,10 @@ Implement:
 7. Global speaking/capture state rendered by panes and app chrome.
 8. Delete Easy Button-owned speech controllers, Easy Run speech endpoints, and
    pane-local playback subscriptions.
+
+This phase targets the desktop app shell. Do not add or repair PWA speech
+behavior or PWA-specific acceptance coverage, and do not delete the retained
+PWA.
 
 Exit criteria:
 
@@ -2614,3 +2647,11 @@ Implementation is in progress under this plan.
   The supply-chain audit again reports the pre-existing `GO-2026-5856` in
   repository-pinned Go 1.26.4, fixed in 1.26.5. Phase 4 item 1, the
   priority-aware narrator actor/mailbox, is next.
+- 2026-07-12: Clarified two retained boundaries before Phase 4. The existing
+  PWA remains checked in but is frozen outside this plan: no feature-parity,
+  replacement-wiring, repair, or PWA acceptance work is required, and deleting
+  it requires a separate future plan. Generic local/remote runtime
+  connectivity also survives, including pairing, registry, picker, connection
+  state/transport, external-backend attachment, and related account/auth
+  ownership. Product-specific events may be removed from those shared owners,
+  but the connection boundary itself must remain.
