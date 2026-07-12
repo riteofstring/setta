@@ -67,6 +67,55 @@ func TestLiveCodexRuntimeFreshStructuredCall(t *testing.T) {
 	}
 }
 
+func TestLiveCodexRuntimeDurableRestrictedThread(t *testing.T) {
+	requireLiveCodex(t)
+	runtime := NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-restricted-thread-test"})
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := runtime.Shutdown(ctx); err != nil {
+			t.Errorf("Shutdown: %v", err)
+		}
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	requireLiveRoleModels(t, runtime, ctx)
+	request := RestrictedThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation: Invocation{
+			Model:           "gpt-5.6-terra",
+			ReasoningEffort: "medium",
+			PermissionMode:  PermissionModeReadOnly,
+			ApprovalMode:    ApprovalModeNever,
+		},
+		DeveloperInstructions: "You are Setta's restricted global master. Wait for a constrained Setta routing turn.",
+	}
+	thread, err := runtime.StartRestrictedThread(ctx, request)
+	if err != nil {
+		t.Fatalf("StartRestrictedThread: %v", err)
+	}
+	if thread.ID == "" || thread.Ephemeral || thread.Model != request.Invocation.Model {
+		t.Fatalf("live restricted thread = %+v", thread)
+	}
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := runtime.Shutdown(shutdownCtx); err != nil {
+		shutdownCancel()
+		t.Fatalf("shutdown restricted thread runtime before resume: %v", err)
+	}
+	shutdownCancel()
+	runtime = NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-restricted-thread-resume-test"})
+	resumed, err := runtime.ResumeRestrictedThread(ctx, thread.ID, request)
+	if err != nil {
+		t.Fatalf("ResumeRestrictedThread: %v", err)
+	}
+	if resumed.ID != thread.ID || resumed.Ephemeral || resumed.Model != request.Invocation.Model {
+		t.Fatalf("live resumed restricted thread = %+v", resumed)
+	}
+	if err := runtime.UnsubscribeThread(ctx, thread.ID); err != nil {
+		t.Fatalf("UnsubscribeThread: %v", err)
+	}
+}
+
 func TestLiveCodexRuntimeThreadLifecycleAndActiveForkSnapshot(t *testing.T) {
 	requireLiveCodex(t)
 	fixture := newLiveFixture(t)

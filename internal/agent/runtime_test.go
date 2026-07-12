@@ -24,6 +24,62 @@ func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	assertFakeReconciliation(t, ctx, runtime, thread)
 }
 
+func TestRuntimeStartsAndResumesDurableRestrictedThread(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	request := RestrictedThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation: Invocation{
+			Model:           "gpt-narrator-test",
+			ReasoningEffort: "low",
+			PermissionMode:  PermissionModeReadOnly,
+			ApprovalMode:    ApprovalModeNever,
+		},
+		DeveloperInstructions: "You are Setta's restricted global master.",
+	}
+
+	thread, err := runtime.StartRestrictedThread(ctx, request)
+	if err != nil {
+		t.Fatalf("StartRestrictedThread: %v", err)
+	}
+	if thread.ID == "" || thread.Ephemeral || thread.Model != request.Invocation.Model ||
+		thread.CWD != request.WorkspaceRoot {
+		t.Fatalf("restricted thread = %+v", thread)
+	}
+	resumed, err := runtime.ResumeRestrictedThread(ctx, thread.ID, request)
+	if err != nil {
+		t.Fatalf("ResumeRestrictedThread: %v", err)
+	}
+	if resumed.ID != thread.ID || resumed.Model != request.Invocation.Model || resumed.Ephemeral {
+		t.Fatalf("resumed restricted thread = %+v", resumed)
+	}
+}
+
+func TestRestrictedThreadRejectsUnresolvedOrPrivilegedInvocation(t *testing.T) {
+	request := RestrictedThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation: Invocation{
+			Model:           "gpt-master-test",
+			ReasoningEffort: "medium",
+			PermissionMode:  PermissionModeReadOnly,
+			ApprovalMode:    ApprovalModeNever,
+		},
+		DeveloperInstructions: "You are Setta's restricted global master.",
+	}
+	request.Invocation.Model = ""
+	request.Invocation.ModelSelectionProviderDefault = true
+	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "catalog-resolved exact model") {
+		t.Fatalf("provider-default validation error = %v", err)
+	}
+	request.Invocation.ModelSelectionProviderDefault = false
+	request.Invocation.Model = "gpt-master-test"
+	request.Invocation.PermissionMode = PermissionModeWorkspaceWrite
+	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "read-only") {
+		t.Fatalf("privileged validation error = %v", err)
+	}
+}
+
 func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T) {
 	params, err := forkThreadParams(ForkThreadRequest{
 		ParentThreadID: "thread-parent",

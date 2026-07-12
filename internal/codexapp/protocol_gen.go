@@ -5445,7 +5445,7 @@ type ThreadResumeParams struct {
 	Personality           *Personality                        `json:"personality,omitempty"`
 	RuntimeWorkspaceRoots *[]AbsolutePathBuf                  `json:"runtimeWorkspaceRoots,omitempty"`
 	Sandbox               *SandboxMode                        `json:"sandbox,omitempty"`
-	ServiceTier           *string                             `json:"serviceTier,omitempty"`
+	ServiceTier           *CodexNullableString                `json:"serviceTier,omitempty"`
 	ThreadID              string                              `json:"threadId"`
 }
 
@@ -5737,7 +5737,7 @@ type ThreadStartParams struct {
 	Sandbox                    *SandboxMode                `json:"sandbox,omitempty"`
 	SelectedCapabilityRoots    *[]SelectedCapabilityRoot   `json:"selectedCapabilityRoots,omitempty"`
 	ServiceName                *string                     `json:"serviceName,omitempty"`
-	ServiceTier                *string                     `json:"serviceTier,omitempty"`
+	ServiceTier                *CodexNullableString        `json:"serviceTier,omitempty"`
 	SessionStartSource         *ThreadStartSource          `json:"sessionStartSource,omitempty"`
 	ThreadSource               *ThreadSource               `json:"threadSource,omitempty"`
 }

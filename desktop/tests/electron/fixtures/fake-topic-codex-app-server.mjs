@@ -14,6 +14,7 @@ const heldTurns = new Map();
 const pendingApprovals = new Map();
 const failedNarratorObjectives = new Set();
 const methodHandlers = new Map([
+  ["config/read", readConfig],
   ["initialize", initialize],
   ["initialized", () => {}],
   ["model/list", listModels],
@@ -64,10 +65,22 @@ function listModels(message) {
   respond(message.id, {
     data: [
       fakeModel("gpt-5.6-sol", "high", true),
+      fakeModel("gpt-5.6-terra", "medium", false),
       fakeModel("gpt-5.6-luna", "medium", false),
       fakeModel("gpt-5.4-mini", "low", false),
     ],
     nextCursor: null,
+  });
+}
+
+function readConfig(message) {
+  respond(message.id, {
+    config: {
+      mcp_servers: {
+        "configured-topic-server": { command: "must-not-run" },
+      },
+    },
+    origins: {},
   });
 }
 
@@ -81,21 +94,37 @@ function terminateBackgroundTerminals(message) {
 
 function startThread(message) {
   const params = message.params ?? {};
+  const restricted = params.allowProviderModelFallback === false;
+  if (restricted) {
+    assertRestrictedThreadParams(params, true);
+  }
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
-  const state = {
+  const state = startThreadState(params, threadId, restricted);
+  threads.set(threadId, state);
+  persistState();
+  respond(message.id, threadOperationResponse(fakeThread(threadId), state));
+}
+
+function startThreadState(params, threadId, restricted) {
+  return {
     approvalPolicy: params.approvalPolicy ?? null,
     cwd: requiredString(params, "cwd"),
     ephemeral: params.ephemeral === true,
     id: threadId,
     model: requiredString(params, "model"),
+    reasoningEffort: params.config?.model_reasoning_effort ?? null,
+    restricted,
+    runtimeWorkspaceRoots: params.runtimeWorkspaceRoots ?? [],
     sandbox: params.sandbox ?? null,
-    serviceTier: params.serviceTier ?? null,
+    serviceTier: startThreadServiceTier(params, restricted),
     turnIds: [],
   };
-  threads.set(threadId, state);
-  persistState();
-  respond(message.id, threadOperationResponse(fakeThread(threadId), state));
+}
+
+function startThreadServiceTier(params, restricted) {
+  if (restricted && params.serviceTier === null) return "default";
+  return params.serviceTier ?? null;
 }
 
 function forkThread(message) {
@@ -180,6 +209,9 @@ function validEphemeralSideSettings(params) {
 }
 
 function injectThreadItems(message) {
+  if (injectRestrictedThreadInitialization(message)) {
+    return;
+  }
   const request = sideContextInjectionRequest(message);
   if (!request) return;
   const boundary = injectedMessageText(request.items[0], "user");
@@ -201,6 +233,30 @@ function injectThreadItems(message) {
   request.thread.sideContextFrame = frame;
   persistState();
   respond(message.id, {});
+}
+
+function injectRestrictedThreadInitialization(message) {
+  const params = message.params ?? {};
+  const threadId = requiredString(params, "threadId");
+  const thread = threads.get(threadId);
+  if (!thread?.restricted || thread.ephemeral) {
+    return false;
+  }
+  const items = params.items;
+  if (
+    !Array.isArray(items) ||
+    items.length !== 1 ||
+    !injectedMessageText(items[0], "developer").includes(
+      "Setta initialized this restricted durable thread",
+    )
+  ) {
+    respondError(message.id, -32602, "restricted thread initialization drifted");
+    return true;
+  }
+  thread.materialized = true;
+  persistState();
+  respond(message.id, {});
+  return true;
 }
 
 function sideContextInjectionRequest(message) {
@@ -266,13 +322,28 @@ function validSideContextFrame(frame) {
 }
 
 function resumeThread(message) {
-  const threadId = requiredString(message.params, "threadId");
+  const params = message.params ?? {};
+  const threadId = requiredString(params, "threadId");
   const state = threads.get(threadId) ?? {
     ephemeral: false,
     id: threadId,
     model: "gpt-5.6-sol",
     turnIds: [],
   };
+  if (state.restricted) {
+    if (!state.materialized) {
+      respondError(message.id, -32602, `no rollout found for thread id ${threadId}`);
+      return;
+    }
+    assertRestrictedThreadParams(params, false);
+    state.approvalPolicy = params.approvalPolicy;
+    state.cwd = requiredString(params, "cwd");
+    state.model = requiredString(params, "model");
+    state.reasoningEffort = params.config?.model_reasoning_effort ?? null;
+    state.runtimeWorkspaceRoots = params.runtimeWorkspaceRoots ?? [];
+    state.sandbox = params.sandbox;
+    state.serviceTier = params.serviceTier === null ? "default" : params.serviceTier;
+  }
   threads.set(threadId, state);
   persistState();
   respond(message.id, threadOperationResponse(fakeThread(threadId), state));
@@ -703,13 +774,92 @@ function threadOperationResponse(thread, state) {
     approvalPolicy: state.approvalPolicy ?? "on-request",
     approvalsReviewer: "user",
     cwd: state.cwd ?? "/tmp/setta-topic-codex",
+    instructionSources: [],
     model: state.model,
     modelProvider: "fake",
     reasoningEffort: state.reasoningEffort ?? modelReasoningEffort(state.model),
+    runtimeWorkspaceRoots: state.runtimeWorkspaceRoots ?? [],
     sandbox: sandboxPolicy(state.sandbox ?? "workspace-write"),
     serviceTier: state.serviceTier ?? null,
     thread,
   };
+}
+
+function assertRestrictedThreadParams(params, starting) {
+  const config = requiredObject(params, "config");
+  assertRestrictedThreadPolicies(params);
+  assertRestrictedThreadConfig(config);
+  assertRestrictedThreadCapabilities(params);
+  if (starting) {
+    assertRestrictedThreadStartCapabilities(params);
+  }
+}
+
+function assertRestrictedThreadPolicies(params) {
+  assertCondition(params.approvalPolicy === "never", "approval policy");
+  assertCondition(params.sandbox === "read-only", "sandbox policy");
+  assertCondition(Object.hasOwn(params, "serviceTier"), "service tier override");
+  assertCondition(typeof params.model === "string" && params.model !== "", "exact model");
+  const baseInstructions = requiredString(params, "baseInstructions");
+  assertCondition(
+    baseInstructions.includes("restricted Setta reasoning component"),
+    "controlled base instructions",
+  );
+}
+
+function assertRestrictedThreadConfig(config) {
+  const features = requiredObject(config, "features");
+  const orchestrator = requiredObject(config, "orchestrator");
+  const orchestratorMcp = requiredObject(orchestrator, "mcp");
+  const orchestratorSkills = requiredObject(orchestrator, "skills");
+  const mcpServers = requiredObject(config, "mcp_servers");
+  const configuredServer = requiredObject(mcpServers, "configured-topic-server");
+  assertCondition(typeof config.model_reasoning_effort === "string", "reasoning effort");
+  assertCondition(config.project_doc_max_bytes === 0, "project instructions");
+  assertCondition(config.web_search === "disabled", "web search");
+  assertCondition(orchestratorMcp.enabled === false, "orchestrator MCP");
+  assertCondition(orchestratorSkills.enabled === false, "orchestrator skills");
+  assertCondition(configuredServer.enabled === false, "configured MCP server");
+  assertRestrictedFeatures(features);
+}
+
+function assertRestrictedFeatures(features) {
+  assertCondition(features.apps === false, "apps feature");
+  assertCondition(features.browser_use === false, "browser feature");
+  assertCondition(features.hooks === false, "hooks feature");
+  assertCondition(features.multi_agent === false, "multi-agent feature");
+  assertCondition(features.plugins === false, "plugins feature");
+  assertCondition(features.shell_tool === false, "shell feature");
+}
+
+function assertRestrictedThreadCapabilities(params) {
+  assertCondition(
+    Array.isArray(params.runtimeWorkspaceRoots) || params.ephemeral === true,
+    "runtime workspace roots",
+  );
+}
+
+function assertRestrictedThreadStartCapabilities(params) {
+  assertCondition(params.ephemeral === true || params.ephemeral === false, "durability override");
+  assertEmptyArray(params.dynamicTools, "dynamic tools");
+  assertEmptyArray(params.environments, "turn environments");
+  assertEmptyArray(params.selectedCapabilityRoots, "capability roots");
+}
+
+function requiredObject(value, field) {
+  const result = value?.[field];
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    throw new Error(`${field} must be an object`);
+  }
+  return result;
+}
+
+function assertEmptyArray(value, label) {
+  assertCondition(Array.isArray(value) && value.length === 0, label);
+}
+
+function assertCondition(condition, label) {
+  if (!condition) throw new Error(`restricted thread ${label} boundary drifted`);
 }
 
 function sandboxPolicy(mode) {
@@ -733,6 +883,7 @@ function sandboxPolicy(mode) {
 
 function modelReasoningEffort(model) {
   if (model === "gpt-5.4-mini") return "low";
+  if (model === "gpt-5.6-terra") return "medium";
   if (model === "gpt-5.6-luna") return "medium";
   return "high";
 }

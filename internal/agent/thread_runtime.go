@@ -253,7 +253,7 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 		DeveloperInstructions: optionalStringPointer(request.DeveloperInstructions),
 		Ephemeral:             &request.Ephemeral,
 		Sandbox:               &sandbox,
-		ServiceTier:           cloneString(request.Invocation.ServiceTier),
+		ServiceTier:           nullableServiceTier(request.Invocation.ServiceTier),
 	}
 	if !request.Invocation.ModelSelectionProviderDefault {
 		params.Model = &request.Invocation.Model
@@ -300,6 +300,10 @@ func forkThreadConfig(invocation Invocation) (*map[string]json.RawMessage, error
 }
 
 func forkThreadServiceTier(serviceTier *string) *codexapp.CodexNullableString {
+	return nullableServiceTier(serviceTier)
+}
+
+func nullableServiceTier(serviceTier *string) *codexapp.CodexNullableString {
 	if serviceTier == nil {
 		return codexapp.CodexNullString()
 	}

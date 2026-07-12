@@ -117,6 +117,7 @@ type runtimeServices struct {
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
+	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
 	notifyService            *notify.Service
 	semanticGraphService     *semanticgraph.Service
@@ -360,6 +361,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		conversationIndexService: baseServices.conversationIndexService,
 		conversationStore:        baseServices.conversationStore,
 		masterInputService:       baseServices.masterInputService,
+		masterSessionService:     baseServices.masterSessionService,
 		narratorService:          baseServices.narratorService,
 		notifyService:            notifyService,
 		semanticGraphService:     semanticServices.graphService,

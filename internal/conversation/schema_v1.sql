@@ -319,10 +319,11 @@ CREATE TABLE master_voice_selection (
 ) STRICT;
 
 CREATE TABLE master_sessions (
-  id TEXT PRIMARY KEY,
+  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+  id TEXT NOT NULL UNIQUE,
   provider TEXT NOT NULL CHECK (provider = 'codex'),
   provider_thread_id TEXT,
-  status TEXT NOT NULL CHECK (status IN ('ready', 'running', 'degraded')),
+  status TEXT NOT NULL CHECK (status IN ('initializing', 'ready', 'running', 'degraded')),
   resolved_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_invocation_json)),
   durable_context_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(durable_context_json)),
   created_at TEXT NOT NULL,

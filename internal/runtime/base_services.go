@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"setta/internal/agent"
@@ -19,6 +21,8 @@ import (
 	"setta/internal/workspaceui"
 )
 
+const masterRuntimeDirectoryName = "master"
+
 type runtimeBaseServices struct {
 	appearanceService        *appearance.Service
 	chatService              *chat.Service
@@ -28,6 +32,7 @@ type runtimeBaseServices struct {
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
+	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
 	speechService            *speech.Service
 	workspaceService         *workspacesession.Service
@@ -74,6 +79,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		conversationIndexService: foundation.conversationIndexService,
 		conversationStore:        foundation.conversationStore,
 		masterInputService:       foundation.masterInputService,
+		masterSessionService:     foundation.masterSessionService,
 		narratorService:          foundation.narratorService,
 		speechService:            speechService,
 		workspaceService:         foundation.workspaceService,
@@ -112,9 +118,17 @@ type runtimeFoundation struct {
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	masterInputService       *master.Service
+	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
 	workspaceService         *workspacesession.Service
 	workspaceUIService       *workspaceui.Service
+}
+
+type runtimeAgentServices struct {
+	codexManager         *codexapp.Manager
+	agentRuntime         *agent.Runtime
+	masterSessionService *master.SessionService
+	narratorService      *narration.Service
 }
 
 func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
@@ -144,13 +158,15 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		_ = conversationStore.Close()
 		return runtimeFoundation{}, fmt.Errorf("create master input service: %w", err)
 	}
-	codexManager := newCodexManager()
-	agentRuntime := agent.NewRuntime(agent.Config{Manager: codexManager, Version: config.Version})
-	narratorService, err := narration.NewService(conversationStore, workspaceService, agentRuntime)
+	agentServices, err := newRuntimeAgentServices(config, conversationStore, workspaceService)
 	if err != nil {
 		_ = conversationStore.Close()
-		return runtimeFoundation{}, fmt.Errorf("create narrator service: %w", err)
+		return runtimeFoundation{}, err
 	}
+	codexManager := agentServices.codexManager
+	agentRuntime := agentServices.agentRuntime
+	masterSessionService := agentServices.masterSessionService
+	narratorService := agentServices.narratorService
 	conversationInputService, err := newConversationInputService(conversationStore, narratorService)
 	if err != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
@@ -188,10 +204,54 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		conversationIndexService: conversationIndexService,
 		conversationStore:        conversationStore,
 		masterInputService:       masterInputService,
+		masterSessionService:     masterSessionService,
 		narratorService:          narratorService,
 		workspaceService:         workspaceService,
 		workspaceUIService:       workspaceUIService,
 	}, nil
+}
+
+func newRuntimeAgentServices(
+	config Config,
+	conversationStore *conversation.Store,
+	workspaceService *workspacesession.Service,
+) (runtimeAgentServices, error) {
+	codexManager := newCodexManager()
+	agentRuntime := agent.NewRuntime(agent.Config{Manager: codexManager, Version: config.Version})
+	masterSessionService, err := newMasterSessionService(config.AppDataDir, conversationStore, agentRuntime)
+	if err != nil {
+		return runtimeAgentServices{}, err
+	}
+	narratorService, err := narration.NewService(conversationStore, workspaceService, agentRuntime)
+	if err != nil {
+		return runtimeAgentServices{}, fmt.Errorf("create narrator service: %w", err)
+	}
+	return runtimeAgentServices{
+		codexManager:         codexManager,
+		agentRuntime:         agentRuntime,
+		masterSessionService: masterSessionService,
+		narratorService:      narratorService,
+	}, nil
+}
+
+func newMasterSessionService(
+	appDataDir string,
+	store *conversation.Store,
+	agentRuntime *agent.Runtime,
+) (*master.SessionService, error) {
+	workspaceRoot := filepath.Join(filepath.Clean(appDataDir), masterRuntimeDirectoryName)
+	if err := os.MkdirAll(workspaceRoot, 0o700); err != nil {
+		return nil, fmt.Errorf("create master runtime directory: %w", err)
+	}
+	roles, err := conversation.NewMasterRoleConfigurationResolver(store, agentRuntime)
+	if err != nil {
+		return nil, fmt.Errorf("create master role configuration resolver: %w", err)
+	}
+	service, err := master.NewSessionService(store, roles, agentRuntime, workspaceRoot)
+	if err != nil {
+		return nil, fmt.Errorf("create master session service: %w", err)
+	}
+	return service, nil
 }
 
 func recoverRuntimeConversationServices(

@@ -176,11 +176,17 @@ func (runtime *Runtime) startFreshStructuredThread(
 	if err != nil {
 		return "", err
 	}
-	config, err := freshStructuredThreadConfig()
+	config, err := readRestrictedModelThreadConfig(
+		ctx,
+		session,
+		request.WorkspaceRoot,
+		request.Invocation,
+	)
 	if err != nil {
 		return "", err
 	}
 	allowFallback := false
+	baseInstructions := restrictedThreadBaseInstructions
 	ephemeral := true
 	dynamicTools := []codexapp.DynamicToolSpec{}
 	environments := []codexapp.TurnEnvironmentParams{}
@@ -189,6 +195,7 @@ func (runtime *Runtime) startFreshStructuredThread(
 	params := codexapp.ThreadStartParams{
 		AllowProviderModelFallback: &allowFallback,
 		ApprovalPolicy:             approvalPolicy,
+		BaseInstructions:           &baseInstructions,
 		Config:                     &config,
 		CWD:                        &request.WorkspaceRoot,
 		DeveloperInstructions:      &developerInstructions,
@@ -197,7 +204,7 @@ func (runtime *Runtime) startFreshStructuredThread(
 		Ephemeral:                  &ephemeral,
 		Sandbox:                    &sandbox,
 		SelectedCapabilityRoots:    &capabilityRoots,
-		ServiceTier:                cloneString(request.Invocation.ServiceTier),
+		ServiceTier:                nullableServiceTier(request.Invocation.ServiceTier),
 	}
 	params.Model = &request.Invocation.Model
 	raw, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
@@ -447,26 +454,6 @@ func freshStructuredTerminalNotification(
 	default:
 		return false, fmt.Errorf("unsupported fresh structured cleanup event %q", event.Kind)
 	}
-}
-
-func freshStructuredThreadConfig() (map[string]json.RawMessage, error) {
-	webSearch, err := json.Marshal("disabled")
-	if err != nil {
-		return nil, err
-	}
-	features, err := json.Marshal(map[string]bool{"image_generation": false})
-	if err != nil {
-		return nil, err
-	}
-	projectDocBytes, err := json.Marshal(0)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]json.RawMessage{
-		"features":              features,
-		"project_doc_max_bytes": projectDocBytes,
-		"web_search":            webSearch,
-	}, nil
 }
 
 func freshStructuredDeveloperInstructions(callInstructions string) string {

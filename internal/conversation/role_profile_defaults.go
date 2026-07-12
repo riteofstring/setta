@@ -1,5 +1,44 @@
 package conversation
 
+const (
+	MasterToolConversationCandidatesRead = "conversation_candidates.read"
+	MasterToolConversationStatusRead     = "conversation_status.read"
+	MasterToolConversationCommandPropose = "conversation_command.propose"
+	MasterToolPresentationIntentPropose  = "presentation_intent.propose"
+)
+
+// DefaultMasterRoleProfile is the app-global routing role. Its provider
+// thread receives no shell or filesystem environment; this allowlist names
+// only Setta-owned, proposal-oriented capabilities that the backend validates
+// before executing.
+func DefaultMasterRoleProfile() RoleProfile {
+	modelID := "gpt-5.6-terra"
+	return RoleProfile{
+		Role:            RoleMaster,
+		Provider:        ProviderCodex,
+		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
+		ReasoningEffort: ReasoningEffortMedium,
+		PermissionProfile: PermissionProfile{
+			ApprovalPolicy:            ApprovalPolicyNever,
+			ProviderPermissionProfile: ":read-only",
+			ToolAccess: ToolAccessPolicy{
+				Mode: ToolAccessAllowlist,
+				AllowedTools: []string{
+					MasterToolConversationCandidatesRead,
+					MasterToolConversationStatusRead,
+					MasterToolConversationCommandPropose,
+					MasterToolPresentationIntentPropose,
+				},
+			},
+		},
+		ContextBudget: ContextBudget{
+			MaxInputBytes:        128 * 1024,
+			MaxInputTokens:       32 * 1024,
+			ReservedOutputTokens: 4 * 1024,
+		},
+	}
+}
+
 // DefaultAgentRoleProfile is the release-owned primary topic-agent profile.
 // Role defaults live together so one role cannot silently inherit another
 // role's model, effort, permissions, or context budget.

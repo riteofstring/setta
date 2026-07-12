@@ -59,8 +59,7 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 	case "thread/start":
 		handleFakeAgentThreadStart(state, message)
 	case "thread/resume":
-		threadID := fakeAgentStringParam(message, "threadId")
-		writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(fakeAgentThread(threadID), "gpt-agent-test"))
+		handleFakeAgentThreadResume(message)
 	case "thread/read":
 		threadID := fakeAgentStringParam(message, "threadId")
 		thread := fakeAgentThread(threadID)
@@ -146,6 +145,17 @@ func handleFakeAgentBootstrapMethod(method string, message map[string]any) bool 
 			},
 			"nextCursor": nil,
 		})
+	case "config/read":
+		writeFakeAgentResponse(message["id"], map[string]any{
+			"config": map[string]any{
+				"mcp_servers": map[string]any{
+					"configured-test-server": map[string]any{
+						"command": "must-not-run",
+					},
+				},
+			},
+			"origins": map[string]any{},
+		})
 	default:
 		return false
 	}
@@ -157,22 +167,42 @@ func handleFakeAgentThreadStart(state *fakeAgentServerState, message map[string]
 	state.threadCounter++
 	threadID := fmt.Sprintf("thread-%d", state.threadCounter)
 	thread := fakeAgentThread(threadID)
+	if cwd, ok := params["cwd"].(string); ok {
+		thread["cwd"] = cwd
+	}
 	ephemeral, _ := params["ephemeral"].(bool)
 	thread["ephemeral"] = ephemeral
 	model := "gpt-agent-test"
 	if requestedModel, ok := params["model"].(string); ok && requestedModel != "" {
 		model = requestedModel
 	}
-	_, hasDynamicTools := params["dynamicTools"]
-	structured := params["allowProviderModelFallback"] == false && hasDynamicTools
+	structured := params["allowProviderModelFallback"] == false && ephemeral
 	if structured {
 		assertFakeFreshStructuredThreadStart(params)
 		state.structured[threadID] = true
 	}
+	if params["allowProviderModelFallback"] == false && !ephemeral {
+		assertFakeRestrictedDurableThreadStart(params)
+	}
 	if !ephemeral {
 		state.threads = append(state.threads, threadID)
 	}
-	writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(thread, model))
+	writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(thread, params, model))
+}
+
+func handleFakeAgentThreadResume(message map[string]any) {
+	params := fakeAgentParams(message)
+	threadID := fakeAgentRequiredString(params, "threadId")
+	thread := fakeAgentThread(threadID)
+	if cwd, ok := params["cwd"].(string); ok {
+		thread["cwd"] = cwd
+	}
+	model := "gpt-agent-test"
+	if requestedModel, ok := params["model"].(string); ok && requestedModel != "" {
+		model = requestedModel
+		assertFakeRestrictedDurableThreadResume(params)
+	}
+	writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(thread, params, model))
 }
 
 func assertFakeFreshStructuredThreadStart(params map[string]any) {
@@ -199,8 +229,73 @@ func assertFakeFreshStructuredThreadStart(params map[string]any) {
 		panic("fresh structured thread must disable workspace project instructions")
 	}
 	features, ok := config["features"].(map[string]any)
-	if !ok || features["image_generation"] != false {
-		panic("fresh structured thread must disable image generation")
+	if !ok || features["image_generation"] != false || features["plugins"] != false ||
+		features["apps"] != false || features["multi_agent"] != false || features["shell_tool"] != false {
+		panic("fresh structured thread must disable external capability features")
+	}
+	assertFakeRestrictedConfig(params, config)
+}
+
+func assertFakeRestrictedDurableThreadStart(params map[string]any) {
+	if params["ephemeral"] != false {
+		panic("restricted durable thread must not be ephemeral")
+	}
+	if params["historyMode"] != "legacy" {
+		panic("restricted durable thread must retain provider history")
+	}
+	assertFakeRestrictedThreadPolicy(params)
+	assertFakeEmptyArray(params, "dynamicTools")
+	assertFakeEmptyArray(params, "environments")
+	assertFakeEmptyArray(params, "runtimeWorkspaceRoots")
+	assertFakeEmptyArray(params, "selectedCapabilityRoots")
+}
+
+func assertFakeRestrictedDurableThreadResume(params map[string]any) {
+	assertFakeRestrictedThreadPolicy(params)
+	assertFakeEmptyArray(params, "runtimeWorkspaceRoots")
+}
+
+func assertFakeRestrictedThreadPolicy(params map[string]any) {
+	if params["approvalPolicy"] != "never" || params["sandbox"] != "read-only" {
+		panic("restricted durable thread must be read-only with approvals disabled")
+	}
+	if _, ok := params["serviceTier"]; !ok {
+		panic("restricted durable thread must explicitly pin or clear service tier")
+	}
+	if developer, _ := params["developerInstructions"].(string); !strings.Contains(developer, "Setta") {
+		panic("restricted durable thread is missing Setta developer instructions")
+	}
+	config, ok := params["config"].(map[string]any)
+	if !ok || config["web_search"] != "disabled" || config["project_doc_max_bytes"] != float64(0) {
+		panic("restricted durable thread must disable external and project context")
+	}
+	if effort, ok := config["model_reasoning_effort"].(string); !ok || effort == "" {
+		panic("restricted durable thread must pin reasoning effort")
+	}
+	assertFakeRestrictedConfig(params, config)
+}
+
+func assertFakeRestrictedConfig(params map[string]any, config map[string]any) {
+	if base, _ := params["baseInstructions"].(string); base != restrictedThreadBaseInstructions {
+		panic("restricted thread must replace configured base instructions")
+	}
+	orchestrator, ok := config["orchestrator"].(map[string]any)
+	if !ok {
+		panic("restricted thread must configure the Codex orchestrator")
+	}
+	for _, key := range []string{"mcp", "skills"} {
+		value, ok := orchestrator[key].(map[string]any)
+		if !ok || value["enabled"] != false {
+			panic("restricted thread must disable orchestrator " + key)
+		}
+	}
+	servers, ok := config["mcp_servers"].(map[string]any)
+	if !ok {
+		panic("restricted thread must configure effective MCP servers")
+	}
+	server, ok := servers["configured-test-server"].(map[string]any)
+	if !ok || server["enabled"] != false {
+		panic("restricted thread must disable every effective MCP server")
 	}
 }
 
@@ -430,16 +525,45 @@ func fakeAgentThread(threadID string) map[string]any {
 	}
 }
 
-func fakeAgentThreadOperationResponse(thread map[string]any, model string) map[string]any {
+func fakeAgentThreadOperationResponse(
+	thread map[string]any,
+	params map[string]any,
+	model string,
+) map[string]any {
+	approvalPolicy := any("on-request")
+	if requested, ok := params["approvalPolicy"]; ok {
+		approvalPolicy = requested
+	}
+	cwd := any("/tmp/setta-agent-fake")
+	if requested, ok := params["cwd"]; ok {
+		cwd = requested
+	}
+	reasoningEffort := any("high")
+	if config, ok := params["config"].(map[string]any); ok {
+		if requested, ok := config["model_reasoning_effort"].(string); ok {
+			reasoningEffort = requested
+		}
+	}
+	sandbox := any("workspace-write")
+	if requested, ok := params["sandbox"]; ok {
+		sandbox = fakeAgentSandboxPolicy(requested)
+	}
+	serviceTier := params["serviceTier"]
+	if serviceTier == nil {
+		serviceTier = codexDefaultServiceTier
+	}
 	return map[string]any{
-		"approvalPolicy":    "on-request",
-		"approvalsReviewer": "user",
-		"cwd":               "/tmp/setta-agent-fake",
-		"model":             model,
-		"modelProvider":     "fake",
-		"reasoningEffort":   "high",
-		"sandbox":           "workspace-write",
-		"thread":            thread,
+		"approvalPolicy":        approvalPolicy,
+		"approvalsReviewer":     "user",
+		"cwd":                   cwd,
+		"instructionSources":    []any{},
+		"model":                 model,
+		"modelProvider":         "fake",
+		"reasoningEffort":       reasoningEffort,
+		"runtimeWorkspaceRoots": params["runtimeWorkspaceRoots"],
+		"sandbox":               sandbox,
+		"serviceTier":           serviceTier,
+		"thread":                thread,
 	}
 }
 

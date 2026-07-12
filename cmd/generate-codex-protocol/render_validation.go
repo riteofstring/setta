@@ -45,7 +45,9 @@ func goTypeOverride(typeName string, propertyName string, schema jsonSchema, req
 
 var nullableServiceTierOverrideTypes = map[string]bool{
 	"ThreadForkParams":           true,
+	"ThreadResumeParams":         true,
 	"ThreadSettingsUpdateParams": true,
+	"ThreadStartParams":          true,
 }
 
 func optionalNullableString(schema jsonSchema, required bool) bool {

@@ -389,6 +389,14 @@ func TestRenderPreservesServiceTierOverrideNullSemantics(t *testing.T) {
 			},
 			Required: []string{"threadId"},
 		},
+		"ThreadResumeParams": {
+			Type: "object",
+			Properties: map[string]jsonSchema{
+				"serviceTier": {Type: []any{"string", "null"}},
+				"threadId":    {Type: "string"},
+			},
+			Required: []string{"threadId"},
+		},
 		"ThreadSettingsUpdateParams": {
 			Type: "object",
 			Properties: map[string]jsonSchema{
@@ -397,14 +405,20 @@ func TestRenderPreservesServiceTierOverrideNullSemantics(t *testing.T) {
 			},
 			Required: []string{"threadId"},
 		},
+		"ThreadStartParams": {
+			Type: "object",
+			Properties: map[string]jsonSchema{
+				"serviceTier": {Type: []any{"string", "null"}},
+			},
+		},
 	}
 
 	output, err := generator.render()
 	if err != nil {
 		t.Fatalf("render protocol: %v", err)
 	}
-	if count := strings.Count(string(output), "ServiceTier *CodexNullableString `json:\"serviceTier,omitempty\"`"); count != 2 {
-		t.Fatalf("nullable serviceTier override count = %d, want 2\n%s", count, output)
+	if count := strings.Count(string(output), "ServiceTier *CodexNullableString `json:\"serviceTier,omitempty\"`"); count != 4 {
+		t.Fatalf("nullable serviceTier override count = %d, want 4\n%s", count, output)
 	}
 }
 

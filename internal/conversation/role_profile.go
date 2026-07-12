@@ -259,6 +259,14 @@ func (override RoleProfileOverride) Validate() error {
 	if err := override.Profile.Validate(); err != nil {
 		return err
 	}
+	if override.Profile.Role == RoleMaster {
+		if override.ScopeKind != RoleProfileScopeGlobal {
+			return fmt.Errorf("master role profile override must use global scope")
+		}
+		if err := validateMasterRoleProfile(override.Profile); err != nil {
+			return fmt.Errorf("master role profile override: %w", err)
+		}
+	}
 	_, err := validateTimestamp("role profile override updatedAt", override.UpdatedAt)
 	return err
 }

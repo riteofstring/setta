@@ -67,6 +67,45 @@ func (store *Store) ReadEffectiveRoleProfile(
 	return effective, nil
 }
 
+// ReadEffectiveGlobalRoleProfile resolves a role whose configuration is
+// app-global and therefore must not inherit workspace or conversation scope.
+func (store *Store) ReadEffectiveGlobalRoleProfile(
+	ctx context.Context,
+	builtIn RoleProfile,
+) (RoleProfile, error) {
+	if store == nil {
+		return RoleProfile{}, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return RoleProfile{}, errors.New("global role profile read context is required")
+	}
+	if err := builtIn.Validate(); err != nil {
+		return RoleProfile{}, fmt.Errorf("built-in global role profile: %w", err)
+	}
+
+	effective := builtIn
+	err := store.read(ctx, "read effective global role profile", func(ctx context.Context, connection *sql.Conn) error {
+		row := connection.QueryRowContext(ctx, `
+SELECT scope_kind, scope_id, role, provider, profile_json, updated_at
+FROM role_profile_overrides
+WHERE scope_kind = 'global' AND scope_id = '' AND role = ?
+`, builtIn.Role)
+		override, err := scanEffectiveRoleProfileOverride(row, builtIn.Role)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return &CorruptStateError{Path: store.dbPath, Err: err}
+		}
+		effective = override.Profile
+		return nil
+	})
+	if err != nil {
+		return RoleProfile{}, err
+	}
+	return effective, nil
+}
+
 func requireRoleProfileConversation(
 	ctx context.Context,
 	reader snapshotReader,
@@ -127,7 +166,7 @@ END ASC
 	return effective, nil
 }
 
-func scanEffectiveRoleProfileOverride(rows *sql.Rows, requestedRole Role) (RoleProfileOverride, error) {
+func scanEffectiveRoleProfileOverride(rows sqlScanner, requestedRole Role) (RoleProfileOverride, error) {
 	var override RoleProfileOverride
 	var storedRole Role
 	var storedProvider Provider
