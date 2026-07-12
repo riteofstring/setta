@@ -108,11 +108,7 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 	resolution, err := caller.resolveModel(ctx, prepared)
 	result.Model = cloneModelResolution(resolution)
 	if err != nil {
-		kind := FailureKindConfigurationInvalid
-		if errors.Is(err, ErrContextBudgetExceeded) {
-			kind = FailureKindContextBudgetExceeded
-		}
-		return result, narratorCallFailure(ctx, kind, err)
+		return result, narratorModelResolutionFailure(ctx, err)
 	}
 	providerResult, err := caller.runProviderCall(ctx, request, prepared, resolution)
 	if err != nil {
@@ -150,6 +146,17 @@ func narratorCallFailure(ctx context.Context, kind FailureKind, err error) error
 		return err
 	}
 	return NewAttemptFailure(kind, err)
+}
+
+func narratorModelResolutionFailure(ctx context.Context, err error) error {
+	kind, classified, classificationErr := classifyTypedFailure(err)
+	if classificationErr != nil {
+		return narratorCallFailure(ctx, FailureKindInternal, classificationErr)
+	}
+	if !classified {
+		kind = FailureKindConfigurationInvalid
+	}
+	return narratorCallFailure(ctx, kind, err)
 }
 
 func validateCaller(caller *Caller, ctx context.Context) error {

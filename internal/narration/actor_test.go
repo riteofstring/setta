@@ -213,6 +213,81 @@ func TestCheckpointRetryIsCancelledAndItsLateResponseCannotCommit(t *testing.T) 
 	}
 }
 
+func TestReadyRetrySupersedesCompletedCheckpointBeforeCommit(t *testing.T) {
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	defer rootCancel()
+	var mu sync.Mutex
+	var committed []string
+	worker := workerFunc(func(_ context.Context, invocation Invocation) (PreparedWork, error) {
+		return successfulPreparedWork(func(context.Context) error {
+			mu.Lock()
+			committed = append(committed, invocation.Request.ID)
+			mu.Unlock()
+			return nil
+		}), nil
+	})
+	actor := &conversationActor{
+		conversationID: "conversation-ready-retry",
+		worker:         worker,
+		rootCtx:        rootCtx,
+		submissions:    make(chan submission, 1),
+		retries:        make(chan queuedRequest, 1),
+		stop:           make(chan struct{}),
+	}
+	checkpointReceipt := newReceipt()
+	checkpointCancelled := false
+	state := actorState{
+		active: &activeInvocation{
+			queued: queuedRequest{
+				request: checkpointRequest("checkpoint", actor.conversationID),
+				receipt: checkpointReceipt,
+			},
+			generation: 1,
+			cancel: func() {
+				checkpointCancelled = true
+			},
+		},
+		nextGeneration: 1,
+	}
+	retryReceipt := newReceipt()
+	actor.retries <- queuedRequest{
+		request: retryRequest("ready-retry", actor.conversationID),
+		receipt: retryReceipt,
+	}
+
+	state.drainReadyWork(actor)
+	if !checkpointCancelled {
+		t.Fatal("ready retry did not cancel the completed checkpoint generation")
+	}
+	if err := waitReceiptError(t, checkpointReceipt); !errors.Is(err, ErrCheckpointSuperseded) {
+		t.Fatalf("checkpoint receipt error = %v, want ErrCheckpointSuperseded", err)
+	}
+	if state.active == nil || state.active.queued.request.ID != "ready-retry" ||
+		state.active.generation != 2 {
+		t.Fatalf("active invocation after drain = %+v, want retry generation 2", state.active)
+	}
+
+	state.finish(actor, invocationResult{
+		generation: 1,
+		work: successfulPreparedWork(func(context.Context) error {
+			mu.Lock()
+			committed = append(committed, "stale-checkpoint")
+			mu.Unlock()
+			return nil
+		}),
+	})
+	retryResult := <-state.active.result
+	state.finish(actor, retryResult)
+	actor.workers.Wait()
+	waitReceipt(t, retryReceipt)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !reflect.DeepEqual(committed, []string{"ready-retry"}) {
+		t.Fatalf("committed work = %v, want only ready retry", committed)
+	}
+}
+
 func TestRegistryShutdownCancelsActiveAndRejectsPendingWork(t *testing.T) {
 	activeStarted := make(chan struct{})
 	cancellationObserved := make(chan struct{})

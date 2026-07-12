@@ -247,7 +247,7 @@ func (actor *conversationActor) run() {
 				state.stop()
 				return
 			}
-			state.drainSubmissions(actor)
+			state.drainReadyWork(actor)
 			state.finish(actor, prepared)
 		}
 	}
@@ -269,11 +269,17 @@ type actorState struct {
 }
 
 func (state *actorState) accept(actor *conversationActor, command submission) {
-	state.acceptQueued(actor, command.queued)
+	state.enqueue(command.queued)
 	close(command.ack)
+	state.drainReadyWork(actor)
 }
 
 func (state *actorState) acceptQueued(actor *conversationActor, queued queuedRequest) {
+	state.enqueue(queued)
+	state.drainReadyWork(actor)
+}
+
+func (state *actorState) enqueue(queued queuedRequest) {
 	priority := requestPriority(queued.request)
 	state.queues[priority] = append(state.queues[priority], queued)
 	if state.active != nil &&
@@ -281,10 +287,13 @@ func (state *actorState) acceptQueued(actor *conversationActor, queued queuedReq
 		priority < priorityCheckpoint {
 		state.supersedeCheckpoint()
 	}
-	state.startNext(actor)
 }
 
-func (state *actorState) drainSubmissions(actor *conversationActor) {
+// drainReadyWork batches every request that is already ready when an invocation
+// result wins the select. This preserves mailbox priority across the external
+// submission and delayed-retry channels before a completed checkpoint is
+// allowed to commit or a superseding request is started.
+func (state *actorState) drainReadyWork(actor *conversationActor) {
 	for {
 		if actor.stopping() {
 			return
@@ -293,8 +302,12 @@ func (state *actorState) drainSubmissions(actor *conversationActor) {
 		case <-actor.stop:
 			return
 		case command := <-actor.submissions:
-			state.accept(actor, command)
+			state.enqueue(command.queued)
+			close(command.ack)
+		case retry := <-actor.retries:
+			state.enqueue(retry)
 		default:
+			state.startNext(actor)
 			return
 		}
 	}

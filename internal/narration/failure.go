@@ -352,26 +352,42 @@ func validateFailurePreparation(
 }
 
 func classifyFailure(err error) (FailureKind, error) {
+	kind, classified, classificationErr := classifyTypedFailure(err)
+	if classificationErr != nil {
+		return "", classificationErr
+	}
+	if classified {
+		return kind, nil
+	}
+	return FailureKindInternal, nil
+}
+
+// classifyTypedFailure recognizes only explicit stage assignments and
+// repository-owned error types. Callers that own a more specific stage may use
+// the boolean to apply that stage's fallback without inspecting error text.
+func classifyTypedFailure(err error) (FailureKind, bool, error) {
 	var attempt *AttemptFailure
 	if errors.As(err, &attempt) {
 		if validationErr := attempt.Validate(); validationErr != nil {
-			return "", validationErr
+			return "", false, validationErr
 		}
-		return attempt.Kind, nil
+		return attempt.Kind, true, nil
 	}
 	var budget *ContextBudgetError
 	if errors.As(err, &budget) {
-		return FailureKindContextBudgetExceeded, nil
+		return FailureKindContextBudgetExceeded, true, nil
 	}
 	if conversation.IsCorruptStateError(err) {
-		return FailureKindStateCorrupt, nil
+		return FailureKindStateCorrupt, true, nil
 	}
-	if conversation.IsStateConflict(err) ||
+	if conversation.IsPersistenceError(err) ||
+		errors.Is(err, conversation.ErrStoreClosed) ||
+		conversation.IsStateConflict(err) ||
 		conversation.IsWriteOutcome(err, conversation.WriteOutcomeSaturated) ||
 		conversation.IsWriteOutcome(err, conversation.WriteOutcomeStoreClosed) {
-		return FailureKindStateUnavailable, nil
+		return FailureKindStateUnavailable, true, nil
 	}
-	return FailureKindInternal, nil
+	return "", false, nil
 }
 
 func failureTimestamp(previous string, candidate time.Time) (string, error) {

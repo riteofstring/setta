@@ -2945,3 +2945,19 @@ Implementation is in progress under this plan.
   adds failure handling around the established structured-call protocol rather
   than changing provider wire behavior. Phase 4 item 7, the explicit narrator
   status command path, is next with no implementation blocker.
+- 2026-07-12: The Phase 4 item 6 review preserved repository-owned durable-state
+  failure types through narrator model resolution and now classifies SQLite
+  persistence failures and a closed conversation store as retryable state
+  unavailability instead of configuration or internal-contract failures. The
+  actor also batches ready external work and delayed retries before selecting
+  the next request or committing a completed checkpoint, so a retry that became
+  eligible during checkpoint work cannot lose its higher mailbox priority and
+  allow that checkpoint generation to commit.
+- 2026-07-12: Focused narrator and renderer tests, narrator vet, 50 repeated
+  race-enabled narrator runs, the joint race-enabled conversation/narration
+  suites, all 1,122 desktop tests, desktop typecheck/build, and the deterministic
+  production Electron topic workflow passed. Workflow evidence is under
+  `.recordings/topic-conversation-pane-projection/20260712T130345713Z/`.
+  ChatGPT-authenticated live structured output and the live backend topic
+  workflow passed with `OPENAI_API_KEY` removed. Generated inputs and outputs
+  changed: none. Phase 4 item 7 remains next and was not started.

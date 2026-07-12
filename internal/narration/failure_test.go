@@ -241,6 +241,53 @@ func TestCallerClassifiesFailureAtTheOwningStage(t *testing.T) {
 	})
 	assertAttemptFailure(t, err, FailureKindConfigurationInvalid, catalogFailure)
 
+	stateUnavailable := &conversation.PersistenceError{
+		Operation: "read narrator role profile",
+		Path:      "/tmp/conversations.sqlite",
+		Err:       errors.New("database is unavailable"),
+	}
+	stateCaller, err := NewCaller(
+		newTestModelResolver(
+			t,
+			&modelResolverProfileSource{err: stateUnavailable},
+			&modelResolverCatalog{},
+		),
+		&recordingFreshStructuredProvider{},
+	)
+	if err != nil {
+		t.Fatalf("NewCaller for durable state failure: %v", err)
+	}
+	_, err = stateCaller.Call(context.Background(), CallRequest{
+		ID:            "narrator-state-failure",
+		Generation:    4,
+		WorkspaceRoot: t.TempDir(),
+		Projection:    &bundle,
+	})
+	assertAttemptFailure(t, err, FailureKindStateUnavailable, stateUnavailable)
+
+	stateCorrupt := &conversation.CorruptStateError{
+		Path: "/tmp/conversations.sqlite",
+		Err:  errors.New("role profile is malformed"),
+	}
+	corruptCaller, err := NewCaller(
+		newTestModelResolver(
+			t,
+			&modelResolverProfileSource{err: stateCorrupt},
+			&modelResolverCatalog{},
+		),
+		&recordingFreshStructuredProvider{},
+	)
+	if err != nil {
+		t.Fatalf("NewCaller for corrupt durable state: %v", err)
+	}
+	_, err = corruptCaller.Call(context.Background(), CallRequest{
+		ID:            "narrator-corrupt-state-failure",
+		Generation:    5,
+		WorkspaceRoot: t.TempDir(),
+		Projection:    &bundle,
+	})
+	assertAttemptFailure(t, err, FailureKindStateCorrupt, stateCorrupt)
+
 	profile := conversation.DefaultNarratorRoleProfile()
 	profile.ContextBudget.MaxInputBytes = bundle.InputBytes - 1
 	budgetModels := newTestModelResolver(
@@ -254,11 +301,37 @@ func TestCallerClassifiesFailureAtTheOwningStage(t *testing.T) {
 	}
 	_, err = budgetCaller.Call(context.Background(), CallRequest{
 		ID:            "narrator-context-budget-failure",
-		Generation:    4,
+		Generation:    6,
 		WorkspaceRoot: t.TempDir(),
 		Projection:    &bundle,
 	})
 	assertAttemptFailure(t, err, FailureKindContextBudgetExceeded, ErrContextBudgetExceeded)
+}
+
+func TestClassifyFailureRecognizesDurableStateAvailability(t *testing.T) {
+	tests := []error{
+		&conversation.PersistenceError{
+			Operation: "read narrator context",
+			Path:      "/tmp/conversations.sqlite",
+			Err:       errors.New("input/output error"),
+		},
+		conversation.ErrStoreClosed,
+		&conversation.StateConflictError{
+			Entity: "narrator state",
+			ID:     "conversation",
+			Reason: "stale cursor",
+		},
+		&conversation.WriteOutcomeError{
+			Operation: "commit narrator state",
+			Outcome:   conversation.WriteOutcomeSaturated,
+		},
+	}
+	for _, stateErr := range tests {
+		kind, err := classifyFailure(stateErr)
+		if err != nil || kind != FailureKindStateUnavailable {
+			t.Errorf("classifyFailure(%T) = %s, %v, want %s", stateErr, kind, err, FailureKindStateUnavailable)
+		}
+	}
 }
 
 func assertAttemptFailure(t *testing.T, err error, kind FailureKind, cause error) {
