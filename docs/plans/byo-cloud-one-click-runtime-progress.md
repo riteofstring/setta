@@ -34,7 +34,7 @@ provisioning runs.
 | Phase | Status | Completion gate |
 | --- | --- | --- |
 | Phase 1A: Mobile Runtime Foundation | Complete (2026-07-12) | Manually prepared Linux VM runs Setta as a service; doctor reports runtime/mobile readiness; phone PWA works through the `ts.net` URL after normal pairing. |
-| Phase 1B: Seeded Pairing + Tailnet Watch | Not started | Hand-provisioned runtime with a seeded pairing hash pairs automatically after joining the tailnet. |
+| Phase 1B: Seeded Pairing + Tailnet Watch | Items verified 2026-07-12; live gate open | Hand-provisioned runtime with a seeded pairing hash pairs automatically after joining the tailnet. |
 | Phase 1C: Cloud-Init Bootstrap + Release Authenticity | Not started | Generated cloud-init works on one verified Tier 2 provider, pairs automatically, and preserves the phone PWA path. |
 | Phase 2: Existing Machine SSH Launch | Not started | User can point Setta at an SSH-reachable machine and end with a paired, Tailscale-connected, phone-reachable runtime. |
 | Phase 3: Tailscale OAuth Key Minting + Shapes/Wizard | Not started | "Cheap box for agents" resolves to an approval card with concrete instance type, region, and cost when available, with no Tailscale key paste. |
@@ -103,19 +103,48 @@ complete or explicitly reopened by a plan update.
 
 ### Phase 1B: Seeded Pairing + Tailnet Watch
 
-- [ ] Add pre-provisioned pairing token mode with seeded hash and provisioning
+Completion-gate status: the code items below are verified, but the live gate
+(a hand-provisioned runtime with a seeded pairing hash pairing automatically
+after joining the tailnet) has not been exercised end-to-end on a fresh VM
+and remains open.
+
+- [x] Add pre-provisioned pairing token mode with seeded hash and provisioning
   TTL.
-- [ ] Add `provision_id`, seeded attestation secret, desktop Tailscale tag
+  Verification 2026-07-12: `cmd/setta/provisioning_seed.go` inspected;
+  `./scripts/go.sh test ./cmd/setta/...` passed (seed consumption,
+  restart-after-consumed, group-readable rejection, absolute-path
+  requirement).
+- [x] Add `provision_id`, seeded attestation secret, desktop Tailscale tag
   verification, and HMAC attestation before releasing the plaintext pairing
   token.
-- [ ] Add desktop-side tailnet discovery and auto-pair with watch progress
+  Verification 2026-07-12: `setupAttestation` in
+  `internal/httpapi/runtime_handlers.go` + `internal/runtimeauth`
+  inspected; `./scripts/go.sh test ./internal/runtimeauth/...
+  ./internal/httpapi/...` passed, including attestation rate-limit and
+  stop-after-pairing cases; tag verification covered by the desktop
+  watch tests below.
+- [x] Add desktop-side tailnet discovery and auto-pair with watch progress
   states and MagicDNS dedup-suffix tolerance.
-- [ ] Store pending pairing token plaintext in the OS keychain and resume watch
+  Verification 2026-07-12: `desktop/src/main/provision-watch.ts`
+  inspected; `provision-watch.test.ts` passed, covering tailnet-join
+  watch with HMAC attestation, MagicDNS dedup suffixes, name-squatter
+  tag rejection before HTTP probing, readable-info echo-attack refusal,
+  and timeout reasons.
+- [x] Store pending pairing token plaintext in the OS keychain and resume watch
   after desktop restart; introduce the same secret-storage abstraction for
   durable runtime device tokens.
-- [ ] Add tests for seeded pairing, provisioning TTL, watch progress, MagicDNS
+  Verification 2026-07-12: `safe-storage-secret-store.ts` /
+  `runtime-secret-store.ts` / `provision-watch-resume.ts` inspected;
+  `safe-storage-secret-store.test.ts` and `provision-watch-resume.test.ts`
+  passed (resume pending watches, delete successful records, keep failed
+  records).
+- [x] Add tests for seeded pairing, provisioning TTL, watch progress, MagicDNS
   dedup handling, wrong-node/name-squatter cases, readable-`/runtime/info` echo
   attacks, and attestation replay/expiry failures.
+  Verification 2026-07-12: the named cases exist and passed in
+  `cmd/setta/provisioning_seed_test.go`, `internal/httpapi/auth_test.go`,
+  `internal/runtimeauth/store_test.go`, and
+  `desktop/src/main/provision-watch{,-resume}.test.ts`.
 
 ### Phase 1C: Cloud-Init Bootstrap + Release Authenticity
 
