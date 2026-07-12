@@ -178,10 +178,18 @@ SELECT id, parent_conversation_id, parent_pane_id, provider_thread_id,
        source_provider_turn_id, source_trajectory_sequence, status,
        resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
        failure_json
-FROM side_conversations
-WHERE parent_conversation_id = ?
+FROM (
+  SELECT id, parent_conversation_id, parent_pane_id, provider_thread_id,
+         source_provider_turn_id, source_trajectory_sequence, status,
+         resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
+         failure_json
+  FROM side_conversations
+  WHERE parent_conversation_id = ?
+  ORDER BY CASE WHEN status = 'failed' THEN 1 ELSE 0 END ASC,
+           created_at DESC, id DESC
+  LIMIT ?
+)
 ORDER BY created_at ASC, id ASC
-LIMIT ?
 `, conversationID, MaxSnapshotSideConversations)
 	if err != nil {
 		return nil, err

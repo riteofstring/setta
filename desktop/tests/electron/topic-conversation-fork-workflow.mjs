@@ -2,12 +2,123 @@ import { waitForBackendState } from "./chat-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import { reloadPage, waitForSelector, waitForState } from "./electron-cdp-harness.mjs";
 
+export async function createTopic(client, backend, workspaceId, title, timeoutMs) {
+  const before = await listTopics(backend, workspaceId);
+  assertDriverAction(await client.driver("topicConversationCreate", { title }), "created");
+  const page = await waitForBackendState(
+    async () => listTopics(backend, workspaceId),
+    (current) =>
+      current.items.length === before.items.length + 1 &&
+      current.items.some((item) => item.conversation.title === title),
+    timeoutMs,
+  );
+  const item = page.items.find((candidate) => candidate.conversation.title === title);
+  if (!item) {
+    throw new Error(`created topic ${title} was not listed: ${JSON.stringify(page)}`);
+  }
+  if (
+    item.presentationProfile.narratorVoiceSelection !== "auto_distinct" ||
+    item.presentationProfile.requestedNarratorVoiceId !== null ||
+    typeof item.presentationProfile.resolvedNarratorVoiceId !== "string" ||
+    item.presentationProfile.narratorVoiceReuse !== null
+  ) {
+    throw new Error(
+      `created topic ${title} has an invalid durable narrator voice selection: ${JSON.stringify(item.presentationProfile)}`,
+    );
+  }
+  await waitForConversationSurface(
+    client,
+    item.conversation.id,
+    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
+    timeoutMs,
+  );
+  return {
+    id: item.conversation.id,
+    narratorVoiceId: item.presentationProfile.resolvedNarratorVoiceId,
+    narratorVoiceSelection: item.presentationProfile.narratorVoiceSelection,
+    paletteId: item.presentationProfile.resolvedPaletteId,
+    title,
+  };
+}
+
+export function listTopics(backend, workspaceId) {
+  return backend.post("/conversations/navigator/list", {
+    cursor: null,
+    limit: 80,
+    query: "",
+    workspaceId,
+  });
+}
+
 export async function exerciseSideAndDurableForkWorkflow(args) {
-  const { parentSnapshot } = await exerciseEphemeralSideForkWorkflow(args);
-  return exerciseDurableForkWorkflow({
+  const { parentSnapshot, side } = await exerciseEphemeralSideForkWorkflow(args);
+  const durableFork = await exerciseDurableForkWorkflow({
     ...args,
     parentSnapshot,
   });
+  return { ...durableFork, side };
+}
+
+export async function exerciseEphemeralSideForkFailure({
+  backend,
+  client,
+  parentTopic,
+  timeoutMs,
+  workspaceId,
+}) {
+  const before = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.conversation.status === "idle" && snapshot.sideConversations.length === 0,
+    timeoutMs,
+  );
+  const surfaces = await waitForConversationSurfaces(
+    client,
+    (candidates) => conversationSurfaces(candidates, parentTopic.id).length > 0,
+    timeoutMs,
+  );
+  const parentPane = conversationSurfaces(surfaces.surfaces, parentTopic.id)[0];
+  assertCondition(parentPane?.paneId, "parent pane is unavailable for failed side fork", {
+    surfaces,
+  });
+  const rejected = await rejectSideCreation(client, {
+    parentConversationId: parentTopic.id,
+    parentPaneId: parentPane.paneId,
+    workspaceId,
+  });
+  assertCondition(
+    rejected.rejected && rejected.message.includes("no rollout found"),
+    "side provider failure did not reach the desktop caller",
+    { rejected },
+  );
+  const failedSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) => snapshot.sideConversations.some((side) => side.status === "failed"),
+    timeoutMs,
+  );
+  const failedSide = failedSnapshot.sideConversations.find((side) => side.status === "failed");
+  const context = { before, failedSide, failedSnapshot, rejected };
+  assertCondition(failedSide, "failed side audit record is missing", context);
+  assertCondition(
+    failedSide.providerThreadId === null &&
+      failedSide.failure?.code === "side_thread_fork_failed" &&
+      failedSide.failure.retryable === true &&
+      failedSide.resolvedSideAgentInvocation.outcome === "failed" &&
+      failedSide.resolvedSideAgentInvocation.endedAt !== null,
+    "failed side audit record drifted",
+    context,
+  );
+  assertCondition(
+    failedSnapshot.eventCursor.sequence === before.eventCursor.sequence + 2,
+    "failed side lifecycle did not publish preparing and failed commits",
+    context,
+  );
+  assertSideDidNotContaminateParent(before, failedSnapshot);
+  return { failedSide, parentSnapshot: failedSnapshot };
 }
 
 export async function exerciseEphemeralSideForkWorkflow({
@@ -284,6 +395,17 @@ async function forkTopic(client, request) {
 
 async function createSide(client, request) {
   return client.evaluate(`window.setta.conversations.createSide(${JSON.stringify(request)})`);
+}
+
+async function rejectSideCreation(client, request) {
+  return client.evaluate(`(async () => {
+    try {
+      await window.setta.conversations.createSide(${JSON.stringify(request)});
+      return { message: "", rejected: false };
+    } catch (error) {
+      return { message: String(error?.message ?? error), rejected: true };
+    }
+  })()`);
 }
 
 async function waitForConversationSurfaces(client, ready, timeoutMs) {

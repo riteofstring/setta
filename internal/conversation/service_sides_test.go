@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -102,6 +103,93 @@ func TestServiceRejectsInvalidSideForkWithoutUnsubscribingParent(t *testing.T) {
 	if unsubscribed := runtime.unsubscribedThreads(); len(unsubscribed) != 0 {
 		t.Fatalf("invalid side fork unsubscribed parent: %v", unsubscribed)
 	}
+}
+
+func TestServiceSideSnapshotRetainsOpenSideOverBoundedFailedHistory(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Bounded side history")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	parentID := parent.Conversation.ID
+	runtime.forkErr = errors.New("scripted bounded side failure")
+	firstFailedSideID := ""
+	for index := 0; index < MaxSnapshotSideConversations+3; index++ {
+		_, err := service.CreateSideConversation(
+			ctx,
+			workspaceID,
+			parentID,
+			fmt.Sprintf("pane-failed-%02d", index),
+		)
+		if err == nil || !strings.Contains(err.Error(), "scripted bounded side failure") {
+			t.Fatalf("CreateSideConversation failure %d = %v", index, err)
+		}
+		if index == 0 {
+			snapshot, readErr := service.ReadSnapshot(ctx, workspaceID, parentID)
+			if readErr != nil {
+				t.Fatalf("ReadSnapshot after first failure: %v", readErr)
+			}
+			firstFailedSideID = requireOnlySideConversation(t, snapshot).ID
+		}
+	}
+	runtime.forkErr = nil
+	created, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-active-newest")
+	if err != nil {
+		t.Fatalf("CreateSideConversation active: %v", err)
+	}
+	active := created.SideConversations[len(created.SideConversations)-1]
+	if len(created.SideConversations) != MaxSnapshotSideConversations ||
+		active.ParentPaneID != "pane-active-newest" ||
+		active.Status != SideConversationStatusActive ||
+		containsSideConversation(created.SideConversations, firstFailedSideID) {
+		t.Fatalf("bounded side snapshot = %+v", created.SideConversations)
+	}
+}
+
+func TestServiceChecksOpenPaneAgainstAuthoritativeSideState(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Authoritative side state")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	parentID := parent.Conversation.ID
+	firstSideID := ""
+	latest := ConversationSnapshot{}
+	for index := 0; index < MaxSnapshotSideConversations+1; index++ {
+		latest, err = service.CreateSideConversation(
+			ctx,
+			workspaceID,
+			parentID,
+			fmt.Sprintf("pane-open-%02d", index),
+		)
+		if err != nil {
+			t.Fatalf("CreateSideConversation %d: %v", index, err)
+		}
+		if index == 0 {
+			firstSideID = requireOnlySideConversation(t, latest).ID
+		}
+	}
+	if containsSideConversation(latest.SideConversations, firstSideID) {
+		t.Fatalf("precondition failed: oldest open side remained in bounded snapshot: %+v", latest.SideConversations)
+	}
+	providerCalls := len(runtime.sideForkRequests())
+	if _, err := service.CreateSideConversation(ctx, workspaceID, parentID, "pane-open-00"); !IsCommandConflict(err) {
+		t.Fatalf("duplicate old pane error = %T %v, want conflict", err, err)
+	}
+	if got := len(runtime.sideForkRequests()); got != providerCalls {
+		t.Fatalf("duplicate old pane reached provider: calls=%d want=%d", got, providerCalls)
+	}
+}
+
+func containsSideConversation(sides []SideConversation, sideID string) bool {
+	for _, side := range sides {
+		if side.ID == sideID {
+			return true
+		}
+	}
+	return false
 }
 
 func sideAgentOverride(modelID string) RoleProfile {

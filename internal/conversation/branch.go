@@ -116,6 +116,12 @@ func validateSideConversationInvocation(side SideConversation) error {
 	if side.ResolvedSideAgentInvocation.Role != RoleSideAgent {
 		return fmt.Errorf("side conversation %s invocation role must be %s", side.ID, RoleSideAgent)
 	}
+	if !equalOptionalString(
+		side.ProviderThreadID,
+		side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID,
+	) {
+		return fmt.Errorf("side conversation %s provider thread must match its invocation audit", side.ID)
+	}
 	return nil
 }
 

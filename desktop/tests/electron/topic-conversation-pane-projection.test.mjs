@@ -37,8 +37,11 @@ import {
   assertDriverAction,
   assertNavigator,
   conversationSurfaces,
+  createTopic,
+  exerciseEphemeralSideForkFailure,
   exerciseSideAndDurableForkWorkflow,
   hasReadyConversation,
+  listTopics,
   waitForNavigator,
 } from "./topic-conversation-fork-workflow.mjs";
 
@@ -100,8 +103,10 @@ try {
   let backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
 
-  const alpha = await createTopic(context.client, backend, workspaceId, "Alpha topic");
-  const beta = await createTopic(context.client, backend, workspaceId, "Beta topic");
+  const createInitialTopic = (title) =>
+    createTopic(context.client, backend, workspaceId, title, workflowTimeoutMs);
+  const alpha = await createInitialTopic("Alpha topic");
+  const beta = await createInitialTopic("Beta topic");
   assertDistinctNarratorVoices(alpha, beta, "marin");
   const masterVoice = await updateMasterVoice(context.client, {
     requestedVoiceId: "alloy",
@@ -132,6 +137,15 @@ try {
   }
   beta.narratorVoiceId = "cedar";
   await assertUnavailableExactVoiceErrors(context.client, workspaceId, alpha.id);
+  const sideFailureTopic = await createInitialTopic("Side fork failure topic");
+  const sideFailure = await exerciseEphemeralSideForkFailure({
+    backend,
+    client: context.client,
+    parentTopic: sideFailureTopic,
+    timeoutMs: workflowTimeoutMs,
+    workspaceId,
+  });
+  await closeConversationPane(context.client, sideFailureTopic.id);
   const exhaustedVoice = await exhaustNarratorVoiceCatalog(context.client, workspaceId);
   await enableGlobalMicrophone(context.client);
   await stopElectronCdpContext(context);
@@ -168,6 +182,15 @@ try {
   assertPersistedNarratorVoice(reloadedVoices, alpha);
   assertPersistedNarratorVoice(reloadedVoices, beta);
   assertPersistedNarratorVoice(reloadedVoices, exhaustedVoice);
+  const reloadedSideFailure = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    sideFailureTopic.id,
+    (snapshot) =>
+      snapshot.sideConversations.some(
+        (side) => side.id === sideFailure.failedSide.id && side.status === "failed",
+      ),
+  );
   const restoredMasterVoice = await context.client.evaluate(
     "window.setta.speech.readMasterVoiceSelection()",
   );
@@ -639,6 +662,7 @@ try {
     forkSnapshot: alphaForkSnapshot,
     forkTerminalSnapshot: alphaForkTerminalSnapshot,
     forkTopic: alphaFork,
+    side: alphaSide,
   } = await exerciseSideAndDurableForkWorkflow({
     backend,
     client: context.client,
@@ -688,6 +712,18 @@ try {
       snapshot.turns.turns[0]?.status === "completed" &&
       snapshot.branch?.parentConversationId === alpha.id,
   );
+  const alphaSideReloadedSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    alpha.id,
+    (snapshot) =>
+      snapshot.sideConversations.some(
+        (side) =>
+          side.id === alphaSide.id &&
+          side.status === "active" &&
+          side.providerThreadId === alphaSide.providerThreadId,
+      ),
+  );
   await captureScreenshot(context.client, join(artifactDir, "commands-reloaded.png"));
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -700,6 +736,8 @@ try {
     alphaForkSnapshot,
     alphaForkTerminalSnapshot,
     alphaForkReloadedSnapshot,
+    alphaSide,
+    alphaSideReloadedSnapshot,
     alphaSnapshot,
     artifactDir,
     beta,
@@ -714,7 +752,10 @@ try {
     reloaded,
     reopenedWorking,
     reloadedWorking,
+    reloadedSideFailure,
     shellMasterInput,
+    sideFailure,
+    sideFailureTopic,
     status: "passed",
     statusCapturePreemption,
     statusSpeechPlayback,
@@ -778,44 +819,6 @@ async function openWorkspace(client) {
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
-}
-
-async function createTopic(client, backend, workspaceId, title) {
-  const before = await listTopics(backend, workspaceId);
-  assertDriverAction(await client.driver("topicConversationCreate", { title }), "created");
-  const page = await waitForBackendState(
-    async () => listTopics(backend, workspaceId),
-    (current) =>
-      current.items.length === before.items.length + 1 &&
-      current.items.some((item) => item.conversation.title === title),
-    workflowTimeoutMs,
-  );
-  const item = page.items.find((candidate) => candidate.conversation.title === title);
-  if (!item) {
-    throw new Error(`created topic ${title} was not listed: ${JSON.stringify(page)}`);
-  }
-  if (
-    item.presentationProfile.narratorVoiceSelection !== "auto_distinct" ||
-    item.presentationProfile.requestedNarratorVoiceId !== null ||
-    typeof item.presentationProfile.resolvedNarratorVoiceId !== "string" ||
-    item.presentationProfile.narratorVoiceReuse !== null
-  ) {
-    throw new Error(
-      `created topic ${title} has an invalid durable narrator voice selection: ${JSON.stringify(item.presentationProfile)}`,
-    );
-  }
-  await waitForConversationSurface(
-    client,
-    item.conversation.id,
-    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
-  );
-  return {
-    id: item.conversation.id,
-    narratorVoiceId: item.presentationProfile.resolvedNarratorVoiceId,
-    narratorVoiceSelection: item.presentationProfile.narratorVoiceSelection,
-    paletteId: item.presentationProfile.resolvedPaletteId,
-    title,
-  };
 }
 
 async function assertUnavailableExactVoiceErrors(client, workspaceId, conversationId) {
@@ -932,15 +935,6 @@ function assertPersistedNarratorVoice(page, conversation) {
       `narrator voice did not survive restart: ${JSON.stringify({ conversation, item })}`,
     );
   }
-}
-
-function listTopics(backend, workspaceId) {
-  return backend.post("/conversations/navigator/list", {
-    cursor: null,
-    limit: 80,
-    query: "",
-    workspaceId,
-  });
 }
 
 async function submitConversationInput(client, request) {

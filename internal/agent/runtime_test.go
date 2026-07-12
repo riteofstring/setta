@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"setta/internal/codexapp"
 )
 
 func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
@@ -49,6 +51,64 @@ func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T
 	}
 	if !strings.Contains(string(encoded), `"serviceTier":null`) {
 		t.Fatalf("fork params = %s, want explicit null service tier", encoded)
+	}
+}
+
+func TestValidateForkThreadResponseRejectsProviderSettingDrift(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	effort := codexapp.ReasoningEffort("medium")
+	defaultTier := "default"
+	request := ForkThreadRequest{
+		ParentThreadID: "thread-parent",
+		WorkspaceRoot:  workspaceRoot,
+		Invocation: Invocation{
+			Model:           "gpt-5.6-luna",
+			ReasoningEffort: "medium",
+			PermissionMode:  PermissionModeReadOnly,
+			ApprovalMode:    ApprovalModeOnRequest,
+		},
+		Ephemeral: true,
+	}
+	valid := codexapp.ThreadForkResponse{
+		ApprovalPolicy:  json.RawMessage(`"on-request"`),
+		CWD:             codexapp.AbsolutePathBuf(workspaceRoot),
+		Model:           "gpt-5.6-luna",
+		ReasoningEffort: &effort,
+		Sandbox:         json.RawMessage(`{"networkAccess":false,"type":"readOnly"}`),
+		ServiceTier:     &defaultTier,
+		Thread:          codexapp.Thread{CWD: codexapp.AbsolutePathBuf(workspaceRoot)},
+	}
+	if err := validateForkThreadResponse(request, valid); err != nil {
+		t.Fatalf("valid fork response: %v", err)
+	}
+
+	otherEffort := codexapp.ReasoningEffort("high")
+	fastTier := "fast"
+	otherRoot := t.TempDir()
+	tests := []struct {
+		name   string
+		mutate func(*codexapp.ThreadForkResponse)
+		want   string
+	}{
+		{name: "model", mutate: func(response *codexapp.ThreadForkResponse) { response.Model = "gpt-other" }, want: "model"},
+		{name: "reasoning", mutate: func(response *codexapp.ThreadForkResponse) { response.ReasoningEffort = &otherEffort }, want: "reasoning effort"},
+		{name: "service tier", mutate: func(response *codexapp.ThreadForkResponse) { response.ServiceTier = &fastTier }, want: "service tier"},
+		{name: "approval", mutate: func(response *codexapp.ThreadForkResponse) { response.ApprovalPolicy = json.RawMessage(`"never"`) }, want: "approval mode"},
+		{name: "sandbox", mutate: func(response *codexapp.ThreadForkResponse) {
+			response.Sandbox = json.RawMessage(`{"type":"workspaceWrite"}`)
+		}, want: "permission mode"},
+		{name: "cwd", mutate: func(response *codexapp.ThreadForkResponse) { response.CWD = codexapp.AbsolutePathBuf(otherRoot) }, want: "cwd"},
+		{name: "thread cwd", mutate: func(response *codexapp.ThreadForkResponse) { response.Thread.CWD = codexapp.AbsolutePathBuf(otherRoot) }, want: "thread cwd"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := valid
+			test.mutate(&response)
+			err := validateForkThreadResponse(request, response)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("validation error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 

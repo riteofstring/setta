@@ -246,10 +246,13 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 		CreatedAt:                   testTimeStarted,
 		UpdatedAt:                   testTimeEnded,
 	}
+	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = stringPointer("thread-side")
 	if err := side.Validate(); err != nil {
 		t.Fatalf("valid active side conversation: %v", err)
 	}
 	side.ProviderThreadID = nil
+	assertValidationErrorContains(t, side.Validate(), "must match its invocation audit")
+	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = nil
 	assertValidationErrorContains(t, side.Validate(), "must have provider thread")
 }
 

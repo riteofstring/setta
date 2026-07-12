@@ -79,12 +79,17 @@ function terminateBackgroundTerminals(message) {
 }
 
 function startThread(message) {
+  const params = message.params ?? {};
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
   const state = {
-    ephemeral: message.params?.ephemeral === true,
+    approvalPolicy: params.approvalPolicy ?? null,
+    cwd: requiredString(params, "cwd"),
+    ephemeral: params.ephemeral === true,
     id: threadId,
-    model: requiredString(message.params, "model"),
+    model: requiredString(params, "model"),
+    sandbox: params.sandbox ?? null,
+    serviceTier: params.serviceTier ?? null,
     turnIds: [],
   };
   threads.set(threadId, state);
@@ -119,14 +124,18 @@ function forkSourceTurns(message, parent, ephemeral) {
 }
 
 function forkThreadState(params, parentThreadId, threadId, ephemeral, sourceTurnIds) {
+  const config = params.config ?? {};
   return {
     approvalPolicy: params.approvalPolicy ?? null,
+    cwd: requiredString(params, "cwd"),
     developerInstructions: params.developerInstructions ?? null,
     ephemeral,
     forkedFromId: parentThreadId,
     id: threadId,
     model: requiredString(params, "model"),
+    reasoningEffort: config.model_reasoning_effort ?? null,
     sandbox: params.sandbox ?? null,
+    serviceTier: params.serviceTier ?? null,
     turnIds: sourceTurnIds,
   };
 }
@@ -144,6 +153,10 @@ function durableForkSourceTurns(message, parent) {
 
 function ephemeralSideSourceTurns(message, parent) {
   const params = message.params ?? {};
+  if (parent.turnIds.length === 0) {
+    respondError(message.id, -32602, `no rollout found for thread id ${parent.id}`);
+    return null;
+  }
   if (!validEphemeralSideSettings(params)) {
     respondError(message.id, -32602, "ephemeral side fork settings drifted");
     return null;
@@ -498,7 +511,7 @@ function fakeThread(threadId) {
   return {
     cliVersion: "fake",
     createdAt: 1,
-    cwd: "/tmp/setta-topic-codex",
+    cwd: state?.cwd ?? "/tmp/setta-topic-codex",
     ephemeral: state?.ephemeral === true,
     forkedFromId: state?.forkedFromId ?? null,
     id: threadId,
@@ -517,13 +530,33 @@ function threadOperationResponse(thread, state) {
   return {
     approvalPolicy: state.approvalPolicy ?? "on-request",
     approvalsReviewer: "user",
-    cwd: "/tmp/setta-topic-codex",
+    cwd: state.cwd ?? "/tmp/setta-topic-codex",
     model: state.model,
     modelProvider: "fake",
-    reasoningEffort: modelReasoningEffort(state.model),
-    sandbox: state.sandbox ?? "workspace-write",
+    reasoningEffort: state.reasoningEffort ?? modelReasoningEffort(state.model),
+    sandbox: sandboxPolicy(state.sandbox ?? "workspace-write"),
+    serviceTier: state.serviceTier ?? null,
     thread,
   };
+}
+
+function sandboxPolicy(mode) {
+  switch (mode) {
+    case "read-only":
+      return { networkAccess: false, type: "readOnly" };
+    case "workspace-write":
+      return {
+        excludeSlashTmp: false,
+        excludeTmpdirEnvVar: false,
+        networkAccess: false,
+        type: "workspaceWrite",
+        writableRoots: [],
+      };
+    case "danger-full-access":
+      return { type: "dangerFullAccess" };
+    default:
+      throw new Error(`unsupported sandbox mode ${mode}`);
+  }
 }
 
 function modelReasoningEffort(model) {

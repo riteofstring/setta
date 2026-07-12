@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -85,6 +86,26 @@ func validateSideConversationRequest(parentConversationID string, parentPaneID s
 		return err
 	}
 	return validateIdentifier("side parent pane id", parentPaneID)
+}
+
+func (store *Store) hasOpenSideConversationForPane(
+	ctx context.Context,
+	parentConversationID string,
+	parentPaneID string,
+) (bool, error) {
+	var exists bool
+	err := store.read(ctx, "read open side conversation for pane", func(ctx context.Context, connection *sql.Conn) error {
+		return connection.QueryRowContext(ctx, `
+SELECT EXISTS(
+  SELECT 1
+  FROM side_conversations
+  WHERE parent_conversation_id = ?
+    AND parent_pane_id = ?
+    AND status IN ('preparing', 'active', 'disposing')
+)
+`, parentConversationID, parentPaneID).Scan(&exists)
+	})
+	return exists, err
 }
 
 func (service *Service) resolveSideAgentInvocation(
@@ -213,7 +234,11 @@ func (service *Service) persistPreparingSideConversation(
 			Reason:         "side conversation requires a linked parent agent thread",
 		}
 	}
-	if hasOpenSideForPane(snapshot.SideConversations, parentPaneID) {
+	hasOpenSide, err := service.store.hasOpenSideConversationForPane(ctx, parentConversationID, parentPaneID)
+	if err != nil {
+		return preparedSideConversation{}, err
+	}
+	if hasOpenSide {
 		return preparedSideConversation{}, &CommandConflictError{
 			ConversationID: parentConversationID,
 			Reason:         "originating pane already has an open side conversation",
@@ -255,20 +280,6 @@ func (service *Service) persistPreparingSideConversation(
 		workspaceRoot:        workspaceRoot,
 		parentConversationID: parentConversationID,
 	}, nil
-}
-
-func hasOpenSideForPane(sides []SideConversation, paneID string) bool {
-	for _, side := range sides {
-		if side.ParentPaneID != paneID {
-			continue
-		}
-		switch side.Status {
-		case SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing:
-			return true
-		case SideConversationStatusFailed:
-		}
-	}
-	return false
 }
 
 func latestProviderTurnID(turns []ConversationTurn) *string {

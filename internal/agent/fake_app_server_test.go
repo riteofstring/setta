@@ -83,14 +83,7 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 			"backwardsCursor": nil,
 		})
 	case "thread/fork":
-		parentID := fakeAgentStringParam(message, "threadId")
-		state.threadCounter++
-		threadID := fmt.Sprintf("thread-%d", state.threadCounter)
-		thread := fakeAgentThread(threadID)
-		thread["forkedFromId"] = parentID
-		thread["parentThreadId"] = parentID
-		state.threads = append(state.threads, threadID)
-		writeFakeAgentResponse(message["id"], fakeAgentThreadOperationResponse(thread, "gpt-agent-test"))
+		handleFakeAgentThreadFork(state, message)
 	case "thread/inject_items":
 		params := fakeAgentParams(message)
 		items, ok := params["items"].([]any)
@@ -111,6 +104,24 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 	default:
 		writeFakeAgentError(message["id"], -32601, "unsupported fake method "+method)
 	}
+}
+
+func handleFakeAgentThreadFork(state *fakeAgentServerState, message map[string]any) {
+	params := fakeAgentParams(message)
+	parentID := fakeAgentRequiredString(params, "threadId")
+	state.threadCounter++
+	threadID := fmt.Sprintf("thread-%d", state.threadCounter)
+	thread := fakeAgentThread(threadID)
+	thread["cwd"] = fakeAgentRequiredString(params, "cwd")
+	thread["ephemeral"], _ = params["ephemeral"].(bool)
+	thread["forkedFromId"] = parentID
+	thread["parentThreadId"] = parentID
+	state.threads = append(state.threads, threadID)
+	model := "gpt-agent-test"
+	if requestedModel, ok := params["model"].(string); ok && requestedModel != "" {
+		model = requestedModel
+	}
+	writeFakeAgentResponse(message["id"], fakeAgentForkThreadOperationResponse(thread, params, model))
 }
 
 func handleFakeAgentBootstrapMethod(method string, message map[string]any) bool {
@@ -425,6 +436,49 @@ func fakeAgentThreadOperationResponse(thread map[string]any, model string) map[s
 		"reasoningEffort":   "high",
 		"sandbox":           "workspace-write",
 		"thread":            thread,
+	}
+}
+
+func fakeAgentForkThreadOperationResponse(
+	thread map[string]any,
+	params map[string]any,
+	model string,
+) map[string]any {
+	reasoningEffort := "high"
+	if config, ok := params["config"].(map[string]any); ok {
+		if requested, ok := config["model_reasoning_effort"].(string); ok {
+			reasoningEffort = requested
+		}
+	}
+	return map[string]any{
+		"approvalPolicy":    params["approvalPolicy"],
+		"approvalsReviewer": "user",
+		"cwd":               params["cwd"],
+		"model":             model,
+		"modelProvider":     "fake",
+		"reasoningEffort":   reasoningEffort,
+		"sandbox":           fakeAgentSandboxPolicy(params["sandbox"]),
+		"serviceTier":       params["serviceTier"],
+		"thread":            thread,
+	}
+}
+
+func fakeAgentSandboxPolicy(value any) map[string]any {
+	switch value {
+	case "read-only":
+		return map[string]any{"networkAccess": false, "type": "readOnly"}
+	case "workspace-write":
+		return map[string]any{
+			"excludeSlashTmp":     false,
+			"excludeTmpdirEnvVar": false,
+			"networkAccess":       false,
+			"type":                "workspaceWrite",
+			"writableRoots":       []any{},
+		}
+	case "danger-full-access":
+		return map[string]any{"type": "dangerFullAccess"}
+	default:
+		panic(fmt.Sprintf("unsupported fake sandbox mode %v", value))
 	}
 }
 

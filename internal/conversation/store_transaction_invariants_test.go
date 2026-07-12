@@ -173,6 +173,7 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 		UpdatedAt:                   testTimeEnded,
 		Failure:                     failurePointer(testFailure()),
 	}
+	failed.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = nil
 	_, err := store.Transact(context.Background(), "persist failed side conversation", func(transaction *WriteTransaction) error {
 		if err := transaction.InsertSideConversation(failed); err != nil {
 			return err
@@ -190,6 +191,7 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 	resurrected.ProviderThreadID = stringPointer("provider-thread-side")
 	resurrected.Status = SideConversationStatusActive
 	resurrected.ResolvedSideAgentInvocation = validInvocation(RoleSideAgent, InvocationOutcomeRunning)
+	resurrected.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = stringPointer("provider-thread-side")
 	resurrected.UpdatedAt = testTimeLater
 	resurrected.Failure = nil
 	_, err = store.Transact(context.Background(), "reject failed side resurrection", func(transaction *WriteTransaction) error {

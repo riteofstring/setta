@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"setta/internal/codexapp"
@@ -150,7 +152,22 @@ func (runtime *Runtime) ForkThread(ctx context.Context, request ForkThreadReques
 	if err != nil {
 		return Thread{}, fmt.Errorf("decode agent thread fork %s: %w", request.ParentThreadID, err)
 	}
-	return providerThread(response.Thread, response.Model)
+	thread, err := providerThread(response.Thread, response.Model)
+	if err != nil {
+		return Thread{}, runtime.rejectForkedThread(
+			response.Thread.ID,
+			request.ParentThreadID,
+			fmt.Errorf("map agent thread fork %s: %w", request.ParentThreadID, err),
+		)
+	}
+	if err := validateForkThreadResponse(request, response); err != nil {
+		return Thread{}, runtime.rejectForkedThread(
+			thread.ID,
+			request.ParentThreadID,
+			fmt.Errorf("validate agent thread fork %s: %w", request.ParentThreadID, err),
+		)
+	}
+	return thread, nil
 }
 
 func (runtime *Runtime) InjectItems(ctx context.Context, threadID string, items []InjectedTextItem) error {
@@ -269,6 +286,153 @@ func forkThreadServiceTier(serviceTier *string) *codexapp.CodexNullableString {
 		return codexapp.CodexNullString()
 	}
 	return codexapp.CodexString(*serviceTier)
+}
+
+func validateForkThreadResponse(
+	request ForkThreadRequest,
+	response codexapp.ThreadForkResponse,
+) error {
+	if err := validateForkModelSettings(request.Invocation, response); err != nil {
+		return err
+	}
+	if err := validateForkPolicySettings(request.Invocation, response); err != nil {
+		return err
+	}
+	return validateForkWorkspaceRoot(request.WorkspaceRoot, response)
+}
+
+func validateForkModelSettings(invocation Invocation, response codexapp.ThreadForkResponse) error {
+	if strings.TrimSpace(response.Model) == "" {
+		return errors.New("provider omitted the fork model")
+	}
+	if !invocation.ModelSelectionProviderDefault && response.Model != invocation.Model {
+		return fmt.Errorf("provider fork model is %s, want %s", response.Model, invocation.Model)
+	}
+	if invocation.ReasoningEffort != "" {
+		if response.ReasoningEffort == nil {
+			return errors.New("provider omitted the fork reasoning effort")
+		}
+		if actual := string(*response.ReasoningEffort); actual != invocation.ReasoningEffort {
+			return fmt.Errorf(
+				"provider fork reasoning effort is %s, want %s",
+				actual,
+				invocation.ReasoningEffort,
+			)
+		}
+	}
+	if !forkServiceTierMatches(response.ServiceTier, invocation.ServiceTier) {
+		return fmt.Errorf(
+			"provider fork service tier is %s, want %s",
+			optionalAgentString(response.ServiceTier),
+			optionalAgentString(invocation.ServiceTier),
+		)
+	}
+	return nil
+}
+
+func validateForkPolicySettings(invocation Invocation, response codexapp.ThreadForkResponse) error {
+	approvalMode, err := forkResponseApprovalMode(response.ApprovalPolicy)
+	if err != nil {
+		return err
+	}
+	if approvalMode != invocation.ApprovalMode {
+		return fmt.Errorf(
+			"provider fork approval mode is %s, want %s",
+			approvalMode,
+			invocation.ApprovalMode,
+		)
+	}
+	permissionMode, err := forkResponsePermissionMode(response.Sandbox)
+	if err != nil {
+		return err
+	}
+	if permissionMode != invocation.PermissionMode {
+		return fmt.Errorf(
+			"provider fork permission mode is %s, want %s",
+			permissionMode,
+			invocation.PermissionMode,
+		)
+	}
+	return nil
+}
+
+func validateForkWorkspaceRoot(workspaceRoot string, response codexapp.ThreadForkResponse) error {
+	if !sameWorkspaceRoot(workspaceRoot, string(response.CWD)) {
+		return fmt.Errorf("provider fork cwd is %s, want %s", response.CWD, workspaceRoot)
+	}
+	if !sameWorkspaceRoot(workspaceRoot, string(response.Thread.CWD)) {
+		return fmt.Errorf("provider fork thread cwd is %s, want %s", response.Thread.CWD, workspaceRoot)
+	}
+	return nil
+}
+
+func forkResponseApprovalMode(raw json.RawMessage) (ApprovalMode, error) {
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", fmt.Errorf("decode provider fork approval policy: %w", err)
+	}
+	switch value {
+	case "never":
+		return ApprovalModeNever, nil
+	case "on-request":
+		return ApprovalModeOnRequest, nil
+	case "untrusted":
+		return ApprovalModeUntrusted, nil
+	default:
+		return "", fmt.Errorf("provider returned unsupported fork approval policy %q", value)
+	}
+}
+
+func forkResponsePermissionMode(raw json.RawMessage) (PermissionMode, error) {
+	var policy struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &policy); err != nil {
+		return "", fmt.Errorf("decode provider fork sandbox policy: %w", err)
+	}
+	switch policy.Type {
+	case "readOnly":
+		return PermissionModeReadOnly, nil
+	case "workspaceWrite":
+		return PermissionModeWorkspaceWrite, nil
+	case "dangerFullAccess":
+		return PermissionModeFullAccess, nil
+	default:
+		return "", fmt.Errorf("provider returned unsupported fork sandbox policy %q", policy.Type)
+	}
+}
+
+func forkServiceTierMatches(actual *string, requested *string) bool {
+	if requested == nil {
+		return actual == nil || *actual == "default"
+	}
+	return actual != nil && *actual == *requested
+}
+
+func optionalAgentString(value *string) string {
+	if value == nil {
+		return "<unset>"
+	}
+	return fmt.Sprintf("%q", *value)
+}
+
+func sameWorkspaceRoot(left string, right string) bool {
+	leftInfo, leftErr := os.Stat(left)
+	rightInfo, rightErr := os.Stat(right)
+	if leftErr == nil && rightErr == nil {
+		return os.SameFile(leftInfo, rightInfo)
+	}
+	return filepath.Clean(left) == filepath.Clean(right)
+}
+
+func (runtime *Runtime) rejectForkedThread(threadID string, parentThreadID string, cause error) error {
+	if threadID == "" || threadID == parentThreadID {
+		return cause
+	}
+	if err := runtime.UnsubscribeThread(context.Background(), threadID); err != nil {
+		return errors.Join(cause, fmt.Errorf("unsubscribe rejected agent thread fork %s: %w", threadID, err))
+	}
+	return cause
 }
 
 func providerThreadPolicies(invocation Invocation) (*codexapp.AskForApproval, codexapp.SandboxMode, error) {

@@ -420,7 +420,7 @@ export interface SettaAPI {
     askStatus: (
       request: AskTopicConversationNarratorStatusRequest,
     ) => Promise<ConversationSnapshot>;
-    createSide: (request: CreateSideConversationRequest) => Promise<ConversationSnapshot>;
+    createSide?: (request: CreateSideConversationRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     fork: (request: ForkTopicConversationRequest) => Promise<ConversationSnapshot>;
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;

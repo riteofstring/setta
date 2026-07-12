@@ -250,7 +250,6 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
     },
     conversations: {
       askStatus: (request) => requireClient().askTopicConversationNarratorStatus(request),
-      createSide: (request) => requireClient().createSideConversation(request),
       create: (request) => requireClient().createTopicConversation(request),
       fork: (request) => requireClient().forkTopicConversation(request),
       list: (request) => requireClient().listTopicConversations(request),

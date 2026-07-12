@@ -119,6 +119,7 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		CreatedAt:                   testTimeStarted,
 		UpdatedAt:                   testTimeStarted,
 	}
+	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = stringPointer("provider-side-thread")
 	override := snapshot.RoleProfileOverrides[0]
 	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: snapshot.Conversation},

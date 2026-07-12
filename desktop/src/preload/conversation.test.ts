@@ -153,7 +153,7 @@ async function invokeConversationCommands(
     inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
     release: Parameters<SettaAPI["conversations"]["release"]>[0];
-    sideRequest: Parameters<SettaAPI["conversations"]["createSide"]>[0];
+    sideRequest: Parameters<NonNullable<SettaAPI["conversations"]["createSide"]>>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: Parameters<SettaAPI["conversations"]["read"]>[0];
     turn: Parameters<SettaAPI["conversations"]["send"]>[0];
@@ -161,7 +161,11 @@ async function invokeConversationCommands(
   },
 ) {
   await api.conversations.askStatus({ ...requests.target, question: "What is happening?" });
-  await api.conversations.createSide(requests.sideRequest);
+  const createSide = api.conversations.createSide;
+  if (!createSide) {
+    throw new Error("side conversation creation is unavailable");
+  }
+  await createSide(requests.sideRequest);
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
   await api.conversations.fork(requests.forkRequest);
   await api.conversations.list(requests.listRequest);
