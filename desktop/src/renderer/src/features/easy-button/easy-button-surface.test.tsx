@@ -21,6 +21,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { useConversationStore } from "../../stores/conversation-store";
 import {
+  conversationControlAction,
   EasyButtonProjectionSurface,
   EasyButtonSurface,
   easyButtonConversationProjection,
@@ -462,42 +463,102 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain("Narrator speaking");
   });
 
-  test("keeps the source pane finish control available while a conversation command is pending", () => {
-    const html = renderToString(
+  test("stops a working run through the small composer control, not the giant button", () => {
+    const stop = vi.fn();
+    const working = renderToString(
       <EasyButtonConversationComposer
-        available={false}
-        canSubmit={false}
+        available
+        canSubmit
+        input=""
+        onInput={() => {}}
+        onStop={stop}
+        onSubmit={undefined}
+        placeholder="Send another request…"
+        showStop
+        speech={null}
+      />,
+    );
+    const idle = renderToString(
+      <EasyButtonConversationComposer
+        available
+        canSubmit
         input=""
         onInput={() => {}}
         onSubmit={undefined}
-        onVoiceCapture={() => {}}
-        placeholder="Conversation command pending"
-        speech={{
-          activityKind: "capture",
-          activityLabel: "Listening",
-          captureScope: "this_pane",
-          captureState: "listening",
-          playbackScope: "none",
-          playbackState: "idle",
-          transcriptPreview: "Keep listening",
-          voiceControlDisabled: false,
-          voiceControlLabel: "Finish this voice request",
-        }}
+        placeholder="Ask this topic agent…"
+        speech={null}
       />,
     );
-    const voiceButton = html.match(
-      /<button[^>]*data-testid="easy-button-voice-capture"[^>]*>/,
-    )?.[0];
 
-    expect(voiceButton).toBeDefined();
-    expect(voiceButton).toContain('aria-label="Finish this voice request"');
-    expect(voiceButton).not.toContain("disabled");
-    expect(html).not.toContain('data-testid="easy-button-voice-mode"');
-    expect(html).toContain('data-testid="easy-button-speech-transcript"');
-    expect(html).toContain("Keep listening");
+    expect(working).toContain('data-testid="easy-button-stop-run"');
+    expect(working).toContain("Stop");
+    expect(idle).not.toContain('data-testid="easy-button-stop-run"');
   });
 
-  test("renders one Send action and keeps the microphone outside the text form", () => {
+  test("keeps the giant control the voice/talk affordance whenever it is not listening", () => {
+    const requestVoiceCapture = vi.fn();
+    const commands: EasyButtonConversationCommands = {
+      ...archivedConversationCommands(),
+      available: true,
+      requestVoiceCapture,
+      routingFailure: null,
+    };
+
+    const action = conversationControlAction(commands, false, null);
+
+    expect(action.mode).toBe("talk");
+    expect(action.disabled).toBe(false);
+    expect(action.label).toBe("Start a voice request for this conversation");
+    action.onClick?.();
+    expect(requestVoiceCapture).toHaveBeenCalledOnce();
+  });
+
+  test("flips the giant control to finish this pane's dictation while it is listening", () => {
+    const requestVoiceCapture = vi.fn();
+    const commands: EasyButtonConversationCommands = {
+      ...archivedConversationCommands(),
+      available: true,
+      pending: true,
+      requestVoiceCapture,
+      routingFailure: null,
+    };
+
+    const action = conversationControlAction(commands, false, {
+      activityKind: "capture",
+      activityLabel: "Listening",
+      captureScope: "this_pane",
+      captureState: "listening",
+      playbackScope: "none",
+      playbackState: "idle",
+      transcriptPreview: "Keep listening",
+      voiceControlDisabled: false,
+      voiceControlLabel: "Finish this voice request",
+    });
+
+    expect(action.mode).toBe("stop-listening");
+    expect(action.disabled).toBe(false);
+    expect(action.label).toBe("Finish this voice request");
+    action.onClick?.();
+    expect(requestVoiceCapture).toHaveBeenCalledOnce();
+  });
+
+  test("read-only panes cannot talk through the giant control", () => {
+    const requestVoiceCapture = vi.fn();
+    const commands: EasyButtonConversationCommands = {
+      ...archivedConversationCommands(),
+      available: true,
+      requestVoiceCapture,
+      routingFailure: null,
+    };
+
+    const action = conversationControlAction(commands, true, null);
+
+    expect(action.mode).toBe("talk");
+    expect(action.disabled).toBe(true);
+    expect(action.onClick).toBeUndefined();
+  });
+
+  test("renders one Send action and no longer hosts a voice control in the composer", () => {
     const html = renderToString(
       <EasyButtonConversationComposer
         available
@@ -505,7 +566,6 @@ describe("Easy Button topic conversation projection", () => {
         input="Investigate a tangent"
         onInput={() => {}}
         onSubmit={undefined}
-        onVoiceCapture={() => {}}
         placeholder="Ask this topic agent…"
         speech={null}
       />,
@@ -514,9 +574,7 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain('data-testid="easy-button-submit"');
     expect(html.match(/>Send<\/button>/g)).toHaveLength(1);
     expect(html).not.toMatch(/easy-button-(queue|steer|side-start|fork-start|status-request)/);
-    expect(html.indexOf("</form>")).toBeLessThan(
-      html.indexOf('data-testid="easy-button-voice-capture"'),
-    );
+    expect(html).not.toContain('data-testid="easy-button-voice-capture"');
   });
 
   test("presents a local router clarification as a linked reply", () => {
@@ -528,7 +586,6 @@ describe("Easy Button topic conversation projection", () => {
         input="Send the clarified request"
         onInput={() => {}}
         onSubmit={() => {}}
-        onVoiceCapture={undefined}
         placeholder="Answer the narrator’s clarification…"
         speech={null}
       />,
@@ -612,7 +669,7 @@ describe("Easy Button topic conversation projection", () => {
 
     expect(html).toContain('data-easy-button-status="stopped"');
     expect(html).toContain('data-easy-button-glyph="cancelled"');
-    expect(html).toContain('aria-label="Conversation work cancelled"');
+    expect(html).toContain('data-easy-button-control-mode="talk"');
     expect(html).toContain("Work cancelled");
     expect(html).not.toContain('data-easy-button-glyph="completed"');
   });

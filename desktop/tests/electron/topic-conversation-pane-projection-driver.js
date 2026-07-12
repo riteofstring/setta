@@ -136,7 +136,12 @@
           const summary = surface.querySelector('[data-testid="easy-button-summary-text"]');
           const statusQuestion = surface.querySelector(".easy-button-status-question");
           const statusReply = surface.querySelector(".easy-button-status-reply-text");
-          const voiceCapture = surface.querySelector('[data-testid="easy-button-voice-capture"]');
+          // Voice moved onto the giant control: it is the voice affordance whenever
+          // its mode is "talk" (start) or "stop-listening" (finish this pane's capture).
+          const control = surface.querySelector('[data-testid="easy-button-control"]');
+          const controlMode = control?.getAttribute("data-easy-button-control-mode") ?? "";
+          const controlIsVoice = controlMode === "talk" || controlMode === "stop-listening";
+          const voiceCapture = controlIsVoice ? control : null;
           const side = surface.querySelector('[data-testid="easy-button-side-conversation"]');
           const sideParentStatus = surface.querySelector(
             '[data-testid="easy-button-side-parent-status"]',
@@ -272,8 +277,10 @@
 
   function topicConversationVoiceCapture({ conversationId }) {
     const surface = conversationSurface(conversationId);
-    const button = surface?.querySelector('[data-testid="easy-button-voice-capture"]');
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+    const button = surface?.querySelector('[data-testid="easy-button-control"]');
+    const mode = button?.getAttribute("data-easy-button-control-mode") ?? "";
+    const controlIsVoice = mode === "talk" || mode === "stop-listening";
+    if (!controlIsVoice || !(button instanceof HTMLButtonElement) || button.disabled) {
       return { conversationId, requested: false };
     }
     button.click();
@@ -306,8 +313,10 @@
   }
 
   function topicConversationStop({ conversationId }) {
+    // Stopping a run is now a small composer control; the giant button is always
+    // the voice/talk affordance.
     const button = conversationSurface(conversationId)?.querySelector(
-      '[data-testid="easy-button-control"]',
+      '[data-testid="easy-button-stop-run"]',
     );
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { conversationId, stopped: false };

@@ -15,7 +15,6 @@ import {
 } from "@generated/backend";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
-import { ConversationPresentationConfiguration } from "../../components/presentation-configuration-settings";
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
 import type {
@@ -51,6 +50,7 @@ import {
   type EasyButtonForkLineage,
 } from "./easy-button-lineage";
 import { useEasyButtonPaneTitle } from "./easy-button-pane-title";
+import { EasyButtonPresentationChrome } from "./easy-button-presentation-chrome";
 import { ArtifactRail, HighlightRail, type EasyButtonMilestone } from "./easy-button-rails";
 import { EasyButtonSideConversation } from "./easy-button-side-conversation";
 import { easyButtonSideView, type EasyButtonSideView } from "./easy-button-side-projection";
@@ -216,6 +216,12 @@ export function EasyButtonProjectionSurface({
       ref={rootRef}
       style={conversationPaletteStyle(view.paletteId)}
     >
+      <EasyButtonPresentationChrome
+        archived={view.archived || readOnly}
+        profile={view.presentationProfile}
+        rootRef={rootRef}
+        workspaceId={view.workspaceId}
+      />
       <EasyButtonProjectionContent
         commands={commands}
         readOnly={readOnly}
@@ -253,14 +259,7 @@ function EasyButtonProjectionContent({
           <div className="easy-button-agent-chip-slot">
             <AgentChip activeAgentCount={view.activeAgentCount} viewState={view.viewState} />
           </div>
-          {view.presentationProfile && view.workspaceId ? (
-            <ConversationPresentationConfiguration
-              archived={view.archived || readOnly}
-              profile={view.presentationProfile}
-              workspaceId={view.workspaceId}
-            />
-          ) : null}
-          <ConversationControl commands={commands} view={view} />
+          <ConversationControl commands={commands} readOnly={readOnly} speech={speech} view={view} />
           <CaptionSlot view={view} />
           <ConversationActionSlot commands={readOnly ? undefined : commands} view={view} />
         </div>
@@ -273,27 +272,70 @@ function EasyButtonProjectionContent({
 
 function ConversationControl({
   commands,
+  readOnly,
+  speech,
   view,
 }: {
   commands: EasyButtonConversationCommands | undefined;
+  readOnly: boolean;
+  speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
 }) {
-  const disabled = !commands || commands.pending || view.viewState !== "working";
+  const action = conversationControlAction(commands, readOnly, speech);
   return (
     <div className="easy-button-button-well">
       <SwirlField />
       <button
-        aria-label={conversationControlLabel(view)}
+        aria-label={action.label}
         className="easy-button-control"
+        data-easy-button-control-mode={action.mode}
         data-testid="easy-button-control"
-        disabled={disabled}
-        onClick={commands ? commands.stop : undefined}
+        disabled={action.disabled}
+        onClick={action.onClick}
         type="button"
       >
-        <ControlGlyph statusTone={view.statusTone} viewState={view.viewState} />
+        <ControlGlyph mode={action.mode} statusTone={view.statusTone} viewState={view.viewState} />
       </button>
     </div>
   );
+}
+
+export type EasyButtonControlMode = "stop-listening" | "talk";
+
+export interface EasyButtonControlAction {
+  disabled: boolean;
+  label: string;
+  mode: EasyButtonControlMode;
+  onClick: (() => void) | undefined;
+}
+
+/* The giant control is always the pane's voice/talk button — clicking it dictates
+   into this conversation, and speaking while a run is working simply queues the
+   follow-up. It flips to a stop affordance only while this pane is actively
+   listening. Stopping a run is a separate, smaller control in the composer, so the
+   big button never stops meaning "talk to your agent." */
+export function conversationControlAction(
+  commands: EasyButtonConversationCommands | undefined,
+  readOnly: boolean,
+  speech: PaneSpeechPresentation | null | undefined,
+): EasyButtonControlAction {
+  const bindings = conversationComposerBindings(readOnly ? undefined : commands);
+  const listening = speech?.captureState === "listening" && speech.captureScope === "this_pane";
+  if (listening) {
+    return {
+      disabled: false,
+      label: speech?.voiceControlLabel ?? "Finish this voice request",
+      mode: "stop-listening",
+      onClick: bindings.onVoiceCapture,
+    };
+  }
+  return {
+    disabled:
+      !bindings.onVoiceCapture || !bindings.available || (speech?.voiceControlDisabled ?? false),
+    label: speech?.voiceControlLabel ?? "Start a voice request for this conversation",
+    mode: "talk",
+    onClick: bindings.onVoiceCapture,
+  };
 }
 
 function ConversationActionSlot({
@@ -361,6 +403,8 @@ function ConversationComposer({
   view: EasyButtonProjectionView;
 }) {
   const bindings = conversationComposerBindings(commands);
+  const working = view.viewState === "working";
+  const onStop = !readOnly && commands && !commands.pending ? commands.stop : undefined;
   return (
     <EasyButtonConversationComposer
       available={bindings.available}
@@ -369,13 +413,14 @@ function ConversationComposer({
       input={bindings.input}
       masterReply={commands?.masterReply ?? null}
       onInput={bindings.onInput}
+      onStop={onStop}
       onSubmit={bindings.onSubmit}
-      onVoiceCapture={bindings.onVoiceCapture}
       placeholder={
         readOnly
           ? "Workspace folder unavailable — conversation is read-only"
           : composerPlaceholder(view, commands)
       }
+      showStop={working}
       speech={speech}
     />
   );
@@ -914,15 +959,21 @@ function SwirlField() {
 }
 
 function ControlGlyph({
+  mode,
   statusTone,
   viewState,
 }: {
+  mode: EasyButtonControlMode;
   statusTone: EasyButtonStatusTone;
   viewState: EasyButtonViewState;
 }) {
-  if (viewState === "working") {
+  if (mode === "stop-listening") {
     return (
-      <Square aria-hidden="true" className="easy-button-glyph" data-easy-button-glyph="stop" />
+      <Square
+        aria-hidden="true"
+        className="easy-button-glyph"
+        data-easy-button-glyph="stop-listening"
+      />
     );
   }
   if (viewState === "complete") {
@@ -952,22 +1003,6 @@ function ControlGlyph({
     }
   }
   return <Sparkles aria-hidden="true" className="easy-button-glyph" />;
-}
-
-function conversationControlLabel(view: EasyButtonProjectionView): string {
-  if (view.viewState === "working") {
-    return "Stop conversation work";
-  }
-  switch (view.statusTone) {
-    case "completed":
-      return "Conversation work completed";
-    case "failed":
-      return "Conversation work failed";
-    case "stopped":
-      return "Conversation work cancelled";
-    case "none":
-      return view.helperCopy;
-  }
 }
 
 function agentLabel(activeAgentCount: number): string {

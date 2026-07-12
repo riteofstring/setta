@@ -120,9 +120,7 @@
 
   function presentationConfigurationConversationState({ conversationId }) {
     const surface = conversationSurface(conversationId);
-    const details = surface?.querySelector(
-      '[data-testid="conversation-presentation-configuration"]',
-    );
+    const details = conversationConfiguration(conversationId);
     if (!details) {
       return unavailableConversationState(conversationId);
     }
@@ -258,9 +256,12 @@
   }
 
   function conversationConfiguration(conversationId) {
-    return conversationSurface(conversationId)?.querySelector(
-      '[data-testid="conversation-presentation-configuration"]',
+    // The config now lives in the pane title bar (portaled out of the surface),
+    // so look it up on the host rather than inside the surface element.
+    const host = conversationSurface(conversationId)?.closest(
+      '[data-testid="workspace-pane-host"]',
     );
+    return host?.querySelector('[data-testid="conversation-presentation-configuration"]') ?? null;
   }
 
   function conversationSurface(conversationId) {

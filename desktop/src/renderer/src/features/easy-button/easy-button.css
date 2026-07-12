@@ -955,9 +955,21 @@
   }
 }
 
-@media (max-width: 720px) {
+/* The pane *host* is the query container, not the surface: the rules below
+   rewrite the surface's own `grid-template-columns`, and an element cannot query
+   its own size. Keying on the host's inline size makes a narrow *pane* — not a
+   narrow window — collapse to a single column, which is what a default-width
+   (~520px) Easy Button pane needs: at 520px the two 260px side rails consume the
+   whole row and starve the center stage to ~0px. `conversation-presentation-identity`
+   sits on conversation pane hosts only, so no other surface kind becomes a
+   container. */
+.workspace-pane-host.conversation-presentation-identity {
+  container: easy-button-pane / inline-size;
+}
+
+@container easy-button-pane (max-width: 720px) {
   .easy-button-surface {
-    --easy-button-well: clamp(118px, 36vw, 156px);
+    --easy-button-well: clamp(118px, 36cqi, 156px);
 
     grid-template-columns: minmax(0, 1fr);
   }

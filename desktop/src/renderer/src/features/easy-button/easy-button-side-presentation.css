@@ -261,7 +261,10 @@
   color: var(--easy-button-primary);
 }
 
-@media (max-width: 720px) {
+/* Keyed to the pane, not the window: the side conversation renders inside the
+   Easy Button pane host, which is the `easy-button-pane` query container (see
+   easy-button.css). A narrow *pane* — not a narrow window — should compact. */
+@container easy-button-pane (max-width: 720px) {
   .easy-button-side {
     padding: 16px;
   }

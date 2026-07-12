@@ -8,7 +8,7 @@ import type {
   VoiceSelectionRequest,
 } from "@generated/backend";
 import { conversationPaletteCatalog } from "@generated/backend";
-import { Loader2, RotateCcw, Save, Volume2 } from "lucide-react";
+import { Loader2, RotateCcw, Save, SlidersHorizontal, Volume2 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
@@ -353,13 +353,17 @@ export function ConversationPresentationConfiguration({
 
   return (
     <details
-      className="absolute right-3 top-3 z-10 w-64 max-w-[calc(100%-1.5rem)] rounded-sm border border-border bg-card/95 text-left shadow-sm"
+      className="easy-button-chrome-config"
       data-testid="conversation-presentation-configuration"
     >
-      <summary className="cursor-pointer select-none px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-        Voice and color
+      <summary
+        aria-label="Voice and color settings"
+        className="easy-button-chrome-config-trigger"
+        title="Voice and color"
+      >
+        <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
       </summary>
-      <div className="grid gap-2 border-t border-border p-2">
+      <div className="easy-button-chrome-config-panel">
         <label className="grid gap-1 text-[11px] text-muted-foreground">
           Conversation color
           <select

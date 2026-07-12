@@ -240,7 +240,10 @@
   }
 }
 
-@media (max-width: 780px) {
+/* Keyed to the pane, not the window: these live inside the Easy Button pane
+   host, which is the `easy-button-pane` query container (see easy-button.css).
+   A narrow *pane* should shed the verbose speech text even in a wide window. */
+@container easy-button-pane (max-width: 780px) {
   .easy-button-speech-activity-label,
   .easy-button-speech-transcript {
     display: none;
@@ -251,4 +254,70 @@
   .easy-button-speech-activity > svg {
     animation: none !important;
   }
+}
+
+/* "Voice and color" settings, portaled into the pane title bar (see
+   easy-button-presentation-chrome.tsx). The gear mirrors the engine's own
+   maximize/close action buttons so it reads as native title-bar chrome; the panel
+   drops down from it and overlays the stage. */
+.easy-button-chrome-slot {
+  align-items: center;
+  display: inline-flex;
+  margin-left: auto;
+}
+
+/* When the slot is present, the engine's action strip keeps its own margin-left,
+   so the gear should hug the strip rather than push to the far left. */
+.easy-button-chrome-slot + .workspace-pane-action-strip {
+  margin-left: 4px;
+}
+
+.easy-button-chrome-config {
+  position: relative;
+}
+
+.easy-button-chrome-config-trigger {
+  align-items: center;
+  border-radius: 4px;
+  color: color-mix(in oklch, var(--foreground) 68%, transparent);
+  cursor: pointer;
+  display: inline-flex;
+  height: 22px;
+  justify-content: center;
+  list-style: none;
+  opacity: 0.72;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+  width: 22px;
+}
+
+.easy-button-chrome-config-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.easy-button-chrome-config-trigger:hover,
+.easy-button-chrome-config-trigger:focus-visible,
+.easy-button-chrome-config[open] .easy-button-chrome-config-trigger {
+  background: color-mix(in oklch, var(--accent) 82%, transparent);
+  color: var(--foreground);
+  opacity: 1;
+  outline: none;
+}
+
+.easy-button-chrome-config-panel {
+  background: color-mix(in oklch, var(--card) 96%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.4);
+  display: grid;
+  gap: 0.5rem;
+  max-width: min(320px, 80vw);
+  padding: 0.5rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 256px;
+  z-index: 20;
 }
