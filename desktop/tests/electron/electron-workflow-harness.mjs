@@ -234,11 +234,16 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   for (const name of unsetEnv) {
     delete env[name];
   }
-  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
-    cwd: desktopRoot,
-    env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  // Exercise speech playback without sending test audio to the host speakers.
+  const electron = spawn(
+    electronBin(),
+    [`--remote-debugging-port=${debugPort}`, "--mute-audio", "."],
+    {
+      cwd: desktopRoot,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   electron.logs = [];
   collectProcessOutput(electron);
   return electron;

@@ -550,9 +550,10 @@ function launchElectron({
   for (const name of unsetEnv) {
     delete env[name];
   }
+  // Exercise speech playback without sending test audio to the host speakers.
   const electron = spawn(
     electronBin(),
-    [`--remote-debugging-port=${debugPort}`, ...electronArgs, "."],
+    [`--remote-debugging-port=${debugPort}`, "--mute-audio", ...electronArgs, "."],
     {
       cwd: desktopRoot,
       detached: isolatedProcessGroup && process.platform !== "win32",
