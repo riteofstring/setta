@@ -239,6 +239,57 @@ Implications for the Phase 1a assumptions table (still to be built):
 - Plans are self-service through Epic; Mythic/Guild require contacting
   billing@fly.io.
 
+## Cost assumptions table (Phase 1a)
+
+These are **assumptions**, to be replaced by Phase 1c measurements. Rate card:
+CPU $0.07/CPU-hour, memory $0.04375/GB-hour, hot storage $0.50/GB-month, cold
+storage $0.02/GB-month; metering minima 6.25% CPU + 0.25 GB memory per active
+second (a ~$0.0153/hour active floor).
+
+Stated assumptions (each is a measurement gap for Phase 1c):
+- Sprite shape while active is not yet measured; model assumes billing scales
+  with actual CPU/RAM used above the floor.
+- Per-user workspace: 20 GB.
+- Whether `warm` bills resident memory is unconfirmed (suspend lands in `warm`).
+- Hot→cold storage migration timing is unmeasured; "blended" storage below
+  assumes mostly-cold at rest with brief hot windows.
+
+Three cases, monthly (730 hours):
+
+| Case | CPU/RAM assumption | Compute/mo | Storage/mo | Total/mo |
+| --- | --- | ---: | ---: | ---: |
+| Retained but cold | none (not active) | $0 | 20 GB cold = $0.40 | **~$0.40** |
+| Attached-idle, suspended promptly | floor only, ~1s to suspend | ~$0 | ~$0.40 | **~$0.40–1** |
+| Attached-idle, left active 4 h/day | ~0.06 CPU + ~1 GB | ~$5.8 | ~$0.40 | **~$6** |
+| Attached-idle, forgotten 24/7 (no suspend) | floor 24/7 | ~$11.2 | ~$0.40 | **~$11–35** |
+| Active agent, light (2 h/day, 1 vCPU, 2 GB) | 60 h active | ~$9.5 | ~$2 blended | **~$11–12** |
+| Active agent, heavy (4 h/day, 2 vCPU, 4 GB) | 120 h active | ~$38 | ~$2–10 | **~$40–48** |
+
+Cost levers this exposes:
+1. **Aggressive suspend on disconnect** (the measured ~1s non-destructive cutoff)
+   keeps attached-idle near cold cost instead of the $11–35 range — this is the
+   single most important control.
+2. **Hot→cold storage migration**: hot is 25× cold ($0.50 vs $0.02/GB-month), so
+   20 GB left hot is ~$10/month by itself.
+3. **RAM footprint during active hours dominates compute** ($0.04375/GB-hour).
+4. The per-user **hard budget must trigger suspend** (non-destructive) before
+   overspend.
+
+Proposed thresholds — **NEEDS YOUR CONFIRMATION** (business calls):
+- **Maximum acceptable provider cost per beta user: ~$25/month.** Covers a
+  moderately active user; heavier usage is throttled/suspended by the hard
+  budget. Should map to a chosen plan tier's per-user allocation rather than raw
+  usage.
+- **Maximum cutoff-enforcement lag: ≤ 60 seconds** from control-plane decision to
+  compute actually stopping. The measured `suspend` (~1s) clears this easily;
+  set the budget so the cap triggers suspend well before overspend.
+
+Plan-tier implication: a bounded beta must budget a monthly plan fee (not just
+usage) whose concurrent-active count covers expected simultaneous users and whose
+included CPU/RAM/storage credits cover N users at the per-user envelope above; the
+no-plan 10-concurrent cap is too small for anything but the earliest internal
+ring.
+
 ## Cost positioning (best-fit, not cheapest)
 
 On headline CPU rate, Sprites ($0.07/CPU-hour) is not the cheapest sandbox
