@@ -2,18 +2,19 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete and ready for a repeated whole-plan final audit. The last
-reopened Phase 9 gap is closed: automatic palettes consume capacity only for
-conversations with open pane bindings, while automatic narrator voices consume
-capacity only for speech-enabled active narrators, including working pane-free
-topics and pending narration catch-up. Dormant topics no longer cause false
-catalog exhaustion. Exact overrides remain stable without consuming inactive
-capacity, automatic conflicts resolve deterministically while preserving
-non-conflicting assignments, and reuse metadata is added or cleared as activity
-changes. Focused Go coverage and all seven deterministic Electron workflows
-pass, including duplicate panes, dormant pressure, finite-catalog exhaustion,
-configuration, and reload/restart behavior. The complete ChatGPT-authenticated
-live Codex matrix also passes with `OPENAI_API_KEY` unset.
+**Status:** In progress. A repeated whole-plan audit on 2026-07-15 found the
+effective-invocation-audit and desktop-recording requirements incomplete.
+Successful projection and status calls retain invocation metadata through
+narration events, and successful local/master routing decisions retain it in
+their decision records. However, a successful checkpoint call bypasses
+`successfulInvocation` and commits only checkpoint state; failed narrator
+attempts commit only degradation state; failed local and master routes are
+recorded with `invocationAvailable: false`; and the desktop recorder reduces
+forwarded conversation events to envelope identifiers rather than recording the
+required bounded invocation and narrator-context details. The next step is a
+Go-owned typed invocation-attempt audit and secret-safe recording projection for
+every affected call kind and terminal outcome, including an atomic checkpoint
+audit commit, followed by focused and production-path recording coverage.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1976,7 +1977,11 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Status:** Complete.
+**Status:** Incomplete (reopened by the 2026-07-15 repeated whole-plan audit).
+Successful projection and status outputs persist a resolved invocation, but
+successful checkpoint calls discard the same metadata, while failed,
+cancelled, superseded, and stale narrator attempts do not produce the required
+typed invocation/context/outcome audit or desktop recording event.
 
 Implement:
 
@@ -2119,12 +2124,16 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** Complete. Items 1-11 are implemented. The reopened item 4 now
-includes eligible workspace-scoped role overrides through production scope
-validation, service, HTTP, generated IPC, and selected-workspace settings
-paths. Workspace updates and removals emit durable scope-qualified audit
-events, master remains global-only, and effective resolution follows built-in
-to global to workspace to conversation precedence.
+**Status:** Incomplete (reopened by the 2026-07-15 repeated whole-plan audit).
+Items 1-11 routing behavior is implemented, and the reopened item 4 includes
+eligible workspace-scoped role overrides through production scope validation,
+service, HTTP, generated IPC, and selected-workspace settings paths. Workspace
+updates and removals emit durable scope-qualified audit events, master remains
+global-only, and effective resolution follows built-in to global to workspace
+to conversation precedence. The remaining gap is the independent invocation
+audit for unsuccessful local and master routing calls: their durable failure
+and cancellation records do not retain the attempted resolved invocation and
+terminal model-call outcome.
 
 Workspace-scope completion verification on 2026-07-15 passed focused backend,
 HTTP, generated-contract, main/preload IPC, renderer, typecheck, production
@@ -2250,17 +2259,22 @@ Exit criteria:
 
 ### Phase 9: Hardening and acceptance
 
-**Status:** Complete. Items 6-7 now allocate palette capacity from durable open
-pane bindings and narrator-voice capacity from speech-enabled active narrator
-state. Narrators remain active while visible, working, waiting for approval,
-running, or catching up unobserved trajectory, so pane-free work retains a
-stable voice without allowing dormant idle topics to consume the finite
-catalog. Duplicate panes count as one conversation identity. Automatic reuse
-metadata is explicit at exhaustion and clears when capacity returns; exact
-inactive overrides do not displace active assignments, and exact activation
-preserves non-conflicting automatic identities before resolving real conflicts
-in deterministic creation/id order. Focused store/service tests cover dormant
-pressure, active pane-free work, exact activation, exhaustion relief,
+**Status:** Incomplete (reopened by the 2026-07-15 repeated whole-plan audit).
+Functional, live-provider, performance, speech, and presentation-identity work
+is complete, but item 4 and the recording/observability acceptance remain open:
+the desktop recording path does not expose the required bounded agent/narrator
+invocation lifecycle, checkpoint context/commit decision, or unsuccessful
+local/master routing invocation metadata. Items 6-7 allocate palette capacity
+from durable open pane bindings and narrator-voice capacity from speech-enabled
+active narrator state. Narrators remain active while visible, working, waiting
+for approval, running, or catching up unobserved trajectory, so pane-free work
+retains a stable voice without allowing dormant idle topics to consume the
+finite catalog. Duplicate panes count as one conversation identity. Automatic
+reuse metadata is explicit at exhaustion and clears when capacity returns;
+exact inactive overrides do not displace active assignments, and exact
+activation preserves non-conflicting automatic identities before resolving real
+conflicts in deterministic creation/id order. Focused store/service tests cover
+dormant pressure, active pane-free work, exact activation, exhaustion relief,
 duplicates, and restart. Production Electron coverage exercises the same
 allocation through main/preload/renderer/HTTP/store paths and verifies durable
 profile and pane identity across reload.
@@ -2539,6 +2553,27 @@ Focused regression tests, all affected Go packages, all seven deterministic
 Electron workflows, the complete ChatGPT-authenticated live matrix with
 `OPENAI_API_KEY` unset, and `./check_quality.sh --all` pass. No subsequent plan
 step was started.
+
+**Repeated whole-plan final-audit result (2026-07-15):** Incomplete. The
+narrator output committer builds and persists a `ResolvedInvocation` for
+projection and status results, but its checkpoint branch calls
+`prepareCheckpoint` directly. `NarratorCheckpointCommit` contains only cursor,
+summary, event-id, and timestamp fields, so the successful checkpoint model,
+requested/resolved profile, byte usage, provider references, timestamps, and
+outcome are discarded. Narrator degradation commits likewise contain no
+attempted invocation or call-context audit, and cancelled/superseded/stale actor
+work has no typed terminal audit. Conversation and master routing recordings
+explicitly report `invocationAvailable: false` for failures, while forwarded
+conversation events record only envelope identifiers. This does not satisfy the
+effective invocation audit, the Phase 4 every-call exit criterion, Phase 7's
+independent routing audit, or the narrator/agent recording requirements. Next,
+add a Go-owned typed invocation-attempt record/event that preserves bounded
+call-kind, trigger/context-range, requested/resolved model, provider reference,
+byte-usage, timing, validation/commit-decision, and terminal-outcome data for
+the affected paths; commit checkpoint success atomically with its cursor and
+summary; project secret-safe structured events into desktop recordings; then
+add focused store/actor/recorder tests and a deterministic production Electron
+recording workflow before rerunning the required gates and whole-plan audit.
 
 ### Performance
 
