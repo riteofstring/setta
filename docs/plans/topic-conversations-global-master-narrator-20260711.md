@@ -2,10 +2,10 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. Phases 0-6 and Phase 7 items 1-5 and 7-8 are complete.
-The revised history-free master surface in Phase 7 item 6, pane focus/open
-behavior, route observability, obsolete-surface deletion, and final acceptance
-remain.
+**Status:** In progress. Phases 0-6 and Phase 7 items 1-5 and 7 are complete.
+Phase 7 items 6 and 8 are reopened as deliberate reversals of recently
+implemented user interfaces. Pane focus/open behavior, route observability,
+obsolete-surface deletion, and final acceptance also remain.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -28,6 +28,34 @@ replaces these earlier decisions:
 The implementation is a clean break. There will be no backward compatibility,
 legacy support, migrations, transitional adapters, dual reads or writes,
 old-field aliases, or silent fallbacks for the replaced architecture.
+
+### Required reversals of recently implemented work
+
+Two recently completed slices on the current branch implemented product
+decisions that have since been rejected. They must be undone end to end rather
+than hidden, deprecated, or retained for compatibility:
+
+1. The master overlay was implemented with completed-request history and a
+   renderer-facing recent-master-input read path. Remove that history UI and
+   every endpoint, IPC contract, controller field, fixture, and test whose only
+   purpose is to hydrate it. The master overlay is one transient active
+   interaction; durable master state remains hidden for routing, recovery, and
+   audit.
+2. The Easy Button composer was implemented with separate Send, Queue, Steer,
+   Status, Side, and Fork actions plus a pane-voice mode selector, backed by
+   `ConversationInputMode`, `requestedMode`, and an explicit-mode router.
+   Remove that entire user-selected-mode path. The text composer has one
+   **Send** action, Enter has the same behavior, and the pane microphone remains
+   outside the text composer with no mode selector. **Send** replaces the
+   current Route label but retains narrator-routing semantics. Every ordinary
+   pane text or finalized voice input first reaches the conversation
+   narrator/router, which alone chooses the typed outcome.
+
+Do not satisfy either reversal by merely hiding renderer controls. Remove
+newly dead backend branches, persisted fields, generated contracts, IPC
+surfaces, styles, fixtures, and tests. Retain operational controls such as
+Stop, approvals, retry/discard, returning from an active side conversation,
+and navigating fork lineage; those do not select an input-routing mode.
 
 ## Outcome
 
@@ -78,9 +106,9 @@ The intended experience is:
    lightweight narrator/router recognizes that the input belongs to the
    current topic and dispatches it to the heavy agent, then continues observing
    and emitting presentation events.
-5. The user asks for an update naturally in the pane, uses its explicit status
-   action, or asks the master. The request reaches that conversation's narrator
-   without steering or interrupting the agent.
+5. The user asks for an update naturally in the pane or asks the master. The
+   request reaches that conversation's narrator without steering or
+   interrupting the agent.
 6. If the user introduces a tangent, the conversation narrator/router may open
    an ephemeral side conversation or create a durable fork. If the input is
    unrelated, it escalates to the master, which finds or creates the right
@@ -223,8 +251,8 @@ The application-level speech controller owns both kinds of capture, but it is
 not an implicit router. The initiating control supplies a typed destination at
 capture start, and that destination remains fixed even if pane focus changes
 while transcription is in progress. A normal Easy Button submission requests
-AI routing; an explicit user action may instead force send, queue, steer,
-status, side, or fork semantics.
+AI routing. There is no user-selected send, queue, steer, status, side, or fork
+mode and no direct-to-agent submit path.
 
 ### Master and narrator have different routing scopes
 
@@ -287,20 +315,16 @@ destination:
 ```text
 SpeechCaptureDestination =
   master
-  conversation(conversationId, inputMode)
-
-ConversationInputMode =
-  route | send | queue | steer | ask_narrator | side | fork
+  conversation(conversationId)
 ```
 
 Shell master controls request `master`. An Easy Button requests its bound
-`conversationId`; ordinary capture uses `route`, while an explicit control may
-select a forced mode. The destination and requested mode are frozen when
-capture begins. Later focus and renderer keyword heuristics never change them;
-in `route` mode, the lightweight narrator/router makes the semantic decision
-from the transcript and authoritative conversation context. Easy Button panes
-render controls and shared state, but do not own capture or playback
-controllers.
+`conversationId`. The destination is frozen when capture begins. Later focus
+and renderer keyword heuristics never change it; the lightweight
+narrator/router always makes the semantic decision from the transcript and
+authoritative conversation context. Easy Button panes render capture and
+shared state, but do not own capture or playback controllers and do not expose
+a voice-mode selector.
 
 ### Presentation identity belongs to the conversation
 
@@ -609,9 +633,9 @@ EasyButtonSurface
   receives conversationId from pane config
   selects only that conversation's projection
   derives semantic color tokens from the conversation presentation profile
-  submits ordinary text/voice to conversation routing and supports explicit
-  user-selected command overrides
-  renders focus, milestones, artifacts, summary, approval/status controls
+  submits every ordinary text/voice input to conversation routing
+  renders one text Send action plus focus, milestones, artifacts, summary,
+  approval, recovery, and operational controls
 ```
 
 The conversation store may be one normalized Zustand store or narrowly split
@@ -687,13 +711,12 @@ ConversationInput
   replyToInputId?
   text
   modality: text | voice
-  requestedMode: route | send | queue | steer | ask_narrator | side | fork
   status: accepted | routing | awaiting_clarification | dispatched | failed
   submittedAt
 ```
 
-`route` is the normal mode. The lightweight conversation narrator/router reads
-the input with authoritative parent context and emits one strict decision:
+The lightweight conversation narrator/router reads every input with
+authoritative parent context and emits one strict decision:
 
 ```text
 ConversationRouteDecision =
@@ -707,20 +730,18 @@ ConversationRouteDecision =
   clarify(question)
 ```
 
-An explicit non-`route` mode is a user override and deterministically selects
-the corresponding decision family; the model does not reinterpret it. The
-backend validates conversation state, fork point, scope, and permissions before
-atomically recording and executing any decision. A model decision never names
-an endpoint, pane id, provider thread id, or arbitrary conversation outside its
-bound parent. Unrelated-topic escalation carries the original input and parent
-context reference to the master, which owns global retrieval and destination
-selection.
+There is no user-authored decision-family override. The backend validates
+conversation state, fork point, scope, and permissions before atomically
+recording and executing the narrator/router's decision. A model decision never
+names an endpoint, pane id, provider thread id, or arbitrary conversation
+outside its bound parent. Unrelated-topic escalation carries the original
+input and parent context reference to the master, which owns global retrieval
+and destination selection.
 
 For a working parent, `queue_parent_turn` preserves the active turn and
 `steer_parent_turn` changes it. The narrator/router selects between them from
 the user's meaning and current turn state; when that distinction is materially
-ambiguous it emits `clarify` instead of silently defaulting. Explicit Queue or
-Steer controls override that classification.
+ambiguous it emits `clarify` instead of silently defaulting.
 
 ### ConversationTurn
 
@@ -1033,10 +1054,10 @@ and serializes accepted inputs in submission order. A clarification leaves the
 input pending and links the next answer through `replyToInputId`; the router
 then resolves one final decision from the combined exchange.
 
-Explicit send, queue, steer, narrator-status, side, and fork controls remain
-available as user overrides. They select a constrained decision family without
-asking the model to infer intent. Ordinary text and voice default to AI routing,
-so users do not have to choose a mode before speaking.
+The text composer exposes one **Send** action and the pane microphone exposes no
+mode selector. Both create the same kind of routed conversation input. There is
+no renderer or backend bypass that lets the user preselect a decision family;
+the narrator/router must interpret the input or ask for clarification.
 
 ### Actor and cursor
 
@@ -1044,7 +1065,7 @@ Each topic conversation has one narrator projector mailbox. The mailbox
 serializes:
 
 - automatic projection requests
-- explicit status questions
+- routed status questions
 - terminal projection
 - checkpoint generation
 - retry after recoverable provider failure
@@ -1054,7 +1075,7 @@ in-flight working projection is processed next; it does not start a competing
 goroutine and wait on ad hoc channels.
 
 Mailbox priority is explicit: terminal and approval-required projection,
-explicit status, other automatic projection, recoverable retry, then checkpoint
+routed status, other automatic projection, recoverable retry, then checkpoint
 maintenance. Checkpoint generation starts only while no higher-priority work
 is pending. If higher-priority work arrives during a checkpoint model call, the
 actor cancels or supersedes that call and invalidates its generation token; a
@@ -1161,7 +1182,7 @@ Trigger reasons are typed and logged:
 - `phase_activity_completed`
 - `approval_required`
 - `user_steered`
-- `explicit_status_requested`
+- `status_requested`
 - `turn_terminal`
 
 Event triggers are debounced through the actor. Time windows use scheduled
@@ -1227,7 +1248,7 @@ degraded narrator state with a diagnostic reference. The UI says narration is
 temporarily unavailable and retains the last valid projection. It does not
 generate a mechanical replacement highlight or pretend the agent stopped.
 
-An explicit user status request receives a clear failure response if narration
+A routed user status request receives a clear failure response if narration
 cannot run. It is not silently rerouted to the workspace agent.
 
 Input-router failure leaves the durable conversation input undispatched and
@@ -1502,26 +1523,17 @@ speech controller. One controller owns:
 - transcription session creation and teardown
 - global enabled/disabled preference
 - capture state and transcript preview
-- the frozen destination and requested input mode for the active capture
+- the frozen master or conversation destination for the active capture
 - delivery of finalized text to that typed destination
 - explicit cancellation on runtime disconnect or sign-out
 
 Starting capture from a shell master entry point targets `master`; its finalized
 transcript becomes a `MasterInput`. Starting capture from an Easy Button targets
 the pane's bound conversation and enters its narrator/router. It bypasses the
-master unless the local AI later emits `escalate_to_master`. Ordinary pane
-capture uses `route`, so the user does not choose an action before speaking.
-Optional explicit controls may force:
-
-- `send` to start normal parent work when idle
-- `queue` schedules later work without changing the active turn
-- `steer` modifies the active turn
-- `ask_narrator` requests a read-only status reply
-- `side` creates an ephemeral side conversation from the parent
-- `fork` creates a durable child conversation from a validated completed turn
-
-The renderer never infers those actions from transcript wording. In `route`
-mode, the narrator/router makes the semantic choice through its strict model
+master unless the local AI later emits `escalate_to_master`. Pane capture
+always enters conversation routing, so the user does not choose an action
+before speaking. The renderer never infers the resulting action from transcript
+wording; the narrator/router makes the semantic choice through its strict model
 schema. Closing or changing focus away from the initiating pane does not
 retarget an active capture; the original durable conversation and source pane
 reference remain the origin. User cancellation or runtime disconnect cancels
@@ -1670,15 +1682,12 @@ The replacement surface needs endpoints or streams for these operations:
 - list/search topic conversations
 - create/read/archive a topic conversation
 - read a conversation snapshot
-- submit/retry/discard a durable conversation input in `route` or explicit mode
+- submit/retry/discard a durable routed conversation input
 - read local routing clarification and decision state
 - execute validated send, queue, steer, narrator-status, side, fork, and master
   escalation outcomes
 - stop the active turn
 - submit an approval or structured input response
-- ask the narrator for status
-- create a side conversation
-- fork a durable conversation
 - read/update per-conversation role overrides
 - read/update the conversation presentation profile
 - subscribe to conversation events
@@ -1712,7 +1721,7 @@ audit.
 - read speech capabilities
 - create/cancel transcription sessions
 - dispatch a finalized transcript to its frozen master or conversation-input
-  target and requested mode
+  target
 - synthesize a typed narration/master source event
 
 Conversation and master event unions have exhaustive payload branches. The
@@ -1959,7 +1968,7 @@ Implement:
 5. Milestone, status reply, final summary, and topic descriptor persistence and
    events.
 6. Typed degradation and retry behavior.
-7. Explicit narrator-status command path that never steers the primary agent.
+7. Typed narrator-status outcome path that never steers the primary agent.
 
 Exit criteria:
 
@@ -1972,7 +1981,7 @@ Exit criteria:
   commit
 - current objective, constraints, and steering remain authoritative over
   historical checkpoint text
-- explicit status and terminal work are not delayed behind checkpoint
+- routed status and terminal work are not delayed behind checkpoint
   maintenance
 - asking for status returns a narrator reply while the agent continues
 - a narrator process/session failure can be recovered from Setta state
@@ -1980,6 +1989,10 @@ Exit criteria:
 ### Phase 5: Global speech infrastructure
 
 **Status:** Complete.
+
+The completed slice included the now-rejected pane input-mode plumbing. Phase 7
+item 8 removes that plumbing while retaining the app-global capture, delivery,
+voice, and playback infrastructure.
 
 Existing foundation:
 
@@ -1990,18 +2003,18 @@ Existing foundation:
 
 Remaining sequence:
 
-1. Add Go-owned `ConversationInputMode` and `ConversationInput` validation,
-   schema, idempotent persistence, committed intake event, and focused store
-   tests. Do not add HTTP, generated, or renderer wiring in this slice.
+1. Add Go-owned `ConversationInput` validation, schema, idempotent persistence,
+   committed intake event, and focused store tests. Do not add HTTP, generated,
+   or renderer wiring in this slice.
 2. Register conversation-input intake in the Go HTTP endpoint registry,
    regenerate contracts, and wire the active-runtime main/preload boundary.
-3. Add the typed `master | conversation(conversationId, inputMode)` destination
-   to the app-shell capture controller and pane capture requests. Freeze the
-   destination, source pane, and requested mode at capture start.
+3. Add the typed `master | conversation(conversationId)` destination to the
+   app-shell capture controller and pane capture requests. Freeze the
+   destination and source pane at capture start.
 4. Deliver finalized pane transcripts exactly once to conversation input intake
-   in default `route` or explicit override mode, including frozen-input retry,
-   discard, runtime-switch handling, and deterministic production Electron
-   coverage. Preserve the existing shell-to-master path.
+   for narrator routing, including frozen-input retry, discard, runtime-switch
+   handling, and deterministic production Electron coverage. Preserve the
+   existing shell-to-master path.
 5. Implement stable `auto_distinct` allocation, exact overrides,
    finite-catalog reuse, and explicit unavailable-voice behavior.
 6. Add generic speech synthesis contracts keyed by narration/master event and
@@ -2017,9 +2030,9 @@ Exit criteria:
 - opening or closing panes does not restart global capture
 - shell-originated voice enters the master pipeline
 - Easy Button-originated voice enters the bound conversation's durable input
-  intake with `route` by default and does not become a global master input
-- explicit pane voice modes survive transcription exactly; the renderer does
-  not infer intent from transcript text or final focus
+  intake for narrator routing and does not become a global master input
+- pane voice exposes no mode selector and cannot bypass the narrator/router;
+  the renderer does not infer intent from transcript text or final focus
 - narration from multiple conversations is queued and attributed correctly
 - the master and active narrators use stable distinct voices when available;
   restart preserves assignments and finite-catalog reuse is visible
@@ -2044,7 +2057,7 @@ Implement:
    characterized Codex lifecycle.
 4. Active-parent status projection, isolated events, disposal, restart, and
    explicit failure handling.
-5. One validated backend executor for explicit or AI-authored side/fork
+5. One validated backend executor for narrator- or master-authored side/fork
    decisions; the model never receives provider ids or arbitrary pane commands.
 6. Parent/child presentation and durable-fork lineage controls.
 7. Re-verification of the active-turn fork snapshot semantics established in
@@ -2063,8 +2076,8 @@ Exit criteria:
 
 ### Phase 7: Master, conversation index, and AI routing cutover
 
-**Status:** In progress. Items 1-5 and 7-8 are complete. Item 6 requires the
-history-free active-interaction correction; items 9-10 remain.
+**Status:** In progress. Items 1-5 and 7 are complete. Items 6 and 8 require the
+explicit reversals below; items 9-10 remain.
 
 Implement:
 
@@ -2079,15 +2092,25 @@ Implement:
    linked pane escalations and source-aware clarification delivery.
 6. Compact left-pane launcher plus an action-oriented master overlay reachable
    by global shortcut, app chrome, and the shell microphone while the navigator
-   is collapsed. Remove the completed-request history renderer and any
-   recent-master-input read endpoint, IPC surface, or controller state whose
-   only consumer was that renderer. Retain durable master inputs, route
-   decisions, provider session state, and recording audit. Present only the
-   active shell request, unresolved clarification, processing state, and
-   immediate result; successful navigation clears or dismisses the overlay.
+   is collapsed. Undo the recently implemented completed-request history
+   renderer and remove any recent-master-input read endpoint, IPC surface, or
+   controller state whose only consumer was that renderer. Retain durable
+   master inputs, route decisions, provider session state, and recording audit.
+   Present only the active shell request, unresolved clarification, processing
+   state, and immediate result; successful navigation clears or dismisses the
+   overlay.
 7. Strict global `RouteDecision` generation and validation.
-8. Pane text and voice cut over to local `route` by default, with explicit
-   send, queue, steer, status, side, and fork overrides.
+8. Undo the recently implemented multi-action Easy Button composer and explicit
+   pane input-mode plumbing. Remove the Queue, Steer, Status, Side, Fork,
+   direct-to-agent Send, and voice-mode controls; remove `ConversationInputMode`,
+   `requestedMode`, the explicit-mode router, and every now-dead backend,
+   persistence, endpoint, IPC, generated, style, fixture, and test path. Render
+   one text **Send** action in place of the current Route action; its
+   submission, like every finalized pane voice input, always enters the local
+   narrator/router. Keep the pane microphone outside the text composer as a
+   separate capture affordance and retain operational/presentation controls
+   such as Stop, approvals, retry/discard, Return to parent, and fork-lineage
+   navigation. Do not hide or preserve explicit modes as compatibility code.
 9. Pane focus/open behavior shared by validated master/local decisions and
    direct navigator selection.
 10. Route/model/context observability in desktop recordings.
@@ -2112,7 +2135,10 @@ Exit criteria:
 - an unresolved shell clarification survives close/reload/restart, while a
   completed interaction clears and shell microphone activation opens the
   active interaction
-- explicit user modes override AI classification without separate legacy paths
+- the Easy Button text composer has one Send action, pane voice has no mode
+  selector, and neither path can bypass AI classification
+- no explicit pane input-mode contract, persisted field, router, or compatibility
+  path remains
 - neither routing AI can invoke unrestricted filesystem, shell, endpoint, or
   renderer operations
 
@@ -2193,14 +2219,13 @@ Cover:
   restart recovery
 - local routing context bounds and strict decisions for parent send/queue/steer,
   narrator answer, side, fork, master escalation, and clarification
-- explicit input-mode overrides that bypass classification without bypassing
-  backend validation
+- absence of user-selected input modes or any classification bypass
 - normalized master input validation, idempotent durable acceptance, changed-key
   conflicts, committed intake events, concurrent retries, and restart reads
 - active shell-master interaction recovery, clarification continuity, terminal
   clearing, and the absence of a completed-input scrollback projection
-- typed speech destination/input-mode validation and conversation-input delivery
-- global route decision validation, explicit send/queue/steer semantics, linked
+- typed speech destination validation and routed conversation-input delivery
+- global route decision validation, typed send/queue/steer semantics, linked
   pane escalations, and missing targets
 - topic index retrieval and archive filtering
 - side/fork parent relationships and isolation
@@ -2218,9 +2243,12 @@ Cover:
 - multiple Easy Button pane isolation
 - pane focus/open reuse policy
 - pane close without conversation cancellation
-- initial work seeds the topic projection; later send/queue/steer inputs update
+- initial work seeds the topic projection; later routed inputs update
   `currentFocus`, queue, milestones, artifacts, and terminal state without
   rendering user-message bubbles or a request list
+- a text composer containing only the input and one Send action, with identical
+  Enter behavior; the microphone remains outside it and there are no Queue,
+  Steer, Status, Side, Fork, direct-to-agent Send, or voice-mode controls
 - stable accessible conversation palettes: distinct visible conversations when
   available, identical palettes for duplicate views, and non-color identity
   labels
@@ -2239,7 +2267,7 @@ Cover:
 - finalized shell transcripts submitted exactly once to the master boundary,
   with exact-input retry, failure retention, and stale-runtime result rejection
 - finalized Easy Button transcripts delivered exactly once to their frozen
-  conversation input target in default `route` or explicit override mode
+  conversation input target for narrator routing
 - global playback priority, preemption, and attribution
 - exhaustive generated event unions
 - large-event-list rendering and batching
@@ -2256,10 +2284,10 @@ temporary app data and a scripted Codex app-server, cover:
    then open a second view of one conversation and verify it retains one
    navigator row and the same palette.
 3. Start both agents and receive interleaved streamed events.
-4. Queue and steer one conversation without affecting the other. Verify those
-   durable inputs update the topic projection without appearing as message
-   scrollback.
-5. Ask one narrator for status while its agent remains active.
+4. Submit natural-language inputs that the narrator routes as queue and steer
+   for one conversation without affecting the other. Verify those durable
+   inputs update the topic projection without appearing as message scrollback.
+5. Ask one narrator naturally for status while its agent remains active.
 6. Accumulate an over-budget trajectory while narration is unavailable, then
    recover through ordered catch-up; verify checkpoint maintenance cannot hide
    a milestone or delay a requested status/terminal projection.
@@ -2273,8 +2301,8 @@ temporary app data and a scripted Codex app-server, cover:
     and explicit reuse when the catalog is exhausted.
 11. Submit ordinary text and voice from an Easy Button and exercise every local
     AI decision: parent send, queue, steer, narrator answer, side, fork, master
-    escalation, and clarification. Verify explicit action overrides skip model
-    classification while using the same executor.
+    escalation, and clarification. Verify the UI exposes no decision-mode
+    controls and every input has a recorded narrator/router invocation.
 12. Prove non-escalated pane input creates no `MasterInput`; prove an unrelated
     pane input creates exactly one linked escalation and returns any master
     clarification to its originating pane.
@@ -2368,8 +2396,8 @@ without adding emergency logging. Record structured events for:
 - event counts by kind and input size/token estimate
 - requested and resolved model/effort
 - completed, cancelled, superseded, stale, committed, or failed outcome
-- for routing: conversation input and clarification-parent ids, requested mode,
-  authoritative context sequence/range, allowed decision variants, structured
+- for routing: conversation input and clarification-parent ids, authoritative
+  context sequence/range, allowed decision variants, structured
   decision, validation result, and executed effect
 - for projection/status/checkpoint: context kind, checkpoint, included sequence
   range(s), intentionally omitted status-only backlog range, pre/post cursors,
@@ -2398,7 +2426,7 @@ without adding emergency logging. Record structured events for:
 ### Speech
 
 - capture lifecycle and transcription operation id
-- capture origin plus the frozen master or conversation/input-mode destination
+- capture origin plus the frozen master or conversation destination
 - finalized transcript delivery command id, target, result, and failure
 - narration/master source event id
 - requested selection mode, requested exact voice if any, resolved voice id,
@@ -2438,8 +2466,11 @@ This plan is complete only when all of the following are true:
 - The conversation narrator/router can choose parent send/queue/steer, narrator
   answer, ephemeral side, durable fork, global escalation, or clarification
   through a strict typed decision.
-- Explicit pane actions can force send, queue, steer, narrator status, side, or
-  fork without creating a parallel command path.
+- The Easy Button composer exposes one Send action, Enter behaves identically,
+  and pane voice has no input-mode selector. All three submission forms enter
+  the narrator/router before any outcome is selected.
+- No user-facing or hidden compatibility path can force a pane send, queue,
+  steer, narrator status, side conversation, or fork around classification.
 - Only a typed local escalation sends pane input to the global master, and any
   clarification remains linked to the originating pane and input.
 - Asking for an update reaches the narrator without steering the primary agent.
@@ -2447,7 +2478,7 @@ This plan is complete only when all of the following are true:
   narration, not only new digest fragments.
 - Checkpoint compaction covers only contiguous already-observed trajectory;
   backlog recovery cannot skip milestone evaluation, and checkpoint work cannot
-  delay explicit status or terminal narration.
+  delay routed status or terminal narration.
 - Narrator defaults are explicitly lightweight and independently configurable.
 - Agent defaults may be heavy and are independently configurable.
 - Global microphone and playback work without an Easy Button pane.

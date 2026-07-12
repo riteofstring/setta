@@ -45,7 +45,16 @@ The narrator reads the conversation context and decides what the input means:
 - Escalate an unrelated topic to the global master.
 - Ask you to clarify.
 
-You do not normally need to select one of these modes first. Explicit Send, Queue, Steer, Status, Side, and Fork actions remain available when you want guaranteed behavior.
+The text composer has one **Send** action, and pressing Enter does the same
+thing. “Send” means submit this input to the conversation narrator/router; it
+does not bypass the narrator and send directly to the heavy agent. There are no
+Queue, Steer, Status, Side, or Fork mode buttons. The pane microphone remains a
+separate capture affordance outside the text composer, but it has no mode
+selector and its finalized transcript enters the same narrator/router path.
+
+Stop, approvals, retry/discard, Return to parent, and fork-lineage navigation
+remain visible when relevant. Those controls operate on existing state; they do
+not preselect how a new input should be routed.
 
 ### Queue versus steer
 
@@ -54,7 +63,9 @@ If the underlying agent is already working:
 - “After that, also add tests” would normally be queued.
 - “Stop using SQLite; use Postgres instead” would normally steer the current turn.
 
-The narrator makes that semantic decision. If it genuinely cannot tell, it asks instead of silently guessing. Explicit Queue and Steer controls override the AI.
+The narrator makes that semantic decision. If it genuinely cannot tell, it
+asks instead of silently guessing. The user never has to classify an input as
+Queue or Steer first.
 
 ### Side conversations
 
@@ -155,7 +166,9 @@ fixed shell microphone control to enable it when necessary, open the active
 master interaction, and begin capture; click the same control again to finish
 and submit. The active transcript preview belongs to that one request. A
 microphone started inside an Easy Button instead remains visibly bound to that
-conversation.
+conversation. It offers no queue/steer/status/side/fork mode selector; the
+conversation narrator/router interprets the transcript exactly as it does text
+submitted with Send.
 
 The master has a stable voice, and every conversation narrator receives a stable, preferably distinct voice. Conversations also receive distinct color palettes, while duplicate panes showing the same conversation share its voice and palette.
 
