@@ -3,7 +3,6 @@ export const recordingRendererEventChannel = "recording:renderer-event";
 export type RendererRecordedEvent =
   | RendererClickEvent
   | RendererKeydownEvent
-  | RendererPointerEvent
   | RendererSubmitEvent
   | RendererErrorEvent
   | RendererLayoutSnapshotEvent
@@ -29,20 +28,7 @@ interface RendererTargetSummary {
 
 interface RendererClickEvent extends RendererRecordedEventBase {
   button: number;
-  clientX: number;
-  clientY: number;
-  hitTargets: RendererTargetSummary[];
   type: "click";
-}
-
-interface RendererPointerEvent extends RendererRecordedEventBase {
-  button: number;
-  clientX: number;
-  clientY: number;
-  hitTargets: RendererTargetSummary[];
-  pointerId: number;
-  pointerType: string;
-  type: "pointerdown" | "pointerup";
 }
 
 interface RendererKeydownEvent extends RendererRecordedEventBase {

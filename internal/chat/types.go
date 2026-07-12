@@ -162,8 +162,6 @@ const (
 	ReasoningEffortMedium  ReasoningEffort = "medium"
 	ReasoningEffortHigh    ReasoningEffort = "high"
 	ReasoningEffortXHigh   ReasoningEffort = "xhigh"
-	ReasoningEffortMax     ReasoningEffort = "max"
-	ReasoningEffortUltra   ReasoningEffort = "ultra"
 
 	ChatCommandResultDisplay          ChatCommandResultAction = "display"
 	ChatCommandResultGoalEditor       ChatCommandResultAction = "goal_editor"
@@ -313,8 +311,6 @@ var (
 		ReasoningEffortMedium,
 		ReasoningEffortHigh,
 		ReasoningEffortXHigh,
-		ReasoningEffortMax,
-		ReasoningEffortUltra,
 	}
 	chatCommandResultActionValues = []ChatCommandResultAction{
 		ChatCommandResultDisplay,
