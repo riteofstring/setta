@@ -2,7 +2,10 @@
 
 **Date:** 2026-07-11
 
-**Status:** Complete. All phases are implemented and ready for final audit.
+**Status:** In progress. Phase 5 presentation configuration is next: complete
+the missing backend-owned default narrator voice, per-conversation palette and
+narrator-speech settings, user-facing settings UI, generated desktop contracts,
+and deterministic Electron workflow coverage.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1990,7 +1993,12 @@ Exit criteria:
 
 ### Phase 5: Global speech infrastructure
 
-**Status:** Complete.
+**Status:** In progress. Global capture, playback, and stable voice assignment
+are complete, but the required presentation-configuration surface is not. The
+current production boundary can update the master voice and a conversation's
+narrator voice, but it has no persisted global default narrator voice mode, no
+per-conversation palette override or narrator-speech toggle, and no user-facing
+settings workflow for these controls.
 
 The completed slice included the now-rejected pane input-mode plumbing. Phase 7
 item 8 removes that plumbing while retaining the app-global capture, delivery,
