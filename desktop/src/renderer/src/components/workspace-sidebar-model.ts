@@ -1,34 +1,40 @@
-import type {
-  ConversationListItem,
-  WorkflowDefinition,
-  WorkspaceSummary,
-} from "@generated/backend";
+import type { NavigatorItem, WorkspaceAvailability, WorkspaceSummary } from "@generated/backend";
+
+import type { ConversationNavigatorWorkspaceState } from "../stores/conversation-navigator-store";
+import type { ConversationPaneWorkspaceState } from "../stores/conversation-pane-store";
 
 export type SidebarNavigationCommand =
+  | {
+      conversationId: string;
+      title: string;
+      type: "archiveConversation";
+      workspaceId: string;
+    }
   | {
       nextExpanded: boolean;
       selectWorkspace: boolean;
       type: "activateWorkspace";
       workspaceId: string;
     }
-  | { type: "createWorkspaceConversation"; workspaceId: string }
   | { type: "closeWorkspace"; workspaceId: string }
-  | { type: "deleteConversation"; conversationId: string; workspaceId: string }
+  | { type: "loadMoreConversations"; workspaceId: string }
   | { type: "openRecentWorkspace"; rootPath: string; workspaceId: string }
-  | { type: "removeRecentWorkspace"; workspaceId: string }
-  | { type: "selectConversation"; conversationId: string; workspaceId: string }
-  | { type: "selectWorkflowDefinition"; definitionId: string; workspaceId: string }
-  | { type: "showMoreConversations" }
-  | { type: "setConversationPinned"; conversationId: string; pinned: boolean; workspaceId: string };
+  | {
+      conversationId: string;
+      title: string;
+      type: "presentConversation";
+      workspaceId: string;
+    }
+  | { type: "removeRecentWorkspace"; workspaceId: string };
 
 export type SidebarNavigationItem =
   | {
       commands: {
         close: SidebarNavigationCommand;
-        createConversation: SidebarNavigationCommand;
         primary: SidebarNavigationCommand;
       };
       expanded: boolean;
+      available: boolean;
       id: string;
       kind: "activeWorkspace";
       label: string;
@@ -36,38 +42,28 @@ export type SidebarNavigationItem =
       workspace: WorkspaceSummary;
     }
   | {
-      commands: {
-        delete: SidebarNavigationCommand;
-        pin: SidebarNavigationCommand;
-        primary: SidebarNavigationCommand;
-      };
-      conversation: ConversationListItem;
+      commands: { archive: SidebarNavigationCommand; primary: SidebarNavigationCommand };
+      focused: boolean;
       id: string;
+      item: NavigatorItem;
       kind: "conversation";
       label: string;
-      selected: boolean;
-      unread: boolean;
+      lineageParentTitle: string | null;
+      openPaneCount: number;
+      readOnly: boolean;
     }
   | {
       id: string;
-      kind: "emptyConversationList";
+      kind: "conversationStatus";
       label: string;
       workspaceId: string;
     }
   | {
+      commands: { primary: SidebarNavigationCommand };
       id: string;
-      kind: "emptyWorkflowList";
+      kind: "loadMoreConversations";
       label: string;
-      workspaceId: string;
-    }
-  | {
-      commands: {
-        primary: SidebarNavigationCommand;
-      };
-      hiddenCount: number;
-      id: string;
-      kind: "moreConversations";
-      label: string;
+      loading: boolean;
       workspaceId: string;
     }
   | {
@@ -77,109 +73,49 @@ export type SidebarNavigationItem =
       };
       id: string;
       kind: "recentWorkspace";
+      available: boolean;
       label: string;
       workspace: WorkspaceSummary;
-    }
-  | {
-      id: string;
-      kind: "sectionHeader";
-      label: string;
-      section: "conversations" | "workflows";
-      workspaceId: string;
-    }
-  | {
-      commands: {
-        primary: SidebarNavigationCommand;
-      };
-      definition: WorkflowDefinition;
-      id: string;
-      kind: "workflowDefinition";
-      label: string;
-      selected: boolean;
     };
 
 export interface SidebarNavigationInput {
-  activeWorkspaces: WorkspaceSummary[];
+  activeWorkspaces: readonly WorkspaceSummary[];
+  conversationPanes: ReadonlyMap<string, ConversationPaneWorkspaceState>;
+  conversationWorkspaces: Readonly<Record<string, ConversationNavigatorWorkspaceState | undefined>>;
   expandedWorkspaceIds: ReadonlySet<string>;
-  recentWorkspaces: WorkspaceSummary[];
-  selectedConversationId: string;
-  selectedWorkflowDefinitionIdsByWorkspaceId: Record<string, string | undefined>;
+  recentWorkspaces: readonly WorkspaceSummary[];
   selectedWorkspaceId: string;
-  visibleConversationLimit: number;
-  workspaceConversationLists: Record<string, SidebarWorkspaceConversationList | undefined>;
-  workspaceWorkflowDefinitionLists: Record<
-    string,
-    SidebarWorkspaceWorkflowDefinitionList | undefined
-  >;
-}
-
-export interface SidebarWorkspaceConversationList {
-  conversations: ConversationListItem[];
-  error: string | null;
-  loading: boolean;
-}
-
-export interface SidebarWorkspaceWorkflowDefinitionList {
-  definitions: WorkflowDefinition[];
-  error: string | null;
-  loading: boolean;
+  workspaceAvailabilities: readonly WorkspaceAvailability[];
 }
 
 export function selectSidebarNavigationItems({
   activeWorkspaces,
+  conversationPanes,
+  conversationWorkspaces,
   expandedWorkspaceIds,
   recentWorkspaces,
-  selectedConversationId,
-  selectedWorkflowDefinitionIdsByWorkspaceId,
   selectedWorkspaceId,
-  visibleConversationLimit,
-  workspaceConversationLists,
-  workspaceWorkflowDefinitionLists,
+  workspaceAvailabilities,
 }: SidebarNavigationInput): SidebarNavigationItem[] {
   const items: SidebarNavigationItem[] = [];
   const activeWorkspaceIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
+  const availabilityByWorkspaceId = new Map(
+    workspaceAvailabilities.map((availability) => [availability.workspaceId, availability]),
+  );
 
   for (const workspace of activeWorkspaces) {
     const selected = workspace.id === selectedWorkspaceId;
     const expanded = expandedWorkspaceIds.has(workspace.id);
-    items.push({
-      commands: {
-        close: { type: "closeWorkspace", workspaceId: workspace.id },
-        createConversation: { type: "createWorkspaceConversation", workspaceId: workspace.id },
-        primary: {
-          nextExpanded: selected ? !expanded : true,
-          selectWorkspace: !selected,
-          type: "activateWorkspace",
-          workspaceId: workspace.id,
-        },
-      },
-      expanded,
-      id: `active-workspace:${workspace.id}`,
-      kind: "activeWorkspace",
-      label: workspace.displayName,
-      selected,
-      workspace,
-    });
-
+    const available = availabilityByWorkspaceId.get(workspace.id)?.available ?? false;
+    items.push(activeWorkspaceItem(workspace, selected, expanded, available));
     if (expanded) {
-      const workflowRows = workflowItems({
-        selectedWorkflowDefinitionId:
-          selectedWorkflowDefinitionIdsByWorkspaceId[workspace.id] ?? "",
-        workflowDefinitionList: workspaceWorkflowDefinitionLists[workspace.id],
-        workspaceId: workspace.id,
-      });
-      const conversationRows = conversationItems({
-        conversationList: workspaceConversationLists[workspace.id],
-        selectedConversationId: selected ? selectedConversationId : "",
-        visibleConversationLimit,
-        workspaceId: workspace.id,
-      });
       items.push(
-        ...sectionedWorkspaceRows({
-          conversationRows,
-          workflowRows,
-          workspaceId: workspace.id,
-        }),
+        ...conversationItems(
+          workspace.id,
+          conversationWorkspaces[workspace.id],
+          conversationPanes.get(workspace.id),
+          available,
+        ),
       );
     }
   }
@@ -200,6 +136,7 @@ export function selectSidebarNavigationItems({
       id: `recent-workspace:${workspace.id}`,
       kind: "recentWorkspace",
       label: workspace.displayName,
+      available: availabilityByWorkspaceId.get(workspace.id)?.available ?? false,
       workspace,
     });
   }
@@ -207,182 +144,117 @@ export function selectSidebarNavigationItems({
   return items;
 }
 
-function sectionedWorkspaceRows({
-  conversationRows,
-  workflowRows,
-  workspaceId,
-}: {
-  conversationRows: SidebarNavigationItem[];
-  workflowRows: SidebarNavigationItem[];
-  workspaceId: string;
-}) {
-  const items: SidebarNavigationItem[] = [];
-  if (workflowRows.length > 0) {
-    items.push(sectionHeaderItem(workspaceId, "workflows", "Workflows"), ...workflowRows);
+function activeWorkspaceItem(
+  workspace: WorkspaceSummary,
+  selected: boolean,
+  expanded: boolean,
+  available: boolean,
+): SidebarNavigationItem {
+  return {
+    commands: {
+      close: { type: "closeWorkspace", workspaceId: workspace.id },
+      primary: {
+        nextExpanded: selected ? !expanded : true,
+        selectWorkspace: !selected,
+        type: "activateWorkspace",
+        workspaceId: workspace.id,
+      },
+    },
+    expanded,
+    available,
+    id: `active-workspace:${workspace.id}`,
+    kind: "activeWorkspace",
+    label: workspace.displayName,
+    selected,
+    workspace,
+  };
+}
+
+function conversationItems(
+  workspaceId: string,
+  workspace: ConversationNavigatorWorkspaceState | undefined,
+  panes: ConversationPaneWorkspaceState | undefined,
+  workspaceAvailable: boolean,
+): SidebarNavigationItem[] {
+  if (!workspace || (workspace.loading && workspace.items.length === 0)) {
+    return [conversationStatusItem(workspaceId, "Loading conversations…")];
   }
-  if (conversationRows.length > 0) {
-    items.push(
-      sectionHeaderItem(workspaceId, "conversations", "Conversations"),
-      ...conversationRows,
-    );
+  if (workspace.error && workspace.items.length === 0) {
+    return [conversationStatusItem(workspaceId, workspace.error)];
   }
+  const titlesByConversationId = new Map(
+    workspace.items.map((item) => [item.conversation.id, item.conversation.title] as const),
+  );
+  const items = workspace.items.map((item) =>
+    conversationItem(workspaceId, panes, item, titlesByConversationId, workspaceAvailable),
+  );
+  appendConversationNavigationTail(items, workspaceId, workspace);
   return items;
 }
 
-function sectionHeaderItem(
+function conversationItem(
   workspaceId: string,
-  section: "conversations" | "workflows",
-  label: string,
-) {
+  panes: ConversationPaneWorkspaceState | undefined,
+  item: NavigatorItem,
+  titlesByConversationId: ReadonlyMap<string, string>,
+  workspaceAvailable: boolean,
+): SidebarNavigationItem {
+  const conversationId = item.conversation.id;
   return {
-    id: `section:${workspaceId}:${section}`,
-    kind: "sectionHeader",
-    label,
-    section,
-    workspaceId,
-  } satisfies SidebarNavigationItem;
-}
-
-function workflowItems({
-  selectedWorkflowDefinitionId,
-  workflowDefinitionList,
-  workspaceId,
-}: {
-  selectedWorkflowDefinitionId: string;
-  workflowDefinitionList: SidebarWorkspaceWorkflowDefinitionList | undefined;
-  workspaceId: string;
-}) {
-  if (
-    !workflowDefinitionList ||
-    (workflowDefinitionList.loading && workflowDefinitionList.definitions.length === 0)
-  ) {
-    return [];
-  }
-  if (workflowDefinitionList.error) {
-    return [workflowStatusItem(workspaceId, workflowDefinitionList.error)];
-  }
-  if (workflowDefinitionList.definitions.length === 0) {
-    return [workflowStatusItem(workspaceId, "No workflows")];
-  }
-  return workflowDefinitionList.definitions.map((definition) => ({
     commands: {
-      primary: {
-        definitionId: definition.id,
-        type: "selectWorkflowDefinition",
-        workspaceId,
-      },
-    },
-    definition,
-    id: `workflow:${definition.id}`,
-    kind: "workflowDefinition",
-    label: definition.name,
-    selected: definition.id === selectedWorkflowDefinitionId,
-  })) satisfies SidebarNavigationItem[];
-}
-
-function conversationItems({
-  conversationList,
-  selectedConversationId,
-  visibleConversationLimit,
-  workspaceId,
-}: {
-  conversationList: SidebarWorkspaceConversationList | undefined;
-  selectedConversationId: string;
-  visibleConversationLimit: number;
-  workspaceId: string;
-}) {
-  if (
-    !conversationList ||
-    (conversationList.loading && conversationList.conversations.length === 0)
-  ) {
-    return [];
-  }
-  if (conversationList.error) {
-    return [conversationStatusItem(workspaceId, conversationList.error)];
-  }
-  const { conversations } = conversationList;
-  if (conversations.length === 0) {
-    return [conversationStatusItem(workspaceId, "No chats")];
-  }
-
-  const visibleCount = visibleConversationCount(
-    conversations,
-    selectedConversationId,
-    visibleConversationLimit,
-  );
-  const visibleConversations = conversations.slice(0, visibleCount);
-  const items: SidebarNavigationItem[] = visibleConversations.map((conversation) => ({
-    commands: {
-      delete: {
-        conversationId: conversation.conversation.id,
-        type: "deleteConversation",
-        workspaceId,
-      },
-      pin: {
-        conversationId: conversation.conversation.id,
-        pinned: conversation.pinnedAt === "",
-        type: "setConversationPinned",
+      archive: {
+        conversationId,
+        title: item.conversation.title,
+        type: "archiveConversation",
         workspaceId,
       },
       primary: {
-        conversationId: conversation.conversation.id,
-        type: "selectConversation",
+        conversationId,
+        title: item.conversation.title,
+        type: "presentConversation",
         workspaceId,
       },
     },
-    conversation,
-    id: `conversation:${conversation.conversation.id}`,
+    focused: panes?.focusedConversationId === conversationId,
+    id: `conversation:${conversationId}`,
+    item,
     kind: "conversation",
-    label: conversation.conversation.title,
-    selected: conversation.conversation.id === selectedConversationId,
-    unread: conversation.latestReadRelevantMarker > conversation.readMarker,
-  }));
+    label: item.conversation.title,
+    lineageParentTitle: item.branch
+      ? (titlesByConversationId.get(item.branch.parentConversationId) ?? null)
+      : null,
+    openPaneCount: panes?.paneIdsByConversationId.get(conversationId)?.length ?? 0,
+    readOnly: !workspaceAvailable,
+  };
+}
 
-  if (visibleCount < conversations.length) {
+function appendConversationNavigationTail(
+  items: SidebarNavigationItem[],
+  workspaceId: string,
+  workspace: ConversationNavigatorWorkspaceState,
+): void {
+  if (workspace.error) {
+    items.push(conversationStatusItem(workspaceId, workspace.error));
+  } else if (workspace.items.length === 0) {
+    items.push(conversationStatusItem(workspaceId, "No conversations"));
+  }
+  if (workspace.nextCursor) {
     items.push({
-      commands: {
-        primary: { type: "showMoreConversations" },
-      },
-      hiddenCount: conversations.length - visibleCount,
+      commands: { primary: { type: "loadMoreConversations", workspaceId } },
       id: `conversation-more:${workspaceId}`,
-      kind: "moreConversations",
-      label: "More chats",
+      kind: "loadMoreConversations",
+      label: workspace.loading ? "Loading older conversations…" : "Load older conversations",
+      loading: workspace.loading,
       workspaceId,
     });
   }
-
-  return items;
 }
 
-function workflowStatusItem(workspaceId: string, label: string) {
+function conversationStatusItem(workspaceId: string, label: string): SidebarNavigationItem {
   return {
-    id: `workflow-empty:${workspaceId}`,
-    kind: "emptyWorkflowList",
+    id: `conversation-status:${workspaceId}:${label}`,
+    kind: "conversationStatus",
     label,
     workspaceId,
-  } satisfies SidebarNavigationItem;
-}
-
-function conversationStatusItem(workspaceId: string, label: string) {
-  return {
-    id: `conversation-empty:${workspaceId}`,
-    kind: "emptyConversationList",
-    label,
-    workspaceId,
-  } satisfies SidebarNavigationItem;
-}
-
-function visibleConversationCount(
-  conversations: ConversationListItem[],
-  selectedConversationId: string,
-  visibleConversationLimit: number,
-) {
-  const safeLimit = Math.max(0, visibleConversationLimit);
-  const selectedIndex = conversations.findIndex(
-    (item) => item.conversation.id === selectedConversationId,
-  );
-  if (selectedIndex >= safeLimit) {
-    return Math.min(conversations.length, selectedIndex + 1);
-  }
-  return Math.min(conversations.length, safeLimit);
+  };
 }

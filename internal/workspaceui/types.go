@@ -1,6 +1,6 @@
 package workspaceui
 
-import "setta/internal/orchestrator"
+import "reflect"
 
 const SchemaVersion = 1
 
@@ -14,14 +14,9 @@ const (
 type SurfaceKind string
 
 const (
-	SurfaceKindChatDOM             SurfaceKind = "chat-dom"
-	SurfaceKindEmptyFrame          SurfaceKind = "empty-frame"
-	SurfaceKindWorkflowGraph       SurfaceKind = "workflow-graph"
-	SurfaceKindSettingsDOM         SurfaceKind = "settings-dom"
-	SurfaceKindTerminal            SurfaceKind = "terminal"
-	SurfaceKindSemanticNodeDetails SurfaceKind = "semantic-node-details"
-	SurfaceKindWorkflowNodeDetails SurfaceKind = "workflow-node-details"
-	SurfaceKindWorkflowSettings    SurfaceKind = "workflow-settings"
+	SurfaceKindEasyButton  SurfaceKind = "easy-button"
+	SurfaceKindEmptyFrame  SurfaceKind = "empty-frame"
+	SurfaceKindSettingsDOM SurfaceKind = "settings-dom"
 )
 
 type PaneTone string
@@ -39,43 +34,22 @@ type ColumnWidthSpec struct {
 	Value float64         `json:"value"`
 }
 
-type TerminalPaneConfig struct {
-	ProfileID     string `json:"profileId"`
-	CWDOverride   string `json:"cwdOverride"`
-	TitleOverride string `json:"titleOverride"`
-}
-
-type WorkflowNodeDetailsPaneConfig struct {
-	DefinitionID            string                               `json:"definitionId"`
-	DefinitionName          string                               `json:"definitionName"`
-	DefinitionVersionID     string                               `json:"definitionVersionId"`
-	DefinitionVersionNumber int                                  `json:"definitionVersionNumber"`
-	ExecutionID             string                               `json:"executionId"`
-	NodeID                  string                               `json:"nodeId"`
-	NodeExecutionID         string                               `json:"nodeExecutionId"`
-	NodeKind                orchestrator.WorkflowNodeKind        `json:"nodeKind"`
-	NodeLabel               string                               `json:"nodeLabel"`
-	NodeStatus              orchestrator.WorkflowGraphNodeStatus `json:"nodeStatus"`
-	ProjectionIncomingEdges []orchestrator.WorkflowGraphEdge     `json:"projectionIncomingEdges"`
-	ProjectionOutgoingEdges []orchestrator.WorkflowGraphEdge     `json:"projectionOutgoingEdges"`
-	VersionMismatch         bool                                 `json:"versionMismatch"`
-	ViewMode                orchestrator.WorkflowGraphViewMode   `json:"viewMode"`
-	WorkspaceID             string                               `json:"workspaceId"`
+type EasyButtonPaneConfig struct {
+	ConversationID string `json:"conversationId"`
 }
 
 type WorkspaceUIPane struct {
-	ColumnID                  string                         `json:"columnId"`
-	Heat                      int                            `json:"heat"`
-	PaneID                    string                         `json:"paneId"`
-	Sequence                  int                            `json:"sequence"`
-	Subtitle                  string                         `json:"subtitle"`
-	SurfaceID                 string                         `json:"surfaceId"`
-	SurfaceKind               SurfaceKind                    `json:"surfaceKind"`
-	TerminalConfig            *TerminalPaneConfig            `json:"terminalConfig"`
-	Title                     string                         `json:"title"`
-	Tone                      PaneTone                       `json:"tone"`
-	Weight                    float64                        `json:"weight"`
-	WorkflowNodeDetailsConfig *WorkflowNodeDetailsPaneConfig `json:"workflowNodeDetailsConfig"`
+	ColumnID         string                `json:"columnId"`
+	EasyButtonConfig *EasyButtonPaneConfig `json:"easyButtonConfig"`
+	Heat             int                   `json:"heat"`
+	PaneID           string                `json:"paneId"`
+	Sequence         int                   `json:"sequence"`
+	Subtitle         string                `json:"subtitle"`
+	SurfaceID        string                `json:"surfaceId"`
+	SurfaceKind      SurfaceKind           `json:"surfaceKind"`
+	Title            string                `json:"title"`
+	Tone             PaneTone              `json:"tone"`
+	Weight           float64               `json:"weight"`
 }
 
 type WorkspaceUIColumn struct {
@@ -107,6 +81,46 @@ type ContractValueSet struct {
 	Values []string
 }
 
+type ContractDiscriminatedStruct struct {
+	Type          reflect.Type
+	Discriminator string
+	Variants      []ContractDiscriminatedStructVariant
+}
+
+type ContractDiscriminatedStructVariant struct {
+	DiscriminatorValue string
+	Fields             []ContractDiscriminatedStructField
+}
+
+type ContractDiscriminatedStructField struct {
+	Name    string
+	NonNull bool
+}
+
+func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
+	return []ContractDiscriminatedStruct{{
+		Type:          reflect.TypeFor[WorkspaceUIPane](),
+		Discriminator: "surfaceKind",
+		Variants: []ContractDiscriminatedStructVariant{
+			{
+				DiscriminatorValue: string(SurfaceKindEasyButton),
+				Fields: []ContractDiscriminatedStructField{{
+					Name:    "easyButtonConfig",
+					NonNull: true,
+				}},
+			},
+			{
+				DiscriminatorValue: string(SurfaceKindEmptyFrame),
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
+			},
+			{
+				DiscriminatorValue: string(SurfaceKindSettingsDOM),
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
+			},
+		},
+	}}
+}
+
 func ContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
 		{
@@ -119,14 +133,9 @@ func ContractValueSets() []ContractValueSet {
 		{
 			Name: "SurfaceKind",
 			Values: []string{
-				string(SurfaceKindChatDOM),
+				string(SurfaceKindEasyButton),
 				string(SurfaceKindEmptyFrame),
-				string(SurfaceKindWorkflowGraph),
 				string(SurfaceKindSettingsDOM),
-				string(SurfaceKindTerminal),
-				string(SurfaceKindSemanticNodeDetails),
-				string(SurfaceKindWorkflowNodeDetails),
-				string(SurfaceKindWorkflowSettings),
 			},
 		},
 		{

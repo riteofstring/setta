@@ -1,0 +1,1010 @@
+.easy-button-surface {
+  --easy-button-primary: var(--conversation-accent);
+  --easy-button-panel: var(--setta-875);
+  --easy-button-plate: var(--setta-925);
+  --easy-button-border: var(--setta-750);
+
+  /* Pinned, like every other token here. `--muted-foreground` resolves to
+     --setta-400 at runtime: the appearance store writes the Go-derived shadcn
+     palette onto the root as inline styles, and the dark scheme's
+     firstReadableForeground() prefers the dimmest readable candidate. This pane
+     pins its whole dark ladder, so tracking that token bought no theming — and
+     on a dark surface --setta-300 has more contrast, not less. */
+  --easy-button-muted: var(--setta-300);
+  --easy-button-faint: var(--setta-500);
+  --easy-button-well: clamp(132px, min(24vw, 24vh), 180px);
+
+  background: var(--setta-900);
+  color: var(--foreground);
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) 1fr minmax(260px, 340px);
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+
+  /* The mockup states its line height exactly once, on `body`. Tailwind's
+     preflight states the same unitless 1.5 on `html`, so the pane inherits the
+     mockup's value already; pinning it here only makes that independent of the
+     app root. Per-element line heights below would override it with numbers the
+     mockup never had — and the mockup's margins were tuned against 1.5 boxes. */
+  line-height: 1.5;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.easy-button-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+  padding: 24px 22px;
+}
+
+.easy-button-rail-left {
+  /* `safe` and not plain `center`: an overflowing flex column centred the
+     normal way clips both ends and makes the top unreachable by scrolling. */
+  justify-content: safe center;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.easy-button-rail-right {
+  justify-content: flex-start;
+  mask-image: linear-gradient(to bottom, black calc(100% - 30px), transparent 100%);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.easy-button-rail-label {
+  color: var(--easy-button-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin: 0;
+  text-transform: uppercase;
+  transition: opacity 400ms ease;
+}
+
+.easy-button-rail[data-easy-button-rail-empty="true"] .easy-button-rail-label {
+  opacity: 0;
+}
+
+.easy-button-highlight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  list-style: none;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.easy-button-highlight-item {
+  /* No fill mode: once the arrival animation ends the cascade below owns
+     opacity again, so entries age-fade as newer ones are appended. */
+  align-items: baseline;
+  animation: easy-button-highlight-arrive 380ms ease-out;
+  color: var(--easy-button-muted);
+  display: grid;
+  font-size: 13px;
+  gap: 9px;
+  grid-template-columns: 6px 1fr auto;
+  min-width: 0;
+  opacity: 0.3;
+  transition:
+    color 500ms ease,
+    opacity 500ms ease;
+}
+
+.easy-button-highlight-item:nth-last-child(1) {
+  color: var(--foreground);
+  opacity: 1;
+}
+
+.easy-button-highlight-item:nth-last-child(2) {
+  opacity: 0.72;
+}
+
+.easy-button-highlight-item:nth-last-child(3) {
+  opacity: 0.55;
+}
+
+.easy-button-highlight-item:nth-last-child(4) {
+  opacity: 0.42;
+}
+
+.easy-button-highlight-item:nth-last-child(5) {
+  opacity: 0.35;
+}
+
+.easy-button-highlight-dot {
+  align-self: center;
+  background: var(--easy-button-faint);
+  border-radius: 50%;
+  height: 6px;
+  position: relative;
+  width: 6px;
+}
+
+.easy-button-highlight-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-highlight-time {
+  color: var(--easy-button-faint);
+  font-family: var(--setta-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.easy-button-surface[data-easy-button-state="working"]
+  .easy-button-highlight-item:nth-last-child(1)
+  .easy-button-highlight-dot {
+  animation: easy-button-dot-pulse 1.5s ease-in-out infinite;
+  background: var(--easy-button-primary);
+}
+
+.easy-button-surface[data-easy-button-state="complete"]
+  .easy-button-highlight-item:nth-last-child(1) {
+  color: var(--easy-button-muted);
+  opacity: 0.6;
+}
+
+/* Tone belongs to the run's status, never to the terminal view state. A stopped
+   run keeps the resting faint dot; only `failed` earns the alarm color. */
+.easy-button-surface[data-easy-button-status="completed"]
+  .easy-button-highlight-item:nth-last-child(1)
+  .easy-button-highlight-dot {
+  background: var(--accent-green);
+}
+
+.easy-button-surface[data-easy-button-status="failed"]
+  .easy-button-highlight-item:nth-last-child(1)
+  .easy-button-highlight-dot {
+  background: var(--destructive);
+}
+
+.easy-button-artifact-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.easy-button-artifact-card {
+  animation: easy-button-artifact-arrive 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: var(--easy-button-panel);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 8px;
+  color: var(--foreground);
+  min-width: 0;
+  padding: 12px 13px 13px;
+}
+
+.easy-button-artifact-kicker,
+.easy-button-artifact-title {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-artifact-kicker {
+  color: var(--easy-button-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.easy-button-artifact-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.easy-button-artifact-markdown {
+  color: var(--easy-button-muted);
+  font-size: 12.5px;
+  min-width: 0;
+}
+
+.easy-button-artifact-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.easy-button-artifact-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+
+.easy-button-artifact-table th {
+  color: var(--easy-button-faint);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  max-width: 180px;
+  overflow-wrap: anywhere;
+  padding: 0 0 6px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.easy-button-artifact-table td {
+  border-top: 1px solid color-mix(in oklch, var(--easy-button-border) 60%, transparent);
+  color: var(--easy-button-muted);
+  font-family: var(--setta-font-mono);
+  font-size: 11.5px;
+  max-width: 180px;
+  overflow-wrap: anywhere;
+  padding: 6px 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.easy-button-artifact-table td:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+}
+
+.easy-button-artifact-table th:last-child,
+.easy-button-artifact-table td:last-child {
+  text-align: right;
+}
+
+.easy-button-artifact-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.easy-button-artifact-bar-row {
+  align-items: center;
+  display: grid;
+  gap: 9px;
+  grid-template-columns: 92px 1fr;
+}
+
+.easy-button-artifact-bar-label {
+  color: var(--easy-button-muted);
+  font-family: var(--setta-font-mono);
+  font-size: 11px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.easy-button-artifact-bar-track {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  min-width: 0;
+}
+
+.easy-button-artifact-bar {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--easy-button-primary) 55%, transparent),
+    var(--easy-button-primary)
+  );
+  border-radius: 2px;
+  flex: 0 1 auto;
+  height: 9px;
+}
+
+.easy-button-artifact-bar-value {
+  color: var(--easy-button-faint);
+  flex: 0 0 auto;
+  font-family: var(--setta-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.easy-button-artifact-file {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.easy-button-artifact-file code {
+  background: var(--easy-button-plate);
+  border: 1px solid color-mix(in oklch, var(--easy-button-border) 70%, transparent);
+  border-radius: 6px;
+  color: var(--accent-teal);
+  font-family: var(--setta-font-mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+  padding: 7px 8px;
+}
+
+.easy-button-artifact-file p {
+  color: var(--easy-button-muted);
+  font-size: 12.5px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-stage {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 24px 12px;
+  position: relative;
+}
+
+.easy-button-center {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/* The swirl is `inset: -100%` on the button well, so its field reaches 180px past
+   the well on every side and covers the chip above it, the caption below it, and
+   the top of the Stop button. It is a positioned element with `z-index: 0`, and
+   these slots are in flow, so without a layer of their own the blurred field
+   paints *over* their text. Lifting them to the control's layer is what the
+   mockup does, and it is the only reason its caption reads at full contrast. */
+.easy-button-agent-chip-slot,
+.easy-button-caption-slot,
+.easy-button-action-slot {
+  position: relative;
+  z-index: 2;
+}
+
+.easy-button-agent-chip-slot {
+  align-items: center;
+  display: flex;
+  height: 16px;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.easy-button-agent-chip {
+  color: var(--easy-button-faint);
+  font-family: var(--setta-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  transition: opacity 500ms ease;
+  white-space: nowrap;
+}
+
+.easy-button-surface[data-easy-button-state="working"] .easy-button-agent-chip {
+  opacity: 1;
+}
+
+.easy-button-button-well {
+  display: grid;
+  height: var(--easy-button-well);
+  place-items: center;
+  position: relative;
+  width: var(--easy-button-well);
+}
+
+/* Swirl field — three conic layers, rotate-only, over a static blur on the
+   container. The `filter` makes this element a stacking context and an isolated
+   group, so the layers screen-blend against each other and the core rather than
+   against the pane background. Removing the filter without also isolating the
+   group washes the field out.
+
+   `inset: -100%` makes the field 3x the well, so it tracks --easy-button-well
+   without a second size to keep in sync. */
+.easy-button-swirl {
+  filter: blur(calc(var(--easy-button-well) / 6)) saturate(1.3);
+  inset: -100%;
+  mask-image: radial-gradient(closest-side, black 0%, black 38%, transparent 76%);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 1600ms ease-out;
+  z-index: 0;
+}
+
+.easy-button-swirl-inner {
+  animation: easy-button-swirl-breathe 17s ease-in-out infinite;
+  animation-play-state: paused;
+  inset: 0;
+  position: absolute;
+}
+
+/* A cyan pool under the button, so it does not sit in a neutral grey hole. */
+.easy-button-swirl-core {
+  background: radial-gradient(
+    closest-side,
+    rgb(from var(--easy-button-primary) r g b / 0.2) 0%,
+    rgb(from var(--easy-button-primary) r g b / 0) 64%
+  );
+  border-radius: 50%;
+  inset: 0;
+  position: absolute;
+}
+
+/* Longhands, not the `animation` shorthand: the shorthand would reset
+   `animation-play-state` back to `running` in each layer rule below and undo the
+   idle pause. */
+.easy-button-swirl-layer {
+  animation-iteration-count: infinite;
+  animation-play-state: paused;
+  animation-timing-function: linear;
+  border-radius: 50%;
+  inset: 0;
+  mix-blend-mode: screen;
+  position: absolute;
+}
+
+/* Arms fade to `rgb(from <token> r g b / 0)` and never to the `transparent`
+   keyword: `transparent` is rgba(0, 0, 0, 0), so interpolating toward it drags
+   every arm through muddy black. Arms stay narrow with wide gaps — three broad
+   screen-blended arcs just sum to white and the field reads as grey fog. Each
+   layer spins at its own radius (--sc), so the arms cross rather than stack. */
+.easy-button-swirl-layer-1 {
+  --sc: 1;
+
+  animation-duration: 18s;
+  animation-name: easy-button-swirl-spin-cw;
+  background: conic-gradient(
+    from 0turn,
+    rgb(from var(--easy-button-primary) r g b / 0) 0%,
+    rgb(from var(--easy-button-primary) r g b / 0.85) 9%,
+    rgb(from var(--easy-button-primary) r g b / 0) 24%,
+    rgb(from var(--accent-teal) r g b / 0) 44%,
+    rgb(from var(--accent-teal) r g b / 0.7) 55%,
+    rgb(from var(--accent-teal) r g b / 0) 70%,
+    rgb(from var(--easy-button-primary) r g b / 0) 100%
+  );
+  opacity: 0.62;
+}
+
+.easy-button-swirl-layer-2 {
+  --sc: 0.78;
+
+  animation-duration: 29s;
+  animation-name: easy-button-swirl-spin-ccw;
+  background: conic-gradient(
+    from 0.28turn,
+    rgb(from var(--accent-violet) r g b / 0) 0%,
+    rgb(from var(--accent-violet) r g b / 0.8) 12%,
+    rgb(from var(--accent-violet) r g b / 0) 30%,
+    rgb(from var(--accent-magenta) r g b / 0) 52%,
+    rgb(from var(--accent-magenta) r g b / 0.55) 63%,
+    rgb(from var(--accent-magenta) r g b / 0) 78%,
+    rgb(from var(--accent-violet) r g b / 0) 100%
+  );
+  opacity: 0.5;
+}
+
+.easy-button-swirl-layer-3 {
+  --sc: 1.22;
+
+  animation-duration: 41s;
+  animation-name: easy-button-swirl-spin-cw;
+  background: conic-gradient(
+    from 0.62turn,
+    rgb(from var(--accent-blue) r g b / 0) 0%,
+    rgb(from var(--accent-blue) r g b / 0.72) 15%,
+    rgb(from var(--accent-blue) r g b / 0) 38%,
+    rgb(from var(--accent-blue) r g b / 0) 100%
+  );
+  opacity: 0.4;
+}
+
+/* `opacity: 0` does not stop an animation — Chromium keeps ticking the rotations
+   and compositing the blurred layers. Idle costs nothing only because the field
+   is paused, and only the working state is worth a compositor layer. */
+.easy-button-surface[data-easy-button-state="working"] .easy-button-swirl-inner,
+.easy-button-surface[data-easy-button-state="working"] .easy-button-swirl-layer,
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-inner,
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-layer {
+  animation-play-state: running;
+}
+
+.easy-button-surface[data-easy-button-state="working"] .easy-button-swirl-layer {
+  will-change: transform;
+}
+
+.easy-button-surface[data-easy-button-state="working"] .easy-button-swirl {
+  opacity: 0.85;
+}
+
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl {
+  opacity: 0.2;
+}
+
+/* Settle: stretch the periods so the field reads as decelerating while it fades.
+   Chromium preserves `currentTime` across a duration change, so the rotation
+   snaps to a new phase rather than easing into it; the simultaneous 1600ms fade
+   to 0.2 masks that, and the mockup has the identical artifact. */
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-layer-1 {
+  animation-duration: 54s;
+}
+
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-layer-2 {
+  animation-duration: 87s;
+}
+
+.easy-button-surface[data-easy-button-state="complete"] .easy-button-swirl-layer-3 {
+  animation-duration: 123s;
+}
+
+.easy-button-control {
+  align-items: center;
+  background: var(--easy-button-panel);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 50%;
+  box-shadow: inset 0 0 40px color-mix(in oklch, var(--easy-button-primary) 9%, transparent);
+  color: var(--easy-button-muted);
+  cursor: pointer;
+  display: grid;
+  height: 100%;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  transition:
+    border-color 320ms ease,
+    box-shadow 320ms ease,
+    color 220ms ease,
+    transform 140ms ease;
+  width: 100%;
+  z-index: 2;
+}
+
+.easy-button-control::after {
+  animation: easy-button-glow-breathe 5.5s ease-in-out infinite;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--easy-button-primary) 22%, transparent) 0%,
+    transparent 66%
+  );
+  border-radius: 50%;
+  content: "";
+  inset: -18%;
+  opacity: 0.5;
+  position: absolute;
+  z-index: -1;
+}
+
+.easy-button-control[data-easy-button-confirm="true"] {
+  animation: easy-button-confirm-pulse 900ms ease-out 1;
+}
+
+/* The swirl is the only working-state indicator: the button recedes behind it
+   and its resting glow stills, rather than growing an indicator of its own. */
+.easy-button-surface[data-easy-button-state="working"] .easy-button-control {
+  border-color: color-mix(in oklch, var(--easy-button-border) 70%, transparent);
+  box-shadow: inset 0 0 30px color-mix(in oklch, var(--easy-button-primary) 5%, transparent);
+}
+
+.easy-button-surface[data-easy-button-state="working"] .easy-button-control::after {
+  animation: none;
+  opacity: 0.14;
+}
+
+.easy-button-surface[data-easy-button-status="completed"] .easy-button-control {
+  border-color: color-mix(in oklch, var(--easy-button-primary) 40%, transparent);
+}
+
+/* `stopped` gets no rule at all — it rests, which is the honest reading of a run
+   the user cancelled. Only `failed` is worth an alarm.
+
+   Mix toward `transparent`, never toward another chromatic token: `color-mix(in
+   oklch, …)` interpolates hue, and the short arc from red (25deg) to any of this
+   pane's blue-greys (263deg) runs backwards through magenta. A red mixed that way
+   lands on hue 330 and paints pink. */
+.easy-button-surface[data-easy-button-status="failed"] .easy-button-control {
+  border-color: color-mix(in oklch, var(--destructive) 55%, transparent);
+  color: var(--destructive);
+}
+
+.easy-button-control:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.easy-button-control:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.easy-button-control:focus-visible {
+  outline: 2px solid var(--conversation-focus-ring);
+  outline-offset: 4px;
+}
+
+.easy-button-control:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--easy-button-primary) 34%, var(--easy-button-border));
+  color: color-mix(in oklch, var(--foreground) 78%, var(--easy-button-muted));
+}
+
+.easy-button-glyph {
+  height: 40px;
+  pointer-events: none;
+  position: relative;
+  width: 40px;
+  z-index: 1;
+}
+
+.easy-button-caption-slot {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 22px;
+  max-height: min(32vh, 220px);
+  max-width: 460px;
+  min-height: 66px;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  width: 100%;
+}
+
+.easy-button-current-focus,
+.easy-button-focus-label,
+.easy-button-summary,
+.easy-button-error {
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-focus-block {
+  display: none;
+  transition: opacity 400ms ease;
+  width: 100%;
+}
+
+.easy-button-surface:not([data-easy-button-focus="none"]) .easy-button-focus-block {
+  display: block;
+}
+
+.easy-button-focus-label {
+  color: var(--easy-button-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.easy-button-current-focus {
+  color: var(--easy-button-muted);
+  display: -webkit-box;
+  font-size: 13.5px;
+  line-height: 1.45;
+  max-height: calc(1.45em * 4);
+  min-height: 20px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.easy-button-surface[data-easy-button-focus="updating"] .easy-button-focus-label {
+  animation: easy-button-focus-pulse 1.4s ease-in-out infinite;
+}
+
+.easy-button-helper {
+  color: var(--easy-button-faint);
+  font-size: 12.5px;
+  margin: 0;
+}
+
+.easy-button-summary {
+  color: var(--easy-button-muted);
+  font-size: 12.5px;
+  max-height: min(14vh, 112px);
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.easy-button-summary-ok {
+  color: var(--accent-green);
+}
+
+.easy-button-error {
+  color: color-mix(in oklab, var(--destructive) 80%, var(--foreground));
+  font-size: 12.5px;
+  max-height: min(12vh, 96px);
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.easy-button-narrator-status {
+  color: var(--easy-button-faint);
+  font-size: 11px;
+  margin: 0;
+}
+
+.easy-button-action-slot {
+  align-items: center;
+  display: flex;
+  height: 34px;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.easy-button-stop-button {
+  align-items: center;
+  background: var(--easy-button-plate);
+  border: 1px solid color-mix(in oklab, var(--destructive) 36%, var(--easy-button-border));
+  border-radius: 8px;
+  color: color-mix(in oklab, var(--destructive) 70%, var(--foreground));
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12.5px;
+  gap: 8px;
+  /* Matches the canonical mockup's `.stop-button`: a 30px pill that hugs its
+     content (icon + "Stop") inside the reserved 34px action slot, rather than a
+     34px-tall box forced to a 92px minimum width. The slot itself still reserves
+     34px + 14px in every state so the stage never jumps when Stop appears. */
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 12px;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.easy-button-stop-button:hover:not(:disabled),
+.easy-button-stop-button:focus-visible {
+  border-color: color-mix(in oklab, var(--destructive) 58%, var(--easy-button-border));
+  color: color-mix(in oklab, var(--destructive) 82%, var(--foreground));
+}
+
+.easy-button-stop-button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--destructive) 62%, var(--foreground));
+  outline-offset: 3px;
+}
+
+.easy-button-stop-button:disabled {
+  cursor: default;
+  opacity: 0.56;
+}
+
+.easy-button-stop-button-icon {
+  height: 12px;
+  width: 12px;
+}
+
+.easy-button-footer {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  grid-column: 1 / -1;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 24px 24px;
+}
+
+.easy-button-input-wrap {
+  align-items: center;
+  background: var(--easy-button-plate);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 999px;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 12px 0 16px;
+  position: relative;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+  width: 100%;
+}
+
+.easy-button-input-wrap:focus-within {
+  border-color: color-mix(in oklch, var(--easy-button-primary) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--easy-button-primary) 10%, transparent);
+}
+
+.easy-button-input {
+  background: transparent;
+  border: 0;
+  color: var(--foreground);
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 13px;
+
+  /* `font: inherit` also inherits the app's line height, which a text input
+     otherwise takes from the UA as `normal`. Left alone it makes the pill's
+     height a function of the app's root typography — 45.5px against the mockup's
+     41px — rather than of its own font. */
+  line-height: normal;
+  min-width: 0;
+  outline: none;
+  padding: 12px 0;
+}
+
+.easy-button-input::placeholder {
+  color: var(--easy-button-faint);
+}
+
+.easy-button-input:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.easy-button-enter-chip {
+  border: 1px solid var(--easy-button-border);
+  border-radius: 4px;
+  color: var(--easy-button-faint);
+  flex: 0 0 auto;
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+}
+
+.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface,
+.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface *,
+.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface *::before,
+.workspace-pane-host[data-surface-frozen="true"] .easy-button-surface *::after {
+  animation-play-state: paused !important;
+}
+
+@keyframes easy-button-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: scale(0.94);
+  }
+
+  50% {
+    opacity: 0.62;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes easy-button-confirm-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--easy-button-primary) 45%, transparent);
+  }
+
+  100% {
+    box-shadow: 0 0 0 26px color-mix(in oklch, var(--easy-button-primary) 0%, transparent);
+  }
+}
+
+@keyframes easy-button-dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--easy-button-primary) 55%, transparent);
+  }
+
+  60% {
+    box-shadow: 0 0 0 5px color-mix(in oklch, var(--easy-button-primary) 0%, transparent);
+  }
+}
+
+@keyframes easy-button-focus-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes easy-button-swirl-spin-cw {
+  from {
+    transform: rotate(0deg) scale(var(--sc));
+  }
+
+  to {
+    transform: rotate(360deg) scale(var(--sc));
+  }
+}
+
+@keyframes easy-button-swirl-spin-ccw {
+  from {
+    transform: rotate(0deg) scale(var(--sc));
+  }
+
+  to {
+    transform: rotate(-360deg) scale(var(--sc));
+  }
+}
+
+@keyframes easy-button-swirl-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.09);
+  }
+}
+
+@keyframes easy-button-artifact-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes easy-button-highlight-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The pane *host* is the query container, not the surface: the rules below
+   rewrite the surface's own `grid-template-columns`, and an element cannot query
+   its own size. Keying on the host's inline size makes a narrow *pane* — not a
+   narrow window — collapse to a single column, which is what a default-width
+   (~520px) Easy Button pane needs: at 520px the two 260px side rails consume the
+   whole row and starve the center stage to ~0px. `conversation-presentation-identity`
+   sits on conversation pane hosts only, so no other surface kind becomes a
+   container. */
+.workspace-pane-host.conversation-presentation-identity {
+  container: easy-button-pane / inline-size;
+}
+
+@container easy-button-pane (max-width: 720px) {
+  .easy-button-surface {
+    --easy-button-well: clamp(118px, 36cqi, 156px);
+
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .easy-button-rail {
+    display: none;
+  }
+
+  .easy-button-stage {
+    padding: 18px 16px;
+  }
+
+  .easy-button-footer {
+    padding: 0 16px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .easy-button-surface,
+  .easy-button-surface *,
+  .easy-button-surface *::before,
+  .easy-button-surface *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .easy-button-control::after {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+
+  /* The field still has to say "working", so it stays visible — just still, and
+     dimmer than the 0.85 it fades to when motion is allowed. Same selector as
+     the unreduced rule and later in the file, so it wins on source order. */
+  .easy-button-surface[data-easy-button-state="working"] .easy-button-swirl {
+    opacity: 0.5;
+  }
+}

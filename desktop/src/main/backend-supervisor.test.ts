@@ -72,7 +72,10 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("ready-with-logs")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: process.env,
+      env: {
+        ...process.env,
+        SETTA_BACKEND_SUPERVISOR_PROTOCOL_VERSION: String(backendProtocolVersion),
+      },
       readyTimeoutMs: 3000,
     });
 

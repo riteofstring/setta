@@ -2,9 +2,12 @@ package codexaccount
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"setta/internal/codexapp"
@@ -15,6 +18,7 @@ type CodexAccountType string
 type CodexLoginType string
 type CodexLoginStatus string
 type CodexChatGPTPlanType string
+type CodexAccountChangeReason string
 
 const (
 	AccountStatusSignedIn        CodexAccountStatus = "signed_in"
@@ -47,6 +51,11 @@ const (
 	ChatGPTPlanSelfServeBusinessUsageBase CodexChatGPTPlanType = "self_serve_business_usage_based"
 	ChatGPTPlanTeam                       CodexChatGPTPlanType = "team"
 	ChatGPTPlanUnknown                    CodexChatGPTPlanType = "unknown"
+
+	AccountChangeSnapshotRequired CodexAccountChangeReason = "snapshot_required"
+	AccountChangeLoginCompleted   CodexAccountChangeReason = "login_completed"
+	AccountChangeLoginMalformed   CodexAccountChangeReason = "login_completed_malformed"
+	AccountChangeAccountUpdated   CodexAccountChangeReason = "account_updated"
 )
 
 var (
@@ -86,6 +95,12 @@ var (
 		ChatGPTPlanTeam,
 		ChatGPTPlanUnknown,
 	}
+	accountChangeReasonValues = []CodexAccountChangeReason{
+		AccountChangeSnapshotRequired,
+		AccountChangeLoginCompleted,
+		AccountChangeLoginMalformed,
+		AccountChangeAccountUpdated,
+	}
 )
 
 type ContractValueSet struct {
@@ -100,6 +115,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "CodexLoginType", Values: stringValues(loginTypeValues)},
 		{Name: "CodexLoginStatus", Values: stringValues(loginStatusValues)},
 		{Name: "CodexChatGPTPlanType", Values: stringValues(chatGPTPlanTypeValues)},
+		{Name: "CodexAccountChangeReason", Values: stringValues(accountChangeReasonValues)},
 	}
 }
 
@@ -147,22 +163,87 @@ type CancelCodexLoginRequest struct {
 
 type LogoutCodexAccountRequest struct{}
 
-type Service struct {
-	manager   *codexapp.Manager
-	onChanged func(reason string)
-
-	mu    sync.Mutex
-	login *CodexLoginState
+type CodexAccountChangeEvent struct {
+	StreamID string                   `json:"streamId"`
+	Sequence int                      `json:"sequence"`
+	Reason   CodexAccountChangeReason `json:"reason"`
 }
 
-func NewService(manager *codexapp.Manager, onChanged func(reason string)) (*Service, error) {
+func (event CodexAccountChangeEvent) Validate() error {
+	if strings.TrimSpace(event.StreamID) == "" || event.StreamID != strings.TrimSpace(event.StreamID) {
+		return errors.New("Codex account change stream ID is required without surrounding whitespace")
+	}
+	if event.Sequence < 0 {
+		return errors.New("Codex account change sequence must not be negative")
+	}
+	for _, reason := range accountChangeReasonValues {
+		if event.Reason == reason {
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported Codex account change reason: %s", event.Reason)
+}
+
+type CodexAccountChangeSubscription interface {
+	Events() <-chan CodexAccountChangeEvent
+	Unsubscribe()
+}
+
+type codexAccountChangeSubscription struct {
+	service *Service
+	id      uint64
+	events  <-chan CodexAccountChangeEvent
+	once    sync.Once
+}
+
+func (subscription *codexAccountChangeSubscription) Events() <-chan CodexAccountChangeEvent {
+	return subscription.events
+}
+
+func (subscription *codexAccountChangeSubscription) Unsubscribe() {
+	subscription.once.Do(func() {
+		subscription.service.unsubscribeChanges(subscription.id)
+	})
+}
+
+type Service struct {
+	manager *codexapp.Manager
+
+	mu                     sync.Mutex
+	login                  *CodexLoginState
+	changeStreamID         string
+	changeSequence         int
+	nextChangeSubscriberID uint64
+	changeSubscribers      map[uint64]chan CodexAccountChangeEvent
+}
+
+func NewService(manager *codexapp.Manager) (*Service, error) {
 	if manager == nil {
 		return nil, errors.New("codex app-server manager is required")
 	}
-	service := &Service{manager: manager, onChanged: onChanged}
+	streamID, err := newChangeStreamID()
+	if err != nil {
+		return nil, fmt.Errorf("create Codex account change stream ID: %w", err)
+	}
+	service := &Service{
+		manager:           manager,
+		changeStreamID:    streamID,
+		changeSubscribers: map[uint64]chan CodexAccountChangeEvent{},
+	}
 	manager.RegisterNotificationHandler("account/login/completed", service.handleLoginCompleted)
 	manager.RegisterNotificationHandler("account/updated", service.handleAccountUpdated)
 	return service, nil
+}
+
+func (service *Service) SubscribeChanges() CodexAccountChangeSubscription {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	service.nextChangeSubscriberID++
+	id := service.nextChangeSubscriberID
+	events := make(chan CodexAccountChangeEvent, 1)
+	events <- service.changeEventLocked(AccountChangeSnapshotRequired)
+	service.changeSubscribers[id] = events
+	return &codexAccountChangeSubscription{service: service, id: id, events: events}
 }
 
 func (service *Service) Read(ctx context.Context) (CodexAccountState, error) {
@@ -250,30 +331,30 @@ func (service *Service) handleLoginCompleted(message codexapp.Message) {
 	params, err := objectValue(message.Params, "codex account login completed")
 	if err != nil {
 		service.updateLogin(CodexLoginState{Status: LoginStatusFailed, Error: err.Error()})
-		service.emitChanged("login_completed_malformed")
+		service.emitChanged(AccountChangeLoginMalformed)
 		return
 	}
 	loginID, err := optionalString(params, "loginId", "codex account login completed")
 	if err != nil {
 		service.updateLogin(CodexLoginState{Status: LoginStatusFailed, Error: err.Error()})
-		service.emitChanged("login_completed_malformed")
+		service.emitChanged(AccountChangeLoginMalformed)
 		return
 	}
 	success, err := requireBool(params, "success", "codex account login completed")
 	if err != nil {
 		service.updateLogin(CodexLoginState{LoginID: loginID, Status: LoginStatusFailed, Error: err.Error()})
-		service.emitChanged("login_completed_malformed")
+		service.emitChanged(AccountChangeLoginMalformed)
 		return
 	}
 	errorText, err := optionalString(params, "error", "codex account login completed")
 	if err != nil {
 		service.updateLogin(CodexLoginState{LoginID: loginID, Status: LoginStatusFailed, Error: err.Error()})
-		service.emitChanged("login_completed_malformed")
+		service.emitChanged(AccountChangeLoginMalformed)
 		return
 	}
 	if success {
 		service.updateLogin(CodexLoginState{LoginID: loginID, Status: LoginStatusSucceeded})
-		service.emitChanged("login_completed")
+		service.emitChanged(AccountChangeLoginCompleted)
 		return
 	}
 	status := LoginStatusFailed
@@ -281,7 +362,7 @@ func (service *Service) handleLoginCompleted(message codexapp.Message) {
 		status = LoginStatusCancelled
 	}
 	service.updateLogin(CodexLoginState{LoginID: loginID, Status: status, Error: errorText})
-	service.emitChanged("login_completed")
+	service.emitChanged(AccountChangeLoginCompleted)
 }
 
 func (service *Service) handleAccountUpdated(message codexapp.Message) {
@@ -291,13 +372,47 @@ func (service *Service) handleAccountUpdated(message codexapp.Message) {
 			service.clearLogin()
 		}
 	}
-	service.emitChanged("account_updated")
+	service.emitChanged(AccountChangeAccountUpdated)
 }
 
-func (service *Service) emitChanged(reason string) {
-	if service.onChanged != nil {
-		service.onChanged(reason)
+func (service *Service) emitChanged(reason CodexAccountChangeReason) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	service.changeSequence++
+	event := service.changeEventLocked(reason)
+	for _, subscriber := range service.changeSubscribers {
+		select {
+		case subscriber <- event:
+		default:
+		}
 	}
+}
+
+func (service *Service) changeEventLocked(reason CodexAccountChangeReason) CodexAccountChangeEvent {
+	return CodexAccountChangeEvent{
+		StreamID: service.changeStreamID,
+		Sequence: service.changeSequence,
+		Reason:   reason,
+	}
+}
+
+func (service *Service) unsubscribeChanges(id uint64) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	events, ok := service.changeSubscribers[id]
+	if !ok {
+		return
+	}
+	delete(service.changeSubscribers, id)
+	close(events)
+}
+
+func newChangeStreamID() (string, error) {
+	var value [16]byte
+	if _, err := rand.Read(value[:]); err != nil {
+		return "", err
+	}
+	return "codex-account-" + hex.EncodeToString(value[:]), nil
 }
 
 func (service *Service) setLogin(login CodexLoginState) {

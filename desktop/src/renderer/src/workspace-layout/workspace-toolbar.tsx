@@ -1,13 +1,4 @@
-import {
-  Columns2,
-  Globe,
-  MessageSquarePlus,
-  Plus,
-  Settings,
-  Terminal,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
+import { Globe, Plus, Settings, ZoomIn, ZoomOut } from "lucide-react";
 import {
   type ComponentType,
   type ReactNode,
@@ -21,7 +12,7 @@ import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import type { EmptyFrameOption } from "./surface-adapters";
-import type { WorkspacePane, OpenPaneRequest, SurfaceKind } from "./types";
+import type { WorkspacePane, NonEasyButtonSurfaceKind, OpenPaneRequest } from "./types";
 
 export function WorkspaceToolbar({
   onNativeOverlayActiveChange,
@@ -94,34 +85,16 @@ export function WorkspaceToolbar({
 
 export const openPaneActions = [
   {
-    Icon: MessageSquarePlus,
-    label: "Chat",
-    request: openPaneRequest("Chat", "chat workspace surface", "chat-dom", "cyan"),
-    shortcutKey: "c",
-  },
-  {
     Icon: Globe,
     label: "Browser",
     request: openPaneRequest("Browser", "browser surface", "browser", "green"),
     shortcutKey: "b",
   },
   {
-    Icon: Terminal,
-    label: "Terminal",
-    request: openPaneRequest("Terminal", "command surface", "terminal", "green"),
-    shortcutKey: "t",
-  },
-  {
     Icon: Settings,
     label: "Settings",
     request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
     shortcutKey: "s",
-  },
-  {
-    Icon: Columns2,
-    label: "Workflow Graph",
-    request: openPaneRequest("Workflow Graph", "workflow graph", "workflow-graph", "cyan"),
-    shortcutKey: "v",
   },
 ] satisfies Array<{
   Icon: ComponentType<{ className?: string }>;
@@ -300,7 +273,7 @@ function shortcutLabelForAction(label: string): string | null {
 function openPaneRequest(
   title: string,
   subtitle: string,
-  surfaceKind: SurfaceKind,
+  surfaceKind: NonEasyButtonSurfaceKind,
   tone: WorkspacePane["tone"],
 ): OpenPaneRequest {
   return {

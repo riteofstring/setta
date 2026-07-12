@@ -81,15 +81,12 @@ function frameSample(resizePhase: ResizePhase, frameTime: number) {
   return {
     boxWrites: 0,
     browserViewportWrites: 0,
-    canvasViewportWrites: 0,
     deferredHeavyViewportWrites: 0,
     frameTime,
-    gitGraphViewportWrites: 0,
     heavyViewportWrites: 0,
     nativeBoundsUpdates: 0,
     resizePhase,
     surfaceViewportWrites: 0,
-    terminalViewportWrites: 0,
     transformWrites: 0,
     visiblePaneCount: 40,
   };
