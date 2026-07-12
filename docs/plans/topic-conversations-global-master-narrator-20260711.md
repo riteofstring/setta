@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress; Phases 0-3 and Phase 4 item 1 are complete
+**Status:** In progress; Phases 0-3 and Phase 4 items 1-2 are complete
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -1655,7 +1655,7 @@ Exit criteria:
 
 ### Phase 4: Narrator projector
 
-**Progress:** Item 1 complete.
+**Progress:** Items 1-2 complete.
 
 Implement:
 
@@ -2701,3 +2701,42 @@ Implementation is in progress under this plan.
   Electron and live-provider workflows remained out of scope because this
   scheduling boundary is not composed into a production path. Phase 4 item 2
   was not started.
+- 2026-07-12: Completed Phase 4 item 2. The conversation store now assembles
+  one read-transaction narrator source snapshot containing the durable cursor,
+  target turn objective and every accepted steer, latest plan, active
+  activity/approval/subagent projections, artifact metadata, all active-turn
+  milestones, bounded recent final summaries, and the exact trajectory window
+  requested by projection, status, or checkpoint work. Map-backed active state
+  is sorted deterministically, projection/checkpoint reads return the earliest
+  contiguous prefix after the durable checkpoint, and status reads return the
+  latest contiguous suffix with explicit omitted-trajectory and
+  omitted-unobserved ranges.
+- 2026-07-12: `internal/narration` now owns typed projection, status, and
+  checkpoint bundles with exact JSON-byte accounting and deterministic
+  trimming. Current objective and steering carry an explicit authority marker
+  over historical checkpoint text; required current fields, artifacts, prior
+  milestones, and requested continuity summaries fail with a typed budget
+  error instead of being silently truncated. Projection context exposes the
+  contiguous evaluation range and rejects a future observed-cursor advance
+  outside it. An over-budget observed tail returns a typed checkpoint-required
+  result, so catch-up compacts only already-evaluated prefixes and resumes at
+  the exact next sequence rather than jumping to recent events. Status remains
+  read-only and can omit an old unobserved middle only when the omission is
+  represented explicitly.
+- 2026-07-12: Checkpoint output is constrained to the exact requested range end
+  and a bounded nonempty historical summary. The SQLite commit verifies every
+  sequence in the checkpoint prefix, never crosses the optimistic observed
+  cursor, changes only checkpoint-owned narrator fields, and publishes the
+  updated narrator state atomically. Stale expectations, missing trajectory,
+  and failed publication leave both cursor and text unchanged; the actor's
+  existing generation invalidation remains the outer guard against a late
+  superseded provider response. Focused conversation/narration tests and vet,
+  the changed-file quality gate, the joint race-enabled suites, 50 repeated
+  race-enabled materializer runs, and 30 repeated race-enabled persistence
+  runs passed. Final repository formatting and
+  `./check_quality.sh --git-changes` passed. Generated inputs and outputs
+  changed: none. Electron and live Codex workflows were not run because this
+  store/materialization boundary is not composed into a production HTTP,
+  renderer, or provider call path; the Codex source reference was not needed.
+  Phase 4 item 3, independent lightweight narrator-model resolution, is next
+  with no external blocker.
