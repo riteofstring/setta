@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -58,6 +59,26 @@ func (transaction *WriteTransaction) UpdateConversation(
 	}
 	if err := validateConversationExpectation(expected, conversation); err != nil {
 		return err
+	}
+	var previousStatus ConversationStatus
+	var previousArchivedAt sql.NullString
+	if err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT status, archived_at
+FROM conversations
+WHERE id = ?
+`, conversation.ID).Scan(&previousStatus, &previousArchivedAt); err != nil {
+		return fmt.Errorf("read conversation %s presentation activity: %w", conversation.ID, err)
+	}
+	activityChanged := previousStatus != conversation.Status ||
+		previousArchivedAt.Valid != (conversation.ArchivedAt != nil)
+	if activityChanged {
+		if err := transaction.capturePresentationActivity(); err != nil {
+			return err
+		}
+		transaction.presentationActivityUpdatedAt = advanceTimestamp(
+			transaction.presentationActivityUpdatedAt,
+			conversation.UpdatedAt,
+		)
 	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
 UPDATE conversations

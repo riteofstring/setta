@@ -43,7 +43,7 @@ func (service *Service) ArchiveTopic(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	_, err = service.store.Transact(ctx, "archive topic conversation", func(transaction *WriteTransaction) error {
+	_, err = service.store.transactPresentationAware(ctx, "archive topic conversation", func(transaction *WriteTransaction) error {
 		if err := requireArchiveRoutingSettled(transaction, conversationID); err != nil {
 			return err
 		}

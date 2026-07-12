@@ -20,11 +20,15 @@ type StateConflictError struct {
 }
 
 type WriteTransaction struct {
-	ctx             context.Context
-	tx              *sql.Tx
-	active          bool
-	stateMutations  int
-	committedEvents []CommittedEvent
+	ctx                           context.Context
+	tx                            *sql.Tx
+	store                         *Store
+	active                        bool
+	stateMutations                int
+	projectionMutations           int
+	committedEvents               []CommittedEvent
+	presentationActivityPrevious  map[string]presentationActivityState
+	presentationActivityUpdatedAt string
 }
 
 func (err *StateConflictError) Error() string {
@@ -54,12 +58,16 @@ func (store *Store) Transact(
 		transaction := &WriteTransaction{
 			ctx:    ctx,
 			tx:     sqlTransaction,
+			store:  store,
 			active: true,
 		}
 		defer func() {
 			transaction.active = false
 		}()
 		if err := run(transaction); err != nil {
+			return err
+		}
+		if err := transaction.reconcilePresentationActivity(); err != nil {
 			return err
 		}
 		if err := validateWriteTransactionResult(transaction); err != nil {
@@ -102,7 +110,9 @@ func validateWriteTransactionResult(transaction *WriteTransaction) error {
 	if transaction.stateMutations > 0 && len(transaction.committedEvents) == 0 {
 		return ErrCommittedEventRequired
 	}
-	if transaction.stateMutations == 0 && len(transaction.committedEvents) == 0 {
+	if transaction.stateMutations == 0 &&
+		transaction.projectionMutations == 0 &&
+		len(transaction.committedEvents) == 0 {
 		return ErrEmptyWriteTransaction
 	}
 	return nil
@@ -120,6 +130,14 @@ func (transaction *WriteTransaction) recordStateMutation() error {
 		return err
 	}
 	transaction.stateMutations++
+	return nil
+}
+
+func (transaction *WriteTransaction) recordProjectionMutation() error {
+	if err := transaction.ensureActive(); err != nil {
+		return err
+	}
+	transaction.projectionMutations++
 	return nil
 }
 

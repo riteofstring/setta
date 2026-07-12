@@ -185,7 +185,7 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 	if err != nil {
 		return err
 	}
-	_, err = service.store.Transact(ctx, "persist topic conversation control", func(transaction *WriteTransaction) error {
+	_, err = service.store.transactPresentationAware(ctx, "persist topic conversation control", func(transaction *WriteTransaction) error {
 		if err := transaction.UpdateConversation(
 			ConversationExpectation{
 				UpdatedAt:              snapshot.Conversation.UpdatedAt,

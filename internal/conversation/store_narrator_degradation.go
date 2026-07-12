@@ -103,7 +103,7 @@ func (store *Store) CommitNarratorDegradation(
 		return NarratorState{}, err
 	}
 	var committed NarratorState
-	_, err := store.Transact(ctx, "commit narrator degradation", func(transaction *WriteTransaction) error {
+	_, err := store.transactPresentationAware(ctx, "commit narrator degradation", func(transaction *WriteTransaction) error {
 		state, err := readNarratorStateForMutation(transaction, request.ConversationID)
 		if err != nil {
 			return err

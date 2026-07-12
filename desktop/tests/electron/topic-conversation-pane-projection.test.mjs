@@ -44,6 +44,7 @@ import {
 import { exerciseMasterPaneRouting } from "./topic-conversation-master-pane-routing.mjs";
 import {
   assertDistinctNarratorVoices,
+  assertInactiveNarratorVoiceCapacityReleased,
   assertPersistedNarratorVoice,
   assertUnavailableExactVoiceErrors,
   exhaustNarratorVoiceCatalog,
@@ -212,7 +213,16 @@ try {
     workspaceId,
   });
   await closeConversationPane(context.client, sideFailureTopic.id);
-  const exhaustedVoice = await exhaustNarratorVoiceCatalog(context.client, workspaceId);
+  const exhaustedVoice = await exhaustNarratorVoiceCatalog(
+    context.client,
+    backend,
+    workspaceId,
+    workflowTimeoutMs,
+  );
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
+  assertPersistedNarratorVoice(await listTopics(backend, workspaceId), exhaustedVoice);
   await enableGlobalMicrophone(context.client);
   cancelledMasterInput = await exerciseVerifiedMasterCancellation({
     artifactDirectory: firstLaunchDir,
@@ -320,7 +330,11 @@ try {
   const reloadedVoices = await listTopics(backend, workspaceId);
   assertPersistedNarratorVoice(reloadedVoices, alpha);
   assertPersistedNarratorVoice(reloadedVoices, beta);
-  assertPersistedNarratorVoice(reloadedVoices, exhaustedVoice);
+  assertInactiveNarratorVoiceCapacityReleased(
+    reloadedVoices,
+    exhaustedVoice,
+    masterVoice.resolvedVoiceId,
+  );
   const reloadedSideFailure = await waitForConversationSnapshot(
     backend,
     workspaceId,

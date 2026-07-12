@@ -41,13 +41,34 @@ export async function createTopic(
     (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
     timeoutMs,
   );
+  await waitForPersistedConversationPane(backend, workspaceId, item.conversation.id, timeoutMs);
+  const presentedPage = await listTopics(backend, workspaceId);
+  const presentedItem = presentedPage.items.find(
+    (candidate) => candidate.conversation.id === item.conversation.id,
+  );
+  if (!presentedItem) {
+    throw new Error(`presented topic ${title} was not listed: ${JSON.stringify(presentedPage)}`);
+  }
   return {
-    id: item.conversation.id,
-    narratorVoiceId: item.presentationProfile.resolvedNarratorVoiceId,
-    narratorVoiceSelection: item.presentationProfile.narratorVoiceSelection,
-    paletteId: item.presentationProfile.resolvedPaletteId,
+    id: presentedItem.conversation.id,
+    narratorVoiceId: presentedItem.presentationProfile.resolvedNarratorVoiceId,
+    narratorVoiceSelection: presentedItem.presentationProfile.narratorVoiceSelection,
+    paletteId: presentedItem.presentationProfile.resolvedPaletteId,
     title,
   };
+}
+
+export function waitForPersistedConversationPane(backend, workspaceId, conversationId, timeoutMs) {
+  return waitForBackendState(
+    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    (result) =>
+      result.layout?.panes.some(
+        (pane) =>
+          pane.surfaceKind === "easy-button" &&
+          pane.easyButtonConfig?.conversationId === conversationId,
+      ) === true,
+    timeoutMs,
+  );
 }
 
 function validNarratorVoiceReuse(reuse, allowCatalogExhaustion) {

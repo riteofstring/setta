@@ -2,17 +2,18 @@
 
 **Date:** 2026-07-11
 
-**Status:** In progress. The Phase 7 workspace role-configuration gap reopened
-by the repeated whole-plan final audit on 2026-07-15 is complete. Workspace
-overrides now have model-catalog-validated service, HTTP, generated IPC, and
-settings paths, durable scope-qualified audit, global-to-workspace-to-
-conversation precedence, reset/reload behavior, and deterministic Electron
-coverage. Phase 9 items 6-7 remain reopened: automatic presentation identity
-still treats every non-archived topic as active and visible, so dormant
-pane-free conversations can force avoidable palette reuse among simultaneously
-visible conversations and narrator-voice reuse among simultaneously active
-narrators. The next step is Phase 9 active/visible identity allocation and
-exhaustion/reload coverage.
+**Status:** Complete and ready for a repeated whole-plan final audit. The last
+reopened Phase 9 gap is closed: automatic palettes consume capacity only for
+conversations with open pane bindings, while automatic narrator voices consume
+capacity only for speech-enabled active narrators, including working pane-free
+topics and pending narration catch-up. Dormant topics no longer cause false
+catalog exhaustion. Exact overrides remain stable without consuming inactive
+capacity, automatic conflicts resolve deterministically while preserving
+non-conflicting assignments, and reuse metadata is added or cleared as activity
+changes. Focused Go coverage and all seven deterministic Electron workflows
+pass, including duplicate panes, dormant pressure, finite-catalog exhaustion,
+configuration, and reload/restart behavior. The complete ChatGPT-authenticated
+live Codex matrix also passes with `OPENAI_API_KEY` unset.
 
 **Scope:** Desktop runtime, Easy Button, Codex agent lifecycle, narration,
 global speech, conversation routing, pane binding, persistence, and removal of
@@ -2249,17 +2250,20 @@ Exit criteria:
 
 ### Phase 9: Hardening and acceptance
 
-**Status:** In progress. The reopened item 5 is closed, but items 6-7 are
-reopened. Palette and narrator-voice allocation currently count every
-non-archived conversation presentation profile. The plan instead defines
-palette uniqueness across concurrently visible conversations and voice
-uniqueness across active narrators; dormant pane-free topics must not consume
-those finite-capacity sets or produce a false `catalog_exhausted` reuse reason.
-The correction must preserve exact overrides and stable automatic assignments
-when they do not conflict, resolve automatic conflicts deterministically as
-pane visibility and narrator activity change, and cover catalog exhaustion,
-duplicate panes, reload, and dormant-topic pressure through focused and
-production Electron tests.
+**Status:** Complete. Items 6-7 now allocate palette capacity from durable open
+pane bindings and narrator-voice capacity from speech-enabled active narrator
+state. Narrators remain active while visible, working, waiting for approval,
+running, or catching up unobserved trajectory, so pane-free work retains a
+stable voice without allowing dormant idle topics to consume the finite
+catalog. Duplicate panes count as one conversation identity. Automatic reuse
+metadata is explicit at exhaustion and clears when capacity returns; exact
+inactive overrides do not displace active assignments, and exact activation
+preserves non-conflicting automatic identities before resolving real conflicts
+in deterministic creation/id order. Focused store/service tests cover dormant
+pressure, active pane-free work, exact activation, exhaustion relief,
+duplicates, and restart. Production Electron coverage exercises the same
+allocation through main/preload/renderer/HTTP/store paths and verifies durable
+profile and pane identity across reload.
 
 The production live suite proves two isolated topics running simultaneously,
 an AI-authored local steering decision accepted by the active Codex turn,
@@ -2514,6 +2518,17 @@ generated-contract inputs. The production web build now refreshes
 HTTP contract, workspace scene, and main-process workspace contract tests pass.
 This closes the generated-output omission without starting the next whole-plan
 audit.
+
+**Active/visible presentation-identity follow-up (2026-07-15):** Resolved. The
+presentation allocator now derives palette visibility from durable pane
+bindings and narrator activity from speech enablement plus pane, conversation,
+narrator-run, approval, and unobserved-trajectory state. Identity reconciliation
+is atomic with each lifecycle or layout transition, preserves exact and
+non-conflicting automatic choices, reports only real finite-catalog reuse, and
+releases inactive capacity. Focused Go tests, a fresh run of all seven
+deterministic Electron topic-conversation workflows, and the complete live
+Codex agent-protocol, side-isolation, and production topic-conversation matrix
+pass. The plan is ready for a repeated whole-plan final audit.
 
 ### Performance
 

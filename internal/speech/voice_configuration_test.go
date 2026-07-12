@@ -117,21 +117,21 @@ func TestNarratorVoiceDefaultIsExplicitValidatedAndCloneSafe(t *testing.T) {
 
 func TestNarratorVoiceAllocationIsDistinctStableAndExplicitOnExhaustion(t *testing.T) {
 	catalog := []SpeechVoiceID{SpeechVoiceAlloy, SpeechVoiceAsh, SpeechVoiceMarin}
-	first, err := allocateNarratorVoice(catalog, SpeechVoiceMarin, nil)
+	first, err := allocateNarratorVoice(catalog, SpeechVoiceMarin, nil, nil)
 	if err != nil || first.VoiceID != SpeechVoiceAlloy || first.Reuse != nil {
 		t.Fatalf("first allocation = %+v, err=%v", first, err)
 	}
 	second, err := allocateNarratorVoice(catalog, SpeechVoiceMarin, []NarratorVoiceAssignment{{
 		ConversationID: "conversation-a",
 		VoiceID:        first.VoiceID,
-	}})
+	}}, nil)
 	if err != nil || second.VoiceID != SpeechVoiceAsh || second.Reuse != nil {
 		t.Fatalf("second allocation = %+v, err=%v", second, err)
 	}
 	exhausted, err := allocateNarratorVoice(catalog, SpeechVoiceMarin, []NarratorVoiceAssignment{
 		{ConversationID: "conversation-b", VoiceID: second.VoiceID},
 		{ConversationID: "conversation-a", VoiceID: first.VoiceID},
-	})
+	}, nil)
 	if err != nil || exhausted.VoiceID != SpeechVoiceAlloy || exhausted.Reuse == nil {
 		t.Fatalf("exhausted allocation = %+v, err=%v", exhausted, err)
 	}

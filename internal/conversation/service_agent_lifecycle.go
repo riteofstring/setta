@@ -561,7 +561,7 @@ func (service *Service) commitTurnTerminal(
 	mutation turnTerminalMutation,
 	publications []preparedPublication,
 ) error {
-	_, err := service.store.Transact(ctx, "finish topic conversation turn", func(transaction *WriteTransaction) error {
+	_, err := service.store.transactPresentationAware(ctx, "finish topic conversation turn", func(transaction *WriteTransaction) error {
 		if err := transaction.UpdateConversation(
 			ConversationExpectation{
 				UpdatedAt:              mutation.snapshot.Conversation.UpdatedAt,

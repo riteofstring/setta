@@ -37,14 +37,27 @@ func (store *Store) ReplaceWorkspacePaneBindings(
 	); err != nil {
 		return err
 	}
-	return store.write(ctx, "replace workspace pane bindings", func(ctx context.Context, tx *sql.Tx) error {
-		return replaceWorkspacePaneBindingsTransaction(
-			ctx,
-			tx,
-			workspaceID,
-			bindings,
-			updatedAt,
-		)
+	return store.withPresentationConfigurationLock(func() error {
+		_, err := store.Transact(ctx, "replace workspace pane bindings", func(transaction *WriteTransaction) error {
+			if err := transaction.capturePresentationActivity(); err != nil {
+				return err
+			}
+			if err := replaceWorkspacePaneBindingsTransaction(
+				transaction.ctx,
+				transaction.tx,
+				workspaceID,
+				bindings,
+				updatedAt,
+			); err != nil {
+				return err
+			}
+			transaction.presentationActivityUpdatedAt = advanceTimestamp(
+				transaction.presentationActivityUpdatedAt,
+				updatedAt,
+			)
+			return transaction.recordProjectionMutation()
+		})
+		return err
 	})
 }
 

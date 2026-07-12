@@ -175,7 +175,9 @@ try {
       workspaceId,
     }),
     (state) =>
-      state.found && state.snapshot?.presentationProfile?.resolvedNarratorVoiceId === "ash",
+      state.found &&
+      state.snapshot?.presentationProfile?.resolvedNarratorVoiceId === "ash" &&
+      state.snapshot?.presentationProfile?.resolvedPaletteId === "violet",
     workflowTimeoutMs,
   );
   assertProfile(gamma.snapshot.presentationProfile, {

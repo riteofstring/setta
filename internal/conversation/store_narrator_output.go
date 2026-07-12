@@ -21,7 +21,7 @@ func (store *Store) CommitNarratorProjection(
 		return NarratorProjectionCommitResult{}, err
 	}
 	var committed NarratorProjectionCommitResult
-	_, err := store.Transact(ctx, "commit narrator projection", func(transaction *WriteTransaction) error {
+	_, err := store.transactPresentationAware(ctx, "commit narrator projection", func(transaction *WriteTransaction) error {
 		result, err := commitNarratorProjection(transaction, request)
 		if err != nil {
 			return err
@@ -49,7 +49,7 @@ func (store *Store) CommitNarratorStatus(
 		return NarratorStatusCommitResult{}, err
 	}
 	var committed NarratorStatusCommitResult
-	_, err := store.Transact(ctx, "commit narrator status reply", func(transaction *WriteTransaction) error {
+	_, err := store.transactPresentationAware(ctx, "commit narrator status reply", func(transaction *WriteTransaction) error {
 		result, err := commitNarratorStatus(transaction, request)
 		if err != nil {
 			return err

@@ -29,7 +29,7 @@ func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {
 	assertReloadedServiceState(t, ctx, store, service, appDataDir, workspaceID, conversationID)
 }
 
-func TestServiceAllocatesStableDistinctConversationPalettes(t *testing.T) {
+func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T) {
 	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
 	t.Cleanup(func() {
 		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -40,43 +40,29 @@ func TestServiceAllocatesStableDistinctConversationPalettes(t *testing.T) {
 	ctx := context.Background()
 
 	paletteIDs := conversationpalette.IDs()
-	created := make([]ConversationSnapshot, 0, len(paletteIDs))
-	for index, wantPaletteID := range paletteIDs {
-		snapshot := createPaletteTestTopic(
-			t,
-			ctx,
-			service,
-			workspaceID,
-			fmt.Sprintf("Palette %d", index+1),
-		)
-		if snapshot.PresentationProfile.ResolvedPaletteID != wantPaletteID ||
-			snapshot.PresentationProfile.PaletteReuse != nil {
-			t.Fatalf(
-				"topic %d presentation = %+v, want distinct palette %q without reuse",
-				index+1,
-				snapshot.PresentationProfile,
-				wantPaletteID,
-			)
-		}
-		created = append(created, snapshot)
-	}
+	created := createDormantPaletteTestTopics(t, ctx, service, workspaceID, len(paletteIDs))
 
 	exhausted := createPaletteTestTopic(t, ctx, service, workspaceID, "Palette exhausted")
-	reuse := exhausted.PresentationProfile.PaletteReuse
-	if exhausted.PresentationProfile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
-		reuse == nil ||
-		reuse.Reason != PresentationReuseCatalogExhausted ||
-		reuse.ResolvedChoiceID != string(conversationpalette.ConversationPaletteSky) ||
-		len(reuse.ConflictingConversationIDs) != 1 ||
-		reuse.ConflictingConversationIDs[0] != created[0].Conversation.ID {
-		t.Fatalf("exhausted palette presentation = %+v", exhausted.PresentationProfile)
-	}
+	created = append(created, exhausted)
+	assertDormantPaletteProfile(t, exhausted.PresentationProfile, "dormant exhausted topic")
+	bindings := paletteTestPaneBindings(created)
+	replacePaletteTestPaneBindings(t, store, workspaceID, bindings)
+	assertDistinctVisiblePaletteProfiles(t, ctx, service, workspaceID, created, paletteIDs)
+	exhausted = readPresentationTestSnapshot(
+		t,
+		ctx,
+		service,
+		workspaceID,
+		exhausted.Conversation.ID,
+	)
+	assertExhaustedPaletteProfile(t, exhausted.PresentationProfile, created[0].Conversation.ID)
 
 	alpha := created[0]
-	replacePaletteTestPaneBindings(t, store, workspaceID, []WorkspacePaneBinding{
-		{PaneID: "pane-alpha-primary", ConversationID: alpha.Conversation.ID, Focused: true},
-		{PaneID: "pane-alpha-duplicate", ConversationID: alpha.Conversation.ID},
+	bindings = append(bindings, WorkspacePaneBinding{
+		PaneID:         "pane-alpha-duplicate",
+		ConversationID: alpha.Conversation.ID,
 	})
+	replacePaletteTestPaneBindings(t, store, workspaceID, bindings)
 	alphaWithDuplicateViews, err := service.ReadSnapshot(ctx, workspaceID, alpha.Conversation.ID)
 	if err != nil {
 		t.Fatalf("read alpha with duplicate views: %v", err)
@@ -86,13 +72,123 @@ func TestServiceAllocatesStableDistinctConversationPalettes(t *testing.T) {
 		alphaWithDuplicateViews.PresentationProfile.RequestedPaletteID != nil ||
 		alphaWithDuplicateViews.PresentationProfile.ResolvedPaletteID !=
 			alpha.PresentationProfile.ResolvedPaletteID ||
-		alphaWithDuplicateViews.PresentationProfile.PaletteReuse != nil ||
-		alphaWithDuplicateViews.PresentationProfile.UpdatedAt != alpha.PresentationProfile.UpdatedAt {
+		alphaWithDuplicateViews.PresentationProfile.PaletteReuse != nil {
 		t.Fatalf(
 			"duplicate views changed presentation: got %+v want %+v",
 			alphaWithDuplicateViews.PresentationProfile,
 			alpha.PresentationProfile,
 		)
+	}
+
+	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-2)
+	for _, binding := range bindings {
+		if binding.ConversationID != alpha.Conversation.ID {
+			remainingBindings = append(remainingBindings, binding)
+		}
+	}
+	replacePaletteTestPaneBindings(t, store, workspaceID, remainingBindings)
+	relieved := readPresentationTestSnapshot(
+		t,
+		ctx,
+		service,
+		workspaceID,
+		exhausted.Conversation.ID,
+	)
+	if relieved.PresentationProfile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
+		relieved.PresentationProfile.PaletteReuse != nil {
+		t.Fatalf("palette reuse did not clear after visible pressure left: %+v", relieved.PresentationProfile)
+	}
+}
+
+func createDormantPaletteTestTopics(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+	count int,
+) []ConversationSnapshot {
+	t.Helper()
+	created := make([]ConversationSnapshot, 0, count)
+	for index := 0; index < count; index++ {
+		snapshot := createPaletteTestTopic(
+			t,
+			ctx,
+			service,
+			workspaceID,
+			fmt.Sprintf("Palette %d", index+1),
+		)
+		assertDormantPaletteProfile(t, snapshot.PresentationProfile, fmt.Sprintf("dormant topic %d", index+1))
+		created = append(created, snapshot)
+	}
+	return created
+}
+
+func assertDormantPaletteProfile(
+	t *testing.T,
+	profile ConversationPresentationProfile,
+	label string,
+) {
+	t.Helper()
+	if profile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
+		profile.PaletteReuse != nil {
+		t.Fatalf("%s presentation = %+v, want stable sky without reuse", label, profile)
+	}
+}
+
+func paletteTestPaneBindings(topics []ConversationSnapshot) []WorkspacePaneBinding {
+	bindings := make([]WorkspacePaneBinding, 0, len(topics)+1)
+	for index, snapshot := range topics {
+		bindings = append(bindings, WorkspacePaneBinding{
+			PaneID:         fmt.Sprintf("pane-palette-%02d", index+1),
+			ConversationID: snapshot.Conversation.ID,
+		})
+	}
+	return bindings
+}
+
+func assertDistinctVisiblePaletteProfiles(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+	topics []ConversationSnapshot,
+	paletteIDs []conversationpalette.ConversationPaletteID,
+) {
+	t.Helper()
+	for index, wantPaletteID := range paletteIDs {
+		visible := readPresentationTestSnapshot(
+			t,
+			ctx,
+			service,
+			workspaceID,
+			topics[index].Conversation.ID,
+		)
+		if visible.PresentationProfile.ResolvedPaletteID != wantPaletteID ||
+			visible.PresentationProfile.PaletteReuse != nil {
+			t.Fatalf(
+				"visible topic %d presentation = %+v, want distinct palette %q without reuse",
+				index+1,
+				visible.PresentationProfile,
+				wantPaletteID,
+			)
+		}
+	}
+}
+
+func assertExhaustedPaletteProfile(
+	t *testing.T,
+	profile ConversationPresentationProfile,
+	conflictingConversationID string,
+) {
+	t.Helper()
+	reuse := profile.PaletteReuse
+	if profile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
+		reuse == nil ||
+		reuse.Reason != PresentationReuseCatalogExhausted ||
+		reuse.ResolvedChoiceID != string(conversationpalette.ConversationPaletteSky) ||
+		len(reuse.ConflictingConversationIDs) != 1 ||
+		reuse.ConflictingConversationIDs[0] != conflictingConversationID {
+		t.Fatalf("exhausted palette presentation = %+v", profile)
 	}
 }
 

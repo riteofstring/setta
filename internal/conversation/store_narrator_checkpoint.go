@@ -67,7 +67,7 @@ func (store *Store) CommitNarratorCheckpoint(
 		return NarratorState{}, err
 	}
 	var committed NarratorState
-	_, err := store.Transact(ctx, "commit narrator checkpoint", func(transaction *WriteTransaction) error {
+	_, err := store.transactPresentationAware(ctx, "commit narrator checkpoint", func(transaction *WriteTransaction) error {
 		state, err := readNarratorStateForMutation(transaction, request.ConversationID)
 		if err != nil {
 			return err

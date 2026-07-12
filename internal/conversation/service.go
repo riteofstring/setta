@@ -465,54 +465,20 @@ func persistCreatedConversationPresentation(
 
 func (service *Service) initialPresentationProfile(
 	ctx context.Context,
-	workspaceID string,
+	_ string,
 	conversationID string,
 	updatedAt string,
 ) (conversationPresentationCreation, error) {
-	usage, err := service.workspacePaletteUsage(ctx, workspaceID)
-	if err != nil {
-		return conversationPresentationCreation{}, err
-	}
-	paletteID, reuse := leastUsedPalette(usage)
 	return service.initialNarratorPresentation(
 		ctx,
-		workspaceID,
 		conversationID,
-		paletteID,
-		reuse,
 		updatedAt,
 	)
 }
 
-func (service *Service) workspacePaletteUsage(
-	ctx context.Context,
-	workspaceID string,
-) (map[conversationpalette.ConversationPaletteID][]string, error) {
-	usage := map[conversationpalette.ConversationPaletteID][]string{}
-	var cursor *NavigatorCursor
-	for {
-		page, err := service.store.ListNavigatorPage(ctx, workspaceID, "", cursor, MaxNavigatorPageLimit)
-		if err != nil {
-			return nil, err
-		}
-		for _, item := range page.Items {
-			id := item.PresentationProfile.ResolvedPaletteID
-			usage[id] = append(usage[id], item.Conversation.ID)
-		}
-		if page.NextCursor == nil {
-			break
-		}
-		cursor = page.NextCursor
-	}
-	return usage, nil
-}
-
 func (service *Service) initialNarratorPresentation(
 	ctx context.Context,
-	workspaceID string,
 	conversationID string,
-	paletteID conversationpalette.ConversationPaletteID,
-	paletteReuse *PresentationReuse,
 	updatedAt string,
 ) (conversationPresentationCreation, error) {
 	master, err := service.store.ReadMasterVoiceSelection(ctx)
@@ -522,74 +488,32 @@ func (service *Service) initialNarratorPresentation(
 	if master.ResolvedVoiceID == nil {
 		return conversationPresentationCreation{}, errors.New("master voice selection has no resolved voice")
 	}
-	presentations, err := service.store.readActiveConversationPresentations(ctx)
-	if err != nil {
-		return conversationPresentationCreation{}, err
-	}
 	narratorDefault, err := service.store.ReadNarratorVoiceDefault(ctx)
 	if err != nil {
 		return conversationPresentationCreation{}, err
 	}
+	resolvedVoiceID := cloneVoiceID(narratorDefault.RequestedVoiceID)
+	if narratorDefault.Selection == speech.VoiceSelectionAutoDistinct {
+		allocation, allocationErr := speech.AllocateNarratorVoice(*master.ResolvedVoiceID, nil)
+		if allocationErr != nil {
+			return conversationPresentationCreation{}, allocationErr
+		}
+		resolvedVoiceID = voiceIDPointer(allocation.VoiceID)
+	}
 	profile := ConversationPresentationProfile{
 		ConversationID:           conversationID,
 		PaletteSelection:         PresentationSelectionAutoDistinct,
-		ResolvedPaletteID:        paletteID,
-		PaletteReuse:             paletteReuse,
+		ResolvedPaletteID:        conversationpalette.IDs()[0],
 		NarratorVoiceSelection:   narratorDefault.Selection,
 		RequestedNarratorVoiceID: cloneVoiceID(narratorDefault.RequestedVoiceID),
+		ResolvedNarratorVoiceID:  resolvedVoiceID,
 		NarratorSpeechEnabled:    true,
-		UpdatedAt:                "",
+		UpdatedAt:                updatedAt,
 	}
-	voiceUpdates, err := resolveNarratorVoiceUpdates(
-		presentations,
-		profile,
-		narratorDefault.Request(),
-		*master.ResolvedVoiceID,
-		updatedAt,
-	)
-	if err != nil {
+	if err := profile.Validate(); err != nil {
 		return conversationPresentationCreation{}, err
 	}
-	profile = profileAfterUpdates(profile, voiceUpdates)
-	presentationsWithNew := append(
-		append([]activeConversationPresentation(nil), presentations...),
-		activeConversationPresentation{
-			WorkspaceID: workspaceID,
-			CreatedAt:   updatedAt,
-			Profile:     profile,
-		},
-	)
-	voiceUpdates, masterUpdate, err := service.refreshAutomaticMasterAfterNarratorUpdates(
-		master,
-		presentationsWithNew,
-		voiceUpdates,
-	)
-	if err != nil {
-		return conversationPresentationCreation{}, err
-	}
-	profile = profileAfterUpdates(profile, voiceUpdates)
-	result := conversationPresentationCreation{
-		Profile:               profile,
-		RelatedProfileUpdates: presentationUpdatesExcept(voiceUpdates, conversationID),
-	}
-	if masterUpdate != nil {
-		result.MasterVoiceCurrent = &master
-		result.MasterVoiceUpdate = masterUpdate
-	}
-	return result, nil
-}
-
-func presentationUpdatesExcept(
-	updates []ConversationPresentationProfile,
-	conversationID string,
-) []ConversationPresentationProfile {
-	result := make([]ConversationPresentationProfile, 0, len(updates))
-	for _, update := range updates {
-		if update.ConversationID != conversationID {
-			result = append(result, update)
-		}
-	}
-	return result
+	return conversationPresentationCreation{Profile: profile}, nil
 }
 
 func leastUsedPalette(

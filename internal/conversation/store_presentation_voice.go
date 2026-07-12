@@ -10,9 +10,17 @@ import (
 )
 
 type activeConversationPresentation struct {
-	WorkspaceID string
-	CreatedAt   string
-	Profile     ConversationPresentationProfile
+	WorkspaceID              string
+	CreatedAt                string
+	ConversationStatus       ConversationStatus
+	Archived                 bool
+	OpenPaneCount            int
+	NarratorStatus           NarratorStatus
+	LatestTrajectorySequence int
+	ObservedThroughSequence  int
+	PaletteVisible           bool
+	NarratorActive           bool
+	Profile                  ConversationPresentationProfile
 }
 
 func (store *Store) withPresentationConfigurationLock(run func() error) error {
@@ -27,13 +35,48 @@ func (store *Store) withPresentationConfigurationLock(run func() error) error {
 	return run()
 }
 
-func (store *Store) readActiveConversationPresentations(
+func (store *Store) transactPresentationAware(
+	ctx context.Context,
+	operation string,
+	run func(*WriteTransaction) error,
+) ([]CommittedEvent, error) {
+	var events []CommittedEvent
+	err := store.withPresentationConfigurationLock(func() error {
+		var err error
+		events, err = store.Transact(ctx, operation, run)
+		return err
+	})
+	return events, err
+}
+
+func (store *Store) readConversationPresentations(
 	ctx context.Context,
 ) ([]activeConversationPresentation, error) {
 	var presentations []activeConversationPresentation
-	err := store.read(ctx, "read active conversation voice assignments", func(ctx context.Context, reader *sql.Conn) error {
-		rows, err := reader.QueryContext(ctx, `
+	err := store.read(ctx, "read conversation presentation assignments", func(ctx context.Context, reader *sql.Conn) error {
+		var err error
+		presentations, err = readConversationPresentations(ctx, reader, store.dbPath)
+		return err
+	})
+	return presentations, err
+}
+
+type presentationQueryer interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
+func readConversationPresentations(
+	ctx context.Context,
+	query presentationQueryer,
+	dbPath string,
+) ([]activeConversationPresentation, error) {
+	rows, err := query.QueryContext(ctx, `
 SELECT conversations.workspace_id, conversations.created_at,
+       conversations.status, conversations.archived_at,
+       (SELECT COUNT(*) FROM pane_bindings
+        WHERE pane_bindings.conversation_id = conversations.id),
+       narrator_state.status, conversations.last_trajectory_sequence,
+       narrator_state.observed_through_sequence,
        profiles.conversation_id, profiles.palette_selection,
        profiles.requested_palette_id, profiles.resolved_palette_id,
        profiles.palette_reuse_json, profiles.narrator_voice_selection,
@@ -42,35 +85,68 @@ SELECT conversations.workspace_id, conversations.created_at,
        profiles.updated_at
 FROM conversation_presentation_profiles AS profiles
 JOIN conversations ON conversations.id = profiles.conversation_id
-WHERE conversations.archived_at IS NULL
+JOIN narrator_state ON narrator_state.conversation_id = profiles.conversation_id
 ORDER BY conversations.created_at ASC, conversations.id ASC
 `)
-		if err != nil {
-			return err
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	presentations := make([]activeConversationPresentation, 0)
+	for rows.Next() {
+		var value activeConversationPresentation
+		var archivedAt sql.NullString
+		var state presentationProfileScanState
+		targets := []any{
+			&value.WorkspaceID,
+			&value.CreatedAt,
+			&value.ConversationStatus,
+			&archivedAt,
+			&value.OpenPaneCount,
+			&value.NarratorStatus,
+			&value.LatestTrajectorySequence,
+			&value.ObservedThroughSequence,
 		}
-		defer rows.Close()
-		for rows.Next() {
-			var value activeConversationPresentation
-			var state presentationProfileScanState
-			targets := []any{&value.WorkspaceID, &value.CreatedAt}
-			targets = append(targets, state.targets(&value.Profile)...)
-			if err := rows.Scan(targets...); err != nil {
-				return err
-			}
-			if err := state.finish(&value.Profile); err != nil {
-				return err
-			}
-			if err := value.Profile.Validate(); err != nil {
-				return &CorruptStateError{
-					Path: store.dbPath,
-					Err:  fmt.Errorf("active presentation profile %s: %w", value.Profile.ConversationID, err),
-				}
-			}
-			presentations = append(presentations, value)
+		targets = append(targets, state.targets(&value.Profile)...)
+		if err := rows.Scan(targets...); err != nil {
+			return nil, err
 		}
-		return rows.Err()
-	})
-	return presentations, err
+		if err := state.finish(&value.Profile); err != nil {
+			return nil, err
+		}
+		if err := value.Profile.Validate(); err != nil {
+			return nil, &CorruptStateError{
+				Path: dbPath,
+				Err:  fmt.Errorf("presentation profile %s: %w", value.Profile.ConversationID, err),
+			}
+		}
+		value.Archived = archivedAt.Valid
+		value.refreshActivity()
+		presentations = append(presentations, value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return presentations, nil
+}
+
+func (presentation *activeConversationPresentation) refreshActivity() {
+	presentation.PaletteVisible = presentation.OpenPaneCount > 0
+	presentation.NarratorActive = presentation.Profile.NarratorSpeechEnabled &&
+		!presentation.Archived &&
+		(presentation.PaletteVisible ||
+			presentation.ConversationStatus == ConversationStatusWorking ||
+			presentation.ConversationStatus == ConversationStatusWaitingForApproval ||
+			presentation.NarratorStatus == NarratorStatusRunning ||
+			presentation.ObservedThroughSequence < presentation.LatestTrajectorySequence)
+}
+
+func (presentation activeConversationPresentation) withProfile(
+	profile ConversationPresentationProfile,
+) activeConversationPresentation {
+	presentation.Profile = profile
+	presentation.refreshActivity()
+	return presentation
 }
 
 func narratorVoiceAssignments(
@@ -80,7 +156,7 @@ func narratorVoiceAssignments(
 	assignments := make([]speech.NarratorVoiceAssignment, 0, len(presentations))
 	for _, presentation := range presentations {
 		profile := presentation.Profile
-		if excluded[profile.ConversationID] {
+		if !presentation.NarratorActive || excluded[profile.ConversationID] {
 			continue
 		}
 		if profile.ResolvedNarratorVoiceID == nil {

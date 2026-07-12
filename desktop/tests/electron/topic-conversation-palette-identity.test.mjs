@@ -27,6 +27,7 @@ import {
   assertNavigator,
   conversationSurfaces,
   createTopic,
+  waitForPersistedConversationPane,
   waitForNavigator,
 } from "./topic-conversation-fork-workflow.mjs";
 import { assertDuplicateConversationPalette } from "./topic-conversation-projection-assertions.mjs";
@@ -65,6 +66,7 @@ try {
   await prepareRenderer(context.client);
   const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
+  const dormantTopics = await createDormantPresentationTopics(context.client, workspaceId, 9);
   const alpha = await createTopic(
     context.client,
     backend,
@@ -110,18 +112,66 @@ try {
     false,
   );
   await assertReducedMotionNavigatorPresentation(context.client, alpha);
-  await waitForPersistedTopicPanes(backend, workspaceId, alpha.id, beta.id);
+  const exhaustedPalette = await exhaustVisiblePaletteCatalog(
+    context.client,
+    backend,
+    workspaceId,
+    dormantTopics.slice(0, 6),
+  );
+  await waitForTopicPaletteSurface(context.client, exhaustedPalette.id, exhaustedPalette.paletteId);
+  const activeTopicIds = [alpha.id, beta.id, ...dormantTopics.slice(0, 6).map((topic) => topic.id)];
+  const persistedPanes = await waitForPersistedTopicPanes(
+    backend,
+    workspaceId,
+    alpha.id,
+    beta.id,
+    dormantTopics.slice(0, 6).map((topic) => topic.id),
+  );
+  const beforeReload = await waitForPersistedPaletteIdentity(backend, workspaceId, activeTopicIds);
+  const beforeReloadPanes = palettePaneIdentity(persistedPanes.layout?.panes ?? []);
   await captureScreenshot(context.client, join(artifactDir, "duplicate-palette-identity.png"));
 
-  const beforeReload = paletteSurfaceIdentity(duplicated.surfaces);
   await reloadPage(context.client);
   await prepareRenderer(context.client);
-  const reloaded = await waitForPaletteSurfaces(context.client, alpha.id, beta.id, 2);
-  assertDuplicateConversationPalette(reloaded.surfaces, alpha.id);
-  assertDistinctConversationPalettes(reloaded.surfaces, alpha.id, beta.id);
-  assertExactTopicIdentity(reloaded.surfaces, alpha, beta, 2);
-  assertPalettePanePresentation(reloaded.surfaces, alpha, beta);
-  assertStableReloadIdentity(beforeReload, paletteSurfaceIdentity(reloaded.surfaces));
+  const reloaded = await waitForPersistedPaletteIdentity(
+    backend,
+    workspaceId,
+    activeTopicIds,
+    beforeReload,
+  );
+  const reloadedPanes = await waitForPersistedTopicPanes(
+    backend,
+    workspaceId,
+    alpha.id,
+    beta.id,
+    dormantTopics.slice(0, 6).map((topic) => topic.id),
+  );
+  assertStableReloadIdentity(beforeReload, reloaded);
+  assertStableReloadIdentity(
+    beforeReloadPanes,
+    palettePaneIdentity(reloadedPanes.layout?.panes ?? []),
+  );
+  await assertPersistedPaletteExhaustion(backend, workspaceId, exhaustedPalette);
+  assertDriverAction(
+    await context.client.driver("topicConversationPresentFromNavigator", {
+      conversationId: exhaustedPalette.id,
+    }),
+    "clicked",
+  );
+  await waitForTopicPaletteSurface(context.client, exhaustedPalette.id, exhaustedPalette.paletteId);
+  assertDriverAction(
+    await context.client.driver("topicConversationPresentFromNavigator", {
+      conversationId: alpha.id,
+    }),
+    "clicked",
+  );
+  const reloadedAlphaSurfaces = await waitForTopicPaletteSurfaces(
+    context.client,
+    alpha.id,
+    alpha.paletteId,
+    2,
+  );
+  assertDuplicateConversationPalette(reloadedAlphaSurfaces.surfaces, alpha.id);
   const reloadedAlphaNavigator = await waitForNavigator(
     context.client,
     alpha.id,
@@ -136,7 +186,7 @@ try {
   );
   assertNavigator(reloadedAlphaNavigator, alpha, 2);
   assertNavigator(reloadedBetaNavigator, beta, 1);
-  assertPaletteNavigatorPresentation(reloadedAlphaNavigator, alpha, false);
+  assertPaletteNavigatorPresentation(reloadedAlphaNavigator, alpha, true);
   assertPaletteNavigatorPresentation(reloadedBetaNavigator, beta, false);
   await captureScreenshot(context.client, join(artifactDir, "reloaded-palette-identity.png"));
   await writeJson(join(artifactDir, "summary.json"), {
@@ -144,7 +194,9 @@ try {
     artifactDir,
     beforeReload,
     beta,
-    reloaded: paletteSurfaceIdentity(reloaded.surfaces),
+    dormantTopics,
+    exhaustedPalette,
+    reloaded,
     status: "passed",
   });
   console.log(`Electron conversation palette identity workflow passed: ${artifactDir}`);
@@ -190,7 +242,72 @@ function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
-function waitForPaletteSurfaces(client, alphaId, betaId, alphaPaneCount) {
+async function createDormantPresentationTopics(client, workspaceId, count) {
+  const topics = [];
+  for (let index = 0; index < count; index += 1) {
+    const snapshot = await client.evaluate(
+      `window.setta.conversations.create(${JSON.stringify({
+        title: `Dormant palette pressure ${String(index + 1).padStart(2, "0")}`,
+        workspaceId,
+      })})`,
+    );
+    if (
+      snapshot.presentationProfile.resolvedPaletteId !== "sky" ||
+      snapshot.presentationProfile.paletteReuse !== null ||
+      snapshot.presentationProfile.narratorVoiceReuse !== null
+    ) {
+      throw new Error(`dormant topic consumed presentation capacity: ${JSON.stringify(snapshot)}`);
+    }
+    topics.push({
+      id: snapshot.conversation.id,
+      title: snapshot.conversation.title,
+    });
+  }
+  return topics;
+}
+
+async function exhaustVisiblePaletteCatalog(client, backend, workspaceId, topics) {
+  let exhausted = null;
+  for (const topic of topics) {
+    assertDriverAction(
+      await client.driver("topicConversationOpenBoundPane", { conversationId: topic.id }),
+      "requested",
+    );
+    await waitForPersistedConversationPane(backend, workspaceId, topic.id, workflowTimeoutMs);
+    const page = await waitForBackendState(
+      () =>
+        backend.post("/conversations/navigator/list", {
+          cursor: null,
+          limit: 80,
+          query: "",
+          workspaceId,
+        }),
+      (current) => current.items.some((item) => item.conversation.id === topic.id),
+      workflowTimeoutMs,
+    );
+    exhausted = page.items.find((item) => item.conversation.id === topic.id);
+  }
+  if (
+    !exhausted ||
+    exhausted.presentationProfile.paletteReuse?.reason !== "catalog_exhausted" ||
+    exhausted.presentationProfile.paletteReuse.conflictingConversationIds.length === 0
+  ) {
+    throw new Error(`visible palette exhaustion was not explicit: ${JSON.stringify(exhausted)}`);
+  }
+  return {
+    id: exhausted.conversation.id,
+    paletteId: exhausted.presentationProfile.resolvedPaletteId,
+    paletteReuse: exhausted.presentationProfile.paletteReuse,
+  };
+}
+
+function waitForPaletteSurfaces(
+  client,
+  alphaId,
+  betaId,
+  alphaPaneCount,
+  expectedSurfaceCount = alphaPaneCount + 1,
+) {
   return waitForState(
     client,
     driverCallExpression("topicConversationSurfaceStates", {}),
@@ -198,15 +315,39 @@ function waitForPaletteSurfaces(client, alphaId, betaId, alphaPaneCount) {
       const alpha = conversationSurfaces(state.surfaces, alphaId);
       const beta = conversationSurfaces(state.surfaces, betaId);
       return (
+        state.surfaces.length === expectedSurfaceCount &&
         alpha.length === alphaPaneCount &&
         beta.length === 1 &&
-        [...alpha, ...beta].every(
+        state.surfaces.every(
           (surface) =>
             surface.projectionStatus === "ready" &&
             surface.hostAccentDark !== "" &&
             surface.hostConversationId === surface.conversationId &&
             surface.hostPaletteId === surface.paletteId,
         )
+      );
+    },
+    workflowTimeoutMs,
+  );
+}
+
+async function assertPersistedPaletteExhaustion(backend, workspaceId, exhaustedPalette) {
+  return waitForBackendState(
+    () =>
+      backend.post("/conversations/navigator/list", {
+        cursor: null,
+        limit: 80,
+        query: "",
+        workspaceId,
+      }),
+    (page) => {
+      const item = page.items.find(
+        (candidate) => candidate.conversation.id === exhaustedPalette.id,
+      );
+      return (
+        item?.presentationProfile.resolvedPaletteId === exhaustedPalette.paletteId &&
+        JSON.stringify(item.presentationProfile.paletteReuse) ===
+          JSON.stringify(exhaustedPalette.paletteReuse)
       );
     },
     workflowTimeoutMs,
@@ -304,7 +445,13 @@ function assertPaletteNavigatorPresentation(state, topic, expectCurrent) {
   }
 }
 
-async function waitForPersistedTopicPanes(backend, workspaceId, alphaId, betaId) {
+async function waitForPersistedTopicPanes(
+  backend,
+  workspaceId,
+  alphaId,
+  betaId,
+  singlePaneConversationIds = [],
+) {
   return waitForBackendState(
     () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
     (result) => {
@@ -313,23 +460,91 @@ async function waitForPersistedTopicPanes(backend, workspaceId, alphaId, betaId)
       return (
         topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === alphaId).length ===
           2 &&
-        topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === betaId).length === 1
+        topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === betaId).length ===
+          1 &&
+        singlePaneConversationIds.every(
+          (conversationId) =>
+            topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId)
+              .length === 1,
+        )
       );
     },
     workflowTimeoutMs,
   );
 }
 
-function paletteSurfaceIdentity(surfaces) {
-  return surfaces
-    .map((surface) => ({
-      accent: surface.hostAccentDark,
-      conversationId: surface.conversationId,
-      hostConversationId: surface.hostConversationId,
-      hostPaletteId: surface.hostPaletteId,
-      paletteId: surface.paletteId,
-      paneId: surface.paneId,
-      title: surface.title,
+function waitForTopicPaletteSurface(client, conversationId, paletteId) {
+  return waitForTopicPaletteSurfaces(client, conversationId, paletteId, 1);
+}
+
+function waitForTopicPaletteSurfaces(client, conversationId, paletteId, expectedCount) {
+  return waitForState(
+    client,
+    driverCallExpression("topicConversationSurfaceStates", {}),
+    (state) => {
+      const surfaces = conversationSurfaces(state.surfaces, conversationId);
+      return (
+        surfaces.length === expectedCount &&
+        surfaces.every(
+          (surface) =>
+            surface.projectionStatus === "ready" &&
+            surface.paletteId === paletteId &&
+            surface.hostPaletteId === paletteId &&
+            surface.hostConversationId === conversationId &&
+            surface.hostAccentDark !== "",
+        )
+      );
+    },
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForPersistedPaletteIdentity(
+  backend,
+  workspaceId,
+  conversationIds,
+  expected = null,
+) {
+  const result = await waitForBackendState(
+    () =>
+      backend.post("/conversations/navigator/list", {
+        cursor: null,
+        limit: 80,
+        query: "",
+        workspaceId,
+      }),
+    (page) => {
+      const identity = paletteProfileIdentity(page.items, conversationIds);
+      return (
+        identity.length === conversationIds.length &&
+        (expected === null || JSON.stringify(identity) === JSON.stringify(expected))
+      );
+    },
+    workflowTimeoutMs,
+  );
+  return paletteProfileIdentity(result.items, conversationIds);
+}
+
+function paletteProfileIdentity(items, conversationIds) {
+  const includedIds = new Set(conversationIds);
+  return items
+    .filter((item) => includedIds.has(item.conversation.id))
+    .map((item) => ({
+      conversationId: item.conversation.id,
+      paletteReuse: item.presentationProfile.paletteReuse,
+      requestedPaletteId: item.presentationProfile.requestedPaletteId,
+      resolvedPaletteId: item.presentationProfile.resolvedPaletteId,
+      selection: item.presentationProfile.paletteSelection,
+    }))
+    .sort((left, right) => left.conversationId.localeCompare(right.conversationId));
+}
+
+function palettePaneIdentity(panes) {
+  return panes
+    .filter((pane) => pane.surfaceKind === "easy-button")
+    .map((pane) => ({
+      conversationId: pane.easyButtonConfig?.conversationId ?? "",
+      paneId: pane.paneId,
     }))
     .sort((left, right) => left.paneId.localeCompare(right.paneId));
 }

@@ -104,16 +104,30 @@ func AllocateNarratorVoice(
 	masterVoiceID SpeechVoiceID,
 	assignments []NarratorVoiceAssignment,
 ) (NarratorVoiceAllocation, error) {
+	return AllocateNarratorVoicePreferring(masterVoiceID, assignments, nil)
+}
+
+func AllocateNarratorVoicePreferring(
+	masterVoiceID SpeechVoiceID,
+	assignments []NarratorVoiceAssignment,
+	preferredVoiceID *SpeechVoiceID,
+) (NarratorVoiceAllocation, error) {
 	if !LookupVoice(masterVoiceID) {
 		return NarratorVoiceAllocation{}, unavailableVoiceError(masterVoiceID)
 	}
-	return allocateNarratorVoice(SynthesisVoiceCatalog().VoiceIDs, masterVoiceID, assignments)
+	return allocateNarratorVoice(
+		SynthesisVoiceCatalog().VoiceIDs,
+		masterVoiceID,
+		assignments,
+		preferredVoiceID,
+	)
 }
 
 func allocateNarratorVoice(
 	catalog []SpeechVoiceID,
 	masterVoiceID SpeechVoiceID,
 	assignments []NarratorVoiceAssignment,
+	preferredVoiceID *SpeechVoiceID,
 ) (NarratorVoiceAllocation, error) {
 	if len(catalog) == 0 {
 		return NarratorVoiceAllocation{}, errors.New("speech voice catalog is empty")
@@ -128,6 +142,16 @@ func allocateNarratorVoice(
 		return NarratorVoiceAllocation{}, errors.New("speech voice catalog has no narrator voice distinct from the master")
 	}
 	selected := leastUsedVoice(choices, assignments)
+	if preferredVoiceID != nil &&
+		*preferredVoiceID != masterVoiceID &&
+		voiceUsage(*preferredVoiceID, assignments) == voiceUsage(selected, assignments) {
+		for _, choice := range choices {
+			if choice == *preferredVoiceID {
+				selected = choice
+				break
+			}
+		}
+	}
 	allocation := NarratorVoiceAllocation{VoiceID: selected}
 	allocation.Reuse = VoiceReuseForAssignments(selected, assignments)
 	return allocation, nil

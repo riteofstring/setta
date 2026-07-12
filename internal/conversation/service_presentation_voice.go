@@ -51,7 +51,7 @@ func (service *Service) updatePresentationProfileLocked(
 	if presentationSettingsMatchProfile(current, settings) {
 		return current, nil
 	}
-	presentations, err := service.store.readActiveConversationPresentations(ctx)
+	presentations, err := service.store.readConversationPresentations(ctx)
 	if err != nil {
 		return ConversationPresentationProfile{}, err
 	}
@@ -88,8 +88,13 @@ func (service *Service) resolvePresentationSettings(
 	*speech.MasterVoiceSelection,
 	error,
 ) {
+	previousActivity := presentationActivityStates(presentations)
+	master, err := service.store.ReadMasterVoiceSelection(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	updates := narratorSpeechProfileUpdates(current, settings.NarratorSpeechEnabled, updatedAt)
-	updates, err := resolveRequestedPaletteSetting(
+	updates, err = resolveRequestedPaletteSetting(
 		presentations,
 		current,
 		workspaceID,
@@ -100,7 +105,7 @@ func (service *Service) resolvePresentationSettings(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	updates, master, err := service.resolveRequestedNarratorSetting(
+	updates, _, err = service.resolveRequestedNarratorSetting(
 		ctx,
 		presentations,
 		current,
@@ -108,15 +113,35 @@ func (service *Service) resolvePresentationSettings(
 		updatedAt,
 		updates,
 	)
-	if err != nil || master == nil {
-		return updates, master, nil, err
+	if err != nil {
+		return updates, &master, nil, err
 	}
 	updates, masterUpdate, err := service.refreshAutomaticMasterAfterNarratorUpdates(
-		*master,
+		master,
 		presentations,
 		updates,
 	)
-	return updates, master, masterUpdate, err
+	if err != nil {
+		return nil, &master, nil, err
+	}
+	resolvedMaster := master
+	if masterUpdate != nil {
+		resolvedMaster = *masterUpdate
+	}
+	activityUpdates, activityMasterUpdate, err := reconcileAutomaticPresentationIdentities(
+		applyPresentationProfileUpdates(presentations, updates),
+		previousActivity,
+		resolvedMaster,
+		updatedAt,
+	)
+	if err != nil {
+		return nil, &master, nil, err
+	}
+	updates = mergePresentationProfileUpdates(updates, activityUpdates)
+	if activityMasterUpdate != nil {
+		masterUpdate = activityMasterUpdate
+	}
+	return updates, &master, masterUpdate, nil
 }
 
 func narratorSpeechProfileUpdates(
@@ -276,7 +301,7 @@ func applyPresentationProfileUpdates(
 	result := make([]activeConversationPresentation, 0, len(presentations))
 	for _, presentation := range presentations {
 		if update, ok := updatedByConversationID[presentation.Profile.ConversationID]; ok {
-			presentation.Profile = update
+			presentation = presentation.withProfile(update)
 		}
 		result = append(result, presentation)
 	}
@@ -405,29 +430,32 @@ func resolveNarratorVoiceUpdates(
 	masterVoiceID speech.SpeechVoiceID,
 	updatedAt string,
 ) ([]ConversationPresentationProfile, error) {
-	excluded := map[string]bool{current.ConversationID: true}
-	affected := make([]ConversationPresentationProfile, 0)
-	if request.Selection == speech.VoiceSelectionExact {
-		for _, presentation := range presentations {
-			profile := presentation.Profile
-			if profile.ConversationID == current.ConversationID ||
-				profile.NarratorVoiceSelection != speech.VoiceSelectionAutoDistinct ||
-				profile.ResolvedNarratorVoiceID == nil ||
-				*profile.ResolvedNarratorVoiceID != *request.RequestedVoiceID {
-				continue
-			}
-			excluded[profile.ConversationID] = true
-			affected = append(affected, profile)
-		}
+	currentPresentation, err := requireConversationPresentation(presentations, current.ConversationID)
+	if err != nil {
+		return nil, err
 	}
+	excluded, affected := automaticNarratorVoiceConflicts(
+		presentations,
+		current.ConversationID,
+		request,
+		currentPresentation.NarratorActive,
+	)
 	assignments := narratorVoiceAssignments(presentations, excluded)
 	updates := make([]ConversationPresentationProfile, 0, 1+len(affected))
-	selected, err := resolveRequestedNarratorVoice(current, request, masterVoiceID, assignments, updatedAt)
+	selected, err := resolveRequestedNarratorVoice(
+		current,
+		request,
+		masterVoiceID,
+		assignments,
+		updatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
 	updates = append(updates, selected)
-	assignments = append(assignments, narratorVoiceAssignment(selected))
+	if currentPresentation.NarratorActive {
+		assignments = append(assignments, narratorVoiceAssignment(selected))
+	}
 	for _, profile := range affected {
 		allocation, err := speech.AllocateNarratorVoice(masterVoiceID, assignments)
 		if err != nil {
@@ -441,6 +469,43 @@ func resolveNarratorVoiceUpdates(
 		assignments = append(assignments, narratorVoiceAssignment(profile))
 	}
 	return updates, nil
+}
+
+func automaticNarratorVoiceConflicts(
+	presentations []activeConversationPresentation,
+	currentConversationID string,
+	request speech.VoiceSelectionRequest,
+	currentActive bool,
+) (map[string]bool, []ConversationPresentationProfile) {
+	excluded := map[string]bool{currentConversationID: true}
+	affected := make([]ConversationPresentationProfile, 0)
+	if request.Selection != speech.VoiceSelectionExact || !currentActive {
+		return excluded, affected
+	}
+	for _, presentation := range presentations {
+		if narratorVoiceConflictsWithExact(
+			presentation,
+			currentConversationID,
+			*request.RequestedVoiceID,
+		) {
+			excluded[presentation.Profile.ConversationID] = true
+			affected = append(affected, presentation.Profile)
+		}
+	}
+	return excluded, affected
+}
+
+func narratorVoiceConflictsWithExact(
+	presentation activeConversationPresentation,
+	currentConversationID string,
+	requestedVoiceID speech.SpeechVoiceID,
+) bool {
+	profile := presentation.Profile
+	return presentation.NarratorActive &&
+		profile.ConversationID != currentConversationID &&
+		profile.NarratorVoiceSelection == speech.VoiceSelectionAutoDistinct &&
+		profile.ResolvedNarratorVoiceID != nil &&
+		*profile.ResolvedNarratorVoiceID == requestedVoiceID
 }
 
 func resolveRequestedNarratorVoice(
@@ -511,28 +576,26 @@ func resolvePaletteUpdates(
 	request PresentationSelectionRequest,
 	updatedAt string,
 ) ([]ConversationPresentationProfile, error) {
-	excluded := map[string]bool{current.ConversationID: true}
-	affected := make([]ConversationPresentationProfile, 0)
-	if request.Selection == PresentationSelectionExact {
-		for _, presentation := range presentations {
-			profile := presentation.Profile
-			if presentation.WorkspaceID != workspaceID ||
-				profile.ConversationID == current.ConversationID ||
-				profile.PaletteSelection != PresentationSelectionAutoDistinct ||
-				profile.ResolvedPaletteID != *request.RequestedPaletteID {
-				continue
-			}
-			excluded[profile.ConversationID] = true
-			affected = append(affected, profile)
-		}
+	currentPresentation, err := requireConversationPresentation(presentations, current.ConversationID)
+	if err != nil {
+		return nil, err
 	}
+	excluded, affected := automaticPaletteConflicts(
+		presentations,
+		workspaceID,
+		current.ConversationID,
+		request,
+		currentPresentation.PaletteVisible,
+	)
 	usage := paletteUsage(presentations, workspaceID, excluded)
 	selected, err := resolveRequestedPalette(current, request, usage, updatedAt)
 	if err != nil {
 		return nil, err
 	}
 	updates := []ConversationPresentationProfile{selected}
-	addPaletteUsage(usage, selected)
+	if currentPresentation.PaletteVisible {
+		addPaletteUsage(usage, selected)
+	}
 	for _, profile := range affected {
 		resolvedPaletteID, reuse := leastUsedPalette(usage)
 		profile.RequestedPaletteID = nil
@@ -546,6 +609,61 @@ func resolvePaletteUpdates(
 		addPaletteUsage(usage, profile)
 	}
 	return updates, nil
+}
+
+func requireConversationPresentation(
+	presentations []activeConversationPresentation,
+	conversationID string,
+) (activeConversationPresentation, error) {
+	for _, presentation := range presentations {
+		if presentation.Profile.ConversationID == conversationID {
+			return presentation, nil
+		}
+	}
+	return activeConversationPresentation{}, fmt.Errorf(
+		"presentation profile %s is not available",
+		conversationID,
+	)
+}
+
+func automaticPaletteConflicts(
+	presentations []activeConversationPresentation,
+	workspaceID string,
+	currentConversationID string,
+	request PresentationSelectionRequest,
+	currentVisible bool,
+) (map[string]bool, []ConversationPresentationProfile) {
+	excluded := map[string]bool{currentConversationID: true}
+	affected := make([]ConversationPresentationProfile, 0)
+	if request.Selection != PresentationSelectionExact || !currentVisible {
+		return excluded, affected
+	}
+	for _, presentation := range presentations {
+		if paletteConflictsWithExact(
+			presentation,
+			workspaceID,
+			currentConversationID,
+			*request.RequestedPaletteID,
+		) {
+			excluded[presentation.Profile.ConversationID] = true
+			affected = append(affected, presentation.Profile)
+		}
+	}
+	return excluded, affected
+}
+
+func paletteConflictsWithExact(
+	presentation activeConversationPresentation,
+	workspaceID string,
+	currentConversationID string,
+	requestedPaletteID conversationpalette.ConversationPaletteID,
+) bool {
+	profile := presentation.Profile
+	return presentation.PaletteVisible &&
+		presentation.WorkspaceID == workspaceID &&
+		profile.ConversationID != currentConversationID &&
+		profile.PaletteSelection == PresentationSelectionAutoDistinct &&
+		profile.ResolvedPaletteID == requestedPaletteID
 }
 
 func resolveRequestedPalette(
@@ -583,7 +701,9 @@ func paletteUsage(
 	usage := map[conversationpalette.ConversationPaletteID][]string{}
 	for _, presentation := range presentations {
 		profile := presentation.Profile
-		if presentation.WorkspaceID != workspaceID || excluded[profile.ConversationID] {
+		if !presentation.PaletteVisible ||
+			presentation.WorkspaceID != workspaceID ||
+			excluded[profile.ConversationID] {
 			continue
 		}
 		addPaletteUsage(usage, profile)

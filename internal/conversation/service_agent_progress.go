@@ -165,7 +165,7 @@ func (service *Service) commitAgentProgress(
 	mutation agentProgressMutation,
 	publications []preparedPublication,
 ) error {
-	_, err := service.store.Transact(ctx, "persist topic agent progress", func(transaction *WriteTransaction) error {
+	_, err := service.store.transactPresentationAware(ctx, "persist topic agent progress", func(transaction *WriteTransaction) error {
 		if err := applyAgentProgressAggregates(transaction, mutation); err != nil {
 			return err
 		}

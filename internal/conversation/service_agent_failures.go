@@ -193,7 +193,7 @@ func (service *Service) commitUnexpectedTurnEnd(
 	mutation unexpectedTurnEndMutation,
 	publications []preparedPublication,
 ) error {
-	_, err := service.store.Transact(ctx, "fail topic conversation turn", func(transaction *WriteTransaction) error {
+	_, err := service.store.transactPresentationAware(ctx, "fail topic conversation turn", func(transaction *WriteTransaction) error {
 		if err := transaction.UpdateConversation(
 			ConversationExpectation{
 				UpdatedAt:              mutation.snapshot.Conversation.UpdatedAt,

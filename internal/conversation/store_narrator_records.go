@@ -67,6 +67,13 @@ func (transaction *WriteTransaction) UpdateNarratorState(
 	if err := validateNarratorStateExpectation(expected, state); err != nil {
 		return err
 	}
+	if err := transaction.capturePresentationActivity(); err != nil {
+		return err
+	}
+	transaction.presentationActivityUpdatedAt = advanceTimestamp(
+		transaction.presentationActivityUpdatedAt,
+		state.UpdatedAt,
+	)
 	if err := transaction.requireConversationCoversSequence(
 		state.ConversationID,
 		state.ObservedThroughSequence,

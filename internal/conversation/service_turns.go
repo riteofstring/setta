@@ -326,7 +326,7 @@ func (service *Service) commitAcceptedTurn(
 	mutation acceptedTurnMutation,
 	publications []preparedPublication,
 ) error {
-	_, err := service.store.Transact(ctx, "accept topic conversation turn", func(transaction *WriteTransaction) error {
+	_, err := service.store.transactPresentationAware(ctx, "accept topic conversation turn", func(transaction *WriteTransaction) error {
 		if err := transaction.UpdateConversation(
 			ConversationExpectation{
 				UpdatedAt:              mutation.snapshot.Conversation.UpdatedAt,

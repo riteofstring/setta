@@ -152,7 +152,7 @@ func (store *Store) updateMasterVoiceSelectionLocked(
 	if masterVoiceSelectionMatchesRequest(current, request) {
 		return current, nil
 	}
-	presentations, err := store.readActiveConversationPresentations(ctx)
+	presentations, err := store.readConversationPresentations(ctx)
 	if err != nil {
 		return speech.MasterVoiceSelection{}, err
 	}
@@ -285,7 +285,8 @@ func narratorUpdatesForMasterVoice(
 	affected := make([]ConversationPresentationProfile, 0)
 	for _, presentation := range presentations {
 		profile := presentation.Profile
-		if profile.NarratorVoiceSelection != speech.VoiceSelectionAutoDistinct ||
+		if !presentation.NarratorActive ||
+			profile.NarratorVoiceSelection != speech.VoiceSelectionAutoDistinct ||
 			profile.ResolvedNarratorVoiceID == nil ||
 			*profile.ResolvedNarratorVoiceID != masterVoiceID {
 			continue
@@ -324,7 +325,7 @@ func masterVoiceReuseAfterNarratorUpdates(
 	final := make([]activeConversationPresentation, 0, len(presentations))
 	for _, presentation := range presentations {
 		if update, ok := updatedByConversationID[presentation.Profile.ConversationID]; ok {
-			presentation.Profile = update
+			presentation = presentation.withProfile(update)
 		}
 		final = append(final, presentation)
 	}
