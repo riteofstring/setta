@@ -1,4 +1,4 @@
-# BYOK Desktop Speech Credentials SafeStorage Confirmation
+# BYOK Desktop Speech Credentials SafeStorage Probe
 
 Date: 2026-07-18
 
@@ -6,9 +6,10 @@ Plan: `docs/plans/byok-desktop-speech-credentials-20260717.md`
 
 ## Scope
 
-This records the Phase 0 safeStorage platform contract before implementing the
-BYOK vault. It confirms the pinned Electron API surface and adds a repeatable
-probe that Phase 2 can reuse when validating the production adapter.
+This records the Phase 0 safeStorage contract evidence available in this
+iteration before implementing the BYOK vault. It confirms the pinned Electron
+API surface, records a local macOS probe, and adds a repeatable probe that
+Phase 2 can reuse when validating the production adapter.
 
 Setta's current desktop scripts run Electron directly from the pinned desktop
 dependency. The supported Electron runtime platforms for this check are
@@ -62,13 +63,13 @@ macOS therefore satisfies the future vault requirements on this machine:
 construct after `ready`, require encryption availability, encrypt before file
 I/O, and treat operation failures as explicit secure-storage failures.
 
-## Platform Contract
+## Required Platform Contract
 
-| Platform | Confirmation | BYOK vault policy |
-| --- | --- | --- |
-| macOS `darwin` | Local Electron 41.7.0 probe after `ready` reports encryption available, successful round-trip, and ciphertext that does not contain the marker plaintext. | Accept when `isEncryptionAvailable()` is true; otherwise surface `secure_storage_unavailable`. |
-| Windows `win32` | Pinned Electron API has no Windows backend selector; `isEncryptionAvailable()` is the platform readiness gate. | Construct after `ready`, require `isEncryptionAvailable()`, and fail explicitly on unavailable encryption or encrypt/decrypt errors. |
-| Linux `linux` | Pinned Electron API exposes the actual selected backend only after `ready` through `getSelectedStorageBackend()`. | Accept only `gnome_libsecret`, `kwallet`, `kwallet5`, or `kwallet6`; reject `basic_text`, `unknown`, unavailable encryption, and unrecognized backend names. |
+| Platform        | Current evidence                                                                                                                                          | BYOK vault policy                                                                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| macOS `darwin`  | Local Electron 41.7.0 probe after `ready` reports encryption available, successful round-trip, and ciphertext that does not contain the marker plaintext. | Accept when `isEncryptionAvailable()` is true; otherwise surface `secure_storage_unavailable`.                                                               |
+| Windows `win32` | Pinned Electron API has no Windows backend selector; a Windows host probe is still required.                                                              | Construct after `ready`, require `isEncryptionAvailable()`, and fail explicitly on unavailable encryption or encrypt/decrypt errors.                         |
+| Linux `linux`   | Pinned Electron API exposes the actual selected backend only after `ready` through `getSelectedStorageBackend()`; Linux host probes are still required.   | Accept only `gnome_libsecret`, `kwallet`, `kwallet5`, or `kwallet6`; reject `basic_text`, `unknown`, unavailable encryption, and unrecognized backend names. |
 
 The Linux backend is host-dependent and must be checked at runtime. The probe
 prints the actual selected backend for a Linux host. To prove the plaintext
@@ -83,6 +84,14 @@ Electron selects `basic_text`. The Phase 2 production adapter must present this
 as `secure_storage_unavailable`; it must not call
 `safeStorage.setUsePlainTextEncryption(true)` and must not persist ciphertext
 created under `basic_text` or `unknown`.
+
+Open Phase 0 host confirmations:
+
+- Run the probe on Windows and record the `isEncryptionAvailable()` result.
+- Run the probe on Linux with the host's default password store and record the
+  selected backend.
+- Run the Linux `--password-store=basic` command and record the rejected
+  `linux_basic_text_backend` policy result.
 
 ## Follow-Up Requirements For Phase 2
 
