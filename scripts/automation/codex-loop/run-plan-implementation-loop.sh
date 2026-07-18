@@ -392,7 +392,7 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR="$(cd "${OUTPUT_DIR}" && pwd -P)"
 
-AGENT_ONE_PROMPT="Implement the next incomplete step in ${PLAN_PATH}. Keep its status current. Verify and commit it. Use ${CODEX_REFERENCE_REPO} when needed. If the whole plan is implemented, return exactly ${FINAL_AUDIT_SENTINEL}."
+AGENT_ONE_PROMPT="Before acting, inspect the recent commit history for ${PLAN_PATH} and do not repeat a previously documented attempt unless relevant external state changed. Implement the next incomplete step, keep its status current, verify it, and commit it. Never create repeated status-only commits or seek missing credentials, privileges, GUI applications, background services, or remote access; record such unavailable external verification once as a separate release gate rather than implementation-loop work. Use ${CODEX_REFERENCE_REPO} when needed. If the whole plan is implemented, return exactly ${FINAL_AUDIT_SENTINEL}."
 
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
@@ -429,10 +429,10 @@ while true; do
     && [[ "${implementer_head}" == "${iteration_start_head}" ]] \
     && repo_is_clean; then
     final_audit="1"
-    reviewer_prompt="Review the whole implementation against ${PLAN_PATH}. If it is complete, return exactly ${COMPLETION_SENTINEL}. If it is incomplete, update and commit the plan status, then report the next step. Do not implement it."
+    reviewer_prompt="Review the whole implementation against ${PLAN_PATH}, including its recent commit history. Reject repeated status-only work and do not retry unavailable external verification; treat that verification as a separate release gate. If the implementation is complete, return exactly ${COMPLETION_SENTINEL}. If actionable repository work remains, update and commit the plan status, then report the next step. Do not implement it and do not seek missing credentials, privileges, GUI applications, background services, or remote access."
     log_info "Agent 1 requested the final whole-plan audit."
   else
-    reviewer_prompt="Review Agent 1's work from this iteration (${iteration_start_head}..${implementer_head}, plus any uncommitted changes). Fix, verify, and commit issues. Do not implement the next step."
+    reviewer_prompt="Review Agent 1's work from this iteration (${iteration_start_head}..${implementer_head}, plus any uncommitted changes) and inspect recent commits for repeated attempts at the same plan step. Reject repeated status-only work and do not seek or retry missing credentials, privileges, GUI applications, background services, remote access, or other unavailable external verification. Fix, verify, and commit issues. Do not implement the next step."
   fi
   run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}" 1
   require_clean_repo "after agent-2 review"
