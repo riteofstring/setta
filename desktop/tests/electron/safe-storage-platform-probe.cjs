@@ -8,22 +8,25 @@ const policyStatuses = new Set(["accept", "reject"]);
 const linuxBackends = new Set(["gnome_libsecret", "kwallet", "kwallet5", "kwallet6"]);
 
 function byokSafeStoragePolicy(platform, encryptionAvailable, selectedStorageBackend) {
+  if (platform === "linux") {
+    if (selectedStorageBackend === null || selectedStorageBackend === "unknown") {
+      return { reason: "linux_backend_unknown", status: "reject" };
+    }
+    if (selectedStorageBackend === "basic_text") {
+      return { reason: "linux_basic_text_backend", status: "reject" };
+    }
+    if (!linuxBackends.has(selectedStorageBackend)) {
+      return { reason: "linux_unrecognized_backend", status: "reject" };
+    }
+    if (!encryptionAvailable) {
+      return { reason: "encryption_unavailable", status: "reject" };
+    }
+    return { reason: "linux_secret_service_backend", status: "accept" };
+  }
   if (!encryptionAvailable) {
     return { reason: "encryption_unavailable", status: "reject" };
   }
-  if (platform !== "linux") {
-    return { reason: "os_backed_platform", status: "accept" };
-  }
-  if (selectedStorageBackend === null || selectedStorageBackend === "unknown") {
-    return { reason: "linux_backend_unknown", status: "reject" };
-  }
-  if (selectedStorageBackend === "basic_text") {
-    return { reason: "linux_basic_text_backend", status: "reject" };
-  }
-  if (linuxBackends.has(selectedStorageBackend)) {
-    return { reason: "linux_secret_service_backend", status: "accept" };
-  }
-  return { reason: "linux_unrecognized_backend", status: "reject" };
+  return { reason: "os_backed_platform", status: "accept" };
 }
 
 async function probeSafeStorage() {

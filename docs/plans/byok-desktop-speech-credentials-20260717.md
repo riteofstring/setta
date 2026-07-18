@@ -14,8 +14,9 @@ and noninteractive GitHub SSH authentication failed, reconfirmed the reference
 Codex repo has no Electron `safeStorage` probe pattern to reuse, and added a
 manual hosted-runner workflow plus exact probe assertions for Windows, Linux
 secret-service, and Linux `basic_text` rejection, including reliable non-zero
-probe exits on assertion failure. The earlier follow-up actionability pass also
-tightened the production Linux backend allowlist to reject unrecognized
+probe exits on assertion failure and Linux backend-first policy classification
+that matches the production adapter. The earlier follow-up actionability pass
+also tightened the production Linux backend allowlist to reject unrecognized
 Electron backend strings with deterministic vault coverage, while leaving the
 actual Windows/Linux host evidence open until that workflow or equivalent hosts
 produce results.
@@ -628,11 +629,12 @@ environment-based desktop product behavior.
       `safeStorage` probe pattern, and added
       `.github/workflows/electron-safe-storage-platform-probe.yml` plus exact
       `--assert-policy-status`/`--assert-policy-reason` probe flags and
-      reliable assertion failure exit status so hosted Windows/Linux runners
-      can produce the remaining evidence. An earlier follow-up actionability
-      pass fixed the production adapter to reject unrecognized Linux backend
-      names, so actual Windows and Linux host evidence remains the only open
-      part of this item.
+      reliable assertion failure exit status, with Linux backend-first policy
+      classification matching the production adapter, so hosted Windows/Linux
+      runners can produce the remaining evidence. An earlier follow-up
+      actionability pass fixed the production adapter to reject unrecognized
+      Linux backend names, so actual Windows and Linux host evidence remains
+      the only open part of this item.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.

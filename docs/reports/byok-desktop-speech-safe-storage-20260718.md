@@ -668,9 +668,12 @@ One repo-side blocker for the remaining confirmation was closed:
 - `desktop/tests/electron/safe-storage-platform-probe.cjs` now supports
   `--assert-policy-status` and `--assert-policy-reason`, so the Linux
   `basic_text` run can pass only when Electron reports the expected BYOK
-  rejection policy. The probe also now exits through `app.exit()` with the
-  accumulated assertion status, fixing the prior behavior where Electron
-  `app.quit()` could print assertion failures but still return exit code `0`.
+  rejection policy. Its Linux policy classification now mirrors the production
+  adapter's backend-first ordering, so `basic_text` is reported as an
+  unsupported backend even if Electron also reports unavailable encryption. The
+  probe also now exits through `app.exit()` with the accumulated assertion
+  status, fixing the prior behavior where Electron `app.quit()` could print
+  assertion failures but still return exit code `0`.
 - `.github/workflows/electron-safe-storage-platform-probe.yml` now provides a
   manual hosted-runner path for macOS, Windows, Linux with an explicit
   `gnome-libsecret` password store, and Linux `basic_text` rejection. The
@@ -689,8 +692,9 @@ Electron output.
 - The production adapter is constructed only after Electron `ready`.
 - It calls `safeStorage.isEncryptionAvailable()` before encrypting or
   decrypting.
-- On Linux it also calls `safeStorage.getSelectedStorageBackend()` and rejects
-  `basic_text`, `unknown`, and any unrecognized value.
+- On Linux it first calls `safeStorage.getSelectedStorageBackend()` and rejects
+  `basic_text`, `unknown`, and any unrecognized value before accepting the
+  backend for encryption.
 - It never calls `safeStorage.setUsePlainTextEncryption(true)`.
 - Tests inject the protection interface so `basic_text`, `unknown`,
   unavailable encryption, encrypt failure, and decrypt failure are deterministic
