@@ -4,6 +4,7 @@
 const { app, safeStorage } = require("electron");
 
 const marker = "setta-safe-storage-phase0-marker-v1";
+const policyStatuses = new Set(["accept", "reject"]);
 const linuxBackends = new Set(["gnome_libsecret", "kwallet", "kwallet5", "kwallet6"]);
 
 function byokSafeStoragePolicy(platform, encryptionAvailable, selectedStorageBackend) {
@@ -56,22 +57,68 @@ async function probeSafeStorage() {
 probeSafeStorage()
   .then((result) => {
     console.log(JSON.stringify(result, null, 2));
-    if (
-      process.argv.includes("--assert-byok-supported") &&
-      result.safeStorage.policy.status !== "accept"
-    ) {
-      console.error(`safeStorage BYOK policy rejected: ${result.safeStorage.policy.reason}`);
-      process.exitCode = 1;
-    }
-    if (process.argv.includes("--assert-round-trip") && result.safeStorage.roundTrip !== true) {
-      console.error("safeStorage round-trip failed");
-      process.exitCode = 1;
-    }
+    applyAssertions(result, parseAssertions(process.argv));
   })
   .catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   })
   .finally(() => {
-    app.quit();
+    app.exit(process.exitCode ?? 0);
   });
+
+function parseAssertions(argv) {
+  const expectedPolicyStatus = optionalArgumentValue(argv, "--assert-policy-status");
+  if (expectedPolicyStatus !== null && !policyStatuses.has(expectedPolicyStatus)) {
+    throw new Error(`--assert-policy-status must be accept or reject: ${expectedPolicyStatus}`);
+  }
+
+  return {
+    byokSupported: argv.includes("--assert-byok-supported"),
+    expectedPolicyReason: optionalArgumentValue(argv, "--assert-policy-reason"),
+    expectedPolicyStatus,
+    roundTrip: argv.includes("--assert-round-trip"),
+  };
+}
+
+function optionalArgumentValue(argv, flag) {
+  const index = argv.indexOf(flag);
+  if (index === -1) {
+    return null;
+  }
+  const value = argv[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`${flag} requires a value`);
+  }
+  return value;
+}
+
+function applyAssertions(result, assertions) {
+  if (assertions.byokSupported && result.safeStorage.policy.status !== "accept") {
+    markFailed(`safeStorage BYOK policy rejected: ${result.safeStorage.policy.reason}`);
+  }
+  if (
+    assertions.expectedPolicyStatus !== null &&
+    result.safeStorage.policy.status !== assertions.expectedPolicyStatus
+  ) {
+    markFailed(
+      `safeStorage policy status was ${result.safeStorage.policy.status}, expected ${assertions.expectedPolicyStatus}`,
+    );
+  }
+  if (
+    assertions.expectedPolicyReason !== null &&
+    result.safeStorage.policy.reason !== assertions.expectedPolicyReason
+  ) {
+    markFailed(
+      `safeStorage policy reason was ${result.safeStorage.policy.reason}, expected ${assertions.expectedPolicyReason}`,
+    );
+  }
+  if (assertions.roundTrip && result.safeStorage.roundTrip !== true) {
+    markFailed("safeStorage round-trip failed");
+  }
+}
+
+function markFailed(message) {
+  console.error(message);
+  process.exitCode = 1;
+}
