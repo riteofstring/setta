@@ -59,7 +59,6 @@ function parseArgs(args) {
     keepArtifacts: false,
     keepGoing: false,
     list: false,
-    skipBuild: false,
     tiers: [],
     visible: false,
     workflows: [],
@@ -113,8 +112,7 @@ function parseList(parsed) {
   return 0;
 }
 
-function parseSkipBuild(parsed) {
-  parsed.skipBuild = true;
+function parseSkipBuild() {
   return 0;
 }
 
@@ -151,11 +149,9 @@ function printUsage() {
   process.stdout.write(`Usage: node desktop/tests/electron/run-workflows.mjs [options]
 
 Options:
-  --tier <required|performance|recovery|live|all>
-                                           Run workflows in a manifest tier.
+  --tier <required|performance|live|all>  Run workflows in a manifest tier.
   --workflow <name>                       Run one named workflow; repeatable.
   --visible                               Show Electron windows for workflows that support it.
-  --skip-build                            Forward --skip-build to selected workflows.
   --keep-artifacts                        Keep timestamped workflow artifacts where supported.
   --keep-going                            Continue after a workflow fails.
   --list                                  Print registered workflows.
@@ -191,9 +187,6 @@ async function runWorkflow(workflow, parsed) {
   }
   if (parsed.keepArtifacts) {
     workflowArgs.push("--keep-artifacts");
-  }
-  if (parsed.skipBuild) {
-    workflowArgs.push("--skip-build");
   }
   workflowArgs.push(...parsed.extraWorkflowArgs);
   process.stdout.write(`Electron workflow starting: ${workflow.name}\n`);

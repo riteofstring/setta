@@ -182,7 +182,6 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "AppearanceColorMode", Values: stringValues(colorModeValues)},
 		{Name: "AppearancePresetID", Values: stringValues(presetIDValues)},
 		{Name: "AppearanceWorkspaceNavigationShortcut", Values: stringValues(workspaceNavigationShortcutValues)},
-		{Name: "AppearanceMasterVoiceShortcut", Values: stringValues(masterVoiceShortcutValues)},
 	}
 }
 
@@ -206,7 +205,6 @@ func DefaultSettings() AppearanceSettings {
 		},
 		Shortcuts: AppearanceShortcutsSettings{
 			WorkspaceNavigation: WorkspaceNavigationModAltArrows,
-			MasterVoice:         MasterVoiceModShiftK,
 		},
 	}
 }
@@ -288,9 +286,6 @@ func Normalize(settings AppearanceSettings) AppearanceSettings {
 	}
 	if settings.Shortcuts.WorkspaceNavigation == "" {
 		settings.Shortcuts.WorkspaceNavigation = WorkspaceNavigationModAltArrows
-	}
-	if settings.Shortcuts.MasterVoice == "" {
-		settings.Shortcuts.MasterVoice = MasterVoiceModShiftK
 	}
 	settings.Light.Workspace = normalizeWorkspacePalette(settings.Light.Workspace, defaults.Light.Workspace)
 	settings.Dark.Workspace = normalizeWorkspacePalette(settings.Dark.Workspace, defaults.Dark.Workspace)

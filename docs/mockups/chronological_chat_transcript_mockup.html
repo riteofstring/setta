@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat Transcript UI Polish — Mockup</title>
+<style>
+  /* Real Setta dark-theme tokens (from desktop/src/renderer/src/styles.css) */
+  :root {
+    --bg:        oklch(0.1281 0.007 261.32);    /* setta-950  page / code-block bg */
+    --surface:   oklch(0.1471 0.0086 263.76);   /* setta-925  popover / output pre */
+    --card:      oklch(0.1631 0.0125 264.14);   /* setta-900  chat surface */
+    --panel:     oklch(0.1797 0.0141 264.13);   /* setta-875  raised activity-row panel (bg-muted) */
+    --fg:        oklch(0.9085 0.013 263.02);     /* setta-100  */
+    --muted:     oklch(0.7167 0.0439 264.25);    /* setta-300  muted-foreground */
+    --faint:     oklch(0.52 0.028 264);          /* dimmer label text */
+    --border:    oklch(0.2903 0.0317 262.55);    /* setta-750  */
+    --accent-bg: oklch(0.2458 0.0254 263.94);    /* setta-800  */
+    --primary:   oklch(0.846 0.1292 213.38);     /* cyan accent */
+    --violet:    oklch(0.76 0.125 290);          /* spinner / active */
+    --accent-blue:  oklch(0.76 0.115 250);       /* steering delivery */
+    --accent-green: oklch(0.79 0.145 152);       /* goal / command */
+    /* muted status colors — small inline status icons (status-*-muted) */
+    --success:   oklch(0.74 0.09 152);           /* muted check */
+    --critical:  oklch(0.62 0.14 25.331);        /* muted circle-alert */
+    --warning:   oklch(0.82 0.135 78);
+    /* highlight.js token theme (palette-mapped, from styles.css) */
+    --hl-kw:   oklch(0.76 0.125 290);            /* keyword / type → violet */
+    --hl-str:  oklch(0.79 0.145 152);            /* string → green */
+    --hl-num:  oklch(0.76 0.115 250);            /* number → blue */
+    --hl-fn:   oklch(0.846 0.1292 213.38);       /* title / built_in / name → cyan */
+    --hl-attr: oklch(0.82 0.125 185);            /* attr / property → teal */
+    --radius: 8px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding: 32px 24px 80px;
+  }
+  .page { max-width: 1180px; margin: 0 auto; }
+
+  h1 { font-size: 22px; font-weight: 650; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+       color: var(--faint); margin: 40px 0 14px; }
+  .lede { color: var(--muted); max-width: 860px; margin: 0 0 8px; }
+  .hint { color: var(--faint); font-size: 12.5px; max-width: 860px; }
+  .hint code, .lede code { background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+               padding: 1px 5px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 0 4px; }
+  .legend .item { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12.5px; }
+  .legend .swatch { width: 14px; height: 14px; }
+
+  /* Grid of scenario panels */
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 22px; align-items: start; }
+  @media (max-width: 920px) { .grid { grid-template-columns: 1fr; } }
+  .span2 { grid-column: 1 / -1; }
+
+  .panel { min-width: 0; }
+  .caption { display: flex; align-items: baseline; gap: 10px; margin: 0 0 10px; }
+  .caption .num { font-variant-numeric: tabular-nums; color: var(--primary); font-weight: 650; font-size: 12.5px; }
+  .caption .title { font-weight: 600; font-size: 13.5px; }
+  .caption .seq { color: var(--faint); font-size: 12px; font-family: var(--mono); }
+
+  /* Chat surface — mimics the chat pane */
+  .chat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 16px 12px;
+  }
+
+  /* User message bubble (right-aligned chip) */
+  .user { display: flex; flex-direction: column; align-items: flex-end; margin: 2px 0 10px; }
+  .user .bubble {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 7px 12px; max-width: 80%; color: var(--fg);
+  }
+  .user .ts { color: var(--faint); font-size: 11px; margin-top: 5px; }
+
+  /* assistant_text block — real markdown renderer output (MarkdownText) */
+  .atext { margin: 0 0 9px; color: var(--fg); overflow-wrap: break-word; }
+  .atext p { margin: 0 0 6px; }
+  .atext p:last-child { margin-bottom: 0; }
+  .atext code { font-family: var(--mono); font-size: 12.5px; background: var(--surface);
+                border: 1px solid var(--border); border-radius: 4px; padding: 0.5px 5px; overflow-wrap: anywhere; }
+  /* fenced code block — routed through highlightCode, wraps (no horizontal scroll) */
+  .atext pre.code { margin: 7px 0 2px; font-family: var(--mono); font-size: 12px; line-height: 1.55;
+                    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+                    padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg); }
+  /* markdown block elements — explicit component renderers, dense-chat tuned */
+  .atext h3 { font-size: 14.5px; font-weight: 650; margin: 11px 0 5px; letter-spacing: -0.01em; color: var(--fg); }
+  .atext h4 { font-size: 13px; font-weight: 650; margin: 9px 0 4px; color: var(--fg); }
+  .atext h3:first-child, .atext h4:first-child { margin-top: 0; }
+  .atext ul, .atext ol { margin: 4px 0 8px; padding-left: 20px; }
+  .atext ul { list-style: disc; }
+  .atext ul ul { list-style: circle; }
+  .atext ol { list-style: decimal; }
+  .atext li { margin: 2px 0; }
+  .atext li::marker { color: var(--faint); }
+  .atext li > ul, .atext li > ol { margin: 2px 0; }
+  .atext blockquote { margin: 6px 0 8px; padding: 2px 0 2px 12px; border-left: 2px solid var(--border); color: var(--muted); }
+  .atext blockquote p { margin: 0; }
+  .atext strong { font-weight: 650; color: var(--fg); }
+  .atext em { font-style: italic; }
+  .atext hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  /* table — compact, wraps inside the chat column */
+  .atext table { border-collapse: collapse; width: 100%; margin: 6px 0 8px; font-size: 12px; }
+  .atext th, .atext td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+  .atext thead th { background: var(--surface); color: var(--fg); font-weight: 600; }
+  .atext tbody td { color: var(--muted); }
+  .atext td code, .atext th code { font-size: 11.5px; }
+  /* link policy: safe external http/https → openExternalUrl */
+  .atext a.link { color: var(--primary); text-decoration: none; cursor: pointer; overflow-wrap: anywhere;
+                  border-bottom: 1px solid color-mix(in oklab, var(--primary) 38%, transparent); }
+  .atext a.link:hover { border-bottom-color: var(--primary); }
+  .atext a.link .extico { width: 11px; height: 11px; vertical-align: -1px; margin-left: 2px; opacity: 0.75; }
+  /* unsupported scheme / local path → inert, non-clickable styled text */
+  .atext a.inert, .atext .inert-link { color: var(--muted); text-decoration: none; cursor: default;
+                  border-bottom: 1px dotted var(--faint); overflow-wrap: anywhere; }
+
+  /* highlight.js token classes (palette-mapped) */
+  .hl-kw  { color: var(--hl-kw); }
+  .hl-str { color: var(--hl-str); }
+  .hl-num { color: var(--hl-num); }
+  .hl-fn  { color: var(--hl-fn); }
+  .hl-attr{ color: var(--hl-attr); }
+  .hl-com { color: var(--muted); font-style: italic; }
+
+  /* ===================================================================== */
+  /*  ACTIVITY GROUP — collapsed by default: one slim header, rows hidden   */
+  /* ===================================================================== */
+  /* Derived render-only group over adjacent typed activity_item blocks.    */
+  /* No outer card, no border-top wrapper, no repeated "Activity" label.    */
+  details.group { margin: 0 0 10px; min-width: 0; }
+  details.group > summary.ghead {
+    display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 3px 10px 3px 7px;
+    list-style: none; cursor: pointer; color: var(--muted); font-size: 12px;
+    border: 1px solid var(--border); background: var(--panel); border-radius: 6px;
+  }
+  details.group > summary.ghead::-webkit-details-marker { display: none; }
+  details.group > summary.ghead:hover { border-color: color-mix(in oklab, var(--muted) 32%, var(--border)); }
+  .group .gchev { width: 14px; height: 14px; flex: 0 0 auto; color: var(--faint); transition: transform .12s ease; }
+  details.group[open] > summary.ghead .gchev { transform: rotate(180deg); }
+  /* compact count — small subtle pill, never a heavy badge */
+  .group .gcount { flex: 0 0 auto; font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 600;
+                   min-width: 18px; height: 17px; padding: 0 6px; display: inline-flex; align-items: center;
+                   justify-content: center; color: var(--muted); background: var(--accent-bg); border-radius: 999px; }
+  /* aggregate status — icon (muted check/alert/ban) or live spinner */
+  .group .gstatus { flex: 0 0 auto; display: inline-flex; align-items: center; }
+  .group .gstatus svg { width: 15px; height: 15px; }
+  .group .gstatus .ok  { color: var(--success); }
+  .group .gstatus .err { color: var(--critical); }
+  /* title preview — first or active member's typed display label (no raw-command parsing) */
+  .group .gtitle { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                   font-family: var(--mono); font-size: 12px; color: var(--fg); }
+  .group .gtitle.sans { font-family: var(--sans); font-weight: 500; color: var(--muted); }
+  /* optional +N hidden-rows hint — only meaningful while collapsed */
+  .group .gmore { flex: 0 0 auto; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+  details.group[open] .gmore { display: none; }
+  /* expanded: member rows stream in below, lightly inset to read as children (no heavy left border) */
+  details.group[open] .rows { margin: 5px 0 1px 16px; }
+
+  /* ---- rows: each activity_item is its own raised panel (bg setta-875 + border) ---- */
+  .rows { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .row { border: 1px solid var(--border); background: var(--panel); border-radius: 6px; }
+  .row > .rowhead, .row > summary {
+    display: flex; align-items: center; gap: 6px; min-height: 24px; padding: 4px 10px;
+    list-style: none; cursor: default; color: var(--muted); font-size: 12px;
+  }
+  details.row > summary { cursor: pointer; }
+  details.row > summary::-webkit-details-marker { display: none; }
+  .row .ico { width: 14px; height: 14px; flex: 0 0 auto; color: var(--muted); }
+  .row .label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+                white-space: nowrap; font-weight: 500; }
+  .row .label.mono { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--fg); }
+  /* status is an icon (muted check / circle-alert) or the spinner — no status text */
+  .row .status { flex: 0 0 auto; display: inline-flex; align-items: center; }
+  .row .status svg { width: 16px; height: 16px; }
+  .row .status .ok  { color: var(--success); }
+  .row .status .err { color: var(--critical); }
+  .row .chev { width: 14px; height: 14px; color: var(--muted); transition: transform .12s ease; flex: 0 0 auto; }
+  details.row[open] > summary .chev { transform: rotate(180deg); }
+
+  /* expanded detail body, inside the panel */
+  .rowbody { padding: 0 10px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .field h4 { margin: 0 0 2px; font-size: 10px; font-weight: 600; text-transform: uppercase;
+              letter-spacing: 0.06em; color: var(--faint); }
+  .field .val { color: var(--muted); font-size: 12px; }
+  .field .val.mono { font-family: var(--mono); word-break: break-all; }
+  /* COMMAND field — flush, syntax-highlighted line; no inset box, no heavy padding */
+  .cmdline { font-family: var(--mono); font-size: 12px; line-height: 1.45; color: var(--muted);
+             white-space: pre-wrap; word-break: break-all; }
+  pre.out { margin: 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
+            color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+            border-radius: 5px; padding: 8px 10px; max-height: 150px; overflow: auto; white-space: pre-wrap; }
+  .loadmore { align-self: flex-start; font-size: 11px; color: var(--muted); background: var(--bg);
+              border: 1px solid var(--border); border-radius: 5px; padding: 2px 9px; cursor: pointer; }
+
+  /* reasoning, mode=thinking — active status line */
+  .thinking { display: flex; align-items: center; gap: 9px; min-height: 24px; margin: 0 0 9px;
+              padding-left: 2px; color: var(--muted); font-size: 12.5px; }
+  .thinking .brain { width: 15px; height: 15px; flex: 0 0 auto; color: var(--violet); }
+  .thinking.resolved { color: var(--faint); }
+  .thinking.resolved .brain { color: var(--faint); }
+
+  /* run_status working — live-only liveness tail */
+  .working { display: flex; align-items: center; gap: 9px; min-height: 24px; margin: 9px 0 2px;
+             padding-left: 2px; color: var(--faint); font-size: 12.5px; font-style: italic; }
+
+  /* ===================================================================== */
+  /*  LIVE HEADLINE SHIMMER — CSS-only, reduced-motion aware, live text only */
+  /* ===================================================================== */
+  /* Scoped to live reasoning/status headline text. No JS, no per-frame      */
+  /* React state, no per-character spans, no text measuring.                 */
+  .live-headline {
+    background-image: linear-gradient(100deg,
+      var(--muted) 0%, var(--muted) 38%, var(--fg) 50%, var(--muted) 62%, var(--muted) 100%);
+    background-size: 220% 100%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: headline-shimmer 2.1s linear infinite;
+  }
+  @keyframes headline-shimmer {
+    from { background-position: 130% 0; }
+    to   { background-position: -130% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live-headline { animation: none; background: none; color: var(--muted); -webkit-text-fill-color: var(--muted); }
+    .braille::before { animation: none; }
+  }
+
+  /* delivery treatments — faithful to userMessageContainerClassByDelivery */
+  .deliv { font-size: 11.5px; font-weight: 500; opacity: 0.8; }
+  .user.steer .bubble { border-color: color-mix(in oklab, var(--accent-blue) 45%, transparent);
+                        background: color-mix(in oklab, var(--accent-blue) 12%, var(--card)); }
+  .user.steer .deliv { color: var(--accent-blue); margin-top: 6px; }
+  .user.queued .bubble { border: 1px dashed var(--border); background: var(--bg); color: var(--muted); }
+  /* queued meta row: "Queued" label with edit/remove inline (no extra reserved row) */
+  .qmeta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .qmeta .deliv { color: var(--muted); }
+  .qactions { display: inline-flex; gap: 6px; opacity: 0; transition: opacity .12s ease; }
+  .user.queued:hover .qactions, .user.queued:focus-within .qactions { opacity: 1; }
+  .qbtn { font-size: 11px; color: var(--muted); background: var(--surface);
+          border: 1px solid var(--border); border-radius: 5px; padding: 1.5px 8px; cursor: pointer; }
+  .qbtn:hover { color: var(--fg); border-color: var(--muted); }
+
+  /* reasoning, mode=summary — slim, collapsible */
+  details.reasoning { margin: 0 0 9px; }
+  details.reasoning > summary {
+    display: flex; align-items: center; gap: 8px; min-height: 24px; list-style: none; cursor: pointer;
+    color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; padding-left: 2px;
+  }
+  details.reasoning > summary::-webkit-details-marker { display: none; }
+  details.reasoning .spark { width: 14px; height: 14px; color: var(--violet); }
+  details.reasoning .chev { width: 13px; height: 13px; color: var(--faint); transition: transform .12s; }
+  details.reasoning[open] summary .chev { transform: rotate(180deg); }
+  .reasonbody { margin: 4px 0 0 22px; padding-left: 10px; border-left: 1px solid var(--border);
+                color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+
+  .ts-row { color: var(--faint); font-size: 11px; margin-top: 4px; }
+
+  /* braille spinner — matches the app's BrailleSpinner (text-sm, accent-violet, soft glow) */
+  .braille { display: inline-block; width: 1.1ch; flex: 0 0 auto; color: var(--violet);
+             font-family: var(--mono); font-size: 14px; line-height: 1; vertical-align: middle;
+             filter: drop-shadow(0 0 5px currentColor); }
+  .braille::before { content: "⠋"; animation: braille 1s steps(1, end) infinite; }
+  @keyframes braille {
+    0%{content:"⠋"} 10%{content:"⠙"} 20%{content:"⠹"} 30%{content:"⠸"} 40%{content:"⠼"}
+    50%{content:"⠴"} 60%{content:"⠦"} 70%{content:"⠧"} 80%{content:"⠇"} 90%{content:"⠏"}
+  }
+
+  /* annotation chips */
+  .note { margin: 10px 0 0; font-size: 11.5px; color: var(--faint); display: flex; gap: 7px; }
+  .note::before { content: "›"; color: var(--primary); }
+
+  /* before/after */
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 920px) { .ba { grid-template-columns: 1fr; } }
+  .ba .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+             text-transform: uppercase; padding: 2px 9px; border-radius: 999px; margin-bottom: 10px; }
+  .tag.old { color: var(--warning); border: 1px solid color-mix(in oklab, var(--warning) 45%, transparent); }
+  .tag.new { color: var(--primary); border: 1px solid color-mix(in oklab, var(--primary) 45%, transparent); }
+  .tag.state { color: var(--violet); border: 1px solid color-mix(in oklab, var(--violet) 45%, transparent); }
+
+  /* OLD outer accordion (recreated heavy version — the non-goal we don't return to) */
+  .oldacc { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 11px; }
+  .oldacc .oldsum { display: flex; align-items: center; gap: 8px; height: 28px; color: var(--muted); font-size: 12.5px; }
+  .oldacc .badge { border: 1px solid var(--border); background: var(--surface); border-radius: 4px;
+                   font-size: 10px; font-weight: 700; padding: 1px 7px; color: var(--muted); }
+  .oldacc .oldsum .grow { flex: 1 1 auto; font-weight: 600; }
+  .oldacc .oldsum .st { color: var(--faint); font-size: 11px; }
+  .oldacc .oldrows { border-left: 1px solid var(--border); margin: 6px 0 0 7px; padding-left: 10px;
+                     display: flex; flex-direction: column; gap: 4px; }
+  .oldrow { display: flex; align-items: center; gap: 8px; height: 26px; color: var(--muted); font-size: 12.5px; }
+  .oldrow .ico { width: 15px; height: 15px; color: var(--muted); }
+  .oldrow .grow { flex: 1 1 auto; }
+  .oldrow .st { color: var(--faint); font-size: 11px; }
+
+  /* ---- background terminals ---- */
+  .bgwrap { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 920px) { .bgwrap { grid-template-columns: 1fr; } }
+
+  /* transcript marker — slim lifecycle row (command-row-adjacent, violet accent, never a card) */
+  .bgterm { display: flex; align-items: center; gap: 8px; margin: 0 0 9px; padding: 5px 10px;
+            border: 1px solid var(--border); border-left: 2px solid var(--violet);
+            background: var(--panel); border-radius: 6px; color: var(--muted); font-size: 12px; }
+  .bgterm .ico { width: 14px; height: 14px; flex: 0 0 auto; color: var(--violet); }
+  .bgterm .label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bgterm .label .mono { font-family: var(--mono); color: var(--fg); }
+  .bgterm .pill { flex: 0 0 auto; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+                  color: var(--violet); border: 1px solid color-mix(in oklab, var(--violet) 45%, transparent);
+                  border-radius: 999px; padding: 1px 7px; }
+  .bgterm .status { flex: 0 0 auto; display: inline-flex; align-items: center; }
+
+  /* persistent compact footer — the click target that opens the monitor (no slash hints) */
+  .bgfooter { display: flex; align-items: center; gap: 9px; margin: 12px -16px -12px; padding: 9px 16px;
+              border-top: 1px solid var(--border); background: var(--surface); color: var(--muted);
+              font-size: 12px; cursor: pointer; border-radius: 0 0 var(--radius) var(--radius); }
+  .bgfooter:hover, .bgfooter.open { background: var(--accent-bg); color: var(--fg); }
+  .bgfooter .braille { color: var(--violet); }
+  .bgfooter .caret { width: 13px; height: 13px; margin-left: auto; color: var(--faint); transform: rotate(180deg); }
+  .bgfooter.open .caret { color: var(--muted); }
+
+  /* background-terminal monitor — opens from the footer (in-app overlay; chat shifts up) */
+  .bgmon { margin: 12px 0 0; border: 1px solid var(--border); background: var(--surface); border-radius: 7px;
+           overflow: hidden; box-shadow: 0 -10px 28px -14px rgba(0, 0, 0, 0.7); }
+  .bgmon .mhead { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border-bottom: 1px solid var(--border); }
+  .bgmon .mhead .ico { width: 14px; height: 14px; color: var(--violet); }
+  .bgmon .mhead .t { font-weight: 600; font-size: 12px; }
+  /* Kill all — allowed but secondary */
+  .bgmon .killall { margin-left: auto; font-size: 10.5px; color: var(--faint); background: transparent;
+                    border: 1px solid var(--border); border-radius: 5px; padding: 1.5px 8px; cursor: pointer; }
+  .bgmon .killall:hover { color: var(--muted); border-color: var(--muted); }
+  .mproc { padding: 9px 11px; display: flex; flex-direction: column; gap: 6px; }
+  .mproc + .mproc { border-top: 1px solid var(--border); }
+  .mrow { display: flex; align-items: center; gap: 8px; }
+  .mrow .cmd { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--fg);
+               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mrow .mstat { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .mrow .mstat .braille { color: var(--violet); }
+  /* per-process Kill — the required control */
+  .mrow .kill { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted);
+                background: var(--card); border: 1px solid var(--border); border-radius: 5px; padding: 1.5px 9px; cursor: pointer; }
+  .mrow .kill:hover { color: var(--fg); border-color: color-mix(in oklab, var(--critical) 55%, var(--border)); }
+  .mrow .kill svg { width: 10px; height: 10px; }
+  .mout { margin: 0; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: var(--muted);
+          background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 7px 9px; white-space: pre-wrap; }
+
+  /* right-column behavior annotations */
+  .bgnotes { display: flex; flex-direction: column; gap: 12px; }
+  .bgnote { border: 1px solid var(--border); background: var(--card); border-radius: 7px; padding: 10px 12px; }
+  .bgnote h4 { margin: 0 0 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; color: var(--fg);
+               display: flex; align-items: center; gap: 6px; }
+  .bgnote h4 .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--violet); flex: 0 0 auto; }
+  .bgnote p { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+  .bgnote code { font-family: var(--mono); font-size: 10.5px; background: var(--surface); border: 1px solid var(--border);
+                 border-radius: 3px; padding: 0 4px; color: var(--muted); }
+</style>
+</head>
+<body>
+<!-- icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/>
+  </symbol>
+  <symbol id="i-term" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+  </symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/>
+  </symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="6 9 12 15 18 9"/>
+  </symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4.5 16a2.5 2.5 0 0 1-1.4-4.5A2.5 2.5 0 0 1 5 7a2.5 2.5 0 0 1 4.5-5Z"/>
+    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44A2.5 2.5 0 0 0 19.5 16a2.5 2.5 0 0 0 1.4-4.5A2.5 2.5 0 0 0 19 7a2.5 2.5 0 0 0-4.5-5Z"/>
+  </symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/>
+  </symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"/>
+  </symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+  </symbol>
+  <!-- status icons (lucide Check / CircleAlert) -->
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+  </symbol>
+  <!-- background terminal (square-terminal) + stop (square) -->
+  <symbol id="i-sqterm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 11 2-2-2-2"/><path d="M11 13h4"/>
+  </symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="6" width="12" height="12" rx="1.5"/>
+  </symbol>
+</svg>
+
+<div class="page">
+  <h1>Chat transcript UI polish — visual mockup</h1>
+  <p class="lede">A renderer-focused follow-up to the chronological transcript. The Go-owned typed blocks and run
+    chronology are unchanged — only the <em>presentation</em> changes. Three moves: live reasoning/status headlines get
+    a subtle CSS <strong>shimmer</strong>; assistant <strong>markdown</strong> renders for real (lists, tables, links,
+    quotes — never raw HTML); and adjacent tool calls collapse into one slim <strong>activity-group header</strong>
+    by default instead of a wall of panels.</p>
+  <p class="hint"><strong>Interactive:</strong> click a group header to expand its member rows; click a row chevron to
+    see its detail/output. Colors are the app's real <code>setta-*</code> theme tokens.</p>
+
+  <div class="legend">
+    <span class="item"><span class="live-headline" style="font-weight:650">shimmer</span> live reasoning/status headline</span>
+    <span class="item"><svg class="swatch" style="color:var(--faint)"><use href="#i-chev"/></svg> collapsed activity group</span>
+    <span class="item"><svg class="swatch" style="color:var(--violet)"><use href="#i-brain"/></svg> reasoning (thinking)</span>
+    <span class="item"><svg class="swatch" style="color:var(--muted)"><use href="#i-term"/></svg> command activity</span>
+    <span class="item"><svg class="swatch" style="color:var(--muted)"><use href="#i-file"/></svg> file / diff activity</span>
+    <span class="item"><svg class="swatch" style="color:var(--success)"><use href="#i-check"/></svg> completed</span>
+    <span class="item"><svg class="swatch" style="color:var(--critical)"><use href="#i-alert"/></svg> failed</span>
+    <span class="item"><svg class="swatch" style="color:var(--primary)"><use href="#i-ext"/></svg> safe external link</span>
+  </div>
+
+  <!-- ===================== BEFORE / AFTER ===================== -->
+  <h2>Before → after · same turn (text, commands, reasoning, text)</h2>
+  <div class="ba">
+    <div class="panel">
+      <span class="tag old">Old setta-3 — flattened accordion</span>
+      <div class="chat">
+        <div class="user"><div class="bubble">inspect the shell scripts and summarize them</div><div class="ts">9:08 PM</div></div>
+        <div class="atext">
+          <p>I'll inspect the shell scripts. They're all thin wrappers around the repo-pinned Go toolchain, so the
+            important detail is which binary each one shells out to and whether it forwards arguments.</p>
+        </div>
+        <!-- heavy outer accordion — the non-goal we do NOT return to -->
+        <div class="oldacc">
+          <div class="oldsum">
+            <svg class="ico" style="width:16px;height:16px;color:var(--muted)"><use href="#i-bot"/></svg>
+            <svg style="width:13px;height:13px;color:var(--muted)"><use href="#i-chev"/></svg>
+            <span class="badge">3</span>
+            <span class="grow">Activity</span>
+            <span class="st">completed</span>
+          </div>
+          <div class="oldrows">
+            <div class="oldrow"><svg class="ico"><use href="#i-term"/></svg><span class="grow">command execution</span><span class="st">completed</span></div>
+            <div class="oldrow"><svg class="ico" style="color:var(--violet)"><use href="#i-spark"/></svg><span class="grow">Reasoning summary</span><span class="st">completed</span></div>
+            <div class="oldrow"><svg class="ico"><use href="#i-term"/></svg><span class="grow">command execution</span><span class="st">completed</span></div>
+          </div>
+        </div>
+        <div class="ts-row">9:08 PM</div>
+      </div>
+      <p class="note">All activity summarized <em>below</em> the full message — causality lost, rows say "command execution", and the boxed wrapper carries border, padding, icon, badge, label, and status. Heavy.</p>
+    </div>
+
+    <div class="panel">
+      <span class="tag new">After — chronological + slim collapse</span>
+      <div class="chat">
+        <div class="user"><div class="bubble">inspect the shell scripts and summarize them</div><div class="ts">9:08 PM</div></div>
+        <div class="atext"><p>I'll inspect the shell scripts.</p></div>
+
+        <details class="group">
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">2</span>
+            <span class="gstatus"><svg class="ok"><use href="#i-check"/></svg></span>
+            <span class="gtitle">Listed scripts</span>
+            <span class="gmore">+1</span>
+          </summary>
+          <div class="rows">
+            <details class="row">
+              <summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Listed scripts</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary>
+              <div class="rowbody">
+                <div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">ls</span> scripts</div></div>
+                <div class="field"><h4>Output</h4><pre class="out">go.sh
+format.sh
+generate-workflow-graph-font.mjs</pre></div>
+                <div class="field"><h4>Exit</h4><div class="val">exit 0 · 41ms</div></div>
+              </div>
+            </details>
+            <details class="row">
+              <summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Read go.sh</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary>
+              <div class="rowbody">
+                <div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">cat</span> scripts/go.sh</div></div>
+                <div class="field"><h4>Output</h4><pre class="out"><span class="hl-com">#!/usr/bin/env bash</span>
+<span class="hl-fn">exec</span> go <span class="hl-str">"$@"</span></pre></div>
+                <div class="field"><h4>Exit</h4><div class="val">exit 0 · 12ms</div></div>
+              </div>
+            </details>
+          </div>
+        </details>
+
+        <div class="atext"><p>The scripts are thin wrappers around the repo-pinned Go toolchain — each forwards its
+          arguments to <code>scripts/go.sh</code> so the committed toolchain version is always used.</p></div>
+        <div class="ts-row">9:08 PM</div>
+      </div>
+      <p class="note">Text → the activity group (collapsed to one slim header, sitting inline between the texts) → the conclusion, in true order. Click the header to expand the two member rows.</p>
+    </div>
+  </div>
+
+  <!-- ===================== ACTIVITY GROUPS: COLLAPSED ⇄ EXPANDED ===================== -->
+  <h2>Activity groups · collapsed by default, expand on click</h2>
+  <p class="lede" style="margin-bottom:14px">Grouping stays derived render-only state over adjacent typed
+    <code>activity_item</code> blocks — no persisted wrapper. Collapsed, the group is a single slim header: chevron,
+    compact count, aggregate status, and a title preview of the active (or first) member, with an optional
+    <code>+N</code> for hidden rows. Expanding is explicit user state. While collapsed, newly arriving rows only update
+    the header's count, status, and preview — nothing inserts below it, so there's no transcript churn.</p>
+  <div class="ba">
+    <div class="panel">
+      <span class="tag state">Collapsed · default</span>
+      <div class="chat">
+        <div class="user"><div class="bubble">audit the retry path</div><div class="ts">1:12 PM</div></div>
+        <div class="atext"><p>Tracing the retry path.</p></div>
+        <details class="group">
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">3</span>
+            <span class="gstatus"><svg class="ok"><use href="#i-check"/></svg></span>
+            <span class="gtitle">Searched retry</span>
+            <span class="gmore">+2</span>
+          </summary>
+          <div class="rows">
+            <details class="row"><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Searched retry</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">rg</span> -n <span class="hl-str">"retry"</span> internal/chat</div></div><div class="field"><h4>Output</h4><pre class="out">codex_harness.go:212:  for retry := 0; retry &lt; maxRetries; retry++ {</pre></div></div></details>
+            <details class="row"><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Read codex_harness.go</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">sed</span> -n <span class="hl-str">'200,230p'</span> internal/chat/codex_harness.go</div></div></div></details>
+            <details class="row"><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Read service.go</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">rg</span> -n <span class="hl-str">"maxRetries"</span> internal/chat/service.go</div></div></div></details>
+          </div>
+        </details>
+        <div class="atext"><p>Retries are capped at <strong>3</strong> in <code>codex_harness.go:212</code>; <code>maxRetries</code> is set once in <code>service.go</code>.</p></div>
+        <div class="ts-row">1:12 PM</div>
+      </div>
+      <p class="note">One slim header — count <code>3</code>, aggregate check, preview of the first member, <code>+2</code> hidden. No outer card, no border-top section, no repeated "Activity" label.</p>
+    </div>
+
+    <div class="panel">
+      <span class="tag state">Expanded · user opened</span>
+      <div class="chat">
+        <div class="user"><div class="bubble">audit the retry path</div><div class="ts">1:12 PM</div></div>
+        <div class="atext"><p>Tracing the retry path.</p></div>
+        <details class="group" open>
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">3</span>
+            <span class="gstatus"><svg class="ok"><use href="#i-check"/></svg></span>
+            <span class="gtitle">Searched retry</span>
+            <span class="gmore">+2</span>
+          </summary>
+          <div class="rows">
+            <details class="row" open><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Searched retry</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">rg</span> -n <span class="hl-str">"retry"</span> internal/chat</div></div><div class="field"><h4>Output</h4><pre class="out">codex_harness.go:212:  for retry := 0; retry &lt; maxRetries; retry++ {</pre></div></div></details>
+            <details class="row"><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Read codex_harness.go</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary></details>
+            <details class="row"><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Read service.go</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary></details>
+          </div>
+        </details>
+        <div class="atext"><p>Retries are capped at <strong>3</strong> in <code>codex_harness.go:212</code>; <code>maxRetries</code> is set once in <code>service.go</code>.</p></div>
+        <div class="ts-row">1:12 PM</div>
+      </div>
+      <p class="note">Member rows stream in below the header, lightly inset. Each keeps its own chevron for detail/output (here the first row is expanded). Collapsing returns to the single header.</p>
+    </div>
+  </div>
+  <p class="note" style="max-width:860px;margin-top:14px">Aggregate status is deterministic from the typed member statuses:
+    <strong>failed</strong> if any member failed; <strong>cancelled</strong> if any cancelled and none failed;
+    <strong>running</strong> (spinner) if any pending/running and none failed; <strong>completed</strong> otherwise.
+    Search, deep-link focus, and explicit row focus force the relevant group open before scrolling to a hidden member.</p>
+
+  <!-- ===================== MARKDOWN RENDERING ===================== -->
+  <h2>Assistant markdown · real GFM rendering</h2>
+  <p class="lede" style="margin-bottom:14px">The hand-written regex parser is replaced by a real pinned markdown renderer
+    with GFM support. Paragraphs, headings, nested lists, blockquotes, tables, inline code, fenced code, emphasis, and
+    links all render as DOM — not literal markdown text. Raw HTML is escaped, never trusted. Links use an explicit
+    safe-click policy.</p>
+  <div class="panel">
+    <div class="caption"><span class="num">MD</span><span class="title">One assistant message exercising the full feature set</span><span class="seq">MarkdownText boundary, memoized</span></div>
+    <div class="chat">
+      <div class="user"><div class="bubble">walk me through the migration and the perf budget</div><div class="ts">11:04 AM</div></div>
+      <div class="atext">
+        <h3>Migration plan</h3>
+        <p>The parser change is <strong>backward compatible</strong>, but still <em>pin the version</em> and read the
+          <a class="link" data-href="https://example.com/upgrade">upgrade notes<svg class="extico"><use href="#i-ext"/></svg></a>
+          first.</p>
+        <ul>
+          <li>Update <code>go.mod</code> to the pinned tag</li>
+          <li>Regenerate contracts
+            <ul>
+              <li>run <code>./scripts/generate.sh</code></li>
+              <li>commit the generated <code>backend.ts</code></li>
+            </ul>
+          </li>
+          <li>Re-run the deterministic E2E</li>
+        </ul>
+        <p>Then follow the ordered steps:</p>
+        <ol>
+          <li>Freeze the current behavior with a characterization test.</li>
+          <li>Swap the renderer behind the <code>MarkdownText</code> boundary.</li>
+          <li>Verify against the live provider.</li>
+        </ol>
+        <blockquote><p>Don't manually edit generated outputs — the supply-chain check will reject it.</p></blockquote>
+        <p>Performance budget per phase:</p>
+        <table>
+          <thead><tr><th>Phase</th><th>Target</th><th>Gate</th></tr></thead>
+          <tbody>
+            <tr><td>Parse</td><td>&lt;&nbsp;4&nbsp;ms</td><td><code>vitest</code></td></tr>
+            <tr><td>Paint</td><td>&lt;&nbsp;8&nbsp;ms</td><td>Electron E2E</td></tr>
+            <tr><td>Ingest</td><td>O(1) / event</td><td>Go test</td></tr>
+          </tbody>
+        </table>
+        <pre class="code"><span class="hl-kw">func</span> <span class="hl-fn">Render</span>(b Block) Node {
+    <span class="hl-kw">return</span> md.<span class="hl-fn">Parse</span>(b.Text)  <span class="hl-com">// GFM on, raw HTML off</span>
+}</pre>
+        <p>Raw HTML is escaped, so <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> renders as literal text, never as a
+          node. Local paths like <span class="inert-link">/Users/kevin/setta/internal/chat/service.go</span> stay inert
+          text until a typed open-file action exists.</p>
+      </div>
+      <div class="ts-row">11:04 AM</div>
+    </div>
+    <div class="legend" style="margin-top:12px">
+      <span class="item"><svg class="swatch" style="color:var(--primary)"><use href="#i-ext"/></svg> safe <code>http</code>/<code>https</code> → <code>window.setta.app.openExternalUrl</code></span>
+      <span class="item"><span class="inert-link" style="font-size:12px">inert local path</span> → plain text (no typed open-file action yet)</span>
+      <span class="item">raw <code>&lt;script&gt;</code> → escaped to text</span>
+    </div>
+    <p class="note">Code blocks still route through the existing <code>highlightCode</code> helper, so syntax highlighting
+      stays centralized. Completed assistant blocks are memoized so they don't reparse; only the streaming block reparses
+      as text arrives.</p>
+  </div>
+
+  <!-- ===================== SCENARIO GRID ===================== -->
+  <h2>Conditions</h2>
+  <div class="grid">
+
+    <!-- 1: text, reasoning, text, no tools -->
+    <div class="panel">
+      <div class="caption"><span class="num">01</span><span class="title">Text → reasoning → text (no tools)</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">where does the parser live?</div><div class="ts">2:14 PM</div></div>
+        <div class="atext"><p>The parser likely lives under <code>internal/chat</code>.</p></div>
+        <div class="thinking resolved">
+          <svg class="brain"><use href="#i-brain"/></svg>
+          <span>Checked parser ownership</span>
+        </div>
+        <div class="atext"><p>It's in <code>internal/chat/codex_harness_notification_handlers.go</code> — the reasoning
+          and agent-message deltas are normalized there before becoming run items.</p></div>
+        <div class="ts-row">2:14 PM</div>
+      </div>
+      <p class="note">Reasoning <em>after</em> text resolves in place — the headline is static once resolved, so there's nothing to shimmer.</p>
+    </div>
+
+    <!-- 2: live / active run — shimmer on the live reasoning headline -->
+    <div class="panel">
+      <div class="caption"><span class="num">02</span><span class="title">Active run · live reasoning shimmer</span><span class="seq">one frozen moment mid-run</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">find the flaky test and fix it</div><div class="ts">now</div></div>
+        <div class="atext"><p>Let me trace the retry path in the harness.</p></div>
+        <details class="group">
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">1</span>
+            <span class="gstatus"><svg class="ok"><use href="#i-check"/></svg></span>
+            <span class="gtitle">Searched retry</span>
+          </summary>
+          <div class="rows">
+            <details class="row">
+              <summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Searched retry</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary>
+              <div class="rowbody">
+                <div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">rg</span> -n <span class="hl-str">"retry"</span> internal/chat</div></div>
+                <div class="field"><h4>Output</h4><pre class="out">codex_harness.go:212:  for retry := 0; retry &lt; maxRetries; retry++ {</pre></div>
+              </div>
+            </details>
+          </div>
+        </details>
+        <div class="thinking">
+          <svg class="brain"><use href="#i-brain"/></svg>
+          <span class="live-headline">Reading the retry call sites</span>
+          <span class="braille" style="margin-left:2px"></span>
+        </div>
+      </div>
+      <p class="note">A frozen moment mid-run: it answered, ran a search (collapsed group, count <code>1</code>), and is now reasoning — so the live reasoning <em>headline</em> shimmers. The shimmer is one CSS background animation on the text only, reduced-motion aware; the spinner still marks liveness.</p>
+    </div>
+
+    <!-- 3: public reasoning summary + highlighted code -->
+    <div class="panel">
+      <div class="caption"><span class="num">03</span><span class="title">Public reasoning summary · highlighted code</span><span class="seq">reasoning mode=summary</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">should we cache the projection?</div><div class="ts">4:31 PM</div></div>
+        <details class="reasoning" open>
+          <summary><svg class="spark"><use href="#i-spark"/></svg><span>Caching the projection</span><svg class="chev"><use href="#i-chev"/></svg></summary>
+          <div class="reasonbody">Weighed recompute cost against staleness: the projection rebuild reads every run
+            item's output preview on each update, so caching output-presence avoids O(items) disk reads per event.</div>
+        </details>
+        <div class="atext">
+          <p>Yes — cache output-presence and skip emission when the projection is byte-identical to the last one:</p>
+<pre class="code"><span class="hl-kw">if</span> next.Equal(prev) {
+    <span class="hl-kw">return</span> <span class="hl-kw">nil</span> <span class="hl-com">// projection unchanged — skip emit</span>
+}
+cache[runID] = next.OutputPresence()</pre>
+        </div>
+        <div class="ts-row">4:31 PM</div>
+      </div>
+      <p class="note">The reasoning <em>headline</em> stays on the collapsed row (resolved, so no shimmer); expanding reveals the full public summary. Fenced code is syntax-highlighted and wraps — no horizontal scroll.</p>
+    </div>
+
+    <!-- 4: private/generic reasoning -> silent -->
+    <div class="panel">
+      <div class="caption"><span class="num">04</span><span class="title">Private / generic reasoning → silent</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">hi</div><div class="ts">9:08 PM</div></div>
+        <div class="atext"><p>Hi! What would you like to work on in this repo?</p></div>
+        <div class="ts-row">9:08 PM</div>
+      </div>
+      <p class="note">The model reasoned internally with only a generic <code>Reasoning summary</code> title and hidden
+        text — so <strong>no</strong> block is created. No empty accordion, no "Thinking: Reasoning summary" noise.</p>
+    </div>
+
+    <!-- 5: failed → retry sequence — aggregate-failed header, expanded -->
+    <div class="panel">
+      <div class="caption"><span class="num">05</span><span class="title">Failed → retry · aggregate-failed header</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">how many lines of code are in this repo?</div><div class="ts">5:02 PM</div></div>
+        <div class="atext"><p>I'll try a code-aware counter, then fall back if it isn't installed.</p></div>
+        <details class="group" open>
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">3</span>
+            <span class="gstatus"><svg class="err"><use href="#i-alert"/></svg></span>
+            <span class="gtitle">tokei .</span>
+          </summary>
+          <div class="rows">
+            <details class="row"><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">tokei .</span><span class="status"><svg class="err"><use href="#i-alert"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">tokei</span> .</div></div><div class="field"><h4>Exit</h4><div class="val">exit 127 · command not found</div></div></div></details>
+            <details class="row"><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">cloc .</span><span class="status"><svg class="err"><use href="#i-alert"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">cloc</span> .</div></div><div class="field"><h4>Exit</h4><div class="val">exit 127 · command not found</div></div></div></details>
+            <details class="row"><summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Listed files</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">git</span> ls-files</div></div><div class="field"><h4>Output</h4><pre class="out">730 tracked files</pre></div></div></details>
+          </div>
+        </details>
+        <div class="atext"><p>Neither <code>tokei</code> nor <code>cloc</code> is installed, so I counted tracked files instead: <strong>215,654</strong> lines across <strong>730</strong> files.</p></div>
+        <div class="ts-row">5:02 PM</div>
+      </div>
+      <p class="note">The header shows the muted red <em>alert</em> because aggregate status is failed if <em>any</em> member failed — even though the last attempt (<code>git ls-files</code>) succeeded. Expanded, each row carries its own muted check/alert.</p>
+    </div>
+
+    <!-- 6: mixed actions + file change + web -->
+    <div class="panel">
+      <div class="caption"><span class="num">06</span><span class="title">Mixed actions · command, file change, search</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">add a timeout flag and document it</div><div class="ts">6:20 PM</div></div>
+        <div class="atext"><p>I'll add the flag, update the docs, and confirm the existing usage.</p></div>
+        <details class="group" open>
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">3</span>
+            <span class="gstatus"><svg class="ok"><use href="#i-check"/></svg></span>
+            <span class="gtitle sans">internal/chat/service.go</span>
+          </summary>
+          <div class="rows">
+            <details class="row"><summary><svg class="ico"><use href="#i-file"/></svg><span class="label">internal/chat/service.go</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Diff · +12 −1</h4><pre class="out">+ flag.Duration("timeout", 0, "run timeout (0 = none)")</pre></div></div></details>
+            <details class="row"><summary><svg class="ico"><use href="#i-file"/></svg><span class="label">docs/cli.md</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="rowbody"><div class="field"><h4>Diff · +6</h4><pre class="out">+ `--timeout` — abort the run after the given duration.</pre></div></div></details>
+            <div class="row"><div class="rowhead"><svg class="ico"><use href="#i-globe"/></svg><span class="label">web search · "go flag.Duration default"</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span></div></div>
+          </div>
+        </details>
+        <div class="atext"><p>Done — the flag defaults to <code>0</code> (no timeout) and the docs note the new option.</p></div>
+        <div class="ts-row">6:20 PM</div>
+      </div>
+      <p class="note">Heterogeneous members read as one group; the header previews the first member. File-change rows label by path with the diff stat; the web-search row has no inspectable detail, so it's a compact row with no chevron — never a fake empty accordion.</p>
+    </div>
+
+    <!-- 7: single command, group + row expanded -->
+    <div class="panel span2">
+      <div class="caption"><span class="num">07</span><span class="title">Single command · two-level drill-down, output &amp; lazy load</span><span class="seq">group of one → row → detail</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">what changed in the last commit?</div><div class="ts">7:45 PM</div></div>
+        <div class="atext"><p>Checking the latest commit.</p></div>
+        <details class="group" open>
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">1</span>
+            <span class="gstatus"><svg class="ok"><use href="#i-check"/></svg></span>
+            <span class="gtitle">git show --stat HEAD</span>
+          </summary>
+          <div class="rows">
+            <details class="row" open>
+              <summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">git show --stat HEAD</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary>
+              <div class="rowbody">
+                <div class="field"><h4>Cwd</h4><div class="val mono">/Users/kevin/Documents/AppDevelopment/setta</div></div>
+                <div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">git</span> show --stat HEAD</div></div>
+                <div class="field"><h4>Output</h4><pre class="out">commit 57c36cb81  Add goal slash command support
+
+ internal/chat/service.go            | 18 ++++++++--
+ internal/chat/codex_protocol.go     | 11 +++++-
+ desktop/src/renderer/.../chat.tsx   | 24 +++++++++---
+ 3 files changed, 47 insertions(+), 6 deletions(-)</pre></div>
+                <button class="loadmore">Load more output</button>
+                <div class="field"><h4>Exit</h4><div class="val">exit 0 · 63ms</div></div>
+              </div>
+            </details>
+          </div>
+        </details>
+        <div class="atext"><p>The last commit adds the goal slash-command across the service, the Codex protocol layer, and the chat UI.</p></div>
+        <div class="ts-row">7:45 PM</div>
+      </div>
+      <p class="note">A single activity is still a group of one. The header previews the command; expanding the group reveals the member row, and expanding the row drills into cwd / command / output. Output streams over its own channel and lazy-loads by <code>sourceRunItemId</code> — the projection isn't republished per chunk.</p>
+    </div>
+
+    <!-- 8: silent startup liveness — run_status working with shimmer -->
+    <div class="panel">
+      <div class="caption"><span class="num">08</span><span class="title">Silent startup · live "Working" shimmer</span><span class="seq">run_status mode=working</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">find the entry point and explain it</div><div class="ts">now</div></div>
+        <div class="working">
+          <span class="braille"></span>
+          <span class="live-headline">Working</span>
+        </div>
+      </div>
+      <p class="note">The model is reasoning privately — no public text, tools, or summary yet. The live-only run-status
+        headline shimmers to show the run is alive. It's never persisted: the moment the first real block arrives it's
+        gone — and because it's still the tail, nothing shifts beneath it.</p>
+    </div>
+
+    <!-- 9: steering interleaved mid-run -->
+    <div class="panel">
+      <div class="caption"><span class="num">09</span><span class="title">Steering interleaved mid-run</span><span class="seq">user_message gets a run-local ordinal</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">inspect the shell scripts</div><div class="ts">3:30 PM</div></div>
+        <div class="atext"><p>I'll inspect the scripts.</p></div>
+        <details class="group">
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">1</span>
+            <span class="gstatus"><svg class="ok"><use href="#i-check"/></svg></span>
+            <span class="gtitle">Listed scripts</span>
+          </summary>
+          <div class="rows">
+            <details class="row">
+              <summary><svg class="ico"><use href="#i-term"/></svg><span class="label mono">Listed scripts</span><span class="status"><svg class="ok"><use href="#i-check"/></svg></span><svg class="chev"><use href="#i-chev"/></svg></summary>
+              <div class="rowbody"><div class="field"><h4>Command</h4><div class="cmdline"><span class="hl-fn">ls</span> scripts</div></div><div class="field"><h4>Output</h4><pre class="out">go.sh
+format.sh</pre></div></div>
+            </details>
+          </div>
+        </details>
+        <div class="user steer"><div class="bubble">Also check setup.sh</div><div class="deliv">Steering</div></div>
+        <div class="atext"><p>Good call — I'll include <code>setup.sh</code> in the sweep.</p></div>
+        <div class="ts-row">3:30 PM</div>
+      </div>
+      <p class="note">The steering message gets a run-local ordinal at ingestion, so it lands <em>between</em> the activity group and the next assistant text — not sorted to the end of the run just because its conversation ordinal is later.</p>
+    </div>
+
+    <!-- 10: queued messages -->
+    <div class="panel">
+      <div class="caption"><span class="num">10</span><span class="title">Queued messages</span><span class="seq">user_message delivery=queued · sorts after the active run</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">refactor the parser and add tests</div><div class="ts">8:02 PM</div></div>
+        <div class="atext"><p style="color:var(--muted)">Starting on the parser refactor <span class="braille"></span></p></div>
+        <div class="user queued" tabindex="0">
+          <div class="bubble">then run the full test suite</div>
+          <div class="qmeta"><span class="qactions"><button class="qbtn">Edit</button><button class="qbtn">Remove</button></span><span class="deliv">Queued</span></div>
+        </div>
+        <div class="user queued" tabindex="0">
+          <div class="bubble">and update the changelog</div>
+          <div class="qmeta"><span class="qactions"><button class="qbtn">Edit</button><button class="qbtn">Remove</button></span><span class="deliv">Queued</span></div>
+        </div>
+      </div>
+      <p class="note">Queued messages wait at the tail (dashed border, muted) while a run is active, and run in order once it finishes — editable/removable on hover until they start. In the block model they're <code>user_message</code> blocks that sort after the active run's blocks.</p>
+    </div>
+
+    <!-- 11: parallel commands running — collapsed live group, no rows below -->
+    <div class="panel">
+      <div class="caption"><span class="num">11</span><span class="title">Parallel commands · running, collapsed</span><span class="seq">live header mutates; no rows insert</span></div>
+      <div class="chat">
+        <div class="user"><div class="bubble">run the full check suite</div><div class="ts">now</div></div>
+        <div class="atext"><p>Kicking off the checks in parallel.</p></div>
+        <details class="group">
+          <summary class="ghead">
+            <svg class="gchev"><use href="#i-chev"/></svg>
+            <span class="gcount">3</span>
+            <span class="gstatus"><span class="braille"></span></span>
+            <span class="gtitle">./scripts/go.sh test ./internal/chat</span>
+            <span class="gmore">+2</span>
+          </summary>
+          <div class="rows">
+            <div class="row"><div class="rowhead"><svg class="ico"><use href="#i-term"/></svg><span class="label mono">./scripts/go.sh test ./internal/chat</span><span class="status"><span class="braille"></span></span></div></div>
+            <div class="row"><div class="rowhead"><svg class="ico"><use href="#i-term"/></svg><span class="label mono">./scripts/format.sh --check</span><span class="status"><span class="braille"></span></span></div></div>
+            <div class="row"><div class="rowhead"><svg class="ico"><use href="#i-term"/></svg><span class="label mono">./check_quality.sh --git-changes</span><span class="status"><span class="braille"></span></span></div></div>
+          </div>
+        </details>
+      </div>
+      <p class="note">Collapsed even while active. Codex runs three commands at once; the header shows the running spinner, a live count, and the active command as the preview with <code>+2</code> more. New rows only bump the count/status/preview — nothing inserts below the header. Click to expand and watch them stream.</p>
+    </div>
+
+  </div>
+
+  <!-- ===================== PROPOSED: BACKGROUND TERMINALS ===================== -->
+  <h2>Reference · background terminals</h2>
+  <p class="lede" style="margin-bottom:6px">A Codex <em>unified-exec</em> terminal can keep running after the turn ends, so its
+    lifecycle is owned by a process registry, not the run. Two surfaces: a slim chronological <strong>start marker</strong> in
+    the transcript, and a persistent compact <strong>footer</strong> that — when clicked — opens a live
+    <strong>background terminal monitor</strong> with per-process <strong>Kill</strong> controls.</p>
+  <p class="hint" style="margin-bottom:16px">GUI-only — no <code>/ps</code> or <code>/stop</code> slash commands. Push-based
+    from Go-owned projections; the renderer never inspects raw provider protocol.</p>
+
+  <div class="bgwrap">
+    <!-- left: transcript with start markers, the open monitor, and the clickable footer -->
+    <div class="chat">
+      <div class="user"><div class="bubble">start the dev server and a test watcher in the background</div><div class="ts">10:22 PM</div></div>
+      <div class="atext"><p>Starting both in the background.</p></div>
+
+      <div class="bgterm">
+        <svg class="ico"><use href="#i-sqterm"/></svg>
+        <span class="label">Started background terminal · <span class="mono">npm run dev</span></span>
+        <span class="pill">background</span>
+        <span class="status"><span class="braille"></span></span>
+      </div>
+      <div class="bgterm">
+        <svg class="ico"><use href="#i-sqterm"/></svg>
+        <span class="label">Started background terminal · <span class="mono">npm test -- --watch</span></span>
+        <span class="pill">background</span>
+        <span class="status"><span class="braille"></span></span>
+      </div>
+
+      <div class="atext"><p>Both are running — dev server on <code>http://localhost:5173/</code>, tests watching for changes.</p></div>
+      <div class="ts-row">10:22 PM · run completed</div>
+
+      <!-- monitor: opened from the footer (in-app overlay form — the chat shifts up) -->
+      <div class="bgmon">
+        <div class="mhead">
+          <svg class="ico"><use href="#i-sqterm"/></svg>
+          <span class="t">Background terminals</span>
+          <button class="killall">Kill all</button>
+        </div>
+        <div class="mproc">
+          <div class="mrow">
+            <span class="cmd">npm run dev</span>
+            <span class="mstat"><span class="braille"></span> running</span>
+            <button class="kill"><svg><use href="#i-stop"/></svg> Kill</button>
+          </div>
+          <pre class="mout">  VITE v7.3.3  ready in 412 ms
+  ➜  Local:   http://localhost:5173/</pre>
+        </div>
+        <div class="mproc">
+          <div class="mrow">
+            <span class="cmd">npm test -- --watch</span>
+            <span class="mstat"><span class="braille"></span> running</span>
+            <button class="kill"><svg><use href="#i-stop"/></svg> Kill</button>
+          </div>
+          <pre class="mout">  PASS  12 passed
+  watching for file changes…</pre>
+        </div>
+      </div>
+
+      <!-- footer: the click target (shown open); no slash hints -->
+      <div class="bgfooter open" tabindex="0">
+        <span class="braille"></span>
+        <span>2 background terminals running</span>
+        <svg class="caret"><use href="#i-chev"/></svg>
+      </div>
+    </div>
+
+    <!-- right: behavior annotations -->
+    <div class="bgnotes">
+      <div class="bgnote">
+        <h4><span class="dot"></span> Footer is the click target</h4>
+        <p>The compact footer <em>is</em> the affordance — clicking it opens the monitor. No <code>/ps</code> / <code>/stop</code> commands. When the last process exits the footer is hidden, so there is nothing to open.</p>
+      </div>
+      <div class="bgnote">
+        <h4><span class="dot"></span> Live monitor · per-process Kill</h4>
+        <p>The monitor subscribes to <code>output_delta</code> and appends stdout/stderr live (older chunks paged). Each process has a required <strong>Kill</strong>; <strong>Kill all</strong> is allowed but secondary. Kill → <code>terminating</code> → <code>exited</code> / <code>lost</code>.</p>
+      </div>
+      <div class="bgnote">
+        <h4><span class="dot"></span> Lifecycle outlives the turn</h4>
+        <p>The run is <strong>completed</strong>, yet both processes keep running. Start markers stay slim chronological markers — run finalization does <em>not</em> coerce them to the run outcome — and no late row is appended when a process exits. A later turn writing stdin adds a slim <em>"Interacted with background terminal"</em> marker.</p>
+      </div>
+      <div class="bgnote">
+        <h4><span class="dot"></span> Monitor host</h4>
+        <p>Same component either way: an in-app overlay that shifts the chat up (shown here), or a separate Niri window. Both share the store state, endpoints, and live event stream.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint" style="margin-top:40px">Mockup only — not wired to live data. Reflects
+    shimmer headlines, real markdown, collapsed activity groups over the shipped chronological transcript,
+    plus the existing chat styling (command summaries in
+    <code>internal/chat/command_summary.go</code>, syntax highlighting via <code>highlight.js</code>, muted status
+    icons), and the implemented background terminal lifecycle.</p>
+</div>
+
+<!-- No script: group and row toggling uses native HTML details/summary behavior. -->
+</body>
+</html>

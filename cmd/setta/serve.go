@@ -10,15 +10,14 @@ import (
 	"io"
 
 	"setta/internal/runtime"
-	"setta/internal/speech"
 )
 
 type serveOptions struct {
 	AppDataDir  string
+	ChatHarness runtime.ChatHarnessMode
 	DisplayName string
 	Host        string
 	Port        int
-	Speech      speech.OpenAIClientConfig
 	Tailnet     bool
 }
 
@@ -50,15 +49,10 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	if err != nil {
 		return serveOptions{}, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(deps.getenv, deps.unsetenv)
-	if err != nil {
-		return serveOptions{}, err
-	}
 	options := serveOptions{
 		AppDataDir: appDataDir,
 		Host:       runtime.DefaultConfig().Host,
 		Port:       defaultServePort,
-		Speech:     speechConfig,
 	}
 	flagSet := newFlagSet("setta serve", deps.stderr)
 	flagSet.StringVar(&options.AppDataDir, "app-data-dir", options.AppDataDir, "directory for persisted Setta app state")
@@ -74,6 +68,12 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	if flagSet.NArg() != 0 {
 		return serveOptions{}, usageError{err: fmt.Errorf("setta serve does not accept positional arguments")}
 	}
+	if harness := deps.getenv("SETTA_E2E_CHAT_HARNESS"); harness != "" {
+		if deps.getenv("SETTA_E2E") != "1" {
+			return serveOptions{}, fmt.Errorf("SETTA_E2E_CHAT_HARNESS requires SETTA_E2E=1")
+		}
+		options.ChatHarness = runtime.ChatHarnessMode(harness)
+	}
 	if options.Tailnet {
 		host, err := resolveTailnetIPv4(ctx, deps.commandRunner)
 		if err != nil {
@@ -86,7 +86,19 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 
 func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serveInstance, error) {
 	var readyBuffer bytes.Buffer
-	config := serveRuntimeConfig(options, deps, &readyBuffer)
+	config := runtime.DefaultConfig()
+	config.AllowRemote = options.Tailnet
+	config.AppDataDir = options.AppDataDir
+	config.Host = options.Host
+	config.Port = options.Port
+	config.RuntimeDisplayName = options.DisplayName
+	config.SkipBootstrapDeviceSession = true
+	config.Stderr = deps.stderr
+	config.Stdout = &readyBuffer
+	config.Version = version
+	if options.ChatHarness != "" {
+		config.ChatHarness = options.ChatHarness
+	}
 
 	server, err := runtime.Start(ctx, config)
 	if err != nil {
@@ -131,21 +143,6 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 		server:     server,
 		state:      state,
 	}, nil
-}
-
-func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Writer) runtime.Config {
-	config := runtime.DefaultConfig()
-	config.AllowRemote = options.Tailnet
-	config.AppDataDir = options.AppDataDir
-	config.Host = options.Host
-	config.Port = options.Port
-	config.RuntimeDisplayName = options.DisplayName
-	config.SkipBootstrapDeviceSession = true
-	config.Stderr = deps.stderr
-	config.Stdout = readyWriter
-	config.Version = version
-	config.Speech = options.Speech
-	return config
 }
 
 func decodeReadyEvent(reader io.Reader) (runtime.ReadyEvent, error) {

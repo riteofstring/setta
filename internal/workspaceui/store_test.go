@@ -1,13 +1,13 @@
 package workspaceui
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"setta/internal/orchestrator"
 	"setta/internal/workspace"
 )
 
@@ -37,12 +37,7 @@ func TestStorePersistsWorkspaceUILayout(t *testing.T) {
 	if loaded.Layout.Columns[0].PreviousProportionWidth == nil || *loaded.Layout.Columns[0].PreviousProportionWidth != 0.42 {
 		t.Fatalf("previous proportion width = %#v", loaded.Layout.Columns[0].PreviousProportionWidth)
 	}
-	path := StateFilePath(appDataDir, layout.WorkspaceID)
-	wantPath := filepath.Join(appDataDir, "workspace-ui", layout.WorkspaceID, "layout.json")
-	if path != wantPath {
-		t.Fatalf("state path = %q, want %q", path, wantPath)
-	}
-	if _, err := os.Stat(path); err != nil {
+	if _, err := os.Stat(StateFilePath(appDataDir, layout.WorkspaceID)); err != nil {
 		t.Fatalf("stat layout file: %v", err)
 	}
 }
@@ -108,101 +103,134 @@ func TestStoreRejectsInvalidLayoutRelationships(t *testing.T) {
 	}
 }
 
-func TestStorePersistsEasyButtonPaneConfig(t *testing.T) {
+func TestStoreAllowsDefaultTerminalProfile(t *testing.T) {
 	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")
-	layout.Panes[0].SurfaceKind = SurfaceKindEasyButton
-	layout.Panes[0].EasyButtonConfig = &EasyButtonPaneConfig{ConversationID: "conversation-1"}
+	layout.Panes[1].TerminalConfig.ProfileID = ""
 
 	if _, err := store.SaveLayout(layout); err != nil {
-		t.Fatalf("save layout with easy button config: %v", err)
+		t.Fatalf("save layout with default terminal profile: %v", err)
+	}
+}
+
+func TestStorePersistsWorkflowNodeDetailsPaneConfig(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig(layout.WorkspaceID)
+
+	if _, err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout with workflow node details config: %v", err)
 	}
 	loaded, err := store.LoadLayout(layout.WorkspaceID)
 	if err != nil {
 		t.Fatalf("load layout: %v", err)
 	}
-	if loaded.Layout == nil || loaded.Layout.Panes[0].EasyButtonConfig == nil {
-		t.Fatalf("loaded easy button config = %+v", loaded.Layout)
+	if loaded.Layout == nil || loaded.Layout.Panes[0].WorkflowNodeDetailsConfig == nil {
+		t.Fatalf("loaded workflow node details config = %+v", loaded.Layout)
 	}
-	if loaded.Layout.Panes[0].EasyButtonConfig.ConversationID != "conversation-1" {
-		t.Fatalf("loaded conversation id = %q, want conversation-1", loaded.Layout.Panes[0].EasyButtonConfig.ConversationID)
+	if loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeID != "activity" {
+		t.Fatalf("loaded node id = %q, want activity", loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeID)
 	}
-}
-
-func TestStoreRejectsInvalidEasyButtonPaneConfig(t *testing.T) {
-	tests := []struct {
-		name        string
-		surfaceKind SurfaceKind
-		config      *EasyButtonPaneConfig
-		want        string
-	}{
-		{
-			name:        "missing config",
-			surfaceKind: SurfaceKindEasyButton,
-			config:      nil,
-			want:        "easyButtonConfig is required for easy-button panes",
-		},
-		{
-			name:        "missing conversation",
-			surfaceKind: SurfaceKindEasyButton,
-			config:      &EasyButtonPaneConfig{},
-			want:        "conversationId is required",
-		},
-		{
-			name:        "surrounding whitespace",
-			surfaceKind: SurfaceKindEasyButton,
-			config:      &EasyButtonPaneConfig{ConversationID: " conversation-1"},
-			want:        "must not have surrounding whitespace",
-		},
-		{
-			name:        "wrong surface",
-			surfaceKind: SurfaceKindEmptyFrame,
-			config:      &EasyButtonPaneConfig{ConversationID: "conversation-1"},
-			want:        "only valid for easy-button panes",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store := newTestStore(t, t.TempDir())
-			layout := testLayout("workspace_api")
-			layout.Panes[0].SurfaceKind = test.surfaceKind
-			layout.Panes[0].EasyButtonConfig = test.config
-
-			_, err := store.SaveLayout(layout)
-			if err == nil {
-				t.Fatal("save succeeded, want invalid easy button config error")
-			}
-			if !IsCorruptStateError(err) || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("error = %T %v, want corrupt state containing %q", err, err, test.want)
-			}
-		})
+	if loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeExecutionID != "workflow_node_execution_test" {
+		t.Fatalf("loaded node execution id = %q, want workflow_node_execution_test", loaded.Layout.Panes[0].WorkflowNodeDetailsConfig.NodeExecutionID)
 	}
 }
 
-func TestStoreRejectsPersistedEasyButtonPaneWithoutConversationBinding(t *testing.T) {
-	appDataDir := t.TempDir()
-	store := newTestStore(t, appDataDir)
+func TestStorePersistsDraftWorkflowNodeDetailsPaneConfig(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")
-	layout.Panes[0].EasyButtonConfig = nil
-	payload, err := json.Marshal(layout)
-	if err != nil {
-		t.Fatalf("marshal invalid layout fixture: %v", err)
-	}
-	path := StateFilePath(appDataDir, layout.WorkspaceID)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("create state dir: %v", err)
-	}
-	if err := os.WriteFile(path, payload, 0o644); err != nil {
-		t.Fatalf("write invalid layout fixture: %v", err)
-	}
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testDraftWorkflowNodeDetailsConfig(layout.WorkspaceID)
 
-	_, err = store.LoadLayout(layout.WorkspaceID)
-	if err == nil {
-		t.Fatal("load succeeded, want missing Easy Button binding error")
+	if _, err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("save layout with draft workflow node details config: %v", err)
 	}
-	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "easyButtonConfig is required for easy-button panes") {
-		t.Fatalf("error = %T %v, want missing Easy Button binding corrupt state", err, err)
+	loaded, err := store.LoadLayout(layout.WorkspaceID)
+	if err != nil {
+		t.Fatalf("load layout: %v", err)
+	}
+	config := loaded.Layout.Panes[0].WorkflowNodeDetailsConfig
+	if config == nil {
+		t.Fatalf("loaded workflow node details config = nil")
+	}
+	if config.ExecutionID != "" || config.NodeExecutionID != "" || config.ViewMode != orchestrator.GraphViewModeDraft {
+		t.Fatalf("loaded draft config = %+v, want draft with empty run identity", config)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsConfigWorkspaceMismatch(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig("workspace_other")
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want mismatched workflow node details workspace error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "does not match layout workspaceId") {
+		t.Fatalf("error = %T %v, want workspace mismatch corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsPaneWithoutConfig(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want missing workflow node details config error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "workflowNodeDetailsConfig is required") {
+		t.Fatalf("error = %T %v, want required config corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsRunConfigWithoutNodeExecution(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig(layout.WorkspaceID)
+	layout.Panes[0].WorkflowNodeDetailsConfig.NodeExecutionID = ""
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want missing workflow node execution config error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "nodeExecutionId is required for run view") {
+		t.Fatalf("error = %T %v, want required node execution corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsDraftConfigWithRunIdentity(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].SurfaceKind = SurfaceKindWorkflowNodeDetails
+	layout.Panes[0].WorkflowNodeDetailsConfig = testDraftWorkflowNodeDetailsConfig(layout.WorkspaceID)
+	layout.Panes[0].WorkflowNodeDetailsConfig.ExecutionID = "workflow_execution_stale"
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want stale draft run identity error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "executionId is only valid for run view") {
+		t.Fatalf("error = %T %v, want draft run identity corrupt state", err, err)
+	}
+}
+
+func TestStoreRejectsWorkflowNodeDetailsConfigOnOtherPane(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	layout := testLayout("workspace_api")
+	layout.Panes[0].WorkflowNodeDetailsConfig = testWorkflowNodeDetailsConfig(layout.WorkspaceID)
+
+	_, err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("save succeeded, want misplaced workflow node details config error")
+	}
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "only valid for workflow-node-details") {
+		t.Fatalf("error = %T %v, want misplaced config corrupt state", err, err)
 	}
 }
 
@@ -236,44 +264,6 @@ func TestServicePersistsResolvedWorkspaceLayout(t *testing.T) {
 	}
 }
 
-func TestServiceObservesSavedAndReadWorkspaceLayouts(t *testing.T) {
-	appDataDir := t.TempDir()
-	observer := &recordingLayoutObserver{}
-	service, err := NewService(
-		newTestStore(t, appDataDir),
-		testResolver{"workspace_api": "/tmp/api"},
-		observer,
-	)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	layout := testLayout("workspace_api")
-
-	if _, err := service.SaveLayout(layout); err != nil {
-		t.Fatalf("save layout: %v", err)
-	}
-	if _, err := service.ReadLayout(layout.WorkspaceID); err != nil {
-		t.Fatalf("read layout: %v", err)
-	}
-	if len(observer.layouts) != 2 {
-		t.Fatalf("observed layout count = %d, want 2", len(observer.layouts))
-	}
-	for index, observed := range observer.layouts {
-		if observed.WorkspaceID != layout.WorkspaceID || observed.FocusedPaneID != layout.FocusedPaneID {
-			t.Errorf("observed layout %d = %+v, want workspace %s focus %s", index, observed, layout.WorkspaceID, layout.FocusedPaneID)
-		}
-	}
-}
-
-type recordingLayoutObserver struct {
-	layouts []WorkspaceUILayout
-}
-
-func (observer *recordingLayoutObserver) ObserveWorkspaceUILayout(layout WorkspaceUILayout) error {
-	observer.layouts = append(observer.layouts, layout)
-	return nil
-}
-
 func newTestStore(t *testing.T, appDataDir string) *Store {
 	t.Helper()
 
@@ -287,22 +277,16 @@ func newTestStore(t *testing.T, appDataDir string) *Store {
 func newTestService(t *testing.T, appDataDir string, resolver testResolver) *Service {
 	t.Helper()
 
-	service, err := NewService(newTestStore(t, appDataDir), resolver, discardingLayoutObserver{})
+	service, err := NewService(newTestStore(t, appDataDir), resolver)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 	return service
 }
 
-type discardingLayoutObserver struct{}
-
-func (discardingLayoutObserver) ObserveWorkspaceUILayout(WorkspaceUILayout) error {
-	return nil
-}
-
 type testResolver map[string]string
 
-func (resolver testResolver) LookupWorkspace(id string) (workspace.WorkspaceSummary, error) {
+func (resolver testResolver) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
 	rootPath, ok := resolver[id]
 	if !ok {
 		return workspace.WorkspaceSummary{}, errors.New("workspace not found: " + id)
@@ -335,30 +319,74 @@ func testLayout(workspaceID string) WorkspaceUILayout {
 		},
 		Panes: []WorkspaceUIPane{
 			{
-				ColumnID:         "workspace_column_0",
-				EasyButtonConfig: &EasyButtonPaneConfig{ConversationID: "conversation_test"},
-				Heat:             0,
-				PaneID:           "workspace_pane_0",
-				Sequence:         0,
-				Subtitle:         "topic",
-				SurfaceID:        "workspace_surface_0",
-				SurfaceKind:      SurfaceKindEasyButton,
-				Title:            "Topic",
-				Tone:             PaneToneCyan,
-				Weight:           1.6,
+				ColumnID:    "workspace_column_0",
+				Heat:        0,
+				PaneID:      "workspace_pane_0",
+				Sequence:    0,
+				Subtitle:    "workspace chat",
+				SurfaceID:   "workspace_surface_0",
+				SurfaceKind: SurfaceKindChatDOM,
+				Title:       "Chat",
+				Tone:        PaneToneCyan,
+				Weight:      1.6,
 			},
 			{
 				ColumnID:    "workspace_column_0",
 				Heat:        37,
 				PaneID:      "workspace_pane_1",
 				Sequence:    1,
-				Subtitle:    "settings",
+				Subtitle:    "terminal",
 				SurfaceID:   "workspace_surface_1",
-				SurfaceKind: SurfaceKindSettingsDOM,
-				Title:       "Settings",
-				Tone:        PaneToneGreen,
-				Weight:      1,
+				SurfaceKind: SurfaceKindTerminal,
+				TerminalConfig: &TerminalPaneConfig{
+					ProfileID:     "default",
+					CWDOverride:   "",
+					TitleOverride: "",
+				},
+				Title:  "Terminal",
+				Tone:   PaneToneGreen,
+				Weight: 1,
 			},
 		},
+	}
+}
+
+func testWorkflowNodeDetailsConfig(workspaceID string) *WorkflowNodeDetailsPaneConfig {
+	return &WorkflowNodeDetailsPaneConfig{
+		DefinitionID:            "workflow_definition_test",
+		DefinitionName:          "Review Workflow",
+		DefinitionVersionID:     "workflow_version_test",
+		DefinitionVersionNumber: 1,
+		ExecutionID:             "workflow_execution_test",
+		NodeID:                  "activity",
+		NodeExecutionID:         "workflow_node_execution_test",
+		NodeKind:                orchestrator.NodeKindAction,
+		NodeLabel:               "Activity",
+		NodeStatus:              orchestrator.GraphNodeStatusSucceeded,
+		ProjectionIncomingEdges: []orchestrator.WorkflowGraphEdge{},
+		ProjectionOutgoingEdges: []orchestrator.WorkflowGraphEdge{},
+		VersionMismatch:         false,
+		ViewMode:                orchestrator.GraphViewModeRun,
+		WorkspaceID:             workspaceID,
+	}
+}
+
+func testDraftWorkflowNodeDetailsConfig(workspaceID string) *WorkflowNodeDetailsPaneConfig {
+	return &WorkflowNodeDetailsPaneConfig{
+		DefinitionID:            "workflow_definition_test",
+		DefinitionName:          "Review Workflow",
+		DefinitionVersionID:     "",
+		DefinitionVersionNumber: 0,
+		ExecutionID:             "",
+		NodeID:                  "activity",
+		NodeExecutionID:         "",
+		NodeKind:                orchestrator.NodeKindAction,
+		NodeLabel:               "Activity",
+		NodeStatus:              orchestrator.GraphNodeStatusNotStarted,
+		ProjectionIncomingEdges: []orchestrator.WorkflowGraphEdge{},
+		ProjectionOutgoingEdges: []orchestrator.WorkflowGraphEdge{},
+		VersionMismatch:         false,
+		ViewMode:                orchestrator.GraphViewModeDraft,
+		WorkspaceID:             workspaceID,
 	}
 }

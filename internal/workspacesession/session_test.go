@@ -61,6 +61,43 @@ func TestSelectRequiresActiveWorkspace(t *testing.T) {
 	}
 }
 
+func TestSetSelectedConversationPersistsPerWorkspace(t *testing.T) {
+	session := WorkspaceSession{
+		ActiveWorkspaces: []workspace.WorkspaceSummary{
+			summary("workspace_api", "2026-05-29T20:00:00Z"),
+			summary("workspace_web", "2026-05-29T20:05:00Z"),
+		},
+		RecentWorkspaces: []workspace.WorkspaceSummary{
+			summary("workspace_api", "2026-05-29T20:00:00Z"),
+			summary("workspace_web", "2026-05-29T20:05:00Z"),
+		},
+	}
+
+	if err := session.SetSelectedConversation("workspace_api", "conversation_api"); err != nil {
+		t.Fatalf("set selected api conversation: %v", err)
+	}
+	if err := session.SetSelectedConversation("workspace_web", "conversation_web"); err != nil {
+		t.Fatalf("set selected web conversation: %v", err)
+	}
+
+	selected := session.SelectedConversationIDs()
+	if selected["workspace_api"] != "conversation_api" || selected["workspace_web"] != "conversation_web" {
+		t.Fatalf("selected conversation ids = %#v", selected)
+	}
+	persisted := session.AppState()
+	if persisted.SelectedConversationIDsByWorkspaceID["workspace_api"] != "conversation_api" {
+		t.Fatalf("persisted selected conversation ids = %#v", persisted.SelectedConversationIDsByWorkspaceID)
+	}
+}
+
+func TestSetSelectedConversationRejectsUnknownWorkspace(t *testing.T) {
+	session := WorkspaceSession{}
+
+	if err := session.SetSelectedConversation("workspace_missing", "conversation_api"); err == nil {
+		t.Fatal("set selected conversation succeeded, want missing workspace error")
+	}
+}
+
 func TestCloseSelectedWorkspaceChoosesDeterministicNeighbor(t *testing.T) {
 	session := WorkspaceSession{
 		SelectedWorkspaceID: "workspace_web",
@@ -154,7 +191,10 @@ func TestFromAppStateRestoresActiveOrderSelectedWorkspaceAndSortedRecents(t *tes
 	state := appstate.State{
 		SchemaVersion:       appstate.SchemaVersion,
 		SelectedWorkspaceID: "workspace_web",
-		ActiveWorkspaceIDs:  []string{"workspace_api", "workspace_web"},
+		SelectedConversationIDsByWorkspaceID: map[string]string{
+			"workspace_api": "conversation_api",
+		},
+		ActiveWorkspaceIDs: []string{"workspace_api", "workspace_web"},
 		RecentWorkspaces: []workspace.WorkspaceSummary{
 			summary("workspace_api", "2026-05-29T20:00:00Z"),
 			summary("workspace_web", "2026-05-29T20:05:00Z"),
@@ -180,6 +220,9 @@ func TestFromAppStateRestoresActiveOrderSelectedWorkspaceAndSortedRecents(t *tes
 	if got := persisted.ActiveWorkspaceIDs; len(got) != 2 || got[0] != "workspace_api" || got[1] != "workspace_web" {
 		t.Fatalf("persisted active ids = %#v", got)
 	}
+	if persisted.SelectedConversationIDsByWorkspaceID["workspace_api"] != "conversation_api" {
+		t.Fatalf("persisted selected conversation ids = %#v", persisted.SelectedConversationIDsByWorkspaceID)
+	}
 }
 
 func TestRemoveRecentRejectsActiveWorkspace(t *testing.T) {
@@ -190,6 +233,22 @@ func TestRemoveRecentRejectsActiveWorkspace(t *testing.T) {
 
 	if err := session.RemoveRecent("workspace_api"); err == nil {
 		t.Fatal("remove active recent succeeded, want error")
+	}
+}
+
+func TestRemoveRecentPrunesSelectedConversation(t *testing.T) {
+	session := WorkspaceSession{
+		RecentWorkspaces: []workspace.WorkspaceSummary{summary("workspace_api", "2026-05-29T20:00:00Z")},
+		SelectedConversationIDsByWorkspaceID: map[string]string{
+			"workspace_api": "conversation_api",
+		},
+	}
+
+	if err := session.RemoveRecent("workspace_api"); err != nil {
+		t.Fatalf("remove recent: %v", err)
+	}
+	if selected := session.SelectedConversationIDs(); len(selected) != 0 {
+		t.Fatalf("selected conversation ids = %#v, want empty", selected)
 	}
 }
 

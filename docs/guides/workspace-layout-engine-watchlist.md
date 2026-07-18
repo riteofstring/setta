@@ -90,12 +90,12 @@ Watch for:
 
 ### Canvas and GPU boundaries
 
-Canvas, Pixi, WebGL, or WebGPU belong inside the heavy visual pane that owns
-them. They are not the workspace compositor.
+Canvas, Pixi, WebGL, or WebGPU belong inside heavy visual panes such as the
+workflow graph. They are not the workspace compositor.
 
 Watch for:
 
-- Importing pane-specific renderer or browser modules into the layout engine.
+- Importing Pixi/WebGPU/terminal/browser modules into the layout engine.
 - Promoting a pane-specific renderer into shared workspace infrastructure.
 - Keeping hidden canvas panes rendering.
 - Assuming GPU acceleration removes DOM, accessibility, focus, or input costs.
@@ -104,7 +104,7 @@ Watch for:
 
 For narrow layout math changes, focused unit tests are usually enough. For
 changes that affect the frame loop, runtime policy, surface lifecycle, native
-browser views, heavy DOM panes, or pane interaction flows, use the relevant
+browser views, terminal panes, or pane interaction flows, use the relevant
 Electron workflow or visual/performance checks so production main, preload,
 renderer, IPC, and store paths are exercised.
 

@@ -42,6 +42,9 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
+    extraEnv: {
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+    },
     fixture,
     visible: options.visible,
   });
@@ -58,19 +61,10 @@ try {
   const afterOpen = await waitForSettingsPanel(context.client);
   await captureScreenshot(context.client, join(artifactDir, "after-settings-open.png"));
 
-  await openBrowserPane(context.client);
-  const browserOpened = await waitForBrowserPane(context.client, workspaceId);
-  await reloadPage(context.client);
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const browserRestored = await waitForBrowserPane(context.client, workspaceId);
-  await captureScreenshot(context.client, join(artifactDir, "browser-restored.png"));
-
   await writeJson(join(artifactDir, "summary.json"), {
     afterOpen,
     artifactDir,
     beforeOpen,
-    browserOpened,
-    browserRestored,
     status: "passed",
     workspaceName: basename(fixture.workspaceRoot),
   });
@@ -156,37 +150,6 @@ async function waitForSettingsPanel(client) {
   );
 }
 
-async function openBrowserPane(client) {
-  await clickEnabledButtonByAria(client, "New frame", workflowTimeoutMs);
-  const clicked = await client.evaluate(`(() => {
-    const menu = document.querySelector('[role="menu"][aria-label="New frame options"]');
-    const button = Array.from(menu?.querySelectorAll("button") ?? []).find(
-      (candidate) => candidate.textContent?.trim().startsWith("Browser"),
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!clicked) {
-    throw new Error("Browser pane menu action was not clickable");
-  }
-}
-
-async function waitForBrowserPane(client, workspaceId) {
-  return waitForState(
-    client,
-    browserStateExpression(),
-    (state) =>
-      state.workspaceId === workspaceId &&
-      state.paneCount === 4 &&
-      state.browserVisible &&
-      !state.layoutRecoveryVisible,
-    workflowTimeoutMs,
-  );
-}
-
 async function safeSettingsState(client) {
   try {
     return await client.evaluate(settingsStateExpression());
@@ -215,23 +178,6 @@ function settingsStateExpression() {
   })()`;
 }
 
-function browserStateExpression() {
-  return `(() => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const browser = document.querySelector(
-      '[data-testid="workspace-pane-host"][data-visible="true"][data-surface-kind="browser"]',
-    );
-    return {
-      browserVisible: browser instanceof HTMLElement,
-      layoutRecoveryVisible: Boolean(
-        document.querySelector('[data-testid="workspace-layout-recovery"]'),
-      ),
-      paneCount: Number(area instanceof HTMLElement ? area.dataset.paneCount ?? "0" : "0"),
-      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
-    };
-  })()`;
-}
-
 function workspaceIdExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
@@ -251,10 +197,10 @@ function layoutWithoutSettings(workspaceId) {
         columnId: "workspace_column_0",
         paneId: "workspace_pane_0",
         sequence: 0,
-        subtitle: "empty workspace pane",
+        subtitle: "workspace chat",
         surfaceId: "workspace_surface_0",
-        surfaceKind: "empty-frame",
-        title: "Empty Frame 1",
+        surfaceKind: "chat-dom",
+        title: "Chat",
         tone: "cyan",
         weight: 1.6,
       }),
@@ -262,10 +208,10 @@ function layoutWithoutSettings(workspaceId) {
         columnId: "workspace_column_1",
         paneId: "workspace_pane_1",
         sequence: 1,
-        subtitle: "empty workspace pane",
+        subtitle: "workspace command surface",
         surfaceId: "workspace_surface_1",
-        surfaceKind: "empty-frame",
-        title: "Empty Frame 2",
+        surfaceKind: "terminal",
+        title: "Terminal",
         tone: "green",
         weight: 1,
       }),
@@ -291,7 +237,8 @@ function storedColumn(columnId, index, paneIds) {
 function storedPane(pane) {
   return {
     ...pane,
-    easyButtonConfig: null,
     heat: (pane.sequence * 37) % 100,
+    terminalConfig: null,
+    workflowNodeDetailsConfig: null,
   };
 }
