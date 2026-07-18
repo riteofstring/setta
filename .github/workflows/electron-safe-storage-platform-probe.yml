@@ -62,6 +62,14 @@ jobs:
           } >>"${GITHUB_STEP_SUMMARY}"
           exit "${probe_status}"
 
+      - name: Upload macOS probe result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: safe-storage-platform-probe-macos
+          path: safe-storage-platform-probe-macos.json
+          if-no-files-found: error
+
   windows:
     name: Windows safeStorage probe
     runs-on: windows-2025
@@ -106,6 +114,14 @@ jobs:
             echo '```'
           } >>"${GITHUB_STEP_SUMMARY}"
           exit "${probe_status}"
+
+      - name: Upload Windows probe result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: safe-storage-platform-probe-windows
+          path: safe-storage-platform-probe-windows.json
+          if-no-files-found: error
 
   linux-default:
     name: Linux default safeStorage observation
@@ -155,6 +171,14 @@ jobs:
             echo '```'
           } >>"${GITHUB_STEP_SUMMARY}"
           exit "${probe_status}"
+
+      - name: Upload Linux default backend observation
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: safe-storage-platform-probe-linux-default
+          path: safe-storage-platform-probe-linux-default.json
+          if-no-files-found: error
 
   linux-secret-service:
     name: Linux secret-service safeStorage probe
@@ -213,6 +237,14 @@ jobs:
           } >>"${GITHUB_STEP_SUMMARY}"
           exit "${probe_status}"
 
+      - name: Upload Linux secret-service probe result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: safe-storage-platform-probe-linux-secret-service
+          path: safe-storage-platform-probe-linux-secret-service.json
+          if-no-files-found: error
+
   linux-basic-text:
     name: Linux basic_text rejection probe
     runs-on: ubuntu-24.04
@@ -264,3 +296,11 @@ jobs:
             echo '```'
           } >>"${GITHUB_STEP_SUMMARY}"
           exit "${probe_status}"
+
+      - name: Upload Linux basic_text rejection probe result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: safe-storage-platform-probe-linux-basic-text
+          path: safe-storage-platform-probe-linux-basic-text.json
+          if-no-files-found: error

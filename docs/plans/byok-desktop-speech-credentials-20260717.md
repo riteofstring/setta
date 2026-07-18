@@ -11,22 +11,25 @@ backend-policy test successfully, confirmed Docker CLI is installed but still
 cannot reach the daemon while Docker Desktop is blocked on its privileged setup
 prompt, found no installed Windows/Linux runner beyond Docker and Homebrew,
 confirmed no GitHub token, public unauthenticated GitHub Actions result path,
-SSH identity, macOS Git credential, or connected GitHub plugin was available
-from this session, reconfirmed that the reference Codex repo has no Electron
-`safeStorage` probe pattern to reuse, and added a hosted Linux default-backend
-observation job so the workflow records the runner's actual selected
-`safeStorage` backend without forcing `--password-store`. Earlier passes added
-`--no-sandbox` to the Linux hosted-runner Electron probe commands so headless
-Ubuntu runners reach the intended safeStorage policy assertions, changed the
-hosted-runner probe to run on relevant pushes as well as manual dispatch while
-writing each platform JSON result to the GitHub step summary before exiting
-with the probe status, added exact probe assertions for Windows, Linux
-secret-service, and Linux `basic_text` rejection, including reliable non-zero
-probe exits on assertion failure and Linux backend-first policy classification
-that matches the production adapter, and tightened the production Linux backend
-allowlist to reject unrecognized Electron backend strings with deterministic
-vault coverage. Actual Windows/Linux host evidence remains open until that
-workflow or equivalent hosts produce results.
+SSH identity, usable macOS Git credential, or connected GitHub plugin was
+available from this session, reconfirmed that the reference Codex repo has no
+Electron `safeStorage` probe pattern to reuse, and added pinned official
+artifact uploads to the hosted probe workflow so each platform JSON result is
+retained separately from the GitHub step summary. Earlier passes added a
+hosted Linux default-backend observation job so the workflow records the
+runner's actual selected `safeStorage` backend without forcing
+`--password-store`, added `--no-sandbox` to the Linux hosted-runner Electron
+probe commands so headless Ubuntu runners reach the intended safeStorage
+policy assertions, changed the hosted-runner probe to run on relevant pushes
+as well as manual dispatch while writing each platform JSON result to the
+GitHub step summary before exiting with the probe status, added exact probe
+assertions for Windows, Linux secret-service, and Linux `basic_text`
+rejection, including reliable non-zero probe exits on assertion failure and
+Linux backend-first policy classification that matches the production adapter,
+and tightened the production Linux backend allowlist to reject unrecognized
+Electron backend strings with deterministic vault coverage. Actual
+Windows/Linux host evidence remains open until that workflow or equivalent
+hosts produce results.
 Phase 1 desktop startup is complete:
 API-key ownership has been removed from the Electron-spawned backend, provider
 endpoint configuration is isolated from server-startup credentials, the explicit
@@ -655,8 +658,11 @@ environment-based desktop product behavior.
       unauthenticated workflow-result path, no SSH identity, no macOS Git
       credential, no connected GitHub plugin, and no reference-repo probe
       pattern to reuse, and added a Linux default-backend observation job to
-      the hosted workflow, so actual Windows and Linux host evidence remains
-      the only open part of this item.
+      the hosted workflow. The latest pass found no usable macOS Git credential
+      output, added pinned official artifact uploads for each platform JSON
+      result, and reconfirmed there is still no local or authenticated hosted
+      path to actual Windows/Linux host output from this session, so actual
+      Windows and Linux host evidence remains the only open part of this item.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
