@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** In progress — Phase 0 baseline timing capture complete; AudioWorklet feasibility pending.
+**Status:** In progress — Phase 0 AudioWorklet feasibility complete; live OpenAI processed-track smoke pending.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -10,7 +10,7 @@
 
 - [x] Phase 0.1 — Deterministic Electron speech harness captures click, microphone grant, local capture-readiness proxy, transcription-session response, WebRTC readiness, finish, commit, and completed-transcript timing.
 - [x] Phase 0.2 — Current click-to-`listening` baseline recorded with deterministic 0 ms, 500 ms, and 1,500 ms transcription-session delays in `docs/reports/performance/instant-voice-capture-phase0-20260717.md`.
-- [ ] Phase 0.3 — Disposable browser AudioWorklet-gated `MediaStreamAudioDestinationNode` feasibility harness proves retained prefix, drain tail, and RTCPeerConnection acceptance.
+- [x] Phase 0.3 — Disposable browser AudioWorklet-gated `MediaStreamAudioDestinationNode` feasibility harness proves retained prefix, drain tail, and RTCPeerConnection acceptance.
 - [ ] Phase 0.4 — Live OpenAI processed-track smoke result appended when credentials are deliberately available.
 - [ ] Phase 1 — Build the buffered microphone lease.
 - [ ] Phase 2 — Make local capture the controller boundary.
