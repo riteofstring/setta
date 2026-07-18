@@ -8,7 +8,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
-  assertArtifactsExcludeMarkers,
   assertBuildExists,
   captureScreenshot,
   createElectronFixture,
@@ -20,6 +19,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { finalizeLiveOpenAIArtifacts } from "./instant-voice-capture-live-openai-artifacts.mjs";
 import { resolveLiveOpenAIApiKey } from "./instant-voice-capture-live-openai-credentials.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -72,6 +72,7 @@ if (!options.skipBuild) {
 const fixture = await createElectronFixture(workflowName);
 let context = null;
 let session = null;
+let workflowError = null;
 
 try {
   context = await launchElectronCdpContext({
@@ -123,13 +124,28 @@ try {
   };
   await writeJson(join(artifactDir, "summary.json"), summary);
   await captureScreenshot(context.client, join(artifactDir, "complete.png"));
-  await assertArtifactsExcludeMarkers(
-    artifactDir,
-    [apiKey, session.clientSecret],
-    "live OpenAI private speech credential",
-  );
-  console.log(`Electron instant voice capture live OpenAI smoke passed: ${artifactDir}`);
 } catch (error) {
+  workflowError = error;
+  await recordWorkflowFailure(error).catch(() => {});
+}
+await finalizeLiveOpenAIArtifacts({
+  artifactDir,
+  finalizers: [
+    async () => {
+      const currentContext = context;
+      context = null;
+      await stopElectronCdpContext(currentContext);
+    },
+    async () => {
+      await rm(fixture.tempRoot, { force: true, recursive: true });
+    },
+  ],
+  markers: session ? [apiKey, session.clientSecret] : [apiKey],
+  workflowError,
+});
+console.log(`Electron instant voice capture live OpenAI smoke passed: ${artifactDir}`);
+
+async function recordWorkflowFailure(error) {
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
   }
@@ -140,10 +156,6 @@ try {
     status: "failed",
     workflowName,
   });
-  throw error;
-} finally {
-  await stopElectronCdpContext(context);
-  await rm(fixture.tempRoot, { force: true, recursive: true });
 }
 
 async function synthesizeLiveSmokeAudio({ apiKey, input, model, voice }) {

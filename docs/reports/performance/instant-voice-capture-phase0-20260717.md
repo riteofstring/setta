@@ -97,6 +97,31 @@ Passed provider result on 2026-07-17 used the ignored repository root `.env` wit
 
 The passed artifact includes `input_prefix_retained`, `webrtc_ready`, `output_prefix_observed`, `raw_track_stopped`, `gate_drained`, `transcript_commit_sent`, and `transcript_completed`. The workflow also verified that retained artifacts excluded both the root OpenAI API key and the ephemeral transcription client secret.
 
+### Finalized Artifact Privacy Addendum
+
+Workflow:
+
+```text
+env -u OPENAI_API_KEY -u SETTA_E2E_OPENAI_SPEECH_BASE_URL node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-live-openai --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase0-live-openai/20260718T022445623Z
+```
+
+This run finalized Electron shutdown and artifact writers before scanning for the root OpenAI API key and the ephemeral transcription client secret. The finalized artifact tree remained available and clean.
+
+| Check | Result |
+| --- | --- |
+| Workflow status | `passed` |
+| Credential source | `root-env` |
+| Synthesized audio | 189,644 bytes |
+| Expected transcript | `This is a live smoke test for instant voice capture.` |
+| Completed transcript | `This is a live smoke test for instant voice capture.` |
+| Finalized privacy scan | `passed` |
+
 ## Phase 4 After Results
 
 Workflow:

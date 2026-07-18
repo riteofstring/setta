@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Incomplete after independent post-loop audit — the product cutover and live provider result pass, but artifact privacy is checked before final log flush, app teardown is exercised through an E2E-only hook instead of a production lifecycle, and the performance workflow does not enforce the stated p95/one-frame limits.
+**Status:** Incomplete after Phase 0.4 finalization — the product cutover and live provider result pass, finalized success/failure artifact privacy is enforced after Electron teardown, but Phase 4 still needs production lifecycle teardown coverage and p95/one-frame performance enforcement.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -20,7 +20,7 @@ This is a replacement, not a compatibility project.
 - [x] Phase 0.1 — Deterministic Electron speech harness captures click, microphone grant, local capture-readiness proxy, transcription-session response, WebRTC readiness, finish, commit, and completed-transcript timing.
 - [x] Phase 0.2 — Current click-to-`listening` baseline recorded with deterministic 0 ms, 500 ms, and 1,500 ms transcription-session delays in `docs/reports/performance/instant-voice-capture-phase0-20260717.md`.
 - [x] Phase 0.3 — Disposable browser AudioWorklet-gated `MediaStreamAudioDestinationNode` feasibility harness proves retained prefix, drain tail, and RTCPeerConnection acceptance.
-- [ ] Phase 0.4 — Credential resolution and the live processed-track result pass, but the privacy assertion must scan finalized success and failure artifacts after Electron teardown, then the root-`.env` provider run must pass again.
+- [x] Phase 0.4 — Credential resolution, live processed-track result, finalized success/failure artifact privacy, and the root-`.env` provider run pass through the registered workflow.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
@@ -73,7 +73,7 @@ Phase 0.4 must be completed through the current registered workflow, `instant-vo
 7. Update the README to name the current canonical workflow command. Remove the stale reference to the deleted `scripts/test_live_openai_speech.sh`; do not restore that legacy launcher or add a parallel wrapper.
 8. Scan the complete finalized artifact tree after Electron/backend teardown on both success and failure. A pre-teardown success-only scan does not satisfy this contract.
 
-The credential-source repair and provider transcript have passed. After correcting artifact finalization, run the live smoke again with `OPENAI_API_KEY` deliberately absent from the invoking shell so the root-`.env` path remains exercised. Append the finalized clean result, mark Phase 0.4 complete, and do not create another commit that only refreshes a status timestamp.
+The credential-source repair, provider transcript, finalized artifact privacy scan, and root-`.env` live smoke have passed through the registered workflow.
 
 ## Outcome
 
