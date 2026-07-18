@@ -12,10 +12,11 @@ backend-policy test successfully. It confirmed Docker CLI and Homebrew are
 installed, Node and pnpm remain available, Docker still cannot reach the
 daemon, Docker Desktop status is not retrievable from the CLI, Docker Desktop
 processes are waiting on a privileged setup prompt, no usable local
-Windows/Linux runner is available, no `GITHUB_TOKEN`, `GH_TOKEN`, SSH-agent
-identity, usable macOS HTTPS GitHub credential, authenticated SSH remote, public
-unauthenticated GitHub Actions result path, or connected GitHub plugin is
-available from this session, and the reference Codex repo has no Electron
+Windows/Linux runner is available, no checked standard hosted-result path
+(`GITHUB_TOKEN`/`GH_TOKEN`, SSH-agent identity, usable macOS HTTPS GitHub
+credential, authenticated SSH remote, public unauthenticated GitHub Actions
+result path, or connected GitHub plugin) is available from this session, and
+the reference Codex repo has no Electron
 `safeStorage` probe pattern to reuse.
 Earlier incomplete-step passes tightened the hosted probe workflow so accepted
 platform jobs assert ciphertext marker exclusion while forced Linux jobs assert
@@ -629,9 +630,9 @@ environment-based desktop product behavior.
       exact policy, encryption-availability, and ciphertext-excludes-plaintext
       assertions plus deterministic vault backend-policy coverage successfully,
       then reconfirmed Docker is blocked by Docker Desktop's privileged setup
-      prompt and no local Windows/Linux runner, authenticated hosted-result
-      path, public hosted-result path, or connected GitHub plugin is available
-      from this session. Previous passes added the hosted workflow,
+      prompt and no local Windows/Linux runner, public hosted-result path, or
+      checked standard authenticated hosted-result path is available from this
+      session. Previous passes added the hosted workflow,
       step-summary JSON, pinned artifact uploads, a Linux default-backend
       observation job, Linux `--no-sandbox`, exact policy status/reason
       assertions, stricter hosted ciphertext/backend assertions, and production

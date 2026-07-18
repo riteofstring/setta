@@ -1991,10 +1991,12 @@ or Linux host evidence from this session:
   `getSelectedStorageBackend`, or `basic_text` probe pattern to reuse.
 
 No Windows or Linux `safeStorage` host result is recorded from this recheck
-because no local platform host, authenticated hosted-runner path, or public
-hosted-result path was available. The Phase 0 host-confirmation item remains
-open until the push-triggered hosted workflow, the manual hosted workflow, or
-equivalent Windows and Linux hosts produce actual Electron output.
+because no local platform host, public hosted-result path, or checked standard
+authenticated hosted-runner path (`GITHUB_TOKEN`/`GH_TOKEN`, Git SSH, Git
+credential helper, or connected GitHub plugin) was available. The Phase 0
+host-confirmation item remains open until the push-triggered hosted workflow,
+the manual hosted workflow, or equivalent Windows and Linux hosts produce
+actual Electron output.
 
 ## Phase 2 Adapter Requirements
 
