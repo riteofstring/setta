@@ -4,11 +4,12 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 local attempt. Phase 1
-has removed desktop startup API-key ownership from the Electron-spawned backend
-and split provider endpoint configuration from server-startup credentials, and
-the runtime now declares the explicit `electron_vault | server_startup`
-credential-owner policy.
+host confirmations are still open after the 2026-07-18 and current local
+attempts. Phase 1 has removed desktop startup API-key ownership from the
+Electron-spawned backend, split provider endpoint configuration from
+server-startup credentials, declared the explicit
+`electron_vault | server_startup` credential-owner policy, and introduced the
+synchronized credential-aware OpenAI provider controller.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -541,8 +542,9 @@ environment-based desktop product behavior.
 - [ ] Confirm `safeStorage` behavior on remaining supported desktop platforms,
       including the actual Linux backend and the failure presented for
       `basic_text`. Local host-confirmation attempt recorded in
-      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`; Windows and
-      Linux host results remain pending.
+      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`; a current
+      local recheck again found Docker unavailable and no local Windows/Linux
+      runner, so Windows and Linux host results remain pending.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
@@ -555,7 +557,7 @@ environment-based desktop product behavior.
       credential in a separate server-startup field.
 - [x] Add the exhaustive `electron_vault | server_startup` credential-owner
       policy.
-- [ ] Add the synchronized credential-aware OpenAI provider controller.
+- [x] Add the synchronized credential-aware OpenAI provider controller.
 - [ ] Add validation, load, and clear service methods and classified errors.
 - [ ] Register authenticated, bounded HTTP endpoints in the endpoint registry.
 - [ ] Reject desktop management operations in `server_startup`.

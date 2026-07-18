@@ -35,8 +35,10 @@ func validateSpeechConfig(
 	if err := validateSpeechCredentialPolicy(owner, startupAPIKey); err != nil {
 		return err
 	}
-	if _, err := speech.NewOpenAIClient(startupAPIKey, config); err != nil {
+	controller, err := speech.NewOpenAIProviderController(config, startupAPIKey)
+	if err != nil {
 		return fmt.Errorf("speech configuration is invalid: %w", err)
 	}
+	controller.Shutdown()
 	return nil
 }

@@ -13,16 +13,17 @@ func newSpeechService(
 	startupAPIKey string,
 	store *conversation.Store,
 ) (*speech.Service, error) {
-	provider, err := speech.NewOpenAIClient(startupAPIKey, config)
+	providerController, err := speech.NewOpenAIProviderController(config, startupAPIKey)
 	if err != nil {
-		return nil, fmt.Errorf("create OpenAI speech client: %w", err)
+		return nil, fmt.Errorf("create OpenAI speech provider controller: %w", err)
 	}
 	service, err := speech.NewService(context.Background(), speech.ServiceConfig{
-		Provider:                provider,
+		ProviderController:      providerController,
 		SourceResolver:          speech.SourceResolverFunc(store.ResolveSpeechSource),
 		VoiceConfigurationStore: store,
 	})
 	if err != nil {
+		providerController.Shutdown()
 		return nil, fmt.Errorf("create speech service: %w", err)
 	}
 	return service, nil

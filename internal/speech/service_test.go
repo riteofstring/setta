@@ -13,7 +13,7 @@ func TestNewSpeechServiceRequiresDependencies(t *testing.T) {
 		t.Fatal("NewService unexpectedly succeeded")
 	}
 	if _, err := NewService(nil, ServiceConfig{
-		Provider:                &serviceTestProvider{},
+		ProviderController:      staticProviderController{provider: &serviceTestProvider{}},
 		SourceResolver:          &serviceTestSourceResolver{},
 		VoiceConfigurationStore: &serviceTestVoiceConfigurationStore{},
 	}); err == nil {
@@ -108,7 +108,7 @@ func TestSpeechServiceInitializesAndReadsStableVoiceConfiguration(t *testing.T) 
 	store := &serviceTestVoiceConfigurationStore{}
 	now := time.Date(2026, 7, 12, 18, 0, 0, 0, time.UTC)
 	service, err := NewService(context.Background(), ServiceConfig{
-		Provider:                &serviceTestProvider{},
+		ProviderController:      staticProviderController{provider: &serviceTestProvider{}},
 		SourceResolver:          &serviceTestSourceResolver{},
 		VoiceConfigurationStore: store,
 		Now:                     func() time.Time { return now },
@@ -227,6 +227,58 @@ func TestSpeechServiceRejectsUnavailableSynthesisBeforeProviderCall(t *testing.T
 	}
 }
 
+func TestSpeechServiceSnapshotsSynthesisProviderBeforeResolvingSource(t *testing.T) {
+	source := SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"}
+	originalProvider := &serviceTestProvider{
+		configured: true,
+		synthesized: SynthesizedAudio{
+			Bytes:     validTestWAV(),
+			MediaType: SynthesisMediaType,
+			Format:    SynthesisFormat,
+		},
+	}
+	replacementProvider := &serviceTestProvider{
+		configured: true,
+		synthesized: SynthesizedAudio{
+			Bytes:     validTestWAV(),
+			MediaType: SynthesisMediaType,
+			Format:    SynthesisFormat,
+		},
+	}
+	controller := &mutableServiceProviderController{provider: originalProvider}
+	resolver := &blockingServiceTestSourceResolver{
+		resolved: ResolvedSpeechSource{
+			Source:          source,
+			Text:            "The topic agent is still working.",
+			ResolvedVoiceID: SpeechVoiceMarin,
+		},
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	service := newServiceTestServiceWithControllerAndResolver(t, controller, resolver)
+	done := make(chan error, 1)
+	go func() {
+		_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
+			Source:          source,
+			ResolvedVoiceID: SpeechVoiceMarin,
+		})
+		done <- err
+	}()
+	<-resolver.entered
+	controller.setProvider(replacementProvider)
+	close(resolver.release)
+	if err := <-done; err != nil {
+		t.Fatalf("synthesize speech: %v", err)
+	}
+	if originalProvider.synthesisCalls != 1 || replacementProvider.synthesisCalls != 0 {
+		t.Fatalf(
+			"synthesis calls original=%d replacement=%d, want original snapshot only",
+			originalProvider.synthesisCalls,
+			replacementProvider.synthesisCalls,
+		)
+	}
+}
+
 type serviceTestProvider struct {
 	configured         bool
 	clientSecret       SpeechTranscriptionClientSecret
@@ -246,9 +298,24 @@ type serviceTestSourceResolver struct {
 	calls    int
 }
 
+type blockingServiceTestSourceResolver struct {
+	resolved ResolvedSpeechSource
+	err      error
+	entered  chan struct{}
+	release  chan struct{}
+}
+
 type serviceTestVoiceConfigurationStore struct {
 	narratorDefault *NarratorVoiceDefault
 	selection       *MasterVoiceSelection
+}
+
+type staticProviderController struct {
+	provider Provider
+}
+
+type mutableServiceProviderController struct {
+	provider Provider
 }
 
 func (store *serviceTestVoiceConfigurationStore) EnsureMasterVoiceSelection(
@@ -355,6 +422,41 @@ func (resolver *serviceTestSourceResolver) ResolveSpeechSource(
 	return resolver.resolved, resolver.err
 }
 
+func (resolver *blockingServiceTestSourceResolver) ResolveSpeechSource(
+	context.Context,
+	SpeechSource,
+) (ResolvedSpeechSource, error) {
+	close(resolver.entered)
+	<-resolver.release
+	return resolver.resolved, resolver.err
+}
+
+func (controller staticProviderController) Configured() bool {
+	return controller.provider != nil && controller.provider.Configured()
+}
+
+func (controller staticProviderController) Snapshot() Provider {
+	return controller.provider
+}
+
+func (staticProviderController) Shutdown() {}
+
+func (controller *mutableServiceProviderController) Configured() bool {
+	return controller.provider != nil && controller.provider.Configured()
+}
+
+func (controller *mutableServiceProviderController) Snapshot() Provider {
+	return controller.provider
+}
+
+func (controller *mutableServiceProviderController) Shutdown() {
+	controller.provider = nil
+}
+
+func (controller *mutableServiceProviderController) setProvider(provider Provider) {
+	controller.provider = provider
+}
+
 func newServiceTestService(t *testing.T, provider Provider) *Service {
 	t.Helper()
 	return newServiceTestServiceWithResolver(t, provider, &serviceTestSourceResolver{})
@@ -366,8 +468,21 @@ func newServiceTestServiceWithResolver(
 	resolver SourceResolver,
 ) *Service {
 	t.Helper()
+	return newServiceTestServiceWithControllerAndResolver(
+		t,
+		staticProviderController{provider: provider},
+		resolver,
+	)
+}
+
+func newServiceTestServiceWithControllerAndResolver(
+	t *testing.T,
+	providerController ProviderController,
+	resolver SourceResolver,
+) *Service {
+	t.Helper()
 	service, err := NewService(context.Background(), ServiceConfig{
-		Provider:                provider,
+		ProviderController:      providerController,
 		SourceResolver:          resolver,
 		VoiceConfigurationStore: &serviceTestVoiceConfigurationStore{},
 		Now: func() time.Time {

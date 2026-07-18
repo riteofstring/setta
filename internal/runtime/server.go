@@ -67,6 +67,7 @@ type Server struct {
 	drainConversationTurns func(context.Context) error
 	drainMasterRouting     func(context.Context) error
 	drainNarration         func(context.Context) error
+	drainSpeech            func(context.Context) error
 	codexManager           *codexapp.Manager
 	server                 *http.Server
 	listener               net.Listener
@@ -204,6 +205,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		drainConversationTurns: services.conversationService.Shutdown,
 		drainMasterRouting:     services.masterRouteService.Shutdown,
 		drainNarration:         services.narratorService.Shutdown,
+		drainSpeech:            services.speechService.Shutdown,
 		codexManager:           services.codexManager,
 		server:                 newHTTPServer(config, services),
 		listener:               listener,
@@ -316,6 +318,7 @@ func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	defer cancel()
 	_ = server.shutdownNarration(shutdownCtx)
 	_ = server.shutdownMasterRouting(shutdownCtx)
+	_ = server.shutdownSpeech(shutdownCtx)
 	_ = server.shutdownConversationStore()
 	_ = server.shutdownRuntimeAuth()
 	_ = server.shutdownCodex(shutdownCtx)
@@ -379,6 +382,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownNarration(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownMasterRouting(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSpeech(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationStore())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownRuntimeAuth())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
