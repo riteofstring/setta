@@ -459,6 +459,71 @@ No Windows or Linux `safeStorage` host result is recorded from this recheck.
 The Phase 0 host-confirmation item remains open because the missing
 confirmations require actual Windows and Linux Electron hosts.
 
+## 2026-07-18 Next Incomplete-Step Recheck
+
+The remaining Phase 0 host-confirmation item was revisited as the next
+incomplete plan step.
+
+The pinned macOS probe was re-run:
+
+```sh
+desktop/node_modules/.bin/electron desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported --assert-round-trip
+```
+
+It still passes on this machine:
+
+```json
+{
+  "appReadyBeforeProbe": true,
+  "arch": "arm64",
+  "electronVersion": "41.7.0",
+  "passwordStoreSwitch": null,
+  "platform": "darwin",
+  "safeStorage": {
+    "ciphertextByteLength": 51,
+    "ciphertextContainsPlaintext": false,
+    "isEncryptionAvailable": true,
+    "policy": {
+      "reason": "os_backed_platform",
+      "status": "accept"
+    },
+    "roundTrip": true,
+    "selectedStorageBackend": null
+  }
+}
+```
+
+The local machine still cannot produce the remaining Linux or Windows host
+evidence:
+
+- `docker version` and `docker info` found Docker CLI `28.0.4`, context
+  `desktop-linux`, but still could not connect to the Docker daemon at
+  `unix:///Users/kevin/.docker/run/docker.sock`.
+- `docker desktop status` could not retrieve status, and `docker desktop
+  start` reported Docker Desktop is already running. The visible process state
+  still shows an `osascript` administrator prompt for Docker Desktop's
+  privileged port-mapping setup.
+- `which docker gh colima lima limactl podman qemu-system-x86_64 qemu-aarch64
+  wine act xvfb-run brew orb orbstack multipass parallels prlctl VBoxManage
+  vmrun utmctl tart vagrant` found only `/usr/local/bin/docker` and
+  `/opt/homebrew/bin/brew`.
+- `brew list --formula` and `brew list --cask` did not show an installed
+  Windows/Linux VM or container helper from that runner set.
+- The repo still has no `.github` directory to provide a hosted-runner workflow
+  path.
+- Standard noninteractive Git SSH authentication to GitHub failed with
+  `Permission denied (publickey)`.
+- A GitHub connector was suggested as a possible hosted-runner path, but it was
+  not connected in this session.
+- The reference Codex repository at
+  `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` still does not
+  contain an Electron `safeStorage`, `safe-storage`, `password-store`, or
+  `basic_text` probe pattern to reuse.
+
+No Windows or Linux `safeStorage` host result is recorded from this recheck.
+The Phase 0 host-confirmation item remains open because the missing
+confirmations require actual Windows and Linux Electron hosts.
+
 ## Phase 2 Adapter Requirements
 
 - The production adapter is constructed only after Electron `ready`.
