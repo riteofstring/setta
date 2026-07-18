@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Phase 4 complete — deterministic production-path workflow coverage and after-results are recorded; the live OpenAI processed-track smoke workflow is registered and remains pending until credentials are deliberately available. The latest credential-gated verification on 2026-07-17T23:22:34Z recorded a blocked artifact because `OPENAI_API_KEY` was absent from the task environment.
+**Status:** Phase 4 complete — deterministic production-path workflow coverage and after-results are recorded. Phase 0.4 remains pending because the registered live OpenAI workflow checks only its inherited process environment and does not honor the repository's documented `.env` credential source. The ignored root `.env` has a non-empty `OPENAI_API_KEY` assignment; the prior blocked artifacts prove an entrypoint defect, not unavailable credentials.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -20,11 +20,25 @@ This is a replacement, not a compatibility project.
 - [x] Phase 0.1 — Deterministic Electron speech harness captures click, microphone grant, local capture-readiness proxy, transcription-session response, WebRTC readiness, finish, commit, and completed-transcript timing.
 - [x] Phase 0.2 — Current click-to-`listening` baseline recorded with deterministic 0 ms, 500 ms, and 1,500 ms transcription-session delays in `docs/reports/performance/instant-voice-capture-phase0-20260717.md`.
 - [x] Phase 0.3 — Disposable browser AudioWorklet-gated `MediaStreamAudioDestinationNode` feasibility harness proves retained prefix, drain tail, and RTCPeerConnection acceptance.
-- [ ] Phase 0.4 — Live OpenAI processed-track smoke result appended when credentials are deliberately available. The gated workflow `instant-voice-capture-phase0-live-openai` now fails loudly without credentials and records a blocked artifact; credential check on 2026-07-17T23:22:34Z still found no `OPENAI_API_KEY` in the task environment, so this remains pending rather than skipped as evidence.
+- [ ] Phase 0.4 — Repair the current live workflow's scoped credential resolution, run the processed-track smoke using the ignored root `.env`, and append the passed provider result. Previous blocked artifacts were produced because the workflow read only `process.env.OPENAI_API_KEY`; they are not evidence that the repository credential is absent.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
 - [x] Phase 4 — Production-path workflow coverage and performance report.
+
+## Live OpenAI credential contract
+
+Phase 0.4 must be completed through the current registered workflow, `instant-voice-capture-phase0-live-openai`. This is test-entrypoint work only; it must not change production credential ownership or create a second speech workflow.
+
+1. An explicitly exported, non-empty `OPENAI_API_KEY` takes precedence.
+2. When that variable is not exported, the selected live OpenAI workflow reads the ignored repository-root `.env` and extracts only `OPENAI_API_KEY` with the Node standard library's non-executing dotenv parser. Resolve the repository root from the workflow module location, not the caller's working directory; do not add a dependency for this.
+3. Do not source or execute `.env`, load all of its values, mutate the generic workflow runner's environment, or expose the resolved key to unrelated workflows. Only the selected live OpenAI workflow may forward the key to the temporary production Electron/backend path that needs it.
+4. Keep `run-workflows.mjs` credential-agnostic. A direct manifest invocation must work when the key exists only in the root `.env`, and an exported key must use the same single workflow path.
+5. Missing, empty, or malformed credentials fail loudly with a redacted blocked artifact. Logs, summaries, screenshots, command lines, and retained artifacts must never contain the API key or the ephemeral transcription client secret.
+6. Add focused tests for exported-value precedence, root-`.env` resolution, ignored unrelated values, and missing/empty/malformed input using temporary fixture files. Tests must never rename, rewrite, or delete the developer's real `.env`.
+7. Update the README to name the current canonical workflow command. Remove the stale reference to the deleted `scripts/test_live_openai_speech.sh`; do not restore that legacy launcher or add a parallel wrapper.
+
+After repairing the entrypoint, run the live smoke with `OPENAI_API_KEY` deliberately absent from the invoking shell so the root-`.env` path is exercised. Append the passed result to the existing performance report, mark Phase 0.4 complete, and request final audit. Do not create another commit that only refreshes a blocked-check timestamp.
 
 ## Outcome
 
@@ -306,7 +320,7 @@ node desktop/tests/electron/run-workflows.mjs --workflow <new voice-readiness wo
 ./scripts/check_supply_chain.sh
 ```
 
-Run `./scripts/test_topic_conversation_workflows.sh --live-only --skip-build` when local Codex ChatGPT auth is available; it must run without `OPENAI_API_KEY`. If auth is unavailable, record the justified skip and do not present it as provider-integration evidence. Run the live OpenAI processed-track smoke from Phase 0 only when a speech API credential is deliberately available, using temporary app data and without recording raw audio.
+Run `./scripts/test_topic_conversation_workflows.sh --live-only --skip-build` when local Codex ChatGPT auth is available; it must run without `OPENAI_API_KEY`. If auth is unavailable, record the justified skip and do not present it as provider-integration evidence. For Phase 0.4, unset `OPENAI_API_KEY` in the invoking shell and run `node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-live-openai --skip-build` so the ignored root-`.env` path is exercised through the registered workflow. Use temporary app data and do not record raw audio.
 
 ## Rejected shortcuts
 
