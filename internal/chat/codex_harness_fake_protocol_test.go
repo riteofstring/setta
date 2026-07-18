@@ -23,9 +23,8 @@ func writeFakeConfigRequirementsResponse(id any, mode string) {
 	if mode == "command-permission-picker-disabled" {
 		requirements = map[string]any{
 			"allowedPermissionProfiles": map[string]any{
-				codexPermissionProfileReadOnly:         true,
-				codexPermissionProfileWorkspace:        true,
-				codexPermissionProfileDangerFullAccess: false,
+				codexPermissionProfileReadOnly:  false,
+				codexPermissionProfileWorkspace: true,
 			},
 		}
 	}
@@ -68,12 +67,12 @@ func writeFakeThreadResponseForModeAndThread(id any, mode string, model string, 
 	if !fakeGoalOperationMode(mode) {
 		response := fakeCodexThreadResponseWithThread(model, effort, fakeCodexThreadWithID(threadID))
 		switch mode {
-		case "initial-permission-settings", "resume-permission-settings", "command-model-list-linked-full-access":
-			response["activePermissionProfile"] = map[string]any{"id": codexPermissionProfileDangerFullAccess}
+		case "initial-permission-settings", "resume-permission-settings", "command-model-list-linked-read-only":
+			response["activePermissionProfile"] = map[string]any{"id": codexPermissionProfileReadOnly}
 			response["approvalPolicy"] = codexApprovalPolicyNever
 		case "command-model-set-preserves-permission", "command-effort-set-preserves-permission":
 			response["activePermissionProfile"] = map[string]any{"id": codexPermissionProfileReadOnly}
-			response["approvalPolicy"] = codexApprovalPolicyOnRequest
+			response["approvalPolicy"] = codexApprovalPolicyNever
 		}
 		writeFakeResponse(id, response)
 		return
@@ -107,14 +106,15 @@ func fakeCodexThreadWithID(threadID string) map[string]any {
 
 func fakeCodexThreadResponseWithThread(model string, effort ReasoningEffort, thread map[string]any) map[string]any {
 	return map[string]any{
-		"approvalPolicy":    "on-request",
-		"approvalsReviewer": "user",
-		"cwd":               "/tmp/setta-fake",
-		"model":             model,
-		"modelProvider":     "fake",
-		"reasoningEffort":   string(effort),
-		"sandbox":           "workspace-write",
-		"thread":            thread,
+		"activePermissionProfile": map[string]any{"id": codexPermissionProfileWorkspace},
+		"approvalPolicy":          codexApprovalPolicyNever,
+		"approvalsReviewer":       "user",
+		"cwd":                     "/tmp/setta-fake",
+		"model":                   model,
+		"modelProvider":           "fake",
+		"reasoningEffort":         string(effort),
+		"sandbox":                 "workspace-write",
+		"thread":                  thread,
 	}
 }
 
@@ -1230,10 +1230,10 @@ func assertFakeThreadStartPermissionSettings(message map[string]any) {
 	}
 	params := fakeParams(message)
 	if params["approvalPolicy"] != codexApprovalPolicyNever {
-		panic("thread/start missing full access approval policy")
+		panic("thread/start missing read only approval policy")
 	}
-	if params["permissions"] != codexPermissionProfileDangerFullAccess {
-		panic("thread/start missing full access permission profile")
+	if params["permissions"] != codexPermissionProfileReadOnly {
+		panic("thread/start missing read only permission profile")
 	}
 }
 
@@ -1243,10 +1243,10 @@ func assertFakeThreadResumePermissionSettings(message map[string]any) {
 	}
 	params := fakeParams(message)
 	if params["approvalPolicy"] != codexApprovalPolicyNever {
-		panic("thread/resume missing full access approval policy")
+		panic("thread/resume missing read only approval policy")
 	}
-	if params["permissions"] != codexPermissionProfileDangerFullAccess {
-		panic("thread/resume missing full access permission profile")
+	if params["permissions"] != codexPermissionProfileReadOnly {
+		panic("thread/resume missing read only permission profile")
 	}
 }
 
@@ -1319,11 +1319,14 @@ func assertFakeDynamicToolsThreadResumeParams(message map[string]any) {
 	if _, ok := params["dynamicTools"]; ok {
 		panic("thread/resume should not include dynamicTools")
 	}
-	if _, ok := params["approvalPolicy"]; ok {
-		panic("thread/resume should not include approvalPolicy without conversation permission settings")
+	if params["approvalPolicy"] != codexApprovalPolicyNever {
+		panic("thread/resume should disable execution approvals")
 	}
-	if _, ok := params["permissions"]; ok {
-		panic("thread/resume should not include permissions without conversation permission settings")
+	if params["permissions"] != codexPermissionProfileWorkspace {
+		panic("thread/resume should enforce the workspace permission profile")
+	}
+	if _, ok := params["sandbox"]; ok {
+		panic("thread/resume cannot combine permissions with sandbox")
 	}
 }
 
@@ -1333,7 +1336,9 @@ func assertFakeCodexDeveloperInstructions(params map[string]any) {
 		panic("thread/start missing developer instructions")
 	}
 	if !strings.Contains(instructions, "available dynamic tool") ||
-		!strings.Contains(instructions, "Do not invent dynamic tool names") {
+		!strings.Contains(instructions, "Do not invent dynamic tool names") ||
+		!strings.Contains(instructions, "Never use `rm`") ||
+		!strings.Contains(instructions, "move-to-trash") {
 		panic("thread/start developer instructions missing Setta dynamic tool guidance")
 	}
 }

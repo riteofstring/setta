@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/codexapp"
 	"setta/internal/workspace"
 )
 
@@ -35,9 +36,9 @@ func TestCodexHarnessExecutesIdleGoalCommandRPC(t *testing.T) {
 func TestCodexHarnessFailsCommandThreadWhenPermissionSettingsIgnored(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-goal-set-permission-ignored"))
 	request := testCommandRequest(t, "/goal finish renderer tests")
-	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetFullAccess)
+	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetReadOnly)
 	if !ok {
-		t.Fatal("full-access preset settings not found")
+		t.Fatal("read-only preset settings not found")
 	}
 	request.Conversation.CodexSettings = &ChatCodexSettings{
 		Permission: &settings,
@@ -51,7 +52,7 @@ func TestCodexHarnessFailsCommandThreadWhenPermissionSettingsIgnored(t *testing.
 	if !ok || commandErr.Code != ChatCommandErrorCodexProviderDrift {
 		t.Fatalf("error = %T %v, want provider drift command error", err, err)
 	}
-	if !strings.Contains(commandErr.Message, "permission preset full-access was not applied") {
+	if !strings.Contains(commandErr.Message, "permission preset read-only was not applied") {
 		t.Fatalf("error message = %q, want ignored permission settings error", commandErr.Message)
 	}
 }
@@ -181,8 +182,8 @@ func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	if result.SelectedReasoningEffort == nil || *result.SelectedReasoningEffort != ReasoningEffortXHigh {
 		t.Fatalf("selected reasoning effort = %v, want config effort", result.SelectedReasoningEffort)
 	}
-	if len(result.ReasoningEfforts) != 3 || result.ReasoningEfforts[2].Effort != ReasoningEffortXHigh {
-		t.Fatalf("reasoning efforts = %+v, want fake model efforts", result.ReasoningEfforts)
+	if len(result.ReasoningEfforts) != 4 || result.ReasoningEfforts[3].Effort != ReasoningEffortMax {
+		t.Fatalf("reasoning efforts = %+v, want known fake model efforts including max", result.ReasoningEfforts)
 	}
 }
 
@@ -204,6 +205,47 @@ func TestCodexHarnessModelListFollowsPaginationAndHidesHiddenModels(t *testing.T
 		if model.Hidden {
 			t.Fatalf("models = %+v, want hidden models filtered", result.Models)
 		}
+	}
+}
+
+func TestModelOptionFromCodexFallsBackFromUnknownDefault(t *testing.T) {
+	model, err := modelOptionFromCodex(codexapp.Model{
+		DefaultReasoningEffort: "future",
+		DisplayName:            "Future Test",
+		ID:                     "future-test",
+		Model:                  "future-test",
+		SupportedReasoningEfforts: []codexapp.ReasoningEffortOption{
+			{Description: "Future reasoning.", ReasoningEffort: "future"},
+			{Description: "Maximum reasoning.", ReasoningEffort: "max"},
+			{Description: "High reasoning.", ReasoningEffort: "high"},
+		},
+	}, 0)
+	if err != nil {
+		t.Fatalf("convert model option: %v", err)
+	}
+	if model.DefaultReasoningEffort != ReasoningEffortHigh {
+		t.Fatalf("default reasoning effort = %s, want high fallback", model.DefaultReasoningEffort)
+	}
+	if len(model.SupportedReasoningEfforts) != 2 ||
+		model.SupportedReasoningEfforts[0].Effort != ReasoningEffortMax ||
+		model.SupportedReasoningEfforts[1].Effort != ReasoningEffortHigh ||
+		!model.SupportedReasoningEfforts[1].IsDefault {
+		t.Fatalf("reasoning efforts = %+v, want future effort filtered and high selected", model.SupportedReasoningEfforts)
+	}
+}
+
+func TestModelOptionFromCodexRejectsModelWithoutRecognizedEffort(t *testing.T) {
+	_, err := modelOptionFromCodex(codexapp.Model{
+		DefaultReasoningEffort: "future",
+		DisplayName:            "Future Test",
+		ID:                     "future-test",
+		Model:                  "future-test",
+		SupportedReasoningEfforts: []codexapp.ReasoningEffortOption{
+			{Description: "Future reasoning.", ReasoningEffort: "future"},
+		},
+	}, 0)
+	if err == nil || !strings.Contains(err.Error(), "has no recognized reasoning efforts") {
+		t.Fatalf("convert error = %v, want no recognized reasoning efforts", err)
 	}
 }
 
@@ -246,9 +288,9 @@ func TestCodexHarnessAppliesConversationPermissionSettingsToThreadStart(t *testi
 	harness := NewCodexHarness(testCodexConfig("initial-permission-settings"))
 	sink := newRecordingSink()
 	request := testTurnRequest(t)
-	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetFullAccess)
+	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetReadOnly)
 	if !ok {
-		t.Fatal("full-access preset settings not found")
+		t.Fatal("read-only preset settings not found")
 	}
 	request.Conversation.CodexSettings = &ChatCodexSettings{
 		Permission: &settings,
@@ -264,8 +306,8 @@ func TestCodexHarnessAppliesConversationPermissionSettingsToThreadStart(t *testi
 		t.Fatalf("effective settings = %+v, want permission settings", sink.settings)
 	}
 	permission := sink.settings[0].Permission
-	if permission.Preset == nil || *permission.Preset != ChatPermissionPresetFullAccess || permission.ApprovalPolicy != codexApprovalPolicyNever || permission.ActivePermissionProfileID != codexPermissionProfileDangerFullAccess {
-		t.Fatalf("effective permission = %+v, want full access", permission)
+	if permission.Preset == nil || *permission.Preset != ChatPermissionPresetReadOnly || permission.ApprovalPolicy != codexApprovalPolicyNever || permission.ActivePermissionProfileID != codexPermissionProfileReadOnly {
+		t.Fatalf("effective permission = %+v, want read only", permission)
 	}
 }
 
@@ -273,9 +315,9 @@ func TestCodexHarnessAppliesConversationPermissionSettingsToThreadResume(t *test
 	harness := NewCodexHarness(testCodexConfig("resume-permission-settings"))
 	sink := newRecordingSink()
 	request := testTurnRequest(t)
-	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetFullAccess)
+	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetReadOnly)
 	if !ok {
-		t.Fatal("full-access preset settings not found")
+		t.Fatal("read-only preset settings not found")
 	}
 	request.Conversation.CodexSettings = &ChatCodexSettings{
 		Permission: &settings,
@@ -296,8 +338,8 @@ func TestCodexHarnessAppliesConversationPermissionSettingsToThreadResume(t *test
 		t.Fatalf("effective settings = %+v, want permission settings", sink.settings)
 	}
 	permission := sink.settings[0].Permission
-	if permission.Preset == nil || *permission.Preset != ChatPermissionPresetFullAccess || permission.ApprovalPolicy != codexApprovalPolicyNever || permission.ActivePermissionProfileID != codexPermissionProfileDangerFullAccess {
-		t.Fatalf("effective permission = %+v, want full access", permission)
+	if permission.Preset == nil || *permission.Preset != ChatPermissionPresetReadOnly || permission.ApprovalPolicy != codexApprovalPolicyNever || permission.ActivePermissionProfileID != codexPermissionProfileReadOnly {
+		t.Fatalf("effective permission = %+v, want read only", permission)
 	}
 }
 
@@ -305,9 +347,9 @@ func TestCodexHarnessFailsWhenInitialThreadIgnoresPermissionSettings(t *testing.
 	harness := NewCodexHarness(testCodexConfig("initial-permission-settings-ignored"))
 	sink := newRecordingSink()
 	request := testTurnRequest(t)
-	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetFullAccess)
+	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetReadOnly)
 	if !ok {
-		t.Fatal("full-access preset settings not found")
+		t.Fatal("read-only preset settings not found")
 	}
 	request.Conversation.CodexSettings = &ChatCodexSettings{
 		Permission: &settings,
@@ -317,7 +359,7 @@ func TestCodexHarnessFailsWhenInitialThreadIgnoresPermissionSettings(t *testing.
 	if err == nil {
 		t.Fatal("start turn succeeded, want ignored permission settings error")
 	}
-	if !strings.Contains(err.Error(), "permission preset full-access was not applied") {
+	if !strings.Contains(err.Error(), "permission preset read-only was not applied") {
 		t.Fatalf("error = %v, want ignored permission settings error", err)
 	}
 }
@@ -370,11 +412,11 @@ func TestCodexHarnessExecutesModelListRPCAgainstLinkedThread(t *testing.T) {
 }
 
 func TestCodexHarnessAppliesConversationPermissionSettingsToCommandThreadResume(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-model-list-linked-full-access"))
+	harness := NewCodexHarness(testCodexConfig("command-model-list-linked-read-only"))
 	request := testModelPickerCommandRequest(t)
-	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetFullAccess)
+	settings, ok := chatPermissionSettingsForPreset(ChatPermissionPresetReadOnly)
 	if !ok {
-		t.Fatal("full-access preset settings not found")
+		t.Fatal("read-only preset settings not found")
 	}
 	request.Conversation.CodexSettings = &ChatCodexSettings{
 		Permission: &settings,
@@ -385,8 +427,8 @@ func TestCodexHarnessAppliesConversationPermissionSettingsToCommandThreadResume(
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if result.CodexEffectiveSettings == nil || result.CodexEffectiveSettings.Permission == nil || result.CodexEffectiveSettings.Permission.Preset == nil || *result.CodexEffectiveSettings.Permission.Preset != ChatPermissionPresetFullAccess {
-		t.Fatalf("effective settings = %+v, want full access", result.CodexEffectiveSettings)
+	if result.CodexEffectiveSettings == nil || result.CodexEffectiveSettings.Permission == nil || result.CodexEffectiveSettings.Permission.Preset == nil || *result.CodexEffectiveSettings.Permission.Preset != ChatPermissionPresetReadOnly {
+		t.Fatalf("effective settings = %+v, want read only", result.CodexEffectiveSettings)
 	}
 }
 
@@ -411,7 +453,7 @@ func TestCodexHarnessExecutesPermissionPickerRPCAgainstLinkedThread(t *testing.T
 	if result.CurrentPermission == nil || result.CurrentPermission.Preset == nil || *result.CurrentPermission.Preset != ChatPermissionPresetDefault {
 		t.Fatalf("current permission = %+v, want default linked-thread permission", result.CurrentPermission)
 	}
-	if len(result.PermissionPresets) != 3 {
+	if len(result.PermissionPresets) != 2 {
 		t.Fatalf("permission presets = %+v, want builtin presets", result.PermissionPresets)
 	}
 	if result.HasThreadRef {
@@ -428,9 +470,9 @@ func TestCodexHarnessPermissionPickerMarksRequirementBlockedPresetsDisabled(t *t
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	fullAccess := requirePermissionPreset(t, result.PermissionPresets, ChatPermissionPresetFullAccess)
-	if !fullAccess.Disabled || fullAccess.DisabledReason == "" {
-		t.Fatalf("full-access preset = %+v, want disabled with reason", fullAccess)
+	readOnly := requirePermissionPreset(t, result.PermissionPresets, ChatPermissionPresetReadOnly)
+	if !readOnly.Disabled || readOnly.DisabledReason == "" {
+		t.Fatalf("read-only preset = %+v, want disabled with reason", readOnly)
 	}
 	defaultPreset := requirePermissionPreset(t, result.PermissionPresets, ChatPermissionPresetDefault)
 	if defaultPreset.Disabled {
@@ -454,7 +496,7 @@ func TestCodexHarnessExecutesModelSetRPCAgainstLinkedThread(t *testing.T) {
 
 func TestCodexHarnessExecutesPermissionSetRPCAgainstLinkedThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-permission-set"))
-	request := testTypedPermissionCommandRequest(t, ChatPermissionPresetFullAccess)
+	request := testTypedPermissionCommandRequest(t, ChatPermissionPresetReadOnly)
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
@@ -464,11 +506,11 @@ func TestCodexHarnessExecutesPermissionSetRPCAgainstLinkedThread(t *testing.T) {
 	if !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
 		t.Fatalf("result thread ref = %+v has=%v, want linked thread", result.ThreadRef, result.HasThreadRef)
 	}
-	if result.SelectedPermissionPreset == nil || *result.SelectedPermissionPreset != ChatPermissionPresetFullAccess {
-		t.Fatalf("selected permission = %v, want full access", result.SelectedPermissionPreset)
+	if result.SelectedPermissionPreset == nil || *result.SelectedPermissionPreset != ChatPermissionPresetReadOnly {
+		t.Fatalf("selected permission = %v, want read only", result.SelectedPermissionPreset)
 	}
-	if result.CurrentPermission == nil || result.CurrentPermission.ApprovalPolicy != codexApprovalPolicyNever || result.CurrentPermission.ActivePermissionProfileID != codexPermissionProfileDangerFullAccess {
-		t.Fatalf("current permission = %+v, want full access", result.CurrentPermission)
+	if result.CurrentPermission == nil || result.CurrentPermission.ApprovalPolicy != codexApprovalPolicyNever || result.CurrentPermission.ActivePermissionProfileID != codexPermissionProfileReadOnly {
+		t.Fatalf("current permission = %+v, want read only", result.CurrentPermission)
 	}
 	if result.CodexEffectiveSettings == nil {
 		t.Fatal("effective settings nil, want hydrated settings")
@@ -732,7 +774,7 @@ func assertFakePermissionSet(message map[string]any) {
 	if params["approvalPolicy"] != codexApprovalPolicyNever {
 		panic("permission set used wrong approval policy")
 	}
-	if params["permissions"] != codexPermissionProfileDangerFullAccess {
+	if params["permissions"] != codexPermissionProfileReadOnly {
 		panic("permission set used wrong permission profile")
 	}
 }

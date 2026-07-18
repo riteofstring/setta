@@ -7,37 +7,24 @@ const (
 	codexApprovalPolicyNever     = "never"
 	codexApprovalPolicyOnFailure = "on-failure"
 
-	codexPermissionProfileReadOnly         = ":read-only"
-	codexPermissionProfileWorkspace        = ":workspace"
-	codexPermissionProfileDangerFullAccess = ":danger-full-access"
+	codexPermissionProfileReadOnly  = ":read-only"
+	codexPermissionProfileWorkspace = ":workspace"
 )
 
 var chatPermissionPresets = []ChatPermissionPreset{
 	{
 		ID:                        ChatPermissionPresetReadOnly,
 		Label:                     "Read Only",
-		ShortDescription:          "Codex can read workspace files. Writes, network access, and broader filesystem access require approval.",
-		ApprovalPolicy:            codexApprovalPolicyOnRequest,
+		ShortDescription:          "Codex can read workspace files but cannot write files or use the network.",
+		ApprovalPolicy:            codexApprovalPolicyNever,
 		ActivePermissionProfileID: codexPermissionProfileReadOnly,
 	},
 	{
 		ID:                        ChatPermissionPresetDefault,
-		Label:                     "Ask for approval",
-		ShortDescription:          "Codex can edit the workspace and run commands. Network access or broader filesystem access requires approval.",
-		ApprovalPolicy:            codexApprovalPolicyOnRequest,
-		ActivePermissionProfileID: codexPermissionProfileWorkspace,
-	},
-	{
-		ID:                        ChatPermissionPresetFullAccess,
-		Label:                     "Full Access",
-		ShortDescription:          "Codex can access the broader filesystem and network without asking.",
+		Label:                     "Workspace Access",
+		ShortDescription:          "Codex can edit this workspace and run commands, but cannot write anywhere else.",
 		ApprovalPolicy:            codexApprovalPolicyNever,
-		ActivePermissionProfileID: codexPermissionProfileDangerFullAccess,
-		Danger: &ChatPermissionDangerMeta{
-			RequiresConfirmation: true,
-			ConfirmationTitle:    "Use Full Access?",
-			ConfirmationBody:     "Full Access disables approvals and sandboxing for this chat. Codex can access the broader filesystem and network without asking.",
-		},
+		ActivePermissionProfileID: codexPermissionProfileWorkspace,
 	},
 }
 
@@ -139,8 +126,8 @@ func chatCodexEffectivePermissionSettings(approvalPolicy string, activeProfileID
 }
 
 func effectiveCodexPermissionFields(approvalPolicy string, activeProfileID string, activeProfileExtends string) (string, string, string) {
-	if activeProfileID == "" && activeProfileExtends == "" && (approvalPolicy == "" || approvalPolicy == codexApprovalPolicyOnRequest) {
-		return codexApprovalPolicyOnRequest, codexPermissionProfileWorkspace, ""
+	if activeProfileID == "" && activeProfileExtends == "" && (approvalPolicy == "" || approvalPolicy == codexApprovalPolicyNever) {
+		return codexApprovalPolicyNever, codexPermissionProfileWorkspace, ""
 	}
 	return approvalPolicy, activeProfileID, activeProfileExtends
 }

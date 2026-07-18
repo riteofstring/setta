@@ -265,7 +265,7 @@ function ComposerLeftControls(props: ComposerFrameProps) {
           onOpen={() => void props.onOpenPermissionPicker()}
           onSelect={(preset) => void props.onPickPermissionPreset(preset)}
           permissionPicker={props.permissionPicker}
-          permissionLabel={props.session?.permissionLabel ?? "Ask for approval"}
+          permissionLabel={props.session?.permissionLabel ?? "Workspace Access"}
           running={props.running}
           selected={props.selected}
         />

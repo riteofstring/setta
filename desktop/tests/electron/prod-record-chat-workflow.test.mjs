@@ -20,7 +20,7 @@ import {
   openWorkspace,
   waitForTexts,
 } from "./chat-workflow-harness.mjs";
-import { assertAskForApprovalPermissionContract } from "./chat-workflow-permission-assertions.mjs";
+import { assertWorkspaceAccessPermissionContract } from "./chat-workflow-permission-assertions.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
@@ -78,7 +78,7 @@ async function exerciseProdRecordChat(client, fixture, recordingDir) {
   const conversationId = await createChat(client, backend, workspaceId);
   await assertProdNewChatPermissionContract(backend, workspaceId, conversationId);
   await clickButtonByAria(client, "Open permission mode picker");
-  await waitForTexts(client, ["Read Only", "Ask for approval", "Full Access"]);
+  await waitForTexts(client, ["Read Only", "Workspace Access"]);
   await assertTextAbsent(client, "ChatCodexEffectiveSettings.permission is required");
   await assertTextAbsent(client, "codexEffectiveSettings modelDisplayName is required");
   await captureScreenshot(client, join(recordingDir, "success.png"));
@@ -138,7 +138,7 @@ async function assertProdNewChatPermissionContract(backend, workspaceId, convers
       )}`,
     );
   }
-  assertAskForApprovalPermissionContract(settings.permission, "prod-record created conversation");
+  assertWorkspaceAccessPermissionContract(settings.permission, "prod-record created conversation");
 }
 
 async function openPort() {

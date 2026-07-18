@@ -2,7 +2,6 @@ import { assertNoCriticalDiagnostics } from "./chat-workflow-assertions.mjs";
 import {
   assertNoLinkedCodexRef,
   clickButtonByAria,
-  clickButtonContainingText,
   clickButtonContainingTextByRole,
   createChat,
   submitComposer,
@@ -25,7 +24,7 @@ export async function runPermissionModeWorkflow(client, backend, workspaceId, co
   );
 
   await assertNoLinkedCodexRef(backend, workspaceId, activeConversationId);
-  await waitForPermissionButtonLabel(client, "Ask for approval");
+  await waitForPermissionButtonLabel(client, "Workspace Access");
 
   await selectPermissionPreset(client, "Read Only");
   await waitForCommandResult(
@@ -38,22 +37,20 @@ export async function runPermissionModeWorkflow(client, backend, workspaceId, co
   await waitForPermissionButtonLabel(client, "Read Only");
   await assertNoLinkedCodexRef(backend, workspaceId, activeConversationId);
 
-  await selectPermissionPreset(client, "Full Access");
-  await waitForTexts(client, ["Use Full Access"]);
-  await clickButtonContainingText(client, "Use Full Access");
+  await selectPermissionPreset(client, "Workspace Access");
   await waitForCommandResult(
     backend,
     workspaceId,
     activeConversationId,
-    "Permission mode set: Full Access",
+    "Permission mode set: Workspace Access",
   );
-  await waitForConversationPermission(backend, workspaceId, activeConversationId, "full-access");
-  await waitForPermissionButtonLabel(client, "Full Access");
+  await waitForConversationPermission(backend, workspaceId, activeConversationId, "default");
+  await waitForPermissionButtonLabel(client, "Workspace Access");
   await assertNoLinkedCodexRef(backend, workspaceId, activeConversationId);
 
   await reloadPermissionWorkflowRenderer(client);
-  await waitForTexts(client, ["Full Access"]);
-  await waitForPermissionButtonLabel(client, "Full Access");
+  await waitForTexts(client, ["Workspace Access"]);
+  await waitForPermissionButtonLabel(client, "Workspace Access");
 
   await submitComposer(client, "workflow hold for queue and steering", "Send message");
   const activeRun = await waitForRunWithPrompt(
@@ -69,20 +66,20 @@ export async function runPermissionModeWorkflow(client, backend, workspaceId, co
   await waitForLinkedCodexRef(backend, workspaceId, activeConversationId);
   await waitForTexts(client, ["Active workflow complete."]);
 
-  await selectPermissionPreset(client, "Ask for approval");
+  await selectPermissionPreset(client, "Read Only");
   await waitForCommandResult(
     backend,
     workspaceId,
     activeConversationId,
-    "Permission mode set: Ask for approval",
+    "Permission mode set: Read Only",
   );
   await waitForConversationEffectivePermission(
     backend,
     workspaceId,
     activeConversationId,
-    "default",
+    "read-only",
   );
-  await waitForPermissionButtonLabel(client, "Ask for approval");
+  await waitForPermissionButtonLabel(client, "Read Only");
   await assertNoCriticalDiagnostics(backend, workspaceId, activeConversationId);
 }
 
@@ -93,7 +90,7 @@ async function assertPermissionPickerClearsAfterConversationSwitch(
   conversationId,
 ) {
   await clickButtonByAria(client, "Open permission mode picker");
-  await waitForTexts(client, ["Read Only", "Ask for approval", "Full Access"]);
+  await waitForTexts(client, ["Read Only", "Workspace Access"]);
   const nextConversationId = await createChat(client, backend, workspaceId);
   await waitForPermissionPickerClosed(client);
   await waitForConversationEffectivePermission(backend, workspaceId, conversationId, "default");
@@ -102,7 +99,7 @@ async function assertPermissionPickerClearsAfterConversationSwitch(
 
 async function selectPermissionPreset(client, label) {
   await clickButtonByAria(client, "Open permission mode picker");
-  await waitForTexts(client, ["Read Only", "Ask for approval", "Full Access"]);
+  await waitForTexts(client, ["Read Only", "Workspace Access"]);
   await clickButtonContainingTextByRole(client, "menuitemradio", label);
 }
 

@@ -42,7 +42,6 @@ export {
   ComposerButton,
   handleComposerKeyDown,
   ModelPickerButton,
-  PermissionConfirmationDialog,
   PermissionPickerButton,
   permissionPresetSelected,
 } from "./chat-composer-controls";

@@ -381,12 +381,7 @@ describe("preload workspace API", () => {
     await api.chat.killAllBackgroundTerminals("workspace_api", "conversation_api");
     await api.chat.sendMessage("workspace_api", "conversation_api", chatTextInput("hello"));
     await api.chat.setCodexModel("workspace_api", "conversation_api", "gpt-test");
-    await api.chat.setCodexPermissionPreset(
-      "workspace_api",
-      "conversation_api",
-      "full-access",
-      true,
-    );
+    await api.chat.setCodexPermissionPreset("workspace_api", "conversation_api", "read-only", true);
     await api.chat.setCodexReasoningEffort("workspace_api", "conversation_api", "high");
     const defaultsRequest = {
       confirmed: false,
@@ -475,7 +470,7 @@ describe("preload workspace API", () => {
         ipcChannels.chatSetCodexPermissionPreset,
         "workspace_api",
         "conversation_api",
-        "full-access",
+        "read-only",
         true,
       ],
       [ipcChannels.chatSetCodexReasoningEffort, "workspace_api", "conversation_api", "high"],

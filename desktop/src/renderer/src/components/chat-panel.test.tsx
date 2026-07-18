@@ -33,7 +33,6 @@ import {
   ConversationBody,
   handleComposerKeyDown,
   ModelPickerButton,
-  PermissionConfirmationDialog,
   PermissionPickerButton,
   modelPickerOptionSelected,
   permissionPresetSelected,
@@ -510,8 +509,8 @@ describe("composer command helpers", () => {
 
   test("prefers the selected permission preset over built-in defaults", () => {
     expect(permissionPresetSelected("default", null)).toBe(false);
-    expect(permissionPresetSelected("default", "full-access")).toBe(false);
-    expect(permissionPresetSelected("full-access", "full-access")).toBe(true);
+    expect(permissionPresetSelected("default", "read-only")).toBe(false);
+    expect(permissionPresetSelected("read-only", "read-only")).toBe(true);
   });
 });
 
@@ -541,36 +540,15 @@ describe("composer controls", () => {
         onOpen={vi.fn()}
         onSelect={vi.fn()}
         permissionPicker={permissionPickerResult()}
-        permissionLabel="Ask for approval"
+        permissionLabel="Workspace Access"
         running={false}
         selected
       />,
     );
 
     expect(html).toContain("Open permission mode picker");
-    expect(html).toContain("Ask for approval");
+    expect(html).toContain("Workspace Access");
     expect(html).toContain("Read Only");
-    expect(html).toContain("Full Access");
-    expect(html).toContain("Full filesystem access");
-  });
-
-  test("renders focused confirmation for dangerous permission presets", () => {
-    const preset = permissionPickerResult()?.result.permissionPresets.find(
-      (candidate) => candidate.id === "full-access",
-    );
-    const html = renderToString(
-      <PermissionConfirmationDialog
-        onCancel={vi.fn()}
-        onConfirm={vi.fn()}
-        preset={preset ?? null}
-      />,
-    );
-
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain("Enable Full Access?");
-    expect(html).toContain("Full filesystem access removes runtime approval prompts.");
-    expect(html).toContain("Use");
-    expect(html).toContain("Full Access");
   });
 
   test("explains permission picker disabled state while a run is active", () => {
@@ -580,7 +558,7 @@ describe("composer controls", () => {
         onOpen={vi.fn()}
         onSelect={vi.fn()}
         permissionPicker={null}
-        permissionLabel="Ask for approval"
+        permissionLabel="Workspace Access"
         running
         selected
       />,
@@ -1366,11 +1344,11 @@ function permissionPickerResult() {
   return {
     activeRun: null,
     activeRunLiveness: null,
-    conversation: selectedConversationWithPermission("Ask for approval"),
+    conversation: selectedConversationWithPermission("Workspace Access"),
     message: null,
     page: {
       blocks: [],
-      conversation: selectedConversationWithPermission("Ask for approval"),
+      conversation: selectedConversationWithPermission("Workspace Access"),
       goal: null,
       hasMoreOlder: false,
       messages: [],
@@ -1384,7 +1362,7 @@ function permissionPickerResult() {
         ...defaultEffectivePermissionSettings(),
         activePermissionProfileId: ":workspace",
         builtIn: true,
-        displayLabel: "Ask for approval",
+        displayLabel: "Workspace Access",
         preset: "default",
       },
       goal: null,
@@ -1409,22 +1387,8 @@ function permissionPickerResult() {
           disabled: false,
           disabledReason: "",
           id: "default",
-          label: "Ask for approval",
+          label: "Workspace Access",
           shortDescription: "Ask before external writes.",
-        },
-        {
-          activePermissionProfileId: ":danger-full-access",
-          approvalPolicy: "never",
-          danger: {
-            confirmationBody: "Full filesystem access removes runtime approval prompts.",
-            confirmationTitle: "Enable Full Access?",
-            requiresConfirmation: true,
-          },
-          disabled: false,
-          disabledReason: "",
-          id: "full-access",
-          label: "Full Access",
-          shortDescription: "Full filesystem access.",
         },
       ],
       raw: "permission_picker",

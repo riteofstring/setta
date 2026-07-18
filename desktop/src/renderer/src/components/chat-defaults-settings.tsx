@@ -20,8 +20,6 @@ import {
 
 const selectClassName =
   "h-8 min-w-0 rounded-sm border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary";
-const fullAccessPresetID = "full-access" satisfies ChatPermissionPresetID;
-
 export function ChatDefaultsSettings() {
   const draft = useChatDefaultsStore((state) => state.draft);
   const error = useChatDefaultsStore((state) => state.error);
@@ -106,11 +104,11 @@ function ChatDefaultsSettingsView({
   status,
 }: ChatDefaultsSettingsViewProps) {
   const [confirmPreset, setConfirmPreset] = useState<ChatPermissionPreset | null>(null);
-  const fullAccessConfirmedRef = useRef(false);
+  const permissionEscalationConfirmedRef = useRef(false);
   const busy = status === "loading" || status === "saving";
 
-  function setFullAccessConfirmed(confirmed: boolean) {
-    fullAccessConfirmedRef.current = confirmed;
+  function setPermissionEscalationConfirmed(confirmed: boolean) {
+    permissionEscalationConfirmedRef.current = confirmed;
   }
 
   function requestPermissionChange(preset: ChatPermissionPreset) {
@@ -121,8 +119,8 @@ function ChatDefaultsSettingsView({
       setConfirmPreset(preset);
       return;
     }
-    if (preset.id !== fullAccessPresetID) {
-      setFullAccessConfirmed(false);
+    if (!preset.danger?.requiresConfirmation) {
+      setPermissionEscalationConfirmed(false);
     }
     onPermissionPresetChange(preset.id);
   }
@@ -134,7 +132,7 @@ function ChatDefaultsSettingsView({
       onSubmit={(event) => {
         event.preventDefault();
         void onSave({
-          confirmed: fullAccessConfirmedRef.current,
+          confirmed: permissionEscalationConfirmedRef.current,
         });
       }}
     >
@@ -210,11 +208,11 @@ function ChatDefaultsSettingsView({
         </fieldset>
       </section>
       {confirmPreset ? (
-        <FullAccessConfirmation
+        <PermissionEscalationConfirmation
           onCancel={() => setConfirmPreset(null)}
           onConfirm={() => {
             onPermissionPresetChange(confirmPreset.id);
-            setFullAccessConfirmed(confirmPreset.id === fullAccessPresetID);
+            setPermissionEscalationConfirmed(true);
             setConfirmPreset(null);
           }}
           preset={confirmPreset}
@@ -323,7 +321,7 @@ function ChatDefaultsStatus({
   return null;
 }
 
-function FullAccessConfirmation({
+function PermissionEscalationConfirmation({
   onCancel,
   onConfirm,
   preset,
@@ -359,7 +357,7 @@ function FullAccessConfirmation({
         <div className="flex justify-end gap-2">
           <Button onClick={onCancel}>Cancel</Button>
           <Button onClick={onConfirm} ref={confirmRef} variant="primary">
-            Use Full Access
+            Use Permission Mode
           </Button>
         </div>
       </div>

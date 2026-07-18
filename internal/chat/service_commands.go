@@ -153,9 +153,6 @@ func (service *Service) prepareCommandExecutionLocked(workspaceID string, conver
 	if err := service.ensureGoalReplacementConfirmedLocked(workspaceID, conversationID, command, options); err != nil {
 		return commandExecutionState{}, err
 	}
-	if err := ensurePermissionChangeConfirmed(command); err != nil {
-		return commandExecutionState{}, err
-	}
 	state := commandExecutionState{
 		activeRun:          activeRun,
 		conversation:       conversation,
@@ -165,16 +162,6 @@ func (service *Service) prepareCommandExecutionLocked(workspaceID string, conver
 		err = service.ensureCanStartTurnLocked(workspaceID, conversationID, activeKey(workspaceID, conversationID))
 	}
 	return state, err
-}
-
-func ensurePermissionChangeConfirmed(command ChatCommand) error {
-	if command.Kind != ChatCommandPermission || command.Permission == nil || command.Permission.Action != PermissionCommandSet {
-		return nil
-	}
-	if command.Permission.Preset != ChatPermissionPresetFullAccess || command.Permission.Confirmed {
-		return nil
-	}
-	return commandError(ChatCommandErrorPermissionConfirm, "Full Access requires confirmation.", nil)
 }
 
 func (service *Service) ensureNoCommandCancellationDrainLocked(workspaceID string, conversationID string) error {

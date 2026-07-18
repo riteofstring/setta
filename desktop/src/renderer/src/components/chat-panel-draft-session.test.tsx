@@ -27,7 +27,7 @@ describe("selected chat composer draft session", () => {
       draftComposerChat({
         chatDefaultsView: {
           ...chatDefaultsView(),
-          currentPermission: defaultEffectivePermissionSettings("Ask for approval", "default"),
+          currentPermission: defaultEffectivePermissionSettings("Workspace Access", "default"),
           effectiveSettings: null,
           models: [
             {
@@ -66,7 +66,7 @@ describe("selected chat composer draft session", () => {
 
     expect(model.session).toMatchObject({
       modelLabel: "GPT Test",
-      permissionLabel: "Ask for approval",
+      permissionLabel: "Workspace Access",
       reasoningLabel: "Extra high",
     });
   });

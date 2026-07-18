@@ -7,21 +7,14 @@ func TestChatPermissionPresetsMapToCodexContracts(t *testing.T) {
 		{
 			id:          ChatPermissionPresetReadOnly,
 			label:       "Read Only",
-			approval:    codexApprovalPolicyOnRequest,
+			approval:    codexApprovalPolicyNever,
 			permissions: codexPermissionProfileReadOnly,
 		},
 		{
 			id:          ChatPermissionPresetDefault,
-			label:       "Ask for approval",
-			approval:    codexApprovalPolicyOnRequest,
-			permissions: codexPermissionProfileWorkspace,
-		},
-		{
-			id:          ChatPermissionPresetFullAccess,
-			label:       "Full Access",
+			label:       "Workspace Access",
 			approval:    codexApprovalPolicyNever,
-			permissions: codexPermissionProfileDangerFullAccess,
-			danger:      true,
+			permissions: codexPermissionProfileWorkspace,
 		},
 	}
 
@@ -43,12 +36,12 @@ func TestCustomPermissionSettingsUseCustomDisplay(t *testing.T) {
 	}
 }
 
-func TestMissingPermissionMetadataUsesAskForApprovalDisplay(t *testing.T) {
+func TestMissingPermissionMetadataUsesWorkspaceAccessDisplay(t *testing.T) {
 	permission := chatCodexEffectivePermissionSettings("", "", "")
-	if permission == nil || permission.Preset == nil || *permission.Preset != ChatPermissionPresetDefault || permission.DisplayLabel != "Ask for approval" || !permission.BuiltIn {
-		t.Fatalf("empty effective permission = %+v, want ask-for-approval display", permission)
+	if permission == nil || permission.Preset == nil || *permission.Preset != ChatPermissionPresetDefault || permission.DisplayLabel != "Workspace Access" || !permission.BuiltIn {
+		t.Fatalf("empty effective permission = %+v, want workspace access display", permission)
 	}
-	if permission.ApprovalPolicy != codexApprovalPolicyOnRequest || permission.ActivePermissionProfileID != codexPermissionProfileWorkspace {
+	if permission.ApprovalPolicy != codexApprovalPolicyNever || permission.ActivePermissionProfileID != codexPermissionProfileWorkspace {
 		t.Fatalf("empty effective permission = %+v, want implicit default permission fields", permission)
 	}
 }
@@ -61,7 +54,7 @@ func TestUnsupportedApprovalPolicyDoesNotUseCustomDisplay(t *testing.T) {
 }
 
 func TestPermissionPresetRequiresMatchingApprovalPolicy(t *testing.T) {
-	permission := chatCodexEffectivePermissionSettings(codexApprovalPolicyNever, codexPermissionProfileWorkspace, "")
+	permission := chatCodexEffectivePermissionSettings(codexApprovalPolicyOnRequest, codexPermissionProfileWorkspace, "")
 	if permission == nil || permission.Preset != nil || permission.DisplayLabel != "Custom" || permission.BuiltIn {
 		t.Fatalf("mismatched effective permission = %+v, want custom display", permission)
 	}
@@ -69,17 +62,16 @@ func TestPermissionPresetRequiresMatchingApprovalPolicy(t *testing.T) {
 
 func TestChatPermissionPresetsApplyConfigRequirements(t *testing.T) {
 	presets := chatPermissionPresetsForRequirements(&codexConfigRequirements{
-		AllowedApprovalPolicies: []string{codexApprovalPolicyOnRequest},
+		AllowedApprovalPolicies: []string{codexApprovalPolicyNever},
 		AllowedPermissionProfiles: map[string]bool{
-			codexPermissionProfileReadOnly:         true,
-			codexPermissionProfileWorkspace:        true,
-			codexPermissionProfileDangerFullAccess: false,
+			codexPermissionProfileReadOnly:  false,
+			codexPermissionProfileWorkspace: true,
 		},
 	})
 
-	fullAccess := requirePermissionPreset(t, presets, ChatPermissionPresetFullAccess)
-	if !fullAccess.Disabled || fullAccess.DisabledReason == "" {
-		t.Fatalf("full-access preset = %+v, want disabled with reason", fullAccess)
+	readOnly := requirePermissionPreset(t, presets, ChatPermissionPresetReadOnly)
+	if !readOnly.Disabled || readOnly.DisabledReason == "" {
+		t.Fatalf("read-only preset = %+v, want disabled with reason", readOnly)
 	}
 	defaultPreset := requirePermissionPreset(t, presets, ChatPermissionPresetDefault)
 	if defaultPreset.Disabled {

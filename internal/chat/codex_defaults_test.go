@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestChatCodexDefaultsStartAsAskForApproval(t *testing.T) {
+func TestChatCodexDefaultsStartWithWorkspaceAccess(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
 
 	view, err := service.ReadChatCodexDefaults(context.Background())
@@ -20,8 +20,8 @@ func TestChatCodexDefaultsStartAsAskForApproval(t *testing.T) {
 	if view.SelectedPermissionPreset == nil || *view.SelectedPermissionPreset != ChatPermissionPresetDefault {
 		t.Fatalf("selected permission preset = %v, want default", view.SelectedPermissionPreset)
 	}
-	if view.CurrentPermission == nil || view.CurrentPermission.DisplayLabel != "Ask for approval" {
-		t.Fatalf("current permission = %+v, want Ask for approval", view.CurrentPermission)
+	if view.CurrentPermission == nil || view.CurrentPermission.DisplayLabel != "Workspace Access" {
+		t.Fatalf("current permission = %+v, want Workspace Access", view.CurrentPermission)
 	}
 	if view.Settings.Permission == nil || view.Settings.Permission.Preset != ChatPermissionPresetDefault {
 		t.Fatalf("settings permission = %+v, want default preset", view.Settings.Permission)
@@ -62,35 +62,6 @@ func TestChatCodexDefaultsPersistAndSeedNewConversations(t *testing.T) {
 		t.Fatalf("create conversation after restart: %v", err)
 	}
 	assertConversationCodexDefaults(t, restartedConversation, ChatPermissionPresetReadOnly)
-}
-
-func TestChatCodexDefaultsRequireFullAccessConfirmation(t *testing.T) {
-	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
-	fullAccess, ok := chatPermissionSettingsForPreset(ChatPermissionPresetFullAccess)
-	if !ok {
-		t.Fatal("full-access preset is missing")
-	}
-
-	_, err := service.UpdateChatCodexDefaults(context.Background(), ChatCodexSettings{
-		Permission: &fullAccess,
-	}, false)
-	if err == nil {
-		t.Fatal("update chat codex defaults unexpectedly succeeded without full-access confirmation")
-	}
-	commandErr, ok := err.(*ChatCommandError)
-	if !ok || commandErr.Code != ChatCommandErrorPermissionConfirm {
-		t.Fatalf("update error = %#v, want permission confirmation error", err)
-	}
-
-	view, err := service.UpdateChatCodexDefaults(context.Background(), ChatCodexSettings{
-		Permission: &fullAccess,
-	}, true)
-	if err != nil {
-		t.Fatalf("update chat codex defaults with confirmation: %v", err)
-	}
-	if view.SelectedPermissionPreset == nil || *view.SelectedPermissionPreset != ChatPermissionPresetFullAccess {
-		t.Fatalf("selected permission preset = %v, want full-access", view.SelectedPermissionPreset)
-	}
 }
 
 func TestChatCodexDefaultsRejectMalformedStoredDefaults(t *testing.T) {

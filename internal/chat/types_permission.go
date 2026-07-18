@@ -7,9 +7,8 @@ const (
 	PermissionCommandShowPicker PermissionCommandAction = "show_picker"
 	PermissionCommandSet        PermissionCommandAction = "set"
 
-	ChatPermissionPresetReadOnly   ChatPermissionPresetID = "read-only"
-	ChatPermissionPresetDefault    ChatPermissionPresetID = "default"
-	ChatPermissionPresetFullAccess ChatPermissionPresetID = "full-access"
+	ChatPermissionPresetReadOnly ChatPermissionPresetID = "read-only"
+	ChatPermissionPresetDefault  ChatPermissionPresetID = "default"
 )
 
 var (
@@ -20,7 +19,6 @@ var (
 	chatPermissionPresetIDValues = []ChatPermissionPresetID{
 		ChatPermissionPresetReadOnly,
 		ChatPermissionPresetDefault,
-		ChatPermissionPresetFullAccess,
 	}
 )
 

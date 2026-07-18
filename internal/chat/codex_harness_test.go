@@ -172,7 +172,16 @@ func TestJSONRPCRoutesStringIDServerRequest(t *testing.T) {
 	if _, err := client.Call(context.Background(), "thread/start", map[string]any{}); err != nil {
 		t.Fatalf("thread/start: %v", err)
 	}
-	if _, err := client.Call(context.Background(), "turn/start", map[string]any{}); err != nil {
+	if _, err := client.Call(context.Background(), "turn/start", map[string]any{
+		"approvalPolicy": codexApprovalPolicyNever,
+		"sandboxPolicy": map[string]any{
+			"excludeSlashTmp":     true,
+			"excludeTmpdirEnvVar": true,
+			"networkAccess":       false,
+			"type":                "workspaceWrite",
+			"writableRoots":       []any{},
+		},
+	}); err != nil {
 		t.Fatalf("turn/start: %v", err)
 	}
 	select {
@@ -1371,6 +1380,7 @@ func handleFakeTurnSteer(mode string, message map[string]any) bool {
 }
 
 func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]any) bool {
+	assertFakeRepositorySandboxPolicy(mode, message)
 	if mode == "initial-settings" {
 		assertFakeInitialTurnSettings(message)
 	}

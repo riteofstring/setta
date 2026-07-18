@@ -32,7 +32,7 @@ describe("composer boundary", () => {
             commandListContextKey: "",
             id: "workflow_node_execution_alpha:run_workflow_node",
             modelLabel: "Model",
-            permissionLabel: "Ask for approval",
+            permissionLabel: "Workspace Access",
             reasoningLabel: "Reasoning",
             supportsImages: false,
             workspaceId: "workspace_api",

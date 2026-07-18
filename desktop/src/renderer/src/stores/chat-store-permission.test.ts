@@ -26,11 +26,11 @@ test("sets a codex permission preset through the preload API", async () => {
       modelDisplayName: "GPT Test",
       permission: {
         activePermissionProfileExtends: "",
-        activePermissionProfileId: ":danger-full-access",
+        activePermissionProfileId: ":read-only",
         approvalPolicy: "never",
         builtIn: true,
-        displayLabel: "Full Access",
-        preset: "full-access",
+        displayLabel: "Read Only",
+        preset: "read-only",
       },
       reasoningEffort: "high",
       reasoningEffortDisplayName: "High",
@@ -40,8 +40,8 @@ test("sets a codex permission preset through the preload API", async () => {
       model: "gpt-test",
       permission: {
         approvalPolicy: "never",
-        permissions: ":danger-full-access",
-        preset: "full-access",
+        permissions: ":read-only",
+        preset: "read-only",
       },
       reasoningEffort: "high",
     },
@@ -51,7 +51,7 @@ test("sets a codex permission preset through the preload API", async () => {
     .mockResolvedValue(
       commandExecuteResult(
         updatedConversation,
-        commandResult("permission", "display", "Permission set: Full Access", "permission_set"),
+        commandResult("permission", "display", "Permission set: Read Only", "permission_set"),
       ),
     );
   installPermissionAPI(setCodexPermissionPreset);
@@ -61,20 +61,20 @@ test("sets a codex permission preset through the preload API", async () => {
     workspaceId: "workspace_api",
   });
 
-  await useChatStore.getState().setCodexPermissionPreset("full-access", true);
+  await useChatStore.getState().setCodexPermissionPreset("read-only", false);
 
   expect(setCodexPermissionPreset).toHaveBeenCalledWith(
     "workspace_api",
     "conversation_api",
-    "full-access",
-    true,
+    "read-only",
+    false,
   );
   expect(useChatStore.getState().selectedConversation?.codexSettings?.permission?.preset).toBe(
-    "full-access",
+    "read-only",
   );
   expect(
     useChatStore.getState().selectedConversation?.codexEffectiveSettings?.permission?.displayLabel,
-  ).toBe("Full Access");
+  ).toBe("Read Only");
 });
 
 function installPermissionAPI(

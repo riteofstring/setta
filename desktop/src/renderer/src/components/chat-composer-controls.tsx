@@ -277,7 +277,7 @@ function permissionPickerLabel(
   permissionLabel: string,
 ) {
   if (permissionPicker?.result.action === "permission_picker") {
-    return permissionPicker.result.currentPermission?.displayLabel ?? "Ask for approval";
+    return permissionPicker.result.currentPermission?.displayLabel ?? "Workspace Access";
   }
   return permissionLabel;
 }

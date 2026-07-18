@@ -1,8 +1,7 @@
-import { assertAskForApprovalPermissionContract } from "./chat-workflow-permission-assertions.mjs";
+import { assertWorkspaceAccessPermissionContract } from "./chat-workflow-permission-assertions.mjs";
 import {
   assertTextAbsent,
   clickButtonByAria,
-  clickButtonContainingText,
   clickButtonContainingTextByRole,
   submitComposer,
   waitForBackendState,
@@ -28,7 +27,7 @@ export async function assertCodexProtocolNewChatPermissionContract(
       `created Codex conversation lacks effective permission: ${JSON.stringify(item)}`,
     );
   }
-  assertAskForApprovalPermissionContract(settings.permission, "created Codex conversation");
+  assertWorkspaceAccessPermissionContract(settings.permission, "created Codex conversation");
 }
 
 export async function exerciseLinkedCodexPermissionPicker(
@@ -38,37 +37,35 @@ export async function exerciseLinkedCodexPermissionPicker(
   conversationId,
 ) {
   await clickButtonByAria(client, "Open permission mode picker");
-  await waitForTexts(client, ["Read Only", "Ask for approval", "Full Access"]);
+  await waitForTexts(client, ["Read Only", "Workspace Access"]);
   await assertTextAbsent(client, "codexEffectiveSettings modelDisplayName is required");
-  await clickButtonContainingTextByRole(client, "menuitemradio", "Full Access");
-  await waitForTexts(client, ["Use Full Access"]);
-  await clickButtonContainingText(client, "Use Full Access");
+  await clickButtonContainingTextByRole(client, "menuitemradio", "Read Only");
   await waitForCommandResult(
     backend,
     workspaceId,
     conversationId,
-    "Permission mode set: Full Access",
+    "Permission mode set: Read Only",
   );
-  await waitForConversationEffectivePermission(backend, workspaceId, conversationId, "full-access");
-  await submitComposer(client, "protocol full access resume workflow", "Send message");
+  await waitForConversationEffectivePermission(backend, workspaceId, conversationId, "read-only");
+  await submitComposer(client, "protocol read only resume workflow", "Send message");
   const run = await waitForRunWithPrompt(
     backend,
     workspaceId,
     conversationId,
-    "protocol full access resume workflow",
+    "protocol read only resume workflow",
     null,
   );
   await waitForRunStatus(backend, workspaceId, conversationId, run.id, "completed");
-  await waitForConversationEffectivePermission(backend, workspaceId, conversationId, "full-access");
+  await waitForConversationEffectivePermission(backend, workspaceId, conversationId, "read-only");
   await assertTextAbsent(client, "codexEffectiveSettings modelDisplayName is required");
   await clickButtonByAria(client, "Open permission mode picker");
-  await waitForTexts(client, ["Read Only", "Ask for approval", "Full Access"]);
-  await clickButtonContainingTextByRole(client, "menuitemradio", "Ask for approval");
+  await waitForTexts(client, ["Read Only", "Workspace Access"]);
+  await clickButtonContainingTextByRole(client, "menuitemradio", "Workspace Access");
   await waitForCommandResult(
     backend,
     workspaceId,
     conversationId,
-    "Permission mode set: Ask for approval",
+    "Permission mode set: Workspace Access",
   );
   await waitForConversationEffectivePermission(backend, workspaceId, conversationId, "default");
   await assertTextAbsent(client, "codexEffectiveSettings modelDisplayName is required");

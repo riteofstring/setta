@@ -6,7 +6,6 @@ import {
 import { pasteImageIntoComposer } from "./chat-workflow-image-attachment-cases.mjs";
 import {
   clickButtonByAria,
-  clickButtonContainingText,
   clickButtonContainingTextByRole,
   createChat,
   setInputValue,
@@ -40,7 +39,7 @@ export async function assertNoConversationDraftDefaults(client, backend, workspa
       value.modelText.includes("GPT Test") &&
       value.modelText.includes("Extra high") &&
       !value.modelText.includes("Model\nReasoning") &&
-      value.permissionText.includes("Ask for approval"),
+      value.permissionText.includes("Workspace Access"),
   );
   await assertNoConversations(backend, workspaceId, "draft defaults label rendering");
   await clickButtonByAria(client, "Open model and reasoning picker");
@@ -63,16 +62,13 @@ export async function assertNoConversationDraftDefaults(client, backend, workspa
 
 export async function runChatDefaultsSettingsWorkflow(client, backend, workspaceId) {
   await openChatDefaultsSettings(client);
-  await assertFullAccessDefaultsRequiresConfirmation(backend);
   await setSettingsSelectValue(client, "chat-default-model-select", "scripted-careful");
   await setSettingsSelectValue(client, "chat-default-reasoning-select", "xhigh");
-  await clickSettingsPermissionPreset(client, "full-access");
-  await waitForTexts(client, ["Use Full Access"]);
-  await clickButtonContainingText(client, "Use Full Access");
+  await clickSettingsPermissionPreset(client, "default");
   await saveChatDefaultsSettings(client);
   await waitForSavedChatDefaults(backend, {
     model: "scripted-careful",
-    permissionPreset: "full-access",
+    permissionPreset: "default",
     reasoningEffort: "xhigh",
   });
   await clickSettingsPermissionPreset(client, "read-only");
@@ -109,12 +105,12 @@ export async function runChatDefaultsSettingsWorkflow(client, backend, workspace
   await waitForComposerDraft(client, preservedDraft);
   await waitForComposerAttachment(client, preservedAttachmentFileName);
   await waitForModelPickerSummary(waitForState, client, "Scripted Careful", "Low");
-  await selectComposerPermissionPreset(client, "Ask for approval");
+  await selectComposerPermissionPreset(client, "Workspace Access");
   await waitForCommandResult(
     backend,
     workspaceId,
     firstConversationId,
-    "Permission mode set: Ask for approval",
+    "Permission mode set: Workspace Access",
   );
   await waitForComposerDraft(client, preservedDraft);
   await waitForComposerAttachment(client, preservedAttachmentFileName);
@@ -132,32 +128,6 @@ export async function runChatDefaultsSettingsWorkflow(client, backend, workspace
   });
   await waitForModelPickerSummary(waitForState, client, "Scripted Careful", "Extra high");
   await waitForComposerPermissionLabel(client, "Read Only");
-}
-
-async function assertFullAccessDefaultsRequiresConfirmation(backend) {
-  const view = await backend.get("/chat/codex/defaults");
-  const preset = view.permissionPresets.find((candidate) => candidate.id === "full-access");
-  if (!preset) {
-    throw new Error("Full Access defaults preset missing");
-  }
-  const response = await backend.request("POST", "/chat/codex/defaults", {
-    confirmed: false,
-    settings: {
-      ...view.settings,
-      permission: {
-        approvalPolicy: preset.approvalPolicy,
-        permissions: preset.activePermissionProfileId,
-        preset: preset.id,
-      },
-    },
-  });
-  const body = await response.json();
-  if (response.ok) {
-    throw new Error("unconfirmed Full Access defaults update unexpectedly succeeded");
-  }
-  if (body?.error?.code !== "permission_change_requires_confirmation") {
-    throw new Error(`unexpected Full Access defaults confirmation error: ${JSON.stringify(body)}`);
-  }
 }
 
 async function waitForSavedChatDefaults(backend, expected) {
@@ -275,7 +245,7 @@ async function saveChatDefaultsSettings(client) {
 
 async function selectComposerPermissionPreset(client, label) {
   await clickButtonByAria(client, "Open permission mode picker");
-  await waitForTexts(client, ["Read Only", "Ask for approval", "Full Access"]);
+  await waitForTexts(client, ["Read Only", "Workspace Access"]);
   await clickButtonContainingTextByRole(client, "menuitemradio", label);
 }
 

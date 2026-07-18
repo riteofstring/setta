@@ -106,7 +106,7 @@ function selectedChatComposerSession(
     }),
     id: selectedConversation.id,
     modelLabel: conversationModelLabel(effectiveSettings),
-    permissionLabel: effectiveSettings?.permission?.displayLabel ?? "Ask for approval",
+    permissionLabel: effectiveSettings?.permission?.displayLabel ?? "Workspace Access",
     reasoningLabel: conversationReasoningLabel(effectiveSettings),
     supportsImages: effectiveSettings?.supportsImages ?? true,
     workspaceId: selectedConversation.workspaceId,
@@ -132,7 +132,7 @@ function draftChatComposerSessionLabels(defaults: ChatCodexDefaultsView | null) 
   if (effectiveSettings) {
     return {
       modelLabel: effectiveSettings.modelDisplayName,
-      permissionLabel: effectiveSettings.permission?.displayLabel ?? "Ask for approval",
+      permissionLabel: effectiveSettings.permission?.displayLabel ?? "Workspace Access",
       reasoningLabel: effectiveSettings.reasoningEffortDisplayName,
       supportsImages: effectiveSettings.supportsImages,
     };
@@ -162,7 +162,7 @@ function draftDefaultsModelLabel(defaults: ChatCodexDefaultsView | null) {
 }
 
 function draftDefaultsPermissionLabel(defaults: ChatCodexDefaultsView | null) {
-  return defaults?.currentPermission?.displayLabel ?? "Ask for approval";
+  return defaults?.currentPermission?.displayLabel ?? "Workspace Access";
 }
 
 function draftDefaultsReasoningLabel(defaults: ChatCodexDefaultsView | null) {

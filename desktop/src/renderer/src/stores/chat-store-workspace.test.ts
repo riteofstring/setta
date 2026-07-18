@@ -190,7 +190,7 @@ function defaultEffectivePermissionSettings() {
     activePermissionProfileId: ":workspace",
     approvalPolicy: "on-request",
     builtIn: true,
-    displayLabel: "Ask for approval",
+    displayLabel: "Workspace Access",
     preset: "default" as const,
   };
 }

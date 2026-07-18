@@ -98,6 +98,23 @@ func TestSettaWorkspaceContextToolReturnsCurrentTurnContext(t *testing.T) {
 	}
 }
 
+func TestSettaMoveToTrashToolIsRegisteredWithWorkspaceWritePermission(t *testing.T) {
+	registry, err := NewSettaAgentToolRegistry()
+	if err != nil {
+		t.Fatalf("setta tool registry: %v", err)
+	}
+	tool, ok := registry.Lookup("setta", "move_to_trash")
+	if !ok {
+		t.Fatal("move_to_trash was not registered")
+	}
+	if len(tool.PermissionRequirements) != 1 || tool.PermissionRequirements[0].Kind != AgentToolPermissionWriteWorkspace {
+		t.Fatalf("move_to_trash permissions = %+v, want workspace write", tool.PermissionRequirements)
+	}
+	if len(tool.InputSchema.Required) != 1 || tool.InputSchema.Required[0] != "path" {
+		t.Fatalf("move_to_trash input schema = %+v, want required path", tool.InputSchema)
+	}
+}
+
 func testCodexAgentTool(name string, deferLoading bool) AgentTool {
 	return AgentTool{
 		Namespace:    SettaAgentToolNamespace,

@@ -1,12 +1,12 @@
-export function assertAskForApprovalPermissionContract(permission, context) {
+export function assertWorkspaceAccessPermissionContract(permission, context) {
   if (!permission) {
     throw new Error(`${context} lacks effective permission`);
   }
   const expected = {
     activePermissionProfileId: ":workspace",
-    approvalPolicy: "on-request",
+    approvalPolicy: "never",
     builtIn: true,
-    displayLabel: "Ask for approval",
+    displayLabel: "Workspace Access",
     preset: "default",
   };
   for (const [field, value] of Object.entries(expected)) {

@@ -351,6 +351,10 @@ func (harness *CodexHarness) resumeLinkedCommandThread(ctx context.Context, sess
 		refErr := codexThreadResumeUnavailableError(threadID, err)
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, refErr.Error(), refErr)
 	}
+	if err := enforceCodexRepositoryBoundarySettings(&thread.Settings); err != nil {
+		refErr := codexThreadResumeUnavailableError(threadID, err)
+		return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, refErr.Error(), refErr)
+	}
 	return thread, nil
 }
 
@@ -826,13 +830,13 @@ func modelOptionFromCodex(item codexapp.Model, index int) (ChatModelOption, erro
 	if item.DisplayName == "" {
 		return ChatModelOption{}, fmt.Errorf("%s.displayName is required", label)
 	}
-	defaultReasoningEffort := ReasoningEffort(item.DefaultReasoningEffort)
-	if !validValue(defaultReasoningEffort, reasoningEffortValues) {
-		return ChatModelOption{}, fmt.Errorf("%s.defaultReasoningEffort has unsupported reasoning effort %s", label, item.DefaultReasoningEffort)
-	}
-	supportedReasoningEfforts, err := reasoningEffortOptionsFromCodex(item.SupportedReasoningEfforts, defaultReasoningEffort, label)
+	supportedReasoningEfforts, err := reasoningEffortOptionsFromCodex(item.SupportedReasoningEfforts, label)
 	if err != nil {
 		return ChatModelOption{}, err
+	}
+	defaultReasoningEffort := reasoningEffortDefaultFromCodex(item.DefaultReasoningEffort, supportedReasoningEfforts)
+	for index := range supportedReasoningEfforts {
+		supportedReasoningEfforts[index].IsDefault = supportedReasoningEfforts[index].Effort == defaultReasoningEffort
 	}
 	return ChatModelOption{
 		DefaultReasoningEffort:    defaultReasoningEffort,
@@ -856,22 +860,44 @@ func codexModelSupportsImages(item codexapp.Model) bool {
 	return false
 }
 
-func reasoningEffortOptionsFromCodex(items []codexapp.ReasoningEffortOption, defaultEffort ReasoningEffort, label string) ([]ChatReasoningEffortOption, error) {
+func reasoningEffortOptionsFromCodex(items []codexapp.ReasoningEffortOption, label string) ([]ChatReasoningEffortOption, error) {
 	options := make([]ChatReasoningEffortOption, 0, len(items))
-	for index, option := range items {
-		optionLabel := fmt.Sprintf("%s.supportedReasoningEfforts[%d]", label, index)
+	for _, option := range items {
 		effort := ReasoningEffort(option.ReasoningEffort)
 		if !validValue(effort, reasoningEffortValues) {
-			return nil, fmt.Errorf("%s.reasoningEffort has unsupported reasoning effort %s", optionLabel, option.ReasoningEffort)
+			continue
 		}
 		options = append(options, ChatReasoningEffortOption{
 			Description: option.Description,
 			DisplayName: reasoningEffortDisplayName(effort),
 			Effort:      effort,
-			IsDefault:   effort == defaultEffort,
 		})
 	}
+	if len(options) == 0 {
+		return nil, fmt.Errorf("%s.supportedReasoningEfforts has no recognized reasoning efforts", label)
+	}
 	return options, nil
+}
+
+func reasoningEffortDefaultFromCodex(rawDefault codexapp.ReasoningEffort, options []ChatReasoningEffortOption) ReasoningEffort {
+	providerDefault := ReasoningEffort(rawDefault)
+	if _, ok := reasoningEffortOptionByEffort(options, providerDefault); ok {
+		return providerDefault
+	}
+	for _, fallback := range []ReasoningEffort{
+		ReasoningEffortMedium,
+		ReasoningEffortHigh,
+		ReasoningEffortXHigh,
+		ReasoningEffortLow,
+		ReasoningEffortMinimal,
+		ReasoningEffortNone,
+		ReasoningEffortMax,
+	} {
+		if _, ok := reasoningEffortOptionByEffort(options, fallback); ok {
+			return fallback
+		}
+	}
+	return ""
 }
 
 func reasoningEffortsForSelectedModel(models []ChatModelOption, selectedModel string) []ChatReasoningEffortOption {

@@ -664,9 +664,9 @@ export function decodeWorkspaceActivityDeltaKind(value: unknown, label = "Worksp
   }
 }
 
-export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
-export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
+export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const satisfies readonly ReasoningEffort[];
 
 export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort"): ReasoningEffort {
   const decoded = decodeString(value, label);
@@ -683,14 +683,16 @@ export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort")
       return decoded;
     case "xhigh":
       return decoded;
+    case "max":
+      return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type ChatPermissionPresetID = "read-only" | "default" | "full-access";
+export type ChatPermissionPresetID = "read-only" | "default";
 
-export const chatPermissionPresetIDValues = ["read-only", "default", "full-access"] as const satisfies readonly ChatPermissionPresetID[];
+export const chatPermissionPresetIDValues = ["read-only", "default"] as const satisfies readonly ChatPermissionPresetID[];
 
 export function decodeChatPermissionPresetID(value: unknown, label = "ChatPermissionPresetID"): ChatPermissionPresetID {
   const decoded = decodeString(value, label);
@@ -698,8 +700,6 @@ export function decodeChatPermissionPresetID(value: unknown, label = "ChatPermis
     case "read-only":
       return decoded;
     case "default":
-      return decoded;
-    case "full-access":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);

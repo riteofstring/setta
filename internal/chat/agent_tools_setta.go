@@ -1,10 +1,16 @@
 package chat
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -24,7 +30,7 @@ type SettaWorkflowResultSignal struct {
 }
 
 func NewSettaAgentToolRegistry() (*AgentToolRegistry, error) {
-	return NewAgentToolRegistry(settaWorkspaceContextTool(), settaWorkflowResultTool())
+	return NewAgentToolRegistry(settaMoveToTrashTool(), settaWorkspaceContextTool(), settaWorkflowResultTool())
 }
 
 func mustNewSettaAgentToolRegistry() *AgentToolRegistry {
@@ -57,6 +63,39 @@ func settaWorkspaceContextTool() AgentTool {
 			Category:    "workspace",
 		},
 		Handler: handleSettaWorkspaceContext,
+	}
+}
+
+func settaMoveToTrashTool() AgentTool {
+	additionalProperties := false
+	return AgentTool{
+		Namespace: SettaAgentToolNamespace,
+		Name:      "move_to_trash",
+		InputSchema: AgentToolSchema{
+			Type: AgentToolSchemaObject,
+			Properties: map[string]AgentToolSchema{
+				"path": {
+					Type:        AgentToolSchemaString,
+					Description: "Workspace-relative or absolute path to move to the operating system trash or recycle bin.",
+				},
+			},
+			Required:             []string{"path"},
+			AdditionalProperties: &additionalProperties,
+		},
+		OutputSchema: AgentToolSchema{
+			Type:        AgentToolSchemaObject,
+			Description: "The workspace path moved to the operating system trash or recycle bin.",
+		},
+		PermissionRequirements: []AgentToolPermissionRequirement{{
+			Kind:        AgentToolPermissionWriteWorkspace,
+			Description: "Move an item inside the current workspace to the operating system trash or recycle bin.",
+		}},
+		AuditMetadata: AgentToolAuditMetadata{
+			DisplayName: "Move to trash",
+			Description: "Move one workspace file or directory to the operating system trash or recycle bin after enforcing the workspace boundary.",
+			Category:    "workspace",
+		},
+		Handler: handleSettaMoveToTrash,
 	}
 }
 
@@ -167,6 +206,164 @@ func handleSettaWorkspaceContext(ctx context.Context, call AgentToolCall) (Agent
 		}},
 		Success: true,
 	}, nil
+}
+
+type settaMoveToTrashArguments struct {
+	Path string `json:"path"`
+}
+
+func handleSettaMoveToTrash(ctx context.Context, call AgentToolCall) (AgentToolResult, error) {
+	arguments, err := decodeSettaMoveToTrashArguments(call.Arguments)
+	if err != nil {
+		return AgentToolResult{}, err
+	}
+	runtimeContext, ok := AgentToolRuntimeFromContext(ctx)
+	if !ok || runtimeContext.Workspace.RootPath == "" {
+		return AgentToolResult{}, errors.New("workspace context is unavailable for this tool call")
+	}
+	target, err := resolveWorkspaceTrashTarget(runtimeContext.Workspace.RootPath, arguments.Path)
+	if err != nil {
+		return AgentToolResult{}, err
+	}
+	if err := movePathToOperatingSystemTrash(ctx, target); err != nil {
+		return AgentToolResult{}, err
+	}
+	payload, err := json.Marshal(map[string]string{"path": target})
+	if err != nil {
+		return AgentToolResult{}, fmt.Errorf("encode move-to-trash result: %w", err)
+	}
+	return AgentToolResult{
+		ContentItems: []AgentToolContentItem{{Type: "inputText", Text: string(payload)}},
+		Success:      true,
+	}, nil
+}
+
+func decodeSettaMoveToTrashArguments(arguments json.RawMessage) (settaMoveToTrashArguments, error) {
+	if len(arguments) == 0 {
+		return settaMoveToTrashArguments{}, errors.New("move_to_trash arguments are required")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(arguments))
+	decoder.DisallowUnknownFields()
+	var payload settaMoveToTrashArguments
+	if err := decoder.Decode(&payload); err != nil {
+		return settaMoveToTrashArguments{}, fmt.Errorf("move_to_trash arguments must be a JSON object with only path: %w", err)
+	}
+	if err := ensureJSONDocumentEnded(decoder); err != nil {
+		return settaMoveToTrashArguments{}, fmt.Errorf("move_to_trash arguments must contain one JSON object: %w", err)
+	}
+	if payload.Path == "" {
+		return settaMoveToTrashArguments{}, errors.New("move_to_trash path is required")
+	}
+	return payload, nil
+}
+
+func ensureJSONDocumentEnded(decoder *json.Decoder) error {
+	var extra any
+	err := decoder.Decode(&extra)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return errors.New("unexpected trailing JSON value")
+}
+
+func resolveWorkspaceTrashTarget(workspaceRoot string, requestedPath string) (string, error) {
+	if !filepath.IsAbs(workspaceRoot) {
+		return "", fmt.Errorf("workspace root must be absolute: %q", workspaceRoot)
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(filepath.Clean(workspaceRoot))
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace root %s: %w", workspaceRoot, err)
+	}
+	rootInfo, err := os.Stat(resolvedRoot)
+	if err != nil {
+		return "", fmt.Errorf("read workspace root %s: %w", resolvedRoot, err)
+	}
+	if !rootInfo.IsDir() {
+		return "", fmt.Errorf("workspace root is not a directory: %s", resolvedRoot)
+	}
+	target := requestedPath
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(resolvedRoot, target)
+	}
+	target = filepath.Clean(target)
+	if target == resolvedRoot {
+		return "", errors.New("move_to_trash cannot move the workspace root")
+	}
+	resolvedParent, err := filepath.EvalSymlinks(filepath.Dir(target))
+	if err != nil {
+		return "", fmt.Errorf("resolve move_to_trash parent for %s: %w", requestedPath, err)
+	}
+	if !pathWithinRoot(resolvedRoot, resolvedParent) {
+		return "", fmt.Errorf("move_to_trash path is outside the workspace: %s", requestedPath)
+	}
+	resolvedTarget := filepath.Join(resolvedParent, filepath.Base(target))
+	if _, err := os.Lstat(resolvedTarget); err != nil {
+		return "", fmt.Errorf("read move_to_trash path %s: %w", requestedPath, err)
+	}
+	return resolvedTarget, nil
+}
+
+func pathWithinRoot(root string, path string) bool {
+	relative, err := filepath.Rel(root, path)
+	if err != nil || filepath.IsAbs(relative) {
+		return false
+	}
+	return relative != ".." && !filepathHasParentPrefix(relative)
+}
+
+func filepathHasParentPrefix(path string) bool {
+	return len(path) > 3 && path[:3] == ".."+string(filepath.Separator)
+}
+
+func movePathToOperatingSystemTrash(ctx context.Context, path string) error {
+	command, args, err := operatingSystemTrashCommand(path)
+	if err != nil {
+		return err
+	}
+	output, err := exec.CommandContext(ctx, command, args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("move %s to trash with %s: %w: %s", path, command, err, bytes.TrimSpace(output))
+	}
+	return nil
+}
+
+func operatingSystemTrashCommand(path string) (string, []string, error) {
+	return trashCommandForOperatingSystem(runtime.GOOS, path, exec.LookPath)
+}
+
+func trashCommandForOperatingSystem(goos string, path string, lookPath func(string) (string, error)) (string, []string, error) {
+	switch goos {
+	case "darwin":
+		if command, err := lookPath("trash"); err == nil {
+			return command, []string{"--", path}, nil
+		}
+		return "/usr/bin/osascript", []string{
+			"-e", "on run argv",
+			"-e", "tell application \"Finder\" to delete (POSIX file (item 1 of argv))",
+			"-e", "end run",
+			path,
+		}, nil
+	case "linux":
+		if command, err := lookPath("gio"); err == nil {
+			return command, []string{"trash", "--", path}, nil
+		}
+		if command, err := lookPath("trash-put"); err == nil {
+			return command, []string{"--", path}, nil
+		}
+		return "", nil, errors.New("move_to_trash requires gio or trash-put on Linux")
+	case "windows":
+		command, err := lookPath("powershell.exe")
+		if err != nil {
+			return "", nil, errors.New("move_to_trash requires powershell.exe on Windows")
+		}
+		script := `Add-Type -AssemblyName Microsoft.VisualBasic; $item = Get-Item -LiteralPath $args[0] -Force; if ($item.PSIsContainer) { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($item.FullName, 'OnlyErrorDialogs', 'SendToRecycleBin') } else { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($item.FullName, 'OnlyErrorDialogs', 'SendToRecycleBin') }`
+		return command, []string{"-NoProfile", "-NonInteractive", "-Command", script, path}, nil
+	default:
+		return "", nil, fmt.Errorf("move_to_trash is unsupported on %s", goos)
+	}
 }
 
 func handleSettaWorkflowResult(_ context.Context, call AgentToolCall) (AgentToolResult, error) {

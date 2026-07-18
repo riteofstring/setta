@@ -5,7 +5,7 @@ import type {
 } from "@generated/backend";
 
 export function defaultEffectivePermissionSettings(
-  displayLabel = "Ask for approval",
+  displayLabel = "Workspace Access",
   preset: ChatPermissionPresetID = "default",
 ): ChatCodexEffectivePermissionSettings {
   return {

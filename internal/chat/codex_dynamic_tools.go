@@ -37,7 +37,7 @@ type codexDynamicToolSpec struct {
 
 func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[string]any, error) {
 	params := map[string]any{
-		"approvalPolicy":        "on-request",
+		"approvalPolicy":        codexApprovalPolicyNever,
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceRoot,
 		"developerInstructions": codexDeveloperInstructions(),
@@ -73,13 +73,27 @@ func applyCodexThreadResumeSettings(params map[string]any, conversation Conversa
 		return err
 	}
 	if !ok {
-		return nil
+		permission = ChatCodexPermissionSettings{
+			Preset:         ChatPermissionPresetDefault,
+			ApprovalPolicy: codexApprovalPolicyNever,
+			Permissions:    codexPermissionProfileWorkspace,
+		}
 	}
 	if err := validateSettaCodexApprovalPolicy(permission.ApprovalPolicy, "thread/resume request approvalPolicy"); err != nil {
 		return err
 	}
-	params["approvalPolicy"] = permission.ApprovalPolicy
-	params["permissions"] = permission.Permissions
+	settings := codexCommandThreadSettings{
+		ApprovalPolicy:            permission.ApprovalPolicy,
+		ActivePermissionProfileID: permission.Permissions,
+	}
+	if err := enforceCodexRepositoryBoundarySettings(&settings); err != nil {
+		return err
+	}
+	if _, err := codexSandboxMode(settings); err != nil {
+		return err
+	}
+	params["approvalPolicy"] = settings.ApprovalPolicy
+	params["permissions"] = settings.ActivePermissionProfileID
 	return nil
 }
 

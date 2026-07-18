@@ -180,7 +180,7 @@ func startCodexStructuredTaskTurn(ctx context.Context, session *codexapp.Session
 }
 
 func codexReadOnlySandboxPolicy() codexapp.SandboxPolicy {
-	return codexapp.SandboxPolicy([]byte(`{"type":"readOnly"}`))
+	return codexapp.SandboxPolicy([]byte(`{"type":"readOnly","networkAccess":false}`))
 }
 
 func codexStructuredTaskInputText(task HarnessStructuredTask) string {

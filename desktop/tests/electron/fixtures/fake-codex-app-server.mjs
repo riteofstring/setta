@@ -7,6 +7,11 @@ import { setImmediate, setTimeout } from "node:timers";
 
 import { createParallelRunHandlers } from "./fake-codex-parallel-runs.mjs";
 import {
+  assertMoveToTrashTool,
+  assertRepositoryScopedThreadParams,
+  assertRepositoryScopedTurnParams,
+} from "./fake-codex-safety-assertions.mjs";
+import {
   autoApprovalReviewPayload,
   contextCompactionPayload,
   emitRealtimeNotifications,
@@ -143,6 +148,7 @@ function handleThreadStart(message) {
   }
   assertThreadStartDeveloperInstructions(message.params);
   assertThreadStartDynamicTools(message.params);
+  assertRepositoryScopedThreadParams(message.params, "thread/start");
   const options = threadResponseOptionsFromParams(message.params);
   if (parallelThreadsEnabled) {
     options.threadId = parallelRuns.nextThreadId();
@@ -155,6 +161,7 @@ function handleThreadResume(message) {
   if (message.params?.dynamicTools !== undefined) {
     throw new Error("thread/resume should not include dynamicTools");
   }
+  assertRepositoryScopedThreadParams(message.params, "thread/resume");
   const options = threadResponseOptionsFromParams(message.params);
   applyUnsupportedApprovalPolicyForSource(options, "thread-resume");
   respond(message.id, fakeThreadResponse(options));
@@ -174,6 +181,7 @@ function handleThreadRead(message) {
 }
 
 function handleTurnStart(message) {
+  assertRepositoryScopedTurnParams(message.params);
   if (parallelThreadsEnabled && parallelRuns.handleTurnStart(message)) {
     return;
   }
@@ -401,6 +409,11 @@ function handleModelList(message) {
             description: "Extra high reasoning depth for complex problems.",
             reasoningEffort: "xhigh",
           },
+          {
+            description: "Maximum reasoning depth for the hardest problems.",
+            reasoningEffort: "max",
+          },
+          { description: "A future provider-defined effort.", reasoningEffort: "future" },
         ],
       },
     ],
@@ -655,7 +668,9 @@ function assertThreadStartDeveloperInstructions(params) {
   if (
     typeof instructions !== "string" ||
     !instructions.includes("available dynamic tool") ||
-    !instructions.includes("Do not invent dynamic tool names")
+    !instructions.includes("Do not invent dynamic tool names") ||
+    !instructions.includes("Never use `rm`") ||
+    !instructions.includes("move-to-trash")
   ) {
     throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
   }
@@ -686,6 +701,7 @@ function assertThreadStartDynamicTools(params) {
   assertWorkspaceContextVisibility(workspaceContext);
   assertWorkspaceContextDescription(workspaceContext);
   assertWorkspaceContextInputSchema(workspaceContext);
+  assertMoveToTrashTool(params);
 }
 
 function workspaceContextTool(params) {

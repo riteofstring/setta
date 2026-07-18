@@ -48,8 +48,8 @@ describe("workflow node details surface helpers", () => {
         model: "gpt-5",
         permission: {
           approvalPolicy: "never",
-          permissions: ":danger-full-access",
-          preset: "full-access",
+          permissions: ":read-only",
+          preset: "read-only",
         },
         prompt: "review the workspace",
         reasoningEffort: "medium",
@@ -66,8 +66,8 @@ describe("workflow node details surface helpers", () => {
             model: "gpt-5",
             permission: {
               approvalPolicy: "never",
-              permissions: ":danger-full-access",
-              preset: "full-access",
+              permissions: ":read-only",
+              preset: "read-only",
             },
             reasoningEffort: "medium",
           },

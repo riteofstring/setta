@@ -41,22 +41,22 @@ func assertFakeCommandThreadMethod(mode string, method any) {
 
 func assertFakeCommandThreadPermissionParams(mode string, method any, params map[string]any) {
 	if fakeCommandUsesFullAccessThreadPermission(mode) {
-		if params["approvalPolicy"] != codexApprovalPolicyNever || params["permissions"] != codexPermissionProfileDangerFullAccess {
-			panic("command thread start/resume missing full access permission params")
+		if params["approvalPolicy"] != codexApprovalPolicyNever || params["permissions"] != codexPermissionProfileReadOnly {
+			panic("command thread start/resume missing read-only permission params")
+		}
+		if _, ok := params["sandbox"]; ok {
+			panic("command thread start/resume cannot combine permissions with sandbox")
 		}
 		return
 	}
-	if method == "thread/start" {
-		if params["approvalPolicy"] != codexApprovalPolicyOnRequest {
-			panic("command thread start missing default approval params")
-		}
-		return
+	if params["approvalPolicy"] != codexApprovalPolicyNever {
+		panic("command thread start/resume must disable execution approvals")
 	}
-	if _, ok := params["approvalPolicy"]; ok {
-		panic("command thread resume should not override approval policy without conversation permission settings")
+	if params["permissions"] != codexPermissionProfileWorkspace {
+		panic("command thread start/resume missing workspace permission profile")
 	}
-	if _, ok := params["permissions"]; ok {
-		panic("command thread resume should not override permissions without conversation permission settings")
+	if _, ok := params["sandbox"]; ok {
+		panic("command thread start/resume cannot combine permissions with sandbox")
 	}
 }
 
@@ -90,13 +90,13 @@ func fakeCommandStartsThread(mode string) bool {
 }
 
 func fakeCommandUsesFullAccessThreadPermission(mode string) bool {
-	return mode == "command-goal-set-permission-ignored" || mode == "command-model-list-linked-full-access"
+	return mode == "command-goal-set-permission-ignored" || mode == "command-model-list-linked-read-only"
 }
 
 func fakeCommandResumesThread(mode string) bool {
 	switch mode {
 	case "command-model-list-linked",
-		"command-model-list-linked-full-access",
+		"command-model-list-linked-read-only",
 		"command-model-set",
 		"command-model-set-no-notification",
 		"command-model-set-unsupported-settings-update",

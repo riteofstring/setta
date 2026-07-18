@@ -88,15 +88,12 @@ func (service *Service) ReadChatCodexDefaults(ctx context.Context) (ChatCodexDef
 	return service.chatCodexDefaultsView(ctx, settings)
 }
 
-func (service *Service) UpdateChatCodexDefaults(ctx context.Context, settings ChatCodexSettings, confirmed bool) (ChatCodexDefaultsView, error) {
+func (service *Service) UpdateChatCodexDefaults(ctx context.Context, settings ChatCodexSettings, _ bool) (ChatCodexDefaultsView, error) {
 	defaults := ChatCodexDefaults{
 		SchemaVersion: SchemaVersion,
 		Settings:      settings,
 	}
 	if err := validateChatCodexDefaults(defaults); err != nil {
-		return ChatCodexDefaultsView{}, err
-	}
-	if err := service.ensureChatCodexDefaultsPermissionConfirmed(defaults.Settings, confirmed); err != nil {
 		return ChatCodexDefaultsView{}, err
 	}
 	if err := service.validateChatCodexDefaultOptions(ctx, defaults.Settings); err != nil {
@@ -111,24 +108,6 @@ func (service *Service) UpdateChatCodexDefaults(ctx context.Context, settings Ch
 	service.mu.Unlock()
 
 	return service.chatCodexDefaultsView(ctx, defaults.Settings)
-}
-
-func (service *Service) ensureChatCodexDefaultsPermissionConfirmed(settings ChatCodexSettings, confirmed bool) error {
-	if settings.Permission == nil || settings.Permission.Preset != ChatPermissionPresetFullAccess {
-		return nil
-	}
-
-	service.mu.Lock()
-	current := cloneChatCodexSettings(service.codexDefaults.Settings)
-	service.mu.Unlock()
-
-	if current.Permission != nil && current.Permission.Preset == ChatPermissionPresetFullAccess {
-		return nil
-	}
-	if confirmed {
-		return nil
-	}
-	return commandError(ChatCommandErrorPermissionConfirm, "Full Access requires confirmation.", nil)
 }
 
 func (service *Service) currentChatCodexDefaultSettings() ChatCodexSettings {

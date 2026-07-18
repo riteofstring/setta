@@ -1116,7 +1116,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           commandResult(
             "permission",
             "display",
-            "Permission set: Ask for approval",
+            "Permission set: Workspace Access",
             "permission_set",
           ),
         ),

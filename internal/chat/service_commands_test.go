@@ -368,38 +368,6 @@ func requireConversationPermission(t *testing.T, label string, actual *ChatCodex
 	}
 }
 
-func TestServiceRequiresConfirmationBeforeFullAccessPermission(t *testing.T) {
-	harness := NewFakeHarness(nil)
-	service := newTestService(t, t.TempDir(), testResolver(t), harness)
-	conversation, err := service.CreateConversation("workspace_api", "")
-	if err != nil {
-		t.Fatalf("create conversation: %v", err)
-	}
-
-	_, err = service.SetChatCodexPermissionPreset("workspace_api", conversation.ID, ChatPermissionPresetFullAccess, false)
-	if err == nil {
-		t.Fatal("set full access succeeded without confirmation")
-	}
-	commandErr, ok := IsChatCommandError(err)
-	if !ok || commandErr.Code != ChatCommandErrorPermissionConfirm {
-		t.Fatalf("full access error = %#v, want confirmation command error", err)
-	}
-	if requests := harness.CommandRequests(); len(requests) != 0 {
-		t.Fatalf("command requests = %+v, want none before confirmation", requests)
-	}
-
-	result, err := service.SetChatCodexPermissionPreset("workspace_api", conversation.ID, ChatPermissionPresetFullAccess, true)
-	if err != nil {
-		t.Fatalf("set full access with confirmation: %v", err)
-	}
-	if result.Result.SelectedPermissionPreset == nil || *result.Result.SelectedPermissionPreset != ChatPermissionPresetFullAccess {
-		t.Fatalf("selected permission = %v, want full access", result.Result.SelectedPermissionPreset)
-	}
-	if result.Result.CurrentPermission == nil || result.Result.CurrentPermission.DisplayLabel != "Full Access" {
-		t.Fatalf("current permission = %+v, want Full Access", result.Result.CurrentPermission)
-	}
-}
-
 func TestServiceStoresPermissionSettingsWithoutCreatingThread(t *testing.T) {
 	harness := NewFakeHarness(nil)
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
@@ -419,7 +387,7 @@ func TestServiceStoresPermissionSettingsWithoutCreatingThread(t *testing.T) {
 	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.Permission == nil {
 		t.Fatalf("result codex settings = %+v, want permission settings", result.Conversation.CodexSettings)
 	}
-	if permission := result.Conversation.CodexSettings.Permission; permission.Preset != ChatPermissionPresetReadOnly || permission.ApprovalPolicy != codexApprovalPolicyOnRequest || permission.Permissions != codexPermissionProfileReadOnly {
+	if permission := result.Conversation.CodexSettings.Permission; permission.Preset != ChatPermissionPresetReadOnly || permission.ApprovalPolicy != codexApprovalPolicyNever || permission.Permissions != codexPermissionProfileReadOnly {
 		t.Fatalf("result permission settings = %+v, want read-only preset", permission)
 	}
 	loaded, err := service.store.LoadConversation("workspace_api", conversation.ID)

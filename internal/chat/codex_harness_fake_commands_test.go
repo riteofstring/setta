@@ -280,6 +280,8 @@ func writeFakeDefaultModelListResponse(id any) {
 				{"description": "Medium reasoning.", "reasoningEffort": "medium"},
 				{"description": "High reasoning.", "reasoningEffort": "high"},
 				{"description": "Extra high reasoning.", "reasoningEffort": "xhigh"},
+				{"description": "Maximum reasoning.", "reasoningEffort": "max"},
+				{"description": "Future provider reasoning.", "reasoningEffort": "future"},
 			},
 		}},
 		"nextCursor": nil,
@@ -306,7 +308,7 @@ func handleFakeThreadSettingsUpdate(mode string, message map[string]any) bool {
 		return false
 	}
 	if mode == "command-permission-set" {
-		writeFakeThreadPermissionSettingsUpdated("gpt-test", ReasoningEffortHigh, codexApprovalPolicyNever, codexPermissionProfileDangerFullAccess)
+		writeFakeThreadPermissionSettingsUpdated("gpt-test", ReasoningEffortHigh, codexApprovalPolicyNever, codexPermissionProfileReadOnly)
 	} else {
 		writeFakeThreadSettingsUpdated("gpt-test", ReasoningEffortHigh)
 	}

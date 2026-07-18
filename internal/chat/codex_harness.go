@@ -176,7 +176,7 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	// leak true and suppress this thread's later background-terminal events.
 	harness.beginBackgroundTerminalTurn(threadID, request.Workspace.ID, request.Conversation.ID)
 	defer harness.endBackgroundTerminalTurn(threadID)
-	turnID, err := startCodexTurn(ctx, session, threadID, request)
+	turnID, err := startCodexTurn(ctx, session, threadID, thread.Settings, request)
 	if err != nil {
 		return TurnCompletion{}, err
 	}
@@ -610,6 +610,9 @@ func (harness *CodexHarness) resumeLinkedThread(ctx context.Context, session *co
 	if err := validateCodexThreadResumePermissionSettings("resume codex thread response", request.Conversation, thread.Settings); err != nil {
 		return codexCommandThread{}, codexThreadResumeUnavailableError(threadID, err)
 	}
+	if err := enforceCodexRepositoryBoundarySettings(&thread.Settings); err != nil {
+		return codexCommandThread{}, codexThreadResumeUnavailableError(threadID, err)
+	}
 	return harness.codexCommandThreadWithDisplayLabels(ctx, session, thread)
 }
 
@@ -638,7 +641,7 @@ func overlayCodexEffectiveSettings(base codexCommandThreadSettings, effective co
 	return base
 }
 
-func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID string, request TurnRequest) (string, error) {
+func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID string, settings codexCommandThreadSettings, request TurnRequest) (string, error) {
 	input, err := codexUserInputForTurn(request)
 	if err != nil {
 		return "", err
@@ -648,6 +651,12 @@ func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID str
 		"threadId": threadID,
 		"input":    input,
 	}
+	sandboxPolicy, err := codexRepositorySandboxPolicy(request.Workspace.RootPath, settings)
+	if err != nil {
+		return "", err
+	}
+	params["approvalPolicy"] = codexApprovalPolicyNever
+	params["sandboxPolicy"] = sandboxPolicy
 	applyInitialCodexSettings(params, request)
 	result, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)
 	if err != nil {

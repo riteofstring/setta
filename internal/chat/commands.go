@@ -268,6 +268,8 @@ func reasoningEffortDisplayName(effort ReasoningEffort) string {
 		return "High"
 	case ReasoningEffortXHigh:
 		return "Extra high"
+	case ReasoningEffortMax:
+		return "Max"
 	default:
 		return string(effort)
 	}

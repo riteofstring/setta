@@ -97,7 +97,8 @@ func validWorkflowAgentReasoningEffort(effort chat.ReasoningEffort) bool {
 		chat.ReasoningEffortLow,
 		chat.ReasoningEffortMedium,
 		chat.ReasoningEffortHigh,
-		chat.ReasoningEffortXHigh:
+		chat.ReasoningEffortXHigh,
+		chat.ReasoningEffortMax:
 		return true
 	default:
 		return false
@@ -107,8 +108,7 @@ func validWorkflowAgentReasoningEffort(effort chat.ReasoningEffort) bool {
 func validWorkflowAgentPermissionPreset(preset chat.ChatPermissionPresetID) bool {
 	switch preset {
 	case chat.ChatPermissionPresetReadOnly,
-		chat.ChatPermissionPresetDefault,
-		chat.ChatPermissionPresetFullAccess:
+		chat.ChatPermissionPresetDefault:
 		return true
 	default:
 		return false

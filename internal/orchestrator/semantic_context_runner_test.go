@@ -147,7 +147,7 @@ func (client *recordingCodexChatClient) ResolveWorkflowAgentCodexSettings(_ stri
 		Permission: &chat.ChatCodexEffectivePermissionSettings{
 			ApprovalPolicy:            "on-request",
 			ActivePermissionProfileID: "default",
-			DisplayLabel:              "Ask for approval",
+			DisplayLabel:              "Workspace Access",
 			BuiltIn:                   true,
 			Preset:                    &preset,
 		},

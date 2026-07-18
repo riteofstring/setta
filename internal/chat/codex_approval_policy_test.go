@@ -133,7 +133,7 @@ func TestThreadRequestsRejectUnsupportedApprovalPolicyBeforeSend(t *testing.T) {
 		t.Fatal("thread/start settings succeeded, want unsupported approval policy error")
 	}
 	if len(params) != 0 {
-		t.Fatalf("thread/start params = %+v, want no unsupported policy written", params)
+		t.Fatalf("thread/start params = %+v, want no settings after rejection", params)
 	}
 
 	permission, ok := chatPermissionSettingsForPreset(ChatPermissionPresetDefault)

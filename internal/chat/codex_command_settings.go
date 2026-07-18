@@ -28,6 +28,9 @@ func (harness *CodexHarness) effectiveCodexCommandSettings(ctx context.Context, 
 	if err := overlayCodexConversationSettings(&settings, conversation.CodexSettings); err != nil {
 		return codexCommandThreadSettings{}, err
 	}
+	if err := enforceCodexRepositoryBoundarySettings(&settings); err != nil {
+		return codexCommandThreadSettings{}, err
+	}
 	return settings, nil
 }
 
@@ -107,6 +110,9 @@ func overlayCodexConversationSettings(settings *codexCommandThreadSettings, pend
 }
 
 func applyCodexThreadStartSettings(params map[string]any, settings codexCommandThreadSettings) error {
+	if _, err := codexSandboxMode(settings); err != nil {
+		return err
+	}
 	if settings.ApprovalPolicy != "" {
 		if err := validateSettaCodexApprovalPolicy(settings.ApprovalPolicy, "thread/start request approvalPolicy"); err != nil {
 			return err

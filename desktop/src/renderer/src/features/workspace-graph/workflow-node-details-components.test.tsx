@@ -531,11 +531,11 @@ function runSettings(): WorkflowAgentEffectiveRunSettings {
     model: "gpt-5",
     modelDisplayName: "GPT-5",
     modelSource: "workflow",
-    permissionDisplayLabel: "Full Access",
-    permissionPreset: "full-access",
-    permissionProfileId: "full-access",
+    permissionDisplayLabel: "Read Only",
+    permissionPreset: "read-only",
+    permissionProfileId: "read-only",
     permissionSource: "node",
-    permissions: "full-access",
+    permissions: "read-only",
     reasoningEffort: "high",
     reasoningEffortDisplayName: "High",
     reasoningEffortSource: "default",
@@ -712,7 +712,7 @@ function expectReadOnlySettingsControls(html: string) {
   expect(html).toContain('aria-label="Open permission mode picker"');
   expect(html).toContain('aria-label="Open model and reasoning picker"');
   expect(occurrences(html, 'title="Run settings are read-only."')).toBe(2);
-  expect(html).toContain("Full Access");
+  expect(html).toContain("Read Only");
   expect(html).toContain("GPT-5");
   expect(html).toContain("High");
   expect(html).not.toContain("node override");
