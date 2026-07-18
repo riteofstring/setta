@@ -1,10 +1,10 @@
-# Easy Button, Settings Page, and Narrator Clarity Plan
+# Desktop-Only, Easy Button, Settings Page, and Narrator Clarity Plan
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 1 repository implementation is complete and ready for audit; external evidence remains a release gate
+**Status:** In progress — Phase 1 repository implementation is complete; deleting the PWA is the immediate next action before its audit or any later feature phase
 
-**Scope:** Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
+**Scope:** Immediate removal of the PWA/web client and static web hosting, Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
 ## Non-negotiable clean cutover
 
@@ -18,37 +18,39 @@ This plan defines one current product and contract path only.
 
 ## Outcome
 
-Users can deliberately create as many independent Easy Button conversation panes as they need, Settings opens as a full-view application page instead of occupying the workspace, and the narrator communicates meaningful progress in clear, compact language at a brisker speaking pace.
+Setta has one application UI: Electron Desktop. Users can deliberately create as many independent Easy Button conversation panes as they need, Settings opens as a full-view application page instead of occupying the workspace, and the narrator communicates meaningful progress in clear, compact language at a brisker speaking pace.
 
 The product contract is:
 
-> **New conversation** creates a new durable conversation in the requested frame, without an arbitrary Easy Button pane cap. **Settings** replaces the whole visible application view until the user returns to the untouched workspace. Narrator highlights say what meaningfully changed with enough context to be useful, and spoken assistant audio is synthesized at the product's brisker pace.
+> The backend serves the authenticated runtime API, not a PWA or browser UI. **New conversation** creates a new durable conversation in the requested frame, without an arbitrary Easy Button pane cap. **Settings** replaces the whole visible Desktop application view until the user returns to the untouched workspace. Narrator highlights say what meaningfully changed with enough context to be useful, and spoken assistant audio is synthesized at the product's brisker pace.
 
 ## Current-state diagnosis
 
-The four complaints are real, but their causes are more specific than they first appear.
+The product problems are real, but their causes are more specific than they first appear.
 
 | Symptom | Current behavior | Root cause |
 | --- | --- | --- |
 | A second Easy Button pane appears impossible | The compositor can render multiple Easy Button panes, but the generic new-frame menu excludes them. The only extra-view affordance mirrors an existing conversation, which does not create another independent workspace. | First-run bootstrap is the only ordinary renderer path that creates a conversation, and Easy Button panes have an arbitrary fixed limit of 10. |
+| PWA artifacts consume implementation and verification time | The Desktop renderer is also built as a PWA, committed under `internal/webapp/static`, served by the runtime, and maintained through a web-only preload substitute, service worker, manifest, pairing bootstrap, fixtures, and repeated `build:web` regeneration. | An unneeded second application surface shares Desktop source while carrying its own build, runtime, and test obligations. Every Desktop change can create irrelevant PWA drift and follow-up work. |
 | Settings behaves like workspace content | `settings-dom` is a Go-owned workspace surface with pane chrome, layout persistence, scheduling policy, a one-pane cap, and entries in the new-frame and empty-frame menus. | Application navigation is incorrectly modeled as a workspace pane. It competes with the user's work and cannot cover the project sidebar or entire application view. |
 | Narrator speech feels slow | OpenAI speech synthesis is called without `speed`, so it uses the provider default of `1.0`. Renderer playback also uses the default rate. | Setta has no explicit speech-domain cadence. |
 | Highlights are long and jargony | A milestone may be 240 characters, final and status text may be 1,200 characters, and the instructions ask for a sparse phase change without defining plain language or user relevance. Several fake-provider examples use internal phrases such as “evaluated through sequence” and “provider boundary.” | “Concise” is a suggestion instead of an output contract, and current examples reinforce implementation-diary prose. |
 
-This means replacing 10 with a larger pane limit, maximizing a Settings pane, speeding up HTML audio, or adding “be concise” to one prompt would address symptoms without correcting the product boundaries.
+This means retaining the PWA as a supposedly harmless build artifact, replacing 10 with a larger pane limit, maximizing a Settings pane, speeding up HTML audio, or adding “be concise” to one prompt would address symptoms without correcting the product boundaries.
 
 ## Product principles
 
 1. **Every user-created Easy Button pane starts an independent durable conversation.** Selecting an existing conversation focuses its pane; it does not mirror that conversation into another pane.
 2. **Creation must be discoverable where placement begins.** The Conversations section, new-frame menu, and empty frame should all expose the same domain action without constructing an unbound Easy Button surface.
 3. **Placement is part of the command.** An action selected inside an empty frame must fill that exact frame. It must not open somewhere else and leave the selected frame empty.
-4. **Application pages are not workspace panes.** Settings belongs to shell navigation and must not consume, resize, focus, persist, or schedule a workspace frame.
-5. **A page transition must preserve the workspace underneath it.** Opening Settings hides and deactivates the whole workspace without rebuilding it; returning restores the exact layout and focus.
-6. **Language quality belongs at the source.** Generate display-ready and voice-ready narration. Do not repair bloated prose with renderer truncation or a jargon replacement pass.
-7. **Use semantic instructions plus mechanical bounds.** Prompts define relevance, voice, and plain-language behavior; schemas and validators enforce maximum size and cardinality.
-8. **Speech cadence belongs to the speech domain.** Master and narrator audio share one brisk default unless listening evidence justifies a role-specific difference. Callers do not submit arbitrary rates.
-9. **Scale through scheduling, not a product cap.** The workspace already controls live DOM and visibility. Resource management belongs there rather than in an arbitrary Easy Button pane count.
-10. **Fail specifically and preserve durable truth.** If a conversation is created but its pane cannot be presented, keep the valid zero-pane conversation in the navigator and explain what failed. Do not silently archive or delete it.
+4. **Maintain one application UI.** Electron Desktop owns the renderer and preload contract. The runtime serves APIs only; it does not embed, host, or bootstrap a browser/PWA client.
+5. **Application pages are not workspace panes.** Settings belongs to shell navigation and must not consume, resize, focus, persist, or schedule a workspace frame.
+6. **A page transition must preserve the workspace underneath it.** Opening Settings hides and deactivates the whole workspace without rebuilding it; returning restores the exact layout and focus.
+7. **Language quality belongs at the source.** Generate display-ready and voice-ready narration. Do not repair bloated prose with renderer truncation or a jargon replacement pass.
+8. **Use semantic instructions plus mechanical bounds.** Prompts define relevance, voice, and plain-language behavior; schemas and validators enforce maximum size and cardinality.
+9. **Speech cadence belongs to the speech domain.** Master and narrator audio share one brisk default unless listening evidence justifies a role-specific difference. Callers do not submit arbitrary rates.
+10. **Scale through scheduling, not a product cap.** The workspace already controls live DOM and visibility. Resource management belongs there rather than in an arbitrary Easy Button pane count.
+11. **Fail specifically and preserve durable truth.** If a conversation is created but its pane cannot be presented, keep the valid zero-pane conversation in the navigator and explain what failed. Do not silently archive or delete it.
 
 ## Decisions
 
@@ -120,7 +122,32 @@ Failure behavior is explicit:
 
 Continue using the existing provisional title, `New conversation`, so creation is immediate and does not wait on an AI naming call. The authoritative topic descriptor already becomes the navigator subtitle after focus projection. Automatic title generation and conversation renaming are separate product work.
 
-### 3. Replace the Settings surface with a full-view shell page
+### 3. Delete the PWA and embedded web application immediately
+
+This is the immediate next implementation phase. Complete and commit it before the Phase 1 audit, Settings work, narrator work, speech work, or any further broad product workflow run. The point is to stop making every Desktop change pay for an unowned web artifact.
+
+Delete the browser application as one clean cutover:
+
+- delete `desktop/vite.web.config.ts` and the `build:web` package script;
+- delete `desktop/src/renderer/public` in full, including the service worker, web manifest, and PWA icons;
+- remove manifest, theme-color, and PWA icon metadata from the renderer HTML;
+- delete `desktop/src/renderer/src/web` in full, including the same-origin `window.setta` substitute, web event-stream client, web speech adapter, device-session storage, PWA install bootstrap, and their tests;
+- remove `installWebSettaAPIIfNeeded` from renderer startup so a missing Electron preload remains a loud contract error;
+- delete `internal/webapp` in full, including its embedded static handler, tests, and all committed generated assets under `internal/webapp/static`;
+- pass the `internal/httpapi` handler directly to the runtime HTTP server so API endpoints remain available and every former PWA/static route returns the normal API handler's not-found response;
+- remove PWA-only TypeScript inputs, ESLint service-worker globals, build exclusions, quality exceptions, scripts, fixtures, and generated-asset handling; and
+- remove or rewrite active plan and verification instructions that call `build:web`, test `internal/webapp`, promise an Android PWA, or otherwise tell future agents to regenerate the deleted surface. A future mobile client requires a new plan and must not resurrect this implementation.
+
+The Desktop remote-runtime protocol is not the PWA. Preserve the authenticated HTTP API, device sessions, pairing endpoints, SSE streams, Desktop runtime picker, and remote-runtime registry because Electron Desktop uses them directly. Delete only browser application ownership and static hosting; do not weaken API authentication or collapse remote runtime support while removing the PWA client.
+
+There is no transition path:
+
+- do not retain an empty `internal/webapp` package, placeholder web build, hidden npm script, service-worker type shim, or parse-only web client;
+- do not serve a tombstone page, redirect, HTTP `410`, service-worker unregister script, cache cleanup, or compatibility response for old browser installations;
+- do not keep the generated web bundle merely to make old URLs load; and
+- do not add a feature flag that can turn static hosting or the web preload substitute back on. Existing PWA installations and caches are outside the new product contract.
+
+### 4. Replace the Settings surface with a full-view shell page
 
 Model the visible application destination as an exhaustive shell route:
 
@@ -164,7 +191,7 @@ Remove Settings from the workspace model completely:
 - remove the now-settings-only workspace surface-focus request flow and generic open-pane DOM event; and
 - retain `SettingsPanel` as the page body, with its active section controlled by the settings-page navigation owner.
 
-### 4. Make narrator prose a field-specific contract
+### 5. Make narrator prose a field-specific contract
 
 Replace the broad narrator length allowances with generous safety ceilings appropriate to how each field is read and spoken. These are not targets to fill or goals to minimize:
 
@@ -208,7 +235,7 @@ Update fake-provider output and fixtures to model this contract. Tests and demos
 
 Validation remains strict: an over-limit provider response is rejected at the narrator output boundary. Do not silently truncate it, summarize it with another hidden call, strip terms with a keyword heuristic, or render only a clipped prefix.
 
-### 5. Give spoken assistant audio a native synthesis pace
+### 6. Give spoken assistant audio a native synthesis pace
 
 Set one synthesis rate owned by `internal/speech`:
 
@@ -223,7 +250,7 @@ Change the internal provider method from separate text/voice arguments to a type
 
 The OpenAI client must include the exact `speed` in `/audio/speech` JSON and validate it against the provider's documented `0.25`–`4.0` range. The checked-in OpenAPI document already defines that field and range.
 
-Do not use `HTMLAudioElement.playbackRate`. Native synthesis preserves the provider's intended pitch and pacing, applies equally to desktop and web playback, and makes captured provider requests prove the effective policy.
+Do not use `HTMLAudioElement.playbackRate`. Native synthesis preserves the provider's intended pitch and pacing for Desktop playback and makes captured provider requests prove the effective policy.
 
 Do not add a speed slider or invent different master and narrator rates in this change. First ship one coherent default and evaluate both kinds of spoken output. A later role-specific cadence or user preference should be justified by listening evidence and represented by a small set of named rates backed by an owned generated contract, not a free-form renderer constant.
 
@@ -231,6 +258,10 @@ Do not add a speed slider or invent different master and narrator rates in this 
 
 This is a direct correction of current behavior.
 
+- Delete the PWA/web renderer, its build command and configuration, public manifest/service-worker/icon assets, web-only preload substitute and protocol clients, embedded Go static server, committed web bundle, and PWA-only tests and tooling in one phase.
+- The runtime HTTP server becomes API-only. Do not leave a fallback document route or special response for a removed PWA URL.
+- Preserve Desktop remote-runtime authentication and transport. Device pairing, authenticated API endpoints, and event streams are not compatibility paths for the PWA; they are current Electron Desktop infrastructure.
+- Remove stale PWA promises and `build:web`/`internal/webapp` verification commands from active plan documents so automation cannot regenerate or reintroduce the deleted surface.
 - Replace first-run's private create-and-present sequence with the shared command in the same change.
 - Remove the duplicate-view affordance, `open-new-view` renderer command branch, plural conversation-to-pane mapping, view-count UI, and their assertions in the same change.
 - Make duplicate conversation bindings invalid in the current workspace layout contract. Do not collapse, select among, or otherwise translate duplicate bindings.
@@ -241,7 +272,7 @@ This is a direct correction of current behavior.
 - Replace obsolete fake narrator phrasing and assertions in the same change.
 - Keep one narration storage contract. The new generation rules must not introduce versioned narration, alternate validators, or an old-output path.
 - This plan deliberately changes the Go-owned `SurfaceKind` contract. Run `./scripts/go.sh run ./cmd/generate-contracts` after the owner edit and before downstream cleanup, then commit the generated TypeScript changes without editing them manually. The fixed synthesis-rate policy itself requires no new public contract.
-- No dependency change is expected.
+- No new dependency is expected. Removing the `build:web` package script changes a checked-in manifest, so run the supply-chain gate even if the pinned dependency set and lockfile remain unchanged.
 
 ## Implementation phases
 
@@ -266,6 +297,18 @@ This is a direct correction of current behavior.
 - [x] Remove the fixed Easy Button pane cap from workspace policy and every disabled/count state derived from it.
 - [x] Implement pending, workspace-unavailable, disappearing-target, create-failure, and presentation-failure states without polling or silent fallback.
 - [x] Keep the virtualized navigator and the existing multi-pane runtime; do not introduce per-row global subscriptions or broad DOM growth.
+
+### Phase 1A — Delete the PWA before auditing or continuing
+
+This phase preempts every later phase and the pending Phase 1 broad audit. Do not regenerate PWA assets to make an intervening check green; delete their owners first.
+
+- [ ] Delete `desktop/vite.web.config.ts`, the `build:web` package script, the complete renderer `public` PWA asset directory, PWA metadata in `index.html`, and PWA-only ESLint/TypeScript inputs.
+- [ ] Delete `desktop/src/renderer/src/web` and its tests, remove the conditional web API installation from `main.tsx`, and leave Electron preload as the only renderer contract owner.
+- [ ] Delete `internal/webapp` and every committed file under `internal/webapp/static`; wire `internal/runtime` directly to the `internal/httpapi` handler with no static or single-page fallback.
+- [ ] Remove PWA-only quality exclusions, build instructions, fixtures, and active planning commitments, including stale `build:web`, `internal/webapp`, Android PWA, and generated-web-bundle instructions. Do not leave a deprecated or future-PWA path.
+- [ ] Prove the runtime root, manifest, service-worker, and arbitrary former client routes return not found while authenticated API routes still work.
+- [ ] Prove Desktop starts through the Electron preload contract, builds without any web/PWA generation, and can still add and use a paired remote runtime through the production runtime-picker workflow.
+- [ ] Run a final owner/reference search and fail the phase if executable code, build configuration, quality configuration, or active plan instructions can still build, serve, install, register, regenerate, or test the removed PWA.
 
 ### Phase 2 — Move Settings to shell navigation
 
@@ -308,6 +351,16 @@ This is a direct correction of current behavior.
 
 ## Acceptance gates
 
+### Desktop-only product boundary
+
+- `desktop/vite.web.config.ts`, `desktop/src/renderer/public`, `desktop/src/renderer/src/web`, `internal/webapp`, and `internal/webapp/static` do not exist.
+- `desktop/package.json` exposes no web/PWA build, test, preview, or development command, and Desktop build/typecheck inputs contain no deleted web configuration.
+- Renderer startup never manufactures `window.setta`; Electron preload is its only owner, and the existing visible preload-contract failure remains the behavior when it is absent.
+- The runtime HTTP server serves the authenticated API directly. `/`, `/index.html`, `/manifest.webmanifest`, `/sw.js`, PWA icon paths, and arbitrary single-page routes return not found rather than a page, redirect, tombstone, or compatibility response.
+- No executable source registers a service worker, handles `beforeinstallprompt`, stores a PWA install prompt, identifies itself as Setta Web/Android PWA, or embeds generated browser assets.
+- Desktop runtime pairing, authenticated remote API calls, event streaming, and runtime switching remain current and pass their existing production workflow.
+- Active plans and build instructions cannot direct an agent to regenerate the PWA. Historical evidence may describe what was removed, but it must not present the PWA as current or future implementation work.
+
 ### Pane behavior
 
 - A user can create a second Easy Button conversation without invoking the master or an API-only path.
@@ -349,6 +402,7 @@ This is a direct correction of current behavior.
 
 ### Performance and architecture
 
+- The repository has one renderer target and no PWA generation, committed web bundle, static SPA handler, web preload substitute, or service-worker lifecycle.
 - The sidebar remains virtualized and responsive with a large navigator projection.
 - Multiple live Easy Button panes retain current frame-scheduling and DOM-visibility behavior.
 - Easy Button scale is governed by the workspace scheduler and available resources, not a hard-coded product count.
@@ -356,7 +410,27 @@ This is a direct correction of current behavior.
 
 ## Verification sequence
 
-Start narrow, then exercise the required production workflows:
+Complete the PWA deletion first with its own narrow gate:
+
+```text
+test ! -e desktop/vite.web.config.ts
+test ! -e desktop/src/renderer/public
+test ! -e desktop/src/renderer/src/web
+test ! -e internal/webapp
+if rg -n 'build:web|vite\.web|navigator\.serviceWorker|beforeinstallprompt|manifest\.webmanifest|internal/webapp|renderer/src/web|Setta Android PWA|Setta Web' desktop internal scripts check_quality.sh; then exit 1; fi
+if rg -n 'PWA|build:web|vite\.web|internal/webapp' docs/plans --glob '!easy-button-multi-pane-narrator-clarity-20260718.md'; then exit 1; fi
+./scripts/go.sh test ./internal/runtime ./internal/httpapi
+pnpm -C desktop typecheck
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs --workflow runtime-picker --skip-build
+./scripts/check_supply_chain.sh
+./scripts/format.sh
+./check_quality.sh --git-changes
+```
+
+Do not run the topic-conversation matrix, live Codex suite, Settings workflow, narrator corpus, or speech workflow merely to delete the PWA. They do not exercise this cutover. The runtime-picker workflow is the relevant production-path proof because it demonstrates that deleting the browser client did not delete Desktop remote-runtime transport.
+
+After Phase 1A is committed, continue with narrow checks and the production workflows owned by the remaining phases:
 
 ```text
 ./scripts/go.sh run ./cmd/generate-contracts
@@ -378,10 +452,14 @@ node desktop/tests/electron/run-workflows.mjs --workflow settings-page --skip-bu
 
 Run contract generation immediately after editing the Go owner and before deleting generated consumers; do not turn it into a drift-only test. Use the actual focused test filenames present after implementation rather than creating an alias solely to match this plan. The registered Settings workflow and topic workflow launcher are required because the change crosses shell navigation, native-view occlusion, generated workspace contracts, conversation creation, pane projection, narrator provider behavior, event streaming, persistence, and speech playback. The live Codex portion must use ChatGPT auth and must not use `OPENAI_API_KEY`.
 
-Run `./scripts/check_supply_chain.sh` only if implementation unexpectedly changes a dependency manifest, lockfile, package-manager configuration, Go module configuration, or supply-chain tooling.
+Phase 1A must run `./scripts/check_supply_chain.sh` because it deliberately changes `desktop/package.json`. Later phases run it only if they change a dependency manifest, lockfile, package-manager configuration, Go module configuration, or supply-chain tooling.
 
 ## Rejected shortcuts
 
+- **Leave the PWA bundle and server in place because nobody opens it.** Its build, generated artifacts, fallback API, tests, lint inputs, and drift still consume implementation time and preserve a second product surface.
+- **Delete only the manifest and service worker.** The web preload substitute, web build, embedded static handler, committed bundle, and web-only protocol adapters would remain PWA infrastructure under different names.
+- **Serve a tombstone, redirect, or service-worker cleanup page.** That is transitional support for a removed product. Old browser installations are outside the new contract.
+- **Delete runtime pairing or authenticated HTTP APIs with the PWA.** Electron Desktop uses those contracts for remote runtimes; they are not owned by the browser client.
 - **Replace 10 with a larger Easy Button pane limit.** Any new fixed count preserves the same arbitrary failure mode. Scale belongs to the workspace scheduler.
 - **Put `easy-button` into the raw pane menu.** A pane without a durable conversation binding violates the workspace contract.
 - **Promote the existing duplicate-view control.** Mirroring one conversation does not create the independent workspaces users expect from additional Easy Button panes.
@@ -395,13 +473,19 @@ Run `./scripts/check_supply_chain.sh` only if implementation unexpectedly change
 - **Only add “be concise” to the prompt.** The current mechanical limits would still allow bloated output, and the examples would still teach internal prose.
 - **Force every highlight into a tiny word budget.** Over-compression can remove the subject, consequence, or caveat and make an update harder to understand.
 - **Truncate or rewrite narration in the renderer.** Clipping loses meaning, and keyword replacement cannot understand when a technical term is necessary.
-- **Speed up playback in the browser.** Provider-native synthesis produces the intended cadence consistently and is verifiable at the protocol boundary.
+- **Speed up renderer playback.** Provider-native synthesis produces the intended cadence consistently and is verifiable at the protocol boundary.
 - **Use speed to compensate for long copy.** Faster jargon is still poor narration.
 - **Add a free-form speed preference now.** There is evidence for a slow default, not yet for the complexity of a settings contract and preference distribution.
 - **Assign different speeds merely because speaker types exist.** Source authority and playback priority differ today, but there is no listening evidence that master answers should remain slower than narrator output.
 
 ## Source evidence
 
+- `desktop/vite.web.config.ts` and the `build:web` package script — the second renderer build target that writes generated output into the Go server package.
+- `desktop/src/renderer/public` and `desktop/src/renderer/src/web` — the PWA manifest/service worker/icons plus the browser-owned `window.setta`, pairing bootstrap, event streams, speech adapter, and PWA installation behavior.
+- `desktop/src/renderer/src/main.tsx` — renderer startup currently installs the web API substitute when Electron preload is absent.
+- `internal/webapp` and `internal/webapp/static` — the embedded single-page server and committed generated PWA bundle that this plan deletes in full.
+- `internal/runtime/http_server.go` — the runtime currently wraps `internal/httpapi` with the PWA static handler; after deletion it must serve the API handler directly.
+- `scripts/quality/check.sh`, `desktop/eslint.config.mjs`, and `desktop/tsconfig.json` — PWA-specific generated-output exclusions and build/lint inputs that must disappear with their owner.
 - `desktop/src/renderer/src/workspace-layout/workspace-scene.ts` — Easy Button panes currently have the fixed limit of 10 that this plan removes.
 - `desktop/src/renderer/src/workspace-layout/conversation-pane-coordinator.ts` — focus-or-open and the unwanted additional-view presentation branch currently coexist.
 - `desktop/src/renderer/src/stores/conversation-pane-store.ts` — the current plural pane-ID mapping is the duplicate-view state shape this plan removes.
@@ -426,6 +510,8 @@ Run `./scripts/check_supply_chain.sh` only if implementation unexpectedly change
 
 ## Non-goals
 
+- Removing authenticated runtime HTTP APIs, device sessions, Desktop runtime pairing, SSE transport, or remote-runtime switching.
+- Designing a replacement mobile or browser client. Any future non-Desktop client requires a new product decision and plan.
 - Conversation renaming or AI-generated titles.
 - A user-configurable speech-speed setting.
 - Role-specific master and narrator speech rates.
