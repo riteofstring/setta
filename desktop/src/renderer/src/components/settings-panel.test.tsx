@@ -16,6 +16,7 @@ import type {
   SpeechCapabilities,
 } from "@generated/backend";
 import type { SpeechCredentialSettings } from "@shared/speech-ipc";
+import type { RuntimeConnectionStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
@@ -31,6 +32,7 @@ import { DeveloperSettingsEditor } from "./developer-settings";
 import { OpenAIVoiceConnectionCardView } from "./openai-voice-connection-card";
 import {
   ConversationPresentationConfiguration,
+  connectedRuntimeConfigurationKey,
   GlobalVoiceConfigurationForm,
 } from "./presentation-configuration-settings";
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
@@ -237,6 +239,38 @@ describe("appearance settings", () => {
     expect(html).toContain("Configure voice on that runtime.");
     expect(html).toContain("The Local credential on this card is not sent there.");
     expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("shows active remote runtime voice status as checking while switching", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        activeRuntimeVoiceStatus={{
+          displayName: "Remote lab",
+          message: null,
+          providerStatus: "loading",
+        }}
+        canManage
+      />,
+    );
+
+    expect(html).toContain("Checking voice status for Remote lab.");
+    expect(html).toContain("The Local credential on this card is not sent to remote runtimes.");
+  });
+
+  test("loads voice configuration only for a connected active runtime snapshot", () => {
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "connecting" })),
+    ).toBeNull();
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "unreachable" })),
+    ).toBeNull();
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "connected" })),
+    ).toBe("remote-runtime:63:2026-07-18T12:00:00.000Z");
   });
 
   test("renders replacement mode with an empty password control", () => {
@@ -554,6 +588,43 @@ function sampleNarratorVoiceDefault(): NarratorVoiceDefault {
     requestedVoiceId: null,
     selection: "auto_distinct",
     updatedAt: "2026-07-18T12:00:00Z",
+  };
+}
+
+function runtimeSnapshot({
+  connectionStatus,
+}: {
+  connectionStatus: RuntimeConnectionStatus;
+}): RuntimeRegistrySnapshot {
+  return {
+    activeRuntimeId: "remote-runtime",
+    connection: {
+      message:
+        connectionStatus === "connected" ? "Connected to Remote lab" : "Connecting to Remote lab",
+      protocolVersion: connectionStatus === "connected" ? 63 : null,
+      runtimeId: "remote-runtime",
+      status: connectionStatus,
+      updatedAt: "2026-07-18T12:00:00.000Z",
+    },
+    runtimes: [
+      {
+        active: true,
+        baseUrl: "https://remote-runtime.example",
+        connectionMessage:
+          connectionStatus === "connected" ? "Connected to Remote lab" : "Connecting to Remote lab",
+        connectionStatus,
+        displayName: "Remote lab",
+        infrastructureProvider: {
+          displayName: "Manual",
+          iconUrl: "",
+          id: "manual",
+        },
+        isLocal: false,
+        lastConnected: null,
+        runtimeId: "remote-runtime",
+      },
+    ],
+    switching: connectionStatus === "connecting",
   };
 }
 

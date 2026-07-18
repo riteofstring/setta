@@ -7,7 +7,11 @@ import type {
   SpeechVoiceID,
   VoiceSelectionRequest,
 } from "@generated/backend";
-import type { KnownRuntimeView, RuntimeRegistrySnapshot } from "@shared/types";
+import type {
+  KnownRuntimeView,
+  RuntimeConnectionStatus,
+  RuntimeRegistrySnapshot,
+} from "@shared/types";
 import { conversationPaletteCatalog } from "@generated/backend";
 import { Loader2, RotateCcw, Save, SlidersHorizontal, Volume2 } from "lucide-react";
 import {
@@ -99,13 +103,15 @@ function PresentationConfigurationSettingsContent({
 
 function usePresentationConfigurationSettingsState(): PresentationConfigurationSettingsState {
   const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
-  const activeRuntimeKey = runtimeSnapshotKey(runtimeSnapshot);
+  const activeRuntimeKey = connectedRuntimeConfigurationKey(runtimeSnapshot);
   const [configurationState, setConfigurationState] = useState<RuntimeKeyedConfiguration | null>(
     null,
   );
   const [errorState, setErrorState] = useState<RuntimeKeyedError | null>(null);
   const configuration = runtimeScopedConfiguration(configurationState, activeRuntimeKey);
-  const error = runtimeScopedError(errorState, activeRuntimeKey);
+  const error =
+    runtimeScopedError(errorState, activeRuntimeKey) ??
+    voiceConfigurationUnavailableMessage(runtimeSnapshot);
   const activeRemoteRuntime = activeRemoteRuntimeFromSnapshot(runtimeSnapshot);
 
   useLoadVoiceConfiguration(activeRuntimeKey, setConfigurationState, setErrorState);
@@ -118,23 +124,36 @@ function usePresentationConfigurationSettingsState(): PresentationConfigurationS
     }),
     configuration,
     error,
-    onMasterUpdate: (master) =>
+    onMasterUpdate: (master) => {
+      if (!activeRuntimeKey) {
+        return;
+      }
       setConfigurationState((current) =>
         updateRuntimeScopedConfiguration(current, activeRuntimeKey, { master }),
-      ),
-    onNarratorDefaultUpdate: (narratorDefault) =>
+      );
+    },
+    onNarratorDefaultUpdate: (narratorDefault) => {
+      if (!activeRuntimeKey) {
+        return;
+      }
       setConfigurationState((current) =>
         updateRuntimeScopedConfiguration(current, activeRuntimeKey, { narratorDefault }),
-      ),
+      );
+    },
   };
 }
 
 function useLoadVoiceConfiguration(
-  activeRuntimeKey: string,
+  activeRuntimeKey: string | null,
   setConfigurationState: Dispatch<SetStateAction<RuntimeKeyedConfiguration | null>>,
   setErrorState: Dispatch<SetStateAction<RuntimeKeyedError | null>>,
 ): void {
   useEffect(() => {
+    if (!activeRuntimeKey) {
+      setConfigurationState(null);
+      setErrorState(null);
+      return;
+    }
     const speech = window.setta.speech;
     if (!speech.readMasterVoiceSelection || !speech.readNarratorVoiceDefault) {
       setConfigurationState(null);
@@ -176,25 +195,60 @@ function useLoadVoiceConfiguration(
   }, [activeRuntimeKey, setConfigurationState, setErrorState]);
 }
 
-function runtimeSnapshotKey(snapshot: RuntimeRegistrySnapshot | null): string {
+export function connectedRuntimeConfigurationKey(
+  snapshot: RuntimeRegistrySnapshot | null,
+): string | null {
   if (!snapshot) {
-    return "";
+    return null;
   }
-  return `${snapshot.activeRuntimeId ?? ""}:${snapshot.connection.status}:${snapshot.connection.updatedAt}`;
+  if (snapshot.connection.status !== "connected") {
+    return null;
+  }
+  if (
+    !snapshot.connection.runtimeId ||
+    snapshot.connection.runtimeId !== snapshot.activeRuntimeId
+  ) {
+    return null;
+  }
+  return `${snapshot.connection.runtimeId}:${snapshot.connection.protocolVersion ?? ""}:${snapshot.connection.updatedAt}`;
+}
+
+function voiceConfigurationUnavailableMessage(
+  snapshot: RuntimeRegistrySnapshot | null,
+): string | null {
+  if (!snapshot) {
+    return null;
+  }
+  return (
+    {
+      connected: connectedRuntimeConfigurationKey(snapshot)
+        ? null
+        : "Runtime connection state is missing the active runtime.",
+      connecting: null,
+      disconnected: snapshot.connection.message,
+      incompatible: snapshot.connection.message,
+      mismatched: snapshot.connection.message,
+      revoked: snapshot.connection.message,
+      unreachable: snapshot.connection.message,
+    } satisfies Record<RuntimeConnectionStatus, string | null>
+  )[snapshot.connection.status];
 }
 
 function runtimeScopedConfiguration(
   state: RuntimeKeyedConfiguration | null,
-  runtimeKey: string,
+  runtimeKey: string | null,
 ): GlobalVoiceConfiguration | null {
-  if (state?.runtimeKey !== runtimeKey) {
+  if (!runtimeKey || state?.runtimeKey !== runtimeKey) {
     return null;
   }
   return state.configuration;
 }
 
-function runtimeScopedError(state: RuntimeKeyedError | null, runtimeKey: string): string | null {
-  if (state?.runtimeKey !== runtimeKey) {
+function runtimeScopedError(
+  state: RuntimeKeyedError | null,
+  runtimeKey: string | null,
+): string | null {
+  if (!runtimeKey || state?.runtimeKey !== runtimeKey) {
     return null;
   }
   return state.message;
@@ -242,6 +296,14 @@ function activeRemoteRuntimeVoiceStatus({
   if (!runtime) {
     return null;
   }
+  const connectionProviderStatus = runtimeConnectionVoiceProviderStatus(runtime.connectionStatus);
+  if (connectionProviderStatus) {
+    return {
+      displayName: runtime.displayName,
+      message: connectionProviderStatus === "unavailable" ? runtime.connectionMessage : null,
+      providerStatus: connectionProviderStatus,
+    };
+  }
   if (error) {
     return {
       displayName: runtime.displayName,
@@ -261,6 +323,22 @@ function activeRemoteRuntimeVoiceStatus({
     message: null,
     providerStatus: configuration.capabilities.providerStatus,
   };
+}
+
+function runtimeConnectionVoiceProviderStatus(
+  status: RuntimeConnectionStatus,
+): "loading" | "unavailable" | null {
+  return (
+    {
+      connected: null,
+      connecting: "loading",
+      disconnected: "unavailable",
+      incompatible: "unavailable",
+      mismatched: "unavailable",
+      revoked: "unavailable",
+      unreachable: "unavailable",
+    } satisfies Record<RuntimeConnectionStatus, "loading" | "unavailable" | null>
+  )[status];
 }
 
 export function GlobalVoiceConfigurationForm({
