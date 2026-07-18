@@ -1523,5 +1523,22 @@ Stop and reassess rather than hiding the problem if any of these occur:
   authorized continuing to the next phase: scoped quality gates and the
   incremental source commits, then live Phase 2 validation and Phase 1c
   measurements against the now-free organization.
+- 2026-07-17: Landed the full Phase 1b + Phase 2 source in four
+  dependency-ordered commits after `./check_quality.sh --git-changes` passed
+  (complexity decomposition, orphaned-helper removal, and file splits were
+  required first): `c9af618b5` provider layer (adapter, harnesses,
+  conformance suite), `e1fa627a6` runtime foundation (install loop,
+  identity/attestation, credential authority, local issuer, origins,
+  protocol v11), `9b7f731bb` desktop credential storage with regenerated
+  bindings, `71725cfa6` terminal replay persistence. Supply chain: Go code
+  affected by zero vulnerabilities; two pre-existing low pnpm advisories
+  recorded. Deviation from the review protocol: no separate `claude -p`
+  second-opinion invocation was run — this session's division of labor was
+  already inverted (Codex GPT-5.6 Sol wrote every change; Claude Fable 5 at
+  high effort reviewed each slice independently with its own test, gate, and
+  Electron e2e runs). Owner may request a standalone review pass. Known
+  follow-ups: pre-existing `pane-drag-drop` e2e failure (UI workstream) and
+  a pre-existing `internal/chat` transcript-block data race visible only
+  under `-race`.
 
 - 2026-07-16: Completed cold-soak run `20260714T173244Z-97151` (12h=behaviorally_warm, 24h=behaviorally_warm, 48h=behaviorally_warm); the dedicated organization was confirmed empty after cleanup. See `docs/reports/2026-07-14-sprites-confirmed-cold-soak-20260714T173244Z-97151.md`.
