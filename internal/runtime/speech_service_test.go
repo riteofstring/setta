@@ -54,6 +54,7 @@ func TestConfiguredRuntimeServesSpeechCapabilitiesAndTranscription(t *testing.T)
 		BaseURL:          provider.URL + "/v1",
 		AllowTestBaseURL: true,
 	}
+	config.SpeechCredentialOwner = SpeechCredentialOwnerServerStartup
 	config.SpeechStartupAPIKey = runtimeSpeechAPIKey
 	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)

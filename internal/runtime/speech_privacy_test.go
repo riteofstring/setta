@@ -23,6 +23,7 @@ func TestRuntimeKeepsSpeechSecretsAndAudioOutOfOutputAndPersistence(t *testing.T
 		BaseURL:          provider.URL + "/v1",
 		AllowTestBaseURL: true,
 	}
+	config.SpeechCredentialOwner = SpeechCredentialOwnerServerStartup
 	config.SpeechStartupAPIKey = runtimeSpeechAPIKey
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

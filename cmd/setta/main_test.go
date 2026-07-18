@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"setta/internal/httpapi"
+	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -133,12 +134,15 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 
 	config := serveRuntimeConfig(options, deps, io.Discard)
 	if !reflect.DeepEqual(config.Speech, options.Speech.Provider) ||
+		config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerServerStartup ||
 		config.SpeechStartupAPIKey != options.Speech.APIKey {
 		t.Fatalf(
-			"runtime speech config = %+v key %q, want %+v key %q",
+			"runtime speech config = %+v owner %q key %q, want %+v owner %q key %q",
 			config.Speech,
+			config.SpeechCredentialOwner,
 			config.SpeechStartupAPIKey,
 			options.Speech.Provider,
+			runtime.SpeechCredentialOwnerServerStartup,
 			options.Speech.APIKey,
 		)
 	}

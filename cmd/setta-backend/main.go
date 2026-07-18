@@ -62,6 +62,7 @@ func configFromArgs(
 	getenv func(string) string,
 ) (runtime.Config, error) {
 	config := runtime.DefaultConfig()
+	config.SpeechCredentialOwner = runtime.SpeechCredentialOwnerElectronVault
 	config.Stdout = stdout
 	config.Stderr = stderr
 

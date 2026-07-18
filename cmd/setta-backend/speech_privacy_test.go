@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -28,6 +29,9 @@ func TestBackendConfigIgnoresInheritedSpeechCredentialAndDoesNotPrintIt(t *testi
 	}
 	if config.SpeechStartupAPIKey != "" {
 		t.Fatalf("speech startup API key = %q, want empty", config.SpeechStartupAPIKey)
+	}
+	if config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerElectronVault {
+		t.Fatalf("speech credential owner = %q, want electron_vault", config.SpeechCredentialOwner)
 	}
 	if strings.Contains(stdout.String(), credential) || strings.Contains(stderr.String(), credential) {
 		t.Fatal("backend launch output contains the rejected speech credential")

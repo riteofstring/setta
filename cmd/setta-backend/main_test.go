@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -83,6 +84,9 @@ func TestConfigFromArgsMapsDesktopSpeechProviderEnvironment(t *testing.T) {
 	if config.SpeechStartupAPIKey != "" {
 		t.Fatalf("speech startup API key = %q, want empty", config.SpeechStartupAPIKey)
 	}
+	if config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerElectronVault {
+		t.Fatalf("speech credential owner = %q, want electron_vault", config.SpeechCredentialOwner)
+	}
 	if config.Speech.BaseURL != "http://127.0.0.1:24891/v1" || !config.Speech.AllowTestBaseURL {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", config.Speech)
 	}
@@ -123,6 +127,9 @@ func TestConfigFromArgsIgnoresInheritedSpeechCredential(t *testing.T) {
 	}
 	if config.SpeechStartupAPIKey != "" {
 		t.Fatalf("speech startup API key = %q, want empty", config.SpeechStartupAPIKey)
+	}
+	if config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerElectronVault {
+		t.Fatalf("speech credential owner = %q, want electron_vault", config.SpeechCredentialOwner)
 	}
 }
 

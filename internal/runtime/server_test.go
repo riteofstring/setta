@@ -138,17 +138,23 @@ func TestHTTPServerUsesBoundedReadConfiguration(t *testing.T) {
 
 func TestInvalidStartupConfigurationFails(t *testing.T) {
 	tests := map[string]Config{
-		"empty app data":    withAppDataDir(t, ""),
-		"relative app data": withAppDataDir(t, "relative-app-data"),
-		"empty host":        withHost(t, ""),
-		"empty bootstrap":   withBootstrapDisplayName(t, ""),
-		"non numeric host":  withHost(t, "localhost"),
-		"non loopback host": withHost(t, "0.0.0.0"),
-		"negative port":     withPort(t, -1),
-		"large port":        withPort(t, 65536),
-		"bad speech key":    withSpeechStartupAPIKey(t, "secret value"),
-		"speech test URL":   withSpeech(t, speech.OpenAIProviderConfig{BaseURL: "http://127.0.0.1:24891/v1"}),
-		"empty version":     withVersion(t, ""),
+		"empty app data":                  withAppDataDir(t, ""),
+		"relative app data":               withAppDataDir(t, "relative-app-data"),
+		"empty host":                      withHost(t, ""),
+		"empty bootstrap":                 withBootstrapDisplayName(t, ""),
+		"non numeric host":                withHost(t, "localhost"),
+		"non loopback host":               withHost(t, "0.0.0.0"),
+		"negative port":                   withPort(t, -1),
+		"large port":                      withPort(t, 65536),
+		"missing speech credential owner": withSpeechCredentialOwner(t, ""),
+		"unsupported speech credential owner": withSpeechCredentialOwner(
+			t,
+			SpeechCredentialOwner("environment"),
+		),
+		"electron vault startup key":    withSpeechStartupAPIKey(t, "sk-setta-speech-runtime-test"),
+		"bad server startup speech key": withServerStartupSpeechAPIKey(t, "secret value"),
+		"speech test URL":               withSpeech(t, speech.OpenAIProviderConfig{BaseURL: "http://127.0.0.1:24891/v1"}),
+		"empty version":                 withVersion(t, ""),
 	}
 
 	for name, config := range tests {
@@ -174,6 +180,7 @@ func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
 
 func TestStartAcceptsConfiguredSpeechClient(t *testing.T) {
 	config := testConfig(t)
+	config.SpeechCredentialOwner = SpeechCredentialOwnerServerStartup
 	config.SpeechStartupAPIKey = "sk-setta-speech-runtime-test"
 
 	server, err := Start(context.Background(), config)
@@ -292,6 +299,7 @@ func testConfig(t *testing.T) Config {
 
 	config := DefaultConfig()
 	config.AppDataDir = t.TempDir()
+	config.SpeechCredentialOwner = SpeechCredentialOwnerElectronVault
 	return config
 }
 
@@ -348,5 +356,22 @@ func withSpeechStartupAPIKey(t *testing.T, apiKey string) Config {
 
 	config := testConfig(t)
 	config.SpeechStartupAPIKey = apiKey
+	return config
+}
+
+func withServerStartupSpeechAPIKey(t *testing.T, apiKey string) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.SpeechCredentialOwner = SpeechCredentialOwnerServerStartup
+	config.SpeechStartupAPIKey = apiKey
+	return config
+}
+
+func withSpeechCredentialOwner(t *testing.T, owner SpeechCredentialOwner) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.SpeechCredentialOwner = owner
 	return config
 }

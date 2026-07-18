@@ -44,6 +44,7 @@ type Config struct {
 	Stderr                     io.Writer
 	ShutdownTimeout            time.Duration
 	Speech                     speech.OpenAIProviderConfig
+	SpeechCredentialOwner      SpeechCredentialOwner
 	SpeechStartupAPIKey        string
 }
 
@@ -139,14 +140,7 @@ func (config Config) Validate() error {
 	if config.ShutdownTimeout <= 0 {
 		return errors.New("shutdown timeout must be positive")
 	}
-	return validateSpeechConfig(config.Speech, config.SpeechStartupAPIKey)
-}
-
-func validateSpeechConfig(config speech.OpenAIProviderConfig, startupAPIKey string) error {
-	if _, err := speech.NewOpenAIClient(startupAPIKey, config); err != nil {
-		return fmt.Errorf("speech configuration is invalid: %w", err)
-	}
-	return nil
+	return validateSpeechConfig(config.Speech, config.SpeechCredentialOwner, config.SpeechStartupAPIKey)
 }
 
 func validateRuntimeDisplayNameOverride(displayName string) error {
