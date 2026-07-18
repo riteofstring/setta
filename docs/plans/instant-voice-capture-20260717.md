@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Complete — implementation ready for final audit.
+**Status:** Incomplete — final audit found a required Phase 4 workflow failure.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -24,8 +24,31 @@ This is a replacement, not a compatibility project.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
-- [x] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow.
+- [ ] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow.
 - [x] Audit follow-up — The controller owns and immediately stops the raw `getUserMedia` stream while `createBufferedCapture` is still pending, with deterministic coverage for cancel, runtime switch, and disposal during buffered-capture setup.
+
+## Current final-audit finding
+
+The implementation is not complete because the required deterministic Phase 4 workflow failed during final review:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T041837686Z
+```
+
+The failure occurred in the `shell-local-readiness-1500-19` cohort sample while waiting for `processed_audio_marker_observed`. The browser fixture reached `committing`, sent `transcript_commit_sent`, and recorded `transcript_completion_waiting_for_processed_marker`, but never observed the processed-track marker for that run before the workflow timeout. The fixture snapshot showed `commitCount=40`, `stoppedTrackCount=40`, `connectionCount=40`, `processedTrackObserverCount=40`, `processedAudioMarkerCount=39`, and one pending transcript completion for `shell-local-readiness-1500-19`.
+
+Focused renderer coverage and Node credential/privacy coverage passed in the same review:
+
+```text
+pnpm -C desktop exec vitest run src/renderer/src/features/global-speech/buffered-microphone-sample-ring.test.ts src/renderer/src/features/global-speech/buffered-microphone-worklet-engine.test.ts src/renderer/src/features/global-speech/buffered-microphone-capture.test.ts src/renderer/src/features/global-speech/app-shell-speech-capture-controller.test.ts src/renderer/src/features/global-speech/global-speech-presentation.test.ts src/renderer/src/features/global-speech/speech-capture-availability.test.ts src/renderer/src/features/global-speech/realtime-transcription-transport.test.ts src/renderer/src/features/global-master/master-voice-controls.test.tsx src/renderer/src/features/easy-button/easy-button-surface.test.tsx
+node --test desktop/tests/electron/instant-voice-capture-live-openai-credentials.test.mjs desktop/tests/electron/instant-voice-capture-live-openai-artifacts.test.mjs
+```
 
 ## Resolved audit follow-up
 
