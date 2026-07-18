@@ -276,6 +276,7 @@ function CredentialCardActions({
   settings: SpeechCredentialSettings;
 }) {
   const connectedActionsVisible = settings.status === "configured" && mode === null && canManage;
+  const corruptDisconnectVisible = settings.status === "corrupt" && mode === null && canManage;
   return (
     <div className="flex flex-wrap justify-between gap-2">
       <Button disabled={busy} onClick={onOpenApiKeys} type="button">
@@ -291,6 +292,9 @@ function CredentialCardActions({
             onReplace={onReplace}
           />
         ) : null}
+        {corruptDisconnectVisible ? (
+          <DisconnectCredentialAction busy={busy} onDisconnect={onDisconnect} />
+        ) : null}
         {inputVisible ? (
           <CredentialSaveActions
             apiKeyDraft={apiKeyDraft}
@@ -304,6 +308,21 @@ function CredentialCardActions({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function DisconnectCredentialAction({
+  busy,
+  onDisconnect,
+}: {
+  busy: boolean;
+  onDisconnect: () => void;
+}) {
+  return (
+    <Button disabled={busy} onClick={onDisconnect} type="button">
+      <Unplug className="h-3.5 w-3.5" />
+      Disconnect
+    </Button>
   );
 }
 
@@ -342,10 +361,7 @@ function ConnectedCredentialActions({
         <KeyRound className="h-3.5 w-3.5" />
         Replace
       </Button>
-      <Button disabled={busy} onClick={onDisconnect} type="button">
-        <Unplug className="h-3.5 w-3.5" />
-        Disconnect
-      </Button>
+      <DisconnectCredentialAction busy={busy} onDisconnect={onDisconnect} />
     </>
   );
 }

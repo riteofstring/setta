@@ -165,7 +165,10 @@ describe("appearance settings", () => {
     expect(secureStorage).not.toContain('type="password"');
     expect(corrupt).toContain("Needs attention");
     expect(corrupt).toContain("Stored credential ciphertext could not be decrypted.");
+    expect(corrupt).toContain("Disconnect");
     expect(corrupt).not.toContain('type="password"');
+    expect(corrupt).not.toContain("Replace");
+    expect(corrupt).not.toContain("Save and verify");
   });
 
   test("renders retry and failed-save credential presentations", () => {
