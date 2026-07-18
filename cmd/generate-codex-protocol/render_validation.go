@@ -32,22 +32,13 @@ func (generator *generator) goTypeForProperty(typeName string, propertyName stri
 }
 
 func goTypeOverride(typeName string, propertyName string, schema jsonSchema, required bool) (string, bool) {
-	if nullableServiceTierOverrideTypes[typeName] &&
-		propertyName == "serviceTier" &&
-		optionalNullableString(schema, required) {
+	if typeName == "ThreadSettingsUpdateParams" && propertyName == "serviceTier" && optionalNullableString(schema, required) {
 		return "*CodexNullableString", true
 	}
 	if propertyName == "type" && strings.HasSuffix(typeName, "ThreadItem") && typeName != "ThreadItem" && len(schema.Enum) == 1 && schemaTypeAllows(schema.Type, "string") {
 		return "ThreadItemType", true
 	}
 	return "", false
-}
-
-var nullableServiceTierOverrideTypes = map[string]bool{
-	"ThreadForkParams":           true,
-	"ThreadResumeParams":         true,
-	"ThreadSettingsUpdateParams": true,
-	"ThreadStartParams":          true,
 }
 
 func optionalNullableString(schema jsonSchema, required bool) bool {

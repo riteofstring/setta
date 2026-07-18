@@ -5,9 +5,7 @@ interface BackendRequestEndpoint {
 
 interface BackendErrorPayload {
   error: {
-    code: string;
     message: string;
-    operationApplied: boolean;
   };
 }
 
@@ -15,8 +13,16 @@ type BackendPayloadDecoder<T> = (value: unknown) => T;
 
 export type BackendFetch = (input: URL, init: RequestInit) => Promise<Response>;
 
-export interface BackendRequestOptions {
-  signal?: AbortSignal;
+export interface BackendEventBase<TType extends string> {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: TType;
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
 }
 
 interface BackendRequest<ResponsePayload, ErrorPayload extends BackendErrorPayload> {
@@ -26,34 +32,6 @@ interface BackendRequest<ResponsePayload, ErrorPayload extends BackendErrorPaylo
   endpoint: BackendRequestEndpoint;
   fetchImpl: BackendFetch;
   requestPayload: unknown | undefined;
-  signal?: AbortSignal;
-}
-
-const backendRequestErrorBrand = Symbol("BackendRequestError");
-
-export interface BackendRequestError extends Error {
-  readonly [backendRequestErrorBrand]: true;
-  readonly code: string;
-  readonly operationApplied: boolean;
-}
-
-function createBackendRequestError(
-  code: string,
-  message: string,
-  operationApplied: boolean,
-): BackendRequestError {
-  return Object.assign(new Error(message), {
-    [backendRequestErrorBrand]: true as const,
-    code,
-    operationApplied,
-  });
-}
-
-export function isBackendRequestError(error: unknown): error is BackendRequestError {
-  return (
-    error instanceof Error &&
-    (error as Partial<BackendRequestError>)[backendRequestErrorBrand] === true
-  );
 }
 
 export function assertRecord(value: unknown, label: string): Record<string, unknown> {
@@ -163,57 +141,75 @@ export function decodeStringRecord(value: unknown, label: string): Record<string
   return decoded;
 }
 
+export function decodeIntegerRecord(value: unknown, label: string): Record<string, number> {
+  const record = assertRecord(value, label);
+  const decoded: Record<string, number> = {};
+  for (const [key, item] of Object.entries(record)) {
+    decoded[key] = decodeInteger(item, `${label}.${key}`);
+  }
+  return decoded;
+}
+
 export function decodeUnknown(value: unknown, _label: string): unknown {
   void _label;
   return value;
 }
 
+export function decodeBackendEventBase<TType extends string>(
+  record: Record<string, unknown>,
+  label: string,
+  expectedType: TType,
+): BackendEventBase<TType> {
+  assertKnownFields(record, label, [
+    "schemaVersion",
+    "streamId",
+    "sequence",
+    "eventId",
+    "type",
+    "emittedAt",
+    "workspaceId",
+    "conversationId",
+    "runId",
+    "payload",
+  ]);
+  const type = decodeString(requireField(record, "type", label), label + ".type");
+  if (type !== expectedType) {
+    throw new Error(label + ".type must be " + expectedType + ", got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(
+      requireField(record, "schemaVersion", label),
+      label + ".schemaVersion",
+    ),
+    streamId: decodeString(requireField(record, "streamId", label), label + ".streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", label), label + ".sequence"),
+    eventId: decodeString(requireField(record, "eventId", label), label + ".eventId"),
+    type: expectedType,
+    emittedAt: decodeString(requireField(record, "emittedAt", label), label + ".emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", label), label + ".workspaceId"),
+    conversationId: decodeString(
+      requireField(record, "conversationId", label),
+      label + ".conversationId",
+    ),
+    runId: decodeString(requireField(record, "runId", label), label + ".runId"),
+  };
+}
+
 export async function requestBackend<ResponsePayload, ErrorPayload extends BackendErrorPayload>(
   request: BackendRequest<ResponsePayload, ErrorPayload>,
 ): Promise<ResponsePayload> {
-  const {
-    baseURL,
-    decodeErrorResponse,
-    decodeResponse,
-    endpoint,
-    fetchImpl,
-    requestPayload,
-    signal,
-  } = request;
-  const init: RequestInit = signal
-    ? { method: endpoint.method, signal }
-    : { method: endpoint.method };
-  const url = new URL(endpoint.path, baseURL);
-  if (requestPayload !== undefined && endpoint.method === "GET") {
-    appendQueryPayload(url, requestPayload);
-  } else if (requestPayload !== undefined) {
+  const { baseURL, decodeErrorResponse, decodeResponse, endpoint, fetchImpl, requestPayload } =
+    request;
+  const init: RequestInit = { method: endpoint.method };
+  if (requestPayload !== undefined) {
     init.body = JSON.stringify(requestPayload);
     init.headers = { "Content-Type": "application/json" };
   }
 
-  const response = await fetchImpl(url, init);
+  const response = await fetchImpl(new URL(endpoint.path, baseURL), init);
   const payload: unknown = await response.json();
   if (!response.ok) {
-    const decoded = decodeErrorResponse(payload).error;
-    throw createBackendRequestError(decoded.code, decoded.message, decoded.operationApplied);
+    throw new Error(decodeErrorResponse(payload).error.message);
   }
   return decodeResponse(payload);
-}
-
-function appendQueryPayload(url: URL, payload: unknown) {
-  const record = assertRecord(payload, "GET request payload");
-  for (const [key, value] of Object.entries(record)) {
-    switch (typeof value) {
-      case "boolean":
-      case "number":
-      case "string":
-        url.searchParams.set(key, String(value));
-        break;
-      default:
-        if (value === null) {
-          throw new Error(`GET request payload ${key} must not be null`);
-        }
-        throw new Error(`GET request payload ${key} must be a primitive`);
-    }
-  }
 }

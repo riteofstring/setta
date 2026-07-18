@@ -41,6 +41,14 @@ func TestWorkspaceEndpointsOpenSelectReorderCloseAndRemoveRecent(t *testing.T) {
 		t.Fatalf("selected = %q, want %s", selected.SelectedWorkspaceID, openAPI.Workspace.ID)
 	}
 
+	selectedConversations := postJSON[WorkspaceSelectedConversations](t, handler, "/workspaces/selected-conversation", SetWorkspaceSelectedConversationRequest{
+		WorkspaceID:    openAPI.Workspace.ID,
+		ConversationID: "conversation_api",
+	}, http.StatusOK)
+	if selectedConversations.SelectedConversationIDsByWorkspaceID[openAPI.Workspace.ID] != "conversation_api" {
+		t.Fatalf("selected conversation ids = %#v", selectedConversations.SelectedConversationIDsByWorkspaceID)
+	}
+
 	reordered := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/reorder", ReorderWorkspaceRequest{IDs: []string{openWeb.Workspace.ID, openAPI.Workspace.ID}}, http.StatusOK)
 	assertIDs(t, "active after reorder", reordered.ActiveWorkspaces, []string{openWeb.Workspace.ID, openAPI.Workspace.ID})
 
@@ -56,49 +64,29 @@ func TestWorkspaceEndpointsOpenSelectReorderCloseAndRemoveRecent(t *testing.T) {
 	assertIDs(t, "recent after remove web", removedRecent.RecentWorkspaces, []string{openAPI.Workspace.ID})
 }
 
-func TestWorkspaceRelocateEndpointPreservesIdentity(t *testing.T) {
-	handler := newWorkspaceHandler(t, nil, []time.Time{
-		mustTime(t, "2026-05-29T20:00:00Z"),
-		mustTime(t, "2026-05-29T20:05:00Z"),
-	})
-	originalRoot := t.TempDir()
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: originalRoot}, http.StatusOK)
-	if err := os.RemoveAll(originalRoot); err != nil {
-		t.Fatalf("remove original root: %v", err)
-	}
-
-	relocated := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/relocate", RelocateWorkspaceRequest{
-		ID:       opened.Workspace.ID,
-		RootPath: t.TempDir(),
-	}, http.StatusOK)
-	if relocated.Workspace.ID != opened.Workspace.ID || relocated.Session.SelectedWorkspaceID != opened.Workspace.ID {
-		t.Fatalf("relocated response = %+v, want preserved workspace id %s", relocated, opened.Workspace.ID)
-	}
-	availability, err := relocated.Session.Availability(opened.Workspace.ID)
-	if err != nil || !availability.Available {
-		t.Fatalf("relocated availability = %+v err=%v, want available", availability, err)
-	}
-}
-
-func TestWorkspaceAvailabilityRefreshEndpointReportsMissingRoot(t *testing.T) {
-	handler := newWorkspaceHandler(t, nil, []time.Time{
+func TestWorkspaceSelectedConversationsEndpointReturnsCurrentSelection(t *testing.T) {
+	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
 		mustTime(t, "2026-05-29T20:00:00Z"),
 	})
-	rootPath := t.TempDir()
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: rootPath}, http.StatusOK)
-	if err := os.RemoveAll(rootPath); err != nil {
-		t.Fatalf("remove workspace root: %v", err)
-	}
-
-	refreshed := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/availability/refresh", RefreshWorkspaceAvailabilityRequest{
-		ID: opened.Workspace.ID,
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	postJSON[WorkspaceSelectedConversations](t, handler, "/workspaces/selected-conversation", SetWorkspaceSelectedConversationRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: "conversation_api",
 	}, http.StatusOK)
-	availability, err := refreshed.Availability(opened.Workspace.ID)
-	if err != nil {
-		t.Fatalf("read refreshed availability: %v", err)
+
+	request := httptest.NewRequest(http.MethodGet, "/workspaces/selected-conversations", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}
-	if availability.Available || !strings.Contains(availability.UnavailableReason, "does not exist") {
-		t.Fatalf("availability = %+v, want missing root", availability)
+	var selected WorkspaceSelectedConversations
+	if err := json.NewDecoder(response.Body).Decode(&selected); err != nil {
+		t.Fatalf("decode selected conversations: %v", err)
+	}
+	if selected.SelectedConversationIDsByWorkspaceID[opened.Workspace.ID] != "conversation_api" {
+		t.Fatalf("selected conversation ids = %#v", selected.SelectedConversationIDsByWorkspaceID)
 	}
 }
 
@@ -106,8 +94,7 @@ func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, nil, []time.Time{
 		mustTime(t, "2026-05-29T20:00:00Z"),
 	})
-	rootPath := t.TempDir()
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: rootPath}, http.StatusOK)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
 	layout := workspaceUILayout(opened.Workspace.ID)
 
 	saved := postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
@@ -126,39 +113,8 @@ func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
 	if read.Layout.FocusedPaneID != layout.FocusedPaneID {
 		t.Fatalf("focusedPaneID = %q, want %q", read.Layout.FocusedPaneID, layout.FocusedPaneID)
 	}
-	if read.Layout.Panes[0].EasyButtonConfig == nil || read.Layout.Panes[0].EasyButtonConfig.ConversationID != "conversation_api" {
-		t.Fatalf("easy button config = %+v, want conversation_api binding", read.Layout.Panes[0].EasyButtonConfig)
-	}
 	if _, err := os.Stat(workspaceui.StateFilePath(appDataDir, opened.Workspace.ID)); err != nil {
 		t.Fatalf("stat workspace UI state: %v", err)
-	}
-	if err := os.RemoveAll(rootPath); err != nil {
-		t.Fatalf("remove workspace root: %v", err)
-	}
-	readMissingRoot := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
-		WorkspaceID: opened.Workspace.ID,
-	}, http.StatusOK)
-	if readMissingRoot.Layout == nil || readMissingRoot.Layout.WorkspaceID != opened.Workspace.ID {
-		t.Fatalf("layout after root removal = %+v, want preserved layout", readMissingRoot)
-	}
-}
-
-func TestWorkspaceUILayoutEndpointRejectsEasyButtonPaneWithoutConversationBinding(t *testing.T) {
-	handler := newWorkspaceHandler(t, nil, []time.Time{
-		mustTime(t, "2026-05-29T20:00:00Z"),
-	})
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	layout := workspaceUILayout(opened.Workspace.ID)
-	layout.Panes[0].EasyButtonConfig = nil
-
-	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
-		Layout: layout,
-	}, http.StatusInternalServerError)
-	if errResponse.Error.Code != "corrupt_workspace_ui_state" {
-		t.Fatalf("error code = %q, want corrupt_workspace_ui_state", errResponse.Error.Code)
-	}
-	if !strings.Contains(errResponse.Error.Message, "easyButtonConfig is required for easy-button panes") {
-		t.Fatalf("error message = %q, want missing Easy Button binding", errResponse.Error.Message)
 	}
 }
 
@@ -301,7 +257,7 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 	if err != nil {
 		t.Fatalf("new workspace UI store: %v", err)
 	}
-	uiService, err := workspaceui.NewService(uiStore, service, discardingWorkspaceUILayoutObserver{})
+	uiService, err := workspaceui.NewService(uiStore, service)
 	if err != nil {
 		t.Fatalf("new workspace UI service: %v", err)
 	}
@@ -310,12 +266,6 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 		WorkspaceService:   service,
 		WorkspaceUIService: uiService,
 	}), filepath.Dir(store.Path())
-}
-
-type discardingWorkspaceUILayoutObserver struct{}
-
-func (discardingWorkspaceUILayoutObserver) ObserveWorkspaceUILayout(workspaceui.WorkspaceUILayout) error {
-	return nil
 }
 
 func postJSON[T any](t *testing.T, handler http.Handler, path string, payload any, wantStatus int) T {
@@ -398,27 +348,26 @@ func workspaceUILayout(workspaceID string) workspaceui.WorkspaceUILayout {
 		},
 		Panes: []workspaceui.WorkspaceUIPane{
 			{
-				ColumnID:         "workspace_column_0",
-				EasyButtonConfig: &workspaceui.EasyButtonPaneConfig{ConversationID: "conversation_api"},
-				Heat:             0,
-				PaneID:           "workspace_pane_0",
-				Sequence:         0,
-				Subtitle:         "topic conversation",
-				SurfaceID:        "workspace_surface_0",
-				SurfaceKind:      workspaceui.SurfaceKindEasyButton,
-				Title:            "Topic",
-				Tone:             workspaceui.PaneToneCyan,
-				Weight:           1.6,
+				ColumnID:    "workspace_column_0",
+				Heat:        0,
+				PaneID:      "workspace_pane_0",
+				Sequence:    0,
+				Subtitle:    "workspace chat",
+				SurfaceID:   "workspace_surface_0",
+				SurfaceKind: workspaceui.SurfaceKindChatDOM,
+				Title:       "Chat",
+				Tone:        workspaceui.PaneToneCyan,
+				Weight:      1.6,
 			},
 			{
 				ColumnID:    "workspace_column_1",
 				Heat:        37,
 				PaneID:      "workspace_pane_1",
 				Sequence:    1,
-				Subtitle:    "settings",
+				Subtitle:    "terminal",
 				SurfaceID:   "workspace_surface_1",
-				SurfaceKind: workspaceui.SurfaceKindSettingsDOM,
-				Title:       "Settings",
+				SurfaceKind: workspaceui.SurfaceKindTerminal,
+				Title:       "Terminal",
 				Tone:        workspaceui.PaneToneGreen,
 				Weight:      1,
 			},
