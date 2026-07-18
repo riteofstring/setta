@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Implemented — ready for final audit.
+**Status:** Incomplete — final audit found a remaining removed capture-state reference.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -23,8 +23,12 @@ This is a replacement, not a compatibility project.
 - [x] Phase 0.4 — Repair the current live workflow's scoped credential resolution, run the processed-track smoke using the ignored root `.env`, and append the passed provider result. Previous blocked artifacts were produced because the workflow read only `process.env.OPENAI_API_KEY`; they are not evidence that the repository credential is absent.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
-- [x] Phase 3 — Make every mic surface honest and immediately actionable.
+- [ ] Phase 3 — Make every mic surface honest and immediately actionable. Final audit blocker: `desktop/src/renderer/src/styles.css` still contains `.setta-shell-speech-status[data-speech-capture="listening"]`, so production code still recognizes the removed `listening` capture-state variant.
 - [x] Phase 4 — Production-path workflow coverage and performance report.
+
+## Final audit status
+
+The implementation is not yet a clean cutover. Remove the stale shell status `data-speech-capture="listening"` selector and replace the active capture styling with the new `recording` state so production code no longer recognizes the removed capture-state variant.
 
 ## Live OpenAI credential contract
 
