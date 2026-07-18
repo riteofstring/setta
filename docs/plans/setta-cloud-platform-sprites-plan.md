@@ -1,21 +1,31 @@
 # Setta Cloud Platform: Sprites-First Runtime Plan
 
-**Date:** 2026-07-13
+**Date:** 2026-07-13 (re-based 2026-07-17)
 
-**Status:** Plan of record. Phase 0 complete. Phase 1a complete — no
-stop-condition fired; cost thresholds adopted provisionally (~$25/user/mo,
-<=60s cutoff lag), to revisit with Phase 1c measurements. Phase 1b (typed
-lifecycle adapter) is next. See
-`docs/reports/2026-07-13-sprites-phase1a-probes.md`.
+**Status:** Plan of record. Phases 0–1a complete. Phase 1b complete except the
+confirmed-cold gate, closed as unobservable (decision memo pending owner
+sign-off, Option A recommended). Phase 2 offline build-out plus the live
+install-loop and conformance validation completed on the old base. Phase 1c
+live measurements and the Phase 3 budgets await the owner decisions in
+`docs/plans/morning-decisions-20260717.md`. On 2026-07-17 this plan was
+re-based onto the new `setta-3` codebase; see "2026-07-17 Re-Baseline onto the
+New setta-3" for what changed and the porting strategy.
 
-**Branch:** `setta-3-cloud-platform`, created from `setta-3` at
-`de4bae2e4`.
+**Branch:** `setta-3-sprites`, created from `setta-3` at `92702eb7c` (the new
+Setta). Previous home: `setta-3-cloud-platform`, created from the old
+`setta-3` at `de4bae2e4`.
 
-**Worktree:** `/Users/jeff/Documents/_projects/setta.setta-3-cloud-platform`,
+**Worktree:** `/Users/jeff/Documents/_projects/setta.setta-3-sprites`,
 created with the repository's `worktree.sh` script.
 
-**Source branch:** `setta-3-cloud-runs-2` remains a read-only source of proven
-remote-runtime and terminal work. Do not merge it wholesale.
+**Source branches:**
+
+- `setta-3-cloud-platform` (head `98ef2df6d`) is the primary read-only source
+  of all implemented platform work: the Phase 1a–2 code, live harnesses, and
+  evidence reports. Do not merge it wholesale; port by slice per the
+  re-baseline section.
+- `setta-3-cloud-runs-2` remains historical design evidence only. Its
+  reusable commits were already absorbed into `setta-3-cloud-platform`.
 
 ## Authority and Superseded Direction
 
@@ -33,6 +43,105 @@ requirements for this plan.
 
 If this plan conflicts with repository-wide engineering rules in `AGENTS.md`,
 `AGENTS.md` wins.
+
+## 2026-07-17 Re-Baseline onto the New setta-3
+
+Owner direction (recorded 2026-07-17 in the previous worktree): the new Setta
+landed on `setta-3`; cut a fresh branch from it, port the provider-neutral
+packages first, reconcile the desktop credential slice, then continue Phase 3
+there. `setta-3-sprites` (this branch) is that fresh branch. This document
+remains the plan of record with the amendments below.
+
+### What changed under the plan
+
+The new base (`92702eb7c`, the `setta-3-easy-button` merge into `setta-3`) is
+a product rewrite, not an incremental move:
+
+- `internal/chat`, `internal/terminal`, and `internal/orchestrator` were
+  deleted. The product is now a topic-conversation architecture:
+  `internal/conversation` (turns, artifacts, navigator, its own SQLite
+  store), `internal/agent` (turn engine), `internal/codexapp` (Codex
+  app-server JSON-RPC child), `internal/master`, `internal/narration`,
+  `internal/speech`, and `internal/webapp` (an embedded PWA served from the
+  same Go HTTP server).
+- Terminals are entirely absent: no PTY, WebSocket, or xterm code exists in
+  Go or the desktop app. There is no terminal data plane to port onto.
+- The contract protocol snapshot is now version 62 (the old base was 7; the
+  previous branch's foundation slice set 11). Ported contract additions must
+  be re-applied on top of the new numbering and regenerated; "protocol v11"
+  references elsewhere in this document are old-base history.
+- The new base already ships remote-runtime plumbing this plan previously
+  scheduled as ports: `setta pair` with single-use pairing tokens and
+  `/pairing/complete`, SQLite device sessions with revocation and streaming
+  revocation sweeps (`internal/runtimeauth`), persistent runtime identity
+  (`internal/runtime/identity.go`), a desktop runtime registry and picker
+  with protocol-version negotiation and remote (tailnet or external-URL)
+  backends, desktop device-token storage (`known-runtimes.json`, mode 0600),
+  a browser/PWA pairing path (token in `localStorage`), and
+  infrastructure-provider detection (no Fly/Sprites entry yet).
+- The remote transport today is plain HTTP origins with long-lived bearer
+  device tokens. The credential authority gate (short-lived credentials,
+  epochs, separately revocable grants) still stands; it is now an upgrade of
+  the new base's existing seams instead of a parallel build. The web client's
+  `localStorage` token is a recorded gap for that gate.
+
+### Port classification
+
+From a full `git merge-tree` simulation of `setta-3-cloud-platform` into the
+new base (2026-07-17): 99 conflicts — 76 modify/delete against the deleted
+chat/terminal/orchestrator packages and old chat UI/e2e files, 23 content
+conflicts concentrated in `internal/httpapi/*`, `internal/runtime/server.go`,
+`cmd/setta{,-backend}`, `cmd/generate-contracts/contract_registry.go`, and
+desktop `main/index.ts` plus `shared/{ipc,types}.ts`. Wholesale merge is
+therefore prohibited; port by slice:
+
+1. **Port as-is** (verified: zero imports of the deleted packages or desktop
+   code): `internal/runtimeprovider` (with `conformance` and `runtimetest`),
+   `internal/sprites`, `internal/credissuer`, `internal/localcredissuer`,
+   `internal/runtimeinstall`, `internal/runtimebackup`,
+   `internal/runtimeaccounting`, `internal/runtimecost`,
+   `internal/runtimecapability`, `internal/runtimesetup`, the
+   `internal/runtimeauth` extensions, `cmd/setta-release-verify`,
+   `cmd/setta-runtime-accounting`, `cmd/setta-sprite-lease-probe`,
+   `scripts/sprites/*`, `scripts/test_sprites_*.sh`, and the minisign signing
+   in `scripts/release/build-release.sh`. Carry the module additions (pinned
+   `sprites-go` pseudo-version `v0.0.0-20260706200727-0d0f37d154bd`) through
+   `./update_dependencies.sh`. `internal/runtimeinstall` depends on
+   `httpapi.BackendHealth`, `httpapi.RuntimeInfoResponse`, and
+   `httpapi.BackendName`; all three exist in the new base with compatible
+   shapes.
+2. **Re-wire** (re-implement the integration on the new base rather than
+   resolving textual conflicts): the runtime-foundation wiring from
+   `e1fa627a6` — the httpapi services/auth/endpoints/contracts additions
+   (local-credential enroll/refresh, setup attestation, runtime-info
+   feature/diagnostics fields, the endpoint access policy in `access.go`),
+   the `internal/runtime` config/diagnostics assembly, and the
+   `-local-credential-issuer` flags in `cmd/setta{,-backend}`. Reconcile
+   with the new base's existing runtime identity and `RuntimeInfoResponse`
+   instead of duplicating identity concepts.
+3. **Reconcile** (both sides evolved the same seams): the desktop credential
+   slice `9b7f731bb`. Its main-process design (runtime credential manager,
+   encrypted safeStorage secret stores, the token-provider seam in
+   `backend-auth-fetch.ts`) upgrades the new base's plaintext
+   `known-runtimes.json` device tokens, but the new base's
+   registry/picker/pairing files evolved independently. Land it as a
+   redesign of the new files, not a file copy.
+4. **Shelved**: terminal replay persistence (`71725cfa6`) — bound to the
+   deleted `internal/terminal` session model. It stays in the source branch
+   until the product reintroduces terminals; see the Phase 4 re-scope note.
+5. **Do not port**: `db806e584` (chat permission escalation / codex sandbox
+   policy) — incidental to the platform, and its files were deleted in the
+   new base; everything in the old "Do not port" list; the old-base chat e2e
+   harness churn (the new base's e2e uses `fake-topic-codex-app-server` and
+   the `run-workflows` manifest).
+
+### Pre-port protocol (blocking)
+
+- `setta-3-cloud-platform` has 16 unpushed commits at re-baseline
+  (`66294e49b` through `98ef2df6d`, including every source landing). Per the
+  branch protocol, push or otherwise back it up and verify the remote ref
+  before the first porting slice. Keep it intact and read-only afterward.
+- Confirm this worktree is clean before each porting slice, as before.
 
 ## Product Decision
 
@@ -217,6 +326,13 @@ evidence is recorded in this plan.
     the sole backup strategy.
 12. The existing Easy Button branch is a moving downstream product branch. Do
     not merge it into this branch during the proof-of-concept phases.
+    (2026-07-17 amendment: the Easy Button product was merged into `setta-3`
+    and is now this branch's base, so the original instruction is satisfied
+    by history. The standing rule becomes: do not merge
+    `setta-3-cloud-platform` or any old feature branch wholesale; integrate
+    by slice per the re-baseline section, and do not chase the still-moving
+    `setta-3` head — the recorded base changes only with a progress-log
+    entry.)
 13. The trusted Setta runtime and untrusted user or agent processes require an
     explicit isolation boundary inside the Sprite. Hardware isolation between
     Sprites does not protect the runtime from code executing in the same
@@ -305,9 +421,11 @@ All platform implementation must run from
 `/Users/jeff/Documents/_projects/setta.setta-3-cloud-platform`. Do not switch
 the cloud-runs, Easy Button, or other feature worktrees onto this branch.
 
-The recorded base is `de4bae2e4`. Do not silently recreate the branch from a
-newer base. If the base must change, record the old base, new base, reason, and
-conflict result in the progress log before doing so.
+The recorded base is `92702eb7c` (re-based 2026-07-17 from `de4bae2e4`; the
+old base, new base, reason, and conflict result are recorded in the progress
+log). Do not silently recreate the branch from a newer base. If the base must
+change again, record the old base, new base, reason, and conflict result in
+the progress log before doing so.
 
 Before porting source code:
 
@@ -318,6 +436,12 @@ Before porting source code:
 3. Keep `setta-3-cloud-runs-2` intact. Do not reset, rebase, squash, or delete
    it.
 4. Confirm this branch has a clean worktree before each porting slice.
+
+2026-07-17: the `setta-3-cloud-runs-2` obligations above are complete (pushed
+and API-verified 2026-07-13) and now apply unchanged to
+`setta-3-cloud-platform` at `98ef2df6d` as the primary source branch. Its 16
+unpushed commits must be pushed or backed up before the first porting slice
+(see the re-baseline section).
 
 At the 2026-07-13 review, `setta-3-cloud-runs-2` was clean and fully committed
 at `39bc2e719`. Its dedicated worktree protects it from ordinary working-tree
@@ -429,6 +553,11 @@ resulting edits are complete.
   to demonstrate provisioning.
 
 ## Reusable Work Inventory
+
+2026-07-17: superseded for execution by the port classification in the
+re-baseline section. The commit list below is old-base history — those
+`setta-3-cloud-runs-2` commits were already absorbed into
+`setta-3-cloud-platform`, which is now the sole porting source.
 
 Port behavior, tests, and narrowly useful implementation from the source
 branch. Do not assume the old commits apply cleanly.
@@ -995,6 +1124,19 @@ and cost behavior, and no Fly signup, provider token, or manual endpoint entry
 is required by the end user.
 
 ### Phase 4: port and validate the terminal data plane
+
+2026-07-17 re-scope: the new base has no terminal subsystem, so this phase as
+written has no port target. The product's interactive data plane is now the
+conversation and master event streams plus the speech realtime path. Phase
+4's purpose — validate the interactive data plane over the selected access
+path against the recorded budgets — transfers to those surfaces: measure
+conversation event-stream latency, reconnect, replay/persistence across warm
+and cold wake, and backend-crash recovery through production paths. Whether
+terminals return to the product is an owner decision; until then the
+terminal-specific checklist below is shelved together with the replay slice
+(`71725cfa6`), and the checklist items should be read as applying to the
+conversation/master streams where they generalize (reconnect policy,
+budgets, crash behavior, multi-device attachment).
 
 - [ ] Port the Go-owned duplex terminal protocol and regenerate TypeScript.
 - [ ] Port backend WebSocket loops, tickets, ordering, replay, and bounded
@@ -1568,3 +1710,25 @@ Stop and reassess rather than hiding the problem if any of these occur:
   empty.
 
 - 2026-07-16: Completed cold-soak run `20260714T173244Z-97151` (12h=behaviorally_warm, 24h=behaviorally_warm, 48h=behaviorally_warm); the dedicated organization was confirmed empty after cleanup. See `docs/reports/2026-07-14-sprites-confirmed-cold-soak-20260714T173244Z-97151.md`.
+- 2026-07-17 (re-baseline): Cut `setta-3-sprites` from `setta-3` at
+  `92702eb7c` (old base `de4bae2e4`; reason: owner direction to continue the
+  platform on the newly landed Setta rewrite) and attached it to
+  `/Users/jeff/Documents/_projects/setta.setta-3-sprites` with
+  `./worktree.sh --stay --existing setta-3-sprites`. Imported this plan and
+  `morning-decisions-20260717.md` verbatim from `setta-3-cloud-platform`
+  (`98ef2df6d`, commit `4e5c4a325`), then recorded the re-baseline
+  amendments. Conflict result of a full `git merge-tree` simulation: 99
+  conflicts — 76 modify/delete against subsystems the new base deleted
+  (`internal/chat`, `internal/terminal`, `internal/orchestrator`, the chat
+  UI and its e2e suite), 23 content conflicts in `internal/httpapi/*`,
+  `internal/runtime/server*.go`, `cmd/*`, and desktop `main/index.ts` plus
+  `shared/{ipc,types}.ts` — so the port proceeds by slice, never by merge.
+  Verified the eleven provider-neutral packages and three `cmd/setta-*`
+  tools import nothing from the deleted subsystems, and that
+  `runtimeinstall`'s `httpapi` dependencies (`BackendHealth`,
+  `RuntimeInfoResponse`, `BackendName`) exist in the new base with
+  compatible shapes. New-base facts recorded: protocol snapshot 62;
+  pairing/device-session/runtime-registry/PWA plumbing already present;
+  terminals absent (Phase 4 re-scoped); `db806e584` excluded from the port.
+  Blocking pre-port item: `setta-3-cloud-platform` has 16 unpushed commits
+  needing an owner-keyed push. No source code has been ported yet.
