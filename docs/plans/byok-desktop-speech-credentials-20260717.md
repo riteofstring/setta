@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-17
 
-**Status:** Proposed — no implementation has started.
+**Status:** In progress — Phase 0 baseline recording is complete; privacy
+marker coverage is next.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -523,8 +524,10 @@ environment-based desktop product behavior.
 
 ### Phase 0 — Baseline and contract lock
 
-- [ ] Record the current no-key, configured-key, transcription, synthesis,
+- [x] Record the current no-key, configured-key, transcription, synthesis,
       restart, and remote-runtime behavior through existing workflows.
+      Recorded in
+      `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
 - [ ] Add unique privacy markers to the fake provider and confirm the current
       artifact scanner's coverage boundaries.
 - [ ] Confirm `safeStorage` behavior on each supported desktop platform,
