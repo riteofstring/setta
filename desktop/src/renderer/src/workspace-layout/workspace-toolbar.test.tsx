@@ -3,7 +3,11 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import type { WorkspaceLayoutStore } from "./layout-store";
-import { workspaceFrameActions, WorkspaceToolbar } from "./workspace-toolbar";
+import {
+  emptyFrameOptionsForStore,
+  workspaceFrameActions,
+  WorkspaceToolbar,
+} from "./workspace-toolbar";
 
 describe("workspace toolbar", () => {
   test("renders performance stats in the top bar only when enabled", () => {
@@ -42,8 +46,12 @@ describe("workspace toolbar", () => {
     expect(visible).toContain('data-testid="workspace-performance-stats"');
   });
 
-  test("registers only generic surviving workspace surfaces", () => {
-    expect(workspaceFrameActions.map(({ label }) => label)).toEqual(["Browser", "Settings"]);
+  test("registers conversation creation and generic surviving workspace surfaces", () => {
+    expect(workspaceFrameActions.map(({ label }) => label)).toEqual([
+      "Conversation",
+      "Browser",
+      "Settings",
+    ]);
     expect(workspaceFrameActions).not.toContainEqual(
       expect.objectContaining({
         action: expect.objectContaining({
@@ -52,6 +60,29 @@ describe("workspace toolbar", () => {
         }),
       }),
     );
+  });
+
+  test("exposes conversation creation in empty frame actions", () => {
+    expect(emptyFrameOptionsForStore(toolbarStore())).toEqual([
+      {
+        actionId: "conversation",
+        disabled: false,
+        label: "Conversation",
+        meta: "Mod+Alt+C",
+      },
+      {
+        actionId: "browser",
+        disabled: false,
+        label: "Browser",
+        meta: "Mod+Alt+B",
+      },
+      {
+        actionId: "settings",
+        disabled: false,
+        label: "Settings",
+        meta: "Mod+Alt+S",
+      },
+    ]);
   });
 });
 

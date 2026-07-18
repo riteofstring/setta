@@ -53,11 +53,15 @@
   }
 
   function topicConversationFirstRunState() {
+    const newConversationButton = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === "New conversation",
+    );
     return {
       chooseFolder: Boolean(document.querySelector('[data-testid="choose-project-folder"]')),
       easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
       emptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
-      newTopic: Boolean(document.querySelector('[aria-label="Create topic conversation"]')),
+      newTopic:
+        newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
       search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
     };
   }

@@ -203,10 +203,19 @@ try {
   }
   const reassignedPage = await waitForBackendState(
     async () => listTopics(backend, workspaceId),
-    (page) => narratorVoice(page, alpha.id) === "ballad" && narratorVoice(page, beta.id) === "ash",
+    (page) => {
+      const alphaVoice = narratorVoice(page, alpha.id);
+      const betaVoice = narratorVoice(page, beta.id);
+      return (
+        [alphaVoice, betaVoice].every((voice) => voice && voice !== masterVoice.resolvedVoiceId) &&
+        alphaVoice !== betaVoice
+      );
+    },
     workflowTimeoutMs,
   );
   alpha.narratorVoiceId = narratorVoice(reassignedPage, alpha.id);
+  beta.narratorVoiceId = narratorVoice(reassignedPage, beta.id);
+  assertDistinctNarratorVoices(alpha, beta, masterVoice.resolvedVoiceId);
   const betaVoice = await context.client.driver("presentationConfigurationUpdateNarratorVoice", {
     conversationId: beta.id,
     selection: { requestedVoiceId: "cedar", selection: "exact" },
@@ -921,6 +930,7 @@ try {
 
   await closeConversationPane(context.client, alpha.id);
   await closeConversationPane(context.client, beta.id);
+  await closeConversationPane(context.client, initialConversation.conversation.id);
   await waitForConversationSurfaces(context.client, (surfaces) => surfaces.length === 0);
   await installScriptedRealtimeBrowser(context.client);
   shellMasterInput = await exercisePaneFreeShellCapture({
@@ -1272,9 +1282,9 @@ function initialEasyButtonExperienceReady(state) {
     state.topBarSpeechStatusPresent,
     !state.voiceOffPresent,
     state.actionCount === 5,
-    state.visiblePaneCount === 1,
+    state.visiblePaneCount === 2,
     state.easyButtonPaneCount === 1,
-    state.emptyFramePaneCount === 0,
+    state.emptyFramePaneCount === 1,
     state.matchingSurfaceCount === 1,
   ].every(Boolean);
 }

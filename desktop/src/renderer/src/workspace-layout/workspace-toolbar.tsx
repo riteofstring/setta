@@ -1,4 +1,4 @@
-import { Globe, Plus, Settings, ZoomIn, ZoomOut } from "lucide-react";
+import { Globe, MessageSquarePlus, Plus, Settings, ZoomIn, ZoomOut } from "lucide-react";
 import {
   type ComponentType,
   type ReactNode,
@@ -107,6 +107,13 @@ export type SurfaceWorkspaceFrameActionDefinition = WorkspaceFrameActionDefiniti
 };
 
 export const workspaceFrameActions: readonly WorkspaceFrameActionDefinition[] = [
+  {
+    Icon: MessageSquarePlus,
+    action: { kind: "conversation" },
+    id: "conversation",
+    label: "Conversation",
+    shortcutKey: "c",
+  },
   {
     Icon: Globe,
     action: {

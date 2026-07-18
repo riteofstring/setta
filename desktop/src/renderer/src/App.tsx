@@ -310,6 +310,19 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     },
     [presentConversationRequest],
   );
+  const createConversation = useCallback(
+    async (workspaceId: string): Promise<void> => {
+      try {
+        await createConversationRequest({
+          destination: { kind: "new-pane" },
+          workspaceId,
+        });
+      } catch {
+        // createConversationRequest owns the visible failure state for this UI command.
+      }
+    },
+    [createConversationRequest],
+  );
   const presentMasterIntent = useCallback(
     async (intent: PresentationIntent) => {
       const request = conversationPaneRequestForPresentationIntent(intent);
@@ -375,6 +388,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         <ProjectPane
           clearConversationPresentationError={() => setConversationPresentationError(null)}
           conversationPresentationError={conversationPresentationError}
+          createConversation={createConversation}
           master={master}
           mobileOverlay={mobileViewport}
           open={projectPaneOpen}
@@ -564,6 +578,7 @@ type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
 function ProjectPane({
   clearConversationPresentationError,
   conversationPresentationError,
+  createConversation,
   master,
   mobileOverlay,
   open,
@@ -577,6 +592,7 @@ function ProjectPane({
 }: {
   clearConversationPresentationError: () => void;
   conversationPresentationError: string | null;
+  createConversation: (workspaceId: string) => Promise<void>;
   master: AppShellMasterController | undefined;
   mobileOverlay: boolean;
   open: boolean;
@@ -605,6 +621,7 @@ function ProjectPane({
       clearWorkspaceError={workspace.clearError}
       closeWorkspace={workspace.closeWorkspace}
       conversationPresentationError={conversationPresentationError}
+      createConversation={createConversation}
       masterUnavailable={runtimeUnavailable}
       openLocalFolder={workspace.openLocalFolder}
       openMasterOverlay={master?.openOverlay}

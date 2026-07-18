@@ -15,7 +15,7 @@ import {
   type SidebarSectionId,
   type SidebarSectionState,
 } from "./sidebar-accordion";
-import { ProjectFolderButton } from "./sidebar-header-actions";
+import { ConversationSectionHeaderActions } from "./sidebar-header-actions";
 import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
 import { SettaLogoMark } from "./setta-logo-mark";
 import {
@@ -39,6 +39,7 @@ interface WorkspaceSidebarProps {
   clearWorkspaceError?: () => void;
   closeWorkspace: (id: string) => Promise<void>;
   conversationPresentationError?: string | null;
+  createConversation: (workspaceId: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
   openMasterOverlay?: () => void;
   openSettingsPane: () => void;
@@ -95,6 +96,7 @@ function WorkspaceSidebarContent({
   clearWorkspaceError,
   closeWorkspace,
   conversationPresentationError,
+  createConversation,
   openLocalFolder,
   openMasterOverlay,
   openSettingsPane,
@@ -158,6 +160,9 @@ function WorkspaceSidebarContent({
       [sectionId]: { ...current[sectionId], height, resized: true },
     }));
   }
+  async function createSelectedConversation() {
+    await createConversation(selectedWorkspaceId);
+  }
 
   return (
     <aside
@@ -189,7 +194,15 @@ function WorkspaceSidebarContent({
         style={noScrollAnchoringStyle}
       >
         <SidebarAccordionSection
-          action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
+          action={
+            <ConversationSectionHeaderActions
+              busy={busy}
+              createConversation={createSelectedConversation}
+              disabled={selectedWorkspaceId.length === 0}
+              openLocalFolder={openLocalFolder}
+            />
+          }
+          actionVisibility="always"
           height={sections.projects.height}
           onHeightChange={(height) => setSectionHeight("projects", height)}
           onOpenChange={(open) => setSectionOpen("projects", open)}
