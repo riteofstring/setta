@@ -35,6 +35,7 @@ import {
   type EasyButtonConversationCommands,
 } from "./easy-button-conversation-commands";
 import { conversationControlAction } from "./easy-button-conversation-control";
+import { statusReplyPresentationTiming } from "./easy-button-narrator-status";
 
 const workspaceId = "workspace_topic";
 const timestamp = "2026-07-11T20:00:00Z";
@@ -241,6 +242,24 @@ describe("Easy Button topic conversation projection", () => {
       html.indexOf('data-testid="easy-button-highlights"'),
     );
     vi.useRealTimers();
+  });
+
+  test("derives status reply presentation timing from the event timestamp", () => {
+    const createdAt = "2026-07-11T20:00:08Z";
+
+    expect(statusReplyPresentationTiming(createdAt, Date.parse("2026-07-11T20:00:10Z"))).toEqual({
+      elapsedMs: 2_000,
+      lifetimeMs: 20_000,
+      remainingMs: 18_000,
+    });
+    expect(statusReplyPresentationTiming(createdAt, Date.parse("2026-07-11T20:00:28Z"))).toEqual({
+      elapsedMs: 20_000,
+      lifetimeMs: 20_000,
+      remainingMs: 0,
+    });
+    expect(
+      statusReplyPresentationTiming("not a timestamp", Date.parse("2026-07-11T20:00:10Z")),
+    ).toBeNull();
   });
 
   test("replaces and expires explicit narrator status replies without adding NOW entries", () => {

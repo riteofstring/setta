@@ -1,4 +1,5 @@
 import type { NarrationEvent, NarratorState } from "@generated/backend";
+import { useEffect, useState, type CSSProperties } from "react";
 
 export interface EasyButtonNarratorStatusReply {
   createdAt: string;
@@ -10,6 +11,12 @@ export interface EasyButtonNarratorStatusReply {
 }
 
 const statusReplyPresentationLifetimeMs = 20_000;
+
+export interface StatusReplyPresentationTiming {
+  elapsedMs: number;
+  lifetimeMs: number;
+  remainingMs: number;
+}
 
 export function latestNarratorStatusReply(
   narration: readonly NarrationEvent[],
@@ -71,8 +78,8 @@ function statusReplyStale(
 }
 
 function statusReplyExpired(createdAt: string, nowMs: number): boolean {
-  const createdMs = Date.parse(createdAt);
-  return Number.isFinite(createdMs) && nowMs - createdMs > statusReplyPresentationLifetimeMs;
+  const timing = statusReplyPresentationTiming(createdAt, nowMs);
+  return timing !== null && timing.remainingMs === 0;
 }
 
 function statusReplySupersedingNarration(event: NarrationEvent): boolean {
@@ -84,6 +91,7 @@ function statusReplySupersedingNarration(event: NarrationEvent): boolean {
     case "status_reply":
       return false;
   }
+  return assertNeverNarrationEventKind(event.kind);
 }
 
 export function narratorDegradationMessage(state: NarratorState): string | null {
@@ -100,6 +108,7 @@ export function NarratorStatusReply({ reply }: { reply: EasyButtonNarratorStatus
       className="easy-button-status-reply"
       data-narration-event-id={reply.id}
       data-testid="easy-button-status-reply"
+      style={statusReplyAnimationStyle(reply)}
     >
       <p className="easy-button-status-label">STATUS</p>
       <p aria-live="polite" className="easy-button-status-reply-text" role="status">
@@ -107,6 +116,64 @@ export function NarratorStatusReply({ reply }: { reply: EasyButtonNarratorStatus
       </p>
     </section>
   );
+}
+
+export function usePresentedStatusReply(
+  reply: EasyButtonNarratorStatusReply | null,
+): EasyButtonNarratorStatusReply | null {
+  const [dismissedReplyId, setDismissedReplyId] = useState<string | null>(null);
+  useEffect(() => {
+    setDismissedReplyId(null);
+    if (!reply) {
+      return;
+    }
+    const timing = statusReplyPresentationTiming(reply.createdAt);
+    if (!timing) {
+      return;
+    }
+    if (timing.remainingMs === 0) {
+      setDismissedReplyId(reply.id);
+      return;
+    }
+    const timeout = globalThis.setTimeout(() => {
+      setDismissedReplyId(reply.id);
+    }, timing.remainingMs);
+    return () => globalThis.clearTimeout(timeout);
+  }, [reply?.createdAt, reply?.id]);
+  return reply && dismissedReplyId !== reply.id ? reply : null;
+}
+
+type StatusReplyAnimationStyle = CSSProperties & {
+  "--easy-button-status-card-lifetime": string;
+};
+
+function statusReplyAnimationStyle(
+  reply: EasyButtonNarratorStatusReply,
+): StatusReplyAnimationStyle | undefined {
+  const timing = statusReplyPresentationTiming(reply.createdAt);
+  if (!timing) {
+    return undefined;
+  }
+  return {
+    "--easy-button-status-card-lifetime": `${timing.lifetimeMs}ms`,
+    animationDelay: `-${timing.elapsedMs}ms`,
+  };
+}
+
+export function statusReplyPresentationTiming(
+  createdAt: string,
+  nowMs = Date.now(),
+): StatusReplyPresentationTiming | null {
+  const createdMs = Date.parse(createdAt);
+  if (!Number.isFinite(createdMs)) {
+    return null;
+  }
+  const elapsedMs = Math.max(0, nowMs - createdMs);
+  return {
+    elapsedMs,
+    lifetimeMs: statusReplyPresentationLifetimeMs,
+    remainingMs: Math.max(0, statusReplyPresentationLifetimeMs - elapsedMs),
+  };
 }
 
 export function NarratorDegradationStatus({ message }: { message: string | null }) {
@@ -123,4 +190,8 @@ export function NarratorDegradationStatus({ message }: { message: string | null 
       {message}
     </p>
   );
+}
+
+function assertNeverNarrationEventKind(value: never): never {
+  throw new Error(`Unsupported narration event kind: ${String(value)}`);
 }

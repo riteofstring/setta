@@ -9,6 +9,7 @@ import { MarkdownText } from "../../components/markdown-text";
 import {
   NarratorStatusReply,
   type EasyButtonNarratorStatusReply,
+  usePresentedStatusReply,
 } from "./easy-button-narrator-status";
 
 export interface EasyButtonMilestone {
@@ -40,14 +41,17 @@ export function HighlightRail({
   statusReply?: EasyButtonNarratorStatusReply | null;
 }) {
   const visibleMilestones = milestones.slice(-maxRenderedMilestones);
+  const presentedStatusReply = usePresentedStatusReply(statusReply);
   return (
     <aside
-      aria-label="Milestones"
+      aria-label={presentedStatusReply ? "Status and milestones" : "Milestones"}
       className="easy-button-rail easy-button-rail-left"
-      data-easy-button-rail-empty={milestones.length === 0 && !statusReply ? "true" : "false"}
+      data-easy-button-rail-empty={
+        milestones.length === 0 && !presentedStatusReply ? "true" : "false"
+      }
       data-easy-button-highlight-window-size={visibleMilestones.length}
     >
-      <NarratorStatusReply reply={statusReply} />
+      <NarratorStatusReply reply={presentedStatusReply} />
       <p className="easy-button-rail-label">Now</p>
       <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
         {visibleMilestones.map((milestone, index) => (

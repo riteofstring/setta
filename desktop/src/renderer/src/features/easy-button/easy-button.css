@@ -76,7 +76,11 @@
 }
 
 .easy-button-status-reply {
-  animation: easy-button-status-card-lifetime 20s ease-in forwards;
+  animation-delay: 0ms;
+  animation-duration: var(--easy-button-status-card-lifetime, 20s);
+  animation-fill-mode: forwards;
+  animation-name: easy-button-status-card-lifetime;
+  animation-timing-function: ease-in;
   background: color-mix(in oklab, var(--easy-button-primary) 7%, transparent);
   border-left: 2px solid var(--easy-button-primary);
   display: grid;

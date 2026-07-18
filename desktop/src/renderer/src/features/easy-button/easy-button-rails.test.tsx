@@ -13,6 +13,7 @@ import {
   milestoneElapsedLabel,
   readVisibleArtifactPayloads,
 } from "./easy-button-rails";
+import type { EasyButtonNarratorStatusReply } from "./easy-button-narrator-status";
 
 const conversationId = "conversation_topic";
 const workspaceId = "workspace_topic";
@@ -44,6 +45,19 @@ describe("Easy Button conversation rails", () => {
     expect(html.match(/data-easy-button-highlight-speaking="true"/g)).toHaveLength(1);
     expect(html).toContain('aria-current="true"');
     expect(html).toContain('data-easy-button-highlight-id="milestone_second"');
+  });
+
+  test("labels the milestone rail accurately when it contains a status reply", () => {
+    const html = renderToString(
+      <HighlightRail milestones={[]} statusReply={statusReply("The agent is still working.")} />,
+    );
+
+    expect(html).toContain('aria-label="Status and milestones"');
+    expect(html).toContain('data-easy-button-rail-empty="false"');
+    expect(html).toContain('data-testid="easy-button-status-reply"');
+    expect(html.indexOf('data-testid="easy-button-status-reply"')).toBeLessThan(
+      html.indexOf('data-testid="easy-button-highlights"'),
+    );
   });
 
   test("measures each milestone from its own conversation turn", () => {
@@ -183,6 +197,17 @@ function milestone(id: string): EasyButtonMilestone {
     id,
     text: id,
     turnStartedAt: "2026-07-11T20:00:00Z",
+  };
+}
+
+function statusReply(text: string): EasyButtonNarratorStatusReply {
+  return {
+    createdAt: "2026-07-11T20:00:01Z",
+    id: "status_topic",
+    question: "What is happening?",
+    sourceSequenceEnd: 1,
+    streamSequence: 2,
+    text,
   };
 }
 
