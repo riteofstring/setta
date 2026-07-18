@@ -68,6 +68,7 @@ describe("app-shell speech playback provider", () => {
           eventId: "narration-live",
           speaker: "narrator",
         },
+        sourceCreatedAt: "2026-07-12T18:00:00Z",
       }),
     );
   });
@@ -142,6 +143,7 @@ function playbackController(): AppShellSpeechPlaybackController {
     decodeBase64: () => new Uint8Array(),
     logPlayback: () => {},
     logSupersession: () => {},
+    now: () => Date.parse("2026-07-12T18:00:00Z"),
     revokeObjectURL: () => {},
     synthesize: () => new Promise(() => {}),
   });

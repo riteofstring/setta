@@ -23,6 +23,21 @@ describe("Easy Button conversation rails", () => {
     expect(html).not.toContain("data-easy-button-highlight-speaking");
   });
 
+  test("marks only the milestone currently spoken by playback", () => {
+    const html = renderToString(
+      <HighlightRail
+        milestones={[milestone("milestone_first"), milestone("milestone_second")]}
+        speakingMilestoneId="milestone_first"
+      />,
+    );
+
+    expect(html).toContain('data-easy-button-highlight-id="milestone_first"');
+    expect(html).toContain('data-easy-button-highlight-speaking="true"');
+    expect(html.match(/data-easy-button-highlight-speaking="true"/g)).toHaveLength(1);
+    expect(html).toContain('aria-current="true"');
+    expect(html).toContain('data-easy-button-highlight-id="milestone_second"');
+  });
+
   test("measures each milestone from its own conversation turn", () => {
     expect(milestoneElapsedLabel("2026-07-11T20:00:00Z", "2026-07-11T20:02:03Z")).toBe("2:03");
     expect(milestoneElapsedLabel(null, "2026-07-11T20:02:03Z")).toBe("");

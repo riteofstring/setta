@@ -179,6 +179,7 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
     logSupersession: (decision) => {
       console.info(JSON.stringify({ type: "speech_playback_supersession", ...decision }));
     },
+    now: () => Date.now(),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     synthesize: (request, signal) => {
       if (!setta.speech.synthesize || !setta.speech.cancelSynthesis) {

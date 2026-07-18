@@ -258,7 +258,10 @@ function EasyButtonProjectionContent({
   }
   return (
     <>
-      <HighlightRail milestones={view.milestones} />
+      <HighlightRail
+        milestones={view.milestones}
+        speakingMilestoneId={speech?.speakingSourceEventId ?? null}
+      />
       <main className="easy-button-stage">
         <div className="easy-button-center">
           {view.lineage ? (

@@ -10,7 +10,13 @@ export interface EasyButtonMilestone {
 
 const maxRenderedArtifacts = 6;
 
-export function HighlightRail({ milestones }: { milestones: readonly EasyButtonMilestone[] }) {
+export function HighlightRail({
+  milestones,
+  speakingMilestoneId = null,
+}: {
+  milestones: readonly EasyButtonMilestone[];
+  speakingMilestoneId?: string | null;
+}) {
   return (
     <aside
       aria-label="Milestones"
@@ -20,16 +26,31 @@ export function HighlightRail({ milestones }: { milestones: readonly EasyButtonM
       <p className="easy-button-rail-label">Now</p>
       <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
         {milestones.map((milestone) => (
-          <MilestoneItem key={milestone.id} milestone={milestone} />
+          <MilestoneItem
+            key={milestone.id}
+            milestone={milestone}
+            speaking={milestone.id === speakingMilestoneId}
+          />
         ))}
       </ol>
     </aside>
   );
 }
 
-function MilestoneItem({ milestone }: { milestone: EasyButtonMilestone }) {
+function MilestoneItem({
+  milestone,
+  speaking,
+}: {
+  milestone: EasyButtonMilestone;
+  speaking: boolean;
+}) {
   return (
-    <li className="easy-button-highlight-item" data-easy-button-highlight-id={milestone.id}>
+    <li
+      aria-current={speaking ? "true" : undefined}
+      className="easy-button-highlight-item"
+      data-easy-button-highlight-id={milestone.id}
+      data-easy-button-highlight-speaking={speaking ? "true" : undefined}
+    >
       <span aria-hidden="true" className="easy-button-highlight-dot" />
       <span className="easy-button-highlight-text">{milestone.text}</span>
       <span className="easy-button-highlight-time">

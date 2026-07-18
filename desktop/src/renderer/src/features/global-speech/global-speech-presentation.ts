@@ -57,6 +57,7 @@ export interface PaneSpeechPresentation {
   captureState: GlobalSpeechCapturePresentation["state"];
   playbackScope: PaneSpeechSourceScope;
   playbackState: SpeechPlaybackState["type"];
+  speakingSourceEventId: string | null;
   transcriptPreview: string | null;
   voiceControlDisabled: boolean;
   voiceControlLabel: string;
@@ -197,6 +198,7 @@ export function paneSpeechPresentation(
     captureState: capture.state,
     playbackScope,
     playbackState: playback.state.type,
+    speakingSourceEventId: speakingSourceEventId(playback, playbackScope),
     transcriptPreview:
       captureScope === "this_pane" ? speechCaptureTranscriptPreview(capture) : null,
     voiceControlDisabled: control.disabled,
@@ -428,6 +430,20 @@ function playbackStateSource(state: SpeechPlaybackState): GlobalSpeechSource | n
     default:
       return assertNever(speaker);
   }
+}
+
+function speakingSourceEventId(
+  playback: SpeechPlaybackSnapshot,
+  playbackScope: PaneSpeechSourceScope,
+): string | null {
+  if (
+    playback.state.type !== "speaking" ||
+    playbackScope !== "this_conversation" ||
+    playback.state.intent.source.speaker !== "narrator"
+  ) {
+    return null;
+  }
+  return playback.state.intent.source.eventId;
 }
 
 function paneSourceScope(

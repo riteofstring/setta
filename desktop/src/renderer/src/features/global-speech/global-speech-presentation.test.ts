@@ -106,6 +106,7 @@ describe("global speech presentation", () => {
       activityLabel: "Narrator speaking",
       playbackScope: "this_conversation",
       playbackState: "speaking",
+      speakingSourceEventId: "narration-status",
     });
     expect(
       paneSpeechPresentation(
@@ -118,6 +119,7 @@ describe("global speech presentation", () => {
       activityKind: "speaking",
       activityLabel: "Alpha topic narrator speaking",
       playbackScope: "other_conversation",
+      speakingSourceEventId: null,
     });
   });
 
@@ -204,6 +206,7 @@ function narratorIntent(conversationId: string): NarratorSpeechPlaybackIntent {
       eventId: "narration-status",
       speaker: "narrator",
     },
+    sourceCreatedAt: "2026-07-12T20:00:00Z",
     sourceSequenceEnd: 4,
     sourceSequenceStart: 3,
     turnId: "turn-alpha",

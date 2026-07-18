@@ -151,6 +151,7 @@ describe("app-shell speech playback controller", () => {
     expect(activeSignal.aborted).toBe(true);
     expect(harness.requests.map((request) => request.source.eventId)).toEqual([
       "active-milestone",
+      "queued-milestone",
       "covering-final",
     ]);
     expect(harness.supersessions).toEqual([
@@ -160,17 +161,24 @@ describe("app-shell speech playback controller", () => {
           source: expect.objectContaining({ eventId: "queued-milestone" }),
         }),
       }),
+    ]);
+    expect(harness.observations).toContainEqual(
       expect.objectContaining({
-        superseded: expect.objectContaining({
+        action: "dropped",
+        intent: expect.objectContaining({
           source: expect.objectContaining({ eventId: "active-milestone" }),
         }),
+        reason: "replaced",
       }),
-    ]);
+    );
 
     harness.resolveSynthesis(0);
     await flushPromises();
     expect(harness.audios).toEqual([]);
     harness.resolveSynthesis(1);
+    await flushPromises();
+    expect(harness.audios).toEqual([]);
+    harness.resolveSynthesis(2);
     await flushPromises();
     expect(harness.snapshot().state).toEqual({ intent: final, type: "speaking" });
   });
@@ -217,7 +225,77 @@ describe("app-shell speech playback controller", () => {
     expect(harness.snapshot().queued).toEqual([milestone]);
   });
 
-  test("capture preemption holds unplayed work until the full recording lifecycle ends", async () => {
+  test("a newer pending automatic milestone replaces the older one from the same conversation", async () => {
+    const harness = createHarness();
+    const first = intent("milestone", "milestone-first", {
+      sourceSequenceEnd: 4,
+      sourceSequenceStart: 3,
+    });
+    const second = intent("milestone", "milestone-second", {
+      sourceSequenceEnd: 6,
+      sourceSequenceStart: 5,
+    });
+
+    harness.controller.enqueueAutomatic(first);
+    const firstSignal = harness.signals[0]!;
+    harness.controller.enqueueAutomatic(second);
+
+    expect(firstSignal.aborted).toBe(true);
+    expect(harness.requests.map((request) => request.source.eventId)).toEqual([
+      "milestone-first",
+      "milestone-second",
+    ]);
+    expect(harness.observations).toContainEqual(
+      expect.objectContaining({
+        action: "dropped",
+        intent: expect.objectContaining({
+          source: expect.objectContaining({ eventId: "milestone-first" }),
+        }),
+        reason: "replaced",
+      }),
+    );
+
+    harness.resolveSynthesis(0);
+    await flushPromises();
+    expect(harness.audios).toEqual([]);
+
+    harness.resolveSynthesis(1);
+    await flushPromises();
+    expect(harness.snapshot().state).toEqual({ intent: second, type: "speaking" });
+  });
+
+  test("drops automatic milestones that cannot begin inside the freshness window", async () => {
+    const harness = createHarness();
+    const milestone = intent("milestone", "late-milestone");
+
+    harness.controller.enqueueAutomatic(milestone);
+    harness.advance(4_001);
+    harness.resolveSynthesis(0);
+    await flushPromises();
+
+    expect(harness.audios).toEqual([]);
+    expect(harness.snapshot()).toEqual({ queued: [], state: { type: "idle" } });
+    expect(harness.observations).toContainEqual(
+      expect.objectContaining({
+        action: "synthesized",
+        intent: expect.objectContaining({
+          source: expect.objectContaining({ eventId: "late-milestone" }),
+        }),
+        synthesisCompletedAt: Date.parse("2026-07-12T18:00:04.001Z"),
+      }),
+    );
+    expect(harness.observations).toContainEqual(
+      expect.objectContaining({
+        action: "dropped",
+        intent: expect.objectContaining({
+          source: expect.objectContaining({ eventId: "late-milestone" }),
+        }),
+        reason: "expired",
+      }),
+    );
+  });
+
+  test("capture preemption cancels active audio and drops stale pending milestones", async () => {
     const synthesizing = createHarness();
     const synthesizingIntent = intent("status_reply", "synthesizing");
     const queuedMilestone = intent("milestone", "queued-milestone");
@@ -225,13 +303,14 @@ describe("app-shell speech playback controller", () => {
     synthesizing.controller.enqueueAutomatic(synthesizingIntent);
     synthesizing.controller.enqueueAutomatic(queuedMilestone);
     const activeSignal = synthesizing.signals.at(-1)!;
+    synthesizing.advance(4_001);
 
     synthesizing.controller.preemptForCapture();
     synthesizing.controller.enqueueAutomatic(queuedAttention);
 
     expect(activeSignal.aborted).toBe(true);
     expect(synthesizing.snapshot()).toMatchObject({
-      queued: [synthesizingIntent, queuedAttention, queuedMilestone],
+      queued: [synthesizingIntent, queuedAttention],
       state: { reason: "capture", type: "stopped" },
     });
     expect(synthesizing.requests).toHaveLength(1);
@@ -257,6 +336,7 @@ describe("app-shell speech playback controller", () => {
     speaking.resolveSynthesis(0);
     await flushPromises();
     speaking.controller.enqueueAutomatic(queuedAfterSpeaking);
+    speaking.advance(4_001);
     const audio = speaking.audios[0]!;
     audio.currentTime = 4;
 
@@ -265,7 +345,7 @@ describe("app-shell speech playback controller", () => {
     expect(audio.pause).toHaveBeenCalledOnce();
     expect(audio.currentTime).toBe(0);
     expect(speaking.snapshot().state).toMatchObject({ reason: "capture", type: "stopped" });
-    expect(speaking.snapshot().queued).toEqual([queuedAfterSpeaking]);
+    expect(speaking.snapshot().queued).toEqual([]);
     expect(speaking.requests).toHaveLength(1);
     expect(speaking.observations).toContainEqual(
       expect.objectContaining({ action: "dropped", reason: "capture" }),
@@ -273,10 +353,7 @@ describe("app-shell speech playback controller", () => {
 
     speaking.controller.resumeAfterCapture();
 
-    expect(speaking.requests.map((request) => request.source.eventId)).toEqual([
-      "speaking",
-      "after-speaking",
-    ]);
+    expect(speaking.requests.map((request) => request.source.eventId)).toEqual(["speaking"]);
   });
 
   test("validates source attribution and reuses bounded cached audio for replay", async () => {
@@ -355,6 +432,7 @@ function createHarness(
     response?: (request: SpeechSynthesisRequest) => SpeechAudio;
   } = {},
 ) {
+  let now = Date.parse("2026-07-12T18:00:00Z");
   const requests: SpeechSynthesisRequest[] = [];
   const signals: AbortSignal[] = [];
   const results: Array<Deferred<SpeechAudio>> = [];
@@ -373,6 +451,7 @@ function createHarness(
     decodeBase64: () => new Uint8Array([82, 73, 70, 70]),
     logPlayback: (observation) => observations.push(observation),
     logSupersession: (decision) => supersessions.push(decision),
+    now: () => now,
     revokeObjectURL: (url) => revokedURLs.push(url),
     synthesize: (request, signal) => {
       requests.push(request);
@@ -384,6 +463,9 @@ function createHarness(
   };
   const controller = new AppShellSpeechPlaybackController(dependencies);
   return {
+    advance: (durationMs: number) => {
+      now += durationMs;
+    },
     audios,
     controller,
     observations,
@@ -425,6 +507,7 @@ function intent(
       speaker: "narrator",
       ...sourceOverrides,
     },
+    sourceCreatedAt: "2026-07-12T18:00:00Z",
   };
 }
 

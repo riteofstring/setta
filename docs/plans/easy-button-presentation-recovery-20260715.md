@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 
-**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phase 2 implemented and verified; Phases 3-5 pending
+**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phase 2 implemented and verified; Phase 3 implemented and verified; Phases 4-5 pending
 
 **Scope:** Easy Button presentation, typed artifacts, narrator projection and playback,
 global-master voice input, keyboard shortcuts, and production-path verification
@@ -399,7 +399,7 @@ Verification:
 
 ### Phase 3 — Correct playback arbitration
 
-**Status:** Pending
+**Status:** Implemented and verified
 
 - Replace FIFO milestone accumulation with per-source coalescing and expiry.
 - Add terminal/master/capture preemption and playback-start-driven visual state.

@@ -119,6 +119,11 @@
   opacity: 0.35;
 }
 
+.easy-button-highlight-item[data-easy-button-highlight-speaking="true"] {
+  color: var(--foreground);
+  opacity: 1;
+}
+
 .easy-button-highlight-dot {
   align-self: center;
   background: var(--easy-button-faint);
@@ -126,6 +131,11 @@
   height: 6px;
   position: relative;
   width: 6px;
+}
+
+.easy-button-highlight-item[data-easy-button-highlight-speaking="true"] .easy-button-highlight-dot {
+  background: var(--easy-button-primary);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--easy-button-primary) 20%, transparent);
 }
 
 .easy-button-highlight-text {

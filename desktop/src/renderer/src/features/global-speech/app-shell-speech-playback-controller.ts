@@ -20,6 +20,7 @@ interface SpeechPlaybackIntentBase {
   kind: SpeechPlaybackIntentKind;
   resolvedVoiceId: SpeechVoiceID;
   source: SpeechSource;
+  sourceCreatedAt: string | null;
 }
 
 interface MasterSpeechPlaybackIntent extends SpeechPlaybackIntentBase {
@@ -68,24 +69,37 @@ export interface SpeechPlaybackControllerDependencies {
   decodeBase64: (value: string) => Uint8Array;
   logPlayback: (observation: SpeechPlaybackObservation) => void;
   logSupersession: (decision: SpeechPlaybackSupersessionDecision) => void;
+  now: () => number;
   revokeObjectURL: (url: string) => void;
   synthesize: (request: SpeechSynthesisRequest, signal: AbortSignal) => Promise<SpeechAudio>;
 }
 
 export interface SpeechPlaybackObservation {
-  action: "completed" | "dropped" | "enqueued" | "failed" | "play" | "preempted";
+  action: "completed" | "dropped" | "enqueued" | "failed" | "play" | "preempted" | "synthesized";
+  enqueuedAt: number;
   intent: SpeechPlaybackIntent;
+  observedAt: number;
+  playbackStartedAt: number | null;
   priority: number;
   queuePosition: number | null;
   reason:
     | "automatic"
     | "capture"
+    | "expired"
     | "higher_priority"
+    | "lower_priority"
     | "playback_failed"
+    | "replaced"
     | "replay"
     | "reset"
+    | "terminal"
     | "user"
     | null;
+  sourceCreatedAt: string | null;
+  sourceEventId: string;
+  sourceLatencyMs: number | null;
+  synthesisCompletedAt: number | null;
+  synthesisStartedAt: number | null;
 }
 
 export interface SpeechPlaybackSupersessionDecision {
@@ -95,10 +109,16 @@ export interface SpeechPlaybackSupersessionDecision {
 }
 
 interface QueuedSpeech {
+  enqueuedAt: number;
   intent: SpeechPlaybackIntent;
+  origin: "automatic" | "replay";
+  playbackStartedAt: number | null;
   priority: number;
   sequence: number;
+  sourceCreatedAtMs: number | null;
   sourceKey: string;
+  synthesisCompletedAt: number | null;
+  synthesisStartedAt: number | null;
 }
 
 interface ActivePlayback {
@@ -113,6 +133,7 @@ interface CachedSpeechAudio {
 }
 
 const maximumCachedAudio = 16;
+const automaticMilestoneFreshnessMs = 4_000;
 
 export class AppShellSpeechPlaybackController {
   private readonly automaticSourceKeys = new Set<string>();
@@ -153,7 +174,7 @@ export class AppShellSpeechPlaybackController {
 
   enqueueAutomatic = (intent: SpeechPlaybackIntent): void => {
     this.assertUsable();
-    const item = this.createItem(intent);
+    const item = this.createItem(intent, "automatic");
     const automaticKey = speechSourceIdentityKey(intent.source);
     if (this.automaticSourceKeys.has(automaticKey)) {
       return;
@@ -164,7 +185,7 @@ export class AppShellSpeechPlaybackController {
 
   replay = (intent: SpeechPlaybackIntent): void => {
     this.assertUsable();
-    this.enqueue(this.createItem(intent), "replay");
+    this.enqueue(this.createItem(intent, "replay"), "replay");
   };
 
   stop = (): void => {
@@ -178,23 +199,14 @@ export class AppShellSpeechPlaybackController {
     }
     this.captureActive = true;
     const active = this.activeItem;
+    this.pruneQueueForCapture();
     if (!active) {
       this.publishSnapshot(this.snapshotValue.state);
       return;
     }
     const wasSpeaking = this.activePlayback !== null;
-    this.lifecycle += 1;
-    this.abortController?.abort();
-    this.abortController = null;
-    this.stopActiveAudio();
-    this.activeItem = null;
-    if (!wasSpeaking) {
-      this.queue.push(active);
-      this.sortQueue();
-      this.observe(active, "preempted", "capture", this.queuePosition(active));
-    } else {
-      this.observe(active, "dropped", "capture", null);
-    }
+    this.cancelActiveForCapture();
+    this.retainOrDropActiveForCapture(active, wasSpeaking);
     this.transition({ intent: active.intent, reason: "capture", type: "stopped" });
   };
 
@@ -234,9 +246,15 @@ export class AppShellSpeechPlaybackController {
     if (this.disposed || this.hasPendingSource(item.sourceKey)) {
       return;
     }
-    if (item.intent.kind === "final_summary" || item.intent.kind === "error") {
-      this.supersedeCoveredMilestones(item);
+    if (this.isExpiredAutomaticMilestone(item)) {
+      this.observe(item, "dropped", "expired", null);
+      return;
     }
+    this.replacePendingAutomaticMilestone(item);
+    if (isFinalSummaryIntent(item.intent)) {
+      this.supersedeTerminalMilestones(item);
+    }
+    this.clearLowerPriorityPendingSpeech(item);
     this.queue.push(item);
     this.sortQueue();
     this.preemptLowerPrioritySynthesis(item);
@@ -245,21 +263,30 @@ export class AppShellSpeechPlaybackController {
     this.playNext();
   }
 
-  private createItem(intent: SpeechPlaybackIntent): QueuedSpeech {
+  private createItem(intent: SpeechPlaybackIntent, origin: QueuedSpeech["origin"]): QueuedSpeech {
     const copy = copySpeechPlaybackIntent(intent);
     return {
+      enqueuedAt: this.dependencies.now(),
       intent: copy,
+      origin,
+      playbackStartedAt: null,
       priority: speechPlaybackPriority(copy.kind),
       sequence: this.nextSequence++,
+      sourceCreatedAtMs: speechSourceCreatedAtMs(copy),
       sourceKey: speechSourceCacheKey(copy),
+      synthesisCompletedAt: null,
+      synthesisStartedAt: null,
     };
   }
 
-  private supersedeCoveredMilestones(finalItem: QueuedSpeech): void {
+  private replacePendingAutomaticMilestone(newItem: QueuedSpeech): void {
+    if (!isAutomaticMilestone(newItem)) {
+      return;
+    }
     const retained: QueuedSpeech[] = [];
     for (const queued of this.queue) {
-      if (finalSummaryCoversMilestone(finalItem.intent, queued.intent)) {
-        this.logSupersession(finalItem.intent, queued.intent);
+      if (sameAutomaticMilestoneSource(newItem, queued)) {
+        this.observe(queued, "dropped", "replaced", null);
       } else {
         retained.push(queued);
       }
@@ -268,12 +295,65 @@ export class AppShellSpeechPlaybackController {
     if (
       this.activeItem &&
       !this.activePlayback &&
-      finalSummaryCoversMilestone(finalItem.intent, this.activeItem.intent)
+      sameAutomaticMilestoneSource(newItem, this.activeItem)
     ) {
-      const superseded = this.activeItem.intent;
+      const superseded = this.activeItem;
       this.cancelActiveSynthesis();
       this.activeItem = null;
-      this.logSupersession(finalItem.intent, superseded);
+      this.observe(superseded, "dropped", "replaced", null);
+    }
+  }
+
+  private supersedeTerminalMilestones(finalItem: QueuedSpeech): void {
+    const retained: QueuedSpeech[] = [];
+    for (const queued of this.queue) {
+      if (terminalOutputInvalidatesMilestone(finalItem.intent, queued.intent)) {
+        this.logSupersession(finalItem.intent, queued.intent);
+        this.observe(queued, "dropped", "terminal", null);
+      } else {
+        retained.push(queued);
+      }
+    }
+    this.queue = retained;
+    if (
+      this.activeItem &&
+      !this.activePlayback &&
+      terminalOutputInvalidatesMilestone(finalItem.intent, this.activeItem.intent)
+    ) {
+      const superseded = this.activeItem;
+      this.cancelActiveSynthesis();
+      this.activeItem = null;
+      this.logSupersession(finalItem.intent, superseded.intent);
+      this.observe(superseded, "dropped", "terminal", null);
+    }
+  }
+
+  private clearLowerPriorityPendingSpeech(newItem: QueuedSpeech): void {
+    if (!intentClearsLowerPrioritySpeech(newItem.intent)) {
+      return;
+    }
+    const retained: QueuedSpeech[] = [];
+    for (const queued of this.queue) {
+      if (
+        newItem.priority > queued.priority &&
+        sameSpeechPreemptionScope(newItem.intent, queued.intent)
+      ) {
+        this.observe(queued, "dropped", "lower_priority", null);
+      } else {
+        retained.push(queued);
+      }
+    }
+    this.queue = retained;
+    if (
+      this.activeItem &&
+      !this.activePlayback &&
+      newItem.priority > this.activeItem.priority &&
+      sameSpeechPreemptionScope(newItem.intent, this.activeItem.intent)
+    ) {
+      const superseded = this.activeItem;
+      this.cancelActiveSynthesis();
+      this.activeItem = null;
+      this.observe(superseded, "dropped", "lower_priority", null);
     }
   }
 
@@ -304,8 +384,9 @@ export class AppShellSpeechPlaybackController {
     if (this.disposed || this.captureActive || this.activeItem || this.queue.length === 0) {
       return;
     }
-    const item = this.queue.shift();
+    const item = this.shiftPlayableItem();
     if (!item) {
+      this.publishSnapshot(this.snapshotValue.state);
       return;
     }
     this.activeItem = item;
@@ -320,6 +401,10 @@ export class AppShellSpeechPlaybackController {
     if (!url || !this.isCurrent(item, lifecycle)) {
       return;
     }
+    if (this.isExpiredAutomaticMilestone(item)) {
+      this.dropCurrentItem(item, lifecycle, "expired");
+      return;
+    }
     this.beginAudioPlayback(item, lifecycle, url);
   }
 
@@ -331,12 +416,19 @@ export class AppShellSpeechPlaybackController {
     this.transition({ intent: item.intent, type: "synthesizing" });
     const abortController = this.dependencies.createAbortController();
     this.abortController = abortController;
+    item.synthesisStartedAt = this.dependencies.now();
     try {
       const response = await this.dependencies.synthesize(
         speechSynthesisRequest(item.intent),
         abortController.signal,
       );
-      return this.isCurrent(item, lifecycle) ? this.cacheResponse(item, response).url : null;
+      if (!this.isCurrent(item, lifecycle)) {
+        return null;
+      }
+      const cached = this.cacheResponse(item, response);
+      item.synthesisCompletedAt = this.dependencies.now();
+      this.observe(item, "synthesized", null, null);
+      return cached.url;
     } catch (error) {
       if (this.isCurrent(item, lifecycle)) {
         this.fail(item, synthesisFailureMessage(error));
@@ -408,6 +500,7 @@ export class AppShellSpeechPlaybackController {
     this.activePlayback = { audio, ended, failed };
     audio.addEventListener("ended", ended);
     audio.addEventListener("error", failed);
+    item.playbackStartedAt = this.dependencies.now();
     this.transition({ intent: item.intent, type: "speaking" });
     this.observe(item, "play", null, 0);
     try {
@@ -445,6 +538,16 @@ export class AppShellSpeechPlaybackController {
     this.activeItem = null;
     this.observe(item, "failed", "playback_failed", null);
     this.transition({ intent: item.intent, message, type: "failed" });
+    this.playNext();
+  }
+
+  private dropCurrentItem(item: QueuedSpeech, lifecycle: number, reason: "expired"): void {
+    if (!this.isCurrent(item, lifecycle)) {
+      return;
+    }
+    this.activeItem = null;
+    this.observe(item, "dropped", reason, null);
+    this.transition({ type: "idle" });
     this.playNext();
   }
 
@@ -489,6 +592,60 @@ export class AppShellSpeechPlaybackController {
     );
   }
 
+  private shiftPlayableItem(): QueuedSpeech | null {
+    while (this.queue.length > 0) {
+      const item = this.queue.shift();
+      if (!item) {
+        return null;
+      }
+      if (this.isExpiredAutomaticMilestone(item)) {
+        this.observe(item, "dropped", "expired", null);
+        continue;
+      }
+      return item;
+    }
+    return null;
+  }
+
+  private pruneQueueForCapture(): void {
+    const queued = [...this.queue];
+    this.queue = queued.filter((item) => this.retainForCapture(item));
+    for (const dropped of queued) {
+      if (!this.queue.includes(dropped)) {
+        this.observe(dropped, "dropped", "capture", null);
+      }
+    }
+  }
+
+  private cancelActiveForCapture(): void {
+    this.lifecycle += 1;
+    this.abortController?.abort();
+    this.abortController = null;
+    this.stopActiveAudio();
+    this.activeItem = null;
+  }
+
+  private retainOrDropActiveForCapture(active: QueuedSpeech, wasSpeaking: boolean): void {
+    if (!wasSpeaking && this.retainForCapture(active)) {
+      this.queue.push(active);
+      this.sortQueue();
+      this.observe(active, "preempted", "capture", this.queuePosition(active));
+      return;
+    }
+    this.observe(active, "dropped", "capture", null);
+  }
+
+  private retainForCapture(item: QueuedSpeech): boolean {
+    return !isAutomaticMilestone(item) || !this.isExpiredAutomaticMilestone(item);
+  }
+
+  private isExpiredAutomaticMilestone(item: QueuedSpeech): boolean {
+    if (!isAutomaticMilestone(item) || item.sourceCreatedAtMs === null) {
+      return false;
+    }
+    return this.dependencies.now() - item.sourceCreatedAtMs > automaticMilestoneFreshnessMs;
+  }
+
   private sortQueue(): void {
     this.queue.sort(
       (left, right) => right.priority - left.priority || left.sequence - right.sequence,
@@ -526,12 +683,22 @@ export class AppShellSpeechPlaybackController {
     reason: SpeechPlaybackObservation["reason"],
     queuePosition: number | null,
   ): void {
+    const observedAt = this.dependencies.now();
     this.dependencies.logPlayback({
       action,
+      enqueuedAt: item.enqueuedAt,
       intent: copySpeechPlaybackIntent(item.intent),
+      observedAt,
+      playbackStartedAt: item.playbackStartedAt,
       priority: item.priority,
       queuePosition,
       reason,
+      sourceCreatedAt: item.intent.sourceCreatedAt,
+      sourceEventId: item.intent.source.eventId,
+      sourceLatencyMs:
+        item.sourceCreatedAtMs === null ? null : Math.max(0, observedAt - item.sourceCreatedAtMs),
+      synthesisCompletedAt: item.synthesisCompletedAt,
+      synthesisStartedAt: item.synthesisStartedAt,
     });
   }
 
@@ -612,6 +779,7 @@ export function narrationSpeechPlaybackIntent(
       eventId: event.id,
       speaker: "narrator",
     },
+    sourceCreatedAt: event.createdAt,
     sourceSequenceEnd: event.sourceSequenceEnd,
     sourceSequenceStart: event.sourceSequenceStart,
     turnId: event.turnId,
@@ -656,7 +824,7 @@ function narrationPlaybackKind(
   }
 }
 
-function finalSummaryCoversMilestone(
+function terminalOutputInvalidatesMilestone(
   finalIntent: SpeechPlaybackIntent,
   candidate: SpeechPlaybackIntent,
 ): boolean {
@@ -664,7 +832,7 @@ function finalSummaryCoversMilestone(
     isFinalSummaryIntent(finalIntent) &&
     candidate.kind === "milestone" &&
     sameNarratorTurn(finalIntent, candidate) &&
-    sourceRangeCovers(finalIntent, candidate)
+    candidate.sourceSequenceEnd <= finalIntent.sourceSequenceEnd
   );
 }
 
@@ -685,16 +853,6 @@ function sameNarratorTurn(
   );
 }
 
-function sourceRangeCovers(
-  finalIntent: NarratorSpeechPlaybackIntent,
-  milestone: NarratorSpeechPlaybackIntent,
-): boolean {
-  return (
-    finalIntent.sourceSequenceStart <= milestone.sourceSequenceStart &&
-    finalIntent.sourceSequenceEnd >= milestone.sourceSequenceEnd
-  );
-}
-
 function speechSynthesisRequest(intent: SpeechPlaybackIntent): SpeechSynthesisRequest {
   return {
     resolvedVoiceId: intent.resolvedVoiceId,
@@ -704,6 +862,17 @@ function speechSynthesisRequest(intent: SpeechPlaybackIntent): SpeechSynthesisRe
 
 function speechSourceCacheKey(intent: SpeechPlaybackIntent): string {
   return JSON.stringify([speechSourceIdentityKey(intent.source), intent.resolvedVoiceId]);
+}
+
+function speechSourceCreatedAtMs(intent: SpeechPlaybackIntent): number | null {
+  if (intent.sourceCreatedAt === null) {
+    return null;
+  }
+  const parsed = Date.parse(intent.sourceCreatedAt);
+  if (!Number.isFinite(parsed)) {
+    throw new Error("speech playback requires a valid source creation timestamp");
+  }
+  return parsed;
 }
 
 function speechSourceIdentityKey(source: SpeechSource): string {
@@ -742,6 +911,45 @@ function copySpeechPlaybackIntent(intent: SpeechPlaybackIntent): SpeechPlaybackI
     default:
       return assertNever(intent);
   }
+}
+
+function isAutomaticMilestone(item: QueuedSpeech): boolean {
+  return item.origin === "automatic" && item.intent.kind === "milestone";
+}
+
+function sameAutomaticMilestoneSource(left: QueuedSpeech, right: QueuedSpeech): boolean {
+  return (
+    isAutomaticMilestone(left) &&
+    isAutomaticMilestone(right) &&
+    left.intent.source.speaker === "narrator" &&
+    right.intent.source.speaker === "narrator" &&
+    left.intent.source.conversationId === right.intent.source.conversationId
+  );
+}
+
+function intentClearsLowerPrioritySpeech(intent: SpeechPlaybackIntent): boolean {
+  switch (intent.kind) {
+    case "attention":
+    case "error":
+    case "final_summary":
+    case "master_answer":
+      return true;
+    case "milestone":
+    case "status_reply":
+      return false;
+    default:
+      return assertNever(intent);
+  }
+}
+
+function sameSpeechPreemptionScope(
+  left: SpeechPlaybackIntent,
+  right: SpeechPlaybackIntent,
+): boolean {
+  if (left.kind === "master_answer" || right.kind === "master_answer") {
+    return left.kind === "master_answer" && right.kind === "master_answer";
+  }
+  return left.source.conversationId === right.source.conversationId && left.turnId === right.turnId;
 }
 
 function validateSpeechAudioResponse(intent: SpeechPlaybackIntent, response: SpeechAudio): void {

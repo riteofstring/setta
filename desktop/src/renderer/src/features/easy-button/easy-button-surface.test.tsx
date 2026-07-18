@@ -448,6 +448,7 @@ describe("Easy Button topic conversation projection", () => {
           captureState: "idle",
           playbackScope: "this_conversation",
           playbackState: "speaking",
+          speakingSourceEventId: "milestone_conversation_speaking",
           transcriptPreview: null,
           voiceControlDisabled: false,
           voiceControlLabel: "Start a voice request for this conversation",
@@ -459,6 +460,7 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain('data-easy-button-capture="idle"');
     expect(html).toContain('data-easy-button-playback="speaking"');
     expect(html).toContain('data-easy-button-playback-scope="this_conversation"');
+    expect(html).toContain('data-easy-button-highlight-speaking="true"');
     expect(html).toContain('data-speech-activity="speaking"');
     expect(html).toContain("Narrator speaking");
   });
@@ -530,6 +532,7 @@ describe("Easy Button topic conversation projection", () => {
       captureState: "listening",
       playbackScope: "none",
       playbackState: "idle",
+      speakingSourceEventId: null,
       transcriptPreview: "Keep listening",
       voiceControlDisabled: false,
       voiceControlLabel: "Finish this voice request",
