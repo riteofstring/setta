@@ -208,6 +208,64 @@ Open Phase 0 host confirmations:
 - Run the Linux `--password-store=basic` command and record the rejected
   `linux_basic_text_backend` policy result.
 
+## 2026-07-18 Next-Step Platform Confirmation Pass
+
+The next incomplete plan item was revisited again before closing the BYOK plan.
+
+The pinned macOS probe was re-run:
+
+```sh
+desktop/node_modules/.bin/electron desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported --assert-round-trip
+```
+
+It still passes on this machine:
+
+```json
+{
+  "appReadyBeforeProbe": true,
+  "arch": "arm64",
+  "electronVersion": "41.7.0",
+  "passwordStoreSwitch": null,
+  "platform": "darwin",
+  "safeStorage": {
+    "ciphertextByteLength": 51,
+    "ciphertextContainsPlaintext": false,
+    "isEncryptionAvailable": true,
+    "policy": {
+      "reason": "os_backed_platform",
+      "status": "accept"
+    },
+    "roundTrip": true,
+    "selectedStorageBackend": null
+  }
+}
+```
+
+The local machine still cannot produce the remaining Linux or Windows host
+evidence:
+
+- `docker version` and `docker info` still cannot connect to the Docker daemon
+  at `unix:///Users/kevin/.docker/run/docker.sock`.
+- Docker Desktop processes are running, but the visible process state still
+  shows Docker Desktop stopped on its privileged setup prompt.
+- `command -v docker gh colima lima limactl podman qemu-system-x86_64
+  qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
+  `/opt/homebrew/bin/brew`.
+- No installed VM helper was found on `PATH` among `orb`, `orbstack`,
+  `multipass`, `parallels`, `prlctl`, `VBoxManage`, `vmrun`, `utmctl`,
+  `tart`, or `vagrant`.
+- A non-interactive `git ls-remote --heads origin` check did not return within
+  the bounded probe window, so this session still has no usable
+  GitHub-hosted-runner path.
+- The reference Codex repository at
+  `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` does not
+  contain an Electron `safeStorage`, `safe-storage`, `password-store`, or
+  `basic_text` probe pattern to reuse.
+
+No Windows or Linux `safeStorage` host result is recorded from this pass. The
+Phase 0 host-confirmation item remains open because the missing confirmations
+require actual Windows and Linux Electron hosts.
+
 ## Follow-Up Requirements For Phase 2
 
 - The production adapter must be constructed only after Electron `ready`.

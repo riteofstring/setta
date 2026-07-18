@@ -4,10 +4,12 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 attempts. The latest
-local attempt re-ran the pinned macOS probe successfully, found Docker Desktop
-still unavailable to CLI probes, found no local Windows/Linux runner, and found
-no connected GitHub-hosted runner path. Phase 1 is complete: desktop startup
+host confirmations are still open after the 2026-07-18 attempts. The current
+next-step pass re-ran the pinned macOS probe successfully, found Docker Desktop
+still blocked on its privileged setup prompt and unavailable to CLI probes,
+found no local Windows/Linux runner, confirmed the reference Codex repo has no
+Electron `safeStorage` probe pattern to reuse, and found no connected
+GitHub-hosted runner path from this session. Phase 1 is complete: desktop startup
 API-key ownership has been
 removed from the Electron-spawned backend, provider endpoint configuration is
 isolated from server-startup credentials, the explicit
@@ -609,9 +611,11 @@ environment-based desktop product behavior.
       `docs/reports/byok-desktop-speech-safe-storage-20260718.md`; a current
       local recheck again found Docker unavailable and no local Windows/Linux
       runner, so Windows and Linux host results remain pending. The latest
-      implementation pass repeated that recheck, re-ran the macOS probe, found
-      Docker Desktop blocked before the daemon became available, and found no
-      connected GitHub-hosted runner path.
+      next-step pass repeated that recheck, re-ran the macOS probe, found
+      Docker Desktop blocked on its privileged setup prompt before the daemon
+      became available, confirmed the reference Codex repo has no Electron
+      `safeStorage` probe pattern to reuse, and found no connected
+      GitHub-hosted runner path.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
