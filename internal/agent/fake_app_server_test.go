@@ -30,8 +30,9 @@ type fakePendingApproval struct {
 }
 
 type fakePendingDynamicTool struct {
-	threadID string
-	turnID   string
+	threadID    string
+	turnID      string
+	wantSuccess bool
 }
 
 func runFakeAgentAppServer() {
@@ -373,9 +374,29 @@ func handleFakeAgentTurnStart(state *fakeAgentServerState, message map[string]an
 	case "dynamic tool":
 		state.requestCounter++
 		requestID := fmt.Sprintf("dynamic-tool-%d", state.requestCounter)
-		state.pendingDynamicTools[requestID] = fakePendingDynamicTool{threadID: threadID, turnID: turnID}
+		state.pendingDynamicTools[requestID] = fakePendingDynamicTool{
+			threadID:    threadID,
+			turnID:      turnID,
+			wantSuccess: true,
+		}
 		writeFakeAgentRequest(requestID, "item/tool/call", map[string]any{
 			"arguments": map[string]any{"answer": "ok"},
+			"callId":    "call-" + turnID,
+			"namespace": "setta",
+			"threadId":  threadID,
+			"tool":      "emit_artifact",
+			"turnId":    turnID,
+		})
+	case "dynamic tool failure":
+		state.requestCounter++
+		requestID := fmt.Sprintf("dynamic-tool-%d", state.requestCounter)
+		state.pendingDynamicTools[requestID] = fakePendingDynamicTool{
+			threadID:    threadID,
+			turnID:      turnID,
+			wantSuccess: false,
+		}
+		writeFakeAgentRequest(requestID, "item/tool/call", map[string]any{
+			"arguments": map[string]any{"answer": "bad"},
 			"callId":    "call-" + turnID,
 			"namespace": "setta",
 			"threadId":  threadID,
@@ -550,7 +571,7 @@ func handleFakeDynamicToolResponse(
 ) {
 	delete(state.pendingDynamicTools, requestID)
 	result, ok := message["result"].(map[string]any)
-	if !ok || result["success"] != true {
+	if !ok || result["success"] != pending.wantSuccess {
 		panic("dynamic tool response has no successful result")
 	}
 	items, ok := result["contentItems"].([]any)
@@ -558,8 +579,14 @@ func handleFakeDynamicToolResponse(
 		panic("dynamic tool response content items drifted")
 	}
 	item, ok := items[0].(map[string]any)
-	if !ok || item["type"] != "inputText" || item["text"] != "dynamic tool acknowledged" {
+	if !ok || item["type"] != "inputText" {
 		panic("dynamic tool response item drifted")
+	}
+	if pending.wantSuccess && item["text"] != "dynamic tool acknowledged" {
+		panic("dynamic tool response item drifted")
+	}
+	if !pending.wantSuccess && !strings.Contains(fmt.Sprint(item["text"]), "dynamic tool arguments drifted") {
+		panic("dynamic tool failure response item drifted")
 	}
 	writeFakeAgentTurnCompleted(pending.threadID, pending.turnID, "completed")
 }

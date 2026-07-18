@@ -477,6 +477,9 @@ func validateRetryOperation(request Request, retry Request) error {
 		retry.Kind != request.Kind || retry.Trigger != request.Trigger {
 		return errors.New("worker retry changed the conversation operation")
 	}
+	if !sameFocusOperation(request.Focus, retry.Focus) {
+		return errors.New("worker retry changed the narrator focus operation")
+	}
 	if !sameProjectionOperation(request.Projection, retry.Projection) {
 		return errors.New("worker retry changed the narrator projection operation")
 	}
@@ -487,6 +490,13 @@ func validateRetryOperation(request Request, retry Request) error {
 		return errors.New("worker retry changed the narrator checkpoint operation")
 	}
 	return nil
+}
+
+func sameFocusOperation(left *FocusOperation, right *FocusOperation) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func sameProjectionOperation(left *ProjectionOperation, right *ProjectionOperation) bool {
@@ -586,6 +596,9 @@ func requestPriority(request Request) mailboxPriority {
 	}
 	if request.RecoverableRetry {
 		return priorityRetry
+	}
+	if request.Kind == RequestKindFocus {
+		return priorityAutomatic
 	}
 	if request.Kind == RequestKindProjection {
 		switch request.Trigger {

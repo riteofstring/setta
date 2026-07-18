@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 
-**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phases 2-5 pending
+**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phase 2 implemented and verified; Phases 3-5 pending
 
 **Scope:** Easy Button presentation, typed artifacts, narrator projection and playback,
 global-master voice input, keyboard shortcuts, and production-path verification
@@ -380,7 +380,7 @@ Verification:
 
 ### Phase 1 — Restore typed artifacts
 
-**Status:** Pending
+**Status:** Implemented and verified
 
 - Add the generic dynamic-tool bridge in `internal/agent`.
 - Add the conversation-owned artifact tool, typed content repository, validation, and endpoint.
@@ -390,7 +390,7 @@ Verification:
 
 ### Phase 2 — Correct narrator semantics
 
-**Status:** Pending
+**Status:** Implemented and verified
 
 - Split focus updates from milestone/terminal projection output.
 - Remove activity-completion milestone triggers and enforce cadence/source-range budgets.

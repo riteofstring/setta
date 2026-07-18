@@ -104,12 +104,13 @@ type NarratorTrajectoryWindow struct {
 }
 
 type NarratorContextSource struct {
-	Conversation         TopicConversation             `json:"conversation"`
-	NarratorState        NarratorState                 `json:"narratorState"`
-	CurrentTurn          NarratorCurrentTurnProjection `json:"currentTurn"`
-	Trajectory           NarratorTrajectoryWindow      `json:"trajectory"`
-	PriorMilestones      []NarrationEvent              `json:"priorMilestones"`
-	RecentFinalSummaries []NarrationEvent              `json:"recentFinalSummaries"`
+	Conversation            TopicConversation             `json:"conversation"`
+	NarratorState           NarratorState                 `json:"narratorState"`
+	CurrentTurn             NarratorCurrentTurnProjection `json:"currentTurn"`
+	Trajectory              NarratorTrajectoryWindow      `json:"trajectory"`
+	PriorMilestones         []NarrationEvent              `json:"priorMilestones"`
+	CurrentTurnFinalSummary *NarrationEvent               `json:"currentTurnFinalSummary"`
+	RecentFinalSummaries    []NarrationEvent              `json:"recentFinalSummaries"`
 }
 
 func (value TrajectorySequenceRange) Validate() error {

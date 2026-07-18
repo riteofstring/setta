@@ -6,6 +6,18 @@ import (
 	"sort"
 )
 
+func focusOutputSchema(context FocusContextBundle) (json.RawMessage, error) {
+	if context.Kind != ContextKindFocus {
+		return nil, fmt.Errorf("narrator focus schema received context kind %q", context.Kind)
+	}
+	return marshalOutputSchema(strictObjectSchema(map[string]any{
+		"kind":                  enumStringSchema(string(CallOutputFocusProjection)),
+		"sourceThroughSequence": boundedIntegerSchema(context.SourceThroughSequence, context.SourceThroughSequence),
+		"currentFocus":          boundedStringSchema(MaxNarratorCurrentFocusCharacters),
+		"topicDescriptor":       nullableBoundedStringSchema(MaxNarratorTopicDescriptorCharacters),
+	}))
+}
+
 func projectionOutputSchema(context ProjectionContextBundle) (json.RawMessage, error) {
 	if context.Kind != ContextKindProjection {
 		return nil, fmt.Errorf("narrator projection schema received context kind %q", context.Kind)
@@ -15,9 +27,7 @@ func projectionOutputSchema(context ProjectionContextBundle) (json.RawMessage, e
 	}
 	properties := map[string]any{
 		"observedThroughSequence": boundedIntegerSchema(context.EvaluationRange.Start, context.EvaluationRange.End),
-		"currentFocus":            boundedStringSchema(MaxNarratorCurrentFocusCharacters),
 		"milestones":              milestoneArraySchema(),
-		"topicDescriptor":         nullableBoundedStringSchema(MaxNarratorTopicDescriptorCharacters),
 	}
 	switch context.RequestedChannel {
 	case ProjectionChannelWorking:

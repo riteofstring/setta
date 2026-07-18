@@ -69,8 +69,17 @@ func (runtime *Runtime) handleDynamicToolCall(
 	}
 	result, err := tool.Handler(ctx, call)
 	if err != nil {
-		_ = message.RespondError(-32000, err.Error())
-		return TurnResult{}, false, err
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			_ = message.RespondError(-32000, ctxErr.Error())
+			return TurnResult{}, false, ctxErr
+		}
+		result = DynamicToolResult{
+			ContentItems: []DynamicToolContentItem{{
+				Type: "inputText",
+				Text: err.Error(),
+			}},
+			Success: false,
+		}
 	}
 	if err := validateDynamicToolResult(result); err != nil {
 		_ = message.RespondError(-32603, err.Error())

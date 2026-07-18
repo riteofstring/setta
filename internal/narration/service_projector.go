@@ -71,6 +71,7 @@ func (service *Service) ObserveCommittedTrajectory(
 		TurnID:          observation.TurnID,
 		ThroughSequence: observationThroughSequence(observation.Trajectory),
 	}
+	service.submitFocusObservations(observation)
 	trigger, immediate := observationTrigger(observation)
 	if immediate {
 		service.cancelProgressWindow(observation.ConversationID)
@@ -82,6 +83,37 @@ func (service *Service) ObserveCommittedTrajectory(
 		return
 	}
 	service.scheduleProgressWindow(observation.ConversationID, operation)
+}
+
+func (service *Service) submitFocusObservations(
+	observation conversation.NarrationTrajectoryObservation,
+) {
+	for _, event := range observation.Trajectory {
+		trigger, ok := focusTrigger(event.Kind)
+		if !ok {
+			continue
+		}
+		service.submitFocus(
+			observation.ConversationID,
+			FocusOperation{
+				WorkspaceID:    observation.WorkspaceID,
+				TurnID:         observation.TurnID,
+				SourceSequence: event.Sequence,
+			},
+			trigger,
+		)
+	}
+}
+
+func focusTrigger(kind conversation.TrajectoryEventKind) (conversation.NarrationTrigger, bool) {
+	switch kind {
+	case conversation.TrajectoryEventUserInputAccepted:
+		return conversation.NarrationTriggerInputAccepted, true
+	case conversation.TrajectoryEventTurnSteered:
+		return conversation.NarrationTriggerUserSteered, true
+	default:
+		return "", false
+	}
 }
 
 func (service *Service) enqueueTerminalProjection(
@@ -167,14 +199,8 @@ func trajectoryTrigger(kind conversation.TrajectoryEventKind) (conversation.Narr
 	switch kind {
 	case conversation.TrajectoryEventApprovalRequested:
 		return conversation.NarrationTriggerApprovalRequired, 4
-	case conversation.TrajectoryEventTurnSteered:
-		return conversation.NarrationTriggerUserSteered, 3
 	case conversation.TrajectoryEventPlanChanged:
 		return conversation.NarrationTriggerPlanChanged, 2
-	case conversation.TrajectoryEventActivityCompleted,
-		conversation.TrajectoryEventActivityFailed,
-		conversation.TrajectoryEventSubagentCompleted:
-		return conversation.NarrationTriggerPhaseActivityCompleted, 1
 	default:
 		return conversation.NarrationTriggerProgressWindowElapsed, 0
 	}
@@ -262,6 +288,26 @@ func (service *Service) submitProjection(
 		if err != nil {
 			service.releaseTerminalProjection(conversationID, operation, trigger)
 		}
+	})
+}
+
+func (service *Service) submitFocus(
+	conversationID string,
+	operation FocusOperation,
+	trigger conversation.NarrationTrigger,
+) {
+	service.startTask(func(ctx context.Context) {
+		requestID, err := service.newID("narrator_focus")
+		if err != nil {
+			return
+		}
+		_, _ = service.registry.Submit(ctx, Request{
+			ID:             requestID,
+			ConversationID: conversationID,
+			Kind:           RequestKindFocus,
+			Trigger:        trigger,
+			Focus:          &operation,
+		})
 	})
 }
 
@@ -410,6 +456,8 @@ func (service *Service) handleCompletion(completion Completion) {
 		return
 	}
 	switch completion.Request.Kind {
+	case RequestKindFocus:
+		service.resumeTerminalProjection(completion.Request.ConversationID)
 	case RequestKindProjection:
 		service.continueProjection(completion.Request)
 	case RequestKindCheckpoint:
@@ -421,6 +469,8 @@ func (service *Service) handleCompletion(completion Completion) {
 
 func (service *Service) releaseRequestTerminalProjection(request Request) {
 	switch request.Kind {
+	case RequestKindFocus:
+		return
 	case RequestKindProjection:
 		if request.Projection != nil {
 			service.releaseTerminalProjection(
@@ -471,6 +521,10 @@ func (service *Service) continueProjection(request Request) {
 			service.submitCheckpoint(request.ConversationID, CheckpointOperation{
 				WorkspaceID: operation.WorkspaceID,
 			})
+			return
+		}
+		if request.Trigger != conversation.NarrationTriggerTurnTerminal {
+			service.recoverTerminalTrajectory(ctx, request.ConversationID)
 		}
 	})
 }
@@ -520,6 +574,13 @@ func (service *Service) continueCheckpoint(request Request) {
 				service.submitCheckpoint(request.ConversationID, operation)
 				return
 			}
+			if operation.ResumeTrigger == conversation.NarrationTriggerTurnTerminal {
+				service.resumeCheckpointTerminalProjection(
+					request.ConversationID,
+					*operation.ResumeProjection,
+				)
+				return
+			}
 			service.submitProjection(
 				request.ConversationID,
 				*operation.ResumeProjection,
@@ -530,8 +591,40 @@ func (service *Service) continueCheckpoint(request Request) {
 		if state.ObservedThroughSequence-state.CheckpointThroughSequence >=
 			service.checkpointWindowEvents {
 			service.submitCheckpoint(request.ConversationID, operation)
+			return
 		}
+		service.recoverTerminalTrajectory(ctx, request.ConversationID)
 	})
+}
+
+func (service *Service) recoverTerminalTrajectory(ctx context.Context, conversationID string) {
+	targets, err := service.store.ListNarratorRecoveryTargets(ctx)
+	if err != nil {
+		return
+	}
+	for _, target := range targets {
+		if !target.Terminal || target.ConversationID != conversationID {
+			continue
+		}
+		service.enqueueTerminalProjection(target.ConversationID, ProjectionOperation{
+			WorkspaceID:     target.WorkspaceID,
+			TurnID:          target.TurnID,
+			ThroughSequence: target.ThroughSequence,
+		})
+	}
+}
+
+func (service *Service) resumeCheckpointTerminalProjection(
+	conversationID string,
+	operation ProjectionOperation,
+) {
+	service.lifecycleMu.Lock()
+	queue := service.terminal[conversationID]
+	if queue != nil && queue.active == operation {
+		queue.activeInFlight = false
+	}
+	service.lifecycleMu.Unlock()
+	service.resumeTerminalProjection(conversationID)
 }
 
 func (service *Service) Shutdown(ctx context.Context) error {

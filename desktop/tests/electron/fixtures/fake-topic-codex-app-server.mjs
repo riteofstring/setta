@@ -2,12 +2,10 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
-
 import {
   languageCountArtifactArguments,
   validateArtifactToolResult,
 } from "./fake-topic-artifact-tool.mjs";
-
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
   "SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS",
@@ -24,7 +22,6 @@ const pendingApprovals = new Map();
 const pendingToolCalls = new Map();
 const simultaneousCompletionInput = "complete simultaneous audio now";
 const pendingSimultaneousCompletions = [];
-const failedNarratorObjectives = new Set();
 const heldStructuredKeys = new Set(persistedState.heldStructuredKeys);
 const heldTurnStartKeys = new Set(persistedState.heldTurnStartKeys);
 let account = null;
@@ -47,7 +44,6 @@ const methodHandlers = new Map([
   ["turn/steer", steerTurn],
   ["turn/interrupt", interruptTurn],
 ]);
-
 const input = readline.createInterface({ input: process.stdin });
 input.on("line", (line) => {
   if (line.trim() === "") {
@@ -60,7 +56,6 @@ input.on("line", (line) => {
   }
   handleMethod(message);
 });
-
 function handleMethod(message) {
   const handler = methodHandlers.get(message.method);
   if (!handler) {
@@ -69,7 +64,6 @@ function handleMethod(message) {
   }
   handler(message);
 }
-
 function initialize(message) {
   respond(message.id, {
     codexHome: "/tmp/setta-topic-codex",
@@ -78,11 +72,9 @@ function initialize(message) {
     userAgent: "setta-topic-codex-fake",
   });
 }
-
 function readAccount(message) {
   respond(message.id, { account, requiresOpenaiAuth: true });
 }
-
 function startAccountLogin(message) {
   if (message.params?.type !== "chatgpt") {
     respondError(message.id, -32602, "fake topic account login requires ChatGPT");
@@ -103,7 +95,6 @@ function startAccountLogin(message) {
     notify("account/updated", { authMode: "chatgpt", planType: "pro" });
   }, 25);
 }
-
 function logoutAccount(message) {
   account = null;
   respond(message.id, {});
@@ -499,11 +490,15 @@ function emitStructuredTurn(threadId, turnId, text, outputSchema) {
     completeTurn(threadId, turnId, "completed");
     return;
   }
+  if (context.kind === "focus") {
+    emitStructuredFocus(threadId, turnId, context);
+    return;
+  }
   if (context.kind === "projection") {
     emitStructuredProjection(threadId, turnId, context);
     return;
   }
-  if (context.kind === "checkpoint" && context.trigger === "checkpoint_window_exceeded") {
+  if (context.kind === "checkpoint") {
     emitAgentMessage(
       threadId,
       turnId,
@@ -878,24 +873,33 @@ function structuredRouteContextIsRedacted(serialized) {
 
 function emitStructuredProjection(threadId, turnId, context) {
   const objective = context.authoritative?.currentInstructions?.objective?.text ?? "topic work";
-  if (objective.includes("narration backlog") && !failedNarratorObjectives.has(objective)) {
-    failedNarratorObjectives.add(objective);
-    completeTurn(threadId, turnId, "failed", "Scripted narrator outage");
-    return;
-  }
   const observedThroughSequence = context.evaluationRange.end;
   const output = {
-    currentFocus: `Evaluated ${objective} through sequence ${observedThroughSequence}.`,
     kind: "working_projection",
     milestones: projectionMilestones(context, objective, observedThroughSequence),
     observedThroughSequence,
-    topicDescriptor: null,
   };
   if (context.requestedChannel === "terminal_projection") {
     output.kind = "terminal_projection";
+    output.milestones = [];
     output.finalSummary = `Narrator completed ${objective}.`;
   }
   emitAgentMessage(threadId, turnId, JSON.stringify(output));
+  completeTurn(threadId, turnId, "completed");
+}
+
+function emitStructuredFocus(threadId, turnId, context) {
+  const objective = context.authoritative?.currentInstructions?.objective?.text ?? "topic work";
+  emitAgentMessage(
+    threadId,
+    turnId,
+    JSON.stringify({
+      currentFocus: objective,
+      kind: "focus_projection",
+      sourceThroughSequence: context.sourceThroughSequence,
+      topicDescriptor: context.trigger === "input_accepted" ? objective : null,
+    }),
+  );
   completeTurn(threadId, turnId, "completed");
 }
 
@@ -905,6 +909,9 @@ function projectionMilestones(context, objective, observedThroughSequence) {
       (steering) => steering.input?.text === simultaneousCompletionInput,
     );
   if (context.requestedChannel !== "terminal_projection" && simultaneousCompletionSteering) {
+    return [];
+  }
+  if (context.priorMilestones?.length > 0) {
     return [];
   }
   return [`Narrator evaluated ${objective} through sequence ${observedThroughSequence}.`];

@@ -30,6 +30,7 @@ type CallRequest struct {
 	ID            string
 	Generation    uint64
 	WorkspaceRoot string
+	Focus         *FocusContextBundle
 	Projection    *ProjectionContextBundle
 	Status        *StatusContextBundle
 	Checkpoint    *CheckpointContextBundle
@@ -206,6 +207,8 @@ func (caller *Caller) resolveModel(
 
 func contextKindForRequest(kind RequestKind) ContextKind {
 	switch kind {
+	case RequestKindFocus:
+		return ContextKindFocus
 	case RequestKindProjection:
 		return ContextKindProjection
 	case RequestKindStatus:
@@ -299,6 +302,7 @@ type preparedCallRequest struct {
 	projection     ProjectionContextBundle
 	status         StatusContextBundle
 	checkpoint     CheckpointContextBundle
+	focus          FocusContextBundle
 }
 
 func prepareCallRequest(request CallRequest) (preparedCallRequest, error) {
@@ -312,13 +316,21 @@ func prepareCallRequest(request CallRequest) (preparedCallRequest, error) {
 		return preparedCallRequest{}, fmt.Errorf("narrator call workspace root must be absolute: %s", request.WorkspaceRoot)
 	}
 	branches := 0
-	for _, present := range []bool{request.Projection != nil, request.Status != nil, request.Checkpoint != nil} {
+	for _, present := range []bool{
+		request.Focus != nil,
+		request.Projection != nil,
+		request.Status != nil,
+		request.Checkpoint != nil,
+	} {
 		if present {
 			branches++
 		}
 	}
 	if branches != 1 {
 		return preparedCallRequest{}, fmt.Errorf("narrator call has %d context branches, want exactly one", branches)
+	}
+	if request.Focus != nil {
+		return prepareFocusCall(*request.Focus)
 	}
 	if request.Projection != nil {
 		return prepareProjectionCall(*request.Projection)
@@ -327,6 +339,35 @@ func prepareCallRequest(request CallRequest) (preparedCallRequest, error) {
 		return prepareStatusCall(*request.Status)
 	}
 	return prepareCheckpointCall(*request.Checkpoint)
+}
+
+func prepareFocusCall(context FocusContextBundle) (preparedCallRequest, error) {
+	frozen, input, err := freezeCallContext(context, context.InputBytes, "focus")
+	if err != nil {
+		return preparedCallRequest{}, err
+	}
+	frozen.InputBytes = context.InputBytes
+	if frozen.Kind != ContextKindFocus || !isFocusTrigger(frozen.Trigger) {
+		return preparedCallRequest{}, fmt.Errorf("narrator focus call has kind/trigger %q/%q", frozen.Kind, frozen.Trigger)
+	}
+	if frozen.SourceThroughSequence <= 0 {
+		return preparedCallRequest{}, errors.New("narrator focus call source sequence must be positive")
+	}
+	schema, err := focusOutputSchema(frozen)
+	if err != nil {
+		return preparedCallRequest{}, err
+	}
+	prepared, err := preparedContextIdentity(frozen.Authoritative, RequestKindFocus)
+	if err != nil {
+		return preparedCallRequest{}, err
+	}
+	prepared.trigger = frozen.Trigger
+	prepared.input = input
+	prepared.inputBytes = frozen.InputBytes
+	prepared.outputSchema = schema
+	prepared.instructions = focusInstructions()
+	prepared.focus = frozen
+	return prepared, nil
 }
 
 func prepareProjectionCall(context ProjectionContextBundle) (preparedCallRequest, error) {
@@ -345,8 +386,10 @@ func prepareProjectionCall(context ProjectionContextBundle) (preparedCallRequest
 			frozen.RequestedChannel,
 		)
 	}
-	if err := frozen.ValidateObservedAdvance(frozen.EvaluationRange.End); err != nil {
-		return preparedCallRequest{}, err
+	if !terminalFinalizesObservedCursor(frozen, frozen.EvaluationRange.End) {
+		if err := frozen.ValidateObservedAdvance(frozen.EvaluationRange.End); err != nil {
+			return preparedCallRequest{}, err
+		}
 	}
 	schema, err := projectionOutputSchema(frozen)
 	if err != nil {
@@ -476,6 +519,12 @@ func freezeCallContext[T any](value T, recordedBytes int, label string) (T, json
 
 func decodeCallOutput(result *CallResult, prepared preparedCallRequest, raw json.RawMessage) error {
 	switch result.Kind {
+	case RequestKindFocus:
+		output, err := decodeFocusOutput(raw, prepared.focus)
+		if err != nil {
+			return fmt.Errorf("validate narrator focus output: %w", err)
+		}
+		result.NarratorOutput = &output
 	case RequestKindProjection:
 		output, err := decodeProjectionOutput(raw, prepared.projection)
 		if err != nil {
@@ -500,11 +549,21 @@ func decodeCallOutput(result *CallResult, prepared preparedCallRequest, raw json
 	return nil
 }
 
+func focusInstructions() string {
+	return strings.Join([]string{
+		"Act as Setta's stable focus projector. Use only the supplied authoritative context JSON.",
+		"Return the stable user-facing topic or objective for the accepted input or steering source.",
+		"For steering that does not materially change the objective, return the existing authoritative currentFocus exactly.",
+		"Use topicDescriptor only for broader routing metadata when the objective changes; otherwise return null.",
+	}, "\n")
+}
+
 func projectionInstructions(channel ProjectionChannel) string {
 	lines := []string{
 		"Act as Setta's narrator projector. Use only the supplied authoritative context JSON.",
 		"Current objective, constraints, and accepted steering override historical checkpoint text.",
-		"Keep currentFocus concise and voice-ready. Emit only sparse phase-change milestones; an empty milestones array is valid.",
+		"Emit at most one sparse phase-change milestone; an empty milestones array is valid.",
+		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}
 	if channel == ProjectionChannelTerminal {

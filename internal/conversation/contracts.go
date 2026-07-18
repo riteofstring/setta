@@ -961,7 +961,7 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("SideConversationStatus", SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing, SideConversationStatusFailed),
 		contractValueSet("NarratorStatus", NarratorStatusReady, NarratorStatusRunning, NarratorStatusDegraded),
 		contractValueSet("NarrationEventKind", NarrationEventKindMilestone, NarrationEventKindStatusReply, NarrationEventKindFinalSummary, NarrationEventKindTopicDescriptor),
-		contractValueSet("NarrationTrigger", NarrationTriggerProgressWindowElapsed, NarrationTriggerPlanChanged, NarrationTriggerPhaseActivityCompleted, NarrationTriggerApprovalRequired, NarrationTriggerUserSteered, NarrationTriggerExplicitStatusRequested, NarrationTriggerTurnTerminal, NarrationTriggerCheckpointWindowExceeded),
+		contractValueSet("NarrationTrigger", NarrationTriggerInputAccepted, NarrationTriggerProgressWindowElapsed, NarrationTriggerPlanChanged, NarrationTriggerPhaseActivityCompleted, NarrationTriggerApprovalRequired, NarrationTriggerUserSteered, NarrationTriggerExplicitStatusRequested, NarrationTriggerTurnTerminal, NarrationTriggerCheckpointWindowExceeded),
 		contractValueSet("PresentationSelectionMode", PresentationSelectionAutoDistinct, PresentationSelectionExact),
 		contractValueSet("PresentationReuseReason", PresentationReuseCatalogExhausted),
 		{Name: "TrajectoryEventKind", Values: stringValues(trajectoryEventKinds)},

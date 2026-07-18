@@ -20,6 +20,7 @@ type ProjectionChannel string
 type ContextAuthority string
 
 const (
+	ContextKindFocus      ContextKind = "focus"
 	ContextKindProjection ContextKind = "projection"
 	ContextKindStatus     ContextKind = "status"
 	ContextKindCheckpoint ContextKind = "checkpoint"
@@ -128,6 +129,15 @@ type ProjectionContextBundle struct {
 	InputBytes               int                                   `json:"-"`
 }
 
+type FocusContextBundle struct {
+	Kind                  ContextKind                   `json:"kind"`
+	Trigger               conversation.NarrationTrigger `json:"trigger"`
+	SourceThroughSequence int                           `json:"sourceThroughSequence"`
+	Authoritative         AuthoritativeContext          `json:"authoritative"`
+	PreCallCursor         NarratorCursor                `json:"preCallCursor"`
+	InputBytes            int                           `json:"-"`
+}
+
 type StatusContextBundle struct {
 	Kind                   ContextKind                           `json:"kind"`
 	Trigger                conversation.NarrationTrigger         `json:"trigger"`
@@ -162,6 +172,14 @@ type ProjectionContextRequest struct {
 	Trigger         conversation.NarrationTrigger
 	ThroughSequence int
 	Limits          ContextLimits
+}
+
+type FocusContextRequest struct {
+	ConversationID string
+	TurnID         string
+	Trigger        conversation.NarrationTrigger
+	SourceSequence int
+	Limits         ContextLimits
 }
 
 type StatusContextRequest struct {
@@ -269,6 +287,22 @@ func validateProjectionContextRequest(request ProjectionContextRequest) error {
 	}
 	if request.ThroughSequence <= 0 {
 		return fmt.Errorf("narrator projection through sequence must be positive")
+	}
+	return request.Limits.Validate()
+}
+
+func validateFocusContextRequest(request FocusContextRequest) error {
+	if err := validateIdentifier("narrator focus conversation id", request.ConversationID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("narrator focus turn id", request.TurnID); err != nil {
+		return err
+	}
+	if !isFocusTrigger(request.Trigger) {
+		return fmt.Errorf("unsupported narrator focus trigger %q", request.Trigger)
+	}
+	if request.SourceSequence <= 0 {
+		return fmt.Errorf("narrator focus source sequence must be positive")
 	}
 	return request.Limits.Validate()
 }

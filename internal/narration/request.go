@@ -10,6 +10,7 @@ import (
 type RequestKind string
 
 const (
+	RequestKindFocus      RequestKind = "focus"
 	RequestKindProjection RequestKind = "projection"
 	RequestKindStatus     RequestKind = "status"
 	RequestKindCheckpoint RequestKind = "checkpoint"
@@ -50,6 +51,27 @@ func (operation ProjectionOperation) Validate() error {
 	}
 	if operation.ThroughSequence <= 0 {
 		return fmt.Errorf("narrator projection through sequence must be positive")
+	}
+	return nil
+}
+
+// FocusOperation targets the exact accepted input or steering event that is
+// allowed to revise the stable user-facing topic focus.
+type FocusOperation struct {
+	WorkspaceID    string
+	TurnID         string
+	SourceSequence int
+}
+
+func (operation FocusOperation) Validate() error {
+	if err := validateIdentifier("narrator focus workspace id", operation.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("narrator focus turn id", operation.TurnID); err != nil {
+		return err
+	}
+	if operation.SourceSequence <= 0 {
+		return fmt.Errorf("narrator focus source sequence must be positive")
 	}
 	return nil
 }
@@ -106,6 +128,7 @@ type Request struct {
 	ConversationID string
 	Kind           RequestKind
 	Trigger        conversation.NarrationTrigger
+	Focus          *FocusOperation
 	Projection     *ProjectionOperation
 	Status         *StatusOperation
 	Checkpoint     *CheckpointOperation
@@ -122,6 +145,8 @@ func (request Request) Validate() error {
 		return err
 	}
 	switch request.Kind {
+	case RequestKindFocus:
+		return request.validateFocus()
 	case RequestKindProjection:
 		return request.validateProjection()
 	case RequestKindStatus:
@@ -153,11 +178,31 @@ func (request Request) validateEnvelope() error {
 	return nil
 }
 
+func (request Request) validateFocus() error {
+	if request.Focus == nil {
+		return fmt.Errorf("narrator focus request %s requires a focus operation", request.ID)
+	}
+	if request.Projection != nil || request.Status != nil || request.Checkpoint != nil {
+		return fmt.Errorf("narrator focus request %s contains a cross-kind operation", request.ID)
+	}
+	if err := request.Focus.Validate(); err != nil {
+		return fmt.Errorf("narrator focus request %s: %w", request.ID, err)
+	}
+	if !isFocusTrigger(request.Trigger) {
+		return fmt.Errorf(
+			"narrator focus request %s has unsupported trigger %q",
+			request.ID,
+			request.Trigger,
+		)
+	}
+	return nil
+}
+
 func (request Request) validateProjection() error {
 	if request.Projection == nil {
 		return fmt.Errorf("narrator projection request %s requires a projection operation", request.ID)
 	}
-	if request.Status != nil || request.Checkpoint != nil {
+	if request.Focus != nil || request.Status != nil || request.Checkpoint != nil {
 		return fmt.Errorf("narrator projection request %s contains a cross-kind operation", request.ID)
 	}
 	if err := request.Projection.Validate(); err != nil {
@@ -177,7 +222,7 @@ func (request Request) validateStatus() error {
 	if request.Status == nil {
 		return fmt.Errorf("narrator status request %s requires a status operation", request.ID)
 	}
-	if request.Projection != nil || request.Checkpoint != nil {
+	if request.Focus != nil || request.Projection != nil || request.Checkpoint != nil {
 		return fmt.Errorf("narrator status request %s contains a cross-kind operation", request.ID)
 	}
 	if err := request.Status.Validate(); err != nil {
@@ -197,7 +242,7 @@ func (request Request) validateCheckpoint() error {
 	if request.Checkpoint == nil {
 		return fmt.Errorf("narrator checkpoint request %s requires a checkpoint operation", request.ID)
 	}
-	if request.Projection != nil || request.Status != nil {
+	if request.Focus != nil || request.Projection != nil || request.Status != nil {
 		return fmt.Errorf("narrator checkpoint request %s contains a cross-kind operation", request.ID)
 	}
 	if err := request.Checkpoint.Validate(); err != nil {
@@ -215,6 +260,10 @@ func (request Request) validateCheckpoint() error {
 
 func cloneRequest(request Request) Request {
 	cloned := request
+	if request.Focus != nil {
+		focus := *request.Focus
+		cloned.Focus = &focus
+	}
 	if request.Projection != nil {
 		projection := *request.Projection
 		cloned.Projection = &projection
@@ -246,6 +295,16 @@ func validateIdentifier(label string, value string) error {
 		return fmt.Errorf("%s must not have surrounding whitespace", label)
 	}
 	return nil
+}
+
+func isFocusTrigger(trigger conversation.NarrationTrigger) bool {
+	switch trigger {
+	case conversation.NarrationTriggerInputAccepted,
+		conversation.NarrationTriggerUserSteered:
+		return true
+	default:
+		return false
+	}
 }
 
 func isProjectionTrigger(trigger conversation.NarrationTrigger) bool {

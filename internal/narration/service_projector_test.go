@@ -78,6 +78,149 @@ func TestServiceRecoversCommittedTerminalBacklogAfterRestart(t *testing.T) {
 	}
 }
 
+func TestServiceResumesFailedTerminalProjectionAfterCatchUpCheckpoint(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
+	progressStarted := make(chan struct{})
+	releaseProgress := make(chan struct{})
+	provider := &projectorTestAgentRuntime{
+		blockFirstProjection: true,
+		firstCallStarted:     progressStarted,
+		releaseFirstCall:     releaseProgress,
+	}
+	service := newProjectorTestService(t, store, provider, WithServiceProgressWait(
+		func(ctx context.Context, _ time.Duration) error {
+			return ctx.Err()
+		},
+	))
+
+	progress := conversation.TrajectoryEvent{
+		ConversationID: conversationID,
+		TurnID:         &turnID,
+		Sequence:       14,
+		Kind:           conversation.TrajectoryEventAgentPublicTextDelta,
+	}
+	service.submitProjection(
+		conversationID,
+		ProjectionOperation{
+			WorkspaceID:     "workspace-status-service",
+			TurnID:          turnID,
+			ThroughSequence: progress.Sequence,
+		},
+		conversation.NarrationTriggerProgressWindowElapsed,
+	)
+	select {
+	case <-progressStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for active progress projection")
+	}
+
+	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         turnID,
+		Trajectory:     []conversation.TrajectoryEvent{terminal},
+		Terminal:       true,
+	})
+	close(releaseProgress)
+
+	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		return current.NarratorState.ObservedThroughSequence == terminal.Sequence &&
+			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+	})
+	assertTerminalProjectorState(t, snapshot, turnID)
+}
+
+func TestServiceFinalizesTerminalProjectionAfterCheckpointCaughtUp(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
+	markNarratorCaughtUpAtTerminal(t, store, conversationID, terminal.Sequence)
+	materializer, err := NewContextMaterializer(store)
+	if err != nil {
+		t.Fatalf("new materializer: %v", err)
+	}
+	if _, err := materializer.Projection(context.Background(), ProjectionContextRequest{
+		ConversationID:  conversationID,
+		TurnID:          turnID,
+		Trigger:         conversation.NarrationTriggerTurnTerminal,
+		ThroughSequence: terminal.Sequence,
+		Limits: ContextLimits{
+			MaxInputBytes:        1 << 20,
+			MaxTrajectoryEvents:  conversation.MaxNarratorContextTrajectoryEvents,
+			RecentFinalSummaries: projectionRecentFinalSummaries,
+		},
+	}); err != nil {
+		t.Fatalf("materialize caught-up terminal projection: %T %v", err, err)
+	}
+	provider := &projectorTestAgentRuntime{}
+	service := newProjectorTestService(t, store, provider)
+
+	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         turnID,
+		Trajectory:     []conversation.TrajectoryEvent{terminal},
+		Terminal:       true,
+	})
+
+	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		if current.NarratorState.Degradation != nil {
+			t.Fatalf("terminal finalization degraded narrator: degradation=%+v calls=%+v",
+				*current.NarratorState.Degradation,
+				provider.snapshotCalls(),
+			)
+		}
+		return latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+	})
+	assertTerminalProjectorState(t, snapshot, turnID)
+	final := latestNarrationOfKind(snapshot, conversation.NarrationEventKindFinalSummary)
+	if final.SourceSequenceStart != terminal.Sequence || final.SourceSequenceEnd != terminal.Sequence {
+		t.Fatalf("terminal finalization source range = %d..%d, want %d..%d",
+			final.SourceSequenceStart,
+			final.SourceSequenceEnd,
+			terminal.Sequence,
+			terminal.Sequence,
+		)
+	}
+	calls := provider.snapshotCalls()
+	if len(calls) != 1 || calls[0].requestedChannel != ProjectionChannelTerminal ||
+		calls[0].preCallObserved != terminal.Sequence ||
+		calls[0].evaluationStart != terminal.Sequence ||
+		calls[0].evaluationEnd != terminal.Sequence {
+		t.Fatalf("terminal finalization calls = %+v", calls)
+	}
+}
+
+func TestServiceTerminalCatchUpSurvivesWorkingMilestoneCadence(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, turnID, _ := seedFailedTerminalProjectorConversation(t, store)
+	provider := &projectorTestAgentRuntime{emitProjectionMilestones: true}
+	service := newProjectorTestService(t, store, provider, WithServiceRetryWait(
+		func(ctx context.Context, _ time.Duration) error {
+			return ctx.Err()
+		},
+	))
+	service.submitProjection(
+		conversationID,
+		ProjectionOperation{
+			WorkspaceID:     "workspace-status-service",
+			TurnID:          turnID,
+			ThroughSequence: 14,
+		},
+		conversation.NarrationTriggerProgressWindowElapsed,
+	)
+	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		if current.NarratorState.Degradation != nil {
+			t.Fatalf("terminal catch-up degraded narrator: degradation=%+v calls=%+v",
+				*current.NarratorState.Degradation,
+				provider.snapshotCalls(),
+			)
+		}
+		return latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+	})
+	assertTerminalProjectorState(t, snapshot, turnID)
+}
+
 func TestServiceReadmitsTerminalProjectionAfterRetryExhaustion(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
@@ -126,8 +269,8 @@ func TestServiceProactiveCheckpointUsesCurrentTurnAuthority(t *testing.T) {
 		Terminal:       true,
 	})
 	waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
-		return current.NarratorState.ObservedThroughSequence == firstTerminal.Sequence &&
-			current.NarratorState.CheckpointThroughSequence == firstTerminal.Sequence
+		return current.NarratorState.ObservedThroughSequence >= firstTerminal.Sequence &&
+			current.NarratorState.CheckpointThroughSequence >= firstTerminal.Sequence
 	})
 
 	for _, call := range provider.snapshotCalls() {
@@ -141,13 +284,13 @@ func TestServiceProactiveCheckpointUsesCurrentTurnAuthority(t *testing.T) {
 	t.Fatalf("proactive checkpoint through %d was not called: %+v", firstTerminal.Sequence, provider.snapshotCalls())
 }
 
-func TestObservationTriggerTreatsFailedActivityAsPhaseCompletion(t *testing.T) {
+func TestObservationTriggerDefersActivityCompletionToProgressWindow(t *testing.T) {
 	trigger, immediate := observationTrigger(conversation.NarrationTrajectoryObservation{
 		Trajectory: []conversation.TrajectoryEvent{{
 			Kind: conversation.TrajectoryEventActivityFailed,
 		}},
 	})
-	if !immediate || trigger != conversation.NarrationTriggerPhaseActivityCompleted {
+	if immediate || trigger != conversation.NarrationTriggerProgressWindowElapsed {
 		t.Fatalf("failed activity trigger = %s, immediate %t", trigger, immediate)
 	}
 }
@@ -276,12 +419,13 @@ type projectorTestCall struct {
 }
 
 type projectorTestAgentRuntime struct {
-	mu                   sync.Mutex
-	calls                []projectorTestCall
-	failProjectionCalls  int
-	blockFirstProjection bool
-	firstCallStarted     chan struct{}
-	releaseFirstCall     chan struct{}
+	mu                       sync.Mutex
+	calls                    []projectorTestCall
+	failProjectionCalls      int
+	blockFirstProjection     bool
+	emitProjectionMilestones bool
+	firstCallStarted         chan struct{}
+	releaseFirstCall         chan struct{}
 }
 
 func (*projectorTestAgentRuntime) ResolveInvocation(
@@ -361,9 +505,13 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 		output := map[string]any{
 			"kind":                    string(CallOutputWorkingProjection),
 			"observedThroughSequence": bundle.EvaluationRange.End,
-			"currentFocus":            fmt.Sprintf("Evaluated through sequence %d.", bundle.EvaluationRange.End),
-			"milestones":              []string{fmt.Sprintf("Reached sequence %d.", bundle.EvaluationRange.End)},
-			"topicDescriptor":         nil,
+			"milestones":              []string{},
+		}
+		if runtime.emitProjectionMilestones && bundle.RequestedChannel == ProjectionChannelWorking &&
+			len(bundle.PriorMilestones) == 0 {
+			output["milestones"] = []string{
+				fmt.Sprintf("Narrator evaluated projector catch-up through sequence %d.", bundle.EvaluationRange.End),
+			}
 		}
 		if bundle.RequestedChannel == ProjectionChannelTerminal {
 			output["kind"] = string(CallOutputTerminalProjection)
@@ -568,6 +716,153 @@ func seedTerminalProjectorConversation(
 		t.Fatalf("seed terminal projector: %v", err)
 	}
 	return conversationID, turnID, terminal
+}
+
+func seedFailedTerminalProjectorConversation(
+	t *testing.T,
+	store *conversation.Store,
+) (string, string, conversation.TrajectoryEvent) {
+	t.Helper()
+	conversationID := "conversation-failed-terminal-projector"
+	turn, binding, trajectory := statusServiceActiveTurn(conversationID)
+	endedAt := "2026-07-12T12:01:00Z"
+	failure := conversation.Failure{
+		Code:      "provider_turn_failed",
+		Message:   "scripted terminal failure",
+		Retryable: true,
+	}
+	turn.Status = conversation.TurnStatusFailed
+	turn.EndedAt = &endedAt
+	turn.Error = &failure
+	invocation := *turn.ResolvedInvocation
+	invocation.Outcome = conversation.InvocationOutcomeFailed
+	invocation.EndedAt = &endedAt
+	invocation.Failure = &failure
+	turn.ResolvedInvocation = &invocation
+	turnID := turn.ID
+	for index := 0; index < 18; index++ {
+		trajectory = append(trajectory, conversation.TrajectoryEvent{
+			ID:             fmt.Sprintf("failed-projector-delta-%d", index+1),
+			ConversationID: conversationID,
+			TurnID:         &turnID,
+			Sequence:       len(trajectory) + 1,
+			EmittedAt:      serviceTestTimestamp,
+			Kind:           conversation.TrajectoryEventAgentPublicTextDelta,
+			Actor:          conversation.TrajectoryActorAgent,
+			AgentPublicTextDelta: &conversation.TrajectoryAgentPublicTextDelta{
+				ProviderItemID: "failed-projector-message",
+				Delta:          strings.Repeat(fmt.Sprintf("failed-window-%02d ", index+1), 900),
+			},
+		})
+	}
+	terminal := conversation.TrajectoryEvent{
+		ID:             "failed-projector-terminal",
+		ConversationID: conversationID,
+		TurnID:         &turnID,
+		Sequence:       len(trajectory) + 1,
+		EmittedAt:      endedAt,
+		Kind:           conversation.TrajectoryEventTurnFailed,
+		Actor:          conversation.TrajectoryActorProvider,
+		TurnFailed:     &conversation.TrajectoryTurnFailed{Failure: failure},
+	}
+	trajectory = append(trajectory, terminal)
+	record := conversation.TopicConversation{
+		ID:              conversationID,
+		WorkspaceID:     "workspace-status-service",
+		Title:           "Failed terminal projector topic",
+		TopicDescriptor: "Failed terminal projector topic",
+		Status:          conversation.ConversationStatusIdle,
+		CreatedAt:       serviceTestTimestamp,
+		UpdatedAt:       endedAt,
+	}
+	narratorState := conversation.NarratorState{
+		ConversationID:  conversationID,
+		TopicDescriptor: record.TopicDescriptor,
+		Status:          conversation.NarratorStatusReady,
+		UpdatedAt:       serviceTestTimestamp,
+	}
+	presentation := conversation.ConversationPresentationProfile{
+		ConversationID:          conversationID,
+		PaletteSelection:        conversation.PresentationSelectionAutoDistinct,
+		ResolvedPaletteID:       conversationpalette.ConversationPaletteSky,
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: narrationTestVoiceIDPointer(speech.SpeechVoiceAlloy),
+		NarratorSpeechEnabled:   true,
+		UpdatedAt:               serviceTestTimestamp,
+	}
+	_, err := store.Transact(context.Background(), "seed failed terminal projector", func(tx *conversation.WriteTransaction) error {
+		if err := tx.InsertConversation(record); err != nil {
+			return err
+		}
+		if err := tx.InsertNarratorState(narratorState); err != nil {
+			return err
+		}
+		if err := tx.InsertTurn(turn); err != nil {
+			return err
+		}
+		if err := tx.UpsertAgentThreadBinding(binding); err != nil {
+			return err
+		}
+		if err := tx.UpsertConversationPresentationProfile(presentation); err != nil {
+			return err
+		}
+		for _, event := range trajectory {
+			if err := tx.AppendTrajectoryEvent(event); err != nil {
+				return err
+			}
+		}
+		_, err := tx.AppendCommittedEvent(conversation.CommittedEventDraft{
+			ID:          "failed-terminal-projector-seed-event",
+			StreamID:    "conversation:" + conversationID,
+			Kind:        string(conversation.ConversationEventTypeConversationUpdated),
+			Payload:     map[string]string{"conversationId": conversationID},
+			CommittedAt: endedAt,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed failed terminal projector: %v", err)
+	}
+	return conversationID, turnID, terminal
+}
+
+func markNarratorCaughtUpAtTerminal(
+	t *testing.T,
+	store *conversation.Store,
+	conversationID string,
+	terminalSequence int,
+) {
+	t.Helper()
+	state, err := store.ReadNarratorState(context.Background(), conversationID)
+	if err != nil {
+		t.Fatalf("read narrator state before catch-up: %v", err)
+	}
+	updated := state
+	updated.ObservedThroughSequence = terminalSequence
+	updated.CheckpointThroughSequence = terminalSequence
+	updated.CheckpointText = "History through the failed terminal event is already checkpointed."
+	updated.UpdatedAt = "2026-07-12T12:01:10Z"
+	_, err = store.Transact(context.Background(), "mark narrator caught up at terminal", func(tx *conversation.WriteTransaction) error {
+		if err := tx.UpdateNarratorState(conversation.NarratorStateExpectation{
+			ObservedThroughSequence:   state.ObservedThroughSequence,
+			CheckpointThroughSequence: state.CheckpointThroughSequence,
+			CurrentFocusRevision:      state.CurrentFocusRevision,
+			UpdatedAt:                 state.UpdatedAt,
+		}, updated); err != nil {
+			return err
+		}
+		_, err := tx.AppendCommittedEvent(conversation.CommittedEventDraft{
+			ID:          "failed-terminal-caught-up-state-publication",
+			StreamID:    "conversation:" + conversationID,
+			Kind:        string(conversation.ConversationEventTypeConversationUpdated),
+			Payload:     map[string]string{"conversationId": conversationID},
+			CommittedAt: updated.UpdatedAt,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("mark narrator caught up at terminal: %v", err)
+	}
 }
 
 func appendSecondTerminalProjectorTurn(
@@ -795,15 +1090,6 @@ func assertTerminalProjectorCalls(
 		last.trigger != conversation.NarrationTriggerTurnTerminal ||
 		last.evaluationEnd != terminalSequence {
 		t.Fatalf("terminal projector call order = %+v", calls)
-	}
-	priorMilestoneSeen := false
-	for _, call := range calls {
-		if call.kind == ContextKindProjection && call.priorMilestoneCount > 0 {
-			priorMilestoneSeen = true
-		}
-	}
-	if !priorMilestoneSeen {
-		t.Fatalf("later projection calls omitted prior milestones: %+v", calls)
 	}
 }
 

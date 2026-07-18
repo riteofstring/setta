@@ -97,7 +97,7 @@ WHERE conversation_id = ?
   AND checkpoint_through_sequence = ?
   AND current_focus_revision = ?
   AND updated_at = ?
-  AND (? > observed_through_sequence OR topic_descriptor = ?)
+  AND (? > observed_through_sequence OR ? > current_focus_revision OR topic_descriptor = ?)
   AND (? > checkpoint_through_sequence OR checkpoint_text = ?)
   AND (? > current_focus_revision OR current_focus = ?)
 `,
@@ -117,6 +117,7 @@ WHERE conversation_id = ?
 		expected.CurrentFocusRevision,
 		expected.UpdatedAt,
 		state.ObservedThroughSequence,
+		state.CurrentFocusRevision,
 		state.TopicDescriptor,
 		state.CheckpointThroughSequence,
 		state.CheckpointText,
@@ -283,13 +284,6 @@ func validateNarratorMonotonicUpdate(expected NarratorStateExpectation, state Na
 	}
 	if state.CurrentFocusRevision < expected.CurrentFocusRevision {
 		return fmt.Errorf("narrator state %s focus revision cannot move backward", state.ConversationID)
-	}
-	if state.CurrentFocusRevision > expected.CurrentFocusRevision &&
-		state.ObservedThroughSequence == expected.ObservedThroughSequence {
-		return fmt.Errorf(
-			"narrator state %s focus revision cannot advance without observing trajectory",
-			state.ConversationID,
-		)
 	}
 	return nil
 }

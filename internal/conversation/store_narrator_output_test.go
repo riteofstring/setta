@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	narratorProjectionTime = "2026-07-11T20:02:00Z"
-	narratorStatusTime     = "2026-07-11T20:03:00Z"
-	narratorTerminalTime   = "2026-07-11T20:04:00Z"
+	narratorProjectionTime           = "2026-07-11T20:02:00Z"
+	narratorStatusTime               = "2026-07-11T20:03:00Z"
+	narratorTerminalTime             = "2026-07-11T20:04:00Z"
+	narratorTerminalFinalizationTime = "2026-07-11T20:05:00Z"
 )
 
 func TestNarratorOutputCommitsProjectionStatusAndTerminalChannelsAtomically(t *testing.T) {
@@ -45,6 +46,45 @@ func TestNarratorOutputCommitsProjectionStatusAndTerminalChannelsAtomically(t *t
 	assertNarratorOutputPublications(t, store, seed)
 }
 
+func TestTerminalNarratorProjectionCanFinalizeAlreadyObservedBoundary(t *testing.T) {
+	store := newTestStore(t)
+	seed := seedNarratorContext(t, store)
+	projection, err := store.CommitNarratorProjection(context.Background(), narratorWorkingCommit(seed))
+	if err != nil {
+		t.Fatalf("commit working narrator projection: %v", err)
+	}
+	appendTerminalNarratorSource(t, store, seed)
+	caughtUp := markNarratorOutputStateCaughtUp(t, store, seed.conversationID, projection.State, 11)
+
+	finalization, err := store.CommitNarratorProjection(
+		context.Background(),
+		narratorTerminalFinalizationCommit(seed, caughtUp),
+	)
+	if err != nil {
+		t.Fatalf("commit terminal narrator finalization: %v", err)
+	}
+	if finalization.State.ObservedThroughSequence != 11 ||
+		finalization.State.CheckpointThroughSequence != 11 {
+		t.Fatalf("terminal finalization state = %+v", finalization.State)
+	}
+	if len(finalization.Events) != 1 ||
+		finalization.Events[0].Kind != NarrationEventKindFinalSummary ||
+		finalization.Events[0].SourceSequenceStart != 11 ||
+		finalization.Events[0].SourceSequenceEnd != 11 {
+		t.Fatalf("terminal finalization events = %+v", finalization.Events)
+	}
+
+	duplicate := narratorTerminalFinalizationCommit(seed, finalization.State)
+	duplicate.NarratorStateCommittedID = "terminal-finalization-duplicate-state"
+	duplicate.FinalSummary.NarrationEventID = "terminal-finalization-duplicate"
+	duplicate.FinalSummary.CommittedEventID = "terminal-finalization-duplicate-publication"
+	duplicate.CommittedAt = "2026-07-11T20:06:00Z"
+	_, err = store.CommitNarratorProjection(context.Background(), duplicate)
+	if !IsStateConflict(err) {
+		t.Fatalf("duplicate terminal finalization error = %T %v, want StateConflictError", err, err)
+	}
+}
+
 func TestNarratorProjectionRollsBackStateOutputsAndTopicOnPublicationFailure(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedNarratorContext(t, store)
@@ -76,6 +116,54 @@ func TestNarratorProjectionRollsBackStateOutputsAndTopicOnPublicationFailure(t *
 	}
 }
 
+func TestNarratorFocusCommitUpdatesOnlyFromAcceptedInputOrSteering(t *testing.T) {
+	store := newTestStore(t)
+	seed := seedNarratorContext(t, store)
+	before := readTestNarratorState(t, store, seed.conversationID)
+
+	focus, err := store.CommitNarratorFocus(context.Background(), narratorFocusCommit(seed, before))
+	if err != nil {
+		t.Fatalf("commit narrator focus: %v", err)
+	}
+	if focus.State.ObservedThroughSequence != before.ObservedThroughSequence ||
+		focus.State.CurrentFocusRevision != before.CurrentFocusRevision+1 ||
+		focus.State.CurrentFocus != "Preserving the authoritative durable-context objective." ||
+		focus.State.TopicDescriptor != "Stable durable narrator context" {
+		t.Fatalf("focus state = %+v, before %+v", focus.State, before)
+	}
+	if focus.Conversation != nil {
+		t.Fatalf("focus conversation = %+v", focus.Conversation)
+	}
+	conversationRecord, _, _ := readNarratorOutputProjection(t, store, seed.conversationID)
+	if conversationRecord.TopicDescriptor != "Durable narrator context and checkpointing" {
+		t.Fatalf("conversation topic descriptor changed after narrator focus: %q", conversationRecord.TopicDescriptor)
+	}
+	if focus.Event == nil || focus.Event.Kind != NarrationEventKindTopicDescriptor ||
+		focus.Event.Trigger != NarrationTriggerUserSteered ||
+		focus.Event.SourceSequenceStart != 3 || focus.Event.SourceSequenceEnd != 3 {
+		t.Fatalf("focus topic event = %+v", focus.Event)
+	}
+
+	stale := narratorFocusCommit(seed, before)
+	stale.NarratorStateCommittedID = "focus-state-stale"
+	stale.TopicDescriptor.NarrationEventID = "focus-topic-stale"
+	stale.TopicDescriptor.CommittedEventID = "focus-topic-publication-stale"
+	stale.CommittedAt = narratorStatusTime
+	_, err = store.CommitNarratorFocus(context.Background(), stale)
+	if !IsStateConflict(err) {
+		t.Fatalf("stale focus error = %T %v, want StateConflictError", err, err)
+	}
+
+	badSource := narratorFocusCommit(seed, focus.State)
+	badSource.NarratorStateCommittedID = "focus-state-bad-source"
+	badSource.SourceThroughSequence = 4
+	badSource.CommittedAt = narratorTerminalTime
+	_, err = store.CommitNarratorFocus(context.Background(), badSource)
+	if !IsStateConflict(err) {
+		t.Fatalf("bad focus source error = %T %v, want StateConflictError", err, err)
+	}
+}
+
 func TestNarratorProjectionRejectsGappedOrStaleCoverageWithoutPartialOutput(t *testing.T) {
 	t.Run("gapped trajectory", func(t *testing.T) {
 		store := newTestStore(t)
@@ -104,19 +192,16 @@ DELETE FROM trajectory_events WHERE conversation_id = ? AND sequence = 7
 			t.Fatalf("commit first narrator projection: %v", err)
 		}
 		request.NarratorStateCommittedID = "stale-projection-state"
-		request.ConversationCommittedID = stringPointer("stale-projection-conversation")
 		for index := range request.Milestones {
 			request.Milestones[index].NarrationEventID = fmt.Sprintf("stale-milestone-%d", index)
 			request.Milestones[index].CommittedEventID = fmt.Sprintf("stale-milestone-event-%d", index)
 		}
-		request.TopicDescriptor.NarrationEventID = "stale-topic"
-		request.TopicDescriptor.CommittedEventID = "stale-topic-event"
 		request.CommittedAt = narratorStatusTime
 		_, err := store.CommitNarratorProjection(context.Background(), request)
 		if !IsStateConflict(err) {
 			t.Fatalf("stale projection error = %T %v, want StateConflictError", err, err)
 		}
-		assertNarratorCursorAndEventCount(t, store, seed.conversationID, 8, 5)
+		assertNarratorCursorAndEventCount(t, store, seed.conversationID, 8, 3)
 	})
 }
 
@@ -155,7 +240,6 @@ func TestTerminalNarratorProjectionRequiresSourceEventMatchingTurnOutcome(t *tes
 }
 
 func narratorWorkingCommit(seed narratorContextSeed) NarratorProjectionCommit {
-	conversationCommittedID := "projection-conversation-publication"
 	return NarratorProjectionCommit{
 		ConversationID: seed.conversationID,
 		TurnID:         seed.turnID,
@@ -166,28 +250,35 @@ func narratorWorkingCommit(seed narratorContextSeed) NarratorProjectionCommit {
 			UpdatedAt:                 testTimeStarted,
 		},
 		ObservedThroughSequence: 8,
-		CurrentFocus:            "Persisting validated narrator output.",
 		Milestones: []NarrationTextCommit{
 			{
 				NarrationEventID: "projection-milestone-1",
 				CommittedEventID: "projection-milestone-publication-1",
 				Text:             "The narrator output transaction is ready.",
 			},
-			{
-				NarrationEventID: "projection-milestone-2",
-				CommittedEventID: "projection-milestone-publication-2",
-				Text:             "Topic metadata now shares the atomic boundary.",
-			},
-		},
-		TopicDescriptor: &NarrationTextCommit{
-			NarrationEventID: "projection-topic-descriptor",
-			CommittedEventID: "projection-topic-publication",
-			Text:             "Narrator output persistence and committed events",
 		},
 		Trigger:                  NarrationTriggerPlanChanged,
 		ResolvedInvocation:       validInvocation(RoleNarrator, InvocationOutcomeSucceeded),
 		NarratorStateCommittedID: "projection-state-publication",
-		ConversationCommittedID:  &conversationCommittedID,
+		CommittedAt:              narratorProjectionTime,
+	}
+}
+
+func narratorFocusCommit(seed narratorContextSeed, state NarratorState) NarratorFocusCommit {
+	return NarratorFocusCommit{
+		ConversationID:        seed.conversationID,
+		TurnID:                seed.turnID,
+		Expected:              narratorExpectation(state),
+		SourceThroughSequence: 3,
+		CurrentFocus:          "Preserving the authoritative durable-context objective.",
+		TopicDescriptor: &NarrationTextCommit{
+			NarrationEventID: "focus-topic-descriptor",
+			CommittedEventID: "focus-topic-publication",
+			Text:             "Stable durable narrator context",
+		},
+		Trigger:                  NarrationTriggerUserSteered,
+		ResolvedInvocation:       validInvocation(RoleNarrator, InvocationOutcomeSucceeded),
+		NarratorStateCommittedID: "focus-state-publication",
 		CommittedAt:              narratorProjectionTime,
 	}
 }
@@ -217,7 +308,6 @@ func narratorTerminalCommit(seed narratorContextSeed, state NarratorState) Narra
 		TurnID:                  seed.turnID,
 		Expected:                narratorExpectation(state),
 		ObservedThroughSequence: 11,
-		CurrentFocus:            "The narrator output transaction is complete.",
 		Milestones: []NarrationTextCommit{
 			{
 				NarrationEventID: "terminal-milestone",
@@ -237,6 +327,25 @@ func narratorTerminalCommit(seed narratorContextSeed, state NarratorState) Narra
 	}
 }
 
+func narratorTerminalFinalizationCommit(seed narratorContextSeed, state NarratorState) NarratorProjectionCommit {
+	return NarratorProjectionCommit{
+		ConversationID:          seed.conversationID,
+		TurnID:                  seed.turnID,
+		Expected:                narratorExpectation(state),
+		ObservedThroughSequence: state.ObservedThroughSequence,
+		Milestones:              []NarrationTextCommit{},
+		FinalSummary: &NarrationTextCommit{
+			NarrationEventID: "terminal-finalization-final-summary",
+			CommittedEventID: "terminal-finalization-final-publication",
+			Text:             "The already observed terminal boundary now has a final summary.",
+		},
+		Trigger:                  NarrationTriggerTurnTerminal,
+		ResolvedInvocation:       validInvocation(RoleNarrator, InvocationOutcomeSucceeded),
+		NarratorStateCommittedID: "terminal-finalization-state-publication",
+		CommittedAt:              narratorTerminalFinalizationTime,
+	}
+}
+
 func narratorExpectation(state NarratorState) NarratorStateExpectation {
 	return NarratorStateExpectation{
 		ObservedThroughSequence:   state.ObservedThroughSequence,
@@ -244,6 +353,36 @@ func narratorExpectation(state NarratorState) NarratorStateExpectation {
 		CurrentFocusRevision:      state.CurrentFocusRevision,
 		UpdatedAt:                 state.UpdatedAt,
 	}
+}
+
+func markNarratorOutputStateCaughtUp(
+	t *testing.T,
+	store *Store,
+	conversationID string,
+	state NarratorState,
+	sequence int,
+) NarratorState {
+	t.Helper()
+	updated := state
+	updated.ObservedThroughSequence = sequence
+	updated.CheckpointThroughSequence = sequence
+	updated.CheckpointText = "History through the terminal source is already checkpointed."
+	updated.UpdatedAt = narratorTerminalTime
+	_, err := store.Transact(context.Background(), "mark narrator output state caught up", func(transaction *WriteTransaction) error {
+		if err := transaction.UpdateNarratorState(narratorExpectation(state), updated); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"terminal-caught-up-state-publication",
+			"conversation:"+conversationID,
+			map[string]string{"conversationId": conversationID},
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("mark narrator output state caught up: %v", err)
+	}
+	return updated
 }
 
 func appendTerminalNarratorSource(t *testing.T, store *Store, seed narratorContextSeed) {
@@ -310,19 +449,16 @@ func appendMismatchedTerminalNarratorSource(t *testing.T, store *Store, seed nar
 
 func assertWorkingProjectionCommit(t *testing.T, result NarratorProjectionCommitResult) {
 	t.Helper()
-	if result.State.ObservedThroughSequence != 8 || result.State.CurrentFocusRevision != 2 ||
-		result.State.CurrentFocus != "Persisting validated narrator output." ||
-		result.State.TopicDescriptor != "Narrator output persistence and committed events" ||
+	if result.State.ObservedThroughSequence != 8 || result.State.CurrentFocusRevision != 1 ||
+		result.State.CurrentFocus != "Materializing the authoritative narrator bundle." ||
+		result.State.TopicDescriptor != "Durable narrator context and checkpointing" ||
 		result.State.LastInvocationAt == nil || *result.State.LastInvocationAt != narratorProjectionTime {
 		t.Fatalf("working narrator state = %+v", result.State)
 	}
-	if result.Conversation == nil ||
-		result.Conversation.TopicDescriptor != "Narrator output persistence and committed events" {
+	if result.Conversation != nil {
 		t.Fatalf("working conversation projection = %+v", result.Conversation)
 	}
-	if len(result.Events) != 3 || result.Events[0].Kind != NarrationEventKindMilestone ||
-		result.Events[1].Kind != NarrationEventKindMilestone ||
-		result.Events[2].Kind != NarrationEventKindTopicDescriptor {
+	if len(result.Events) != 1 || result.Events[0].Kind != NarrationEventKindMilestone {
 		t.Fatalf("working narration events = %+v", result.Events)
 	}
 	for _, event := range result.Events {
@@ -353,7 +489,7 @@ func assertStatusCommitDoesNotAdvanceProjection(
 
 func assertTerminalProjectionCommit(t *testing.T, result NarratorProjectionCommitResult) {
 	t.Helper()
-	if result.State.ObservedThroughSequence != 11 || result.State.CurrentFocusRevision != 3 {
+	if result.State.ObservedThroughSequence != 11 || result.State.CurrentFocusRevision != 1 {
 		t.Fatalf("terminal narrator state = %+v", result.State)
 	}
 	if result.Conversation != nil {
@@ -386,8 +522,6 @@ func assertNarratorOutputSnapshot(
 		NarrationEventKindFinalSummary,
 		NarrationEventKindMilestone,
 		NarrationEventKindMilestone,
-		NarrationEventKindMilestone,
-		NarrationEventKindTopicDescriptor,
 		NarrationEventKindStatusReply,
 		NarrationEventKindMilestone,
 		NarrationEventKindFinalSummary,
@@ -414,9 +548,6 @@ func assertNarratorOutputPublications(t *testing.T, store *Store, seed narratorC
 	}
 	wantKinds := []ConversationEventType{
 		ConversationEventTypeNarratorStateUpdated,
-		ConversationEventTypeConversationUpdated,
-		ConversationEventTypeNarrationCreated,
-		ConversationEventTypeNarrationCreated,
 		ConversationEventTypeNarrationCreated,
 		ConversationEventTypeNarratorStateUpdated,
 		ConversationEventTypeNarrationCreated,

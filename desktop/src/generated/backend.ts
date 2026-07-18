@@ -792,13 +792,15 @@ export function decodeNarrationEventKind(value: unknown, label = "NarrationEvent
   }
 }
 
-export type NarrationTrigger = "progress_window_elapsed" | "plan_changed" | "phase_activity_completed" | "approval_required" | "user_steered" | "explicit_status_requested" | "turn_terminal" | "checkpoint_window_exceeded";
+export type NarrationTrigger = "input_accepted" | "progress_window_elapsed" | "plan_changed" | "phase_activity_completed" | "approval_required" | "user_steered" | "explicit_status_requested" | "turn_terminal" | "checkpoint_window_exceeded";
 
-export const narrationTriggerValues = ["progress_window_elapsed", "plan_changed", "phase_activity_completed", "approval_required", "user_steered", "explicit_status_requested", "turn_terminal", "checkpoint_window_exceeded"] as const satisfies readonly NarrationTrigger[];
+export const narrationTriggerValues = ["input_accepted", "progress_window_elapsed", "plan_changed", "phase_activity_completed", "approval_required", "user_steered", "explicit_status_requested", "turn_terminal", "checkpoint_window_exceeded"] as const satisfies readonly NarrationTrigger[];
 
 export function decodeNarrationTrigger(value: unknown, label = "NarrationTrigger"): NarrationTrigger {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "input_accepted":
+      return decoded;
     case "progress_window_elapsed":
       return decoded;
     case "plan_changed":

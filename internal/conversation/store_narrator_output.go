@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 )
 
 func (store *Store) CommitNarratorProjection(
@@ -31,6 +32,34 @@ func (store *Store) CommitNarratorProjection(
 	})
 	if err != nil {
 		return NarratorProjectionCommitResult{}, err
+	}
+	return committed, nil
+}
+
+func (store *Store) CommitNarratorFocus(
+	ctx context.Context,
+	request NarratorFocusCommit,
+) (NarratorFocusCommitResult, error) {
+	if store == nil {
+		return NarratorFocusCommitResult{}, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return NarratorFocusCommitResult{}, errors.New("narrator focus commit context is required")
+	}
+	if err := request.Validate(); err != nil {
+		return NarratorFocusCommitResult{}, err
+	}
+	var committed NarratorFocusCommitResult
+	_, err := store.transactPresentationAware(ctx, "commit narrator focus", func(transaction *WriteTransaction) error {
+		result, err := commitNarratorFocus(transaction, request)
+		if err != nil {
+			return err
+		}
+		committed = result
+		return nil
+	})
+	if err != nil {
+		return NarratorFocusCommitResult{}, err
 	}
 	return committed, nil
 }
@@ -74,12 +103,10 @@ func commitNarratorProjection(
 	if err := requireNarratorProjectionCoverage(transaction, request); err != nil {
 		return NarratorProjectionCommitResult{}, err
 	}
-	state.ObservedThroughSequence = request.ObservedThroughSequence
-	state.CurrentFocus = request.CurrentFocus
-	state.CurrentFocusRevision = request.Expected.CurrentFocusRevision + 1
-	if request.TopicDescriptor != nil {
-		state.TopicDescriptor = request.TopicDescriptor.Text
+	if err := requireProjectionMilestoneBudget(transaction, request); err != nil {
+		return NarratorProjectionCommitResult{}, err
 	}
+	state.ObservedThroughSequence = request.ObservedThroughSequence
 	state.LastInvocationAt = stringPointerValue(request.CommittedAt)
 	state.Status = NarratorStatusReady
 	state.Degradation = nil
@@ -89,13 +116,6 @@ func commitNarratorProjection(
 	}
 
 	result := NarratorProjectionCommitResult{State: state, Events: []NarrationEvent{}}
-	if request.TopicDescriptor != nil {
-		updated, err := updateConversationTopicDescriptor(transaction, request)
-		if err != nil {
-			return NarratorProjectionCommitResult{}, err
-		}
-		result.Conversation = &updated
-	}
 	events, err := appendProjectionNarrationEvents(transaction, request)
 	if err != nil {
 		return NarratorProjectionCommitResult{}, err
@@ -103,6 +123,55 @@ func commitNarratorProjection(
 	result.Events = events
 	if err := publishNarratorProjection(transaction, request, result); err != nil {
 		return NarratorProjectionCommitResult{}, err
+	}
+	return result, nil
+}
+
+func commitNarratorFocus(
+	transaction *WriteTransaction,
+	request NarratorFocusCommit,
+) (NarratorFocusCommitResult, error) {
+	state, err := readNarratorStateForMutation(transaction, request.ConversationID)
+	if err != nil {
+		return NarratorFocusCommitResult{}, err
+	}
+	if state.CurrentFocusRevision != request.Expected.CurrentFocusRevision {
+		return NarratorFocusCommitResult{}, stateConflict(
+			"narrator focus",
+			request.ConversationID,
+			fmt.Sprintf("focus revision is %d, want %d", state.CurrentFocusRevision, request.Expected.CurrentFocusRevision),
+		)
+	}
+	if err := requireNarratorFocusSource(transaction, request); err != nil {
+		return NarratorFocusCommitResult{}, err
+	}
+	updated := state
+	updated.CurrentFocus = request.CurrentFocus
+	if request.CurrentFocus != state.CurrentFocus {
+		updated.CurrentFocusRevision = state.CurrentFocusRevision + 1
+	}
+	if request.TopicDescriptor != nil {
+		updated.TopicDescriptor = request.TopicDescriptor.Text
+	}
+	updated.LastInvocationAt = stringPointerValue(request.CommittedAt)
+	updated.Status = NarratorStatusReady
+	updated.Degradation = nil
+	updated.UpdatedAt = advanceTimestamp(state.UpdatedAt, request.CommittedAt)
+	if err := transaction.UpdateNarratorState(narratorStateExpectationFromState(state), updated); err != nil {
+		return NarratorFocusCommitResult{}, err
+	}
+
+	result := NarratorFocusCommitResult{State: updated}
+	if request.TopicDescriptor != nil {
+		event := narratorFocusTopicDescriptorEvent(request, updated.UpdatedAt)
+		appended, err := transaction.AppendNarrationEvent(event)
+		if err != nil {
+			return NarratorFocusCommitResult{}, err
+		}
+		result.Event = &appended
+	}
+	if err := publishNarratorFocus(transaction, request, result); err != nil {
+		return NarratorFocusCommitResult{}, err
 	}
 	return result, nil
 }
@@ -174,7 +243,8 @@ func requireNarratorProjectionCoverage(
 	transaction *WriteTransaction,
 	request NarratorProjectionCommit,
 ) error {
-	start := request.Expected.ObservedThroughSequence + 1
+	sourceRange := narratorProjectionSourceRange(request)
+	start := sourceRange.Start
 	wantCount := request.ObservedThroughSequence - start + 1
 	var count int
 	if err := transaction.tx.QueryRowContext(transaction.ctx, `
@@ -195,6 +265,169 @@ WHERE conversation_id = ? AND sequence BETWEEN ? AND ?
 		return nil
 	}
 	return requireTerminalNarratorProjection(transaction, request)
+}
+
+func requireProjectionMilestoneBudget(
+	transaction *WriteTransaction,
+	request NarratorProjectionCommit,
+) error {
+	if len(request.Milestones) == 0 {
+		return nil
+	}
+	if err := requireNoOverlappingMilestoneRange(transaction, request); err != nil {
+		return err
+	}
+	if err := requireUniqueMilestoneText(transaction, request); err != nil {
+		return err
+	}
+	return requireAutomaticMilestoneCadence(transaction, request)
+}
+
+func requireNoOverlappingMilestoneRange(
+	transaction *WriteTransaction,
+	request NarratorProjectionCommit,
+) error {
+	sourceRange := narratorProjectionSourceRange(request)
+	start := sourceRange.Start
+	end := sourceRange.End
+	var existing int
+	if err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT COUNT(*)
+FROM narration_events
+WHERE conversation_id = ?
+  AND turn_id = ?
+  AND kind = 'milestone'
+  AND NOT (source_sequence_end < ? OR source_sequence_start > ?)
+`, request.ConversationID, request.TurnID, start, end).Scan(&existing); err != nil {
+		return fmt.Errorf("read narrator milestone source ranges for %s: %w", request.ConversationID, err)
+	}
+	if existing > 0 {
+		return stateConflict(
+			"narrator milestone",
+			request.ConversationID,
+			fmt.Sprintf("source range %d..%d already produced a milestone", start, end),
+		)
+	}
+	return nil
+}
+
+func requireUniqueMilestoneText(
+	transaction *WriteTransaction,
+	request NarratorProjectionCommit,
+) error {
+	text := request.Milestones[0].Text
+	var existing int
+	if err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT COUNT(*)
+FROM narration_events
+WHERE conversation_id = ?
+  AND turn_id = ?
+  AND kind = 'milestone'
+  AND json_extract(payload_json, '$.text') = ?
+`, request.ConversationID, request.TurnID, text).Scan(&existing); err != nil {
+		return fmt.Errorf("read narrator milestone text for %s: %w", request.ConversationID, err)
+	}
+	if existing > 0 {
+		return stateConflict(
+			"narrator milestone",
+			request.ConversationID,
+			fmt.Sprintf("milestone text %q was already committed for this turn", text),
+		)
+	}
+	return nil
+}
+
+func requireAutomaticMilestoneCadence(
+	transaction *WriteTransaction,
+	request NarratorProjectionCommit,
+) error {
+	if !automaticMilestoneTrigger(request.Trigger) {
+		return nil
+	}
+	var count int
+	var lastCreatedAt sql.NullString
+	if err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT COUNT(*), MAX(created_at)
+FROM narration_events
+WHERE conversation_id = ?
+  AND turn_id = ?
+  AND kind = 'milestone'
+  AND trigger IN ('progress_window_elapsed', 'plan_changed', 'phase_activity_completed', 'user_steered')
+`, request.ConversationID, request.TurnID).Scan(&count, &lastCreatedAt); err != nil {
+		return fmt.Errorf("read narrator automatic milestone budget for %s: %w", request.ConversationID, err)
+	}
+	if count >= 6 {
+		return stateConflict("narrator milestone", request.ConversationID, "automatic milestone budget is exhausted for this turn")
+	}
+	if !lastCreatedAt.Valid {
+		return nil
+	}
+	last, err := validateTimestamp("last automatic narrator milestone", lastCreatedAt.String)
+	if err != nil {
+		return err
+	}
+	current, err := validateTimestamp("narrator milestone committedAt", request.CommittedAt)
+	if err != nil {
+		return err
+	}
+	if current.Sub(last) < 30*time.Second {
+		return stateConflict(
+			"narrator milestone",
+			request.ConversationID,
+			"automatic milestone spacing is below 30 seconds",
+		)
+	}
+	return nil
+}
+
+func automaticMilestoneTrigger(trigger NarrationTrigger) bool {
+	switch trigger {
+	case NarrationTriggerProgressWindowElapsed,
+		NarrationTriggerPlanChanged,
+		NarrationTriggerPhaseActivityCompleted,
+		NarrationTriggerUserSteered:
+		return true
+	default:
+		return false
+	}
+}
+
+func requireNarratorFocusSource(
+	transaction *WriteTransaction,
+	request NarratorFocusCommit,
+) error {
+	var turnID string
+	var kind TrajectoryEventKind
+	err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT turn_id, kind
+FROM trajectory_events
+WHERE conversation_id = ? AND sequence = ?
+`, request.ConversationID, request.SourceThroughSequence).Scan(&turnID, &kind)
+	if errors.Is(err, sql.ErrNoRows) {
+		return stateConflict("narrator focus", request.ConversationID, "source trajectory event does not exist")
+	}
+	if err != nil {
+		return fmt.Errorf("read narrator focus source for %s: %w", request.ConversationID, err)
+	}
+	if turnID != request.TurnID {
+		return stateConflict(
+			"narrator focus",
+			request.ConversationID,
+			fmt.Sprintf("source event belongs to turn %s, want %s", turnID, request.TurnID),
+		)
+	}
+	wantKind := TrajectoryEventUserInputAccepted
+	if request.Trigger == NarrationTriggerUserSteered {
+		wantKind = TrajectoryEventTurnSteered
+	}
+	if kind != wantKind {
+		return stateConflict(
+			"narrator focus",
+			request.ConversationID,
+			fmt.Sprintf("source event kind is %s, want %s", kind, wantKind),
+		)
+	}
+	return nil
 }
 
 func requireTerminalNarratorProjection(
@@ -230,6 +463,19 @@ WHERE turn.id = ? AND turn.conversation_id = ?
 			),
 		)
 	}
+	var existing int
+	if err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT COUNT(*)
+FROM narration_events
+WHERE conversation_id = ?
+  AND turn_id = ?
+  AND kind = 'final_summary'
+`, request.ConversationID, request.TurnID).Scan(&existing); err != nil {
+		return fmt.Errorf("read narrator terminal final summary for %s: %w", request.ConversationID, err)
+	}
+	if existing > 0 {
+		return stateConflict("narrator projection", request.ConversationID, "terminal final summary already exists for this turn")
+	}
 	return nil
 }
 
@@ -244,34 +490,6 @@ func terminalTurnMatchesTrajectory(status TurnStatus, kind TrajectoryEventKind) 
 	default:
 		return false
 	}
-}
-
-func updateConversationTopicDescriptor(
-	transaction *WriteTransaction,
-	request NarratorProjectionCommit,
-) (TopicConversation, error) {
-	current, err := scanTopicConversation(transaction.tx.QueryRowContext(transaction.ctx, `
-SELECT id, workspace_id, title, topic_descriptor, status, created_at, updated_at,
-       archived_at, last_trajectory_sequence
-FROM conversations
-WHERE id = ?
-`, request.ConversationID))
-	if errors.Is(err, sql.ErrNoRows) {
-		return TopicConversation{}, stateConflict("conversation", request.ConversationID, "conversation does not exist")
-	}
-	if err != nil {
-		return TopicConversation{}, fmt.Errorf("read conversation for narrator topic descriptor %s: %w", request.ConversationID, err)
-	}
-	updated := current
-	updated.TopicDescriptor = request.TopicDescriptor.Text
-	updated.UpdatedAt = advanceTimestamp(current.UpdatedAt, request.CommittedAt)
-	if err := transaction.UpdateConversation(ConversationExpectation{
-		UpdatedAt:              current.UpdatedAt,
-		LastTrajectorySequence: current.LastTrajectorySequence,
-	}, updated); err != nil {
-		return TopicConversation{}, err
-	}
-	return updated, nil
 }
 
 func appendProjectionNarrationEvents(
@@ -294,12 +512,6 @@ func appendProjectionNarrationEvents(
 			kind     NarrationEventKind
 		}{identity: *request.FinalSummary, kind: NarrationEventKindFinalSummary})
 	}
-	if request.TopicDescriptor != nil {
-		outputs = append(outputs, struct {
-			identity NarrationTextCommit
-			kind     NarrationEventKind
-		}{identity: *request.TopicDescriptor, kind: NarrationEventKindTopicDescriptor})
-	}
 
 	events := make([]NarrationEvent, 0, len(outputs))
 	for _, output := range outputs {
@@ -318,13 +530,14 @@ func narratorProjectionEvent(
 	output NarrationTextCommit,
 	kind NarrationEventKind,
 ) NarrationEvent {
+	sourceRange := narratorProjectionSourceRange(request)
 	event := NarrationEvent{
 		ID:                  output.NarrationEventID,
 		ConversationID:      request.ConversationID,
 		TurnID:              stringPointerValue(request.TurnID),
 		Kind:                kind,
-		SourceSequenceStart: request.Expected.ObservedThroughSequence + 1,
-		SourceSequenceEnd:   request.ObservedThroughSequence,
+		SourceSequenceStart: sourceRange.Start,
+		SourceSequenceEnd:   sourceRange.End,
 		Trigger:             request.Trigger,
 		ResolvedInvocation:  request.ResolvedInvocation,
 		CreatedAt:           request.CommittedAt,
@@ -334,10 +547,40 @@ func narratorProjectionEvent(
 		event.Milestone = &NarrationMilestone{Text: output.Text}
 	case NarrationEventKindFinalSummary:
 		event.FinalSummary = &NarrationFinalSummary{Text: output.Text}
-	case NarrationEventKindTopicDescriptor:
-		event.TopicDescriptor = &NarrationTopicDescriptor{Text: output.Text}
 	}
 	return event
+}
+
+func narratorProjectionSourceRange(request NarratorProjectionCommit) TrajectorySequenceRange {
+	if request.Trigger == NarrationTriggerTurnTerminal &&
+		request.ObservedThroughSequence == request.Expected.ObservedThroughSequence {
+		return TrajectorySequenceRange{
+			Start: request.ObservedThroughSequence,
+			End:   request.ObservedThroughSequence,
+		}
+	}
+	return TrajectorySequenceRange{
+		Start: request.Expected.ObservedThroughSequence + 1,
+		End:   request.ObservedThroughSequence,
+	}
+}
+
+func narratorFocusTopicDescriptorEvent(
+	request NarratorFocusCommit,
+	createdAt string,
+) NarrationEvent {
+	return NarrationEvent{
+		ID:                  request.TopicDescriptor.NarrationEventID,
+		ConversationID:      request.ConversationID,
+		TurnID:              stringPointerValue(request.TurnID),
+		Kind:                NarrationEventKindTopicDescriptor,
+		SourceSequenceStart: request.SourceThroughSequence,
+		SourceSequenceEnd:   request.SourceThroughSequence,
+		Trigger:             request.Trigger,
+		ResolvedInvocation:  request.ResolvedInvocation,
+		CreatedAt:           createdAt,
+		TopicDescriptor:     &NarrationTopicDescriptor{Text: request.TopicDescriptor.Text},
+	}
 }
 
 func publishNarratorProjection(
@@ -358,21 +601,6 @@ func publishNarratorProjection(
 	); err != nil {
 		return err
 	}
-	if result.Conversation != nil {
-		if err := appendNarratorCommittedEvent(
-			transaction,
-			*request.ConversationCommittedID,
-			request.ConversationID,
-			ConversationEventTypeConversationUpdated,
-			ConversationUpdatedEventPayload{
-				Type:         ConversationEventTypeConversationUpdated,
-				Conversation: *result.Conversation,
-			},
-			request.CommittedAt,
-		); err != nil {
-			return err
-		}
-	}
 	for index, event := range result.Events {
 		identity := projectionOutputIdentity(request, event.Kind, index)
 		if err := appendNarratorCommittedEvent(
@@ -392,6 +620,42 @@ func publishNarratorProjection(
 	return nil
 }
 
+func publishNarratorFocus(
+	transaction *WriteTransaction,
+	request NarratorFocusCommit,
+	result NarratorFocusCommitResult,
+) error {
+	if err := appendNarratorCommittedEvent(
+		transaction,
+		request.NarratorStateCommittedID,
+		request.ConversationID,
+		ConversationEventTypeNarratorStateUpdated,
+		ConversationNarratorStateUpdatedEventPayload{
+			Type:  ConversationEventTypeNarratorStateUpdated,
+			State: result.State,
+		},
+		result.State.UpdatedAt,
+	); err != nil {
+		return err
+	}
+	if result.Event != nil {
+		if err := appendNarratorCommittedEvent(
+			transaction,
+			request.TopicDescriptor.CommittedEventID,
+			request.ConversationID,
+			ConversationEventTypeNarrationCreated,
+			ConversationNarrationCreatedEventPayload{
+				Type:  ConversationEventTypeNarrationCreated,
+				Event: *result.Event,
+			},
+			result.State.UpdatedAt,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func projectionOutputIdentity(
 	request NarratorProjectionCommit,
 	kind NarrationEventKind,
@@ -402,10 +666,17 @@ func projectionOutputIdentity(
 		return request.Milestones[index]
 	case NarrationEventKindFinalSummary:
 		return *request.FinalSummary
-	case NarrationEventKindTopicDescriptor:
-		return *request.TopicDescriptor
 	default:
 		panic(fmt.Sprintf("validated narrator projection has unsupported output kind %q", kind))
+	}
+}
+
+func narratorStateExpectationFromState(state NarratorState) NarratorStateExpectation {
+	return NarratorStateExpectation{
+		ObservedThroughSequence:   state.ObservedThroughSequence,
+		CheckpointThroughSequence: state.CheckpointThroughSequence,
+		CurrentFocusRevision:      state.CurrentFocusRevision,
+		UpdatedAt:                 state.UpdatedAt,
 	}
 }
 

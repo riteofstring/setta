@@ -68,6 +68,8 @@ func (worker *serviceAttemptWorker) PrepareAttempt(
 		return nil, err
 	}
 	switch invocation.Request.Kind {
+	case RequestKindFocus:
+		return worker.prepareFocus(ctx, invocation)
 	case RequestKindProjection:
 		return worker.prepareProjection(ctx, invocation)
 	case RequestKindStatus:
@@ -94,6 +96,35 @@ func (worker *serviceAttemptWorker) validateInvocation(invocation Invocation) er
 		return NewAttemptFailure(FailureKindInternal, errors.New("narrator generation must be positive"))
 	}
 	return nil
+}
+
+func (worker *serviceAttemptWorker) prepareFocus(
+	ctx context.Context,
+	invocation Invocation,
+) (PreparedCommit, error) {
+	operation := *invocation.Request.Focus
+	limits, err := worker.contextLimits(ctx, operation.WorkspaceID, invocation.Request.ConversationID)
+	if err != nil {
+		return nil, err
+	}
+	bundle, err := worker.materializer.Focus(ctx, FocusContextRequest{
+		ConversationID: invocation.Request.ConversationID,
+		TurnID:         operation.TurnID,
+		Trigger:        invocation.Request.Trigger,
+		SourceSequence: operation.SourceSequence,
+		Limits:         limits,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := requireBundleWorkspace(bundle.Authoritative, operation.WorkspaceID, "focus"); err != nil {
+		return nil, err
+	}
+	workspaceRoot, err := worker.resolveWorkspaceRoot(operation.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return worker.callAndPrepare(ctx, invocation, workspaceRoot, CallRequest{Focus: &bundle})
 }
 
 func (worker *serviceAttemptWorker) prepareProjection(
@@ -144,10 +175,7 @@ func (worker *serviceAttemptWorker) materializeProjection(
 		Limits:          limits,
 	})
 	if err != nil {
-		if errors.Is(err, ErrNoProjectionWork) || errors.Is(err, ErrCheckpointRequired) {
-			return ProjectionContextBundle{}, true, nil
-		}
-		return ProjectionContextBundle{}, false, err
+		return worker.handleProjectionMaterializationError(ctx, conversationID, trigger, operation, limits, err)
 	}
 	if trigger == conversation.NarrationTriggerTurnTerminal &&
 		bundle.EvaluationRange.End == operation.ThroughSequence {
@@ -166,6 +194,36 @@ func (worker *serviceAttemptWorker) materializeProjection(
 		return ProjectionContextBundle{}, false, err
 	}
 	return bundle, false, nil
+}
+
+func (worker *serviceAttemptWorker) handleProjectionMaterializationError(
+	ctx context.Context,
+	conversationID string,
+	trigger conversation.NarrationTrigger,
+	operation ProjectionOperation,
+	limits ContextLimits,
+	sourceErr error,
+) (ProjectionContextBundle, bool, error) {
+	if trigger == conversation.NarrationTriggerTurnTerminal && errors.Is(sourceErr, ErrNoProjectionWork) {
+		bundle, err := worker.materializer.Projection(ctx, ProjectionContextRequest{
+			ConversationID:  conversationID,
+			TurnID:          operation.TurnID,
+			Trigger:         trigger,
+			ThroughSequence: operation.ThroughSequence,
+			Limits:          limits,
+		})
+		if err == nil {
+			if err := requireBundleWorkspace(bundle.Authoritative, operation.WorkspaceID, "projection"); err != nil {
+				return ProjectionContextBundle{}, false, err
+			}
+			return bundle, false, nil
+		}
+		sourceErr = err
+	}
+	if errors.Is(sourceErr, ErrNoProjectionWork) || errors.Is(sourceErr, ErrCheckpointRequired) {
+		return ProjectionContextBundle{}, true, nil
+	}
+	return ProjectionContextBundle{}, false, sourceErr
 }
 
 func (worker *serviceAttemptWorker) prepareStatus(

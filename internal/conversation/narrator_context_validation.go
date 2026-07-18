@@ -253,6 +253,9 @@ func validateNarratorContextNarration(source NarratorContextSource, request Narr
 	if err := validateNarratorPriorMilestones(source.PriorMilestones, source.CurrentTurn.Turn, request.ConversationID); err != nil {
 		return err
 	}
+	if err := validateNarratorCurrentTurnFinalSummary(source.CurrentTurnFinalSummary, source.CurrentTurn.Turn, request.ConversationID); err != nil {
+		return err
+	}
 	return validateNarratorFinalSummaries(
 		source.RecentFinalSummaries,
 		source.CurrentTurn.Turn,
@@ -279,6 +282,24 @@ func validateNarratorPriorMilestones(
 			return fmt.Errorf("narrator prior milestones are not strictly ordered")
 		}
 		previousSequence = event.StreamSequence
+	}
+	return nil
+}
+
+func validateNarratorCurrentTurnFinalSummary(
+	event *NarrationEvent,
+	turn *ConversationTurn,
+	conversationID string,
+) error {
+	if event == nil {
+		return nil
+	}
+	if err := event.Validate(); err != nil {
+		return err
+	}
+	if event.Kind != NarrationEventKindFinalSummary || event.ConversationID != conversationID ||
+		turn == nil || event.TurnID == nil || *event.TurnID != turn.ID {
+		return fmt.Errorf("narrator current-turn final summary %s does not belong to the target turn", event.ID)
 	}
 	return nil
 }

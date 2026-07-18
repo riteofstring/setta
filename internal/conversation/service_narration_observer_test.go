@@ -74,6 +74,46 @@ func TestServicePublishesCommittedAgentLifecycleToNarrationObserver(t *testing.T
 	}
 }
 
+func TestServiceMarksFailedProviderTurnAsTerminalNarrationObservation(t *testing.T) {
+	observer := &recordingNarrationObserver{observations: make(chan NarrationTrajectoryObservation, 16)}
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(
+		t,
+		t.TempDir(),
+		WithNarrationTrajectoryObserver(observer),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	t.Cleanup(func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer shutdownCancel()
+		if err := service.Shutdown(shutdownCtx); err != nil {
+			t.Errorf("Shutdown: %v", err)
+		}
+		if err := store.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	})
+
+	created, err := service.CreateTopic(ctx, workspaceID, "Failed narration observation")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	if _, err := service.sendTestTurn(ctx, workspaceID, created.Conversation.ID, "hold fail"); err != nil {
+		t.Fatalf("SendTurn: %v", err)
+	}
+	runtime.waitForStart(t, "hold fail")
+	if _, err := service.steerTestTurn(ctx, workspaceID, created.Conversation.ID, "release failure"); err != nil {
+		t.Fatalf("SteerTurn: %v", err)
+	}
+	for {
+		observation := readNarrationObservation(t, observer.observations)
+		if observation.Terminal {
+			assertNarrationObservationContains(t, observation, TrajectoryEventTurnFailed, true)
+			return
+		}
+	}
+}
+
 type recordingNarrationObserver struct {
 	observations chan NarrationTrajectoryObservation
 }

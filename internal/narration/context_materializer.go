@@ -64,6 +64,42 @@ func (materializer *ContextMaterializer) Projection(
 	return materializeProjection(source, request)
 }
 
+func (materializer *ContextMaterializer) Focus(
+	ctx context.Context,
+	request FocusContextRequest,
+) (FocusContextBundle, error) {
+	if materializer == nil || materializer.source == nil {
+		return FocusContextBundle{}, errors.New("narrator context materializer is required")
+	}
+	if ctx == nil {
+		return FocusContextBundle{}, errors.New("narrator focus context is required")
+	}
+	if err := validateFocusContextRequest(request); err != nil {
+		return FocusContextBundle{}, err
+	}
+	source, err := materializer.source.ReadNarratorContextSource(ctx, conversation.NarratorContextReadRequest{
+		ConversationID:      request.ConversationID,
+		TurnID:              &request.TurnID,
+		Kind:                conversation.NarratorContextReadStatus,
+		MaxTrajectoryEvents: 1,
+		MaxFinalSummaries:   0,
+	})
+	if err != nil {
+		return FocusContextBundle{}, err
+	}
+	if err := validateMaterializationSource(
+		source,
+		request.ConversationID,
+		&request.TurnID,
+		conversation.NarratorContextReadStatus,
+		0,
+		1,
+	); err != nil {
+		return FocusContextBundle{}, err
+	}
+	return materializeFocus(source, request)
+}
+
 func (materializer *ContextMaterializer) Status(
 	ctx context.Context,
 	request StatusContextRequest,
@@ -142,6 +178,9 @@ func materializeProjection(
 ) (ProjectionContextBundle, error) {
 	state := source.NarratorState
 	if state.ObservedThroughSequence >= request.ThroughSequence {
+		if canFinalizeObservedTerminal(source, request) {
+			return materializeObservedTerminalProjection(source, request)
+		}
 		return ProjectionContextBundle{}, ErrNoProjectionWork
 	}
 	bundle, baseBytes, err := newProjectionBundle(source, request)
@@ -164,6 +203,99 @@ func materializeProjection(
 		return bundle, nil
 	}
 	return ProjectionContextBundle{}, projectionAdvanceError(source, request, baseBytes, firstRejectedBytes)
+}
+
+func canFinalizeObservedTerminal(
+	source conversation.NarratorContextSource,
+	request ProjectionContextRequest,
+) bool {
+	return request.Trigger == conversation.NarrationTriggerTurnTerminal &&
+		source.NarratorState.ObservedThroughSequence == request.ThroughSequence &&
+		source.CurrentTurnFinalSummary == nil
+}
+
+func materializeObservedTerminalProjection(
+	source conversation.NarratorContextSource,
+	request ProjectionContextRequest,
+) (ProjectionContextBundle, error) {
+	bundle, _, err := newProjectionBundle(source, request)
+	if err != nil {
+		return ProjectionContextBundle{}, err
+	}
+	bundle.EvaluationRange = conversation.TrajectorySequenceRange{
+		Start: request.ThroughSequence,
+		End:   request.ThroughSequence,
+	}
+	size, err := contextBytes(bundle)
+	if err != nil {
+		return ProjectionContextBundle{}, err
+	}
+	if size > request.Limits.MaxInputBytes {
+		return ProjectionContextBundle{}, budgetError(
+			ContextKindProjection,
+			request.Limits.MaxInputBytes,
+			size,
+			"authoritative fields, checkpoint, and terminal final-summary boundary are required",
+		)
+	}
+	bundle.InputBytes = size
+	for _, event := range source.Trajectory.Events {
+		candidate := bundle
+		candidate.Trajectory = appendCopy(bundle.Trajectory, event)
+		candidate.IncludedRange = conversation.TrajectorySequenceRange{
+			Start: candidate.Trajectory[0].Sequence,
+			End:   event.Sequence,
+		}
+		candidate.InputBytes = 0
+		nextSize, sizeErr := contextBytes(candidate)
+		if sizeErr != nil {
+			return ProjectionContextBundle{}, sizeErr
+		}
+		if nextSize > request.Limits.MaxInputBytes {
+			break
+		}
+		candidate.InputBytes = nextSize
+		bundle = candidate
+	}
+	return bundle, nil
+}
+
+func materializeFocus(
+	source conversation.NarratorContextSource,
+	request FocusContextRequest,
+) (FocusContextBundle, error) {
+	if request.SourceSequence > source.Conversation.LastTrajectorySequence {
+		return FocusContextBundle{}, fmt.Errorf(
+			"narrator focus source sequence %d exceeds conversation %s latest trajectory %d",
+			request.SourceSequence,
+			request.ConversationID,
+			source.Conversation.LastTrajectorySequence,
+		)
+	}
+	if source.CurrentTurn.Turn == nil || source.CurrentTurn.Turn.ID != request.TurnID {
+		return FocusContextBundle{}, fmt.Errorf("narrator focus source does not contain target turn %s", request.TurnID)
+	}
+	bundle := FocusContextBundle{
+		Kind:                  ContextKindFocus,
+		Trigger:               request.Trigger,
+		SourceThroughSequence: request.SourceSequence,
+		Authoritative:         authoritativeContext(source),
+		PreCallCursor:         narratorCursor(source.NarratorState),
+	}
+	size, err := contextBytes(bundle)
+	if err != nil {
+		return FocusContextBundle{}, err
+	}
+	if size > request.Limits.MaxInputBytes {
+		return FocusContextBundle{}, budgetError(
+			ContextKindFocus,
+			request.Limits.MaxInputBytes,
+			size,
+			"authoritative fields for stable focus projection are required",
+		)
+	}
+	bundle.InputBytes = size
+	return bundle, nil
 }
 
 func newProjectionBundle(

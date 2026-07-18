@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	MaxNarratorMilestonesPerCall         = 3
+	MaxNarratorMilestonesPerCall         = 1
 	MaxNarratorMilestoneCharacters       = 240
 	MaxNarratorCurrentFocusCharacters    = 320
 	MaxNarratorFinalSummaryCharacters    = 1200
@@ -24,24 +24,27 @@ const (
 type CallOutputKind string
 
 const (
+	CallOutputFocusProjection    CallOutputKind = "focus_projection"
 	CallOutputWorkingProjection  CallOutputKind = "working_projection"
 	CallOutputTerminalProjection CallOutputKind = "terminal_projection"
 	CallOutputStatusReply        CallOutputKind = "status_reply"
 )
 
+type FocusProjectionOutput struct {
+	SourceThroughSequence int     `json:"sourceThroughSequence"`
+	CurrentFocus          string  `json:"currentFocus"`
+	TopicDescriptor       *string `json:"topicDescriptor"`
+}
+
 type WorkingProjectionOutput struct {
 	ObservedThroughSequence int      `json:"observedThroughSequence"`
-	CurrentFocus            string   `json:"currentFocus"`
 	Milestones              []string `json:"milestones"`
-	TopicDescriptor         *string  `json:"topicDescriptor"`
 }
 
 type TerminalProjectionOutput struct {
 	ObservedThroughSequence int      `json:"observedThroughSequence"`
-	CurrentFocus            string   `json:"currentFocus"`
 	Milestones              []string `json:"milestones"`
 	FinalSummary            string   `json:"finalSummary"`
-	TopicDescriptor         *string  `json:"topicDescriptor"`
 }
 
 type StatusReplyOutput struct {
@@ -54,32 +57,59 @@ type StatusReplyOutput struct {
 // the schema for the branch selected by its typed context.
 type NarratorCallOutput struct {
 	Kind               CallOutputKind
+	FocusProjection    *FocusProjectionOutput
 	WorkingProjection  *WorkingProjectionOutput
 	TerminalProjection *TerminalProjectionOutput
 	StatusReply        *StatusReplyOutput
 }
 
+type focusProjectionWireOutput struct {
+	Kind                  CallOutputKind  `json:"kind"`
+	SourceThroughSequence int             `json:"sourceThroughSequence"`
+	CurrentFocus          string          `json:"currentFocus"`
+	TopicDescriptor       json.RawMessage `json:"topicDescriptor"`
+}
+
 type workingProjectionWireOutput struct {
-	Kind                    CallOutputKind  `json:"kind"`
-	ObservedThroughSequence int             `json:"observedThroughSequence"`
-	CurrentFocus            string          `json:"currentFocus"`
-	Milestones              []string        `json:"milestones"`
-	TopicDescriptor         json.RawMessage `json:"topicDescriptor"`
+	Kind                    CallOutputKind `json:"kind"`
+	ObservedThroughSequence int            `json:"observedThroughSequence"`
+	Milestones              []string       `json:"milestones"`
 }
 
 type terminalProjectionWireOutput struct {
-	Kind                    CallOutputKind  `json:"kind"`
-	ObservedThroughSequence int             `json:"observedThroughSequence"`
-	CurrentFocus            string          `json:"currentFocus"`
-	Milestones              []string        `json:"milestones"`
-	FinalSummary            string          `json:"finalSummary"`
-	TopicDescriptor         json.RawMessage `json:"topicDescriptor"`
+	Kind                    CallOutputKind `json:"kind"`
+	ObservedThroughSequence int            `json:"observedThroughSequence"`
+	Milestones              []string       `json:"milestones"`
+	FinalSummary            string         `json:"finalSummary"`
 }
 
 type statusReplyWireOutput struct {
 	Kind                  CallOutputKind `json:"kind"`
 	SourceThroughSequence *int           `json:"sourceThroughSequence"`
 	StatusReply           string         `json:"statusReply"`
+}
+
+func decodeFocusOutput(raw json.RawMessage, context FocusContextBundle) (NarratorCallOutput, error) {
+	var wire focusProjectionWireOutput
+	if err := jsonio.DecodeSingle(bytes.NewReader(raw), &wire); err != nil {
+		return NarratorCallOutput{}, fmt.Errorf("decode narrator focus projection: %w", err)
+	}
+	topicDescriptor, err := decodeRequiredNullableString(wire.TopicDescriptor, "focus projection topicDescriptor")
+	if err != nil {
+		return NarratorCallOutput{}, err
+	}
+	output := NarratorCallOutput{
+		Kind: CallOutputFocusProjection,
+		FocusProjection: &FocusProjectionOutput{
+			SourceThroughSequence: wire.SourceThroughSequence,
+			CurrentFocus:          wire.CurrentFocus,
+			TopicDescriptor:       topicDescriptor,
+		},
+	}
+	if wire.Kind != output.Kind {
+		return NarratorCallOutput{}, fmt.Errorf("narrator focus projection has kind %q", wire.Kind)
+	}
+	return output, output.ValidateFocus(context)
 }
 
 func decodeProjectionOutput(
@@ -92,17 +122,11 @@ func decodeProjectionOutput(
 		if err := jsonio.DecodeSingle(bytes.NewReader(raw), &wire); err != nil {
 			return NarratorCallOutput{}, fmt.Errorf("decode working narrator projection: %w", err)
 		}
-		topicDescriptor, err := decodeRequiredNullableString(wire.TopicDescriptor, "working projection topicDescriptor")
-		if err != nil {
-			return NarratorCallOutput{}, err
-		}
 		output := NarratorCallOutput{
 			Kind: CallOutputWorkingProjection,
 			WorkingProjection: &WorkingProjectionOutput{
 				ObservedThroughSequence: wire.ObservedThroughSequence,
-				CurrentFocus:            wire.CurrentFocus,
 				Milestones:              wire.Milestones,
-				TopicDescriptor:         topicDescriptor,
 			},
 		}
 		if wire.Kind != output.Kind {
@@ -114,18 +138,12 @@ func decodeProjectionOutput(
 		if err := jsonio.DecodeSingle(bytes.NewReader(raw), &wire); err != nil {
 			return NarratorCallOutput{}, fmt.Errorf("decode terminal narrator projection: %w", err)
 		}
-		topicDescriptor, err := decodeRequiredNullableString(wire.TopicDescriptor, "terminal projection topicDescriptor")
-		if err != nil {
-			return NarratorCallOutput{}, err
-		}
 		output := NarratorCallOutput{
 			Kind: CallOutputTerminalProjection,
 			TerminalProjection: &TerminalProjectionOutput{
 				ObservedThroughSequence: wire.ObservedThroughSequence,
-				CurrentFocus:            wire.CurrentFocus,
 				Milestones:              wire.Milestones,
 				FinalSummary:            wire.FinalSummary,
-				TopicDescriptor:         topicDescriptor,
 			},
 		}
 		if wire.Kind != output.Kind {
@@ -166,6 +184,40 @@ func decodeCheckpointOutput(raw json.RawMessage, context CheckpointContextBundle
 	return output, output.Validate(context)
 }
 
+func (output NarratorCallOutput) ValidateFocus(context FocusContextBundle) error {
+	if context.Kind != ContextKindFocus || !isFocusTrigger(context.Trigger) {
+		return fmt.Errorf("narrator focus output requires focus context")
+	}
+	if err := output.validateBranch(); err != nil {
+		return err
+	}
+	if output.Kind != CallOutputFocusProjection {
+		return fmt.Errorf("narrator focus output has kind %q", output.Kind)
+	}
+	if output.FocusProjection.SourceThroughSequence != context.SourceThroughSequence {
+		return fmt.Errorf(
+			"narrator focus source sequence %d must equal supplied source %d",
+			output.FocusProjection.SourceThroughSequence,
+			context.SourceThroughSequence,
+		)
+	}
+	if err := validateBoundedNarratorText(
+		"narrator current focus",
+		output.FocusProjection.CurrentFocus,
+		MaxNarratorCurrentFocusCharacters,
+	); err != nil {
+		return err
+	}
+	if output.FocusProjection.TopicDescriptor != nil {
+		return validateBoundedNarratorText(
+			"narrator topic descriptor",
+			*output.FocusProjection.TopicDescriptor,
+			MaxNarratorTopicDescriptorCharacters,
+		)
+	}
+	return nil
+}
+
 func (output NarratorCallOutput) ValidateProjection(context ProjectionContextBundle) error {
 	if err := validateProjectionOutputEnvelope(output, context); err != nil {
 		return err
@@ -203,12 +255,7 @@ func validateWorkingProjectionOutput(
 	if err := context.ValidateObservedAdvance(projection.ObservedThroughSequence); err != nil {
 		return err
 	}
-	return validateProjectionText(
-		projection.CurrentFocus,
-		projection.Milestones,
-		projection.TopicDescriptor,
-		context.PriorMilestones,
-	)
+	return validateProjectionMilestones(projection.Milestones, context.PriorMilestones)
 }
 
 func validateTerminalProjectionOutput(
@@ -218,22 +265,23 @@ func validateTerminalProjectionOutput(
 	if context.RequestedChannel != ProjectionChannelTerminal || context.Trigger != conversation.NarrationTriggerTurnTerminal {
 		return fmt.Errorf("terminal narrator output requires terminal projection context")
 	}
-	if err := context.ValidateObservedAdvance(projection.ObservedThroughSequence); err != nil {
-		return err
+	if terminalFinalizesObservedCursor(context, projection.ObservedThroughSequence) {
+		if len(projection.Milestones) > 0 {
+			return fmt.Errorf("terminal narrator finalization at current cursor cannot emit milestones")
+		}
+	} else {
+		if err := context.ValidateObservedAdvance(projection.ObservedThroughSequence); err != nil {
+			return err
+		}
+		if projection.ObservedThroughSequence != context.EvaluationRange.End {
+			return fmt.Errorf(
+				"terminal narrator projection must observe terminal boundary %d, got %d",
+				context.EvaluationRange.End,
+				projection.ObservedThroughSequence,
+			)
+		}
 	}
-	if projection.ObservedThroughSequence != context.EvaluationRange.End {
-		return fmt.Errorf(
-			"terminal narrator projection must observe terminal boundary %d, got %d",
-			context.EvaluationRange.End,
-			projection.ObservedThroughSequence,
-		)
-	}
-	if err := validateProjectionText(
-		projection.CurrentFocus,
-		projection.Milestones,
-		projection.TopicDescriptor,
-		context.PriorMilestones,
-	); err != nil {
+	if err := validateProjectionMilestones(projection.Milestones, context.PriorMilestones); err != nil {
 		return err
 	}
 	return validateBoundedNarratorText(
@@ -241,6 +289,18 @@ func validateTerminalProjectionOutput(
 		projection.FinalSummary,
 		MaxNarratorFinalSummaryCharacters,
 	)
+}
+
+func terminalFinalizesObservedCursor(
+	context ProjectionContextBundle,
+	observedThroughSequence int,
+) bool {
+	return context.RequestedChannel == ProjectionChannelTerminal &&
+		context.Trigger == conversation.NarrationTriggerTurnTerminal &&
+		context.PreCallCursor.ObservedThroughSequence == context.RequestedThroughSequence &&
+		context.EvaluationRange.Start == context.RequestedThroughSequence &&
+		context.EvaluationRange.End == context.RequestedThroughSequence &&
+		observedThroughSequence == context.RequestedThroughSequence
 }
 
 func (output NarratorCallOutput) ValidateStatus(context StatusContextBundle) error {
@@ -268,8 +328,17 @@ func (output NarratorCallOutput) ValidateStatus(context StatusContextBundle) err
 }
 
 func (output NarratorCallOutput) validateBranch() error {
+	branches := output.branchCount()
+	if branches != 1 {
+		return fmt.Errorf("narrator call output has %d branches, want exactly one", branches)
+	}
+	return output.validateKindBranch()
+}
+
+func (output NarratorCallOutput) branchCount() int {
 	branches := 0
 	for _, present := range []bool{
+		output.FocusProjection != nil,
 		output.WorkingProjection != nil,
 		output.TerminalProjection != nil,
 		output.StatusReply != nil,
@@ -278,10 +347,15 @@ func (output NarratorCallOutput) validateBranch() error {
 			branches++
 		}
 	}
-	if branches != 1 {
-		return fmt.Errorf("narrator call output has %d branches, want exactly one", branches)
-	}
+	return branches
+}
+
+func (output NarratorCallOutput) validateKindBranch() error {
 	switch output.Kind {
+	case CallOutputFocusProjection:
+		if output.FocusProjection == nil {
+			return fmt.Errorf("focus narrator output requires focus projection branch")
+		}
 	case CallOutputWorkingProjection:
 		if output.WorkingProjection == nil {
 			return fmt.Errorf("working narrator output requires working projection branch")
@@ -300,19 +374,10 @@ func (output NarratorCallOutput) validateBranch() error {
 	return nil
 }
 
-func validateProjectionText(
-	currentFocus string,
+func validateProjectionMilestones(
 	milestones []string,
-	topicDescriptor *string,
 	priorMilestones []PriorMilestone,
 ) error {
-	if err := validateBoundedNarratorText(
-		"narrator current focus",
-		currentFocus,
-		MaxNarratorCurrentFocusCharacters,
-	); err != nil {
-		return err
-	}
 	if milestones == nil {
 		return fmt.Errorf("narrator milestones must be an array, not null or omitted")
 	}
@@ -337,13 +402,6 @@ func validateProjectionText(
 				return fmt.Errorf("narrator projection repeated prior active-turn milestone %q", milestone)
 			}
 		}
-	}
-	if topicDescriptor != nil {
-		return validateBoundedNarratorText(
-			"narrator topic descriptor",
-			*topicDescriptor,
-			MaxNarratorTopicDescriptorCharacters,
-		)
 	}
 	return nil
 }

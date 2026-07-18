@@ -17,10 +17,51 @@ const (
 )
 
 func TestOutputCommitterPreparesEverySuccessfulNarratorChannel(t *testing.T) {
-	t.Run("working milestones and topic descriptor", testPrepareWorkingOutputCommit)
+	t.Run("focus and topic descriptor", testPrepareFocusOutputCommit)
+	t.Run("working milestones", testPrepareWorkingOutputCommit)
 	t.Run("terminal final summary", testPrepareTerminalOutputCommit)
 	t.Run("read-only status reply", testPrepareStatusOutputCommit)
 	t.Run("checkpoint maintenance", testPrepareCheckpointOutputCommit)
+}
+
+func testPrepareFocusOutputCommit(t *testing.T) {
+	source := newFakeNarratorContextSource(3)
+	bundle := materializeCallerFocus(t, source, conversation.NarrationTriggerInputAccepted, 1)
+	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
+		"kind":"focus_projection",
+		"sourceThroughSequence":1,
+		"currentFocus":"Committing the stable narrator focus.",
+		"topicDescriptor":"Narrator focus persistence"
+	}`)}
+	caller := newTimedTestCaller(t, provider)
+	callRequest := CallRequest{
+		ID:            "focus-output-call",
+		Generation:    6,
+		WorkspaceRoot: t.TempDir(),
+		Focus:         &bundle,
+	}
+	result := runNarratorCall(t, caller, callRequest)
+	store := &recordingNarratorOutputStore{}
+	committer := newRecordingOutputCommitter(t, store)
+	commit, err := committer.Prepare(callRequest, result)
+	if err != nil {
+		t.Fatalf("prepare focus output commit: %v", err)
+	}
+	result.NarratorOutput.FocusProjection.CurrentFocus = "mutated after prepare"
+	if err := commit(context.Background()); err != nil {
+		t.Fatalf("commit focus output: %v", err)
+	}
+	if len(store.focuses) != 1 || len(store.projections) != 0 {
+		t.Fatalf("focus/projection commits = %d/%d", len(store.focuses), len(store.projections))
+	}
+	request := store.focuses[0]
+	if request.SourceThroughSequence != 1 ||
+		request.CurrentFocus != "Committing the stable narrator focus." ||
+		request.TopicDescriptor == nil || request.TopicDescriptor.Text != "Narrator focus persistence" ||
+		request.ConversationCommittedID != nil {
+		t.Fatalf("focus output commit = %+v", request)
+	}
+	assertCommittedNarratorInvocation(t, request.ResolvedInvocation, result)
 }
 
 func testPrepareWorkingOutputCommit(t *testing.T) {
@@ -29,9 +70,7 @@ func testPrepareWorkingOutputCommit(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":3,
-		"currentFocus":"Committing the validated narrator projection.",
-		"milestones":["The narrator output boundary is durable."],
-		"topicDescriptor":"Narrator output persistence"
+		"milestones":["The narrator output boundary is durable."]
 	}`)}
 	caller := newTimedTestCaller(t, provider)
 	callRequest := CallRequest{
@@ -51,7 +90,6 @@ func testPrepareWorkingOutputCommit(t *testing.T) {
 		t.Fatal("working output mutated store during prepare")
 	}
 
-	result.NarratorOutput.WorkingProjection.CurrentFocus = "mutated after prepare"
 	result.Model.Settings.ModelID = "mutated-model"
 	bundle.PreCallCursor.ObservedThroughSequence = 99
 	if err := commit(context.Background()); err != nil {
@@ -61,16 +99,12 @@ func testPrepareWorkingOutputCommit(t *testing.T) {
 		t.Fatalf("working projection commits = %d, want 1", len(store.projections))
 	}
 	request := store.projections[0]
-	if request.ObservedThroughSequence != 3 || request.CurrentFocus != "Committing the validated narrator projection." ||
+	if request.ObservedThroughSequence != 3 ||
 		request.Expected.ObservedThroughSequence != 0 || request.Expected.UpdatedAt != narratorContextTestTime {
 		t.Fatalf("working projection commit = %+v", request)
 	}
 	if len(request.Milestones) != 1 || request.Milestones[0].Text != "The narrator output boundary is durable." {
 		t.Fatalf("working milestone commits = %+v", request.Milestones)
-	}
-	if request.TopicDescriptor == nil || request.TopicDescriptor.Text != "Narrator output persistence" ||
-		request.ConversationCommittedID == nil {
-		t.Fatalf("working topic descriptor commit = %+v", request.TopicDescriptor)
 	}
 	assertCommittedNarratorInvocation(t, request.ResolvedInvocation, result)
 	assertDistinctOutputCommitIDs(t, request)
@@ -82,10 +116,8 @@ func testPrepareTerminalOutputCommit(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"terminal_projection",
 		"observedThroughSequence":3,
-		"currentFocus":"The narrator output boundary is complete.",
 		"milestones":[],
-		"finalSummary":"The terminal narrator projection is ready for atomic persistence.",
-		"topicDescriptor":null
+		"finalSummary":"The terminal narrator projection is ready for atomic persistence."
 	}`)}
 	caller := newTimedTestCaller(t, provider)
 	callRequest := CallRequest{
@@ -109,7 +141,7 @@ func testPrepareTerminalOutputCommit(t *testing.T) {
 		request.FinalSummary.Text != "The terminal narrator projection is ready for atomic persistence." {
 		t.Fatalf("terminal projection commit = %+v", request)
 	}
-	if request.TopicDescriptor != nil || request.ConversationCommittedID != nil || request.Milestones == nil {
+	if request.Milestones == nil {
 		t.Fatalf("terminal optional output shape = %+v", request)
 	}
 }
@@ -220,9 +252,7 @@ func TestOutputCommitterRejectsMismatchedMutatedOrInvalidSuccessfulResults(t *te
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":2,
-		"currentFocus":"Validating the commit adapter.",
-		"milestones":[],
-		"topicDescriptor":null
+		"milestones":[]
 	}`)}
 	caller := newTimedTestCaller(t, provider)
 	callRequest := CallRequest{
@@ -242,9 +272,7 @@ func TestOutputCommitterRejectsMismatchedMutatedOrInvalidSuccessfulResults(t *te
 		{name: "generation", mutate: func(value *CallResult) { value.Generation++ }},
 		{name: "input bytes", mutate: func(value *CallResult) { value.InputBytes++ }},
 		{name: "output bytes", mutate: func(value *CallResult) { value.OutputBytes++ }},
-		{name: "decoded output", mutate: func(value *CallResult) {
-			value.NarratorOutput.WorkingProjection.CurrentFocus = "changed without changing structured output"
-		}},
+		{name: "decoded output", mutate: func(value *CallResult) { value.NarratorOutput.WorkingProjection.Milestones = []string{"changed"} }},
 		{name: "model audit", mutate: func(value *CallResult) {
 			value.Model.Settings.ModelID = "mutated-model"
 		}},
@@ -299,9 +327,7 @@ func TestOutputCommitterValidatesConstructionAndCommitErrors(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":1,
-		"currentFocus":"Propagating a store failure.",
-		"milestones":[],
-		"topicDescriptor":null
+		"milestones":[]
 	}`)}
 	caller := newTimedTestCaller(t, provider)
 	callRequest := CallRequest{
@@ -324,10 +350,19 @@ func TestOutputCommitterValidatesConstructionAndCommitErrors(t *testing.T) {
 }
 
 type recordingNarratorOutputStore struct {
+	focuses     []conversation.NarratorFocusCommit
 	projections []conversation.NarratorProjectionCommit
 	statuses    []conversation.NarratorStatusCommit
 	checkpoints []conversation.NarratorCheckpointCommit
 	err         error
+}
+
+func (store *recordingNarratorOutputStore) CommitNarratorFocus(
+	_ context.Context,
+	request conversation.NarratorFocusCommit,
+) (conversation.NarratorFocusCommitResult, error) {
+	store.focuses = append(store.focuses, request)
+	return conversation.NarratorFocusCommitResult{}, store.err
 }
 
 func (store *recordingNarratorOutputStore) CommitNarratorProjection(
@@ -436,17 +471,11 @@ func assertCommittedNarratorInvocation(
 func assertDistinctOutputCommitIDs(t *testing.T, request conversation.NarratorProjectionCommit) {
 	t.Helper()
 	ids := []string{request.ResolvedInvocation.ID, request.NarratorStateCommittedID}
-	if request.ConversationCommittedID != nil {
-		ids = append(ids, *request.ConversationCommittedID)
-	}
 	for _, output := range request.Milestones {
 		ids = append(ids, output.NarrationEventID, output.CommittedEventID)
 	}
 	if request.FinalSummary != nil {
 		ids = append(ids, request.FinalSummary.NarrationEventID, request.FinalSummary.CommittedEventID)
-	}
-	if request.TopicDescriptor != nil {
-		ids = append(ids, request.TopicDescriptor.NarrationEventID, request.TopicDescriptor.CommittedEventID)
 	}
 	seen := map[string]bool{}
 	for _, id := range ids {
@@ -463,10 +492,14 @@ func cloneCallResultForTest(result CallResult) CallResult {
 	cloned.StructuredOutput = append([]byte{}, result.StructuredOutput...)
 	if result.NarratorOutput != nil {
 		output := *result.NarratorOutput
+		if output.FocusProjection != nil {
+			value := *output.FocusProjection
+			value.TopicDescriptor = cloneOptionalString(value.TopicDescriptor)
+			output.FocusProjection = &value
+		}
 		if output.WorkingProjection != nil {
 			value := *output.WorkingProjection
 			value.Milestones = append([]string{}, value.Milestones...)
-			value.TopicDescriptor = cloneOptionalString(value.TopicDescriptor)
 			output.WorkingProjection = &value
 		}
 		cloned.NarratorOutput = &output

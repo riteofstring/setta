@@ -436,6 +436,60 @@ func TestRuntimeHandlesDynamicToolCalls(t *testing.T) {
 	})
 }
 
+func TestRuntimeReturnsDynamicToolHandlerErrorsAsToolFailures(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	workspace := t.TempDir()
+	tool := DynamicTool{
+		Namespace:            "setta",
+		NamespaceDescription: "Setta tools.",
+		Name:                 "emit_artifact",
+		Description:          "Emit an artifact.",
+		InputSchema:          json.RawMessage(`{"type":"object","properties":{"answer":{"type":"string"}}}`),
+		Handler: func(ctx context.Context, call DynamicToolCall) (DynamicToolResult, error) {
+			if err := ctx.Err(); err != nil {
+				return DynamicToolResult{}, err
+			}
+			var arguments struct {
+				Answer string `json:"answer"`
+			}
+			if err := json.Unmarshal(call.Arguments, &arguments); err != nil {
+				return DynamicToolResult{}, err
+			}
+			if arguments.Answer != "ok" {
+				return DynamicToolResult{}, errors.New("dynamic tool arguments drifted")
+			}
+			return DynamicToolResult{
+				ContentItems: []DynamicToolContentItem{{
+					Type: "inputText",
+					Text: "dynamic tool acknowledged",
+				}},
+				Success: true,
+			}, nil
+		},
+	}
+	thread, err := runtime.StartThread(ctx, StartThreadRequest{
+		WorkspaceRoot: workspace,
+		Invocation:    testInvocation(),
+		DynamicTools:  []DynamicTool{tool},
+	})
+	if err != nil {
+		t.Fatalf("StartThread: %v", err)
+	}
+	request := testTurnRequest(0, thread.ID, workspace, "dynamic tool failure")
+	request.DynamicTools = []DynamicTool{tool}
+	sink := &recordingEventSink{}
+	result, err := runtime.RunTurn(ctx, request, sink)
+	if err != nil || result.Outcome != TurnOutcomeCompleted {
+		t.Fatalf("RunTurn with failed dynamic tool result = %+v, %v", result, err)
+	}
+	assertEventKinds(t, 0, sink.snapshot(), []EventKind{
+		EventKindTurnStarted,
+		EventKindTurnTerminal,
+	})
+}
+
 func TestRuntimeSteersInterruptsAndResolvesApproval(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

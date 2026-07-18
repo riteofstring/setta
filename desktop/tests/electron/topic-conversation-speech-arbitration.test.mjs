@@ -377,13 +377,13 @@ function terminalNarrationEvents(snapshot, workingSnapshot, authoredText) {
   const milestones = events.filter((event) => event.kind === "milestone");
   const finals = events.filter((event) => event.kind === "final_summary");
   if (
-    milestones.length !== 1 ||
+    milestones.length > 1 ||
     finals.length !== 1 ||
     typeof finals[0].finalSummary?.text !== "string"
   ) {
     throw new Error(`terminal arbitration narration is invalid: ${JSON.stringify(events)}`);
   }
-  return { events, final: finals[0], milestone: milestones[0] };
+  return { events, final: finals[0], milestone: milestones[0] ?? null };
 }
 
 async function waitForConversationSurfaces(client, ready) {
@@ -572,12 +572,15 @@ function assertCompletedArbitration(observations, finalEventIds) {
 }
 
 function assertTerminalSupersessions(supersessions, terminalEvents) {
-  const expectedFinalIds = new Set(terminalEvents.map(({ final }) => final.id));
+  const terminalsWithMilestone = terminalEvents.filter(({ milestone }) => milestone);
+  const expectedFinalIds = new Set(terminalsWithMilestone.map(({ final }) => final.id));
   const matching = supersessions.filter((decision) =>
     expectedFinalIds.has(decision.superseding.source.eventId),
   );
-  const asserted = terminalEvents.map((terminal) => assertTerminalSupersession(matching, terminal));
-  if (matching.length !== terminalEvents.length) {
+  const asserted = terminalsWithMilestone.map((terminal) =>
+    assertTerminalSupersession(matching, terminal),
+  );
+  if (matching.length !== terminalsWithMilestone.length) {
     throw new Error(`terminal supersession count is invalid: ${JSON.stringify(matching)}`);
   }
   return asserted;

@@ -15,9 +15,26 @@ type NarratorProjectionCommit struct {
 	TurnID                   string
 	Expected                 NarratorStateExpectation
 	ObservedThroughSequence  int
-	CurrentFocus             string
 	Milestones               []NarrationTextCommit
 	FinalSummary             *NarrationTextCommit
+	Trigger                  NarrationTrigger
+	ResolvedInvocation       ResolvedInvocation
+	NarratorStateCommittedID string
+	CommittedAt              string
+}
+
+type NarratorProjectionCommitResult struct {
+	State        NarratorState
+	Conversation *TopicConversation
+	Events       []NarrationEvent
+}
+
+type NarratorFocusCommit struct {
+	ConversationID           string
+	TurnID                   string
+	Expected                 NarratorStateExpectation
+	SourceThroughSequence    int
+	CurrentFocus             string
 	TopicDescriptor          *NarrationTextCommit
 	Trigger                  NarrationTrigger
 	ResolvedInvocation       ResolvedInvocation
@@ -26,10 +43,10 @@ type NarratorProjectionCommit struct {
 	CommittedAt              string
 }
 
-type NarratorProjectionCommitResult struct {
+type NarratorFocusCommitResult struct {
 	State        NarratorState
 	Conversation *TopicConversation
-	Events       []NarrationEvent
+	Event        *NarrationEvent
 }
 
 type NarratorStatusCommit struct {
@@ -57,9 +74,6 @@ func (request NarratorProjectionCommit) Validate() error {
 	if err := validateNarratorProjectionChannel(request); err != nil {
 		return err
 	}
-	if err := validateNarratorTopicDescriptorCommit(request); err != nil {
-		return err
-	}
 	if err := validateNarratorOutputAudit(
 		request.Expected,
 		request.ResolvedInvocation,
@@ -80,18 +94,30 @@ func validateNarratorProjectionTarget(request NarratorProjectionCommit) error {
 	if err := validateNarratorExpectedVersion(request.Expected, request.ConversationID); err != nil {
 		return err
 	}
-	if request.ObservedThroughSequence <= request.Expected.ObservedThroughSequence {
+	if request.ObservedThroughSequence < request.Expected.ObservedThroughSequence {
 		return fmt.Errorf(
-			"narrator projection observed cursor %d must advance beyond %d",
+			"narrator projection observed cursor %d must not move behind %d",
 			request.ObservedThroughSequence,
 			request.Expected.ObservedThroughSequence,
 		)
 	}
-	if err := validateTrimmedText("narrator projection current focus", request.CurrentFocus); err != nil {
-		return err
+	if request.ObservedThroughSequence == request.Expected.ObservedThroughSequence {
+		if request.Trigger != NarrationTriggerTurnTerminal {
+			return fmt.Errorf(
+				"narrator projection observed cursor %d must advance beyond %d",
+				request.ObservedThroughSequence,
+				request.Expected.ObservedThroughSequence,
+			)
+		}
+		if len(request.Milestones) > 0 {
+			return fmt.Errorf("terminal narrator finalization at current cursor cannot persist milestones")
+		}
 	}
 	if request.Milestones == nil {
 		return fmt.Errorf("narrator projection milestones must be an array, not null")
+	}
+	if len(request.Milestones) > 1 {
+		return fmt.Errorf("narrator projection emitted %d milestones, maximum is 1", len(request.Milestones))
 	}
 	return nil
 }
@@ -112,17 +138,53 @@ func validateNarratorProjectionChannel(request NarratorProjectionCommit) error {
 	return nil
 }
 
-func validateNarratorTopicDescriptorCommit(request NarratorProjectionCommit) error {
-	if request.TopicDescriptor == nil && request.ConversationCommittedID != nil {
-		return fmt.Errorf("narrator projection cannot publish conversation update without topic descriptor")
+func (request NarratorFocusCommit) Validate() error {
+	if err := validateNarratorFocusTarget(request); err != nil {
+		return err
 	}
-	if request.TopicDescriptor != nil {
-		if err := validateOptionalIdentifier("narrator projection conversation committed event id", request.ConversationCommittedID); err != nil {
-			return err
-		}
-		if request.ConversationCommittedID == nil {
-			return fmt.Errorf("narrator topic descriptor requires conversation committed event id")
-		}
+	if err := validateNarratorTopicDescriptorCommit(request.TopicDescriptor, request.ConversationCommittedID); err != nil {
+		return err
+	}
+	if err := validateNarratorOutputAudit(
+		request.Expected,
+		request.ResolvedInvocation,
+		request.CommittedAt,
+	); err != nil {
+		return err
+	}
+	return validateFocusOutputIdentities(request)
+}
+
+func validateNarratorFocusTarget(request NarratorFocusCommit) error {
+	if err := validateIdentifier("narrator focus conversation id", request.ConversationID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("narrator focus turn id", request.TurnID); err != nil {
+		return err
+	}
+	if err := validateNarratorExpectedVersion(request.Expected, request.ConversationID); err != nil {
+		return err
+	}
+	if request.SourceThroughSequence <= 0 {
+		return fmt.Errorf("narrator focus source sequence must be positive")
+	}
+	if err := validateTrimmedText("narrator focus current focus", request.CurrentFocus); err != nil {
+		return err
+	}
+	switch request.Trigger {
+	case NarrationTriggerInputAccepted, NarrationTriggerUserSteered:
+		return nil
+	default:
+		return fmt.Errorf("narrator focus has unsupported trigger %q", request.Trigger)
+	}
+}
+
+func validateNarratorTopicDescriptorCommit(
+	_ *NarrationTextCommit,
+	conversationCommittedID *string,
+) error {
+	if conversationCommittedID != nil {
+		return fmt.Errorf("narrator focus cannot publish conversation update")
 	}
 	return nil
 }
@@ -178,7 +240,6 @@ func validateProjectionOutputIdentities(request NarratorProjectionCommit) error 
 	return validateOptionalNarratorOutputIdentities(
 		seen,
 		request.FinalSummary,
-		request.TopicDescriptor,
 	)
 }
 
@@ -190,13 +251,19 @@ func addNarratorProjectionEnvelopeIDs(
 		{label: "narrator invocation id", value: request.ResolvedInvocation.ID},
 		{label: "narrator state committed event id", value: request.NarratorStateCommittedID},
 	}
-	if request.ConversationCommittedID != nil {
-		ids = append(ids, narratorCommitID{
-			label: "conversation committed event id",
-			value: *request.ConversationCommittedID,
-		})
-	}
 	return addNarratorCommitIDs(seen, ids)
+}
+
+func validateFocusOutputIdentities(request NarratorFocusCommit) error {
+	seen := map[string]bool{}
+	ids := []narratorCommitID{
+		{label: "narrator invocation id", value: request.ResolvedInvocation.ID},
+		{label: "narrator state committed event id", value: request.NarratorStateCommittedID},
+	}
+	if err := addNarratorCommitIDs(seen, ids); err != nil {
+		return err
+	}
+	return validateOptionalNarratorOutputIdentities(seen, request.TopicDescriptor)
 }
 
 func validateNarratorMilestoneIdentities(

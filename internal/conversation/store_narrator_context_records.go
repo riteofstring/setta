@@ -199,6 +199,33 @@ ORDER BY stream_sequence ASC
 `, conversationID, turn.ID)
 }
 
+func readNarratorCurrentTurnFinalSummary(
+	ctx context.Context,
+	reader snapshotReader,
+	conversationID string,
+	turn *ConversationTurn,
+) (*NarrationEvent, error) {
+	if turn == nil {
+		return nil, nil
+	}
+	events, err := queryNarrationEvents(ctx, reader, `
+SELECT id, conversation_id, turn_id, stream_sequence, kind,
+       source_sequence_start, source_sequence_end, trigger, payload_json,
+       resolved_invocation_json, created_at
+FROM narration_events
+WHERE conversation_id = ? AND turn_id = ? AND kind = 'final_summary'
+ORDER BY stream_sequence DESC
+LIMIT 1
+`, conversationID, turn.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(events) == 0 {
+		return nil, nil
+	}
+	return &events[0], nil
+}
+
 func readNarratorRecentFinalSummaries(
 	ctx context.Context,
 	reader snapshotReader,

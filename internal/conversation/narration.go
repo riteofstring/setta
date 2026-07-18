@@ -19,6 +19,7 @@ const (
 	NarrationEventKindFinalSummary    NarrationEventKind = "final_summary"
 	NarrationEventKindTopicDescriptor NarrationEventKind = "topic_descriptor"
 
+	NarrationTriggerInputAccepted            NarrationTrigger = "input_accepted"
 	NarrationTriggerProgressWindowElapsed    NarrationTrigger = "progress_window_elapsed"
 	NarrationTriggerPlanChanged              NarrationTrigger = "plan_changed"
 	NarrationTriggerPhaseActivityCompleted   NarrationTrigger = "phase_activity_completed"
@@ -340,7 +341,8 @@ func validateTopicDescriptorEvent(event NarrationEvent) error {
 
 func validNarrationTrigger(trigger NarrationTrigger) bool {
 	switch trigger {
-	case NarrationTriggerProgressWindowElapsed,
+	case NarrationTriggerInputAccepted,
+		NarrationTriggerProgressWindowElapsed,
 		NarrationTriggerPlanChanged,
 		NarrationTriggerPhaseActivityCompleted,
 		NarrationTriggerApprovalRequired,

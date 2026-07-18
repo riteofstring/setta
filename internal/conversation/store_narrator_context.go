@@ -77,25 +77,51 @@ func readNarratorContextSource(
 	if err != nil {
 		return NarratorContextSource{}, err
 	}
-	milestones := []NarrationEvent{}
-	if request.Kind == NarratorContextReadProjection {
-		milestones, err = readNarratorPriorMilestones(ctx, reader, request.ConversationID, turn)
-		if err != nil {
-			return NarratorContextSource{}, err
-		}
+	milestones, err := readNarratorProjectionMilestones(ctx, reader, request, turn)
+	if err != nil {
+		return NarratorContextSource{}, err
+	}
+	currentTurnFinalSummary, err := readNarratorProjectionFinalSummary(ctx, reader, request, turn)
+	if err != nil {
+		return NarratorContextSource{}, err
 	}
 	finalSummaries, err := readNarratorRecentFinalSummaries(ctx, reader, request, turn)
 	if err != nil {
 		return NarratorContextSource{}, err
 	}
 	return NarratorContextSource{
-		Conversation:         conversation,
-		NarratorState:        narratorState,
-		CurrentTurn:          currentTurn,
-		Trajectory:           trajectory,
-		PriorMilestones:      milestones,
-		RecentFinalSummaries: finalSummaries,
+		Conversation:            conversation,
+		NarratorState:           narratorState,
+		CurrentTurn:             currentTurn,
+		Trajectory:              trajectory,
+		PriorMilestones:         milestones,
+		CurrentTurnFinalSummary: currentTurnFinalSummary,
+		RecentFinalSummaries:    finalSummaries,
 	}, nil
+}
+
+func readNarratorProjectionMilestones(
+	ctx context.Context,
+	reader snapshotReader,
+	request NarratorContextReadRequest,
+	turn *ConversationTurn,
+) ([]NarrationEvent, error) {
+	if request.Kind != NarratorContextReadProjection {
+		return []NarrationEvent{}, nil
+	}
+	return readNarratorPriorMilestones(ctx, reader, request.ConversationID, turn)
+}
+
+func readNarratorProjectionFinalSummary(
+	ctx context.Context,
+	reader snapshotReader,
+	request NarratorContextReadRequest,
+	turn *ConversationTurn,
+) (*NarrationEvent, error) {
+	if request.Kind != NarratorContextReadProjection {
+		return nil, nil
+	}
+	return readNarratorCurrentTurnFinalSummary(ctx, reader, request.ConversationID, turn)
 }
 
 func readNarratorConversation(

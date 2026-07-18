@@ -13,6 +13,7 @@ import (
 )
 
 func TestCallerRunsFreshSchemaConstrainedCallsForEveryTypedTriggerKind(t *testing.T) {
+	t.Run("focus projection", testCallerFocusProjection)
 	t.Run("working projection", testCallerWorkingProjection)
 	t.Run("terminal projection", testCallerTerminalProjection)
 	t.Run("status reply", testCallerStatusReply)
@@ -33,9 +34,7 @@ func TestCallerPinsProviderDefaultToCatalogResolution(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":3,
-		"currentFocus":"Verifying the resolved provider default.",
-		"milestones":[],
-		"topicDescriptor":null
+		"milestones":[]
 	}`)}
 	caller, err := NewCaller(models, provider)
 	if err != nil {
@@ -56,15 +55,42 @@ func TestCallerPinsProviderDefaultToCatalogResolution(t *testing.T) {
 	}
 }
 
+func testCallerFocusProjection(t *testing.T) {
+	source := newFakeNarratorContextSource(3)
+	bundle := materializeCallerFocus(t, source, conversation.NarrationTriggerInputAccepted, 1)
+	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
+		"kind":"focus_projection",
+		"sourceThroughSequence":1,
+		"currentFocus":"Implementing the narrator provider boundary.",
+		"topicDescriptor":"Narrator provider calls"
+	}`)}
+	caller := newTestCaller(t, provider)
+	result, err := caller.Call(context.Background(), CallRequest{
+		ID:            "narrator-focus-call",
+		Generation:    1,
+		WorkspaceRoot: t.TempDir(),
+		Focus:         &bundle,
+	})
+	if err != nil {
+		t.Fatalf("focus Call: %v", err)
+	}
+	if result.Kind != RequestKindFocus || result.Trigger != conversation.NarrationTriggerInputAccepted ||
+		result.NarratorOutput == nil || result.NarratorOutput.FocusProjection == nil {
+		t.Fatalf("focus call result = %+v", result)
+	}
+	assertCallerProviderRequest(t, provider, bundle.InputBytes, string(CallOutputFocusProjection))
+	assertSchemaProperties(t, provider.requests[0].OutputSchema,
+		[]string{"currentFocus", "kind", "sourceThroughSequence", "topicDescriptor"},
+	)
+}
+
 func testCallerWorkingProjection(t *testing.T) {
 	source := newFakeNarratorContextSource(3)
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":3,
-		"currentFocus":"Implementing the narrator provider boundary.",
-		"milestones":["The provider boundary is now typed."],
-		"topicDescriptor":"Narrator provider calls"
+		"milestones":["The provider boundary is now typed."]
 	}`)}
 	caller := newTestCaller(t, provider)
 	result := callProjection(t, caller, bundle)
@@ -74,7 +100,7 @@ func testCallerWorkingProjection(t *testing.T) {
 	}
 	assertCallerProviderRequest(t, provider, bundle.InputBytes, string(CallOutputWorkingProjection))
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
-		[]string{"currentFocus", "kind", "milestones", "observedThroughSequence", "topicDescriptor"},
+		[]string{"kind", "milestones", "observedThroughSequence"},
 	)
 }
 
@@ -84,10 +110,8 @@ func testCallerTerminalProjection(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"terminal_projection",
 		"observedThroughSequence":3,
-		"currentFocus":"The narrator provider boundary is complete.",
 		"milestones":[],
-		"finalSummary":"The isolated provider call completed with a strict terminal projection.",
-		"topicDescriptor":null
+		"finalSummary":"The isolated provider call completed with a strict terminal projection."
 	}`)}
 	caller := newTestCaller(t, provider)
 	result := callProjection(t, caller, bundle)
@@ -97,7 +121,7 @@ func testCallerTerminalProjection(t *testing.T) {
 	}
 	assertCallerProviderRequest(t, provider, bundle.InputBytes, string(CallOutputTerminalProjection))
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
-		[]string{"currentFocus", "finalSummary", "kind", "milestones", "observedThroughSequence", "topicDescriptor"},
+		[]string{"finalSummary", "kind", "milestones", "observedThroughSequence"},
 	)
 	assertSchemaIntegerBounds(t, provider.requests[0].OutputSchema, "observedThroughSequence", 3, 3)
 }
@@ -108,10 +132,8 @@ func TestCallerRejectsTerminalProjectionBeforeTerminalBoundary(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"terminal_projection",
 		"observedThroughSequence":2,
-		"currentFocus":"Stopping before the terminal event.",
 		"milestones":[],
-		"finalSummary":"This summary cannot cover a terminal event the narrator did not observe.",
-		"topicDescriptor":null
+		"finalSummary":"This summary cannot cover a terminal event the narrator did not observe."
 	}`)}
 	caller := newTestCaller(t, provider)
 
@@ -212,52 +234,39 @@ func TestCallerRejectsMalformedOrCrossChannelNarratorOutput(t *testing.T) {
 	}{
 		{
 			name: "unknown field",
-			output: `{"kind":"working_projection","observedThroughSequence":3,"currentFocus":"Working.",` +
-				`"milestones":[],"topicDescriptor":null,"finalSummary":"not allowed"}`,
+			output: `{"kind":"working_projection","observedThroughSequence":3,` +
+				`"milestones":[],"finalSummary":"not allowed"}`,
 			message: "unknown field",
 		},
 		{
-			name: "missing nullable field",
-			output: `{"kind":"working_projection","observedThroughSequence":3,` +
-				`"currentFocus":"Working.","milestones":[]}`,
-			message: "topicDescriptor is required",
+			name:    "projection cannot carry focus",
+			output:  `{"kind":"working_projection","observedThroughSequence":3,"currentFocus":"Working.","milestones":[]}`,
+			message: "unknown field",
 		},
 		{
-			name: "wrong channel",
-			output: `{"kind":"terminal_projection","observedThroughSequence":3,` +
-				`"currentFocus":"Working.","milestones":[],"topicDescriptor":null}`,
+			name:    "wrong channel",
+			output:  `{"kind":"terminal_projection","observedThroughSequence":3,"milestones":[]}`,
 			message: "has kind",
 		},
 		{
-			name: "cursor outside range",
-			output: `{"kind":"working_projection","observedThroughSequence":4,` +
-				`"currentFocus":"Working.","milestones":[],"topicDescriptor":null}`,
+			name:    "cursor outside range",
+			output:  `{"kind":"working_projection","observedThroughSequence":4,"milestones":[]}`,
 			message: "outside supplied evaluation range",
 		},
 		{
-			name: "duplicate prior milestone",
-			output: `{"kind":"working_projection","observedThroughSequence":3,` +
-				`"currentFocus":"Working.","milestones":["The existing milestone remains unique."],"topicDescriptor":null}`,
+			name:    "duplicate prior milestone",
+			output:  `{"kind":"working_projection","observedThroughSequence":3,"milestones":["The existing milestone remains unique."]}`,
 			message: "repeated prior active-turn milestone",
 		},
 		{
-			name: "not voice ready",
-			output: `{"kind":"working_projection","observedThroughSequence":3,` +
-				`"currentFocus":"Working.","milestones":["line one\nline two"],"topicDescriptor":null}`,
+			name:    "not voice ready",
+			output:  `{"kind":"working_projection","observedThroughSequence":3,"milestones":["line one\nline two"]}`,
 			message: "control characters",
 		},
 		{
-			name: "too many milestones",
-			output: `{"kind":"working_projection","observedThroughSequence":3,` +
-				`"currentFocus":"Working.","milestones":["One.","Two.","Three.","Four."],"topicDescriptor":null}`,
-			message: "maximum is 3",
-		},
-		{
-			name: "oversized focus",
-			output: `{"kind":"working_projection","observedThroughSequence":3,"currentFocus":"` +
-				strings.Repeat("x", MaxNarratorCurrentFocusCharacters+1) +
-				`","milestones":[],"topicDescriptor":null}`,
-			message: "exceeds 320 characters",
+			name:    "too many milestones",
+			output:  `{"kind":"working_projection","observedThroughSequence":3,"milestones":["One.","Two."]}`,
+			message: "maximum is 1",
 		},
 	}
 	for _, test := range tests {
@@ -320,9 +329,7 @@ func TestCallerValidatesOutputAgainstFrozenSuppliedContext(t *testing.T) {
 		output: json.RawMessage(`{
 			"kind":"working_projection",
 			"observedThroughSequence":4,
-			"currentFocus":"This cursor was not present in the supplied context.",
-			"milestones":[],
-			"topicDescriptor":null
+			"milestones":[]
 		}`),
 		beforeReturn: func() {
 			bundle.EvaluationRange.End = 4
@@ -348,9 +355,7 @@ func TestCallerRetainsAttemptMetadataWhenOutputValidationFails(t *testing.T) {
 	providerOutput := json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":3,
-		"currentFocus":"Validating output.",
 		"milestones":[],
-		"topicDescriptor":null,
 		"finalSummary":"Cross-channel output is invalid."
 	}`)
 	provider := &recordingFreshStructuredProvider{output: providerOutput}
@@ -460,6 +465,27 @@ func materializeCallerProjection(
 	})
 	if err != nil {
 		t.Fatalf("materialize projection: %v", err)
+	}
+	return bundle
+}
+
+func materializeCallerFocus(
+	t *testing.T,
+	source *fakeNarratorContextSource,
+	trigger conversation.NarrationTrigger,
+	sourceSequence int,
+) FocusContextBundle {
+	t.Helper()
+	materializer := newFakeContextMaterializer(t, source)
+	bundle, err := materializer.Focus(context.Background(), FocusContextRequest{
+		ConversationID: source.conversation.ID,
+		TurnID:         source.turn.ID,
+		Trigger:        trigger,
+		SourceSequence: sourceSequence,
+		Limits:         testContextLimits(len(source.events)),
+	})
+	if err != nil {
+		t.Fatalf("materialize focus: %v", err)
 	}
 	return bundle
 }

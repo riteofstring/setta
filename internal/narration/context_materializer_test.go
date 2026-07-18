@@ -295,6 +295,51 @@ func TestProjectionContextConstrainsObservedCursorToSuppliedWindow(t *testing.T)
 	}
 }
 
+func TestContextMaterializerBuildsTerminalFinalizationAtObservedCursor(t *testing.T) {
+	source := newFakeNarratorContextSource(6)
+	source.state.ObservedThroughSequence = 6
+	source.state.CheckpointThroughSequence = 6
+	source.state.CheckpointText = "The failed terminal event is already represented in the checkpoint."
+	source.turn.Status = conversation.TurnStatusFailed
+	endedAt := "2026-07-12T12:01:00Z"
+	source.turn.EndedAt = &endedAt
+	source.turn.Error = &conversation.Failure{
+		Code:    "provider_turn_failed",
+		Message: "scripted terminal failure",
+	}
+	materializer := newFakeContextMaterializer(t, source)
+
+	bundle, err := materializer.Projection(context.Background(), ProjectionContextRequest{
+		ConversationID:  source.conversation.ID,
+		TurnID:          source.turn.ID,
+		Trigger:         conversation.NarrationTriggerTurnTerminal,
+		ThroughSequence: 6,
+		Limits:          testContextLimits(3),
+	})
+	if err != nil {
+		t.Fatalf("materialize observed terminal finalization: %v", err)
+	}
+	if bundle.RequestedChannel != ProjectionChannelTerminal {
+		t.Fatalf("terminal finalization channel = %s", bundle.RequestedChannel)
+	}
+	assertSequenceRange(t, bundle.EvaluationRange, 6, 6)
+	if len(bundle.Trajectory) != 0 || bundle.IncludedRange.Start != 0 || bundle.IncludedRange.End != 0 {
+		t.Fatalf("terminal finalization trajectory = %+v range=%+v", bundle.Trajectory, bundle.IncludedRange)
+	}
+
+	source.currentTurnFinalSummary = fakeFinalSummaryEvent(source.conversation.ID, source.turn.ID, 6)
+	_, err = materializer.Projection(context.Background(), ProjectionContextRequest{
+		ConversationID:  source.conversation.ID,
+		TurnID:          source.turn.ID,
+		Trigger:         conversation.NarrationTriggerTurnTerminal,
+		ThroughSequence: 6,
+		Limits:          testContextLimits(3),
+	})
+	if !errors.Is(err, ErrNoProjectionWork) {
+		t.Fatalf("terminal finalization with existing final summary error = %T %v, want ErrNoProjectionWork", err, err)
+	}
+}
+
 func TestContextMaterializerUsesContiguousByteBoundedProjectionPrefix(t *testing.T) {
 	source := newFakeNarratorContextSource(7)
 	materializer := newFakeContextMaterializer(t, source)
@@ -440,14 +485,15 @@ func TestCheckpointOutputRequiresExactMaterializedCoverage(t *testing.T) {
 }
 
 type fakeNarratorContextSource struct {
-	conversation   conversation.TopicConversation
-	state          conversation.NarratorState
-	turn           conversation.ConversationTurn
-	events         []conversation.TrajectoryEvent
-	steering       []conversation.NarratorAcceptedSteering
-	milestones     []conversation.NarrationEvent
-	finalSummaries []conversation.NarrationEvent
-	requests       []conversation.NarratorContextReadRequest
+	conversation            conversation.TopicConversation
+	state                   conversation.NarratorState
+	turn                    conversation.ConversationTurn
+	events                  []conversation.TrajectoryEvent
+	steering                []conversation.NarratorAcceptedSteering
+	milestones              []conversation.NarrationEvent
+	currentTurnFinalSummary *conversation.NarrationEvent
+	finalSummaries          []conversation.NarrationEvent
+	requests                []conversation.NarratorContextReadRequest
 }
 
 func newFakeNarratorContextSource(eventCount int) *fakeNarratorContextSource {
@@ -536,9 +582,10 @@ func (source *fakeNarratorContextSource) ReadNarratorContextSource(
 			ActiveSubagents:  []conversation.NarratorActiveSubagent{},
 			Artifacts:        []conversation.Artifact{},
 		},
-		Trajectory:           window,
-		PriorMilestones:      append([]conversation.NarrationEvent{}, source.milestones...),
-		RecentFinalSummaries: append([]conversation.NarrationEvent{}, finalSummaries...),
+		Trajectory:              window,
+		PriorMilestones:         append([]conversation.NarrationEvent{}, source.milestones...),
+		CurrentTurnFinalSummary: cloneNarrationEventPointer(source.currentTurnFinalSummary),
+		RecentFinalSummaries:    append([]conversation.NarrationEvent{}, finalSummaries...),
 	}, nil
 }
 
@@ -549,6 +596,40 @@ func newFakeContextMaterializer(t *testing.T, source ContextSource) *ContextMate
 		t.Fatalf("new context materializer: %v", err)
 	}
 	return materializer
+}
+
+func fakeFinalSummaryEvent(conversationID string, turnID string, sequence int) *conversation.NarrationEvent {
+	return &conversation.NarrationEvent{
+		ID:                  "final-summary-existing",
+		ConversationID:      conversationID,
+		TurnID:              &turnID,
+		StreamSequence:      1,
+		Kind:                conversation.NarrationEventKindFinalSummary,
+		SourceSequenceStart: sequence,
+		SourceSequenceEnd:   sequence,
+		Trigger:             conversation.NarrationTriggerTurnTerminal,
+		ResolvedInvocation: conversation.ResolvedInvocation{
+			ID:        "final-summary-invocation",
+			Role:      conversation.RoleNarrator,
+			StartedAt: narratorContextTestTime,
+			EndedAt:   stringPointerForContextTest(narratorContextTestTime),
+			Outcome:   conversation.InvocationOutcomeSucceeded,
+		},
+		CreatedAt:    narratorContextTestTime,
+		FinalSummary: &conversation.NarrationFinalSummary{Text: "The turn already has a final summary."},
+	}
+}
+
+func cloneNarrationEventPointer(event *conversation.NarrationEvent) *conversation.NarrationEvent {
+	if event == nil {
+		return nil
+	}
+	clone := *event
+	return &clone
+}
+
+func stringPointerForContextTest(value string) *string {
+	return &value
 }
 
 func fakeTrajectoryEvent(conversationID string, turnID string, sequence int) conversation.TrajectoryEvent {

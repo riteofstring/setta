@@ -13,6 +13,10 @@ import (
 )
 
 type NarratorOutputStore interface {
+	CommitNarratorFocus(
+		context.Context,
+		conversation.NarratorFocusCommit,
+	) (conversation.NarratorFocusCommitResult, error)
 	CommitNarratorProjection(
 		context.Context,
 		conversation.NarratorProjectionCommit,
@@ -83,21 +87,28 @@ func (committer *OutputCommitter) Prepare(
 	if err != nil {
 		return nil, err
 	}
+	if prepared.kind == RequestKindCheckpoint {
+		return committer.prepareCheckpoint(prepared.checkpoint, frozen)
+	}
+	invocation, err := committer.successfulInvocation(frozen)
+	if err != nil {
+		return nil, err
+	}
+	return committer.prepareTextOutput(prepared, frozen, invocation)
+}
+
+func (committer *OutputCommitter) prepareTextOutput(
+	prepared preparedCallRequest,
+	frozen CallResult,
+	invocation conversation.ResolvedInvocation,
+) (PreparedCommit, error) {
 	switch prepared.kind {
+	case RequestKindFocus:
+		return committer.prepareFocus(prepared.focus, frozen, invocation)
 	case RequestKindProjection:
-		invocation, err := committer.successfulInvocation(frozen)
-		if err != nil {
-			return nil, err
-		}
 		return committer.prepareProjection(prepared.projection, frozen, invocation)
 	case RequestKindStatus:
-		invocation, err := committer.successfulInvocation(frozen)
-		if err != nil {
-			return nil, err
-		}
 		return committer.prepareStatus(prepared.status, frozen, invocation)
-	case RequestKindCheckpoint:
-		return committer.prepareCheckpoint(prepared.checkpoint, frozen)
 	default:
 		return nil, fmt.Errorf("prepare narrator output for unsupported kind %q", prepared.kind)
 	}
@@ -262,12 +273,66 @@ func (committer *OutputCommitter) prepareProjection(
 	}, nil
 }
 
+func (committer *OutputCommitter) prepareFocus(
+	bundle FocusContextBundle,
+	result CallResult,
+	invocation conversation.ResolvedInvocation,
+) (PreparedCommit, error) {
+	output := result.NarratorOutput.FocusProjection
+	request, err := committer.newFocusCommit(bundle, result, invocation, *output)
+	if err != nil {
+		return nil, err
+	}
+	if err := request.Validate(); err != nil {
+		return nil, err
+	}
+	frozen := cloneFocusCommit(request)
+	return func(ctx context.Context) error {
+		_, err := committer.store.CommitNarratorFocus(ctx, frozen)
+		return err
+	}, nil
+}
+
+func (committer *OutputCommitter) newFocusCommit(
+	bundle FocusContextBundle,
+	result CallResult,
+	invocation conversation.ResolvedInvocation,
+	output FocusProjectionOutput,
+) (conversation.NarratorFocusCommit, error) {
+	committedAt, err := outputCommitTimestamp(bundle.PreCallCursor.UpdatedAt, result.EndedAt)
+	if err != nil {
+		return conversation.NarratorFocusCommit{}, err
+	}
+	turnID, err := focusTurnID(bundle)
+	if err != nil {
+		return conversation.NarratorFocusCommit{}, err
+	}
+	stateCommittedID, err := committer.newID("conversation_event")
+	if err != nil {
+		return conversation.NarratorFocusCommit{}, err
+	}
+	topicDescriptor, err := committer.topicDescriptorCommit(output.TopicDescriptor)
+	if err != nil {
+		return conversation.NarratorFocusCommit{}, err
+	}
+	return conversation.NarratorFocusCommit{
+		ConversationID:           result.ConversationID,
+		TurnID:                   turnID,
+		Expected:                 narratorStateExpectation(bundle.PreCallCursor),
+		SourceThroughSequence:    output.SourceThroughSequence,
+		CurrentFocus:             output.CurrentFocus,
+		TopicDescriptor:          topicDescriptor,
+		Trigger:                  result.Trigger,
+		ResolvedInvocation:       invocation,
+		NarratorStateCommittedID: stateCommittedID,
+		CommittedAt:              committedAt,
+	}, nil
+}
+
 type projectionCommitOutput struct {
 	observedThrough int
-	currentFocus    string
 	milestones      []string
 	finalSummary    *string
-	topicDescriptor *string
 }
 
 func (committer *OutputCommitter) newProjectionCommitEnvelope(
@@ -293,7 +358,6 @@ func (committer *OutputCommitter) newProjectionCommitEnvelope(
 		TurnID:                   turnID,
 		Expected:                 narratorStateExpectation(bundle.PreCallCursor),
 		ObservedThroughSequence:  output.observedThrough,
-		CurrentFocus:             output.currentFocus,
 		Milestones:               []conversation.NarrationTextCommit{},
 		Trigger:                  result.Trigger,
 		ResolvedInvocation:       invocation,
@@ -314,14 +378,8 @@ func (committer *OutputCommitter) addProjectionTextCommits(
 	if err != nil {
 		return err
 	}
-	topicDescriptor, conversationEventID, err := committer.topicDescriptorCommit(output.topicDescriptor)
-	if err != nil {
-		return err
-	}
 	request.Milestones = milestones
 	request.FinalSummary = finalSummary
-	request.TopicDescriptor = topicDescriptor
-	request.ConversationCommittedID = conversationEventID
 	return nil
 }
 
@@ -356,16 +414,8 @@ func (committer *OutputCommitter) optionalTextCommit(
 
 func (committer *OutputCommitter) topicDescriptorCommit(
 	value *string,
-) (*conversation.NarrationTextCommit, *string, error) {
-	identity, err := committer.optionalTextCommit("narration_topic_descriptor", value)
-	if err != nil || identity == nil {
-		return identity, nil, err
-	}
-	conversationEventID, err := committer.newID("conversation_event")
-	if err != nil {
-		return nil, nil, err
-	}
-	return identity, &conversationEventID, nil
+) (*conversation.NarrationTextCommit, error) {
+	return committer.optionalTextCommit("narration_topic_descriptor", value)
 }
 
 func (committer *OutputCommitter) prepareStatus(
@@ -444,23 +494,30 @@ func projectionOutputFields(
 		value := output.WorkingProjection
 		return projectionCommitOutput{
 			observedThrough: value.ObservedThroughSequence,
-			currentFocus:    value.CurrentFocus,
 			milestones:      append([]string{}, value.Milestones...),
-			topicDescriptor: cloneOptionalString(value.TopicDescriptor),
 		}, nil
 	case CallOutputTerminalProjection:
 		value := output.TerminalProjection
 		finalSummary := value.FinalSummary
 		return projectionCommitOutput{
 			observedThrough: value.ObservedThroughSequence,
-			currentFocus:    value.CurrentFocus,
 			milestones:      append([]string{}, value.Milestones...),
 			finalSummary:    &finalSummary,
-			topicDescriptor: cloneOptionalString(value.TopicDescriptor),
 		}, nil
 	default:
 		return projectionCommitOutput{}, fmt.Errorf("narrator projection output has kind %q", output.Kind)
 	}
+}
+
+func focusTurnID(context FocusContextBundle) (string, error) {
+	if context.Authoritative.CurrentInstructions == nil {
+		return "", errors.New("narrator focus context has no current turn")
+	}
+	turnID := context.Authoritative.CurrentInstructions.TurnID
+	if err := validateIdentifier("narrator focus turn id", turnID); err != nil {
+		return "", err
+	}
+	return turnID, nil
 }
 
 func projectionTurnID(context ProjectionContextBundle) (string, error) {
@@ -523,6 +580,12 @@ func cloneProjectionCommit(
 	cloned := request
 	cloned.Milestones = append([]conversation.NarrationTextCommit{}, request.Milestones...)
 	cloned.FinalSummary = cloneTextCommit(request.FinalSummary)
+	cloned.ResolvedInvocation = cloneResolvedInvocation(request.ResolvedInvocation)
+	return cloned
+}
+
+func cloneFocusCommit(request conversation.NarratorFocusCommit) conversation.NarratorFocusCommit {
+	cloned := request
 	cloned.TopicDescriptor = cloneTextCommit(request.TopicDescriptor)
 	cloned.ConversationCommittedID = cloneOptionalString(request.ConversationCommittedID)
 	cloned.ResolvedInvocation = cloneResolvedInvocation(request.ResolvedInvocation)
