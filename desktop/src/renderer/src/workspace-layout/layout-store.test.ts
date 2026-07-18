@@ -158,10 +158,7 @@ describe("workspace layout store", () => {
   });
 
   test("enforces configured pane limits for explicit opens", () => {
-    const store = createStore({
-      "easy-button": 10,
-      "settings-dom": 1,
-    });
+    const store = createStore({ "settings-dom": 1 });
 
     expect(store.paneLimitState({ surfaceKind: "settings-dom" })).toEqual({
       allowed: false,
@@ -173,24 +170,29 @@ describe("workspace layout store", () => {
     expect(() => store.openPane({ surfaceKind: "settings-dom", title: "Settings" })).toThrow(
       "workspace pane limit reached for settings-dom",
     );
+  });
 
-    expect(
-      store.canOpenPane({
-        easyButtonConfig: { conversationId: "conversation_0" },
-        surfaceKind: "easy-button",
-      }),
-    ).toBe(true);
-    for (let index = 1; index < 10; index += 1) {
+  test("does not impose a pane limit on Easy Button conversations", () => {
+    const store = createStore({ "settings-dom": 1 });
+
+    for (let index = 0; index < 11; index += 1) {
+      expect(
+        store.canOpenPane({
+          easyButtonConfig: { conversationId: `conversation_${index}` },
+          surfaceKind: "easy-button",
+        }),
+      ).toBe(true);
       store.openPane({
         easyButtonConfig: { conversationId: `conversation_${index}` },
         surfaceKind: "easy-button",
         title: `Topic ${index}`,
       });
     }
+
     expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
-      allowed: false,
-      count: 10,
-      limit: 10,
+      allowed: true,
+      count: 12,
+      limit: null,
       surfaceKind: "easy-button",
     });
   });
@@ -337,7 +339,7 @@ describe("workspace layout store", () => {
   });
 
   test("preserves an easy button binding only while the pane remains an easy button", () => {
-    const store = createStore({ "easy-button": 2 });
+    const store = createStore();
     const easyButtonConfig = { conversationId: "conversation-1" };
     const paneId = store.openPane({
       easyButtonConfig,
@@ -356,7 +358,7 @@ describe("workspace layout store", () => {
   });
 
   test("rejects duplicate easy button conversation bindings before layout mutation", () => {
-    const store = createStore({ "easy-button": 3 });
+    const store = createStore();
     const firstPaneId = store.openPane({
       easyButtonConfig: { conversationId: "conversation-1" },
       surfaceKind: "easy-button",

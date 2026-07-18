@@ -94,6 +94,31 @@ describe("conversation pane coordinator", () => {
     expect(store.toScene().paneById.get(initialPaneId)?.surfaceKind).toBe("empty-frame");
   });
 
+  test("opens newly created conversations beyond the former Easy Button pane cap", () => {
+    const store = workspaceStore();
+
+    for (let index = 0; index < 11; index += 1) {
+      const result = presentConversationPane(store, {
+        conversationId: `conversation_new_${index}`,
+        destination: { kind: "new-pane" },
+        title: "New conversation",
+        workspaceId: "workspace_api",
+      });
+
+      expect(result.kind).toBe("opened");
+    }
+
+    expect(store.toScene().panes.filter((pane) => pane.surfaceKind === "easy-button")).toHaveLength(
+      11,
+    );
+    expect(
+      preflightConversationPanePlacement(store, {
+        destination: { kind: "new-pane" },
+        workspaceId: "workspace_api",
+      }),
+    ).toEqual({ kind: "ready" });
+  });
+
   test("opens a newly created conversation in the requested empty frame", () => {
     const store = workspaceStore();
     const emptyPaneId = store.focusedPaneId();

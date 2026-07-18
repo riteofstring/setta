@@ -37,6 +37,54 @@ describe("conversation creation command", () => {
     expect(createConversation).not.toHaveBeenCalled();
   });
 
+  test("checks workspace availability before creating durable conversation state", async () => {
+    const createConversation = vi.fn();
+    const preflightPlacement = vi.fn();
+
+    await expect(
+      createAndPresentConversation({
+        createConversation,
+        ensureWorkspaceAvailable: vi.fn(() => {
+          throw new Error("Workspace workspace_api is unavailable.");
+        }),
+        ensureWorkspaceSelected: vi.fn(),
+        hydrateSnapshot: vi.fn(),
+        preflightPlacement,
+        presentConversation: vi.fn(),
+        request: {
+          destination: { kind: "new-pane" },
+          workspaceId: "workspace_api",
+        },
+      }),
+    ).rejects.toThrow("Workspace workspace_api is unavailable.");
+
+    expect(preflightPlacement).not.toHaveBeenCalled();
+    expect(createConversation).not.toHaveBeenCalled();
+  });
+
+  test("leaves layout presentation untouched when durable creation fails", async () => {
+    const hydrateSnapshot = vi.fn();
+    const presentConversation = vi.fn();
+
+    await expect(
+      createAndPresentConversation({
+        createConversation: vi.fn().mockRejectedValue(new Error("conversation store unavailable")),
+        ensureWorkspaceAvailable: vi.fn(),
+        ensureWorkspaceSelected: vi.fn(),
+        hydrateSnapshot,
+        preflightPlacement: vi.fn().mockResolvedValue(undefined),
+        presentConversation,
+        request: {
+          destination: { kind: "new-pane" },
+          workspaceId: "workspace_api",
+        },
+      }),
+    ).rejects.toThrow("conversation store unavailable");
+
+    expect(hydrateSnapshot).not.toHaveBeenCalled();
+    expect(presentConversation).not.toHaveBeenCalled();
+  });
+
   test("creates, hydrates, and presents a new-pane conversation", async () => {
     const snapshot = conversationSnapshot("conversation_created", "workspace_api");
     const hydrateSnapshot = vi.fn();
@@ -93,6 +141,30 @@ describe("conversation creation command", () => {
         },
       }),
     ).rejects.toThrow("The conversation was created, but its frame no longer exists.");
+
+    expect(hydrateSnapshot).toHaveBeenCalledWith(snapshot);
+  });
+
+  test("keeps the created conversation when presentation fails for a layout reason", async () => {
+    const snapshot = conversationSnapshot("conversation_created", "workspace_api");
+    const hydrateSnapshot = vi.fn();
+
+    await expect(
+      createAndPresentConversation({
+        createConversation: vi.fn().mockResolvedValue(snapshot),
+        ensureWorkspaceAvailable: vi.fn(),
+        ensureWorkspaceSelected: vi.fn(),
+        hydrateSnapshot,
+        preflightPlacement: vi.fn().mockResolvedValue(undefined),
+        presentConversation: vi.fn().mockRejectedValue(new Error("layout persistence failed")),
+        request: {
+          destination: { kind: "new-pane" },
+          workspaceId: "workspace_api",
+        },
+      }),
+    ).rejects.toThrow(
+      "The conversation was created, but it could not be opened. layout persistence failed",
+    );
 
     expect(hydrateSnapshot).toHaveBeenCalledWith(snapshot);
   });

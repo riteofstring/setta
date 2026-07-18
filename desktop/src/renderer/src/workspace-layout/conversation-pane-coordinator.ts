@@ -145,12 +145,6 @@ export function presentConversationPane(
     clearMaximizedPane(store);
     return { kind: "opened", paneId: store.configurePane(onlyPane.paneId, paneRequest) };
   }
-  if (!store.canOpenPane(paneRequest)) {
-    return {
-      kind: "blocked",
-      reason: "The workspace has reached its Easy Button pane limit.",
-    };
-  }
   clearMaximizedPane(store);
   return { kind: "opened", paneId: store.openPane(paneRequest) };
 }
@@ -166,15 +160,8 @@ export function preflightConversationPanePlacement(
     };
   }
   switch (request.destination.kind) {
-    case "new-pane": {
-      const paneRequest = conversationPaneRequest("conversation_preflight", "New conversation");
-      return store.canOpenPane(paneRequest)
-        ? { kind: "ready" }
-        : {
-            kind: "blocked",
-            reason: "The workspace has reached its Easy Button pane limit.",
-          };
-    }
+    case "new-pane":
+      return { kind: "ready" };
     case "empty-frame":
       return emptyFramePlacementPreflight(store, request.destination.paneId);
     default:
@@ -200,12 +187,6 @@ function presentNewConversationPane(
   const paneRequest = conversationPaneRequest(request.conversationId, request.title);
   switch (destination.kind) {
     case "new-pane":
-      if (!store.canOpenPane(paneRequest)) {
-        return {
-          kind: "blocked",
-          reason: "The workspace has reached its Easy Button pane limit.",
-        };
-      }
       clearMaximizedPane(store);
       return { kind: "opened", paneId: store.openPane(paneRequest) };
     case "empty-frame": {
@@ -231,13 +212,6 @@ function emptyFramePlacementPreflight(
   }
   if (pane.surfaceKind !== "empty-frame") {
     return { kind: "blocked", reason: conversationSelectedFrameNotEmptyReason };
-  }
-  const paneRequest = conversationPaneRequest("conversation_preflight", "New conversation");
-  if (!store.canOpenPane(paneRequest)) {
-    return {
-      kind: "blocked",
-      reason: "The workspace has reached its Easy Button pane limit.",
-    };
   }
   return { kind: "ready" };
 }

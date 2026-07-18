@@ -353,8 +353,16 @@ export class WorkspaceLayoutStore {
         surfaceKind,
       };
     }
-    const limit = this.options.paneLimits?.[surfaceKind] ?? null;
     const count = this.toScene().panes.filter((pane) => pane.surfaceKind === surfaceKind).length;
+    if (surfaceKind === "easy-button") {
+      return {
+        allowed: true,
+        count,
+        limit: null,
+        surfaceKind,
+      };
+    }
+    const limit = this.options.paneLimits?.[surfaceKind] ?? null;
     return {
       allowed: limit === null || count < limit,
       count,
