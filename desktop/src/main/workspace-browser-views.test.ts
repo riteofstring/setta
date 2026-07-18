@@ -1,7 +1,6 @@
 import type { IpcMainEvent, Rectangle } from "electron";
 import { describe, expect, test, vi } from "vitest";
 
-import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import { ipcEvents } from "@shared/ipc";
 import type { WorkspaceBrowserViewBatch } from "@shared/types";
 import { WebContentsViewRegistry } from "./workspace-browser-views";
@@ -371,69 +370,6 @@ describe("workspace WebContentsView registry", () => {
         key: "o",
         metaKey: true,
         shiftKey: false,
-        surfaceId: "surface-1",
-        workspaceId: "phase-4-browser-pane-benchmark",
-      },
-    });
-  });
-
-  test("forwards global master text and voice shortcuts from native browser panes", () => {
-    const owner = new FakeOwnerWindow();
-    const view = new FakeNativeView();
-    const registry = new WebContentsViewRegistry({
-      createClipView: () => new FakeNativeView() as never,
-      createView: () => view as never,
-      windowFromIpcEvent: () => owner as never,
-    });
-
-    registry.applyBatch(fakeEvent(), batch([update("surface-1", true)], "ctrl_shift_k"));
-    const controlEvent = view.webContents.emitBeforeInput("K", { control: true });
-    const voiceEvent = view.webContents.emitBeforeInput("K", { control: true, shift: true });
-    const alternateVoiceEvent = view.webContents.emitBeforeInput("K", { alt: true, shift: true });
-    const modifiedEvent = view.webContents.emitBeforeInput("K", { alt: true, control: true });
-
-    expect(controlEvent.prevented).toBe(true);
-    expect(voiceEvent.prevented).toBe(true);
-    expect(alternateVoiceEvent.prevented).toBe(false);
-    expect(modifiedEvent.prevented).toBe(false);
-    expect(owner.webContents.sent).toContainEqual({
-      channel: ipcEvents.workspaceBrowserViewKey,
-      payload: {
-        altKey: false,
-        ctrlKey: true,
-        key: "k",
-        metaKey: false,
-        shiftKey: false,
-        surfaceId: "surface-1",
-        workspaceId: "phase-4-browser-pane-benchmark",
-      },
-    });
-    expect(owner.webContents.sent).toContainEqual({
-      channel: ipcEvents.workspaceBrowserViewKey,
-      payload: {
-        altKey: false,
-        ctrlKey: true,
-        key: "k",
-        metaKey: false,
-        shiftKey: true,
-        surfaceId: "surface-1",
-        workspaceId: "phase-4-browser-pane-benchmark",
-      },
-    });
-    registry.applyBatch(fakeEvent(), batch([], "alt_shift_k"));
-    const updatedAlternateVoiceEvent = view.webContents.emitBeforeInput("K", {
-      alt: true,
-      shift: true,
-    });
-    expect(updatedAlternateVoiceEvent.prevented).toBe(true);
-    expect(owner.webContents.sent).toContainEqual({
-      channel: ipcEvents.workspaceBrowserViewKey,
-      payload: {
-        altKey: true,
-        ctrlKey: false,
-        key: "k",
-        metaKey: false,
-        shiftKey: true,
         surfaceId: "surface-1",
         workspaceId: "phase-4-browser-pane-benchmark",
       },
@@ -926,13 +862,9 @@ class FakeOwnerWindow {
   }
 }
 
-function batch(
-  updates: WorkspaceBrowserViewBatch["updates"],
-  masterVoiceShortcut: AppearanceMasterVoiceShortcut = "mod_shift_k",
-): WorkspaceBrowserViewBatch {
+function batch(updates: WorkspaceBrowserViewBatch["updates"]): WorkspaceBrowserViewBatch {
   return {
     focusedSurfaceId: updates.find((candidate) => candidate.focused)?.surfaceId ?? null,
-    masterVoiceShortcut,
     totalBrowserPanes: 24,
     updates,
     visibleBrowserPanes: updates.length,

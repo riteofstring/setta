@@ -1,12 +1,15 @@
-import {
-  workspaceUILayoutSchemaVersion,
-  type ColumnWidthSpec as PersistedColumnWidthSpec,
-  type PaneTone as PersistedPaneTone,
-  type WorkspaceUIColumn,
-  type WorkspaceUILayout,
-  type WorkspaceUIPane,
+import type {
+  ColumnWidthSpec as PersistedColumnWidthSpec,
+  PaneTone as PersistedPaneTone,
+  SurfaceKind as PersistedSurfaceKind,
+  TerminalPaneConfig as PersistedTerminalPaneConfig,
+  WorkflowNodeDetailsPaneConfig,
+  WorkspaceUIColumn,
+  WorkspaceUILayout,
+  WorkspaceUIPane,
 } from "@generated/backend";
 
+import { productSurfaceKinds } from "./types";
 import type {
   ColumnWidthSpec,
   WorkspaceColumn,
@@ -15,16 +18,22 @@ import type {
   PaneLimitPolicy,
   PaneId,
   ProductSurfaceKind,
+  TerminalPaneConfig,
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
+const realWorkspaceLayoutSchemaVersion = 1;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
+const realWorkspaceSurfaceKinds = productSurfaceKinds;
 export const defaultRealWorkspacePaneLimits = {
-  browser: 10,
-  "easy-button": 10,
-  "empty-frame": 10,
+  "chat-dom": 10,
+  "workflow-graph": 10,
   "settings-dom": 1,
+  "semantic-node-details": 1,
+  terminal: 10,
+  "workflow-node-details": 1,
+  "workflow-settings": 1,
 } satisfies PaneLimitPolicy;
 
 export interface RealWorkspaceSceneOptions {
@@ -48,7 +57,7 @@ interface CreatePaneInput {
   columnId: string;
   sequence: number;
   subtitle: string;
-  surfaceKind: Exclude<ProductSurfaceKind, "easy-button">;
+  surfaceKind: ProductSurfaceKind;
   title: string;
   tone: WorkspacePane["tone"];
   weight?: number;
@@ -99,7 +108,7 @@ export function workspaceUILayoutFromScene(
     })),
     focusedPaneId,
     panes: scene.panes.map(workspacePaneToPersisted),
-    schemaVersion: workspaceUILayoutSchemaVersion,
+    schemaVersion: realWorkspaceLayoutSchemaVersion,
     workspaceId,
   };
 }
@@ -113,8 +122,33 @@ function createDefaultRealWorkspaceScene(
       columnId: "workspace_column_0",
       sequence: 0,
       subtitle: workspaceName,
-      surfaceKind: "empty-frame",
-      title: "New frame",
+      surfaceKind: "chat-dom",
+      title: "Chat",
+      tone: "cyan",
+      weight: 1.6,
+    }),
+    createPane({
+      columnId: "workspace_column_1",
+      sequence: 1,
+      subtitle: "workspace command surface",
+      surfaceKind: "terminal",
+      title: "Terminal",
+      tone: "green",
+    }),
+    createPane({
+      columnId: "workspace_column_2",
+      sequence: 2,
+      subtitle: "workflow graph",
+      surfaceKind: "workflow-graph",
+      title: "Workflow Graph",
+      tone: "cyan",
+    }),
+    createPane({
+      columnId: "workspace_column_3",
+      sequence: 3,
+      subtitle: "workspace settings",
+      surfaceKind: "settings-dom",
+      title: "Settings",
       tone: "slate",
     }),
   ];
@@ -170,57 +204,73 @@ function workspaceColumnFromPersisted(column: WorkspaceUIColumn): WorkspaceColum
 }
 
 function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
-  const fields = {
+  return {
     columnId: pane.columnId,
     heat: pane.heat,
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
+    surfaceKind: pane.surfaceKind,
+    terminalConfig: pane.terminalConfig
+      ? terminalConfigFromPersisted(pane.terminalConfig)
+      : undefined,
     title: pane.title,
     tone: pane.tone,
     weight: pane.weight,
+    workflowNodeDetailsConfig: workflowNodeDetailsConfigFromPersisted(
+      pane.workflowNodeDetailsConfig,
+    ),
   };
-  switch (pane.surfaceKind) {
-    case "easy-button":
-      return {
-        ...fields,
-        easyButtonConfig: pane.easyButtonConfig,
-        surfaceKind: pane.surfaceKind,
-      };
-    case "browser":
-    case "empty-frame":
-    case "settings-dom":
-      return { ...fields, surfaceKind: pane.surfaceKind };
+}
+
+function workflowNodeDetailsConfigFromPersisted(
+  config: WorkflowNodeDetailsPaneConfig | null,
+): WorkflowNodeDetailsPaneConfig | undefined {
+  return config ?? undefined;
+}
+
+function terminalConfigFromPersisted(config: PersistedTerminalPaneConfig): TerminalPaneConfig {
+  const terminalConfig: TerminalPaneConfig = {
+    profileId: config.profileId,
+  };
+  if (config.cwdOverride !== "") {
+    terminalConfig.cwdOverride = config.cwdOverride;
   }
+  if (config.titleOverride !== "") {
+    terminalConfig.titleOverride = config.titleOverride;
+  }
+  return terminalConfig;
 }
 
 function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
-  const fields = {
+  return {
     columnId: pane.columnId,
     heat: pane.heat,
     paneId: pane.paneId,
     sequence: pane.sequence,
     subtitle: pane.subtitle,
     surfaceId: pane.surfaceId,
+    surfaceKind: persistedSurfaceKind(pane.surfaceKind),
+    terminalConfig: pane.terminalConfig ? terminalConfigToPersisted(pane.terminalConfig) : null,
     title: pane.title,
     tone: persistedPaneTone(pane.tone),
     weight: pane.weight,
+    workflowNodeDetailsConfig: pane.workflowNodeDetailsConfig ?? null,
   };
-  switch (pane.surfaceKind) {
-    case "easy-button":
-      return {
-        ...fields,
-        easyButtonConfig: pane.easyButtonConfig,
-        surfaceKind: pane.surfaceKind,
-      };
-    case "browser":
-    case "empty-frame":
-    case "settings-dom":
-      return { ...fields, easyButtonConfig: null, surfaceKind: pane.surfaceKind };
-    default:
-      return persistedDiagnosticPaneError(pane.surfaceKind);
+}
+
+function terminalConfigToPersisted(
+  config: WorkspacePane["terminalConfig"],
+): PersistedTerminalPaneConfig {
+  if (!config) {
+    throw new Error("terminal config is required");
   }
+  return {
+    cwdOverride: config.cwdOverride ?? "",
+    profileId: config.profileId,
+    titleOverride: config.titleOverride ?? "",
+  };
 }
 
 function workspaceColumnWidthSpec(spec: PersistedColumnWidthSpec): ColumnWidthSpec {
@@ -237,8 +287,11 @@ function persistedColumnWidthSpec(spec: ColumnWidthSpec): PersistedColumnWidthSp
   };
 }
 
-function persistedDiagnosticPaneError(surfaceKind: string): never {
-  throw new Error(`real workspace layout cannot persist diagnostic surface kind: ${surfaceKind}`);
+function persistedSurfaceKind(surfaceKind: WorkspacePane["surfaceKind"]): PersistedSurfaceKind {
+  if (!isRealWorkspaceSurfaceKind(surfaceKind)) {
+    throw new Error(`real workspace layout cannot persist diagnostic surface kind: ${surfaceKind}`);
+  }
+  return surfaceKind;
 }
 
 function persistedPaneTone(tone: WorkspacePane["tone"]): PersistedPaneTone {
@@ -329,6 +382,12 @@ function uniqueSurfaceId(pane: WorkspacePane, usedSurfaceIds: Set<string>): stri
   }
   usedSurfaceIds.add(candidate);
   return candidate;
+}
+
+function isRealWorkspaceSurfaceKind(value: unknown): value is ProductSurfaceKind {
+  return (
+    typeof value === "string" && realWorkspaceSurfaceKinds.includes(value as ProductSurfaceKind)
+  );
 }
 
 function isFiniteNumber(value: unknown): value is number {

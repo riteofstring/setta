@@ -114,20 +114,6 @@ describe("appearance store", () => {
     );
     expect(settings.shortcuts.workspaceNavigation).toBe("mod_alt_arrows");
   });
-
-  test("updates the draft master voice shortcut", () => {
-    const settings = testAppearanceSettings();
-    useAppearanceStore.setState({
-      draft: settings,
-      settings,
-      status: "ready",
-    });
-
-    useAppearanceStore.getState().setMasterVoiceShortcut("alt_shift_k");
-
-    expect(useAppearanceStore.getState().draft?.shortcuts.masterVoice).toBe("alt_shift_k");
-    expect(settings.shortcuts.masterVoice).toBe("mod_shift_k");
-  });
 });
 
 function installAppearanceAPI({
@@ -163,9 +149,8 @@ function testAppearanceSettings(): AppearanceSettings {
     },
     shortcuts: {
       workspaceNavigation: "mod_alt_arrows",
-      masterVoice: "mod_shift_k",
     },
     mode: "dark",
-    schemaVersion: 3,
+    schemaVersion: 2,
   } as AppearanceSettings;
 }

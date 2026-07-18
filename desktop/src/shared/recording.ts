@@ -3,7 +3,6 @@ export const recordingRendererEventChannel = "recording:renderer-event";
 export type RendererRecordedEvent =
   | RendererClickEvent
   | RendererKeydownEvent
-  | RendererPointerEvent
   | RendererSubmitEvent
   | RendererErrorEvent
   | RendererLayoutSnapshotEvent
@@ -29,20 +28,7 @@ interface RendererTargetSummary {
 
 interface RendererClickEvent extends RendererRecordedEventBase {
   button: number;
-  clientX: number;
-  clientY: number;
-  hitTargets: RendererTargetSummary[];
   type: "click";
-}
-
-interface RendererPointerEvent extends RendererRecordedEventBase {
-  button: number;
-  clientX: number;
-  clientY: number;
-  hitTargets: RendererTargetSummary[];
-  pointerId: number;
-  pointerType: string;
-  type: "pointerdown" | "pointerup";
 }
 
 interface RendererKeydownEvent extends RendererRecordedEventBase {
@@ -70,40 +56,30 @@ interface RendererUnhandledRejectionEvent extends RendererRecordedEventBase {
 }
 
 interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
-  panes: RendererPaneSnapshot[];
+  activeRunStatus: string;
+  backgroundTerminalSurface: RendererBackgroundTerminalSurfaceSnapshot;
+  chatDetailPane: RendererRect | null;
+  composer: RendererRect | null;
+  jumpToLatestButton: RendererVisibleRect | null;
+  queueSize: number;
+  selectedConversationId: string;
+  transcript: RendererScrollRect | null;
+  transcriptScrollDebug: RendererTranscriptScrollDebugSnapshot | null;
   trigger: string;
   type: "layout_snapshot";
   viewport: {
     height: number;
     width: number;
   };
-  workspace: RendererWorkspaceSnapshot | null;
+  visibleTurnIds: string[];
 }
 
-interface RendererPaneSnapshot {
-  conversation: RendererConversationPaneSnapshot | null;
-  focused: boolean;
-  paneId: string;
-  rect: RendererRect;
-  runtimeState: string;
-  surfaceKind: string;
-  visible: boolean;
-}
-
-interface RendererConversationPaneSnapshot {
-  captureScope: string;
-  captureState: string;
-  focusStatus: string;
-  id: string;
-  paletteId: string;
-  playbackScope: string;
-  playbackState: string;
-  projectionStatus: string;
-  queueCount: number;
-  sideConversationId: string;
-  sideStatus: string;
-  statusTone: string;
-  viewState: string;
+interface RendererBackgroundTerminalSurfaceSnapshot {
+  footerPhase: string;
+  footerVisible: boolean;
+  monitorOpen: boolean;
+  visibleTerminalIds: string[];
+  visibleTerminalStatuses: string[];
 }
 
 interface RendererRect {
@@ -115,10 +91,40 @@ interface RendererRect {
   width: number;
 }
 
-interface RendererWorkspaceSnapshot {
-  mode: string;
-  paneCount: number;
-  presentationMode: string;
-  rect: RendererRect;
-  workspaceId: string;
+interface RendererScrollRect extends RendererRect {
+  clientHeight: number;
+  distanceFromBottom: number;
+  scrollTop: number;
+  scrollHeight: number;
 }
+
+interface RendererVisibleRect extends RendererRect {
+  visible: boolean;
+}
+
+interface RendererTranscriptScrollDebugTraceEntry {
+  [key: string]: boolean | number | string | null;
+}
+
+type RendererTranscriptScrollDebugSnapshot =
+  | {
+      awayFromBottom: boolean;
+      atBottom: boolean;
+      clientHeight: number;
+      distanceFromBottom: number;
+      hasScrollableOverflow: boolean;
+      lastVisibleIndex: number;
+      mode: string;
+      pendingScrollCount: number;
+      programmaticScrollCount: number;
+      rowCount: number;
+      scrollHeight: number;
+      source: string;
+      scrollTop: number;
+      tailRevision: string;
+      trace: RendererTranscriptScrollDebugTraceEntry[];
+    }
+  | {
+      error: string;
+      source: string;
+    };

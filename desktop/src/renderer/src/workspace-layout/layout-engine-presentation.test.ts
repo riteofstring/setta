@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import type { PaneRenderItem, Rect } from "./types";
-import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
+import { createRealWorkspaceScene } from "./workspace-scene";
 
 const viewport: Rect = {
   height: 900,
@@ -266,7 +266,7 @@ function requireRenderItem(items: PaneRenderItem[], paneId: string): PaneRenderI
 function createRealEngine(
   options?: ConstructorParameters<typeof WorkspaceLikeLayoutEngine>[1],
 ): WorkspaceLikeLayoutEngine {
-  const { scene } = createWorkspaceLayoutTestScene({
+  const { scene } = createRealWorkspaceScene({
     storedLayout: null,
     workspaceId: "setta:workspace-layout:engine-test",
     workspaceName: "Repo",
@@ -274,13 +274,13 @@ function createRealEngine(
   const builder = new WorkspaceLikeLayoutEngine(scene);
   builder.openPane({
     adjacentToColumnId: "workspace_column_3",
-    surfaceKind: "browser",
+    surfaceKind: "terminal",
     title: "Logs",
     tone: "green",
   });
   builder.openPane({
     adjacentToColumnId: "workspace_column_4",
-    surfaceKind: "fake-heavy-dom",
+    surfaceKind: "chat-dom",
     title: "Notes",
     tone: "cyan",
   });

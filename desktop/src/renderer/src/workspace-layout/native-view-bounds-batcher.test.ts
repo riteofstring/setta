@@ -28,7 +28,6 @@ describe("workspace native view bounds batcher", () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
       focusedSurfaceId: "browser-surface-1",
-      masterVoiceShortcut: "mod_shift_k",
       totalBrowserPanes: 24,
       visibleBrowserPanes: 2,
       workspaceId: "phase-4-browser-pane-benchmark",
@@ -63,35 +62,6 @@ describe("workspace native view bounds batcher", () => {
 
     expect(result).toEqual({ batchSent: false, updateCount: 0 });
     expect(sent).toHaveLength(1);
-  });
-
-  test("sends a native batch when only the master voice shortcut changes", () => {
-    const sent: WorkspaceBrowserViewBatch[] = [];
-    const batcher = new NativeViewBoundsBatcher(
-      {
-        totalBrowserPanes: 24,
-        workspaceId: "phase-4-browser-pane-benchmark",
-      },
-      {
-        batchBrowserViewUpdates: (batch) => {
-          sent.push(batch);
-        },
-        teardownBrowserViews: vi.fn(async () => stats()),
-      },
-    );
-
-    batcher.beginFrame();
-    batcher.queue(update("browser-surface-1", false));
-    expect(batcher.flush()).toEqual({ batchSent: true, updateCount: 1 });
-
-    batcher.setMasterVoiceShortcut("alt_shift_k");
-    batcher.beginFrame();
-    batcher.queue(update("browser-surface-1", false));
-    expect(batcher.flush()).toEqual({ batchSent: true, updateCount: 0 });
-    expect(sent.at(-1)).toMatchObject({
-      masterVoiceShortcut: "alt_shift_k",
-      updates: [],
-    });
   });
 
   test("hides stale live browser updates that are not present in the next frame", () => {
