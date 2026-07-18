@@ -12,8 +12,10 @@ cannot reach the daemon while Docker Desktop is blocked on its privileged setup
 prompt, found no installed Windows/Linux runner beyond Docker and Homebrew,
 confirmed no GitHub token, public unauthenticated GitHub Actions result path,
 SSH identity, macOS Git credential, or connected GitHub plugin was available
-from this session, and reconfirmed that the reference Codex repo has no
-Electron `safeStorage` probe pattern to reuse. Earlier passes added
+from this session, reconfirmed that the reference Codex repo has no Electron
+`safeStorage` probe pattern to reuse, and added a hosted Linux default-backend
+observation job so the workflow records the runner's actual selected
+`safeStorage` backend without forcing `--password-store`. Earlier passes added
 `--no-sandbox` to the Linux hosted-runner Electron probe commands so headless
 Ubuntu runners reach the intended safeStorage policy assertions, changed the
 hosted-runner probe to run on relevant pushes as well as manual dispatch while
@@ -652,8 +654,9 @@ environment-based desktop product behavior.
       installed alternate Windows/Linux runner, no GitHub token, no public
       unauthenticated workflow-result path, no SSH identity, no macOS Git
       credential, no connected GitHub plugin, and no reference-repo probe
-      pattern to reuse, so actual Windows and Linux host evidence remains the
-      only open part of this item.
+      pattern to reuse, and added a Linux default-backend observation job to
+      the hosted workflow, so actual Windows and Linux host evidence remains
+      the only open part of this item.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.

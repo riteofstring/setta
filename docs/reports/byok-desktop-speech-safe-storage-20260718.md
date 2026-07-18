@@ -1008,6 +1008,97 @@ No Windows or Linux `safeStorage` host result is recorded from this recheck.
 The Phase 0 host-confirmation item remains open because those confirmations
 require actual Windows and Linux Electron hosts.
 
+## 2026-07-18 Default Linux Hosted Observation Pass
+
+The remaining Phase 0 host-confirmation item was revisited as the next
+incomplete plan step.
+
+The pinned macOS probe was re-run with exact policy assertions:
+
+```sh
+desktop/node_modules/.bin/electron desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported --assert-policy-reason os_backed_platform --assert-policy-status accept --assert-round-trip
+```
+
+It still passes on this machine:
+
+```json
+{
+  "appReadyBeforeProbe": true,
+  "arch": "arm64",
+  "electronVersion": "41.7.0",
+  "passwordStoreSwitch": null,
+  "platform": "darwin",
+  "safeStorage": {
+    "ciphertextByteLength": 51,
+    "ciphertextContainsPlaintext": false,
+    "isEncryptionAvailable": true,
+    "policy": {
+      "reason": "os_backed_platform",
+      "status": "accept"
+    },
+    "roundTrip": true,
+    "selectedStorageBackend": null
+  }
+}
+```
+
+The deterministic production-adapter Linux backend policy coverage was also
+re-run:
+
+```sh
+pnpm -C desktop exec vitest run src/main/speech-credential-vault.test.ts
+```
+
+It passed with 21 tests, including rejection of `basic_text`, `unknown`, and an
+unrecognized backend string plus acceptance of `gnome_libsecret`, `kwallet`,
+`kwallet5`, and `kwallet6`.
+
+The local and hosted-access paths still cannot produce the remaining Windows
+or Linux host evidence from this session:
+
+- `docker version` and `docker info` found Docker CLI `28.0.4`, context
+  `desktop-linux`, but still could not connect to the Docker daemon at
+  `unix:///Users/kevin/.docker/run/docker.sock`.
+- `docker desktop status` could not retrieve Docker Desktop status. The
+  process tree still shows Docker Desktop blocked on an `osascript`
+  administrator prompt for privileged port-mapping setup.
+- A PATH probe for Docker, GitHub CLI, common Linux/container runners, common
+  Windows/VM runners, and Homebrew found only `/usr/local/bin/docker` and
+  `/opt/homebrew/bin/brew`.
+- `/Applications` contains Docker Desktop but no OrbStack, UTM, Parallels,
+  VirtualBox, VMware Fusion, or Multipass installation; `brew list --formula`
+  and `brew list --cask` did not show an installed Windows/Linux VM or
+  container helper from the checked runner set.
+- `GITHUB_TOKEN` and `GH_TOKEN` are not present in this shell.
+- `ssh-add -l` reported no identities, and standard noninteractive Git SSH
+  authentication to GitHub failed with `signing failed for ED25519-SK` and
+  `Permission denied (publickey)`.
+- The macOS Git credential helper did not return an HTTPS GitHub credential.
+- The unauthenticated GitHub API returned `404` for the repository's
+  `electron-safe-storage-platform-probe.yml` workflow run list, so hosted
+  workflow results are not publicly readable from this session.
+- The GitHub plugin was suggested as a hosted-runner path, but installation was
+  not confirmed in this session.
+- The reference Codex repository at
+  `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` still does not
+  contain an Electron `safeStorage`, `safe-storage`, `password-store`,
+  `getSelectedStorageBackend`, or `basic_text` probe pattern to reuse.
+
+One hosted-runner evidence gap for the remaining confirmation was closed:
+
+- `.github/workflows/electron-safe-storage-platform-probe.yml` now includes a
+  Linux default-backend observation job. It runs the pinned Electron probe on
+  `ubuntu-24.04` under `xvfb` without forcing `--password-store`, writes the
+  JSON result to the GitHub step summary, and exits with the probe launch
+  status. This records the runner's actual selected Linux backend separately
+  from the asserted `gnome_libsecret` and forced `basic_text` jobs.
+
+No Windows or Linux `safeStorage` host result is recorded from this pass
+because no local platform host or connected hosted-runner credential was
+available. The Phase 0 host-confirmation item remains open until the
+push-triggered hosted workflow, the manual hosted workflow, or equivalent
+Windows and Linux hosts produce actual Electron output.
+
 ## Phase 2 Adapter Requirements
 
 - The production adapter is constructed only after Electron `ready`.
