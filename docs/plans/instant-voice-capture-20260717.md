@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Phase 2 complete — local capture is now the controller boundary; live OpenAI processed-track smoke pending a deliberate speech API credential.
+**Status:** Phase 3 complete — every microphone surface now exposes local recording as the actionable boundary; live OpenAI processed-track smoke and Phase 4 workflow/performance coverage remain pending.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -23,7 +23,7 @@ This is a replacement, not a compatibility project.
 - [ ] Phase 0.4 — Live OpenAI processed-track smoke result appended when credentials are deliberately available. Credential check on 2026-07-17 found no `OPENAI_API_KEY` in the task environment, so this remains pending rather than skipped as evidence.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
-- [ ] Phase 3 — Make every mic surface honest and immediately actionable.
+- [x] Phase 3 — Make every mic surface honest and immediately actionable.
 - [ ] Phase 4 — Production-path workflow coverage and performance report.
 
 ## Outcome

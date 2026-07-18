@@ -1,6 +1,6 @@
 import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
-import { Check, CircleAlert, LoaderCircle, Mic, RotateCcw, Square } from "lucide-react";
+import { CircleAlert, LoaderCircle, Mic, RotateCcw, Square } from "lucide-react";
 
 import type { AppShellSpeechCaptureContextValue } from "../global-speech/app-shell-speech-capture";
 import type {
@@ -103,6 +103,14 @@ export function executeMasterVoiceCommand(
   controller: AppShellSpeechCaptureController | null,
 ): void {
   if (!controller) {
+    return;
+  }
+  const activeMaster = activeMasterCapture(controller.getSnapshot().capture);
+  if (activeMaster?.type === "recording") {
+    controller.commit();
+    return;
+  }
+  if (activeMaster) {
     return;
   }
   void controller.startMasterCapture();
@@ -329,7 +337,7 @@ function MasterVoiceButtonGlyph({ model }: { model: MasterVoiceModel }) {
     case "cancel":
       return <Square aria-hidden="true" />;
     case "commit":
-      return <Check aria-hidden="true" />;
+      return <Square aria-hidden="true" />;
     case "retry_master":
       return <RotateCcw aria-hidden="true" />;
     case "start":
