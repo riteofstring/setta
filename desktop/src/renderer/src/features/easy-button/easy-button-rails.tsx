@@ -109,7 +109,13 @@ export function ArtifactRail({
       <p className="easy-button-rail-label">Artifacts</p>
       <div className="easy-button-artifact-stack" data-testid="easy-button-artifacts">
         {visibleArtifacts.map((artifact) => (
-          <ArtifactCard artifact={artifact} key={artifact.id} />
+          <ArtifactCard
+            artifact={artifact}
+            cacheKey={
+              workspaceId ? artifactPayloadCacheKey(workspaceId, conversationId, artifact.id) : null
+            }
+            key={artifact.id}
+          />
         ))}
       </div>
     </aside>
@@ -177,7 +183,8 @@ function readArtifactPayload(
   conversationId: string,
   readArtifact: ArtifactReader,
 ): Promise<Artifact> {
-  const cached = artifactPayloadCache.get(metadata.id);
+  const cacheKey = artifactPayloadCacheKey(workspaceId, conversationId, metadata.id);
+  const cached = artifactPayloadCache.get(cacheKey);
   if (cached?.status === "loaded") {
     return Promise.resolve(cached.artifact);
   }
@@ -187,15 +194,23 @@ function readArtifactPayload(
   const promise = readArtifact({ artifactId: metadata.id, conversationId, workspaceId })
     .then((artifact) => {
       validateArtifactPayloadIdentity(metadata, artifact);
-      artifactPayloadCache.set(metadata.id, { artifact, status: "loaded" });
+      artifactPayloadCache.set(cacheKey, { artifact, status: "loaded" });
       return artifact;
     })
     .catch((error: unknown) => {
-      artifactPayloadCache.set(metadata.id, { error: errorMessage(error), status: "failed" });
+      artifactPayloadCache.set(cacheKey, { error: errorMessage(error), status: "failed" });
       throw error;
     });
-  artifactPayloadCache.set(metadata.id, { promise, status: "loading" });
+  artifactPayloadCache.set(cacheKey, { promise, status: "loading" });
   return promise;
+}
+
+function artifactPayloadCacheKey(
+  workspaceId: string,
+  conversationId: string,
+  artifactId: string,
+): string {
+  return `${workspaceId}\x00${conversationId}\x00${artifactId}`;
 }
 
 function validateArtifactPayloadIdentity(metadata: ArtifactMetadata, artifact: Artifact) {
@@ -216,8 +231,14 @@ function defaultArtifactReader(): ArtifactReader | null {
   return window.setta.conversations.readArtifact ?? null;
 }
 
-function ArtifactCard({ artifact }: { artifact: ArtifactMetadata }) {
-  const payload = artifactPayloadCache.get(artifact.id);
+function ArtifactCard({
+  artifact,
+  cacheKey,
+}: {
+  artifact: ArtifactMetadata;
+  cacheKey: string | null;
+}) {
+  const payload = cacheKey ? artifactPayloadCache.get(cacheKey) : undefined;
   return (
     <article
       className="easy-button-artifact-card"

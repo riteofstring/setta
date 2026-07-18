@@ -127,6 +127,54 @@ describe("Easy Button conversation rails", () => {
       "visible_artifact_7",
     ]);
   });
+
+  test("scopes cached payloads by workspace and conversation", async () => {
+    const repeatedId = "artifact_reused_across_scopes";
+    const first = scopedMarkdownArtifact({
+      conversationId,
+      id: repeatedId,
+      markdown: "First conversation body",
+    });
+    const second = scopedMarkdownArtifact({
+      conversationId: "conversation_other",
+      id: repeatedId,
+      markdown: "Second conversation body",
+    });
+    const requested: string[] = [];
+    const readArtifact = async (request: ReadConversationArtifactRequest): Promise<Artifact> => {
+      requested.push(`${request.workspaceId}/${request.conversationId}/${request.artifactId}`);
+      if (request.workspaceId === workspaceId && request.conversationId === conversationId) {
+        return first;
+      }
+      if (
+        request.workspaceId === "workspace_other" &&
+        request.conversationId === "conversation_other"
+      ) {
+        return second;
+      }
+      throw new Error(`unexpected artifact request ${JSON.stringify(request)}`);
+    };
+
+    const [firstLoaded] = await readVisibleArtifactPayloads({
+      artifacts: [artifactMetadata(first)],
+      conversationId,
+      readArtifact,
+      workspaceId,
+    });
+    const [secondLoaded] = await readVisibleArtifactPayloads({
+      artifacts: [artifactMetadata(second)],
+      conversationId: "conversation_other",
+      readArtifact,
+      workspaceId: "workspace_other",
+    });
+
+    expect(firstLoaded?.markdown?.markdown).toBe("First conversation body");
+    expect(secondLoaded?.markdown?.markdown).toBe("Second conversation body");
+    expect(requested).toEqual([
+      `${workspaceId}/${conversationId}/${repeatedId}`,
+      `workspace_other/conversation_other/${repeatedId}`,
+    ]);
+  });
 });
 
 function milestone(id: string): EasyButtonMilestone {
@@ -183,6 +231,26 @@ function markdownArtifact(id = "artifact_topic"): Artifact {
     ...baseArtifact(id),
     kind: "markdown",
     markdown: { markdown: "Conversation report body" },
+    table: null,
+    barChart: null,
+    file: null,
+  };
+}
+
+function scopedMarkdownArtifact({
+  conversationId: ownerConversationId,
+  id,
+  markdown,
+}: {
+  conversationId: string;
+  id: string;
+  markdown: string;
+}): Artifact {
+  return {
+    ...baseArtifact(id),
+    conversationId: ownerConversationId,
+    kind: "markdown",
+    markdown: { markdown },
     table: null,
     barChart: null,
     file: null,
