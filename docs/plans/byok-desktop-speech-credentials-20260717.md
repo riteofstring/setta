@@ -46,7 +46,13 @@ ephemeral secret markers. The same workflow now covers initial setup, rejected
 candidate preservation and rollback to the prior credential, successful
 replacement, renderer reload, local-versus-remote runtime isolation,
 app/backend restart restoration into a replacement local backend instance,
-disconnect, and removed-after-restart persistence.
+disconnect, and removed-after-restart persistence. The complete instant-voice
+capture/routing/playback Phase 4 workflow now launches the local
+Electron/backend process without `OPENAI_API_KEY`, saves the fake credential
+through Settings → Voices, refreshes renderer capture capabilities from typed
+credential events, exercises the immediate capture/routing/playback path using
+the stored credential, and scans recordings plus temporary app data for fake
+long-lived and ephemeral secret markers.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -641,8 +647,14 @@ environment-based desktop product behavior.
       app/backend restart, renderer reload, runtime switch, and local-runtime
       replacement. Covered by
       `.recordings/global-speech-session/20260718T120316456Z`.
-- [ ] Re-run the complete instant-voice capture/routing/playback workflow with a
-      stored fake credential.
+- [x] Re-run the complete instant-voice capture/routing/playback workflow with a
+      stored fake credential. Covered by
+      `.recordings/instant-voice-capture-phase4-workflow/20260718T121814066Z`;
+      the workflow now removes `OPENAI_API_KEY` from the Electron child
+      environment, saves the fake key through Settings → Voices before capture,
+      refreshes renderer capture capabilities after credential-state events,
+      and scans finalized recordings plus temporary app data for the fake
+      long-lived and ephemeral secret markers.
 - [ ] Update the live OpenAI workflow to provision only through the production
       UI and prove restart restoration.
 - [ ] Scan finalized artifacts and temporary state for old/new/ephemeral secret

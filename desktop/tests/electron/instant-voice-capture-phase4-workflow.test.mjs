@@ -29,6 +29,7 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
+import { saveOpenAIVoiceCredentialThroughSettings } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDriverAction,
@@ -83,6 +84,7 @@ const fakeCodex = await installFakeTopicCodex(fixture);
 const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 let remoteRuntime = null;
+let credentialSetup;
 let speechRealtimeBrowserFixtureSource = "";
 let speechRealtimeProcessedAudioObserverWorkletSource = "";
 
@@ -95,20 +97,26 @@ try {
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
+  const workspaceId = await openWorkspace(context.client);
+  credentialSetup = await saveOpenAIVoiceCredentialThroughSettings(
+    context.client,
+    speechProvider.apiKey,
+    workflowTimeoutMs,
+  );
+  assertProviderCredentialRequests(speechProvider.requests, [credentialRequest("initial", false)]);
   await installSpeechRealtimeBrowserFixture();
 
   const backend = await backendProbe(artifactDir);
-  const workspaceId = await openWorkspace(context.client);
   const alpha = await createTopic(
     context.client,
     backend,
@@ -253,6 +261,7 @@ try {
     activeRunRoutingKind: activeRunRouting.decisions[0]?.decision?.kind ?? null,
     artifactDir,
     cleanup,
+    credentialSetup,
     localReadinessCohorts,
     localReadinessP95BudgetMs,
     localReadinessP95DifferenceBudgetMs,
@@ -272,8 +281,13 @@ try {
   await captureScreenshot(context.client, join(artifactDir, "complete.png"));
   await assertArtifactsExcludeMarkers(
     artifactDir,
-    [speechProvider.apiKey, speechProvider.clientSecret],
+    speechProvider.privacyMarkers,
     "private speech credential",
+  );
+  await assertArtifactsExcludeMarkers(
+    fixture.tempRoot,
+    speechProvider.privacyMarkers,
+    "private speech credential persisted state",
   );
   speechProvider.assertHealthy();
   console.log(`Electron instant voice capture Phase 4 workflow passed: ${artifactDir}`);
@@ -683,6 +697,29 @@ function playbackSummary(playback) {
       voice: playback.providerRequest.voice,
     },
   };
+}
+
+function credentialRequest(credentialLabel, rejected) {
+  return {
+    credentialLabel,
+    path: "/v1/realtime/client_secrets",
+    rejected,
+  };
+}
+
+function assertProviderCredentialRequests(requests, expected) {
+  const summary = providerCredentialRequestSummary(requests);
+  if (JSON.stringify(summary) !== JSON.stringify(expected)) {
+    throw new Error(`unexpected provider credential operations: ${JSON.stringify(summary)}`);
+  }
+}
+
+function providerCredentialRequestSummary(requests) {
+  return requests.map((request) => ({
+    credentialLabel: request.credentialLabel ?? null,
+    path: request.path,
+    rejected: request.rejected === true,
+  }));
 }
 
 async function waitForAutomaticNarrationStatusPlayback(initialRequestCount, text, resolvedVoiceId) {
