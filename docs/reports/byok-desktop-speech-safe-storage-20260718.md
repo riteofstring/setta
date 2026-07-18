@@ -208,9 +208,10 @@ Open Phase 0 host confirmations:
 - Run the Linux `--password-store=basic` command and record the rejected
   `linux_basic_text_backend` policy result.
 
-## 2026-07-18 Next-Step Platform Confirmation Pass
+## 2026-07-18 Additional Platform Confirmation Pass
 
-The next incomplete plan item was revisited again before closing the BYOK plan.
+The remaining Phase 0 host-confirmation item was revisited again while the BYOK
+plan stayed open.
 
 The pinned macOS probe was re-run:
 
