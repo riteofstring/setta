@@ -363,9 +363,30 @@ func startHeldArtifactToolTurn(
 
 func requireArtifactToolRequest(t *testing.T, runtime *serviceTestAgentRuntime) {
 	t.Helper()
+	startRequests := runtime.startThreadRequests()
+	if len(startRequests) != 1 || len(startRequests[0].DynamicTools) != 1 {
+		t.Fatalf("start request dynamic tools = %+v", startRequests)
+	}
+	requireArtifactRecoveryInstructions(t, startRequests[0].DeveloperInstructions)
+
 	turnRequests := runtime.turnRequests()
 	if len(turnRequests) != 1 || len(turnRequests[0].DynamicTools) != 1 {
 		t.Fatalf("turn request dynamic tools = %+v", turnRequests)
+	}
+}
+
+func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
+	t.Helper()
+	for _, fragment := range []string{
+		"setta.emit_artifact",
+		"retryable true",
+		"fieldErrors",
+		"retry setta.emit_artifact",
+		"before completing the turn",
+	} {
+		if !strings.Contains(instructions, fragment) {
+			t.Fatalf("topic agent developer instructions missing %q: %q", fragment, instructions)
+		}
 	}
 }
 

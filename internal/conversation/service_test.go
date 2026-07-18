@@ -453,6 +453,7 @@ type serviceTestAgentRuntime struct {
 	lastApproval         *agent.ApprovalResponse
 	resolveRequests      []agent.Invocation
 	runRequests          []agent.TurnRequest
+	startRequests        []agent.StartThreadRequest
 	started              chan string
 	providerThreads      map[string]agent.Thread
 	interruptProviderErr error
@@ -493,11 +494,12 @@ func (runtime *serviceTestAgentRuntime) ResolveInvocation(
 }
 
 func (runtime *serviceTestAgentRuntime) StartThread(
-	context.Context,
-	agent.StartThreadRequest,
+	_ context.Context,
+	request agent.StartThreadRequest,
 ) (agent.Thread, error) {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
+	runtime.startRequests = append(runtime.startRequests, request)
 	runtime.threads++
 	thread := agent.Thread{
 		ID:        fmt.Sprintf("provider-thread-%d", runtime.threads),
@@ -1013,6 +1015,12 @@ func (runtime *serviceTestAgentRuntime) turnRequests() []agent.TurnRequest {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	return append([]agent.TurnRequest{}, runtime.runRequests...)
+}
+
+func (runtime *serviceTestAgentRuntime) startThreadRequests() []agent.StartThreadRequest {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	return append([]agent.StartThreadRequest{}, runtime.startRequests...)
 }
 
 func (runtime *serviceTestAgentRuntime) unsubscribedThreads() []string {

@@ -21,8 +21,9 @@ reliable when an agent selects an artifact.
   outcome. `TestBackendTopicConversationArtifactWithLiveCodex` submits one supplied-data table
   request and fails unless that completed turn creates exactly one table artifact for the turn with
   the requested title.
-- [x] Production `topicAgentDeveloperInstructions` tells the agent to correct and retry a retryable
-  `setta.emit_artifact` validation failure before completing the turn.
+- [x] Production `topicAgentDeveloperInstructions` tells the agent to correct the listed
+  `fieldErrors` and retry a `setta.emit_artifact` failure with `retryable` true before completing
+  the turn.
 
 ## Next Step
 
@@ -166,7 +167,7 @@ The agent instructions remain short and general:
 
 - use artifacts for durable user-facing deliverables
 - choose the branch from the shape of the deliverable
-- correct and retry a retryable artifact validation failure before completing the turn
+- correct the listed field errors and retry a failure with `retryable` true before completing the turn
 - final prose summarizes a durable deliverable but does not replace it
 
 ## Solution 4: Preserve Actionable Tool Failures End To End
