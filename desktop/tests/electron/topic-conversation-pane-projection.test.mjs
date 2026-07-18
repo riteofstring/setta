@@ -52,6 +52,7 @@ import {
   updateMasterVoice,
 } from "./topic-conversation-narrator-voice-workflow.mjs";
 import { assertRecordedPaneLayouts } from "./topic-conversation-layout-recording.mjs";
+import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDistinctConversationPalettes,
@@ -149,13 +150,13 @@ try {
   context = await launchElectronCdpContext({
     artifactDir: firstLaunchDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS: String(initialThreadStartDelayMs),
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -167,6 +168,11 @@ try {
   const initialPanePlaceholder = await assertImmediateInitialEasyButtonPlaceholder(
     context.client,
     workspaceOpenStartedAt,
+  );
+  await saveOpenAIVoiceCredentialThroughSettingsAndClose(
+    context.client,
+    speechProvider.apiKey,
+    workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "initial-easy-button-startup.png"));
   const initialConversation = await waitForInitialConversation(backend, workspaceId);
@@ -197,10 +203,19 @@ try {
   }
   const reassignedPage = await waitForBackendState(
     async () => listTopics(backend, workspaceId),
-    (page) => narratorVoice(page, alpha.id) === "ballad" && narratorVoice(page, beta.id) === "ash",
+    (page) => {
+      const alphaVoice = narratorVoice(page, alpha.id);
+      const betaVoice = narratorVoice(page, beta.id);
+      return (
+        [alphaVoice, betaVoice].every((voice) => voice && voice !== masterVoice.resolvedVoiceId) &&
+        alphaVoice !== betaVoice
+      );
+    },
     workflowTimeoutMs,
   );
   alpha.narratorVoiceId = narratorVoice(reassignedPage, alpha.id);
+  beta.narratorVoiceId = narratorVoice(reassignedPage, beta.id);
+  assertDistinctNarratorVoices(alpha, beta, masterVoice.resolvedVoiceId);
   const betaVoice = await context.client.driver("presentationConfigurationUpdateNarratorVoice", {
     conversationId: beta.id,
     selection: { requestedVoiceId: "cedar", selection: "exact" },
@@ -258,13 +273,13 @@ try {
   context = await launchElectronCdpContext({
     artifactDir: secondLaunchDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS: String(initialThreadStartDelayMs),
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -915,6 +930,7 @@ try {
 
   await closeConversationPane(context.client, alpha.id);
   await closeConversationPane(context.client, beta.id);
+  await closeConversationPane(context.client, initialConversation.conversation.id);
   await waitForConversationSurfaces(context.client, (surfaces) => surfaces.length === 0);
   await installScriptedRealtimeBrowser(context.client);
   shellMasterInput = await exercisePaneFreeShellCapture({
@@ -1266,9 +1282,9 @@ function initialEasyButtonExperienceReady(state) {
     state.topBarSpeechStatusPresent,
     !state.voiceOffPresent,
     state.actionCount === 5,
-    state.visiblePaneCount === 1,
+    state.visiblePaneCount === 2,
     state.easyButtonPaneCount === 1,
-    state.emptyFramePaneCount === 0,
+    state.emptyFramePaneCount === 1,
     state.matchingSurfaceCount === 1,
   ].every(Boolean);
 }

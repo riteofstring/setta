@@ -18,7 +18,7 @@ type serveOptions struct {
 	DisplayName string
 	Host        string
 	Port        int
-	Speech      speech.OpenAIClientConfig
+	Speech      speech.OpenAIStartupConfig
 	Tailnet     bool
 }
 
@@ -50,7 +50,7 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	if err != nil {
 		return serveOptions{}, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(deps.getenv, deps.unsetenv)
+	speechConfig, err := speech.OpenAIStartupConfigFromServerEnvironment(deps.getenv, deps.unsetenv)
 	if err != nil {
 		return serveOptions{}, err
 	}
@@ -144,7 +144,9 @@ func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Write
 	config.Stderr = deps.stderr
 	config.Stdout = readyWriter
 	config.Version = version
-	config.Speech = options.Speech
+	config.Speech = options.Speech.Provider
+	config.SpeechCredentialOwner = runtime.SpeechCredentialOwnerServerStartup
+	config.SpeechStartupAPIKey = options.Speech.APIKey
 	return config
 }
 
