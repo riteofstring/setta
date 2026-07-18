@@ -1,56 +1,11 @@
 package httpapi
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
-	"setta/internal/localcredissuer"
-	"setta/internal/runtimeauth"
 	"setta/internal/runtimeidentity"
 )
-
-func (handler handler) localCredentialEnroll(response http.ResponseWriter, request *http.Request) {
-	if handler.localCredentialIssuer == nil {
-		writeError(response, http.StatusNotFound, "local_credential_issuer_disabled", "local credential issuer is disabled")
-		return
-	}
-	var payload LocalCredentialEnrollRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	enrolled, err := handler.localCredentialIssuer.Enroll(request.Context(), payload, ProtocolVersion)
-	if errors.Is(err, localcredissuer.ErrInvalidPairingToken) {
-		writeError(response, http.StatusUnauthorized, "invalid_pairing_token", "pairing token is invalid, expired, or already used")
-		return
-	}
-	if err != nil {
-		writeError(response, http.StatusBadRequest, "local_credential_enrollment_failed", err.Error())
-		return
-	}
-	writeJSON(response, http.StatusOK, enrolled)
-}
-
-func (handler handler) localCredentialRefresh(response http.ResponseWriter, request *http.Request) {
-	if handler.localCredentialIssuer == nil {
-		writeError(response, http.StatusNotFound, "local_credential_issuer_disabled", "local credential issuer is disabled")
-		return
-	}
-	var payload LocalCredentialRefreshRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	credential, err := handler.localCredentialIssuer.Refresh(request.Context(), payload)
-	if errors.Is(err, localcredissuer.ErrInvalidDeviceSecret) || errors.Is(err, localcredissuer.ErrRuntimeMismatch) {
-		writeUnauthorized(response)
-		return
-	}
-	if err != nil {
-		writeError(response, http.StatusBadRequest, "local_credential_refresh_failed", err.Error())
-		return
-	}
-	writeJSON(response, http.StatusOK, credential)
-}
 
 func (handler handler) runtimeInfo(response http.ResponseWriter, request *http.Request) {
 	identity, ok := handler.runtimeIdentity(response, request)
@@ -184,14 +139,6 @@ func (handler handler) listDevices(response http.ResponseWriter, request *http.R
 		writeError(response, http.StatusInternalServerError, "list_devices_failed", err.Error())
 		return
 	}
-	if handler.localCredentialIssuer != nil {
-		localDevices, err := handler.localCredentialIssuer.ListDeviceSessions(request.Context())
-		if err != nil {
-			writeError(response, http.StatusInternalServerError, "list_local_devices_failed", err.Error())
-			return
-		}
-		devices = append(devices, localDevices...)
-	}
 	writeJSON(response, http.StatusOK, ListDevicesResponse{Devices: devices})
 }
 
@@ -208,13 +155,7 @@ func (handler handler) revokeDevice(response http.ResponseWriter, request *http.
 		writeError(response, http.StatusBadRequest, "invalid_revoke_device_request", "device id is required")
 		return
 	}
-	device, ok, err := runtimeauth.DeviceSession{}, false, error(nil)
-	if handler.localCredentialIssuer != nil {
-		device, ok, err = handler.localCredentialIssuer.RevokeDeviceSession(request.Context(), payload.DeviceID)
-	}
-	if err == nil && !ok {
-		device, ok, err = service.RevokeDeviceSession(request.Context(), payload.DeviceID)
-	}
+	device, ok, err := service.RevokeDeviceSession(request.Context(), payload.DeviceID)
 	if err != nil {
 		writeError(response, http.StatusInternalServerError, "revoke_device_failed", err.Error())
 		return

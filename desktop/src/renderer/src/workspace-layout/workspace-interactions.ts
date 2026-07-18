@@ -3,7 +3,11 @@ import type { AppearanceShortcutsSettings } from "@generated/backend";
 
 import type { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceRuntime } from "./workspace-runtime";
-import { openPaneActionForSurfaceKind, openPaneActions } from "./workspace-toolbar";
+import { workspaceFrameActionById, workspaceFrameActions } from "./workspace-toolbar";
+import {
+  executeWorkspaceFrameAction,
+  workspaceFrameActionAllowed,
+} from "./workspace-frame-actions";
 import {
   classifyOverviewWheel,
   overviewWheelZoomFactor,
@@ -132,14 +136,19 @@ function handleEmptyFrameActionClick({
     '[data-workspace-empty-frame-action="true"]',
   );
   const paneId = emptyFrameHostPaneId(button);
-  const action = openPaneActionForSurfaceKind(button?.dataset.surfaceKind ?? "");
-  if (!button || !paneId || !action || !runtime.store.canOpenPane(action.request)) {
+  const action = workspaceFrameActionById(button?.dataset.workspaceFrameActionId ?? "");
+  if (!button || !paneId || !action || !workspaceFrameActionAllowed(runtime.store, action.action)) {
     return false;
   }
   event.preventDefault();
   event.stopPropagation();
   scheduler.pauseBenchmark();
-  runLayoutAction(() => runtime.store.configurePane(paneId, action.request));
+  void executeWorkspaceFrameAction({
+    action: action.action,
+    placement: { kind: "empty-frame", paneId },
+    runLayoutAction,
+    runtime,
+  });
   return true;
 }
 
@@ -472,15 +481,20 @@ const handleOpenPaneShortcutCommand: WorkspaceCommandHandler = ({
   if (!event.metaKey || !event.altKey) {
     return false;
   }
-  const action = openPaneActions.find(
+  const action = workspaceFrameActions.find(
     (candidate) => candidate.shortcutKey === event.key.toLowerCase(),
   );
   if (!action) {
     return false;
   }
   event.preventDefault();
-  if (runtime.store.canOpenPane(action.request)) {
-    runLayoutAction(() => runtime.store.openPane(action.request));
+  if (workspaceFrameActionAllowed(runtime.store, action.action)) {
+    void executeWorkspaceFrameAction({
+      action: action.action,
+      placement: { kind: "new-pane" },
+      runLayoutAction,
+      runtime,
+    });
   }
   return true;
 };
@@ -548,7 +562,7 @@ async function closePaneWithConfirmation({
     if (!runtime.store.focusPane(paneId)) {
       return;
     }
-    runtime.store.closeFocusedPane();
+    runtime.store.closeFocusedPaneOrClearLastPane();
     if (viewportProvider) {
       runtime.store.ensureFocusedPaneVisible(viewportProvider());
     }

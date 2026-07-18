@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 63;
-export const backendContractSchemaHash = "sha256:f895e1170ab68a4fe70c95be83694f99a9e1144f570846341d500ea5e582deb2";
+export const backendProtocolVersion = 64;
+export const backendContractSchemaHash = "sha256:c082c237f132bd3baf96f85b26fa187dfff6b85756b2993c9fc1f40548d8c5b6";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -180,9 +180,9 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "browser" | "easy-button" | "empty-frame" | "settings-dom";
+export type SurfaceKind = "browser" | "easy-button" | "empty-frame";
 
-export const surfaceKindValues = ["browser", "easy-button", "empty-frame", "settings-dom"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["browser", "easy-button", "empty-frame"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
@@ -192,8 +192,6 @@ export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): Surfac
     case "easy-button":
       return decoded;
     case "empty-frame":
-      return decoded;
-    case "settings-dom":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1511,33 +1509,6 @@ export interface CompletePairingResponse {
   protocolVersion: number;
 }
 
-export interface EnrollRequest {
-  pairingToken: string;
-  clientDisplayName: string;
-}
-
-export interface RuntimeCredentialResponse {
-  deviceId: string;
-  runtimeId: string;
-  token: string;
-  expiresAt: string;
-}
-
-export interface EnrollResponse {
-  userId: string;
-  deviceId: string;
-  deviceSecret: string;
-  runtimeId: string;
-  protocolVersion: number;
-  runtimeCredential: RuntimeCredentialResponse;
-}
-
-export interface RefreshRequest {
-  deviceId: string;
-  deviceSecret: string;
-  runtimeId: string;
-}
-
 export interface UpdateRuntimeDisplayNameRequest {
   displayName: string;
 }
@@ -1800,10 +1771,6 @@ export type WorkspaceUIPane = {
     }
   | {
       surfaceKind: "empty-frame";
-      easyButtonConfig: null;
-    }
-  | {
-      surfaceKind: "settings-dom";
       easyButtonConfig: null;
     }
 );
@@ -3257,6 +3224,23 @@ export interface NarratorVoiceDefault {
   updatedAt: string;
 }
 
+export interface SpeechCredentialRequest {
+  apiKey: string;
+}
+
+export interface SpeechCredentialValidationResult {
+  provider: SpeechProvider;
+  valid: boolean;
+}
+
+export interface SpeechCredentialStatus {
+  provider: SpeechProvider;
+  providerStatus: SpeechProviderStatus;
+}
+
+export interface ClearDesktopSpeechCredentialRequest {
+}
+
 export interface CreateSpeechTranscriptionSessionRequest {
 }
 
@@ -3380,16 +3364,6 @@ export const backendEndpoints = {
   CompletePairing: {
     method: "POST",
     path: "/pairing/complete",
-    requestBodyLimitBytes: 4194304,
-  },
-  LocalCredentialEnroll: {
-    method: "POST",
-    path: "/local-credentials/enroll",
-    requestBodyLimitBytes: 4194304,
-  },
-  LocalCredentialRefresh: {
-    method: "POST",
-    path: "/local-credentials/refresh",
     requestBodyLimitBytes: 4194304,
   },
   UpdateRuntimeDisplayName: {
@@ -3637,6 +3611,21 @@ export const backendEndpoints = {
     path: "/speech/voices/narrator-default/update",
     requestBodyLimitBytes: 4194304,
   },
+  ValidateDesktopSpeechCredential: {
+    method: "POST",
+    path: "/speech/credentials/desktop/validate",
+    requestBodyLimitBytes: 16384,
+  },
+  LoadDesktopSpeechCredential: {
+    method: "POST",
+    path: "/speech/credentials/desktop/load",
+    requestBodyLimitBytes: 16384,
+  },
+  ClearDesktopSpeechCredential: {
+    method: "POST",
+    path: "/speech/credentials/desktop/clear",
+    requestBodyLimitBytes: 16384,
+  },
   CreateSpeechTranscriptionSession: {
     method: "POST",
     path: "/speech/transcription/sessions",
@@ -3728,49 +3717,6 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
-  };
-}
-
-export function decodeEnrollRequest(value: unknown): EnrollRequest {
-  const record = assertRecord(value, "EnrollRequest");
-  assertKnownFields(record, "EnrollRequest", ["pairingToken", "clientDisplayName"]);
-  return {
-    pairingToken: decodeString(requireField(record, "pairingToken", "EnrollRequest"), "EnrollRequest.pairingToken"),
-    clientDisplayName: decodeString(requireField(record, "clientDisplayName", "EnrollRequest"), "EnrollRequest.clientDisplayName"),
-  };
-}
-
-export function decodeRuntimeCredentialResponse(value: unknown): RuntimeCredentialResponse {
-  const record = assertRecord(value, "RuntimeCredentialResponse");
-  assertKnownFields(record, "RuntimeCredentialResponse", ["deviceId", "runtimeId", "token", "expiresAt"]);
-  return {
-    deviceId: decodeString(requireField(record, "deviceId", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.deviceId"),
-    runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.runtimeId"),
-    token: decodeString(requireField(record, "token", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.token"),
-    expiresAt: decodeString(requireField(record, "expiresAt", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.expiresAt"),
-  };
-}
-
-export function decodeEnrollResponse(value: unknown): EnrollResponse {
-  const record = assertRecord(value, "EnrollResponse");
-  assertKnownFields(record, "EnrollResponse", ["userId", "deviceId", "deviceSecret", "runtimeId", "protocolVersion", "runtimeCredential"]);
-  return {
-    userId: decodeString(requireField(record, "userId", "EnrollResponse"), "EnrollResponse.userId"),
-    deviceId: decodeString(requireField(record, "deviceId", "EnrollResponse"), "EnrollResponse.deviceId"),
-    deviceSecret: decodeString(requireField(record, "deviceSecret", "EnrollResponse"), "EnrollResponse.deviceSecret"),
-    runtimeId: decodeString(requireField(record, "runtimeId", "EnrollResponse"), "EnrollResponse.runtimeId"),
-    protocolVersion: decodeInteger(requireField(record, "protocolVersion", "EnrollResponse"), "EnrollResponse.protocolVersion"),
-    runtimeCredential: decodeRuntimeCredentialResponse(requireField(record, "runtimeCredential", "EnrollResponse")),
-  };
-}
-
-export function decodeRefreshRequest(value: unknown): RefreshRequest {
-  const record = assertRecord(value, "RefreshRequest");
-  assertKnownFields(record, "RefreshRequest", ["deviceId", "deviceSecret", "runtimeId"]);
-  return {
-    deviceId: decodeString(requireField(record, "deviceId", "RefreshRequest"), "RefreshRequest.deviceId"),
-    deviceSecret: decodeString(requireField(record, "deviceSecret", "RefreshRequest"), "RefreshRequest.deviceSecret"),
-    runtimeId: decodeString(requireField(record, "runtimeId", "RefreshRequest"), "RefreshRequest.runtimeId"),
   };
 }
 
@@ -4195,16 +4141,6 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
       return {
         ...result,
         surfaceKind: "empty-frame",
-        easyButtonConfig: null,
-      };
-    }
-    case "settings-dom": {
-      if (result.easyButtonConfig !== null) {
-        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is settings-dom");
-      }
-      return {
-        ...result,
-        surfaceKind: "settings-dom",
         easyButtonConfig: null,
       };
     }
@@ -6613,6 +6549,39 @@ export function decodeNarratorVoiceDefault(value: unknown): NarratorVoiceDefault
   };
 }
 
+export function decodeSpeechCredentialRequest(value: unknown): SpeechCredentialRequest {
+  const record = assertRecord(value, "SpeechCredentialRequest");
+  assertKnownFields(record, "SpeechCredentialRequest", ["apiKey"]);
+  return {
+    apiKey: decodeString(requireField(record, "apiKey", "SpeechCredentialRequest"), "SpeechCredentialRequest.apiKey"),
+  };
+}
+
+export function decodeSpeechCredentialValidationResult(value: unknown): SpeechCredentialValidationResult {
+  const record = assertRecord(value, "SpeechCredentialValidationResult");
+  assertKnownFields(record, "SpeechCredentialValidationResult", ["provider", "valid"]);
+  return {
+    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechCredentialValidationResult"), "SpeechCredentialValidationResult.provider"),
+    valid: decodeBoolean(requireField(record, "valid", "SpeechCredentialValidationResult"), "SpeechCredentialValidationResult.valid"),
+  };
+}
+
+export function decodeSpeechCredentialStatus(value: unknown): SpeechCredentialStatus {
+  const record = assertRecord(value, "SpeechCredentialStatus");
+  assertKnownFields(record, "SpeechCredentialStatus", ["provider", "providerStatus"]);
+  return {
+    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechCredentialStatus"), "SpeechCredentialStatus.provider"),
+    providerStatus: decodeSpeechProviderStatus(requireField(record, "providerStatus", "SpeechCredentialStatus"), "SpeechCredentialStatus.providerStatus"),
+  };
+}
+
+export function decodeClearDesktopSpeechCredentialRequest(value: unknown): ClearDesktopSpeechCredentialRequest {
+  const record = assertRecord(value, "ClearDesktopSpeechCredentialRequest");
+  assertKnownFields(record, "ClearDesktopSpeechCredentialRequest", []);
+  return {
+  };
+}
+
 export function decodeCreateSpeechTranscriptionSessionRequest(value: unknown): CreateSpeechTranscriptionSessionRequest {
   const record = assertRecord(value, "CreateSpeechTranscriptionSessionRequest");
   assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", []);
@@ -6813,8 +6782,6 @@ export interface BackendClient {
   backendHealth: (options?: BackendRequestOptions) => Promise<BackendHealth>;
   runtimeInfo: (options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
   completePairing: (request: CompletePairingRequest, options?: BackendRequestOptions) => Promise<CompletePairingResponse>;
-  localCredentialEnroll: (request: EnrollRequest, options?: BackendRequestOptions) => Promise<EnrollResponse>;
-  localCredentialRefresh: (request: RefreshRequest, options?: BackendRequestOptions) => Promise<RuntimeCredentialResponse>;
   updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest, options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
   listDevices: (request: ListDevicesRequest, options?: BackendRequestOptions) => Promise<ListDevicesResponse>;
   revokeDevice: (request: RevokeDeviceRequest, options?: BackendRequestOptions) => Promise<RevokeDeviceResponse>;
@@ -6865,6 +6832,9 @@ export interface BackendClient {
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   readNarratorVoiceDefault: (options?: BackendRequestOptions) => Promise<NarratorVoiceDefault>;
   updateNarratorVoiceDefault: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<NarratorVoiceDefault>;
+  validateDesktopSpeechCredential: (request: SpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialValidationResult>;
+  loadDesktopSpeechCredential: (request: SpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
+  clearDesktopSpeechCredential: (request: ClearDesktopSpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
   synthesizeSpeech: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
   readCodexAccount: (options?: BackendRequestOptions) => Promise<CodexAccountState>;
@@ -6899,24 +6869,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    localCredentialEnroll: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeEnrollResponse,
-      endpoint: backendEndpoints.LocalCredentialEnroll,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    localCredentialRefresh: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeRuntimeCredentialResponse,
-      endpoint: backendEndpoints.LocalCredentialRefresh,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
@@ -7367,6 +7319,33 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeNarratorVoiceDefault,
       endpoint: backendEndpoints.UpdateNarratorVoiceDefault,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    validateDesktopSpeechCredential: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSpeechCredentialValidationResult,
+      endpoint: backendEndpoints.ValidateDesktopSpeechCredential,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    loadDesktopSpeechCredential: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSpeechCredentialStatus,
+      endpoint: backendEndpoints.LoadDesktopSpeechCredential,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    clearDesktopSpeechCredential: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSpeechCredentialStatus,
+      endpoint: backendEndpoints.ClearDesktopSpeechCredential,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

@@ -5,8 +5,8 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "settings-pane-workflow.test.mjs",
-    name: "settings-pane",
+    file: "settings-page-workflow.test.mjs",
+    name: "settings-page",
     tiers: ["required"],
   },
   {
@@ -63,11 +63,6 @@ export const electronWorkflows = [
     file: "topic-conversation-speech-arbitration.test.mjs",
     name: "topic-conversation-speech-arbitration",
     tiers: ["required"],
-  },
-  {
-    file: "instant-voice-capture-phase0-baseline.test.mjs",
-    name: "instant-voice-capture-phase0-baseline",
-    tiers: ["performance"],
   },
   {
     file: "instant-voice-capture-phase0-audioworklet.test.mjs",

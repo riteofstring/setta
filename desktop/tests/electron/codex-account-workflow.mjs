@@ -20,6 +20,8 @@ export async function runCodexAccountWorkflow({
 
   const signedOut = await backend.get("/codex/account");
   assertSignedOut(signedOut);
+  await clickButtonByText(client, "Back to workspace");
+  await waitForSettingsShellClosed(client);
 }
 
 function assertSignedIn(account) {
@@ -51,4 +53,43 @@ async function clickButtonBySelector(client, selector) {
   if (!clicked) {
     throw new Error(`button was not clickable: ${selector}`);
   }
+}
+
+async function clickButtonByText(client, text) {
+  const clicked = await client.evaluate(`(() => {
+    const element = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.textContent?.trim() === ${JSON.stringify(text)},
+    );
+    if (!(element instanceof HTMLButtonElement) || element.disabled) {
+      return false;
+    }
+    element.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error(`button was not clickable: ${text}`);
+  }
+}
+
+async function waitForSettingsShellClosed(client) {
+  await client.evaluate(`new Promise((resolve, reject) => {
+    const ready = () => !document.querySelector('[data-testid="settings-shell-page"]');
+    if (ready()) {
+      resolve(true);
+      return;
+    }
+    const startedAt = performance.now();
+    const tick = () => {
+      if (ready()) {
+        resolve(true);
+        return;
+      }
+      if (performance.now() - startedAt > 5000) {
+        reject(new Error("Settings shell did not close"));
+        return;
+      }
+      setTimeout(tick, 25);
+    };
+    tick();
+  })`);
 }

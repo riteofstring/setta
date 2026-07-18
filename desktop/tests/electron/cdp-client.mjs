@@ -37,6 +37,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.settingsPageVersion === "setta-settings-page-driver-v2"',
+    path: join(driverScriptDir, "settings-page-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.workspaceUltrawideLivePanesVersion === "setta-workspace-ultrawide-live-panes-driver-v1"',
     path: join(driverScriptDir, "workspace-ultrawide-live-panes-driver.js"),
   },
@@ -54,6 +59,11 @@ const driverExtensionScripts = [
     installedExpression:
       'globalThis.__settaE2EDriver?.topicConversationPresentationConfigurationVersion === "setta-topic-conversation-presentation-configuration-driver-v1"',
     path: join(driverScriptDir, "topic-conversation-presentation-configuration-driver.js"),
+  },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.speechCredentialByokVersion === "setta-speech-credential-byok-driver-v1"',
+    path: join(driverScriptDir, "speech-credential-byok-driver.js"),
   },
   {
     installedExpression:
