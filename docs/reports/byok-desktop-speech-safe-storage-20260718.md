@@ -133,7 +133,7 @@ were checked again:
   the Docker Desktop daemon at
   `unix:///Users/kevin/.docker/run/docker.sock`.
 - `command -v docker gh colima lima podman qemu-system-x86_64 wine act
-  xvfb-run` found only `/usr/local/bin/docker`.
+xvfb-run` found only `/usr/local/bin/docker`.
 
 No Windows or Linux `safeStorage` host result is recorded from this recheck.
 The host-confirmation item remains open and still requires actual supported
@@ -184,7 +184,7 @@ evidence:
   Desktop waiting on its privileged setup prompt, so this pass did not force a
   system-level change.
 - `command -v docker gh colima lima limactl podman qemu-system-x86_64
-  qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
+qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
   `/opt/homebrew/bin/brew`; no local Linux VM/container runner or Windows
   execution runner was available.
 - The repository has no `.github/workflows` directory to reuse for hosted
@@ -250,7 +250,7 @@ evidence:
 - Docker Desktop processes are running, but the visible process state still
   shows Docker Desktop stopped on its privileged setup prompt.
 - `command -v docker gh colima lima limactl podman qemu-system-x86_64
-  qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
+qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
   `/opt/homebrew/bin/brew`.
 - No installed VM helper was found on `PATH` among `orb`, `orbstack`,
   `multipass`, `parallels`, `prlctl`, `VBoxManage`, `vmrun`, `utmctl`,
@@ -307,7 +307,7 @@ evidence:
 - `docker version` and `docker info` still cannot connect to the Docker daemon
   at `unix:///Users/kevin/.docker/run/docker.sock`.
 - `command -v docker gh colima lima limactl podman qemu-system-x86_64
-  qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
+qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
   `/opt/homebrew/bin/brew`.
 - Non-interactive Git SSH authentication to the configured origin failed with
   `Permission denied (publickey)`.
@@ -374,8 +374,8 @@ evidence:
 - Docker Desktop processes are running, but the process state still shows an
   `osascript` administrator prompt for privileged port-mapping setup.
 - `command -v docker gh colima lima limactl podman qemu-system-x86_64
-  qemu-aarch64 wine act xvfb-run brew orb orbstack multipass parallels prlctl
-  VBoxManage vmrun utmctl tart vagrant` found only `/usr/local/bin/docker` and
+qemu-aarch64 wine act xvfb-run brew orb orbstack multipass parallels prlctl
+VBoxManage vmrun utmctl tart vagrant` found only `/usr/local/bin/docker` and
   `/opt/homebrew/bin/brew`.
 - `brew list --formula` and `brew list --cask` did not show an installed
   Windows/Linux VM or container helper from that runner set.
@@ -439,8 +439,8 @@ evidence:
   shows an `osascript` administrator prompt for Docker Desktop's privileged
   port-mapping setup.
 - `command -v docker gh colima lima limactl podman qemu-system-x86_64
-  qemu-aarch64 wine act xvfb-run brew orb orbstack multipass parallels prlctl
-  VBoxManage vmrun utmctl tart vagrant` found only `/usr/local/bin/docker` and
+qemu-aarch64 wine act xvfb-run brew orb orbstack multipass parallels prlctl
+VBoxManage vmrun utmctl tart vagrant` found only `/usr/local/bin/docker` and
   `/opt/homebrew/bin/brew`.
 - `brew list --formula` and `brew list --cask` did not show an installed
   Windows/Linux VM or container helper from that runner set.
