@@ -265,6 +265,33 @@ describe("app-shell speech capture controller", () => {
     expect(harness.mediaConstraints).toHaveLength(1);
   });
 
+  test("cancels only the active conversation capture for a closing source pane", async () => {
+    const harness = createHarness();
+    await harness.connect();
+    const request = conversationSpeechCaptureRequest(
+      "workspace_close",
+      "conversation_close",
+      "pane_close",
+    );
+
+    const start = harness.controller.start(request);
+    await harness.waitForCapture("recording");
+    await start;
+
+    expect(
+      harness.controller.cancelActiveConversationCapture(
+        conversationSpeechCaptureRequest("workspace_close", "conversation_other", "pane_close"),
+      ),
+    ).toBe(false);
+    expect(harness.currentCapture()).toMatchObject({ type: "recording" });
+
+    expect(harness.controller.cancelActiveConversationCapture(request)).toBe(true);
+    expect(harness.currentCapture()).toEqual({ type: "idle" });
+    expect(harness.captures[0]?.close).toHaveBeenCalledOnce();
+    expect(harness.track.stop).toHaveBeenCalledOnce();
+    expect(harness.outboundTrack.stop).toHaveBeenCalledOnce();
+  });
+
   test("retains failed master submission for exact retry before another capture", async () => {
     const acceptedRetry = deferred<AcceptedMasterInput>();
     const submit = vi

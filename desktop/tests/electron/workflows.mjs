@@ -75,6 +75,11 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    file: "instant-voice-capture-phase4-workflow.test.mjs",
+    name: "instant-voice-capture-phase4-workflow",
+    tiers: ["performance"],
+  },
+  {
     file: "easy-button-presentation-recovery-phase0.test.mjs",
     name: "easy-button-presentation-recovery-phase0",
     tiers: ["recovery"],

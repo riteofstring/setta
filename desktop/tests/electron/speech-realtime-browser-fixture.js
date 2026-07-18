@@ -1,7 +1,7 @@
 /* global AudioContext, MessageEvent, Response, TextEncoder, navigator, performance, queueMicrotask */
 
 (() => {
-  const fixtureVersion = "setta-speech-realtime-browser-fixture-v2";
+  const fixtureVersion = "setta-speech-realtime-browser-fixture-v3";
   if (globalThis.__settaSpeechRealtimeBrowserFixture?.version === fixtureVersion) {
     return;
   }
@@ -10,14 +10,21 @@
   const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   const originalPeerConnection = globalThis.RTCPeerConnection;
   const originalAudio = globalThis.Audio;
+  const originalSetTimeout = globalThis.setTimeout.bind(globalThis);
+  const originalClearTimeout = globalThis.clearTimeout.bind(globalThis);
   const activeAudio = new Set();
   let activeChannel = null;
   const activeMicrophones = new Set();
+  const activeProcessedTrackObservers = new Set();
+  const processedAudioMarkersByRun = new Map();
+  const pendingTranscriptCompletions = [];
   let timingContext = {};
   const delays = {
     dataChannelOpenMs: 0,
+    webRTCAnswerStatus: 201,
     webRTCAnswerMs: 0,
   };
+  let durationTimerOverride = null;
   const timing = {
     events: [],
     sequence: 0,
@@ -33,7 +40,14 @@
     commitCount: 0,
     connectionCount: 0,
     deltaCount: 0,
+    durationTimerOverrideCount: 0,
     mediaRequestCount: 0,
+    peerCloseCount: 0,
+    pendingTranscriptCompletionCount: 0,
+    processedAudioMarkerCount: 0,
+    processedTrackObserverClosedCount: 0,
+    processedTrackObserverCount: 0,
+    requireProcessedAudioMarker: true,
     stoppedTrackCount: 0,
     transcript: "Keep this pane transcript exact.",
   };
@@ -122,7 +136,8 @@
       }
       state.commitCount += 1;
       markTiming("transcript_commit_sent", { commitCount: state.commitCount });
-      queueMicrotask(() => {
+      const runId = currentRunId();
+      const emitCompletion = () => {
         markTiming("transcript_completed_emitted", { commitCount: state.commitCount });
         this.emit({
           content_index: 0,
@@ -132,7 +147,17 @@
           type: "conversation.item.input_audio_transcription.completed",
           usage: { seconds: 1, type: "duration" },
         });
-      });
+      };
+      if (state.requireProcessedAudioMarker && !processedAudioMarkersByRun.has(runId)) {
+        state.pendingTranscriptCompletionCount += 1;
+        markTiming("transcript_completion_waiting_for_processed_marker", {
+          commitCount: state.commitCount,
+          runId,
+        });
+        pendingTranscriptCompletions.push({ emitCompletion, runId });
+        return;
+      }
+      queueMicrotask(emitCompletion);
     }
 
     emitTranscriptDelta(delta) {
@@ -160,6 +185,7 @@
       this.channel = null;
       this.connectionState = "new";
       this.onconnectionstatechange = null;
+      this.processedTrackObservers = [];
       state.connectionCount += 1;
       markTiming("webrtc_peer_created", { connectionCount: state.connectionCount });
     }
@@ -170,10 +196,22 @@
         kind: track?.kind ?? "",
         readyState: track?.readyState ?? "",
       });
+      const observer = observeProcessedTrack(track, stream);
+      if (observer) {
+        this.processedTrackObservers.push(observer);
+      }
     }
 
     close() {
+      if (this.connectionState === "closed") {
+        return;
+      }
       this.connectionState = "closed";
+      state.peerCloseCount += 1;
+      this.channel?.close();
+      for (const observer of this.processedTrackObservers.splice(0)) {
+        observer.close();
+      }
       markTiming("webrtc_peer_closed");
     }
 
@@ -224,13 +262,16 @@
     });
     await waitForDelay(delays.webRTCAnswerMs);
     const answer = "scripted-answer-sdp";
-    markTiming("webrtc_answer_response", { webRTCAnswerMs: delays.webRTCAnswerMs });
+    markTiming("webrtc_answer_response", {
+      status: delays.webRTCAnswerStatus,
+      webRTCAnswerMs: delays.webRTCAnswerMs,
+    });
     return new Response(answer, {
       headers: {
         "Content-Length": String(new TextEncoder().encode(answer).byteLength),
         "Content-Type": "application/sdp",
       },
-      status: 201,
+      status: delays.webRTCAnswerStatus,
     });
   };
   globalThis.RTCPeerConnection = ScriptedPeerConnection;
@@ -244,9 +285,12 @@
     restore() {
       activeChannel = null;
       closeActiveMicrophones();
+      closeActiveProcessedTrackObservers();
       globalThis.Audio = originalAudio;
       globalThis.fetch = originalFetch;
       globalThis.RTCPeerConnection = originalPeerConnection;
+      globalThis.clearTimeout = originalClearTimeout;
+      globalThis.setTimeout = originalSetTimeout;
       navigator.mediaDevices.getUserMedia = originalGetUserMedia;
       delete globalThis.__settaSpeechRealtimeBrowserFixture;
     },
@@ -266,9 +310,36 @@
       if (Object.prototype.hasOwnProperty.call(nextDelays, "dataChannelOpenMs")) {
         delays.dataChannelOpenMs = validDelayMs(nextDelays.dataChannelOpenMs, "dataChannelOpenMs");
       }
+      if (Object.prototype.hasOwnProperty.call(nextDelays, "webRTCAnswerStatus")) {
+        delays.webRTCAnswerStatus = validHTTPStatus(
+          nextDelays.webRTCAnswerStatus,
+          "webRTCAnswerStatus",
+        );
+      }
       if (Object.prototype.hasOwnProperty.call(nextDelays, "webRTCAnswerMs")) {
         delays.webRTCAnswerMs = validDelayMs(nextDelays.webRTCAnswerMs, "webRTCAnswerMs");
       }
+    },
+    setDurationTimerOverride(override) {
+      if (!isRecord(override)) {
+        throw new Error("duration timer override must be an object");
+      }
+      durationTimerOverride = {
+        fromMs: validDelayMs(override.fromMs, "durationTimerOverride.fromMs"),
+        toMs: validDelayMs(override.toMs, "durationTimerOverride.toMs"),
+      };
+      installDurationTimerOverride();
+    },
+    clearDurationTimerOverride() {
+      durationTimerOverride = null;
+      globalThis.clearTimeout = originalClearTimeout;
+      globalThis.setTimeout = originalSetTimeout;
+    },
+    setRequireProcessedAudioMarker(required) {
+      if (typeof required !== "boolean") {
+        throw new Error("processed audio marker requirement must be boolean");
+      }
+      state.requireProcessedAudioMarker = required;
     },
     setTimingContext(context) {
       if (!isRecord(context)) {
@@ -284,6 +355,11 @@
         ...state,
         audioActiveCount: activeAudio.size,
         delays: { ...delays },
+        durationTimerOverride: durationTimerOverride ? { ...durationTimerOverride } : null,
+        pendingTranscriptCompletionRuns: pendingTranscriptCompletions.map((completion) => ({
+          runId: completion.runId,
+        })),
+        processedAudioMarkersByRun: Object.fromEntries(processedAudioMarkersByRun.entries()),
         timing: {
           context: { ...timingContext },
           events: timing.events.map((event) => ({
@@ -297,8 +373,12 @@
   };
 
   function markTiming(name, detail = {}) {
+    return markTimingWithContext(name, timingContext, detail);
+  }
+
+  function markTimingWithContext(name, context, detail = {}) {
     const event = {
-      detail: { ...timingContext, ...detail },
+      detail: { ...context, ...detail },
       epochMs: Date.now(),
       name,
       performanceMs: performance.now(),
@@ -371,12 +451,115 @@
     }
   }
 
+  function observeProcessedTrack(track, stream) {
+    if (track?.kind !== "audio" || !stream?.getAudioTracks) {
+      return null;
+    }
+    const observerContext = { ...timingContext };
+    const observer = createProcessedTrackObserver(track, stream, observerContext);
+    activeProcessedTrackObservers.add(observer);
+    return observer;
+  }
+
+  function createProcessedTrackObserver(track, stream, observerContext) {
+    const context = new AudioContext({ latencyHint: "interactive" });
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 512;
+    const source = context.createMediaStreamSource(stream);
+    const sink = context.createGain();
+    sink.gain.value = 0;
+    source.connect(analyser);
+    analyser.connect(sink);
+    sink.connect(context.destination);
+    const samples = new Float32Array(analyser.fftSize);
+    let closed = false;
+    state.processedTrackObserverCount += 1;
+    markTimingWithContext("processed_track_observer_started", observerContext, {
+      observerCount: state.processedTrackObserverCount,
+      processedTrackId: track.id,
+      processedTrackReadyState: track.readyState,
+    });
+    void context.resume().catch((error) => {
+      markTimingWithContext("processed_track_observer_resume_failed", observerContext, {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+    const interval = globalThis.setInterval(() => {
+      if (closed) {
+        return;
+      }
+      analyser.getFloatTimeDomainData(samples);
+      const rms = rootMeanSquare(samples);
+      if (rms < 0.003) {
+        return;
+      }
+      const runId = contextRunId(observerContext);
+      processedAudioMarkersByRun.set(runId, {
+        observerCount: state.processedTrackObserverCount,
+        rms,
+      });
+      state.processedAudioMarkerCount += 1;
+      markTimingWithContext("processed_audio_marker_observed", observerContext, {
+        activeMicrophoneCount: activeMicrophones.size,
+        processedAudioMarkerCount: state.processedAudioMarkerCount,
+        rms,
+        stoppedTrackCount: state.stoppedTrackCount,
+      });
+      flushPendingTranscriptCompletions(runId);
+      observer.close();
+    }, 20);
+    const observer = {
+      close() {
+        if (closed) {
+          return;
+        }
+        closed = true;
+        globalThis.clearInterval(interval);
+        activeProcessedTrackObservers.delete(observer);
+        state.processedTrackObserverClosedCount += 1;
+        source.disconnect();
+        analyser.disconnect();
+        sink.disconnect();
+        void context.close();
+        markTimingWithContext("processed_track_observer_closed", observerContext, {
+          observerClosedCount: state.processedTrackObserverClosedCount,
+        });
+      },
+    };
+    return observer;
+  }
+
+  function flushPendingTranscriptCompletions(runId) {
+    for (let index = pendingTranscriptCompletions.length - 1; index >= 0; index -= 1) {
+      const completion = pendingTranscriptCompletions[index];
+      if (completion.runId !== runId) {
+        continue;
+      }
+      pendingTranscriptCompletions.splice(index, 1);
+      queueMicrotask(completion.emitCompletion);
+    }
+  }
+
+  function closeActiveProcessedTrackObservers() {
+    for (const observer of [...activeProcessedTrackObservers]) {
+      observer.close();
+    }
+  }
+
+  function rootMeanSquare(samples) {
+    let total = 0;
+    for (const sample of samples) {
+      total += sample * sample;
+    }
+    return Math.sqrt(total / samples.length);
+  }
+
   function waitForDelay(delayMs) {
     if (delayMs === 0) {
       return Promise.resolve();
     }
     return new Promise((resolve) => {
-      globalThis.setTimeout(resolve, delayMs);
+      originalSetTimeout(resolve, delayMs);
     });
   }
 
@@ -385,7 +568,25 @@
       queueMicrotask(callback);
       return;
     }
-    globalThis.setTimeout(callback, delayMs);
+    originalSetTimeout(callback, delayMs);
+  }
+
+  function installDurationTimerOverride() {
+    globalThis.clearTimeout = originalClearTimeout;
+    globalThis.setTimeout = (handler, delayMs, ...args) => {
+      const requestedDelayMs = Number(delayMs);
+      const shouldOverride =
+        durationTimerOverride !== null && requestedDelayMs === durationTimerOverride.fromMs;
+      if (shouldOverride) {
+        state.durationTimerOverrideCount += 1;
+        markTiming("duration_timer_shortened", {
+          fromMs: durationTimerOverride.fromMs,
+          toMs: durationTimerOverride.toMs,
+        });
+        return originalSetTimeout(handler, durationTimerOverride.toMs, ...args);
+      }
+      return originalSetTimeout(handler, delayMs, ...args);
+    };
   }
 
   function validDelayMs(value, field) {
@@ -393,6 +594,23 @@
       throw new Error(`${field} must be a non-negative integer`);
     }
     return value;
+  }
+
+  function validHTTPStatus(value, field) {
+    if (!Number.isSafeInteger(value) || value < 100 || value > 599) {
+      throw new Error(`${field} must be an HTTP status code`);
+    }
+    return value;
+  }
+
+  function currentRunId() {
+    return contextRunId(timingContext);
+  }
+
+  function contextRunId(context) {
+    return typeof context.runId === "string" && context.runId !== ""
+      ? context.runId
+      : "__default__";
   }
 
   function isRecord(value) {

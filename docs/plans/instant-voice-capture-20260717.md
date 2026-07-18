@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Phase 3 complete — every microphone surface now exposes local recording as the actionable boundary; live OpenAI processed-track smoke and Phase 4 workflow/performance coverage remain pending.
+**Status:** Phase 4 complete — deterministic production-path workflow coverage and after-results are recorded; the live OpenAI processed-track smoke remains pending until credentials are deliberately available.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -24,7 +24,7 @@ This is a replacement, not a compatibility project.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
-- [ ] Phase 4 — Production-path workflow coverage and performance report.
+- [x] Phase 4 — Production-path workflow coverage and performance report.
 
 ## Outcome
 

@@ -28,6 +28,7 @@ export type MasterSpeechCaptureRequest = Extract<
 >;
 
 export interface SpeechCaptureRequester {
+  cancelActiveConversationCapture?: (request: ConversationSpeechCaptureRequest) => boolean;
   start: (request: SpeechCaptureRequest) => Promise<void>;
 }
 

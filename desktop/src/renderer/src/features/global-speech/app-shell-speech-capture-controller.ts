@@ -333,6 +333,23 @@ export class AppShellSpeechCaptureController {
     void this.finishRecording();
   };
 
+  cancelActiveConversationCapture = (requestedCapture: SpeechCaptureRequest): boolean => {
+    this.assertUsable();
+    const request = freezeSpeechCaptureRequest(requestedCapture);
+    if (request.destination.type !== "conversation") {
+      return false;
+    }
+    const activeRequest = activeCaptureRequest(this.snapshotValue.capture);
+    if (!activeRequest || !speechCaptureRequestsEqual(activeRequest, request)) {
+      return false;
+    }
+    this.resetCapture();
+    if (this.snapshotValue.capture.type !== "idle") {
+      this.updateSnapshot({ capture: { type: "idle" } });
+    }
+    return true;
+  };
+
   cancel = (): void => {
     this.assertUsable();
     this.resetCapture();

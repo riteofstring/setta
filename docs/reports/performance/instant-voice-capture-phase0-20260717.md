@@ -64,3 +64,38 @@ The disposable browser harness uses an `AudioWorkletNode` gate between a synthet
 The live OpenAI processed-track smoke test remains pending and should be appended here when credentials are deliberately available. The disposable local browser feasibility gate has passed.
 
 Credential check on 2026-07-17: `OPENAI_API_KEY` and `OPENAI_BASE_URL` were absent from the task environment, so the live OpenAI processed-track smoke was not run. This is not provider-integration evidence and does not close Phase 0.4.
+
+## Phase 4 After Results
+
+Workflow:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260717T223419793Z
+```
+
+The deterministic production-path workflow now drives the real Electron main/preload/renderer/HTTP/store path with temporary app data. The browser fixture observes the actual WebRTC-bound processed media stream and withholds the scripted transcript until it sees a non-silent processed audio marker, so a fixed transcript alone cannot pass the workflow.
+
+| Scenario | Provider setup delay | Click to local recording | Click to WebRTC ready | Click to processed marker | Finish to commit | Session request to response |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Shell warm-up | 0 ms | 180.5 ms | 181.2 ms | 219.0 ms | 97.6 ms | 2 ms |
+| Shell steady | 0 ms | 32.7 ms | 32.8 ms | 72.6 ms | 88.7 ms | 0 ms |
+| Shell delayed | 1,500 ms | 25.1 ms | 1,516.2 ms | 1,578.2 ms | 1,581.8 ms | 1,502 ms |
+| Easy Button pane delayed | 1,500 ms | 29.6 ms | 1,517.3 ms | 1,558.5 ms | 1,581.5 ms | 1,502 ms |
+| Master overlay delayed | 1,500 ms | 22.3 ms | 1,508.5 ms | 1,569.4 ms | 1,583.8 ms | 1,502 ms |
+| Master shortcut delayed | 1,500 ms | 24.5 ms | 1,509.0 ms | 1,549.5 ms | 1,576.9 ms | 1,501 ms |
+
+Steady shell click-to-local-recording changed by 7.6 ms between the 0 ms and 1,500 ms provider-delay cases, while WebRTC readiness and final commit moved with the injected provider delay. This confirms the local **Listening** boundary is no longer gated on transcription-session creation or WebRTC readiness after the initial cold worklet/module warm-up.
+
+The workflow also verified:
+
+- Easy Button pane speech stopped before provider readiness, retained the early processed marker, submitted one complete transcript to the frozen source pane, and did not route it to the master.
+- Active-run pane speech stopped before provider readiness, retained the marker, and routed the completed transcript through the existing `queue_parent_turn` lifecycle.
+- Shell, Global master overlay, and Global master shortcut captures all reached local recording and finished during connection.
+- Cancellation, connection failure, duration failure, runtime switch, and source-pane closure each produced `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`.
+- Another-pane arbitration kept non-source panes from stealing the active capture.
