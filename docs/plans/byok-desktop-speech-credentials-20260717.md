@@ -52,7 +52,12 @@ Electron/backend process without `OPENAI_API_KEY`, saves the fake credential
 through Settings → Voices, refreshes renderer capture capabilities from typed
 credential events, exercises the immediate capture/routing/playback path using
 the stored credential, and scans recordings plus temporary app data for fake
-long-lived and ephemeral secret markers.
+long-lived and ephemeral secret markers. The registered live OpenAI workflow
+now resolves the test runner's Platform key outside the app process, launches
+the Electron child without `OPENAI_API_KEY`, saves the key through Settings →
+Voices, proves live Realtime transcription, restarts Electron/backend with the
+same temporary app data, restores the credential from the vault, and proves a
+second live Realtime transcription session.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -655,8 +660,13 @@ environment-based desktop product behavior.
       refreshes renderer capture capabilities after credential-state events,
       and scans finalized recordings plus temporary app data for the fake
       long-lived and ephemeral secret markers.
-- [ ] Update the live OpenAI workflow to provision only through the production
-      UI and prove restart restoration.
+- [x] Update the live OpenAI workflow to provision only through the production
+      UI and prove restart restoration. Covered by
+      `.recordings/instant-voice-capture-phase0-live-openai/20260718T123649740Z`;
+      the workflow resolves the Platform key in the Node runner, strips
+      `OPENAI_API_KEY` from both Electron/backend launches, saves through
+      Settings → Voices, and repeats live Realtime transcription after an
+      Electron/backend restart using the restored vault credential.
 - [ ] Scan finalized artifacts and temporary state for old/new/ephemeral secret
       markers on success and failure.
 - [ ] Remove obsolete desktop credential-environment fixtures whose sole
