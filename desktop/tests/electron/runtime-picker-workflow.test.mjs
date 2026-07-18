@@ -129,7 +129,7 @@ try {
   });
 
   const desktopDeviceId = await desktopDeviceIdForRemote(probe);
-  await runSettaCommand(["devices", "revoke", "--app-data-dir", remoteAppDataDir, desktopDeviceId]);
+  await probe.post("/devices/revoke", { deviceId: desktopDeviceId });
   await triggerRendererBackendRead(context.client);
   await waitForRuntimeStatus(context.client, "revoked", { runtimeId: remote.runtimeId });
 
@@ -356,7 +356,7 @@ async function desktopDeviceIdForRemote(probe) {
 async function pairProbeDevice(appDataDir) {
   const pairingURL = await mintPairingURL(appDataDir);
   const parsed = parsePairingURL(pairingURL);
-  const response = await fetch(parsed.baseUrl + "pairing/complete", {
+  const response = await fetch(parsed.baseUrl + "local-credentials/enroll", {
     body: JSON.stringify({
       clientDisplayName: "Runtime Picker Probe",
       pairingToken: parsed.pairingToken,
@@ -371,15 +371,14 @@ async function pairProbeDevice(appDataDir) {
   const paired = JSON.parse(body);
   return {
     baseUrl: parsed.baseUrl,
-    deviceToken: paired.deviceToken,
-    get: (path) => remoteRequest(parsed.baseUrl, paired.deviceToken, "GET", path),
+    get: (path) => remoteRequest(parsed.baseUrl, paired.runtimeCredential.token, "GET", path),
     post: (path, payload) =>
-      remoteRequest(parsed.baseUrl, paired.deviceToken, "POST", path, payload),
+      remoteRequest(parsed.baseUrl, paired.runtimeCredential.token, "POST", path, payload),
   };
 }
 
-async function remoteRequest(baseUrl, deviceToken, method, path, payload) {
-  const headers = { Authorization: "Bearer " + deviceToken };
+async function remoteRequest(baseUrl, runtimeCredential, method, path, payload) {
+  const headers = { Authorization: "Bearer " + runtimeCredential };
   const init = { headers, method };
   if (payload !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -397,7 +396,16 @@ async function startRemoteRuntime(appDataDir) {
   await mkdir(appDataDir, { recursive: true });
   const child = spawn(
     join(repoRoot, "scripts/go.sh"),
-    ["run", "./cmd/setta", "serve", "--app-data-dir", appDataDir, "--port", "0"],
+    [
+      "run",
+      "./cmd/setta",
+      "serve",
+      "--app-data-dir",
+      appDataDir,
+      "--port",
+      "0",
+      "--local-credential-issuer",
+    ],
     {
       cwd: repoRoot,
       detached: true,

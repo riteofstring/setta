@@ -28,7 +28,7 @@ export async function runCrossWorkspaceSidebarSummaryWorkflow({
   let failure = null;
 
   try {
-    const backend = await backendProbe(recordingDir);
+    const backend = await backendProbe(recordingDir, context.client);
     await runWorkflowStep(
       results,
       recordingDir,

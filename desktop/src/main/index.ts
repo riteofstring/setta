@@ -30,9 +30,19 @@ import { registerChatAttachmentProtocol } from "./chat-attachment-protocol";
 import { registerChatCodexIpcHandlers } from "./chat-codex-ipc";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { registerChatIpcHandlers } from "./chat-ipc";
+import { DesktopCredentialStore, type RuntimeAccessCredential } from "./desktop-credential-store";
+import { createElectronCredentialSecretStore } from "./electron-credential-secret-store";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import {
+  enrollWithLocalRuntimeIssuer,
+  LocalRuntimeCredentialClient,
+} from "./local-runtime-credential-client";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
+import {
+  RuntimeCredentialManager,
+  UnconfiguredControlPlaneRuntimeCredentialClient,
+} from "./runtime-credential-manager";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { startSemanticGraphEventForwarding } from "./semantic-graph-event-forwarding-stream";
@@ -81,7 +91,6 @@ async function prepareBackend(appDataDir: string) {
     attachBackendObservers({
       backend,
       emitBackendProcessStatus,
-      isE2E,
       mainWindow: () => mainWindow,
       recorder: () => recorder,
       runtimeRegistry: () => runtimeRegistry,
@@ -91,7 +100,7 @@ async function prepareBackend(appDataDir: string) {
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
-      deviceToken: backend.bootstrapToken,
+      pairingToken: backend.localPairingToken,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
   } catch (error) {
@@ -104,8 +113,17 @@ async function prepareBackend(appDataDir: string) {
 }
 
 function createRuntimeRegistry() {
+  const credentials = new DesktopCredentialStore(
+    createElectronCredentialSecretStore(app.getPath("userData")),
+  );
   return new RuntimeRegistryController({
     clientDisplayName,
+    enrollRuntime: (pairing, displayName) =>
+      enrollWithLocalRuntimeIssuer({
+        clientDisplayName: displayName,
+        fetchImpl: fetch,
+        pairing,
+      }),
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     hooks: {
       activeRuntimeFailed: handleRuntimeFailed,
@@ -114,7 +132,14 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    store: new KnownRuntimeStore(app.getPath("userData")),
+    runtimeCredentials: new RuntimeCredentialManager(
+      credentials,
+      new UnconfiguredControlPlaneRuntimeCredentialClient(),
+      {
+        localRuntimeCredentialClient: new LocalRuntimeCredentialClient(fetch),
+      },
+    ),
+    store: new KnownRuntimeStore(app.getPath("userData"), credentials),
   });
 }
 
@@ -141,7 +166,7 @@ function handleRuntimeOnline(runtime: ActiveRuntime) {
     status: "online",
     url: runtime.baseUrl,
   });
-  startBackendEventStreams();
+  void startBackendEventStreams();
 }
 
 async function beforeRuntimeSwitch() {
@@ -149,14 +174,15 @@ async function beforeRuntimeSwitch() {
   await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
 }
 
-function startChatEventStream() {
+async function startChatEventStream() {
   const runtime = activeRuntime();
   if (!runtime) {
     return;
   }
+  const credential = await currentRuntimeCredential(runtime);
   void stopChatEventStream();
   backendEventStream = startBackendEventStream({
-    authToken: runtime.deviceToken,
+    authToken: credential.token,
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     observer: {
@@ -180,56 +206,60 @@ function startChatEventStream() {
   });
 }
 
-function startWorkflowEventStreamForwarding() {
+async function startWorkflowEventStreamForwarding() {
   const runtime = activeRuntime();
   if (!runtime) {
     return;
   }
+  const credential = await currentRuntimeCredential(runtime);
   void stopWorkflowEventStreamForwarding();
   workflowEventStream = startWorkflowEventStream({
-    authToken: runtime.deviceToken,
+    authToken: credential.token,
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     sendEvent: forwardWorkflowEvent,
   });
 }
 
-function startSemanticGraphEventStreamForwarding() {
+async function startSemanticGraphEventStreamForwarding() {
   const runtime = activeRuntime();
   if (!runtime) {
     return;
   }
+  const credential = await currentRuntimeCredential(runtime);
   void stopSemanticGraphEventStreamForwarding();
   semanticGraphEventStream = startSemanticGraphEventForwarding({
-    authToken: runtime.deviceToken,
+    authToken: credential.token,
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     recorder,
   });
 }
 
-function startTerminalEventStreamForwarding() {
+async function startTerminalEventStreamForwarding() {
   const runtime = activeRuntime();
   if (!runtime) {
     return;
   }
+  const credential = await currentRuntimeCredential(runtime);
   void stopTerminalEventStreamForwarding();
   terminalEventStream = startTerminalEventStream({
-    authToken: runtime.deviceToken,
+    authToken: credential.token,
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     sendEvent: forwardTerminalEvent,
   });
 }
 
-function startWorkspaceActivityEventStreamForwarding() {
+async function startWorkspaceActivityEventStreamForwarding() {
   const runtime = activeRuntime();
   if (!runtime) {
     return;
   }
+  const credential = await currentRuntimeCredential(runtime);
   void stopWorkspaceActivityEventStreamForwarding();
   workspaceActivityEventStream = startWorkspaceActivityEventForwarding({
-    authToken: runtime.deviceToken,
+    authToken: credential.token,
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
     recorder,
@@ -276,12 +306,18 @@ async function stopBackendEventStreams() {
   ]);
 }
 
-function startBackendEventStreams() {
-  startChatEventStream();
-  startSemanticGraphEventStreamForwarding();
-  startTerminalEventStreamForwarding();
-  startWorkspaceActivityEventStreamForwarding();
-  startWorkflowEventStreamForwarding();
+async function startBackendEventStreams() {
+  try {
+    await Promise.all([
+      startChatEventStream(),
+      startSemanticGraphEventStreamForwarding(),
+      startTerminalEventStreamForwarding(),
+      startWorkspaceActivityEventStreamForwarding(),
+      startWorkflowEventStreamForwarding(),
+    ]);
+  } catch (error) {
+    void runtimeRegistry?.markActiveRuntimeUnreachable(errorMessage(error));
+  }
 }
 
 function emitBackendProcessStatus(status: BackendProcessStatus) {
@@ -698,14 +734,30 @@ function requireBackendClient(): BackendClient {
 }
 
 function backendFetch(): BackendFetch {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    throw new Error(runtimeUnavailableMessage());
-  }
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  return authenticatedBackendFetch(fetchImpl, runtime.deviceToken, () => {
-    void runtimeRegistry?.markActiveRuntimeRevoked();
-  });
+  return authenticatedBackendFetch(
+    fetchImpl,
+    async () => {
+      const runtime = activeRuntime();
+      if (!runtime) {
+        throw new Error(runtimeUnavailableMessage());
+      }
+      return (await currentRuntimeCredential(runtime)).token;
+    },
+    () => {
+      void runtimeRegistry?.markActiveRuntimeRevoked();
+    },
+  );
+}
+
+async function currentRuntimeCredential(runtime: ActiveRuntime): Promise<RuntimeAccessCredential> {
+  const registry = requireRuntimeRegistry();
+  const credential = await registry.currentRuntimeCredential();
+  const current = activeRuntime();
+  if (!current || current.runtimeId !== runtime.runtimeId) {
+    throw new Error("runtime changed while resolving runtime credential");
+  }
+  return credential;
 }
 
 function activeRuntime(): ActiveRuntime | null {
@@ -722,6 +774,10 @@ function requireRuntimeRegistry(): RuntimeRegistryController {
 function runtimeUnavailableMessage() {
   const snapshot = runtimeRegistry?.snapshot();
   return snapshot?.connection.message ?? backendStartupError ?? "runtime is not connected";
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 async function stopBackend() {

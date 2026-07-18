@@ -127,7 +127,7 @@ function backendLogsForHandle(handle) {
 async function launchExternalBackendContext(fixture, recordingDir, backend) {
   return launchContext(fixture, recordingDir, {
     extraEnv: {
-      SETTA_BACKEND_TOKEN: backend.token,
+      SETTA_BACKEND_PAIRING_TOKEN: backend.pairingToken,
       SETTA_BACKEND_URL: backend.url,
     },
   });
@@ -139,7 +139,7 @@ async function exerciseBackendOrchestratorFirstLaunch({
   firstRecording,
   results,
 }) {
-  const backend = await backendProbe(firstRecording);
+  const backend = await backendProbe(firstRecording, context.client);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   await createChat(context.client, backend, workspaceId);
   await seedWorkflowSemanticContext(context.client, workspaceId);
@@ -169,7 +169,7 @@ async function exerciseBackendOrchestratorFirstLaunch({
 }
 
 async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, secondRecording }) {
-  const backend = await backendProbe(secondRecording);
+  const backend = await backendProbe(secondRecording, context.client);
   const recovered = await waitForWorkflowExecution(
     context.client,
     recovery.workspaceId,
@@ -625,8 +625,9 @@ async function waitForWorkflowExecution(client, workspaceId, executionId, isRead
 }
 
 async function openWorkflowEventStream(backend, recordingDir) {
+  const credential = await backend.currentRuntimeCredential();
   const response = await globalThis.fetch(backend.baseURL + "/workflows/events", {
-    headers: { Authorization: "Bearer " + backend.deviceToken },
+    headers: { Authorization: "Bearer " + credential },
   });
   await appendWorkflowState(recordingDir, {
     method: "GET",

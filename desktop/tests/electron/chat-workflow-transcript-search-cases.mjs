@@ -33,7 +33,7 @@ export async function runTranscriptSearchWorkflowLaunch(
   let failure = null;
 
   try {
-    const backend = await backendProbe(recordingDir);
+    const backend = await backendProbe(recordingDir, context.client);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     await runWorkflowStep(results, recordingDir, "transcript-search", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);

@@ -72,14 +72,14 @@ export async function runRestartRecoveryWorkflow(results, { recordingRoot, repoR
 async function launchExternalBackendContext(fixture, recordingDir, backend) {
   return launchContext(fixture, recordingDir, {
     extraEnv: {
-      SETTA_BACKEND_TOKEN: backend.token,
+      SETTA_BACKEND_PAIRING_TOKEN: backend.pairingToken,
       SETTA_BACKEND_URL: backend.url,
     },
   });
 }
 
 async function createInterruptedRun(context, fixture, recordingDir) {
-  const backend = await backendProbe(recordingDir);
+  const backend = await backendProbe(recordingDir, context.client);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   const conversationId = await createChat(context.client, backend, workspaceId);
   await submitComposer(context.client, restartRecoveryBackgroundTerminalPrompt, "Send message");
@@ -109,7 +109,7 @@ async function createInterruptedRun(context, fixture, recordingDir) {
 }
 
 async function assertRecoveredRun(context, recordingDir, interrupted) {
-  const backend = await backendProbe(recordingDir);
+  const backend = await backendProbe(recordingDir, context.client);
   const recovered = await waitForRunWithPrompt(
     backend,
     interrupted.workspaceId,

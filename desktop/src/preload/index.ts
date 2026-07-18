@@ -85,6 +85,7 @@ const api: SettaAPI = {
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
     current: () => invoke("runtimeCurrent"),
+    currentRuntimeCredential: () => invoke("runtimeCurrentCredential"),
     list: () => invoke("runtimeList"),
     onConnectionState: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {

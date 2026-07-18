@@ -75,7 +75,7 @@ try {
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const backend = await backendProbe(artifactDir);
+  const backend = await backendProbe(artifactDir, context.client);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   const conversationId = await createChat(context.client, backend, workspaceId);
   await waitForSelector(context.client, '[data-testid="chat-detail-pane"]');

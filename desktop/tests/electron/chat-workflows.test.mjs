@@ -381,7 +381,7 @@ async function runDeterministicWorkflowLaunch(results) {
   let failure = null;
 
   try {
-    const backend = await backendProbe(recordingDir);
+    const backend = await backendProbe(recordingDir, context.client);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     await runWorkflowStep(results, recordingDir, "codex-account", context.client, async () => {
       await runCodexAccountWorkflow({
@@ -1165,7 +1165,7 @@ async function runSidebarNavigationWorkflow(results) {
   let failure = null;
 
   try {
-    const backend = await backendProbe(recordingDir);
+    const backend = await backendProbe(recordingDir, context.client);
     await runWorkflowStep(results, recordingDir, "sidebar-navigation", context.client, async () => {
       await waitForTexts(context.client, [fixture.initialWorkspace.displayName]);
       const conversation = await backend.post("/chat/conversations/create", {
@@ -1257,7 +1257,7 @@ async function runCodexProtocolWorkflow(results) {
   let failure = null;
 
   try {
-    const backend = await backendProbe(recordingDir);
+    const backend = await backendProbe(recordingDir, context.client);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     await assertNoConversationDraftDefaults(context.client, backend, workspaceId);
     const conversationId = await createChat(context.client, backend, workspaceId);
@@ -1348,7 +1348,7 @@ async function runRestartWorkflow(results) {
 
   try {
     first = await launchContext(fixture, firstRecording);
-    const backend = await backendProbe(firstRecording);
+    const backend = await backendProbe(firstRecording, first.client);
     const workspaceId = await openWorkspace(first.client, fixture.workspaceRoot, backend);
     const conversationId = await createChat(first.client, backend, workspaceId);
     await runHappyPathWorkflow(first.client, backend, workspaceId, conversationId, {
@@ -1370,7 +1370,7 @@ async function runRestartWorkflow(results) {
     await stopLaunchedContext(first);
 
     second = await launchContext(fixture, secondRecording);
-    const secondBackend = await backendProbe(secondRecording);
+    const secondBackend = await backendProbe(secondRecording, second.client);
     await waitForTexts(
       second.client,
       [

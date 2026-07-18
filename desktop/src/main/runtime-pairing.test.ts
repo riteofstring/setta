@@ -3,7 +3,6 @@ import { backendProtocolVersion } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import {
-  completePairing,
   parsePairingURL,
   RuntimePairingError,
   validateRemoteRuntimeBaseURL,
@@ -34,48 +33,29 @@ describe("runtime pairing URL parsing", () => {
   });
 });
 
-describe("runtime pairing completion", () => {
-  test("classifies invalid or expired pairing tokens", async () => {
-    const parsed = parsePairingURL(
-      "setta://pair?rt=runtime_remote&tok=token_pair&url=http%3A%2F%2F100.64.0.12%3A7345",
-    );
-
-    await expect(
-      completePairing(parsed, "Setta Desktop", async () =>
-        jsonResponse(
-          {
-            error: {
-              activeExecution: null,
-              code: "invalid_pairing_token",
-              message: "pairing token is invalid, expired, or already used",
-            },
-          },
-          401,
-        ),
-      ),
-    ).rejects.toMatchObject({ reason: "invalid_pairing_token" });
-  });
-
-  test("rejects pairing runtime_id mismatches", async () => {
-    const parsed = parsePairingURL(
-      "setta://pair?rt=runtime_expected&tok=token_pair&url=http%3A%2F%2F100.64.0.12%3A7345",
-    );
-
-    await expect(
-      completePairing(parsed, "Setta Desktop", async () =>
-        jsonResponse({
-          deviceId: "device_api",
-          deviceToken: "device_token",
-          protocolVersion: backendProtocolVersion,
-          runtimeId: "runtime_actual",
-        }),
-      ),
-    ).rejects.toMatchObject({ reason: "runtime_id_mismatch" });
-  });
-});
-
 describe("runtime connection verification", () => {
-  test("verifies runtime id and authenticated device token", async () => {
+  test("accepts current runtime metadata while backend contract generation is deferred", async () => {
+    const currentRuntimeInfo = {
+      ...runtimeInfo("runtime_expected", 11),
+      diagnostics: { health: "healthy" },
+      featureSet: { protocolVersion: 1 },
+    };
+
+    await expect(
+      verifyRuntimeConnection({
+        authToken: "runtime_credential",
+        baseUrl: "http://100.64.0.12:7345/",
+        expectedProtocolVersion: 11,
+        expectedRuntimeId: "runtime_expected",
+        fetchImpl: async (input) =>
+          input.pathname === "/runtime/info"
+            ? jsonResponse(currentRuntimeInfo)
+            : jsonResponse({ devices: [] }),
+      }),
+    ).resolves.toMatchObject({ runtimeId: "runtime_expected" });
+  });
+
+  test("verifies runtime id and authenticated runtime credential", async () => {
     const calls: string[] = [];
     const fetchImpl: BackendFetch = async (input) => {
       calls.push(input.toString());
@@ -87,8 +67,9 @@ describe("runtime connection verification", () => {
 
     await expect(
       verifyRuntimeConnection({
+        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        deviceToken: "device_token",
+        expectedProtocolVersion: backendProtocolVersion,
         expectedRuntimeId: "runtime_expected",
         fetchImpl,
       }),
@@ -109,8 +90,9 @@ describe("runtime connection verification", () => {
 
     await expect(
       verifyRuntimeConnection({
+        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        deviceToken: "device_token",
+        expectedProtocolVersion: backendProtocolVersion,
         expectedRuntimeId: "runtime_expected",
         fetchImpl,
       }),
@@ -120,8 +102,9 @@ describe("runtime connection verification", () => {
   test("blocks different runtimes at the stored address", async () => {
     await expect(
       verifyRuntimeConnection({
+        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        deviceToken: "device_token",
+        expectedProtocolVersion: backendProtocolVersion,
         expectedRuntimeId: "runtime_expected",
         fetchImpl: async () => jsonResponse(runtimeInfo("runtime_actual", backendProtocolVersion)),
       }),
@@ -131,15 +114,16 @@ describe("runtime connection verification", () => {
   test("marks unsupported protocol versions incompatible", async () => {
     await expect(
       verifyRuntimeConnection({
+        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        deviceToken: "device_token",
+        expectedProtocolVersion: backendProtocolVersion,
         expectedRuntimeId: "runtime_expected",
         fetchImpl: async () => jsonResponse(runtimeInfo("runtime_expected", 99)),
       }),
     ).rejects.toMatchObject({ reason: "incompatible" } satisfies Partial<RuntimeConnectionError>);
   });
 
-  test("marks 401 token verification as revoked", async () => {
+  test("marks 401 credential verification as revoked", async () => {
     const fetchImpl: BackendFetch = async (input) => {
       if (input.pathname === "/runtime/info") {
         return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion));
@@ -158,8 +142,9 @@ describe("runtime connection verification", () => {
 
     await expect(
       verifyRuntimeConnection({
+        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        deviceToken: "device_token",
+        expectedProtocolVersion: backendProtocolVersion,
         expectedRuntimeId: "runtime_expected",
         fetchImpl,
       }),

@@ -58,7 +58,7 @@ export async function runShutdownDrainWorkflow(results, { recordingRoot }) {
 }
 
 async function startRunBeforeShutdown(context, fixture, recordingDir) {
-  const backend = await backendProbe(recordingDir);
+  const backend = await backendProbe(recordingDir, context.client);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   const conversationId = await createChat(context.client, backend, workspaceId);
   await submitComposer(context.client, shutdownDrainPrompt, "Send message");
@@ -76,7 +76,7 @@ async function startRunBeforeShutdown(context, fixture, recordingDir) {
 }
 
 async function assertShutdownDrainedRun(context, recordingDir, interrupted) {
-  const backend = await backendProbe(recordingDir);
+  const backend = await backendProbe(recordingDir, context.client);
   const drained = await waitForRunWithPrompt(
     backend,
     interrupted.workspaceId,

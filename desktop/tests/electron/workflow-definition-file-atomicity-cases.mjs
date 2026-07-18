@@ -63,7 +63,7 @@ export async function runWorkflowDefinitionFileAtomicityWorkflowLaunch(results, 
 }
 
 async function runWorkflowDefinitionFileAtomicityScenario(context, fixture, recordingDir) {
-  const backend = await backendProbe(recordingDir);
+  const backend = await backendProbe(recordingDir, context.client);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   await createChat(context.client, backend, workspaceId);
   const definition = await createWorkflowDefinition(context.client, workspaceId);

@@ -66,7 +66,7 @@ export async function runTranscriptScrollWorkflowLaunch(results, { recordingRoot
 
 async function runTranscriptScrollFirstLaunch({ fixture, firstRecording, results, state }) {
   state.first = await launchContext(fixture, firstRecording);
-  const backend = await backendProbe(firstRecording);
+  const backend = await backendProbe(firstRecording, state.first.client);
   const workspaceId = await openWorkspace(state.first.client, fixture.workspaceRoot, backend);
   let pagedConversationId = "";
 
@@ -106,7 +106,7 @@ async function runTranscriptScrollSecondLaunch({
   state,
 }) {
   state.second = await launchContext(fixture, secondRecording);
-  const backend = await backendProbe(secondRecording);
+  const backend = await backendProbe(secondRecording, state.second.client);
   await waitForTexts(state.second.client, [
     "workspace-root",
     "transcript older page workflow",

@@ -216,22 +216,47 @@ export async function waitForDriverState(
   return waitForState(client, driverCallExpression(method, args), isReady, timeoutMs);
 }
 
-export async function backendProbe(recordingDir) {
-  const { baseURL, deviceToken } = await waitForBackendAccess(recordingDir);
+export async function backendProbe(recordingDir, client) {
+  const { baseURL } = await waitForBackendAccess(recordingDir);
+  await waitForCurrentRuntimeCredential(client);
   await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
+  const credentialToken = async () => (await waitForCurrentRuntimeCredential(client)).token;
   return {
     baseURL,
-    deviceToken,
-    get: (path) => backendRequest(recordingDir, baseURL, deviceToken, "GET", path),
-    post: (path, payload) =>
-      backendRequest(recordingDir, baseURL, deviceToken, "POST", path, payload),
-    request: (method, path, payload) =>
-      backendFetch(recordingDir, baseURL, deviceToken, method, path, payload),
+    currentRuntimeCredential: credentialToken,
+    get: async (path) =>
+      backendRequest(recordingDir, baseURL, await credentialToken(), "GET", path),
+    post: async (path, payload) =>
+      backendRequest(recordingDir, baseURL, await credentialToken(), "POST", path, payload),
+    request: async (method, path, payload) =>
+      backendFetch(recordingDir, baseURL, await credentialToken(), method, path, payload),
   };
 }
 
-async function backendRequest(recordingDir, baseURL, deviceToken, method, path, payload) {
-  const response = await backendFetch(recordingDir, baseURL, deviceToken, method, path, payload);
+async function waitForCurrentRuntimeCredential(client) {
+  return waitForState(
+    client,
+    `(async () => {
+      try {
+        return await window.setta.runtimes.currentRuntimeCredential();
+      } catch {
+        return null;
+      }
+    })()`,
+    (credential) => nonEmptyString(credential?.token),
+    pageLoadTimeoutMs,
+  );
+}
+
+async function backendRequest(recordingDir, baseURL, runtimeCredential, method, path, payload) {
+  const response = await backendFetch(
+    recordingDir,
+    baseURL,
+    runtimeCredential,
+    method,
+    path,
+    payload,
+  );
   const body = await response.text();
   if (!response.ok) {
     throw new Error(`${method} ${path} returned ${response.status}: ${body}`);
@@ -239,10 +264,10 @@ async function backendRequest(recordingDir, baseURL, deviceToken, method, path, 
   return JSON.parse(body);
 }
 
-async function backendFetch(recordingDir, baseURL, deviceToken, method, path, payload) {
+async function backendFetch(recordingDir, baseURL, runtimeCredential, method, path, payload) {
   const response = await globalThis.fetch(baseURL + path, {
     body: payload === undefined ? undefined : JSON.stringify(payload),
-    headers: backendRequestHeaders(deviceToken, payload),
+    headers: backendRequestHeaders(runtimeCredential, payload),
     method,
   });
   await appendWorkflowState(recordingDir, {
@@ -255,9 +280,9 @@ async function backendFetch(recordingDir, baseURL, deviceToken, method, path, pa
   return response;
 }
 
-function backendRequestHeaders(deviceToken, payload) {
+function backendRequestHeaders(runtimeCredential, payload) {
   return {
-    Authorization: "Bearer " + deviceToken,
+    Authorization: "Bearer " + runtimeCredential,
     ...(payload === undefined ? {} : { "Content-Type": "application/json" }),
   };
 }
@@ -294,11 +319,10 @@ function backendAccessFromEvents(events) {
 
 function backendAccessFromPayload(payload) {
   const url = payload?.url;
-  const token = payload?.bootstrapToken;
-  if (!nonEmptyString(url) || !nonEmptyString(token)) {
+  if (!nonEmptyString(url)) {
     return null;
   }
-  return { baseURL: url, deviceToken: token };
+  return { baseURL: url };
 }
 
 function nonEmptyString(value) {

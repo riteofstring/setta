@@ -30,7 +30,7 @@ export async function runPostCommitStartupFailureWorkflowLaunch(results, { recor
   let failure = null;
 
   try {
-    const backend = await backendProbe(recordingDir);
+    const backend = await backendProbe(recordingDir, context.client);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     const conversationId = await createChat(context.client, backend, workspaceId);
     await submitComposer(context.client, "post commit startup failure", "Send message");

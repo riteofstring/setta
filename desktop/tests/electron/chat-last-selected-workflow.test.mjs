@@ -72,7 +72,7 @@ async function main() {
   let failure = null;
 
   try {
-    const backend = await backendProbe(recordingDir);
+    const backend = await backendProbe(recordingDir, context.client);
     await waitForTexts(context.client, [
       fixture.firstWorkspace.displayName,
       fixture.secondWorkspace.displayName,

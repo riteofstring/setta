@@ -73,7 +73,7 @@ async function runProdRecordChatWorkflow(fixture, recordingDir) {
 }
 
 async function exerciseProdRecordChat(client, fixture, recordingDir) {
-  const backend = await backendProbe(recordingDir);
+  const backend = await backendProbe(recordingDir, client);
   const workspaceId = await openWorkspace(client, fixture.workspaceRoot, backend);
   const conversationId = await createChat(client, backend, workspaceId);
   await assertProdNewChatPermissionContract(backend, workspaceId, conversationId);

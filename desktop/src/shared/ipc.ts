@@ -1,5 +1,13 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
+import type { IpcObserver } from "./ipc-observer";
+export type {
+  IpcObservedFailure,
+  IpcObservedFinish,
+  IpcObservedStart,
+  IpcObserver,
+} from "./ipc-observer";
+
 import type {
   AppearancePresetList,
   AppearanceSettings,
@@ -142,6 +150,7 @@ import type {
   KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
+  RuntimeAccessCredentialView,
   RuntimeRegistrySnapshot,
   WorkspaceBrowserViewStats,
   RuntimeVersions,
@@ -164,6 +173,7 @@ export const ipcChannels = {
   backendHealth: "backend:health",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
   runtimeCurrent: "runtimes:current",
+  runtimeCurrentCredential: "runtimes:current-runtime-credential",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
@@ -368,6 +378,10 @@ interface IpcContract {
   runtimeCurrent: {
     args: [];
     result: RuntimeRegistrySnapshot;
+  };
+  runtimeCurrentCredential: {
+    args: [];
+    result: RuntimeAccessCredentialView;
   };
   runtimeList: {
     args: [];
@@ -913,32 +927,6 @@ export type MainIpcHandler<Channel extends IpcChannelKey> = (
   event: IpcMainInvokeEvent,
   ...args: IpcContract[Channel]["args"]
 ) => IpcContract[Channel]["result"] | Promise<IpcContract[Channel]["result"]>;
-
-export interface IpcObserver {
-  failed: (event: IpcObservedFailure) => void;
-  finished: (event: IpcObservedFinish) => void;
-  started: (event: IpcObservedStart) => void;
-}
-
-export interface IpcObservedStart {
-  args: unknown[];
-  channel: string;
-  id: number;
-}
-
-export interface IpcObservedFinish {
-  channel: string;
-  durationMs: number;
-  id: number;
-  result: unknown;
-}
-
-export interface IpcObservedFailure {
-  channel: string;
-  durationMs: number;
-  error: unknown;
-  id: number;
-}
 
 let nextObservedIpcID = 1;
 

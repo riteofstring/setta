@@ -125,7 +125,7 @@ async function runAutomaticAgentSmoke() {
       SETTA_WORKFLOW_GRAPH_DEBUG: "1",
     },
   });
-  const backend = await backendProbe(recordingDir);
+  const backend = await backendProbe(recordingDir, context.client);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   await createChat(context.client, backend, workspaceId);
   await openWorkflowGraphPane(context.client, { timeoutMs: 30_000 });
@@ -168,7 +168,7 @@ async function runLongRunningAutomaticCartographerWorkflow() {
   const firstRecording = join(recordingRoot, "long-running", "first-launch");
   const secondRecording = join(recordingRoot, "long-running", "second-launch");
   const first = await launchTrackedContext(fixture, firstRecording);
-  const backend = await backendProbe(firstRecording);
+  const backend = await backendProbe(firstRecording, first.client);
   const workspaceId = await openWorkspace(first.client, fixture.workspaceRoot, backend);
   await createChat(first.client, backend, workspaceId);
 
@@ -199,7 +199,7 @@ async function runLongRunningAutomaticCartographerWorkflow() {
   await stopTrackedContext(first);
 
   const second = await launchTrackedContext(fixture, secondRecording);
-  await backendProbe(secondRecording);
+  await backendProbe(secondRecording, second.client);
   const afterRestart = await waitForLongRunningCartographerProgress({
     client: second.client,
     executionId: started.id,

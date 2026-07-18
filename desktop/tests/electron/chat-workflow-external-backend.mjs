@@ -11,7 +11,15 @@ const externalBackendStopTimeoutMs = 5_000;
 export async function startExternalScriptedBackend(fixture, repoRoot) {
   const child = spawn(
     join(repoRoot, "scripts", "go.sh"),
-    ["run", "./cmd/setta-backend", "--app-data-dir", fixture.appDataDir, "--port", "0"],
+    [
+      "run",
+      "./cmd/setta-backend",
+      "--app-data-dir",
+      fixture.appDataDir,
+      "--port",
+      "0",
+      "--local-credential-issuer",
+    ],
     {
       cwd: repoRoot,
       detached: process.platform !== "win32",
@@ -25,7 +33,7 @@ export async function startExternalScriptedBackend(fixture, repoRoot) {
   );
   const logs = [];
   const ready = await waitForExternalBackendReady(child, logs);
-  return { child, logs, token: ready.bootstrapToken, url: `http://${ready.addr}` };
+  return { child, logs, pairingToken: ready.localPairingToken, url: `http://${ready.addr}` };
 }
 
 function waitForExternalBackendReady(child, logs) {
@@ -79,8 +87,8 @@ function parseExternalBackendReadyLine(line) {
     value.event === "ready" &&
     typeof value.addr === "string" &&
     value.addr !== "" &&
-    typeof value.bootstrapToken === "string" &&
-    value.bootstrapToken !== ""
+    typeof value.localPairingToken === "string" &&
+    value.localPairingToken !== ""
   ) {
     return value;
   }
@@ -129,10 +137,23 @@ function signalExternalBackendProcess(child, signal) {
 }
 
 function appendExternalBackendLog(logs, line) {
-  logs.push(line + "\n");
+  logs.push(sanitizeExternalBackendLog(line) + "\n");
   if (logs.length > 100) {
     logs.shift();
   }
+}
+
+function sanitizeExternalBackendLog(line) {
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return line;
+  }
+  if (value === null || typeof value !== "object" || typeof value.localPairingToken !== "string") {
+    return line;
+  }
+  return JSON.stringify({ ...value, localPairingToken: "<redacted>" });
 }
 
 function errorWithExternalBackendLogs(error, logs) {

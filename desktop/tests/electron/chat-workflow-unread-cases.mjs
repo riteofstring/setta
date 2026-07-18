@@ -33,7 +33,7 @@ export async function runUnreadConversationWorkflow({
 
   try {
     first = await launchContext(fixture, firstRecording);
-    const backend = await backendProbe(firstRecording);
+    const backend = await backendProbe(firstRecording, first.client);
     workspaceId = await openWorkspace(first.client, fixture.workspaceRoot, backend);
 
     const activeConversationId = await createChat(first.client, backend, workspaceId);
@@ -90,7 +90,7 @@ export async function runUnreadConversationWorkflow({
     first = null;
 
     second = await launchContext(fixture, secondRecording);
-    const restartedBackend = await backendProbe(secondRecording);
+    const restartedBackend = await backendProbe(secondRecording, second.client);
     await waitForTexts(second.client, ["workspace-root", inactivePrompt]);
     const persisted = await waitForConversationRead(
       restartedBackend,
