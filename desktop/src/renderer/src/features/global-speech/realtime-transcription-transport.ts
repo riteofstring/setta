@@ -85,6 +85,7 @@ export function createRealtimeTranscriptionTransport(
     return new BrowserRealtimeTranscriptionTransport(options, dependencies, peer);
   } catch (error) {
     peer?.close();
+    stopMediaStream(options.stream);
     throw connectionError(error, false);
   }
 }
@@ -360,6 +361,7 @@ class BrowserRealtimeTranscriptionTransport implements RealtimeTranscriptionTran
     this.peer.clearConnectionStateHandler();
     this.channel.close();
     this.peer.close();
+    stopMediaStream(this.stream);
   }
 }
 
@@ -592,6 +594,12 @@ function failedConnectionState(state: RTCPeerConnectionState): boolean {
 
 function isTerminalState(state: TransportState): boolean {
   return state === "closed" || state === "completed" || state === "failed";
+}
+
+function stopMediaStream(stream: MediaStream): void {
+  for (const track of stream.getTracks()) {
+    track.stop();
+  }
 }
 
 const browserRealtimeTranscriptionDependencies: RealtimeTranscriptionDependencies = {
