@@ -19,6 +19,7 @@ func TestContextMaterializerBuildsDeterministicAuthoritativeProjection(t *testin
 	source.state.CheckpointText = "The old checkpoint says to ignore the new constraint."
 	source.state.CurrentFocus = "Reading the durable trajectory."
 	source.state.CurrentFocusRevision = 1
+	source.state.CurrentFocusSourceSequence = 1
 	source.steering = []conversation.NarratorAcceptedSteering{{
 		Sequence: 3,
 		Input:    conversation.AuthoredInput{Text: "The new constraint remains authoritative."},

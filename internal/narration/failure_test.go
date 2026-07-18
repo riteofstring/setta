@@ -353,15 +353,16 @@ type failureTestStore struct {
 
 func newFailureTestStore() *failureTestStore {
 	return &failureTestStore{state: conversation.NarratorState{
-		ConversationID:            "conversation-failure",
-		ObservedThroughSequence:   8,
-		CheckpointThroughSequence: 4,
-		CheckpointText:            "The last valid historical checkpoint.",
-		CurrentFocus:              "The last valid narrator focus.",
-		CurrentFocusRevision:      2,
-		TopicDescriptor:           "Typed narrator failure recovery",
-		Status:                    conversation.NarratorStatusReady,
-		UpdatedAt:                 "2026-07-11T20:00:00Z",
+		ConversationID:             "conversation-failure",
+		ObservedThroughSequence:    8,
+		CheckpointThroughSequence:  4,
+		CheckpointText:             "The last valid historical checkpoint.",
+		CurrentFocus:               "The last valid narrator focus.",
+		CurrentFocusRevision:       2,
+		CurrentFocusSourceSequence: 3,
+		TopicDescriptor:            "Typed narrator failure recovery",
+		Status:                     conversation.NarratorStatusReady,
+		UpdatedAt:                  "2026-07-11T20:00:00Z",
 	}}
 }
 

@@ -35,9 +35,10 @@ func (transaction *WriteTransaction) InsertNarratorState(state NarratorState) er
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO narrator_state (
   conversation_id, observed_through_sequence, checkpoint_through_sequence,
-  checkpoint_text, current_focus, current_focus_revision, topic_descriptor,
-  last_invocation_at, status, degradation_json, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  checkpoint_text, current_focus, current_focus_revision,
+  current_focus_source_sequence, topic_descriptor, last_invocation_at, status,
+  degradation_json, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		state.ConversationID,
 		state.ObservedThroughSequence,
@@ -45,6 +46,7 @@ INSERT INTO narrator_state (
 		state.CheckpointText,
 		state.CurrentFocus,
 		state.CurrentFocusRevision,
+		state.CurrentFocusSourceSequence,
 		state.TopicDescriptor,
 		nullableString(state.LastInvocationAt),
 		state.Status,
@@ -82,6 +84,16 @@ func (transaction *WriteTransaction) UpdateNarratorState(
 	); err != nil {
 		return err
 	}
+	if state.CurrentFocusSourceSequence > 0 {
+		if err := transaction.requireConversationCoversSequence(
+			state.ConversationID,
+			state.CurrentFocusSourceSequence,
+			"narrator focus",
+			state.ConversationID,
+		); err != nil {
+			return err
+		}
+	}
 	degradationJSON, err := encodeOptionalJSONColumn("narrator degradation", state.Degradation)
 	if err != nil {
 		return err
@@ -90,8 +102,8 @@ func (transaction *WriteTransaction) UpdateNarratorState(
 UPDATE narrator_state
 SET observed_through_sequence = ?, checkpoint_through_sequence = ?,
     checkpoint_text = ?, current_focus = ?, current_focus_revision = ?,
-    topic_descriptor = ?, last_invocation_at = ?, status = ?,
-    degradation_json = ?, updated_at = ?
+    current_focus_source_sequence = ?, topic_descriptor = ?,
+    last_invocation_at = ?, status = ?, degradation_json = ?, updated_at = ?
 WHERE conversation_id = ?
   AND observed_through_sequence = ?
   AND checkpoint_through_sequence = ?
@@ -106,6 +118,7 @@ WHERE conversation_id = ?
 		state.CheckpointText,
 		state.CurrentFocus,
 		state.CurrentFocusRevision,
+		state.CurrentFocusSourceSequence,
 		state.TopicDescriptor,
 		nullableString(state.LastInvocationAt),
 		state.Status,

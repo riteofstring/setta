@@ -316,6 +316,9 @@ function summarizeBaseline({
     requestText,
     suppliedDataset,
     surfaceArtifactText: surface.artifactText,
+    surfaceHighlightedMilestoneCount: surface.highlightedMilestoneCount,
+    surfaceIntentState: surface.intentState,
+    surfaceIntentText: surface.intentText,
     surfaceSummaryText: surface.summaryText,
     trajectoryEventCount: snapshot.trajectory.events.length,
     workspaceId,
@@ -370,7 +373,7 @@ function assertCurrentRecoveryBaseline(baseline) {
   assertRecoveryArtifactRendered(baseline);
   assertRecoveryNarrationRecorded(baseline);
   assertRecoverySpeechRecorded(baseline);
-  assertRecoveryScrollOwnersRecorded(baseline);
+  assertRecoveryEasyButtonLayoutRecovered(baseline);
 }
 
 function typedLanguageCountTable(artifact) {
@@ -413,11 +416,45 @@ function assertRecoverySpeechRecorded(baseline) {
   );
 }
 
-function assertRecoveryScrollOwnersRecorded(baseline) {
-  if (baseline.renderedScrollOwners.length > 0) {
+function assertRecoveryEasyButtonLayoutRecovered(baseline) {
+  if (baseline.surfaceHighlightedMilestoneCount > 5) {
+    throw new Error(`NOW rail rendered too many milestones: ${JSON.stringify(baseline)}`);
+  }
+  if (baseline.surfaceIntentState !== "stable") {
+    throw new Error(
+      `central intent slot did not restore stable focus: ${JSON.stringify(baseline)}`,
+    );
+  }
+  if (baseline.surfaceIntentText !== baseline.currentFocus) {
+    throw new Error(
+      `central intent slot text drifted from stable focus: ${JSON.stringify(baseline)}`,
+    );
+  }
+  const passiveScrollOwners = baseline.renderedScrollOwners.filter((owner) =>
+    passiveRecoveryScrollOwner(owner),
+  );
+  if (passiveScrollOwners.length === 0) {
     return;
   }
-  throw new Error(`recovery baseline scroll owners were not recorded: ${JSON.stringify(baseline)}`);
+  throw new Error(
+    `recovery layout retained passive nested scroll owners: ${JSON.stringify({
+      ...baseline,
+      passiveScrollOwners,
+    })}`,
+  );
+}
+
+function passiveRecoveryScrollOwner(owner) {
+  const className = String(owner.className);
+  return (
+    className.includes("easy-button-rail-left") ||
+    className.includes("easy-button-caption-slot") ||
+    className.includes("easy-button-focus-block") ||
+    className.includes("easy-button-current-focus") ||
+    className.includes("easy-button-agent-text") ||
+    className.includes("easy-button-summary") ||
+    className.includes("easy-button-error")
+  );
 }
 
 function isTableArtifact(artifact) {

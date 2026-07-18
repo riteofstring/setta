@@ -82,6 +82,7 @@ type Service struct {
 	lifecycleCancel context.CancelFunc
 	lifecycleMu     sync.Mutex
 	closing         bool
+	focus           map[string][]focusBarrier
 	progress        map[string]*progressWindow
 	terminal        map[string]*terminalProjectionQueue
 	routing         map[string]*conversationRouteQueue
@@ -107,6 +108,7 @@ func NewService(
 		checkpointWindowEvents: defaultCheckpointWindowEvents,
 		lifecycleCtx:           lifecycleCtx,
 		lifecycleCancel:        lifecycleCancel,
+		focus:                  map[string][]focusBarrier{},
 		progress:               map[string]*progressWindow{},
 		terminal:               map[string]*terminalProjectionQueue{},
 		routing:                map[string]*conversationRouteQueue{},

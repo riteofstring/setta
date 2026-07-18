@@ -170,11 +170,13 @@ func TestSuccessfulStatusAfterFailureClearsDegradationWithoutAdvancingCursor(t *
 
 func TestNarratorDegradationCommitValidationRejectsInvalidTimeline(t *testing.T) {
 	state := NarratorState{
-		ConversationID:            "conversation",
-		ObservedThroughSequence:   3,
-		CheckpointThroughSequence: 2,
-		CurrentFocusRevision:      1,
-		UpdatedAt:                 narratorDegradedTime,
+		ConversationID:             "conversation",
+		ObservedThroughSequence:    3,
+		CheckpointThroughSequence:  2,
+		CurrentFocus:               "Recovering narrator degradation.",
+		CurrentFocusRevision:       1,
+		CurrentFocusSourceSequence: 1,
+		UpdatedAt:                  narratorDegradedTime,
 	}
 	request := narratorDegradationCommit(state.ConversationID, state, "narrator-degradation")
 	request.Degradation.DegradedAt = testTimeStarted

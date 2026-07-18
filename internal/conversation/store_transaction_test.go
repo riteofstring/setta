@@ -260,6 +260,7 @@ func TestTransactionComposesTrajectoryAndNarratorRecordsAtomically(t *testing.T)
 	projectedState.ObservedThroughSequence = 1
 	projectedState.CurrentFocus = "Persisting the narrator projection."
 	projectedState.CurrentFocusRevision = 1
+	projectedState.CurrentFocusSourceSequence = 1
 	projectedState.LastInvocationAt = stringPointer(testTimeEnded)
 	projectedState.UpdatedAt = testTimeEnded
 	narration := transactionMilestoneEvent()
@@ -322,6 +323,7 @@ func TestNarratorCursorAndOutputRollBackWhenPublicationFails(t *testing.T) {
 	projectedState.ObservedThroughSequence = 1
 	projectedState.CurrentFocus = "This projection must roll back."
 	projectedState.CurrentFocusRevision = 1
+	projectedState.CurrentFocusSourceSequence = 1
 	projectedState.LastInvocationAt = stringPointer(testTimeEnded)
 	projectedState.UpdatedAt = testTimeEnded
 

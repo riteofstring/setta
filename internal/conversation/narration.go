@@ -39,17 +39,18 @@ type NarratorDegradation struct {
 }
 
 type NarratorState struct {
-	ConversationID            string               `json:"conversationId"`
-	ObservedThroughSequence   int                  `json:"observedThroughSequence"`
-	CheckpointThroughSequence int                  `json:"checkpointThroughSequence"`
-	CheckpointText            string               `json:"checkpointText"`
-	CurrentFocus              string               `json:"currentFocus"`
-	CurrentFocusRevision      int                  `json:"currentFocusRevision"`
-	TopicDescriptor           string               `json:"topicDescriptor"`
-	LastInvocationAt          *string              `json:"lastInvocationAt"`
-	Status                    NarratorStatus       `json:"status"`
-	Degradation               *NarratorDegradation `json:"degradation"`
-	UpdatedAt                 string               `json:"updatedAt"`
+	ConversationID             string               `json:"conversationId"`
+	ObservedThroughSequence    int                  `json:"observedThroughSequence"`
+	CheckpointThroughSequence  int                  `json:"checkpointThroughSequence"`
+	CheckpointText             string               `json:"checkpointText"`
+	CurrentFocus               string               `json:"currentFocus"`
+	CurrentFocusRevision       int                  `json:"currentFocusRevision"`
+	CurrentFocusSourceSequence int                  `json:"currentFocusSourceSequence"`
+	TopicDescriptor            string               `json:"topicDescriptor"`
+	LastInvocationAt           *string              `json:"lastInvocationAt"`
+	Status                     NarratorStatus       `json:"status"`
+	Degradation                *NarratorDegradation `json:"degradation"`
+	UpdatedAt                  string               `json:"updatedAt"`
 }
 
 type NarrationMilestone struct {
@@ -185,12 +186,21 @@ func validateNarratorFocus(state NarratorState) error {
 	if state.CurrentFocusRevision < 0 {
 		return fmt.Errorf("narrator state %s current focus revision must be non-negative", state.ConversationID)
 	}
+	if state.CurrentFocusSourceSequence < 0 {
+		return fmt.Errorf("narrator state %s current focus source sequence must be non-negative", state.ConversationID)
+	}
 	if state.CurrentFocusRevision == 0 && state.CurrentFocus != "" {
 		return fmt.Errorf("narrator state %s has current focus without a revision", state.ConversationID)
+	}
+	if state.CurrentFocusRevision == 0 && state.CurrentFocusSourceSequence != 0 {
+		return fmt.Errorf("narrator state %s has a current focus source without a revision", state.ConversationID)
 	}
 	if state.CurrentFocusRevision > 0 {
 		if err := validateTrimmedText("narrator current focus", state.CurrentFocus); err != nil {
 			return err
+		}
+		if state.CurrentFocusSourceSequence == 0 {
+			return fmt.Errorf("narrator state %s has current focus without a source sequence", state.ConversationID)
 		}
 	}
 	return nil

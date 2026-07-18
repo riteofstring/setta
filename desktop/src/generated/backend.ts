@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 60;
-export const backendContractSchemaHash = "sha256:a08f7990331b38443666fa3cac382c324665ac712f57a6941efaded14ddfcd4e";
+export const backendProtocolVersion = 61;
+export const backendContractSchemaHash = "sha256:9c69c2a06ad588013c0d7218f74ff1c099ab07ec23ea5611a5090c516a9f920f";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -2259,6 +2259,7 @@ export interface NarratorState {
   checkpointText: string;
   currentFocus: string;
   currentFocusRevision: number;
+  currentFocusSourceSequence: number;
   topicDescriptor: string;
   lastInvocationAt: string | null;
   status: NarratorStatus;
@@ -4908,7 +4909,7 @@ export function decodeNarratorDegradation(value: unknown): NarratorDegradation {
 
 export function decodeNarratorState(value: unknown): NarratorState {
   const record = assertRecord(value, "NarratorState");
-  assertKnownFields(record, "NarratorState", ["conversationId", "observedThroughSequence", "checkpointThroughSequence", "checkpointText", "currentFocus", "currentFocusRevision", "topicDescriptor", "lastInvocationAt", "status", "degradation", "updatedAt"]);
+  assertKnownFields(record, "NarratorState", ["conversationId", "observedThroughSequence", "checkpointThroughSequence", "checkpointText", "currentFocus", "currentFocusRevision", "currentFocusSourceSequence", "topicDescriptor", "lastInvocationAt", "status", "degradation", "updatedAt"]);
   return {
     conversationId: decodeString(requireField(record, "conversationId", "NarratorState"), "NarratorState.conversationId"),
     observedThroughSequence: decodeInteger(requireField(record, "observedThroughSequence", "NarratorState"), "NarratorState.observedThroughSequence"),
@@ -4916,6 +4917,7 @@ export function decodeNarratorState(value: unknown): NarratorState {
     checkpointText: decodeString(requireField(record, "checkpointText", "NarratorState"), "NarratorState.checkpointText"),
     currentFocus: decodeString(requireField(record, "currentFocus", "NarratorState"), "NarratorState.currentFocus"),
     currentFocusRevision: decodeInteger(requireField(record, "currentFocusRevision", "NarratorState"), "NarratorState.currentFocusRevision"),
+    currentFocusSourceSequence: decodeInteger(requireField(record, "currentFocusSourceSequence", "NarratorState"), "NarratorState.currentFocusSourceSequence"),
     topicDescriptor: decodeString(requireField(record, "topicDescriptor", "NarratorState"), "NarratorState.topicDescriptor"),
     lastInvocationAt: decodeNullable(requireField(record, "lastInvocationAt", "NarratorState"), "NarratorState.lastInvocationAt", (item) => decodeString(item, "NarratorState.lastInvocationAt")),
     status: decodeNarratorStatus(requireField(record, "status", "NarratorState"), "NarratorState.status"),

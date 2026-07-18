@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 
-**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phase 2 implemented and verified; Phase 3 implemented and verified; Phase 4 implemented and verified; Phase 5 pending
+**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phase 2 implemented and verified; Phase 3 implemented and verified; Phase 4 implemented and verified; Phase 5 implemented and verified
 
 **Scope:** Easy Button presentation, typed artifacts, narrator projection and playback,
 global-master voice input, keyboard shortcuts, and production-path verification
@@ -416,13 +416,18 @@ Verification:
 
 ### Phase 5 — Recover the Easy Button layout
 
-**Status:** Pending
+**Status:** Implemented and verified
 
 - Implement the central intent-slot states for initial and follow-up transcription, pending input,
   stable focus, cancellation, and routing outcomes.
 - Render the bounded fading milestone window.
 - Remove nested summary/error/focus scrollers and establish the small-height compact layout.
 - Baseline and re-measure rendering with long conversations and many artifacts.
+
+Verification:
+
+- Workflow: `easy-button-presentation-recovery-phase0`
+- Report: `docs/reports/performance/easy-button-presentation-recovery-phase5-20260716.md`
 
 ## Required Verification
 

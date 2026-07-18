@@ -12,6 +12,11 @@ type progressWindow struct {
 	operation ProjectionOperation
 }
 
+type focusBarrier struct {
+	sourceSequence int
+	done           chan struct{}
+}
+
 type terminalProjectionQueue struct {
 	active         ProjectionOperation
 	activeInFlight bool
@@ -117,6 +122,50 @@ func focusTrigger(kind conversation.TrajectoryEventKind) (conversation.Narration
 }
 
 func (service *Service) enqueueTerminalProjection(
+	conversationID string,
+	operation ProjectionOperation,
+) {
+	barriers := service.focusBarriersThrough(conversationID, operation.ThroughSequence)
+	if len(barriers) > 0 {
+		service.startTask(func(ctx context.Context) {
+			if !waitForFocusBarriers(ctx, barriers) {
+				return
+			}
+			service.enqueueReadyTerminalProjection(conversationID, operation)
+		})
+		return
+	}
+	service.enqueueReadyTerminalProjection(conversationID, operation)
+}
+
+func (service *Service) focusBarriersThrough(
+	conversationID string,
+	throughSequence int,
+) []<-chan struct{} {
+	service.lifecycleMu.Lock()
+	defer service.lifecycleMu.Unlock()
+	pending := service.focus[conversationID]
+	barriers := make([]<-chan struct{}, 0, len(pending))
+	for _, barrier := range pending {
+		if barrier.sourceSequence <= throughSequence {
+			barriers = append(barriers, barrier.done)
+		}
+	}
+	return barriers
+}
+
+func waitForFocusBarriers(ctx context.Context, barriers []<-chan struct{}) bool {
+	for _, barrier := range barriers {
+		select {
+		case <-barrier:
+		case <-ctx.Done():
+			return false
+		}
+	}
+	return true
+}
+
+func (service *Service) enqueueReadyTerminalProjection(
 	conversationID string,
 	operation ProjectionOperation,
 ) {
@@ -296,19 +345,69 @@ func (service *Service) submitFocus(
 	operation FocusOperation,
 	trigger conversation.NarrationTrigger,
 ) {
-	service.startTask(func(ctx context.Context) {
+	service.lifecycleMu.Lock()
+	if service.closing {
+		service.lifecycleMu.Unlock()
+		return
+	}
+	var previous <-chan struct{}
+	if pending := service.focus[conversationID]; len(pending) > 0 {
+		previous = pending[len(pending)-1].done
+	}
+	done := make(chan struct{})
+	service.focus[conversationID] = append(service.focus[conversationID], focusBarrier{
+		sourceSequence: operation.SourceSequence,
+		done:           done,
+	})
+	ctx := service.lifecycleCtx
+	service.tasks.Add(1)
+	service.lifecycleMu.Unlock()
+
+	go func() {
+		defer service.tasks.Done()
+		defer service.releaseFocusBarrier(conversationID, done)
+		if previous != nil {
+			select {
+			case <-previous:
+			case <-ctx.Done():
+				return
+			}
+		}
 		requestID, err := service.newID("narrator_focus")
 		if err != nil {
 			return
 		}
-		_, _ = service.registry.Submit(ctx, Request{
+		receipt, err := service.registry.Submit(ctx, Request{
 			ID:             requestID,
 			ConversationID: conversationID,
 			Kind:           RequestKindFocus,
 			Trigger:        trigger,
 			Focus:          &operation,
 		})
-	})
+		if err != nil {
+			return
+		}
+		_ = receipt.Wait(ctx)
+	}()
+}
+
+func (service *Service) releaseFocusBarrier(conversationID string, done chan struct{}) {
+	close(done)
+	service.lifecycleMu.Lock()
+	pending := service.focus[conversationID]
+	for index, barrier := range pending {
+		if barrier.done != done {
+			continue
+		}
+		pending = append(pending[:index], pending[index+1:]...)
+		break
+	}
+	if len(pending) == 0 {
+		delete(service.focus, conversationID)
+	} else {
+		service.focus[conversationID] = pending
+	}
+	service.lifecycleMu.Unlock()
 }
 
 func (service *Service) deferProjectionBehindTerminal(
@@ -424,11 +523,11 @@ func (service *Service) releaseCheckpointTerminalProjection(
 	)
 }
 
-func (service *Service) startTask(task func(context.Context)) {
+func (service *Service) startTask(task func(context.Context)) bool {
 	service.lifecycleMu.Lock()
 	if service.closing {
 		service.lifecycleMu.Unlock()
-		return
+		return false
 	}
 	ctx := service.lifecycleCtx
 	service.tasks.Add(1)
@@ -437,6 +536,7 @@ func (service *Service) startTask(task func(context.Context)) {
 		defer service.tasks.Done()
 		task(ctx)
 	}()
+	return true
 }
 
 func (service *Service) handleCompletion(completion Completion) {

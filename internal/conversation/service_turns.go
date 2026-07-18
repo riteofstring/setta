@@ -351,6 +351,14 @@ func (service *Service) commitAcceptedTurn(
 		}
 		return appendPublications(transaction, publications)
 	})
+	if err == nil {
+		service.observeCommittedTrajectory(
+			mutation.conversation,
+			mutation.turn.ID,
+			mutation.trajectory,
+			false,
+		)
+	}
 	return err
 }
 

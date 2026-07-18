@@ -53,6 +53,13 @@ import {
   forkLineage,
   type EasyButtonForkLineage,
 } from "./easy-button-lineage";
+import {
+  conversationIntentSlot,
+  type EasyButtonFocusStatus,
+  type EasyButtonIntentSlot,
+  IntentSlot,
+  visibleIntentSlot,
+} from "./easy-button-intent-slot";
 import { useEasyButtonPaneTitle } from "./easy-button-pane-title";
 import { EasyButtonPresentationChrome } from "./easy-button-presentation-chrome";
 import { ArtifactRail, HighlightRail, type EasyButtonMilestone } from "./easy-button-rails";
@@ -65,7 +72,6 @@ import {
 
 type EasyButtonViewState = "idle" | "working" | "complete";
 type EasyButtonStatusTone = "none" | "completed" | "failed" | "stopped";
-type EasyButtonFocusStatus = "none" | "current" | "updating" | "stale";
 type EasyButtonProjectionStatus = "unloaded" | "loading" | "ready" | "error" | "resyncing";
 interface EasyButtonSurfaceProps {
   conversationId: string;
@@ -86,6 +92,7 @@ export interface EasyButtonProjectionView {
   eventCursorSequence: number;
   focusStatus: EasyButtonFocusStatus;
   helperCopy: string;
+  intentSlot: EasyButtonIntentSlot;
   lineage: EasyButtonForkLineage | null;
   milestones: EasyButtonMilestone[];
   narratorDegradation: string | null;
@@ -194,6 +201,7 @@ export function EasyButtonProjectionSurface({
 }) {
   const rootRef = useRef<HTMLElement | null>(null);
   useEasyButtonPaneTitle(rootRef, view);
+  const intentSlot = visibleIntentSlot(view.currentFocus, view.intentSlot, speech);
 
   return (
     <section
@@ -203,6 +211,7 @@ export function EasyButtonProjectionSurface({
       data-conversation-palette={view.paletteId ?? undefined}
       data-easy-button-archived={view.archived}
       data-easy-button-focus={view.focusStatus}
+      data-easy-button-intent={intentSlot.state}
       data-easy-button-event-cursor={view.eventCursorSequence}
       data-easy-button-capture={speech?.captureState}
       data-easy-button-capture-scope={speech?.captureScope}
@@ -228,6 +237,7 @@ export function EasyButtonProjectionSurface({
       />
       <EasyButtonProjectionContent
         commands={commands}
+        intentSlot={intentSlot}
         readOnly={readOnly}
         speech={speech}
         view={view}
@@ -242,11 +252,13 @@ function projectionSurfaceReadOnly(view: EasyButtonProjectionView, readOnly: boo
 
 function EasyButtonProjectionContent({
   commands,
+  intentSlot,
   readOnly,
   speech,
   view,
 }: {
   commands: EasyButtonConversationCommands | undefined;
+  intentSlot: EasyButtonIntentSlot;
   readOnly: boolean;
   speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
@@ -276,7 +288,7 @@ function EasyButtonProjectionContent({
             speech={speech}
             view={view}
           />
-          <CaptionSlot view={view} />
+          <CaptionSlot intentSlot={intentSlot} view={view} />
           <ConversationActionSlot commands={readOnly ? undefined : commands} view={view} />
         </div>
       </main>
@@ -447,6 +459,7 @@ function projectConversationSnapshot(
   const runningTurnId = runningConversationTurnID(snapshot);
   const viewState = conversationViewState(snapshot.conversation, latestTurn);
   const statusTone = conversationStatusTone(snapshot.conversation, latestTurn);
+  const focusStatus = narratorFocusStatus(snapshot.narratorState);
   return {
     activeAgentCount: activeAgentCount(snapshot, viewState),
     agentText: latestAgentText(
@@ -459,8 +472,9 @@ function projectConversationSnapshot(
     currentFocus: snapshot.narratorState.currentFocus,
     error: conversationProjectionError(projection, latestTurn),
     eventCursorSequence: snapshot.eventCursor.sequence,
-    focusStatus: narratorFocusStatus(snapshot.narratorState),
+    focusStatus,
     helperCopy: conversationHelperCopy(snapshot.conversation, latestTurn, projectionStatus),
+    intentSlot: conversationIntentSlot(snapshot, focusStatus),
     lineage: forkLineage(snapshot.branch, parentTitle),
     milestones: milestoneViews(snapshot.narration.events, snapshot.turns.turns),
     narratorDegradation: narratorDegradationMessage(snapshot.narratorState),
@@ -539,6 +553,11 @@ function unavailableView(options: {
     eventCursorSequence: 0,
     focusStatus: "none",
     helperCopy: options.helperCopy,
+    intentSlot: {
+      label: "Current focus",
+      state: "stable",
+      text: "",
+    },
     lineage: null,
     milestones: [],
     narratorDegradation: null,
@@ -857,10 +876,16 @@ function subagentFromEvent(event: TrajectoryEvent): Subagent | null {
   );
 }
 
-function CaptionSlot({ view }: { view: EasyButtonProjectionView }) {
+function CaptionSlot({
+  intentSlot,
+  view,
+}: {
+  intentSlot: EasyButtonIntentSlot;
+  view: EasyButtonProjectionView;
+}) {
   return (
     <div className="easy-button-caption-slot">
-      <CurrentFocus currentFocus={view.currentFocus} focusStatus={view.focusStatus} />
+      <IntentSlot slot={intentSlot} />
       <p
         aria-live="polite"
         className="easy-button-helper"
@@ -878,22 +903,6 @@ function CaptionSlot({ view }: { view: EasyButtonProjectionView }) {
       <EasyButtonTerminalSummary summary={view.terminalSummary} />
       <NarratorDegradationStatus message={view.narratorDegradation} />
       <ErrorText error={view.error} />
-    </div>
-  );
-}
-
-function CurrentFocus({
-  currentFocus,
-  focusStatus,
-}: Pick<EasyButtonProjectionView, "currentFocus" | "focusStatus">) {
-  return (
-    <div aria-live="polite" className="easy-button-focus-block">
-      <p className="easy-button-focus-label" data-testid="easy-button-focus-label">
-        {focusStatus === "updating" ? "Updating focus…" : "Current focus"}
-      </p>
-      <p className="easy-button-current-focus" data-testid="easy-button-current-focus">
-        {focusStatus === "none" ? "" : currentFocus}
-      </p>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v24";
+  const version = "setta-topic-conversation-pane-projection-driver-v25";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -194,12 +194,15 @@
       forkParentConversationId: datasetValue(elements.lineage, "forkParentConversationId"),
       forkParentTitle: elementText(elements.lineage),
       helperText: elementText(elements.helper),
+      highlightedMilestoneCount: elements.highlights.length,
       hostAccentDark: elements.host.style.getPropertyValue("--conversation-accent-dark"),
       hostConversationId: datasetValue(elements.host, "conversationId"),
       hostFocusRing: computedStyleValue(elements.host, "--workspace-pane-focus-ring"),
       hostFocusShadow: computedStyleValue(elements.host, "--workspace-pane-focus-shadow"),
       hostPaletteId: datasetValue(elements.host, "conversationPalette"),
       inputDisabled: inputIsDisabled(elements.input),
+      intentState: datasetValue(surface, "easyButtonIntent"),
+      intentText: elementText(elements.currentFocus),
       paneId: datasetValue(elements.host, "paneId"),
       paletteId: datasetValue(surface, "conversationPalette"),
       playbackScope: datasetValue(surface, "easyButtonPlaybackScope"),
@@ -242,6 +245,8 @@
       control: surface.querySelector('[data-testid="easy-button-control"]'),
       error: surface.querySelector('[data-testid="easy-button-error"]'),
       helper: surface.querySelector('[data-testid="easy-button-helper"]'),
+      currentFocus: surface.querySelector('[data-testid="easy-button-current-focus"]'),
+      highlights: surface.querySelectorAll('[data-testid="easy-button-highlights"] li'),
       host,
       input: surface.querySelector('[data-testid="easy-button-input"]'),
       lineage: surface.querySelector('[data-testid="easy-button-fork-lineage"]'),

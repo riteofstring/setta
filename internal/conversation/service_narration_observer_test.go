@@ -34,13 +34,23 @@ func TestServicePublishesCommittedAgentLifecycleToNarrationObserver(t *testing.T
 		t.Fatalf("SendTurn: %v", err)
 	}
 	runtime.waitForStart(t, "hold")
-	started := readNarrationObservation(t, observer.observations)
-	assertNarrationObservationContains(t, started, TrajectoryEventTurnStarted, false)
+	observedKinds := map[TrajectoryEventKind]bool{}
+	for !observedKinds[TrajectoryEventTurnStarted] {
+		observation := readNarrationObservation(t, observer.observations)
+		if observation.Terminal {
+			t.Fatalf("unexpected terminal observation before turn start: %+v", observation)
+		}
+		for _, event := range observation.Trajectory {
+			observedKinds[event.Kind] = true
+		}
+	}
+	if !observedKinds[TrajectoryEventUserInputAccepted] {
+		t.Fatal("narration observer did not receive accepted input")
+	}
 
 	if _, err := service.steerTestTurn(ctx, workspaceID, created.Conversation.ID, "finish observation"); err != nil {
 		t.Fatalf("SteerTurn: %v", err)
 	}
-	observedKinds := map[TrajectoryEventKind]bool{}
 	var terminal NarrationTrajectoryObservation
 	for !terminal.Terminal {
 		observation := readNarrationObservation(t, observer.observations)

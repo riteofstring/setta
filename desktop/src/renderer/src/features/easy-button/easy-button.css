@@ -42,11 +42,15 @@
 }
 
 .easy-button-rail-left {
-  /* `safe` and not plain `center`: an overflowing flex column centred the
-     normal way clips both ends and makes the top unreachable by scrolling. */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 18px,
+    black calc(100% - 18px),
+    transparent 100%
+  );
   justify-content: safe center;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 
 .easy-button-rail-right {
@@ -709,11 +713,9 @@
   flex-direction: column;
   gap: 8px;
   margin-top: 22px;
-  max-height: min(32vh, 220px);
   max-width: 460px;
   min-height: 66px;
   min-width: 0;
-  overflow: hidden;
   text-align: center;
   width: 100%;
 }
@@ -733,7 +735,8 @@
   width: 100%;
 }
 
-.easy-button-surface:not([data-easy-button-focus="none"]) .easy-button-focus-block {
+.easy-button-surface:not([data-easy-button-focus="none"]) .easy-button-focus-block,
+.easy-button-surface:not([data-easy-button-intent="stable"]) .easy-button-focus-block {
   display: block;
 }
 
@@ -748,14 +751,9 @@
 
 .easy-button-current-focus {
   color: var(--easy-button-muted);
-  display: -webkit-box;
   font-size: 13.5px;
   line-height: 1.45;
-  max-height: calc(1.45em * 4);
   min-height: 20px;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
 }
 
 .easy-button-surface[data-easy-button-focus="updating"] .easy-button-focus-label {
@@ -771,9 +769,6 @@
 .easy-button-summary {
   color: var(--easy-button-muted);
   font-size: 12.5px;
-  max-height: min(14vh, 112px);
-  overflow-y: auto;
-  scrollbar-gutter: stable both-edges;
 }
 
 .easy-button-summary-ok {
@@ -783,9 +778,6 @@
 .easy-button-error {
   color: color-mix(in oklab, var(--destructive) 80%, var(--foreground));
   font-size: 12.5px;
-  max-height: min(12vh, 96px);
-  overflow-y: auto;
-  scrollbar-gutter: stable both-edges;
 }
 
 .easy-button-narrator-status {

@@ -226,6 +226,7 @@ function navigatorSnapshot(id: string, workspaceId: string): ConversationSnapsho
       conversationId: id,
       currentFocus: "",
       currentFocusRevision: 0,
+      currentFocusSourceSequence: 0,
       degradation: null,
       lastInvocationAt: null,
       observedThroughSequence: 0,

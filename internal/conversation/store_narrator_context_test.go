@@ -291,15 +291,16 @@ func seedNarratorContext(t *testing.T, store *Store) narratorContextSeed {
 	priorTurn.ConversationID = conversationRecord.ID
 	events := narratorContextTrajectory(conversationRecord.ID, turn)
 	state := NarratorState{
-		ConversationID:            conversationRecord.ID,
-		ObservedThroughSequence:   6,
-		CheckpointThroughSequence: 2,
-		CheckpointText:            "Historical text that must not override current steering.",
-		CurrentFocus:              "Materializing the authoritative narrator bundle.",
-		CurrentFocusRevision:      1,
-		TopicDescriptor:           conversationRecord.TopicDescriptor,
-		Status:                    NarratorStatusReady,
-		UpdatedAt:                 testTimeStarted,
+		ConversationID:             conversationRecord.ID,
+		ObservedThroughSequence:    6,
+		CheckpointThroughSequence:  2,
+		CheckpointText:             "Historical text that must not override current steering.",
+		CurrentFocus:               "Materializing the authoritative narrator bundle.",
+		CurrentFocusRevision:       1,
+		CurrentFocusSourceSequence: 1,
+		TopicDescriptor:            conversationRecord.TopicDescriptor,
+		Status:                     NarratorStatusReady,
+		UpdatedAt:                  testTimeStarted,
 	}
 	artifactSequence := 9
 	artifact := Artifact{

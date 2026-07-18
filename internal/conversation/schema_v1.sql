@@ -232,12 +232,17 @@ CREATE TABLE narrator_state (
   checkpoint_text TEXT NOT NULL DEFAULT '',
   current_focus TEXT NOT NULL DEFAULT '',
   current_focus_revision INTEGER NOT NULL DEFAULT 0 CHECK (current_focus_revision >= 0),
+  current_focus_source_sequence INTEGER NOT NULL DEFAULT 0 CHECK (current_focus_source_sequence >= 0),
   topic_descriptor TEXT NOT NULL DEFAULT '',
   last_invocation_at TEXT,
   status TEXT NOT NULL CHECK (status IN ('ready', 'running', 'degraded')),
   degradation_json TEXT CHECK (degradation_json IS NULL OR json_valid(degradation_json)),
   updated_at TEXT NOT NULL,
-  CHECK (checkpoint_through_sequence <= observed_through_sequence)
+  CHECK (checkpoint_through_sequence <= observed_through_sequence),
+  CHECK (
+    (current_focus_revision = 0 AND current_focus = '' AND current_focus_source_sequence = 0)
+    OR (current_focus_revision > 0 AND current_focus <> '' AND current_focus_source_sequence > 0)
+  )
 ) STRICT;
 
 CREATE TABLE narration_events (

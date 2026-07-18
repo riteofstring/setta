@@ -78,6 +78,98 @@ func TestServiceRecoversCommittedTerminalBacklogAfterRestart(t *testing.T) {
 	}
 }
 
+func TestServiceWaitsForAcceptedInputFocusBeforeTerminalProjection(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
+	snapshot, err := store.ReadSnapshot(context.Background(), "workspace-status-service", conversationID)
+	if err != nil {
+		t.Fatalf("ReadSnapshot: %v", err)
+	}
+	accepted := snapshot.Trajectory.Events[0]
+	focusIDRequested := make(chan struct{})
+	releaseFocusID := make(chan struct{})
+	var focusIDOnce sync.Once
+	var idMu sync.Mutex
+	idCounts := map[string]int{}
+	provider := &projectorTestAgentRuntime{}
+	service, err := NewService(
+		store,
+		statusServiceWorkspaceResolver{summary: workspace.WorkspaceSummary{
+			ID:       "workspace-status-service",
+			RootPath: filepath.Clean(t.TempDir()),
+		}},
+		provider,
+		WithServiceIDGenerator(func(prefix string) (string, error) {
+			if prefix == "narrator_focus" {
+				focusIDOnce.Do(func() {
+					close(focusIDRequested)
+					<-releaseFocusID
+				})
+			}
+			idMu.Lock()
+			defer idMu.Unlock()
+			idCounts[prefix]++
+			return fmt.Sprintf("%s-%d", prefix, idCounts[prefix]), nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := service.Shutdown(ctx); err != nil {
+			t.Errorf("Shutdown: %v", err)
+		}
+	})
+
+	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         turnID,
+		Trajectory:     []conversation.TrajectoryEvent{accepted},
+	})
+	select {
+	case <-focusIDRequested:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for focus request admission")
+	}
+	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         turnID,
+		Trajectory:     []conversation.TrajectoryEvent{terminal},
+		Terminal:       true,
+	})
+	service.lifecycleMu.Lock()
+	queuedBeforeFocus := service.terminal[conversationID] != nil
+	service.lifecycleMu.Unlock()
+	if queuedBeforeFocus {
+		t.Fatal("terminal projection was admitted before accepted-input focus completed")
+	}
+	close(releaseFocusID)
+
+	snapshot = waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		return current.NarratorState.CurrentFocusSourceSequence == accepted.Sequence &&
+			current.NarratorState.ObservedThroughSequence == terminal.Sequence &&
+			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+	})
+	if snapshot.NarratorState.CurrentFocus != "Keep the primary turn running." ||
+		snapshot.NarratorState.CurrentFocusRevision != 1 {
+		t.Fatalf("focus state after terminal projection = %+v", snapshot.NarratorState)
+	}
+	for _, call := range provider.snapshotCalls() {
+		if call.requestedChannel != ProjectionChannelTerminal {
+			continue
+		}
+		if call.currentFocus != snapshot.NarratorState.CurrentFocus || call.preCallFocusRevision != 1 {
+			t.Fatalf("terminal call did not see stable focus: call=%+v state=%+v", call, snapshot.NarratorState)
+		}
+		return
+	}
+	t.Fatalf("terminal projection call was not recorded: %+v", provider.snapshotCalls())
+}
+
 func TestServiceResumesFailedTerminalProjectionAfterCatchUpCheckpoint(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
@@ -411,10 +503,13 @@ type projectorTestCall struct {
 	evaluationStart      int
 	evaluationEnd        int
 	preCallObserved      int
+	preCallFocusRevision int
 	priorMilestoneCount  int
 	requestedChannel     ProjectionChannel
 	checkpointRangeStart int
 	checkpointRangeEnd   int
+	sourceThrough        int
+	currentFocus         string
 	turnID               string
 }
 
@@ -485,19 +580,40 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 	input json.RawMessage,
 ) (projectorTestCall, json.RawMessage, error) {
 	switch kind {
+	case ContextKindFocus:
+		var bundle FocusContextBundle
+		if err := json.Unmarshal(input, &bundle); err != nil {
+			return projectorTestCall{}, nil, err
+		}
+		output := map[string]any{
+			"kind":                  string(CallOutputFocusProjection),
+			"sourceThroughSequence": bundle.SourceThroughSequence,
+			"currentFocus":          "Keep the primary turn running.",
+			"topicDescriptor":       nil,
+		}
+		encoded, err := json.Marshal(output)
+		return projectorTestCall{
+			kind:                 kind,
+			trigger:              bundle.Trigger,
+			preCallFocusRevision: bundle.PreCallCursor.CurrentFocusRevision,
+			sourceThrough:        bundle.SourceThroughSequence,
+			currentFocus:         bundle.Authoritative.CurrentFocus,
+		}, encoded, err
 	case ContextKindProjection:
 		var bundle ProjectionContextBundle
 		if err := json.Unmarshal(input, &bundle); err != nil {
 			return projectorTestCall{}, nil, err
 		}
 		call := projectorTestCall{
-			kind:                kind,
-			trigger:             bundle.Trigger,
-			evaluationStart:     bundle.EvaluationRange.Start,
-			evaluationEnd:       bundle.EvaluationRange.End,
-			preCallObserved:     bundle.PreCallCursor.ObservedThroughSequence,
-			priorMilestoneCount: len(bundle.PriorMilestones),
-			requestedChannel:    bundle.RequestedChannel,
+			kind:                 kind,
+			trigger:              bundle.Trigger,
+			evaluationStart:      bundle.EvaluationRange.Start,
+			evaluationEnd:        bundle.EvaluationRange.End,
+			preCallObserved:      bundle.PreCallCursor.ObservedThroughSequence,
+			preCallFocusRevision: bundle.PreCallCursor.CurrentFocusRevision,
+			priorMilestoneCount:  len(bundle.PriorMilestones),
+			requestedChannel:     bundle.RequestedChannel,
+			currentFocus:         bundle.Authoritative.CurrentFocus,
 		}
 		if bundle.Authoritative.CurrentInstructions != nil {
 			call.turnID = bundle.Authoritative.CurrentInstructions.TurnID

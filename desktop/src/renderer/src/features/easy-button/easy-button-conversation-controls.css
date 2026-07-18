@@ -11,8 +11,7 @@
   color: var(--easy-button-muted);
   font-size: 12.5px;
   margin: 0;
-  max-height: min(12vh, 96px);
-  overflow-y: auto;
+  overflow-wrap: anywhere;
 }
 
 .easy-button-status-reply {

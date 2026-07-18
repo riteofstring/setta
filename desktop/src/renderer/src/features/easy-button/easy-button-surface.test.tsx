@@ -224,6 +224,94 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain("The topic agent is still implementing the requested change.");
   });
 
+  test("uses the central intent slot for pending initial input until focus resolves", () => {
+    const snapshot = workingSnapshot("conversation_pending_initial", "Initial request", "sky");
+    snapshot.narratorState.currentFocus = "";
+    snapshot.narratorState.currentFocusRevision = 0;
+    snapshot.narratorState.currentFocusSourceSequence = 0;
+    snapshot.narratorState.topicDescriptor = "";
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.intentSlot).toEqual({
+      label: "You asked",
+      state: "pending_initial",
+      text: "Work on Initial request",
+    });
+    expect(html).toContain('data-easy-button-intent="pending_initial"');
+    expect(html).toContain('data-easy-button-intent-state="pending_initial"');
+    expect(html).toContain("You asked");
+    expect(html).toContain("Work on Initial request");
+  });
+
+  test("restores the stable focus after the focus source covers the latest input", () => {
+    const snapshot = workingSnapshot("conversation_stable_focus", "Stable topic", "sky");
+    snapshot.narratorState.currentFocusSourceSequence = 1;
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+
+    expect(view.intentSlot).toEqual({
+      label: "Current focus",
+      state: "stable",
+      text: "Implement Stable topic",
+    });
+  });
+
+  test("uses the central intent slot for live follow-up transcription", () => {
+    const snapshot = completedSnapshot("conversation_live_followup", "Live follow-up", "teal");
+    snapshot.narratorState.currentFocusSourceSequence = 1;
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(
+      <EasyButtonProjectionSurface
+        speech={{
+          activityKind: "capture",
+          activityLabel: "Listening for Live follow-up",
+          captureScope: "this_pane",
+          captureState: "listening",
+          playbackScope: "none",
+          playbackState: "idle",
+          speakingSourceEventId: null,
+          transcriptPreview: "Can you also compare CSS?",
+          voiceControlDisabled: false,
+          voiceControlLabel: "Finish this voice request",
+        }}
+        view={view}
+      />,
+    );
+
+    expect(html).toContain('data-easy-button-intent="capturing_followup"');
+    expect(html).toContain("Listening to follow-up");
+    expect(html).toContain("Can you also compare CSS?");
+  });
+
+  test("renders only the latest five milestones in the fading NOW window", () => {
+    const snapshot = workingSnapshot("conversation_many_milestones", "Many milestones", "sky");
+    snapshot.narration.events = Array.from({ length: 7 }, (_, index) =>
+      milestoneEvent(
+        snapshot.conversation.id,
+        snapshot.turns.turns[0]!.id,
+        `Milestone ${index + 1}`,
+        index + 1,
+      ),
+    );
+    snapshot.narration.events.forEach((event, index) => {
+      event.id = `milestone_${index + 1}`;
+      event.createdAt = `2026-07-11T20:00:${String(index + 1).padStart(2, "0")}Z`;
+    });
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.milestones).toHaveLength(7);
+    expect(html).toContain('data-easy-button-highlight-window-size="5"');
+    expect(html).not.toContain("Milestone 1");
+    expect(html).not.toContain("Milestone 2");
+    expect(html).toContain("Milestone 3");
+    expect(html).toContain('data-easy-button-highlight-age="4"');
+    expect(html).toContain('data-easy-button-highlight-age="0"');
+  });
+
   test("presents an isolated pane-scoped side conversation while retaining parent status", () => {
     const snapshot = workingSnapshot("conversation_side", "Parent topic", "sky");
     const side = sideConversation(snapshot, "pane_side");
@@ -971,6 +1059,7 @@ function narratorState(
     conversationId,
     currentFocus,
     currentFocusRevision: 1,
+    currentFocusSourceSequence: 1,
     degradation: null,
     lastInvocationAt: timestamp,
     observedThroughSequence: 1,

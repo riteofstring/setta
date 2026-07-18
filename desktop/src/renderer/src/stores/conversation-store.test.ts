@@ -868,6 +868,7 @@ function narratorState(conversationId: string, currentFocus = "Ready"): Narrator
     conversationId,
     currentFocus,
     currentFocusRevision: 1,
+    currentFocusSourceSequence: 1,
     degradation: null,
     lastInvocationAt: null,
     observedThroughSequence: 0,

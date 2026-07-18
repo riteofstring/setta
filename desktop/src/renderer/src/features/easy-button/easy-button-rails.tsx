@@ -9,6 +9,7 @@ export interface EasyButtonMilestone {
 }
 
 const maxRenderedArtifacts = 6;
+const maxRenderedMilestones = 5;
 
 export function HighlightRail({
   milestones,
@@ -17,17 +18,20 @@ export function HighlightRail({
   milestones: readonly EasyButtonMilestone[];
   speakingMilestoneId?: string | null;
 }) {
+  const visibleMilestones = milestones.slice(-maxRenderedMilestones);
   return (
     <aside
       aria-label="Milestones"
       className="easy-button-rail easy-button-rail-left"
       data-easy-button-rail-empty={milestones.length === 0 ? "true" : "false"}
+      data-easy-button-highlight-window-size={visibleMilestones.length}
     >
       <p className="easy-button-rail-label">Now</p>
       <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
-        {milestones.map((milestone) => (
+        {visibleMilestones.map((milestone, index) => (
           <MilestoneItem
             key={milestone.id}
+            age={visibleMilestones.length - index - 1}
             milestone={milestone}
             speaking={milestone.id === speakingMilestoneId}
           />
@@ -38,9 +42,11 @@ export function HighlightRail({
 }
 
 function MilestoneItem({
+  age,
   milestone,
   speaking,
 }: {
+  age: number;
   milestone: EasyButtonMilestone;
   speaking: boolean;
 }) {
@@ -48,6 +54,7 @@ function MilestoneItem({
     <li
       aria-current={speaking ? "true" : undefined}
       className="easy-button-highlight-item"
+      data-easy-button-highlight-age={age}
       data-easy-button-highlight-id={milestone.id}
       data-easy-button-highlight-speaking={speaking ? "true" : undefined}
     >

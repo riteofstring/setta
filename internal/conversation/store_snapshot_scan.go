@@ -241,6 +241,7 @@ func scanNarratorState(scanner sqlScanner) (NarratorState, error) {
 		&value.CheckpointText,
 		&value.CurrentFocus,
 		&value.CurrentFocusRevision,
+		&value.CurrentFocusSourceSequence,
 		&value.TopicDescriptor,
 		&lastInvocationAt,
 		&value.Status,

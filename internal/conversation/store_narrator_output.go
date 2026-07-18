@@ -150,6 +150,7 @@ func commitNarratorFocus(
 	if narratorFocusRevisionChanged(state, request) {
 		updated.CurrentFocusRevision = state.CurrentFocusRevision + 1
 	}
+	updated.CurrentFocusSourceSequence = request.SourceThroughSequence
 	if request.TopicDescriptor != nil {
 		updated.TopicDescriptor = request.TopicDescriptor.Text
 	}

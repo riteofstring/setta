@@ -156,6 +156,7 @@ func TestNarratorFocusCommitUpdatesOnlyFromAcceptedInputOrSteering(t *testing.T)
 	}
 	if focus.State.ObservedThroughSequence != before.ObservedThroughSequence ||
 		focus.State.CurrentFocusRevision != before.CurrentFocusRevision+1 ||
+		focus.State.CurrentFocusSourceSequence != 3 ||
 		focus.State.CurrentFocus != "Preserving the authoritative durable-context objective." ||
 		focus.State.TopicDescriptor != "Stable durable narrator context" {
 		t.Fatalf("focus state = %+v, before %+v", focus.State, before)
@@ -210,6 +211,7 @@ func TestNarratorFocusCommitAdvancesRevisionForDescriptorOnlyChange(t *testing.T
 	}
 	if focus.State.CurrentFocus != before.CurrentFocus ||
 		focus.State.CurrentFocusRevision != before.CurrentFocusRevision+1 ||
+		focus.State.CurrentFocusSourceSequence != request.SourceThroughSequence ||
 		focus.State.TopicDescriptor != request.TopicDescriptor.Text {
 		t.Fatalf("descriptor-only focus state = %+v, before %+v", focus.State, before)
 	}
@@ -729,10 +731,12 @@ func TestNarratorOutputCommitValidationRejectsCrossChannelShapes(t *testing.T) {
 	}
 
 	status := narratorStatusCommit(seed, NarratorState{
-		ObservedThroughSequence:   8,
-		CheckpointThroughSequence: 2,
-		CurrentFocusRevision:      2,
-		UpdatedAt:                 narratorProjectionTime,
+		ObservedThroughSequence:    8,
+		CheckpointThroughSequence:  2,
+		CurrentFocus:               "Testing narrator status validation.",
+		CurrentFocusRevision:       2,
+		CurrentFocusSourceSequence: 1,
+		UpdatedAt:                  narratorProjectionTime,
 	})
 	status.SourceSequenceStart = 11
 	status.SourceThroughSequence = 10

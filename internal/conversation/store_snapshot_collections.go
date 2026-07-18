@@ -74,8 +74,9 @@ LIMIT ?
 func readSnapshotNarrator(ctx context.Context, reader snapshotReader, conversationID string) (NarratorState, error) {
 	row := reader.QueryRowContext(ctx, `
 SELECT conversation_id, observed_through_sequence, checkpoint_through_sequence,
-       checkpoint_text, current_focus, current_focus_revision, topic_descriptor,
-       last_invocation_at, status, degradation_json, updated_at
+       checkpoint_text, current_focus, current_focus_revision,
+       current_focus_source_sequence, topic_descriptor, last_invocation_at,
+       status, degradation_json, updated_at
 FROM narrator_state
 WHERE conversation_id = ?
 `, conversationID)

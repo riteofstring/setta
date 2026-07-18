@@ -242,6 +242,7 @@ func TestTransactionRejectsNarratorTextRewriteWithoutCursorRevision(t *testing.T
 	projected.ObservedThroughSequence = 1
 	projected.CurrentFocus = "Reviewing the durable trajectory."
 	projected.CurrentFocusRevision = 1
+	projected.CurrentFocusSourceSequence = 1
 	projected.LastInvocationAt = stringPointer(testTimeEnded)
 	projected.UpdatedAt = testTimeEnded
 	_, err := store.Transact(context.Background(), "persist narrator focus", func(transaction *WriteTransaction) error {

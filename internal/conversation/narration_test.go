@@ -4,16 +4,17 @@ import "testing"
 
 func TestNarratorStateEnforcesContiguousCursorAndDegradationInvariants(t *testing.T) {
 	state := NarratorState{
-		ConversationID:            "conversation-1",
-		ObservedThroughSequence:   12,
-		CheckpointThroughSequence: 8,
-		CheckpointText:            "Historical work through sequence eight.",
-		CurrentFocus:              "Verifying the domain types.",
-		CurrentFocusRevision:      2,
-		TopicDescriptor:           "Topic conversation refactor",
-		LastInvocationAt:          stringPointer(testTimeStarted),
-		Status:                    NarratorStatusReady,
-		UpdatedAt:                 testTimeEnded,
+		ConversationID:             "conversation-1",
+		ObservedThroughSequence:    12,
+		CheckpointThroughSequence:  8,
+		CheckpointText:             "Historical work through sequence eight.",
+		CurrentFocus:               "Verifying the domain types.",
+		CurrentFocusRevision:       2,
+		CurrentFocusSourceSequence: 6,
+		TopicDescriptor:            "Topic conversation refactor",
+		LastInvocationAt:           stringPointer(testTimeStarted),
+		Status:                     NarratorStatusReady,
+		UpdatedAt:                  testTimeEnded,
 	}
 	if err := state.Validate(); err != nil {
 		t.Fatalf("valid narrator state: %v", err)
