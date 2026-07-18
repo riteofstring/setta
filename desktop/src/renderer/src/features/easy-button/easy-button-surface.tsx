@@ -46,7 +46,6 @@ import {
   latestNarratorStatusReply,
   NarratorDegradationStatus,
   narratorDegradationMessage,
-  NarratorStatusReply,
 } from "./easy-button-narrator-status";
 import {
   EasyButtonForkLineageBanner,
@@ -54,6 +53,7 @@ import {
   type EasyButtonForkLineage,
 } from "./easy-button-lineage";
 import {
+  acceptedInputIntentSlot,
   conversationIntentSlot,
   type EasyButtonFocusStatus,
   type EasyButtonIntentSlot,
@@ -200,7 +200,7 @@ export function EasyButtonProjectionSurface({
 }) {
   const rootRef = useRef<HTMLElement | null>(null);
   useEasyButtonPaneTitle(rootRef, view);
-  const intentSlot = visibleIntentSlot(view.currentFocus, view.intentSlot, speech);
+  const intentSlot = projectedIntentSlot(view, commands, speech);
 
   return (
     <section
@@ -245,6 +245,18 @@ export function EasyButtonProjectionSurface({
   );
 }
 
+function projectedIntentSlot(
+  view: EasyButtonProjectionView,
+  commands: EasyButtonConversationCommands | undefined,
+  speech: PaneSpeechPresentation | null | undefined,
+): EasyButtonIntentSlot {
+  const speechIntentSlot = visibleIntentSlot(view.currentFocus, view.intentSlot, speech);
+  if (!commands?.pendingAcceptedInput || speechIntentSlot !== view.intentSlot) {
+    return speechIntentSlot;
+  }
+  return acceptedInputIntentSlot(view.currentFocus, commands.pendingAcceptedInput);
+}
+
 function projectionSurfaceReadOnly(view: EasyButtonProjectionView, readOnly: boolean): boolean {
   return view.archived || readOnly;
 }
@@ -272,6 +284,7 @@ function EasyButtonProjectionContent({
       <HighlightRail
         milestones={view.milestones}
         speakingMilestoneId={speech?.speakingSourceEventId ?? null}
+        statusReply={view.statusReply}
       />
       <main className="easy-button-stage">
         <div className="easy-button-center">
@@ -486,7 +499,10 @@ function projectConversationSnapshot(
     projectionStatus,
     queuedTurnCount: snapshot.queue.length,
     statusTone,
-    statusReply: latestNarratorStatusReply(snapshot.narration.events),
+    statusReply: latestNarratorStatusReply(
+      snapshot.narration.events,
+      snapshot.conversation.lastTrajectorySequence,
+    ),
     side: easyButtonSideView(snapshot, paneId),
     terminalSummary: terminalSummary(
       snapshot.narration.events,
@@ -864,7 +880,6 @@ function CaptionSlot({
           {view.helperCopy}
         </p>
       ) : null}
-      <NarratorStatusReply reply={view.statusReply} />
       <EasyButtonTerminalSummary summary={view.terminalSummary} />
       <NarratorDegradationStatus message={view.narratorDegradation} />
       <ErrorText error={view.error} />

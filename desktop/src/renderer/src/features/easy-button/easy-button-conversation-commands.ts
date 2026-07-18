@@ -40,6 +40,7 @@ export interface EasyButtonConversationCommands {
   input: string;
   masterReply?: { kind: "answer" | "clarification"; text: string } | null;
   pending: boolean;
+  pendingAcceptedInput: string | null;
   presentRelatedConversation: (conversationId: string, title: string | null) => void;
   discardFailedInput: () => void;
   requestVoiceCapture: (() => void) | undefined;
@@ -98,6 +99,7 @@ export function useEasyButtonConversationCommands({
 }: EasyButtonConversationCommandOptions): EasyButtonConversationCommands {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  const [pendingAcceptedInput, setPendingAcceptedInput] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const routingPresentation = useConversationRoutingStore((state) =>
     conversationRoutingCommandState(
@@ -137,6 +139,7 @@ export function useEasyButtonConversationCommands({
   );
   useEffect(() => {
     setPending(false);
+    setPendingAcceptedInput(null);
     setInput("");
     setError(null);
   }, [conversationId, paneId, workspaceId]);
@@ -180,6 +183,9 @@ export function useEasyButtonConversationCommands({
       const accepted = await requireConversationInputSubmitter()({ input: submitted });
       assertAcceptedConversationInput(accepted, submitted);
       if (commandScopeIsCurrent()) {
+        setPendingAcceptedInput(accepted.input.text);
+      }
+      if (commandScopeIsCurrent()) {
         setInput("");
       }
       const state = await requireConversationInputWaiter()({
@@ -195,6 +201,7 @@ export function useEasyButtonConversationCommands({
     } finally {
       finishPendingSideCreationForInput(workspaceId, conversationId, paneId);
       if (commandScopeIsCurrent()) {
+        setPendingAcceptedInput(null);
         setPending(false);
       }
     }
@@ -288,6 +295,7 @@ export function useEasyButtonConversationCommands({
     input,
     masterReply,
     pending,
+    pendingAcceptedInput,
     presentRelatedConversation: (targetConversationId, title) => {
       if (!workspaceId || pending) {
         return;

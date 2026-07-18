@@ -7,32 +7,6 @@
   width: 100%;
 }
 
-.easy-button-status-reply {
-  background: color-mix(in oklab, var(--easy-button-primary) 7%, transparent);
-  border-left: 2px solid var(--easy-button-primary);
-  display: grid;
-  gap: 3px;
-  max-height: min(14vh, 112px);
-  overflow-y: auto;
-  padding: 6px 8px;
-  text-align: left;
-}
-
-.easy-button-status-question,
-.easy-button-status-reply-text {
-  margin: 0;
-}
-
-.easy-button-status-question {
-  color: var(--easy-button-faint);
-  font-size: 10.5px;
-}
-
-.easy-button-status-reply-text {
-  color: var(--easy-button-muted);
-  font-size: 12px;
-}
-
 .easy-button-action-slot {
   max-width: 460px;
   width: 100%;

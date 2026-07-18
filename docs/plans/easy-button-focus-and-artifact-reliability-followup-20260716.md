@@ -10,7 +10,7 @@ reliable when an agent selects an artifact.
 ## Implementation Status
 
 - [x] Solution 1: Remove the Easy Button `Working` presentation. Implemented and verified.
-- [ ] Solution 2: Present requested status above NOW.
+- [x] Solution 2: Present requested status above NOW. Implemented and verified.
 - [ ] Solution 3: Make the artifact tool contract hard to misuse.
 - [ ] Solution 4: Preserve actionable tool failures end to end.
 - [ ] Solution 5: Treat failed artifact attempts as unresolved delivery.

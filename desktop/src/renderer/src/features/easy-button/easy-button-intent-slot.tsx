@@ -59,6 +59,15 @@ export function visibleIntentSlot(
   };
 }
 
+export function acceptedInputIntentSlot(currentFocus: string, text: string): EasyButtonIntentSlot {
+  const state = currentFocus.trim() ? "pending_followup" : "pending_initial";
+  return {
+    label: intentSlotLabel(state),
+    state,
+    text,
+  };
+}
+
 export function IntentSlot({ slot }: { slot: EasyButtonIntentSlot }) {
   return (
     <div

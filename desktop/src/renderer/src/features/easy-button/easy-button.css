@@ -75,6 +75,38 @@
   opacity: 0;
 }
 
+.easy-button-status-reply {
+  animation: easy-button-status-card-lifetime 20s ease-in forwards;
+  background: color-mix(in oklab, var(--easy-button-primary) 7%, transparent);
+  border-left: 2px solid var(--easy-button-primary);
+  display: grid;
+  gap: 4px;
+  max-height: min(16vh, 118px);
+  min-width: 0;
+  overflow: hidden;
+  padding: 7px 9px;
+  text-align: left;
+}
+
+.easy-button-status-label,
+.easy-button-status-reply-text {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.easy-button-status-label {
+  color: var(--easy-button-faint);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.easy-button-status-reply-text {
+  color: var(--foreground);
+  font-size: 12px;
+}
+
 .easy-button-highlight-list {
   display: flex;
   flex-direction: column;

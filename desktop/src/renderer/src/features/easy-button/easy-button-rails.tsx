@@ -6,6 +6,10 @@ import type {
   ReadConversationArtifactRequest,
 } from "@generated/backend";
 import { MarkdownText } from "../../components/markdown-text";
+import {
+  NarratorStatusReply,
+  type EasyButtonNarratorStatusReply,
+} from "./easy-button-narrator-status";
 
 export interface EasyButtonMilestone {
   at: string;
@@ -29,18 +33,21 @@ const artifactPayloadCache = new Map<string, ArtifactPayloadCacheEntry>();
 export function HighlightRail({
   milestones,
   speakingMilestoneId = null,
+  statusReply = null,
 }: {
   milestones: readonly EasyButtonMilestone[];
   speakingMilestoneId?: string | null;
+  statusReply?: EasyButtonNarratorStatusReply | null;
 }) {
   const visibleMilestones = milestones.slice(-maxRenderedMilestones);
   return (
     <aside
       aria-label="Milestones"
       className="easy-button-rail easy-button-rail-left"
-      data-easy-button-rail-empty={milestones.length === 0 ? "true" : "false"}
+      data-easy-button-rail-empty={milestones.length === 0 && !statusReply ? "true" : "false"}
       data-easy-button-highlight-window-size={visibleMilestones.length}
     >
+      <NarratorStatusReply reply={statusReply} />
       <p className="easy-button-rail-label">Now</p>
       <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
         {visibleMilestones.map((milestone, index) => (

@@ -539,7 +539,8 @@ try {
       alphaSurfaces.every(
         (surface) =>
           surface.state === "working" &&
-          surface.statusQuestion === statusQuestion &&
+          surface.statusLabel === "STATUS" &&
+          surface.statusQuestion === "" &&
           surface.statusReplyText === expectedNarratorStatusReply,
       ) &&
       betaSurfaces.every((surface) => surface.statusReplyText === "")
@@ -740,9 +741,7 @@ try {
       surface.projectionStatus === "ready" &&
       surface.state === "working" &&
       surface.queueCount === 3 &&
-      surface.paletteId === alpha.paletteId &&
-      surface.statusQuestion === statusQuestion &&
-      surface.statusReplyText === expectedNarratorStatusReply,
+      surface.paletteId === alpha.paletteId,
   );
   await waitForConversationSurface(
     context.client,

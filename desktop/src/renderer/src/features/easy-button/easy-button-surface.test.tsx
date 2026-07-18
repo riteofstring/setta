@@ -45,6 +45,7 @@ describe("Easy Button topic conversation projection", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -207,6 +208,8 @@ describe("Easy Button topic conversation projection", () => {
   });
 
   test("renders the latest explicit narrator status reply without changing working state", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-11T20:00:10Z"));
     const snapshot = workingSnapshot("conversation_status", "Status topic", "sky");
     snapshot.narration.events.push(
       statusReplyEvent(
@@ -223,13 +226,94 @@ describe("Easy Button topic conversation projection", () => {
 
     expect(view.viewState).toBe("working");
     expect(view.statusReply).toEqual({
+      createdAt: "2026-07-11T20:00:08Z",
       id: "status_conversation_status_2",
       question: "What is happening?",
+      sourceSequenceEnd: 1,
+      streamSequence: 2,
       text: "The topic agent is still implementing the requested change.",
     });
     expect(html).toContain('data-testid="easy-button-status-reply"');
-    expect(html).toContain("What is happening?");
+    expect(html).toContain("STATUS");
+    expect(html).not.toContain("What is happening?");
     expect(html).toContain("The topic agent is still implementing the requested change.");
+    expect(html.indexOf('data-testid="easy-button-status-reply"')).toBeLessThan(
+      html.indexOf('data-testid="easy-button-highlights"'),
+    );
+    vi.useRealTimers();
+  });
+
+  test("replaces and expires explicit narrator status replies without adding NOW entries", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-11T20:00:16Z"));
+    const snapshot = workingSnapshot("conversation_status_replace", "Status replace", "sky");
+    snapshot.narration.events.push(
+      statusReplyEvent(
+        snapshot.conversation.id,
+        snapshot.turns.turns[0]!.id,
+        "First status?",
+        "The first status reply is stale.",
+        2,
+      ),
+      {
+        ...statusReplyEvent(
+          snapshot.conversation.id,
+          snapshot.turns.turns[0]!.id,
+          "Second status?",
+          "The second status reply is current.",
+          3,
+        ),
+        createdAt: "2026-07-11T20:00:15Z",
+        id: "status_latest",
+      },
+    );
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.statusReply?.id).toBe("status_latest");
+    expect(view.milestones).toHaveLength(1);
+    expect(html).toContain("The second status reply is current.");
+    expect(html).not.toContain("The first status reply is stale.");
+
+    vi.setSystemTime(new Date("2026-07-11T20:00:36Z"));
+    const expired = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+
+    expect(expired.statusReply).toBeNull();
+    vi.useRealTimers();
+  });
+
+  test("treats later work narration as making a status reply stale", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-11T20:00:10Z"));
+    const snapshot = workingSnapshot("conversation_status_stale", "Status stale", "sky");
+    snapshot.narration.events.push(
+      statusReplyEvent(
+        snapshot.conversation.id,
+        snapshot.turns.turns[0]!.id,
+        "Status?",
+        "The status reply is about to become stale.",
+        2,
+      ),
+      {
+        ...milestoneEvent(
+          snapshot.conversation.id,
+          snapshot.turns.turns[0]!.id,
+          "New work milestone",
+          3,
+        ),
+        createdAt: "2026-07-11T20:00:09Z",
+        id: "milestone_after_status",
+      },
+    );
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.statusReply).toBeNull();
+    expect(html).not.toContain('data-testid="easy-button-status-reply"');
+    expect(html).toContain("New work milestone");
+    vi.useRealTimers();
   });
 
   test("uses the central intent slot for pending initial input until focus resolves", () => {
@@ -291,6 +375,23 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain('data-easy-button-intent="capturing_followup"');
     expect(html).toContain("Listening to follow-up");
     expect(html).toContain("Can you also compare CSS?");
+  });
+
+  test("uses the central intent slot for accepted routed input until routing settles", () => {
+    const snapshot = workingSnapshot("conversation_pending_route", "Pending route", "sky");
+    snapshot.narratorState.currentFocusSourceSequence = 1;
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const commands: EasyButtonConversationCommands = {
+      ...archivedConversationCommands(),
+      pendingAcceptedInput: "What is the current status?",
+    };
+
+    const html = renderToString(<EasyButtonProjectionSurface commands={commands} view={view} />);
+
+    expect(html).toContain('data-easy-button-intent="pending_followup"');
+    expect(html).toContain("Follow-up");
+    expect(html).toContain("What is the current status?");
+    expect(html).not.toContain("Implement Pending route");
   });
 
   test("renders only the latest five milestones in the fading NOW window", () => {
@@ -835,6 +936,7 @@ function archivedConversationCommands(): EasyButtonConversationCommands {
     error: null,
     input: "",
     pending: false,
+    pendingAcceptedInput: null,
     presentRelatedConversation: vi.fn(),
     requestVoiceCapture: undefined,
     retryFailedInput: vi.fn(),
