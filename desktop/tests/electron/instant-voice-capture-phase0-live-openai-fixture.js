@@ -292,14 +292,7 @@
       this.channel = channel;
       const channelOpen = this.waitForDataChannelOpen(channel);
       const sessionCreated = this.waitForRealtimeSessionCreated(channel);
-      channel.onerror = () => this.fail(new Error("live OpenAI data channel failed"));
-      channel.onclose = () => this.record("realtime_data_channel_closed");
-      peer.onconnectionstatechange = () => {
-        this.record("webrtc_connection_state", { state: peer.connectionState });
-        if (peer.connectionState === "failed") {
-          this.fail(new Error(`live OpenAI WebRTC state became ${peer.connectionState}`));
-        }
-      };
+      const peerFailure = this.waitForPeerConnectionFailure(peer);
       peer.addTrack(track, stream);
       this.record("webrtc_track_added", {
         localTrackKind: track.kind,
@@ -340,7 +333,15 @@
       this.record("webrtc_remote_description_set", {
         answerHasAudioMLine: answerSDP.includes("\nm=audio "),
       });
-      await Promise.all([channelOpen, sessionCreated]);
+      await Promise.race([Promise.all([channelOpen, sessionCreated]), peerFailure]);
+      channel.onerror = () => this.fail(new Error("live OpenAI data channel failed"));
+      channel.onclose = () => this.record("realtime_data_channel_closed");
+      peer.onconnectionstatechange = () => {
+        this.record("webrtc_connection_state", { state: peer.connectionState });
+        if (peer.connectionState === "failed") {
+          this.fail(new Error(`live OpenAI WebRTC state became ${peer.connectionState}`));
+        }
+      };
       return {
         answerHasAudioMLine: answerSDP.includes("\nm=audio "),
         dataChannelReadyState: channel.readyState,
@@ -354,30 +355,86 @@
         return Promise.resolve();
       }
       return new Promise((resolve, reject) => {
-        const timeout = globalThis.setTimeout(
-          () => reject(new Error("live OpenAI data channel did not open")),
-          15_000,
-        );
-        channel.onopen = () => {
-          globalThis.clearTimeout(timeout);
+        const failOpen = (message) => {
+          cleanup();
+          reject(new Error(message));
+        };
+        const handleOpen = () => {
+          cleanup();
           this.record("realtime_data_channel_open");
           resolve();
         };
+        const handleError = () => failOpen("live OpenAI data channel failed before opening");
+        const handleClose = () => failOpen("live OpenAI data channel closed before opening");
+        const cleanup = () => {
+          globalThis.clearTimeout(timeout);
+          channel.removeEventListener("close", handleClose);
+          channel.removeEventListener("error", handleError);
+          channel.removeEventListener("open", handleOpen);
+        };
+        const timeout = globalThis.setTimeout(
+          () => failOpen("live OpenAI data channel did not open"),
+          15_000,
+        );
+        channel.addEventListener("close", handleClose, { once: true });
+        channel.addEventListener("error", handleError, { once: true });
+        channel.addEventListener("open", handleOpen, { once: true });
       });
     }
 
     waitForRealtimeSessionCreated(channel) {
       return new Promise((resolve, reject) => {
-        const timeout = globalThis.setTimeout(
-          () => reject(new Error("live OpenAI session.created was not received")),
-          15_000,
-        );
-        channel.onmessage = (event) => {
+        const acceptMessage = (event) => {
           const message = decodeRealtimeMessage(event.data);
           this.acceptRealtimeMessage(message);
+          return message;
+        };
+        const failSessionCreated = (error) => {
+          cleanup();
+          reject(error);
+        };
+        const handleMessage = (event) => {
+          let message;
+          try {
+            message = acceptMessage(event);
+          } catch (error) {
+            failSessionCreated(error instanceof Error ? error : new Error(String(error)));
+            return;
+          }
           if (message.type === sessionCreatedEventType) {
-            globalThis.clearTimeout(timeout);
+            cleanup();
+            channel.onmessage = acceptMessage;
             resolve();
+          }
+        };
+        const handleError = () =>
+          failSessionCreated(new Error("live OpenAI data channel failed before session.created"));
+        const handleClose = () =>
+          failSessionCreated(new Error("live OpenAI data channel closed before session.created"));
+        const cleanup = () => {
+          globalThis.clearTimeout(timeout);
+          if (channel.onmessage === handleMessage) {
+            channel.onmessage = null;
+          }
+          channel.removeEventListener("close", handleClose);
+          channel.removeEventListener("error", handleError);
+        };
+        const timeout = globalThis.setTimeout(
+          () => failSessionCreated(new Error("live OpenAI session.created was not received")),
+          15_000,
+        );
+        channel.onmessage = handleMessage;
+        channel.addEventListener("close", handleClose, { once: true });
+        channel.addEventListener("error", handleError, { once: true });
+      });
+    }
+
+    waitForPeerConnectionFailure(peer) {
+      return new Promise((_, reject) => {
+        peer.onconnectionstatechange = () => {
+          this.record("webrtc_connection_state", { state: peer.connectionState });
+          if (peer.connectionState === "failed") {
+            reject(new Error(`live OpenAI WebRTC state became ${peer.connectionState}`));
           }
         };
       });
