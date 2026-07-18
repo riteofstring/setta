@@ -6,6 +6,7 @@ const { app, safeStorage } = require("electron");
 const marker = "setta-safe-storage-phase0-marker-v1";
 const policyStatuses = new Set(["accept", "reject"]);
 const linuxBackends = new Set(["gnome_libsecret", "kwallet", "kwallet5", "kwallet6"]);
+const booleanAssertionValues = new Set(["false", "true"]);
 
 function byokSafeStoragePolicy(platform, encryptionAvailable, selectedStorageBackend) {
   if (platform === "linux") {
@@ -78,8 +79,17 @@ function parseAssertions(argv) {
 
   return {
     byokSupported: argv.includes("--assert-byok-supported"),
+    ciphertextExcludesPlaintext: argv.includes("--assert-ciphertext-excludes-plaintext"),
+    expectedEncryptionAvailable: optionalBooleanArgumentValue(
+      argv,
+      "--assert-encryption-available",
+    ),
     expectedPolicyReason: optionalArgumentValue(argv, "--assert-policy-reason"),
     expectedPolicyStatus,
+    expectedSelectedStorageBackend: optionalArgumentValue(
+      argv,
+      "--assert-selected-storage-backend",
+    ),
     roundTrip: argv.includes("--assert-round-trip"),
   };
 }
@@ -96,27 +106,70 @@ function optionalArgumentValue(argv, flag) {
   return value;
 }
 
+function optionalBooleanArgumentValue(argv, flag) {
+  const value = optionalArgumentValue(argv, flag);
+  if (value !== null && !booleanAssertionValues.has(value)) {
+    throw new Error(`${flag} must be true or false: ${value}`);
+  }
+  return value === null ? null : value === "true";
+}
+
 function applyAssertions(result, assertions) {
-  if (assertions.byokSupported && result.safeStorage.policy.status !== "accept") {
+  assertByokSupported(result, assertions.byokSupported);
+  assertCiphertextExcludesPlaintext(result, assertions.ciphertextExcludesPlaintext);
+  assertEncryptionAvailable(result, assertions.expectedEncryptionAvailable);
+  assertPolicyStatus(result, assertions.expectedPolicyStatus);
+  assertPolicyReason(result, assertions.expectedPolicyReason);
+  assertSelectedStorageBackend(result, assertions.expectedSelectedStorageBackend);
+  assertRoundTrip(result, assertions.roundTrip);
+}
+
+function assertByokSupported(result, expected) {
+  if (expected && result.safeStorage.policy.status !== "accept") {
     markFailed(`safeStorage BYOK policy rejected: ${result.safeStorage.policy.reason}`);
   }
-  if (
-    assertions.expectedPolicyStatus !== null &&
-    result.safeStorage.policy.status !== assertions.expectedPolicyStatus
-  ) {
+}
+
+function assertCiphertextExcludesPlaintext(result, expected) {
+  if (expected && result.safeStorage.ciphertextContainsPlaintext !== false) {
+    markFailed("safeStorage ciphertext contains the plaintext marker");
+  }
+}
+
+function assertEncryptionAvailable(result, expected) {
+  if (expected !== null && result.safeStorage.isEncryptionAvailable !== expected) {
     markFailed(
-      `safeStorage policy status was ${result.safeStorage.policy.status}, expected ${assertions.expectedPolicyStatus}`,
+      `safeStorage encryption availability was ${result.safeStorage.isEncryptionAvailable}, expected ${expected}`,
     );
   }
-  if (
-    assertions.expectedPolicyReason !== null &&
-    result.safeStorage.policy.reason !== assertions.expectedPolicyReason
-  ) {
+}
+
+function assertPolicyStatus(result, expected) {
+  if (expected !== null && result.safeStorage.policy.status !== expected) {
     markFailed(
-      `safeStorage policy reason was ${result.safeStorage.policy.reason}, expected ${assertions.expectedPolicyReason}`,
+      `safeStorage policy status was ${result.safeStorage.policy.status}, expected ${expected}`,
     );
   }
-  if (assertions.roundTrip && result.safeStorage.roundTrip !== true) {
+}
+
+function assertPolicyReason(result, expected) {
+  if (expected !== null && result.safeStorage.policy.reason !== expected) {
+    markFailed(
+      `safeStorage policy reason was ${result.safeStorage.policy.reason}, expected ${expected}`,
+    );
+  }
+}
+
+function assertSelectedStorageBackend(result, expected) {
+  if (expected !== null && result.safeStorage.selectedStorageBackend !== expected) {
+    markFailed(
+      `safeStorage selected backend was ${result.safeStorage.selectedStorageBackend}, expected ${expected}`,
+    );
+  }
+}
+
+function assertRoundTrip(result, expected) {
+  if (expected && result.safeStorage.roundTrip !== true) {
     markFailed("safeStorage round-trip failed");
   }
 }

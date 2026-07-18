@@ -48,6 +48,8 @@ jobs:
           desktop/node_modules/.bin/electron \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-byok-supported \
+            --assert-ciphertext-excludes-plaintext \
+            --assert-encryption-available true \
             --assert-policy-reason os_backed_platform \
             --assert-policy-status accept \
             --assert-round-trip \
@@ -101,6 +103,8 @@ jobs:
           desktop/node_modules/.bin/electron.cmd \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-byok-supported \
+            --assert-ciphertext-excludes-plaintext \
+            --assert-encryption-available true \
             --assert-policy-reason os_backed_platform \
             --assert-policy-status accept \
             --assert-round-trip \
@@ -223,9 +227,12 @@ jobs:
             --password-store=gnome-libsecret \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-byok-supported \
+            --assert-ciphertext-excludes-plaintext \
+            --assert-encryption-available true \
             --assert-policy-reason linux_secret_service_backend \
             --assert-policy-status accept \
             --assert-round-trip \
+            --assert-selected-storage-backend gnome_libsecret \
             | tee safe-storage-platform-probe-linux-secret-service.json
           probe_status=${PIPESTATUS[0]}
           set -e
@@ -286,6 +293,7 @@ jobs:
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-policy-reason linux_basic_text_backend \
             --assert-policy-status reject \
+            --assert-selected-storage-backend basic_text \
             | tee safe-storage-platform-probe-linux-basic-text.json
           probe_status=${PIPESTATUS[0]}
           set -e
