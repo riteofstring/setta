@@ -1,12 +1,10 @@
 package conversation
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 
 	"setta/internal/agent"
 )
@@ -14,6 +12,15 @@ import (
 const (
 	artifactToolNamespace = "setta"
 	artifactToolName      = "emit_artifact"
+
+	artifactToolFailureInvalidArguments      = "invalid_arguments"
+	artifactToolFailureInvalidBranch         = "invalid_branch"
+	artifactToolFailureInvalidField          = "invalid_field"
+	artifactToolFailureMissingRequiredFields = "missing_required_fields"
+	artifactToolFailurePayloadLimitExceeded  = "payload_limit_exceeded"
+	artifactToolFailurePersistenceFailure    = "persistence_failure"
+	artifactToolFailureRowWidthMismatch      = "row_width_mismatch"
+	artifactToolFailureStaleTurn             = "stale_turn"
 )
 
 var emitArtifactInputSchemaJSON = mustEmitArtifactInputSchemaJSON()
@@ -191,13 +198,33 @@ func (service *Service) topicAgentArtifactTools(
 		Description:          "Publish a durable typed artifact for the current Setta topic conversation turn.",
 		InputSchema:          append(json.RawMessage{}, emitArtifactInputSchemaJSON...),
 		Handler: func(ctx context.Context, call agent.DynamicToolCall) (agent.DynamicToolResult, error) {
-			artifact, err := service.emitArtifactFromTool(ctx, workspaceID, conversationID, turnID, call)
-			if err != nil {
-				return agent.DynamicToolResult{}, err
-			}
-			return artifactToolResult(artifact)
+			return service.handleArtifactToolCall(ctx, workspaceID, conversationID, turnID, call)
 		},
 	}}
+}
+
+func (service *Service) handleArtifactToolCall(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	turnID string,
+	call agent.DynamicToolCall,
+) (agent.DynamicToolResult, error) {
+	artifact, err := service.emitArtifactFromTool(ctx, workspaceID, conversationID, turnID, call)
+	if err == nil {
+		return artifactToolResult(artifact)
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return agent.DynamicToolResult{}, ctxErr
+	}
+	failure, ok := artifactToolFailureFromError(call, err)
+	if !ok {
+		return agent.DynamicToolResult{}, err
+	}
+	if recordErr := service.persistArtifactToolFailure(ctx, workspaceID, conversationID, turnID, call, failure); recordErr != nil {
+		failure = artifactToolPersistenceFailure(call, recordErr)
+	}
+	return agent.DynamicToolFailureResult(failure)
 }
 
 func (service *Service) emitArtifactFromTool(
@@ -216,7 +243,13 @@ func (service *Service) emitArtifactFromTool(
 	}
 	artifactID, trajectoryID, err := service.newArtifactToolIDs()
 	if err != nil {
-		return Artifact{}, err
+		return Artifact{}, newArtifactToolFailureError(
+			artifactToolFailurePersistenceFailure,
+			"artifact persistence failed before the artifact could be stored",
+			false,
+			nil,
+			err,
+		)
 	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
@@ -269,18 +302,24 @@ func (service *Service) persistArtifactToolEmission(
 ) (Artifact, error) {
 	active, err := service.requireActiveArtifactToolTurn(workspaceID, conversationID, turnID, call)
 	if err != nil {
-		return Artifact{}, err
+		return Artifact{}, artifactToolStaleTurnError(err)
 	}
 	snapshot, turn, err := service.runningProgressState(ctx, active)
 	if err != nil {
-		return Artifact{}, err
+		return Artifact{}, artifactToolStaleTurnError(err)
 	}
 	now := service.timestamp()
 	artifact := input.artifact(artifactID, conversationID, turnID, now)
 	sequence := snapshot.Conversation.LastTrajectorySequence + 1
 	artifact.TrajectorySequence = &sequence
 	if err := artifact.Validate(); err != nil {
-		return Artifact{}, err
+		return Artifact{}, newArtifactToolFailureError(
+			artifactToolFailureInvalidField,
+			err.Error(),
+			true,
+			nil,
+			err,
+		)
 	}
 	callID := call.CallID
 	providerThreadID := call.ProviderThreadID
@@ -305,10 +344,22 @@ func (service *Service) persistArtifactToolEmission(
 		ConversationArtifactCreatedEventPayload{Type: ConversationEventTypeArtifactCreated, Artifact: artifact.Metadata()},
 	)
 	if err != nil {
-		return Artifact{}, err
+		return Artifact{}, newArtifactToolFailureError(
+			artifactToolFailurePersistenceFailure,
+			"artifact persistence failed before the artifact could be published",
+			false,
+			nil,
+			err,
+		)
 	}
 	if err := service.commitArtifactToolEmission(ctx, snapshot, turn.ID, trajectory, artifact, publications); err != nil {
-		return Artifact{}, err
+		return Artifact{}, newArtifactToolFailureError(
+			artifactToolFailurePersistenceFailure,
+			"artifact persistence failed before the artifact could be stored",
+			false,
+			nil,
+			err,
+		)
 	}
 	return artifact, nil
 }
@@ -355,57 +406,6 @@ func (service *Service) commitArtifactToolEmission(
 	return err
 }
 
-func decodeEmitArtifactInput(arguments json.RawMessage) (emitArtifactInput, error) {
-	if len(arguments) == 0 {
-		return emitArtifactInput{}, errors.New("emit_artifact arguments are required")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(arguments))
-	decoder.DisallowUnknownFields()
-	var input emitArtifactInput
-	if err := decoder.Decode(&input); err != nil {
-		return emitArtifactInput{}, fmt.Errorf("emit_artifact arguments must be a strict JSON object: %w", err)
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return emitArtifactInput{}, errors.New("emit_artifact arguments must contain exactly one JSON object")
-	}
-	if !validArtifactKind(input.Kind) {
-		return emitArtifactInput{}, fmt.Errorf("unsupported artifact kind %s", input.Kind)
-	}
-	if err := validateEmitArtifactInputBranches(input); err != nil {
-		return emitArtifactInput{}, err
-	}
-	return input, nil
-}
-
-func validateEmitArtifactInputBranches(input emitArtifactInput) error {
-	if err := validateRequiredArtifactText("artifact title", input.Title); err != nil {
-		return err
-	}
-	branch, ok := emitArtifactBranchSpecForKind(input.Kind)
-	if !ok {
-		return fmt.Errorf("unsupported artifact kind %s", input.Kind)
-	}
-	for _, name := range branch.Required {
-		if !emitArtifactInputFieldPresent(input, name) {
-			return fmt.Errorf("%s artifact requires %s", input.Kind, name)
-		}
-	}
-	allowed := map[string]bool{}
-	for _, name := range branch.Required {
-		allowed[name] = true
-	}
-	for _, name := range branch.Optional {
-		allowed[name] = true
-	}
-	for _, name := range emitArtifactInputPayloadFields() {
-		if emitArtifactInputFieldPresent(input, name) && !allowed[name] {
-			return fmt.Errorf("%s is not valid for this artifact kind", name)
-		}
-	}
-	return nil
-}
-
 func emitArtifactBranchSpecForKind(kind ArtifactKind) (emitArtifactBranchSpec, bool) {
 	for _, branch := range emitArtifactBranchSpecs() {
 		if branch.Kind == kind {
@@ -427,25 +427,6 @@ func emitArtifactInputPayloadFields() []string {
 		}
 	}
 	return fields
-}
-
-func emitArtifactInputFieldPresent(input emitArtifactInput, name string) bool {
-	switch name {
-	case "markdown":
-		return input.Markdown != nil
-	case "columns":
-		return input.Columns != nil
-	case "rows":
-		return input.Rows != nil
-	case "items":
-		return input.Items != nil
-	case "path":
-		return input.Path != nil
-	case "description":
-		return input.Description != nil
-	default:
-		return false
-	}
 }
 
 func (input emitArtifactInput) artifact(

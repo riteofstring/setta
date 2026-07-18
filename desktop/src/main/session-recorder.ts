@@ -544,6 +544,7 @@ function summarizeResolvedInvocation(invocation: ResolvedInvocation | null) {
 function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
   return {
     actor: event.actor,
+    activity: summarizeTrajectoryActivity(event),
     agentLiveness: summarizeAgentLiveness(event),
     emittedAt: event.emittedAt,
     eventKind: event.kind,
@@ -558,6 +559,35 @@ function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
     turnId: event.turnId,
     turnInterruptionReason: summarizeTurnInterruptionReason(event),
     turnInvocation: summarizeTurnInvocation(event),
+  };
+}
+
+function summarizeTrajectoryActivity(event: TrajectoryEvent) {
+  const activity =
+    event.activityStarted?.activity ??
+    event.activityCompleted?.activity ??
+    event.activityFailed?.activity ??
+    null;
+  if (activity === null) {
+    if (event.activityProgressed === null) {
+      return null;
+    }
+    return {
+      id: event.activityProgressed.activityId,
+      kind: null,
+      namespace: null,
+      server: null,
+      title: null,
+      tool: null,
+    };
+  }
+  return {
+    id: activity.id,
+    kind: activity.kind,
+    namespace: activity.namespace,
+    server: activity.server,
+    title: activity.title,
+    tool: activity.tool,
   };
 }
 

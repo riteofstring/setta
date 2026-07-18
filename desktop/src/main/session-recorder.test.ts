@@ -270,6 +270,56 @@ describe("session recording privacy", () => {
       expect(serialized).not.toContain(secret);
     }
   });
+
+  test("records dynamic tool failure diagnostics without payload values", () => {
+    const attemptedPayloadValue = "private table cell";
+    const failure = trajectoryEvent({
+      activityFailed: {
+        activity: {
+          command: null,
+          cwd: null,
+          id: "artifact-call-1",
+          kind: "dynamic_tool",
+          namespace: "setta",
+          processId: null,
+          server: null,
+          title: "setta/emit_artifact",
+          tool: "emit_artifact",
+        },
+        failure: {
+          code: "missing_required_fields",
+          diagnosticReference: "artifact_tool:artifact-call-1:missing_required_fields",
+          message: "table artifact requires title, columns, rows",
+          retryable: true,
+        },
+        output: null,
+      },
+      kind: "activity_failed",
+    });
+
+    const recorded = conversationRecordingEvents(
+      conversationEvent({ event: failure, type: "conversation.trajectory.appended" }, 4),
+    );
+
+    expect(recorded).toMatchObject([
+      {
+        payload: {
+          activity: {
+            kind: "dynamic_tool",
+            namespace: "setta",
+            tool: "emit_artifact",
+          },
+          failure: {
+            code: "missing_required_fields",
+            diagnosticReference: "artifact_tool:artifact-call-1:missing_required_fields",
+            retryable: true,
+          },
+        },
+        type: "agent_trajectory_observed",
+      },
+    ]);
+    expect(JSON.stringify(recorded)).not.toContain(attemptedPayloadValue);
+  });
 });
 
 function conversationEvent(payload: ConversationEvent["payload"], sequence = 1): ConversationEvent {

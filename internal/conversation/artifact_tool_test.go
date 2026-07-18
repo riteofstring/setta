@@ -36,6 +36,75 @@ func TestEmitArtifactToolCommitsTypedArtifact(t *testing.T) {
 	stopTestTurn(t, ctx, service, workspaceID, conversationID)
 }
 
+func TestEmitArtifactToolReturnsStructuredFailureAndAllowsRetry(t *testing.T) {
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(ctx)
+		_ = store.Close()
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	created := createArtifactToolTopic(t, ctx, service, workspaceID)
+	conversationID := created.Conversation.ID
+	active := startHeldArtifactToolTurn(t, ctx, service, runtime, workspaceID, conversationID)
+	tools := service.topicAgentArtifactTools(workspaceID, conversationID, active.turnID)
+	if len(tools) != 1 {
+		t.Fatalf("artifact tools = %+v", tools)
+	}
+	failed, err := tools[0].Handler(ctx, agent.DynamicToolCall{
+		CallID:           "provider-tool-call-failed",
+		ConversationID:   conversationID,
+		TurnID:           active.turnID,
+		ProviderThreadID: active.providerThreadID,
+		ProviderTurnID:   active.providerTurnID,
+		Namespace:        artifactToolNamespace,
+		Tool:             artifactToolName,
+		Arguments:        []byte(`{"kind":"table"}`),
+	})
+	if err != nil {
+		t.Fatalf("failed artifact handler returned error: %v", err)
+	}
+	failure := requireArtifactToolFailureResult(t, failed, artifactToolFailureMissingRequiredFields)
+	requireDynamicToolFieldErrors(t, failure.FieldErrors, []string{"title", "columns", "rows"})
+
+	afterFailure := readTestSnapshot(t, ctx, service, workspaceID, conversationID)
+	requireArtifactToolFailureTrajectory(t, afterFailure, failure.DiagnosticReference)
+	if len(afterFailure.Artifacts.Artifacts) != 0 {
+		t.Fatalf("failed artifact attempt created artifacts = %+v", afterFailure.Artifacts)
+	}
+
+	succeeded, err := tools[0].Handler(ctx, agent.DynamicToolCall{
+		CallID:           "provider-tool-call-retry",
+		ConversationID:   conversationID,
+		TurnID:           active.turnID,
+		ProviderThreadID: active.providerThreadID,
+		ProviderTurnID:   active.providerTurnID,
+		Namespace:        artifactToolNamespace,
+		Tool:             artifactToolName,
+		Arguments: []byte(`{
+			"kind":"table",
+			"title":"Language line counts",
+			"columns":[{"key":"language","label":"Language"},{"key":"lines","label":"Lines"}],
+			"rows":[["Go","34"],["TypeScript","21"],["CSS","8"]]
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("retry artifact handler returned error: %v", err)
+	}
+	if !succeeded.Success || succeeded.Failure != nil {
+		t.Fatalf("retry result = %+v", succeeded)
+	}
+	afterRetry := readTestSnapshot(t, ctx, service, workspaceID, conversationID)
+	if len(afterRetry.Artifacts.Artifacts) != 1 ||
+		afterRetry.Artifacts.Artifacts[0].Kind != ArtifactKindTable {
+		t.Fatalf("retry artifacts = %+v", afterRetry.Artifacts)
+	}
+	stopTestTurn(t, ctx, service, workspaceID, conversationID)
+}
+
 func TestEmitArtifactToolSchemaDeclaresStrictBranches(t *testing.T) {
 	var schema struct {
 		OneOf []struct {
@@ -77,6 +146,84 @@ func TestEmitArtifactToolSchemaDeclaresStrictBranches(t *testing.T) {
 		seen[kind] = true
 		requireStringSet(t, kind+" required fields", branch.Required, want.required)
 		requireStringSet(t, kind+" allowed fields", mapKeys(branch.Properties), want.allowed)
+	}
+}
+
+func requireArtifactToolFailureResult(
+	t *testing.T,
+	result agent.DynamicToolResult,
+	code string,
+) agent.DynamicToolFailure {
+	t.Helper()
+	if result.Success || result.Failure == nil {
+		t.Fatalf("dynamic tool result = %+v, want structured failure", result)
+	}
+	if len(result.ContentItems) != 1 ||
+		result.ContentItems[0].Type != "inputText" ||
+		strings.TrimSpace(result.ContentItems[0].Text) == "" {
+		t.Fatalf("dynamic tool failure content items = %+v", result.ContentItems)
+	}
+	var output agent.DynamicToolFailure
+	if err := json.Unmarshal([]byte(result.ContentItems[0].Text), &output); err != nil {
+		t.Fatalf("decode dynamic tool failure output %q: %v", result.ContentItems[0].Text, err)
+	}
+	if output.Code != code ||
+		result.Failure.Code != code ||
+		output.Message == "" ||
+		output.DiagnosticReference == "" ||
+		output.DiagnosticReference != result.Failure.DiagnosticReference ||
+		!output.Retryable {
+		t.Fatalf("dynamic tool failure = output %+v, result %+v", output, result.Failure)
+	}
+	return output
+}
+
+func requireDynamicToolFieldErrors(
+	t *testing.T,
+	fieldErrors []agent.DynamicToolFieldError,
+	fields []string,
+) {
+	t.Helper()
+	seen := map[string]bool{}
+	for _, fieldError := range fieldErrors {
+		if strings.TrimSpace(fieldError.Message) == "" {
+			t.Fatalf("blank field error = %+v", fieldErrors)
+		}
+		seen[fieldError.Field] = true
+	}
+	for _, field := range fields {
+		if !seen[field] {
+			t.Fatalf("field errors = %+v, missing %s", fieldErrors, field)
+		}
+	}
+}
+
+func requireArtifactToolFailureTrajectory(
+	t *testing.T,
+	snapshot ConversationSnapshot,
+	diagnosticReference string,
+) {
+	t.Helper()
+	if len(snapshot.Trajectory.Events) == 0 {
+		t.Fatal("snapshot has no trajectory events")
+	}
+	event := snapshot.Trajectory.Events[len(snapshot.Trajectory.Events)-1]
+	if event.Kind != TrajectoryEventActivityFailed || event.ActivityFailed == nil {
+		t.Fatalf("latest trajectory = %+v, want activity_failed", event)
+	}
+	activity := event.ActivityFailed.Activity
+	if activity.Kind != TrajectoryActivityDynamicTool ||
+		activity.Tool == nil ||
+		*activity.Tool != artifactToolName ||
+		activity.Namespace == nil ||
+		*activity.Namespace != artifactToolNamespace {
+		t.Fatalf("artifact tool failure activity = %+v", activity)
+	}
+	failure := event.ActivityFailed.Failure
+	if failure.Code != artifactToolFailureMissingRequiredFields ||
+		!failure.Retryable ||
+		failure.DiagnosticReference != diagnosticReference {
+		t.Fatalf("artifact tool failure trajectory = %+v", event)
 	}
 }
 

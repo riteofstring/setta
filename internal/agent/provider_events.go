@@ -73,12 +73,10 @@ func (runtime *Runtime) handleDynamicToolCall(
 			_ = message.RespondError(-32000, ctxErr.Error())
 			return TurnResult{}, false, ctxErr
 		}
-		result = DynamicToolResult{
-			ContentItems: []DynamicToolContentItem{{
-				Type: "inputText",
-				Text: err.Error(),
-			}},
-			Success: false,
+		result, err = DynamicToolFailureResult(dynamicToolHandlerFailure(call, err))
+		if err != nil {
+			_ = message.RespondError(-32603, err.Error())
+			return TurnResult{}, false, err
 		}
 	}
 	if err := validateDynamicToolResult(result); err != nil {
@@ -92,6 +90,27 @@ func (runtime *Runtime) handleDynamicToolCall(
 		return TurnResult{}, false, err
 	}
 	return TurnResult{}, false, nil
+}
+
+func dynamicToolHandlerFailure(call DynamicToolCall, err error) DynamicToolFailure {
+	return DynamicToolFailure{
+		Code:                "dynamic_tool_handler_failed",
+		Message:             err.Error(),
+		Retryable:           true,
+		FieldErrors:         []DynamicToolFieldError{},
+		DiagnosticReference: dynamicToolDiagnosticReference(call, "handler_failed"),
+	}
+}
+
+func dynamicToolDiagnosticReference(call DynamicToolCall, reason string) string {
+	display := call.Tool
+	if call.Namespace != "" {
+		display = call.Namespace + "." + display
+	}
+	if call.CallID == "" {
+		return "dynamic_tool:" + display + ":" + reason
+	}
+	return "dynamic_tool:" + display + ":" + call.CallID + ":" + reason
 }
 
 func (runtime *Runtime) dynamicToolForCall(

@@ -585,8 +585,23 @@ func handleFakeDynamicToolResponse(
 	if pending.wantSuccess && item["text"] != "dynamic tool acknowledged" {
 		panic("dynamic tool response item drifted")
 	}
-	if !pending.wantSuccess && !strings.Contains(fmt.Sprint(item["text"]), "dynamic tool arguments drifted") {
-		panic("dynamic tool failure response item drifted")
+	if !pending.wantSuccess {
+		text := fmt.Sprint(item["text"])
+		if !strings.Contains(text, "dynamic tool arguments drifted") {
+			panic("dynamic tool failure response item drifted")
+		}
+		var failure map[string]any
+		if err := json.Unmarshal([]byte(text), &failure); err != nil {
+			panic("dynamic tool failure response was not structured JSON")
+		}
+		fieldErrors, ok := failure["fieldErrors"].([]any)
+		if failure["code"] != "dynamic_tool_handler_failed" ||
+			failure["retryable"] != true ||
+			failure["diagnosticReference"] == "" ||
+			!ok ||
+			len(fieldErrors) != 0 {
+			panic("dynamic tool failure response metadata drifted")
+		}
 	}
 	writeFakeAgentTurnCompleted(pending.threadID, pending.turnID, "completed")
 }
