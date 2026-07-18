@@ -10,8 +10,8 @@ Review correction: Agent 1's completion claim is narrowed to repository-local ev
 
 Recent history checked in review:
 
-- The path-specific log for this plan and report contains `b9c7e4440 docs: plan workspace and narration UX improvements`, `4daee4440 docs: record easy button narrator baseline`, and `9c906c145 Correct narrator baseline status`.
-- Recent baseline/status/audit commits also include BYOK, instant voice, and Easy Button follow-up work, but they target different plan steps. No repeated same-step commit for this plan was accepted here.
+- Before this reviewer follow-up, the path-specific log for this plan and report contained `b9c7e4440 docs: plan workspace and narration UX improvements`, `4daee4440 docs: record easy button narrator baseline`, `9c906c145 Correct narrator baseline status`, and `5b3d3d52e docs: add nontechnical narrator baseline sample`. The first commit created the plan, the second over-claimed Phase 0 completion, the third narrowed the incomplete external and nontechnical evidence, and the fourth added a repository-backed nontechnical sample.
+- This review rejects status-only external-gate retries as implementation progress. OpenAI synthesis samples and GUI/native-view screenshots remain release gates, and recent BYOK, instant voice, and Easy Button audit/status commits target different plan steps. No repeated same-step status-only work is counted as completed repository work here.
 
 ### Current Narrator Contract
 
