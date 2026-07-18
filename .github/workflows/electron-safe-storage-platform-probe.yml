@@ -146,6 +146,7 @@ jobs:
           eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)"
           set +e
           xvfb-run -a desktop/node_modules/.bin/electron \
+            --no-sandbox \
             --password-store=gnome-libsecret \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-byok-supported \
@@ -199,6 +200,7 @@ jobs:
           set -euo pipefail
           set +e
           xvfb-run -a desktop/node_modules/.bin/electron \
+            --no-sandbox \
             --password-store=basic \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-policy-reason linux_basic_text_backend \

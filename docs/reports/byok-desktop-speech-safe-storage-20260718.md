@@ -768,6 +768,87 @@ available. The Phase 0 host-confirmation item remains open until the
 push-triggered hosted workflow, the manual hosted workflow, or equivalent
 Windows and Linux hosts produce actual Electron output.
 
+## 2026-07-18 Linux Hosted Launch Guard Pass
+
+The remaining Phase 0 host-confirmation item was revisited as the next
+incomplete plan step.
+
+The pinned macOS probe was re-run:
+
+```sh
+desktop/node_modules/.bin/electron desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported --assert-round-trip
+```
+
+It still passes on this machine:
+
+```json
+{
+  "appReadyBeforeProbe": true,
+  "arch": "arm64",
+  "electronVersion": "41.7.0",
+  "passwordStoreSwitch": null,
+  "platform": "darwin",
+  "safeStorage": {
+    "ciphertextByteLength": 51,
+    "ciphertextContainsPlaintext": false,
+    "isEncryptionAvailable": true,
+    "policy": {
+      "reason": "os_backed_platform",
+      "status": "accept"
+    },
+    "roundTrip": true,
+    "selectedStorageBackend": null
+  }
+}
+```
+
+The deterministic production-adapter Linux backend policy coverage was also
+re-run:
+
+```sh
+pnpm -C desktop exec vitest run src/main/speech-credential-vault.test.ts
+```
+
+It passed with 21 tests, including rejection of `basic_text`, `unknown`, and an
+unrecognized backend string plus acceptance of `gnome_libsecret`, `kwallet`,
+`kwallet5`, and `kwallet6`.
+
+The local machine still cannot produce the remaining Linux or Windows host
+evidence:
+
+- `docker version` and `docker info` found Docker CLI `28.0.4`, context
+  `desktop-linux`, but still could not connect to the Docker daemon at
+  `unix:///Users/kevin/.docker/run/docker.sock`.
+- A PATH probe for Docker, GitHub CLI, common Linux/container runners, common
+  Windows/VM runners, and Homebrew found only `/usr/local/bin/docker` and
+  `/opt/homebrew/bin/brew`.
+- `GITHUB_TOKEN` and `GH_TOKEN` are not present in this shell.
+- The unauthenticated GitHub API returned `404` for the repository and Actions
+  run list, so hosted workflow results are not publicly readable from this
+  session.
+- A noninteractive `git ls-remote --heads origin` check did not complete within
+  the bounded probe window and was interrupted.
+- The reference Codex repository at
+  `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` still does not
+  contain an Electron `safeStorage`, `safe-storage`, `password-store`,
+  `getSelectedStorageBackend`, or `basic_text` probe pattern to reuse.
+
+One hosted-runner launch risk for the remaining confirmation was closed:
+
+- `.github/workflows/electron-safe-storage-platform-probe.yml` now passes
+  `--no-sandbox` to the Linux hosted Electron invocations before the
+  `--password-store` switch. This keeps the Ubuntu jobs focused on the
+  safeStorage backend policy assertions instead of failing earlier on Chromium
+  sandbox setup in a headless CI environment. The asserted policy reasons,
+  asserted statuses, round-trip checks, JSON summary output, and final probe
+  exit status are unchanged.
+
+No Windows or Linux `safeStorage` host result is recorded from this pass
+because no local platform host or connected hosted-runner credential was
+available. The Phase 0 host-confirmation item remains open until the
+push-triggered hosted workflow, the manual hosted workflow, or equivalent
+Windows and Linux hosts produce actual Electron output.
+
 ## Phase 2 Adapter Requirements
 
 - The production adapter is constructed only after Electron `ready`.

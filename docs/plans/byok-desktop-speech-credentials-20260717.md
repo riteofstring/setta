@@ -7,21 +7,22 @@ the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
 host confirmations are still open after the 2026-07-18 attempts. The latest
 incomplete-step pass recorded in the safeStorage report re-ran the pinned macOS
 probe and the deterministic vault backend-policy test successfully, confirmed
-Docker CLI is installed but cannot reach the daemon while Docker Desktop is
-stopped on its privileged setup prompt, found no installed Windows/Linux runner
-beyond Docker and Homebrew, confirmed no GitHub token was available and the
-GitHub connector was not connected, and changed the hosted-runner probe to run
-on relevant pushes as well as manual dispatch while writing each platform JSON
-result to the GitHub step summary before exiting with the probe status. Earlier
-passes reconfirmed that the reference Codex repo has no Electron `safeStorage`
-probe pattern to reuse and added exact probe assertions for Windows, Linux
-secret-service, and Linux `basic_text` rejection, including reliable non-zero
-probe exits on assertion failure and Linux backend-first policy classification
-that matches the production adapter. The earlier follow-up actionability pass
-also tightened the production Linux backend allowlist to reject unrecognized
-Electron backend strings with deterministic vault coverage, while leaving the
-actual Windows/Linux host evidence open until that workflow or equivalent hosts
-produce results.
+Docker CLI is installed but cannot reach the daemon, found no installed
+Windows/Linux runner beyond Docker and Homebrew, confirmed no GitHub token or
+public unauthenticated GitHub Actions result path was available, reconfirmed
+that the reference Codex repo has no Electron `safeStorage` probe pattern to
+reuse, and added `--no-sandbox` to the Linux hosted-runner Electron probe
+commands so headless Ubuntu runners reach the intended safeStorage policy
+assertions. Earlier passes changed the hosted-runner probe to run on relevant
+pushes as well as manual dispatch while writing each platform JSON result to
+the GitHub step summary before exiting with the probe status, added exact probe
+assertions for Windows, Linux secret-service, and Linux `basic_text` rejection,
+including reliable non-zero probe exits on assertion failure and Linux
+backend-first policy classification that matches the production adapter, and
+tightened the production Linux backend allowlist to reject unrecognized
+Electron backend strings with deterministic vault coverage. Actual
+Windows/Linux host evidence remains open until that workflow or equivalent
+hosts produce results.
 Phase 1 desktop startup is complete:
 API-key ownership has been removed from the Electron-spawned backend, provider
 endpoint configuration is isolated from server-startup credentials, the explicit
@@ -632,14 +633,19 @@ environment-based desktop product behavior.
       `.github/workflows/electron-safe-storage-platform-probe.yml` plus exact
       `--assert-policy-status`/`--assert-policy-reason` probe flags and
       reliable assertion failure exit status, with Linux backend-first policy
-      classification matching the production adapter. The current pass also
+      classification matching the production adapter. An earlier pass also
       made that workflow run on relevant pushes as well as manual dispatch and
       append each probe's JSON to the GitHub step summary before exiting with
       the actual probe status, so hosted Windows/Linux runners can produce the
-      remaining evidence as soon as this branch reaches GitHub. An earlier
-      follow-up actionability pass fixed the production adapter to reject
-      unrecognized Linux backend names, so actual Windows and Linux host
-      evidence remains the only open part of this item.
+      remaining evidence as soon as this branch reaches GitHub. The latest pass
+      added `--no-sandbox` to the Linux hosted Electron invocations so the
+      Ubuntu jobs reach the intended safeStorage policy assertions in headless
+      CI, while local Docker, alternate runner, authenticated GitHub, public
+      GitHub API, and reference-repo checks still could not produce actual
+      Windows/Linux host output. An earlier follow-up actionability pass fixed
+      the production adapter to reject unrecognized Linux backend names, so
+      actual Windows and Linux host evidence remains the only open part of this
+      item.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
