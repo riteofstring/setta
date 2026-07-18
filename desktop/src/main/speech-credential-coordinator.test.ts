@@ -24,7 +24,8 @@ describe("SpeechCredentialCoordinator", () => {
       onSettingsChanged: (settings) => published.push(settings),
       vault,
     });
-    coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+    await connectLocalRuntime(coordinator, vault, runtime);
+    published.length = 0;
 
     const settings = await coordinator.saveCredential({
       apiKey: "sk-setta-coordinator-new",
@@ -46,7 +47,7 @@ describe("SpeechCredentialCoordinator", () => {
     const vault = new FakeCredentialVault();
     const runtime = new FakeSpeechCredentialRuntime();
     const coordinator = new SpeechCredentialCoordinator({ vault });
-    coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+    await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
       apiKey: "sk-setta invalid",
@@ -66,7 +67,7 @@ describe("SpeechCredentialCoordinator", () => {
     const runtime = new FakeSpeechCredentialRuntime("sk-setta-coordinator-old");
     runtime.failLoadsFor.add("sk-setta-coordinator-new");
     const coordinator = new SpeechCredentialCoordinator({ vault });
-    coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+    await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
       apiKey: "sk-setta-coordinator-new",
@@ -95,7 +96,7 @@ describe("SpeechCredentialCoordinator", () => {
     const runtime = new FakeSpeechCredentialRuntime("sk-setta-runtime-session-only");
     runtime.failLoadsFor.add("sk-setta-coordinator-new");
     const coordinator = new SpeechCredentialCoordinator({ vault });
-    coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+    await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
       apiKey: "sk-setta-coordinator-new",
@@ -125,7 +126,7 @@ describe("SpeechCredentialCoordinator", () => {
     const runtime = new FakeSpeechCredentialRuntime("sk-setta-coordinator-old");
     runtime.failLoadsFor.add("sk-setta-coordinator-new");
     const coordinator = new SpeechCredentialCoordinator({ vault });
-    coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+    await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
       apiKey: "sk-setta-coordinator-new",
@@ -145,7 +146,7 @@ describe("SpeechCredentialCoordinator", () => {
     const vault = new FakeCredentialVault("sk-setta-coordinator-old");
     const runtime = new FakeSpeechCredentialRuntime("sk-setta-coordinator-old");
     const coordinator = new SpeechCredentialCoordinator({ vault });
-    coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+    await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.removeCredential();
 
@@ -163,7 +164,7 @@ describe("SpeechCredentialCoordinator", () => {
     const runtime = new FakeSpeechCredentialRuntime("sk-setta-coordinator-old");
     runtime.clearError = new Error("clear failed");
     const coordinator = new SpeechCredentialCoordinator({ vault });
-    coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+    await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.removeCredential();
 
@@ -183,7 +184,7 @@ describe("SpeechCredentialCoordinator", () => {
     const validation = deferred();
     runtime.beforeValidate = () => validation.promise;
     const coordinator = new SpeechCredentialCoordinator({ vault });
-    coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+    await connectLocalRuntime(coordinator, vault, runtime);
 
     const first = coordinator.saveCredential({ apiKey: "sk-setta-coordinator-first" });
     await vi.waitFor(() => {
@@ -213,10 +214,7 @@ describe("SpeechCredentialCoordinator", () => {
       status: "corrupt",
     };
     const corruptCoordinator = new SpeechCredentialCoordinator({ vault: corruptVault });
-    corruptCoordinator.setLocalRuntime({
-      client: new FakeSpeechCredentialRuntime(),
-      runtimeId: "runtime_local",
-    });
+    await connectLocalRuntime(corruptCoordinator, corruptVault, new FakeSpeechCredentialRuntime());
     const unavailable = new SpeechCredentialCoordinator({
       secureStorageUnavailableMessage: "Electron safeStorage encryption is unavailable.",
       vault: null,
@@ -232,11 +230,143 @@ describe("SpeechCredentialCoordinator", () => {
       status: "secure_storage_unavailable",
     });
   });
+
+  test("restores a persisted credential into the authenticated local runtime", async () => {
+    const vault = new FakeCredentialVault("sk-setta-coordinator-restored");
+    const runtime = new FakeSpeechCredentialRuntime();
+    const published: unknown[] = [];
+    const coordinator = new SpeechCredentialCoordinator({
+      onSettingsChanged: (settings) => published.push(settings),
+      vault,
+    });
+
+    const settings = await coordinator.setLocalRuntime({
+      client: runtime,
+      runtimeId: "runtime_local",
+    });
+
+    expect(settings).toEqual({ provider: "openai", status: "configured" });
+    expect(runtime.activeAPIKey).toBe("sk-setta-coordinator-restored");
+    expect([...runtime.operations, ...vault.operations].sort(bySequence)).toEqual([
+      "1:vault:read",
+      "2:runtime:load:sk-setta-coordinator-restored",
+    ]);
+    expect(runtime.operations.some((operation) => operation.includes(":validate:"))).toBe(false);
+    expect(published).toEqual([
+      { status: "loading" },
+      { provider: "openai", status: "configured" },
+    ]);
+  });
+
+  test("reports not configured during startup when no credential is persisted", async () => {
+    const vault = new FakeCredentialVault();
+    const runtime = new FakeSpeechCredentialRuntime();
+    const published: unknown[] = [];
+    const coordinator = new SpeechCredentialCoordinator({
+      onSettingsChanged: (settings) => published.push(settings),
+      vault,
+    });
+
+    const settings = await coordinator.setLocalRuntime({
+      client: runtime,
+      runtimeId: "runtime_local",
+    });
+
+    expect(settings).toEqual({ provider: "openai", status: "not_configured" });
+    expect(runtime.operations).toEqual([]);
+    expect(vault.operations).toEqual(["1:vault:read"]);
+    expect(published).toEqual([
+      { status: "loading" },
+      { provider: "openai", status: "not_configured" },
+    ]);
+  });
+
+  test("surfaces corrupt storage during startup without touching the runtime", async () => {
+    const vault = new FakeCredentialVault("sk-setta-corrupt-not-loaded");
+    vault.readResult = {
+      message: "The saved speech credential ciphertext is invalid.",
+      reason: "invalid_base64",
+      status: "corrupt",
+    };
+    const runtime = new FakeSpeechCredentialRuntime();
+    const coordinator = new SpeechCredentialCoordinator({ vault });
+
+    const settings = await coordinator.setLocalRuntime({
+      client: runtime,
+      runtimeId: "runtime_local",
+    });
+
+    expect(settings).toEqual({
+      message: "The saved speech credential ciphertext is invalid.",
+      reason: "invalid_base64",
+      status: "corrupt",
+    });
+    expect(runtime.operations).toEqual([]);
+  });
+
+  test("does not publish or load stale restoration after local runtime replacement", async () => {
+    const vault = new FakeCredentialVault("sk-setta-coordinator-restored");
+    const firstRead = deferred();
+    vault.beforeRead = () => firstRead.promise;
+    const firstRuntime = new FakeSpeechCredentialRuntime();
+    const secondRuntime = new FakeSpeechCredentialRuntime();
+    const published: unknown[] = [];
+    const coordinator = new SpeechCredentialCoordinator({
+      onSettingsChanged: (settings) => published.push(settings),
+      vault,
+    });
+
+    const firstRestore = coordinator.setLocalRuntime({
+      client: firstRuntime,
+      runtimeId: "runtime_first",
+    });
+    await vi.waitFor(() => {
+      expect(vault.operations).toEqual(["1:vault:read"]);
+    });
+    const secondRestore = coordinator.setLocalRuntime({
+      client: secondRuntime,
+      runtimeId: "runtime_second",
+    });
+    vault.beforeRead = null;
+    firstRead.resolve();
+
+    await expect(firstRestore).resolves.toBeNull();
+    await expect(secondRestore).resolves.toEqual({ provider: "openai", status: "configured" });
+    expect(firstRuntime.operations).toEqual([]);
+    expect(secondRuntime.activeAPIKey).toBe("sk-setta-coordinator-restored");
+    expect(published).toEqual([
+      { status: "loading" },
+      { status: "loading" },
+      { provider: "openai", status: "configured" },
+    ]);
+  });
+
+  test("reports local runtime load failure during restoration without leaking the key", async () => {
+    const vault = new FakeCredentialVault("sk-setta-coordinator-restored");
+    const runtime = new FakeSpeechCredentialRuntime();
+    runtime.failLoadsFor.add("sk-setta-coordinator-restored");
+    const coordinator = new SpeechCredentialCoordinator({ vault });
+
+    const settings = await coordinator.setLocalRuntime({
+      client: runtime,
+      runtimeId: "runtime_local",
+    });
+
+    expect(settings).toEqual({
+      message: "Failed to load the speech credential.",
+      operation: "restore",
+      status: "failed",
+    });
+    expect(JSON.stringify(settings)).not.toContain("sk-setta-coordinator-restored");
+  });
 });
 
 class FakeCredentialVault implements SpeechCredentialVaultStore {
+  beforeRead: (() => Promise<void>) | null = null;
   operations: string[] = [];
   persistedAPIKey: string | null;
+  readError: Error | null = null;
+  readResult: SpeechCredentialVaultReadResult | null = null;
   recoverySnapshot: SpeechCredentialVaultRecoverySnapshot | null = null;
   removeError: Error | null = null;
   restoreError: Error | null = null;
@@ -262,6 +392,13 @@ class FakeCredentialVault implements SpeechCredentialVaultStore {
 
   async read(): Promise<SpeechCredentialVaultReadResult> {
     this.record("vault:read");
+    await this.beforeRead?.();
+    if (this.readError) {
+      throw this.readError;
+    }
+    if (this.readResult) {
+      return this.readResult;
+    }
     if (this.persistedAPIKey === null) {
       return { status: "missing" };
     }
@@ -356,6 +493,17 @@ class FakeSpeechCredentialRuntime implements SpeechCredentialRuntimeClient {
   private record(operation: string): void {
     this.operations.push(`${nextSequence()}:${operation}`);
   }
+}
+
+async function connectLocalRuntime(
+  coordinator: SpeechCredentialCoordinator,
+  vault: FakeCredentialVault,
+  runtime: FakeSpeechCredentialRuntime,
+): Promise<void> {
+  await coordinator.setLocalRuntime({ client: runtime, runtimeId: "runtime_local" });
+  runtime.operations = [];
+  vault.operations = [];
+  sequence = 0;
 }
 
 let sequence = 0;

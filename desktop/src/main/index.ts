@@ -84,7 +84,7 @@ async function prepareBackend(appDataDir: string) {
     backendStartupError = null;
     backend.events.on("exit", () => {
       localBackendRequests.setStopping(true);
-      speechCredentialCoordinator?.setLocalRuntime(null);
+      void speechCredentialCoordinator?.setLocalRuntime(null);
     });
     attachBackendObservers({
       backend,
@@ -100,7 +100,7 @@ async function prepareBackend(appDataDir: string) {
       baseUrl: backend.url,
       deviceToken: backend.bootstrapToken,
     });
-    speechCredentialCoordinator?.setLocalRuntime({
+    void speechCredentialCoordinator?.setLocalRuntime({
       client: createLocalSpeechCredentialClient(localRuntime),
       runtimeId: localRuntime.runtimeId,
     });
@@ -108,7 +108,7 @@ async function prepareBackend(appDataDir: string) {
   } catch (error) {
     backend = null;
     localBackendRequests.setStopping(true);
-    speechCredentialCoordinator?.setLocalRuntime(null);
+    void speechCredentialCoordinator?.setLocalRuntime(null);
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
     emitBackendProcessStatus({ message: backendStartupError, status: "failed" });
     recorder?.recordBackendStartupError(backendStartupError);
@@ -711,7 +711,7 @@ async function stopBackend() {
   ]);
   await backend?.stop();
   backend = null;
-  speechCredentialCoordinator?.setLocalRuntime(null);
+  void speechCredentialCoordinator?.setLocalRuntime(null);
 }
 
 function requestQuit() {

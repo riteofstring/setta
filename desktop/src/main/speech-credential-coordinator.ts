@@ -43,12 +43,26 @@ const openAIProvider = "openai";
 
 export class SpeechCredentialCoordinator {
   private localRuntime: LocalSpeechCredentialRuntime | null = null;
+  private localRuntimeGeneration = 0;
   private operationRunning = false;
+  private operationSettled: Promise<void> = Promise.resolve();
+  private resolveOperationSettled: (() => void) | null = null;
+  private lastPublishedSettings: SpeechCredentialSettings | null = null;
 
   constructor(private readonly options: SpeechCredentialCoordinatorOptions) {}
 
-  setLocalRuntime(runtime: LocalSpeechCredentialRuntime | null): void {
+  setLocalRuntime(
+    runtime: LocalSpeechCredentialRuntime | null,
+  ): Promise<SpeechCredentialSettings | null> {
     this.localRuntime = runtime;
+    this.localRuntimeGeneration += 1;
+    if (runtime === null) {
+      if (this.lastPublishedSettings?.status === "loading") {
+        this.publish(failedSettings("restore", "Local speech runtime is not connected."));
+      }
+      return Promise.resolve(null);
+    }
+    return this.restoreCredentialForRuntime(runtime, this.localRuntimeGeneration);
   }
 
   async readCredentialSettings(): Promise<SpeechCredentialSettings> {
@@ -148,6 +162,83 @@ export class SpeechCredentialCoordinator {
     return this.publish(notConfiguredSettings());
   }
 
+  private async restoreCredentialForRuntime(
+    runtime: LocalSpeechCredentialRuntime,
+    generation: number,
+  ): Promise<SpeechCredentialSettings | null> {
+    while (!this.tryBeginCredentialOperation()) {
+      await this.operationSettled;
+      if (!this.isCurrentLocalRuntime(runtime, generation)) {
+        return null;
+      }
+    }
+    try {
+      return await this.restoreCredentialForRuntimeUnlocked(runtime, generation);
+    } finally {
+      this.finishCredentialOperation();
+    }
+  }
+
+  private async restoreCredentialForRuntimeUnlocked(
+    runtime: LocalSpeechCredentialRuntime,
+    generation: number,
+  ): Promise<SpeechCredentialSettings | null> {
+    if (!this.isCurrentLocalRuntime(runtime, generation)) {
+      return null;
+    }
+    this.publish({ status: "loading" });
+
+    const vault = this.options.vault;
+    if (vault === null) {
+      if (!this.isCurrentLocalRuntime(runtime, generation)) {
+        return null;
+      }
+      return this.publish(
+        secureStorageUnavailableSettings(this.options.secureStorageUnavailableMessage),
+      );
+    }
+
+    const read = await readPersistedCredential(vault);
+    if (!this.isCurrentLocalRuntime(runtime, generation)) {
+      return null;
+    }
+    if (read.status === "failed") {
+      return this.publish(failedSettings("restore", read.message));
+    }
+    return this.restoreCredentialFromVaultRead(runtime, generation, read.result);
+  }
+
+  private async restoreCredentialFromVaultRead(
+    runtime: LocalSpeechCredentialRuntime,
+    generation: number,
+    read: SpeechCredentialVaultReadResult,
+  ): Promise<SpeechCredentialSettings | null> {
+    switch (read.status) {
+      case "corrupt":
+      case "missing":
+        return this.publish(settingsFromVaultRead(read));
+      case "present":
+        return this.loadRestoredCredential(runtime, generation, read.apiKey);
+      default:
+        return assertNever(read);
+    }
+  }
+
+  private async loadRestoredCredential(
+    runtime: LocalSpeechCredentialRuntime,
+    generation: number,
+    apiKey: string,
+  ): Promise<SpeechCredentialSettings | null> {
+    const loaded = await loadCandidate(runtime.client, apiKey);
+    if (!this.isCurrentLocalRuntime(runtime, generation)) {
+      return null;
+    }
+    if (loaded.status === "configured") {
+      return this.publish(configuredSettings());
+    }
+    return this.publish(failedSettings("restore", loaded.message));
+  }
+
   private async rollbackAfterLoadFailure(
     vault: SpeechCredentialVaultStore,
     runtime: SpeechCredentialRuntimeClient,
@@ -177,22 +268,47 @@ export class SpeechCredentialCoordinator {
     operation: SpeechCredentialOperation,
     run: () => Promise<SpeechCredentialSettings>,
   ): Promise<SpeechCredentialSettings> {
-    if (this.operationRunning) {
+    if (!this.tryBeginCredentialOperation()) {
       return this.publish(
         failedSettings(operation, "A speech credential operation is already in progress."),
       );
     }
-    this.operationRunning = true;
     try {
       return await run();
     } finally {
-      this.operationRunning = false;
+      this.finishCredentialOperation();
     }
   }
 
   private publish(settings: SpeechCredentialSettings): SpeechCredentialSettings {
+    this.lastPublishedSettings = settings;
     this.options.onSettingsChanged?.(settings);
     return settings;
+  }
+
+  private tryBeginCredentialOperation(): boolean {
+    if (this.operationRunning) {
+      return false;
+    }
+    this.operationRunning = true;
+    this.operationSettled = new Promise((resolve) => {
+      this.resolveOperationSettled = resolve;
+    });
+    return true;
+  }
+
+  private finishCredentialOperation(): void {
+    this.operationRunning = false;
+    const resolve = this.resolveOperationSettled;
+    this.resolveOperationSettled = null;
+    resolve?.();
+  }
+
+  private isCurrentLocalRuntime(
+    runtime: LocalSpeechCredentialRuntime,
+    generation: number,
+  ): boolean {
+    return this.localRuntime === runtime && this.localRuntimeGeneration === generation;
   }
 }
 
@@ -250,6 +366,22 @@ async function loadCandidate(
   } catch (error) {
     return {
       message: safeFailureMessage(error, "Failed to load the speech credential."),
+      status: "failed",
+    };
+  }
+}
+
+async function readPersistedCredential(
+  vault: SpeechCredentialVaultStore,
+): Promise<
+  | { status: "read"; result: SpeechCredentialVaultReadResult }
+  | { status: "failed"; message: string }
+> {
+  try {
+    return { result: await vault.read(), status: "read" };
+  } catch (error) {
+    return {
+      message: safeFailureMessage(error, "Failed to read the saved speech credential."),
       status: "failed",
     };
   }

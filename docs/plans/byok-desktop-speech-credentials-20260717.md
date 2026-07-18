@@ -15,15 +15,16 @@ bounded desktop credential HTTP endpoints are registered, `server_startup`
 runtimes reject desktop credential management with a typed safe error, Go-owned
 TypeScript backend contracts have been regenerated at protocol version 63, and
 desktop behavior tests now assert that inherited `OPENAI_API_KEY` is not read.
-Phase 2 has started: Electron main now has the injected speech credential vault
+Phase 2 is complete: Electron main now has the injected speech credential vault
 abstraction, a production `safeStorage` protection adapter, strict versioned
 ciphertext persistence, atomic replacement/removal, and typed corrupt-state
 handling. The main-process speech credential coordinator is now in place with
 explicit save/remove transaction recovery paths, ciphertext-only rollback
-snapshots, typed read/save/remove IPC operations and credential-state push
-events, whole-operation recording redaction for credential saves, and
-local-runtime-only coordinator routing that does not use the selected active
-runtime.
+snapshots, lifecycle-driven startup/replacement restoration into the
+authenticated local runtime, typed read/save/remove IPC operations and
+credential-state push events, whole-operation recording redaction for
+credential saves, and local-runtime-only coordinator routing that does not use
+the selected active runtime.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -587,7 +588,7 @@ environment-based desktop product behavior.
       replacement, removal, and corrupt-state handling.
 - [x] Add the main-process credential coordinator and explicit transaction
       recovery paths.
-- [ ] Restore into the authenticated local runtime at startup/replacement using
+- [x] Restore into the authenticated local runtime at startup/replacement using
       runtime lifecycle events.
 - [x] Add typed IPC operations/events and whole-channel recording redaction.
 - [x] Prove the coordinator never targets the active remote runtime.
