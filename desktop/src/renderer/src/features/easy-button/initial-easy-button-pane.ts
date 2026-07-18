@@ -82,7 +82,7 @@ export function useInitialEasyButtonPane({
   const paneWorkspace = selectedWorkspaceId ? paneWorkspaces.get(selectedWorkspaceId) : undefined;
   const decision = initialEasyButtonPaneDecision(
     navigator,
-    paneWorkspace?.paneIdsByConversationId.size,
+    paneWorkspace?.paneIdByConversationId.size,
     selectedWorkspaceAvailable,
   );
 
@@ -270,7 +270,6 @@ function presentationRequest(item: NavigatorItem): ConversationPanePresentationR
   return {
     conversationId: item.conversation.id,
     title: item.conversation.title,
-    viewAction: "focus-or-open",
     workspaceId: item.conversation.workspaceId,
   };
 }

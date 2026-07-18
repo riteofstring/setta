@@ -294,14 +294,9 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     selectedWorkspaceAvailable: workspace.selectedWorkspaceAvailable,
   });
   const presentConversation = useCallback(
-    async (
-      workspaceId: string,
-      conversationId: string,
-      title: string,
-      viewAction: ConversationPanePresentationRequest["viewAction"],
-    ): Promise<void> => {
+    async (workspaceId: string, conversationId: string, title: string): Promise<void> => {
       try {
-        await presentConversationRequest({ conversationId, title, viewAction, workspaceId });
+        await presentConversationRequest({ conversationId, title, workspaceId });
       } catch (error) {
         setConversationPresentationError(
           error instanceof Error ? error.message : "The conversation pane could not be opened.",
@@ -601,7 +596,6 @@ function ProjectPane({
     workspaceId: string,
     conversationId: string,
     title: string,
-    viewAction: ConversationPanePresentationRequest["viewAction"],
   ) => Promise<void>;
   setWidth: (width: number) => void;
   viewportWidth: number;

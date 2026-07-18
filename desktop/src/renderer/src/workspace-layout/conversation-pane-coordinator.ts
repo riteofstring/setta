@@ -9,7 +9,6 @@ export interface ConversationPanePresentationRequest {
   destination?: ConversationPanePlacementDestination;
   preferredPaneId?: string | null;
   title: string;
-  viewAction: "focus-or-open" | "open-new-view";
   workspaceId: string;
 }
 
@@ -76,7 +75,6 @@ function presentationTargetRequest(payload: {
     conversationId: payload.target.conversationId,
     preferredPaneId: payload.target.preferredPaneId,
     title: payload.target.title,
-    viewAction: "focus-or-open",
     workspaceId: payload.target.workspaceId,
   };
 }
@@ -125,19 +123,14 @@ export function presentConversationPane(
   if (request.destination) {
     return presentNewConversationPane(store, request, request.destination);
   }
-  const matchingPaneIds = store
-    .toScene()
-    .panes.filter(
-      (pane) =>
-        pane.surfaceKind === "easy-button" &&
-        pane.easyButtonConfig.conversationId === request.conversationId,
-    )
-    .map((pane) => pane.paneId);
-  const existingPaneId = matchingConversationPaneId(store, request, matchingPaneIds);
-  if (existingPaneId !== null) {
+  const existingPane = matchingConversationPane(store, request);
+  if (existingPane.kind === "blocked") {
+    return existingPane;
+  }
+  if (existingPane.kind === "found") {
     clearMaximizedPane(store);
-    store.focusPane(existingPaneId);
-    return { kind: "focused", paneId: existingPaneId };
+    store.focusPane(existingPane.paneId);
+    return { kind: "focused", paneId: existingPane.paneId };
   }
   const paneRequest = {
     easyButtonConfig: { conversationId: request.conversationId },
@@ -194,6 +187,16 @@ function presentNewConversationPane(
   request: ConversationPanePresentationRequest,
   destination: ConversationPanePlacementDestination,
 ): ConversationPanePresentationResult {
+  const existingPane = matchingConversationPane(store, request);
+  if (existingPane.kind === "blocked") {
+    return existingPane;
+  }
+  if (existingPane.kind === "found") {
+    return {
+      kind: "blocked",
+      reason: "This conversation already has an open pane.",
+    };
+  }
   const paneRequest = conversationPaneRequest(request.conversationId, request.title);
   switch (destination.kind) {
     case "new-pane":
@@ -250,18 +253,29 @@ function conversationPaneRequest(conversationId: string, title: string) {
   } as const;
 }
 
-function matchingConversationPaneId(
+function matchingConversationPane(
   store: WorkspaceLayoutStore,
   request: ConversationPanePresentationRequest,
-  matchingPaneIds: readonly string[],
-): string | null {
-  if (request.viewAction === "open-new-view") {
-    return null;
+): { kind: "blocked"; reason: string } | { kind: "found"; paneId: string } | { kind: "missing" } {
+  const matchingPaneIds = store
+    .toScene()
+    .panes.filter(
+      (pane) =>
+        pane.surfaceKind === "easy-button" &&
+        pane.easyButtonConfig.conversationId === request.conversationId,
+    )
+    .map((pane) => pane.paneId);
+  if (matchingPaneIds.length > 1) {
+    return {
+      kind: "blocked",
+      reason: "This conversation is already bound to multiple panes.",
+    };
   }
   if (request.preferredPaneId && matchingPaneIds.includes(request.preferredPaneId)) {
-    return request.preferredPaneId;
+    return { kind: "found", paneId: request.preferredPaneId };
   }
-  return store.mostRecentlyFocusedPaneId(matchingPaneIds);
+  const paneId = store.mostRecentlyFocusedPaneId(matchingPaneIds);
+  return paneId ? { kind: "found", paneId } : { kind: "missing" };
 }
 
 function clearMaximizedPane(store: WorkspaceLayoutStore): void {

@@ -894,7 +894,10 @@ export async function exerciseDurableForkWorkflow({
     driverCallExpression("topicConversationNavigatorState", {
       conversationId: forkTopicSummary.id,
     }),
-    (state) => state.rowCount === 1 && state.label.includes("1 open view"),
+    (state) =>
+      state.rowCount === 1 &&
+      state.openViewCount === 1 &&
+      state.label.includes("open in workspace"),
     timeoutMs,
   );
   assertCondition(

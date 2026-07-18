@@ -132,7 +132,6 @@ export async function createAndPresentConversation({
       conversationId: snapshot.conversation.id,
       destination: request.destination,
       title: snapshot.conversation.title,
-      viewAction: "focus-or-open",
       workspaceId: snapshot.conversation.workspaceId,
     });
     return {

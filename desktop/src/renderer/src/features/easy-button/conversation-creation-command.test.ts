@@ -69,7 +69,6 @@ describe("conversation creation command", () => {
       conversationId: "conversation_created",
       destination: { kind: "new-pane" },
       title: newConversationTitle,
-      viewAction: "focus-or-open",
       workspaceId: "workspace_api",
     });
   });

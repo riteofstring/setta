@@ -97,7 +97,7 @@ describe("workspace renderer states", () => {
     const focused = {
       focusedConversationId: "conversation_api",
       focusedPaneId: "pane_api",
-      paneIdsByConversationId: new Map([["conversation_api", ["pane_api"]]]),
+      paneIdByConversationId: new Map([["conversation_api", "pane_api"]]),
     };
 
     expect(masterInputFocusHints("workspace_api", focused)).toEqual({
@@ -280,7 +280,7 @@ describe("workspace renderer states", () => {
     );
 
     expect(hasAriaLabel(html, "Conversation failed")).toBe(true);
-    expect(hasAriaLabelContaining(html, "Build web UI, Failed, no open views")).toBe(true);
+    expect(hasAriaLabelContaining(html, "Build web UI, Failed, not open")).toBe(true);
   });
 
   test("renders the durable working status in the navigator", () => {

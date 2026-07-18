@@ -127,7 +127,6 @@ describe("initial Easy Button pane", () => {
     expect(presentConversation).toHaveBeenCalledWith({
       conversationId: "conversation_recent",
       title: "Recent work",
-      viewAction: "focus-or-open",
       workspaceId: "workspace_api",
     });
   });
