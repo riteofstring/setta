@@ -1,8 +1,11 @@
 import type { NavigatorItem } from "@generated/backend";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import type { ConversationNavigatorWorkspaceState } from "../../stores/conversation-navigator-store";
-import { initialEasyButtonPaneDecision } from "./initial-easy-button-pane";
+import {
+  fulfillInitialEasyButtonPane,
+  initialEasyButtonPaneDecision,
+} from "./initial-easy-button-pane";
 
 describe("initial Easy Button pane", () => {
   test("waits for both the navigator and mounted workspace layout", () => {
@@ -38,6 +41,57 @@ describe("initial Easy Button pane", () => {
       kind: "present",
     });
     expect(initialEasyButtonPaneDecision(navigator([]), 0, false)).toEqual({ kind: "wait" });
+  });
+
+  test("creates the initial conversation through the shared app command", async () => {
+    const createConversation = vi.fn().mockResolvedValue({
+      conversationId: "conversation_created",
+      paneId: "workspace_pane_created",
+      workspaceId: "workspace_api",
+    });
+    const presentConversation = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      fulfillInitialEasyButtonPane({
+        createConversation,
+        decision: { kind: "create" },
+        presentConversation,
+        selectedWorkspaceId: "workspace_api",
+        targetKey: "runtime_api\u0000workspace_api",
+        targetKeyRef: { current: "runtime_api\u0000workspace_api" },
+      }),
+    ).resolves.toBe(true);
+
+    expect(createConversation).toHaveBeenCalledWith({
+      destination: { kind: "new-pane" },
+      workspaceId: "workspace_api",
+    });
+    expect(presentConversation).not.toHaveBeenCalled();
+  });
+
+  test("presents existing history without creating another conversation", async () => {
+    const recent = navigatorItem("conversation_recent", "Recent work");
+    const createConversation = vi.fn();
+    const presentConversation = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      fulfillInitialEasyButtonPane({
+        createConversation,
+        decision: { item: recent, kind: "present" },
+        presentConversation,
+        selectedWorkspaceId: "workspace_api",
+        targetKey: "runtime_api\u0000workspace_api",
+        targetKeyRef: { current: "runtime_api\u0000workspace_api" },
+      }),
+    ).resolves.toBe(true);
+
+    expect(createConversation).not.toHaveBeenCalled();
+    expect(presentConversation).toHaveBeenCalledWith({
+      conversationId: "conversation_recent",
+      title: "Recent work",
+      viewAction: "focus-or-open",
+      workspaceId: "workspace_api",
+    });
   });
 });
 

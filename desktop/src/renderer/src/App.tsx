@@ -283,11 +283,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const initialEasyButtonPaneStartup = useInitialEasyButtonPane({
     activeWorkspaceIds,
     connectedRuntimeId: runtime.connectedRuntimeId,
+    createConversation: createConversationRequest,
     onError: setInitialConversationError,
     presentConversation: presentConversationRequest,
     selectedWorkspaceId: workspace.selectedWorkspaceId,
     selectedWorkspaceAvailable: workspace.selectedWorkspaceAvailable,
-    setta,
   });
   const presentConversation = useCallback(
     async (

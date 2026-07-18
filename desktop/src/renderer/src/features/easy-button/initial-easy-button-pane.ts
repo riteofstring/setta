@@ -1,16 +1,16 @@
 import type { NavigatorItem } from "@generated/backend";
-import type { SettaAPI } from "@shared/types";
 import { useEffect, useRef } from "react";
 
+import type {
+  ConversationCreationRequest,
+  ConversationCreationResult,
+} from "./conversation-creation-command";
 import type { ConversationNavigatorWorkspaceState } from "../../stores/conversation-navigator-store";
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { useConversationPaneStore } from "../../stores/conversation-pane-store";
-import { hydrateConversationProjectionSnapshot } from "../../stores/conversation-projection-runtime";
 import type { ConversationPanePresentationRequest } from "../../workspace-layout/conversation-pane-coordinator";
 
-const initialConversationTitle = "New conversation";
-
-type InitialEasyButtonPaneDecision =
+export type InitialEasyButtonPaneDecision =
   | { kind: "create" }
   | { kind: "present"; item: NavigatorItem }
   | { kind: "satisfied" }
@@ -45,19 +45,19 @@ export function initialEasyButtonPaneDecision(
 export function useInitialEasyButtonPane({
   activeWorkspaceIds,
   connectedRuntimeId,
+  createConversation,
   onError,
   presentConversation,
   selectedWorkspaceId,
   selectedWorkspaceAvailable,
-  setta,
 }: {
   activeWorkspaceIds: readonly string[];
   connectedRuntimeId: string | null;
+  createConversation: (request: ConversationCreationRequest) => Promise<ConversationCreationResult>;
   onError: (message: string | null) => void;
   presentConversation: (request: ConversationPanePresentationRequest) => Promise<unknown>;
   selectedWorkspaceId: string;
   selectedWorkspaceAvailable: boolean;
-  setta: SettaAPI;
 }): InitialEasyButtonPaneStartup {
   const navigatorWorkspaces = useConversationNavigatorStore((state) => state.workspaces);
   const syncNavigatorWorkspaces = useConversationNavigatorStore((state) => state.syncWorkspaces);
@@ -106,10 +106,10 @@ export function useInitialEasyButtonPane({
     pendingKeysRef.current.add(targetKey);
     onError(null);
     void fulfillInitialEasyButtonPane({
+      createConversation,
       decision,
       presentConversation,
       selectedWorkspaceId,
-      setta,
       targetKey,
       targetKeyRef,
     })
@@ -126,13 +126,13 @@ export function useInitialEasyButtonPane({
         pendingKeysRef.current.delete(targetKey);
       });
   }, [
+    createConversation,
     decision,
     onError,
     paneWorkspace,
     presentConversation,
     selectedWorkspaceId,
     selectedWorkspaceAvailable,
-    setta,
     targetKey,
   ]);
 
@@ -205,42 +205,43 @@ function initialEasyButtonStartupForDecision(
   }
 }
 
-async function fulfillInitialEasyButtonPane({
+export async function fulfillInitialEasyButtonPane({
+  createConversation,
   decision,
   presentConversation,
   selectedWorkspaceId,
-  setta,
   targetKey,
   targetKeyRef,
 }: {
+  createConversation: (request: ConversationCreationRequest) => Promise<ConversationCreationResult>;
   decision: Extract<InitialEasyButtonPaneDecision, { kind: "create" | "present" }>;
   presentConversation: (request: ConversationPanePresentationRequest) => Promise<unknown>;
   selectedWorkspaceId: string;
-  setta: SettaAPI;
   targetKey: string;
   targetKeyRef: { current: string | null };
 }): Promise<boolean> {
-  let target: ConversationPanePresentationRequest;
   if (decision.kind === "present") {
-    target = presentationRequest(decision.item);
-  } else {
-    const snapshot = await setta.conversations.create({
-      title: initialConversationTitle,
-      workspaceId: selectedWorkspaceId,
-    });
-    hydrateConversationProjectionSnapshot(snapshot);
-    target = {
-      conversationId: snapshot.conversation.id,
-      title: snapshot.conversation.title,
-      viewAction: "focus-or-open",
-      workspaceId: snapshot.conversation.workspaceId,
-    };
+    const target = presentationRequest(decision.item);
+    if (targetKeyRef.current !== targetKey) {
+      return false;
+    }
+    await presentConversation(target);
+    return true;
   }
   if (targetKeyRef.current !== targetKey) {
     return false;
   }
-  await presentConversation(target);
-  return true;
+  await createConversation(initialConversationCreationRequest(selectedWorkspaceId));
+  return targetKeyRef.current === targetKey;
+}
+
+function initialConversationCreationRequest(
+  selectedWorkspaceId: string,
+): ConversationCreationRequest {
+  return {
+    destination: { kind: "new-pane" },
+    workspaceId: selectedWorkspaceId,
+  };
 }
 
 function presentationRequest(item: NavigatorItem): ConversationPanePresentationRequest {
