@@ -1,8 +1,11 @@
 # Cold-Gate Decision Memo: Accept vs Re-architect
 
 Date: 2026-07-16
-Status: SIGNED — Option A (owner, 2026-07-17). Fly response still pending;
-per condition 3 it will be recorded in the plan when it arrives.
+Status: SIGNED — Option A (owner, 2026-07-17). Fly responded on thread
+28288 the same day, confirming the recommendation: cold Sprites are usually
+suspended (memory kept); memory is discarded only on unannounced
+load-balancing host moves; Fly advises not to rely on warm/cold behavior at
+all. Recorded in the plan progress log per condition 3.
 
 ## Decision to make
 
@@ -31,8 +34,13 @@ with memory retained. Per the 2026-07-15 amendment, the owner must choose:
   unchanged boot ID, start count 1, heartbeat continued (563 → 576),
   sentinel intact. Experiment complete; org cleaned to 0/0/0. Full results:
   `docs/reports/2026-07-16-sprites-confirmed-cold-soak-final.md`.
-- Fly response: **PENDING** (community thread 28288; billing email;
-  support plan not yet purchased).
+- Fly response (2026-07-17, thread 28288): "cold" is broad — most cold
+  Sprites are suspended with processes alive; host moves discard memory
+  without notice; only registered Services are promised to keep running;
+  no official boot-epoch signal (suggested `/proc/stat` btime and
+  `/proc/sys/kernel/random/boot_id`); no way to induce cold — simulate by
+  restarting registered Services; usage data is org-wide only. The
+  commercial questions (billing email; support plan) remain open.
 - Docs state cold ⇒ "in-memory state is dropped … starts processes fresh"
   and warn "you can't see the transition."
 

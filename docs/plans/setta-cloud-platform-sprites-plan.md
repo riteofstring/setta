@@ -1048,6 +1048,11 @@ The provider contingency and future-test matrix is recorded in
   - [ ] Obtain an authoritative provider source, measure reporting/settlement
     lag, and reconcile it with trusted Setta counters under enforced resource
     ceilings. Active time at provider minima is only a lower bound.
+    (2026-07-17: Fly confirmed on thread 28288 that usage exists only
+    org-wide, in the dashboard at Billing > Invoices > Cost Explorer; no
+    per-Sprite machine-readable source. The authoritative reconciliation
+    source is therefore the org-level invoice/Cost Explorer; per-user hard
+    budgets remain enforced from conservative Setta-side metering.)
 - [ ] Measure warm and confirmed-cold wake, attached-idle time, active Task time,
   CPU, memory-policy behavior, hot/cold storage, checkpoint growth, Proxy or
   gateway bandwidth, and actual provider cost.
@@ -1760,3 +1765,28 @@ Stop and reassess rather than hiding the problem if any of these occur:
   is now fully complete. The Fly escalation remains open (forum thread
   28288 final reply still to be posted by the owner; billing inquiry
   unsent); the beta commitment gate still requires Fly's written answers.
+- 2026-07-17 (Fly response recorded): Fly answered community thread 28288.
+  Substance: "cold" is broad — in most cases cold Sprites are suspended
+  (memory kept, processes alive) to optimize start-up; cold Sprites are
+  eligible to move between hosts for load-balancing, and a move discards
+  memory with no notice, so processes must be assumed lost unless an
+  ongoing Task holds the Sprite active; only registered Services are
+  promised to keep running (restarted); there is no official
+  machine-readable cold/boot-epoch signal (Fly suggests `/proc/stat` btime,
+  which updates on resume, and `/proc/sys/kernel/random/boot_id`);
+  deterministic cold cannot be induced — Fly recommends simulating a cold
+  start by restarting registered Services; usage data exists only for the
+  whole organization (dashboard Billing > Invoices > Cost Explorer).
+  Consequences, recorded per memo condition 3 (documentation, not a
+  rebuild trigger): the soak result is fully explained — all three cohorts
+  were suspended and never moved hosts; Option A stands confirmed, since
+  Fly itself instructs against relying on warm/cold; the behavioral
+  evidence design (boot IDs, sentinels, heartbeats — rule 24) matches
+  Fly's own suggested mechanisms; the conformance suite's
+  kill-and-restart cold simulation is exactly Fly's recommended
+  simulation; rule 19's assume-memory-loss-any-time posture is now
+  provider-stated behavior (unannounced host moves), not conservatism;
+  and the Phase 1c authoritative-usage question is resolved as
+  org-level-only. The beta commitment gate still requires written
+  commercial confirmation (billing inquiry / support plan); a forum
+  answer does not provide it.
