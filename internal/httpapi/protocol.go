@@ -1,3 +1,3 @@
 package httpapi
 
-const ProtocolVersion = 57
+const ProtocolVersion = 7

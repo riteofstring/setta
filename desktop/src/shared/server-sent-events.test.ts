@@ -7,7 +7,7 @@ describe("shared server-sent event parsing", () => {
     const events = [];
     for await (const event of parseServerSentEvents(
       textStream(
-        ': keepalive\nid: stream:1\nevent: conversation.turn.updated\ndata: {"a":1}\ndata: {"b":2}\n\n',
+        ': keepalive\nid: stream:1\nevent: chat.run.updated\ndata: {"a":1}\ndata: {"b":2}\n\n',
       ),
     )) {
       events.push(event);
@@ -15,7 +15,7 @@ describe("shared server-sent event parsing", () => {
     expect(events).toEqual([
       {
         data: '{"a":1}\n{"b":2}',
-        event: "conversation.turn.updated",
+        event: "chat.run.updated",
         id: "stream:1",
       },
     ]);

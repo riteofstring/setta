@@ -4,7 +4,7 @@ import { generateBenchmarkScene } from "./benchmark-scene";
 import { WorkspaceMetricsCollector } from "./metrics";
 import { PresentationEngine } from "./presentation-engine";
 import { SurfaceRegistry } from "./surface-registry";
-import type { WorkspacePane, PaneRenderItem, SurfaceAdapter } from "./types";
+import type { CanvasSurfaceStats, WorkspacePane, PaneRenderItem, SurfaceAdapter } from "./types";
 
 describe("workspace presentation engine", () => {
   test("defers pane content writes while panes are moving", () => {
@@ -522,7 +522,7 @@ describe("workspace presentation engine", () => {
           z: 1,
         },
         {
-          ...renderItem("workspace_pane_1", "workspace_surface_1", false, "fake-heavy-dom"),
+          ...renderItem("workspace_pane_1", "workspace_surface_1", false, "chat-dom"),
           focused: true,
           height: 220,
           width: 360,
@@ -694,7 +694,7 @@ describe("workspace presentation engine", () => {
     expect(secondHost.querySelector(".workspace-pane-resize-handle-horizontal")).toBeNull();
   });
 
-  test("surfaces snapshot and runtime budgets in the debug overlay", () => {
+  test("surfaces canvas draw stats in the debug overlay", () => {
     const scene = generateBenchmarkScene({ paneCount: 5, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");
     const overlay = { textContent: "" } as HTMLElement;
@@ -706,14 +706,17 @@ describe("workspace presentation engine", () => {
     presentation.mount([host], overlay);
 
     presentation.apply(
-      [renderItem("workspace_pane_4", "workspace_surface_4", false, "fake-heavy-dom")],
+      [renderItem("workspace_pane_4", "workspace_surface_4", false, "workflow-graph")],
       {
         resizePhase: "idle",
       },
     );
     presentation.updateDebugOverlay({
       budget: {
+        maxLiveBrowserPanes: 6,
         maxLiveHeavyDomPanes: 12,
+        maxLiveTerminalRenderers: 8,
+        maxLiveWebGpuCanvases: 4,
         maxSnapshotPanes: 64,
       },
       hidden: 0,
@@ -723,8 +726,7 @@ describe("workspace presentation engine", () => {
       total: 1,
     });
 
-    expect(overlay.textContent).toContain("snapshot 0/0/0/0");
-    expect(overlay.textContent).toContain("budget heavy 12 snapshot 64");
+    expect(overlay.textContent).toContain("canvas 1/7/2/0/16Kpx/512KiB");
   });
 });
 
@@ -982,11 +984,62 @@ class TitleSurfaceAdapter implements SurfaceAdapter {
   resume(): void {}
 
   destroy(): void {}
+
+  getCanvasStats(): CanvasSurfaceStats {
+    if (this.kind !== "workflow-graph") {
+      return {
+        backingStorePixels: null,
+        drawCalls: 0,
+        farZoomSimplified: false,
+        gpuMemoryEstimateBytes: null,
+        liveCanvasPaneCount: 0,
+        rendererResizeCount: 0,
+        renderedFrames: 0,
+        tickerFramesWhileFrozen: 0,
+      };
+    }
+    return {
+      backingStorePixels: 128 * 128,
+      drawCalls: 7,
+      farZoomSimplified: false,
+      gpuMemoryEstimateBytes: 512 * 1024,
+      liveCanvasPaneCount: 1,
+      rendererResizeCount: 2,
+      renderedFrames: 3,
+      tickerFramesWhileFrozen: 0,
+    };
+  }
 }
 
 class RecordingSurfaceRegistry {
   syncedItems: PaneRenderItem[] = [];
   syncedPaneIds: string[] = [];
+
+  canvasStats() {
+    return {
+      backingStorePixels: null,
+      drawCalls: 0,
+      farZoomSimplified: false,
+      gpuMemoryEstimateBytes: null,
+      liveCanvasPaneCount: 0,
+      rendererResizeCount: 0,
+      renderedFrames: 0,
+      tickerFramesWhileFrozen: 0,
+    };
+  }
+
+  gitGraphStats() {
+    return {
+      completed: false,
+      liveGraphPaneCount: 0,
+      progress: 0,
+      renderedEdges: 0,
+      renderedNodes: 0,
+      renderer: null,
+      workerBatches: 0,
+      workerPending: false,
+    };
+  }
 
   releaseHost(): void {}
 
@@ -995,13 +1048,27 @@ class RecordingSurfaceRegistry {
     this.syncedPaneIds.push(item.paneId);
     return {
       browserViewportWrites: 0,
+      canvasViewportWrites: 0,
       deferredHeavyViewportWrites: 0,
+      gitGraphViewportWrites: 0,
       heavyViewportWrites: 0,
       surfaceViewportWrites: 0,
+      terminalViewportWrites: 0,
     };
   }
 
   teardown(): void {}
+
+  terminalStats() {
+    return {
+      dirtyRows: 0,
+      droppedOutputChunks: 0,
+      liveTerminalRendererCount: 0,
+      pendingOutputChunks: 0,
+      renderedRows: 0,
+      scrollbackRows: 0,
+    };
+  }
 }
 
 function setText(host: HTMLElement, selector: string, value: string): void {

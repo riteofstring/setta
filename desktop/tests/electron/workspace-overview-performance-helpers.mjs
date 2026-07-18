@@ -12,8 +12,12 @@ export const viewport4k = {
 
 export const overviewPerformanceTimeoutMs = 60_000;
 export const overviewTransitionSampleMs = 1400;
+export const maxWorkflowGraphBackingStorePixels = 12_000_000;
 
 const metricDeltaKeys = [
+  "canvasBackingStorePixels",
+  "canvasRendererResizeCount",
+  "canvasTickerFramesWhileFrozen",
   "snapshotBitmapCaptureRequests",
   "snapshotCapturePromisesAwaitedByTransition",
   "snapshotCaptureRequests",
@@ -112,6 +116,32 @@ export async function waitForPaneHostState(
   return waitForDriverState(client, "overviewPaneHostState", query, predicate, timeoutMs);
 }
 
+export async function waitForWorkflowGraphSnapshot(
+  client,
+  surfaceId,
+  predicate,
+  timeoutMs = overviewPerformanceTimeoutMs,
+) {
+  await client.installDriver();
+  return waitForState(
+    client,
+    driverCallExpression("workflowGraphDebugSnapshotReady", { includeVisual: false, surfaceId }),
+    (result) => result.ready && predicate(result.snapshot),
+    timeoutMs,
+  ).then((result) => result.snapshot);
+}
+
+export async function readWorkflowGraphSnapshot(client, surfaceId) {
+  const result = await client.driver("workflowGraphDebugSnapshotReady", {
+    includeVisual: false,
+    surfaceId,
+  });
+  if (!result.ready) {
+    throw new Error(`workflow graph debug snapshot unavailable: ${JSON.stringify(result)}`);
+  }
+  return result.snapshot;
+}
+
 export async function waitForFrameMetrics(
   client,
   predicate,
@@ -158,6 +188,17 @@ export function assertAspectRatioStable(before, after, label, tolerance = 0.015)
       )} after=${after.aspectRatio.toFixed(4)} beforeState=${JSON.stringify(
         before,
       )} afterState=${JSON.stringify(after)}`,
+    );
+  }
+}
+
+export function assertBackingStoreCap(snapshot, label) {
+  const pixels = snapshot.canvas.width * snapshot.canvas.height;
+  if (pixels > maxWorkflowGraphBackingStorePixels) {
+    throw new Error(
+      `${label} backing store ${pixels} exceeds ${maxWorkflowGraphBackingStorePixels}: ${JSON.stringify(
+        snapshot.canvas,
+      )}`,
     );
   }
 }

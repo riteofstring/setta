@@ -11,16 +11,10 @@ import (
 )
 
 type WorkspaceSession struct {
-	SelectedWorkspaceID     string                       `json:"selectedWorkspaceId"`
-	ActiveWorkspaces        []workspace.WorkspaceSummary `json:"activeWorkspaces"`
-	RecentWorkspaces        []workspace.WorkspaceSummary `json:"recentWorkspaces"`
-	WorkspaceAvailabilities []WorkspaceAvailability      `json:"workspaceAvailabilities"`
-}
-
-type WorkspaceAvailability struct {
-	WorkspaceID       string `json:"workspaceId"`
-	Available         bool   `json:"available"`
-	UnavailableReason string `json:"unavailableReason"`
+	SelectedWorkspaceID                  string                       `json:"selectedWorkspaceId"`
+	SelectedConversationIDsByWorkspaceID map[string]string            `json:"-"`
+	ActiveWorkspaces                     []workspace.WorkspaceSummary `json:"activeWorkspaces"`
+	RecentWorkspaces                     []workspace.WorkspaceSummary `json:"recentWorkspaces"`
 }
 
 func FromAppState(state appstate.State) (WorkspaceSession, error) {
@@ -39,9 +33,10 @@ func FromAppState(state appstate.State) (WorkspaceSession, error) {
 	}
 
 	session := WorkspaceSession{
-		SelectedWorkspaceID: state.SelectedWorkspaceID,
-		ActiveWorkspaces:    activeWorkspaces,
-		RecentWorkspaces:    cloneSummaries(state.RecentWorkspaces),
+		SelectedWorkspaceID:                  state.SelectedWorkspaceID,
+		SelectedConversationIDsByWorkspaceID: cloneSelectedConversationIDs(state.SelectedConversationIDsByWorkspaceID),
+		ActiveWorkspaces:                     activeWorkspaces,
+		RecentWorkspaces:                     cloneSummaries(state.RecentWorkspaces),
 	}
 	if err := sortRecent(session.RecentWorkspaces); err != nil {
 		return WorkspaceSession{}, err
@@ -51,10 +46,10 @@ func FromAppState(state appstate.State) (WorkspaceSession, error) {
 
 func (session WorkspaceSession) Clone() WorkspaceSession {
 	return WorkspaceSession{
-		SelectedWorkspaceID:     session.SelectedWorkspaceID,
-		ActiveWorkspaces:        cloneSummaries(session.ActiveWorkspaces),
-		RecentWorkspaces:        cloneSummaries(session.RecentWorkspaces),
-		WorkspaceAvailabilities: cloneAvailabilities(session.WorkspaceAvailabilities),
+		SelectedWorkspaceID:                  session.SelectedWorkspaceID,
+		SelectedConversationIDsByWorkspaceID: cloneSelectedConversationIDs(session.SelectedConversationIDsByWorkspaceID),
+		ActiveWorkspaces:                     cloneSummaries(session.ActiveWorkspaces),
+		RecentWorkspaces:                     cloneSummaries(session.RecentWorkspaces),
 	}
 }
 
@@ -64,10 +59,11 @@ func (session WorkspaceSession) AppState() appstate.State {
 		activeIDs = append(activeIDs, summary.ID)
 	}
 	return appstate.State{
-		SchemaVersion:       appstate.SchemaVersion,
-		SelectedWorkspaceID: session.SelectedWorkspaceID,
-		ActiveWorkspaceIDs:  activeIDs,
-		RecentWorkspaces:    cloneSummaries(session.RecentWorkspaces),
+		SchemaVersion:                        appstate.SchemaVersion,
+		SelectedWorkspaceID:                  session.SelectedWorkspaceID,
+		SelectedConversationIDsByWorkspaceID: cloneSelectedConversationIDs(session.SelectedConversationIDsByWorkspaceID),
+		ActiveWorkspaceIDs:                   activeIDs,
+		RecentWorkspaces:                     cloneSummaries(session.RecentWorkspaces),
 	}
 }
 
@@ -110,32 +106,6 @@ func (session WorkspaceSession) Workspace(id string) (workspace.WorkspaceSummary
 		}
 	}
 	return workspace.WorkspaceSummary{}, fmt.Errorf("workspace not found: %s", id)
-}
-
-func (session WorkspaceSession) Availability(id string) (WorkspaceAvailability, error) {
-	if id == "" {
-		return WorkspaceAvailability{}, errors.New("workspace id is required")
-	}
-	for _, availability := range session.WorkspaceAvailabilities {
-		if availability.WorkspaceID == id {
-			return availability, nil
-		}
-	}
-	return WorkspaceAvailability{}, fmt.Errorf("workspace availability not found: %s", id)
-}
-
-func (session WorkspaceSession) AvailableActiveWorkspaceIDs() ([]string, error) {
-	ids := make([]string, 0, len(session.ActiveWorkspaces))
-	for _, summary := range session.ActiveWorkspaces {
-		availability, err := session.Availability(summary.ID)
-		if err != nil {
-			return nil, err
-		}
-		if availability.Available {
-			ids = append(ids, summary.ID)
-		}
-	}
-	return ids, nil
 }
 
 func (session *WorkspaceSession) Close(id string) error {
@@ -203,47 +173,32 @@ func (session *WorkspaceSession) RemoveRecent(id string) error {
 	for index, summary := range session.RecentWorkspaces {
 		if summary.ID == id {
 			session.RecentWorkspaces = append(session.RecentWorkspaces[:index], session.RecentWorkspaces[index+1:]...)
-			session.removeAvailability(id)
+			delete(session.SelectedConversationIDsByWorkspaceID, id)
 			return nil
 		}
 	}
 	return fmt.Errorf("recent workspace not found: %s", id)
 }
 
-func (session *WorkspaceSession) setAvailability(next WorkspaceAvailability) {
-	for index, availability := range session.WorkspaceAvailabilities {
-		if availability.WorkspaceID == next.WorkspaceID {
-			session.WorkspaceAvailabilities[index] = next
-			return
-		}
+func (session *WorkspaceSession) SetSelectedConversation(workspaceID string, conversationID string) error {
+	if workspaceID == "" {
+		return errors.New("workspace id is required")
 	}
-	session.WorkspaceAvailabilities = append(session.WorkspaceAvailabilities, next)
-}
-
-func (session *WorkspaceSession) removeAvailability(workspaceID string) {
-	for index, availability := range session.WorkspaceAvailabilities {
-		if availability.WorkspaceID == workspaceID {
-			session.WorkspaceAvailabilities = append(
-				session.WorkspaceAvailabilities[:index],
-				session.WorkspaceAvailabilities[index+1:]...,
-			)
-			return
-		}
+	if conversationID == "" {
+		return errors.New("conversation id is required")
 	}
-}
-
-func (session *WorkspaceSession) Relocate(summary workspace.WorkspaceSummary) error {
-	if err := validateSummary(summary); err != nil {
+	if _, err := session.Workspace(workspaceID); err != nil {
 		return err
 	}
-	if _, err := session.Workspace(summary.ID); err != nil {
-		return err
+	if session.SelectedConversationIDsByWorkspaceID == nil {
+		session.SelectedConversationIDsByWorkspaceID = map[string]string{}
 	}
-	if index := activeIndex(session.ActiveWorkspaces, summary.ID); index >= 0 {
-		session.ActiveWorkspaces[index] = summary
-	}
-	upsertRecent(&session.RecentWorkspaces, summary)
-	return sortRecent(session.RecentWorkspaces)
+	session.SelectedConversationIDsByWorkspaceID[workspaceID] = conversationID
+	return nil
+}
+
+func (session WorkspaceSession) SelectedConversationIDs() map[string]string {
+	return cloneSelectedConversationIDs(session.SelectedConversationIDsByWorkspaceID)
 }
 
 func validateSummary(summary workspace.WorkspaceSummary) error {
@@ -303,9 +258,13 @@ func cloneSummaries(summaries []workspace.WorkspaceSummary) []workspace.Workspac
 	return append([]workspace.WorkspaceSummary{}, summaries...)
 }
 
-func cloneAvailabilities(availabilities []WorkspaceAvailability) []WorkspaceAvailability {
-	if availabilities == nil {
-		return []WorkspaceAvailability{}
+func cloneSelectedConversationIDs(values map[string]string) map[string]string {
+	if values == nil {
+		return map[string]string{}
 	}
-	return append([]WorkspaceAvailability{}, availabilities...)
+	clone := make(map[string]string, len(values))
+	for workspaceID, conversationID := range values {
+		clone[workspaceID] = conversationID
+	}
+	return clone
 }

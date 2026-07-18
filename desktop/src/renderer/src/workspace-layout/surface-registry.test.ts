@@ -1,16 +1,12 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { conversationPaletteCatalog, type ConversationPaletteID } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 
-import { claimConversationPaletteIdentity } from "../features/easy-button/conversation-palette-identity";
 import { SurfaceRegistry } from "./surface-registry";
 import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type {
   FreezeReason,
-  EasyButtonWorkspacePane,
   WorkspacePane,
-  NonEasyButtonSurfaceKind,
   PaneRenderItem,
   Rect,
   ResumeReason,
@@ -18,6 +14,7 @@ import type {
   SurfaceKind,
   SurfaceSnapshotFreshness,
   SurfaceSnapshotMetricsSink,
+  TerminalSurfaceStats,
   ViewportChangeReason,
 } from "./types";
 
@@ -74,11 +71,11 @@ describe("workspace surface registry", () => {
   });
 
   test.each([
-    "easy-button",
-    "empty-frame",
-    "fake-dom",
+    "chat-dom",
     "fake-heavy-dom",
-    "settings-dom",
+    "git-graph",
+    "terminal",
+    "workflow-graph",
   ] satisfies SurfaceKind[])(
     "keeps %s adapters mounted for frozen runtime handoff",
     (surfaceKind) => {
@@ -115,7 +112,7 @@ describe("workspace surface registry", () => {
   });
 
   test("defers heavy adapter viewport updates during active resize and commits final bounds", () => {
-    const pane = fakePane("fake-heavy-dom");
+    const pane = fakePane("terminal");
     const recordingAdapter = new RecordingSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => recordingAdapter);
     const host = createFakeHost();
@@ -130,18 +127,20 @@ describe("workspace surface registry", () => {
 
     expect(activeStats).toMatchObject({
       deferredHeavyViewportWrites: 1,
+      terminalViewportWrites: 0,
     });
     expect(settledStats).toMatchObject({
       deferredHeavyViewportWrites: 0,
       heavyViewportWrites: 1,
+      terminalViewportWrites: 1,
     });
     expect(recordingAdapter.events).toContain("viewport:mount:160x120");
     expect(recordingAdapter.events).not.toContain("viewport:frame:220x180");
     expect(recordingAdapter.events).toContain("viewport:resize:260x210");
   });
 
-  test("keeps lightweight DOM viewport current during active resize", () => {
-    const pane = fakePane("fake-dom");
+  test("keeps real chat viewport current during active resize", () => {
+    const pane = fakePane("chat-dom");
     const recordingAdapter = new RecordingSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => recordingAdapter);
     const host = createFakeHost();
@@ -311,6 +310,40 @@ describe("workspace surface registry", () => {
     expect(browserAdapter.events).toContain("viewport:mount:240x120");
   });
 
+  test("does not rescan released adapters for cached activity metrics", () => {
+    const terminalPane = fakePane("terminal");
+    const fakeDomPane = fakePane("fake-dom", 1);
+    const terminalAdapter = new RecordingSurfaceAdapter(
+      terminalPane,
+      fakeTerminalStats({ dirtyRows: 7, liveTerminalRendererCount: 1 }),
+    );
+    const fakeDomAdapter = new RecordingSurfaceAdapter(fakeDomPane);
+    const adapters = new Map([
+      [terminalPane.surfaceId, terminalAdapter],
+      [fakeDomPane.surfaceId, fakeDomAdapter],
+    ]);
+    const registry = new SurfaceRegistry(
+      [terminalPane, fakeDomPane],
+      (pane) => adapters.get(pane.surfaceId) ?? new RecordingSurfaceAdapter(pane),
+    );
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(terminalPane, "live"), { resizePhase: "idle" });
+    expect(registry.terminalStats()).toMatchObject({
+      dirtyRows: 7,
+      liveTerminalRendererCount: 1,
+    });
+    expect(terminalAdapter.statsReadCount).toBe(1);
+
+    registry.syncHost(host, renderItem(fakeDomPane, "live"), { resizePhase: "idle" });
+
+    expect(registry.terminalStats()).toMatchObject({
+      dirtyRows: 7,
+      liveTerminalRendererCount: 0,
+    });
+    expect(terminalAdapter.statsReadCount).toBe(1);
+  });
+
   test("captures live host content into the snapshot adapter for non-transition handoff", () => {
     const pane = fakePane("fake-dom");
     const adapter = new TexturedSurfaceAdapter(pane);
@@ -333,96 +366,8 @@ describe("workspace surface registry", () => {
     expect(capturedPane.textContent).toBe("live pane texture");
   });
 
-  test("keeps conversation palette identity on snapshot handoff", () => {
-    const pane = {
-      ...fakePane("easy-button"),
-      easyButtonConfig: { conversationId: "conversation_alpha" },
-    };
-    const adapter = new ConversationTexturedSurfaceAdapter(pane);
-    const registry = new SurfaceRegistry([pane], () => adapter);
-    const host = createFakeHost();
-
-    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
-    registry.syncHost(host, renderItem(pane, "snapshot"), { resizePhase: "idle" });
-
-    expect(host.dataset.conversationId).toBe("conversation_alpha");
-    expect(host.dataset.conversationPalette).toBe("sky");
-    expect(host.classList.contains("conversation-presentation-identity")).toBe(true);
-    expect(host.style.getPropertyValue("--conversation-accent-dark")).toBe(
-      conversationPaletteCatalog.sky.dark.conversationAccent,
-    );
-
-    registry.releaseHost(host);
-
-    expect(host.dataset.conversationId).toBeUndefined();
-    expect(host.dataset.conversationPalette).toBeUndefined();
-    expect(host.classList.contains("conversation-presentation-identity")).toBe(false);
-    expect(host.style.getPropertyValue("--conversation-accent-dark")).toBe("");
-  });
-
-  test("clears a stale conversation palette during snapshot handoff", () => {
-    const pane = {
-      ...fakePane("easy-button"),
-      easyButtonConfig: { conversationId: "conversation_alpha" },
-    };
-    const adapter = new ConversationTexturedSurfaceAdapter(pane);
-    const registry = new SurfaceRegistry([pane], () => adapter);
-    const host = createFakeHost();
-
-    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
-    const releaseClearedIdentity = claimConversationPaletteIdentity(host, null);
-    registry.syncHost(host, renderItem(pane, "snapshot"), { resizePhase: "idle" });
-
-    expect(host.dataset.conversationId).toBeUndefined();
-    expect(host.dataset.conversationPalette).toBeUndefined();
-    expect(host.classList.contains("conversation-presentation-identity")).toBe(false);
-    expect(host.style.getPropertyValue("--conversation-accent-dark")).toBe("");
-
-    releaseClearedIdentity();
-  });
-
-  test("does not copy another conversation identity from a recycled snapshot host", () => {
-    const alpha = {
-      ...fakePane("easy-button"),
-      easyButtonConfig: { conversationId: "conversation_alpha" },
-      title: "Alpha pane",
-    };
-    const beta = {
-      ...fakePane("easy-button", 1),
-      easyButtonConfig: { conversationId: "conversation_beta" },
-      title: "Beta pane",
-    };
-    const alphaAdapter = new ConversationTexturedSurfaceAdapter(alpha, "conversation_alpha", "sky");
-    const betaAdapter = new ConversationTexturedSurfaceAdapter(beta, "conversation_beta", "blue");
-    const adapters = new Map([
-      [alpha.surfaceId, alphaAdapter],
-      [beta.surfaceId, betaAdapter],
-    ]);
-    const registry = new SurfaceRegistry(
-      [alpha, beta],
-      (pane) => adapters.get(pane.surfaceId) ?? new RecordingSurfaceAdapter(pane),
-    );
-    const betaHost = createFakeHost();
-    const recycledHost = createFakeHost();
-
-    registry.syncHost(betaHost, renderItem(beta, "live"), { resizePhase: "idle" });
-    registry.releaseHost(betaHost);
-    registry.syncHost(recycledHost, renderItem(alpha, "live"), { resizePhase: "idle" });
-    registry.syncHost(recycledHost, renderItem(beta, "snapshot"), { resizePhase: "idle" });
-
-    expect(recycledHost.dataset.conversationId).toBe("conversation_beta");
-    expect(recycledHost.dataset.conversationPalette).toBe("blue");
-    expect(recycledHost.style.getPropertyValue("--conversation-accent-dark")).toBe(
-      conversationPaletteCatalog.blue.dark.conversationAccent,
-    );
-    const snapshotContent = requireFakeChild(fakeChildrenOf(recycledHost), 0);
-    const snapshotLabel = requireFakeChild(snapshotContent.children, 0);
-    expect(snapshotContent.className).toBe("workspace-pane-content workspace-snapshot-surface");
-    expect(snapshotLabel.textContent).toBe("Beta pane");
-  });
-
   test("preserves nested scroller offsets in DOM pane snapshots", () => {
-    const pane = fakePane("fake-heavy-dom");
+    const pane = fakePane("chat-dom");
     const adapter = new ScrollableTexturedSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => adapter);
     const host = createFakeHost();
@@ -443,7 +388,7 @@ describe("workspace surface registry", () => {
     expect(capturedScroller.dataset.snapshotScroller).toBe("true");
     expect(capturedScroller.scrollTop).toBe(84);
     expect(capturedScroller.scrollLeft).toBe(13);
-    expect(capturedScroller.textContent).toBe("visible pane window");
+    expect(capturedScroller.textContent).toBe("visible transcript window");
     expect(capturedPane.dataset.snapshotWidth).toBe("640");
     expect(capturedPane.dataset.snapshotHeight).toBe("480");
     expect(capturedPane.style.getPropertyValue("width")).toBe("640px");
@@ -452,7 +397,7 @@ describe("workspace surface registry", () => {
   });
 
   test("does not start texture capture during overview handoff", () => {
-    const pane = fakePane("fake-heavy-dom");
+    const pane = fakePane("chat-dom");
     const adapter = new ScrollableTexturedSurfaceAdapter(pane);
     const metrics = new RecordingSnapshotMetrics();
     const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
@@ -472,7 +417,7 @@ describe("workspace surface registry", () => {
   });
 
   test("freezes live DOM panes during overview without mounting snapshot content", () => {
-    const pane = fakePane("fake-heavy-dom");
+    const pane = fakePane("chat-dom");
     const adapter = new ScrollableTexturedSurfaceAdapter(pane);
     const metrics = new RecordingSnapshotMetrics();
     const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
@@ -492,14 +437,14 @@ describe("workspace surface registry", () => {
     expect(adapter.events.filter((event) => event === "mount:surface")).toHaveLength(1);
     expect(adapter.events).toContain("freeze:runtime-policy");
     expect(adapter.events).not.toContain("unmount");
-    expect(host.dataset.surfaceKind).toBe("fake-heavy-dom");
+    expect(host.dataset.surfaceKind).toBe("chat-dom");
     expect(liveSurface.className).toBe("workspace-react-dom-surface");
     expect(metrics.captureRequests).toEqual([]);
     expect(metrics.textureUses).toEqual([]);
   });
 
   test("keeps the prior snapshot texture during overview handoff without recapturing", () => {
-    const pane = fakePane("fake-heavy-dom");
+    const pane = fakePane("chat-dom");
     const adapter = new ScrollableTexturedSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => adapter);
     const host = createFakeHost();
@@ -549,7 +494,7 @@ describe("workspace surface registry", () => {
       },
     });
     try {
-      const pane = fakePane("fake-heavy-dom");
+      const pane = fakePane("chat-dom");
       const adapter = new ScrollableTexturedSurfaceAdapter(pane);
       const registry = new SurfaceRegistry([pane], () => adapter);
       const host = createFakeHost();
@@ -601,7 +546,7 @@ describe("workspace surface registry", () => {
       },
     });
     try {
-      const pane = fakePane("fake-heavy-dom");
+      const pane = fakePane("chat-dom");
       const adapter = new ScrollableTexturedSurfaceAdapter(pane);
       const metrics = new RecordingSnapshotMetrics();
       const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
@@ -617,7 +562,7 @@ describe("workspace surface registry", () => {
     }
   });
 
-  test.each(["easy-button", "fake-heavy-dom"] satisfies SurfaceKind[])(
+  test.each(["terminal", "workflow-graph"] satisfies SurfaceKind[])(
     "prewarms bitmap snapshots for %s panes while idle",
     (surfaceKind) => {
       const captureRendererRegion = vi.fn().mockResolvedValue({
@@ -670,7 +615,7 @@ describe("workspace surface registry", () => {
       },
     });
     try {
-      const pane = fakePane("fake-heavy-dom");
+      const pane = fakePane("chat-dom");
       const adapter = new ScrollableTexturedSurfaceAdapter(pane);
       const metrics = new RecordingSnapshotMetrics();
       const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
@@ -704,7 +649,7 @@ describe("workspace surface registry", () => {
       },
     });
     try {
-      const pane = fakePane("fake-heavy-dom");
+      const pane = fakePane("chat-dom");
       const adapter = new ScrollableTexturedSurfaceAdapter(pane);
       const metrics = new RecordingSnapshotMetrics();
       const registry = new SurfaceRegistry([pane], () => adapter, { metrics });
@@ -739,7 +684,7 @@ describe("workspace surface registry", () => {
       },
     });
     try {
-      const pane = fakePane("fake-heavy-dom");
+      const pane = fakePane("chat-dom");
       const adapter = new ScrollableTexturedSurfaceAdapter(pane);
       const registry = new SurfaceRegistry([pane], () => adapter);
       const host = createFakeHost();
@@ -786,7 +731,7 @@ describe("workspace surface registry", () => {
       },
     });
     try {
-      const pane = fakePane("fake-heavy-dom");
+      const pane = fakePane("chat-dom");
       const adapter = new ScrollableTexturedSurfaceAdapter(pane);
       const registry = new SurfaceRegistry([pane], () => adapter);
       const host = createFakeHost();
@@ -841,7 +786,7 @@ describe("workspace surface registry", () => {
       },
     });
     try {
-      const pane = fakePane("fake-heavy-dom");
+      const pane = fakePane("chat-dom");
       const adapter = new ScrollableTexturedSurfaceAdapter(pane);
       const registry = new SurfaceRegistry([pane], () => adapter);
       const host = createFakeHost();
@@ -879,8 +824,12 @@ class RecordingSurfaceAdapter implements SurfaceAdapter {
   events: string[] = [];
   readonly kind: SurfaceKind;
   readonly surfaceId: string;
+  statsReadCount = 0;
 
-  constructor(pane: WorkspacePane) {
+  constructor(
+    pane: WorkspacePane,
+    private readonly terminalStats: TerminalSurfaceStats | null = null,
+  ) {
     this.kind = pane.surfaceKind;
     this.surfaceId = pane.surfaceId;
   }
@@ -914,6 +863,11 @@ class RecordingSurfaceAdapter implements SurfaceAdapter {
     this.events.push(`resume:${reason}`);
   }
 
+  getTerminalStats(): TerminalSurfaceStats {
+    this.statsReadCount += 1;
+    return this.terminalStats ?? fakeTerminalStats();
+  }
+
   destroy(): void {
     this.events.push("destroy");
   }
@@ -945,33 +899,6 @@ class TexturedSurfaceAdapter extends RecordingSurfaceAdapter {
   }
 }
 
-class ConversationTexturedSurfaceAdapter extends TexturedSurfaceAdapter {
-  private releasePresentationIdentity: (() => void) | null = null;
-
-  constructor(
-    pane: WorkspacePane,
-    private readonly conversationId = "conversation_alpha",
-    private readonly paletteId: ConversationPaletteID = "sky",
-  ) {
-    super(pane);
-  }
-
-  override mount(host: HTMLElement): void {
-    super.mount(host);
-    host.dataset.surfaceId = this.surfaceId;
-    this.releasePresentationIdentity = claimConversationPaletteIdentity(host, {
-      conversationId: this.conversationId,
-      paletteId: this.paletteId,
-    });
-  }
-
-  override unmount(): void {
-    this.releasePresentationIdentity?.();
-    this.releasePresentationIdentity = null;
-    super.unmount();
-  }
-}
-
 class ScrollableTexturedSurfaceAdapter extends RecordingSurfaceAdapter {
   override mount(host: HTMLElement): void {
     super.mount(host);
@@ -979,10 +906,10 @@ class ScrollableTexturedSurfaceAdapter extends RecordingSurfaceAdapter {
     surface.className = "workspace-react-dom-surface";
     setFakeRect(surface as unknown as HTMLElement, { height: 480, width: 640, x: 0, y: 0 });
     const scroller = host.ownerDocument.createElement("div");
-    scroller.className = "workspace-test-scroller";
+    scroller.className = "chat-transcript-scroller";
     scroller.scrollLeft = 13;
     scroller.scrollTop = 84;
-    scroller.textContent = "visible pane window";
+    scroller.textContent = "visible transcript window";
     surface.append(scroller);
     host.append(surface);
   }
@@ -1012,32 +939,32 @@ function requireFakeChild(children: FakeChildNode[], index: number): FakeChildNo
   return child;
 }
 
-function fakePane(surfaceKind: "easy-button", sequence?: number): EasyButtonWorkspacePane;
-function fakePane(
-  surfaceKind: NonEasyButtonSurfaceKind,
-  sequence?: number,
-): Exclude<WorkspacePane, { surfaceKind: "easy-button" }>;
-function fakePane(surfaceKind: SurfaceKind, sequence?: number): WorkspacePane;
+function fakeTerminalStats(overrides: Partial<TerminalSurfaceStats> = {}): TerminalSurfaceStats {
+  return {
+    dirtyRows: 0,
+    droppedOutputChunks: 0,
+    liveTerminalRendererCount: 0,
+    pendingOutputChunks: 0,
+    renderedRows: 0,
+    scrollbackRows: 0,
+    ...overrides,
+  };
+}
+
 function fakePane(surfaceKind: SurfaceKind, sequence = 0): WorkspacePane {
   const suffix = sequence === 0 ? "" : `-${sequence}`;
-  const fields = {
+  return {
     columnId: `column${suffix}`,
     heat: 42,
     paneId: `pane${suffix}`,
     sequence,
     subtitle: "test",
     surfaceId: `surface${suffix}`,
+    surfaceKind,
     title: "Pane",
-    tone: "cyan" as const,
+    tone: "cyan",
     weight: 1,
   };
-  return surfaceKind === "easy-button"
-    ? {
-        ...fields,
-        easyButtonConfig: { conversationId: `conversation${suffix || "_test"}` },
-        surfaceKind,
-      }
-    : { ...fields, surfaceKind };
 }
 
 function renderItem(

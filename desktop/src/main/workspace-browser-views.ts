@@ -2,7 +2,6 @@ import { BrowserWindow, View, WebContentsView } from "electron";
 import type { IpcMainEvent, Rectangle } from "electron";
 
 import { ipcEvents } from "@shared/ipc";
-import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
   WorkspaceBrowserViewBatch,
   WorkspaceBrowserViewKey,
@@ -725,7 +724,19 @@ function isArrowKey(key: string): key is WorkspaceBrowserViewKey {
   return key === "ArrowDown" || key === "ArrowLeft" || key === "ArrowRight" || key === "ArrowUp";
 }
 
-const browserViewCommandKeys = new Set<string>(workspaceBrowserViewKeyValues);
+const browserViewCommandKeys = new Set<string>([
+  "Backspace",
+  "Delete",
+  "Enter",
+  "b",
+  "c",
+  "g",
+  "n",
+  "o",
+  "s",
+  "t",
+  "v",
+]);
 
 function isBrowserViewCommandKey(key: string): key is WorkspaceBrowserViewKey {
   return browserViewCommandKeys.has(key);
@@ -766,9 +777,6 @@ function shouldForwardWorkspaceBrowserViewKey(
   }
   if (key === "Enter" && workspaceModifier) {
     return true;
-  }
-  if (key === "k") {
-    return !input.alt && !input.shift && (input.meta || Boolean(input.control));
   }
   return input.meta && isBrowserViewCommandKey(key);
 }

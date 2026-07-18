@@ -65,8 +65,10 @@ function useCodexAccountState() {
   }, [load]);
 
   useEffect(() => {
-    return window.setta.codexAccount.onChanged(() => {
-      void load();
+    return window.setta.chat.onEvent((event) => {
+      if (event.type === "codex.account.changed") {
+        void load();
+      }
     });
   }, [load]);
 

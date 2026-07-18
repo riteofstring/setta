@@ -145,51 +145,6 @@ func (manager *Manager) OpenLocal(rootPath string) (WorkspaceSummary, WorkspaceS
 	}, state, nil
 }
 
-// Relocate updates an existing workspace identity to point at a new local root.
-// The workspace id intentionally remains stable so app-data-owned conversations,
-// layout, and presentation state continue to belong to the same workspace.
-func (manager *Manager) Relocate(id string, rootPath string) (WorkspaceSummary, WorkspaceState, error) {
-	if id == "" {
-		return WorkspaceSummary{}, WorkspaceState{}, errors.New("workspace id is required")
-	}
-	rootPath, err := validateRootPath(rootPath)
-	if err != nil {
-		return WorkspaceSummary{}, WorkspaceState{}, err
-	}
-
-	now := timestamp(manager.now())
-	statePath := StateFilePath(manager.appDataDir, id)
-	state, exists, err := loadState(statePath)
-	if err != nil {
-		return WorkspaceSummary{}, WorkspaceState{}, err
-	}
-	if !exists {
-		state = newState(id, rootPath, now)
-	} else {
-		if state.ID != id {
-			return WorkspaceSummary{}, WorkspaceState{}, corruptStateErrorf(
-				statePath,
-				"id %s does not match requested workspace id %s",
-				state.ID,
-				id,
-			)
-		}
-		state.RootPath = rootPath
-		state.DisplayName = displayName(rootPath)
-		state.UpdatedAt = now
-	}
-
-	if err := writeState(statePath, state); err != nil {
-		return WorkspaceSummary{}, WorkspaceState{}, err
-	}
-	return WorkspaceSummary{
-		ID:           state.ID,
-		RootPath:     state.RootPath,
-		DisplayName:  state.DisplayName,
-		LastOpenedAt: now,
-	}, state, nil
-}
-
 func newState(id string, rootPath string, now string) WorkspaceState {
 	return WorkspaceState{
 		SchemaVersion: SchemaVersion,

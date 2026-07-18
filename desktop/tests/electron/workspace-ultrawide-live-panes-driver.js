@@ -88,13 +88,29 @@
     const style = getComputedStyle(host);
     return {
       focused: host.dataset.focused === "true",
+      hasTerminalViewport: Boolean(host.querySelector('[data-terminal-viewport="true"]')),
+      hasWorkflowGraphHost: Boolean(host.querySelector('[data-testid="workflow-graph"]')),
+      hasWorkflowGraphSurface: Boolean(
+        host.querySelector('[data-testid="workspace-workflow-graph-surface"]'),
+      ),
       paneId: host.dataset.paneId ?? "",
       pointerEvents: style.pointerEvents,
       rect,
       runtimeState: host.dataset.runtimeState ?? "",
       surfaceId: host.dataset.surfaceId ?? "",
       surfaceKind: host.dataset.surfaceKind ?? "",
+      terminalSessionId: host.dataset.terminalSessionId ?? "",
+      terminalStatus: terminalStatus(host),
     };
+  }
+
+  function terminalStatus(host) {
+    return (
+      host.dataset.terminalStatusText ??
+      host.dataset.terminalStatus ??
+      host.querySelector('[data-terminal-status="true"]')?.textContent?.trim() ??
+      ""
+    );
   }
 
   function paneResizeHandles() {

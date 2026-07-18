@@ -42,6 +42,9 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
+    extraEnv: {
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+    },
     fixture,
     visible: options.visible,
   });
@@ -194,10 +197,10 @@ function layoutWithoutSettings(workspaceId) {
         columnId: "workspace_column_0",
         paneId: "workspace_pane_0",
         sequence: 0,
-        subtitle: "empty workspace pane",
+        subtitle: "workspace chat",
         surfaceId: "workspace_surface_0",
-        surfaceKind: "empty-frame",
-        title: "Empty Frame 1",
+        surfaceKind: "chat-dom",
+        title: "Chat",
         tone: "cyan",
         weight: 1.6,
       }),
@@ -205,10 +208,10 @@ function layoutWithoutSettings(workspaceId) {
         columnId: "workspace_column_1",
         paneId: "workspace_pane_1",
         sequence: 1,
-        subtitle: "empty workspace pane",
+        subtitle: "workspace command surface",
         surfaceId: "workspace_surface_1",
-        surfaceKind: "empty-frame",
-        title: "Empty Frame 2",
+        surfaceKind: "terminal",
+        title: "Terminal",
         tone: "green",
         weight: 1,
       }),
@@ -234,7 +237,8 @@ function storedColumn(columnId, index, paneIds) {
 function storedPane(pane) {
   return {
     ...pane,
-    easyButtonConfig: null,
     heat: (pane.sequence * 37) % 100,
+    terminalConfig: null,
+    workflowNodeDetailsConfig: null,
   };
 }
