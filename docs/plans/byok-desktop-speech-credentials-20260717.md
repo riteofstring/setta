@@ -36,7 +36,7 @@ master/narrator selection controls remain usable while OpenAI voice is
 disconnected, with renderer coverage for the not-configured provider state.
 When a remote runtime is active, the Voices card now separately labels the Local
 desktop credential and the active remote runtime's own voice status. Phase 4
-has begun: the registered deterministic `global-speech-session` Electron
+is complete: the registered deterministic `global-speech-session` Electron
 workflow now provisions the fake OpenAI speech key through Settings → Voices,
 with `OPENAI_API_KEY` removed from the Electron child environment, production
 renderer/preload/main/authenticated HTTP/provider/vault paths exercised,
@@ -67,8 +67,10 @@ superseded Phase 0 environment-key baseline workflow was removed from the
 active Electron manifest, remaining fake-provider Electron speech workflows
 now provision through Settings → Voices with `OPENAI_API_KEY` stripped from the
 child environment, the live runner documentation describes runner-side key
-resolution without desktop env provisioning, and `setta serve` plus live
-test-runner credential coverage remains intact.
+resolution without desktop env provisioning, README dogfood instructions now
+make the unprefixed `./scripts/prod_record_desktop_session.sh --build`
+production command canonical, and `setta serve` plus live test-runner
+credential coverage remains intact.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -703,8 +705,11 @@ environment-based desktop product behavior.
       (`.recordings/topic-conversation-crash-recovery/20260718T131421291Z`),
       and `easy-button-presentation-recovery-phase0`
       (`.recordings/easy-button-presentation-recovery-phase0/20260718T131440289Z`).
-- [ ] Update README dogfood instructions so the unprefixed production command is
-      canonical.
+- [x] Update README dogfood instructions so the unprefixed production command is
+      canonical. `README.md` now names
+      `./scripts/prod_record_desktop_session.sh --build` for production desktop
+      dogfood recordings and explicitly routes OpenAI voice setup through
+      Settings → Voices instead of an `OPENAI_API_KEY`-prefixed desktop launch.
 
 ## Focused Verification
 

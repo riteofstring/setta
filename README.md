@@ -36,8 +36,12 @@ passed. Set `SETTA_APP_DATA_DIR` when you want a separate dogfood profile.
 Record a production desktop dogfood session:
 
 ```sh
-./scripts/prod_record_desktop_session.sh
+./scripts/prod_record_desktop_session.sh --build
 ```
+
+Configure OpenAI voice inside the app through Settings -> Voices. Do not prefix
+the desktop launch with `OPENAI_API_KEY`; the production desktop backend does
+not read inherited OpenAI speech credentials.
 
 To reset the default global app state:
 
