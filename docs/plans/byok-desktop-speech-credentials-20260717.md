@@ -2,75 +2,10 @@
 
 **Date:** 2026-07-17
 
-**Status:** In progress — Phase 0 click-to-local-recording independence and
-the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 and current local
-attempts. Phase 1 is complete: desktop startup API-key ownership has been
-removed from the Electron-spawned backend, provider endpoint configuration is
-isolated from server-startup credentials, the explicit
-`electron_vault | server_startup` credential-owner policy is declared, the
-synchronized credential-aware OpenAI provider controller and service-level
-credential validation/load/clear/status paths are in place, authenticated
-bounded desktop credential HTTP endpoints are registered, `server_startup`
-runtimes reject desktop credential management with a typed safe error, Go-owned
-TypeScript backend contracts have been regenerated at protocol version 63, and
-desktop behavior tests now assert that inherited `OPENAI_API_KEY` is not read.
-Phase 2 is complete: Electron main now has the injected speech credential vault
-abstraction, a production `safeStorage` protection adapter, strict versioned
-ciphertext persistence, atomic replacement/removal, and typed corrupt-state
-handling. The main-process speech credential coordinator is now in place with
-explicit save/remove transaction recovery paths, ciphertext-only rollback
-snapshots, lifecycle-driven startup/replacement restoration into the
-authenticated local runtime, typed read/save/remove IPC operations and
-credential-state push events, whole-operation recording redaction for
-credential saves, and local-runtime-only coordinator routing that does not use
-the selected active runtime. Phase 3 is complete: Settings → Voices now shows
-the OpenAI voice connection card backed by the typed credential IPC state, with
-save/verify, replace, disconnect, retry, secure-storage-unavailable, corrupt,
-and failure presentations plus local-only/remote-runtime boundary copy and no
-rendered saved-key fragment. The remaining local-desktop voice availability and
-failure copy no longer tells users to configure voice through environment
-variables, and unavailable local microphone controls now route to the Voices
-credential card through typed Settings navigation. Voice catalog and
-master/narrator selection controls remain usable while OpenAI voice is
-disconnected, with renderer coverage for the not-configured provider state.
-When a remote runtime is active, the Voices card now separately labels the Local
-desktop credential and the active remote runtime's own voice status. Phase 4
-is complete: the registered deterministic `global-speech-session` Electron
-workflow now provisions the fake OpenAI speech key through Settings → Voices,
-with `OPENAI_API_KEY` removed from the Electron child environment, production
-renderer/preload/main/authenticated HTTP/provider/vault paths exercised,
-restart restoration proven, credential endpoint recording redacted, and
-artifact plus temporary app-data scans covering the fake long-lived and
-ephemeral secret markers. The same workflow now covers initial setup, rejected
-candidate preservation and rollback to the prior credential, successful
-replacement, renderer reload, local-versus-remote runtime isolation,
-app/backend restart restoration into a replacement local backend instance,
-disconnect, and removed-after-restart persistence. The complete instant-voice
-capture/routing/playback Phase 4 workflow now launches the local
-Electron/backend process without `OPENAI_API_KEY`, saves the fake credential
-through Settings → Voices, refreshes renderer capture capabilities from typed
-credential events, exercises the immediate capture/routing/playback path using
-the stored credential, and scans recordings plus temporary app data for fake
-long-lived and ephemeral secret markers. The registered live OpenAI workflow
-now resolves the test runner's Platform key outside the app process, launches
-the Electron child without `OPENAI_API_KEY`, saves the key through Settings →
-Voices, proves live Realtime transcription, restarts Electron/backend with the
-same temporary app data, restores the credential from the vault, and proves a
-second live Realtime transcription session. The finalized artifact privacy
-scanner now runs after workflow shutdown on success and failure, covers
-temporary app/workspace state before cleanup, supports root-specific marker
-sets so runtime device tokens stay artifact-only, and is wired through the
-deterministic global-speech, instant-voice Phase 4, and live OpenAI workflows.
-The obsolete desktop credential-environment cleanup is complete: the
-superseded Phase 0 environment-key baseline workflow was removed from the
-active Electron manifest, remaining fake-provider Electron speech workflows
-now provision through Settings → Voices with `OPENAI_API_KEY` stripped from the
-child environment, the live runner documentation describes runner-side key
-resolution without desktop env provisioning, README dogfood instructions now
-make the unprefixed `./scripts/prod_record_desktop_session.sh --build`
-production command canonical, and `setta serve` plus live test-runner
-credential coverage remains intact.
+**Status:** Implementation complete. Local macOS `safeStorage` behavior and all
+deterministic credential-vault policies are verified. Actual Windows and Linux
+host results remain an external pre-release gate executed by the checked-in
+GitHub Actions workflow; they are not an implementation-loop blocker.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -600,16 +535,20 @@ environment-based desktop product behavior.
 - [x] Record the pinned Electron `safeStorage` API contract and local macOS
       probe. Recorded in
       `docs/reports/byok-desktop-speech-safe-storage-20260718.md`.
-- [ ] Confirm `safeStorage` behavior on remaining supported desktop platforms,
-      including the actual Linux backend and the failure presented for
-      `basic_text`. Local host-confirmation attempt recorded in
-      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`; a current
-      local recheck again found Docker unavailable and no local Windows/Linux
-      runner, so Windows and Linux host results remain pending. The latest
-      implementation pass repeated that recheck with the same result.
+- [x] Add deterministic policy coverage and a hosted platform probe for
+      Windows, Linux secret-service storage, Linux default storage, and Linux
+      `basic_text` rejection. The implementation and locally available evidence
+      are recorded in
+      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
+
+External pre-release gate: collect successful Windows and Linux artifacts from
+`.github/workflows/electron-safe-storage-platform-probe.yml` before shipping on
+those platforms. A missing hosted runner or credential is reported as an
+external blocker; local automation must not start Docker, request privileges,
+or probe credential stores to manufacture this evidence.
 
 ### Phase 1 — Mutable Go provider and generated contracts
 

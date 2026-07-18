@@ -1,42 +1,59 @@
-# BYOK Desktop Speech Credentials SafeStorage Probe
+# BYOK Desktop Speech Credentials SafeStorage Verification
 
 Date: 2026-07-18
 
 Plan: `docs/plans/byok-desktop-speech-credentials-20260717.md`
 
-## Scope
+## Outcome
 
-This records the Phase 0 safeStorage contract evidence available in this
-iteration before implementing the BYOK vault. It confirms the pinned Electron
-API surface, records a local macOS probe, and adds a repeatable probe that
-Phase 2 can reuse when validating the production adapter.
+The BYOK vault has an actual macOS `safeStorage` result, deterministic policy
+coverage for every accepted and rejected Linux backend, and a checked-in hosted
+probe for macOS, Windows, and Linux. Actual Windows and Linux workflow artifacts
+remain a pre-release gate for those platforms; they are not inferred from API
+types or deterministic tests.
 
-Setta's current desktop scripts run Electron directly from the pinned desktop
-dependency. The supported Electron runtime platforms for this check are
-`darwin`, `win32`, and `linux`.
+External runner availability is not an implementation-loop task. A local agent
+must report missing platform access as an external blocker instead of starting
+Docker Desktop, requesting privileges, probing OS credentials, or repeatedly
+committing the same blocked status.
 
-## Sources
+## Pinned API Contract
 
-- `desktop/package.json` pins Electron at `41.7.0`.
-- `desktop/node_modules/electron/electron.d.ts` exposes:
-  - `safeStorage.isEncryptionAvailable()`;
-  - `safeStorage.encryptString()` / `decryptString()`;
-  - Linux-only `safeStorage.getSelectedStorageBackend()` with
-    `basic_text`, `gnome_libsecret`, `kwallet`, `kwallet5`, `kwallet6`, and
-    `unknown`;
-  - `safeStorage.setUsePlainTextEncryption()`, which the vault must never call.
-- `desktop/tests/electron/safe-storage-platform-probe.cjs` records the actual
-  runtime values after Electron `ready`.
+`desktop/package.json` pins Electron at `41.7.0`. Its checked-in type surface
+provides:
 
-## Local Probe
+- `safeStorage.isEncryptionAvailable()`;
+- `safeStorage.encryptString()` and `safeStorage.decryptString()`;
+- Linux-only `safeStorage.getSelectedStorageBackend()` values including
+  `basic_text`, `gnome_libsecret`, `kwallet`, `kwallet5`, `kwallet6`, and
+  `unknown`; and
+- `safeStorage.setUsePlainTextEncryption()`, which Setta never calls.
 
-Command:
+The production policy is:
+
+| Platform | Acceptance policy |
+| --- | --- |
+| macOS | Require encryption availability and successful encryption/decryption. |
+| Windows | Require encryption availability and successful encryption/decryption. |
+| Linux | Accept only `gnome_libsecret`, `kwallet`, `kwallet5`, or `kwallet6`; reject `basic_text`, `unknown`, unavailable encryption, and unrecognized backend names. |
+
+## Actual macOS Probe
+
+The probe runs after Electron `ready` and verifies encryption availability,
+round-trip decryption, accepted policy, and ciphertext marker exclusion:
 
 ```sh
-desktop/node_modules/.bin/electron desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported --assert-round-trip
+desktop/node_modules/.bin/electron \
+  desktop/tests/electron/safe-storage-platform-probe.cjs \
+  --assert-byok-supported \
+  --assert-ciphertext-excludes-plaintext \
+  --assert-encryption-available true \
+  --assert-policy-reason os_backed_platform \
+  --assert-policy-status accept \
+  --assert-round-trip
 ```
 
-Result on this machine:
+Result on the implementation host:
 
 ```json
 {
@@ -59,102 +76,58 @@ Result on this machine:
 }
 ```
 
-macOS therefore satisfies the future vault requirements on this machine:
-construct after `ready`, require encryption availability, encrypt before file
-I/O, and treat operation failures as explicit secure-storage failures.
+## Deterministic Adapter Coverage
 
-## Required Platform Contract
-
-| Platform        | Current evidence                                                                                                                                          | BYOK vault policy                                                                                                                                            |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| macOS `darwin`  | Local Electron 41.7.0 probe after `ready` reports encryption available, successful round-trip, and ciphertext that does not contain the marker plaintext. | Accept when `isEncryptionAvailable()` is true; otherwise surface `secure_storage_unavailable`.                                                               |
-| Windows `win32` | Pinned Electron API has no Windows backend selector; a Windows host probe is still required.                                                              | Construct after `ready`, require `isEncryptionAvailable()`, and fail explicitly on unavailable encryption or encrypt/decrypt errors.                         |
-| Linux `linux`   | Pinned Electron API exposes the actual selected backend only after `ready` through `getSelectedStorageBackend()`; Linux host probes are still required.   | Accept only `gnome_libsecret`, `kwallet`, `kwallet5`, or `kwallet6`; reject `basic_text`, `unknown`, unavailable encryption, and unrecognized backend names. |
-
-The Linux backend is host-dependent and must be checked at runtime. The probe
-prints the actual selected backend for a Linux host. To prove the plaintext
-fallback failure path on Linux, run:
+The production adapter test is host-independent:
 
 ```sh
-desktop/node_modules/.bin/electron --password-store=basic desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported
+pnpm -C desktop exec vitest run src/main/speech-credential-vault.test.ts
 ```
 
-That command must fail with policy reason `linux_basic_text_backend` when
-Electron selects `basic_text`. The Phase 2 production adapter must present this
-as `secure_storage_unavailable`; it must not call
-`safeStorage.setUsePlainTextEncryption(true)` and must not persist ciphertext
-created under `basic_text` or `unknown`.
+Its Linux cases accept `gnome_libsecret`, `kwallet`, `kwallet5`, and `kwallet6`
+and reject `basic_text`, `unknown`, unavailable encryption, and an unrecognized
+future backend. Additional cases cover unavailable encryption, encrypt/decrypt
+failure, corrupt ciphertext, atomic replacement/removal, and file permissions.
 
-## 2026-07-18 Host Confirmation Attempt
+## Hosted Platform Probe
 
-The local machine for this iteration is macOS arm64, so it can run the
-`darwin` probe above but cannot directly execute the Windows or Linux Electron
-binaries.
+`.github/workflows/electron-safe-storage-platform-probe.yml` runs manually and
+when relevant vault, probe, dependency, plan, or report files are pushed. It
+uses the repository-pinned Electron and pnpm versions and uploads each JSON
+result with a commit-pinned artifact action.
 
-Available local cross-platform execution paths were checked:
+The matrix intentionally separates:
 
-- Docker CLI is installed (`28.0.4`), but `docker info` could not connect to
-  the Docker Desktop daemon at
-  `unix:///Users/kevin/.docker/run/docker.sock`.
-- `open -a Docker` and `docker desktop start` were attempted; Docker Desktop
-  reported that it was already running, but the daemon socket still did not
-  become available during a bounded wait.
-- `podman`, `colima`, `lima`, `qemu-system-x86_64`, `qemu-aarch64`,
-  `xvfb-run`, and `wine` were not present on `PATH`.
-- The reference Codex repository at
-  `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` does not
-  contain an Electron `safeStorage` or Linux `basic_text` probe pattern to
-  reuse.
+- macOS OS-backed encryption acceptance;
+- Windows OS-backed encryption acceptance;
+- the Linux runner's default selected backend as an observation;
+- Linux `gnome_libsecret` acceptance with an isolated D-Bus/keyring session;
+  and
+- forced Linux `basic_text` rejection with the exact backend and policy reason.
 
-No Windows or Linux `safeStorage` host result is recorded from this attempt.
-The Phase 0 host-confirmation item therefore remains open.
+The workflow assertions fail loudly when a platform reports a different
+backend, policy reason, availability result, round-trip result, or plaintext
+marker result.
 
-## 2026-07-18 Current Host Recheck
+## External Pre-Release Gate
 
-The next implementation pass rechecked available execution paths before moving
-to the next actionable Phase 1 item:
+Before distributing Setta on Windows or Linux, collect successful artifacts
+from the corresponding hosted jobs and review their exact JSON. Until those
+artifacts exist, the implementation is complete but those platform releases
+remain unverified.
 
-- `docker info` still could not connect to the Docker Desktop daemon at
-  `unix:///Users/kevin/.docker/run/docker.sock`.
-- `gh` was not available on `PATH`.
-- `colima`, `lima`, `podman`, `qemu-system-x86_64`, `wine`, and `act` were
-  still not available on `PATH`.
+This gate requires an authenticated repository push or manual workflow run. It
+must not be satisfied by granting an unattended local implementation loop
+Keychain access, GitHub credentials, administrator privileges, or Docker
+Desktop control.
 
-No Windows or Linux `safeStorage` host result is recorded from this recheck.
-The host-confirmation item remains open rather than inferred from docs or
-source.
+## Production Adapter Requirements
 
-## 2026-07-18 Implementation-Pass Host Recheck
-
-Before completing the next Phase 4 workflow item, the local platform options
-were checked again:
-
-- `docker info` reported Docker CLI `28.0.4`, but still could not connect to
-  the Docker Desktop daemon at
-  `unix:///Users/kevin/.docker/run/docker.sock`.
-- `command -v docker gh colima lima podman qemu-system-x86_64 wine act
-  xvfb-run` found only `/usr/local/bin/docker`.
-
-No Windows or Linux `safeStorage` host result is recorded from this recheck.
-The host-confirmation item remains open and still requires actual supported
-platform hosts.
-
-Open Phase 0 host confirmations:
-
-- Run the probe on Windows and record the `isEncryptionAvailable()` result.
-- Run the probe on Linux with the host's default password store and record the
-  selected backend.
-- Run the Linux `--password-store=basic` command and record the rejected
-  `linux_basic_text_backend` policy result.
-
-## Follow-Up Requirements For Phase 2
-
-- The production adapter must be constructed only after Electron `ready`.
-- It must call `safeStorage.isEncryptionAvailable()` before encrypting or
-  decrypting.
-- On Linux it must also call `safeStorage.getSelectedStorageBackend()` and
-  reject `basic_text`, `unknown`, and any unrecognized value.
-- It must never call `safeStorage.setUsePlainTextEncryption(true)`.
-- Tests should inject the protection interface so `basic_text`, `unknown`,
-  unavailable encryption, encrypt failure, and decrypt failure are deterministic
-  without relying on the developer's host platform.
+- Construct the adapter only after Electron `ready`.
+- Check `safeStorage.isEncryptionAvailable()` before encrypting or decrypting.
+- On Linux, inspect the selected backend and reject every value not in the
+  explicit supported set.
+- Never call `safeStorage.setUsePlainTextEncryption(true)`.
+- Persist only ciphertext and never duplicate the key in Go app data.
+- Surface unavailable or rejected protection as
+  `secure_storage_unavailable`; do not fall back to plaintext.
