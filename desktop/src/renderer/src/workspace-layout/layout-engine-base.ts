@@ -55,6 +55,7 @@ export abstract class WorkspaceLayoutEngineBase {
   protected compactRenderScene: WorkspaceScene | null = null;
   protected nextColumnSequence: number;
   protected nextPaneSequence: number;
+  protected nextSurfaceSequence: number;
   protected paneById: Map<PaneId, WorkspacePane>;
 
   constructor(
@@ -78,6 +79,10 @@ export abstract class WorkspaceLayoutEngineBase {
     this.nextPaneSequence = Math.max(
       scene.totalPanes,
       nextNumericSuffix(scene.panes, "workspace_pane_", (pane) => pane.paneId),
+    );
+    this.nextSurfaceSequence = Math.max(
+      scene.totalPanes,
+      nextNumericSuffix(scene.panes, "workspace_surface_", (pane) => pane.surfaceId),
     );
   }
 

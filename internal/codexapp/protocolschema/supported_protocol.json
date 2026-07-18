@@ -3,9 +3,12 @@
     { "method": "config/read" },
     { "method": "initialize" },
     { "method": "model/list" },
+    { "method": "thread/fork" },
     { "method": "thread/goal/clear" },
     { "method": "thread/goal/get" },
     { "method": "thread/goal/set" },
+    { "method": "thread/inject_items" },
+    { "method": "thread/list" },
     { "method": "thread/read" },
     {
       "method": "thread/resume",
@@ -20,6 +23,12 @@
       "source": "Experimental upstream Codex protocol method from the app-server background terminal lifecycle API. The checked JSON schemas are copied from Codex schema fixtures generated with --experimental into json_experimental/v2/ThreadBackgroundTerminalsTerminateParams.json and ThreadBackgroundTerminalsTerminateResponse.json."
     },
     {
+      "method": "thread/search",
+      "experimental": true,
+      "paramsName": "ThreadSearchParams",
+      "source": "Experimental upstream Codex protocol method from internal/codexapp/protocolschema/rust/protocol/common.rs and v2/thread.rs. The checked JSON schemas are copied from Codex schema fixtures generated with --experimental into json_experimental/v2/ThreadSearchParams.json and ThreadSearchResponse.json."
+    },
+    {
       "method": "thread/settings/update",
       "experimental": true,
       "paramsName": "ThreadSettingsUpdateParams",
@@ -31,6 +40,7 @@
       "paramsName": "ThreadStartParams",
       "source": "Stable Codex method with experimental permission fields from internal/codexapp/protocolschema/rust/protocol/v2/thread.rs. The checked JSON schemas are copied from Codex schema fixtures generated with --experimental into json_experimental/v2/ThreadStartParams.json and ThreadStartResponse.json."
     },
+    { "method": "thread/unsubscribe" },
     { "method": "turn/interrupt" },
     { "method": "turn/start" },
     { "method": "turn/steer" }
