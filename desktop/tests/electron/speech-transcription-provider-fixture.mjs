@@ -1,28 +1,16 @@
 import { Buffer } from "node:buffer";
 import { createServer } from "node:http";
-import { setTimeout as delay } from "node:timers/promises";
 
 const apiKey = "sk-setta-global-speech-electron-fixture";
 const clientSecret = "ek_setta_global_speech_electron_ephemeral";
 const audioMarker = "setta-audio-secret-20260714!";
 const synthesizedAudio = Buffer.from(audioMarker, "utf8");
 
-export async function startSpeechTranscriptionProviderFixture(options = {}) {
+export async function startSpeechTranscriptionProviderFixture() {
   const failures = [];
   const requests = [];
-  const timing = createProviderTiming();
-  let timingContext = {};
-  let transcriptionSessionDelayMs = validDelayMs(
-    options.transcriptionSessionDelayMs ?? 0,
-    "transcriptionSessionDelayMs",
-  );
   const server = createServer((request, response) => {
-    void handleProviderRequest(request, response, {
-      requests,
-      timing,
-      timingContext,
-      transcriptionSessionDelayMs,
-    }).catch((error) => {
+    void handleProviderRequest(request, response, requests).catch((error) => {
       failures.push(error);
       response.writeHead(500, { "Content-Type": "text/plain" });
       response.end("speech transcription fixture rejected the request");
@@ -54,53 +42,16 @@ export async function startSpeechTranscriptionProviderFixture(options = {}) {
         server.close((error) => (error ? reject(error) : resolvePromise()));
       }),
     requests,
-    setTimingContext(context) {
-      timingContext = validTimingContext(context);
-    },
-    setTranscriptionSessionDelayMs(delayMs) {
-      transcriptionSessionDelayMs = validDelayMs(delayMs, "transcriptionSessionDelayMs");
-    },
-    snapshotTiming() {
-      return {
-        events: timing.events.map((event) => ({ ...event, detail: { ...event.detail } })),
-        transcriptionSessionDelayMs,
-      };
-    },
   };
 }
 
-async function handleProviderRequest(
-  request,
-  response,
-  { requests, timing, timingContext, transcriptionSessionDelayMs },
-) {
+async function handleProviderRequest(request, response, requests) {
   assertProviderAuthorization(request);
   if (request.method === "POST" && request.url === "/v1/realtime/client_secrets") {
-    const requestReceived = markProviderTiming(
-      timing,
-      "transcription_session_request_received",
-      timingContext,
-      { path: request.url, transcriptionSessionDelayMs },
-    );
     const safetyIdentifier = requireSafetyIdentifier(request);
     assertTranscriptionRequest(await readJSONBody(request));
-    if (transcriptionSessionDelayMs > 0) {
-      await delay(transcriptionSessionDelayMs);
-    }
-    requests.push({
-      path: request.url,
-      requestReceivedAtMs: requestReceived.epochMs,
-      safetyIdentifier,
-      transcriptionSessionDelayMs,
-    });
+    requests.push({ path: request.url, safetyIdentifier });
     writeTranscriptionSession(response);
-    const responseSent = markProviderTiming(
-      timing,
-      "transcription_session_response_sent",
-      timingContext,
-      { path: request.url, transcriptionSessionDelayMs },
-    );
-    requests[requests.length - 1].responseSentAtMs = responseSent.epochMs;
     return;
   }
   if (request.method === "POST" && request.url === "/v1/audio/speech") {
@@ -109,9 +60,6 @@ async function handleProviderRequest(
     }
     const synthesis = assertSynthesisRequest(await readJSONBody(request));
     requests.push({ path: request.url, ...synthesis });
-    markProviderTiming(timing, "speech_synthesis_response_sent", timingContext, {
-      path: request.url,
-    });
     response.writeHead(200, { "Content-Type": "application/octet-stream" });
     response.end(synthesizedAudio);
     return;
@@ -208,34 +156,4 @@ async function readJSONBody(request) {
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-}
-
-function createProviderTiming() {
-  return { events: [], sequence: 0 };
-}
-
-function markProviderTiming(timing, name, context, detail = {}) {
-  const event = {
-    detail: { ...context, ...detail },
-    epochMs: Date.now(),
-    name,
-    sequence: timing.sequence,
-  };
-  timing.sequence += 1;
-  timing.events.push(event);
-  return event;
-}
-
-function validDelayMs(value, field) {
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`${field} must be a non-negative integer`);
-  }
-  return value;
-}
-
-function validTimingContext(context) {
-  if (!isRecord(context)) {
-    throw new Error("speech transcription timing context must be an object");
-  }
-  return { ...context };
 }

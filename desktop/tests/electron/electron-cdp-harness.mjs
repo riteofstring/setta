@@ -189,17 +189,8 @@ export async function stopElectronCdpContext(context) {
     return;
   }
   context.client?.close();
-  let stopError = null;
-  try {
-    await stopElectron(context.electron);
-  } catch (error) {
-    stopError = error;
-  } finally {
-    await writeElectronOutput(context);
-  }
-  if (stopError) {
-    throw stopError;
-  }
+  await writeElectronOutput(context);
+  await stopElectron(context.electron);
 }
 
 export async function crashElectronCdpContext(context) {

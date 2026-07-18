@@ -1,7 +1,7 @@
-/* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, document, window */
+/* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v28";
+  const version = "setta-topic-conversation-pane-projection-driver-v26";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -15,7 +15,6 @@
       topicConversationDenyApproval,
       topicConversationEndSide,
       topicConversationFirstRunState,
-      topicConversationInstallCaptureTimingObserver,
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
@@ -383,49 +382,6 @@
       stopAvailable: stop instanceof HTMLButtonElement && !stop.disabled,
       transcriptText: elementText(status?.querySelector('[data-testid="shell-speech-transcript"]')),
     };
-  }
-
-  function topicConversationInstallCaptureTimingObserver({ conversationId = null, destination }) {
-    const target = captureTimingTarget(destination, conversationId);
-    const fixture = globalThis.__settaSpeechRealtimeBrowserFixture;
-    if (!fixture) {
-      throw new Error("speech realtime browser fixture is not installed");
-    }
-    if (!(target.element instanceof HTMLElement)) {
-      throw new Error("capture timing target is missing");
-    }
-    let marked = false;
-    const mark = () => {
-      if (marked || target.element.getAttribute(target.attribute) !== "recording") {
-        return;
-      }
-      marked = true;
-      fixture.markTiming("recording_observed", {
-        attribute: target.attribute,
-        destination,
-      });
-      observer.disconnect();
-    };
-    const observer = new MutationObserver(mark);
-    observer.observe(target.element, { attributes: true, attributeFilter: [target.attribute] });
-    mark();
-    return { installed: true };
-  }
-
-  function captureTimingTarget(destination, conversationId) {
-    if (destination === "pane") {
-      return {
-        attribute: "data-easy-button-capture",
-        element: conversationSurface(conversationId),
-      };
-    }
-    if (destination === "master") {
-      return {
-        attribute: "data-speech-capture",
-        element: document.querySelector('[data-testid="shell-speech-status"]'),
-      };
-    }
-    throw new Error(`unsupported capture timing destination: ${destination}`);
   }
 
   function topicConversationStop({ conversationId }) {

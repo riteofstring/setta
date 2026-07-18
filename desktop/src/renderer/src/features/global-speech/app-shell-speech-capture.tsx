@@ -4,13 +4,11 @@ import {
   type ReactNode,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
 
-import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import type { AppShellMasterController } from "../global-master/app-shell-master-controller";
 import { applyConversationRoutingPresentation } from "../easy-button/conversation-routing-presentation";
 import {
@@ -21,7 +19,6 @@ import {
 } from "./app-shell-speech-capture-controller";
 import type { AppShellSpeechPlaybackController } from "./app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "./global-speech-presentation";
-import { createBufferedMicrophoneCapture } from "./buffered-microphone-capture";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 
 export interface AppShellSpeechCaptureContextValue {
@@ -77,8 +74,7 @@ export function AppShellSpeechCaptureProvider({
     [children, controller, presentation],
   );
 
-  useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
-  useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
+  useEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
   useEffect(() => {
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);
@@ -102,7 +98,7 @@ interface PendingControllerDisposal {
 export class AppShellSpeechCaptureEffectLifetime {
   private pendingDisposal: PendingControllerDisposal | null = null;
 
-  constructor(private readonly schedule: (handler: () => void) => void = scheduleMicrotask) {}
+  constructor(private readonly schedule: (handler: () => void) => void = queueMicrotask) {}
 
   mount(controller: SpeechCaptureControllerDisposable): () => void {
     if (this.pendingDisposal?.controller === controller) {
@@ -125,10 +121,6 @@ export class AppShellSpeechCaptureEffectLifetime {
   }
 }
 
-function scheduleMicrotask(handler: () => void): void {
-  queueMicrotask(handler);
-}
-
 function browserControllerDependencies(
   setta: SettaAPI,
   onCaptureStart: (() => void) | undefined,
@@ -136,15 +128,9 @@ function browserControllerDependencies(
 ): AppShellSpeechCaptureControllerDependencies {
   return {
     clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
-    createBufferedCapture: createBufferedMicrophoneCapture,
     createCaptureSessionId: () => globalThis.crypto.randomUUID(),
     createTranscriptionSession: () => setta.speech.createTranscriptionSession(),
     createTransport: createRealtimeTranscriptionTransport,
-    deferProviderConnection: (handler) => {
-      globalThis.requestAnimationFrame(() => {
-        globalThis.setTimeout(handler, 0);
-      });
-    },
     getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
     now: () => new Date(),
     onCaptureEnd: onCaptureEnd ?? (() => {}),
