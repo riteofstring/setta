@@ -82,7 +82,9 @@ if (!options.skipBuild) {
 const fixture = await createElectronFixture(workflowName);
 let context = null;
 let firstLaunchSession = null;
+let firstLocalRuntimeAccess = null;
 let restoredSession = null;
+let secondLocalRuntimeAccess = null;
 let workflowError = null;
 
 try {
@@ -98,7 +100,7 @@ try {
     "window.setta.speech.readCapabilities()",
   );
   assertUnconfiguredSpeechCapabilities(initialCapabilities);
-  const firstLocalRuntimeAccess = await waitForLocalRuntimeAccess(context.client);
+  firstLocalRuntimeAccess = await waitForLocalRuntimeAccess(context.client);
   const credentialSetup = await saveOpenAIVoiceCredentialThroughSettings(
     context.client,
     apiKey,
@@ -129,7 +131,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const restoredWorkspaceId = await ensureWorkspaceOpen(context.client);
-  const secondLocalRuntimeAccess = await waitForLocalRuntimeAccess(context.client);
+  secondLocalRuntimeAccess = await waitForLocalRuntimeAccess(context.client);
   assertLocalRuntimeReplacement(firstLocalRuntimeAccess, secondLocalRuntimeAccess);
   const restoredConfigured = await readConfiguredSpeechState(context.client);
   restoredSession = restoredConfigured.session;
@@ -252,6 +254,11 @@ function privateMarkers() {
   for (const session of [firstLaunchSession, restoredSession]) {
     if (typeof session?.clientSecret === "string" && session.clientSecret !== "") {
       markers.push(session.clientSecret);
+    }
+  }
+  for (const access of [firstLocalRuntimeAccess, secondLocalRuntimeAccess]) {
+    if (typeof access?.deviceToken === "string" && access.deviceToken !== "") {
+      markers.push(access.deviceToken);
     }
   }
   return [...new Set(markers)];
@@ -377,10 +384,11 @@ function assertTranscriptionSession(value) {
 }
 
 function assertLocalRuntimeReplacement(before, after) {
-  if (before.baseURL === after.baseURL && before.deviceToken === after.deviceToken) {
+  if (before.deviceToken === after.deviceToken) {
     throw new Error(
       `local runtime access did not change across app/backend restart: ${JSON.stringify({
-        baseURL: after.baseURL,
+        firstBaseURL: before.baseURL,
+        secondBaseURL: after.baseURL,
       })}`,
     );
   }
