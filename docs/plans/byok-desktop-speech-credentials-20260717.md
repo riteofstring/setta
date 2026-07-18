@@ -42,7 +42,11 @@ with `OPENAI_API_KEY` removed from the Electron child environment, production
 renderer/preload/main/authenticated HTTP/provider/vault paths exercised,
 restart restoration proven, credential endpoint recording redacted, and
 artifact plus temporary app-data scans covering the fake long-lived and
-ephemeral secret markers.
+ephemeral secret markers. The same workflow now covers initial setup, rejected
+candidate preservation and rollback to the prior credential, successful
+replacement, renderer reload, local-versus-remote runtime isolation,
+app/backend restart restoration into a replacement local backend instance,
+disconnect, and removed-after-restart persistence.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -633,9 +637,10 @@ environment-based desktop product behavior.
       runtime, restarts without `OPENAI_API_KEY`, restores from the vault, and
       scans finalized artifacts plus temporary app data for fake long-lived and
       ephemeral secret markers.
-- [ ] Cover initial setup, rejected candidate, successful replacement, removal,
+- [x] Cover initial setup, rejected candidate, successful replacement, removal,
       app/backend restart, renderer reload, runtime switch, and local-runtime
-      replacement.
+      replacement. Covered by
+      `.recordings/global-speech-session/20260718T120316456Z`.
 - [ ] Re-run the complete instant-voice capture/routing/playback workflow with a
       stored fake credential.
 - [ ] Update the live OpenAI workflow to provision only through the production

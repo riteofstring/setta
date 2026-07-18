@@ -7,10 +7,9 @@ const audioMarker = "setta-audio-secret-20260714!";
 const synthesizedAudio = Buffer.from(audioMarker, "utf8");
 
 export async function startSpeechTranscriptionProviderFixture(options = {}) {
-  const secretSuffix = randomUUID().replaceAll("-", "");
-  const apiKey = `sk-setta-global-speech-electron-fixture-${secretSuffix}`;
-  const clientSecret = `ek_setta_global_speech_electron_ephemeral_${secretSuffix}`;
+  const credentials = new Map();
   const failures = [];
+  const privacyMarkers = [];
   const requests = [];
   const timing = createProviderTiming();
   let timingContext = {};
@@ -18,10 +17,10 @@ export async function startSpeechTranscriptionProviderFixture(options = {}) {
     options.transcriptionSessionDelayMs ?? 0,
     "transcriptionSessionDelayMs",
   );
+  const primaryCredential = createCredential("initial");
   const server = createServer((request, response) => {
     void handleProviderRequest(request, response, {
-      apiKey,
-      clientSecret,
+      credentials,
       requests,
       timing,
       timingContext,
@@ -41,7 +40,7 @@ export async function startSpeechTranscriptionProviderFixture(options = {}) {
     throw new Error("speech transcription fixture did not bind a TCP port");
   }
   return {
-    apiKey,
+    apiKey: primaryCredential.apiKey,
     audioBase64: synthesizedAudio.toString("base64"),
     audioMarker,
     assertHealthy() {
@@ -52,12 +51,14 @@ export async function startSpeechTranscriptionProviderFixture(options = {}) {
       }
     },
     baseURL: `http://127.0.0.1:${address.port}/v1`,
-    clientSecret,
+    clientSecret: primaryCredential.clientSecret,
     close: () =>
       new Promise((resolvePromise, reject) => {
         server.close((error) => (error ? reject(error) : resolvePromise()));
       }),
-    privacyMarkers: [apiKey, clientSecret],
+    createCredential,
+    createRejectedAPIKey,
+    privacyMarkers,
     requests,
     setTimingContext(context) {
       timingContext = validTimingContext(context);
@@ -72,14 +73,44 @@ export async function startSpeechTranscriptionProviderFixture(options = {}) {
       };
     },
   };
+
+  function createCredential(label = `credential-${credentials.size + 1}`) {
+    const secretSuffix = randomUUID().replaceAll("-", "");
+    const credential = {
+      apiKey: `sk-setta-global-speech-electron-fixture-${safeCredentialLabel(label)}-${secretSuffix}`,
+      clientSecret: `ek_setta_global_speech_electron_ephemeral_${safeCredentialLabel(label)}_${secretSuffix}`,
+      label,
+    };
+    credentials.set(credential.apiKey, credential);
+    privacyMarkers.push(credential.apiKey, credential.clientSecret);
+    return credential;
+  }
+
+  function createRejectedAPIKey(label = "rejected") {
+    const secretSuffix = randomUUID().replaceAll("-", "");
+    const apiKey = `sk-setta-global-speech-electron-fixture-${safeCredentialLabel(label)}-${secretSuffix}`;
+    privacyMarkers.push(apiKey);
+    return apiKey;
+  }
 }
 
 async function handleProviderRequest(
   request,
   response,
-  { apiKey, clientSecret, requests, timing, timingContext, transcriptionSessionDelayMs },
+  { credentials, requests, timing, timingContext, transcriptionSessionDelayMs },
 ) {
-  assertProviderAuthorization(request, apiKey);
+  const credential = providerCredentialForRequest(request, credentials);
+  if (!credential) {
+    requests.push({
+      credentialLabel: null,
+      path: request.url,
+      rejected: true,
+      status: 401,
+    });
+    response.writeHead(401, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ error: { message: "invalid api key" } }));
+    return;
+  }
   if (request.method === "POST" && request.url === "/v1/realtime/client_secrets") {
     const requestReceived = markProviderTiming(
       timing,
@@ -93,12 +124,14 @@ async function handleProviderRequest(
       await delay(transcriptionSessionDelayMs);
     }
     requests.push({
+      credentialLabel: credential.label,
       path: request.url,
       requestReceivedAtMs: requestReceived.epochMs,
+      rejected: false,
       safetyIdentifier,
       transcriptionSessionDelayMs,
     });
-    writeTranscriptionSession(response, clientSecret);
+    writeTranscriptionSession(response, credential.clientSecret);
     const responseSent = markProviderTiming(
       timing,
       "transcription_session_response_sent",
@@ -113,7 +146,12 @@ async function handleProviderRequest(
       throw new Error("speech synthesis fixture received an unexpected safety identifier");
     }
     const synthesis = assertSynthesisRequest(await readJSONBody(request));
-    requests.push({ path: request.url, ...synthesis });
+    requests.push({
+      credentialLabel: credential.label,
+      path: request.url,
+      rejected: false,
+      ...synthesis,
+    });
     markProviderTiming(timing, "speech_synthesis_response_sent", timingContext, {
       path: request.url,
     });
@@ -124,10 +162,12 @@ async function handleProviderRequest(
   throw new Error(`unexpected provider request: ${request.method} ${request.url}`);
 }
 
-function assertProviderAuthorization(request, apiKey) {
-  if (request.headers.authorization !== `Bearer ${apiKey}`) {
-    throw new Error("speech transcription fixture received invalid authorization");
+function providerCredentialForRequest(request, credentials) {
+  const authorization = request.headers.authorization;
+  if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) {
+    return null;
   }
+  return credentials.get(authorization.slice("Bearer ".length)) ?? null;
 }
 
 function requireSafetyIdentifier(request) {
@@ -186,6 +226,11 @@ function requiredRecord(parent, field) {
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function safeCredentialLabel(label) {
+  const safe = String(label).replace(/[^a-zA-Z0-9_-]/g, "_");
+  return safe === "" ? "credential" : safe;
 }
 
 function writeTranscriptionSession(response, clientSecret) {

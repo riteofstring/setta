@@ -55,12 +55,16 @@
     const actions = credentialActionState(card);
     return {
       ...actions,
+      activeRuntimeStatusText: activeRuntimeStatusText(card),
       cardReady: isPresent(card),
       inputHasValue: credentialInputHasValue(input),
       inputType: credentialInputType(input),
+      inputValueLength: credentialInputValueLength(input),
       inputVisible: isPresent(input),
       providerLabel: providerLabel(card),
+      statusDetail: credentialStatusDetail(card),
       statusLabel: credentialStatusLabel(card),
+      statusSummary: credentialStatusSummary(card),
     };
   }
 
@@ -86,15 +90,24 @@
     return input?.type ?? "";
   }
 
+  function credentialInputValueLength(input) {
+    return input?.value.length ?? 0;
+  }
+
   function credentialActionState(card) {
     const buttons = Array.from(card?.querySelectorAll("button") ?? []);
     const save = buttonState(buttons, "Save and verify");
     const replace = buttonState(buttons, "Replace");
     const disconnect = buttonState(buttons, "Disconnect");
+    const cancel = buttonState(buttons, "Cancel");
     return {
+      cancelVisible: cancel.visible,
+      disconnectEnabled: disconnect.enabled,
       disconnectVisible: disconnect.visible,
+      replaceEnabled: replace.enabled,
       replaceVisible: replace.visible,
       saveEnabled: save.enabled,
+      saveVisible: save.visible,
     };
   }
 
@@ -105,6 +118,32 @@
 
   function providerLabel(card) {
     return card?.innerText.includes("OpenAI") ? "openai" : "";
+  }
+
+  function credentialStatusSummary(card) {
+    const paragraphs = credentialStatusParagraphs(card);
+    return paragraphs[0]?.textContent?.trim() ?? "";
+  }
+
+  function credentialStatusDetail(card) {
+    const paragraphs = credentialStatusParagraphs(card);
+    return paragraphs[1]?.textContent?.trim() ?? "";
+  }
+
+  function credentialStatusParagraphs(card) {
+    const header = card?.querySelector("header");
+    const statusCopy = header?.nextElementSibling;
+    if (!(statusCopy instanceof HTMLElement)) {
+      return [];
+    }
+    return Array.from(statusCopy.querySelectorAll("p")).filter(
+      (paragraph) => paragraph.parentElement === statusCopy,
+    );
+  }
+
+  function activeRuntimeStatusText(card) {
+    const active = card?.querySelector('[data-testid="active-runtime-voice-status"]');
+    return active instanceof HTMLElement ? active.innerText.trim() : "";
   }
 
   function buttonState(buttons, label) {
