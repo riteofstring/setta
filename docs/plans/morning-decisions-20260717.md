@@ -10,6 +10,9 @@ the 53.5h reported-cold result. Strongest possible thread bump.
 
 ## 2. Sign the cold-gate decision memo
 
+**DONE (owner, 2026-07-17): signed Option A.** Recorded in the memo and the
+plan progress log on `setta-3-sprites`.
+
 `docs/plans/sprites-cold-gate-decision-memo.md` — recommendation is
 Option A (accept the contract; correctness never depended on real cold).
 Reply here with "memo: A" (or B/C) and I'll record it in the plan.

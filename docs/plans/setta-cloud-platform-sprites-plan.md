@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-13 (re-based 2026-07-17)
 
-**Status:** Plan of record. Phases 0–1a complete. Phase 1b complete except the
-confirmed-cold gate, closed as unobservable (decision memo pending owner
-sign-off, Option A recommended). Phase 2 offline build-out plus the live
+**Status:** Plan of record. Phases 0–1a complete. Phase 1b complete — the
+confirmed-cold gate was closed as unobservable and the owner signed the
+decision memo as Option A on 2026-07-17. Phase 2 offline build-out plus the live
 install-loop and conformance validation completed on the old base. Phase 1c
 live measurements and the Phase 3 budgets await the owner decisions in
 `docs/plans/morning-decisions-20260717.md`. On 2026-07-17 this plan was
@@ -1010,6 +1010,11 @@ owner decision memo choosing between accepting the provider contract without
 live cold proof and re-architecting the memory-loss boundary, and record the
 choice in this plan.
 
+2026-07-17: the owner chose Option A of the cold-gate decision memo
+(`docs/plans/sprites-cold-gate-decision-memo.md`, now on this branch), which
+resolves the choice this protocol left open. Phase 1b is complete; see the
+progress log.
+
 The restart-safe 12/24/48-hour reported-cold latency experiment is specified in
 `docs/plans/sprites-confirmed-cold-soak-test-plan.md` for independent
 implementation and execution.
@@ -1744,3 +1749,14 @@ Stop and reassess rather than hiding the problem if any of these occur:
   boundaries 23–27 (adapter-only provider types, non-authoritative provider
   labels, provider-exit export as a v1 deliverable, and the conformance
   suite as the provider contract).
+- 2026-07-17 (cold-gate sign-off): Owner signed the cold-gate decision memo
+  as Option A — accept the provider contract without live cold proof — with
+  the memo's three conditions: the soak experiment stays closed with the
+  organization empty, the confirmed-cold soak harness is maintained as an
+  on-demand regression probe rather than a gate, and future Fly statements
+  on cold semantics are recorded in this plan rather than triggering a
+  rebuild. The signed memo was copied to
+  `docs/plans/sprites-cold-gate-decision-memo.md` on this branch. Phase 1b
+  is now fully complete. The Fly escalation remains open (forum thread
+  28288 final reply still to be posted by the owner; billing inquiry
+  unsent); the beta commitment gate still requires Fly's written answers.
