@@ -85,6 +85,30 @@ as `secure_storage_unavailable`; it must not call
 `safeStorage.setUsePlainTextEncryption(true)` and must not persist ciphertext
 created under `basic_text` or `unknown`.
 
+## 2026-07-18 Host Confirmation Attempt
+
+The local machine for this iteration is macOS arm64, so it can run the
+`darwin` probe above but cannot directly execute the Windows or Linux Electron
+binaries.
+
+Available local cross-platform execution paths were checked:
+
+- Docker CLI is installed (`28.0.4`), but `docker info` could not connect to
+  the Docker Desktop daemon at
+  `unix:///Users/kevin/.docker/run/docker.sock`.
+- `open -a Docker` and `docker desktop start` were attempted; Docker Desktop
+  reported that it was already running, but the daemon socket still did not
+  become available during a bounded wait.
+- `podman`, `colima`, `lima`, `qemu-system-x86_64`, `qemu-aarch64`,
+  `xvfb-run`, and `wine` were not present on `PATH`.
+- The reference Codex repository at
+  `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` does not
+  contain an Electron `safeStorage` or Linux `basic_text` probe pattern to
+  reuse.
+
+No Windows or Linux `safeStorage` host result is recorded from this attempt.
+The Phase 0 host-confirmation item therefore remains open.
+
 Open Phase 0 host confirmations:
 
 - Run the probe on Windows and record the `isEncryptionAvailable()` result.

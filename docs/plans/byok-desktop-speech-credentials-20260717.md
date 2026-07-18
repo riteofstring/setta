@@ -4,7 +4,7 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are next.
+host confirmations are still open after the 2026-07-18 local attempt.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -536,7 +536,9 @@ environment-based desktop product behavior.
       `docs/reports/byok-desktop-speech-safe-storage-20260718.md`.
 - [ ] Confirm `safeStorage` behavior on remaining supported desktop platforms,
       including the actual Linux backend and the failure presented for
-      `basic_text`.
+      `basic_text`. Local host-confirmation attempt recorded in
+      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`; Windows and
+      Linux host results remain pending.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
