@@ -302,9 +302,9 @@ async function createWindow() {
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    await mainWindow.loadURL(rendererURLWithE2EQuery(process.env.ELECTRON_RENDERER_URL));
+    await mainWindow.loadURL(rendererURLWithQuery(process.env.ELECTRON_RENDERER_URL));
   } else {
-    const query = rendererE2EQuery();
+    const query = rendererQuery();
     if (query) {
       await mainWindow.loadFile(join(__dirname, "../renderer/index.html"), { query });
     } else {
@@ -323,10 +323,10 @@ async function createWindow() {
 
 function mainRendererDocumentURL(): string {
   if (process.env.ELECTRON_RENDERER_URL) {
-    return rendererURLWithE2EQuery(process.env.ELECTRON_RENDERER_URL);
+    return rendererURLWithQuery(process.env.ELECTRON_RENDERER_URL);
   }
   const url = pathToFileURL(join(__dirname, "../renderer/index.html"));
-  const query = rendererE2EQuery();
+  const query = rendererQuery();
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       url.searchParams.set(key, value);
@@ -335,8 +335,8 @@ function mainRendererDocumentURL(): string {
   return url.toString();
 }
 
-function rendererURLWithE2EQuery(rawURL: string): string {
-  const query = rendererE2EQuery();
+function rendererURLWithQuery(rawURL: string): string {
+  const query = rendererQuery();
   if (!query) {
     return rawURL;
   }
@@ -347,11 +347,8 @@ function rendererURLWithE2EQuery(rawURL: string): string {
   return url.toString();
 }
 
-function rendererE2EQuery(): Record<string, string> | null {
+function rendererQuery(): Record<string, string> | null {
   const query: Record<string, string> = {};
-  if (process.env.SETTA_E2E === "1") {
-    query.settaE2E = "1";
-  }
   const workspaceScene = process.env.SETTA_E2E_NIRI_SCENE;
   if (workspaceScene) {
     query.workspaceScene = workspaceScene;

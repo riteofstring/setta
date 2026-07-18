@@ -43,7 +43,6 @@ import {
   masterSpeechCaptureRequest,
   type SpeechCaptureRequest,
 } from "./speech-capture-destination";
-
 export type SpeechCaptureFailureCode =
   | "capture_buffer_overflow"
   | "capture_pipeline_failed"

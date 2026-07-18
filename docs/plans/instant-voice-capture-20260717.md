@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Incomplete after Phase 0.4 finalization — the product cutover and live provider result pass, finalized success/failure artifact privacy is enforced after Electron teardown, but Phase 4 still needs production lifecycle teardown coverage and p95/one-frame performance enforcement.
+**Status:** Incomplete after production lifecycle teardown correction — the product cutover, live provider result, finalized success/failure artifact privacy, and production app teardown workflow pass. Phase 4 still needs p95/one-frame performance enforcement.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -24,26 +24,19 @@ This is a replacement, not a compatibility project.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
-- [ ] Phase 4 — Delayed capture, routing, cleanup, preemption, and current timing results pass, but app teardown must use a real production lifecycle and the workflow must enforce the stated p95/one-frame performance contract.
+- [ ] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and current timing results pass, but the workflow must enforce the stated p95/one-frame performance contract.
 
 ## Independent post-loop audit
 
 The core result is sound: the root-`.env` live OpenAI workflow completed the expected transcript, current retained artifacts contain neither the API key nor the ephemeral client secret, local recording was observed around 22–35 ms with a 1,500 ms provider delay, the stale shell `listening` selector is absent from source and generated web assets, and no compatibility mechanism was found.
 
-Completion is withheld for three verification defects:
+The production teardown correction is complete: the renderer root now uses a standard `beforeunload` lifecycle boundary for Electron and web, active app-shell controllers register production teardown callbacks, the Phase 4 workflow exercises a real reload while capture is in flight, and the finalized fixture evidence asserts `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`. The removed private renderer teardown route and query gate are absent from source and generated web assets.
 
-1. `main.tsx` installs `setta:e2e-teardown-app` only when the main process injects `?settaE2E=1`, and the Phase 4 driver dispatches that private event. This test-only route is shipped in the web bundle and does not prove the actual production page/window teardown path.
-2. `assertLocalReadinessInvariant` permits a 50 ms provider-delay spread even though acceptance requires at most one 60 Hz frame, and it checks individual samples without calculating p95.
-3. The live workflow scans artifacts before `stopElectronCdpContext` writes final Electron output and never scans the failure path. The inspected passed artifacts are clean, but the automated privacy guarantee does not cover the finalized artifact set.
+Completion is withheld for one remaining verification defect:
+
+1. `assertLocalReadinessInvariant` permits a 50 ms provider-delay spread even though acceptance requires at most one 60 Hz frame, and it checks individual samples without calculating p95.
 
 ## Required final-audit corrections
-
-### Production teardown path
-
-- Remove the `settaE2E` renderer query, `installE2ETeardown`, `setta:e2e-teardown-app`, and the matching driver action. Do not replace them with another flag, private event, test-only IPC, or parallel teardown path.
-- Give the renderer root one current production lifecycle boundary that unmounts it exactly once during real page teardown, such as an unconditional standard `pagehide` handler. The same behavior must apply in Electron and the web build.
-- Make the deterministic workflow exercise that standard production lifecycle or an actual BrowserWindow/page close or reload while capture is in flight. Assert `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1` using observable production/fixture evidence; a custom E2E teardown command is insufficient.
-- Regenerate checked-in web assets after changing renderer source and verify that neither the removed custom event nor its query gate remains in source or bundled output.
 
 ### Performance contract
 
@@ -51,14 +44,6 @@ Completion is withheld for three verification defects:
 - Calculate and report nearest-rank p95 for each cohort. Each p95 must be at most 100 ms, and the absolute difference between the two p95 values must be at most `1000 / 60` ms (one 60 Hz rendered frame).
 - Replace the 50 ms spread allowance with these exact assertions. Do not weaken the plan to match the existing guard and do not use a fake estimate in place of measured samples.
 - Append cohort size, raw or artifact-backed measurements, p95 values, and the p95 difference to the performance report.
-
-### Finalized artifact privacy
-
-- Preserve the scoped credential resolver and credential-agnostic workflow runner.
-- Finalize Electron/backend shutdown and all artifact writers before scanning for `OPENAI_API_KEY` and the ephemeral client secret.
-- Run the scan for both successful and failed live workflows. Preserve the original workflow failure while also failing specifically on a privacy violation; never include a secret value in the error.
-- If a marker is detected, remove the contaminated artifact tree before returning the redacted failure so no secret-bearing recording remains on disk.
-- Add deterministic orchestration coverage proving that a marker written during teardown is detected, that failure artifacts are scanned, and that clean finalized artifacts remain available.
 
 ## Live OpenAI credential contract
 

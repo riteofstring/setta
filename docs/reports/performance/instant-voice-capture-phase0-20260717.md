@@ -189,3 +189,28 @@ Additional coverage verified:
 
 - Playback preemption paused exactly one active narrator audio item (`audioPauseDelta=1`) before the delayed pane capture completed.
 - App-shell teardown during an in-flight master capture produced `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`.
+
+## Phase 4 Production Teardown Correction
+
+Workflow:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T030540863Z
+```
+
+The workflow now exercises app teardown through the production renderer lifecycle by reloading the page while master capture is in flight. The app-shell capture controller is registered with the renderer page teardown boundary, and the browser fixture records finalized evidence after page teardown.
+
+| Check | Result |
+| --- | --- |
+| Workflow status | `passed` |
+| Lifecycle exercised | production `beforeunload` plus real page reload |
+| App teardown `commitDelta` | `0` |
+| App teardown `stoppedTrackDelta` | `1` |
+| App teardown `peerCloseDelta` | `1` |
+| Removed private teardown route in source/bundles | `absent` |

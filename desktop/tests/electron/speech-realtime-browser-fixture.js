@@ -1,4 +1,4 @@
-/* global AudioContext, MessageEvent, Response, TextEncoder, navigator, performance, queueMicrotask */
+/* global AudioContext, MessageEvent, Response, TextEncoder, navigator, performance, queueMicrotask, sessionStorage */
 
 (() => {
   const fixtureVersion = "setta-speech-realtime-browser-fixture-v3";
@@ -12,6 +12,7 @@
   const originalAudio = globalThis.Audio;
   const originalSetTimeout = globalThis.setTimeout.bind(globalThis);
   const originalClearTimeout = globalThis.clearTimeout.bind(globalThis);
+  const finalizedSnapshotsStorageKey = "setta.speechRealtimeBrowserFixture.finalizedSnapshots.v1";
   const activeAudio = new Set();
   let activeChannel = null;
   const activeMicrophones = new Set();
@@ -276,6 +277,14 @@
   };
   globalThis.RTCPeerConnection = ScriptedPeerConnection;
   globalThis.Audio = ScriptedAudio;
+  const recordFinalizedSnapshot = () => {
+    markTiming("fixture_pagehide_observed");
+    queueMicrotask(() => {
+      markTiming("fixture_pagehide_finalized");
+      persistFinalizedSnapshot("pagehide");
+    });
+  };
+  globalThis.addEventListener("pagehide", recordFinalizedSnapshot, { once: true });
   globalThis.__settaSpeechRealtimeBrowserFixture = {
     finishAllAudio() {
       for (const audio of [...activeAudio]) {
@@ -291,6 +300,7 @@
       globalThis.RTCPeerConnection = originalPeerConnection;
       globalThis.clearTimeout = originalClearTimeout;
       globalThis.setTimeout = originalSetTimeout;
+      globalThis.removeEventListener("pagehide", recordFinalizedSnapshot);
       navigator.mediaDevices.getUserMedia = originalGetUserMedia;
       delete globalThis.__settaSpeechRealtimeBrowserFixture;
     },
@@ -351,23 +361,10 @@
       markTiming(name, detail);
     },
     snapshot() {
-      return {
-        ...state,
-        audioActiveCount: activeAudio.size,
-        delays: { ...delays },
-        durationTimerOverride: durationTimerOverride ? { ...durationTimerOverride } : null,
-        pendingTranscriptCompletionRuns: pendingTranscriptCompletions.map((completion) => ({
-          runId: completion.runId,
-        })),
-        processedAudioMarkersByRun: Object.fromEntries(processedAudioMarkersByRun.entries()),
-        timing: {
-          context: { ...timingContext },
-          events: timing.events.map((event) => ({
-            ...event,
-            detail: { ...event.detail },
-          })),
-        },
-      };
+      return snapshotState();
+    },
+    finalizedSnapshots() {
+      return persistedFinalizedSnapshots();
     },
     version: fixtureVersion,
   };
@@ -387,6 +384,47 @@
     timing.sequence += 1;
     timing.events.push(event);
     return event;
+  }
+
+  function snapshotState() {
+    return {
+      ...state,
+      audioActiveCount: activeAudio.size,
+      delays: { ...delays },
+      durationTimerOverride: durationTimerOverride ? { ...durationTimerOverride } : null,
+      pendingTranscriptCompletionRuns: pendingTranscriptCompletions.map((completion) => ({
+        runId: completion.runId,
+      })),
+      processedAudioMarkersByRun: Object.fromEntries(processedAudioMarkersByRun.entries()),
+      timing: {
+        context: { ...timingContext },
+        events: timing.events.map((event) => ({
+          ...event,
+          detail: { ...event.detail },
+        })),
+      },
+    };
+  }
+
+  function persistFinalizedSnapshot(reason) {
+    const snapshots = persistedFinalizedSnapshots();
+    snapshots.push({
+      reason,
+      snapshot: snapshotState(),
+    });
+    sessionStorage.setItem(finalizedSnapshotsStorageKey, JSON.stringify(snapshots.slice(-8)));
+  }
+
+  function persistedFinalizedSnapshots() {
+    const raw = sessionStorage.getItem(finalizedSnapshotsStorageKey);
+    if (raw === null) {
+      return [];
+    }
+    const snapshots = JSON.parse(raw);
+    if (!Array.isArray(snapshots)) {
+      throw new Error("scripted speech fixture finalized snapshot storage drifted");
+    }
+    return snapshots;
   }
 
   async function createScriptedMicrophoneStream() {

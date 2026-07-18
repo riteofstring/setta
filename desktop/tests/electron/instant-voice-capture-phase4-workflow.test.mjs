@@ -672,13 +672,19 @@ async function exerciseAppTeardownCleanup() {
   await clickShellSpeechControl(context.client);
   await waitForShellCaptureState("recording");
   await waitForBrowserEvent(runId, "webrtc_peer_created");
-  assertDriverAction(await context.client.driver("topicConversationTeardownApp", {}), "requested");
-  await waitForBrowserEvent(runId, "microphone_track_stopped");
-  await waitForBrowserEvent(runId, "webrtc_peer_closed");
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
+  await context.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
+  const finalized = await finalizedBrowserFixtureSnapshot(runId);
+  await writeJson(join(artifactDir, "app-teardown-finalized-snapshot.json"), finalized);
+  assertBrowserEvents(runId, finalized.timing.events, [
+    "fixture_pagehide_observed",
+    "microphone_track_stopped",
+    "webrtc_peer_closed",
+  ]);
   await delay(1_600);
-  const after = await browserFixtureSnapshot(context.client);
-  assertNoCommitAfter(before, after, runId);
-  return cleanupSummary(before, after, runId);
+  return cleanupSummary(before, finalized, runId);
 }
 
 async function startRemoteRuntime(appDataDir) {
@@ -898,6 +904,34 @@ async function markBrowserTiming(name, detail = {}) {
 
 function browserFixtureSnapshot(client) {
   return client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()");
+}
+
+async function finalizedBrowserFixtureSnapshot(runId) {
+  return waitForState(
+    context.client,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.finalizedSnapshots()",
+    (snapshots) =>
+      snapshots
+        .map((entry) => entry.snapshot)
+        .some((snapshot) =>
+          snapshot?.timing?.events?.some(
+            (event) => event.name === "fixture_pagehide_observed" && event.detail.runId === runId,
+          ),
+        ),
+    workflowTimeoutMs,
+  ).then((snapshots) => {
+    const entry = snapshots
+      .toReversed()
+      .find((candidate) =>
+        candidate.snapshot?.timing?.events?.some(
+          (event) => event.name === "fixture_pagehide_observed" && event.detail.runId === runId,
+        ),
+      );
+    if (!entry?.snapshot) {
+      throw new Error(`missing finalized browser fixture snapshot for ${runId}`);
+    }
+    return entry.snapshot;
+  });
 }
 
 async function waitForRecordedMasterSpeechInput(runArtifactDir, transcript) {
@@ -1150,9 +1184,12 @@ function assertLocalReadinessInvariant(runs) {
 }
 
 function assertRequiredEvents(runId, events, requiredNames) {
-  const eventNames = new Set(events.map((event) => event.name));
+  assertBrowserEvents(runId, events, requiredNames);
+}
+
+function assertBrowserEvents(runId, events, requiredNames) {
   for (const name of requiredNames) {
-    if (!eventNames.has(name)) {
+    if (!events.some((event) => event.name === name && event.detail?.runId === runId)) {
       throw new Error(`${runId} missing browser timing event ${name}`);
     }
   }

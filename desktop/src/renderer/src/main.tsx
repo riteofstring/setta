@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 
 import { App } from "./App";
 import "./styles.css";
+import { runRendererPageTeardown } from "./renderer-page-lifecycle";
 import { installWebSettaAPIIfNeeded } from "./web/setta-web-api";
 
 installWebSettaAPIIfNeeded();
@@ -14,7 +15,7 @@ if (!rootElement) {
 }
 
 const root = createRoot(rootElement);
-installE2ETeardown(root);
+installPageTeardown(root);
 
 root.render(
   <StrictMode>
@@ -22,13 +23,16 @@ root.render(
   </StrictMode>,
 );
 
-function installE2ETeardown(root: Root): void {
-  if (new URLSearchParams(window.location.search).get("settaE2E") !== "1") {
-    return;
-  }
+function installPageTeardown(root: Root): void {
+  let unmounted = false;
   window.addEventListener(
-    "setta:e2e-teardown-app",
+    "beforeunload",
     () => {
+      if (unmounted) {
+        return;
+      }
+      unmounted = true;
+      runRendererPageTeardown();
       root.unmount();
     },
     { once: true },

@@ -4,11 +4,13 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
 
+import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import type { AppShellMasterController } from "../global-master/app-shell-master-controller";
 import { applyConversationRoutingPresentation } from "../easy-button/conversation-routing-presentation";
 import {
@@ -75,7 +77,8 @@ export function AppShellSpeechCaptureProvider({
     [children, controller, presentation],
   );
 
-  useEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
+  useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
+  useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
   useEffect(() => {
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);

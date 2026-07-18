@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -12,6 +13,7 @@ import {
 
 import { queuedConversationProjectionEventsBefore } from "../../stores/conversation-projection-runtime";
 import { useConversationStore } from "../../stores/conversation-store";
+import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import {
   AppShellSpeechPlaybackController,
   narrationSpeechPlaybackIntent,
@@ -56,7 +58,8 @@ export function AppShellSpeechPlaybackProvider({
     [children, controller],
   );
 
-  useEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
+  useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
+  useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
   useEffect(() => controller.synchronizeRuntime(runtimeId), [controller, runtimeId]);
   useEffect(
     () =>
