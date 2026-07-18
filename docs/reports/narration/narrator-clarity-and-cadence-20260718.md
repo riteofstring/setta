@@ -6,11 +6,11 @@ Plan: `docs/plans/easy-button-multi-pane-narrator-clarity-20260718.md`
 
 This entry records repository-local current behavior before the Easy Button, Settings page, narrator prose, and speech cadence cutover. It uses current source and deterministic fixture assertions. Live OpenAI synthesis and GUI/native-view screenshot capture are external release gates and should not be retried as implementation-loop work without those external capabilities already available.
 
-Review correction: Agent 1's completion claim is narrowed to repository-local evidence. The unavailable OpenAI synthesis samples, GUI/native-view screenshots, and nontechnical live/provider corpus sample are not counted as completed work.
+Review correction: Agent 1's completion claim is narrowed to repository-local evidence. The unavailable OpenAI synthesis samples and GUI/native-view screenshots are not counted as completed work.
 
 Recent history checked in review:
 
-- The path-specific log for this plan and report contains only `b9c7e4440 docs: plan workspace and narration UX improvements` and `4daee4440 docs: record easy button narrator baseline`.
+- The path-specific log for this plan and report contains `b9c7e4440 docs: plan workspace and narration UX improvements`, `4daee4440 docs: record easy button narrator baseline`, and `9c906c145 Correct narrator baseline status`.
 - Recent baseline/status/audit commits also include BYOK, instant voice, and Easy Button follow-up work, but they target different plan steps. No repeated same-step commit for this plan was accepted here.
 
 ### Current Narrator Contract
@@ -29,7 +29,7 @@ The strict schemas currently enforce those bounds but do not describe field purp
 
 | Case | Current output source | Current text | Chars | Words | Internal-mechanism leakage | Complete enough | Tells what changed |
 | --- | --- | --- | ---: | ---: | --- | --- | --- |
-| Nontechnical work | Gap: current deterministic fixtures do not capture this case, and a synthetic placeholder is not accepted as current output evidence | Not captured | n/a | n/a | Unknown | No | No |
+| Nontechnical work | `desktop/tests/electron/topic-conversation-pane-projection.test.mjs` creates `"Alpha topic"` through `createTopic`; `desktop/tests/electron/fixtures/fake-topic-codex-app-server.mjs` emits current fake-provider working milestones as `Narrator evaluated ${objective} through sequence ${observedThroughSequence}.` | "Narrator evaluated Alpha topic through sequence 3." | 50 | 7 | Yes | No | No; it reports narrator/sequence mechanics rather than useful progress |
 | Explicitly technical work | `internal/narration/caller_test.go` focus fixture | "Implementing the narrator provider boundary." | 44 | 5 | Yes | Partly | No; it names implementation machinery |
 | Real milestone | `internal/narration/service_projector_test.go` projection fixture | "Narrator evaluated projector catch-up through sequence 3." | 57 | 7 | Yes | No | No; it reports evaluation mechanics |
 | No meaningful phase change | Fake provider when prior milestones exist or simultaneous completion steering is present | "" | 0 | 0 | No | Yes | Yes; silence is appropriate |
@@ -38,7 +38,7 @@ The strict schemas currently enforce those bounds but do not describe field purp
 | Terminal completion with caveat | `internal/narration/caller_test.go` invalid terminal fixture | "This summary cannot cover a terminal event the narrator did not observe." | 72 | 12 | Yes | Yes | Yes; caveat is explicit |
 | Status request | `internal/narration/caller_test.go` status fixture | "The narrator provider boundary is being verified." | 49 | 7 | Yes | Partly | No; it reports internal verification |
 
-Baseline finding: repository-backed examples are short enough to pass today's validators, but shortness does not make them user-facing. Several deterministic outputs normalize "Narrator", "provider boundary", "projection", "terminal event", or "sequence" even when the user task is not about those implementation details. The nontechnical row remains an explicit evidence gap.
+Baseline finding: repository-backed examples are short enough to pass today's validators, but shortness does not make them user-facing. Several deterministic outputs normalize "Narrator", "provider boundary", "projection", "terminal event", or "sequence" even when the user task is not about those implementation details.
 
 ### Speech Cadence
 
