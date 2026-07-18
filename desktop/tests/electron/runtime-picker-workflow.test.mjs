@@ -170,6 +170,8 @@ function parseArgs(args) {
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
         break;
+      case "--skip-build":
+        break;
       case "--visible":
         parsed.visible = true;
         break;

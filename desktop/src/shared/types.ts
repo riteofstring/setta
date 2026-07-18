@@ -221,19 +221,6 @@ export type BackendProcessStatus =
   | { status: "offline"; message: string }
   | { status: "failed"; message: string };
 
-export type BackendEventStreamStatus =
-  | { status: "connecting"; attempt: number; message: string }
-  | { status: "connected"; lastSequence: number; lastStreamId: string; message: string }
-  | {
-      status: "reconnecting";
-      attempt: number;
-      lastSequence: number;
-      lastStreamId: string;
-      message: string;
-    }
-  | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
-  | { status: "stopped"; message: string };
-
 export type RuntimeConnectionStatus =
   | "disconnected"
   | "connecting"

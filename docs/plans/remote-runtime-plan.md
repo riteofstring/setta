@@ -24,7 +24,7 @@ Team is two people. The strategy is: **prove the core works, then add features.*
 4. **The runtime serves plain HTTP; Tailscale is the security boundary for transport.** App-level auth still exists (below) because tailnets can be shared and mobile needs narrower permissions than desktop.
 5. **One runtime = one human.** No multi-user runtimes. No cross-runtime history sync — state lives on the runtime that produced it.
 6. **One auth code path.** The local Electron-spawned backend is just a pre-paired device (bootstrap token over stdout). No `if local, skip auth` branches.
-7. **Mobile mirrors the desktop.** The phone shows the same project through the same niri pane layout — on a phone a pane is ≈ one screen width and you swipe along the strip. It is NOT a reduced "companion app" with a curated feature subset. First implementation: Android PWA (the desktop renderer built for the web), with Web Push sent directly from the runtime (zero Setta infrastructure). Native app (and the APNs relay it requires) only if the PWA proves insufficient.
+7. **Mobile mirrors the desktop.** The phone should eventually show the same project through the same niri pane layout — on a phone a pane is about one screen width and you swipe along the strip. It is not a reduced companion app with a curated feature subset. The removed browser-build path is no longer a current implementation; any future mobile client needs a new plan.
 8. **Notifications matter**: "agent finished / agent needs approval / agent responded" push is a core feature, not a nice-to-have.
 
 ## Proof of Concept — the demo is the spec
@@ -45,17 +45,11 @@ The PoC is done when this exact sequence works:
 
 No other features gate the PoC. Manual SSH to the box for install is fine — our first users are technical.
 
-### PoC Phase 2 (immediately after): the same workspace on the phone
+### Deferred mobile client: the same workspace on the phone
 
-The Android PWA is the desktop renderer built for the web, showing the **same project through the same niri pane layout** — a pane is ≈ one screen width on a phone; swipe moves along the strip. Pane layout is already runtime-side state (`internal/workspaceui`; store methods `LoadLayout`/`SaveLayout`, exposed as the `ReadWorkspaceUILayout`/`SaveWorkspaceUILayout` endpoints), so desktop and phone genuinely see the same panes, not merely the same kind of UI. Plus Web Push for run-finished / approval-requested / agent-responded.
+The desired phone experience remains the same project through the same niri pane layout. Pane layout is already runtime-side state (`internal/workspaceui`; store methods `LoadLayout`/`SaveLayout`, exposed as the `ReadWorkspaceUILayout`/`SaveWorkspaceUILayout` endpoints), so a future phone client can share durable panes instead of inventing a reduced mobile-only model.
 
-Implementation facts that gate this — Phase 2 is a real project, not a build-flag flip:
-
-- The renderer reaches the backend **only** via `window.setta` — a preload IPC bridge (`desktop/src/preload/index.ts:348`) to the main process, which owns the HTTP client. The web build needs a second implementation of the same `SettaAPI` interface (`desktop/src/shared/types.ts`, ~130 methods across 11 namespaces) speaking HTTP/SSE directly. Good news: `desktop/src/generated/backend.ts` already generates not just the request/response shapes but a complete fetch-based HTTP client (`createBackendClient(baseURL, fetchImpl)`), so the web adapter's request layer mostly exists; the new work is the event-subscription surface and the shims below.
-- **SSE in the browser must use fetch-streaming, not `EventSource`.** Native `EventSource` cannot set headers, and the auth rule below (bearer header on every stream, never query strings) is non-negotiable. The Electron main process already reads all five SSE streams via `fetch` + `response.body.getReader()` (`desktop/src/main/backend-event-stream.ts`); the web adapter uses the same pattern.
-- The Electron-only surface is bigger than `app.*` (window drag, open-in-editor, region capture, editor discovery, git info via child_process): also the native folder-picker dialog for opening workspaces and `workspaceNativeViews` (already optional in the `SettaAPI` type — omit it). Each needs a web equivalent or a graceful stub.
-- There is no web build target today — only `electron-vite` producing main/preload/renderer together. A standalone Vite web target for the renderer is new work.
-- Service workers (install + push) require HTTPS: put `tailscale serve` in front of the runtime — one command, valid tailnet certs, still zero Setta infra. `setta serve --tailnet` prints the exact command. Note `tailscale serve` proxies from loopback, so the runtime must not use client IP for anything meaningful (see pairing rate-limit note below).
+The previous browser-build implementation has been removed. A future mobile client must get its own product plan, client contract, transport details, notification model, and verification gates before implementation.
 
 ## The Model (minimal)
 
@@ -93,7 +87,7 @@ Tokens: random 256-bit values, stored **SHA-256-hashed** in runtime SQLite (new 
 - **Phase 2:** `internal/notify` — VAPID keypair at first start; Web Push subscriptions per device session (die on revoke); pushes for run-finished, approval-requested, agent-responded; payloads carry IDs only, clients fetch content over their authenticated connection.
 - **Untouched:** `internal/workspace*`, `internal/terminal`, `internal/chat`, `internal/orchestrator`, `internal/semanticgraph`. If a change looks like "make service X remote-aware," the model is being violated.
 
-Rollout order: auth middleware + local bootstrap (desktop unchanged) → `cmd/setta` serve/pair/devices → desktop runtime picker + KnownRuntime storage → install script → PoC demo → Phase 2 (PWA + push).
+Rollout order: auth middleware + local bootstrap (desktop unchanged) -> `cmd/setta` serve/pair/devices -> desktop runtime picker + KnownRuntime storage -> install script -> PoC demo -> future mobile-client plan.
 
 Sizing note on the picker step: the main process today has exactly one module-level backend handle plus five singleton SSE forwarders (`desktop/src/main/index.ts`), and no Electron `userData` persistence at all. The picker step therefore includes: a runtime registry with an active selection, KnownRuntime storage (greenfield), auth headers on the `fetchImpl` passed to `createBackendClient`, relaxing the loopback-only URL validation in `backend-supervisor.ts` for remote entries, and tearing down/restarting all SSE forwarders on switch. Straightforward, but it is the largest desktop chunk before the demo.
 
@@ -110,7 +104,7 @@ Sizing note on the picker step: the main process today has exactly one module-le
 - `setta remote add user@host` one-shot installer, then an AI-guided setup session in Setta itself (agent runs the installer via existing terminal + approval UX). Design rule when it lands: AI orchestrates idempotent JSON-output commands; it never improvises security-critical config.
 - `setta doctor` (structured environment/capability checks) and capability reporting (GPU, agents installed).
 - Desktop device-manager UI (CLI is enough for PoC).
-- iOS PWA evaluation → native app + APNs relay (the first and only planned Setta-hosted service) if PWA push proves insufficient.
+- Mobile client evaluation, including whether a native app and APNs relay are justified.
 - tsnet (embedded Tailscale) to remove the "install Tailscale first" step.
 - Additional transports: user HTTPS proxies, SSH forwarding, Nostr-VPN (watch), LAN.
 - Provider setup recipes (Runpod/Hetzner/etc.) as agent-readable checklists.
@@ -125,4 +119,4 @@ Managed/provisioned runtimes; Setta-held provider credentials; Setta-owned relay
 1. ~~Default serve port~~ — settled: 7345 (implemented in `cmd/setta`).
 2. Install script distribution — settled: GitHub releases + `SHA256SUMS` covering archives and extracted binaries (`scripts/release/`). Binary signing (minisign) still open.
 3. ~~Whether `/health` should be auth-gated~~ — settled: `/health` stays unauthenticated alongside `/runtime/info` and `/pairing/complete` (three unauth routes); the supervisor probes health before it holds a token. Revisit only if the unauth surface grows.
-4. PWA device token storage — `localStorage` for the PoC (accepted XSS-exposure tradeoff; the app serves only its own bundled assets). Revisit if third-party content ever renders in the web app.
+4. Mobile-device token storage — unresolved; decide it in the future mobile-client plan.

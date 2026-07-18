@@ -109,7 +109,7 @@ used only by that installation's local runtime.
 - When a separately launched runtime is active, the Voices panel must
   distinguish **Local desktop credential** from **Active runtime voice status**
   instead of implying that the desktop key applies remotely.
-- Browser/PWA secret persistence is out of scope. Do not put a long-lived API
+- Browser-client secret persistence is out of scope. Do not put a long-lived API
   key in `localStorage`, IndexedDB, a service worker cache, or runtime layout
   state.
 
@@ -787,7 +787,7 @@ The plan is complete only when all of the following are true:
 - Automatically importing an existing `OPENAI_API_KEY` into secure storage.
 - Sending the desktop credential to remote runtimes.
 - Changing how `setta serve` administrators configure speech.
-- Browser/PWA persistence of long-lived provider credentials.
+- Browser-client persistence of long-lived provider credentials.
 - On-device transcription or synthesis.
 - Additional speech providers or a generic provider-plugin framework.
 - Usage dashboards, OpenAI billing controls, or API-key creation inside Setta.

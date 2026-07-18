@@ -119,6 +119,61 @@ func TestRuntimeServesDurableConversationNavigator(t *testing.T) {
 	}
 }
 
+func TestRuntimeHTTPServerIsAPIOnly(t *testing.T) {
+	config := testConfig(t)
+	config.Version = "test"
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+
+	baseURL := "http://" + server.Addr()
+	client := &http.Client{Timeout: 5 * time.Second}
+	for _, path := range []string{
+		"/",
+		"/index.html",
+		"/manifest." + "webmanifest",
+		"/sw.js",
+		"/icons/setta-icon.svg",
+		"/workspaces/runtime-client-route",
+	} {
+		t.Run(path, func(t *testing.T) {
+			request, err := http.NewRequest(http.MethodGet, baseURL+path, nil)
+			if err != nil {
+				t.Fatalf("create GET %s: %v", path, err)
+			}
+			response, err := client.Do(request)
+			if err != nil {
+				t.Fatalf("GET %s: %v", path, err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != http.StatusNotFound {
+				t.Fatalf("GET %s status = %d, want %d", path, response.StatusCode, http.StatusNotFound)
+			}
+		})
+	}
+
+	health := getRuntimeJSON[httpapi.BackendHealth](t, client, baseURL, "/health")
+	if health != (httpapi.BackendHealth{
+		OK:              true,
+		Name:            httpapi.BackendName,
+		Version:         "test",
+		ProtocolVersion: httpapi.ProtocolVersion,
+	}) {
+		t.Fatalf("health payload = %+v", health)
+	}
+
+	devices := postRuntimeJSON[httpapi.ListDevicesResponse](
+		t,
+		authenticatedRuntimeTestClient(ready.BootstrapToken, 5*time.Second),
+		baseURL,
+		"/devices/list",
+		httpapi.ListDevicesRequest{},
+		http.StatusOK,
+	)
+	if len(devices.Devices) == 0 {
+		t.Fatal("authenticated device list is empty, want bootstrap device session")
+	}
+}
+
 func TestHTTPServerUsesBoundedReadConfiguration(t *testing.T) {
 	server := newHTTPServer(DefaultConfig(), runtimeServices{})
 

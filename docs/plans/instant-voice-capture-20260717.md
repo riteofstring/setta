@@ -408,8 +408,6 @@ node --test desktop/tests/electron/instant-voice-capture-live-openai-credentials
 pnpm -C desktop build
 node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
 env -u OPENAI_API_KEY -u SETTA_E2E_OPENAI_SPEECH_BASE_URL node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-live-openai --skip-build
-pnpm -C desktop build:web
-./scripts/go.sh test ./internal/webapp
 ./scripts/test_topic_conversation_workflows.sh --deterministic-only --skip-build
 ./scripts/format.sh
 ./check_quality.sh --all

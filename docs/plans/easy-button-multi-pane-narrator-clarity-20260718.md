@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 1 repository implementation is complete; deleting the PWA is the immediate next action before its audit or any later feature phase
+**Status:** In progress — Phase 1A repository implementation is complete and ready for audit; Settings shell navigation is the next repository-actionable phase after audit
 
 **Scope:** Immediate removal of the PWA/web client and static web hosting, Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
@@ -302,13 +302,13 @@ This is a direct correction of current behavior.
 
 This phase preempts every later phase and the pending Phase 1 broad audit. Do not regenerate PWA assets to make an intervening check green; delete their owners first.
 
-- [ ] Delete `desktop/vite.web.config.ts`, the `build:web` package script, the complete renderer `public` PWA asset directory, PWA metadata in `index.html`, and PWA-only ESLint/TypeScript inputs.
-- [ ] Delete `desktop/src/renderer/src/web` and its tests, remove the conditional web API installation from `main.tsx`, and leave Electron preload as the only renderer contract owner.
-- [ ] Delete `internal/webapp` and every committed file under `internal/webapp/static`; wire `internal/runtime` directly to the `internal/httpapi` handler with no static or single-page fallback.
-- [ ] Remove PWA-only quality exclusions, build instructions, fixtures, and active planning commitments, including stale `build:web`, `internal/webapp`, Android PWA, and generated-web-bundle instructions. Do not leave a deprecated or future-PWA path.
-- [ ] Prove the runtime root, manifest, service-worker, and arbitrary former client routes return not found while authenticated API routes still work.
-- [ ] Prove Desktop starts through the Electron preload contract, builds without any web/PWA generation, and can still add and use a paired remote runtime through the production runtime-picker workflow.
-- [ ] Run a final owner/reference search and fail the phase if executable code, build configuration, quality configuration, or active plan instructions can still build, serve, install, register, regenerate, or test the removed PWA.
+- [x] Delete `desktop/vite.web.config.ts`, the `build:web` package script, the complete renderer `public` PWA asset directory, PWA metadata in `index.html`, and PWA-only ESLint/TypeScript inputs.
+- [x] Delete `desktop/src/renderer/src/web` and its tests, remove the conditional web API installation from `main.tsx`, and leave Electron preload as the only renderer contract owner.
+- [x] Delete `internal/webapp` and every committed file under `internal/webapp/static`; wire `internal/runtime` directly to the `internal/httpapi` handler with no static or single-page fallback.
+- [x] Remove PWA-only quality exclusions, build instructions, fixtures, and active planning commitments, including stale `build:web`, `internal/webapp`, Android PWA, and generated-web-bundle instructions. Do not leave a deprecated or future-PWA path.
+- [x] Prove the runtime root, manifest, service-worker, and arbitrary former client routes return not found while authenticated API routes still work.
+- [x] Prove Desktop starts through the Electron preload contract, builds without any web/PWA generation, and can still add and use a paired remote runtime through the production runtime-picker workflow.
+- [x] Run a final owner/reference search and fail the phase if executable code, build configuration, quality configuration, or active plan instructions can still build, serve, install, register, regenerate, or test the removed PWA.
 
 ### Phase 2 — Move Settings to shell navigation
 
