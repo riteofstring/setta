@@ -139,6 +139,67 @@ No Windows or Linux `safeStorage` host result is recorded from this recheck.
 The host-confirmation item remains open and still requires actual supported
 platform hosts.
 
+## 2026-07-18 Latest Host Confirmation Attempt
+
+The next incomplete plan item was revisited after the BYOK implementation work
+was otherwise complete.
+
+The pinned macOS probe was re-run:
+
+```sh
+desktop/node_modules/.bin/electron desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported --assert-round-trip
+```
+
+It passed again on this machine:
+
+```json
+{
+  "appReadyBeforeProbe": true,
+  "arch": "arm64",
+  "electronVersion": "41.7.0",
+  "passwordStoreSwitch": null,
+  "platform": "darwin",
+  "safeStorage": {
+    "ciphertextByteLength": 51,
+    "ciphertextContainsPlaintext": false,
+    "isEncryptionAvailable": true,
+    "policy": {
+      "reason": "os_backed_platform",
+      "status": "accept"
+    },
+    "roundTrip": true,
+    "selectedStorageBackend": null
+  }
+}
+```
+
+The local machine still cannot produce the remaining Linux or Windows host
+evidence:
+
+- `docker version && docker info` found Docker CLI `28.0.4`, context
+  `desktop-linux`, but the CLI still could not connect to the Docker Desktop
+  daemon at `unix:///Users/kevin/.docker/run/docker.sock`.
+- Docker Desktop processes were running, but the daemon did not become
+  available during a bounded wait. The visible process state showed Docker
+  Desktop waiting on its privileged setup prompt, so this pass did not force a
+  system-level change.
+- `command -v docker gh colima lima limactl podman qemu-system-x86_64
+  qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
+  `/opt/homebrew/bin/brew`; no local Linux VM/container runner or Windows
+  execution runner was available.
+- The repository has no `.github/workflows` directory to reuse for hosted
+  probes, the available GitHub API credential returned `401`, the Git SSH
+  remote failed with public-key authentication, and the GitHub plugin was not
+  connected in this session.
+- The reference Codex repository at
+  `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` still did not
+  provide an Electron `safeStorage` host probe pattern to reuse.
+
+No Windows or Linux `safeStorage` host result is recorded from this attempt.
+The Phase 0 host-confirmation item remains open because the missing results
+require actual Windows and Linux hosts, not Electron type definitions,
+documentation, or source inference.
+
 Open Phase 0 host confirmations:
 
 - Run the probe on Windows and record the `isEncryptionAvailable()` result.
