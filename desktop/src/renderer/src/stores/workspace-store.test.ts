@@ -1,16 +1,8 @@
-import type {
-  BackendHealth,
-  ChatCommandResult,
-  ChatMessage,
-  MessagePage,
-  OpenWorkspaceResponse,
-  Run,
-  WorkspaceSession,
-} from "@generated/backend";
-import type { RuntimeVersions, SettaAPI } from "@shared/types";
+import type { OpenWorkspaceResponse, WorkspaceSession } from "@generated/backend";
+import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { useWorkspaceStore } from "./workspace-store";
+import { workspaceAvailability, useWorkspaceStore } from "./workspace-store";
 
 describe("workspace store", () => {
   beforeEach(() => {
@@ -70,6 +62,28 @@ describe("workspace store", () => {
 
     expect(useWorkspaceStore.getState().session).toEqual(session);
     expect(useWorkspaceStore.getState().operation).toBeNull();
+  });
+
+  test("relocates a workspace without changing its identity", async () => {
+    const session = workspaceSession("workspace_api");
+    const workspace = firstWorkspace(session);
+    session.activeWorkspaces[0] = {
+      ...workspace,
+      rootPath: "/tmp/api-relocated",
+    };
+    installSettaAPI({
+      workspace: {
+        relocateLocalFolder: vi.fn().mockResolvedValue({
+          session,
+          workspace: firstWorkspace(session),
+        }),
+      },
+    });
+
+    await useWorkspaceStore.getState().relocateWorkspace("workspace_api");
+
+    expect(useWorkspaceStore.getState().session).toEqual(session);
+    expect(workspaceAvailability(session, "workspace_api")?.available).toBe(true);
   });
 
   test("select close reorder and remove recent replace state from backend responses", async () => {
@@ -282,550 +296,25 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     close: async () => fallbackSession,
     openLocalFolder: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     openPath: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
+    relocateLocalFolder: async () => ({
+      session: fallbackSession,
+      workspace: fallbackWorkspace,
+    }),
     readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
+    refreshAvailability: async () => fallbackSession,
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
     saveUILayout: async (layout) => layout,
     select: async () => fallbackSession,
-    selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
-    setSelectedConversation: async (workspaceId, conversationId) => ({
-      selectedConversationIdsByWorkspaceId: { [workspaceId]: conversationId },
-    }),
     session: async () => fallbackSession,
     ...overrides.workspace,
   };
-  const api: SettaAPI = {
-    app: {
-      flags: {
-        workflowGraphDebug: false,
-        workflowGraphSyntheticGraph: null,
-      },
-      captureRendererRegion: async () => ({
-        capturedAt: 0,
-        height: 1,
-        imageDataUrl: "data:image/png;base64,",
-        width: 1,
-      }),
-      installedEditors: async () => [],
-      endWindowDrag: async () => {},
-      moveWindowDrag: async () => {},
-      openWorkspaceInEditor: async () => {},
-      openExternalUrl: async () => {},
-      platform: "darwin",
-      startWindowDrag: async () => {},
-      versions: async (): Promise<RuntimeVersions> => ({
-        app: "test",
-        chrome: "test",
-        electron: "test",
-        node: "test",
-      }),
-      workspaceGitInfo: async () => ({
-        branchName: "main",
-        commitShort: "0000000",
-        worktreeName: "workspace",
-        worktreeRoot: "/tmp/workspace",
-      }),
-    },
-    backend: {
-      health: async (): Promise<BackendHealth> => ({
-        name: "setta-backend",
-        ok: true,
-        protocolVersion: 1,
-        version: "test",
-      }),
-      onEventStreamStatus: () => () => {},
-      onProcessStatus: () => () => {},
-    },
-    appearance: {
-      presets: async () => {
-        throw new Error("appearance presets are not used by workspace store tests");
-      },
-      read: async () => {
-        throw new Error("appearance read is not used by workspace store tests");
-      },
-      update: async () => {
-        throw new Error("appearance update is not used by workspace store tests");
-      },
-    },
-    runtimes: {} as SettaAPI["runtimes"],
-    chat: {
-      activeRun: async () => ({ hasActiveRun: false, liveness: null, run: null }),
-      cancelRun: async () => emptyRun(),
-      reconcileRuns: async () => ({ result: { runs: [] } }),
-      createConversation: async () => emptyConversation(),
-      createImageAttachmentFromBytes: async () => {
-        throw new Error("create image attachment from bytes is not used by workspace store tests");
-      },
-      deleteConversation: async () => ({
-        conversations: [],
-        corruption: emptyCorruption(),
-        diagnostics: [],
-      }),
-      editQueuedMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        run: emptyRun(),
-        userMessage: emptyMessage(),
-      }),
-      executeCommand: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: {
-          action: "display",
-          composerDraft: "",
-          currentPermission: null,
-          goal: null,
-          kind: "goal",
-          message: "Goal set: test",
-          models: [],
-          permissionPresets: [],
-          raw: "/goal test",
-          reasoningEfforts: [],
-          selectedPermissionPreset: null,
-          selectedReasoningEffort: null,
-          selectedModel: "",
-          title: "Goal",
-        },
-      }),
-      readCodexDefaults: async () => {
-        throw new Error("chat defaults are not used by workspace store tests");
-      },
-      openCodexModelPicker: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: {
-          action: "model_picker",
-          composerDraft: "",
-          currentPermission: null,
-          goal: null,
-          kind: "model",
-          message: "Choose a model.",
-          models: [],
-          permissionPresets: [],
-          raw: "model_picker",
-          reasoningEfforts: [],
-          selectedPermissionPreset: null,
-          selectedReasoningEffort: null,
-          selectedModel: "",
-          title: "Model",
-        },
-      }),
-      openCodexPermissionPicker: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: emptyCommandResult("permission", "permission_picker"),
-      }),
-      listCommands: async () => ({ commands: [] }),
-      listConversations: async () => ({
-        conversations: [],
-        corruption: emptyCorruption(),
-        diagnostics: [],
-      }),
-      listBackgroundTerminals: async () => ({ terminals: [] }),
-      getBackgroundTerminalOutput: async () => ({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [],
-        processId: "background_terminal_api",
-      }),
-      killBackgroundTerminal: async () => {
-        throw new Error("kill background terminal is not used by workspace store tests");
-      },
-      killAllBackgroundTerminals: async () => ({ terminals: [] }),
-      markConversationRead: async () => ({
-        activeRunId: "",
-        activeRunLiveness: null,
-        pinnedAt: "",
-        conversation: emptyConversation(),
-        latestReadRelevantMarker: 0,
-        messageCount: 0,
-        readMarker: 0,
-      }),
-      messagePage: async () => emptyMessagePage(),
-      listComposerPromptHistory: async () => ({
-        conversationId: "",
-        entries: [],
-        hasMoreOlder: false,
-        olderBeforeOrdinal: 0,
-      }),
-      onEvent: () => () => {},
-      queueMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        run: emptyRun(),
-        userMessage: emptyMessage(),
-      }),
-      runActivity: async () => ({
-        activity: [],
-        hasMoreItems: false,
-        items: [],
-        nextItemId: "",
-        output: [],
-        runId: "run_test",
-      }),
-      runItemOutput: async () => ({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [],
-        runId: "run_test",
-        runItemId: "run_item_test",
-      }),
-      removeQueuedMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        removedMessageId: "message_test",
-        removedRunId: "run_test",
-      }),
-      sendMessage: async () => ({
-        assistantMessage: emptyMessage(),
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        run: emptyRun(),
-        userMessage: emptyMessage(),
-      }),
-      setCodexModel: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: {
-          action: "display",
-          composerDraft: "",
-          currentPermission: null,
-          goal: null,
-          kind: "model",
-          message: "Model set: gpt-test",
-          models: [],
-          permissionPresets: [],
-          raw: "model_set",
-          reasoningEfforts: [],
-          selectedPermissionPreset: null,
-          selectedReasoningEffort: null,
-          selectedModel: "gpt-test",
-          title: "Model",
-        },
-      }),
-      setCodexPermissionPreset: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: emptyCommandResult("permission", "display"),
-      }),
-      setCodexReasoningEffort: async () => ({
-        activeRun: null,
-        activeRunLiveness: null,
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: {
-          action: "display",
-          composerDraft: "",
-          currentPermission: null,
-          goal: null,
-          kind: "model",
-          message: "Reasoning set: High",
-          models: [],
-          permissionPresets: [],
-          raw: "model_reasoning_effort_set",
-          reasoningEfforts: [],
-          selectedPermissionPreset: null,
-          selectedReasoningEffort: "high",
-          selectedModel: "",
-          title: "Model",
-        },
-      }),
-      updateCodexDefaults: async () => {
-        throw new Error("chat defaults are not used by workspace store tests");
-      },
-      setConversationPinned: async () => ({
-        activeRunId: "",
-        activeRunLiveness: null,
-        pinnedAt: "",
-        conversation: emptyConversation(),
-        latestReadRelevantMarker: 0,
-        messageCount: 0,
-        readMarker: 0,
-      }),
-      selectImageAttachments: async () => [],
-      steerMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        run: emptyRun(),
-        userMessage: emptyMessage(),
-      }),
-      sendSteeringImmediately: async () => ({
-        activeRun: emptyRun(),
-        cancelledRun: emptyRun(),
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        replayedSteeringMessageIds: [],
-      }),
-      submitApproval: async () => emptyRun(),
-    },
-    codexAccount: {
-      cancelLogin: async () => emptyCodexAccountState(),
-      logout: async () => emptyCodexAccountState(),
-      read: async () => emptyCodexAccountState(),
-      refresh: async () => emptyCodexAccountState(),
-      startLogin: async () => ({
-        login: {
-          authUrl: "",
-          error: "",
-          loginId: "",
-          status: "succeeded",
-          type: "chatgpt",
-          userCode: "",
-          verificationUrl: "",
-        },
-        state: emptyCodexAccountState(),
-      }),
-    },
-    workspaceActivity: unimplementedWorkspaceActivityAPI(),
-    terminal: unimplementedTerminalAPI(),
-    semanticGraph: unimplementedSemanticGraphAPI(),
-    workflow: unimplementedWorkflowAPI(),
-    workspace: workspaceAPI,
-  };
-
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
-      setta: api,
+      setta: { workspace: workspaceAPI } as unknown as SettaAPI,
     },
   });
-}
-
-function unimplementedWorkspaceActivityAPI(): SettaAPI["workspaceActivity"] {
-  return {
-    onEvent: () => () => {},
-    snapshot: async () => {
-      throw new Error("workspace activity API is not implemented in this test");
-    },
-    executionSnapshot: async () => {
-      throw new Error("workspace activity API is not implemented in this test");
-    },
-  };
-}
-
-function unimplementedTerminalAPI(): SettaAPI["terminal"] {
-  const unavailable = async (): Promise<never> => {
-    throw new Error("terminal API is not implemented in this test");
-  };
-  return {
-    attach: unavailable,
-    close: unavailable,
-    create: unavailable,
-    createProfile: unavailable,
-    deleteProfile: unavailable,
-    input: unavailable,
-    listProfiles: unavailable,
-    onEvent: () => () => {},
-    resize: unavailable,
-    selectDefaultProfile: unavailable,
-    updateProfile: unavailable,
-  };
-}
-
-function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
-  const unavailable = async (): Promise<never> => {
-    throw new Error("workflow API is not implemented in this test");
-  };
-  return {
-    cancelExecution: unavailable,
-    createDefinition: unavailable,
-    deleteDefinition: unavailable,
-    executionEvents: unavailable,
-    graphProjection: unavailable,
-    listDefinitions: unavailable,
-    listExecutions: unavailable,
-    onEvent: () => () => {},
-    readDefinition: unavailable,
-    readExecution: unavailable,
-    readNodeTrajectory: unavailable,
-    retryNodeRunLiveness: unavailable,
-    startExecution: unavailable,
-    steerNodeRun: unavailable,
-    stopNodeRun: unavailable,
-    submitApproval: unavailable,
-    updateDefinition: unavailable,
-    validateDefinition: unavailable,
-  };
-}
-
-function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
-  const unavailable = async (): Promise<never> => {
-    throw new Error("semantic graph API is not implemented in this test");
-  };
-  return {
-    acceptCartographerPatch: unavailable,
-    attachChatMessage: unavailable,
-    attachChatRun: unavailable,
-    attachFileRange: unavailable,
-    attachRunItem: unavailable,
-    attachWorkflowExecution: unavailable,
-    attachWorkflowNode: unavailable,
-    buildCartographerWindow: unavailable,
-    createEdge: unavailable,
-    createNode: unavailable,
-    createSteeringDirective: unavailable,
-    dismissNode: unavailable,
-    endActivity: unavailable,
-    listActivity: unavailable,
-    listActivityPage: unavailable,
-    listCartographerCursors: unavailable,
-    listCartographerPatches: unavailable,
-    listCartographerRuns: unavailable,
-    listCartographerWindows: unavailable,
-    listContextPacks: unavailable,
-    listEvidence: unavailable,
-    mergeNodes: unavailable,
-    onEvent: () => () => {},
-    processCartographerWindow: unavailable,
-    promoteNode: unavailable,
-    read: unavailable,
-    readActivitySummary: unavailable,
-    readCartographerProcessingState: unavailable,
-    readCartographerRun: unavailable,
-    readContextPack: unavailable,
-    readEventHistory: unavailable,
-    readNodeDetail: unavailable,
-    readSteeringState: unavailable,
-    rejectCartographerPatch: unavailable,
-    removeEdge: unavailable,
-    renameNode: unavailable,
-    splitNode: unavailable,
-    updateEdge: unavailable,
-    updateLayoutPositions: unavailable,
-    updateNode: unavailable,
-    updateSteeringDirective: unavailable,
-  };
-}
-
-function emptyCodexAccountState() {
-  return {
-    account: null,
-    diagnostic: "",
-    login: null,
-    requiresOpenaiAuth: true,
-    status: "unauthenticated" as const,
-  };
-}
-
-function emptyConversation() {
-  return {
-    archivedAt: "",
-    codexEffectiveSettings: null,
-    codexSettings: null,
-    createdAt: "2026-05-29T20:00:00Z",
-    harnessRefs: [],
-    id: "conversation_test",
-    internal: false,
-    schemaVersion: 1,
-    title: "Test",
-    updatedAt: "2026-05-29T20:00:00Z",
-    workflow: null,
-    workspaceId: "workspace_api",
-  };
-}
-
-function emptyCorruption() {
-  return {
-    byKind: [],
-    bySeverity: [],
-    hasCorruption: false,
-    total: 0,
-  };
-}
-
-function emptyCommandResult(
-  kind: ChatCommandResult["kind"],
-  action: ChatCommandResult["action"],
-): ChatCommandResult {
-  return {
-    action,
-    composerDraft: "",
-    currentPermission: null,
-    goal: null,
-    kind,
-    message: "Command result",
-    models: [],
-    permissionPresets: [],
-    raw: "/command",
-    reasoningEfforts: [],
-    selectedModel: "",
-    selectedPermissionPreset: null,
-    selectedReasoningEffort: null,
-    title: "Command",
-  };
-}
-
-function emptyMessage(): ChatMessage {
-  return {
-    conversationId: "conversation_test",
-    createdAt: "2026-05-29T20:00:00Z",
-    delivery: "normal",
-    id: "message_test",
-    ordinal: 1,
-    parts: [
-      {
-        id: "part_test",
-        image: null,
-        text: { format: "plain", text: "" },
-        type: "text",
-      },
-    ],
-    role: "user",
-    runId: "",
-    schemaVersion: 1,
-    status: "complete",
-    updatedAt: "2026-05-29T20:00:00Z",
-  };
-}
-
-function emptyMessagePage(): MessagePage {
-  return {
-    blocks: [],
-    conversation: emptyConversation(),
-    goal: null,
-    hasMoreOlder: false,
-    messages: [],
-    olderBeforeBlockOrdinal: 0,
-    queue: { messages: [], runs: [] },
-  };
-}
-
-function emptyRun(): Run {
-  return {
-    assistantMessageId: "message_assistant",
-    completedAt: "",
-    conversationId: "conversation_test",
-    error: "",
-    harness: "codex",
-    id: "run_test",
-    pendingApproval: null,
-    promptSummary: "",
-    schemaVersion: 1,
-    startedAt: "2026-05-29T20:00:00Z",
-    status: "completed",
-    triggerMessageId: "message_test",
-    workspaceId: "workspace_api",
-  };
 }
 
 interface Deferred<T> {
@@ -886,5 +375,10 @@ function workspaceSession(selectedWorkspaceId: string): WorkspaceSession {
       },
     ],
     selectedWorkspaceId,
+    workspaceAvailabilities: ["workspace_api", "workspace_web"].map((workspaceId) => ({
+      available: true,
+      unavailableReason: "",
+      workspaceId,
+    })),
   };
 }

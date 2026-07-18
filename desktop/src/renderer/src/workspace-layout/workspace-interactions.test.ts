@@ -48,7 +48,7 @@ describe("workspace keyboard interactions", () => {
 
   test("moves focus with Ctrl+Alt+Arrow when that preset is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
     const event = keyboardEvent({ altKey: true, ctrlKey: true, key: "ArrowRight" });
 
@@ -60,7 +60,7 @@ describe("workspace keyboard interactions", () => {
 
   test("ignores Mod+Alt+Arrow when Ctrl+Alt+Arrow is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
     const event = keyboardEvent({ altKey: true, key: "ArrowRight", metaKey: true });
 
@@ -86,33 +86,6 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
   });
 
-  test("accepts Mod+Alt+Arrow rerouted from terminal surfaces", () => {
-    const context = workspaceKeyContext();
-    const terminalTarget = new FakeElement({ terminal: true });
-    const event = keyboardEvent({
-      altKey: true,
-      key: "ArrowDown",
-      metaKey: true,
-      target: terminalTarget,
-    });
-
-    handleWorkspaceKeyDown({ ...context, event });
-
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.moveFocus).toHaveBeenCalledWith("down", context.viewport);
-  });
-
-  test("ignores bare arrows from terminal surfaces", () => {
-    const context = workspaceKeyContext();
-    const terminalTarget = new FakeElement({ terminal: true });
-    const event = keyboardEvent({ key: "ArrowDown", target: terminalTarget });
-
-    handleWorkspaceKeyDown({ ...context, event });
-
-    expect(event.preventDefault).not.toHaveBeenCalled();
-    expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
-  });
-
   test("uses Mod+Alt+Enter for plane splits", () => {
     const context = workspaceKeyContext();
     const event = keyboardEvent({ altKey: true, key: "Enter", metaKey: true });
@@ -126,7 +99,7 @@ describe("workspace keyboard interactions", () => {
 
   test("uses Ctrl+Alt+Enter for plane splits when that preset is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
     const event = keyboardEvent({ altKey: true, ctrlKey: true, key: "Enter" });
 
@@ -171,9 +144,20 @@ describe("workspace keyboard interactions", () => {
     );
   });
 
+  test("does not expose a generic shortcut for conversation-bound panes", () => {
+    const context = workspaceKeyContext();
+    const event = keyboardEvent({ altKey: true, key: "e", metaKey: true });
+
+    handleWorkspaceKeyDown({ ...context, event });
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(context.runtime.store.canOpenPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.openPane).not.toHaveBeenCalled();
+  });
+
   test("uses active shortcut settings for forwarded BrowserView arrows", () => {
     const context = workspaceKeyContext({
-      shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
 
     handleForwardedBrowserViewKey({
@@ -275,54 +259,53 @@ describe("workspace pane click focus", () => {
     vi.unstubAllGlobals();
   });
 
-  test("focuses terminal interior clicks without scrolling the layout", () => {
+  test("focuses pane interior clicks without scrolling the layout", () => {
     const context = workspaceClickContext();
-    const event = mouseEvent({ clientX: 240, clientY: 160, target: context.terminalTarget });
+    const event = mouseEvent({ clientX: 240, clientY: 160, target: context.paneTarget });
 
     handleWorkspaceClick({ ...context, event });
 
-    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("pane");
     expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
     expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(event.stopPropagation).not.toHaveBeenCalled();
   });
 
-  test("focuses terminal content from pointerdown capture when click propagation is stopped", () => {
+  test("focuses pane content from pointerdown capture when click propagation is stopped", () => {
     const context = workspaceClickContext();
-    const event = pointerEvent({ clientX: 240, clientY: 160, target: context.terminalTarget });
+    const event = pointerEvent({ clientX: 240, clientY: 160, target: context.paneTarget });
 
     handleWorkspacePaneFocusPointerDown({ ...context, event });
 
-    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("pane");
     expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
     expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(event.stopPropagation).not.toHaveBeenCalled();
   });
 
-  test("focuses non-terminal pane body clicks without scrolling the layout", () => {
+  test("focuses another pane body without scrolling the layout", () => {
     const context = workspaceClickContext({
-      paneId: "workflow-pane",
-      surfaceKind: "workflow-graph",
-      terminal: false,
+      paneId: "settings-pane",
+      surfaceKind: "settings-dom",
     });
     const event = mouseEvent({ clientX: 240, clientY: 160, target: context.paneTarget });
 
     handleWorkspaceClick({ ...context, event });
 
-    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("workflow-pane");
+    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("settings-pane");
     expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
     expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
   });
 
   test("fully focuses panes from top bar clicks", () => {
     const context = workspaceClickContext();
-    const event = mouseEvent({ clientX: 240, clientY: 52, target: context.terminalTarget });
+    const event = mouseEvent({ clientX: 240, clientY: 52, target: context.paneTarget });
 
     handleWorkspaceClick({ ...context, event });
 
-    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("pane");
     expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(event.stopPropagation).not.toHaveBeenCalled();
@@ -330,23 +313,45 @@ describe("workspace pane click focus", () => {
 
   test("fully focuses panes from top bar pointerdown capture", () => {
     const context = workspaceClickContext();
-    const event = pointerEvent({ clientX: 240, clientY: 52, target: context.terminalTarget });
+    const event = pointerEvent({ clientX: 240, clientY: 52, target: context.paneTarget });
 
     handleWorkspacePaneFocusPointerDown({ ...context, event });
 
-    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("pane");
     expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(event.stopPropagation).not.toHaveBeenCalled();
   });
 
+  test("leaves interactive pane controls mounted throughout a click gesture", () => {
+    const context = workspaceClickContext();
+    const pointerDown = pointerEvent({
+      clientX: 240,
+      clientY: 52,
+      target: context.interactiveControlTarget,
+    });
+    const click = mouseEvent({ clientX: 240, clientY: 52, target: context.retargetedControlClick });
+
+    handleWorkspacePaneFocusPointerDown({ ...context, event: pointerDown });
+    handleWorkspaceClick({ ...context, event: click });
+
+    expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.focusPaneWithoutReveal).not.toHaveBeenCalled();
+    expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
+    expect(context.scheduler.pauseBenchmark).not.toHaveBeenCalled();
+    expect(pointerDown.preventDefault).not.toHaveBeenCalled();
+    expect(pointerDown.stopPropagation).not.toHaveBeenCalled();
+    expect(click.preventDefault).not.toHaveBeenCalled();
+    expect(click.stopPropagation).not.toHaveBeenCalled();
+  });
+
   test("reveals top bar clicks on panes already focused by content", () => {
-    const context = workspaceClickContext({ focusedPaneId: "terminal-pane" });
-    const event = pointerEvent({ clientX: 240, clientY: 52, target: context.terminalTarget });
+    const context = workspaceClickContext({ focusedPaneId: "pane" });
+    const event = pointerEvent({ clientX: 240, clientY: 52, target: context.paneTarget });
 
     handleWorkspacePaneFocusPointerDown({ ...context, event });
 
-    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("terminal-pane");
+    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("pane");
     expect(context.runtime.store.focusPaneWithoutReveal).not.toHaveBeenCalled();
     expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
   });
@@ -383,26 +388,30 @@ function overviewWheelContext() {
 }
 
 function workspaceClickContext({
-  focusedPaneId = "chat-pane",
-  paneId = "terminal-pane",
-  surfaceKind = "terminal",
-  terminal = true,
+  focusedPaneId = "other-pane",
+  paneId = "pane",
+  surfaceKind = "fake-dom",
 }: {
   focusedPaneId?: string;
   paneId?: string;
   surfaceKind?: string;
-  terminal?: boolean;
 } = {}) {
   const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
   const paneHost = new FakeElement({
     rect: { bottom: 260, left: 100, right: 420, top: 40 },
     surfaceKind,
-    terminal,
   });
   paneHost.dataset.paneId = paneId;
   const paneTarget = new FakeElement({
     closestHost: paneHost,
-    terminal,
+  });
+  const interactiveControlTarget = new FakeElement({
+    closestHost: paneHost,
+    interactiveControl: true,
+  });
+  const retargetedControlClick = new FakeElement({
+    closestHost: paneHost,
+    pointTarget: interactiveControlTarget,
   });
   const store = {
     canOpenPane: vi.fn(() => false),
@@ -416,11 +425,12 @@ function workspaceClickContext({
   const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
   return {
     event: mouseEvent({ clientX: 240, clientY: 160, target: paneTarget }),
+    interactiveControlTarget,
     runLayoutAction: (action: () => void) => action(),
     runtime,
     scheduler,
     paneTarget,
-    terminalTarget: paneTarget,
+    retargetedControlClick,
     viewport,
     viewportProvider: () => viewport,
   };
@@ -507,7 +517,7 @@ function pointerEvent({
 }
 
 function workspaceKeyContext({
-  shortcuts = { workspaceNavigation: "mod_alt_arrows" },
+  shortcuts = { masterVoice: "mod_shift_k", workspaceNavigation: "mod_alt_arrows" },
 }: {
   shortcuts?: AppearanceShortcutsSettings;
 } = {}) {
@@ -540,7 +550,7 @@ function keyboardEvent({
   key,
   metaKey = false,
   shiftKey = false,
-  target = new FakeElement({ terminal: false }),
+  target = new FakeElement({}),
 }: {
   altKey?: boolean;
   ctrlKey?: boolean;
@@ -568,20 +578,25 @@ function keyboardEvent({
 class FakeElement {
   readonly dataset: Record<string, string> = {};
   readonly classList = {
-    contains: (className: string) => this.terminal && className === "workspace-terminal-surface",
+    contains: () => false,
   };
 
   constructor(
     private readonly options: {
       closestHost?: FakeElement;
+      interactiveControl?: boolean;
+      pointTarget?: FakeElement;
       rect?: { bottom: number; left: number; right: number; top: number };
       surfaceKind?: string;
-      terminal: boolean;
     },
   ) {
     if (options.surfaceKind) {
       this.dataset.surfaceKind = options.surfaceKind;
     }
+  }
+
+  get ownerDocument(): { elementFromPoint: () => FakeElement | null } {
+    return { elementFromPoint: () => this.options.pointTarget ?? null };
   }
 
   closest(selector: string): FakeElement | null {
@@ -591,14 +606,16 @@ class FakeElement {
     ) {
       return this.options.closestHost;
     }
-    return this.terminal && selector === ".workspace-terminal-surface" ? this : null;
+    if (
+      this.options.interactiveControl &&
+      selector === '[data-workspace-pane-interactive-control="true"]'
+    ) {
+      return this;
+    }
+    return null;
   }
 
   getBoundingClientRect(): { bottom: number; left: number; right: number; top: number } {
     return this.options.rect ?? { bottom: 0, left: 0, right: 0, top: 0 };
-  }
-
-  private get terminal(): boolean {
-    return this.options.terminal;
   }
 }

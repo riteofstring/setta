@@ -32,11 +32,6 @@ describe("preload runtime API", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.doUnmock("electron");
-    vi.unstubAllEnvs();
-    vi.stubEnv("SETTA_E2E", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
   });
 
   test("exposes typed runtime methods through IPC", async () => {
@@ -44,7 +39,6 @@ describe("preload runtime API", () => {
     expect(Object.keys(api.runtimes).sort()).toEqual([
       "addByPairingUrl",
       "current",
-      "currentRuntimeCredential",
       "list",
       "onConnectionState",
       "remove",
@@ -52,7 +46,6 @@ describe("preload runtime API", () => {
     ]);
 
     await api.runtimes.current();
-    await api.runtimes.currentRuntimeCredential();
     await api.runtimes.list();
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_remote&tok=tok&url=http://host");
     await api.runtimes.switch("runtime_remote");
@@ -69,7 +62,6 @@ describe("preload runtime API", () => {
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.runtimeCurrent],
-      [ipcChannels.runtimeCurrentCredential],
       [ipcChannels.runtimeList],
       [
         ipcChannels.runtimeAddByPairingUrl,

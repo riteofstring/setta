@@ -18,11 +18,10 @@ const (
 )
 
 type State struct {
-	SchemaVersion                        int                          `json:"schemaVersion"`
-	SelectedWorkspaceID                  string                       `json:"selectedWorkspaceId"`
-	SelectedConversationIDsByWorkspaceID map[string]string            `json:"selectedConversationIdsByWorkspaceId"`
-	ActiveWorkspaceIDs                   []string                     `json:"activeWorkspaceIds"`
-	RecentWorkspaces                     []workspace.WorkspaceSummary `json:"recentWorkspaces"`
+	SchemaVersion       int                          `json:"schemaVersion"`
+	SelectedWorkspaceID string                       `json:"selectedWorkspaceId"`
+	ActiveWorkspaceIDs  []string                     `json:"activeWorkspaceIds"`
+	RecentWorkspaces    []workspace.WorkspaceSummary `json:"recentWorkspaces"`
 }
 
 type Store struct {
@@ -83,11 +82,10 @@ func NewStore(appDataDir string) (*Store, error) {
 
 func EmptyState() State {
 	return State{
-		SchemaVersion:                        SchemaVersion,
-		SelectedWorkspaceID:                  "",
-		SelectedConversationIDsByWorkspaceID: map[string]string{},
-		ActiveWorkspaceIDs:                   []string{},
-		RecentWorkspaces:                     []workspace.WorkspaceSummary{},
+		SchemaVersion:       SchemaVersion,
+		SelectedWorkspaceID: "",
+		ActiveWorkspaceIDs:  []string{},
+		RecentWorkspaces:    []workspace.WorkspaceSummary{},
 	}
 }
 
@@ -163,10 +161,7 @@ func validateState(state State, statePath string) error {
 	if err != nil {
 		return err
 	}
-	if err := validateSelectedWorkspaceID(state.SelectedWorkspaceID, activeIDs, statePath); err != nil {
-		return err
-	}
-	return validateSelectedConversationIDs(state.SelectedConversationIDsByWorkspaceID, recentIDs, statePath)
+	return validateSelectedWorkspaceID(state.SelectedWorkspaceID, activeIDs, statePath)
 }
 
 func validateRecentWorkspaces(summaries []workspace.WorkspaceSummary, statePath string) (map[string]bool, error) {
@@ -203,21 +198,6 @@ func validateActiveWorkspaceIDs(activeWorkspaceIDs []string, recentIDs map[strin
 func validateSelectedWorkspaceID(selectedWorkspaceID string, activeIDs map[string]bool, statePath string) error {
 	if selectedWorkspaceID != "" && !activeIDs[selectedWorkspaceID] {
 		return corruptStateErrorf(statePath, "selected workspace id %s is not active", selectedWorkspaceID)
-	}
-	return nil
-}
-
-func validateSelectedConversationIDs(selectedConversationIDsByWorkspaceID map[string]string, recentIDs map[string]bool, statePath string) error {
-	for workspaceID, conversationID := range selectedConversationIDsByWorkspaceID {
-		if workspaceID == "" {
-			return corruptStateErrorf(statePath, "selected conversation workspace id is required")
-		}
-		if conversationID == "" {
-			return corruptStateErrorf(statePath, "selected conversation id is required for workspace %s", workspaceID)
-		}
-		if !recentIDs[workspaceID] {
-			return corruptStateErrorf(statePath, "selected conversation workspace id %s has no recent workspace metadata", workspaceID)
-		}
 	}
 	return nil
 }

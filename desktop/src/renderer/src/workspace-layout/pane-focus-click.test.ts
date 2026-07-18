@@ -45,12 +45,12 @@ describe("workspace pane focus click zones", () => {
   });
 
   test("resolves the clicked pane from pointer coordinates instead of focus state", () => {
-    const terminalHost = new FakeElement({ rect });
-    terminalHost.dataset.paneId = "terminal-pane";
-    const terminalContent = new FakeElement({ closestHost: terminalHost });
+    const conversationHost = new FakeElement({ rect });
+    conversationHost.dataset.paneId = "conversation-pane";
+    const conversationContent = new FakeElement({ closestHost: conversationHost });
     const ownerDocument = fakeDocument({
-      elementsAtPoint: [terminalContent],
-      hosts: [terminalHost],
+      elementsAtPoint: [conversationContent],
+      hosts: [conversationHost],
     });
     const root = new FakeElement({ ownerDocument });
     const event = mouseEvent({
@@ -61,17 +61,17 @@ describe("workspace pane focus click zones", () => {
     });
 
     expect(paneFocusTargetFromClick(event)).toEqual({
-      paneId: "terminal-pane",
+      paneId: "conversation-pane",
       reveal: false,
     });
   });
 
   test("falls back to visible pane rects when the point stack is unavailable", () => {
-    const terminalHost = new FakeElement({ rect });
-    terminalHost.dataset.paneId = "terminal-pane";
+    const conversationHost = new FakeElement({ rect });
+    conversationHost.dataset.paneId = "conversation-pane";
     const ownerDocument = fakeDocument({
       elementsAtPoint: [],
-      hosts: [terminalHost],
+      hosts: [conversationHost],
     });
     const root = new FakeElement({ ownerDocument });
     const event = mouseEvent({
@@ -82,7 +82,7 @@ describe("workspace pane focus click zones", () => {
     });
 
     expect(paneFocusTargetFromClick(event)).toEqual({
-      paneId: "terminal-pane",
+      paneId: "conversation-pane",
       reveal: true,
     });
   });

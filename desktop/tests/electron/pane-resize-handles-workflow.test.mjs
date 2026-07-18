@@ -13,6 +13,7 @@ import {
   dispatchMouseDrag,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
+  reloadPage,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -54,15 +55,16 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
-    extraEnv: {
-      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
-    },
     fixture,
     visible: options.visible,
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await ensureWorkspaceOpen(context.client);
+  const workspaceId = await ensureWorkspaceOpen(context.client);
+  await waitForInitialEasyButtonStartupToSettle(context.client);
+  await persistTwoColumnLayout(context.client, workspaceId);
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await waitForResizeHandles(context.client, "horizontal");
   await captureScreenshot(context.client, join(artifactDir, "horizontal-before.png"));
 
@@ -147,15 +149,63 @@ try {
 async function ensureWorkspaceOpen(client) {
   const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
-    return;
+    return currentWorkspaceId;
   }
   await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
-  await waitForState(
+  return waitForState(
     client,
     workspaceIdExpression(),
     (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
+}
+
+async function persistTwoColumnLayout(client, workspaceId) {
+  await client.evaluate(`(async () => {
+    await window.setta.workspace.saveUILayout(${JSON.stringify(twoColumnLayout(workspaceId))});
+    return true;
+  })()`);
+}
+
+async function waitForInitialEasyButtonStartupToSettle(client) {
+  await waitForState(
+    client,
+    "Boolean(document.querySelector('[data-testid=\"initial-easy-button-pane\"]'))",
+    (present) => !present,
+    workflowTimeoutMs,
+  );
+}
+
+function twoColumnLayout(workspaceId) {
+  const panes = [0, 1].map((index) => ({
+    columnId: `workspace_column_${index}`,
+    easyButtonConfig: null,
+    heat: index * 37,
+    paneId: `workspace_pane_${index}`,
+    sequence: index,
+    subtitle: "resize fixture",
+    surfaceId: `workspace_surface_${index}`,
+    surfaceKind: "empty-frame",
+    title: `Empty Frame ${index + 1}`,
+    tone: index === 0 ? "cyan" : "green",
+    weight: 1,
+  }));
+  return {
+    columns: panes.map((pane, index) => ({
+      columnId: pane.columnId,
+      idealWidthSpec: { unit: "px", value: 520 },
+      index,
+      paneIds: [pane.paneId],
+      planeIndex: 0,
+      previousProportionWidth: null,
+      slotIndex: index,
+      widthSpec: { unit: "px", value: 520 },
+    })),
+    focusedPaneId: panes[0].paneId,
+    panes,
+    schemaVersion: 1,
+    workspaceId,
+  };
 }
 
 async function clickFocusedPaneAction(client, action) {

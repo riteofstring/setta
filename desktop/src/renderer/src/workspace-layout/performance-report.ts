@@ -98,7 +98,7 @@ function createPhaseSixPerformanceReport(
     benchmark: {
       durationMs,
       expectedVisiblePanes: phaseOneVisiblePaneCount,
-      name: "Phase 6 terminal and git graph scene",
+      name: "Workspace DOM and browser scene",
       targetFrameMs,
       totalPanes: phaseOneFakePaneCount,
     },
@@ -110,9 +110,8 @@ function createPhaseSixPerformanceReport(
     },
     metrics: snapshot,
     notes: [
-      "Phase 6 scene keeps Phase 4 browser native-view bounds batching and Phase 5 canvas lifecycle boundaries intact.",
-      "Terminal surfaces use separate session buffers, bounded output draining, dirty-row writes, and scrollback virtualization.",
-      "Git graph surfaces request progressive layout batches from a browser Worker and choose DOM/SVG/canvas rendering by scale.",
+      "The scene exercises browser native-view bounds batching with light and heavy DOM panes.",
+      "Heavy DOM panes exercise runtime budgeting, frozen visuals, and snapshot lifecycle boundaries.",
       "Performance report is appended in localStorage and exposed on window for probe collection.",
     ],
     result: passed ? "pass" : "fail",
@@ -144,9 +143,9 @@ function createPhaseSixFiveResizePerformanceReport(
     },
     metrics: snapshot,
     notes: [
-      "Phase 6.5 resize report covers active window resize with mixed DOM, browser, canvas, terminal, and git graph panes.",
+      "The resize report covers active window resize with mixed light DOM, heavy DOM, and browser panes.",
       "Active resize keeps shell placement in the presentation engine while browser panes use DOM proxies instead of lagging native views.",
-      "Heavy canvas, terminal, git graph, and DOM surface viewport work is deferred or throttled during active resize.",
+      "Heavy DOM surface viewport work is deferred during active resize.",
       "The settled frame commits exact final dimensions to adapters and native browser bounds in one batched update path.",
     ],
     result: passed ? "pass" : "fail",
@@ -159,9 +158,7 @@ function phaseSixReportPassed(snapshot: WorkspacePerformanceReport["metrics"]): 
     snapshot.visiblePaneCount === phaseOneVisiblePaneCount &&
     snapshot.p95FrameTime <= targetFrameMs &&
     snapshot.nativeBoundsUpdates <= 1 &&
-    snapshot.reactCommitsDuringMovement === 0 &&
-    phaseSixTerminalMetricsReady(snapshot) &&
-    phaseSixGitGraphMetricsReady(snapshot)
+    snapshot.reactCommitsDuringMovement === 0
   );
 }
 
@@ -176,18 +173,6 @@ function phaseSixFiveResizeReportPassed(snapshot: WorkspacePerformanceReport["me
     snapshot.resize.deferredHeavyViewportWrites > 0 &&
     snapshot.reactCommitsDuringResize === 0
   );
-}
-
-function phaseSixGitGraphMetricsReady(snapshot: WorkspacePerformanceReport["metrics"]): boolean {
-  return (
-    snapshot.gitGraphRenderedNodes > 0 &&
-    snapshot.gitGraphWorkerBatches > 0 &&
-    snapshot.gitGraphRenderer !== null
-  );
-}
-
-function phaseSixTerminalMetricsReady(snapshot: WorkspacePerformanceReport["metrics"]): boolean {
-  return snapshot.terminalDirtyRows > 0;
 }
 
 function readReports(): WorkspacePerformanceReport[] {
