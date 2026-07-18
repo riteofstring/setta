@@ -99,6 +99,10 @@ async function handleProviderRequest(
   response,
   { credentials, requests, timing, timingContext, transcriptionSessionDelayMs },
 ) {
+  const operation = providerOperation(request);
+  if (!operation) {
+    throw new Error(`unexpected provider request: ${request.method} ${request.url}`);
+  }
   const credential = providerCredentialForRequest(request, credentials);
   if (!credential) {
     requests.push({
@@ -111,7 +115,7 @@ async function handleProviderRequest(
     response.end(JSON.stringify({ error: { message: "invalid api key" } }));
     return;
   }
-  if (request.method === "POST" && request.url === "/v1/realtime/client_secrets") {
+  if (operation === "transcription_session") {
     const requestReceived = markProviderTiming(
       timing,
       "transcription_session_request_received",
@@ -141,7 +145,7 @@ async function handleProviderRequest(
     requests[requests.length - 1].responseSentAtMs = responseSent.epochMs;
     return;
   }
-  if (request.method === "POST" && request.url === "/v1/audio/speech") {
+  if (operation === "speech_synthesis") {
     if (request.headers["openai-safety-identifier"] !== undefined) {
       throw new Error("speech synthesis fixture received an unexpected safety identifier");
     }
@@ -159,7 +163,17 @@ async function handleProviderRequest(
     response.end(synthesizedAudio);
     return;
   }
-  throw new Error(`unexpected provider request: ${request.method} ${request.url}`);
+  throw new Error(`unsupported provider operation: ${operation}`);
+}
+
+function providerOperation(request) {
+  if (request.method === "POST" && request.url === "/v1/realtime/client_secrets") {
+    return "transcription_session";
+  }
+  if (request.method === "POST" && request.url === "/v1/audio/speech") {
+    return "speech_synthesis";
+  }
+  return null;
 }
 
 function providerCredentialForRequest(request, credentials) {

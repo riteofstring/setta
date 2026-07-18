@@ -51,3 +51,18 @@ test("fake speech provider emits fixture-unique credential privacy markers", asy
   });
   first.assertHealthy();
 });
+
+test("fake speech provider fails unexpected paths before credential rejection", async (t) => {
+  const provider = await startSpeechTranscriptionProviderFixture();
+  t.after(async () => {
+    await provider.close();
+  });
+
+  const rejected = provider.createRejectedAPIKey("unexpected-path");
+  const response = await fetch(`${provider.baseURL}/unknown`, {
+    headers: { Authorization: `Bearer ${rejected}` },
+    method: "POST",
+  });
+  assert.equal(response.status, 500);
+  assert.throws(() => provider.assertHealthy(), /unexpected provider request: POST \/v1\/unknown/);
+});
