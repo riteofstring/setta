@@ -460,13 +460,19 @@ async function openConversationConfiguration(client, conversationId) {
   if (state.open) {
     return;
   }
-  const point = await client.driver("presentationConfigurationConversationTogglePoint", {
+  await waitForState(
+    client,
+    driverCallExpression("presentationConfigurationConversationTogglePoint", { conversationId }),
+    (candidate) => candidate.ok,
+    workflowTimeoutMs,
+  );
+  const readyPoint = await client.driver("presentationConfigurationConversationTogglePoint", {
     conversationId,
   });
-  if (!point.ok) {
-    throw new Error(`Conversation ${conversationId} presentation controls were unavailable`);
+  if (!readyPoint.ok) {
+    throw new Error(`Conversation ${conversationId} presentation controls were obstructed`);
   }
-  await dispatchMouseClick(client, point);
+  await dispatchMouseClick(client, readyPoint);
   await waitForState(
     client,
     driverCallExpression("presentationConfigurationConversationState", { conversationId }),
