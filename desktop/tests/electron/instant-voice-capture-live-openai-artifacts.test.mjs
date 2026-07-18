@@ -157,6 +157,74 @@ test("allows root-specific marker sets for temporary state", async (t) => {
   assert.equal(scan.scannedFileCount, 2);
 });
 
+test("redacts root-specific markers from privacy violation workflow failures", async (t) => {
+  const artifactDir = await createArtifactFixture(t);
+  const tempStateDir = await createArtifactFixture(t);
+  const artifactMarker = "sk-rootspecificartifactmarker";
+  const tempStateMarker = "sk-rootspecifictemporarystatemarker";
+  const originalFailure = new Error(`provider failed after issuing ${tempStateMarker}`);
+  await writeFile(join(artifactDir, "summary.json"), '{"status":"failed"}\n', "utf8");
+  await writeFile(join(tempStateDir, "electron-user-data.json"), tempStateMarker, "utf8");
+
+  await assert.rejects(
+    finalizeLiveOpenAIArtifacts({
+      artifactDir,
+      cleanupFinalizers: [
+        async () => {
+          await rm(tempStateDir, { force: true, recursive: true });
+        },
+      ],
+      markers: [artifactMarker],
+      scanRoots: [{ markers: [tempStateMarker], root: tempStateDir }],
+      workflowError: originalFailure,
+    }),
+    (error) => {
+      assert.equal(error.code, liveOpenAIArtifactPrivacyViolationCode);
+      assert.equal(error.message.includes(tempStateMarker), false);
+      assert.equal(
+        error.originalWorkflowFailure,
+        "provider failed after issuing [REDACTED_SECRET]",
+      );
+      return true;
+    },
+  );
+});
+
+test("preserves scan failures when an earlier workflow error exists", async (t) => {
+  const artifactDir = await createArtifactFixture(t);
+  const cleanupDir = await createArtifactFixture(t);
+  const marker = "sk-scanfailureworkflowmarker";
+  const originalFailure = new Error(`provider failed after issuing ${marker}`);
+  await writeFile(join(artifactDir, "summary.json"), '{"status":"failed"}\n', "utf8");
+  await writeFile(join(cleanupDir, "state.json"), "temporary state\n", "utf8");
+
+  await assert.rejects(
+    finalizeLiveOpenAIArtifacts({
+      artifactDir,
+      cleanupFinalizers: [
+        async () => {
+          await rm(cleanupDir, { force: true, recursive: true });
+        },
+      ],
+      markers: [marker],
+      scanRoots: [join(cleanupDir, "missing")],
+      workflowError: originalFailure,
+    }),
+    (error) => {
+      assert.equal(error.message.includes("artifact privacy scan failed before cleanup"), true);
+      assert.equal(error.message.includes(marker), false);
+      assert.equal(
+        error.originalWorkflowFailure,
+        "provider failed after issuing [REDACTED_SECRET]",
+      );
+      return true;
+    },
+  );
+  await assert.rejects(readFile(join(cleanupDir, "state.json"), "utf8"), {
+    code: "ENOENT",
+  });
+});
+
 test("redacts a failed workflow error even when finalized artifacts are clean", async (t) => {
   const artifactDir = await createArtifactFixture(t);
   const marker = "sk-cleanfailedworkflowmarker";
