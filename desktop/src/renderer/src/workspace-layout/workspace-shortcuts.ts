@@ -1,5 +1,4 @@
 import type {
-  AppearanceMasterVoiceShortcut,
   AppearanceShortcutsSettings,
   AppearanceWorkspaceNavigationShortcut,
 } from "@generated/backend";
@@ -16,11 +15,9 @@ interface WorkspaceShortcutKeyEvent {
 }
 
 const defaultWorkspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut = "mod_alt_arrows";
-const defaultMasterVoiceShortcut: AppearanceMasterVoiceShortcut = "mod_shift_k";
 
-export const defaultShortcutsSettings: AppearanceShortcutsSettings = {
+const defaultShortcutsSettings: AppearanceShortcutsSettings = {
   workspaceNavigation: defaultWorkspaceNavigationShortcut,
-  masterVoice: defaultMasterVoiceShortcut,
 };
 
 function currentShortcutsSettings(): AppearanceShortcutsSettings {
@@ -54,6 +51,13 @@ export function workspaceShortcutModifierMatches(
   }
 }
 
+export function isTerminalSafeWorkspaceArrowNavigationShortcut(
+  event: WorkspaceShortcutKeyEvent,
+  shortcuts: AppearanceShortcutsSettings = currentShortcutsSettings(),
+): boolean {
+  return isWorkspaceArrowNavigationShortcut(event, shortcuts);
+}
+
 export function workspaceArrowDirection(key: string): PaneDirection {
   switch (key) {
     case "ArrowDown":
@@ -67,6 +71,20 @@ export function workspaceArrowDirection(key: string): PaneDirection {
     default:
       throw new Error(`unsupported workspace focus key: ${key}`);
   }
+}
+
+export function workspaceShortcutKeyboardEventInit(
+  event: KeyboardEvent,
+): KeyboardEventInit & { key: string } {
+  return {
+    altKey: event.altKey,
+    bubbles: true,
+    cancelable: true,
+    ctrlKey: event.ctrlKey,
+    key: event.key,
+    metaKey: event.metaKey,
+    shiftKey: event.shiftKey,
+  };
 }
 
 function isWorkspaceArrowKey(

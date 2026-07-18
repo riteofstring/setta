@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"time"
 )
@@ -27,7 +26,6 @@ type ProcessConfig struct {
 	Command             string
 	Args                []string
 	Env                 []string
-	ExcludedEnv         []string
 	ShutdownGracePeriod time.Duration
 	ShutdownKillPeriod  time.Duration
 }
@@ -118,8 +116,8 @@ func StartProcess(config ProcessConfig) (*Client, error) {
 	}
 	cmd := exec.Command(config.Command, config.Args...)
 	configureCommandProcessGroup(cmd)
-	if len(config.Env) > 0 || len(config.ExcludedEnv) > 0 {
-		cmd.Env = processEnvironment(os.Environ(), config.Env, config.ExcludedEnv)
+	if len(config.Env) > 0 {
+		cmd.Env = append(os.Environ(), config.Env...)
 	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -149,21 +147,6 @@ func StartProcess(config ProcessConfig) (*Client, error) {
 	}
 	go client.readLoop(stdout, stderr)
 	return client, nil
-}
-
-func processEnvironment(inherited []string, overrides []string, excluded []string) []string {
-	excludedNames := make(map[string]struct{}, len(excluded))
-	for _, name := range excluded {
-		excludedNames[name] = struct{}{}
-	}
-	result := make([]string, 0, len(inherited)+len(overrides))
-	for _, entry := range append(append([]string(nil), inherited...), overrides...) {
-		name, _, _ := strings.Cut(entry, "=")
-		if _, blocked := excludedNames[name]; !blocked {
-			result = append(result, entry)
-		}
-	}
-	return result
 }
 
 func (client *Client) Call(ctx context.Context, method string, params any) (json.RawMessage, error) {

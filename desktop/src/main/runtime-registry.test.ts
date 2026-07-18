@@ -306,6 +306,7 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
         : runtimeInfrastructureProvider("unknown"),
     protocolVersion,
     runtimeId,
+    vapidPublicKey: "test-vapid-public-key",
   };
 }
 

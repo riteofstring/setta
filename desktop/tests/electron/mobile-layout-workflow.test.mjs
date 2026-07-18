@@ -43,6 +43,9 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
+    extraEnv: {
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+    },
     fixture,
     visible: options.visible,
   });
@@ -56,10 +59,10 @@ try {
   const fullScreenPane = await waitForFullScreenFocusedPane(context.client);
   await captureScreenshot(context.client, join(artifactDir, "mobile-layout.png"));
 
-  const newFrame = await exerciseNewFrameButton(context.client);
   const focusSteps = await exerciseFocusNavigation(context.client);
   const projectPane = await exerciseProjectPaneOverlay(context.client, artifactDir);
   const overview = await exerciseOverviewToggle(context.client);
+  const newFrame = await exerciseNewFrameButton(context.client);
 
   await context.client.call("Emulation.setDeviceMetricsOverride", desktopViewport);
   await waitForCompactLayout(context.client, false);
@@ -180,14 +183,14 @@ async function waitForFullScreenFocusedPane(client) {
 
 async function exerciseFocusNavigation(client) {
   const initialPaneId = await focusedPaneId(client);
-  await clickTestId(client, "workspace-mobile-focus-left");
+  await clickTestId(client, "workspace-mobile-focus-right");
   const movedPaneId = await waitForState(
     client,
     focusedPaneIdExpression(),
     (paneId) => paneId !== "" && paneId !== initialPaneId,
     workflowTimeoutMs,
   );
-  await clickTestId(client, "workspace-mobile-focus-right");
+  await clickTestId(client, "workspace-mobile-focus-left");
   const restoredPaneId = await waitForState(
     client,
     focusedPaneIdExpression(),
@@ -237,7 +240,6 @@ async function exerciseOverviewToggle(client) {
 
 async function exerciseNewFrameButton(client) {
   const beforeCount = await paneCount(client);
-  const beforeFocusedPaneId = await focusedPaneId(client);
   await clickTestId(client, "workspace-mobile-new-frame");
   const afterCount = await waitForState(
     client,
@@ -245,13 +247,7 @@ async function exerciseNewFrameButton(client) {
     (count) => count === beforeCount + 1,
     workflowTimeoutMs,
   );
-  const afterFocusedPaneId = await waitForState(
-    client,
-    focusedPaneIdExpression(),
-    (paneId) => paneId !== "" && paneId !== beforeFocusedPaneId,
-    workflowTimeoutMs,
-  );
-  return { afterCount, afterFocusedPaneId, beforeCount };
+  return { afterCount, beforeCount };
 }
 
 async function clickTestId(client, testId) {

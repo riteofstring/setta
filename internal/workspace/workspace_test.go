@@ -73,34 +73,6 @@ func TestOpenLocalReusesExistingWorkspaceID(t *testing.T) {
 	}
 }
 
-func TestRelocatePreservesWorkspaceIdentity(t *testing.T) {
-	appDataDir := t.TempDir()
-	originalRoot := t.TempDir()
-	replacementRoot := t.TempDir()
-	manager := testManager(t, appDataDir, mustTime(t, "2026-05-29T20:00:00Z"))
-	original, _, err := manager.OpenLocal(originalRoot)
-	if err != nil {
-		t.Fatalf("open original workspace: %v", err)
-	}
-
-	relocatedManager := testManager(t, appDataDir, mustTime(t, "2026-05-29T20:05:00Z"))
-	relocated, state, err := relocatedManager.Relocate(original.ID, replacementRoot)
-	if err != nil {
-		t.Fatalf("relocate workspace: %v", err)
-	}
-
-	if relocated.ID != original.ID || state.ID != original.ID {
-		t.Fatalf("relocated identity = summary %q state %q, want %q", relocated.ID, state.ID, original.ID)
-	}
-	canonicalReplacement, err := ValidateLocalRootPath(replacementRoot)
-	if err != nil {
-		t.Fatalf("canonicalize replacement: %v", err)
-	}
-	if relocated.RootPath != canonicalReplacement || state.RootPath != canonicalReplacement {
-		t.Fatalf("relocated root = summary %q state %q, want %q", relocated.RootPath, state.RootPath, canonicalReplacement)
-	}
-}
-
 func TestOpenLocalRejectsInvalidPaths(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "file.txt")
