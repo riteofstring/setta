@@ -19,7 +19,10 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
-import { finalizeLiveOpenAIArtifacts } from "./instant-voice-capture-live-openai-artifacts.mjs";
+import {
+  finalizeLiveOpenAIArtifacts,
+  redactLiveOpenAIError,
+} from "./instant-voice-capture-live-openai-artifacts.mjs";
 import { resolveLiveOpenAIApiKey } from "./instant-voice-capture-live-openai-credentials.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -140,7 +143,7 @@ await finalizeLiveOpenAIArtifacts({
       await rm(fixture.tempRoot, { force: true, recursive: true });
     },
   ],
-  markers: session ? [apiKey, session.clientSecret] : [apiKey],
+  markers: privateMarkers(),
   workflowError,
 });
 console.log(`Electron instant voice capture live OpenAI smoke passed: ${artifactDir}`);
@@ -149,13 +152,18 @@ async function recordWorkflowFailure(error) {
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
   }
+  const redactedError = redactLiveOpenAIError(error, privateMarkers());
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
-    error: error instanceof Error ? error.message : String(error),
+    error: redactedError instanceof Error ? redactedError.message : String(redactedError),
     session: session ? redactedSession(session) : null,
     status: "failed",
     workflowName,
   });
+}
+
+function privateMarkers() {
+  return session ? [apiKey, session.clientSecret] : [apiKey];
 }
 
 async function synthesizeLiveSmokeAudio({ apiKey, input, model, voice }) {

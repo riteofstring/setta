@@ -25,9 +25,44 @@ export async function finalizeLiveOpenAIArtifacts({
     });
   }
   if (preservedError) {
-    throw preservedError;
+    throw redactLiveOpenAIError(preservedError, markers);
   }
   return scan;
+}
+
+export function redactLiveOpenAIError(error, markers) {
+  assertValidMarkers(markers);
+  if (!(error instanceof Error)) {
+    return new Error(redactMarkers(errorMessage(error), markers));
+  }
+  return redactErrorObject(error, markers);
+}
+
+function redactErrorObject(error, markers) {
+  const message = errorMessage(error);
+  const stack = errorStack(error);
+  const redactedMessage = redactMarkers(message, markers);
+  const redactedStack = redactOptionalStack(stack, markers);
+  if (redactedMessage === message && redactedStack === stack) {
+    return error;
+  }
+  const redactedError = new Error(redactedMessage);
+  redactedError.name = error.name;
+  if (redactedStack !== "") {
+    redactedError.stack = redactedStack;
+  }
+  if ("code" in error) {
+    redactedError.code = error.code;
+  }
+  return redactedError;
+}
+
+function errorStack(error) {
+  return typeof error.stack === "string" ? error.stack : "";
+}
+
+function redactOptionalStack(stack, markers) {
+  return stack === "" ? "" : redactMarkers(stack, markers);
 }
 
 export async function scanArtifactsForMarkers(root, markers) {

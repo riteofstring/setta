@@ -68,6 +68,37 @@ test("scans failed workflow artifacts and redacts the original failure on privac
   });
 });
 
+test("redacts a failed workflow error even when finalized artifacts are clean", async (t) => {
+  const artifactDir = await createArtifactFixture(t);
+  const marker = "sk-cleanfailedworkflowmarker";
+  const originalFailure = new Error(`provider failed after issuing ${marker}`);
+  originalFailure.stack = `Error: provider failed after issuing ${marker}\n    at live-smoke`;
+  await writeFile(join(artifactDir, "summary.json"), '{"status":"failed"}\n', "utf8");
+
+  await assert.rejects(
+    finalizeLiveOpenAIArtifacts({
+      artifactDir,
+      finalizers: [
+        async () => {
+          await writeFile(join(artifactDir, "electron-output.log"), "clean shutdown\n", "utf8");
+        },
+      ],
+      markers: [marker],
+      workflowError: originalFailure,
+    }),
+    (error) => {
+      assert.equal(error.message, "provider failed after issuing [REDACTED_SECRET]");
+      assert.equal(error.message.includes(marker), false);
+      assert.equal(error.stack.includes(marker), false);
+      return true;
+    },
+  );
+  assert.equal(
+    await readFile(join(artifactDir, "electron-output.log"), "utf8"),
+    "clean shutdown\n",
+  );
+});
+
 test("keeps clean finalized artifacts available", async (t) => {
   const artifactDir = await createArtifactFixture(t);
   const marker = "sk-cleanfinalizedmarker";
