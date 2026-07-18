@@ -7,13 +7,25 @@ import type {
   SpeechVoiceID,
   VoiceSelectionRequest,
 } from "@generated/backend";
+import type { KnownRuntimeView, RuntimeRegistrySnapshot } from "@shared/types";
 import { conversationPaletteCatalog } from "@generated/backend";
 import { Loader2, RotateCcw, Save, SlidersHorizontal, Volume2 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
+import { useRuntimeStore } from "../stores/runtime-store";
 import type { SettingsFocusRequest } from "../stores/settings-navigation-store";
-import { OpenAIVoiceConnectionCard } from "./openai-voice-connection-card";
+import {
+  type ActiveRuntimeVoiceStatus,
+  OpenAIVoiceConnectionCard,
+} from "./openai-voice-connection-card";
 import { Button } from "./ui/button";
 
 const automaticSelectionValue = "auto_distinct";
@@ -24,21 +36,117 @@ interface GlobalVoiceConfiguration {
   narratorDefault: NarratorVoiceDefault;
 }
 
+interface RuntimeKeyedConfiguration {
+  configuration: GlobalVoiceConfiguration;
+  runtimeKey: string;
+}
+
+interface RuntimeKeyedError {
+  message: string;
+  runtimeKey: string;
+}
+
+interface PresentationConfigurationSettingsState {
+  activeRuntimeVoiceStatus: ActiveRuntimeVoiceStatus | null;
+  configuration: GlobalVoiceConfiguration | null;
+  error: string | null;
+  onMasterUpdate: (master: MasterVoiceSelection) => void;
+  onNarratorDefaultUpdate: (narratorDefault: NarratorVoiceDefault) => void;
+}
+
 export function PresentationConfigurationSettings({
   focusRequest = null,
 }: {
   focusRequest?: SettingsFocusRequest | null;
 }) {
-  const [configuration, setConfiguration] = useState<GlobalVoiceConfiguration | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const state = usePresentationConfigurationSettingsState();
 
+  return (
+    <section className="grid gap-3" data-testid="presentation-configuration-settings">
+      <OpenAIVoiceConnectionCard
+        activeRuntimeVoiceStatus={state.activeRuntimeVoiceStatus}
+        focusRequest={focusRequest?.target === "openai_voice_connection" ? focusRequest : null}
+      />
+      <PresentationConfigurationSettingsContent state={state} />
+    </section>
+  );
+}
+
+function PresentationConfigurationSettingsContent({
+  state,
+}: {
+  state: PresentationConfigurationSettingsState;
+}) {
+  if (state.error) {
+    return <ConfigurationMessage kind="error">{state.error}</ConfigurationMessage>;
+  }
+  if (state.configuration) {
+    return (
+      <GlobalVoiceConfigurationForm
+        configuration={state.configuration}
+        onMasterUpdate={state.onMasterUpdate}
+        onNarratorDefaultUpdate={state.onNarratorDefaultUpdate}
+      />
+    );
+  }
+  return (
+    <ConfigurationMessage kind="loading">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      Loading voice configuration
+    </ConfigurationMessage>
+  );
+}
+
+function usePresentationConfigurationSettingsState(): PresentationConfigurationSettingsState {
+  const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
+  const activeRuntimeKey = runtimeSnapshotKey(runtimeSnapshot);
+  const [configurationState, setConfigurationState] = useState<RuntimeKeyedConfiguration | null>(
+    null,
+  );
+  const [errorState, setErrorState] = useState<RuntimeKeyedError | null>(null);
+  const configuration = runtimeScopedConfiguration(configurationState, activeRuntimeKey);
+  const error = runtimeScopedError(errorState, activeRuntimeKey);
+  const activeRemoteRuntime = activeRemoteRuntimeFromSnapshot(runtimeSnapshot);
+
+  useLoadVoiceConfiguration(activeRuntimeKey, setConfigurationState, setErrorState);
+
+  return {
+    activeRuntimeVoiceStatus: activeRemoteRuntimeVoiceStatus({
+      configuration,
+      error,
+      runtime: activeRemoteRuntime,
+    }),
+    configuration,
+    error,
+    onMasterUpdate: (master) =>
+      setConfigurationState((current) =>
+        updateRuntimeScopedConfiguration(current, activeRuntimeKey, { master }),
+      ),
+    onNarratorDefaultUpdate: (narratorDefault) =>
+      setConfigurationState((current) =>
+        updateRuntimeScopedConfiguration(current, activeRuntimeKey, { narratorDefault }),
+      ),
+  };
+}
+
+function useLoadVoiceConfiguration(
+  activeRuntimeKey: string,
+  setConfigurationState: Dispatch<SetStateAction<RuntimeKeyedConfiguration | null>>,
+  setErrorState: Dispatch<SetStateAction<RuntimeKeyedError | null>>,
+): void {
   useEffect(() => {
     const speech = window.setta.speech;
     if (!speech.readMasterVoiceSelection || !speech.readNarratorVoiceDefault) {
-      setError("Voice configuration is unavailable in this client.");
+      setConfigurationState(null);
+      setErrorState({
+        message: "Voice configuration is unavailable in this client.",
+        runtimeKey: activeRuntimeKey,
+      });
       return;
     }
     let active = true;
+    setConfigurationState((current) => (current?.runtimeKey === activeRuntimeKey ? current : null));
+    setErrorState(null);
     void Promise.all([
       speech.readCapabilities(),
       speech.readMasterVoiceSelection(),
@@ -46,46 +154,113 @@ export function PresentationConfigurationSettings({
     ]).then(
       ([capabilities, master, narratorDefault]) => {
         if (active) {
-          setConfiguration({ capabilities, master, narratorDefault });
-          setError(null);
+          setConfigurationState({
+            configuration: { capabilities, master, narratorDefault },
+            runtimeKey: activeRuntimeKey,
+          });
+          setErrorState(null);
         }
       },
       (reason: unknown) => {
         if (active) {
-          setError(errorMessage(reason));
+          setErrorState({
+            message: errorMessage(reason),
+            runtimeKey: activeRuntimeKey,
+          });
         }
       },
     );
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeRuntimeKey, setConfigurationState, setErrorState]);
+}
 
-  return (
-    <section className="grid gap-3" data-testid="presentation-configuration-settings">
-      <OpenAIVoiceConnectionCard
-        focusRequest={focusRequest?.target === "openai_voice_connection" ? focusRequest : null}
-      />
-      {error ? (
-        <ConfigurationMessage kind="error">{error}</ConfigurationMessage>
-      ) : configuration ? (
-        <GlobalVoiceConfigurationForm
-          configuration={configuration}
-          onMasterUpdate={(master) =>
-            setConfiguration((current) => current && { ...current, master })
-          }
-          onNarratorDefaultUpdate={(narratorDefault) =>
-            setConfiguration((current) => current && { ...current, narratorDefault })
-          }
-        />
-      ) : (
-        <ConfigurationMessage kind="loading">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading voice configuration
-        </ConfigurationMessage>
-      )}
-    </section>
-  );
+function runtimeSnapshotKey(snapshot: RuntimeRegistrySnapshot | null): string {
+  if (!snapshot) {
+    return "";
+  }
+  return `${snapshot.activeRuntimeId ?? ""}:${snapshot.connection.status}:${snapshot.connection.updatedAt}`;
+}
+
+function runtimeScopedConfiguration(
+  state: RuntimeKeyedConfiguration | null,
+  runtimeKey: string,
+): GlobalVoiceConfiguration | null {
+  if (state?.runtimeKey !== runtimeKey) {
+    return null;
+  }
+  return state.configuration;
+}
+
+function runtimeScopedError(state: RuntimeKeyedError | null, runtimeKey: string): string | null {
+  if (state?.runtimeKey !== runtimeKey) {
+    return null;
+  }
+  return state.message;
+}
+
+function updateRuntimeScopedConfiguration(
+  current: RuntimeKeyedConfiguration | null,
+  runtimeKey: string,
+  update: Partial<Pick<GlobalVoiceConfiguration, "master" | "narratorDefault">>,
+): RuntimeKeyedConfiguration | null {
+  if (current?.runtimeKey !== runtimeKey) {
+    return current;
+  }
+  return {
+    configuration: { ...current.configuration, ...update },
+    runtimeKey: current.runtimeKey,
+  };
+}
+
+function activeRemoteRuntimeFromSnapshot(
+  snapshot: RuntimeRegistrySnapshot | null,
+): KnownRuntimeView | null {
+  if (!snapshot) {
+    return null;
+  }
+  const activeRuntime =
+    snapshot.runtimes.find((runtime) => runtime.runtimeId === snapshot.activeRuntimeId) ??
+    snapshot.runtimes.find((runtime) => runtime.active) ??
+    null;
+  if (!activeRuntime || activeRuntime.isLocal) {
+    return null;
+  }
+  return activeRuntime;
+}
+
+function activeRemoteRuntimeVoiceStatus({
+  configuration,
+  error,
+  runtime,
+}: {
+  configuration: GlobalVoiceConfiguration | null;
+  error: string | null;
+  runtime: KnownRuntimeView | null;
+}): ActiveRuntimeVoiceStatus | null {
+  if (!runtime) {
+    return null;
+  }
+  if (error) {
+    return {
+      displayName: runtime.displayName,
+      message: error,
+      providerStatus: "unavailable",
+    };
+  }
+  if (!configuration) {
+    return {
+      displayName: runtime.displayName,
+      message: null,
+      providerStatus: "loading",
+    };
+  }
+  return {
+    displayName: runtime.displayName,
+    message: null,
+    providerStatus: configuration.capabilities.providerStatus,
+  };
 }
 
 export function GlobalVoiceConfigurationForm({

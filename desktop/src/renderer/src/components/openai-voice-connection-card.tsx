@@ -1,6 +1,14 @@
-import type { SpeechProvider } from "@generated/backend";
+import type { SpeechProvider, SpeechProviderStatus } from "@generated/backend";
 import type { SpeechCredentialOperation, SpeechCredentialSettings } from "@shared/speech-ipc";
-import { ExternalLink, KeyRound, Loader2, RefreshCw, ShieldCheck, Unplug } from "lucide-react";
+import {
+  ExternalLink,
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  Server,
+  ShieldCheck,
+  Unplug,
+} from "lucide-react";
 import { type Ref, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -14,8 +22,10 @@ import { Input } from "./ui/input";
 const openAIApiKeysURL = "https://platform.openai.com/api-keys";
 
 export function OpenAIVoiceConnectionCard({
+  activeRuntimeVoiceStatus = null,
   focusRequest = null,
 }: {
+  activeRuntimeVoiceStatus?: ActiveRuntimeVoiceStatus | null;
   focusRequest?: SettingsFocusRequest | null;
 }) {
   const [settings, setSettings] = useState<SpeechCredentialSettings>({ status: "loading" });
@@ -136,9 +146,16 @@ export function OpenAIVoiceConnectionCard({
       onRetry={readSettings}
       onSave={save}
       operation={operation}
+      activeRuntimeVoiceStatus={activeRuntimeVoiceStatus}
       settings={settings}
     />
   );
+}
+
+export interface ActiveRuntimeVoiceStatus {
+  displayName: string;
+  message: string | null;
+  providerStatus: SpeechProviderStatus | "loading" | "unavailable";
 }
 
 interface OpenAIVoiceConnectionCardViewProps {
@@ -154,6 +171,7 @@ interface OpenAIVoiceConnectionCardViewProps {
   onRetry: () => void;
   onSave: () => void;
   operation: SpeechCredentialOperation | null;
+  activeRuntimeVoiceStatus?: ActiveRuntimeVoiceStatus | null;
   settings: SpeechCredentialSettings;
 }
 
@@ -170,6 +188,7 @@ export function OpenAIVoiceConnectionCardView({
   onRetry,
   onSave,
   operation,
+  activeRuntimeVoiceStatus = null,
   settings,
 }: OpenAIVoiceConnectionCardViewProps) {
   const status = speechCredentialStatusPresentation(settings);
@@ -190,7 +209,8 @@ export function OpenAIVoiceConnectionCardView({
               OpenAI voice connection
             </h2>
             <p className="text-[11px] leading-4 text-muted-foreground">
-              Applies to Local only. OpenAI bills API usage separately from ChatGPT.
+              Local desktop credential. Applies to Local only. OpenAI bills API usage separately
+              from ChatGPT.
             </p>
           </div>
         </div>
@@ -215,6 +235,7 @@ export function OpenAIVoiceConnectionCardView({
           </p>
         ) : null}
       </div>
+      <ActiveRuntimeVoiceStatusCopy activeRuntimeVoiceStatus={activeRuntimeVoiceStatus} />
       {inputVisible ? (
         <CredentialPasswordInput
           apiKeyDraft={apiKeyDraft}
@@ -238,6 +259,42 @@ export function OpenAIVoiceConnectionCardView({
         settings={settings}
       />
     </article>
+  );
+}
+
+function ActiveRuntimeVoiceStatusCopy({
+  activeRuntimeVoiceStatus,
+}: {
+  activeRuntimeVoiceStatus: ActiveRuntimeVoiceStatus | null;
+}) {
+  if (!activeRuntimeVoiceStatus) {
+    return null;
+  }
+  const presentation = activeRuntimeVoiceStatusPresentation(activeRuntimeVoiceStatus);
+  return (
+    <div
+      className="grid gap-1 rounded-sm border border-border bg-background/60 p-2"
+      data-testid="active-runtime-voice-status"
+    >
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-foreground">
+          <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">Active runtime voice status</span>
+        </span>
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[11px] font-medium",
+            credentialStatusClass(presentation.tone),
+          )}
+        >
+          {presentation.label}
+        </span>
+      </div>
+      <p className="text-[11px] leading-4 text-muted-foreground">{presentation.summary}</p>
+      {presentation.detail ? (
+        <p className="text-[11px] leading-4 text-muted-foreground">{presentation.detail}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -538,6 +595,47 @@ function speechCredentialStatusPresentation(settings: SpeechCredentialSettings):
       };
     default:
       return assertNever(settings);
+  }
+}
+
+function activeRuntimeVoiceStatusPresentation(status: ActiveRuntimeVoiceStatus): {
+  detail: string | null;
+  label: string;
+  summary: string;
+  tone: "good" | "muted" | "pending" | "problem";
+} {
+  switch (status.providerStatus) {
+    case "configured":
+      return {
+        detail: "The Local credential on this card is not sent there.",
+        label: "Connected",
+        summary: `${status.displayName} reports voice connected from its own runtime configuration.`,
+        tone: "good",
+      };
+    case "not_configured":
+      return {
+        detail:
+          "Configure voice on that runtime. The Local credential on this card is not sent there.",
+        label: "Not connected",
+        summary: `${status.displayName} reports voice not connected.`,
+        tone: "muted",
+      };
+    case "loading":
+      return {
+        detail: "The Local credential on this card is not sent to remote runtimes.",
+        label: "Checking",
+        summary: `Checking voice status for ${status.displayName}.`,
+        tone: "pending",
+      };
+    case "unavailable":
+      return {
+        detail: status.message,
+        label: "Unavailable",
+        summary: `Voice status for ${status.displayName} is unavailable. The Local credential on this card is not sent there.`,
+        tone: "problem",
+      };
+    default:
+      return assertNever(status.providerStatus);
   }
 }
 

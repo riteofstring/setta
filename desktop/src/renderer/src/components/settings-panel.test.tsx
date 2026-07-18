@@ -215,6 +215,30 @@ describe("appearance settings", () => {
     expect(html).not.toContain("candidate-value-that-must-not-render");
   });
 
+  test("distinguishes the local credential from active remote runtime voice status", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        activeRuntimeVoiceStatus={{
+          displayName: "Remote lab",
+          message: null,
+          providerStatus: "not_configured",
+        }}
+        canManage
+      />,
+    );
+
+    expect(html).toContain("Local desktop credential");
+    expect(html).toContain("Active runtime voice status");
+    expect(html).toContain("Remote lab reports voice not connected.");
+    expect(html).toContain("Configure voice on that runtime.");
+    expect(html).toContain("The Local credential on this card is not sent there.");
+    expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
   test("renders replacement mode with an empty password control", () => {
     const html = renderToString(
       <OpenAIVoiceConnectionCardView
