@@ -208,7 +208,7 @@ describe("speech IPC handlers", () => {
 
     const read = await invoke(handlers, ipcChannels.speechReadCredentialSettings);
     const saved = await invoke(handlers, ipcChannels.speechSaveCredential, {
-      apiKey: "sk-setta-ipc-credential",
+      apiKey: " ipc-whitespace-candidate ",
     });
     const removed = await invoke(handlers, ipcChannels.speechRemoveCredential);
 
@@ -216,7 +216,7 @@ describe("speech IPC handlers", () => {
     expect(saved).toEqual({ provider: "openai", status: "configured" });
     expect(removed).toEqual({ provider: "openai", status: "not_configured" });
     expect(coordinator.saveCredential).toHaveBeenCalledWith({
-      apiKey: "sk-setta-ipc-credential",
+      apiKey: " ipc-whitespace-candidate ",
     });
     expect(activeRuntimeBackend.validateDesktopSpeechCredential).not.toHaveBeenCalled();
     expect(activeRuntimeBackend.loadDesktopSpeechCredential).not.toHaveBeenCalled();

@@ -62,6 +62,25 @@ describe("SpeechCredentialCoordinator", () => {
     expect(vault.operations).toEqual([]);
   });
 
+  test("rejects candidates with leading or trailing whitespace before runtime or vault work", async () => {
+    const vault = new FakeCredentialVault();
+    const runtime = new FakeSpeechCredentialRuntime();
+    const coordinator = new SpeechCredentialCoordinator({ vault });
+    await connectLocalRuntime(coordinator, vault, runtime);
+
+    const settings = await coordinator.saveCredential({
+      apiKey: " coordinator-whitespace-candidate ",
+    });
+
+    expect(settings).toEqual({
+      message: "OpenAI API key must not contain leading or trailing whitespace.",
+      operation: "save",
+      status: "failed",
+    });
+    expect(runtime.operations).toEqual([]);
+    expect(vault.operations).toEqual([]);
+  });
+
   test("restores prior ciphertext and runtime credential when candidate load fails", async () => {
     const vault = new FakeCredentialVault("sk-setta-coordinator-old");
     const runtime = new FakeSpeechCredentialRuntime("sk-setta-coordinator-old");

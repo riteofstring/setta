@@ -1,5 +1,9 @@
 import type { SpeechProvider, SpeechProviderStatus } from "@generated/backend";
-import type { SpeechCredentialOperation, SpeechCredentialSettings } from "@shared/speech-ipc";
+import type {
+  SpeechCredentialOperation,
+  SpeechCredentialSaveRequest,
+  SpeechCredentialSettings,
+} from "@shared/speech-ipc";
 import {
   ExternalLink,
   KeyRound,
@@ -86,13 +90,13 @@ export function OpenAIVoiceConnectionCard({
   }, [focusRequest?.requestId, focusRequest?.target]);
 
   const save = () => {
-    const apiKey = apiKeyDraft.trim();
+    const request = speechCredentialSaveRequestFromDraft(apiKeyDraft);
     const saveCredential = rendererSpeechAPI()?.saveCredential;
-    if (!saveCredential || operation || apiKey.length === 0) {
+    if (!saveCredential || operation || request === null) {
       return;
     }
     setOperation("save");
-    void saveCredential({ apiKey }).then(
+    void saveCredential(request).then(
       (next) => {
         setSettings(next);
         if (next.status === "configured") {
@@ -540,7 +544,16 @@ function credentialSaveDisabled({
   apiKeyDraft: string;
   busy: boolean;
 }): boolean {
-  return busy || apiKeyDraft.trim().length === 0;
+  return busy || speechCredentialSaveRequestFromDraft(apiKeyDraft) === null;
+}
+
+export function speechCredentialSaveRequestFromDraft(
+  apiKeyDraft: string,
+): SpeechCredentialSaveRequest | null {
+  if (apiKeyDraft.trim().length === 0) {
+    return null;
+  }
+  return { apiKey: apiKeyDraft };
 }
 
 function speechCredentialStatusPresentation(settings: SpeechCredentialSettings): {

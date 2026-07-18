@@ -2,12 +2,11 @@
 
 **Date:** 2026-07-17
 
-**Status:** Actionable repository work remains. The renderer credential save
-path trims the password draft before calling Electron main, which can silently
-save a candidate pasted with leading/trailing whitespace instead of preserving
-the exact candidate and surfacing the main/backend whitespace validation error.
-Actual Windows and Linux host results remain an external pre-release gate
-executed by the checked-in GitHub Actions workflow; they are not an
+**Status:** Implementation complete. The Settings → Voices save path preserves
+the exact password draft through typed IPC so leading/trailing whitespace is
+rejected by the main/backend validation boundary instead of being silently
+trimmed. Actual Windows and Linux host results remain an external pre-release
+gate executed by the checked-in GitHub Actions workflow; they are not an
 implementation-loop blocker.
 
 **Relationship to existing plans:** This plan changes credential ownership for
@@ -592,13 +591,14 @@ or probe credential stores to manufacture this evidence.
 - [x] Route unavailable microphone actions to the Voices credential card.
 - [x] Keep voice catalog/selection configuration usable while disconnected.
 - [x] Add explicit local-versus-active-remote status copy.
-- [ ] Preserve the exact password draft submitted from Settings → Voices.
+- [x] Preserve the exact password draft submitted from Settings → Voices.
       `OpenAIVoiceConnectionCard` currently submits `apiKeyDraft.trim()`,
       which can silently reinterpret a whitespace-containing candidate before
       the main-process and backend validation path can reject it. Send the raw
       draft through typed IPC, keep the user-entered value after the validation
       failure, and add focused renderer/main coverage for leading/trailing
-      whitespace.
+      whitespace. Verified with
+      `pnpm vitest run src/renderer/src/components/settings-panel.test.tsx src/main/speech-ipc.test.ts src/main/speech-credential-coordinator.test.ts`.
 
 ### Phase 4 — Production workflows, live provider, and cleanup
 

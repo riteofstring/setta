@@ -29,7 +29,10 @@ import {
 import { workspaceOpenPaneRequestEvent } from "../workspace-layout/open-pane-events";
 import type { OpenPaneRequest } from "../workspace-layout/types";
 import { DeveloperSettingsEditor } from "./developer-settings";
-import { OpenAIVoiceConnectionCardView } from "./openai-voice-connection-card";
+import {
+  OpenAIVoiceConnectionCardView,
+  speechCredentialSaveRequestFromDraft,
+} from "./openai-voice-connection-card";
 import {
   ConversationPresentationConfiguration,
   connectedRuntimeConfigurationKey,
@@ -136,6 +139,32 @@ describe("appearance settings", () => {
     expect(html).toContain("Save and verify");
     expect(html).toContain("OpenAI API keys");
     expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("preserves leading and trailing whitespace in the credential save request", () => {
+    const draft = " renderer-whitespace-candidate ";
+
+    expect(speechCredentialSaveRequestFromDraft(draft)).toEqual({ apiKey: draft });
+    expect(speechCredentialSaveRequestFromDraft(" \n\t ")).toBeNull();
+  });
+
+  test("keeps the password draft after a save validation failure", () => {
+    const draft = " renderer-leading-trailing-candidate ";
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "OpenAI API key must not contain leading or trailing whitespace.",
+          operation: "save",
+          status: "failed",
+        })}
+        apiKeyDraft={draft}
+        canManage
+      />,
+    );
+
+    expect(html).toContain('type="password"');
+    expect(html).toContain(`value="${draft}"`);
+    expect(html).toContain("Save failed");
   });
 
   test("records and completes typed navigation to the OpenAI voice connection card", () => {
