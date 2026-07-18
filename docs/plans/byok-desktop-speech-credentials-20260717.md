@@ -4,12 +4,13 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 attempts. The current
+host confirmations are still open after the 2026-07-18 attempts. The latest
 local recheck re-ran the pinned macOS probe successfully, found Docker Desktop
 still blocked on its privileged setup prompt and unavailable to CLI probes,
 found no installed Windows/Linux runner, confirmed the reference Codex repo has
-no Electron `safeStorage` probe pattern to reuse, and found no connected
-GitHub-hosted runner path from this session. The earlier follow-up
+no Electron `safeStorage` probe pattern to reuse, found noninteractive Git SSH
+authentication unusable, and found no connected GitHub-hosted runner path from
+this session. The earlier follow-up
 actionability pass also tightened the production Linux backend allowlist to
 reject unrecognized Electron backend strings with deterministic vault coverage,
 while leaving the actual Windows/Linux host evidence open. Phase 1 is complete:
@@ -634,6 +635,15 @@ environment-based desktop product behavior.
       that the reference Codex repo has no reusable Electron `safeStorage`
       probe pattern. The item remains open because Windows and Linux host
       evidence still requires actual Windows and Linux Electron hosts.
+      A follow-up recheck in this implementation pass repeated the macOS probe
+      successfully, found Docker Desktop still stopped at the privileged
+      port-mapping prompt with no usable daemon, found no local Windows/Linux
+      runner or Homebrew-installed helper, confirmed noninteractive Git SSH
+      authentication to origin fails, suggested but did not receive a connected
+      GitHub plugin, and reconfirmed that the reference Codex repo has no
+      reusable Electron `safeStorage` probe pattern. The item remains open for
+      the same reason: the missing evidence requires actual Windows and Linux
+      Electron hosts.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
