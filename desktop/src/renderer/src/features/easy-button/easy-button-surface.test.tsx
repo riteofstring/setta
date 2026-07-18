@@ -385,6 +385,7 @@ describe("Easy Button topic conversation projection", () => {
           transcriptPreview: "Can you also compare CSS?",
           voiceControlDisabled: false,
           voiceControlLabel: "Finish this voice request",
+          voiceControlSetupAction: null,
         }}
         view={view}
       />,
@@ -450,11 +451,6 @@ describe("Easy Button topic conversation projection", () => {
       readyProjection(snapshot),
       "pane_side",
     );
-    const duplicateView = easyButtonProjectionView(
-      snapshot.conversation.id,
-      readyProjection(snapshot),
-      "pane_duplicate",
-    );
     const html = renderToString(<EasyButtonProjectionSurface view={boundView} />);
 
     expect(boundView.side).toMatchObject({
@@ -476,7 +472,6 @@ describe("Easy Button topic conversation projection", () => {
         turnId: "side_turn",
       },
     ]);
-    expect(duplicateView.side).toBeNull();
     expect(html).toContain('data-testid="easy-button-side-conversation"');
     expect(html).toContain('data-parent-conversation-status="working"');
     expect(html).toContain("Parent:");
@@ -593,6 +588,7 @@ describe("Easy Button topic conversation projection", () => {
           transcriptPreview: null,
           voiceControlDisabled: false,
           voiceControlLabel: "Start a voice request for this conversation",
+          voiceControlSetupAction: null,
         }}
         view={view}
       />,
@@ -656,6 +652,42 @@ describe("Easy Button topic conversation projection", () => {
     expect(requestVoiceCapture).toHaveBeenCalledOnce();
   });
 
+  test("routes the giant control to voice setup when credentials are missing", () => {
+    const openVoiceCredentialSettings = vi.fn();
+    const requestVoiceCapture = vi.fn();
+    const commands: EasyButtonConversationCommands = {
+      ...archivedConversationCommands(),
+      available: true,
+      requestVoiceCapture,
+      routingFailure: null,
+    };
+    const action = conversationControlAction(
+      commands,
+      true,
+      {
+        activityKind: null,
+        activityLabel: null,
+        captureScope: "none",
+        captureState: "unavailable",
+        playbackScope: "none",
+        playbackState: "idle",
+        speakingSourceEventId: null,
+        transcriptPreview: null,
+        voiceControlDisabled: false,
+        voiceControlLabel: "Set up OpenAI voice in Settings -> Voices",
+        voiceControlSetupAction: "open_voice_credential_settings",
+      },
+      { onOpenVoiceCredentialSettings: openVoiceCredentialSettings },
+    );
+
+    expect(action.mode).toBe("talk");
+    expect(action.disabled).toBe(false);
+    expect(action.label).toBe("Set up OpenAI voice in Settings -> Voices");
+    action.onClick?.();
+    expect(openVoiceCredentialSettings).toHaveBeenCalledOnce();
+    expect(requestVoiceCapture).not.toHaveBeenCalled();
+  });
+
   test("flips the giant control to finish this pane's dictation while it is listening", () => {
     const requestVoiceCapture = vi.fn();
     const commands: EasyButtonConversationCommands = {
@@ -677,6 +709,7 @@ describe("Easy Button topic conversation projection", () => {
       transcriptPreview: "Keep listening",
       voiceControlDisabled: false,
       voiceControlLabel: "Finish this voice request",
+      voiceControlSetupAction: null,
     } as const;
 
     const action = conversationControlAction(commands, false, recordingSpeech);

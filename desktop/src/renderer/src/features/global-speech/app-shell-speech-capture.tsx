@@ -82,11 +82,26 @@ export function AppShellSpeechCaptureProvider({
   useEffect(() => {
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);
+  useEffect(
+    () => subscribeSpeechCredentialCapabilityRefresh(setta, controller),
+    [controller, setta],
+  );
 
   return (
     <AppShellSpeechCaptureContext.Provider value={context}>
       {content}
     </AppShellSpeechCaptureContext.Provider>
+  );
+}
+
+export function subscribeSpeechCredentialCapabilityRefresh(
+  setta: SettaAPI,
+  controller: Pick<AppShellSpeechCaptureController, "refreshCapabilities">,
+): () => void {
+  return (
+    setta.speech.onCredentialSettingsChanged?.(() => {
+      void controller.refreshCapabilities();
+    }) ?? (() => {})
   );
 }
 
