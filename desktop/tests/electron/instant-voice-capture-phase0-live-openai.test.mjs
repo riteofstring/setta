@@ -176,17 +176,26 @@ try {
 }
 await finalizeLiveOpenAIArtifacts({
   artifactDir,
+  cleanupFinalizers: [
+    async () => {
+      await rm(fixture.tempRoot, { force: true, recursive: true });
+    },
+  ],
   finalizers: [
     async () => {
       const currentContext = context;
       context = null;
       await stopElectronCdpContext(currentContext);
     },
-    async () => {
-      await rm(fixture.tempRoot, { force: true, recursive: true });
-    },
   ],
   markers: privateMarkers(),
+  scanRoots: [
+    {
+      description: "temporary-state",
+      markers: speechCredentialMarkers(),
+      root: fixture.tempRoot,
+    },
+  ],
   workflowError,
 });
 console.log(`Electron instant voice capture live OpenAI smoke passed: ${artifactDir}`);
@@ -250,15 +259,20 @@ async function recordWorkflowFailure(error) {
 }
 
 function privateMarkers() {
+  const markers = speechCredentialMarkers();
+  for (const access of [firstLocalRuntimeAccess, secondLocalRuntimeAccess]) {
+    if (typeof access?.deviceToken === "string" && access.deviceToken !== "") {
+      markers.push(access.deviceToken);
+    }
+  }
+  return [...new Set(markers)];
+}
+
+function speechCredentialMarkers() {
   const markers = [apiKey];
   for (const session of [firstLaunchSession, restoredSession]) {
     if (typeof session?.clientSecret === "string" && session.clientSecret !== "") {
       markers.push(session.clientSecret);
-    }
-  }
-  for (const access of [firstLocalRuntimeAccess, secondLocalRuntimeAccess]) {
-    if (typeof access?.deviceToken === "string" && access.deviceToken !== "") {
-      markers.push(access.deviceToken);
     }
   }
   return [...new Set(markers)];

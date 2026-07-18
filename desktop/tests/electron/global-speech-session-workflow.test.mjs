@@ -8,7 +8,6 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
-  assertArtifactsExcludeMarkers,
   assertBuildExists,
   captureScreenshot,
   clickEnabledButtonByAria,
@@ -25,6 +24,10 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  finalizeLiveOpenAIArtifacts,
+  redactLiveOpenAIError,
+} from "./instant-voice-capture-live-openai-artifacts.mjs";
 import {
   disconnectOpenAIVoiceCredentialThroughSettings,
   openOpenAIVoiceCredentialSettings,
@@ -72,6 +75,7 @@ let replacementTranscriptionSession;
 let reloadedTranscriptionSession;
 let switchedBackTranscriptionSession;
 let restoredTranscriptionSession;
+let workflowError = null;
 const runtimeDeviceTokens = [];
 const localRuntimeAccesses = [];
 const replacementCredential = provider.createCredential("replacement");
@@ -259,16 +263,6 @@ try {
   await stopElectronCdpContext(context);
   context = null;
 
-  await assertArtifactsExcludeMarkers(
-    artifactDir,
-    [...provider.privacyMarkers, ...runtimeDeviceTokens],
-    "private speech or runtime credential",
-  );
-  await assertArtifactsExcludeMarkers(
-    fixture.tempRoot,
-    provider.privacyMarkers,
-    "private speech credential persisted state",
-  );
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     credentialSetup,
@@ -288,23 +282,51 @@ try {
     status: "passed",
     workspaceId,
   });
-  console.log(`Electron global speech session workflow passed: ${artifactDir}`);
 } catch (error) {
+  workflowError = error;
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
   }
+  const redactedError = redactLiveOpenAIError(error, artifactPrivacyMarkers());
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
-    error: error instanceof Error ? error.message : String(error),
+    error: redactedError instanceof Error ? redactedError.message : String(redactedError),
     status: "failed",
-  });
-  throw error;
-} finally {
-  await stopElectronCdpContext(context);
-  await stopRemoteRuntime(remoteRuntime);
-  await provider.close();
-  await rm(fixture.tempRoot, { force: true, recursive: true });
+  }).catch(() => {});
 }
+await finalizeLiveOpenAIArtifacts({
+  artifactDir,
+  cleanupFinalizers: [
+    async () => {
+      await rm(fixture.tempRoot, { force: true, recursive: true });
+    },
+  ],
+  description: "fake OpenAI speech or runtime credential",
+  finalizers: [
+    async () => {
+      const currentContext = context;
+      context = null;
+      await stopElectronCdpContext(currentContext);
+    },
+    async () => {
+      await stopRemoteRuntime(remoteRuntime);
+      remoteRuntime = null;
+    },
+    async () => {
+      await provider.close();
+    },
+  ],
+  markers: artifactPrivacyMarkers(),
+  scanRoots: [
+    {
+      description: "temporary-state",
+      markers: provider.privacyMarkers,
+      root: fixture.tempRoot,
+    },
+  ],
+  workflowError,
+});
+console.log(`Electron global speech session workflow passed: ${artifactDir}`);
 
 async function ensureWorkspaceOpen(client) {
   const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
@@ -376,6 +398,10 @@ function providerRequestSummary(requests) {
     path: request.path,
     rejected: request.rejected === true,
   }));
+}
+
+function artifactPrivacyMarkers() {
+  return [...new Set([...provider.privacyMarkers, ...runtimeDeviceTokens])];
 }
 
 function assertVoiceCatalog(catalog) {

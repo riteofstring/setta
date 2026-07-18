@@ -105,6 +105,58 @@ test("scans failed workflow artifacts and redacts the original failure on privac
   });
 });
 
+test("scans temporary state roots before cleanup", async (t) => {
+  const artifactDir = await createArtifactFixture(t);
+  const tempStateDir = await createArtifactFixture(t);
+  const marker = "sk-temporarystatemarker";
+  await writeFile(join(artifactDir, "summary.json"), '{"status":"passed"}\n', "utf8");
+  await writeFile(join(tempStateDir, "electron-user-data.json"), `saved ${marker}\n`, "utf8");
+
+  await assert.rejects(
+    finalizeLiveOpenAIArtifacts({
+      artifactDir,
+      cleanupFinalizers: [
+        async () => {
+          await rm(tempStateDir, { force: true, recursive: true });
+        },
+      ],
+      markers: [marker],
+      scanRoots: [{ description: "temporary-state", root: tempStateDir }],
+    }),
+    (error) => {
+      assert.equal(error.code, liveOpenAIArtifactPrivacyViolationCode);
+      assert.equal(error.message.includes(marker), false);
+      assert.equal(error.message.includes("temporary-state"), true);
+      return true;
+    },
+  );
+  await assert.rejects(readFile(join(artifactDir, "summary.json"), "utf8"), {
+    code: "ENOENT",
+  });
+  await assert.rejects(readFile(join(tempStateDir, "electron-user-data.json"), "utf8"), {
+    code: "ENOENT",
+  });
+});
+
+test("allows root-specific marker sets for temporary state", async (t) => {
+  const artifactDir = await createArtifactFixture(t);
+  const tempStateDir = await createArtifactFixture(t);
+  const speechMarker = "sk-rootspecificspeechmarker";
+  const runtimeToken = "runtime-device-token-may-persist-in-app-state";
+  await writeFile(join(artifactDir, "summary.json"), '{"status":"passed"}\n', "utf8");
+  await writeFile(join(tempStateDir, "known-runtimes.json"), `${runtimeToken}\n`, "utf8");
+
+  const scan = await finalizeLiveOpenAIArtifacts({
+    artifactDir,
+    markers: [speechMarker, runtimeToken],
+    scanRoots: [{ markers: [speechMarker], root: tempStateDir }],
+  });
+
+  assert.equal(scan.leakedFileCount, 0);
+  assert.equal(scan.scannedRootCount, 2);
+  assert.equal(scan.scannedFileCount, 2);
+});
+
 test("redacts a failed workflow error even when finalized artifacts are clean", async (t) => {
   const artifactDir = await createArtifactFixture(t);
   const marker = "sk-cleanfailedworkflowmarker";

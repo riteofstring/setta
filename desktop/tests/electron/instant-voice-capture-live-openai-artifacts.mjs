@@ -7,27 +7,47 @@ export const liveOpenAIArtifactPrivacyViolationCode =
 
 export async function finalizeLiveOpenAIArtifacts({
   artifactDir,
+  cleanupFinalizers = [],
   description = "live OpenAI private speech credential",
   finalizers = [],
   markers,
+  scanRoots = [],
   workflowError = null,
 }) {
   assertValidMarkers(markers);
   const preservedError = await runFinalizers(finalizers, workflowError);
-  const scan = await scanArtifactsForMarkers(artifactDir, markers);
+  const roots = finalizedScanRoots({ artifactDir, markers, scanRoots });
+  let finalError = preservedError;
+  const scan = await scanRootsOrCleanup({
+    cleanupFinalizers,
+    initialError: finalError,
+    roots,
+  });
   if (scan.leakedFileCount > 0) {
     await rm(artifactDir, { force: true, recursive: true });
+    finalError = await runFinalizers(cleanupFinalizers, finalError);
     throw artifactPrivacyViolationError({
       description,
       leakedFileCount: scan.leakedFileCount,
       markers,
-      workflowError: preservedError,
+      scannedRootCount: scan.scannedRootCount,
+      workflowError: finalError,
     });
   }
-  if (preservedError) {
-    throw redactLiveOpenAIError(preservedError, markers);
+  finalError = await runFinalizers(cleanupFinalizers, finalError);
+  if (finalError) {
+    throw redactLiveOpenAIError(finalError, allRootMarkers(roots));
   }
   return scan;
+}
+
+async function scanRootsOrCleanup({ cleanupFinalizers, initialError, roots }) {
+  try {
+    return await scanArtifactRootsForMarkers(roots);
+  } catch (error) {
+    const finalError = await runFinalizers(cleanupFinalizers, initialError ?? error);
+    throw redactLiveOpenAIError(finalError, allRootMarkers(roots));
+  }
 }
 
 export function redactLiveOpenAIError(error, markers) {
@@ -84,6 +104,24 @@ export async function scanArtifactsForMarkers(root, markers) {
   };
 }
 
+async function scanArtifactRootsForMarkers(roots) {
+  const leakedRelativePaths = [];
+  let scannedFileCount = 0;
+  for (const scanRoot of roots) {
+    const scan = await scanArtifactsForMarkers(scanRoot.root, scanRoot.markers);
+    scannedFileCount += scan.scannedFileCount;
+    leakedRelativePaths.push(
+      ...scan.leakedRelativePaths.map((path) => `${scanRoot.description}/${path}`),
+    );
+  }
+  return {
+    leakedFileCount: leakedRelativePaths.length,
+    leakedRelativePaths,
+    scannedFileCount,
+    scannedRootCount: roots.length,
+  };
+}
+
 async function runFinalizers(finalizers, workflowError) {
   let preservedError = workflowError;
   for (const finalizer of finalizers) {
@@ -98,19 +136,72 @@ async function runFinalizers(finalizers, workflowError) {
   return preservedError;
 }
 
-function artifactPrivacyViolationError({ description, leakedFileCount, markers, workflowError }) {
+function artifactPrivacyViolationError({
+  description,
+  leakedFileCount,
+  markers,
+  scannedRootCount,
+  workflowError,
+}) {
   const originalFailure = workflowError
     ? ` Original workflow failure: ${redactMarkers(errorMessage(workflowError), markers)}`
     : "";
   const plural = leakedFileCount === 1 ? "file" : "files";
+  const scope =
+    scannedRootCount === 1 ? "finalized artifact" : "finalized artifact or temporary-state";
   const error = new Error(
-    `${description} appeared in ${leakedFileCount} finalized artifact ${plural}; contaminated artifacts were removed.${originalFailure}`,
+    `${description} appeared in ${leakedFileCount} ${scope} ${plural}; contaminated artifacts were removed.${originalFailure}`,
   );
   error.code = liveOpenAIArtifactPrivacyViolationCode;
   error.originalWorkflowFailure = workflowError
     ? redactMarkers(errorMessage(workflowError), markers)
     : null;
   return error;
+}
+
+function finalizedScanRoots({ artifactDir, markers, scanRoots }) {
+  const roots = [
+    {
+      description: "artifacts",
+      markers,
+      root: artifactDir,
+    },
+  ];
+  for (const scanRoot of scanRoots) {
+    roots.push(normalizedScanRoot(scanRoot, markers));
+  }
+  return roots;
+}
+
+function normalizedScanRoot(scanRoot, defaultMarkers) {
+  if (typeof scanRoot === "string") {
+    return {
+      description: "temporary-state",
+      markers: defaultMarkers,
+      root: scanRoot,
+    };
+  }
+  if (!scanRoot || typeof scanRoot !== "object") {
+    throw new Error("artifact privacy scan root must be a path or object");
+  }
+  const root = scanRoot.root;
+  if (typeof root !== "string" || root === "") {
+    throw new Error("artifact privacy scan root requires a non-empty root");
+  }
+  const rootMarkers = scanRoot.markers ?? defaultMarkers;
+  assertValidMarkers(rootMarkers);
+  return {
+    description:
+      typeof scanRoot.description === "string" && scanRoot.description !== ""
+        ? scanRoot.description
+        : "temporary-state",
+    markers: rootMarkers,
+    root,
+  };
+}
+
+function allRootMarkers(roots) {
+  return [...new Set(roots.flatMap((root) => root.markers))];
 }
 
 function redactMarkers(value, markers) {

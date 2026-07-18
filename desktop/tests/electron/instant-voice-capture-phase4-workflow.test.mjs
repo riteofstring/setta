@@ -11,7 +11,6 @@ import { fileURLToPath } from "node:url";
 import { driverCallExpression } from "./cdp-client.mjs";
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
 import {
-  assertArtifactsExcludeMarkers,
   assertBuildExists,
   captureScreenshot,
   clickEnabledButtonByAria,
@@ -29,6 +28,10 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
+import {
+  finalizeLiveOpenAIArtifacts,
+  redactLiveOpenAIError,
+} from "./instant-voice-capture-live-openai-artifacts.mjs";
 import { saveOpenAIVoiceCredentialThroughSettings } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
@@ -87,6 +90,7 @@ let remoteRuntime = null;
 let credentialSetup;
 let speechRealtimeBrowserFixtureSource = "";
 let speechRealtimeProcessedAudioObserverWorkletSource = "";
+let workflowError = null;
 
 try {
   speechRealtimeBrowserFixtureSource = await readFile(speechRealtimeBrowserFixture, "utf8");
@@ -279,19 +283,9 @@ try {
   await writeJson(join(artifactDir, "summary.json"), summary);
   await writeJson(join(artifactDir, "timing-summary.json"), summary);
   await captureScreenshot(context.client, join(artifactDir, "complete.png"));
-  await assertArtifactsExcludeMarkers(
-    artifactDir,
-    speechProvider.privacyMarkers,
-    "private speech credential",
-  );
-  await assertArtifactsExcludeMarkers(
-    fixture.tempRoot,
-    speechProvider.privacyMarkers,
-    "private speech credential persisted state",
-  );
   speechProvider.assertHealthy();
-  console.log(`Electron instant voice capture Phase 4 workflow passed: ${artifactDir}`);
 } catch (error) {
+  workflowError = error;
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
     await writeJson(join(artifactDir, "failure-snapshot.json"), {
@@ -300,18 +294,45 @@ try {
       surfaces: await safeConversationSurfaces(context.client),
     }).catch(() => {});
   }
+  const redactedError = redactLiveOpenAIError(error, speechProvider.privacyMarkers);
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
-    error: error instanceof Error ? error.message : String(error),
+    error: redactedError instanceof Error ? redactedError.message : String(redactedError),
     status: "failed",
-  });
-  throw error;
-} finally {
-  await stopElectronCdpContext(context);
-  await stopRemoteRuntime(remoteRuntime);
-  await speechProvider.close();
-  await rm(fixture.tempRoot, { force: true, recursive: true });
+  }).catch(() => {});
 }
+await finalizeLiveOpenAIArtifacts({
+  artifactDir,
+  cleanupFinalizers: [
+    async () => {
+      await rm(fixture.tempRoot, { force: true, recursive: true });
+    },
+  ],
+  description: "fake OpenAI speech credential",
+  finalizers: [
+    async () => {
+      const currentContext = context;
+      context = null;
+      await stopElectronCdpContext(currentContext);
+    },
+    async () => {
+      await stopRemoteRuntime(remoteRuntime);
+      remoteRuntime = null;
+    },
+    async () => {
+      await speechProvider.close();
+    },
+  ],
+  markers: speechProvider.privacyMarkers,
+  scanRoots: [
+    {
+      description: "temporary-state",
+      root: fixture.tempRoot,
+    },
+  ],
+  workflowError,
+});
+console.log(`Electron instant voice capture Phase 4 workflow passed: ${artifactDir}`);
 
 async function collectLocalReadinessCohorts() {
   const runsByProviderDelayMs = new Map(

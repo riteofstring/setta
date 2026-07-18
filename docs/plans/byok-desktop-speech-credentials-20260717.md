@@ -57,7 +57,11 @@ now resolves the test runner's Platform key outside the app process, launches
 the Electron child without `OPENAI_API_KEY`, saves the key through Settings →
 Voices, proves live Realtime transcription, restarts Electron/backend with the
 same temporary app data, restores the credential from the vault, and proves a
-second live Realtime transcription session.
+second live Realtime transcription session. The finalized artifact privacy
+scanner now runs after workflow shutdown on success and failure, covers
+temporary app/workspace state before cleanup, supports root-specific marker
+sets so runtime device tokens stay artifact-only, and is wired through the
+deterministic global-speech, instant-voice Phase 4, and live OpenAI workflows.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -667,8 +671,14 @@ environment-based desktop product behavior.
       `OPENAI_API_KEY` from both Electron/backend launches, saves through
       Settings → Voices, and repeats live Realtime transcription after an
       Electron/backend restart using the restored vault credential.
-- [ ] Scan finalized artifacts and temporary state for old/new/ephemeral secret
-      markers on success and failure.
+- [x] Scan finalized artifacts and temporary state for old/new/ephemeral secret
+      markers on success and failure. The shared workflow finalizer now scans
+      artifacts plus temporary state after Electron/backend shutdown and before
+      fixture cleanup, redacts failure summaries, and supports root-specific
+      marker sets for runtime device tokens. Covered by
+      `.recordings/byok-privacy-finalized-global-speech-session-rerun-20260718`
+      and
+      `.recordings/byok-privacy-finalized-instant-voice-phase4-rerun-20260718`.
 - [ ] Remove obsolete desktop credential-environment fixtures whose sole
       contract is child-process ingestion, plus the corresponding desktop
       documentation references, without deleting test-runner or `setta serve`
