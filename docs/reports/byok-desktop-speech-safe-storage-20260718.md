@@ -399,8 +399,8 @@ confirmations require actual Windows and Linux Electron hosts.
 - The production adapter is constructed only after Electron `ready`.
 - It calls `safeStorage.isEncryptionAvailable()` before encrypting or
   decrypting.
-- On Linux it also calls `safeStorage.getSelectedStorageBackend()` and
-  reject `basic_text`, `unknown`, and any unrecognized value.
+- On Linux it also calls `safeStorage.getSelectedStorageBackend()` and rejects
+  `basic_text`, `unknown`, and any unrecognized value.
 - It never calls `safeStorage.setUsePlainTextEncryption(true)`.
 - Tests inject the protection interface so `basic_text`, `unknown`,
   unavailable encryption, encrypt failure, and decrypt failure are deterministic
