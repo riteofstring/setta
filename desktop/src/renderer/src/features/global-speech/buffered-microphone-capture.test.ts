@@ -98,6 +98,10 @@ describe("buffered microphone capture lease", () => {
     expect(harness.inputTrack.stop).toHaveBeenCalledOnce();
     expect(harness.outboundTrack.stop).toHaveBeenCalledOnce();
     expect(harness.context.close).toHaveBeenCalledOnce();
+
+    capture.close();
+    expect(harness.worklet.port.commands).toEqual([]);
+    expect(harness.context.close).toHaveBeenCalledOnce();
   });
 
   test("duplicate close is idempotent and rejects pending readiness and drain", async () => {
@@ -119,6 +123,8 @@ describe("buffered microphone capture lease", () => {
   test("rejects ended input and failed audio context resume before exposing a lease", async () => {
     const ended = createHarness({ inputTrackState: "ended" });
     await expect(ended.createCapture()).rejects.toMatchObject({ code: "invalid_media" });
+    expect(ended.inputTrack.stop).toHaveBeenCalledOnce();
+    expect(ended.context.close).not.toHaveBeenCalled();
 
     const suspended = createHarness({ contextState: "suspended", resumeLeavesSuspended: true });
     await expect(suspended.createCapture()).rejects.toMatchObject({
@@ -127,18 +133,32 @@ describe("buffered microphone capture lease", () => {
     expect(suspended.inputTrack.stop).toHaveBeenCalledOnce();
     expect(suspended.context.close).toHaveBeenCalledOnce();
   });
+
+  test("stops partially created output resources when setup fails after graph creation", async () => {
+    const harness = createHarness({ outboundTrackState: "ended" });
+
+    await expect(harness.createCapture()).rejects.toMatchObject({ code: "invalid_media" });
+
+    expect(harness.inputTrack.stop).toHaveBeenCalledOnce();
+    expect(harness.outboundTrack.stop).toHaveBeenCalledOnce();
+    expect(harness.context.source.disconnect).toHaveBeenCalledOnce();
+    expect(harness.worklet.disconnect).toHaveBeenCalledOnce();
+    expect(harness.context.destination.disconnect).toHaveBeenCalledOnce();
+    expect(harness.context.close).toHaveBeenCalledOnce();
+  });
 });
 
 interface HarnessOptions {
   contextState?: AudioContextState;
   inputTrackState?: MediaStreamTrackState;
   onError?: (error: BufferedMicrophoneCaptureError) => void;
+  outboundTrackState?: MediaStreamTrackState;
   resumeLeavesSuspended?: boolean;
 }
 
 function createHarness(options: HarnessOptions = {}) {
   const inputTrack = fakeAudioTrack(options.inputTrackState ?? "live");
-  const outboundTrack = fakeAudioTrack("live");
+  const outboundTrack = fakeAudioTrack(options.outboundTrackState ?? "live");
   const inputStream = fakeMediaStream(inputTrack);
   const outboundStream = fakeMediaStream(outboundTrack);
   const context = new FakeAudioContext(options.contextState ?? "running", outboundStream);

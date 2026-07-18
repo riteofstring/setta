@@ -84,19 +84,22 @@ export interface CreateBufferedMicrophoneCaptureOptions {
 export async function createBufferedMicrophoneCapture(
   options: CreateBufferedMicrophoneCaptureOptions,
 ): Promise<BufferedMicrophoneCapture> {
-  validateMediaStream(
-    options.inputStream,
-    "Buffered microphone capture requires one live input track.",
-  );
-  assertPositiveInteger(options.maximumRecordingSeconds, "maximumRecordingSeconds");
-  const dependencies = bufferedMicrophoneCaptureDependencies(options.dependencies);
-  const context = dependencies.createAudioContext();
-  const resources = new PendingBufferedMicrophoneResources(options.inputStream, context);
+  const resources = new PendingBufferedMicrophoneResources(options.inputStream);
   try {
+    validateMediaStream(
+      options.inputStream,
+      "Buffered microphone capture requires one live input track.",
+    );
+    assertPositiveInteger(options.maximumRecordingSeconds, "maximumRecordingSeconds");
+    const dependencies = bufferedMicrophoneCaptureDependencies(options.dependencies);
+    const context = dependencies.createAudioContext();
+    resources.context = context;
     await resumeAudioContext(context);
     await context.audioWorklet.addModule(dependencies.workletModuleURL);
     const source = context.createMediaStreamSource(options.inputStream);
+    resources.source = source;
     const destination = context.createMediaStreamDestination();
+    resources.destination = destination;
     const capacityFrames = Math.ceil(options.maximumRecordingSeconds * context.sampleRate);
     const postRollFrames =
       options.postRollFrames ?? Math.ceil(defaultPostRollSeconds * context.sampleRate);
@@ -114,6 +117,7 @@ export async function createBufferedMicrophoneCapture(
         },
       },
     );
+    resources.worklet = worklet;
     source.connect(worklet);
     worklet.connect(destination);
     validateMediaStream(
@@ -173,7 +177,7 @@ class BrowserBufferedMicrophoneCapture implements BufferedMicrophoneCapture {
   }
 
   close = (): void => {
-    if (this.state === "closed") {
+    if (this.state !== "active") {
       return;
     }
     this.state = "closed";
@@ -299,14 +303,29 @@ interface BufferedMicrophoneCaptureResources {
 }
 
 class PendingBufferedMicrophoneResources {
-  constructor(
-    private readonly inputStream: MediaStream,
-    private readonly context: BufferedMicrophoneAudioContextPort,
-  ) {}
+  context: BufferedMicrophoneAudioContextPort | null = null;
+  destination: BufferedMicrophoneMediaStreamDestinationPort | null = null;
+  source: BufferedMicrophoneAudioNodePort | null = null;
+  worklet: BufferedMicrophoneAudioWorkletNodePort | null = null;
+
+  constructor(private readonly inputStream: MediaStream) {}
 
   close(): void {
     stopMediaStream(this.inputStream);
-    void this.context.close();
+    if (this.worklet) {
+      this.worklet.port.onmessage = null;
+      this.worklet.onprocessorerror = null;
+      this.worklet.port.close?.();
+      this.worklet.disconnect();
+    }
+    this.source?.disconnect();
+    this.destination?.disconnect();
+    if (this.destination) {
+      stopMediaStream(this.destination.stream);
+    }
+    if (this.context) {
+      void this.context.close();
+    }
   }
 }
 
