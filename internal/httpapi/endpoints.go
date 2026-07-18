@@ -67,6 +67,7 @@ var apiEndpoints = []endpoint{
 	post[SendSideConversationTurnRequest, conversation.ConversationSnapshot]("SendSideConversationTurn", "/conversations/sides/turns/send", handler.sendSideConversationTurn),
 	post[DisposeSideConversationRequest, conversation.ConversationSnapshot]("DisposeSideConversation", "/conversations/sides/dispose", handler.disposeSideConversation),
 	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),
+	post[ReadConversationArtifactRequest, conversation.Artifact]("ReadConversationArtifact", "/conversations/artifacts/read", handler.readConversationArtifact),
 	post[ListTopicConversationsRequest, conversation.NavigatorPage]("ListTopicConversations", "/conversations/navigator/list", handler.listTopicConversations),
 	post[StopTopicConversationTurnRequest, conversation.ConversationSnapshot]("StopTopicConversationTurn", "/conversations/turns/stop", handler.stopTopicConversationTurn),
 	post[SubmitTopicConversationApprovalRequest, conversation.ConversationSnapshot]("SubmitTopicConversationApproval", "/conversations/approvals/submit", handler.submitTopicConversationApproval),

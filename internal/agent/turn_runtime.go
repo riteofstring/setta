@@ -99,7 +99,7 @@ func (runtime *Runtime) waitForProviderTurn(ctx context.Context, session *codexa
 			if !ok {
 				return TurnResult{}, errors.New("agent provider session closed before turn completed")
 			}
-			result, done, err := runtime.handleProviderEvent(providerEvent, base, sink)
+			result, done, err := runtime.handleProviderEvent(ctx, providerEvent, base, sink)
 			if err != nil {
 				return TurnResult{}, err
 			}

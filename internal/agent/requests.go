@@ -13,6 +13,9 @@ func (request StartThreadRequest) Validate() error {
 	if err := validateWorkspaceRoot(request.WorkspaceRoot); err != nil {
 		return err
 	}
+	if err := validateDynamicTools(request.DynamicTools); err != nil {
+		return err
+	}
 	return request.Invocation.Validate()
 }
 
@@ -24,6 +27,9 @@ func (request ForkThreadRequest) Validate() error {
 		return errors.New("fork last turn id must not be empty")
 	}
 	if err := validateWorkspaceRoot(request.WorkspaceRoot); err != nil {
+		return err
+	}
+	if err := validateDynamicTools(request.DynamicTools); err != nil {
 		return err
 	}
 	return request.Invocation.Validate()
@@ -63,6 +69,9 @@ func (request TurnRequest) Validate() error {
 		return errors.New("agent turn text is required")
 	}
 	if err := validateWorkspaceRoot(request.WorkspaceRoot); err != nil {
+		return err
+	}
+	if err := validateDynamicTools(request.DynamicTools); err != nil {
 		return err
 	}
 	return request.Invocation.Validate()

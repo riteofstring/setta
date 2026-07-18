@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 
-**Status:** Phase 0 implemented and verified; Phases 1-5 pending
+**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phases 2-5 pending
 
 **Scope:** Easy Button presentation, typed artifacts, narrator projection and playback,
 global-master voice input, keyboard shortcuts, and production-path verification

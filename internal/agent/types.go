@@ -142,19 +142,21 @@ type ModelPage struct {
 }
 
 type StartThreadRequest struct {
-	WorkspaceRoot         string     `json:"workspaceRoot"`
-	Invocation            Invocation `json:"invocation"`
-	Ephemeral             bool       `json:"ephemeral"`
-	DeveloperInstructions string     `json:"developerInstructions,omitempty"`
+	WorkspaceRoot         string        `json:"workspaceRoot"`
+	Invocation            Invocation    `json:"invocation"`
+	Ephemeral             bool          `json:"ephemeral"`
+	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
+	DynamicTools          []DynamicTool `json:"-"`
 }
 
 type ForkThreadRequest struct {
-	ParentThreadID        string     `json:"parentThreadId"`
-	LastTurnID            *string    `json:"lastTurnId,omitempty"`
-	WorkspaceRoot         string     `json:"workspaceRoot"`
-	Invocation            Invocation `json:"invocation"`
-	Ephemeral             bool       `json:"ephemeral"`
-	DeveloperInstructions string     `json:"developerInstructions,omitempty"`
+	ParentThreadID        string        `json:"parentThreadId"`
+	LastTurnID            *string       `json:"lastTurnId,omitempty"`
+	WorkspaceRoot         string        `json:"workspaceRoot"`
+	Invocation            Invocation    `json:"invocation"`
+	Ephemeral             bool          `json:"ephemeral"`
+	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
+	DynamicTools          []DynamicTool `json:"-"`
 }
 
 type ListThreadsRequest struct {
@@ -177,14 +179,15 @@ type InjectedTextItem struct {
 }
 
 type TurnRequest struct {
-	ConversationID   string     `json:"conversationId"`
-	TurnID           string     `json:"turnId"`
-	ProviderThreadID string     `json:"providerThreadId"`
-	ClientInputID    string     `json:"clientInputId"`
-	Text             string     `json:"text"`
-	WorkspaceRoot    string     `json:"workspaceRoot"`
-	Invocation       Invocation `json:"invocation"`
-	OutputSchema     []byte     `json:"outputSchema,omitempty"`
+	ConversationID   string        `json:"conversationId"`
+	TurnID           string        `json:"turnId"`
+	ProviderThreadID string        `json:"providerThreadId"`
+	ClientInputID    string        `json:"clientInputId"`
+	Text             string        `json:"text"`
+	WorkspaceRoot    string        `json:"workspaceRoot"`
+	Invocation       Invocation    `json:"invocation"`
+	OutputSchema     []byte        `json:"outputSchema,omitempty"`
+	DynamicTools     []DynamicTool `json:"-"`
 }
 
 type TurnResult struct {

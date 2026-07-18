@@ -50,7 +50,8 @@ func (service *Service) executeDurableForkDecision(
 		LastTurnID:            &source.providerTurnID,
 		WorkspaceRoot:         workspaceSummary.RootPath,
 		Invocation:            invocation,
-		DeveloperInstructions: "Act as the durable primary agent for this Setta topic conversation fork.",
+		DeveloperInstructions: topicAgentDeveloperInstructions(),
+		DynamicTools:          service.topicAgentArtifactTools(workspaceID, childConversationID, ""),
 	})
 	if err != nil {
 		return ConversationSnapshot{}, err

@@ -161,6 +161,7 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         };
       },
       read: (request) => requireClient().readConversationSnapshot(request),
+      readArtifact: (request) => requireClient().readConversationArtifact(request),
       readInputState: (request) => requireClient().readConversationInputRoutingState(request),
       release: async (request) => {
         const key = conversationStreamKey(request.workspaceId, request.conversationId);

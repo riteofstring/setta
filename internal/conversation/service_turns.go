@@ -521,6 +521,7 @@ func (service *Service) launchTurnLocked(
 			Text:             turn.AuthoredInput.Text,
 			WorkspaceRoot:    workspaceRoot,
 			Invocation:       invocation,
+			DynamicTools:     service.topicAgentArtifactTools(workspaceID, turn.ConversationID, turn.ID),
 		},
 		roleProfile: turn.RequestedRoleProfile,
 		turnID:      turn.ID,

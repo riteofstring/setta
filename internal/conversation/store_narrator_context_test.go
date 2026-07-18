@@ -308,11 +308,9 @@ func seedNarratorContext(t *testing.T, store *Store) narratorContextSeed {
 		TurnID:             &turn.ID,
 		TrajectorySequence: &artifactSequence,
 		Kind:               ArtifactKindMarkdown,
-		URI:                "setta-artifact://narrator-context",
 		Title:              "Narrator context report",
-		MediaType:          "text/markdown",
-		Metadata:           map[string]string{"scope": "phase-4-item-2"},
 		CreatedAt:          testTimeEnded,
+		Markdown:           &MarkdownArtifactPayload{Markdown: "Narrator context report"},
 	}
 	milestone := narratorContextNarration(
 		"narration-milestone-context",

@@ -1,13 +1,15 @@
 package agent
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"setta/internal/codexapp"
 )
 
-func (runtime *Runtime) handleProviderEvent(providerEvent codexapp.Event, base Event, sink EventSink) (TurnResult, bool, error) {
+func (runtime *Runtime) handleProviderEvent(ctx context.Context, providerEvent codexapp.Event, base Event, sink EventSink) (TurnResult, bool, error) {
 	switch providerEvent.Kind {
 	case codexapp.EventLifecycle:
 		message := "provider lifecycle changed"
@@ -27,6 +29,9 @@ func (runtime *Runtime) handleProviderEvent(providerEvent codexapp.Event, base E
 		event.Lifecycle = &LifecycleEvent{State: "degraded", Reason: "provider_event_lag"}
 		return TurnResult{}, false, emitAgentEvent(sink, event)
 	case codexapp.EventRequest:
+		if providerEvent.Message.Method == codexapp.CodexServerRequestItemToolCall {
+			return runtime.handleDynamicToolCall(ctx, providerEvent.Message, base)
+		}
 		approval, err := runtime.captureApproval(providerEvent.Message, base)
 		if err != nil {
 			_ = providerEvent.Message.RespondError(-32601, err.Error())
@@ -41,6 +46,74 @@ func (runtime *Runtime) handleProviderEvent(providerEvent codexapp.Event, base E
 	default:
 		return TurnResult{}, false, fmt.Errorf("unsupported codex session event kind %q", providerEvent.Kind)
 	}
+}
+
+func (runtime *Runtime) handleDynamicToolCall(
+	ctx context.Context,
+	message codexapp.Message,
+	base Event,
+) (TurnResult, bool, error) {
+	params, err := codexapp.DecodeDynamicToolCallParams(message.Params)
+	if err != nil {
+		_ = message.RespondError(-32602, err.Error())
+		return TurnResult{}, false, err
+	}
+	if err := requireProviderScope(base, params.ThreadID, params.TurnID); err != nil {
+		_ = message.RespondError(-32600, err.Error())
+		return TurnResult{}, false, err
+	}
+	tool, call, err := runtime.dynamicToolForCall(base, params)
+	if err != nil {
+		_ = message.RespondError(-32601, err.Error())
+		return TurnResult{}, false, err
+	}
+	result, err := tool.Handler(ctx, call)
+	if err != nil {
+		_ = message.RespondError(-32000, err.Error())
+		return TurnResult{}, false, err
+	}
+	if err := validateDynamicToolResult(result); err != nil {
+		_ = message.RespondError(-32603, err.Error())
+		return TurnResult{}, false, err
+	}
+	if err := message.RespondResult(map[string]any{
+		"contentItems": result.ContentItems,
+		"success":      result.Success,
+	}); err != nil {
+		return TurnResult{}, false, err
+	}
+	return TurnResult{}, false, nil
+}
+
+func (runtime *Runtime) dynamicToolForCall(
+	base Event,
+	params codexapp.DynamicToolCallParams,
+) (DynamicTool, DynamicToolCall, error) {
+	runtime.mu.Lock()
+	active := runtime.active[base.ConversationID]
+	runtime.mu.Unlock()
+	if active == nil {
+		return DynamicTool{}, DynamicToolCall{}, fmt.Errorf("conversation %s has no active provider turn", base.ConversationID)
+	}
+	namespace := ""
+	if params.Namespace != nil {
+		namespace = *params.Namespace
+	}
+	key := dynamicToolKey{namespace: namespace, name: params.Tool}
+	tool, ok := active.dynamicTools[key]
+	if !ok {
+		return DynamicTool{}, DynamicToolCall{}, fmt.Errorf("dynamic tool %s is not registered for conversation %s turn %s", key.display(), active.conversationID, active.settaTurnID)
+	}
+	return tool, DynamicToolCall{
+		CallID:           params.CallId,
+		ConversationID:   active.conversationID,
+		TurnID:           active.settaTurnID,
+		ProviderThreadID: params.ThreadID,
+		ProviderTurnID:   params.TurnID,
+		Namespace:        namespace,
+		Tool:             params.Tool,
+		Arguments:        append(json.RawMessage{}, params.Arguments...),
+	}, nil
 }
 
 func (runtime *Runtime) handleProviderNotification(message codexapp.Message, base Event, sink EventSink) (TurnResult, bool, error) {

@@ -35,6 +35,34 @@ func TestReadConversationSnapshotUsesTypedServiceBoundary(t *testing.T) {
 	}
 }
 
+func TestReadConversationArtifactUsesTypedServiceBoundary(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	response := postJSON[conversation.Artifact](
+		t,
+		handler,
+		"/conversations/artifacts/read",
+		ReadConversationArtifactRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+			ArtifactID:     "artifact-api",
+		},
+		http.StatusOK,
+	)
+	if response.ID != "artifact-api" || response.Table == nil || len(response.Table.Rows) != 1 {
+		t.Fatalf("artifact response = %+v", response)
+	}
+	if service.readWorkspaceID != "workspace-api" ||
+		service.readConversationID != "conversation-api" ||
+		service.readArtifactID != "artifact-api" {
+		t.Fatalf("artifact service request = %q/%q/%q", service.readWorkspaceID, service.readConversationID, service.readArtifactID)
+	}
+}
+
 func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 	service := newHTTPTestConversationService(t)
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
@@ -420,6 +448,7 @@ type httpTestConversationService struct {
 	eventsChannel           <-chan conversation.ConversationEvent
 	readWorkspaceID         string
 	readConversationID      string
+	readArtifactID          string
 	subscribeCursor         conversation.ConversationEventCursor
 	subscribeWorkspaceID    string
 	subscribeConversationID string
@@ -586,6 +615,33 @@ func (service *httpTestConversationService) ReadSnapshot(
 	service.readWorkspaceID = workspaceID
 	service.readConversationID = conversationID
 	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) ReadArtifact(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+	artifactID string,
+) (conversation.Artifact, error) {
+	service.readWorkspaceID = workspaceID
+	service.readConversationID = conversationID
+	service.readArtifactID = artifactID
+	return conversation.Artifact{
+		ID:                 artifactID,
+		ConversationID:     conversationID,
+		TurnID:             nil,
+		Kind:               conversation.ArtifactKindTable,
+		Title:              "HTTP artifact",
+		CreatedAt:          httpConversationTestTime,
+		TrajectorySequence: nil,
+		Markdown:           nil,
+		Table: &conversation.TableArtifactPayload{
+			Columns: []conversation.ArtifactTableColumn{{Key: "metric", Label: "Metric"}},
+			Rows:    [][]string{{"Rows"}},
+		},
+		BarChart: nil,
+		File:     nil,
+	}, nil
 }
 
 func (service *httpTestConversationService) ListNavigatorPage(

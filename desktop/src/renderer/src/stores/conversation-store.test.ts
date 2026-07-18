@@ -847,16 +847,17 @@ function trajectoryEvent(conversationId: string): TrajectoryEvent {
 
 function artifact(conversationId: string): Artifact {
   return {
+    barChart: null,
     conversationId,
     createdAt: timestamp,
+    file: null,
     id: "artifact_a",
     kind: "markdown",
-    mediaType: "text/markdown",
-    metadata: {},
+    markdown: { markdown: "Store report body" },
+    table: null,
     title: "Store report",
     trajectorySequence: 1,
     turnId: "turn_a",
-    uri: "setta://artifact/a",
   };
 }
 

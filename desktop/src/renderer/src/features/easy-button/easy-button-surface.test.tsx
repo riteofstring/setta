@@ -940,16 +940,20 @@ function sideConversationFailureEvents(side: SideConversation): SideConversation
 
 function artifact(conversationId: string, turnId: string, title: string): Artifact {
   return {
+    barChart: null,
     conversationId,
     createdAt: timestamp,
+    file: {
+      description: "Generated file",
+      path: `/tmp/${conversationId}.txt`,
+    },
     id: `artifact_${conversationId}`,
     kind: "file",
-    mediaType: "text/plain",
-    metadata: {},
+    markdown: null,
+    table: null,
     title: `${title} artifact`,
     trajectorySequence: 1,
     turnId,
-    uri: `setta://artifacts/${conversationId}`,
   };
 }
 

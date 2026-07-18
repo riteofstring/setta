@@ -14,6 +14,7 @@ import type {
   ConversationInputRoutingState,
   ConversationPresentationProfile,
   ConversationSnapshot,
+  Artifact,
   CreateTopicConversationRequest,
   DiscardConversationInputRequest,
   DisposeSideConversationRequest,
@@ -27,6 +28,7 @@ import type {
   PresentationResolution,
   PresentationResolutionRequest,
   ReadConversationInputRoutingStateRequest,
+  ReadConversationArtifactRequest,
   ReadConversationSnapshotRequest,
   ReadMasterInputRoutingStateRequest,
   RefreshCodexAccountRequest,
@@ -302,6 +304,7 @@ export interface SettaAPI {
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
     onEvent: (listener: (event: ConversationEvent) => void) => () => void;
     read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
+    readArtifact?: (request: ReadConversationArtifactRequest) => Promise<Artifact>;
     readInputState?: (
       request: ReadConversationInputRoutingStateRequest,
     ) => Promise<ConversationInputRoutingState>;

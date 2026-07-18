@@ -15,6 +15,7 @@ type fakeAgentServerState struct {
 	threads              []string
 	heldTurns            map[string]string
 	pending              map[string]fakePendingApproval
+	pendingDynamicTools  map[string]fakePendingDynamicTool
 	structured           map[string]bool
 	cleanupRequestOnTurn map[string]bool
 	cleanupFailureOnTurn map[string]bool
@@ -28,10 +29,16 @@ type fakePendingApproval struct {
 	terminalState string
 }
 
+type fakePendingDynamicTool struct {
+	threadID string
+	turnID   string
+}
+
 func runFakeAgentAppServer() {
 	state := fakeAgentServerState{
 		heldTurns:            map[string]string{},
 		pending:              map[string]fakePendingApproval{},
+		pendingDynamicTools:  map[string]fakePendingDynamicTool{},
 		structured:           map[string]bool{},
 		cleanupRequestOnTurn: map[string]bool{},
 		cleanupFailureOnTurn: map[string]bool{},
@@ -363,6 +370,18 @@ func handleFakeAgentTurnStart(state *fakeAgentServerState, message map[string]an
 				"options":  []any{map[string]any{"label": "focused", "description": "Use the focused scope."}},
 			}},
 		})
+	case "dynamic tool":
+		state.requestCounter++
+		requestID := fmt.Sprintf("dynamic-tool-%d", state.requestCounter)
+		state.pendingDynamicTools[requestID] = fakePendingDynamicTool{threadID: threadID, turnID: turnID}
+		writeFakeAgentRequest(requestID, "item/tool/call", map[string]any{
+			"arguments": map[string]any{"answer": "ok"},
+			"callId":    "call-" + turnID,
+			"namespace": "setta",
+			"threadId":  threadID,
+			"tool":      "emit_artifact",
+			"turnId":    turnID,
+		})
 	default:
 		writeFakeAgentNormalTurn(threadID, turnID)
 	}
@@ -502,6 +521,10 @@ func handleFakeAgentTurnInterrupt(state *fakeAgentServerState, message map[strin
 
 func handleFakeAgentResponse(state *fakeAgentServerState, message map[string]any) {
 	requestID := fmt.Sprint(message["id"])
+	if pending, ok := state.pendingDynamicTools[requestID]; ok {
+		handleFakeDynamicToolResponse(state, requestID, pending, message)
+		return
+	}
 	pending, ok := state.pending[requestID]
 	if !ok {
 		panic("unexpected fake app-server response id " + requestID)
@@ -517,6 +540,28 @@ func handleFakeAgentResponse(state *fakeAgentServerState, message map[string]any
 		terminalState = "completed"
 	}
 	writeFakeAgentTurnCompleted(pending.threadID, pending.turnID, terminalState)
+}
+
+func handleFakeDynamicToolResponse(
+	state *fakeAgentServerState,
+	requestID string,
+	pending fakePendingDynamicTool,
+	message map[string]any,
+) {
+	delete(state.pendingDynamicTools, requestID)
+	result, ok := message["result"].(map[string]any)
+	if !ok || result["success"] != true {
+		panic("dynamic tool response has no successful result")
+	}
+	items, ok := result["contentItems"].([]any)
+	if !ok || len(items) != 1 {
+		panic("dynamic tool response content items drifted")
+	}
+	item, ok := items[0].(map[string]any)
+	if !ok || item["type"] != "inputText" || item["text"] != "dynamic tool acknowledged" {
+		panic("dynamic tool response item drifted")
+	}
+	writeFakeAgentTurnCompleted(pending.threadID, pending.turnID, "completed")
 }
 
 func writeFakeAgentNormalTurn(threadID string, turnID string) {

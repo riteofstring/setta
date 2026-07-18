@@ -509,10 +509,9 @@ func (service *Service) activityTrajectory(
 				ConversationID: trajectory.ConversationID,
 				TurnID:         trajectory.TurnID,
 				Kind:           ArtifactKindFile,
-				URI:            event.Activity.Summary,
 				Title:          activity.Title,
-				Metadata:       map[string]string{"providerItemId": activity.ID},
 				CreatedAt:      now,
+				File:           &FileArtifactPayload{Path: event.Activity.Summary},
 			}
 			return trajectory, &artifact, nil
 		}

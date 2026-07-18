@@ -79,6 +79,7 @@ const api: SettaAPI = {
     sendSide: (request) => invoke("conversationSendSideTurn", request),
     readInputState: (request) => invoke("conversationReadInputState", request),
     waitInputState: (request) => invoke("conversationWaitInputState", request),
+    readArtifact: (request) => invoke("conversationReadArtifact", request),
     read: (request) => invoke("conversationReadSnapshot", request),
     release: (request) => invoke("conversationReleaseEvents", request),
     retryInput: (request) => invoke("conversationRetryInput", request),

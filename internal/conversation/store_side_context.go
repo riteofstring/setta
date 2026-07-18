@@ -151,8 +151,8 @@ func readSideContextArtifacts(
 	sourceSequence int,
 ) ([]Artifact, error) {
 	rows, err := reader.QueryContext(ctx, `
-SELECT id, conversation_id, turn_id, trajectory_sequence, kind, uri, title,
-       media_type, metadata_json, created_at
+SELECT id, conversation_id, turn_id, trajectory_sequence, kind, title,
+       markdown_json, table_json, bar_chart_json, file_json, created_at
 FROM artifacts
 WHERE conversation_id = ? AND turn_id = ?
   AND trajectory_sequence IS NOT NULL AND trajectory_sequence <= ?
@@ -229,9 +229,7 @@ func sideContextArtifacts(values []Artifact) []SideInFlightArtifactMetadata {
 			ID:                 value.ID,
 			TrajectorySequence: *value.TrajectorySequence,
 			Kind:               value.Kind,
-			URI:                value.URI,
 			Title:              value.Title,
-			MediaType:          value.MediaType,
 			CreatedAt:          value.CreatedAt,
 		})
 	}

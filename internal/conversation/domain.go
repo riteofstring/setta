@@ -3,6 +3,7 @@ package conversation
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"time"
@@ -34,11 +35,10 @@ const (
 	ThreadBindingStatusMissing     ThreadBindingStatus = "missing"
 	ThreadBindingStatusUnavailable ThreadBindingStatus = "unavailable"
 
-	ArtifactKindMarkdown   ArtifactKind = "markdown"
-	ArtifactKindTable      ArtifactKind = "table"
-	ArtifactKindBarChart   ArtifactKind = "bar_chart"
-	ArtifactKindFile       ArtifactKind = "file"
-	ArtifactKindToolOutput ArtifactKind = "tool_output"
+	ArtifactKindMarkdown ArtifactKind = "markdown"
+	ArtifactKindTable    ArtifactKind = "table"
+	ArtifactKindBarChart ArtifactKind = "bar_chart"
+	ArtifactKindFile     ArtifactKind = "file"
 )
 
 type TopicConversation struct {
@@ -91,16 +91,46 @@ type AgentThreadBinding struct {
 }
 
 type Artifact struct {
-	ID                 string            `json:"id"`
-	ConversationID     string            `json:"conversationId"`
-	TurnID             *string           `json:"turnId"`
-	TrajectorySequence *int              `json:"trajectorySequence"`
-	Kind               ArtifactKind      `json:"kind"`
-	URI                string            `json:"uri"`
-	Title              string            `json:"title"`
-	MediaType          string            `json:"mediaType"`
-	Metadata           map[string]string `json:"metadata"`
-	CreatedAt          string            `json:"createdAt"`
+	ID                 string                   `json:"id"`
+	ConversationID     string                   `json:"conversationId"`
+	TurnID             *string                  `json:"turnId"`
+	TrajectorySequence *int                     `json:"trajectorySequence"`
+	Kind               ArtifactKind             `json:"kind"`
+	Title              string                   `json:"title"`
+	CreatedAt          string                   `json:"createdAt"`
+	Markdown           *MarkdownArtifactPayload `json:"markdown"`
+	Table              *TableArtifactPayload    `json:"table"`
+	BarChart           *BarChartArtifactPayload `json:"barChart"`
+	File               *FileArtifactPayload     `json:"file"`
+}
+
+type MarkdownArtifactPayload struct {
+	Markdown string `json:"markdown"`
+}
+
+type TableArtifactPayload struct {
+	Columns []ArtifactTableColumn `json:"columns"`
+	Rows    [][]string            `json:"rows"`
+}
+
+type ArtifactTableColumn struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+}
+
+type BarChartArtifactPayload struct {
+	Items []BarChartArtifactItem `json:"items"`
+}
+
+type BarChartArtifactItem struct {
+	Label string  `json:"label"`
+	Value float64 `json:"value"`
+	Unit  *string `json:"unit"`
+}
+
+type FileArtifactPayload struct {
+	Path        string  `json:"path"`
+	Description *string `json:"description"`
 }
 
 type Failure struct {
@@ -413,17 +443,16 @@ func (artifact Artifact) Validate() error {
 	if !validArtifactKind(artifact.Kind) {
 		return fmt.Errorf("artifact %s has unsupported kind %q", artifact.ID, artifact.Kind)
 	}
-	if err := validateTrimmedText("artifact uri", artifact.URI); err != nil {
+	if err := validateRequiredArtifactText("artifact title", artifact.Title); err != nil {
 		return err
 	}
-	if artifact.MediaType != "" && strings.TrimSpace(artifact.MediaType) != artifact.MediaType {
-		return fmt.Errorf("artifact %s media type must not have surrounding whitespace", artifact.ID)
-	}
-	if err := validateStringMap("artifact metadata", artifact.Metadata); err != nil {
+	if _, err := validateTimestamp("artifact createdAt", artifact.CreatedAt); err != nil {
 		return err
 	}
-	_, err := validateTimestamp("artifact createdAt", artifact.CreatedAt)
-	return err
+	if err := validateArtifactBranchCount(artifact); err != nil {
+		return err
+	}
+	return validateArtifactPayload(artifact)
 }
 
 func (failure Failure) Validate() error {
@@ -471,11 +500,128 @@ func validThreadBindingStatus(status ThreadBindingStatus) bool {
 
 func validArtifactKind(kind ArtifactKind) bool {
 	switch kind {
-	case ArtifactKindMarkdown, ArtifactKindTable, ArtifactKindBarChart, ArtifactKindFile, ArtifactKindToolOutput:
+	case ArtifactKindMarkdown, ArtifactKindTable, ArtifactKindBarChart, ArtifactKindFile:
 		return true
 	default:
 		return false
 	}
+}
+
+func validateArtifactBranchCount(artifact Artifact) error {
+	populated := 0
+	for _, present := range []bool{
+		artifact.Markdown != nil,
+		artifact.Table != nil,
+		artifact.BarChart != nil,
+		artifact.File != nil,
+	} {
+		if present {
+			populated++
+		}
+	}
+	if populated != 1 {
+		return fmt.Errorf("artifact %s must populate exactly one payload branch, found %d", artifact.ID, populated)
+	}
+	return nil
+}
+
+func validateArtifactPayload(artifact Artifact) error {
+	switch artifact.Kind {
+	case ArtifactKindMarkdown:
+		if artifact.Markdown == nil {
+			return fmt.Errorf("artifact %s markdown payload is required", artifact.ID)
+		}
+		return validateMarkdownArtifactPayload(*artifact.Markdown)
+	case ArtifactKindTable:
+		if artifact.Table == nil {
+			return fmt.Errorf("artifact %s table payload is required", artifact.ID)
+		}
+		return validateTableArtifactPayload(*artifact.Table)
+	case ArtifactKindBarChart:
+		if artifact.BarChart == nil {
+			return fmt.Errorf("artifact %s bar chart payload is required", artifact.ID)
+		}
+		return validateBarChartArtifactPayload(*artifact.BarChart)
+	case ArtifactKindFile:
+		if artifact.File == nil {
+			return fmt.Errorf("artifact %s file payload is required", artifact.ID)
+		}
+		return validateFileArtifactPayload(*artifact.File)
+	default:
+		return fmt.Errorf("artifact %s has unsupported kind %q", artifact.ID, artifact.Kind)
+	}
+}
+
+func validateMarkdownArtifactPayload(payload MarkdownArtifactPayload) error {
+	if err := validateRequiredArtifactText("markdown artifact markdown", payload.Markdown); err != nil {
+		return err
+	}
+	if len([]byte(payload.Markdown)) > MaxMarkdownArtifactBytes {
+		return fmt.Errorf("markdown artifact exceeds %d bytes", MaxMarkdownArtifactBytes)
+	}
+	return nil
+}
+
+func validateTableArtifactPayload(payload TableArtifactPayload) error {
+	if len(payload.Columns) == 0 {
+		return errors.New("table artifact requires at least one column")
+	}
+	if len(payload.Columns) > MaxTableArtifactColumns {
+		return fmt.Errorf("table artifact has %d columns, cap is %d", len(payload.Columns), MaxTableArtifactColumns)
+	}
+	if len(payload.Rows) > MaxTableArtifactRows {
+		return fmt.Errorf("table artifact has %d rows, cap is %d", len(payload.Rows), MaxTableArtifactRows)
+	}
+	keys := map[string]struct{}{}
+	for index, column := range payload.Columns {
+		if err := validateRequiredArtifactText(fmt.Sprintf("table artifact column[%d].key", index), column.Key); err != nil {
+			return err
+		}
+		if err := validateRequiredArtifactText(fmt.Sprintf("table artifact column[%d].label", index), column.Label); err != nil {
+			return err
+		}
+		if _, exists := keys[column.Key]; exists {
+			return fmt.Errorf("table artifact duplicate column key %s", column.Key)
+		}
+		keys[column.Key] = struct{}{}
+	}
+	for index, row := range payload.Rows {
+		if len(row) != len(payload.Columns) {
+			return fmt.Errorf("table artifact row[%d] has %d cells, want %d", index, len(row), len(payload.Columns))
+		}
+	}
+	return nil
+}
+
+func validateBarChartArtifactPayload(payload BarChartArtifactPayload) error {
+	if len(payload.Items) == 0 {
+		return errors.New("bar chart artifact requires at least one item")
+	}
+	if len(payload.Items) > MaxBarChartArtifactItems {
+		return fmt.Errorf("bar chart artifact has %d items, cap is %d", len(payload.Items), MaxBarChartArtifactItems)
+	}
+	for index, item := range payload.Items {
+		if err := validateRequiredArtifactText(fmt.Sprintf("bar chart artifact item[%d].label", index), item.Label); err != nil {
+			return err
+		}
+		if math.IsNaN(item.Value) || math.IsInf(item.Value, 0) {
+			return fmt.Errorf("bar chart artifact item[%d].value must be finite", index)
+		}
+		if item.Value < 0 {
+			return fmt.Errorf("bar chart artifact item[%d].value must be non-negative", index)
+		}
+		if err := validateOptionalTrimmedText(fmt.Sprintf("bar chart artifact item[%d].unit", index), item.Unit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateFileArtifactPayload(payload FileArtifactPayload) error {
+	if err := validateRequiredArtifactText("file artifact path", payload.Path); err != nil {
+		return err
+	}
+	return validateOptionalTrimmedText("file artifact description", payload.Description)
 }
 
 func validateIdentifier(label string, value string) error {
@@ -498,6 +644,29 @@ func validateOptionalIdentifier(label string, value *string) error {
 func validateTrimmedText(label string, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s is required", label)
+	}
+	return nil
+}
+
+func validateRequiredArtifactText(label string, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("%s is required", label)
+	}
+	if strings.TrimSpace(value) != value {
+		return fmt.Errorf("%s must not have surrounding whitespace", label)
+	}
+	return nil
+}
+
+func validateOptionalTrimmedText(label string, value *string) error {
+	if value == nil {
+		return nil
+	}
+	if strings.TrimSpace(*value) == "" {
+		return fmt.Errorf("%s must not be empty", label)
+	}
+	if strings.TrimSpace(*value) != *value {
+		return fmt.Errorf("%s must not have surrounding whitespace", label)
 	}
 	return nil
 }

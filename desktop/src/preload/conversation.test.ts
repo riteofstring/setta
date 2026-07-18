@@ -20,6 +20,7 @@ describe("preload topic conversation API", () => {
       "list",
       "onEvent",
       "read",
+      "readArtifact",
       "readInputState",
       "release",
       "retryInput",
@@ -38,6 +39,10 @@ describe("preload topic conversation API", () => {
       workspaceId: "workspace_api",
     };
     const target = { conversationId: "conversation_api", workspaceId: "workspace_api" };
+    const artifactRequest = {
+      ...target,
+      artifactId: "artifact_api",
+    };
     const sideTurnRequest = {
       parentConversationId: target.conversationId,
       sideConversationId: "side_api",
@@ -103,6 +108,7 @@ describe("preload topic conversation API", () => {
       sideTurnRequest,
       subscription,
       target,
+      artifactRequest,
       presentationRequest,
     });
     const listener = vi.fn();
@@ -119,6 +125,7 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationArchiveTopic, target],
       [ipcChannels.conversationListTopicConversations, listRequest],
       [ipcChannels.conversationReadSnapshot, target],
+      [ipcChannels.conversationReadArtifact, artifactRequest],
       [ipcChannels.conversationStopTurn, target],
       [ipcChannels.conversationSubmitInput, inputRequest],
       [ipcChannels.conversationReadInputState, inputStateRequest],
@@ -172,6 +179,7 @@ async function invokeConversationCommands(
     sideTurnRequest: Parameters<NonNullable<SettaAPI["conversations"]["sendSide"]>>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: Parameters<SettaAPI["conversations"]["read"]>[0];
+    artifactRequest: Parameters<NonNullable<SettaAPI["conversations"]["readArtifact"]>>[0];
     presentationRequest: Parameters<SettaAPI["conversations"]["updatePresentation"]>[0];
   },
 ) {
@@ -186,6 +194,11 @@ async function invokeConversationCommands(
   await api.conversations.archive(requests.target);
   await api.conversations.list(requests.listRequest);
   await api.conversations.read(requests.target);
+  const readArtifact = requireConversationCommand(
+    api.conversations.readArtifact,
+    "conversation artifact read",
+  );
+  await readArtifact(requests.artifactRequest);
   await api.conversations.stop(requests.target);
   const submitInput = requireConversationCommand(
     api.conversations.submitInput,

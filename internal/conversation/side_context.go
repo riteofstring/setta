@@ -64,9 +64,7 @@ type SideInFlightArtifactMetadata struct {
 	ID                 string       `json:"id"`
 	TrajectorySequence int          `json:"trajectorySequence"`
 	Kind               ArtifactKind `json:"kind"`
-	URI                string       `json:"uri"`
 	Title              string       `json:"title"`
-	MediaType          string       `json:"mediaType"`
 	CreatedAt          string       `json:"createdAt"`
 }
 
@@ -237,15 +235,28 @@ func (artifact SideInFlightArtifactMetadata) validate(sourceSequence int) error 
 		return fmt.Errorf("artifact %s has invalid source sequence", artifact.ID)
 	}
 	sequence := artifact.TrajectorySequence
-	return (Artifact{
+	record := Artifact{
 		ID:                 artifact.ID,
 		ConversationID:     "side-context-conversation",
 		TrajectorySequence: &sequence,
 		Kind:               artifact.Kind,
-		URI:                artifact.URI,
 		Title:              artifact.Title,
-		MediaType:          artifact.MediaType,
-		Metadata:           map[string]string{},
 		CreatedAt:          artifact.CreatedAt,
-	}).Validate()
+	}
+	switch artifact.Kind {
+	case ArtifactKindMarkdown:
+		record.Markdown = &MarkdownArtifactPayload{Markdown: "metadata-only side context validation"}
+	case ArtifactKindTable:
+		record.Table = &TableArtifactPayload{
+			Columns: []ArtifactTableColumn{{Key: "artifact", Label: "Artifact"}},
+			Rows:    [][]string{},
+		}
+	case ArtifactKindBarChart:
+		record.BarChart = &BarChartArtifactPayload{
+			Items: []BarChartArtifactItem{{Label: "Artifact", Value: 1}},
+		}
+	case ArtifactKindFile:
+		record.File = &FileArtifactPayload{Path: "side-context-artifact"}
+	}
+	return record.Validate()
 }

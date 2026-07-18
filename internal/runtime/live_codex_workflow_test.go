@@ -96,7 +96,7 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		)
 		latestTurn := snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
 		if latestTurn.Status != conversation.TurnStatusCompleted {
-			t.Fatalf("live topic turn %d status = %s, want completed", index+1, latestTurn.Status)
+			t.Fatalf("live topic turn %d status = %s error=%+v, want completed", index+1, latestTurn.Status, latestTurn.Error)
 		}
 		if !runtimeTopicTrajectoryHasCompletedText(snapshot, latestTurn.ID, task.expected) {
 			t.Fatalf("live topic turn %s has no completed public agent text containing %s", latestTurn.ID, task.expected)

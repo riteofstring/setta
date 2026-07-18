@@ -56,26 +56,9 @@ func installRuntimeMasterCodexFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("locate node for scripted Codex app-server: %v", err)
 	}
-	fixturePath, err := filepath.Abs(filepath.Join(
-		"..",
-		"..",
-		"desktop",
-		"tests",
-		"electron",
-		"fixtures",
-		"fake-topic-codex-app-server.mjs",
-	))
-	if err != nil {
-		t.Fatalf("resolve scripted Codex app-server fixture: %v", err)
-	}
-	if _, err := os.Stat(fixturePath); err != nil {
-		t.Fatalf("read scripted Codex app-server fixture: %v", err)
-	}
-	fixture, err := os.ReadFile(fixturePath)
-	if err != nil {
-		t.Fatalf("load scripted Codex app-server fixture: %v", err)
-	}
+	fixture := readRuntimeMasterCodexFixture(t, "fake-topic-codex-app-server.mjs")
 	binDir := t.TempDir()
+	writeRuntimeMasterCodexHelper(t, binDir)
 	commandPath := filepath.Join(binDir, "codex")
 	if goruntime.GOOS == "windows" {
 		commandPath += ".cmd"
@@ -96,4 +79,35 @@ func installRuntimeMasterCodexFixture(t *testing.T) {
 	}
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("SETTA_E2E_TOPIC_CODEX_STATE_PATH", filepath.Join(t.TempDir(), "codex-state.json"))
+}
+
+func readRuntimeMasterCodexFixture(t *testing.T, name string) []byte {
+	t.Helper()
+	fixturePath := runtimeMasterCodexFixturePath(t, name)
+	fixture, err := os.ReadFile(fixturePath)
+	if err != nil {
+		t.Fatalf("load scripted Codex app-server fixture %s: %v", name, err)
+	}
+	return fixture
+}
+
+func runtimeMasterCodexFixturePath(t *testing.T, name string) string {
+	t.Helper()
+	fixturePath, err := filepath.Abs(filepath.Join("..", "..", "desktop", "tests", "electron", "fixtures", name))
+	if err != nil {
+		t.Fatalf("resolve scripted Codex app-server fixture %s: %v", name, err)
+	}
+	if _, err := os.Stat(fixturePath); err != nil {
+		t.Fatalf("read scripted Codex app-server fixture %s: %v", name, err)
+	}
+	return fixturePath
+}
+
+func writeRuntimeMasterCodexHelper(t *testing.T, binDir string) {
+	t.Helper()
+	name := "fake-topic-artifact-tool.mjs"
+	fixture := readRuntimeMasterCodexFixture(t, name)
+	if err := os.WriteFile(filepath.Join(binDir, name), fixture, 0o600); err != nil {
+		t.Fatalf("write scripted Codex app-server helper: %v", err)
+	}
 }

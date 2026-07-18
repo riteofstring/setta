@@ -200,6 +200,10 @@ func writeConversationError(response http.ResponseWriter, code string, err error
 		writeError(response, http.StatusNotFound, "conversation_not_found", err.Error())
 		return
 	}
+	if conversation.IsArtifactNotFound(err) {
+		writeError(response, http.StatusNotFound, "conversation_artifact_not_found", err.Error())
+		return
+	}
 	if conversation.IsCommandConflict(err) {
 		status = http.StatusConflict
 	}

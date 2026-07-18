@@ -1,5 +1,6 @@
 import type {
   AcceptedConversationInput,
+  Artifact,
   ArchiveTopicConversationRequest,
   ConversationEventCursor,
   ConversationSnapshot,
@@ -9,6 +10,7 @@ import type {
   ListTopicConversationsRequest,
   NavigatorPage,
   ReadConversationInputRoutingStateRequest,
+  ReadConversationArtifactRequest,
   ConversationInputRoutingState,
   ReadConversationSnapshotRequest,
   RetryConversationInputRequest,
@@ -26,6 +28,7 @@ export const conversationIpcChannels = {
   conversationCreateTopic: "conversation:create-topic",
   conversationListTopicConversations: "conversation:list-topic-conversations",
   conversationReadInputState: "conversation:read-input-state",
+  conversationReadArtifact: "conversation:read-artifact",
   conversationWaitInputState: "conversation:wait-input-state",
   conversationReadSnapshot: "conversation:read-snapshot",
   conversationReleaseEvents: "conversation:release-events",
@@ -74,6 +77,10 @@ export interface ConversationIpc {
   conversationReadInputState: {
     args: [request: ReadConversationInputRoutingStateRequest];
     result: ConversationInputRoutingState;
+  };
+  conversationReadArtifact: {
+    args: [request: ReadConversationArtifactRequest];
+    result: Artifact;
   };
   conversationWaitInputState: {
     args: [request: ReadConversationInputRoutingStateRequest];

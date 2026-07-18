@@ -117,6 +117,11 @@ try {
     recoveryBaselineSnapshotReady,
     workflowTimeoutMs,
   );
+  const readArtifact = await backend.post("/conversations/artifacts/read", {
+    artifactId: snapshot.artifacts.artifacts[0].id,
+    conversationId: topic.id,
+    workspaceId,
+  });
   const surface = await waitForConversationSurface(
     context.client,
     topic.id,
@@ -140,6 +145,7 @@ try {
   const baseline = summarizeBaseline({
     events,
     playback,
+    readArtifact,
     scrollOwners,
     snapshot,
     surface,
@@ -283,6 +289,7 @@ function playbackObservations(records) {
 function summarizeBaseline({
   events,
   playback,
+  readArtifact,
   scrollOwners,
   snapshot,
   surface,
@@ -297,6 +304,7 @@ function summarizeBaseline({
   );
   return {
     artifactOutput: artifactOutput(snapshot),
+    artifactReadOutput: artifactSummary(readArtifact),
     conversationId: topic.id,
     currentFocus: snapshot.narratorState.currentFocus,
     currentFocusRevision: snapshot.narratorState.currentFocusRevision,
@@ -315,21 +323,20 @@ function summarizeBaseline({
 }
 
 function artifactOutput(snapshot) {
-  return snapshot.artifacts.artifacts.map((artifact) => {
-    const keys = Object.keys(artifact).sort();
-    return {
-      id: artifact.id,
-      kind: artifact.kind,
-      keys,
-      mediaType: artifact.mediaType,
-      metadataKeys: Object.keys(artifact.metadata).sort(),
-      title: artifact.title,
-      typedPayloadBranchPresent: keys.some((key) =>
-        ["markdown", "table", "barChart", "file"].includes(key),
-      ),
-      uri: artifact.uri,
-    };
-  });
+  return snapshot.artifacts.artifacts.map((artifact) => artifactSummary(artifact));
+}
+
+function artifactSummary(artifact) {
+  return {
+    barChart: artifact.barChart,
+    file: artifact.file,
+    id: artifact.id,
+    kind: artifact.kind,
+    keys: Object.keys(artifact).sort(),
+    markdown: artifact.markdown,
+    table: artifact.table,
+    title: artifact.title,
+  };
 }
 
 function countBy(values) {
@@ -359,25 +366,76 @@ function playbackLatency(records, narrationCreatedAt) {
 }
 
 function assertCurrentRecoveryBaseline(baseline) {
+  assertRecoveryArtifactShape(baseline);
+  assertRecoveryArtifactRendered(baseline);
+  assertRecoveryNarrationRecorded(baseline);
+  assertRecoverySpeechRecorded(baseline);
+  assertRecoveryScrollOwnersRecorded(baseline);
+}
+
+function typedLanguageCountTable(artifact) {
+  return (
+    isTableArtifact(artifact) &&
+    hasOnlyTablePayload(artifact) &&
+    hasLanguageCountTable(artifact.table)
+  );
+}
+
+function assertRecoveryArtifactShape(baseline) {
   const artifact = baseline.artifactOutput[0];
-  const fileArtifact =
-    artifact?.kind === "file" &&
-    artifact.typedPayloadBranchPresent === false &&
-    artifact.uri.includes("-artifact.png");
-  if (!fileArtifact) {
-    throw new Error(`recovery baseline artifact shape drifted: ${JSON.stringify(baseline)}`);
+  if (typedLanguageCountTable(artifact) && typedLanguageCountTable(baseline.artifactReadOutput)) {
+    return;
   }
-  if (baseline.narratorEventCount < 2 || baseline.focusRevisionCount < 1) {
-    throw new Error(`recovery baseline narration was not recorded: ${JSON.stringify(baseline)}`);
+  throw new Error(`recovery baseline artifact shape drifted: ${JSON.stringify(baseline)}`);
+}
+
+function assertRecoveryArtifactRendered(baseline) {
+  const renderedTokens = ["Language line counts", "Go", "TypeScript"];
+  if (renderedTokens.every((token) => baseline.surfaceArtifactText.includes(token))) {
+    return;
   }
-  if (!baseline.playbackLatencyMs.some((entry) => entry.action === "play")) {
-    throw new Error(
-      `recovery baseline speech playback was not recorded: ${JSON.stringify(baseline)}`,
-    );
+  throw new Error(`recovery baseline artifact did not render: ${JSON.stringify(baseline)}`);
+}
+
+function assertRecoveryNarrationRecorded(baseline) {
+  if (baseline.narratorEventCount >= 2 && baseline.focusRevisionCount >= 1) {
+    return;
   }
-  if (baseline.renderedScrollOwners.length === 0) {
-    throw new Error(
-      `recovery baseline scroll owners were not recorded: ${JSON.stringify(baseline)}`,
-    );
+  throw new Error(`recovery baseline narration was not recorded: ${JSON.stringify(baseline)}`);
+}
+
+function assertRecoverySpeechRecorded(baseline) {
+  if (baseline.playbackLatencyMs.some((entry) => entry.action === "play")) {
+    return;
   }
+  throw new Error(
+    `recovery baseline speech playback was not recorded: ${JSON.stringify(baseline)}`,
+  );
+}
+
+function assertRecoveryScrollOwnersRecorded(baseline) {
+  if (baseline.renderedScrollOwners.length > 0) {
+    return;
+  }
+  throw new Error(`recovery baseline scroll owners were not recorded: ${JSON.stringify(baseline)}`);
+}
+
+function isTableArtifact(artifact) {
+  return artifact?.kind === "table" && artifact.table;
+}
+
+function hasOnlyTablePayload(artifact) {
+  return artifact.markdown === null && artifact.barChart === null && artifact.file === null;
+}
+
+function hasLanguageCountTable(table) {
+  return hasLanguageCountColumns(table) && hasLanguageCountRows(table);
+}
+
+function hasLanguageCountColumns(table) {
+  return table?.columns?.map((column) => column.key).join(",") === "language,lines";
+}
+
+function hasLanguageCountRows(table) {
+  return table?.rows?.length === suppliedDataset.length && table.rows[0]?.join(",") === "Go,34";
 }

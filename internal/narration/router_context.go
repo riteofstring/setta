@@ -67,11 +67,10 @@ type ConversationRouteSubagent struct {
 }
 
 type ConversationRouteArtifact struct {
-	ID        string                    `json:"id"`
-	Kind      conversation.ArtifactKind `json:"kind"`
-	Title     string                    `json:"title"`
-	URI       string                    `json:"uri"`
-	MediaType string                    `json:"mediaType"`
+	ID      string                    `json:"id"`
+	Kind    conversation.ArtifactKind `json:"kind"`
+	Title   string                    `json:"title"`
+	Summary string                    `json:"summary"`
 }
 
 type ConversationRouteAuthoritativeContext struct {
@@ -322,14 +321,40 @@ func conversationRouteArtifacts(artifacts []conversation.Artifact) []Conversatio
 	result := make([]ConversationRouteArtifact, 0, len(artifacts))
 	for _, artifact := range artifacts {
 		result = append(result, ConversationRouteArtifact{
-			ID:        artifact.ID,
-			Kind:      artifact.Kind,
-			Title:     artifact.Title,
-			URI:       artifact.URI,
-			MediaType: artifact.MediaType,
+			ID:      artifact.ID,
+			Kind:    artifact.Kind,
+			Title:   artifact.Title,
+			Summary: conversationRouteArtifactSummary(artifact),
 		})
 	}
 	return result
+}
+
+func conversationRouteArtifactSummary(artifact conversation.Artifact) string {
+	switch artifact.Kind {
+	case conversation.ArtifactKindMarkdown:
+		if artifact.Markdown == nil {
+			return "missing markdown payload"
+		}
+		return fmt.Sprintf("%d byte markdown payload", len(artifact.Markdown.Markdown))
+	case conversation.ArtifactKindTable:
+		if artifact.Table == nil {
+			return "missing table payload"
+		}
+		return fmt.Sprintf("%d column, %d row table payload", len(artifact.Table.Columns), len(artifact.Table.Rows))
+	case conversation.ArtifactKindBarChart:
+		if artifact.BarChart == nil {
+			return "missing bar chart payload"
+		}
+		return fmt.Sprintf("%d item bar chart payload", len(artifact.BarChart.Items))
+	case conversation.ArtifactKindFile:
+		if artifact.File == nil {
+			return "missing file payload"
+		}
+		return artifact.File.Path
+	default:
+		return "unsupported artifact payload"
+	}
 }
 
 func fitConversationRouteContext(

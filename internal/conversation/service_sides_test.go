@@ -119,7 +119,7 @@ func assertTypedSideContextFrame(
 	if len(frame.PendingApprovals) != 1 || frame.PendingApprovals[0].Title != "Allow inspection" {
 		t.Fatalf("side pending approvals = %+v", frame.PendingApprovals)
 	}
-	if len(frame.Artifacts) != 1 || frame.Artifacts[0].URI != "/tmp/side-context-result.md" {
+	if len(frame.Artifacts) != 1 || frame.Artifacts[0].Title != "Side context result" {
 		t.Fatalf("side artifacts = %+v", frame.Artifacts)
 	}
 }

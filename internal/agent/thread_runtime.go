@@ -247,6 +247,10 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 	if err != nil {
 		return codexapp.ThreadStartParams{}, err
 	}
+	dynamicTools, err := dynamicToolSpecs(request.DynamicTools)
+	if err != nil {
+		return codexapp.ThreadStartParams{}, err
+	}
 	params := codexapp.ThreadStartParams{
 		ApprovalPolicy:        approvalPolicy,
 		CWD:                   &request.WorkspaceRoot,
@@ -254,6 +258,9 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 		Ephemeral:             &request.Ephemeral,
 		Sandbox:               &sandbox,
 		ServiceTier:           nullableServiceTier(request.Invocation.ServiceTier),
+	}
+	if len(dynamicTools) > 0 {
+		params.DynamicTools = &dynamicTools
 	}
 	if !request.Invocation.ModelSelectionProviderDefault {
 		params.Model = &request.Invocation.Model

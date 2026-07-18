@@ -32,6 +32,7 @@ type activeTurn struct {
 	providerThreadID string
 	providerTurnID   string
 	session          *codexapp.Session
+	dynamicTools     map[dynamicToolKey]DynamicTool
 }
 
 type pendingApproval struct {
@@ -115,6 +116,7 @@ func (runtime *Runtime) reserveTurn(request TurnRequest, session *codexapp.Sessi
 		settaTurnID:      request.TurnID,
 		providerThreadID: request.ProviderThreadID,
 		session:          session,
+		dynamicTools:     dynamicToolMap(request.DynamicTools),
 	}
 	return nil
 }

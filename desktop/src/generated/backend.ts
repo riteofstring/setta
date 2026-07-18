@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 58;
-export const backendContractSchemaHash = "sha256:891b7f058732e09613505cd9ccb5b22c7699bb36f878eeefadb657f67c27fa3e";
+export const backendProtocolVersion = 59;
+export const backendContractSchemaHash = "sha256:97db8a1250e4c8f08106f4c75690976a35089e0ed2b801604afd656ad6ae8b4d";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -734,9 +734,9 @@ export function decodeProviderLifecycleStatus(value: unknown, label = "ProviderL
   }
 }
 
-export type ArtifactKind = "markdown" | "table" | "bar_chart" | "file" | "tool_output";
+export type ArtifactKind = "markdown" | "table" | "bar_chart" | "file";
 
-export const artifactKindValues = ["markdown", "table", "bar_chart", "file", "tool_output"] as const satisfies readonly ArtifactKind[];
+export const artifactKindValues = ["markdown", "table", "bar_chart", "file"] as const satisfies readonly ArtifactKind[];
 
 export function decodeArtifactKind(value: unknown, label = "ArtifactKind"): ArtifactKind {
   const decoded = decodeString(value, label);
@@ -748,8 +748,6 @@ export function decodeArtifactKind(value: unknown, label = "ArtifactKind"): Arti
     case "bar_chart":
       return decoded;
     case "file":
-      return decoded;
-    case "tool_output":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2177,17 +2175,47 @@ export interface ConversationTrajectoryWindow {
   hasEarlier: boolean;
 }
 
+export interface MarkdownArtifactPayload {
+  markdown: string;
+}
+
+export interface ArtifactTableColumn {
+  key: string;
+  label: string;
+}
+
+export interface TableArtifactPayload {
+  columns: ArtifactTableColumn[];
+  rows: string[][];
+}
+
+export interface BarChartArtifactItem {
+  label: string;
+  value: number;
+  unit: string | null;
+}
+
+export interface BarChartArtifactPayload {
+  items: BarChartArtifactItem[];
+}
+
+export interface FileArtifactPayload {
+  path: string;
+  description: string | null;
+}
+
 export interface Artifact {
   id: string;
   conversationId: string;
   turnId: string | null;
   trajectorySequence: number | null;
   kind: ArtifactKind;
-  uri: string;
   title: string;
-  mediaType: string;
-  metadata: Record<string, string>;
   createdAt: string;
+  markdown: MarkdownArtifactPayload | null;
+  table: TableArtifactPayload | null;
+  barChart: BarChartArtifactPayload | null;
+  file: FileArtifactPayload | null;
 }
 
 export interface ConversationArtifactWindow {
@@ -2373,6 +2401,12 @@ export interface DisposeSideConversationRequest {
 export interface ReadConversationSnapshotRequest {
   workspaceId: string;
   conversationId: string;
+}
+
+export interface ReadConversationArtifactRequest {
+  workspaceId: string;
+  conversationId: string;
+  artifactId: string;
 }
 
 export interface NavigatorCursor {
@@ -3389,6 +3423,11 @@ export const backendEndpoints = {
   ReadConversationSnapshot: {
     method: "POST",
     path: "/conversations/snapshot/read",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadConversationArtifact: {
+    method: "POST",
+    path: "/conversations/artifacts/read",
     requestBodyLimitBytes: 4194304,
   },
   ListTopicConversations: {
@@ -4746,21 +4785,82 @@ export function decodeConversationTrajectoryWindow(value: unknown): Conversation
   };
 }
 
+export function decodeMarkdownArtifactPayload(value: unknown): MarkdownArtifactPayload {
+  const record = assertRecord(value, "MarkdownArtifactPayload");
+  assertKnownFields(record, "MarkdownArtifactPayload", ["markdown"]);
+  return {
+    markdown: decodeString(requireField(record, "markdown", "MarkdownArtifactPayload"), "MarkdownArtifactPayload.markdown"),
+  };
+}
+
+export function decodeArtifactTableColumn(value: unknown): ArtifactTableColumn {
+  const record = assertRecord(value, "ArtifactTableColumn");
+  assertKnownFields(record, "ArtifactTableColumn", ["key", "label"]);
+  return {
+    key: decodeString(requireField(record, "key", "ArtifactTableColumn"), "ArtifactTableColumn.key"),
+    label: decodeString(requireField(record, "label", "ArtifactTableColumn"), "ArtifactTableColumn.label"),
+  };
+}
+
+export function decodeTableArtifactPayload(value: unknown): TableArtifactPayload {
+  const record = assertRecord(value, "TableArtifactPayload");
+  assertKnownFields(record, "TableArtifactPayload", ["columns", "rows"]);
+  return {
+    columns: decodeArray(requireField(record, "columns", "TableArtifactPayload"), "TableArtifactPayload.columns", (item) => decodeArtifactTableColumn(item)),
+    rows: decodeArray(requireField(record, "rows", "TableArtifactPayload"), "TableArtifactPayload.rows", (item) => decodeArray(item, "TableArtifactPayload.rows item", (item) => decodeString(item, "TableArtifactPayload.rows item item"))),
+  };
+}
+
+export function decodeBarChartArtifactItem(value: unknown): BarChartArtifactItem {
+  const record = assertRecord(value, "BarChartArtifactItem");
+  assertKnownFields(record, "BarChartArtifactItem", ["label", "value", "unit"]);
+  return {
+    label: decodeString(requireField(record, "label", "BarChartArtifactItem"), "BarChartArtifactItem.label"),
+    value: decodeNumber(requireField(record, "value", "BarChartArtifactItem"), "BarChartArtifactItem.value"),
+    unit: decodeNullable(requireField(record, "unit", "BarChartArtifactItem"), "BarChartArtifactItem.unit", (item) => decodeString(item, "BarChartArtifactItem.unit")),
+  };
+}
+
+export function decodeBarChartArtifactPayload(value: unknown): BarChartArtifactPayload {
+  const record = assertRecord(value, "BarChartArtifactPayload");
+  assertKnownFields(record, "BarChartArtifactPayload", ["items"]);
+  return {
+    items: decodeArray(requireField(record, "items", "BarChartArtifactPayload"), "BarChartArtifactPayload.items", (item) => decodeBarChartArtifactItem(item)),
+  };
+}
+
+export function decodeFileArtifactPayload(value: unknown): FileArtifactPayload {
+  const record = assertRecord(value, "FileArtifactPayload");
+  assertKnownFields(record, "FileArtifactPayload", ["path", "description"]);
+  return {
+    path: decodeString(requireField(record, "path", "FileArtifactPayload"), "FileArtifactPayload.path"),
+    description: decodeNullable(requireField(record, "description", "FileArtifactPayload"), "FileArtifactPayload.description", (item) => decodeString(item, "FileArtifactPayload.description")),
+  };
+}
+
 export function decodeArtifact(value: unknown): Artifact {
   const record = assertRecord(value, "Artifact");
-  assertKnownFields(record, "Artifact", ["id", "conversationId", "turnId", "trajectorySequence", "kind", "uri", "title", "mediaType", "metadata", "createdAt"]);
-  return {
+  assertKnownFields(record, "Artifact", ["id", "conversationId", "turnId", "trajectorySequence", "kind", "title", "createdAt", "markdown", "table", "barChart", "file"]);
+  const result: Artifact = {
     id: decodeString(requireField(record, "id", "Artifact"), "Artifact.id"),
     conversationId: decodeString(requireField(record, "conversationId", "Artifact"), "Artifact.conversationId"),
     turnId: decodeNullable(requireField(record, "turnId", "Artifact"), "Artifact.turnId", (item) => decodeString(item, "Artifact.turnId")),
     trajectorySequence: decodeNullable(requireField(record, "trajectorySequence", "Artifact"), "Artifact.trajectorySequence", (item) => decodeInteger(item, "Artifact.trajectorySequence")),
     kind: decodeArtifactKind(requireField(record, "kind", "Artifact"), "Artifact.kind"),
-    uri: decodeString(requireField(record, "uri", "Artifact"), "Artifact.uri"),
     title: decodeString(requireField(record, "title", "Artifact"), "Artifact.title"),
-    mediaType: decodeString(requireField(record, "mediaType", "Artifact"), "Artifact.mediaType"),
-    metadata: decodeStringRecord(requireField(record, "metadata", "Artifact"), "Artifact.metadata"),
     createdAt: decodeString(requireField(record, "createdAt", "Artifact"), "Artifact.createdAt"),
+    markdown: decodeNullable(requireField(record, "markdown", "Artifact"), "Artifact.markdown", (item) => decodeMarkdownArtifactPayload(item)),
+    table: decodeNullable(requireField(record, "table", "Artifact"), "Artifact.table", (item) => decodeTableArtifactPayload(item)),
+    barChart: decodeNullable(requireField(record, "barChart", "Artifact"), "Artifact.barChart", (item) => decodeBarChartArtifactPayload(item)),
+    file: decodeNullable(requireField(record, "file", "Artifact"), "Artifact.file", (item) => decodeFileArtifactPayload(item)),
   };
+  assertTaggedUnionBranch("Artifact", result.kind, {
+    "markdown": result.markdown,
+    "table": result.table,
+    "bar_chart": result.barChart,
+    "file": result.file,
+  });
+  return result;
 }
 
 export function decodeConversationArtifactWindow(value: unknown): ConversationArtifactWindow {
@@ -5040,6 +5140,16 @@ export function decodeReadConversationSnapshotRequest(value: unknown): ReadConve
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.conversationId"),
+  };
+}
+
+export function decodeReadConversationArtifactRequest(value: unknown): ReadConversationArtifactRequest {
+  const record = assertRecord(value, "ReadConversationArtifactRequest");
+  assertKnownFields(record, "ReadConversationArtifactRequest", ["workspaceId", "conversationId", "artifactId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationArtifactRequest"), "ReadConversationArtifactRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ReadConversationArtifactRequest"), "ReadConversationArtifactRequest.conversationId"),
+    artifactId: decodeString(requireField(record, "artifactId", "ReadConversationArtifactRequest"), "ReadConversationArtifactRequest.artifactId"),
   };
 }
 
@@ -6596,6 +6706,7 @@ export interface BackendClient {
   sendSideConversationTurn: (request: SendSideConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   disposeSideConversation: (request: DisposeSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  readConversationArtifact: (request: ReadConversationArtifactRequest, options?: BackendRequestOptions) => Promise<Artifact>;
   listTopicConversations: (request: ListTopicConversationsRequest, options?: BackendRequestOptions) => Promise<NavigatorPage>;
   stopTopicConversationTurn: (request: StopTopicConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   submitTopicConversationApproval: (request: SubmitTopicConversationApprovalRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
@@ -6847,6 +6958,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.ReadConversationSnapshot,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readConversationArtifact: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeArtifact,
+      endpoint: backendEndpoints.ReadConversationArtifact,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

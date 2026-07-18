@@ -168,17 +168,18 @@ func scanArtifact(scanner sqlScanner) (Artifact, error) {
 	var value Artifact
 	var turnID sql.NullString
 	var trajectorySequence sql.NullInt64
-	var metadataJSON string
+	var markdownJSON, tableJSON, barChartJSON, fileJSON sql.NullString
 	err := scanner.Scan(
 		&value.ID,
 		&value.ConversationID,
 		&turnID,
 		&trajectorySequence,
 		&value.Kind,
-		&value.URI,
 		&value.Title,
-		&value.MediaType,
-		&metadataJSON,
+		&markdownJSON,
+		&tableJSON,
+		&barChartJSON,
+		&fileJSON,
 		&value.CreatedAt,
 	)
 	if err != nil {
@@ -186,10 +187,48 @@ func scanArtifact(scanner sqlScanner) (Artifact, error) {
 	}
 	value.TurnID = optionalScannedString(turnID)
 	value.TrajectorySequence = optionalScannedInt(trajectorySequence)
-	if err := decodeJSON("artifact metadata", metadataJSON, &value.Metadata); err != nil {
+	if err := decodeArtifactPayloadColumns(&value, markdownJSON, tableJSON, barChartJSON, fileJSON); err != nil {
 		return Artifact{}, err
 	}
 	return value, nil
+}
+
+func decodeArtifactPayloadColumns(
+	artifact *Artifact,
+	markdownJSON sql.NullString,
+	tableJSON sql.NullString,
+	barChartJSON sql.NullString,
+	fileJSON sql.NullString,
+) error {
+	if markdownJSON.Valid {
+		var payload MarkdownArtifactPayload
+		if err := decodeJSON("markdown artifact payload", markdownJSON.String, &payload); err != nil {
+			return err
+		}
+		artifact.Markdown = &payload
+	}
+	if tableJSON.Valid {
+		var payload TableArtifactPayload
+		if err := decodeJSON("table artifact payload", tableJSON.String, &payload); err != nil {
+			return err
+		}
+		artifact.Table = &payload
+	}
+	if barChartJSON.Valid {
+		var payload BarChartArtifactPayload
+		if err := decodeJSON("bar chart artifact payload", barChartJSON.String, &payload); err != nil {
+			return err
+		}
+		artifact.BarChart = &payload
+	}
+	if fileJSON.Valid {
+		var payload FileArtifactPayload
+		if err := decodeJSON("file artifact payload", fileJSON.String, &payload); err != nil {
+			return err
+		}
+		artifact.File = &payload
+	}
+	return artifact.Validate()
 }
 
 func scanNarratorState(scanner sqlScanner) (NarratorState, error) {

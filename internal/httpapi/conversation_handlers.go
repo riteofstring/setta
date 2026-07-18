@@ -287,6 +287,35 @@ func (handler handler) readConversationSnapshot(response http.ResponseWriter, re
 	writeConversationSnapshot(response, snapshot)
 }
 
+func (handler handler) readConversationArtifact(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload ReadConversationArtifactRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_conversation_artifact_request", err.Error())
+		return
+	}
+	if strings.TrimSpace(payload.ArtifactID) == "" || payload.ArtifactID != strings.TrimSpace(payload.ArtifactID) {
+		writeError(response, http.StatusBadRequest, "invalid_conversation_artifact_request", "artifact id is required without surrounding whitespace")
+		return
+	}
+	artifact, err := service.ReadArtifact(request.Context(), payload.WorkspaceID, payload.ConversationID, payload.ArtifactID)
+	if err != nil {
+		writeConversationError(response, "read_conversation_artifact_failed", err)
+		return
+	}
+	if err := artifact.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_conversation_artifact", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, artifact)
+}
+
 func (handler handler) conversationEventStream(response http.ResponseWriter, request *http.Request) {
 	service := requireConversationService(response, handler.conversationService)
 	if service == nil {

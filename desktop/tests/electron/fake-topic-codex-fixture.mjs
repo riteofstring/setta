@@ -8,6 +8,11 @@ const fakeTopicCodexFixture = join(
   "fixtures",
   "fake-topic-codex-app-server.mjs",
 );
+const fakeTopicArtifactToolFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-topic-artifact-tool.mjs",
+);
 
 export async function installFakeTopicCodex(fixture) {
   const binDir = join(fixture.tempRoot, "fake-topic-bin");
@@ -15,6 +20,7 @@ export async function installFakeTopicCodex(fixture) {
   await mkdir(binDir, { recursive: true });
   const scriptPath = join(binDir, "fake-topic-codex-app-server.mjs");
   await copyFile(fakeTopicCodexFixture, scriptPath);
+  await copyFile(fakeTopicArtifactToolFixture, join(binDir, "fake-topic-artifact-tool.mjs"));
   if (process.platform === "win32") {
     await writeFile(join(binDir, "codex.cmd"), `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
   } else {

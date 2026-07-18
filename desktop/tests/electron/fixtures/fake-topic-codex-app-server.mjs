@@ -3,6 +3,11 @@ import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
 
+import {
+  languageCountArtifactArguments,
+  validateArtifactToolResult,
+} from "./fake-topic-artifact-tool.mjs";
+
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
   "SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS",
@@ -11,10 +16,12 @@ const persistedState = readPersistedState();
 let threadCounter = persistedState.threadCounter;
 let turnCounter = persistedState.turnCounter;
 let approvalCounter = persistedState.approvalCounter;
+let toolCallCounter = persistedState.toolCallCounter;
 const threads = new Map(persistedState.threads.map((thread) => [thread.id, thread]));
 const turns = new Map(persistedState.turns.map((turn) => [turn.id, turn]));
 const heldTurns = new Map();
 const pendingApprovals = new Map();
+const pendingToolCalls = new Map();
 const simultaneousCompletionInput = "complete simultaneous audio now";
 const pendingSimultaneousCompletions = [];
 const failedNarratorObjectives = new Set();
@@ -171,6 +178,8 @@ function startThreadState(params, threadId, restricted) {
   return {
     approvalPolicy: params.approvalPolicy ?? null,
     cwd: requiredString(params, "cwd"),
+    developerInstructions: params.developerInstructions ?? null,
+    dynamicTools: params.dynamicTools ?? [],
     ephemeral: params.ephemeral === true,
     id: threadId,
     model: requiredString(params, "model"),
@@ -201,7 +210,7 @@ function forkThread(message) {
   if (!sourceTurnIds) return;
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
-  const state = forkThreadState(params, parentThreadId, threadId, ephemeral, sourceTurnIds);
+  const state = forkThreadState(params, parent, parentThreadId, threadId, ephemeral, sourceTurnIds);
   threads.set(threadId, state);
   persistState();
   const thread = fakeThread(threadId);
@@ -214,12 +223,13 @@ function forkSourceTurns(message, parent, ephemeral) {
   return durableForkSourceTurns(message, parent);
 }
 
-function forkThreadState(params, parentThreadId, threadId, ephemeral, sourceTurnIds) {
+function forkThreadState(params, parent, parentThreadId, threadId, ephemeral, sourceTurnIds) {
   const config = params.config ?? {};
   return {
     approvalPolicy: params.approvalPolicy ?? null,
     cwd: requiredString(params, "cwd"),
     developerInstructions: params.developerInstructions ?? null,
+    dynamicTools: parent.dynamicTools ?? [],
     ephemeral,
     forkedFromId: parentThreadId,
     id: threadId,
@@ -965,9 +975,10 @@ function emitTurnScenario(threadId, turnId, text) {
     requestApproval(threadId, turnId);
     return;
   }
-  if (text.includes("artifact")) {
-    emitArtifact(threadId, turnId);
+  if (emitArtifactToolScenario(threadId, turnId, text)) {
+    return;
   }
+  emitLegacyArtifactIfRequested(threadId, turnId, text);
   if (text.includes("fail")) {
     completeTurn(threadId, turnId, "failed", "Scripted topic failure");
     return;
@@ -986,6 +997,20 @@ function performanceEventCount(text) {
     throw new Error(`profile event count is invalid: ${match[1]}`);
   }
   return count;
+}
+
+function emitArtifactToolScenario(threadId, turnId, text) {
+  if (!text.includes("supplied language-counts dataset")) {
+    return false;
+  }
+  emitArtifactToolCall(threadId, turnId);
+  return true;
+}
+
+function emitLegacyArtifactIfRequested(threadId, turnId, text) {
+  if (text.includes("artifact")) {
+    emitArtifact(threadId, turnId);
+  }
 }
 
 function emitProfiledTurn(threadId, turnId, text, eventCount, emittedCount) {
@@ -1087,6 +1112,11 @@ function requestCommandApproval(threadId, turnId) {
 
 function handleClientResponse(message) {
   const requestId = String(message.id);
+  const pendingToolCall = pendingToolCalls.get(requestId);
+  if (pendingToolCall) {
+    handleToolCallResponse(requestId, pendingToolCall, message);
+    return;
+  }
   const pending = pendingApprovals.get(requestId);
   if (!pending) {
     throw new Error(`unexpected fake topic response ${requestId}`);
@@ -1108,6 +1138,33 @@ function handleClientResponse(message) {
   });
 }
 
+function handleToolCallResponse(requestId, pending, message) {
+  pendingToolCalls.delete(requestId);
+  if (message.error) {
+    throw new Error(`artifact tool ${requestId} failed: ${message.error.message}`);
+  }
+  validateArtifactToolResult(requestId, message.result);
+  setImmediate(() => {
+    emitAgentMessage(pending.threadId, pending.turnId, "Completed supplied artifact baseline.");
+    completeTurn(pending.threadId, pending.turnId, "completed");
+  });
+}
+
+function emitArtifact(threadId, turnId) {
+  notify("item/completed", {
+    completedAtMs: Date.now(),
+    item: {
+      id: `image-${turnId}`,
+      result: "generated",
+      savedPath: `/tmp/${turnId}-artifact.png`,
+      status: "completed",
+      type: "imageGeneration",
+    },
+    threadId,
+    turnId,
+  });
+}
+
 function emitTextDelta(threadId, turnId, delta) {
   notify("item/agentMessage/delta", {
     delta,
@@ -1126,18 +1183,37 @@ function emitAgentMessage(threadId, turnId, text) {
   });
 }
 
-function emitArtifact(threadId, turnId) {
-  notify("item/completed", {
-    completedAtMs: Date.now(),
-    item: {
-      id: `image-${turnId}`,
-      result: "generated",
-      savedPath: `/tmp/${turnId}-artifact.png`,
-      status: "completed",
-      type: "imageGeneration",
-    },
+function emitArtifactToolCall(threadId, turnId) {
+  const thread = threads.get(threadId);
+  if (!threadHasArtifactTool(thread)) {
+    completeTurn(threadId, turnId, "failed", "setta.emit_artifact was not registered");
+    return;
+  }
+  toolCallCounter += 1;
+  persistState();
+  const requestId = `topic-artifact-tool-${toolCallCounter}`;
+  pendingToolCalls.set(requestId, { threadId, turnId });
+  request(requestId, "item/tool/call", {
+    arguments: languageCountArtifactArguments,
+    callId: `artifact-call-${toolCallCounter}`,
+    namespace: "setta",
     threadId,
+    tool: "emit_artifact",
     turnId,
+  });
+}
+
+function threadHasArtifactTool(thread) {
+  return (thread?.dynamicTools ?? []).some((tool) => {
+    if (tool?.type !== "namespace" || tool.name !== "setta" || !Array.isArray(tool.tools)) {
+      return false;
+    }
+    return tool.tools.some(
+      (child) =>
+        child?.type === "function" &&
+        child.name === "emit_artifact" &&
+        child.inputSchema?.properties?.kind?.enum?.includes("table"),
+    );
   });
 }
 
@@ -1157,6 +1233,7 @@ function readPersistedState() {
     heldStructuredKeys: [],
     heldTurnStartKeys: [],
     threadCounter: 0,
+    toolCallCounter: 0,
     threads: [],
     turnCounter: 0,
     turns: [],
@@ -1179,6 +1256,7 @@ function persistedStateIsValid(state) {
     Array.isArray(state.heldStructuredKeys),
     Array.isArray(state.heldTurnStartKeys),
     Number.isInteger(state.threadCounter),
+    Number.isInteger(state.toolCallCounter),
     Number.isInteger(state.turnCounter),
     Array.isArray(state.threads),
     Array.isArray(state.turns),
@@ -1210,6 +1288,7 @@ function persistState() {
       heldTurnStartKeys: [...heldTurnStartKeys],
       threadCounter,
       threads: [...threads.values()],
+      toolCallCounter,
       turnCounter,
       turns: [...turns.values()],
     })}\n`,

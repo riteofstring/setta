@@ -84,11 +84,9 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ID:             "artifact-1",
 		ConversationID: conversationID,
 		Kind:           ArtifactKindMarkdown,
-		URI:            "setta-artifact://artifact-1",
 		Title:          "Contract report",
-		MediaType:      "text/markdown",
-		Metadata:       map[string]string{},
 		CreatedAt:      testTimeStarted,
+		Markdown:       &MarkdownArtifactPayload{Markdown: "Contract report"},
 	}
 	binding := AgentThreadBinding{
 		ConversationID:   conversationID,

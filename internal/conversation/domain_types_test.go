@@ -99,11 +99,9 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 		TurnID:             stringPointer("turn-1"),
 		TrajectorySequence: &sequence,
 		Kind:               ArtifactKindMarkdown,
-		URI:                "setta-artifact://artifact-1",
 		Title:              "Report",
-		MediaType:          "text/markdown",
-		Metadata:           map[string]string{},
 		CreatedAt:          testTimeEnded,
+		Markdown:           &MarkdownArtifactPayload{Markdown: "Report"},
 	}
 	if err := artifact.Validate(); err != nil {
 		t.Fatalf("valid artifact: %v", err)

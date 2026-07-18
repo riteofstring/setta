@@ -41,8 +41,8 @@ LIMIT ?
 
 func readSnapshotArtifacts(ctx context.Context, reader snapshotReader, conversationID string) (ConversationArtifactWindow, error) {
 	rows, err := reader.QueryContext(ctx, `
-SELECT id, conversation_id, turn_id, trajectory_sequence, kind, uri, title,
-       media_type, metadata_json, created_at
+SELECT id, conversation_id, turn_id, trajectory_sequence, kind, title,
+       markdown_json, table_json, bar_chart_json, file_json, created_at
 FROM artifacts
 WHERE conversation_id = ?
 ORDER BY created_at DESC, id DESC

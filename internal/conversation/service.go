@@ -173,6 +173,15 @@ func (service *Service) ReadSnapshot(
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
+func (service *Service) ReadArtifact(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	artifactID string,
+) (Artifact, error) {
+	return service.store.ReadArtifact(ctx, workspaceID, conversationID, artifactID)
+}
+
 func (service *Service) ListNavigatorPage(
 	ctx context.Context,
 	workspaceID string,
@@ -253,7 +262,8 @@ func (service *Service) createTopic(
 	thread, err := service.agent.StartThread(ctx, agent.StartThreadRequest{
 		WorkspaceRoot:         workspaceSummary.RootPath,
 		Invocation:            invocation,
-		DeveloperInstructions: "Act as the durable primary agent for this Setta topic conversation.",
+		DeveloperInstructions: topicAgentDeveloperInstructions(),
+		DynamicTools:          service.topicAgentArtifactTools(workspaceID, conversationID, ""),
 	})
 	if err != nil {
 		return ConversationSnapshot{}, err

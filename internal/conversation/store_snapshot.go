@@ -8,9 +8,14 @@ import (
 )
 
 var ErrConversationNotFound = errors.New("topic conversation was not found")
+var ErrArtifactNotFound = errors.New("conversation artifact was not found")
 
 func IsConversationNotFound(err error) bool {
 	return errors.Is(err, ErrConversationNotFound)
+}
+
+func IsArtifactNotFound(err error) bool {
+	return errors.Is(err, ErrArtifactNotFound)
 }
 
 func (store *Store) ReadSnapshot(
