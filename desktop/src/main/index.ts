@@ -100,7 +100,7 @@ async function prepareBackend(appDataDir: string) {
       baseUrl: backend.url,
       deviceToken: backend.bootstrapToken,
     });
-    void speechCredentialCoordinator?.setLocalRuntime({
+    await speechCredentialCoordinator?.setLocalRuntime({
       client: createLocalSpeechCredentialClient(localRuntime),
       runtimeId: localRuntime.runtimeId,
     });
