@@ -252,16 +252,23 @@ func binarySHA256FromArchive(archivePath string, binaryName string) (string, err
 	}
 	defer gzipReader.Close()
 
-	tarReader := tar.NewReader(gzipReader)
+	return binarySHA256FromTar(tar.NewReader(gzipReader), archivePath, binaryName)
+}
+
+func binarySHA256FromTar(tarReader *tar.Reader, archivePath string, binaryName string) (string, error) {
+	binarySHA256 := ""
 	for {
 		header, err := tarReader.Next()
 		if errors.Is(err, io.EOF) {
-			return "", fmt.Errorf("%w: archive does not contain %s", ErrInvalidRelease, binaryName)
+			if binarySHA256 == "" {
+				return "", fmt.Errorf("%w: archive does not contain %s", ErrInvalidRelease, binaryName)
+			}
+			return binarySHA256, nil
 		}
 		if err != nil {
 			return "", fmt.Errorf("%w: read archive %s: %v", ErrInvalidRelease, archivePath, err)
 		}
-		if err := validateArchiveEntryName(header.Name); err != nil {
+		if err := validateArchiveHeader(header); err != nil {
 			return "", fmt.Errorf("%w: unsafe archive entry %s: %v", ErrInvalidRelease, header.Name, err)
 		}
 		if header.Name != binaryName {
@@ -270,11 +277,30 @@ func binarySHA256FromArchive(archivePath string, binaryName string) (string, err
 		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
 			return "", fmt.Errorf("%w: %s is not a regular file", ErrInvalidRelease, binaryName)
 		}
+		if binarySHA256 != "" {
+			return "", fmt.Errorf("%w: archive contains duplicate %s", ErrInvalidRelease, binaryName)
+		}
 		hash := sha256.New()
 		if _, err := io.Copy(hash, tarReader); err != nil {
 			return "", fmt.Errorf("%w: hash %s from archive: %v", ErrInvalidRelease, binaryName, err)
 		}
-		return hex.EncodeToString(hash.Sum(nil)), nil
+		binarySHA256 = hex.EncodeToString(hash.Sum(nil))
+	}
+}
+
+func validateArchiveHeader(header *tar.Header) error {
+	switch header.Typeflag {
+	case tar.TypeReg, tar.TypeRegA:
+		return validateArchiveEntryName(header.Name)
+	case tar.TypeDir:
+		// archive/tar and the production Python release helper conventionally
+		// serialize directory names with one trailing slash. Normalize that
+		// marker only for directory headers; regular-file names remain exact.
+		return validateArchiveEntryName(strings.TrimSuffix(header.Name, "/"))
+	case tar.TypeLink, tar.TypeSymlink:
+		return errors.New("link entries are unsupported")
+	default:
+		return fmt.Errorf("entry type %d is unsupported", header.Typeflag)
 	}
 }
 
@@ -282,9 +308,26 @@ func validateArchiveEntryName(name string) error {
 	if name == "" {
 		return errors.New("path is empty")
 	}
-	if path.IsAbs(name) || path.Clean(name) != name || strings.HasPrefix(name, "../") || strings.Contains(name, "/../") {
+	if name == "." || name == ".." {
+		return fmt.Errorf("path must identify an entry: %s", name)
+	}
+	if path.IsAbs(name) {
+		return fmt.Errorf("path must be relative: %s", name)
+	}
+	if path.Clean(name) != name {
 		return fmt.Errorf("path must be relative and clean: %s", name)
 	}
+	if archiveEntryTraversesParent(name) {
+		return fmt.Errorf("path must not traverse parents: %s", name)
+	}
+	return validateArchiveEntryCharacters(name)
+}
+
+func archiveEntryTraversesParent(name string) bool {
+	return strings.HasPrefix(name, "../") || strings.Contains(name, "/../")
+}
+
+func validateArchiveEntryCharacters(name string) error {
 	if strings.Contains(name, `\`) {
 		return fmt.Errorf("path must use slash separators: %s", name)
 	}

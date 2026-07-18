@@ -27,6 +27,7 @@ const (
 	trustedRuntimeGroup           = "root"
 	ordinaryWorkloadUser          = "sprite"
 	ordinaryWorkloadGroup         = "sprite"
+	defaultRemoteVerifierPath     = "/usr/bin/minisign"
 )
 
 var ErrHealthCheckFailed = errors.New("runtime release health check failed")
@@ -73,8 +74,18 @@ func DefaultLayout() Layout {
 type Loop struct {
 	Provider runtimeprovider.Provider
 	Verifier SignatureVerifier
-	Now      func() time.Time
-	Sleep    func(context.Context, time.Duration) error
+	// RemoteVerifierPath selects the argv-only command used to verify the
+	// uploaded release. The empty value preserves the historical
+	// /usr/bin/minisign behavior. A custom path must be an absolute, clean,
+	// portable path below the protected release or runtime-state
+	// layout; it is passed directly through Provider.Exec and never through a
+	// shell. The custom-verifier trust model is that the controller builds and
+	// hashes the binary locally, uploads it over the same authenticated
+	// management channel used for installation, then checks the recorded SHA256
+	// after upload and before making it executable or selecting this path.
+	RemoteVerifierPath string
+	Now                func() time.Time
+	Sleep              func(context.Context, time.Duration) error
 }
 
 type InstallRequest struct {
@@ -202,6 +213,9 @@ func (loop Loop) prepareInstall(
 ) (Layout, verifiedArtifact, *verifiedArtifact, int, time.Duration, error) {
 	layout, err := normalizeLayout(request.Layout)
 	if err != nil {
+		return Layout{}, verifiedArtifact{}, nil, 0, 0, err
+	}
+	if err := validateRemoteVerifierPath(loop.RemoteVerifierPath, layout); err != nil {
 		return Layout{}, verifiedArtifact{}, nil, 0, 0, err
 	}
 	if loop.Provider == nil {
@@ -357,9 +371,20 @@ func (loop Loop) uploadAndVerifyRelease(ctx context.Context, runtimeName string,
 	if err := loop.uploadFile(ctx, runtimeName, artifact.SignaturePath, incomingSignature, "upload checksum signature"); err != nil {
 		return err
 	}
-	if err := loop.execRequired(ctx, runtimeName, "/usr/bin/minisign", []string{
+	verifierArguments := []string{
 		"-Vm", incomingChecksums, "-P", artifact.PublicKey, "-x", incomingSignature,
-	}, nil, "verify uploaded checksum signature"); err != nil {
+	}
+	if loop.RemoteVerifierPath != defaultRemoteVerifierPath {
+		verifierArguments = append(verifierArguments, "-f", incomingArchive)
+	}
+	if err := loop.execRequired(
+		ctx,
+		runtimeName,
+		loop.RemoteVerifierPath,
+		verifierArguments,
+		nil,
+		"verify uploaded release",
+	); err != nil {
 		return fmt.Errorf("%w: %v", ErrSignatureRejected, err)
 	}
 	if err := loop.requireRemoteSHA256(ctx, runtimeName, incomingArchive, artifact.ArchiveSHA256, "verify uploaded release archive"); err != nil {
@@ -744,6 +769,9 @@ func (loop Loop) execRequired(
 }
 
 func (loop Loop) withDefaults() Loop {
+	if loop.RemoteVerifierPath == "" {
+		loop.RemoteVerifierPath = defaultRemoteVerifierPath
+	}
 	if loop.Now == nil {
 		loop.Now = time.Now
 	}

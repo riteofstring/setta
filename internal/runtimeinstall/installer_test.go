@@ -399,6 +399,99 @@ func TestInstallRejectsLayoutWhereWorkloadIdentityOwnsProtectedState(t *testing.
 	}
 }
 
+func TestInstallUsesConfiguredRemoteVerifierPathAsArgv(t *testing.T) {
+	tempDir := t.TempDir()
+	artifact := makeTestReleaseArtifact(t, tempDir, "v1.2.3")
+	provider := newFakeProvider(t)
+	loop := testLoop(provider)
+	loop.RemoteVerifierPath = DefaultLayout().ReleaseRoot + "/setta-release-verify"
+	provider.remoteVerifierPath = loop.RemoteVerifierPath
+	identity := testRuntimeIdentity(t, "custom-remote-verifier")
+
+	if _, err := loop.Install(context.Background(), InstallRequest{
+		RuntimeName: identity.Name,
+		Desired:     artifact,
+	}); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	if len(provider.remoteVerifierRequests) != 1 {
+		t.Fatalf("remote verifier requests = %d, want 1", len(provider.remoteVerifierRequests))
+	}
+	request := provider.remoteVerifierRequests[0]
+	if request.Path != loop.RemoteVerifierPath {
+		t.Fatalf("remote verifier path = %q, want %q", request.Path, loop.RemoteVerifierPath)
+	}
+	if len(request.Arguments) != 8 {
+		t.Fatalf("remote verifier arguments = %q, want 8 arguments", request.Arguments)
+	}
+	if !slices.Equal(request.Arguments, []string{
+		"-Vm", request.Arguments[1], "-P", artifact.PublicKey, "-x", request.Arguments[5],
+		"-f", request.Arguments[7],
+	}) {
+		t.Fatalf("remote verifier arguments = %q", request.Arguments)
+	}
+	if filepath.Base(request.Arguments[7]) != filepath.Base(artifact.ArchivePath) {
+		t.Fatalf("remote verifier release path = %q", request.Arguments[7])
+	}
+}
+
+func TestInstallKeepsDefaultMinisignRemoteVerifierArgv(t *testing.T) {
+	artifact := makeTestReleaseArtifact(t, t.TempDir(), "v1.2.3")
+	provider := newFakeProvider(t)
+	provider.remoteVerifierPath = defaultRemoteVerifierPath
+	loop := testLoop(provider)
+	identity := testRuntimeIdentity(t, "default-remote-verifier")
+
+	if _, err := loop.Install(context.Background(), InstallRequest{
+		RuntimeName: identity.Name,
+		Desired:     artifact,
+	}); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	if len(provider.remoteVerifierRequests) != 1 {
+		t.Fatalf("remote verifier requests = %d, want 1", len(provider.remoteVerifierRequests))
+	}
+	request := provider.remoteVerifierRequests[0]
+	if request.Path != defaultRemoteVerifierPath || len(request.Arguments) != 6 {
+		t.Fatalf("default remote verifier request = %#v", request)
+	}
+	if request.Arguments[0] != "-Vm" || request.Arguments[2] != "-P" ||
+		request.Arguments[4] != "-x" {
+		t.Fatalf("default remote verifier arguments = %q", request.Arguments)
+	}
+}
+
+func TestInstallRejectsUnsafeRemoteVerifierPathBeforeProviderCalls(t *testing.T) {
+	testCases := map[string]string{
+		"relative":               "setta-release-verify",
+		"unclean":                DefaultLayout().ReleaseRoot + "/tools/../setta-release-verify",
+		"outside protected root": "/tmp/setta-release-verify",
+		"root itself":            DefaultLayout().ReleaseRoot,
+		"prefix sibling":         DefaultLayout().ReleaseRoot + "-other/setta-release-verify",
+		"shell metacharacter":    DefaultLayout().ReleaseRoot + "/setta-release-verify;$PATH",
+	}
+	for name, verifierPath := range testCases {
+		t.Run(name, func(t *testing.T) {
+			artifact := makeTestReleaseArtifact(t, t.TempDir(), "v1.2.3")
+			provider := newFakeProvider(t)
+			loop := testLoop(provider)
+			loop.RemoteVerifierPath = verifierPath
+			identity := testRuntimeIdentity(t, "unsafe-remote-verifier-"+name)
+
+			_, err := loop.Install(context.Background(), InstallRequest{
+				RuntimeName: identity.Name,
+				Desired:     artifact,
+			})
+			if !errors.Is(err, runtimeprovider.ErrInvalidContract) {
+				t.Fatalf("Install error = %v, want ErrInvalidContract", err)
+			}
+			if provider.ExecCalls() != 0 || provider.EnsureServiceCalls() != 0 {
+				t.Fatalf("provider calls = exec %d ensure %d, want none", provider.ExecCalls(), provider.EnsureServiceCalls())
+			}
+		})
+	}
+}
+
 func TestInstallRejectsSetupSeedForDifferentRelease(t *testing.T) {
 	tempDir := t.TempDir()
 	artifact := makeTestReleaseArtifact(t, tempDir, "v1.2.3")
@@ -740,6 +833,8 @@ type fakeProvider struct {
 	unhealthyVersions           map[string]bool
 	installedVersions           []string
 	runtimeInfoVersionOverrides map[string]string
+	remoteVerifierPath          string
+	remoteVerifierRequests      []runtimeprovider.ExecRequest
 }
 
 func newFakeProvider(t *testing.T) *fakeProvider {
@@ -767,6 +862,17 @@ func newFakeProvider(t *testing.T) *fakeProvider {
 		return nil
 	})
 	return provider
+}
+
+func (provider *fakeProvider) Exec(
+	ctx context.Context,
+	request runtimeprovider.ExecRequest,
+) (runtimeprovider.ExecResult, error) {
+	if provider.remoteVerifierPath != "" && request.Path == provider.remoteVerifierPath {
+		provider.remoteVerifierRequests = append(provider.remoteVerifierRequests, request)
+		return runtimeprovider.ExecResult{}, nil
+	}
+	return provider.Provider.Exec(ctx, request)
 }
 
 func (provider *fakeProvider) hasFile(remotePath string) bool {
