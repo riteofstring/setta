@@ -1555,5 +1555,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   and the Phase 3 access-path budgets (owner input) before candidate
   experiments. Local dev note: `minisign` is now required on the host for
   live install-signing (installed via Homebrew).
+- 2026-07-17 (morning): Landed the Phase 1c live measurement driver
+  (`573241e66`): manifest-gated (refuses to run without recorded owner
+  authorization per the runbook), restart-safe phases, append-only evidence
+  for exposure intervals, resource deltas, latencies, and billing snapshots.
+  Work is PAUSED by owner instruction pending: the five decisions in
+  `docs/plans/morning-decisions-20260717.md`, and the owner's direction on
+  porting this branch's slices onto the newly landed `setta-3` version
+  (plan: cut a fresh branch from new `setta-3`, port the provider-neutral
+  packages first, reconcile the desktop credential slice, then continue
+  Phase 3 there). No live Phase 1c run has been made; the organization is
+  empty.
 
 - 2026-07-16: Completed cold-soak run `20260714T173244Z-97151` (12h=behaviorally_warm, 24h=behaviorally_warm, 48h=behaviorally_warm); the dedicated organization was confirmed empty after cleanup. See `docs/reports/2026-07-14-sprites-confirmed-cold-soak-20260714T173244Z-97151.md`.
