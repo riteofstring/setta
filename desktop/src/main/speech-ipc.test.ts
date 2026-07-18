@@ -222,6 +222,34 @@ describe("speech IPC handlers", () => {
     expect(activeRuntimeBackend.loadDesktopSpeechCredential).not.toHaveBeenCalled();
     expect(activeRuntimeBackend.clearDesktopSpeechCredential).not.toHaveBeenCalled();
   });
+
+  test("rejects malformed credential save requests before the coordinator", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const coordinator = credentialCoordinator();
+
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => coordinator,
+    });
+
+    const settings = await invoke(handlers, ipcChannels.speechSaveCredential, {
+      apiKey: "sk-setta-ipc-credential",
+      duplicateSecret: "sk-setta-ipc-duplicate",
+    });
+
+    expect(settings).toEqual({
+      message: "Speech credential save request is invalid.",
+      operation: "save",
+      status: "failed",
+    });
+    expect(JSON.stringify(settings)).not.toContain("sk-setta-ipc");
+    expect(coordinator.saveCredential).not.toHaveBeenCalled();
+  });
 });
 
 function observerSpies() {

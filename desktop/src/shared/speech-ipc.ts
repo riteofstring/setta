@@ -140,6 +140,14 @@ export function decodeSpeechCredentialSettings(value: unknown): SpeechCredential
   }
 }
 
+export function decodeSpeechCredentialSaveRequest(value: unknown): SpeechCredentialSaveRequest {
+  const record = assertRecord(value, "SpeechCredentialSaveRequest");
+  assertKnownFields(record, "SpeechCredentialSaveRequest", ["apiKey"]);
+  return {
+    apiKey: stringField(record, "apiKey", "SpeechCredentialSaveRequest"),
+  };
+}
+
 function decodeSpeechProvider(value: string): SpeechProvider {
   switch (value) {
     case "openai":
@@ -187,4 +195,17 @@ function stringField(record: Record<string, unknown>, field: string, label: stri
     throw new Error(label + "." + field + " must be a string");
   }
   return value;
+}
+
+function assertKnownFields(
+  record: Record<string, unknown>,
+  label: string,
+  fields: readonly string[],
+): void {
+  const known = new Set(fields);
+  for (const field of Object.keys(record)) {
+    if (!known.has(field)) {
+      throw new Error(label + " contains unknown field " + field);
+    }
+  }
 }

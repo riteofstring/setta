@@ -52,6 +52,7 @@ let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
 let speechCredentialCoordinator: SpeechCredentialCoordinator | null = null;
 const backendRequests = createBackendRequestLifecycle();
+const localBackendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
 const conversationEvents = new ConversationEventRegistry({
   backendConnection: () => {
@@ -79,7 +80,12 @@ async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
     backend = await startBackend(repoRoot(), appDataDir, process.env);
+    localBackendRequests.setStopping(false);
     backendStartupError = null;
+    backend.events.on("exit", () => {
+      localBackendRequests.setStopping(true);
+      speechCredentialCoordinator?.setLocalRuntime(null);
+    });
     attachBackendObservers({
       backend,
       emitBackendProcessStatus,
@@ -101,6 +107,7 @@ async function prepareBackend(appDataDir: string) {
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
   } catch (error) {
     backend = null;
+    localBackendRequests.setStopping(true);
     speechCredentialCoordinator?.setLocalRuntime(null);
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
     emitBackendProcessStatus({ message: backendStartupError, status: "failed" });
@@ -634,7 +641,10 @@ function createLocalSpeechCredentialClient(localRuntime: {
       void runtimeRegistry?.markActiveRuntimeRevoked();
     }
   });
-  return createBackendClient(localRuntime.baseUrl, backendRequests.wrapFetch(authenticatedFetch));
+  return createBackendClient(
+    localRuntime.baseUrl,
+    localBackendRequests.wrapFetch(authenticatedFetch),
+  );
 }
 
 function backendFetch(): BackendFetch {
@@ -692,9 +702,13 @@ function runtimeUnavailableMessage() {
 
 async function stopBackend() {
   backendRequests.setStopping(true);
+  localBackendRequests.setStopping(true);
   emitBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
   await stopBackendEventStreams();
-  await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
+  await Promise.all([
+    backendRequests.waitForIdle(backendRequestDrainTimeoutMs),
+    localBackendRequests.waitForIdle(backendRequestDrainTimeoutMs),
+  ]);
   await backend?.stop();
   backend = null;
   speechCredentialCoordinator?.setLocalRuntime(null);

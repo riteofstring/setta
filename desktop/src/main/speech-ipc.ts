@@ -3,6 +3,7 @@ import type { IpcMain } from "electron";
 import type { BackendClient } from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import {
+  decodeSpeechCredentialSaveRequest,
   type SpeechCredentialSaveRequest,
   type SpeechCredentialSettings,
   type SpeechSynthesisIpcRequest,
@@ -41,7 +42,13 @@ export function registerSpeechIpcHandlers({
   handleIpc(
     ipcMain,
     "speechSaveCredential",
-    async (_event, request) => requireSpeechCredentialCoordinator().saveCredential(request),
+    async (_event, request) => {
+      const decoded = decodeCredentialSaveRequest(request);
+      if (decoded === null) {
+        return invalidCredentialSaveRequestSettings();
+      }
+      return requireSpeechCredentialCoordinator().saveCredential(decoded);
+    },
     ipcObserver,
   );
   handleIpc(
@@ -95,6 +102,22 @@ export function registerSpeechIpcHandlers({
       ),
     observerWithRedactedAudio(ipcObserver),
   );
+}
+
+function decodeCredentialSaveRequest(request: unknown): SpeechCredentialSaveRequest | null {
+  try {
+    return decodeSpeechCredentialSaveRequest(request);
+  } catch {
+    return null;
+  }
+}
+
+function invalidCredentialSaveRequestSettings(): SpeechCredentialSettings {
+  return {
+    message: "Speech credential save request is invalid.",
+    operation: "save",
+    status: "failed",
+  };
 }
 
 class SpeechSynthesisOperations {
