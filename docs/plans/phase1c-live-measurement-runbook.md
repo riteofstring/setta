@@ -77,6 +77,37 @@ Use the same repository fixture and command sequence for capacity and geography
 runs. Record contention, throttling, disk pressure, provider errors, and every
 retry. Do not add an automatic scheduler.
 
+## Restart-safe live driver
+
+Create the state directory outside Git, generate the offline manifest, and
+fill every blank authorization field plus the `before` billing placeholder:
+
+```sh
+state="$(mktemp -d "${TMPDIR:-/tmp}/setta-sprites-phase1c.XXXXXX")"
+./scripts/test_sprites_live_measurement.sh init-manifest \
+  --state "${state}" --prefix phase1c-owner-approved --concurrency 1
+```
+
+After owner authorization, use `prepare`, each explicit `measure-<cohort>` in
+the workload-cohort order above, `observe`, and `cleanup`. Set
+`SETTA_LIVE_SPRITES=1` only for those live phases. The driver does not schedule
+cohorts automatically. It refuses a later cohort until every earlier cohort is
+measured and its deterministic resources are confirmed absent.
+
+The state directory contains an atomic, versioned `manifest.json` and an
+append-only, fsynced `observations.jsonl`. To add Cost Explorer evidence, fill
+the `first-visible` or `final-settled` billing placeholder in the manifest and
+run `observe`; source, UTC observation time, and a secret-free artifact path
+are required. Provider status records are named
+`provider_status_supplementary` and are never used as behavioral or billing
+proof.
+
+The provider-neutral lifecycle contract does not expose authoritative
+checkpoint delta bytes, provider-billed network bytes, or suspend. The driver
+keeps the previously proven raw suspend endpoint measurement-only, records the
+available Setta-boundary values, and emits explicit missing observations
+instead of treating provider labels or zero values as proof.
+
 ## Local accounting workflow
 
 The strict configuration selects the immutable
