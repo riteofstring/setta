@@ -4,14 +4,15 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 latest access recheck.
-The latest incomplete-step pass recorded in the safeStorage report re-ran the
-pinned macOS probe with exact policy, encryption-availability, and
+host confirmations are still open after the 2026-07-18 current incomplete-step
+pass. The latest pass recorded in the safeStorage report re-ran the pinned
+macOS probe with exact policy, encryption-availability, and
 ciphertext-excludes-plaintext assertions and re-ran the deterministic vault
 backend-policy test successfully. It confirmed Docker CLI and Homebrew are
-installed, Docker still cannot reach the daemon, Docker Desktop status is not
-retrievable from the CLI, no usable local Windows/Linux runner is available, no
-`GITHUB_TOKEN`, `GH_TOKEN`, SSH-agent identity, usable macOS HTTPS GitHub
+installed, Node and pnpm remain available, Docker still cannot reach the daemon,
+Docker Desktop status is not retrievable from the CLI, Docker Desktop is stopped
+on a privileged setup prompt, no usable local Windows/Linux runner is available,
+no `GITHUB_TOKEN`, `GH_TOKEN`, SSH-agent identity, usable macOS HTTPS GitHub
 credential, authenticated SSH remote, public unauthenticated GitHub Actions
 result path, or connected GitHub plugin is available from this session, and the
 reference Codex repo has no Electron `safeStorage` probe pattern to reuse.
@@ -622,18 +623,19 @@ environment-based desktop product behavior.
 - [ ] Confirm `safeStorage` behavior on remaining supported desktop platforms,
       including the actual Linux backend and the failure presented for
       `basic_text`. Attempts and rechecks are recorded in
-      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`. The latest
+      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`. The current
       incomplete-step pass re-ran the macOS probe with exact policy,
       encryption-availability, and ciphertext-excludes-plaintext assertions
       plus deterministic vault backend-policy coverage successfully, then
-      reconfirmed no local Windows/Linux runner, authenticated hosted-result
-      path, public hosted-result path, or connected GitHub plugin is available
-      from this session. Previous passes added the hosted workflow,
-      step-summary JSON, pinned artifact uploads, a Linux default-backend
-      observation job, Linux `--no-sandbox`, exact policy status/reason
-      assertions, stricter hosted ciphertext/backend assertions, and production
-      rejection of unrecognized Linux backend strings. Actual Windows and
-      Linux host evidence remains the only open part of this item.
+      reconfirmed Docker is blocked by Docker Desktop's privileged setup prompt
+      and no local Windows/Linux runner, authenticated hosted-result path,
+      public hosted-result path, or connected GitHub plugin is available from
+      this session. Previous passes added the hosted workflow, step-summary
+      JSON, pinned artifact uploads, a Linux default-backend observation job,
+      Linux `--no-sandbox`, exact policy status/reason assertions, stricter
+      hosted ciphertext/backend assertions, and production rejection of
+      unrecognized Linux backend strings. Actual Windows and Linux host
+      evidence remains the only open part of this item.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
