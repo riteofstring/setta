@@ -459,10 +459,10 @@ No Windows or Linux `safeStorage` host result is recorded from this recheck.
 The Phase 0 host-confirmation item remains open because the missing
 confirmations require actual Windows and Linux Electron hosts.
 
-## 2026-07-18 Next Incomplete-Step Recheck
+## 2026-07-18 Latest Local Host Recheck
 
-The remaining Phase 0 host-confirmation item was revisited as the next
-incomplete plan step.
+The remaining Phase 0 host-confirmation item was revisited to check whether a
+local or authenticated hosted-runner path had become available.
 
 The pinned macOS probe was re-run:
 
@@ -503,9 +503,8 @@ evidence:
   start` reported Docker Desktop is already running. The visible process state
   still shows an `osascript` administrator prompt for Docker Desktop's
   privileged port-mapping setup.
-- `which docker gh colima lima limactl podman qemu-system-x86_64 qemu-aarch64
-  wine act xvfb-run brew orb orbstack multipass parallels prlctl VBoxManage
-  vmrun utmctl tart vagrant` found only `/usr/local/bin/docker` and
+- A PATH probe for Docker, GitHub CLI, common Linux/container runners, common
+  Windows/VM runners, and Homebrew found only `/usr/local/bin/docker` and
   `/opt/homebrew/bin/brew`.
 - `brew list --formula` and `brew list --cask` did not show an installed
   Windows/Linux VM or container helper from that runner set.
@@ -513,8 +512,8 @@ evidence:
   path.
 - Standard noninteractive Git SSH authentication to GitHub failed with
   `Permission denied (publickey)`.
-- A GitHub connector was suggested as a possible hosted-runner path, but it was
-  not connected in this session.
+- No GitHub connector was connected, so there was no authenticated hosted-runner
+  fallback from this session.
 - The reference Codex repository at
   `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` still does not
   contain an Electron `safeStorage`, `safe-storage`, `password-store`, or

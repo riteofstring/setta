@@ -5,15 +5,15 @@
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
 host confirmations are still open after the 2026-07-18 attempts. The latest
-local recheck in this pass re-ran the pinned macOS probe successfully, found
-Docker Desktop still blocked on its privileged setup prompt and unavailable to
-CLI probes, found no installed Windows/Linux runner, confirmed the reference
-Codex repo has no Electron `safeStorage` probe pattern to reuse, found
-noninteractive Git SSH authentication unusable, and found no connected
-GitHub-hosted runner path from this session. The earlier follow-up actionability
-pass also tightened the production Linux backend allowlist to reject
-unrecognized Electron backend strings with deterministic vault coverage, while
-leaving the actual Windows/Linux host evidence open. Phase 1 is complete:
+local recheck recorded in the safeStorage report re-ran the pinned macOS probe
+successfully, confirmed Docker CLI is installed but cannot reach the daemon,
+found no installed Windows/Linux runner beyond Docker and Homebrew, found no
+repository workflow or authenticated GitHub path available from this session,
+and confirmed the reference Codex repo has no Electron `safeStorage` probe
+pattern to reuse. The earlier follow-up actionability pass also tightened the
+production Linux backend allowlist to reject unrecognized Electron backend
+strings with deterministic vault coverage, while leaving the actual
+Windows/Linux host evidence open. Phase 1 is complete:
 desktop startup
 API-key ownership has been removed from the Electron-spawned backend, provider
 endpoint configuration is isolated from server-startup credentials, the explicit
@@ -611,48 +611,17 @@ environment-based desktop product behavior.
       `docs/reports/byok-desktop-speech-safe-storage-20260718.md`.
 - [ ] Confirm `safeStorage` behavior on remaining supported desktop platforms,
       including the actual Linux backend and the failure presented for
-      `basic_text`. Local host-confirmation attempt recorded in
-      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`; a current
-      local recheck again found Docker unavailable and no local Windows/Linux
-      runner, so Windows and Linux host results remain pending. The latest
-      confirmation pass repeated that recheck, re-ran the macOS probe, found
-      Docker Desktop blocked on its privileged setup prompt before the daemon
-      became available, confirmed the reference Codex repo has no Electron
-      `safeStorage` probe pattern to reuse, and found no connected
-      GitHub-hosted runner path.
-      The follow-up actionability pass again found Docker unavailable, no
-      local VM/container/Windows runner, Git SSH authentication unavailable,
-      and no connected GitHub-hosted runner path; it also fixed the production
-      adapter to reject unrecognized Linux backend names, so the host evidence
-      remains the only open part of this item.
-      The current local host recheck re-ran the macOS probe successfully,
-      confirmed Docker CLI still cannot connect to the Docker Desktop daemon
-      while Docker Desktop waits on its privileged setup prompt, found no
-      installed VM/container/Windows runner beyond Docker and Homebrew,
-      confirmed the repo still has no `.github` hosted-runner workflow path,
-      found the non-interactive Git SSH remote path unusable in this session,
-      suggested but did not receive a connected GitHub plugin, and reconfirmed
-      that the reference Codex repo has no reusable Electron `safeStorage`
-      probe pattern. The item remains open because Windows and Linux host
-      evidence still requires actual Windows and Linux Electron hosts.
-      A follow-up recheck in this implementation pass repeated the macOS probe
-      successfully, found Docker Desktop still stopped at the privileged
-      port-mapping prompt with no usable daemon, found no local Windows/Linux
-      runner or Homebrew-installed helper, confirmed noninteractive Git SSH
-      authentication to origin fails, suggested but did not receive a connected
-      GitHub plugin, and reconfirmed that the reference Codex repo has no
-      reusable Electron `safeStorage` probe pattern. The item remains open for
-      the same reason: the missing evidence requires actual Windows and Linux
-      Electron hosts.
-      The current incomplete-step recheck repeated the macOS probe
-      successfully, confirmed Docker Desktop still reports already running
-      while the CLI cannot connect to the daemon and the privileged setup prompt
-      remains visible, found no local Windows/Linux runner or Homebrew-installed
-      helper, confirmed standard noninteractive Git SSH authentication to
-      GitHub fails, suggested but did not receive a connected GitHub plugin, and
-      reconfirmed that the reference Codex repo has no reusable Electron
-      `safeStorage` probe pattern. The item remains open because no actual
-      Windows or Linux Electron host is available from this session.
+      `basic_text`. Attempts and rechecks are recorded in
+      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`. The latest
+      local recheck repeated the macOS probe successfully, confirmed Docker CLI
+      still cannot connect to the Docker Desktop daemon, found no installed
+      VM/container/Windows runner beyond Docker and Homebrew, found no
+      repository workflow or authenticated GitHub path available from this
+      session, and reconfirmed that the reference Codex repo has no reusable
+      Electron `safeStorage` probe pattern. An earlier follow-up actionability
+      pass fixed the production adapter to reject unrecognized Linux backend
+      names, so actual Windows and Linux host evidence remains the only open
+      part of this item.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
