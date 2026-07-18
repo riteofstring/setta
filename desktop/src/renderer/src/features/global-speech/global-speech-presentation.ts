@@ -567,7 +567,7 @@ function paneCaptureLabel(label: string, scope: PaneSpeechSourceScope): string {
     case "this_pane":
       return label;
     case "this_conversation":
-      return `${label} in another view`;
+      return `${label} for this topic`;
     case "master":
       return `${label} for Setta`;
     case "other_conversation":

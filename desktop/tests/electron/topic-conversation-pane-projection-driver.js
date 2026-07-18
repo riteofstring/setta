@@ -476,20 +476,52 @@
     return { conversationId, denied: true };
   }
 
-  function topicConversationOpenBoundPane({ conversationId }) {
-    window.dispatchEvent(
-      new CustomEvent("setta:workspace-open-pane-request", {
-        detail: {
-          easyButtonConfig: { conversationId },
-          subtitle: "topic conversation pane",
-          surfaceKind: "easy-button",
-          title: "Topic conversation copy",
-          tone: "cyan",
-          widthSpec: { unit: "proportion", value: 1 },
-        },
-      }),
+  async function topicConversationOpenBoundPane({
+    conversationId,
+    title = null,
+    workspaceId = null,
+  }) {
+    const targetWorkspaceId = workspaceId ?? currentWorkspaceLayoutId();
+    if (!targetWorkspaceId) {
+      return { conversationId, reason: "workspace unavailable", requested: false };
+    }
+    const request = {
+      conversationId,
+      title: title ?? conversationTitleForNavigation(conversationId),
+      workspaceId: targetWorkspaceId,
+    };
+    const completion = requestConversationPaneNavigation(request);
+    if (!(completion instanceof Promise)) {
+      return {
+        conversationId,
+        reason: "conversation pane coordinator unavailable",
+        requested: false,
+      };
+    }
+    const result = await completion;
+    return {
+      conversationId,
+      requested: conversationPaneNavigationRequested(result),
+      result,
+    };
+  }
+
+  function currentWorkspaceLayoutId() {
+    return (
+      document
+        .querySelector('[data-testid="workspace-layout-area"]')
+        ?.getAttribute("data-workspace-id") ?? ""
     );
-    return { conversationId, requested: true };
+  }
+
+  function requestConversationPaneNavigation(request) {
+    const detail = { completion: null, request };
+    window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
+    return detail.completion;
+  }
+
+  function conversationPaneNavigationRequested(result) {
+    return result.kind === "focused" || result.kind === "opened";
   }
 
   function topicConversationNavigatorState({ conversationId }) {
@@ -554,6 +586,14 @@
     }
     row.click();
     return { clicked: true, conversationId };
+  }
+
+  function conversationTitleForNavigation(conversationId) {
+    const row = Array.from(
+      document.querySelectorAll('[data-testid="conversation-navigator-item"]'),
+    ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
+    const title = row?.getAttribute("title")?.trim();
+    return title || "Topic conversation";
   }
 
   async function topicConversationRequestPresentation({ conversationId, title, workspaceId }) {

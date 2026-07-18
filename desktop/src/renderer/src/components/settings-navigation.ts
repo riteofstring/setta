@@ -1,7 +1,9 @@
 import { requestOpenAIVoiceConnectionSettings } from "../stores/settings-navigation-store";
-import { workspaceOpenPaneRequestEvent } from "../workspace-layout/open-pane-events";
+import {
+  workspaceOpenPaneRequestEvent,
+  type WorkspaceSurfaceOpenPaneRequest,
+} from "../workspace-layout/open-pane-events";
 import { settingsPaneRequest } from "../workspace-layout/settings-pane-request";
-import type { OpenPaneRequest } from "../workspace-layout/types";
 
 export function openAIVoiceConnectionSettings(): void {
   requestOpenAIVoiceConnectionSettings();
@@ -9,7 +11,7 @@ export function openAIVoiceConnectionSettings(): void {
     return;
   }
   window.dispatchEvent(
-    new CustomEvent<OpenPaneRequest>(workspaceOpenPaneRequestEvent, {
+    new CustomEvent<WorkspaceSurfaceOpenPaneRequest>(workspaceOpenPaneRequestEvent, {
       detail: settingsPaneRequest,
     }),
   );

@@ -451,11 +451,6 @@ describe("Easy Button topic conversation projection", () => {
       readyProjection(snapshot),
       "pane_side",
     );
-    const duplicateView = easyButtonProjectionView(
-      snapshot.conversation.id,
-      readyProjection(snapshot),
-      "pane_duplicate",
-    );
     const html = renderToString(<EasyButtonProjectionSurface view={boundView} />);
 
     expect(boundView.side).toMatchObject({
@@ -477,7 +472,6 @@ describe("Easy Button topic conversation projection", () => {
         turnId: "side_turn",
       },
     ]);
-    expect(duplicateView.side).toBeNull();
     expect(html).toContain('data-testid="easy-button-side-conversation"');
     expect(html).toContain('data-parent-conversation-status="working"');
     expect(html).toContain("Parent:");
