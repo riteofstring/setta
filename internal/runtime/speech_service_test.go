@@ -50,11 +50,11 @@ func TestConfiguredRuntimeServesSpeechCapabilitiesAndTranscription(t *testing.T)
 	defer provider.Close()
 
 	config := testConfig(t)
-	config.Speech = speech.OpenAIClientConfig{
-		APIKey:           runtimeSpeechAPIKey,
+	config.Speech = speech.OpenAIProviderConfig{
 		BaseURL:          provider.URL + "/v1",
 		AllowTestBaseURL: true,
 	}
+	config.SpeechStartupAPIKey = runtimeSpeechAPIKey
 	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 

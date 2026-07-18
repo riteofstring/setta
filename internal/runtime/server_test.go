@@ -146,8 +146,8 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 		"non loopback host": withHost(t, "0.0.0.0"),
 		"negative port":     withPort(t, -1),
 		"large port":        withPort(t, 65536),
-		"bad speech key":    withSpeech(t, speech.OpenAIClientConfig{APIKey: "secret value"}),
-		"speech test URL":   withSpeech(t, speech.OpenAIClientConfig{BaseURL: "http://127.0.0.1:24891/v1"}),
+		"bad speech key":    withSpeechStartupAPIKey(t, "secret value"),
+		"speech test URL":   withSpeech(t, speech.OpenAIProviderConfig{BaseURL: "http://127.0.0.1:24891/v1"}),
 		"empty version":     withVersion(t, ""),
 	}
 
@@ -174,7 +174,7 @@ func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
 
 func TestStartAcceptsConfiguredSpeechClient(t *testing.T) {
 	config := testConfig(t)
-	config.Speech = speech.OpenAIClientConfig{APIKey: "sk-setta-speech-runtime-test"}
+	config.SpeechStartupAPIKey = "sk-setta-speech-runtime-test"
 
 	server, err := Start(context.Background(), config)
 	if err != nil {
@@ -335,10 +335,18 @@ func withBootstrapDisplayName(t *testing.T, displayName string) Config {
 	return config
 }
 
-func withSpeech(t *testing.T, speechConfig speech.OpenAIClientConfig) Config {
+func withSpeech(t *testing.T, speechConfig speech.OpenAIProviderConfig) Config {
 	t.Helper()
 
 	config := testConfig(t)
 	config.Speech = speechConfig
+	return config
+}
+
+func withSpeechStartupAPIKey(t *testing.T, apiKey string) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.SpeechStartupAPIKey = apiKey
 	return config
 }

@@ -43,7 +43,8 @@ type Config struct {
 	Stdout                     io.Writer
 	Stderr                     io.Writer
 	ShutdownTimeout            time.Duration
-	Speech                     speech.OpenAIClientConfig
+	Speech                     speech.OpenAIProviderConfig
+	SpeechStartupAPIKey        string
 }
 
 const (
@@ -138,11 +139,11 @@ func (config Config) Validate() error {
 	if config.ShutdownTimeout <= 0 {
 		return errors.New("shutdown timeout must be positive")
 	}
-	return validateSpeechConfig(config.Speech)
+	return validateSpeechConfig(config.Speech, config.SpeechStartupAPIKey)
 }
 
-func validateSpeechConfig(config speech.OpenAIClientConfig) error {
-	if _, err := speech.NewOpenAIClient(config); err != nil {
+func validateSpeechConfig(config speech.OpenAIProviderConfig, startupAPIKey string) error {
+	if _, err := speech.NewOpenAIClient(startupAPIKey, config); err != nil {
 		return fmt.Errorf("speech configuration is invalid: %w", err)
 	}
 	return nil

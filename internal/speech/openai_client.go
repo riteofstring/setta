@@ -20,8 +20,7 @@ const (
 	maximumJSONResponseBytes     = 64 * 1024
 )
 
-type OpenAIClientConfig struct {
-	APIKey           string
+type OpenAIProviderConfig struct {
 	BaseURL          string
 	AllowTestBaseURL bool
 	HTTPClient       *http.Client
@@ -35,9 +34,9 @@ type OpenAIClient struct {
 	requestTimeout time.Duration
 }
 
-func NewOpenAIClient(config OpenAIClientConfig) (*OpenAIClient, error) {
-	if config.APIKey != "" {
-		if err := validateSecret("speech API key", config.APIKey); err != nil {
+func NewOpenAIClient(apiKey string, config OpenAIProviderConfig) (*OpenAIClient, error) {
+	if apiKey != "" {
+		if err := validateSecret("speech API key", apiKey); err != nil {
 			return nil, err
 		}
 	}
@@ -61,7 +60,7 @@ func NewOpenAIClient(config OpenAIClientConfig) (*OpenAIClient, error) {
 		return http.ErrUseLastResponse
 	}
 	return &OpenAIClient{
-		apiKey:         config.APIKey,
+		apiKey:         apiKey,
 		baseURL:        baseURL,
 		httpClient:     &httpClientCopy,
 		requestTimeout: requestTimeout,

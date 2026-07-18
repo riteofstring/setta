@@ -4,7 +4,9 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 local attempt.
+host confirmations are still open after the 2026-07-18 local attempt. Phase 1
+has removed desktop startup API-key ownership from the Electron-spawned backend
+and split provider endpoint configuration from server-startup credentials.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -241,7 +243,7 @@ minimize references rather than promise impossible memory erasure:
 
 ### Separate endpoint configuration from credentials
 
-Split the current `speech.OpenAIClientConfig` responsibilities:
+Split the former combined speech client configuration responsibilities:
 
 - provider endpoint/test transport configuration owns base URL, guarded E2E
   base URL authorization, HTTP client, and timeout;
@@ -545,8 +547,10 @@ environment-based desktop product behavior.
 
 ### Phase 1 — Mutable Go provider and generated contracts
 
-- [ ] Remove initial API-key ownership from the local desktop command and
-      provider configuration.
+- [x] Remove initial API-key ownership from the local desktop command and
+      provider configuration. `cmd/setta-backend` now loads only endpoint/test
+      transport settings, while `setta serve` keeps its explicit startup
+      credential in a separate server-startup field.
 - [ ] Add the exhaustive `electron_vault | server_startup` credential-owner
       policy.
 - [ ] Add the synchronized credential-aware OpenAI provider controller.

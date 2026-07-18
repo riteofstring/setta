@@ -9,10 +9,11 @@ import (
 )
 
 func newSpeechService(
-	config speech.OpenAIClientConfig,
+	config speech.OpenAIProviderConfig,
+	startupAPIKey string,
 	store *conversation.Store,
 ) (*speech.Service, error) {
-	provider, err := speech.NewOpenAIClient(config)
+	provider, err := speech.NewOpenAIClient(startupAPIKey, config)
 	if err != nil {
 		return nil, fmt.Errorf("create OpenAI speech client: %w", err)
 	}

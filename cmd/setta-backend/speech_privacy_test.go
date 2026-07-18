@@ -8,11 +8,11 @@ import (
 	"setta/internal/speech"
 )
 
-func TestBackendLaunchDoesNotPrintRejectedSpeechCredential(t *testing.T) {
+func TestBackendConfigIgnoresInheritedSpeechCredentialAndDoesNotPrintIt(t *testing.T) {
 	const credential = "sk-setta invalid backend speech credential"
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := run(
+	config, err := configFromArgs(
 		[]string{"--app-data-dir", t.TempDir()},
 		&stdout,
 		&stderr,
@@ -22,13 +22,12 @@ func TestBackendLaunchDoesNotPrintRejectedSpeechCredential(t *testing.T) {
 			}
 			return ""
 		},
-		ignoreUnsetenv,
 	)
-	if exitCode != 2 {
-		t.Fatalf("backend exit code = %d, want configuration failure", exitCode)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
 	}
-	if !strings.Contains(stderr.String(), "visible ASCII") {
-		t.Fatalf("backend launch error = %q, want specific credential validation", stderr.String())
+	if config.SpeechStartupAPIKey != "" {
+		t.Fatalf("speech startup API key = %q, want empty", config.SpeechStartupAPIKey)
 	}
 	if strings.Contains(stdout.String(), credential) || strings.Contains(stderr.String(), credential) {
 		t.Fatal("backend launch output contains the rejected speech credential")

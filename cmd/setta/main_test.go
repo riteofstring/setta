@@ -126,13 +126,21 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 	if options.Speech.APIKey != "sk-openai-speech-serve" {
 		t.Fatalf("speech API key = %q, want OpenAI API key", options.Speech.APIKey)
 	}
-	if options.Speech.BaseURL != "http://127.0.0.1:24892/v1" || !options.Speech.AllowTestBaseURL {
-		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech)
+	if options.Speech.Provider.BaseURL != "http://127.0.0.1:24892/v1" ||
+		!options.Speech.Provider.AllowTestBaseURL {
+		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech.Provider)
 	}
 
 	config := serveRuntimeConfig(options, deps, io.Discard)
-	if !reflect.DeepEqual(config.Speech, options.Speech) {
-		t.Fatalf("runtime speech config = %+v, want %+v", config.Speech, options.Speech)
+	if !reflect.DeepEqual(config.Speech, options.Speech.Provider) ||
+		config.SpeechStartupAPIKey != options.Speech.APIKey {
+		t.Fatalf(
+			"runtime speech config = %+v key %q, want %+v key %q",
+			config.Speech,
+			config.SpeechStartupAPIKey,
+			options.Speech.Provider,
+			options.Speech.APIKey,
+		)
 	}
 	if cleared != speech.APIKeyEnvironmentVariable {
 		t.Fatalf("cleared environment variable = %q, want %q", cleared, speech.APIKeyEnvironmentVariable)

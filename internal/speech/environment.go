@@ -7,25 +7,57 @@ import (
 
 const e2eEnvironmentVariable = "SETTA_E2E"
 
-func OpenAIClientConfigFromEnvironment(
+type OpenAIStartupConfig struct {
+	Provider OpenAIProviderConfig
+	APIKey   string
+}
+
+func OpenAIProviderConfigFromDesktopEnvironment(
+	getenv func(string) string,
+) (OpenAIProviderConfig, error) {
+	config, err := openAIProviderConfigFromEnvironment(getenv)
+	if err != nil {
+		return OpenAIProviderConfig{}, err
+	}
+	if _, err := NewOpenAIClient("", config); err != nil {
+		return OpenAIProviderConfig{}, fmt.Errorf("invalid speech environment configuration: %w", err)
+	}
+	return config, nil
+}
+
+func OpenAIStartupConfigFromServerEnvironment(
 	getenv func(string) string,
 	unsetenv func(string) error,
-) (OpenAIClientConfig, error) {
+) (OpenAIStartupConfig, error) {
 	if getenv == nil {
-		return OpenAIClientConfig{}, errors.New("speech environment reader is required")
+		return OpenAIStartupConfig{}, errors.New("speech environment reader is required")
 	}
 	if unsetenv == nil {
-		return OpenAIClientConfig{}, errors.New("speech environment clearer is required")
+		return OpenAIStartupConfig{}, errors.New("speech environment clearer is required")
 	}
-	config := OpenAIClientConfig{
-		APIKey: getenv(APIKeyEnvironmentVariable),
-	}
+	config := OpenAIStartupConfig{APIKey: getenv(APIKeyEnvironmentVariable)}
 	if err := unsetenv(APIKeyEnvironmentVariable); err != nil {
-		return OpenAIClientConfig{}, fmt.Errorf("clear %s after loading: %w", APIKeyEnvironmentVariable, err)
+		return OpenAIStartupConfig{}, fmt.Errorf("clear %s after loading: %w", APIKeyEnvironmentVariable, err)
 	}
+	providerConfig, err := openAIProviderConfigFromEnvironment(getenv)
+	if err != nil {
+		return OpenAIStartupConfig{}, err
+	}
+	config.Provider = providerConfig
+	if _, err := NewOpenAIClient(config.APIKey, config.Provider); err != nil {
+		return OpenAIStartupConfig{}, fmt.Errorf("invalid speech environment configuration: %w", err)
+	}
+	return config, nil
+}
+
+func openAIProviderConfigFromEnvironment(getenv func(string) string) (OpenAIProviderConfig, error) {
+	if getenv == nil {
+		return OpenAIProviderConfig{}, errors.New("speech environment reader is required")
+	}
+	config := OpenAIProviderConfig{}
 	if baseURL := getenv(E2EBaseURLEnvironmentVariable); baseURL != "" {
 		if getenv(e2eEnvironmentVariable) != "1" {
-			return OpenAIClientConfig{}, fmt.Errorf(
+			return OpenAIProviderConfig{}, fmt.Errorf(
 				"%s requires %s=1",
 				E2EBaseURLEnvironmentVariable,
 				e2eEnvironmentVariable,
@@ -33,9 +65,6 @@ func OpenAIClientConfigFromEnvironment(
 		}
 		config.BaseURL = baseURL
 		config.AllowTestBaseURL = true
-	}
-	if _, err := NewOpenAIClient(config); err != nil {
-		return OpenAIClientConfig{}, fmt.Errorf("invalid speech environment configuration: %w", err)
 	}
 	return config, nil
 }
