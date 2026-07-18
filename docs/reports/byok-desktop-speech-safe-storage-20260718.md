@@ -330,7 +330,7 @@ but the production `safeStorage` adapter only rejected `basic_text` and
 `future_secret_service` backend string. Verified with:
 
 ```sh
-pnpm vitest run src/main/speech-credential-vault.test.ts
+pnpm -C desktop exec vitest run src/main/speech-credential-vault.test.ts
 ```
 
 ## Phase 2 Adapter Requirements
