@@ -41,6 +41,24 @@ export type ConversationCreationCommand = (
   lifecycle?: ConversationCreationLifecycle,
 ) => Promise<ConversationCreationResult>;
 
+export function requestConversationCreation(
+  request: ConversationCreationRequest,
+): Promise<ConversationCreationResult> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("The conversation creation coordinator is unavailable."));
+  }
+  const detail: ConversationCreationEventDetail = { completion: null, request };
+  window.dispatchEvent(
+    new CustomEvent<ConversationCreationEventDetail>(conversationCreationRequestEvent, {
+      detail,
+    }),
+  );
+  return (
+    detail.completion ??
+    Promise.reject(new Error("The conversation creation coordinator is unavailable."))
+  );
+}
+
 export interface ConversationCreationCommandOptions {
   assertCurrent?: () => void;
   createConversation: SettaAPI["conversations"]["create"];

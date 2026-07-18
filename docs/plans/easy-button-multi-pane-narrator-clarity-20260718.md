@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 1 first-run bootstrap now reuses the create-and-present command; external evidence remains a release gate
+**Status:** In progress — Phase 1 frame actions now use an exhaustive surface/conversation model; external evidence remains a release gate
 
 **Scope:** Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
@@ -260,7 +260,7 @@ This is a direct correction of current behavior.
 
 - [x] Add the typed create-and-present application command with new-pane and exact-empty-frame destinations.
 - [x] Reuse the command from first-run bootstrap.
-- [ ] Generalize the new-frame and empty-frame action model into an exhaustive surface/conversation union.
+- [x] Generalize the new-frame and empty-frame action model into an exhaustive surface/conversation union.
 - [ ] Add **New conversation** to the Conversations header and **Conversation** to the new-frame and empty-frame choices.
 - [ ] Remove the duplicate-view row control and `open-new-view` presentation branch; replace plural conversation-pane projection with an optional single pane ID and enforce unique conversation bindings in workspace layout validation.
 - [ ] Remove the fixed Easy Button pane cap from workspace policy and every disabled/count state derived from it.
