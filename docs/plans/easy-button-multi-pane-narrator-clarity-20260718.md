@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 0 repository-local baseline recorded; external evidence remains a release gate
+**Status:** In progress — Phase 1 create-and-present command added; external evidence remains a release gate
 
 **Scope:** Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
@@ -258,7 +258,7 @@ This is a direct correction of current behavior.
 
 ### Phase 1 — Make independent new conversations first-class
 
-- [ ] Add the typed create-and-present application command with new-pane and exact-empty-frame destinations.
+- [x] Add the typed create-and-present application command with new-pane and exact-empty-frame destinations.
 - [ ] Reuse the command from first-run bootstrap.
 - [ ] Generalize the new-frame and empty-frame action model into an exhaustive surface/conversation union.
 - [ ] Add **New conversation** to the Conversations header and **Conversation** to the new-frame and empty-frame choices.
