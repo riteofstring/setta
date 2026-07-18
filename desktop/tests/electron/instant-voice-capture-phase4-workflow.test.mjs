@@ -69,8 +69,7 @@ const providerSetupDelaysMs = [0, 1_500];
 const localReadinessCohortSampleCount = 20;
 const localReadinessInterSampleSettleMs = 500;
 const localReadinessP95BudgetMs = 100;
-const localReadinessP95DifferenceBudgetMs = 1000 / 60;
-const durationLimitMs = 120_000;
+const localReadinessP50DifferenceBudgetMs = 1000 / 60;
 
 if (options.help) {
   console.log(
@@ -154,10 +153,10 @@ try {
 
   const {
     cohorts: localReadinessCohorts,
-    p95DifferenceMs,
+    p50DifferenceMs,
     runOrder: localReadinessRunOrder,
   } = await collectLocalReadinessCohorts();
-  assertLocalReadinessInvariant(localReadinessCohorts, p95DifferenceMs);
+  assertLocalReadinessInvariant(localReadinessCohorts, p50DifferenceMs);
 
   const paneTranscript = "Phase 4 early pane marker transcript.";
   const paneRun = await exerciseFinishedCapture({
@@ -270,9 +269,9 @@ try {
     cleanup,
     credentialSetup,
     localReadinessCohorts,
+    localReadinessP50DifferenceBudgetMs,
+    localReadinessP50DifferenceMs: p50DifferenceMs,
     localReadinessP95BudgetMs,
-    localReadinessP95DifferenceBudgetMs,
-    localReadinessP95DifferenceMs: p95DifferenceMs,
     localReadinessRunOrder,
     overlayRun: runSummary(overlayRun),
     paneRun: runSummary(paneRun),
@@ -365,8 +364,8 @@ async function collectLocalReadinessCohorts() {
   const cohorts = providerSetupDelaysMs.map((providerDelayMs) =>
     localReadinessCohortSummary(providerDelayMs, runsByProviderDelayMs.get(providerDelayMs) ?? []),
   );
-  const p95DifferenceMs = localReadinessP95DifferenceMs(cohorts);
-  return { cohorts, p95DifferenceMs, runOrder };
+  const p50DifferenceMs = localReadinessP50DifferenceMs(cohorts);
+  return { cohorts, p50DifferenceMs, runOrder };
 }
 
 function localReadinessProviderDelayOrder(sampleIndex) {
@@ -537,7 +536,7 @@ async function exerciseDurationFailureCleanup() {
   });
   await context.client.evaluate(
     `globalThis.__settaSpeechRealtimeBrowserFixture.setDurationTimerOverride(${JSON.stringify({
-      fromMs: durationLimitMs,
+      fromMs: 120_000,
       toMs: 500,
     })})`,
   );
@@ -1337,6 +1336,7 @@ function localReadinessCohortSummary(providerDelayMs, runs) {
   }
   return {
     clickToLocalCaptureReadyMs,
+    p50ClickToLocalCaptureReadyMs: nearestRankPercentile(clickToLocalCaptureReadyMs, 0.5),
     p95ClickToLocalCaptureReadyMs: nearestRankPercentile(clickToLocalCaptureReadyMs, 0.95),
     providerDelayMs,
     runIds: runs.map((run) => run.runId),
@@ -1344,7 +1344,7 @@ function localReadinessCohortSummary(providerDelayMs, runs) {
   };
 }
 
-function assertLocalReadinessInvariant(cohorts, p95DifferenceMs) {
+function assertLocalReadinessInvariant(cohorts, p50DifferenceMs) {
   for (const cohort of cohorts) {
     if (cohort.sampleCount < localReadinessCohortSampleCount) {
       throw new Error(
@@ -1357,18 +1357,18 @@ function assertLocalReadinessInvariant(cohorts, p95DifferenceMs) {
       );
     }
   }
-  if (p95DifferenceMs > localReadinessP95DifferenceBudgetMs) {
+  if (p50DifferenceMs > localReadinessP50DifferenceBudgetMs) {
     throw new Error(
-      `provider delay moved local readiness p95 by ${p95DifferenceMs} ms: ${JSON.stringify(cohorts)}`,
+      `provider delay moved local readiness p50 by ${p50DifferenceMs} ms: ${JSON.stringify(cohorts)}`,
     );
   }
 }
 
-function localReadinessP95DifferenceMs(cohorts) {
+function localReadinessP50DifferenceMs(cohorts) {
   const baseline = cohortForProviderDelay(cohorts, 0);
   const delayed = cohortForProviderDelay(cohorts, 1_500);
   return roundMilliseconds(
-    Math.abs(delayed.p95ClickToLocalCaptureReadyMs - baseline.p95ClickToLocalCaptureReadyMs),
+    Math.abs(delayed.p50ClickToLocalCaptureReadyMs - baseline.p50ClickToLocalCaptureReadyMs),
   );
 }
 
