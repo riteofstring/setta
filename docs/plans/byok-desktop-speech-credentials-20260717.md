@@ -4,7 +4,7 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 16:07 UTC host-access
+host confirmations are still open after the 2026-07-18 16:14 UTC host-access
 recheck. The latest pass recorded in the safeStorage report re-ran the pinned
 macOS probe with exact policy, encryption-availability, and
 ciphertext-excludes-plaintext assertions and re-ran the deterministic vault
@@ -625,7 +625,7 @@ environment-based desktop product behavior.
       including the actual Linux backend and the failure presented for
       `basic_text`. Attempts and rechecks are recorded in
       `docs/reports/byok-desktop-speech-safe-storage-20260718.md`. The
-      2026-07-18 16:07 UTC host-access recheck re-ran the macOS probe with
+      2026-07-18 16:14 UTC host-access recheck re-ran the macOS probe with
       exact policy, encryption-availability, and ciphertext-excludes-plaintext
       assertions plus deterministic vault backend-policy coverage successfully,
       then reconfirmed Docker is blocked by Docker Desktop's privileged setup
