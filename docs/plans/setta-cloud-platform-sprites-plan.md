@@ -1732,3 +1732,15 @@ Stop and reassess rather than hiding the problem if any of these occur:
   terminals absent (Phase 4 re-scoped); `db806e584` excluded from the port.
   Blocking pre-port item: `setta-3-cloud-platform` has 16 unpushed commits
   needing an owner-keyed push. No source code has been ported yet.
+- 2026-07-17 (owner decisions and backup): Pushed `setta-3-cloud-platform`
+  to origin at `98ef2df6d` and `setta-3-sprites` as a new remote branch
+  (owner-keyed). The blocking pre-port item is cleared. Owner deferred
+  recording the Phase 3 access-path budgets: the immediate goal is proving
+  the end-to-end cloud UX is workable at all, not the formal candidate
+  comparison. The budgets-before-comparison requirement stands unchanged
+  whenever the formal Candidate A/B comparison runs; it does not gate the
+  UX viability work. Owner reaffirmed provider portability as a standing
+  priority — build so providers are replaceable where possible, per settled
+  boundaries 23–27 (adapter-only provider types, non-authoritative provider
+  labels, provider-exit export as a v1 deliverable, and the conformance
+  suite as the provider contract).

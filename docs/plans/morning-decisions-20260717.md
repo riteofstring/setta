@@ -27,6 +27,11 @@ The runbook requires these recorded before any live run:
 
 ## 4. Record Phase 3 access-path budgets (required BEFORE candidate comparison)
 
+**Deferred (owner, 2026-07-17):** budgets are not being recorded now — the
+immediate goal is proving the end-to-end cloud UX is workable, built
+provider-portably. This item becomes required again before the formal
+Candidate A/B comparison.
+
 The plan requires these written down before Candidate A/B experiments so the
 decision can't be retrofitted:
 
