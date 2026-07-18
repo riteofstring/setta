@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-16
 
-**Status:** Incomplete after final audit.
+**Status:** Implemented; ready for final audit.
 
 **Scope:** Remove the redundant Easy Button working presentation and make typed artifact delivery
 reliable when an agent selects an artifact.
@@ -17,10 +17,9 @@ reliable when an agent selects an artifact.
 
 ## Final Audit Status
 
-- [ ] Live Codex artifact acceptance still needs to require the first-turn typed table artifact
-  outcome. `TestBackendTopicConversationArtifactWithLiveCodex` currently hides a first-turn miss by
-  issuing a second prompt that explicitly dictates the `setta.emit_artifact` table arguments, which
-  violates the verification requirement below.
+- [x] Live Codex artifact acceptance now requires the first-turn typed table artifact
+  outcome. `TestBackendTopicConversationArtifactWithLiveCodex` submits one supplied-data table
+  request and fails unless that completed turn creates exactly one table artifact for the turn.
 
 ## Evidence
 

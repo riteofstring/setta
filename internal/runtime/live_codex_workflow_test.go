@@ -202,50 +202,36 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		RootPath: t.TempDir(),
 	}, http.StatusOK)
 	created := createRuntimeLiveTopic(t, client, baseURL, opened.Workspace.ID, "Live structured artifact")
-	var snapshot conversation.ConversationSnapshot
-	for index, prompt := range []string{
-		"Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Produce a durable table artifact with columns language and lines, and one row per supplied language. The table artifact is the deliverable; final prose should only confirm that it is ready.",
-		"The previous turn did not create the required durable table artifact. Call the available Setta artifact tool with kind table, title Language line counts, columns language and lines, and rows Go/34, TypeScript/21, CSS/8.",
-	} {
-		accepted := submitRuntimeLiveConversationInput(
-			t,
-			client,
-			baseURL,
-			created.Conversation.ID,
-			fmt.Sprintf("live-topic-artifact-table-%d", index+1),
-			prompt,
-		)
-		route := waitForRuntimeLiveConversationRoute(
-			t,
-			client,
-			baseURL,
-			opened.Workspace.ID,
-			created.Conversation.ID,
-			accepted,
-		)
-		requireRuntimeLiveRouteKind(t, route, conversation.ConversationRouteDecisionKindSendToParent)
-		snapshot = waitForRuntimeLiveConversationSnapshot(
-			t,
-			client,
-			baseURL,
-			opened.Workspace.ID,
-			created.Conversation.ID,
-			fmt.Sprintf("live structured table artifact attempt %d", index+1),
-			func(candidate conversation.ConversationSnapshot) bool {
-				if len(candidate.Turns.Turns) != index+1 {
-					return false
-				}
-				latest := candidate.Turns.Turns[len(candidate.Turns.Turns)-1]
-				return latest.Status == conversation.TurnStatusCompleted &&
-					runtimeTopicHasFinalNarration(candidate, latest.ID) &&
-					candidate.NarratorState.ObservedThroughSequence == candidate.Conversation.LastTrajectorySequence
-			},
-		)
-		if runtimeLiveHasTableArtifact(snapshot) {
-			break
-		}
+	accepted := submitRuntimeLiveConversationInput(
+		t,
+		client,
+		baseURL,
+		created.Conversation.ID,
+		"live-topic-artifact-table-first-turn",
+		"Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Create a durable user-facing table titled Language line counts with columns language and lines, and one row per supplied language. Final prose should only confirm that the table is ready.",
+	)
+	route := waitForRuntimeLiveConversationRoute(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		accepted,
+	)
+	requireRuntimeLiveRouteKind(t, route, conversation.ConversationRouteDecisionKindSendToParent)
+	snapshot := waitForRuntimeLiveTopicTurns(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		1,
+	)
+	latestTurn := latestRuntimeLiveTurn(t, snapshot)
+	if latestTurn.Status != conversation.TurnStatusCompleted {
+		t.Fatalf("live structured table turn status = %s error=%+v, want completed", latestTurn.Status, latestTurn.Error)
 	}
-	metadata := runtimeLiveTableArtifactMetadata(t, snapshot)
+	metadata := runtimeLiveTableArtifactMetadataForTurn(t, snapshot, latestTurn.ID)
 	artifact := postRuntimeJSON[conversation.Artifact](
 		t,
 		client,
@@ -258,7 +244,7 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		},
 		http.StatusOK,
 	)
-	assertRuntimeLiveTableArtifact(t, metadata, artifact)
+	assertRuntimeLiveTableArtifact(t, latestTurn.ID, metadata, artifact)
 }
 
 func waitForRuntimeLiveMasterRoute(
@@ -299,25 +285,35 @@ func waitForRuntimeLiveMasterRoute(
 	return master.InputRoutingState{}
 }
 
-func runtimeLiveTableArtifactMetadata(t *testing.T, snapshot conversation.ConversationSnapshot) conversation.ArtifactMetadata {
+func runtimeLiveTableArtifactMetadataForTurn(
+	t *testing.T,
+	snapshot conversation.ConversationSnapshot,
+	turnID string,
+) conversation.ArtifactMetadata {
 	t.Helper()
+	var matches []conversation.ArtifactMetadata
 	for _, artifact := range snapshot.Artifacts.Artifacts {
-		if artifact.Kind == conversation.ArtifactKindTable {
-			return artifact
+		if artifact.Kind == conversation.ArtifactKindTable && artifact.TurnID != nil && *artifact.TurnID == turnID {
+			matches = append(matches, artifact)
 		}
 	}
-	t.Fatalf("live snapshot has no table artifact metadata: %+v", snapshot.Artifacts)
-	return conversation.ArtifactMetadata{}
+	if len(matches) != 1 {
+		t.Fatalf("live turn %s table artifact metadata count = %d, want 1; artifacts=%+v", turnID, len(matches), snapshot.Artifacts)
+	}
+	return matches[0]
 }
 
-func runtimeLiveHasTableArtifact(snapshot conversation.ConversationSnapshot) bool {
-	return slices.ContainsFunc(snapshot.Artifacts.Artifacts, func(artifact conversation.ArtifactMetadata) bool {
-		return artifact.Kind == conversation.ArtifactKindTable
-	})
-}
-
-func assertRuntimeLiveTableArtifact(t *testing.T, metadata conversation.ArtifactMetadata, artifact conversation.Artifact) {
+func assertRuntimeLiveTableArtifact(
+	t *testing.T,
+	turnID string,
+	metadata conversation.ArtifactMetadata,
+	artifact conversation.Artifact,
+) {
 	t.Helper()
+	if metadata.TurnID == nil || *metadata.TurnID != turnID ||
+		artifact.TurnID == nil || *artifact.TurnID != turnID {
+		t.Fatalf("live table artifact turn IDs: want %s metadata=%+v artifact=%+v", turnID, metadata, artifact)
+	}
 	if metadata.ID != artifact.ID ||
 		metadata.ConversationID != artifact.ConversationID ||
 		metadata.Kind != artifact.Kind ||

@@ -105,9 +105,13 @@ func runtimeMasterCodexFixturePath(t *testing.T, name string) string {
 
 func writeRuntimeMasterCodexHelper(t *testing.T, binDir string) {
 	t.Helper()
-	name := "fake-topic-artifact-tool.mjs"
-	fixture := readRuntimeMasterCodexFixture(t, name)
-	if err := os.WriteFile(filepath.Join(binDir, name), fixture, 0o600); err != nil {
-		t.Fatalf("write scripted Codex app-server helper: %v", err)
+	for _, name := range []string{
+		"fake-topic-artifact-tool.mjs",
+		"fake-topic-artifact-turns.mjs",
+	} {
+		fixture := readRuntimeMasterCodexFixture(t, name)
+		if err := os.WriteFile(filepath.Join(binDir, name), fixture, 0o600); err != nil {
+			t.Fatalf("write scripted Codex app-server helper %s: %v", name, err)
+		}
 	}
 }
