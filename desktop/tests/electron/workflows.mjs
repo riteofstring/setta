@@ -75,6 +75,11 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    file: "instant-voice-capture-phase0-live-openai.test.mjs",
+    name: "instant-voice-capture-phase0-live-openai",
+    tiers: ["live"],
+  },
+  {
     file: "instant-voice-capture-phase4-workflow.test.mjs",
     name: "instant-voice-capture-phase4-workflow",
     tiers: ["performance"],
