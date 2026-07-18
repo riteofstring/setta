@@ -1,7 +1,8 @@
 import type { PresentationIntent } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import {
   AppShellMasterController,
   type MasterInputFocusHints,
@@ -83,7 +84,8 @@ export function AppShellMasterProvider({
     [children, controller],
   );
 
-  useEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
+  useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
+  useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
   useEffect(() => controller.synchronizeRuntime(runtimeId), [controller, runtimeId]);
 
   return content;

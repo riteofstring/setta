@@ -59,11 +59,16 @@ export async function verifyConversationCapturePresentation({
   transcriptPreview,
   timeoutMs,
 }) {
+  await waitForConversationSurfaces(
+    client,
+    (surfaces) => surfaces.every((surface) => surface.captureState === "recording"),
+    timeoutMs,
+  );
+  await waitForRealtimeDataChannel(client, timeoutMs);
   await emitTranscriptPreview(client, transcriptPreview);
   const state = await waitForConversationSurfaces(
     client,
     (surfaces) =>
-      surfaces.every((surface) => surface.captureState === "listening") &&
       surfaces.some((surface) => surface.speechTranscriptText.includes(transcriptPreview)),
     timeoutMs,
   );
@@ -82,7 +87,7 @@ export async function verifyConversationCapturePresentation({
   const shell = await waitForShellSpeechState(
     client,
     (candidate) =>
-      candidate.captureState === "listening" && candidate.sourceConversationId === conversationId,
+      candidate.captureState === "recording" && candidate.sourceConversationId === conversationId,
     timeoutMs,
   );
   const expectedActionLabel = `Finish the voice request for ${conversationTitle}`;
@@ -143,11 +148,12 @@ export async function exercisePaneFreeShellCapture({
   const before = await client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()");
   await openMasterOverlayForSpeech(client, timeoutMs);
   assertDriverAction(await client.driver("topicConversationShellSpeechCapture", {}), "clicked");
-  const listening = await waitForShellSpeechState(
+  const recording = await waitForShellSpeechState(
     client,
-    (state) => state.captureState === "listening" && state.sourceConversationId === "",
+    (state) => state.captureState === "recording" && state.sourceConversationId === "",
     timeoutMs,
   );
+  await waitForRealtimeDataChannel(client, timeoutMs);
   await emitTranscriptPreview(client, transcript.trim());
   const preview = await waitForShellSpeechState(
     client,
@@ -156,12 +162,12 @@ export async function exercisePaneFreeShellCapture({
   );
   assertState(
     [
-      listening.captureLabel === "Finish the voice request for Setta",
-      listening.label.includes("Listening for Setta"),
+      recording.captureLabel === "Finish the voice request for Setta",
+      recording.label.includes("Listening for Setta"),
       preview.transcriptText.includes(transcript.trim()),
     ],
     "pane-free shell capture did not target the master",
-    listening,
+    recording,
   );
   await captureScreenshot(client, artifactPath);
   assertDriverAction(await client.driver("topicConversationShellSpeechCapture", {}), "clicked");
@@ -386,7 +392,7 @@ function completedIPC(start, events) {
 }
 
 function assertCaptureSurface(surface, conversationId, sourcePaneId, transcriptPreview) {
-  if (surface.captureState !== "listening") {
+  if (surface.captureState !== "recording") {
     throw new Error(`pane did not render global capture: ${JSON.stringify(surface)}`);
   }
   if (surface.conversationId !== conversationId) {
@@ -601,6 +607,15 @@ async function closeMasterOverlay(client, timeoutMs) {
 async function emitTranscriptPreview(client, transcript) {
   await client.evaluate(
     `globalThis.__settaSpeechRealtimeBrowserFixture.emitTranscriptDelta(${JSON.stringify(transcript)})`,
+  );
+}
+
+async function waitForRealtimeDataChannel(client, timeoutMs) {
+  await waitForState(
+    client,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    (state) => state.channelOpen,
+    timeoutMs,
   );
 }
 

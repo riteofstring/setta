@@ -136,8 +136,8 @@ function initialTurnIntentFallback(
 
 const activeTopicCaptureStates = new Set<PaneSpeechPresentation["captureState"]>([
   "committing",
-  "connecting",
-  "listening",
+  "draining",
+  "recording",
   "requesting_permission",
 ]);
 

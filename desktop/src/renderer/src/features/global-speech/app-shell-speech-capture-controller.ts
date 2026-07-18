@@ -10,9 +10,11 @@ import type {
   MasterInputSubmissionState,
 } from "../global-master/app-shell-master-controller";
 import {
-  RealtimeTranscriptionError,
-  type RealtimeTranscriptionErrorCode,
-} from "./realtime-transcription-error";
+  BufferedMicrophoneCaptureError,
+  type BufferedMicrophoneCapture,
+  type CreateBufferedMicrophoneCaptureOptions,
+} from "./buffered-microphone-capture";
+import { RealtimeTranscriptionError } from "./realtime-transcription-error";
 import type { RealtimeTranscriptionUpdate } from "./realtime-transcription-session";
 import type {
   createRealtimeTranscriptionTransport,
@@ -28,14 +30,22 @@ import {
   type SpeechCaptureAvailability,
 } from "./speech-capture-availability";
 import {
+  captureAvailabilityFailure,
+  failureForBufferedCaptureError,
+  failureForRealtimeError,
+  microphoneFailure,
+  safeSessionErrorMessage,
+} from "./app-shell-speech-capture-failures";
+import {
   type CompletedConversationSpeechTranscript,
   conversationSpeechCaptureRequest,
   freezeSpeechCaptureRequest,
   masterSpeechCaptureRequest,
   type SpeechCaptureRequest,
 } from "./speech-capture-destination";
-
 export type SpeechCaptureFailureCode =
+  | "capture_buffer_overflow"
+  | "capture_pipeline_failed"
   | "capabilities_unavailable"
   | "connection_failed"
   | "connection_lost"
@@ -72,8 +82,14 @@ interface SpeechCaptureActiveState {
 export type SpeechCaptureState =
   | { type: "idle" }
   | (SpeechCaptureActiveState & { type: "requesting_permission" })
-  | (SpeechCaptureActiveState & { type: "connecting" })
-  | (SpeechCaptureActiveState & { type: "listening" })
+  | (SpeechCaptureActiveState & {
+      connection: "connecting" | "ready";
+      type: "recording";
+    })
+  | (SpeechCaptureActiveState & {
+      connection: "connecting" | "ready";
+      type: "draining";
+    })
   | (SpeechCaptureActiveState & { type: "committing" })
   | {
       code: SpeechCaptureFailureCode;
@@ -89,6 +105,8 @@ export type SpeechCaptureSupport =
       supported: false;
     };
 
+export { browserSpeechCaptureSupport } from "./app-shell-speech-capture-failures";
+
 export interface AppShellSpeechCaptureSnapshot {
   availability: SpeechCaptureAvailability;
   capture: SpeechCaptureState;
@@ -101,15 +119,36 @@ export interface AppShellSpeechCaptureSnapshot {
 
 export interface AppShellSpeechCaptureControllerDependencies extends GlobalSpeechConversationSubmissionDependencies {
   clearTimeout: (handle: unknown) => void;
+  createBufferedCapture: (
+    options: CreateBufferedMicrophoneCaptureOptions,
+  ) => Promise<BufferedMicrophoneCapture>;
   createCaptureSessionId: () => string;
   createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
   createTransport: typeof createRealtimeTranscriptionTransport;
+  deferProviderConnection: (handler: () => void) => void;
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   onCaptureEnd: () => void;
   onCaptureStart: () => void;
   readCapabilities: () => Promise<SpeechCapabilities>;
   setTimeout: (handler: () => void, delayMs: number) => unknown;
   support: () => SpeechCaptureSupport;
+}
+
+interface ProviderConnectionContext {
+  capabilities: SpeechCapabilities;
+  capture: BufferedMicrophoneCapture;
+  captureSessionId: string;
+  lifecycle: number;
+  runtimeId: string;
+  sessionPromise: Promise<SpeechTranscriptionSession>;
+}
+
+interface FinishRecordingContext {
+  activeState: Extract<SpeechCaptureState, { type: "recording" }>;
+  capture: BufferedMicrophoneCapture;
+  lifecycle: number;
+  providerReady: Promise<void>;
+  runtimeId: string;
 }
 
 export class AppShellSpeechCaptureController {
@@ -123,9 +162,11 @@ export class AppShellSpeechCaptureController {
   private durationTimer: unknown = null;
   private lifecycleSequence = 0;
   private readonly masterSubmission: AppShellMasterController;
+  private providerReady: Promise<void> | null = null;
   private readonly unsubscribeMasterSubmission: () => void;
   private snapshotValue: AppShellSpeechCaptureSnapshot;
-  private stream: MediaStream | null = null;
+  private captureLease: BufferedMicrophoneCapture | null = null;
+  private pendingInputStream: MediaStream | null = null;
   private transport: RealtimeTranscriptionTransport | null = null;
 
   constructor(
@@ -238,31 +279,40 @@ export class AppShellSpeechCaptureController {
         stopMediaStream(stream);
         return;
       }
-      this.stream = stream;
+      this.pendingInputStream = stream;
+      const sessionPromise = this.dependencies.createTranscriptionSession();
+      void sessionPromise.catch(() => {});
+      const capture = await this.dependencies.createBufferedCapture({
+        inputStream: stream,
+        maximumRecordingSeconds: availability.capabilities.maximumRecordingSeconds,
+        onError: (error) => this.handleBufferedCaptureError(lifecycle, runtimeId, error),
+      });
+      if (!this.isCurrent(lifecycle, runtimeId)) {
+        capture.close();
+        return;
+      }
+      this.captureLease = capture;
+      this.pendingInputStream = null;
+      await capture.ready;
+      if (!this.isCurrent(lifecycle, runtimeId)) {
+        return;
+      }
       this.startDurationTimer(
         lifecycle,
         runtimeId,
         availability.capabilities.maximumRecordingSeconds,
       );
-      this.transitionCapture({ ...activeState, type: "connecting" });
-      const session = await this.dependencies.createTranscriptionSession();
-      if (!this.isCurrent(lifecycle, runtimeId)) {
-        return;
-      }
-      this.assertSessionLimits(session, availability.capabilities);
-      const transport = this.dependencies.createTransport({
+      const providerReady = this.connectProviderAfterLocalRecording({
+        capabilities: availability.capabilities,
+        capture,
         captureSessionId: activeState.captureSessionId,
-        onError: (error) => this.handleTransportError(lifecycle, runtimeId, error),
-        onTranscript: (update) => this.handleTranscript(lifecycle, runtimeId, update),
-        session,
-        stream,
+        lifecycle,
+        runtimeId,
+        sessionPromise,
       });
-      this.transport = transport;
-      await transport.ready;
-      if (!this.isCurrent(lifecycle, runtimeId)) {
-        return;
-      }
-      this.transitionCapture({ ...activeState, type: "listening" });
+      this.providerReady = providerReady;
+      void providerReady.catch(() => {});
+      this.transitionCapture({ ...activeState, connection: "connecting", type: "recording" });
     } catch (error) {
       this.handleStartError(lifecycle, runtimeId, error);
     }
@@ -280,19 +330,27 @@ export class AppShellSpeechCaptureController {
 
   commit = (): void => {
     this.assertUsable();
-    if (this.snapshotValue.capture.type !== "listening" || this.activeLifecycle === null) {
+    if (this.snapshotValue.capture.type !== "recording" || this.activeLifecycle === null) {
       return;
     }
-    const activeState = this.snapshotValue.capture;
-    this.transitionCapture({ ...activeState, type: "committing" });
-    try {
-      this.transport?.commit();
-    } catch (error) {
-      const runtimeId = this.snapshotValue.runtimeId;
-      if (runtimeId) {
-        this.handleStartError(this.activeLifecycle, runtimeId, error);
-      }
+    void this.finishRecording();
+  };
+
+  cancelActiveConversationCapture = (requestedCapture: SpeechCaptureRequest): boolean => {
+    this.assertUsable();
+    const request = freezeSpeechCaptureRequest(requestedCapture);
+    if (request.destination.type !== "conversation") {
+      return false;
     }
+    const activeRequest = activeCaptureRequest(this.snapshotValue.capture);
+    if (!activeRequest || !speechCaptureRequestsEqual(activeRequest, request)) {
+      return false;
+    }
+    this.resetCapture();
+    if (this.snapshotValue.capture.type !== "idle") {
+      this.updateSnapshot({ capture: { type: "idle" } });
+    }
+    return true;
   };
 
   cancel = (): void => {
@@ -369,7 +427,7 @@ export class AppShellSpeechCaptureController {
     if (!speechCaptureRequestsEqual(activeRequest, request)) {
       throw new Error("another global speech capture is already active");
     }
-    if (this.snapshotValue.capture.type === "listening") {
+    if (this.snapshotValue.capture.type === "recording") {
       this.commit();
     }
     return true;
@@ -435,6 +493,125 @@ export class AppShellSpeechCaptureController {
     }, maximumRecordingSeconds * 1000);
   }
 
+  private stopDurationTimer(): void {
+    if (this.durationTimer === null) {
+      return;
+    }
+    this.dependencies.clearTimeout(this.durationTimer);
+    this.durationTimer = null;
+  }
+
+  private connectProviderAfterLocalRecording(context: ProviderConnectionContext): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.dependencies.deferProviderConnection(() => {
+        void this.connectProviderWhenReady(context).then(resolve, reject);
+      });
+    });
+  }
+
+  private async connectProviderWhenReady(context: ProviderConnectionContext): Promise<void> {
+    const { capabilities, capture, captureSessionId, lifecycle, runtimeId, sessionPromise } =
+      context;
+    try {
+      const session = await sessionPromise;
+      if (!this.isCurrent(lifecycle, runtimeId) || this.captureLease !== capture) {
+        return;
+      }
+      this.assertSessionLimits(session, capabilities);
+      const transport = this.dependencies.createTransport({
+        captureSessionId,
+        onError: (error) => this.handleTransportError(lifecycle, runtimeId, error),
+        onTranscript: (update) => this.handleTranscript(lifecycle, runtimeId, update),
+        session,
+        stream: capture.outboundStream,
+      });
+      if (!this.isCurrent(lifecycle, runtimeId) || this.captureLease !== capture) {
+        void transport.ready.catch(() => {});
+        transport.close();
+        return;
+      }
+      this.transport = transport;
+      await transport.ready;
+      if (!this.isCurrent(lifecycle, runtimeId) || this.transport !== transport) {
+        return;
+      }
+      capture.releaseToTransport();
+      this.markConnectionReady();
+    } catch (error) {
+      if (this.isCurrent(lifecycle, runtimeId)) {
+        this.handleStartError(lifecycle, runtimeId, error);
+      }
+      throw error;
+    }
+  }
+
+  private async finishRecording(): Promise<void> {
+    const context = this.finishRecordingContext();
+    if (!context) {
+      return;
+    }
+    const { activeState, capture, lifecycle, providerReady, runtimeId } = context;
+    this.stopDurationTimer();
+    this.transitionCapture({ ...activeState, type: "draining" });
+    try {
+      const drain = capture.stopInputAndDrain();
+      await Promise.all([providerReady, drain]);
+      const drainingCapture = this.currentDrainingCapture(context);
+      if (!drainingCapture) {
+        return;
+      }
+      const { captureSessionId, request, transcript } = drainingCapture;
+      this.transitionCapture({ captureSessionId, request, transcript, type: "committing" });
+      if (!this.transport) {
+        throw new RealtimeTranscriptionError(
+          "connection_failed",
+          "Realtime transcription transport was unavailable at commit.",
+        );
+      }
+      this.transport.commit();
+    } catch (error) {
+      if (this.isCurrent(lifecycle, runtimeId)) {
+        this.handleStartError(lifecycle, runtimeId, error);
+      }
+    }
+  }
+
+  private finishRecordingContext(): FinishRecordingContext | null {
+    const activeState = this.snapshotValue.capture;
+    if (activeState.type !== "recording") {
+      return null;
+    }
+    const lifecycle = this.activeLifecycle;
+    const runtimeId = this.snapshotValue.runtimeId;
+    const capture = this.captureLease;
+    const providerReady = this.providerReady;
+    if (lifecycle === null || runtimeId === null || capture === null || providerReady === null) {
+      return null;
+    }
+    return { activeState, capture, lifecycle, providerReady, runtimeId };
+  }
+
+  private currentDrainingCapture(
+    context: FinishRecordingContext,
+  ): Extract<SpeechCaptureState, { type: "draining" }> | null {
+    if (
+      !this.isCurrent(context.lifecycle, context.runtimeId) ||
+      this.captureLease !== context.capture
+    ) {
+      return null;
+    }
+    const capture = this.snapshotValue.capture;
+    return capture.type === "draining" ? capture : null;
+  }
+
+  private markConnectionReady(): void {
+    const capture = this.snapshotValue.capture;
+    if (capture.type !== "recording" && capture.type !== "draining") {
+      return;
+    }
+    this.transitionCapture({ ...capture, connection: "ready" });
+  }
+
   private assertSessionLimits(
     session: SpeechTranscriptionSession,
     capabilities: SpeechCapabilities,
@@ -463,7 +640,8 @@ export class AppShellSpeechCaptureController {
     }
     if (update.type === "delta") {
       if (
-        this.snapshotValue.capture.type !== "listening" &&
+        this.snapshotValue.capture.type !== "recording" &&
+        this.snapshotValue.capture.type !== "draining" &&
         this.snapshotValue.capture.type !== "committing"
       ) {
         return;
@@ -532,12 +710,32 @@ export class AppShellSpeechCaptureController {
       this.handleTransportError(lifecycle, runtimeId, error);
       return;
     }
+    if (error instanceof BufferedMicrophoneCaptureError) {
+      this.handleBufferedCaptureError(lifecycle, runtimeId, error);
+      return;
+    }
     if (this.snapshotValue.capture.type === "requesting_permission") {
       const failure = microphoneFailure(error);
       this.fail(lifecycle, runtimeId, failure.code, failure.message);
       return;
     }
     this.fail(lifecycle, runtimeId, "session_failed", safeSessionErrorMessage(error));
+  }
+
+  private handleBufferedCaptureError(
+    lifecycle: number,
+    runtimeId: string,
+    error: BufferedMicrophoneCaptureError,
+  ): void {
+    if (error.code === "aborted") {
+      if (this.isCurrent(lifecycle, runtimeId)) {
+        this.resetCapture();
+        this.updateSnapshot({ capture: { type: "idle" } });
+      }
+      return;
+    }
+    const failure = failureForBufferedCaptureError(error.code);
+    this.fail(lifecycle, runtimeId, failure.code, failure.message);
   }
 
   private fail(
@@ -568,16 +766,16 @@ export class AppShellSpeechCaptureController {
   private resetCapture(notifyCaptureEnd = true): void {
     const captureEnded = this.activeLifecycle !== null;
     this.activeLifecycle = null;
-    if (this.durationTimer !== null) {
-      this.dependencies.clearTimeout(this.durationTimer);
-      this.durationTimer = null;
-    }
+    this.providerReady = null;
+    this.stopDurationTimer();
     this.transport?.close();
     this.transport = null;
-    if (this.stream) {
-      stopMediaStream(this.stream);
-      this.stream = null;
+    if (this.pendingInputStream) {
+      stopMediaStream(this.pendingInputStream);
+      this.pendingInputStream = null;
     }
+    this.captureLease?.close();
+    this.captureLease = null;
     if (captureEnded && notifyCaptureEnd) {
       this.dependencies.onCaptureEnd();
     }
@@ -724,62 +922,11 @@ function voiceMasterSubmission(submission: MasterInputSubmissionState): MasterIn
   }
 }
 
-function captureAvailabilityFailure(
-  availability: SpeechCaptureAvailability,
-  runtimeId: string | null,
-): { code: SpeechCaptureFailureCode; message: string } | null {
-  if (!runtimeId || availability.type === "disconnected") {
-    return {
-      code: "runtime_disconnected",
-      message: "Connect to a Setta runtime before starting voice capture.",
-    };
-  }
-  switch (availability.type) {
-    case "configured":
-      return null;
-    case "failed":
-      return { code: "capabilities_unavailable", message: availability.message };
-    case "loading":
-      return {
-        code: "capabilities_unavailable",
-        message: "Voice capabilities are still loading.",
-      };
-    case "not_configured":
-      return { code: "not_configured", message: availability.message };
-    case "unsupported":
-      return { code: availability.code, message: availability.message };
-    default:
-      return assertNever(availability);
-  }
-}
-
-export function browserSpeechCaptureSupport(): SpeechCaptureSupport {
-  if (!globalThis.isSecureContext) {
-    return {
-      code: "insecure_context",
-      message: "Voice capture requires a secure HTTPS connection or localhost.",
-      supported: false,
-    };
-  }
-  if (
-    typeof navigator.mediaDevices?.getUserMedia !== "function" ||
-    typeof globalThis.RTCPeerConnection !== "function" ||
-    typeof globalThis.crypto?.randomUUID !== "function"
-  ) {
-    return {
-      code: "unsupported_browser",
-      message: "This browser does not support secure microphone transcription.",
-      supported: false,
-    };
-  }
-  return { supported: true };
-}
-
 function captureSessionId(state: SpeechCaptureState): string | null {
   switch (state.type) {
     case "requesting_permission":
-    case "connecting":
-    case "listening":
+    case "recording":
+    case "draining":
     case "committing":
       return state.captureSessionId;
     case "idle":
@@ -791,8 +938,8 @@ function captureSessionId(state: SpeechCaptureState): string | null {
 function activeCaptureRequest(state: SpeechCaptureState): SpeechCaptureRequest | null {
   switch (state.type) {
     case "requesting_permission":
-    case "connecting":
-    case "listening":
+    case "recording":
+    case "draining":
     case "committing":
       return state.request;
     case "idle":
@@ -821,91 +968,6 @@ function speechCaptureRequestsEqual(
     default:
       return assertNever(left.destination);
   }
-}
-
-function microphoneFailure(error: unknown): { code: SpeechCaptureFailureCode; message: string } {
-  const name = errorName(error);
-  if (name === "NotAllowedError" || name === "SecurityError") {
-    return {
-      code: "microphone_permission_denied",
-      message: "Microphone access was denied. Allow access and try again.",
-    };
-  }
-  return {
-    code: "microphone_unavailable",
-    message: "The microphone is unavailable. Check the device and try again.",
-  };
-}
-
-function failureForRealtimeError(code: Exclude<RealtimeTranscriptionErrorCode, "aborted">): {
-  code: SpeechCaptureFailureCode;
-  message: string;
-} {
-  return (
-    {
-      connection_failed: {
-        code,
-        message: "The browser could not connect to OpenAI transcription.",
-      },
-      connection_lost: {
-        code,
-        message: "The transcription connection was lost. Please try again.",
-      },
-      invalid_media: {
-        code,
-        message: "Voice capture requires one live audio-only microphone track.",
-      },
-      invalid_session: {
-        code,
-        message: "The transcription session expired or was invalid. Please try again.",
-      },
-      malformed_event: {
-        code,
-        message: "OpenAI sent an invalid transcription event. Please try again.",
-      },
-      protocol_violation: {
-        code,
-        message: "OpenAI sent an invalid transcription sequence. Please try again.",
-      },
-      provider_rate_limited: {
-        code,
-        message: "OpenAI speech rate limit or quota was reached.",
-      },
-      provider_rejected: {
-        code,
-        message: "OpenAI rejected the speech credential or model access.",
-      },
-      provider_response_malformed: {
-        code,
-        message: "OpenAI returned an invalid transcription response.",
-      },
-      provider_unavailable: {
-        code,
-        message: "OpenAI transcription is unavailable. Please try again.",
-      },
-      transcript_too_large: {
-        code,
-        message: "The transcript exceeded the runtime limit. Please try a shorter request.",
-      },
-      transcription_failed: {
-        code,
-        message: "OpenAI could not transcribe the recorded audio. Please try again.",
-      },
-    } satisfies Record<
-      Exclude<RealtimeTranscriptionErrorCode, "aborted">,
-      { code: SpeechCaptureFailureCode; message: string }
-    >
-  )[code];
-}
-
-function safeSessionErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message.trim() !== ""
-    ? error.message
-    : "The runtime could not create a transcription session.";
-}
-
-function errorName(error: unknown): string {
-  return typeof error === "object" && error !== null && "name" in error ? String(error.name) : "";
 }
 
 function stopMediaStream(stream: MediaStream): void {

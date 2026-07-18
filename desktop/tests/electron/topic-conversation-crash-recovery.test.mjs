@@ -251,7 +251,7 @@ try {
     context.client,
     narratorTopic.id,
     (surface) =>
-      surface.captureState === "listening" &&
+      surface.captureState === "recording" &&
       surface.speechTranscriptText.includes(crashTranscript),
   );
   if (speechBeforeCrash.paneId !== narratorPane.paneId) {
