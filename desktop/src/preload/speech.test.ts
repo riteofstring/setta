@@ -1,5 +1,5 @@
 import type { SettaAPI } from "@shared/types";
-import { ipcChannels } from "@shared/ipc";
+import { ipcChannels, ipcEvents } from "@shared/ipc";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 describe("preload speech API", () => {
@@ -76,4 +76,46 @@ describe("preload speech API", () => {
       [ipcChannels.speechCreateTranscriptionSession],
     ]);
   });
+
+  test("exposes speech credential settings through typed IPC and events", async () => {
+    const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    const exposed: Record<string, unknown> = {};
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: { invoke, on, removeListener, send: vi.fn() },
+    }));
+    await import("./index");
+    const api = exposed.setta as SettaAPI;
+
+    await api.speech.readCredentialSettings?.();
+    await api.speech.saveCredential?.({ apiKey: "sk-setta-preload-speech" });
+    await api.speech.removeCredential?.();
+    const listener = vi.fn();
+    const unsubscribe = api.speech.onCredentialSettingsChanged?.(listener);
+    const handler = eventHandler(on, ipcEvents.speechCredentialSettingsChanged);
+    handler({}, { provider: "openai", status: "configured" });
+    unsubscribe?.();
+
+    expect(invoke.mock.calls).toEqual([
+      [ipcChannels.speechReadCredentialSettings],
+      [ipcChannels.speechSaveCredential, { apiKey: "sk-setta-preload-speech" }],
+      [ipcChannels.speechRemoveCredential],
+    ]);
+    expect(listener).toHaveBeenCalledWith({ provider: "openai", status: "configured" });
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.speechCredentialSettingsChanged, handler);
+  });
 });
+
+function eventHandler(on: ReturnType<typeof vi.fn>, channel: string) {
+  const handler = on.mock.calls.find((call) => call[0] === channel)?.[1];
+  if (typeof handler !== "function") {
+    throw new Error(`event handler was not registered for ${channel}`);
+  }
+  return handler;
+}

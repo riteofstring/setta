@@ -167,6 +167,40 @@ describe("global speech presentation", () => {
       "Retry the voice request for Alpha topic",
     );
   });
+
+  test("routes missing voice credentials to Settings voice setup", () => {
+    const capture = globalSpeechCapturePresentation(
+      captureSnapshot({
+        availability: {
+          message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+          setupAction: "open_voice_credential_settings",
+          type: "not_configured",
+        },
+      }),
+    );
+
+    expect(capture).toEqual({
+      message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+      setupAction: "open_voice_credential_settings",
+      source: null,
+      state: "unavailable",
+    });
+    expect(shellSpeechCaptureAction(capture)).toBe("open_voice_credential_settings");
+    expect(shellSpeechCaptureControlLabel(capture)).toBe(
+      "Set up OpenAI voice in Settings -> Voices",
+    );
+    expect(
+      paneSpeechPresentation(capture, idlePlayback(), {
+        conversationId: "conversation-alpha",
+        paneId: "pane-alpha",
+      }),
+    ).toMatchObject({
+      captureState: "unavailable",
+      voiceControlDisabled: false,
+      voiceControlLabel: "Set up OpenAI voice in Settings -> Voices",
+      voiceControlSetupAction: "open_voice_credential_settings",
+    });
+  });
 });
 
 function captureSnapshot(
