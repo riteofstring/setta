@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** In progress — Phase 1 buffered microphone lease complete; live OpenAI processed-track smoke pending a deliberate speech API credential.
+**Status:** Phase 2 complete — local capture is now the controller boundary; live OpenAI processed-track smoke pending a deliberate speech API credential.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -13,7 +13,7 @@
 - [x] Phase 0.3 — Disposable browser AudioWorklet-gated `MediaStreamAudioDestinationNode` feasibility harness proves retained prefix, drain tail, and RTCPeerConnection acceptance.
 - [ ] Phase 0.4 — Live OpenAI processed-track smoke result appended when credentials are deliberately available. Credential check on 2026-07-17 found no `OPENAI_API_KEY` in the task environment, so this remains pending rather than skipped as evidence.
 - [x] Phase 1 — Build the buffered microphone lease.
-- [ ] Phase 2 — Make local capture the controller boundary.
+- [x] Phase 2 — Make local capture the controller boundary.
 - [ ] Phase 3 — Make every mic surface honest and immediately actionable.
 - [ ] Phase 4 — Production-path workflow coverage and performance report.
 

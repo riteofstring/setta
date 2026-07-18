@@ -18,20 +18,20 @@ interface MasterVoiceModel {
   controller: AppShellSpeechCaptureController | null;
   state:
     | "committing"
-    | "connecting"
+    | "draining"
     | "failed"
     | "idle"
     | "requesting_permission"
     | "submitting"
     | "unavailable"
-    | "listening";
+    | "recording";
   statusLabel: string | null;
   transcript: string | null;
 }
 
 type ActiveSpeechCaptureState = Extract<
   SpeechCaptureState,
-  { type: "committing" | "connecting" | "listening" | "requesting_permission" }
+  { type: "committing" | "draining" | "recording" | "requesting_permission" }
 >;
 
 type MasterSubmissionState = AppShellSpeechCaptureSnapshot["masterSubmission"];
@@ -39,8 +39,8 @@ type SpeechCaptureAvailability = AppShellSpeechCaptureSnapshot["availability"];
 
 const activeCaptureTypes = new Set<SpeechCaptureState["type"]>([
   "committing",
-  "connecting",
-  "listening",
+  "draining",
+  "recording",
   "requesting_permission",
 ]);
 
@@ -226,22 +226,22 @@ function activeMasterVoiceModel(
         statusLabel: "Requesting microphone access for Setta",
         transcript,
       };
-    case "connecting":
-      return {
-        action: "cancel",
-        controlLabel: "Cancel Global master voice capture",
-        controller,
-        state: capture.type,
-        statusLabel: "Connecting voice capture for Setta",
-        transcript,
-      };
-    case "listening":
+    case "recording":
       return {
         action: "commit",
         controlLabel: `Finish Global master voice request (${shortcutLabel})`,
         controller,
         state: capture.type,
         statusLabel: "Listening for Setta",
+        transcript,
+      };
+    case "draining":
+      return {
+        action: null,
+        controlLabel: "Finishing captured Global master audio",
+        controller,
+        state: capture.type,
+        statusLabel: "Finishing captured audio for Setta",
         transcript,
       };
     case "committing":
@@ -309,13 +309,13 @@ function executeMasterVoiceAction(model: MasterVoiceModel): void {
 function MasterVoiceStatusGlyph({ state }: { state: MasterVoiceModel["state"] }) {
   switch (state) {
     case "requesting_permission":
-    case "connecting":
+    case "draining":
     case "committing":
     case "submitting":
       return <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />;
     case "failed":
       return <CircleAlert aria-hidden="true" />;
-    case "listening":
+    case "recording":
     case "idle":
     case "unavailable":
       return <Mic aria-hidden="true" />;

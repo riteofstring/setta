@@ -1,4 +1,4 @@
-import workletModuleURL from "./buffered-microphone-capture-worklet.ts?url";
+import workletModuleURL from "./buffered-microphone-capture-worklet.ts?worker&url";
 import {
   bufferedMicrophoneWorkletProcessorName,
   type BufferedMicrophoneWorkletCommand,

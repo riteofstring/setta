@@ -1,4 +1,4 @@
-/* global MessageEvent, Response, TextEncoder, navigator, performance, queueMicrotask */
+/* global AudioContext, MessageEvent, Response, TextEncoder, navigator, performance, queueMicrotask */
 
 (() => {
   const fixtureVersion = "setta-speech-realtime-browser-fixture-v2";
@@ -12,6 +12,7 @@
   const originalAudio = globalThis.Audio;
   const activeAudio = new Set();
   let activeChannel = null;
+  const activeMicrophones = new Set();
   let timingContext = {};
   const delays = {
     dataChannelOpenMs: 0,
@@ -207,23 +208,9 @@
     }
     state.mediaRequestCount += 1;
     markTiming("microphone_request", { mediaRequestCount: state.mediaRequestCount });
-    const track = {
-      enabled: true,
-      kind: "audio",
-      readyState: "live",
-      stop() {
-        this.readyState = "ended";
-        state.stoppedTrackCount += 1;
-        markTiming("microphone_track_stopped", {
-          stoppedTrackCount: state.stoppedTrackCount,
-        });
-      },
-    };
+    const stream = await createScriptedMicrophoneStream();
     markTiming("microphone_grant", { mediaRequestCount: state.mediaRequestCount });
-    return {
-      getAudioTracks: () => [track],
-      getTracks: () => [track],
-    };
+    return stream;
   };
 
   globalThis.fetch = async (url, init) => {
@@ -256,6 +243,7 @@
     },
     restore() {
       activeChannel = null;
+      closeActiveMicrophones();
       globalThis.Audio = originalAudio;
       globalThis.fetch = originalFetch;
       globalThis.RTCPeerConnection = originalPeerConnection;
@@ -319,6 +307,68 @@
     timing.sequence += 1;
     timing.events.push(event);
     return event;
+  }
+
+  async function createScriptedMicrophoneStream() {
+    if (typeof AudioContext !== "function") {
+      throw new Error("scripted speech fixture requires AudioContext");
+    }
+    const context = new AudioContext({ latencyHint: "interactive" });
+    let resource = null;
+    try {
+      if (context.state !== "running") {
+        await context.resume();
+      }
+      const destination = context.createMediaStreamDestination();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      gain.gain.value = 0.04;
+      oscillator.frequency.value = 440;
+      oscillator.connect(gain);
+      gain.connect(destination);
+      oscillator.start();
+      const track = destination.stream.getAudioTracks()[0];
+      if (!track) {
+        throw new Error("scripted speech fixture could not create an audio track");
+      }
+      resource = { context, destination, gain, oscillator, stopped: false, track };
+      activeMicrophones.add(resource);
+      installScriptedTrackStop(resource);
+      return destination.stream;
+    } catch (error) {
+      if (resource) {
+        activeMicrophones.delete(resource);
+      }
+      await context.close();
+      throw error;
+    }
+  }
+
+  function installScriptedTrackStop(resource) {
+    const originalStop = resource.track.stop.bind(resource.track);
+    const scriptedStop = () => {
+      if (resource.stopped) {
+        return;
+      }
+      resource.stopped = true;
+      resource.oscillator.stop();
+      resource.oscillator.disconnect();
+      resource.gain.disconnect();
+      originalStop();
+      activeMicrophones.delete(resource);
+      void resource.context.close();
+      state.stoppedTrackCount += 1;
+      markTiming("microphone_track_stopped", {
+        stoppedTrackCount: state.stoppedTrackCount,
+      });
+    };
+    resource.track.stop = scriptedStop;
+  }
+
+  function closeActiveMicrophones() {
+    for (const resource of [...activeMicrophones]) {
+      resource.track.stop();
+    }
   }
 
   function waitForDelay(delayMs) {

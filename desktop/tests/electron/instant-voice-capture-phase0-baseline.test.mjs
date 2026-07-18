@@ -156,10 +156,10 @@ async function recordBaselineRun(context, providerDelayMs) {
   const commitCountBefore = browserBefore.commitCount;
 
   await clickCaptureControl(client, "capture_click");
-  const listening = await waitForShellCaptureState(client, "listening");
-  await markBrowserTiming(client, "listening_observed", {
-    captureLabel: listening.captureLabel,
-    label: listening.label,
+  const recording = await waitForShellCaptureState(client, "recording");
+  await markBrowserTiming(client, "recording_observed", {
+    captureLabel: recording.captureLabel,
+    label: recording.label,
   });
   await clickCaptureControl(client, "finish_click");
   await waitForState(
@@ -337,7 +337,7 @@ function baselineMeasurements(browserEvents, providerEvents) {
       "capture_click",
       "transcript_completed_emitted",
     ),
-    clickToListeningMs: elapsedBrowserMs(browserEvents, "capture_click", "listening_observed"),
+    clickToRecordingMs: elapsedBrowserMs(browserEvents, "capture_click", "recording_observed"),
     clickToLocalCaptureReadyMs: elapsedBrowserMs(
       browserEvents,
       "capture_click",
@@ -390,7 +390,7 @@ function assertBaselineRun(runId, browserEvents, providerEvents, measurements) {
     "webrtc_track_added",
     "webrtc_answer_response",
     "realtime_session_created",
-    "listening_observed",
+    "recording_observed",
     "finish_click",
     "microphone_track_stopped",
     "transcript_commit_sent",
@@ -400,7 +400,7 @@ function assertBaselineRun(runId, browserEvents, providerEvents, measurements) {
     "transcription_session_request_received",
     "transcription_session_response_sent",
   ]);
-  assertFiniteMeasurement(runId, "clickToListeningMs", measurements.clickToListeningMs);
+  assertFiniteMeasurement(runId, "clickToRecordingMs", measurements.clickToRecordingMs);
   assertFiniteMeasurement(
     runId,
     "sessionRequestToResponseMs",

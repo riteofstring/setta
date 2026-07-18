@@ -379,7 +379,7 @@ describe("Easy Button topic conversation projection", () => {
           activityKind: "capture",
           activityLabel: "Listening for Live follow-up",
           captureScope: "this_pane",
-          captureState: "listening",
+          captureState: "recording",
           playbackScope: "none",
           playbackState: "idle",
           speakingSourceEventId: null,
@@ -741,24 +741,36 @@ describe("Easy Button topic conversation projection", () => {
       routingFailure: null,
     };
 
-    const action = conversationControlAction(commands, false, {
+    const recordingSpeech = {
       activityKind: "capture",
       activityLabel: "Listening",
       captureScope: "this_pane",
-      captureState: "listening",
+      captureState: "recording",
       playbackScope: "none",
       playbackState: "idle",
       speakingSourceEventId: null,
       transcriptPreview: "Keep listening",
       voiceControlDisabled: false,
       voiceControlLabel: "Finish this voice request",
-    });
+    } as const;
 
+    const action = conversationControlAction(commands, false, recordingSpeech);
     expect(action.mode).toBe("stop-listening");
     expect(action.disabled).toBe(false);
     expect(action.label).toBe("Finish this voice request");
     action.onClick?.();
     expect(requestVoiceCapture).toHaveBeenCalledOnce();
+    const draining = conversationControlAction(commands, false, {
+      ...recordingSpeech,
+      activityLabel: "Finishing captured audio",
+      captureState: "draining",
+      voiceControlDisabled: true,
+      voiceControlLabel: "Finishing captured audio for this conversation",
+    });
+    expect(draining.mode).toBe("stop-listening");
+    expect(draining.disabled).toBe(true);
+    expect(draining.label).toBe("Finishing captured audio for this conversation");
+    expect(draining.onClick).toBeUndefined();
   });
 
   test("read-only panes cannot talk through the giant control", () => {

@@ -32,7 +32,8 @@ describe("global speech presentation", () => {
           "pane-alpha",
         ),
         transcript: "partial words",
-        type: "listening",
+        connection: "ready",
+        type: "recording",
       },
     });
     const capture = globalSpeechCapturePresentation(snapshot);
@@ -51,7 +52,7 @@ describe("global speech presentation", () => {
     ).toMatchObject({
       activityLabel: "Listening",
       captureScope: "this_pane",
-      captureState: "listening",
+      captureState: "recording",
       transcriptPreview: "partial words",
       voiceControlDisabled: false,
       voiceControlLabel: "Finish this voice request",
