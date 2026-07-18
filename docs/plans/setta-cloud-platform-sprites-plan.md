@@ -254,6 +254,30 @@ evidence is recorded in this plan.
 22. Ordinary users see one automatic Cloud Dev experience from desktop or
     phone. Provider, region, machine size, runtime, Task, checkpoint, and
     gateway controls remain internal or operator-only.
+23. Provider portability is a standing constraint, not a migration project.
+    No provider SDK type, endpoint, status label, or counter crosses
+    `internal/runtimeprovider`; provider-specific concepts stay
+    adapter-private. A candidate replacement provider must be evaluable by
+    writing one adapter and passing the conformance suite in rule 27.
+24. Provider lifecycle labels and counters are non-authoritative hints
+    everywhere in the product. Correctness, recovery, and cost enforcement
+    derive from Setta-owned behavioral evidence (persistent sentinels, boot
+    identity, start histories, heartbeats) and Setta metering. This
+    generalizes the Phase 1b finding that Sprites reported `cold` while
+    memory was retained for at least 28 hours.
+25. Do not encode Sprites-specific behaviors — wake-on-request latency,
+    checkpoint UX, per-second billing economics, provider-managed memory
+    autoscaling — into user-facing promises or beta economics before the beta
+    commitment gate. Until then they are internal capabilities.
+26. The provider-exit path is a v1 deliverable, not a Phase 7 aspiration.
+    The encrypted off-provider export and inactive-restore path from the
+    resilience side plan must keep working against every provider adapter so
+    migration stays a drain-and-restore operation Setta controls.
+27. Maintain the live lifecycle harness as a provider conformance suite. A
+    new provider adapter (E2B, AWS build-out) is complete only when it passes
+    the same create/persist/Service/lease/restore/destroy assertions, with
+    any provider-specific semantic gaps recorded in this plan rather than
+    papered over.
 
 ## Branch and Commit Protocol
 
@@ -804,24 +828,59 @@ one is a stop condition; no adapter code is written.
 
 #### Phase 1b: build the minimum lifecycle adapter
 
-- [ ] Record the Sprites API/SDK version and pin the Go SDK exactly through
+- [x] Record the Sprites API/SDK version and pin the Go SDK exactly through
   `./update_dependencies.sh`. If it has no release tag, pin an exact
   commit-derived pseudo-version.
-- [ ] Probe name and label support, URL settings, Services, policies,
+- [x] Probe name and label support, URL settings, Services, policies,
   checkpoints, usage observations, placement, and deletion against the pinned
   version. Do not treat `dev-latest` or connector examples as a contract.
-- [ ] Define the smallest typed provider interface for create, inspect, exec,
+- [x] Define the smallest typed provider interface for create, inspect, exec,
   URL settings, service, policy, checkpoint, restore, and destroy. Keep the
   in-Sprite Tasks integration behind a separate Setta workload-lease boundary.
-- [ ] Implement the adapter without leaking Fly response types into core state.
+- [x] Implement the adapter without leaking Fly response types into core state.
   Use deterministic Setta-owned names and labels only if the pinned API proves
   them.
 - [ ] Through one automated Go harness, create a Sprite, prove filesystem
-  persistence across warm and confirmed-cold wake, install a minimal Setta Service,
-  prove Service restart, checkpoint and restore, then destroy and verify absent.
-- [ ] Run a bounded agent-like job, disconnect every client, hold the Sprite
+  persistence across warm and confirmed-cold wake, install a minimal Setta
+  Service, prove Service restart, checkpoint and restore, then destroy and
+  verify absent.
+- [x] Run a bounded agent-like job, disconnect every client, hold the Sprite
   through a short renewable Task, finish, release it, and prove a simulated
   supervisor crash lets the stale Task expire.
+
+Cold-gate unblock protocol: do not infer a cold wake from the provider's
+`status` or organization counters. Pass the cold portion only when the same
+Sprite preserves an on-disk sentinel while behavioral evidence proves that its
+old process state died and its Service started in a new boot. Obtain either a
+documented provider operation/test control that forces memory-dropping cold, or
+a Fly-provisioned disposable test organization/configuration with a bounded
+cold transition. Ask Fly to reconcile any reported `cold` state that resumes
+the original process and to identify a supported machine-readable cold or boot
+epoch signal. Checkpoint restore and destroy/recreate may exercise recovery,
+but are not cold-wake evidence. Do not probe undocumented lifecycle endpoints.
+If Fly confirms that deterministic cold cannot be induced or observed, keep
+Phase 1b blocked until the owner explicitly chooses between accepting the
+provider contract without live proof or changing the architecture and this
+gate to a different, provider-supported memory-loss boundary.
+
+2026-07-15 amendment (owner decision) — narrows the blocking scope of the
+protocol above. The cold gate now blocks only (a) any claim that a reported
+`cold` implies memory discard and (b) the beta commitment gate. It no longer
+blocks Phase 2+ engineering on Sprites. Live soak evidence: Sprites
+individually reporting `status: "cold"` for 13.2 and 28.6 hours resumed their
+original processes with unchanged boot IDs (48-hour cohort pending).
+Escalation is running via community thread 28288, the billing@fly.io workload
+inquiry, and the paid support plan once purchased. Until Fly answers, exercise
+every recovery path with documented deterministic process-loss events —
+checkpoint restore and Service kills — under rule 19, and treat real cold as
+an unscheduled event of the same class. After the 48-hour wake, write the
+owner decision memo choosing between accepting the provider contract without
+live cold proof and re-architecting the memory-loss boundary, and record the
+choice in this plan.
+
+The restart-safe 12/24/48-hour reported-cold latency experiment is specified in
+`docs/plans/sprites-confirmed-cold-soak-test-plan.md` for independent
+implementation and execution.
 
 Exit: the minimal provider lifecycle, persistence, Service, Task, restore, and
 cleanup behavior work through typed Go code without product UI.
@@ -1363,3 +1422,55 @@ Stop and reassess rather than hiding the problem if any of these occur:
 - 2026-07-13: Owner deferred the cost business decision and adopted the proposed
   thresholds provisionally (~$25/user/mo, <=60s cutoff lag), to be revisited with
   Phase 1c measurements. Phase 1a is closed; Phase 1b is next.
+- 2026-07-13: Implemented the Phase 1b typed provider and separate in-Sprite
+  Tasks lease boundary against pinned `sprites-go`
+  `v0.0.0-20260706200727-0d0f37d154bd`; live server reported `0.0.1-rc45`.
+  Identity/labels, URL, network policy, Service, filesystem persistence,
+  checkpoint/restore, renewable Task-held detached work, stale-Task expiry,
+  destroy, and empty-org cleanup passed. Phase 1b is BLOCKED on its only
+  remaining gate: after behaviorally proving warm suspension, filling the
+  10-Sprite warm capacity produced provider counters `running=0, warm=0,
+  cold=11`, but a 60-second post-wake poll showed the original Service process
+  resumed (`starts=1`, heartbeat `598`→`1207`) instead of restarting. Thus rc45
+  reports `cold` without documented memory loss, and no bounded or deterministic
+  confirmed-cold operation is available. Claude Code Fable 5/high independently
+  reviewed the implementation and agreed the discrepancy is upstream after the
+  restart race was closed. No commit or final broad quality gate was made while
+  the phase exit remains red. Evidence:
+  `docs/reports/2026-07-13-sprites-phase1b-lifecycle.md`.
+- 2026-07-14: Owner authorized starting independent Phase 1c work in parallel
+  with the 12/24/48-hour reported-cold soak. Phase 1b remains blocked and the
+  soak organization is reserved exclusively for that experiment. Added a
+  provider-options reference for future fallback testing; this does not change
+  the current provider or waive any Sprites gate.
+- 2026-07-14: Added the offline Phase 1c accounting foundation: explicit
+  provider-authoritative versus Setta-conservative usage evidence, coverage
+  that distinguishes unavailable metrics from zero, and exact versioned
+  published-rate arithmetic. The API/SDK audit found no documented
+  machine-readable per-Sprite billing surface. Live capacity, provider-bill
+  reconciliation, reporting lag, and trusted resource-ceiling validation remain
+  open; no request was made against the soak organization. Evidence:
+  `docs/reports/2026-07-14-sprites-phase1c-offline-baseline.md`.
+- 2026-07-14: Started and implemented the offline cloud-runtime resilience side
+  plan: restart-safe event accounting with expiring workload leases, enforced-
+  ceiling cutoff exposure, deterministic local evidence generation, encrypted
+  provider-exit export and inactive restore, a send-ready Fly inquiry, and
+  identical AWS/E2B contingency probe specifications. No live provider call or
+  external message was made. Durable provider fencing, credential rotation,
+  active-generation CAS, provider-bill reconciliation, and live probes remain
+  separately gated. Plan: `docs/plans/cloud-runtime-resilience-side-plan.md`.
+- 2026-07-15: Ran the soak verify-due wakes. The 12-hour cohort (woken at
+  13.2h) and 24-hour cohort (woken at 28.6h) both classified behaviorally
+  warm: unchanged boot IDs, Service start counts of one, and heartbeats
+  continuing from pre-idle values, with per-Sprite `cold` status confirmed
+  seconds before each wake. The 48-hour cohort remains idle, due
+  2026-07-16T17:37:49Z. Updated community thread 28288 (corrected evidence in
+  the post plus a per-Sprite results reply). Owner adopted the
+  build-while-blocked methodology: added settled boundaries 23–27
+  (adapter-only provider types, non-authoritative provider labels, no
+  Sprites-specific product promises before beta commitment, provider-exit
+  export as a v1 deliverable, provider conformance suite) and narrowed the
+  cold gate to durable-cold claims and the beta commitment so Phase 2+
+  engineering proceeds on Sprites while Fly escalation continues. The
+  accept-versus-rearchitect owner decision memo is due after the 48-hour
+  wake.
