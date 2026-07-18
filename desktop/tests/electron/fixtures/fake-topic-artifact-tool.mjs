@@ -101,11 +101,19 @@ export function threadHasArtifactTool(thread) {
       (child) =>
         child?.type === "function" &&
         child.name === "emit_artifact" &&
-        requiredArtifactKinds.every((kind) =>
-          child.inputSchema?.properties?.kind?.enum?.includes(kind),
-        ),
+        hasRequiredArtifactKindBranches(child.inputSchema),
     );
   });
+}
+
+function hasRequiredArtifactKindBranches(schema) {
+  const branches = Array.isArray(schema?.oneOf) ? schema.oneOf : [];
+  return requiredArtifactKinds.every((kind) =>
+    branches.some(
+      (branch) =>
+        branch?.additionalProperties === false && branch?.properties?.kind?.const === kind,
+    ),
+  );
 }
 
 function validToolCallTextItem(result) {

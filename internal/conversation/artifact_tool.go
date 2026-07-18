@@ -16,87 +16,7 @@ const (
 	artifactToolName      = "emit_artifact"
 )
 
-var emitArtifactInputSchemaJSON = json.RawMessage(`{
-  "type": "object",
-  "additionalProperties": false,
-  "description": "Publish one finished Setta conversation artifact. Pick exactly one kind and provide only that kind's payload fields.",
-  "required": ["kind", "title"],
-  "properties": {
-    "kind": {
-      "type": "string",
-      "enum": ["markdown", "table", "bar_chart", "file"]
-    },
-    "title": {
-      "type": "string",
-      "description": "Short artifact title."
-    },
-    "markdown": {
-      "type": "string",
-      "description": "Markdown payload for markdown artifacts."
-    },
-    "columns": {
-      "type": "array",
-      "description": "Table columns for table artifacts.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["key", "label"],
-        "properties": {
-          "key": { "type": "string" },
-          "label": { "type": "string" }
-        }
-      }
-    },
-    "rows": {
-      "type": "array",
-      "description": "Table rows for table artifacts; each row must match the column count.",
-      "items": {
-        "type": "array",
-        "items": { "type": "string" }
-      }
-    },
-    "items": {
-      "type": "array",
-      "description": "Bar chart items for bar_chart artifacts.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["label", "value"],
-        "properties": {
-          "label": { "type": "string" },
-          "value": { "type": "number" },
-          "unit": { "type": "string" }
-        }
-      }
-    },
-    "path": {
-      "type": "string",
-      "description": "File path for file artifacts."
-    },
-    "description": {
-      "type": "string",
-      "description": "Optional file description."
-    }
-  },
-  "oneOf": [
-    {
-      "properties": { "kind": { "const": "markdown" } },
-      "required": ["kind", "markdown"]
-    },
-    {
-      "properties": { "kind": { "const": "table" } },
-      "required": ["kind", "columns", "rows"]
-    },
-    {
-      "properties": { "kind": { "const": "bar_chart" } },
-      "required": ["kind", "items"]
-    },
-    {
-      "properties": { "kind": { "const": "file" } },
-      "required": ["kind", "path"]
-    }
-  ]
-}`)
+var emitArtifactInputSchemaJSON = mustEmitArtifactInputSchemaJSON()
 
 type emitArtifactInput struct {
 	Kind        ArtifactKind            `json:"kind"`
@@ -107,6 +27,144 @@ type emitArtifactInput struct {
 	Items       *[]BarChartArtifactItem `json:"items"`
 	Path        *string                 `json:"path"`
 	Description *string                 `json:"description"`
+}
+
+type emitArtifactBranchSpec struct {
+	Kind     ArtifactKind
+	Required []string
+	Optional []string
+}
+
+func emitArtifactBranchSpecs() []emitArtifactBranchSpec {
+	return []emitArtifactBranchSpec{
+		{Kind: ArtifactKindMarkdown, Required: []string{"markdown"}},
+		{Kind: ArtifactKindTable, Required: []string{"columns", "rows"}},
+		{Kind: ArtifactKindBarChart, Required: []string{"items"}},
+		{Kind: ArtifactKindFile, Required: []string{"path"}, Optional: []string{"description"}},
+	}
+}
+
+func mustEmitArtifactInputSchemaJSON() json.RawMessage {
+	data, err := json.Marshal(emitArtifactInputSchema())
+	if err != nil {
+		panic(fmt.Sprintf("encode emit_artifact input schema: %v", err))
+	}
+	return json.RawMessage(data)
+}
+
+func emitArtifactInputSchema() map[string]any {
+	properties := emitArtifactInputPropertySchemas()
+	branches := emitArtifactBranchSpecs()
+	oneOf := make([]map[string]any, 0, len(branches))
+	for _, branch := range branches {
+		oneOf = append(oneOf, emitArtifactInputBranchSchema(branch, properties))
+	}
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"description":          "Publish one finished Setta conversation artifact. Pick exactly one kind and provide only that kind's payload fields.",
+		"required":             []string{"kind", "title"},
+		"properties":           properties,
+		"oneOf":                oneOf,
+	}
+}
+
+func emitArtifactInputBranchSchema(
+	branch emitArtifactBranchSpec,
+	allProperties map[string]any,
+) map[string]any {
+	properties := map[string]any{
+		"kind": map[string]any{
+			"type":  "string",
+			"const": string(branch.Kind),
+		},
+		"title": allProperties["title"],
+	}
+	required := []string{"kind", "title"}
+	for _, name := range branch.Required {
+		properties[name] = allProperties[name]
+		required = append(required, name)
+	}
+	for _, name := range branch.Optional {
+		properties[name] = allProperties[name]
+	}
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             required,
+		"properties":           properties,
+	}
+}
+
+func emitArtifactInputPropertySchemas() map[string]any {
+	return map[string]any{
+		"kind": map[string]any{
+			"type": "string",
+			"enum": []string{
+				string(ArtifactKindMarkdown),
+				string(ArtifactKindTable),
+				string(ArtifactKindBarChart),
+				string(ArtifactKindFile),
+			},
+		},
+		"title": map[string]any{
+			"type":        "string",
+			"description": "Short artifact title.",
+		},
+		"markdown": map[string]any{
+			"type":        "string",
+			"description": "Markdown payload for markdown artifacts.",
+			"maxLength":   MaxMarkdownArtifactBytes,
+		},
+		"columns": map[string]any{
+			"type":        "array",
+			"description": "Table columns for table artifacts.",
+			"minItems":    1,
+			"maxItems":    MaxTableArtifactColumns,
+			"items": map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"required":             []string{"key", "label"},
+				"properties": map[string]any{
+					"key":   map[string]any{"type": "string"},
+					"label": map[string]any{"type": "string"},
+				},
+			},
+		},
+		"rows": map[string]any{
+			"type":        "array",
+			"description": "Table rows for table artifacts; each row must match the column count.",
+			"maxItems":    MaxTableArtifactRows,
+			"items": map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+			},
+		},
+		"items": map[string]any{
+			"type":        "array",
+			"description": "Bar chart items for bar_chart artifacts.",
+			"minItems":    1,
+			"maxItems":    MaxBarChartArtifactItems,
+			"items": map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"required":             []string{"label", "value"},
+				"properties": map[string]any{
+					"label": map[string]any{"type": "string"},
+					"value": map[string]any{"type": "number", "minimum": 0},
+					"unit":  map[string]any{"type": "string"},
+				},
+			},
+		},
+		"path": map[string]any{
+			"type":        "string",
+			"description": "File path for file artifacts.",
+		},
+		"description": map[string]any{
+			"type":        "string",
+			"description": "Optional file description.",
+		},
+	}
 }
 
 func topicAgentDeveloperInstructions() string {
@@ -321,41 +379,73 @@ func decodeEmitArtifactInput(arguments json.RawMessage) (emitArtifactInput, erro
 }
 
 func validateEmitArtifactInputBranches(input emitArtifactInput) error {
-	switch input.Kind {
-	case ArtifactKindMarkdown:
-		if input.Markdown == nil {
-			return errors.New("markdown artifact requires markdown")
-		}
-		return rejectUnexpectedArtifactFields("columns", input.Columns != nil, "rows", input.Rows != nil, "items", input.Items != nil, "path", input.Path != nil, "description", input.Description != nil)
-	case ArtifactKindTable:
-		if input.Columns == nil || input.Rows == nil {
-			return errors.New("table artifact requires columns and rows")
-		}
-		return rejectUnexpectedArtifactFields("markdown", input.Markdown != nil, "items", input.Items != nil, "path", input.Path != nil, "description", input.Description != nil)
-	case ArtifactKindBarChart:
-		if input.Items == nil {
-			return errors.New("bar_chart artifact requires items")
-		}
-		return rejectUnexpectedArtifactFields("markdown", input.Markdown != nil, "columns", input.Columns != nil, "rows", input.Rows != nil, "path", input.Path != nil, "description", input.Description != nil)
-	case ArtifactKindFile:
-		if input.Path == nil {
-			return errors.New("file artifact requires path")
-		}
-		return rejectUnexpectedArtifactFields("markdown", input.Markdown != nil, "columns", input.Columns != nil, "rows", input.Rows != nil, "items", input.Items != nil)
-	default:
+	if err := validateRequiredArtifactText("artifact title", input.Title); err != nil {
+		return err
+	}
+	branch, ok := emitArtifactBranchSpecForKind(input.Kind)
+	if !ok {
 		return fmt.Errorf("unsupported artifact kind %s", input.Kind)
 	}
-}
-
-func rejectUnexpectedArtifactFields(pairs ...any) error {
-	for index := 0; index < len(pairs); index += 2 {
-		name := pairs[index].(string)
-		present := pairs[index+1].(bool)
-		if present {
+	for _, name := range branch.Required {
+		if !emitArtifactInputFieldPresent(input, name) {
+			return fmt.Errorf("%s artifact requires %s", input.Kind, name)
+		}
+	}
+	allowed := map[string]bool{}
+	for _, name := range branch.Required {
+		allowed[name] = true
+	}
+	for _, name := range branch.Optional {
+		allowed[name] = true
+	}
+	for _, name := range emitArtifactInputPayloadFields() {
+		if emitArtifactInputFieldPresent(input, name) && !allowed[name] {
 			return fmt.Errorf("%s is not valid for this artifact kind", name)
 		}
 	}
 	return nil
+}
+
+func emitArtifactBranchSpecForKind(kind ArtifactKind) (emitArtifactBranchSpec, bool) {
+	for _, branch := range emitArtifactBranchSpecs() {
+		if branch.Kind == kind {
+			return branch, true
+		}
+	}
+	return emitArtifactBranchSpec{}, false
+}
+
+func emitArtifactInputPayloadFields() []string {
+	seen := map[string]bool{}
+	fields := make([]string, 0)
+	for _, branch := range emitArtifactBranchSpecs() {
+		for _, name := range append(append([]string{}, branch.Required...), branch.Optional...) {
+			if !seen[name] {
+				fields = append(fields, name)
+				seen[name] = true
+			}
+		}
+	}
+	return fields
+}
+
+func emitArtifactInputFieldPresent(input emitArtifactInput, name string) bool {
+	switch name {
+	case "markdown":
+		return input.Markdown != nil
+	case "columns":
+		return input.Columns != nil
+	case "rows":
+		return input.Rows != nil
+	case "items":
+		return input.Items != nil
+	case "path":
+		return input.Path != nil
+	case "description":
+		return input.Description != nil
+	default:
+		return false
+	}
 }
 
 func (input emitArtifactInput) artifact(

@@ -11,7 +11,7 @@ reliable when an agent selects an artifact.
 
 - [x] Solution 1: Remove the Easy Button `Working` presentation. Implemented and verified.
 - [x] Solution 2: Present requested status above NOW. Implemented and verified.
-- [ ] Solution 3: Make the artifact tool contract hard to misuse.
+- [x] Solution 3: Make the artifact tool contract hard to misuse. Implemented and verified.
 - [ ] Solution 4: Preserve actionable tool failures end to end.
 - [ ] Solution 5: Treat failed artifact attempts as unresolved delivery.
 

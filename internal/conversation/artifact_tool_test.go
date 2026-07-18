@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +34,96 @@ func TestEmitArtifactToolCommitsTypedArtifact(t *testing.T) {
 	requireSnapshotArtifact(t, snapshot, artifact.ID)
 	requireArtifactTrajectory(t, snapshot, artifact.ID)
 	stopTestTurn(t, ctx, service, workspaceID, conversationID)
+}
+
+func TestEmitArtifactToolSchemaDeclaresStrictBranches(t *testing.T) {
+	var schema struct {
+		OneOf []struct {
+			AdditionalProperties *bool                      `json:"additionalProperties"`
+			Required             []string                   `json:"required"`
+			Properties           map[string]json.RawMessage `json:"properties"`
+		} `json:"oneOf"`
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(emitArtifactInputSchemaJSON, &schema); err != nil {
+		t.Fatalf("decode emit artifact schema: %v", err)
+	}
+	requireSchemaKindEnum(t, schema.Properties["kind"])
+	wantBranches := map[string]struct {
+		required []string
+		allowed  []string
+	}{
+		"markdown":  {required: []string{"kind", "title", "markdown"}, allowed: []string{"kind", "title", "markdown"}},
+		"table":     {required: []string{"kind", "title", "columns", "rows"}, allowed: []string{"kind", "title", "columns", "rows"}},
+		"bar_chart": {required: []string{"kind", "title", "items"}, allowed: []string{"kind", "title", "items"}},
+		"file":      {required: []string{"kind", "title", "path"}, allowed: []string{"kind", "title", "path", "description"}},
+	}
+	if len(schema.OneOf) != len(wantBranches) {
+		t.Fatalf("schema branches = %d, want %d", len(schema.OneOf), len(wantBranches))
+	}
+	seen := map[string]bool{}
+	for index, branch := range schema.OneOf {
+		if branch.AdditionalProperties == nil || *branch.AdditionalProperties {
+			t.Fatalf("schema branch[%d] does not reject additional properties", index)
+		}
+		kind := requireSchemaKindConst(t, branch.Properties["kind"])
+		want, ok := wantBranches[kind]
+		if !ok {
+			t.Fatalf("schema branch[%d] kind = %q", index, kind)
+		}
+		if seen[kind] {
+			t.Fatalf("schema kind %q is duplicated", kind)
+		}
+		seen[kind] = true
+		requireStringSet(t, kind+" required fields", branch.Required, want.required)
+		requireStringSet(t, kind+" allowed fields", mapKeys(branch.Properties), want.allowed)
+	}
+}
+
+func requireSchemaKindEnum(t *testing.T, raw json.RawMessage) {
+	t.Helper()
+	var property struct {
+		Enum []string `json:"enum"`
+	}
+	if err := json.Unmarshal(raw, &property); err != nil {
+		t.Fatalf("decode schema kind enum: %v", err)
+	}
+	requireStringSet(t, "schema kind enum", property.Enum, []string{"markdown", "table", "bar_chart", "file"})
+}
+
+func requireSchemaKindConst(t *testing.T, raw json.RawMessage) string {
+	t.Helper()
+	var property struct {
+		Const string `json:"const"`
+	}
+	if err := json.Unmarshal(raw, &property); err != nil {
+		t.Fatalf("decode schema branch kind: %v", err)
+	}
+	return property.Const
+}
+
+func requireStringSet(t *testing.T, label string, got []string, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s = %+v, want %+v", label, got, want)
+	}
+	seen := map[string]bool{}
+	for _, value := range got {
+		seen[value] = true
+	}
+	for _, value := range want {
+		if !seen[value] {
+			t.Fatalf("%s = %+v, want %+v", label, got, want)
+		}
+	}
+}
+
+func mapKeys[V any](values map[string]V) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 func createArtifactToolTopic(
@@ -196,6 +287,16 @@ func TestDecodeEmitArtifactInputRejectsInvalidBranches(t *testing.T) {
 			name:      "unknown field",
 			argument:  `{"kind":"markdown","title":"Report","markdown":"Done","uri":"setta://old"}`,
 			wantError: "unknown field",
+		},
+		{
+			name:      "missing title",
+			argument:  `{"kind":"markdown","markdown":"Done"}`,
+			wantError: "artifact title is required",
+		},
+		{
+			name:      "missing table columns",
+			argument:  `{"kind":"table","title":"Counts","rows":[]}`,
+			wantError: "table artifact requires columns",
 		},
 		{
 			name:      "mixed branch",
