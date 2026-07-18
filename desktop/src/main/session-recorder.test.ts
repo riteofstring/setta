@@ -271,6 +271,44 @@ describe("session recording privacy", () => {
     }
   });
 
+  test("records activity metadata without command titles", () => {
+    const privateCommand = "echo private-command-token";
+    const started = trajectoryEvent({
+      activityStarted: {
+        activity: {
+          command: privateCommand,
+          cwd: "/private/workspace",
+          id: "command-call-1",
+          kind: "command",
+          namespace: null,
+          processId: null,
+          server: null,
+          title: privateCommand,
+          tool: null,
+        },
+      },
+      kind: "activity_started",
+    });
+
+    const recorded = conversationRecordingEvents(
+      conversationEvent({ event: started, type: "conversation.trajectory.appended" }, 4),
+    );
+
+    expect(recorded).toMatchObject([
+      {
+        payload: {
+          activity: {
+            id: "command-call-1",
+            kind: "command",
+            tool: null,
+          },
+        },
+        type: "agent_trajectory_observed",
+      },
+    ]);
+    expect(JSON.stringify(recorded)).not.toContain(privateCommand);
+  });
+
   test("records dynamic tool failure diagnostics without payload values", () => {
     const attemptedPayloadValue = "private table cell";
     const failure = trajectoryEvent({

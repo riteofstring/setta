@@ -456,6 +456,31 @@ func TestDecodeEmitArtifactInputRejectsInvalidBranches(t *testing.T) {
 			wantError: "table artifact row[0] has 2 cells",
 		},
 		{
+			name:      "table column unknown field",
+			argument:  `{"kind":"table","title":"Counts","columns":[{"key":"language","label":"Language","secret":"ignored"}],"rows":[["Go"]]}`,
+			wantError: "unknown field columns[0].secret",
+		},
+		{
+			name:      "table row null cell",
+			argument:  `{"kind":"table","title":"Counts","columns":[{"key":"language","label":"Language"}],"rows":[[null]]}`,
+			wantError: "table artifact row[0] cell[0] must be a string",
+		},
+		{
+			name:      "bar chart missing value",
+			argument:  `{"kind":"bar_chart","title":"Counts","items":[{"label":"Go"}]}`,
+			wantError: "bar_chart artifact requires items[0].value",
+		},
+		{
+			name:      "bar chart null value",
+			argument:  `{"kind":"bar_chart","title":"Counts","items":[{"label":"Go","value":null}]}`,
+			wantError: "bar chart artifact item[0].value must be a number",
+		},
+		{
+			name:      "empty optional file description",
+			argument:  `{"kind":"file","title":"Report file","path":"report.md","description":""}`,
+			wantError: "file artifact description must not be empty",
+		},
+		{
 			name:      "oversized markdown",
 			argument:  `{"kind":"markdown","title":"Report","markdown":"` + strings.Repeat("x", MaxMarkdownArtifactBytes+1) + `"}`,
 			wantError: "markdown artifact exceeds",

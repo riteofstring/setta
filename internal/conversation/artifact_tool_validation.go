@@ -117,17 +117,7 @@ func decodeRequiredEmitArtifactStringField(
 	if !ok {
 		return "", missingEmitArtifactFieldsError("", []string{name})
 	}
-	var value string
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return "", newArtifactToolFailureError(
-			artifactToolFailureInvalidField,
-			fmt.Sprintf("%s must be a string", label),
-			true,
-			[]agent.DynamicToolFieldError{{Field: name, Message: fmt.Sprintf("%s must be a string.", label)}},
-			err,
-		)
-	}
-	return value, nil
+	return decodeEmitArtifactStringValue(raw, name, label)
 }
 
 func validateEmitArtifactInputBranchFields(
@@ -174,12 +164,12 @@ func decodeEmitArtifactPayloadFields(fields map[string]json.RawMessage, input *e
 	case ArtifactKindMarkdown:
 		input.Markdown, err = decodeEmitArtifactField[string](fields, "markdown")
 	case ArtifactKindTable:
-		input.Columns, err = decodeEmitArtifactField[[]ArtifactTableColumn](fields, "columns")
+		input.Columns, err = decodeEmitArtifactTableColumns(fields)
 		if err == nil {
-			input.Rows, err = decodeEmitArtifactField[[][]string](fields, "rows")
+			input.Rows, err = decodeEmitArtifactTableRows(fields)
 		}
 	case ArtifactKindBarChart:
-		input.Items, err = decodeEmitArtifactField[[]BarChartArtifactItem](fields, "items")
+		input.Items, err = decodeEmitArtifactBarChartItems(fields)
 	case ArtifactKindFile:
 		input.Path, err = decodeEmitArtifactField[string](fields, "path")
 		if err == nil && fields["description"] != nil {
@@ -206,16 +196,293 @@ func decodeEmitArtifactField[T any](
 		return nil, nil
 	}
 	var value T
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, newArtifactToolFailureError(
-			artifactToolFailureInvalidField,
-			fmt.Sprintf("emit_artifact field %s has an invalid shape", name),
-			true,
-			[]agent.DynamicToolFieldError{{Field: name, Message: "Provide the shape declared by this artifact branch."}},
-			err,
-		)
+	if err := decodeEmitArtifactJSONValue(raw, name, &value); err != nil {
+		return nil, err
 	}
 	return &value, nil
+}
+
+func decodeEmitArtifactTableColumns(
+	fields map[string]json.RawMessage,
+) (*[]ArtifactTableColumn, error) {
+	rawColumns, ok, err := decodeEmitArtifactRawArrayField(fields, "columns")
+	if err != nil || !ok {
+		return nil, err
+	}
+	columns := make([]ArtifactTableColumn, 0, len(rawColumns))
+	for index, rawColumn := range rawColumns {
+		field := fmt.Sprintf("columns[%d]", index)
+		columnFields, err := decodeEmitArtifactObjectValue(rawColumn, field)
+		if err != nil {
+			return nil, err
+		}
+		if err := rejectUnknownEmitArtifactObjectFields(columnFields, field, []string{"key", "label"}); err != nil {
+			return nil, err
+		}
+		key, err := decodeRequiredEmitArtifactObjectStringField(
+			ArtifactKindTable,
+			columnFields,
+			"key",
+			field+".key",
+			fmt.Sprintf("table artifact column[%d].key", index),
+		)
+		if err != nil {
+			return nil, err
+		}
+		label, err := decodeRequiredEmitArtifactObjectStringField(
+			ArtifactKindTable,
+			columnFields,
+			"label",
+			field+".label",
+			fmt.Sprintf("table artifact column[%d].label", index),
+		)
+		if err != nil {
+			return nil, err
+		}
+		columns = append(columns, ArtifactTableColumn{Key: key, Label: label})
+	}
+	return &columns, nil
+}
+
+func decodeEmitArtifactTableRows(
+	fields map[string]json.RawMessage,
+) (*[][]string, error) {
+	rawRows, ok, err := decodeEmitArtifactRawArrayField(fields, "rows")
+	if err != nil || !ok {
+		return nil, err
+	}
+	rows := make([][]string, 0, len(rawRows))
+	for rowIndex, rawRow := range rawRows {
+		rowField := fmt.Sprintf("rows[%d]", rowIndex)
+		rawCells, err := decodeEmitArtifactRawArrayValue(rawRow, rowField)
+		if err != nil {
+			return nil, err
+		}
+		row := make([]string, 0, len(rawCells))
+		for cellIndex, rawCell := range rawCells {
+			cell, err := decodeEmitArtifactStringValue(
+				rawCell,
+				fmt.Sprintf("rows[%d][%d]", rowIndex, cellIndex),
+				fmt.Sprintf("table artifact row[%d] cell[%d]", rowIndex, cellIndex),
+			)
+			if err != nil {
+				return nil, err
+			}
+			row = append(row, cell)
+		}
+		rows = append(rows, row)
+	}
+	return &rows, nil
+}
+
+func decodeEmitArtifactBarChartItems(
+	fields map[string]json.RawMessage,
+) (*[]BarChartArtifactItem, error) {
+	rawItems, ok, err := decodeEmitArtifactRawArrayField(fields, "items")
+	if err != nil || !ok {
+		return nil, err
+	}
+	items := make([]BarChartArtifactItem, 0, len(rawItems))
+	for index, rawItem := range rawItems {
+		field := fmt.Sprintf("items[%d]", index)
+		itemFields, err := decodeEmitArtifactObjectValue(rawItem, field)
+		if err != nil {
+			return nil, err
+		}
+		if err := rejectUnknownEmitArtifactObjectFields(itemFields, field, []string{"label", "value", "unit"}); err != nil {
+			return nil, err
+		}
+		label, err := decodeRequiredEmitArtifactObjectStringField(
+			ArtifactKindBarChart,
+			itemFields,
+			"label",
+			field+".label",
+			fmt.Sprintf("bar chart artifact item[%d].label", index),
+		)
+		if err != nil {
+			return nil, err
+		}
+		value, err := decodeRequiredEmitArtifactObjectFloatField(
+			ArtifactKindBarChart,
+			itemFields,
+			"value",
+			field+".value",
+			fmt.Sprintf("bar chart artifact item[%d].value", index),
+		)
+		if err != nil {
+			return nil, err
+		}
+		unit, err := decodeOptionalEmitArtifactObjectStringField(
+			itemFields,
+			"unit",
+			field+".unit",
+			fmt.Sprintf("bar chart artifact item[%d].unit", index),
+		)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, BarChartArtifactItem{Label: label, Value: value, Unit: unit})
+	}
+	return &items, nil
+}
+
+func decodeEmitArtifactRawArrayField(
+	fields map[string]json.RawMessage,
+	name string,
+) ([]json.RawMessage, bool, error) {
+	raw, ok := fields[name]
+	if !ok {
+		return nil, false, nil
+	}
+	values, err := decodeEmitArtifactRawArrayValue(raw, name)
+	return values, true, err
+}
+
+func decodeEmitArtifactRawArrayValue(raw json.RawMessage, field string) ([]json.RawMessage, error) {
+	var values []json.RawMessage
+	if err := decodeEmitArtifactJSONValue(raw, field, &values); err != nil {
+		return nil, err
+	}
+	if values == nil {
+		return nil, invalidEmitArtifactFieldShapeError(field, nil)
+	}
+	return values, nil
+}
+
+func decodeEmitArtifactObjectValue(
+	raw json.RawMessage,
+	field string,
+) (map[string]json.RawMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := decodeEmitArtifactJSONValue(raw, field, &fields); err != nil {
+		return nil, err
+	}
+	if fields == nil {
+		return nil, invalidEmitArtifactFieldShapeError(field, nil)
+	}
+	return fields, nil
+}
+
+func rejectUnknownEmitArtifactObjectFields(
+	fields map[string]json.RawMessage,
+	objectField string,
+	allowedFields []string,
+) error {
+	allowed := map[string]bool{}
+	for _, field := range allowedFields {
+		allowed[field] = true
+	}
+	for name := range fields {
+		if allowed[name] {
+			continue
+		}
+		field := objectField + "." + name
+		return newArtifactToolFailureError(
+			artifactToolFailureInvalidField,
+			fmt.Sprintf("unknown field %s is not supported by emit_artifact", field),
+			true,
+			[]agent.DynamicToolFieldError{{Field: field, Message: "Remove this field."}},
+			nil,
+		)
+	}
+	return nil
+}
+
+func decodeRequiredEmitArtifactObjectStringField(
+	kind ArtifactKind,
+	fields map[string]json.RawMessage,
+	name string,
+	field string,
+	label string,
+) (string, error) {
+	raw, ok := fields[name]
+	if !ok {
+		return "", missingEmitArtifactFieldsError(kind, []string{field})
+	}
+	return decodeEmitArtifactStringValue(raw, field, label)
+}
+
+func decodeOptionalEmitArtifactObjectStringField(
+	fields map[string]json.RawMessage,
+	name string,
+	field string,
+	label string,
+) (*string, error) {
+	raw, ok := fields[name]
+	if !ok {
+		return nil, nil
+	}
+	value, err := decodeEmitArtifactStringValue(raw, field, label)
+	if err != nil {
+		return nil, err
+	}
+	return &value, nil
+}
+
+func decodeRequiredEmitArtifactObjectFloatField(
+	kind ArtifactKind,
+	fields map[string]json.RawMessage,
+	name string,
+	field string,
+	label string,
+) (float64, error) {
+	raw, ok := fields[name]
+	if !ok {
+		return 0, missingEmitArtifactFieldsError(kind, []string{field})
+	}
+	var value float64
+	if err := decodeEmitArtifactJSONValue(raw, field, &value); err != nil {
+		return 0, invalidEmitArtifactTypedFieldError(field, fmt.Sprintf("%s must be a number", label), err)
+	}
+	return value, nil
+}
+
+func decodeEmitArtifactStringValue(
+	raw json.RawMessage,
+	field string,
+	label string,
+) (string, error) {
+	var value string
+	if err := decodeEmitArtifactJSONValue(raw, field, &value); err != nil {
+		return "", invalidEmitArtifactTypedFieldError(field, fmt.Sprintf("%s must be a string", label), err)
+	}
+	return value, nil
+}
+
+func decodeEmitArtifactJSONValue(raw json.RawMessage, field string, value any) error {
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return invalidEmitArtifactFieldShapeError(field, nil)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(value); err != nil {
+		return invalidEmitArtifactFieldShapeError(field, err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return invalidEmitArtifactFieldShapeError(field, err)
+	}
+	return nil
+}
+
+func invalidEmitArtifactTypedFieldError(field string, message string, cause error) error {
+	return newArtifactToolFailureError(
+		artifactToolFailureInvalidField,
+		message,
+		true,
+		[]agent.DynamicToolFieldError{{Field: field, Message: message + "."}},
+		cause,
+	)
+}
+
+func invalidEmitArtifactFieldShapeError(field string, cause error) error {
+	return newArtifactToolFailureError(
+		artifactToolFailureInvalidField,
+		fmt.Sprintf("emit_artifact field %s has an invalid shape", field),
+		true,
+		[]agent.DynamicToolFieldError{{Field: field, Message: "Provide the shape declared by this artifact branch."}},
+		cause,
+	)
 }
 
 func validateEmitArtifactInputPayload(input emitArtifactInput) error {
@@ -459,6 +726,15 @@ func validateRequiredEmitArtifactToolText(field string, label string, value stri
 func validateOptionalEmitArtifactToolText(field string, label string, value *string) error {
 	if value == nil {
 		return nil
+	}
+	if strings.TrimSpace(*value) == "" {
+		return newArtifactToolFailureError(
+			artifactToolFailureInvalidField,
+			fmt.Sprintf("%s must not be empty", label),
+			true,
+			[]agent.DynamicToolFieldError{{Field: field, Message: "Remove this field or provide text."}},
+			nil,
+		)
 	}
 	if strings.TrimSpace(*value) != *value {
 		return newArtifactToolFailureError(

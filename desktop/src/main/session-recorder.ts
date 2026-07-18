@@ -577,7 +577,6 @@ function summarizeTrajectoryActivity(event: TrajectoryEvent) {
       kind: null,
       namespace: null,
       server: null,
-      title: null,
       tool: null,
     };
   }
@@ -586,7 +585,6 @@ function summarizeTrajectoryActivity(event: TrajectoryEvent) {
     kind: activity.kind,
     namespace: activity.namespace,
     server: activity.server,
-    title: activity.title,
     tool: activity.tool,
   };
 }
