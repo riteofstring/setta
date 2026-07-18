@@ -1511,3 +1511,17 @@ Stop and reassess rather than hiding the problem if any of these occur:
   Sol-only agent policy (this section). Phase 2 exit's live proof and the
   coherent source commit remain gated on the 48h wake, org cleanup, and the
   scoped quality gates.
+- 2026-07-16 (evening): Owner authorized the 48h wake. Result: behaviorally
+  warm at 53.5h of continuously reported per-Sprite `cold` (unchanged boot
+  ID, start count 1, heartbeat continued, sentinel intact). All three soak
+  cohorts were memory-preserving resumes; reported `cold` never matched the
+  documented memory-discard semantics within the observation window. Cleanup
+  verified the organization empty. The confirmed-cold gate is closed as
+  UNOBSERVABLE per the final report
+  (`docs/reports/2026-07-16-sprites-confirmed-cold-soak-final.md`); the
+  decision memo is ready for owner sign-off (Option A recommended). Owner
+  authorized continuing to the next phase: scoped quality gates and the
+  incremental source commits, then live Phase 2 validation and Phase 1c
+  measurements against the now-free organization.
+
+- 2026-07-16: Completed cold-soak run `20260714T173244Z-97151` (12h=behaviorally_warm, 24h=behaviorally_warm, 48h=behaviorally_warm); the dedicated organization was confirmed empty after cleanup. See `docs/reports/2026-07-14-sprites-confirmed-cold-soak-20260714T173244Z-97151.md`.

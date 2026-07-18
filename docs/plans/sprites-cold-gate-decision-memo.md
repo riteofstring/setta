@@ -1,7 +1,8 @@
 # Cold-Gate Decision Memo: Accept vs Re-architect
 
 Date: 2026-07-16
-Status: DRAFT — awaiting the 48h soak result and any Fly response
+Status: READY FOR OWNER SIGN-OFF — all soak evidence in; Fly response pending
+(the recommendation does not depend on it)
 
 ## Decision to make
 
@@ -26,7 +27,10 @@ with memory retained. Per the 2026-07-15 amendment, the owner must choose:
 - Soak run (2026-07-14→16): three Sprites individually `cold` from
   17:37:44Z. 12h cohort woken at 13.2h: behaviorally warm (same boot ID).
   24h cohort woken at 28.6h: behaviorally warm (same boot ID).
-- **48h cohort: PENDING — woken at ___h: ___ (fill after verify-due).**
+- 48h cohort woken at 53.5h (2026-07-16T23:07:54Z): behaviorally warm —
+  unchanged boot ID, start count 1, heartbeat continued (563 → 576),
+  sentinel intact. Experiment complete; org cleaned to 0/0/0. Full results:
+  `docs/reports/2026-07-16-sprites-confirmed-cold-soak-final.md`.
 - Fly response: **PENDING** (community thread 28288; billing email;
   support plan not yet purchased).
 - Docs state cold ⇒ "in-memory state is dropped … starts processes fresh"

@@ -61,7 +61,13 @@ Which leaves the main question: does `cold` mean "scheduled for eviction" rather
 
 ---
 
-## 3. Tomorrow, after 17:37 UTC (48h wake + cleanup)
+## 3a. DONE — final 48h result. PASTE this reply now:
+
+Final result for the third Sprite: after ~53.5 hours of continuously reported `status: "cold"` (checked repeatedly without touching it, including seconds before the wake), it also resumed its original process — same kernel boot ID, Service start count still 1, heartbeat continued where it left off, filesystem intact.
+
+So all three Sprites (woken at ~13h, ~28h, and ~53h of reported cold) were memory-preserving resumes. In this org, `cold` never corresponded to an actual memory discard within 2+ days. The questions in the original post stand — happy to share Sprite names, timestamps, and request IDs privately so someone can correlate server-side.
+
+## 3. (superseded) Original 48h wake instructions
 
 ```bash
 cd /Users/jeff/Documents/_projects/setta.setta-3-cloud-platform
