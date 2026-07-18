@@ -165,6 +165,7 @@ export class AppShellSpeechCaptureController {
   private readonly unsubscribeMasterSubmission: () => void;
   private snapshotValue: AppShellSpeechCaptureSnapshot;
   private captureLease: BufferedMicrophoneCapture | null = null;
+  private pendingInputStream: MediaStream | null = null;
   private transport: RealtimeTranscriptionTransport | null = null;
 
   constructor(
@@ -277,6 +278,7 @@ export class AppShellSpeechCaptureController {
         stopMediaStream(stream);
         return;
       }
+      this.pendingInputStream = stream;
       const sessionPromise = this.dependencies.createTranscriptionSession();
       void sessionPromise.catch(() => {});
       const capture = await this.dependencies.createBufferedCapture({
@@ -289,6 +291,7 @@ export class AppShellSpeechCaptureController {
         return;
       }
       this.captureLease = capture;
+      this.pendingInputStream = null;
       await capture.ready;
       if (!this.isCurrent(lifecycle, runtimeId)) {
         return;
@@ -758,6 +761,10 @@ export class AppShellSpeechCaptureController {
     this.stopDurationTimer();
     this.transport?.close();
     this.transport = null;
+    if (this.pendingInputStream) {
+      stopMediaStream(this.pendingInputStream);
+      this.pendingInputStream = null;
+    }
     this.captureLease?.close();
     this.captureLease = null;
     if (captureEnded && notifyCaptureEnd) {

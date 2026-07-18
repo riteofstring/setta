@@ -582,6 +582,90 @@ describe("app-shell speech capture controller", () => {
     expect(harness.transports).toEqual([]);
   });
 
+  test("cancel stops the raw microphone while buffered capture setup is pending", async () => {
+    const setupStarted = deferred<CreateBufferedMicrophoneCaptureOptions>();
+    const setup = deferred<BufferedMicrophoneCapture>();
+    const harness = createHarness({
+      createBufferedCapture: async (options) => {
+        setupStarted.resolve(options);
+        return setup.promise;
+      },
+    });
+    await harness.connect();
+
+    const start = harness.startMaster();
+    const options = await setupStarted.promise;
+    expect(harness.currentCapture()).toMatchObject({ type: "requesting_permission" });
+    expect(harness.track.stop).not.toHaveBeenCalled();
+
+    harness.controller.cancel();
+    expect(harness.currentCapture()).toEqual({ type: "idle" });
+    expect(harness.track.stop).toHaveBeenCalledOnce();
+
+    const lateCapture = new FakeBufferedCapture(options.inputStream, harness.outboundStream);
+    setup.resolve(lateCapture);
+    await start;
+
+    expect(lateCapture.close).toHaveBeenCalledOnce();
+    expect(harness.transports).toEqual([]);
+  });
+
+  test("runtime switch stops the raw microphone while buffered capture setup is pending", async () => {
+    const setupStarted = deferred<CreateBufferedMicrophoneCaptureOptions>();
+    const setup = deferred<BufferedMicrophoneCapture>();
+    const harness = createHarness({
+      createBufferedCapture: async (options) => {
+        setupStarted.resolve(options);
+        return setup.promise;
+      },
+    });
+    await harness.connect();
+
+    const start = harness.startMaster();
+    const options = await setupStarted.promise;
+    await harness.controller.synchronizeRuntime("runtime_second");
+
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "configured" },
+      capture: { type: "idle" },
+      runtimeId: "runtime_second",
+    });
+    expect(harness.track.stop).toHaveBeenCalledOnce();
+
+    const lateCapture = new FakeBufferedCapture(options.inputStream, harness.outboundStream);
+    setup.resolve(lateCapture);
+    await start;
+
+    expect(lateCapture.close).toHaveBeenCalledOnce();
+    expect(harness.transports).toEqual([]);
+  });
+
+  test("dispose stops the raw microphone while buffered capture setup is pending", async () => {
+    const setupStarted = deferred<CreateBufferedMicrophoneCaptureOptions>();
+    const setup = deferred<BufferedMicrophoneCapture>();
+    const harness = createHarness({
+      createBufferedCapture: async (options) => {
+        setupStarted.resolve(options);
+        return setup.promise;
+      },
+    });
+    await harness.connect();
+
+    const start = harness.startMaster();
+    const options = await setupStarted.promise;
+
+    harness.controller.dispose();
+    expect(harness.track.stop).toHaveBeenCalledOnce();
+
+    const lateCapture = new FakeBufferedCapture(options.inputStream, harness.outboundStream);
+    setup.resolve(lateCapture);
+    await start;
+
+    expect(lateCapture.close).toHaveBeenCalledOnce();
+    expect(harness.transports).toEqual([]);
+    expect(() => harness.controller.cancel()).toThrow("controller is disposed");
+  });
+
   test("cancel tears down an active lease without changing runtime scope", async () => {
     const harness = createHarness();
     await harness.connect();
