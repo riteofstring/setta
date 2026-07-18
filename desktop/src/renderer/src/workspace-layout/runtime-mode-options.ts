@@ -1,4 +1,3 @@
-import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import type { WorkspaceUILayout } from "@generated/backend";
 import {
   generateBenchmarkScene,
@@ -43,15 +42,6 @@ const runtimePolicyOptionsByMode = {
     degradeOverviewDuringResize: boolean;
   }
 >;
-const benchmarkWorkflowGraphSyntheticGraph = {
-  edgesPerNode: 2,
-  nodeCount: 500,
-} satisfies NonNullable<SyntheticWorkflowGraphOptions>;
-const benchmarkPaneRuntimeBudget = {
-  ...DEFAULT_PANE_BUDGET,
-  maxLiveWebGpuCanvases: 0,
-} satisfies PaneRuntimeBudget;
-
 export function browserPaneCountForScene(scene: WorkspaceScene): number {
   return scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
 }
@@ -114,10 +104,24 @@ export function runtimePolicyBudgetForRuntime(
   mode: WorkspaceSceneMode,
   scene: WorkspaceScene,
 ): PaneRuntimeBudget {
+  return mode === "benchmark" ? benchmarkRuntimeBudget() : workspaceRuntimeBudgetForScene(scene);
+}
+
+// The workspace runtime budget must track the LIVE pane count, not the count from
+// the scene the runtime was first created with — otherwise a workspace that opened
+// with a single pane keeps a budget of 1 and freezes every unfocused pane.
+export function runtimePolicyBudgetForPaneCount(
+  mode: WorkspaceSceneMode,
+  paneCount: number,
+): PaneRuntimeBudget {
   if (mode === "benchmark") {
-    return benchmarkPaneRuntimeBudget;
+    return benchmarkRuntimeBudget();
   }
-  return workspaceRuntimeBudgetForScene(scene);
+  const visiblePaneBudget = Math.max(1, paneCount);
+  return {
+    maxLiveHeavyDomPanes: visiblePaneBudget,
+    maxSnapshotPanes: visiblePaneBudget,
+  };
 }
 
 export function benchmarkSceneOptionsFromSearch(search: string): BenchmarkSceneOptions {
@@ -150,21 +154,16 @@ export function snapshotStaticFallbackForRuntime(mode: WorkspaceSceneMode): bool
   return mode === "workspace";
 }
 
-export function workflowGraphSyntheticGraphFallbackForRuntime(
-  mode: WorkspaceSceneMode,
-): SyntheticWorkflowGraphOptions | undefined {
-  return mode === "benchmark" ? benchmarkWorkflowGraphSyntheticGraph : undefined;
-}
-
 function workspaceRuntimeBudgetForScene(scene: WorkspaceScene): PaneRuntimeBudget {
   const visiblePaneBudget = Math.max(1, scene.totalPanes);
   return {
-    maxLiveBrowserPanes: visiblePaneBudget,
     maxLiveHeavyDomPanes: visiblePaneBudget,
-    maxLiveTerminalRenderers: visiblePaneBudget,
-    maxLiveWebGpuCanvases: visiblePaneBudget,
     maxSnapshotPanes: visiblePaneBudget,
   };
+}
+
+function benchmarkRuntimeBudget(): PaneRuntimeBudget {
+  return { ...DEFAULT_PANE_BUDGET };
 }
 
 function optionalPositiveIntegerParam(params: URLSearchParams, key: string): number | undefined {

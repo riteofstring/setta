@@ -32,11 +32,6 @@ describe("preload runtime API", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.doUnmock("electron");
-    vi.unstubAllEnvs();
-    vi.stubEnv("SETTA_E2E", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
   });
 
   test("exposes typed runtime methods through IPC", async () => {

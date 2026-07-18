@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { OVERVIEW_MAX_ZOOM_SCALE, OVERVIEW_MIN_ZOOM } from "./layout-engine-helpers";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import type { PaneRenderItem, Rect } from "./types";
-import { createRealWorkspaceScene } from "./workspace-scene";
+import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
 
 const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
 
@@ -238,7 +238,7 @@ function renderOverview(
 
 function createRealEngine(): WorkspaceLikeLayoutEngine {
   Object.defineProperty(globalThis, "window", { configurable: true, value: {} });
-  const { scene } = createRealWorkspaceScene({
+  const { scene } = createWorkspaceLayoutTestScene({
     storedLayout: null,
     workspaceId: "setta:workspace-layout:overview-zoom-engine-test",
     workspaceName: "Repo",
@@ -246,13 +246,13 @@ function createRealEngine(): WorkspaceLikeLayoutEngine {
   const builder = new WorkspaceLikeLayoutEngine(scene);
   builder.openPane({
     adjacentToColumnId: "workspace_column_3",
-    surfaceKind: "terminal",
+    surfaceKind: "browser",
     title: "Logs",
     tone: "green",
   });
   builder.openPane({
     adjacentToColumnId: "workspace_column_4",
-    surfaceKind: "chat-dom",
+    surfaceKind: "fake-heavy-dom",
     title: "Notes",
     tone: "cyan",
   });

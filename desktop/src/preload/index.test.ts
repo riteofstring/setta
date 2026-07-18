@@ -1,19 +1,9 @@
+import type { UpdateAppearanceSettingsRequest } from "@generated/backend";
+import { ipcChannels, ipcEvents, ipcMessages } from "@shared/ipc";
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type {
-  UpdateAppearanceSettingsRequest,
-  UpdateChatCodexDefaultsRequest,
-} from "@generated/backend";
-import { ipcChannels, ipcEvents } from "@shared/ipc";
-import { chatTextInput } from "../renderer/src/lib/chat-input";
-import {
-  chatEvent,
-  terminalEvent,
-  workflowEvent,
-  workflowGraph,
-  workspaceActivityEvent,
-} from "./index.test.fixtures";
+import { codexAccountChangeEvent } from "./index.test.fixtures";
 
 async function exposePreloadAPI({
   invoke = vi.fn(),
@@ -28,12 +18,7 @@ async function exposePreloadAPI({
         exposed[name] = api;
       },
     },
-    ipcRenderer: {
-      invoke,
-      on,
-      removeListener,
-      send,
-    },
+    ipcRenderer: { invoke, on, removeListener, send },
   }));
 
   await import("./index");
@@ -45,11 +30,6 @@ describe("preload workspace API", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.doUnmock("electron");
-    vi.unstubAllEnvs();
-    vi.stubEnv("SETTA_E2E", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -57,7 +37,6 @@ describe("preload workspace API", () => {
     expect(Object.keys(api.app).sort()).toEqual([
       "captureRendererRegion",
       "endWindowDrag",
-      "flags",
       "installedEditors",
       "moveWindowDrag",
       "openExternalUrl",
@@ -68,10 +47,6 @@ describe("preload workspace API", () => {
       "workspaceGitInfo",
     ]);
 
-    expect(api.app.flags).toEqual({
-      workflowGraphDebug: false,
-      workflowGraphSyntheticGraph: null,
-    });
     const dragPoint = { screenX: 200, screenY: 120 };
     await api.app.installedEditors();
     await api.app.startWindowDrag(dragPoint);
@@ -102,13 +77,13 @@ describe("preload workspace API", () => {
       "openLocalFolder",
       "openPath",
       "readUILayout",
+      "refreshAvailability",
+      "relocateLocalFolder",
       "removeRecent",
       "reorder",
       "saveUILayout",
       "select",
-      "selectedConversations",
       "session",
-      "setSelectedConversation",
     ]);
 
     const layout = {
@@ -122,10 +97,10 @@ describe("preload workspace API", () => {
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
     await api.workspace.readUILayout("workspace_api");
+    await api.workspace.refreshAvailability("workspace_api");
+    await api.workspace.relocateLocalFolder("workspace_api");
     await api.workspace.saveUILayout(layout);
     await api.workspace.select("workspace_api");
-    await api.workspace.selectedConversations();
-    await api.workspace.setSelectedConversation("workspace_api", "conversation_api");
     await api.workspace.close("workspace_api");
     await api.workspace.reorder(["workspace_web", "workspace_api"]);
     await api.workspace.removeRecent("workspace_web");
@@ -135,10 +110,10 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
       [ipcChannels.workspaceReadUILayout, "workspace_api"],
+      [ipcChannels.workspaceRefreshAvailability, "workspace_api"],
+      [ipcChannels.workspaceRelocateLocalFolder, "workspace_api"],
       [ipcChannels.workspaceSaveUILayout, layout],
       [ipcChannels.workspaceSelect, "workspace_api"],
-      [ipcChannels.workspaceSelectedConversations],
-      [ipcChannels.workspaceSetSelectedConversation, "workspace_api", "conversation_api"],
       [ipcChannels.workspaceClose, "workspace_api"],
       [ipcChannels.workspaceReorder, ["workspace_web", "workspace_api"]],
       [ipcChannels.workspaceRemoveRecent, "workspace_web"],
@@ -148,1331 +123,119 @@ describe("preload workspace API", () => {
   test("exposes typed workspace native view methods through IPC", async () => {
     const { api, invoke, on, removeListener, send } = await exposePreloadAPI();
     await api.app.captureRendererRegion({ height: 40, width: 80, x: 12, y: 24 });
+    const nativeViews = api.workspaceNativeViews;
+    if (!nativeViews) {
+      throw new Error("workspace native view API was not exposed");
+    }
     const batch = {
       focusedSurfaceId: "surface_browser",
       totalBrowserPanes: 24,
       updates: [],
       visibleBrowserPanes: 6,
-      workspaceId: "phase-4-browser-pane-benchmark",
+      workspaceId: "workspace_api",
     };
-    if (!api.workspaceNativeViews) {
-      throw new Error("workspace native view API was not exposed");
-    }
-    api.workspaceNativeViews.batchBrowserViewUpdates(batch);
-    await api.workspaceNativeViews.readBrowserViewStats();
-    await api.workspaceNativeViews.teardownBrowserViews("phase-4-browser-pane-benchmark");
+    nativeViews.batchBrowserViewUpdates(batch);
+    await nativeViews.readBrowserViewStats();
+    await nativeViews.teardownBrowserViews("workspace_api");
+
     const keyListener = vi.fn();
-    const unsubscribeKey = api.workspaceNativeViews.onBrowserViewKey(keyListener);
-    const keyHandler = on.mock.calls.find(
-      (call) => call[0] === ipcEvents.workspaceBrowserViewKey,
-    )?.[1];
-    if (typeof keyHandler !== "function") {
-      throw new Error("workspace browser view key handler was not registered");
-    }
-    keyHandler(
-      {},
-      {
-        altKey: false,
-        ctrlKey: false,
-        key: "ArrowRight",
-        metaKey: false,
-        shiftKey: false,
-        surfaceId: "surface_browser",
-        workspaceId: "phase-4-browser-pane-benchmark",
-      },
-    );
+    const unsubscribeKey = nativeViews.onBrowserViewKey(keyListener);
+    const keyHandler = eventHandler(on, ipcEvents.workspaceBrowserViewKey);
+    keyHandler({}, browserKeyEvent());
     unsubscribeKey();
+
     const snapshotListener = vi.fn();
-    const unsubscribeSnapshot = api.workspaceNativeViews.onBrowserViewSnapshot(snapshotListener);
-    const snapshotHandler = on.mock.calls.find(
-      (call) => call[0] === ipcEvents.workspaceBrowserViewSnapshot,
-    )?.[1];
-    if (typeof snapshotHandler !== "function") {
-      throw new Error("workspace browser view snapshot handler was not registered");
-    }
-    snapshotHandler(
-      {},
-      {
-        capturedAt: 99,
-        height: 120,
-        imageDataUrl: "data:image/png;base64,AAAA",
-        paneId: "pane_browser",
-        surfaceId: "surface_browser",
-        title: "Browser",
-        width: 240,
-        workspaceId: "phase-4-browser-pane-benchmark",
-      },
-    );
+    const unsubscribeSnapshot = nativeViews.onBrowserViewSnapshot(snapshotListener);
+    const snapshotHandler = eventHandler(on, ipcEvents.workspaceBrowserViewSnapshot);
+    const snapshot = browserSnapshot();
+    snapshotHandler({}, snapshot);
     unsubscribeSnapshot();
 
-    expect(send).toHaveBeenCalledWith("workspace:browser-view-batch", batch);
-    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appCaptureRendererRegion, {
-      height: 40,
-      width: 80,
-      x: 12,
-      y: 24,
-    });
-    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.workspaceBrowserViewStats);
-    expect(invoke).toHaveBeenNthCalledWith(
-      3,
-      ipcChannels.workspaceBrowserViewsTeardown,
-      "phase-4-browser-pane-benchmark",
+    expect(send).toHaveBeenCalledWith(ipcMessages.workspaceBrowserViewBatch, batch);
+    expectInvokeCalls(invoke, [
+      [ipcChannels.appCaptureRendererRegion, { height: 40, width: 80, x: 12, y: 24 }],
+      [ipcChannels.workspaceBrowserViewStats],
+      [ipcChannels.workspaceBrowserViewsTeardown, "workspace_api"],
+    ]);
+    expect(keyListener).toHaveBeenCalledWith(browserKeyEvent());
+    expect(snapshotListener).toHaveBeenCalledWith(snapshot);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workspaceBrowserViewKey, keyHandler);
+    expect(removeListener).toHaveBeenCalledWith(
+      ipcEvents.workspaceBrowserViewSnapshot,
+      snapshotHandler,
     );
-    expect(on).toHaveBeenCalledWith("workspace:browser-view-key", expect.any(Function));
-    expect(on).toHaveBeenCalledWith("workspace:browser-view-snapshot", expect.any(Function));
-    expect(keyListener).toHaveBeenCalledWith({
-      altKey: false,
-      ctrlKey: false,
-      key: "ArrowRight",
-      metaKey: false,
-      shiftKey: false,
-      surfaceId: "surface_browser",
-      workspaceId: "phase-4-browser-pane-benchmark",
-    });
-    expect(snapshotListener).toHaveBeenCalledWith({
-      capturedAt: 99,
-      height: 120,
-      imageDataUrl: "data:image/png;base64,AAAA",
-      paneId: "pane_browser",
-      surfaceId: "surface_browser",
-      title: "Browser",
-      width: 240,
-      workspaceId: "phase-4-browser-pane-benchmark",
-    });
-    expect(removeListener).toHaveBeenCalledWith("workspace:browser-view-key", keyHandler);
-    expect(removeListener).toHaveBeenCalledWith("workspace:browser-view-snapshot", snapshotHandler);
   });
 
-  test("exposes typed appearance methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
-    expect(Object.keys(api.appearance).sort()).toEqual(["presets", "read", "update"]);
-    const request = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
+  test("exposes typed appearance and account methods through IPC", async () => {
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
+    const appearance = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
+    const refreshRequest = { refreshToken: true };
+    const loginRequest = { apiKey: "", type: "chatgpt" as const };
+    const cancelRequest = { loginId: "login_api" };
+    const logoutRequest = {};
 
     await api.appearance.presets();
     await api.appearance.read();
-    await api.appearance.update(request);
+    await api.appearance.update(appearance);
+    await api.codexAccount.read();
+    await api.codexAccount.refresh(refreshRequest);
+    await api.codexAccount.startLogin(loginRequest);
+    await api.codexAccount.cancelLogin(cancelRequest);
+    await api.codexAccount.logout(logoutRequest);
+    const accountListener = vi.fn();
+    const unsubscribeAccount = api.codexAccount.onChanged(accountListener);
+    const accountHandler = eventHandler(on, ipcEvents.codexAccountChange);
+    const accountEvent = codexAccountChangeEvent();
+    accountHandler({}, accountEvent);
+    unsubscribeAccount();
 
     expectInvokeCalls(invoke, [
       [ipcChannels.appearancePresets],
       [ipcChannels.appearanceRead],
-      [ipcChannels.appearanceUpdate, request],
+      [ipcChannels.appearanceUpdate, appearance],
+      [ipcChannels.codexAccountRead],
+      [ipcChannels.codexAccountRefresh, refreshRequest],
+      [ipcChannels.codexAccountStartLogin, loginRequest],
+      [ipcChannels.codexAccountCancelLogin, cancelRequest],
+      [ipcChannels.codexAccountLogout, logoutRequest],
     ]);
-  });
-
-  test("exposes typed workspace activity methods through IPC", async () => {
-    const { api, invoke, on, removeListener } = await exposePreloadAPI();
-    expect(Object.keys(api.workspaceActivity).sort()).toEqual([
-      "executionSnapshot",
-      "onEvent",
-      "snapshot",
-    ]);
-
-    const snapshot = {
-      activities: [],
-      revision: 7,
-      schemaVersion: 1,
-      sequence: 12,
-      streamId: "workspace_activity_stream_test",
-      workspaceId: "workspace_api",
-    };
-    invoke.mockResolvedValueOnce({ snapshot });
-    await expect(api.workspaceActivity.snapshot("workspace_api", 100)).resolves.toEqual(snapshot);
-
-    const executionSnapshot = { ...snapshot, revision: 8 };
-    invoke.mockResolvedValueOnce({ snapshot: executionSnapshot });
-    await expect(
-      api.workspaceActivity.executionSnapshot("workspace_api", "execution_api", 100),
-    ).resolves.toEqual(executionSnapshot);
-
-    const event = workspaceActivityEvent();
-    const listener = vi.fn();
-    const unsubscribe = api.workspaceActivity.onEvent(listener);
-    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.workspaceActivityEvent)?.[1];
-    if (typeof handler !== "function") {
-      throw new Error("workspace activity event handler was not registered");
-    }
-    handler({}, event);
-    unsubscribe();
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.workspaceActivitySnapshot, "workspace_api", 100],
-      [ipcChannels.workspaceActivityExecutionSnapshot, "workspace_api", "execution_api", 100],
-    ]);
-    expect(on).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, expect.any(Function));
-    expect(listener).toHaveBeenCalledWith(event);
-    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workspaceActivityEvent, handler);
-  });
-
-  test("exposes typed chat methods through IPC", async () => {
-    const { api, invoke, on, removeListener } = await exposePreloadAPI();
-    expect(Object.keys(api.chat).sort()).toEqual([
-      "activeRun",
-      "cancelRun",
-      "createConversation",
-      "createImageAttachmentFromBytes",
-      "deleteConversation",
-      "editQueuedMessage",
-      "executeCommand",
-      "getBackgroundTerminalOutput",
-      "killAllBackgroundTerminals",
-      "killBackgroundTerminal",
-      "listBackgroundTerminals",
-      "listCommands",
-      "listComposerPromptHistory",
-      "listConversations",
-      "markConversationRead",
-      "messagePage",
-      "onEvent",
-      "openCodexModelPicker",
-      "openCodexPermissionPicker",
-      "queueMessage",
-      "readCodexDefaults",
-      "reconcileRuns",
-      "removeQueuedMessage",
-      "runActivity",
-      "runItemOutput",
-      "selectImageAttachments",
-      "sendMessage",
-      "sendSteeringImmediately",
-      "setCodexModel",
-      "setCodexPermissionPreset",
-      "setCodexReasoningEffort",
-      "setConversationPinned",
-      "steerMessage",
-      "submitApproval",
-      "updateCodexDefaults",
-    ]);
-
-    await api.chat.listConversations("workspace_api");
-    await api.chat.createConversation("workspace_api", "Plan");
-    await api.chat.deleteConversation("workspace_api", "conversation_archive");
-    await api.chat.listCommands("workspace_api", "conversation_api");
-    await api.chat.executeCommand("workspace_api", "conversation_api", "/goal");
-    await api.chat.executeCommand("workspace_api", "conversation_api", "/goal replacement", {
-      confirmGoalReplacement: true,
-    });
-    await api.chat.readCodexDefaults();
-    await api.chat.openCodexModelPicker("workspace_api", "conversation_api");
-    await api.chat.openCodexPermissionPicker("workspace_api", "conversation_api");
-    await api.chat.markConversationRead("workspace_api", "conversation_api");
-    await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
-    await api.chat.listComposerPromptHistory("workspace_api", "conversation_api", 12, 20);
-    await api.chat.createImageAttachmentFromBytes(
-      "workspace_api",
-      "conversation_api",
-      "image.png",
-      "aGVsbG8=",
-    );
-    await api.chat.selectImageAttachments("workspace_api", "conversation_api", 3);
-    await api.chat.queueMessage("workspace_api", "conversation_api", chatTextInput("queued"));
-    await api.chat.editQueuedMessage(
-      "workspace_api",
-      "conversation_api",
-      "message_queued",
-      chatTextInput("edited"),
-    );
-    await api.chat.removeQueuedMessage("workspace_api", "conversation_api", "message_queued");
-    await api.chat.runActivity("workspace_api", "run_api", "", 100);
-    await api.chat.runItemOutput("workspace_api", "run_api", "item_api", 0, 100);
-    const bgArgs = ["workspace_api", "conversation_api", "background_terminal_api"] as const;
-    await api.chat.listBackgroundTerminals("workspace_api", "conversation_api");
-    await api.chat.getBackgroundTerminalOutput(...bgArgs, 0, 100);
-    await api.chat.killBackgroundTerminal(...bgArgs);
-    await api.chat.killAllBackgroundTerminals("workspace_api", "conversation_api");
-    await api.chat.sendMessage("workspace_api", "conversation_api", chatTextInput("hello"));
-    await api.chat.setCodexModel("workspace_api", "conversation_api", "gpt-test");
-    await api.chat.setCodexPermissionPreset(
-      "workspace_api",
-      "conversation_api",
-      "full-access",
-      true,
-    );
-    await api.chat.setCodexReasoningEffort("workspace_api", "conversation_api", "high");
-    const defaultsRequest = {
-      confirmed: false,
-      settings: { model: "gpt-test", permission: null, reasoningEffort: "high" },
-    } satisfies UpdateChatCodexDefaultsRequest;
-    await api.chat.updateCodexDefaults(defaultsRequest);
-    await api.chat.setConversationPinned("workspace_api", "conversation_api", true);
-    await api.chat.steerMessage("workspace_api", "conversation_api", chatTextInput("steer"));
-    await api.chat.sendSteeringImmediately(
-      "workspace_api",
-      "conversation_api",
-      chatTextInput("now"),
-    );
-    await api.chat.cancelRun("workspace_api", "conversation_api");
-    await api.chat.activeRun("workspace_api", "conversation_api");
-    const reconcileRequest = {
-      conversationId: "conversation_api",
-      reason: "user_retry",
-      workspaceId: "workspace_api",
-    } as const;
-    await api.chat.reconcileRuns(reconcileRequest);
-    await api.chat.submitApproval({
-      approvalId: "approval_api",
-      approved: true,
-      answers: [],
-      cancelled: false,
-      conversationId: "conversation_api",
-      response: "",
-      workspaceId: "workspace_api",
-    });
-    const listener = vi.fn();
-    const unsubscribe = api.chat.onEvent(listener);
-    const event = chatEvent();
-    const handler = on.mock.calls[0]?.[1];
-    if (typeof handler !== "function") {
-      throw new Error("chat event handler was not registered");
-    }
-    handler({}, event);
-    unsubscribe();
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.chatListConversations, "workspace_api"],
-      [ipcChannels.chatCreateConversation, "workspace_api", "Plan"],
-      [ipcChannels.chatDeleteConversation, "workspace_api", "conversation_archive"],
-      [ipcChannels.chatListCommands, "workspace_api", "conversation_api"],
-      [ipcChannels.chatExecuteCommand, "workspace_api", "conversation_api", "/goal", false],
-      [
-        ipcChannels.chatExecuteCommand,
-        "workspace_api",
-        "conversation_api",
-        "/goal replacement",
-        true,
-      ],
-      [ipcChannels.chatReadCodexDefaults],
-      [ipcChannels.chatOpenCodexModelPicker, "workspace_api", "conversation_api"],
-      [ipcChannels.chatOpenCodexPermissionPicker, "workspace_api", "conversation_api"],
-      [ipcChannels.chatMarkConversationRead, "workspace_api", "conversation_api"],
-      [ipcChannels.chatMessagePage, "workspace_api", "conversation_api", 10, 40],
-      [ipcChannels.chatListComposerPromptHistory, "workspace_api", "conversation_api", 12, 20],
-      [
-        ipcChannels.chatCreateImageAttachmentFromBytes,
-        "workspace_api",
-        "conversation_api",
-        "image.png",
-        "aGVsbG8=",
-      ],
-      [ipcChannels.chatSelectImageAttachments, "workspace_api", "conversation_api", 3],
-      [ipcChannels.chatQueueMessage, "workspace_api", "conversation_api", chatTextInput("queued")],
-      [
-        ipcChannels.chatEditQueuedMessage,
-        "workspace_api",
-        "conversation_api",
-        "message_queued",
-        chatTextInput("edited"),
-      ],
-      [ipcChannels.chatRemoveQueuedMessage, "workspace_api", "conversation_api", "message_queued"],
-      [ipcChannels.chatRunActivity, "workspace_api", "run_api", "", 100],
-      [ipcChannels.chatRunItemOutput, "workspace_api", "run_api", "item_api", 0, 100],
-      [ipcChannels.chatListBackgroundTerminals, "workspace_api", "conversation_api"],
-      [ipcChannels.chatGetBackgroundTerminalOutput, ...bgArgs, 0, 100],
-      [ipcChannels.chatKillBackgroundTerminal, ...bgArgs],
-      [ipcChannels.chatKillAllBackgroundTerminals, "workspace_api", "conversation_api"],
-      [ipcChannels.chatSendMessage, "workspace_api", "conversation_api", chatTextInput("hello")],
-      [ipcChannels.chatSetCodexModel, "workspace_api", "conversation_api", "gpt-test"],
-      [
-        ipcChannels.chatSetCodexPermissionPreset,
-        "workspace_api",
-        "conversation_api",
-        "full-access",
-        true,
-      ],
-      [ipcChannels.chatSetCodexReasoningEffort, "workspace_api", "conversation_api", "high"],
-      [ipcChannels.chatUpdateCodexDefaults, defaultsRequest],
-      [ipcChannels.chatSetConversationPinned, "workspace_api", "conversation_api", true],
-      [ipcChannels.chatSteerMessage, "workspace_api", "conversation_api", chatTextInput("steer")],
-      [
-        ipcChannels.chatSendSteeringImmediately,
-        "workspace_api",
-        "conversation_api",
-        chatTextInput("now"),
-      ],
-      [ipcChannels.chatCancelRun, "workspace_api", "conversation_api"],
-      [ipcChannels.chatActiveRun, "workspace_api", "conversation_api"],
-      [ipcChannels.chatReconcileRuns, reconcileRequest],
-      [
-        ipcChannels.chatSubmitApproval,
-        {
-          approvalId: "approval_api",
-          approved: true,
-          answers: [],
-          cancelled: false,
-          conversationId: "conversation_api",
-          response: "",
-          workspaceId: "workspace_api",
-        },
-      ],
-    ]);
-    expect(on).toHaveBeenCalledWith(ipcEvents.chatEvent, expect.any(Function));
-    expect(listener).toHaveBeenCalledWith(event);
-    expect(removeListener).toHaveBeenCalledWith(ipcEvents.chatEvent, handler);
-  });
-
-  test("exposes typed terminal methods through IPC", async () => {
-    const { api, invoke, on, removeListener } = await exposePreloadAPI();
-    expect(Object.keys(api.terminal).sort()).toEqual([
-      "attach",
-      "close",
-      "create",
-      "createProfile",
-      "deleteProfile",
-      "input",
-      "listProfiles",
-      "onEvent",
-      "resize",
-      "selectDefaultProfile",
-      "updateProfile",
-    ]);
-
-    const profileInput = {
-      args: [],
-      cwd: "",
-      cwdMode: "project" as const,
-      env: {},
-      fontFamily: "Fira Code",
-      fontSize: 14,
-      launchMode: "shell" as const,
-      name: "Project shell",
-      scrollback: 1200,
-      shellPath: "",
-      themeId: "setta-dark" as const,
-    };
-    await api.terminal.create("workspace_api", "pane_terminal", {
-      cols: 80,
-      rows: 24,
-    });
-    await api.terminal.attach("workspace_api", "pane_terminal");
-    await api.terminal.input({
-      dataBase64: "aGVsbG8=",
-      sessionId: "terminal_api",
-    });
-    await api.terminal.resize({
-      cols: 100,
-      rows: 30,
-      sessionId: "terminal_api",
-    });
-    await api.terminal.close({ confirmed: true, sessionId: "terminal_api" });
-    await api.terminal.listProfiles();
-    await api.terminal.createProfile({ profile: profileInput });
-    await api.terminal.updateProfile({ id: "profile_project", profile: profileInput });
-    await api.terminal.selectDefaultProfile({ id: "profile_project" });
-    await api.terminal.deleteProfile({ id: "profile_project" });
-
-    const event = terminalEvent();
-    const listener = vi.fn();
-    const unsubscribe = api.terminal.onEvent(listener);
-    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.terminalEvent)?.[1];
-    if (typeof handler !== "function") {
-      throw new Error("terminal event handler was not registered");
-    }
-    handler({}, event);
-    unsubscribe();
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.terminalCreate, "workspace_api", "pane_terminal", "", "", 80, 24],
-      [ipcChannels.terminalAttach, "workspace_api", "pane_terminal"],
-      [
-        ipcChannels.terminalInput,
-        {
-          dataBase64: "aGVsbG8=",
-          sessionId: "terminal_api",
-        },
-      ],
-      [
-        ipcChannels.terminalResize,
-        {
-          cols: 100,
-          rows: 30,
-          sessionId: "terminal_api",
-        },
-      ],
-      [ipcChannels.terminalClose, { confirmed: true, sessionId: "terminal_api" }],
-      [ipcChannels.terminalListProfiles],
-      [ipcChannels.terminalCreateProfile, { profile: profileInput }],
-      [ipcChannels.terminalUpdateProfile, { id: "profile_project", profile: profileInput }],
-      [ipcChannels.terminalSelectDefaultProfile, { id: "profile_project" }],
-      [ipcChannels.terminalDeleteProfile, { id: "profile_project" }],
-    ]);
-    expect(on).toHaveBeenCalledWith(ipcEvents.terminalEvent, expect.any(Function));
-    expect(listener).toHaveBeenCalledWith(event);
-    expect(removeListener).toHaveBeenCalledWith(ipcEvents.terminalEvent, handler);
-  });
-
-  test("exposes typed semantic graph methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
-    expect(Object.keys(api.semanticGraph).sort()).toEqual([
-      "acceptCartographerPatch",
-      "attachChatMessage",
-      "attachChatRun",
-      "attachFileRange",
-      "attachRunItem",
-      "attachWorkflowExecution",
-      "attachWorkflowNode",
-      "buildCartographerWindow",
-      "createEdge",
-      "createNode",
-      "createSteeringDirective",
-      "dismissNode",
-      "endActivity",
-      "listActivity",
-      "listActivityPage",
-      "listCartographerCursors",
-      "listCartographerPatches",
-      "listCartographerRuns",
-      "listCartographerWindows",
-      "listContextPacks",
-      "listEvidence",
-      "mergeNodes",
-      "onEvent",
-      "processCartographerWindow",
-      "promoteNode",
-      "read",
-      "readActivitySummary",
-      "readCartographerProcessingState",
-      "readCartographerRun",
-      "readContextPack",
-      "readEventHistory",
-      "readNodeDetail",
-      "readSteeringState",
-      "rejectCartographerPatch",
-      "removeEdge",
-      "renameNode",
-      "splitNode",
-      "updateEdge",
-      "updateLayoutPositions",
-      "updateNode",
-      "updateSteeringDirective",
-    ]);
-
-    const workspaceId = "workspace_api";
-    const cartographerSourceRefs = {
-      chatConversationId: "",
-      chatMessageId: "",
-      chatRunId: "",
-      runItemId: "",
-      workflowDefinitionId: "",
-      workflowExecutionId: "workflow_execution_api",
-      workflowNodeExecutionId: "",
-      workflowNodeId: "",
-    };
-    await api.semanticGraph.read({ workspaceId });
-    await api.semanticGraph.readNodeDetail({ nodeId: "node_api", workspaceId });
-    await api.semanticGraph.listEvidence({ targetEntityId: "node_api", workspaceId });
-    await api.semanticGraph.listActivity({ limit: 10, targetEntityId: "node_api", workspaceId });
-    await api.semanticGraph.listActivityPage({
-      actorId: "",
-      actorKind: null,
-      chatConversationId: "",
-      chatMessageId: "",
-      chatRunId: "",
-      limit: 10,
-      offset: 0,
-      sourceId: "",
-      sourceKind: null,
-      targetEntityId: "",
-      workflowExecutionId: "",
-      workflowNodeId: "",
-      workspaceId,
-    });
-    await api.semanticGraph.listContextPacks({
-      chatRunId: "",
-      limit: 10,
-      offset: 0,
-      targetEntityId: "node_api",
-      workflowExecutionId: "",
-      workspaceId,
-    });
-    await api.semanticGraph.buildCartographerWindow({
-      runStatus: "",
-      sourceRefs: cartographerSourceRefs,
-      summary: "Manual cartographer window",
-      targetEntityId: "node_api",
-      terminalReason: "",
-      triggerKind: "manual",
-      workspaceId,
-    });
-    await api.semanticGraph.processCartographerWindow({
-      windowId: "cartographer_window_api",
-      workspaceId,
-    });
-    await api.semanticGraph.readCartographerProcessingState({});
-    await api.semanticGraph.readCartographerRun({
-      runId: "cartographer_run_api",
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerRuns({
-      chatRunId: "",
-      limit: 10,
-      targetEntityId: "node_api",
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerWindows({
-      chatRunId: "",
-      limit: 10,
-      runId: "",
-      sourceId: "",
-      sourceKind: "workflow_execution",
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerCursors({
-      chatRunId: "",
-      limit: 10,
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.listCartographerPatches({
-      limit: 10,
-      runId: "cartographer_run_api",
-      semanticTargetId: "node_api",
-      status: "pending_review",
-      workspaceId,
-    });
-    await api.semanticGraph.acceptCartographerPatch({
-      patchId: "cartographer_patch_api",
-      workspaceId,
-    });
-    await api.semanticGraph.rejectCartographerPatch({
-      patchId: "cartographer_patch_api",
-      workspaceId,
-    });
-    await api.semanticGraph.readActivitySummary({ recentLimit: 3, workspaceId });
-    await api.semanticGraph.readContextPack({ packId: "context_pack_api", workspaceId });
-    await api.semanticGraph.readSteeringState({ targetEntityId: "node_api", workspaceId });
-    await api.semanticGraph.readEventHistory({
-      beforeLogicalClock: 0,
-      limit: 20,
-      targetEntityId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.updateLayoutPositions({
-      positions: [{ entityId: "node_api", pinned: true, x: 12, y: -8 }],
-      workspaceId,
-    });
-    await api.semanticGraph.attachWorkflowExecution({
-      activityKind: "exploring",
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      summary: "",
-      workflowExecutionId: "workflow_execution_api",
-      workspaceId,
-    });
-    await api.semanticGraph.attachWorkflowNode({
-      activityKind: "debugging",
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      summary: "",
-      workflowDefinitionId: "",
-      workflowExecutionId: "workflow_execution_api",
-      workflowNodeExecutionId: "workflow_node_execution_api",
-      workflowNodeId: "workflow_node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.attachChatRun({
-      activityKind: "exploring",
-      actorId: "user_api",
-      actorKind: "user",
-      chatRunId: "run_api",
-      nodeId: "node_api",
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.attachChatMessage({
-      activityKind: "exploring",
-      actorId: "user_api",
-      actorKind: "user",
-      chatConversationId: "conversation_api",
-      chatMessageId: "message_api",
-      nodeId: "node_api",
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.attachRunItem({
-      activityKind: "validating",
-      actorId: "user_api",
-      actorKind: "user",
-      chatRunId: "run_api",
-      nodeId: "node_api",
-      runItemId: "run_item_api",
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.attachFileRange({
-      activityKind: "editing",
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      path: "docs/plan.md",
-      rangeEnd: 2,
-      rangeStart: 1,
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.endActivity({
-      activityIntervalId: "activity_api",
-      actorId: "user_api",
-      actorKind: "user",
-      workspaceId,
-    });
-    await api.semanticGraph.renameNode({
-      actorId: "user_api",
-      actorKind: "user",
-      label: "Renamed node",
-      nodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.updateNode({
-      actorId: "user_api",
-      actorKind: "user",
-      kind: null,
-      nodeId: "node_api",
-      summary: "Updated summary",
-      workspaceId,
-    });
-    await api.semanticGraph.dismissNode({
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.promoteNode({
-      actorId: "user_api",
-      actorKind: "user",
-      nodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.splitNode({
-      actorId: "user_api",
-      actorKind: "user",
-      nodes: [{ kind: "finding", label: "Child", nodeId: "node_child", summary: "" }],
-      reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
-      sourceNodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.mergeNodes({
-      actorId: "user_api",
-      actorKind: "user",
-      reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
-      sourceNodeIds: ["node_child"],
-      targetNode: { kind: "decision", label: "Merged", nodeId: "node_merged", summary: "" },
-      workspaceId,
-    });
-    await api.semanticGraph.createNode({
-      actorId: "user_api",
-      actorKind: "user",
-      kind: "constraint",
-      label: "Constraint",
-      nodeId: "node_constraint",
-      summary: "",
-      workspaceId,
-    });
-    await api.semanticGraph.createEdge({
-      actorId: "user_api",
-      actorKind: "user",
-      edgeId: "edge_api",
-      fromNodeId: "node_constraint",
-      kind: "constrains",
-      label: "constrains",
-      summary: "",
-      toNodeId: "node_api",
-      workspaceId,
-    });
-    await api.semanticGraph.updateEdge({
-      actorId: "user_api",
-      actorKind: "user",
-      edgeId: "edge_api",
-      kind: null,
-      label: null,
-      summary: "Updated edge",
-      workspaceId,
-    });
-    await api.semanticGraph.removeEdge({
-      actorId: "user_api",
-      actorKind: "user",
-      edgeId: "edge_api",
-      workspaceId,
-    });
-    await api.semanticGraph.createSteeringDirective({
-      actorId: "user_api",
-      actorKind: "user",
-      chatConversationId: "",
-      chatMessageId: "",
-      chatRunId: "",
-      instruction: "Focus here",
-      kind: "focus",
-      runItemId: "",
-      scope: "session",
-      targetEntityId: "node_api",
-      workflowDefinitionId: "",
-      workflowExecutionId: "",
-      workflowNodeExecutionId: "",
-      workflowNodeId: "",
-      workspaceId,
-    });
-    await api.semanticGraph.updateSteeringDirective({
-      actorId: "user_api",
-      actorKind: "user",
-      directiveId: "steering_api",
-      instruction: null,
-      status: "completed",
-      supersedesDirectiveId: "",
-      workspaceId,
-    });
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.semanticGraphRead, { workspaceId }],
-      [ipcChannels.semanticGraphNodeDetail, { nodeId: "node_api", workspaceId }],
-      [ipcChannels.semanticGraphEvidenceList, { targetEntityId: "node_api", workspaceId }],
-      [
-        ipcChannels.semanticGraphActivityList,
-        { limit: 10, targetEntityId: "node_api", workspaceId },
-      ],
-      [
-        ipcChannels.semanticGraphActivityPage,
-        {
-          actorId: "",
-          actorKind: null,
-          chatConversationId: "",
-          chatMessageId: "",
-          chatRunId: "",
-          limit: 10,
-          offset: 0,
-          sourceId: "",
-          sourceKind: null,
-          targetEntityId: "",
-          workflowExecutionId: "",
-          workflowNodeId: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphContextPackList,
-        {
-          chatRunId: "",
-          limit: 10,
-          offset: 0,
-          targetEntityId: "node_api",
-          workflowExecutionId: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerWindowBuild,
-        {
-          runStatus: "",
-          sourceRefs: cartographerSourceRefs,
-          summary: "Manual cartographer window",
-          targetEntityId: "node_api",
-          terminalReason: "",
-          triggerKind: "manual",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerWindowProcess,
-        {
-          windowId: "cartographer_window_api",
-          workspaceId,
-        },
-      ],
-      [ipcChannels.semanticGraphCartographerProcessingState, {}],
-      [
-        ipcChannels.semanticGraphCartographerRunRead,
-        {
-          runId: "cartographer_run_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerRunList,
-        {
-          chatRunId: "",
-          limit: 10,
-          targetEntityId: "node_api",
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerWindowList,
-        {
-          chatRunId: "",
-          limit: 10,
-          runId: "",
-          sourceId: "",
-          sourceKind: "workflow_execution",
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerCursorList,
-        {
-          chatRunId: "",
-          limit: 10,
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerPatchList,
-        {
-          limit: 10,
-          runId: "cartographer_run_api",
-          semanticTargetId: "node_api",
-          status: "pending_review",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerPatchAccept,
-        {
-          patchId: "cartographer_patch_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCartographerPatchReject,
-        {
-          patchId: "cartographer_patch_api",
-          workspaceId,
-        },
-      ],
-      [ipcChannels.semanticGraphActivitySummary, { recentLimit: 3, workspaceId }],
-      [ipcChannels.semanticGraphContextPackRead, { packId: "context_pack_api", workspaceId }],
-      [ipcChannels.semanticGraphSteeringRead, { targetEntityId: "node_api", workspaceId }],
-      [
-        ipcChannels.semanticGraphEventHistory,
-        {
-          beforeLogicalClock: 0,
-          limit: 20,
-          targetEntityId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphLayoutUpdate,
-        {
-          positions: [{ entityId: "node_api", pinned: true, x: 12, y: -8 }],
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachWorkflowExecution,
-        {
-          activityKind: "exploring",
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          summary: "",
-          workflowExecutionId: "workflow_execution_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachWorkflowNode,
-        {
-          activityKind: "debugging",
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          summary: "",
-          workflowDefinitionId: "",
-          workflowExecutionId: "workflow_execution_api",
-          workflowNodeExecutionId: "workflow_node_execution_api",
-          workflowNodeId: "workflow_node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachChatRun,
-        {
-          activityKind: "exploring",
-          actorId: "user_api",
-          actorKind: "user",
-          chatRunId: "run_api",
-          nodeId: "node_api",
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachChatMessage,
-        {
-          activityKind: "exploring",
-          actorId: "user_api",
-          actorKind: "user",
-          chatConversationId: "conversation_api",
-          chatMessageId: "message_api",
-          nodeId: "node_api",
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachRunItem,
-        {
-          activityKind: "validating",
-          actorId: "user_api",
-          actorKind: "user",
-          chatRunId: "run_api",
-          nodeId: "node_api",
-          runItemId: "run_item_api",
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphAttachFileRange,
-        {
-          activityKind: "editing",
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          path: "docs/plan.md",
-          rangeEnd: 2,
-          rangeStart: 1,
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphActivityEnd,
-        {
-          activityIntervalId: "activity_api",
-          actorId: "user_api",
-          actorKind: "user",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphRenameNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          label: "Renamed node",
-          nodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphUpdateNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          kind: null,
-          nodeId: "node_api",
-          summary: "Updated summary",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphDismissNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphPromoteNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          nodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphSplitNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          nodes: [{ kind: "finding", label: "Child", nodeId: "node_child", summary: "" }],
-          reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
-          sourceNodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphMergeNodes,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
-          sourceNodeIds: ["node_child"],
-          targetNode: { kind: "decision", label: "Merged", nodeId: "node_merged", summary: "" },
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCreateNode,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          kind: "constraint",
-          label: "Constraint",
-          nodeId: "node_constraint",
-          summary: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCreateEdge,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          edgeId: "edge_api",
-          fromNodeId: "node_constraint",
-          kind: "constrains",
-          label: "constrains",
-          summary: "",
-          toNodeId: "node_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphUpdateEdge,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          edgeId: "edge_api",
-          kind: null,
-          label: null,
-          summary: "Updated edge",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphRemoveEdge,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          edgeId: "edge_api",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphCreateSteeringDirective,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          chatConversationId: "",
-          chatMessageId: "",
-          chatRunId: "",
-          instruction: "Focus here",
-          kind: "focus",
-          runItemId: "",
-          scope: "session",
-          targetEntityId: "node_api",
-          workflowDefinitionId: "",
-          workflowExecutionId: "",
-          workflowNodeExecutionId: "",
-          workflowNodeId: "",
-          workspaceId,
-        },
-      ],
-      [
-        ipcChannels.semanticGraphUpdateSteeringDirective,
-        {
-          actorId: "user_api",
-          actorKind: "user",
-          directiveId: "steering_api",
-          instruction: null,
-          status: "completed",
-          supersedesDirectiveId: "",
-          workspaceId,
-        },
-      ],
-    ]);
-  });
-
-  test("exposes typed workflow methods through IPC", async () => {
-    const { api, invoke, on, removeListener } = await exposePreloadAPI();
-    const graph = workflowGraph();
-    const trajectoryRequest = {
-      afterItemId: "",
-      beforeBlockOrdinal: 0,
-      executionId: "workflow_execution_api",
-      itemLimit: 20,
-      nodeExecutionId: "workflow_node_execution_api",
-      outputLimit: 20,
-      transcriptLimit: 20,
-      workspaceId: "workspace_api",
-    };
-    expect(Object.keys(api.workflow).sort()).toEqual([
-      "cancelExecution",
-      "createDefinition",
-      "deleteDefinition",
-      "executionEvents",
-      "graphProjection",
-      "listDefinitions",
-      "listExecutions",
-      "onEvent",
-      "readDefinition",
-      "readExecution",
-      "readNodeTrajectory",
-      "retryNodeRunLiveness",
-      "startExecution",
-      "steerNodeRun",
-      "stopNodeRun",
-      "submitApproval",
-      "updateDefinition",
-      "validateDefinition",
-    ]);
-
-    await api.workflow.listDefinitions("workspace_api");
-    await api.workflow.createDefinition("workspace_api", "Review", "phase 4", graph);
-    await api.workflow.readDefinition("workspace_api", "workflow_definition_api");
-    await api.workflow.updateDefinition(
-      "workspace_api",
-      "workflow_definition_api",
-      "Review updated",
-      "phase 4 updated",
-      graph,
-    );
-    await api.workflow.deleteDefinition("workspace_api", "workflow_definition_api");
-    await api.workflow.validateDefinition("workspace_api", graph);
-    await api.workflow.listExecutions("workspace_api", "workflow_definition_api", 20);
-    await api.workflow.startExecution("workspace_api", "workflow_definition_api");
-    await api.workflow.startExecution(
-      "workspace_api",
-      "workflow_definition_api",
-      "workflow_version_api",
-    );
-    await api.workflow.cancelExecution("workspace_api", "workflow_execution_api");
-    await api.workflow.readExecution("workspace_api", "workflow_execution_api");
-    await api.workflow.readNodeTrajectory(trajectoryRequest);
-    await api.workflow.retryNodeRunLiveness({
-      executionId: "workflow_execution_api",
-      nodeExecutionId: "workflow_node_execution_api",
-      workspaceId: "workspace_api",
-    });
-    await api.workflow.executionEvents("workspace_api", "workflow_execution_api", 10, 20);
-    await api.workflow.graphProjection("workspace_api");
-    await api.workflow.graphProjection(
-      "workspace_api",
-      "workflow_definition_api",
-      "workflow_version_api",
-      "workflow_execution_api",
-    );
-    await api.workflow.steerNodeRun({
-      executionId: "workflow_execution_api",
-      input: { parts: [{ image: null, text: { format: "plain", text: "steer" }, type: "text" }] },
-      nodeExecutionId: "workflow_node_execution_api",
-      workspaceId: "workspace_api",
-    });
-    await api.workflow.stopNodeRun({
-      executionId: "workflow_execution_api",
-      nodeExecutionId: "workflow_node_execution_api",
-      workspaceId: "workspace_api",
-    });
-    await api.workflow.submitApproval({
-      answers: [],
-      approvalId: "approval_api",
-      approved: true,
-      cancelled: false,
-      executionId: "workflow_execution_api",
-      nodeExecutionId: "workflow_node_execution_api",
-      response: "",
-      workspaceId: "workspace_api",
-    });
-
-    const event = workflowEvent();
-    const listener = vi.fn();
-    const unsubscribe = api.workflow.onEvent(listener);
-    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.workflowEvent)?.[1];
-    if (typeof handler !== "function") {
-      throw new Error("workflow event handler was not registered");
-    }
-    handler({}, event);
-    unsubscribe();
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.workflowListDefinitions, "workspace_api"],
-      [ipcChannels.workflowCreateDefinition, "workspace_api", "Review", "phase 4", graph],
-      [ipcChannels.workflowReadDefinition, "workspace_api", "workflow_definition_api"],
-      [
-        ipcChannels.workflowUpdateDefinition,
-        "workspace_api",
-        "workflow_definition_api",
-        "Review updated",
-        "phase 4 updated",
-        graph,
-      ],
-      [ipcChannels.workflowDeleteDefinition, "workspace_api", "workflow_definition_api"],
-      [ipcChannels.workflowValidateDefinition, "workspace_api", graph],
-      [ipcChannels.workflowListExecutions, "workspace_api", "workflow_definition_api", 20],
-      [ipcChannels.workflowStartExecution, "workspace_api", "workflow_definition_api", ""],
-      [
-        ipcChannels.workflowStartExecution,
-        "workspace_api",
-        "workflow_definition_api",
-        "workflow_version_api",
-      ],
-      [ipcChannels.workflowCancelExecution, "workspace_api", "workflow_execution_api"],
-      [ipcChannels.workflowReadExecution, "workspace_api", "workflow_execution_api"],
-      [ipcChannels.workflowReadNodeTrajectory, trajectoryRequest],
-      [
-        ipcChannels.workflowRetryNodeRunLiveness,
-        {
-          executionId: "workflow_execution_api",
-          nodeExecutionId: "workflow_node_execution_api",
-          workspaceId: "workspace_api",
-        },
-      ],
-      [ipcChannels.workflowExecutionEvents, "workspace_api", "workflow_execution_api", 10, 20],
-      [ipcChannels.workflowGraphProjection, "workspace_api", "", "", ""],
-      [
-        ipcChannels.workflowGraphProjection,
-        "workspace_api",
-        "workflow_definition_api",
-        "workflow_version_api",
-        "workflow_execution_api",
-      ],
-      [
-        ipcChannels.workflowSteerNodeRun,
-        {
-          executionId: "workflow_execution_api",
-          input: {
-            parts: [{ image: null, text: { format: "plain", text: "steer" }, type: "text" }],
-          },
-          nodeExecutionId: "workflow_node_execution_api",
-          workspaceId: "workspace_api",
-        },
-      ],
-      [
-        ipcChannels.workflowStopNodeRun,
-        {
-          executionId: "workflow_execution_api",
-          nodeExecutionId: "workflow_node_execution_api",
-          workspaceId: "workspace_api",
-        },
-      ],
-      [
-        ipcChannels.workflowSubmitApproval,
-        {
-          answers: [],
-          approvalId: "approval_api",
-          approved: true,
-          cancelled: false,
-          executionId: "workflow_execution_api",
-          nodeExecutionId: "workflow_node_execution_api",
-          response: "",
-          workspaceId: "workspace_api",
-        },
-      ],
-    ]);
-    expect(on).toHaveBeenCalledWith(ipcEvents.workflowEvent, expect.any(Function));
-    expect(listener).toHaveBeenCalledWith(event);
-    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workflowEvent, handler);
+    expect(accountListener).toHaveBeenCalledWith(accountEvent);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.codexAccountChange, accountHandler);
   });
 });
+
+function eventHandler(on: ReturnType<typeof vi.fn>, channel: string) {
+  const handler = on.mock.calls.find((call) => call[0] === channel)?.[1];
+  if (typeof handler !== "function") {
+    throw new Error(`event handler was not registered for ${channel}`);
+  }
+  return handler;
+}
+
+function browserKeyEvent() {
+  return {
+    altKey: false,
+    ctrlKey: true,
+    key: "k",
+    metaKey: false,
+    shiftKey: false,
+    surfaceId: "surface_browser",
+    workspaceId: "workspace_api",
+  };
+}
+
+function browserSnapshot() {
+  return {
+    capturedAt: 99,
+    height: 120,
+    imageDataUrl: "data:image/png;base64,AAAA",
+    paneId: "pane_browser",
+    surfaceId: "surface_browser",
+    title: "Browser",
+    width: 240,
+    workspaceId: "workspace_api",
+  };
+}
 
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {
   expect(invoke).toHaveBeenCalledTimes(calls.length);

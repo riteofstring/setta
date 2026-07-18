@@ -1,10 +1,12 @@
-import type { WorkspaceSession } from "@generated/backend";
+import type { WorkspaceAvailability, WorkspaceSession } from "@generated/backend";
 import { create } from "zustand";
 
 export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
 export type WorkspaceOperationKind =
   | "closing"
   | "opening"
+  | "relocating"
+  | "refreshing"
   | "removingRecent"
   | "reordering"
   | "selecting";
@@ -17,6 +19,8 @@ interface WorkspaceStore {
   closeWorkspace: (id: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
   openWorkspacePath: (rootPath: string) => Promise<void>;
+  relocateWorkspace: (id: string) => Promise<void>;
+  refreshWorkspaceAvailability: (id: string) => Promise<void>;
   operation: WorkspaceOperation;
   removeRecent: (id: string) => Promise<void>;
   reorderWorkspaces: (ids: string[]) => Promise<void>;
@@ -101,6 +105,21 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => {
         () => window.setta.workspace.openPath(rootPath),
         (response) => ({ operation: null, session: response.session, status: "ready" }),
       ),
+    relocateWorkspace: (id: string) =>
+      runWorkspaceOperation(
+        "relocating",
+        () => window.setta.workspace.relocateLocalFolder(id),
+        (response) =>
+          response === null
+            ? { operation: null }
+            : { operation: null, session: response.session, status: "ready" },
+      ),
+    refreshWorkspaceAvailability: (id: string) =>
+      runWorkspaceOperation(
+        "refreshing",
+        () => window.setta.workspace.refreshAvailability(id),
+        sessionReadyPatch,
+      ),
     operation: null,
     removeRecent: (id: string) =>
       runWorkspaceOperation(
@@ -129,6 +148,20 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => {
     status: "idle",
   };
 });
+
+export function workspaceAvailability(
+  session: WorkspaceSession | null,
+  workspaceId: string | null | undefined,
+): WorkspaceAvailability | null {
+  if (!session || !workspaceId) {
+    return null;
+  }
+  return (
+    session.workspaceAvailabilities.find(
+      (availability) => availability.workspaceId === workspaceId,
+    ) ?? null
+  );
+}
 
 function sessionReadyPatch(session: WorkspaceSession): WorkspaceStatePatch {
   return { operation: null, session, status: "ready" };

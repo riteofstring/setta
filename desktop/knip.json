@@ -2,7 +2,6 @@
   "entry": [
     "electron.vite.config.ts",
     "eslint.config.mjs",
-    "scripts/generate-workflow-graph-font.mjs",
     "src/main/index.ts",
     "src/preload/index.ts",
     "src/renderer/public/sw.js",
