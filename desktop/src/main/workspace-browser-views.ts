@@ -1,6 +1,8 @@
 import { BrowserWindow, View, WebContentsView } from "electron";
 import type { IpcMainEvent, Rectangle } from "electron";
 
+import { decodeAppearanceMasterVoiceShortcut } from "@generated/backend";
+import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import { ipcEvents } from "@shared/ipc";
 import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
@@ -85,6 +87,12 @@ interface BeforeInput {
 type BeforeInputListener = (event: BeforeInputEvent, input: BeforeInput) => void;
 type LoadFinishedListener = () => void;
 
+interface MasterVoiceModifierPattern {
+  alt: boolean;
+  control: boolean;
+  meta: boolean;
+}
+
 interface BrowserViewRecord {
   bounds: Rectangle;
   clipView: NativeView;
@@ -95,6 +103,7 @@ interface BrowserViewRecord {
   listener: BeforeInputListener;
   loadFinishedListener: LoadFinishedListener;
   loadingURL: string | null;
+  masterVoiceShortcut: AppearanceMasterVoiceShortcut;
   parent: NativeViewParent;
   paneId: string;
   pendingSnapshotKey: string | null;
@@ -127,6 +136,7 @@ export class WebContentsViewRegistry {
     this.stats.totalBrowserPanes = batch.totalBrowserPanes;
     this.stats.visibleBrowserPanes = batch.visibleBrowserPanes;
     this.stats.workspaceId = batch.workspaceId;
+    this.syncWorkspaceMasterVoiceShortcut(batch.workspaceId, batch.masterVoiceShortcut);
 
     for (const update of batch.updates) {
       if (update.runtimeState === "destroyed") {
@@ -137,7 +147,7 @@ export class WebContentsViewRegistry {
         this.hideRecord(update.surfaceId);
         continue;
       }
-      this.upsertLiveRecord(ownerWindow, batch.workspaceId, update);
+      this.upsertLiveRecord(ownerWindow, batch.workspaceId, batch.masterVoiceShortcut, update);
     }
 
     this.routeFocus(ownerWindow, batch.focusedSurfaceId);
@@ -181,19 +191,29 @@ export class WebContentsViewRegistry {
   private createRecord(
     ownerWindow: OwnerWindow,
     workspaceId: string,
+    masterVoiceShortcut: AppearanceMasterVoiceShortcut,
     update: WorkspaceBrowserViewUpdate,
   ): BrowserViewRecord {
     const clipView = this.dependencies.createClipView();
     const view = this.dependencies.createView();
+    const recordHolder: { record: BrowserViewRecord | null } = { record: null };
     const listener: BeforeInputListener = (event, input) => {
-      const keyEvent = workspaceBrowserViewKeyEventFromInput(input, update.surfaceId, workspaceId);
+      const activeRecord = recordHolder.record;
+      if (!activeRecord) {
+        throw new Error("workspace browser view input arrived before record registration");
+      }
+      const keyEvent = workspaceBrowserViewKeyEventFromInput(
+        input,
+        activeRecord.surfaceId,
+        activeRecord.workspaceId,
+        activeRecord.masterVoiceShortcut,
+      );
       if (!keyEvent) {
         return;
       }
       event.preventDefault();
       ownerWindow.webContents.send(ipcEvents.workspaceBrowserViewKey, keyEvent);
     };
-    const recordHolder: { record: BrowserViewRecord | null } = { record: null };
     const loadFinishedListener: LoadFinishedListener = () => {
       const loadedRecord = recordHolder.record;
       if (!loadedRecord) {
@@ -213,6 +233,7 @@ export class WebContentsViewRegistry {
       listener,
       loadFinishedListener,
       loadingURL: null,
+      masterVoiceShortcut,
       parent: ownerWindow.contentView,
       paneId: update.paneId,
       pendingSnapshotKey: null,
@@ -341,13 +362,26 @@ export class WebContentsViewRegistry {
     }
   }
 
+  private syncWorkspaceMasterVoiceShortcut(
+    workspaceId: string,
+    shortcut: AppearanceMasterVoiceShortcut,
+  ): void {
+    for (const record of this.records.values()) {
+      if (record.workspaceId === workspaceId) {
+        record.masterVoiceShortcut = shortcut;
+      }
+    }
+  }
+
   private upsertLiveRecord(
     ownerWindow: OwnerWindow,
     workspaceId: string,
+    masterVoiceShortcut: AppearanceMasterVoiceShortcut,
     update: WorkspaceBrowserViewUpdate,
   ): void {
     const existing = this.records.get(update.surfaceId);
-    const record = existing ?? this.createRecord(ownerWindow, workspaceId, update);
+    const record =
+      existing ?? this.createRecord(ownerWindow, workspaceId, masterVoiceShortcut, update);
     if (!existing) {
       this.records.set(update.surfaceId, record);
     }
@@ -358,6 +392,7 @@ export class WebContentsViewRegistry {
     record.paneId = update.paneId;
     record.title = update.title;
     record.workspaceId = workspaceId;
+    record.masterVoiceShortcut = masterVoiceShortcut;
     record.visible = true;
     record.clipView.setVisible(true);
     record.view.setVisible(true);
@@ -645,6 +680,10 @@ function decodeBatch(value: unknown): WorkspaceBrowserViewBatch {
   }
   return {
     focusedSurfaceId: nullableStringField(record, "focusedSurfaceId", "WorkspaceBrowserViewBatch"),
+    masterVoiceShortcut: decodeAppearanceMasterVoiceShortcut(
+      record.masterVoiceShortcut,
+      "WorkspaceBrowserViewBatch.masterVoiceShortcut",
+    ),
     totalBrowserPanes: finiteNumberField(record, "totalBrowserPanes", "WorkspaceBrowserViewBatch"),
     updates: updatesValue.map(decodeUpdate),
     visibleBrowserPanes: finiteNumberField(
@@ -726,7 +765,6 @@ function isArrowKey(key: string): key is WorkspaceBrowserViewKey {
 }
 
 const browserViewCommandKeys = new Set<string>(workspaceBrowserViewKeyValues);
-const forwardedMasterKeyModifierSignatures = new Set(["--M-", "-C--", "--MS", "-C-S", "A--S"]);
 
 function isBrowserViewCommandKey(key: string): key is WorkspaceBrowserViewKey {
   return browserViewCommandKeys.has(key);
@@ -736,6 +774,7 @@ function workspaceBrowserViewKeyEventFromInput(
   input: BeforeInput,
   surfaceId: string,
   workspaceId: string,
+  masterVoiceShortcut: AppearanceMasterVoiceShortcut,
 ): WorkspaceBrowserViewKeyEvent | null {
   if (input.type !== "keyDown") {
     return null;
@@ -743,7 +782,7 @@ function workspaceBrowserViewKeyEventFromInput(
   const key = normalizeBrowserViewInputKey(input.key);
   const ctrlKey = input.control ?? false;
   const workspaceModifier = input.alt && (input.meta || ctrlKey);
-  if (!shouldForwardWorkspaceBrowserViewKey(input, key, workspaceModifier)) {
+  if (!shouldForwardWorkspaceBrowserViewKey(input, key, workspaceModifier, masterVoiceShortcut)) {
     return null;
   }
   return {
@@ -761,6 +800,7 @@ function shouldForwardWorkspaceBrowserViewKey(
   input: BeforeInput,
   key: string,
   workspaceModifier: boolean,
+  masterVoiceShortcut: AppearanceMasterVoiceShortcut,
 ): key is WorkspaceBrowserViewKey {
   if (isArrowKey(key)) {
     return workspaceModifier;
@@ -769,22 +809,59 @@ function shouldForwardWorkspaceBrowserViewKey(
     return true;
   }
   if (key === "k") {
-    return shouldForwardMasterKeyShortcut(input);
+    return shouldForwardMasterKeyShortcut(input, masterVoiceShortcut);
   }
   return input.meta && isBrowserViewCommandKey(key);
 }
 
-function shouldForwardMasterKeyShortcut(input: BeforeInput): boolean {
-  return forwardedMasterKeyModifierSignatures.has(masterKeyModifierSignature(input));
+function shouldForwardMasterKeyShortcut(
+  input: BeforeInput,
+  masterVoiceShortcut: AppearanceMasterVoiceShortcut,
+): boolean {
+  return (
+    isMasterOverlayShortcutInput(input) ||
+    isConfiguredMasterVoiceShortcutInput(input, masterVoiceShortcut)
+  );
 }
 
-function masterKeyModifierSignature(input: BeforeInput): string {
-  return [
-    input.alt ? "A" : "-",
-    input.control ? "C" : "-",
-    input.meta ? "M" : "-",
-    input.shift ? "S" : "-",
-  ].join("");
+function isMasterOverlayShortcutInput(input: BeforeInput): boolean {
+  return !input.alt && !input.shift && (input.meta || Boolean(input.control));
+}
+
+function isConfiguredMasterVoiceShortcutInput(
+  input: BeforeInput,
+  shortcut: AppearanceMasterVoiceShortcut,
+): boolean {
+  const pattern = masterVoiceModifierPattern(shortcut);
+  return input.shift && masterVoiceModifierMatches(input, pattern);
+}
+
+function masterVoiceModifierPattern(
+  shortcut: AppearanceMasterVoiceShortcut,
+): MasterVoiceModifierPattern {
+  switch (shortcut) {
+    case "mod_shift_k":
+      return process.platform === "darwin"
+        ? { alt: false, control: false, meta: true }
+        : { alt: false, control: true, meta: false };
+    case "ctrl_shift_k":
+      return { alt: false, control: true, meta: false };
+    case "alt_shift_k":
+      return { alt: true, control: false, meta: false };
+    default:
+      return assertNever(shortcut);
+  }
+}
+
+function masterVoiceModifierMatches(
+  input: BeforeInput,
+  pattern: MasterVoiceModifierPattern,
+): boolean {
+  return (
+    input.alt === pattern.alt &&
+    Boolean(input.control) === pattern.control &&
+    input.meta === pattern.meta
+  );
 }
 
 function normalizeBrowserViewInputKey(key: string): string {
@@ -811,6 +888,10 @@ function objectRecord(value: unknown, label: string): Record<string, unknown> {
     throw new Error(label + " must be an object");
   }
   return value as Record<string, unknown>;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported workspace browser view value: ${JSON.stringify(value)}`);
 }
 
 function rectangleFromUpdate(update: WorkspaceBrowserViewUpdate): Rectangle {

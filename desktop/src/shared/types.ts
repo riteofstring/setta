@@ -3,6 +3,7 @@ import type {
   AcceptedMasterInput,
   ActiveShellInteraction,
   ArchiveTopicConversationRequest,
+  AppearanceMasterVoiceShortcut,
   AppearancePresetList,
   AppearanceSettings,
   BackendHealth,
@@ -143,6 +144,7 @@ export interface WorkspaceBrowserViewUpdate {
 
 export interface WorkspaceBrowserViewBatch {
   focusedSurfaceId: string | null;
+  masterVoiceShortcut: AppearanceMasterVoiceShortcut;
   totalBrowserPanes: number;
   updates: WorkspaceBrowserViewUpdate[];
   visibleBrowserPanes: number;

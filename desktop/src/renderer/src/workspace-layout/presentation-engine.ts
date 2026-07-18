@@ -1,3 +1,4 @@
+import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import type { WorkspaceMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
 import {
@@ -140,6 +141,10 @@ export class PresentationEngine {
       this.debugOverlay.textContent = "";
     }
     this.debugOverlay = debugOverlay;
+  }
+
+  setMasterVoiceShortcut(shortcut: AppearanceMasterVoiceShortcut): void {
+    this.nativeViewBoundsBatcher?.setMasterVoiceShortcut(shortcut);
   }
 
   setDropPreviewOverlay(dropPreviewOverlay: HTMLElement | null): void {

@@ -1,6 +1,6 @@
 import type { UpdateAppearanceSettingsRequest } from "@generated/backend";
 import { ipcChannels, ipcEvents, ipcMessages } from "@shared/ipc";
-import type { SettaAPI } from "@shared/types";
+import type { SettaAPI, WorkspaceBrowserViewBatch } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { codexAccountChangeEvent } from "./index.test.fixtures";
@@ -127,8 +127,9 @@ describe("preload workspace API", () => {
     if (!nativeViews) {
       throw new Error("workspace native view API was not exposed");
     }
-    const batch = {
+    const batch: WorkspaceBrowserViewBatch = {
       focusedSurfaceId: "surface_browser",
+      masterVoiceShortcut: "mod_shift_k",
       totalBrowserPanes: 24,
       updates: [],
       visibleBrowserPanes: 6,

@@ -54,6 +54,7 @@ import {
   handleWorkspacePaneFocusPointerDown,
   handleWorkspaceWheel,
 } from "./workspace-interactions";
+import { defaultShortcutsSettings } from "./workspace-shortcuts";
 import {
   applyPaneDrop,
   beginPaneDragSession,
@@ -243,6 +244,7 @@ function WorkspaceLayoutRuntimeArea({
   );
   const [nativeViewOverlayActive, setNativeViewOverlayActive] = useState(false);
   const nativeViewsOccluded = nativeViewOverlayActive || shellOverlayActive;
+  const masterVoiceShortcut = shortcuts?.masterVoice ?? defaultShortcutsSettings.masterVoice;
 
   const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
     if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
@@ -292,6 +294,10 @@ function WorkspaceLayoutRuntimeArea({
   useEffect(() => {
     schedulerRef.current?.requestFrame();
   }, [nativeViewsOccluded]);
+  useEffect(() => {
+    runtime.presentation.setMasterVoiceShortcut(masterVoiceShortcut);
+    schedulerRef.current?.requestFrame();
+  }, [masterVoiceShortcut, runtime]);
   usePresentationHostPool({ hostPoolSize, hostRefs, rootRef, runtime, schedulerRef, stageRef });
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
