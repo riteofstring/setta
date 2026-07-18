@@ -10,8 +10,9 @@ macOS probe with exact policy, encryption-availability, and
 ciphertext-excludes-plaintext assertions and re-ran the deterministic vault
 backend-policy test successfully. It confirmed Docker CLI and Homebrew are
 installed, Node and pnpm remain available, Docker still cannot reach the daemon,
-Docker Desktop status is not retrievable from the CLI, Docker Desktop is stopped
-on a privileged setup prompt, no usable local Windows/Linux runner is available,
+Docker Desktop status is not retrievable from the CLI, Docker Desktop processes
+are waiting on a privileged setup prompt, no usable local Windows/Linux runner is
+available,
 no `GITHUB_TOKEN`, `GH_TOKEN`, SSH-agent identity, usable macOS HTTPS GitHub
 credential, authenticated SSH remote, public unauthenticated GitHub Actions
 result path, or connected GitHub plugin is available from this session, and the
