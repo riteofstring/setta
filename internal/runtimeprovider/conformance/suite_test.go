@@ -14,7 +14,12 @@ func TestInMemoryProviderPassesConformanceSuite(t *testing.T) {
 	clock := func() time.Time {
 		return now
 	}
-	provider := runtimetest.NewProvider(runtimetest.Options{Now: clock})
+	provider := &emptySliceServiceProvider{
+		Provider: runtimetest.NewProvider(runtimetest.Options{
+			Now:                                  clock,
+			RestoreRejectionsAfterServiceRestart: 1,
+		}),
+	}
 	leaseManager := runtimetest.NewLeaseManager(clock)
 	identity, err := runtimeprovider.NewManagedIdentity("provider-conformance:memory")
 	if err != nil {
@@ -55,6 +60,8 @@ func TestInMemoryProviderPassesConformanceSuite(t *testing.T) {
 			WarmIdleDelay:            time.Second,
 			RestartTimeout:           time.Second,
 			RestartPollInterval:      10 * time.Millisecond,
+			CheckpointTimeout:        time.Second,
+			CheckpointPollInterval:   10 * time.Millisecond,
 			LeaseTTL:                 20 * time.Second,
 			LeaseExpiryTTL:           5 * time.Second,
 			LeaseRenewWait:           8 * time.Second,
@@ -66,9 +73,6 @@ func TestInMemoryProviderPassesConformanceSuite(t *testing.T) {
 			WaitWithoutProviderClient: func(_ context.Context, duration time.Duration) error {
 				now = now.Add(duration)
 				return nil
-			},
-			TriggerProcessRestart: func(_ context.Context, runtimeName string, spec runtimeprovider.ServiceSpec, _ Paths) error {
-				return provider.RestartService(runtimeName, spec.Name)
 			},
 			StartDetachedWork: func(_ context.Context, _ string, markerPath string) error {
 				provider.SetFile(markerPath, []byte("agent-finished"))
@@ -86,6 +90,41 @@ func TestInMemoryProviderPassesConformanceSuite(t *testing.T) {
 			t.Fatalf("conformance result %s = %s reason=%q err=%v\n%s", result.Name, result.Status, result.Reason, result.Err, FormatResults(results))
 		}
 	}
+	if provider.RestoreCheckpointCalls() != 2 {
+		t.Fatalf("restore calls = %d, want churn rejection plus retry", provider.RestoreCheckpointCalls())
+	}
+}
+
+type emptySliceServiceProvider struct {
+	*runtimetest.Provider
+}
+
+func (provider *emptySliceServiceProvider) EnsureService(
+	ctx context.Context,
+	runtimeName string,
+	spec runtimeprovider.ServiceSpec,
+) (runtimeprovider.ServiceObservation, error) {
+	observation, err := provider.Provider.EnsureService(ctx, runtimeName, spec)
+	return withNonNilEmptyServiceSlices(observation), err
+}
+
+func (provider *emptySliceServiceProvider) InspectService(
+	ctx context.Context,
+	runtimeName string,
+	serviceName string,
+) (runtimeprovider.ServiceObservation, bool, error) {
+	observation, found, err := provider.Provider.InspectService(ctx, runtimeName, serviceName)
+	return withNonNilEmptyServiceSlices(observation), found, err
+}
+
+func withNonNilEmptyServiceSlices(observation runtimeprovider.ServiceObservation) runtimeprovider.ServiceObservation {
+	if len(observation.Spec.Arguments) == 0 {
+		observation.Spec.Arguments = []string{}
+	}
+	if len(observation.Spec.Needs) == 0 {
+		observation.Spec.Needs = []string{}
+	}
+	return observation
 }
 
 func TestSuiteSkipReturnsTypedResult(t *testing.T) {

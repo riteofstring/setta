@@ -423,6 +423,15 @@ type checkpointStream interface {
 	Close() error
 }
 
+type mutationStreamError struct {
+	operation string
+	detail    string
+}
+
+func (err *mutationStreamError) Error() string {
+	return fmt.Sprintf("%s stream error: %s", err.operation, err.detail)
+}
+
 func consumeCheckpointStream(stream checkpointStream) error {
 	return consumeMutationStream(stream, "checkpoint")
 }
@@ -447,7 +456,7 @@ func consumeMutationStream(stream checkpointStream, operation string) error {
 		case "complete":
 			completed = true
 		case "error":
-			return ErrIncompleteProviderStream
+			return &mutationStreamError{operation: operation, detail: streamMessageDetail(message)}
 		default:
 			return fmt.Errorf("%w: %s stream event %q", ErrUnexpectedProviderValue, operation, message.Type)
 		}
@@ -456,6 +465,18 @@ func consumeMutationStream(stream checkpointStream, operation string) error {
 		return ErrIncompleteProviderStream
 	}
 	return nil
+}
+
+func streamMessageDetail(message *spritessdk.StreamMessage) string {
+	detail := strings.TrimSpace(message.Error)
+	if detail != "" {
+		return detail
+	}
+	detail = strings.TrimSpace(message.Data)
+	if detail != "" {
+		return detail
+	}
+	return "provider returned an error event without detail"
 }
 
 func singleNewCheckpoint(

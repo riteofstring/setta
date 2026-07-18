@@ -21,7 +21,6 @@ const (
 	liveWarmIdleDelay      = 120 * time.Second
 	liveRestartTimeout     = 60 * time.Second
 	liveTestTimeout        = 20 * time.Minute
-	maximumPressureCount   = 20
 	maximumWarmHeartbeats  = 900
 	remoteProbeRoot        = "/home/sprite/.setta/phase1b"
 	remoteLeaseProbe       = remoteProbeRoot + "/setta-sprite-lease-probe"
@@ -31,7 +30,6 @@ const (
 	remoteServiceHeartbeat = remoteProbeRoot + "/service-heartbeat"
 	remoteAgentMarker      = remoteProbeRoot + "/agent-finished"
 	liveServiceName        = "setta-phase1b-service"
-	livePressureService    = "setta-phase1b-pressure"
 	liveLeaseName          = "setta-phase1b-agent"
 )
 
@@ -39,7 +37,6 @@ func TestLiveLifecycle(t *testing.T) {
 	environment := requireLiveLifecycleEnvironment(t)
 	identity := requireLiveManagedIdentity(t, environment.runID)
 	adapter := requireLiveAdapter(t, environment.token)
-	initialCapacity := requireInitialLiveCapacity(t, adapter)
 	registerLiveRuntimeCleanup(t, adapter, identity.Name)
 
 	ctx, cancel := context.WithTimeout(context.Background(), liveTestTimeout)
@@ -49,8 +46,6 @@ func TestLiveLifecycle(t *testing.T) {
 		t:                t,
 		adapter:          adapter,
 		leaseProbeBinary: environment.leaseProbeBinary,
-		runID:            environment.runID,
-		warmLimit:        initialCapacity.WarmLimit,
 	}
 	results := harness.suite(identity).Run(ctx)
 	requireLiveConformanceResults(t, results)
@@ -101,25 +96,6 @@ func requireLiveAdapter(t *testing.T, token string) *Adapter {
 	return adapter
 }
 
-func requireInitialLiveCapacity(t *testing.T, adapter *Adapter) organizationCapacity {
-	t.Helper()
-	initialCapacity, err := adapter.organizationCapacity(context.Background())
-	if err != nil {
-		t.Fatalf("inspect initial organization capacity: %v", err)
-	}
-	if initialCapacity.Running != 0 || initialCapacity.Warm != 0 {
-		t.Fatalf(
-			"refusing to disturb an organization with active Sprites: %#v",
-			initialCapacity,
-		)
-	}
-	if initialCapacity.WarmLimit < 1 || initialCapacity.WarmLimit > maximumPressureCount {
-		t.Fatalf("unsupported organization warm limit: %#v", initialCapacity)
-	}
-	t.Logf("initial organization capacity=%#v", initialCapacity)
-	return initialCapacity
-}
-
 func registerLiveRuntimeCleanup(t *testing.T, adapter *Adapter, runtimeName string) {
 	t.Helper()
 	t.Cleanup(func() {
@@ -135,8 +111,6 @@ type liveLifecycleHarness struct {
 	t                *testing.T
 	adapter          *Adapter
 	leaseProbeBinary string
-	runID            string
-	warmLimit        int
 }
 
 func (harness liveLifecycleHarness) suite(identity runtimeprovider.ManagedIdentity) conformance.Suite {
@@ -182,7 +156,6 @@ func (harness liveLifecycleHarness) suite(identity runtimeprovider.ManagedIdenti
 			AfterCreate:               harness.afterCreate,
 			PrepareRuntime:            harness.prepareRuntime,
 			WaitWithoutProviderClient: harness.waitWithoutProviderClient,
-			TriggerProcessRestart:     harness.triggerProcessRestart,
 			StartDetachedWork:         harness.startDetachedWork,
 		},
 	}
@@ -240,17 +213,6 @@ func (harness liveLifecycleHarness) prepareRuntime(ctx context.Context, runtimeN
 
 func (harness liveLifecycleHarness) waitWithoutProviderClient(ctx context.Context, duration time.Duration) error {
 	waitWithoutProviderClient(harness.t, ctx, duration)
-	return nil
-}
-
-func (harness liveLifecycleHarness) triggerProcessRestart(ctx context.Context, _ string, _ runtimeprovider.ServiceSpec, _ conformance.Paths) error {
-	fillWarmCapacity(harness.t, ctx, harness.adapter, harness.runID, harness.warmLimit)
-	waitWithoutProviderClient(harness.t, ctx, liveWarmIdleDelay)
-	pressureCapacity, err := harness.adapter.organizationCapacity(ctx)
-	if err != nil {
-		return fmt.Errorf("inspect pressure capacity: %w", err)
-	}
-	harness.t.Logf("organization capacity after warm pressure=%#v", pressureCapacity)
 	return nil
 }
 
@@ -448,44 +410,6 @@ func waitWithoutProviderClient(t *testing.T, ctx context.Context, duration time.
 	case <-ctx.Done():
 		t.Fatalf("wait without provider client: %v", context.Cause(ctx))
 	case <-timer.C:
-	}
-}
-
-func fillWarmCapacity(
-	t *testing.T,
-	ctx context.Context,
-	adapter *Adapter,
-	runID string,
-	count int,
-) {
-	t.Helper()
-	for index := range count {
-		identity, err := runtimeprovider.NewManagedIdentity(
-			fmt.Sprintf("phase1b-cold-pressure:%s:%d", runID, index),
-		)
-		if err != nil {
-			t.Fatalf("derive pressure identity %d: %v", index, err)
-		}
-		createLiveRuntime(t, ctx, adapter, identity, fmt.Sprintf("pressure %d", index))
-		name := identity.Name
-		t.Cleanup(func() {
-			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), liveStepTimeout)
-			defer cleanupCancel()
-			if cleanupErr := adapter.Destroy(cleanupCtx, name); cleanupErr != nil {
-				t.Errorf("cleanup pressure Sprite %s: %v", name, cleanupErr)
-			}
-		})
-		service, err := adapter.EnsureService(ctx, name, runtimeprovider.ServiceSpec{
-			Name:      livePressureService,
-			Path:      "/bin/sleep",
-			Arguments: []string{"3600"},
-		})
-		if err != nil {
-			t.Fatalf("start pressure Sprite %d Service: %v", index, err)
-		}
-		if service.State != runtimeprovider.ServiceStateRunning {
-			t.Fatalf("pressure Sprite %d Service = %#v", index, service)
-		}
 	}
 }
 

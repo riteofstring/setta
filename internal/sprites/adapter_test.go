@@ -294,7 +294,6 @@ func TestProviderStreamsRequireExplicitCompletion(t *testing.T) {
 		want   error
 	}{
 		"complete":  {events: []*spritessdk.StreamMessage{{Type: "info"}, {Type: "complete"}}},
-		"error":     {events: []*spritessdk.StreamMessage{{Type: "error"}}, want: ErrIncompleteProviderStream},
 		"early EOF": {events: []*spritessdk.StreamMessage{{Type: "info"}}, want: ErrIncompleteProviderStream},
 		"unknown":   {events: []*spritessdk.StreamMessage{{Type: "progress"}}, want: ErrUnexpectedProviderValue},
 	}
@@ -309,6 +308,24 @@ func TestProviderStreamsRequireExplicitCompletion(t *testing.T) {
 				t.Fatal("stream was not closed")
 			}
 		})
+	}
+}
+
+func TestProviderStreamErrorPreservesResponseDetail(t *testing.T) {
+	stream := &fakeCheckpointStream{events: []*spritessdk.StreamMessage{{
+		Type:  "error",
+		Error: "service supervisor is still restarting",
+	}}}
+	err := consumeRestoreStream(stream)
+	var streamErr *mutationStreamError
+	if !errors.As(err, &streamErr) {
+		t.Fatalf("consumeRestoreStream error = %T %v", err, err)
+	}
+	if streamErr.operation != "restore" || streamErr.detail != "service supervisor is still restarting" {
+		t.Fatalf("stream error = %#v", streamErr)
+	}
+	if !stream.closed {
+		t.Fatal("stream was not closed")
 	}
 }
 
@@ -347,22 +364,39 @@ func TestSingleNewCheckpointRejectsAmbiguousResults(t *testing.T) {
 	}
 }
 
-func TestOperationErrorPreservesTypedProviderMetadataWithoutBody(t *testing.T) {
+func TestOperationErrorPreservesTypedProviderMetadataAndDetail(t *testing.T) {
 	providerErr := &spritessdk.APIError{
 		StatusCode:        429,
 		RetryAfterSeconds: 12,
-		Message:           "provider body must not be rendered",
+		ErrorCode:         "temporarily_unavailable",
+		Message:           "service supervisor is still restarting",
 	}
 	err := operationError("create", providerErr)
 	var operationErr *OperationError
 	if !errors.As(err, &operationErr) {
 		t.Fatalf("error = %T %v", err, err)
 	}
-	if operationErr.StatusCode != 429 || operationErr.RetryAfter != 12 {
+	if operationErr.StatusCode != 429 || operationErr.RetryAfter != 12 ||
+		operationErr.Detail != "temporarily_unavailable: service supervisor is still restarting" {
 		t.Fatalf("metadata = %#v", operationErr)
 	}
-	if operationErr.Error() != "Sprites create failed with HTTP status 429" {
+	if operationErr.Error() != "Sprites create failed with HTTP status 429: temporarily_unavailable: service supervisor is still restarting" {
 		t.Fatalf("Error = %q", operationErr.Error())
+	}
+	if !errors.Is(err, providerErr) {
+		t.Fatal("provider error is not preserved")
+	}
+}
+
+func TestOperationErrorDecodesPinnedSDKHTTPResponse(t *testing.T) {
+	providerErr := errors.New(`API returned status 409: {"error":"runtime is restarting"}`)
+	err := operationError("restore checkpoint", providerErr)
+	var operationErr *OperationError
+	if !errors.As(err, &operationErr) {
+		t.Fatalf("error = %T %v", err, err)
+	}
+	if operationErr.StatusCode != 409 || operationErr.Detail != `{"error":"runtime is restarting"}` {
+		t.Fatalf("metadata = %#v", operationErr)
 	}
 	if !errors.Is(err, providerErr) {
 		t.Fatal("provider error is not preserved")
