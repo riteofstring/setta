@@ -62,3 +62,5 @@ The disposable browser harness uses an `AudioWorkletNode` gate between a synthet
 ## Pending Phase 0 Work
 
 The live OpenAI processed-track smoke test remains pending and should be appended here when credentials are deliberately available. The disposable local browser feasibility gate has passed.
+
+Credential check on 2026-07-17: `OPENAI_API_KEY` and `OPENAI_BASE_URL` were absent from the task environment, so the live OpenAI processed-track smoke was not run. This is not provider-integration evidence and does not close Phase 0.4.
