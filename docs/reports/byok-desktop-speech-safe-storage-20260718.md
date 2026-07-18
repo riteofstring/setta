@@ -267,14 +267,80 @@ No Windows or Linux `safeStorage` host result is recorded from this pass. The
 Phase 0 host-confirmation item remains open because the missing confirmations
 require actual Windows and Linux Electron hosts.
 
-## Follow-Up Requirements For Phase 2
+## 2026-07-18 Adapter Policy Actionability Pass
 
-- The production adapter must be constructed only after Electron `ready`.
-- It must call `safeStorage.isEncryptionAvailable()` before encrypting or
+The remaining Phase 0 host-confirmation item was checked again while handling
+the next incomplete plan step.
+
+The pinned macOS probe still passes:
+
+```sh
+desktop/node_modules/.bin/electron desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported --assert-round-trip
+```
+
+Result:
+
+```json
+{
+  "appReadyBeforeProbe": true,
+  "arch": "arm64",
+  "electronVersion": "41.7.0",
+  "passwordStoreSwitch": null,
+  "platform": "darwin",
+  "safeStorage": {
+    "ciphertextByteLength": 51,
+    "ciphertextContainsPlaintext": false,
+    "isEncryptionAvailable": true,
+    "policy": {
+      "reason": "os_backed_platform",
+      "status": "accept"
+    },
+    "roundTrip": true,
+    "selectedStorageBackend": null
+  }
+}
+```
+
+The local machine still cannot produce the remaining Linux or Windows host
+evidence:
+
+- `docker version` and `docker info` still cannot connect to the Docker daemon
+  at `unix:///Users/kevin/.docker/run/docker.sock`.
+- `command -v docker gh colima lima limactl podman qemu-system-x86_64
+  qemu-aarch64 wine act xvfb-run brew` found only `/usr/local/bin/docker` and
+  `/opt/homebrew/bin/brew`.
+- Non-interactive Git SSH authentication to the configured origin failed with
+  `Permission denied (publickey)`.
+- The GitHub connector was suggested as a possible hosted-runner path but was
+  not connected in this session.
+- The reference Codex repository at
+  `/Users/kevin/Documents/AppDevelopment/reference_repos/codex` still does not
+  contain an Electron `safeStorage`, `safe-storage`, `password-store`, or
+  `basic_text` probe pattern to reuse.
+
+No Windows or Linux `safeStorage` host result is recorded from this pass. The
+Phase 0 host-confirmation item remains open because those confirmations require
+actual Windows and Linux Electron hosts.
+
+One deterministic implementation gap related to the open item was found and
+closed: the standalone probe already rejected unrecognized Linux backend names,
+but the production `safeStorage` adapter only rejected `basic_text` and
+`unknown`. The adapter now accepts only `gnome_libsecret`, `kwallet`,
+`kwallet5`, and `kwallet6`, and the vault test covers an unexpected
+`future_secret_service` backend string. Verified with:
+
+```sh
+pnpm vitest run src/main/speech-credential-vault.test.ts
+```
+
+## Phase 2 Adapter Requirements
+
+- The production adapter is constructed only after Electron `ready`.
+- It calls `safeStorage.isEncryptionAvailable()` before encrypting or
   decrypting.
-- On Linux it must also call `safeStorage.getSelectedStorageBackend()` and
+- On Linux it also calls `safeStorage.getSelectedStorageBackend()` and
   reject `basic_text`, `unknown`, and any unrecognized value.
-- It must never call `safeStorage.setUsePlainTextEncryption(true)`.
-- Tests should inject the protection interface so `basic_text`, `unknown`,
+- It never calls `safeStorage.setUsePlainTextEncryption(true)`.
+- Tests inject the protection interface so `basic_text`, `unknown`,
   unavailable encryption, encrypt failure, and decrypt failure are deterministic
   without relying on the developer's host platform.
