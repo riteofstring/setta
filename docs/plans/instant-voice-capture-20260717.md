@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Complete — ready for final audit.
+**Status:** Complete — final audit passed.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -28,7 +28,7 @@ This is a replacement, not a compatibility project.
 
 ## Final audit status
 
-The final stale shell status selector keyed to the removed capture-state variant has been removed. Production shell status styling now recognizes the replacement `recording` capture state.
+The final stale shell status selector keyed to the removed capture-state variant has been removed from source and regenerated checked-in web assets. Production shell status styling now recognizes the replacement `recording` capture state.
 
 ## Live OpenAI credential contract
 
