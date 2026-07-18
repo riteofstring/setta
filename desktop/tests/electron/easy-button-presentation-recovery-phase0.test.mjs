@@ -48,6 +48,43 @@ const suppliedDataset = [
 ];
 const requestText =
   "Using the supplied language-counts dataset, produce a concise artifact baseline.";
+const artifactPolicyMatrix = [
+  {
+    expectedKinds: ["table", "bar_chart"],
+    name: "table_plus_bar_chart",
+    renderTokens: ["Language line counts", "Language line count chart", "Go"],
+    text: "Using the supplied language-counts dataset, produce both a table and bar chart.",
+    title: "Artifact policy table and bar",
+  },
+  {
+    expectedKinds: ["markdown"],
+    name: "qualitative_markdown",
+    renderTokens: ["Release themes", "Reliability work"],
+    text: "Using the supplied qualitative release notes, produce a durable qualitative summary.",
+    title: "Artifact policy qualitative",
+  },
+  {
+    expectedKinds: ["bar_chart"],
+    name: "numeric_bar_chart",
+    renderTokens: ["Regional case comparison", "North", "18 cases"],
+    text: "Using the supplied numeric comparison, produce the appropriate quantitative deliverable.",
+    title: "Artifact policy numeric",
+  },
+  {
+    expectedKinds: ["file"],
+    name: "generated_file",
+    renderTokens: ["/tmp/setta-artifact-policy-memo.md", "Generated policy memo"],
+    text: "Using the supplied generated file request, emit the generated file reference.",
+    title: "Artifact policy file",
+  },
+  {
+    expectedKinds: [],
+    name: "no_artifact_conversation",
+    renderTokens: [],
+    text: "Using the supplied conversational answer request, answer without a durable deliverable.",
+    title: "Artifact policy conversational",
+  },
+];
 
 if (options.help) {
   console.log(
@@ -117,15 +154,14 @@ try {
     recoveryBaselineSnapshotReady,
     workflowTimeoutMs,
   );
-  const readArtifact = await backend.post("/conversations/artifacts/read", {
-    artifactId: snapshot.artifacts.artifacts[0].id,
-    conversationId: topic.id,
-    workspaceId,
-  });
+  const readArtifacts = await readSnapshotArtifacts(backend, workspaceId, topic.id, snapshot);
   const surface = await waitForConversationSurface(
     context.client,
     topic.id,
-    (candidate) => candidate.state === "complete" && candidate.artifactCount >= 1,
+    (candidate) =>
+      candidate.state === "complete" &&
+      candidate.artifactCount >= 1 &&
+      candidate.artifactText.includes("Go"),
     workflowTimeoutMs,
   );
   await context.client.driver("dispatchLayoutSnapshot", {
@@ -141,11 +177,17 @@ try {
     snapshot.narration.events.map((event) => event.id),
     workflowTimeoutMs,
   );
+  const artifactPolicy = await runArtifactPolicyMatrix({
+    backend,
+    client: context.client,
+    workspaceId,
+  });
   const events = await readJsonLinesWhileAppending(join(artifactDir, "events.jsonl"));
   const baseline = summarizeBaseline({
+    artifactPolicy,
     events,
     playback,
-    readArtifact,
+    readArtifacts,
     scrollOwners,
     snapshot,
     surface,
@@ -224,6 +266,71 @@ async function waitForConversationSurface(client, conversationId, ready, timeout
   return conversationSurfaces(state.surfaces, conversationId)[0];
 }
 
+async function runArtifactPolicyMatrix({ backend, client, workspaceId }) {
+  const results = [];
+  for (const scenario of artifactPolicyMatrix) {
+    const topic = await createTopic(
+      client,
+      backend,
+      workspaceId,
+      scenario.title,
+      workflowTimeoutMs,
+    );
+    assertDriverAction(
+      await client.driver("topicConversationSubmit", {
+        conversationId: topic.id,
+        text: scenario.text,
+      }),
+      "submitted",
+    );
+    const snapshot = await waitForConversationSnapshot(
+      backend,
+      workspaceId,
+      topic.id,
+      (candidate) => artifactPolicySnapshotReady(candidate, scenario.expectedKinds.length),
+      workflowTimeoutMs,
+    );
+    const readArtifacts = await readSnapshotArtifacts(backend, workspaceId, topic.id, snapshot);
+    const surface = await waitForConversationSurface(
+      client,
+      topic.id,
+      (candidate) =>
+        candidate.state === "complete" &&
+        candidate.artifactCount === scenario.expectedKinds.length &&
+        scenario.renderTokens.every((token) => candidate.artifactText.includes(token)),
+      workflowTimeoutMs,
+    );
+    results.push({
+      expectedKinds: scenario.expectedKinds,
+      name: scenario.name,
+      readArtifacts: readArtifacts.map((artifact) => artifactSummary(artifact)),
+      renderedArtifactText: surface.artifactText,
+      snapshotArtifacts: artifactOutput(snapshot),
+    });
+  }
+  return results;
+}
+
+function artifactPolicySnapshotReady(snapshot, expectedArtifactCount) {
+  return (
+    snapshot.conversation.status === "idle" &&
+    snapshot.turns.turns.some((turn) => turn.status === "completed") &&
+    snapshot.artifacts.artifacts.length === expectedArtifactCount
+  );
+}
+
+function readSnapshotArtifacts(backend, workspaceId, conversationId, snapshot) {
+  return Promise.all(
+    snapshot.artifacts.artifacts.map((artifact) =>
+      backend.post("/conversations/artifacts/read", {
+        artifactId: artifact.id,
+        conversationId,
+        workspaceId,
+      }),
+    ),
+  );
+}
+
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready, timeoutMs) {
   return waitForBackendState(
     async () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
@@ -236,7 +343,7 @@ function recoveryBaselineSnapshotReady(snapshot) {
   return (
     snapshot.conversation.status === "idle" &&
     snapshot.turns.turns.some((turn) => turn.status === "completed") &&
-    snapshot.artifacts.artifacts.length >= 1 &&
+    snapshot.artifacts.artifacts.length >= 2 &&
     snapshot.narration.events.some((event) => event.kind === "final_summary") &&
     snapshot.narratorState.observedThroughSequence === snapshot.conversation.lastTrajectorySequence
   );
@@ -287,9 +394,10 @@ function playbackObservations(records) {
 }
 
 function summarizeBaseline({
+  artifactPolicy,
   events,
   playback,
-  readArtifact,
+  readArtifacts,
   scrollOwners,
   snapshot,
   surface,
@@ -304,7 +412,8 @@ function summarizeBaseline({
   );
   return {
     artifactOutput: artifactOutput(snapshot),
-    artifactReadOutput: artifactSummary(readArtifact),
+    artifactPolicy,
+    artifactReadOutput: readArtifacts.map((artifact) => artifactSummary(artifact)),
     conversationId: topic.id,
     currentFocus: snapshot.narratorState.currentFocus,
     currentFocusRevision: snapshot.narratorState.currentFocusRevision,
@@ -371,6 +480,7 @@ function playbackLatency(records, narrationCreatedAt) {
 function assertCurrentRecoveryBaseline(baseline) {
   assertRecoveryArtifactShape(baseline);
   assertRecoveryArtifactRendered(baseline);
+  assertArtifactPolicyMatrix(baseline);
   assertRecoveryNarrationRecorded(baseline);
   assertRecoverySpeechRecorded(baseline);
   assertRecoveryEasyButtonLayoutRecovered(baseline);
@@ -385,11 +495,78 @@ function typedLanguageCountTable(artifact) {
 }
 
 function assertRecoveryArtifactShape(baseline) {
-  const artifact = baseline.artifactOutput[0];
-  if (typedLanguageCountTable(artifact) && typedLanguageCountTable(baseline.artifactReadOutput)) {
+  const metadataTable = baseline.artifactOutput.find((artifact) => artifact.kind === "table");
+  const metadataBarChart = baseline.artifactOutput.find(
+    (artifact) => artifact.kind === "bar_chart",
+  );
+  const readTable = baseline.artifactReadOutput.find((artifact) => artifact.kind === "table");
+  const readBarChart = baseline.artifactReadOutput.find(
+    (artifact) => artifact.kind === "bar_chart",
+  );
+  if (
+    metadataArtifact(metadataTable, "table", "Language line counts") &&
+    metadataArtifact(metadataBarChart, "bar_chart", "Language line count chart") &&
+    typedLanguageCountTable(readTable) &&
+    typedLanguageCountBarChart(readBarChart)
+  ) {
     return;
   }
   throw new Error(`recovery baseline artifact shape drifted: ${JSON.stringify(baseline)}`);
+}
+
+function assertArtifactPolicyMatrix(baseline) {
+  const resultByName = new Map(baseline.artifactPolicy.map((result) => [result.name, result]));
+  assertArtifactPolicyResult(resultByName.get("table_plus_bar_chart"), {
+    kinds: ["table", "bar_chart"],
+    read: [typedLanguageCountTable, typedLanguageCountBarChart],
+  });
+  assertArtifactPolicyResult(resultByName.get("qualitative_markdown"), {
+    kinds: ["markdown"],
+    read: [
+      (artifact) =>
+        artifact?.kind === "markdown" && artifact.markdown?.markdown.includes("Release themes"),
+    ],
+  });
+  assertArtifactPolicyResult(resultByName.get("numeric_bar_chart"), {
+    kinds: ["bar_chart"],
+    read: [(artifact) => artifact?.kind === "bar_chart" && artifact.barChart?.items.length === 3],
+  });
+  assertArtifactPolicyResult(resultByName.get("generated_file"), {
+    kinds: ["file"],
+    read: [
+      (artifact) =>
+        artifact?.kind === "file" && artifact.file?.path === "/tmp/setta-artifact-policy-memo.md",
+    ],
+  });
+  const noArtifact = resultByName.get("no_artifact_conversation");
+  if (
+    noArtifact?.snapshotArtifacts.length === 0 &&
+    noArtifact.readArtifacts.length === 0 &&
+    noArtifact.renderedArtifactText === ""
+  ) {
+    return;
+  }
+  throw new Error(`no-artifact policy scenario drifted: ${JSON.stringify(baseline)}`);
+}
+
+function assertArtifactPolicyResult(result, expectation) {
+  if (!result) {
+    throw new Error(`artifact policy scenario was missing: ${JSON.stringify(expectation)}`);
+  }
+  const snapshotKinds = result.snapshotArtifacts.map((artifact) => artifact.kind).sort();
+  const expectedKinds = [...expectation.kinds].sort();
+  const metadataOnly = result.snapshotArtifacts.every((artifact) =>
+    metadataArtifact(artifact, artifact.kind, artifact.title),
+  );
+  const readMatches = expectation.read.every((matches) => result.readArtifacts.some(matches));
+  if (
+    JSON.stringify(snapshotKinds) === JSON.stringify(expectedKinds) &&
+    metadataOnly &&
+    readMatches
+  ) {
+    return;
+  }
+  throw new Error(`artifact policy scenario drifted: ${JSON.stringify(result)}`);
 }
 
 function assertRecoveryArtifactRendered(baseline) {
@@ -459,6 +636,25 @@ function passiveRecoveryScrollOwner(owner) {
 
 function isTableArtifact(artifact) {
   return artifact?.kind === "table" && artifact.table;
+}
+
+function metadataArtifact(artifact, kind, title) {
+  return (
+    artifact?.kind === kind &&
+    artifact.title === title &&
+    !artifact.keys.includes("table") &&
+    !artifact.keys.includes("markdown") &&
+    !artifact.keys.includes("barChart") &&
+    !artifact.keys.includes("file")
+  );
+}
+
+function typedLanguageCountBarChart(artifact) {
+  return (
+    artifact?.kind === "bar_chart" &&
+    artifact.barChart?.items.length === suppliedDataset.length &&
+    artifact.barChart.items[0]?.label === "Go"
+  );
 }
 
 function hasOnlyTablePayload(artifact) {

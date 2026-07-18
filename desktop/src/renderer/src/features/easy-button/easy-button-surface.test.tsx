@@ -1,5 +1,5 @@
 import type {
-  Artifact,
+  ArtifactMetadata,
   ConversationPresentationProfile,
   ConversationSnapshot,
   ConversationTurn,
@@ -876,7 +876,7 @@ function conversationSnapshot(
   title: string,
   palette: ConversationPresentationProfile["resolvedPaletteId"],
   options: {
-    artifacts: Artifact[];
+    artifacts: ArtifactMetadata[];
     conversationStatus: TopicConversation["status"];
     focus: string;
     narration: NarrationEvent[];
@@ -1029,19 +1029,12 @@ function sideConversationFailureEvents(side: SideConversation): SideConversation
   }));
 }
 
-function artifact(conversationId: string, turnId: string, title: string): Artifact {
+function artifact(conversationId: string, turnId: string, title: string): ArtifactMetadata {
   return {
-    barChart: null,
     conversationId,
     createdAt: timestamp,
-    file: {
-      description: "Generated file",
-      path: `/tmp/${conversationId}.txt`,
-    },
     id: `artifact_${conversationId}`,
     kind: "file",
-    markdown: null,
-    table: null,
     title: `${title} artifact`,
     trajectorySequence: 1,
     turnId,

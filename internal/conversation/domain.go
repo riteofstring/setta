@@ -104,6 +104,16 @@ type Artifact struct {
 	File               *FileArtifactPayload     `json:"file"`
 }
 
+type ArtifactMetadata struct {
+	ID                 string       `json:"id"`
+	ConversationID     string       `json:"conversationId"`
+	TurnID             *string      `json:"turnId"`
+	TrajectorySequence *int         `json:"trajectorySequence"`
+	Kind               ArtifactKind `json:"kind"`
+	Title              string       `json:"title"`
+	CreatedAt          string       `json:"createdAt"`
+}
+
 type MarkdownArtifactPayload struct {
 	Markdown string `json:"markdown"`
 }
@@ -427,7 +437,29 @@ func (binding AgentThreadBinding) Validate() error {
 	return validateStringMap("thread binding provider metadata", binding.ProviderMetadata)
 }
 
+func (artifact Artifact) Metadata() ArtifactMetadata {
+	return ArtifactMetadata{
+		ID:                 artifact.ID,
+		ConversationID:     artifact.ConversationID,
+		TurnID:             cloneStringPointer(artifact.TurnID),
+		TrajectorySequence: cloneIntPointer(artifact.TrajectorySequence),
+		Kind:               artifact.Kind,
+		Title:              artifact.Title,
+		CreatedAt:          artifact.CreatedAt,
+	}
+}
+
 func (artifact Artifact) Validate() error {
+	if err := artifact.Metadata().Validate(); err != nil {
+		return err
+	}
+	if err := validateArtifactBranchCount(artifact); err != nil {
+		return err
+	}
+	return validateArtifactPayload(artifact)
+}
+
+func (artifact ArtifactMetadata) Validate() error {
 	if err := validateIdentifier("artifact id", artifact.ID); err != nil {
 		return err
 	}
@@ -449,10 +481,7 @@ func (artifact Artifact) Validate() error {
 	if _, err := validateTimestamp("artifact createdAt", artifact.CreatedAt); err != nil {
 		return err
 	}
-	if err := validateArtifactBranchCount(artifact); err != nil {
-		return err
-	}
-	return validateArtifactPayload(artifact)
+	return nil
 }
 
 func (failure Failure) Validate() error {

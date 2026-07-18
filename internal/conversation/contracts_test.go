@@ -80,13 +80,12 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 	narration.SourceSequenceEnd = 1
 	narration.Trigger = NarrationTriggerPhaseActivityCompleted
 	narration.Milestone = &NarrationMilestone{Text: "The contract is generated."}
-	artifact := Artifact{
+	artifact := ArtifactMetadata{
 		ID:             "artifact-1",
 		ConversationID: conversationID,
 		Kind:           ArtifactKindMarkdown,
 		Title:          "Contract report",
 		CreatedAt:      testTimeStarted,
-		Markdown:       &MarkdownArtifactPayload{Markdown: "Contract report"},
 	}
 	binding := AgentThreadBinding{
 		ConversationID:   conversationID,
@@ -279,7 +278,7 @@ func validConversationSnapshot() ConversationSnapshot {
 			QueuedAt:       testTimeStarted,
 		}},
 		Trajectory:           ConversationTrajectoryWindow{Events: []TrajectoryEvent{}},
-		Artifacts:            ConversationArtifactWindow{Artifacts: []Artifact{}},
+		Artifacts:            ConversationArtifactWindow{Artifacts: []ArtifactMetadata{}},
 		NarratorState:        narratorState,
 		Narration:            ConversationNarrationWindow{Events: []NarrationEvent{}},
 		RoleProfileOverrides: []RoleProfileOverride{{ScopeKind: RoleProfileScopeConversation, ScopeID: conversation.ID, Profile: validRoleProfile(RoleAgent), UpdatedAt: testTimeStarted}},

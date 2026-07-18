@@ -187,6 +187,80 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	}
 }
 
+func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
+	unsetRuntimeEnv(t, "OPENAI_API_KEY")
+	requireRuntimeLiveCodexChatGPTAuth(t)
+
+	config := testConfig(t)
+	config.Version = "test"
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 3*time.Minute)
+	baseURL := "http://" + server.Addr()
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	created := createRuntimeLiveTopic(t, client, baseURL, opened.Workspace.ID, "Live structured artifact")
+	var snapshot conversation.ConversationSnapshot
+	for index, prompt := range []string{
+		"Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Produce a durable table artifact with columns language and lines, and one row per supplied language. The table artifact is the deliverable; final prose should only confirm that it is ready.",
+		"The previous turn did not create the required durable table artifact. Call the available Setta artifact tool with kind table, title Language line counts, columns language and lines, and rows Go/34, TypeScript/21, CSS/8.",
+	} {
+		accepted := submitRuntimeLiveConversationInput(
+			t,
+			client,
+			baseURL,
+			created.Conversation.ID,
+			fmt.Sprintf("live-topic-artifact-table-%d", index+1),
+			prompt,
+		)
+		route := waitForRuntimeLiveConversationRoute(
+			t,
+			client,
+			baseURL,
+			opened.Workspace.ID,
+			created.Conversation.ID,
+			accepted,
+		)
+		requireRuntimeLiveRouteKind(t, route, conversation.ConversationRouteDecisionKindSendToParent)
+		snapshot = waitForRuntimeLiveConversationSnapshot(
+			t,
+			client,
+			baseURL,
+			opened.Workspace.ID,
+			created.Conversation.ID,
+			fmt.Sprintf("live structured table artifact attempt %d", index+1),
+			func(candidate conversation.ConversationSnapshot) bool {
+				if len(candidate.Turns.Turns) != index+1 {
+					return false
+				}
+				latest := candidate.Turns.Turns[len(candidate.Turns.Turns)-1]
+				return latest.Status == conversation.TurnStatusCompleted &&
+					runtimeTopicHasFinalNarration(candidate, latest.ID) &&
+					candidate.NarratorState.ObservedThroughSequence == candidate.Conversation.LastTrajectorySequence
+			},
+		)
+		if runtimeLiveHasTableArtifact(snapshot) {
+			break
+		}
+	}
+	metadata := runtimeLiveTableArtifactMetadata(t, snapshot)
+	artifact := postRuntimeJSON[conversation.Artifact](
+		t,
+		client,
+		baseURL,
+		"/conversations/artifacts/read",
+		httpapi.ReadConversationArtifactRequest{
+			WorkspaceID:    opened.Workspace.ID,
+			ConversationID: created.Conversation.ID,
+			ArtifactID:     metadata.ID,
+		},
+		http.StatusOK,
+	)
+	assertRuntimeLiveTableArtifact(t, metadata, artifact)
+}
+
 func waitForRuntimeLiveMasterRoute(
 	t *testing.T,
 	client *http.Client,
@@ -223,6 +297,51 @@ func waitForRuntimeLiveMasterRoute(
 		t.Fatalf("live master route wait returned unsettled state: %+v", state)
 	}
 	return master.InputRoutingState{}
+}
+
+func runtimeLiveTableArtifactMetadata(t *testing.T, snapshot conversation.ConversationSnapshot) conversation.ArtifactMetadata {
+	t.Helper()
+	for _, artifact := range snapshot.Artifacts.Artifacts {
+		if artifact.Kind == conversation.ArtifactKindTable {
+			return artifact
+		}
+	}
+	t.Fatalf("live snapshot has no table artifact metadata: %+v", snapshot.Artifacts)
+	return conversation.ArtifactMetadata{}
+}
+
+func runtimeLiveHasTableArtifact(snapshot conversation.ConversationSnapshot) bool {
+	return slices.ContainsFunc(snapshot.Artifacts.Artifacts, func(artifact conversation.ArtifactMetadata) bool {
+		return artifact.Kind == conversation.ArtifactKindTable
+	})
+}
+
+func assertRuntimeLiveTableArtifact(t *testing.T, metadata conversation.ArtifactMetadata, artifact conversation.Artifact) {
+	t.Helper()
+	if metadata.ID != artifact.ID ||
+		metadata.ConversationID != artifact.ConversationID ||
+		metadata.Kind != artifact.Kind ||
+		metadata.Title != artifact.Title ||
+		artifact.Kind != conversation.ArtifactKindTable ||
+		artifact.Table == nil ||
+		!runtimeLiveArtifactTableContains(artifact.Table, "Go", "34") ||
+		!runtimeLiveArtifactTableContains(artifact.Table, "TypeScript", "21") ||
+		!runtimeLiveArtifactTableContains(artifact.Table, "CSS", "8") {
+		t.Fatalf("live table artifact metadata=%+v artifact=%+v", metadata, artifact)
+	}
+}
+
+func runtimeLiveArtifactTableContains(table *conversation.TableArtifactPayload, language string, lines string) bool {
+	if table == nil {
+		return false
+	}
+	for _, row := range table.Rows {
+		if len(row) >= 2 && strings.EqualFold(strings.TrimSpace(row[0]), language) &&
+			strings.TrimSpace(row[1]) == lines {
+			return true
+		}
+	}
+	return false
 }
 
 func assertRuntimeLiveMasterRoute(

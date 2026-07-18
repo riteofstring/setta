@@ -1,4 +1,10 @@
-import type { Artifact } from "@generated/backend";
+import { useEffect, useMemo, useState } from "react";
+
+import type {
+  Artifact,
+  ArtifactMetadata,
+  ReadConversationArtifactRequest,
+} from "@generated/backend";
 import { MarkdownText } from "../../components/markdown-text";
 
 export interface EasyButtonMilestone {
@@ -10,6 +16,15 @@ export interface EasyButtonMilestone {
 
 const maxRenderedArtifacts = 6;
 const maxRenderedMilestones = 5;
+
+type ArtifactReader = (request: ReadConversationArtifactRequest) => Promise<Artifact>;
+
+type ArtifactPayloadCacheEntry =
+  | { artifact: Artifact; status: "loaded" }
+  | { promise: Promise<Artifact>; status: "loading" }
+  | { error: string; status: "failed" };
+
+const artifactPayloadCache = new Map<string, ArtifactPayloadCacheEntry>();
 
 export function HighlightRail({
   milestones,
@@ -67,8 +82,24 @@ function MilestoneItem({
   );
 }
 
-export function ArtifactRail({ artifacts }: { artifacts: readonly Artifact[] }) {
-  const visibleArtifacts = artifacts.slice(-maxRenderedArtifacts);
+export function ArtifactRail({
+  artifacts,
+  conversationId,
+  readArtifact,
+  workspaceId,
+}: {
+  artifacts: readonly ArtifactMetadata[];
+  conversationId: string;
+  readArtifact?: ArtifactReader;
+  workspaceId: string | null;
+}) {
+  const visibleArtifacts = useMemo(() => artifacts.slice(-maxRenderedArtifacts), [artifacts]);
+  useVisibleArtifactPayloads({
+    artifacts: visibleArtifacts,
+    conversationId,
+    readArtifact,
+    workspaceId,
+  });
   return (
     <aside
       aria-label="Artifacts"
@@ -85,18 +116,134 @@ export function ArtifactRail({ artifacts }: { artifacts: readonly Artifact[] }) 
   );
 }
 
-function ArtifactCard({ artifact }: { artifact: Artifact }) {
+export function readVisibleArtifactPayloads({
+  artifacts,
+  conversationId,
+  readArtifact,
+  workspaceId,
+}: {
+  artifacts: readonly ArtifactMetadata[];
+  conversationId: string;
+  readArtifact: ArtifactReader;
+  workspaceId: string;
+}): Promise<Artifact[]> {
+  return Promise.all(
+    artifacts
+      .slice(-maxRenderedArtifacts)
+      .map((artifact) => readArtifactPayload(artifact, workspaceId, conversationId, readArtifact)),
+  );
+}
+
+function useVisibleArtifactPayloads({
+  artifacts,
+  conversationId,
+  readArtifact,
+  workspaceId,
+}: {
+  artifacts: readonly ArtifactMetadata[];
+  conversationId: string;
+  readArtifact: ArtifactReader | undefined;
+  workspaceId: string | null;
+}) {
+  const [, setRevision] = useState(0);
+  const artifactIds = artifacts.map((artifact) => artifact.id).join("\x00");
+  useEffect(() => {
+    if (!workspaceId) {
+      return;
+    }
+    const reader = readArtifact ?? defaultArtifactReader();
+    if (!reader) {
+      return;
+    }
+    let active = true;
+    for (const artifact of artifacts) {
+      void readArtifactPayload(artifact, workspaceId, conversationId, reader)
+        .finally(() => {
+          if (active) {
+            setRevision((revision) => revision + 1);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [artifactIds, artifacts, conversationId, readArtifact, workspaceId]);
+}
+
+function readArtifactPayload(
+  metadata: ArtifactMetadata,
+  workspaceId: string,
+  conversationId: string,
+  readArtifact: ArtifactReader,
+): Promise<Artifact> {
+  const cached = artifactPayloadCache.get(metadata.id);
+  if (cached?.status === "loaded") {
+    return Promise.resolve(cached.artifact);
+  }
+  if (cached?.status === "loading") {
+    return cached.promise;
+  }
+  const promise = readArtifact({ artifactId: metadata.id, conversationId, workspaceId })
+    .then((artifact) => {
+      validateArtifactPayloadIdentity(metadata, artifact);
+      artifactPayloadCache.set(metadata.id, { artifact, status: "loaded" });
+      return artifact;
+    })
+    .catch((error: unknown) => {
+      artifactPayloadCache.set(metadata.id, { error: errorMessage(error), status: "failed" });
+      throw error;
+    });
+  artifactPayloadCache.set(metadata.id, { promise, status: "loading" });
+  return promise;
+}
+
+function validateArtifactPayloadIdentity(metadata: ArtifactMetadata, artifact: Artifact) {
+  if (
+    artifact.id !== metadata.id ||
+    artifact.conversationId !== metadata.conversationId ||
+    artifact.kind !== metadata.kind ||
+    artifact.createdAt !== metadata.createdAt
+  ) {
+    throw new Error(`Artifact payload ${artifact.id} does not match its metadata`);
+  }
+}
+
+function defaultArtifactReader(): ArtifactReader | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.setta.conversations.readArtifact ?? null;
+}
+
+function ArtifactCard({ artifact }: { artifact: ArtifactMetadata }) {
+  const payload = artifactPayloadCache.get(artifact.id);
   return (
     <article
       className="easy-button-artifact-card"
       data-artifact-id={artifact.id}
       data-artifact-kind={artifact.kind}
+      data-artifact-load-state={payload?.status ?? "pending"}
     >
       <p className="easy-button-artifact-kicker">{artifactKindLabel(artifact.kind)}</p>
       {artifact.title ? <h2 className="easy-button-artifact-title">{artifact.title}</h2> : null}
-      <ArtifactPayload artifact={artifact} />
+      <ArtifactPayloadFrame entry={payload} />
     </article>
   );
+}
+
+function ArtifactPayloadFrame({ entry }: { entry: ArtifactPayloadCacheEntry | undefined }) {
+  if (!entry || entry.status === "loading") {
+    return <p className="easy-button-artifact-status">Loading artifact...</p>;
+  }
+  if (entry.status === "failed") {
+    return (
+      <p className="easy-button-artifact-status" role="alert">
+        Artifact unavailable
+      </p>
+    );
+  }
+  return <ArtifactPayload artifact={entry.artifact} />;
 }
 
 function ArtifactPayload({ artifact }: { artifact: Artifact }) {
@@ -213,6 +360,10 @@ function artifactKindLabel(kind: Artifact["kind"]): string {
     case "file":
       return "File";
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function milestoneElapsedLabel(startedAt: string | null, at: string): string {

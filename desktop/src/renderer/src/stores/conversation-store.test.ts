@@ -1,7 +1,7 @@
 import {
   conversationSnapshotLimits,
   type AgentThreadBinding,
-  type Artifact,
+  type ArtifactMetadata,
   type ConversationBranch,
   type ConversationEvent,
   type ConversationEventPayload,
@@ -845,16 +845,12 @@ function trajectoryEvent(conversationId: string): TrajectoryEvent {
   };
 }
 
-function artifact(conversationId: string): Artifact {
+function artifact(conversationId: string): ArtifactMetadata {
   return {
-    barChart: null,
     conversationId,
     createdAt: timestamp,
-    file: null,
     id: "artifact_a",
     kind: "markdown",
-    markdown: { markdown: "Store report body" },
-    table: null,
     title: "Store report",
     trajectorySequence: 1,
     turnId: "turn_a",

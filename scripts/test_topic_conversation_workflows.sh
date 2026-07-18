@@ -129,7 +129,7 @@ if [[ "${run_live}" -eq 1 ]]; then
     run_live_go_test \
       "topic-conversation" \
       "./internal/runtime" \
-      '^TestBackendTopicConversation(Workflow|ControlsAndRestart)WithLiveCodex$'
+      '^TestBackendTopicConversation(Workflow|ControlsAndRestart|Artifact)WithLiveCodex$'
   else
     live_skip_reason="${live_skip_reason:-Codex ChatGPT auth is unavailable}"
     skipped_workflows+=("live-codex-matrix (${live_skip_reason})")

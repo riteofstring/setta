@@ -2,7 +2,7 @@ import { Check, Sparkles, Square, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import {
-  type Artifact,
+  type ArtifactMetadata,
   type ConversationPaletteID,
   type ConversationPresentationProfile,
   type ConversationSnapshot,
@@ -85,7 +85,7 @@ export interface EasyButtonProjectionView {
   activeAgentCount: number;
   agentText: string;
   archived: boolean;
-  artifacts: Artifact[];
+  artifacts: ArtifactMetadata[];
   conversationId: string;
   currentFocus: string;
   error: string | null;
@@ -292,7 +292,11 @@ function EasyButtonProjectionContent({
           <ConversationActionSlot commands={readOnly ? undefined : commands} view={view} />
         </div>
       </main>
-      <ArtifactRail artifacts={view.artifacts} />
+      <ArtifactRail
+        artifacts={view.artifacts}
+        conversationId={view.conversationId}
+        workspaceId={view.workspaceId}
+      />
       <ConversationComposer commands={commands} readOnly={readOnly} speech={speech} view={view} />
     </>
   );
@@ -991,7 +995,6 @@ function ControlGlyph({
   }
   return <Sparkles aria-hidden="true" className="easy-button-glyph" />;
 }
-
 function agentLabel(activeAgentCount: number): string {
   return activeAgentCount === 1 ? "1 agent" : `${activeAgentCount} agents`;
 }

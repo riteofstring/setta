@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 61;
-export const backendContractSchemaHash = "sha256:9c69c2a06ad588013c0d7218f74ff1c099ab07ec23ea5611a5090c516a9f920f";
+export const backendProtocolVersion = 62;
+export const backendContractSchemaHash = "sha256:b8a2efd515a1dffde189434862afaa0b3ce2c3a7a654c563500df83707db6864";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -2196,36 +2196,7 @@ export interface ConversationTrajectoryWindow {
   hasEarlier: boolean;
 }
 
-export interface MarkdownArtifactPayload {
-  markdown: string;
-}
-
-export interface ArtifactTableColumn {
-  key: string;
-  label: string;
-}
-
-export interface TableArtifactPayload {
-  columns: ArtifactTableColumn[];
-  rows: string[][];
-}
-
-export interface BarChartArtifactItem {
-  label: string;
-  value: number;
-  unit: string | null;
-}
-
-export interface BarChartArtifactPayload {
-  items: BarChartArtifactItem[];
-}
-
-export interface FileArtifactPayload {
-  path: string;
-  description: string | null;
-}
-
-export interface Artifact {
+export interface ArtifactMetadata {
   id: string;
   conversationId: string;
   turnId: string | null;
@@ -2233,14 +2204,10 @@ export interface Artifact {
   kind: ArtifactKind;
   title: string;
   createdAt: string;
-  markdown: MarkdownArtifactPayload | null;
-  table: TableArtifactPayload | null;
-  barChart: BarChartArtifactPayload | null;
-  file: FileArtifactPayload | null;
 }
 
 export interface ConversationArtifactWindow {
-  artifacts: Artifact[];
+  artifacts: ArtifactMetadata[];
   hasEarlier: boolean;
 }
 
@@ -2431,6 +2398,49 @@ export interface ReadConversationArtifactRequest {
   artifactId: string;
 }
 
+export interface MarkdownArtifactPayload {
+  markdown: string;
+}
+
+export interface ArtifactTableColumn {
+  key: string;
+  label: string;
+}
+
+export interface TableArtifactPayload {
+  columns: ArtifactTableColumn[];
+  rows: string[][];
+}
+
+export interface BarChartArtifactItem {
+  label: string;
+  value: number;
+  unit: string | null;
+}
+
+export interface BarChartArtifactPayload {
+  items: BarChartArtifactItem[];
+}
+
+export interface FileArtifactPayload {
+  path: string;
+  description: string | null;
+}
+
+export interface Artifact {
+  id: string;
+  conversationId: string;
+  turnId: string | null;
+  trajectorySequence: number | null;
+  kind: ArtifactKind;
+  title: string;
+  createdAt: string;
+  markdown: MarkdownArtifactPayload | null;
+  table: TableArtifactPayload | null;
+  barChart: BarChartArtifactPayload | null;
+  file: FileArtifactPayload | null;
+}
+
 export interface NavigatorCursor {
   updatedAt: string;
   conversationId: string;
@@ -2526,7 +2536,7 @@ export interface ConversationTrajectoryAppendedEventPayload {
 
 export interface ConversationArtifactCreatedEventPayload {
   type: "conversation.artifact.created";
-  artifact: Artifact;
+  artifact: ArtifactMetadata;
 }
 
 export interface ConversationNarratorStateUpdatedEventPayload {
@@ -4808,89 +4818,25 @@ export function decodeConversationTrajectoryWindow(value: unknown): Conversation
   };
 }
 
-export function decodeMarkdownArtifactPayload(value: unknown): MarkdownArtifactPayload {
-  const record = assertRecord(value, "MarkdownArtifactPayload");
-  assertKnownFields(record, "MarkdownArtifactPayload", ["markdown"]);
+export function decodeArtifactMetadata(value: unknown): ArtifactMetadata {
+  const record = assertRecord(value, "ArtifactMetadata");
+  assertKnownFields(record, "ArtifactMetadata", ["id", "conversationId", "turnId", "trajectorySequence", "kind", "title", "createdAt"]);
   return {
-    markdown: decodeString(requireField(record, "markdown", "MarkdownArtifactPayload"), "MarkdownArtifactPayload.markdown"),
+    id: decodeString(requireField(record, "id", "ArtifactMetadata"), "ArtifactMetadata.id"),
+    conversationId: decodeString(requireField(record, "conversationId", "ArtifactMetadata"), "ArtifactMetadata.conversationId"),
+    turnId: decodeNullable(requireField(record, "turnId", "ArtifactMetadata"), "ArtifactMetadata.turnId", (item) => decodeString(item, "ArtifactMetadata.turnId")),
+    trajectorySequence: decodeNullable(requireField(record, "trajectorySequence", "ArtifactMetadata"), "ArtifactMetadata.trajectorySequence", (item) => decodeInteger(item, "ArtifactMetadata.trajectorySequence")),
+    kind: decodeArtifactKind(requireField(record, "kind", "ArtifactMetadata"), "ArtifactMetadata.kind"),
+    title: decodeString(requireField(record, "title", "ArtifactMetadata"), "ArtifactMetadata.title"),
+    createdAt: decodeString(requireField(record, "createdAt", "ArtifactMetadata"), "ArtifactMetadata.createdAt"),
   };
-}
-
-export function decodeArtifactTableColumn(value: unknown): ArtifactTableColumn {
-  const record = assertRecord(value, "ArtifactTableColumn");
-  assertKnownFields(record, "ArtifactTableColumn", ["key", "label"]);
-  return {
-    key: decodeString(requireField(record, "key", "ArtifactTableColumn"), "ArtifactTableColumn.key"),
-    label: decodeString(requireField(record, "label", "ArtifactTableColumn"), "ArtifactTableColumn.label"),
-  };
-}
-
-export function decodeTableArtifactPayload(value: unknown): TableArtifactPayload {
-  const record = assertRecord(value, "TableArtifactPayload");
-  assertKnownFields(record, "TableArtifactPayload", ["columns", "rows"]);
-  return {
-    columns: decodeArray(requireField(record, "columns", "TableArtifactPayload"), "TableArtifactPayload.columns", (item) => decodeArtifactTableColumn(item)),
-    rows: decodeArray(requireField(record, "rows", "TableArtifactPayload"), "TableArtifactPayload.rows", (item) => decodeArray(item, "TableArtifactPayload.rows item", (item) => decodeString(item, "TableArtifactPayload.rows item item"))),
-  };
-}
-
-export function decodeBarChartArtifactItem(value: unknown): BarChartArtifactItem {
-  const record = assertRecord(value, "BarChartArtifactItem");
-  assertKnownFields(record, "BarChartArtifactItem", ["label", "value", "unit"]);
-  return {
-    label: decodeString(requireField(record, "label", "BarChartArtifactItem"), "BarChartArtifactItem.label"),
-    value: decodeNumber(requireField(record, "value", "BarChartArtifactItem"), "BarChartArtifactItem.value"),
-    unit: decodeNullable(requireField(record, "unit", "BarChartArtifactItem"), "BarChartArtifactItem.unit", (item) => decodeString(item, "BarChartArtifactItem.unit")),
-  };
-}
-
-export function decodeBarChartArtifactPayload(value: unknown): BarChartArtifactPayload {
-  const record = assertRecord(value, "BarChartArtifactPayload");
-  assertKnownFields(record, "BarChartArtifactPayload", ["items"]);
-  return {
-    items: decodeArray(requireField(record, "items", "BarChartArtifactPayload"), "BarChartArtifactPayload.items", (item) => decodeBarChartArtifactItem(item)),
-  };
-}
-
-export function decodeFileArtifactPayload(value: unknown): FileArtifactPayload {
-  const record = assertRecord(value, "FileArtifactPayload");
-  assertKnownFields(record, "FileArtifactPayload", ["path", "description"]);
-  return {
-    path: decodeString(requireField(record, "path", "FileArtifactPayload"), "FileArtifactPayload.path"),
-    description: decodeNullable(requireField(record, "description", "FileArtifactPayload"), "FileArtifactPayload.description", (item) => decodeString(item, "FileArtifactPayload.description")),
-  };
-}
-
-export function decodeArtifact(value: unknown): Artifact {
-  const record = assertRecord(value, "Artifact");
-  assertKnownFields(record, "Artifact", ["id", "conversationId", "turnId", "trajectorySequence", "kind", "title", "createdAt", "markdown", "table", "barChart", "file"]);
-  const result: Artifact = {
-    id: decodeString(requireField(record, "id", "Artifact"), "Artifact.id"),
-    conversationId: decodeString(requireField(record, "conversationId", "Artifact"), "Artifact.conversationId"),
-    turnId: decodeNullable(requireField(record, "turnId", "Artifact"), "Artifact.turnId", (item) => decodeString(item, "Artifact.turnId")),
-    trajectorySequence: decodeNullable(requireField(record, "trajectorySequence", "Artifact"), "Artifact.trajectorySequence", (item) => decodeInteger(item, "Artifact.trajectorySequence")),
-    kind: decodeArtifactKind(requireField(record, "kind", "Artifact"), "Artifact.kind"),
-    title: decodeString(requireField(record, "title", "Artifact"), "Artifact.title"),
-    createdAt: decodeString(requireField(record, "createdAt", "Artifact"), "Artifact.createdAt"),
-    markdown: decodeNullable(requireField(record, "markdown", "Artifact"), "Artifact.markdown", (item) => decodeMarkdownArtifactPayload(item)),
-    table: decodeNullable(requireField(record, "table", "Artifact"), "Artifact.table", (item) => decodeTableArtifactPayload(item)),
-    barChart: decodeNullable(requireField(record, "barChart", "Artifact"), "Artifact.barChart", (item) => decodeBarChartArtifactPayload(item)),
-    file: decodeNullable(requireField(record, "file", "Artifact"), "Artifact.file", (item) => decodeFileArtifactPayload(item)),
-  };
-  assertTaggedUnionBranch("Artifact", result.kind, {
-    "markdown": result.markdown,
-    "table": result.table,
-    "bar_chart": result.barChart,
-    "file": result.file,
-  });
-  return result;
 }
 
 export function decodeConversationArtifactWindow(value: unknown): ConversationArtifactWindow {
   const record = assertRecord(value, "ConversationArtifactWindow");
   assertKnownFields(record, "ConversationArtifactWindow", ["artifacts", "hasEarlier"]);
   return {
-    artifacts: decodeArray(requireField(record, "artifacts", "ConversationArtifactWindow"), "ConversationArtifactWindow.artifacts", (item) => decodeArtifact(item)),
+    artifacts: decodeArray(requireField(record, "artifacts", "ConversationArtifactWindow"), "ConversationArtifactWindow.artifacts", (item) => decodeArtifactMetadata(item)),
     hasEarlier: decodeBoolean(requireField(record, "hasEarlier", "ConversationArtifactWindow"), "ConversationArtifactWindow.hasEarlier"),
   };
 }
@@ -5177,6 +5123,84 @@ export function decodeReadConversationArtifactRequest(value: unknown): ReadConve
   };
 }
 
+export function decodeMarkdownArtifactPayload(value: unknown): MarkdownArtifactPayload {
+  const record = assertRecord(value, "MarkdownArtifactPayload");
+  assertKnownFields(record, "MarkdownArtifactPayload", ["markdown"]);
+  return {
+    markdown: decodeString(requireField(record, "markdown", "MarkdownArtifactPayload"), "MarkdownArtifactPayload.markdown"),
+  };
+}
+
+export function decodeArtifactTableColumn(value: unknown): ArtifactTableColumn {
+  const record = assertRecord(value, "ArtifactTableColumn");
+  assertKnownFields(record, "ArtifactTableColumn", ["key", "label"]);
+  return {
+    key: decodeString(requireField(record, "key", "ArtifactTableColumn"), "ArtifactTableColumn.key"),
+    label: decodeString(requireField(record, "label", "ArtifactTableColumn"), "ArtifactTableColumn.label"),
+  };
+}
+
+export function decodeTableArtifactPayload(value: unknown): TableArtifactPayload {
+  const record = assertRecord(value, "TableArtifactPayload");
+  assertKnownFields(record, "TableArtifactPayload", ["columns", "rows"]);
+  return {
+    columns: decodeArray(requireField(record, "columns", "TableArtifactPayload"), "TableArtifactPayload.columns", (item) => decodeArtifactTableColumn(item)),
+    rows: decodeArray(requireField(record, "rows", "TableArtifactPayload"), "TableArtifactPayload.rows", (item) => decodeArray(item, "TableArtifactPayload.rows item", (item) => decodeString(item, "TableArtifactPayload.rows item item"))),
+  };
+}
+
+export function decodeBarChartArtifactItem(value: unknown): BarChartArtifactItem {
+  const record = assertRecord(value, "BarChartArtifactItem");
+  assertKnownFields(record, "BarChartArtifactItem", ["label", "value", "unit"]);
+  return {
+    label: decodeString(requireField(record, "label", "BarChartArtifactItem"), "BarChartArtifactItem.label"),
+    value: decodeNumber(requireField(record, "value", "BarChartArtifactItem"), "BarChartArtifactItem.value"),
+    unit: decodeNullable(requireField(record, "unit", "BarChartArtifactItem"), "BarChartArtifactItem.unit", (item) => decodeString(item, "BarChartArtifactItem.unit")),
+  };
+}
+
+export function decodeBarChartArtifactPayload(value: unknown): BarChartArtifactPayload {
+  const record = assertRecord(value, "BarChartArtifactPayload");
+  assertKnownFields(record, "BarChartArtifactPayload", ["items"]);
+  return {
+    items: decodeArray(requireField(record, "items", "BarChartArtifactPayload"), "BarChartArtifactPayload.items", (item) => decodeBarChartArtifactItem(item)),
+  };
+}
+
+export function decodeFileArtifactPayload(value: unknown): FileArtifactPayload {
+  const record = assertRecord(value, "FileArtifactPayload");
+  assertKnownFields(record, "FileArtifactPayload", ["path", "description"]);
+  return {
+    path: decodeString(requireField(record, "path", "FileArtifactPayload"), "FileArtifactPayload.path"),
+    description: decodeNullable(requireField(record, "description", "FileArtifactPayload"), "FileArtifactPayload.description", (item) => decodeString(item, "FileArtifactPayload.description")),
+  };
+}
+
+export function decodeArtifact(value: unknown): Artifact {
+  const record = assertRecord(value, "Artifact");
+  assertKnownFields(record, "Artifact", ["id", "conversationId", "turnId", "trajectorySequence", "kind", "title", "createdAt", "markdown", "table", "barChart", "file"]);
+  const result: Artifact = {
+    id: decodeString(requireField(record, "id", "Artifact"), "Artifact.id"),
+    conversationId: decodeString(requireField(record, "conversationId", "Artifact"), "Artifact.conversationId"),
+    turnId: decodeNullable(requireField(record, "turnId", "Artifact"), "Artifact.turnId", (item) => decodeString(item, "Artifact.turnId")),
+    trajectorySequence: decodeNullable(requireField(record, "trajectorySequence", "Artifact"), "Artifact.trajectorySequence", (item) => decodeInteger(item, "Artifact.trajectorySequence")),
+    kind: decodeArtifactKind(requireField(record, "kind", "Artifact"), "Artifact.kind"),
+    title: decodeString(requireField(record, "title", "Artifact"), "Artifact.title"),
+    createdAt: decodeString(requireField(record, "createdAt", "Artifact"), "Artifact.createdAt"),
+    markdown: decodeNullable(requireField(record, "markdown", "Artifact"), "Artifact.markdown", (item) => decodeMarkdownArtifactPayload(item)),
+    table: decodeNullable(requireField(record, "table", "Artifact"), "Artifact.table", (item) => decodeTableArtifactPayload(item)),
+    barChart: decodeNullable(requireField(record, "barChart", "Artifact"), "Artifact.barChart", (item) => decodeBarChartArtifactPayload(item)),
+    file: decodeNullable(requireField(record, "file", "Artifact"), "Artifact.file", (item) => decodeFileArtifactPayload(item)),
+  };
+  assertTaggedUnionBranch("Artifact", result.kind, {
+    "markdown": result.markdown,
+    "table": result.table,
+    "bar_chart": result.barChart,
+    "file": result.file,
+  });
+  return result;
+}
+
 export function decodeNavigatorCursor(value: unknown): NavigatorCursor {
   const record = assertRecord(value, "NavigatorCursor");
   assertKnownFields(record, "NavigatorCursor", ["updatedAt", "conversationId"]);
@@ -5343,7 +5367,7 @@ export function decodeConversationArtifactCreatedEventPayload(value: unknown): C
   assertKnownFields(record, "ConversationArtifactCreatedEventPayload", ["type", "artifact"]);
   return {
     type: decodeContractLiteral(decodeConversationEventType(requireField(record, "type", "ConversationArtifactCreatedEventPayload"), "ConversationArtifactCreatedEventPayload.type"), "conversation.artifact.created", "ConversationArtifactCreatedEventPayload.type"),
-    artifact: decodeArtifact(requireField(record, "artifact", "ConversationArtifactCreatedEventPayload")),
+    artifact: decodeArtifactMetadata(requireField(record, "artifact", "ConversationArtifactCreatedEventPayload")),
   };
 }
 

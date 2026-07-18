@@ -156,7 +156,7 @@ func requireSnapshotArtifact(t *testing.T, snapshot ConversationSnapshot, artifa
 	t.Helper()
 	if len(snapshot.Artifacts.Artifacts) != 1 ||
 		snapshot.Artifacts.Artifacts[0].ID != artifactID ||
-		snapshot.Artifacts.Artifacts[0].Table == nil {
+		snapshot.Artifacts.Artifacts[0].Kind != ArtifactKindTable {
 		t.Fatalf("snapshot artifacts = %+v", snapshot.Artifacts)
 	}
 }

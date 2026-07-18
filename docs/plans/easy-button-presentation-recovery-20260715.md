@@ -2,28 +2,19 @@
 
 **Date:** 2026-07-15
 
-**Status:** Incomplete after implementation review on 2026-07-16. Phase 0 is verified;
-Phases 2, 3, 4, and 5 have implementation evidence; Phase 1 remains incomplete because
-visible-card artifact content loading/caching and required artifact-policy verification are
-still open.
+**Status:** Implemented and verified. Phase 0 is verified; Phases 1, 2, 3, 4,
+and 5 have implementation evidence. Ready for final audit.
 
 **Scope:** Easy Button presentation, typed artifacts, narrator projection and playback,
 global-master voice input, keyboard shortcuts, and production-path verification
 
-**Latest Review:** The typed artifact store/tool path exists, but the Easy Button artifact rail
-still receives payload-bearing artifacts from `ConversationSnapshot`: `readSnapshotArtifacts`
-selects `markdown_json`, `table_json`, `bar_chart_json`, and `file_json`, and `ArtifactRail`
-renders directly from `view.artifacts`. The required visible-card `ReadArtifact` cache by
-immutable artifact ID is not implemented. The deterministic recovery workflow currently covers
-only the supplied language-count table path; the fake topic provider calls `emit_artifact` only
-for text containing `supplied language-counts dataset`, so the required table-plus-bar-chart
-production path and artifact-policy scenarios are not verified. No committed report records the
-required live Codex structured-artifact workflow or an explicit ChatGPT-auth skip for this plan.
+**Latest Review:** Workstream 1 is complete: conversation snapshots and artifact-created events
+now publish metadata-only artifact records, typed payloads are read through `ReadArtifact`, the
+Easy Button rail loads only visible cards with immutable-ID caching, the deterministic recovery
+workflow verifies the required artifact-policy matrix, and a ChatGPT-authenticated live Codex
+workflow produced and read back a typed table artifact over a small supplied dataset.
 
-**Next Step:** Finish Workstream 1 by making artifact snapshots metadata/window records, loading
-typed payloads only for visible Easy Button cards through `ReadArtifact` with immutable-ID caching,
-then add the required production-path artifact-policy verification matrix: table plus bar chart,
-qualitative markdown, numeric bar chart, generated file, and no-artifact conversational answer.
+**Next Step:** Final audit.
 
 ## Why This Plan Exists
 
@@ -398,15 +389,19 @@ Verification:
 
 ### Phase 1 — Restore typed artifacts
 
-**Status:** Incomplete after implementation review. The typed store/tool/render branches exist, but
-visible-card artifact content loading/caching and the required production-path artifact-policy
-verification matrix remain open.
+**Status:** Implemented and verified
 
 - Add the generic dynamic-tool bridge in `internal/agent`.
 - Add the conversation-owned artifact tool, typed content repository, validation, and endpoint.
 - Regenerate Go-owned backend contracts and TypeScript.
 - Restore exhaustive markdown/table/bar-chart/file renderers.
 - Verify emission, restart/reload, malformed tool calls, and missing-content failure behavior.
+
+Verification:
+
+- Workflow: `easy-button-presentation-recovery-phase0`
+- Report: `docs/reports/performance/easy-button-presentation-recovery-phase1-20260716.md`
+- Live Codex: `./scripts/test_topic_conversation_workflows.sh --skip-build --live-only`
 
 ### Phase 2 — Correct narrator semantics
 

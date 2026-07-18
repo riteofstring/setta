@@ -1,4 +1,8 @@
-import type { Artifact } from "@generated/backend";
+import type {
+  Artifact,
+  ArtifactMetadata,
+  ReadConversationArtifactRequest,
+} from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
@@ -7,7 +11,11 @@ import {
   HighlightRail,
   type EasyButtonMilestone,
   milestoneElapsedLabel,
+  readVisibleArtifactPayloads,
 } from "./easy-button-rails";
+
+const conversationId = "conversation_topic";
+const workspaceId = "workspace_topic";
 
 describe("Easy Button conversation rails", () => {
   test("renders persisted narrator milestones without provider-thread identity", () => {
@@ -44,10 +52,22 @@ describe("Easy Button conversation rails", () => {
     expect(milestoneElapsedLabel("later", "earlier")).toBe("");
   });
 
-  test("renders typed conversation artifact payloads exhaustively", () => {
+  test("renders typed conversation artifact payloads exhaustively", async () => {
+    const artifacts = [markdownArtifact(), tableArtifact(), barChartArtifact(), fileArtifact()];
+    const metadata = artifacts.map(artifactMetadata);
+    const readArtifact = artifactReader(artifacts);
+    await readVisibleArtifactPayloads({
+      artifacts: metadata,
+      conversationId,
+      readArtifact,
+      workspaceId,
+    });
     const html = renderToString(
       <ArtifactRail
-        artifacts={[markdownArtifact(), tableArtifact(), barChartArtifact(), fileArtifact()]}
+        artifacts={metadata}
+        conversationId={conversationId}
+        readArtifact={readArtifact}
+        workspaceId={workspaceId}
       />,
     );
 
@@ -71,12 +91,41 @@ describe("Easy Button conversation rails", () => {
     const artifacts = Array.from({ length: 8 }, (_, index) =>
       markdownArtifact(`artifact_${index}`),
     );
-    const html = renderToString(<ArtifactRail artifacts={artifacts} />);
+    const html = renderToString(
+      <ArtifactRail
+        artifacts={artifacts.map(artifactMetadata)}
+        conversationId={conversationId}
+        readArtifact={artifactReader(artifacts)}
+        workspaceId={workspaceId}
+      />,
+    );
 
     expect(html.match(/data-artifact-id=/g)).toHaveLength(6);
     expect(html).not.toContain('data-artifact-id="artifact_0"');
     expect(html).not.toContain('data-artifact-id="artifact_1"');
     expect(html).toContain('data-artifact-id="artifact_7"');
+  });
+
+  test("reads payloads only for newest visible artifact cards", async () => {
+    const artifacts = Array.from({ length: 8 }, (_, index) =>
+      markdownArtifact(`visible_artifact_${index}`),
+    );
+    const requested: string[] = [];
+    await readVisibleArtifactPayloads({
+      artifacts: artifacts.map(artifactMetadata),
+      conversationId,
+      readArtifact: artifactReader(artifacts, requested),
+      workspaceId,
+    });
+
+    expect(requested).toEqual([
+      "visible_artifact_2",
+      "visible_artifact_3",
+      "visible_artifact_4",
+      "visible_artifact_5",
+      "visible_artifact_6",
+      "visible_artifact_7",
+    ]);
   });
 });
 
@@ -93,12 +142,39 @@ function baseArtifact(
   id: string,
 ): Omit<Artifact, "kind" | "markdown" | "table" | "barChart" | "file"> {
   return {
-    conversationId: "conversation_topic",
+    conversationId,
     createdAt: "2026-07-11T20:00:01Z",
     id,
     title: "Conversation report",
     trajectorySequence: null,
     turnId: "turn_topic",
+  };
+}
+
+function artifactMetadata(artifact: Artifact): ArtifactMetadata {
+  return {
+    conversationId: artifact.conversationId,
+    createdAt: artifact.createdAt,
+    id: artifact.id,
+    kind: artifact.kind,
+    title: artifact.title,
+    trajectorySequence: artifact.trajectorySequence,
+    turnId: artifact.turnId,
+  };
+}
+
+function artifactReader(
+  artifacts: readonly Artifact[],
+  requested: string[] = [],
+): (request: ReadConversationArtifactRequest) => Promise<Artifact> {
+  const byId = new Map(artifacts.map((artifact) => [artifact.id, artifact]));
+  return async (request) => {
+    requested.push(request.artifactId);
+    const artifact = byId.get(request.artifactId);
+    if (!artifact) {
+      throw new Error(`missing test artifact ${request.artifactId}`);
+    }
+    return artifact;
   };
 }
 

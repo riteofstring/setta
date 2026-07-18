@@ -155,7 +155,7 @@ func agentProgressPayloads(mutation agentProgressMutation) []ConversationEventPa
 		payloads = append(payloads, ConversationTrajectoryAppendedEventPayload{Type: ConversationEventTypeTrajectoryAppended, Event: current})
 	}
 	if mutation.artifact != nil {
-		payloads = append(payloads, ConversationArtifactCreatedEventPayload{Type: ConversationEventTypeArtifactCreated, Artifact: *mutation.artifact})
+		payloads = append(payloads, ConversationArtifactCreatedEventPayload{Type: ConversationEventTypeArtifactCreated, Artifact: mutation.artifact.Metadata()})
 	}
 	return payloads
 }

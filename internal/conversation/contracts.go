@@ -84,8 +84,8 @@ type ConversationTrajectoryWindow struct {
 }
 
 type ConversationArtifactWindow struct {
-	Artifacts  []Artifact `json:"artifacts"`
-	HasEarlier bool       `json:"hasEarlier"`
+	Artifacts  []ArtifactMetadata `json:"artifacts"`
+	HasEarlier bool               `json:"hasEarlier"`
 }
 
 type ConversationNarrationWindow struct {
@@ -165,7 +165,7 @@ type ConversationTrajectoryAppendedEventPayload struct {
 
 type ConversationArtifactCreatedEventPayload struct {
 	Type     ConversationEventType `json:"type"`
-	Artifact Artifact              `json:"artifact"`
+	Artifact ArtifactMetadata      `json:"artifact"`
 }
 
 type ConversationNarratorStateUpdatedEventPayload struct {
@@ -455,7 +455,7 @@ func validateSnapshotArtifacts(window ConversationArtifactWindow, conversationID
 	return nil
 }
 
-func validateSnapshotArtifact(artifact Artifact, conversationID string, lastTrajectorySequence int) error {
+func validateSnapshotArtifact(artifact ArtifactMetadata, conversationID string, lastTrajectorySequence int) error {
 	if artifact.ConversationID != conversationID {
 		return fmt.Errorf("snapshot artifact %s belongs to %q, want %q", artifact.ID, artifact.ConversationID, conversationID)
 	}

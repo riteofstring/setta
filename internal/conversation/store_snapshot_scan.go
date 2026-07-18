@@ -193,6 +193,30 @@ func scanArtifact(scanner sqlScanner) (Artifact, error) {
 	return value, nil
 }
 
+func scanArtifactMetadata(scanner sqlScanner) (ArtifactMetadata, error) {
+	var value ArtifactMetadata
+	var turnID sql.NullString
+	var trajectorySequence sql.NullInt64
+	err := scanner.Scan(
+		&value.ID,
+		&value.ConversationID,
+		&turnID,
+		&trajectorySequence,
+		&value.Kind,
+		&value.Title,
+		&value.CreatedAt,
+	)
+	if err != nil {
+		return ArtifactMetadata{}, err
+	}
+	value.TurnID = optionalScannedString(turnID)
+	value.TrajectorySequence = optionalScannedInt(trajectorySequence)
+	if err := value.Validate(); err != nil {
+		return ArtifactMetadata{}, err
+	}
+	return value, nil
+}
+
 func decodeArtifactPayloadColumns(
 	artifact *Artifact,
 	markdownJSON sql.NullString,

@@ -3,7 +3,8 @@ import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
 import {
-  languageCountArtifactArguments,
+  artifactPolicyScenarioForText,
+  threadHasArtifactTool,
   validateArtifactToolResult,
 } from "./fake-topic-artifact-tool.mjs";
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
@@ -100,7 +101,6 @@ function logoutAccount(message) {
   respond(message.id, {});
   notify("account/updated", { authMode: null, planType: null });
 }
-
 function listModels(message) {
   respond(message.id, {
     data: [
@@ -112,7 +112,6 @@ function listModels(message) {
     nextCursor: null,
   });
 }
-
 function readConfig(message) {
   respond(message.id, {
     config: {
@@ -123,15 +122,12 @@ function readConfig(message) {
     origins: {},
   });
 }
-
 function unsubscribeThread(message) {
   respond(message.id, { status: "unsubscribed" });
 }
-
 function terminateBackgroundTerminals(message) {
   respond(message.id, { terminated: true });
 }
-
 function startThread(message) {
   const params = message.params ?? {};
   const restricted = params.allowProviderModelFallback === false;
@@ -152,7 +148,6 @@ function startThread(message) {
   }
   sendResponse();
 }
-
 function optionalNonNegativeIntegerEnvironment(name) {
   const raw = process.env[name] ?? "";
   if (raw === "") {
@@ -164,7 +159,6 @@ function optionalNonNegativeIntegerEnvironment(name) {
   }
   return value;
 }
-
 function startThreadState(params, threadId, restricted) {
   return {
     approvalPolicy: params.approvalPolicy ?? null,
@@ -182,12 +176,10 @@ function startThreadState(params, threadId, restricted) {
     turnIds: [],
   };
 }
-
 function startThreadServiceTier(params, restricted) {
   if (restricted && params.serviceTier === null) return "default";
   return params.serviceTier ?? null;
 }
-
 function forkThread(message) {
   const params = message.params ?? {};
   const parentThreadId = requiredString(params, "threadId");
@@ -208,12 +200,10 @@ function forkThread(message) {
   thread.turns = state.turnIds.map((turnId) => turns.get(turnId));
   respond(message.id, threadOperationResponse(thread, state));
 }
-
 function forkSourceTurns(message, parent, ephemeral) {
   if (ephemeral) return ephemeralSideSourceTurns(message, parent);
   return durableForkSourceTurns(message, parent);
 }
-
 function forkThreadState(params, parent, parentThreadId, threadId, ephemeral, sourceTurnIds) {
   const config = params.config ?? {};
   return {
@@ -889,7 +879,9 @@ function emitStructuredProjection(threadId, turnId, context) {
 }
 
 function emitStructuredFocus(threadId, turnId, context) {
-  const objective = context.authoritative?.currentInstructions?.objective?.text ?? "topic work";
+  const objective = (
+    context.authoritative?.currentInstructions?.objective?.text ?? "topic work"
+  ).trim();
   emitAgentMessage(
     threadId,
     turnId,
@@ -902,7 +894,6 @@ function emitStructuredFocus(threadId, turnId, context) {
   );
   completeTurn(threadId, turnId, "completed");
 }
-
 function projectionMilestones(context, objective, observedThroughSequence) {
   const simultaneousCompletionSteering =
     context.authoritative?.currentInstructions?.acceptedSteering?.some(
@@ -1007,10 +998,16 @@ function performanceEventCount(text) {
 }
 
 function emitArtifactToolScenario(threadId, turnId, text) {
-  if (!text.includes("supplied language-counts dataset")) {
+  const scenario = artifactPolicyScenarioForText(text);
+  if (!scenario) {
     return false;
   }
-  emitArtifactToolCall(threadId, turnId);
+  if (scenario.artifacts.length === 0) {
+    emitAgentMessage(threadId, turnId, scenario.completion);
+    completeTurn(threadId, turnId, "completed");
+    return true;
+  }
+  emitArtifactToolCall(threadId, turnId, scenario, 0);
   return true;
 }
 
@@ -1150,9 +1147,16 @@ function handleToolCallResponse(requestId, pending, message) {
   if (message.error) {
     throw new Error(`artifact tool ${requestId} failed: ${message.error.message}`);
   }
-  validateArtifactToolResult(requestId, message.result);
+  validateArtifactToolResult(requestId, message.result, pending.arguments);
+  const nextIndex = pending.index + 1;
+  if (nextIndex < pending.scenario.artifacts.length) {
+    setImmediate(() =>
+      emitArtifactToolCall(pending.threadId, pending.turnId, pending.scenario, nextIndex),
+    );
+    return;
+  }
   setImmediate(() => {
-    emitAgentMessage(pending.threadId, pending.turnId, "Completed supplied artifact baseline.");
+    emitAgentMessage(pending.threadId, pending.turnId, pending.scenario.completion);
     completeTurn(pending.threadId, pending.turnId, "completed");
   });
 }
@@ -1190,37 +1194,34 @@ function emitAgentMessage(threadId, turnId, text) {
   });
 }
 
-function emitArtifactToolCall(threadId, turnId) {
+function emitArtifactToolCall(threadId, turnId, scenario, index) {
   const thread = threads.get(threadId);
   if (!threadHasArtifactTool(thread)) {
     completeTurn(threadId, turnId, "failed", "setta.emit_artifact was not registered");
     return;
   }
+  const artifactArguments = scenario.artifacts[index];
+  if (!artifactArguments) {
+    completeTurn(threadId, turnId, "failed", "artifact tool scenario index was invalid");
+    return;
+  }
   toolCallCounter += 1;
   persistState();
   const requestId = `topic-artifact-tool-${toolCallCounter}`;
-  pendingToolCalls.set(requestId, { threadId, turnId });
+  pendingToolCalls.set(requestId, {
+    arguments: artifactArguments,
+    index,
+    scenario,
+    threadId,
+    turnId,
+  });
   request(requestId, "item/tool/call", {
-    arguments: languageCountArtifactArguments,
+    arguments: artifactArguments,
     callId: `artifact-call-${toolCallCounter}`,
     namespace: "setta",
     threadId,
     tool: "emit_artifact",
     turnId,
-  });
-}
-
-function threadHasArtifactTool(thread) {
-  return (thread?.dynamicTools ?? []).some((tool) => {
-    if (tool?.type !== "namespace" || tool.name !== "setta" || !Array.isArray(tool.tools)) {
-      return false;
-    }
-    return tool.tools.some(
-      (child) =>
-        child?.type === "function" &&
-        child.name === "emit_artifact" &&
-        child.inputSchema?.properties?.kind?.enum?.includes("table"),
-    );
   });
 }
 

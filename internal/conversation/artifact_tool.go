@@ -244,7 +244,7 @@ func (service *Service) persistArtifactToolEmission(
 		conversationID,
 		now,
 		ConversationTrajectoryAppendedEventPayload{Type: ConversationEventTypeTrajectoryAppended, Event: trajectory},
-		ConversationArtifactCreatedEventPayload{Type: ConversationEventTypeArtifactCreated, Artifact: artifact},
+		ConversationArtifactCreatedEventPayload{Type: ConversationEventTypeArtifactCreated, Artifact: artifact.Metadata()},
 	)
 	if err != nil {
 		return Artifact{}, err
