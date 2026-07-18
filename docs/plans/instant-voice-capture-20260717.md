@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Complete — all phases are implemented and verified, including the Phase 4 p95/one-frame local-readiness performance contract.
+**Status:** Incomplete — current audit found one remaining lifecycle gap in pending buffered-capture setup cancellation.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -25,6 +25,11 @@ This is a replacement, not a compatibility project.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
 - [x] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow.
+- [ ] Audit follow-up — The controller must own and immediately stop the raw `getUserMedia` stream while `createBufferedCapture` is still pending, with deterministic coverage for cancel, runtime switch, and disposal during buffered-capture setup.
+
+## Current audit finding
+
+The implementation does not yet satisfy the pending-setup cancellation contract in full. After `getUserMedia` resolves, `app-shell-speech-capture-controller.ts` passes the raw stream into `createBufferedCapture`, but the controller does not keep an owned reference until the buffered lease is returned. If cancel, runtime switch, or disposal happens while `createBufferedCapture` is still pending, `resetCapture()` has no stream or lease to close, so the raw microphone can remain active until setup eventually resolves or fails. This leaves the `If setup is still pending when the user cancels...` and immediate raw-microphone-stop lifecycle requirements incomplete for that window.
 
 ## Independent post-loop audit
 
