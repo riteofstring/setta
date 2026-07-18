@@ -22,8 +22,9 @@ import {
   conversationCreationRequestEvent,
   conversationCreationRequestKey,
   enqueueConversationPlacementPreflight,
+  isConversationCreationRequestAbortedError,
+  type ConversationCreationCommand,
   type ConversationCreationEventDetail,
-  type ConversationCreationRequest,
   type ConversationCreationResult,
 } from "./features/easy-button/conversation-creation-command";
 import { useInitialEasyButtonPane } from "./features/easy-button/initial-easy-button-pane";
@@ -233,8 +234,8 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     },
     [workspace.selectWorkspace],
   );
-  const createConversationRequest = useCallback(
-    (request: ConversationCreationRequest): Promise<ConversationCreationResult> => {
+  const createConversationRequest = useCallback<ConversationCreationCommand>(
+    (request, lifecycle): Promise<ConversationCreationResult> => {
       const pendingKey = conversationCreationRequestKey(request);
       if (pendingConversationCreationsRef.current.has(pendingKey)) {
         const error = new Error(
@@ -245,6 +246,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       }
       pendingConversationCreationsRef.current.add(pendingKey);
       const pending = createAndPresentConversation({
+        assertCurrent: lifecycle?.assertCurrent,
         createConversation: (creationRequest) => setta.conversations.create(creationRequest),
         ensureWorkspaceAvailable: ensureConversationWorkspaceAvailable,
         ensureWorkspaceSelected: ensureConversationWorkspaceSelected,
@@ -260,7 +262,9 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           return result;
         })
         .catch((error: unknown) => {
-          setConversationPresentationError(conversationErrorMessage(error));
+          if (!isConversationCreationRequestAbortedError(error)) {
+            setConversationPresentationError(conversationErrorMessage(error));
+          }
           throw error;
         })
         .finally(() => {

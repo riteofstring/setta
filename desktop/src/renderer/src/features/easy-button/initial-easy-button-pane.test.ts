@@ -6,6 +6,7 @@ import {
   fulfillInitialEasyButtonPane,
   initialEasyButtonPaneDecision,
 } from "./initial-easy-button-pane";
+import type { ConversationCreationCommand } from "./conversation-creation-command";
 
 describe("initial Easy Button pane", () => {
   test("waits for both the navigator and mounted workspace layout", () => {
@@ -62,10 +63,47 @@ describe("initial Easy Button pane", () => {
       }),
     ).resolves.toBe(true);
 
-    expect(createConversation).toHaveBeenCalledWith({
-      destination: { kind: "new-pane" },
-      workspaceId: "workspace_api",
-    });
+    expect(createConversation).toHaveBeenCalledWith(
+      {
+        destination: { kind: "new-pane" },
+        workspaceId: "workspace_api",
+      },
+      {
+        assertCurrent: expect.any(Function),
+      },
+    );
+    expect(presentConversation).not.toHaveBeenCalled();
+  });
+
+  test("abandons stale initial creation before the shared command presents", async () => {
+    const targetKeyRef = { current: "runtime_api\u0000workspace_api" };
+    const createConversation = vi.fn(
+      async (
+        _request: Parameters<ConversationCreationCommand>[0],
+        lifecycle: Parameters<ConversationCreationCommand>[1],
+      ) => {
+        targetKeyRef.current = "runtime_api\u0000workspace_other";
+        lifecycle?.assertCurrent?.();
+        return {
+          conversationId: "conversation_created",
+          paneId: "workspace_pane_created",
+          workspaceId: "workspace_api",
+        };
+      },
+    );
+    const presentConversation = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      fulfillInitialEasyButtonPane({
+        createConversation,
+        decision: { kind: "create" },
+        presentConversation,
+        selectedWorkspaceId: "workspace_api",
+        targetKey: "runtime_api\u0000workspace_api",
+        targetKeyRef,
+      }),
+    ).resolves.toBe(false);
+
     expect(presentConversation).not.toHaveBeenCalled();
   });
 

@@ -21,6 +21,10 @@ export interface ConversationCreationRequest {
   workspaceId: string;
 }
 
+interface ConversationCreationLifecycle {
+  assertCurrent?: () => void;
+}
+
 export interface ConversationCreationEventDetail {
   completion: Promise<ConversationCreationResult> | null;
   request: ConversationCreationRequest;
@@ -32,7 +36,13 @@ export interface ConversationCreationResult {
   workspaceId: string;
 }
 
+export type ConversationCreationCommand = (
+  request: ConversationCreationRequest,
+  lifecycle?: ConversationCreationLifecycle,
+) => Promise<ConversationCreationResult>;
+
 export interface ConversationCreationCommandOptions {
+  assertCurrent?: () => void;
   createConversation: SettaAPI["conversations"]["create"];
   ensureWorkspaceAvailable: (workspaceId: string) => void;
   ensureWorkspaceSelected: (workspaceId: string) => Promise<void>;
@@ -42,6 +52,19 @@ export interface ConversationCreationCommandOptions {
     request: ConversationPanePresentationRequest,
   ) => Promise<ConversationPanePresentationSuccess>;
   request: ConversationCreationRequest;
+}
+
+export class ConversationCreationRequestAbortedError extends Error {
+  constructor(message = "The conversation creation request is no longer current.") {
+    super(message);
+    this.name = "ConversationCreationRequestAbortedError";
+  }
+}
+
+export function isConversationCreationRequestAbortedError(
+  error: unknown,
+): error is ConversationCreationRequestAbortedError {
+  return error instanceof ConversationCreationRequestAbortedError;
 }
 
 export interface ConversationPlacementPreflightQueue {
@@ -62,6 +85,7 @@ export function enqueueConversationPlacementPreflight(
 }
 
 export async function createAndPresentConversation({
+  assertCurrent,
   createConversation,
   ensureWorkspaceAvailable,
   ensureWorkspaceSelected,
@@ -70,17 +94,21 @@ export async function createAndPresentConversation({
   presentConversation,
   request,
 }: ConversationCreationCommandOptions): Promise<ConversationCreationResult> {
+  assertCurrent?.();
   ensureWorkspaceAvailable(request.workspaceId);
   await ensureWorkspaceSelected(request.workspaceId);
+  assertCurrent?.();
   await preflightPlacement({
     destination: request.destination,
     workspaceId: request.workspaceId,
   });
+  assertCurrent?.();
   const snapshot = await createConversation({
     title: newConversationTitle,
     workspaceId: request.workspaceId,
   });
   hydrateSnapshot(snapshot);
+  assertCurrent?.();
   try {
     const presentation = await presentConversation({
       conversationId: snapshot.conversation.id,

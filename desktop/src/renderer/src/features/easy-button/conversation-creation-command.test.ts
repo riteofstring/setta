@@ -98,6 +98,40 @@ describe("conversation creation command", () => {
     expect(hydrateSnapshot).toHaveBeenCalledWith(snapshot);
   });
 
+  test("aborts stale requests after durable creation before presenting a pane", async () => {
+    const snapshot = conversationSnapshot("conversation_created", "workspace_api");
+    const hydrateSnapshot = vi.fn();
+    const presentConversation = vi.fn();
+    let current = true;
+    const assertCurrent = vi.fn(() => {
+      if (!current) {
+        throw new Error("request changed");
+      }
+    });
+
+    await expect(
+      createAndPresentConversation({
+        assertCurrent,
+        createConversation: vi.fn().mockImplementation(async () => {
+          current = false;
+          return snapshot;
+        }),
+        ensureWorkspaceAvailable: vi.fn(),
+        ensureWorkspaceSelected: vi.fn(),
+        hydrateSnapshot,
+        preflightPlacement: vi.fn().mockResolvedValue(undefined),
+        presentConversation,
+        request: {
+          destination: { kind: "new-pane" },
+          workspaceId: "workspace_api",
+        },
+      }),
+    ).rejects.toThrow("request changed");
+
+    expect(hydrateSnapshot).toHaveBeenCalledWith(snapshot);
+    expect(presentConversation).not.toHaveBeenCalled();
+  });
+
   test("serializes placement preflights before dispatching through renderer state", async () => {
     const firstPreflight = deferred<void>();
     const preflightPlacement = vi
