@@ -12,6 +12,7 @@ import { Loader2, RotateCcw, Save, SlidersHorizontal, Volume2 } from "lucide-rea
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
+import { OpenAIVoiceConnectionCard } from "./openai-voice-connection-card";
 import { Button } from "./ui/button";
 
 const automaticSelectionValue = "auto_distinct";
@@ -55,25 +56,28 @@ export function PresentationConfigurationSettings() {
     };
   }, []);
 
-  if (error) {
-    return <ConfigurationMessage kind="error">{error}</ConfigurationMessage>;
-  }
-  if (!configuration) {
-    return (
-      <ConfigurationMessage kind="loading">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Loading voice configuration
-      </ConfigurationMessage>
-    );
-  }
   return (
-    <GlobalVoiceConfigurationForm
-      configuration={configuration}
-      onMasterUpdate={(master) => setConfiguration((current) => current && { ...current, master })}
-      onNarratorDefaultUpdate={(narratorDefault) =>
-        setConfiguration((current) => current && { ...current, narratorDefault })
-      }
-    />
+    <section className="grid gap-3" data-testid="presentation-configuration-settings">
+      <OpenAIVoiceConnectionCard />
+      {error ? (
+        <ConfigurationMessage kind="error">{error}</ConfigurationMessage>
+      ) : configuration ? (
+        <GlobalVoiceConfigurationForm
+          configuration={configuration}
+          onMasterUpdate={(master) =>
+            setConfiguration((current) => current && { ...current, master })
+          }
+          onNarratorDefaultUpdate={(narratorDefault) =>
+            setConfiguration((current) => current && { ...current, narratorDefault })
+          }
+        />
+      ) : (
+        <ConfigurationMessage kind="loading">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Loading voice configuration
+        </ConfigurationMessage>
+      )}
+    </section>
   );
 }
 
@@ -144,7 +148,7 @@ function GlobalVoiceConfigurationForm({
   };
 
   return (
-    <section className="grid gap-3" data-testid="presentation-configuration-settings">
+    <section className="grid gap-3" data-testid="voice-selection-settings">
       <header className="flex min-h-8 items-start gap-2">
         <Volume2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div>

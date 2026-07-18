@@ -12,13 +12,15 @@ import type {
   RoleConfiguration,
   RoleProfile,
 } from "@generated/backend";
+import type { SpeechCredentialSettings } from "@shared/speech-ipc";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
 import { DeveloperSettingsEditor } from "./developer-settings";
-import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
+import { OpenAIVoiceConnectionCardView } from "./openai-voice-connection-card";
 import { ConversationPresentationConfiguration } from "./presentation-configuration-settings";
+import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
 
 describe("appearance settings", () => {
@@ -72,6 +74,128 @@ describe("appearance settings", () => {
     expect(html).toContain('value="blue" selected=""');
     expect(html).toContain("Sky");
     expect(html).toContain("Teal");
+  });
+
+  test("renders the OpenAI voice connection setup card", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "not_configured",
+        })}
+        apiKeyDraft=""
+        canManage
+        mode={null}
+      />,
+    );
+
+    expect(html).toContain('data-testid="openai-voice-connection-card"');
+    expect(html).toContain("OpenAI voice connection");
+    expect(html).toContain("Not connected");
+    expect(html).toContain("Applies to Local only");
+    expect(html).toContain("OpenAI API key");
+    expect(html).toContain('type="password"');
+    expect(html).toContain("Save and verify");
+    expect(html).toContain("OpenAI API keys");
+    expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("renders a connected OpenAI voice card without a saved value", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        apiKeyDraft="candidate-value-that-must-not-render"
+        canManage
+        mode={null}
+      />,
+    );
+
+    expect(html).toContain("Connected");
+    expect(html).toContain("Replace");
+    expect(html).toContain("Disconnect");
+    expect(html).not.toContain('type="password"');
+    expect(html).not.toContain("candidate-value-that-must-not-render");
+  });
+
+  test("renders replacement mode with an empty password control", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        apiKeyDraft=""
+        canManage
+        mode="replace"
+      />,
+    );
+
+    expect(html).toContain("Connected");
+    expect(html).toContain("OpenAI API key");
+    expect(html).toContain("Cancel");
+    expect(html).toContain("Save and verify");
+  });
+
+  test("renders secure-storage and corrupt credential failures without an entry field", () => {
+    const secureStorage = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Electron safeStorage encryption is unavailable.",
+          status: "secure_storage_unavailable",
+        })}
+        canManage
+      />,
+    );
+    const corrupt = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Stored credential ciphertext could not be decrypted.",
+          reason: "decrypt_failed",
+          status: "corrupt",
+        })}
+        canManage
+      />,
+    );
+
+    expect(secureStorage).toContain("Storage unavailable");
+    expect(secureStorage).toContain("Electron safeStorage encryption is unavailable.");
+    expect(secureStorage).not.toContain('type="password"');
+    expect(corrupt).toContain("Needs attention");
+    expect(corrupt).toContain("Stored credential ciphertext could not be decrypted.");
+    expect(corrupt).not.toContain('type="password"');
+  });
+
+  test("renders retry and failed-save credential presentations", () => {
+    const failedRead = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Local speech runtime is not connected.",
+          operation: "read",
+          status: "failed",
+        })}
+        canManage
+      />,
+    );
+    const failedSave = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "OpenAI voice credential could not be verified.",
+          operation: "save",
+          status: "failed",
+        })}
+        canManage
+      />,
+    );
+
+    expect(failedRead).toContain("Read failed");
+    expect(failedRead).toContain("Retry");
+    expect(failedRead).not.toContain('type="password"');
+    expect(failedSave).toContain("Save failed");
+    expect(failedSave).toContain("OpenAI API key");
+    expect(failedSave).toContain("Save and verify");
   });
 
   test("renders independent model and reasoning controls for every AI role", () => {
@@ -254,6 +378,25 @@ describe("appearance settings", () => {
     expect(html).toContain("Warning foreground");
   });
 });
+
+function credentialCardProps(
+  settings: SpeechCredentialSettings,
+): Parameters<typeof OpenAIVoiceConnectionCardView>[0] {
+  return {
+    apiKeyDraft: "",
+    canManage: false,
+    mode: null,
+    onApiKeyDraftChange: vi.fn(),
+    onCancelReplace: vi.fn(),
+    onDisconnect: vi.fn(),
+    onOpenApiKeys: vi.fn(),
+    onReplace: vi.fn(),
+    onRetry: vi.fn(),
+    onSave: vi.fn(),
+    operation: null,
+    settings,
+  };
+}
 
 function sampleRoleConfiguration(): RoleConfiguration {
   const profiles = [
