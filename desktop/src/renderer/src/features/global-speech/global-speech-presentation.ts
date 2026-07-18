@@ -226,9 +226,9 @@ const failedCaptureActions = {
 
 const shellCaptureActions = {
   committing: null,
-  connecting: "cancel",
+  draining: null,
   idle: "start",
-  listening: "commit",
+  recording: "commit",
   requesting_permission: "cancel",
   submitting: null,
   unavailable: null,
@@ -269,9 +269,9 @@ export function shellSpeechCaptureControlLabel(
 
 const shellCaptureLabelers = {
   committing: (destination) => `Finishing the voice request for ${destination}`,
-  connecting: (destination) => `Connecting voice capture for ${destination}`,
+  draining: (destination) => `Finishing captured audio for ${destination}`,
   idle: () => "Start a voice request for Setta",
-  listening: (destination) => `Listening for ${destination}`,
+  recording: (destination) => `Listening for ${destination}`,
   requesting_permission: (destination) => `Requesting microphone access for ${destination}`,
   submitting: (destination) => `Sending the voice request to ${destination}`,
 } satisfies Record<
@@ -281,9 +281,9 @@ const shellCaptureLabelers = {
 
 const shellCaptureControlLabelers = {
   committing: (destination) => `Finishing the voice request for ${destination}`,
-  connecting: (destination) => `Cancel the voice request for ${destination}`,
+  draining: (destination) => `Finishing captured audio for ${destination}`,
   idle: () => "Start a voice request for Setta",
-  listening: (destination) => `Finish the voice request for ${destination}`,
+  recording: (destination) => `Finish the voice request for ${destination}`,
   requesting_permission: (destination) => `Cancel the voice request for ${destination}`,
   submitting: (destination) => `Sending the voice request to ${destination}`,
 } satisfies Record<
@@ -361,8 +361,8 @@ function activeCapturePresentation(
 ): GlobalSpeechCapturePresentation | null {
   switch (capture.type) {
     case "requesting_permission":
-    case "connecting":
-    case "listening":
+    case "recording":
+    case "draining":
     case "committing":
       return {
         source: captureRequestSource(capture.request),
@@ -492,9 +492,9 @@ function paneCaptureActivity(
 
 const paneCaptureActivityLabels = {
   committing: "Finishing voice request",
-  connecting: "Connecting voice",
+  draining: "Finishing captured audio",
   idle: null,
-  listening: "Listening",
+  recording: "Listening",
   requesting_permission: "Requesting microphone",
   submitting: "Sending voice request",
   unavailable: null,
@@ -573,8 +573,8 @@ function paneVoiceControl(
   if (capture.state === "failed") {
     return failedPaneVoiceControl(capture);
   }
-  if (capture.state === "listening") {
-    return listeningPaneVoiceControl(scope);
+  if (capture.state === "recording") {
+    return recordingPaneVoiceControl(scope);
   }
   if (capture.state === "unavailable") {
     return { disabled: true, label: capture.message };
@@ -584,12 +584,12 @@ function paneVoiceControl(
 
 const paneVoiceControls = {
   committing: activePaneVoiceControl,
-  connecting: activePaneVoiceControl,
+  draining: activePaneVoiceControl,
   idle: () => ({ disabled: false, label: "Start a voice request for this conversation" }),
   requesting_permission: activePaneVoiceControl,
   submitting: activePaneVoiceControl,
 } satisfies Record<
-  Exclude<GlobalSpeechCapturePresentation["state"], "failed" | "listening" | "unavailable">,
+  Exclude<GlobalSpeechCapturePresentation["state"], "failed" | "recording" | "unavailable">,
   (scope: PaneSpeechSourceScope) => { disabled: boolean; label: string }
 >;
 
@@ -606,7 +606,7 @@ function failedPaneVoiceControl(
   return { disabled: true, label: capture.message };
 }
 
-function listeningPaneVoiceControl(scope: PaneSpeechSourceScope) {
+function recordingPaneVoiceControl(scope: PaneSpeechSourceScope) {
   if (scope === "this_pane") {
     return { disabled: false, label: "Finish this voice request" };
   }
