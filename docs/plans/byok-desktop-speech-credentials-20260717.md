@@ -18,7 +18,12 @@ desktop behavior tests now assert that inherited `OPENAI_API_KEY` is not read.
 Phase 2 has started: Electron main now has the injected speech credential vault
 abstraction, a production `safeStorage` protection adapter, strict versioned
 ciphertext persistence, atomic replacement/removal, and typed corrupt-state
-handling.
+handling. The main-process speech credential coordinator is now in place with
+explicit save/remove transaction recovery paths, ciphertext-only rollback
+snapshots, typed read/save/remove IPC operations and credential-state push
+events, whole-operation recording redaction for credential saves, and
+local-runtime-only coordinator routing that does not use the selected active
+runtime.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -580,12 +585,12 @@ environment-based desktop product behavior.
       production adapter.
 - [x] Implement versioned ciphertext persistence, strict decoding, atomic
       replacement, removal, and corrupt-state handling.
-- [ ] Add the main-process credential coordinator and explicit transaction
+- [x] Add the main-process credential coordinator and explicit transaction
       recovery paths.
 - [ ] Restore into the authenticated local runtime at startup/replacement using
       runtime lifecycle events.
-- [ ] Add typed IPC operations/events and whole-channel recording redaction.
-- [ ] Prove the coordinator never targets the active remote runtime.
+- [x] Add typed IPC operations/events and whole-channel recording redaction.
+- [x] Prove the coordinator never targets the active remote runtime.
 
 ### Phase 3 — Voices UX and first-use routing
 

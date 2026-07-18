@@ -76,6 +76,32 @@ describe("SpeechCredentialVault", () => {
     await expect(vault.remove()).resolves.toBeUndefined();
   });
 
+  test("restores present and missing recovery snapshots without plaintext state", async () => {
+    const userDataDir = await temporaryUserDataDir();
+    const vault = new SpeechCredentialVault(userDataDir, new ReversibleProtection());
+    const firstAPIKey = "sk-setta-vault-recovery-first";
+    const secondAPIKey = "sk-setta-vault-recovery-second";
+
+    const missingSnapshot = await vault.createRecoverySnapshot();
+    await vault.write(firstAPIKey);
+    const firstSnapshot = await vault.createRecoverySnapshot();
+    await vault.write(secondAPIKey);
+
+    await vault.restoreRecoverySnapshot(firstSnapshot);
+
+    await expect(vault.read()).resolves.toEqual({
+      apiKey: firstAPIKey,
+      provider: expectedProvider(),
+      status: "present",
+    });
+    expect(JSON.stringify(firstSnapshot)).not.toContain(firstAPIKey);
+    expect(JSON.stringify(firstSnapshot)).not.toContain(secondAPIKey);
+
+    await vault.restoreRecoverySnapshot(missingSnapshot);
+
+    await expect(vault.read()).resolves.toEqual({ status: "missing" });
+  });
+
   test("encrypts before touching the filesystem", async () => {
     const userDataDir = join(await temporaryUserDataDir(), "missing-parent");
     const vault = new SpeechCredentialVault(userDataDir, {

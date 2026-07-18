@@ -19,6 +19,15 @@ export type SpeechCredentialVaultReadResult =
       message: string;
     };
 
+export type SpeechCredentialVaultRecoverySnapshot =
+  | { status: "missing" }
+  | { status: "present"; storedCredentialJSON: string }
+  | {
+      status: "corrupt";
+      reason: SpeechCredentialVaultCorruptionReason;
+      message: string;
+    };
+
 export type SpeechCredentialVaultCorruptionReason =
   | "unreadable"
   | "invalid_json"
@@ -89,22 +98,40 @@ export class SpeechCredentialVault {
 
   async write(apiKey: string): Promise<void> {
     const ciphertext = this.protection.encryptString(apiKey);
-    const path = this.path();
-    const tmpPath = temporaryCredentialPath(path);
     const stored = encodeStoredCredential(ciphertext);
 
+    await this.replaceStorageContent(JSON.stringify(stored, null, 2) + "\n");
+  }
+
+  async createRecoverySnapshot(): Promise<SpeechCredentialVaultRecoverySnapshot> {
+    const stored = await this.readStoredCredential();
+    if (stored.status !== "present") {
+      return stored;
+    }
+
     try {
-      await mkdir(dirname(path), { recursive: true });
-      await writeFile(tmpPath, JSON.stringify(stored, null, 2) + "\n", { mode: 0o600 });
-      await chmod(tmpPath, 0o600);
-      await rename(tmpPath, path);
-    } catch (error) {
-      const cleanupError = await removeTemporaryCredentialFileAfterFailedWrite(tmpPath);
-      throw new SpeechCredentialVaultError(
-        "write_failed",
-        "Failed to persist the speech credential.",
-        { cause: writeFailureCause(error, cleanupError) },
-      );
+      this.protection.decryptString(stored.ciphertext);
+    } catch {
+      return corruptCredential("decrypt_failed");
+    }
+    return { status: "present", storedCredentialJSON: stored.raw };
+  }
+
+  async restoreRecoverySnapshot(snapshot: SpeechCredentialVaultRecoverySnapshot): Promise<void> {
+    switch (snapshot.status) {
+      case "corrupt":
+        throw new SpeechCredentialVaultError(
+          "write_failed",
+          "Cannot restore a corrupt speech credential snapshot.",
+        );
+      case "missing":
+        await this.remove();
+        return;
+      case "present":
+        await this.replaceStorageContent(snapshot.storedCredentialJSON);
+        return;
+      default:
+        assertNever(snapshot);
     }
   }
 
@@ -122,9 +149,28 @@ export class SpeechCredentialVault {
     }
   }
 
+  private async replaceStorageContent(content: string): Promise<void> {
+    const path = this.path();
+    const tmpPath = temporaryCredentialPath(path);
+
+    try {
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(tmpPath, content, { mode: 0o600 });
+      await chmod(tmpPath, 0o600);
+      await rename(tmpPath, path);
+    } catch (error) {
+      const cleanupError = await removeTemporaryCredentialFileAfterFailedWrite(tmpPath);
+      throw new SpeechCredentialVaultError(
+        "write_failed",
+        "Failed to persist the speech credential.",
+        { cause: writeFailureCause(error, cleanupError) },
+      );
+    }
+  }
+
   private async readStoredCredential(): Promise<
     | { status: "missing" }
-    | { status: "present"; ciphertext: Buffer; provider: SpeechProvider }
+    | { status: "present"; ciphertext: Buffer; provider: SpeechProvider; raw: string }
     | { status: "corrupt"; reason: SpeechCredentialVaultCorruptionReason; message: string }
   > {
     let raw: string;
@@ -155,7 +201,7 @@ export class SpeechCredentialVault {
     if (!ciphertext) {
       return corruptCredential("invalid_base64");
     }
-    return { ciphertext, provider: stored.provider, status: "present" };
+    return { ciphertext, provider: stored.provider, raw, status: "present" };
   }
 }
 
