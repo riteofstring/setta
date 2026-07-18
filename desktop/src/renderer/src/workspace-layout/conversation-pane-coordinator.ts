@@ -6,6 +6,7 @@ export const conversationPaneNavigationRequestEvent = "setta:conversation-pane-n
 
 export interface ConversationPanePresentationRequest {
   conversationId: string;
+  destination?: ConversationPanePlacementDestination;
   preferredPaneId?: string | null;
   title: string;
   viewAction: "focus-or-open" | "open-new-view";
@@ -22,10 +23,26 @@ export type ConversationPanePresentationResult =
   | { kind: "opened"; paneId: string }
   | { kind: "blocked"; reason: string };
 
+export type ConversationPanePlacementDestination =
+  | { kind: "new-pane" }
+  | { kind: "empty-frame"; paneId: string };
+
+export interface ConversationPanePlacementRequest {
+  destination: ConversationPanePlacementDestination;
+  workspaceId: string;
+}
+
+export type ConversationPanePlacementPreflightResult =
+  | { kind: "ready" }
+  | { kind: "blocked"; reason: string };
+
 export type ConversationPanePresentationSuccess = Exclude<
   ConversationPanePresentationResult,
   { kind: "blocked" }
 >;
+
+export const conversationSelectedFrameMissingReason = "The selected frame no longer exists.";
+export const conversationSelectedFrameNotEmptyReason = "The selected frame is no longer empty.";
 
 export function conversationPaneRequestForPresentationIntent(
   intent: PresentationIntent,
@@ -105,6 +122,9 @@ export function presentConversationPane(
       reason: `Workspace ${request.workspaceId} is not mounted.`,
     };
   }
+  if (request.destination) {
+    return presentNewConversationPane(store, request, request.destination);
+  }
   const matchingPaneIds = store
     .toScene()
     .panes.filter(
@@ -140,6 +160,94 @@ export function presentConversationPane(
   }
   clearMaximizedPane(store);
   return { kind: "opened", paneId: store.openPane(paneRequest) };
+}
+
+export function preflightConversationPanePlacement(
+  store: WorkspaceLayoutStore,
+  request: ConversationPanePlacementRequest,
+): ConversationPanePlacementPreflightResult {
+  if (store.toScene().id !== request.workspaceId) {
+    return {
+      kind: "blocked",
+      reason: `Workspace ${request.workspaceId} is not mounted.`,
+    };
+  }
+  switch (request.destination.kind) {
+    case "new-pane": {
+      const paneRequest = conversationPaneRequest("conversation_preflight", "New conversation");
+      return store.canOpenPane(paneRequest)
+        ? { kind: "ready" }
+        : {
+            kind: "blocked",
+            reason: "The workspace has reached its Easy Button pane limit.",
+          };
+    }
+    case "empty-frame":
+      return emptyFramePlacementPreflight(store, request.destination.paneId);
+    default:
+      return assertNever(request.destination);
+  }
+}
+
+function presentNewConversationPane(
+  store: WorkspaceLayoutStore,
+  request: ConversationPanePresentationRequest,
+  destination: ConversationPanePlacementDestination,
+): ConversationPanePresentationResult {
+  const paneRequest = conversationPaneRequest(request.conversationId, request.title);
+  switch (destination.kind) {
+    case "new-pane":
+      if (!store.canOpenPane(paneRequest)) {
+        return {
+          kind: "blocked",
+          reason: "The workspace has reached its Easy Button pane limit.",
+        };
+      }
+      clearMaximizedPane(store);
+      return { kind: "opened", paneId: store.openPane(paneRequest) };
+    case "empty-frame": {
+      const preflight = emptyFramePlacementPreflight(store, destination.paneId);
+      if (preflight.kind === "blocked") {
+        return preflight;
+      }
+      clearMaximizedPane(store);
+      return { kind: "opened", paneId: store.configurePane(destination.paneId, paneRequest) };
+    }
+    default:
+      return assertNever(destination);
+  }
+}
+
+function emptyFramePlacementPreflight(
+  store: WorkspaceLayoutStore,
+  paneId: string,
+): ConversationPanePlacementPreflightResult {
+  const pane = store.toScene().paneById.get(paneId);
+  if (!pane) {
+    return { kind: "blocked", reason: conversationSelectedFrameMissingReason };
+  }
+  if (pane.surfaceKind !== "empty-frame") {
+    return { kind: "blocked", reason: conversationSelectedFrameNotEmptyReason };
+  }
+  const paneRequest = conversationPaneRequest("conversation_preflight", "New conversation");
+  if (!store.canOpenPane(paneRequest)) {
+    return {
+      kind: "blocked",
+      reason: "The workspace has reached its Easy Button pane limit.",
+    };
+  }
+  return { kind: "ready" };
+}
+
+function conversationPaneRequest(conversationId: string, title: string) {
+  return {
+    easyButtonConfig: { conversationId },
+    subtitle: "Topic conversation",
+    surfaceKind: "easy-button",
+    title,
+    tone: "cyan",
+    widthSpec: { unit: "proportion", value: 1 },
+  } as const;
 }
 
 function matchingConversationPaneId(

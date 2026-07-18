@@ -14,6 +14,7 @@ import {
   type TrajectoryEvent,
 } from "@generated/backend";
 
+import { openAIVoiceConnectionSettings } from "../../components/settings-navigation";
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
@@ -325,7 +326,9 @@ function ConversationControl({
   speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
 }) {
-  const action = conversationControlAction(commands, readOnly, speech);
+  const action = conversationControlAction(commands, readOnly, speech, {
+    onOpenVoiceCredentialSettings: openAIVoiceConnectionSettings,
+  });
   return (
     <div className="easy-button-button-well">
       <SwirlField />
