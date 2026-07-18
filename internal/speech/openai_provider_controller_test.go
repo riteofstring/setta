@@ -66,6 +66,47 @@ func TestOpenAIProviderControllerLoadsClearsAndShutsDownCredential(t *testing.T)
 	}
 }
 
+func TestOpenAIProviderControllerClosesIdleConnectionsForReplacedAndClearedCredentials(t *testing.T) {
+	transports := map[string]*idleCloseTrackingTransport{}
+	controller := &OpenAIProviderController{
+		newClient: func(apiKey string, _ OpenAIProviderConfig) (*OpenAIClient, error) {
+			transport := &idleCloseTrackingTransport{}
+			transports[apiKey] = transport
+			return &OpenAIClient{
+				apiKey:     apiKey,
+				httpClient: &http.Client{Transport: transport},
+			}, nil
+		},
+	}
+
+	if err := controller.LoadCredential("sk-setta-old"); err != nil {
+		t.Fatalf("load old credential: %v", err)
+	}
+	oldTransport := transports["sk-setta-old"]
+	if oldTransport.closeCalls != 0 {
+		t.Fatalf("old credential idle close calls = %d, want 0", oldTransport.closeCalls)
+	}
+	if err := controller.LoadCredential("sk-setta-new"); err != nil {
+		t.Fatalf("load new credential: %v", err)
+	}
+	if oldTransport.closeCalls != 1 {
+		t.Fatalf("old credential idle close calls = %d, want 1", oldTransport.closeCalls)
+	}
+	newTransport := transports["sk-setta-new"]
+	if newTransport.closeCalls != 0 {
+		t.Fatalf("new credential idle close calls = %d, want 0", newTransport.closeCalls)
+	}
+
+	controller.ClearCredential()
+	if newTransport.closeCalls != 1 {
+		t.Fatalf("new credential idle close calls = %d, want 1", newTransport.closeCalls)
+	}
+	controller.ClearCredential()
+	if newTransport.closeCalls != 1 {
+		t.Fatalf("new credential idle close calls after duplicate clear = %d, want 1", newTransport.closeCalls)
+	}
+}
+
 func TestOpenAIProviderControllerSnapshotSurvivesReplacement(t *testing.T) {
 	provider := newProviderControllerTestServer(t)
 	defer provider.Close()
@@ -181,6 +222,18 @@ func (provider *providerControllerTestServer) authorizationHeaders() []string {
 	provider.mu.Lock()
 	defer provider.mu.Unlock()
 	return append([]string(nil), provider.authorization...)
+}
+
+type idleCloseTrackingTransport struct {
+	closeCalls int
+}
+
+func (transport *idleCloseTrackingTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, fmt.Errorf("unexpected provider request")
+}
+
+func (transport *idleCloseTrackingTransport) CloseIdleConnections() {
+	transport.closeCalls++
 }
 
 func newProviderControllerForTest(

@@ -56,6 +56,13 @@ func NewOpenAIClient(apiKey string, config OpenAIProviderConfig) (*OpenAIClient,
 		httpClient = &http.Client{}
 	}
 	httpClientCopy := *httpClient
+	if httpClientCopy.Transport == nil {
+		defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+		if !ok {
+			return nil, errors.New("default speech provider transport is not configurable")
+		}
+		httpClientCopy.Transport = defaultTransport.Clone()
+	}
 	httpClientCopy.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
@@ -101,6 +108,13 @@ func (client *OpenAIClient) configured() bool {
 
 func (client *OpenAIClient) Configured() bool {
 	return client.configured()
+}
+
+func (client *OpenAIClient) closeIdleConnections() {
+	if client == nil || client.httpClient == nil {
+		return
+	}
+	client.httpClient.CloseIdleConnections()
 }
 
 func (client *OpenAIClient) postJSON(ctx context.Context, path string, payload any, accept string, safetyIdentifier string) (*http.Response, error) {

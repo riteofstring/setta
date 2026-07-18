@@ -137,6 +137,19 @@ func TestNewOpenAIClientValidatesConfiguration(t *testing.T) {
 	}
 }
 
+func TestNewOpenAIClientOwnsDefaultTransport(t *testing.T) {
+	client, err := NewOpenAIClient(testSpeechAPIKey, OpenAIProviderConfig{})
+	if err != nil {
+		t.Fatalf("create OpenAI speech client: %v", err)
+	}
+	if client.httpClient.Transport == nil {
+		t.Fatal("OpenAI speech client transport is nil")
+	}
+	if client.httpClient.Transport == http.DefaultTransport {
+		t.Fatal("OpenAI speech client reused the process default transport")
+	}
+}
+
 func TestOpenAIClientWithoutAPIKeyFailsWithoutProviderRequest(t *testing.T) {
 	var calls atomic.Int32
 	client, err := NewOpenAIClient("", OpenAIProviderConfig{

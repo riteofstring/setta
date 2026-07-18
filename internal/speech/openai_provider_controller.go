@@ -80,8 +80,10 @@ func (controller *OpenAIProviderController) LoadCredential(apiKey string) error 
 		return err
 	}
 	controller.mu.Lock()
-	defer controller.mu.Unlock()
+	previous := controller.client
 	controller.client = client
+	controller.mu.Unlock()
+	previous.closeIdleConnections()
 	return nil
 }
 
@@ -90,8 +92,10 @@ func (controller *OpenAIProviderController) ClearCredential() {
 		return
 	}
 	controller.mu.Lock()
-	defer controller.mu.Unlock()
+	previous := controller.client
 	controller.client = nil
+	controller.mu.Unlock()
+	previous.closeIdleConnections()
 }
 
 func (controller *OpenAIProviderController) Shutdown() {
