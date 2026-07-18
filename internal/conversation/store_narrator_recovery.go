@@ -82,12 +82,15 @@ JOIN conversation_turns AS turn
   ON turn.id = trajectory.turn_id
 WHERE (
     trajectory.sequence > narrator.observed_through_sequence
-    OR NOT EXISTS (
-      SELECT 1
-      FROM narration_events AS final
-      WHERE final.conversation_id = trajectory.conversation_id
-        AND final.turn_id = trajectory.turn_id
-        AND final.kind = ?
+    OR (
+      trajectory.sequence = narrator.observed_through_sequence
+      AND NOT EXISTS (
+        SELECT 1
+        FROM narration_events AS final
+        WHERE final.conversation_id = trajectory.conversation_id
+          AND final.turn_id = trajectory.turn_id
+          AND final.kind = ?
+      )
     )
   )
   AND trajectory.actor IN (?, ?)

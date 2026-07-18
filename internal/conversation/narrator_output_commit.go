@@ -124,6 +124,7 @@ func validateNarratorProjectionTarget(request NarratorProjectionCommit) error {
 
 func validateNarratorProjectionChannel(request NarratorProjectionCommit) error {
 	if !validNarrationTrigger(request.Trigger) ||
+		request.Trigger == NarrationTriggerInputAccepted ||
 		request.Trigger == NarrationTriggerExplicitStatusRequested ||
 		request.Trigger == NarrationTriggerCheckpointWindowExceeded {
 		return fmt.Errorf("narrator projection has unsupported trigger %q", request.Trigger)

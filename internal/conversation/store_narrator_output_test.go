@@ -85,6 +85,35 @@ func TestTerminalNarratorProjectionCanFinalizeAlreadyObservedBoundary(t *testing
 	}
 }
 
+func TestNarratorTerminalRecoveryOnlyFinalizesCurrentObservedBoundary(t *testing.T) {
+	store := newTestStore(t)
+	seed := seedNarratorContext(t, store)
+	projection, err := store.CommitNarratorProjection(context.Background(), narratorWorkingCommit(seed))
+	if err != nil {
+		t.Fatalf("commit working narrator projection: %v", err)
+	}
+	appendTerminalNarratorSource(t, store, seed)
+	targets, err := store.ListNarratorRecoveryTargets(context.Background())
+	if err != nil {
+		t.Fatalf("list terminal recovery targets: %v", err)
+	}
+	assertTerminalRecoveryTarget(t, targets, seed.turnID, 11, true)
+
+	caughtUp := markNarratorOutputStateCaughtUp(t, store, seed.conversationID, projection.State, 11)
+	targets, err = store.ListNarratorRecoveryTargets(context.Background())
+	if err != nil {
+		t.Fatalf("list current-boundary terminal recovery targets: %v", err)
+	}
+	assertTerminalRecoveryTarget(t, targets, seed.turnID, 11, true)
+
+	appendSecondNarratorRecoveryTurn(t, store, seed.conversationID, caughtUp, 12)
+	targets, err = store.ListNarratorRecoveryTargets(context.Background())
+	if err != nil {
+		t.Fatalf("list advanced terminal recovery targets: %v", err)
+	}
+	assertTerminalRecoveryTarget(t, targets, seed.turnID, 11, false)
+}
+
 func TestNarratorProjectionRollsBackStateOutputsAndTopicOnPublicationFailure(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedNarratorContext(t, store)
@@ -161,6 +190,32 @@ func TestNarratorFocusCommitUpdatesOnlyFromAcceptedInputOrSteering(t *testing.T)
 	_, err = store.CommitNarratorFocus(context.Background(), badSource)
 	if !IsStateConflict(err) {
 		t.Fatalf("bad focus source error = %T %v, want StateConflictError", err, err)
+	}
+}
+
+func TestNarratorFocusCommitAdvancesRevisionForDescriptorOnlyChange(t *testing.T) {
+	store := newTestStore(t)
+	seed := seedNarratorContext(t, store)
+	before := readTestNarratorState(t, store, seed.conversationID)
+	request := narratorFocusCommit(seed, before)
+	request.NarratorStateCommittedID = "focus-state-descriptor-only"
+	request.CurrentFocus = before.CurrentFocus
+	request.TopicDescriptor.NarrationEventID = "focus-topic-descriptor-only"
+	request.TopicDescriptor.CommittedEventID = "focus-topic-descriptor-only-publication"
+	request.TopicDescriptor.Text = "Descriptor-only narrator routing update"
+
+	focus, err := store.CommitNarratorFocus(context.Background(), request)
+	if err != nil {
+		t.Fatalf("commit descriptor-only narrator focus: %v", err)
+	}
+	if focus.State.CurrentFocus != before.CurrentFocus ||
+		focus.State.CurrentFocusRevision != before.CurrentFocusRevision+1 ||
+		focus.State.TopicDescriptor != request.TopicDescriptor.Text {
+		t.Fatalf("descriptor-only focus state = %+v, before %+v", focus.State, before)
+	}
+	if focus.Event == nil || focus.Event.TopicDescriptor == nil ||
+		focus.Event.TopicDescriptor.Text != request.TopicDescriptor.Text {
+		t.Fatalf("descriptor-only focus event = %+v", focus.Event)
 	}
 }
 
@@ -385,6 +440,54 @@ func markNarratorOutputStateCaughtUp(
 	return updated
 }
 
+func appendSecondNarratorRecoveryTurn(
+	t *testing.T,
+	store *Store,
+	conversationID string,
+	state NarratorState,
+	sequence int,
+) {
+	t.Helper()
+	turn := validConversationTurn(TurnStatusQueued)
+	turn.ID = "turn-recovery-next"
+	turn.ConversationID = conversationID
+	turn.AuthoredInput = AuthoredInput{Text: "Continue after the terminal boundary."}
+	turn.AcceptedAt = narratorTerminalFinalizationTime
+	accepted := contextTrajectoryEvent(conversationID, turn.ID, sequence, TrajectoryEventUserInputAccepted)
+	accepted.ID = "recovery-next-input"
+	accepted.Actor = TrajectoryActorUser
+	accepted.EmittedAt = narratorTerminalFinalizationTime
+	accepted.UserInputAccepted = &TrajectoryUserInputAccepted{
+		Input:    turn.AuthoredInput,
+		Delivery: turn.Delivery,
+	}
+	updated := state
+	updated.ObservedThroughSequence = sequence
+	updated.CheckpointThroughSequence = sequence
+	updated.CheckpointText = "Recovery advanced beyond the earlier terminal boundary."
+	updated.UpdatedAt = "2026-07-11T20:06:00Z"
+	_, err := store.Transact(context.Background(), "append second narrator recovery turn", func(transaction *WriteTransaction) error {
+		if err := transaction.InsertTurn(turn); err != nil {
+			return err
+		}
+		if err := transaction.AppendTrajectoryEvent(accepted); err != nil {
+			return err
+		}
+		if err := transaction.UpdateNarratorState(narratorExpectation(state), updated); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"recovery-next-state-publication",
+			"conversation:"+conversationID,
+			map[string]string{"conversationId": conversationID},
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("append second narrator recovery turn: %v", err)
+	}
+}
+
 func appendTerminalNarratorSource(t *testing.T, store *Store, seed narratorContextSeed) {
 	t.Helper()
 	turn := readNarratorOutputTurn(t, store, seed.turnID)
@@ -444,6 +547,27 @@ func appendMismatchedTerminalNarratorSource(t *testing.T, store *Store, seed nar
 	})
 	if err != nil {
 		t.Fatalf("append mismatched terminal narrator source: %v", err)
+	}
+}
+
+func assertTerminalRecoveryTarget(
+	t *testing.T,
+	targets []NarratorRecoveryTarget,
+	turnID string,
+	throughSequence int,
+	want bool,
+) {
+	t.Helper()
+	for _, target := range targets {
+		if target.Terminal && target.TurnID == turnID && target.ThroughSequence == throughSequence {
+			if !want {
+				t.Fatalf("unexpected terminal recovery target %+v in %+v", target, targets)
+			}
+			return
+		}
+	}
+	if want {
+		t.Fatalf("terminal recovery target %s/%d not found in %+v", turnID, throughSequence, targets)
 	}
 }
 
@@ -596,6 +720,12 @@ func TestNarratorOutputCommitValidationRejectsCrossChannelShapes(t *testing.T) {
 	projection.Trigger = NarrationTriggerTurnTerminal
 	if err := projection.Validate(); err == nil {
 		t.Fatal("terminal projection accepted missing final summary")
+	}
+
+	projection = narratorWorkingCommit(seed)
+	projection.Trigger = NarrationTriggerInputAccepted
+	if err := projection.Validate(); err == nil {
+		t.Fatal("projection accepted focus-only trigger")
 	}
 
 	status := narratorStatusCommit(seed, NarratorState{

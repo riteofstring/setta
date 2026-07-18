@@ -147,7 +147,7 @@ func commitNarratorFocus(
 	}
 	updated := state
 	updated.CurrentFocus = request.CurrentFocus
-	if request.CurrentFocus != state.CurrentFocus {
+	if narratorFocusRevisionChanged(state, request) {
 		updated.CurrentFocusRevision = state.CurrentFocusRevision + 1
 	}
 	if request.TopicDescriptor != nil {
@@ -174,6 +174,13 @@ func commitNarratorFocus(
 		return NarratorFocusCommitResult{}, err
 	}
 	return result, nil
+}
+
+func narratorFocusRevisionChanged(state NarratorState, request NarratorFocusCommit) bool {
+	if request.CurrentFocus != state.CurrentFocus {
+		return true
+	}
+	return request.TopicDescriptor != nil && request.TopicDescriptor.Text != state.TopicDescriptor
 }
 
 func commitNarratorStatus(
