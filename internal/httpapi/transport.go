@@ -359,6 +359,8 @@ func speechErrorHTTPStatus(code speech.ErrorCode) int {
 		return http.StatusServiceUnavailable
 	case speech.ErrorCredentialInvalid:
 		return http.StatusBadRequest
+	case speech.ErrorCredentialManagementUnavailable:
+		return http.StatusForbidden
 	case speech.ErrorSourceUnavailable:
 		return http.StatusConflict
 	case speech.ErrorVoiceUnavailable:

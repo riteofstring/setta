@@ -11,7 +11,11 @@ server-startup credentials, declared the explicit
 `electron_vault | server_startup` credential-owner policy, and introduced the
 synchronized credential-aware OpenAI provider controller plus service-level
 credential validation, load, clear, non-secret status, and classified
-malformed-credential errors.
+malformed-credential errors. The authenticated bounded desktop credential HTTP
+endpoints are now registered in the endpoint registry, `server_startup`
+runtimes reject desktop credential management with a typed safe error, and the
+Go-owned TypeScript backend contracts have been regenerated at protocol version
+63.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -561,9 +565,9 @@ environment-based desktop product behavior.
       policy.
 - [x] Add the synchronized credential-aware OpenAI provider controller.
 - [x] Add validation, load, and clear service methods and classified errors.
-- [ ] Register authenticated, bounded HTTP endpoints in the endpoint registry.
-- [ ] Reject desktop management operations in `server_startup`.
-- [ ] Regenerate Go-owned TypeScript backend contracts before cleanup.
+- [x] Register authenticated, bounded HTTP endpoints in the endpoint registry.
+- [x] Reject desktop management operations in `server_startup`.
+- [x] Regenerate Go-owned TypeScript backend contracts before cleanup.
 - [ ] Remove API-key environment loading from `cmd/setta-backend`, isolate the
       server-startup loader, and replace only the desktop behavior tests.
 
