@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -169,6 +170,39 @@ type ExecResult struct {
 	Stderr   []byte
 }
 
+// ServiceIdentity describes the operating-system user and group a provider
+// should use when launching a restartable service. User and Group are runtime
+// account selectors, not provider identities. The zero value means "use the
+// provider default"; callers must set both User and Group when they need a
+// specific trusted runtime identity.
+type ServiceIdentity struct {
+	User  string
+	Group string
+}
+
+// IsZero reports whether the service identity requests the provider default.
+func (identity ServiceIdentity) IsZero() bool {
+	return identity.User == "" && identity.Group == ""
+}
+
+// Validate rejects incomplete or unsafe service account selectors before they
+// reach a provider adapter.
+func (identity ServiceIdentity) Validate() error {
+	if identity.IsZero() {
+		return nil
+	}
+	if identity.User == "" || identity.Group == "" {
+		return fmt.Errorf("%w: service identity must set both user and group", ErrInvalidContract)
+	}
+	if err := validateServiceIdentitySelector("service user", identity.User); err != nil {
+		return err
+	}
+	if err := validateServiceIdentitySelector("service group", identity.Group); err != nil {
+		return err
+	}
+	return nil
+}
+
 // ServiceSpec describes one restartable runtime service.
 type ServiceSpec struct {
 	Name      string
@@ -176,6 +210,25 @@ type ServiceSpec struct {
 	Arguments []string
 	Needs     []string
 	HTTPPort  *int
+	RunAs     ServiceIdentity
+}
+
+// Validate rejects provider-neutral service contracts that cannot be mapped
+// safely by adapters.
+func (spec ServiceSpec) Validate() error {
+	if err := validateRuntimeResourceName("service", spec.Name); err != nil {
+		return err
+	}
+	if !strings.HasPrefix(spec.Path, "/") {
+		return fmt.Errorf("%w: service path must be absolute", ErrInvalidContract)
+	}
+	if spec.HTTPPort != nil && (*spec.HTTPPort < 1 || *spec.HTTPPort > 65535) {
+		return fmt.Errorf("%w: service HTTP port is out of range", ErrInvalidContract)
+	}
+	if err := spec.RunAs.Validate(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ServiceState is the observed state of a restartable service.
@@ -224,4 +277,53 @@ type CheckpointObservation struct {
 	ID        string
 	Comment   string
 	CreatedAt time.Time
+}
+
+func validateRuntimeResourceName(kind string, name string) error {
+	if len(name) == 0 || len(name) > 63 || name[0] < 'a' || name[0] > 'z' {
+		return fmt.Errorf("%w: malformed %s name", ErrInvalidContract, kind)
+	}
+	for _, character := range name {
+		if (character < 'a' || character > 'z') &&
+			(character < '0' || character > '9') &&
+			character != '-' {
+			return fmt.Errorf("%w: malformed %s name", ErrInvalidContract, kind)
+		}
+	}
+	return nil
+}
+
+func validateServiceIdentitySelector(label string, value string) error {
+	if invalidServiceIdentitySelectorShape(value) {
+		return fmt.Errorf("%w: malformed %s", ErrInvalidContract, label)
+	}
+	allDigits := true
+	for _, character := range value {
+		if !isASCIIDigit(character) {
+			allDigits = false
+		}
+		if validServiceIdentityCharacter(character) {
+			continue
+		}
+		return fmt.Errorf("%w: malformed %s", ErrInvalidContract, label)
+	}
+	if !allDigits && isASCIIDigit(rune(value[0])) {
+		return fmt.Errorf("%w: malformed %s", ErrInvalidContract, label)
+	}
+	return nil
+}
+
+func invalidServiceIdentitySelectorShape(value string) bool {
+	return value == "" || strings.TrimSpace(value) != value || len(value) > 64 || value[0] == '-'
+}
+
+func validServiceIdentityCharacter(character rune) bool {
+	return character >= 'a' && character <= 'z' ||
+		character >= 'A' && character <= 'Z' ||
+		isASCIIDigit(character) ||
+		character == '_' || character == '-' || character == '.' || character == '$'
+}
+
+func isASCIIDigit(character rune) bool {
+	return character >= '0' && character <= '9'
 }

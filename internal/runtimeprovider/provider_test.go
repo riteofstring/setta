@@ -98,3 +98,66 @@ func TestValidateManagedName(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceSpecValidateAcceptsProviderDefaultAndExplicitIdentity(t *testing.T) {
+	spec := ServiceSpec{
+		Name: "setta-runtime",
+		Path: "/opt/setta/bin/setta",
+	}
+	if err := spec.Validate(); err != nil {
+		t.Fatalf("Validate provider default identity: %v", err)
+	}
+
+	spec.RunAs = ServiceIdentity{User: "setta-runtime", Group: "setta-runtime"}
+	if err := spec.Validate(); err != nil {
+		t.Fatalf("Validate explicit identity: %v", err)
+	}
+
+	spec.RunAs = ServiceIdentity{User: "65534", Group: "65534"}
+	if err := spec.Validate(); err != nil {
+		t.Fatalf("Validate numeric identity: %v", err)
+	}
+}
+
+func TestServiceSpecValidateRejectsMalformedIdentity(t *testing.T) {
+	base := ServiceSpec{
+		Name: "setta-runtime",
+		Path: "/opt/setta/bin/setta",
+	}
+	tests := map[string]ServiceIdentity{
+		"missing group": {User: "setta-runtime"},
+		"missing user":  {Group: "setta-runtime"},
+		"space":         {User: "setta runtime", Group: "setta-runtime"},
+		"path":          {User: "../root", Group: "root"},
+		"option":        {User: "-root", Group: "root"},
+		"mixed numeric": {User: "1000root", Group: "root"},
+	}
+	for name, identity := range tests {
+		t.Run(name, func(t *testing.T) {
+			spec := base
+			spec.RunAs = identity
+			if err := spec.Validate(); !errors.Is(err, ErrInvalidContract) {
+				t.Fatalf("Validate error = %v, want ErrInvalidContract", err)
+			}
+		})
+	}
+}
+
+func TestServiceSpecValidateRejectsMalformedServiceContract(t *testing.T) {
+	tests := []ServiceSpec{
+		{Name: "Setta", Path: "/opt/setta/bin/setta"},
+		{Name: "setta_runtime", Path: "/opt/setta/bin/setta"},
+		{Name: "setta-runtime", Path: "setta"},
+		{Name: "setta-runtime", Path: "/opt/setta/bin/setta", HTTPPort: intPtr(0)},
+		{Name: "setta-runtime", Path: "/opt/setta/bin/setta", HTTPPort: intPtr(65536)},
+	}
+	for _, spec := range tests {
+		if err := spec.Validate(); !errors.Is(err, ErrInvalidContract) {
+			t.Fatalf("spec %#v error = %v, want ErrInvalidContract", spec, err)
+		}
+	}
+}
+
+func intPtr(value int) *int {
+	return &value
+}
