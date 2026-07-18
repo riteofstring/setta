@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -275,6 +277,354 @@ func TestManagerAttachPublishesReplayForExistingSession(t *testing.T) {
 	}
 	if replayed.Payload.DataBase64 != original.Payload.DataBase64 {
 		t.Fatalf("attach replay payload = %+v, want original output payload %+v", replayed.Payload, original.Payload)
+	}
+}
+
+func TestManagerBackendCrashRestartResumesSessionAndReplaysOutput(t *testing.T) {
+	appDataDir := t.TempDir()
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	clock := testClock(t)
+	first := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir: appDataDir,
+		Clock:      clock,
+	})
+	subscription, err := first.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+
+	created := mustCreateTestSession(t, first, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	starter.handleAt(t, 0).emit([]byte("durable terminal tail"))
+	output := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	resized, err := first.Resize(context.Background(), created.ID, 132, 43)
+	if err != nil {
+		t.Fatalf("resize terminal before cold wake: %v", err)
+	}
+	if resized.Cols != 132 || resized.Rows != 43 {
+		t.Fatalf("resized terminal = %+v, want 132x43", resized)
+	}
+	subscription.Unsubscribe()
+
+	restartedStarter := &recordingPTYStarter{}
+	restarted := newTestManagerWithConfig(t, restartedStarter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir: appDataDir,
+		Clock:      clock,
+	})
+	if err := restarted.RecoveryError(); err != nil {
+		t.Fatalf("terminal replay recovery error: %v", err)
+	}
+	reconnect, err := restarted.SubscribeEvents(EventCursor{
+		StreamID: output.StreamID,
+		Sequence: output.Sequence,
+	})
+	if err != nil {
+		t.Fatalf("subscribe after backend crash: %v", err)
+	}
+	defer reconnect.Unsubscribe()
+	attached, err := restarted.Attach(context.Background(), "workspace_terminal", "pane_shell")
+	if err != nil {
+		t.Fatalf("attach recovered terminal: %v", err)
+	}
+	if attached.ID != created.ID ||
+		attached.Status != SessionStatusRunning ||
+		attached.Message != "" ||
+		attached.Cols != 132 ||
+		attached.Rows != 43 {
+		t.Fatalf("recovered session = %+v, want resumed session %s", attached, created.ID)
+	}
+	if restartedStarter.count() != 1 {
+		t.Fatalf("restarted PTY count = %d, want one resumed shell", restartedStarter.count())
+	}
+	resumed := readTerminalEvent(t, reconnect.Events, TerminalEventStarted, created.ID)
+	if resumed.Payload.Status != SessionStatusRunning {
+		t.Fatalf("resumed event = %+v, want running", resumed.Payload)
+	}
+	replayedOutput := readTerminalEvent(t, reconnect.Events, TerminalEventOutput, created.ID)
+	if replayedOutput.Payload.DataBase64 != output.Payload.DataBase64 {
+		t.Fatalf("replayed output = %+v, want %+v", replayedOutput.Payload, output.Payload)
+	}
+	if _, err := restarted.WriteInput(context.Background(), created.ID, []byte("echo resumed\n")); err != nil {
+		t.Fatalf("write to resumed terminal: %v", err)
+	}
+}
+
+func TestManagerBackendCrashCursorAheadOfDiskResetsWithoutMarkingRestore(t *testing.T) {
+	appDataDir := t.TempDir()
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	first := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir: appDataDir,
+	})
+	subscription, err := first.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	created := mustCreateTestSession(t, first, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	starter.handleAt(t, 0).emit([]byte("durable before crash"))
+	durableOutput := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	first.eventHub.mu.Lock()
+	first.eventHub.flushScheduledPersistLocked()
+	first.eventHub.mu.Unlock()
+
+	replayPath := filepath.Join(appDataDir, replayStateDirName, replayStateFileName)
+	durableState, err := os.ReadFile(replayPath)
+	if err != nil {
+		t.Fatalf("read durable terminal state: %v", err)
+	}
+	starter.handleAt(t, 0).emit([]byte("delivered but not durable"))
+	aheadOutput := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	first.eventHub.mu.Lock()
+	if first.eventHub.persistTimer != nil {
+		first.eventHub.persistTimer.Stop()
+		first.eventHub.persistTimer = nil
+	}
+	first.eventHub.mu.Unlock()
+	if err := os.WriteFile(replayPath, durableState, 0o600); err != nil {
+		t.Fatalf("simulate backend crash before output flush: %v", err)
+	}
+	subscription.Unsubscribe()
+
+	restartedStarter := &recordingPTYStarter{}
+	restarted := newTestManagerWithConfig(t, restartedStarter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir: appDataDir,
+	})
+	if _, err := restarted.SubscribeEvents(EventCursor{
+		StreamID: aheadOutput.StreamID,
+		Sequence: aheadOutput.Sequence,
+	}); err == nil || !strings.Contains(err.Error(), "ahead of restored stream") {
+		t.Fatalf("ahead cursor error = %v, want reconnect reset", err)
+	}
+	reconnect, err := restarted.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe after cursor reset: %v", err)
+	}
+	defer reconnect.Unsubscribe()
+	initialReplay := readTerminalEvent(t, reconnect.Events, TerminalEventOutput, created.ID)
+	if initialReplay.Payload.DataBase64 != durableOutput.Payload.DataBase64 {
+		t.Fatalf("initial replay output = %+v, want %+v", initialReplay.Payload, durableOutput.Payload)
+	}
+	attached, err := restarted.Attach(context.Background(), "workspace_terminal", "pane_shell")
+	if err != nil {
+		t.Fatalf("attach after cursor reset: %v", err)
+	}
+	if attached.Status != SessionStatusRunning || restartedStarter.count() != 1 {
+		t.Fatalf("session after cursor reset = %+v starts=%d, want resumed", attached, restartedStarter.count())
+	}
+	resumed := readTerminalEvent(t, reconnect.Events, TerminalEventStarted, created.ID)
+	if resumed.Sequence <= durableOutput.Sequence {
+		t.Fatalf("resumed sequence = %d, want new event after durable sequence %d", resumed.Sequence, durableOutput.Sequence)
+	}
+	replayed := readTerminalEvent(t, reconnect.Events, TerminalEventOutput, created.ID)
+	if replayed.Payload.DataBase64 != durableOutput.Payload.DataBase64 {
+		t.Fatalf("replayed durable output = %+v, want %+v", replayed.Payload, durableOutput.Payload)
+	}
+}
+
+func TestManagerBackendCrashRestartDoesNotRerunUnsafeProfile(t *testing.T) {
+	appDataDir := t.TempDir()
+	root := t.TempDir()
+	first := newTestManagerWithConfig(t, &recordingPTYStarter{}, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir: appDataDir,
+	})
+	profiles, err := first.CreateProfile(TerminalProfileInput{
+		Name:       "Unsafe recovery command",
+		LaunchMode: ProfileLaunchModeCustomCommand,
+		ShellPath:  testExecutablePath(t),
+		CWDMode:    ProfileCWDModeProject,
+		FontFamily: "Fira Code",
+		FontSize:   14,
+		ThemeID:    ThemeSettaDark,
+		Scrollback: 1000,
+	})
+	if err != nil {
+		t.Fatalf("create unsafe terminal profile: %v", err)
+	}
+	profileID := profiles.Profiles[len(profiles.Profiles)-1].ID
+	created := mustCreateTestSession(t, first, "workspace_terminal", "pane_unsafe", profileID, "", 80, 24)
+	first.eventHub.mu.Lock()
+	first.eventHub.flushScheduledPersistLocked()
+	first.eventHub.mu.Unlock()
+
+	restartedStarter := &recordingPTYStarter{}
+	restarted := newTestManagerWithConfig(t, restartedStarter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir: appDataDir,
+	})
+	attached, err := restarted.Attach(context.Background(), "workspace_terminal", "pane_unsafe")
+	if err != nil {
+		t.Fatalf("attach unsafe recovered terminal: %v", err)
+	}
+	if attached.ID != created.ID ||
+		attached.Status != SessionStatusError ||
+		attached.Message != terminalSessionExplicitRestartAfterRuntimeRestartMessage {
+		t.Fatalf("unsafe recovered session = %+v, want explicit-restart error", attached)
+	}
+	if restartedStarter.count() != 0 {
+		t.Fatalf("unsafe recovered PTY starts = %d, want zero", restartedStarter.count())
+	}
+}
+
+func TestManagerReplayFileHonorsDocumentedDiskCap(t *testing.T) {
+	appDataDir := t.TempDir()
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir:      appDataDir,
+		ReplayFileBytes: minimumReplayFileBytes,
+	})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	chunk := bytes.Repeat([]byte("x"), 8*1024)
+	for index := 0; index < 20; index++ {
+		starter.handleAt(t, 0).emit(chunk)
+		_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	}
+	manager.CloseEvents()
+
+	path := filepath.Join(appDataDir, replayStateDirName, replayStateFileName)
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat terminal replay: %v", err)
+	}
+	if info.Size() > minimumReplayFileBytes {
+		t.Fatalf("terminal replay size = %d, cap = %d", info.Size(), minimumReplayFileBytes)
+	}
+	if runtime.GOOS != "windows" {
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("terminal replay mode = %o, want 600", info.Mode().Perm())
+		}
+		dirInfo, err := os.Stat(filepath.Dir(path))
+		if err != nil {
+			t.Fatalf("stat terminal replay directory: %v", err)
+		}
+		if dirInfo.Mode().Perm() != 0o700 {
+			t.Fatalf("terminal replay directory mode = %o, want 700", dirInfo.Mode().Perm())
+		}
+	}
+	restarted := newTestManagerWithConfig(t, &recordingPTYStarter{}, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir:      appDataDir,
+		ReplayFileBytes: minimumReplayFileBytes,
+	})
+	if err := restarted.RecoveryError(); err != nil {
+		t.Fatalf("reload capped terminal replay: %v", err)
+	}
+	replay, err := restarted.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe capped terminal replay: %v", err)
+	}
+	defer replay.Unsubscribe()
+	truncated := readTerminalEvent(t, replay.Events, TerminalEventBufferTruncated, created.ID)
+	if truncated.Payload.DroppedBytes == 0 || truncated.Payload.DroppedChunks == 0 {
+		t.Fatalf("disk-cap truncation event = %+v, want explicit dropped output", truncated.Payload)
+	}
+}
+
+func TestManagerCheckpointRollbackReloadsTerminalStateAsHistorical(t *testing.T) {
+	appDataDir := t.TempDir()
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir: appDataDir,
+	})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	starter.handleAt(t, 0).emit([]byte("checkpoint terminal tail"))
+	checkpointOutput := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	manager.eventHub.mu.Lock()
+	manager.eventHub.flushScheduledPersistLocked()
+	manager.eventHub.mu.Unlock()
+
+	replayPath := filepath.Join(appDataDir, replayStateDirName, replayStateFileName)
+	checkpoint, err := os.ReadFile(replayPath)
+	if err != nil {
+		t.Fatalf("read checkpoint replay state: %v", err)
+	}
+	var newerOutput TerminalEvent
+	for index := 0; index < 4; index++ {
+		starter.handleAt(t, 0).emit([]byte("newer output rolled back"))
+		newerOutput = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	}
+	manager.eventHub.mu.Lock()
+	manager.eventHub.flushScheduledPersistLocked()
+	manager.eventHub.mu.Unlock()
+	subscription.Unsubscribe()
+	if err := os.WriteFile(replayPath, checkpoint, 0o600); err != nil {
+		t.Fatalf("restore checkpoint replay state: %v", err)
+	}
+
+	restoredStarter := &recordingPTYStarter{}
+	restored := newTestManagerWithConfig(t, restoredStarter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		AppDataDir:        appDataDir,
+		HistoricalRestore: true,
+	})
+	if _, err := restored.SubscribeEvents(EventCursor{
+		StreamID: newerOutput.StreamID,
+		Sequence: newerOutput.Sequence,
+	}); err == nil || !strings.Contains(err.Error(), "ahead of restored stream") {
+		t.Fatalf("checkpoint-restored stale cursor error = %v, want ahead-of-stream reset", err)
+	}
+	attached, err := restored.Attach(context.Background(), "workspace_terminal", "pane_shell")
+	if err != nil {
+		t.Fatalf("attach checkpoint-restored terminal: %v", err)
+	}
+	if attached.Status != SessionStatusError || attached.Message != terminalSessionInterruptedByCheckpointRestoreMessage {
+		t.Fatalf("checkpoint-restored session = %+v, want historical interrupted state", attached)
+	}
+	if restoredStarter.count() != 0 {
+		t.Fatalf("checkpoint-restored PTY starts = %d, want historical state only", restoredStarter.count())
+	}
+	replay, err := restored.SubscribeEvents(EventCursor{
+		StreamID: started.StreamID,
+		Sequence: started.Sequence,
+	})
+	if err != nil {
+		t.Fatalf("subscribe checkpoint-restored replay: %v", err)
+	}
+	defer replay.Unsubscribe()
+	replayed := readTerminalEvent(t, replay.Events, TerminalEventOutput, created.ID)
+	if replayed.Payload.DataBase64 != checkpointOutput.Payload.DataBase64 {
+		t.Fatalf("checkpoint-restored output = %+v, want checkpoint tail", replayed.Payload)
+	}
+}
+
+func TestManagerCorruptReplayReportsTypedRecoveryWithoutBlockingStartup(t *testing.T) {
+	appDataDir := t.TempDir()
+	replayPath := filepath.Join(appDataDir, replayStateDirName, replayStateFileName)
+	if err := os.MkdirAll(filepath.Dir(replayPath), 0o700); err != nil {
+		t.Fatalf("create replay directory: %v", err)
+	}
+	if err := os.WriteFile(replayPath, []byte("{"), 0o600); err != nil {
+		t.Fatalf("write corrupt replay: %v", err)
+	}
+
+	manager := newTestManagerWithConfig(t, &recordingPTYStarter{}, map[string]string{"workspace_terminal": t.TempDir()}, ManagerConfig{
+		AppDataDir: appDataDir,
+	})
+	var recoveryErr *ReplayRecoveryError
+	if !errors.As(manager.RecoveryError(), &recoveryErr) {
+		t.Fatalf("recovery error = %T %v, want ReplayRecoveryError", manager.RecoveryError(), manager.RecoveryError())
+	}
+	if _, err := manager.SubscribeEvents(EventCursor{}); err != nil {
+		t.Fatalf("terminal manager did not remain available after corrupt replay: %v", err)
+	}
+
+	reloaded := newTestManagerWithConfig(t, &recordingPTYStarter{}, map[string]string{"workspace_terminal": t.TempDir()}, ManagerConfig{
+		AppDataDir: appDataDir,
+	})
+	if err := reloaded.RecoveryError(); err != nil {
+		t.Fatalf("corrupt replay replacement did not recover: %v", err)
 	}
 }
 
@@ -651,7 +1001,9 @@ func newTestManagerWithConfig(
 	config ManagerConfig,
 ) *Manager {
 	t.Helper()
-	config.AppDataDir = t.TempDir()
+	if config.AppDataDir == "" {
+		config.AppDataDir = t.TempDir()
+	}
 	config.WorkspaceResolver = fakeWorkspaceResolver(roots)
 	config.PTY = starter
 	if config.Clock == nil {

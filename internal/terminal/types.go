@@ -78,6 +78,10 @@ const (
 	TerminalEventBufferTruncated TerminalEventType = "terminal.bufferTruncated"
 )
 
+const terminalSessionInterruptedByCheckpointRestoreMessage = "terminal session interrupted by checkpoint restore"
+
+const terminalSessionExplicitRestartAfterRuntimeRestartMessage = "terminal session requires an explicit restart after runtime restart"
+
 type SessionSummary struct {
 	ID          string        `json:"id"`
 	WorkspaceID string        `json:"workspaceId"`

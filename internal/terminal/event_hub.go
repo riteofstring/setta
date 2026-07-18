@@ -12,6 +12,7 @@ const (
 	terminalReplayEventLimit        = 8192
 	terminalReplayTailBytesPerCell  = 4
 	terminalReplayTailChunksMinimum = 8
+	terminalReplayPersistInterval   = 100 * time.Millisecond
 	terminalSubscriberBuffer        = 4096
 )
 
@@ -28,7 +29,11 @@ type eventHub struct {
 	mu                          sync.Mutex
 	nextID                      int
 	outputBufferBytesPerSession int
+	persistTimer                *time.Timer
+	recoveryErr                 error
 	replayRetention             time.Duration
+	restoredHistorical          bool
+	store                       *replayStore
 	sequence                    int
 	sessionBuffers              map[string]*terminalSessionEventBuffer
 	streamID                    string
@@ -36,20 +41,26 @@ type eventHub struct {
 }
 
 type eventHubConfig struct {
+	AppDataDir                  string
+	HistoricalRestore           bool
 	OutputBufferBytesPerSession int
+	ReplayFileBytes             int
 	ReplayRetention             time.Duration
 }
 
 type terminalSessionEventBuffer struct {
 	events      []retainedTerminalEvent
 	cols        int
+	createdAt   time.Time
 	cwd         string
 	exitCode    int
 	outputBytes int
 	paneID      string
+	profileID   string
 	rows        int
 	sessionID   string
 	status      SessionStatus
+	updatedAt   time.Time
 	workspaceID string
 }
 
@@ -59,18 +70,35 @@ type retainedTerminalEvent struct {
 }
 
 func newEventHub(clock func() time.Time, config eventHubConfig) (*eventHub, error) {
-	streamID, err := newSessionID()
+	store, err := newReplayStore(config.AppDataDir, config.ReplayFileBytes)
 	if err != nil {
 		return nil, err
 	}
-	return &eventHub{
+	state, recoveryErr := store.load()
+	streamID := state.StreamID
+	if streamID == "" {
+		streamID, err = newSessionID()
+		if err != nil {
+			return nil, err
+		}
+	}
+	hub := &eventHub{
 		clock:                       clock,
 		outputBufferBytesPerSession: config.OutputBufferBytesPerSession,
+		recoveryErr:                 recoveryErr,
 		replayRetention:             config.ReplayRetention,
-		sessionBuffers:              map[string]*terminalSessionEventBuffer{},
+		store:                       store,
+		sequence:                    state.Sequence,
+		sessionBuffers:              replayBuffersFromState(state),
 		streamID:                    streamID,
 		subscribers:                 map[int]chan TerminalEvent{},
-	}, nil
+	}
+	hub.trimExpiredAllLocked(clock().UTC())
+	if config.HistoricalRestore {
+		hub.markRestoredStateHistoricalLocked(clock().UTC())
+	}
+	hub.persistLocked()
+	return hub, nil
 }
 
 func (hub *eventHub) subscribe(cursor EventCursor) (*EventSubscription, error) {
@@ -81,6 +109,14 @@ func (hub *eventHub) subscribe(cursor EventCursor) (*EventSubscription, error) {
 	}
 	if cursor.StreamID != "" && cursor.StreamID != hub.streamID {
 		return nil, fmt.Errorf("terminal event stream id is no longer available: %s", cursor.StreamID)
+	}
+	if cursor.Sequence > hub.sequence {
+		restoredSequence := hub.sequence
+		return nil, fmt.Errorf(
+			"terminal event cursor is ahead of restored stream: cursor=%d current=%d",
+			cursor.Sequence,
+			restoredSequence,
+		)
 	}
 	hub.trimExpiredAllLocked(hub.clock().UTC())
 	replay := hub.replayEventsLocked(cursor.Sequence)
@@ -130,6 +166,16 @@ func (hub *eventHub) publishForSession(
 	}
 }
 
+func (hub *eventHub) persistSession(terminalSession *session) {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	if hub.closed {
+		return
+	}
+	hub.bufferForSessionLocked(terminalSession)
+	hub.flushScheduledPersistLocked()
+}
+
 func (hub *eventHub) publishReplayForSession(sessionID string) {
 	hub.mu.Lock()
 	defer hub.mu.Unlock()
@@ -143,6 +189,11 @@ func (hub *eventHub) publishReplayForSession(sessionID string) {
 	now := hub.clock().UTC()
 	droppedBytes, droppedChunks := hub.trimExpiredLocked(buffer, now)
 	hub.storeReplayTruncationLocked(buffer, droppedBytes, droppedChunks, now)
+	hub.flushScheduledPersistLocked()
+	buffer = hub.sessionBuffers[sessionID]
+	if buffer == nil {
+		return
+	}
 	for _, retained := range buffer.events {
 		if retained.event.Type != TerminalEventOutput && retained.event.Type != TerminalEventBufferTruncated {
 			continue
@@ -150,6 +201,7 @@ func (hub *eventHub) publishReplayForSession(sessionID string) {
 		replay := hub.cloneEventLocked(retained.event, hub.clock().UTC())
 		hub.sendLocked(replay)
 	}
+	hub.persistLocked()
 }
 
 func (hub *eventHub) recordEventLocked(
@@ -234,6 +286,11 @@ func (hub *eventHub) storeEventLocked(
 	droppedBytes += overflowBytes
 	droppedChunks += overflowChunks
 	hub.storeReplayTruncationLocked(buffer, droppedBytes, droppedChunks, now)
+	if event.Type == TerminalEventOutput {
+		hub.schedulePersistLocked()
+	} else {
+		hub.flushScheduledPersistLocked()
+	}
 }
 
 func (hub *eventHub) storeReplayTruncationLocked(
@@ -271,14 +328,130 @@ func (hub *eventHub) bufferForSessionLocked(terminalSession *session) *terminalS
 		hub.sessionBuffers[terminalSession.id] = buffer
 	}
 	buffer.cols = terminalSession.cols
+	buffer.createdAt = terminalSession.createdAt
 	buffer.cwd = terminalSession.cwd
 	buffer.exitCode = terminalSession.exitCode
 	buffer.paneID = terminalSession.paneID
+	buffer.profileID = terminalSession.profileID
 	buffer.rows = terminalSession.rows
 	buffer.sessionID = terminalSession.id
 	buffer.status = terminalSession.status
+	buffer.updatedAt = terminalSession.updatedAt
 	buffer.workspaceID = terminalSession.workspaceID
 	return buffer
+}
+
+func (hub *eventHub) recoveredSessions() []recoveredTerminalSession {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	sessions := make([]recoveredTerminalSession, 0, len(hub.sessionBuffers))
+	for _, buffer := range hub.sessionBuffers {
+		if buffer.status == SessionStatusClosed {
+			continue
+		}
+		sessions = append(sessions, recoveredTerminalSession{
+			Cols:        buffer.cols,
+			CreatedAt:   buffer.createdAt,
+			CWD:         buffer.cwd,
+			ExitCode:    buffer.exitCode,
+			Message:     terminalSessionMessage(buffer),
+			PaneID:      buffer.paneID,
+			ProfileID:   buffer.profileID,
+			Rows:        buffer.rows,
+			SessionID:   buffer.sessionID,
+			Status:      buffer.status,
+			UpdatedAt:   buffer.updatedAt,
+			WorkspaceID: buffer.workspaceID,
+		})
+	}
+	sort.Slice(sessions, func(left int, right int) bool {
+		return sessions[left].SessionID < sessions[right].SessionID
+	})
+	return sessions
+}
+
+func terminalSessionMessage(buffer *terminalSessionEventBuffer) string {
+	for index := len(buffer.events) - 1; index >= 0; index-- {
+		if buffer.events[index].event.Payload.Message != "" {
+			return buffer.events[index].event.Payload.Message
+		}
+	}
+	return ""
+}
+
+func (hub *eventHub) recoveryError() error {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	return hub.recoveryErr
+}
+
+func (hub *eventHub) restoredStateHistorical() bool {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	return hub.restoredHistorical
+}
+
+func (hub *eventHub) markRestoredStateHistoricalLocked(now time.Time) {
+	if hub.restoredHistorical {
+		return
+	}
+	hub.restoredHistorical = true
+	for _, buffer := range hub.sessionBuffers {
+		if buffer.status != SessionStatusRunning && buffer.status != SessionStatusStarting {
+			continue
+		}
+		buffer.status = SessionStatusError
+		buffer.updatedAt = now
+		historical := hub.eventForBufferLocked(
+			buffer,
+			TerminalEventError,
+			TerminalEventPayload{
+				Status:  buffer.status,
+				CWD:     buffer.cwd,
+				Cols:    buffer.cols,
+				Rows:    buffer.rows,
+				Message: terminalSessionInterruptedByCheckpointRestoreMessage,
+			},
+			now,
+		)
+		buffer.events = append(buffer.events, retainedTerminalEvent{emittedAt: now, event: historical})
+	}
+	hub.flushScheduledPersistLocked()
+}
+
+func (hub *eventHub) persistLocked() {
+	if hub.store == nil {
+		return
+	}
+	state, err := hub.store.save(replayStateFromHub(hub))
+	if err != nil {
+		if hub.recoveryErr == nil {
+			hub.recoveryErr = err
+		}
+		return
+	}
+	hub.sequence = state.Sequence
+	hub.sessionBuffers = replayBuffersFromState(state)
+}
+
+func (hub *eventHub) schedulePersistLocked() {
+	if hub.persistTimer != nil {
+		return
+	}
+	hub.persistTimer = time.AfterFunc(terminalReplayPersistInterval, func() {
+		hub.mu.Lock()
+		defer hub.mu.Unlock()
+		hub.persistTimer = nil
+		hub.persistLocked()
+	})
+}
+
+func (hub *eventHub) flushScheduledPersistLocked() {
+	if hub.persistTimer != nil {
+		hub.persistTimer.Stop()
+		hub.persistTimer = nil
+	}
+	hub.persistLocked()
 }
 
 func (hub *eventHub) trimExpiredAllLocked(now time.Time) {
@@ -431,6 +604,7 @@ func (hub *eventHub) close() {
 		return
 	}
 	hub.closed = true
+	hub.flushScheduledPersistLocked()
 	for id, events := range hub.subscribers {
 		delete(hub.subscribers, id)
 		close(events)

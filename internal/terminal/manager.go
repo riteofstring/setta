@@ -20,12 +20,15 @@ const (
 	DefaultCloseKillTimeout            = 2 * time.Second
 	DefaultCols                        = 80
 	DefaultOutputBufferBytesPerSession = 4 * 1024 * 1024
-	DefaultReplayRetention             = 10 * time.Minute
-	DefaultRows                        = 24
-	MaxCols                            = 500
-	MaxRows                            = 200
-	MaxInputBytes                      = 1 << 20
-	readBufferBytes                    = 16 * 1024
+	// DefaultReplayFileBytes is the hard encoded-size cap for all persisted
+	// terminal reconnect history in one runtime.
+	DefaultReplayFileBytes = 8 * 1024 * 1024
+	DefaultReplayRetention = 10 * time.Minute
+	DefaultRows            = 24
+	MaxCols                = 500
+	MaxRows                = 200
+	MaxInputBytes          = 1 << 20
+	readBufferBytes        = 16 * 1024
 )
 
 type WorkspaceResolver interface {
@@ -33,13 +36,18 @@ type WorkspaceResolver interface {
 }
 
 type ManagerConfig struct {
-	AppDataDir                  string
-	WorkspaceResolver           WorkspaceResolver
-	ProfileStore                *ProfileStore
-	PTY                         PTYStarter
-	Clock                       func() time.Time
-	CloseKillTimeout            time.Duration
+	AppDataDir        string
+	WorkspaceResolver WorkspaceResolver
+	ProfileStore      *ProfileStore
+	PTY               PTYStarter
+	Clock             func() time.Time
+	CloseKillTimeout  time.Duration
+	// HistoricalRestore is set only when the trusted stale-epoch and
+	// re-attestation flow has identified a checkpoint restore. Reconnect cursor
+	// lag is not sufficient evidence because a crash can precede a replay flush.
+	HistoricalRestore           bool
 	OutputBufferBytesPerSession int
+	ReplayFileBytes             int
 	ReplayRetention             time.Duration
 }
 
@@ -65,6 +73,7 @@ type session struct {
 	message     string
 	paneID      string
 	profileID   string
+	recovered   bool
 	rows        int
 	status      SessionStatus
 	updatedAt   time.Time
@@ -80,54 +89,65 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	if config.WorkspaceResolver == nil {
 		return nil, errors.New("workspace resolver is required")
 	}
-	profileStore := config.ProfileStore
-	if profileStore == nil {
-		var err error
-		profileStore, err = NewProfileStore(config.AppDataDir)
-		if err != nil {
-			return nil, err
-		}
+	profileStore, err := resolveProfileStore(config)
+	if err != nil {
+		return nil, err
 	}
 	if err := profileStore.EnsureInitialized(); err != nil {
 		return nil, err
 	}
-	ptyStarter := config.PTY
-	if ptyStarter == nil {
-		ptyStarter = NewSystemPTYStarter()
-	}
-	clock := config.Clock
-	if clock == nil {
-		clock = time.Now
-	}
-	closeKillTimeout := config.CloseKillTimeout
-	if closeKillTimeout <= 0 {
-		closeKillTimeout = DefaultCloseKillTimeout
-	}
-	outputBufferBytesPerSession := config.OutputBufferBytesPerSession
-	if outputBufferBytesPerSession <= 0 {
-		outputBufferBytesPerSession = DefaultOutputBufferBytesPerSession
-	}
-	replayRetention := config.ReplayRetention
-	if replayRetention <= 0 {
-		replayRetention = DefaultReplayRetention
-	}
-	eventHub, err := newEventHub(clock, eventHubConfig{
-		OutputBufferBytesPerSession: outputBufferBytesPerSession,
-		ReplayRetention:             replayRetention,
+	config = managerConfigWithDefaults(config)
+	eventHub, err := newEventHub(config.Clock, eventHubConfig{
+		AppDataDir:                  config.AppDataDir,
+		HistoricalRestore:           config.HistoricalRestore,
+		OutputBufferBytesPerSession: config.OutputBufferBytesPerSession,
+		ReplayFileBytes:             config.ReplayFileBytes,
+		ReplayRetention:             config.ReplayRetention,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{
-		clock:             clock,
-		closeKillTimeout:  closeKillTimeout,
+	manager := &Manager{
+		clock:             config.Clock,
+		closeKillTimeout:  config.CloseKillTimeout,
 		eventHub:          eventHub,
 		profileStore:      profileStore,
-		pty:               ptyStarter,
+		pty:               config.PTY,
 		sessionByID:       map[string]*session{},
 		sessionByPane:     map[workspacePaneKey]string{},
 		workspaceResolver: config.WorkspaceResolver,
-	}, nil
+	}
+	manager.recoverTerminalSessions()
+	return manager, nil
+}
+
+func resolveProfileStore(config ManagerConfig) (*ProfileStore, error) {
+	if config.ProfileStore != nil {
+		return config.ProfileStore, nil
+	}
+	return NewProfileStore(config.AppDataDir)
+}
+
+func managerConfigWithDefaults(config ManagerConfig) ManagerConfig {
+	if config.PTY == nil {
+		config.PTY = NewSystemPTYStarter()
+	}
+	if config.Clock == nil {
+		config.Clock = time.Now
+	}
+	if config.CloseKillTimeout <= 0 {
+		config.CloseKillTimeout = DefaultCloseKillTimeout
+	}
+	if config.OutputBufferBytesPerSession <= 0 {
+		config.OutputBufferBytesPerSession = DefaultOutputBufferBytesPerSession
+	}
+	if config.ReplayRetention <= 0 {
+		config.ReplayRetention = DefaultReplayRetention
+	}
+	if config.ReplayFileBytes <= 0 {
+		config.ReplayFileBytes = DefaultReplayFileBytes
+	}
+	return config
 }
 
 func (manager *Manager) Create(
@@ -146,9 +166,8 @@ func (manager *Manager) Create(
 		return SessionSummary{}, err
 	}
 	key := workspacePaneKey{workspaceID: workspaceID, paneID: paneID}
-	if summary, ok := manager.attachedSessionSummary(key); ok {
-		manager.eventHub.publishReplayForSession(summary.ID)
-		return summary, nil
+	if summary, ok, err := manager.attachExistingSession(ctx, key); ok {
+		return summary, err
 	}
 	profile, err := manager.resolveSessionProfile(workspaceID, profileID, cwd, cols, rows)
 	if err != nil {
@@ -190,16 +209,15 @@ func (manager *Manager) Create(
 }
 
 func (manager *Manager) Attach(
-	_ context.Context,
+	ctx context.Context,
 	workspaceID string,
 	paneID string,
 ) (SessionSummary, error) {
 	if err := validateAttachment(workspaceID, paneID); err != nil {
 		return SessionSummary{}, err
 	}
-	if summary, ok := manager.attachedSessionSummary(workspacePaneKey{workspaceID: workspaceID, paneID: paneID}); ok {
-		manager.eventHub.publishReplayForSession(summary.ID)
-		return summary, nil
+	if summary, ok, err := manager.attachExistingSession(ctx, workspacePaneKey{workspaceID: workspaceID, paneID: paneID}); ok {
+		return summary, err
 	}
 	return SessionSummary{}, fmt.Errorf("terminal session not found for workspace %s pane %s", workspaceID, paneID)
 }
@@ -249,6 +267,7 @@ func (manager *Manager) Resize(
 	terminalSession.rows = rows
 	terminalSession.updatedAt = manager.clock().UTC()
 	summary := terminalSession.summary()
+	manager.eventHub.persistSession(terminalSession)
 	manager.mu.Unlock()
 	return summary, nil
 }
@@ -308,7 +327,9 @@ func (manager *Manager) closeSessionAfterProcessClose(
 	summary := terminalSession.summary()
 	manager.removeSessionLocked(terminalSession)
 	manager.mu.Unlock()
-	_ = terminalSession.handle.Close()
+	if terminalSession.handle != nil {
+		_ = terminalSession.handle.Close()
+	}
 	manager.publishLifecycle(terminalSession, TerminalEventClosed, message)
 	return TerminalCloseResult{
 		Kind:       TerminalCloseResultClosed,
@@ -345,51 +366,169 @@ func (manager *Manager) CloseEvents() {
 	manager.eventHub.close()
 }
 
-func (manager *Manager) Shutdown(ctx context.Context) error {
-	manager.mu.Lock()
-	sessions := make([]*session, 0, len(manager.sessionByID))
-	for _, terminalSession := range manager.sessionByID {
-		sessions = append(sessions, terminalSession)
-	}
-	manager.mu.Unlock()
+// RecoveryError reports a typed replay recovery problem encountered at
+// startup. The manager remains available so one corrupt replay cache cannot
+// prevent the trusted runtime from starting.
+func (manager *Manager) RecoveryError() error {
+	return manager.eventHub.recoveryError()
+}
 
+func (manager *Manager) Shutdown(ctx context.Context) error {
+	sessions := manager.sessionsSnapshot()
 	var shutdownErr error
 	for _, terminalSession := range sessions {
-		if err := manager.closeProcess(ctx, terminalSession); err != nil && shutdownErr == nil && !errors.Is(err, os.ErrProcessDone) {
+		if terminalSession.handle == nil {
+			continue
+		}
+		if err := manager.closeProcess(ctx, terminalSession); shouldRecordShutdownError(err, shutdownErr) {
 			shutdownErr = err
 		}
 	}
-	done := make(chan struct{})
-	go func() {
-		for _, terminalSession := range sessions {
-			_ = terminalSession.handle.Close()
-		}
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		if shutdownErr == nil {
-			shutdownErr = ctx.Err()
-		}
+	if err := closeTerminalHandles(ctx, sessions); shutdownErr == nil {
+		shutdownErr = err
 	}
 	manager.CloseEvents()
 	return shutdownErr
 }
 
-func (manager *Manager) attachedSessionSummary(key workspacePaneKey) (SessionSummary, bool) {
+func (manager *Manager) sessionsSnapshot() []*session {
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
+	sessions := make([]*session, 0, len(manager.sessionByID))
+	for _, terminalSession := range manager.sessionByID {
+		sessions = append(sessions, terminalSession)
+	}
+	return sessions
+}
+
+func shouldRecordShutdownError(err error, current error) bool {
+	return err != nil && current == nil && !errors.Is(err, os.ErrProcessDone)
+}
+
+func closeTerminalHandles(ctx context.Context, sessions []*session) error {
+	done := make(chan struct{})
+	go func() {
+		for _, terminalSession := range sessions {
+			if terminalSession.handle != nil {
+				_ = terminalSession.handle.Close()
+			}
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (manager *Manager) attachExistingSession(
+	ctx context.Context,
+	key workspacePaneKey,
+) (SessionSummary, bool, error) {
+	manager.mu.Lock()
 	sessionID, ok := manager.sessionByPane[key]
 	if !ok {
-		return SessionSummary{}, false
+		manager.mu.Unlock()
+		return SessionSummary{}, false, nil
 	}
 	terminalSession := manager.sessionByID[sessionID]
 	if terminalSession == nil {
 		delete(manager.sessionByPane, key)
-		return SessionSummary{}, false
+		manager.mu.Unlock()
+		return SessionSummary{}, false, nil
 	}
-	return terminalSession.summary(), true
+	if !terminalSession.recovered {
+		summary := terminalSession.summary()
+		manager.mu.Unlock()
+		manager.eventHub.publishReplayForSession(summary.ID)
+		return summary, true, nil
+	}
+	terminalSession.recovered = false
+	terminalSession.status = SessionStatusStarting
+	terminalSession.message = ""
+	terminalSession.updatedAt = manager.clock().UTC()
+	manager.mu.Unlock()
+
+	if manager.eventHub.restoredStateHistorical() {
+		summary := manager.failRecoveredSession(
+			terminalSession,
+			terminalSessionInterruptedByCheckpointRestoreMessage,
+		)
+		return summary, true, nil
+	}
+	profileRecord, err := manager.profileStore.Resolve(terminalSession.profileID)
+	if err != nil {
+		summary := manager.failRecoveredSession(
+			terminalSession,
+			fmt.Sprintf("terminal session recovery failed after runtime restart: %v", err),
+		)
+		return summary, true, nil
+	}
+	if !profileRecord.SafeAutoStart {
+		summary := manager.failRecoveredSession(
+			terminalSession,
+			terminalSessionExplicitRestartAfterRuntimeRestartMessage,
+		)
+		return summary, true, nil
+	}
+	profile, err := manager.resolveSessionProfile(
+		terminalSession.workspaceID,
+		terminalSession.profileID,
+		terminalSession.cwd,
+		terminalSession.cols,
+		terminalSession.rows,
+	)
+	if err != nil {
+		summary := manager.failRecoveredSession(
+			terminalSession,
+			fmt.Sprintf("terminal session recovery failed after runtime restart: %v", err),
+		)
+		return summary, true, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	handle, err := manager.pty.Start(ctx, profile)
+	if err != nil {
+		summary := manager.failRecoveredSession(
+			terminalSession,
+			fmt.Sprintf("terminal session recovery failed after runtime restart: %v", err),
+		)
+		return summary, true, nil
+	}
+
+	manager.mu.Lock()
+	current := manager.sessionByID[terminalSession.id]
+	if current != terminalSession {
+		manager.mu.Unlock()
+		_ = handle.Close()
+		return SessionSummary{}, true, fmt.Errorf("terminal session changed during recovery: %s", terminalSession.id)
+	}
+	terminalSession.handle = handle
+	terminalSession.status = SessionStatusRunning
+	terminalSession.message = ""
+	terminalSession.updatedAt = manager.clock().UTC()
+	summary := terminalSession.summary()
+	manager.mu.Unlock()
+
+	manager.publishLifecycle(terminalSession, TerminalEventStarted, "")
+	manager.eventHub.publishReplayForSession(terminalSession.id)
+	go manager.readLoop(terminalSession.id, handle)
+	go manager.waitLoop(terminalSession.id, handle)
+	return summary, true, nil
+}
+
+func (manager *Manager) failRecoveredSession(terminalSession *session, message string) SessionSummary {
+	manager.mu.Lock()
+	terminalSession.status = SessionStatusError
+	terminalSession.message = message
+	terminalSession.updatedAt = manager.clock().UTC()
+	summary := terminalSession.summary()
+	manager.mu.Unlock()
+	manager.publishLifecycle(terminalSession, TerminalEventError, message)
+	return summary
 }
 
 func (manager *Manager) resolveSessionProfile(
@@ -559,7 +698,10 @@ func (manager *Manager) closeProcess(ctx context.Context, terminalSession *sessi
 	if !manager.sessionNeedsProcessClose(terminalSession.id) {
 		return nil
 	}
-	if err := terminalSession.handle.Terminate(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+	if terminalSession.handle == nil {
+		return nil
+	}
+	if err := terminalSession.handle.Terminate(); isUnexpectedProcessError(err) {
 		return err
 	}
 	if err := manager.waitForProcessExit(ctx, terminalSession.handle); err == nil {
@@ -567,13 +709,17 @@ func (manager *Manager) closeProcess(ctx context.Context, terminalSession *sessi
 	} else if !errors.Is(err, errCloseProcessTimeout) {
 		return err
 	}
-	if err := terminalSession.handle.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+	if err := terminalSession.handle.Kill(); isUnexpectedProcessError(err) {
 		return err
 	}
 	if err := manager.waitForProcessExit(ctx, terminalSession.handle); err != nil && !errors.Is(err, errCloseProcessTimeout) {
 		return err
 	}
 	return nil
+}
+
+func isUnexpectedProcessError(err error) bool {
+	return err != nil && !errors.Is(err, os.ErrProcessDone)
 }
 
 func (manager *Manager) sessionNeedsProcessClose(sessionID string) bool {
@@ -728,6 +874,32 @@ func (manager *Manager) removeSessionLocked(terminalSession *session) {
 		workspaceID: terminalSession.workspaceID,
 		paneID:      terminalSession.paneID,
 	})
+}
+
+func (manager *Manager) recoverTerminalSessions() {
+	for _, recovered := range manager.eventHub.recoveredSessions() {
+		terminalSession := &session{
+			cols:        recovered.Cols,
+			createdAt:   recovered.CreatedAt,
+			cwd:         recovered.CWD,
+			exitCode:    recovered.ExitCode,
+			id:          recovered.SessionID,
+			message:     recovered.Message,
+			paneID:      recovered.PaneID,
+			profileID:   recovered.ProfileID,
+			rows:        recovered.Rows,
+			status:      recovered.Status,
+			updatedAt:   recovered.UpdatedAt,
+			workspaceID: recovered.WorkspaceID,
+		}
+		terminalSession.recovered = terminalSession.status == SessionStatusRunning ||
+			terminalSession.status == SessionStatusStarting
+		manager.sessionByID[terminalSession.id] = terminalSession
+		manager.sessionByPane[workspacePaneKey{
+			workspaceID: terminalSession.workspaceID,
+			paneID:      terminalSession.paneID,
+		}] = terminalSession.id
+	}
 }
 
 func (terminalSession *session) summary() SessionSummary {
