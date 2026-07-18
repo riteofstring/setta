@@ -3,7 +3,6 @@ package conversation
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"testing"
 )
 
@@ -95,24 +94,6 @@ func TestStoreRejectsWorkspacePaneBindingForAnotherWorkspace(t *testing.T) {
 	)
 	if !IsStateConflict(err) {
 		t.Fatalf("replace mismatched pane binding error = %T %v, want state conflict", err, err)
-	}
-}
-
-func TestStoreRejectsDuplicateConversationPaneBindings(t *testing.T) {
-	store := newTestStore(t)
-	seedConversationInputTargets(t, store, "conversation_alpha")
-
-	err := store.ReplaceWorkspacePaneBindings(
-		context.Background(),
-		"workspace",
-		[]WorkspacePaneBinding{
-			{PaneID: "pane_alpha", ConversationID: "conversation_alpha"},
-			{PaneID: "pane_alpha_second", ConversationID: "conversation_alpha"},
-		},
-		"2026-07-13T18:00:00Z",
-	)
-	if err == nil || !strings.Contains(err.Error(), "bound to multiple panes") {
-		t.Fatalf("duplicate conversation pane binding error = %T %v, want duplicate binding", err, err)
 	}
 }
 

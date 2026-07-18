@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, os.Unsetenv))
 }
 
 func run(
@@ -24,8 +24,9 @@ func run(
 	stdout io.Writer,
 	stderr io.Writer,
 	getenv func(string) string,
+	unsetenv func(string) error,
 ) int {
-	config, err := configFromArgs(args, stdout, stderr, getenv)
+	config, err := configFromArgs(args, stdout, stderr, getenv, unsetenv)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 2
@@ -60,9 +61,9 @@ func configFromArgs(
 	stdout io.Writer,
 	stderr io.Writer,
 	getenv func(string) string,
+	unsetenv func(string) error,
 ) (runtime.Config, error) {
 	config := runtime.DefaultConfig()
-	config.SpeechCredentialOwner = runtime.SpeechCredentialOwnerElectronVault
 	config.Stdout = stdout
 	config.Stderr = stderr
 
@@ -78,7 +79,7 @@ func configFromArgs(
 	if err != nil {
 		return config, err
 	}
-	speechConfig, err := speech.OpenAIProviderConfigFromDesktopEnvironment(getenv)
+	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(getenv, unsetenv)
 	if err != nil {
 		return config, err
 	}

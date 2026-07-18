@@ -3,11 +3,7 @@ import type { AppearanceShortcutsSettings } from "@generated/backend";
 
 import type { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceRuntime } from "./workspace-runtime";
-import { workspaceFrameActionById, workspaceFrameActions } from "./workspace-toolbar";
-import {
-  executeWorkspaceFrameAction,
-  workspaceFrameActionAllowed,
-} from "./workspace-frame-actions";
+import { openPaneActionForSurfaceKind, openPaneActions } from "./workspace-toolbar";
 import {
   classifyOverviewWheel,
   overviewWheelZoomFactor,
@@ -136,19 +132,14 @@ function handleEmptyFrameActionClick({
     '[data-workspace-empty-frame-action="true"]',
   );
   const paneId = emptyFrameHostPaneId(button);
-  const action = workspaceFrameActionById(button?.dataset.workspaceFrameActionId ?? "");
-  if (!button || !paneId || !action || !workspaceFrameActionAllowed(runtime.store, action.action)) {
+  const action = openPaneActionForSurfaceKind(button?.dataset.surfaceKind ?? "");
+  if (!button || !paneId || !action || !runtime.store.canOpenPane(action.request)) {
     return false;
   }
   event.preventDefault();
   event.stopPropagation();
   scheduler.pauseBenchmark();
-  void executeWorkspaceFrameAction({
-    action: action.action,
-    placement: { kind: "empty-frame", paneId },
-    runLayoutAction,
-    runtime,
-  });
+  runLayoutAction(() => runtime.store.configurePane(paneId, action.request));
   return true;
 }
 
@@ -481,20 +472,15 @@ const handleOpenPaneShortcutCommand: WorkspaceCommandHandler = ({
   if (!event.metaKey || !event.altKey) {
     return false;
   }
-  const action = workspaceFrameActions.find(
+  const action = openPaneActions.find(
     (candidate) => candidate.shortcutKey === event.key.toLowerCase(),
   );
   if (!action) {
     return false;
   }
   event.preventDefault();
-  if (workspaceFrameActionAllowed(runtime.store, action.action)) {
-    void executeWorkspaceFrameAction({
-      action: action.action,
-      placement: { kind: "new-pane" },
-      runLayoutAction,
-      runtime,
-    });
+  if (runtime.store.canOpenPane(action.request)) {
+    runLayoutAction(() => runtime.store.openPane(action.request));
   }
   return true;
 };

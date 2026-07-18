@@ -82,7 +82,6 @@ const sensitiveIpcStartTypes = new Map<string, string>([
   [ipcChannels.codexAccountStartLogin, "codex_account_login_request"],
   [ipcChannels.conversationSubmitApproval, "conversation_approval_submission"],
   [ipcChannels.runtimeAddByPairingUrl, "runtime_pairing_url"],
-  [ipcChannels.speechSaveCredential, "speech_credential_save"],
 ]);
 const sensitiveRecordingEventTypes = new Map<string, string>([
   ["external_url_open_blocked", "external_url"],

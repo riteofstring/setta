@@ -49,11 +49,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 			shutdownRuntimeFoundation(foundation, config.ShutdownTimeout)
 		}
 	}()
-	speechService, err := newSpeechService(
-		config.Speech,
-		config.SpeechStartupAPIKey,
-		foundation.conversationStore,
-	)
+	speechService, err := newSpeechService(config.Speech, foundation.conversationStore)
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
