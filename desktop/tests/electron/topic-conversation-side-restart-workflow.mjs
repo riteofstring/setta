@@ -121,12 +121,12 @@ function launchRestartedElectron({ artifactDir, fakeCodex, fixture, speechProvid
   return launchElectronCdpContext({
     artifactDir,
     extraEnv: {
+      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
-    unsetEnv: ["OPENAI_API_KEY"],
     visible,
   });
 }
