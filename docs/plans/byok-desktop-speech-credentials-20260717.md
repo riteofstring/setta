@@ -708,8 +708,8 @@ environment-based desktop product behavior.
 - [x] Update README dogfood instructions so the unprefixed production command is
       canonical. `README.md` now names
       `./scripts/prod_record_desktop_session.sh --build` for production desktop
-      dogfood recordings and explicitly routes OpenAI voice setup through
-      Settings → Voices instead of an `OPENAI_API_KEY`-prefixed desktop launch.
+      dogfood recordings and routes OpenAI voice setup through Settings → Voices
+      instead of shell-provided speech credentials.
 
 ## Focused Verification
 

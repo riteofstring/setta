@@ -39,9 +39,9 @@ Record a production desktop dogfood session:
 ./scripts/prod_record_desktop_session.sh --build
 ```
 
-Configure OpenAI voice inside the app through Settings -> Voices. Do not prefix
-the desktop launch with `OPENAI_API_KEY`; the production desktop backend does
-not read inherited OpenAI speech credentials.
+Configure OpenAI voice inside the app through Settings -> Voices. Production
+desktop launches use the saved in-app credential rather than shell-provided
+speech credentials.
 
 To reset the default global app state:
 
