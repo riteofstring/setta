@@ -7,7 +7,7 @@ import { WorkspaceMetricsCollector } from "./metrics";
 import { PaneRuntimePolicy } from "./runtime-policy";
 import type { LayoutFrameInput, PaneRenderItem, Rect } from "./types";
 import type { PresentationEngine, PresentationWriteCounts } from "./presentation-engine";
-import { createWorkspaceLayoutTestScene } from "./workspace-scene.test-fixtures";
+import { createRealWorkspaceScene } from "./workspace-scene";
 
 describe("workspace frame scheduler", () => {
   let raf: InstalledRaf;
@@ -207,10 +207,10 @@ describe("workspace frame scheduler", () => {
     scheduler.teardown();
   });
 
-  test("converges scroll after opening a conversation pane during workspace boot", () => {
-    const { focusedPaneId, scene } = createWorkspaceLayoutTestScene({
+  test("converges scroll after opening a terminal pane during workspace boot", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
       storedLayout: null,
-      workspaceId: "setta:workspace-frame-scheduler-open-conversation",
+      workspaceId: "setta:workspace-frame-scheduler-open-terminal",
       workspaceName: "Repo",
     });
     const engine = new WorkspaceLikeLayoutEngine(scene);
@@ -228,17 +228,17 @@ describe("workspace frame scheduler", () => {
 
     scheduler.start();
     raf.flush(16);
-    const conversationPaneId = store.openPane({
-      subtitle: "topic conversation",
-      surfaceKind: "fake-heavy-dom",
-      title: "Conversation",
+    const terminalPaneId = store.openPane({
+      subtitle: "command surface",
+      surfaceKind: "terminal",
+      title: "Terminal",
       tone: "green",
     });
     const openedSnapshot = store.getSnapshot();
 
-    expect(conversationPaneId).toBe("workspace_pane_4");
+    expect(terminalPaneId).toBe("workspace_pane_4");
     expect(openedSnapshot).toMatchObject({
-      focusedPaneId: conversationPaneId,
+      focusedPaneId: terminalPaneId,
       scrollColumn: 0,
       targetScrollColumn: 1,
     });
@@ -255,7 +255,7 @@ describe("workspace frame scheduler", () => {
       );
     }
     expect(store.getSnapshot()).toMatchObject({
-      focusedPaneId: conversationPaneId,
+      focusedPaneId: terminalPaneId,
       scrollColumn: 1,
       targetScrollColumn: 1,
     });
@@ -489,10 +489,13 @@ function emptyPresentationWriteCounts(): PresentationWriteCounts {
   return {
     boxWrites: 0,
     browserViewportWrites: 0,
+    canvasViewportWrites: 0,
     deferredHeavyViewportWrites: 0,
+    gitGraphViewportWrites: 0,
     heavyViewportWrites: 0,
     nativeBoundsUpdates: 0,
     surfaceViewportWrites: 0,
+    terminalViewportWrites: 0,
     transformWrites: 0,
   };
 }

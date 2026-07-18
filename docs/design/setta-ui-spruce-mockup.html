@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Setta UI Spruce Mockup</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --setta-50: oklch(0.9574 0.0071 267.38);
+    --setta-100: oklch(0.9085 0.0130 263.02);
+    --setta-150: oklch(0.8575 0.0208 262.99);
+    --setta-200: oklch(0.8057 0.0292 262.95);
+    --setta-300: oklch(0.7167 0.0439 264.25);
+    --setta-400: oklch(0.6255 0.0618 263.97);
+    --setta-500: oklch(0.5216 0.0651 263.76);
+    --setta-700: oklch(0.3324 0.0381 262.51);
+    --setta-750: oklch(0.2903 0.0317 262.55);
+    --setta-800: oklch(0.2458 0.0254 263.94);
+    --setta-850: oklch(0.2162 0.0198 264.03);
+    --setta-875: oklch(0.1797 0.0141 264.13);
+    --setta-900: oklch(0.1631 0.0125 264.14);
+    --setta-925: oklch(0.1471 0.0086 263.76);
+    --setta-950: oklch(0.1281 0.0070 261.32);
+    --setta-975: oklch(0.0697 0.0051 260.18);
+    --accent-cyan: oklch(0.8460 0.1292 213.38);
+    --accent-blue: oklch(0.7600 0.1150 250.00);
+    --accent-violet: oklch(0.7600 0.1250 290.00);
+    --accent-magenta: oklch(0.7700 0.1350 335.00);
+    --accent-red: oklch(0.7100 0.1650 25.00);
+    --accent-amber: oklch(0.8200 0.1350 78.00);
+    --accent-green: oklch(0.7900 0.1450 152.00);
+    --accent-teal: oklch(0.8200 0.1250 185.00);
+    --bg: var(--setta-950);
+    --shell: color-mix(in oklch, var(--setta-925) 72%, var(--setta-975));
+    --pane: var(--setta-900);
+    --pane-raised: var(--setta-875);
+    --pane-soft: color-mix(in oklch, var(--setta-875) 58%, var(--setta-900));
+    --border: var(--setta-750);
+    --border-soft: color-mix(in oklch, var(--setta-750) 72%, transparent);
+    --text: var(--setta-100);
+    --muted: var(--setta-300);
+    --faint: var(--setta-400);
+    --shadow: oklch(0 0 0 / 0.32);
+    --amber-tint: oklch(from var(--accent-amber) 0.20 0.04 h);
+    --magenta-tint: oklch(from var(--accent-magenta) 0.19 0.045 h);
+    --teal-tint: oklch(from var(--accent-teal) 0.19 0.035 h);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 13px;
+  }
+
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 22px 24px 32px;
+  }
+
+  .brief {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 20px;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    margin: 0 0 7px;
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: 0;
+  }
+
+  .brief p {
+    max-width: 76ch;
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(4, auto);
+    gap: 7px;
+    justify-content: end;
+  }
+
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 22px;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 0 8px;
+    color: var(--muted);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .legend i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  .frame {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--shell);
+    box-shadow: 0 20px 70px var(--shadow);
+  }
+
+  .top {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr) auto;
+    align-items: center;
+    height: 42px;
+    border-bottom: 1px solid var(--border-soft);
+    background: color-mix(in oklch, var(--setta-900) 64%, var(--setta-950));
+  }
+
+  .traffic {
+    display: flex;
+    gap: 7px;
+    padding-left: 16px;
+  }
+
+  .traffic i {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--setta-700);
+    border: 1px solid color-mix(in oklch, var(--setta-400) 30%, transparent);
+  }
+
+  .top-title {
+    color: var(--faint);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  .top-actions {
+    display: flex;
+    gap: 2px;
+    padding-right: 10px;
+  }
+
+  .icon-button {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .icon-button.active,
+  .icon-button:hover {
+    border-color: var(--border-soft);
+    background: var(--pane-soft);
+    color: var(--text);
+  }
+
+  .shell-grid {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    min-height: 760px;
+  }
+
+  .project-pane {
+    min-width: 0;
+    border-right: 1px solid var(--border-soft);
+    background: color-mix(in oklch, var(--setta-925) 76%, var(--setta-950));
+  }
+
+  .brand-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    min-height: 52px;
+    padding: 10px 12px 8px;
+  }
+
+  .workspace-name {
+    min-width: 0;
+  }
+
+  .workspace-name b {
+    display: block;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-name span {
+    color: var(--faint);
+    font-size: 11px;
+  }
+
+  .mark {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid color-mix(in oklch, var(--accent-cyan) 44%, transparent);
+    border-radius: 5px;
+    background: var(--pane-soft);
+    color: var(--accent-cyan);
+    font-weight: 800;
+  }
+
+  .section {
+    padding: 8px 8px 10px;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 24px;
+    padding: 0 6px;
+    color: var(--faint);
+    font-size: 10px;
+    font-weight: 650;
+    text-transform: uppercase;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    min-height: 30px;
+    border-radius: 4px;
+    padding: 0 7px;
+    color: var(--muted);
+  }
+
+  .row.active {
+    background: var(--pane-soft);
+    color: var(--text);
+  }
+
+  .row.running {
+    background: var(--pane-soft);
+  }
+
+  .row span,
+  .row b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .row b {
+    color: inherit;
+    font-weight: 560;
+  }
+
+  .badge {
+    justify-self: end;
+    border-radius: 999px;
+    padding: 1px 6px;
+    background: var(--pane-raised);
+    color: var(--faint);
+    font-size: 10px;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--faint);
+  }
+
+  .status-dot.run {
+    background: var(--accent-violet);
+    box-shadow: 0 0 10px color-mix(in oklch, var(--accent-violet) 68%, transparent);
+  }
+
+  .status-dot.ok { background: var(--accent-green); }
+  .status-dot.warn { background: var(--accent-amber); }
+  .status-dot.alert { background: var(--accent-magenta); }
+
+  .workspace {
+    min-width: 0;
+    padding: 10px;
+  }
+
+  .pane {
+    overflow: hidden;
+    min-height: 738px;
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    background: var(--pane);
+  }
+
+  .pane.focused {
+    border-color: color-mix(in oklch, var(--accent-cyan) 34%, var(--border));
+    background: color-mix(in oklch, var(--accent-cyan) 3%, var(--pane));
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--accent-cyan) 18%, transparent),
+      0 18px 54px var(--shadow);
+  }
+
+  .pane-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    height: 38px;
+    border-bottom: 1px solid var(--border-soft);
+    background: color-mix(in oklch, var(--setta-875) 58%, var(--setta-900));
+  }
+
+  .pane-title {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 9px;
+    padding-left: 11px;
+  }
+
+  .grabber {
+    display: grid;
+    grid-template-columns: repeat(2, 2px);
+    gap: 2px;
+  }
+
+  .grabber i {
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: var(--faint);
+  }
+
+  .focus-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 8px color-mix(in oklch, var(--accent-cyan) 48%, transparent);
+  }
+
+  .pane-title b {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pane-title span {
+    color: var(--faint);
+    font-size: 11px;
+  }
+
+  .pane-actions {
+    display: flex;
+    gap: 2px;
+    padding-right: 8px;
+  }
+
+  .pane-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 270px;
+    min-height: 700px;
+  }
+
+  .chat {
+    min-width: 0;
+    padding: 14px 16px 16px;
+  }
+
+  .run-strip {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    min-height: 34px;
+    border: 1px solid var(--border-soft);
+    border-radius: 5px;
+    margin-bottom: 14px;
+    padding: 0 10px;
+    background: var(--pane-soft);
+  }
+
+  .spinner {
+    color: var(--accent-violet);
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 11px;
+  }
+
+  .run-strip b {
+    color: color-mix(in oklch, var(--accent-violet) 88%, white);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .run-strip span {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .message {
+    max-width: 760px;
+    margin-bottom: 14px;
+  }
+
+  .message.user {
+    margin-left: auto;
+  }
+
+  .message .meta {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    margin-bottom: 5px;
+    color: var(--faint);
+    font-size: 11px;
+  }
+
+  .bubble {
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    padding: 10px 11px;
+    background: var(--pane-soft);
+    color: var(--text);
+    line-height: 1.55;
+  }
+
+  .message.assistant .bubble {
+    border-color: transparent;
+    padding: 0;
+    background: transparent;
+  }
+
+  .message.user .bubble {
+    border-color: color-mix(in oklch, var(--accent-blue) 34%, transparent);
+    background: var(--pane-soft);
+  }
+
+  code {
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    background: var(--pane-soft);
+    color: var(--accent-teal);
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.88em;
+    padding: 1px 4px;
+  }
+
+  .tool-call {
+    border: 1px solid color-mix(in oklch, var(--accent-cyan) 34%, transparent);
+    border-radius: 5px;
+    margin: 9px 0 12px;
+    padding: 7px 10px;
+    background: var(--pane-soft);
+    color: var(--muted);
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.55;
+  }
+
+  .diff {
+    overflow: hidden;
+    border: 1px solid var(--border-soft);
+    border-radius: 5px;
+    margin-top: 10px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 11px;
+  }
+
+  .diff header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 27px;
+    border-bottom: 1px solid var(--border-soft);
+    padding: 0 10px;
+    background: var(--pane-soft);
+    color: var(--muted);
+  }
+
+  .line {
+    min-height: 21px;
+    padding: 2px 10px;
+    white-space: pre;
+  }
+
+  .line.ctx { color: var(--muted); }
+  .line.add { color: color-mix(in oklch, var(--accent-green) 88%, white); }
+  .line.del { color: color-mix(in oklch, var(--accent-red) 88%, white); }
+
+  .composer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    gap: 7px;
+    align-items: center;
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    margin-top: 16px;
+    padding: 7px;
+    background: color-mix(in oklch, var(--pane-soft) 78%, var(--setta-950));
+  }
+
+  .prompt {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 28px;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    background: var(--pane-raised);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .button.primary {
+    border-color: color-mix(in oklch, var(--accent-cyan) 46%, transparent);
+    background: var(--accent-cyan);
+    color: var(--setta-975);
+    font-weight: 700;
+  }
+
+  .side {
+    min-width: 0;
+    border-left: 1px solid var(--border-soft);
+    background: color-mix(in oklch, var(--setta-925) 54%, var(--setta-900));
+  }
+
+  .activity {
+    border-bottom: 1px solid var(--border-soft);
+    padding: 10px;
+  }
+
+  .activity-title {
+    display: flex;
+    justify-content: space-between;
+    color: var(--faint);
+    font-size: 10px;
+    font-weight: 650;
+    text-transform: uppercase;
+  }
+
+  .event {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 7px;
+    margin-top: 10px;
+  }
+
+  .event i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin: 4px auto 0;
+  }
+
+  .event b {
+    display: block;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 560;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .event span {
+    color: var(--faint);
+    font-size: 11px;
+  }
+
+  .files {
+    padding: 10px;
+  }
+
+  .file {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 7px;
+    align-items: center;
+    min-height: 25px;
+    color: var(--muted);
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 11px;
+  }
+
+  .file b {
+    text-align: center;
+    font-weight: 800;
+  }
+
+  .file span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .m { color: var(--accent-amber); }
+  .a { color: var(--accent-green); }
+  .d { color: var(--accent-red); }
+  .u { color: var(--accent-teal); }
+
+  .notes {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .note {
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    padding: 10px;
+    background: color-mix(in oklch, var(--setta-925) 70%, transparent);
+  }
+
+  .note b {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .note span {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  @media (max-width: 980px) {
+    .brief,
+    .shell-grid,
+    .pane-body,
+    .notes {
+      grid-template-columns: 1fr;
+    }
+
+    .legend {
+      justify-content: start;
+    }
+
+    .side {
+      border-left: 0;
+      border-top: 1px solid var(--border-soft);
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    <section class="brief">
+      <div>
+        <h1>Setta UI spruce mockup</h1>
+        <p>
+          A restrained application of the proposed palette: the neutral ramp still does the heavy
+          lifting, while accent color marks run state, source-control state, focus, and attention.
+        </p>
+      </div>
+      <div class="legend" aria-label="Color roles">
+        <span><i style="background: var(--accent-cyan)"></i>focus</span>
+        <span><i style="background: var(--accent-violet)"></i>agent</span>
+        <span><i style="background: var(--accent-amber)"></i>changed</span>
+        <span><i style="background: var(--accent-teal)"></i>metadata</span>
+      </div>
+    </section>
+
+    <section class="frame" aria-label="Setta application mockup">
+      <header class="top">
+        <div class="traffic"><i></i><i></i><i></i></div>
+        <div class="top-title">setta.setta-3-styles-2</div>
+        <div class="top-actions">
+          <div class="icon-button">−</div>
+          <div class="icon-button active">□</div>
+          <div class="icon-button">＋</div>
+        </div>
+      </header>
+
+      <div class="shell-grid">
+        <aside class="project-pane">
+          <div class="brand-row">
+            <div class="workspace-name">
+              <b>setta.setta-3-styles-2</b>
+              <span>4 active panes</span>
+            </div>
+            <div class="mark">S</div>
+          </div>
+
+          <div class="section">
+            <div class="section-title"><span>Workspaces</span><span>⌘O</span></div>
+            <div class="row active">
+              <i class="status-dot run"></i>
+              <b>Setta desktop</b>
+              <span class="badge">main</span>
+            </div>
+            <div class="row">
+              <i class="status-dot ok"></i>
+              <span>runtime tests</span>
+              <span class="badge">2</span>
+            </div>
+            <div class="row">
+              <i class="status-dot warn"></i>
+              <span>design notes</span>
+              <span class="badge">draft</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title"><span>Chats</span><span>＋</span></div>
+            <div class="row running">
+              <i class="status-dot run"></i>
+              <b>color scheme polish</b>
+              <span class="badge">run</span>
+            </div>
+            <div class="row">
+              <i class="status-dot ok"></i>
+              <span>pane controls</span>
+              <span class="badge">done</span>
+            </div>
+            <div class="row">
+              <i class="status-dot alert"></i>
+              <span>approval flow</span>
+              <span class="badge">hold</span>
+            </div>
+          </div>
+        </aside>
+
+        <section class="workspace">
+          <div class="pane focused">
+            <header class="pane-top">
+              <div class="pane-title">
+                <span class="grabber"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                <span class="focus-dot"></span>
+                <b>Chat · color scheme polish</b>
+                <span>running</span>
+              </div>
+              <div class="pane-actions">
+                <div class="icon-button">⌕</div>
+                <div class="icon-button">⌘</div>
+                <div class="icon-button">□</div>
+                <div class="icon-button">×</div>
+              </div>
+            </header>
+
+            <div class="pane-body">
+              <main class="chat">
+                <div class="run-strip">
+                  <span class="spinner">⠋</span>
+                  <b>Agent running</b>
+                  <span>editing chat transcript styles · queued check pending</span>
+                </div>
+
+                <article class="message user">
+                  <div class="meta"><span>You</span><span>just now</span></div>
+                  <div class="bubble">Can we make the new palette visible without making Setta loud?</div>
+                </article>
+
+                <article class="message assistant">
+                  <div class="meta"><span>Assistant</span><span>streaming</span></div>
+                  <div class="bubble">
+                    Keep the shell quiet and let color carry operational meaning. I would add a
+                    thin cyan focus keyline, use violet only for active agent work, and reserve
+                    amber/green/red for file and run state.
+                    <div class="tool-call">
+                      read_file docs/design/color-scheme-preview.html<br />
+                      update_file desktop/src/renderer/src/components/chat-transcript.tsx
+                    </div>
+                    <div class="diff">
+                      <header><span>chat-transcript.tsx</span><span class="m">M</span></header>
+                      <div class="line ctx">  const toolClass = cn(</div>
+                      <div class="line del">-   "border-cyan-400 bg-cyan-950/20"</div>
+                      <div class="line add">+   "border-accent-cyan/40 bg-accent-cyan/10"</div>
+                      <div class="line ctx">  );</div>
+                    </div>
+                  </div>
+                </article>
+
+                <div class="composer">
+                  <div class="prompt">Ask for implementation details or queue a focused check...</div>
+                  <div class="button">⌘</div>
+                  <div class="button">＋</div>
+                  <div class="button primary">↵</div>
+                </div>
+              </main>
+
+              <aside class="side">
+                <section class="activity">
+                  <div class="activity-title"><span>Run Activity</span><span>42s</span></div>
+                  <div class="event">
+                    <i style="background: var(--accent-violet)"></i>
+                    <div><b>Editing transcript UI</b><span>2 files touched</span></div>
+                  </div>
+                  <div class="event">
+                    <i style="background: var(--accent-cyan)"></i>
+                    <div><b>Tool output grouped</b><span>outside assistant text</span></div>
+                  </div>
+                  <div class="event">
+                    <i style="background: var(--accent-amber)"></i>
+                    <div><b>Quality gate queued</b><span>run after focused pass</span></div>
+                  </div>
+                </section>
+
+                <section class="files">
+                  <div class="activity-title"><span>Changed Files</span><span>5</span></div>
+                  <div class="file"><b class="m">M</b><span>chat-transcript.tsx</span></div>
+                  <div class="file"><b class="m">M</b><span>chat-run-activity.tsx</span></div>
+                  <div class="file"><b class="a">A</b><span>accent-token-map.ts</span></div>
+                  <div class="file"><b class="u">U</b><span>docs/design/mockup.html</span></div>
+                  <div class="file"><b class="d">D</b><span>legacy-theme-notes.md</span></div>
+                </section>
+              </aside>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="notes" aria-label="Design notes">
+      <div class="note">
+        <b>Keep the neutral shell</b>
+        <span>Leave primary panes quiet; use a subtle focused-pane frame instead of colorful panels.</span>
+      </div>
+      <div class="note">
+        <b>Make state legible</b>
+        <span>Violet means active agent work, cyan means focus/tool output, amber/green/red map to git and run outcomes.</span>
+      </div>
+      <div class="note">
+        <b>Separate tool output</b>
+        <span>Tool calls should read as operational records, not chat bubbles. A quiet bordered block is enough.</span>
+      </div>
+      <div class="note">
+        <b>Use sharper rhythm</b>
+        <span>Small radii, dense rows, aligned 22px icon buttons, and restrained shadows preserve the dev-tool feel.</span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

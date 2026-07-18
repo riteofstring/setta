@@ -51,6 +51,9 @@ let context = null;
 try {
   context = await launchElectronCdpContext({
     artifactDir,
+    extraEnv: {
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+    },
     fixture,
     visible: options.visible,
   });
@@ -316,7 +319,38 @@ async function elementCenter(client, selector) {
 }
 
 async function shellTopBarControlMeasurements(client) {
-  return client.driver("shellTopBarControlMeasurements");
+  return client.evaluate(`(() => {
+    function rectFor(selector) {
+      const element = document.querySelector(selector);
+      if (!(element instanceof Element)) {
+        return null;
+      }
+      const rect = element.getBoundingClientRect();
+      return {
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+      };
+    }
+    function numericGap(selector) {
+      const element = document.querySelector(selector);
+      if (!(element instanceof Element)) {
+        return null;
+      }
+      const gap = Number.parseFloat(getComputedStyle(element).gap);
+      return Number.isFinite(gap) ? gap : null;
+    }
+    return {
+      newFrameButton: rectFor(".workspace-toolbar-menu-button"),
+      projectToggle: rectFor('[data-testid="project-sidebar-toggle"]'),
+      settingsButton: rectFor('[data-testid="shell-settings-button"]'),
+      shellTopBar: rectFor('[data-testid="shell-top-bar"]'),
+      toolbarButton: rectFor(".workspace-toolbar-button"),
+      toolbarGap: numericGap(".workspace-toolbar-group"),
+    };
+  })()`);
 }
 
 // Electron builds the OS draggable region by applying every element's
@@ -462,17 +496,9 @@ function assertShellTopBarDragRegions(regions) {
 }
 
 function assertShellTopBarControlSizing(measurements) {
-  const {
-    masterButton,
-    newFrameButton,
-    projectToggle,
-    settingsButton,
-    shellTopBar,
-    toolbarButton,
-    toolbarGap,
-  } = measurements;
+  const { newFrameButton, projectToggle, settingsButton, shellTopBar, toolbarButton, toolbarGap } =
+    measurements;
   for (const [name, rect] of Object.entries({
-    masterButton,
     newFrameButton,
     projectToggle,
     settingsButton,
@@ -484,24 +510,16 @@ function assertShellTopBarControlSizing(measurements) {
     }
   }
   assertTopBarButtonRect(projectToggle, shellTopBar, "project toggle");
-  assertTopBarButtonRect(masterButton, shellTopBar, "master button");
   assertTopBarButtonRect(settingsButton, shellTopBar, "settings button");
   assertTopBarButtonRect(toolbarButton, shellTopBar, "workspace toolbar button");
   assertTopBarButtonRect(newFrameButton, shellTopBar, "workspace toolbar menu button");
   assertNearlyEqual(
-    masterButton.left - projectToggle.right,
+    settingsButton.left - projectToggle.right,
     shellTopBarButtonGapPx,
-    "project toggle to master horizontal gap",
-  );
-  assertNearlyEqual(
-    settingsButton.left - masterButton.right,
-    shellTopBarButtonGapPx,
-    "master to settings horizontal gap",
+    "project toggle to settings horizontal gap",
   );
   if (toolbarButton.left <= settingsButton.right) {
-    throw new Error(
-      `workspace toolbar should render to the right of shell settings button: ${JSON.stringify(measurements)}`,
-    );
+    throw new Error("workspace toolbar should render to the right of shell settings button");
   }
   assertNearlyEqual(
     newFrameButton.left - toolbarButton.right,

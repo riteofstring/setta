@@ -1,4 +1,3 @@
-import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import type {
   WorkspaceBrowserViewBatch,
   WorkspaceBrowserViewStats,
@@ -11,7 +10,6 @@ interface NativeViewBridge {
 }
 
 export interface NativeViewBoundsBatcherOptions {
-  masterVoiceShortcut?: AppearanceMasterVoiceShortcut;
   totalBrowserPanes: number;
   workspaceId: string;
 }
@@ -25,21 +23,13 @@ export class NativeViewBoundsBatcher {
   private currentFrameSurfaceIds = new Set<string>();
   private focusedSurfaceId: string | null = null;
   private lastLiveUpdates = new Map<string, WorkspaceBrowserViewUpdate>();
-  private lastSentMasterVoiceShortcut: AppearanceMasterVoiceShortcut | null = null;
   private lastSentUpdates = new Map<string, WorkspaceBrowserViewUpdate>();
-  private masterVoiceShortcut: AppearanceMasterVoiceShortcut;
   private readonly updates = new Map<string, WorkspaceBrowserViewUpdate>();
 
   constructor(
     private readonly options: NativeViewBoundsBatcherOptions,
     private readonly bridge: NativeViewBridge | null = nativeViewBridge(),
-  ) {
-    this.masterVoiceShortcut = options.masterVoiceShortcut ?? "mod_shift_k";
-  }
-
-  setMasterVoiceShortcut(shortcut: AppearanceMasterVoiceShortcut): void {
-    this.masterVoiceShortcut = shortcut;
-  }
+  ) {}
 
   beginFrame(): void {
     this.currentFrameSurfaceIds.clear();
@@ -54,8 +44,7 @@ export class NativeViewBoundsBatcher {
       return { batchSent: false, updateCount: updates.length };
     }
 
-    const shouldSend =
-      updates.length > 0 || this.masterVoiceShortcut !== this.lastSentMasterVoiceShortcut;
+    const shouldSend = updates.length > 0;
 
     if (!shouldSend) {
       this.commitFlushState(nextLiveUpdates, updates);
@@ -64,14 +53,12 @@ export class NativeViewBoundsBatcher {
 
     this.bridge.batchBrowserViewUpdates({
       focusedSurfaceId: this.focusedSurfaceId,
-      masterVoiceShortcut: this.masterVoiceShortcut,
       totalBrowserPanes: this.options.totalBrowserPanes,
       updates,
       visibleBrowserPanes: this.currentFrameSurfaceIds.size,
       workspaceId: this.options.workspaceId,
     });
     this.commitFlushState(nextLiveUpdates, updates);
-    this.lastSentMasterVoiceShortcut = this.masterVoiceShortcut;
     return { batchSent: true, updateCount: updates.length };
   }
 

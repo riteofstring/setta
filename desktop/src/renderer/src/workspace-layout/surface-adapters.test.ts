@@ -6,7 +6,21 @@ import type {
   SettaAPI,
 } from "@shared/types";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
+import {
+  buildGitGraphBatch,
+  selectGitGraphRenderer,
+  type GitGraphLayoutRequest,
+} from "./git-graph-layout";
+import {
+  GitGraphSurfaceAdapter,
+  type GitGraphWorkerCallbacks,
+  type GitGraphWorkerClient,
+} from "./git-graph-surface-adapter";
 import { EmptyFrameSurfaceAdapter, FakeHeavyDomSurfaceAdapter } from "./surface-adapters";
+import {
+  SyntheticTerminalSessionState,
+  SyntheticTerminalSurfaceAdapter,
+} from "./synthetic-terminal-surface-adapter";
 import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type { WorkspacePane } from "./types";
 
@@ -37,9 +51,9 @@ describe("workspace fake surface adapters", () => {
     const host = createFakeHost();
     const adapter = new EmptyFrameSurfaceAdapter(fakePane("empty-frame"), () => [
       {
-        label: "Browser",
-        meta: "2/10 Mod+Alt+B",
-        surfaceKind: "browser",
+        label: "Chat",
+        meta: "2/10 Mod+Alt+C",
+        surfaceKind: "chat-dom",
       },
       {
         disabled: true,
@@ -55,10 +69,10 @@ describe("workspace fake surface adapters", () => {
     const actions = emptyFrameActions(host);
     expect(host.dataset.surfaceKind).toBe("empty-frame");
     expect(actions.map((action) => fakeTextContent(action))).toEqual([
-      "Browser2/10 Mod+Alt+B",
+      "Chat2/10 Mod+Alt+C",
       "Settings1/1 Mod+Alt+S",
     ]);
-    expect((actions[0] as HTMLButtonElement | undefined)?.dataset.surfaceKind).toBe("browser");
+    expect((actions[0] as HTMLButtonElement | undefined)?.dataset.surfaceKind).toBe("chat-dom");
     expect((actions[1] as HTMLButtonElement | undefined)?.disabled).toBe(true);
   });
 
@@ -408,6 +422,73 @@ describe("workspace fake surface adapters", () => {
       visible: false,
     });
   });
+
+  test("drains terminal output floods with bounded dirty-row rendering", () => {
+    const loop = new ManualFrameLoop();
+    const host = createFakeHost();
+    const session = new SyntheticTerminalSessionState("test-terminal-session");
+    const adapter = new SyntheticTerminalSurfaceAdapter(fakePane("fake-terminal"), session, loop);
+
+    adapter.mount(host);
+    adapter.setViewport({ height: 220, width: 280, x: 0, y: 0 }, "mount");
+    adapter.setVisible(true);
+    adapter.enqueueOutputFlood(1200);
+
+    expect(loop.pendingCount).toBe(1);
+
+    loop.runNext();
+
+    expect(adapter.getTerminalStats()).toMatchObject({
+      liveTerminalRendererCount: 1,
+      renderedRows: 10,
+    });
+    expect(adapter.getTerminalStats().dirtyRows).toBeLessThanOrEqual(32);
+    expect(adapter.getTerminalStats().droppedOutputChunks).toBeGreaterThan(0);
+    expect(adapter.getTerminalStats().pendingOutputChunks).toBeGreaterThan(0);
+    expect(session.scrollbackRowCount).toBeLessThan(1200);
+
+    adapter.freeze("snapshot");
+    loop.runAll();
+
+    expect(adapter.isRendering).toBe(false);
+    expect(session.pendingChunkCount).toBeGreaterThan(0);
+  });
+
+  test("renders git graph worker batches progressively and selects renderer by scale", () => {
+    const loop = new ManualFrameLoop();
+    const worker = new ManualGitGraphWorkerClient();
+    const host = createFakeHost();
+    const adapter = new GitGraphSurfaceAdapter(fakePane("git-graph"), () => worker, loop);
+
+    adapter.mount(host);
+    adapter.setViewport({ height: 240, width: 320, x: 0, y: 0 }, "mount");
+    adapter.setVisible(true);
+
+    expect(worker.requestCount).toBe(1);
+
+    worker.emitNextBatch();
+    loop.runNext();
+
+    expect(adapter.getGitGraphStats()).toMatchObject({
+      liveGraphPaneCount: 1,
+      renderedNodes: 120,
+      renderer: "canvas",
+      workerBatches: 1,
+      workerPending: true,
+    });
+    expect(adapter.getGitGraphStats().progress).toBeGreaterThan(0);
+
+    worker.complete();
+    loop.runNext();
+
+    expect(adapter.getGitGraphStats()).toMatchObject({
+      completed: true,
+      workerPending: false,
+    });
+    expect(selectGitGraphRenderer({ nodeCount: 40, scale: 1 })).toBe("dom");
+    expect(selectGitGraphRenderer({ nodeCount: 400, scale: 0.5 })).toBe("svg");
+    expect(selectGitGraphRenderer({ nodeCount: 1800, scale: 0.34 })).toBe("canvas");
+  });
 });
 
 function installBrowserSnapshotBridge(
@@ -542,6 +623,86 @@ function expectRenderedBrowserSnapshot(image: HTMLImageElement, host: HTMLElemen
   expect(host.dataset.browserSnapshotCapturedAt).toBe("456");
 }
 
+class ManualFrameLoop {
+  private callbacks = new Map<number, FrameRequestCallback>();
+  private nextHandle = 1;
+
+  get pendingCount(): number {
+    return this.callbacks.size;
+  }
+
+  cancelFrame(handle: number): void {
+    this.callbacks.delete(handle);
+  }
+
+  requestFrame(callback: FrameRequestCallback): number {
+    const handle = this.nextHandle;
+    this.nextHandle += 1;
+    this.callbacks.set(handle, callback);
+    return handle;
+  }
+
+  runAll(): void {
+    while (this.callbacks.size > 0) {
+      this.runNext();
+    }
+  }
+
+  runNext(): void {
+    const next = this.callbacks.entries().next().value;
+    if (!next) {
+      return;
+    }
+    const [handle, callback] = next;
+    this.callbacks.delete(handle);
+    callback(0);
+  }
+}
+
+class ManualGitGraphWorkerClient implements GitGraphWorkerClient {
+  private callbacks: GitGraphWorkerCallbacks | null = null;
+  private startIndex = 0;
+
+  requestCount = 0;
+
+  destroy(): void {
+    this.callbacks = null;
+  }
+
+  requestLayout(
+    _request: GitGraphLayoutRequest,
+    callbacks: GitGraphWorkerCallbacks,
+  ): { cancel(): void } {
+    this.callbacks = callbacks;
+    this.requestCount += 1;
+    return {
+      cancel: () => {
+        this.callbacks = null;
+      },
+    };
+  }
+
+  complete(): void {
+    while (this.startIndex < 1800) {
+      this.emitNextBatch();
+    }
+    this.callbacks?.onComplete();
+  }
+
+  emitNextBatch(): void {
+    const batch = buildGitGraphBatch(
+      {
+        batchSize: 120,
+        laneCount: 7,
+        nodeCount: 1800,
+      },
+      this.startIndex,
+    );
+    this.startIndex = batch.processedNodeCount;
+    this.callbacks?.onBatch(batch);
+  }
+}
+
 function emptyFrameActions(host: HTMLElement): HTMLButtonElement[] {
   const content = host.children[0];
   const actions = content?.children[1];
@@ -577,22 +738,16 @@ function mountBrowserStage(
 }
 
 function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
-  const fields = {
+  return {
     columnId: "column",
     heat: 42,
     paneId: "pane",
     sequence: 0,
     subtitle: "test",
     surfaceId: "surface",
+    surfaceKind,
     title: "Pane",
-    tone: "cyan" as const,
+    tone: "cyan",
     weight: 1,
   };
-  return surfaceKind === "easy-button"
-    ? {
-        ...fields,
-        easyButtonConfig: { conversationId: "conversation_test" },
-        surfaceKind,
-      }
-    : { ...fields, surfaceKind };
 }

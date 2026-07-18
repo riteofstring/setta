@@ -6,7 +6,6 @@ import type {
   AppearanceSettings,
   AppearanceTailwindPalette,
 } from "@generated/backend";
-import type { DesktopPlatform } from "@shared/types";
 import {
   Check,
   ChevronDown,
@@ -33,11 +32,10 @@ import {
   seedPreviewStops,
   settingsFromSeed,
 } from "./appearance-seed-palette";
+import { ChatDefaultsSettings } from "./chat-defaults-settings";
 import { CodexAccountSettings } from "./codex-account-settings";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
-import { RoleConfigurationSettings } from "./role-configuration-settings";
-import { PresentationConfigurationSettings } from "./presentation-configuration-settings";
 import { ShortcutSettingsEditor } from "./shortcut-settings";
 import {
   AccordionSection,
@@ -50,6 +48,7 @@ import {
 import { settingsSubtabs, type SettingsSubtab } from "./settings-subtabs";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { TerminalProfilesSettings } from "./terminal-profiles-settings";
 import { cn } from "../lib/utils";
 import {
   appearanceSettingsEqual,
@@ -96,7 +95,6 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
     (state) => state.setClampResizedPanesToViewport,
   );
   const setMode = useAppearanceStore((state) => state.setMode);
-  const setMasterVoiceShortcut = useAppearanceStore((state) => state.setMasterVoiceShortcut);
   const setOverviewCardWidthBounds = useAppearanceStore(
     (state) => state.setOverviewCardWidthBounds,
   );
@@ -107,6 +105,7 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
   const status = useAppearanceStore((state) => state.status);
   const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
   const contentBySubtab = {
+    "chat-defaults": <ChatDefaultsSettings />,
     "codex-account": <CodexAccountSettings />,
     developer: (
       <DeveloperSettingsEditor
@@ -121,21 +120,18 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
         status={status}
       />
     ),
-    roles: <RoleConfigurationSettings />,
-    speech: <PresentationConfigurationSettings />,
     shortcuts: (
       <ShortcutSettingsEditor
         dirty={dirty}
         error={error}
-        onMasterVoiceChange={setMasterVoiceShortcut}
         onRevert={revertDraft}
         onSave={saveDraft}
         onWorkspaceNavigationChange={setWorkspaceNavigationShortcut}
-        platform={settingsPanelPlatform()}
         shortcuts={draft?.shortcuts ?? null}
         status={status}
       />
     ),
+    "terminal-profiles": <TerminalProfilesSettings />,
     theme: (
       <AppearanceSettingsEditor
         defaultPresetId={defaultPresetId}
@@ -235,13 +231,6 @@ function settingsSubtabButtonId(tab: SettingsSubtab) {
 
 function settingsSubtabPanelId(tab: SettingsSubtab) {
   return `settings-subtab-panel-${tab}`;
-}
-
-function settingsPanelPlatform(): DesktopPlatform {
-  if (typeof window === "undefined") {
-    return "linux";
-  }
-  return window.setta?.app.platform ?? "linux";
 }
 
 interface AppearanceSettingsEditorProps {

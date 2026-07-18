@@ -31,9 +31,6 @@ func TestDefaultSettingsValidate(t *testing.T) {
 	if settings.Shortcuts.WorkspaceNavigation != WorkspaceNavigationModAltArrows {
 		t.Fatalf("default workspace navigation shortcut = %q, want %q", settings.Shortcuts.WorkspaceNavigation, WorkspaceNavigationModAltArrows)
 	}
-	if settings.Shortcuts.MasterVoice != MasterVoiceModShiftK {
-		t.Fatalf("default master voice shortcut = %q, want %q", settings.Shortcuts.MasterVoice, MasterVoiceModShiftK)
-	}
 	if settings.Dark.Tailwind.Setta900 != "oklch(0.1631 0.0125 264.14)" {
 		t.Fatalf("dark setta 900 = %q, want original Setta dark scale", settings.Dark.Tailwind.Setta900)
 	}
@@ -123,7 +120,6 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 	settings.Developer.OverviewCardMaxWidthPx = 540
 	settings.Developer.ShowPerformanceStats = true
 	settings.Shortcuts.WorkspaceNavigation = WorkspaceNavigationCtrlAltArrows
-	settings.Shortcuts.MasterVoice = MasterVoiceAltShiftK
 
 	if err := store.Save(settings); err != nil {
 		t.Fatalf("save appearance settings: %v", err)
@@ -153,9 +149,6 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 	}
 	if loaded.Shortcuts.WorkspaceNavigation != WorkspaceNavigationCtrlAltArrows {
 		t.Fatalf("workspace navigation shortcut = %q, want %q", loaded.Shortcuts.WorkspaceNavigation, WorkspaceNavigationCtrlAltArrows)
-	}
-	if loaded.Shortcuts.MasterVoice != MasterVoiceAltShiftK {
-		t.Fatalf("master voice shortcut = %q, want %q", loaded.Shortcuts.MasterVoice, MasterVoiceAltShiftK)
 	}
 }
 
@@ -256,20 +249,6 @@ func TestStoreRejectsInvalidWorkspaceNavigationShortcut(t *testing.T) {
 	}
 	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "workspace navigation shortcut") {
 		t.Fatalf("error = %T %v, want workspace navigation shortcut failure", err, err)
-	}
-}
-
-func TestStoreRejectsInvalidMasterVoiceShortcut(t *testing.T) {
-	store := newTestStore(t)
-	settings := DefaultSettings()
-	settings.Shortcuts.MasterVoice = "voice_arrow_keys"
-
-	err := store.Save(settings)
-	if err == nil {
-		t.Fatal("save succeeded, want invalid master voice shortcut error")
-	}
-	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "master voice shortcut") {
-		t.Fatalf("error = %T %v, want master voice shortcut failure", err, err)
 	}
 }
 

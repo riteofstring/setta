@@ -1,13 +1,30 @@
-import type { EasyButtonPaneConfig, SurfaceKind as PersistedSurfaceKind } from "@generated/backend";
+import type { WorkflowNodeDetailsPaneConfig } from "@generated/backend";
 
 export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
 
-export type ProductSurfaceKind = PersistedSurfaceKind;
-type DiagnosticSurfaceKind = "fake-dom" | "fake-heavy-dom" | "snapshot";
+export const productSurfaceKinds = [
+  "chat-dom",
+  "empty-frame",
+  "workflow-graph",
+  "settings-dom",
+  "terminal",
+  "semantic-node-details",
+  "workflow-node-details",
+  "workflow-settings",
+] as const;
+
+export type ProductSurfaceKind = (typeof productSurfaceKinds)[number];
+type DiagnosticSurfaceKind =
+  | "browser"
+  | "fake-dom"
+  | "fake-heavy-dom"
+  | "fake-long-chat"
+  | "fake-terminal"
+  | "git-graph"
+  | "snapshot";
 export type SurfaceKind = ProductSurfaceKind | DiagnosticSurfaceKind;
-export type NonEasyButtonSurfaceKind = Exclude<SurfaceKind, "easy-button">;
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 
@@ -38,7 +55,7 @@ export interface ColumnWidthSpec {
   unit: "proportion" | "px";
 }
 
-interface WorkspacePaneFields {
+export interface WorkspacePane {
   columnId: ColumnId;
   heat: number;
   heightPx?: number;
@@ -46,22 +63,19 @@ interface WorkspacePaneFields {
   sequence: number;
   subtitle: string;
   surfaceId: SurfaceId;
+  surfaceKind: SurfaceKind;
+  terminalConfig?: TerminalPaneConfig;
   title: string;
   tone: "cyan" | "green" | "orange" | "pink" | "slate";
   weight: number;
+  workflowNodeDetailsConfig?: WorkflowNodeDetailsPaneConfig;
 }
 
-export type EasyButtonWorkspacePane = WorkspacePaneFields & {
-  easyButtonConfig: EasyButtonPaneConfig;
-  surfaceKind: "easy-button";
-};
-
-export type WorkspacePane =
-  | EasyButtonWorkspacePane
-  | (WorkspacePaneFields & {
-      easyButtonConfig?: never;
-      surfaceKind: NonEasyButtonSurfaceKind;
-    });
+export interface TerminalPaneConfig {
+  cwdOverride?: string;
+  profileId: string;
+  titleOverride?: string;
+}
 
 export interface WorkspaceColumn {
   columnId: ColumnId;
@@ -90,25 +104,18 @@ export interface WorkspaceScene {
   visibleColumnCount: number;
 }
 
-interface OpenPaneRequestFields {
+export interface OpenPaneRequest {
   adjacentToColumnId?: ColumnId;
   columnId?: ColumnId;
   subtitle?: string;
+  surfaceKind?: SurfaceKind;
+  terminalConfig?: TerminalPaneConfig;
   title?: string;
   tone?: WorkspacePane["tone"];
   weight?: number;
+  workflowNodeDetailsConfig?: WorkflowNodeDetailsPaneConfig;
   widthSpec?: ColumnWidthSpec;
 }
-
-export type OpenPaneRequest =
-  | (OpenPaneRequestFields & {
-      easyButtonConfig: EasyButtonPaneConfig;
-      surfaceKind: "easy-button";
-    })
-  | (OpenPaneRequestFields & {
-      easyButtonConfig?: never;
-      surfaceKind?: NonEasyButtonSurfaceKind;
-    });
 
 export type PaneInsertionPlacement = "above" | "below" | "right";
 export type PaneDropPlacement = "after" | "before";
@@ -197,6 +204,39 @@ export interface PaneSnapshot {
   surfaceId: SurfaceId;
 }
 
+export interface CanvasSurfaceStats {
+  backingStorePixels: number | null;
+  drawCalls: number;
+  farZoomSimplified: boolean;
+  gpuMemoryEstimateBytes: number | null;
+  liveCanvasPaneCount: number;
+  rendererResizeCount: number;
+  renderedFrames: number;
+  tickerFramesWhileFrozen: number;
+}
+
+export type GitGraphRendererKind = "canvas" | "dom" | "svg";
+
+export interface GitGraphSurfaceStats {
+  completed: boolean;
+  liveGraphPaneCount: number;
+  progress: number;
+  renderedEdges: number;
+  renderedNodes: number;
+  renderer: GitGraphRendererKind | null;
+  workerBatches: number;
+  workerPending: boolean;
+}
+
+export interface TerminalSurfaceStats {
+  dirtyRows: number;
+  droppedOutputChunks: number;
+  liveTerminalRendererCount: number;
+  pendingOutputChunks: number;
+  renderedRows: number;
+  scrollbackRows: number;
+}
+
 export type SurfaceSnapshotFreshness = "fresh" | "stale" | "missing";
 
 export interface SurfaceSnapshotMetricsSink {
@@ -223,6 +263,9 @@ export interface SurfaceAdapter {
   resume(reason: ResumeReason): void;
 
   captureSnapshot?(): Promise<PaneSnapshot>;
+  getCanvasStats?(): CanvasSurfaceStats;
+  getGitGraphStats?(): GitGraphSurfaceStats;
+  getTerminalStats?(): TerminalSurfaceStats;
   requestPaneClose?(request: SurfacePaneCloseRequest): Promise<SurfacePaneCloseResult>;
   syncFrame?(): void;
   destroy(): void;
@@ -237,7 +280,10 @@ export interface SurfacePaneCloseResult {
 }
 
 export interface PaneRuntimeBudget {
+  maxLiveBrowserPanes: number;
   maxLiveHeavyDomPanes: number;
+  maxLiveTerminalRenderers: number;
+  maxLiveWebGpuCanvases: number;
   maxSnapshotPanes: number;
 }
 
@@ -281,6 +327,7 @@ export interface LayoutEngine {
     lowerHeightWeight: number,
   ): boolean;
   setCompactLayout(compact: boolean): void;
+  setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void;
   splitPane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): PaneId;
   splitPaneToPlane(paneId: PaneId, direction: "up" | "down"): PaneId;
   unlockColumnWidth(columnId: ColumnId, viewportWidth: number): void;
@@ -300,6 +347,22 @@ export interface WorkspaceFrameMetrics {
   reactCommitsDuringMovement: number;
   reactCommitsDuringResize: number;
   resize: WorkspaceResizeMetrics;
+  canvasDrawCalls: number;
+  canvasBackingStorePixels: number | null;
+  canvasGpuMemoryEstimateBytes: number | null;
+  canvasRendererResizeCount: number;
+  canvasTickerFramesWhileFrozen: number;
+  gitGraphProgress: number;
+  gitGraphRenderedNodes: number;
+  gitGraphRenderer: GitGraphRendererKind | null;
+  gitGraphWorkerBatches: number;
+  gitGraphWorkerPending: boolean;
+  liveCanvasPaneCount: number;
+  liveGitGraphPaneCount: number;
+  liveTerminalRendererCount: number;
+  terminalDirtyRows: number;
+  terminalDroppedOutputChunks: number;
+  terminalPendingOutputChunks: number;
   snapshotCapturePromisesAwaitedByTransition: number;
   snapshotBitmapCaptureRequests: number;
   snapshotCaptureRequests: number;
@@ -317,11 +380,13 @@ export interface WorkspaceResizeMetrics {
   active: boolean;
   boxWrites: number;
   browserViewportWrites: number;
+  canvasViewportWrites: number;
   deferredHeavyViewportWrites: number;
   finalViewport: Rect | null;
   finalViewportCommits: number;
   frameCount: number;
   frameTime: number;
+  gitGraphViewportWrites: number;
   heavyViewportWrites: number;
   longTasks: number;
   nativeBoundsUpdates: number;
@@ -330,6 +395,7 @@ export interface WorkspaceResizeMetrics {
   p99FrameTime: number;
   settledFrameCount: number;
   surfaceViewportWrites: number;
+  terminalViewportWrites: number;
   transformWrites: number;
 }
 

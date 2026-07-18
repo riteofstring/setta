@@ -9,6 +9,7 @@ import type {
   PaneInsertionPlacement,
   PaneRenderItem,
   Rect,
+  TerminalPaneConfig,
   WorkspaceColumn,
   WorkspacePane,
   WorkspaceScene,
@@ -27,7 +28,9 @@ import {
 import {
   normalizedPaneHeightPx,
   normalizedPaneWeight,
-  paneSurfaceForRequest,
+  normalizeTerminalPaneConfig,
+  terminalConfigForRequest,
+  workflowNodeDetailsConfigForRequest,
 } from "./layout-engine-normalization";
 import {
   paneInHorizontalVisualDirection,
@@ -71,7 +74,6 @@ interface EngineMutableState {
   columns: WorkspaceColumn[];
   nextColumnSequence: number;
   nextPaneSequence: number;
-  nextSurfaceSequence: number;
   paneById: Map<PaneId, WorkspacePane>;
 }
 
@@ -118,25 +120,24 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
   }
 
   openPane(request: OpenPaneRequest): PaneId {
-    const paneSurface = paneSurfaceForRequest(request);
     const targetColumn = request.columnId
       ? this.requireColumn(request.columnId)
       : this.insertColumnAfter(request.adjacentToColumnId, request.widthSpec);
     const sequence = this.nextPaneSequence;
     this.nextPaneSequence += 1;
-    const surfaceSequence = this.nextSurfaceSequence;
-    this.nextSurfaceSequence += 1;
     const pane: WorkspacePane = {
       columnId: targetColumn.columnId,
       heat: (sequence * 37) % 100,
       paneId: `workspace_pane_${sequence}`,
       sequence,
       subtitle: request.subtitle ?? "workspace surface",
-      surfaceId: `workspace_surface_${surfaceSequence}`,
+      surfaceId: `workspace_surface_${sequence}`,
+      surfaceKind: request.surfaceKind ?? "empty-frame",
+      terminalConfig: terminalConfigForRequest(request),
       title: request.title ?? `Pane ${String(sequence + 1).padStart(3, "0")}`,
       tone: request.tone ?? "slate",
       weight: request.weight ?? 1,
-      ...paneSurface,
+      workflowNodeDetailsConfig: workflowNodeDetailsConfigForRequest(request),
     };
     this.paneById.set(pane.paneId, pane);
     targetColumn.paneIds.push(pane.paneId);
@@ -148,9 +149,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     placement: PaneInsertionPlacement,
     request: OpenPaneRequest,
   ): PaneId {
-    // Validate before inserting a target column so a malformed request cannot
-    // leave an empty structural mutation behind when pane creation fails.
-    paneSurfaceForRequest(request);
     const source = this.locationForPane(paneId);
     if (!source) {
       return this.openPane(request);
@@ -174,21 +172,19 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     if (!pane) {
       throw new Error(`unknown workspace pane ${paneId}`);
     }
-    const paneSurface = paneSurfaceForRequest(request, pane);
-    const surfaceSequence = this.nextSurfaceSequence;
-    this.nextSurfaceSequence += 1;
+    const sequence = this.nextPaneSequence;
+    this.nextPaneSequence += 1;
     this.paneById.set(paneId, {
-      columnId: pane.columnId,
-      heat: (surfaceSequence * 37) % 100,
-      heightPx: pane.heightPx,
-      paneId: pane.paneId,
-      sequence: pane.sequence,
+      ...pane,
+      heat: (sequence * 37) % 100,
       subtitle: request.subtitle ?? pane.subtitle,
-      surfaceId: `workspace_surface_${surfaceSequence}`,
+      surfaceId: `workspace_surface_${sequence}`,
+      surfaceKind: request.surfaceKind ?? pane.surfaceKind,
+      terminalConfig: terminalConfigForRequest(request, pane),
       title: request.title ?? pane.title,
       tone: request.tone ?? pane.tone,
       weight: request.weight ?? pane.weight,
-      ...paneSurface,
+      workflowNodeDetailsConfig: workflowNodeDetailsConfigForRequest(request, pane),
     });
     return paneId;
   }
@@ -481,7 +477,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
       columns: this.columns.map((column) => ({ ...column, paneIds: [...column.paneIds] })),
       nextColumnSequence: this.nextColumnSequence,
       nextPaneSequence: this.nextPaneSequence,
-      nextSurfaceSequence: this.nextSurfaceSequence,
       paneById: new Map(this.paneById),
     };
   }
@@ -490,7 +485,6 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
     this.columns = saved.columns;
     this.nextColumnSequence = saved.nextColumnSequence;
     this.nextPaneSequence = saved.nextPaneSequence;
-    this.nextSurfaceSequence = saved.nextSurfaceSequence;
     this.paneById = saved.paneById;
   }
 
@@ -555,6 +549,20 @@ export class WorkspaceLikeLayoutEngine extends WorkspaceLayoutEngineBase impleme
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void {
     const column = this.requireColumn(columnId);
     this.resizeColumnsInSlot(columnSlotIndex(column), width);
+  }
+
+  setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
+    const pane = this.paneById.get(paneId);
+    if (!pane) {
+      throw new Error(`unknown workspace pane ${paneId}`);
+    }
+    if (pane.surfaceKind !== "terminal") {
+      throw new Error(`workspace pane ${paneId} is not a terminal pane`);
+    }
+    this.paneById.set(paneId, {
+      ...pane,
+      terminalConfig: normalizeTerminalPaneConfig(terminalConfig),
+    });
   }
 
   resetColumnWidth(columnId: ColumnId): void {

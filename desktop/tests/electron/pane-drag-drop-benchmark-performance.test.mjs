@@ -49,6 +49,7 @@ try {
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
       SETTA_E2E_NIRI_SCENE: "benchmark",
     },
     fixture,

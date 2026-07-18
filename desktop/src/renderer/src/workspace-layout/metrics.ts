@@ -1,9 +1,12 @@
 import type {
+  CanvasSurfaceStats,
+  GitGraphSurfaceStats,
   WorkspaceFrameMetrics,
   Rect,
   ResizePhase,
   SurfaceSnapshotFreshness,
   WorkspaceResizeMetrics,
+  TerminalSurfaceStats,
 } from "./types";
 
 const maxRecordedFrames = 720;
@@ -15,8 +18,11 @@ export class WorkspaceMetricsCollector {
   private droppedFrames = 0;
   private frameTimes: number[] = [];
   private latestFrameTime = 0;
+  private latestCanvasStats: CanvasSurfaceStats = emptyCanvasStats();
+  private latestGitGraphStats: GitGraphSurfaceStats = emptyGitGraphStats();
   private latestNativeBoundsUpdates = 0;
   private latestBoxWrites = 0;
+  private latestTerminalStats: TerminalSurfaceStats = emptyTerminalStats();
   private latestTransformWrites = 0;
   private latestVisiblePaneCount = 0;
   private longTasks = 0;
@@ -43,23 +49,29 @@ export class WorkspaceMetricsCollector {
   recordFrame({
     boxWrites,
     browserViewportWrites,
+    canvasViewportWrites,
     deferredHeavyViewportWrites,
     frameTime,
+    gitGraphViewportWrites,
     heavyViewportWrites,
     nativeBoundsUpdates,
     resizePhase,
     surfaceViewportWrites,
+    terminalViewportWrites,
     transformWrites,
     visiblePaneCount,
   }: {
     boxWrites: number;
     browserViewportWrites: number;
+    canvasViewportWrites: number;
     deferredHeavyViewportWrites: number;
     frameTime: number;
+    gitGraphViewportWrites: number;
     heavyViewportWrites: number;
     nativeBoundsUpdates: number;
     resizePhase: ResizePhase;
     surfaceViewportWrites: number;
+    terminalViewportWrites: number;
     transformWrites: number;
     visiblePaneCount: number;
   }): void {
@@ -78,12 +90,15 @@ export class WorkspaceMetricsCollector {
     this.recordResizeFrame({
       boxWrites,
       browserViewportWrites,
+      canvasViewportWrites,
       deferredHeavyViewportWrites,
       frameTime,
+      gitGraphViewportWrites,
       heavyViewportWrites,
       nativeBoundsUpdates,
       resizePhase,
       surfaceViewportWrites,
+      terminalViewportWrites,
       transformWrites,
     });
   }
@@ -98,6 +113,18 @@ export class WorkspaceMetricsCollector {
   recordResizeFinalViewport(viewport: Rect): void {
     this.resizeMetrics.finalViewport = { ...viewport };
     this.resizeMetrics.finalViewportCommits += 1;
+  }
+
+  recordCanvasStats(stats: CanvasSurfaceStats): void {
+    this.latestCanvasStats = stats;
+  }
+
+  recordGitGraphStats(stats: GitGraphSurfaceStats): void {
+    this.latestGitGraphStats = stats;
+  }
+
+  recordTerminalStats(stats: TerminalSurfaceStats): void {
+    this.latestTerminalStats = stats;
   }
 
   recordSnapshotCaptureRequest({
@@ -166,8 +193,11 @@ export class WorkspaceMetricsCollector {
     this.droppedFrames = 0;
     this.frameTimes = [];
     this.latestFrameTime = 0;
+    this.latestCanvasStats = emptyCanvasStats();
+    this.latestGitGraphStats = emptyGitGraphStats();
     this.latestBoxWrites = 0;
     this.latestNativeBoundsUpdates = 0;
+    this.latestTerminalStats = emptyTerminalStats();
     this.latestTransformWrites = 0;
     this.latestVisiblePaneCount = 0;
     this.longTasks = 0;
@@ -207,6 +237,22 @@ export class WorkspaceMetricsCollector {
       reactCommitsDuringMovement: this.reactCommitsDuringMovement,
       reactCommitsDuringResize: this.reactCommitsDuringResize,
       resize: this.resizeSnapshot(),
+      canvasDrawCalls: this.latestCanvasStats.drawCalls,
+      canvasBackingStorePixels: this.latestCanvasStats.backingStorePixels,
+      canvasGpuMemoryEstimateBytes: this.latestCanvasStats.gpuMemoryEstimateBytes,
+      canvasRendererResizeCount: this.latestCanvasStats.rendererResizeCount,
+      canvasTickerFramesWhileFrozen: this.latestCanvasStats.tickerFramesWhileFrozen,
+      gitGraphProgress: this.latestGitGraphStats.progress,
+      gitGraphRenderedNodes: this.latestGitGraphStats.renderedNodes,
+      gitGraphRenderer: this.latestGitGraphStats.renderer,
+      gitGraphWorkerBatches: this.latestGitGraphStats.workerBatches,
+      gitGraphWorkerPending: this.latestGitGraphStats.workerPending,
+      liveCanvasPaneCount: this.latestCanvasStats.liveCanvasPaneCount,
+      liveGitGraphPaneCount: this.latestGitGraphStats.liveGraphPaneCount,
+      liveTerminalRendererCount: this.latestTerminalStats.liveTerminalRendererCount,
+      terminalDirtyRows: this.latestTerminalStats.dirtyRows,
+      terminalDroppedOutputChunks: this.latestTerminalStats.droppedOutputChunks,
+      terminalPendingOutputChunks: this.latestTerminalStats.pendingOutputChunks,
       snapshotBitmapCaptureRequests: this.snapshotBitmapCaptureRequests,
       snapshotCapturePromisesAwaitedByTransition: this.snapshotCapturePromisesAwaitedByTransition,
       snapshotCaptureRequests: this.snapshotCaptureRequests,
@@ -224,22 +270,28 @@ export class WorkspaceMetricsCollector {
   private recordResizeFrame({
     boxWrites,
     browserViewportWrites,
+    canvasViewportWrites,
     deferredHeavyViewportWrites,
     frameTime,
+    gitGraphViewportWrites,
     heavyViewportWrites,
     nativeBoundsUpdates,
     resizePhase,
     surfaceViewportWrites,
+    terminalViewportWrites,
     transformWrites,
   }: {
     boxWrites: number;
     browserViewportWrites: number;
+    canvasViewportWrites: number;
     deferredHeavyViewportWrites: number;
     frameTime: number;
+    gitGraphViewportWrites: number;
     heavyViewportWrites: number;
     nativeBoundsUpdates: number;
     resizePhase: ResizePhase;
     surfaceViewportWrites: number;
+    terminalViewportWrites: number;
     transformWrites: number;
   }): void {
     if (resizePhase === "idle") {
@@ -250,12 +302,15 @@ export class WorkspaceMetricsCollector {
     this.resizeMetrics.active = resizePhase === "active";
     this.resizeMetrics.boxWrites += boxWrites;
     this.resizeMetrics.browserViewportWrites += browserViewportWrites;
+    this.resizeMetrics.canvasViewportWrites += canvasViewportWrites;
     this.resizeMetrics.deferredHeavyViewportWrites += deferredHeavyViewportWrites;
     this.resizeMetrics.frameCount += 1;
     this.resizeMetrics.frameTime = frameTime;
+    this.resizeMetrics.gitGraphViewportWrites += gitGraphViewportWrites;
     this.resizeMetrics.heavyViewportWrites += heavyViewportWrites;
     this.resizeMetrics.nativeBoundsUpdates += nativeBoundsUpdates;
     this.resizeMetrics.surfaceViewportWrites += surfaceViewportWrites;
+    this.resizeMetrics.terminalViewportWrites += terminalViewportWrites;
     this.resizeMetrics.transformWrites += transformWrites;
     if (resizePhase === "settled") {
       this.resizeMetrics.settledFrameCount += 1;
@@ -279,16 +334,55 @@ export class WorkspaceMetricsCollector {
   }
 }
 
+function emptyCanvasStats(): CanvasSurfaceStats {
+  return {
+    backingStorePixels: null,
+    drawCalls: 0,
+    farZoomSimplified: false,
+    gpuMemoryEstimateBytes: null,
+    liveCanvasPaneCount: 0,
+    rendererResizeCount: 0,
+    renderedFrames: 0,
+    tickerFramesWhileFrozen: 0,
+  };
+}
+
+function emptyGitGraphStats(): GitGraphSurfaceStats {
+  return {
+    completed: false,
+    liveGraphPaneCount: 0,
+    progress: 0,
+    renderedEdges: 0,
+    renderedNodes: 0,
+    renderer: null,
+    workerBatches: 0,
+    workerPending: false,
+  };
+}
+
+function emptyTerminalStats(): TerminalSurfaceStats {
+  return {
+    dirtyRows: 0,
+    droppedOutputChunks: 0,
+    liveTerminalRendererCount: 0,
+    pendingOutputChunks: 0,
+    renderedRows: 0,
+    scrollbackRows: 0,
+  };
+}
+
 function emptyResizeMetrics(): WorkspaceResizeMetrics {
   return {
     active: false,
     boxWrites: 0,
     browserViewportWrites: 0,
+    canvasViewportWrites: 0,
     deferredHeavyViewportWrites: 0,
     finalViewport: null,
     finalViewportCommits: 0,
     frameCount: 0,
     frameTime: 0,
+    gitGraphViewportWrites: 0,
     heavyViewportWrites: 0,
     longTasks: 0,
     nativeBoundsUpdates: 0,
@@ -297,6 +391,7 @@ function emptyResizeMetrics(): WorkspaceResizeMetrics {
     p99FrameTime: 0,
     settledFrameCount: 0,
     surfaceViewportWrites: 0,
+    terminalViewportWrites: 0,
     transformWrites: 0,
   };
 }
