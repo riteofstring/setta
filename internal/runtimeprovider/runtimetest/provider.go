@@ -23,9 +23,10 @@ import (
 
 // Options configures a Provider.
 type Options struct {
-	Now                 func() time.Time
-	WorkloadIdentity    runtimeprovider.ServiceIdentity
-	AllowMissingRuntime bool
+	Now                                  func() time.Time
+	WorkloadIdentity                     runtimeprovider.ServiceIdentity
+	AllowMissingRuntime                  bool
+	RestoreRejectionsAfterServiceRestart int
 }
 
 // ServiceProbe configures deterministic service start and restart markers.
@@ -63,6 +64,8 @@ type Provider struct {
 	ensureCalls     int
 	uploads         int
 	tarExtracts     int
+	restoreCalls    int
+	restoreRejects  int
 	nextResourceID  int
 	nextCheckpoint  int
 	nextProcessID   int
@@ -193,6 +196,11 @@ func (provider *Provider) EnsureServiceCalls() int {
 	return provider.ensureCalls
 }
 
+// RestoreCheckpointCalls returns the number of restore requests received.
+func (provider *Provider) RestoreCheckpointCalls() int {
+	return provider.restoreCalls
+}
+
 // Uploads returns the number of dd uploads received.
 func (provider *Provider) Uploads() int {
 	return provider.uploads
@@ -245,21 +253,20 @@ func (provider *Provider) VersionForBinary(binaryPath string) (string, bool) {
 	return version, true
 }
 
-// RestartService simulates a provider-supervised process restart.
-func (provider *Provider) RestartService(runtimeName string, serviceName string) error {
-	key := serviceKey{runtimeName: runtimeName, serviceName: serviceName}
+func (provider *Provider) restartService(key serviceKey) error {
 	service, ok := provider.service[key]
 	if !ok {
-		return fmt.Errorf("service %s is absent on %s", serviceName, runtimeName)
+		return fmt.Errorf("service %s is absent on %s", key.serviceName, key.runtimeName)
 	}
 	provider.nextProcessID++
 	service.ProcessID = provider.nextProcessID
 	service.RestartCount++
 	provider.service[key] = service
 	provider.lastService = service
-	if probe, ok := provider.serviceProbes[serviceName]; ok {
+	if probe, ok := provider.serviceProbes[key.serviceName]; ok {
 		provider.startServiceProbe(probe, 0)
 	}
+	provider.restoreRejects = provider.options.RestoreRejectionsAfterServiceRestart
 	return nil
 }
 
@@ -365,6 +372,8 @@ func (provider *Provider) execFilesystemCommand(request runtimeprovider.ExecRequ
 
 func (provider *Provider) execSpecialCommand(request runtimeprovider.ExecRequest) (runtimeprovider.ExecResult, error) {
 	switch request.Path {
+	case "/bin/kill":
+		return provider.execKill(request), nil
 	case "/usr/bin/curl":
 		if provider.curlHandler == nil {
 			return runtimeprovider.ExecResult{}, fmt.Errorf("unexpected Exec path %s", request.Path)
@@ -377,6 +386,25 @@ func (provider *Provider) execSpecialCommand(request runtimeprovider.ExecRequest
 	default:
 		return runtimeprovider.ExecResult{}, fmt.Errorf("unexpected Exec path %s", request.Path)
 	}
+}
+
+func (provider *Provider) execKill(request runtimeprovider.ExecRequest) runtimeprovider.ExecResult {
+	if len(request.Arguments) != 2 || request.Arguments[0] != "-TERM" {
+		return runtimeprovider.ExecResult{ExitCode: 2, Stderr: []byte("unsupported kill")}
+	}
+	processID, err := strconv.Atoi(request.Arguments[1])
+	if err != nil || processID <= 0 {
+		return runtimeprovider.ExecResult{ExitCode: 2, Stderr: []byte("invalid PID")}
+	}
+	for key, service := range provider.service {
+		if key.runtimeName == request.RuntimeName && service.ProcessID == processID {
+			if err := provider.restartService(key); err != nil {
+				return runtimeprovider.ExecResult{ExitCode: 1, Stderr: []byte(err.Error())}
+			}
+			return runtimeprovider.ExecResult{}
+		}
+	}
+	return runtimeprovider.ExecResult{ExitCode: 1, Stderr: []byte("process is absent")}
 }
 
 // ConfigureURL records URL access for an existing runtime.
@@ -523,11 +551,23 @@ func (provider *Provider) RestoreCheckpoint(
 	if err := provider.requireRuntime(runtimeName); err != nil {
 		return err
 	}
+	provider.restoreCalls++
+	if provider.restoreRejects > 0 {
+		provider.restoreRejects--
+		return errors.New("runtime service supervisor is still settling")
+	}
 	checkpoint, ok := provider.checkpoints[runtimeName][checkpointID]
 	if !ok {
 		return fmt.Errorf("checkpoint %s is absent on %s", checkpointID, runtimeName)
 	}
 	provider.restoreFilesystem(checkpoint.filesystem)
+	for key := range provider.service {
+		if key.runtimeName == runtimeName {
+			if err := provider.restartService(key); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

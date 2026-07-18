@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	spritessdk "github.com/superfly/sprites-go"
@@ -34,20 +35,25 @@ const (
 	spritesServiceIdentityWrapperPath = "/usr/bin/setpriv"
 )
 
-// OperationError adds a content-free operation boundary while retaining typed
-// causes for errors.Is and errors.As.
+// OperationError retains provider response metadata and detail at the adapter
+// boundary so failed live operations remain diagnosable through errors.As.
 type OperationError struct {
 	Operation  string
 	StatusCode int
 	RetryAfter int
+	Detail     string
 	Err        error
 }
 
 func (err *OperationError) Error() string {
+	message := fmt.Sprintf("Sprites %s failed", err.Operation)
 	if err.StatusCode != 0 {
-		return fmt.Sprintf("Sprites %s failed with HTTP status %d", err.Operation, err.StatusCode)
+		message += fmt.Sprintf(" with HTTP status %d", err.StatusCode)
 	}
-	return fmt.Sprintf("Sprites %s failed", err.Operation)
+	if err.Detail != "" {
+		message += ": " + err.Detail
+	}
+	return message
 }
 
 func (err *OperationError) Unwrap() error {
@@ -353,28 +359,6 @@ func (adapter *Adapter) ServerVersion(ctx context.Context, name string) (string,
 	return version, nil
 }
 
-type organizationCapacity struct {
-	Running      int
-	Warm         int
-	Cold         int
-	RunningLimit int
-	WarmLimit    int
-}
-
-func (adapter *Adapter) organizationCapacity(ctx context.Context) (organizationCapacity, error) {
-	snapshot, err := adapter.client.OrganizationSnapshot(ctx)
-	if err != nil {
-		return organizationCapacity{}, operationError("inspect organization capacity", err)
-	}
-	return organizationCapacity{
-		Running:      snapshot.Info.Running,
-		Warm:         snapshot.Info.Warm,
-		Cold:         snapshot.Info.Cold,
-		RunningLimit: snapshot.Info.RunningLimit,
-		WarmLimit:    snapshot.Info.WarmLimit,
-	}, nil
-}
-
 func (adapter *Adapter) inspect(
 	ctx context.Context,
 	name string,
@@ -610,8 +594,47 @@ func operationError(operation string, err error) error {
 	if errors.As(err, &apiErr) {
 		result.StatusCode = apiErr.StatusCode
 		result.RetryAfter = apiErr.GetRetryAfterSeconds()
+		result.Detail = apiErrorDetail(apiErr)
+		return result
 	}
+	if statusCode, detail, ok := pinnedSDKHTTPError(err); ok {
+		result.StatusCode = statusCode
+		result.Detail = detail
+		return result
+	}
+	result.Detail = strings.TrimSpace(err.Error())
 	return result
+}
+
+func apiErrorDetail(err *spritessdk.APIError) string {
+	detail := strings.TrimSpace(err.Message)
+	if err.ErrorCode == "" {
+		return detail
+	}
+	if detail == "" || detail == err.ErrorCode {
+		return err.ErrorCode
+	}
+	return err.ErrorCode + ": " + detail
+}
+
+// pinnedSDKHTTPError decodes the exact non-2xx error grammar emitted by the
+// pinned sprites-go checkpoint and restore methods. The original error remains
+// wrapped on OperationError; unmatched errors still surface verbatim as Detail.
+func pinnedSDKHTTPError(err error) (int, string, bool) {
+	const prefix = "API returned status "
+	remainder, ok := strings.CutPrefix(err.Error(), prefix)
+	if !ok {
+		return 0, "", false
+	}
+	statusText, detail, ok := strings.Cut(remainder, ":")
+	if !ok {
+		return 0, "", false
+	}
+	statusCode, parseErr := strconv.Atoi(strings.TrimSpace(statusText))
+	if parseErr != nil || statusCode < 100 || statusCode > 599 {
+		return 0, "", false
+	}
+	return statusCode, strings.TrimSpace(detail), true
 }
 
 var _ runtimeprovider.Provider = (*Adapter)(nil)

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,12 +16,14 @@ import (
 type CheckName string
 
 const (
-	CheckCreateIdentity        CheckName = "create_identity_label_round_trip"
-	CheckFilesystemServiceWarm CheckName = "filesystem_service_warm_preservation"
-	CheckServiceRestart        CheckName = "service_restart_detection"
-	CheckCheckpointRestore     CheckName = "checkpoint_restore_rollback"
-	CheckWorkloadLease         CheckName = "workload_lease_lifecycle"
-	CheckDestroyAbsence        CheckName = "destroy_verified_absence"
+	CheckCreateIdentity           CheckName = "create_identity_label_round_trip"
+	CheckFilesystemServiceWarm    CheckName = "filesystem_service_warm_preservation"
+	CheckServiceRestart           CheckName = "service_restart_detection"
+	CheckCheckpointRestore        CheckName = "checkpoint_restore_rollback"
+	CheckWorkloadLease            CheckName = "workload_lease_lifecycle"
+	CheckDestroyAbsence           CheckName = "destroy_verified_absence"
+	stableServiceObservations               = 3
+	maximumRestoreBackoffExponent           = 3
 )
 
 type ResultStatus string
@@ -65,6 +66,8 @@ type Config struct {
 	WarmIdleDelay            time.Duration
 	RestartTimeout           time.Duration
 	RestartPollInterval      time.Duration
+	CheckpointTimeout        time.Duration
+	CheckpointPollInterval   time.Duration
 	LeaseTTL                 time.Duration
 	LeaseExpiryTTL           time.Duration
 	LeaseRenewWait           time.Duration
@@ -86,15 +89,25 @@ type Hooks struct {
 	AfterCreate               func(context.Context, runtimeprovider.RuntimeObservation) error
 	PrepareRuntime            func(context.Context, string, Paths) error
 	WaitWithoutProviderClient func(context.Context, time.Duration) error
-	TriggerProcessRestart     func(context.Context, string, runtimeprovider.ServiceSpec, Paths) error
 	StartDetachedWork         func(context.Context, string, string) error
 }
 
 type runState struct {
 	runtimeName         string
 	created             bool
-	warmHeartbeat       int
 	filesystemWarmCheck bool
+}
+
+type serviceRestartState struct {
+	service   runtimeprovider.ServiceObservation
+	found     bool
+	starts    int
+	heartbeat int
+}
+
+type stableServiceWindow struct {
+	consecutive int
+	previous    serviceRestartState
 }
 
 type skipError struct {
@@ -117,7 +130,7 @@ func Checks() []Check {
 		},
 		{
 			Name:        CheckServiceRestart,
-			Description: "force restart pressure and detect Service memory loss without losing persistent marker storage",
+			Description: "kill the running Service process and verify its supervisor restarts it fresh without losing persistent marker storage",
 		},
 		{
 			Name:        CheckCheckpointRestore,
@@ -236,11 +249,9 @@ func (suite Suite) checkFilesystemServiceWarm(ctx context.Context, state *runSta
 	if err := suite.waitWithoutProviderClient(ctx, suite.Config.WarmIdleDelay); err != nil {
 		return fmt.Errorf("wait for warm preservation: %w", err)
 	}
-	heartbeatAfter, err := suite.verifyWarmState(ctx, state.runtimeName, heartbeatBefore)
-	if err != nil {
+	if _, err := suite.verifyWarmState(ctx, state.runtimeName, heartbeatBefore); err != nil {
 		return err
 	}
-	state.warmHeartbeat = heartbeatAfter
 	state.filesystemWarmCheck = true
 	return nil
 }
@@ -306,6 +317,10 @@ func (suite Suite) verifyWarmState(ctx context.Context, runtimeName string, hear
 	return heartbeatAfter, nil
 }
 
+// checkServiceRestart uses a deliberate Service process exit because provider-reported
+// cold state is not behaviorally observable: confirmed cold-soak runs preserved the
+// process and memory. Killing the observed PID instead exercises the provider-supported
+// contract that a Service process which exits is restarted by its supervisor.
 func (suite Suite) checkServiceRestart(ctx context.Context, state *runState) error {
 	if err := state.requireRuntime(); err != nil {
 		return err
@@ -313,11 +328,16 @@ func (suite Suite) checkServiceRestart(ctx context.Context, state *runState) err
 	if !state.filesystemWarmCheck {
 		return skipError{"warm preservation check did not complete"}
 	}
-	if suite.Hooks.TriggerProcessRestart == nil {
-		return skipError{"provider restart trigger hook is not configured"}
+	before, err := suite.serviceRestartBaseline(ctx, state.runtimeName)
+	if err != nil {
+		return err
 	}
-	if err := suite.Hooks.TriggerProcessRestart(ctx, state.runtimeName, suite.Config.ServiceSpec, suite.Config.Paths); err != nil {
-		return fmt.Errorf("trigger provider restart: %w", err)
+	if err := suite.execRequired(ctx, runtimeprovider.ExecRequest{
+		RuntimeName: state.runtimeName,
+		Path:        "/bin/kill",
+		Arguments:   []string{"-TERM", strconv.Itoa(before.service.ProcessID)},
+	}); err != nil {
+		return fmt.Errorf("terminate service process: %w", err)
 	}
 	marker, err := suite.readRemoteFile(ctx, state.runtimeName, suite.Config.Paths.Marker)
 	if err != nil {
@@ -326,24 +346,36 @@ func (suite Suite) checkServiceRestart(ctx context.Context, state *runState) err
 	if string(marker) != "before-warm\n" {
 		return fmt.Errorf("restart persistence marker = %q, want %q", marker, "before-warm\n")
 	}
-	starts, heartbeat, restarted, err := suite.waitForServiceRestart(ctx, state.runtimeName, state.warmHeartbeat)
+	return suite.waitForServiceRestart(
+		ctx,
+		state.runtimeName,
+		before,
+	)
+}
+
+func (suite Suite) serviceRestartBaseline(ctx context.Context, runtimeName string) (serviceRestartState, error) {
+	state, err := suite.observeServiceRestart(ctx, runtimeName)
 	if err != nil {
-		return err
+		return serviceRestartState{}, err
 	}
-	if !restarted {
-		return fmt.Errorf(
-			"reported-cold wake preserved service memory: starts=%d heartbeat=%d pre-pressure-heartbeat=%d",
-			starts,
-			heartbeat,
-			state.warmHeartbeat,
-		)
+	if !state.found {
+		return serviceRestartState{}, fmt.Errorf("inspect service before process exit: %s is absent", suite.Config.ServiceSpec.Name)
 	}
-	return nil
+	if err := requireServiceObservation(state.service, suite.Config.ServiceSpec); err != nil {
+		return serviceRestartState{}, fmt.Errorf("inspect service before process exit: %w", err)
+	}
+	if state.service.ProcessID <= 0 {
+		return serviceRestartState{}, fmt.Errorf("inspect service before process exit: invalid PID %d", state.service.ProcessID)
+	}
+	return state, nil
 }
 
 func (suite Suite) checkCheckpointRestore(ctx context.Context, state *runState) error {
 	if err := state.requireRuntime(); err != nil {
 		return err
+	}
+	if err := suite.waitForStableService(ctx, state.runtimeName); err != nil {
+		return fmt.Errorf("stabilize service before checkpoint: %w", err)
 	}
 	if err := suite.writeMarker(ctx, state.runtimeName, "before-checkpoint\n"); err != nil {
 		return err
@@ -355,17 +387,98 @@ func (suite Suite) checkCheckpointRestore(ctx context.Context, state *runState) 
 	if err := suite.writeMarker(ctx, state.runtimeName, "after-checkpoint\n"); err != nil {
 		return err
 	}
-	if err := suite.Provider.RestoreCheckpoint(ctx, state.runtimeName, checkpoint.ID); err != nil {
-		return fmt.Errorf("restore checkpoint: %w", err)
+	if err := suite.waitForStableService(ctx, state.runtimeName); err != nil {
+		return fmt.Errorf("stabilize service before restore: %w", err)
 	}
-	restored, err := suite.readRemoteFile(ctx, state.runtimeName, suite.Config.Paths.Marker)
-	if err != nil {
-		return fmt.Errorf("read restored marker: %w", err)
+	if err := suite.restoreCheckpointWithRetry(ctx, state.runtimeName, checkpoint.ID); err != nil {
+		return err
 	}
-	if string(restored) != "before-checkpoint\n" {
-		return fmt.Errorf("restored marker = %q, want %q", restored, "before-checkpoint\n")
+	if err := suite.waitForRestoredMarker(ctx, state.runtimeName); err != nil {
+		return err
 	}
 	return nil
+}
+
+func (suite Suite) waitForStableService(ctx context.Context, runtimeName string) error {
+	deadline := suite.Now().Add(suite.Config.CheckpointTimeout)
+	window := stableServiceWindow{}
+	for {
+		observed, err := suite.observeServiceRestart(ctx, runtimeName)
+		if err != nil {
+			return err
+		}
+		if window.add(observed, suite.Config.ServiceSpec) {
+			return nil
+		}
+		if !suite.Now().Before(deadline) {
+			return fmt.Errorf("service did not remain healthy with one PID and start count: last=%#v", observed)
+		}
+		if err := suite.waitWithoutProviderClient(ctx, suite.Config.CheckpointPollInterval); err != nil {
+			return err
+		}
+	}
+}
+
+func (window *stableServiceWindow) add(observed serviceRestartState, spec runtimeprovider.ServiceSpec) bool {
+	healthy := observed.found && observed.service.ProcessID > 0 && requireServiceObservation(observed.service, spec) == nil
+	sameProcess := window.consecutive > 0 &&
+		observed.service.ProcessID == window.previous.service.ProcessID &&
+		observed.starts == window.previous.starts
+	switch {
+	case healthy && sameProcess:
+		window.consecutive++
+	case healthy:
+		window.consecutive = 1
+	default:
+		window.consecutive = 0
+	}
+	window.previous = observed
+	return window.consecutive >= stableServiceObservations
+}
+
+func (suite Suite) restoreCheckpointWithRetry(ctx context.Context, runtimeName string, checkpointID string) error {
+	deadline := suite.Now().Add(suite.Config.CheckpointTimeout)
+	for attempt := 1; ; attempt++ {
+		err := suite.Provider.RestoreCheckpoint(ctx, runtimeName, checkpointID)
+		if err == nil {
+			return nil
+		}
+		if errors.Is(err, runtimeprovider.ErrInvalidContract) || ctx.Err() != nil {
+			return fmt.Errorf("restore checkpoint: %w", err)
+		}
+		if restored, _ := suite.readRemoteFile(ctx, runtimeName, suite.Config.Paths.Marker); string(restored) == "before-checkpoint\n" {
+			return nil
+		}
+		if !suite.Now().Before(deadline) {
+			return fmt.Errorf("restore checkpoint after %d attempts: %w", attempt, err)
+		}
+		if waitErr := suite.waitWithoutProviderClient(ctx, restoreRetryBackoff(suite.Config.CheckpointPollInterval, attempt)); waitErr != nil {
+			return fmt.Errorf("wait to retry restore checkpoint: %w", waitErr)
+		}
+	}
+}
+
+func restoreRetryBackoff(base time.Duration, attempt int) time.Duration {
+	exponent := min(attempt-1, maximumRestoreBackoffExponent)
+	return base * time.Duration(1<<exponent)
+}
+
+func (suite Suite) waitForRestoredMarker(ctx context.Context, runtimeName string) error {
+	deadline := suite.Now().Add(suite.Config.CheckpointTimeout)
+	var lastMarker []byte
+	var lastErr error
+	for {
+		lastMarker, lastErr = suite.readRemoteFile(ctx, runtimeName, suite.Config.Paths.Marker)
+		if lastErr == nil && string(lastMarker) == "before-checkpoint\n" {
+			return nil
+		}
+		if !suite.Now().Before(deadline) {
+			return fmt.Errorf("restored marker did not become ready: marker=%q read_error=%v", lastMarker, lastErr)
+		}
+		if err := suite.waitWithoutProviderClient(ctx, suite.Config.CheckpointPollInterval); err != nil {
+			return err
+		}
+	}
 }
 
 func (suite Suite) createAndInspectCheckpoint(ctx context.Context, runtimeName string) (runtimeprovider.CheckpointObservation, error) {
@@ -509,33 +622,59 @@ func (suite Suite) createRuntime(
 func (suite Suite) waitForServiceRestart(
 	ctx context.Context,
 	runtimeName string,
-	heartbeatBeforePressure int,
-) (int, int, bool, error) {
+	before serviceRestartState,
+) error {
 	deadline := suite.Now().Add(suite.Config.RestartTimeout)
-	lastStarts := 0
-	lastHeartbeat := 0
+	last := serviceRestartState{}
 	for {
-		starts, startsErr := suite.readRemoteInteger(ctx, runtimeName, suite.Config.Paths.ServiceCounter)
-		heartbeat, heartbeatErr := suite.readRemoteInteger(ctx, runtimeName, suite.Config.Paths.ServiceHeartbeat)
-		if startsErr != nil || heartbeatErr != nil {
-			return lastStarts, lastHeartbeat, false, fmt.Errorf(
-				"observe service restart: starts=%v heartbeat=%v",
-				startsErr,
-				heartbeatErr,
-			)
+		observed, err := suite.observeServiceRestart(ctx, runtimeName)
+		if err != nil {
+			return err
 		}
-		lastStarts = starts
-		lastHeartbeat = heartbeat
-		if starts >= 2 && heartbeat < heartbeatBeforePressure {
-			return starts, heartbeat, true, nil
+		last = observed
+		if suite.isFreshHealthyServiceRestart(before, observed) {
+			return nil
 		}
 		if !suite.Now().Before(deadline) {
-			return lastStarts, lastHeartbeat, false, nil
+			return fmt.Errorf(
+				"service did not restart fresh after process exit: found=%t service=%#v starts=%d pre-exit-starts=%d heartbeat=%d pre-exit-heartbeat=%d",
+				last.found,
+				last.service,
+				last.starts,
+				before.starts,
+				last.heartbeat,
+				before.heartbeat,
+			)
 		}
 		if err := suite.waitWithoutProviderClient(ctx, suite.Config.RestartPollInterval); err != nil {
-			return lastStarts, lastHeartbeat, false, err
+			return err
 		}
 	}
+}
+
+func (suite Suite) observeServiceRestart(ctx context.Context, runtimeName string) (serviceRestartState, error) {
+	starts, startsErr := suite.readRemoteInteger(ctx, runtimeName, suite.Config.Paths.ServiceCounter)
+	heartbeat, heartbeatErr := suite.readRemoteInteger(ctx, runtimeName, suite.Config.Paths.ServiceHeartbeat)
+	if startsErr != nil || heartbeatErr != nil {
+		return serviceRestartState{}, fmt.Errorf(
+			"observe service restart: starts=%v heartbeat=%v",
+			startsErr,
+			heartbeatErr,
+		)
+	}
+	service, found, err := suite.Provider.InspectService(ctx, runtimeName, suite.Config.ServiceSpec.Name)
+	if err != nil {
+		return serviceRestartState{}, fmt.Errorf("inspect service restart: %w", err)
+	}
+	return serviceRestartState{service: service, found: found, starts: starts, heartbeat: heartbeat}, nil
+}
+
+func (suite Suite) isFreshHealthyServiceRestart(before serviceRestartState, after serviceRestartState) bool {
+	return after.found &&
+		after.service.ProcessID != before.service.ProcessID &&
+		after.starts > before.starts &&
+		after.heartbeat < before.heartbeat &&
+		requireServiceObservation(after.service, suite.Config.ServiceSpec) == nil
 }
 
 func (suite Suite) writeMarker(ctx context.Context, runtimeName string, value string) error {
@@ -687,6 +826,7 @@ func configWithTimingDefaults(config Config) Config {
 	if config.RestartPollInterval == 0 {
 		config.RestartPollInterval = time.Second
 	}
+	config = configWithCheckpointTimingDefaults(config)
 	if config.LeaseTTL == 0 {
 		config.LeaseTTL = 20 * time.Second
 	}
@@ -704,6 +844,16 @@ func configWithTimingDefaults(config Config) Config {
 	}
 	if config.MaximumWarmHeartbeatSkew == 0 {
 		config.MaximumWarmHeartbeatSkew = 900
+	}
+	return config
+}
+
+func configWithCheckpointTimingDefaults(config Config) Config {
+	if config.CheckpointTimeout == 0 {
+		config.CheckpointTimeout = 2 * time.Minute
+	}
+	if config.CheckpointPollInterval == 0 {
+		config.CheckpointPollInterval = time.Second
 	}
 	return config
 }
@@ -739,15 +889,19 @@ func requireServiceObservation(
 }
 
 func serviceSpecEqual(left runtimeprovider.ServiceSpec, right runtimeprovider.ServiceSpec) bool {
-	if left.HTTPPort != nil && right.HTTPPort != nil && *left.HTTPPort != *right.HTTPPort {
-		return false
+	return left.Name == right.Name &&
+		left.Path == right.Path &&
+		slices.Equal(left.Arguments, right.Arguments) &&
+		slices.Equal(left.Needs, right.Needs) &&
+		sameOptionalInt(left.HTTPPort, right.HTTPPort) &&
+		left.RunAs == right.RunAs
+}
+
+func sameOptionalInt(left *int, right *int) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
 	}
-	if (left.HTTPPort == nil) != (right.HTTPPort == nil) {
-		return false
-	}
-	left.HTTPPort = nil
-	right.HTTPPort = nil
-	return reflect.DeepEqual(left, right)
+	return *left == *right
 }
 
 func sameStrings(left []string, right []string) bool {
