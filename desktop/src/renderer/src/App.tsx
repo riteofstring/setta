@@ -562,12 +562,18 @@ function SettingsShellPage({
   route: SettingsPageRoute;
 }) {
   const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const headingFocusRequestIdRef = useRef(0);
   const windowDragHandlers = useAppWindowDragHandlers();
 
   useEffect(() => {
     if (route.focusTarget) {
+      headingFocusRequestIdRef.current = route.requestId;
       return;
     }
+    if (headingFocusRequestIdRef.current === route.requestId) {
+      return;
+    }
+    headingFocusRequestIdRef.current = route.requestId;
     headingRef.current?.focus({ preventScroll: true });
   }, [route.focusTarget, route.requestId]);
 

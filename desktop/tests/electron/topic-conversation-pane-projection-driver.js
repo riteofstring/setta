@@ -641,12 +641,19 @@
     const surface = Array.from(
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
-    const paneId = datasetValue(surface?.closest('[data-testid="workspace-pane-host"]'), "paneId");
-    const button = Array.from(
-      document.querySelectorAll('[data-workspace-pane-action="close"]'),
-    ).find((candidate) => datasetValue(candidate, "paneId") === paneId);
+    const host = surface?.closest('[data-testid="workspace-pane-host"]');
+    const paneId = datasetValue(host, "paneId");
+    const button = host?.querySelector('[data-workspace-pane-action="close"]');
     if (!(button instanceof HTMLButtonElement)) {
-      return { clicked: false, conversationId, paneId };
+      return {
+        clicked: false,
+        conversationId,
+        paneId,
+        reason: host instanceof HTMLElement ? "missing-close-button" : "missing-host",
+      };
+    }
+    if (button.disabled) {
+      return { clicked: false, conversationId, paneId, reason: "close-button-disabled" };
     }
     const originalConfirm = window.confirm;
     if (confirmSide) {

@@ -198,6 +198,16 @@ describe("appearance settings", () => {
     expect(useSettingsNavigationStore.getState().request?.requestId).toBe(2);
   });
 
+  test("clears pending typed navigation when closing Settings", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestOpenAIVoiceConnectionSettings();
+    useSettingsNavigationStore.getState().closeSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toBeNull();
+    expect(useSettingsNavigationStore.getState().route).toEqual({ page: "workspace" });
+  });
+
   test("opens the Settings page when routing to OpenAI voice setup", () => {
     useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
 

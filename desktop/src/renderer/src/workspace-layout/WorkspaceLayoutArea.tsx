@@ -243,6 +243,8 @@ function WorkspaceLayoutRuntimeArea({
   );
   const [nativeViewOverlayActive, setNativeViewOverlayActive] = useState(false);
   const nativeViewsOccluded = nativeViewOverlayActive || shellOverlayActive;
+  const shellOverlayActiveRef = useRef(shellOverlayActive);
+  shellOverlayActiveRef.current = shellOverlayActive;
   const masterVoiceShortcut = shortcuts?.masterVoice ?? defaultShortcutsSettings.masterVoice;
   const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
     if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
@@ -356,16 +358,21 @@ function WorkspaceLayoutRuntimeArea({
     const requestSchedulerFrame = () => scheduler.requestFrame();
     const stageResizeObserver = observeStageResize(stage, requestSchedulerFrame);
     const handleKeyDown = (event: KeyboardEvent) =>
-      handleWorkspaceKeyDown({
-        event,
-        persistLayout,
-        runLayoutAction,
-        runtime,
-        scheduler,
-        shortcuts: shortcuts ?? undefined,
-        viewportProvider: stageViewport,
-      });
+      shellOverlayActiveRef.current
+        ? undefined
+        : handleWorkspaceKeyDown({
+            event,
+            persistLayout,
+            runLayoutAction,
+            runtime,
+            scheduler,
+            shortcuts: shortcuts ?? undefined,
+            viewportProvider: stageViewport,
+          });
     const handleWheel = (event: WheelEvent) => {
+      if (shellOverlayActiveRef.current) {
+        return;
+      }
       if (
         paneDragSessionRef.current !== null ||
         overviewDragSessionRef.current !== null ||
@@ -396,6 +403,9 @@ function WorkspaceLayoutRuntimeArea({
       });
     };
     const handleClick = (event: MouseEvent) => {
+      if (shellOverlayActiveRef.current) {
+        return;
+      }
       if (suppressNextClickRef.current) {
         suppressNextClickRef.current = false;
         event.preventDefault();
@@ -573,6 +583,9 @@ function WorkspaceLayoutRuntimeArea({
       return true;
     };
     const handlePointerDown = (event: PointerEvent) => {
+      if (shellOverlayActiveRef.current) {
+        return;
+      }
       if (runtime.mode !== "workspace" && runtime.mode !== "benchmark") {
         return;
       }
@@ -652,6 +665,9 @@ function WorkspaceLayoutRuntimeArea({
       return true;
     };
     const handlePointerMove = (event: PointerEvent) => {
+      if (shellOverlayActiveRef.current) {
+        return;
+      }
       if (updateOverviewPan(event)) {
         return;
       }
@@ -744,6 +760,9 @@ function WorkspaceLayoutRuntimeArea({
       return true;
     };
     const handlePointerUp = (event: PointerEvent) => {
+      if (shellOverlayActiveRef.current) {
+        return;
+      }
       if (finishActiveOverviewPan(event)) {
         return;
       }
@@ -772,6 +791,9 @@ function WorkspaceLayoutRuntimeArea({
     };
     const unsubscribeNativeKey =
       window.setta.workspaceNativeViews?.onBrowserViewKey((event) => {
+        if (shellOverlayActiveRef.current) {
+          return;
+        }
         if (event.workspaceId !== runtime.scene.id) {
           return;
         }

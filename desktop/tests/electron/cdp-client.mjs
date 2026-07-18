@@ -37,7 +37,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.settingsPageVersion === "setta-settings-page-driver-v1"',
+      'globalThis.__settaE2EDriver?.settingsPageVersion === "setta-settings-page-driver-v2"',
     path: join(driverScriptDir, "settings-page-driver.js"),
   },
   {

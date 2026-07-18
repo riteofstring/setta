@@ -562,7 +562,7 @@ async function closePaneWithConfirmation({
     if (!runtime.store.focusPane(paneId)) {
       return;
     }
-    runtime.store.closeFocusedPane();
+    runtime.store.closeFocusedPaneOrClearLastPane();
     if (viewportProvider) {
       runtime.store.ensureFocusedPaneVisible(viewportProvider());
     }

@@ -1422,6 +1422,9 @@ async function closeConversationPane(client, conversationId) {
     await client.driver("topicConversationCloseOneBoundPane", { conversationId }),
     "clicked",
   );
+  await waitForConversationSurfaces(client, (surfaces) =>
+    surfaces.every((surface) => surface.conversationId !== conversationId),
+  );
 }
 
 async function waitForConversationSurfaces(client, ready) {

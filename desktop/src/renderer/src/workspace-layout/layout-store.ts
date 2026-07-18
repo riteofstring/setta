@@ -271,6 +271,15 @@ export class WorkspaceLayoutStore {
     return closedPaneId;
   }
 
+  closeFocusedPaneOrClearLastPane(): PaneId {
+    if (this.engine.paneCount() <= 1) {
+      const paneId = this.focusedPaneId();
+      this.configurePane(paneId, emptyFramePaneRequest());
+      return paneId;
+    }
+    return this.closeFocusedPane()!;
+  }
+
   moveFocusedPane(direction: "up" | "down" | "left" | "right"): PaneId {
     const paneId = this.focusedPaneId();
     this.engine.movePane(paneId, direction);

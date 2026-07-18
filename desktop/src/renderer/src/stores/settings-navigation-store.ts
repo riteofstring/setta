@@ -46,7 +46,7 @@ interface SettingsNavigationStore {
 const initialSettingsSubtab = "theme" satisfies SettingsSubtab;
 
 export const useSettingsNavigationStore = create<SettingsNavigationStore>((set) => ({
-  closeSettings: () => set({ route: { page: "workspace" } }),
+  closeSettings: () => set({ request: null, route: { page: "workspace" } }),
   completeRequest: (requestId) =>
     set((state) =>
       state.route.page === "settings" && state.route.requestId === requestId

@@ -202,8 +202,11 @@ export async function closeOpenAIVoiceCredentialSettings(client, timeoutMs = def
   await waitForState(client, settingsPageCloseExpression(), (state) => state.clicked, timeoutMs);
   await waitForState(
     client,
-    `(() => ({ closed: !document.querySelector(${JSON.stringify(credentialCardSelector)}) }))()`,
-    (state) => state.closed,
+    `(() => ({
+      cardClosed: !document.querySelector(${JSON.stringify(credentialCardSelector)}),
+      settingsClosed: !document.querySelector('[data-testid="settings-shell-page"]'),
+    }))()`,
+    (state) => state.cardClosed && state.settingsClosed,
     timeoutMs,
   );
 }

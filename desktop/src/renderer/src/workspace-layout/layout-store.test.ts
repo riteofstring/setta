@@ -143,6 +143,31 @@ describe("workspace layout store", () => {
     });
   });
 
+  test("close or clear turns the final Easy Button pane into an empty frame", () => {
+    const store = createStore();
+    for (const paneId of ["workspace_pane_0", "workspace_pane_1", "workspace_pane_3"]) {
+      expect(store.focusPane(paneId)).toBe(true);
+      expect(store.closeFocusedPane()).toBe(paneId);
+    }
+
+    expect(store.toScene().totalPanes).toBe(1);
+    expect(store.toScene().paneById.get("workspace_pane_2")).toMatchObject({
+      easyButtonConfig: { conversationId: "conversation_layout_test" },
+      surfaceKind: "easy-button",
+    });
+
+    expect(store.closeFocusedPaneOrClearLastPane()).toBe("workspace_pane_2");
+
+    const clearedPane = store.toScene().paneById.get("workspace_pane_2");
+    expect(store.toScene().totalPanes).toBe(1);
+    expect(clearedPane).toMatchObject({
+      subtitle: "choose a pane type",
+      surfaceKind: "empty-frame",
+      title: "New frame",
+    });
+    expect(clearedPane && "easyButtonConfig" in clearedPane).toBe(false);
+  });
+
   test("keeps snapshots stable until layout state changes", () => {
     const store = createStore();
     const firstSnapshot = store.getSnapshot();

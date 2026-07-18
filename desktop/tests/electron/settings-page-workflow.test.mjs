@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global console */
+/* global console, setTimeout */
 
 import { basename, join } from "node:path";
 import process from "node:process";
@@ -10,6 +10,7 @@ import {
   captureScreenshot,
   clickEnabledButtonByAria,
   createElectronFixture,
+  dispatchKeyEvent,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   reloadPage,
@@ -66,14 +67,24 @@ try {
 
   await clickSettingsButton(context.client);
   const afterOpen = await waitForSettingsPage(context.client, beforeOpen);
+  const shortcutWhileHidden = await assertWorkspaceShortcutSuppressed(context.client, beforeOpen);
   await captureScreenshot(context.client, join(artifactDir, "after-settings-open.png"));
 
   await clickBackToWorkspace(context.client);
   const afterBack = await waitForWorkspaceRestored(context.client, beforeOpen);
   await captureScreenshot(context.client, join(artifactDir, "after-settings-back.png"));
 
+  const targetedVoiceSettings = await openShellVoiceCredentialSettings(context.client, afterBack);
+  await captureScreenshot(context.client, join(artifactDir, "voice-settings-open.png"));
+  await clickBackToWorkspace(context.client);
+  const afterVoiceSettingsBack = await waitForWorkspaceRestored(context.client, afterBack);
+
   await openBrowserPane(context.client);
-  const browserOpened = await waitForBrowserPane(context.client, workspaceId, afterBack);
+  const browserOpened = await waitForBrowserPane(
+    context.client,
+    workspaceId,
+    afterVoiceSettingsBack,
+  );
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
@@ -83,11 +94,14 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     afterOpen,
     afterBack,
+    afterVoiceSettingsBack,
     artifactDir,
     beforeOpen,
     browserOpened,
     browserRestored,
     noWorkspaceSettings,
+    shortcutWhileHidden,
+    targetedVoiceSettings,
     status: "passed",
     workspaceName: basename(fixture.workspaceRoot),
   });
@@ -186,8 +200,9 @@ async function waitForLayoutWithoutSettings(client, workspaceId) {
     settingsPageStateExpression(),
     (state) =>
       state.workspaceId === workspaceId &&
-      state.paneCount === 2 &&
-      state.paneIds.length === 2 &&
+      state.paneCount === 3 &&
+      state.paneIds.length === 3 &&
+      countSurfaceKind(state, "easy-button") === 1 &&
       !state.settingsPageOpen &&
       !state.settingsPanelReady,
     workflowTimeoutMs,
@@ -206,6 +221,35 @@ async function waitForSettingsPage(client, beforeOpen) {
     client,
     settingsPageStateExpression(),
     (state) => sameWorkspaceLayout(state, beforeOpen) && settingsPageVisible(state),
+    workflowTimeoutMs,
+  );
+}
+
+async function assertWorkspaceShortcutSuppressed(client, beforeOpen) {
+  await dispatchKeyEvent(client, { code: "KeyN", key: "n", modifiers: 4 });
+  await dispatchKeyEvent(client, { code: "KeyN", key: "n", modifiers: 4, type: "keyUp" });
+  await sleep(250);
+  const state = await client.driver("settingsPageState");
+  if (!sameWorkspaceLayout(state, beforeOpen) || !settingsPageVisible(state)) {
+    throw new Error(`hidden workspace shortcut mutated Settings state: ${JSON.stringify(state)}`);
+  }
+  return state;
+}
+
+async function openShellVoiceCredentialSettings(client, beforeOpen) {
+  const click = await client.driver("settingsPageClickShellVoiceSetup");
+  if (!click.clicked) {
+    throw new Error(`shell voice setup was not clickable: ${JSON.stringify(click)}`);
+  }
+  return waitForState(
+    client,
+    settingsPageStateExpression(),
+    (state) =>
+      sameWorkspaceLayout(state, beforeOpen) &&
+      settingsPageVisible(state) &&
+      state.activeSettingsSubtab === "speech" &&
+      state.openAIVoiceCardVisible &&
+      state.openAIVoiceCardFocused,
     workflowTimeoutMs,
   );
 }
@@ -329,6 +373,10 @@ function countSurfaceKind(state, surfaceKind) {
   return Array.isArray(state.surfaceKinds)
     ? state.surfaceKinds.filter((kind) => kind === surfaceKind).length
     : 0;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function layoutWithoutSettings(workspaceId) {
