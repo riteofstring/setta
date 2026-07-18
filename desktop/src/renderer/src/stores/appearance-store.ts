@@ -2,6 +2,7 @@ import type {
   AppearanceColorMode,
   AppearanceColorScheme,
   AppearanceFontScheme,
+  AppearanceMasterVoiceShortcut,
   AppearancePreset,
   AppearancePresetID,
   AppearanceSettings,
@@ -35,6 +36,7 @@ interface AppearanceStore {
   setFontValue: (name: keyof AppearanceFontScheme, value: string) => void;
   setClampResizedPanesToViewport: (clamp: boolean) => void;
   setMode: (mode: AppearanceColorMode) => void;
+  setMasterVoiceShortcut: (shortcut: AppearanceMasterVoiceShortcut) => void;
   setOverviewCardWidthBounds: (minWidthPx: number, maxWidthPx: number) => void;
   setShowPerformanceStats: (show: boolean) => void;
   setWorkspaceNavigationShortcut: (shortcut: AppearanceWorkspaceNavigationShortcut) => void;
@@ -128,6 +130,15 @@ export const useAppearanceStore = create<AppearanceStore>((set, get) => {
     },
     setMode: (mode) => {
       updateDraft((settings) => ({ ...settings, mode }));
+    },
+    setMasterVoiceShortcut: (shortcut) => {
+      updateDraft((settings) => ({
+        ...settings,
+        shortcuts: {
+          ...settings.shortcuts,
+          masterVoice: shortcut,
+        },
+      }));
     },
     setOverviewCardWidthBounds: (minWidthPx, maxWidthPx) => {
       updateDraft((settings) => ({

@@ -13,7 +13,6 @@ import type {
   PaneInsertionPlacement,
   Rect,
   SurfaceKind,
-  TerminalPaneConfig,
 } from "./types";
 
 export interface WorkspaceLayoutSnapshot {
@@ -54,6 +53,8 @@ export class WorkspaceLayoutStore {
   private focusedColumnIndex = 0;
   private focusedRowIndex = 0;
   private listeners = new Set<LayoutStoreListener>();
+  private focusOrderByPaneId = new Map<PaneId, number>();
+  private nextFocusOrder = 1;
   private maximizedPaneId: PaneId | null = null;
   private snapshot: WorkspaceLayoutSnapshot | null = null;
   private scrollColumn = 0;
@@ -82,6 +83,10 @@ export class WorkspaceLayoutStore {
     initialFocusedPaneId?: PaneId,
     private readonly options: WorkspaceLayoutStoreOptions = {},
   ) {
+    for (const pane of scene.panes) {
+      this.focusOrderByPaneId.set(pane.paneId, this.nextFocusOrder);
+      this.nextFocusOrder += 1;
+    }
     if (initialFocusedPaneId) {
       this.setFocusedPane(initialFocusedPaneId);
       this.snapScrollToTarget();
@@ -249,6 +254,7 @@ export class WorkspaceLayoutStore {
     const closedPaneId = this.focusedPaneId();
     const closedLocation = this.engine.paneLocation(closedPaneId);
     this.engine.closePane(closedPaneId);
+    this.focusOrderByPaneId.delete(closedPaneId);
     if (this.maximizedPaneId === closedPaneId) {
       this.maximizedPaneId = null;
     }
@@ -332,7 +338,7 @@ export class WorkspaceLayoutStore {
     return this.paneLimitState(request).allowed;
   }
 
-  paneLimitState(request: OpenPaneRequest): WorkspacePaneLimitState {
+  paneLimitState(request: { surfaceKind?: SurfaceKind }): WorkspacePaneLimitState {
     const surfaceKind = request.surfaceKind ?? null;
     if (!surfaceKind) {
       return {
@@ -437,6 +443,25 @@ export class WorkspaceLayoutStore {
     return true;
   }
 
+  mostRecentlyFocusedPaneId(paneIds: readonly PaneId[]): PaneId | null {
+    let mostRecentPaneId: PaneId | null = null;
+    let mostRecentOrder = -1;
+    for (const paneId of paneIds) {
+      if (!this.engine.paneLocation(paneId)) {
+        continue;
+      }
+      const order = this.focusOrderByPaneId.get(paneId) ?? 0;
+      if (
+        order > mostRecentOrder ||
+        (order === mostRecentOrder && paneId < (mostRecentPaneId ?? paneId))
+      ) {
+        mostRecentPaneId = paneId;
+        mostRecentOrder = order;
+      }
+    }
+    return mostRecentPaneId;
+  }
+
   focusPaneWithoutReveal(paneId: PaneId): boolean {
     if (!this.engine.paneLocation(paneId)) {
       return false;
@@ -538,11 +563,6 @@ export class WorkspaceLayoutStore {
 
   hasPaneDropPreview(): boolean {
     return this.engine.hasPaneReorderPreview();
-  }
-
-  setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
-    this.engine.setPaneTerminalConfig(paneId, terminalConfig);
-    this.notify();
   }
 
   resizePaneColumn(paneId: PaneId, width: ColumnWidthSpec): ColumnId | null {
@@ -771,6 +791,8 @@ export class WorkspaceLayoutStore {
     if (!location) {
       return;
     }
+    this.focusOrderByPaneId.set(paneId, this.nextFocusOrder);
+    this.nextFocusOrder += 1;
     this.focusedColumnIndex = location.columnIndex;
     this.focusedRowIndex = location.rowIndex;
     this.focusRevealSuppressed = false;

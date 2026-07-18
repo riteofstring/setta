@@ -56,7 +56,7 @@ function createUltraWideRealPaneScene(paneCount: number): WorkspaceScene {
     sequence: index,
     subtitle: "ultra-wide pane",
     surfaceId: `workspace_surface_${index}`,
-    surfaceKind: index % 3 === 0 ? "chat-dom" : index % 3 === 1 ? "terminal" : "workflow-graph",
+    surfaceKind: index % 3 === 0 ? "fake-dom" : index % 3 === 1 ? "fake-heavy-dom" : "browser",
     title: `Pane ${index + 1}`,
     tone: "slate",
     weight: 1,
