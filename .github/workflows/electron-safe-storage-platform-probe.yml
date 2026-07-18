@@ -2,6 +2,16 @@ name: Electron safeStorage Platform Probe
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/electron-safe-storage-platform-probe.yml"
+      - "desktop/package.json"
+      - "desktop/pnpm-lock.yaml"
+      - "desktop/src/main/speech-credential-vault.ts"
+      - "desktop/src/main/speech-credential-vault.test.ts"
+      - "desktop/tests/electron/safe-storage-platform-probe.cjs"
+      - "docs/plans/byok-desktop-speech-credentials-20260717.md"
+      - "docs/reports/byok-desktop-speech-safe-storage-20260718.md"
 
 permissions:
   contents: read
@@ -34,12 +44,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           desktop/node_modules/.bin/electron \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-byok-supported \
             --assert-policy-reason os_backed_platform \
             --assert-policy-status accept \
-            --assert-round-trip
+            --assert-round-trip \
+            | tee safe-storage-platform-probe-macos.json
+          probe_status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### macOS safeStorage probe"
+            echo '```json'
+            cat safe-storage-platform-probe-macos.json
+            echo '```'
+          } >>"${GITHUB_STEP_SUMMARY}"
+          exit "${probe_status}"
 
   windows:
     name: Windows safeStorage probe
@@ -68,12 +89,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           desktop/node_modules/.bin/electron.cmd \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-byok-supported \
             --assert-policy-reason os_backed_platform \
             --assert-policy-status accept \
-            --assert-round-trip
+            --assert-round-trip \
+            | tee safe-storage-platform-probe-windows.json
+          probe_status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Windows safeStorage probe"
+            echo '```json'
+            cat safe-storage-platform-probe-windows.json
+            echo '```'
+          } >>"${GITHUB_STEP_SUMMARY}"
+          exit "${probe_status}"
 
   linux-secret-service:
     name: Linux secret-service safeStorage probe
@@ -112,13 +144,24 @@ jobs:
           eval "$(dbus-launch --sh-syntax)"
           eval "$(printf '\n' | gnome-keyring-daemon --unlock 2>/dev/null || true)"
           eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)"
+          set +e
           xvfb-run -a desktop/node_modules/.bin/electron \
             --password-store=gnome-libsecret \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-byok-supported \
             --assert-policy-reason linux_secret_service_backend \
             --assert-policy-status accept \
-            --assert-round-trip
+            --assert-round-trip \
+            | tee safe-storage-platform-probe-linux-secret-service.json
+          probe_status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Linux secret-service safeStorage probe"
+            echo '```json'
+            cat safe-storage-platform-probe-linux-secret-service.json
+            echo '```'
+          } >>"${GITHUB_STEP_SUMMARY}"
+          exit "${probe_status}"
 
   linux-basic-text:
     name: Linux basic_text rejection probe
@@ -154,8 +197,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           xvfb-run -a desktop/node_modules/.bin/electron \
             --password-store=basic \
             desktop/tests/electron/safe-storage-platform-probe.cjs \
             --assert-policy-reason linux_basic_text_backend \
-            --assert-policy-status reject
+            --assert-policy-status reject \
+            | tee safe-storage-platform-probe-linux-basic-text.json
+          probe_status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Linux basic_text rejection probe"
+            echo '```json'
+            cat safe-storage-platform-probe-linux-basic-text.json
+            echo '```'
+          } >>"${GITHUB_STEP_SUMMARY}"
+          exit "${probe_status}"

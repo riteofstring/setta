@@ -687,6 +687,87 @@ available. The Phase 0 host-confirmation item remains open until the manual
 hosted workflow, or equivalent Windows and Linux hosts, produce actual
 Electron output.
 
+## 2026-07-18 Push-Triggered Hosted Probe Harness Pass
+
+The remaining Phase 0 host-confirmation item was revisited again as the next
+incomplete plan step.
+
+The pinned macOS probe was re-run:
+
+```sh
+desktop/node_modules/.bin/electron desktop/tests/electron/safe-storage-platform-probe.cjs --assert-byok-supported --assert-round-trip
+```
+
+It still passes on this machine:
+
+```json
+{
+  "appReadyBeforeProbe": true,
+  "arch": "arm64",
+  "electronVersion": "41.7.0",
+  "passwordStoreSwitch": null,
+  "platform": "darwin",
+  "safeStorage": {
+    "ciphertextByteLength": 51,
+    "ciphertextContainsPlaintext": false,
+    "isEncryptionAvailable": true,
+    "policy": {
+      "reason": "os_backed_platform",
+      "status": "accept"
+    },
+    "roundTrip": true,
+    "selectedStorageBackend": null
+  }
+}
+```
+
+The deterministic production-adapter Linux backend policy coverage was also
+re-run:
+
+```sh
+pnpm -C desktop exec vitest run src/main/speech-credential-vault.test.ts
+```
+
+It passed with 21 tests, including rejection of `basic_text`, `unknown`, and an
+unrecognized backend string plus acceptance of `gnome_libsecret`, `kwallet`,
+`kwallet5`, and `kwallet6`.
+
+The local machine still cannot produce the remaining Linux or Windows host
+evidence:
+
+- `docker version && docker info` found Docker CLI `28.0.4`, context
+  `desktop-linux`, but still could not connect to the Docker daemon at
+  `unix:///Users/kevin/.docker/run/docker.sock`.
+- Docker Desktop processes are running, but the visible process state still
+  shows an `osascript` administrator prompt for Docker Desktop's privileged
+  port-mapping setup.
+- A PATH probe for Docker, GitHub CLI, common Linux/container runners, common
+  Windows/VM runners, and Homebrew found only `/usr/local/bin/docker` and
+  `/opt/homebrew/bin/brew`.
+- `/Applications` contains Docker Desktop but no OrbStack, UTM, Parallels, or
+  VirtualBox installation.
+- `GITHUB_TOKEN` and `GH_TOKEN` are not present in this shell.
+- The GitHub plugin was suggested as a hosted-runner path, but it was not
+  connected in this session.
+
+One repo-side gap for producing the remaining host evidence was closed:
+
+- `.github/workflows/electron-safe-storage-platform-probe.yml` now runs on
+  pushes that touch the probe, vault policy, workflow, plan, or report files,
+  in addition to manual dispatch. That lets the hosted Windows and Linux probes
+  start as soon as this branch is pushed, without requiring an authenticated
+  manual dispatch from this local session.
+- Each hosted probe now tees its JSON result to a platform-specific file and
+  appends that JSON to the GitHub step summary before exiting with the actual
+  probe status. Assertion failures therefore still leave the platform evidence
+  visible in the job summary.
+
+No Windows or Linux `safeStorage` host result is recorded from this pass
+because no local platform host or connected hosted-runner credential was
+available. The Phase 0 host-confirmation item remains open until the
+push-triggered hosted workflow, the manual hosted workflow, or equivalent
+Windows and Linux hosts produce actual Electron output.
+
 ## Phase 2 Adapter Requirements
 
 - The production adapter is constructed only after Electron `ready`.
