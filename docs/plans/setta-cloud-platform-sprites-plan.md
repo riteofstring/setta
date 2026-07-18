@@ -484,27 +484,16 @@ reason.
 
 ### Agent execution policy
 
-Use GPT-5.6 Sol for every agent — lead and subagents alike (owner decision,
-2026-07-16: no Luna/Terra/Sol model tiering; vary only reasoning effort at
-low, medium, or high). The lead runs at high reasoning effort and owns task
-decomposition, synthesis, scope control, and every phase-exit or stop/go
-decision.
+Use GPT-5.6 Sol at high reasoning effort for every agent — lead and subagents
+alike (owner decision updated 2026-07-18). The temporary GPT-5.5/xhigh Codex
+delegation rule is superseded. The lead owns task decomposition, synthesis,
+scope control, review, and every phase-exit or stop/go decision.
 
 Use subagents sparingly and only for concrete, bounded work that can proceed
 independently:
 
-- Follow the owner's effort-selection rule explicitly: use low reasoning
-  effort for strictly mechanical, fully specified tasks; medium reasoning
-  effort for a simpler bounded task; and high reasoning effort only when the
-  lead judges that the task's complexity, ambiguity, security impact, or gate
-  consequence requires it. State the selected effort and reason in the
-  delegation; do not default every subagent to high.
-- Default subagents to medium reasoning effort for documentation research,
-  evidence collection, mechanical probes, narrow implementation, and focused
-  test execution.
-- Use high reasoning effort for a security or adversarial review, an
-  architecture decision, ambiguous or conflicting evidence, and an independent
-  phase-exit assessment.
+- Invoke Codex with `--model gpt-5.6-sol --effort high` for every delegated
+  coding task unless the owner explicitly changes the policy again.
 - Run no more than two subagents concurrently and keep delegation depth at one.
   Do not create recursive agent trees.
 - Give each subagent one non-overlapping question, experiment, or code area.
@@ -514,19 +503,13 @@ independently:
   uncertainties, and a bounded recommendation. The lead must inspect and
   synthesize the result rather than treating a subagent conclusion as a gate
   decision.
-- Escalate a specific medium-effort task to high only when its result is
-  ambiguous, security-sensitive, or materially affects a stop condition. Do
-  not run all work at high effort by default.
 
 This section is an execution policy, not proof of the active Codex
-configuration. Built-in subagents inherit the parent session's model and
-reasoning effort unless a project-scoped custom-agent configuration overrides
-them. Before relying on a medium/high split, confirm the active client supports
-per-agent `model_reasoning_effort`; otherwise record that subagents inherited
-the lead's high setting and still follow the role, concurrency, and ownership
-rules above. Do not add custom-agent configuration until repeated execution
-shows that the prose policy is insufficient or the measured cost/latency gain
-justifies another persistent repository surface.
+configuration. Before relying on a delegated result, retain the companion job
+metadata showing the requested GPT-5.6 Sol model and high effort. Do not add
+custom-agent configuration until repeated execution shows that the checked-in
+policy is insufficient or a persistent repository surface is otherwise
+justified.
 
 After an implementation phase satisfies its gates, use Claude Code as a
 read-only independent second opinion before the final broad quality checks.
@@ -1790,3 +1773,8 @@ Stop and reassess rather than hiding the problem if any of these occur:
   org-level-only. The beta commitment gate still requires written
   commercial confirmation (billing inquiry / support plan); a forum
   answer does not provide it.
+- 2026-07-18 (agent policy update): Owner replaced the temporary Codex
+  GPT-5.5/xhigh delegation rule with GPT-5.6 Sol at high reasoning effort for
+  all subagents. Updated the checked-in execution policy and `CLAUDE.md`; all
+  subsequent delegations use `--model gpt-5.6-sol --effort high` unless the
+  owner changes the policy again.
