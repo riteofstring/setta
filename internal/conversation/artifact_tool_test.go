@@ -102,7 +102,61 @@ func TestEmitArtifactToolReturnsStructuredFailureAndAllowsRetry(t *testing.T) {
 		afterRetry.Artifacts.Artifacts[0].Kind != ArtifactKindTable {
 		t.Fatalf("retry artifacts = %+v", afterRetry.Artifacts)
 	}
-	stopTestTurn(t, ctx, service, workspaceID, conversationID)
+	completed := completeActiveArtifactToolTurn(t, ctx, service, workspaceID, conversationID, active, "")
+	if latestSnapshotTurn(completed).Status != TurnStatusCompleted {
+		t.Fatalf("completed retry turn = %+v", latestSnapshotTurn(completed))
+	}
+}
+
+func TestFailedArtifactAttemptMakesProviderCompletionUnresolved(t *testing.T) {
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(ctx)
+		_ = store.Close()
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	created := createArtifactToolTopic(t, ctx, service, workspaceID)
+	conversationID := created.Conversation.ID
+	active := startHeldArtifactToolTurn(t, ctx, service, runtime, workspaceID, conversationID)
+	tools := service.topicAgentArtifactTools(workspaceID, conversationID, active.turnID)
+	if len(tools) != 1 {
+		t.Fatalf("artifact tools = %+v", tools)
+	}
+	failed, err := tools[0].Handler(ctx, agent.DynamicToolCall{
+		CallID:           "provider-tool-call-unresolved",
+		ConversationID:   conversationID,
+		TurnID:           active.turnID,
+		ProviderThreadID: active.providerThreadID,
+		ProviderTurnID:   active.providerTurnID,
+		Namespace:        artifactToolNamespace,
+		Tool:             artifactToolName,
+		Arguments:        []byte(`{"kind":"table"}`),
+	})
+	if err != nil {
+		t.Fatalf("failed artifact handler returned error: %v", err)
+	}
+	toolFailure := requireArtifactToolFailureResult(t, failed, artifactToolFailureMissingRequiredFields)
+
+	finalProse := "Here is the table in prose, which must remain diagnostic text."
+	unresolved := completeActiveArtifactToolTurn(t, ctx, service, workspaceID, conversationID, active, finalProse)
+	turn := latestSnapshotTurn(unresolved)
+	if turn.Status != TurnStatusFailed ||
+		turn.Error == nil ||
+		turn.Error.Code != artifactDeliveryUnresolvedFailureCode ||
+		!turn.Error.Retryable ||
+		turn.Error.DiagnosticReference != toolFailure.DiagnosticReference ||
+		!strings.Contains(turn.Error.Message, artifactToolFailureMissingRequiredFields) {
+		t.Fatalf("unresolved artifact turn = %+v", turn)
+	}
+	if len(unresolved.Artifacts.Artifacts) != 0 {
+		t.Fatalf("unresolved artifact attempt published artifacts = %+v", unresolved.Artifacts)
+	}
+	requireAgentMessageTrajectory(t, unresolved, finalProse)
+	requireTurnFailedTrajectory(t, unresolved, artifactDeliveryUnresolvedFailureCode)
 }
 
 func TestEmitArtifactToolSchemaDeclaresStrictBranches(t *testing.T) {
@@ -422,6 +476,70 @@ func stopTestTurn(
 	if _, err := service.StopTurn(ctx, workspaceID, conversationID); err != nil {
 		t.Fatalf("StopTurn: %v", err)
 	}
+}
+
+func completeActiveArtifactToolTurn(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+	conversationID string,
+	active *activeConversationTurn,
+	finalText string,
+) ConversationSnapshot {
+	t.Helper()
+	if finalText != "" {
+		message := agent.Event{
+			Kind:             agent.EventKindAgentTextCompleted,
+			ConversationID:   conversationID,
+			TurnID:           active.turnID,
+			ProviderThreadID: active.providerThreadID,
+			ProviderTurnID:   active.providerTurnID,
+			Text: &agent.TextEvent{
+				ProviderItemID: "provider-message-" + active.providerTurnID,
+				Text:           finalText,
+			},
+		}
+		if err := service.handleAgentEvent(ctx, active, "", agent.ResolvedInvocation{}, message); err != nil {
+			t.Fatalf("persist final agent message: %v", err)
+		}
+	}
+	terminal := agent.Event{
+		Kind:             agent.EventKindTurnTerminal,
+		ConversationID:   conversationID,
+		TurnID:           active.turnID,
+		ProviderThreadID: active.providerThreadID,
+		ProviderTurnID:   active.providerTurnID,
+		Terminal:         &agent.TerminalEvent{Outcome: agent.TurnOutcomeCompleted},
+	}
+	if err := service.handleAgentEvent(ctx, active, "", agent.ResolvedInvocation{}, terminal); err != nil {
+		t.Fatalf("persist completed terminal event: %v", err)
+	}
+	return readTestSnapshot(t, ctx, service, workspaceID, conversationID)
+}
+
+func requireAgentMessageTrajectory(t *testing.T, snapshot ConversationSnapshot, text string) {
+	t.Helper()
+	for _, event := range snapshot.Trajectory.Events {
+		if event.Kind == TrajectoryEventAgentMessageCompleted &&
+			event.AgentMessageCompleted != nil &&
+			event.AgentMessageCompleted.Text == text {
+			return
+		}
+	}
+	t.Fatalf("snapshot missing preserved agent message %q: %+v", text, snapshot.Trajectory)
+}
+
+func requireTurnFailedTrajectory(t *testing.T, snapshot ConversationSnapshot, code string) {
+	t.Helper()
+	for _, event := range snapshot.Trajectory.Events {
+		if event.Kind == TrajectoryEventTurnFailed &&
+			event.TurnFailed != nil &&
+			event.TurnFailed.Failure.Code == code {
+			return
+		}
+	}
+	t.Fatalf("snapshot missing turn_failed %s: %+v", code, snapshot.Trajectory)
 }
 
 func TestDecodeEmitArtifactInputRejectsInvalidBranches(t *testing.T) {

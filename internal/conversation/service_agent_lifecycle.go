@@ -465,6 +465,10 @@ func (service *Service) prepareTurnTerminal(
 	if err != nil {
 		return turnTerminalMutation{}, err
 	}
+	artifactAttempt, err := service.store.readArtifactDeliveryAttempt(service.lifecycleCtx, active.conversationID, turn.ID)
+	if err != nil {
+		return turnTerminalMutation{}, err
+	}
 	trajectory := TrajectoryEvent{
 		ID:               trajectoryID,
 		ConversationID:   active.conversationID,
@@ -490,6 +494,7 @@ func (service *Service) prepareTurnTerminal(
 		now,
 		conversationStatus,
 		interruptionReason,
+		artifactAttempt,
 	)
 	if err != nil {
 		return turnTerminalMutation{}, err
@@ -519,9 +524,18 @@ func applyProviderTerminalOutcome(
 	now string,
 	conversationStatus ConversationStatus,
 	interruptionReason TurnInterruptionReason,
+	artifactAttempt artifactDeliveryAttempt,
 ) (ConversationStatus, error) {
 	switch event.Terminal.Outcome {
 	case agent.TurnOutcomeCompleted:
+		if failure, unresolved := unresolvedArtifactDeliveryFailure(artifactAttempt); unresolved {
+			turn.Status = TurnStatusFailed
+			turn.Error = &failure
+			turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeFailed, now, &failure))
+			trajectory.Kind = TrajectoryEventTurnFailed
+			trajectory.TurnFailed = &TrajectoryTurnFailed{Failure: failure}
+			return ConversationStatusFailed, nil
+		}
 		turn.Status = TurnStatusCompleted
 		turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeSucceeded, now, nil))
 		trajectory.Kind = TrajectoryEventTurnCompleted

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-16
 
-**Status:** In Progress
+**Status:** Implemented; ready for final audit.
 
 **Scope:** Remove the redundant Easy Button working presentation and make typed artifact delivery
 reliable when an agent selects an artifact.
@@ -13,7 +13,7 @@ reliable when an agent selects an artifact.
 - [x] Solution 2: Present requested status above NOW. Implemented and verified.
 - [x] Solution 3: Make the artifact tool contract hard to misuse. Implemented and verified.
 - [x] Solution 4: Preserve actionable tool failures end to end. Implemented and verified.
-- [ ] Solution 5: Treat failed artifact attempts as unresolved delivery.
+- [x] Solution 5: Treat failed artifact attempts as unresolved delivery. Implemented and verified.
 
 ## Evidence
 

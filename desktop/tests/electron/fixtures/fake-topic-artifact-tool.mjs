@@ -46,6 +46,10 @@ export const generatedFileArtifactArguments = {
   title: "Policy memo file",
 };
 
+export const incompleteTableArtifactArguments = {
+  kind: "table",
+};
+
 export const artifactPolicyScenarios = [
   {
     artifacts: [languageCountTableArtifactArguments, languageCountBarChartArtifactArguments],
@@ -72,6 +76,13 @@ export const artifactPolicyScenarios = [
     completion: "Completed supplied conversational answer without a durable artifact.",
     trigger: "supplied conversational answer",
   },
+  {
+    artifacts: [incompleteTableArtifactArguments],
+    completion: "Completed supplied incomplete artifact after prose fallback.",
+    expectedFailureFields: ["title", "columns", "rows"],
+    trigger: "supplied incomplete artifact without retry",
+    unresolvedFailure: true,
+  },
 ];
 
 export function artifactPolicyScenarioForText(text) {
@@ -88,6 +99,17 @@ export function validateArtifactToolResult(requestId, result, expectedArguments)
     return;
   }
   throw new Error(`artifact tool ${requestId} acknowledgement drifted`);
+}
+
+export function validateArtifactToolFailureResult(requestId, result, expectedFields) {
+  const item = validToolCallFailureTextItem(result);
+  if (!item) {
+    throw new Error(`artifact tool ${requestId} returned malformed failure result`);
+  }
+  const failure = JSON.parse(item.text);
+  if (!validMissingFieldsFailure(failure, expectedFields)) {
+    throw new Error(`artifact tool ${requestId} failure drifted: ${JSON.stringify(failure)}`);
+  }
 }
 
 const requiredArtifactKinds = ["markdown", "table", "bar_chart", "file"];
@@ -126,10 +148,42 @@ function validToolCallTextItem(result) {
   return result.contentItems[0];
 }
 
+function validToolCallFailureTextItem(result) {
+  if (result?.success !== false || !Array.isArray(result.contentItems)) {
+    return null;
+  }
+  if (result.contentItems.length !== 1 || result.contentItems[0]?.type !== "inputText") {
+    return null;
+  }
+  return result.contentItems[0];
+}
+
 function validArtifactToolAcknowledgement(acknowledgement, expectedArguments) {
   return (
     typeof acknowledgement.artifactId === "string" &&
     acknowledgement.kind === expectedArguments.kind &&
     acknowledgement.title === expectedArguments.title
   );
+}
+
+function validMissingFieldsFailure(failure, expectedFields) {
+  return (
+    failure?.code === "missing_required_fields" &&
+    failure.retryable === true &&
+    nonEmptyString(failure.message) &&
+    nonEmptyString(failure.diagnosticReference) &&
+    fieldsContainEvery(failure.fieldErrors, expectedFields)
+  );
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function fieldsContainEvery(fieldErrors, expectedFields) {
+  if (!Array.isArray(fieldErrors)) {
+    return false;
+  }
+  const fields = new Set(fieldErrors.map((fieldError) => fieldError?.field));
+  return expectedFields.every((field) => fields.has(field));
 }

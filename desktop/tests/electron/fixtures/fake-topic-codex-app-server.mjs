@@ -5,8 +5,8 @@ import { setImmediate, setTimeout } from "node:timers";
 import {
   artifactPolicyScenarioForText,
   threadHasArtifactTool,
-  validateArtifactToolResult,
 } from "./fake-topic-artifact-tool.mjs";
+import { artifactToolResponseAction } from "./fake-topic-artifact-turns.mjs";
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
   "SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS",
@@ -1144,14 +1144,10 @@ function handleClientResponse(message) {
 
 function handleToolCallResponse(requestId, pending, message) {
   pendingToolCalls.delete(requestId);
-  if (message.error) {
-    throw new Error(`artifact tool ${requestId} failed: ${message.error.message}`);
-  }
-  validateArtifactToolResult(requestId, message.result, pending.arguments);
-  const nextIndex = pending.index + 1;
-  if (nextIndex < pending.scenario.artifacts.length) {
+  const action = artifactToolResponseAction(requestId, pending, message);
+  if (action.kind === "next") {
     setImmediate(() =>
-      emitArtifactToolCall(pending.threadId, pending.turnId, pending.scenario, nextIndex),
+      emitArtifactToolCall(pending.threadId, pending.turnId, pending.scenario, action.nextIndex),
     );
     return;
   }
