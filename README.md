@@ -150,8 +150,9 @@ node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-p
 
 The live workflow uses temporary app data and exercises production
 Electron/main/preload/renderer/HTTP/store paths through OpenAI synthesis and a
-WebRTC transcription session. It requires `OPENAI_API_KEY` in the environment
-or the ignored repository `.env` file.
+WebRTC transcription session. The Node test runner resolves `OPENAI_API_KEY`
+from its environment or the ignored repository `.env` file, strips it from the
+Electron child environment, and provisions the app through Settings -> Voices.
 
 Codex uses the parallel pinned snapshot at
 `internal/codexapp/protocolschema/UPSTREAM`. Advance its commit, check out the

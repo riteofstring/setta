@@ -62,6 +62,13 @@ scanner now runs after workflow shutdown on success and failure, covers
 temporary app/workspace state before cleanup, supports root-specific marker
 sets so runtime device tokens stay artifact-only, and is wired through the
 deterministic global-speech, instant-voice Phase 4, and live OpenAI workflows.
+The obsolete desktop credential-environment cleanup is complete: the
+superseded Phase 0 environment-key baseline workflow was removed from the
+active Electron manifest, remaining fake-provider Electron speech workflows
+now provision through Settings → Voices with `OPENAI_API_KEY` stripped from the
+child environment, the live runner documentation describes runner-side key
+resolution without desktop env provisioning, and `setta serve` plus live
+test-runner credential coverage remains intact.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -679,10 +686,23 @@ environment-based desktop product behavior.
       `.recordings/byok-privacy-finalized-global-speech-session-rerun-20260718`
       and
       `.recordings/byok-privacy-finalized-instant-voice-phase4-rerun-20260718`.
-- [ ] Remove obsolete desktop credential-environment fixtures whose sole
+- [x] Remove obsolete desktop credential-environment fixtures whose sole
       contract is child-process ingestion, plus the corresponding desktop
       documentation references, without deleting test-runner or `setta serve`
-      coverage.
+      coverage. The superseded `instant-voice-capture-phase0-baseline`
+      workflow was removed from the active Electron manifest and test tree.
+      The remaining fake-provider Electron speech workflows now unset
+      `OPENAI_API_KEY` in the Electron child environment and save the fake
+      credential through Settings → Voices; `setta serve` remote-runtime
+      coverage and the live OpenAI test-runner credential resolver remain.
+      Verified with `topic-conversation-speech-arbitration`
+      (`.recordings/topic-conversation-speech-arbitration/20260718T131252643Z`),
+      `topic-conversation-pane-projection`
+      (`.recordings/topic-conversation-pane-projection/20260718T131328662Z`),
+      `topic-conversation-crash-recovery`
+      (`.recordings/topic-conversation-crash-recovery/20260718T131421291Z`),
+      and `easy-button-presentation-recovery-phase0`
+      (`.recordings/easy-button-presentation-recovery-phase0/20260718T131440289Z`).
 - [ ] Update README dogfood instructions so the unprefixed production command is
       canonical.
 

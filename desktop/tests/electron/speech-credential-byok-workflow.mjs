@@ -55,6 +55,16 @@ export async function saveOpenAIVoiceCredentialThroughSettings(
   };
 }
 
+export async function saveOpenAIVoiceCredentialThroughSettingsAndClose(
+  client,
+  apiKey,
+  timeoutMs = defaultTimeoutMs,
+) {
+  const setup = await saveOpenAIVoiceCredentialThroughSettings(client, apiKey, timeoutMs);
+  await closeOpenAIVoiceCredentialSettings(client, timeoutMs);
+  return setup;
+}
+
 export async function rejectOpenAIVoiceCredentialReplacementThroughSettings(
   client,
   apiKey,
@@ -187,8 +197,35 @@ export async function openOpenAIVoiceCredentialSettings(client, timeoutMs = defa
   );
 }
 
+export async function closeOpenAIVoiceCredentialSettings(client, timeoutMs = defaultTimeoutMs) {
+  await client.installDriver();
+  await waitForState(client, settingsPaneCloseExpression(), (state) => state.clicked, timeoutMs);
+  await waitForState(
+    client,
+    `(() => ({ closed: !document.querySelector(${JSON.stringify(credentialCardSelector)}) }))()`,
+    (state) => state.closed,
+    timeoutMs,
+  );
+}
+
 export function waitForOpenAIVoiceCredentialState(client, ready, timeoutMs = defaultTimeoutMs) {
   return waitForState(client, driverCallExpression("speechCredentialCardState"), ready, timeoutMs);
+}
+
+function settingsPaneCloseExpression() {
+  return `(() => {
+    const card = document.querySelector(${JSON.stringify(credentialCardSelector)});
+    const host = card?.closest('[data-testid="workspace-pane-host"]');
+    const button = host?.querySelector('[data-workspace-pane-action="close"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { clicked: false, reason: "missing-settings-close" };
+    }
+    if (button.disabled) {
+      return { clicked: false, reason: "settings-close-disabled" };
+    }
+    button.click();
+    return { clicked: true, reason: "clicked" };
+  })()`;
 }
 
 async function enterCredentialCandidate(client, apiKey, timeoutMs) {
