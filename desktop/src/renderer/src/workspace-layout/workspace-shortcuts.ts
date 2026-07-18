@@ -1,4 +1,5 @@
 import type {
+  AppearanceMasterVoiceShortcut,
   AppearanceShortcutsSettings,
   AppearanceWorkspaceNavigationShortcut,
 } from "@generated/backend";
@@ -15,9 +16,11 @@ interface WorkspaceShortcutKeyEvent {
 }
 
 const defaultWorkspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut = "mod_alt_arrows";
+const defaultMasterVoiceShortcut: AppearanceMasterVoiceShortcut = "mod_shift_k";
 
-const defaultShortcutsSettings: AppearanceShortcutsSettings = {
+export const defaultShortcutsSettings: AppearanceShortcutsSettings = {
   workspaceNavigation: defaultWorkspaceNavigationShortcut,
+  masterVoice: defaultMasterVoiceShortcut,
 };
 
 function currentShortcutsSettings(): AppearanceShortcutsSettings {

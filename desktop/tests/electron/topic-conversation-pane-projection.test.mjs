@@ -1246,7 +1246,7 @@ function initialEasyButtonExperienceReady(state) {
     !state.createControlPresent,
     !state.searchControlPresent,
     !state.startupPanePresent,
-    !state.topBarSpeechStatusPresent,
+    state.topBarSpeechStatusPresent,
     !state.voiceOffPresent,
     state.actionCount === 5,
     state.visiblePaneCount === 1,

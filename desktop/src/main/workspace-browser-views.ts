@@ -726,6 +726,7 @@ function isArrowKey(key: string): key is WorkspaceBrowserViewKey {
 }
 
 const browserViewCommandKeys = new Set<string>(workspaceBrowserViewKeyValues);
+const forwardedMasterKeyModifierSignatures = new Set(["--M-", "-C--", "--MS", "-C-S", "A--S"]);
 
 function isBrowserViewCommandKey(key: string): key is WorkspaceBrowserViewKey {
   return browserViewCommandKeys.has(key);
@@ -768,9 +769,22 @@ function shouldForwardWorkspaceBrowserViewKey(
     return true;
   }
   if (key === "k") {
-    return !input.alt && !input.shift && (input.meta || Boolean(input.control));
+    return shouldForwardMasterKeyShortcut(input);
   }
   return input.meta && isBrowserViewCommandKey(key);
+}
+
+function shouldForwardMasterKeyShortcut(input: BeforeInput): boolean {
+  return forwardedMasterKeyModifierSignatures.has(masterKeyModifierSignature(input));
+}
+
+function masterKeyModifierSignature(input: BeforeInput): string {
+  return [
+    input.alt ? "A" : "-",
+    input.control ? "C" : "-",
+    input.meta ? "M" : "-",
+    input.shift ? "S" : "-",
+  ].join("");
 }
 
 function normalizeBrowserViewInputKey(key: string): string {

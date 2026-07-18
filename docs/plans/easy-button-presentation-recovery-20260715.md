@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 
-**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phase 2 implemented and verified; Phase 3 implemented and verified; Phases 4-5 pending
+**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phase 2 implemented and verified; Phase 3 implemented and verified; Phase 4 implemented and verified; Phase 5 pending
 
 **Scope:** Easy Button presentation, typed artifacts, narrator projection and playback,
 global-master voice input, keyboard shortcuts, and production-path verification
@@ -407,7 +407,7 @@ Verification:
 
 ### Phase 4 — Finish global-master voice UX
 
-**Status:** Pending
+**Status:** Implemented and verified
 
 - Add the configurable shortcut and native-view forwarding.
 - Add the Ask Setta composer mic.

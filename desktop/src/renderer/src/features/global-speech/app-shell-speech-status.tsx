@@ -29,7 +29,6 @@ import {
   speechCaptureTranscriptPreview,
   speechPresentationConversationId,
 } from "./global-speech-presentation";
-import { masterSpeechCaptureRequest } from "./speech-capture-destination";
 
 export function AppShellSpeechStatus() {
   const model = useShellSpeechStatusModel();
@@ -341,7 +340,7 @@ const shellCaptureActionExecutors = {
 >;
 
 function startShellCapture(controller: AppShellSpeechCaptureController): void {
-  void controller.start(masterSpeechCaptureRequest());
+  void controller.startMasterCapture();
 }
 
 function discardFailedCapture(

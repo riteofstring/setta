@@ -340,6 +340,7 @@ function sampleAppearanceSettings(): AppearanceSettings {
     schemaVersion: 3,
     shortcuts: {
       workspaceNavigation: "mod_alt_arrows",
+      masterVoice: "mod_shift_k",
     },
   };
 }

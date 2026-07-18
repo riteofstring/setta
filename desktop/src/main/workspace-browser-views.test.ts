@@ -376,7 +376,7 @@ describe("workspace WebContentsView registry", () => {
     });
   });
 
-  test("forwards the global master shortcut from native browser panes", () => {
+  test("forwards global master text and voice shortcuts from native browser panes", () => {
     const owner = new FakeOwnerWindow();
     const view = new FakeNativeView();
     const registry = new WebContentsViewRegistry({
@@ -387,9 +387,13 @@ describe("workspace WebContentsView registry", () => {
 
     registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
     const controlEvent = view.webContents.emitBeforeInput("K", { control: true });
-    const modifiedEvent = view.webContents.emitBeforeInput("K", { control: true, shift: true });
+    const voiceEvent = view.webContents.emitBeforeInput("K", { control: true, shift: true });
+    const alternateVoiceEvent = view.webContents.emitBeforeInput("K", { alt: true, shift: true });
+    const modifiedEvent = view.webContents.emitBeforeInput("K", { alt: true, control: true });
 
     expect(controlEvent.prevented).toBe(true);
+    expect(voiceEvent.prevented).toBe(true);
+    expect(alternateVoiceEvent.prevented).toBe(true);
     expect(modifiedEvent.prevented).toBe(false);
     expect(owner.webContents.sent).toContainEqual({
       channel: ipcEvents.workspaceBrowserViewKey,
@@ -399,6 +403,18 @@ describe("workspace WebContentsView registry", () => {
         key: "k",
         metaKey: false,
         shiftKey: false,
+        surfaceId: "surface-1",
+        workspaceId: "phase-4-browser-pane-benchmark",
+      },
+    });
+    expect(owner.webContents.sent).toContainEqual({
+      channel: ipcEvents.workspaceBrowserViewKey,
+      payload: {
+        altKey: false,
+        ctrlKey: true,
+        key: "k",
+        metaKey: false,
+        shiftKey: true,
         surfaceId: "surface-1",
         workspaceId: "phase-4-browser-pane-benchmark",
       },

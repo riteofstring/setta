@@ -1,4 +1,5 @@
 import type {
+  AppearanceMasterVoiceShortcut,
   MasterInput,
   MasterInputModality,
   RouteDecision,
@@ -26,15 +27,27 @@ import type {
   AppShellMasterSnapshot,
   MasterInteractionState,
 } from "./app-shell-master-controller";
-import { AppShellSpeechStatus } from "../global-speech/app-shell-speech-status";
+import {
+  isMasterOverlayShortcut,
+  isMasterVoiceShortcut,
+  masterOverlayShortcutLabel,
+  masterVoiceShortcutLabel,
+} from "./master-shortcuts";
+import {
+  cancelMasterCaptureIfActive,
+  createMasterVoiceModel,
+  executeMasterVoiceCommand,
+  MasterVoiceButton,
+  MasterVoiceStatus,
+} from "./master-voice-controls";
+import {
+  type AppShellSpeechCaptureContextValue,
+  useAppShellSpeechCapture,
+} from "../global-speech/app-shell-speech-capture";
+import { useAppearanceStore } from "../../stores/appearance-store";
+import { defaultShortcutsSettings } from "../../workspace-layout/workspace-shortcuts";
 
-interface MasterOverlayShortcutEvent {
-  altKey: boolean;
-  ctrlKey: boolean;
-  key: string;
-  metaKey: boolean;
-  shiftKey: boolean;
-}
+export { isMasterOverlayShortcut, masterOverlayShortcutLabel } from "./master-shortcuts";
 
 export function AppShellMasterSurface({
   children,
@@ -50,20 +63,43 @@ export function AppShellMasterSurface({
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  const speechCapture = useAppShellSpeechCapture();
+  const speechCaptureController = speechCapture?.controller ?? null;
+  const masterVoiceShortcut = useAppearanceStore(
+    (state) =>
+      (state.draft ?? state.settings)?.shortcuts?.masterVoice ??
+      defaultShortcutsSettings.masterVoice,
+  );
 
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) {
+        return;
+      }
+      if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
+        event.preventDefault();
+        executeMasterVoiceCommand(speechCaptureController);
+        return;
+      }
       if (isMasterOverlayShortcut(event)) {
         event.preventDefault();
         controller.openOverlay();
         return;
       }
-      if (event.key === "Escape" && !event.isComposing && controller.getSnapshot().overlayOpen) {
+      if (event.key === "Escape" && cancelMasterCaptureIfActive(speechCaptureController)) {
+        event.preventDefault();
+        return;
+      }
+      if (event.key === "Escape" && controller.getSnapshot().overlayOpen) {
         event.preventDefault();
         controller.closeOverlay();
       }
     };
     const handleNativeViewKey = (event: WorkspaceBrowserViewKeyEvent) => {
+      if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
+        executeMasterVoiceCommand(speechCaptureController);
+        return;
+      }
       if (isMasterOverlayShortcut(event)) {
         controller.openOverlay();
       }
@@ -75,13 +111,19 @@ export function AppShellMasterSurface({
       unsubscribeNativeViewKey();
       window.removeEventListener("keydown", handleWindowKeyDown, { capture: true });
     };
-  }, [controller]);
+  }, [controller, masterVoiceShortcut, platform, speechCaptureController]);
 
   return (
     <>
       {children(snapshot.overlayOpen)}
       {snapshot.overlayOpen ? (
-        <MasterOverlay controller={controller} platform={platform} snapshot={snapshot} />
+        <MasterOverlay
+          controller={controller}
+          masterVoiceShortcut={masterVoiceShortcut}
+          platform={platform}
+          snapshot={snapshot}
+          speechCapture={speechCapture}
+        />
       ) : null}
     </>
   );
@@ -112,31 +154,23 @@ export function MasterSidebarLauncher({
   );
 }
 
-export function isMasterOverlayShortcut(event: MasterOverlayShortcutEvent): boolean {
-  return (
-    event.key.toLowerCase() === "k" &&
-    !event.altKey &&
-    !event.shiftKey &&
-    (event.metaKey || event.ctrlKey)
-  );
-}
-
-export function masterOverlayShortcutLabel(platform: DesktopPlatform): string {
-  return platform === "darwin" ? "⌘K" : "Ctrl+K";
-}
-
 function MasterOverlay({
   controller,
+  masterVoiceShortcut,
   platform,
   snapshot,
+  speechCapture,
 }: {
   controller: AppShellMasterController;
+  masterVoiceShortcut: AppearanceMasterVoiceShortcut;
   platform: DesktopPlatform;
   snapshot: AppShellMasterSnapshot;
+  speechCapture: AppShellSpeechCaptureContextValue | null;
 }) {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [synchronousError, setSynchronousError] = useState<string | null>(null);
   const canSubmit = controller.canSubmitInput() && snapshot.draft.trim() !== "";
+  const masterVoice = createMasterVoiceModel(speechCapture, platform, masterVoiceShortcut);
 
   useEffect(() => {
     composerRef.current?.focus();
@@ -194,9 +228,14 @@ function MasterOverlay({
             <div className="setta-master-overlay-eyebrow">Global master</div>
             <h1 id="setta-master-overlay-title">Ask Setta</h1>
           </div>
-          <kbd className="setta-master-overlay-shortcut">
-            {masterOverlayShortcutLabel(platform)}
-          </kbd>
+          <span className="setta-master-overlay-shortcuts">
+            <kbd className="setta-master-overlay-shortcut">
+              Text {masterOverlayShortcutLabel(platform)}
+            </kbd>
+            <kbd className="setta-master-overlay-shortcut">
+              Voice {masterVoiceShortcutLabel(platform, masterVoiceShortcut)}
+            </kbd>
+          </span>
           <button
             aria-label="Close Ask Setta"
             className="setta-master-overlay-icon-button"
@@ -221,7 +260,7 @@ function MasterOverlay({
               {synchronousError}
             </div>
           ) : null}
-          <AppShellSpeechStatus />
+          <MasterVoiceStatus model={masterVoice} />
           <form className="setta-master-overlay-composer" onSubmit={submit}>
             <textarea
               aria-label="Ask Setta"
@@ -232,6 +271,7 @@ function MasterOverlay({
               rows={2}
               value={snapshot.draft}
             />
+            <MasterVoiceButton model={masterVoice} />
             <button
               aria-label="Send to Setta"
               className="setta-master-overlay-send"

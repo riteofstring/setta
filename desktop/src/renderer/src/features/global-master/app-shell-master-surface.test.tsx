@@ -13,6 +13,7 @@ import {
   masterOverlayShortcutLabel,
   MasterSidebarLauncher,
 } from "./app-shell-master-surface";
+import { isMasterVoiceShortcut, masterVoiceShortcutLabel } from "./master-shortcuts";
 
 describe("app-shell master surface", () => {
   test("renders one active routing interaction without completed-request history", async () => {
@@ -27,6 +28,8 @@ describe("app-shell master surface", () => {
     expect(html).toContain("Bring up the speech routing topic");
     expect(html).toContain("What should Setta bring into focus?");
     expect(html).toContain("Ctrl+K");
+    expect(html).toContain("Ctrl+Shift+K");
+    expect(html).toContain('data-testid="master-overlay-voice-capture"');
 
     controller.submitText("Open the latest narrator conversation");
     await flushPromises();
@@ -86,6 +89,17 @@ describe("app-shell master surface", () => {
     expect(shortcut({ ctrlKey: true, key: "j" })).toBe(false);
     expect(masterOverlayShortcutLabel("darwin")).toBe("⌘K");
     expect(masterOverlayShortcutLabel("win32")).toBe("Ctrl+K");
+  });
+
+  test("matches the configured master voice shortcut by platform", () => {
+    expect(voiceShortcut("darwin", { metaKey: true, shiftKey: true })).toBe(true);
+    expect(voiceShortcut("darwin", { ctrlKey: true, shiftKey: true })).toBe(false);
+    expect(voiceShortcut("linux", { ctrlKey: true, shiftKey: true })).toBe(true);
+    expect(voiceShortcut("linux", { metaKey: true, shiftKey: true })).toBe(false);
+    expect(voiceShortcut("linux", { altKey: true, shiftKey: true }, "alt_shift_k")).toBe(true);
+    expect(voiceShortcut("linux", { ctrlKey: true, key: "j", shiftKey: true })).toBe(false);
+    expect(masterVoiceShortcutLabel("darwin")).toBe("⌘+Shift+K");
+    expect(masterVoiceShortcutLabel("linux")).toBe("Ctrl+Shift+K");
   });
 });
 
@@ -234,6 +248,25 @@ function shortcut(overrides: Partial<Parameters<typeof isMasterOverlayShortcut>[
     shiftKey: false,
     ...overrides,
   });
+}
+
+function voiceShortcut(
+  platform: Parameters<typeof isMasterVoiceShortcut>[1],
+  overrides: Partial<Parameters<typeof isMasterVoiceShortcut>[0]>,
+  configured?: Parameters<typeof isMasterVoiceShortcut>[2],
+) {
+  return isMasterVoiceShortcut(
+    {
+      altKey: false,
+      ctrlKey: false,
+      key: "k",
+      metaKey: false,
+      shiftKey: false,
+      ...overrides,
+    },
+    platform,
+    configured,
+  );
 }
 
 async function flushPromises() {

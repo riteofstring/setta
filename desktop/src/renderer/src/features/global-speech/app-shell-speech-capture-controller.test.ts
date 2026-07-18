@@ -19,10 +19,7 @@ import {
   RealtimeTranscriptionError,
   type RealtimeTranscriptionErrorCode,
 } from "./realtime-transcription-error";
-import {
-  conversationSpeechCaptureRequest,
-  masterSpeechCaptureRequest,
-} from "./speech-capture-destination";
+import { conversationSpeechCaptureRequest } from "./speech-capture-destination";
 import type { RealtimeTranscriptionUpdate } from "./realtime-transcription-session";
 import type {
   CreateRealtimeTranscriptionTransportOptions,
@@ -441,6 +438,35 @@ describe("app-shell speech capture controller", () => {
     expect(harness.transport.commit).toHaveBeenCalledOnce();
   });
 
+  test("master voice command preempts active topic capture without submitting topic speech", async () => {
+    const onCaptureEnd = vi.fn();
+    const onCaptureStart = vi.fn();
+    const harness = createHarness({ onCaptureEnd, onCaptureStart });
+    await harness.connect();
+    const topicStart = harness.controller.start(
+      conversationSpeechCaptureRequest("workspace_topic", "conversation_topic", "pane_topic"),
+    );
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await topicStart;
+    harness.transport.delta("topic words stay provisional");
+
+    const masterStart = harness.controller.startMasterCapture();
+    await harness.waitForTransportCount(2);
+    harness.transport.resolveReady();
+    await masterStart;
+
+    expect(harness.conversationInputRequests).toEqual([]);
+    expect(harness.track.stop).toHaveBeenCalledOnce();
+    expect(onCaptureEnd).toHaveBeenCalledOnce();
+    expect(onCaptureStart).toHaveBeenCalledTimes(2);
+    expect(harness.currentCapture()).toMatchObject({
+      request: { destination: { type: "master" }, sourcePaneId: null },
+      transcript: "",
+      type: "listening",
+    });
+  });
+
   test("runtime disconnect cancels permission and rejects its late stream", async () => {
     const media = deferred<MediaStream>();
     const harness = createHarness({ getUserMedia: () => media.promise });
@@ -797,7 +823,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
     mediaConstraints,
     masterInputRequests,
     masterController,
-    startMaster: () => controller.start(masterSpeechCaptureRequest()),
+    startMaster: () => controller.startMasterCapture(),
     stream,
     get timerDelayMs() {
       return timerDelayMs;
@@ -853,6 +879,15 @@ function createHarness(overrides: HarnessOverrides = {}) {
         await flushPromises();
       }
       throw new Error("Realtime transport was not created");
+    },
+    waitForTransportCount: async (count: number) => {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        if (transports.length >= count) {
+          return;
+        }
+        await flushPromises();
+      }
+      throw new Error(`Realtime transport count did not reach ${count}`);
     },
   };
 }

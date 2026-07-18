@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 59;
-export const backendContractSchemaHash = "sha256:97db8a1250e4c8f08106f4c75690976a35089e0ed2b801604afd656ad6ae8b4d";
+export const backendProtocolVersion = 60;
+export const backendContractSchemaHash = "sha256:a08f7990331b38443666fa3cac382c324665ac712f57a6941efaded14ddfcd4e";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -74,6 +74,24 @@ export function decodeAppearanceWorkspaceNavigationShortcut(value: unknown, labe
     case "mod_alt_arrows":
       return decoded;
     case "ctrl_alt_arrows":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type AppearanceMasterVoiceShortcut = "mod_shift_k" | "ctrl_shift_k" | "alt_shift_k";
+
+export const appearanceMasterVoiceShortcutValues = ["mod_shift_k", "ctrl_shift_k", "alt_shift_k"] as const satisfies readonly AppearanceMasterVoiceShortcut[];
+
+export function decodeAppearanceMasterVoiceShortcut(value: unknown, label = "AppearanceMasterVoiceShortcut"): AppearanceMasterVoiceShortcut {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "mod_shift_k":
+      return decoded;
+    case "ctrl_shift_k":
+      return decoded;
+    case "alt_shift_k":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1627,6 +1645,7 @@ export interface AppearanceDeveloperSettings {
 
 export interface AppearanceShortcutsSettings {
   workspaceNavigation: AppearanceWorkspaceNavigationShortcut;
+  masterVoice: AppearanceMasterVoiceShortcut;
 }
 
 export interface AppearanceSettings {
@@ -3854,9 +3873,10 @@ export function decodeAppearanceDeveloperSettings(value: unknown): AppearanceDev
 
 export function decodeAppearanceShortcutsSettings(value: unknown): AppearanceShortcutsSettings {
   const record = assertRecord(value, "AppearanceShortcutsSettings");
-  assertKnownFields(record, "AppearanceShortcutsSettings", ["workspaceNavigation"]);
+  assertKnownFields(record, "AppearanceShortcutsSettings", ["workspaceNavigation", "masterVoice"]);
   return {
     workspaceNavigation: decodeAppearanceWorkspaceNavigationShortcut(requireField(record, "workspaceNavigation", "AppearanceShortcutsSettings"), "AppearanceShortcutsSettings.workspaceNavigation"),
+    masterVoice: decodeAppearanceMasterVoiceShortcut(requireField(record, "masterVoice", "AppearanceShortcutsSettings"), "AppearanceShortcutsSettings.masterVoice"),
   };
 }
 

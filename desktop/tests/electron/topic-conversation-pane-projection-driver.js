@@ -349,7 +349,9 @@
   }
 
   function topicConversationShellSpeechCapture() {
-    const button = document.querySelector('[data-testid="shell-speech-capture-control"]');
+    const button =
+      document.querySelector('[data-testid="master-overlay-voice-capture"]') ??
+      document.querySelector('[data-testid="shell-speech-capture-control"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { clicked: false };
     }

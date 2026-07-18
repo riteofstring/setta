@@ -30,6 +30,7 @@ import {
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
+import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
 import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
@@ -225,6 +226,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       inert={masterOverlayOpen || undefined}
     >
       <AppChromeControls
+        globalSpeechAvailable={speechCapture !== undefined}
         master={master}
         masterOverlayOpen={masterOverlayOpen}
         mobileViewport={mobileViewport}
@@ -512,6 +514,7 @@ export function sidebarWorkspaceBusy(
 }
 
 function AppChromeControls({
+  globalSpeechAvailable,
   master,
   masterOverlayOpen,
   mobileViewport,
@@ -520,6 +523,7 @@ function AppChromeControls({
   projectPaneOpen,
   setProjectPaneOpen,
 }: {
+  globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
   masterOverlayOpen: boolean;
   mobileViewport: boolean;
@@ -533,6 +537,7 @@ function AppChromeControls({
   }
   return (
     <DesktopShellTopBar
+      globalSpeechAvailable={globalSpeechAvailable}
       master={master}
       masterOverlayOpen={masterOverlayOpen}
       onOpenSettings={openSettingsPane}
@@ -544,6 +549,7 @@ function AppChromeControls({
 }
 
 function DesktopShellTopBar({
+  globalSpeechAvailable,
   master,
   masterOverlayOpen,
   onOpenSettings,
@@ -551,6 +557,7 @@ function DesktopShellTopBar({
   projectPaneOpen,
   setProjectPaneOpen,
 }: {
+  globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
   masterOverlayOpen: boolean;
   onOpenSettings: () => void;
@@ -601,6 +608,7 @@ function DesktopShellTopBar({
           </div>
         </TooltipProvider>
       </div>
+      {globalSpeechAvailable ? <AppShellSpeechStatus /> : null}
       <div className="setta-shell-top-bar-right">
         <SettaLogoMark className="setta-shell-top-bar-logo" height={12} />
       </div>

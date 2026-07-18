@@ -354,7 +354,7 @@ h3 {
 
 .setta-shell-speech-status {
   align-items: center;
-  align-self: flex-start;
+  align-self: center;
   background: color-mix(in oklch, var(--setta-900) 72%, transparent);
   border: 1px solid color-mix(in oklch, var(--setta-600) 42%, transparent);
   border-radius: 999px;

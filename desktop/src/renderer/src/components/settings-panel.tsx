@@ -6,6 +6,7 @@ import type {
   AppearanceSettings,
   AppearanceTailwindPalette,
 } from "@generated/backend";
+import type { DesktopPlatform } from "@shared/types";
 import {
   Check,
   ChevronDown,
@@ -95,6 +96,7 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
     (state) => state.setClampResizedPanesToViewport,
   );
   const setMode = useAppearanceStore((state) => state.setMode);
+  const setMasterVoiceShortcut = useAppearanceStore((state) => state.setMasterVoiceShortcut);
   const setOverviewCardWidthBounds = useAppearanceStore(
     (state) => state.setOverviewCardWidthBounds,
   );
@@ -125,9 +127,11 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
       <ShortcutSettingsEditor
         dirty={dirty}
         error={error}
+        onMasterVoiceChange={setMasterVoiceShortcut}
         onRevert={revertDraft}
         onSave={saveDraft}
         onWorkspaceNavigationChange={setWorkspaceNavigationShortcut}
+        platform={settingsPanelPlatform()}
         shortcuts={draft?.shortcuts ?? null}
         status={status}
       />
@@ -231,6 +235,13 @@ function settingsSubtabButtonId(tab: SettingsSubtab) {
 
 function settingsSubtabPanelId(tab: SettingsSubtab) {
   return `settings-subtab-panel-${tab}`;
+}
+
+function settingsPanelPlatform(): DesktopPlatform {
+  if (typeof window === "undefined") {
+    return "linux";
+  }
+  return window.setta?.app.platform ?? "linux";
 }
 
 interface AppearanceSettingsEditorProps {

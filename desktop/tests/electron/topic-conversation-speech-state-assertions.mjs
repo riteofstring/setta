@@ -6,7 +6,7 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import { captureScreenshot, waitForState } from "./electron-cdp-harness.mjs";
 
 export async function verifyIdleGlobalSpeech(client, timeoutMs) {
-  await assertTopBarHasNoVoiceArea(client, timeoutMs);
+  await assertTopBarHasMasterVoiceArea(client, timeoutMs);
   await openMasterOverlayForSpeech(client, timeoutMs);
   const state = await waitForShellSpeechState(client, () => true, timeoutMs);
   assertIdleShellSpeech(state);
@@ -74,6 +74,11 @@ export async function verifyConversationCapturePresentation({
     transcriptPreview,
   );
   await openMasterOverlayForSpeech(client, timeoutMs);
+  await assertMasterOverlayExcludesTopicSpeech(
+    client,
+    [conversationTitle, transcriptPreview],
+    timeoutMs,
+  );
   const shell = await waitForShellSpeechState(
     client,
     (candidate) =>
@@ -110,6 +115,7 @@ export async function verifyNarratorPlaybackPresentation({
   );
   assertNarratorPlaybackAttribution(state.surfaces, conversationId);
   await openMasterOverlayForSpeech(client, timeoutMs);
+  await assertMasterOverlayExcludesTopicSpeech(client, [conversationTitle], timeoutMs);
   const shell = await waitForShellSpeechState(
     client,
     (candidate) =>
@@ -491,19 +497,27 @@ function waitForShellSpeechState(client, ready, timeoutMs) {
   );
 }
 
-async function assertTopBarHasNoVoiceArea(client, timeoutMs) {
+async function assertTopBarHasMasterVoiceArea(client, timeoutMs) {
   await waitForState(
     client,
     `(() => {
       const topBar = document.querySelector('[data-testid="shell-top-bar"]');
+      const status = topBar?.querySelector('[data-testid="shell-speech-status"]');
+      const capture = status?.querySelector('[data-testid="shell-speech-capture-control"]');
       return {
-        speechStatusPresent: Boolean(topBar?.querySelector('[data-testid="shell-speech-status"]')),
+        captureAvailable: capture instanceof HTMLButtonElement && !capture.disabled,
+        captureLabel: capture?.getAttribute("aria-label") ?? "",
+        speechStatusPresent: Boolean(status),
         voiceOffPresent: Array.from(topBar?.querySelectorAll("*") ?? []).some(
           (element) => element.childElementCount === 0 && element.textContent?.trim() === "Voice off",
         ),
       };
     })()`,
-    (state) => !state.speechStatusPresent && !state.voiceOffPresent,
+    (state) =>
+      state.speechStatusPresent &&
+      state.captureAvailable &&
+      state.captureLabel === "Start a voice request for Setta" &&
+      !state.voiceOffPresent,
     timeoutMs,
   );
 }
@@ -530,10 +544,34 @@ export async function openMasterOverlayForSpeech(client, timeoutMs) {
     `(() => ({
       open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
       voiceControlPresent: Boolean(
+        document.querySelector('[data-testid="master-overlay"] [data-testid="master-overlay-voice-capture"]'),
+      ),
+      legacyShellStatusPresent: Boolean(
         document.querySelector('[data-testid="master-overlay"] [data-testid="shell-speech-status"]'),
       ),
     }))()`,
-    (state) => state.open && state.voiceControlPresent,
+    (state) => state.open && state.voiceControlPresent && !state.legacyShellStatusPresent,
+    timeoutMs,
+  );
+}
+
+async function assertMasterOverlayExcludesTopicSpeech(client, excludedTexts, timeoutMs) {
+  await waitForState(
+    client,
+    `(() => {
+      const overlay = document.querySelector('[data-testid="master-overlay"]');
+      const text = overlay?.textContent ?? "";
+      return {
+        containsExcludedText: ${JSON.stringify(excludedTexts)}.some(
+          (excluded) => excluded !== "" && text.includes(excluded),
+        ),
+        masterVoiceControlPresent: Boolean(
+          overlay?.querySelector('[data-testid="master-overlay-voice-capture"]'),
+        ),
+        open: Boolean(overlay),
+      };
+    })()`,
+    (state) => state.open && state.masterVoiceControlPresent && !state.containsExcludedText,
     timeoutMs,
   );
 }

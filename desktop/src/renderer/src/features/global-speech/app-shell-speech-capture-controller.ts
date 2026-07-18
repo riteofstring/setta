@@ -31,6 +31,7 @@ import {
   type CompletedConversationSpeechTranscript,
   conversationSpeechCaptureRequest,
   freezeSpeechCaptureRequest,
+  masterSpeechCaptureRequest,
   type SpeechCaptureRequest,
 } from "./speech-capture-destination";
 
@@ -267,6 +268,16 @@ export class AppShellSpeechCaptureController {
     }
   };
 
+  startMasterCapture = async (): Promise<void> => {
+    this.assertUsable();
+    const request = masterSpeechCaptureRequest();
+    if (this.shouldPreemptActiveCaptureForMaster()) {
+      this.resetCapture();
+      this.updateSnapshot({ capture: { type: "idle" } });
+    }
+    await this.start(request);
+  };
+
   commit = (): void => {
     this.assertUsable();
     if (this.snapshotValue.capture.type !== "listening" || this.activeLifecycle === null) {
@@ -396,6 +407,11 @@ export class AppShellSpeechCaptureController {
       this.snapshotValue.availability,
       this.snapshotValue.runtimeId,
     );
+  }
+
+  private shouldPreemptActiveCaptureForMaster(): boolean {
+    const request = activeCaptureRequest(this.snapshotValue.capture);
+    return request !== null && request.destination.type === "conversation";
   }
 
   private beginLifecycle(): number {

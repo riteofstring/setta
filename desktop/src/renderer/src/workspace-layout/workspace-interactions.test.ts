@@ -48,7 +48,7 @@ describe("workspace keyboard interactions", () => {
 
   test("moves focus with Ctrl+Alt+Arrow when that preset is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
     const event = keyboardEvent({ altKey: true, ctrlKey: true, key: "ArrowRight" });
 
@@ -60,7 +60,7 @@ describe("workspace keyboard interactions", () => {
 
   test("ignores Mod+Alt+Arrow when Ctrl+Alt+Arrow is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
     const event = keyboardEvent({ altKey: true, key: "ArrowRight", metaKey: true });
 
@@ -99,7 +99,7 @@ describe("workspace keyboard interactions", () => {
 
   test("uses Ctrl+Alt+Enter for plane splits when that preset is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
     const event = keyboardEvent({ altKey: true, ctrlKey: true, key: "Enter" });
 
@@ -157,7 +157,7 @@ describe("workspace keyboard interactions", () => {
 
   test("uses active shortcut settings for forwarded BrowserView arrows", () => {
     const context = workspaceKeyContext({
-      shortcuts: { workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
 
     handleForwardedBrowserViewKey({
@@ -517,7 +517,7 @@ function pointerEvent({
 }
 
 function workspaceKeyContext({
-  shortcuts = { workspaceNavigation: "mod_alt_arrows" },
+  shortcuts = { masterVoice: "mod_shift_k", workspaceNavigation: "mod_alt_arrows" },
 }: {
   shortcuts?: AppearanceShortcutsSettings;
 } = {}) {
