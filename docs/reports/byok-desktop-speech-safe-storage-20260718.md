@@ -500,7 +500,7 @@ evidence:
   `desktop-linux`, but still could not connect to the Docker daemon at
   `unix:///Users/kevin/.docker/run/docker.sock`.
 - `docker desktop status` could not retrieve status, and `docker desktop
-  start` reported Docker Desktop is already running. The visible process state
+start` reported Docker Desktop is already running. The visible process state
   still shows an `osascript` administrator prompt for Docker Desktop's
   privileged port-mapping setup.
 - A PATH probe for Docker, GitHub CLI, common Linux/container runners, common
