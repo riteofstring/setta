@@ -1540,5 +1540,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   follow-ups: pre-existing `pane-drag-drop` e2e failure (UI workstream) and
   a pre-existing `internal/chat` transcript-block data race visible only
   under `-race`.
+- 2026-07-17 (early): Completed the live validation tier against the freed
+  organization. The runtime install loop passed live on a disposable Sprite
+  (uploaded digest-verified Go release verifier replacing the apt bootstrap,
+  which failed on the live image; remote signature verification, install,
+  health check, verified teardown; `4d99694e5`). The rule-27 conformance
+  suite passed 6/6 live (`2a01a24c6`) after three live-run-driven fixes:
+  nil-vs-empty ServiceSpec slice comparison, service_restart_detection
+  redesigned around deterministic kill-and-restart (a provider-cold
+  expectation cannot pass — reconfirmed live), and checkpoint restore made
+  churn-tolerant with provider error detail now preserved in adapter errors.
+  Every live run tore down cleanly; the organization is empty. Phase 2's
+  live install/identity proof is complete. Next: Phase 1c live measurements
+  and the Phase 3 access-path budgets (owner input) before candidate
+  experiments. Local dev note: `minisign` is now required on the host for
+  live install-signing (installed via Homebrew).
 
 - 2026-07-16: Completed cold-soak run `20260714T173244Z-97151` (12h=behaviorally_warm, 24h=behaviorally_warm, 48h=behaviorally_warm); the dedicated organization was confirmed empty after cleanup. See `docs/reports/2026-07-14-sprites-confirmed-cold-soak-20260714T173244Z-97151.md`.
