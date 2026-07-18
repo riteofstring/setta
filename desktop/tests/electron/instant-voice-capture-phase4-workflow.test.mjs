@@ -54,8 +54,13 @@ const speechRealtimeBrowserFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "speech-realtime-browser-fixture.js",
 );
+const speechRealtimeProcessedAudioObserverWorklet = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "speech-realtime-processed-audio-observer-worklet.js",
+);
 const providerSetupDelaysMs = [0, 1_500];
 const localReadinessCohortSampleCount = 20;
+const localReadinessInterSampleSettleMs = 120;
 const localReadinessP95BudgetMs = 100;
 const localReadinessP95DifferenceBudgetMs = 1000 / 60;
 const durationLimitMs = 120_000;
@@ -78,8 +83,15 @@ const fakeCodex = await installFakeTopicCodex(fixture);
 const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 let remoteRuntime = null;
+let speechRealtimeBrowserFixtureSource = "";
+let speechRealtimeProcessedAudioObserverWorkletSource = "";
 
 try {
+  speechRealtimeBrowserFixtureSource = await readFile(speechRealtimeBrowserFixture, "utf8");
+  speechRealtimeProcessedAudioObserverWorkletSource = await readFile(
+    speechRealtimeProcessedAudioObserverWorklet,
+    "utf8",
+  );
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
@@ -93,7 +105,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  await context.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
+  await installSpeechRealtimeBrowserFixture();
 
   const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
@@ -283,10 +295,16 @@ try {
 }
 
 async function collectLocalReadinessCohorts() {
-  const cohorts = [];
-  for (const providerDelayMs of providerSetupDelaysMs) {
-    const runs = [];
-    for (let sampleIndex = 1; sampleIndex <= localReadinessCohortSampleCount; sampleIndex += 1) {
+  const runsByProviderDelayMs = new Map(
+    providerSetupDelaysMs.map((providerDelayMs) => [providerDelayMs, []]),
+  );
+  for (let sampleIndex = 1; sampleIndex <= localReadinessCohortSampleCount; sampleIndex += 1) {
+    for (const providerDelayMs of providerSetupDelaysMs) {
+      await delay(localReadinessInterSampleSettleMs);
+      const runs = runsByProviderDelayMs.get(providerDelayMs);
+      if (!runs) {
+        throw new Error(`local readiness cohort was not initialized for ${providerDelayMs}`);
+      }
       runs.push(
         await exerciseFinishedCapture({
           destination: "master",
@@ -297,8 +315,10 @@ async function collectLocalReadinessCohorts() {
         }),
       );
     }
-    cohorts.push(localReadinessCohortSummary(providerDelayMs, runs));
   }
+  const cohorts = providerSetupDelaysMs.map((providerDelayMs) =>
+    localReadinessCohortSummary(providerDelayMs, runsByProviderDelayMs.get(providerDelayMs) ?? []),
+  );
   const p95DifferenceMs = localReadinessP95DifferenceMs(cohorts);
   return { cohorts, p95DifferenceMs };
 }
@@ -691,7 +711,7 @@ async function exerciseAppTeardownCleanup() {
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  await context.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
+  await installSpeechRealtimeBrowserFixture();
   const finalized = await finalizedBrowserFixtureSnapshot(runId);
   await writeJson(join(artifactDir, "app-teardown-finalized-snapshot.json"), finalized);
   assertBrowserEvents(runId, finalized.timing.events, [
@@ -825,8 +845,17 @@ async function reloadSpeechFixture() {
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  await context.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
+  await installSpeechRealtimeBrowserFixture();
   await waitForReadyForNextCapture();
+}
+
+async function installSpeechRealtimeBrowserFixture() {
+  await context.client.evaluate(speechRealtimeBrowserFixtureSource);
+  await context.client.evaluate(
+    `globalThis.__settaSpeechRealtimeBrowserFixture.installProcessedAudioObserverWorklet(${JSON.stringify(
+      speechRealtimeProcessedAudioObserverWorkletSource,
+    )})`,
+  );
 }
 
 async function openWorkspace(client) {
@@ -1146,6 +1175,10 @@ function assertFinishedCaptureRun(runId, events, measurements, expectStopBeforeR
     "transcript_commit_sent",
     "transcript_completed_emitted",
   ]);
+  const marker = requiredEvent(events, "processed_audio_marker_observed");
+  if (marker.detail.observerMode !== "worklet") {
+    throw new Error(`${runId} processed marker did not use the worklet observer`);
+  }
   assertFiniteMeasurement(
     runId,
     "clickToLocalCaptureReadyMs",

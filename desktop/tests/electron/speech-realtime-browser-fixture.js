@@ -1,7 +1,7 @@
-/* global AudioContext, MessageEvent, Response, TextEncoder, navigator, performance, queueMicrotask, sessionStorage */
+/* global AudioContext, AudioWorkletNode, Blob, MessageEvent, Response, TextEncoder, URL, navigator, performance, queueMicrotask, sessionStorage */
 
 (() => {
-  const fixtureVersion = "setta-speech-realtime-browser-fixture-v4";
+  const fixtureVersion = "setta-speech-realtime-browser-fixture-v5";
   if (globalThis.__settaSpeechRealtimeBrowserFixture?.version === fixtureVersion) {
     return;
   }
@@ -19,7 +19,9 @@
   const activeProcessedTrackObservers = new Set();
   const processedAudioMarkersByRun = new Map();
   const pendingTranscriptCompletions = [];
+  const processedAudioMarkerRmsThreshold = 0.003;
   let timingContext = {};
+  let processedAudioObserverWorklet = null;
   const delays = {
     dataChannelOpenMs: 0,
     webRTCAnswerStatus: 201,
@@ -295,6 +297,7 @@
       activeChannel = null;
       closeActiveMicrophones();
       closeActiveProcessedTrackObservers();
+      closeProcessedAudioObserverWorklet();
       globalThis.Audio = originalAudio;
       globalThis.fetch = originalFetch;
       globalThis.RTCPeerConnection = originalPeerConnection;
@@ -351,6 +354,9 @@
       }
       state.requireProcessedAudioMarker = required;
     },
+    async installProcessedAudioObserverWorklet(source) {
+      await installProcessedAudioObserverWorklet(source);
+    },
     setTimingContext(context) {
       if (!isRecord(context)) {
         throw new Error("scripted Realtime timing context must be an object");
@@ -402,6 +408,14 @@
         runId: completion.runId,
       })),
       processedAudioMarkersByRun: Object.fromEntries(processedAudioMarkersByRun.entries()),
+      processedAudioObserverWorklet: processedAudioObserverWorklet
+        ? {
+            audioContextState: processedAudioObserverWorklet.context.state,
+            installed: true,
+            sampleRate: processedAudioObserverWorklet.context.sampleRate,
+            sourceBytes: processedAudioObserverWorklet.sourceBytes,
+          }
+        : { installed: false },
       timing: {
         context: { ...timingContext },
         events: timing.events.map((event) => ({
@@ -517,6 +531,101 @@
   }
 
   function createProcessedTrackObserver(track, stream, observerContext) {
+    if (processedAudioObserverWorklet) {
+      return createWorkletProcessedTrackObserver(track, stream, observerContext);
+    }
+    return createAnalyserProcessedTrackObserver(track, stream, observerContext);
+  }
+
+  function createWorkletProcessedTrackObserver(track, stream, observerContext) {
+    const observerContextHandle = processedAudioObserverWorklet;
+    if (!observerContextHandle) {
+      throw new Error("processed audio observer worklet is not installed");
+    }
+    const context = observerContextHandle.context;
+    const source = context.createMediaStreamSource(stream);
+    const probe = new AudioWorkletNode(context, "setta-speech-realtime-processed-audio-observer", {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+      processorOptions: {
+        rmsThreshold: processedAudioMarkerRmsThreshold,
+      },
+    });
+    const sink = context.createGain();
+    sink.gain.value = 0;
+    source.connect(probe);
+    probe.connect(sink);
+    sink.connect(context.destination);
+    let closed = false;
+    const observerCount = recordProcessedTrackObserverStarted(track, observerContext, "worklet");
+    void context.resume().catch((error) => {
+      markTimingWithContext("processed_track_observer_resume_failed", observerContext, {
+        message: error instanceof Error ? error.message : String(error),
+        observerMode: "worklet",
+      });
+    });
+    probe.onprocessorerror = () => {
+      markTimingWithContext("processed_track_observer_failed", observerContext, {
+        message: "processed audio observer worklet processor failed",
+        observerMode: "worklet",
+      });
+    };
+    probe.port.onmessage = (event) => {
+      if (closed) {
+        return;
+      }
+      const message = event.data;
+      switch (message?.type) {
+        case "ready":
+          markTimingWithContext("processed_track_observer_ready", observerContext, {
+            metrics: message.metrics,
+            observerMode: "worklet",
+          });
+          return;
+        case "processed_audio_marker":
+          recordProcessedAudioMarker(observerContext, observerCount, {
+            observerMode: "worklet",
+            observedFrames: message.observedFrames,
+            peak: message.peak,
+            rms: message.rms,
+            sampleFrames: message.sampleFrames,
+            workletFrame: message.workletFrame,
+          });
+          observer.close();
+          return;
+        default:
+          markTimingWithContext("processed_track_observer_unknown_message", observerContext, {
+            message,
+            observerMode: "worklet",
+          });
+          return;
+      }
+    };
+    const observer = {
+      close() {
+        if (closed) {
+          return;
+        }
+        closed = true;
+        activeProcessedTrackObservers.delete(observer);
+        state.processedTrackObserverClosedCount += 1;
+        probe.port.onmessage = null;
+        probe.onprocessorerror = null;
+        probe.port.close?.();
+        source.disconnect();
+        probe.disconnect();
+        sink.disconnect();
+        markTimingWithContext("processed_track_observer_closed", observerContext, {
+          observerClosedCount: state.processedTrackObserverClosedCount,
+          observerMode: "worklet",
+        });
+      },
+    };
+    return observer;
+  }
+
+  function createAnalyserProcessedTrackObserver(track, stream, observerContext) {
     const context = new AudioContext({ latencyHint: "interactive" });
     const analyser = context.createAnalyser();
     analyser.fftSize = 512;
@@ -528,15 +637,11 @@
     sink.connect(context.destination);
     const samples = new Float32Array(analyser.fftSize);
     let closed = false;
-    state.processedTrackObserverCount += 1;
-    markTimingWithContext("processed_track_observer_started", observerContext, {
-      observerCount: state.processedTrackObserverCount,
-      processedTrackId: track.id,
-      processedTrackReadyState: track.readyState,
-    });
+    const observerCount = recordProcessedTrackObserverStarted(track, observerContext, "analyser");
     void context.resume().catch((error) => {
       markTimingWithContext("processed_track_observer_resume_failed", observerContext, {
         message: error instanceof Error ? error.message : String(error),
+        observerMode: "analyser",
       });
     });
     const interval = globalThis.setInterval(() => {
@@ -548,19 +653,10 @@
       if (rms < 0.003) {
         return;
       }
-      const runId = contextRunId(observerContext);
-      processedAudioMarkersByRun.set(runId, {
-        observerCount: state.processedTrackObserverCount,
+      recordProcessedAudioMarker(observerContext, observerCount, {
+        observerMode: "analyser",
         rms,
       });
-      state.processedAudioMarkerCount += 1;
-      markTimingWithContext("processed_audio_marker_observed", observerContext, {
-        activeMicrophoneCount: activeMicrophones.size,
-        processedAudioMarkerCount: state.processedAudioMarkerCount,
-        rms,
-        stoppedTrackCount: state.stoppedTrackCount,
-      });
-      flushPendingTranscriptCompletions(runId);
       observer.close();
     }, 20);
     const observer = {
@@ -578,10 +674,96 @@
         void context.close();
         markTimingWithContext("processed_track_observer_closed", observerContext, {
           observerClosedCount: state.processedTrackObserverClosedCount,
+          observerMode: "analyser",
         });
       },
     };
     return observer;
+  }
+
+  function recordProcessedTrackObserverStarted(track, observerContext, observerMode) {
+    state.processedTrackObserverCount += 1;
+    markTimingWithContext("processed_track_observer_started", observerContext, {
+      observerCount: state.processedTrackObserverCount,
+      observerMode,
+      processedTrackId: track.id,
+      processedTrackReadyState: track.readyState,
+    });
+    return state.processedTrackObserverCount;
+  }
+
+  function recordProcessedAudioMarker(observerContext, observerCount, detail) {
+    const runId = contextRunId(observerContext);
+    processedAudioMarkersByRun.set(runId, {
+      observerCount,
+      ...detail,
+    });
+    state.processedAudioMarkerCount += 1;
+    markTimingWithContext("processed_audio_marker_observed", observerContext, {
+      activeMicrophoneCount: activeMicrophones.size,
+      processedAudioMarkerCount: state.processedAudioMarkerCount,
+      stoppedTrackCount: state.stoppedTrackCount,
+      ...detail,
+    });
+    flushPendingTranscriptCompletions(runId);
+  }
+
+  async function installProcessedAudioObserverWorklet(source) {
+    if (typeof source !== "string" || source.trim() === "") {
+      throw new Error("processed audio observer worklet source must be a non-empty string");
+    }
+    assertProcessedAudioObserverSupport();
+    closeProcessedAudioObserverWorklet();
+    const context = new AudioContext({ latencyHint: "interactive" });
+    let objectURL = null;
+    try {
+      if (context.state !== "running") {
+        await context.resume();
+      }
+      objectURL = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+      await context.audioWorklet.addModule(objectURL);
+      processedAudioObserverWorklet = {
+        context,
+        objectURL,
+        sourceBytes: new TextEncoder().encode(source).byteLength,
+      };
+      markTiming("processed_audio_observer_worklet_installed", {
+        sampleRate: context.sampleRate,
+        sourceBytes: processedAudioObserverWorklet.sourceBytes,
+      });
+    } catch (error) {
+      if (objectURL) {
+        URL.revokeObjectURL(objectURL);
+      }
+      await context.close();
+      throw error;
+    }
+  }
+
+  function closeProcessedAudioObserverWorklet() {
+    if (!processedAudioObserverWorklet) {
+      return;
+    }
+    const { context, objectURL } = processedAudioObserverWorklet;
+    processedAudioObserverWorklet = null;
+    URL.revokeObjectURL(objectURL);
+    void context.close();
+  }
+
+  function assertProcessedAudioObserverSupport() {
+    const missing = [];
+    if (typeof AudioWorkletNode !== "function") {
+      missing.push("AudioWorkletNode");
+    }
+    if (typeof Blob !== "function") {
+      missing.push("Blob");
+    }
+    if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+      missing.push("URL.createObjectURL");
+    }
+    if (missing.length > 0) {
+      throw new Error(`processed audio observer support is missing: ${missing.join(", ")}`);
+    }
   }
 
   function flushPendingTranscriptCompletions(runId) {

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Incomplete — final audit found a required Phase 4 workflow failure.
+**Status:** Complete — Phase 4 final-audit workflow passed and is ready for final audit.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -24,18 +24,18 @@ This is a replacement, not a compatibility project.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
-- [ ] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow.
+- [x] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow.
 - [x] Audit follow-up — The controller owns and immediately stops the raw `getUserMedia` stream while `createBufferedCapture` is still pending, with deterministic coverage for cancel, runtime switch, and disposal during buffered-capture setup.
 
-## Current final-audit finding
+## Resolved final-audit finding
 
-The implementation is not complete because the required deterministic Phase 4 workflow failed during final review:
+The required deterministic Phase 4 workflow failure found during final review is resolved.
 
 ```text
 node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
 ```
 
-Artifact:
+Original failing artifact:
 
 ```text
 .recordings/instant-voice-capture-phase4-workflow/20260718T041837686Z
@@ -50,6 +50,16 @@ pnpm -C desktop exec vitest run src/renderer/src/features/global-speech/buffered
 node --test desktop/tests/electron/instant-voice-capture-live-openai-credentials.test.mjs desktop/tests/electron/instant-voice-capture-live-openai-artifacts.test.mjs
 ```
 
+Final passing artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T043223381Z
+```
+
+The browser fixture now observes the processed media track with an AudioWorklet probe instead of an interval-sampled analyser, and the workflow asserts that every finished capture's `processed_audio_marker_observed` event came from that worklet observer. The local-readiness cohorts are interleaved with a short post-idle settle between samples so the p95 comparison measures the next capture's already-authorized startup instead of teardown overlap from the previous sample.
+
+The final run passed with 20 samples in each cohort: the 0 ms provider-delay p95 was `32.5 ms`, the 1,500 ms provider-delay p95 was `28.7 ms`, and the absolute p95 difference was `3.8 ms <= 1000 / 60 ms`.
+
 ## Resolved audit follow-up
 
 The pending-setup cancellation contract is complete. After `getUserMedia` resolves, `app-shell-speech-capture-controller.ts` owns the raw input stream until the buffered lease is installed. `resetCapture()` immediately stops that pending raw stream on cancel, runtime switch, and disposal, and late buffered leases are closed without changing the current state.
@@ -60,13 +70,13 @@ The core result is sound: the root-`.env` live OpenAI workflow completed the exp
 
 The production teardown correction is complete: the renderer root now uses standard page lifecycle boundaries (`beforeunload`, with non-persisted `pagehide` fallback) for Electron and web, active app-shell controllers register production teardown callbacks, the Phase 4 workflow exercises a real reload while capture is in flight, and the finalized fixture evidence asserts `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`. The removed private renderer teardown route and query gate are absent from source and generated web assets.
 
-The final performance correction is complete: the Phase 4 workflow keeps one explicit cold warm-up run, collects 20 already-authorized local-readiness samples for each of the 0 ms and 1,500 ms provider-delay cohorts, calculates nearest-rank p95 for both cohorts, enforces `100 ms` p95 and `1000 / 60 ms` p95-difference budgets, and reports the raw samples and p95 values in `docs/reports/performance/instant-voice-capture-phase0-20260717.md`.
+The final performance correction is complete: the Phase 4 workflow keeps one explicit cold warm-up run, collects 20 already-authorized local-readiness samples for each of the 0 ms and 1,500 ms provider-delay cohorts, interleaves those cohorts, calculates nearest-rank p95 for both cohorts, enforces `100 ms` p95 and `1000 / 60 ms` p95-difference budgets, and reports the raw samples and p95 values in `docs/reports/performance/instant-voice-capture-phase0-20260717.md`.
 
 ## Completed final-audit correction
 
 ### Performance contract
 
-- The workflow keeps one explicit cold warm-up measurement, then collects 20 already-authorized local-readiness samples in each of the 0 ms and 1,500 ms provider-delay cohorts on the pinned Electron workflow.
+- The workflow keeps one explicit cold warm-up measurement, then collects 20 already-authorized local-readiness samples in each of the 0 ms and 1,500 ms provider-delay cohorts on the pinned Electron workflow. The cohorts are interleaved with a short post-idle settle between samples so repeated-capture teardown does not bias one provider-delay cohort.
 - It calculates and reports nearest-rank p95 for each cohort. Each p95 must be at most 100 ms, and the absolute difference between the two p95 values must be at most `1000 / 60` ms (one 60 Hz rendered frame).
 - The former 50 ms spread allowance has been replaced with exact p95 and p95-difference assertions.
 - The performance report includes cohort size, raw artifact-backed measurements, p95 values, and the p95 difference.

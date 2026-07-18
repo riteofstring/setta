@@ -242,3 +242,34 @@ The workflow keeps one explicit cold warm-up measurement, then collects 20 alrea
 | 1,500 ms p95 budget | `81.3 ms <= 100 ms` |
 | Absolute p95 difference | `0.1 ms <= 16.666666666666668 ms` |
 | Workflow status | `passed` |
+
+## Phase 4 Final Audit Correction
+
+Workflow:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T043223381Z
+```
+
+The final-audit failure at `.recordings/instant-voice-capture-phase4-workflow/20260718T041837686Z` was caused by the browser fixture's interval-sampled analyser missing one short processed-track marker. The Phase 4 fixture now installs a normal AudioWorklet probe for the processed media stream and the workflow asserts that finished captures observe `processed_audio_marker_observed` through that worklet path.
+
+The cohort collection also alternates provider delays and waits 120 ms after the shell returns idle before taking the next sample. The measured interval still starts at `capture_click`; the settle keeps the p95 comparison from attributing previous-sample audio teardown overlap to one provider-delay cohort.
+
+| Provider setup delay | Cohort size | Click-to-local-recording samples | Nearest-rank p95 |
+| ---: | ---: | --- | ---: |
+| 0 ms | 20 | 26.3, 30.8, 32.5, 32.5, 32.0, 31.7, 26.0, 28.8, 26.5, 28.8, 29.1, 29.3, 28.7, 28.3, 24.8, 28.7, 24.4, 27.5, 56.1, 26.3 ms | 32.5 ms |
+| 1,500 ms | 20 | 28.7, 28.1, 26.8, 27.2, 26.7, 26.6, 26.2, 26.7, 25.8, 26.5, 26.4, 24.7, 23.7, 25.3, 24.5, 50.1, 26.4, 23.8, 24.9, 27.5 ms | 28.7 ms |
+
+| Check | Result |
+| --- | --- |
+| 0 ms p95 budget | `32.5 ms <= 100 ms` |
+| 1,500 ms p95 budget | `28.7 ms <= 100 ms` |
+| Absolute p95 difference | `3.8 ms <= 16.666666666666668 ms` |
+| Processed marker observer | `AudioWorklet` |
+| Workflow status | `passed` |
