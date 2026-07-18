@@ -1253,9 +1253,9 @@ or Linux host evidence from this session:
   and `brew list --cask` did not show an installed Windows/Linux VM or
   container helper from the checked runner set.
 - `GITHUB_TOKEN` and `GH_TOKEN` are not present in this shell.
-- `ssh-add -l` reported no identities, and `GIT_TERMINAL_PROMPT=0 git
-  ls-remote --heads origin` failed with `signing failed for ED25519-SK` and
-  `Permission denied (publickey)`.
+- SSH credential checks found no identities, and the noninteractive origin probe
+  failed because ED25519-SK signing failed and public-key authentication was
+  denied.
 - The macOS Git credential helper emitted no usable GitHub HTTPS credential
   fields.
 - The unauthenticated GitHub API returned `404` for the repository's
