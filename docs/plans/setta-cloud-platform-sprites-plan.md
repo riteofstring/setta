@@ -1474,3 +1474,19 @@ Stop and reassess rather than hiding the problem if any of these occur:
   engineering proceeds on Sprites while Fly escalation continues. The
   accept-versus-rearchitect owner decision memo is due after the 48-hour
   wake.
+- 2026-07-16: Overnight offline Phase 2 build-out under the build-while-blocked
+  amendment, all delegated to Codex and lead-reviewed with independent test
+  and formatter runs: runtime release install loop with signed-artifact
+  verification and rollback (`internal/runtimeinstall`); runtime identity and
+  setup attestation (`internal/runtimecapability`, `internal/runtimesetup`,
+  `/runtime/info`, `/setup/attestation`); provider-neutral HTTPS origin/host
+  allowlists and typed capability diagnostics; provider-neutral
+  `ServiceSpec.RunAs` with a documented setpriv mapping in the Sprites
+  adapter; the deterministic lifecycle test battery (credential-epoch cases
+  deferred until the credential issuer exists); and the rule-27 provider
+  conformance suite with a shared fake provider. Soak 48h cohort remained
+  individually `cold` through 06:08Z without waking. Drafted the cold-gate
+  decision memo (`docs/plans/sprites-cold-gate-decision-memo.md`, Option A
+  recommended, pending 48h result and owner sign-off). All source remains
+  uncommitted pending the 48h wake and scoped quality gates. Evidence:
+  `docs/reports/2026-07-16-sprites-phase2-overnight.md`.
