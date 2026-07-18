@@ -75,8 +75,10 @@ export class BufferedMicrophoneWorkletEngine {
     const events: BufferedMicrophoneWorkletMessage[] = [];
     switch (this.mode) {
       case "buffering":
-        this.markReady(events);
         this.enqueueInput(input, events);
+        if (!isTerminalMode(this.mode)) {
+          this.markReady(events);
+        }
         this.emittedSilenceFrames += output.length;
         break;
       case "released":

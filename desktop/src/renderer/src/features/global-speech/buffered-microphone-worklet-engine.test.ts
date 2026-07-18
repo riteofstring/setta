@@ -42,6 +42,18 @@ describe("buffered microphone worklet engine", () => {
     });
   });
 
+  test("does not report readiness when the first input overflows", () => {
+    const engine = engineWithCapacity(1);
+    const output = new Float32Array(2);
+
+    const events = engine.process(samples(1, 2), output);
+
+    expect([...output]).toEqual([0, 0]);
+    expect(events.map((event) => event.type)).toEqual(["overflow"]);
+    expect(engine.active).toBe(false);
+    expect(engine.metrics().queuedFrames).toBe(0);
+  });
+
   test("releases retained frames once and keeps a fixed backlog while input continues", () => {
     const engine = engineWithCapacity(8);
     engine.process(samples(1, 2), new Float32Array(2));
