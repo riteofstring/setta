@@ -9,6 +9,7 @@ import {
   assertArtifactsExcludeMarkers,
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -16,13 +17,16 @@ import {
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
+  waitForState,
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { saveOpenAIVoiceCredentialThroughSettings } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "global-speech-session";
+const workflowTimeoutMs = 30_000;
 
 if (options.help) {
   console.log(
@@ -41,24 +45,34 @@ await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
 const provider = await startSpeechTranscriptionProviderFixture();
 let context = null;
+let credentialSetup;
 let firstAcceptedInput;
 let secondAcceptedInput;
 let firstMasterVoiceSelection;
 let secondMasterVoiceSelection;
+let restoredTranscriptionSession;
 const runtimeDeviceTokens = [];
 
 try {
   context = await launchElectronCdpContext({
     artifactDir: firstLaunchDir,
     extraEnv: {
-      OPENAI_API_KEY: provider.apiKey,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: provider.baseURL,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  const workspaceId = await ensureWorkspaceOpen(context.client);
   runtimeDeviceTokens.push((await readLocalRuntimeAccess(fixture.appDataDir)).deviceToken);
+
+  const initialCapabilities = await context.client.evaluate(
+    "window.setta.speech.readCapabilities()",
+  );
+  assertUnconfiguredCapabilities(initialCapabilities);
+  credentialSetup = await saveOpenAIVoiceCredentialThroughSettings(context.client, provider.apiKey);
+  assertProviderRequestSequence(provider.requests, ["/v1/realtime/client_secrets"]);
 
   const capabilities = await context.client.evaluate("window.setta.speech.readCapabilities()");
   assertConfiguredCapabilities(capabilities);
@@ -82,12 +96,10 @@ try {
   assertIdempotentMasterInput(firstAcceptedInput, duplicate, masterInputRequest.input);
   await assertChangedMasterInputConflicts(context.client, masterInputRequest);
   provider.assertHealthy();
-  if (
-    provider.requests.length !== 1 ||
-    provider.requests[0]?.path !== "/v1/realtime/client_secrets"
-  ) {
-    throw new Error(`unexpected provider operations: ${JSON.stringify(provider.requests)}`);
-  }
+  assertProviderRequestSequence(provider.requests, [
+    "/v1/realtime/client_secrets",
+    "/v1/realtime/client_secrets",
+  ]);
 
   await captureScreenshot(context.client, join(firstLaunchDir, "global-speech-session.png"));
   await stopElectronCdpContext(context);
@@ -96,14 +108,18 @@ try {
   context = await launchElectronCdpContext({
     artifactDir: secondLaunchDir,
     extraEnv: {
-      OPENAI_API_KEY: provider.apiKey,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: provider.baseURL,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   runtimeDeviceTokens.push((await readLocalRuntimeAccess(fixture.appDataDir)).deviceToken);
+  const restoredCapabilities = await context.client.evaluate(
+    "window.setta.speech.readCapabilities()",
+  );
+  assertConfiguredCapabilities(restoredCapabilities);
   secondMasterVoiceSelection = await context.client.evaluate(
     "window.setta.speech.readMasterVoiceSelection()",
   );
@@ -113,6 +129,15 @@ try {
       `master voice selection changed across restart: ${JSON.stringify({ firstMasterVoiceSelection, secondMasterVoiceSelection })}`,
     );
   }
+  restoredTranscriptionSession = await context.client.evaluate(
+    "window.setta.speech.createTranscriptionSession()",
+  );
+  assertTranscriptionSession(restoredTranscriptionSession, provider.clientSecret);
+  assertProviderRequestSequence(provider.requests, [
+    "/v1/realtime/client_secrets",
+    "/v1/realtime/client_secrets",
+    "/v1/realtime/client_secrets",
+  ]);
   secondAcceptedInput = await submitMasterInput(context.client, masterInputRequest);
   assertIdempotentMasterInput(firstAcceptedInput, secondAcceptedInput, masterInputRequest.input);
   await captureScreenshot(context.client, join(secondLaunchDir, "master-input-restored.png"));
@@ -124,15 +149,23 @@ try {
     [provider.apiKey, provider.clientSecret, ...runtimeDeviceTokens],
     "private speech or runtime credential",
   );
+  await assertArtifactsExcludeMarkers(
+    fixture.appDataDir,
+    [provider.apiKey, provider.clientSecret],
+    "private speech credential persisted state",
+  );
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
+    credentialSetup,
     easyButtonPaneCount,
     masterInputAcceptedAt: firstAcceptedInput.acceptedAt,
     masterInputSequence: firstAcceptedInput.sequence,
     providerOperationCount: provider.requests.length,
     restartPreservedMasterInput: firstAcceptedInput.acceptedAt === secondAcceptedInput.acceptedAt,
     restartPreservedMasterVoice: firstMasterVoiceSelection,
+    restoredTranscriptionModel: restoredTranscriptionSession.transcriptionModel,
     status: "passed",
+    workspaceId,
   });
   console.log(`Electron global speech session workflow passed: ${artifactDir}`);
 } catch (error) {
@@ -151,6 +184,43 @@ try {
   await rm(fixture.tempRoot, { force: true, recursive: true });
 }
 
+async function ensureWorkspaceOpen(client) {
+  const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
+  if (validWorkspaceId(initialWorkspaceId)) {
+    return initialWorkspaceId;
+  }
+  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  return waitForState(
+    client,
+    workspaceIdExpression(),
+    (workspaceId) => validWorkspaceId(workspaceId),
+    workflowTimeoutMs,
+  );
+}
+
+function workspaceIdExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+  })()`;
+}
+
+function validWorkspaceId(workspaceId) {
+  return workspaceId !== "" && workspaceId !== "empty";
+}
+
+function assertUnconfiguredCapabilities(capabilities) {
+  if (
+    capabilities?.providerStatus !== "not_configured" ||
+    capabilities.transcriptionModel !== "gpt-realtime-whisper" ||
+    capabilities.maximumRecordingSeconds !== 120 ||
+    capabilities.maximumTranscriptCharacters !== 8000
+  ) {
+    throw new Error(`invalid unconfigured speech capabilities: ${JSON.stringify(capabilities)}`);
+  }
+  assertVoiceCatalog(capabilities.voiceCatalog);
+}
+
 function assertConfiguredCapabilities(capabilities) {
   if (
     capabilities?.providerStatus !== "configured" ||
@@ -161,6 +231,13 @@ function assertConfiguredCapabilities(capabilities) {
     throw new Error(`invalid global speech capabilities: ${JSON.stringify(capabilities)}`);
   }
   assertVoiceCatalog(capabilities.voiceCatalog);
+}
+
+function assertProviderRequestSequence(requests, expectedPaths) {
+  const paths = requests.map((request) => request.path);
+  if (JSON.stringify(paths) !== JSON.stringify(expectedPaths)) {
+    throw new Error(`unexpected provider operations: ${JSON.stringify(paths)}`);
+  }
 }
 
 function assertVoiceCatalog(catalog) {

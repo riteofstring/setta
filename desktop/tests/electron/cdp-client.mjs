@@ -57,6 +57,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.speechCredentialByokVersion === "setta-speech-credential-byok-driver-v1"',
+    path: join(driverScriptDir, "speech-credential-byok-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.topicConversationPerformanceVersion === "setta-topic-conversation-performance-driver-v2"',
     path: join(driverScriptDir, "topic-conversation-performance-driver.js"),
   },

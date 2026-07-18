@@ -35,7 +35,14 @@ credential card through typed Settings navigation. Voice catalog and
 master/narrator selection controls remain usable while OpenAI voice is
 disconnected, with renderer coverage for the not-configured provider state.
 When a remote runtime is active, the Voices card now separately labels the Local
-desktop credential and the active remote runtime's own voice status.
+desktop credential and the active remote runtime's own voice status. Phase 4
+has begun: the registered deterministic `global-speech-session` Electron
+workflow now provisions the fake OpenAI speech key through Settings → Voices,
+with `OPENAI_API_KEY` removed from the Electron child environment, production
+renderer/preload/main/authenticated HTTP/provider/vault paths exercised,
+restart restoration proven, credential endpoint recording redacted, and
+artifact plus temporary app-data scans covering the fake long-lived and
+ephemeral secret markers.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -570,7 +577,8 @@ environment-based desktop product behavior.
       `basic_text`. Local host-confirmation attempt recorded in
       `docs/reports/byok-desktop-speech-safe-storage-20260718.md`; a current
       local recheck again found Docker unavailable and no local Windows/Linux
-      runner, so Windows and Linux host results remain pending.
+      runner, so Windows and Linux host results remain pending. The latest
+      implementation pass repeated that recheck with the same result.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
@@ -617,8 +625,14 @@ environment-based desktop product behavior.
 
 ### Phase 4 — Production workflows, live provider, and cleanup
 
-- [ ] Add a deterministic Electron BYOK workflow through production
-      renderer/preload/main/HTTP/provider/store paths.
+- [x] Add a deterministic Electron BYOK workflow through production
+      renderer/preload/main/HTTP/provider/store paths. The registered
+      `global-speech-session` workflow now opens a temporary workspace, saves
+      the fake OpenAI key through Settings → Voices, validates through the
+      provider fixture, persists through the Electron vault, loads the local
+      runtime, restarts without `OPENAI_API_KEY`, restores from the vault, and
+      scans finalized artifacts plus temporary app data for fake long-lived and
+      ephemeral secret markers.
 - [ ] Cover initial setup, rejected candidate, successful replacement, removal,
       app/backend restart, renderer reload, runtime switch, and local-runtime
       replacement.
