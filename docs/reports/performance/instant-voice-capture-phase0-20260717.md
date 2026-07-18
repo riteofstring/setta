@@ -59,25 +59,43 @@ The disposable browser harness uses an `AudioWorkletNode` gate between a synthet
 | Raw stop to gate drain | 639.1 ms |
 | Explicit post-roll | 3,528 frames |
 
-## Pending Phase 0 Work
+## Live OpenAI Smoke
 
-The live OpenAI processed-track smoke test remains pending and should be appended here when credentials are deliberately available. The disposable local browser feasibility gate has passed.
-
-Credential check on 2026-07-17T23:22:34Z: `OPENAI_API_KEY` was absent from the task environment, so the live OpenAI processed-track smoke was not run. This is not provider-integration evidence and does not close Phase 0.4.
-
-The live smoke workflow is now registered for the explicit live tier:
+The live smoke workflow is registered for the explicit live tier:
 
 ```text
 node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-live-openai --skip-build
 ```
 
-No-credential verification on 2026-07-17 wrote a blocked artifact and exited nonzero before launching a provider-backed smoke:
+Historical no-credential verification on 2026-07-17 wrote a blocked artifact and exited nonzero before launching a provider-backed smoke:
 
 ```text
 .recordings/instant-voice-capture-phase0-live-openai/20260717T232234303Z
 ```
 
-That artifact records `status: "blocked"` with reason `OPENAI_API_KEY was absent from the task environment`. This keeps Phase 0.4 open until a deliberate live credential run appends a passed transcript result.
+That artifact records `status: "blocked"` with reason `OPENAI_API_KEY was absent from the task environment`. It is retained as defect evidence for the old entrypoint and is superseded by the passed registered workflow below.
+
+Passed provider result on 2026-07-17 used the ignored repository root `.env` with `OPENAI_API_KEY` deliberately absent from the invoking shell:
+
+```text
+.recordings/instant-voice-capture-phase0-live-openai/20260717T234416139Z
+```
+
+| Check | Result |
+| --- | --- |
+| Workflow status | `passed` |
+| Credential source | `root-env` |
+| Synthesis model | `gpt-4o-mini-tts` |
+| Synthesis voice | `alloy` |
+| Synthesized audio | 165,644 bytes |
+| Transcription model | `gpt-realtime-whisper` |
+| WebRTC endpoint | `https://api.openai.com/v1/realtime/calls` |
+| Processed destination stream | 1 live audio track |
+| Raw track stop state | `ended` |
+| Expected transcript | `This is a live smoke test for instant voice capture.` |
+| Completed transcript | `This is a live smoke test for instant voice capture.` |
+
+The passed artifact includes `input_prefix_retained`, `webrtc_ready`, `output_prefix_observed`, `raw_track_stopped`, `gate_drained`, `transcript_commit_sent`, and `transcript_completed`. The workflow also verified that retained artifacts excluded both the root OpenAI API key and the ephemeral transcription client secret.
 
 ## Phase 4 After Results
 

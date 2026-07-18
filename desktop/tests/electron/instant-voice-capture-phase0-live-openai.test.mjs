@@ -20,6 +20,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { resolveLiveOpenAIApiKey } from "./instant-voice-capture-live-openai-credentials.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "instant-voice-capture-phase0-live-openai";
@@ -40,16 +41,19 @@ if (options.help) {
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
 await writeLatestRecordingPointer(workflowName, artifactDir);
 
-const apiKey = process.env.OPENAI_API_KEY ?? "";
-if (apiKey === "") {
+const resolvedCredential = await resolveLiveOpenAIApiKey({
+  workflowModuleURL: import.meta.url,
+});
+if (resolvedCredential.status === "blocked") {
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
-    reason: "OPENAI_API_KEY was absent from the task environment",
+    reason: resolvedCredential.reason,
     status: "blocked",
     workflowName,
   });
-  throw new Error("OPENAI_API_KEY is required for the live OpenAI processed-track smoke");
+  throw new Error(resolvedCredential.reason);
 }
+const apiKey = resolvedCredential.apiKey;
 
 if (process.env.SETTA_E2E_OPENAI_SPEECH_BASE_URL) {
   await writeJson(join(artifactDir, "summary.json"), {
@@ -109,6 +113,7 @@ try {
     result,
     session: redactedSession(session),
     status: "passed",
+    credentialSource: resolvedCredential.source,
     synthesis: {
       audioBytes: audio.audioBytes,
       model: capabilities.synthesisModel,
