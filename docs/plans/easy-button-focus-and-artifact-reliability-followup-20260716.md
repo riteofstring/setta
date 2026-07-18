@@ -19,7 +19,8 @@ reliable when an agent selects an artifact.
 
 - [x] Live Codex artifact acceptance now requires the first-turn typed table artifact
   outcome. `TestBackendTopicConversationArtifactWithLiveCodex` submits one supplied-data table
-  request and fails unless that completed turn creates exactly one table artifact for the turn.
+  request and fails unless that completed turn creates exactly one table artifact for the turn with
+  the requested title.
 
 ## Evidence
 

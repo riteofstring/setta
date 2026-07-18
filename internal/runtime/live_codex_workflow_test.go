@@ -191,6 +191,8 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 	unsetRuntimeEnv(t, "OPENAI_API_KEY")
 	requireRuntimeLiveCodexChatGPTAuth(t)
 
+	const expectedTableTitle = "Language line counts"
+
 	config := testConfig(t)
 	config.Version = "test"
 	server, ready := startRuntimeTestServer(t, config)
@@ -208,7 +210,7 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		baseURL,
 		created.Conversation.ID,
 		"live-topic-artifact-table-first-turn",
-		"Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Create a durable user-facing table titled Language line counts with columns language and lines, and one row per supplied language. Final prose should only confirm that the table is ready.",
+		fmt.Sprintf("Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Create a durable user-facing table titled %s with columns language and lines, and one row per supplied language. Final prose should only confirm that the table is ready.", expectedTableTitle),
 	)
 	route := waitForRuntimeLiveConversationRoute(
 		t,
@@ -244,7 +246,7 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		},
 		http.StatusOK,
 	)
-	assertRuntimeLiveTableArtifact(t, latestTurn.ID, metadata, artifact)
+	assertRuntimeLiveTableArtifact(t, latestTurn.ID, expectedTableTitle, metadata, artifact)
 }
 
 func waitForRuntimeLiveMasterRoute(
@@ -306,6 +308,7 @@ func runtimeLiveTableArtifactMetadataForTurn(
 func assertRuntimeLiveTableArtifact(
 	t *testing.T,
 	turnID string,
+	expectedTitle string,
 	metadata conversation.ArtifactMetadata,
 	artifact conversation.Artifact,
 ) {
@@ -318,6 +321,8 @@ func assertRuntimeLiveTableArtifact(
 		metadata.ConversationID != artifact.ConversationID ||
 		metadata.Kind != artifact.Kind ||
 		metadata.Title != artifact.Title ||
+		metadata.Title != expectedTitle ||
+		artifact.Title != expectedTitle ||
 		artifact.Kind != conversation.ArtifactKindTable ||
 		artifact.Table == nil ||
 		!runtimeLiveArtifactTableContains(artifact.Table, "Go", "34") ||
