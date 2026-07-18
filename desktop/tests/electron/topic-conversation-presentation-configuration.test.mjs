@@ -310,7 +310,7 @@ async function waitForInitialTopic(backend, workspaceId) {
 async function openVoiceSettings(client) {
   const opened = await client.driver("presentationConfigurationOpenSettings");
   if (!opened.ready && !opened.opened) {
-    throw new Error("Settings pane was unavailable for voice configuration");
+    throw new Error("Settings page was unavailable for voice configuration");
   }
   await waitForSelector(client, "#settings-subtab-speech", workflowTimeoutMs);
   const tab = await client.driver("presentationConfigurationOpenGlobalTab");

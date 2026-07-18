@@ -65,6 +65,7 @@ import type {
   ConversationEventReleaseRequest,
   ConversationEventSubscriptionRequest,
 } from "./conversation-ipc";
+import type { SpeechCredentialSaveRequest, SpeechCredentialSettings } from "./speech-ipc";
 
 export interface RuntimeVersions {
   app: string;
@@ -220,19 +221,6 @@ export type BackendProcessStatus =
   | { status: "offline"; message: string }
   | { status: "failed"; message: string };
 
-export type BackendEventStreamStatus =
-  | { status: "connecting"; attempt: number; message: string }
-  | { status: "connected"; lastSequence: number; lastStreamId: string; message: string }
-  | {
-      status: "reconnecting";
-      attempt: number;
-      lastSequence: number;
-      lastStreamId: string;
-      message: string;
-    }
-  | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
-  | { status: "stopped"; message: string };
-
 export type RuntimeConnectionStatus =
   | "disconnected"
   | "connecting"
@@ -354,9 +342,15 @@ export interface SettaAPI {
   speech: {
     cancelSynthesis?: (operationId: string) => Promise<void>;
     createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
+    onCredentialSettingsChanged?: (
+      listener: (settings: SpeechCredentialSettings) => void,
+    ) => () => void;
     readCapabilities: () => Promise<SpeechCapabilities>;
+    readCredentialSettings?: () => Promise<SpeechCredentialSettings>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
     readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
+    removeCredential?: () => Promise<SpeechCredentialSettings>;
+    saveCredential?: (request: SpeechCredentialSaveRequest) => Promise<SpeechCredentialSettings>;
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
     updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;

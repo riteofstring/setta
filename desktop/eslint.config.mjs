@@ -32,15 +32,4 @@ export default tseslint.config(
       sourceType: "module",
     },
   },
-  {
-    files: ["src/renderer/public/sw.js"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      globals: {
-        ...globals.serviceworker,
-        URL: "readonly",
-      },
-      sourceType: "script",
-    },
-  },
 );

@@ -593,7 +593,6 @@ const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurface
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
-  "settings-dom": (pane) => createReactDomSurfaceAdapter(pane),
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
 };
 

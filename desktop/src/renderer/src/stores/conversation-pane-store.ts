@@ -5,7 +5,7 @@ import type { WorkspaceScene } from "../workspace-layout/types";
 export interface ConversationPaneWorkspaceState {
   focusedConversationId: string | null;
   focusedPaneId: string;
-  paneIdsByConversationId: ReadonlyMap<string, readonly string[]>;
+  paneIdByConversationId: ReadonlyMap<string, string>;
 }
 
 interface ConversationPaneStore {
@@ -44,21 +44,22 @@ function conversationPaneWorkspaceState(
   scene: WorkspaceScene,
   focusedPaneId: string,
 ): ConversationPaneWorkspaceState {
-  const paneIdsByConversationId = new Map<string, string[]>();
+  const paneIdByConversationId = new Map<string, string>();
   let focusedConversationId: string | null = null;
   for (const pane of scene.panes) {
     if (pane.surfaceKind !== "easy-button") {
       continue;
     }
     const conversationId = pane.easyButtonConfig.conversationId;
-    const paneIds = paneIdsByConversationId.get(conversationId) ?? [];
-    paneIds.push(pane.paneId);
-    paneIdsByConversationId.set(conversationId, paneIds);
+    if (paneIdByConversationId.has(conversationId)) {
+      throw new Error(`Conversation ${conversationId} is bound to multiple panes.`);
+    }
+    paneIdByConversationId.set(conversationId, pane.paneId);
     if (pane.paneId === focusedPaneId) {
       focusedConversationId = conversationId;
     }
   }
-  return { focusedConversationId, focusedPaneId, paneIdsByConversationId };
+  return { focusedConversationId, focusedPaneId, paneIdByConversationId };
 }
 
 function equalConversationPaneWorkspaceState(
@@ -69,17 +70,12 @@ function equalConversationPaneWorkspaceState(
     !current ||
     current.focusedConversationId !== next.focusedConversationId ||
     current.focusedPaneId !== next.focusedPaneId ||
-    current.paneIdsByConversationId.size !== next.paneIdsByConversationId.size
+    current.paneIdByConversationId.size !== next.paneIdByConversationId.size
   ) {
     return false;
   }
-  for (const [conversationId, nextPaneIds] of next.paneIdsByConversationId) {
-    const currentPaneIds = current.paneIdsByConversationId.get(conversationId);
-    if (
-      !currentPaneIds ||
-      currentPaneIds.length !== nextPaneIds.length ||
-      currentPaneIds.some((paneId, index) => paneId !== nextPaneIds[index])
-    ) {
+  for (const [conversationId, nextPaneId] of next.paneIdByConversationId) {
+    if (current.paneIdByConversationId.get(conversationId) !== nextPaneId) {
       return false;
     }
   }

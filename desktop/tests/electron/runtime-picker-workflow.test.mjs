@@ -170,6 +170,8 @@ function parseArgs(args) {
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
         break;
+      case "--skip-build":
+        break;
       case "--visible":
         parsed.visible = true;
         break;
@@ -302,7 +304,7 @@ async function waitForSurvivorWorkspacePanes(client, expectedWorkspaceId) {
       snapshot.paneIds.length === snapshot.paneCount &&
       snapshot.paneIds.every((paneId) => paneId !== "") &&
       snapshot.surfaceKinds.every((surfaceKind) =>
-        ["easy-button", "empty-frame", "settings-dom"].includes(surfaceKind),
+        ["easy-button", "empty-frame"].includes(surfaceKind),
       ),
     workflowTimeoutMs,
   );
