@@ -4,9 +4,14 @@ Plan: `docs/plans/easy-button-multi-pane-narrator-clarity-20260718.md`
 
 ## 2026-07-18 Baseline
 
-This entry records repository-local current behavior before the Easy Button, Settings page, narrator prose, and speech cadence cutover. It uses current source, focused tests, and deterministic Electron fixtures. Live OpenAI synthesis and GUI/native-view screenshot capture are external release gates and should not be retried as implementation-loop work without those external capabilities already available.
+This entry records repository-local current behavior before the Easy Button, Settings page, narrator prose, and speech cadence cutover. It uses current source and deterministic fixture assertions. Live OpenAI synthesis and GUI/native-view screenshot capture are external release gates and should not be retried as implementation-loop work without those external capabilities already available.
 
-Recent plan history was checked before this entry. The only file-specific plan commit was `b9c7e4440 docs: plan workspace and narration UX improvements`, so there was no prior implementation attempt for this plan file to repeat.
+Review correction: Agent 1's completion claim is narrowed to repository-local evidence. The unavailable OpenAI synthesis samples, GUI/native-view screenshots, and nontechnical live/provider corpus sample are not counted as completed work.
+
+Recent history checked in review:
+
+- The path-specific log for this plan and report contains only `b9c7e4440 docs: plan workspace and narration UX improvements` and `4daee4440 docs: record easy button narrator baseline`.
+- Recent baseline/status/audit commits also include BYOK, instant voice, and Easy Button follow-up work, but they target different plan steps. No repeated same-step commit for this plan was accepted here.
 
 ### Current Narrator Contract
 
@@ -24,16 +29,16 @@ The strict schemas currently enforce those bounds but do not describe field purp
 
 | Case | Current output source | Current text | Chars | Words | Internal-mechanism leakage | Complete enough | Tells what changed |
 | --- | --- | --- | ---: | ---: | --- | --- | --- |
-| Nontechnical work | Deterministic focus projection shape with nontechnical objective | "Plan a quiet weekend meal for friends." | 38 | 7 | No | Yes | Partly; it names the topic but no change |
+| Nontechnical work | Gap: current deterministic fixtures do not capture this case, and a synthetic placeholder is not accepted as current output evidence | Not captured | n/a | n/a | Unknown | No | No |
 | Explicitly technical work | `internal/narration/caller_test.go` focus fixture | "Implementing the narrator provider boundary." | 44 | 5 | Yes | Partly | No; it names implementation machinery |
-| Real milestone | `desktop/tests/electron/fixtures/fake-topic-codex-app-server.mjs` projection fixture | "Narrator evaluated projector catch-up through sequence 3." | 57 | 7 | Yes | No | No; it reports evaluation mechanics |
+| Real milestone | `internal/narration/service_projector_test.go` projection fixture | "Narrator evaluated projector catch-up through sequence 3." | 57 | 7 | Yes | No | No; it reports evaluation mechanics |
 | No meaningful phase change | Fake provider when prior milestones exist or simultaneous completion steering is present | "" | 0 | 0 | No | Yes | Yes; silence is appropriate |
 | Approval waiting | Fake status reply fixture | "The primary topic agent is still working and has not been steered or interrupted." | 81 | 14 | No | Partly | Partly; it describes activity but not the approval/blocker |
 | Failure | `internal/narration/failure_test.go` degradation fixture | "Narrator model is unavailable." | 30 | 4 | Yes | Yes | Yes; direct failure wording |
 | Terminal completion with caveat | `internal/narration/caller_test.go` invalid terminal fixture | "This summary cannot cover a terminal event the narrator did not observe." | 72 | 12 | Yes | Yes | Yes; caveat is explicit |
 | Status request | `internal/narration/caller_test.go` status fixture | "The narrator provider boundary is being verified." | 49 | 7 | Yes | Partly | No; it reports internal verification |
 
-Baseline finding: current examples are short enough to pass today's validators, but shortness does not make them user-facing. Several deterministic outputs normalize "Narrator", "provider boundary", "projection", "terminal event", or "sequence" even when the user task is not about those implementation details.
+Baseline finding: repository-backed examples are short enough to pass today's validators, but shortness does not make them user-facing. Several deterministic outputs normalize "Narrator", "provider boundary", "projection", "terminal event", or "sequence" even when the user task is not about those implementation details. The nontechnical row remains an explicit evidence gap.
 
 ### Speech Cadence
 
@@ -44,7 +49,7 @@ Repository-local baseline:
 - `internal/speech/service.go` calls the provider with separate text and voice arguments, so there is currently no speech-domain synthesis input that can carry an owned rate.
 - No global-speech renderer code currently sets `HTMLAudioElement.playbackRate`; playback uses synthesized audio at its native cadence.
 
-External release gate: fixed representative master and narrator samples at `1.0` and `1.2`, WAV durations, and listening notes still need to be collected with an available OpenAI synthesis environment. This is release evidence, not implementation-loop work.
+External release gate not completed here: fixed representative master and narrator samples at `1.0` and `1.2`, WAV durations, and listening notes still need to be collected with an available OpenAI synthesis environment. This is release evidence, not implementation-loop work.
 
 ### Settings and Workspace Layout
 
@@ -59,7 +64,13 @@ Repository-local baseline:
 - `desktop/src/renderer/src/workspace-layout/benchmark-scene.ts` still seeds `settings-dom` into benchmark panes and labels it "real settings".
 - `desktop/src/renderer/src/workspace-layout/runtime-policy.ts` still categorizes `settings-dom` as an always-live workspace surface that freezes during movement.
 
-External release gate: visual/native Browser-view evidence for the current Settings pane and Browser pane screenshots should be collected with the existing Electron workflow when a GUI-capable environment is available. The source and workflow assertions above are the repository-local baseline for implementation planning.
+External release gate not completed here: visual/native Browser-view evidence for the current Settings pane and Browser pane screenshots should be collected with the existing Electron workflow when a GUI-capable environment is available. The source and workflow assertions above are the repository-local baseline for implementation planning.
+
+### Review Verification
+
+- `git diff --check` passed.
+- `./scripts/go.sh test ./internal/narration ./internal/speech ./internal/workspaceui` passed.
+- Live OpenAI synthesis and GUI/native-view screenshots were intentionally not retried because they require external capabilities.
 
 ### Locked Decisions
 

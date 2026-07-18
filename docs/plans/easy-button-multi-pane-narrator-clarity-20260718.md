@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 0 baseline recorded
+**Status:** In progress — Phase 0 repository-local baseline partially recorded; external evidence remains a release gate
 
 **Scope:** Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
@@ -247,11 +247,13 @@ This is a direct correction of current behavior.
 
 ### Phase 0 — Record a small baseline and lock the contracts
 
-- [x] Capture current outputs for a curated narrator corpus: nontechnical work, explicitly technical work, a real milestone, no meaningful phase change, approval waiting, failure, terminal completion with a caveat, and a status request.
-- [x] Record character count, word count, internal-mechanism leakage, completeness, and whether each output tells the user what changed. Do not score shorter output as better when it omits material context.
-- [x] Record external synthesis capture for fixed representative master and narrator samples at `1.0` and `1.2` as a release gate; WAV durations and intelligibility review require an available OpenAI synthesis environment and are not implementation-loop work.
-- [x] Capture the repository-local Settings/native Browser layout baseline from source and the existing settings-pane workflow; visual native-view screenshots remain a GUI-capable release gate rather than implementation-loop work.
-- [x] Append baseline evidence to `docs/reports/narration/narrator-clarity-and-cadence-20260718.md` rather than relying on recollection. Post-change evidence will be appended to the same report during verification.
+- [x] Capture repository-backed current outputs for explicitly technical work, a real milestone, no meaningful phase change, approval waiting, failure, terminal completion with a caveat, and a status request.
+- [ ] Add a repository-backed or live-provider nontechnical corpus sample before judging before/after narrator quality; do not substitute invented prose.
+- [x] Record character count, word count, internal-mechanism leakage, completeness, and whether each captured repository-backed output tells the user what changed. Do not score shorter output as better when it omits material context.
+- [ ] Synthesize fixed representative master and narrator samples at `1.0` and `1.2`; record WAV durations and a brief intelligibility review. This requires an available OpenAI synthesis environment and is not implementation-loop work.
+- [x] Capture the repository-local Settings workspace layout baseline from source and the existing settings-pane workflow.
+- [ ] Capture visual native Browser-view evidence for the current Settings pane and Browser pane screenshots when a GUI-capable environment is available. This is external release evidence and should not be retried in implementation loops.
+- [x] Append repository-local baseline evidence to `docs/reports/narration/narrator-clarity-and-cadence-20260718.md` rather than relying on recollection. Post-change evidence will be appended to the same report during verification.
 - [x] Lock the UI labels, Settings page/return semantics, field safety ceilings, narrator rate, placement semantics, and failure messages named in this plan before implementation.
 
 ### Phase 1 — Make independent new conversations first-class
