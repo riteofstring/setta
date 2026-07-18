@@ -1,12 +1,7 @@
 import { requestOpenAIVoiceConnectionSettings } from "../stores/settings-navigation-store";
 import { workspaceOpenPaneRequestEvent } from "../workspace-layout/open-pane-events";
+import { settingsPaneRequest } from "../workspace-layout/settings-pane-request";
 import type { OpenPaneRequest } from "../workspace-layout/types";
-
-const settingsPaneRequest = {
-  surfaceKind: "settings-dom",
-  title: "Settings",
-  tone: "slate",
-} satisfies OpenPaneRequest;
 
 export function openAIVoiceConnectionSettings(): void {
   requestOpenAIVoiceConnectionSettings();
