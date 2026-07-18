@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import {
   conversationPaneRequestForPresentationIntent,
-  preflightConversationPanePlacement,
   presentConversationPane,
 } from "./conversation-pane-coordinator";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
@@ -81,79 +80,6 @@ describe("conversation pane coordinator", () => {
     expect(store.toScene().panes.some((candidate) => candidate.surfaceKind === "empty-frame")).toBe(
       false,
     );
-  });
-
-  test("opens a newly created conversation in a new pane without consuming the only empty frame", () => {
-    const store = workspaceStore();
-    const initialPaneId = store.focusedPaneId();
-
-    const result = presentConversationPane(store, {
-      conversationId: "conversation_new",
-      destination: { kind: "new-pane" },
-      title: "New conversation",
-      viewAction: "focus-or-open",
-      workspaceId: "workspace_api",
-    });
-
-    expect(result.kind).toBe("opened");
-    if (result.kind !== "opened") {
-      throw new Error(`conversation pane was not opened: ${JSON.stringify(result)}`);
-    }
-    expect(result.paneId).not.toBe(initialPaneId);
-    expect(store.toScene().totalPanes).toBe(2);
-    expect(store.toScene().paneById.get(initialPaneId)?.surfaceKind).toBe("empty-frame");
-  });
-
-  test("opens a newly created conversation in the requested empty frame", () => {
-    const store = workspaceStore();
-    const emptyPaneId = store.focusedPaneId();
-
-    expect(
-      preflightConversationPanePlacement(store, {
-        destination: { kind: "empty-frame", paneId: emptyPaneId },
-        workspaceId: "workspace_api",
-      }),
-    ).toEqual({ kind: "ready" });
-    const result = presentConversationPane(store, {
-      conversationId: "conversation_new",
-      destination: { kind: "empty-frame", paneId: emptyPaneId },
-      title: "New conversation",
-      viewAction: "focus-or-open",
-      workspaceId: "workspace_api",
-    });
-
-    expect(result).toEqual({ kind: "opened", paneId: emptyPaneId });
-    expect(store.toScene().paneById.get(emptyPaneId)).toMatchObject({
-      easyButtonConfig: { conversationId: "conversation_new" },
-      surfaceKind: "easy-button",
-      title: "New conversation",
-    });
-  });
-
-  test("rejects exact empty-frame placement when the selected frame disappeared", () => {
-    const store = workspaceStore();
-
-    expect(
-      preflightConversationPanePlacement(store, {
-        destination: { kind: "empty-frame", paneId: "workspace_pane_missing" },
-        workspaceId: "workspace_api",
-      }),
-    ).toEqual({ kind: "blocked", reason: "The selected frame no longer exists." });
-    const result = presentConversationPane(store, {
-      conversationId: "conversation_new",
-      destination: { kind: "empty-frame", paneId: "workspace_pane_missing" },
-      title: "New conversation",
-      viewAction: "focus-or-open",
-      workspaceId: "workspace_api",
-    });
-
-    expect(result).toEqual({ kind: "blocked", reason: "The selected frame no longer exists." });
-    expect(store.toScene().totalPanes).toBe(1);
-    expect(
-      store
-        .toScene()
-        .panes.some((pane) => pane.easyButtonConfig?.conversationId === "conversation_new"),
-    ).toBe(false);
   });
 
   test("honors a validated preferred pane before the most recently focused matching view", () => {

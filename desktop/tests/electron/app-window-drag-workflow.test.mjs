@@ -22,6 +22,7 @@ import {
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
+const conversationStartTimeoutMs = 45_000;
 const dragDeltaTolerancePx = 35;
 const shellTopBarButtonGapPx = 6;
 const shellTopBarButtonSizePx = 28;
@@ -225,16 +226,18 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
   assertShellTopBarControlSizing(await shellTopBarControlMeasurements(client));
   await assertEffectiveWindowDragRegions(client);
 
-  const maximizeButton = await elementCenter(
+  const maximizeButtonSelector =
+    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])';
+  await waitForElementPhysicallyClickable(
     client,
-    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
+    maximizeButtonSelector,
+    conversationStartTimeoutMs,
   );
+  const maximizeButton = await elementCenter(client, maximizeButtonSelector);
   await dispatchPhysicalMouseClick(client, maximizeButton);
   await waitForPaneMaximized(client, true);
-  const restoreButton = await elementCenter(
-    client,
-    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
-  );
+  await waitForElementPhysicallyClickable(client, maximizeButtonSelector, workflowTimeoutMs);
+  const restoreButton = await elementCenter(client, maximizeButtonSelector);
   await dispatchPhysicalMouseClick(client, restoreButton);
   await waitForPaneMaximized(client, false);
 
@@ -263,6 +266,23 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
 
   await dispatchPhysicalMouseClick(client, toggle);
   await waitForProjectToggleLabel(client, "Hide project sidebar");
+}
+
+async function waitForElementPhysicallyClickable(client, selector, timeoutMs) {
+  await waitForState(
+    client,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return hit instanceof Element && (hit === element || element.contains(hit));
+    })()`,
+    Boolean,
+    timeoutMs,
+  );
 }
 
 async function waitForNewFrameMenu(client, expectedOpen) {

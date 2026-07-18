@@ -108,7 +108,6 @@ export function WorkspaceLayoutArea({
   focusSurfaceRequest = null,
   initialEasyButtonPaneStartup = null,
   onConversationPresentationError,
-  placementPreflightRequest = null,
   onToggleProjectPane,
   platform,
   projectPaneOpen,
@@ -145,7 +144,6 @@ export function WorkspaceLayoutArea({
       mode={mode}
       onToggleProjectPane={onToggleProjectPane}
       onConversationPresentationError={onConversationPresentationError}
-      placementPreflightRequest={placementPreflightRequest}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
       projectPaneWidth={projectPaneWidth}
@@ -167,7 +165,6 @@ function WorkspaceLayoutRuntimeArea({
   mode,
   onToggleProjectPane,
   onConversationPresentationError,
-  placementPreflightRequest,
   platform,
   projectPaneOpen,
   projectPaneWidth,
@@ -329,7 +326,6 @@ function WorkspaceLayoutRuntimeArea({
     focusedPaneId: layoutSnapshot.focusedPaneId,
     layoutRevision: layoutSnapshot.revision,
     onPresentationError: onConversationPresentationError,
-    placementPreflightRequest,
     runLayoutAction,
     runtime,
     stageViewport,

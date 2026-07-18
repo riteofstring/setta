@@ -25,7 +25,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		RuntimeMetadata: httpapi.RuntimeMetadata{
 			InfrastructureProvider: services.infrastructureProvider,
 		},
-		SpeechService:      speechServiceWithCredentialPolicy(config.SpeechCredentialOwner, services.speechService),
+		SpeechService:      services.speechService,
 		WorkspaceUIService: services.workspaceUIService,
 		WorkspaceService:   services.workspaceService,
 	})

@@ -43,9 +43,7 @@ type Config struct {
 	Stdout                     io.Writer
 	Stderr                     io.Writer
 	ShutdownTimeout            time.Duration
-	Speech                     speech.OpenAIProviderConfig
-	SpeechCredentialOwner      SpeechCredentialOwner
-	SpeechStartupAPIKey        string
+	Speech                     speech.OpenAIClientConfig
 }
 
 const (
@@ -67,7 +65,6 @@ type Server struct {
 	drainConversationTurns func(context.Context) error
 	drainMasterRouting     func(context.Context) error
 	drainNarration         func(context.Context) error
-	drainSpeech            func(context.Context) error
 	codexManager           *codexapp.Manager
 	server                 *http.Server
 	listener               net.Listener
@@ -141,7 +138,14 @@ func (config Config) Validate() error {
 	if config.ShutdownTimeout <= 0 {
 		return errors.New("shutdown timeout must be positive")
 	}
-	return validateSpeechConfig(config.Speech, config.SpeechCredentialOwner, config.SpeechStartupAPIKey)
+	return validateSpeechConfig(config.Speech)
+}
+
+func validateSpeechConfig(config speech.OpenAIClientConfig) error {
+	if _, err := speech.NewOpenAIClient(config); err != nil {
+		return fmt.Errorf("speech configuration is invalid: %w", err)
+	}
+	return nil
 }
 
 func validateRuntimeDisplayNameOverride(displayName string) error {
@@ -205,7 +209,6 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		drainConversationTurns: services.conversationService.Shutdown,
 		drainMasterRouting:     services.masterRouteService.Shutdown,
 		drainNarration:         services.narratorService.Shutdown,
-		drainSpeech:            services.speechService.Shutdown,
 		codexManager:           services.codexManager,
 		server:                 newHTTPServer(config, services),
 		listener:               listener,
@@ -318,7 +321,6 @@ func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	defer cancel()
 	_ = server.shutdownNarration(shutdownCtx)
 	_ = server.shutdownMasterRouting(shutdownCtx)
-	_ = server.shutdownSpeech(shutdownCtx)
 	_ = server.shutdownConversationStore()
 	_ = server.shutdownRuntimeAuth()
 	_ = server.shutdownCodex(shutdownCtx)
@@ -382,7 +384,6 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownNarration(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownMasterRouting(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
-	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSpeech(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationStore())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownRuntimeAuth())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
