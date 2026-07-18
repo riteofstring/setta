@@ -4,15 +4,16 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 attempts. The latest
+host confirmations are still open after the 2026-07-18 attempts. The current
 incomplete-step pass recorded in the safeStorage report re-ran the pinned
-macOS probe and the deterministic vault backend-policy test successfully,
-confirmed Docker CLI is installed but still cannot reach the daemon while
-Docker Desktop is blocked on its privileged setup prompt, found no installed
-Windows/Linux runner beyond Docker and Homebrew, confirmed no GitHub token,
-public unauthenticated GitHub Actions result path, or connected GitHub plugin
-was available from this session, and reconfirmed that the reference Codex repo
-has no Electron `safeStorage` probe pattern to reuse. Earlier passes added
+macOS probe with exact policy assertions and re-ran the deterministic vault
+backend-policy test successfully, confirmed Docker CLI is installed but still
+cannot reach the daemon while Docker Desktop is blocked on its privileged setup
+prompt, found no installed Windows/Linux runner beyond Docker and Homebrew,
+confirmed no GitHub token, public unauthenticated GitHub Actions result path,
+SSH identity, macOS Git credential, or connected GitHub plugin was available
+from this session, and reconfirmed that the reference Codex repo has no
+Electron `safeStorage` probe pattern to reuse. Earlier passes added
 `--no-sandbox` to the Linux hosted-runner Electron probe commands so headless
 Ubuntu runners reach the intended safeStorage policy assertions, changed the
 hosted-runner probe to run on relevant pushes as well as manual dispatch while
@@ -645,13 +646,14 @@ environment-based desktop product behavior.
       GitHub API, and reference-repo checks still could not produce actual
       Windows/Linux host output. An earlier follow-up actionability pass fixed
       the production adapter to reject unrecognized Linux backend names. The
-      current host-evidence recheck re-ran the macOS probe and deterministic
-      vault backend-policy test, reconfirmed Docker Desktop is blocked on its
-      privileged setup prompt, found no installed alternate Windows/Linux
-      runner, no GitHub token, no public unauthenticated workflow-result path,
-      no connected GitHub plugin, and no reference-repo probe pattern to reuse,
-      so actual Windows and Linux host evidence remains the only open part of
-      this item.
+      current incomplete-step pass re-ran the macOS probe with exact policy
+      assertions and deterministic vault backend-policy test, reconfirmed
+      Docker Desktop is blocked on its privileged setup prompt, found no
+      installed alternate Windows/Linux runner, no GitHub token, no public
+      unauthenticated workflow-result path, no SSH identity, no macOS Git
+      credential, no connected GitHub plugin, and no reference-repo probe
+      pattern to reuse, so actual Windows and Linux host evidence remains the
+      only open part of this item.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
