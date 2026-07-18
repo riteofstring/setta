@@ -11,7 +11,43 @@
     Object.assign(driver, {
       appWindowDragVersion: version,
       sampleWindowDragRegions,
+      shellTopBarControlMeasurements,
     });
+  }
+
+  function shellTopBarControlMeasurements() {
+    return {
+      masterButton: measuredRect('[data-testid="master-overlay-button"]'),
+      newFrameButton: measuredRect(".workspace-toolbar-menu-button"),
+      projectToggle: measuredRect('[data-testid="project-sidebar-toggle"]'),
+      settingsButton: measuredRect('[data-testid="shell-settings-button"]'),
+      shellTopBar: measuredRect('[data-testid="shell-top-bar"]'),
+      toolbarButton: measuredRect(".workspace-toolbar-button"),
+      toolbarGap: numericGap(".workspace-toolbar-group"),
+    };
+  }
+
+  function measuredRect(selector) {
+    const rect = rectForSelector(selector);
+    if (!rect) {
+      return null;
+    }
+    return {
+      height: rect.height,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      width: rect.width,
+    };
+  }
+
+  function numericGap(selector) {
+    const element = document.querySelector(selector);
+    if (!(element instanceof Element)) {
+      return null;
+    }
+    const gap = Number.parseFloat(getComputedStyle(element).gap);
+    return Number.isFinite(gap) ? gap : null;
   }
 
   function sampleWindowDragRegions() {

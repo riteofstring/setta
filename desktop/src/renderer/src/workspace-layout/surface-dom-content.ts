@@ -193,20 +193,12 @@ type StaticSnapshotRenderer = (host: HTMLElement, pane: WorkspacePane) => HTMLEl
 
 const staticSnapshotRenderers = {
   browser: renderWrappedStaticBrowserSnapshot,
-  "chat-dom": renderWrappedGenericSnapshot,
+  "easy-button": renderWrappedGenericSnapshot,
   "empty-frame": renderWrappedEmptyFrameSnapshot,
   "fake-dom": renderWrappedGenericSnapshot,
   "fake-heavy-dom": renderWrappedGenericSnapshot,
-  "fake-long-chat": renderWrappedGenericSnapshot,
-  "fake-terminal": renderWrappedGenericSnapshot,
-  "git-graph": renderWrappedGenericSnapshot,
-  "workflow-graph": () => null,
   "settings-dom": renderWrappedGenericSnapshot,
-  "semantic-node-details": renderWrappedGenericSnapshot,
   snapshot: () => null,
-  terminal: renderWrappedTerminalSnapshot,
-  "workflow-node-details": renderWrappedGenericSnapshot,
-  "workflow-settings": renderWrappedGenericSnapshot,
 } satisfies Record<SurfaceKind, StaticSnapshotRenderer>;
 
 function renderWrappedStaticBrowserSnapshot(host: HTMLElement, pane: WorkspacePane): HTMLElement {
@@ -214,12 +206,7 @@ function renderWrappedStaticBrowserSnapshot(host: HTMLElement, pane: WorkspacePa
 }
 
 function renderWrappedGenericSnapshot(host: HTMLElement, pane: WorkspacePane): HTMLElement {
-  const rowCount = pane.surfaceKind === "fake-terminal" ? 12 : 4;
-  return wrapStaticSnapshotTexture(host, renderFakePaneContent(host, pane, rowCount));
-}
-
-function renderWrappedTerminalSnapshot(host: HTMLElement): HTMLElement {
-  return wrapStaticSnapshotTexture(host, renderStaticTerminalSnapshot(host));
+  return wrapStaticSnapshotTexture(host, renderFakePaneContent(host, pane, 4));
 }
 
 function renderWrappedEmptyFrameSnapshot(host: HTMLElement, pane: WorkspacePane): HTMLElement {
@@ -258,13 +245,6 @@ function renderStaticBrowserSnapshot(host: HTMLElement, pane: WorkspacePane): HT
   rowThree.style.width = "72%";
 
   content.append(toolbar, title, subtitle, rowOne, rowTwo, rowThree);
-  return content;
-}
-
-function renderStaticTerminalSnapshot(host: HTMLElement): HTMLElement {
-  const document = host.ownerDocument;
-  const content = document.createElement("div");
-  content.className = "workspace-pane-content workspace-terminal-surface";
   return content;
 }
 
