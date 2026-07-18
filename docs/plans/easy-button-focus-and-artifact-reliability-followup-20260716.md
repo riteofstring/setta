@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-16
 
-**Status:** Incomplete; final audit found one remaining Solution 3 instruction gap.
+**Status:** Complete; ready for final audit.
 
 **Scope:** Remove the redundant Easy Button working presentation and make typed artifact delivery
 reliable when an agent selects an artifact.
@@ -11,9 +11,7 @@ reliable when an agent selects an artifact.
 
 - [x] Solution 1: Remove the Easy Button `Working` presentation. Implemented and verified.
 - [x] Solution 2: Present requested status above NOW. Implemented and verified.
-- [ ] Solution 3: Make the artifact tool contract hard to misuse. Partially implemented; the
-  production topic-agent instructions still need the retryable artifact validation failure recovery
-  instruction.
+- [x] Solution 3: Make the artifact tool contract hard to misuse. Implemented and verified.
 - [x] Solution 4: Preserve actionable tool failures end to end. Implemented and verified.
 - [x] Solution 5: Treat failed artifact attempts as unresolved delivery. Implemented and verified.
 
@@ -23,13 +21,12 @@ reliable when an agent selects an artifact.
   outcome. `TestBackendTopicConversationArtifactWithLiveCodex` submits one supplied-data table
   request and fails unless that completed turn creates exactly one table artifact for the turn with
   the requested title.
-- [ ] Production `topicAgentDeveloperInstructions` tells the agent to correct and retry a retryable
+- [x] Production `topicAgentDeveloperInstructions` tells the agent to correct and retry a retryable
   `setta.emit_artifact` validation failure before completing the turn.
 
 ## Next Step
 
-Add the missing retryable artifact validation failure recovery instruction to the production
-topic-agent developer instructions, then rerun the focused artifact tool and live artifact gates.
+No incomplete implementation steps remain.
 
 ## Evidence
 

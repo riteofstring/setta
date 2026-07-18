@@ -183,6 +183,7 @@ Use the bar_chart artifact branch for quantitative comparisons where magnitude m
 Use the markdown artifact branch for durable narrative deliverables.
 Use the file artifact branch when the deliverable is a concrete file path or reference.
 Do not emit an artifact for short conversational answers, exact-text confirmations, acknowledgements, or status replies that do not create standalone durable content.
+If setta.emit_artifact returns a retryable validation failure, correct the invalid fields and retry setta.emit_artifact before completing the turn.
 Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.`
 }
 
