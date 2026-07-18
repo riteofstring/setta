@@ -6,14 +6,16 @@
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
 host confirmations are still open after the 2026-07-18 attempts. The latest
 local recheck recorded in the safeStorage report re-ran the pinned macOS probe
-successfully, confirmed Docker CLI is installed but cannot reach the daemon,
-found no installed Windows/Linux runner beyond Docker and Homebrew, found no
-repository workflow or authenticated GitHub path available from this session,
-and confirmed the reference Codex repo has no Electron `safeStorage` probe
-pattern to reuse. The earlier follow-up actionability pass also tightened the
-production Linux backend allowlist to reject unrecognized Electron backend
-strings with deterministic vault coverage, while leaving the actual
-Windows/Linux host evidence open. Phase 1 is complete:
+and the deterministic vault backend-policy test successfully, confirmed Docker
+CLI is installed but cannot reach the daemon while Docker Desktop is stopped on
+its privileged setup prompt, found no installed Windows/Linux runner beyond
+Docker and Homebrew, confirmed the GitHub connector was not connected and
+noninteractive GitHub SSH authentication failed, and confirmed the reference
+Codex repo has no Electron `safeStorage` probe pattern to reuse. The earlier
+follow-up actionability pass also tightened the production Linux backend
+allowlist to reject unrecognized Electron backend strings with deterministic
+vault coverage, while leaving the actual Windows/Linux host evidence open.
+Phase 1 is complete:
 desktop startup
 API-key ownership has been removed from the Electron-spawned backend, provider
 endpoint configuration is isolated from server-startup credentials, the explicit
@@ -613,15 +615,17 @@ environment-based desktop product behavior.
       including the actual Linux backend and the failure presented for
       `basic_text`. Attempts and rechecks are recorded in
       `docs/reports/byok-desktop-speech-safe-storage-20260718.md`. The latest
-      local recheck repeated the macOS probe successfully, confirmed Docker CLI
-      still cannot connect to the Docker Desktop daemon, found no installed
-      VM/container/Windows runner beyond Docker and Homebrew, found no
-      repository workflow or authenticated GitHub path available from this
-      session, and reconfirmed that the reference Codex repo has no reusable
-      Electron `safeStorage` probe pattern. An earlier follow-up actionability
-      pass fixed the production adapter to reject unrecognized Linux backend
-      names, so actual Windows and Linux host evidence remains the only open
-      part of this item.
+      local recheck repeated the macOS probe and deterministic vault
+      backend-policy test successfully, confirmed Docker CLI still cannot
+      connect to the Docker Desktop daemon while Docker Desktop waits on its
+      privileged setup prompt, found no installed VM/container/Windows runner
+      beyond Docker and Homebrew, found no connected GitHub connector or
+      authenticated noninteractive GitHub path available from this session, and
+      reconfirmed that the reference Codex repo has no reusable Electron
+      `safeStorage` probe pattern. An earlier follow-up actionability pass
+      fixed the production adapter to reject unrecognized Linux backend names,
+      so actual Windows and Linux host evidence remains the only open part of
+      this item.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
