@@ -214,3 +214,31 @@ The workflow now exercises app teardown through the production renderer lifecycl
 | App teardown `stoppedTrackDelta` | `1` |
 | App teardown `peerCloseDelta` | `1` |
 | Removed private teardown route in source/bundles | `absent` |
+
+## Phase 4 P95 Enforcement Addendum
+
+Workflow:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T032744932Z
+```
+
+The workflow keeps one explicit cold warm-up measurement, then collects 20 already-authorized shell click-to-local-recording samples for each provider-delay cohort. It now calculates nearest-rank p95 for each cohort and fails if either p95 exceeds `100 ms` or if the absolute p95 difference exceeds `1000 / 60 ms`.
+
+| Provider setup delay | Cohort size | Click-to-local-recording samples | Nearest-rank p95 |
+| ---: | ---: | --- | ---: |
+| 0 ms | 20 | 61.5, 81.2, 30.6, 45.5, 51.9, 67.1, 82.9, 28.2, 44.5, 59.2, 75.7, 25.2, 37.7, 45.9, 56.6, 70.0, 80.7, 30.1, 39.1, 51.3 ms | 81.2 ms |
+| 1,500 ms | 20 | 61.8, 33.7, 84.1, 55.3, 63.4, 35.4, 50.0, 21.8, 79.0, 42.5, 26.3, 81.3, 57.8, 31.1, 25.8, 73.7, 46.9, 70.9, 33.1, 77.2 ms | 81.3 ms |
+
+| Check | Result |
+| --- | --- |
+| 0 ms p95 budget | `81.2 ms <= 100 ms` |
+| 1,500 ms p95 budget | `81.3 ms <= 100 ms` |
+| Absolute p95 difference | `0.1 ms <= 16.666666666666668 ms` |
+| Workflow status | `passed` |

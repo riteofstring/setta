@@ -55,6 +55,9 @@ const speechRealtimeBrowserFixture = join(
   "speech-realtime-browser-fixture.js",
 );
 const providerSetupDelaysMs = [0, 1_500];
+const localReadinessCohortSampleCount = 20;
+const localReadinessP95BudgetMs = 100;
+const localReadinessP95DifferenceBudgetMs = 1000 / 60;
 const durationLimitMs = 120_000;
 
 if (options.help) {
@@ -122,19 +125,8 @@ try {
     transcript: "Phase 4 shell warmup transcript.",
   });
 
-  const delayRuns = [];
-  for (const providerDelayMs of providerSetupDelaysMs) {
-    delayRuns.push(
-      await exerciseFinishedCapture({
-        destination: "master",
-        providerDelayMs,
-        runId: `shell-delay-${providerDelayMs}`,
-        start: () => clickShellSpeechControl(context.client),
-        transcript: `Phase 4 shell readiness transcript ${providerDelayMs}.`,
-      }),
-    );
-  }
-  assertLocalReadinessInvariant(delayRuns);
+  const { cohorts: localReadinessCohorts, p95DifferenceMs } = await collectLocalReadinessCohorts();
+  assertLocalReadinessInvariant(localReadinessCohorts, p95DifferenceMs);
 
   const paneTranscript = "Phase 4 early pane marker transcript.";
   const paneRun = await exerciseFinishedCapture({
@@ -245,7 +237,10 @@ try {
     activeRunRoutingKind: activeRunRouting.decisions[0]?.decision?.kind ?? null,
     artifactDir,
     cleanup,
-    delayRuns: delayRuns.map(runSummary),
+    localReadinessCohorts,
+    localReadinessP95BudgetMs,
+    localReadinessP95DifferenceBudgetMs,
+    localReadinessP95DifferenceMs: p95DifferenceMs,
     overlayRun: runSummary(overlayRun),
     paneRun: runSummary(paneRun),
     playbackPreemption,
@@ -287,6 +282,27 @@ try {
   await rm(fixture.tempRoot, { force: true, recursive: true });
 }
 
+async function collectLocalReadinessCohorts() {
+  const cohorts = [];
+  for (const providerDelayMs of providerSetupDelaysMs) {
+    const runs = [];
+    for (let sampleIndex = 1; sampleIndex <= localReadinessCohortSampleCount; sampleIndex += 1) {
+      runs.push(
+        await exerciseFinishedCapture({
+          destination: "master",
+          providerDelayMs,
+          runId: `shell-local-readiness-${providerDelayMs}-${sampleIndex}`,
+          start: () => clickShellSpeechControl(context.client),
+          transcript: `Phase 4 local readiness ${providerDelayMs} sample ${sampleIndex}.`,
+        }),
+      );
+    }
+    cohorts.push(localReadinessCohortSummary(providerDelayMs, runs));
+  }
+  const p95DifferenceMs = localReadinessP95DifferenceMs(cohorts);
+  return { cohorts, p95DifferenceMs };
+}
+
 async function exerciseFinishedCapture({
   destination,
   expectedConversationId = null,
@@ -320,8 +336,8 @@ async function exerciseFinishedCapture({
   await waitForBrowserEvent(runId, "microphone_track_stopped");
   await waitForState(
     context.client,
-    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
-    (state) => state.commitCount === commitCountBefore + 1,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.counters().commitCount",
+    (commitCount) => commitCount === commitCountBefore + 1,
     workflowTimeoutMs,
   );
   await waitForBrowserEvent(runId, "processed_audio_marker_observed");
@@ -577,10 +593,10 @@ async function exercisePlaybackPreemption({
         await clickPaneSpeechControl(context.client, conversationId);
         await waitForState(
           context.client,
-          "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
-          (state) =>
-            state.mediaRequestCount === beforeCapture.mediaRequestCount + 1 &&
-            state.audioPauseCount === beforeCapture.audioPauseCount + 1,
+          "globalThis.__settaSpeechRealtimeBrowserFixture.counters()",
+          (counters) =>
+            counters.mediaRequestCount === beforeCapture.mediaRequestCount + 1 &&
+            counters.audioPauseCount === beforeCapture.audioPauseCount + 1,
           workflowTimeoutMs,
         );
       },
@@ -643,8 +659,8 @@ async function waitForAutomaticNarrationStatusPlayback(initialRequestCount, text
     if (request) {
       const audio = await waitForState(
         context.client,
-        "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
-        (state) => state.audioPlayCount > state.audioEndCount,
+        "globalThis.__settaSpeechRealtimeBrowserFixture.counters()",
+        (counters) => counters.audioPlayCount > counters.audioEndCount,
         workflowTimeoutMs,
       );
       speechProvider.assertHealthy();
@@ -888,9 +904,8 @@ async function waitForReadyForNextCapture() {
 async function waitForBrowserEvent(runId, eventName) {
   await waitForState(
     context.client,
-    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
-    (state) =>
-      state.timing.events.some((event) => event.name === eventName && event.detail.runId === runId),
+    `globalThis.__settaSpeechRealtimeBrowserFixture.hasTimingEvent(${JSON.stringify(runId)}, ${JSON.stringify(eventName)})`,
+    (observed) => observed === true,
     workflowTimeoutMs,
   );
 }
@@ -1166,21 +1181,71 @@ function assertStopBeforeReadyTimeline(runId, events) {
   }
 }
 
-function assertLocalReadinessInvariant(runs) {
-  const measurements = runs.map((run) => run.measurements.clickToLocalCaptureReadyMs);
-  for (const [index, value] of measurements.entries()) {
-    if (!Number.isFinite(value) || value > 100) {
+function localReadinessCohortSummary(providerDelayMs, runs) {
+  const clickToLocalCaptureReadyMs = runs.map((run) => run.measurements.clickToLocalCaptureReadyMs);
+  for (const [index, value] of clickToLocalCaptureReadyMs.entries()) {
+    if (!Number.isFinite(value)) {
       throw new Error(
-        `provider delay run ${runs[index].runId} exceeded local readiness budget: ${JSON.stringify(measurements)}`,
+        `provider delay run ${runs[index].runId} did not produce a local readiness sample: ${JSON.stringify(clickToLocalCaptureReadyMs)}`,
       );
     }
   }
-  const spread = Math.max(...measurements) - Math.min(...measurements);
-  if (spread > 50) {
+  return {
+    clickToLocalCaptureReadyMs,
+    p95ClickToLocalCaptureReadyMs: nearestRankPercentile(clickToLocalCaptureReadyMs, 0.95),
+    providerDelayMs,
+    runIds: runs.map((run) => run.runId),
+    sampleCount: clickToLocalCaptureReadyMs.length,
+  };
+}
+
+function assertLocalReadinessInvariant(cohorts, p95DifferenceMs) {
+  for (const cohort of cohorts) {
+    if (cohort.sampleCount < localReadinessCohortSampleCount) {
+      throw new Error(
+        `provider delay ${cohort.providerDelayMs} local readiness cohort is too small: ${JSON.stringify(cohort)}`,
+      );
+    }
+    if (cohort.p95ClickToLocalCaptureReadyMs > localReadinessP95BudgetMs) {
+      throw new Error(
+        `provider delay ${cohort.providerDelayMs} local readiness p95 exceeded ${localReadinessP95BudgetMs} ms: ${JSON.stringify(cohort)}`,
+      );
+    }
+  }
+  if (p95DifferenceMs > localReadinessP95DifferenceBudgetMs) {
     throw new Error(
-      `provider delay moved local readiness by ${spread} ms: ${JSON.stringify(measurements)}`,
+      `provider delay moved local readiness p95 by ${p95DifferenceMs} ms: ${JSON.stringify(cohorts)}`,
     );
   }
+}
+
+function localReadinessP95DifferenceMs(cohorts) {
+  const baseline = cohortForProviderDelay(cohorts, 0);
+  const delayed = cohortForProviderDelay(cohorts, 1_500);
+  return roundMilliseconds(
+    Math.abs(delayed.p95ClickToLocalCaptureReadyMs - baseline.p95ClickToLocalCaptureReadyMs),
+  );
+}
+
+function cohortForProviderDelay(cohorts, providerDelayMs) {
+  const cohort = cohorts.find((candidate) => candidate.providerDelayMs === providerDelayMs);
+  if (!cohort) {
+    throw new Error(`missing local readiness cohort for provider delay ${providerDelayMs}`);
+  }
+  return cohort;
+}
+
+function nearestRankPercentile(values, percentile) {
+  if (values.length === 0) {
+    throw new Error("cannot calculate nearest-rank percentile for an empty sample");
+  }
+  const sorted = [...values].sort((left, right) => left - right);
+  const rank = Math.ceil(percentile * sorted.length);
+  return sorted[Math.min(sorted.length - 1, Math.max(0, rank - 1))];
+}
+
+function roundMilliseconds(value) {
+  return Math.round(value * 1_000) / 1_000;
 }
 
 function assertRequiredEvents(runId, events, requiredNames) {

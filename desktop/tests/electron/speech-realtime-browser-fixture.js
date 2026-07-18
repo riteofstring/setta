@@ -1,7 +1,7 @@
 /* global AudioContext, MessageEvent, Response, TextEncoder, navigator, performance, queueMicrotask, sessionStorage */
 
 (() => {
-  const fixtureVersion = "setta-speech-realtime-browser-fixture-v3";
+  const fixtureVersion = "setta-speech-realtime-browser-fixture-v4";
   if (globalThis.__settaSpeechRealtimeBrowserFixture?.version === fixtureVersion) {
     return;
   }
@@ -360,6 +360,12 @@
     markTiming(name, detail = {}) {
       markTiming(name, detail);
     },
+    counters() {
+      return countersState();
+    },
+    hasTimingEvent(runId, name) {
+      return timing.events.some((event) => event.name === name && event.detail?.runId === runId);
+    },
     snapshot() {
       return snapshotState();
     },
@@ -403,6 +409,17 @@
           detail: { ...event.detail },
         })),
       },
+    };
+  }
+
+  function countersState() {
+    return {
+      audioActiveCount: activeAudio.size,
+      audioEndCount: state.audioEndCount,
+      audioPauseCount: state.audioPauseCount,
+      audioPlayCount: state.audioPlayCount,
+      commitCount: state.commitCount,
+      mediaRequestCount: state.mediaRequestCount,
     };
   }
 

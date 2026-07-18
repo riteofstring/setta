@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Incomplete after production lifecycle teardown correction — the product cutover, live provider result, finalized success/failure artifact privacy, and production app teardown workflow pass. Phase 4 still needs p95/one-frame performance enforcement.
+**Status:** Complete — all phases are implemented and verified, including the Phase 4 p95/one-frame local-readiness performance contract.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -24,7 +24,7 @@ This is a replacement, not a compatibility project.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
-- [ ] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and current timing results pass, but the workflow must enforce the stated p95/one-frame performance contract.
+- [x] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow.
 
 ## Independent post-loop audit
 
@@ -32,18 +32,16 @@ The core result is sound: the root-`.env` live OpenAI workflow completed the exp
 
 The production teardown correction is complete: the renderer root now uses standard page lifecycle boundaries (`beforeunload`, with non-persisted `pagehide` fallback) for Electron and web, active app-shell controllers register production teardown callbacks, the Phase 4 workflow exercises a real reload while capture is in flight, and the finalized fixture evidence asserts `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`. The removed private renderer teardown route and query gate are absent from source and generated web assets.
 
-Completion is withheld for one remaining verification defect:
+The final performance correction is complete: the Phase 4 workflow keeps one explicit cold warm-up run, collects 20 already-authorized local-readiness samples for each of the 0 ms and 1,500 ms provider-delay cohorts, calculates nearest-rank p95 for both cohorts, enforces `100 ms` p95 and `1000 / 60 ms` p95-difference budgets, and reports the raw samples and p95 values in `docs/reports/performance/instant-voice-capture-phase0-20260717.md`.
 
-1. `assertLocalReadinessInvariant` permits a 50 ms provider-delay spread even though acceptance requires at most one 60 Hz frame, and it checks individual samples without calculating p95.
-
-## Required final-audit corrections
+## Completed final-audit correction
 
 ### Performance contract
 
-- Keep one explicit cold warm-up measurement, then collect at least 20 already-authorized local-readiness samples in each of the 0 ms and 1,500 ms provider-delay cohorts on the pinned Electron workflow.
-- Calculate and report nearest-rank p95 for each cohort. Each p95 must be at most 100 ms, and the absolute difference between the two p95 values must be at most `1000 / 60` ms (one 60 Hz rendered frame).
-- Replace the 50 ms spread allowance with these exact assertions. Do not weaken the plan to match the existing guard and do not use a fake estimate in place of measured samples.
-- Append cohort size, raw or artifact-backed measurements, p95 values, and the p95 difference to the performance report.
+- The workflow keeps one explicit cold warm-up measurement, then collects 20 already-authorized local-readiness samples in each of the 0 ms and 1,500 ms provider-delay cohorts on the pinned Electron workflow.
+- It calculates and reports nearest-rank p95 for each cohort. Each p95 must be at most 100 ms, and the absolute difference between the two p95 values must be at most `1000 / 60` ms (one 60 Hz rendered frame).
+- The former 50 ms spread allowance has been replaced with exact p95 and p95-difference assertions.
+- The performance report includes cohort size, raw artifact-backed measurements, p95 values, and the p95 difference.
 
 ## Live OpenAI credential contract
 
