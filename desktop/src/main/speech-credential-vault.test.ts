@@ -8,10 +8,10 @@ import { describe, expect, test, vi } from "vitest";
 import {
   createElectronSafeStorageCredentialProtection,
   SpeechCredentialVault,
+  SpeechCredentialVaultError,
   speechCredentialStoragePath,
   type ElectronSafeStorageProtectionOptions,
   type SpeechCredentialProtection,
-  type SpeechCredentialVaultError,
 } from "./speech-credential-vault";
 
 describe("SpeechCredentialVault", () => {
@@ -175,22 +175,26 @@ describe("SpeechCredentialVault", () => {
   test("wraps storage write and removal failures without credential material", async () => {
     const userDataDir = await temporaryUserDataDir();
     await writeFile(speechCredentialStoragePath(userDataDir), "blocks directory creation");
+    const apiKey = "sk-setta-write-failure";
     const nestedVault = new SpeechCredentialVault(
       join(userDataDir, "speech-credential.json", "nested"),
       new ReversibleProtection(),
     );
 
-    await expect(nestedVault.write("sk-setta-write-failure")).rejects.toMatchObject({
+    const writeError = await rejectedError(nestedVault.write(apiKey));
+    expect(writeError).toBeInstanceOf(SpeechCredentialVaultError);
+    expect(writeError).toMatchObject({
       code: "write_failed",
     } satisfies Partial<SpeechCredentialVaultError>);
-    await expect(nestedVault.write("sk-setta-write-failure")).rejects.not.toThrow(
-      "sk-setta-write-failure",
-    );
+    expect(writeError.message).not.toContain(apiKey);
+    expect(String(writeError.cause)).not.toContain(apiKey);
 
     const directoryVault = new SpeechCredentialVault(userDataDir, new ReversibleProtection());
     await rm(speechCredentialStoragePath(userDataDir), { force: true });
     await mkdir(speechCredentialStoragePath(userDataDir), { recursive: true });
-    await expect(directoryVault.remove()).rejects.toMatchObject({
+    const removeError = await rejectedError(directoryVault.remove());
+    expect(removeError).toBeInstanceOf(SpeechCredentialVaultError);
+    expect(removeError).toMatchObject({
       code: "remove_failed",
     } satisfies Partial<SpeechCredentialVaultError>);
   });
@@ -298,6 +302,18 @@ async function pathExists(path: string): Promise<boolean> {
     }
     throw error;
   }
+}
+
+async function rejectedError(promise: Promise<unknown>): Promise<Error> {
+  try {
+    await promise;
+  } catch (error) {
+    if (error instanceof Error) {
+      return error;
+    }
+    throw new Error(`Expected Error rejection, got ${String(error)}`, { cause: error });
+  }
+  throw new Error("Expected promise to reject.");
 }
 
 function expectedProvider(): SpeechProvider {

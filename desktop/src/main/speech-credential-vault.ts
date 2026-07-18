@@ -35,8 +35,9 @@ export class SpeechCredentialVaultError extends Error {
   constructor(
     readonly code: SpeechCredentialVaultErrorCode,
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "SpeechCredentialVaultError";
   }
 }
@@ -97,11 +98,12 @@ export class SpeechCredentialVault {
       await writeFile(tmpPath, JSON.stringify(stored, null, 2) + "\n", { mode: 0o600 });
       await chmod(tmpPath, 0o600);
       await rename(tmpPath, path);
-    } catch {
-      await removeTemporaryCredentialFile(tmpPath);
+    } catch (error) {
+      const cleanupError = await removeTemporaryCredentialFileAfterFailedWrite(tmpPath);
       throw new SpeechCredentialVaultError(
         "write_failed",
         "Failed to persist the speech credential.",
+        { cause: writeFailureCause(error, cleanupError) },
       );
     }
   }
@@ -299,6 +301,27 @@ async function removeTemporaryCredentialFile(path: string): Promise<void> {
       throw error;
     }
   }
+}
+
+async function removeTemporaryCredentialFileAfterFailedWrite(
+  path: string,
+): Promise<unknown | null> {
+  try {
+    await removeTemporaryCredentialFile(path);
+    return null;
+  } catch (error) {
+    return error;
+  }
+}
+
+function writeFailureCause(writeError: unknown, cleanupError: unknown | null): unknown {
+  if (cleanupError === null) {
+    return writeError;
+  }
+  return new AggregateError(
+    [writeError, cleanupError],
+    "Speech credential write failed and temporary credential cleanup also failed.",
+  );
 }
 
 function onlySupportedSpeechProvider(): SpeechProvider {
