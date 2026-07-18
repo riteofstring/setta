@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	conversationStateDirectoryName = "topic-conversations-v2"
+	conversationStateDirectoryName = "topic-conversations-v3"
 	conversationDatabaseName       = "conversations.sqlite"
 	conversationStoreVersion       = 1
 

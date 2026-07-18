@@ -79,6 +79,42 @@ VALUES ('read-write', 'test', 1, 'test', '{}', '2026-07-11T00:00:00Z')
 	}
 }
 
+func TestNewStoreBootstrapsTypedArtifactSchemaInFreshNamespace(t *testing.T) {
+	appDataDir := t.TempDir()
+	legacyDBPath := filepath.Join(
+		appDataDir,
+		"topic-conversations-v2",
+		conversationDatabaseName,
+	)
+	if err := os.MkdirAll(filepath.Dir(legacyDBPath), 0o755); err != nil {
+		t.Fatalf("create legacy namespace: %v", err)
+	}
+	if err := os.WriteFile(legacyDBPath, []byte("legacy incompatible conversation store"), 0o600); err != nil {
+		t.Fatalf("write legacy conversation store: %v", err)
+	}
+
+	store, err := NewStore(appDataDir, WithReadPoolSize(1))
+	if err != nil {
+		t.Fatalf("NewStore with legacy namespace present: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	})
+
+	wantPath := filepath.Join(appDataDir, conversationStateDirectoryName, conversationDatabaseName)
+	if store.Path() != wantPath {
+		t.Fatalf("Path() = %q, want %q", store.Path(), wantPath)
+	}
+	if store.Path() == legacyDBPath {
+		t.Fatalf("store opened legacy namespace %q", legacyDBPath)
+	}
+	if _, err := os.Stat(legacyDBPath); err != nil {
+		t.Fatalf("legacy conversation store should remain untouched: %v", err)
+	}
+}
+
 func TestNewStoreValidatesLocationAndConcurrencyOptions(t *testing.T) {
 	tests := []struct {
 		name       string
