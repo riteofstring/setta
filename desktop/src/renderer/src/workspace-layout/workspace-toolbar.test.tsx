@@ -3,17 +3,13 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import type { WorkspaceLayoutStore } from "./layout-store";
-import {
-  emptyFrameOptionsForStore,
-  workspaceFrameActions,
-  WorkspaceToolbar,
-} from "./workspace-toolbar";
+import { openPaneActions, WorkspaceToolbar } from "./workspace-toolbar";
 
 describe("workspace toolbar", () => {
   test("renders performance stats in the top bar only when enabled", () => {
     const hidden = renderToString(
       <WorkspaceToolbar
-        onFrameAction={() => {}}
+        openPane={() => {}}
         overviewActive={false}
         performanceStatsRef={null}
         runLayoutAction={(action) => action()}
@@ -24,7 +20,7 @@ describe("workspace toolbar", () => {
 
     const visible = renderToString(
       <WorkspaceToolbar
-        onFrameAction={() => {}}
+        openPane={() => {}}
         overviewActive={false}
         performanceStatsRef={createRef<HTMLDivElement>()}
         runLayoutAction={(action) => action()}
@@ -46,49 +42,16 @@ describe("workspace toolbar", () => {
     expect(visible).toContain('data-testid="workspace-performance-stats"');
   });
 
-  test("registers conversation creation and generic surviving workspace surfaces", () => {
-    expect(workspaceFrameActions.map(({ label }) => label)).toEqual([
-      "Conversation",
-      "Browser",
-      "Settings",
-    ]);
-    expect(workspaceFrameActions).not.toContainEqual(
-      expect.objectContaining({
-        action: expect.objectContaining({
-          kind: "surface",
-          request: expect.objectContaining({ surfaceKind: "easy-button" }),
-        }),
-      }),
+  test("registers only generic surviving workspace surfaces", () => {
+    expect(openPaneActions.map(({ label }) => label)).toEqual(["Browser", "Settings"]);
+    expect(openPaneActions).not.toContainEqual(
+      expect.objectContaining({ request: expect.objectContaining({ surfaceKind: "easy-button" }) }),
     );
-  });
-
-  test("exposes conversation creation in empty frame actions", () => {
-    expect(emptyFrameOptionsForStore(toolbarStore())).toEqual([
-      {
-        actionId: "conversation",
-        disabled: false,
-        label: "Conversation",
-        meta: "Mod+Alt+C",
-      },
-      {
-        actionId: "browser",
-        disabled: false,
-        label: "Browser",
-        meta: "Mod+Alt+B",
-      },
-      {
-        actionId: "settings",
-        disabled: false,
-        label: "Settings",
-        meta: "Mod+Alt+S",
-      },
-    ]);
   });
 });
 
 function toolbarStore(): WorkspaceLayoutStore {
   return {
-    canOpenPane: () => true,
     paneLimitState: () => ({ allowed: true, count: 0, limit: null }),
     toggleOverviewMode: () => {},
   } as unknown as WorkspaceLayoutStore;

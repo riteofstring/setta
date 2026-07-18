@@ -90,7 +90,7 @@ import {
   WorkspaceAvailabilityNotice,
   WorkspaceFirstRunSurface,
 } from "./workspace-availability-surface";
-import { resolveWorkspaceOpenPaneRequest, workspaceOpenPaneRequestEvent } from "./open-pane-events";
+import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import { useWorkspaceLayoutSnapshot, useWorkspaceLayoutTarget } from "./workspace-layout-state";
 import {
   WorkspaceInitialEasyButtonPane,
@@ -102,12 +102,12 @@ import {
 } from "./workspace-ui-layout";
 import type { OpenPaneRequest, PaneDropIntent, Rect } from "./types";
 const overviewDragThresholdPx = 6;
+
 export function WorkspaceLayoutArea({
   focusConversationRequest = null,
   focusSurfaceRequest = null,
   initialEasyButtonPaneStartup = null,
   onConversationPresentationError,
-  placementPreflightRequest = null,
   onToggleProjectPane,
   platform,
   projectPaneOpen,
@@ -144,7 +144,6 @@ export function WorkspaceLayoutArea({
       mode={mode}
       onToggleProjectPane={onToggleProjectPane}
       onConversationPresentationError={onConversationPresentationError}
-      placementPreflightRequest={placementPreflightRequest}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
       projectPaneWidth={projectPaneWidth}
@@ -156,6 +155,7 @@ export function WorkspaceLayoutArea({
     />
   );
 }
+
 function WorkspaceLayoutRuntimeArea({
   focusConversationRequest,
   focusSurfaceRequest,
@@ -165,7 +165,6 @@ function WorkspaceLayoutRuntimeArea({
   mode,
   onToggleProjectPane,
   onConversationPresentationError,
-  placementPreflightRequest,
   platform,
   projectPaneOpen,
   projectPaneWidth,
@@ -246,6 +245,7 @@ function WorkspaceLayoutRuntimeArea({
   const [nativeViewOverlayActive, setNativeViewOverlayActive] = useState(false);
   const nativeViewsOccluded = nativeViewOverlayActive || shellOverlayActive;
   const masterVoiceShortcut = shortcuts?.masterVoice ?? defaultShortcutsSettings.masterVoice;
+
   const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
     if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
       return;
@@ -326,7 +326,6 @@ function WorkspaceLayoutRuntimeArea({
     focusedPaneId: layoutSnapshot.focusedPaneId,
     layoutRevision: layoutSnapshot.revision,
     onPresentationError: onConversationPresentationError,
-    placementPreflightRequest,
     runLayoutAction,
     runtime,
     stageViewport,
@@ -338,22 +337,17 @@ function WorkspaceLayoutRuntimeArea({
     }
     const handleOpenPaneRequest = (event: Event) => {
       const request = (event as CustomEvent<OpenPaneRequest>).detail;
-      const resolution = resolveWorkspaceOpenPaneRequest(request);
-      if (resolution.kind === "ignored") {
+      if (!request?.surfaceKind) {
         return;
       }
-      if (resolution.kind === "rejected") {
-        onConversationPresentationError?.(resolution.reason);
-        return;
-      }
-      const { surfaceKind } = resolution;
+      const surfaceKind = request.surfaceKind;
       runLayoutAction(() => {
         const maximizedPaneId = runtime.store.getSnapshot().maximizedPaneId;
         if (maximizedPaneId !== null) {
           runtime.store.togglePaneMaximized(maximizedPaneId);
         }
-        if (runtime.store.canOpenPane(resolution.request)) {
-          runtime.store.openPane(resolution.request);
+        if (runtime.store.canOpenPane(request)) {
+          runtime.store.openPane(request);
         } else {
           runtime.store.focusPaneBySurfaceKind(surfaceKind);
         }
@@ -365,7 +359,7 @@ function WorkspaceLayoutRuntimeArea({
     return () => {
       window.removeEventListener(workspaceOpenPaneRequestEvent, handleOpenPaneRequest);
     };
-  }, [onConversationPresentationError, runLayoutAction, runtime, stageViewport]);
+  }, [runLayoutAction, runtime, stageViewport]);
   useEffect(() => {
     const root = rootRef.current;
     const stage = stageRef.current;
@@ -878,6 +872,7 @@ function WorkspaceLayoutRuntimeArea({
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
     schedulerRef.current?.requestFrame();
   }, [runtime, showPerformanceStats]);
+
   // The full-screen project pane overlay covers the stage, so any workspace
   // action from the bottom bar dismisses it first to reveal its effect.
   const dismissProjectPaneOverlay = () => {
@@ -967,6 +962,7 @@ function WorkspaceLayoutRuntimeArea({
     </section>
   );
 }
+
 function installResizeReportHooksForRuntime(
   runtime: WorkspaceRuntime,
   viewportProvider: () => Rect,
@@ -980,6 +976,7 @@ function installResizeReportHooksForRuntime(
     writer: runtime.resizeReportWriter,
   });
 }
+
 function sameOverviewGhostTarget(
   left: OverviewGhostTarget | null,
   right: OverviewGhostTarget | null,

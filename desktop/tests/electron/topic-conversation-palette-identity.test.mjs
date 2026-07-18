@@ -30,6 +30,7 @@ import {
   waitForPersistedConversationPane,
   waitForNavigator,
 } from "./topic-conversation-fork-workflow.mjs";
+import { assertDuplicateConversationPalette } from "./topic-conversation-projection-assertions.mjs";
 import { assertDistinctConversationPalettes } from "./topic-conversation-speech-state-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -86,13 +87,30 @@ try {
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
   assertExactTopicIdentity(initial.surfaces, alpha, beta, 1);
   assertPalettePanePresentation(initial.surfaces, alpha, beta);
-  const alphaNavigator = await waitForNavigator(context.client, alpha.id, 1, workflowTimeoutMs);
-  assertNavigator(alphaNavigator, alpha, 1);
-  assertPaletteNavigatorPresentation(alphaNavigator, alpha, false);
+
+  assertDriverAction(
+    await context.client.driver("topicConversationOpenBoundPane", {
+      conversationId: alpha.id,
+    }),
+    "requested",
+  );
+  const duplicated = await waitForPaletteSurfaces(context.client, alpha.id, beta.id, 2);
+  assertDuplicateConversationPalette(duplicated.surfaces, alpha.id);
+  assertDistinctConversationPalettes(duplicated.surfaces, alpha.id, beta.id);
+  assertExactTopicIdentity(duplicated.surfaces, alpha, beta, 2);
+  assertPalettePanePresentation(duplicated.surfaces, alpha, beta);
+  const duplicatedAlphaNavigator = await waitForNavigator(
+    context.client,
+    alpha.id,
+    2,
+    workflowTimeoutMs,
+  );
+  assertNavigator(duplicatedAlphaNavigator, alpha, 2);
+  assertPaletteNavigatorPresentation(duplicatedAlphaNavigator, alpha, true);
   assertPaletteNavigatorPresentation(
     await waitForNavigator(context.client, beta.id, 1, workflowTimeoutMs),
     beta,
-    true,
+    false,
   );
   await assertReducedMotionNavigatorPresentation(context.client, alpha);
   const exhaustedPalette = await exhaustVisiblePaletteCatalog(
@@ -112,7 +130,7 @@ try {
   );
   const beforeReload = await waitForPersistedPaletteIdentity(backend, workspaceId, activeTopicIds);
   const beforeReloadPanes = palettePaneIdentity(persistedPanes.layout?.panes ?? []);
-  await captureScreenshot(context.client, join(artifactDir, "palette-identity.png"));
+  await captureScreenshot(context.client, join(artifactDir, "duplicate-palette-identity.png"));
 
   await reloadPage(context.client);
   await prepareRenderer(context.client);
@@ -148,11 +166,17 @@ try {
     }),
     "clicked",
   );
-  await waitForTopicPaletteSurface(context.client, alpha.id, alpha.paletteId);
+  const reloadedAlphaSurfaces = await waitForTopicPaletteSurfaces(
+    context.client,
+    alpha.id,
+    alpha.paletteId,
+    2,
+  );
+  assertDuplicateConversationPalette(reloadedAlphaSurfaces.surfaces, alpha.id);
   const reloadedAlphaNavigator = await waitForNavigator(
     context.client,
     alpha.id,
-    1,
+    2,
     workflowTimeoutMs,
   );
   const reloadedBetaNavigator = await waitForNavigator(
@@ -161,7 +185,7 @@ try {
     1,
     workflowTimeoutMs,
   );
-  assertNavigator(reloadedAlphaNavigator, alpha, 1);
+  assertNavigator(reloadedAlphaNavigator, alpha, 2);
   assertNavigator(reloadedBetaNavigator, beta, 1);
   assertPaletteNavigatorPresentation(reloadedAlphaNavigator, alpha, true);
   assertPaletteNavigatorPresentation(reloadedBetaNavigator, beta, false);
@@ -431,7 +455,7 @@ async function assertReducedMotionNavigatorPresentation(client, topic) {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
   try {
-    const state = await waitForNavigator(client, topic.id, 1, workflowTimeoutMs);
+    const state = await waitForNavigator(client, topic.id, 2, workflowTimeoutMs);
     if (state.presentationTransitionDuration !== "0s") {
       throw new Error(
         `conversation palette navigator ignored reduced motion: ${JSON.stringify({ state, topic })}`,
@@ -471,7 +495,7 @@ async function waitForPersistedTopicPanes(
         result.layout?.panes.filter((pane) => pane.surfaceKind === "easy-button") ?? [];
       return (
         topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === alphaId).length ===
-          1 &&
+          2 &&
         topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === betaId).length ===
           1 &&
         singlePaneConversationIds.every(

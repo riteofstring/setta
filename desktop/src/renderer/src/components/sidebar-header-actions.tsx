@@ -1,4 +1,4 @@
-import { FolderPlus, MessageSquarePlus } from "lucide-react";
+import { FolderPlus } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cn } from "../lib/utils";
@@ -39,26 +39,15 @@ function SidebarHeaderActionGroup({ children }: { children: ReactNode }) {
   return <div className="mr-0.5 flex shrink-0 items-center gap-0.5">{children}</div>;
 }
 
-export function ConversationSectionHeaderActions({
+export function ProjectFolderButton({
   busy,
-  createConversation,
-  disabled,
   openLocalFolder,
 }: {
   busy: boolean;
-  createConversation: () => Promise<void>;
-  disabled: boolean;
   openLocalFolder: () => Promise<void>;
 }) {
   return (
     <SidebarHeaderActionGroup>
-      <SidebarIconButton
-        disabled={busy || disabled}
-        label="New conversation"
-        onClick={() => void createConversation()}
-      >
-        <MessageSquarePlus className="h-3.5 w-3.5" />
-      </SidebarIconButton>
       <SidebarIconButton
         disabled={busy}
         label="Open project folder"

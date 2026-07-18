@@ -22,6 +22,7 @@ const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 export const defaultRealWorkspacePaneLimits = {
   browser: 10,
+  "easy-button": 10,
   "empty-frame": 10,
   "settings-dom": 1,
 } satisfies PaneLimitPolicy;

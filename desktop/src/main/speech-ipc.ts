@@ -3,60 +3,25 @@ import type { IpcMain } from "electron";
 import type { BackendClient } from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import {
-  decodeSpeechCredentialSaveRequest,
-  type SpeechCredentialSaveRequest,
-  type SpeechCredentialSettings,
   type SpeechSynthesisIpcRequest,
   validateSpeechSynthesisOperationId,
 } from "@shared/speech-ipc";
-
-interface SpeechCredentialIpcCoordinator {
-  readCredentialSettings: () => Promise<SpeechCredentialSettings>;
-  removeCredential: () => Promise<SpeechCredentialSettings>;
-  saveCredential: (request: SpeechCredentialSaveRequest) => Promise<SpeechCredentialSettings>;
-}
 
 interface SpeechIpcRegistration {
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
   requireBackendClient: () => BackendClient;
-  requireSpeechCredentialCoordinator: () => SpeechCredentialIpcCoordinator;
 }
 
 export function registerSpeechIpcHandlers({
   ipcMain,
   ipcObserver,
   requireBackendClient,
-  requireSpeechCredentialCoordinator,
 }: SpeechIpcRegistration): void {
   const synthesisOperations = new SpeechSynthesisOperations();
   handleIpc(ipcMain, "speechCancelSynthesis", async (_event, operationId) => {
     synthesisOperations.cancel(operationId);
   });
-  handleIpc(
-    ipcMain,
-    "speechReadCredentialSettings",
-    async () => requireSpeechCredentialCoordinator().readCredentialSettings(),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "speechSaveCredential",
-    async (_event, request) => {
-      const decoded = decodeCredentialSaveRequest(request);
-      if (decoded === null) {
-        return invalidCredentialSaveRequestSettings();
-      }
-      return requireSpeechCredentialCoordinator().saveCredential(decoded);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "speechRemoveCredential",
-    async () => requireSpeechCredentialCoordinator().removeCredential(),
-    ipcObserver,
-  );
   handleIpc(
     ipcMain,
     "speechReadCapabilities",
@@ -102,22 +67,6 @@ export function registerSpeechIpcHandlers({
       ),
     observerWithRedactedAudio(ipcObserver),
   );
-}
-
-function decodeCredentialSaveRequest(request: unknown): SpeechCredentialSaveRequest | null {
-  try {
-    return decodeSpeechCredentialSaveRequest(request);
-  } catch {
-    return null;
-  }
-}
-
-function invalidCredentialSaveRequestSettings(): SpeechCredentialSettings {
-  return {
-    message: "Speech credential save request is invalid.",
-    operation: "save",
-    status: "failed",
-  };
 }
 
 class SpeechSynthesisOperations {

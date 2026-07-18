@@ -37,15 +37,15 @@ describe("workspace fake surface adapters", () => {
     const host = createFakeHost();
     const adapter = new EmptyFrameSurfaceAdapter(fakePane("empty-frame"), () => [
       {
-        actionId: "browser",
         label: "Browser",
         meta: "2/10 Mod+Alt+B",
+        surfaceKind: "browser",
       },
       {
-        actionId: "settings",
         disabled: true,
         label: "Settings",
         meta: "1/1 Mod+Alt+S",
+        surfaceKind: "settings-dom",
       },
     ]);
 
@@ -58,9 +58,7 @@ describe("workspace fake surface adapters", () => {
       "Browser2/10 Mod+Alt+B",
       "Settings1/1 Mod+Alt+S",
     ]);
-    expect((actions[0] as HTMLButtonElement | undefined)?.dataset.workspaceFrameActionId).toBe(
-      "browser",
-    );
+    expect((actions[0] as HTMLButtonElement | undefined)?.dataset.surfaceKind).toBe("browser");
     expect((actions[1] as HTMLButtonElement | undefined)?.disabled).toBe(true);
   });
 
