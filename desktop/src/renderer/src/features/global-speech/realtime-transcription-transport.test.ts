@@ -105,7 +105,7 @@ describe("Realtime transcription WebRTC transport", () => {
       },
     ]);
     expect(harness.errors).toEqual([]);
-    expect(harness.track.stop).not.toHaveBeenCalled();
+    expect(harness.track.stop).toHaveBeenCalledOnce();
     expect(harness.channel.closed).toBe(true);
     expect(harness.peer.closed).toBe(true);
   });
@@ -123,7 +123,7 @@ describe("Realtime transcription WebRTC transport", () => {
     expect(harness.errors.map((error) => error.code)).toEqual(["protocol_violation"]);
     expect(harness.updates).toHaveLength(1);
     expect(harness.updates[0]).toMatchObject({ transcript: "accepted", type: "delta" });
-    expect(harness.track.stop).not.toHaveBeenCalled();
+    expect(harness.track.stop).toHaveBeenCalledOnce();
   });
 
   test("rejects duplicate provider sessions without changing the established identity", async () => {
@@ -177,18 +177,18 @@ describe("Realtime transcription WebRTC transport", () => {
     expect(providerFailure.errors[0]?.message).not.toContain("sentinel");
   });
 
-  test("fails when the channel or peer disconnects without stopping borrowed media", async () => {
+  test("fails when the channel or peer disconnects and stops every media resource", async () => {
     const channelFailure = createHarness();
     await establish(channelFailure);
     channelFailure.channel.disconnect();
     expect(channelFailure.errors.map((error) => error.code)).toEqual(["connection_lost"]);
-    expect(channelFailure.track.stop).not.toHaveBeenCalled();
+    expect(channelFailure.track.stop).toHaveBeenCalledOnce();
 
     const peerFailure = createHarness();
     await establish(peerFailure);
     peerFailure.peer.changeConnectionState("failed");
     expect(peerFailure.errors.map((error) => error.code)).toEqual(["connection_lost"]);
-    expect(peerFailure.track.stop).not.toHaveBeenCalled();
+    expect(peerFailure.track.stop).toHaveBeenCalledOnce();
   });
 
   test("explicit close is silent, aborts setup, and prevents late provider callbacks", async () => {
@@ -202,7 +202,7 @@ describe("Realtime transcription WebRTC transport", () => {
     harness.channel.message(sessionCreatedEvent("sess_late"));
     expect(harness.errors).toEqual([]);
     expect(harness.updates).toEqual([]);
-    expect(harness.track.stop).not.toHaveBeenCalled();
+    expect(harness.track.stop).toHaveBeenCalledOnce();
     expect(harness.peer.closed).toBe(true);
     expect(harness.request).toBeNull();
   });
@@ -226,7 +226,7 @@ describe("Realtime transcription WebRTC transport", () => {
       await expect(harness.transport.ready).rejects.toMatchObject({ code });
       expect(harness.errors.map((error) => error.code)).toEqual([code]);
       expect(harness.errors[0]?.message).not.toContain("sentinel");
-      expect(harness.track.stop).not.toHaveBeenCalled();
+      expect(harness.track.stop).toHaveBeenCalledOnce();
     },
   );
 
@@ -291,14 +291,14 @@ describe("Realtime transcription WebRTC transport", () => {
     expect(() => createRealtimeTranscriptionTransport(expired.options)).toThrowError(
       expect.objectContaining({ code: "invalid_session" }),
     );
-    expect(expired.track.stop).not.toHaveBeenCalled();
+    expect(expired.track.stop).toHaveBeenCalledOnce();
     expect(expired.createPeerConnection).not.toHaveBeenCalled();
 
     const invalidMedia = createHarnessInput({ mediaKind: "video" });
     expect(() => createRealtimeTranscriptionTransport(invalidMedia.options)).toThrowError(
       expect.objectContaining({ code: "invalid_media" }),
     );
-    expect(invalidMedia.track.stop).not.toHaveBeenCalled();
+    expect(invalidMedia.track.stop).toHaveBeenCalledOnce();
     expect(invalidMedia.createPeerConnection).not.toHaveBeenCalled();
 
     const controller = new AbortController();
@@ -307,7 +307,7 @@ describe("Realtime transcription WebRTC transport", () => {
     expect(() => createRealtimeTranscriptionTransport(aborted.options)).toThrowError(
       expect.objectContaining({ code: "aborted" }),
     );
-    expect(aborted.track.stop).not.toHaveBeenCalled();
+    expect(aborted.track.stop).toHaveBeenCalledOnce();
     expect(aborted.createPeerConnection).not.toHaveBeenCalled();
   });
 
@@ -334,10 +334,10 @@ describe("Realtime transcription WebRTC transport", () => {
       expect.objectContaining({ code: "connection_failed" }),
     );
     expect(input.peer.closed).toBe(true);
-    expect(input.track.stop).not.toHaveBeenCalled();
+    expect(input.track.stop).toHaveBeenCalledOnce();
   });
 
-  test("maps a data-channel commit failure without stopping borrowed media", async () => {
+  test("maps a data-channel commit failure and tears down the microphone", async () => {
     const harness = createHarness();
     await establish(harness);
     harness.channel.send = () => {
@@ -348,7 +348,7 @@ describe("Realtime transcription WebRTC transport", () => {
 
     expect(harness.errors.map((error) => error.code)).toEqual(["connection_lost"]);
     expect(harness.track.enabled).toBe(false);
-    expect(harness.track.stop).not.toHaveBeenCalled();
+    expect(harness.track.stop).toHaveBeenCalledOnce();
     expect(harness.peer.closed).toBe(true);
   });
 });

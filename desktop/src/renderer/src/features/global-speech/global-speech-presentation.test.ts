@@ -22,7 +22,7 @@ import {
 import { conversationSpeechCaptureRequest } from "./speech-capture-destination";
 
 describe("global speech presentation", () => {
-  test("attributes one locally recording conversation capture across its source pane, duplicate view, and other topics", () => {
+  test("attributes one frozen conversation capture across its source pane, duplicate view, and other topics", () => {
     const snapshot = captureSnapshot({
       capture: {
         captureSessionId: "capture-alpha",
@@ -32,8 +32,7 @@ describe("global speech presentation", () => {
           "pane-alpha",
         ),
         transcript: "partial words",
-        connection: "connecting",
-        type: "recording",
+        type: "listening",
       },
     });
     const capture = globalSpeechCapturePresentation(snapshot);
@@ -52,7 +51,7 @@ describe("global speech presentation", () => {
     ).toMatchObject({
       activityLabel: "Listening",
       captureScope: "this_pane",
-      captureState: "recording",
+      captureState: "listening",
       transcriptPreview: "partial words",
       voiceControlDisabled: false,
       voiceControlLabel: "Finish this voice request",

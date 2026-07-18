@@ -65,26 +65,6 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "instant-voice-capture-phase0-baseline.test.mjs",
-    name: "instant-voice-capture-phase0-baseline",
-    tiers: ["performance"],
-  },
-  {
-    file: "instant-voice-capture-phase0-audioworklet.test.mjs",
-    name: "instant-voice-capture-phase0-audioworklet",
-    tiers: ["performance"],
-  },
-  {
-    file: "instant-voice-capture-phase0-live-openai.test.mjs",
-    name: "instant-voice-capture-phase0-live-openai",
-    tiers: ["live"],
-  },
-  {
-    file: "instant-voice-capture-phase4-workflow.test.mjs",
-    name: "instant-voice-capture-phase4-workflow",
-    tiers: ["performance"],
-  },
-  {
     file: "easy-button-presentation-recovery-phase0.test.mjs",
     name: "easy-button-presentation-recovery-phase0",
     tiers: ["recovery"],

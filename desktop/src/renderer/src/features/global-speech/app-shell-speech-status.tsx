@@ -390,9 +390,9 @@ function shellCaptureGlyphKind(capture: GlobalSpeechCapturePresentation): ShellC
 
 const shellCaptureGlyphKinds = {
   committing: "loading",
-  draining: "loading",
+  connecting: "loading",
   idle: "microphone",
-  recording: "stop",
+  listening: "stop",
   requesting_permission: "loading",
   submitting: "loading",
   unavailable: "microphone",
