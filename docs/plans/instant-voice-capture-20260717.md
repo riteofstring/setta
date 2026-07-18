@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Implementation complete — Phase 0.4 repaired the registered live OpenAI workflow's scoped credential resolution, passed the processed-track smoke through the ignored root `.env`, and appended the provider result. The plan is ready for final audit.
+**Status:** Incomplete after final audit — Phase 4 still needs deterministic production-path coverage for playback preemption and active app teardown during in-flight capture. The product cutover and Phase 0.4 live OpenAI repair are present, but the verification contract is not complete.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -24,7 +24,7 @@ This is a replacement, not a compatibility project.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
-- [x] Phase 4 — Production-path workflow coverage and performance report.
+- [ ] Phase 4 — Production-path workflow coverage and performance report. Final audit gap: the existing workflow covers delayed readiness, early finish, routing, cleanup for cancellation/connection/duration/runtime switch/pane closure, and another-pane arbitration, but it does not cover playback preemption or active app teardown while capture is in flight.
 
 ## Live OpenAI credential contract
 
