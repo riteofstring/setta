@@ -52,7 +52,6 @@ import {
 import { enqueueConversationProjectionEvent } from "./stores/conversation-projection-runtime";
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
-import { requestOpenAIVoiceConnectionSettings } from "./stores/settings-navigation-store";
 import {
   type WorkspaceOperation,
   type WorkspaceStatus,
@@ -113,10 +112,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     [mobileViewport],
   );
   const openSettingsPane = useCallback(() => {
-    focusWorkspaceSurface("settings-dom");
-  }, [focusWorkspaceSurface]);
-  const openVoiceCredentialSettings = useCallback(() => {
-    requestOpenAIVoiceConnectionSettings();
     focusWorkspaceSurface("settings-dom");
   }, [focusWorkspaceSurface]);
   const applyConversationPresentationRequest = useCallback(
@@ -235,7 +230,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         master={master}
         masterOverlayOpen={masterOverlayOpen}
         mobileViewport={mobileViewport}
-        openVoiceCredentialSettings={openVoiceCredentialSettings}
         openSettingsPane={openSettingsPane}
         platform={platform}
         projectPaneOpen={projectPaneOpen}
@@ -294,11 +288,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
               setta={setta}
             >
               {(speechCapture, speechPresentation) => (
-                <AppShellMasterSurface
-                  controller={master}
-                  onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
-                  platform={platform}
-                >
+                <AppShellMasterSurface controller={master} platform={platform}>
                   {(masterOverlayOpen) =>
                     shell({
                       master,
@@ -528,7 +518,6 @@ function AppChromeControls({
   master,
   masterOverlayOpen,
   mobileViewport,
-  openVoiceCredentialSettings,
   openSettingsPane,
   platform,
   projectPaneOpen,
@@ -538,7 +527,6 @@ function AppChromeControls({
   master: AppShellMasterController | undefined;
   masterOverlayOpen: boolean;
   mobileViewport: boolean;
-  openVoiceCredentialSettings: () => void;
   openSettingsPane: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -552,7 +540,6 @@ function AppChromeControls({
       globalSpeechAvailable={globalSpeechAvailable}
       master={master}
       masterOverlayOpen={masterOverlayOpen}
-      onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
       onOpenSettings={openSettingsPane}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
@@ -565,7 +552,6 @@ function DesktopShellTopBar({
   globalSpeechAvailable,
   master,
   masterOverlayOpen,
-  onOpenVoiceCredentialSettings,
   onOpenSettings,
   platform,
   projectPaneOpen,
@@ -574,7 +560,6 @@ function DesktopShellTopBar({
   globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
   masterOverlayOpen: boolean;
-  onOpenVoiceCredentialSettings: () => void;
   onOpenSettings: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -623,9 +608,7 @@ function DesktopShellTopBar({
           </div>
         </TooltipProvider>
       </div>
-      {globalSpeechAvailable ? (
-        <AppShellSpeechStatus onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings} />
-      ) : null}
+      {globalSpeechAvailable ? <AppShellSpeechStatus /> : null}
       <div className="setta-shell-top-bar-right">
         <SettaLogoMark className="setta-shell-top-bar-logo" height={12} />
       </div>

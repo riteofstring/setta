@@ -11,7 +11,6 @@ import {
 import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import type { WorkspaceLayoutStore } from "./layout-store";
-import { settingsPaneRequest } from "./settings-pane-request";
 import type { EmptyFrameOption } from "./surface-adapters";
 import type { WorkspacePane, NonEasyButtonSurfaceKind, OpenPaneRequest } from "./types";
 
@@ -94,7 +93,7 @@ export const openPaneActions = [
   {
     Icon: Settings,
     label: "Settings",
-    request: settingsPaneRequest,
+    request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
     shortcutKey: "s",
   },
 ] satisfies Array<{

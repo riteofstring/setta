@@ -83,11 +83,6 @@ describe("session recording privacy", () => {
       "runtime_pairing_url",
       "setta://pair?tok=private-pairing-token",
     ],
-    [
-      ipcChannels.speechSaveCredential,
-      "speech_credential_save",
-      { apiKey: "private-speech-api-key" },
-    ],
   ])("redacts sensitive IPC start payloads for %s", (channel, type, value) => {
     expect(ipcRecordingValue(channel, "start", [value], true)).toEqual({
       redacted: true,
@@ -127,20 +122,6 @@ describe("session recording privacy", () => {
       type: "conversation_approval_submission_failure",
     });
     expect(JSON.stringify(recorded)).not.toContain(privateAnswer);
-  });
-
-  test("redacts speech credential save failure details", () => {
-    const privateCredential = "sk-setta-recording-secret";
-    const recorded = ipcRecordingFailure(
-      ipcChannels.speechSaveCredential,
-      new Error(`credential rejected ${privateCredential}`),
-    );
-
-    expect(recorded).toEqual({
-      redacted: true,
-      type: "speech_credential_save_failure",
-    });
-    expect(JSON.stringify(recorded)).not.toContain(privateCredential);
   });
 
   test("redacts credential-bearing external URL events", () => {

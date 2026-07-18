@@ -65,6 +65,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "instant-voice-capture-phase0-baseline.test.mjs",
+    name: "instant-voice-capture-phase0-baseline",
+    tiers: ["performance"],
+  },
+  {
     file: "instant-voice-capture-phase0-audioworklet.test.mjs",
     name: "instant-voice-capture-phase0-audioworklet",
     tiers: ["performance"],
