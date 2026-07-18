@@ -37,7 +37,6 @@ describe("real workspace layout scene", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
       browser: 10,
       "empty-frame": 10,
-      "settings-dom": 1,
     });
   });
 
@@ -54,8 +53,8 @@ describe("real workspace layout scene", () => {
       initial.focusedPaneId,
     );
     const paneId = store.openPane({
-      surfaceKind: "settings-dom",
-      title: "Settings",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "slate",
     });
 
@@ -79,8 +78,8 @@ describe("real workspace layout scene", () => {
     expect(restored.layoutRecovery).toBeNull();
     expect(restored.scene.totalPanes).toBe(2);
     expect(restored.scene.paneById.get(paneId)).toMatchObject({
-      surfaceKind: "settings-dom",
-      title: "Settings",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "slate",
     });
   });

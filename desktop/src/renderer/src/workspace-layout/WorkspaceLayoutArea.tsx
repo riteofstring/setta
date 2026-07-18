@@ -32,7 +32,6 @@ import {
 } from "./workspace-layout-area-mount";
 import { viewportRect } from "./workspace-layout-area-geometry";
 import {
-  focusOrOpenPaneBySurfaceKind,
   WorkspaceMobileControlsLayer,
   WorkspaceOverviewGhostButton,
   WorkspaceToolbarLayer,
@@ -90,7 +89,6 @@ import {
   WorkspaceAvailabilityNotice,
   WorkspaceFirstRunSurface,
 } from "./workspace-availability-surface";
-import { resolveWorkspaceOpenPaneRequest, workspaceOpenPaneRequestEvent } from "./open-pane-events";
 import { useWorkspaceLayoutSnapshot, useWorkspaceLayoutTarget } from "./workspace-layout-state";
 import {
   WorkspaceInitialEasyButtonPane,
@@ -100,13 +98,13 @@ import {
   workspaceLayoutAreaLabel,
   workspaceLayoutRecoveryMessage,
 } from "./workspace-ui-layout";
-import type { OpenPaneRequest, PaneDropIntent, Rect } from "./types";
+import type { PaneDropIntent, Rect } from "./types";
 const overviewDragThresholdPx = 6;
 export function WorkspaceLayoutArea({
   focusConversationRequest = null,
-  focusSurfaceRequest = null,
   initialEasyButtonPaneStartup = null,
   onConversationPresentationError,
+  onOpenSettingsPage,
   placementPreflightRequest = null,
   onToggleProjectPane,
   platform,
@@ -137,13 +135,13 @@ export function WorkspaceLayoutArea({
   return (
     <WorkspaceLayoutRuntimeArea
       focusConversationRequest={focusConversationRequest}
-      focusSurfaceRequest={focusSurfaceRequest}
       initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
       initialLayout={layoutLoad.layout}
       layoutLoadError={layoutLoad.error}
       mode={mode}
       onToggleProjectPane={onToggleProjectPane}
       onConversationPresentationError={onConversationPresentationError}
+      onOpenSettingsPage={onOpenSettingsPage}
       placementPreflightRequest={placementPreflightRequest}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
@@ -158,13 +156,13 @@ export function WorkspaceLayoutArea({
 }
 function WorkspaceLayoutRuntimeArea({
   focusConversationRequest,
-  focusSurfaceRequest,
   initialEasyButtonPaneStartup,
   initialLayout,
   layoutLoadError,
   mode,
   onToggleProjectPane,
   onConversationPresentationError,
+  onOpenSettingsPage,
   placementPreflightRequest,
   platform,
   projectPaneOpen,
@@ -311,16 +309,6 @@ function WorkspaceLayoutRuntimeArea({
     },
     [clearOverviewInsertPreview, runLayoutAction, runtime, stageViewport],
   );
-  useEffect(() => {
-    if (!focusSurfaceRequest || runtime.mode !== "workspace") {
-      return;
-    }
-    runLayoutAction(() => {
-      focusOrOpenPaneBySurfaceKind(runtime, focusSurfaceRequest.surfaceKind);
-      runtime.store.ensureFocusedColumnVisible(stageViewport());
-      runtime.store.snapScrollToTarget();
-    });
-  }, [focusSurfaceRequest, runLayoutAction, runtime, stageViewport]);
   useConversationPaneRuntime({
     focusRequest: focusConversationRequest,
     focusedPaneId: layoutSnapshot.focusedPaneId,
@@ -332,40 +320,6 @@ function WorkspaceLayoutRuntimeArea({
     stageViewport,
     workspaceId,
   });
-  useEffect(() => {
-    if (runtime.mode !== "workspace") {
-      return;
-    }
-    const handleOpenPaneRequest = (event: Event) => {
-      const request = (event as CustomEvent<OpenPaneRequest>).detail;
-      const resolution = resolveWorkspaceOpenPaneRequest(request);
-      if (resolution.kind === "ignored") {
-        return;
-      }
-      if (resolution.kind === "rejected") {
-        onConversationPresentationError?.(resolution.reason);
-        return;
-      }
-      const { surfaceKind } = resolution;
-      runLayoutAction(() => {
-        const maximizedPaneId = runtime.store.getSnapshot().maximizedPaneId;
-        if (maximizedPaneId !== null) {
-          runtime.store.togglePaneMaximized(maximizedPaneId);
-        }
-        if (runtime.store.canOpenPane(resolution.request)) {
-          runtime.store.openPane(resolution.request);
-        } else {
-          runtime.store.focusPaneBySurfaceKind(surfaceKind);
-        }
-        runtime.store.ensureFocusedColumnVisible(stageViewport());
-        runtime.store.snapScrollToTarget();
-      });
-    };
-    window.addEventListener(workspaceOpenPaneRequestEvent, handleOpenPaneRequest);
-    return () => {
-      window.removeEventListener(workspaceOpenPaneRequestEvent, handleOpenPaneRequest);
-    };
-  }, [onConversationPresentationError, runLayoutAction, runtime, stageViewport]);
   useEffect(() => {
     const root = rootRef.current;
     const stage = stageRef.current;
@@ -956,6 +910,7 @@ function WorkspaceLayoutRuntimeArea({
       <WorkspaceMobileControlsLayer
         dismissProjectPaneOverlay={dismissProjectPaneOverlay}
         mobileLayout={mobileLayout}
+        onOpenSettingsPage={onOpenSettingsPage}
         onToggleProjectPane={onToggleProjectPane}
         overviewActive={layoutSnapshot.presentationMode === "overview"}
         persistLayout={persistLayout}

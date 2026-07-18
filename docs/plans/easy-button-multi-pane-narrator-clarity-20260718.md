@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 1A repository implementation is complete and ready for audit; Settings shell navigation is the next repository-actionable phase after audit
+**Status:** In progress — Phase 2 repository implementation is complete and ready for audit; narrator language contract is the next repository-actionable phase after audit
 
 **Scope:** Immediate removal of the PWA/web client and static web hosting, Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
@@ -312,13 +312,13 @@ This phase preempts every later phase and the pending Phase 1 broad audit. Do no
 
 ### Phase 2 — Move Settings to shell navigation
 
-- [ ] Add the exhaustive workspace/settings shell route and extend the existing settings navigation store to own open, close, active-section, and typed-focus-target commands.
-- [ ] Build the full-viewport Settings page around `SettingsPanel`, including platform-safe drag chrome, **Back to workspace**, focus entry/return, and secondary Escape handling.
-- [ ] Make the complete workspace shell inert and accessibility-hidden while Settings is active; gate workspace window/native-view input and occlude native Browser views without unmounting the workspace runtime.
-- [ ] Route desktop, mobile, sidebar, master, Easy Button, and shell-speech Settings entry points through the same typed command. Opening from the master overlay closes that overlay first. Delete the settings-specific pane event dispatch and every user-facing “Settings pane” label.
-- [ ] Remove `SurfaceKindSettingsDOM` and its discriminated variant from the Go owner, run `./scripts/go.sh run ./cmd/generate-contracts`, and only then remove downstream Settings pane code and generated consumers.
-- [ ] Remove Settings from workspace menus, surface adapters, scheduling/visibility policy, benchmark fixtures, pane metadata, layout focus plumbing, and fixed pane limits.
-- [ ] Prove Settings opens without a selected/available workspace and targeted voice setup lands on the Speech section and intended control.
+- [x] Add the exhaustive workspace/settings shell route and extend the existing settings navigation store to own open, close, active-section, and typed-focus-target commands.
+- [x] Build the full-viewport Settings page around `SettingsPanel`, including platform-safe drag chrome, **Back to workspace**, focus entry/return, and secondary Escape handling.
+- [x] Make the complete workspace shell inert and accessibility-hidden while Settings is active; gate workspace window/native-view input and occlude native Browser views without unmounting the workspace runtime.
+- [x] Route desktop, mobile, sidebar, master, Easy Button, and shell-speech Settings entry points through the same typed command. Opening from the master overlay closes that overlay first. Delete the settings-specific pane event dispatch and every user-facing “Settings pane” label.
+- [x] Remove `SurfaceKindSettingsDOM` and its discriminated variant from the Go owner, run `./scripts/go.sh run ./cmd/generate-contracts`, and only then remove downstream Settings pane code and generated consumers.
+- [x] Remove Settings from workspace menus, surface adapters, scheduling/visibility policy, benchmark fixtures, pane metadata, layout focus plumbing, and fixed pane limits.
+- [x] Prove Settings opens without a selected/available workspace and targeted voice setup lands on the Speech section and intended control.
 
 ### Phase 3 — Replace vague narrator brevity with an output contract
 

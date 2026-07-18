@@ -8,11 +8,13 @@ import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useConversationNavigatorStore } from "./stores/conversation-navigator-store";
 import { useConversationPaneStore } from "./stores/conversation-pane-store";
+import { useSettingsNavigationStore } from "./stores/settings-navigation-store";
 
 beforeEach(() => {
   useAppearanceStore.setState(useAppearanceStore.getInitialState(), true);
   useConversationNavigatorStore.setState(useConversationNavigatorStore.getInitialState(), true);
   useConversationPaneStore.setState(useConversationPaneStore.getInitialState(), true);
+  useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
 });
 
 describe("workspace renderer states", () => {
@@ -121,7 +123,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -161,7 +163,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[web, api]}
         removeRecent={async () => {}}
@@ -187,7 +189,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -227,7 +229,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -269,7 +271,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -304,7 +306,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -340,7 +342,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -372,7 +374,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}

@@ -9,13 +9,12 @@ import type {
   WorkspaceConversationPlacementPreflightRequest,
 } from "./conversation-pane-runtime";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
-import type { WorkspaceSurfaceFocusRequest } from "./workspace-layout-area-runtime";
 
 export interface WorkspaceLayoutAreaProps {
   focusConversationRequest?: WorkspaceConversationFocusRequest | null;
-  focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
   initialEasyButtonPaneStartup?: InitialEasyButtonPaneStartup;
   onConversationPresentationError?: (message: string | null) => void;
+  onOpenSettingsPage: () => void;
   placementPreflightRequest?: WorkspaceConversationPlacementPreflightRequest | null;
   onToggleProjectPane: () => void;
   platform: DesktopPlatform;
@@ -28,12 +27,12 @@ export interface WorkspaceLayoutAreaProps {
 
 export interface WorkspaceLayoutRuntimeAreaProps {
   focusConversationRequest: WorkspaceConversationFocusRequest | null;
-  focusSurfaceRequest: WorkspaceSurfaceFocusRequest | null;
   initialEasyButtonPaneStartup: InitialEasyButtonPaneStartup;
   initialLayout: WorkspaceUILayout | null;
   layoutLoadError: string | null;
   mode: WorkspaceSceneMode;
   onConversationPresentationError?: (message: string | null) => void;
+  onOpenSettingsPage: () => void;
   placementPreflightRequest: WorkspaceConversationPlacementPreflightRequest | null;
   onToggleProjectPane: () => void;
   platform: DesktopPlatform;

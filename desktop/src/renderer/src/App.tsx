@@ -1,6 +1,6 @@
 import type { PresentationIntent, WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import { PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from "lucide-react";
+import { ArrowLeft, PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -14,6 +14,7 @@ import {
 import { useAppWindowDragHandlers } from "./app-window-drag";
 import { useViewportSize } from "./use-viewport-size";
 import { ResizablePane } from "./components/resizable-pane";
+import { SettingsPanel } from "./components/settings-panel";
 import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -57,7 +58,6 @@ import {
   type ConversationPanePresentationResult,
   type ConversationPanePresentationSuccess,
 } from "./workspace-layout/conversation-pane-coordinator";
-import type { WorkspaceSurfaceFocusRequest } from "./workspace-layout/workspace-layout-area-runtime";
 import { useAppearanceStore } from "./stores/appearance-store";
 import {
   type ConversationPaneWorkspaceState,
@@ -66,7 +66,10 @@ import {
 import { enqueueConversationProjectionEvent } from "./stores/conversation-projection-runtime";
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { runtimeControlsDisabled, useRuntimeStore } from "./stores/runtime-store";
-import { requestOpenAIVoiceConnectionSettings } from "./stores/settings-navigation-store";
+import {
+  type SettingsShellRoute,
+  useSettingsNavigationStore,
+} from "./stores/settings-navigation-store";
 import {
   type WorkspaceOperation,
   type WorkspaceStatus,
@@ -95,8 +98,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const runtime = useRuntimeLifecycle(setta);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
-  const [workspaceSurfaceFocusRequest, setWorkspaceSurfaceFocusRequest] =
-    useState<WorkspaceSurfaceFocusRequest | null>(null);
   const [workspaceConversationFocusRequest, setWorkspaceConversationFocusRequest] =
     useState<WorkspaceConversationFocusRequest | null>(null);
   const [
@@ -109,6 +110,15 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const conversationPresentationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const conversationPlacementPreflightQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingConversationCreationsRef = useRef(new Set<string>());
+  const settingsFocusRestoreRef = useRef<HTMLElement | null>(null);
+  const settingsRouteWasOpenRef = useRef(false);
+  const settingsRoute = useSettingsNavigationStore((state) => state.route);
+  const openSettings = useSettingsNavigationStore((state) => state.openSettings);
+  const openOpenAIVoiceConnection = useSettingsNavigationStore(
+    (state) => state.openOpenAIVoiceConnection,
+  );
+  const closeSettings = useSettingsNavigationStore((state) => state.closeSettings);
+  const settingsPageOpen = settingsRoute.page === "settings";
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
   const mobileViewport = isMobileViewportWidth(viewport.width);
   const toggleProjectPane = useCallback(() => {
@@ -120,25 +130,36 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   useEffect(() => {
     setProjectPaneOpen(!mobileViewport);
   }, [mobileViewport]);
-  const focusWorkspaceSurface = useCallback(
-    (surfaceKind: WorkspaceSurfaceFocusRequest["surfaceKind"]) => {
-      setWorkspaceSurfaceFocusRequest((current) => ({
-        requestId: (current?.requestId ?? 0) + 1,
-        surfaceKind,
-      }));
-      if (mobileViewport) {
-        setProjectPaneOpen(false);
-      }
-    },
-    [mobileViewport],
-  );
-  const openSettingsPane = useCallback(() => {
-    focusWorkspaceSurface("settings-dom");
-  }, [focusWorkspaceSurface]);
+  const captureSettingsFocusOrigin = useCallback(() => {
+    settingsFocusRestoreRef.current = activeFocusableElement();
+  }, []);
+  const openSettingsPage = useCallback(() => {
+    captureSettingsFocusOrigin();
+    openSettings();
+    if (mobileViewport) {
+      setProjectPaneOpen(false);
+    }
+  }, [captureSettingsFocusOrigin, mobileViewport, openSettings]);
   const openVoiceCredentialSettings = useCallback(() => {
-    requestOpenAIVoiceConnectionSettings();
-    focusWorkspaceSurface("settings-dom");
-  }, [focusWorkspaceSurface]);
+    captureSettingsFocusOrigin();
+    openOpenAIVoiceConnection();
+    if (mobileViewport) {
+      setProjectPaneOpen(false);
+    }
+  }, [captureSettingsFocusOrigin, mobileViewport, openOpenAIVoiceConnection]);
+  const closeSettingsPage = useCallback(() => {
+    closeSettings();
+  }, [closeSettings]);
+  useEffect(() => {
+    if (settingsPageOpen && !settingsRouteWasOpenRef.current && !settingsFocusRestoreRef.current) {
+      settingsFocusRestoreRef.current = activeFocusableElement();
+    }
+    if (!settingsPageOpen && settingsRouteWasOpenRef.current) {
+      restoreFocus(settingsFocusRestoreRef.current);
+      settingsFocusRestoreRef.current = null;
+    }
+    settingsRouteWasOpenRef.current = settingsPageOpen;
+  }, [settingsPageOpen]);
   const applyConversationPresentationRequest = useCallback(
     async (
       request: ConversationPanePresentationRequest,
@@ -362,56 +383,65 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     masterOverlayOpen?: boolean;
     speechCapture?: AppShellSpeechCaptureController;
     speechPresentation?: GlobalSpeechPresentationSource;
-  } = {}) => (
-    <div
-      aria-hidden={masterOverlayOpen || undefined}
-      className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground"
-      inert={masterOverlayOpen || undefined}
-    >
-      <AppChromeControls
-        globalSpeechAvailable={speechCapture !== undefined}
-        master={master}
-        masterOverlayOpen={masterOverlayOpen}
-        mobileViewport={mobileViewport}
-        openVoiceCredentialSettings={openVoiceCredentialSettings}
-        openSettingsPane={openSettingsPane}
-        platform={platform}
-        projectPaneOpen={projectPaneOpen}
-        setProjectPaneOpen={setProjectPaneOpen}
-      />
-      <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
-        <ProjectPane
-          clearConversationPresentationError={() => setConversationPresentationError(null)}
-          conversationPresentationError={conversationPresentationError}
-          createConversation={createConversation}
-          master={master}
-          mobileOverlay={mobileViewport}
-          open={projectPaneOpen}
-          openSettingsPane={openSettingsPane}
-          presentConversation={presentConversation}
-          setWidth={setProjectPaneWidth}
-          viewportWidth={viewport.width}
-          width={effectiveProjectPaneWidth}
-          runtimeUnavailable={runtime.controlsDisabled}
-          workspace={workspace}
-        />
-        <WorkspaceLayoutArea
-          focusConversationRequest={workspaceConversationFocusRequest}
-          focusSurfaceRequest={workspaceSurfaceFocusRequest}
-          initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
-          onConversationPresentationError={setConversationPresentationError}
-          placementPreflightRequest={workspaceConversationPlacementPreflightRequest}
-          onToggleProjectPane={toggleProjectPane}
-          platform={platform}
-          projectPaneOpen={projectPaneOpen}
-          projectPaneWidth={mobileViewport || !projectPaneOpen ? 0 : effectiveProjectPaneWidth}
-          shellOverlayActive={masterOverlayOpen}
-          speechCapture={speechCapture}
-          speechPresentation={speechPresentation}
-        />
-      </main>
-    </div>
-  );
+  } = {}) => {
+    const workspaceShellHidden = masterOverlayOpen || settingsPageOpen;
+    return (
+      <>
+        <div
+          aria-hidden={workspaceShellHidden || undefined}
+          className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground"
+          data-testid="app-workspace-shell"
+          inert={workspaceShellHidden || undefined}
+        >
+          <AppChromeControls
+            globalSpeechAvailable={speechCapture !== undefined}
+            master={master}
+            masterOverlayOpen={masterOverlayOpen}
+            mobileViewport={mobileViewport}
+            openVoiceCredentialSettings={openVoiceCredentialSettings}
+            openSettingsPage={openSettingsPage}
+            platform={platform}
+            projectPaneOpen={projectPaneOpen}
+            setProjectPaneOpen={setProjectPaneOpen}
+          />
+          <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+            <ProjectPane
+              clearConversationPresentationError={() => setConversationPresentationError(null)}
+              conversationPresentationError={conversationPresentationError}
+              createConversation={createConversation}
+              master={master}
+              mobileOverlay={mobileViewport}
+              open={projectPaneOpen}
+              openSettingsPage={openSettingsPage}
+              presentConversation={presentConversation}
+              setWidth={setProjectPaneWidth}
+              viewportWidth={viewport.width}
+              width={effectiveProjectPaneWidth}
+              runtimeUnavailable={runtime.controlsDisabled}
+              workspace={workspace}
+            />
+            <WorkspaceLayoutArea
+              focusConversationRequest={workspaceConversationFocusRequest}
+              initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
+              onConversationPresentationError={setConversationPresentationError}
+              onOpenSettingsPage={openSettingsPage}
+              placementPreflightRequest={workspaceConversationPlacementPreflightRequest}
+              onToggleProjectPane={toggleProjectPane}
+              platform={platform}
+              projectPaneOpen={projectPaneOpen}
+              projectPaneWidth={mobileViewport || !projectPaneOpen ? 0 : effectiveProjectPaneWidth}
+              shellOverlayActive={workspaceShellHidden}
+              speechCapture={speechCapture}
+              speechPresentation={speechPresentation}
+            />
+          </main>
+        </div>
+        {settingsRoute.page === "settings" ? (
+          <SettingsShellPage onBack={closeSettingsPage} platform={platform} route={settingsRoute} />
+        ) : null}
+      </>
+    );
+  };
   if (!setta.workspaceNativeViews) {
     return shell();
   }
@@ -520,6 +550,85 @@ function AppRuntimeContractError() {
   );
 }
 
+type SettingsPageRoute = Extract<SettingsShellRoute, { page: "settings" }>;
+
+function SettingsShellPage({
+  onBack,
+  platform,
+  route,
+}: {
+  onBack: () => void;
+  platform: DesktopPlatform;
+  route: SettingsPageRoute;
+}) {
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const windowDragHandlers = useAppWindowDragHandlers();
+
+  useEffect(() => {
+    if (route.focusTarget) {
+      return;
+    }
+    headingRef.current?.focus({ preventScroll: true });
+  }, [route.focusTarget, route.requestId]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) {
+        return;
+      }
+      event.preventDefault();
+      onBack();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onBack]);
+
+  return (
+    <section
+      aria-labelledby="setta-settings-page-title"
+      className="setta-settings-page bg-background text-foreground"
+      data-desktop-platform={platform}
+      data-testid="settings-shell-page"
+    >
+      <header
+        className="setta-settings-page-header app-drag"
+        data-setta-shell-title-bar="true"
+        {...windowDragHandlers}
+      >
+        <div aria-hidden="true" className="setta-settings-page-chrome-shield app-no-drag" />
+        <button className="setta-settings-page-back app-no-drag" onClick={onBack} type="button">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to workspace</span>
+        </button>
+        <h1 id="setta-settings-page-title" ref={headingRef} tabIndex={-1}>
+          Settings
+        </h1>
+      </header>
+      <div className="setta-settings-page-body">
+        <SettingsPanel />
+      </div>
+    </section>
+  );
+}
+
+function activeFocusableElement(): HTMLElement | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || active === document.body) {
+    return null;
+  }
+  return active;
+}
+
+function restoreFocus(element: HTMLElement | null): void {
+  if (!element || typeof document === "undefined" || !document.contains(element)) {
+    return;
+  }
+  element.focus({ preventScroll: true });
+}
+
 function useRuntimeLifecycle(setta: SettaAPI) {
   const loadRuntimes = useRuntimeStore((state) => state.load);
   const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
@@ -577,7 +686,7 @@ function ProjectPane({
   master,
   mobileOverlay,
   open,
-  openSettingsPane,
+  openSettingsPage,
   presentConversation,
   setWidth,
   viewportWidth,
@@ -591,7 +700,7 @@ function ProjectPane({
   master: AppShellMasterController | undefined;
   mobileOverlay: boolean;
   open: boolean;
-  openSettingsPane: () => void;
+  openSettingsPage: () => void;
   presentConversation: (
     workspaceId: string,
     conversationId: string,
@@ -619,7 +728,7 @@ function ProjectPane({
       masterUnavailable={runtimeUnavailable}
       openLocalFolder={workspace.openLocalFolder}
       openMasterOverlay={master?.openOverlay}
-      openSettingsPane={openSettingsPane}
+      openSettingsPage={openSettingsPage}
       openWorkspacePath={workspace.openWorkspacePath}
       presentConversation={presentConversation}
       recentWorkspaces={workspace.recentWorkspaces}
@@ -675,7 +784,7 @@ function AppChromeControls({
   masterOverlayOpen,
   mobileViewport,
   openVoiceCredentialSettings,
-  openSettingsPane,
+  openSettingsPage,
   platform,
   projectPaneOpen,
   setProjectPaneOpen,
@@ -685,7 +794,7 @@ function AppChromeControls({
   masterOverlayOpen: boolean;
   mobileViewport: boolean;
   openVoiceCredentialSettings: () => void;
-  openSettingsPane: () => void;
+  openSettingsPage: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
@@ -699,7 +808,7 @@ function AppChromeControls({
       master={master}
       masterOverlayOpen={masterOverlayOpen}
       onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
-      onOpenSettings={openSettingsPane}
+      onOpenSettings={openSettingsPage}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
       setProjectPaneOpen={setProjectPaneOpen}

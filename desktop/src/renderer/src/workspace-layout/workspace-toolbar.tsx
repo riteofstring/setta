@@ -1,4 +1,4 @@
-import { Globe, MessageSquarePlus, Plus, Settings, ZoomIn, ZoomOut } from "lucide-react";
+import { Globe, MessageSquarePlus, Plus, ZoomIn, ZoomOut } from "lucide-react";
 import {
   type ComponentType,
   type ReactNode,
@@ -11,7 +11,6 @@ import {
 import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import type { WorkspaceLayoutStore } from "./layout-store";
-import { settingsPaneRequest } from "./settings-pane-request";
 import type { EmptyFrameOption } from "./surface-adapters";
 import type {
   SurfaceFrameActionRequest,
@@ -102,10 +101,6 @@ export interface WorkspaceFrameActionDefinition {
   shortcutKey: string | null;
 }
 
-export type SurfaceWorkspaceFrameActionDefinition = WorkspaceFrameActionDefinition & {
-  action: Extract<WorkspaceFrameAction, { kind: "surface" }>;
-};
-
 export const workspaceFrameActions: readonly WorkspaceFrameActionDefinition[] = [
   {
     Icon: MessageSquarePlus,
@@ -124,28 +119,10 @@ export const workspaceFrameActions: readonly WorkspaceFrameActionDefinition[] = 
     label: "Browser",
     shortcutKey: "b",
   },
-  {
-    Icon: Settings,
-    action: { kind: "surface", request: settingsPaneRequest },
-    id: "settings",
-    label: "Settings",
-    shortcutKey: "s",
-  },
 ];
 
 export function workspaceFrameActionById(actionId: string): WorkspaceFrameActionDefinition | null {
   return workspaceFrameActions.find((action) => action.id === actionId) ?? null;
-}
-
-export function workspaceFrameActionForSurfaceKind(
-  surfaceKind: string,
-): SurfaceWorkspaceFrameActionDefinition | null {
-  return (
-    workspaceFrameActions.find(
-      (action): action is SurfaceWorkspaceFrameActionDefinition =>
-        action.action.kind === "surface" && action.action.request.surfaceKind === surfaceKind,
-    ) ?? null
-  );
 }
 
 export function emptyFrameOptionsForStore(store: WorkspaceLayoutStore): EmptyFrameOption[] {

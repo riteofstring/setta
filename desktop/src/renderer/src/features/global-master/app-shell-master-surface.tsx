@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type {
   AppShellMasterController,
@@ -72,6 +72,10 @@ export function AppShellMasterSurface({
       (state.draft ?? state.settings)?.shortcuts?.masterVoice ??
       defaultShortcutsSettings.masterVoice,
   );
+  const openVoiceCredentialSettingsFromMaster = useCallback(() => {
+    controller.closeOverlay();
+    onOpenVoiceCredentialSettings();
+  }, [controller, onOpenVoiceCredentialSettings]);
 
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
@@ -80,7 +84,7 @@ export function AppShellMasterSurface({
       }
       if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
         event.preventDefault();
-        executeMasterVoiceCommand(speechCaptureController, onOpenVoiceCredentialSettings);
+        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
         return;
       }
       if (isMasterOverlayShortcut(event)) {
@@ -99,7 +103,7 @@ export function AppShellMasterSurface({
     };
     const handleNativeViewKey = (event: WorkspaceBrowserViewKeyEvent) => {
       if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
-        executeMasterVoiceCommand(speechCaptureController, onOpenVoiceCredentialSettings);
+        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
         return;
       }
       if (isMasterOverlayShortcut(event)) {
@@ -116,7 +120,7 @@ export function AppShellMasterSurface({
   }, [
     controller,
     masterVoiceShortcut,
-    onOpenVoiceCredentialSettings,
+    openVoiceCredentialSettingsFromMaster,
     platform,
     speechCaptureController,
   ]);
@@ -128,7 +132,7 @@ export function AppShellMasterSurface({
         <MasterOverlay
           controller={controller}
           masterVoiceShortcut={masterVoiceShortcut}
-          onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+          onOpenVoiceCredentialSettings={openVoiceCredentialSettingsFromMaster}
           platform={platform}
           snapshot={snapshot}
           speechCapture={speechCapture}

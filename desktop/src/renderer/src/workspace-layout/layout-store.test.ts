@@ -158,22 +158,22 @@ describe("workspace layout store", () => {
   });
 
   test("enforces configured pane limits for explicit opens", () => {
-    const store = createStore({ "settings-dom": 1 });
+    const store = createStore({ browser: 1 });
 
-    expect(store.paneLimitState({ surfaceKind: "settings-dom" })).toEqual({
+    expect(store.paneLimitState({ surfaceKind: "browser" })).toEqual({
       allowed: false,
       count: 1,
       limit: 1,
-      surfaceKind: "settings-dom",
+      surfaceKind: "browser",
     });
-    expect(store.canOpenPane({ surfaceKind: "settings-dom" })).toBe(false);
-    expect(() => store.openPane({ surfaceKind: "settings-dom", title: "Settings" })).toThrow(
-      "workspace pane limit reached for settings-dom",
+    expect(store.canOpenPane({ surfaceKind: "browser" })).toBe(false);
+    expect(() => store.openPane({ surfaceKind: "browser", title: "Browser" })).toThrow(
+      "workspace pane limit reached for browser",
     );
   });
 
   test("does not impose a pane limit on Easy Button conversations", () => {
-    const store = createStore({ "settings-dom": 1 });
+    const store = createStore({ browser: 1 });
 
     for (let index = 0; index < 11; index += 1) {
       expect(
@@ -305,35 +305,35 @@ describe("workspace layout store", () => {
   });
 
   test("enforces pane limits when configuring an empty frame", () => {
-    const store = createStore({ "settings-dom": 1 });
+    const store = createStore({ browser: 1 });
     const emptyPaneId = store.openEmptyFrame();
 
     expect(() =>
       store.configurePane(emptyPaneId, {
-        surfaceKind: "settings-dom",
-        title: "Settings",
+        surfaceKind: "browser",
+        title: "Browser",
       }),
-    ).toThrow("workspace pane limit reached for settings-dom");
+    ).toThrow("workspace pane limit reached for browser");
     expect(store.toScene().paneById.get(emptyPaneId)?.surfaceKind).toBe("empty-frame");
   });
 
   test("allows reconfiguring a pane that already owns a limited surface kind", () => {
-    const store = createStore({ "settings-dom": 1 });
+    const store = createStore({ browser: 1 });
     const paneId = "workspace_pane_3";
     const before = store.toScene().paneById.get(paneId);
 
     expect(() =>
       store.configurePane(paneId, {
-        surfaceKind: "settings-dom",
-        title: "Settings Reloaded",
+        surfaceKind: "browser",
+        title: "Browser Reloaded",
       }),
     ).not.toThrow();
 
     const configured = store.toScene().paneById.get(paneId);
     expect(configured).toMatchObject({
       paneId,
-      surfaceKind: "settings-dom",
-      title: "Settings Reloaded",
+      surfaceKind: "browser",
+      title: "Browser Reloaded",
     });
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
   });
@@ -1013,10 +1013,10 @@ describe("workspace layout store", () => {
     expect(revisions).toEqual([1, 2, 3]);
   });
 
-  test("focuses an existing surface by kind for sidebar entry points", () => {
+  test("focuses an existing surface by kind", () => {
     const store = createStore();
 
-    expect(store.focusPaneBySurfaceKind("settings-dom")).toBe("workspace_pane_3");
+    expect(store.focusPaneBySurfaceKind("browser")).toBe("workspace_pane_3");
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 3,
       focusedPaneId: "workspace_pane_3",

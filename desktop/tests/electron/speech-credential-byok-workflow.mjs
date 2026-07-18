@@ -179,7 +179,7 @@ export async function openOpenAIVoiceCredentialSettings(client, timeoutMs = defa
   await client.installDriver();
   await waitForState(
     client,
-    driverCallExpression("speechCredentialOpenSettingsPane"),
+    driverCallExpression("speechCredentialOpenSettingsPage"),
     (state) => state.ready,
     timeoutMs,
   );
@@ -199,7 +199,7 @@ export async function openOpenAIVoiceCredentialSettings(client, timeoutMs = defa
 
 export async function closeOpenAIVoiceCredentialSettings(client, timeoutMs = defaultTimeoutMs) {
   await client.installDriver();
-  await waitForState(client, settingsPaneCloseExpression(), (state) => state.clicked, timeoutMs);
+  await waitForState(client, settingsPageCloseExpression(), (state) => state.clicked, timeoutMs);
   await waitForState(
     client,
     `(() => ({ closed: !document.querySelector(${JSON.stringify(credentialCardSelector)}) }))()`,
@@ -212,16 +212,17 @@ export function waitForOpenAIVoiceCredentialState(client, ready, timeoutMs = def
   return waitForState(client, driverCallExpression("speechCredentialCardState"), ready, timeoutMs);
 }
 
-function settingsPaneCloseExpression() {
+function settingsPageCloseExpression() {
   return `(() => {
-    const card = document.querySelector(${JSON.stringify(credentialCardSelector)});
-    const host = card?.closest('[data-testid="workspace-pane-host"]');
-    const button = host?.querySelector('[data-workspace-pane-action="close"]');
+    const page = document.querySelector('[data-testid="settings-shell-page"]');
+    const button = Array.from(page?.querySelectorAll("button") ?? []).find(
+      (candidate) => candidate.textContent?.trim() === "Back to workspace",
+    );
     if (!(button instanceof HTMLButtonElement)) {
-      return { clicked: false, reason: "missing-settings-close" };
+      return { clicked: false, reason: "missing-settings-back" };
     }
     if (button.disabled) {
-      return { clicked: false, reason: "settings-close-disabled" };
+      return { clicked: false, reason: "settings-back-disabled" };
     }
     button.click();
     return { clicked: true, reason: "clicked" };

@@ -14,7 +14,7 @@ const toneSequence = ["cyan", "green", "orange", "pink", "slate"] as const;
 const workKinds = ["notes", "diff", "trace", "task", "search"] as const;
 const seededSurfaceKinds = new Map<number, NonEasyButtonSurfaceKind>([
   [1, "fake-heavy-dom"],
-  [2, "settings-dom"],
+  [2, "fake-dom"],
   [3, "fake-dom"],
 ]);
 const surfaceKindLabels = {
@@ -23,7 +23,6 @@ const surfaceKindLabels = {
   "empty-frame": "empty frame",
   "fake-dom": "fake light",
   "fake-heavy-dom": "fake heavy",
-  "settings-dom": "real settings",
   snapshot: "snapshot",
 } satisfies Record<SurfaceKind, string>;
 

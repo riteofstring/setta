@@ -51,7 +51,7 @@ describe("conversation pane binding store", () => {
 
   test("retains the focused pane hint when the pane is not conversation-bound", () => {
     const store = workspaceStore();
-    const settingsPaneId = store.openPane({ surfaceKind: "settings-dom" });
+    const browserPaneId = store.openPane({ surfaceKind: "browser" });
 
     useConversationPaneStore
       .getState()
@@ -59,7 +59,7 @@ describe("conversation pane binding store", () => {
 
     expect(useConversationPaneStore.getState().workspaces.get("workspace_api")).toMatchObject({
       focusedConversationId: null,
-      focusedPaneId: settingsPaneId,
+      focusedPaneId: browserPaneId,
     });
   });
 });

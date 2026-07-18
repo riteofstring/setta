@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 63;
-export const backendContractSchemaHash = "sha256:38e6de90d1f988a04e38f859ed177f0b4c701d22e61c0a9c89b30707a043b8f4";
+export const backendProtocolVersion = 64;
+export const backendContractSchemaHash = "sha256:c082c237f132bd3baf96f85b26fa187dfff6b85756b2993c9fc1f40548d8c5b6";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -180,9 +180,9 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "browser" | "easy-button" | "empty-frame" | "settings-dom";
+export type SurfaceKind = "browser" | "easy-button" | "empty-frame";
 
-export const surfaceKindValues = ["browser", "easy-button", "empty-frame", "settings-dom"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["browser", "easy-button", "empty-frame"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
@@ -192,8 +192,6 @@ export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): Surfac
     case "easy-button":
       return decoded;
     case "empty-frame":
-      return decoded;
-    case "settings-dom":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1773,10 +1771,6 @@ export type WorkspaceUIPane = {
     }
   | {
       surfaceKind: "empty-frame";
-      easyButtonConfig: null;
-    }
-  | {
-      surfaceKind: "settings-dom";
       easyButtonConfig: null;
     }
 );
@@ -4147,16 +4141,6 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
       return {
         ...result,
         surfaceKind: "empty-frame",
-        easyButtonConfig: null,
-      };
-    }
-    case "settings-dom": {
-      if (result.easyButtonConfig !== null) {
-        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is settings-dom");
-      }
-      return {
-        ...result,
-        surfaceKind: "settings-dom",
         easyButtonConfig: null,
       };
     }

@@ -42,10 +42,10 @@ describe("workspace fake surface adapters", () => {
         meta: "2/10 Mod+Alt+B",
       },
       {
-        actionId: "settings",
+        actionId: "conversation",
         disabled: true,
-        label: "Settings",
-        meta: "1/1 Mod+Alt+S",
+        label: "Conversation",
+        meta: "Mod+Alt+C",
       },
     ]);
 
@@ -56,7 +56,7 @@ describe("workspace fake surface adapters", () => {
     expect(host.dataset.surfaceKind).toBe("empty-frame");
     expect(actions.map((action) => fakeTextContent(action))).toEqual([
       "Browser2/10 Mod+Alt+B",
-      "Settings1/1 Mod+Alt+S",
+      "ConversationMod+Alt+C",
     ]);
     expect((actions[0] as HTMLButtonElement | undefined)?.dataset.workspaceFrameActionId).toBe(
       "browser",

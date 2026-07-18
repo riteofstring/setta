@@ -26,8 +26,6 @@ import {
   requestOpenAIVoiceConnectionSettings,
   useSettingsNavigationStore,
 } from "../stores/settings-navigation-store";
-import { workspaceOpenPaneRequestEvent } from "../workspace-layout/open-pane-events";
-import type { OpenPaneRequest } from "../workspace-layout/types";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import {
   OpenAIVoiceConnectionCardView,
@@ -178,52 +176,44 @@ describe("appearance settings", () => {
       requestId: 1,
       subtab: "speech",
     });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "openai_voice_connection",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
 
     completeSettingsNavigationRequest(request?.requestId ?? 0);
 
     expect(useSettingsNavigationStore.getState().request).toBeNull();
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: null,
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
 
     requestOpenAIVoiceConnectionSettings();
 
     expect(useSettingsNavigationStore.getState().request?.requestId).toBe(2);
   });
 
-  test("opens the regular settings pane when routing to OpenAI voice setup", () => {
+  test("opens the Settings page when routing to OpenAI voice setup", () => {
     useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
-    const target = new EventTarget();
-    const requests: OpenPaneRequest[] = [];
-    target.addEventListener(workspaceOpenPaneRequestEvent, (event) => {
-      requests.push((event as CustomEvent<OpenPaneRequest>).detail);
-    });
-    const previousWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: target,
-    });
 
-    try {
-      openAIVoiceConnectionSettings();
+    openAIVoiceConnectionSettings();
 
-      expect(useSettingsNavigationStore.getState().request).toEqual({
-        focusTarget: "openai_voice_connection",
-        requestId: 1,
-        subtab: "speech",
-      });
-      expect(requests).toEqual([
-        {
-          subtitle: "workspace settings",
-          surfaceKind: "settings-dom",
-          title: "Settings",
-          tone: "slate",
-        },
-      ]);
-    } finally {
-      if (previousWindowDescriptor) {
-        Object.defineProperty(globalThis, "window", previousWindowDescriptor);
-      } else {
-        Reflect.deleteProperty(globalThis, "window");
-      }
-    }
+    expect(useSettingsNavigationStore.getState().request).toEqual({
+      focusTarget: "openai_voice_connection",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "openai_voice_connection",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
   });
 
   test("renders a connected OpenAI voice card without a saved value", () => {

@@ -197,7 +197,6 @@ const staticSnapshotRenderers = {
   "empty-frame": renderWrappedEmptyFrameSnapshot,
   "fake-dom": renderWrappedGenericSnapshot,
   "fake-heavy-dom": renderWrappedGenericSnapshot,
-  "settings-dom": renderWrappedGenericSnapshot,
   snapshot: () => null,
 } satisfies Record<SurfaceKind, StaticSnapshotRenderer>;
 

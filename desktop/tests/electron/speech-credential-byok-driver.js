@@ -13,11 +13,11 @@
   Object.assign(driver, {
     speechCredentialByokVersion: version,
     speechCredentialCardState,
-    speechCredentialOpenSettingsPane,
+    speechCredentialOpenSettingsPage,
     speechCredentialOpenVoicesSubtab,
   });
 
-  function speechCredentialOpenSettingsPane() {
+  function speechCredentialOpenSettingsPage() {
     if (document.querySelector("#settings-subtab-speech")) {
       return { ready: true, reason: "already-open" };
     }

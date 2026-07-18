@@ -37,6 +37,11 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.settingsPageVersion === "setta-settings-page-driver-v1"',
+    path: join(driverScriptDir, "settings-page-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.workspaceUltrawideLivePanesVersion === "setta-workspace-ultrawide-live-panes-driver-v1"',
     path: join(driverScriptDir, "workspace-ultrawide-live-panes-driver.js"),
   },

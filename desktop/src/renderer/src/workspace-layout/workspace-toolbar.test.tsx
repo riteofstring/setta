@@ -47,11 +47,7 @@ describe("workspace toolbar", () => {
   });
 
   test("registers conversation creation and generic surviving workspace surfaces", () => {
-    expect(workspaceFrameActions.map(({ label }) => label)).toEqual([
-      "Conversation",
-      "Browser",
-      "Settings",
-    ]);
+    expect(workspaceFrameActions.map(({ label }) => label)).toEqual(["Conversation", "Browser"]);
     expect(workspaceFrameActions).not.toContainEqual(
       expect.objectContaining({
         action: expect.objectContaining({
@@ -75,12 +71,6 @@ describe("workspace toolbar", () => {
         disabled: false,
         label: "Browser",
         meta: "Mod+Alt+B",
-      },
-      {
-        actionId: "settings",
-        disabled: false,
-        label: "Settings",
-        meta: "Mod+Alt+S",
       },
     ]);
   });

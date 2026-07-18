@@ -41,7 +41,7 @@ interface WorkspaceSidebarProps {
   createConversation: (workspaceId: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
   openMasterOverlay?: () => void;
-  openSettingsPane: () => void;
+  openSettingsPage: () => void;
   openWorkspacePath: (rootPath: string) => Promise<void>;
   presentConversation: (
     workspaceId: string,
@@ -97,7 +97,7 @@ function WorkspaceSidebarContent({
   createConversation,
   openLocalFolder,
   openMasterOverlay,
-  openSettingsPane,
+  openSettingsPage,
   openWorkspacePath,
   presentConversation,
   recentWorkspaces,
@@ -233,7 +233,7 @@ function WorkspaceSidebarContent({
           )}
         </SidebarAccordionSection>
       </div>
-      <SidebarFooterSettings onOpenSettings={openSettingsPane} visible={showFooterSettings} />
+      <SidebarFooterSettings onOpenSettings={openSettingsPage} visible={showFooterSettings} />
     </aside>
   );
 }

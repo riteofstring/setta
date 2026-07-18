@@ -5,8 +5,8 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "settings-pane-workflow.test.mjs",
-    name: "settings-pane",
+    file: "settings-page-workflow.test.mjs",
+    name: "settings-page",
     tiers: ["required"],
   },
   {
