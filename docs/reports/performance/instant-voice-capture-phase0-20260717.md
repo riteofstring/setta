@@ -41,7 +41,7 @@ node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-p
 Artifact:
 
 ```text
-.recordings/instant-voice-capture-phase0-audioworklet/20260717T200729110Z
+.recordings/instant-voice-capture-phase0-audioworklet/20260717T201242214Z
 ```
 
 The disposable browser harness uses an `AudioWorkletNode` gate between a synthetic raw audio stream and a `MediaStreamAudioDestinationNode`, then adds the processed track to a loopback `RTCPeerConnection`. A positive prefix marker is produced and retained before delayed WebRTC readiness, the gate releases only after readiness, and a negative tail marker is observed on the processed track after the raw source track is stopped.
@@ -52,10 +52,11 @@ The disposable browser harness uses an `AudioWorkletNode` gate between a synthet
 | Processed destination stream | 1 live audio track |
 | RTCPeerConnection acceptance | Offer and answer negotiated audio; remote track was live audio |
 | Prefix retained before WebRTC ready | Yes |
-| Prefix release to processed-track observation | 162.8 ms |
+| Gate release after WebRTC ready | Yes |
+| Prefix release to processed-track observation | 164.2 ms |
 | Raw track stop state | `ended` immediately after stop |
-| Raw stop to processed tail observation | 470.3 ms |
-| Raw stop to gate drain | 653.6 ms |
+| Raw stop to processed tail observation | 470.4 ms |
+| Raw stop to gate drain | 639.1 ms |
 | Explicit post-roll | 3,528 frames |
 
 ## Pending Phase 0 Work

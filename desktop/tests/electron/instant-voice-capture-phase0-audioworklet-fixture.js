@@ -504,6 +504,7 @@
     const webRTCReady = requiredEvent(events, "webrtc_ready");
     requiredEvent(events, "gate_drained");
     assertEventNotEarlier(webRTCReady, prefixInput, "WebRTC readiness", "prefix marker retention");
+    assertEventNotEarlier(release, webRTCReady, "release", "WebRTC readiness");
     assertEventNotEarlier(prefixOutput, release, "prefix marker output", "release");
     assertEventNotEarlier(tailOutput, rawStop, "tail marker output", "raw track stop");
   }

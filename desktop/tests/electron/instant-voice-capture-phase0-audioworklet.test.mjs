@@ -170,6 +170,9 @@ function assertTimeline(events) {
   if (webRTCReady.performanceMs < prefixInput.performanceMs) {
     throw new Error("RTCPeerConnection readiness happened before the prefix marker was retained");
   }
+  if (release.performanceMs < webRTCReady.performanceMs) {
+    throw new Error("gate release happened before RTCPeerConnection readiness");
+  }
   if (prefixOutput.performanceMs < release.performanceMs) {
     throw new Error("prefix marker was emitted before release");
   }
