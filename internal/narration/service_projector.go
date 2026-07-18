@@ -364,8 +364,13 @@ func (service *Service) submitFocus(
 	service.lifecycleMu.Unlock()
 
 	go func() {
-		defer service.tasks.Done()
-		defer service.releaseFocusBarrier(conversationID, done)
+		submitted := false
+		defer func() {
+			if !submitted {
+				service.releaseFocusBarrierDone(conversationID, done)
+			}
+			service.tasks.Done()
+		}()
 		if previous != nil {
 			select {
 			case <-previous:
@@ -377,7 +382,7 @@ func (service *Service) submitFocus(
 		if err != nil {
 			return
 		}
-		receipt, err := service.registry.Submit(ctx, Request{
+		_, err = service.registry.Submit(ctx, Request{
 			ID:             requestID,
 			ConversationID: conversationID,
 			Kind:           RequestKindFocus,
@@ -387,19 +392,20 @@ func (service *Service) submitFocus(
 		if err != nil {
 			return
 		}
-		_ = receipt.Wait(ctx)
+		submitted = true
 	}()
 }
 
-func (service *Service) releaseFocusBarrier(conversationID string, done chan struct{}) {
-	close(done)
+func (service *Service) releaseFocusBarrierDone(conversationID string, done chan struct{}) {
 	service.lifecycleMu.Lock()
 	pending := service.focus[conversationID]
+	found := false
 	for index, barrier := range pending {
 		if barrier.done != done {
 			continue
 		}
 		pending = append(pending[:index], pending[index+1:]...)
+		found = true
 		break
 	}
 	if len(pending) == 0 {
@@ -408,6 +414,35 @@ func (service *Service) releaseFocusBarrier(conversationID string, done chan str
 		service.focus[conversationID] = pending
 	}
 	service.lifecycleMu.Unlock()
+	if found {
+		close(done)
+	}
+}
+
+func (service *Service) releaseFocusBarrier(
+	conversationID string,
+	sourceSequence int,
+) {
+	service.lifecycleMu.Lock()
+	pending := service.focus[conversationID]
+	remaining := pending[:0]
+	released := make([]chan struct{}, 0, 1)
+	for _, barrier := range pending {
+		if barrier.sourceSequence == sourceSequence {
+			released = append(released, barrier.done)
+			continue
+		}
+		remaining = append(remaining, barrier)
+	}
+	if len(remaining) == 0 {
+		delete(service.focus, conversationID)
+	} else {
+		service.focus[conversationID] = remaining
+	}
+	service.lifecycleMu.Unlock()
+	for _, done := range released {
+		close(done)
+	}
 }
 
 func (service *Service) deferProjectionBehindTerminal(
@@ -551,12 +586,14 @@ func (service *Service) handleCompletion(completion Completion) {
 			return
 		}
 		if !completion.RetryScheduled {
+			service.releaseRequestFocusBarrier(completion.Request)
 			service.releaseRequestTerminalProjection(completion.Request)
 		}
 		return
 	}
 	switch completion.Request.Kind {
 	case RequestKindFocus:
+		service.releaseRequestFocusBarrier(completion.Request)
 		service.resumeTerminalProjection(completion.Request.ConversationID)
 	case RequestKindProjection:
 		service.continueProjection(completion.Request)
@@ -565,6 +602,13 @@ func (service *Service) handleCompletion(completion Completion) {
 	case RequestKindStatus:
 		service.resumeTerminalProjection(completion.Request.ConversationID)
 	}
+}
+
+func (service *Service) releaseRequestFocusBarrier(request Request) {
+	if request.Kind != RequestKindFocus || request.Focus == nil {
+		return
+	}
+	service.releaseFocusBarrier(request.ConversationID, request.Focus.SourceSequence)
 }
 
 func (service *Service) releaseRequestTerminalProjection(request Request) {

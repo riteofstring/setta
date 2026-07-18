@@ -170,6 +170,100 @@ func TestServiceWaitsForAcceptedInputFocusBeforeTerminalProjection(t *testing.T)
 	t.Fatalf("terminal projection call was not recorded: %+v", provider.snapshotCalls())
 }
 
+func TestServiceKeepsTerminalProjectionBehindRetriedFocus(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
+	snapshot, err := store.ReadSnapshot(context.Background(), "workspace-status-service", conversationID)
+	if err != nil {
+		t.Fatalf("ReadSnapshot: %v", err)
+	}
+	accepted := snapshot.Trajectory.Events[0]
+	retryStarted := make(chan time.Duration, 1)
+	releaseRetry := make(chan struct{})
+	projectionStarted := make(chan struct{})
+	releaseProjection := make(chan struct{})
+	projectionReleased := false
+	releaseProjectionOnce := func() {
+		if projectionReleased {
+			return
+		}
+		projectionReleased = true
+		close(releaseProjection)
+	}
+	defer releaseProjectionOnce()
+	provider := &projectorTestAgentRuntime{
+		failFocusCalls:       1,
+		blockFirstProjection: true,
+		firstCallStarted:     projectionStarted,
+		releaseFirstCall:     releaseProjection,
+	}
+	service := newProjectorTestService(t, store, provider, WithServiceRetryWait(
+		func(ctx context.Context, delay time.Duration) error {
+			select {
+			case retryStarted <- delay:
+			default:
+			}
+			select {
+			case <-releaseRetry:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		},
+	))
+
+	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         turnID,
+		Trajectory:     []conversation.TrajectoryEvent{accepted},
+	})
+	select {
+	case delay := <-retryStarted:
+		if delay != time.Second {
+			t.Fatalf("focus retry delay = %s, want 1s", delay)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for focus retry")
+	}
+	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         turnID,
+		Trajectory:     []conversation.TrajectoryEvent{terminal},
+		Terminal:       true,
+	})
+	select {
+	case <-projectionStarted:
+		releaseProjectionOnce()
+		t.Fatalf("terminal projection started before retried focus completed: %+v", provider.snapshotCalls())
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(releaseRetry)
+	select {
+	case <-projectionStarted:
+		releaseProjectionOnce()
+	case <-time.After(2 * time.Second):
+		t.Fatalf("terminal projection did not start after retried focus completed: %+v", provider.snapshotCalls())
+	}
+	snapshot = waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		return current.NarratorState.CurrentFocusSourceSequence == accepted.Sequence &&
+			current.NarratorState.ObservedThroughSequence == terminal.Sequence &&
+			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+	})
+	for _, call := range provider.snapshotCalls() {
+		if call.requestedChannel != ProjectionChannelTerminal {
+			continue
+		}
+		if call.currentFocus != snapshot.NarratorState.CurrentFocus || call.preCallFocusRevision != 1 {
+			t.Fatalf("terminal call did not wait for retried focus: call=%+v state=%+v", call, snapshot.NarratorState)
+		}
+		return
+	}
+	t.Fatalf("terminal projection call was not recorded: %+v", provider.snapshotCalls())
+}
+
 func TestServiceResumesFailedTerminalProjectionAfterCatchUpCheckpoint(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
@@ -516,6 +610,7 @@ type projectorTestCall struct {
 type projectorTestAgentRuntime struct {
 	mu                       sync.Mutex
 	calls                    []projectorTestCall
+	failFocusCalls           int
 	failProjectionCalls      int
 	blockFirstProjection     bool
 	emitProjectionMilestones bool
@@ -557,6 +652,11 @@ func (runtime *projectorTestAgentRuntime) RunFreshStructuredCall(
 	block := call.kind == ContextKindProjection && runtime.blockFirstProjection
 	if block {
 		runtime.blockFirstProjection = false
+	}
+	if call.kind == ContextKindFocus && runtime.failFocusCalls > 0 {
+		runtime.failFocusCalls--
+		runtime.mu.Unlock()
+		return agent.FreshStructuredCallResult{}, errors.New("scripted narrator focus outage")
 	}
 	if call.kind == ContextKindProjection && runtime.failProjectionCalls > 0 {
 		runtime.failProjectionCalls--
