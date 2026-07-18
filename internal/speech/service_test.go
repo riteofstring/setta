@@ -73,6 +73,123 @@ func TestSpeechServiceCreatesDeviceScopedTranscriptionSession(t *testing.T) {
 	}
 }
 
+func TestSpeechServiceValidatesCredentialWithoutConfiguringProvider(t *testing.T) {
+	controller := &serviceCredentialTestController{}
+	service := newServiceTestServiceWithControllerAndResolver(
+		t,
+		controller,
+		&serviceTestSourceResolver{},
+	)
+	result, err := service.ValidateCredential(
+		context.Background(),
+		"sk-setta-candidate",
+		"device_sensitive_principal",
+	)
+	if err != nil {
+		t.Fatalf("validate credential: %v", err)
+	}
+	if result.Provider != SpeechProviderOpenAI || !result.Valid {
+		t.Fatalf("validation result = %+v", result)
+	}
+	if controller.validateCalls != 1 ||
+		controller.validatedAPIKey != "sk-setta-candidate" ||
+		!strings.HasPrefix(controller.safetyIdentifier, safetyIdentifierPrefix) ||
+		strings.Contains(controller.safetyIdentifier, "device_sensitive_principal") {
+		t.Fatalf("controller after validation = %+v", controller)
+	}
+	if controller.Configured() {
+		t.Fatal("validation unexpectedly configured the provider")
+	}
+}
+
+func TestSpeechServiceLoadAndClearCredentialReportNonSecretStatus(t *testing.T) {
+	controller := &serviceCredentialTestController{}
+	service := newServiceTestServiceWithControllerAndResolver(
+		t,
+		controller,
+		&serviceTestSourceResolver{},
+	)
+
+	status, err := service.LoadCredential(context.Background(), "sk-setta-active")
+	if err != nil {
+		t.Fatalf("load credential: %v", err)
+	}
+	if status.Provider != SpeechProviderOpenAI ||
+		status.ProviderStatus != SpeechProviderStatusConfigured ||
+		controller.loadCalls != 1 ||
+		controller.loadedAPIKey != "sk-setta-active" {
+		t.Fatalf("loaded status = %+v controller = %+v", status, controller)
+	}
+
+	status, err = service.ClearCredential(context.Background())
+	if err != nil {
+		t.Fatalf("clear credential: %v", err)
+	}
+	if status.Provider != SpeechProviderOpenAI ||
+		status.ProviderStatus != SpeechProviderStatusNotConfigured ||
+		controller.clearCalls != 1 ||
+		controller.Configured() {
+		t.Fatalf("cleared status = %+v controller = %+v", status, controller)
+	}
+}
+
+func TestSpeechServiceRejectsMalformedCredentialsWithoutLeakingOrCallingController(t *testing.T) {
+	tests := []string{
+		"",
+		" sk-setta-leading-space",
+		"sk-setta-trailing-space ",
+		"sk-setta contains-space",
+		"sk-setta\ncontrol",
+	}
+	for _, candidate := range tests {
+		t.Run(strings.ReplaceAll(candidate, "\n", "\\n"), func(t *testing.T) {
+			controller := &serviceCredentialTestController{}
+			service := newServiceTestServiceWithControllerAndResolver(
+				t,
+				controller,
+				&serviceTestSourceResolver{},
+			)
+
+			_, err := service.ValidateCredential(context.Background(), candidate, "device_one")
+			assertSpeechServiceErrorCode(t, err, ErrorCredentialInvalid)
+			if candidate != "" && strings.Contains(err.Error(), candidate) {
+				t.Fatalf("validation error leaked credential: %v", err)
+			}
+			if controller.validateCalls != 0 {
+				t.Fatalf("controller validation calls = %d, want 0", controller.validateCalls)
+			}
+
+			_, err = service.LoadCredential(context.Background(), candidate)
+			assertSpeechServiceErrorCode(t, err, ErrorCredentialInvalid)
+			if candidate != "" && strings.Contains(err.Error(), candidate) {
+				t.Fatalf("load error leaked credential: %v", err)
+			}
+			if controller.loadCalls != 0 {
+				t.Fatalf("controller load calls = %d, want 0", controller.loadCalls)
+			}
+		})
+	}
+}
+
+func TestSpeechServicePreservesClassifiedCredentialValidationFailure(t *testing.T) {
+	controller := &serviceCredentialTestController{
+		validateErr: &Error{
+			Code:    ErrorProviderRejected,
+			Message: "OpenAI rejected the speech credential or model access.",
+		},
+	}
+	service := newServiceTestServiceWithControllerAndResolver(
+		t,
+		controller,
+		&serviceTestSourceResolver{},
+	)
+	_, err := service.ValidateCredential(context.Background(), "sk-setta-rejected", "device_one")
+	assertSpeechServiceErrorCode(t, err, ErrorProviderRejected)
+	if controller.Configured() {
+		t.Fatal("failed validation unexpectedly configured the provider")
+	}
+}
+
 func TestDeviceSafetyIdentifierIsStableAndDeviceScoped(t *testing.T) {
 	first, err := deviceSafetyIdentifier("device_one")
 	if err != nil {
@@ -318,6 +435,18 @@ type mutableServiceProviderController struct {
 	provider Provider
 }
 
+type serviceCredentialTestController struct {
+	provider         Provider
+	validateErr      error
+	loadErr          error
+	validatedAPIKey  string
+	safetyIdentifier string
+	validateCalls    int
+	loadedAPIKey     string
+	loadCalls        int
+	clearCalls       int
+}
+
 func (store *serviceTestVoiceConfigurationStore) EnsureMasterVoiceSelection(
 	_ context.Context,
 	initial MasterVoiceSelection,
@@ -439,6 +568,23 @@ func (controller staticProviderController) Snapshot() Provider {
 	return controller.provider
 }
 
+func (controller staticProviderController) Status() SpeechProviderStatus {
+	if controller.Configured() {
+		return SpeechProviderStatusConfigured
+	}
+	return SpeechProviderStatusNotConfigured
+}
+
+func (staticProviderController) ValidateCredential(context.Context, string, string) error {
+	return errors.New("unexpected credential validation")
+}
+
+func (staticProviderController) LoadCredential(string) error {
+	return errors.New("unexpected credential load")
+}
+
+func (staticProviderController) ClearCredential() {}
+
 func (staticProviderController) Shutdown() {}
 
 func (controller *mutableServiceProviderController) Configured() bool {
@@ -449,12 +595,76 @@ func (controller *mutableServiceProviderController) Snapshot() Provider {
 	return controller.provider
 }
 
+func (controller *mutableServiceProviderController) Status() SpeechProviderStatus {
+	if controller.Configured() {
+		return SpeechProviderStatusConfigured
+	}
+	return SpeechProviderStatusNotConfigured
+}
+
+func (*mutableServiceProviderController) ValidateCredential(context.Context, string, string) error {
+	return errors.New("unexpected credential validation")
+}
+
+func (*mutableServiceProviderController) LoadCredential(string) error {
+	return errors.New("unexpected credential load")
+}
+
+func (controller *mutableServiceProviderController) ClearCredential() {
+	controller.provider = nil
+}
+
 func (controller *mutableServiceProviderController) Shutdown() {
 	controller.provider = nil
 }
 
 func (controller *mutableServiceProviderController) setProvider(provider Provider) {
 	controller.provider = provider
+}
+
+func (controller *serviceCredentialTestController) Configured() bool {
+	return controller.provider != nil && controller.provider.Configured()
+}
+
+func (controller *serviceCredentialTestController) Snapshot() Provider {
+	return controller.provider
+}
+
+func (controller *serviceCredentialTestController) Status() SpeechProviderStatus {
+	if controller.Configured() {
+		return SpeechProviderStatusConfigured
+	}
+	return SpeechProviderStatusNotConfigured
+}
+
+func (controller *serviceCredentialTestController) ValidateCredential(
+	_ context.Context,
+	apiKey string,
+	safetyIdentifier string,
+) error {
+	controller.validateCalls++
+	controller.validatedAPIKey = apiKey
+	controller.safetyIdentifier = safetyIdentifier
+	return controller.validateErr
+}
+
+func (controller *serviceCredentialTestController) LoadCredential(apiKey string) error {
+	controller.loadCalls++
+	controller.loadedAPIKey = apiKey
+	if controller.loadErr != nil {
+		return controller.loadErr
+	}
+	controller.provider = &serviceTestProvider{configured: true}
+	return nil
+}
+
+func (controller *serviceCredentialTestController) ClearCredential() {
+	controller.clearCalls++
+	controller.provider = nil
+}
+
+func (controller *serviceCredentialTestController) Shutdown() {
+	controller.provider = nil
 }
 
 func newServiceTestService(t *testing.T, provider Provider) *Service {

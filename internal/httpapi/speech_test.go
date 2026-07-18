@@ -206,6 +206,7 @@ func TestSpeechEndpointMapsTypedFailures(t *testing.T) {
 		{code: speech.ErrorProviderResponseMalformed, wantStatus: http.StatusBadGateway},
 		{code: speech.ErrorAudioTooLarge, wantStatus: http.StatusBadGateway},
 		{code: speech.ErrorSourceUnavailable, wantStatus: http.StatusConflict},
+		{code: speech.ErrorCredentialInvalid, wantStatus: http.StatusBadRequest},
 	}
 	for _, test := range tests {
 		t.Run(string(test.code), func(t *testing.T) {

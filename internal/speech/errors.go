@@ -16,6 +16,7 @@ const (
 	ErrorAudioTooLarge             ErrorCode = "speech_audio_too_large"
 	ErrorSourceUnavailable         ErrorCode = "speech_source_unavailable"
 	ErrorVoiceUnavailable          ErrorCode = "speech_voice_unavailable"
+	ErrorCredentialInvalid         ErrorCode = "speech_credential_invalid"
 )
 
 type Error struct {

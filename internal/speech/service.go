@@ -21,6 +21,10 @@ type Provider interface {
 type ProviderController interface {
 	Configured() bool
 	Snapshot() Provider
+	Status() SpeechProviderStatus
+	ValidateCredential(context.Context, string, string) error
+	LoadCredential(string) error
+	ClearCredential()
 	Shutdown()
 }
 
@@ -192,6 +196,58 @@ func (service *Service) ReadCapabilities(context.Context) (SpeechCapabilities, e
 	return capabilities, nil
 }
 
+func (service *Service) ValidateCredential(
+	ctx context.Context,
+	apiKey string,
+	deviceID string,
+) (SpeechCredentialValidationResult, error) {
+	if service == nil || service.providerController == nil {
+		return SpeechCredentialValidationResult{}, errors.New("speech service is required")
+	}
+	if err := validateCredentialAPIKey(apiKey); err != nil {
+		return SpeechCredentialValidationResult{}, err
+	}
+	safetyIdentifier, err := deviceSafetyIdentifier(deviceID)
+	if err != nil {
+		return SpeechCredentialValidationResult{}, err
+	}
+	if err := service.providerController.ValidateCredential(ctx, apiKey, safetyIdentifier); err != nil {
+		return SpeechCredentialValidationResult{}, err
+	}
+	result := SpeechCredentialValidationResult{
+		Provider: SpeechProviderOpenAI,
+		Valid:    true,
+	}
+	if err := ValidateSpeechCredentialValidationResult(result); err != nil {
+		return SpeechCredentialValidationResult{}, err
+	}
+	return result, nil
+}
+
+func (service *Service) LoadCredential(
+	_ context.Context,
+	apiKey string,
+) (SpeechCredentialStatus, error) {
+	if service == nil || service.providerController == nil {
+		return SpeechCredentialStatus{}, errors.New("speech service is required")
+	}
+	if err := validateCredentialAPIKey(apiKey); err != nil {
+		return SpeechCredentialStatus{}, err
+	}
+	if err := service.providerController.LoadCredential(apiKey); err != nil {
+		return SpeechCredentialStatus{}, err
+	}
+	return service.credentialStatus()
+}
+
+func (service *Service) ClearCredential(context.Context) (SpeechCredentialStatus, error) {
+	if service == nil || service.providerController == nil {
+		return SpeechCredentialStatus{}, errors.New("speech service is required")
+	}
+	service.providerController.ClearCredential()
+	return service.credentialStatus()
+}
+
 func (service *Service) CreateTranscriptionSession(ctx context.Context, deviceID string) (SpeechTranscriptionSession, error) {
 	provider, err := service.requireProviderSnapshot()
 	if err != nil {
@@ -318,6 +374,24 @@ func (service *Service) requireProviderSnapshot() (Provider, error) {
 		return nil, classifiedError(ErrorNotConfigured, "OpenAI speech is not configured.", nil)
 	}
 	return provider, nil
+}
+
+func (service *Service) credentialStatus() (SpeechCredentialStatus, error) {
+	result := SpeechCredentialStatus{
+		Provider:       SpeechProviderOpenAI,
+		ProviderStatus: service.providerController.Status(),
+	}
+	if err := ValidateSpeechCredentialStatus(result); err != nil {
+		return SpeechCredentialStatus{}, err
+	}
+	return result, nil
+}
+
+func validateCredentialAPIKey(apiKey string) error {
+	if err := validateSecret("OpenAI API key", apiKey); err != nil {
+		return classifiedError(ErrorCredentialInvalid, err.Error(), err)
+	}
+	return nil
 }
 
 func deviceSafetyIdentifier(deviceID string) (string, error) {

@@ -9,7 +9,9 @@ attempts. Phase 1 has removed desktop startup API-key ownership from the
 Electron-spawned backend, split provider endpoint configuration from
 server-startup credentials, declared the explicit
 `electron_vault | server_startup` credential-owner policy, and introduced the
-synchronized credential-aware OpenAI provider controller.
+synchronized credential-aware OpenAI provider controller plus service-level
+credential validation, load, clear, non-secret status, and classified
+malformed-credential errors.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -558,7 +560,7 @@ environment-based desktop product behavior.
 - [x] Add the exhaustive `electron_vault | server_startup` credential-owner
       policy.
 - [x] Add the synchronized credential-aware OpenAI provider controller.
-- [ ] Add validation, load, and clear service methods and classified errors.
+- [x] Add validation, load, and clear service methods and classified errors.
 - [ ] Register authenticated, bounded HTTP endpoints in the endpoint registry.
 - [ ] Reject desktop management operations in `server_startup`.
 - [ ] Regenerate Go-owned TypeScript backend contracts before cleanup.

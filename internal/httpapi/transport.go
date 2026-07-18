@@ -357,6 +357,8 @@ func speechErrorHTTPStatus(code speech.ErrorCode) int {
 		return http.StatusBadGateway
 	case speech.ErrorNotConfigured, speech.ErrorProviderUnavailable:
 		return http.StatusServiceUnavailable
+	case speech.ErrorCredentialInvalid:
+		return http.StatusBadRequest
 	case speech.ErrorSourceUnavailable:
 		return http.StatusConflict
 	case speech.ErrorVoiceUnavailable:
