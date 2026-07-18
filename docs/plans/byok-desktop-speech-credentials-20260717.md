@@ -4,32 +4,10 @@
 
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
-host confirmations are still open after the 2026-07-18 16:14 UTC host-access
-recheck. The latest pass recorded in the safeStorage report re-ran the pinned
-macOS probe with exact policy, encryption-availability, and
-ciphertext-excludes-plaintext assertions and re-ran the deterministic vault
-backend-policy test successfully. It confirmed Docker CLI and Homebrew are
-installed, Node and pnpm remain available, Docker still cannot reach the
-daemon, Docker Desktop status is not retrievable from the CLI, Docker Desktop
-processes are waiting on a privileged setup prompt, no usable local
-Windows/Linux runner is available, no checked standard hosted-result path
-(`GITHUB_TOKEN`/`GH_TOKEN`, SSH-agent identity, usable macOS HTTPS GitHub
-credential, authenticated SSH remote, public unauthenticated GitHub Actions
-result path, or connected GitHub plugin) is available from this session, and
-the reference Codex repo has no Electron
-`safeStorage` probe pattern to reuse.
-Earlier incomplete-step passes tightened the hosted probe workflow so accepted
-platform jobs assert ciphertext marker exclusion while forced Linux jobs assert
-the exact selected backend, added pinned official artifact uploads, a hosted
-Linux default-backend observation job, `--no-sandbox` for Linux hosted-runner
-Electron probes, relevant push-triggered hosted runs with step-summary JSON,
-exact policy status/reason assertions, Linux backend-first policy
-classification matching the production adapter, and deterministic rejection of
-unrecognized Linux backend strings. Actual Windows/Linux host evidence remains
-open until that workflow or equivalent hosts produce results.
-Phase 1 desktop startup is complete:
-API-key ownership has been removed from the Electron-spawned backend, provider
-endpoint configuration is isolated from server-startup credentials, the explicit
+host confirmations are still open after the 2026-07-18 and current local
+attempts. Phase 1 is complete: desktop startup API-key ownership has been
+removed from the Electron-spawned backend, provider endpoint configuration is
+isolated from server-startup credentials, the explicit
 `electron_vault | server_startup` credential-owner policy is declared, the
 synchronized credential-aware OpenAI provider controller and service-level
 credential validation/load/clear/status paths are in place, authenticated
@@ -624,20 +602,11 @@ environment-based desktop product behavior.
       `docs/reports/byok-desktop-speech-safe-storage-20260718.md`.
 - [ ] Confirm `safeStorage` behavior on remaining supported desktop platforms,
       including the actual Linux backend and the failure presented for
-      `basic_text`. Attempts and rechecks are recorded in
-      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`. The
-      2026-07-18 16:14 UTC host-access recheck re-ran the macOS probe with
-      exact policy, encryption-availability, and ciphertext-excludes-plaintext
-      assertions plus deterministic vault backend-policy coverage successfully,
-      then reconfirmed Docker is blocked by Docker Desktop's privileged setup
-      prompt and no local Windows/Linux runner, public hosted-result path, or
-      checked standard authenticated hosted-result path is available from this
-      session. Previous passes added the hosted workflow,
-      step-summary JSON, pinned artifact uploads, a Linux default-backend
-      observation job, Linux `--no-sandbox`, exact policy status/reason
-      assertions, stricter hosted ciphertext/backend assertions, and production
-      rejection of unrecognized Linux backend strings. Actual Windows and Linux
-      host evidence remains the only open part of this item.
+      `basic_text`. Local host-confirmation attempt recorded in
+      `docs/reports/byok-desktop-speech-safe-storage-20260718.md`; a current
+      local recheck again found Docker unavailable and no local Windows/Linux
+      runner, so Windows and Linux host results remain pending. The latest
+      implementation pass repeated that recheck with the same result.
 - [x] Freeze the invariant that click-to-local-recording remains independent of
       credential validation and runtime restoration latency. Recorded in
       `docs/reports/byok-desktop-speech-credentials-phase0-baseline-20260718.md`.
