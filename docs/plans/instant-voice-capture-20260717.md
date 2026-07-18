@@ -6,6 +6,15 @@
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
+## Clean-cutover policy
+
+This is a replacement, not a compatibility project.
+
+- Do not add backward-compatibility shims, legacy support, migrations, transitional adapters, old-state or old-field aliases, feature flags, dual read/write, parallel runtime paths, or silent fallbacks.
+- Remove replaced capture states, ownership paths, consumers, fixtures, and assertions in the same cutover. No production or test code may translate `recording`/`draining` back to the removed `connecting`/`listening` capture-state contract.
+- Existing routing, arbitration, submission, provider-validation, and lifecycle behavior named in this plan are current product invariants. Preserve each invariant once on the new architecture; do not preserve its superseded implementation.
+- If a persisted, generated, backend, or provider contract prevents a clean replacement, stop and revise this plan instead of adding compatibility code.
+
 ## Implementation status
 
 - [x] Phase 0.1 — Deterministic Electron speech harness captures click, microphone grant, local capture-readiness proxy, transcription-session response, WebRTC readiness, finish, commit, and completed-transcript timing.
@@ -231,7 +240,8 @@ Update `app-shell-speech-capture-controller.ts` and its browser dependencies to:
 - allow finish while provider setup is pending;
 - wait for provider readiness plus local drain before commit;
 - start/stop the duration timer on actual local input;
-- preserve destination freezing, preemption, submission retries, runtime generations, and stale callback rejection.
+- preserve destination freezing, preemption, submission retries, runtime generations, and stale callback rejection;
+- delete the raw-stream ownership path and removed capture-state variants atomically, with no aliases or parallel path.
 
 Update `realtime-transcription-transport.ts` so media-stream lifetime is explicitly borrowed, not owned. Preserve strict session validation, provider-event decoding, and commit correlation.
 
@@ -272,6 +282,7 @@ Append after-results to the Phase 0 performance report rather than overwriting t
 - Finishing before connection readiness submits one complete transcript and exactly one request.
 - The raw microphone track is stopped synchronously on finish/cancel; only the synthetic output track remains long enough to drain.
 - No audio prefix, tail, duplication, cross-pane routing, stale completion, or resource leak occurs.
+- No production code, test driver, fixture, or assertion recognizes the removed capture-state variants or translates the replacement contract into them.
 
 ### Performance
 
