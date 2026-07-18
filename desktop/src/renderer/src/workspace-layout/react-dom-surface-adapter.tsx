@@ -364,6 +364,7 @@ function easyButtonPaneCloseRequest(
       confirm: request.confirm,
       conversationId,
       paneId: pane.paneId,
+      speechCapture: options.speechCapture,
       workspaceId,
     });
 }

@@ -145,7 +145,7 @@ The schema gate is complemented by a real provider workflow because published
 OpenAPI metadata and the live wire can change at different times:
 
 ```sh
-./scripts/test_live_openai_speech.sh
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-live-openai --skip-build
 ```
 
 The live workflow uses temporary app data and exercises production

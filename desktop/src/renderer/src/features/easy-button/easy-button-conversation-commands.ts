@@ -656,11 +656,13 @@ export async function requestEasyButtonPaneClose({
   confirm,
   conversationId,
   paneId,
+  speechCapture,
   workspaceId,
 }: {
   confirm: (message: string) => boolean;
   conversationId: string;
   paneId: string;
+  speechCapture?: SpeechCaptureRequester;
   workspaceId: string;
 }): Promise<{ removePane: boolean }> {
   const creationWasPending = await waitForPendingSideCreation(workspaceId, conversationId, paneId);
@@ -668,6 +670,7 @@ export async function requestEasyButtonPaneClose({
   hydrateConversationProjectionSnapshot(snapshot);
   const side = openSideConversationForPane(snapshot, paneId);
   if (!side) {
+    cancelPaneSpeechCapture(speechCapture, workspaceId, conversationId, paneId);
     return { removePane: true };
   }
   if (
@@ -684,7 +687,19 @@ export async function requestEasyButtonPaneClose({
     workspaceId,
   });
   hydrateConversationProjectionSnapshot(disposed);
+  cancelPaneSpeechCapture(speechCapture, workspaceId, conversationId, paneId);
   return { removePane: true };
+}
+
+function cancelPaneSpeechCapture(
+  speechCapture: SpeechCaptureRequester | undefined,
+  workspaceId: string,
+  conversationId: string,
+  paneId: string,
+): void {
+  speechCapture?.cancelActiveConversationCapture?.(
+    conversationSpeechCaptureRequest(workspaceId, conversationId, paneId),
+  );
 }
 
 export function requestEasyButtonSpeechCapture(

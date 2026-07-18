@@ -19,6 +19,7 @@ import {
 } from "./app-shell-speech-capture-controller";
 import type { AppShellSpeechPlaybackController } from "./app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "./global-speech-presentation";
+import { createBufferedMicrophoneCapture } from "./buffered-microphone-capture";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 
 export interface AppShellSpeechCaptureContextValue {
@@ -128,6 +129,7 @@ function browserControllerDependencies(
 ): AppShellSpeechCaptureControllerDependencies {
   return {
     clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+    createBufferedCapture: createBufferedMicrophoneCapture,
     createCaptureSessionId: () => globalThis.crypto.randomUUID(),
     createTranscriptionSession: () => setta.speech.createTranscriptionSession(),
     createTransport: createRealtimeTranscriptionTransport,

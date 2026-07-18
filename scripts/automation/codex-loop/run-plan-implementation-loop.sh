@@ -179,7 +179,7 @@ run_agent() {
       --cd "${ROOT_DIR}" \
       --ephemeral \
       --model "${MODEL}" \
-      --config "reasoning_effort=\"${reasoning_effort}\"" \
+      --config "model_reasoning_effort=\"${reasoning_effort}\"" \
       --dangerously-bypass-approvals-and-sandbox \
       --output-last-message "${last_message_file}" \
       "${attempt_prompt}" >>"${transcript_file}" 2>&1 &
