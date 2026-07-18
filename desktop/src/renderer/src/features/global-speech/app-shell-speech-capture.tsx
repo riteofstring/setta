@@ -99,7 +99,7 @@ interface PendingControllerDisposal {
 export class AppShellSpeechCaptureEffectLifetime {
   private pendingDisposal: PendingControllerDisposal | null = null;
 
-  constructor(private readonly schedule: (handler: () => void) => void = queueMicrotask) {}
+  constructor(private readonly schedule: (handler: () => void) => void = scheduleMicrotask) {}
 
   mount(controller: SpeechCaptureControllerDisposable): () => void {
     if (this.pendingDisposal?.controller === controller) {
@@ -120,6 +120,10 @@ export class AppShellSpeechCaptureEffectLifetime {
       });
     };
   }
+}
+
+function scheduleMicrotask(handler: () => void): void {
+  queueMicrotask(handler);
 }
 
 function browserControllerDependencies(

@@ -131,3 +131,36 @@ The workflow also verified:
 - Shell, Global master overlay, and Global master shortcut captures all reached local recording and finished during connection.
 - Cancellation, connection failure, duration failure, runtime switch, and source-pane closure each produced `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`.
 - Another-pane arbitration kept non-source panes from stealing the active capture.
+
+## Phase 4 Final Coverage Addendum
+
+Workflow:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T000723421Z
+```
+
+The final deterministic workflow run adds production-path coverage for playback preemption and app-shell teardown while capture is in flight. It also keeps the delayed-provider processed-track marker gate from the earlier Phase 4 run.
+
+| Scenario | Provider setup delay | Click to local recording | Click to WebRTC ready | Click to processed marker | Finish to commit | Session request to response |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Shell warm-up | 0 ms | 177.3 ms | 179.2 ms | 238.3 ms | 94.2 ms | 1 ms |
+| Shell steady | 0 ms | 30.1 ms | 30.2 ms | 91.8 ms | 90.7 ms | 0 ms |
+| Shell delayed | 1,500 ms | 30.6 ms | 1,512.3 ms | 1,574.6 ms | 1,568.4 ms | 1,502 ms |
+| Easy Button pane delayed | 1,500 ms | 27.6 ms | 1,513.3 ms | 1,575.1 ms | 1,573.7 ms | 1,502 ms |
+| Master overlay delayed | 1,500 ms | 22.5 ms | 1,507.5 ms | 1,568.5 ms | 1,595.8 ms | 1,501 ms |
+| Master shortcut delayed | 1,500 ms | 30.2 ms | 1,511.0 ms | 1,571.4 ms | 1,571.4 ms | 1,502 ms |
+| Playback preemption pane delayed | 1,500 ms | 25.1 ms | 1,516.4 ms | 1,556.2 ms | 1,585.8 ms | 1,500 ms |
+
+Steady shell click-to-local-recording changed by 0.5 ms between the 0 ms and 1,500 ms provider-delay cases.
+
+Additional coverage verified:
+
+- Playback preemption paused exactly one active narrator audio item (`audioPauseDelta=1`) before the delayed pane capture completed.
+- App-shell teardown during an in-flight master capture produced `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`.

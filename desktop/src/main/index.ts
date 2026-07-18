@@ -348,11 +348,15 @@ function rendererURLWithE2EQuery(rawURL: string): string {
 }
 
 function rendererE2EQuery(): Record<string, string> | null {
-  const workspaceScene = process.env.SETTA_E2E_NIRI_SCENE;
-  if (!workspaceScene) {
-    return null;
+  const query: Record<string, string> = {};
+  if (process.env.SETTA_E2E === "1") {
+    query.settaE2E = "1";
   }
-  return { workspaceScene };
+  const workspaceScene = process.env.SETTA_E2E_NIRI_SCENE;
+  if (workspaceScene) {
+    query.workspaceScene = workspaceScene;
+  }
+  return Object.keys(query).length > 0 ? query : null;
 }
 
 function registerIpc() {

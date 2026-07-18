@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v27";
+  const version = "setta-topic-conversation-pane-projection-driver-v28";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -27,6 +27,7 @@
       topicConversationRequestPresentation,
       topicConversationRenderedScrollOwners,
       topicConversationStartupState,
+      topicConversationTeardownApp,
       topicConversationSubmitAndClose,
       topicConversationStop,
       topicConversationSubmit,
@@ -175,6 +176,15 @@
         },
       ];
     });
+  }
+
+  function topicConversationTeardownApp() {
+    const root = document.getElementById("root");
+    window.dispatchEvent(new Event("setta:e2e-teardown-app"));
+    return {
+      requested: true,
+      rootChildCount: root instanceof HTMLElement ? root.childElementCount : null,
+    };
   }
 
   function topicConversationSurfaceSnapshot(surface) {

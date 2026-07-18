@@ -144,7 +144,7 @@ interface PendingControllerDisposal {
 export class AppShellSpeechPlaybackEffectLifetime {
   private pendingDisposal: PendingControllerDisposal | null = null;
 
-  constructor(private readonly schedule: (handler: () => void) => void = queueMicrotask) {}
+  constructor(private readonly schedule: (handler: () => void) => void = scheduleMicrotask) {}
 
   mount(controller: SpeechPlaybackControllerDisposable): () => void {
     if (this.pendingDisposal?.controller === controller) {
@@ -165,6 +165,10 @@ export class AppShellSpeechPlaybackEffectLifetime {
       });
     };
   }
+}
+
+function scheduleMicrotask(handler: () => void): void {
+  queueMicrotask(handler);
 }
 
 function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerDependencies {

@@ -42,7 +42,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.topicConversationPaneProjectionVersion === "setta-topic-conversation-pane-projection-driver-v27"',
+      'globalThis.__settaE2EDriver?.topicConversationPaneProjectionVersion === "setta-topic-conversation-pane-projection-driver-v28"',
     path: join(driverScriptDir, "topic-conversation-pane-projection-driver.js"),
   },
   {

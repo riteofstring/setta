@@ -41,6 +41,7 @@ import {
   readConversationInputRoutingState,
 } from "./topic-conversation-input-routing-assertions.mjs";
 import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
+import { expectedNarratorStatusReply } from "./topic-conversation-projection-assertions.mjs";
 import {
   openMasterOverlayForSpeech,
   waitForRecordedPaneSpeechInput,
@@ -213,12 +214,32 @@ try {
     transcript: "Phase 4 master shortcut transcript.",
   });
 
+  const playbackTopic = await createTopic(
+    context.client,
+    backend,
+    workspaceId,
+    "Instant voice playback preemption",
+    workflowTimeoutMs,
+  );
+  const playbackSurfaces = await waitForConversationSurfaces(context.client, (surfaces) =>
+    hasReadyConversation(surfaces, playbackTopic.id),
+  );
+  const playbackPaneId = firstConversationPaneId(playbackSurfaces.surfaces, playbackTopic.id);
+  const playbackPreemption = await exercisePlaybackPreemption({
+    backend,
+    conversationId: playbackTopic.id,
+    narratorVoiceId: playbackTopic.narratorVoiceId,
+    paneId: playbackPaneId,
+    workspaceId,
+  });
+
   const cleanup = {};
   cleanup.cancellation = await exerciseCancellationCleanup();
   cleanup.durationFailure = await exerciseDurationFailureCleanup();
   cleanup.paneClosure = await exercisePaneClosureCleanup(alpha.id);
   cleanup.runtimeSwitch = await exerciseRuntimeSwitchCleanup();
   cleanup.connectionFailure = await exerciseConnectionFailureCleanup();
+  cleanup.appTeardown = await exerciseAppTeardownCleanup();
 
   const summary = {
     activeRunRoutingKind: activeRunRouting.decisions[0]?.decision?.kind ?? null,
@@ -227,9 +248,10 @@ try {
     delayRuns: delayRuns.map(runSummary),
     overlayRun: runSummary(overlayRun),
     paneRun: runSummary(paneRun),
+    playbackPreemption,
     shortcutRun: runSummary(shortcutRun),
     status: "passed",
-    topics: { alpha, beta },
+    topics: { alpha, beta, playback: playbackTopic },
     warmupRun: runSummary(warmupRun),
     workspaceId,
   };
@@ -497,6 +519,165 @@ async function exerciseRuntimeSwitchCleanup() {
   assertNoCommitAfter(before, after, runId);
   await context.client.evaluate(`window.setta.runtimes.switch(${JSON.stringify(localRuntimeId)})`);
   await waitForReadyForNextCapture();
+  return cleanupSummary(before, after, runId);
+}
+
+async function exercisePlaybackPreemption({
+  backend,
+  conversationId,
+  narratorVoiceId,
+  paneId,
+  workspaceId,
+}) {
+  const heldText = "hold playback preemption";
+  assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId,
+      text: heldText,
+    }),
+    "submitted",
+  );
+  await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversationId,
+    (snapshot) =>
+      snapshot.conversation.status === "working" &&
+      snapshot.turns.turns.some((turn) => turn.status === "running"),
+  );
+  const synthesisRequestCountBefore = speechProvider.requests.length;
+  await context.client.evaluate(
+    "globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(false)",
+  );
+  try {
+    assertDriverAction(
+      await context.client.driver("topicConversationSubmit", {
+        conversationId,
+        text: "What is the primary agent doing?",
+      }),
+      "submitted",
+    );
+    await waitForConversationSnapshot(backend, workspaceId, conversationId, (snapshot) =>
+      snapshot.narration.events.some((event) => event.kind === "status_reply"),
+    );
+    const playback = await waitForAutomaticNarrationStatusPlayback(
+      synthesisRequestCountBefore,
+      expectedNarratorStatusReply,
+      narratorVoiceId,
+    );
+    const beforeCapture = await browserFixtureSnapshot(context.client);
+    const transcript = "Phase 4 playback preemption transcript.";
+    const run = await exerciseFinishedCapture({
+      destination: "pane",
+      expectedConversationId: conversationId,
+      expectedPaneId: paneId,
+      providerDelayMs: 1_500,
+      runId: "playback-preemption-before-ready",
+      start: async () => {
+        await clickPaneSpeechControl(context.client, conversationId);
+        await waitForState(
+          context.client,
+          "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+          (state) =>
+            state.mediaRequestCount === beforeCapture.mediaRequestCount + 1 &&
+            state.audioPauseCount === beforeCapture.audioPauseCount + 1,
+          workflowTimeoutMs,
+        );
+      },
+      transcript,
+    });
+    await waitForRecordedPaneSpeechInput(
+      artifactDir,
+      conversationId,
+      paneId,
+      transcript,
+      workflowTimeoutMs,
+    );
+    const afterCapture = await browserFixtureSnapshot(context.client);
+    const audioPauseDelta = afterCapture.audioPauseCount - beforeCapture.audioPauseCount;
+    if (audioPauseDelta !== 1) {
+      throw new Error(
+        `playback preemption pause count drifted: ${JSON.stringify({
+          afterAudioPauseCount: afterCapture.audioPauseCount,
+          beforeAudioPauseCount: beforeCapture.audioPauseCount,
+        })}`,
+      );
+    }
+    return {
+      audioPauseDelta,
+      audioPlayDelta: afterCapture.audioPlayCount - beforeCapture.audioPlayCount,
+      playback: playbackSummary(playback),
+      run: runSummary(run),
+    };
+  } finally {
+    await context.client
+      .evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(true)")
+      .catch(() => {});
+  }
+}
+
+function playbackSummary(playback) {
+  return {
+    audioActiveCount: playback.audio.audioActiveCount,
+    audioEndCount: playback.audio.audioEndCount,
+    audioPlayCount: playback.audio.audioPlayCount,
+    providerRequest: {
+      input: playback.providerRequest.input,
+      path: playback.providerRequest.path,
+      voice: playback.providerRequest.voice,
+    },
+  };
+}
+
+async function waitForAutomaticNarrationStatusPlayback(initialRequestCount, text, resolvedVoiceId) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const request = speechProvider.requests
+      .slice(initialRequestCount)
+      .find(
+        (candidate) =>
+          candidate.path === "/v1/audio/speech" &&
+          candidate.input === text &&
+          candidate.voice === resolvedVoiceId,
+      );
+    if (request) {
+      const audio = await waitForState(
+        context.client,
+        "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+        (state) => state.audioPlayCount > state.audioEndCount,
+        workflowTimeoutMs,
+      );
+      speechProvider.assertHealthy();
+      return { audio, providerRequest: request };
+    }
+    await context.client.evaluate(
+      "globalThis.__settaSpeechRealtimeBrowserFixture.finishAllAudio()",
+    );
+    await delay(20);
+  }
+  throw new Error("automatic narrator status playback did not reach the speech provider");
+}
+
+async function exerciseAppTeardownCleanup() {
+  const runId = "cleanup-app-teardown";
+  await configureSpeechRun({
+    dataChannelOpenMs: 1_500,
+    providerDelayMs: 0,
+    runId,
+    transcript: "app teardown transcript must not submit",
+  });
+  const before = await browserFixtureSnapshot(context.client);
+  await installCaptureTimingObserver("master", null);
+  await markBrowserTiming("capture_click", { destination: "master" });
+  await clickShellSpeechControl(context.client);
+  await waitForShellCaptureState("recording");
+  await waitForBrowserEvent(runId, "webrtc_peer_created");
+  assertDriverAction(await context.client.driver("topicConversationTeardownApp", {}), "requested");
+  await waitForBrowserEvent(runId, "microphone_track_stopped");
+  await waitForBrowserEvent(runId, "webrtc_peer_closed");
+  await delay(1_600);
+  const after = await browserFixtureSnapshot(context.client);
+  assertNoCommitAfter(before, after, runId);
   return cleanupSummary(before, after, runId);
 }
 
