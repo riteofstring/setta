@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Complete — Phase 4 final-audit workflow passed and is ready for final audit.
+**Status:** Incomplete — current review rerun failed the Phase 4 p95/one-frame local-readiness performance contract.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -24,8 +24,31 @@ This is a replacement, not a compatibility project.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
-- [x] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow.
+- [ ] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow. Current review rerun failed the p95-difference assertion.
 - [x] Audit follow-up — The controller owns and immediately stops the raw `getUserMedia` stream while `createBufferedCapture` is still pending, with deterministic coverage for cancel, runtime switch, and disposal during buffered-capture setup.
+
+## Current review finding
+
+The implementation is not currently complete because the required deterministic Phase 4 workflow failed during review:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Failing artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T044512922Z
+```
+
+The failure was the p95 provider-delay independence assertion. The 0 ms provider-delay cohort produced a nearest-rank p95 of `54.6 ms`, the 1,500 ms provider-delay cohort produced a nearest-rank p95 of `29.9 ms`, and the absolute p95 difference was `24.7 ms`, exceeding the `1000 / 60 ms` one-frame budget. Both p95 values remained under the absolute `100 ms` budget, but the one-frame difference requirement did not pass.
+
+Focused renderer coverage and Node credential/privacy coverage passed in the same review:
+
+```text
+pnpm -C desktop exec vitest run src/renderer/src/features/global-speech/buffered-microphone-sample-ring.test.ts src/renderer/src/features/global-speech/buffered-microphone-worklet-engine.test.ts src/renderer/src/features/global-speech/buffered-microphone-capture.test.ts src/renderer/src/features/global-speech/app-shell-speech-capture-controller.test.ts src/renderer/src/features/global-speech/global-speech-presentation.test.ts src/renderer/src/features/global-speech/speech-capture-availability.test.ts src/renderer/src/features/global-speech/realtime-transcription-transport.test.ts src/renderer/src/features/global-master/master-voice-controls.test.tsx src/renderer/src/features/easy-button/easy-button-surface.test.tsx
+node --test desktop/tests/electron/instant-voice-capture-live-openai-credentials.test.mjs desktop/tests/electron/instant-voice-capture-live-openai-artifacts.test.mjs
+```
 
 ## Resolved final-audit finding
 
