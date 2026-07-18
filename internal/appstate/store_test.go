@@ -15,7 +15,10 @@ func TestStorePersistsAppState(t *testing.T) {
 	state := State{
 		SchemaVersion:       SchemaVersion,
 		SelectedWorkspaceID: "workspace_web",
-		ActiveWorkspaceIDs:  []string{"workspace_api", "workspace_web"},
+		SelectedConversationIDsByWorkspaceID: map[string]string{
+			"workspace_web": "conversation_web",
+		},
+		ActiveWorkspaceIDs: []string{"workspace_api", "workspace_web"},
 		RecentWorkspaces: []workspace.WorkspaceSummary{
 			summary("workspace_web", "2026-05-29T20:05:00Z"),
 			summary("workspace_api", "2026-05-29T20:00:00Z"),
@@ -36,6 +39,9 @@ func TestStorePersistsAppState(t *testing.T) {
 	if loaded.ActiveWorkspaceIDs[0] != "workspace_api" || loaded.ActiveWorkspaceIDs[1] != "workspace_web" {
 		t.Fatalf("active ids = %#v", loaded.ActiveWorkspaceIDs)
 	}
+	if loaded.SelectedConversationIDsByWorkspaceID["workspace_web"] != "conversation_web" {
+		t.Fatalf("selected conversation ids = %#v, want workspace_web conversation", loaded.SelectedConversationIDsByWorkspaceID)
+	}
 }
 
 func TestLoadMissingAppStateReturnsEmptyState(t *testing.T) {
@@ -50,6 +56,7 @@ func TestLoadMissingAppStateReturnsEmptyState(t *testing.T) {
 	}
 	if len(state.ActiveWorkspaceIDs) != 0 ||
 		len(state.RecentWorkspaces) != 0 ||
+		len(state.SelectedConversationIDsByWorkspaceID) != 0 ||
 		state.SelectedWorkspaceID != "" {
 		t.Fatalf("state = %+v, want empty state", state)
 	}
@@ -119,6 +126,23 @@ func TestStoreRejectsInvalidStateRelationships(t *testing.T) {
 	}
 }
 
+func TestStoreRejectsSelectedConversationForUnknownWorkspace(t *testing.T) {
+	store := newTestStore(t)
+	state := State{
+		SchemaVersion:       SchemaVersion,
+		SelectedWorkspaceID: "",
+		SelectedConversationIDsByWorkspaceID: map[string]string{
+			"workspace_missing": "conversation_api",
+		},
+		ActiveWorkspaceIDs: []string{},
+		RecentWorkspaces:   []workspace.WorkspaceSummary{},
+	}
+
+	if err := store.Save(state); err == nil {
+		t.Fatal("save succeeded, want selected conversation relationship error")
+	}
+}
+
 func TestStoreReportsPersistenceFailure(t *testing.T) {
 	appDataFile := filepath.Join(t.TempDir(), "app-data-file")
 	if err := os.WriteFile(appDataFile, []byte("not a directory"), 0o644); err != nil {
@@ -155,8 +179,8 @@ func TestStoreWritesJSONShape(t *testing.T) {
 	if payload["schemaVersion"] != float64(SchemaVersion) {
 		t.Fatalf("schemaVersion json = %#v, want %d", payload["schemaVersion"], SchemaVersion)
 	}
-	if _, ok := payload["selectedConversationIdsByWorkspaceId"]; ok {
-		t.Fatal("selectedConversationIdsByWorkspaceId must not be persisted")
+	if _, ok := payload["selectedConversationIdsByWorkspaceId"].(map[string]any); !ok {
+		t.Fatalf("selectedConversationIdsByWorkspaceId json = %#v, want object", payload["selectedConversationIdsByWorkspaceId"])
 	}
 }
 

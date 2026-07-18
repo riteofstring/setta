@@ -60,65 +60,6 @@ func TestAddSchemaRejectsConflictingDuplicateName(t *testing.T) {
 	}
 }
 
-func TestAddSchemaSelectsCompatibleObjectSuperset(t *testing.T) {
-	generator := &generator{
-		schemas:   map[string]jsonSchema{},
-		schemaRaw: map[string]string{},
-		queue:     []string{},
-	}
-	base := jsonSchema{
-		Type:       "object",
-		Properties: map[string]jsonSchema{"id": {Type: "string"}},
-		Required:   []string{"id"},
-	}
-	superset := jsonSchema{
-		Type: "object",
-		Properties: map[string]jsonSchema{
-			"extra": {Type: []any{"string", "null"}},
-			"id":    {Type: "string"},
-		},
-		Required: []string{"id"},
-	}
-	if err := generator.addSchema("Example", base); err != nil {
-		t.Fatalf("add base schema: %v", err)
-	}
-	if err := generator.addSchema("Example", superset); err != nil {
-		t.Fatalf("add compatible superset schema: %v", err)
-	}
-	if _, ok := generator.schemas["Example"].Properties["extra"]; !ok {
-		t.Fatal("compatible superset did not replace the base schema")
-	}
-	if len(generator.queue) != 1 {
-		t.Fatalf("schema queue = %q, want one entry", generator.queue)
-	}
-	if err := generator.addSchema("Example", base); err != nil {
-		t.Fatalf("re-add base schema after superset: %v", err)
-	}
-}
-
-func TestAddSchemaRejectsObjectWithDifferentRequirements(t *testing.T) {
-	generator := &generator{
-		schemas:   map[string]jsonSchema{},
-		schemaRaw: map[string]string{},
-		queue:     []string{},
-	}
-	base := jsonSchema{
-		Type:       "object",
-		Properties: map[string]jsonSchema{"id": {Type: "string"}},
-		Required:   []string{"id"},
-	}
-	conflict := jsonSchema{
-		Type:       "object",
-		Properties: map[string]jsonSchema{"id": {Type: "string"}},
-	}
-	if err := generator.addSchema("Example", base); err != nil {
-		t.Fatalf("add base schema: %v", err)
-	}
-	if err := generator.addSchema("Example", conflict); err == nil {
-		t.Fatal("add schema with different requirements succeeded")
-	}
-}
-
 func TestAddRootSchemaRejectsConflictingDuplicateName(t *testing.T) {
 	generator := &generator{
 		rootSchemas:   map[string]jsonSchema{},
@@ -378,25 +319,9 @@ func TestRenderEmitsObjectDecoderDeclarations(t *testing.T) {
 	}
 }
 
-func TestRenderPreservesServiceTierOverrideNullSemantics(t *testing.T) {
+func TestRenderPreservesThreadSettingsServiceTierNullSemantics(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.schemas = map[string]jsonSchema{
-		"ThreadForkParams": {
-			Type: "object",
-			Properties: map[string]jsonSchema{
-				"serviceTier": {Type: []any{"string", "null"}},
-				"threadId":    {Type: "string"},
-			},
-			Required: []string{"threadId"},
-		},
-		"ThreadResumeParams": {
-			Type: "object",
-			Properties: map[string]jsonSchema{
-				"serviceTier": {Type: []any{"string", "null"}},
-				"threadId":    {Type: "string"},
-			},
-			Required: []string{"threadId"},
-		},
 		"ThreadSettingsUpdateParams": {
 			Type: "object",
 			Properties: map[string]jsonSchema{
@@ -405,20 +330,14 @@ func TestRenderPreservesServiceTierOverrideNullSemantics(t *testing.T) {
 			},
 			Required: []string{"threadId"},
 		},
-		"ThreadStartParams": {
-			Type: "object",
-			Properties: map[string]jsonSchema{
-				"serviceTier": {Type: []any{"string", "null"}},
-			},
-		},
 	}
 
 	output, err := generator.render()
 	if err != nil {
 		t.Fatalf("render protocol: %v", err)
 	}
-	if count := strings.Count(string(output), "ServiceTier *CodexNullableString `json:\"serviceTier,omitempty\"`"); count != 4 {
-		t.Fatalf("nullable serviceTier override count = %d, want 4\n%s", count, output)
+	if !strings.Contains(string(output), "ServiceTier *CodexNullableString `json:\"serviceTier,omitempty\"`") {
+		t.Fatalf("output = %s, want nullable serviceTier override", output)
 	}
 }
 

@@ -191,6 +191,26 @@ export function visualRectForItem(item: PaneRenderItem): PaneVisualRect {
   };
 }
 
+export function formatBytes(bytes: number | null): string {
+  if (bytes === null) {
+    return "n/a";
+  }
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)}KiB`;
+  }
+  return `${(bytes / 1024 / 1024).toFixed(1)}MiB`;
+}
+
+export function formatPixels(pixels: number | null): string {
+  if (pixels === null) {
+    return "n/a";
+  }
+  if (pixels < 1000 * 1000) {
+    return `${Math.round(pixels / 1000)}Kpx`;
+  }
+  return `${(pixels / 1000 / 1000).toFixed(1)}Mpx`;
+}
+
 function assertNever(value: never): never {
   throw new Error(`unhandled pane chrome action: ${String(value)}`);
 }

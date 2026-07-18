@@ -2,28 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LATEST_RECORDING_POINTER="${ROOT_DIR}/.recordings/latest.json"
-PORT_FILE="${SETTA_ELECTRON_CDP_PORT_FILE:-}"
+DEFAULT_PORT_FILE="${ROOT_DIR}/.recordings/workflow-graph/latest/debug-port.txt"
+PORT_FILE="${SETTA_ELECTRON_CDP_PORT_FILE:-${DEFAULT_PORT_FILE}}"
 CDP_PORT="${SETTA_ELECTRON_CDP_PORT:-}"
 
 if [[ -z "${CDP_PORT}" ]]; then
-  if [[ -z "${PORT_FILE}" ]]; then
-    if [[ ! -f "${LATEST_RECORDING_POINTER}" ]]; then
-      echo "Electron CDP port was not provided and ${LATEST_RECORDING_POINTER} does not exist." >&2
-      echo "Start a recorded desktop session or set SETTA_ELECTRON_CDP_PORT_FILE." >&2
-      exit 1
-    fi
-    PORT_FILE="$(
-      node -e '
-        const { readFileSync } = require("node:fs");
-        const pointer = JSON.parse(readFileSync(process.argv[1], "utf8"));
-        if (typeof pointer.debugPortFile !== "string" || pointer.debugPortFile === "") {
-          throw new Error("latest recording pointer has no debugPortFile");
-        }
-        process.stdout.write(pointer.debugPortFile);
-      ' "${LATEST_RECORDING_POINTER}"
-    )"
-  fi
   if [[ ! -f "${PORT_FILE}" ]]; then
     echo "Electron CDP port was not provided and ${PORT_FILE} does not exist." >&2
     echo "Set SETTA_ELECTRON_CDP_PORT or SETTA_ELECTRON_CDP_PORT_FILE." >&2

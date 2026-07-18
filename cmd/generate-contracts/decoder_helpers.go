@@ -24,9 +24,9 @@ type runtimeImportRule struct {
 }
 
 func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
-	helpers := decoderHelperUsage(specs.Interfaces)
+	helpers := decoderHelperUsage(specs.Interfaces, specs.Events)
 	imports := []string{"assertKnownFields", "assertRecord"}
-	for _, rule := range runtimeImportRules(helpers) {
+	for _, rule := range runtimeImportRules(helpers, len(specs.Events) > 0) {
 		if rule.enabled {
 			imports = append(imports, rule.name)
 		}
@@ -41,14 +41,14 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 		fmt.Fprintf(buffer, "  %s,\n", name)
 	}
 	buffer.WriteString("  type BackendFetch,\n")
-	buffer.WriteString("  type BackendRequestOptions,\n")
 	buffer.WriteString("} from \"@shared/backend-runtime\";\n\n")
 }
 
-func runtimeImportRules(helpers decoderHelpers) []runtimeImportRule {
+func runtimeImportRules(helpers decoderHelpers, hasEvents bool) []runtimeImportRule {
 	return []runtimeImportRule{
 		{enabled: helpers.Array, name: "decodeArray"},
 		{enabled: helpers.Boolean, name: "decodeBoolean"},
+		{enabled: hasEvents, name: "decodeBackendEventBase"},
 		{enabled: helpers.Integer, name: "decodeInteger"},
 		{enabled: helpers.IntegerMap, name: "decodeIntegerRecord"},
 		{enabled: helpers.Map, name: "decodeStringRecord"},
@@ -59,7 +59,7 @@ func runtimeImportRules(helpers decoderHelpers) []runtimeImportRule {
 	}
 }
 
-func decoderHelperUsage(specs []interfaceSpec) decoderHelpers {
+func decoderHelperUsage(specs []interfaceSpec, events []eventSpec) decoderHelpers {
 	var helpers decoderHelpers
 	for _, spec := range specs {
 		for index := range spec.Type.NumField() {
@@ -69,6 +69,9 @@ func decoderHelperUsage(specs []interfaceSpec) decoderHelpers {
 			}
 			markDecoderHelperUsage(field.Type, &helpers)
 		}
+	}
+	if len(events) > 0 {
+		helpers.String = true
 	}
 	return helpers
 }

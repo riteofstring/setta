@@ -57,7 +57,6 @@ interface FakeDocument {
 interface FakeStyle {
   visibility?: string;
   getPropertyValue(name: string): string;
-  removeProperty(name: string): string;
   setProperty(name: string, value: string): void;
 }
 
@@ -145,11 +144,6 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
     style: {
       getPropertyValue(name) {
         return styleProperties.get(name) ?? "";
-      },
-      removeProperty(name) {
-        const previous = styleProperties.get(name) ?? "";
-        styleProperties.delete(name);
-        return previous;
       },
       setProperty(name, value) {
         styleProperties.set(name, value);
