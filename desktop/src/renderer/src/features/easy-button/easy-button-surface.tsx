@@ -83,7 +83,6 @@ interface EasyButtonSurfaceProps {
 
 export interface EasyButtonProjectionView {
   activeAgentCount: number;
-  agentText: string;
   archived: boolean;
   artifacts: ArtifactMetadata[];
   conversationId: string;
@@ -466,10 +465,6 @@ function projectConversationSnapshot(
   const focusStatus = narratorFocusStatus(snapshot.narratorState);
   return {
     activeAgentCount: activeAgentCount(snapshot, viewState),
-    agentText: latestAgentText(
-      snapshot.trajectory.events,
-      activeConversationTurnID(snapshot, latestTurn),
-    ),
     archived: snapshot.conversation.archivedAt !== null,
     artifacts: snapshot.artifacts.artifacts,
     conversationId: snapshot.conversation.id,
@@ -512,17 +507,6 @@ function latestConversationTurn(turns: readonly ConversationTurn[]): Conversatio
   return turn === undefined ? null : turn;
 }
 
-function activeConversationTurnID(
-  snapshot: ConversationSnapshot,
-  latestTurn: ConversationTurn | null,
-): string | null {
-  const activeTurn = snapshot.turns.turns.findLast((turn) => turn.status === "running");
-  if (activeTurn) {
-    return activeTurn.id;
-  }
-  return latestTurn ? latestTurn.id : null;
-}
-
 function runningConversationTurnID(snapshot: ConversationSnapshot): string | null {
   return snapshot.turns.turns.findLast((turn) => turn.status === "running")?.id ?? null;
 }
@@ -548,7 +532,6 @@ function unavailableView(options: {
 }): EasyButtonProjectionView {
   return {
     activeAgentCount: 0,
-    agentText: "",
     archived: false,
     artifacts: [],
     conversationId: options.conversationId,
@@ -683,7 +666,7 @@ function conversationHelperCopy(
   }
   switch (conversation.status) {
     case "working":
-      return "Working";
+      return "";
     case "waiting_for_approval":
       return "Waiting for approval";
     case "failed":
@@ -835,25 +818,6 @@ function activeAgentCount(snapshot: ConversationSnapshot, viewState: EasyButtonV
   return 1 + activeSubagents;
 }
 
-function latestAgentText(events: readonly TrajectoryEvent[], turnId: string | null): string {
-  if (!turnId) {
-    return "";
-  }
-  let text = "";
-  for (const event of events) {
-    if (event.turnId !== turnId) {
-      continue;
-    }
-    if (event.agentPublicTextDelta) {
-      text += event.agentPublicTextDelta.delta;
-    }
-    if (event.agentMessageCompleted) {
-      text = event.agentMessageCompleted.text;
-    }
-  }
-  return text.trim();
-}
-
 function latestSubagents(
   events: readonly TrajectoryEvent[],
   turnId: string,
@@ -890,17 +854,14 @@ function CaptionSlot({
   return (
     <div className="easy-button-caption-slot">
       <IntentSlot slot={intentSlot} />
-      <p
-        aria-live="polite"
-        className="easy-button-helper"
-        data-testid="easy-button-helper"
-        role="status"
-      >
-        {view.helperCopy}
-      </p>
-      {view.agentText ? (
-        <p className="easy-button-agent-text" data-testid="easy-button-agent-text">
-          {view.agentText}
+      {view.helperCopy ? (
+        <p
+          aria-live="polite"
+          className="easy-button-helper"
+          data-testid="easy-button-helper"
+          role="status"
+        >
+          {view.helperCopy}
         </p>
       ) : null}
       <NarratorStatusReply reply={view.statusReply} />

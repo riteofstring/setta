@@ -7,13 +7,6 @@
   width: 100%;
 }
 
-.easy-button-agent-text {
-  color: var(--easy-button-muted);
-  font-size: 12.5px;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
 .easy-button-status-reply {
   background: color-mix(in oklab, var(--easy-button-primary) 7%, transparent);
   border-left: 2px solid var(--easy-button-primary);

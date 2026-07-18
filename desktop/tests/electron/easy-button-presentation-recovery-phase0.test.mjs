@@ -424,7 +424,9 @@ function summarizeBaseline({
     renderedScrollOwners: scrollOwners,
     requestText,
     suppliedDataset,
+    surfaceAgentText: surface.agentText,
     surfaceArtifactText: surface.artifactText,
+    surfaceHelperText: surface.helperText,
     surfaceHighlightedMilestoneCount: surface.highlightedMilestoneCount,
     surfaceIntentState: surface.intentState,
     surfaceIntentText: surface.intentText,
@@ -607,6 +609,11 @@ function assertRecoveryEasyButtonLayoutRecovered(baseline) {
       `central intent slot text drifted from stable focus: ${JSON.stringify(baseline)}`,
     );
   }
+  if (baseline.surfaceHelperText === "Working" || baseline.surfaceAgentText !== "") {
+    throw new Error(
+      `recovery layout retained redundant working presentation: ${JSON.stringify(baseline)}`,
+    );
+  }
   const passiveScrollOwners = baseline.renderedScrollOwners.filter((owner) =>
     passiveRecoveryScrollOwner(owner),
   );
@@ -628,7 +635,6 @@ function passiveRecoveryScrollOwner(owner) {
     className.includes("easy-button-caption-slot") ||
     className.includes("easy-button-focus-block") ||
     className.includes("easy-button-current-focus") ||
-    className.includes("easy-button-agent-text") ||
     className.includes("easy-button-summary") ||
     className.includes("easy-button-error")
   );

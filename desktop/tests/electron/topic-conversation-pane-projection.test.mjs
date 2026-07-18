@@ -474,7 +474,11 @@ try {
   await waitForConversationSurface(
     context.client,
     alpha.id,
-    (surface) => surface.state === "working" && surface.agentText.includes("Streaming hold alpha"),
+    (surface) =>
+      surface.state === "working" && surface.agentText === "" && surface.helperText === "",
+  );
+  await waitForConversationSnapshot(backend, workspaceId, alpha.id, (snapshot) =>
+    snapshotHasAgentText(snapshot, "Streaming hold alpha"),
   );
   assertDriverAction(
     await context.client.driver("topicConversationSubmit", {
@@ -487,10 +491,10 @@ try {
     context.client,
     (surfaces) =>
       conversationSurfaces(surfaces, alpha.id).every((surface) => surface.state === "working") &&
-      conversationSurfaces(surfaces, beta.id).some(
-        (surface) =>
-          surface.state === "working" && surface.agentText.includes("Streaming hold beta"),
-      ),
+      conversationSurfaces(surfaces, beta.id).some((surface) => surface.state === "working"),
+  );
+  await waitForConversationSnapshot(backend, workspaceId, beta.id, (snapshot) =>
+    snapshotHasAgentText(snapshot, "Streaming hold beta"),
   );
   assertIndependentWorkingTopics(concurrent.surfaces, alpha.id, beta.id);
 
@@ -1454,4 +1458,13 @@ async function waitForConversationSnapshot(backend, workspaceId, conversationId,
     ready,
     workflowTimeoutMs,
   );
+}
+
+function snapshotHasAgentText(snapshot, expected) {
+  return snapshot.trajectory.events.some((event) => {
+    if (event.agentPublicTextDelta?.delta.includes(expected)) {
+      return true;
+    }
+    return event.agentMessageCompleted?.text.includes(expected) ?? false;
+  });
 }

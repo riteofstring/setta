@@ -29,11 +29,15 @@ export function assertIndependentWorkingTopics(surfaces, alphaId, betaId) {
   if (
     alpha.length !== 2 ||
     beta.length !== 1 ||
-    alpha.some((surface) => !surface.agentText.includes("hold alpha")) ||
-    beta.some((surface) => !surface.agentText.includes("hold beta"))
+    alpha.some((surface) => !surfaceIsWorkingWithoutCenterProgress(surface)) ||
+    beta.some((surface) => !surfaceIsWorkingWithoutCenterProgress(surface))
   ) {
-    throw new Error(`concurrent topic streams crossed: ${JSON.stringify({ alpha, beta })}`);
+    throw new Error(`concurrent topic surfaces drifted: ${JSON.stringify({ alpha, beta })}`);
   }
+}
+
+function surfaceIsWorkingWithoutCenterProgress(surface) {
+  return surface.state === "working" && surface.agentText === "" && surface.helperText === "";
 }
 
 export function assertRunningTurn(snapshot, label) {

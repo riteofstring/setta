@@ -190,12 +190,20 @@ describe("Easy Button topic conversation projection", () => {
     snapshot.narration.events.unshift(
       finalSummaryEvent("conversation_working", "turn_previous", "Stale prior summary", 1),
     );
+    snapshot.trajectory.events.push(agentTextDelta(snapshot, "The agent is preparing details."));
     const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
 
     expect(view.viewState).toBe("working");
     expect(view.statusTone).toBe("none");
     expect(view.terminalSummary).toBeNull();
+    expect(view.helperCopy).toBe("");
     expect(view.currentFocus).toBe("Implement Working topic");
+    expect(html).toContain('data-easy-button-state="working"');
+    expect(html).toContain("Implement Working topic");
+    expect(html).not.toContain('data-testid="easy-button-helper"');
+    expect(html).not.toContain('data-testid="easy-button-agent-text"');
+    expect(html).not.toContain("The agent is preparing details.");
   });
 
   test("renders the latest explicit narrator status reply without changing working state", () => {
@@ -1197,6 +1205,26 @@ function userInputTrajectory(
     turnStarted: null,
     turnSteered: null,
     userInputAccepted: { delivery: "normal", input: { text: `Work on ${title}` } },
+  };
+}
+
+function agentTextDelta(snapshot: ConversationSnapshot, text: string): TrajectoryEvent {
+  const base = userInputTrajectory(
+    snapshot.conversation.id,
+    snapshot.turns.turns[0]!.id,
+    snapshot.conversation.title,
+  );
+  return {
+    ...base,
+    actor: "agent",
+    agentPublicTextDelta: {
+      delta: text,
+      providerItemId: "provider_agent_text",
+    },
+    id: `trajectory_agent_text_${snapshot.conversation.id}`,
+    kind: "agent_public_text_delta",
+    sequence: base.sequence + 1,
+    userInputAccepted: null,
   };
 }
 

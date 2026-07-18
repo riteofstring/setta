@@ -2,10 +2,18 @@
 
 **Date:** 2026-07-16
 
-**Status:** Proposed
+**Status:** In Progress
 
 **Scope:** Remove the redundant Easy Button working presentation and make typed artifact delivery
 reliable when an agent selects an artifact.
+
+## Implementation Status
+
+- [x] Solution 1: Remove the Easy Button `Working` presentation. Implemented and verified.
+- [ ] Solution 2: Present requested status above NOW.
+- [ ] Solution 3: Make the artifact tool contract hard to misuse.
+- [ ] Solution 4: Preserve actionable tool failures end to end.
+- [ ] Solution 5: Treat failed artifact attempts as unresolved delivery.
 
 ## Evidence
 
