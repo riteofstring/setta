@@ -15,8 +15,7 @@ Codex repo has no Electron `safeStorage` probe pattern to reuse. The earlier
 follow-up actionability pass also tightened the production Linux backend
 allowlist to reject unrecognized Electron backend strings with deterministic
 vault coverage, while leaving the actual Windows/Linux host evidence open.
-Phase 1 is complete:
-desktop startup
+Phase 1 desktop startup is complete:
 API-key ownership has been removed from the Electron-spawned backend, provider
 endpoint configuration is isolated from server-startup credentials, the explicit
 `electron_vault | server_startup` credential-owner policy is declared, the
