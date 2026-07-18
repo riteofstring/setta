@@ -3,8 +3,7 @@ import type { RefObject } from "react";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 import { WorkspaceMobileControls } from "./workspace-mobile-controls";
 import { overviewGhostLabel, type OverviewGhostTarget } from "./workspace-overview-ghost";
-import { WorkspaceToolbar, workspaceFrameActionForSurfaceKind } from "./workspace-toolbar";
-import { executeWorkspaceFrameAction } from "./workspace-frame-actions";
+import { WorkspaceToolbar, openPaneActionForSurfaceKind } from "./workspace-toolbar";
 import type { Rect, SurfaceKind, WorkspacePresentationMode } from "./types";
 
 export function WorkspaceOverviewGhostButton({
@@ -65,9 +64,7 @@ export function WorkspaceToolbarLayer({
   return (
     <WorkspaceToolbar
       onNativeOverlayActiveChange={onNativeOverlayActiveChange}
-      onFrameAction={(action, placement) => {
-        void executeWorkspaceFrameAction({ action, placement, runLayoutAction, runtime });
-      }}
+      openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
       overviewActive={overviewActive}
       performanceStatsRef={showPerformanceStats ? debugRef : null}
       runLayoutAction={runLayoutAction}
@@ -142,9 +139,9 @@ export function focusOrOpenPaneBySurfaceKind(
   if (runtime.store.focusPaneBySurfaceKind(surfaceKind) !== null) {
     return;
   }
-  const action = workspaceFrameActionForSurfaceKind(surfaceKind);
-  if (!action || !runtime.store.canOpenPane(action.action.request)) {
+  const action = openPaneActionForSurfaceKind(surfaceKind);
+  if (!action || !runtime.store.canOpenPane(action.request)) {
     return;
   }
-  runtime.store.openPane(action.action.request);
+  runtime.store.openPane(action.request);
 }

@@ -163,7 +163,7 @@ describe("real workspace layout scene", () => {
     });
   });
 
-  test("opens and restores one easy button view per conversation", () => {
+  test("opens and restores multiple easy button views of one conversation", () => {
     const workspaceId = "workspace_api";
     const initial = createRealWorkspaceScene({
       storedLayout: null,
@@ -182,17 +182,15 @@ describe("real workspace layout scene", () => {
       surfaceKind: "easy-button",
       title: "Topic",
     });
-    expect(() =>
-      store.openPane({
-        easyButtonConfig,
-        surfaceKind: "easy-button",
-        title: "Topic copy",
-      }),
-    ).toThrow("conversation conversation-1 is already bound to pane");
+    const secondPaneId = store.openPane({
+      easyButtonConfig,
+      surfaceKind: "easy-button",
+      title: "Topic copy",
+    });
 
     expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
       allowed: true,
-      count: 1,
+      count: 2,
       limit: 10,
       surfaceKind: "easy-button",
     });
@@ -208,7 +206,11 @@ describe("real workspace layout scene", () => {
       workspaceName: "Ignored after restore",
     });
 
-    expect(restored.scene.paneById.get(firstPaneId)?.easyButtonConfig).toEqual(easyButtonConfig);
+    expect(
+      [firstPaneId, secondPaneId].map(
+        (paneId) => restored.scene.paneById.get(paneId)?.easyButtonConfig,
+      ),
+    ).toEqual([easyButtonConfig, easyButtonConfig]);
   });
 
   test("drops persisted columns that reference missing pane metadata", () => {

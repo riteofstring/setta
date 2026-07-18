@@ -58,7 +58,29 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	assertExhaustedPaletteProfile(t, exhausted.PresentationProfile, created[0].Conversation.ID)
 
 	alpha := created[0]
-	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-1)
+	bindings = append(bindings, WorkspacePaneBinding{
+		PaneID:         "pane-alpha-duplicate",
+		ConversationID: alpha.Conversation.ID,
+	})
+	replacePaletteTestPaneBindings(t, store, workspaceID, bindings)
+	alphaWithDuplicateViews, err := service.ReadSnapshot(ctx, workspaceID, alpha.Conversation.ID)
+	if err != nil {
+		t.Fatalf("read alpha with duplicate views: %v", err)
+	}
+	if alphaWithDuplicateViews.PresentationProfile.PaletteSelection !=
+		alpha.PresentationProfile.PaletteSelection ||
+		alphaWithDuplicateViews.PresentationProfile.RequestedPaletteID != nil ||
+		alphaWithDuplicateViews.PresentationProfile.ResolvedPaletteID !=
+			alpha.PresentationProfile.ResolvedPaletteID ||
+		alphaWithDuplicateViews.PresentationProfile.PaletteReuse != nil {
+		t.Fatalf(
+			"duplicate views changed presentation: got %+v want %+v",
+			alphaWithDuplicateViews.PresentationProfile,
+			alpha.PresentationProfile,
+		)
+	}
+
+	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-2)
 	for _, binding := range bindings {
 		if binding.ConversationID != alpha.Conversation.ID {
 			remainingBindings = append(remainingBindings, binding)

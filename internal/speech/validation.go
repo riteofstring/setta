@@ -42,23 +42,6 @@ func ValidateSpeechCapabilities(capabilities SpeechCapabilities) error {
 	return nil
 }
 
-func ValidateSpeechCredentialValidationResult(result SpeechCredentialValidationResult) error {
-	if !validValue(result.Provider, speechProviderValues) {
-		return fmt.Errorf("unsupported speech credential provider %q", result.Provider)
-	}
-	return nil
-}
-
-func ValidateSpeechCredentialStatus(status SpeechCredentialStatus) error {
-	if !validValue(status.Provider, speechProviderValues) {
-		return fmt.Errorf("unsupported speech credential provider %q", status.Provider)
-	}
-	if !validValue(status.ProviderStatus, speechProviderStatusValues) {
-		return fmt.Errorf("unsupported speech credential provider status %q", status.ProviderStatus)
-	}
-	return nil
-}
-
 func validateSpeechVoiceCatalog(catalog SpeechVoiceCatalog) error {
 	want := SynthesisVoiceCatalog()
 	if catalog.Provider != want.Provider {

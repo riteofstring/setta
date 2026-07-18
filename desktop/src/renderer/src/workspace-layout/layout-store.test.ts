@@ -355,31 +355,6 @@ describe("workspace layout store", () => {
     expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toBeUndefined();
   });
 
-  test("rejects duplicate easy button conversation bindings before layout mutation", () => {
-    const store = createStore({ "easy-button": 3 });
-    const firstPaneId = store.openPane({
-      easyButtonConfig: { conversationId: "conversation-1" },
-      surfaceKind: "easy-button",
-      title: "Topic",
-    });
-    const emptyPaneId = store.openEmptyFrame();
-    const before = store.toScene();
-    const duplicateRequest = {
-      easyButtonConfig: { conversationId: "conversation-1" },
-      surfaceKind: "easy-button",
-      title: "Topic copy",
-    } as const;
-
-    expect(store.canOpenPane(duplicateRequest)).toBe(false);
-    expect(() => store.openPane(duplicateRequest)).toThrow(
-      `conversation conversation-1 is already bound to pane ${firstPaneId}`,
-    );
-    expect(() => store.configurePane(emptyPaneId, duplicateRequest)).toThrow(
-      `conversation conversation-1 is already bound to pane ${firstPaneId}`,
-    );
-    expect(store.toScene()).toEqual(before);
-  });
-
   test("rejects invalid easy button bindings before pane creation mutates layout", () => {
     const invalidRequests = [
       { surfaceKind: "easy-button", title: "Missing binding" },

@@ -19,6 +19,7 @@
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
+      topicConversationOpenNewViewFromNavigator,
       topicConversationRespondApproval,
       topicConversationShellSpeechCapture,
       topicConversationShellSpeechState,
@@ -52,15 +53,11 @@
   }
 
   function topicConversationFirstRunState() {
-    const newConversationButton = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === "New conversation",
-    );
     return {
       chooseFolder: Boolean(document.querySelector('[data-testid="choose-project-folder"]')),
       easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
       emptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
-      newTopic:
-        newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
+      newTopic: Boolean(document.querySelector('[aria-label="Create topic conversation"]')),
       search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
     };
   }
@@ -481,7 +478,7 @@
       new CustomEvent("setta:workspace-open-pane-request", {
         detail: {
           easyButtonConfig: { conversationId },
-          subtitle: "topic conversation pane",
+          subtitle: "topic conversation duplicate view",
           surfaceKind: "easy-button",
           title: "Topic conversation copy",
           tone: "cyan",
@@ -501,13 +498,9 @@
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).filter((surface) => datasetValue(surface, "conversationId") === conversationId);
     const rowPresentation = conversationNavigatorRowPresentation(rows[0]);
-    const duplicateViewButtonCount = Array.from(
-      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
-    ).filter((button) => datasetValue(button, "conversationId") === conversationId).length;
     return {
       ...rowPresentation,
       conversationId: rows.length === 1 ? rowPresentation.conversationId : "",
-      duplicateViewButtonCount,
       focusedPaneId:
         document
           .querySelector('[data-testid="workspace-pane-host"][data-focused="true"]')
@@ -556,10 +549,21 @@
     return { clicked: true, conversationId };
   }
 
+  function topicConversationOpenNewViewFromNavigator({ conversationId }) {
+    const button = Array.from(
+      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
+    ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false, conversationId };
+    }
+    button.click();
+    return { clicked: true, conversationId };
+  }
+
   async function topicConversationRequestPresentation({ conversationId, title, workspaceId }) {
     const detail = {
       completion: null,
-      request: { conversationId, title, workspaceId },
+      request: { conversationId, title, viewAction: "focus-or-open", workspaceId },
     };
     window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
     if (!(detail.completion instanceof Promise)) {
