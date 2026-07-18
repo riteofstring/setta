@@ -387,7 +387,7 @@ async function exerciseCancellationCleanup() {
   await delay(1_600);
   const after = await browserFixtureSnapshot(context.client);
   assertNoCommitAfter(before, after, runId);
-  return cleanupSummary(before, after);
+  return cleanupSummary(before, after, runId);
 }
 
 async function exerciseConnectionFailureCleanup() {
@@ -408,7 +408,7 @@ async function exerciseConnectionFailureCleanup() {
   await waitForBrowserEvent(runId, "webrtc_peer_closed");
   const after = await browserFixtureSnapshot(context.client);
   assertNoCommitAfter(before, after, runId);
-  return cleanupSummary(before, after);
+  return cleanupSummary(before, after, runId);
 }
 
 async function exerciseDurationFailureCleanup() {
@@ -433,13 +433,14 @@ async function exerciseDurationFailureCleanup() {
   await waitForShellCaptureState("failed");
   await waitForBrowserEvent(runId, "duration_timer_shortened");
   await waitForBrowserEvent(runId, "microphone_track_stopped");
+  await waitForBrowserEvent(runId, "webrtc_peer_closed");
   const after = await browserFixtureSnapshot(context.client);
   assertNoCommitAfter(before, after, runId);
   await context.client.evaluate(
     "globalThis.__settaSpeechRealtimeBrowserFixture.clearDurationTimerOverride()",
   );
   await reloadSpeechFixture();
-  return cleanupSummary(before, after);
+  return cleanupSummary(before, after, runId);
 }
 
 async function exercisePaneClosureCleanup(conversationId) {
@@ -464,7 +465,7 @@ async function exercisePaneClosureCleanup(conversationId) {
   await waitForReadyForNextCapture();
   const after = await browserFixtureSnapshot(context.client);
   assertNoCommitAfter(before, after, runId);
-  return cleanupSummary(before, after);
+  return cleanupSummary(before, after, runId);
 }
 
 async function exerciseRuntimeSwitchCleanup() {
@@ -496,7 +497,7 @@ async function exerciseRuntimeSwitchCleanup() {
   assertNoCommitAfter(before, after, runId);
   await context.client.evaluate(`window.setta.runtimes.switch(${JSON.stringify(localRuntimeId)})`);
   await waitForReadyForNextCapture();
-  return cleanupSummary(before, after);
+  return cleanupSummary(before, after, runId);
 }
 
 async function startRemoteRuntime(appDataDir) {
@@ -1014,12 +1015,27 @@ function assertNoCommitAfter(before, after, runId) {
   }
 }
 
-function cleanupSummary(before, after) {
-  return {
+function cleanupSummary(before, after, runId) {
+  const summary = {
     commitDelta: after.commitCount - before.commitCount,
     peerCloseDelta: after.peerCloseCount - before.peerCloseCount,
     stoppedTrackDelta: after.stoppedTrackCount - before.stoppedTrackCount,
   };
+  assertCleanupDeltas(runId, summary);
+  return summary;
+}
+
+function assertCleanupDeltas(runId, summary) {
+  const expected = {
+    commitDelta: 0,
+    peerCloseDelta: 1,
+    stoppedTrackDelta: 1,
+  };
+  for (const [field, value] of Object.entries(expected)) {
+    if (summary[field] !== value) {
+      throw new Error(`${runId} cleanup ${field} was ${summary[field]}, expected ${value}`);
+    }
+  }
 }
 
 function runSummary(run) {
