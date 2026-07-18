@@ -25,15 +25,21 @@ root.render(
 
 function installPageTeardown(root: Root): void {
   let unmounted = false;
+  const teardown = () => {
+    if (unmounted) {
+      return;
+    }
+    unmounted = true;
+    runRendererPageTeardown();
+    root.unmount();
+  };
+  window.addEventListener("beforeunload", teardown, { once: true });
   window.addEventListener(
-    "beforeunload",
-    () => {
-      if (unmounted) {
-        return;
+    "pagehide",
+    (event) => {
+      if (!event.persisted) {
+        teardown();
       }
-      unmounted = true;
-      runRendererPageTeardown();
-      root.unmount();
     },
     { once: true },
   );

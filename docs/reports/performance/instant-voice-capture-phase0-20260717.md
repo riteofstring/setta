@@ -201,7 +201,7 @@ node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-p
 Artifact:
 
 ```text
-.recordings/instant-voice-capture-phase4-workflow/20260718T030540863Z
+.recordings/instant-voice-capture-phase4-workflow/20260718T031304467Z
 ```
 
 The workflow now exercises app teardown through the production renderer lifecycle by reloading the page while master capture is in flight. The app-shell capture controller is registered with the renderer page teardown boundary, and the browser fixture records finalized evidence after page teardown.
@@ -209,7 +209,7 @@ The workflow now exercises app teardown through the production renderer lifecycl
 | Check | Result |
 | --- | --- |
 | Workflow status | `passed` |
-| Lifecycle exercised | production `beforeunload` plus real page reload |
+| Lifecycle exercised | production `beforeunload`/`pagehide` plus real page reload |
 | App teardown `commitDelta` | `0` |
 | App teardown `stoppedTrackDelta` | `1` |
 | App teardown `peerCloseDelta` | `1` |

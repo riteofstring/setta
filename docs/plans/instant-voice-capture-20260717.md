@@ -30,7 +30,7 @@ This is a replacement, not a compatibility project.
 
 The core result is sound: the root-`.env` live OpenAI workflow completed the expected transcript, current retained artifacts contain neither the API key nor the ephemeral client secret, local recording was observed around 22–35 ms with a 1,500 ms provider delay, the stale shell `listening` selector is absent from source and generated web assets, and no compatibility mechanism was found.
 
-The production teardown correction is complete: the renderer root now uses a standard `beforeunload` lifecycle boundary for Electron and web, active app-shell controllers register production teardown callbacks, the Phase 4 workflow exercises a real reload while capture is in flight, and the finalized fixture evidence asserts `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`. The removed private renderer teardown route and query gate are absent from source and generated web assets.
+The production teardown correction is complete: the renderer root now uses standard page lifecycle boundaries (`beforeunload`, with non-persisted `pagehide` fallback) for Electron and web, active app-shell controllers register production teardown callbacks, the Phase 4 workflow exercises a real reload while capture is in flight, and the finalized fixture evidence asserts `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`. The removed private renderer teardown route and query gate are absent from source and generated web assets.
 
 Completion is withheld for one remaining verification defect:
 
