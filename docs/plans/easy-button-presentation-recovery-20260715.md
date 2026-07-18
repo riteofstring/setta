@@ -2,10 +2,28 @@
 
 **Date:** 2026-07-15
 
-**Status:** Phase 0 implemented and verified; Phase 1 implemented and verified; Phase 2 implemented and verified; Phase 3 implemented and verified; Phase 4 implemented and verified; Phase 5 implemented and verified
+**Status:** Incomplete after implementation review on 2026-07-16. Phase 0 is verified;
+Phases 2, 3, 4, and 5 have implementation evidence; Phase 1 remains incomplete because
+visible-card artifact content loading/caching and required artifact-policy verification are
+still open.
 
 **Scope:** Easy Button presentation, typed artifacts, narrator projection and playback,
 global-master voice input, keyboard shortcuts, and production-path verification
+
+**Latest Review:** The typed artifact store/tool path exists, but the Easy Button artifact rail
+still receives payload-bearing artifacts from `ConversationSnapshot`: `readSnapshotArtifacts`
+selects `markdown_json`, `table_json`, `bar_chart_json`, and `file_json`, and `ArtifactRail`
+renders directly from `view.artifacts`. The required visible-card `ReadArtifact` cache by
+immutable artifact ID is not implemented. The deterministic recovery workflow currently covers
+only the supplied language-count table path; the fake topic provider calls `emit_artifact` only
+for text containing `supplied language-counts dataset`, so the required table-plus-bar-chart
+production path and artifact-policy scenarios are not verified. No committed report records the
+required live Codex structured-artifact workflow or an explicit ChatGPT-auth skip for this plan.
+
+**Next Step:** Finish Workstream 1 by making artifact snapshots metadata/window records, loading
+typed payloads only for visible Easy Button cards through `ReadArtifact` with immutable-ID caching,
+then add the required production-path artifact-policy verification matrix: table plus bar chart,
+qualitative markdown, numeric bar chart, generated file, and no-artifact conversational answer.
 
 ## Why This Plan Exists
 
@@ -380,7 +398,9 @@ Verification:
 
 ### Phase 1 — Restore typed artifacts
 
-**Status:** Implemented and verified
+**Status:** Incomplete after implementation review. The typed store/tool/render branches exist, but
+visible-card artifact content loading/caching and the required production-path artifact-policy
+verification matrix remain open.
 
 - Add the generic dynamic-tool bridge in `internal/agent`.
 - Add the conversation-owned artifact tool, typed content repository, validation, and endpoint.
