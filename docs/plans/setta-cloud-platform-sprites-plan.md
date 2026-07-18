@@ -360,18 +360,21 @@ reason.
 
 ### Agent execution policy
 
-Use GPT-5.6 Sol at high reasoning effort for the lead agent when it is
-available. The lead owns task decomposition, synthesis, scope control, and
-every phase-exit or stop/go decision.
+Use GPT-5.6 Sol for every agent — lead and subagents alike (owner decision,
+2026-07-16: no Luna/Terra/Sol model tiering; vary only reasoning effort at
+low, medium, or high). The lead runs at high reasoning effort and owns task
+decomposition, synthesis, scope control, and every phase-exit or stop/go
+decision.
 
 Use subagents sparingly and only for concrete, bounded work that can proceed
 independently:
 
-- Follow the owner's effort-selection rule explicitly: use medium reasoning
-  effort for a simpler task and high reasoning effort only when the lead judges
-  that the task's complexity, ambiguity, security impact, or gate consequence
-  requires it. State the selected effort and reason in the delegation; do not
-  default every subagent to high.
+- Follow the owner's effort-selection rule explicitly: use low reasoning
+  effort for strictly mechanical, fully specified tasks; medium reasoning
+  effort for a simpler bounded task; and high reasoning effort only when the
+  lead judges that the task's complexity, ambiguity, security impact, or gate
+  consequence requires it. State the selected effort and reason in the
+  delegation; do not default every subagent to high.
 - Default subagents to medium reasoning effort for documentation research,
   evidence collection, mechanical probes, narrow implementation, and focused
   test execution.
@@ -1490,3 +1493,21 @@ Stop and reassess rather than hiding the problem if any of these occur:
   recommended, pending 48h result and owner sign-off). All source remains
   uncommitted pending the 48h wake and scoped quality gates. Evidence:
   `docs/reports/2026-07-16-sprites-phase2-overnight.md`.
+- 2026-07-16 (day): Completed the remaining offline Phase 2 items. Bounded PoC
+  credential issuer (`internal/credissuer`: ed25519, epochs, device identity
+  vs revocable grants, key-rotation overlap, offline cached-key verification,
+  5s-bounded live-connection cutoff, single-use setup seeds), desktop secure
+  credential storage with a hosted local issuer for dev/e2e pairing
+  (`internal/localcredissuer`, protocol snapshot v11), and protected-path
+  terminal replay persistence with crash-restart recovery split from
+  restore-as-historical semantics. The lead independently verified each slice
+  (format, Go tests incl. race, desktop typecheck/unit, and Electron e2e:
+  chat, chat-last-selected, prod-record-chat, terminal-profile,
+  terminal-backend-crash all passing). Two regressions were caught by e2e and
+  fixed in-thread (fail-closed pairing; crash recovery). Committed the
+  unrelated chat permission workstream separately (`db806e584`) after
+  verification to unblock desktop work. Known pre-existing failure:
+  `pane-drag-drop` frame metrics (UI workstream, unrelated). Adopted the
+  Sol-only agent policy (this section). Phase 2 exit's live proof and the
+  coherent source commit remain gated on the 48h wake, org cleanup, and the
+  scoped quality gates.
