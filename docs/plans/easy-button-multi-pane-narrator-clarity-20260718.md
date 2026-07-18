@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 2 repository implementation is complete and ready for audit; narrator language contract is the next repository-actionable phase after audit
+**Status:** In progress — Phase 3 repository implementation is complete and ready for audit; speech cadence is the next repository-actionable phase after audit
 
 **Scope:** Immediate removal of the PWA/web client and static web hosting, Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
@@ -322,11 +322,11 @@ This phase preempts every later phase and the pending Phase 1 broad audit. Do no
 
 ### Phase 3 — Replace vague narrator brevity with an output contract
 
-- [ ] Lower the Go-owned narrator limits to the values in this plan and update strict JSON schemas with field-specific descriptions.
-- [ ] Rewrite focus, projection, terminal, and status instructions around user relevance, plain language, omission, and direct failure reporting.
-- [ ] Add the good/bad examples above to the relevant instruction contexts without embedding a second executable prompt implementation in tests.
-- [ ] Update focused narrator validation tests for each new boundary and for one-or-zero milestone cardinality.
-- [ ] Replace jargony fake-provider output and downstream assertions with plain, outcome-led fixtures.
+- [x] Lower the Go-owned narrator limits to the values in this plan and update strict JSON schemas with field-specific descriptions.
+- [x] Rewrite focus, projection, terminal, and status instructions around user relevance, plain language, omission, and direct failure reporting.
+- [x] Add the good/bad examples above to the relevant instruction contexts without embedding a second executable prompt implementation in tests.
+- [x] Update focused narrator validation tests for each new boundary and for one-or-zero milestone cardinality.
+- [x] Replace jargony fake-provider output and downstream assertions with plain, outcome-led fixtures.
 
 ### Phase 4 — Apply the shared synthesis cadence
 

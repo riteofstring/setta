@@ -473,8 +473,7 @@ function emitStructuredTurn(threadId, turnId, text, outputSchema) {
       JSON.stringify({
         kind: "status_reply",
         sourceThroughSequence: context.sourceThroughSequence,
-        statusReply:
-          "The primary topic agent is still working and has not been steered or interrupted.",
+        statusReply: "The topic is still working and has not been steered or interrupted.",
       }),
     );
     completeTurn(threadId, turnId, "completed");
@@ -860,19 +859,20 @@ function structuredRouteContextIsRedacted(serialized) {
     !serialized.includes('"processId":"')
   );
 }
-
 function emitStructuredProjection(threadId, turnId, context) {
-  const objective = context.authoritative?.currentInstructions?.objective?.text ?? "topic work";
+  const objective = objectiveSubject(
+    (context.authoritative?.currentInstructions?.objective?.text ?? "topic work").trim(),
+  );
   const observedThroughSequence = context.evaluationRange.end;
   const output = {
     kind: "working_projection",
-    milestones: projectionMilestones(context, objective, observedThroughSequence),
+    milestones: projectionMilestones(context, objective),
     observedThroughSequence,
   };
   if (context.requestedChannel === "terminal_projection") {
     output.kind = "terminal_projection";
     output.milestones = [];
-    output.finalSummary = `Narrator completed ${objective}.`;
+    output.finalSummary = terminalProjectionSummary(context, objective);
   }
   emitAgentMessage(threadId, turnId, JSON.stringify(output));
   completeTurn(threadId, turnId, "completed");
@@ -894,20 +894,25 @@ function emitStructuredFocus(threadId, turnId, context) {
   );
   completeTurn(threadId, turnId, "completed");
 }
-function projectionMilestones(context, objective, observedThroughSequence) {
-  const simultaneousCompletionSteering =
-    context.authoritative?.currentInstructions?.acceptedSteering?.some(
-      (steering) => steering.input?.text === simultaneousCompletionInput,
-    );
-  if (context.requestedChannel !== "terminal_projection" && simultaneousCompletionSteering) {
-    return [];
-  }
-  if (context.priorMilestones?.length > 0) {
-    return [];
-  }
-  return [`Narrator evaluated ${objective} through sequence ${observedThroughSequence}.`];
+function projectionMilestones(context, objective) {
+  const steering = context.authoritative?.currentInstructions?.acceptedSteering ?? [];
+  const suppress =
+    context.requestedChannel !== "terminal_projection" &&
+    steering.some((item) => item.input?.text === simultaneousCompletionInput);
+  if (suppress || context.priorMilestones?.length > 0) return [];
+  return [`${objectiveSubject(objective)} has visible progress.`];
 }
-
+function terminalProjectionSummary(context, objective) {
+  const subject = objectiveSubject(objective);
+  const status = context.authoritative?.currentInstructions?.turnStatus;
+  if (status === "completed") return `${subject} completed.`;
+  if (status === "cancelled") return `${subject} stopped before completion.`;
+  if (status === "failed") return `${subject} failed; the reported error remains visible.`;
+  return `${subject} reached a terminal state.`;
+}
+function objectiveSubject(objective) {
+  return objective === "" ? "Topic work" : objective[0].toUpperCase() + objective.slice(1);
+}
 function holdStructuredTurnOnce(context) {
   const key = structuredHoldKey(context);
   if (key === null || heldStructuredKeys.has(key)) {
@@ -917,7 +922,6 @@ function holdStructuredTurnOnce(context) {
   persistState();
   return true;
 }
-
 function structuredHoldKey(context) {
   if (isCancelledMasterRoute(context)) {
     return "master:cancel-route";

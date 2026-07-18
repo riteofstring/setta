@@ -776,7 +776,7 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "completed" &&
-      surface.summaryText === "Narrator completed approval alpha.",
+      surface.summaryText === "Approval alpha completed.",
   );
   if (reopenedApprovalComplete.artifactCount !== 1) {
     throw new Error(
@@ -875,7 +875,7 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "completed" &&
-      surface.summaryText === "Narrator completed approval alpha after steer.",
+      surface.summaryText === "Approval alpha after steer completed.",
   );
   if (alphaComplete.artifactCount !== 1) {
     throw new Error(`Alpha artifact was not retained: ${JSON.stringify(alphaComplete)}`);
@@ -906,7 +906,7 @@ try {
       surface.state === "complete" &&
       surface.status === "completed" &&
       surface.approvalId === "" &&
-      surface.summaryText === "Narrator completed command approval denial.",
+      surface.summaryText === "Command approval denial completed.",
   );
 
   const masterPaneRoutes = await exerciseMasterPaneRouting({
@@ -980,7 +980,7 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "stopped" &&
-      surface.summaryText === "Narrator completed hold beta.",
+      surface.summaryText === "Hold beta stopped before completion.",
   );
   assertDriverAction(
     await context.client.driver("topicConversationSubmit", {
@@ -1004,7 +1004,8 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "failed" &&
-      surface.summaryText === "Narrator completed narration backlog fail beta.",
+      surface.summaryText ===
+        "Narration backlog fail beta failed; the reported error remains visible.",
   );
 
   await closeConversationPane(context.client, alpha.id);

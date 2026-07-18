@@ -1,7 +1,7 @@
 import { conversationSurfaces } from "./topic-conversation-fork-workflow.mjs";
 
 export const expectedNarratorStatusReply =
-  "The primary topic agent is still working and has not been steered or interrupted.";
+  "The topic is still working and has not been steered or interrupted.";
 
 export function assertIndependentWorkingTopics(surfaces, alphaId, betaId) {
   const alpha = conversationSurfaces(surfaces, alphaId);
@@ -180,7 +180,9 @@ function assertAutomaticNarration(snapshot, label) {
     finals.some(
       (event) =>
         event.trigger !== "turn_terminal" ||
-        !event.finalSummary?.text.startsWith("Narrator completed ") ||
+        typeof event.finalSummary?.text !== "string" ||
+        event.finalSummary.text === "" ||
+        event.finalSummary.text.startsWith("Narrator ") ||
         event.resolvedInvocation?.resolved?.modelId !== "gpt-5.4-mini",
     )
   ) {

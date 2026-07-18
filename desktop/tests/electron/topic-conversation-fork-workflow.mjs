@@ -1168,7 +1168,7 @@ function completedForkSurface(surface) {
     surface.state === "complete" &&
     surface.status === "completed" &&
     surface.artifactCount === 1 &&
-    surface.summaryText === "Narrator completed fork child artifact."
+    surface.summaryText === "Fork child artifact completed."
   );
 }
 
