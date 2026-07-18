@@ -10,11 +10,8 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/netip"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -24,10 +21,12 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/httpapi"
+	"setta/internal/localcredissuer"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
-	"setta/internal/runtimeidentity"
+	"setta/internal/runtimeprovider"
+	"setta/internal/runtimesetup"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/webapp"
@@ -35,29 +34,6 @@ import (
 	"setta/internal/workspaceactivity"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
-)
-
-type Config struct {
-	AllowRemote                            bool
-	AppDataDir                             string
-	BootstrapDeviceDisplayName             string
-	ChatHarness                            ChatHarnessMode
-	DisableAutomaticCartographerProcessing bool
-	Host                                   string
-	Port                                   int
-	RuntimeDisplayName                     string
-	SkipBootstrapDeviceSession             bool
-	Version                                string
-	Stdout                                 io.Writer
-	Stderr                                 io.Writer
-	ShutdownTimeout                        time.Duration
-}
-
-type ChatHarnessMode string
-
-const (
-	ChatHarnessCodex            ChatHarnessMode = "codex"
-	ChatHarnessScriptedWorkflow ChatHarnessMode = "scripted-workflow"
 )
 
 const (
@@ -74,10 +50,11 @@ const (
 )
 
 type ReadyEvent struct {
-	Event           string `json:"event"`
-	Addr            string `json:"addr"`
-	BootstrapToken  string `json:"bootstrapToken"`
-	ProtocolVersion int    `json:"protocolVersion"`
+	Event             string `json:"event"`
+	Addr              string `json:"addr"`
+	BootstrapToken    string `json:"bootstrapToken,omitempty"`
+	LocalPairingToken string `json:"localPairingToken,omitempty"`
+	ProtocolVersion   int    `json:"protocolVersion"`
 }
 
 type Server struct {
@@ -98,23 +75,27 @@ type Server struct {
 }
 
 type runtimeServices struct {
-	appearanceService        *appearance.Service
-	authStore                *runtimeauth.Store
-	bootstrapToken           string
-	chatService              *chat.Service
-	codexAccountService      *codexaccount.Service
-	codexManager             *codexapp.Manager
-	notifyService            *notify.Service
-	semanticGraphService     *semanticgraph.Service
-	semanticGraphStore       *semanticgraph.Store
-	terminalService          *terminal.Manager
-	workspaceActivityService *workspaceactivity.Service
-	workspaceUIService       *workspaceui.Service
-	workspaceService         *workspacesession.Service
-	workflowService          *orchestrator.Service
-	workflowStore            *orchestrator.Store
-	runtimeIdentityManager   *runtimeIdentityManager
-	infrastructureProvider   httpapi.RuntimeInfrastructureProvider
+	appearanceService         *appearance.Service
+	authStore                 *runtimeauth.Store
+	bootstrapToken            string
+	localPairingToken         string
+	localCredentialIssuer     *localcredissuer.Service
+	chatService               *chat.Service
+	codexAccountService       *codexaccount.Service
+	codexManager              *codexapp.Manager
+	notifyService             *notify.Service
+	runtimeDiagnosticsService *runtimeDiagnosticsService
+	semanticGraphService      *semanticgraph.Service
+	semanticGraphStore        *semanticgraph.Store
+	terminalService           *terminal.Manager
+	workspaceActivityService  *workspaceactivity.Service
+	workspaceUIService        *workspaceui.Service
+	workspaceService          *workspacesession.Service
+	workflowService           *orchestrator.Service
+	workflowStore             *orchestrator.Store
+	runtimeIdentityManager    *runtimeIdentityManager
+	runtimeSetupStore         *runtimesetup.Store
+	infrastructureProvider    httpapi.RuntimeInfrastructureProvider
 }
 
 type runtimeAuthBootstrap struct {
@@ -122,6 +103,7 @@ type runtimeAuthBootstrap struct {
 	infrastructureProvider httpapi.RuntimeInfrastructureProvider
 	store                  *runtimeauth.Store
 	bootstrapToken         string
+	localPairingToken      string
 }
 
 type runtimeSemanticServices struct {
@@ -130,87 +112,11 @@ type runtimeSemanticServices struct {
 	graphStore      *semanticgraph.Store
 }
 
-func DefaultConfig() Config {
-	return Config{
-		AppDataDir:                 "",
-		BootstrapDeviceDisplayName: "Setta Desktop (local)",
-		ChatHarness:                ChatHarnessCodex,
-		Host:                       "127.0.0.1",
-		Port:                       0,
-		Version:                    "dev",
-		Stdout:                     io.Discard,
-		Stderr:                     io.Discard,
-		ShutdownTimeout:            5 * time.Second,
-	}
-}
-
-func (config Config) Validate() error {
-	if err := validateAppDataDir(config.AppDataDir); err != nil {
-		return err
-	}
-	if !validChatHarnessMode(config.ChatHarness) {
-		return fmt.Errorf("unsupported chat harness mode: %s", config.ChatHarness)
-	}
-	if config.Host == "" {
-		return errors.New("host is required")
-	}
-	if !config.SkipBootstrapDeviceSession && config.BootstrapDeviceDisplayName == "" {
-		return errors.New("bootstrap device display name is required")
-	}
-	if err := config.validateHostBinding(); err != nil {
-		return err
-	}
-	if err := validatePort(config.Port); err != nil {
-		return err
-	}
-	if err := validateRuntimeDisplayNameOverride(config.RuntimeDisplayName); err != nil {
-		return err
-	}
-	if config.Version == "" {
-		return errors.New("version is required")
-	}
-	if config.ShutdownTimeout <= 0 {
-		return errors.New("shutdown timeout must be positive")
-	}
-	return nil
-}
-
-func validateRuntimeDisplayNameOverride(displayName string) error {
-	if strings.TrimSpace(displayName) == "" {
-		return nil
-	}
-	if _, err := runtimeidentity.NormalizeDisplayName(displayName); err != nil {
-		return fmt.Errorf("runtime display name is invalid: %w", err)
-	}
-	return nil
-}
-
-func validateAppDataDir(appDataDir string) error {
-	if appDataDir == "" {
-		return errors.New("app data directory is required")
-	}
-	if !filepath.IsAbs(appDataDir) {
-		return fmt.Errorf("app data directory must be absolute: %s", appDataDir)
-	}
-	return nil
-}
-
-func (config Config) validateHostBinding() error {
-	addr, err := netip.ParseAddr(config.Host)
-	if err != nil {
-		return fmt.Errorf("host must be a numeric IP address: %w", err)
-	}
-	if !addr.IsLoopback() && !config.AllowRemote {
-		return fmt.Errorf("host must be loopback unless allow remote is enabled: %s", config.Host)
-	}
-	return nil
-}
-
-func validatePort(port int) error {
-	if port < 0 || port > 65535 {
-		return fmt.Errorf("port must be between 0 and 65535: %d", port)
-	}
-	return nil
+type runtimeFoundation struct {
+	appearanceService     *appearance.Service
+	authBootstrap         runtimeAuthBootstrap
+	localCredentialIssuer *localcredissuer.Service
+	runtimeSetupStore     *runtimesetup.Store
 }
 
 func Start(ctx context.Context, config Config) (*Server, error) {
@@ -242,16 +148,23 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeWorkflowEvents:     services.workflowService.CloseEvents,
 		drainChatTurns:          services.chatService.ShutdownActiveTurns,
 		codexManager:            services.codexManager,
-		server:                  newHTTPServer(config, services),
+		server:                  nil,
 		listener:                listener,
 		done:                    make(chan error, 1),
 	}
+	server.server, err = newHTTPServer(config, services)
+	if err != nil {
+		_ = listener.Close()
+		closeRuntimeServicesAfterReadyFailure(config, server)
+		return nil, err
+	}
 
 	if err := json.NewEncoder(config.Stdout).Encode(ReadyEvent{
-		Event:           "ready",
-		Addr:            listener.Addr().String(),
-		BootstrapToken:  services.bootstrapToken,
-		ProtocolVersion: httpapi.ProtocolVersion,
+		Event:             "ready",
+		Addr:              listener.Addr().String(),
+		BootstrapToken:    services.bootstrapToken,
+		LocalPairingToken: services.localPairingToken,
+		ProtocolVersion:   httpapi.ProtocolVersion,
 	}); err != nil {
 		_ = listener.Close()
 		closeRuntimeServicesAfterReadyFailure(config, server)
@@ -263,20 +176,17 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 }
 
 func buildRuntimeServices(config Config) (runtimeServices, error) {
-	authBootstrap, err := newRuntimeAuthBootstrap(config)
+	foundation, err := newRuntimeFoundation(config)
 	if err != nil {
 		return runtimeServices{}, err
 	}
+	authBootstrap := foundation.authBootstrap
 	closeAuthOnFailure := true
 	defer func() {
 		if closeAuthOnFailure {
 			_ = authBootstrap.store.Close()
 		}
 	}()
-	appearanceService, err := newAppearanceService(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, err
-	}
 	workspaceService, err := newWorkspaceService(config.AppDataDir)
 	if err != nil {
 		return runtimeServices{}, err
@@ -285,7 +195,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	codexManager := newCodexManager()
+	codexManager := newCodexManager(config)
 	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
 	if err != nil {
 		return runtimeServices{}, err
@@ -329,27 +239,77 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		)
 		return runtimeServices{}, err
 	}
+	runtimeDiagnosticsService := newRuntimeDiagnosticsService(runtimeDiagnosticsConfig{
+		AppDataDir:                  config.AppDataDir,
+		CodexAccountService:         codexAccountService,
+		CodexCommand:                config.CodexCommand,
+		CodexTimeout:                config.CodexDiagnosticsTimeout,
+		DiskSpacePath:               config.DiskSpacePath,
+		MinimumDiskFreeMiB:          config.MinimumDiskFreeMiB,
+		Now:                         time.Now,
+		PolicyPath:                  config.PolicyPath,
+		ProtectedRuntimeStateDir:    config.ProtectedRuntimeStateDir,
+		ReleaseMetadataPath:         config.ReleaseMetadataPath,
+		RuntimeVersion:              config.Version,
+		WorkloadLeaseDiagnosticName: config.WorkloadLeaseDiagnosticName,
+		WorkloadLeaseManager:        config.WorkloadLeaseManager,
+	})
 
 	closeAuthOnFailure = false
 	return runtimeServices{
-		appearanceService:        appearanceService,
-		authStore:                authBootstrap.store,
-		bootstrapToken:           authBootstrap.bootstrapToken,
-		chatService:              chatService,
-		codexAccountService:      codexAccountService,
-		codexManager:             codexManager,
-		notifyService:            notifyService,
-		semanticGraphService:     semanticServices.graphService,
-		semanticGraphStore:       semanticServices.graphStore,
-		terminalService:          terminalService,
-		workspaceActivityService: semanticServices.activityService,
-		workspaceUIService:       workspaceUIService,
-		workspaceService:         workspaceService,
-		workflowService:          workflowService,
-		workflowStore:            workflowStore,
-		runtimeIdentityManager:   authBootstrap.identityManager,
-		infrastructureProvider:   authBootstrap.infrastructureProvider,
+		appearanceService:         foundation.appearanceService,
+		authStore:                 authBootstrap.store,
+		bootstrapToken:            authBootstrap.bootstrapToken,
+		localPairingToken:         authBootstrap.localPairingToken,
+		localCredentialIssuer:     foundation.localCredentialIssuer,
+		chatService:               chatService,
+		codexAccountService:       codexAccountService,
+		codexManager:              codexManager,
+		notifyService:             notifyService,
+		runtimeDiagnosticsService: runtimeDiagnosticsService,
+		semanticGraphService:      semanticServices.graphService,
+		semanticGraphStore:        semanticServices.graphStore,
+		terminalService:           terminalService,
+		workspaceActivityService:  semanticServices.activityService,
+		workspaceUIService:        workspaceUIService,
+		workspaceService:          workspaceService,
+		workflowService:           workflowService,
+		workflowStore:             workflowStore,
+		runtimeIdentityManager:    authBootstrap.identityManager,
+		runtimeSetupStore:         foundation.runtimeSetupStore,
+		infrastructureProvider:    authBootstrap.infrastructureProvider,
 	}, nil
+}
+
+func newRuntimeFoundation(config Config) (foundation runtimeFoundation, err error) {
+	foundation.authBootstrap, err = newRuntimeAuthBootstrap(config)
+	if err != nil {
+		return runtimeFoundation{}, err
+	}
+	closeAuthOnFailure := true
+	defer func() {
+		if closeAuthOnFailure {
+			_ = foundation.authBootstrap.store.Close()
+		}
+	}()
+	foundation.appearanceService, err = newAppearanceService(config.AppDataDir)
+	if err != nil {
+		return runtimeFoundation{}, err
+	}
+	foundation.runtimeSetupStore, err = runtimesetup.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeFoundation{}, fmt.Errorf("create runtime setup store: %w", err)
+	}
+	foundation.localCredentialIssuer, err = newLocalCredentialIssuer(
+		config,
+		foundation.authBootstrap,
+		foundation.runtimeSetupStore,
+	)
+	if err != nil {
+		return runtimeFoundation{}, err
+	}
+	closeAuthOnFailure = false
+	return foundation, nil
 }
 
 func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
@@ -378,13 +338,45 @@ func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 			return runtimeAuthBootstrap{}, fmt.Errorf("create bootstrap device session: %w", err)
 		}
 	}
+	var localPairingToken string
+	if config.EnableLocalCredentialIssuer {
+		_, localPairingToken, err = authStore.CreatePairingToken(context.Background())
+		if err != nil {
+			return runtimeAuthBootstrap{}, fmt.Errorf("create local enrollment pairing token: %w", err)
+		}
+	}
 	closeAuthOnFailure = false
 	return runtimeAuthBootstrap{
 		identityManager:        identityManager,
 		infrastructureProvider: infrastructureProvider,
 		store:                  authStore,
 		bootstrapToken:         bootstrapToken,
+		localPairingToken:      localPairingToken,
 	}, nil
+}
+
+func newLocalCredentialIssuer(config Config, authBootstrap runtimeAuthBootstrap, setupStore *runtimesetup.Store) (*localcredissuer.Service, error) {
+	if !config.EnableLocalCredentialIssuer {
+		return nil, nil
+	}
+	identity := authBootstrap.identityManager.identitySnapshot()
+	managedIdentity, err := runtimeprovider.NewManagedIdentity("local-development:" + identity.RuntimeID)
+	if err != nil {
+		return nil, fmt.Errorf("derive local credential runtime identity: %w", err)
+	}
+	service, err := localcredissuer.New(localcredissuer.Config{
+		BackendName:    httpapi.BackendName,
+		PairingTokens:  authBootstrap.store,
+		ReleaseVersion: config.Version,
+		RuntimeID:      identity.RuntimeID,
+		RuntimeName:    managedIdentity.Name,
+		SetupStore:     setupStore,
+		UserID:         "local-user-" + identity.RuntimeID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create local credential issuer: %w", err)
+	}
+	return service, nil
 }
 
 func newRuntimeSemanticServices(
@@ -583,10 +575,10 @@ func newWorkspaceUIService(
 	return service, nil
 }
 
-func newCodexManager() *codexapp.Manager {
+func newCodexManager(config Config) *codexapp.Manager {
 	return codexapp.NewManager(codexapp.ManagerConfig{
 		Process: codexapp.ProcessConfig{
-			Command: "codex",
+			Command: config.CodexCommand,
 			Args:    []string{"app-server", "--listen", "stdio://"},
 		},
 		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
@@ -791,21 +783,35 @@ func newTerminalService(
 	return terminalService, nil
 }
 
-func newHTTPServer(config Config, services runtimeServices) *http.Server {
-	apiHandler := httpapi.NewHandler(httpapi.HandlerConfig{
+func newHTTPServer(config Config, services runtimeServices) (*http.Server, error) {
+	var localCredentialIssuer httpapi.LocalCredentialIssuerService
+	var runtimeAccessService httpapi.RuntimeAccessService
+	if services.localCredentialIssuer != nil {
+		localCredentialIssuer = services.localCredentialIssuer
+		runtimeAccessService = services.localCredentialIssuer
+	}
+	apiHandler, err := httpapi.NewHandlerWithError(httpapi.HandlerConfig{
 		Metadata: httpapi.BackendMetadata{
 			Name:    httpapi.BackendName,
 			Version: config.Version,
 		},
-		AppearanceService:      services.appearanceService,
-		ChatService:            services.chatService,
-		CodexAccountService:    services.codexAccountService,
-		NotifyService:          services.notifyService,
-		RuntimeAuthService:     services.authStore,
-		RuntimeIdentityService: services.runtimeIdentityManager,
+		AppearanceService:   services.appearanceService,
+		ChatService:         services.chatService,
+		CodexAccountService: services.codexAccountService,
+		NotifyService:       services.notifyService,
+		RuntimeEndpointAccess: httpapi.RuntimeEndpointAccessConfig{
+			AllowedHTTPSOrigins: config.AllowedHTTPSOrigins,
+			AllowedRequestHosts: config.AllowedRequestHosts,
+		},
+		RuntimeAuthService:        services.authStore,
+		LocalCredentialIssuer:     localCredentialIssuer,
+		RuntimeAccessService:      runtimeAccessService,
+		RuntimeDiagnosticsService: services.runtimeDiagnosticsService,
+		RuntimeIdentityService:    services.runtimeIdentityManager,
 		RuntimeMetadata: httpapi.RuntimeMetadata{
 			InfrastructureProvider: services.infrastructureProvider,
 		},
+		RuntimeSetupService:      services.runtimeSetupStore,
 		SemanticGraphService:     services.semanticGraphService,
 		TerminalService:          services.terminalService,
 		WorkspaceActivityService: services.workspaceActivityService,
@@ -813,12 +819,15 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		WorkspaceService:         services.workspaceService,
 		WorkflowService:          services.workflowService,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return &http.Server{
 		Handler:           webapp.NewHandler(apiHandler),
 		MaxHeaderBytes:    httpMaxHeaderBytes,
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 		ReadTimeout:       httpReadTimeout,
-	}
+	}, nil
 }
 
 func (server *Server) Addr() string {
@@ -941,6 +950,7 @@ func (server *Server) serve() {
 }
 
 func normalizeConfig(config Config) Config {
+	defaults := DefaultConfig()
 	if config.Stdout == nil {
 		config.Stdout = io.Discard
 	}
@@ -948,7 +958,16 @@ func normalizeConfig(config Config) Config {
 		config.Stderr = io.Discard
 	}
 	if config.ChatHarness == "" {
-		config.ChatHarness = ChatHarnessCodex
+		config.ChatHarness = defaults.ChatHarness
+	}
+	if config.CodexCommand == "" {
+		config.CodexCommand = defaults.CodexCommand
+	}
+	if config.CodexDiagnosticsTimeout == 0 {
+		config.CodexDiagnosticsTimeout = defaults.CodexDiagnosticsTimeout
+	}
+	if config.WorkloadLeaseDiagnosticName == "" {
+		config.WorkloadLeaseDiagnosticName = defaults.WorkloadLeaseDiagnosticName
 	}
 	return config
 }

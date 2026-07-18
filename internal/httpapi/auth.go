@@ -6,14 +6,33 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/credissuer"
 	"setta/internal/runtimeauth"
 )
 
+const DefaultConnectionRevalidationInterval = 5 * time.Second
+
 type authenticatedDeviceSessionKey struct{}
+type authenticatedRuntimeSessionKey struct{}
+
+type authenticatedRuntimeSession struct {
+	deviceSession           *runtimeauth.DeviceSession
+	runtimeAccessCredential *credissuer.VerifiedCredential
+}
 
 func authenticatedDeviceSession(request *http.Request) (runtimeauth.DeviceSession, bool) {
 	session, ok := request.Context().Value(authenticatedDeviceSessionKey{}).(runtimeauth.DeviceSession)
-	return session, ok
+	if ok {
+		return session, true
+	}
+	authSession, ok := request.Context().Value(authenticatedRuntimeSessionKey{}).(authenticatedRuntimeSession)
+	if !ok || authSession.runtimeAccessCredential == nil {
+		return runtimeauth.DeviceSession{}, false
+	}
+	return runtimeauth.DeviceSession{
+		ID:    authSession.runtimeAccessCredential.Claims.DeviceID,
+		Scope: runtimeauth.DeviceScopeFull,
+	}, true
 }
 
 func (handler handler) dispatch(route endpoint, response http.ResponseWriter, request *http.Request) {
@@ -27,11 +46,18 @@ func (handler handler) dispatch(route endpoint, response http.ResponseWriter, re
 	}
 	request = request.WithContext(context.WithValue(
 		request.Context(),
-		authenticatedDeviceSessionKey{},
+		authenticatedRuntimeSessionKey{},
 		session,
 	))
+	if session.deviceSession != nil {
+		request = request.WithContext(context.WithValue(
+			request.Context(),
+			authenticatedDeviceSessionKey{},
+			*session.deviceSession,
+		))
+	}
 	if route.Streaming {
-		request = handler.withRevocationSweep(request, session)
+		request = handler.withConnectionRevalidation(request, session)
 	}
 	route.Handler(handler, response, request)
 }
@@ -39,65 +65,148 @@ func (handler handler) dispatch(route endpoint, response http.ResponseWriter, re
 func (handler handler) authenticateRequest(
 	response http.ResponseWriter,
 	request *http.Request,
-) (runtimeauth.DeviceSession, bool) {
-	service := requireRuntimeAuthService(response, handler.runtimeAuthService)
-	if service == nil {
-		return runtimeauth.DeviceSession{}, false
-	}
+) (authenticatedRuntimeSession, bool) {
 	token, ok := bearerToken(request.Header.Get("Authorization"))
 	if !ok {
 		writeUnauthorized(response)
-		return runtimeauth.DeviceSession{}, false
+		return authenticatedRuntimeSession{}, false
 	}
+	if handler.runtimeAccessService != nil {
+		if session, handled := handler.authenticateRuntimeAccessCredential(response, request, token); handled {
+			return session.session, session.ok
+		}
+	}
+	if handler.runtimeAuthService == nil && handler.runtimeAccessService != nil {
+		writeUnauthorized(response)
+		return authenticatedRuntimeSession{}, false
+	}
+	// Deprecated: this fallback exists only for legacy server-side tests and
+	// bootstrap paths. Desktop clients should present signed runtime-access
+	// credentials verified above.
+	service := requireRuntimeAuthService(response, handler.runtimeAuthService)
+	if service == nil {
+		return authenticatedRuntimeSession{}, false
+	}
+	return authenticateLegacyDeviceSession(response, request, service, token)
+}
+
+type authenticationResult struct {
+	session authenticatedRuntimeSession
+	ok      bool
+}
+
+func (handler handler) authenticateRuntimeAccessCredential(
+	response http.ResponseWriter,
+	request *http.Request,
+	token string,
+) (authenticationResult, bool) {
+	credential, ok, err := handler.runtimeAccessService.VerifyRuntimeAccessCredential(request.Context(), token)
+	if err != nil {
+		writeError(response, http.StatusInternalServerError, "verify_runtime_access_credential_failed", err.Error())
+		return authenticationResult{}, true
+	}
+	if ok {
+		return authenticationResult{session: authenticatedRuntimeSession{runtimeAccessCredential: &credential}, ok: true}, true
+	}
+	return authenticationResult{}, false
+}
+
+func authenticateLegacyDeviceSession(
+	response http.ResponseWriter,
+	request *http.Request,
+	service RuntimeAuthService,
+	token string,
+) (authenticatedRuntimeSession, bool) {
 	session, ok, err := service.ResolveDeviceToken(request.Context(), token)
 	if err != nil {
 		writeError(response, http.StatusInternalServerError, "resolve_device_token_failed", err.Error())
-		return runtimeauth.DeviceSession{}, false
+		return authenticatedRuntimeSession{}, false
 	}
 	if !ok {
 		writeUnauthorized(response)
-		return runtimeauth.DeviceSession{}, false
+		return authenticatedRuntimeSession{}, false
 	}
 	touched, err := service.TouchDeviceSession(request.Context(), session.ID)
 	if err != nil {
 		writeError(response, http.StatusInternalServerError, "touch_device_session_failed", err.Error())
-		return runtimeauth.DeviceSession{}, false
+		return authenticatedRuntimeSession{}, false
 	}
 	if !touched {
 		writeUnauthorized(response)
-		return runtimeauth.DeviceSession{}, false
+		return authenticatedRuntimeSession{}, false
 	}
-	return session, true
+	return authenticatedRuntimeSession{deviceSession: &session}, true
 }
 
-func (handler handler) withRevocationSweep(
+func (handler handler) withConnectionRevalidation(
 	request *http.Request,
-	session runtimeauth.DeviceSession,
+	session authenticatedRuntimeSession,
 ) *http.Request {
 	ctx, cancel := context.WithCancel(request.Context())
-	go handler.cancelWhenRevoked(ctx, cancel, session.ID)
+	go handler.cancelWhenAuthenticationInvalid(ctx, cancel, session)
 	return request.WithContext(ctx)
 }
 
-func (handler handler) cancelWhenRevoked(
+func (handler handler) cancelWhenAuthenticationInvalid(
 	ctx context.Context,
 	cancel context.CancelFunc,
-	deviceID string,
+	session authenticatedRuntimeSession,
 ) {
-	ticker := time.NewTicker(handler.revocationSweepInterval)
+	ticker := handler.connectionRevalidationClock.NewTicker(handler.revocationSweepInterval)
 	defer ticker.Stop()
 	defer cancel()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			revoked, err := handler.runtimeAuthService.IsDeviceSessionRevoked(context.Background(), deviceID)
-			if err != nil || revoked {
+		case <-ticker.C():
+			valid, err := handler.revalidateAuthenticatedSession(context.Background(), session)
+			if err != nil || !valid {
 				return
 			}
 		}
 	}
+}
+
+func (handler handler) revalidateAuthenticatedSession(
+	ctx context.Context,
+	session authenticatedRuntimeSession,
+) (bool, error) {
+	if session.runtimeAccessCredential != nil {
+		if handler.runtimeAccessService == nil {
+			return false, nil
+		}
+		return handler.runtimeAccessService.RevalidateRuntimeAccessCredential(ctx, *session.runtimeAccessCredential)
+	}
+	if session.deviceSession != nil {
+		if handler.runtimeAuthService == nil {
+			return false, nil
+		}
+		revoked, err := handler.runtimeAuthService.IsDeviceSessionRevoked(ctx, session.deviceSession.ID)
+		if err != nil || revoked {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+type realConnectionRevalidationClock struct{}
+
+func (realConnectionRevalidationClock) NewTicker(interval time.Duration) ConnectionRevalidationTicker {
+	return realConnectionRevalidationTicker{ticker: time.NewTicker(interval)}
+}
+
+type realConnectionRevalidationTicker struct {
+	ticker *time.Ticker
+}
+
+func (ticker realConnectionRevalidationTicker) C() <-chan time.Time {
+	return ticker.ticker.C
+}
+
+func (ticker realConnectionRevalidationTicker) Stop() {
+	ticker.ticker.Stop()
 }
 
 func bearerToken(header string) (string, bool) {
@@ -109,5 +218,5 @@ func bearerToken(header string) (string, bool) {
 }
 
 func writeUnauthorized(response http.ResponseWriter) {
-	writeError(response, http.StatusUnauthorized, "unauthorized", "missing or invalid device token")
+	writeError(response, http.StatusUnauthorized, "unauthorized", "missing or invalid runtime credential")
 }

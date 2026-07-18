@@ -69,35 +69,48 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
+	localCredentialIssuer := false
 	flagSet.StringVar(&config.AppDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.BoolVar(&config.AllowRemote, "allow-remote", allowRemote, "allow binding to non-loopback numeric IP addresses")
 	flagSet.StringVar(&config.RuntimeDisplayName, "display-name", envOrDefault(getenv, "SETTA_RUNTIME_DISPLAY_NAME", config.RuntimeDisplayName), "runtime display name to persist for this Setta instance")
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
+	flagSet.BoolVar(&localCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
-	if harness := getenv("SETTA_E2E_CHAT_HARNESS"); harness != "" {
-		if getenv("SETTA_E2E") != "1" {
-			return config, fmt.Errorf("SETTA_E2E_CHAT_HARNESS requires SETTA_E2E=1")
-		}
-		config.ChatHarness = runtime.ChatHarnessMode(harness)
-	}
-	if disableAutomaticCartographer := getenv("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER"); disableAutomaticCartographer != "" {
-		if getenv("SETTA_E2E") != "1" {
-			return config, fmt.Errorf("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER requires SETTA_E2E=1")
-		}
-		if disableAutomaticCartographer != "1" {
-			return config, fmt.Errorf("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER must be 1")
-		}
-		config.DisableAutomaticCartographerProcessing = true
+	if err := applyE2EConfig(&config, getenv); err != nil {
+		return config, err
 	}
 
 	if err := flagSet.Parse(args); err != nil {
 		return config, err
 	}
+	if localCredentialIssuer {
+		config.EnableLocalCredentialIssuer = true
+		config.SkipBootstrapDeviceSession = true
+	}
 	if err := config.Validate(); err != nil {
 		return config, fmt.Errorf("invalid configuration: %w", err)
 	}
 	return config, nil
+}
+
+func applyE2EConfig(config *runtime.Config, getenv func(string) string) error {
+	if harness := getenv("SETTA_E2E_CHAT_HARNESS"); harness != "" {
+		if getenv("SETTA_E2E") != "1" {
+			return fmt.Errorf("SETTA_E2E_CHAT_HARNESS requires SETTA_E2E=1")
+		}
+		config.ChatHarness = runtime.ChatHarnessMode(harness)
+	}
+	if disableAutomaticCartographer := getenv("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER"); disableAutomaticCartographer != "" {
+		if getenv("SETTA_E2E") != "1" {
+			return fmt.Errorf("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER requires SETTA_E2E=1")
+		}
+		if disableAutomaticCartographer != "1" {
+			return fmt.Errorf("SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER must be 1")
+		}
+		config.DisableAutomaticCartographerProcessing = true
+	}
+	return nil
 }
 
 func defaultAppDataDir(getenv func(string) string) (string, error) {

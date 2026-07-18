@@ -11,6 +11,7 @@ Outputs:
   dist/setta_<version>_linux_amd64.tar.gz
   dist/setta_<version>_linux_arm64.tar.gz
   dist/SHA256SUMS
+  dist/SHA256SUMS.minisig
 EOF
 }
 
@@ -28,6 +29,20 @@ sha256_file() {
   else
     fail "no SHA256 checksum tool available (need sha256sum or shasum)"
   fi
+}
+
+sign_checksums() {
+  local checksums_path="$1"
+  local signature_path="${checksums_path}.minisig"
+  local minisign_args=("-Sm" "${checksums_path}" "-x" "${signature_path}")
+
+  command -v minisign >/dev/null 2>&1 || fail "minisign is required to sign SHA256SUMS"
+  rm -f "${signature_path}"
+  if [[ -n "${SETTA_MINISIGN_SECRET_KEY_FILE:-}" ]]; then
+    minisign_args+=("-s" "${SETTA_MINISIGN_SECRET_KEY_FILE}")
+  fi
+  minisign "${minisign_args[@]}" ||
+    fail "failed to sign SHA256SUMS with minisign"
 }
 
 verify_pure_go_sqlite() {
@@ -121,6 +136,7 @@ for target in "${targets[@]}"; do
 done
 
 mv "${checksums_tmp}" "${checksums_path}"
+sign_checksums "${checksums_path}"
 
 echo "Release artifacts written to ${dist_dir}:"
 for target in "${targets[@]}"; do
@@ -128,3 +144,4 @@ for target in "${targets[@]}"; do
   echo "  setta_${version}_${goos}_${goarch}.tar.gz"
 done
 echo "  SHA256SUMS"
+echo "  SHA256SUMS.minisig"

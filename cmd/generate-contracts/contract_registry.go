@@ -9,6 +9,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
+	"setta/internal/runtimecapability"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspaceactivity"
@@ -96,6 +97,9 @@ func contractValueSets() []chat.ContractValueSet {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range runtimeauth.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
+	for _, set := range runtimecapability.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range semanticgraph.ContractValueSets() {

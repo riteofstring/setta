@@ -8,9 +8,13 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/credissuer"
+	"setta/internal/localcredissuer"
 	"setta/internal/notify"
 	"setta/internal/orchestrator"
 	"setta/internal/runtimeauth"
+	"setta/internal/runtimecapability"
+	"setta/internal/runtimesetup"
 	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
@@ -178,6 +182,12 @@ type TerminalService interface {
 	WriteInput(context.Context, string, []byte) (int, error)
 }
 
+// RuntimeAuthService is the legacy runtime-local opaque device-token authority.
+//
+// Deprecated: desktop clients must authenticate runtime requests with
+// RuntimeAccessService signed runtime-access credentials. Keep this interface
+// only for legacy server-side tests and bootstrap paths until those callers have
+// a control-plane credential issuer.
 type RuntimeAuthService interface {
 	CompletePairing(context.Context, string, string) (runtimeauth.DeviceSession, string, bool, error)
 	IsDeviceSessionRevoked(context.Context, string) (bool, error)
@@ -185,6 +195,30 @@ type RuntimeAuthService interface {
 	ResolveDeviceToken(context.Context, string) (runtimeauth.DeviceSession, bool, error)
 	RevokeDeviceSession(context.Context, string) (runtimeauth.DeviceSession, bool, error)
 	TouchDeviceSession(context.Context, string) (bool, error)
+}
+
+type RuntimeAccessService interface {
+	VerifyRuntimeAccessCredential(context.Context, string) (credissuer.VerifiedCredential, bool, error)
+	RevalidateRuntimeAccessCredential(context.Context, credissuer.VerifiedCredential) (bool, error)
+}
+
+// LocalCredentialIssuerService is available only when a local development
+// runtime explicitly opts into hosting the bounded proof-of-concept issuer.
+// Cloud runtimes must use the control-plane issuer and leave this service nil.
+type LocalCredentialIssuerService interface {
+	Enroll(context.Context, localcredissuer.EnrollRequest, int) (localcredissuer.EnrollResponse, error)
+	Refresh(context.Context, localcredissuer.RefreshRequest) (localcredissuer.RuntimeCredentialResponse, error)
+	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
+	RevokeDeviceSession(context.Context, string) (runtimeauth.DeviceSession, bool, error)
+}
+
+type ConnectionRevalidationClock interface {
+	NewTicker(time.Duration) ConnectionRevalidationTicker
+}
+
+type ConnectionRevalidationTicker interface {
+	C() <-chan time.Time
+	Stop()
 }
 
 type RuntimeIdentity struct {
@@ -197,6 +231,14 @@ type RuntimeIdentityService interface {
 	UpdateRuntimeDisplayName(context.Context, string) (RuntimeIdentity, error)
 }
 
+type RuntimeSetupService interface {
+	CreateAttestation(context.Context, runtimesetup.AttestationChallenge) (runtimesetup.Attestation, runtimesetup.AttestationStatus, error)
+}
+
+type RuntimeDiagnosticsService interface {
+	RuntimeDiagnostics(context.Context) runtimecapability.RuntimeDiagnostics
+}
+
 type NotifyService interface {
 	PublicKey() string
 	RemoveDeviceSubscriptions(context.Context, string) error
@@ -206,71 +248,112 @@ type NotifyService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService        AppearanceService
-	Metadata                 BackendMetadata
-	ChatService              ChatService
-	CodexAccountService      CodexAccountService
-	NotifyService            NotifyService
-	PairingFailureLimiter    *PairingFailureLimiter
-	RevocationSweepInterval  time.Duration
-	RuntimeAuthService       RuntimeAuthService
-	RuntimeIdentityService   RuntimeIdentityService
-	RuntimeMetadata          RuntimeMetadata
-	SemanticGraphService     SemanticGraphService
-	TerminalService          TerminalService
-	WorkspaceActivityService WorkspaceActivityService
-	WorkspaceUIService       WorkspaceUIService
-	WorkspaceService         WorkspaceService
-	WorkflowService          WorkflowService
+	AppearanceService           AppearanceService
+	Metadata                    BackendMetadata
+	ChatService                 ChatService
+	CodexAccountService         CodexAccountService
+	NotifyService               NotifyService
+	PairingFailureLimiter       *PairingFailureLimiter
+	SetupAttestationLimiter     *PairingFailureLimiter
+	RevocationSweepInterval     time.Duration
+	ConnectionRevalidationClock ConnectionRevalidationClock
+	LocalCredentialIssuer       LocalCredentialIssuerService
+	RuntimeAccessService        RuntimeAccessService
+	RuntimeEndpointAccess       RuntimeEndpointAccessConfig
+	RuntimeAuthService          RuntimeAuthService
+	RuntimeDiagnosticsService   RuntimeDiagnosticsService
+	RuntimeIdentityService      RuntimeIdentityService
+	RuntimeMetadata             RuntimeMetadata
+	RuntimeSetupService         RuntimeSetupService
+	SemanticGraphService        SemanticGraphService
+	TerminalService             TerminalService
+	WorkspaceActivityService    WorkspaceActivityService
+	WorkspaceUIService          WorkspaceUIService
+	WorkspaceService            WorkspaceService
+	WorkflowService             WorkflowService
 }
 
 type handler struct {
-	appearanceService        AppearanceService
-	metadata                 BackendMetadata
-	chatService              ChatService
-	codexAccountService      CodexAccountService
-	notifyService            NotifyService
-	pairingFailureLimiter    *PairingFailureLimiter
-	revocationSweepInterval  time.Duration
-	runtimeAuthService       RuntimeAuthService
-	runtimeIdentityService   RuntimeIdentityService
-	runtimeMetadata          RuntimeMetadata
-	semanticGraphService     SemanticGraphService
-	terminalService          TerminalService
-	workspaceActivityService WorkspaceActivityService
-	workspaceUIService       WorkspaceUIService
-	workspaceService         WorkspaceService
-	workflowService          WorkflowService
+	appearanceService           AppearanceService
+	metadata                    BackendMetadata
+	chatService                 ChatService
+	codexAccountService         CodexAccountService
+	notifyService               NotifyService
+	pairingFailureLimiter       *PairingFailureLimiter
+	setupAttestationLimiter     *PairingFailureLimiter
+	revocationSweepInterval     time.Duration
+	connectionRevalidationClock ConnectionRevalidationClock
+	localCredentialIssuer       LocalCredentialIssuerService
+	runtimeAccessService        RuntimeAccessService
+	runtimeEndpointAccess       RuntimeEndpointAccessPolicy
+	runtimeAuthService          RuntimeAuthService
+	runtimeDiagnosticsService   RuntimeDiagnosticsService
+	runtimeIdentityService      RuntimeIdentityService
+	runtimeMetadata             RuntimeMetadata
+	runtimeSetupService         RuntimeSetupService
+	semanticGraphService        SemanticGraphService
+	terminalService             TerminalService
+	workspaceActivityService    WorkspaceActivityService
+	workspaceUIService          WorkspaceUIService
+	workspaceService            WorkspaceService
+	workflowService             WorkflowService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
+	handler, err := NewHandlerWithError(config)
+	if err != nil {
+		panic(err)
+	}
+	return handler
+}
+
+func NewHandlerWithError(config HandlerConfig) (http.Handler, error) {
 	pairingFailureLimiter := config.PairingFailureLimiter
 	if pairingFailureLimiter == nil {
 		pairingFailureLimiter = NewPairingFailureLimiter(10, time.Minute)
 	}
+	setupAttestationLimiter := config.SetupAttestationLimiter
+	if setupAttestationLimiter == nil {
+		setupAttestationLimiter = NewPairingFailureLimiter(30, time.Minute)
+	}
 	revocationSweepInterval := config.RevocationSweepInterval
 	if revocationSweepInterval <= 0 {
-		revocationSweepInterval = 30 * time.Second
+		revocationSweepInterval = DefaultConnectionRevalidationInterval
+	}
+	connectionRevalidationClock := config.ConnectionRevalidationClock
+	if connectionRevalidationClock == nil {
+		connectionRevalidationClock = realConnectionRevalidationClock{}
+	}
+	runtimeEndpointAccess, err := NewRuntimeEndpointAccessPolicy(config.RuntimeEndpointAccess)
+	if err != nil {
+		return nil, err
 	}
 	apiHandler := handler{
-		appearanceService:        config.AppearanceService,
-		metadata:                 config.Metadata,
-		chatService:              config.ChatService,
-		codexAccountService:      config.CodexAccountService,
-		notifyService:            config.NotifyService,
-		pairingFailureLimiter:    pairingFailureLimiter,
-		revocationSweepInterval:  revocationSweepInterval,
-		runtimeAuthService:       config.RuntimeAuthService,
-		runtimeIdentityService:   config.RuntimeIdentityService,
-		runtimeMetadata:          config.RuntimeMetadata,
-		semanticGraphService:     config.SemanticGraphService,
-		terminalService:          config.TerminalService,
-		workspaceActivityService: config.WorkspaceActivityService,
-		workspaceUIService:       config.WorkspaceUIService,
-		workspaceService:         config.WorkspaceService,
-		workflowService:          config.WorkflowService,
+		appearanceService:           config.AppearanceService,
+		metadata:                    config.Metadata,
+		chatService:                 config.ChatService,
+		codexAccountService:         config.CodexAccountService,
+		notifyService:               config.NotifyService,
+		pairingFailureLimiter:       pairingFailureLimiter,
+		setupAttestationLimiter:     setupAttestationLimiter,
+		revocationSweepInterval:     revocationSweepInterval,
+		connectionRevalidationClock: connectionRevalidationClock,
+		localCredentialIssuer:       config.LocalCredentialIssuer,
+		runtimeAccessService:        config.RuntimeAccessService,
+		runtimeEndpointAccess:       runtimeEndpointAccess,
+		runtimeAuthService:          config.RuntimeAuthService,
+		runtimeDiagnosticsService:   config.RuntimeDiagnosticsService,
+		runtimeIdentityService:      config.RuntimeIdentityService,
+		runtimeMetadata:             config.RuntimeMetadata,
+		runtimeSetupService:         config.RuntimeSetupService,
+		semanticGraphService:        config.SemanticGraphService,
+		terminalService:             config.TerminalService,
+		workspaceActivityService:    config.WorkspaceActivityService,
+		workspaceUIService:          config.WorkspaceUIService,
+		workspaceService:            config.WorkspaceService,
+		workflowService:             config.WorkflowService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)
-	return mux
+	return runtimeEndpointAccess.Wrap(mux), nil
 }

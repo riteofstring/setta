@@ -13,12 +13,13 @@ import (
 )
 
 type serveOptions struct {
-	AppDataDir  string
-	ChatHarness runtime.ChatHarnessMode
-	DisplayName string
-	Host        string
-	Port        int
-	Tailnet     bool
+	AppDataDir            string
+	ChatHarness           runtime.ChatHarnessMode
+	DisplayName           string
+	Host                  string
+	Port                  int
+	LocalCredentialIssuer bool
+	Tailnet               bool
 }
 
 type serveInstance struct {
@@ -58,6 +59,7 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	flagSet.StringVar(&options.AppDataDir, "app-data-dir", options.AppDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&options.DisplayName, "display-name", deps.getenv("SETTA_RUNTIME_DISPLAY_NAME"), "runtime display name to persist for this Setta instance")
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
+	flagSet.BoolVar(&options.LocalCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
 	flagSet.BoolVar(&options.Tailnet, "tailnet", false, "bind this runtime to this machine's Tailscale IPv4 address")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -93,6 +95,7 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 	config.Port = options.Port
 	config.RuntimeDisplayName = options.DisplayName
 	config.SkipBootstrapDeviceSession = true
+	config.EnableLocalCredentialIssuer = options.LocalCredentialIssuer
 	config.Stderr = deps.stderr
 	config.Stdout = &readyBuffer
 	config.Version = version
