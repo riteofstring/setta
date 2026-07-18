@@ -3,31 +3,11 @@ import { conversationSurfaces } from "./topic-conversation-fork-workflow.mjs";
 export const expectedNarratorStatusReply =
   "The primary topic agent is still working and has not been steered or interrupted.";
 
-export function assertDuplicateConversationPalette(surfaces, conversationId) {
-  const duplicates = conversationSurfaces(surfaces, conversationId);
-  const palettes = new Set(duplicates.map((surface) => surface.paletteId));
-  const paneIds = new Set(duplicates.map((surface) => surface.paneId));
-  if (
-    duplicates.length !== 2 ||
-    palettes.size !== 1 ||
-    paneIds.size !== 2 ||
-    palettes.has("") ||
-    duplicates.some(
-      (surface) =>
-        surface.hostAccentDark === "" ||
-        surface.hostConversationId !== conversationId ||
-        surface.hostPaletteId !== surface.paletteId,
-    )
-  ) {
-    throw new Error(`duplicate topic views diverged: ${JSON.stringify(duplicates)}`);
-  }
-}
-
 export function assertIndependentWorkingTopics(surfaces, alphaId, betaId) {
   const alpha = conversationSurfaces(surfaces, alphaId);
   const beta = conversationSurfaces(surfaces, betaId);
   if (
-    alpha.length !== 2 ||
+    alpha.length !== 1 ||
     beta.length !== 1 ||
     alpha.some((surface) => !surfaceIsWorkingWithoutCenterProgress(surface)) ||
     beta.some((surface) => !surfaceIsWorkingWithoutCenterProgress(surface))

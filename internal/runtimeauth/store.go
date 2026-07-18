@@ -294,41 +294,6 @@ func (store *Store) CompletePairing(
 	return store.completePairingInTransaction(ctx, tokenHash[:], session, deviceToken)
 }
 
-// ConsumePairingToken burns a valid one-time pairing token without creating a
-// legacy device session. Local development credential issuers use this as the
-// bootstrap proof before enrolling a user-scoped device identity.
-func (store *Store) ConsumePairingToken(ctx context.Context, token string) (bool, error) {
-	if token == "" {
-		return false, nil
-	}
-	tokenHash := hashToken(token)
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	tx, err := store.db.BeginTx(ctx, nil)
-	if err != nil {
-		return false, store.persistenceError("begin pairing token consumption", err)
-	}
-	defer rollback(tx)
-	pairing, storedHash, ok, err := store.queryPairingTokenByHash(ctx, tx, tokenHash[:])
-	if err != nil || !ok {
-		return false, err
-	}
-	if subtle.ConstantTimeCompare(tokenHash[:], storedHash) != 1 {
-		return false, nil
-	}
-	available, err := store.pairingTokenAvailable(pairing)
-	if err != nil || !available {
-		return false, err
-	}
-	if err := store.markPairingTokenConsumed(ctx, tx, pairing.ID); err != nil {
-		return false, err
-	}
-	if err := tx.Commit(); err != nil {
-		return false, store.persistenceError("commit pairing token consumption", err)
-	}
-	return true, nil
-}
-
 func validatePairingCompletionDisplayName(clientDisplayName string) error {
 	if strings.TrimSpace(clientDisplayName) == "" {
 		return errors.New("client display name is required")
@@ -621,25 +586,6 @@ WHERE id = ? AND used_at IS NULL
 	}
 	if rows != 1 {
 		return store.corruptError("pairing token", fmt.Errorf("unexpected update count %d", rows))
-	}
-	return nil
-}
-
-func (store *Store) markPairingTokenConsumed(ctx context.Context, tx *sql.Tx, pairingID string) error {
-	result, err := tx.ExecContext(ctx, `
-UPDATE pairing_tokens
-SET used_at = ?
-WHERE id = ? AND used_at IS NULL
-`, timestamp(store.clock()), pairingID)
-	if err != nil {
-		return store.persistenceError("mark pairing token consumed", err)
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return store.persistenceError("read pairing token consumption count", err)
-	}
-	if rows != 1 {
-		return store.corruptError("pairing token", fmt.Errorf("unexpected consumption count %d", rows))
 	}
 	return nil
 }

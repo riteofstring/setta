@@ -19,7 +19,6 @@
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
-      topicConversationOpenNewViewFromNavigator,
       topicConversationRespondApproval,
       topicConversationShellSpeechCapture,
       topicConversationShellSpeechState,
@@ -53,11 +52,15 @@
   }
 
   function topicConversationFirstRunState() {
+    const newConversationButton = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === "New conversation",
+    );
     return {
       chooseFolder: Boolean(document.querySelector('[data-testid="choose-project-folder"]')),
       easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
       emptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
-      newTopic: Boolean(document.querySelector('[aria-label="Create topic conversation"]')),
+      newTopic:
+        newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
       search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
     };
   }
@@ -473,20 +476,52 @@
     return { conversationId, denied: true };
   }
 
-  function topicConversationOpenBoundPane({ conversationId }) {
-    window.dispatchEvent(
-      new CustomEvent("setta:workspace-open-pane-request", {
-        detail: {
-          easyButtonConfig: { conversationId },
-          subtitle: "topic conversation duplicate view",
-          surfaceKind: "easy-button",
-          title: "Topic conversation copy",
-          tone: "cyan",
-          widthSpec: { unit: "proportion", value: 1 },
-        },
-      }),
+  async function topicConversationOpenBoundPane({
+    conversationId,
+    title = null,
+    workspaceId = null,
+  }) {
+    const targetWorkspaceId = workspaceId ?? currentWorkspaceLayoutId();
+    if (!targetWorkspaceId) {
+      return { conversationId, reason: "workspace unavailable", requested: false };
+    }
+    const request = {
+      conversationId,
+      title: title ?? conversationTitleForNavigation(conversationId),
+      workspaceId: targetWorkspaceId,
+    };
+    const completion = requestConversationPaneNavigation(request);
+    if (!(completion instanceof Promise)) {
+      return {
+        conversationId,
+        reason: "conversation pane coordinator unavailable",
+        requested: false,
+      };
+    }
+    const result = await completion;
+    return {
+      conversationId,
+      requested: conversationPaneNavigationRequested(result),
+      result,
+    };
+  }
+
+  function currentWorkspaceLayoutId() {
+    return (
+      document
+        .querySelector('[data-testid="workspace-layout-area"]')
+        ?.getAttribute("data-workspace-id") ?? ""
     );
-    return { conversationId, requested: true };
+  }
+
+  function requestConversationPaneNavigation(request) {
+    const detail = { completion: null, request };
+    window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
+    return detail.completion;
+  }
+
+  function conversationPaneNavigationRequested(result) {
+    return result.kind === "focused" || result.kind === "opened";
   }
 
   function topicConversationNavigatorState({ conversationId }) {
@@ -498,9 +533,13 @@
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).filter((surface) => datasetValue(surface, "conversationId") === conversationId);
     const rowPresentation = conversationNavigatorRowPresentation(rows[0]);
+    const duplicateViewButtonCount = Array.from(
+      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
+    ).filter((button) => datasetValue(button, "conversationId") === conversationId).length;
     return {
       ...rowPresentation,
       conversationId: rows.length === 1 ? rowPresentation.conversationId : "",
+      duplicateViewButtonCount,
       focusedPaneId:
         document
           .querySelector('[data-testid="workspace-pane-host"][data-focused="true"]')
@@ -549,21 +588,18 @@
     return { clicked: true, conversationId };
   }
 
-  function topicConversationOpenNewViewFromNavigator({ conversationId }) {
-    const button = Array.from(
-      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
+  function conversationTitleForNavigation(conversationId) {
+    const row = Array.from(
+      document.querySelectorAll('[data-testid="conversation-navigator-item"]'),
     ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { clicked: false, conversationId };
-    }
-    button.click();
-    return { clicked: true, conversationId };
+    const title = row?.getAttribute("title")?.trim();
+    return title || "Topic conversation";
   }
 
   async function topicConversationRequestPresentation({ conversationId, title, workspaceId }) {
     const detail = {
       completion: null,
-      request: { conversationId, title, viewAction: "focus-or-open", workspaceId },
+      request: { conversationId, title, workspaceId },
     };
     window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
     if (!(detail.completion instanceof Promise)) {
