@@ -1219,6 +1219,7 @@ function assertFinishedCaptureRun(runId, events, measurements, expectStopBeforeR
   if (marker.detail.observerMode !== "worklet") {
     throw new Error(`${runId} processed marker did not use the worklet observer`);
   }
+  assertLocalRecordingBeforeProviderReady(runId, events);
   assertFiniteMeasurement(
     runId,
     "clickToLocalCaptureReadyMs",
@@ -1231,6 +1232,14 @@ function assertFinishedCaptureRun(runId, events, measurements, expectStopBeforeR
   );
   if (expectStopBeforeReady) {
     assertStopBeforeReadyTimeline(runId, events);
+  }
+}
+
+function assertLocalRecordingBeforeProviderReady(runId, events) {
+  const recording = requiredEvent(events, "recording_observed");
+  const ready = requiredEvent(events, "realtime_session_created");
+  if (ready.performanceMs < recording.performanceMs) {
+    throw new Error(`${runId} provider readiness preceded local recording`);
   }
 }
 

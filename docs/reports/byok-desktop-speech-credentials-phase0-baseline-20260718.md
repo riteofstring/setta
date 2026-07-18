@@ -21,6 +21,7 @@ node desktop/tests/electron/run-workflows.mjs --workflow topic-conversation-spee
 node desktop/tests/electron/run-workflows.mjs --workflow runtime-picker --keep-artifacts
 node --test desktop/tests/electron/instant-voice-capture-live-openai-artifacts.test.mjs desktop/tests/electron/speech-transcription-provider-fixture.test.mjs
 node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-baseline --skip-build
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
 ```
 
 All commands passed.
@@ -33,6 +34,7 @@ All commands passed.
 | Synthesis and playback arbitration | `.recordings/topic-conversation-speech-arbitration/20260718T072613634Z` |
 | Local/remote runtime switching with no speech key | `test-results/electron-integration/runtime-picker/2026-07-18T072644-181Z/workflow` |
 | Unique fake-provider privacy markers and scanner boundary | `.recordings/instant-voice-capture-phase0-baseline/20260718T073418570Z` |
+| Click-to-local-recording latency invariant | `.recordings/instant-voice-capture-phase4-workflow/20260718T075837841Z` |
 
 ## Recorded Behavior
 
@@ -57,6 +59,39 @@ binary payloads as byte streams. It does not scan sibling temporary trees such
 as Electron user data or runtime app data unless those trees are copied into
 the finalized artifact root. Phase 4 must broaden the finalized privacy scan
 when the BYOK workflow needs proof over those temporary state directories.
+
+## Click-To-Local-Recording Invariant
+
+The Phase 4 instant-voice workflow now explicitly fails if browser provider
+readiness is observed before the renderer publishes local `recording`. It also
+keeps the provider-latency p95 guard: 20 already-authorized shell captures with
+`0 ms` transcription-session delay and 20 captures with `1,500 ms` delay must
+both stay under `100 ms` click-to-local-recording p95, and their p95 difference
+must stay within one 60 Hz frame.
+
+Fresh BYOK Phase 0 run:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T075837841Z
+```
+
+| Provider setup delay | Cohort size | Nearest-rank click-to-local-recording p95 |
+| ---: | ---: | ---: |
+| 0 ms | 20 | 33.8 ms |
+| 1,500 ms | 20 | 30.8 ms |
+
+| Check | Result |
+| --- | --- |
+| 0 ms p95 budget | `33.8 ms <= 100 ms` |
+| 1,500 ms p95 budget | `30.8 ms <= 100 ms` |
+| Absolute p95 difference | `3 ms <= 16.666666666666668 ms` |
+| Workflow status | `passed` |
 
 ## Notes For Next Phases
 
