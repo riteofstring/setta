@@ -69,6 +69,12 @@ interface StoredSpeechCredential {
 const storageFileName = "speech-credential.json";
 const storageSchemaVersion = 1;
 const openAISpeechProvider = onlySupportedSpeechProvider();
+const supportedLinuxStorageBackends = new Set([
+  "gnome_libsecret",
+  "kwallet",
+  "kwallet5",
+  "kwallet6",
+]);
 const canonicalBase64Pattern = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 export class SpeechCredentialVault {
@@ -219,7 +225,7 @@ export function createElectronSafeStorageCredentialProtection({
 
   if (platform === "linux") {
     const backend = safeStorage.getSelectedStorageBackend();
-    if (backend === "basic_text" || backend === "unknown") {
+    if (!supportedLinuxStorageBackends.has(backend)) {
       throw new SpeechCredentialVaultError(
         "secure_storage_unavailable",
         `Electron safeStorage selected an unsupported Linux backend: ${backend}.`,

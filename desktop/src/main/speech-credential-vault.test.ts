@@ -241,13 +241,16 @@ describe("createElectronSafeStorageCredentialProtection", () => {
     ).toThrow(/encryption is unavailable/);
   });
 
-  test.each(["basic_text", "unknown"] as const)("rejects Linux %s safeStorage", (backend) => {
-    expect(() =>
-      createElectronSafeStorageCredentialProtection(
-        fakeSafeStorageOptions({ backend, platform: "linux" }),
-      ),
-    ).toThrow(backend);
-  });
+  test.each(["basic_text", "unknown", "future_secret_service"] as const)(
+    "rejects Linux %s safeStorage",
+    (backend) => {
+      expect(() =>
+        createElectronSafeStorageCredentialProtection(
+          fakeSafeStorageOptions({ backend, platform: "linux" }),
+        ),
+      ).toThrow(backend);
+    },
+  );
 
   test.each(["gnome_libsecret", "kwallet", "kwallet5", "kwallet6"] as const)(
     "delegates encryption through Linux %s safeStorage",
@@ -285,13 +288,14 @@ function fakeSafeStorageOptions({
   platform = "darwin",
   ready = true,
 }: {
-  backend?: ReturnType<
-    ElectronSafeStorageProtectionOptions["safeStorage"]["getSelectedStorageBackend"]
-  >;
+  backend?: string;
   encryptionAvailable?: boolean;
   platform?: NodeJS.Platform;
   ready?: boolean;
 } = {}): ElectronSafeStorageProtectionOptions {
+  const selectedBackend = backend as ReturnType<
+    ElectronSafeStorageProtectionOptions["safeStorage"]["getSelectedStorageBackend"]
+  >;
   return {
     app: {
       isReady: vi.fn(() => ready),
@@ -302,7 +306,7 @@ function fakeSafeStorageOptions({
         ciphertext.toString("utf8").replace(/^safe:/u, ""),
       ),
       encryptString: vi.fn((plaintext: string) => Buffer.from(`safe:${plaintext}`, "utf8")),
-      getSelectedStorageBackend: vi.fn(() => backend),
+      getSelectedStorageBackend: vi.fn(() => selectedBackend),
       isEncryptionAvailable: vi.fn(() => encryptionAvailable),
     },
   };
