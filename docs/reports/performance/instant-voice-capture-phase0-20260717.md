@@ -63,7 +63,7 @@ The disposable browser harness uses an `AudioWorkletNode` gate between a synthet
 
 The live OpenAI processed-track smoke test remains pending and should be appended here when credentials are deliberately available. The disposable local browser feasibility gate has passed.
 
-Credential check on 2026-07-17T23:18:51Z: `OPENAI_API_KEY` was absent from the task environment, so the live OpenAI processed-track smoke was not run. This is not provider-integration evidence and does not close Phase 0.4.
+Credential check on 2026-07-17T23:22:34Z: `OPENAI_API_KEY` was absent from the task environment, so the live OpenAI processed-track smoke was not run. This is not provider-integration evidence and does not close Phase 0.4.
 
 The live smoke workflow is now registered for the explicit live tier:
 
@@ -74,7 +74,7 @@ node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-p
 No-credential verification on 2026-07-17 wrote a blocked artifact and exited nonzero before launching a provider-backed smoke:
 
 ```text
-.recordings/instant-voice-capture-phase0-live-openai/20260717T231851793Z
+.recordings/instant-voice-capture-phase0-live-openai/20260717T232234303Z
 ```
 
 That artifact records `status: "blocked"` with reason `OPENAI_API_KEY was absent from the task environment`. This keeps Phase 0.4 open until a deliberate live credential run appends a passed transcript result.
