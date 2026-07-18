@@ -107,6 +107,38 @@ func TestOpenAIProviderControllerClosesIdleConnectionsForReplacedAndClearedCrede
 	}
 }
 
+func TestOpenAIProviderControllerClosesValidatedCandidateIdleConnections(t *testing.T) {
+	transport := &credentialValidationCloseTrackingTransport{t: t}
+	controller := &OpenAIProviderController{
+		newClient: func(apiKey string, _ OpenAIProviderConfig) (*OpenAIClient, error) {
+			return &OpenAIClient{
+				apiKey:         apiKey,
+				baseURL:        openAIBaseURL,
+				httpClient:     &http.Client{Transport: transport},
+				requestTimeout: time.Second,
+			}, nil
+		},
+	}
+
+	if err := controller.ValidateCredential(
+		context.Background(),
+		"sk-setta-candidate",
+		"setta-device-candidate",
+	); err != nil {
+		t.Fatalf("validate candidate: %v", err)
+	}
+	if controller.Configured() || controller.Snapshot() != nil {
+		t.Fatal("validation unexpectedly configured the provider")
+	}
+	if transport.roundTrips != 1 || transport.closeCalls != 1 {
+		t.Fatalf(
+			"validation transport roundTrips=%d closeCalls=%d, want 1 and 1",
+			transport.roundTrips,
+			transport.closeCalls,
+		)
+	}
+}
+
 func TestOpenAIProviderControllerSnapshotSurvivesReplacement(t *testing.T) {
 	provider := newProviderControllerTestServer(t)
 	defer provider.Close()
@@ -233,6 +265,24 @@ func (transport *idleCloseTrackingTransport) RoundTrip(*http.Request) (*http.Res
 }
 
 func (transport *idleCloseTrackingTransport) CloseIdleConnections() {
+	transport.closeCalls++
+}
+
+type credentialValidationCloseTrackingTransport struct {
+	t          *testing.T
+	roundTrips int
+	closeCalls int
+}
+
+func (transport *credentialValidationCloseTrackingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	transport.roundTrips++
+	if request.Header.Get("Authorization") != "Bearer sk-setta-candidate" {
+		transport.t.Fatalf("authorization header = %q", request.Header.Get("Authorization"))
+	}
+	return jsonFakeResponse(transport.t, validClientSecretPayload(time.Now().Add(5*time.Minute))), nil
+}
+
+func (transport *credentialValidationCloseTrackingTransport) CloseIdleConnections() {
 	transport.closeCalls++
 }
 

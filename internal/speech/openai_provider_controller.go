@@ -68,6 +68,7 @@ func (controller *OpenAIProviderController) ValidateCredential(
 	if err != nil {
 		return err
 	}
+	defer client.closeIdleConnections()
 	if _, err := client.CreateTranscriptionClientSecret(ctx, safetyIdentifier); err != nil {
 		return err
 	}
