@@ -205,6 +205,7 @@ function hasUnresolvedTurnFailure(snapshot) {
   return snapshot.trajectory.events.some(
     (event) =>
       event.kind === "turn_failed" &&
+      event.actor === "system" &&
       event.turnFailed?.failure?.code === "artifact_delivery_unresolved",
   );
 }

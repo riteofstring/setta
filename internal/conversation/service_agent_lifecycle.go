@@ -532,6 +532,7 @@ func applyProviderTerminalOutcome(
 			turn.Status = TurnStatusFailed
 			turn.Error = &failure
 			turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeFailed, now, &failure))
+			trajectory.Actor = TrajectoryActorSystem
 			trajectory.Kind = TrajectoryEventTurnFailed
 			trajectory.TurnFailed = &TrajectoryTurnFailed{Failure: failure}
 			return ConversationStatusFailed, nil

@@ -156,7 +156,7 @@ func TestFailedArtifactAttemptMakesProviderCompletionUnresolved(t *testing.T) {
 		t.Fatalf("unresolved artifact attempt published artifacts = %+v", unresolved.Artifacts)
 	}
 	requireAgentMessageTrajectory(t, unresolved, finalProse)
-	requireTurnFailedTrajectory(t, unresolved, artifactDeliveryUnresolvedFailureCode)
+	requireSystemTurnFailedTrajectory(t, unresolved, artifactDeliveryUnresolvedFailureCode)
 }
 
 func TestEmitArtifactToolSchemaDeclaresStrictBranches(t *testing.T) {
@@ -530,16 +530,17 @@ func requireAgentMessageTrajectory(t *testing.T, snapshot ConversationSnapshot, 
 	t.Fatalf("snapshot missing preserved agent message %q: %+v", text, snapshot.Trajectory)
 }
 
-func requireTurnFailedTrajectory(t *testing.T, snapshot ConversationSnapshot, code string) {
+func requireSystemTurnFailedTrajectory(t *testing.T, snapshot ConversationSnapshot, code string) {
 	t.Helper()
 	for _, event := range snapshot.Trajectory.Events {
 		if event.Kind == TrajectoryEventTurnFailed &&
+			event.Actor == TrajectoryActorSystem &&
 			event.TurnFailed != nil &&
 			event.TurnFailed.Failure.Code == code {
 			return
 		}
 	}
-	t.Fatalf("snapshot missing turn_failed %s: %+v", code, snapshot.Trajectory)
+	t.Fatalf("snapshot missing system turn_failed %s: %+v", code, snapshot.Trajectory)
 }
 
 func TestDecodeEmitArtifactInputRejectsInvalidBranches(t *testing.T) {
