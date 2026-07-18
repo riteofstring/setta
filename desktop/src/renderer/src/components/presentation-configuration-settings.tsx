@@ -88,7 +88,7 @@ export function PresentationConfigurationSettings({
   );
 }
 
-function GlobalVoiceConfigurationForm({
+export function GlobalVoiceConfigurationForm({
   configuration,
   onMasterUpdate,
   onNarratorDefaultUpdate,

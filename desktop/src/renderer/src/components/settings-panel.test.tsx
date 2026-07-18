@@ -8,9 +8,12 @@ import type {
   AppearanceTailwindPalette,
   AppearanceWorkspacePalette,
   ConversationPresentationProfile,
+  MasterVoiceSelection,
+  NarratorVoiceDefault,
   Role,
   RoleConfiguration,
   RoleProfile,
+  SpeechCapabilities,
 } from "@generated/backend";
 import type { SpeechCredentialSettings } from "@shared/speech-ipc";
 import { renderToString } from "react-dom/server";
@@ -26,7 +29,10 @@ import { workspaceOpenPaneRequestEvent } from "../workspace-layout/open-pane-eve
 import type { OpenPaneRequest } from "../workspace-layout/types";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { OpenAIVoiceConnectionCardView } from "./openai-voice-connection-card";
-import { ConversationPresentationConfiguration } from "./presentation-configuration-settings";
+import {
+  ConversationPresentationConfiguration,
+  GlobalVoiceConfigurationForm,
+} from "./presentation-configuration-settings";
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
 import { openAIVoiceConnectionSettings } from "./settings-navigation";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
@@ -82,6 +88,28 @@ describe("appearance settings", () => {
     expect(html).toContain('value="blue" selected=""');
     expect(html).toContain("Sky");
     expect(html).toContain("Teal");
+  });
+
+  test("keeps voice catalog selectors enabled while OpenAI voice is disconnected", () => {
+    const html = renderToString(
+      <GlobalVoiceConfigurationForm
+        configuration={{
+          capabilities: sampleSpeechCapabilities("not_configured"),
+          master: sampleMasterVoiceSelection(),
+          narratorDefault: sampleNarratorVoiceDefault(),
+        }}
+        onMasterUpdate={vi.fn()}
+        onNarratorDefaultUpdate={vi.fn()}
+      />,
+    );
+    const normalizedHtml = html.replaceAll("<!-- -->", "");
+
+    expect(normalizedHtml).toContain("Voice catalog · 3 voices");
+    expect(html).toContain("Marin");
+    expect(html).toContain("Cedar");
+    expect(selectTagDisabled(html, "Master voice selection")).toBe(false);
+    expect(selectTagDisabled(html, "Default narrator voice selection")).toBe(false);
+    expect(html).not.toContain("OPENAI_API_KEY");
   });
 
   test("renders the OpenAI voice connection setup card", () => {
@@ -466,6 +494,51 @@ function credentialCardProps(
     operation: null,
     settings,
   };
+}
+
+function sampleSpeechCapabilities(
+  providerStatus: SpeechCapabilities["providerStatus"],
+): SpeechCapabilities {
+  return {
+    aiVoiceDisclosure: "AI-generated voice",
+    maximumRecordingSeconds: 60,
+    maximumSynthesisCharacters: 4096,
+    maximumTranscriptCharacters: 12000,
+    providerStatus,
+    synthesisModel: "gpt-4o-mini-tts",
+    transcriptionModel: "gpt-4o-transcribe",
+    voiceCatalog: {
+      provider: "openai",
+      version: "test-catalog",
+      voiceIds: ["alloy", "marin", "cedar"],
+    },
+  };
+}
+
+function sampleMasterVoiceSelection(): MasterVoiceSelection {
+  return {
+    requestedVoiceId: "marin",
+    resolvedVoiceId: "marin",
+    reuse: null,
+    selection: "exact",
+    updatedAt: "2026-07-18T12:00:00Z",
+  };
+}
+
+function sampleNarratorVoiceDefault(): NarratorVoiceDefault {
+  return {
+    requestedVoiceId: null,
+    selection: "auto_distinct",
+    updatedAt: "2026-07-18T12:00:00Z",
+  };
+}
+
+function selectTagDisabled(html: string, ariaLabel: string): boolean {
+  const match = new RegExp(`<select[^>]*aria-label="${ariaLabel}"[^>]*>`, "u").exec(html);
+  if (!match) {
+    throw new Error(`Missing select with aria-label ${ariaLabel}.`);
+  }
+  return /\sdisabled(=|\s|>)/u.test(match[0]);
 }
 
 function sampleRoleConfiguration(): RoleConfiguration {

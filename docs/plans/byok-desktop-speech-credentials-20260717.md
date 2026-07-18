@@ -31,7 +31,9 @@ and failure presentations plus local-only/remote-runtime boundary copy and no
 rendered saved-key fragment. The remaining local-desktop voice availability and
 failure copy no longer tells users to configure voice through environment
 variables, and unavailable local microphone controls now route to the Voices
-credential card through typed Settings navigation.
+credential card through typed Settings navigation. Voice catalog and
+master/narrator selection controls remain usable while OpenAI voice is
+disconnected, with renderer coverage for the not-configured provider state.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -608,7 +610,7 @@ environment-based desktop product behavior.
 - [x] Replace environment-variable language throughout local-desktop voice
       availability and failure surfaces.
 - [x] Route unavailable microphone actions to the Voices credential card.
-- [ ] Keep voice catalog/selection configuration usable while disconnected.
+- [x] Keep voice catalog/selection configuration usable while disconnected.
 - [ ] Add explicit local-versus-active-remote status copy.
 
 ### Phase 4 — Production workflows, live provider, and cleanup
