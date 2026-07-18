@@ -21,7 +21,8 @@ describe("global speech capture availability", () => {
     expect(
       speechAvailabilityForCapabilities(capabilities("not_configured"), { supported: true }),
     ).toEqual({
-      message: "Voice is not connected. Configure OpenAI voice for the active runtime.",
+      message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+      setupAction: "open_voice_credential_settings",
       type: "not_configured",
     });
   });

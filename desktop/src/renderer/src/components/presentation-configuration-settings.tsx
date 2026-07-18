@@ -12,6 +12,7 @@ import { Loader2, RotateCcw, Save, SlidersHorizontal, Volume2 } from "lucide-rea
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
+import type { SettingsFocusRequest } from "../stores/settings-navigation-store";
 import { OpenAIVoiceConnectionCard } from "./openai-voice-connection-card";
 import { Button } from "./ui/button";
 
@@ -23,7 +24,11 @@ interface GlobalVoiceConfiguration {
   narratorDefault: NarratorVoiceDefault;
 }
 
-export function PresentationConfigurationSettings() {
+export function PresentationConfigurationSettings({
+  focusRequest = null,
+}: {
+  focusRequest?: SettingsFocusRequest | null;
+}) {
   const [configuration, setConfiguration] = useState<GlobalVoiceConfiguration | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +63,9 @@ export function PresentationConfigurationSettings() {
 
   return (
     <section className="grid gap-3" data-testid="presentation-configuration-settings">
-      <OpenAIVoiceConnectionCard />
+      <OpenAIVoiceConnectionCard
+        focusRequest={focusRequest?.target === "openai_voice_connection" ? focusRequest : null}
+      />
       {error ? (
         <ConfigurationMessage kind="error">{error}</ConfigurationMessage>
       ) : configuration ? (

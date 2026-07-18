@@ -1,19 +1,28 @@
 import type { SpeechProvider } from "@generated/backend";
 import type { SpeechCredentialOperation, SpeechCredentialSettings } from "@shared/speech-ipc";
 import { ExternalLink, KeyRound, Loader2, RefreshCw, ShieldCheck, Unplug } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
+import {
+  completeSettingsNavigationRequest,
+  type SettingsFocusRequest,
+} from "../stores/settings-navigation-store";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 const openAIApiKeysURL = "https://platform.openai.com/api-keys";
 
-export function OpenAIVoiceConnectionCard() {
+export function OpenAIVoiceConnectionCard({
+  focusRequest = null,
+}: {
+  focusRequest?: SettingsFocusRequest | null;
+}) {
   const [settings, setSettings] = useState<SpeechCredentialSettings>({ status: "loading" });
   const [mode, setMode] = useState<"add" | "replace" | null>(null);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [operation, setOperation] = useState<SpeechCredentialOperation | null>(null);
+  const cardRef = useRef<HTMLElement | null>(null);
   const speechAPI = rendererSpeechAPI();
   const canSave = Boolean(speechAPI?.saveCredential);
   const canRemove = Boolean(speechAPI?.removeCredential);
@@ -58,6 +67,13 @@ export function OpenAIVoiceConnectionCard() {
       setMode(null);
     }
   }, [settings.status]);
+
+  useEffect(() => {
+    if (focusRequest?.target === "openai_voice_connection") {
+      cardRef.current?.focus();
+      completeSettingsNavigationRequest(focusRequest.requestId);
+    }
+  }, [focusRequest?.requestId, focusRequest?.target]);
 
   const save = () => {
     const apiKey = apiKeyDraft.trim();
@@ -107,6 +123,7 @@ export function OpenAIVoiceConnectionCard() {
     <OpenAIVoiceConnectionCardView
       apiKeyDraft={apiKeyDraft}
       canManage={canManage}
+      cardRef={cardRef}
       mode={mode}
       onApiKeyDraftChange={setApiKeyDraft}
       onCancelReplace={() => {
@@ -127,6 +144,7 @@ export function OpenAIVoiceConnectionCard() {
 interface OpenAIVoiceConnectionCardViewProps {
   apiKeyDraft: string;
   canManage: boolean;
+  cardRef?: Ref<HTMLElement>;
   mode: "add" | "replace" | null;
   onApiKeyDraftChange: (value: string) => void;
   onCancelReplace: () => void;
@@ -142,6 +160,7 @@ interface OpenAIVoiceConnectionCardViewProps {
 export function OpenAIVoiceConnectionCardView({
   apiKeyDraft,
   canManage,
+  cardRef,
   mode,
   onApiKeyDraftChange,
   onCancelReplace,
@@ -158,8 +177,10 @@ export function OpenAIVoiceConnectionCardView({
   const inputVisible = credentialInputVisible({ canManage, mode, settings });
   return (
     <article
-      className="grid gap-3 rounded-sm border border-border bg-card/40 p-3"
+      className="grid gap-3 rounded-sm border border-border bg-card/40 p-3 outline-none focus-visible:border-accent focus-visible:bg-card/60"
       data-testid="openai-voice-connection-card"
+      ref={cardRef}
+      tabIndex={-1}
     >
       <header className="flex min-h-8 items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">

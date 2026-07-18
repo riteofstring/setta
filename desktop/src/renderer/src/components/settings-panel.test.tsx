@@ -17,6 +17,11 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
+import {
+  completeSettingsNavigationRequest,
+  requestOpenAIVoiceConnectionSettings,
+  useSettingsNavigationStore,
+} from "../stores/settings-navigation-store";
 import { DeveloperSettingsEditor } from "./developer-settings";
 import { OpenAIVoiceConnectionCardView } from "./openai-voice-connection-card";
 import { ConversationPresentationConfiguration } from "./presentation-configuration-settings";
@@ -98,6 +103,27 @@ describe("appearance settings", () => {
     expect(html).toContain("Save and verify");
     expect(html).toContain("OpenAI API keys");
     expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("records and completes typed navigation to the OpenAI voice connection card", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestOpenAIVoiceConnectionSettings();
+    const request = useSettingsNavigationStore.getState().request;
+
+    expect(request).toEqual({
+      focusTarget: "openai_voice_connection",
+      requestId: 1,
+      subtab: "speech",
+    });
+
+    completeSettingsNavigationRequest(request?.requestId ?? 0);
+
+    expect(useSettingsNavigationStore.getState().request).toBeNull();
+
+    requestOpenAIVoiceConnectionSettings();
+
+    expect(useSettingsNavigationStore.getState().request?.requestId).toBe(2);
   });
 
   test("renders a connected OpenAI voice card without a saved value", () => {

@@ -24,13 +24,14 @@ snapshots, lifecycle-driven startup/replacement restoration into the
 authenticated local runtime, typed read/save/remove IPC operations and
 credential-state push events, whole-operation recording redaction for
 credential saves, and local-runtime-only coordinator routing that does not use
-the selected active runtime. Phase 3 has started: Settings → Voices now shows
+the selected active runtime. Phase 3 is in progress: Settings → Voices now shows
 the OpenAI voice connection card backed by the typed credential IPC state, with
 save/verify, replace, disconnect, retry, secure-storage-unavailable, corrupt,
 and failure presentations plus local-only/remote-runtime boundary copy and no
 rendered saved-key fragment. The remaining local-desktop voice availability and
 failure copy no longer tells users to configure voice through environment
-variables.
+variables, and unavailable local microphone controls now route to the Voices
+credential card through typed Settings navigation.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -606,7 +607,7 @@ environment-based desktop product behavior.
       and retry presentations.
 - [x] Replace environment-variable language throughout local-desktop voice
       availability and failure surfaces.
-- [ ] Route unavailable microphone actions to the Voices credential card.
+- [x] Route unavailable microphone actions to the Voices credential card.
 - [ ] Keep voice catalog/selection configuration usable while disconnected.
 - [ ] Add explicit local-versus-active-remote status copy.
 

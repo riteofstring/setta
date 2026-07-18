@@ -57,14 +57,39 @@ import {
   type AppearanceStoreStatus,
   useAppearanceStore,
 } from "../stores/appearance-store";
+import {
+  type SettingsFocusRequest,
+  useSettingsNavigationStore,
+} from "../stores/settings-navigation-store";
 
 export function SettingsPanel() {
   const [activeSubtab, setActiveSubtab] = useState<SettingsSubtab>("theme");
   const load = useAppearanceStore((state) => state.load);
+  const navigationRequest = useSettingsNavigationStore((state) => state.request);
+  const processedNavigationRequestId = useRef<number | null>(null);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (
+      !navigationRequest ||
+      processedNavigationRequestId.current === navigationRequest.requestId
+    ) {
+      return;
+    }
+    processedNavigationRequestId.current = navigationRequest.requestId;
+    setActiveSubtab(navigationRequest.subtab);
+  }, [navigationRequest]);
+
+  const focusRequest =
+    navigationRequest?.focusTarget && navigationRequest.subtab === activeSubtab
+      ? {
+          requestId: navigationRequest.requestId,
+          target: navigationRequest.focusTarget,
+        }
+      : null;
 
   return (
     <section
@@ -74,14 +99,20 @@ export function SettingsPanel() {
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="mx-auto grid w-full max-w-4xl gap-3">
           <SettingsSubtabList activeSubtab={activeSubtab} onChange={setActiveSubtab} />
-          <SettingsSubtabContent activeSubtab={activeSubtab} />
+          <SettingsSubtabContent activeSubtab={activeSubtab} focusRequest={focusRequest} />
         </div>
       </div>
     </section>
   );
 }
 
-function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab }) {
+function SettingsSubtabContent({
+  activeSubtab,
+  focusRequest,
+}: {
+  activeSubtab: SettingsSubtab;
+  focusRequest: SettingsFocusRequest | null;
+}) {
   const applyDraftSettings = useAppearanceStore((state) => state.applyDraftSettings);
   const defaultPresetId = useAppearanceStore((state) => state.defaultPresetId);
   const draft = useAppearanceStore((state) => state.draft);
@@ -122,7 +153,7 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
       />
     ),
     roles: <RoleConfigurationSettings />,
-    speech: <PresentationConfigurationSettings />,
+    speech: <PresentationConfigurationSettings focusRequest={focusRequest} />,
     shortcuts: (
       <ShortcutSettingsEditor
         dirty={dirty}
