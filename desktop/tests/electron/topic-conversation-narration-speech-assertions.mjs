@@ -2,6 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { join } from "node:path";
 
 import { waitForState } from "./electron-cdp-harness.mjs";
+import { expectedSynthesisSpeed } from "./speech-transcription-provider-fixture.mjs";
 import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
 
 export async function waitForAutomaticNarrationStatusPlayback({
@@ -57,6 +58,7 @@ function findSpeechRequest(provider, initialRequestCount, text, resolvedVoiceId)
       (candidate) =>
         candidate.path === "/v1/audio/speech" &&
         candidate.input === text &&
+        candidate.speed === expectedSynthesisSpeed &&
         candidate.voice === resolvedVoiceId,
     );
 }

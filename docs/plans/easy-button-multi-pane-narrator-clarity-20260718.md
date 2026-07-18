@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 3 repository implementation is complete and ready for audit; speech cadence is the next repository-actionable phase after audit
+**Status:** In progress — Phase 4 repository implementation is complete and ready for audit; product workflow verification is the next repository-actionable phase after audit, and external speech-duration/GUI evidence remains a release gate
 
 **Scope:** Immediate removal of the PWA/web client and static web hosting, Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
@@ -330,11 +330,11 @@ This phase preempts every later phase and the pending Phase 1 broad audit. Do no
 
 ### Phase 4 — Apply the shared synthesis cadence
 
-- [ ] Add the shared `1.2` assistant synthesis rate at the speech domain boundary.
-- [ ] Pass a typed synthesis input through the speech service and provider interface.
-- [ ] Add `speed` to the OpenAI request and reject invalid synthesis-rate values loudly.
-- [ ] Extend the speech provider fixture to require and record `speed`, rather than accepting and discarding unknown request behavior.
-- [ ] Prove narrator and master requests both use `1.2`, resolved voice ownership is unchanged, and playback arbitration remains serialized.
+- [x] Add the shared `1.2` assistant synthesis rate at the speech domain boundary.
+- [x] Pass a typed synthesis input through the speech service and provider interface.
+- [x] Add `speed` to the OpenAI request and reject invalid synthesis-rate values loudly.
+- [x] Extend the speech provider fixture to require and record `speed`, rather than accepting and discarding unknown request behavior.
+- [x] Prove narrator and master requests both use `1.2`, resolved voice ownership is unchanged, and playback arbitration remains serialized.
 
 ### Phase 5 — Verify the product workflow, scale, navigation, and language quality
 

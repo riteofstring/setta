@@ -33,7 +33,10 @@ import {
   redactLiveOpenAIError,
 } from "./instant-voice-capture-live-openai-artifacts.mjs";
 import { saveOpenAIVoiceCredentialThroughSettings } from "./speech-credential-byok-workflow.mjs";
-import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
+import {
+  expectedSynthesisSpeed,
+  startSpeechTranscriptionProviderFixture,
+} from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDriverAction,
   conversationSurfaces,
@@ -715,6 +718,7 @@ function playbackSummary(playback) {
     providerRequest: {
       input: playback.providerRequest.input,
       path: playback.providerRequest.path,
+      speed: playback.providerRequest.speed,
       voice: playback.providerRequest.voice,
     },
   };
@@ -752,6 +756,7 @@ async function waitForAutomaticNarrationStatusPlayback(initialRequestCount, text
         (candidate) =>
           candidate.path === "/v1/audio/speech" &&
           candidate.input === text &&
+          candidate.speed === expectedSynthesisSpeed &&
           candidate.voice === resolvedVoiceId,
       );
     if (request) {

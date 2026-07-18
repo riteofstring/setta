@@ -31,6 +31,7 @@ const (
 	MaximumRecordingSeconds       = 120
 	MaximumTranscriptCharacters   = 8_000
 	MaximumSynthesisAudioBytes    = 8 * 1024 * 1024
+	AssistantSynthesisRate        = 1.2
 	AIVoiceDisclosure             = "This voice is AI-generated and not a human voice."
 )
 
@@ -187,6 +188,12 @@ type SynthesizedAudio struct {
 	Bytes     []byte
 	MediaType string
 	Format    string
+}
+
+type ProviderSynthesisInput struct {
+	Text    string
+	VoiceID SpeechVoiceID
+	Rate    float64
 }
 
 type ResolvedSpeechSource struct {

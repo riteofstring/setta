@@ -15,7 +15,7 @@ const safetyIdentifierPrefix = "setta-device-"
 type Provider interface {
 	Configured() bool
 	CreateTranscriptionClientSecret(context.Context, string) (SpeechTranscriptionClientSecret, error)
-	SynthesizeSpeech(context.Context, string, SpeechVoiceID) (SynthesizedAudio, error)
+	SynthesizeSpeech(context.Context, ProviderSynthesisInput) (SynthesizedAudio, error)
 }
 
 type ProviderController interface {
@@ -151,7 +151,11 @@ func (service *Service) SynthesizeSpeech(
 			nil,
 		)
 	}
-	generated, err := provider.SynthesizeSpeech(ctx, resolved.Text, resolved.ResolvedVoiceID)
+	generated, err := provider.SynthesizeSpeech(ctx, ProviderSynthesisInput{
+		Text:    resolved.Text,
+		VoiceID: resolved.ResolvedVoiceID,
+		Rate:    AssistantSynthesisRate,
+	})
 	if err != nil {
 		return SpeechAudio{}, err
 	}

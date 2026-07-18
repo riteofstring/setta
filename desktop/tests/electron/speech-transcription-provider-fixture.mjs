@@ -5,6 +5,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const audioMarker = "setta-audio-secret-20260714!";
 const synthesizedAudio = Buffer.from(audioMarker, "utf8");
+export const expectedSynthesisSpeed = 1.2;
 
 export async function startSpeechTranscriptionProviderFixture(options = {}) {
   const credentials = new Map();
@@ -223,11 +224,12 @@ function assertSynthesisRequest(payload) {
     payload.input.length === 0 ||
     typeof payload.voice !== "string" ||
     payload.voice.length === 0 ||
-    payload.response_format !== "pcm"
+    payload.response_format !== "pcm" ||
+    payload.speed !== expectedSynthesisSpeed
   ) {
     throw new Error("speech synthesis fixture received an invalid request");
   }
-  return { input: payload.input, voice: payload.voice };
+  return { input: payload.input, speed: payload.speed, voice: payload.voice };
 }
 
 function requiredRecord(parent, field) {
