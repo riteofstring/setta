@@ -16,11 +16,6 @@ import {
   type SpeechCaptureFailureCode,
 } from "./app-shell-speech-capture-controller";
 import {
-  BufferedMicrophoneCaptureError,
-  type BufferedMicrophoneCapture,
-  type CreateBufferedMicrophoneCaptureOptions,
-} from "./buffered-microphone-capture";
-import {
   RealtimeTranscriptionError,
   type RealtimeTranscriptionErrorCode,
 } from "./realtime-transcription-error";
@@ -42,48 +37,13 @@ describe("app-shell speech capture controller", () => {
     });
     const start = harness.startMaster();
     expect(harness.currentCapture()).toMatchObject({ type: "requesting_permission" });
-    await harness.waitForCapture("recording");
-    expect(harness.currentCapture()).toMatchObject({
-      connection: "connecting",
-      type: "recording",
-    });
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
 
     expect(harness.mediaConstraints).toEqual([{ audio: true, video: false }]);
-    expect(harness.currentCapture()).toMatchObject({
-      connection: "ready",
-      type: "recording",
-    });
+    expect(harness.currentCapture()).toMatchObject({ type: "listening" });
     harness.controller.cancel();
-  });
-
-  test("publishes local recording before fast provider connection starts", async () => {
-    const providerConnectionStarts: Array<() => void> = [];
-    const harness = createHarness({
-      deferProviderConnection: (handler) => providerConnectionStarts.push(handler),
-    });
-    await harness.connect();
-
-    const start = harness.startMaster();
-    await harness.waitForCapture("recording");
-
-    expect(harness.currentCapture()).toMatchObject({
-      connection: "connecting",
-      type: "recording",
-    });
-    expect(harness.transports).toEqual([]);
-    expect(providerConnectionStarts).toHaveLength(1);
-
-    providerConnectionStarts.shift()?.();
-    await harness.waitForTransport();
-    harness.transport.resolveReady();
-    await flushPromises();
-    await start;
-
-    expect(harness.currentCapture()).toMatchObject({ connection: "ready", type: "recording" });
   });
 
   test("runs one global permission, connection, preview, commit, and completion lifecycle", async () => {
@@ -103,14 +63,10 @@ describe("app-shell speech capture controller", () => {
     expect(harness.timerDelayMs).toBe(120_000);
 
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
-    expect(harness.currentCapture()).toMatchObject({ connection: "ready", type: "recording" });
+    expect(harness.currentCapture()).toMatchObject({ type: "listening" });
 
     harness.controller.commit();
-    expect(harness.track.stop).toHaveBeenCalledOnce();
-    expect(harness.currentCapture()).toMatchObject({ type: "draining" });
-    await flushPromises();
     expect(harness.transport.commit).toHaveBeenCalledOnce();
     harness.transport.delta("partial words");
     expect(harness.currentCapture()).toMatchObject({
@@ -155,42 +111,7 @@ describe("app-shell speech capture controller", () => {
     ]);
     expect(harness.transport.close).toHaveBeenCalledOnce();
     expect(harness.track.stop).toHaveBeenCalledOnce();
-    expect(harness.outboundTrack.stop).toHaveBeenCalledOnce();
     expect(harness.clearTimer).toHaveBeenCalledOnce();
-  });
-
-  test("finishes a locally captured request before provider setup is ready", async () => {
-    const session = deferred<SpeechTranscriptionSession>();
-    const harness = createHarness({ createTranscriptionSession: () => session.promise });
-    await harness.connect();
-
-    const start = harness.startMaster();
-    await harness.waitForCapture("recording");
-    await start;
-    expect(harness.currentCapture()).toMatchObject({
-      connection: "connecting",
-      type: "recording",
-    });
-    expect(harness.transports).toEqual([]);
-
-    harness.controller.commit();
-    expect(harness.track.stop).toHaveBeenCalledOnce();
-    expect(harness.currentCapture()).toMatchObject({
-      connection: "connecting",
-      type: "draining",
-    });
-
-    session.resolve(transcriptionSession());
-    await harness.waitForTransport();
-    expect(harness.transport.commit).not.toHaveBeenCalled();
-
-    harness.transport.resolveReady();
-    await flushPromises();
-    await flushPromises();
-
-    expect(harness.captures[0]?.releaseToTransport).toHaveBeenCalledOnce();
-    expect(harness.currentCapture()).toMatchObject({ type: "committing" });
-    expect(harness.transport.commit).toHaveBeenCalledOnce();
   });
 
   test("preempts playback only when a new recording lifecycle begins", async () => {
@@ -202,12 +123,10 @@ describe("app-shell speech capture controller", () => {
     const start = harness.startMaster();
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
     expect(onCaptureStart).toHaveBeenCalledOnce();
 
     await harness.startMaster();
-    await flushPromises();
     expect(harness.currentCapture().type).toBe("committing");
     expect(onCaptureStart).toHaveBeenCalledOnce();
     expect(onCaptureEnd).not.toHaveBeenCalled();
@@ -249,10 +168,8 @@ describe("app-shell speech capture controller", () => {
 
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
     harness.controller.commit();
-    await flushPromises();
     harness.transport.complete("Keep this pane-local request frozen");
 
     expect(harness.masterInputRequests).toEqual([]);
@@ -292,33 +209,6 @@ describe("app-shell speech capture controller", () => {
     expect(harness.mediaConstraints).toHaveLength(1);
   });
 
-  test("cancels only the active conversation capture for a closing source pane", async () => {
-    const harness = createHarness();
-    await harness.connect();
-    const request = conversationSpeechCaptureRequest(
-      "workspace_close",
-      "conversation_close",
-      "pane_close",
-    );
-
-    const start = harness.controller.start(request);
-    await harness.waitForCapture("recording");
-    await start;
-
-    expect(
-      harness.controller.cancelActiveConversationCapture(
-        conversationSpeechCaptureRequest("workspace_close", "conversation_other", "pane_close"),
-      ),
-    ).toBe(false);
-    expect(harness.currentCapture()).toMatchObject({ type: "recording" });
-
-    expect(harness.controller.cancelActiveConversationCapture(request)).toBe(true);
-    expect(harness.currentCapture()).toEqual({ type: "idle" });
-    expect(harness.captures[0]?.close).toHaveBeenCalledOnce();
-    expect(harness.track.stop).toHaveBeenCalledOnce();
-    expect(harness.outboundTrack.stop).toHaveBeenCalledOnce();
-  });
-
   test("retains failed master submission for exact retry before another capture", async () => {
     const acceptedRetry = deferred<AcceptedMasterInput>();
     const submit = vi
@@ -331,10 +221,8 @@ describe("app-shell speech capture controller", () => {
     const start = harness.startMaster();
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
     harness.controller.commit();
-    await flushPromises();
     harness.transport.complete("Retry this finalized request");
     await harness.waitForMasterSubmission("failed");
 
@@ -426,10 +314,8 @@ describe("app-shell speech capture controller", () => {
     );
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
     harness.controller.commit();
-    await flushPromises();
     harness.transport.complete("Retry this pane transcript");
     await harness.waitForConversationSubmission("failed");
 
@@ -480,10 +366,8 @@ describe("app-shell speech capture controller", () => {
     );
     await failedDiscard.waitForTransport();
     failedDiscard.transport.resolveReady();
-    await flushPromises();
     await discardStart;
     failedDiscard.controller.commit();
-    await flushPromises();
     failedDiscard.transport.complete("Discard this pane transcript");
     await failedDiscard.waitForConversationSubmission("failed");
     failedDiscard.controller.discardCompletedConversationTranscript();
@@ -503,10 +387,8 @@ describe("app-shell speech capture controller", () => {
     );
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
     harness.controller.commit();
-    await flushPromises();
     harness.transport.complete("Do not cross runtimes");
     await harness.waitForConversationSubmission("submitting");
     const staleRequest = harness.conversationInputRequests[0]!;
@@ -539,7 +421,6 @@ describe("app-shell speech capture controller", () => {
     const start = harness.controller.start(request);
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
 
     await expect(
@@ -549,11 +430,10 @@ describe("app-shell speech capture controller", () => {
     ).rejects.toThrow("another global speech capture is already active");
     expect(harness.currentCapture()).toMatchObject({
       request,
-      type: "recording",
+      type: "listening",
     });
 
     await harness.controller.start(request);
-    await flushPromises();
     expect(harness.currentCapture()).toMatchObject({ type: "committing" });
     expect(harness.transport.commit).toHaveBeenCalledOnce();
   });
@@ -568,14 +448,12 @@ describe("app-shell speech capture controller", () => {
     );
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await topicStart;
     harness.transport.delta("topic words stay provisional");
 
     const masterStart = harness.controller.startMasterCapture();
     await harness.waitForTransportCount(2);
     harness.transport.resolveReady();
-    await flushPromises();
     await masterStart;
 
     expect(harness.conversationInputRequests).toEqual([]);
@@ -585,7 +463,7 @@ describe("app-shell speech capture controller", () => {
     expect(harness.currentCapture()).toMatchObject({
       request: { destination: { type: "master" }, sourcePaneId: null },
       transcript: "",
-      type: "recording",
+      type: "listening",
     });
   });
 
@@ -609,97 +487,12 @@ describe("app-shell speech capture controller", () => {
     expect(harness.transports).toEqual([]);
   });
 
-  test("cancel stops the raw microphone while buffered capture setup is pending", async () => {
-    const setupStarted = deferred<CreateBufferedMicrophoneCaptureOptions>();
-    const setup = deferred<BufferedMicrophoneCapture>();
-    const harness = createHarness({
-      createBufferedCapture: async (options) => {
-        setupStarted.resolve(options);
-        return setup.promise;
-      },
-    });
-    await harness.connect();
-
-    const start = harness.startMaster();
-    const options = await setupStarted.promise;
-    expect(harness.currentCapture()).toMatchObject({ type: "requesting_permission" });
-    expect(harness.track.stop).not.toHaveBeenCalled();
-
-    harness.controller.cancel();
-    expect(harness.currentCapture()).toEqual({ type: "idle" });
-    expect(harness.track.stop).toHaveBeenCalledOnce();
-
-    const lateCapture = new FakeBufferedCapture(options.inputStream, harness.outboundStream);
-    setup.resolve(lateCapture);
-    await start;
-
-    expect(lateCapture.close).toHaveBeenCalledOnce();
-    expect(harness.transports).toEqual([]);
-  });
-
-  test("runtime switch stops the raw microphone while buffered capture setup is pending", async () => {
-    const setupStarted = deferred<CreateBufferedMicrophoneCaptureOptions>();
-    const setup = deferred<BufferedMicrophoneCapture>();
-    const harness = createHarness({
-      createBufferedCapture: async (options) => {
-        setupStarted.resolve(options);
-        return setup.promise;
-      },
-    });
-    await harness.connect();
-
-    const start = harness.startMaster();
-    const options = await setupStarted.promise;
-    await harness.controller.synchronizeRuntime("runtime_second");
-
-    expect(harness.controller.getSnapshot()).toMatchObject({
-      availability: { type: "configured" },
-      capture: { type: "idle" },
-      runtimeId: "runtime_second",
-    });
-    expect(harness.track.stop).toHaveBeenCalledOnce();
-
-    const lateCapture = new FakeBufferedCapture(options.inputStream, harness.outboundStream);
-    setup.resolve(lateCapture);
-    await start;
-
-    expect(lateCapture.close).toHaveBeenCalledOnce();
-    expect(harness.transports).toEqual([]);
-  });
-
-  test("dispose stops the raw microphone while buffered capture setup is pending", async () => {
-    const setupStarted = deferred<CreateBufferedMicrophoneCaptureOptions>();
-    const setup = deferred<BufferedMicrophoneCapture>();
-    const harness = createHarness({
-      createBufferedCapture: async (options) => {
-        setupStarted.resolve(options);
-        return setup.promise;
-      },
-    });
-    await harness.connect();
-
-    const start = harness.startMaster();
-    const options = await setupStarted.promise;
-
-    harness.controller.dispose();
-    expect(harness.track.stop).toHaveBeenCalledOnce();
-
-    const lateCapture = new FakeBufferedCapture(options.inputStream, harness.outboundStream);
-    setup.resolve(lateCapture);
-    await start;
-
-    expect(lateCapture.close).toHaveBeenCalledOnce();
-    expect(harness.transports).toEqual([]);
-    expect(() => harness.controller.cancel()).toThrow("controller is disposed");
-  });
-
   test("cancel tears down an active lease without changing runtime scope", async () => {
     const harness = createHarness();
     await harness.connect();
     const start = harness.startMaster();
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await start;
 
     harness.controller.cancel();
@@ -736,8 +529,7 @@ describe("app-shell speech capture controller", () => {
     const harness = createHarness({ createTranscriptionSession: () => session.promise });
     await harness.connect();
     const start = harness.startMaster();
-    await harness.waitForCapture("recording");
-    expect(harness.currentCapture()).toMatchObject({ connection: "connecting" });
+    await harness.waitForCapture("connecting");
 
     harness.fireTimer();
     expect(harness.currentCapture()).toEqual({
@@ -774,28 +566,6 @@ describe("app-shell speech capture controller", () => {
       expect(harness.transcriptionSessionCalls).toBe(0);
     },
   );
-
-  test("maps buffered microphone setup failures after permission succeeds", async () => {
-    const harness = createHarness({
-      createBufferedCapture: async () => {
-        throw new BufferedMicrophoneCaptureError(
-          "capture_pipeline_failed",
-          "private audio graph prose",
-        );
-      },
-    });
-    await harness.connect();
-
-    await harness.startMaster();
-
-    expect(harness.currentCapture()).toEqual({
-      code: "capture_pipeline_failed",
-      message: "The browser could not prepare local microphone capture. Please try again.",
-      type: "failed",
-    });
-    expect(harness.mediaConstraints).toEqual([{ audio: true, video: false }]);
-    expect(harness.transcriptionSessionCalls).toBe(1);
-  });
 
   test.each([
     "connection_failed",
@@ -879,15 +649,13 @@ describe("app-shell speech capture controller", () => {
     await harness.connect();
 
     await harness.startMaster();
-    await harness.waitForCapture("failed");
     expect(harness.currentCapture()).toMatchObject({ code: "invalid_session", type: "failed" });
 
     const retry = harness.startMaster();
     await harness.waitForTransport();
     harness.transport.resolveReady();
-    await flushPromises();
     await retry;
-    expect(harness.currentCapture()).toMatchObject({ connection: "ready", type: "recording" });
+    expect(harness.currentCapture()).toMatchObject({ type: "listening" });
   });
 
   test("dispose is idempotent, closes resources, and prevents reuse or late provider callbacks", async () => {
@@ -910,11 +678,7 @@ describe("app-shell speech capture controller", () => {
 });
 
 interface HarnessOverrides {
-  createBufferedCapture?: (
-    options: CreateBufferedMicrophoneCaptureOptions,
-  ) => Promise<BufferedMicrophoneCapture>;
   createTranscriptionSession?: () => Promise<SpeechTranscriptionSession>;
-  deferProviderConnection?: AppShellSpeechCaptureControllerDependencies["deferProviderConnection"];
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   onCaptureEnd?: () => void;
   onCaptureStart?: () => void;
@@ -930,9 +694,6 @@ interface HarnessOverrides {
 function createHarness(overrides: HarnessOverrides = {}) {
   const track = fakeAudioTrack();
   const stream = fakeMediaStream(track);
-  const outboundTrack = fakeAudioTrack();
-  const outboundStream = fakeMediaStream(outboundTrack);
-  const captures: FakeBufferedCapture[] = [];
   const transports: FakeTransport[] = [];
   const mediaConstraints: MediaStreamConstraints[] = [];
   const conversationInputRequests: SubmitConversationInputRequest[] = [];
@@ -945,15 +706,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const clearTimer = vi.fn();
   const dependencies: AppShellSpeechCaptureControllerDependencies = {
     clearTimeout: clearTimer,
-    createBufferedCapture: async (options) => {
-      if (overrides.createBufferedCapture) {
-        return overrides.createBufferedCapture(options);
-      }
-      const capture = new FakeBufferedCapture(options.inputStream, outboundStream);
-      captures.push(capture);
-      capture.resolveReady();
-      return capture;
-    },
     createCaptureSessionId: () => {
       captureOrdinal += 1;
       return `capture_${captureOrdinal}`;
@@ -969,8 +721,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
       transports.push(transport);
       return transport;
     },
-    deferProviderConnection:
-      overrides.deferProviderConnection ?? ((handler) => queueMicrotask(handler)),
     getUserMedia: async (constraints) => {
       mediaConstraints.push(constraints);
       return overrides.getUserMedia ? overrides.getUserMedia(constraints) : stream;
@@ -1063,7 +813,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
     connect: () => controller.synchronizeRuntime("runtime_capture"),
     controller,
     conversationInputRequests,
-    captures,
     currentCapture: () => controller.getSnapshot().capture,
     fireTimer: () => {
       if (!timerHandler) {
@@ -1074,8 +823,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
     mediaConstraints,
     masterInputRequests,
     masterController,
-    outboundStream,
-    outboundTrack,
     startMaster: () => controller.startMasterCapture(),
     stream,
     get timerDelayMs() {
@@ -1163,65 +910,13 @@ function activeCaptureRequest(
 ) {
   switch (state.type) {
     case "requesting_permission":
-    case "recording":
-    case "draining":
+    case "connecting":
+    case "listening":
     case "committing":
       return state.request;
     case "idle":
     case "failed":
       throw new Error("speech capture is not active");
-  }
-}
-
-class FakeBufferedCapture implements BufferedMicrophoneCapture {
-  private closed = false;
-  private drained = false;
-  private inputStopped = false;
-  private readonly readyDeferred = deferred<void>();
-  private readonly drainDeferred = deferred<void>();
-  readonly ready = this.readyDeferred.promise;
-
-  close = vi.fn(() => {
-    if (this.closed) {
-      return;
-    }
-    this.closed = true;
-    this.stopInput();
-    stopMediaStream(this.outboundStream);
-    const error = new BufferedMicrophoneCaptureError(
-      "aborted",
-      "Buffered microphone capture was canceled.",
-    );
-    this.readyDeferred.reject(error);
-    this.drainDeferred.reject(error);
-  });
-
-  releaseToTransport = vi.fn();
-
-  stopInputAndDrain = vi.fn(() => {
-    this.stopInput();
-    if (!this.drained) {
-      this.drained = true;
-      this.drainDeferred.resolve();
-    }
-    return this.drainDeferred.promise;
-  });
-
-  constructor(
-    private readonly inputStream: MediaStream,
-    readonly outboundStream: MediaStream,
-  ) {}
-
-  resolveReady(): void {
-    this.readyDeferred.resolve();
-  }
-
-  private stopInput(): void {
-    if (this.inputStopped) {
-      return;
-    }
-    this.inputStopped = true;
-    stopMediaStream(this.inputStream);
   }
 }
 
@@ -1332,12 +1027,6 @@ function fakeMediaStream(track: MediaStreamTrack): MediaStream {
   } as unknown as MediaStream;
 }
 
-function stopMediaStream(stream: MediaStream): void {
-  for (const track of stream.getTracks()) {
-    track.stop();
-  }
-}
-
 function failedMessage(
   state: ReturnType<AppShellSpeechCaptureController["getSnapshot"]>["capture"],
 ): string {
@@ -1351,7 +1040,6 @@ function deferred<T>() {
     reject = rejectPromise;
     resolve = resolvePromise;
   });
-  promise.catch(() => {});
   return { promise, reject, resolve };
 }
 

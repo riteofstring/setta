@@ -30,6 +30,7 @@ import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
 import {
   createEasyButtonTextConversationInput,
+  requestEasyButtonPaneClose,
   requestEasyButtonSpeechCapture,
   type EasyButtonConversationCommands,
 } from "./easy-button-conversation-commands";
@@ -378,7 +379,7 @@ describe("Easy Button topic conversation projection", () => {
           activityKind: "capture",
           activityLabel: "Listening for Live follow-up",
           captureScope: "this_pane",
-          captureState: "recording",
+          captureState: "listening",
           playbackScope: "none",
           playbackState: "idle",
           speakingSourceEventId: null,
@@ -577,6 +578,80 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain("Parent topic");
   });
 
+  test("disposes the pane-bound side before allowing its pane to close", async () => {
+    const snapshot = workingSnapshot("conversation_close_side", "Close side", "teal");
+    const side = sideConversation(snapshot, "pane_close");
+    side.activeTurnId = "side_turn";
+    side.activeProviderTurnId = "provider_side_turn";
+    snapshot.sideConversations = [side];
+    const staleSnapshot = structuredClone(snapshot);
+    staleSnapshot.sideConversations = [];
+    useConversationStore
+      .getState()
+      .hydrateSnapshot(workspaceId, snapshot.conversation.id, staleSnapshot);
+    const disposed = structuredClone(snapshot);
+    disposed.sideConversations[0]!.activeTurnId = null;
+    disposed.sideConversations[0]!.activeProviderTurnId = null;
+    disposed.sideConversations[0]!.disposedAt = timestamp;
+    disposed.sideConversations[0]!.status = "disposing";
+    const read = vi.fn(async () => snapshot);
+    const disposeSide = vi.fn(async () => disposed);
+    vi.stubGlobal("window", {
+      setta: {
+        conversations: { disposeSide, read },
+      },
+    });
+    const confirm = vi.fn(() => true);
+
+    await expect(
+      requestEasyButtonPaneClose({
+        confirm,
+        conversationId: snapshot.conversation.id,
+        paneId: "pane_close",
+        workspaceId,
+      }),
+    ).resolves.toEqual({ removePane: true });
+
+    expect(confirm).toHaveBeenCalledWith("End the active side conversation and close this pane?");
+    expect(read).toHaveBeenCalledWith({
+      conversationId: snapshot.conversation.id,
+      workspaceId,
+    });
+    expect(disposeSide).toHaveBeenCalledWith({
+      parentConversationId: snapshot.conversation.id,
+      parentPaneId: "pane_close",
+      sideConversationId: side.id,
+      workspaceId,
+    });
+  });
+
+  test("keeps the pane open when active-side disposal is not confirmed", async () => {
+    const snapshot = workingSnapshot("conversation_keep_side", "Keep side", "teal");
+    const side = sideConversation(snapshot, "pane_keep");
+    side.activeTurnId = "side_turn";
+    side.activeProviderTurnId = "provider_side_turn";
+    snapshot.sideConversations = [side];
+    const read = vi.fn(async () => snapshot);
+    const disposeSide = vi.fn();
+    vi.stubGlobal("window", {
+      setta: {
+        conversations: { disposeSide, read },
+      },
+    });
+
+    await expect(
+      requestEasyButtonPaneClose({
+        confirm: () => false,
+        conversationId: snapshot.conversation.id,
+        paneId: side.parentPaneId,
+        workspaceId,
+      }),
+    ).resolves.toEqual({ removePane: false });
+
+    expect(read).toHaveBeenCalledOnce();
+    expect(disposeSide).not.toHaveBeenCalled();
+  });
+
   test("renders source-attributed global speech state in the bound pane", () => {
     const snapshot = workingSnapshot("conversation_speaking", "Speaking topic", "sky");
     const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
@@ -666,36 +741,24 @@ describe("Easy Button topic conversation projection", () => {
       routingFailure: null,
     };
 
-    const recordingSpeech = {
+    const action = conversationControlAction(commands, false, {
       activityKind: "capture",
       activityLabel: "Listening",
       captureScope: "this_pane",
-      captureState: "recording",
+      captureState: "listening",
       playbackScope: "none",
       playbackState: "idle",
       speakingSourceEventId: null,
       transcriptPreview: "Keep listening",
       voiceControlDisabled: false,
       voiceControlLabel: "Finish this voice request",
-    } as const;
+    });
 
-    const action = conversationControlAction(commands, false, recordingSpeech);
     expect(action.mode).toBe("stop-listening");
     expect(action.disabled).toBe(false);
     expect(action.label).toBe("Finish this voice request");
     action.onClick?.();
     expect(requestVoiceCapture).toHaveBeenCalledOnce();
-    const draining = conversationControlAction(commands, false, {
-      ...recordingSpeech,
-      activityLabel: "Finishing captured audio",
-      captureState: "draining",
-      voiceControlDisabled: true,
-      voiceControlLabel: "Finishing captured audio for this conversation",
-    });
-    expect(draining.mode).toBe("stop-listening");
-    expect(draining.disabled).toBe(true);
-    expect(draining.label).toBe("Finishing captured audio for this conversation");
-    expect(draining.onClick).toBeUndefined();
   });
 
   test("read-only panes cannot talk through the giant control", () => {

@@ -1,6 +1,6 @@
 import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
-import { CircleAlert, LoaderCircle, Mic, RotateCcw, Square } from "lucide-react";
+import { Check, CircleAlert, LoaderCircle, Mic, RotateCcw, Square } from "lucide-react";
 
 import type { AppShellSpeechCaptureContextValue } from "../global-speech/app-shell-speech-capture";
 import type {
@@ -18,20 +18,20 @@ interface MasterVoiceModel {
   controller: AppShellSpeechCaptureController | null;
   state:
     | "committing"
-    | "draining"
+    | "connecting"
     | "failed"
     | "idle"
     | "requesting_permission"
     | "submitting"
     | "unavailable"
-    | "recording";
+    | "listening";
   statusLabel: string | null;
   transcript: string | null;
 }
 
 type ActiveSpeechCaptureState = Extract<
   SpeechCaptureState,
-  { type: "committing" | "draining" | "recording" | "requesting_permission" }
+  { type: "committing" | "connecting" | "listening" | "requesting_permission" }
 >;
 
 type MasterSubmissionState = AppShellSpeechCaptureSnapshot["masterSubmission"];
@@ -39,8 +39,8 @@ type SpeechCaptureAvailability = AppShellSpeechCaptureSnapshot["availability"];
 
 const activeCaptureTypes = new Set<SpeechCaptureState["type"]>([
   "committing",
-  "draining",
-  "recording",
+  "connecting",
+  "listening",
   "requesting_permission",
 ]);
 
@@ -103,14 +103,6 @@ export function executeMasterVoiceCommand(
   controller: AppShellSpeechCaptureController | null,
 ): void {
   if (!controller) {
-    return;
-  }
-  const activeMaster = activeMasterCapture(controller.getSnapshot().capture);
-  if (activeMaster?.type === "recording") {
-    controller.commit();
-    return;
-  }
-  if (activeMaster) {
     return;
   }
   void controller.startMasterCapture();
@@ -234,22 +226,22 @@ function activeMasterVoiceModel(
         statusLabel: "Requesting microphone access for Setta",
         transcript,
       };
-    case "recording":
+    case "connecting":
+      return {
+        action: "cancel",
+        controlLabel: "Cancel Global master voice capture",
+        controller,
+        state: capture.type,
+        statusLabel: "Connecting voice capture for Setta",
+        transcript,
+      };
+    case "listening":
       return {
         action: "commit",
         controlLabel: `Finish Global master voice request (${shortcutLabel})`,
         controller,
         state: capture.type,
         statusLabel: "Listening for Setta",
-        transcript,
-      };
-    case "draining":
-      return {
-        action: null,
-        controlLabel: "Finishing captured Global master audio",
-        controller,
-        state: capture.type,
-        statusLabel: "Finishing captured audio for Setta",
         transcript,
       };
     case "committing":
@@ -317,13 +309,13 @@ function executeMasterVoiceAction(model: MasterVoiceModel): void {
 function MasterVoiceStatusGlyph({ state }: { state: MasterVoiceModel["state"] }) {
   switch (state) {
     case "requesting_permission":
-    case "draining":
+    case "connecting":
     case "committing":
     case "submitting":
       return <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />;
     case "failed":
       return <CircleAlert aria-hidden="true" />;
-    case "recording":
+    case "listening":
     case "idle":
     case "unavailable":
       return <Mic aria-hidden="true" />;
@@ -337,7 +329,7 @@ function MasterVoiceButtonGlyph({ model }: { model: MasterVoiceModel }) {
     case "cancel":
       return <Square aria-hidden="true" />;
     case "commit":
-      return <Square aria-hidden="true" />;
+      return <Check aria-hidden="true" />;
     case "retry_master":
       return <RotateCcw aria-hidden="true" />;
     case "start":

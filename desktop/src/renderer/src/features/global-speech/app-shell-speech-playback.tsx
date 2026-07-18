@@ -5,7 +5,6 @@ import {
   type ReactNode,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -13,7 +12,6 @@ import {
 
 import { queuedConversationProjectionEventsBefore } from "../../stores/conversation-projection-runtime";
 import { useConversationStore } from "../../stores/conversation-store";
-import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import {
   AppShellSpeechPlaybackController,
   narrationSpeechPlaybackIntent,
@@ -58,8 +56,7 @@ export function AppShellSpeechPlaybackProvider({
     [children, controller],
   );
 
-  useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
-  useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
+  useEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
   useEffect(() => controller.synchronizeRuntime(runtimeId), [controller, runtimeId]);
   useEffect(
     () =>
@@ -147,7 +144,7 @@ interface PendingControllerDisposal {
 export class AppShellSpeechPlaybackEffectLifetime {
   private pendingDisposal: PendingControllerDisposal | null = null;
 
-  constructor(private readonly schedule: (handler: () => void) => void = scheduleMicrotask) {}
+  constructor(private readonly schedule: (handler: () => void) => void = queueMicrotask) {}
 
   mount(controller: SpeechPlaybackControllerDisposable): () => void {
     if (this.pendingDisposal?.controller === controller) {
@@ -168,10 +165,6 @@ export class AppShellSpeechPlaybackEffectLifetime {
       });
     };
   }
-}
-
-function scheduleMicrotask(handler: () => void): void {
-  queueMicrotask(handler);
 }
 
 function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerDependencies {
