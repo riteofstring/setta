@@ -1,13 +1,15 @@
 import { Buffer } from "node:buffer";
+import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 
-const apiKey = "sk-setta-global-speech-electron-fixture";
-const clientSecret = "ek_setta_global_speech_electron_ephemeral";
 const audioMarker = "setta-audio-secret-20260714!";
 const synthesizedAudio = Buffer.from(audioMarker, "utf8");
 
 export async function startSpeechTranscriptionProviderFixture(options = {}) {
+  const secretSuffix = randomUUID().replaceAll("-", "");
+  const apiKey = `sk-setta-global-speech-electron-fixture-${secretSuffix}`;
+  const clientSecret = `ek_setta_global_speech_electron_ephemeral_${secretSuffix}`;
   const failures = [];
   const requests = [];
   const timing = createProviderTiming();
@@ -18,6 +20,8 @@ export async function startSpeechTranscriptionProviderFixture(options = {}) {
   );
   const server = createServer((request, response) => {
     void handleProviderRequest(request, response, {
+      apiKey,
+      clientSecret,
       requests,
       timing,
       timingContext,
@@ -53,6 +57,7 @@ export async function startSpeechTranscriptionProviderFixture(options = {}) {
       new Promise((resolvePromise, reject) => {
         server.close((error) => (error ? reject(error) : resolvePromise()));
       }),
+    privacyMarkers: [apiKey, clientSecret],
     requests,
     setTimingContext(context) {
       timingContext = validTimingContext(context);
@@ -72,9 +77,9 @@ export async function startSpeechTranscriptionProviderFixture(options = {}) {
 async function handleProviderRequest(
   request,
   response,
-  { requests, timing, timingContext, transcriptionSessionDelayMs },
+  { apiKey, clientSecret, requests, timing, timingContext, transcriptionSessionDelayMs },
 ) {
-  assertProviderAuthorization(request);
+  assertProviderAuthorization(request, apiKey);
   if (request.method === "POST" && request.url === "/v1/realtime/client_secrets") {
     const requestReceived = markProviderTiming(
       timing,
@@ -93,7 +98,7 @@ async function handleProviderRequest(
       safetyIdentifier,
       transcriptionSessionDelayMs,
     });
-    writeTranscriptionSession(response);
+    writeTranscriptionSession(response, clientSecret);
     const responseSent = markProviderTiming(
       timing,
       "transcription_session_response_sent",
@@ -119,7 +124,7 @@ async function handleProviderRequest(
   throw new Error(`unexpected provider request: ${request.method} ${request.url}`);
 }
 
-function assertProviderAuthorization(request) {
+function assertProviderAuthorization(request, apiKey) {
   if (request.headers.authorization !== `Bearer ${apiKey}`) {
     throw new Error("speech transcription fixture received invalid authorization");
   }
@@ -183,7 +188,7 @@ function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function writeTranscriptionSession(response) {
+function writeTranscriptionSession(response, clientSecret) {
   response.writeHead(200, { "Content-Type": "application/json" });
   response.end(
     JSON.stringify({

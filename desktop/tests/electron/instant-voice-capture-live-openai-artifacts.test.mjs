@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { Buffer } from "node:buffer";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -7,7 +8,43 @@ import test from "node:test";
 import {
   finalizeLiveOpenAIArtifacts,
   liveOpenAIArtifactPrivacyViolationCode,
+  scanArtifactsForMarkers,
 } from "./instant-voice-capture-live-openai-artifacts.mjs";
+
+test("scans nested finalized artifact bytes for long-lived and ephemeral markers", async (t) => {
+  const artifactDir = await createArtifactFixture(t);
+  const longLivedMarker = "sk-artifactboundarylonglived";
+  const ephemeralMarker = "ek-artifactboundaryephemeral";
+  await mkdir(join(artifactDir, "nested"), { recursive: true });
+  await writeFile(join(artifactDir, "nested", "renderer-events.jsonl"), `${longLivedMarker}\n`);
+  await writeFile(
+    join(artifactDir, "backend-http.bin"),
+    Buffer.concat([Buffer.from([0x00, 0xff]), Buffer.from(ephemeralMarker)]),
+  );
+
+  const scan = await scanArtifactsForMarkers(artifactDir, [longLivedMarker, ephemeralMarker]);
+
+  assert.equal(scan.leakedFileCount, 2);
+  assert.deepEqual(scan.leakedRelativePaths.toSorted(), [
+    "backend-http.bin",
+    join("nested", "renderer-events.jsonl"),
+  ]);
+  assert.equal(scan.scannedFileCount, 2);
+});
+
+test("does not scan private markers outside the finalized artifact root", async (t) => {
+  const artifactDir = await createArtifactFixture(t);
+  const outsideDir = await createArtifactFixture(t);
+  const marker = "sk-outsideartifactroot";
+  await writeFile(join(artifactDir, "summary.json"), '{"status":"passed"}\n', "utf8");
+  await writeFile(join(outsideDir, "electron-user-data.log"), `outside ${marker}\n`, "utf8");
+
+  const scan = await scanArtifactsForMarkers(artifactDir, [marker]);
+
+  assert.equal(scan.leakedFileCount, 0);
+  assert.deepEqual(scan.leakedRelativePaths, []);
+  assert.equal(scan.scannedFileCount, 1);
+});
 
 test("detects a marker written during artifact finalization and removes the artifact tree", async (t) => {
   const artifactDir = await createArtifactFixture(t);

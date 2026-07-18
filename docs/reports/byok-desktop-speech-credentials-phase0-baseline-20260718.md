@@ -19,6 +19,8 @@ env -u OPENAI_API_KEY -u SETTA_E2E_OPENAI_SPEECH_BASE_URL ./scripts/go.sh test -
 node desktop/tests/electron/run-workflows.mjs --workflow global-speech-session --skip-build
 node desktop/tests/electron/run-workflows.mjs --workflow topic-conversation-speech-arbitration --skip-build
 node desktop/tests/electron/run-workflows.mjs --workflow runtime-picker --keep-artifacts
+node --test desktop/tests/electron/instant-voice-capture-live-openai-artifacts.test.mjs desktop/tests/electron/speech-transcription-provider-fixture.test.mjs
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-baseline --skip-build
 ```
 
 All commands passed.
@@ -30,6 +32,7 @@ All commands passed.
 | Configured desktop speech and restart | `.recordings/global-speech-session/20260718T072557469Z` |
 | Synthesis and playback arbitration | `.recordings/topic-conversation-speech-arbitration/20260718T072613634Z` |
 | Local/remote runtime switching with no speech key | `test-results/electron-integration/runtime-picker/2026-07-18T072644-181Z/workflow` |
+| Unique fake-provider privacy markers and scanner boundary | `.recordings/instant-voice-capture-phase0-baseline/20260718T073418570Z` |
 
 ## Recorded Behavior
 
@@ -41,6 +44,19 @@ All commands passed.
 | Synthesis | `topic-conversation-speech-arbitration` records four successful `/speech/synthesis` backend requests. The terminal phase added two audio creations, plays, and completions over the baseline. |
 | Restart | `global-speech-session` performs two launches against the same temporary app data. The master voice remained `marin`, and the idempotent master input state was preserved. The current credential source is still reinjected by environment on both launches. |
 | Remote runtime | `runtime-picker` pairs a separate `setta serve` runtime, switches to it, opens a remote workspace, handles device revocation, switches back to local, then observes the stopped remote as unreachable. No speech key was provided; both local and remote capability reads stayed `not_configured`. |
+
+## Privacy Marker Coverage
+
+The fake speech provider now emits per-fixture unique long-lived API-key and
+ephemeral transcription client-secret markers. The Phase 0 baseline workflow
+passed after scanning the finalized artifact tree for those exact markers.
+
+The direct scanner tests lock the current coverage boundary: it recursively
+scans regular files under the finalized artifact root and treats both text and
+binary payloads as byte streams. It does not scan sibling temporary trees such
+as Electron user data or runtime app data unless those trees are copied into
+the finalized artifact root. Phase 4 must broaden the finalized privacy scan
+when the BYOK workflow needs proof over those temporary state directories.
 
 ## Notes For Next Phases
 
