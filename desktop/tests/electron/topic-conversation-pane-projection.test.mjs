@@ -475,7 +475,11 @@ try {
     context.client,
     alpha.id,
     (surface) =>
-      surface.state === "working" && surface.agentText === "" && surface.helperText === "",
+      surface.state === "working" &&
+      surface.agentText === "" &&
+      surface.agentTextPresent === false &&
+      surface.helperText === "" &&
+      surface.helperPresent === false,
   );
   await waitForConversationSnapshot(backend, workspaceId, alpha.id, (snapshot) =>
     snapshotHasAgentText(snapshot, "Streaming hold alpha"),
@@ -490,8 +494,18 @@ try {
   const concurrent = await waitForConversationSurfaces(
     context.client,
     (surfaces) =>
-      conversationSurfaces(surfaces, alpha.id).every((surface) => surface.state === "working") &&
-      conversationSurfaces(surfaces, beta.id).some((surface) => surface.state === "working"),
+      conversationSurfaces(surfaces, alpha.id).every(
+        (surface) =>
+          surface.state === "working" &&
+          surface.agentTextPresent === false &&
+          surface.helperPresent === false,
+      ) &&
+      conversationSurfaces(surfaces, beta.id).some(
+        (surface) =>
+          surface.state === "working" &&
+          surface.agentTextPresent === false &&
+          surface.helperPresent === false,
+      ),
   );
   await waitForConversationSnapshot(backend, workspaceId, beta.id, (snapshot) =>
     snapshotHasAgentText(snapshot, "Streaming hold beta"),

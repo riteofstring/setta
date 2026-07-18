@@ -425,11 +425,14 @@ function summarizeBaseline({
     requestText,
     suppliedDataset,
     surfaceAgentText: surface.agentText,
+    surfaceAgentTextPresent: surface.agentTextPresent,
     surfaceArtifactText: surface.artifactText,
+    surfaceHelperPresent: surface.helperPresent,
     surfaceHelperText: surface.helperText,
     surfaceHighlightedMilestoneCount: surface.highlightedMilestoneCount,
     surfaceIntentState: surface.intentState,
     surfaceIntentText: surface.intentText,
+    surfaceState: surface.state,
     surfaceSummaryText: surface.summaryText,
     trajectoryEventCount: snapshot.trajectory.events.length,
     workspaceId,
@@ -609,11 +612,7 @@ function assertRecoveryEasyButtonLayoutRecovered(baseline) {
       `central intent slot text drifted from stable focus: ${JSON.stringify(baseline)}`,
     );
   }
-  if (baseline.surfaceHelperText === "Working" || baseline.surfaceAgentText !== "") {
-    throw new Error(
-      `recovery layout retained redundant working presentation: ${JSON.stringify(baseline)}`,
-    );
-  }
+  assertNoRedundantWorkingPresentation(baseline);
   const passiveScrollOwners = baseline.renderedScrollOwners.filter((owner) =>
     passiveRecoveryScrollOwner(owner),
   );
@@ -626,6 +625,29 @@ function assertRecoveryEasyButtonLayoutRecovered(baseline) {
       passiveScrollOwners,
     })}`,
   );
+}
+
+function assertNoRedundantWorkingPresentation(baseline) {
+  if (baseline.surfaceAgentText !== "" || baseline.surfaceAgentTextPresent) {
+    throw new Error(
+      `recovery layout retained redundant agent body presentation: ${JSON.stringify(baseline)}`,
+    );
+  }
+  if (retainedWorkingHelperPresentation(baseline)) {
+    throw new Error(
+      `recovery layout retained redundant working helper presentation: ${JSON.stringify(baseline)}`,
+    );
+  }
+}
+
+function retainedWorkingHelperPresentation(baseline) {
+  if (baseline.surfaceHelperText === "Working") {
+    return true;
+  }
+  if (baseline.surfaceState !== "working") {
+    return false;
+  }
+  return baseline.surfaceHelperPresent || baseline.surfaceHelperText !== "";
 }
 
 function passiveRecoveryScrollOwner(owner) {

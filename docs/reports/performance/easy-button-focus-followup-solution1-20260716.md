@@ -30,8 +30,8 @@ node desktop/tests/electron/topic-conversation-pane-projection.test.mjs \
 Results: all passed.
 
 The focused recovery workflow now asserts that the stable center intent text
-equals narrator-owned current focus, the NOW rail remains bounded, the helper
-text is not `Working`, and the center agent body is empty during active work.
+equals narrator-owned current focus, the NOW rail remains bounded, the generic
+`Working` helper is absent, and the center agent body node is absent.
 The broader pane projection workflow separately verifies provider text deltas in
 backend trajectory while duplicated working topic surfaces render no center
 helper/body progress channel.

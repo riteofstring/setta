@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v25";
+  const version = "setta-topic-conversation-pane-projection-driver-v26";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -181,6 +181,7 @@
     const voice = conversationSurfaceVoiceControl(elements.control);
     return {
       agentText: elementText(elements.agentText),
+      agentTextPresent: elements.agentText !== null,
       archived: datasetValue(surface, "easyButtonArchived") === "true",
       approvalId: datasetValue(elements.approval, "approvalId"),
       artifactCount: elements.artifacts.length,
@@ -193,6 +194,7 @@
       eventCursorSequence: numericDatasetValue(surface, "easyButtonEventCursor"),
       forkParentConversationId: datasetValue(elements.lineage, "forkParentConversationId"),
       forkParentTitle: elementText(elements.lineage),
+      helperPresent: elements.helper !== null,
       helperText: elementText(elements.helper),
       highlightedMilestoneCount: elements.highlights.length,
       hostAccentDark: elements.host.style.getPropertyValue("--conversation-accent-dark"),

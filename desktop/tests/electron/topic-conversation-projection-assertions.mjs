@@ -37,7 +37,13 @@ export function assertIndependentWorkingTopics(surfaces, alphaId, betaId) {
 }
 
 function surfaceIsWorkingWithoutCenterProgress(surface) {
-  return surface.state === "working" && surface.agentText === "" && surface.helperText === "";
+  return (
+    surface.state === "working" &&
+    surface.agentText === "" &&
+    surface.agentTextPresent === false &&
+    surface.helperText === "" &&
+    surface.helperPresent === false
+  );
 }
 
 export function assertRunningTurn(snapshot, label) {
