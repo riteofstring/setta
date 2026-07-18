@@ -140,6 +140,11 @@ function browserControllerDependencies(
     createCaptureSessionId: () => globalThis.crypto.randomUUID(),
     createTranscriptionSession: () => setta.speech.createTranscriptionSession(),
     createTransport: createRealtimeTranscriptionTransport,
+    deferProviderConnection: (handler) => {
+      globalThis.requestAnimationFrame(() => {
+        globalThis.setTimeout(handler, 0);
+      });
+    },
     getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
     now: () => new Date(),
     onCaptureEnd: onCaptureEnd ?? (() => {}),

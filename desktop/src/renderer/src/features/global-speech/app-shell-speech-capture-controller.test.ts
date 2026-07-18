@@ -60,6 +60,32 @@ describe("app-shell speech capture controller", () => {
     harness.controller.cancel();
   });
 
+  test("publishes local recording before fast provider connection starts", async () => {
+    const providerConnectionStarts: Array<() => void> = [];
+    const harness = createHarness({
+      deferProviderConnection: (handler) => providerConnectionStarts.push(handler),
+    });
+    await harness.connect();
+
+    const start = harness.startMaster();
+    await harness.waitForCapture("recording");
+
+    expect(harness.currentCapture()).toMatchObject({
+      connection: "connecting",
+      type: "recording",
+    });
+    expect(harness.transports).toEqual([]);
+    expect(providerConnectionStarts).toHaveLength(1);
+
+    providerConnectionStarts.shift()?.();
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await flushPromises();
+    await start;
+
+    expect(harness.currentCapture()).toMatchObject({ connection: "ready", type: "recording" });
+  });
+
   test("runs one global permission, connection, preview, commit, and completion lifecycle", async () => {
     const harness = createHarness();
     await harness.connect();
@@ -159,6 +185,7 @@ describe("app-shell speech capture controller", () => {
     expect(harness.transport.commit).not.toHaveBeenCalled();
 
     harness.transport.resolveReady();
+    await flushPromises();
     await flushPromises();
 
     expect(harness.captures[0]?.releaseToTransport).toHaveBeenCalledOnce();
@@ -887,6 +914,7 @@ interface HarnessOverrides {
     options: CreateBufferedMicrophoneCaptureOptions,
   ) => Promise<BufferedMicrophoneCapture>;
   createTranscriptionSession?: () => Promise<SpeechTranscriptionSession>;
+  deferProviderConnection?: AppShellSpeechCaptureControllerDependencies["deferProviderConnection"];
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   onCaptureEnd?: () => void;
   onCaptureStart?: () => void;
@@ -941,6 +969,8 @@ function createHarness(overrides: HarnessOverrides = {}) {
       transports.push(transport);
       return transport;
     },
+    deferProviderConnection:
+      overrides.deferProviderConnection ?? ((handler) => queueMicrotask(handler)),
     getUserMedia: async (constraints) => {
       mediaConstraints.push(constraints);
       return overrides.getUserMedia ? overrides.getUserMedia(constraints) : stream;

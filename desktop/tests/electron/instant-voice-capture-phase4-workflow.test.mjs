@@ -60,7 +60,7 @@ const speechRealtimeProcessedAudioObserverWorklet = join(
 );
 const providerSetupDelaysMs = [0, 1_500];
 const localReadinessCohortSampleCount = 20;
-const localReadinessInterSampleSettleMs = 120;
+const localReadinessInterSampleSettleMs = 500;
 const localReadinessP95BudgetMs = 100;
 const localReadinessP95DifferenceBudgetMs = 1000 / 60;
 const durationLimitMs = 120_000;
@@ -137,7 +137,11 @@ try {
     transcript: "Phase 4 shell warmup transcript.",
   });
 
-  const { cohorts: localReadinessCohorts, p95DifferenceMs } = await collectLocalReadinessCohorts();
+  const {
+    cohorts: localReadinessCohorts,
+    p95DifferenceMs,
+    runOrder: localReadinessRunOrder,
+  } = await collectLocalReadinessCohorts();
   assertLocalReadinessInvariant(localReadinessCohorts, p95DifferenceMs);
 
   const paneTranscript = "Phase 4 early pane marker transcript.";
@@ -253,6 +257,7 @@ try {
     localReadinessP95BudgetMs,
     localReadinessP95DifferenceBudgetMs,
     localReadinessP95DifferenceMs: p95DifferenceMs,
+    localReadinessRunOrder,
     overlayRun: runSummary(overlayRun),
     paneRun: runSummary(paneRun),
     playbackPreemption,
@@ -298,32 +303,43 @@ async function collectLocalReadinessCohorts() {
   const runsByProviderDelayMs = new Map(
     providerSetupDelaysMs.map((providerDelayMs) => [providerDelayMs, []]),
   );
+  const runOrder = [];
   for (let sampleIndex = 1; sampleIndex <= localReadinessCohortSampleCount; sampleIndex += 1) {
-    for (const providerDelayMs of providerSetupDelaysMs) {
+    for (const providerDelayMs of localReadinessProviderDelayOrder(sampleIndex)) {
       await delay(localReadinessInterSampleSettleMs);
       const runs = runsByProviderDelayMs.get(providerDelayMs);
       if (!runs) {
         throw new Error(`local readiness cohort was not initialized for ${providerDelayMs}`);
       }
-      runs.push(
-        await exerciseFinishedCapture({
-          destination: "master",
-          providerDelayMs,
-          runId: `shell-local-readiness-${providerDelayMs}-${sampleIndex}`,
-          start: () => clickShellSpeechControl(context.client),
-          transcript: `Phase 4 local readiness ${providerDelayMs} sample ${sampleIndex}.`,
-        }),
-      );
+      const runId = `shell-local-readiness-${providerDelayMs}-${sampleIndex}`;
+      const run = await exerciseFinishedCapture({
+        alignStartToAnimationFrame: true,
+        destination: "master",
+        providerDelayMs,
+        runId,
+        start: () => clickShellSpeechControl(context.client),
+        transcript: `Phase 4 local readiness ${providerDelayMs} sample ${sampleIndex}.`,
+      });
+      runs.push(run);
+      runOrder.push(runId);
     }
   }
   const cohorts = providerSetupDelaysMs.map((providerDelayMs) =>
     localReadinessCohortSummary(providerDelayMs, runsByProviderDelayMs.get(providerDelayMs) ?? []),
   );
   const p95DifferenceMs = localReadinessP95DifferenceMs(cohorts);
-  return { cohorts, p95DifferenceMs };
+  return { cohorts, p95DifferenceMs, runOrder };
+}
+
+function localReadinessProviderDelayOrder(sampleIndex) {
+  if (sampleIndex % 2 === 0) {
+    return providerSetupDelaysMs.slice().reverse();
+  }
+  return providerSetupDelaysMs;
 }
 
 async function exerciseFinishedCapture({
+  alignStartToAnimationFrame = false,
   destination,
   expectedConversationId = null,
   expectedPaneId = null,
@@ -343,6 +359,9 @@ async function exerciseFinishedCapture({
   const providerBefore = speechProvider.snapshotTiming();
   const providerEventCountBefore = providerBefore.events.length;
   await installCaptureTimingObserver(destination, expectedConversationId);
+  if (alignStartToAnimationFrame) {
+    await waitForRendererAnimationFrame();
+  }
   await markBrowserTiming("capture_click", { destination });
   await start();
   const recording =
@@ -363,6 +382,7 @@ async function exerciseFinishedCapture({
   await waitForBrowserEvent(runId, "processed_audio_marker_observed");
   await waitForBrowserEvent(runId, "transcript_completed_emitted");
   await waitForReadyForNextCapture();
+  await waitForFinishedCaptureCleanup(before);
 
   const browserAfter = await browserFixtureSnapshot(context.client);
   const providerAfter = speechProvider.snapshotTiming();
@@ -927,6 +947,26 @@ async function waitForReadyForNextCapture() {
       state.captureAvailable &&
       state.captureLabel === "Start a voice request for Setta",
     workflowTimeoutMs,
+  );
+}
+
+async function waitForFinishedCaptureCleanup(before) {
+  return waitForState(
+    context.client,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.counters()",
+    (counters) =>
+      counters.audioActiveCount === 0 &&
+      counters.peerCloseCount === before.peerCloseCount + 1 &&
+      counters.processedTrackObserverClosedCount === before.processedTrackObserverClosedCount + 1 &&
+      counters.processedTrackObserverCount === before.processedTrackObserverCount + 1 &&
+      counters.stoppedTrackCount === before.stoppedTrackCount + 1,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForRendererAnimationFrame() {
+  await context.client.evaluate(
+    "new Promise((resolve) => globalThis.requestAnimationFrame(() => resolve(true)))",
   );
 }
 

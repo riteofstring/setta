@@ -433,7 +433,12 @@
       audioPauseCount: state.audioPauseCount,
       audioPlayCount: state.audioPlayCount,
       commitCount: state.commitCount,
+      connectionCount: state.connectionCount,
       mediaRequestCount: state.mediaRequestCount,
+      peerCloseCount: state.peerCloseCount,
+      processedTrackObserverClosedCount: state.processedTrackObserverClosedCount,
+      processedTrackObserverCount: state.processedTrackObserverCount,
+      stoppedTrackCount: state.stoppedTrackCount,
     };
   }
 

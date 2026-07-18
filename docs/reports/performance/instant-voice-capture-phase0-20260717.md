@@ -273,3 +273,31 @@ The cohort collection also alternates provider delays and waits 120 ms after the
 | Absolute p95 difference | `3.8 ms <= 16.666666666666668 ms` |
 | Processed marker observer | `AudioWorklet` |
 | Workflow status | `passed` |
+
+## Phase 4 P95 Rerun Correction
+
+Workflow:
+
+```text
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
+```
+
+Artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T051316010Z
+```
+
+The review rerun failure at `.recordings/instant-voice-capture-phase4-workflow/20260718T044512922Z` was caused by the 0 ms provider path doing fast WebRTC setup before the active recording presentation had committed, which made local-readiness p95 sensitive to provider setup work and renderer scheduling. The controller now publishes local recording before provider startup can run, browser provider startup waits until after a paint boundary, and the buffered microphone worklet reports readiness when the connected processor starts. The cohort loop records balanced provider-delay order, aligns measured clicks to a renderer animation frame, and waits 500 ms after shell idle before the next measured click.
+
+| Provider setup delay | Cohort size | Click-to-local-recording samples | Nearest-rank p95 |
+| ---: | ---: | --- | ---: |
+| 0 ms | 20 | 31.3, 28.6, 29.4, 33.2, 28.6, 30.1, 29.4, 30.5, 29.0, 30.0, 28.2, 31.2, 26.4, 29.9, 24.9, 29.8, 27.5, 28.4, 26.1, 28.8 ms | 31.3 ms |
+| 1,500 ms | 20 | 29.5, 30.6, 30.2, 23.8, 28.4, 27.9, 21.7, 28.9, 27.3, 28.1, 27.5, 27.8, 27.0, 25.0, 28.1, 27.6, 26.5, 27.1, 29.1, 26.6 ms | 30.2 ms |
+
+| Check | Result |
+| --- | --- |
+| 0 ms p95 budget | `31.3 ms <= 100 ms` |
+| 1,500 ms p95 budget | `30.2 ms <= 100 ms` |
+| Absolute p95 difference | `1.1 ms <= 16.666666666666668 ms` |
+| Workflow status | `passed` |

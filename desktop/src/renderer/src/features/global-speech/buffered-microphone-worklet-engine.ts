@@ -75,6 +75,7 @@ export class BufferedMicrophoneWorkletEngine {
     const events: BufferedMicrophoneWorkletMessage[] = [];
     switch (this.mode) {
       case "buffering":
+        this.markReady(events);
         this.enqueueInput(input, events);
         this.emittedSilenceFrames += output.length;
         break;
@@ -160,15 +161,6 @@ export class BufferedMicrophoneWorkletEngine {
     try {
       this.ring.push(input);
       this.capturedFrames += input.length;
-      if (!this.readySent) {
-        this.readySent = true;
-        events.push({
-          metrics: this.metrics(),
-          sequence: 0,
-          type: "ready",
-          workletFrame: this.workletFrame,
-        });
-      }
     } catch (error) {
       if (!(error instanceof BoundedSampleRingOverflowError)) {
         throw error;
@@ -186,6 +178,19 @@ export class BufferedMicrophoneWorkletEngine {
         workletFrame: this.workletFrame,
       });
     }
+  }
+
+  private markReady(events: BufferedMicrophoneWorkletMessage[]): void {
+    if (this.readySent) {
+      return;
+    }
+    this.readySent = true;
+    events.push({
+      metrics: this.metrics(),
+      sequence: 0,
+      type: "ready",
+      workletFrame: this.workletFrame,
+    });
   }
 
   private finish(command: Extract<BufferedMicrophoneWorkletCommand, { type: "finish" }>) {

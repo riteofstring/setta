@@ -18,6 +18,30 @@ describe("buffered microphone worklet engine", () => {
     });
   });
 
+  test("reports readiness when the connected processor starts before input arrives", () => {
+    const engine = engineWithCapacity(8);
+    const firstOutput = new Float32Array(2);
+
+    const readyEvents = engine.process(null, firstOutput);
+
+    expect([...firstOutput]).toEqual([0, 0]);
+    expect(readyEvents).toMatchObject([{ sequence: 0, type: "ready" }]);
+    expect(engine.metrics()).toMatchObject({
+      capturedFrames: 0,
+      emittedSilenceFrames: 2,
+      queuedFrames: 0,
+    });
+
+    const secondOutput = new Float32Array(2);
+    const inputEvents = engine.process(samples(1, 2), secondOutput);
+
+    expect(inputEvents).toEqual([]);
+    expect(engine.metrics()).toMatchObject({
+      capturedFrames: 2,
+      queuedFrames: 2,
+    });
+  });
+
   test("releases retained frames once and keeps a fixed backlog while input continues", () => {
     const engine = engineWithCapacity(8);
     engine.process(samples(1, 2), new Float32Array(2));

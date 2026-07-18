@@ -125,6 +125,7 @@ export interface AppShellSpeechCaptureControllerDependencies extends GlobalSpeec
   createCaptureSessionId: () => string;
   createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
   createTransport: typeof createRealtimeTranscriptionTransport;
+  deferProviderConnection: (handler: () => void) => void;
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   onCaptureEnd: () => void;
   onCaptureStart: () => void;
@@ -301,7 +302,7 @@ export class AppShellSpeechCaptureController {
         runtimeId,
         availability.capabilities.maximumRecordingSeconds,
       );
-      const providerReady = this.connectProviderWhenReady({
+      const providerReady = this.connectProviderAfterLocalRecording({
         capabilities: availability.capabilities,
         capture,
         captureSessionId: activeState.captureSessionId,
@@ -498,6 +499,14 @@ export class AppShellSpeechCaptureController {
     }
     this.dependencies.clearTimeout(this.durationTimer);
     this.durationTimer = null;
+  }
+
+  private connectProviderAfterLocalRecording(context: ProviderConnectionContext): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.dependencies.deferProviderConnection(() => {
+        void this.connectProviderWhenReady(context).then(resolve, reject);
+      });
+    });
   }
 
   private async connectProviderWhenReady(context: ProviderConnectionContext): Promise<void> {

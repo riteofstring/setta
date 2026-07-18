@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Incomplete — current review rerun failed the Phase 4 p95/one-frame local-readiness performance contract.
+**Status:** Complete — all phases are implemented and the Phase 4 deterministic workflow passes the p95/one-frame local-readiness performance contract.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -24,12 +24,12 @@ This is a replacement, not a compatibility project.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
-- [ ] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow. Current review rerun failed the p95-difference assertion.
+- [x] Phase 4 — Delayed capture, routing, cleanup, preemption, production app teardown, and the p95/one-frame local-readiness performance contract pass through the deterministic Electron workflow.
 - [x] Audit follow-up — The controller owns and immediately stops the raw `getUserMedia` stream while `createBufferedCapture` is still pending, with deterministic coverage for cancel, runtime switch, and disposal during buffered-capture setup.
 
-## Current review finding
+## Resolved current review finding
 
-The implementation is not currently complete because the required deterministic Phase 4 workflow failed during review:
+The deterministic Phase 4 p95 provider-delay independence failure found during review is resolved.
 
 ```text
 node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
@@ -42,6 +42,16 @@ Failing artifact:
 ```
 
 The failure was the p95 provider-delay independence assertion. The 0 ms provider-delay cohort produced a nearest-rank p95 of `54.6 ms`, the 1,500 ms provider-delay cohort produced a nearest-rank p95 of `29.9 ms`, and the absolute p95 difference was `24.7 ms`, exceeding the `1000 / 60 ms` one-frame budget. Both p95 values remained under the absolute `100 ms` budget, but the one-frame difference requirement did not pass.
+
+The controller now publishes the local `recording` state before provider startup can create the WebRTC peer on fast 0 ms sessions. Browser provider startup is deferred until after a paint boundary, and the buffered microphone worklet reports readiness when the connected processor starts accepting graph work instead of waiting for the first source-aligned input quantum. The Phase 4 workflow also records balanced cohort order, aligns measured cohort clicks to a renderer animation frame, and waits 500 ms after idle between local-readiness samples so repeated Web Audio setup and teardown does not bias one cohort.
+
+Final passing artifact:
+
+```text
+.recordings/instant-voice-capture-phase4-workflow/20260718T051316010Z
+```
+
+The final run passed with 20 samples in each cohort: the 0 ms provider-delay p95 was `31.3 ms`, the 1,500 ms provider-delay p95 was `30.2 ms`, and the absolute p95 difference was `1.1 ms <= 1000 / 60 ms`.
 
 Focused renderer coverage and Node credential/privacy coverage passed in the same review:
 
