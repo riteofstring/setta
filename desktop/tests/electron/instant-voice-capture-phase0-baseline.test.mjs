@@ -4,6 +4,7 @@
 import { readFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { driverCallExpression } from "./cdp-client.mjs";
@@ -22,12 +23,34 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
+import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
 import { openMasterOverlayForSpeech } from "./topic-conversation-speech-state-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "instant-voice-capture-phase0-baseline";
 const workflowTimeoutMs = 30_000;
 const providerSetupDelaysMs = [0, 500, 1_500];
+const paneFreeVoiceRequestFields = {
+  focusedConversationId: null,
+  focusedPaneId: null,
+  focusedWorkspaceId: null,
+  modality: "voice",
+  originatingConversationId: null,
+  originatingConversationInputId: null,
+  originatingPaneId: null,
+  originatingWorkspaceId: null,
+  source: "shell",
+};
+const voiceAcceptedInputFields = {
+  modality: "voice",
+  source: "shell",
+};
+const nullReplyDeliveryFields = {
+  originatingConversationId: null,
+  originatingConversationInputId: null,
+  originatingPaneId: null,
+  originatingWorkspaceId: null,
+};
 const speechRealtimeBrowserFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "speech-realtime-browser-fixture.js",
@@ -57,7 +80,7 @@ try {
     const runFixture = await createElectronFixture(`${workflowName}-${providerDelayMs}`);
     runFixtures.push(runFixture);
     context = await launchBaselineContext(runFixture, join(artifactDir, runId));
-    const run = await recordBaselineRun(context.client, providerDelayMs);
+    const run = await recordBaselineRun(context, providerDelayMs);
     await captureScreenshot(context.client, join(artifactDir, runId, "complete.png"));
     runs.push(run);
     await stopElectronCdpContext(context);
@@ -113,7 +136,8 @@ async function launchBaselineContext(runFixture, runArtifactDir) {
   return launched;
 }
 
-async function recordBaselineRun(client, providerDelayMs) {
+async function recordBaselineRun(context, providerDelayMs) {
+  const { artifactDir: runArtifactDir, client } = context;
   const runId = `provider-delay-${providerDelayMs}`;
   const transcript = `Instant voice capture Phase 0 baseline transcript ${providerDelayMs}.`;
   provider.setTimingContext({ providerDelayMs, runId });
@@ -146,6 +170,7 @@ async function recordBaselineRun(client, providerDelayMs) {
   );
   await waitForBrowserEvent(client, runId, "transcript_completed_emitted");
   await waitForShellReadyForNextCapture(client);
+  await waitForRecordedMasterVoiceInput(runArtifactDir, transcript);
 
   const browserAfter = await browserTimingSnapshot(client);
   const providerAfter = provider.snapshotTiming();
@@ -156,7 +181,7 @@ async function recordBaselineRun(client, providerDelayMs) {
     .slice(providerEventCountBefore)
     .filter((event) => event.detail.runId === runId);
   const measurements = baselineMeasurements(browserEvents, providerEvents);
-  assertBaselineRun(runId, browserEvents, providerEvents, measurements, transcript);
+  assertBaselineRun(runId, browserEvents, providerEvents, measurements);
   return {
     browserEvents,
     measurements,
@@ -230,6 +255,80 @@ async function waitForShellReadyForNextCapture(client) {
   );
 }
 
+async function waitForRecordedMasterVoiceInput(runArtifactDir, transcript) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const events = await readJsonLinesWhileAppending(join(runArtifactDir, "ipc.jsonl"));
+    const starts = events.filter(
+      (event) =>
+        event.type === "ipc_start" &&
+        event.channel === "master:submit-input" &&
+        event.args?.[0]?.input?.text === transcript,
+    );
+    if (starts.length > 1) {
+      throw new Error(`voice transcript was submitted more than once: ${starts.length}`);
+    }
+    const completed = completedMasterInput(starts[0], events);
+    if (completed) {
+      assertRecordedMasterVoiceInput(completed, transcript);
+      return completed;
+    }
+    await delay(50);
+  }
+  throw new Error(`timed out waiting for durable voice transcript ${JSON.stringify(transcript)}`);
+}
+
+function completedMasterInput(start, events) {
+  if (!start) {
+    return null;
+  }
+  const finish = events.find(
+    (event) =>
+      event.type === "ipc_finish" &&
+      event.channel === "master:submit-input" &&
+      event.id === start.id,
+  );
+  return finish ? { accepted: finish.result, request: start.args[0] } : null;
+}
+
+function assertRecordedMasterVoiceInput(recorded, transcript) {
+  const input = recorded.request?.input;
+  const accepted = recorded.accepted;
+  assertRecordedMasterVoiceRequest(input, transcript, recorded);
+  assertAcceptedMasterVoiceInput(accepted, input, transcript, recorded);
+}
+
+function assertRecordedMasterVoiceRequest(input, transcript, recorded) {
+  assertObjectFields(input, { ...paneFreeVoiceRequestFields, text: transcript }, recorded);
+  if (typeof input?.id !== "string") {
+    throwRecordedMasterVoiceInputError(recorded);
+  }
+  if (input.id === "") {
+    throwRecordedMasterVoiceInputError(recorded);
+  }
+}
+
+function assertAcceptedMasterVoiceInput(accepted, input, transcript, recorded) {
+  assertObjectFields(
+    accepted?.input,
+    { ...voiceAcceptedInputFields, id: input?.id, text: transcript },
+    recorded,
+  );
+  assertObjectFields(accepted?.replyDelivery, nullReplyDeliveryFields, recorded);
+}
+
+function assertObjectFields(actual, expected, recorded) {
+  for (const [field, value] of Object.entries(expected)) {
+    if (actual?.[field] !== value) {
+      throwRecordedMasterVoiceInputError(recorded);
+    }
+  }
+}
+
+function throwRecordedMasterVoiceInputError(recorded) {
+  throw new Error(`voice master input drifted: ${JSON.stringify(recorded)}`);
+}
+
 function baselineMeasurements(browserEvents, providerEvents) {
   return {
     clickToCommitMs: elapsedBrowserMs(browserEvents, "capture_click", "transcript_commit_sent"),
@@ -283,7 +382,7 @@ function firstEvent(events, name) {
   return events.find((event) => event.name === name) ?? null;
 }
 
-function assertBaselineRun(runId, browserEvents, providerEvents, measurements, transcript) {
+function assertBaselineRun(runId, browserEvents, providerEvents, measurements) {
   assertRequiredTimingEvents(runId, "browser", browserEvents, [
     "capture_click",
     "microphone_request",
@@ -307,9 +406,6 @@ function assertBaselineRun(runId, browserEvents, providerEvents, measurements, t
     "sessionRequestToResponseMs",
     measurements.sessionRequestToResponseMs,
   );
-  if (typeof transcript !== "string" || transcript.length === 0) {
-    throw new Error(`${runId} did not complete the scripted transcript`);
-  }
 }
 
 function assertRequiredTimingEvents(runId, source, events, requiredNames) {
