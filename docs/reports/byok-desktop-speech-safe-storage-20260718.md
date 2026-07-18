@@ -1339,7 +1339,7 @@ unrecognized backend string plus acceptance of `gnome_libsecret`, `kwallet`,
 The local and hosted-access paths still cannot produce the remaining Windows
 or Linux host evidence from this session:
 
-- `docker version && docker info` found Docker CLI `28.0.4`, context
+- `docker version` and `docker info` found Docker CLI `28.0.4`, context
   `desktop-linux`, but could not connect to the Docker daemon at
   `unix:///Users/kevin/.docker/run/docker.sock`.
 - `docker desktop status` could not retrieve Docker Desktop status from the

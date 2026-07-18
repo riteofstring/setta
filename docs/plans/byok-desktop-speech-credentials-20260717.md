@@ -8,10 +8,10 @@ host confirmations are still open after the 2026-07-18 latest access recheck.
 The latest incomplete-step pass recorded in the safeStorage report re-ran the
 pinned macOS probe with exact policy, encryption-availability, and
 ciphertext-excludes-plaintext assertions and re-ran the deterministic vault
-backend-policy test successfully. It confirmed Docker CLI is installed but
-still cannot reach the daemon, Docker Desktop status is not retrievable from
-the CLI, no local Windows/Linux runner beyond Docker and Homebrew is available,
-no `GITHUB_TOKEN`, `GH_TOKEN`, SSH-agent identity, usable macOS HTTPS GitHub
+backend-policy test successfully. It confirmed Docker CLI and Homebrew are
+installed, Docker still cannot reach the daemon, Docker Desktop status is not
+retrievable from the CLI, no usable local Windows/Linux runner is available, no
+`GITHUB_TOKEN`, `GH_TOKEN`, SSH-agent identity, usable macOS HTTPS GitHub
 credential, authenticated SSH remote, public unauthenticated GitHub Actions
 result path, or connected GitHub plugin is available from this session, and the
 reference Codex repo has no Electron `safeStorage` probe pattern to reuse.
