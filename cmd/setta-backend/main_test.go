@@ -65,19 +65,18 @@ func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 func TestConfigFromArgsMapsDesktopSpeechProviderEnvironment(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	requested := map[string]int{}
 
-	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		switch name {
-		case "SETTA_E2E":
-			return "1"
-		case speech.APIKeyEnvironmentVariable:
-			return "secret value"
-		case speech.E2EBaseURLEnvironmentVariable:
-			return "http://127.0.0.1:24891/v1"
-		default:
-			return ""
-		}
-	})
+	config, err := configFromArgs(
+		[]string{"--app-data-dir", t.TempDir()},
+		&stdout,
+		&stderr,
+		trackedEnv(requested, map[string]string{
+			"SETTA_E2E":                          "1",
+			speech.APIKeyEnvironmentVariable:     "secret value",
+			speech.E2EBaseURLEnvironmentVariable: "http://127.0.0.1:24891/v1",
+		}),
+	)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -90,6 +89,7 @@ func TestConfigFromArgsMapsDesktopSpeechProviderEnvironment(t *testing.T) {
 	if config.Speech.BaseURL != "http://127.0.0.1:24891/v1" || !config.Speech.AllowTestBaseURL {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", config.Speech)
 	}
+	assertEnvNotRequested(t, requested, speech.APIKeyEnvironmentVariable)
 }
 
 func TestConfigFromArgsRejectsSpeechBaseURLWithoutE2EGuard(t *testing.T) {
@@ -110,17 +110,15 @@ func TestConfigFromArgsRejectsSpeechBaseURLWithoutE2EGuard(t *testing.T) {
 func TestConfigFromArgsIgnoresInheritedSpeechCredential(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	requested := map[string]int{}
 
 	config, err := configFromArgs(
 		[]string{"--app-data-dir", t.TempDir()},
 		&stdout,
 		&stderr,
-		func(name string) string {
-			if name == speech.APIKeyEnvironmentVariable {
-				return "secret value"
-			}
-			return ""
-		},
+		trackedEnv(requested, map[string]string{
+			speech.APIKeyEnvironmentVariable: "secret value",
+		}),
 	)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
@@ -131,8 +129,23 @@ func TestConfigFromArgsIgnoresInheritedSpeechCredential(t *testing.T) {
 	if config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerElectronVault {
 		t.Fatalf("speech credential owner = %q, want electron_vault", config.SpeechCredentialOwner)
 	}
+	assertEnvNotRequested(t, requested, speech.APIKeyEnvironmentVariable)
 }
 
 func emptyEnv(string) string {
 	return ""
+}
+
+func trackedEnv(requested map[string]int, values map[string]string) func(string) string {
+	return func(name string) string {
+		requested[name]++
+		return values[name]
+	}
+}
+
+func assertEnvNotRequested(t *testing.T, requested map[string]int, name string) {
+	t.Helper()
+	if requested[name] != 0 {
+		t.Fatalf("environment variable %s was requested %d time(s)", name, requested[name])
+	}
 }

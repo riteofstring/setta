@@ -5,17 +5,16 @@
 **Status:** In progress — Phase 0 click-to-local-recording independence and
 the `safeStorage` API/local macOS probe are recorded; remaining `safeStorage`
 host confirmations are still open after the 2026-07-18 and current local
-attempts. Phase 1 has removed desktop startup API-key ownership from the
-Electron-spawned backend, split provider endpoint configuration from
-server-startup credentials, declared the explicit
-`electron_vault | server_startup` credential-owner policy, and introduced the
-synchronized credential-aware OpenAI provider controller plus service-level
-credential validation, load, clear, non-secret status, and classified
-malformed-credential errors. The authenticated bounded desktop credential HTTP
-endpoints are now registered in the endpoint registry, `server_startup`
-runtimes reject desktop credential management with a typed safe error, and the
-Go-owned TypeScript backend contracts have been regenerated at protocol version
-63.
+attempts. Phase 1 is complete: desktop startup API-key ownership has been
+removed from the Electron-spawned backend, provider endpoint configuration is
+isolated from server-startup credentials, the explicit
+`electron_vault | server_startup` credential-owner policy is declared, the
+synchronized credential-aware OpenAI provider controller and service-level
+credential validation/load/clear/status paths are in place, authenticated
+bounded desktop credential HTTP endpoints are registered, `server_startup`
+runtimes reject desktop credential management with a typed safe error, Go-owned
+TypeScript backend contracts have been regenerated at protocol version 63, and
+desktop behavior tests now assert that inherited `OPENAI_API_KEY` is not read.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -568,7 +567,7 @@ environment-based desktop product behavior.
 - [x] Register authenticated, bounded HTTP endpoints in the endpoint registry.
 - [x] Reject desktop management operations in `server_startup`.
 - [x] Regenerate Go-owned TypeScript backend contracts before cleanup.
-- [ ] Remove API-key environment loading from `cmd/setta-backend`, isolate the
+- [x] Remove API-key environment loading from `cmd/setta-backend`, isolate the
       server-startup loader, and replace only the desktop behavior tests.
 
 ### Phase 2 — Electron secure storage and lifecycle

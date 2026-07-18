@@ -13,16 +13,14 @@ func TestBackendConfigIgnoresInheritedSpeechCredentialAndDoesNotPrintIt(t *testi
 	const credential = "sk-setta invalid backend speech credential"
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	requested := map[string]int{}
 	config, err := configFromArgs(
 		[]string{"--app-data-dir", t.TempDir()},
 		&stdout,
 		&stderr,
-		func(name string) string {
-			if name == speech.APIKeyEnvironmentVariable {
-				return credential
-			}
-			return ""
-		},
+		trackedEnv(requested, map[string]string{
+			speech.APIKeyEnvironmentVariable: credential,
+		}),
 	)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
@@ -36,4 +34,5 @@ func TestBackendConfigIgnoresInheritedSpeechCredentialAndDoesNotPrintIt(t *testi
 	if strings.Contains(stdout.String(), credential) || strings.Contains(stderr.String(), credential) {
 		t.Fatal("backend launch output contains the rejected speech credential")
 	}
+	assertEnvNotRequested(t, requested, speech.APIKeyEnvironmentVariable)
 }

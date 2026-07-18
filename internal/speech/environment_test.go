@@ -34,8 +34,10 @@ func TestOpenAIStartupConfigFromServerEnvironmentLeavesSpeechOptional(t *testing
 	}
 }
 
-func TestOpenAIProviderConfigFromDesktopEnvironmentIgnoresOpenAIAPIKey(t *testing.T) {
+func TestOpenAIProviderConfigFromDesktopEnvironmentDoesNotReadOpenAIAPIKey(t *testing.T) {
+	requested := map[string]int{}
 	config, err := OpenAIProviderConfigFromDesktopEnvironment(func(name string) string {
+		requested[name]++
 		if name == APIKeyEnvironmentVariable {
 			return "secret value"
 		}
@@ -46,6 +48,9 @@ func TestOpenAIProviderConfigFromDesktopEnvironmentIgnoresOpenAIAPIKey(t *testin
 	}
 	if config != (OpenAIProviderConfig{}) {
 		t.Fatalf("desktop provider config = %+v, want production defaults", config)
+	}
+	if requested[APIKeyEnvironmentVariable] != 0 {
+		t.Fatalf("desktop provider environment requested %s", APIKeyEnvironmentVariable)
 	}
 }
 
