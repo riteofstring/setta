@@ -44,6 +44,23 @@ export interface ConversationCreationCommandOptions {
   request: ConversationCreationRequest;
 }
 
+export interface ConversationPlacementPreflightQueue {
+  current: Promise<void>;
+}
+
+export function enqueueConversationPlacementPreflight(
+  queue: ConversationPlacementPreflightQueue,
+  preflightPlacement: (request: ConversationPanePlacementRequest) => Promise<void>,
+  request: ConversationPanePlacementRequest,
+): Promise<void> {
+  const pending = queue.current.then(() => preflightPlacement(request));
+  queue.current = pending.then(
+    () => undefined,
+    () => undefined,
+  );
+  return pending;
+}
+
 export async function createAndPresentConversation({
   createConversation,
   ensureWorkspaceAvailable,

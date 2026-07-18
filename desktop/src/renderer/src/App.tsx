@@ -21,6 +21,7 @@ import {
   createAndPresentConversation,
   conversationCreationRequestEvent,
   conversationCreationRequestKey,
+  enqueueConversationPlacementPreflight,
   type ConversationCreationEventDetail,
   type ConversationCreationRequest,
   type ConversationCreationResult,
@@ -105,6 +106,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     null,
   );
   const conversationPresentationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const conversationPlacementPreflightQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingConversationCreationsRef = useRef(new Set<string>());
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
   const mobileViewport = isMobileViewportWidth(viewport.width);
@@ -179,7 +181,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     },
     [applyConversationPresentationRequest],
   );
-  const preflightConversationPlacementRequest = useCallback(
+  const dispatchConversationPlacementPreflightRequest = useCallback(
     (request: ConversationPanePlacementRequest): Promise<void> =>
       new Promise<void>((resolve, reject) => {
         setWorkspaceConversationPlacementPreflightRequest((current) => ({
@@ -195,6 +197,15 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         }));
       }),
     [],
+  );
+  const preflightConversationPlacementRequest = useCallback(
+    (request: ConversationPanePlacementRequest): Promise<void> =>
+      enqueueConversationPlacementPreflight(
+        conversationPlacementPreflightQueueRef,
+        dispatchConversationPlacementPreflightRequest,
+        request,
+      ),
+    [dispatchConversationPlacementPreflightRequest],
   );
   const ensureConversationWorkspaceAvailable = useCallback((workspaceId: string) => {
     if (workspaceId.length === 0) {
