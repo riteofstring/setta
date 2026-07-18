@@ -182,6 +182,7 @@ func validateLayout(layout WorkspaceUILayout, path string) error {
 func validatePanes(panes []WorkspaceUIPane, path string) (map[string]WorkspaceUIPane, error) {
 	panesByID := map[string]WorkspaceUIPane{}
 	surfaceIDs := map[string]bool{}
+	easyButtonConversationPaneIDs := map[string]string{}
 	for index, pane := range panes {
 		if err := validatePane(pane, index, path); err != nil {
 			return nil, err
@@ -193,6 +194,19 @@ func validatePanes(panes []WorkspaceUIPane, path string) (map[string]WorkspaceUI
 			return nil, corruptStateErrorf(path, "duplicate surfaceId %s", pane.SurfaceID)
 		}
 		surfaceIDs[pane.SurfaceID] = true
+		if pane.SurfaceKind == SurfaceKindEasyButton {
+			conversationID := pane.EasyButtonConfig.ConversationID
+			if existingPaneID, ok := easyButtonConversationPaneIDs[conversationID]; ok {
+				return nil, corruptStateErrorf(
+					path,
+					"conversation %s is bound to multiple easy-button panes: %s and %s",
+					conversationID,
+					existingPaneID,
+					pane.PaneID,
+				)
+			}
+			easyButtonConversationPaneIDs[conversationID] = pane.PaneID
+		}
 		panesByID[pane.PaneID] = pane
 	}
 	return panesByID, nil

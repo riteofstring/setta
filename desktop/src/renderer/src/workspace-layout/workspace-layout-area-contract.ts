@@ -4,7 +4,10 @@ import type { DesktopPlatform } from "@shared/types";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { InitialEasyButtonPaneStartup } from "../features/easy-button/initial-easy-button-pane";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
-import type { WorkspaceConversationFocusRequest } from "./conversation-pane-runtime";
+import type {
+  WorkspaceConversationFocusRequest,
+  WorkspaceConversationPlacementPreflightRequest,
+} from "./conversation-pane-runtime";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import type { WorkspaceSurfaceFocusRequest } from "./workspace-layout-area-runtime";
 
@@ -13,6 +16,7 @@ export interface WorkspaceLayoutAreaProps {
   focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
   initialEasyButtonPaneStartup?: InitialEasyButtonPaneStartup;
   onConversationPresentationError?: (message: string | null) => void;
+  placementPreflightRequest?: WorkspaceConversationPlacementPreflightRequest | null;
   onToggleProjectPane: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -30,6 +34,7 @@ export interface WorkspaceLayoutRuntimeAreaProps {
   layoutLoadError: string | null;
   mode: WorkspaceSceneMode;
   onConversationPresentationError?: (message: string | null) => void;
+  placementPreflightRequest: WorkspaceConversationPlacementPreflightRequest | null;
   onToggleProjectPane: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;

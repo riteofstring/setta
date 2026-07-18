@@ -123,6 +123,12 @@ type SubscribeConversationEventsRequest struct {
 	ConversationID string `json:"conversationId"`
 }
 
+type SpeechCredentialRequest struct {
+	APIKey string `json:"apiKey"`
+}
+
+type ClearDesktopSpeechCredentialRequest struct{}
+
 type CreateSpeechTranscriptionSessionRequest struct{}
 
 type APIError struct {
