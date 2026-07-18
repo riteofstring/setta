@@ -1,4 +1,10 @@
-import type { WorkspaceColumn, WorkspacePane, WorkspaceScene, SurfaceKind } from "./types";
+import type {
+  WorkspaceColumn,
+  WorkspacePane,
+  WorkspaceScene,
+  NonEasyButtonSurfaceKind,
+  SurfaceKind,
+} from "./types";
 
 export const phaseOneFakePaneCount = 500;
 export const phaseOneVisiblePaneCount = 40;
@@ -6,27 +12,19 @@ export const phaseOneVisiblePaneCount = 40;
 const defaultPanesPerColumn = 5;
 const toneSequence = ["cyan", "green", "orange", "pink", "slate"] as const;
 const workKinds = ["notes", "diff", "trace", "task", "search"] as const;
-const seededSurfaceKinds = new Map<number, SurfaceKind>([
-  [1, "fake-long-chat"],
+const seededSurfaceKinds = new Map<number, NonEasyButtonSurfaceKind>([
+  [1, "fake-heavy-dom"],
   [2, "settings-dom"],
-  [3, "chat-dom"],
+  [3, "fake-dom"],
 ]);
 const surfaceKindLabels = {
   browser: "browser",
-  "chat-dom": "real chat",
+  "easy-button": "easy button",
   "empty-frame": "empty frame",
   "fake-dom": "fake light",
   "fake-heavy-dom": "fake heavy",
-  "fake-long-chat": "fake long chat",
-  "fake-terminal": "fake terminal",
-  "git-graph": "git graph",
-  "workflow-graph": "workflow graph",
   "settings-dom": "real settings",
-  "semantic-node-details": "semantic node",
   snapshot: "snapshot",
-  terminal: "terminal",
-  "workflow-node-details": "workflow node",
-  "workflow-settings": "workflow settings",
 } satisfies Record<SurfaceKind, string>;
 
 export interface BenchmarkSceneOptions {
@@ -75,7 +73,7 @@ export function generateBenchmarkScene({
     columnGap: 8,
     columns,
     defaultColumnWidthSpec: { unit: "proportion", value: 1 / visibleColumnCount },
-    id: "phase-6-terminal-git-graph-benchmark",
+    id: "workspace-dom-browser-benchmark",
     paneById,
     panes,
     panesPerColumn,
@@ -106,7 +104,7 @@ function createFakePane(columnId: string, sequence: number, rowIndex: number): W
   };
 }
 
-function fakeSurfaceKind(sequence: number): SurfaceKind {
+function fakeSurfaceKind(sequence: number): NonEasyButtonSurfaceKind {
   const seededKind = seededSurfaceKinds.get(sequence);
   if (seededKind) {
     return seededKind;
@@ -114,20 +112,8 @@ function fakeSurfaceKind(sequence: number): SurfaceKind {
   if (isBrowserPaneSequence(sequence)) {
     return "browser";
   }
-  if (isWorkflowGraphPaneSequence(sequence)) {
-    return "workflow-graph";
-  }
-  if (isTerminalPaneSequence(sequence)) {
-    return "fake-terminal";
-  }
-  if (isGitGraphPaneSequence(sequence)) {
-    return "git-graph";
-  }
   const slot = sequence % 12;
-  if (slot === 4) {
-    return "workflow-graph";
-  }
-  if (slot >= 5 && slot <= 7) {
+  if (slot >= 4 && slot <= 7) {
     return "fake-heavy-dom";
   }
   return "fake-dom";
@@ -135,18 +121,6 @@ function fakeSurfaceKind(sequence: number): SurfaceKind {
 
 function isBrowserPaneSequence(sequence: number): boolean {
   return sequence >= 8 && (sequence - 8) % 8 === 0;
-}
-
-function isWorkflowGraphPaneSequence(sequence: number): boolean {
-  return sequence >= 4 && (sequence - 4) % 120 === 0;
-}
-
-function isTerminalPaneSequence(sequence: number): boolean {
-  return sequence >= 5 && (sequence - 5) % 80 === 0;
-}
-
-function isGitGraphPaneSequence(sequence: number): boolean {
-  return sequence >= 6 && (sequence - 6) % 80 === 0;
 }
 
 function surfaceKindLabel(kind: SurfaceKind): string {

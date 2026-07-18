@@ -13,14 +13,14 @@ Inspect or narrow the manifest directly:
 
 ```sh
 node desktop/tests/electron/run-workflows.mjs --list
-node desktop/tests/electron/run-workflows.mjs --workflow workflow-blank-canvas
+node desktop/tests/electron/run-workflows.mjs --workflow topic-conversation-pane-projection
 node desktop/tests/electron/run-workflows.mjs --tier performance
 ```
 
-Run the deterministic chat workflows through the root script wrapper:
+Run the deterministic topic-conversation workflow through the root script wrapper:
 
 ```sh
-./scripts/test_chat_workflows.sh --deterministic-only
+./scripts/test_topic_conversation_workflows.sh --deterministic-only
 ```
 
 The wrapper builds the desktop app unless `--skip-build` is provided, delegates

@@ -1,0 +1,172 @@
+@keyframes easy-button-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: scale(0.94);
+  }
+
+  50% {
+    opacity: 0.62;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes easy-button-confirm-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--easy-button-primary) 45%, transparent);
+  }
+
+  100% {
+    box-shadow: 0 0 0 26px color-mix(in oklch, var(--easy-button-primary) 0%, transparent);
+  }
+}
+
+@keyframes easy-button-dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--easy-button-primary) 55%, transparent);
+  }
+
+  60% {
+    box-shadow: 0 0 0 5px color-mix(in oklch, var(--easy-button-primary) 0%, transparent);
+  }
+}
+
+@keyframes easy-button-focus-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes easy-button-swirl-spin-cw {
+  from {
+    transform: rotate(0deg) scale(var(--sc));
+  }
+
+  to {
+    transform: rotate(360deg) scale(var(--sc));
+  }
+}
+
+@keyframes easy-button-swirl-spin-ccw {
+  from {
+    transform: rotate(0deg) scale(var(--sc));
+  }
+
+  to {
+    transform: rotate(-360deg) scale(var(--sc));
+  }
+}
+
+@keyframes easy-button-swirl-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.09);
+  }
+}
+
+@keyframes easy-button-artifact-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes easy-button-highlight-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes easy-button-status-card-lifetime {
+  0%,
+  82% {
+    border-color: var(--easy-button-primary);
+    max-height: min(16vh, 118px);
+    opacity: 1;
+    padding-bottom: 7px;
+    padding-top: 7px;
+  }
+
+  100% {
+    border-color: transparent;
+    max-height: 0;
+    opacity: 0;
+    padding-bottom: 0;
+    padding-top: 0;
+  }
+}
+
+/* The pane *host* is the query container, not the surface: the rules below
+   rewrite the surface's own `grid-template-columns`, and an element cannot query
+   its own size. Keying on the host's inline size makes a narrow *pane* — not a
+   narrow window — collapse to a single column, which is what a default-width
+   (~520px) Easy Button pane needs: at 520px the two 260px side rails consume the
+   whole row and starve the center stage to ~0px. `conversation-presentation-identity`
+   sits on conversation pane hosts only, so no other surface kind becomes a
+   container. */
+.workspace-pane-host.conversation-presentation-identity {
+  container: easy-button-pane / inline-size;
+}
+
+@container easy-button-pane (max-width: 720px) {
+  .easy-button-surface {
+    --easy-button-well: clamp(118px, 36cqi, 156px);
+
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .easy-button-rail {
+    display: none;
+  }
+
+  .easy-button-stage {
+    padding: 18px 16px;
+  }
+
+  .easy-button-footer {
+    padding: 0 16px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .easy-button-surface,
+  .easy-button-surface *,
+  .easy-button-surface *::before,
+  .easy-button-surface *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .easy-button-control::after {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+
+  /* The field still has to say "working", so it stays visible — just still, and
+     dimmer than the 0.85 it fades to when motion is allowed. Same selector as
+     the unreduced rule and later in the file, so it wins on source order. */
+  .easy-button-surface[data-easy-button-state="working"] .easy-button-swirl {
+    opacity: 0.5;
+  }
+}

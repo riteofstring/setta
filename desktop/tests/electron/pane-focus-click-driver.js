@@ -67,15 +67,16 @@
   function paneSummary(host, stageRect) {
     const rect = elementRect(host);
     const topBar = host.querySelector(".workspace-pane-top-bar");
+    const content = paneClickTarget(host, "content");
     return {
       closeClickable: closeButtonClickable(host),
+      contentClickable: content instanceof HTMLElement && elementIntersectsViewport(content),
       focused: host.dataset.focused === "true",
       hasTopBar: topBar instanceof HTMLElement,
       paneId: host.dataset.paneId ?? "",
       rect,
       stageContained: rectInsideRect(rect, stageRect),
       surfaceKind: host.dataset.surfaceKind ?? "",
-      terminalReady: Boolean(host.querySelector(".xterm-helper-textarea")),
       topBarClickable: topBar instanceof HTMLElement && elementIntersectsViewport(topBar),
       visible: host.dataset.visible === "true",
     };
@@ -87,58 +88,53 @@
   }
 
   function paneFocusScenarioFromPanes(panes) {
-    for (const terminal of terminalPaneCandidates(panes)) {
-      const focusAway = focusAwayPaneForTerminal(panes, terminal);
+    for (const contentPane of contentPaneCandidates(panes)) {
+      const focusAway = focusAwayPaneForContentPane(panes, contentPane);
       if (focusAway) {
-        return paneFocusScenario(panes, terminal, focusAway);
+        return paneFocusScenario(panes, contentPane, focusAway);
       }
     }
-    return { ok: false, reason: "missing-contained-terminal-and-clickable-focus-away-pane" };
+    return { ok: false, reason: "missing-contained-content-and-clickable-focus-away-pane" };
   }
 
-  function terminalPaneCandidates(panes) {
-    return panes.filter(terminalPaneReady).toSorted(sortFocusedFirst);
-  }
-
-  function terminalPaneReady(pane) {
-    return (
-      pane.surfaceKind === "terminal" && pane.stageContained && pane.terminalReady && pane.hasTopBar
-    );
-  }
-
-  function sortFocusedFirst(left, right) {
-    return Number(right.focused) - Number(left.focused);
-  }
-
-  function focusAwayPaneForTerminal(panes, terminal) {
+  function contentPaneCandidates(panes) {
     return panes
-      .filter((pane) => focusAwayPaneReady(pane, terminal))
-      .toSorted(sortNearTerminal(terminal))
+      .filter(contentPaneReady)
+      .toSorted((left, right) => right.rect.left - left.rect.left);
+  }
+
+  function contentPaneReady(pane) {
+    return pane.stageContained && pane.contentClickable && pane.hasTopBar;
+  }
+
+  function focusAwayPaneForContentPane(panes, contentPane) {
+    return panes
+      .filter((pane) => focusAwayPaneReady(pane, contentPane))
+      .toSorted(sortNearContentPane(contentPane))
       .at(0);
   }
 
-  function focusAwayPaneReady(pane, terminal) {
+  function focusAwayPaneReady(pane, contentPane) {
     return (
-      pane.paneId !== terminal.paneId &&
-      pane.surfaceKind !== "terminal" &&
+      pane.paneId !== contentPane.paneId &&
       pane.topBarClickable &&
-      rectsVerticallyOverlap(pane, terminal)
+      rectsVerticallyOverlap(pane, contentPane)
     );
   }
 
-  function sortNearTerminal(terminal) {
+  function sortNearContentPane(contentPane) {
     return (left, right) =>
       Number(right.stageContained) - Number(left.stageContained) ||
-      Math.abs(rectCenterX(left) - rectCenterX(terminal)) -
-        Math.abs(rectCenterX(right) - rectCenterX(terminal));
+      Math.abs(rectCenterX(left) - rectCenterX(contentPane)) -
+        Math.abs(rectCenterX(right) - rectCenterX(contentPane));
   }
 
-  function paneFocusScenario(panes, terminal, focusAway) {
+  function paneFocusScenario(panes, contentPane, focusAway) {
     return {
+      contentPaneId: contentPane.paneId,
       focusAwayPaneId: focusAway.paneId,
-      minimal: panes.length === 2 && terminal.stageContained && focusAway.stageContained,
+      minimal: panes.length === 2 && contentPane.stageContained && focusAway.stageContained,
       ok: true,
-      terminalPaneId: terminal.paneId,
     };
   }
 
@@ -165,10 +161,7 @@
     if (targetKind === "top-bar") {
       return host.querySelector(".workspace-pane-top-bar");
     }
-    if (host.dataset.surfaceKind !== "terminal") {
-      return host;
-    }
-    return host.querySelector(".workspace-xterm-viewport") ?? host.querySelector(".xterm-screen");
+    return host.querySelector(".workspace-pane-content") ?? host;
   }
 
   function missingPaneClickTarget(host, targetKind) {
