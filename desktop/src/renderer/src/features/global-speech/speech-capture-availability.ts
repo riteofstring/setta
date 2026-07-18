@@ -27,7 +27,7 @@ export function speechAvailabilityForCapabilities(
   }
   if (capabilities.providerStatus === "not_configured") {
     return {
-      message: "Voice needs OPENAI_API_KEY on the runtime. Typed requests still work.",
+      message: "Voice is not connected. Add your OpenAI API key in Settings > Voices.",
       type: "not_configured",
     };
   }

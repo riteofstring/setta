@@ -28,7 +28,9 @@ the selected active runtime. Phase 3 has started: Settings → Voices now shows
 the OpenAI voice connection card backed by the typed credential IPC state, with
 save/verify, replace, disconnect, retry, secure-storage-unavailable, corrupt,
 and failure presentations plus local-only/remote-runtime boundary copy and no
-rendered saved-key fragment.
+rendered saved-key fragment. The remaining local-desktop voice availability and
+failure copy no longer tells users to configure voice through environment
+variables.
 
 **Relationship to existing plans:** This plan changes credential ownership for
 the Electron-spawned local runtime only. It preserves the capture, WebRTC,
@@ -602,7 +604,7 @@ environment-based desktop product behavior.
 - [x] Add the OpenAI voice connection card to Settings → Voices.
 - [x] Add save/verify, replace, disconnect, secure-storage-unavailable, corrupt,
       and retry presentations.
-- [ ] Replace environment-variable language throughout local-desktop voice
+- [x] Replace environment-variable language throughout local-desktop voice
       availability and failure surfaces.
 - [ ] Route unavailable microphone actions to the Voices credential card.
 - [ ] Keep voice catalog/selection configuration usable while disconnected.
