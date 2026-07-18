@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 
-**Status:** Phase 4 complete — deterministic production-path workflow coverage and after-results are recorded; the live OpenAI processed-track smoke workflow is registered and remains pending until credentials are deliberately available.
+**Status:** Phase 4 complete — deterministic production-path workflow coverage and after-results are recorded; the live OpenAI processed-track smoke workflow is registered and remains pending until credentials are deliberately available. The latest credential-gated verification on 2026-07-17T23:15:13Z recorded a blocked artifact because `OPENAI_API_KEY` was absent from the task environment.
 
 **Scope:** Every microphone entry point backed by the app-shell speech capture controller: Easy Button panes, the shell status control, the Global master overlay, and the Global master shortcut.
 
@@ -20,7 +20,7 @@ This is a replacement, not a compatibility project.
 - [x] Phase 0.1 — Deterministic Electron speech harness captures click, microphone grant, local capture-readiness proxy, transcription-session response, WebRTC readiness, finish, commit, and completed-transcript timing.
 - [x] Phase 0.2 — Current click-to-`listening` baseline recorded with deterministic 0 ms, 500 ms, and 1,500 ms transcription-session delays in `docs/reports/performance/instant-voice-capture-phase0-20260717.md`.
 - [x] Phase 0.3 — Disposable browser AudioWorklet-gated `MediaStreamAudioDestinationNode` feasibility harness proves retained prefix, drain tail, and RTCPeerConnection acceptance.
-- [ ] Phase 0.4 — Live OpenAI processed-track smoke result appended when credentials are deliberately available. The gated workflow `instant-voice-capture-phase0-live-openai` now fails loudly without credentials and records a blocked artifact; credential check on 2026-07-17 still found no `OPENAI_API_KEY` in the task environment, so this remains pending rather than skipped as evidence.
+- [ ] Phase 0.4 — Live OpenAI processed-track smoke result appended when credentials are deliberately available. The gated workflow `instant-voice-capture-phase0-live-openai` now fails loudly without credentials and records a blocked artifact; credential check on 2026-07-17T23:15:13Z still found no `OPENAI_API_KEY` in the task environment, so this remains pending rather than skipped as evidence.
 - [x] Phase 1 — Build the buffered microphone lease.
 - [x] Phase 2 — Make local capture the controller boundary.
 - [x] Phase 3 — Make every mic surface honest and immediately actionable.
