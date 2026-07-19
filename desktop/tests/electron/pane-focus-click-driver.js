@@ -12,6 +12,7 @@
     }
     Object.assign(driver, {
       paneClickPoint,
+      paneFocusCloseFirstEasyButtonPane,
       paneFocusClickVersion: version,
       paneFocusWorkflowState,
     });
@@ -85,6 +86,21 @@
   function closeButtonClickable(host) {
     const closeButton = host.querySelector('[data-workspace-pane-action="close"]');
     return closeButton instanceof HTMLButtonElement && !closeButton.disabled;
+  }
+
+  function paneFocusCloseFirstEasyButtonPane() {
+    const host = visiblePaneHosts().find(
+      (candidate) => candidate.dataset.surfaceKind === "easy-button",
+    );
+    const closeButton = host?.querySelector('[data-workspace-pane-action="close"]');
+    if (!(host instanceof HTMLElement) || !(closeButton instanceof HTMLButtonElement)) {
+      return { clicked: false, reason: "missing-easy-button-pane" };
+    }
+    if (closeButton.disabled) {
+      return { clicked: false, paneId: host.dataset.paneId ?? "", reason: "disabled" };
+    }
+    closeButton.click();
+    return { clicked: true, paneId: host.dataset.paneId ?? "" };
   }
 
   function paneFocusScenarioFromPanes(panes) {

@@ -262,6 +262,7 @@ function conversationSnapshot(sequence: number): ConversationSnapshot {
       topicDescriptor: "Projection runtime",
       updatedAt: timestamp,
     },
+    pendingApprovals: [],
     presentationProfile: {
       conversationId,
       narratorSpeechEnabled: true,

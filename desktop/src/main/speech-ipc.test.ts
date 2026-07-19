@@ -75,6 +75,7 @@ describe("speech IPC handlers", () => {
       ipcMain,
       ipcObserver: observer,
       requireBackendClient: () => backend,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
     });
 
     const capabilities = await invoke(handlers, ipcChannels.speechReadCapabilities);
@@ -157,6 +158,7 @@ describe("speech IPC handlers", () => {
         },
       } as Pick<IpcMain, "handle">,
       requireBackendClient: () => backend,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
     });
     const request = {
       operationId: "speech-cancel",
@@ -178,6 +180,76 @@ describe("speech IPC handlers", () => {
       signal: expect.objectContaining({ aborted: true }),
     });
   });
+
+  test("routes credential management through the local coordinator", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const activeRuntimeBackend = {
+      clearDesktopSpeechCredential: vi.fn(() => {
+        throw new Error("active runtime credential clear must not be called");
+      }),
+      loadDesktopSpeechCredential: vi.fn(() => {
+        throw new Error("active runtime credential load must not be called");
+      }),
+      validateDesktopSpeechCredential: vi.fn(() => {
+        throw new Error("active runtime credential validation must not be called");
+      }),
+    } as unknown as BackendClient;
+    const coordinator = credentialCoordinator();
+
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireBackendClient: () => activeRuntimeBackend,
+      requireSpeechCredentialCoordinator: () => coordinator,
+    });
+
+    const read = await invoke(handlers, ipcChannels.speechReadCredentialSettings);
+    const saved = await invoke(handlers, ipcChannels.speechSaveCredential, {
+      apiKey: " ipc-whitespace-candidate ",
+    });
+    const removed = await invoke(handlers, ipcChannels.speechRemoveCredential);
+
+    expect(read).toEqual({ provider: "openai", status: "not_configured" });
+    expect(saved).toEqual({ provider: "openai", status: "configured" });
+    expect(removed).toEqual({ provider: "openai", status: "not_configured" });
+    expect(coordinator.saveCredential).toHaveBeenCalledWith({
+      apiKey: " ipc-whitespace-candidate ",
+    });
+    expect(activeRuntimeBackend.validateDesktopSpeechCredential).not.toHaveBeenCalled();
+    expect(activeRuntimeBackend.loadDesktopSpeechCredential).not.toHaveBeenCalled();
+    expect(activeRuntimeBackend.clearDesktopSpeechCredential).not.toHaveBeenCalled();
+  });
+
+  test("rejects malformed credential save requests before the coordinator", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const coordinator = credentialCoordinator();
+
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => coordinator,
+    });
+
+    const settings = await invoke(handlers, ipcChannels.speechSaveCredential, {
+      apiKey: "sk-setta-ipc-credential",
+      duplicateSecret: "sk-setta-ipc-duplicate",
+    });
+
+    expect(settings).toEqual({
+      message: "Speech credential save request is invalid.",
+      operation: "save",
+      status: "failed",
+    });
+    expect(JSON.stringify(settings)).not.toContain("sk-setta-ipc");
+    expect(coordinator.saveCredential).not.toHaveBeenCalled();
+  });
 });
 
 function observerSpies() {
@@ -185,6 +257,23 @@ function observerSpies() {
     failed: vi.fn<IpcObserver["failed"]>(),
     finished: vi.fn<IpcObserver["finished"]>(),
     started: vi.fn<IpcObserver["started"]>(),
+  };
+}
+
+function credentialCoordinator() {
+  return {
+    readCredentialSettings: vi.fn(async () => ({
+      provider: "openai" as const,
+      status: "not_configured" as const,
+    })),
+    removeCredential: vi.fn(async () => ({
+      provider: "openai" as const,
+      status: "not_configured" as const,
+    })),
+    saveCredential: vi.fn(async () => ({
+      provider: "openai" as const,
+      status: "configured" as const,
+    })),
   };
 }
 

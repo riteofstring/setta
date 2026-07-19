@@ -8,11 +8,13 @@ import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useConversationNavigatorStore } from "./stores/conversation-navigator-store";
 import { useConversationPaneStore } from "./stores/conversation-pane-store";
+import { useSettingsNavigationStore } from "./stores/settings-navigation-store";
 
 beforeEach(() => {
   useAppearanceStore.setState(useAppearanceStore.getInitialState(), true);
   useConversationNavigatorStore.setState(useConversationNavigatorStore.getInitialState(), true);
   useConversationPaneStore.setState(useConversationPaneStore.getInitialState(), true);
+  useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
 });
 
 describe("workspace renderer states", () => {
@@ -97,7 +99,7 @@ describe("workspace renderer states", () => {
     const focused = {
       focusedConversationId: "conversation_api",
       focusedPaneId: "pane_api",
-      paneIdsByConversationId: new Map([["conversation_api", ["pane_api"]]]),
+      paneIdByConversationId: new Map([["conversation_api", "pane_api"]]),
     };
 
     expect(masterInputFocusHints("workspace_api", focused)).toEqual({
@@ -118,9 +120,10 @@ describe("workspace renderer states", () => {
         activeWorkspaces={[]}
         busy={false}
         closeWorkspace={async () => {}}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -132,7 +135,7 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain("Conversations");
     expect(hasAriaLabel(html, "Search conversations")).toBe(false);
-    expect(hasAriaLabel(html, "Create topic conversation")).toBe(false);
+    expect(hasAriaLabel(html, "New conversation")).toBe(true);
     expect(hasAriaLabel(html, "Open project folder")).toBe(true);
   });
 
@@ -157,9 +160,10 @@ describe("workspace renderer states", () => {
         activeWorkspaces={[api, web]}
         busy={false}
         closeWorkspace={async () => {}}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[web, api]}
         removeRecent={async () => {}}
@@ -171,7 +175,7 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain("web");
     expect(hasAriaLabel(html, "Conversations")).toBe(true);
-    expect(hasAriaLabel(html, "New conversation in web")).toBe(false);
+    expect(hasAriaLabel(html, "New conversation")).toBe(true);
     expect(html).toContain("Build web UI");
   });
 
@@ -182,9 +186,10 @@ describe("workspace renderer states", () => {
         busy={false}
         clearWorkspaceError={() => {}}
         closeWorkspace={async () => {}}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -221,9 +226,10 @@ describe("workspace renderer states", () => {
         activeWorkspaces={[api, web]}
         busy={false}
         closeWorkspace={async () => {}}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -262,9 +268,10 @@ describe("workspace renderer states", () => {
         activeWorkspaces={[web]}
         busy={false}
         closeWorkspace={async () => {}}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -275,7 +282,7 @@ describe("workspace renderer states", () => {
     );
 
     expect(hasAriaLabel(html, "Conversation failed")).toBe(true);
-    expect(hasAriaLabelContaining(html, "Build web UI, Failed, no open views")).toBe(true);
+    expect(hasAriaLabelContaining(html, "Build web UI, Failed, not open")).toBe(true);
   });
 
   test("renders the durable working status in the navigator", () => {
@@ -296,9 +303,10 @@ describe("workspace renderer states", () => {
         activeWorkspaces={[web]}
         busy={false}
         closeWorkspace={async () => {}}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -331,9 +339,10 @@ describe("workspace renderer states", () => {
         activeWorkspaces={[web]}
         busy={false}
         closeWorkspace={async () => {}}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -362,9 +371,10 @@ describe("workspace renderer states", () => {
         activeWorkspaces={workspaces}
         busy={false}
         closeWorkspace={async () => {}}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
+        openSettingsPage={() => {}}
         presentConversation={async () => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}

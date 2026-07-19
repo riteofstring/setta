@@ -723,15 +723,17 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 			"observedThroughSequence": bundle.EvaluationRange.End,
 			"milestones":              []string{},
 		}
-		if runtime.emitProjectionMilestones && bundle.RequestedChannel == ProjectionChannelWorking &&
+		if runtime.emitProjectionMilestones &&
+			bundle.RequestedChannel == ProjectionChannelWorking &&
+			bundle.Trigger == conversation.NarrationTriggerApprovalRequired &&
 			len(bundle.PriorMilestones) == 0 {
 			output["milestones"] = []string{
-				fmt.Sprintf("Narrator evaluated projector catch-up through sequence %d.", bundle.EvaluationRange.End),
+				fmt.Sprintf("The backlog now covers event %d.", bundle.EvaluationRange.End),
 			}
 		}
 		if bundle.RequestedChannel == ProjectionChannelTerminal {
 			output["kind"] = string(CallOutputTerminalProjection)
-			output["finalSummary"] = "The durable terminal backlog was fully evaluated."
+			output["finalSummary"] = "The terminal backlog is fully caught up."
 		}
 		encoded, err := json.Marshal(output)
 		return call, encoded, err
@@ -1268,7 +1270,7 @@ func assertTerminalProjectorState(
 		final.Trigger != conversation.NarrationTriggerTurnTerminal ||
 		final.SourceSequenceEnd != snapshot.Conversation.LastTrajectorySequence ||
 		final.FinalSummary == nil ||
-		final.FinalSummary.Text != "The durable terminal backlog was fully evaluated." {
+		final.FinalSummary.Text != "The terminal backlog is fully caught up." {
 		t.Fatalf("terminal final summary = %+v", final)
 	}
 }
