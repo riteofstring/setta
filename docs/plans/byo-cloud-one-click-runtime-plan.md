@@ -49,7 +49,7 @@ diagnostics, and guided automation.
 **Assumed prerequisite: a Tailscale account.** v1 explicitly targets users
 willing to have one (our first users are technical). Tailscale is the one
 dependency that buys encryption, identity, NAT traversal, discovery
-(MagicDNS), browser-valid certs for the phone PWA (`ts.net`), and the mobile
+(MagicDNS), browser-valid certs for a future phone client (`ts.net`), and the mobile
 app — all maintained by someone else. Users who reject third-party accounts
 can point the same clients at a self-hosted Headscale control server; Setta's
 code is identical and we document it, nothing more.
@@ -87,9 +87,9 @@ flow, unchanged.
    plus a universal cloud-init payload, a declarative link/paste fallback,
    and an SSH-install path — together covering effectively every provider
    (see "Provider Compatibility").
-5. **Phone works out of the box.** The bootstrap enables `tailscale serve`
-   with ts.net certs so the plan-of-record Phase 2 PWA (and Web Push) works
-   the moment the runtime pairs — no extra cert or endpoint work. The phone
+5. **Phone-ready runtime.** The bootstrap enables `tailscale serve`
+   with ts.net certs so a future phone client has the secure runtime endpoint
+   it needs the moment the runtime pairs — no extra cert or endpoint work. The phone
    path depends only on the bootstrap contract, never on the wizard or
    execution layer (see "Mobile Readiness").
 6. **Low maintenance for Setta.** Prefer the user's own CLI, provider-native
@@ -252,7 +252,7 @@ Per runtime:
    doctor report at the end.
 6. Done. The runtime appears in Setta, paired. On the phone: install the
    Tailscale app (one-time), open https://<runtime>.<tailnet>.ts.net — the
-   PWA and Web Push work immediately because the bootstrap already ran
+   future phone client has the secure endpoint it needs because the bootstrap already ran
    `tailscale serve` with ts.net certs.
 ```
 
@@ -310,7 +310,7 @@ The provisioned runtime is private by default:
 - bind Setta to the tailnet address (existing `--tailnet` behavior); never
   public `0.0.0.0`.
 - run `tailscale serve` in the bootstrap so the runtime gets a ts.net
-  certificate — required for the phone PWA's secure context and Web Push.
+  certificate for future phone-client secure contexts and notifications.
 - keep the runtime HTTP API authenticated with device tokens; unauthenticated
   surface stays exactly `/health`, `/runtime/info`, `/pairing/complete`.
 - single-use pairing tokens with short expiry; pre-provisioned tokens seeded
@@ -375,7 +375,7 @@ exactly three things, all in the bootstrap contract:
    (one-time install, user's tailnet).
 2. `tailscale serve` is running on the runtime, so
    `https://<runtime>.<tailnet>.ts.net` serves with a browser-valid ts.net
-   certificate (secure context → PWA install + Web Push).
+   certificate for future phone-client secure contexts and notifications.
 3. The runtime is paired, so the phone hits an authenticated, working API.
 
 Consequences:
@@ -514,7 +514,7 @@ Deliverable:
 
 ```text
 User can paste generated cloud-init into any Tier 2 provider and the runtime
-pairs automatically when it joins the tailnet. The phone PWA is reachable at
+pairs automatically when it joins the tailnet. The runtime is reachable at
 https://<runtime>.<tailnet>.ts.net the moment pairing completes. Mobile
 testing can begin here.
 ```
@@ -602,7 +602,7 @@ Early target:
   under 10 minutes.
 - No manual SSH, no pairing-URL/IP copy-paste, and (happy path) no auth-key
   paste.
-- Phone PWA reachable (ts.net cert working) immediately after pairing, with
+- Phone-ready runtime endpoint (ts.net cert working) immediately after pairing, with
   no additional setup on the runtime — verified by a `setta doctor` check.
 - Mobile testing underway using a Phase 1/2 runtime, before Phases 3–4 land.
 - Runtime setup failures produce a useful `setta doctor --json` report;
@@ -627,7 +627,7 @@ Longer-term target:
    Tailscale account; document Headscale for self-hosters. SSH is
    install-only.
 2. **nostr-vpn?** Not adopted — early-stage as a transport, and it does not
-   solve the PWA certificate requirement. Its discovery idea is parked in
+   solve the mobile secure-context requirement. Its discovery idea is parked in
    "Deferred Ideas."
 3. **CloudFormation-first or OpenTofu-first for AWS's no-CLI fallback?**
    CloudFormation; a quick-create link is just a URL, AWS owns execution and
@@ -684,11 +684,11 @@ Evaluated seriously, deliberately not in v1:
   Tailscale dependency is removed; MagicDNS covers discovery today. Keep the
   design notes; build nothing.
 - **nostr-vpn as transport.** Watch the project mature; it would slot in as
-  an additive transport. Does not solve PWA certs.
+  an additive transport. Does not solve mobile secure-context requirements.
 - **Native mobile shell with in-app tunnel + localhost WebView.** Solves the
   secure-context requirement without Tailscale, but costs app-store
-  distribution and loses free iOS Web Push. Plan of record is PWA-first;
-  revisit only if the PWA proves insufficient.
+  distribution and changes notification delivery. Revisit only with a future
+  mobile-client plan.
 - **GCP Cloud Shell launcher.** Lowest value-per-maintenance path; Tiers 1–2
   cover GCP.
 - **Managing provider CLI install/login inside Setta.** Detection and

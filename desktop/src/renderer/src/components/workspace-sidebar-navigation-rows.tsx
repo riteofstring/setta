@@ -26,8 +26,7 @@ export function SidebarNavigationRow({
             focused={item.focused}
             item={item.item}
             lineageParentTitle={item.lineageParentTitle}
-            openPaneCount={item.openPaneCount}
-            openNewView={() => runCommand(item.commands.openNewView)}
+            openPaneId={item.openPaneId}
             present={() => runCommand(item.commands.primary)}
             readOnly={item.readOnly}
           />
