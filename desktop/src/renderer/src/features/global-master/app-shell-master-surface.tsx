@@ -48,6 +48,7 @@ import {
 import { masterSpeechPlaybackIntent } from "../global-speech/app-shell-master-speech-playback-intent";
 import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
 import { useAppShellSpeechPlayback } from "../global-speech/app-shell-speech-playback";
+import type { VoiceProviderSetupAction } from "../global-speech/speech-capture-availability";
 import { useAppearanceStore } from "../../stores/appearance-store";
 import { defaultShortcutsSettings } from "../../workspace-layout/workspace-shortcuts";
 
@@ -56,12 +57,12 @@ export { isMasterOverlayShortcut, masterOverlayShortcutLabel } from "./master-sh
 export function AppShellMasterSurface({
   children,
   controller,
-  onOpenVoiceCredentialSettings,
+  onOpenVoiceSettings,
   platform,
 }: {
   children: (overlayOpen: boolean) => ReactNode;
   controller: AppShellMasterController;
-  onOpenVoiceCredentialSettings: () => void;
+  onOpenVoiceSettings: (action: VoiceProviderSetupAction) => void;
   platform: DesktopPlatform;
 }) {
   const snapshot = useSyncExternalStore(
@@ -76,10 +77,13 @@ export function AppShellMasterSurface({
       (state.draft ?? state.settings)?.shortcuts?.masterVoice ??
       defaultShortcutsSettings.masterVoice,
   );
-  const openVoiceCredentialSettingsFromMaster = useCallback(() => {
-    controller.closeOverlay();
-    onOpenVoiceCredentialSettings();
-  }, [controller, onOpenVoiceCredentialSettings]);
+  const openVoiceSettingsFromMaster = useCallback(
+    (action: VoiceProviderSetupAction) => {
+      controller.closeOverlay();
+      onOpenVoiceSettings(action);
+    },
+    [controller, onOpenVoiceSettings],
+  );
 
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
@@ -88,7 +92,7 @@ export function AppShellMasterSurface({
       }
       if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
         event.preventDefault();
-        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
+        executeMasterVoiceCommand(speechCaptureController, openVoiceSettingsFromMaster);
         return;
       }
       if (isMasterOverlayShortcut(event)) {
@@ -107,7 +111,7 @@ export function AppShellMasterSurface({
     };
     const handleNativeViewKey = (event: WorkspaceBrowserViewKeyEvent) => {
       if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
-        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
+        executeMasterVoiceCommand(speechCaptureController, openVoiceSettingsFromMaster);
         return;
       }
       if (isMasterOverlayShortcut(event)) {
@@ -124,7 +128,7 @@ export function AppShellMasterSurface({
   }, [
     controller,
     masterVoiceShortcut,
-    openVoiceCredentialSettingsFromMaster,
+    openVoiceSettingsFromMaster,
     platform,
     speechCaptureController,
   ]);
@@ -136,7 +140,7 @@ export function AppShellMasterSurface({
         <MasterOverlay
           controller={controller}
           masterVoiceShortcut={masterVoiceShortcut}
-          onOpenVoiceCredentialSettings={openVoiceCredentialSettingsFromMaster}
+          onOpenVoiceSettings={openVoiceSettingsFromMaster}
           platform={platform}
           snapshot={snapshot}
           speechCapture={speechCapture}
@@ -174,14 +178,14 @@ export function MasterSidebarLauncher({
 function MasterOverlay({
   controller,
   masterVoiceShortcut,
-  onOpenVoiceCredentialSettings,
+  onOpenVoiceSettings,
   platform,
   snapshot,
   speechCapture,
 }: {
   controller: AppShellMasterController;
   masterVoiceShortcut: AppearanceMasterVoiceShortcut;
-  onOpenVoiceCredentialSettings: () => void;
+  onOpenVoiceSettings: (action: VoiceProviderSetupAction) => void;
   platform: DesktopPlatform;
   snapshot: AppShellMasterSnapshot;
   speechCapture: AppShellSpeechCaptureContextValue | null;
@@ -290,10 +294,7 @@ function MasterOverlay({
               rows={2}
               value={snapshot.draft}
             />
-            <MasterVoiceButton
-              model={masterVoice}
-              onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
-            />
+            <MasterVoiceButton model={masterVoice} onOpenVoiceSettings={onOpenVoiceSettings} />
             <button
               aria-label="Send to Setta"
               className="setta-master-overlay-send"

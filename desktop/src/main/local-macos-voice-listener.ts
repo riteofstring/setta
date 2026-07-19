@@ -165,6 +165,7 @@ export type LocalMacOSVoiceListenerTransitionEvent =
       localVoiceReady: boolean;
       message?: string;
       type: "setting_enabled";
+      unavailableStatus?: "local_voice_not_ready" | "microphone_denied";
     }
   | {
       type: "setting_disabled";
@@ -297,6 +298,12 @@ const wakeCaptureStatuses = new Set<LocalMacOSVoiceWakeCaptureStatus>([
   "submitting",
 ]);
 
+const recoverableFailureStatuses = new Set<LocalMacOSVoiceListenerStatus>([
+  "engine_failed",
+  "local_voice_not_ready",
+  "microphone_denied",
+]);
+
 const transitionReducers = {
   candidate_endpoint_detected: reduceCandidateEndpointDetected,
   endpoint_accepted: reduceEndpointAccepted,
@@ -342,12 +349,13 @@ function reduceSettingEnabled(
   if (state.status !== "disabled" && state.status !== "local_voice_not_ready") {
     return transition(state);
   }
-  return event.localVoiceReady
-    ? transition({ status: "arming" }, { type: "start_listener" })
-    : transition({
-        message: event.message ?? "Local macOS voice is not ready for always listening.",
-        status: "local_voice_not_ready",
-      });
+  if (event.localVoiceReady) {
+    return transition({ status: "arming" }, { type: "start_listener" });
+  }
+  const message = event.message ?? "Local macOS voice is not ready for always listening.";
+  return event.unavailableStatus === "microphone_denied"
+    ? transition({ message, status: "microphone_denied" })
+    : transition({ message, status: "local_voice_not_ready" });
 }
 
 function reduceSettingDisabled(
@@ -361,7 +369,7 @@ function reduceSettingDisabled(
 function reduceLocalVoiceReady(
   state: LocalMacOSVoiceListenerState,
 ): LocalMacOSVoiceListenerTransitionResult {
-  return state.status === "local_voice_not_ready"
+  return recoverableFailureStatuses.has(state.status)
     ? transition({ status: "arming" }, { type: "start_listener" })
     : transition(state);
 }

@@ -56,6 +56,10 @@ type LocalMacOSVoiceListenerReadiness =
     }
   | {
       availability: Extract<LocalMacOSVoiceListenerAvailability, { status: "unavailable" }>;
+      transition: Extract<
+        LocalMacOSVoiceListenerTransitionEvent,
+        { type: "local_voice_not_ready" | "microphone_denied" }
+      >;
       status: "unavailable";
     };
 
@@ -105,14 +109,7 @@ export class LocalMacOSVoiceListenerService {
     this.enabled = enabled;
     await this.enqueue(async () => {
       await this.applyTransition(
-        enabled
-          ? {
-              localVoiceReady: readiness?.status === "ready",
-              message:
-                readiness?.status === "unavailable" ? readiness.availability.message : undefined,
-              type: "setting_enabled",
-            }
-          : { type: "setting_disabled" },
+        enabled ? settingEnabledTransition(readiness) : { type: "setting_disabled" },
       );
     });
     return this.snapshot();
@@ -194,11 +191,7 @@ export class LocalMacOSVoiceListenerService {
     if (this.enabled) {
       const readiness = await this.refreshReadinessState();
       await this.enqueue(async () => {
-        await this.applyTransition({
-          localVoiceReady: readiness.status === "ready",
-          message: readiness.status === "unavailable" ? readiness.availability.message : undefined,
-          type: "setting_enabled",
-        });
+        await this.applyTransition(settingEnabledTransition(readiness));
       });
     }
   }
@@ -366,13 +359,10 @@ export class LocalMacOSVoiceListenerService {
     const previousAvailability = this.listenerAvailability();
     const readiness = await this.readListenerReadiness();
     this.availability = readiness.availability;
-    if (
-      this.enabled &&
-      this.state.status === "local_voice_not_ready" &&
-      readiness.status === "ready"
-    ) {
+    const transition = readinessTransitionForState(this.enabled, this.state, readiness);
+    if (transition) {
       await this.enqueue(async () => {
-        await this.applyTransition({ type: "local_voice_ready" });
+        await this.applyTransition(transition);
       });
     } else if (
       publishAvailabilityChange &&
@@ -385,42 +375,51 @@ export class LocalMacOSVoiceListenerService {
 
   private async readListenerReadiness(): Promise<LocalMacOSVoiceListenerReadiness> {
     if (this.options.platform !== "darwin") {
-      return unavailableReadiness(macOSUnavailableAvailability());
+      const availability = macOSUnavailableAvailability();
+      return unavailableReadiness(availability, {
+        message: availability.message,
+        type: "local_voice_not_ready",
+      });
     }
     const health = await this.options.helper.readHealth();
     if (health.status !== "ready") {
-      return unavailableReadiness(listenerAvailabilityForUnavailableHealth(health));
+      return unavailableReadiness(
+        listenerAvailabilityForUnavailableHealth(health),
+        unavailableHealthTransition(health),
+      );
     }
     const { wakeModelPath, wakeModelSHA256, wakeRuntime } = this.options.configuration;
     if (wakeModelPath === null || wakeModelSHA256 === null || wakeRuntime === null) {
-      return unavailableReadiness({
-        message: "Always listening needs a packaged Hey Setta wake model before it can be enabled.",
-        setupAction: null,
-        status: "unavailable",
+      const message =
+        "Always listening needs a packaged Hey Setta wake model before it can be enabled.";
+      return unavailableReadiness(listenerUnavailableAvailability(message), {
+        message,
+        type: "local_voice_not_ready",
       });
     }
     if (!(await fileReadable(wakeModelPath))) {
-      return unavailableReadiness({
-        message:
-          "Always listening needs a readable packaged Hey Setta wake model before it can be enabled.",
-        setupAction: null,
-        status: "unavailable",
+      const message =
+        "Always listening needs a readable packaged Hey Setta wake model before it can be enabled.";
+      return unavailableReadiness(listenerUnavailableAvailability(message), {
+        message,
+        type: "local_voice_not_ready",
       });
     }
     const actualWakeModelSHA256 = await readWakeModelSHA256(wakeModelPath);
     if (actualWakeModelSHA256 === null) {
-      return unavailableReadiness({
-        message:
-          "Always listening could not verify the packaged Hey Setta wake model before enabling.",
-        setupAction: null,
-        status: "unavailable",
+      const message =
+        "Always listening could not verify the packaged Hey Setta wake model before enabling.";
+      return unavailableReadiness(listenerUnavailableAvailability(message), {
+        message,
+        type: "local_voice_not_ready",
       });
     }
     if (actualWakeModelSHA256.toLowerCase() !== wakeModelSHA256.toLowerCase()) {
-      return unavailableReadiness({
-        message: "The packaged Hey Setta wake model hash does not match Setta's expected model.",
-        setupAction: null,
-        status: "unavailable",
+      const message =
+        "The packaged Hey Setta wake model hash does not match Setta's expected model.";
+      return unavailableReadiness(listenerUnavailableAvailability(message), {
+        message,
+        type: "local_voice_not_ready",
       });
     }
     return {
@@ -475,6 +474,20 @@ function transitionsForEngineEvent(
   }
 }
 
+function settingEnabledTransition(
+  readiness: LocalMacOSVoiceListenerReadiness | null,
+): Extract<LocalMacOSVoiceListenerTransitionEvent, { type: "setting_enabled" }> {
+  if (readiness?.status === "ready") {
+    return { localVoiceReady: true, type: "setting_enabled" };
+  }
+  return {
+    localVoiceReady: false,
+    message: readiness?.status === "unavailable" ? readiness.availability.message : undefined,
+    type: "setting_enabled",
+    unavailableStatus: readiness?.status === "unavailable" ? readiness.transition.type : undefined,
+  };
+}
+
 function helperErrorTransition(error: unknown): LocalMacOSVoiceListenerTransitionEvent {
   if (error instanceof LocalMacOSVoiceHelperUnavailableError) {
     return unavailableHealthTransition(error.health);
@@ -506,7 +519,10 @@ function helperErrorTransition(error: unknown): LocalMacOSVoiceListenerTransitio
 
 function unavailableHealthTransition(
   health: Exclude<LocalMacOSVoiceHealth, { status: "ready" }>,
-): LocalMacOSVoiceListenerTransitionEvent {
+): Extract<
+  LocalMacOSVoiceListenerTransitionEvent,
+  { type: "local_voice_not_ready" | "microphone_denied" }
+> {
   switch (health.status) {
     case "microphone_denied":
       return { message: health.message, type: "microphone_denied" };
@@ -522,8 +538,12 @@ function unavailableHealthTransition(
 
 function unavailableReadiness(
   availability: Extract<LocalMacOSVoiceListenerAvailability, { status: "unavailable" }>,
+  transition: Extract<
+    LocalMacOSVoiceListenerTransitionEvent,
+    { type: "local_voice_not_ready" | "microphone_denied" }
+  >,
 ): LocalMacOSVoiceListenerReadiness {
-  return { availability, status: "unavailable" };
+  return { availability, status: "unavailable", transition };
 }
 
 function macOSUnavailableAvailability(): Extract<
@@ -543,6 +563,16 @@ function localVoiceUnavailableAvailability(
   return {
     message,
     setupAction: "download_local_macos_voice_model",
+    status: "unavailable",
+  };
+}
+
+function listenerUnavailableAvailability(
+  message: string,
+): Extract<LocalMacOSVoiceListenerAvailability, { status: "unavailable" }> {
+  return {
+    message,
+    setupAction: null,
     status: "unavailable",
   };
 }
@@ -581,6 +611,46 @@ function listenerAvailabilityEqual(
     return false;
   }
   return left.message === right.message && left.setupAction === right.setupAction;
+}
+
+const recoverableFailureStatuses = new Set<LocalMacOSVoiceListenerState["status"]>([
+  "engine_failed",
+  "local_voice_not_ready",
+  "microphone_denied",
+]);
+
+function readinessTransitionForState(
+  enabled: boolean,
+  state: LocalMacOSVoiceListenerState,
+  readiness: LocalMacOSVoiceListenerReadiness,
+): LocalMacOSVoiceListenerTransitionEvent | null {
+  if (!enabled) {
+    return null;
+  }
+  if (readiness.status === "ready") {
+    return recoverableFailureStatuses.has(state.status) ? { type: "local_voice_ready" } : null;
+  }
+  return shouldApplyUnavailableReadiness(state, readiness.transition) ? readiness.transition : null;
+}
+
+function shouldApplyUnavailableReadiness(
+  state: LocalMacOSVoiceListenerState,
+  transition: Extract<
+    LocalMacOSVoiceListenerTransitionEvent,
+    { type: "local_voice_not_ready" | "microphone_denied" }
+  >,
+): boolean {
+  if (state.status === "disabled" || state.status === "arming") {
+    return false;
+  }
+  if (
+    state.status === transition.type &&
+    "message" in state &&
+    state.message === transition.message
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function listenerAlreadyStopped(error: unknown): boolean {

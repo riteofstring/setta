@@ -28,6 +28,7 @@ import { describe, expect, test, vi } from "vitest";
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
 import {
   completeSettingsNavigationRequest,
+  requestLocalMacOSAlwaysListeningSettings,
   requestOpenAIVoiceConnectionSettings,
   requestVoiceProviderSelectionSettings,
   useSettingsNavigationStore,
@@ -44,7 +45,7 @@ import {
   GlobalVoiceConfigurationForm,
 } from "./presentation-configuration-settings";
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
-import { openAIVoiceConnectionSettings } from "./settings-navigation";
+import { openAIVoiceConnectionSettings, openVoiceSettings } from "./settings-navigation";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
 import { SpeechProviderSelectionCardView } from "./speech-provider-selection-card";
 
@@ -382,6 +383,31 @@ describe("appearance settings", () => {
       requestId: 1,
       subtab: "speech",
     });
+  });
+
+  test("opens the Settings page when routing to always listening setup", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestLocalMacOSAlwaysListeningSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toEqual({
+      focusTarget: "local_macos_always_listening",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "local_macos_always_listening",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+
+    openVoiceSettings("open_always_listening_settings");
+
+    expect(useSettingsNavigationStore.getState().request?.focusTarget).toBe(
+      "local_macos_always_listening",
+    );
+    expect(useSettingsNavigationStore.getState().request?.requestId).toBe(2);
   });
 
   test("renders a connected OpenAI voice card without a saved value", () => {

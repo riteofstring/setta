@@ -250,7 +250,7 @@ describe("local macOS voice always-listening state machine", () => {
     ).toEqual({ effects: [], state: activeCapture });
   });
 
-  test("records local voice readiness as a recoverable listener state", () => {
+  test("records listener failures as recoverable states", () => {
     const unavailable = reduceLocalMacOSVoiceListenerState(initialLocalMacOSVoiceListenerState(), {
       localVoiceReady: false,
       type: "setting_enabled",
@@ -270,6 +270,16 @@ describe("local macOS voice always-listening state machine", () => {
       effects: [{ type: "start_listener" }],
       state: { status: "arming" },
     });
+
+    for (const state of [
+      { message: "Microphone access is denied.", status: "microphone_denied" },
+      { message: "Always listening helper exited.", status: "engine_failed" },
+    ] satisfies LocalMacOSVoiceListenerState[]) {
+      expect(reduceLocalMacOSVoiceListenerState(state, { type: "local_voice_ready" })).toEqual({
+        effects: [{ type: "start_listener" }],
+        state: { status: "arming" },
+      });
+    }
   });
 });
 

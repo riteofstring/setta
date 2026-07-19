@@ -155,6 +155,9 @@ function handleStartListener(command) {
   listenerPauseReasons.clear();
   respond(command.id, { status: "started" });
   emitListenerEvent({ type: "listener_armed" });
+  if (mode === "listener_exit_after_start") {
+    setTimeout(() => process.exit(42), 0);
+  }
   if (mode === "scripted_listener") {
     emitListenerEvent({ score: 0.74, timeMs: 960, type: "wake_detected" });
     emitListenerEvent({ timeMs: 1_140, type: "message_speech_started" });

@@ -480,9 +480,9 @@ const listenerPresentationFactories = {
 function listenerFailedPresentation(state: ListenerState): GlobalSpeechCapturePresentation {
   return {
     message: "message" in state ? state.message : "Always listening failed.",
-    retry: null,
+    setupAction: "open_always_listening_settings",
     source: null,
-    state: "failed",
+    state: "unavailable",
   };
 }
 

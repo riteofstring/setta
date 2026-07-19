@@ -185,6 +185,41 @@ describe("global speech presentation", () => {
       voiceControlSetupAction: "open_voice_credential_settings",
     });
   });
+
+  test("routes failed always listening state to its Settings voice card", () => {
+    const capture = globalSpeechCapturePresentation(
+      captureSnapshot({
+        listener: {
+          availability: { status: "ready" },
+          enabled: true,
+          state: {
+            message: "Always listening helper exited.",
+            status: "engine_failed",
+          },
+        },
+      }),
+    );
+
+    expect(capture).toEqual({
+      message: "Always listening helper exited.",
+      setupAction: "open_always_listening_settings",
+      source: null,
+      state: "unavailable",
+    });
+    expect(shellSpeechCaptureAction(capture)).toBe("open_always_listening_settings");
+    expect(shellSpeechCaptureControlLabel(capture)).toBe("Open always listening settings");
+    expect(
+      paneSpeechPresentation(capture, idlePlayback(), {
+        conversationId: "conversation-alpha",
+        paneId: "pane-alpha",
+      }),
+    ).toMatchObject({
+      captureState: "unavailable",
+      voiceControlDisabled: false,
+      voiceControlLabel: "Open always listening settings",
+      voiceControlSetupAction: "open_always_listening_settings",
+    });
+  });
 });
 
 function captureSnapshot(

@@ -1,4 +1,5 @@
 import type { PaneSpeechPresentation } from "../global-speech/global-speech-presentation";
+import type { VoiceProviderSetupAction } from "../global-speech/speech-capture-availability";
 import type { EasyButtonConversationCommands } from "./easy-button-conversation-commands";
 import { conversationComposerBindings } from "./easy-button-conversation-composer-bindings";
 
@@ -14,7 +15,7 @@ export interface EasyButtonControlAction {
 }
 
 export interface EasyButtonControlActionOptions {
-  onOpenVoiceCredentialSettings?: () => void;
+  onOpenVoiceSettings?: (action: VoiceProviderSetupAction) => void;
 }
 
 /* The giant control is always the pane's voice/talk button — clicking it dictates
@@ -29,23 +30,24 @@ export function conversationControlAction(
   options: EasyButtonControlActionOptions = {},
 ): EasyButtonControlAction {
   const bindings = conversationComposerBindings(readOnly ? undefined : commands);
-  if (speech?.voiceControlSetupAction === "open_voice_credential_settings") {
-    return voiceCredentialSetupAction(speech.voiceControlLabel, options);
+  if (speech?.voiceControlSetupAction) {
+    return voiceSetupAction(speech.voiceControlSetupAction, speech.voiceControlLabel, options);
   }
   return paneHasActiveCaptureControl(speech)
     ? captureControlAction(bindings, speech)
     : talkControlAction(bindings, speech);
 }
 
-function voiceCredentialSetupAction(
+function voiceSetupAction(
+  action: VoiceProviderSetupAction,
   label: string,
   options: EasyButtonControlActionOptions,
 ): EasyButtonControlAction {
   return {
-    disabled: !options.onOpenVoiceCredentialSettings,
+    disabled: !options.onOpenVoiceSettings,
     label,
     mode: "talk",
-    onClick: options.onOpenVoiceCredentialSettings,
+    onClick: options.onOpenVoiceSettings ? () => options.onOpenVoiceSettings?.(action) : undefined,
   };
 }
 

@@ -526,6 +526,38 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     client.shutdown();
   });
 
+  test("reports helper exit to the active listener event handler", async () => {
+    const client = new LocalMacOSVoiceHelperProcessClient({
+      args: [fixturePath, "listener_exit_after_start"],
+      command: process.execPath,
+    });
+    const events: LocalMacOSVoiceListenerEngineEvent[] = [];
+
+    await expect(
+      client.startListener(
+        {
+          ...listenerStartRequest("/tmp/hey-setta.onnx", "1".repeat(64)),
+          transcriptionModelPath: "/tmp/ggml-base.en.bin",
+        },
+        (event) => events.push(event),
+      ),
+    ).resolves.toEqual({ status: "started" });
+    await waitForEventCount(events, 2);
+
+    expect(events).toEqual([
+      { type: "listener_armed" },
+      {
+        message: "Local macOS voice helper exited with exit code 42.",
+        type: "engine_failed",
+      },
+    ]);
+    await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).resolves.toEqual({
+      status: "ready",
+    });
+
+    client.shutdown();
+  });
+
   test("surfaces helper-reported bad model paths without stopping the helper", async () => {
     const client = new LocalMacOSVoiceHelperProcessClient({
       args: [fixturePath],

@@ -320,9 +320,9 @@ to the focused conversation without clicking the mic button.
 - [ ] Tune VAD, silence, padding, and maximum-duration parameters.
 - [x] Strip leading wake phrase text deterministically from transcripts.
 - [x] Add half-duplex playback suppression.
-- [ ] Add recovery for helper crash, model load failure, microphone denial, and
+- [x] Add recovery for helper crash, model load failure, microphone denial, and
   local voice not ready.
-- [ ] Add a visible path from failed listener state to Settings -> Voices.
+- [x] Add a visible path from failed listener state to Settings -> Voices.
 - [ ] Record CPU/memory/battery measurements in the report.
 
 Implementation note (2026-07-21): finalized wake transcripts now strip only the
@@ -335,6 +335,13 @@ local macOS listener service when synthesized audio starts and finishes. The
 listener pauses armed wake detection during active app playback and resumes
 after playback ends, fails, stops, or is preempted for capture through typed
 main/preload/renderer IPC coverage.
+
+Implementation note (2026-07-21): listener readiness now preserves explicit
+microphone-denied states, reports active helper exits as listener engine
+failures, and restarts enabled always-listening after local voice or helper
+readiness recovers. Failed listener presentations route shell, master, and Easy
+Button voice controls to the Always Listening card in Settings -> Voices instead
+of retrying unrelated manual capture.
 
 Exit criteria: dogfood builds can stay armed for long sessions without obvious
 false wakes, clipped first words, or stuck capture.

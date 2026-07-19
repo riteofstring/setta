@@ -686,9 +686,11 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
       }
       this.child = null;
       const detail = signal === null ? `exit code ${code ?? "unknown"}` : `signal ${signal}`;
-      this.failPending(
-        new LocalMacOSVoiceHelperProtocolError(`Local macOS voice helper exited with ${detail}.`),
+      const error = new LocalMacOSVoiceHelperProtocolError(
+        `Local macOS voice helper exited with ${detail}.`,
       );
+      this.notifyListenerEngineFailure(error.message);
+      this.failPending(error);
     });
     this.child = child;
     return child;
@@ -756,7 +758,9 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
   }
 
   private failProtocol(message: string, cause?: unknown): void {
-    this.stopAfterProtocolError(new LocalMacOSVoiceHelperProtocolError(message, { cause }));
+    const error = new LocalMacOSVoiceHelperProtocolError(message, { cause });
+    this.notifyListenerEngineFailure(error.message);
+    this.stopAfterProtocolError(error);
   }
 
   private receiveListenerEvent(event: LocalMacOSVoiceListenerEngineEvent): void {
@@ -789,6 +793,22 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
     this.child = null;
     this.listenerEventHandler = null;
     this.failPending(error);
+  }
+
+  private notifyListenerEngineFailure(message: string): void {
+    const listener = this.listenerEventHandler;
+    if (listener === null) {
+      return;
+    }
+    try {
+      listener({ message, type: "engine_failed" });
+    } catch {
+      // The original helper failure is already being propagated to pending commands.
+    } finally {
+      if (this.listenerEventHandler === listener) {
+        this.listenerEventHandler = null;
+      }
+    }
   }
 
   private failPending(error: Error): void {

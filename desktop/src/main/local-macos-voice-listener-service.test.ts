@@ -222,6 +222,81 @@ describe("local macOS voice listener service", () => {
     }
   });
 
+  test("records microphone denial explicitly and restarts after readiness recovers", async () => {
+    const harness = await createHarness({
+      initialHealth: {
+        message: "Microphone access is denied for Setta.",
+        provider: "local_macos",
+        status: "microphone_denied",
+      },
+    });
+    try {
+      const enabled = await harness.service.updateSettings(true);
+
+      expect(enabled).toEqual({
+        availability: {
+          message: "Microphone access is denied for Setta.",
+          setupAction: null,
+          status: "unavailable",
+        },
+        enabled: true,
+        state: {
+          message: "Microphone access is denied for Setta.",
+          status: "microphone_denied",
+        },
+      });
+      expect(harness.helper.startListener).not.toHaveBeenCalled();
+
+      harness.setHealth({
+        helperPath: "/tmp/setta-local-helper",
+        modelPath: "/tmp/ggml-base.en.bin",
+        modelSHA256: "b".repeat(64),
+        provider: "local_macos",
+        status: "ready",
+      });
+      const refreshed = await harness.service.refreshReadiness();
+
+      expect(refreshed).toMatchObject({
+        availability: { status: "ready" },
+        enabled: true,
+        state: { status: "arming" },
+      });
+      expect(harness.helper.startListener).toHaveBeenCalledOnce();
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  test("restarts the listener after a runtime engine failure when readiness is healthy", async () => {
+    const harness = await createHarness();
+    try {
+      await harness.service.updateSettings(true);
+      harness.emit({ type: "listener_armed" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({ status: "armed" }),
+      );
+
+      harness.emit({ message: "Always listening helper exited.", type: "engine_failed" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({
+          message: "Always listening helper exited.",
+          status: "engine_failed",
+        }),
+      );
+
+      const refreshed = await harness.service.refreshReadiness();
+
+      expect(refreshed).toMatchObject({
+        availability: { status: "ready" },
+        enabled: true,
+        state: { status: "arming" },
+      });
+      expect(harness.helper.startListener).toHaveBeenCalledTimes(2);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   test("prioritizes the local voice setup path before missing wake resources", async () => {
     const harness = await createHarness({
       configuredWakeModelPath: null,

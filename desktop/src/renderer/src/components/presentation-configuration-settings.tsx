@@ -72,7 +72,9 @@ export function PresentationConfigurationSettings({
       <SpeechProviderSelectionCard
         focusRequest={focusRequest?.target === "voice_provider_selection" ? focusRequest : null}
       />
-      <LocalMacOSAlwaysListeningCard />
+      <LocalMacOSAlwaysListeningCard
+        focusRequest={focusRequest?.target === "local_macos_always_listening" ? focusRequest : null}
+      />
       <OpenAIVoiceConnectionCard
         activeRuntimeVoiceStatus={state.activeRuntimeVoiceStatus}
         focusRequest={focusRequest?.target === "openai_voice_connection" ? focusRequest : null}

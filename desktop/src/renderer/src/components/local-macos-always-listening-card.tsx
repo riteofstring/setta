@@ -1,7 +1,11 @@
 import type { LocalMacOSVoiceListenerSettings } from "@shared/speech-ipc";
 import { CircleAlert, Loader2, Mic2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 
+import {
+  completeSettingsNavigationRequest,
+  type SettingsFocusRequest,
+} from "../stores/settings-navigation-store";
 import { Button } from "./ui/button";
 
 interface LocalMacOSAlwaysListeningCardState {
@@ -9,12 +13,17 @@ interface LocalMacOSAlwaysListeningCardState {
   settings: LocalMacOSVoiceListenerSettings | null;
 }
 
-export function LocalMacOSAlwaysListeningCard() {
+export function LocalMacOSAlwaysListeningCard({
+  focusRequest = null,
+}: {
+  focusRequest?: SettingsFocusRequest | null;
+}) {
   const [state, setState] = useState<LocalMacOSAlwaysListeningCardState>({
     error: null,
     settings: null,
   });
   const [updating, setUpdating] = useState(false);
+  const cardRef = useRef<HTMLElement | null>(null);
 
   const load = () => {
     const read = rendererSpeechAPI()?.readLocalMacOSVoiceListenerSettings;
@@ -40,6 +49,13 @@ export function LocalMacOSAlwaysListeningCard() {
       unsubscribe?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (focusRequest?.target === "local_macos_always_listening") {
+      cardRef.current?.focus();
+      completeSettingsNavigationRequest(focusRequest.requestId);
+    }
+  }, [focusRequest?.requestId, focusRequest?.target]);
 
   const updateEnabled = (enabled: boolean) => {
     const update = rendererSpeechAPI()?.updateLocalMacOSVoiceListenerSettings;
@@ -81,6 +97,7 @@ export function LocalMacOSAlwaysListeningCard() {
 
   return (
     <LocalMacOSAlwaysListeningCardView
+      cardRef={cardRef}
       error={state.error}
       onDownloadLocalModel={startLocalModelDownload}
       onToggle={updateEnabled}
@@ -91,12 +108,14 @@ export function LocalMacOSAlwaysListeningCard() {
 }
 
 export function LocalMacOSAlwaysListeningCardView({
+  cardRef,
   error,
   onDownloadLocalModel,
   onToggle,
   settings,
   updating,
 }: {
+  cardRef?: Ref<HTMLElement>;
   error: string | null;
   onDownloadLocalModel: () => void;
   onToggle: (enabled: boolean) => void;
@@ -106,8 +125,10 @@ export function LocalMacOSAlwaysListeningCardView({
   const model = alwaysListeningCardModel(settings, updating);
   return (
     <article
-      className="grid gap-3 rounded-sm border border-border bg-card/40 p-3"
+      className="grid gap-3 rounded-sm border border-border bg-card/40 p-3 outline-none focus-visible:border-accent focus-visible:bg-card/60"
       data-testid="local-macos-always-listening-card"
+      ref={cardRef}
+      tabIndex={-1}
     >
       <header className="flex min-h-8 items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
