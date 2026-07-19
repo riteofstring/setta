@@ -1177,19 +1177,33 @@ path.
 
 - [ ] Record and provision the database, schema ownership, secret store,
   deployment boundary, durable reconciler, lease/fencing mechanism, backup,
-  and availability expectations.
+  and availability expectations. The 2026-07-20 foundation records and
+  implements SQLite schema ownership, a separate filesystem secret store, the
+  single Go deployment boundary, durable reconciler, expiring operation leases,
+  monotonic fencing, and explicit single-instance expectations; backup and
+  failover remain open.
 - [ ] Define Go-owned user, entitlement, runtime, device, runtime-access-grant,
   operation, provider-observation, usage, and progress-event contracts.
-- [ ] Enforce one authoritative active runtime assignment per user with locked
+- [x] Enforce one authoritative active runtime assignment per user with locked
   or atomic updates and durable idempotency keys. Test replacement with the old
-  deleting Runtime and new provisioning Runtime present together.
-- [ ] Implement idempotent `ensureRuntime` and reconciliation.
-- [ ] Handle create timeouts by inspecting deterministic identity before
-  retrying.
+  deleting Runtime and new provisioning Runtime present together. Implemented
+  with complete-request fingerprints, a deferred same-owner foreign key, and
+  restart/replacement tests in `internal/controlplane`.
+- [x] Implement idempotent `ensureRuntime` and reconciliation. Concurrent
+  requests collapse to one durable intent; restart recovery uses an
+  event/timer-driven worker with bounded attempts, expiring leases, and
+  monotonic fencing tokens.
+- [x] Handle create timeouts by inspecting deterministic identity before
+  retrying. Ambiguous-create tests prove a restarted worker adopts the owned
+  provider resource without issuing another create.
 - [ ] Implement wake, health, release mismatch, suspension, credential epochs,
   grace, and deletion scheduling without collapsing them into one lifecycle
   field.
-- [ ] Store the Fly credential only in the control-plane secret store.
+- [x] Store the Fly credential only in the control-plane secret store. The
+  deployable accepts `SPRITE_TOKEN` only from the hosting secret environment,
+  removes the environment entry before serving, and retains the credential
+  only inside the provider adapter process. Runtime credentials live in the
+  separate private file secret store, never SQLite.
 - [ ] Publish push-based provisioning, wake, reconciliation, and deletion
   progress. Do not add a polling watch.
 - [ ] Add content-free audit events, typed measurement intervals, workload
