@@ -280,6 +280,13 @@ Implemented on 2026-07-20:
     through bounded stdin, validate and durably persist it with private
     permissions, and require exact equality on restart. This removes any need
     to print or copy the credential back out of the distroless Machine.
+22. The runtime pairing command has an explicit single-event JSON mode so
+    automation can mint the temporary inner credential through a typed output
+    contract instead of scraping human text or QR output.
+23. Provider-neutral runtime pairing now invokes that typed command, completes
+    pairing only through the authenticated private dialer, validates the exact
+    runtime and protocol response, bounds every payload, and keeps tokens out
+    of all errors.
 
 Still required before a live create/deployment mutation:
 

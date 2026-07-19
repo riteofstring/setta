@@ -301,6 +301,25 @@ func TestBuildPairingURL(t *testing.T) {
 	}
 }
 
+func TestPrintPairingJSONIsTypedAndDoesNotRenderHumanOutput(t *testing.T) {
+	var output bytes.Buffer
+	renderedQR := false
+	err := printPairing(&output, pairingResult{
+		RuntimeID: testRuntimeID, Token: "pairing-token", URL: "setta://pair?tok=pairing-token",
+	}, true, cliDeps{renderQR: func(io.Writer, string) { renderedQR = true }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var event pairingJSONEvent
+	if err := json.Unmarshal(output.Bytes(), &event); err != nil {
+		t.Fatal(err)
+	}
+	if event.SchemaVersion != 1 || event.Event != "runtime_pairing_ready" || event.RuntimeID != testRuntimeID ||
+		event.PairingToken != "pairing-token" || renderedQR || strings.Contains(output.String(), "Pairing URL") {
+		t.Fatalf("pairing JSON event = %+v, rendered QR = %t", event, renderedQR)
+	}
+}
+
 func TestServeStateRoundTrip(t *testing.T) {
 	appDataDir := t.TempDir()
 	state := serveState{
