@@ -264,6 +264,13 @@ try {
     ),
     terminalEvents,
   );
+  const userInputDrop = await exerciseUserInputDropsAutomaticSpeech({
+    artifactDirectory: artifactDir,
+    backend,
+    client: context.client,
+    topic: createdTopics[1],
+    workspaceId,
+  });
   const captureDrop = await exerciseCaptureDropsAutomaticSpeech({
     artifactDirectory: artifactDir,
     backend,
@@ -305,6 +312,7 @@ try {
     noBackfill,
     status: "passed",
     supersessions,
+    userInputDrop,
     workspaceId,
   });
   console.log(`Electron topic conversation speech arbitration passed: ${artifactDir}`);
@@ -468,6 +476,142 @@ async function exerciseCaptureDropsAutomaticSpeech({
     playCount,
     turnId: finalEvent.turnId,
   };
+}
+
+async function exerciseUserInputDropsAutomaticSpeech({
+  artifactDirectory,
+  backend,
+  client,
+  topic,
+  workspaceId,
+}) {
+  const inputText = "user input drop automatic speech";
+  const preemptingInputText = "preempt automatic speech with new input";
+  await client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(false)");
+  try {
+    const beforeSnapshot = await readConversationSnapshot(backend, workspaceId, topic.id);
+    const priorEventIds = new Set(beforeSnapshot.narration.events.map((event) => event.id));
+    const audioBeforeTurn = await browserAudioSnapshot(client);
+    assertDriverAction(
+      await client.driver("topicConversationSubmit", {
+        conversationId: topic.id,
+        text: inputText,
+      }),
+      "submitted",
+    );
+    const completed = await waitForConversationSnapshot(
+      backend,
+      workspaceId,
+      topic.id,
+      (snapshot) =>
+        snapshot.conversation.status === "idle" &&
+        completedTurnFinalNarrationForInput(snapshot, inputText, priorEventIds) !== null,
+    );
+    const finalEvent = completedTurnFinalNarrationForInput(completed, inputText, priorEventIds);
+    if (!finalEvent) {
+      throw new Error(`user-input drop turn has no final narration: ${JSON.stringify(completed)}`);
+    }
+    await waitForPlaybackObservations(artifactDirectory, (observations) => {
+      const finalObservations = observationsForEventIds(observations, [finalEvent.id]);
+      return (
+        observationsWithAction(finalObservations, "enqueued").length === 1 &&
+        observationsWithAction(finalObservations, "play").length === 1
+      );
+    });
+    await waitForState(
+      client,
+      "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+      (state) =>
+        state.audioActiveCount === 1 && state.audioPlayCount === audioBeforeTurn.audioPlayCount + 1,
+      workflowTimeoutMs,
+    );
+    await waitForShellSpeechState(
+      client,
+      (state) => state.playbackState === "speaking" && state.sourceConversationId === topic.id,
+    );
+    const beforeInput = await browserAudioSnapshot(client);
+    assertDriverAction(
+      await client.driver("topicConversationSubmit", {
+        conversationId: topic.id,
+        text: preemptingInputText,
+      }),
+      "submitted",
+    );
+    const afterInput = await waitForState(
+      client,
+      "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+      (state) => state.audioPauseCount === beforeInput.audioPauseCount + 1,
+      workflowTimeoutMs,
+    );
+    const droppedPlayback = await waitForPlaybackObservations(artifactDirectory, (observations) => {
+      const dropped = observationsForEventIds(observations, [finalEvent.id]).filter(
+        (observation) => observation.action === "dropped" && observation.reason === "user",
+      );
+      return dropped.length === 1;
+    });
+    await waitForConversationSnapshot(
+      backend,
+      workspaceId,
+      topic.id,
+      (snapshot) =>
+        snapshot.conversation.status === "idle" &&
+        snapshot.turns.turns.some(
+          (turn) => turn.authoredInput.text === preemptingInputText && turn.status === "completed",
+        ),
+    );
+    await delay(500);
+    const finalObservations = observationsForEventIds(
+      playbackObservations(
+        await readJsonLinesWhileAppending(join(artifactDirectory, "renderer-console.jsonl")),
+      ),
+      [finalEvent.id],
+    );
+    const playCount = observationsWithAction(finalObservations, "play").length;
+    const completedCount = observationsWithAction(finalObservations, "completed").length;
+    const droppedCount = finalObservations.filter(
+      (observation) => observation.action === "dropped" && observation.reason === "user",
+    ).length;
+    if (playCount !== 1 || completedCount !== 0 || droppedCount !== 1) {
+      throw new Error(
+        `new input did not permanently drop the automatic final summary: ${JSON.stringify(finalObservations)}`,
+      );
+    }
+    await client.evaluate(`(() => {
+      const fixture = globalThis.__settaSpeechRealtimeBrowserFixture;
+      fixture.setAudioAutoEnd(true);
+      fixture.finishAllAudio();
+    })()`);
+    await waitForShellSpeechState(
+      client,
+      (state) => state.playbackState === "idle" && state.sourceConversationId === "",
+    );
+    await waitForState(
+      client,
+      "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+      (state) => state.audioActiveCount === 0,
+      workflowTimeoutMs,
+    );
+    return {
+      conversationId: topic.id,
+      droppedObservationCount: observationsForEventIds(droppedPlayback, [finalEvent.id]).filter(
+        (observation) => observation.action === "dropped" && observation.reason === "user",
+      ).length,
+      finalEventId: finalEvent.id,
+      pauseDelta: afterInput.audioPauseCount - beforeInput.audioPauseCount,
+      playCount,
+      turnId: finalEvent.turnId,
+    };
+  } finally {
+    await client
+      .evaluate(
+        `(() => {
+        const fixture = globalThis.__settaSpeechRealtimeBrowserFixture;
+        fixture.setAudioAutoEnd(true);
+        fixture.finishAllAudio();
+      })()`,
+      )
+      .catch(() => {});
+  }
 }
 
 async function configureCaptureDropTranscript(client) {

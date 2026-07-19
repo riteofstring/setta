@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** In Progress
+**Status:** Complete
 
 **Scope:** Topic conversation narrator highlights, final summaries, narrator scheduling, narrator context, and automatic narrator speech. This plan addresses the latest recording where the artifact and work completion were visible long before the final summary was generated.
 
@@ -334,6 +334,13 @@ Run it after user-facing narration, never before terminal summary.
 If semantic context makes checkpointing unnecessary for narration, remove narrator checkpointing entirely.
 
 ### Phase 6: Tighten speech preemption
+
+Status: Complete.
+
+Repository progress:
+
+- Focused renderer playback controller coverage now verifies new user input drops queued automatic narrator speech, aborts active automatic synthesis, stops active automatic playback, and does not resume dropped automatic speech while preserving explicit replay work.
+- The direct `topic-conversation-speech-arbitration` Electron workflow now covers both live-input boundaries: user input drops an active automatic final summary without replaying it, capture drops active automatic speech, and startup still does not backfill deleted historical narration.
 
 On voice capture start or new user input:
 
