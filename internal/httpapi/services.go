@@ -12,6 +12,8 @@ import (
 	"setta/internal/localcredissuer"
 	"setta/internal/master"
 	"setta/internal/runtimeauth"
+	"setta/internal/runtimecapability"
+	"setta/internal/runtimesetup"
 	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -175,6 +177,14 @@ type RuntimeIdentityService interface {
 	UpdateRuntimeDisplayName(context.Context, string) (RuntimeIdentity, error)
 }
 
+type RuntimeSetupService interface {
+	CreateAttestation(context.Context, runtimesetup.AttestationChallenge) (runtimesetup.Attestation, runtimesetup.AttestationStatus, error)
+}
+
+type RuntimeDiagnosticsService interface {
+	RuntimeDiagnostics(context.Context) runtimecapability.RuntimeDiagnostics
+}
+
 type HandlerConfig struct {
 	AppearanceService            AppearanceService
 	Metadata                     BackendMetadata
@@ -185,12 +195,16 @@ type HandlerConfig struct {
 	MasterInputService           MasterInputService
 	CodexAccountService          CodexAccountService
 	PairingFailureLimiter        *PairingFailureLimiter
+	SetupAttestationLimiter      *PairingFailureLimiter
 	RevocationSweepInterval      time.Duration
 	LocalCredentialIssuer        LocalCredentialIssuerService
 	RuntimeAccessService         RuntimeAccessService
+	RuntimeEndpointAccess        RuntimeEndpointAccessConfig
 	RuntimeAuthService           RuntimeAuthService
+	RuntimeDiagnosticsService    RuntimeDiagnosticsService
 	RuntimeIdentityService       RuntimeIdentityService
 	RuntimeMetadata              RuntimeMetadata
+	RuntimeSetupService          RuntimeSetupService
 	SpeechService                SpeechService
 	WorkspaceUIService           WorkspaceUIService
 	WorkspaceService             WorkspaceService
@@ -206,25 +220,45 @@ type handler struct {
 	masterInputService           MasterInputService
 	codexAccountService          CodexAccountService
 	pairingFailureLimiter        *PairingFailureLimiter
+	setupAttestationLimiter      *PairingFailureLimiter
 	revocationSweepInterval      time.Duration
 	localCredentialIssuer        LocalCredentialIssuerService
 	runtimeAccessService         RuntimeAccessService
+	runtimeEndpointAccess        RuntimeEndpointAccessPolicy
 	runtimeAuthService           RuntimeAuthService
+	runtimeDiagnosticsService    RuntimeDiagnosticsService
 	runtimeIdentityService       RuntimeIdentityService
 	runtimeMetadata              RuntimeMetadata
+	runtimeSetupService          RuntimeSetupService
 	speechService                SpeechService
 	workspaceUIService           WorkspaceUIService
 	workspaceService             WorkspaceService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
+	handler, err := NewHandlerWithError(config)
+	if err != nil {
+		panic(err)
+	}
+	return handler
+}
+
+func NewHandlerWithError(config HandlerConfig) (http.Handler, error) {
 	pairingFailureLimiter := config.PairingFailureLimiter
 	if pairingFailureLimiter == nil {
 		pairingFailureLimiter = NewPairingFailureLimiter(10, time.Minute)
 	}
+	setupAttestationLimiter := config.SetupAttestationLimiter
+	if setupAttestationLimiter == nil {
+		setupAttestationLimiter = NewPairingFailureLimiter(30, time.Minute)
+	}
 	revocationSweepInterval := config.RevocationSweepInterval
 	if revocationSweepInterval <= 0 {
 		revocationSweepInterval = 30 * time.Second
+	}
+	runtimeEndpointAccess, err := NewRuntimeEndpointAccessPolicy(config.RuntimeEndpointAccess)
+	if err != nil {
+		return nil, err
 	}
 	apiHandler := handler{
 		appearanceService:            config.AppearanceService,
@@ -236,17 +270,21 @@ func NewHandler(config HandlerConfig) http.Handler {
 		masterInputService:           config.MasterInputService,
 		codexAccountService:          config.CodexAccountService,
 		pairingFailureLimiter:        pairingFailureLimiter,
+		setupAttestationLimiter:      setupAttestationLimiter,
 		revocationSweepInterval:      revocationSweepInterval,
 		localCredentialIssuer:        config.LocalCredentialIssuer,
 		runtimeAccessService:         config.RuntimeAccessService,
+		runtimeEndpointAccess:        runtimeEndpointAccess,
 		runtimeAuthService:           config.RuntimeAuthService,
+		runtimeDiagnosticsService:    config.RuntimeDiagnosticsService,
 		runtimeIdentityService:       config.RuntimeIdentityService,
 		runtimeMetadata:              config.RuntimeMetadata,
+		runtimeSetupService:          config.RuntimeSetupService,
 		speechService:                config.SpeechService,
 		workspaceUIService:           config.WorkspaceUIService,
 		workspaceService:             config.WorkspaceService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)
-	return mux
+	return runtimeEndpointAccess.Wrap(mux), nil
 }

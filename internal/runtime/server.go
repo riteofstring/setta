@@ -36,17 +36,28 @@ import (
 
 type Config struct {
 	AllowRemote                bool
+	AllowedHTTPSOrigins        []string
+	AllowedRequestHosts        []string
 	AppDataDir                 string
 	BootstrapDeviceDisplayName string
+	CodexCommand               string
+	CodexDiagnosticsTimeout    time.Duration
 	// EnableLocalCredentialIssuer hosts the bounded credential authority used
 	// only by local development and deterministic app workflows. Cloud runtimes
 	// must leave it disabled and use the external Setta control plane.
 	EnableLocalCredentialIssuer bool
+	DiskSpacePath               string
 	Host                        string
+	MinimumDiskFreeMiB          int
+	PolicyPath                  string
 	Port                        int
+	ProtectedRuntimeStateDir    string
+	ReleaseMetadataPath         string
 	RuntimeDisplayName          string
 	SkipBootstrapDeviceSession  bool
 	Version                     string
+	WorkloadLeaseDiagnosticName string
+	WorkloadLeaseManager        runtimeprovider.WorkloadLeaseManager
 	Stdout                      io.Writer
 	Stderr                      io.Writer
 	ShutdownTimeout             time.Duration
@@ -80,27 +91,29 @@ type Server struct {
 }
 
 type runtimeServices struct {
-	appearanceService        *appearance.Service
-	authStore                *runtimeauth.Store
-	bootstrapToken           string
-	localPairingToken        string
-	localCredentialIssuer    *localcredissuer.Service
-	codexAccountService      *codexaccount.Service
-	codexManager             *codexapp.Manager
-	conversationService      *conversation.Service
-	conversationInputService *conversation.InputService
-	conversationIndexService *conversationindex.Service
-	conversationStore        *conversation.Store
-	masterInputService       *master.Service
-	masterRouteService       *master.RouteService
-	masterSessionService     *master.SessionService
-	narratorService          *narration.Service
-	roleConfigurationService *conversation.RoleConfigurationService
-	speechService            *speech.Service
-	workspaceUIService       *workspaceui.Service
-	workspaceService         *workspacesession.Service
-	runtimeIdentityManager   *runtimeIdentityManager
-	infrastructureProvider   httpapi.RuntimeInfrastructureProvider
+	appearanceService         *appearance.Service
+	authStore                 *runtimeauth.Store
+	bootstrapToken            string
+	localPairingToken         string
+	localCredentialIssuer     *localcredissuer.Service
+	runtimeDiagnosticsService *runtimeDiagnosticsService
+	runtimeSetupStore         *runtimesetup.Store
+	codexAccountService       *codexaccount.Service
+	codexManager              *codexapp.Manager
+	conversationService       *conversation.Service
+	conversationInputService  *conversation.InputService
+	conversationIndexService  *conversationindex.Service
+	conversationStore         *conversation.Store
+	masterInputService        *master.Service
+	masterRouteService        *master.RouteService
+	masterSessionService      *master.SessionService
+	narratorService           *narration.Service
+	roleConfigurationService  *conversation.RoleConfigurationService
+	speechService             *speech.Service
+	workspaceUIService        *workspaceui.Service
+	workspaceService          *workspacesession.Service
+	runtimeIdentityManager    *runtimeIdentityManager
+	infrastructureProvider    httpapi.RuntimeInfrastructureProvider
 }
 
 type runtimeAuthBootstrap struct {
@@ -113,14 +126,17 @@ type runtimeAuthBootstrap struct {
 
 func DefaultConfig() Config {
 	return Config{
-		AppDataDir:                 "",
-		BootstrapDeviceDisplayName: "Setta Desktop (local)",
-		Host:                       "127.0.0.1",
-		Port:                       0,
-		Version:                    "dev",
-		Stdout:                     io.Discard,
-		Stderr:                     io.Discard,
-		ShutdownTimeout:            5 * time.Second,
+		AppDataDir:                  "",
+		BootstrapDeviceDisplayName:  "Setta Desktop (local)",
+		CodexCommand:                "codex",
+		CodexDiagnosticsTimeout:     2 * time.Second,
+		Host:                        "127.0.0.1",
+		Port:                        0,
+		Version:                     "dev",
+		WorkloadLeaseDiagnosticName: "setta-agent",
+		Stdout:                      io.Discard,
+		Stderr:                      io.Discard,
+		ShutdownTimeout:             5 * time.Second,
 	}
 }
 
@@ -130,6 +146,15 @@ func (config Config) Validate() error {
 	}
 	if config.Host == "" {
 		return errors.New("host is required")
+	}
+	if err := httpapi.ValidateRuntimeEndpointAccess(httpapi.RuntimeEndpointAccessConfig{
+		AllowedHTTPSOrigins: config.AllowedHTTPSOrigins,
+		AllowedRequestHosts: config.AllowedRequestHosts,
+	}); err != nil {
+		return err
+	}
+	if err := validateRuntimeDiagnosticsConfig(config); err != nil {
+		return err
 	}
 	if err := validateBootstrapConfig(config); err != nil {
 		return err
@@ -150,6 +175,29 @@ func (config Config) Validate() error {
 		return errors.New("shutdown timeout must be positive")
 	}
 	return validateSpeechConfig(config.Speech)
+}
+
+func validateRuntimeDiagnosticsConfig(config Config) error {
+	if strings.TrimSpace(config.CodexCommand) == "" {
+		return errors.New("codex command is required")
+	}
+	if config.CodexDiagnosticsTimeout <= 0 {
+		return errors.New("codex diagnostics timeout must be positive")
+	}
+	if config.MinimumDiskFreeMiB < 0 {
+		return fmt.Errorf("minimum disk free MiB must not be negative: %d", config.MinimumDiskFreeMiB)
+	}
+	for label, path := range map[string]string{
+		"disk space path":             config.DiskSpacePath,
+		"policy path":                 config.PolicyPath,
+		"protected runtime state dir": config.ProtectedRuntimeStateDir,
+		"release metadata path":       config.ReleaseMetadataPath,
+	} {
+		if path != "" && !filepath.IsAbs(path) {
+			return fmt.Errorf("%s must be absolute: %s", label, path)
+		}
+	}
+	return nil
 }
 
 func validateBootstrapConfig(config Config) error {
@@ -224,6 +272,19 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		return nil, err
 	}
 
+	httpServer, err := newHTTPServer(config, services)
+	if err != nil {
+		_ = listener.Close()
+		closeRuntimeServicesAfterReadyFailure(config, &Server{
+			closeConversationStore: services.conversationStore.Close,
+			closeRuntimeAuth:       services.authStore.Close,
+			drainConversationTurns: services.conversationService.Shutdown,
+			drainMasterRouting:     services.masterRouteService.Shutdown,
+			drainNarration:         services.narratorService.Shutdown,
+			codexManager:           services.codexManager,
+		})
+		return nil, err
+	}
 	server := &Server{
 		closeConversationStore: services.conversationStore.Close,
 		closeRuntimeAuth:       services.authStore.Close,
@@ -231,7 +292,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		drainMasterRouting:     services.masterRouteService.Shutdown,
 		drainNarration:         services.narratorService.Shutdown,
 		codexManager:           services.codexManager,
-		server:                 newHTTPServer(config, services),
+		server:                 httpServer,
 		listener:               listener,
 		done:                   make(chan error, 1),
 	}
@@ -285,31 +346,47 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
+	runtimeDiagnosticsService := newRuntimeDiagnosticsService(runtimeDiagnosticsConfig{
+		AppDataDir:                  config.AppDataDir,
+		CodexAccountService:         codexAccountService,
+		CodexCommand:                config.CodexCommand,
+		CodexTimeout:                config.CodexDiagnosticsTimeout,
+		DiskSpacePath:               config.DiskSpacePath,
+		MinimumDiskFreeMiB:          config.MinimumDiskFreeMiB,
+		PolicyPath:                  config.PolicyPath,
+		ProtectedRuntimeStateDir:    config.ProtectedRuntimeStateDir,
+		ReleaseMetadataPath:         config.ReleaseMetadataPath,
+		RuntimeVersion:              config.Version,
+		WorkloadLeaseDiagnosticName: config.WorkloadLeaseDiagnosticName,
+		WorkloadLeaseManager:        config.WorkloadLeaseManager,
+	})
 
 	closeAuthOnFailure = false
 	closeConversationStoreOnFailure = false
 	return runtimeServices{
-		appearanceService:        baseServices.appearanceService,
-		authStore:                authBootstrap.store,
-		bootstrapToken:           authBootstrap.bootstrapToken,
-		localPairingToken:        authBootstrap.localPairingToken,
-		localCredentialIssuer:    localCredentialIssuer,
-		codexAccountService:      codexAccountService,
-		codexManager:             baseServices.codexManager,
-		conversationService:      baseServices.conversationService,
-		conversationInputService: baseServices.conversationInputService,
-		conversationIndexService: baseServices.conversationIndexService,
-		conversationStore:        baseServices.conversationStore,
-		masterInputService:       baseServices.masterInputService,
-		masterRouteService:       baseServices.masterRouteService,
-		masterSessionService:     baseServices.masterSessionService,
-		narratorService:          baseServices.narratorService,
-		roleConfigurationService: baseServices.roleConfigurationService,
-		speechService:            baseServices.speechService,
-		workspaceUIService:       baseServices.workspaceUIService,
-		workspaceService:         baseServices.workspaceService,
-		runtimeIdentityManager:   authBootstrap.identityManager,
-		infrastructureProvider:   authBootstrap.infrastructureProvider,
+		appearanceService:         baseServices.appearanceService,
+		authStore:                 authBootstrap.store,
+		bootstrapToken:            authBootstrap.bootstrapToken,
+		localPairingToken:         authBootstrap.localPairingToken,
+		localCredentialIssuer:     localCredentialIssuer,
+		runtimeDiagnosticsService: runtimeDiagnosticsService,
+		runtimeSetupStore:         setupStore,
+		codexAccountService:       codexAccountService,
+		codexManager:              baseServices.codexManager,
+		conversationService:       baseServices.conversationService,
+		conversationInputService:  baseServices.conversationInputService,
+		conversationIndexService:  baseServices.conversationIndexService,
+		conversationStore:         baseServices.conversationStore,
+		masterInputService:        baseServices.masterInputService,
+		masterRouteService:        baseServices.masterRouteService,
+		masterSessionService:      baseServices.masterSessionService,
+		narratorService:           baseServices.narratorService,
+		roleConfigurationService:  baseServices.roleConfigurationService,
+		speechService:             baseServices.speechService,
+		workspaceUIService:        baseServices.workspaceUIService,
+		workspaceService:          baseServices.workspaceService,
+		runtimeIdentityManager:    authBootstrap.identityManager,
+		infrastructureProvider:    authBootstrap.infrastructureProvider,
 	}, nil
 }
 
@@ -509,11 +586,21 @@ func (server *Server) serve() {
 }
 
 func normalizeConfig(config Config) Config {
+	defaults := DefaultConfig()
 	if config.Stdout == nil {
 		config.Stdout = io.Discard
 	}
 	if config.Stderr == nil {
 		config.Stderr = io.Discard
+	}
+	if config.CodexCommand == "" {
+		config.CodexCommand = defaults.CodexCommand
+	}
+	if config.CodexDiagnosticsTimeout == 0 {
+		config.CodexDiagnosticsTimeout = defaults.CodexDiagnosticsTimeout
+	}
+	if config.WorkloadLeaseDiagnosticName == "" {
+		config.WorkloadLeaseDiagnosticName = defaults.WorkloadLeaseDiagnosticName
 	}
 	return config
 }

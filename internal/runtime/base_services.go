@@ -290,6 +290,7 @@ func newRuntimeAgentServices(
 	workspaceService *workspacesession.Service,
 ) (runtimeAgentServices, error) {
 	agentRuntime := agent.NewRuntime(agent.Config{
+		Command:     config.CodexCommand,
 		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
 		Version:     config.Version,
 	})
