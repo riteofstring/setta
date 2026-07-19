@@ -20,6 +20,8 @@ const fixturePath = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "test-fixtures/local-macos-voice-helper-fixture.mjs",
 );
+const localVoiceID = "com.apple.voice.compact.en-US.Samantha";
+const localWAVAudioBase64 = "UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
 
 describe("LocalMacOSVoiceHealthService", () => {
   test("reports unsupported platforms and missing models without starting the helper", async () => {
@@ -275,7 +277,7 @@ describe("LocalMacOSVoiceHealthService", () => {
         voiceId: "marin",
       }),
     ).resolves.toEqual({
-      audioBase64: "bG9jYWwtYXVkaW8=",
+      audioBase64: localWAVAudioBase64,
       format: "wav",
       mediaType: "audio/wav",
       operationId: "speech_local",
@@ -351,10 +353,10 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
         operationId: "speech_one",
         rate: 1.2,
         text: "Local helper speech.",
-        voiceId: "marin",
+        voiceId: localVoiceID,
       }),
     ).resolves.toEqual({
-      audioBase64: "bG9jYWwgc3BlZWNoIGZvciBzcGVlY2hfb25l",
+      audioBase64: localWAVAudioBase64,
       format: "wav",
       mediaType: "audio/wav",
       operationId: "speech_one",
@@ -405,7 +407,7 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
       operationId: "speech_cancel",
       rate: 1.2,
       text: "Local helper speech.",
-      voiceId: "marin",
+      voiceId: localVoiceID,
     });
     const synthesisFailure = expect(synthesis).rejects.toMatchObject({
       code: "synthesis_failed",
@@ -431,7 +433,7 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
         operationId: "speech_malformed_audio",
         rate: 1.2,
         text: "Local helper speech.",
-        voiceId: "marin",
+        voiceId: localVoiceID,
       }),
     ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperProtocolError);
 
@@ -487,7 +489,7 @@ class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
   }));
 
   synthesizeSpeech = vi.fn<LocalMacOSVoiceHelperClient["synthesizeSpeech"]>(async (request) => ({
-    audioBase64: "bG9jYWwtYXVkaW8=",
+    audioBase64: localWAVAudioBase64,
     format: "wav",
     mediaType: "audio/wav",
     operationId: request.operationId,

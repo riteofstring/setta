@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
@@ -11,6 +10,7 @@ import {
   resolveLocalMacOSVoiceHelperConfiguration,
   type LocalMacOSVoiceEnvironmentOptions,
 } from "./local-macos-voice-resources";
+import { isCanonicalWAVBase64 } from "./speech-audio-validation";
 
 export interface LocalMacOSVoiceHelper {
   cancelCapture: (
@@ -862,7 +862,7 @@ function decodeSynthesisResult(value: unknown): LocalMacOSVoiceSynthesisResult {
     stringField(record, "operationId", "LocalMacOSVoiceHelper.synthesize_speech"),
     "LocalMacOSVoiceHelper.synthesize_speech.operationId",
   );
-  if (format !== "wav" || mediaType !== "audio/wav" || !isCanonicalBase64(audioBase64)) {
+  if (format !== "wav" || mediaType !== "audio/wav" || !isCanonicalWAVBase64(audioBase64)) {
     throw new Error("LocalMacOSVoiceHelper.synthesize_speech audio is invalid");
   }
   return {
@@ -936,16 +936,6 @@ function requiredTrimmedString(value: unknown, label: string): SpeechVoiceID {
     throw new Error(`${label} must be a trimmed string`);
   }
   return value;
-}
-
-function isCanonicalBase64(value: string): boolean {
-  if (value === "" || value.trim() !== value) {
-    return false;
-  }
-  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
-    return false;
-  }
-  return Buffer.from(value, "base64").toString("base64") === value;
 }
 
 function normalizedOptionalText(value: string | null | undefined): string | null {

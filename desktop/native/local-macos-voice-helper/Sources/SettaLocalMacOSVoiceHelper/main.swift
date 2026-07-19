@@ -108,7 +108,17 @@ final class LocalMacOSVoiceHelperRuntime: @unchecked Sendable {
   private func handle(_ data: Data) {
     do {
       let base = try JSONDecoder().decode(BaseCommandEnvelope.self, from: data)
-      try handleKnownCommand(base: base, data: data)
+      do {
+        try handleKnownCommand(base: base, data: data)
+      } catch let error as HelperCommandError {
+        writer.reject(id: base.id, code: error.code, message: error.message)
+      } catch {
+        writer.reject(
+          id: base.id,
+          code: "malformed_command",
+          message: "Command payload is invalid."
+        )
+      }
     } catch {
       FileHandle.standardError.write(Data("local voice helper command decoding failed\n".utf8))
     }

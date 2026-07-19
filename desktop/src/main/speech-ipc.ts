@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import type { IpcMain } from "electron";
 
 import {
@@ -32,6 +31,7 @@ import {
   LocalMacOSVoiceHelperUnavailableError,
   type LocalMacOSVoiceHelper,
 } from "./local-macos-voice-helper";
+import { isCanonicalWAVBase64 } from "./speech-audio-validation";
 
 const localMacOSProvider = localMacOSSpeechProviderID();
 const openAIProvider = openAISpeechProviderID();
@@ -485,13 +485,14 @@ async function synthesizeLocalMacOSSpeech({
 }): Promise<SpeechAudio> {
   const input = await backend.resolveSpeechSynthesisInput(request, { signal });
   validateResolvedLocalSynthesisInput(input, request);
+  const localVoiceId = await selectLocalMacOSVoiceID(helper, input.resolvedVoiceId);
   const result = await runAbortableLocalMacOSSynthesis(
     helper,
     {
       operationId,
       rate: input.rate,
       text: input.text,
-      voiceId: input.resolvedVoiceId,
+      voiceId: localVoiceId,
     },
     signal,
   );
@@ -507,6 +508,23 @@ async function synthesizeLocalMacOSSpeech({
   };
 }
 
+async function selectLocalMacOSVoiceID(
+  helper: LocalMacOSVoiceHelper,
+  requestedVoiceId: string,
+): Promise<string> {
+  let catalog: Awaited<ReturnType<LocalMacOSVoiceHelper["listVoices"]>>;
+  try {
+    catalog = await helper.listVoices();
+  } catch (error) {
+    throw localMacOSSynthesisError(error);
+  }
+  const defaultVoiceId = catalog.voiceIds[0];
+  if (catalog.provider !== localMacOSProvider || !defaultVoiceId) {
+    throw new Error("Local macOS speech output could not find an installed system voice.");
+  }
+  return catalog.voiceIds.includes(requestedVoiceId) ? requestedVoiceId : defaultVoiceId;
+}
+
 function validLocalMacOSSynthesisResult(
   result: Awaited<ReturnType<LocalMacOSVoiceHelper["synthesizeSpeech"]>>,
   operationId: string,
@@ -515,7 +533,7 @@ function validLocalMacOSSynthesisResult(
     result.operationId === operationId &&
     result.mediaType === "audio/wav" &&
     result.format === "wav" &&
-    isCanonicalBase64(result.audioBase64)
+    isCanonicalWAVBase64(result.audioBase64)
   );
 }
 
@@ -586,16 +604,6 @@ function localMacOSSynthesisError(error: unknown): Error {
 
 function synthesisAbortError(): DOMException {
   return new DOMException("Speech synthesis was stopped.", "AbortError");
-}
-
-function isCanonicalBase64(value: string): boolean {
-  if (value === "" || value.trim() !== value) {
-    return false;
-  }
-  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
-    return false;
-  }
-  return Buffer.from(value, "base64").toString("base64") === value;
 }
 
 function invalidCredentialSaveRequestSettings(): SpeechCredentialSettings {

@@ -6,6 +6,8 @@ import { describe, expect, test, vi } from "vitest";
 import { registerSpeechIpcHandlers } from "./speech-ipc";
 import { LocalMacOSVoiceHelperCommandError } from "./local-macos-voice-helper";
 
+const localWAVAudioBase64 = "UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
+
 describe("speech IPC handlers", () => {
   test("forwards speech capabilities and redacts transcription credentials", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
@@ -417,10 +419,10 @@ describe("speech IPC handlers", () => {
       operationId: "speech-local",
       rate: 1.2,
       text: "Local helper speech.",
-      voiceId: "marin",
+      voiceId: "com.apple.voice.compact.en-US.Samantha",
     });
     expect(audio).toEqual({
-      audioBase64: "bG9jYWwtYXVkaW8=",
+      audioBase64: localWAVAudioBase64,
       format: "wav",
       mediaType: "audio/wav",
       resolvedVoiceId: "marin",
@@ -446,7 +448,7 @@ describe("speech IPC handlers", () => {
     } as unknown as BackendClient;
     const helper = localMacOSVoiceHelper();
     helper.synthesizeSpeech.mockResolvedValueOnce({
-      audioBase64: "not base64 audio",
+      audioBase64: "bm90IHdhdmUgYXVkaW8=",
       format: "wav",
       mediaType: "audio/wav",
       operationId: "speech-local-malformed",
@@ -734,7 +736,7 @@ function localMacOSVoiceHelper() {
       sessionId: request.sessionId,
     })),
     synthesizeSpeech: vi.fn(async (request: { operationId: string }) => ({
-      audioBase64: "bG9jYWwtYXVkaW8=",
+      audioBase64: localWAVAudioBase64,
       format: "wav",
       mediaType: "audio/wav",
       operationId: request.operationId,

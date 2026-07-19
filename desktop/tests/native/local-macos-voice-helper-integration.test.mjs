@@ -62,6 +62,10 @@ async function runIntegration() {
       await client.command("cancel_capture", { sessionId: "native_missing_model" }),
       "invalid_session",
     );
+    assertErrorCode(
+      await client.command("start_capture", { sessionId: "native_malformed_command" }),
+      "malformed_command",
+    );
     assertErrorCode(await client.command("unsupported_native_command", {}), "unsupported_command");
   } finally {
     await client.close();

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /* global console */
 
-import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { chmod, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, resolve } from "node:path";
@@ -420,7 +419,8 @@ function synthesizedSourceMatches(actual, expected) {
 }
 
 function expectedSynthesisAudioBase64(operationId) {
-  return Buffer.from(`local speech for ${operationId}`, "utf8").toString("base64");
+  void operationId;
+  return "UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
 }
 
 function assertSynthesisCanceled(result) {

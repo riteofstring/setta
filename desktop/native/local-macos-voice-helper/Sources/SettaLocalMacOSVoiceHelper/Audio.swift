@@ -101,6 +101,7 @@ final class AudioCaptureSession {
   private let maximumFrameCount: Int
   private let targetFormat: AVAudioFormat
   private var converter: AVAudioConverter?
+  private var captureFailure: HelperCommandError?
   private var reachedDurationLimit = false
   private var samples: [Int16] = []
   private var stopped = false
@@ -169,8 +170,15 @@ final class AudioCaptureSession {
 
   func finish() throws -> CapturedAudio {
     stop()
-    let captured = readSamples()
-    if reachedDurationLimit {
+    lock.lock()
+    let captured = samples
+    let failure = captureFailure
+    let durationLimitReached = reachedDurationLimit
+    lock.unlock()
+    if let failure {
+      throw failure
+    }
+    if durationLimitReached {
       throw HelperCommandError(
         code: "duration_limit",
         message: "Local capture reached the recording limit."
@@ -186,7 +194,7 @@ final class AudioCaptureSession {
   private func append(_ buffer: AVAudioPCMBuffer) {
     lock.lock()
     defer { lock.unlock() }
-    guard !reachedDurationLimit, let converter else {
+    guard !reachedDurationLimit, captureFailure == nil, let converter else {
       return
     }
     do {
@@ -199,7 +207,10 @@ final class AudioCaptureSession {
         samples.append(contentsOf: converted)
       }
     } catch {
-      reachedDurationLimit = true
+      captureFailure = HelperCommandError(
+        code: "helper_unavailable",
+        message: "Local microphone capture conversion failed."
+      )
     }
   }
 
@@ -213,12 +224,6 @@ final class AudioCaptureSession {
     }
     engine.inputNode.removeTap(onBus: 0)
     engine.stop()
-  }
-
-  private func readSamples() -> [Int16] {
-    lock.lock()
-    defer { lock.unlock() }
-    return samples
   }
 
   private func convert(_ buffer: AVAudioPCMBuffer, using converter: AVAudioConverter) throws

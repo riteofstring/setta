@@ -3,6 +3,11 @@ import { createInterface } from "node:readline";
 const mode = process.argv[2] ?? "ok";
 const sessions = new Map();
 const synthesisOperations = new Map();
+const localVoiceIds = [
+  "com.apple.voice.compact.en-US.Samantha",
+  "com.apple.voice.compact.en-US.Alex",
+];
+const minimalWavBase64 = "UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
 const input = createInterface({ input: process.stdin });
 const commandHandlers = new Map([
   ["cancel_capture", handleCancelCapture],
@@ -94,7 +99,7 @@ function handleListVoices(command) {
   }
   respond(command.id, {
     version: "fixture-local-voices",
-    voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
+    voiceIds: localVoiceIds,
   });
 }
 
@@ -115,28 +120,46 @@ function handleStartCapture(command) {
 }
 
 function handleSynthesizeSpeech(command) {
-  if (mode === "synthesis_unavailable" || command.payload.operationId.includes("unavailable")) {
-    reject(command.id, "synthesis_unavailable", "system speech synthesis is unavailable");
-    return;
-  }
-  if (!command.payload.operationId || !command.payload.text || !command.payload.voiceId) {
+  const payload = command.payload;
+  if (!validSynthesisPayload(payload)) {
     reject(command.id, "synthesis_failed", "synthesis request is invalid");
     return;
   }
-  if (command.payload.operationId.includes("malformed_audio")) {
+  if (mode === "synthesis_unavailable" || payload.operationId.includes("unavailable")) {
+    reject(command.id, "synthesis_unavailable", "system speech synthesis is unavailable");
+    return;
+  }
+  if (!localVoiceIds.includes(payload.voiceId)) {
+    reject(command.id, "voice_unavailable", "The selected macOS system voice is unavailable.");
+    return;
+  }
+  if (payload.operationId.includes("malformed_audio")) {
     respond(command.id, {
-      audioBase64: "not base64 audio",
+      audioBase64: Buffer.from("not wav audio", "utf8").toString("base64"),
       format: "wav",
       mediaType: "audio/wav",
-      operationId: command.payload.operationId,
+      operationId: payload.operationId,
     });
     return;
   }
-  if (mode === "slow_synthesis" || command.payload.operationId.includes("cancel")) {
-    synthesisOperations.set(command.payload.operationId, command.id);
+  if (mode === "slow_synthesis" || payload.operationId.includes("cancel")) {
+    synthesisOperations.set(payload.operationId, command.id);
     return;
   }
-  respond(command.id, synthesisResult(command.payload.operationId));
+  respond(command.id, synthesisResult(payload.operationId));
+}
+
+function validSynthesisPayload(payload) {
+  return (
+    payload &&
+    typeof payload.operationId === "string" &&
+    payload.operationId !== "" &&
+    typeof payload.text === "string" &&
+    payload.text !== "" &&
+    typeof payload.voiceId === "string" &&
+    payload.voiceId !== "" &&
+    typeof payload.rate === "number"
+  );
 }
 
 function handleCancelSynthesis(command) {
@@ -150,7 +173,7 @@ function handleCancelSynthesis(command) {
 
 function synthesisResult(operationId) {
   return {
-    audioBase64: Buffer.from(`local speech for ${operationId}`, "utf8").toString("base64"),
+    audioBase64: minimalWavBase64,
     format: "wav",
     mediaType: "audio/wav",
     operationId,
