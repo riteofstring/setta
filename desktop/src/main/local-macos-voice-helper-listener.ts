@@ -64,6 +64,13 @@ export function decodeListenerLifecycleResult<
 export function decodeListenerEngineEvent(value: unknown): LocalMacOSVoiceListenerEngineEvent {
   const record = assertRecord(value, "LocalMacOSVoiceHelper.listener_event.event");
   const type = stringField(record, "type", "LocalMacOSVoiceHelper.listener_event.event");
+  if (isTimedListenerEngineEventType(type)) {
+    assertKnownFields(record, `LocalMacOSVoiceHelper.listener_event.${type}`, ["timeMs", "type"]);
+    return {
+      timeMs: numberField(record, "timeMs", `LocalMacOSVoiceHelper.listener_event.${type}`),
+      type,
+    };
+  }
   switch (type) {
     case "listener_armed":
       assertKnownFields(record, "LocalMacOSVoiceHelper.listener_event.listener_armed", ["type"]);
@@ -77,13 +84,6 @@ export function decodeListenerEngineEvent(value: unknown): LocalMacOSVoiceListen
       return {
         score: numberField(record, "score", "LocalMacOSVoiceHelper.listener_event.wake_detected"),
         timeMs: numberField(record, "timeMs", "LocalMacOSVoiceHelper.listener_event.wake_detected"),
-        type,
-      };
-    case "message_speech_started":
-    case "candidate_endpoint_detected":
-      assertKnownFields(record, `LocalMacOSVoiceHelper.listener_event.${type}`, ["timeMs", "type"]);
-      return {
-        timeMs: numberField(record, "timeMs", `LocalMacOSVoiceHelper.listener_event.${type}`),
         type,
       };
     case "utterance_finalized":
@@ -113,6 +113,21 @@ export function decodeListenerEngineEvent(value: unknown): LocalMacOSVoiceListen
     default:
       throw new Error("LocalMacOSVoiceHelper.listener_event.event.type is unsupported");
   }
+}
+
+type TimedListenerEngineEventType = Extract<
+  LocalMacOSVoiceListenerEngineEvent,
+  { type: "candidate_endpoint_detected" | "message_speech_started" | "speech_resumed" }
+>["type"];
+
+const timedListenerEngineEventTypes = new Set<TimedListenerEngineEventType>([
+  "candidate_endpoint_detected",
+  "message_speech_started",
+  "speech_resumed",
+]);
+
+function isTimedListenerEngineEventType(type: string): type is TimedListenerEngineEventType {
+  return timedListenerEngineEventTypes.has(type as TimedListenerEngineEventType);
 }
 
 function assertRecord(value: unknown, label: string): Record<string, unknown> {

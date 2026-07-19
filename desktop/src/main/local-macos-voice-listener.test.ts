@@ -21,6 +21,7 @@ describe("local macOS voice always-listening state machine", () => {
     const runtime = "onnx" satisfies LocalMacOSVoiceListenerRuntime;
     const startCommand = {
       audioCopiedBeforeWakeMs: 400,
+      candidateEndpointMs: 900,
       hardTrailingSilenceLimitMs: 2_200,
       maximumUtteranceMs: 45_000,
       noMessageTimeoutMs: 4_000,

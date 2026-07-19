@@ -30,6 +30,7 @@ struct SessionPayload: Codable {
 
 struct StartListenerPayload: Codable {
   let audioCopiedBeforeWakeMs: Int
+  let candidateEndpointMs: Int
   let hardTrailingSilenceLimitMs: Int
   let maximumUtteranceMs: Int
   let noMessageTimeoutMs: Int
@@ -140,6 +141,16 @@ struct ListenerEvent: Encodable {
       timeMs: timeMs,
       transcript: nil,
       type: "candidate_endpoint_detected"
+    )
+  }
+
+  static func speechResumed(timeMs: Int) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: nil,
+      timeMs: timeMs,
+      transcript: nil,
+      type: "speech_resumed"
     )
   }
 

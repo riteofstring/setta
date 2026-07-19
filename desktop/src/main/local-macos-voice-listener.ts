@@ -18,6 +18,7 @@ export type LocalMacOSVoiceListenerRuntime = "onnx" | "tflite";
 
 export interface LocalMacOSVoiceListenerStartCommand {
   audioCopiedBeforeWakeMs: number;
+  candidateEndpointMs: number;
   hardTrailingSilenceLimitMs: number;
   maximumUtteranceMs: number;
   noMessageTimeoutMs: number;
@@ -65,6 +66,10 @@ export type LocalMacOSVoiceListenerEngineEvent =
   | {
       timeMs: number;
       type: "candidate_endpoint_detected";
+    }
+  | {
+      timeMs: number;
+      type: "speech_resumed";
     }
   | {
       transcript: string;

@@ -41,11 +41,42 @@ describe("local macOS voice listener service", () => {
       expect(completed.state).toEqual({ status: "armed" });
       expect(harness.helper.startListener).toHaveBeenCalledWith(
         expect.objectContaining({
+          candidateEndpointMs: 900,
           runtime: "onnx",
           wakeModelPath: harness.wakeModelPath,
           wakeModelSHA256: harness.wakeModelSHA256,
         }),
         expect.any(Function),
+      );
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  test("returns wake capture to recording when speech resumes after a candidate endpoint", async () => {
+    const harness = await createHarness();
+    try {
+      await harness.service.updateSettings(true);
+      harness.emit({ type: "listener_armed" });
+      harness.emit({ score: 0.74, timeMs: 960, type: "wake_detected" });
+      harness.emit({ timeMs: 1_140, type: "message_speech_started" });
+      harness.emit({ timeMs: 2_220, type: "candidate_endpoint_detected" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toMatchObject({
+          candidateEndAtMs: 2_220,
+          status: "candidate_end",
+        }),
+      );
+
+      harness.emit({ timeMs: 2_320, type: "speech_resumed" });
+
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({
+          captureStartedAtMs: 1_140,
+          score: 0.74,
+          status: "capturing",
+          wakeDetectedAtMs: 960,
+        }),
       );
     } finally {
       await harness.cleanup();

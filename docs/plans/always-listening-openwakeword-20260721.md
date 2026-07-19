@@ -317,7 +317,7 @@ to the focused conversation without clicking the mic button.
 
 ### Phase 4: Endpointing and Product Hardening
 
-- [ ] Tune VAD, silence, padding, and maximum-duration parameters.
+- [x] Tune VAD, silence, padding, and maximum-duration parameters.
 - [x] Strip leading wake phrase text deterministically from transcripts.
 - [x] Add half-duplex playback suppression.
 - [x] Add recovery for helper crash, model load failure, microphone denial, and
@@ -342,6 +342,18 @@ failures, and restarts enabled always-listening after local voice or helper
 readiness recovers. Failed listener presentations route shell, master, and Easy
 Button voice controls to the Always Listening card in Settings -> Voices instead
 of retrying unrelated manual capture.
+
+Implementation note (2026-07-21): endpointing now sends an explicit 900 ms
+candidate-end threshold to the helper instead of deriving it from trailing audio
+padding, validates that it stays within the hard trailing-silence limit, emits a
+typed speech-resumed event when VAD detects speech after a candidate endpoint,
+and trims finalized audio to the configured trailing padding. Focused
+main-process and native scripted-PCM coverage exercises candidate detection,
+resumed speech, hard endpoint finalization, maximum-duration capping, and
+retained trailing padding. CPU, memory, and battery dogfood measurements require
+a packaged dogfood build and representative idle run outside this repository-only
+implementation environment, so that report item remains an external release
+gate.
 
 Exit criteria: dogfood builds can stay armed for long sessions without obvious
 false wakes, clipped first words, or stuck capture.

@@ -102,6 +102,7 @@ async function runIntegration() {
     assert.deepEqual(client.listenerEvents(), [{ type: "listener_armed" }]);
     await assertFailedResumeKeepsListenerPaused(client, modelPath);
     await assertScriptedPCMListenerCapture(client);
+    await assertScriptedPCMMaximumUtteranceCap(client);
     assertOkResult(await client.command("stop_listener", { reason: "setting_disabled" }), {
       status: "stopped",
     });
@@ -244,10 +245,26 @@ async function assertScriptedPCMListenerCapture(client) {
   assertOkResult(
     await client.command(
       "ingest_listener_pcm",
-      pcmPayload(80, 600, { endOfInput: true }),
-      "native_pcm_endpoint",
+      pcmPayload(80, 600),
+      "native_pcm_candidate_endpoint",
     ),
     { sampleCount: 1_280, status: "accepted" },
+  );
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(40, 700, { vadVoice: true }),
+      "native_pcm_speech_resumed",
+    ),
+    { sampleCount: 640, status: "accepted" },
+  );
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(160, 800, { endOfInput: true }),
+      "native_pcm_endpoint",
+    ),
+    { sampleCount: 2_560, status: "accepted" },
   );
 
   assert.deepEqual(client.listenerEvents(), [
@@ -255,8 +272,48 @@ async function assertScriptedPCMListenerCapture(client) {
     { score: 0.7, timeMs: 330, type: "wake_detected" },
     { timeMs: 370, type: "message_speech_started" },
     { timeMs: 530, type: "candidate_endpoint_detected" },
+    { timeMs: 570, type: "speech_resumed" },
+    { timeMs: 730, type: "candidate_endpoint_detected" },
     {
-      transcript: "scripted pcm sampleCount=6080 first=200 last=600",
+      transcript: "scripted pcm sampleCount=7360 first=200 last=800",
+      type: "utterance_finalized",
+    },
+  ]);
+}
+
+async function assertScriptedPCMMaximumUtteranceCap(client) {
+  const initialEventCount = client.listenerEvents().length;
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(80, 900, { wakeScore: 0.7 }),
+      "native_pcm_max_wake",
+    ),
+    { sampleCount: 1_280, status: "accepted" },
+  );
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(40, 901, { vadVoice: true }),
+      "native_pcm_max_speech_start",
+    ),
+    { sampleCount: 640, status: "accepted" },
+  );
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(5_200, 902, { endOfInput: true, vadVoice: true }),
+      "native_pcm_max_voice",
+    ),
+    { sampleCount: 83_200, status: "accepted" },
+  );
+
+  assert.deepEqual(client.listenerEvents().slice(initialEventCount), [
+    { score: 0.7, timeMs: 810, type: "wake_detected" },
+    { timeMs: 850, type: "message_speech_started" },
+    { timeMs: 6_050, type: "candidate_endpoint_detected" },
+    {
+      transcript: "scripted pcm sampleCount=80000 first=900 last=902",
       type: "utterance_finalized",
     },
   ]);
@@ -309,7 +366,8 @@ function listenerStartPayload(
 ) {
   return {
     audioCopiedBeforeWakeMs: 100,
-    hardTrailingSilenceLimitMs: 80,
+    candidateEndpointMs: 80,
+    hardTrailingSilenceLimitMs: 160,
     maximumUtteranceMs: 5_000,
     noMessageTimeoutMs: 1_000,
     preWakeRingBufferMs: 200,

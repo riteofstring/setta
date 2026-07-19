@@ -526,6 +526,46 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     client.shutdown();
   });
 
+  test("decodes resumed speech listener events", async () => {
+    const client = new LocalMacOSVoiceHelperProcessClient({
+      args: [fixturePath],
+      command: process.execPath,
+      env: {
+        ...process.env,
+        SETTA_LOCAL_MACOS_VOICE_HELPER_SCRIPTED_LISTENER_EVENTS: JSON.stringify([
+          { score: 0.74, timeMs: 960, type: "wake_detected" },
+          { timeMs: 1_140, type: "message_speech_started" },
+          { timeMs: 2_220, type: "candidate_endpoint_detected" },
+          { timeMs: 2_320, type: "speech_resumed" },
+        ]),
+      },
+    });
+    const events: LocalMacOSVoiceListenerEngineEvent[] = [];
+
+    await expect(
+      client.startListener(
+        {
+          ...listenerStartRequest("/tmp/hey-setta.onnx", "1".repeat(64)),
+          transcriptionModelPath: "/tmp/ggml-base.en.bin",
+        },
+        (event) => events.push(event),
+      ),
+    ).resolves.toEqual({ status: "started" });
+    await waitForEventCount(events, 5);
+    expect(events).toEqual([
+      { type: "listener_armed" },
+      { score: 0.74, timeMs: 960, type: "wake_detected" },
+      { timeMs: 1_140, type: "message_speech_started" },
+      { timeMs: 2_220, type: "candidate_endpoint_detected" },
+      { timeMs: 2_320, type: "speech_resumed" },
+    ]);
+
+    await expect(client.stopListener({ reason: "setting_disabled" })).resolves.toEqual({
+      status: "stopped",
+    });
+    client.shutdown();
+  });
+
   test("reports helper exit to the active listener event handler", async () => {
     const client = new LocalMacOSVoiceHelperProcessClient({
       args: [fixturePath, "listener_exit_after_start"],
@@ -727,6 +767,7 @@ class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
 function listenerStartRequest(wakeModelPath: string, wakeModelSHA256: string) {
   return {
     audioCopiedBeforeWakeMs: 400,
+    candidateEndpointMs: 900,
     hardTrailingSilenceLimitMs: 2_200,
     maximumUtteranceMs: 45_000,
     noMessageTimeoutMs: 4_000,

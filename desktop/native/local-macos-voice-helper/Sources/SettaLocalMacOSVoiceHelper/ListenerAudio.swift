@@ -19,6 +19,7 @@ final class AlwaysListeningAudioProcessor {
   private let preWakeBuffer: PCM16RingBuffer
   private let speechStartDebounceFrameCount: Int
   private let threshold: Double
+  private let trailingAudioPaddingFrameCount: Int
   private(set) var transcriptionModelPath: String
 
   private var activeCapture: ActiveListenerCapture?
@@ -26,11 +27,10 @@ final class AlwaysListeningAudioProcessor {
 
   init(request: StartListenerPayload) {
     audioCopiedBeforeWakeFrameCount = frameCount(milliseconds: request.audioCopiedBeforeWakeMs)
-    let trailingAudioPaddingFrameCount = frameCount(milliseconds: request.trailingAudioPaddingMs)
-    let vadFrameCount = frameCount(milliseconds: request.vadFrameMs)
+    trailingAudioPaddingFrameCount = frameCount(milliseconds: request.trailingAudioPaddingMs)
     candidateEndpointFrameCount = min(
       frameCount(milliseconds: request.hardTrailingSilenceLimitMs),
-      max(trailingAudioPaddingFrameCount, vadFrameCount)
+      frameCount(milliseconds: request.candidateEndpointMs)
     )
     hardTrailingSilenceFrameCount = frameCount(milliseconds: request.hardTrailingSilenceLimitMs)
     maximumUtteranceFrameCount = frameCount(milliseconds: request.maximumUtteranceMs)
@@ -133,6 +133,10 @@ final class AlwaysListeningAudioProcessor {
       }
     } else {
       if vadVoice {
+        if capture.candidateEndpointSent && capture.consecutiveUnvoicedFrameCount > 0 {
+          capture.candidateEndpointSent = false
+          events.append(.speechResumed(timeMs: timeMilliseconds(atFrame: frameEnd)))
+        }
         capture.consecutiveUnvoicedFrameCount = 0
       } else {
         capture.consecutiveUnvoicedFrameCount += frameSampleCount
@@ -158,12 +162,25 @@ final class AlwaysListeningAudioProcessor {
       preWakeBuffer.reset()
       return CapturedAudio(
         sampleRate: listenerSampleRate,
-        samples: Array(capture.utteranceSamples.prefix(maximumUtteranceFrameCount))
+        samples: finalizedSamples(for: capture)
       )
     }
 
     activeCapture = capture
     return nil
+  }
+
+  private func finalizedSamples(for capture: ActiveListenerCapture) -> [Int16] {
+    let cappedSamples = Array(capture.utteranceSamples.prefix(maximumUtteranceFrameCount))
+    let removableTrailingSilence = max(
+      0,
+      min(capture.consecutiveUnvoicedFrameCount, cappedSamples.count)
+        - trailingAudioPaddingFrameCount
+    )
+    guard removableTrailingSilence > 0 else {
+      return cappedSamples
+    }
+    return Array(cappedSamples.prefix(max(cappedSamples.count - removableTrailingSilence, 0)))
   }
 }
 

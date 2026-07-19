@@ -74,6 +74,7 @@ type ManualCaptureStartResult =
 
 const listenerTiming = {
   audioCopiedBeforeWakeMs: 400,
+  candidateEndpointMs: 900,
   hardTrailingSilenceLimitMs: 2_200,
   maximumUtteranceMs: 45_000,
   noMessageTimeoutMs: 4_000,
@@ -478,6 +479,9 @@ export class LocalMacOSVoiceListenerService {
 function transitionsForEngineEvent(
   event: LocalMacOSVoiceListenerEngineEvent,
 ): LocalMacOSVoiceListenerTransitionEvent[] {
+  if (isTimedEngineEvent(event)) {
+    return [{ timeMs: event.timeMs, type: event.type }];
+  }
   switch (event.type) {
     case "listener_armed":
       return [{ type: "engine_armed" }];
@@ -490,10 +494,6 @@ function transitionsForEngineEvent(
         },
         { type: "pre_wake_audio_buffered" },
       ];
-    case "message_speech_started":
-      return [{ timeMs: event.timeMs, type: "message_speech_started" }];
-    case "candidate_endpoint_detected":
-      return [{ timeMs: event.timeMs, type: "candidate_endpoint_detected" }];
     case "utterance_finalized": {
       const transcript = stripLeadingWakePhrase(event.transcript);
       return [{ type: "endpoint_accepted" }, { transcript, type: "transcription_finalized" }];
@@ -507,6 +507,21 @@ function transitionsForEngineEvent(
     default:
       return assertNever(event);
   }
+}
+
+type TimedEngineEvent = Extract<
+  LocalMacOSVoiceListenerEngineEvent,
+  { type: "candidate_endpoint_detected" | "message_speech_started" | "speech_resumed" }
+>;
+
+const timedEngineEventTypes = new Set<TimedEngineEvent["type"]>([
+  "candidate_endpoint_detected",
+  "message_speech_started",
+  "speech_resumed",
+]);
+
+function isTimedEngineEvent(event: LocalMacOSVoiceListenerEngineEvent): event is TimedEngineEvent {
+  return timedEngineEventTypes.has(event.type as TimedEngineEvent["type"]);
 }
 
 function settingEnabledTransition(

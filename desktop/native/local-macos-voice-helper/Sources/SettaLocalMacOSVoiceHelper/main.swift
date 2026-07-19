@@ -278,6 +278,7 @@ final class AlwaysListeningSessionStore {
     }
     let positiveDurations = [
       request.audioCopiedBeforeWakeMs,
+      request.candidateEndpointMs,
       request.hardTrailingSilenceLimitMs,
       request.maximumUtteranceMs,
       request.noMessageTimeoutMs,
@@ -290,6 +291,12 @@ final class AlwaysListeningSessionStore {
     ]
     guard positiveDurations.allSatisfy({ $0 > 0 }) else {
       throw HelperCommandError(code: "invalid_listener", message: "Listener timing is invalid.")
+    }
+    guard request.candidateEndpointMs <= request.hardTrailingSilenceLimitMs else {
+      throw HelperCommandError(
+        code: "invalid_listener",
+        message: "Listener endpoint timing is invalid."
+      )
     }
     guard request.threshold > 0, request.threshold <= 1 else {
       throw HelperCommandError(code: "invalid_listener", message: "Wake threshold is invalid.")
