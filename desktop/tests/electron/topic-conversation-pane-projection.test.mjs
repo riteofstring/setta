@@ -108,6 +108,7 @@ import {
 } from "./topic-conversation-input-routing-assertions.mjs";
 import { exerciseCodexAccountNotificationWorkflow } from "./topic-conversation-codex-account-workflow.mjs";
 import { assertEasyButtonBindingPersistence } from "./topic-conversation-pane-binding-assertions.mjs";
+import { assertImmediateInitialEasyButtonPlaceholder } from "./topic-conversation-startup-placeholder-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
@@ -175,6 +176,7 @@ try {
   const initialPanePlaceholder = await assertImmediateInitialEasyButtonPlaceholder(
     context.client,
     workspaceOpenStartedAt,
+    initialPanePlaceholderBudgetMs,
   );
   await saveOpenAIVoiceCredentialThroughSettingsAndClose(
     context.client,
@@ -1396,22 +1398,6 @@ function initialEasyButtonExperienceReady(state) {
     state.emptyFramePaneCount === 1,
     state.matchingSurfaceCount === 1,
   ].every(Boolean);
-}
-
-async function assertImmediateInitialEasyButtonPlaceholder(client, workspaceOpenStartedAt) {
-  const state = await waitForState(
-    client,
-    driverCallExpression("topicConversationStartupState", { conversationId: "" }),
-    (candidate) => candidate.startupPanePresent,
-    initialPanePlaceholderBudgetMs,
-  );
-  const latencyMs = Date.now() - workspaceOpenStartedAt;
-  if (latencyMs > initialPanePlaceholderBudgetMs) {
-    throw new Error(
-      `initial Easy Button placeholder missed its ${initialPanePlaceholderBudgetMs}ms budget: ${latencyMs}ms`,
-    );
-  }
-  return { latencyMs, startupState: state.startupState };
 }
 
 async function assertNavigatorDoesNotOfferAnotherEasyButtonView(client, conversationId) {

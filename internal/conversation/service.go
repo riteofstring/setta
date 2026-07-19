@@ -18,6 +18,8 @@ import (
 type AgentRuntime interface {
 	ResolveInvocation(context.Context, agent.Invocation) (agent.ResolvedInvocation, error)
 	StartThread(context.Context, agent.StartThreadRequest) (agent.Thread, error)
+	ResumeThreadWithConfiguration(context.Context, string, agent.StartThreadRequest) (agent.ThreadResumeResult, error)
+	MaterializeThread(context.Context, string, string) error
 	ForkThread(context.Context, agent.ForkThreadRequest) (agent.Thread, error)
 	InjectItems(context.Context, string, []agent.InjectedTextItem) error
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
@@ -236,36 +238,7 @@ func (service *Service) createTopic(
 	if err := validateTopicTitle(title); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
-	profile, err := service.store.ReadEffectiveWorkspaceRoleProfile(
-		ctx,
-		workspaceID,
-		DefaultAgentRoleProfile(),
-	)
-	if err != nil {
-		return ConversationSnapshot{}, fmt.Errorf("read topic agent role profile: %w", err)
-	}
-	invocation, err := agentInvocation(profile)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
-	resolved, err := service.agent.ResolveInvocation(ctx, invocation)
-	if err != nil {
-		return ConversationSnapshot{}, fmt.Errorf("resolve topic agent profile: %w", err)
-	}
-	if err := validatePrimaryAgentModelResolution(invocation, resolved); err != nil {
-		return ConversationSnapshot{}, fmt.Errorf("validate topic agent profile: %w", err)
-	}
-	thread, err := service.agent.StartThread(ctx, agent.StartThreadRequest{
-		WorkspaceRoot:         workspaceSummary.RootPath,
-		Invocation:            invocation,
-		DeveloperInstructions: topicAgentDeveloperInstructions(),
-		DynamicTools:          service.topicAgentArtifactTools(workspaceID, conversationID, ""),
-	})
-	if err != nil {
+	if _, err := service.workspaces.ResolveActiveWorkspace(workspaceID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	now := service.timestamp()
@@ -278,14 +251,6 @@ func (service *Service) createTopic(
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
-	binding := AgentThreadBinding{
-		ConversationID:   conversationID,
-		Provider:         ProviderCodex,
-		ThreadID:         thread.ID,
-		Status:           ThreadBindingStatusLinked,
-		CreatedAt:        now,
-		ProviderMetadata: map[string]string{"model": thread.Model},
-	}
 	narrator := NarratorState{
 		ConversationID:  conversationID,
 		TopicDescriptor: title,
@@ -294,17 +259,17 @@ func (service *Service) createTopic(
 	}
 	service.createMu.Lock()
 	var presentation ConversationPresentationProfile
+	var err error
 	err = service.store.withPresentationConfigurationLock(func() error {
 		var presentationErr error
 		presentation, presentationErr = service.initialPresentationProfile(ctx, conversationID, now)
 		if presentationErr != nil {
 			return presentationErr
 		}
-		return service.persistCreatedConversation(ctx, conversation, binding, narrator, presentation, nil)
+		return service.persistCreatedConversation(ctx, conversation, nil, narrator, presentation, nil)
 	})
 	service.createMu.Unlock()
 	if err != nil {
-		_ = service.agent.UnsubscribeThread(context.Background(), thread.ID)
 		return ConversationSnapshot{}, err
 	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
@@ -313,7 +278,7 @@ func (service *Service) createTopic(
 func (service *Service) persistCreatedConversation(
 	ctx context.Context,
 	conversation TopicConversation,
-	binding AgentThreadBinding,
+	binding *AgentThreadBinding,
 	narrator NarratorState,
 	presentation ConversationPresentationProfile,
 	branch *ConversationBranch,
@@ -342,16 +307,21 @@ func (service *Service) persistCreatedConversation(
 
 func (service *Service) prepareCreatedConversationPublications(
 	conversation TopicConversation,
-	binding AgentThreadBinding,
+	binding *AgentThreadBinding,
 	narrator NarratorState,
 	presentation ConversationPresentationProfile,
 	branch *ConversationBranch,
 ) ([]preparedPublication, error) {
 	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: conversation},
-		ConversationThreadBindingUpdatedEventPayload{Type: ConversationEventTypeThreadBindingUpdated, Binding: binding},
 		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: narrator},
 		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: presentation},
+	}
+	if binding != nil {
+		payloads = append(payloads, ConversationThreadBindingUpdatedEventPayload{
+			Type:    ConversationEventTypeThreadBindingUpdated,
+			Binding: *binding,
+		})
 	}
 	if branch != nil {
 		payloads = append(payloads, ConversationBranchCreatedEventPayload{
@@ -365,7 +335,7 @@ func (service *Service) prepareCreatedConversationPublications(
 func persistCreatedConversationRecords(
 	transaction *WriteTransaction,
 	conversation TopicConversation,
-	binding AgentThreadBinding,
+	binding *AgentThreadBinding,
 	narrator NarratorState,
 	branch *ConversationBranch,
 ) error {
@@ -377,8 +347,10 @@ func persistCreatedConversationRecords(
 			return err
 		}
 	}
-	if err := transaction.UpsertAgentThreadBinding(binding); err != nil {
-		return err
+	if binding != nil {
+		if err := transaction.UpsertAgentThreadBinding(*binding); err != nil {
+			return err
+		}
 	}
 	return transaction.InsertNarratorState(narrator)
 }

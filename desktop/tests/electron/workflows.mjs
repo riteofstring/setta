@@ -20,6 +20,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "topic-conversation-provider-thread-lifecycle.test.mjs",
+    name: "topic-conversation-provider-thread-lifecycle",
+    tiers: ["required"],
+  },
+  {
     file: "topic-conversation-artifact-unresolved.test.mjs",
     name: "topic-conversation-artifact-unresolved",
     tiers: ["required"],
