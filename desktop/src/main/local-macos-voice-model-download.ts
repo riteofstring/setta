@@ -35,12 +35,14 @@ type LocalMacOSVoiceModelFetch = (url: string, init: { signal: AbortSignal }) =>
 const localMacOSProvider = localMacOSSpeechProviderID();
 const progressEmitIntervalBytes = 1_000_000;
 
+// setta-supply-chain-artifact: local-macos-voice.default-whisper-model
+// setta-supply-chain-owner-file: desktop/src/main/local-macos-voice-model-download.ts
 const defaultLocalMacOSVoiceModelDownloadSpec = {
   bytes: 147_964_211,
   filename: "ggml-base.en.bin",
   name: "base.en",
   sha256: "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
-  url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+  url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.en.bin",
 } as const satisfies LocalMacOSVoiceModelDownloadSpec;
 
 export function createLocalMacOSVoiceModelDownloadService({
