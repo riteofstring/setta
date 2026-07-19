@@ -74,6 +74,10 @@ import type {
   SpeechCredentialProviderRequest,
   SpeechCredentialSaveRequest,
   SpeechCredentialSettings,
+  LocalMacOSVoiceListenerEvent,
+  LocalMacOSVoiceListenerSettings,
+  LocalMacOSVoiceListenerSettingsUpdateRequest,
+  LocalMacOSVoiceListenerSubmissionRequest,
   LocalMacOSVoiceModelDownloadStatus,
   SpeechProviderSelectionSettings,
   SpeechProviderSelectionUpdateRequest,
@@ -366,8 +370,14 @@ export interface SettaAPI {
     finishLocalMacOSVoiceCapture?: (
       request: LocalMacOSVoiceSessionRequest,
     ) => Promise<LocalMacOSVoiceFinishCaptureResult>;
+    completeLocalMacOSVoiceListenerSubmission?: (
+      request: LocalMacOSVoiceListenerSubmissionRequest,
+    ) => Promise<LocalMacOSVoiceListenerSettings>;
     onCredentialSettingsChanged?: (
       listener: (settings: SpeechCredentialSettings) => void,
+    ) => () => void;
+    onLocalMacOSVoiceListenerChanged?: (
+      listener: (event: LocalMacOSVoiceListenerEvent) => void,
     ) => () => void;
     onProviderSelectionChanged?: (
       listener: (settings: SpeechProviderSelectionSettings) => void,
@@ -380,6 +390,7 @@ export interface SettaAPI {
       request: SpeechCredentialProviderRequest,
     ) => Promise<SpeechCredentialSettings>;
     readLocalMacOSVoiceHealth?: () => Promise<LocalMacOSVoiceHealth>;
+    readLocalMacOSVoiceListenerSettings?: () => Promise<LocalMacOSVoiceListenerSettings>;
     readLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
     listLocalMacOSVoices?: () => Promise<SpeechVoiceCatalog>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
@@ -394,6 +405,9 @@ export interface SettaAPI {
     ) => Promise<LocalMacOSVoiceStartCaptureResult>;
     startLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
+    updateLocalMacOSVoiceListenerSettings?: (
+      request: LocalMacOSVoiceListenerSettingsUpdateRequest,
+    ) => Promise<LocalMacOSVoiceListenerSettings>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
     updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;
     updateProviderSelection?: (

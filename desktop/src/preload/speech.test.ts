@@ -9,7 +9,19 @@ describe("preload speech API", () => {
   });
 
   test("exposes speech capabilities and transcription through typed IPC", async () => {
-    const invoke = vi.fn();
+    const invoke = vi.fn((channel: string) => {
+      if (
+        channel === ipcChannels.speechReadLocalMacOSVoiceListenerSettings ||
+        channel === ipcChannels.speechUpdateLocalMacOSVoiceListenerSettings
+      ) {
+        return Promise.resolve({
+          availability: { status: "ready" },
+          enabled: true,
+          state: { status: "armed" },
+        });
+      }
+      return Promise.resolve(undefined);
+    });
     const exposed: Record<string, unknown> = {};
     vi.doMock("electron", () => ({
       contextBridge: {
@@ -24,9 +36,15 @@ describe("preload speech API", () => {
     const speech = api.speech as SettaAPI["speech"] & {
       cancelLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["cancelLocalMacOSVoiceCapture"]>;
       cancelSynthesis: NonNullable<SettaAPI["speech"]["cancelSynthesis"]>;
+      completeLocalMacOSVoiceListenerSubmission: NonNullable<
+        SettaAPI["speech"]["completeLocalMacOSVoiceListenerSubmission"]
+      >;
       finishLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["finishLocalMacOSVoiceCapture"]>;
       listLocalMacOSVoices: NonNullable<SettaAPI["speech"]["listLocalMacOSVoices"]>;
       readLocalMacOSVoiceHealth: NonNullable<SettaAPI["speech"]["readLocalMacOSVoiceHealth"]>;
+      readLocalMacOSVoiceListenerSettings: NonNullable<
+        SettaAPI["speech"]["readLocalMacOSVoiceListenerSettings"]
+      >;
       readLocalMacOSVoiceModelDownload: NonNullable<
         SettaAPI["speech"]["readLocalMacOSVoiceModelDownload"]
       >;
@@ -38,6 +56,9 @@ describe("preload speech API", () => {
         SettaAPI["speech"]["startLocalMacOSVoiceModelDownload"]
       >;
       synthesize: NonNullable<SettaAPI["speech"]["synthesize"]>;
+      updateLocalMacOSVoiceListenerSettings: NonNullable<
+        SettaAPI["speech"]["updateLocalMacOSVoiceListenerSettings"]
+      >;
       updateMasterVoiceSelection: NonNullable<SettaAPI["speech"]["updateMasterVoiceSelection"]>;
       updateNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["updateNarratorVoiceDefault"]>;
       updateProviderSelection: NonNullable<SettaAPI["speech"]["updateProviderSelection"]>;
@@ -45,6 +66,7 @@ describe("preload speech API", () => {
     await speech.readCapabilities();
     await speech.readProviderSelection();
     await speech.readLocalMacOSVoiceHealth();
+    await speech.readLocalMacOSVoiceListenerSettings();
     await speech.readLocalMacOSVoiceModelDownload();
     await speech.listLocalMacOSVoices();
     await speech.startLocalMacOSVoiceCapture({
@@ -54,6 +76,8 @@ describe("preload speech API", () => {
     });
     await speech.finishLocalMacOSVoiceCapture({ captureSessionId: "capture_local" });
     await speech.cancelLocalMacOSVoiceCapture({ captureSessionId: "capture_local" });
+    await speech.updateLocalMacOSVoiceListenerSettings({ enabled: true });
+    await speech.completeLocalMacOSVoiceListenerSubmission({ captureSessionId: "wake_1" });
     await speech.readMasterVoiceSelection();
     await speech.readNarratorVoiceDefault();
     await speech.synthesize(
@@ -85,6 +109,7 @@ describe("preload speech API", () => {
       [ipcChannels.speechReadCapabilities],
       [ipcChannels.speechReadProviderSelection],
       [ipcChannels.speechReadLocalMacOSVoiceHealth],
+      [ipcChannels.speechReadLocalMacOSVoiceListenerSettings],
       [ipcChannels.speechReadLocalMacOSVoiceModelDownload],
       [ipcChannels.speechListLocalMacOSVoices],
       [
@@ -97,6 +122,8 @@ describe("preload speech API", () => {
       ],
       [ipcChannels.speechFinishLocalMacOSVoiceCapture, { captureSessionId: "capture_local" }],
       [ipcChannels.speechCancelLocalMacOSVoiceCapture, { captureSessionId: "capture_local" }],
+      [ipcChannels.speechUpdateLocalMacOSVoiceListenerSettings, { enabled: true }],
+      [ipcChannels.speechCompleteLocalMacOSVoiceListenerSubmission, { captureSessionId: "wake_1" }],
       [ipcChannels.speechReadMasterVoiceSelection],
       [ipcChannels.speechReadNarratorVoiceDefault],
       [
@@ -245,6 +272,55 @@ describe("preload speech API", () => {
     });
     expect(removeListener).toHaveBeenCalledWith(
       ipcEvents.speechLocalMacOSVoiceModelDownloadChanged,
+      handler,
+    );
+  });
+
+  test("exposes local macOS always-listening events", async () => {
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    const exposed: Record<string, unknown> = {};
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: { invoke: vi.fn(), on, removeListener, send: vi.fn() },
+    }));
+    await import("./index");
+    const api = exposed.setta as SettaAPI;
+
+    const listener = vi.fn();
+    const unsubscribe = api.speech.onLocalMacOSVoiceListenerChanged?.(listener);
+    const handler = eventHandler(on, ipcEvents.speechLocalMacOSVoiceListenerChanged);
+    handler(
+      {},
+      {
+        captureSessionId: "wake_1",
+        settings: {
+          availability: { status: "ready" },
+          enabled: true,
+          state: { status: "submitting", transcript: "open the release checklist" },
+        },
+        transcript: "open the release checklist",
+        type: "wake_transcript",
+      },
+    );
+    unsubscribe?.();
+
+    expect(listener).toHaveBeenCalledWith({
+      captureSessionId: "wake_1",
+      settings: {
+        availability: { status: "ready" },
+        enabled: true,
+        state: { status: "submitting", transcript: "open the release checklist" },
+      },
+      transcript: "open the release checklist",
+      type: "wake_transcript",
+    });
+    expect(removeListener).toHaveBeenCalledWith(
+      ipcEvents.speechLocalMacOSVoiceListenerChanged,
       handler,
     );
   });

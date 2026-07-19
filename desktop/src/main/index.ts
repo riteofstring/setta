@@ -30,10 +30,13 @@ import {
   createLocalMacOSVoiceHelperFromEnvironment,
   type LocalMacOSVoiceHelper,
 } from "./local-macos-voice-helper";
+import { LocalMacOSVoiceListenerService } from "./local-macos-voice-listener-service";
+import { LocalMacOSVoiceListenerSettingsStore } from "./local-macos-voice-listener-store";
 import {
   createLocalMacOSVoiceModelDownloadService,
   type LocalMacOSVoiceModelDownloadService,
 } from "./local-macos-voice-model-download";
+import { resolveLocalMacOSVoiceHelperConfiguration } from "./local-macos-voice-resources";
 import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
@@ -57,6 +60,7 @@ let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
 let localMacOSVoiceHelper: LocalMacOSVoiceHelper | null = null;
+let localMacOSVoiceListenerService: LocalMacOSVoiceListenerService | null = null;
 let localMacOSVoiceModelDownloadService: LocalMacOSVoiceModelDownloadService | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
@@ -240,6 +244,14 @@ function broadcastLocalMacOSVoiceModelDownload(status: unknown) {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) {
       window.webContents.send(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, status);
+    }
+  }
+}
+
+function broadcastLocalMacOSVoiceListener(event: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechLocalMacOSVoiceListenerChanged, event);
     }
   }
 }
@@ -586,6 +598,7 @@ function registerIpc() {
     ipcObserver,
     onProviderSelectionChanged: broadcastSpeechProviderSelection,
     requireLocalMacOSVoiceHelper,
+    requireLocalMacOSVoiceListenerService,
     requireLocalMacOSVoiceModelDownloadService,
     requireBackendClient,
     requireSpeechCredentialCoordinator,
@@ -729,6 +742,13 @@ function requireLocalMacOSVoiceHelper(): LocalMacOSVoiceHelper {
   return localMacOSVoiceHelper;
 }
 
+function requireLocalMacOSVoiceListenerService(): LocalMacOSVoiceListenerService {
+  if (!localMacOSVoiceListenerService) {
+    throw new Error("local macOS voice listener service is not ready");
+  }
+  return localMacOSVoiceListenerService;
+}
+
 function requireLocalMacOSVoiceModelDownloadService(): LocalMacOSVoiceModelDownloadService {
   if (!localMacOSVoiceModelDownloadService) {
     throw new Error("local macOS voice model download service is not ready");
@@ -806,6 +826,17 @@ app.whenReady().then(async () => {
       resourceRoots: localMacOSVoiceResourceRoots(),
     },
   );
+  localMacOSVoiceListenerService = new LocalMacOSVoiceListenerService({
+    configuration: resolveLocalMacOSVoiceHelperConfiguration(
+      process.env,
+      localMacOSVoiceResourceRoots(),
+      localMacOSVoiceModelDownloadService.defaultModelConfiguration(),
+    ),
+    helper: localMacOSVoiceHelper,
+    onEvent: broadcastLocalMacOSVoiceListener,
+    platform: process.platform,
+    store: new LocalMacOSVoiceListenerSettingsStore(app.getPath("userData")),
+  });
   await prepareBackend(appDataDir);
   await createWindow();
 });
@@ -839,6 +870,8 @@ app.on("window-all-closed", () => {
 app.on("will-quit", () => {
   localMacOSVoiceModelDownloadService?.shutdown();
   localMacOSVoiceModelDownloadService = null;
+  void localMacOSVoiceListenerService?.shutdown();
+  localMacOSVoiceListenerService = null;
   localMacOSVoiceHelper?.shutdown();
   localMacOSVoiceHelper = null;
   recorder?.close();

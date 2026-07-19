@@ -23,6 +23,7 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
+import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "local-macos-voice-capture";
@@ -53,16 +54,20 @@ const fixture = await createElectronFixture(workflowName);
 const fakeCodex = await installFakeTopicCodex(fixture);
 const helperPath = join(fixture.tempRoot, "local-macos-voice-helper");
 const modelPath = join(fixture.tempRoot, "ggml-base.en.bin");
+const wakeModelPath = join(fixture.tempRoot, "hey-setta.onnx");
 let context = null;
 let workflowError = null;
 
 try {
   await writeFile(
     helperPath,
-    `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(helperFixturePath)}\n`,
+    `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(
+      helperFixturePath,
+    )} scripted_listener\n`,
   );
   await chmod(helperPath, 0o755);
   await writeFile(modelPath, "local-model-bytes");
+  await writeFile(wakeModelPath, "wake-model-bytes");
 
   context = await launchElectronCdpContext({
     artifactDir,
@@ -71,6 +76,9 @@ try {
       SETTA_LOCAL_MACOS_VOICE_HELPER_PATH: helperPath,
       SETTA_LOCAL_MACOS_VOICE_MODEL_PATH: modelPath,
       SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256: sha256("local-model-bytes"),
+      SETTA_LOCAL_MACOS_VOICE_WAKE_MODEL_PATH: wakeModelPath,
+      SETTA_LOCAL_MACOS_VOICE_WAKE_MODEL_SHA256: sha256("wake-model-bytes"),
+      SETTA_LOCAL_MACOS_VOICE_WAKE_RUNTIME: "onnx",
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
@@ -141,9 +149,18 @@ try {
   assertSynthesisUnavailable(unavailableSynthesis);
   const malformedSynthesis = await synthesizeMalformedLocalSpeech(context.client, source);
   assertMalformedSynthesis(malformedSynthesis);
+  const initialAlwaysListening = await readAlwaysListeningSettings(context.client);
+  assertAlwaysListeningReady(initialAlwaysListening, false);
+  const enabledAlwaysListening = await updateAlwaysListeningSettings(context.client, true);
+  assertAlwaysListeningReady(enabledAlwaysListening, true);
+  const wakeTranscript = "open the release checklist";
+  const alwaysListeningInput = await waitForRecordedWakeSpeechInput(artifactDir, wakeTranscript);
+  const disabledAlwaysListening = await updateAlwaysListeningSettings(context.client, false);
+  assertAlwaysListeningDisabled(disabledAlwaysListening);
 
   await captureScreenshot(context.client, join(artifactDir, "local-macos-voice-capture.png"));
   await writeJson(join(artifactDir, "summary.json"), {
+    alwaysListeningInput,
     artifactDir,
     canceledSynthesis,
     deniedStartFailure: deniedStart.failure,
@@ -152,6 +169,7 @@ try {
     finishedTranscript: finished.transcript,
     health,
     invalidFinishFailure: invalidFinish.failure,
+    initialAlwaysListening,
     localVoiceCatalog,
     malformedSynthesis,
     oversizedFailure: oversizedFinish.failure,
@@ -208,6 +226,16 @@ function finishCapture(client, captureSessionId) {
   );
 }
 
+function readAlwaysListeningSettings(client) {
+  return client.evaluate("window.setta.speech.readLocalMacOSVoiceListenerSettings()");
+}
+
+function updateAlwaysListeningSettings(client, enabled) {
+  return client.evaluate(
+    `window.setta.speech.updateLocalMacOSVoiceListenerSettings(${JSON.stringify({ enabled })})`,
+  );
+}
+
 async function ensureWorkspaceOpen(client) {
   const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
   if (validWorkspaceId(initialWorkspaceId)) {
@@ -231,6 +259,113 @@ function workspaceIdExpression() {
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+async function waitForRecordedWakeSpeechInput(runArtifactDir, transcript) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const events = await readJsonLinesWhileAppending(join(runArtifactDir, "ipc.jsonl"));
+    const starts = events.filter(
+      (event) =>
+        event.type === "ipc_start" &&
+        wakeSpeechSubmissionChannels().includes(event.channel) &&
+        event.args?.[0]?.input?.text === transcript,
+    );
+    const uniqueStarts = Array.from(
+      new Map(starts.map((start) => [start.args[0].input.id, start])).values(),
+    );
+    if (uniqueStarts.length > 1) {
+      throw new Error(`wake transcript was submitted more than once: ${uniqueStarts.length}`);
+    }
+    const completed = completedIPC(uniqueStarts[0], events);
+    if (completed) {
+      assertWakeSpeechInput(completed, transcript);
+      return summarizeWakeSpeechInput(completed);
+    }
+    await delay(50);
+  }
+  throw new Error(`timed out waiting for wake transcript ${JSON.stringify(transcript)}`);
+}
+
+function wakeSpeechSubmissionChannels() {
+  return ["conversation:submit-input", "master:submit-input"];
+}
+
+function completedIPC(start, events) {
+  if (!start) {
+    return null;
+  }
+  const finish = events.find(
+    (event) =>
+      event.type === "ipc_finish" && event.channel === start.channel && event.id === start.id,
+  );
+  return finish
+    ? { accepted: finish.result, channel: start.channel, request: start.args[0] }
+    : null;
+}
+
+function assertWakeSpeechInput(recorded, transcript) {
+  const input = recorded.request?.input;
+  assertWakeSpeechInputBase(input, transcript, recorded);
+  const assertion = wakeSpeechInputAssertion(recorded.channel);
+  if (!assertion) {
+    throw new Error(`wake speech input channel drifted: ${JSON.stringify(recorded)}`);
+  }
+  assertion(recorded, input);
+}
+
+function wakeSpeechInputAssertion(channel) {
+  if (channel === "conversation:submit-input") {
+    return assertWakeConversationInput;
+  }
+  if (channel === "master:submit-input") {
+    return assertWakeMasterInput;
+  }
+  return null;
+}
+
+function assertWakeSpeechInputBase(input, transcript, recorded) {
+  if (
+    input?.text !== transcript ||
+    input.modality !== "voice" ||
+    typeof input.id !== "string" ||
+    input.id === "" ||
+    typeof input.submittedAt !== "string" ||
+    input.submittedAt === ""
+  ) {
+    throw new Error(`wake speech input drifted: ${JSON.stringify(recorded)}`);
+  }
+}
+
+function assertWakeMasterInput(recorded, input) {
+  if (input.source !== "shell" || recorded.accepted?.input?.id !== input.id) {
+    throw new Error(`wake master input drifted: ${JSON.stringify(recorded)}`);
+  }
+}
+
+function assertWakeConversationInput(recorded, input) {
+  if (
+    typeof input.conversationId === "string" &&
+    input.conversationId !== "" &&
+    typeof input.sourcePaneId === "string" &&
+    input.sourcePaneId !== "" &&
+    recorded.accepted?.input?.id === input.id
+  ) {
+    return;
+  }
+  throw new Error(`wake conversation input drifted: ${JSON.stringify(recorded)}`);
+}
+
+function summarizeWakeSpeechInput(recorded) {
+  const input = recorded.request.input;
+  return {
+    channel: recorded.channel,
+    conversationId: input.conversationId ?? null,
+    inputId: input.id,
+    source: input.source ?? null,
+    sourcePaneId: input.sourcePaneId ?? null,
+    transcript: input.text,
+  };
 }
 
 async function submitLocalVoiceThroughMasterOverlay(client) {
@@ -349,6 +484,26 @@ function synthesizeMalformedLocalSpeech(client, source) {
   );
 }
 
+function assertAlwaysListeningReady(settings, enabled) {
+  if (
+    settings?.availability?.status !== "ready" ||
+    settings.enabled !== enabled ||
+    !settings.state?.status
+  ) {
+    throw new Error(`invalid always-listening readiness: ${JSON.stringify(settings)}`);
+  }
+}
+
+function assertAlwaysListeningDisabled(settings) {
+  if (
+    settings?.availability?.status !== "ready" ||
+    settings.enabled !== false ||
+    settings.state?.status !== "disabled"
+  ) {
+    throw new Error(`invalid disabled always-listening state: ${JSON.stringify(settings)}`);
+  }
+}
+
 function assertReadyHealth(health) {
   if (
     health?.status !== "ready" ||
@@ -451,6 +606,10 @@ function assertMalformedSynthesis(result) {
   ) {
     throw new Error(`invalid local macOS malformed synthesis failure: ${JSON.stringify(result)}`);
   }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
 function sha256(content) {

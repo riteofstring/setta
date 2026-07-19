@@ -78,7 +78,7 @@ describe("speech IPC handlers", () => {
     } as unknown as BackendClient;
     const observer = observerSpies();
 
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain,
       ipcObserver: observer,
       requireLocalMacOSVoiceHelper: () => localMacOSVoiceHelper(),
@@ -168,7 +168,7 @@ describe("speech IPC handlers", () => {
     const store = providerSelectionStore();
     const changed = vi.fn();
 
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -200,6 +200,43 @@ describe("speech IPC handlers", () => {
     expect(changed).toHaveBeenCalledWith(updated);
   });
 
+  test("routes local macOS always-listening settings through the listener service", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const listener = listenerService();
+
+    registerTestSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => localMacOSVoiceHelper(),
+      requireLocalMacOSVoiceListenerService: () => listener,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    const initial = await invoke(handlers, ipcChannels.speechReadLocalMacOSVoiceListenerSettings);
+    const updated = await invoke(
+      handlers,
+      ipcChannels.speechUpdateLocalMacOSVoiceListenerSettings,
+      {
+        enabled: true,
+      },
+    );
+    const completed = await invoke(
+      handlers,
+      ipcChannels.speechCompleteLocalMacOSVoiceListenerSubmission,
+      { captureSessionId: "wake_1" },
+    );
+
+    expect(initial).toMatchObject({ enabled: false, state: { status: "disabled" } });
+    expect(updated).toMatchObject({ enabled: true, state: { status: "armed" } });
+    expect(completed).toMatchObject({ enabled: true, state: { status: "armed" } });
+    expect(listener.updateSettings).toHaveBeenCalledWith(true);
+    expect(listener.completeSubmission).toHaveBeenCalledWith("wake_1");
+  });
+
   test("routes local macOS model download status through the download service", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const downloadService = {
@@ -222,7 +259,7 @@ describe("speech IPC handlers", () => {
       })),
     };
 
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -252,7 +289,7 @@ describe("speech IPC handlers", () => {
   test("routes local macOS capture lifecycle through the helper", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const helper = localMacOSVoiceHelper();
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -315,7 +352,7 @@ describe("speech IPC handlers", () => {
   test("rejects competing local macOS capture sessions before reaching the helper", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const helper = localMacOSVoiceHelper();
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -360,7 +397,7 @@ describe("speech IPC handlers", () => {
         sessionId: "capture_large",
         transcript: "Local helper transcript.",
       });
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -413,7 +450,7 @@ describe("speech IPC handlers", () => {
         "Local macOS voice reached the recording limit.",
       ),
     );
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -461,7 +498,7 @@ describe("speech IPC handlers", () => {
         "Microphone access was revoked during capture.",
       ),
     );
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -517,7 +554,7 @@ describe("speech IPC handlers", () => {
       })),
     } as unknown as BackendClient;
     const helper = localMacOSVoiceHelper();
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -579,7 +616,7 @@ describe("speech IPC handlers", () => {
       mediaType: "audio/wav",
       operationId: "speech-local-malformed",
     });
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -605,7 +642,7 @@ describe("speech IPC handlers", () => {
   test("returns product-level failures for invalid local capture requests", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const helper = localMacOSVoiceHelper();
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -646,7 +683,7 @@ describe("speech IPC handlers", () => {
           }),
       ),
     } as unknown as BackendClient;
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -696,7 +733,7 @@ describe("speech IPC handlers", () => {
     } as unknown as BackendClient;
     const helper = localMacOSVoiceHelper();
     helper.synthesizeSpeech.mockImplementation(async () => new Promise(() => {}));
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -738,7 +775,7 @@ describe("speech IPC handlers", () => {
     } as unknown as BackendClient;
     const coordinator = credentialCoordinator();
 
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -776,7 +813,7 @@ describe("speech IPC handlers", () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const coordinator = credentialCoordinator();
 
-    registerSpeechIpcHandlers({
+    registerTestSpeechIpcHandlers({
       ipcMain: {
         handle: (channel, handler) => {
           handlers.set(channel, handler);
@@ -809,6 +846,15 @@ function observerSpies() {
     finished: vi.fn<IpcObserver["finished"]>(),
     started: vi.fn<IpcObserver["started"]>(),
   };
+}
+
+function registerTestSpeechIpcHandlers(
+  options: Parameters<typeof registerSpeechIpcHandlers>[0],
+): void {
+  registerSpeechIpcHandlers({
+    requireLocalMacOSVoiceListenerService: () => listenerService(),
+    ...options,
+  });
 }
 
 function credentialCoordinator() {
@@ -845,6 +891,25 @@ function providerSelectionStore() {
     update: vi.fn(async (provider: "local_macos" | "openai") => {
       settings = { ...settings, provider };
       return settings;
+    }),
+  };
+}
+
+function listenerService() {
+  let enabled = false;
+  const settings = () => ({
+    availability: { status: "ready" as const },
+    enabled,
+    state: enabled ? { status: "armed" as const } : { status: "disabled" as const },
+  });
+  return {
+    completeSubmission: vi.fn(async () => settings()),
+    finishManualCapture: vi.fn(async () => {}),
+    prepareManualCaptureStart: vi.fn(async () => ({ status: "ready" as const })),
+    readSettings: vi.fn(async () => settings()),
+    updateSettings: vi.fn(async (nextEnabled: boolean) => {
+      enabled = nextEnabled;
+      return settings();
     }),
   };
 }

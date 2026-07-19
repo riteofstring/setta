@@ -1,4 +1,5 @@
 import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
+import type { LocalMacOSVoiceListenerSettings } from "@shared/speech-ipc";
 import type { DesktopPlatform } from "@shared/types";
 import { CircleAlert, LoaderCircle, Mic, RotateCcw, Square } from "lucide-react";
 
@@ -27,9 +28,15 @@ interface MasterVoiceModel {
     | "draining"
     | "failed"
     | "idle"
+    | "listener_armed"
+    | "listener_arming"
+    | "listener_paused"
     | "requesting_permission"
     | "submitting"
     | "unavailable"
+    | "wake_detected"
+    | "wake_finalizing"
+    | "wake_recording"
     | "recording";
   statusLabel: string | null;
   transcript: string | null;
@@ -39,6 +46,14 @@ type ActiveSpeechCaptureState = Extract<
   SpeechCaptureState,
   { type: "committing" | "draining" | "recording" | "requesting_permission" }
 >;
+
+type ListenerState = LocalMacOSVoiceListenerSettings["state"];
+type ListenerStatus = ListenerState["status"];
+type ListenerVoiceModelFactory = (
+  controller: AppShellSpeechCaptureController,
+  state: ListenerState,
+  shortcutLabel: string,
+) => MasterVoiceModel | null;
 
 type MasterSubmissionState = AppShellSpeechCaptureSnapshot["masterSubmission"];
 type SpeechCaptureAvailability = AppShellSpeechCaptureSnapshot["availability"];
@@ -130,6 +145,9 @@ export function executeMasterVoiceCommand(
   if (activeMaster) {
     return;
   }
+  if (listenerBlocksManualCapture(snapshot.listener)) {
+    return;
+  }
   if (snapshot.availability.type === "not_configured") {
     onOpenVoiceCredentialSettings?.();
     return;
@@ -158,7 +176,9 @@ function inactiveMasterVoiceModel(
   }
   const failedCaptureModel = failedCaptureVoiceModel(controller, snapshot.capture, shortcutLabel);
   return (
-    failedCaptureModel ?? availabilityVoiceModel(controller, snapshot.availability, shortcutLabel)
+    failedCaptureModel ??
+    listenerVoiceModel(controller, snapshot.listener, shortcutLabel) ??
+    availabilityVoiceModel(controller, snapshot.availability, shortcutLabel)
   );
 }
 
@@ -207,6 +227,134 @@ function failedCaptureVoiceModel(
     controller,
     state: "failed",
     statusLabel: capture.message,
+    transcript: null,
+  };
+}
+
+function listenerVoiceModel(
+  controller: AppShellSpeechCaptureController,
+  listener: LocalMacOSVoiceListenerSettings | null,
+  shortcutLabel: string,
+): MasterVoiceModel | null {
+  if (!listener?.enabled) {
+    return null;
+  }
+  return listenerVoiceModelFactories[listener.state.status](
+    controller,
+    listener.state,
+    shortcutLabel,
+  );
+}
+
+const listenerVoiceModelFactories = {
+  armed: (controller, _state, shortcutLabel) => ({
+    action: "start",
+    controlLabel: `Start Global master voice (${shortcutLabel})`,
+    controller,
+    state: "listener_armed",
+    statusLabel: "Always listening armed",
+    transcript: null,
+  }),
+  arming: (controller) =>
+    listenerMasterVoiceModel(
+      controller,
+      "listener_arming",
+      "Starting always listening",
+      "Starting always listening",
+    ),
+  candidate_end: (controller) =>
+    listenerMasterVoiceModel(
+      controller,
+      "wake_recording",
+      "Recording wake request",
+      "Listening after wake",
+    ),
+  capturing: (controller) =>
+    listenerMasterVoiceModel(
+      controller,
+      "wake_recording",
+      "Recording wake request",
+      "Listening after wake",
+    ),
+  disabled: () => null,
+  engine_failed: listenerFailureVoiceModel,
+  finalizing: (controller) =>
+    listenerMasterVoiceModel(
+      controller,
+      "wake_finalizing",
+      "Finalizing wake request",
+      "Finalizing wake request",
+    ),
+  local_voice_not_ready: listenerFailureVoiceModel,
+  microphone_denied: listenerFailureVoiceModel,
+  paused_for_manual_capture: (controller) =>
+    listenerMasterVoiceModel(
+      controller,
+      "listener_paused",
+      "Always listening is paused",
+      "Always listening paused",
+    ),
+  paused_for_playback: (controller) =>
+    listenerMasterVoiceModel(
+      controller,
+      "listener_paused",
+      "Always listening is paused",
+      "Always listening paused",
+    ),
+  submitting: (controller) => ({
+    action: null,
+    controlLabel: "Sending Global master voice request",
+    controller,
+    state: "submitting",
+    statusLabel: "Sending voice request to Setta",
+    transcript: null,
+  }),
+  waiting_for_message_speech: (controller) =>
+    listenerMasterVoiceModel(
+      controller,
+      "wake_detected",
+      "Wake phrase detected",
+      "Wake phrase detected",
+    ),
+  wake_detected: (controller) =>
+    listenerMasterVoiceModel(
+      controller,
+      "wake_detected",
+      "Wake phrase detected",
+      "Wake phrase detected",
+    ),
+} satisfies Record<ListenerStatus, ListenerVoiceModelFactory>;
+
+function listenerFailureVoiceModel(
+  controller: AppShellSpeechCaptureController,
+  state: ListenerState,
+  shortcutLabel: string,
+): MasterVoiceModel {
+  return {
+    action: "start",
+    controlLabel: `Retry Global master voice capture (${shortcutLabel})`,
+    controller,
+    state: "failed",
+    statusLabel: "message" in state ? state.message : "Always listening failed.",
+    transcript: null,
+  };
+}
+
+function listenerMasterVoiceModel(
+  controller: AppShellSpeechCaptureController,
+  state: Extract<
+    MasterVoiceModel["state"],
+    "listener_arming" | "listener_paused" | "wake_detected" | "wake_finalizing" | "wake_recording"
+  >,
+  controlLabel: string,
+  statusLabel: string,
+): MasterVoiceModel {
+  return {
+    action: null,
+    controlLabel,
+    controller,
+    state,
+    statusLabel,
     transcript: null,
   };
 }
@@ -317,6 +465,27 @@ function activeMasterCapture(capture: SpeechCaptureState): ActiveSpeechCaptureSt
   return capture.request.destination.type === "master" ? capture : null;
 }
 
+function listenerBlocksManualCapture(listener: LocalMacOSVoiceListenerSettings | null): boolean {
+  return listener?.enabled ? listenerManualCaptureBlocked[listener.state.status] : false;
+}
+
+const listenerManualCaptureBlocked = {
+  armed: false,
+  arming: false,
+  candidate_end: true,
+  capturing: true,
+  disabled: false,
+  engine_failed: false,
+  finalizing: true,
+  local_voice_not_ready: false,
+  microphone_denied: false,
+  paused_for_manual_capture: false,
+  paused_for_playback: false,
+  submitting: true,
+  waiting_for_message_speech: true,
+  wake_detected: true,
+} satisfies Record<ListenerStatus, boolean>;
+
 function isActiveSpeechCapture(capture: SpeechCaptureState): capture is ActiveSpeechCaptureState {
   return activeCaptureTypes.has(capture.type);
 }
@@ -350,22 +519,29 @@ function executeMasterVoiceAction(
 }
 
 function MasterVoiceStatusGlyph({ state }: { state: MasterVoiceModel["state"] }) {
-  switch (state) {
-    case "requesting_permission":
-    case "draining":
-    case "committing":
-    case "submitting":
-      return <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />;
-    case "failed":
-      return <CircleAlert aria-hidden="true" />;
-    case "recording":
-    case "idle":
-    case "unavailable":
-      return <Mic aria-hidden="true" />;
-    default:
-      return assertNever(state);
+  const glyph = masterVoiceStatusGlyphs[state];
+  if (glyph === "spinner") {
+    return <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />;
   }
+  return glyph === "alert" ? <CircleAlert aria-hidden="true" /> : <Mic aria-hidden="true" />;
 }
+
+const masterVoiceStatusGlyphs = {
+  committing: "spinner",
+  draining: "spinner",
+  failed: "alert",
+  idle: "mic",
+  listener_armed: "mic",
+  listener_arming: "spinner",
+  listener_paused: "mic",
+  recording: "mic",
+  requesting_permission: "spinner",
+  submitting: "spinner",
+  unavailable: "mic",
+  wake_detected: "mic",
+  wake_finalizing: "spinner",
+  wake_recording: "mic",
+} satisfies Record<MasterVoiceModel["state"], "alert" | "mic" | "spinner">;
 
 function MasterVoiceButtonGlyph({ model }: { model: MasterVoiceModel }) {
   switch (model.action) {
@@ -390,6 +566,7 @@ function inactiveMasterVoiceButtonGlyph(state: MasterVoiceModel["state"]) {
   switch (state) {
     case "failed":
       return <CircleAlert aria-hidden="true" />;
+    case "listener_armed":
     case "unavailable":
       return <Mic aria-hidden="true" />;
     default:

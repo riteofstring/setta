@@ -418,10 +418,16 @@ const shellCaptureGlyphKinds = {
   committing: "loading",
   draining: "loading",
   idle: "microphone",
+  listener_armed: "microphone",
+  listener_arming: "loading",
+  listener_paused: "microphone",
   recording: "stop",
   requesting_permission: "loading",
   submitting: "loading",
   unavailable: "microphone",
+  wake_detected: "stop",
+  wake_finalizing: "loading",
+  wake_recording: "stop",
 } as const satisfies Record<
   Exclude<GlobalSpeechCapturePresentation["state"], "failed">,
   ShellCaptureGlyphKind

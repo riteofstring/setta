@@ -242,6 +242,11 @@ export class AppShellMasterController {
     });
   }
 
+  readFocusHints(): MasterInputFocusHints {
+    this.assertUsable();
+    return this.dependencies.readFocusHints();
+  }
+
   retry(): void {
     this.assertUsable();
     if (!this.pending || this.snapshotValue.submission.type !== "failed") {

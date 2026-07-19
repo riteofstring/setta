@@ -286,14 +286,22 @@ events through the production engine boundary.
 
 ### Phase 3: Renderer Integration
 
-- Add the Settings toggle and readiness state in Settings -> Voices.
-- Add app-shell subscription to listener state/events.
-- Extend the speech capture controller with an external wake transcript path
+- [x] Add the Settings toggle and readiness state in Settings -> Voices.
+- [x] Add app-shell subscription to listener state/events.
+- [x] Extend the speech capture controller with an external wake transcript path
   that reuses existing voice submission and routing behavior.
-- Render clear states for armed, wake detected, recording, finalizing, failed,
+- [x] Render clear states for armed, wake detected, recording, finalizing, failed,
   and paused.
-- Ensure the manual mic button and always-listening state cannot contradict
+- [x] Ensure the manual mic button and always-listening state cannot contradict
   each other.
+
+Implementation note (2026-07-21): the renderer now persists the Settings toggle,
+subscribes to listener state/events through preload IPC, submits finalized wake
+transcripts through the existing focused-conversation/global voice paths, renders
+the armed/wake/recording/finalizing/paused/error states, and arbitrates manual
+mic starts against active wake capture. The local macOS Electron workflow now
+enables the setting with a scripted helper wake event and verifies the transcript
+reaches durable voice input without clicking the mic button.
 
 Exit criteria: a fake wake event in the running app submits a voice transcript
 to the focused conversation without clicking the mic button.

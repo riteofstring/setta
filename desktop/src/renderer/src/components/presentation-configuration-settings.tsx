@@ -30,6 +30,7 @@ import {
   type ActiveRuntimeVoiceStatus,
   OpenAIVoiceConnectionCard,
 } from "./openai-voice-connection-card";
+import { LocalMacOSAlwaysListeningCard } from "./local-macos-always-listening-card";
 import { SpeechProviderSelectionCard } from "./speech-provider-selection-card";
 import { Button } from "./ui/button";
 
@@ -71,6 +72,7 @@ export function PresentationConfigurationSettings({
       <SpeechProviderSelectionCard
         focusRequest={focusRequest?.target === "voice_provider_selection" ? focusRequest : null}
       />
+      <LocalMacOSAlwaysListeningCard />
       <OpenAIVoiceConnectionCard
         activeRuntimeVoiceStatus={state.activeRuntimeVoiceStatus}
         focusRequest={focusRequest?.target === "openai_voice_connection" ? focusRequest : null}

@@ -1,4 +1,5 @@
 import type { ConversationInput } from "@generated/backend";
+import type { LocalMacOSVoiceListenerSettings } from "@shared/speech-ipc";
 
 import type {
   AppShellSpeechCaptureController,
@@ -25,6 +26,9 @@ type GlobalSpeechSource =
     };
 
 type GlobalSpeechCaptureActiveState = Exclude<SpeechCaptureState, { type: "failed" | "idle" }>;
+type ListenerState = LocalMacOSVoiceListenerSettings["state"];
+type ListenerStatus = ListenerState["status"];
+type ListenerPresentationFactory = (state: ListenerState) => GlobalSpeechCapturePresentation | null;
 
 export type GlobalSpeechCapturePresentation =
   | { source: null; state: "idle" }
@@ -37,6 +41,17 @@ export type GlobalSpeechCapturePresentation =
   | {
       source: GlobalSpeechSource;
       state: GlobalSpeechCaptureActiveState["type"];
+      transcript: string;
+    }
+  | {
+      source: null;
+      state:
+        | "listener_armed"
+        | "listener_arming"
+        | "listener_paused"
+        | "wake_detected"
+        | "wake_finalizing"
+        | "wake_recording";
       transcript: string;
     }
   | { source: GlobalSpeechSource; state: "submitting" }
@@ -103,6 +118,10 @@ export function globalSpeechCapturePresentation(
   const masterSubmission = masterSubmissionPresentation(snapshot.masterSubmission);
   if (masterSubmission) {
     return masterSubmission;
+  }
+  const listener = listenerPresentation(snapshot.listener);
+  if (listener) {
+    return listener;
   }
   return inactiveCapturePresentation(snapshot);
 }
@@ -264,10 +283,16 @@ const shellCaptureActions = {
   committing: null,
   draining: null,
   idle: "start",
+  listener_armed: "start",
+  listener_arming: null,
+  listener_paused: null,
   recording: "commit",
   requesting_permission: "cancel",
   submitting: null,
   unavailable: null,
+  wake_detected: null,
+  wake_finalizing: null,
+  wake_recording: null,
 } as const satisfies Record<
   Exclude<GlobalSpeechCapturePresentation["state"], "failed">,
   ShellSpeechCaptureAction
@@ -307,9 +332,15 @@ const shellCaptureLabelers = {
   committing: (destination) => `Finishing the voice request for ${destination}`,
   draining: (destination) => `Finishing captured audio for ${destination}`,
   idle: () => "Start a voice request for Setta",
+  listener_armed: () => "Always listening armed",
+  listener_arming: () => "Starting always listening",
+  listener_paused: () => "Always listening paused",
   recording: (destination) => `Listening for ${destination}`,
   requesting_permission: (destination) => `Requesting microphone access for ${destination}`,
   submitting: (destination) => `Sending the voice request to ${destination}`,
+  wake_detected: () => "Wake phrase detected",
+  wake_finalizing: () => "Finalizing wake request",
+  wake_recording: () => "Listening after wake",
 } satisfies Record<
   Exclude<GlobalSpeechCapturePresentation["state"], "failed" | "unavailable">,
   (destination: string) => string
@@ -319,9 +350,15 @@ const shellCaptureControlLabelers = {
   committing: (destination) => `Finishing the voice request for ${destination}`,
   draining: (destination) => `Finishing captured audio for ${destination}`,
   idle: () => "Start a voice request for Setta",
+  listener_armed: () => "Start a voice request for Setta",
+  listener_arming: () => "Starting always listening",
+  listener_paused: () => "Always listening is paused",
   recording: (destination) => `Finish the voice request for ${destination}`,
   requesting_permission: (destination) => `Cancel the voice request for ${destination}`,
   submitting: (destination) => `Sending the voice request to ${destination}`,
+  wake_detected: () => "Wake phrase detected",
+  wake_finalizing: () => "Finalizing wake request",
+  wake_recording: () => "Recording wake request",
 } satisfies Record<
   Exclude<GlobalSpeechCapturePresentation["state"], "failed" | "unavailable">,
   (destination: string) => string
@@ -378,6 +415,7 @@ export function shellSpeechStatusLabel(
 
 const passiveCaptureStates = new Set<GlobalSpeechCapturePresentation["state"]>([
   "idle",
+  "listener_armed",
   "unavailable",
 ]);
 
@@ -411,6 +449,55 @@ function activeCapturePresentation(
     default:
       return assertNever(capture);
   }
+}
+
+function listenerPresentation(
+  listener: LocalMacOSVoiceListenerSettings | null,
+): GlobalSpeechCapturePresentation | null {
+  if (!listener?.enabled) {
+    return null;
+  }
+  return listenerPresentationFactories[listener.state.status](listener.state);
+}
+
+const listenerPresentationFactories = {
+  armed: () => listenerStatePresentation("listener_armed"),
+  arming: () => listenerStatePresentation("listener_arming"),
+  candidate_end: () => listenerStatePresentation("wake_recording"),
+  capturing: () => listenerStatePresentation("wake_recording"),
+  disabled: () => null,
+  engine_failed: listenerFailedPresentation,
+  finalizing: () => listenerStatePresentation("wake_finalizing"),
+  local_voice_not_ready: listenerFailedPresentation,
+  microphone_denied: listenerFailedPresentation,
+  paused_for_manual_capture: () => listenerStatePresentation("listener_paused"),
+  paused_for_playback: () => listenerStatePresentation("listener_paused"),
+  submitting: () => ({ source: masterInputSource(), state: "submitting" }),
+  waiting_for_message_speech: () => listenerStatePresentation("wake_detected"),
+  wake_detected: () => listenerStatePresentation("wake_detected"),
+} satisfies Record<ListenerStatus, ListenerPresentationFactory>;
+
+function listenerFailedPresentation(state: ListenerState): GlobalSpeechCapturePresentation {
+  return {
+    message: "message" in state ? state.message : "Always listening failed.",
+    retry: null,
+    source: null,
+    state: "failed",
+  };
+}
+
+function listenerStatePresentation(
+  state: Extract<
+    GlobalSpeechCapturePresentation["state"],
+    | "listener_armed"
+    | "listener_arming"
+    | "listener_paused"
+    | "wake_detected"
+    | "wake_finalizing"
+    | "wake_recording"
+  >,
+): GlobalSpeechCapturePresentation {
+  return { source: null, state, transcript: "" };
 }
 
 function captureRequestSource(request: SpeechCaptureRequest): GlobalSpeechSource {
@@ -530,10 +617,16 @@ const paneCaptureActivityLabels = {
   committing: "Finishing voice request",
   draining: "Finishing captured audio",
   idle: null,
+  listener_armed: null,
+  listener_arming: null,
+  listener_paused: null,
   recording: "Listening",
   requesting_permission: "Requesting microphone",
   submitting: "Sending voice request",
   unavailable: null,
+  wake_detected: "Wake phrase detected",
+  wake_finalizing: "Finalizing wake request",
+  wake_recording: "Listening",
 } as const satisfies Record<
   Exclude<GlobalSpeechCapturePresentation["state"], "failed">,
   string | null
@@ -636,8 +729,18 @@ const paneVoiceControls = {
     label: "Start a voice request for this conversation",
     setupAction: null,
   }),
+  listener_armed: () => ({
+    disabled: false,
+    label: "Start a voice request for this conversation",
+    setupAction: null,
+  }),
+  listener_arming: activePaneVoiceControl,
+  listener_paused: activePaneVoiceControl,
   requesting_permission: activePaneVoiceControl,
   submitting: activePaneVoiceControl,
+  wake_detected: activePaneVoiceControl,
+  wake_finalizing: activePaneVoiceControl,
+  wake_recording: activePaneVoiceControl,
 } satisfies Record<
   Exclude<GlobalSpeechCapturePresentation["state"], "failed" | "recording" | "unavailable">,
   (scope: PaneSpeechSourceScope) => PaneVoiceControl

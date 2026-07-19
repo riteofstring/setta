@@ -37,6 +37,7 @@ import {
   OpenAIVoiceConnectionCardView,
   speechCredentialSaveRequestFromDraft,
 } from "./openai-voice-connection-card";
+import { LocalMacOSAlwaysListeningCardView } from "./local-macos-always-listening-card";
 import {
   ConversationPresentationConfiguration,
   connectedRuntimeConfigurationKey,
@@ -206,6 +207,53 @@ describe("appearance settings", () => {
     expect(normalizedHtml).toContain("16%");
     expect(normalizedHtml).toContain("Downloading base.en voice model (24 MB of 141 MB).");
     expect(normalizedHtml).toContain("Selected");
+  });
+
+  test("renders always listening readiness and active states", () => {
+    const unavailable = renderToString(
+      <LocalMacOSAlwaysListeningCardView
+        error={null}
+        onDownloadLocalModel={vi.fn()}
+        onToggle={vi.fn()}
+        settings={{
+          availability: {
+            message:
+              "Always listening needs a packaged Hey Setta wake model before it can be enabled.",
+            setupAction: null,
+            status: "unavailable",
+          },
+          enabled: false,
+          state: { status: "disabled" },
+        }}
+        updating={false}
+      />,
+    );
+    const active = renderToString(
+      <LocalMacOSAlwaysListeningCardView
+        error={null}
+        onDownloadLocalModel={vi.fn()}
+        onToggle={vi.fn()}
+        settings={{
+          availability: { status: "ready" },
+          enabled: true,
+          state: {
+            captureStartedAtMs: 1_140,
+            score: 0.74,
+            status: "capturing",
+            wakeDetectedAtMs: 960,
+          },
+        }}
+        updating={false}
+      />,
+    );
+
+    expect(unavailable).toContain('data-testid="local-macos-always-listening-card"');
+    expect(unavailable).toContain("Always listening");
+    expect(unavailable).toContain("Unavailable");
+    expect(unavailable).toContain("packaged Hey Setta wake model");
+    expect(unavailable).toContain('disabled=""');
+    expect(active).toContain("Recording");
+    expect(active).toContain('checked=""');
   });
 
   test("keeps a current provider selectable after provider selection storage fails", () => {

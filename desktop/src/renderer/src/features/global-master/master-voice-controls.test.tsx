@@ -156,6 +156,7 @@ function captureSnapshot(
     completedConversationTranscript: null,
     completedTranscript: null,
     conversationSubmission: { type: "idle" },
+    listener: null,
     masterSubmission: { type: "idle" },
     runtimeId: "runtime-speech",
   };
