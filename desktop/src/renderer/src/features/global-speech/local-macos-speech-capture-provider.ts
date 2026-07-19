@@ -51,11 +51,14 @@ class LocalMacOSSpeechCaptureProvider implements VoiceInputProvider {
   constructor(private readonly dependencies: LocalMacOSSpeechCaptureProviderDependencies) {}
 
   readCapabilities = async (): Promise<SpeechCapabilities> => {
-    const [capabilities, health, voiceCatalog] = await Promise.all([
+    const [capabilities, health] = await Promise.all([
       this.dependencies.readCapabilities(),
       this.dependencies.readHealth(),
-      this.dependencies.listVoices(),
     ]);
+    const voiceCatalog =
+      health.status === "ready"
+        ? await this.dependencies.listVoices()
+        : await readLocalVoiceCatalogForUnavailableProvider(this.dependencies.listVoices, health);
     return {
       ...capabilities,
       providerStatus: health.status === "ready" ? "configured" : "not_configured",
@@ -183,4 +186,19 @@ function providerError(failure: LocalMacOSVoiceCaptureFailure): VoiceCaptureProv
 
 function providerFailure(failure: LocalMacOSVoiceCaptureFailure): SpeechCaptureFailure {
   return { code: failure.code, message: failure.message };
+}
+
+async function readLocalVoiceCatalogForUnavailableProvider(
+  listVoices: () => Promise<SpeechVoiceCatalog>,
+  health: LocalMacOSVoiceHealth,
+): Promise<SpeechVoiceCatalog> {
+  try {
+    return await listVoices();
+  } catch {
+    return {
+      provider: localMacOSProvider,
+      version: `unavailable:${health.status}`,
+      voiceIds: [],
+    };
+  }
 }

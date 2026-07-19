@@ -48,6 +48,33 @@ describe("local macOS speech capture provider", () => {
     });
   });
 
+  test("keeps local setup state when unavailable helper cannot list voices", async () => {
+    const provider = createLocalMacOSSpeechCaptureProvider({
+      cancelCapture: vi.fn(),
+      finishCapture: vi.fn(),
+      listVoices: vi.fn(async () => {
+        throw new Error("The local macOS voice helper is unavailable.");
+      }),
+      readCapabilities: vi.fn(async () => openAICapabilities()),
+      readHealth: vi.fn(async () => ({
+        helperPath: null,
+        message: "The local macOS voice helper is not installed.",
+        provider: "local_macos" as const,
+        status: "helper_unavailable" as const,
+      })),
+      startCapture: vi.fn(),
+    });
+
+    await expect(provider.readCapabilities()).resolves.toMatchObject({
+      providerStatus: "not_configured",
+      voiceCatalog: {
+        provider: "local_macos",
+        version: "unavailable:helper_unavailable",
+        voiceIds: [],
+      },
+    });
+  });
+
   test("starts, finishes, and publishes the final local transcript", async () => {
     const finishCapture = vi.fn(async () => ({
       captureSessionId: "capture_local",
