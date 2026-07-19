@@ -315,6 +315,12 @@ Implemented on 2026-07-20:
     replacement device, revoke an exact device, and suspend or resume the user
     in the live store process, so established-stream invalidation remains
     push-based; no administration route is exposed through Fly HTTP.
+29. The hosted lifecycle suite rotates to a private replacement credential,
+    measures new-request and established-SSE cutoff for device revocation and
+    user suspension, proves resume, observes the durable gateway rate limit,
+    checks client-visible bodies for credential material, and writes a private
+    content-free report. The access and lifecycle workloads compose in the
+    authorized Candidate B order.
 
 Still required before a live create/deployment mutation:
 

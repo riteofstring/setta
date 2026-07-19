@@ -20,13 +20,14 @@ import (
 )
 
 const (
-	candidateBReportSchemaVersion = 1
-	candidateBMeasurementCount    = 20
-	candidateBReportFileName      = "candidate-b-report.json"
-	maximumMeasuredResponseBytes  = 1024 * 1024
-	coldAuthenticatedBudget       = 2500 * time.Millisecond
-	interactiveAccessBudget       = 250 * time.Millisecond
-	reconnectBudget               = 3 * time.Second
+	candidateBReportSchemaVersion    = 1
+	candidateBMeasurementCount       = 20
+	candidateBReportFileName         = "candidate-b-report.json"
+	maximumMeasuredResponseBytes     = 1024 * 1024
+	coldAuthenticatedBudget          = 2500 * time.Millisecond
+	interactiveAccessBudget          = 250 * time.Millisecond
+	reconnectBudget                  = 3 * time.Second
+	spriteSuspensionObservationDelay = 60 * time.Second
 )
 
 type HostedSpriteWakeController interface {
@@ -198,7 +199,7 @@ func (workload CandidateBWorkload) prepareUnauthenticatedWakeProbe(
 	if err := workload.Provider.Suspend(ctx, runtimeName); err != nil {
 		return runtimeprovider.RuntimeObservation{}, errors.New("suspend Sprite before unauthenticated wake probe failed")
 	}
-	if err := workload.Sleep(ctx, 2*time.Second); err != nil {
+	if err := workload.Sleep(ctx, spriteSuspensionObservationDelay); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
 	}
 	return workload.inspectCold(ctx, runtimeName)

@@ -29,13 +29,17 @@ func TestCandidateBWorkloadMeasuresHTTPAndSSEWithoutUnauthenticatedSpriteWake(t 
 	defer server.Close()
 	client := server.Client()
 	client.Timeout = 5 * time.Second
+	var sleeps []time.Duration
 	runtime := HostedRuntime{Sprite: PreparedSprite{Observation: runtimeprovider.RuntimeObservation{
 		Name: "setta-u-0123456789abcdef0123456789abcdef", Placement: "yyz",
 	}}}
 	workload := CandidateBWorkload{
 		HTTPClient: client, Provider: provider, baseURL: server.URL,
-		Now:   func() time.Time { return testAuthorizedAt.Add(10 * time.Minute) },
-		Sleep: func(context.Context, time.Duration) error { return nil },
+		Now: func() time.Time { return testAuthorizedAt.Add(10 * time.Minute) },
+		Sleep: func(_ context.Context, duration time.Duration) error {
+			sleeps = append(sleeps, duration)
+			return nil
+		},
 	}
 	if err := workload.Execute(context.Background(), authorization, runtime, ControlPlaneBootstrapResult{
 		ClientCredentialPath: credentialPath, DeviceID: credential.DeviceID,
@@ -56,6 +60,9 @@ func TestCandidateBWorkloadMeasuresHTTPAndSSEWithoutUnauthenticatedSpriteWake(t 
 	}
 	if provider.suspendCalls != 1 || provider.inspectCalls != 2 {
 		t.Fatalf("provider calls = suspend %d inspect %d", provider.suspendCalls, provider.inspectCalls)
+	}
+	if len(sleeps) != 2 || sleeps[0] != spriteSuspensionObservationDelay || sleeps[1] != time.Second {
+		t.Fatalf("wake probe sleeps = %v", sleeps)
 	}
 	if err := workload.Execute(context.Background(), authorization, runtime, ControlPlaneBootstrapResult{
 		ClientCredentialPath: credentialPath, DeviceID: credential.DeviceID,
