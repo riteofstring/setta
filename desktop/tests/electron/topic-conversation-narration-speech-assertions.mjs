@@ -51,6 +51,25 @@ export async function waitForNarrationProviderRequest({
   throw new Error("pane-free terminal narration playback did not reach the speech provider");
 }
 
+export async function waitForMasterProviderRequest({
+  initialRequestCount,
+  provider,
+  resolvedVoiceId,
+  text,
+  timeoutMs,
+}) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const request = findSpeechRequest(provider, initialRequestCount, text, resolvedVoiceId);
+    if (request) {
+      provider.assertHealthy();
+      return request;
+    }
+    await delay(20);
+  }
+  throw new Error("master answer playback did not reach the speech provider");
+}
+
 function findSpeechRequest(provider, initialRequestCount, text, resolvedVoiceId) {
   return provider.requests
     .slice(initialRequestCount)
@@ -79,6 +98,29 @@ export function assertRecordedNarrationSynthesis(
     throw new Error(`automatic narration synthesis source drifted: ${JSON.stringify(event)}`);
   }
   assertRecordedNarratorSource(operation.request.source, conversationId, narrationEventId, event);
+}
+
+export function assertRecordedMasterSynthesis(event, inputId, resolvedVoiceId) {
+  const operation = event.args?.[0];
+  if (
+    event.channel !== "speech:synthesize" ||
+    typeof operation?.operationId !== "string" ||
+    !operation.operationId.startsWith("speech_") ||
+    operation.request?.resolvedVoiceId !== resolvedVoiceId
+  ) {
+    throw new Error(`master answer synthesis source drifted: ${JSON.stringify(event)}`);
+  }
+  assertRecordedMasterSource(operation.request.source, inputId, event);
+}
+
+function assertRecordedMasterSource(source, inputId, event) {
+  if (
+    source?.speaker !== "master" ||
+    source.conversationId !== null ||
+    source.eventId !== inputId
+  ) {
+    throw new Error(`master answer synthesis source drifted: ${JSON.stringify(event)}`);
+  }
 }
 
 function assertRecordedNarratorSource(source, conversationId, narrationEventId, event) {
@@ -111,6 +153,29 @@ export async function waitForRecordedSpeechSynthesis({
     await delay(20);
   }
   throw new Error(`speech synthesis IPC was not recorded for narration ${narrationEventId}`);
+}
+
+export async function waitForRecordedMasterSpeechSynthesis({
+  artifactDirectory,
+  inputId,
+  timeoutMs,
+}) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
+    const synthesis = events.find(
+      (event) =>
+        event.type === "ipc_start" &&
+        event.channel === "speech:synthesize" &&
+        event.args?.[0]?.request?.source?.speaker === "master" &&
+        event.args[0].request.source.eventId === inputId,
+    );
+    if (synthesis) {
+      return synthesis;
+    }
+    await delay(20);
+  }
+  throw new Error(`master answer speech synthesis IPC was not recorded for input ${inputId}`);
 }
 
 export async function waitForRecordedConversationKeepAlive({

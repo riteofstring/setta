@@ -38,6 +38,7 @@ describe("app-shell master surface", () => {
     expect(html).toContain("Open the latest narrator conversation");
     expect(html).toContain('data-testid="master-active-request"');
     expect(html).toContain('data-master-result-kind="answer_global"');
+    expect(html).toContain('data-testid="master-answer-replay"');
     expect(html).toContain("The global router is ready.");
     expect(html).not.toContain("Recent master exchanges");
     expect(html).not.toContain("master-overlay-history");

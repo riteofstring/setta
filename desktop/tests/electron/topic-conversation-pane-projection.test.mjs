@@ -41,10 +41,13 @@ import {
 } from "./topic-conversation-master-overlay-assertions.mjs";
 import { exerciseMasterPaneRouting } from "./topic-conversation-master-pane-routing.mjs";
 import {
+  assertRecordedMasterSynthesis,
   assertRecordedNarrationSynthesis,
   waitForAutomaticNarrationStatusPlayback,
+  waitForMasterProviderRequest,
   waitForNarrationProviderRequest,
   waitForRecordedConversationKeepAlive,
+  waitForRecordedMasterSpeechSynthesis,
   waitForRecordedSpeechSynthesis,
 } from "./topic-conversation-narration-speech-assertions.mjs";
 import {
@@ -143,6 +146,7 @@ let context = null;
 let noPaneTerminalSpeech;
 let shellMasterOverlayInput;
 let shellMasterInput;
+let shellMasterSpeech;
 let cancelledMasterInput;
 let sharedMasterSessionId;
 let statusCapturePreemption;
@@ -1039,6 +1043,30 @@ try {
     expectedText: paneSpeechTranscript,
     timeoutMs: workflowTimeoutMs,
   });
+  const masterAnswerText = voiceMasterRoute.decision?.resultingCommand?.answerGlobal?.text;
+  if (typeof masterAnswerText !== "string" || masterAnswerText === "") {
+    throw new Error(`master answer text is missing: ${JSON.stringify(voiceMasterRoute)}`);
+  }
+  const synthesisRequestCountBeforeMasterReplay = speechProvider.requests.length;
+  await clickEnabledButtonByAria(context.client, "Replay master answer", workflowTimeoutMs);
+  const recordedMasterSynthesis = await waitForRecordedMasterSpeechSynthesis({
+    artifactDirectory: secondLaunchDir,
+    inputId: shellMasterInput.accepted.input.id,
+    timeoutMs: workflowTimeoutMs,
+  });
+  assertRecordedMasterSynthesis(
+    recordedMasterSynthesis,
+    shellMasterInput.accepted.input.id,
+    masterVoice.resolvedVoiceId,
+  );
+  shellMasterSpeech = await waitForMasterProviderRequest({
+    initialRequestCount: synthesisRequestCountBeforeMasterReplay,
+    provider: speechProvider,
+    resolvedVoiceId: masterVoice.resolvedVoiceId,
+    text: masterAnswerText,
+    timeoutMs: workflowTimeoutMs,
+  });
+  await context.client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.finishAllAudio()");
   await closeMasterOverlay(context.client, workflowTimeoutMs);
   assertDriverAction(
     await context.client.driver("topicConversationPresentFromNavigator", {
@@ -1245,6 +1273,7 @@ try {
     reloadedWorking,
     reloadedSideFailure,
     shellMasterInput,
+    shellMasterSpeech,
     shellMasterOverlayInput,
     masterPaneRoutes,
     sideFailure,
