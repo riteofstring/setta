@@ -197,6 +197,35 @@ describe("app-shell speech capture controller", () => {
     expect(harness.transport.commit).toHaveBeenCalledOnce();
   });
 
+  test("accepts a provider final transcript emitted while finish is draining", async () => {
+    const harness = createHarness();
+    await harness.connect();
+
+    const start = harness.startMaster();
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await flushPromises();
+    await start;
+    harness.transport.commit.mockImplementationOnce(() => {
+      harness.transport.complete("Provider finished while draining.");
+    });
+
+    harness.controller.commit();
+    await flushPromises();
+
+    expect(harness.currentCapture()).toEqual({ type: "idle" });
+    expect(harness.masterInputRequests).toEqual([
+      {
+        input: expect.objectContaining({
+          id: "capture_1",
+          modality: "voice",
+          text: "Provider finished while draining.",
+        }),
+      },
+    ]);
+    expect(harness.transport.close).toHaveBeenCalledOnce();
+  });
+
   test("preempts playback only when a new recording lifecycle begins", async () => {
     const onCaptureEnd = vi.fn();
     const onCaptureStart = vi.fn();

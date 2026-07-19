@@ -529,7 +529,11 @@ export class AppShellSpeechCaptureController {
   }
 
   private completeTranscript(lifecycle: number, runtimeId: string, transcript: string): void {
-    if (!this.isCurrent(lifecycle, runtimeId) || this.snapshotValue.capture.type !== "committing") {
+    if (
+      !this.isCurrent(lifecycle, runtimeId) ||
+      (this.snapshotValue.capture.type !== "draining" &&
+        this.snapshotValue.capture.type !== "committing")
+    ) {
       return;
     }
     if (transcript.trim() === "") {
