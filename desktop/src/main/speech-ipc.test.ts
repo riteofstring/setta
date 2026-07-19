@@ -97,6 +97,7 @@ describe("speech IPC handlers", () => {
       source: {
         conversationId: "conversation-speech",
         eventId: "status-reply-speech",
+        kind: "narration_event" as const,
         speaker: "narrator" as const,
       },
     };
@@ -167,6 +168,7 @@ describe("speech IPC handlers", () => {
         source: {
           conversationId: "conversation-speech",
           eventId: "status-reply-speech",
+          kind: "narration_event",
           speaker: "narrator",
         },
       },

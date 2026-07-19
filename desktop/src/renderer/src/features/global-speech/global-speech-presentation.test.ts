@@ -230,6 +230,7 @@ function narratorIntent(conversationId: string): NarratorSpeechPlaybackIntent {
     source: {
       conversationId,
       eventId: "narration-status",
+      kind: "narration_event",
       speaker: "narrator",
     },
     sourceCreatedAt: "2026-07-12T20:00:00Z",

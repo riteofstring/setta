@@ -104,6 +104,7 @@ func TestValidateSpeechAudio(t *testing.T) {
 		Format:      SynthesisFormat,
 		Source: SpeechSource{
 			Speaker:        SpeechSpeakerNarrator,
+			Kind:           SpeechSourceKindNarrationEvent,
 			EventID:        "milestone-1",
 			ConversationID: &conversationID,
 		},
@@ -145,7 +146,7 @@ func TestValidateSpeechAudioAcceptsExactMaximumSize(t *testing.T) {
 		AudioBase64:     base64.StdEncoding.EncodeToString(audio),
 		MediaType:       SynthesisMediaType,
 		Format:          SynthesisFormat,
-		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-summary"},
+		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, Kind: SpeechSourceKindMasterAnswer, EventID: "master-summary"},
 		ResolvedVoiceID: SpeechVoiceMarin,
 	}
 	if err := ValidateSpeechAudio(value); err != nil {
@@ -157,13 +158,23 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 	conversationID := "conversation-1"
 	requests := []SpeechSynthesisRequest{
 		{
-			Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+			Source:          SpeechSource{Speaker: SpeechSpeakerMaster, Kind: SpeechSourceKindMasterAnswer, EventID: "master-answer-1"},
 			ResolvedVoiceID: SpeechVoiceMarin,
 		},
 		{
 			Source: SpeechSource{
 				Speaker:        SpeechSpeakerNarrator,
+				Kind:           SpeechSourceKindNarrationEvent,
 				EventID:        "status-reply-1",
+				ConversationID: &conversationID,
+			},
+			ResolvedVoiceID: SpeechVoiceCedar,
+		},
+		{
+			Source: SpeechSource{
+				Speaker:        SpeechSpeakerNarrator,
+				Kind:           SpeechSourceKindProgressHighlight,
+				EventID:        "trajectory-highlight-1",
 				ConversationID: &conversationID,
 			},
 			ResolvedVoiceID: SpeechVoiceCedar,
@@ -176,10 +187,12 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 	}
 
 	invalid := []SpeechSynthesisRequest{
-		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
-		{Source: SpeechSource{Speaker: SpeechSpeakerNarrator, EventID: "status"}, ResolvedVoiceID: SpeechVoiceCedar},
-		{Source: SpeechSource{Speaker: "unknown", EventID: "event"}, ResolvedVoiceID: SpeechVoiceMarin},
-		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer"}, ResolvedVoiceID: "retired"},
+		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, Kind: SpeechSourceKindMasterAnswer, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Source: SpeechSource{Speaker: SpeechSpeakerNarrator, Kind: SpeechSourceKindNarrationEvent, EventID: "status"}, ResolvedVoiceID: SpeechVoiceCedar},
+		{Source: SpeechSource{Speaker: "unknown", Kind: SpeechSourceKindMasterAnswer, EventID: "event"}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, Kind: SpeechSourceKindNarrationEvent, EventID: "answer"}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Source: SpeechSource{Speaker: SpeechSpeakerNarrator, Kind: SpeechSourceKindMasterAnswer, EventID: "status", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceCedar},
+		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, Kind: SpeechSourceKindMasterAnswer, EventID: "answer"}, ResolvedVoiceID: "retired"},
 	}
 	for _, request := range invalid {
 		if err := request.Validate(); err == nil {
@@ -225,10 +238,10 @@ func TestValidateWAVRequiresOddChunkPadding(t *testing.T) {
 
 func TestSpeechContractValueSetsOwnProviderAndVoiceValues(t *testing.T) {
 	sets := ContractValueSets()
-	if len(sets) != 6 || sets[0].Name != "SpeechProviderStatus" ||
+	if len(sets) != 7 || sets[0].Name != "SpeechProviderStatus" ||
 		sets[1].Name != "SpeechProvider" || sets[2].Name != "SpeechSpeaker" ||
-		sets[3].Name != "VoiceSelectionMode" || sets[4].Name != "VoiceReuseReason" ||
-		sets[5].Name != "SpeechVoiceID" {
+		sets[3].Name != "SpeechSourceKind" || sets[4].Name != "VoiceSelectionMode" ||
+		sets[5].Name != "VoiceReuseReason" || sets[6].Name != "SpeechVoiceID" {
 		t.Fatalf("value sets = %+v", sets)
 	}
 	want := []string{string(SpeechProviderStatusConfigured), string(SpeechProviderStatusNotConfigured)}
@@ -238,10 +251,13 @@ func TestSpeechContractValueSetsOwnProviderAndVoiceValues(t *testing.T) {
 	if strings.Join(sets[2].Values, ",") != "master,narrator" {
 		t.Fatalf("speech speakers = %v", sets[2].Values)
 	}
-	if strings.Join(sets[4].Values, ",") != string(VoiceReuseCatalogExhausted) {
-		t.Fatalf("voice reuse reasons = %v", sets[4].Values)
+	if strings.Join(sets[3].Values, ",") != "master_answer,narration_event,progress_highlight" {
+		t.Fatalf("speech source kinds = %v", sets[3].Values)
 	}
-	if strings.Join(sets[5].Values, ",") != strings.Join(stringValues(openAISpeechVoiceIDs[:]), ",") {
-		t.Fatalf("voice ids = %v, want %v", sets[5].Values, openAISpeechVoiceIDs)
+	if strings.Join(sets[5].Values, ",") != string(VoiceReuseCatalogExhausted) {
+		t.Fatalf("voice reuse reasons = %v", sets[5].Values)
+	}
+	if strings.Join(sets[6].Values, ",") != strings.Join(stringValues(openAISpeechVoiceIDs[:]), ",") {
+		t.Fatalf("voice ids = %v, want %v", sets[6].Values, openAISpeechVoiceIDs)
 	}
 }

@@ -152,25 +152,40 @@ func (source SpeechSource) Validate() error {
 	if !validValue(source.Speaker, speechSpeakerValues) {
 		return fmt.Errorf("unsupported speech speaker %q", source.Speaker)
 	}
+	if !validValue(source.Kind, speechSourceKindValues) {
+		return fmt.Errorf("unsupported speech source kind %q", source.Kind)
+	}
 	if err := validateSourceID("speech source event id", source.EventID); err != nil {
 		return err
 	}
 	switch source.Speaker {
 	case SpeechSpeakerMaster:
-		if source.ConversationID != nil {
-			return errors.New("master speech source must not include a conversation id")
-		}
+		return source.validateMasterSource()
 	case SpeechSpeakerNarrator:
-		if source.ConversationID == nil {
-			return errors.New("narrator speech source requires a conversation id")
-		}
-		if err := validateSourceID("narrator speech source conversation id", *source.ConversationID); err != nil {
-			return err
-		}
+		return source.validateNarratorSource()
 	default:
 		return fmt.Errorf("unsupported speech speaker %q", source.Speaker)
 	}
+}
+
+func (source SpeechSource) validateMasterSource() error {
+	if source.Kind != SpeechSourceKindMasterAnswer {
+		return fmt.Errorf("master speech source cannot use kind %q", source.Kind)
+	}
+	if source.ConversationID != nil {
+		return errors.New("master speech source must not include a conversation id")
+	}
 	return nil
+}
+
+func (source SpeechSource) validateNarratorSource() error {
+	if source.Kind != SpeechSourceKindNarrationEvent && source.Kind != SpeechSourceKindProgressHighlight {
+		return fmt.Errorf("narrator speech source cannot use kind %q", source.Kind)
+	}
+	if source.ConversationID == nil {
+		return errors.New("narrator speech source requires a conversation id")
+	}
+	return validateSourceID("narrator speech source conversation id", *source.ConversationID)
 }
 
 func (request SpeechSynthesisRequest) Validate() error {

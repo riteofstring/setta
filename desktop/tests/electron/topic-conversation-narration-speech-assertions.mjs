@@ -32,7 +32,7 @@ export async function waitForAutomaticNarrationStatusPlayback({
   throw new Error("automatic narrator status playback did not reach the speech provider");
 }
 
-export async function waitForNarrationProviderRequest({
+export async function waitForNarratorProviderRequest({
   initialRequestCount,
   provider,
   resolvedVoiceId,
@@ -48,7 +48,7 @@ export async function waitForNarrationProviderRequest({
     }
     await delay(20);
   }
-  throw new Error("pane-free terminal narration playback did not reach the speech provider");
+  throw new Error("narrator playback did not reach the speech provider");
 }
 
 export async function waitForMasterProviderRequest({
@@ -88,6 +88,32 @@ export function assertRecordedNarrationSynthesis(
   narrationEventId,
   resolvedVoiceId,
 ) {
+  assertRecordedNarratorSynthesis(event, {
+    conversationId,
+    resolvedVoiceId,
+    sourceEventId: narrationEventId,
+    sourceKind: "narration_event",
+  });
+}
+
+export function assertRecordedProgressHighlightSynthesis(
+  event,
+  conversationId,
+  trajectoryEventId,
+  resolvedVoiceId,
+) {
+  assertRecordedNarratorSynthesis(event, {
+    conversationId,
+    resolvedVoiceId,
+    sourceEventId: trajectoryEventId,
+    sourceKind: "progress_highlight",
+  });
+}
+
+function assertRecordedNarratorSynthesis(
+  event,
+  { conversationId, resolvedVoiceId, sourceEventId, sourceKind },
+) {
   const operation = event.args?.[0];
   if (
     event.channel !== "speech:synthesize" ||
@@ -97,7 +123,13 @@ export function assertRecordedNarrationSynthesis(
   ) {
     throw new Error(`automatic narration synthesis source drifted: ${JSON.stringify(event)}`);
   }
-  assertRecordedNarratorSource(operation.request.source, conversationId, narrationEventId, event);
+  assertRecordedNarratorSource(
+    operation.request.source,
+    conversationId,
+    sourceEventId,
+    sourceKind,
+    event,
+  );
 }
 
 export function assertRecordedMasterSynthesis(event, inputId, resolvedVoiceId) {
@@ -116,6 +148,7 @@ export function assertRecordedMasterSynthesis(event, inputId, resolvedVoiceId) {
 function assertRecordedMasterSource(source, inputId, event) {
   if (
     source?.speaker !== "master" ||
+    source.kind !== "master_answer" ||
     source.conversationId !== null ||
     source.eventId !== inputId
   ) {
@@ -123,11 +156,12 @@ function assertRecordedMasterSource(source, inputId, event) {
   }
 }
 
-function assertRecordedNarratorSource(source, conversationId, narrationEventId, event) {
+function assertRecordedNarratorSource(source, conversationId, sourceEventId, sourceKind, event) {
   if (
     source?.speaker !== "narrator" ||
+    source.kind !== sourceKind ||
     source.conversationId !== conversationId ||
-    source.eventId !== narrationEventId
+    source.eventId !== sourceEventId
   ) {
     throw new Error(`automatic narration synthesis source drifted: ${JSON.stringify(event)}`);
   }
@@ -136,6 +170,8 @@ function assertRecordedNarratorSource(source, conversationId, narrationEventId, 
 export async function waitForRecordedSpeechSynthesis({
   artifactDirectory,
   narrationEventId,
+  sourceEventId = narrationEventId,
+  sourceKind,
   timeoutMs,
 }) {
   const startedAt = Date.now();
@@ -145,14 +181,15 @@ export async function waitForRecordedSpeechSynthesis({
       (event) =>
         event.type === "ipc_start" &&
         event.channel === "speech:synthesize" &&
-        event.args?.[0]?.request?.source?.eventId === narrationEventId,
+        event.args?.[0]?.request?.source?.eventId === sourceEventId &&
+        (sourceKind === undefined || event.args[0].request.source.kind === sourceKind),
     );
     if (synthesis) {
       return synthesis;
     }
     await delay(20);
   }
-  throw new Error(`speech synthesis IPC was not recorded for narration ${narrationEventId}`);
+  throw new Error(`speech synthesis IPC was not recorded for source ${sourceEventId}`);
 }
 
 export async function waitForRecordedMasterSpeechSynthesis({
@@ -168,6 +205,7 @@ export async function waitForRecordedMasterSpeechSynthesis({
         event.type === "ipc_start" &&
         event.channel === "speech:synthesize" &&
         event.args?.[0]?.request?.source?.speaker === "master" &&
+        event.args[0].request.source.kind === "master_answer" &&
         event.args[0].request.source.eventId === inputId,
     );
     if (synthesis) {

@@ -180,7 +180,7 @@ try {
   });
   const playback = await waitForPlaybackBaseline(
     artifactDir,
-    snapshot.narration.events.map((event) => event.id),
+    progressHighlightSpeechEvents(snapshot).map((event) => event.id),
     workflowTimeoutMs,
   );
   const artifactPolicy = await runArtifactPolicyMatrix({
@@ -355,8 +355,8 @@ function recoveryBaselineSnapshotReady(snapshot) {
   );
 }
 
-async function waitForPlaybackBaseline(artifactDirectory, narrationIds, timeoutMs) {
-  const expected = new Set(narrationIds);
+async function waitForPlaybackBaseline(artifactDirectory, sourceIds, timeoutMs) {
+  const expected = new Set(sourceIds);
   const startedAt = Date.now();
   let last = { observations: [], timedRecords: [] };
   while (Date.now() - startedAt < timeoutMs) {
@@ -413,9 +413,12 @@ function summarizeBaseline({
   const narratorRecords = events
     .filter((event) => event.type === "narrator_output_observed")
     .map((event) => event.payload);
-  const narrationCreatedAt = new Map(
+  const speechSourceCreatedAt = new Map(
     narratorRecords.map((record) => [record.narrationId, record.createdAt]),
   );
+  for (const event of progressHighlightSpeechEvents(snapshot)) {
+    speechSourceCreatedAt.set(event.id, event.emittedAt);
+  }
   return {
     artifactOutput: artifactOutput(snapshot),
     artifactPolicy,
@@ -426,7 +429,7 @@ function summarizeBaseline({
     focusRevisionCount: snapshot.narratorState.currentFocusRevision,
     narratorEventCount: snapshot.narration.events.length,
     narratorEventKinds: countBy(snapshot.narration.events.map((event) => event.kind)),
-    playbackLatencyMs: playbackLatency(playback.timedRecords, narrationCreatedAt),
+    playbackLatencyMs: playbackLatency(playback.timedRecords, speechSourceCreatedAt),
     renderedScrollOwners: scrollOwners,
     requestText,
     suppliedDataset,
@@ -470,10 +473,10 @@ function countBy(values) {
   return counts;
 }
 
-function playbackLatency(records, narrationCreatedAt) {
+function playbackLatency(records, speechSourceCreatedAt) {
   return records.flatMap((record) => {
     const eventId = record.observation.intent?.source?.eventId;
-    const createdAt = narrationCreatedAt.get(eventId);
+    const createdAt = speechSourceCreatedAt.get(eventId);
     if (!createdAt) {
       return [];
     }
@@ -485,6 +488,23 @@ function playbackLatency(records, narrationCreatedAt) {
         latencyMs: Date.parse(record.at) - Date.parse(createdAt),
       },
     ];
+  });
+}
+
+function progressHighlightSpeechEvents(snapshot) {
+  return snapshot.trajectory.events.filter((event) => {
+    switch (event.kind) {
+      case "turn_started":
+      case "approval_requested":
+      case "approval_resolved":
+      case "artifact_emitted":
+      case "turn_completed":
+      case "turn_failed":
+      case "turn_interrupted":
+        return true;
+      default:
+        return false;
+    }
   });
 }
 

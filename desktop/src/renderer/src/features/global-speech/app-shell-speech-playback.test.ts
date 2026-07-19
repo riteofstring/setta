@@ -27,7 +27,7 @@ describe("app-shell speech playback provider", () => {
     Reflect.deleteProperty(globalThis, "window");
   });
 
-  test("turns only speech-worthy live narration events into automatic playback intents", () => {
+  test("turns status replies and speech-worthy progress highlights into automatic playback intents", () => {
     const controller = playbackController();
     const enqueue = vi.spyOn(controller, "enqueueAutomatic");
     useConversationStore.setState({
@@ -59,26 +59,43 @@ describe("app-shell speech playback provider", () => {
     handlePlaybackConversationEvent(controller, narrationCreatedEvent());
     handlePlaybackConversationEvent(controller, routineMilestoneEvent());
     handlePlaybackConversationEvent(controller, finalNarrationEvent());
+    handlePlaybackConversationEvent(controller, routineTextDeltaEvent());
+    handlePlaybackConversationEvent(controller, trajectoryAppendedEvent());
     handlePlaybackConversationEvent(controller, {
       ...narrationCreatedEvent(),
       payload: { type: "conversation.queue.updated", queue: [] },
     });
 
-    expect(enqueue).toHaveBeenCalledOnce();
-    expect(enqueue).toHaveBeenCalledWith(
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(enqueue).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         kind: "status_reply",
         source: {
           conversationId: "conversation-playback",
           eventId: "narration-live",
+          kind: "narration_event",
           speaker: "narrator",
         },
         sourceCreatedAt: "2026-07-12T18:00:00Z",
       }),
     );
+    expect(enqueue).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        kind: "progress_highlight",
+        source: {
+          conversationId: "conversation-playback",
+          eventId: "trajectory-turn-started",
+          kind: "progress_highlight",
+          speaker: "narrator",
+        },
+        sourceCreatedAt: "2026-07-12T18:00:01Z",
+      }),
+    );
   });
 
-  test("uses queued turn state before a batched terminal narration event", () => {
+  test("uses queued presentation profile before a batched progress highlight event", () => {
     installStalledFrameScheduler();
     const controller = playbackController();
     const enqueue = vi.spyOn(controller, "enqueueAutomatic");
@@ -95,7 +112,10 @@ describe("app-shell speech playback provider", () => {
                 sequence: 0,
                 streamId: "conversation:conversation-playback",
               },
-              presentationProfile: profile(),
+              presentationProfile: profile({
+                narratorSpeechEnabled: false,
+                resolvedNarratorVoiceId: "cedar",
+              }),
               turns: { hasEarlier: false, turns: [] },
             } as unknown as ConversationSnapshot,
             status: "ready",
@@ -104,21 +124,19 @@ describe("app-shell speech playback provider", () => {
         ],
       ]),
     });
-    enqueueConversationProjectionEvent(failedTurnEvent());
+    enqueueConversationProjectionEvent(presentationProfileUpdatedEvent());
 
-    handlePlaybackConversationEvent(controller, finalNarrationEvent());
+    handlePlaybackConversationEvent(controller, trajectoryAppendedEvent());
 
-    expect(
-      useConversationStore.getState().conversations.get("conversation-playback")?.snapshot?.turns
-        .turns,
-    ).toEqual([]);
-    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ kind: "error" }));
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ kind: "progress_highlight" }));
   });
 
-  test("fails specifically when a live narration stream has no hydrated profile", () => {
+  test("fails specifically when a live speech event has no hydrated profile", () => {
     expect(() =>
       handlePlaybackConversationEvent(playbackController(), narrationCreatedEvent()),
-    ).toThrow("arrived without its conversation projection");
+    ).toThrow(
+      "live conversation speech event conversation:conversation-playback:1 arrived without its conversation projection",
+    );
   });
 
   test("survives StrictMode effect replay before disposing the real unmount", () => {
@@ -209,23 +227,99 @@ function routineMilestoneEvent(): ConversationEvent {
   };
 }
 
-function failedTurnEvent(): ConversationEvent {
+function presentationProfileUpdatedEvent(): ConversationEvent {
   return {
     conversationId: "conversation-playback",
     emittedAt: "2026-07-12T18:00:00Z",
     eventId: "conversation:conversation-playback:1",
     payload: {
-      turn: {
-        conversationId: "conversation-playback",
-        id: "turn-playback",
-        status: "failed",
-      } as ConversationSnapshot["turns"]["turns"][number],
-      type: "conversation.turn.updated",
+      profile: profile(),
+      type: "conversation.presentation_profile.updated",
     },
     schemaVersion: 1,
     sequence: 1,
     streamId: "conversation:conversation-playback",
     workspaceId: "workspace-playback",
+  };
+}
+
+function trajectoryAppendedEvent(): ConversationEvent {
+  return {
+    conversationId: "conversation-playback",
+    emittedAt: "2026-07-12T18:00:01Z",
+    eventId: "conversation:conversation-playback:4",
+    payload: {
+      event: {
+        actor: "agent",
+        activityCompleted: null,
+        activityFailed: null,
+        activityProgressed: null,
+        activityStarted: null,
+        agentLivenessChanged: null,
+        agentMessageCompleted: null,
+        agentPublicTextDelta: null,
+        approvalRequested: null,
+        approvalResolved: null,
+        artifactEmitted: null,
+        conversationId: "conversation-playback",
+        emittedAt: "2026-07-12T18:00:01Z",
+        fileChangeCompleted: null,
+        fileChangeProposed: null,
+        id: "trajectory-turn-started",
+        kind: "turn_started",
+        modelRerouted: null,
+        planChanged: null,
+        providerEventId: null,
+        providerLifecycleChanged: null,
+        providerThreadId: null,
+        providerTurnId: null,
+        publicReasoningSummaryUpdated: null,
+        sequence: 4,
+        subagentCompleted: null,
+        subagentStarted: null,
+        subagentUpdated: null,
+        turnCompleted: null,
+        turnFailed: null,
+        turnId: "turn-playback",
+        turnInterrupted: null,
+        turnPromoted: null,
+        turnQueued: null,
+        turnStarted: {
+          invocation: {} as NonNullable<
+            ConversationSnapshot["turns"]["turns"][number]["resolvedInvocation"]
+          >,
+        },
+        turnSteered: null,
+        userInputAccepted: null,
+      },
+      type: "conversation.trajectory.appended",
+    },
+    schemaVersion: 1,
+    sequence: 4,
+    streamId: "conversation:conversation-playback",
+    workspaceId: "workspace-playback",
+  };
+}
+
+function routineTextDeltaEvent(): ConversationEvent {
+  const event = trajectoryAppendedEvent();
+  if (event.payload.type !== "conversation.trajectory.appended") {
+    throw new Error("trajectory fixture must contain a trajectory event");
+  }
+  return {
+    ...event,
+    eventId: "conversation:conversation-playback:5",
+    payload: {
+      event: {
+        ...event.payload.event,
+        agentPublicTextDelta: { delta: "Routine text", providerItemId: "provider-text" },
+        id: "trajectory-text-delta",
+        kind: "agent_public_text_delta",
+        turnStarted: null,
+      },
+      type: "conversation.trajectory.appended",
+    },
+    sequence: 5,
   };
 }
 
@@ -262,7 +356,9 @@ function installStalledFrameScheduler(): void {
   });
 }
 
-function profile(): ConversationPresentationProfile {
+function profile(
+  overrides: Partial<ConversationPresentationProfile> = {},
+): ConversationPresentationProfile {
   return {
     conversationId: "conversation-playback",
     narratorSpeechEnabled: true,
@@ -275,6 +371,7 @@ function profile(): ConversationPresentationProfile {
     resolvedNarratorVoiceId: "cedar",
     resolvedPaletteId: "violet",
     updatedAt: "2026-07-12T18:00:00Z",
+    ...overrides,
   };
 }
 

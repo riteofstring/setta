@@ -9,7 +9,7 @@ describe("Easy Button speaking highlight projection", () => {
     expect(
       speakingProgressHighlightId(
         [highlight("trajectory_started", "Working")],
-        speaking("status_reply", "trajectory_started"),
+        speaking("progress_highlight", "trajectory_started"),
       ),
     ).toBe("trajectory_started");
   });

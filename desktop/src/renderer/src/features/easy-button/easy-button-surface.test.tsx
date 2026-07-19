@@ -558,7 +558,7 @@ describe("Easy Button topic conversation projection", () => {
           captureState: "idle",
           playbackScope: "this_conversation",
           playbackState: "speaking",
-          speakingIntentKind: "status_reply",
+          speakingIntentKind: "progress_highlight",
           speakingSourceEventId: "trajectory_turn_started_conversation_speaking",
           transcriptPreview: null,
           voiceControlDisabled: false,

@@ -47,9 +47,10 @@ import { exerciseMasterPaneRouting } from "./topic-conversation-master-pane-rout
 import {
   assertRecordedMasterSynthesis,
   assertRecordedNarrationSynthesis,
+  assertRecordedProgressHighlightSynthesis,
   waitForAutomaticNarrationStatusPlayback,
   waitForMasterProviderRequest,
-  waitForNarrationProviderRequest,
+  waitForNarratorProviderRequest,
   waitForRecordedConversationKeepAlive,
   waitForRecordedMasterSpeechSynthesis,
   waitForRecordedSpeechSynthesis,
@@ -955,10 +956,6 @@ try {
 
   const synthesisRequestCountBeforeNoPaneStop = speechProvider.requests.length;
   await closeConversationPane(context.client, beta.id);
-  await waitForConversationSurfaces(
-    context.client,
-    (surfaces) => conversationSurfaces(surfaces, beta.id).length === 0,
-  );
   await waitForRecordedConversationKeepAlive({
     artifactDirectory: secondLaunchDir,
     conversationId: beta.id,
@@ -973,33 +970,35 @@ try {
     beta.id,
     (snapshot) =>
       snapshot.turns.turns[0]?.status === "cancelled" &&
-      snapshot.narration.events.some(
-        (event) => event.kind === "final_summary" && event.turnId === snapshot.turns.turns[0]?.id,
+      snapshot.trajectory.events.some(
+        (event) =>
+          event.kind === "turn_interrupted" && event.turnId === snapshot.turns.turns[0]?.id,
       ),
   );
-  const noPaneFinal = stoppedWithoutPane.narration.events.find(
+  const noPaneStopped = stoppedWithoutPane.trajectory.events.find(
     (event) =>
-      event.kind === "final_summary" && event.turnId === stoppedWithoutPane.turns.turns[0]?.id,
+      event.kind === "turn_interrupted" && event.turnId === stoppedWithoutPane.turns.turns[0]?.id,
   );
-  if (!noPaneFinal) {
-    throw new Error("terminal narration was unavailable after stopping a pane-free conversation");
+  if (!noPaneStopped) {
+    throw new Error("pane-free stop progress highlight was unavailable");
   }
   const recordedNoPaneSynthesis = await waitForRecordedSpeechSynthesis({
     artifactDirectory: secondLaunchDir,
-    narrationEventId: noPaneFinal.id,
+    sourceEventId: noPaneStopped.id,
+    sourceKind: "progress_highlight",
     timeoutMs: workflowTimeoutMs,
   });
-  assertRecordedNarrationSynthesis(
+  assertRecordedProgressHighlightSynthesis(
     recordedNoPaneSynthesis,
     beta.id,
-    noPaneFinal.id,
+    noPaneStopped.id,
     beta.narratorVoiceId,
   );
-  noPaneTerminalSpeech = await waitForNarrationProviderRequest({
+  noPaneTerminalSpeech = await waitForNarratorProviderRequest({
     initialRequestCount: synthesisRequestCountBeforeNoPaneStop,
     provider: speechProvider,
     resolvedVoiceId: beta.narratorVoiceId,
-    text: noPaneFinal.finalSummary.text,
+    text: "Stopped. Work stopped at your request.",
     timeoutMs: workflowTimeoutMs,
   });
   assertDriverAction(

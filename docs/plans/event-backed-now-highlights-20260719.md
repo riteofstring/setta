@@ -15,7 +15,7 @@ narrator milestone behavior as part of this work.
   pending approval state, and terminal turn state. The rail no longer uses
   narrator milestones as highlight sources, and the rail item type is now
   progress-highlight oriented.
-- [ ] Speech: every newly created event-backed `NOW` highlight should be
+- [x] Speech: every newly created event-backed `NOW` highlight should be
   spoken exactly once when narrator speech is enabled. If a progress item would
   be annoying when spoken, it should not be a `NOW` highlight.
 - [x] Completion: artifact-bearing terminal turns now use compact,

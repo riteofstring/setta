@@ -30,6 +30,7 @@ describe("preload speech API", () => {
         source: {
           conversationId: "conversation-speech",
           eventId: "status-reply-speech",
+          kind: "narration_event",
           speaker: "narrator",
         },
       },
@@ -59,6 +60,7 @@ describe("preload speech API", () => {
             source: {
               conversationId: "conversation-speech",
               eventId: "status-reply-speech",
+              kind: "narration_event",
               speaker: "narrator",
             },
           },

@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"setta/internal/master"
@@ -32,6 +33,7 @@ func TestStoreResolvesAuthoritativeNarrationSpeechSourceAndVoice(t *testing.T) {
 	conversationID := "conversation-1"
 	source := speech.SpeechSource{
 		Speaker:        speech.SpeechSpeakerNarrator,
+		Kind:           speech.SpeechSourceKindNarrationEvent,
 		EventID:        event.ID,
 		ConversationID: &conversationID,
 	}
@@ -48,6 +50,7 @@ func TestStoreResolvesAuthoritativeNarrationSpeechSourceAndVoice(t *testing.T) {
 	wrongConversationID := "conversation-other"
 	_, err = store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
 		Speaker:        speech.SpeechSpeakerNarrator,
+		Kind:           speech.SpeechSourceKindNarrationEvent,
 		EventID:        event.ID,
 		ConversationID: &wrongConversationID,
 	})
@@ -106,6 +109,7 @@ func TestStoreResolvesAuthoritativeMasterAnswerSpeechSourceAndVoice(t *testing.T
 
 	source := speech.SpeechSource{
 		Speaker: speech.SpeechSpeakerMaster,
+		Kind:    speech.SpeechSourceKindMasterAnswer,
 		EventID: accepted.Input.ID,
 	}
 	resolved, err := store.ResolveSpeechSource(context.Background(), source)
@@ -136,12 +140,128 @@ func TestStoreResolvesAuthoritativeMasterAnswerSpeechSourceAndVoice(t *testing.T
 	}
 }
 
+func TestStoreResolvesAuthoritativeProgressHighlightSpeechSources(t *testing.T) {
+	store := newTestStore(t)
+	seedTransactionConversation(t, store)
+	conversationID := "conversation-1"
+	turnID := "turn-1"
+	running := validConversationTurn(TurnStatusRunning)
+	running.Delivery = TurnDeliveryQueued
+	approval := TrajectoryApprovalRequest{
+		ID:             "approval-1",
+		ProviderItemID: "provider-approval-1",
+		Kind:           TrajectoryApprovalKindCommand,
+		Title:          "Run command?",
+		Body:           "Download cloc to /tmp?",
+		Command:        stringPointer("curl -L cloc"),
+		CWD:            stringPointer("/tmp"),
+		FilePaths:      []string{},
+		Questions:      []TrajectoryApprovalQuestion{},
+		RequestedAt:    testTimeStarted,
+	}
+	artifactSequence := 5
+	artifact := Artifact{
+		ID:                 "artifact-1",
+		ConversationID:     conversationID,
+		TurnID:             &turnID,
+		TrajectorySequence: &artifactSequence,
+		Kind:               ArtifactKindTable,
+		Title:              "Repository LOC table",
+		CreatedAt:          testTimeLater,
+		Table: &TableArtifactPayload{
+			Columns: []ArtifactTableColumn{{Key: "language", Label: "Language"}},
+			Rows:    [][]string{{"Go"}},
+		},
+	}
+	events := []TrajectoryEvent{
+		progressTrajectoryEvent("trajectory-turn-started", turnID, 2, TrajectoryEventTurnStarted, &TrajectoryTurnStarted{Invocation: validInvocation(RoleAgent, InvocationOutcomeRunning)}),
+		progressTrajectoryEvent("trajectory-approval-requested", turnID, 3, TrajectoryEventApprovalRequested, &TrajectoryApprovalRequested{Approval: approval}),
+		progressTrajectoryEvent("trajectory-approval-resolved", turnID, 4, TrajectoryEventApprovalResolved, &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{
+			ApprovalID:      approval.ID,
+			Decision:        TrajectoryApprovalDecisionApproved,
+			Answers:         []ConversationApprovalAnswer{},
+			SecretsRedacted: false,
+			ResolvedAt:      testTimeLater,
+		}}),
+		progressTrajectoryEvent("trajectory-artifact-emitted", turnID, artifactSequence, TrajectoryEventArtifactEmitted, &TrajectoryArtifactEmitted{ArtifactID: artifact.ID}),
+		progressTrajectoryEvent("trajectory-turn-completed", turnID, 6, TrajectoryEventTurnCompleted, &TrajectoryTurnCompleted{}),
+		progressTrajectoryEvent("trajectory-turn-failed", turnID, 7, TrajectoryEventTurnFailed, &TrajectoryTurnFailed{Failure: Failure{
+			Code:      "provider_failed",
+			Message:   "Provider failed.",
+			Retryable: true,
+		}}),
+		progressTrajectoryEvent("trajectory-turn-interrupted", turnID, 8, TrajectoryEventTurnInterrupted, &TrajectoryTurnInterrupted{Reason: TurnInterruptionUserRequested}),
+	}
+	if _, err := store.Transact(context.Background(), "append progress highlight speech sources", func(transaction *WriteTransaction) error {
+		if err := transaction.UpdateTurn(TurnStatusQueued, running); err != nil {
+			return err
+		}
+		for _, event := range events {
+			if err := transaction.AppendTrajectoryEvent(event); err != nil {
+				return err
+			}
+		}
+		if err := transaction.InsertArtifact(artifact); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"progress-highlight-sources-created",
+			"conversation:conversation-1",
+			events,
+		))
+		return err
+	}); err != nil {
+		t.Fatalf("append progress highlight speech sources: %v", err)
+	}
+
+	tests := []struct {
+		eventID string
+		text    string
+	}{
+		{eventID: "trajectory-turn-started", text: "Working. Implement the next step."},
+		{eventID: "trajectory-approval-requested", text: "Needs approval. Download cloc to /tmp?"},
+		{eventID: "trajectory-approval-resolved", text: "Approval received. Implement the next step."},
+		{eventID: "trajectory-artifact-emitted", text: "Table ready. Repository LOC table"},
+		{eventID: "trajectory-turn-completed", text: "Complete. Work completed."},
+		{eventID: "trajectory-turn-failed", text: "Failed. Provider failed."},
+		{eventID: "trajectory-turn-interrupted", text: "Stopped. Work stopped at your request."},
+	}
+	for _, test := range tests {
+		t.Run(test.eventID, func(t *testing.T) {
+			source := speech.SpeechSource{
+				Speaker:        speech.SpeechSpeakerNarrator,
+				Kind:           speech.SpeechSourceKindProgressHighlight,
+				EventID:        test.eventID,
+				ConversationID: &conversationID,
+			}
+			resolved, err := store.ResolveSpeechSource(context.Background(), source)
+			if err != nil {
+				t.Fatalf("resolve progress highlight speech source: %v", err)
+			}
+			if resolved.Source != source ||
+				resolved.Text != test.text ||
+				resolved.ResolvedVoiceID != speech.SpeechVoiceAlloy {
+				t.Fatalf("resolved progress highlight source = %+v, want text=%q", resolved, test.text)
+			}
+		})
+	}
+
+	_, err := store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
+		Speaker:        speech.SpeechSpeakerNarrator,
+		Kind:           speech.SpeechSourceKindProgressHighlight,
+		EventID:        "trajectory-accepted",
+		ConversationID: &conversationID,
+	})
+	assertSpeechSourceUnavailable(t, err)
+}
+
 func TestStoreRejectsUnavailableMasterAndUnspokenNarrationSources(t *testing.T) {
 	store := newTestStore(t)
 	seedTransactionConversation(t, store)
 
 	_, err := store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
 		Speaker: speech.SpeechSpeakerMaster,
+		Kind:    speech.SpeechSourceKindMasterAnswer,
 		EventID: "master-reply-missing",
 	})
 	assertSpeechSourceUnavailable(t, err)
@@ -161,6 +281,7 @@ func TestStoreRejectsUnavailableMasterAndUnspokenNarrationSources(t *testing.T) 
 	commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
 	_, err = store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
 		Speaker: speech.SpeechSpeakerMaster,
+		Kind:    speech.SpeechSourceKindMasterAnswer,
 		EventID: accepted.Input.ID,
 	})
 	assertSpeechSourceUnavailable(t, err)
@@ -189,6 +310,7 @@ func TestStoreRejectsUnavailableMasterAndUnspokenNarrationSources(t *testing.T) 
 	conversationID := "conversation-1"
 	_, err = store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
 		Speaker:        speech.SpeechSpeakerNarrator,
+		Kind:           speech.SpeechSourceKindNarrationEvent,
 		EventID:        event.ID,
 		ConversationID: &conversationID,
 	})
@@ -253,6 +375,7 @@ WHERE conversation_id = 'conversation-1'`,
 			conversationID := "conversation-1"
 			_, err = store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
 				Speaker:        speech.SpeechSpeakerNarrator,
+				Kind:           speech.SpeechSourceKindNarrationEvent,
 				EventID:        event.ID,
 				ConversationID: &conversationID,
 			})
@@ -261,6 +384,47 @@ WHERE conversation_id = 'conversation-1'`,
 			}
 		})
 	}
+}
+
+func progressTrajectoryEvent(
+	id string,
+	turnID string,
+	sequence int,
+	kind TrajectoryEventKind,
+	payload any,
+) TrajectoryEvent {
+	event := TrajectoryEvent{
+		ID:             id,
+		ConversationID: "conversation-1",
+		TurnID:         &turnID,
+		Sequence:       sequence,
+		EmittedAt:      testTimeLater,
+		Kind:           kind,
+		Actor:          TrajectoryActorAgent,
+		ProviderTurnID: stringPointer("provider-turn-1"),
+	}
+	switch value := payload.(type) {
+	case *TrajectoryTurnStarted:
+		event.TurnStarted = value
+	case *TrajectoryApprovalRequested:
+		event.Actor = TrajectoryActorProvider
+		event.ApprovalRequested = value
+	case *TrajectoryApprovalResolved:
+		event.Actor = TrajectoryActorUser
+		event.ApprovalResolved = value
+	case *TrajectoryArtifactEmitted:
+		event.Actor = TrajectoryActorSystem
+		event.ArtifactEmitted = value
+	case *TrajectoryTurnCompleted:
+		event.TurnCompleted = value
+	case *TrajectoryTurnFailed:
+		event.TurnFailed = value
+	case *TrajectoryTurnInterrupted:
+		event.TurnInterrupted = value
+	default:
+		panic(fmt.Sprintf("unsupported progress trajectory payload %T", payload))
+	}
+	return event
 }
 
 func assertSpeechSourceUnavailable(t *testing.T, err error) {

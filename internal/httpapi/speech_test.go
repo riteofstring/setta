@@ -62,6 +62,7 @@ func newHTTPSpeechEndpointFixture(t *testing.T) httpSpeechEndpointFixture {
 		Format:      speech.SynthesisFormat,
 		Source: speech.SpeechSource{
 			Speaker:        speech.SpeechSpeakerNarrator,
+			Kind:           speech.SpeechSourceKindNarrationEvent,
 			EventID:        "status-reply-speech",
 			ConversationID: &conversationID,
 		},
@@ -224,7 +225,7 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 		{method: http.MethodPost, path: "/speech/credentials/desktop/load", body: `{"apiKey":"sk-setta-http-speech-credential"}`},
 		{method: http.MethodPost, path: "/speech/credentials/desktop/clear", body: `{}`},
 		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{}`},
-		{method: http.MethodPost, path: "/speech/synthesis", body: `{"source":{"speaker":"master","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
+		{method: http.MethodPost, path: "/speech/synthesis", body: `{"source":{"speaker":"master","kind":"master_answer","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
 	}
 	for _, test := range tests {
 		request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
@@ -364,6 +365,7 @@ func TestSpeechSynthesisEndpointMapsSourceStateFailures(t *testing.T) {
 				speech.SpeechSynthesisRequest{
 					Source: speech.SpeechSource{
 						Speaker: speech.SpeechSpeakerMaster,
+						Kind:    speech.SpeechSourceKindMasterAnswer,
 						EventID: "master-answer",
 					},
 					ResolvedVoiceID: speech.SpeechVoiceMarin,

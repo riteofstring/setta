@@ -8,6 +8,7 @@ const fallbackSpeakingTitles = {
   final_summary: [],
   master_answer: [],
   milestone: [],
+  progress_highlight: [],
   status_reply: [],
 } as const satisfies Record<SpeechPlaybackIntentKind, readonly string[]>;
 

@@ -418,6 +418,7 @@ func validateSourceID(label string, value string) error {
 
 func equalSpeechSources(left SpeechSource, right SpeechSource) bool {
 	return left.Speaker == right.Speaker &&
+		left.Kind == right.Kind &&
 		left.EventID == right.EventID &&
 		equalOptionalString(left.ConversationID, right.ConversationID)
 }

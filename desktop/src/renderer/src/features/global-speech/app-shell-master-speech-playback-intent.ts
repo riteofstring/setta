@@ -18,6 +18,7 @@ export function masterSpeechPlaybackIntent(
     source: {
       conversationId: null,
       eventId: state.input.id,
+      kind: "master_answer",
       speaker: "master",
     },
     sourceCreatedAt: null,

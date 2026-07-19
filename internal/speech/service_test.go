@@ -288,6 +288,7 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 	conversationID := "conversation-1"
 	source := SpeechSource{
 		Speaker:        SpeechSpeakerNarrator,
+		Kind:           SpeechSourceKindNarrationEvent,
 		EventID:        "status-reply-1",
 		ConversationID: &conversationID,
 	}
@@ -336,7 +337,7 @@ func TestSpeechServiceRejectsUnavailableSynthesisBeforeProviderCall(t *testing.T
 	resolver := &serviceTestSourceResolver{err: SourceUnavailable("source missing", nil)}
 	service := newServiceTestServiceWithResolver(t, provider, resolver)
 	_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, Kind: SpeechSourceKindMasterAnswer, EventID: "master-answer-1"},
 		ResolvedVoiceID: SpeechVoiceMarin,
 	})
 	assertSpeechServiceErrorCode(t, err, ErrorSourceUnavailable)
@@ -355,7 +356,7 @@ func TestSpeechServiceUsesSharedAssistantSynthesisRate(t *testing.T) {
 	}{
 		{
 			name:    "master",
-			source:  SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+			source:  SpeechSource{Speaker: SpeechSpeakerMaster, Kind: SpeechSourceKindMasterAnswer, EventID: "master-answer-1"},
 			text:    "The master answer is ready.",
 			voiceID: SpeechVoiceMarin,
 		},
@@ -363,6 +364,7 @@ func TestSpeechServiceUsesSharedAssistantSynthesisRate(t *testing.T) {
 			name: "narrator",
 			source: SpeechSource{
 				Speaker:        SpeechSpeakerNarrator,
+				Kind:           SpeechSourceKindNarrationEvent,
 				EventID:        "status-reply-1",
 				ConversationID: &conversationID,
 			},
@@ -407,7 +409,7 @@ func TestSpeechServiceUsesSharedAssistantSynthesisRate(t *testing.T) {
 }
 
 func TestSpeechServiceSnapshotsSynthesisProviderBeforeResolvingSource(t *testing.T) {
-	source := SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"}
+	source := SpeechSource{Speaker: SpeechSpeakerMaster, Kind: SpeechSourceKindMasterAnswer, EventID: "master-answer-1"}
 	originalProvider := &serviceTestProvider{
 		configured: true,
 		synthesized: SynthesizedAudio{

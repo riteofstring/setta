@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 65;
-export const backendContractSchemaHash = "sha256:9fbd39272c5e682ae9f4b55ea126fe1b7f7de12e53260fbed1baf951ef88aa2c";
+export const backendProtocolVersion = 66;
+export const backendContractSchemaHash = "sha256:36b58ab7306dcf8ebdac53099aa7eab093f0ef1a29df23988e920f4fcc9d1b4d";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1321,6 +1321,24 @@ export function decodeSpeechSpeaker(value: unknown, label = "SpeechSpeaker"): Sp
     case "master":
       return decoded;
     case "narrator":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SpeechSourceKind = "master_answer" | "narration_event" | "progress_highlight";
+
+export const speechSourceKindValues = ["master_answer", "narration_event", "progress_highlight"] as const satisfies readonly SpeechSourceKind[];
+
+export function decodeSpeechSourceKind(value: unknown, label = "SpeechSourceKind"): SpeechSourceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "master_answer":
+      return decoded;
+    case "narration_event":
+      return decoded;
+    case "progress_highlight":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3264,6 +3282,7 @@ export interface SpeechTranscriptionSession {
 
 export interface SpeechSource {
   speaker: SpeechSpeaker;
+  kind: SpeechSourceKind;
   eventId: string;
   conversationId: string | null;
 }
@@ -6624,9 +6643,10 @@ export function decodeSpeechTranscriptionSession(value: unknown): SpeechTranscri
 
 export function decodeSpeechSource(value: unknown): SpeechSource {
   const record = assertRecord(value, "SpeechSource");
-  assertKnownFields(record, "SpeechSource", ["speaker", "eventId", "conversationId"]);
+  assertKnownFields(record, "SpeechSource", ["speaker", "kind", "eventId", "conversationId"]);
   return {
     speaker: decodeSpeechSpeaker(requireField(record, "speaker", "SpeechSource"), "SpeechSource.speaker"),
+    kind: decodeSpeechSourceKind(requireField(record, "kind", "SpeechSource"), "SpeechSource.kind"),
     eventId: decodeString(requireField(record, "eventId", "SpeechSource"), "SpeechSource.eventId"),
     conversationId: decodeNullable(requireField(record, "conversationId", "SpeechSource"), "SpeechSource.conversationId", (item) => decodeString(item, "SpeechSource.conversationId")),
   };
