@@ -1,3 +1,4 @@
+import type { ConversationSnapshot } from "@generated/backend";
 import { isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -5,6 +6,7 @@ import { EasyButtonSurface } from "../features/easy-button/easy-button-conversat
 import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
 import { AppShellMasterPaneSurface } from "../features/global-master/app-shell-master-pane-surface";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
+import { useWorkspaceStore } from "../stores/workspace-store";
 import { reactDomSurfaceHostChangedEvent } from "./react-dom-surface-events";
 import {
   createReactDomSurfaceAdapter,
@@ -16,6 +18,7 @@ import { createFakeHost } from "./test-dom-fakes";
 import type { WorkspacePane } from "./types";
 
 afterEach(() => {
+  useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true);
   vi.unstubAllGlobals();
 });
 
@@ -326,6 +329,60 @@ describe("workspace React DOM surface adapter", () => {
     expect(renderedNode.props.workspaceId).toBe("workspace_selected");
   });
 
+  test("closes resource-bound conversation panes through the matching active workspace", async () => {
+    const read = vi.fn(async () => conversationSnapshot("conversation_test", "workspace_bound"));
+    vi.stubGlobal("window", { setta: { conversations: { read } } });
+    useWorkspaceStore.setState({
+      session: {
+        activeWorkspaces: [
+          {
+            displayName: "bound",
+            id: "workspace_bound",
+            lastOpenedAt: timestamp,
+            rootPath: "/tmp/bound",
+          },
+        ],
+        recentWorkspaces: [],
+        selectedWorkspaceId: "workspace_mounted",
+        workspaceAvailabilities: [
+          { available: true, unavailableReason: "", workspaceId: "workspace_bound" },
+        ],
+      },
+    });
+    const adapter = createReactDomSurfaceAdapter(
+      fakeConversationPane({
+        resourceBindings: [{ folder: { rootPath: "/tmp/bound" }, kind: "folder" }],
+      }),
+      undefined,
+      { workspaceId: "workspace_mounted" },
+    );
+
+    await expect(adapter.requestPaneClose({ confirm: () => true })).resolves.toEqual({
+      removePane: true,
+    });
+
+    expect(read).toHaveBeenCalledWith({
+      conversationId: "conversation_test",
+      workspaceId: "workspace_bound",
+    });
+  });
+
+  test("closes explicitly folderless conversation panes as view-only panes", async () => {
+    const read = vi.fn();
+    vi.stubGlobal("window", { setta: { conversations: { read } } });
+    const adapter = createReactDomSurfaceAdapter(
+      fakeConversationPane({ resourceBindings: [] }),
+      undefined,
+      { workspaceId: "workspace_selected" },
+    );
+
+    await expect(adapter.requestPaneClose({ confirm: () => true })).resolves.toEqual({
+      removePane: true,
+    });
+
+    expect(read).not.toHaveBeenCalled();
+  });
+
   test("mounts the master pane as a focused React DOM surface that cannot be removed", async () => {
     const root = new RecordingRoot([]);
     const rootFactory: ReactSurfaceRootFactory = {
@@ -361,6 +418,8 @@ describe("workspace React DOM surface adapter", () => {
   });
 });
 
+const timestamp = "2026-07-22T20:00:00Z";
+
 class RecordingRoot implements ReactSurfaceRoot {
   readonly renderedNodes: ReactNode[] = [];
 
@@ -374,6 +433,64 @@ class RecordingRoot implements ReactSurfaceRoot {
   unmount(): void {
     this.events.push("unmount");
   }
+}
+
+function conversationSnapshot(
+  conversationId: string,
+  workspaceId: string | null,
+): ConversationSnapshot {
+  return {
+    artifacts: { artifacts: [], hasEarlier: false },
+    branch: null,
+    conversation: {
+      archivedAt: null,
+      createdAt: timestamp,
+      id: conversationId,
+      lastTrajectorySequence: 1,
+      status: "working",
+      title: conversationId,
+      topicDescriptor: `${conversationId} descriptor`,
+      updatedAt: timestamp,
+      workspaceId,
+    },
+    eventCursor: { sequence: 0, streamId: `stream_${conversationId}` },
+    narration: { events: [], hasEarlier: false },
+    narratorState: {
+      checkpointText: "",
+      checkpointThroughSequence: 0,
+      conversationId,
+      currentFocus: "",
+      currentFocusRevision: 0,
+      currentFocusSourceSequence: 0,
+      degradation: null,
+      lastInvocationAt: null,
+      observedThroughSequence: 0,
+      status: "ready",
+      topicDescriptor: `${conversationId} descriptor`,
+      updatedAt: timestamp,
+    },
+    presentationProfile: {
+      conversationId,
+      narratorSpeechEnabled: false,
+      narratorVoiceReuse: null,
+      narratorVoiceSelection: "auto_distinct",
+      paletteReuse: null,
+      paletteSelection: "auto_distinct",
+      requestedNarratorVoiceId: null,
+      requestedPaletteId: null,
+      resolvedNarratorVoiceId: null,
+      resolvedPaletteId: "sky",
+      updatedAt: timestamp,
+    },
+    queue: [],
+    roleProfileOverrides: [],
+    schemaVersion: 1,
+    sideConversations: [],
+    sideEvents: { events: [], hasEarlier: false, limit: 200 },
+    threadBinding: null,
+    trajectory: { events: [], hasEarlier: false },
+    turns: { hasEarlier: false, turns: [] },
+  } as ConversationSnapshot;
 }
 
 function waitForMicrotask(): Promise<void> {

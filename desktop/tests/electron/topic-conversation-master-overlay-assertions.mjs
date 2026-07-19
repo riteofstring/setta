@@ -658,7 +658,8 @@ async function waitForRecordedMasterOverlayInput(artifactDirectory, text, timeou
 
 function assertRecordedTypedMasterInput(recorded, workspaceId) {
   const { accepted, request } = requiredRecordedMasterInput(recorded);
-  assertTypedMasterRequest(request, workspaceId, recorded);
+  void workspaceId;
+  assertTypedMasterRequest(request, recorded);
   if (
     accepted.input.id !== request.input.id ||
     accepted.replyDelivery.originatingWorkspaceId !== null ||
@@ -684,12 +685,13 @@ function requiredRecordedMasterInput(recorded) {
   return { accepted: recorded.accepted, request: recorded.request };
 }
 
-function assertTypedMasterRequest(request, workspaceId, recorded) {
+function assertTypedMasterRequest(request, recorded) {
   const input = request.input;
   if (
     input.source !== "shell" ||
     input.modality !== "text" ||
-    input.focusedWorkspaceId !== workspaceId
+    input.focusedWorkspaceId !== null ||
+    input.focusedConversationId !== null
   ) {
     throw new Error(`typed master overlay request drifted: ${JSON.stringify(recorded)}`);
   }

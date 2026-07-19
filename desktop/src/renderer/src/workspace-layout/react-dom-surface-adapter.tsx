@@ -1,3 +1,4 @@
+import type { ConversationPaneResourceBinding } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
@@ -13,6 +14,7 @@ import type { AppShellSpeechCaptureController } from "../features/global-speech/
 import type { AppShellSpeechPlaybackController } from "../features/global-speech/app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
+import { useWorkspaceStore } from "../stores/workspace-store";
 import {
   applySnapshotScrollOffsets,
   cloneSnapshotNode,
@@ -32,6 +34,7 @@ import type {
   SurfacePaneCloseResult,
   ViewportChangeReason,
 } from "./types";
+import { emptyWorkspaceRuntimeId } from "./workspace-layout-area-runtime";
 
 export interface ReactSurfaceRoot {
   render(node: ReactNode): void;
@@ -370,9 +373,9 @@ function reactDomPaneCloseRequest(
     return undefined;
   }
   const conversationId = pane.conversationConfig.conversationId;
-  const workspaceId = options.workspaceId;
-  if (!workspaceId) {
-    return undefined;
+  const workspaceId = conversationPaneCloseWorkspaceId(pane, options.workspaceId ?? null);
+  if (workspaceId === null) {
+    return () => Promise.resolve({ removePane: true });
   }
   return (request) =>
     requestEasyButtonPaneClose({
@@ -382,6 +385,35 @@ function reactDomPaneCloseRequest(
       speechCapture: options.speechCapture,
       workspaceId,
     });
+}
+
+function conversationPaneCloseWorkspaceId(
+  pane: Extract<WorkspacePane, { surfaceKind: "conversation" }>,
+  mountedWorkspaceId: string | null,
+): string | null {
+  const bindings = pane.conversationConfig.resourceBindings;
+  if (bindings !== undefined) {
+    return workspaceIdForConversationPaneResourceBindings(bindings);
+  }
+  if (!mountedWorkspaceId || mountedWorkspaceId === emptyWorkspaceRuntimeId) {
+    return null;
+  }
+  return mountedWorkspaceId;
+}
+
+function workspaceIdForConversationPaneResourceBindings(
+  bindings: readonly ConversationPaneResourceBinding[],
+): string | null {
+  const folderRootPath = bindings.find((binding) => binding.kind === "folder")?.folder.rootPath;
+  if (!folderRootPath) {
+    return null;
+  }
+  return (
+    useWorkspaceStore
+      .getState()
+      .session?.activeWorkspaces.find((workspace) => workspace.rootPath === folderRootPath)?.id ??
+    null
+  );
 }
 
 function reactDomSurfaceRenderFactory(

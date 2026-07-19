@@ -324,6 +324,7 @@ function assertNarratorPlaybackAttribution(surfaces, conversationId) {
 }
 
 function assertRecordedShellMasterInput(recorded, workspaceId, transcript) {
+  void workspaceId;
   const input = recordedShellInput(recorded);
   const accepted = recordedShellAcceptance(recorded);
   if (!input || !accepted) {
@@ -334,7 +335,8 @@ function assertRecordedShellMasterInput(recorded, workspaceId, transcript) {
       input.modality === "voice",
       input.source === "shell",
       input.text === transcript,
-      input.focusedWorkspaceId === workspaceId,
+      input.focusedWorkspaceId === null,
+      input.focusedConversationId === null,
       typeof input.id === "string",
       input.id !== "",
       typeof input.submittedAt === "string",
