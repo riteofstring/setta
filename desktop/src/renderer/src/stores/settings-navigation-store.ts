@@ -2,10 +2,7 @@ import { create } from "zustand";
 
 import type { SettingsSubtab } from "../components/settings-subtabs";
 
-type SettingsFocusTarget =
-  | "local_macos_always_listening"
-  | "openai_voice_connection"
-  | "voice_provider_selection";
+type SettingsFocusTarget = "openai_voice_connection" | "voice_provider_selection";
 
 export type SettingsShellRoute =
   | {
@@ -43,7 +40,6 @@ interface SettingsNavigationStore {
   request: SettingsNavigationRequest | null;
   route: SettingsShellRoute;
   setActiveSubtab: (subtab: SettingsSubtab) => void;
-  openLocalMacOSAlwaysListening: () => void;
   openOpenAIVoiceConnection: () => void;
   openVoiceProviderSelection: () => void;
 }
@@ -65,22 +61,6 @@ export const useSettingsNavigationStore = create<SettingsNavigationStore>((set) 
         : state,
     ),
   lastSubtab: initialSettingsSubtab,
-  openLocalMacOSAlwaysListening: () =>
-    set((state) => ({
-      lastSubtab: "speech",
-      nextRequestId: state.nextRequestId + 1,
-      request: {
-        focusTarget: "local_macos_always_listening",
-        requestId: state.nextRequestId,
-        subtab: "speech",
-      },
-      route: {
-        focusTarget: "local_macos_always_listening",
-        page: "settings",
-        requestId: state.nextRequestId,
-        subtab: "speech",
-      },
-    })),
   openOpenAIVoiceConnection: () =>
     set((state) => ({
       lastSubtab: "speech",
@@ -151,10 +131,6 @@ export const useSettingsNavigationStore = create<SettingsNavigationStore>((set) 
 
 export function requestOpenAIVoiceConnectionSettings(): void {
   useSettingsNavigationStore.getState().openOpenAIVoiceConnection();
-}
-
-export function requestLocalMacOSAlwaysListeningSettings(): void {
-  useSettingsNavigationStore.getState().openLocalMacOSAlwaysListening();
 }
 
 export function requestVoiceProviderSelectionSettings(): void {

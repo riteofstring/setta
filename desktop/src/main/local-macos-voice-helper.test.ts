@@ -8,7 +8,6 @@ import { describe, expect, test, vi } from "vitest";
 
 import {
   createLocalMacOSVoiceHelperFromEnvironment,
-  LocalMacOSVoiceHelperCommandError,
   LocalMacOSVoiceHelperProcessClient,
   LocalMacOSVoiceHelperProtocolError,
   LocalMacOSVoiceHelperUnavailableError,
@@ -16,7 +15,6 @@ import {
   type LocalMacOSVoiceHelperClient,
   type LocalMacOSVoiceHelperHealthResult,
 } from "./local-macos-voice-helper";
-import type { LocalMacOSVoiceListenerEngineEvent } from "./local-macos-voice-listener";
 
 const fixturePath = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -293,53 +291,6 @@ describe("LocalMacOSVoiceHealthService", () => {
     ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperUnavailableError);
   });
 
-  test("starts listener only after injecting the verified transcription model path", async () => {
-    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-listener-start-"));
-    const helperPath = join(root, "helper");
-    const modelPath = join(root, "ggml-base.en.bin");
-    const wakeModelPath = join(root, "hey-setta.onnx");
-    await writeFile(helperPath, "#!/bin/sh\n");
-    await chmod(helperPath, 0o755);
-    await writeFile(modelPath, "model-bytes");
-    await writeFile(wakeModelPath, "wake-model-bytes");
-    const helper = new FakeLocalMacOSVoiceHelperClient({ status: "ready" });
-    const service = new LocalMacOSVoiceHealthService({
-      createClient: vi.fn(() => helper),
-      helperPath,
-      modelPath,
-      platform: "darwin",
-    });
-    const events: LocalMacOSVoiceListenerEngineEvent[] = [];
-
-    await expect(
-      service.startListener(
-        listenerStartRequest(wakeModelPath, sha256("wake-model-bytes")),
-        (event) => events.push(event),
-      ),
-    ).resolves.toEqual({ status: "started" });
-    expect(helper.startListener).toHaveBeenCalledWith(
-      {
-        ...listenerStartRequest(wakeModelPath, sha256("wake-model-bytes")),
-        transcriptionModelPath: modelPath,
-      },
-      expect.any(Function),
-    );
-    expect(events).toEqual([{ type: "listener_armed" }]);
-
-    const missingModel = new LocalMacOSVoiceHealthService({
-      createClient: vi.fn(),
-      helperPath,
-      modelPath: join(root, "missing.bin"),
-      platform: "darwin",
-    });
-    await expect(
-      missingModel.startListener(
-        listenerStartRequest(wakeModelPath, sha256("wake-model-bytes")),
-        () => {},
-      ),
-    ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperUnavailableError);
-  });
-
   test("synthesizes speech through the helper without requiring a Whisper model", async () => {
     const root = await mkdtemp(join(tmpdir(), "setta-local-voice-synthesis-"));
     const helperPath = join(root, "helper");
@@ -451,153 +402,6 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     client.shutdown();
   });
 
-  test("frames listener lifecycle events and arbitrates the helper microphone owner", async () => {
-    const client = new LocalMacOSVoiceHelperProcessClient({
-      args: [fixturePath, "scripted_listener"],
-      command: process.execPath,
-    });
-    const events: LocalMacOSVoiceListenerEngineEvent[] = [];
-
-    await expect(
-      client.startListener(
-        {
-          ...listenerStartRequest("/tmp/hey-setta.onnx", "1".repeat(64)),
-          transcriptionModelPath: "/tmp/ggml-base.en.bin",
-        },
-        (event) => events.push(event),
-      ),
-    ).resolves.toEqual({ status: "started" });
-    await waitForEventCount(events, 5);
-    expect(events).toEqual([
-      { type: "listener_armed" },
-      { score: 0.74, timeMs: 960, type: "wake_detected" },
-      { timeMs: 1_140, type: "message_speech_started" },
-      { timeMs: 2_220, type: "candidate_endpoint_detected" },
-      { transcript: "open the release checklist", type: "utterance_finalized" },
-    ]);
-
-    await expect(
-      client.startCapture({
-        maximumRecordingSeconds: 120,
-        maximumTranscriptCharacters: 8000,
-        modelPath: "/tmp/ggml-base.en.bin",
-        sessionId: "manual_while_listener_armed",
-      }),
-    ).rejects.toMatchObject({
-      code: "microphone_busy",
-      name: "LocalMacOSVoiceHelperCommandError",
-    });
-
-    await expect(client.pauseListener({ reason: "manual_capture" })).resolves.toEqual({
-      status: "paused",
-    });
-    await expect(
-      client.startCapture({
-        maximumRecordingSeconds: 120,
-        maximumTranscriptCharacters: 8000,
-        modelPath: "/tmp/ggml-base.en.bin",
-        sessionId: "manual_after_listener_paused",
-      }),
-    ).resolves.toEqual({ sessionId: "manual_after_listener_paused" });
-    await expect(client.resumeListener({ reason: "manual_capture" })).rejects.toBeInstanceOf(
-      LocalMacOSVoiceHelperCommandError,
-    );
-    await expect(client.pauseListener({ reason: "playback" })).resolves.toEqual({
-      status: "paused",
-    });
-    await expect(
-      client.cancelCapture({ sessionId: "manual_after_listener_paused" }),
-    ).resolves.toEqual({
-      sessionId: "manual_after_listener_paused",
-    });
-    await expect(client.resumeListener({ reason: "playback" })).resolves.toEqual({
-      status: "resumed",
-    });
-    expect(events).toHaveLength(5);
-    await expect(client.resumeListener({ reason: "manual_capture" })).resolves.toEqual({
-      status: "resumed",
-    });
-    await waitForEventCount(events, 6);
-    expect(events.at(-1)).toEqual({ type: "listener_armed" });
-    await expect(client.stopListener({ reason: "setting_disabled" })).resolves.toEqual({
-      status: "stopped",
-    });
-
-    client.shutdown();
-  });
-
-  test("decodes resumed speech listener events", async () => {
-    const client = new LocalMacOSVoiceHelperProcessClient({
-      args: [fixturePath],
-      command: process.execPath,
-      env: {
-        ...process.env,
-        SETTA_LOCAL_MACOS_VOICE_HELPER_SCRIPTED_LISTENER_EVENTS: JSON.stringify([
-          { score: 0.74, timeMs: 960, type: "wake_detected" },
-          { timeMs: 1_140, type: "message_speech_started" },
-          { timeMs: 2_220, type: "candidate_endpoint_detected" },
-          { timeMs: 2_320, type: "speech_resumed" },
-        ]),
-      },
-    });
-    const events: LocalMacOSVoiceListenerEngineEvent[] = [];
-
-    await expect(
-      client.startListener(
-        {
-          ...listenerStartRequest("/tmp/hey-setta.onnx", "1".repeat(64)),
-          transcriptionModelPath: "/tmp/ggml-base.en.bin",
-        },
-        (event) => events.push(event),
-      ),
-    ).resolves.toEqual({ status: "started" });
-    await waitForEventCount(events, 5);
-    expect(events).toEqual([
-      { type: "listener_armed" },
-      { score: 0.74, timeMs: 960, type: "wake_detected" },
-      { timeMs: 1_140, type: "message_speech_started" },
-      { timeMs: 2_220, type: "candidate_endpoint_detected" },
-      { timeMs: 2_320, type: "speech_resumed" },
-    ]);
-
-    await expect(client.stopListener({ reason: "setting_disabled" })).resolves.toEqual({
-      status: "stopped",
-    });
-    client.shutdown();
-  });
-
-  test("reports helper exit to the active listener event handler", async () => {
-    const client = new LocalMacOSVoiceHelperProcessClient({
-      args: [fixturePath, "listener_exit_after_start"],
-      command: process.execPath,
-    });
-    const events: LocalMacOSVoiceListenerEngineEvent[] = [];
-
-    await expect(
-      client.startListener(
-        {
-          ...listenerStartRequest("/tmp/hey-setta.onnx", "1".repeat(64)),
-          transcriptionModelPath: "/tmp/ggml-base.en.bin",
-        },
-        (event) => events.push(event),
-      ),
-    ).resolves.toEqual({ status: "started" });
-    await waitForEventCount(events, 2);
-
-    expect(events).toEqual([
-      { type: "listener_armed" },
-      {
-        message: "Local macOS voice helper exited with exit code 42.",
-        type: "engine_failed",
-      },
-    ]);
-    await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).resolves.toEqual({
-      status: "ready",
-    });
-
-    client.shutdown();
-  });
-
   test("surfaces helper-reported bad model paths without stopping the helper", async () => {
     const client = new LocalMacOSVoiceHelperProcessClient({
       args: [fixturePath],
@@ -670,27 +474,6 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     client.shutdown();
   });
 
-  test("recovers helper commands after a protocol-invalid response stops the helper", async () => {
-    const client = new LocalMacOSVoiceHelperProcessClient({
-      args: [fixturePath],
-      command: process.execPath,
-    });
-
-    await expect(
-      client.synthesizeSpeech({
-        operationId: "speech_malformed_audio",
-        rate: 1.2,
-        text: "Local helper speech.",
-        voiceId: localVoiceID,
-      }),
-    ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperProtocolError);
-    await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).resolves.toEqual({
-      status: "ready",
-    });
-
-    client.shutdown();
-  });
-
   test.each([
     "malformed",
     "malformed_result",
@@ -726,14 +509,6 @@ class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
     operationId: request.operationId,
   }));
 
-  pauseListener = vi.fn<LocalMacOSVoiceHelperClient["pauseListener"]>(async () => ({
-    status: "paused",
-  }));
-
-  resumeListener = vi.fn<LocalMacOSVoiceHelperClient["resumeListener"]>(async () => ({
-    status: "resumed",
-  }));
-
   finishCapture(): Promise<never> {
     return Promise.reject(new Error("unexpected finish"));
   }
@@ -747,54 +522,12 @@ class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
     sessionId: request.sessionId,
   }));
 
-  startListener = vi.fn<LocalMacOSVoiceHelperClient["startListener"]>(async (_request, onEvent) => {
-    onEvent({ type: "listener_armed" });
-    return { status: "started" };
-  });
-
-  stopListener = vi.fn<LocalMacOSVoiceHelperClient["stopListener"]>(async () => ({
-    status: "stopped",
-  }));
-
   synthesizeSpeech = vi.fn<LocalMacOSVoiceHelperClient["synthesizeSpeech"]>(async (request) => ({
     audioBase64: localWAVAudioBase64,
     format: "wav",
     mediaType: "audio/wav",
     operationId: request.operationId,
   }));
-}
-
-function listenerStartRequest(wakeModelPath: string, wakeModelSHA256: string) {
-  return {
-    audioCopiedBeforeWakeMs: 400,
-    candidateEndpointMs: 900,
-    hardTrailingSilenceLimitMs: 2_200,
-    maximumUtteranceMs: 45_000,
-    noMessageTimeoutMs: 4_000,
-    preWakeRingBufferMs: 1_000,
-    rearmCooldownMs: 300,
-    runtime: "onnx" as const,
-    speechStartDebounceMs: 160,
-    threshold: 0.6,
-    trailingAudioPaddingMs: 400,
-    vadFrameMs: 20,
-    wakeFrameMs: 80,
-    wakeModelPath,
-    wakeModelSHA256,
-  };
-}
-
-async function waitForEventCount(
-  events: LocalMacOSVoiceListenerEngineEvent[],
-  count: number,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (events.length < count) {
-    if (Date.now() > deadline) {
-      throw new Error(`timed out waiting for ${count} listener events, received ${events.length}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
 }
 
 function sha256(content: string): string {

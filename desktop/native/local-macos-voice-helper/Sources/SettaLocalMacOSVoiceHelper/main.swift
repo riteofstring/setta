@@ -1,61 +1,9 @@
 import Darwin
-import CryptoKit
 import Foundation
-
-enum MicrophoneOwner: Equatable {
-  case alwaysListening
-  case manualCapture(String)
-}
-
-final class MicrophoneOwnershipCoordinator {
-  private let lock = NSLock()
-  private var owner: MicrophoneOwner?
-
-  func claimManualCapture(sessionId: String) throws {
-    try claim(.manualCapture(sessionId))
-  }
-
-  func releaseManualCapture(sessionId: String) {
-    release(.manualCapture(sessionId))
-  }
-
-  func claimAlwaysListening() throws {
-    try claim(.alwaysListening)
-  }
-
-  func releaseAlwaysListening() {
-    release(.alwaysListening)
-  }
-
-  private func claim(_ requestedOwner: MicrophoneOwner) throws {
-    lock.lock()
-    defer { lock.unlock() }
-    if owner != nil {
-      throw HelperCommandError(
-        code: "microphone_busy",
-        message: "Local macOS microphone is already in use."
-      )
-    }
-    owner = requestedOwner
-  }
-
-  private func release(_ expectedOwner: MicrophoneOwner) {
-    lock.lock()
-    if owner == expectedOwner {
-      owner = nil
-    }
-    lock.unlock()
-  }
-}
 
 final class CaptureSessionStore {
   private let lock = NSLock()
-  private let microphone: MicrophoneOwnershipCoordinator
   private var sessions: [String: AudioCaptureSession] = [:]
-
-  init(microphone: MicrophoneOwnershipCoordinator) {
-    self.microphone = microphone
-  }
 
   func start(_ request: StartCapturePayload) throws -> SessionResult {
     guard trimmed(request.sessionId) != "" else {
@@ -70,19 +18,13 @@ final class CaptureSessionStore {
         message: "Capture session is already active."
       )
     }
-    var claimedMicrophone = false
+    sessions[request.sessionId] = session
+    lock.unlock()
     do {
-      try microphone.claimManualCapture(sessionId: request.sessionId)
-      claimedMicrophone = true
       try session.start()
-      sessions[request.sessionId] = session
-      lock.unlock()
       return SessionResult(sessionId: request.sessionId)
     } catch {
-      lock.unlock()
-      if claimedMicrophone {
-        microphone.releaseManualCapture(sessionId: request.sessionId)
-      }
+      _ = remove(request.sessionId)
       throw error
     }
   }
@@ -93,14 +35,7 @@ final class CaptureSessionStore {
     guard let session = remove(request.sessionId) else {
       throw HelperCommandError(code: "invalid_session", message: "Capture session is not active.")
     }
-    let audio: CapturedAudio
-    do {
-      audio = try session.finish()
-    } catch {
-      microphone.releaseManualCapture(sessionId: request.sessionId)
-      throw error
-    }
-    microphone.releaseManualCapture(sessionId: request.sessionId)
+    let audio = try session.finish()
     let transcript = try transcriber.transcribe(audio: audio, modelPath: session.modelPath)
     if trimmed(transcript) == "" {
       throw HelperCommandError(code: "no_speech", message: "No speech was detected.")
@@ -118,7 +53,6 @@ final class CaptureSessionStore {
     guard let session = remove(request.sessionId) else {
       throw HelperCommandError(code: "invalid_session", message: "Capture session is not active.")
     }
-    defer { microphone.releaseManualCapture(sessionId: request.sessionId) }
     session.cancel()
     return SessionResult(sessionId: request.sessionId)
   }
@@ -130,7 +64,6 @@ final class CaptureSessionStore {
     lock.unlock()
     for session in current {
       session.cancel()
-      microphone.releaseManualCapture(sessionId: session.sessionId)
     }
   }
 
@@ -141,190 +74,6 @@ final class CaptureSessionStore {
   }
 }
 
-final class AlwaysListeningSessionStore {
-  private let lock = NSLock()
-  private let microphone: MicrophoneOwnershipCoordinator
-  private var active = false
-  private var pauseReasons = Set<String>()
-  private var processor: AlwaysListeningAudioProcessor?
-
-  init(microphone: MicrophoneOwnershipCoordinator) {
-    self.microphone = microphone
-  }
-
-  func start(_ request: StartListenerPayload) throws -> ListenerLifecycleResult {
-    try validateStartPayload(request)
-    lock.lock()
-    if active {
-      lock.unlock()
-      throw HelperCommandError(
-        code: "invalid_listener",
-        message: "Always listening is already active."
-      )
-    }
-    do {
-      try microphone.claimAlwaysListening()
-      active = true
-      pauseReasons.removeAll()
-      processor = AlwaysListeningAudioProcessor(request: request)
-      lock.unlock()
-      return ListenerLifecycleResult(status: "started")
-    } catch {
-      lock.unlock()
-      throw error
-    }
-  }
-
-  func stop(_ request: ListenerReasonPayload) throws -> ListenerLifecycleResult {
-    guard request.reason == "setting_disabled" || request.reason == "shutdown" else {
-      throw HelperCommandError(code: "invalid_listener", message: "Listener stop reason is invalid.")
-    }
-    lock.lock()
-    let wasActive = active
-    active = false
-    pauseReasons.removeAll()
-    processor = nil
-    guard wasActive else {
-      lock.unlock()
-      throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
-    }
-    microphone.releaseAlwaysListening()
-    lock.unlock()
-    return ListenerLifecycleResult(status: "stopped")
-  }
-
-  func pause(_ request: ListenerReasonPayload) throws -> ListenerLifecycleResult {
-    try validatePauseReason(request.reason)
-    lock.lock()
-    guard active else {
-      lock.unlock()
-      throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
-    }
-    pauseReasons.insert(request.reason)
-    microphone.releaseAlwaysListening()
-    lock.unlock()
-    return ListenerLifecycleResult(status: "paused")
-  }
-
-  func resume(_ request: ListenerReasonPayload) throws -> (ListenerLifecycleResult, Bool) {
-    try validatePauseReason(request.reason)
-    lock.lock()
-    guard active else {
-      lock.unlock()
-      throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
-    }
-    let removedReason = pauseReasons.remove(request.reason)
-    let shouldReclaim = removedReason != nil && pauseReasons.isEmpty
-    if shouldReclaim {
-      do {
-        try microphone.claimAlwaysListening()
-      } catch {
-        pauseReasons.insert(request.reason)
-        lock.unlock()
-        throw error
-      }
-    }
-    lock.unlock()
-    return (ListenerLifecycleResult(status: "resumed"), shouldReclaim)
-  }
-
-  func ingestPCM(_ request: ListenerPCMPayload) throws
-    -> (ListenerPCMIngestOutcome, AlwaysListeningAudioProcessor)
-  {
-    lock.lock()
-    guard active, let processor else {
-      lock.unlock()
-      throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
-    }
-    guard pauseReasons.isEmpty else {
-      lock.unlock()
-      throw HelperCommandError(code: "invalid_listener", message: "Always listening is paused.")
-    }
-    let outcome: ListenerPCMIngestOutcome
-    do {
-      outcome = try processor.ingest(request)
-    } catch {
-      lock.unlock()
-      throw error
-    }
-    lock.unlock()
-    return (outcome, processor)
-  }
-
-  func stopIfActive() {
-    lock.lock()
-    let wasActive = active
-    active = false
-    pauseReasons.removeAll()
-    processor = nil
-    if wasActive {
-      microphone.releaseAlwaysListening()
-    }
-    lock.unlock()
-  }
-
-  private func validatePauseReason(_ reason: String) throws {
-    guard reason == "manual_capture" || reason == "playback" else {
-      throw HelperCommandError(
-        code: "invalid_listener",
-        message: "Listener pause reason is invalid."
-      )
-    }
-  }
-
-  private func validateStartPayload(_ request: StartListenerPayload) throws {
-    guard request.runtime == "onnx" || request.runtime == "tflite" else {
-      throw HelperCommandError(code: "invalid_listener", message: "Wake runtime is invalid.")
-    }
-    let positiveDurations = [
-      request.audioCopiedBeforeWakeMs,
-      request.candidateEndpointMs,
-      request.hardTrailingSilenceLimitMs,
-      request.maximumUtteranceMs,
-      request.noMessageTimeoutMs,
-      request.preWakeRingBufferMs,
-      request.rearmCooldownMs,
-      request.speechStartDebounceMs,
-      request.trailingAudioPaddingMs,
-      request.vadFrameMs,
-      request.wakeFrameMs,
-    ]
-    guard positiveDurations.allSatisfy({ $0 > 0 }) else {
-      throw HelperCommandError(code: "invalid_listener", message: "Listener timing is invalid.")
-    }
-    guard request.candidateEndpointMs <= request.hardTrailingSilenceLimitMs else {
-      throw HelperCommandError(
-        code: "invalid_listener",
-        message: "Listener endpoint timing is invalid."
-      )
-    }
-    guard request.threshold > 0, request.threshold <= 1 else {
-      throw HelperCommandError(code: "invalid_listener", message: "Wake threshold is invalid.")
-    }
-    guard FileManager.default.isReadableFile(atPath: request.transcriptionModelPath) else {
-      throw HelperCommandError(code: "missing_model", message: "Whisper model file is missing.")
-    }
-    guard FileManager.default.isReadableFile(atPath: request.wakeModelPath) else {
-      throw HelperCommandError(code: "missing_model", message: "Wake model file is missing.")
-    }
-    let wakeModelSHA256 = try sha256HexFile(path: request.wakeModelPath)
-    guard wakeModelSHA256.lowercased() == request.wakeModelSHA256.lowercased() else {
-      throw HelperCommandError(
-        code: "model_hash_mismatch",
-        message: "Wake model hash does not match the expected Setta model."
-      )
-    }
-    if !scriptedPCMFixturesEnabled() {
-      try MicrophoneAccess.ensureGranted()
-    }
-  }
-
-  private func scriptedPCMFixturesEnabled() -> Bool {
-    trimmed(ProcessInfo.processInfo.environment["SETTA_LOCAL_MACOS_VOICE_SCRIPTED_PCM_FIXTURES"] ?? "")
-      == "1"
-  }
-}
-
 final class LocalMacOSVoiceHelperRuntime: @unchecked Sendable {
   private let commandGroup = DispatchGroup()
   private let catalog = SystemVoiceCatalog()
@@ -332,18 +81,12 @@ final class LocalMacOSVoiceHelperRuntime: @unchecked Sendable {
     label: "setta.local-macos-voice.commands",
     attributes: .concurrent
   )
-  private let listener: AlwaysListeningSessionStore
-  private let microphone: MicrophoneOwnershipCoordinator
-  private let sessions: CaptureSessionStore
+  private let sessions = CaptureSessionStore()
   private let synthesizer: SpeechSynthesisCoordinator
   private let transcriber = WhisperCPPCommandTranscriber()
   private let writer = ResponseWriter()
 
   init() {
-    let microphone = MicrophoneOwnershipCoordinator()
-    self.microphone = microphone
-    listener = AlwaysListeningSessionStore(microphone: microphone)
-    sessions = CaptureSessionStore(microphone: microphone)
     synthesizer = SpeechSynthesisCoordinator(catalog: catalog)
   }
 
@@ -359,7 +102,6 @@ final class LocalMacOSVoiceHelperRuntime: @unchecked Sendable {
       }
     }
     commandGroup.wait()
-    listener.stopIfActive()
     sessions.cancelAll()
     synthesizer.cancelAll()
   }
@@ -399,63 +141,19 @@ final class LocalMacOSVoiceHelperRuntime: @unchecked Sendable {
       send(id: command.id) {
         try sessions.finish(command.payload, transcriber: transcriber)
       }
-    case "ingest_listener_pcm":
-      let command = try decodeCommand(ListenerPCMPayload.self, from: data)
-      send(id: command.id) {
-        let (outcome, processor) = try listener.ingestPCM(command.payload)
-        for event in outcome.events {
-          writer.sendListenerEvent(event)
-        }
-        do {
-          if let event = try processor.finalizedTranscriptEvent(for: outcome, transcriber: transcriber)
-          {
-            writer.sendListenerEvent(event)
-          }
-        } catch let error as HelperCommandError {
-          writer.sendListenerEvent(.engineFailed(message: error.message))
-          throw error
-        }
-        return ListenerPCMResult(sampleCount: outcome.sampleCount, status: "accepted")
-      }
     case "list_voices":
       let command = try decodeCommand(EmptyPayload.self, from: data)
       send(id: command.id) {
         try catalog.list()
       }
-    case "pause_listener":
-      let command = try decodeCommand(ListenerReasonPayload.self, from: data)
-      send(id: command.id) {
-        try listener.pause(command.payload)
-      }
     case "read_health":
       let command = try decodeCommand(ReadHealthPayload.self, from: data)
       writer.send(id: command.id, result: readHealth(modelPath: command.payload.modelPath))
-    case "resume_listener":
-      let command = try decodeCommand(ListenerReasonPayload.self, from: data)
-      send(id: command.id) {
-        let result = try listener.resume(command.payload)
-        if result.1 {
-          writer.sendListenerEvent(.armed())
-        }
-        return result.0
-      }
     case "start_capture":
       let command = try decodeCommand(StartCapturePayload.self, from: data)
       send(id: command.id) {
         try preflightStartCapture(command.payload)
         return try sessions.start(command.payload)
-      }
-    case "start_listener":
-      let command = try decodeCommand(StartListenerPayload.self, from: data)
-      send(id: command.id) {
-        let result = try listener.start(command.payload)
-        writer.sendListenerEvent(.armed())
-        return result
-      }
-    case "stop_listener":
-      let command = try decodeCommand(ListenerReasonPayload.self, from: data)
-      send(id: command.id) {
-        try listener.stop(command.payload)
       }
     case "synthesize_speech":
       let command = try decodeCommand(SynthesisPayload.self, from: data)
@@ -527,12 +225,6 @@ final class LocalMacOSVoiceHelperRuntime: @unchecked Sendable {
     }
     return .ready()
   }
-}
-
-func sha256HexFile(path: String) throws -> String {
-  let data = try Data(contentsOf: URL(fileURLWithPath: path))
-  let digest = SHA256.hash(data: data)
-  return digest.map { String(format: "%02x", $0) }.joined()
 }
 
 let runtime = LocalMacOSVoiceHelperRuntime()

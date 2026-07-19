@@ -15,7 +15,6 @@ import { useAppWindowDragHandlers } from "./app-window-drag";
 import { useViewportSize } from "./use-viewport-size";
 import { ResizablePane } from "./components/resizable-pane";
 import { SettingsPanel } from "./components/settings-panel";
-import { openVoiceSettings as openVoiceSettingsRoute } from "./components/settings-navigation";
 import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -43,7 +42,6 @@ import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shel
 import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
 import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
-import type { VoiceProviderSetupAction } from "./features/global-speech/speech-capture-availability";
 import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
@@ -116,6 +114,9 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const settingsRouteWasOpenRef = useRef(false);
   const settingsRoute = useSettingsNavigationStore((state) => state.route);
   const openSettings = useSettingsNavigationStore((state) => state.openSettings);
+  const openVoiceProviderSelection = useSettingsNavigationStore(
+    (state) => state.openVoiceProviderSelection,
+  );
   const closeSettings = useSettingsNavigationStore((state) => state.closeSettings);
   const settingsPageOpen = settingsRoute.page === "settings";
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
@@ -136,13 +137,10 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     captureSettingsFocusOrigin();
     openSettings();
   }, [captureSettingsFocusOrigin, openSettings]);
-  const openVoiceSettings = useCallback(
-    (action: VoiceProviderSetupAction) => {
-      captureSettingsFocusOrigin();
-      openVoiceSettingsRoute(action);
-    },
-    [captureSettingsFocusOrigin],
-  );
+  const openVoiceCredentialSettings = useCallback(() => {
+    captureSettingsFocusOrigin();
+    openVoiceProviderSelection();
+  }, [captureSettingsFocusOrigin, openVoiceProviderSelection]);
   const closeSettingsPage = useCallback(() => {
     closeSettings();
   }, [closeSettings]);
@@ -394,7 +392,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
             master={master}
             masterOverlayOpen={masterOverlayOpen}
             mobileViewport={mobileViewport}
-            openVoiceSettings={openVoiceSettings}
+            openVoiceCredentialSettings={openVoiceCredentialSettings}
             openSettingsPage={openSettingsPage}
             platform={platform}
             projectPaneOpen={projectPaneOpen}
@@ -462,7 +460,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
               {(speechCapture, speechPresentation) => (
                 <AppShellMasterSurface
                   controller={master}
-                  onOpenVoiceSettings={openVoiceSettings}
+                  onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
                   platform={platform}
                 >
                   {(masterOverlayOpen) =>
@@ -785,7 +783,7 @@ function AppChromeControls({
   master,
   masterOverlayOpen,
   mobileViewport,
-  openVoiceSettings,
+  openVoiceCredentialSettings,
   openSettingsPage,
   platform,
   projectPaneOpen,
@@ -795,7 +793,7 @@ function AppChromeControls({
   master: AppShellMasterController | undefined;
   masterOverlayOpen: boolean;
   mobileViewport: boolean;
-  openVoiceSettings: (action: VoiceProviderSetupAction) => void;
+  openVoiceCredentialSettings: () => void;
   openSettingsPage: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -809,7 +807,7 @@ function AppChromeControls({
       globalSpeechAvailable={globalSpeechAvailable}
       master={master}
       masterOverlayOpen={masterOverlayOpen}
-      onOpenVoiceSettings={openVoiceSettings}
+      onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
       onOpenSettings={openSettingsPage}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
@@ -822,7 +820,7 @@ function DesktopShellTopBar({
   globalSpeechAvailable,
   master,
   masterOverlayOpen,
-  onOpenVoiceSettings,
+  onOpenVoiceCredentialSettings,
   onOpenSettings,
   platform,
   projectPaneOpen,
@@ -831,7 +829,7 @@ function DesktopShellTopBar({
   globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
   masterOverlayOpen: boolean;
-  onOpenVoiceSettings: (action: VoiceProviderSetupAction) => void;
+  onOpenVoiceCredentialSettings: () => void;
   onOpenSettings: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -881,7 +879,7 @@ function DesktopShellTopBar({
         </TooltipProvider>
       </div>
       {globalSpeechAvailable ? (
-        <AppShellSpeechStatus onOpenVoiceSettings={onOpenVoiceSettings} />
+        <AppShellSpeechStatus onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings} />
       ) : null}
       <div className="setta-shell-top-bar-right">
         <SettaLogoMark className="setta-shell-top-bar-logo" height={12} />

@@ -106,7 +106,11 @@ describe("app-shell master surface", () => {
 
 function renderSurface(controller: AppShellMasterController): string {
   return renderToString(
-    <AppShellMasterSurface controller={controller} onOpenVoiceSettings={() => {}} platform="linux">
+    <AppShellMasterSurface
+      controller={controller}
+      onOpenVoiceCredentialSettings={() => {}}
+      platform="linux"
+    >
       {(overlayOpen) => <main data-overlay-open={overlayOpen} />}
     </AppShellMasterSurface>,
   );

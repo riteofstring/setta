@@ -197,15 +197,11 @@ function scheduleMicrotask(handler: () => void): void {
 function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerDependencies {
   const openAIOutputProvider = createOpenAIBackendSpeechOutputProvider(setta);
   const localMacOSOutputProvider = createLocalMacOSSpeechOutputProvider(setta);
-  const listenerPlayback = new LocalMacOSVoiceListenerPlaybackNotifier(setta);
   return {
     createAbortController: () => new AbortController(),
     createAudio: (url) => new Audio(url),
     createObjectURL: (blob) => URL.createObjectURL(blob),
     decodeBase64,
-    finishSpeechPlayback: (operationId) => {
-      listenerPlayback.notify("finish", operationId);
-    },
     logPlayback: (observation) => {
       console.info(JSON.stringify({ type: "speech_playback", ...observation }));
     },
@@ -214,9 +210,6 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
     },
     now: () => Date.now(),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
-    startSpeechPlayback: (operationId) => {
-      listenerPlayback.notify("start", operationId);
-    },
     synthesize: (request, signal) => {
       const operationId = createSpeechSynthesisOperationId();
       let outputProvider: VoiceOutputProvider | null = null;
@@ -239,46 +232,6 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
       );
     },
   };
-}
-
-type LocalMacOSVoiceListenerPlaybackAction = "finish" | "start";
-
-class LocalMacOSVoiceListenerPlaybackNotifier {
-  private operation: Promise<void> = Promise.resolve();
-
-  constructor(private readonly setta: SettaAPI) {}
-
-  notify(action: LocalMacOSVoiceListenerPlaybackAction, operationId: string): void {
-    const next = this.operation.then(
-      () => this.send(action, operationId),
-      () => this.send(action, operationId),
-    );
-    this.operation = next.catch(() => undefined);
-  }
-
-  private async send(
-    action: LocalMacOSVoiceListenerPlaybackAction,
-    operationId: string,
-  ): Promise<void> {
-    const notify =
-      action === "start"
-        ? this.setta.speech.startLocalMacOSVoiceListenerPlayback
-        : this.setta.speech.finishLocalMacOSVoiceListenerPlayback;
-    try {
-      await notify?.({ operationId });
-    } catch (error: unknown) {
-      console.warn(
-        JSON.stringify({
-          action,
-          message:
-            error instanceof Error && error.message
-              ? error.message
-              : "Local macOS voice listener playback notification failed.",
-          type: "speech_playback_listener_notification_failed",
-        }),
-      );
-    }
-  }
 }
 
 let nextSpeechSynthesisOperationSequence = 1;

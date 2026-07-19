@@ -90,7 +90,6 @@ export function AppShellSpeechCaptureProvider({
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);
   useEffect(() => subscribeSpeechCapabilityRefresh(setta, controller), [controller, setta]);
-  useEffect(() => subscribeLocalMacOSVoiceListener(setta, controller), [controller, setta]);
 
   return (
     <AppShellSpeechCaptureContext.Provider value={context}>
@@ -121,39 +120,6 @@ export function subscribeSpeechCapabilityRefresh(
     unsubscribeCredential();
     unsubscribeLocalMacOSDownload();
     unsubscribeProvider();
-  };
-}
-
-function subscribeLocalMacOSVoiceListener(
-  setta: SettaAPI,
-  controller: Pick<
-    AppShellSpeechCaptureController,
-    "submitWakeTranscript" | "synchronizeListenerSettings"
-  >,
-): () => void {
-  let active = true;
-  void setta.speech.readLocalMacOSVoiceListenerSettings?.().then(
-    (settings) => {
-      if (active) {
-        controller.synchronizeListenerSettings(settings);
-      }
-    },
-    () => {
-      if (active) {
-        controller.synchronizeListenerSettings(null);
-      }
-    },
-  );
-  const unsubscribe =
-    setta.speech.onLocalMacOSVoiceListenerChanged?.((event) => {
-      controller.synchronizeListenerSettings(event.settings);
-      if (event.type === "wake_transcript") {
-        controller.submitWakeTranscript(event.captureSessionId, event.transcript);
-      }
-    }) ?? (() => {});
-  return () => {
-    active = false;
-    unsubscribe();
   };
 }
 
@@ -249,12 +215,6 @@ function browserControllerDependencies(
     }),
     clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
     createCaptureSessionId: () => globalThis.crypto.randomUUID(),
-    completeWakeTranscriptSubmission: async (captureSessionId) => {
-      if (!setta.speech.completeLocalMacOSVoiceListenerSubmission) {
-        throw new Error("the desktop local macOS voice listener boundary is unavailable");
-      }
-      await setta.speech.completeLocalMacOSVoiceListenerSubmission({ captureSessionId });
-    },
     now: () => new Date(),
     onCaptureEnd: onCaptureEnd ?? (() => {}),
     onCaptureStart: onCaptureStart ?? (() => {}),

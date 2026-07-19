@@ -11,37 +11,13 @@ import {
   type SpeechVoiceCatalog,
   type VoiceSelectionRequest,
 } from "@generated/backend";
-import type {
-  LocalMacOSVoiceListenerPlaybackRequest,
-  LocalMacOSVoiceListenerSettings,
-  LocalMacOSVoiceListenerSettingsUpdateRequest,
-  LocalMacOSVoiceListenerSubmissionRequest,
-} from "./local-macos-voice-listener-ipc";
-
-export {
-  decodeLocalMacOSVoiceListenerEvent,
-  decodeLocalMacOSVoiceListenerPlaybackRequest,
-  decodeLocalMacOSVoiceListenerSettings,
-  decodeLocalMacOSVoiceListenerSettingsUpdateRequest,
-  decodeLocalMacOSVoiceListenerSubmissionRequest,
-  type LocalMacOSVoiceListenerAvailability,
-  type LocalMacOSVoiceListenerEvent,
-  type LocalMacOSVoiceListenerPlaybackRequest,
-  type LocalMacOSVoiceListenerSettings,
-  type LocalMacOSVoiceListenerSettingsUpdateRequest,
-  type LocalMacOSVoiceListenerSubmissionRequest,
-} from "./local-macos-voice-listener-ipc";
 
 export const speechIpcChannels = {
   speechCancelSynthesis: "speech:cancel-synthesis",
   speechCancelLocalMacOSVoiceCapture: "speech:cancel-local-macos-voice-capture",
-  speechCompleteLocalMacOSVoiceListenerSubmission:
-    "speech:complete-local-macos-voice-listener-submission",
   speechCreateTranscriptionSession: "speech:create-transcription-session",
-  speechFinishLocalMacOSVoiceListenerPlayback: "speech:finish-local-macos-voice-listener-playback",
   speechFinishLocalMacOSVoiceCapture: "speech:finish-local-macos-voice-capture",
   speechListLocalMacOSVoices: "speech:list-local-macos-voices",
-  speechReadLocalMacOSVoiceListenerSettings: "speech:read-local-macos-voice-listener-settings",
   speechReadLocalMacOSVoiceModelDownload: "speech:read-local-macos-voice-model-download",
   speechReadLocalMacOSVoiceHealth: "speech:read-local-macos-voice-health",
   speechReadCredentialSettings: "speech:read-credential-settings",
@@ -51,13 +27,11 @@ export const speechIpcChannels = {
   speechReadProviderSelection: "speech:read-provider-selection",
   speechRemoveCredential: "speech:remove-credential",
   speechSaveCredential: "speech:save-credential",
-  speechStartLocalMacOSVoiceListenerPlayback: "speech:start-local-macos-voice-listener-playback",
   speechStartLocalMacOSVoiceModelDownload: "speech:start-local-macos-voice-model-download",
   speechStartLocalMacOSVoiceCapture: "speech:start-local-macos-voice-capture",
   speechSynthesize: "speech:synthesize",
   speechUpdateMasterVoiceSelection: "speech:update-master-voice-selection",
   speechUpdateNarratorVoiceDefault: "speech:update-narrator-voice-default",
-  speechUpdateLocalMacOSVoiceListenerSettings: "speech:update-local-macos-voice-listener-settings",
   speechUpdateProviderSelection: "speech:update-provider-selection",
 } as const;
 
@@ -241,17 +215,9 @@ export interface SpeechIpcContract {
     args: [request: LocalMacOSVoiceSessionRequest];
     result: LocalMacOSVoiceCancelCaptureResult;
   };
-  speechCompleteLocalMacOSVoiceListenerSubmission: {
-    args: [request: LocalMacOSVoiceListenerSubmissionRequest];
-    result: LocalMacOSVoiceListenerSettings;
-  };
   speechCreateTranscriptionSession: {
     args: [request: CreateSpeechTranscriptionSessionRequest];
     result: SpeechTranscriptionSession;
-  };
-  speechFinishLocalMacOSVoiceListenerPlayback: {
-    args: [request: LocalMacOSVoiceListenerPlaybackRequest];
-    result: LocalMacOSVoiceListenerSettings;
   };
   speechFinishLocalMacOSVoiceCapture: {
     args: [request: LocalMacOSVoiceSessionRequest];
@@ -264,10 +230,6 @@ export interface SpeechIpcContract {
   speechReadLocalMacOSVoiceModelDownload: {
     args: [];
     result: LocalMacOSVoiceModelDownloadStatus;
-  };
-  speechReadLocalMacOSVoiceListenerSettings: {
-    args: [];
-    result: LocalMacOSVoiceListenerSettings;
   };
   speechReadLocalMacOSVoiceHealth: {
     args: [];
@@ -301,10 +263,6 @@ export interface SpeechIpcContract {
     args: [request: SpeechCredentialSaveRequest];
     result: SpeechCredentialSettings;
   };
-  speechStartLocalMacOSVoiceListenerPlayback: {
-    args: [request: LocalMacOSVoiceListenerPlaybackRequest];
-    result: LocalMacOSVoiceListenerSettings;
-  };
   speechStartLocalMacOSVoiceModelDownload: {
     args: [];
     result: LocalMacOSVoiceModelDownloadStatus;
@@ -324,10 +282,6 @@ export interface SpeechIpcContract {
   speechUpdateNarratorVoiceDefault: {
     args: [request: VoiceSelectionRequest];
     result: NarratorVoiceDefault;
-  };
-  speechUpdateLocalMacOSVoiceListenerSettings: {
-    args: [request: LocalMacOSVoiceListenerSettingsUpdateRequest];
-    result: LocalMacOSVoiceListenerSettings;
   };
   speechUpdateProviderSelection: {
     args: [request: SpeechProviderSelectionUpdateRequest];

@@ -1,5 +1,4 @@
 import type { MasterInputModality } from "@generated/backend";
-import type { LocalMacOSVoiceListenerSettings } from "@shared/speech-ipc";
 
 import type {
   AppShellMasterController,
@@ -67,7 +66,6 @@ export interface AppShellSpeechCaptureSnapshot {
   completedConversationTranscript: CompletedConversationSpeechTranscript | null;
   completedTranscript: CompletedGlobalSpeechTranscript | null;
   conversationSubmission: ConversationInputSubmissionState;
-  listener: LocalMacOSVoiceListenerSettings | null;
   masterSubmission: MasterInputSubmissionState;
   runtimeId: string | null;
 }
@@ -75,7 +73,6 @@ export interface AppShellSpeechCaptureSnapshot {
 export interface AppShellSpeechCaptureControllerDependencies extends GlobalSpeechConversationSubmissionDependencies {
   captureProvider: VoiceInputProvider;
   clearTimeout: (handle: unknown) => void;
-  completeWakeTranscriptSubmission: (captureSessionId: string) => Promise<void>;
   createCaptureSessionId: () => string;
   onCaptureEnd: () => void;
   onCaptureStart: () => void;
@@ -120,7 +117,6 @@ export class AppShellSpeechCaptureController {
       completedConversationTranscript: null,
       completedTranscript: masterSnapshot.completedTranscript,
       conversationSubmission: { type: "idle" },
-      listener: null,
       masterSubmission: voiceMasterSubmission(masterSnapshot.submission),
       runtimeId: null,
     };
@@ -179,81 +175,6 @@ export class AppShellSpeechCaptureController {
     const generation = this.capabilityGeneration;
     this.updateSnapshot({ availability: { type: "loading" } });
     await this.loadCapabilities(generation, runtimeId);
-  };
-
-  synchronizeListenerSettings = (listener: LocalMacOSVoiceListenerSettings | null): void => {
-    this.assertUsable();
-    this.updateSnapshot({ listener });
-  };
-
-  submitWakeTranscript = (captureSessionId: string, transcript: string): void => {
-    this.assertUsable();
-    const normalizedTranscript = transcript.trim();
-    if (normalizedTranscript === "") {
-      this.updateSnapshot({
-        capture: {
-          code: "no_speech",
-          message: "No speech was detected. Please try again.",
-          type: "failed",
-        },
-      });
-      this.completeWakeSubmission(captureSessionId);
-      return;
-    }
-    const runtimeId = this.snapshotValue.runtimeId;
-    if (!runtimeId) {
-      this.updateSnapshot({
-        capture: {
-          code: "capabilities_unavailable",
-          message: "Voice capture is disconnected.",
-          type: "failed",
-        },
-      });
-      this.completeWakeSubmission(captureSessionId);
-      return;
-    }
-    const blocked = submissionCaptureFailure(
-      this.snapshotValue.completedConversationTranscript,
-      this.snapshotValue.completedTranscript,
-      this.snapshotValue.conversationSubmission,
-      this.masterSubmission.getSnapshot().submission,
-    );
-    if (blocked) {
-      this.updateSnapshot({ capture: { ...blocked, type: "failed" } });
-      this.completeWakeSubmission(captureSessionId);
-      return;
-    }
-    this.conversationSubmission.clearAccepted();
-    this.masterSubmission.clearAccepted();
-    this.updateSnapshot({ capture: { type: "idle" } });
-    const conversationRequest = this.focusedConversationWakeRequest();
-    if (conversationRequest) {
-      this.conversationSubmission.submitTranscript({
-        captureSessionId,
-        request: conversationRequest,
-        runtimeId,
-        transcript: normalizedTranscript,
-      });
-    } else {
-      if (!this.masterSubmission.canSubmitInput()) {
-        this.updateSnapshot({
-          capture: {
-            code: "master_submission_pending",
-            message:
-              "The active master request must settle before another voice request can start.",
-            type: "failed",
-          },
-        });
-        this.completeWakeSubmission(captureSessionId);
-        return;
-      }
-      this.masterSubmission.submitVoiceTranscript(
-        captureSessionId,
-        runtimeId,
-        normalizedTranscript,
-      );
-    }
-    this.completeWakeSubmission(captureSessionId);
   };
 
   start = async (requestedCapture: SpeechCaptureRequest): Promise<void> => {
@@ -471,24 +392,6 @@ export class AppShellSpeechCaptureController {
   private shouldPreemptActiveCaptureForMaster(): boolean {
     const request = activeCaptureRequest(this.snapshotValue.capture);
     return request !== null && request.destination.type === "conversation";
-  }
-
-  private focusedConversationWakeRequest():
-    | CompletedConversationSpeechTranscript["request"]
-    | null {
-    const focus = this.masterSubmission.readFocusHints();
-    if (!focus.focusedWorkspaceId || !focus.focusedConversationId || !focus.focusedPaneId) {
-      return null;
-    }
-    return conversationSpeechCaptureRequest(
-      focus.focusedWorkspaceId,
-      focus.focusedConversationId,
-      focus.focusedPaneId,
-    );
-  }
-
-  private completeWakeSubmission(captureSessionId: string): void {
-    void this.dependencies.completeWakeTranscriptSubmission(captureSessionId).catch(() => {});
   }
 
   private beginLifecycle(): number {
