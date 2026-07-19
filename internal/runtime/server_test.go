@@ -217,6 +217,68 @@ func TestStartCanSkipBootstrapDeviceSession(t *testing.T) {
 	}
 }
 
+func TestExplicitLocalCredentialIssuerEnrollsRefreshesAndAuthenticates(t *testing.T) {
+	config := testConfig(t)
+	config.EnableLocalCredentialIssuer = true
+	config.SkipBootstrapDeviceSession = true
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+	if ready.LocalPairingToken == "" || ready.BootstrapToken != "" {
+		t.Fatalf("ready credentials = %+v", ready)
+	}
+
+	baseURL := "http://" + ready.Addr
+	info := getRuntimeJSON[httpapi.RuntimeInfoResponse](t, http.DefaultClient, baseURL, "/runtime/info")
+	enrolled := postRuntimeJSON[httpapi.LocalCredentialEnrollResponse](
+		t,
+		http.DefaultClient,
+		baseURL,
+		"/local-credentials/enroll",
+		httpapi.LocalCredentialEnrollRequest{
+			ClientDisplayName: "Local desktop",
+			PairingToken:      ready.LocalPairingToken,
+		},
+		http.StatusOK,
+	)
+	if enrolled.RuntimeID != info.RuntimeID || enrolled.DeviceSecret == "" || enrolled.RuntimeCredential.Token == "" {
+		t.Fatalf("local enrollment = %+v", enrolled)
+	}
+
+	authedClient := authenticatedRuntimeTestClient(enrolled.RuntimeCredential.Token, 5*time.Second)
+	response, err := authedClient.Get(baseURL + "/appearance/settings")
+	if err != nil {
+		t.Fatalf("authenticated local credential request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("authenticated local credential status = %d", response.StatusCode)
+	}
+
+	refreshed := postRuntimeJSON[httpapi.LocalCredentialRefreshResponse](
+		t,
+		http.DefaultClient,
+		baseURL,
+		"/local-credentials/refresh",
+		httpapi.LocalCredentialRefreshRequest{
+			DeviceID:     enrolled.DeviceID,
+			DeviceSecret: enrolled.DeviceSecret,
+			RuntimeID:    enrolled.RuntimeID,
+		},
+		http.StatusOK,
+	)
+	if refreshed.Token == enrolled.RuntimeCredential.Token || refreshed.DeviceID != enrolled.DeviceID {
+		t.Fatalf("refreshed local credential = %+v", refreshed)
+	}
+}
+
+func TestLocalCredentialIssuerRequiresBootstrapDeviceSessionsDisabled(t *testing.T) {
+	config := testConfig(t)
+	config.EnableLocalCredentialIssuer = true
+	if err := config.Validate(); err == nil {
+		t.Fatal("local credential issuer with bootstrap device session validated")
+	}
+}
+
 func TestGracefulShutdownStopsServing(t *testing.T) {
 	server, err := Start(context.Background(), testConfig(t))
 	if err != nil {

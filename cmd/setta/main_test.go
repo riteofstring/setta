@@ -65,6 +65,20 @@ func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 	}
 }
 
+func TestServeOptionsRequireExplicitLocalCredentialIssuerFlag(t *testing.T) {
+	deps := testDeps()
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", t.TempDir(),
+		"--local-credential-issuer",
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if !options.LocalCredentialIssuer {
+		t.Fatal("local credential issuer was not enabled")
+	}
+}
+
 func TestServeOptionsDisplayNameFromEnvAndFlag(t *testing.T) {
 	appDataDir := t.TempDir()
 	deps := testDeps()

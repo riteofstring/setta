@@ -8,6 +8,12 @@ import (
 )
 
 func newHTTPServer(config Config, services runtimeServices) *http.Server {
+	var localCredentialIssuer httpapi.LocalCredentialIssuerService
+	var runtimeAccessService httpapi.RuntimeAccessService
+	if services.localCredentialIssuer != nil {
+		localCredentialIssuer = services.localCredentialIssuer
+		runtimeAccessService = services.localCredentialIssuer
+	}
 	apiHandler := httpapi.NewHandler(httpapi.HandlerConfig{
 		Metadata: httpapi.BackendMetadata{
 			Name:    httpapi.BackendName,
@@ -20,6 +26,8 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		RoleConfigurationService:     services.roleConfigurationService,
 		MasterInputService:           services.masterInputService,
 		CodexAccountService:          services.codexAccountService,
+		LocalCredentialIssuer:        localCredentialIssuer,
+		RuntimeAccessService:         runtimeAccessService,
 		RuntimeAuthService:           services.authStore,
 		RuntimeIdentityService:       services.runtimeIdentityManager,
 		RuntimeMetadata: httpapi.RuntimeMetadata{

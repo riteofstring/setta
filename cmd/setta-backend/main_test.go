@@ -30,6 +30,21 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	}
 }
 
+func TestConfigFromArgsEnablesLocalCredentialIssuerOnlyWithExplicitFlag(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	config, err := configFromArgs([]string{
+		"--app-data-dir", t.TempDir(),
+		"--local-credential-issuer",
+	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
+	}
+	if !config.EnableLocalCredentialIssuer || !config.SkipBootstrapDeviceSession {
+		t.Fatalf("local issuer config = %+v", config)
+	}
+}
+
 func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

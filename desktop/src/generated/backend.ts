@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 62;
-export const backendContractSchemaHash = "sha256:b8a2efd515a1dffde189434862afaa0b3ce2c3a7a654c563500df83707db6864";
+export const backendProtocolVersion = 63;
+export const backendContractSchemaHash = "sha256:f895e1170ab68a4fe70c95be83694f99a9e1144f570846341d500ea5e582deb2";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1509,6 +1509,33 @@ export interface CompletePairingResponse {
   deviceToken: string;
   runtimeId: string;
   protocolVersion: number;
+}
+
+export interface EnrollRequest {
+  pairingToken: string;
+  clientDisplayName: string;
+}
+
+export interface RuntimeCredentialResponse {
+  deviceId: string;
+  runtimeId: string;
+  token: string;
+  expiresAt: string;
+}
+
+export interface EnrollResponse {
+  userId: string;
+  deviceId: string;
+  deviceSecret: string;
+  runtimeId: string;
+  protocolVersion: number;
+  runtimeCredential: RuntimeCredentialResponse;
+}
+
+export interface RefreshRequest {
+  deviceId: string;
+  deviceSecret: string;
+  runtimeId: string;
 }
 
 export interface UpdateRuntimeDisplayNameRequest {
@@ -3355,6 +3382,16 @@ export const backendEndpoints = {
     path: "/pairing/complete",
     requestBodyLimitBytes: 4194304,
   },
+  LocalCredentialEnroll: {
+    method: "POST",
+    path: "/local-credentials/enroll",
+    requestBodyLimitBytes: 4194304,
+  },
+  LocalCredentialRefresh: {
+    method: "POST",
+    path: "/local-credentials/refresh",
+    requestBodyLimitBytes: 4194304,
+  },
   UpdateRuntimeDisplayName: {
     method: "POST",
     path: "/runtime/display-name/update",
@@ -3691,6 +3728,49 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeEnrollRequest(value: unknown): EnrollRequest {
+  const record = assertRecord(value, "EnrollRequest");
+  assertKnownFields(record, "EnrollRequest", ["pairingToken", "clientDisplayName"]);
+  return {
+    pairingToken: decodeString(requireField(record, "pairingToken", "EnrollRequest"), "EnrollRequest.pairingToken"),
+    clientDisplayName: decodeString(requireField(record, "clientDisplayName", "EnrollRequest"), "EnrollRequest.clientDisplayName"),
+  };
+}
+
+export function decodeRuntimeCredentialResponse(value: unknown): RuntimeCredentialResponse {
+  const record = assertRecord(value, "RuntimeCredentialResponse");
+  assertKnownFields(record, "RuntimeCredentialResponse", ["deviceId", "runtimeId", "token", "expiresAt"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.deviceId"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.runtimeId"),
+    token: decodeString(requireField(record, "token", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.token"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.expiresAt"),
+  };
+}
+
+export function decodeEnrollResponse(value: unknown): EnrollResponse {
+  const record = assertRecord(value, "EnrollResponse");
+  assertKnownFields(record, "EnrollResponse", ["userId", "deviceId", "deviceSecret", "runtimeId", "protocolVersion", "runtimeCredential"]);
+  return {
+    userId: decodeString(requireField(record, "userId", "EnrollResponse"), "EnrollResponse.userId"),
+    deviceId: decodeString(requireField(record, "deviceId", "EnrollResponse"), "EnrollResponse.deviceId"),
+    deviceSecret: decodeString(requireField(record, "deviceSecret", "EnrollResponse"), "EnrollResponse.deviceSecret"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "EnrollResponse"), "EnrollResponse.runtimeId"),
+    protocolVersion: decodeInteger(requireField(record, "protocolVersion", "EnrollResponse"), "EnrollResponse.protocolVersion"),
+    runtimeCredential: decodeRuntimeCredentialResponse(requireField(record, "runtimeCredential", "EnrollResponse")),
+  };
+}
+
+export function decodeRefreshRequest(value: unknown): RefreshRequest {
+  const record = assertRecord(value, "RefreshRequest");
+  assertKnownFields(record, "RefreshRequest", ["deviceId", "deviceSecret", "runtimeId"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "RefreshRequest"), "RefreshRequest.deviceId"),
+    deviceSecret: decodeString(requireField(record, "deviceSecret", "RefreshRequest"), "RefreshRequest.deviceSecret"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "RefreshRequest"), "RefreshRequest.runtimeId"),
   };
 }
 
@@ -6733,6 +6813,8 @@ export interface BackendClient {
   backendHealth: (options?: BackendRequestOptions) => Promise<BackendHealth>;
   runtimeInfo: (options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
   completePairing: (request: CompletePairingRequest, options?: BackendRequestOptions) => Promise<CompletePairingResponse>;
+  localCredentialEnroll: (request: EnrollRequest, options?: BackendRequestOptions) => Promise<EnrollResponse>;
+  localCredentialRefresh: (request: RefreshRequest, options?: BackendRequestOptions) => Promise<RuntimeCredentialResponse>;
   updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest, options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
   listDevices: (request: ListDevicesRequest, options?: BackendRequestOptions) => Promise<ListDevicesResponse>;
   revokeDevice: (request: RevokeDeviceRequest, options?: BackendRequestOptions) => Promise<RevokeDeviceResponse>;
@@ -6817,6 +6899,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    localCredentialEnroll: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeEnrollResponse,
+      endpoint: backendEndpoints.LocalCredentialEnroll,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    localCredentialRefresh: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRuntimeCredentialResponse,
+      endpoint: backendEndpoints.LocalCredentialRefresh,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

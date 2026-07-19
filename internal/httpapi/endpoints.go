@@ -46,6 +46,8 @@ var apiEndpoints = []endpoint{
 	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
 	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
 	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
+	unauthenticated(post[LocalCredentialEnrollRequest, LocalCredentialEnrollResponse]("LocalCredentialEnroll", "/local-credentials/enroll", handler.localCredentialEnroll)),
+	unauthenticated(post[LocalCredentialRefreshRequest, LocalCredentialRefreshResponse]("LocalCredentialRefresh", "/local-credentials/refresh", handler.localCredentialRefresh)),
 	post[UpdateRuntimeDisplayNameRequest, RuntimeInfoResponse]("UpdateRuntimeDisplayName", "/runtime/display-name/update", handler.updateRuntimeDisplayName),
 	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
 	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),

@@ -21,10 +21,13 @@ import (
 	"setta/internal/conversation"
 	"setta/internal/conversationindex"
 	"setta/internal/httpapi"
+	"setta/internal/localcredissuer"
 	"setta/internal/master"
 	"setta/internal/narration"
 	"setta/internal/runtimeauth"
 	"setta/internal/runtimeidentity"
+	"setta/internal/runtimeprovider"
+	"setta/internal/runtimesetup"
 	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -35,15 +38,19 @@ type Config struct {
 	AllowRemote                bool
 	AppDataDir                 string
 	BootstrapDeviceDisplayName string
-	Host                       string
-	Port                       int
-	RuntimeDisplayName         string
-	SkipBootstrapDeviceSession bool
-	Version                    string
-	Stdout                     io.Writer
-	Stderr                     io.Writer
-	ShutdownTimeout            time.Duration
-	Speech                     speech.OpenAIClientConfig
+	// EnableLocalCredentialIssuer hosts the bounded credential authority used
+	// only by local development and deterministic app workflows. Cloud runtimes
+	// must leave it disabled and use the external Setta control plane.
+	EnableLocalCredentialIssuer bool
+	Host                        string
+	Port                        int
+	RuntimeDisplayName          string
+	SkipBootstrapDeviceSession  bool
+	Version                     string
+	Stdout                      io.Writer
+	Stderr                      io.Writer
+	ShutdownTimeout             time.Duration
+	Speech                      speech.OpenAIClientConfig
 }
 
 const (
@@ -53,10 +60,11 @@ const (
 )
 
 type ReadyEvent struct {
-	Event           string `json:"event"`
-	Addr            string `json:"addr"`
-	BootstrapToken  string `json:"bootstrapToken"`
-	ProtocolVersion int    `json:"protocolVersion"`
+	Event             string `json:"event"`
+	Addr              string `json:"addr"`
+	BootstrapToken    string `json:"bootstrapToken,omitempty"`
+	LocalPairingToken string `json:"localPairingToken,omitempty"`
+	ProtocolVersion   int    `json:"protocolVersion"`
 }
 
 type Server struct {
@@ -75,6 +83,8 @@ type runtimeServices struct {
 	appearanceService        *appearance.Service
 	authStore                *runtimeauth.Store
 	bootstrapToken           string
+	localPairingToken        string
+	localCredentialIssuer    *localcredissuer.Service
 	codexAccountService      *codexaccount.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
@@ -98,6 +108,7 @@ type runtimeAuthBootstrap struct {
 	infrastructureProvider httpapi.RuntimeInfrastructureProvider
 	store                  *runtimeauth.Store
 	bootstrapToken         string
+	localPairingToken      string
 }
 
 func DefaultConfig() Config {
@@ -120,8 +131,8 @@ func (config Config) Validate() error {
 	if config.Host == "" {
 		return errors.New("host is required")
 	}
-	if !config.SkipBootstrapDeviceSession && config.BootstrapDeviceDisplayName == "" {
-		return errors.New("bootstrap device display name is required")
+	if err := validateBootstrapConfig(config); err != nil {
+		return err
 	}
 	if err := config.validateHostBinding(); err != nil {
 		return err
@@ -139,6 +150,16 @@ func (config Config) Validate() error {
 		return errors.New("shutdown timeout must be positive")
 	}
 	return validateSpeechConfig(config.Speech)
+}
+
+func validateBootstrapConfig(config Config) error {
+	if !config.SkipBootstrapDeviceSession && config.BootstrapDeviceDisplayName == "" {
+		return errors.New("bootstrap device display name is required")
+	}
+	if config.EnableLocalCredentialIssuer && !config.SkipBootstrapDeviceSession {
+		return errors.New("local credential issuer requires legacy bootstrap device sessions to be disabled")
+	}
+	return nil
 }
 
 func validateSpeechConfig(config speech.OpenAIClientConfig) error {
@@ -216,10 +237,11 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	}
 
 	if err := json.NewEncoder(config.Stdout).Encode(ReadyEvent{
-		Event:           "ready",
-		Addr:            listener.Addr().String(),
-		BootstrapToken:  services.bootstrapToken,
-		ProtocolVersion: httpapi.ProtocolVersion,
+		Event:             "ready",
+		Addr:              listener.Addr().String(),
+		BootstrapToken:    services.bootstrapToken,
+		LocalPairingToken: services.localPairingToken,
+		ProtocolVersion:   httpapi.ProtocolVersion,
 	}); err != nil {
 		_ = listener.Close()
 		closeRuntimeServicesAfterReadyFailure(config, server)
@@ -255,6 +277,14 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create Codex account service: %w", err)
 	}
+	setupStore, err := runtimesetup.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create runtime setup store: %w", err)
+	}
+	localCredentialIssuer, err := newLocalCredentialIssuer(config, authBootstrap, setupStore)
+	if err != nil {
+		return runtimeServices{}, err
+	}
 
 	closeAuthOnFailure = false
 	closeConversationStoreOnFailure = false
@@ -262,6 +292,8 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		appearanceService:        baseServices.appearanceService,
 		authStore:                authBootstrap.store,
 		bootstrapToken:           authBootstrap.bootstrapToken,
+		localPairingToken:        authBootstrap.localPairingToken,
+		localCredentialIssuer:    localCredentialIssuer,
 		codexAccountService:      codexAccountService,
 		codexManager:             baseServices.codexManager,
 		conversationService:      baseServices.conversationService,
@@ -307,13 +339,49 @@ func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 			return runtimeAuthBootstrap{}, fmt.Errorf("create bootstrap device session: %w", err)
 		}
 	}
+	var localPairingToken string
+	if config.EnableLocalCredentialIssuer {
+		_, localPairingToken, err = authStore.CreatePairingToken(context.Background())
+		if err != nil {
+			return runtimeAuthBootstrap{}, fmt.Errorf("create local enrollment pairing token: %w", err)
+		}
+	}
 	closeAuthOnFailure = false
 	return runtimeAuthBootstrap{
 		identityManager:        identityManager,
 		infrastructureProvider: infrastructureProvider,
 		store:                  authStore,
 		bootstrapToken:         bootstrapToken,
+		localPairingToken:      localPairingToken,
 	}, nil
+}
+
+func newLocalCredentialIssuer(
+	config Config,
+	authBootstrap runtimeAuthBootstrap,
+	setupStore *runtimesetup.Store,
+) (*localcredissuer.Service, error) {
+	if !config.EnableLocalCredentialIssuer {
+		return nil, nil
+	}
+	identity := authBootstrap.identityManager.identitySnapshot()
+	managedIdentity, err := runtimeprovider.NewManagedIdentity("local-development:" + identity.RuntimeID)
+	if err != nil {
+		return nil, fmt.Errorf("derive local credential runtime identity: %w", err)
+	}
+	service, err := localcredissuer.New(localcredissuer.Config{
+		BackendName:    httpapi.BackendName,
+		PairingTokens:  authBootstrap.store,
+		ReleaseVersion: config.Version,
+		RuntimeID:      identity.RuntimeID,
+		RuntimeName:    managedIdentity.Name,
+		SetupStore:     setupStore,
+		UserID:         "local-user-" + identity.RuntimeID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create local credential issuer: %w", err)
+	}
+	return service, nil
 }
 
 func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {

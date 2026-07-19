@@ -8,6 +8,8 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
+	"setta/internal/credissuer"
+	"setta/internal/localcredissuer"
 	"setta/internal/master"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
@@ -148,6 +150,21 @@ type RuntimeAuthService interface {
 	TouchDeviceSession(context.Context, string) (bool, error)
 }
 
+type RuntimeAccessService interface {
+	VerifyRuntimeAccessCredential(context.Context, string) (credissuer.VerifiedCredential, bool, error)
+	RevalidateRuntimeAccessCredential(context.Context, credissuer.VerifiedCredential) (bool, error)
+}
+
+// LocalCredentialIssuerService is available only when a local development
+// runtime explicitly opts into hosting the bounded proof-of-concept issuer.
+// Cloud runtimes must use the control-plane issuer and leave this service nil.
+type LocalCredentialIssuerService interface {
+	Enroll(context.Context, localcredissuer.EnrollRequest, int) (localcredissuer.EnrollResponse, error)
+	Refresh(context.Context, localcredissuer.RefreshRequest) (localcredissuer.RuntimeCredentialResponse, error)
+	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
+	RevokeDeviceSession(context.Context, string) (runtimeauth.DeviceSession, bool, error)
+}
+
 type RuntimeIdentity struct {
 	ID          string
 	DisplayName string
@@ -169,6 +186,8 @@ type HandlerConfig struct {
 	CodexAccountService          CodexAccountService
 	PairingFailureLimiter        *PairingFailureLimiter
 	RevocationSweepInterval      time.Duration
+	LocalCredentialIssuer        LocalCredentialIssuerService
+	RuntimeAccessService         RuntimeAccessService
 	RuntimeAuthService           RuntimeAuthService
 	RuntimeIdentityService       RuntimeIdentityService
 	RuntimeMetadata              RuntimeMetadata
@@ -188,6 +207,8 @@ type handler struct {
 	codexAccountService          CodexAccountService
 	pairingFailureLimiter        *PairingFailureLimiter
 	revocationSweepInterval      time.Duration
+	localCredentialIssuer        LocalCredentialIssuerService
+	runtimeAccessService         RuntimeAccessService
 	runtimeAuthService           RuntimeAuthService
 	runtimeIdentityService       RuntimeIdentityService
 	runtimeMetadata              RuntimeMetadata
@@ -216,6 +237,8 @@ func NewHandler(config HandlerConfig) http.Handler {
 		codexAccountService:          config.CodexAccountService,
 		pairingFailureLimiter:        pairingFailureLimiter,
 		revocationSweepInterval:      revocationSweepInterval,
+		localCredentialIssuer:        config.LocalCredentialIssuer,
+		runtimeAccessService:         config.RuntimeAccessService,
 		runtimeAuthService:           config.RuntimeAuthService,
 		runtimeIdentityService:       config.RuntimeIdentityService,
 		runtimeMetadata:              config.RuntimeMetadata,
