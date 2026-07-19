@@ -132,23 +132,30 @@ async function writeFakeWhisper(path) {
   await writeFile(
     path,
     `#!/usr/bin/env node
-const { readFileSync } = require("node:fs");
 const args = process.argv.slice(2);
 const audioIndex = args.indexOf("-f");
 if (audioIndex < 0 || audioIndex + 1 >= args.length) {
   process.stderr.write("missing audio path\\n");
   process.exit(2);
 }
-const audio = readFileSync(args[audioIndex + 1]);
-if (audio.subarray(0, 4).toString("ascii") !== "RIFF" || audio.subarray(8, 12).toString("ascii") !== "WAVE") {
-  process.stderr.write("invalid wav\\n");
+if (args[audioIndex + 1] !== "-") {
+  process.stderr.write("audio must be passed on stdin\\n");
   process.exit(2);
 }
-const dataBytes = audio.readUInt32LE(40);
-const sampleCount = dataBytes / 2;
-const first = audio.readInt16LE(44);
-const last = audio.readInt16LE(44 + dataBytes - 2);
-process.stdout.write(\`scripted pcm sampleCount=\${sampleCount} first=\${first} last=\${last}\\n\`);
+const chunks = [];
+process.stdin.on("data", (chunk) => chunks.push(chunk));
+process.stdin.on("end", () => {
+  const audio = Buffer.concat(chunks);
+  if (audio.subarray(0, 4).toString("ascii") !== "RIFF" || audio.subarray(8, 12).toString("ascii") !== "WAVE") {
+    process.stderr.write("invalid wav\\n");
+    process.exit(2);
+  }
+  const dataBytes = audio.readUInt32LE(40);
+  const sampleCount = dataBytes / 2;
+  const first = audio.readInt16LE(44);
+  const last = audio.readInt16LE(44 + dataBytes - 2);
+  process.stdout.write(\`scripted pcm sampleCount=\${sampleCount} first=\${first} last=\${last}\\n\`);
+});
 `,
   );
   await chmod(path, 0o755);

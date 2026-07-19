@@ -32,15 +32,11 @@ final class WhisperCPPCommandTranscriber {
         message: "The whisper.cpp command is not installed."
       )
     }
-    let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-      .appendingPathComponent("setta-local-voice-\(UUID().uuidString)", isDirectory: true)
-    try fileManager.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
-    defer {
-      try? fileManager.removeItem(at: tempDirectory)
-    }
-    let audioURL = tempDirectory.appendingPathComponent("capture.wav")
-    try WAVEncoder.encode(audio: audio).write(to: audioURL, options: .atomic)
-    return try runWhisper(command: command, modelPath: modelPath, audioPath: audioURL.path)
+    return try runWhisper(
+      command: command,
+      modelPath: modelPath,
+      wavData: WAVEncoder.encode(audio: audio)
+    )
   }
 
   private func locateWhisperCommand() -> String? {
@@ -57,12 +53,14 @@ final class WhisperCPPCommandTranscriber {
     !path.isEmpty && fileManager.isExecutableFile(atPath: path)
   }
 
-  private func runWhisper(command: String, modelPath: String, audioPath: String) throws -> String {
+  private func runWhisper(command: String, modelPath: String, wavData: Data) throws -> String {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: command)
-    process.arguments = ["-m", modelPath, "-f", audioPath, "-nt", "-np"]
+    process.arguments = ["-m", modelPath, "-f", "-", "-nt", "-np"]
+    let stdin = Pipe()
     let stdout = Pipe()
     let stderr = Pipe()
+    process.standardInput = stdin
     process.standardOutput = stdout
     process.standardError = stderr
     do {
@@ -73,6 +71,8 @@ final class WhisperCPPCommandTranscriber {
         message: "The whisper.cpp command could not start."
       )
     }
+    stdin.fileHandleForWriting.write(wavData)
+    stdin.fileHandleForWriting.closeFile()
     process.waitUntilExit()
     if process.terminationStatus != 0 {
       throw HelperCommandError(
