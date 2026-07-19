@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"setta/internal/runtimeinstall"
+	"setta/internal/runtimepair"
 	"setta/internal/runtimeprovider"
 )
 
@@ -80,6 +81,55 @@ func TestSpriteRuntimePreparerStopsAtFailedStageAndRejectsUnhealthyResult(t *tes
 	})
 }
 
+func TestSpriteRuntimeStagePairsOnlyAfterHealthySignedInstall(t *testing.T) {
+	authorization, _ := loadTestAuthorization(t)
+	stages := []string{}
+	observation := runtimeprovider.RuntimeObservation{Name: "setta-u-0123456789abcdef0123456789abcdef"}
+	prepared := PreparedSprite{
+		Observation: observation,
+		Install: runtimeinstall.InstallResult{
+			RuntimeName: observation.Name,
+			Installed:   runtimeinstall.InstalledRelease{Version: "phase3", BinaryPath: "/releases/phase3/setta"},
+			Health:      runtimeinstall.HealthCheck{OK: true},
+		},
+	}
+	runtimePreparer := &fakePreparedSpriteRuntime{stages: &stages, prepared: prepared}
+	pairer := &fakeHostedRuntimePairer{stages: &stages, result: runtimepair.Result{
+		DeviceID: "device_123", DeviceToken: "inner-runtime-credential",
+	}}
+	stage := SpriteRuntimeStage{
+		Runtime: runtimePreparer, Pairer: pairer, ClientDisplayName: "Hosted measurement gateway",
+	}
+	runtime, err := stage.Prepare(context.Background(), authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(stages, []string{"runtime", "pair"}) || runtime.InnerDeviceID != "device_123" ||
+		string(runtime.InnerRuntimeCredential) != "inner-runtime-credential" {
+		t.Fatalf("stages = %v, runtime = %+v", stages, runtime)
+	}
+	if pairer.request.RuntimeName != observation.Name || pairer.request.RuntimeBinaryPath != "/releases/phase3/setta" ||
+		pairer.request.RuntimeStateDir != runtimeinstall.DefaultLayout().RuntimeStateDir {
+		t.Fatalf("pair request = %+v", pairer.request)
+	}
+}
+
+func TestSpriteRuntimeStageRejectsPairerWithoutCredential(t *testing.T) {
+	authorization, _ := loadTestAuthorization(t)
+	stages := []string{}
+	stage := SpriteRuntimeStage{
+		Runtime: &fakePreparedSpriteRuntime{stages: &stages, prepared: PreparedSprite{
+			Observation: runtimeprovider.RuntimeObservation{Name: "setta-u-0123456789abcdef0123456789abcdef"},
+			Install:     runtimeinstall.InstallResult{Installed: runtimeinstall.InstalledRelease{BinaryPath: "/runtime/setta"}},
+		}},
+		Pairer:            &fakeHostedRuntimePairer{stages: &stages, result: runtimepair.Result{DeviceID: "device_123"}},
+		ClientDisplayName: "Hosted measurement gateway",
+	}
+	if _, err := stage.Prepare(context.Background(), authorization); err == nil {
+		t.Fatal("hosted runtime stage accepted a missing paired credential")
+	}
+}
+
 type fakeHostedSpriteProvisioner struct {
 	stages      *[]string
 	observation runtimeprovider.RuntimeObservation
@@ -108,6 +158,30 @@ type fakeHostedRuntimeInstaller struct {
 	request runtimeinstall.InstallRequest
 	result  runtimeinstall.InstallResult
 	err     error
+}
+
+type fakePreparedSpriteRuntime struct {
+	stages   *[]string
+	prepared PreparedSprite
+	err      error
+}
+
+func (fake *fakePreparedSpriteRuntime) Prepare(context.Context, Authorization) (PreparedSprite, error) {
+	*fake.stages = append(*fake.stages, "runtime")
+	return fake.prepared, fake.err
+}
+
+type fakeHostedRuntimePairer struct {
+	stages  *[]string
+	request runtimepair.Request
+	result  runtimepair.Result
+	err     error
+}
+
+func (fake *fakeHostedRuntimePairer) Pair(_ context.Context, request runtimepair.Request) (runtimepair.Result, error) {
+	*fake.stages = append(*fake.stages, "pair")
+	fake.request = request
+	return fake.result, fake.err
 }
 
 func (fake *fakeHostedRuntimeInstaller) Install(_ context.Context, request runtimeinstall.InstallRequest) (runtimeinstall.InstallResult, error) {

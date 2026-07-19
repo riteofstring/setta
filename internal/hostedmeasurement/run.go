@@ -12,11 +12,15 @@ type HostedImagePublisher interface {
 
 type HostedFlyProvisioner interface {
 	ProvisionApp(context.Context, Authorization) error
-	ProvisionFly(context.Context, Authorization, string) error
+	ProvisionFly(context.Context, Authorization, string, []byte) error
 }
 
 type HostedWorkload interface {
-	Execute(context.Context, Authorization) error
+	Execute(context.Context, Authorization, HostedRuntime) error
+}
+
+type HostedRuntimePreparation interface {
+	Prepare(context.Context, Authorization) (HostedRuntime, error)
 }
 
 type HostedCleanup interface {
@@ -28,6 +32,7 @@ type RunCoordinator struct {
 	Image       HostedImagePublisher
 	Now         func() time.Time
 	Provisioner HostedFlyProvisioner
+	Runtime     HostedRuntimePreparation
 	State       *StateStore
 	Workload    HostedWorkload
 }
@@ -52,19 +57,26 @@ func (coordinator RunCoordinator) Run(
 	if err != nil {
 		return err
 	}
-	if err := coordinator.Provisioner.ProvisionFly(ctx, authorization, imageReference); err != nil {
+	runtime, err := coordinator.Runtime.Prepare(ctx, authorization)
+	if err != nil {
 		return err
 	}
+	defer clear(runtime.InnerRuntimeCredential)
+	if err := coordinator.Provisioner.ProvisionFly(ctx, authorization, imageReference, runtime.InnerRuntimeCredential); err != nil {
+		return err
+	}
+	clear(runtime.InnerRuntimeCredential)
+	runtime.InnerRuntimeCredential = nil
 	if err := coordinator.State.SetPhase(PhaseMeasuring, coordinator.Now()); err != nil {
 		return err
 	}
-	return coordinator.Workload.Execute(ctx, authorization)
+	return coordinator.Workload.Execute(ctx, authorization, runtime)
 }
 
 func (coordinator RunCoordinator) validate() error {
 	if coordinator.Cleanup == nil || coordinator.Image == nil || coordinator.Now == nil ||
-		coordinator.Provisioner == nil || coordinator.State == nil || coordinator.Workload == nil {
-		return errors.New("hosted run requires image publication, provisioning, workload, cleanup, clock, and durable state")
+		coordinator.Provisioner == nil || coordinator.Runtime == nil || coordinator.State == nil || coordinator.Workload == nil {
+		return errors.New("hosted run requires image publication, runtime preparation, Fly provisioning, workload, cleanup, clock, and durable state")
 	}
 	return nil
 }

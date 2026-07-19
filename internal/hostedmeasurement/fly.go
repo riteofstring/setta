@@ -64,7 +64,7 @@ type FlyProvider interface {
 }
 
 type FlyAppPreparer interface {
-	StageSecrets(context.Context, string) error
+	StageSecrets(context.Context, string, []byte) error
 	EnsureSharedIPv4(context.Context, string) error
 }
 
@@ -75,8 +75,13 @@ type Provisioner struct {
 	State    *StateStore
 }
 
-func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization Authorization, imageReference string) error {
-	if err := provisioner.validate(imageReference); err != nil {
+func (provisioner Provisioner) ProvisionFly(
+	ctx context.Context,
+	authorization Authorization,
+	imageReference string,
+	innerRuntimeCredential []byte,
+) error {
+	if err := provisioner.validate(imageReference, innerRuntimeCredential); err != nil {
 		return err
 	}
 	if err := provisioner.checkCreateClock(authorization); err != nil {
@@ -85,7 +90,7 @@ func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization A
 	if err := provisioner.State.SetPhase(PhaseDeploying, provisioner.Now()); err != nil {
 		return err
 	}
-	return provisioner.provisionFlyResources(ctx, authorization, imageReference)
+	return provisioner.provisionFlyResources(ctx, authorization, imageReference, innerRuntimeCredential)
 }
 
 func (provisioner Provisioner) ProvisionApp(ctx context.Context, authorization Authorization) error {
@@ -106,6 +111,7 @@ func (provisioner Provisioner) provisionFlyResources(
 	ctx context.Context,
 	authorization Authorization,
 	imageReference string,
+	innerRuntimeCredential []byte,
 ) error {
 	app, err := provisioner.ensureApp(ctx, authorization)
 	if err != nil {
@@ -121,15 +127,20 @@ func (provisioner Provisioner) provisionFlyResources(
 	if err := provisioner.checkCreateClock(authorization); err != nil {
 		return err
 	}
-	if err := provisioner.prepareApp(ctx, authorization, app.Name); err != nil {
+	if err := provisioner.prepareApp(ctx, authorization, app.Name, innerRuntimeCredential); err != nil {
 		return err
 	}
 	_, err = provisioner.ensureMachine(ctx, authorization, imageReference, app, volume)
 	return err
 }
 
-func (provisioner Provisioner) prepareApp(ctx context.Context, authorization Authorization, appName string) error {
-	if err := provisioner.Preparer.StageSecrets(ctx, appName); err != nil {
+func (provisioner Provisioner) prepareApp(
+	ctx context.Context,
+	authorization Authorization,
+	appName string,
+	innerRuntimeCredential []byte,
+) error {
+	if err := provisioner.Preparer.StageSecrets(ctx, appName, innerRuntimeCredential); err != nil {
 		return fmt.Errorf("stage Fly app secrets before Machine create: %w", err)
 	}
 	if err := provisioner.checkCreateClock(authorization); err != nil {
@@ -144,12 +155,15 @@ func (provisioner Provisioner) prepareApp(ctx context.Context, authorization Aut
 	return nil
 }
 
-func (provisioner Provisioner) validate(imageReference string) error {
+func (provisioner Provisioner) validate(imageReference string, innerRuntimeCredential []byte) error {
 	if provisioner.Fly == nil || provisioner.Preparer == nil || provisioner.State == nil || provisioner.Now == nil {
 		return errors.New("hosted measurement provisioner requires Fly, app preparation, clock, and durable state")
 	}
 	if !flyImagePattern.MatchString(imageReference) {
 		return errors.New("hosted measurement requires a registry image pinned by digest")
+	}
+	if !validFlyToken(innerRuntimeCredential) {
+		return errors.New("hosted measurement requires a valid freshly paired inner runtime credential")
 	}
 	return nil
 }

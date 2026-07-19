@@ -201,7 +201,7 @@ func TestProvisionerAdoptsAmbiguousCreateAndResumesAfterFailure(t *testing.T) {
 	fly.machineCreateError = errors.New("injected machine failure")
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	provisioner := Provisioner{Fly: fly, Preparer: &fakeFlyAppPreparer{}, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference(), []byte("inner-runtime-sentinel")); err == nil {
 		t.Fatal("ProvisionFly succeeded across machine failure")
 	}
 	assertInterruptedProvisionState(t, store.Snapshot())
@@ -211,10 +211,29 @@ func TestProvisionerAdoptsAmbiguousCreateAndResumesAfterFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	provisioner.State = restarted
-	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err != nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference(), []byte("inner-runtime-sentinel")); err != nil {
 		t.Fatalf("restart ProvisionFly: %v", err)
 	}
 	assertRestartedProvision(t, restarted.Snapshot(), fly)
+}
+
+func TestProvisionerRejectsMissingInnerCredentialBeforeFlyMutations(t *testing.T) {
+	authorization, directory := loadTestAuthorization(t)
+	store, err := OpenStateStore(directory, authorization, testAuthorizedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fly := newFakeFly()
+	provisioner := Provisioner{
+		Fly: fly, Preparer: &fakeFlyAppPreparer{}, State: store,
+		Now: func() time.Time { return testAuthorizedAt.Add(time.Minute) },
+	}
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference(), nil); err == nil {
+		t.Fatal("ProvisionFly accepted a missing freshly paired credential")
+	}
+	if fly.createAppCalls != 0 || fly.createVolumeCalls != 0 || fly.createMachineCalls != 0 || store.Snapshot().Phase != PhaseAuthorized {
+		t.Fatalf("invalid credential changed provider or state: fly=%+v state=%+v", fly, store.Snapshot())
+	}
 }
 
 func assertInterruptedProvisionState(t *testing.T, state State) {
@@ -259,7 +278,7 @@ func TestProvisionerDeadlineTransitionsToCleanupWithoutFurtherCreates(t *testing
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	fly.afterCreateApp = func() { now = authorization.CleanupDeadline.Add(-10 * time.Minute) }
 	provisioner := Provisioner{Fly: fly, Preparer: &fakeFlyAppPreparer{}, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference(), []byte("inner-runtime-sentinel")); err == nil {
 		t.Fatal("ProvisionFly continued into the teardown reserve")
 	}
 	if store.Snapshot().Phase != PhaseCleaning || fly.createVolumeCalls != 0 {
@@ -279,11 +298,14 @@ func TestProvisionerPreparesSecretsAndIngressBeforeMachineWithDeadlineChecks(t *
 		now = authorization.CleanupDeadline.Add(-10 * time.Minute)
 	}}
 	provisioner := Provisioner{Fly: fly, Preparer: preparer, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference(), []byte("inner-runtime-sentinel")); err == nil {
 		t.Fatal("ProvisionFly crossed the cleanup reserve after staging secrets")
 	}
 	if preparer.stageCalls != 1 || preparer.ipCalls != 0 || fly.createMachineCalls != 0 {
 		t.Fatalf("preparation calls = stage %d ip %d machine %d", preparer.stageCalls, preparer.ipCalls, fly.createMachineCalls)
+	}
+	if string(preparer.stageCredential) != "inner-runtime-sentinel" {
+		t.Fatalf("staged inner runtime credential = %q", preparer.stageCredential)
 	}
 	if store.Snapshot().Phase != PhaseCleaning {
 		t.Fatalf("phase = %s, want cleaning", store.Snapshot().Phase)
@@ -298,11 +320,11 @@ func TestProvisionerRestartRejectsMachineWithDifferentImageDigest(t *testing.T) 
 	}
 	fly := newFakeFly()
 	provisioner := Provisioner{Fly: fly, Preparer: &fakeFlyAppPreparer{}, Now: func() time.Time { return testAuthorizedAt.Add(2 * time.Minute) }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err != nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference(), []byte("inner-runtime-sentinel")); err != nil {
 		t.Fatal(err)
 	}
 	fly.machines[0].ImageDigest = "sha256:" + strings.Repeat("b", 64)
-	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference(), []byte("inner-runtime-sentinel")); err == nil {
 		t.Fatal("ProvisionFly adopted a restarted Machine with a different image digest")
 	}
 	if fly.createMachineCalls != 1 {
@@ -327,7 +349,7 @@ func TestDurableIntentRecoversCreateAfterResourceJournalInterruption(t *testing.
 	fly := newFakeFly()
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	provisioner := Provisioner{Fly: fly, Preparer: &fakeFlyAppPreparer{}, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference(), []byte("inner-runtime-sentinel")); err == nil {
 		t.Fatal("ProvisionFly succeeded across interrupted resource journal write")
 	}
 	if len(fly.apps) != 1 {
@@ -460,15 +482,17 @@ type fakeFly struct {
 }
 
 type fakeFlyAppPreparer struct {
-	stageErr   error
-	ipErr      error
-	afterStage func()
-	stageCalls int
-	ipCalls    int
+	stageErr        error
+	ipErr           error
+	afterStage      func()
+	stageCalls      int
+	ipCalls         int
+	stageCredential []byte
 }
 
-func (preparer *fakeFlyAppPreparer) StageSecrets(context.Context, string) error {
+func (preparer *fakeFlyAppPreparer) StageSecrets(_ context.Context, _ string, credential []byte) error {
 	preparer.stageCalls++
+	preparer.stageCredential = append([]byte(nil), credential...)
 	if preparer.afterStage != nil {
 		preparer.afterStage()
 	}
