@@ -355,6 +355,25 @@ receipts, and product-safe recovery actions.
 
 ### 4. Persist The Durable Master Transcript
 
+**Status:** Completed.
+
+Completed repository work:
+
+- Added a backend master transcript projection with durable transcript event records separated from
+  route audit records.
+- Projected shell-originated master inputs, assistant answers, clarification questions, route/action
+  receipts, product-safe routing failures, and cancellations into the durable transcript.
+- Added a backend read endpoint, generated TypeScript contract surface, Electron IPC/preload bridge,
+  and renderer controller loading path for the master transcript.
+- Rendered transcript entries in the master pane while preserving the existing active interaction
+  presentation, cancellation, retry, and presentation-intent flows.
+- Added focused backend, HTTP, IPC/preload, renderer controller, and renderer surface tests for
+  durable transcript persistence and projection.
+
+Remaining repository work:
+
+- None.
+
 Extend the backend master domain so shell-originated master inputs project into one durable master
 conversation.
 

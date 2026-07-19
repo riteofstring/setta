@@ -330,6 +330,22 @@ func writeMasterInputStateError(response http.ResponseWriter, err error) {
 	writeError(response, http.StatusBadRequest, "invalid_master_input_state_request", err.Error())
 }
 
+func writeMasterTranscriptError(response http.ResponseWriter, err error) {
+	if conversation.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_master_transcript_state", err.Error())
+		return
+	}
+	if errors.Is(err, conversation.ErrStoreClosed) {
+		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
+		return
+	}
+	if conversation.IsPersistenceError(err) {
+		writeError(response, http.StatusInternalServerError, "read_master_transcript_failed", err.Error())
+		return
+	}
+	writeError(response, http.StatusBadRequest, "invalid_master_transcript_request", err.Error())
+}
+
 func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {
 	if conversation.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_speech_source_state", err.Error())

@@ -784,7 +784,7 @@ func failMasterInputRoutingTransaction(
 	dbPath string,
 	failure master.InputRoutingFailure,
 ) error {
-	_, status, attempt, startedAt, err := readMasterRouteCommitInput(
+	accepted, status, attempt, startedAt, err := readMasterRouteCommitInput(
 		transaction.ctx,
 		transaction.tx,
 		failure.InputID,
@@ -833,7 +833,10 @@ WHERE id = ? AND routing_status = ? AND routing_attempt = ? AND routing_started_
 		Payload:     failure,
 		CommittedAt: failure.FailedAt,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return appendMasterTranscriptFailure(transaction, accepted, failure)
 }
 
 func (store *Store) RecoverMasterInputRouting(ctx context.Context, recoveredAt string) error {

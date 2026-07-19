@@ -117,17 +117,22 @@ export async function exerciseMasterCancellation({
   await closeMasterOverlay(client, timeoutMs);
   await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
   await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
-  const cleared = await waitForState(
+  const restoredTranscript = await waitForState(
     client,
     `(() => ({
+      cancellationPresent: Array.from(
+        document.querySelectorAll('[data-testid="master-transcript-entry"][data-master-transcript-kind="cancellation"]'),
+      ).some((entry) => entry.textContent?.includes("Request cancelled")),
       requestPresent: Boolean(document.querySelector('[data-testid="master-active-request"]')),
-      emptyPresent: Boolean(document.querySelector('.setta-master-overlay-empty')),
+      transcriptEntryCount: document.querySelectorAll('[data-testid="master-transcript-entry"]').length,
     }))()`,
-    (state) => !state.requestPresent && state.emptyPresent,
+    (state) => !state.requestPresent && state.cancellationPresent,
     timeoutMs,
   );
-  if (!cleared.emptyPresent) {
-    throw new Error(`cancelled master interaction did not clear: ${JSON.stringify(cleared)}`);
+  if (!restoredTranscript.cancellationPresent) {
+    throw new Error(
+      `cancelled master interaction did not restore as transcript: ${JSON.stringify(restoredTranscript)}`,
+    );
   }
   await closeMasterOverlay(client, timeoutMs);
   return {

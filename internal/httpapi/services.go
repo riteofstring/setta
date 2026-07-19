@@ -114,6 +114,7 @@ type MasterInputService interface {
 	CancelInput(context.Context, string) (master.ShellInteractionState, error)
 	ReadActiveShellInteraction(context.Context) (master.ActiveShellInteraction, error)
 	ReadInputState(context.Context, string) (master.InputRoutingState, error)
+	ReadTranscript(context.Context, int) (master.Transcript, error)
 	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
 	WaitPresentationIntent(context.Context, string) (master.PresentationIntent, error)
 	ResolvePresentationIntent(context.Context, master.PresentationResolutionRequest) (master.PresentationResolution, error)

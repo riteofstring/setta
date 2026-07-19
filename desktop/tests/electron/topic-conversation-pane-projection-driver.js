@@ -21,6 +21,7 @@
       topicConversationFirstRunState,
       topicConversationInstallCaptureTimingObserver,
       topicConversationMasterActiveInteractionState,
+      topicConversationMasterOverlaySpeechIsolationState,
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
@@ -67,6 +68,24 @@
       requestCount: overlayCount(overlay, '[data-testid="master-active-request"]'),
       requestText: overlayText(overlay, '[data-testid="master-active-request"] p'),
       resultKind: overlayAttribute(overlay, "[data-master-result-kind]", "data-master-result-kind"),
+    };
+  }
+
+  function topicConversationMasterOverlaySpeechIsolationState({ excludedTexts = [] }) {
+    const overlay = masterOverlay();
+    const activeRequestText = overlayText(overlay, '[data-testid="master-active-request"]');
+    const composerText = overlay?.querySelector('textarea[aria-label="Ask Setta"]')?.value ?? "";
+    const voiceStatusText = overlayText(overlay, '[data-testid="master-overlay-voice-status"]');
+    const scopedText = [activeRequestText, composerText, voiceStatusText].join("\n");
+    return {
+      containsExcludedText: excludedTexts.some(
+        (excluded) => excluded !== "" && scopedText.includes(excluded),
+      ),
+      masterVoiceControlPresent: overlayHas(
+        overlay,
+        '[data-testid="master-overlay-voice-capture"]',
+      ),
+      open: Boolean(overlay),
     };
   }
 

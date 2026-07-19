@@ -36,6 +36,7 @@ import type {
   ReadConversationArtifactRequest,
   ReadConversationSnapshotRequest,
   ReadMasterInputRoutingStateRequest,
+  ReadMasterTranscriptRequest,
   RefreshCodexAccountRequest,
   ReadConversationRoleConfigurationRequest,
   ReadWorkspaceRoleConfigurationRequest,
@@ -56,6 +57,7 @@ import type {
   SubmitConversationInputRequest,
   SubmitMasterInputRequest,
   SubmitTopicConversationApprovalRequest,
+  Transcript,
   UpdateAppearanceSettingsRequest,
   UpdateConversationRoleProfilesRequest,
   UpdateGlobalRoleProfilesRequest,
@@ -339,6 +341,7 @@ export interface SettaAPI {
   master?: {
     cancelInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
     readActiveInteraction: () => Promise<ActiveShellInteraction>;
+    readTranscript: (request: ReadMasterTranscriptRequest) => Promise<Transcript>;
     resolvePresentation: (
       request: PresentationResolutionRequest,
     ) => Promise<PresentationResolution>;

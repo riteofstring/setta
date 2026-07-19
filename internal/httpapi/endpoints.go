@@ -91,6 +91,7 @@ var apiEndpoints = []endpoint{
 	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
 	post[CancelMasterInputRequest, master.ShellInteractionState]("CancelMasterInput", "/master/inputs/cancel", handler.cancelMasterInput),
 	post[ReadMasterInputRoutingStateRequest, master.InputRoutingState]("ReadMasterInputRoutingState", "/master/inputs/state/read", handler.readMasterInputRoutingState),
+	post[ReadMasterTranscriptRequest, master.Transcript]("ReadMasterTranscript", "/master/transcript/read", handler.readMasterTranscript),
 	post[ReadMasterInputRoutingStateRequest, master.ShellInteractionState]("WaitMasterShellInteraction", "/master/interaction/wait", handler.waitMasterShellInteraction),
 	post[ReadMasterInputRoutingStateRequest, master.PresentationIntent]("WaitMasterPresentationIntent", "/master/presentation/wait", handler.waitMasterPresentationIntent),
 	post[master.PresentationResolutionRequest, master.PresentationResolution]("ResolveMasterPresentationIntent", "/master/presentation/resolve", handler.resolveMasterPresentationIntent),

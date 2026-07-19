@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 71;
-export const backendContractSchemaHash = "sha256:85e9639887e8fa52322608d464b2ca46b826316bbabe5f377eb0183edd6f510f";
+export const backendProtocolVersion = 72;
+export const backendContractSchemaHash = "sha256:b690b017f1dbe66118d34a28972f3db6a1da11aa3db39908773ac6483101260c";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1288,20 +1288,22 @@ export function decodeRouteDecisionKind(value: unknown, label = "RouteDecisionKi
   }
 }
 
-export type PresentationIntentKind = "focus_existing_conversation_pane" | "open_conversation_pane" | "open_side_conversation_in_parent_pane" | "show_master_reply";
+export type TranscriptEntryKind = "user_input" | "assistant_reply" | "action_receipt" | "cancellation" | "failure";
 
-export const presentationIntentKindValues = ["focus_existing_conversation_pane", "open_conversation_pane", "open_side_conversation_in_parent_pane", "show_master_reply"] as const satisfies readonly PresentationIntentKind[];
+export const transcriptEntryKindValues = ["user_input", "assistant_reply", "action_receipt", "cancellation", "failure"] as const satisfies readonly TranscriptEntryKind[];
 
-export function decodePresentationIntentKind(value: unknown, label = "PresentationIntentKind"): PresentationIntentKind {
+export function decodeTranscriptEntryKind(value: unknown, label = "TranscriptEntryKind"): TranscriptEntryKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "focus_existing_conversation_pane":
+    case "user_input":
       return decoded;
-    case "open_conversation_pane":
+    case "assistant_reply":
       return decoded;
-    case "open_side_conversation_in_parent_pane":
+    case "action_receipt":
       return decoded;
-    case "show_master_reply":
+    case "cancellation":
+      return decoded;
+    case "failure":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1318,6 +1320,26 @@ export function decodeMasterReplyKind(value: unknown, label = "MasterReplyKind")
     case "clarification":
       return decoded;
     case "answer":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type PresentationIntentKind = "focus_existing_conversation_pane" | "open_conversation_pane" | "open_side_conversation_in_parent_pane" | "show_master_reply";
+
+export const presentationIntentKindValues = ["focus_existing_conversation_pane", "open_conversation_pane", "open_side_conversation_in_parent_pane", "show_master_reply"] as const satisfies readonly PresentationIntentKind[];
+
+export function decodePresentationIntentKind(value: unknown, label = "PresentationIntentKind"): PresentationIntentKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "focus_existing_conversation_pane":
+      return decoded;
+    case "open_conversation_pane":
+      return decoded;
+    case "open_side_conversation_in_parent_pane":
+      return decoded;
+    case "show_master_reply":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3295,6 +3317,57 @@ export interface InputRoutingState {
   failure: RouteFailure | null;
 }
 
+export interface ReadMasterTranscriptRequest {
+  limit: number;
+}
+
+export interface TranscriptUserInput {
+  text: string;
+  modality: MasterInputModality;
+}
+
+export interface TranscriptAssistantReply {
+  replyKind: MasterReplyKind;
+  text: string;
+}
+
+export interface TranscriptActionReceipt {
+  decisionKind: RouteDecisionKind;
+  text: string;
+}
+
+export interface TranscriptCancellation {
+  message: string;
+}
+
+export interface TranscriptFailure {
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
+export interface TranscriptEntryPayload {
+  id: string;
+  inputId: string;
+  kind: TranscriptEntryKind;
+  createdAt: string;
+  userInput: TranscriptUserInput | null;
+  assistantReply: TranscriptAssistantReply | null;
+  actionReceipt: TranscriptActionReceipt | null;
+  cancellation: TranscriptCancellation | null;
+  failure: TranscriptFailure | null;
+}
+
+export interface TranscriptEntry {
+  sequence: number;
+  payload: TranscriptEntryPayload;
+}
+
+export interface Transcript {
+  entries: TranscriptEntry[];
+  lastSequence: number;
+}
+
 export interface FocusExistingConversationPaneIntent {
   target: ConversationPresentationTarget;
 }
@@ -3746,6 +3819,11 @@ export const backendEndpoints = {
   ReadMasterInputRoutingState: {
     method: "POST",
     path: "/master/inputs/state/read",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadMasterTranscript: {
+    method: "POST",
+    path: "/master/transcript/read",
     requestBodyLimitBytes: 4194304,
   },
   WaitMasterShellInteraction: {
@@ -6781,6 +6859,93 @@ export function decodeInputRoutingState(value: unknown): InputRoutingState {
   };
 }
 
+export function decodeReadMasterTranscriptRequest(value: unknown): ReadMasterTranscriptRequest {
+  const record = assertRecord(value, "ReadMasterTranscriptRequest");
+  assertKnownFields(record, "ReadMasterTranscriptRequest", ["limit"]);
+  return {
+    limit: decodeInteger(requireField(record, "limit", "ReadMasterTranscriptRequest"), "ReadMasterTranscriptRequest.limit"),
+  };
+}
+
+export function decodeTranscriptUserInput(value: unknown): TranscriptUserInput {
+  const record = assertRecord(value, "TranscriptUserInput");
+  assertKnownFields(record, "TranscriptUserInput", ["text", "modality"]);
+  return {
+    text: decodeString(requireField(record, "text", "TranscriptUserInput"), "TranscriptUserInput.text"),
+    modality: decodeMasterInputModality(requireField(record, "modality", "TranscriptUserInput"), "TranscriptUserInput.modality"),
+  };
+}
+
+export function decodeTranscriptAssistantReply(value: unknown): TranscriptAssistantReply {
+  const record = assertRecord(value, "TranscriptAssistantReply");
+  assertKnownFields(record, "TranscriptAssistantReply", ["replyKind", "text"]);
+  return {
+    replyKind: decodeMasterReplyKind(requireField(record, "replyKind", "TranscriptAssistantReply"), "TranscriptAssistantReply.replyKind"),
+    text: decodeString(requireField(record, "text", "TranscriptAssistantReply"), "TranscriptAssistantReply.text"),
+  };
+}
+
+export function decodeTranscriptActionReceipt(value: unknown): TranscriptActionReceipt {
+  const record = assertRecord(value, "TranscriptActionReceipt");
+  assertKnownFields(record, "TranscriptActionReceipt", ["decisionKind", "text"]);
+  return {
+    decisionKind: decodeRouteDecisionKind(requireField(record, "decisionKind", "TranscriptActionReceipt"), "TranscriptActionReceipt.decisionKind"),
+    text: decodeString(requireField(record, "text", "TranscriptActionReceipt"), "TranscriptActionReceipt.text"),
+  };
+}
+
+export function decodeTranscriptCancellation(value: unknown): TranscriptCancellation {
+  const record = assertRecord(value, "TranscriptCancellation");
+  assertKnownFields(record, "TranscriptCancellation", ["message"]);
+  return {
+    message: decodeString(requireField(record, "message", "TranscriptCancellation"), "TranscriptCancellation.message"),
+  };
+}
+
+export function decodeTranscriptFailure(value: unknown): TranscriptFailure {
+  const record = assertRecord(value, "TranscriptFailure");
+  assertKnownFields(record, "TranscriptFailure", ["code", "message", "retryable"]);
+  return {
+    code: decodeString(requireField(record, "code", "TranscriptFailure"), "TranscriptFailure.code"),
+    message: decodeString(requireField(record, "message", "TranscriptFailure"), "TranscriptFailure.message"),
+    retryable: decodeBoolean(requireField(record, "retryable", "TranscriptFailure"), "TranscriptFailure.retryable"),
+  };
+}
+
+export function decodeTranscriptEntryPayload(value: unknown): TranscriptEntryPayload {
+  const record = assertRecord(value, "TranscriptEntryPayload");
+  assertKnownFields(record, "TranscriptEntryPayload", ["id", "inputId", "kind", "createdAt", "userInput", "assistantReply", "actionReceipt", "cancellation", "failure"]);
+  return {
+    id: decodeString(requireField(record, "id", "TranscriptEntryPayload"), "TranscriptEntryPayload.id"),
+    inputId: decodeString(requireField(record, "inputId", "TranscriptEntryPayload"), "TranscriptEntryPayload.inputId"),
+    kind: decodeTranscriptEntryKind(requireField(record, "kind", "TranscriptEntryPayload"), "TranscriptEntryPayload.kind"),
+    createdAt: decodeString(requireField(record, "createdAt", "TranscriptEntryPayload"), "TranscriptEntryPayload.createdAt"),
+    userInput: decodeNullable(requireField(record, "userInput", "TranscriptEntryPayload"), "TranscriptEntryPayload.userInput", (item) => decodeTranscriptUserInput(item)),
+    assistantReply: decodeNullable(requireField(record, "assistantReply", "TranscriptEntryPayload"), "TranscriptEntryPayload.assistantReply", (item) => decodeTranscriptAssistantReply(item)),
+    actionReceipt: decodeNullable(requireField(record, "actionReceipt", "TranscriptEntryPayload"), "TranscriptEntryPayload.actionReceipt", (item) => decodeTranscriptActionReceipt(item)),
+    cancellation: decodeNullable(requireField(record, "cancellation", "TranscriptEntryPayload"), "TranscriptEntryPayload.cancellation", (item) => decodeTranscriptCancellation(item)),
+    failure: decodeNullable(requireField(record, "failure", "TranscriptEntryPayload"), "TranscriptEntryPayload.failure", (item) => decodeTranscriptFailure(item)),
+  };
+}
+
+export function decodeTranscriptEntry(value: unknown): TranscriptEntry {
+  const record = assertRecord(value, "TranscriptEntry");
+  assertKnownFields(record, "TranscriptEntry", ["sequence", "payload"]);
+  return {
+    sequence: decodeInteger(requireField(record, "sequence", "TranscriptEntry"), "TranscriptEntry.sequence"),
+    payload: decodeTranscriptEntryPayload(requireField(record, "payload", "TranscriptEntry")),
+  };
+}
+
+export function decodeTranscript(value: unknown): Transcript {
+  const record = assertRecord(value, "Transcript");
+  assertKnownFields(record, "Transcript", ["entries", "lastSequence"]);
+  return {
+    entries: decodeArray(requireField(record, "entries", "Transcript"), "Transcript.entries", (item) => decodeTranscriptEntry(item)),
+    lastSequence: decodeInteger(requireField(record, "lastSequence", "Transcript"), "Transcript.lastSequence"),
+  };
+}
+
 export function decodeFocusExistingConversationPaneIntent(value: unknown): FocusExistingConversationPaneIntent {
   const record = assertRecord(value, "FocusExistingConversationPaneIntent");
   assertKnownFields(record, "FocusExistingConversationPaneIntent", ["target"]);
@@ -7211,6 +7376,7 @@ export interface BackendClient {
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   cancelMasterInput: (request: CancelMasterInputRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
   readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
+  readMasterTranscript: (request: ReadMasterTranscriptRequest, options?: BackendRequestOptions) => Promise<Transcript>;
   waitMasterShellInteraction: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
   waitMasterPresentationIntent: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<PresentationIntent>;
   resolveMasterPresentationIntent: (request: PresentationResolutionRequest, options?: BackendRequestOptions) => Promise<PresentationResolution>;
@@ -7653,6 +7819,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeInputRoutingState,
       endpoint: backendEndpoints.ReadMasterInputRoutingState,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readMasterTranscript: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTranscript,
+      endpoint: backendEndpoints.ReadMasterTranscript,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

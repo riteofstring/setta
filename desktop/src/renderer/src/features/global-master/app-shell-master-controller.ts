@@ -1,7 +1,6 @@
 import type {
   AcceptedMasterInput,
   ActiveShellInteraction,
-  CancelMasterInputRequest,
   MasterInput,
   MasterInputModality,
   PresentationIntent,
@@ -9,7 +8,7 @@ import type {
   PresentationResolutionRequest,
   ReadMasterInputRoutingStateRequest,
   ShellInteractionState,
-  SubmitMasterInputRequest,
+  Transcript,
 } from "@generated/backend";
 
 import { canonicalSpeechInputTimestamp } from "../global-speech/speech-input-submission";
@@ -17,77 +16,24 @@ import {
   interactionRequiresNavigation,
   validShellPresentationIntent,
 } from "./app-shell-master-presentation-validation";
+import type {
+  AppShellMasterControllerDependencies,
+  AppShellMasterSnapshot,
+  CompletedGlobalSpeechTranscript,
+  MasterInteractionState,
+  PendingShellMasterInput,
+} from "./app-shell-master-controller-types";
+import { masterTranscriptReadLimit, validMasterTranscript } from "./app-shell-master-transcript";
 import { acceptedMasterInputMatches, masterInputsEqual } from "./app-shell-master-input-validation";
 
-export interface MasterInputFocusHints {
-  focusedConversationId: string | null;
-  focusedPaneId: string | null;
-  focusedWorkspaceId: string | null;
-}
-
-export interface CompletedGlobalSpeechTranscript {
-  captureSessionId: string;
-  input: MasterInput;
-  runtimeId: string;
-  transcript: string;
-}
-
-interface PendingShellMasterInput {
-  input: MasterInput;
-  runtimeId: string;
-}
-
-export type MasterInputSubmissionState =
-  | { type: "idle" }
-  | { input: MasterInput; type: "submitting" }
-  | { accepted: AcceptedMasterInput; type: "accepted" }
-  | {
-      input: MasterInput;
-      message: string;
-      type: "failed";
-    };
-
-export type MasterInteractionState =
-  | { type: "disconnected" }
-  | { type: "loading" }
-  | { type: "idle" }
-  | { state: ShellInteractionState; type: "active" }
-  | { message: string; type: "load_failed" }
-  | { message: string; state: ShellInteractionState; type: "observation_failed" };
-
-type MasterInputCancellationState =
-  | { type: "idle" }
-  | { inputId: string; type: "cancelling" }
-  | { inputId: string; message: string; type: "failed" };
-
-export interface AppShellMasterSnapshot {
-  cancellation: MasterInputCancellationState;
-  completedTranscript: CompletedGlobalSpeechTranscript | null;
-  draft: string;
-  interaction: MasterInteractionState;
-  overlayOpen: boolean;
-  runtimeId: string | null;
-  submission: MasterInputSubmissionState;
-}
-
-export interface AppShellMasterControllerDependencies {
-  cancelMasterInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
-  createInputId: () => string;
-  now: () => Date;
-  presentPresentationIntent: (intent: PresentationIntent) => Promise<{ paneId: string }>;
-  readActiveInteraction: (runtimeId: string) => Promise<ActiveShellInteraction>;
-  readFocusHints: () => MasterInputFocusHints;
-  resolvePresentationIntent: (
-    request: PresentationResolutionRequest,
-  ) => Promise<PresentationResolution>;
-  submitMasterInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
-  waitShellInteraction: (
-    request: ReadMasterInputRoutingStateRequest,
-  ) => Promise<ShellInteractionState>;
-  waitPresentationIntent: (
-    request: ReadMasterInputRoutingStateRequest,
-  ) => Promise<PresentationIntent>;
-}
+export type {
+  AppShellMasterControllerDependencies,
+  AppShellMasterSnapshot,
+  CompletedGlobalSpeechTranscript,
+  MasterInputFocusHints,
+  MasterInputSubmissionState,
+  MasterInteractionState,
+} from "./app-shell-master-controller-types";
 
 // AppShellMasterController owns exactly one transient shell interaction. The
 // backend restores only in-flight work or an unresolved clarification; a
@@ -102,6 +48,7 @@ export class AppShellMasterController {
   private interactionGeneration = 0;
   private pending: PendingShellMasterInput | null = null;
   private submissionGeneration = 0;
+  private transcriptGeneration = 0;
   private snapshotValue: AppShellMasterSnapshot = {
     cancellation: { type: "idle" },
     completedTranscript: null,
@@ -110,6 +57,7 @@ export class AppShellMasterController {
     overlayOpen: false,
     runtimeId: null,
     submission: { type: "idle" },
+    transcript: { type: "disconnected" },
   };
 
   constructor(dependencies: AppShellMasterControllerDependencies) {
@@ -131,6 +79,7 @@ export class AppShellMasterController {
     this.invalidateSubmission();
     this.invalidateInteraction();
     this.invalidateCancellation();
+    this.invalidateTranscript();
     this.pending = null;
     this.updateSnapshot({
       completedTranscript: null,
@@ -138,8 +87,10 @@ export class AppShellMasterController {
       interaction: runtimeId ? { type: "loading" } : { type: "disconnected" },
       runtimeId,
       submission: { type: "idle" },
+      transcript: runtimeId ? { type: "loading" } : { type: "disconnected" },
     });
     if (runtimeId) {
+      this.loadTranscript(runtimeId, true);
       this.loadActiveInteraction(runtimeId);
     }
   }
@@ -314,6 +265,7 @@ export class AppShellMasterController {
     this.invalidateSubmission();
     this.invalidateInteraction();
     this.invalidateCancellation();
+    this.invalidateTranscript();
     this.pending = null;
     this.listeners.clear();
   }
@@ -397,6 +349,7 @@ export class AppShellMasterController {
       interaction: { state, type: "active" },
       submission: { accepted: durableAccepted, type: "accepted" },
     });
+    this.loadTranscript(pending.runtimeId, false);
     this.observeInteraction(pending.runtimeId, state);
   }
 
@@ -437,6 +390,7 @@ export class AppShellMasterController {
       interaction: { state: cancelled, type: "active" },
       submission: { type: "idle" },
     });
+    this.loadTranscript(runtimeId, false);
   }
 
   private handleCancellationFailure(
@@ -547,6 +501,9 @@ export class AppShellMasterController {
       cancellation: { type: "idle" },
       interaction: { state: settled, type: "active" },
     });
+    if (settled.status === "cancelled" || settled.status === "failed") {
+      this.loadTranscript(runtimeId, false);
+    }
     if (settled.status === "decided") {
       this.observePresentationIntent(generation, runtimeId, settled);
     }
@@ -584,6 +541,7 @@ export class AppShellMasterController {
       this.handleObservationFailure(generation, runtimeId, state);
       return;
     }
+    this.loadTranscript(runtimeId, false);
     if (intent.kind === "show_master_reply") {
       return;
     }
@@ -640,9 +598,57 @@ export class AppShellMasterController {
           overlayOpen: false,
           submission: { type: "idle" },
         });
+        this.loadTranscript(runtimeId, false);
       },
       () => this.handleObservationFailure(generation, runtimeId, state),
     );
+  }
+
+  private loadTranscript(runtimeId: string, showLoading: boolean): void {
+    this.transcriptGeneration += 1;
+    const generation = this.transcriptGeneration;
+    if (showLoading) {
+      this.updateSnapshot({ transcript: { type: "loading" } });
+    }
+    let pending: Promise<Transcript>;
+    try {
+      pending = this.dependencies.readTranscript({ limit: masterTranscriptReadLimit });
+    } catch {
+      this.handleTranscriptFailure(generation, runtimeId);
+      return;
+    }
+    void pending.then(
+      (transcript) => this.handleTranscriptLoaded(generation, runtimeId, transcript),
+      () => this.handleTranscriptFailure(generation, runtimeId),
+    );
+  }
+
+  private handleTranscriptLoaded(
+    generation: number,
+    runtimeId: string,
+    transcript: Transcript,
+  ): void {
+    if (!this.isCurrentTranscript(generation, runtimeId)) {
+      return;
+    }
+    if (!validMasterTranscript(transcript)) {
+      this.handleTranscriptFailure(generation, runtimeId);
+      return;
+    }
+    this.updateSnapshot({ transcript: { transcript, type: "ready" } });
+  }
+
+  private handleTranscriptFailure(generation: number, runtimeId: string): void {
+    if (!this.isCurrentTranscript(generation, runtimeId)) {
+      return;
+    }
+    console.info(`Master transcript load failed: runtimeId=${runtimeId}`);
+    this.updateSnapshot({
+      transcript: {
+        message: "Setta could not load the durable master transcript.",
+        type: "failed",
+      },
+    });
   }
 
   private handleObservationFailure(
@@ -691,6 +697,14 @@ export class AppShellMasterController {
     );
   }
 
+  private isCurrentTranscript(generation: number, runtimeId: string): boolean {
+    return (
+      !this.disposed &&
+      generation === this.transcriptGeneration &&
+      runtimeId === this.snapshotValue.runtimeId
+    );
+  }
+
   private requiredRuntimeID(): string {
     const runtimeId = this.snapshotValue.runtimeId;
     if (!runtimeId) {
@@ -709,6 +723,10 @@ export class AppShellMasterController {
 
   private invalidateCancellation(): void {
     this.cancellationGeneration += 1;
+  }
+
+  private invalidateTranscript(): void {
+    this.transcriptGeneration += 1;
   }
 
   private updateSnapshot(update: Partial<AppShellMasterSnapshot>): void {

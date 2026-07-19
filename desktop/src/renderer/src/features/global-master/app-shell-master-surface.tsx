@@ -26,6 +26,10 @@ import type {
   AppShellMasterSnapshot,
   MasterInteractionState,
 } from "./app-shell-master-controller";
+import {
+  MasterTranscriptEntries,
+  visibleTranscriptEntries,
+} from "./app-shell-master-transcript-view";
 import { isMasterOverlayShortcut, isMasterVoiceShortcut } from "./master-shortcuts";
 import { MasterSurfaceHeader } from "./app-shell-master-surface-header";
 import {
@@ -365,9 +369,11 @@ function MasterInteraction({
   speechPlayback: AppShellSpeechPlaybackController | null;
 }) {
   const pendingInput = pendingSubmissionInput(snapshot);
+  const transcriptEntries = visibleTranscriptEntries(snapshot);
   if (pendingInput) {
     return (
       <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
+        <MasterTranscriptEntries entries={transcriptEntries} />
         <MasterRequest input={pendingInput.input} />
         <MasterProgress state={pendingInput.state} />
       </div>
@@ -376,6 +382,13 @@ function MasterInteraction({
   switch (snapshot.interaction.type) {
     case "disconnected":
     case "idle":
+      if (transcriptEntries.length > 0) {
+        return (
+          <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
+            <MasterTranscriptEntries entries={transcriptEntries} />
+          </div>
+        );
+      }
       return <EmptyMasterInteraction />;
     case "loading":
       return (
@@ -389,6 +402,7 @@ function MasterInteraction({
     case "observation_failed":
       return (
         <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
+          <MasterTranscriptEntries entries={transcriptEntries} />
           <MasterRequest input={snapshot.interaction.state.input} />
           <InteractionFailure controller={controller} message={snapshot.interaction.message} />
           <MasterCancellationAction controller={controller} snapshot={snapshot} />
@@ -440,6 +454,7 @@ function ActiveMasterInteraction({
       data-master-routing-status={state.status}
       data-testid="master-active-interaction"
     >
+      <MasterTranscriptEntries entries={visibleTranscriptEntries(snapshot)} />
       <MasterRequest input={state.input} />
       <MasterRoutingResult
         controller={controller}
