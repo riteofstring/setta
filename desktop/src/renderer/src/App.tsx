@@ -136,17 +136,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const openSettingsPage = useCallback(() => {
     captureSettingsFocusOrigin();
     openSettings();
-    if (mobileViewport) {
-      setProjectPaneOpen(false);
-    }
-  }, [captureSettingsFocusOrigin, mobileViewport, openSettings]);
+  }, [captureSettingsFocusOrigin, openSettings]);
   const openVoiceCredentialSettings = useCallback(() => {
     captureSettingsFocusOrigin();
     openOpenAIVoiceConnection();
-    if (mobileViewport) {
-      setProjectPaneOpen(false);
-    }
-  }, [captureSettingsFocusOrigin, mobileViewport, openOpenAIVoiceConnection]);
+  }, [captureSettingsFocusOrigin, openOpenAIVoiceConnection]);
   const closeSettingsPage = useCallback(() => {
     closeSettings();
   }, [closeSettings]);

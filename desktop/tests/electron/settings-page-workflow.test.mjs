@@ -1,6 +1,9 @@
 #!/usr/bin/env node
-/* global console, setTimeout */
+/* global AbortSignal, console, fetch, setTimeout, URL */
 
+import { spawn } from "node:child_process";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import process from "node:process";
 
@@ -13,6 +16,7 @@ import {
   dispatchKeyEvent,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
+  repoRoot,
   reloadPage,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -24,6 +28,8 @@ import {
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
+const desktopViewport = { deviceScaleFactor: 1, height: 900, mobile: false, width: 1440 };
+const mobileViewport = { deviceScaleFactor: 1, height: 700, mobile: false, width: 390 };
 
 if (options.help) {
   console.log(
@@ -40,6 +46,8 @@ const artifactDir = options.artifactDir || timestampedRecordingDir("settings-pag
 await writeLatestRecordingPointer("settings-page-workflow", artifactDir);
 const fixture = await createElectronFixture("settings-page-workflow");
 let context = null;
+let remoteRoot = "";
+let remoteServe = null;
 
 try {
   context = await launchElectronCdpContext({
@@ -47,10 +55,11 @@ try {
     fixture,
     visible: options.visible,
   });
+  await context.client.call("Emulation.setDeviceMetricsOverride", desktopViewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   const emptyBeforeOpen = await waitForEmptyWorkspace(context.client);
-  await clickSettingsButton(context.client);
+  await clickDesktopSettingsButton(context.client);
   const noWorkspaceSettings = await waitForSettingsPageWithoutWorkspace(context.client);
   await captureScreenshot(context.client, join(artifactDir, "no-workspace-settings-open.png"));
   await clickBackToWorkspace(context.client);
@@ -63,15 +72,28 @@ try {
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   const beforeOpen = await waitForLayoutWithoutSettings(context.client, workspaceId);
+  const savedLayoutBeforeOpen = await readPersistedUILayout(context.client, workspaceId);
   await captureScreenshot(context.client, join(artifactDir, "before-settings-open.png"));
 
-  await clickSettingsButton(context.client);
+  await clickDesktopSettingsButton(context.client);
   const afterOpen = await waitForSettingsPage(context.client, beforeOpen);
-  const shortcutWhileHidden = await assertWorkspaceShortcutSuppressed(context.client, beforeOpen);
+  const savedLayoutWhileOpen = await assertPersistedUILayoutUnchanged(
+    context.client,
+    workspaceId,
+    savedLayoutBeforeOpen,
+    "desktop Settings open",
+  );
+  const shortcutWhileHidden = await assertWorkspaceShortcutsSuppressed(context.client, beforeOpen);
   await captureScreenshot(context.client, join(artifactDir, "after-settings-open.png"));
 
   await clickBackToWorkspace(context.client);
   const afterBack = await waitForWorkspaceRestored(context.client, beforeOpen);
+  const savedLayoutAfterBack = await assertPersistedUILayoutUnchanged(
+    context.client,
+    workspaceId,
+    savedLayoutBeforeOpen,
+    "desktop Settings return",
+  );
   await captureScreenshot(context.client, join(artifactDir, "after-settings-back.png"));
 
   const targetedVoiceSettings = await openShellVoiceCredentialSettings(context.client, afterBack);
@@ -79,30 +101,105 @@ try {
   await clickBackToWorkspace(context.client);
   const afterVoiceSettingsBack = await waitForWorkspaceRestored(context.client, afterBack);
 
-  await openBrowserPane(context.client);
-  const browserOpened = await waitForBrowserPane(
+  await context.client.call("Emulation.setDeviceMetricsOverride", mobileViewport);
+  const mobileBeforeOpen = await waitForMobileWorkspace(context.client, afterVoiceSettingsBack);
+  await clickMobileSettingsButton(context.client);
+  const mobileSettings = await waitForSettingsPage(context.client, mobileBeforeOpen);
+  await captureScreenshot(context.client, join(artifactDir, "mobile-settings-open.png"));
+  await clickBackToWorkspace(context.client);
+  const afterMobileSettingsBack = await waitForWorkspaceRestored(context.client, mobileBeforeOpen);
+
+  await openMobileProjectPane(context.client);
+  const mobileProjectPaneOpen = await waitForMobileProjectPaneOpen(
     context.client,
-    workspaceId,
-    afterVoiceSettingsBack,
+    afterMobileSettingsBack,
   );
+  await clickMobileProjectSettingsButton(context.client);
+  const mobileProjectSettings = await waitForSettingsPage(context.client, mobileProjectPaneOpen);
+  await captureScreenshot(context.client, join(artifactDir, "mobile-project-settings-open.png"));
+  await clickBackToWorkspace(context.client);
+  const afterMobileProjectSettingsBack = await waitForWorkspaceRestored(
+    context.client,
+    mobileProjectPaneOpen,
+  );
+
+  await context.client.call("Emulation.setDeviceMetricsOverride", desktopViewport);
+  const desktopAfterMobile = await waitForDesktopWorkspace(
+    context.client,
+    afterMobileProjectSettingsBack,
+  );
+
+  await openBrowserPane(context.client);
+  const browserOpened = await waitForBrowserPane(context.client, workspaceId, desktopAfterMobile);
+  const nativeBrowserVisible = await waitForNativeBrowserVisible(context.client, browserOpened);
+  await clickDesktopSettingsButton(context.client);
+  const browserSettingsOpen = await waitForSettingsPage(context.client, browserOpened);
+  assertNativeBrowserOccluded(browserSettingsOpen);
+  await captureScreenshot(context.client, join(artifactDir, "browser-settings-open.png"));
+  await clickBackToWorkspace(context.client);
+  const afterBrowserSettingsBack = await waitForWorkspaceRestored(context.client, browserOpened);
+  const nativeBrowserRestored = await waitForNativeBrowserVisible(
+    context.client,
+    afterBrowserSettingsBack,
+  );
+
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   const browserRestored = await waitForBrowserLayoutRestored(context.client, browserOpened);
   await captureScreenshot(context.client, join(artifactDir, "browser-restored.png"));
 
+  remoteRoot = await mkdtemp(join(tmpdir(), "setta-settings-page-remote-"));
+  remoteServe = await startRemoteRuntime(join(remoteRoot, "app-data"));
+  const localRuntime = await activeRuntime(context.client);
+  const remoteConnected = await addRuntimeThroughPicker(context.client, remoteServe.pairingURL);
+  await clickEnabledButtonByAria(context.client, `Switch to ${localRuntime.displayName}`);
+  await waitForRuntimeStatus(context.client, "connected", { runtimeId: localRuntime.runtimeId });
+  await stopProcess(remoteServe.child);
+  await waitForRemoteRuntimeStopped(remoteConnected.baseUrl);
+  remoteServe = null;
+  await clickEnabledButtonByAria(context.client, `Switch to ${remoteConnected.displayName}`);
+  const unavailableRuntime = await waitForRuntimeStatus(context.client, "unreachable", {
+    runtimeId: remoteConnected.runtimeId,
+  });
+  await clickDesktopSettingsButton(context.client);
+  const unavailableRuntimeSettings = await waitForSettingsPageWithRuntimeStatus(
+    context.client,
+    "unreachable",
+  );
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "unavailable-runtime-settings-open.png"),
+  );
+  await clickBackToWorkspace(context.client);
+
   await writeJson(join(artifactDir, "summary.json"), {
     afterOpen,
     afterBack,
+    afterBrowserSettingsBack,
+    afterMobileProjectSettingsBack,
+    afterMobileSettingsBack,
     afterVoiceSettingsBack,
     artifactDir,
     beforeOpen,
     browserOpened,
     browserRestored,
+    browserSettingsOpen,
+    desktopAfterMobile,
+    mobileProjectPaneOpen,
+    mobileProjectSettings,
+    mobileSettings,
+    nativeBrowserRestored,
+    nativeBrowserVisible,
     noWorkspaceSettings,
+    savedLayoutAfterBack,
+    savedLayoutBeforeOpen,
+    savedLayoutWhileOpen,
     shortcutWhileHidden,
     targetedVoiceSettings,
     status: "passed",
+    unavailableRuntime,
+    unavailableRuntimeSettings,
     workspaceName: basename(fixture.workspaceRoot),
   });
   console.log(`Electron settings page workflow passed: ${artifactDir}`);
@@ -121,6 +218,12 @@ try {
   throw error;
 } finally {
   await stopElectronCdpContext(context);
+  if (remoteServe) {
+    await stopProcess(remoteServe.child);
+  }
+  if (remoteRoot) {
+    await rm(remoteRoot, { force: true, recursive: true }).catch(() => {});
+  }
 }
 
 async function waitForEmptyWorkspace(client) {
@@ -147,6 +250,8 @@ async function waitForSettingsPageWithoutWorkspace(client) {
       state.paneCount === 0 &&
       state.settingsPageOpen &&
       state.settingsPanelReady &&
+      state.settingsPageCoversViewport &&
+      state.settingsPageRole === "" &&
       state.workspaceShellHidden &&
       state.workspaceShellInert,
     workflowTimeoutMs,
@@ -194,6 +299,23 @@ async function persistLayoutWithoutSettings(client, workspaceId) {
   }
 }
 
+async function readPersistedUILayout(client, workspaceId) {
+  return client.evaluate(`(async () => {
+    const result = await window.setta.workspace.readUILayout(${JSON.stringify(workspaceId)});
+    return result.layout;
+  })()`);
+}
+
+async function assertPersistedUILayoutUnchanged(client, workspaceId, expectedLayout, label) {
+  const actual = await readPersistedUILayout(client, workspaceId);
+  if (JSON.stringify(actual) !== JSON.stringify(expectedLayout)) {
+    throw new Error(
+      `${label} changed persisted workspace layout: ${JSON.stringify({ actual, expectedLayout })}`,
+    );
+  }
+  return actual;
+}
+
 async function waitForLayoutWithoutSettings(client, workspaceId) {
   return waitForState(
     client,
@@ -203,16 +325,31 @@ async function waitForLayoutWithoutSettings(client, workspaceId) {
       state.paneCount === 3 &&
       state.paneIds.length === 3 &&
       countSurfaceKind(state, "easy-button") === 1 &&
+      state.presentationMode === "normal" &&
       !state.settingsPageOpen &&
       !state.settingsPanelReady,
     workflowTimeoutMs,
   );
 }
 
-async function clickSettingsButton(client) {
-  const result = await client.driver("settingsPageClickSettingsButton");
+async function clickDesktopSettingsButton(client) {
+  const result = await client.driver("settingsPageClickDesktopSettingsButton");
   if (!result.clicked) {
-    throw new Error("settings button was not clickable");
+    throw new Error(`desktop Settings button was not clickable: ${JSON.stringify(result)}`);
+  }
+}
+
+async function clickMobileSettingsButton(client) {
+  const result = await client.driver("settingsPageClickMobileSettingsButton");
+  if (!result.clicked) {
+    throw new Error(`mobile Settings button was not clickable: ${JSON.stringify(result)}`);
+  }
+}
+
+async function clickMobileProjectSettingsButton(client) {
+  const result = await client.driver("settingsPageClickMobileProjectSettingsButton");
+  if (!result.clicked) {
+    throw new Error(`mobile project Settings button was not clickable: ${JSON.stringify(result)}`);
   }
 }
 
@@ -225,15 +362,20 @@ async function waitForSettingsPage(client, beforeOpen) {
   );
 }
 
-async function assertWorkspaceShortcutSuppressed(client, beforeOpen) {
-  await dispatchKeyEvent(client, { code: "KeyN", key: "n", modifiers: 4 });
-  await dispatchKeyEvent(client, { code: "KeyN", key: "n", modifiers: 4, type: "keyUp" });
+async function assertWorkspaceShortcutsSuppressed(client, beforeOpen) {
+  await dispatchWorkspaceShortcut(client, { code: "KeyN", key: "n" });
+  await dispatchWorkspaceShortcut(client, { code: "KeyO", key: "o" });
   await sleep(250);
   const state = await client.driver("settingsPageState");
   if (!sameWorkspaceLayout(state, beforeOpen) || !settingsPageVisible(state)) {
     throw new Error(`hidden workspace shortcut mutated Settings state: ${JSON.stringify(state)}`);
   }
   return state;
+}
+
+async function dispatchWorkspaceShortcut(client, { code, key }) {
+  await dispatchKeyEvent(client, { code, key, modifiers: 4 });
+  await dispatchKeyEvent(client, { code, key, modifiers: 4, type: "keyUp" });
 }
 
 async function openShellVoiceCredentialSettings(client, beforeOpen) {
@@ -254,6 +396,57 @@ async function openShellVoiceCredentialSettings(client, beforeOpen) {
   );
 }
 
+async function waitForMobileWorkspace(client, beforeOpen) {
+  return waitForState(
+    client,
+    settingsPageStateExpression(),
+    (state) =>
+      sameWorkspaceLayout(state, beforeOpen) &&
+      state.compactLayout === "true" &&
+      state.mobileBarVisible &&
+      !state.shellTopBarVisible &&
+      !state.mobileProjectPaneVisible &&
+      !state.settingsPageOpen,
+    workflowTimeoutMs,
+  );
+}
+
+async function openMobileProjectPane(client) {
+  const result = await client.driver("settingsPageClickMobileProjectToggle");
+  if (!result.clicked) {
+    throw new Error(`mobile project pane toggle was not clickable: ${JSON.stringify(result)}`);
+  }
+}
+
+async function waitForMobileProjectPaneOpen(client, beforeOpen) {
+  return waitForState(
+    client,
+    settingsPageStateExpression(),
+    (state) =>
+      sameWorkspaceLayout(state, beforeOpen) &&
+      state.compactLayout === "true" &&
+      state.mobileBarVisible &&
+      state.mobileProjectPaneVisible &&
+      !state.settingsPageOpen,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForDesktopWorkspace(client, beforeOpen) {
+  return waitForState(
+    client,
+    settingsPageStateExpression(),
+    (state) =>
+      sameWorkspaceLayout(state, beforeOpen) &&
+      state.compactLayout === "false" &&
+      state.shellTopBarVisible &&
+      !state.mobileBarVisible &&
+      !state.mobileProjectPaneVisible &&
+      !state.settingsPageOpen,
+    workflowTimeoutMs,
+  );
+}
+
 async function clickBackToWorkspace(client) {
   const result = await client.driver("settingsPageClickBack");
   if (!result.clicked) {
@@ -265,17 +458,33 @@ async function waitForWorkspaceRestored(client, beforeOpen) {
   return waitForState(
     client,
     settingsPageStateExpression(),
-    (state) =>
-      state.workspaceId === beforeOpen.workspaceId &&
-      state.paneCount === beforeOpen.paneCount &&
-      sameList(state.paneIds, beforeOpen.paneIds) &&
-      state.focusedPaneId === beforeOpen.focusedPaneId &&
-      !state.settingsPageOpen &&
-      !state.settingsPanelReady &&
-      !state.workspaceShellHidden &&
-      !state.workspaceShellInert &&
-      !state.nativeViewOverlayActive,
+    (state) => workspaceRestored(state, beforeOpen),
     workflowTimeoutMs,
+  );
+}
+
+function workspaceRestored(state, beforeOpen) {
+  return (
+    sameWorkspaceLayout(state, beforeOpen) &&
+    sameMobileShellState(state, beforeOpen) &&
+    settingsPageClosed(state) &&
+    !state.nativeViewOverlayActive
+  );
+}
+
+function sameMobileShellState(state, expected) {
+  return (
+    state.mobileBarVisible === expected.mobileBarVisible &&
+    state.mobileProjectPaneVisible === expected.mobileProjectPaneVisible
+  );
+}
+
+function settingsPageClosed(state) {
+  return (
+    !state.settingsPageOpen &&
+    !state.settingsPanelReady &&
+    !state.workspaceShellHidden &&
+    !state.workspaceShellInert
   );
 }
 
@@ -313,6 +522,247 @@ async function waitForBrowserLayoutRestored(client, expected) {
   );
 }
 
+async function waitForNativeBrowserVisible(client, expected) {
+  return waitForState(
+    client,
+    settingsPageStateExpression(),
+    (state) =>
+      sameWorkspaceLayout(state, expected) &&
+      state.browserVisible &&
+      state.nativeViewStats?.visibleBrowserPanes >= 1 &&
+      state.nativeViewStats?.registered >= 1 &&
+      state.nativeViewStats?.live >= 1,
+    workflowTimeoutMs,
+  );
+}
+
+function assertNativeBrowserOccluded(state) {
+  if (
+    state.nativeViewStats?.registered < 1 ||
+    state.nativeViewStats?.visibleBrowserPanes !== 0 ||
+    state.nativeViewStats?.live !== 0 ||
+    state.nativeViewStats?.hidden < 1
+  ) {
+    throw new Error(`Browser native view was not occluded by Settings: ${JSON.stringify(state)}`);
+  }
+}
+
+async function waitForSettingsPageWithRuntimeStatus(client, status) {
+  return waitForState(
+    client,
+    settingsPageStateExpression(),
+    (state) =>
+      state.runtimeConnectionStatus === status &&
+      state.workspaceId === "" &&
+      state.paneCount === 0 &&
+      settingsPageVisible(state),
+    workflowTimeoutMs,
+  );
+}
+
+async function addRuntimeThroughPicker(client, pairingURL) {
+  await clickEnabledButtonByAria(client, "Add runtime", workflowTimeoutMs);
+  await waitForState(
+    client,
+    `(() => ({ ready: Boolean(document.querySelector('input[aria-label="Runtime pairing URL"]')) }))()`,
+    (value) => value.ready,
+    workflowTimeoutMs,
+  );
+  await setInputValue(client, 'input[aria-label="Runtime pairing URL"]', pairingURL);
+  const submitted = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="runtime-picker"] form button[type="submit"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!submitted) {
+    throw new Error("runtime pairing form submit button was not clickable");
+  }
+  const snapshot = await waitForRuntimeStatus(client, "connected", { isLocal: false });
+  const active = snapshot.runtimes.find((runtime) => runtime.active && !runtime.isLocal);
+  if (!active) {
+    throw new Error(`remote runtime did not become active: ${JSON.stringify(snapshot)}`);
+  }
+  return active;
+}
+
+async function activeRuntime(client) {
+  const snapshot = await runtimeSnapshot(client);
+  const active = snapshot.runtimes.find((runtime) => runtime.active);
+  if (!active) {
+    throw new Error(`active runtime missing: ${JSON.stringify(snapshot)}`);
+  }
+  return active;
+}
+
+async function waitForRuntimeStatus(client, status, filter = {}) {
+  return waitForState(
+    client,
+    `(async () => window.setta.runtimes.current())()`,
+    (snapshot) => {
+      if (snapshot.switching || snapshot.connection.status !== status) {
+        return false;
+      }
+      if (filter.runtimeId && snapshot.connection.runtimeId !== filter.runtimeId) {
+        return false;
+      }
+      if (filter.isLocal !== undefined) {
+        const active = snapshot.runtimes.find((runtime) => runtime.active);
+        return active?.isLocal === filter.isLocal;
+      }
+      return true;
+    },
+    workflowTimeoutMs,
+  );
+}
+
+async function runtimeSnapshot(client) {
+  return client.evaluate(`(async () => window.setta.runtimes.current())()`);
+}
+
+async function setInputValue(client, selector, value) {
+  const changed = await client.evaluate(`(() => {
+    const input = document.querySelector(${JSON.stringify(selector)});
+    if (!(input instanceof HTMLInputElement) || input.disabled) {
+      return false;
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    descriptor?.set?.call(input, ${JSON.stringify(value)});
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  })()`);
+  if (!changed) {
+    throw new Error(`input was not editable: ${selector}`);
+  }
+  await waitForState(
+    client,
+    `(() => document.querySelector(${JSON.stringify(selector)})?.value ?? "")()`,
+    (currentValue) => currentValue === value,
+    workflowTimeoutMs,
+  );
+}
+
+async function startRemoteRuntime(appDataDir) {
+  await mkdir(appDataDir, { recursive: true });
+  const child = spawn(
+    join(repoRoot, "scripts/go.sh"),
+    ["run", "./cmd/setta", "serve", "--app-data-dir", appDataDir, "--port", "0"],
+    {
+      cwd: repoRoot,
+      detached: true,
+      env: {
+        ...process.env,
+        SETTA_E2E: "1",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  child.logs = [];
+  child.stdout.on("data", (data) => appendProcessLog(child, data));
+  child.stderr.on("data", (data) => appendProcessLog(child, data));
+  const pairingURL = await waitForPairingURL(child);
+  return { child, pairingURL };
+}
+
+function appendProcessLog(child, data) {
+  const text = data.toString();
+  child.logs.push(text);
+  if (child.logs.length > 200) {
+    child.logs.splice(0, child.logs.length - 200);
+  }
+}
+
+async function waitForPairingURL(child) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    const output = child.logs.join("");
+    const match = output.match(/setta:\/\/pair\?[^\s]+/);
+    if (match) {
+      return match[0];
+    }
+    if (child.exitCode !== null) {
+      throw new Error(`remote setta serve exited before pairing URL:\n${output}`);
+    }
+    await sleep(100);
+  }
+  throw new Error(`timed out waiting for remote pairing URL:\n${child.logs.join("")}`);
+}
+
+async function waitForRemoteRuntimeStopped(baseUrl) {
+  const runtimeInfoURL = new URL("runtime/info", baseUrl).toString();
+  const startedAt = Date.now();
+  let lastProbe = null;
+  while (Date.now() - startedAt < workflowTimeoutMs) {
+    lastProbe = await probeRuntimeInfo(runtimeInfoURL);
+    if (!lastProbe.reachable) {
+      return;
+    }
+    await sleep(100);
+  }
+  throw new Error(
+    `remote runtime still answered ${runtimeInfoURL} after stop: ${JSON.stringify(lastProbe)}`,
+  );
+}
+
+async function probeRuntimeInfo(runtimeInfoURL) {
+  try {
+    const response = await fetch(runtimeInfoURL, {
+      method: "GET",
+      signal: AbortSignal.timeout(1_000),
+    });
+    const body = await response.text();
+    return {
+      body: body.slice(0, 500),
+      reachable: true,
+      status: response.status,
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : String(error),
+      reachable: false,
+    };
+  }
+}
+
+async function stopProcess(child) {
+  if (!child) {
+    return;
+  }
+  const exited = new Promise((resolvePromise) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      resolvePromise();
+      return;
+    }
+    child.once("close", resolvePromise);
+  });
+  signalProcessGroup(child, "SIGTERM");
+  const stopped = await Promise.race([exited.then(() => true), sleep(8_000).then(() => false)]);
+  if (!stopped && child.exitCode === null && child.signalCode === null) {
+    signalProcessGroup(child, "SIGKILL");
+    await Promise.race([exited, sleep(3_000)]);
+  }
+}
+
+function signalProcessGroup(child, signal) {
+  if (child.pid === undefined) {
+    return false;
+  }
+  if (process.platform === "win32") {
+    child.kill(signal);
+    return true;
+  }
+  try {
+    process.kill(-child.pid, signal);
+    return true;
+  } catch {
+    child.kill(signal);
+    return false;
+  }
+}
+
 async function safeSettingsState(client) {
   try {
     return await client.driver("settingsPageState");
@@ -345,19 +795,33 @@ function sameWorkspaceLayout(state, expected) {
     state.workspaceId === expected.workspaceId &&
     state.paneCount === expected.paneCount &&
     sameList(state.paneIds, expected.paneIds) &&
-    state.focusedPaneId === expected.focusedPaneId
+    state.focusedPaneId === expected.focusedPaneId &&
+    state.maximizedPaneId === expected.maximizedPaneId &&
+    state.presentationMode === expected.presentationMode
   );
 }
 
 function settingsPageVisible(state) {
+  return settingsPageChromeVisible(state) && settingsPageOccludesNativeViews(state);
+}
+
+function settingsPageChromeVisible(state) {
   return (
     state.settingsPageOpen &&
     state.settingsPanelReady &&
     state.settingsBackVisible &&
+    state.settingsPageCoversViewport &&
+    state.settingsPageRole === "" &&
     state.workspaceShellHidden &&
-    state.workspaceShellInert &&
-    state.nativeViewOverlayActive
+    state.workspaceShellInert
   );
+}
+
+function settingsPageOccludesNativeViews(state) {
+  if (!state.browserVisible && !state.nativeViewStats?.registered) {
+    return true;
+  }
+  return state.nativeViewOverlayActive;
 }
 
 function browserPaneAdded(state, workspaceId, beforeOpen) {

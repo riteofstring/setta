@@ -1,7 +1,7 @@
-/* global HTMLButtonElement, HTMLElement, document */
+/* global HTMLButtonElement, HTMLElement, document, window */
 
 (() => {
-  const version = "setta-settings-page-driver-v2";
+  const version = "setta-settings-page-driver-v3";
   const driver = globalThis.__settaE2EDriver;
   if (!driver) {
     throw new Error("base Setta E2E driver is not installed");
@@ -9,6 +9,10 @@
 
   Object.assign(driver, {
     settingsPageClickBack,
+    settingsPageClickDesktopSettingsButton,
+    settingsPageClickMobileProjectSettingsButton,
+    settingsPageClickMobileProjectToggle,
+    settingsPageClickMobileSettingsButton,
     settingsPageClickSettingsButton,
     settingsPageClickShellVoiceSetup,
     settingsPageOpenBrowserPane,
@@ -17,12 +21,25 @@
   });
 
   function settingsPageClickSettingsButton() {
-    const button = buttonByAriaLabel("Open settings");
-    if (!button || button.disabled) {
-      return { clicked: false };
-    }
-    button.click();
-    return { clicked: true };
+    return settingsPageClickDesktopSettingsButton();
+  }
+
+  function settingsPageClickDesktopSettingsButton() {
+    return clickButtonBySelector('[data-testid="shell-settings-button"]');
+  }
+
+  function settingsPageClickMobileSettingsButton() {
+    return clickButtonBySelector('[data-testid="workspace-mobile-settings"]');
+  }
+
+  function settingsPageClickMobileProjectToggle() {
+    return clickButtonBySelector('[data-testid="workspace-mobile-project-toggle"]');
+  }
+
+  function settingsPageClickMobileProjectSettingsButton() {
+    return clickButtonBySelector(
+      '[data-testid="mobile-project-pane"] button[aria-label="Open settings"]',
+    );
   }
 
   function settingsPageClickBack() {
@@ -55,19 +72,48 @@
     return { clicked: true };
   }
 
-  function settingsPageState() {
+  async function settingsPageState() {
     const area = elementByTestId("workspace-layout-area");
     const workspaceShell = elementByTestId("app-workspace-shell");
     const settingsPage = elementByTestId("settings-shell-page");
     const hosts = visibleWorkspaceHosts();
     const focused = hosts.find((host) => host.dataset.focused === "true");
+    const nativeViewStats = await readNativeViewStats();
+    const runtime = await readRuntimeSnapshot();
     return {
       ...workspaceHostState(hosts, focused),
       ...workspaceAreaState(area),
       ...settingsShellState(settingsPage, workspaceShell),
+      ...settingsChromeState(),
+      ...runtimeState(runtime),
       emptyWorkspaceVisible: hasTestId("workspace-empty-state"),
       layoutRecoveryVisible: hasTestId("workspace-layout-recovery"),
+      nativeViewStats,
     };
+  }
+
+  function settingsChromeState() {
+    return {
+      mobileBarVisible: hasTestId("workspace-mobile-bar"),
+      mobileProjectPaneVisible: hasTestId("mobile-project-pane"),
+      shellTopBarVisible: hasTestId("shell-top-bar"),
+    };
+  }
+
+  function runtimeState(runtime) {
+    const activeRuntime = activeRuntimeFromSnapshot(runtime);
+    return {
+      runtimeActiveIsLocal: activeRuntime?.isLocal ?? null,
+      runtimeActiveName: activeRuntime?.displayName ?? "",
+      runtimeConnectionStatus: runtime?.connection?.status ?? "",
+    };
+  }
+
+  function activeRuntimeFromSnapshot(runtime) {
+    if (!runtime || !Array.isArray(runtime.runtimes)) {
+      return null;
+    }
+    return runtime.runtimes.find((item) => item.active) ?? null;
   }
 
   function workspaceHostState(hosts, focused) {
@@ -83,8 +129,12 @@
 
   function workspaceAreaState(area) {
     return {
+      browserPaneCount: Number(dataValue(area, "browserPaneCount", "0")),
+      compactLayout: dataValue(area, "compactLayout", ""),
+      maximizedPaneId: dataValue(area, "maximizedPaneId", ""),
       nativeViewOverlayActive: dataFlag(area, "nativeViewOverlayActive"),
       paneCount: Number(dataValue(area, "paneCount", "0")),
+      presentationMode: dataValue(area, "presentationMode", ""),
       workspaceId: dataValue(area, "workspaceId", ""),
     };
   }
@@ -100,7 +150,9 @@
       openAIVoiceCardFocused: document.activeElement === openAIVoiceCard,
       openAIVoiceCardVisible: openAIVoiceCard !== null,
       settingsBackVisible: Boolean(settingsPageButtonByText("Back to workspace")),
+      settingsPageCoversViewport: coversViewport(settingsPage),
       settingsPageOpen: settingsPage !== null,
+      settingsPageRole: settingsPage?.getAttribute("role") ?? "",
       settingsPanelReady: Boolean(document.querySelector("#settings-subtab-theme")),
       workspaceShellHidden: workspaceShell?.getAttribute("aria-hidden") === "true",
       workspaceShellInert: Boolean(workspaceShell?.hasAttribute("inert")),
@@ -116,11 +168,13 @@
     );
   }
 
-  function buttonByAriaLabel(label) {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === label,
-    );
-    return button instanceof HTMLButtonElement ? button : null;
+  function clickButtonBySelector(selector) {
+    const button = document.querySelector(selector);
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false, selector };
+    }
+    button.click();
+    return { clicked: true, selector };
   }
 
   function settingsPageButtonByText(text) {
@@ -146,5 +200,34 @@
 
   function dataFlag(element, key) {
     return element instanceof HTMLElement && element.dataset[key] === "true";
+  }
+
+  function coversViewport(element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+    const rect = element.getBoundingClientRect();
+    return (
+      Math.abs(rect.left) <= 1 &&
+      Math.abs(rect.top) <= 1 &&
+      Math.abs(rect.width - window.innerWidth) <= 1 &&
+      Math.abs(rect.height - window.innerHeight) <= 1
+    );
+  }
+
+  async function readNativeViewStats() {
+    try {
+      return (await window.setta?.workspaceNativeViews?.readBrowserViewStats?.()) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function readRuntimeSnapshot() {
+    try {
+      return (await window.setta?.runtimes?.current?.()) ?? null;
+    } catch {
+      return null;
+    }
   }
 })();
