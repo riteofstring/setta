@@ -333,14 +333,25 @@ Implemented on 2026-07-20:
     absolute guarded inputs, verifies the complete signed runtime and image
     build context before the first provider mutation, and preserves an
     independent cleanup context through the manifest deadline.
+32. `scripts/release/prepare-hosted-measurement.sh` now produces the complete
+    private control-plane build context and deterministic signed Linux AMD64
+    runtime release in one fail-closed operation. It uses an ephemeral
+    unencrypted Minisign key that is removed with its private temporary
+    directory, verifies the resulting signature, and pins the custom verifier
+    digest in the release manifest. The ignored local bundle for commit
+    `db0275a17` passed independent signature, archive, inner-binary, verifier,
+    and control-plane checksum verification without contacting either
+    provider.
 
 Still required before a live create/deployment mutation:
 
-1. Prepare one private checked control-plane build context and signed Linux
-   AMD64 runtime release for the exact commit selected for the live run.
-2. Supply a newly valid manifest with an explicit Fly organization slug and
-   region. A read-only check on 2026-07-20 found the local Fly identity exposes
-   only organization `personal`; it does not expose a Fly organization named
-   `setta-100`. The same check found no existing `setta-gateway-` Sprite in the
-   Sprites `setta-100` organization. No target was inferred and no mutation was
-   attempted.
+1. Supply a newly valid manifest with a current owner authorization, explicit
+   Fly organization slug, and Fly region. A read-only check on 2026-07-20 found
+   the local Fly identity exposes only organization `personal`; it does not
+   expose a Fly organization named `setta-100`. The same check found no
+   existing `setta-gateway-` Sprite in the Sprites `setta-100` organization.
+   No Fly target was inferred and no mutation was attempted.
+2. Place three distinct mode-0600 credentials in that manifest's private state
+   directory: a short-lived Fly mutation token, an independently scoped Fly
+   inventory token, and the Sprites organization token. Credential values must
+   not be added to the manifest or repository.
