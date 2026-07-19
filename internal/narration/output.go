@@ -16,7 +16,7 @@ const (
 	MaxNarratorMilestonesPerCall         = 1
 	MaxNarratorMilestoneCharacters       = 200
 	MaxNarratorCurrentFocusCharacters    = 240
-	MaxNarratorFinalSummaryCharacters    = 480
+	MaxNarratorFinalSummaryCharacters    = 220
 	MaxNarratorStatusReplyCharacters     = 400
 	MaxNarratorTopicDescriptorCharacters = 160
 )

@@ -200,7 +200,10 @@ export function assertRoutedConversationInputDecision(state, expectedInput, expe
   if (!decision?.routerContext?.allowedDecisionKinds?.includes(expectedKind)) {
     throw new Error(`routed decision was outside its authority: ${JSON.stringify(decision)}`);
   }
-  assertConversationRouterInvocation(decision.resolvedInvocation);
+  assertConversationRouterInvocation(
+    decision.resolvedInvocation,
+    decision.routerContext.decisionAuthority,
+  );
 }
 
 function routedConversationInputDecisionSummary(state) {
@@ -369,7 +372,10 @@ function assertRoutedConversationInputState(state, expectedInput, expectedRoute)
   );
   const decision = state.decisions[0];
   assertConversationRouterDecision(decision, expectedInput, expectedRoute);
-  assertConversationRouterInvocation(decision.resolvedInvocation);
+  assertConversationRouterInvocation(
+    decision.resolvedInvocation,
+    decision.routerContext.decisionAuthority,
+  );
 }
 
 function assertConversationRouterDecision(decision, expectedInput, expectedRoute) {
@@ -403,6 +409,7 @@ function assertIdleConversationRouterContextAudit(audit, inputSequence) {
     allowedDecisionKinds: audit.allowedDecisionKinds,
     availableTrajectoryRange: audit.availableTrajectoryRange,
     clarificationInputSequence: audit.clarificationInputSequence,
+    decisionAuthority: audit.decisionAuthority,
     includedTrajectoryRange: audit.includedTrajectoryRange,
     inputSequence: audit.inputSequence,
     latestTrajectorySequence: audit.latestTrajectorySequence,
@@ -414,6 +421,7 @@ function assertIdleConversationRouterContextAudit(audit, inputSequence) {
     allowedDecisionKinds: expectedAllowedKinds,
     availableTrajectoryRange: null,
     clarificationInputSequence: null,
+    decisionAuthority: "product_invariant",
     includedTrajectoryRange: null,
     inputSequence,
     latestTrajectorySequence: 0,
@@ -442,6 +450,7 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
       allowedDecisionKinds: audit.allowedDecisionKinds,
       availableTrajectoryEnd: audit.availableTrajectoryRange?.end,
       clarificationInputSequence: audit.clarificationInputSequence,
+      decisionAuthority: audit.decisionAuthority,
       includedTrajectoryEnd: audit.includedTrajectoryRange?.end,
       inputSequence: audit.inputSequence,
       priorNarrationCount: audit.priorNarrationCount,
@@ -452,6 +461,7 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
       allowedDecisionKinds: expectedAllowedKinds,
       availableTrajectoryEnd: audit.latestTrajectorySequence,
       clarificationInputSequence: null,
+      decisionAuthority: "narrator_model",
       includedTrajectoryEnd: audit.latestTrajectorySequence,
       inputSequence,
       priorNarrationCount: 3,
@@ -462,7 +472,7 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
   );
 }
 
-function assertConversationRouterInvocation(invocation) {
+function assertConversationRouterInvocation(invocation, expectedAuthority) {
   const actual = {
     approvals: invocation.resolved.permissionProfile.approvals,
     modelMode: invocation.requested.modelSelection.mode,
@@ -487,7 +497,16 @@ function assertConversationRouterInvocation(invocation) {
     toolAccessMode: "none",
     workspaceMutation: false,
   };
+  if (expectedAuthority === "product_invariant") {
+    expected.resolvedModelId = "product-invariant";
+  }
   assertEqualJSON(actual, expected, "conversation-router invocation");
+  if (expectedAuthority === "product_invariant") {
+    assertNullish(invocation.providerReferences.threadId, "conversation-router thread id");
+    assertNullish(invocation.providerReferences.turnId, "conversation-router turn id");
+    assertNullish(invocation.providerReferences.requestId, "conversation-router request id");
+    return;
+  }
   assertNonEmptyString(invocation.providerReferences.threadId, "conversation-router thread id");
   assertNonEmptyString(invocation.providerReferences.turnId, "conversation-router turn id");
   assertNonEmptyString(invocation.providerReferences.requestId, "conversation-router request id");
@@ -501,6 +520,12 @@ function assertEqualJSON(actual, expected, label) {
 
 function assertNonEmptyString(value, label) {
   if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`invalid ${label}: ${JSON.stringify(value)}`);
+  }
+}
+
+function assertNullish(value, label) {
+  if (value !== null && value !== undefined) {
     throw new Error(`invalid ${label}: ${JSON.stringify(value)}`);
   }
 }

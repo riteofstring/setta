@@ -270,7 +270,7 @@ function validEphemeralSideSettings(params) {
   return [
     !Object.hasOwn(params, "lastTurnId"),
     params.model === "gpt-5.6-luna",
-    params.approvalPolicy === "on-request",
+    params.approvalPolicy === "never",
     params.sandbox === "read-only",
     params.serviceTier === null,
     config.model_reasoning_effort === "medium",
@@ -1440,7 +1440,7 @@ function fakeThread(threadId) {
 
 function threadOperationResponse(thread, state) {
   return {
-    approvalPolicy: state.approvalPolicy ?? "on-request",
+    approvalPolicy: state.approvalPolicy ?? "never",
     approvalsReviewer: "user",
     cwd: state.cwd ?? "/tmp/setta-topic-codex",
     instructionSources: [],

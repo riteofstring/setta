@@ -211,19 +211,7 @@ export function conversationProjectionNeedsKeepAlive(snapshot: ConversationSnaps
     return false;
   }
   const status = snapshot.conversation.status;
-  if (status === "working" || status === "waiting_for_approval") {
-    return true;
-  }
-  if (snapshot.narratorState.degradation?.retryable === false) {
-    return false;
-  }
-  const latestTurn = snapshot.turns.turns.at(-1);
-  if (!latestTurn) {
-    return false;
-  }
-  return !snapshot.narration.events.some(
-    (event) => event.kind === "final_summary" && event.turnId === latestTurn.id,
-  );
+  return status === "working" || status === "waiting_for_approval";
 }
 
 function resyncConversationProjection(workspaceId: string, conversationId: string): Promise<void> {

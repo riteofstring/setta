@@ -27,27 +27,38 @@ func (sink *conversationAgentEventSink) HandleAgentEvent(event agent.Event) erro
 
 func (service *Service) runTurn(active *activeConversationTurn) {
 	defer service.turns.Done()
-	invocationID, err := service.newID("invocation")
-	if err != nil {
+	for {
+		invocationID, err := service.newID("invocation")
+		if err != nil {
+			service.finishRunTurn(active, err)
+			return
+		}
+		resolved, err := service.agent.ResolveInvocation(service.lifecycleCtx, active.request.Invocation)
+		if err != nil {
+			service.finishRunTurn(active, fmt.Errorf("resolve agent invocation: %w", err))
+			return
+		}
+		_, err = service.agent.RunTurn(
+			service.lifecycleCtx,
+			active.request,
+			&conversationAgentEventSink{
+				invocationID: invocationID,
+				resolved:     resolved,
+				service:      service,
+				turn:         active,
+			},
+		)
+		retry, retryErr := service.repairMissingProviderThreadBeforeTurnStart(active, err)
+		if retryErr != nil {
+			service.finishRunTurn(active, errors.Join(err, retryErr))
+			return
+		}
+		if retry {
+			continue
+		}
 		service.finishRunTurn(active, err)
 		return
 	}
-	resolved, err := service.agent.ResolveInvocation(service.lifecycleCtx, active.request.Invocation)
-	if err != nil {
-		service.finishRunTurn(active, fmt.Errorf("resolve agent invocation: %w", err))
-		return
-	}
-	_, err = service.agent.RunTurn(
-		service.lifecycleCtx,
-		active.request,
-		&conversationAgentEventSink{
-			invocationID: invocationID,
-			resolved:     resolved,
-			service:      service,
-			turn:         active,
-		},
-	)
-	service.finishRunTurn(active, err)
 }
 
 func (service *Service) finishRunTurn(active *activeConversationTurn, runErr error) {

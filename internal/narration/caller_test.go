@@ -112,7 +112,8 @@ func testCallerWorkingProjection(t *testing.T) {
 	)
 	assertSchemaMilestoneField(t, provider.requests[0].OutputSchema)
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
-		"For working projections, return an empty milestone list when no meaningful user-facing change occurred.",
+		"Milestones are shown in the Now rail and read aloud when narrator voice is enabled",
+		"prefer an empty milestone list for normal progress, repeated blocked states",
 		"Write for the user whose objective appears in the supplied context.",
 		"Lead with the observable outcome",
 		"Prefer: no milestone.",
@@ -139,11 +140,12 @@ func testCallerTerminalProjection(t *testing.T) {
 		[]string{"finalSummary", "kind", "milestones", "observedThroughSequence"},
 	)
 	assertSchemaIntegerBounds(t, provider.requests[0].OutputSchema, "observedThroughSequence", 3, 3)
-	assertSchemaTextField(t, provider.requests[0].OutputSchema, "finalSummary", MaxNarratorFinalSummaryCharacters, "Outcome plus important evidence")
+	assertSchemaTextField(t, provider.requests[0].OutputSchema, "finalSummary", MaxNarratorFinalSummaryCharacters, "One short outcome sentence")
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
-		"finalSummary states the outcome plus important evidence or caveats.",
+		"finalSummary is one short sentence summarizing the outcome.",
+		"If an artifact contains the detailed result, mention the artifact without repeating its contents.",
 		"Write for the user whose objective appears in the supplied context.",
-		"If the turn failed or was stopped, say so directly.",
+		"If the turn failed or was stopped, say so directly and include only the important caveat.",
 	})
 }
 
@@ -291,7 +293,7 @@ func TestNarratorOutputRejectsNewFieldLimitOverflows(t *testing.T) {
 				},
 			},
 			context: terminalContext,
-			message: "narrator final summary exceeds 480 characters",
+			message: "narrator final summary exceeds 220 characters",
 		},
 		{
 			name: "status reply",
@@ -821,7 +823,7 @@ func assertSchemaNullableTextField(
 func assertSchemaMilestoneField(t *testing.T, raw json.RawMessage) {
 	t.Helper()
 	value := schemaProperty(t, raw, "milestones")
-	assertSchemaDescription(t, value, "milestones", "Meaningful new user-facing results")
+	assertSchemaDescription(t, value, "milestones", "Audible user-facing results")
 	if value["maxItems"] != float64(MaxNarratorMilestonesPerCall) {
 		t.Fatalf("milestones maxItems = %v, want %d", value["maxItems"], MaxNarratorMilestonesPerCall)
 	}

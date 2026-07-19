@@ -58,26 +58,6 @@ func TestServiceProjectsTerminalBacklogInOrderAndCheckpointsBeforeResuming(t *te
 	assertTerminalProjectorCalls(t, provider.snapshotCalls(), terminal.Sequence)
 }
 
-func TestServiceRecoversCommittedTerminalBacklogAfterRestart(t *testing.T) {
-	store := newProjectorTestStore(t)
-	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
-	provider := &projectorTestAgentRuntime{}
-	service := newProjectorTestService(t, store, provider)
-	if err := service.RecoverCommittedTrajectory(context.Background()); err != nil {
-		t.Fatalf("RecoverCommittedTrajectory: %v", err)
-	}
-
-	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
-		return current.NarratorState.ObservedThroughSequence == terminal.Sequence &&
-			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
-	})
-	assertTerminalProjectorState(t, snapshot, turnID)
-	if calls := provider.snapshotCalls(); len(calls) == 0 ||
-		calls[len(calls)-1].requestedChannel != ProjectionChannelTerminal {
-		t.Fatalf("recovered projector calls = %+v", calls)
-	}
-}
-
 func TestServiceWaitsForAcceptedInputFocusBeforeTerminalProjection(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
@@ -377,7 +357,7 @@ func TestServiceFinalizesTerminalProjectionAfterCheckpointCaughtUp(t *testing.T)
 	}
 }
 
-func TestServiceTerminalCatchUpSurvivesWorkingMilestoneCadence(t *testing.T) {
+func TestServiceProgressProjectionDoesNotBackfillHistoricalTerminal(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, _ := seedFailedTerminalProjectorConversation(t, store)
 	provider := &projectorTestAgentRuntime{emitProjectionMilestones: true}
@@ -397,14 +377,30 @@ func TestServiceTerminalCatchUpSurvivesWorkingMilestoneCadence(t *testing.T) {
 	)
 	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
 		if current.NarratorState.Degradation != nil {
-			t.Fatalf("terminal catch-up degraded narrator: degradation=%+v calls=%+v",
+			t.Fatalf("historical terminal projection degraded narrator: degradation=%+v calls=%+v",
 				*current.NarratorState.Degradation,
 				provider.snapshotCalls(),
 			)
 		}
-		return latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+		return current.NarratorState.ObservedThroughSequence == 14
 	})
-	assertTerminalProjectorState(t, snapshot, turnID)
+	if final := latestNarrationOfKind(snapshot, conversation.NarrationEventKindFinalSummary); final != nil {
+		t.Fatalf("historical terminal was backfilled without a live terminal observation: %+v", final)
+	}
+	calls := provider.snapshotCalls()
+	terminalCalls := []projectorTestCall{}
+	coveredThrough := 0
+	for _, call := range calls {
+		if call.requestedChannel == ProjectionChannelTerminal {
+			terminalCalls = append(terminalCalls, call)
+		}
+		if call.requestedChannel == ProjectionChannelWorking && call.evaluationEnd > coveredThrough {
+			coveredThrough = call.evaluationEnd
+		}
+	}
+	if len(terminalCalls) != 0 || coveredThrough != 14 {
+		t.Fatalf("historical terminal progress calls = %+v", calls)
+	}
 }
 
 func TestServiceReadmitsTerminalProjectionAfterRetryExhaustion(t *testing.T) {

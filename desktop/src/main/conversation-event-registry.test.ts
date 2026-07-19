@@ -1,9 +1,7 @@
 import type {
   ConversationEvent,
   ConversationEventCursor,
-  ConversationTurn,
   NarrationEvent,
-  NarratorState,
   TopicConversation,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
@@ -11,94 +9,42 @@ import { describe, expect, test, vi } from "vitest";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 
 describe("conversation event registry", () => {
-  test("keeps a pane-released stream through terminal narration before stopping it", async () => {
+  test("keeps a pane-released active stream until the conversation leaves active work", async () => {
     const harness = registryHarness();
     harness.registry.subscribe(harness.sender, target, cursor);
     await harness.registry.release(harness.sender, target, true);
 
-    harness.forward(conversationUpdated("idle"));
-    harness.forward(turnUpdated("turn_terminal"));
-    harness.forward(conversationUpdated("idle"));
+    harness.forward(conversationUpdated("working"));
     harness.forward(narrationCreated("milestone"));
     expect(harness.stop).not.toHaveBeenCalled();
 
-    harness.forward(narrationCreated("final_summary", "turn_terminal"));
+    harness.forward(conversationUpdated("idle"));
     await Promise.resolve();
 
-    expect(harness.sender.send).toHaveBeenCalledTimes(5);
+    expect(harness.sender.send).toHaveBeenCalledTimes(3);
     expect(harness.stop).toHaveBeenCalledOnce();
   });
 
-  test("stops a terminal retained stream when narration degrades without a retry path", async () => {
+  test("keeps a waiting-for-approval stream and ignores final narration as a stop boundary", async () => {
     const harness = registryHarness();
     harness.registry.subscribe(harness.sender, target, cursor);
     await harness.registry.release(harness.sender, target, true);
+
+    harness.forward(conversationUpdated("waiting_for_approval"));
+    harness.forward(narrationCreated("final_summary", "turn_terminal"));
+    expect(harness.stop).not.toHaveBeenCalled();
 
     harness.forward(conversationUpdated("failed"));
-    harness.forward(narratorStateUpdated(false));
     await Promise.resolve();
 
-    expect(harness.sender.send).toHaveBeenCalledTimes(2);
     expect(harness.stop).toHaveBeenCalledOnce();
   });
 
-  test("keeps a terminal retained stream through retryable narrator degradation", async () => {
+  test("stops immediately when a released stream is not kept alive", async () => {
     const harness = registryHarness();
     harness.registry.subscribe(harness.sender, target, cursor);
-    await harness.registry.release(harness.sender, target, true);
-
-    harness.forward(conversationUpdated("idle"));
-    harness.forward(turnUpdated("turn_terminal"));
-    harness.forward(narratorStateUpdated(true));
-    harness.forward(narrationCreated("final_summary", "turn_terminal"));
-    await Promise.resolve();
-
-    expect(harness.sender.send).toHaveBeenCalledTimes(4);
-    expect(harness.stop).toHaveBeenCalledOnce();
-  });
-
-  test("does not treat working narrator output as the terminal keep-alive boundary", async () => {
-    const harness = registryHarness();
-    harness.registry.subscribe(harness.sender, target, cursor);
-    await harness.registry.release(harness.sender, target, true);
-
-    harness.forward(conversationUpdated("idle"));
-    harness.forward(turnUpdated("turn_terminal"));
-    harness.forward(conversationUpdated("working"));
-    harness.forward(narrationCreated("final_summary", "turn_terminal"));
-    expect(harness.stop).not.toHaveBeenCalled();
 
     await harness.registry.release(harness.sender, target, false);
-    expect(harness.stop).toHaveBeenCalledOnce();
-  });
-
-  test("waits for the current terminal turn when an older final summary arrives late", async () => {
-    const harness = registryHarness();
-    harness.registry.subscribe(harness.sender, target, cursor);
-    await harness.registry.release(harness.sender, target, true);
-
-    harness.forward(conversationUpdated("idle", 9));
-    harness.forward(turnUpdated("turn_older"));
-    harness.forward(conversationUpdated("idle", 10));
-    harness.forward(turnUpdated("turn_current"));
-    harness.forward(narrationCreated("final_summary", "turn_older"));
-    expect(harness.stop).not.toHaveBeenCalled();
-
-    harness.forward(narrationCreated("final_summary", "turn_current"));
-    await Promise.resolve();
-
-    expect(harness.stop).toHaveBeenCalledOnce();
-  });
-
-  test("retains a stream released after the terminal transition until final narration", async () => {
-    const harness = registryHarness();
-    harness.registry.subscribe(harness.sender, target, cursor);
-    harness.forward(conversationUpdated("idle"));
-    harness.forward(turnUpdated("turn_terminal"));
-
-    await harness.registry.release(harness.sender, target, true);
-    harness.forward(narrationCreated("final_summary", "turn_terminal"));
-    await Promise.resolve();
 
     expect(harness.stop).toHaveBeenCalledOnce();
   });
@@ -171,30 +117,6 @@ function narrationCreated(
       turnId,
     } as NarrationEvent,
     type: "conversation.narration.created",
-  });
-}
-
-function turnUpdated(id: string): ConversationEvent {
-  return event({
-    turn: {
-      conversationId: target.conversationId,
-      id,
-      status: "completed",
-    } as ConversationTurn,
-    type: "conversation.turn.updated",
-  });
-}
-
-function narratorStateUpdated(retryable: boolean): ConversationEvent {
-  return event({
-    state: {
-      conversationId: target.conversationId,
-      degradation: {
-        retryable,
-      },
-      status: "degraded",
-    } as NarratorState,
-    type: "conversation.narrator_state.updated",
   });
 }
 

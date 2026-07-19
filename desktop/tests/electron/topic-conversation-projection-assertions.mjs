@@ -153,7 +153,7 @@ export function assertBetaLifecycle(snapshot) {
   ) {
     throw new Error(`Beta narrator checkpoint is incomplete: ${JSON.stringify(snapshot)}`);
   }
-  assertAutomaticNarration(snapshot, "Beta");
+  assertAutomaticNarration(snapshot, "Beta", { requireMilestone: false });
 }
 
 export function hasFinalNarrationForEveryTurn(snapshot) {
@@ -171,11 +171,11 @@ export function narratorCaughtUp(snapshot) {
   );
 }
 
-function assertAutomaticNarration(snapshot, label) {
+function assertAutomaticNarration(snapshot, label, { requireMilestone = true } = {}) {
   const milestones = snapshot.narration.events.filter((event) => event.kind === "milestone");
   const finals = snapshot.narration.events.filter((event) => event.kind === "final_summary");
   if (
-    milestones.length === 0 ||
+    (requireMilestone && milestones.length === 0) ||
     finals.length !== snapshot.turns.turns.length ||
     finals.some(
       (event) =>

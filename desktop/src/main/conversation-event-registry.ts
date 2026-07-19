@@ -1,4 +1,4 @@
-import type { ConversationEvent, ConversationEventCursor, TurnStatus } from "@generated/backend";
+import type { ConversationEvent, ConversationEventCursor } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { ipcEvents } from "@shared/ipc";
 
@@ -36,12 +36,9 @@ interface ConversationEventRegistryOptions {
 
 interface RegisteredConversationStream {
   keepAlive: boolean;
-  pendingTerminalNarrationSequence: number | null;
-  pendingTerminalNarrationTurnId: string | null;
   sender: ConversationEventSender;
   stream: ConversationEventStream;
   target: ConversationEventTarget;
-  terminalNarrationPending: boolean;
 }
 
 export class ConversationEventRegistry {
@@ -72,12 +69,9 @@ export class ConversationEventRegistry {
     });
     this.streams.set(key, {
       keepAlive: false,
-      pendingTerminalNarrationSequence: null,
-      pendingTerminalNarrationTurnId: null,
       sender,
       stream,
       target,
-      terminalNarrationPending: false,
     });
     this.observeSender(sender);
   }
@@ -119,15 +113,7 @@ export class ConversationEventRegistry {
   ): boolean {
     switch (event.payload.type) {
       case "conversation.updated":
-        updateTerminalNarrationBoundary(current, event.payload.conversation);
-        return false;
-      case "conversation.turn.updated":
-        updatePendingTerminalTurn(current, event.payload.turn.id, event.payload.turn.status);
-        return false;
-      case "conversation.narration.created":
-        return current.keepAlive && terminalNarrationMatches(current, event.payload.event);
-      case "conversation.narrator_state.updated":
-        return current.keepAlive && terminalNarrationCannotRecover(current, event.payload.state);
+        return current.keepAlive && !conversationHasActiveWork(event.payload.conversation.status);
       default:
         return false;
     }
@@ -170,70 +156,18 @@ export class ConversationEventRegistry {
   }
 }
 
-function updateTerminalNarrationBoundary(
-  current: RegisteredConversationStream,
-  conversation: Extract<
+function conversationHasActiveWork(
+  status: Extract<
     ConversationEvent["payload"],
     { type: "conversation.updated" }
-  >["conversation"],
-): void {
-  if (conversation.status === "working" || conversation.status === "waiting_for_approval") {
-    current.terminalNarrationPending = false;
-    current.pendingTerminalNarrationSequence = null;
-    current.pendingTerminalNarrationTurnId = null;
-    return;
-  }
-  current.terminalNarrationPending = true;
-  if (current.pendingTerminalNarrationSequence !== conversation.lastTrajectorySequence) {
-    current.pendingTerminalNarrationSequence = conversation.lastTrajectorySequence;
-    current.pendingTerminalNarrationTurnId = null;
-  }
-}
-
-function updatePendingTerminalTurn(
-  current: RegisteredConversationStream,
-  turnId: string,
-  status: TurnStatus,
-): void {
-  if (current.terminalNarrationPending && terminalTurnStatus(status)) {
-    current.pendingTerminalNarrationTurnId = turnId;
-  }
-}
-
-function terminalNarrationMatches(
-  current: RegisteredConversationStream,
-  event: Extract<ConversationEvent["payload"], { type: "conversation.narration.created" }>["event"],
+  >["conversation"]["status"],
 ): boolean {
-  return (
-    current.terminalNarrationPending &&
-    current.pendingTerminalNarrationTurnId !== null &&
-    event.kind === "final_summary" &&
-    event.turnId === current.pendingTerminalNarrationTurnId
-  );
-}
-
-function terminalNarrationCannotRecover(
-  current: RegisteredConversationStream,
-  state: Extract<
-    ConversationEvent["payload"],
-    { type: "conversation.narrator_state.updated" }
-  >["state"],
-): boolean {
-  return (
-    current.terminalNarrationPending &&
-    state.status === "degraded" &&
-    state.degradation?.retryable === false
-  );
-}
-
-function terminalTurnStatus(status: TurnStatus): boolean {
   switch (status) {
-    case "completed":
-    case "cancelled":
-    case "failed":
+    case "working":
+    case "waiting_for_approval":
       return true;
-    case "queued":
-    case "running":
+    case "failed":
+    case "idle":
       return false;
     default:
       return assertNever(status);

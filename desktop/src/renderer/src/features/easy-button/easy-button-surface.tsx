@@ -507,12 +507,7 @@ function projectConversationSnapshot(
       snapshot.conversation.lastTrajectorySequence,
     ),
     side: easyButtonSideView(snapshot, paneId),
-    terminalSummary: terminalSummary(
-      snapshot.narration.events,
-      snapshot.trajectory.events,
-      latestTurn,
-      viewState,
-    ),
+    terminalSummary: terminalSummary(snapshot.narration.events, latestTurn, viewState),
     title: snapshot.conversation.title,
     trajectoryEventCount: snapshot.trajectory.events.length,
     trajectoryHasEarlier: snapshot.trajectory.hasEarlier,
@@ -731,7 +726,6 @@ function milestoneViews(
 
 function terminalSummary(
   narration: readonly NarrationEvent[],
-  trajectory: readonly TrajectoryEvent[],
   latestTurn: ConversationTurn | null,
   viewState: EasyButtonViewState,
 ): EasyButtonTerminalSummaryRecord | null {
@@ -741,10 +735,6 @@ function terminalSummary(
   const narrated = narratedTerminalSummary(narration, latestTurn);
   if (narrated) {
     return narrated;
-  }
-  const agentMessage = agentTerminalSummary(trajectory, latestTurn);
-  if (agentMessage) {
-    return agentMessage;
   }
   return {
     id: `turn:${latestTurn.id}`,
@@ -772,31 +762,6 @@ function narratedTerminalSummary(
         id: event.id,
         status: latestTurn.status,
         text: event.finalSummary.text,
-        turnId: latestTurn.id,
-      };
-    }
-  }
-  return null;
-}
-
-function agentTerminalSummary(
-  trajectory: readonly TrajectoryEvent[],
-  latestTurn: ConversationTurn & {
-    status: Extract<ConversationTurn["status"], "completed" | "cancelled" | "failed">;
-  },
-): EasyButtonTerminalSummaryRecord | null {
-  for (let index = trajectory.length - 1; index >= 0; index -= 1) {
-    const event = trajectory[index];
-    if (
-      event &&
-      event.turnId === latestTurn.id &&
-      event.agentMessageCompleted &&
-      event.agentMessageCompleted.text.trim()
-    ) {
-      return {
-        id: event.id,
-        status: latestTurn.status,
-        text: event.agentMessageCompleted.text,
         turnId: latestTurn.id,
       };
     }

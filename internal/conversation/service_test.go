@@ -432,6 +432,7 @@ type serviceTestAgentRuntime struct {
 	operationLog         []string
 	resolveRequests      []agent.Invocation
 	resumeRequests       []serviceTestResume
+	runProviderMissing   int
 	runRequests          []agent.TurnRequest
 	startRequests        []agent.StartThreadRequest
 	started              chan string
@@ -587,10 +588,28 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 	runtime.turns++
 	runtime.runRequests = append(runtime.runRequests, request)
 	runtime.operationLog = append(runtime.operationLog, "turn/start:"+request.ProviderThreadID+":"+request.Text)
+	if runtime.runProviderMissing > 0 {
+		runtime.runProviderMissing--
+		delete(runtime.providerThreads, request.ProviderThreadID)
+		runtime.mu.Unlock()
+		return agent.TurnResult{}, &agent.ProviderThreadMissingError{
+			Operation: "start agent turn",
+			ThreadID:  request.ProviderThreadID,
+			Err:       fmt.Errorf("scripted provider thread %s missing before turn start", request.ProviderThreadID),
+		}
+	}
 	providerTurnID := fmt.Sprintf("provider-turn-%d", runtime.turns)
 	control := make(chan string, 1)
 	runtime.controls[providerTurnID] = control
-	thread := runtime.providerThreads[request.ProviderThreadID]
+	thread, ok := runtime.providerThreads[request.ProviderThreadID]
+	if !ok {
+		runtime.mu.Unlock()
+		return agent.TurnResult{}, &agent.ProviderThreadMissingError{
+			Operation: "start agent turn",
+			ThreadID:  request.ProviderThreadID,
+			Err:       fmt.Errorf("scripted provider thread %s missing before turn start", request.ProviderThreadID),
+		}
+	}
 	thread.Turns = append(thread.Turns, agent.ThreadTurn{ID: providerTurnID, Status: "inProgress", Items: []agent.ThreadItemSummary{}})
 	thread.TurnCount = len(thread.Turns)
 	runtime.providerThreads[request.ProviderThreadID] = thread

@@ -313,7 +313,7 @@ describe("app-shell speech playback controller", () => {
     );
   });
 
-  test("capture preemption cancels active audio and drops stale pending milestones", async () => {
+  test("capture preemption cancels active audio and drops automatic speech", async () => {
     const synthesizing = createHarness();
     const synthesizingIntent = intent("status_reply", "synthesizing");
     const queuedMilestone = intent("milestone", "queued-milestone");
@@ -328,14 +328,13 @@ describe("app-shell speech playback controller", () => {
 
     expect(activeSignal.aborted).toBe(true);
     expect(synthesizing.snapshot()).toMatchObject({
-      queued: [synthesizingIntent, queuedAttention],
+      queued: [],
       state: { reason: "capture", type: "stopped" },
     });
     expect(synthesizing.requests).toHaveLength(1);
     expect(synthesizing.observations).toContainEqual(
       expect.objectContaining({
-        action: "preempted",
-        queuePosition: 1,
+        action: "dropped",
         reason: "capture",
       }),
     );
@@ -343,7 +342,6 @@ describe("app-shell speech playback controller", () => {
     synthesizing.controller.resumeAfterCapture();
 
     expect(synthesizing.requests.map((request) => request.source.eventId)).toEqual([
-      "synthesizing",
       "synthesizing",
     ]);
 

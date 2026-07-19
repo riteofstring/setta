@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /* global console */
 
+import { execFile } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { delimiter, dirname, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 import { driverCallExpression } from "./cdp-client.mjs";
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
@@ -40,7 +42,9 @@ import { openMasterOverlayForSpeech } from "./topic-conversation-speech-state-as
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-speech-arbitration";
-const workflowTimeoutMs = 30_000;
+const workflowTimeoutMs = 45_000;
+const noBackfillObservationMs = 3_000;
+const execFileAsync = promisify(execFile);
 const speechRealtimeBrowserFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "speech-realtime-browser-fixture.js",
@@ -70,22 +74,9 @@ const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 
 try {
-  context = await launchElectronCdpContext({
-    artifactDir,
-    extraEnv: {
-      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-      SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
-      SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
-    },
-    fixture,
-    unsetEnv: ["OPENAI_API_KEY"],
-    visible: options.visible,
-  });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await context.client.installDriver();
-  await context.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
-
-  const backend = await backendProbe(artifactDir);
+  let launch = await launchSpeechWorkflowElectron(artifactDir);
+  context = launch.context;
+  let backend = launch.backend;
   const workspaceId = await openWorkspace(context.client);
   await saveOpenAIVoiceCredentialThroughSettingsAndClose(
     context.client,
@@ -274,15 +265,45 @@ try {
     ),
     terminalEvents,
   );
+  const captureDrop = await exerciseCaptureDropsAutomaticSpeech({
+    artifactDirectory: artifactDir,
+    backend,
+    client: context.client,
+    topic: createdTopics[0],
+    workspaceId,
+  });
+
+  await stopElectronCdpContext(context);
+  context = null;
+  await deleteFinalNarrationEvents(fixture.appDataDir, {
+    conversationId: captureDrop.conversationId,
+    turnId: captureDrop.turnId,
+  });
+  const restartArtifactDir = join(artifactDir, "restart-no-backfill");
+  launch = await launchSpeechWorkflowElectron(restartArtifactDir);
+  context = launch.context;
+  backend = launch.backend;
+  await openWorkspace(context.client);
+  await presentConversation(context.client, captureDrop.conversationId);
+  const noBackfill = await assertNoStartupNarratorBackfill({
+    artifactDirectory: restartArtifactDir,
+    backend,
+    conversationId: captureDrop.conversationId,
+    deletedEventId: captureDrop.finalEventId,
+    turnId: captureDrop.turnId,
+    workspaceId,
+  });
   speechProvider.assertHealthy();
 
   await writeJson(join(artifactDir, "summary.json"), {
     arbitration,
     artifactDir,
     audioBaseline,
+    captureDrop,
     completedAudioState,
     conversations: createdTopics,
     finalEvents,
+    noBackfill,
     status: "passed",
     supersessions,
     workspaceId,
@@ -304,6 +325,25 @@ try {
   await rm(fixture.tempRoot, { force: true, recursive: true });
 }
 
+async function launchSpeechWorkflowElectron(launchArtifactDir) {
+  const launched = await launchElectronCdpContext({
+    artifactDir: launchArtifactDir,
+    extraEnv: {
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+      SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
+      SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
+    },
+    fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
+    visible: options.visible,
+  });
+  await waitForSelector(launched.client, '[data-testid="workspace-layout-area"]');
+  await launched.client.installDriver();
+  await launched.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
+  const backend = await backendProbe(launchArtifactDir);
+  return { artifactDir: launchArtifactDir, backend, context: launched };
+}
+
 async function openWorkspace(client) {
   const initial = await waitForState(
     client,
@@ -323,8 +363,193 @@ async function openWorkspace(client) {
   return opened.workspaceId;
 }
 
+async function presentConversation(client, conversationId) {
+  assertDriverAction(
+    await client.driver("topicConversationPresentFromNavigator", { conversationId }),
+    "clicked",
+  );
+}
+
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+async function exerciseCaptureDropsAutomaticSpeech({
+  artifactDirectory,
+  backend,
+  client,
+  topic,
+  workspaceId,
+}) {
+  const inputText = "capture drop automatic speech";
+  await client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(false)");
+  const beforeSnapshot = await readConversationSnapshot(backend, workspaceId, topic.id);
+  const priorEventIds = new Set(beforeSnapshot.narration.events.map((event) => event.id));
+  const audioBeforeTurn = await browserAudioSnapshot(client);
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", {
+      conversationId: topic.id,
+      text: inputText,
+    }),
+    "submitted",
+  );
+  const completed = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    topic.id,
+    (snapshot) =>
+      snapshot.conversation.status === "idle" &&
+      completedTurnFinalNarrationForInput(snapshot, inputText, priorEventIds) !== null &&
+      narratorCaughtUp(snapshot),
+  );
+  const finalEvent = completedTurnFinalNarrationForInput(completed, inputText, priorEventIds);
+  if (!finalEvent) {
+    throw new Error(`capture drop turn has no final narration: ${JSON.stringify(completed)}`);
+  }
+  await waitForPlaybackObservations(artifactDirectory, (observations) => {
+    const finalObservations = observationsForEventIds(observations, [finalEvent.id]);
+    return (
+      observationsWithAction(finalObservations, "enqueued").length === 1 &&
+      observationsWithAction(finalObservations, "play").length === 1
+    );
+  });
+  await waitForState(
+    client,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    (state) =>
+      state.audioActiveCount === 1 && state.audioPlayCount === audioBeforeTurn.audioPlayCount + 1,
+    workflowTimeoutMs,
+  );
+  await waitForShellSpeechState(
+    client,
+    (state) => state.playbackState === "speaking" && state.sourceConversationId === topic.id,
+  );
+  await configureCaptureDropTranscript(client);
+  await openMasterOverlayForSpeech(client, workflowTimeoutMs);
+  const beforeCapture = await browserAudioSnapshot(client);
+  assertDriverAction(await client.driver("topicConversationShellSpeechCapture", {}), "clicked");
+  await waitForShellSpeechState(client, (state) => state.captureState === "recording");
+  const afterCapture = await waitForState(
+    client,
+    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    (state) =>
+      state.audioActiveCount === 0 &&
+      state.audioPauseCount === beforeCapture.audioPauseCount + 1 &&
+      state.mediaRequestCount === beforeCapture.mediaRequestCount + 1,
+    workflowTimeoutMs,
+  );
+  const droppedPlayback = await waitForPlaybackObservations(artifactDirectory, (observations) => {
+    const dropped = observationsForEventIds(observations, [finalEvent.id]).filter(
+      (observation) => observation.action === "dropped" && observation.reason === "capture",
+    );
+    return dropped.length === 1;
+  });
+  await delay(500);
+  const finalObservations = observationsForEventIds(
+    playbackObservations(
+      await readJsonLinesWhileAppending(join(artifactDirectory, "renderer-console.jsonl")),
+    ),
+    [finalEvent.id],
+  );
+  const playCount = observationsWithAction(finalObservations, "play").length;
+  const droppedCount = finalObservations.filter(
+    (observation) => observation.action === "dropped" && observation.reason === "capture",
+  ).length;
+  if (playCount !== 1 || droppedCount !== 1) {
+    throw new Error(
+      `capture did not permanently drop the automatic final summary: ${JSON.stringify(finalObservations)}`,
+    );
+  }
+  return {
+    afterCapture,
+    conversationId: topic.id,
+    droppedObservationCount: observationsForEventIds(droppedPlayback, [finalEvent.id]).filter(
+      (observation) => observation.action === "dropped" && observation.reason === "capture",
+    ).length,
+    finalEventId: finalEvent.id,
+    playCount,
+    turnId: finalEvent.turnId,
+  };
+}
+
+async function configureCaptureDropTranscript(client) {
+  await client.evaluate(`(() => {
+    const fixture = globalThis.__settaSpeechRealtimeBrowserFixture;
+    fixture.clearDurationTimerOverride();
+    fixture.setRequireProcessedAudioMarker(false);
+    fixture.setDelays({ dataChannelOpenMs: 0, webRTCAnswerMs: 0, webRTCAnswerStatus: 201 });
+    fixture.setTimingContext({ runId: "speech-arbitration-capture-drop" });
+    fixture.setTranscript("Capture drop transcript.");
+  })()`);
+}
+
+async function deleteFinalNarrationEvents(appDataDir, { conversationId, turnId }) {
+  const databasePath = join(appDataDir, "topic-conversations-v3", "conversations.sqlite");
+  const { stdout } = await execFileAsync("sqlite3", [
+    databasePath,
+    `
+DELETE FROM narration_events
+WHERE conversation_id = ${sqlString(conversationId)}
+  AND turn_id = ${sqlString(turnId)}
+  AND kind = 'final_summary';
+SELECT changes();
+`,
+  ]);
+  const deleted = Number(stdout.trim().split(/\s+/).at(-1) ?? "0");
+  if (deleted < 1) {
+    throw new Error(
+      `no final summary narration events were deleted for no-backfill check: ${JSON.stringify({
+        conversationId,
+        stdout,
+        turnId,
+      })}`,
+    );
+  }
+}
+
+async function assertNoStartupNarratorBackfill({
+  artifactDirectory,
+  backend,
+  conversationId,
+  deletedEventId,
+  turnId,
+  workspaceId,
+}) {
+  const startedAt = Date.now();
+  let lastSnapshot = null;
+  while (Date.now() - startedAt < noBackfillObservationMs) {
+    lastSnapshot = await readConversationSnapshot(backend, workspaceId, conversationId);
+    const final = lastSnapshot.narration.events.find(
+      (event) => event.kind === "final_summary" && event.turnId === turnId,
+    );
+    if (final) {
+      throw new Error(
+        `startup recreated a historical final summary: ${JSON.stringify({
+          deletedEventId,
+          final,
+        })}`,
+      );
+    }
+    await delay(50);
+  }
+  const observations = playbackObservations(
+    await readJsonLinesWhileAppending(join(artifactDirectory, "renderer-console.jsonl")),
+  );
+  const deletedEventObservations = observationsForEventIds(observations, [deletedEventId]);
+  if (deletedEventObservations.length !== 0) {
+    throw new Error(
+      `startup attempted speech for a deleted historical final summary: ${JSON.stringify(
+        deletedEventObservations,
+      )}`,
+    );
+  }
+  return {
+    conversationId,
+    deletedEventId,
+    observedMs: Date.now() - startedAt,
+    remainingNarrationEventCount: lastSnapshot?.narration.events.length ?? 0,
+    turnId,
+  };
 }
 
 function assertDistinctNarratorVoices(createdTopics) {
@@ -339,12 +564,19 @@ function assertDistinctNarratorVoices(createdTopics) {
 
 function readConversationSnapshots(backend, workspaceId, createdTopics) {
   return Promise.all(
-    createdTopics.map((topic) =>
-      backend.post("/conversations/snapshot/read", {
-        conversationId: topic.id,
-        workspaceId,
-      }),
-    ),
+    createdTopics.map((topic) => readConversationSnapshot(backend, workspaceId, topic.id)),
+  );
+}
+
+function readConversationSnapshot(backend, workspaceId, conversationId) {
+  return backend.post("/conversations/snapshot/read", { conversationId, workspaceId });
+}
+
+function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
+  return waitForBackendState(
+    () => readConversationSnapshot(backend, workspaceId, conversationId),
+    ready,
+    workflowTimeoutMs,
   );
 }
 
@@ -368,6 +600,22 @@ function completedTurnHasFinalNarration(snapshot) {
       (event) => event.kind === "final_summary" && completedTurnIds.has(event.turnId),
     ) &&
     narratorCaughtUp(snapshot)
+  );
+}
+
+function completedTurnFinalNarrationForInput(snapshot, authoredText, priorEventIds) {
+  const turn = snapshot.turns.turns.find(
+    (candidate) =>
+      candidate.authoredInput.text === authoredText && candidate.status === "completed",
+  );
+  if (!turn) {
+    return null;
+  }
+  return (
+    snapshot.narration.events.find(
+      (event) =>
+        event.kind === "final_summary" && event.turnId === turn.id && !priorEventIds.has(event.id),
+    ) ?? null
   );
 }
 
@@ -646,4 +894,8 @@ function terminalSupersessionShape(decision) {
       turnId: decision.superseding.turnId,
     },
   };
+}
+
+function sqlString(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
 }

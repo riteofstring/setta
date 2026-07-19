@@ -19,16 +19,20 @@ func (service *Service) ensureAgentThreadBindingLocked(
 	invocation agent.Invocation,
 ) (AgentThreadBinding, error) {
 	request := service.agentThreadStartRequest(workspaceID, turn.ConversationID, workspaceRoot, invocation)
-	if snapshot.ThreadBinding == nil {
+	state, err := service.classifyProviderThreadHistory(ctx, snapshot)
+	if err != nil {
+		return AgentThreadBinding{}, err
+	}
+	switch state.kind {
+	case providerThreadHistoryNone:
 		return service.startAndPersistAgentThreadBinding(ctx, snapshot, request)
+	case providerThreadHistoryLinked:
+		return service.resumeAndPersistAgentThreadBinding(ctx, snapshot, request)
+	case providerThreadHistoryBroken:
+		return AgentThreadBinding{}, brokenProviderThreadHistoryError(turn.ConversationID, state.reason)
+	default:
+		return AgentThreadBinding{}, fmt.Errorf("unsupported provider thread history state %d", state.kind)
 	}
-	if snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
-		return AgentThreadBinding{}, &CommandConflictError{
-			ConversationID: turn.ConversationID,
-			Reason:         "agent thread is not linked",
-		}
-	}
-	return service.resumeAndPersistAgentThreadBinding(ctx, snapshot, request)
 }
 
 func (service *Service) resumeParentAgentThreadForProviderOperationLocked(
@@ -37,17 +41,21 @@ func (service *Service) resumeParentAgentThreadForProviderOperationLocked(
 	workspaceRoot string,
 	snapshot ConversationSnapshot,
 ) (AgentThreadBinding, error) {
-	if snapshot.ThreadBinding == nil {
-		return AgentThreadBinding{}, &CommandConflictError{
-			ConversationID: snapshot.Conversation.ID,
-			Reason:         "provider operation requires a linked parent agent thread",
-		}
+	state, err := service.classifyProviderThreadHistory(ctx, snapshot)
+	if err != nil {
+		return AgentThreadBinding{}, err
 	}
-	if snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+	switch state.kind {
+	case providerThreadHistoryLinked:
+	case providerThreadHistoryNone:
 		return AgentThreadBinding{}, &CommandConflictError{
 			ConversationID: snapshot.Conversation.ID,
-			Reason:         "agent thread is not linked",
+			Reason:         "provider operation requires durable provider history",
 		}
+	case providerThreadHistoryBroken:
+		return AgentThreadBinding{}, brokenProviderThreadHistoryError(snapshot.Conversation.ID, state.reason)
+	default:
+		return AgentThreadBinding{}, fmt.Errorf("unsupported provider thread history state %d", state.kind)
 	}
 	invocation, err := service.resolveTopicAgentInvocation(ctx, workspaceID, snapshot.Conversation.ID)
 	if err != nil {
@@ -56,6 +64,191 @@ func (service *Service) resumeParentAgentThreadForProviderOperationLocked(
 	request := service.agentThreadStartRequest(workspaceID, snapshot.Conversation.ID, workspaceRoot, invocation)
 	request.RequireProviderResume = true
 	return service.resumeAndPersistAgentThreadBinding(ctx, snapshot, request)
+}
+
+type providerThreadHistoryKind int
+
+const (
+	providerThreadHistoryNone providerThreadHistoryKind = iota
+	providerThreadHistoryLinked
+	providerThreadHistoryBroken
+)
+
+type providerThreadHistoryState struct {
+	kind   providerThreadHistoryKind
+	reason string
+}
+
+func (service *Service) classifyProviderThreadHistory(
+	ctx context.Context,
+	snapshot ConversationSnapshot,
+) (providerThreadHistoryState, error) {
+	hasProviderHistory, err := service.store.conversationHasProviderBackedTurns(
+		ctx,
+		snapshot.Conversation.ID,
+	)
+	if err != nil {
+		return providerThreadHistoryState{}, err
+	}
+	if !hasProviderHistory {
+		return classifyProviderThreadWithoutTurnHistory(snapshot), nil
+	}
+	if snapshot.ThreadBinding == nil {
+		return providerThreadHistoryState{
+			kind:   providerThreadHistoryBroken,
+			reason: "durable provider turns exist without an agent thread binding",
+		}, nil
+	}
+	if snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+		return providerThreadHistoryState{
+			kind: providerThreadHistoryBroken,
+			reason: fmt.Sprintf(
+				"durable provider turns require a linked agent thread binding, got %s",
+				snapshot.ThreadBinding.Status,
+			),
+		}, nil
+	}
+	if snapshot.ThreadBinding.LastTurnID == nil {
+		return providerThreadHistoryState{
+			kind:   providerThreadHistoryBroken,
+			reason: "linked agent thread binding is not attached to a durable provider turn",
+		}, nil
+	}
+	return providerThreadHistoryState{kind: providerThreadHistoryLinked}, nil
+}
+
+func classifyProviderThreadWithoutTurnHistory(
+	snapshot ConversationSnapshot,
+) providerThreadHistoryState {
+	if snapshot.Branch == nil {
+		return providerThreadHistoryState{kind: providerThreadHistoryNone}
+	}
+	if snapshot.Branch.Kind != BranchKindFork {
+		return providerThreadHistoryState{
+			kind: providerThreadHistoryBroken,
+			reason: fmt.Sprintf(
+				"unsupported provider branch kind %s exists without durable provider turns",
+				snapshot.Branch.Kind,
+			),
+		}
+	}
+	if snapshot.ThreadBinding == nil {
+		return providerThreadHistoryState{
+			kind:   providerThreadHistoryBroken,
+			reason: "durable provider fork exists without an agent thread binding",
+		}
+	}
+	if snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+		return providerThreadHistoryState{
+			kind: providerThreadHistoryBroken,
+			reason: fmt.Sprintf(
+				"durable provider fork requires a linked agent thread binding, got %s",
+				snapshot.ThreadBinding.Status,
+			),
+		}
+	}
+	if snapshot.Branch.ProviderMetadata[branchMetadataProviderForkThreadID] != snapshot.ThreadBinding.ThreadID {
+		return providerThreadHistoryState{
+			kind:   providerThreadHistoryBroken,
+			reason: "durable provider fork metadata does not match the agent thread binding",
+		}
+	}
+	return providerThreadHistoryState{kind: providerThreadHistoryLinked}
+}
+
+func brokenProviderThreadHistoryError(conversationID string, reason string) error {
+	return stateConflict(
+		"agent thread binding",
+		conversationID,
+		"provider history is broken: "+reason,
+	)
+}
+
+func (service *Service) repairMissingProviderThreadBeforeTurnStart(
+	active *activeConversationTurn,
+	runErr error,
+) (bool, error) {
+	if !agent.IsProviderThreadMissing(runErr) {
+		return false, nil
+	}
+	if !service.activeProviderThreadRepairable(active) {
+		return false, nil
+	}
+	lock := service.conversationLock(active.conversationID)
+	lock.Lock()
+	defer lock.Unlock()
+	return service.repairMissingProviderThreadBeforeTurnStartLocked(active)
+}
+
+func (service *Service) repairMissingProviderThreadBeforeTurnStartLocked(
+	active *activeConversationTurn,
+) (bool, error) {
+	if !service.activeProviderThreadRepairable(active) {
+		return false, nil
+	}
+	ctx := context.Background()
+	snapshot, err := service.store.ReadSnapshot(ctx, active.workspaceID, active.conversationID)
+	if err != nil {
+		return false, err
+	}
+	turn, err := findConversationTurn(snapshot, active.turnID)
+	if err != nil {
+		return false, err
+	}
+	if !turnRepairableBeforeProviderStart(turn) {
+		return false, nil
+	}
+	state, err := service.classifyProviderThreadHistory(ctx, snapshot)
+	if err != nil {
+		return false, err
+	}
+	if state.kind != providerThreadHistoryNone {
+		return false, nil
+	}
+	request := service.agentThreadStartRequest(
+		active.workspaceID,
+		active.conversationID,
+		active.request.WorkspaceRoot,
+		active.request.Invocation,
+	)
+	binding, err := service.startAndPersistAgentThreadBinding(ctx, snapshot, request)
+	if err != nil {
+		return false, err
+	}
+	return service.applyMissingProviderThreadRepair(active, binding), nil
+}
+
+func turnRepairableBeforeProviderStart(turn ConversationTurn) bool {
+	return turn.Status == TurnStatusQueued && turn.ProviderTurnID == nil
+}
+
+func (service *Service) applyMissingProviderThreadRepair(
+	active *activeConversationTurn,
+	binding AgentThreadBinding,
+) bool {
+	service.activeMu.Lock()
+	defer service.activeMu.Unlock()
+	current := service.active[active.conversationID]
+	if current == nil || current.turnID != active.turnID {
+		return false
+	}
+	current.providerThreadID = binding.ThreadID
+	current.providerThreadRepairAttempted = true
+	current.request.ProviderThreadID = binding.ThreadID
+	return true
+}
+
+func (service *Service) activeProviderThreadRepairable(active *activeConversationTurn) bool {
+	if active == nil {
+		return false
+	}
+	service.activeMu.Lock()
+	defer service.activeMu.Unlock()
+	current := service.active[active.conversationID]
+	return current != nil &&
+		current.turnID == active.turnID &&
+		current.providerTurnID == "" &&
+		!current.providerThreadRepairAttempted
 }
 
 func (service *Service) resolveTopicAgentInvocation(
