@@ -25,12 +25,22 @@ import {
 } from "./codex-account-event-stream";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
+import { DesktopCredentialStore, type RuntimeAccessCredential } from "./desktop-credential-store";
+import { createElectronCredentialSecretStore } from "./electron-credential-secret-store";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import {
+  enrollWithLocalRuntimeIssuer,
+  LocalRuntimeCredentialClient,
+} from "./local-runtime-credential-client";
 import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { registerRoleConfigurationIpcHandlers } from "./role-configuration-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
+import {
+  RuntimeCredentialManager,
+  UnconfiguredControlPlaneRuntimeCredentialClient,
+} from "./runtime-credential-manager";
 import { registerSpeechIpcHandlers } from "./speech-ipc";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
@@ -86,7 +96,7 @@ async function prepareBackend(appDataDir: string) {
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
-      deviceToken: backend.bootstrapToken,
+      pairingToken: backend.localPairingToken,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
   } catch (error) {
@@ -98,8 +108,17 @@ async function prepareBackend(appDataDir: string) {
 }
 
 function createRuntimeRegistry() {
+  const credentials = new DesktopCredentialStore(
+    createElectronCredentialSecretStore(app.getPath("userData")),
+  );
   return new RuntimeRegistryController({
     clientDisplayName,
+    enrollRuntime: (pairing, displayName) =>
+      enrollWithLocalRuntimeIssuer({
+        clientDisplayName: displayName,
+        fetchImpl: fetch,
+        pairing,
+      }),
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     hooks: {
       activeRuntimeFailed: handleRuntimeFailed,
@@ -108,7 +127,14 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    store: new KnownRuntimeStore(app.getPath("userData")),
+    runtimeCredentials: new RuntimeCredentialManager(
+      credentials,
+      new UnconfiguredControlPlaneRuntimeCredentialClient(),
+      {
+        localRuntimeCredentialClient: new LocalRuntimeCredentialClient(fetch),
+      },
+    ),
+    store: new KnownRuntimeStore(app.getPath("userData"), credentials),
   });
 }
 
@@ -600,14 +626,30 @@ function requireBackendClient(): BackendClient {
 }
 
 function backendFetch(): BackendFetch {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    throw new Error(runtimeUnavailableMessage());
-  }
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  return authenticatedBackendFetch(fetchImpl, runtime.deviceToken, () => {
-    void runtimeRegistry?.markActiveRuntimeRevoked();
-  });
+  return authenticatedBackendFetch(
+    fetchImpl,
+    async () => {
+      const runtime = activeRuntime();
+      if (!runtime) {
+        throw new Error(runtimeUnavailableMessage());
+      }
+      return (await currentRuntimeCredential(runtime)).token;
+    },
+    () => {
+      void runtimeRegistry?.markActiveRuntimeRevoked();
+    },
+  );
+}
+
+async function currentRuntimeCredential(runtime: ActiveRuntime): Promise<RuntimeAccessCredential> {
+  const registry = requireRuntimeRegistry();
+  const credential = await registry.currentRuntimeCredential();
+  const current = activeRuntime();
+  if (!current || current.runtimeId !== runtime.runtimeId) {
+    throw new Error("runtime changed while resolving runtime credential");
+  }
+  return credential;
 }
 
 function activeRuntime(): ActiveRuntime | null {

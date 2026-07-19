@@ -215,6 +215,68 @@ function runtimeInfo() {
     },
     protocolVersion: backendProtocolVersion,
     runtimeId: "runtime_web",
+    featureSet: {
+      features: ["device_pairing_url", "runtime_web_app", "setup_attestation", "web_push"],
+      version: 1,
+    },
+    diagnostics: {
+      settaRelease: {
+        status: "unavailable",
+        runtimeVersion: "test",
+        metadataPresent: false,
+        metadataValid: false,
+        installedVersion: "",
+        reasonCode: "test",
+      },
+      codex: {
+        status: "unavailable",
+        binary: {
+          status: "unavailable",
+          command: "codex",
+          present: false,
+          reasonCode: "test",
+        },
+        authentication: {
+          status: "unavailable",
+          accountStatus: "",
+          accountType: "",
+          requiresOpenaiAuth: false,
+          loginStatus: "",
+          reasonCode: "test",
+        },
+      },
+      workloadLease: {
+        status: "unavailable",
+        configured: false,
+        leaseName: "setta-agent",
+        active: false,
+        startedAt: "",
+        expiresAt: "",
+        reasonCode: "test",
+      },
+      policy: {
+        status: "unavailable",
+        configured: false,
+        present: false,
+        schemaVersion: 0,
+        ruleCount: 0,
+        reasonCode: "test",
+      },
+      diskSpace: {
+        status: "unavailable",
+        availableMib: 0,
+        totalMib: 0,
+        minimumFreeMib: 0,
+        reasonCode: "test",
+      },
+      protectedState: {
+        status: "unavailable",
+        present: false,
+        directory: false,
+        ownerOnlyWritable: false,
+        reasonCode: "test",
+      },
+    },
   };
 }
 

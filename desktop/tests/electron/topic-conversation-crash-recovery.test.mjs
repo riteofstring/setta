@@ -82,7 +82,7 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  const backend = await backendProbe(firstLaunchDir);
+  const backend = await backendProbe(firstLaunchDir, context.client);
   const workspaceId = await openWorkspace(context.client);
 
   const agentTopic = await createTopic(
@@ -274,7 +274,7 @@ try {
   });
   await prepareRenderer(context.client);
   await installScriptedRealtimeBrowser(context.client, crashTranscript);
-  const restartedBackend = await backendProbe(secondLaunchDir);
+  const restartedBackend = await backendProbe(secondLaunchDir, context.client);
   const restartedWorkspaceId = await openWorkspace(context.client);
   if (restartedWorkspaceId !== workspaceId) {
     throw new Error(

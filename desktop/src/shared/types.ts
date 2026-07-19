@@ -269,6 +269,12 @@ export interface RuntimeRegistrySnapshot {
   switching: boolean;
 }
 
+export interface RuntimeAccessCredentialView {
+  expiresAt: string;
+  runtimeId: string;
+  token: string;
+}
+
 export interface SettaAPI {
   app: {
     installedEditors: () => Promise<InstalledEditorApp[]>;
@@ -291,6 +297,7 @@ export interface SettaAPI {
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
     current: () => Promise<RuntimeRegistrySnapshot>;
+    currentRuntimeCredential: () => Promise<RuntimeAccessCredentialView>;
     list: () => Promise<KnownRuntimeView[]>;
     onConnectionState: (listener: (snapshot: RuntimeRegistrySnapshot) => void) => () => void;
     remove: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;

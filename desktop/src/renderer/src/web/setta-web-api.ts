@@ -278,6 +278,9 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         emitConnectionSnapshot(snapshot);
         return snapshot;
       },
+      currentRuntimeCredential: async () => {
+        throw new Error("runtime credentials are not exposed by the web runtime API");
+      },
       list: async () => {
         const snapshot = await runtimeSnapshot("listed web runtime");
         return snapshot.runtimes;

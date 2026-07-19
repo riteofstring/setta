@@ -88,7 +88,7 @@ try {
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
   const conversationId = await createFixtureConversation(
-    await backendProbe(artifactDir),
+    await backendProbe(artifactDir, context.client),
     workspaceId,
   );
   await persistUltraWideLayout(context.client, workspaceId, conversationId);

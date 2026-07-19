@@ -12,7 +12,7 @@ import {
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
-  readLocalRuntimeAccess,
+  readCurrentRuntimeCredential,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -58,7 +58,7 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  runtimeDeviceTokens.push((await readLocalRuntimeAccess(fixture.appDataDir)).deviceToken);
+  runtimeDeviceTokens.push((await readCurrentRuntimeCredential(context.client)).token);
 
   const capabilities = await context.client.evaluate("window.setta.speech.readCapabilities()");
   assertConfiguredCapabilities(capabilities);
@@ -103,7 +103,7 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  runtimeDeviceTokens.push((await readLocalRuntimeAccess(fixture.appDataDir)).deviceToken);
+  runtimeDeviceTokens.push((await readCurrentRuntimeCredential(context.client)).token);
   secondMasterVoiceSelection = await context.client.evaluate(
     "window.setta.speech.readMasterVoiceSelection()",
   );

@@ -78,7 +78,10 @@ export async function verifySideConversationRestart({
   try {
     await waitForSelector(restarted.client, '[data-testid="workspace-layout-area"]');
     await restarted.client.installDriver();
-    const restartedBackend = await backendProbe(join(artifactDir, "third-launch"));
+    const restartedBackend = await backendProbe(
+      join(artifactDir, "third-launch"),
+      restarted.client,
+    );
     const thirdLaunchWorkspaceId = await openWorkspace(restarted.client);
     if (thirdLaunchWorkspaceId !== workspaceId) {
       throw new Error(

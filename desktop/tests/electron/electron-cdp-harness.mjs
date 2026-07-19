@@ -109,19 +109,23 @@ export async function createElectronFixture(name) {
   return { appDataDir, tempRoot, workspaceRoot };
 }
 
-export async function readLocalRuntimeAccess(appDataDir) {
-  const path = join(appDataDir, "electron-user-data", "known-runtimes.json");
-  const registry = JSON.parse(await readFile(path, "utf8"));
-  const localRuntime = registry?.runtimes?.find((runtime) => runtime?.is_local === true);
-  if (
-    typeof localRuntime?.base_url !== "string" ||
-    localRuntime.base_url === "" ||
-    typeof localRuntime.device_token !== "string" ||
-    localRuntime.device_token === ""
-  ) {
-    throw new Error("protected runtime registry did not contain local backend access");
-  }
-  return { baseURL: localRuntime.base_url, deviceToken: localRuntime.device_token };
+export async function readCurrentRuntimeCredential(client) {
+  return waitForState(
+    client,
+    `(async () => {
+      try {
+        return await window.setta.runtimes.currentRuntimeCredential();
+      } catch {
+        return null;
+      }
+    })()`,
+    (credential) =>
+      typeof credential?.runtimeId === "string" &&
+      credential.runtimeId !== "" &&
+      typeof credential?.token === "string" &&
+      credential.token !== "",
+    pageLoadTimeoutMs,
+  );
 }
 
 export async function assertArtifactsExcludeMarkers(root, markers, description) {

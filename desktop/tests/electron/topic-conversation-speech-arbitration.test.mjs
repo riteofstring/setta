@@ -81,7 +81,7 @@ try {
   await context.client.installDriver();
   await context.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
 
-  const backend = await backendProbe(artifactDir);
+  const backend = await backendProbe(artifactDir, context.client);
   const workspaceId = await openWorkspace(context.client);
   const createdTopics = [];
   for (const topic of topics) {

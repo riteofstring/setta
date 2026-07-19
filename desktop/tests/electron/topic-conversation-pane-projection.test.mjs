@@ -160,8 +160,8 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  let backend = await backendProbe(firstLaunchDir);
-  runtimeDeviceTokens.push(backend.deviceToken);
+  let backend = await backendProbe(firstLaunchDir, context.client);
+  runtimeDeviceTokens.push(await backend.currentRuntimeCredential());
   const workspaceOpenStartedAt = Date.now();
   const workspaceId = await openWorkspace(context.client);
   const initialPanePlaceholder = await assertImmediateInitialEasyButtonPlaceholder(
@@ -269,8 +269,8 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  backend = await backendProbe(secondLaunchDir);
-  runtimeDeviceTokens.push(backend.deviceToken);
+  backend = await backendProbe(secondLaunchDir, context.client);
+  runtimeDeviceTokens.push(await backend.currentRuntimeCredential());
   await assertPersistedMasterCancellation(backend, cancelledMasterInput);
   const restoredWorkspaceId = await openWorkspace(context.client);
   if (restoredWorkspaceId !== workspaceId) {

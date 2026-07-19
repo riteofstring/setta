@@ -107,7 +107,7 @@ try {
   await context.client.installDriver();
   await installSpeechRealtimeBrowserFixture();
 
-  const backend = await backendProbe(artifactDir);
+  const backend = await backendProbe(artifactDir, context.client);
   const workspaceId = await openWorkspace(context.client);
   const alpha = await createTopic(
     context.client,
