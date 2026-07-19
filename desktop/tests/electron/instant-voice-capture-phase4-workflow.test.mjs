@@ -32,7 +32,10 @@ import {
   finalizeLiveOpenAIArtifacts,
   redactLiveOpenAIError,
 } from "./instant-voice-capture-live-openai-artifacts.mjs";
-import { saveOpenAIVoiceCredentialThroughSettings } from "./speech-credential-byok-workflow.mjs";
+import {
+  saveOpenAIVoiceCredentialThroughSettings,
+  selectOpenAIVoiceProvider,
+} from "./speech-credential-byok-workflow.mjs";
 import {
   expectedSynthesisSpeed,
   startSpeechTranscriptionProviderFixture,
@@ -57,12 +60,10 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "instant-voice-capture-phase4-workflow";
 const workflowTimeoutMs = 45_000;
-const speechRealtimeBrowserFixture = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "speech-realtime-browser-fixture.js",
-);
-const speechRealtimeProcessedAudioObserverWorklet = join(
-  dirname(fileURLToPath(import.meta.url)),
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const browserFixturePath = join(scriptDir, "speech-realtime-browser-fixture.js");
+const audioObserverWorkletPath = join(
+  scriptDir,
   "speech-realtime-processed-audio-observer-worklet.js",
 );
 const providerSetupDelaysMs = [0, 1_500];
@@ -90,16 +91,13 @@ const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 let remoteRuntime = null;
 let credentialSetup;
-let speechRealtimeBrowserFixtureSource = "";
-let speechRealtimeProcessedAudioObserverWorkletSource = "";
+let browserFixtureSource = "";
+let audioObserverWorkletSource = "";
 let workflowError = null;
 
 try {
-  speechRealtimeBrowserFixtureSource = await readFile(speechRealtimeBrowserFixture, "utf8");
-  speechRealtimeProcessedAudioObserverWorkletSource = await readFile(
-    speechRealtimeProcessedAudioObserverWorklet,
-    "utf8",
-  );
+  browserFixtureSource = await readFile(browserFixturePath, "utf8");
+  audioObserverWorkletSource = await readFile(audioObserverWorkletPath, "utf8");
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
@@ -119,6 +117,7 @@ try {
     speechProvider.apiKey,
     workflowTimeoutMs,
   );
+  await selectOpenAIVoiceProvider(context.client);
   assertProviderCredentialRequests(speechProvider.requests, [credentialRequest("initial", false)]);
   await installSpeechRealtimeBrowserFixture();
 
@@ -932,10 +931,10 @@ async function reloadSpeechFixture() {
 }
 
 async function installSpeechRealtimeBrowserFixture() {
-  await context.client.evaluate(speechRealtimeBrowserFixtureSource);
+  await context.client.evaluate(browserFixtureSource);
   await context.client.evaluate(
     `globalThis.__settaSpeechRealtimeBrowserFixture.installProcessedAudioObserverWorklet(${JSON.stringify(
-      speechRealtimeProcessedAudioObserverWorkletSource,
+      audioObserverWorkletSource,
     )})`,
   );
 }

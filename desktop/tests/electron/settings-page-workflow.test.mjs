@@ -390,8 +390,8 @@ async function openShellVoiceCredentialSettings(client, beforeOpen) {
       sameWorkspaceLayout(state, beforeOpen) &&
       settingsPageVisible(state) &&
       state.activeSettingsSubtab === "speech" &&
-      state.openAIVoiceCardVisible &&
-      state.openAIVoiceCardFocused,
+      state.voiceProviderCardVisible &&
+      state.voiceProviderCardFocused,
     workflowTimeoutMs,
   );
 }

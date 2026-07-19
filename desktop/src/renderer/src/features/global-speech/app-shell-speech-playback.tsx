@@ -220,6 +220,7 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
             openAI: openAIOutputProvider,
             platform: setta.app.platform,
             readLocalMacOSVoiceHealth: setta.speech.readLocalMacOSVoiceHealth,
+            readProviderSelection: setta.speech.readProviderSelection,
           });
           if (signal.aborted) {
             throw speechSynthesisStoppedError();

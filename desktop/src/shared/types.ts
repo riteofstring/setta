@@ -74,6 +74,8 @@ import type {
   SpeechCredentialProviderRequest,
   SpeechCredentialSaveRequest,
   SpeechCredentialSettings,
+  SpeechProviderSelectionSettings,
+  SpeechProviderSelectionUpdateRequest,
   LocalMacOSVoiceHealth,
   LocalMacOSVoiceSessionRequest,
   LocalMacOSVoiceStartCaptureRequest,
@@ -366,6 +368,9 @@ export interface SettaAPI {
     onCredentialSettingsChanged?: (
       listener: (settings: SpeechCredentialSettings) => void,
     ) => () => void;
+    onProviderSelectionChanged?: (
+      listener: (settings: SpeechProviderSelectionSettings) => void,
+    ) => () => void;
     readCapabilities: () => Promise<SpeechCapabilities>;
     readCredentialSettings?: (
       request: SpeechCredentialProviderRequest,
@@ -374,6 +379,7 @@ export interface SettaAPI {
     listLocalMacOSVoices?: () => Promise<SpeechVoiceCatalog>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
     readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
+    readProviderSelection?: () => Promise<SpeechProviderSelectionSettings>;
     removeCredential?: (
       request: ClearDesktopSpeechCredentialRequest,
     ) => Promise<SpeechCredentialSettings>;
@@ -384,6 +390,9 @@ export interface SettaAPI {
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
     updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;
+    updateProviderSelection?: (
+      request: SpeechProviderSelectionUpdateRequest,
+    ) => Promise<SpeechProviderSelectionSettings>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

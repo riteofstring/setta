@@ -15,7 +15,11 @@ import type {
   RoleProfile,
   SpeechCapabilities,
 } from "@generated/backend";
-import type { SpeechCredentialSettings } from "@shared/speech-ipc";
+import type {
+  LocalMacOSVoiceHealth,
+  SpeechCredentialSettings,
+  SpeechProviderSelectionSettings,
+} from "@shared/speech-ipc";
 import type { RuntimeConnectionStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -24,6 +28,7 @@ import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appea
 import {
   completeSettingsNavigationRequest,
   requestOpenAIVoiceConnectionSettings,
+  requestVoiceProviderSelectionSettings,
   useSettingsNavigationStore,
 } from "../stores/settings-navigation-store";
 import { DeveloperSettingsEditor } from "./developer-settings";
@@ -39,6 +44,7 @@ import {
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
 import { openAIVoiceConnectionSettings } from "./settings-navigation";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
+import { SpeechProviderSelectionCardView } from "./speech-provider-selection-card";
 
 describe("appearance settings", () => {
   test("renders theme as the default settings subtab", () => {
@@ -131,12 +137,54 @@ describe("appearance settings", () => {
     expect(html).toContain('data-testid="openai-voice-connection-card"');
     expect(html).toContain("OpenAI voice connection");
     expect(html).toContain("Not connected");
-    expect(html).toContain("Applies to Local only");
+    expect(html).toContain("Optional cloud voice provider");
     expect(html).toContain("OpenAI API key");
     expect(html).toContain('type="password"');
     expect(html).toContain("Save and verify");
     expect(html).toContain("OpenAI API keys");
     expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("renders local macOS as the default voice provider with OpenAI as an option", () => {
+    const html = renderToString(
+      <SpeechProviderSelectionCardView
+        error={null}
+        localHealth={localVoiceHealth("ready")}
+        onRefresh={vi.fn()}
+        onSelectProvider={vi.fn()}
+        selection={providerSelection("local_macos")}
+        updatingProvider={null}
+      />,
+    );
+
+    expect(html).toContain('data-testid="speech-provider-selection-card"');
+    expect(html).toContain("Voice provider");
+    expect(html).toContain("Local macOS is the default");
+    expect(html).toContain("Local macOS");
+    expect(html).toContain("Default");
+    expect(html).toContain("Selected");
+    expect(html).toContain("OpenAI");
+    expect(html).toContain("Use OpenAI");
+  });
+
+  test("keeps a current provider selectable after provider selection storage fails", () => {
+    const html = renderToString(
+      <SpeechProviderSelectionCardView
+        canUpdateProvider
+        error={'Speech provider "local_macos" is not supported on linux.'}
+        fallbackSupportedProviders={["openai"]}
+        localHealth={null}
+        onRefresh={vi.fn()}
+        onSelectProvider={vi.fn()}
+        selection={null}
+        updatingProvider={null}
+      />,
+    );
+
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Use OpenAI");
+    expect(html).not.toContain("Use Local macOS");
+    expect(html).not.toContain('disabled=""');
   });
 
   test("preserves leading and trailing whitespace in the credential save request", () => {
@@ -229,6 +277,24 @@ describe("appearance settings", () => {
     });
   });
 
+  test("opens the Settings page when routing to voice provider setup", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestVoiceProviderSelectionSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toEqual({
+      focusTarget: "voice_provider_selection",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "voice_provider_selection",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+  });
+
   test("renders a connected OpenAI voice card without a saved value", () => {
     const html = renderToString(
       <OpenAIVoiceConnectionCardView
@@ -265,7 +331,7 @@ describe("appearance settings", () => {
       />,
     );
 
-    expect(html).toContain("Local desktop credential");
+    expect(html).toContain("Optional cloud voice provider");
     expect(html).toContain("Active runtime voice status");
     expect(html).toContain("Remote lab reports voice not connected.");
     expect(html).toContain("Configure voice on that runtime.");
@@ -602,6 +668,32 @@ function sampleSpeechCapabilities(
       version: "test-catalog",
       voiceIds: ["alloy", "marin", "cedar"],
     },
+  };
+}
+
+function providerSelection(provider: SpeechProviderSelectionSettings["provider"]) {
+  return {
+    defaultProvider: "local_macos",
+    provider,
+    supportedProviders: ["local_macos", "openai"],
+  } satisfies SpeechProviderSelectionSettings;
+}
+
+function localVoiceHealth(status: LocalMacOSVoiceHealth["status"]): LocalMacOSVoiceHealth {
+  if (status === "ready") {
+    return {
+      helperPath: "/tmp/setta-local-helper",
+      modelPath: "/tmp/ggml-base.en.bin",
+      modelSHA256: "model-sha",
+      provider: "local_macos",
+      status,
+    };
+  }
+  return {
+    helperPath: null,
+    message: "The local macOS voice helper is not installed.",
+    provider: "local_macos",
+    status: "helper_unavailable",
   };
 }
 

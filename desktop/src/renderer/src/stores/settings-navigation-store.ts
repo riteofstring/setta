@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import type { SettingsSubtab } from "../components/settings-subtabs";
 
-type SettingsFocusTarget = "openai_voice_connection";
+type SettingsFocusTarget = "openai_voice_connection" | "voice_provider_selection";
 
 export type SettingsShellRoute =
   | {
@@ -41,6 +41,7 @@ interface SettingsNavigationStore {
   route: SettingsShellRoute;
   setActiveSubtab: (subtab: SettingsSubtab) => void;
   openOpenAIVoiceConnection: () => void;
+  openVoiceProviderSelection: () => void;
 }
 
 const initialSettingsSubtab = "theme" satisfies SettingsSubtab;
@@ -71,6 +72,22 @@ export const useSettingsNavigationStore = create<SettingsNavigationStore>((set) 
       },
       route: {
         focusTarget: "openai_voice_connection",
+        page: "settings",
+        requestId: state.nextRequestId,
+        subtab: "speech",
+      },
+    })),
+  openVoiceProviderSelection: () =>
+    set((state) => ({
+      lastSubtab: "speech",
+      nextRequestId: state.nextRequestId + 1,
+      request: {
+        focusTarget: "voice_provider_selection",
+        requestId: state.nextRequestId,
+        subtab: "speech",
+      },
+      route: {
+        focusTarget: "voice_provider_selection",
         page: "settings",
         requestId: state.nextRequestId,
         subtab: "speech",
@@ -114,6 +131,10 @@ export const useSettingsNavigationStore = create<SettingsNavigationStore>((set) 
 
 export function requestOpenAIVoiceConnectionSettings(): void {
   useSettingsNavigationStore.getState().openOpenAIVoiceConnection();
+}
+
+export function requestVoiceProviderSelectionSettings(): void {
+  useSettingsNavigationStore.getState().openVoiceProviderSelection();
 }
 
 export function completeSettingsNavigationRequest(requestId: number): void {

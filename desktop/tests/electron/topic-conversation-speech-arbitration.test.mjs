@@ -26,7 +26,10 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
+import {
+  saveOpenAIVoiceCredentialThroughSettingsAndClose,
+  selectOpenAIVoiceProvider,
+} from "./speech-credential-byok-workflow.mjs";
 import {
   expectedSynthesisSpeed,
   startSpeechTranscriptionProviderFixture,
@@ -82,6 +85,7 @@ try {
     speechProvider.apiKey,
     workflowTimeoutMs,
   );
+  await selectOpenAIVoiceProvider(context.client);
   const createdTopics = [];
   for (const topic of topics) {
     createdTopics.push(

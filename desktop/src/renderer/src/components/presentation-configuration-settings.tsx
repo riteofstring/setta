@@ -30,6 +30,7 @@ import {
   type ActiveRuntimeVoiceStatus,
   OpenAIVoiceConnectionCard,
 } from "./openai-voice-connection-card";
+import { SpeechProviderSelectionCard } from "./speech-provider-selection-card";
 import { Button } from "./ui/button";
 
 const automaticSelectionValue = "auto_distinct";
@@ -67,6 +68,9 @@ export function PresentationConfigurationSettings({
 
   return (
     <section className="grid gap-3" data-testid="presentation-configuration-settings">
+      <SpeechProviderSelectionCard
+        focusRequest={focusRequest?.target === "voice_provider_selection" ? focusRequest : null}
+      />
       <OpenAIVoiceConnectionCard
         activeRuntimeVoiceStatus={state.activeRuntimeVoiceStatus}
         focusRequest={focusRequest?.target === "openai_voice_connection" ? focusRequest : null}
