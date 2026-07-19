@@ -310,6 +310,11 @@ Implemented on 2026-07-20:
     private content-free report. Its controlled unauthenticated probe suspends
     the exact owned Sprite, observes one non-active state before and after the
     denied request, and fails if the request opens the runtime.
+28. The serving control plane now owns a mode-0600 Unix administration socket
+    inside its private data directory. Typed admin commands can ensure a
+    replacement device, revoke an exact device, and suspend or resume the user
+    in the live store process, so established-stream invalidation remains
+    push-based; no administration route is exposed through Fly HTTP.
 
 Still required before a live create/deployment mutation:
 

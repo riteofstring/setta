@@ -50,6 +50,7 @@ type readyEvent struct {
 }
 
 type controlPlaneServices struct {
+	admin      *controlplane.AdminServer
 	observer   *controlplane.JSONLinesObserver
 	reconciler *controlplane.Reconciler
 	server     *controlplane.Server
@@ -68,7 +69,7 @@ func run(
 	unsetenv func(string) error,
 ) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane <serve|bootstrap|ensure-runtime> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane <serve|bootstrap|ensure-runtime|admin> [options]")
 		return 2
 	}
 	if args[0] == "bootstrap" {
@@ -76,6 +77,9 @@ func run(
 	}
 	if args[0] == "ensure-runtime" {
 		return runEnsureRuntime(args[1:], stdout, stderr, getenv)
+	}
+	if args[0] == "admin" {
+		return runAdmin(args[1:], stdin, stdout, stderr)
 	}
 	if args[0] != "serve" {
 		fmt.Fprintf(stderr, "unknown setta-control-plane command %q\n", args[0])
@@ -162,7 +166,20 @@ func startControlPlaneServices(
 	if err != nil {
 		return controlPlaneServices{}, fmt.Errorf("start control-plane gateway: %w", err)
 	}
-	return controlPlaneServices{observer: observer, reconciler: reconciler, server: server}, nil
+	admin, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
+		SocketPath: controlplane.AdminSocketPath(config.DataDirectory),
+		Store:      store,
+	})
+	if err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+		return controlPlaneServices{}, errors.Join(
+			fmt.Errorf("start control-plane administration: %w", err),
+			server.Shutdown(shutdownCtx),
+			server.Wait(),
+		)
+	}
+	return controlPlaneServices{admin: admin, observer: observer, reconciler: reconciler, server: server}, nil
 }
 
 func (services controlPlaneServices) run(ctx context.Context, shutdownTimeout time.Duration) error {
@@ -189,12 +206,16 @@ func (services controlPlaneServices) run(ctx context.Context, shutdownTimeout ti
 func (services controlPlaneServices) shutdownGateway(timeout time.Duration) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	shutdownErr := services.server.Shutdown(shutdownCtx)
+	shutdownErr := errors.Join(services.admin.Shutdown(shutdownCtx), services.server.Shutdown(shutdownCtx))
+	adminErr := services.admin.Wait()
+	if adminErr != nil {
+		adminErr = fmt.Errorf("wait for control-plane administration: %w", adminErr)
+	}
 	serverErr := services.server.Wait()
 	if serverErr != nil {
 		serverErr = fmt.Errorf("wait for control-plane gateway: %w", serverErr)
 	}
-	return errors.Join(shutdownErr, serverErr)
+	return errors.Join(shutdownErr, adminErr, serverErr)
 }
 
 func closeStore(store *controlplane.Store, returnErr *error) {

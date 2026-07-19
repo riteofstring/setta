@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"setta/internal/controlplane"
 	"setta/internal/runtimeaccess"
@@ -146,6 +147,81 @@ func TestEnsureRuntimeCommandPersistsOneRestartSafeIntent(t *testing.T) {
 	if err != nil || operation.AttemptCount != 0 || operation.Status != controlplane.RuntimeOperationPending {
 		t.Fatalf("persisted ensure-runtime operation = %+v, %v", operation, err)
 	}
+}
+
+func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *testing.T) {
+	fixture := newBootstrapFixture(t)
+	runBootstrapAttempt(t, fixture.args, fixture.runtimeName, 0)
+	store, err := controlplane.OpenStore(controlplane.StoreConfig{Directory: fixture.dataDirectory})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	server, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
+		SocketPath: controlplane.AdminSocketPath(fixture.dataDirectory), Store: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			t.Error(err)
+		}
+		if err := server.Wait(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	credential, err := controlplane.NewDeviceCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	socketPath := controlplane.AdminSocketPath(fixture.dataDirectory)
+	ensureOutput := runAdminTestCommand(t, []string{
+		"ensure-device", "--socket", socketPath, "--device-name", "Hosted replacement",
+		"--runtime-name", fixture.runtimeName, "--user-id", "user-bootstrap",
+	}, payload)
+	if bytes.Contains(ensureOutput, []byte(credential.Token)) {
+		t.Fatal("administration output exposed the device token")
+	}
+	authorization, err := store.AuthorizeClient(context.Background(), credential.Token)
+	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationAllowed {
+		t.Fatalf("replacement authorization = %+v, %v", authorization, err)
+	}
+	runAdminTestCommand(t, []string{
+		"set-user-status", "--socket", socketPath, "--status", "suspended", "--user-id", "user-bootstrap",
+	}, nil)
+	select {
+	case <-authorization.Invalidated:
+	case <-time.After(time.Second):
+		t.Fatal("administrative suspension did not push invalidation")
+	}
+	runAdminTestCommand(t, []string{
+		"set-user-status", "--socket", socketPath, "--status", "active", "--user-id", "user-bootstrap",
+	}, nil)
+	runAdminTestCommand(t, []string{
+		"revoke-device", "--socket", socketPath, "--device-id", credential.DeviceID,
+	}, nil)
+	authorization, err = store.AuthorizeClient(context.Background(), credential.Token)
+	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationRevoked {
+		t.Fatalf("revoked authorization = %+v, %v", authorization, err)
+	}
+}
+
+func runAdminTestCommand(t *testing.T, args []string, stdin []byte) []byte {
+	t.Helper()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if exitCode := runAdmin(args, bytes.NewReader(stdin), &stdout, &stderr); exitCode != 0 {
+		t.Fatalf("admin command exit %d: %s", exitCode, stderr.String())
+	}
+	return stdout.Bytes()
 }
 
 type bootstrapFixture struct {
