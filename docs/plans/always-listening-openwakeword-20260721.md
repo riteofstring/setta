@@ -247,12 +247,18 @@ voice external artifact loses its provenance or hash declaration.
 
 ### Phase 1: Engine Spike
 
-- Train or generate the first “Hey Setta” openWakeWord model.
-- Build an offline evaluator that accepts WAV fixtures and reports wake scores,
-  false accepts, false rejects, and timing.
-- Prove wake inference can run from packaged app resources without user Python.
-- Choose ONNX Runtime or TFLite based on measured packaging/runtime behavior.
-- Write the first evaluation report.
+- [ ] Train or generate the first “Hey Setta” openWakeWord model.
+- [x] Build an offline evaluator that accepts WAV fixtures and reports wake
+  scores, false accepts, false rejects, and timing.
+- [ ] Prove wake inference can run from packaged app resources without user
+  Python.
+- [ ] Choose ONNX Runtime or TFLite based on measured packaging/runtime
+  behavior.
+- [ ] Write the first model evaluation report with artifact, runtime, threshold,
+  and corpus measurements.
+- [x] Record the repository-local evaluator baseline and unavailable external
+  release gates in
+  `docs/reports/voice/always-listening-openwakeword-phase1-evaluator-20260721.md`.
 
 Exit criteria: a reproducible model artifact, a checked-in evaluator script or
 documented command, and a clear threshold candidate.
