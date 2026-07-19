@@ -7,6 +7,7 @@ import type {
 } from "./app-shell-speech-capture-controller";
 import type {
   AppShellSpeechPlaybackController,
+  SpeechPlaybackIntentKind,
   SpeechPlaybackSnapshot,
   SpeechPlaybackState,
 } from "./app-shell-speech-playback-controller";
@@ -63,6 +64,7 @@ export interface PaneSpeechPresentation {
   captureState: GlobalSpeechCapturePresentation["state"];
   playbackScope: PaneSpeechSourceScope;
   playbackState: SpeechPlaybackState["type"];
+  speakingIntentKind: SpeechPlaybackIntentKind | null;
   speakingSourceEventId: string | null;
   transcriptPreview: string | null;
   voiceControlDisabled: boolean;
@@ -227,6 +229,7 @@ export function paneSpeechPresentation(
     captureState: capture.state,
     playbackScope,
     playbackState: playback.state.type,
+    speakingIntentKind: speakingIntentKind(playback, playbackScope),
     speakingSourceEventId: speakingSourceEventId(playback, playbackScope),
     transcriptPreview:
       captureScope === "this_pane" ? speechCaptureTranscriptPreview(capture) : null,
@@ -477,6 +480,20 @@ function speakingSourceEventId(
     return null;
   }
   return playback.state.intent.source.eventId;
+}
+
+function speakingIntentKind(
+  playback: SpeechPlaybackSnapshot,
+  playbackScope: PaneSpeechSourceScope,
+): SpeechPlaybackIntentKind | null {
+  if (
+    playback.state.type !== "speaking" ||
+    playbackScope !== "this_conversation" ||
+    playback.state.intent.source.speaker !== "narrator"
+  ) {
+    return null;
+  }
+  return playback.state.intent.kind;
 }
 
 function paneSourceScope(

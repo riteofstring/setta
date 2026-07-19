@@ -96,6 +96,7 @@ describe("global speech presentation", () => {
       activityLabel: "Narrator speaking",
       playbackScope: "this_conversation",
       playbackState: "speaking",
+      speakingIntentKind: "status_reply",
       speakingSourceEventId: "narration-status",
     });
     expect(
@@ -109,6 +110,7 @@ describe("global speech presentation", () => {
       activityKind: "speaking",
       activityLabel: "Alpha topic narrator speaking",
       playbackScope: "other_conversation",
+      speakingIntentKind: null,
       speakingSourceEventId: null,
     });
   });

@@ -306,6 +306,7 @@
       helperPresent: elements.helper !== null,
       helperText: elementText(elements.helper),
       highlightedMilestoneCount: elements.highlights.length,
+      highlights: Array.from(elements.highlights).map(highlightItemSnapshot),
       hostAccentDark: elements.host.style.getPropertyValue("--conversation-accent-dark"),
       hostConversationId: datasetValue(elements.host, "conversationId"),
       hostFocusRing: computedStyleValue(elements.host, "--workspace-pane-focus-ring"),
@@ -339,6 +340,16 @@
       trajectoryHasEarlier: datasetValue(surface, "easyButtonTrajectoryHasEarlier") === "true",
       voiceCaptureAvailable: voice.available,
       voiceCaptureLabel: voice.label,
+    };
+  }
+
+  function highlightItemSnapshot(item) {
+    return {
+      body: elementText(item.querySelector(".easy-button-highlight-body")),
+      id: datasetValue(item, "easyButtonHighlightId"),
+      speaking: datasetValue(item, "easyButtonHighlightSpeaking") === "true",
+      text: elementText(item),
+      title: elementText(item.querySelector(".easy-button-highlight-title")),
     };
   }
 

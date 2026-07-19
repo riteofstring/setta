@@ -94,6 +94,12 @@ import {
   narratorCaughtUp,
   requiredConversationSurface,
 } from "./topic-conversation-projection-assertions.mjs";
+import {
+  assertApprovalDeniedNow,
+  assertApprovalRequestedNow,
+  assertApprovalResolvedNow,
+  assertWorkingNow,
+} from "./topic-conversation-now-highlight-assertions.mjs";
 import { verifySideConversationRestart } from "./topic-conversation-side-restart-workflow.mjs";
 import {
   assertChangedConversationInputConflicts,
@@ -760,7 +766,7 @@ try {
       ),
     );
   }
-  await waitForConversationSurface(
+  const reopenedAwaitingApproval = await waitForConversationSurface(
     context.client,
     alpha.id,
     (surface) =>
@@ -769,6 +775,9 @@ try {
       surface.artifactText.includes("artifact.png") &&
       surface.helperText === "Waiting for approval",
   );
+  assertApprovalRequestedNow(reopenedAwaitingApproval, "reopened approval", {
+    artifactReady: true,
+  });
   assertDriverAction(
     await context.client.driver("topicConversationRespondApproval", {
       answer: secretApprovalAnswer,
@@ -791,6 +800,9 @@ try {
       )}`,
     );
   }
+  assertApprovalResolvedNow(reopenedApprovalComplete, "reopened approval completion", {
+    artifactReady: true,
+  });
   assertDriverAction(
     await context.client.driver("topicConversationSubmit", {
       conversationId: alpha.id,
@@ -815,6 +827,7 @@ try {
       surface.state === "working" &&
       surface.paletteId === alpha.paletteId,
   );
+  assertWorkingNow(reloadedWorking, "reloaded active turn");
   await waitForConversationSurface(
     context.client,
     beta.id,
@@ -868,6 +881,7 @@ try {
       surface.artifactText.includes("artifact.png") &&
       surface.helperText === "Waiting for approval",
   );
+  assertApprovalRequestedNow(awaitingApproval, "approval after steer");
   assertDriverAction(
     await context.client.driver("topicConversationRespondApproval", {
       answer: secretApprovalAnswer,
@@ -886,6 +900,7 @@ try {
   if (alphaComplete.artifactCount !== 1) {
     throw new Error(`Alpha artifact was not retained: ${JSON.stringify(alphaComplete)}`);
   }
+  assertApprovalResolvedNow(alphaComplete, "approval after steer completion");
 
   assertDriverAction(
     await context.client.driver("topicConversationSubmit", {
@@ -899,13 +914,14 @@ try {
     alpha.id,
     (surface) => surface.approvalId !== "" && surface.helperText === "Waiting for approval",
   );
+  assertApprovalRequestedNow(awaitingDenial, "command approval denial");
   assertDriverAction(
     await context.client.driver("topicConversationDenyApproval", {
       conversationId: alpha.id,
     }),
     "denied",
   );
-  await waitForConversationSurface(
+  const denialComplete = await waitForConversationSurface(
     context.client,
     alpha.id,
     (surface) =>
@@ -914,6 +930,7 @@ try {
       surface.approvalId === "" &&
       surface.summaryText === "Command approval denial completed.",
   );
+  assertApprovalDeniedNow(denialComplete, "command approval denial completion");
 
   const masterPaneRoutes = await exerciseMasterPaneRouting({
     artifactDirectory: secondLaunchDir,

@@ -65,6 +65,7 @@ import { useEasyButtonPaneTitle } from "./easy-button-pane-title";
 import { EasyButtonPresentationChrome } from "./easy-button-presentation-chrome";
 import { progressHighlightViews } from "./easy-button-progress-highlights";
 import { ArtifactRail, HighlightRail, type EasyButtonProgressHighlight } from "./easy-button-rails";
+import { speakingProgressHighlightId } from "./easy-button-speaking-highlight";
 import { EasyButtonSideConversation } from "./easy-button-side-conversation";
 import { easyButtonSideView, type EasyButtonSideView } from "./easy-button-side-projection";
 import {
@@ -281,11 +282,12 @@ function EasyButtonProjectionContent({
       <EasyButtonSideConversation commands={commands} parentTitle={view.title} side={view.side} />
     );
   }
+  const speakingHighlightId = speakingProgressHighlightId(view.highlights, speech);
   return (
     <>
       <HighlightRail
         highlights={view.highlights}
-        speakingHighlightId={speech?.speakingSourceEventId ?? null}
+        speakingHighlightId={speakingHighlightId}
         statusReply={view.statusReply}
       />
       <main className="easy-button-stage">
