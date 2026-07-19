@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v28";
+  const version = "setta-topic-conversation-pane-projection-driver-v29";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -12,6 +12,10 @@
       topicConversationPaneProjectionVersion: version,
       topicConversationArchiveFromNavigator,
       topicConversationCloseOneBoundPane,
+      topicConversationClickEmptyFrameConversation,
+      topicConversationClickNewConversationHeader,
+      topicConversationClickNewFrameConversation,
+      topicConversationCreationWorkspaceState,
       topicConversationDenyApproval,
       topicConversationEndSide,
       topicConversationFirstRunState,
@@ -49,6 +53,86 @@
       openButtonReady: button instanceof HTMLButtonElement && !button.disabled,
       workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
     };
+  }
+
+  function topicConversationCreationWorkspaceState() {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).map(
+      (host) => ({
+        conversationId: datasetValue(host, "conversationId"),
+        focused: datasetValue(host, "focused") === "true",
+        paneId: datasetValue(host, "paneId"),
+        runtimeState: datasetValue(host, "runtimeState"),
+        surfaceKind: datasetValue(host, "surfaceKind"),
+        visible: datasetValue(host, "visible") === "true",
+      }),
+    );
+    const newConversationButton = findButtonByAriaLabel("New conversation");
+    const newFrameButton = findButtonByAriaLabel("New frame");
+    return {
+      easyButtonHostCount: hosts.filter((host) => host.surfaceKind === "easy-button").length,
+      emptyFrameHostCount: hosts.filter((host) => host.surfaceKind === "empty-frame").length,
+      hosts,
+      newConversationButtonEnabled:
+        newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
+      newFrameButtonEnabled:
+        newFrameButton instanceof HTMLButtonElement && !newFrameButton.disabled,
+      operationErrorText: elementText(
+        document.querySelector('[data-testid="workspace-operation-error"]'),
+      ),
+      paneCount: Number(datasetValue(area, "paneCount")),
+      workspaceId: datasetValue(area, "workspaceId"),
+    };
+  }
+
+  function topicConversationClickNewConversationHeader({ clicks = 1 } = {}) {
+    const button = findButtonByAriaLabel("New conversation");
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false, clickCount: 0, reason: "new-conversation-unavailable" };
+    }
+    const boundedClicks = Math.max(1, Math.min(Number(clicks) || 1, 5));
+    for (let index = 0; index < boundedClicks; index += 1) {
+      button.click();
+    }
+    return { clicked: true, clickCount: boundedClicks };
+  }
+
+  async function topicConversationClickNewFrameConversation() {
+    const menuButton = findButtonByAriaLabel("New frame");
+    if (!(menuButton instanceof HTMLButtonElement) || menuButton.disabled) {
+      return { clicked: false, reason: "new-frame-menu-unavailable" };
+    }
+    menuButton.click();
+    await nextAnimationFrame();
+    const item = Array.from(document.querySelectorAll('button[role="menuitem"]')).find(
+      (candidate) =>
+        candidate.closest('[role="menu"]') !== null &&
+        candidate.textContent?.includes("Conversation"),
+    );
+    if (!(item instanceof HTMLButtonElement) || item.disabled) {
+      return { clicked: false, reason: "conversation-menu-item-unavailable" };
+    }
+    item.click();
+    return { clicked: true };
+  }
+
+  function topicConversationClickEmptyFrameConversation({ paneId = null } = {}) {
+    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).find(
+      (candidate) =>
+        datasetValue(candidate, "surfaceKind") === "empty-frame" &&
+        (paneId === null || datasetValue(candidate, "paneId") === paneId),
+    );
+    const button = host?.querySelector(
+      '[data-workspace-empty-frame-action="true"][data-workspace-frame-action-id="conversation"]',
+    );
+    if (!(host instanceof HTMLElement) || !(button instanceof HTMLButtonElement)) {
+      return { clicked: false, paneId: paneId ?? "", reason: "empty-frame-action-missing" };
+    }
+    if (button.disabled) {
+      return { clicked: false, paneId: datasetValue(host, "paneId"), reason: "action-disabled" };
+    }
+    button.click();
+    return { clicked: true, paneId: datasetValue(host, "paneId") };
   }
 
   function topicConversationFirstRunState() {
@@ -705,6 +789,18 @@
         return datasetValue(host, "paneId") === paneId;
       },
     );
+  }
+
+  function findButtonByAriaLabel(label) {
+    return Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === label,
+    );
+  }
+
+  function nextAnimationFrame() {
+    return new Promise((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
   }
 
   function setInputValue(input, value) {
