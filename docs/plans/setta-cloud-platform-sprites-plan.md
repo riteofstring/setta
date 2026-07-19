@@ -2,14 +2,17 @@
 
 **Date:** 2026-07-13 (re-based 2026-07-17)
 
-**Status:** Plan of record. Phases 0–1a complete. Phase 1b complete — the
-confirmed-cold gate was closed as unobservable and the owner signed the
-decision memo as Option A on 2026-07-17. Phase 2 offline build-out plus the live
-install-loop and conformance validation completed on the old base. Phase 1c
-live measurements and the Phase 3 budgets await the owner decisions in
-`docs/plans/morning-decisions-20260717.md`. On 2026-07-17 this plan was
-re-based onto the new `setta-3` codebase; see "2026-07-17 Re-Baseline onto the
-New setta-3" for what changed and the porting strategy.
+**Status:** Plan of record. Phases 0–1b are complete; the confirmed-cold gate
+was closed as unobservable and the owner signed Option A on 2026-07-17. The
+Phase 2 offline build-out, live install loop, and provider conformance
+validation completed on the old base. Their provider-neutral implementation,
+the Phase 1c measurement driver, and the viability harnesses are now ported to
+the rebased `setta-3-sprites` branch. New-base runtime wiring is in progress:
+the local signed-credential authority is integrated at protocol version 63;
+desktop secure credential storage, setup/diagnostics/access-policy wiring, and
+the live Phase 1c measurements remain. Phase 3 comparison budgets remain
+deferred per `docs/plans/morning-decisions-20260717.md` while the end-to-end
+cloud UX viability path is proved.
 
 **Branch:** `setta-3-sprites`, created from `setta-3` at `92702eb7c` (the new
 Setta). Previous home: `setta-3-cloud-platform`, created from the old
@@ -1778,3 +1781,19 @@ Stop and reassess rather than hiding the problem if any of these occur:
   all subagents. Updated the checked-in execution policy and `CLAUDE.md`; all
   subsequent delegations use `--model gpt-5.6-sol --effort high` unless the
   owner changes the policy again.
+- 2026-07-19 (new-base port continuation): Completed the provider-neutral port
+  through the Phase 1c driver and restored all five Phase 1a viability
+  harnesses (`198c6ae5c`, `1af7e58ef`). Re-wired the explicitly enabled local
+  credential issuer into the rewritten runtime and HTTP registry
+  (`e480a8395`): one-time local enrollment, signed/expiring runtime-access
+  credentials, refresh, live stream revalidation, device list/revocation,
+  startup configuration, and regenerated Go-owned desktop contracts at
+  protocol version 63. A real runtime test proved startup -> enrollment ->
+  signed authenticated request -> refresh. The full `./check_quality.sh --all`
+  gate passed, including all 19 required Electron workflows; the separate live
+  Codex topic-conversation gate also passed agent protocol, side isolation, and
+  the production topic workflow with ChatGPT auth. Supply-chain checks found no
+  Go vulnerabilities and the two pre-existing low-severity pnpm advisories.
+  Next new-base slices: finish setup attestation, capability diagnostics, and
+  HTTPS origin/host access-policy wiring; then reconcile desktop safeStorage
+  credentials with the new runtime registry before Phase 3 UX viability work.
