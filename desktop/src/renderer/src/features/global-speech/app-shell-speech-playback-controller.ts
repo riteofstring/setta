@@ -5,6 +5,7 @@ import type {
   SpeechSource,
   SpeechSynthesisRequest,
   SpeechVoiceID,
+  TurnStatus,
 } from "@generated/backend";
 
 export type SpeechPlaybackIntentKind =
@@ -13,8 +14,7 @@ export type SpeechPlaybackIntentKind =
   | "attention"
   | "error"
   | "final_summary"
-  | "milestone"
-  | "progress_highlight";
+  | "milestone";
 
 interface SpeechPlaybackIntentBase {
   kind: SpeechPlaybackIntentKind;
@@ -25,16 +25,12 @@ interface SpeechPlaybackIntentBase {
 
 interface MasterSpeechPlaybackIntent extends SpeechPlaybackIntentBase {
   kind: "master_answer";
-  source: SpeechSource & { conversationId: null; kind: "master_answer"; speaker: "master" };
+  source: SpeechSource & { conversationId: null; speaker: "master" };
 }
 
 export interface NarratorSpeechPlaybackIntent extends SpeechPlaybackIntentBase {
   kind: Exclude<SpeechPlaybackIntentKind, "master_answer">;
-  source: SpeechSource & {
-    conversationId: string;
-    kind: "narration_event" | "progress_highlight";
-    speaker: "narrator";
-  };
+  source: SpeechSource & { conversationId: string; speaker: "narrator" };
   sourceSequenceEnd: number;
   sourceSequenceStart: number;
   turnId: string | null;
@@ -760,6 +756,7 @@ export class AppShellSpeechPlaybackController {
 export function narrationSpeechPlaybackIntent(
   event: NarrationEvent,
   profile: ConversationPresentationProfile,
+  turnStatus: TurnStatus | null,
 ): NarratorSpeechPlaybackIntent | null {
   if (event.conversationId !== profile.conversationId) {
     throw new Error("narration speech event and presentation profile ownership do not match");
@@ -770,7 +767,7 @@ export function narrationSpeechPlaybackIntent(
   if (!profile.resolvedNarratorVoiceId) {
     throw new Error("enabled narrator speech requires a resolved narrator voice");
   }
-  const kind = narrationPlaybackKind(event);
+  const kind = narrationPlaybackKind(event, turnStatus);
   if (!kind) {
     return null;
   }
@@ -780,7 +777,6 @@ export function narrationSpeechPlaybackIntent(
     source: {
       conversationId: event.conversationId,
       eventId: event.id,
-      kind: "narration_event",
       speaker: "narrator",
     },
     sourceCreatedAt: event.createdAt,
@@ -801,19 +797,26 @@ export function speechPlaybackPriority(kind: SpeechPlaybackIntentKind): number {
     case "final_summary":
       return 2;
     case "milestone":
-    case "progress_highlight":
       return 1;
     default:
       return assertNever(kind);
   }
 }
 
-function narrationPlaybackKind(event: NarrationEvent): NarratorSpeechPlaybackIntent["kind"] | null {
+function narrationPlaybackKind(
+  event: NarrationEvent,
+  turnStatus: TurnStatus | null,
+): NarratorSpeechPlaybackIntent["kind"] | null {
   switch (event.kind) {
     case "status_reply":
       return "status_reply";
     case "final_summary":
+      if (turnStatus === null) {
+        throw new Error("final narration playback requires its authoritative turn status");
+      }
+      return turnStatus === "failed" ? "error" : "final_summary";
     case "milestone":
+      return event.trigger === "approval_required" ? "attention" : "milestone";
     case "topic_descriptor":
       return null;
     default:
@@ -873,41 +876,26 @@ function speechSourceCreatedAtMs(intent: SpeechPlaybackIntent): number | null {
 }
 
 function speechSourceIdentityKey(source: SpeechSource): string {
-  assertNormalizedSpeechSourceEventId(source);
-  switch (source.speaker) {
-    case "master":
-      return masterSpeechSourceIdentityKey(source);
-    case "narrator":
-      return narratorSpeechSourceIdentityKey(source);
-    default:
-      return assertNever(source.speaker);
-  }
-}
-
-function assertNormalizedSpeechSourceEventId(source: SpeechSource): void {
   if (!source.eventId.trim() || source.eventId.trim() !== source.eventId) {
     throw new Error("speech playback requires a normalized source event id");
   }
-}
-
-function masterSpeechSourceIdentityKey(source: SpeechSource): string {
-  if (source.kind !== "master_answer") {
-    throw new Error("master speech playback requires a master-answer source");
+  switch (source.speaker) {
+    case "master":
+      if (source.conversationId !== null) {
+        throw new Error("master speech playback must not include a conversation id");
+      }
+      return JSON.stringify([source.speaker, source.eventId]);
+    case "narrator":
+      if (
+        !source.conversationId?.trim() ||
+        source.conversationId.trim() !== source.conversationId
+      ) {
+        throw new Error("narrator speech playback requires a normalized conversation id");
+      }
+      return JSON.stringify([source.speaker, source.conversationId, source.eventId]);
+    default:
+      return assertNever(source.speaker);
   }
-  if (source.conversationId !== null) {
-    throw new Error("master speech playback must not include a conversation id");
-  }
-  return JSON.stringify([source.speaker, source.kind, source.eventId]);
-}
-
-function narratorSpeechSourceIdentityKey(source: SpeechSource): string {
-  if (source.kind !== "narration_event" && source.kind !== "progress_highlight") {
-    throw new Error("narrator speech playback requires a narrator source kind");
-  }
-  if (!source.conversationId?.trim() || source.conversationId.trim() !== source.conversationId) {
-    throw new Error("narrator speech playback requires a normalized conversation id");
-  }
-  return JSON.stringify([source.speaker, source.kind, source.conversationId, source.eventId]);
 }
 
 function copySpeechPlaybackIntent(intent: SpeechPlaybackIntent): SpeechPlaybackIntent {
@@ -919,7 +907,6 @@ function copySpeechPlaybackIntent(intent: SpeechPlaybackIntent): SpeechPlaybackI
     case "error":
     case "final_summary":
     case "milestone":
-    case "progress_highlight":
       return { ...intent, source: { ...intent.source } };
     default:
       return assertNever(intent);
@@ -948,7 +935,6 @@ function intentClearsLowerPrioritySpeech(intent: SpeechPlaybackIntent): boolean 
     case "master_answer":
       return true;
     case "milestone":
-    case "progress_highlight":
     case "status_reply":
       return false;
     default:
@@ -969,7 +955,6 @@ function sameSpeechPreemptionScope(
 function validateSpeechAudioResponse(intent: SpeechPlaybackIntent, response: SpeechAudio): void {
   if (
     response.source.speaker !== intent.source.speaker ||
-    response.source.kind !== intent.source.kind ||
     response.source.eventId !== intent.source.eventId ||
     response.source.conversationId !== intent.source.conversationId ||
     response.resolvedVoiceId !== intent.resolvedVoiceId ||

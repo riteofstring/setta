@@ -445,9 +445,6 @@ CREATE TABLE pane_bindings (
 CREATE INDEX pane_bindings_conversation_focus_idx
   ON pane_bindings(conversation_id, last_focused_at DESC, pane_id);
 
-CREATE UNIQUE INDEX pane_bindings_conversation_unique_idx
-  ON pane_bindings(conversation_id);
-
 CREATE TABLE committed_events (
   commit_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,

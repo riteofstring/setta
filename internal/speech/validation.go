@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 )
@@ -39,23 +38,6 @@ func ValidateSpeechCapabilities(capabilities SpeechCapabilities) error {
 	}
 	if capabilities.MaximumSynthesisCharacters != MaximumSynthesisCharacters {
 		return fmt.Errorf("speech maximum synthesis characters = %d, want %d", capabilities.MaximumSynthesisCharacters, MaximumSynthesisCharacters)
-	}
-	return nil
-}
-
-func ValidateSpeechCredentialValidationResult(result SpeechCredentialValidationResult) error {
-	if !validValue(result.Provider, speechProviderValues) {
-		return fmt.Errorf("unsupported speech credential provider %q", result.Provider)
-	}
-	return nil
-}
-
-func ValidateSpeechCredentialStatus(status SpeechCredentialStatus) error {
-	if !validValue(status.Provider, speechProviderValues) {
-		return fmt.Errorf("unsupported speech credential provider %q", status.Provider)
-	}
-	if !validValue(status.ProviderStatus, speechProviderStatusValues) {
-		return fmt.Errorf("unsupported speech credential provider status %q", status.ProviderStatus)
 	}
 	return nil
 }
@@ -152,40 +134,25 @@ func (source SpeechSource) Validate() error {
 	if !validValue(source.Speaker, speechSpeakerValues) {
 		return fmt.Errorf("unsupported speech speaker %q", source.Speaker)
 	}
-	if !validValue(source.Kind, speechSourceKindValues) {
-		return fmt.Errorf("unsupported speech source kind %q", source.Kind)
-	}
 	if err := validateSourceID("speech source event id", source.EventID); err != nil {
 		return err
 	}
 	switch source.Speaker {
 	case SpeechSpeakerMaster:
-		return source.validateMasterSource()
+		if source.ConversationID != nil {
+			return errors.New("master speech source must not include a conversation id")
+		}
 	case SpeechSpeakerNarrator:
-		return source.validateNarratorSource()
+		if source.ConversationID == nil {
+			return errors.New("narrator speech source requires a conversation id")
+		}
+		if err := validateSourceID("narrator speech source conversation id", *source.ConversationID); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unsupported speech speaker %q", source.Speaker)
 	}
-}
-
-func (source SpeechSource) validateMasterSource() error {
-	if source.Kind != SpeechSourceKindMasterAnswer {
-		return fmt.Errorf("master speech source cannot use kind %q", source.Kind)
-	}
-	if source.ConversationID != nil {
-		return errors.New("master speech source must not include a conversation id")
-	}
 	return nil
-}
-
-func (source SpeechSource) validateNarratorSource() error {
-	if source.Kind != SpeechSourceKindNarrationEvent && source.Kind != SpeechSourceKindProgressHighlight {
-		return fmt.Errorf("narrator speech source cannot use kind %q", source.Kind)
-	}
-	if source.ConversationID == nil {
-		return errors.New("narrator speech source requires a conversation id")
-	}
-	return validateSourceID("narrator speech source conversation id", *source.ConversationID)
 }
 
 func (request SpeechSynthesisRequest) Validate() error {
@@ -194,19 +161,6 @@ func (request SpeechSynthesisRequest) Validate() error {
 	}
 	if !LookupVoice(request.ResolvedVoiceID) {
 		return unavailableVoiceError(request.ResolvedVoiceID)
-	}
-	return nil
-}
-
-func (input ProviderSynthesisInput) Validate() error {
-	if err := validateSynthesisText(input.Text); err != nil {
-		return err
-	}
-	if !LookupVoice(input.VoiceID) {
-		return unavailableVoiceError(input.VoiceID)
-	}
-	if err := validateSynthesisRate(input.Rate); err != nil {
-		return err
 	}
 	return nil
 }
@@ -230,15 +184,6 @@ func validateSynthesisText(text string) error {
 	}
 	if len([]rune(text)) > MaximumSynthesisCharacters {
 		return fmt.Errorf("speech synthesis text exceeds %d characters", MaximumSynthesisCharacters)
-	}
-	return nil
-}
-
-func validateSynthesisRate(rate float64) error {
-	const minimum = 0.25
-	const maximum = 4.0
-	if math.IsNaN(rate) || math.IsInf(rate, 0) || rate < minimum || rate > maximum {
-		return fmt.Errorf("speech synthesis rate %g must be between %.2g and %.2g", rate, minimum, maximum)
 	}
 	return nil
 }

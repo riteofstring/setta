@@ -45,7 +45,7 @@ func TestTopicIndexSearchesAuthoritativeConversationInputsAndNarration(t *testin
 		t.Fatalf("AcceptConversationInput: %v", err)
 	}
 	appendTopicIndexFinalSummary(t, store, seed, "The aurora release is complete and verified.")
-	seedTopicIndexPaneBinding(t, store, seed.conversation)
+	seedTopicIndexPaneBindings(t, store, seed.conversation, conversationindex.MaxOpenPaneIDs+2)
 
 	requestMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
 		Query:        "nebula",
@@ -60,8 +60,8 @@ func TestTopicIndexSearchesAuthoritativeConversationInputsAndNarration(t *testin
 		len([]rune(card.RecentUserRequests[0].Text)) != conversationindex.MaxTopicCardExcerptCharacters {
 		t.Fatalf("bounded recent requests = %+v", card.RecentUserRequests)
 	}
-	if card.OpenPaneCount != 1 || len(card.OpenPaneIDs) != 1 || card.OpenPaneIDs[0] != "pane-index-a" {
-		t.Fatalf("single pane projection = ids=%+v count=%d", card.OpenPaneIDs, card.OpenPaneCount)
+	if card.OpenPaneCount != conversationindex.MaxOpenPaneIDs+2 || len(card.OpenPaneIDs) != conversationindex.MaxOpenPaneIDs {
+		t.Fatalf("bounded pane projection = ids=%+v count=%d", card.OpenPaneIDs, card.OpenPaneCount)
 	}
 
 	summaryMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
@@ -164,7 +164,7 @@ func TestTopicIndexUsesRoutedTurnIdentityAndPreservesRepeatedRequests(t *testing
 	}
 }
 
-func TestTopicIndexReportsSingleOpenPane(t *testing.T) {
+func TestTopicIndexOrdersOpenPanesByCanonicalFocusTime(t *testing.T) {
 	store := newTestStore(t)
 	conversation := seedTopicIndexConversation(
 		t,
@@ -175,15 +175,25 @@ func TestTopicIndexReportsSingleOpenPane(t *testing.T) {
 		"fractional timestamp ordering",
 		"2026-07-13T18:00:00Z",
 	)
-	if err := store.write(context.Background(), "seed focused topic index pane", func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
+	if err := store.write(context.Background(), "seed focused topic index panes", func(ctx context.Context, tx *sql.Tx) error {
+		for _, pane := range []struct {
+			id        string
+			focusedAt string
+		}{
+			{id: "pane-whole-second", focusedAt: "2026-07-13T18:01:00Z"},
+			{id: "pane-fractional-second", focusedAt: "2026-07-13T18:01:00.1Z"},
+		} {
+			if _, err := tx.ExecContext(ctx, `
 INSERT INTO pane_bindings (
   pane_id, workspace_id, conversation_id, created_at, updated_at, last_focused_at
 ) VALUES (?, ?, ?, ?, ?, ?)
-`, "pane-focused", conversation.WorkspaceID, conversation.ID, testTimeStarted, "2026-07-13T18:01:00.1Z", "2026-07-13T18:01:00.1Z")
-		return err
+`, pane.id, conversation.WorkspaceID, conversation.ID, testTimeStarted, pane.focusedAt, pane.focusedAt); err != nil {
+				return err
+			}
+		}
+		return nil
 	}); err != nil {
-		t.Fatalf("seed focused topic index pane: %v", err)
+		t.Fatalf("seed focused topic index panes: %v", err)
 	}
 
 	candidates := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
@@ -194,9 +204,10 @@ INSERT INTO pane_bindings (
 		t.Fatalf("pane candidates = %+v, want one", candidates)
 	}
 	card := candidates[0].Card
-	if card.OpenPaneCount != 1 || len(card.OpenPaneIDs) != 1 ||
-		card.OpenPaneIDs[0] != "pane-focused" {
-		t.Fatalf("single focused pane projection = ids=%+v count=%d", card.OpenPaneIDs, card.OpenPaneCount)
+	if card.OpenPaneCount != 2 || len(card.OpenPaneIDs) != 2 ||
+		card.OpenPaneIDs[0] != "pane-fractional-second" ||
+		card.OpenPaneIDs[1] != "pane-whole-second" {
+		t.Fatalf("ordered pane projection = ids=%+v count=%d", card.OpenPaneIDs, card.OpenPaneCount)
 	}
 }
 
@@ -480,21 +491,27 @@ func appendTopicIndexFinalSummary(
 	}
 }
 
-func seedTopicIndexPaneBinding(
+func seedTopicIndexPaneBindings(
 	t *testing.T,
 	store *Store,
 	conversation TopicConversation,
+	count int,
 ) {
 	t.Helper()
-	if err := store.write(context.Background(), "seed topic index pane binding", func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
+	if err := store.write(context.Background(), "seed topic index pane bindings", func(ctx context.Context, tx *sql.Tx) error {
+		for index := range count {
+			paneID := "pane-index-" + string(rune('a'+index))
+			if _, err := tx.ExecContext(ctx, `
 INSERT INTO pane_bindings (
   pane_id, workspace_id, conversation_id, created_at, updated_at, last_focused_at
 ) VALUES (?, ?, ?, ?, ?, ?)
-`, "pane-index-a", conversation.WorkspaceID, conversation.ID, testTimeStarted, testTimeStarted, testTimeStarted)
-		return err
+`, paneID, conversation.WorkspaceID, conversation.ID, testTimeStarted, testTimeStarted, testTimeStarted); err != nil {
+				return err
+			}
+		}
+		return nil
 	}); err != nil {
-		t.Fatalf("seed topic index pane binding: %v", err)
+		t.Fatalf("seed topic index pane bindings: %v", err)
 	}
 }
 

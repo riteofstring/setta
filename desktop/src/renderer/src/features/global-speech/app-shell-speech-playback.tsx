@@ -1,4 +1,4 @@
-import type { ConversationEvent, ConversationSnapshot } from "@generated/backend";
+import type { ConversationEvent, ConversationSnapshot, TurnStatus } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 import {
   createContext,
@@ -14,7 +14,6 @@ import {
 import { queuedConversationProjectionEventsBefore } from "../../stores/conversation-projection-runtime";
 import { useConversationStore } from "../../stores/conversation-store";
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
-import { progressHighlightSpeechPlaybackIntent } from "./app-shell-progress-highlight-speech-playback-intent";
 import {
   AppShellSpeechPlaybackController,
   narrationSpeechPlaybackIntent,
@@ -79,40 +78,39 @@ export function handlePlaybackConversationEvent(
   controller: AppShellSpeechPlaybackController,
   event: ConversationEvent,
 ): void {
+  if (event.payload.type !== "conversation.narration.created") {
+    return;
+  }
   const snapshot = useConversationStore
     .getState()
     .conversations.get(event.conversationId)?.snapshot;
   if (!snapshot) {
     throw new Error(
-      `live conversation speech event ${event.eventId} arrived without its conversation projection`,
+      `live narration event ${event.payload.event.id} arrived without its conversation projection`,
     );
   }
-  const presentationProfile = playbackPresentationProfile(snapshot, event);
-  const intent = playbackIntentForConversationEvent(event, presentationProfile);
+  const eventState = playbackEventState(snapshot, event);
+  const intent = narrationSpeechPlaybackIntent(
+    event.payload.event,
+    eventState.presentationProfile,
+    eventState.turnStatus,
+  );
   if (intent) {
     controller.enqueueAutomatic(intent);
   }
 }
 
-function playbackIntentForConversationEvent(
-  event: ConversationEvent,
-  presentationProfile: ConversationSnapshot["presentationProfile"],
-) {
-  switch (event.payload.type) {
-    case "conversation.narration.created":
-      return narrationSpeechPlaybackIntent(event.payload.event, presentationProfile);
-    case "conversation.trajectory.appended":
-      return progressHighlightSpeechPlaybackIntent(event.payload.event, presentationProfile);
-    default:
-      return null;
-  }
-}
-
-function playbackPresentationProfile(
+function playbackEventState(
   snapshot: ConversationSnapshot,
   event: ConversationEvent,
-): ConversationSnapshot["presentationProfile"] {
+): {
+  presentationProfile: ConversationSnapshot["presentationProfile"];
+  turnStatus: TurnStatus | null;
+} {
+  const turnId =
+    event.payload.type === "conversation.narration.created" ? event.payload.event.turnId : null;
   let presentationProfile = snapshot.presentationProfile;
+  let turnStatus = narrationTurnStatus(turnId, snapshot);
   for (const queued of queuedConversationProjectionEventsBefore(event)) {
     if (queued.sequence <= snapshot.eventCursor.sequence) {
       continue;
@@ -120,8 +118,21 @@ function playbackPresentationProfile(
     if (queued.payload.type === "conversation.presentation_profile.updated") {
       presentationProfile = queued.payload.profile;
     }
+    if (queued.payload.type === "conversation.turn.updated" && queued.payload.turn.id === turnId) {
+      turnStatus = queued.payload.turn.status;
+    }
   }
-  return presentationProfile;
+  return { presentationProfile, turnStatus };
+}
+
+function narrationTurnStatus(
+  turnId: string | null,
+  snapshot: ConversationSnapshot,
+): TurnStatus | null {
+  if (turnId === null) {
+    return null;
+  }
+  return snapshot.turns.turns.find((turn) => turn.id === turnId)?.status ?? null;
 }
 
 interface SpeechPlaybackControllerDisposable {

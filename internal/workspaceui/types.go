@@ -14,9 +14,10 @@ const (
 type SurfaceKind string
 
 const (
-	SurfaceKindBrowser    SurfaceKind = "browser"
-	SurfaceKindEasyButton SurfaceKind = "easy-button"
-	SurfaceKindEmptyFrame SurfaceKind = "empty-frame"
+	SurfaceKindBrowser     SurfaceKind = "browser"
+	SurfaceKindEasyButton  SurfaceKind = "easy-button"
+	SurfaceKindEmptyFrame  SurfaceKind = "empty-frame"
+	SurfaceKindSettingsDOM SurfaceKind = "settings-dom"
 )
 
 type PaneTone string
@@ -117,6 +118,10 @@ func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
 				DiscriminatorValue: string(SurfaceKindEmptyFrame),
 				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
 			},
+			{
+				DiscriminatorValue: string(SurfaceKindSettingsDOM),
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
+			},
 		},
 	}}
 }
@@ -136,6 +141,7 @@ func ContractValueSets() []ContractValueSet {
 				string(SurfaceKindBrowser),
 				string(SurfaceKindEasyButton),
 				string(SurfaceKindEmptyFrame),
+				string(SurfaceKindSettingsDOM),
 			},
 		},
 		{

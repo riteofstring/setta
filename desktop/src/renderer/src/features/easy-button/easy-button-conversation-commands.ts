@@ -74,7 +74,7 @@ function usePendingSideCreationCompletion(
     if (!workspaceId || !paneId || !snapshot) {
       return;
     }
-    if (pendingSideCreationSettled(snapshot, paneId)) {
+    if (openSideConversationForPane(snapshot, paneId)) {
       finishPendingSideCreation(workspaceId, conversationId, paneId);
     }
   }, [conversationId, paneId, snapshot, workspaceId]);
@@ -449,17 +449,6 @@ function finishPendingSideCreationForInput(
   }
 }
 
-export function pendingSideCreationSettled(
-  snapshot: ConversationSnapshot,
-  paneId: string | null,
-): boolean {
-  const side = openSideConversationForPane(snapshot, paneId);
-  if (!side) {
-    return false;
-  }
-  return side.status === "failed" || side.activeTurnId !== null || side.lastEventSequence > 0;
-}
-
 function beginPendingSideCreation(
   workspaceId: string,
   conversationId: string,
@@ -655,6 +644,7 @@ async function presentRelatedConversation(
     await presentConversationPane({
       conversationId,
       title,
+      viewAction: "focus-or-open",
       workspaceId,
     });
   } catch (error) {

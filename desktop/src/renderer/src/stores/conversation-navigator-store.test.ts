@@ -234,7 +234,6 @@ function navigatorSnapshot(id: string, workspaceId: string): ConversationSnapsho
       topicDescriptor: "",
       updatedAt: testTime,
     },
-    pendingApprovals: [],
     presentationProfile: item.presentationProfile,
     queue: [],
     roleProfileOverrides: [],

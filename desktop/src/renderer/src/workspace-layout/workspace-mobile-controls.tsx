@@ -28,7 +28,7 @@ const directionPadButtons = [
 export function WorkspaceMobileControls({
   moveFocus,
   onNewPane,
-  onOpenSettingsPage,
+  onOpenSettingsPane,
   onToggleOverview,
   onToggleProjectPane,
   overviewActive,
@@ -36,7 +36,7 @@ export function WorkspaceMobileControls({
 }: {
   moveFocus: (direction: PaneDirection) => void;
   onNewPane: () => void;
-  onOpenSettingsPage: () => void;
+  onOpenSettingsPane: () => void;
   onToggleOverview: () => void;
   onToggleProjectPane: () => void;
   overviewActive: boolean;
@@ -87,8 +87,8 @@ export function WorkspaceMobileControls({
           <OverviewIcon className="h-4 w-4" />
         </WorkspaceMobileButton>
         <WorkspaceMobileButton
-          label="Open settings"
-          onClick={onOpenSettingsPage}
+          label="Open settings pane"
+          onClick={onOpenSettingsPane}
           testId="workspace-mobile-settings"
         >
           <Settings className="h-4 w-4" />

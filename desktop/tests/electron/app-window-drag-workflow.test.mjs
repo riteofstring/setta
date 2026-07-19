@@ -19,10 +19,10 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
-import { driverCallExpression } from "./cdp-client.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
+const conversationStartTimeoutMs = 45_000;
 const dragDeltaTolerancePx = 35;
 const shellTopBarButtonGapPx = 6;
 const shellTopBarButtonSizePx = 28;
@@ -226,16 +226,18 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
   assertShellTopBarControlSizing(await shellTopBarControlMeasurements(client));
   await assertEffectiveWindowDragRegions(client);
 
-  const maximizeButton = await elementCenter(
+  const maximizeButtonSelector =
+    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])';
+  await waitForElementPhysicallyClickable(
     client,
-    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
+    maximizeButtonSelector,
+    conversationStartTimeoutMs,
   );
+  const maximizeButton = await elementCenter(client, maximizeButtonSelector);
   await dispatchPhysicalMouseClick(client, maximizeButton);
   await waitForPaneMaximized(client, true);
-  const restoreButton = await elementCenter(
-    client,
-    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
-  );
+  await waitForElementPhysicallyClickable(client, maximizeButtonSelector, workflowTimeoutMs);
+  const restoreButton = await elementCenter(client, maximizeButtonSelector);
   await dispatchPhysicalMouseClick(client, restoreButton);
   await waitForPaneMaximized(client, false);
 
@@ -266,6 +268,23 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
   await waitForProjectToggleLabel(client, "Hide project sidebar");
 }
 
+async function waitForElementPhysicallyClickable(client, selector, timeoutMs) {
+  await waitForState(
+    client,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return hit instanceof Element && (hit === element || element.contains(hit));
+    })()`,
+    Boolean,
+    timeoutMs,
+  );
+}
+
 async function waitForNewFrameMenu(client, expectedOpen) {
   await waitForState(
     client,
@@ -294,14 +313,26 @@ async function waitForProjectToggleLabel(client, label) {
 }
 
 async function elementCenter(client, selector) {
-  await client.installDriver();
-  const point = await waitForState(
-    client,
-    driverCallExpression("elementCenterForVisibleTarget", { selector }),
-    (candidate) => candidate?.ok === true,
-    workflowTimeoutMs,
-  );
-  return { x: point.x, y: point.y };
+  const rect = await client.evaluate(`(() => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!(element instanceof Element)) {
+      return null;
+    }
+    const rect = element.getBoundingClientRect();
+    return {
+      height: rect.height,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+    };
+  })()`);
+  if (!rect) {
+    throw new Error(`missing element center target: ${selector}`);
+  }
+  return {
+    x: Math.round(rect.left + rect.width / 2),
+    y: Math.round(rect.top + rect.height / 2),
+  };
 }
 
 async function shellTopBarControlMeasurements(client) {

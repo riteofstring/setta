@@ -3,10 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { useConversationStore } from "../../stores/conversation-store";
-import {
-  pendingSideCreationSettled,
-  requestEasyButtonPaneClose,
-} from "./easy-button-conversation-commands";
+import { requestEasyButtonPaneClose } from "./easy-button-conversation-commands";
 
 const workspaceId = "workspace_topic";
 const timestamp = "2026-07-11T20:00:00Z";
@@ -125,26 +122,6 @@ describe("Easy Button conversation commands", () => {
     expect(disposeSide).not.toHaveBeenCalled();
     expect(cancelActiveConversationCapture).not.toHaveBeenCalled();
   });
-
-  test("keeps pending side creation open until the first side turn is durable", () => {
-    const snapshot = conversationSnapshot("conversation_pending_side");
-    const side = sideConversation(snapshot, "pane_pending");
-    side.lastEventSequence = 0;
-    snapshot.sideConversations = [side];
-
-    expect(pendingSideCreationSettled(snapshot, "pane_pending")).toBe(false);
-
-    side.activeTurnId = "side_turn_pending";
-    expect(pendingSideCreationSettled(snapshot, "pane_pending")).toBe(true);
-
-    side.activeTurnId = null;
-    side.lastEventSequence = 1;
-    expect(pendingSideCreationSettled(snapshot, "pane_pending")).toBe(true);
-
-    side.lastEventSequence = 0;
-    side.status = "failed";
-    expect(pendingSideCreationSettled(snapshot, "pane_pending")).toBe(true);
-  });
 });
 
 function conversationSnapshot(conversationId: string): ConversationSnapshot {
@@ -178,7 +155,6 @@ function conversationSnapshot(conversationId: string): ConversationSnapshot {
       topicDescriptor: `${conversationId} descriptor`,
       updatedAt: timestamp,
     },
-    pendingApprovals: [],
     presentationProfile: {
       conversationId,
       narratorSpeechEnabled: false,

@@ -1,10 +1,10 @@
 import type { WorkspacePane, SurfaceKind } from "./types";
 
 export interface EmptyFrameOption {
-  actionId: string;
   disabled?: boolean;
   label: string;
   meta?: string;
+  surfaceKind: SurfaceKind;
 }
 
 export function renderFakePaneContent(
@@ -89,7 +89,7 @@ export function renderEmptyFrameContent(
     const button = document.createElement("button");
     button.className = "workspace-empty-frame-action";
     button.dataset.workspaceEmptyFrameAction = "true";
-    button.dataset.workspaceFrameActionId = option.actionId;
+    button.dataset.surfaceKind = option.surfaceKind;
     button.disabled = option.disabled ?? false;
     button.type = "button";
     button.title = button.disabled ? `${option.label} limit reached` : option.label;
@@ -197,6 +197,7 @@ const staticSnapshotRenderers = {
   "empty-frame": renderWrappedEmptyFrameSnapshot,
   "fake-dom": renderWrappedGenericSnapshot,
   "fake-heavy-dom": renderWrappedGenericSnapshot,
+  "settings-dom": renderWrappedGenericSnapshot,
   snapshot: () => null,
 } satisfies Record<SurfaceKind, StaticSnapshotRenderer>;
 

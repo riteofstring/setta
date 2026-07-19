@@ -5,7 +5,6 @@ import "time"
 type SpeechProviderStatus string
 type SpeechProvider string
 type SpeechSpeaker string
-type SpeechSourceKind string
 type VoiceSelectionMode string
 type VoiceReuseReason string
 
@@ -17,10 +16,6 @@ const (
 
 	SpeechSpeakerMaster   SpeechSpeaker = "master"
 	SpeechSpeakerNarrator SpeechSpeaker = "narrator"
-
-	SpeechSourceKindMasterAnswer      SpeechSourceKind = "master_answer"
-	SpeechSourceKindNarrationEvent    SpeechSourceKind = "narration_event"
-	SpeechSourceKindProgressHighlight SpeechSourceKind = "progress_highlight"
 
 	VoiceSelectionAutoDistinct VoiceSelectionMode = "auto_distinct"
 	VoiceSelectionExact        VoiceSelectionMode = "exact"
@@ -36,7 +31,6 @@ const (
 	MaximumRecordingSeconds       = 120
 	MaximumTranscriptCharacters   = 8_000
 	MaximumSynthesisAudioBytes    = 8 * 1024 * 1024
-	AssistantSynthesisRate        = 1.2
 	AIVoiceDisclosure             = "This voice is AI-generated and not a human voice."
 )
 
@@ -50,12 +44,6 @@ var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI}
 var speechSpeakerValues = []SpeechSpeaker{
 	SpeechSpeakerMaster,
 	SpeechSpeakerNarrator,
-}
-
-var speechSourceKindValues = []SpeechSourceKind{
-	SpeechSourceKindMasterAnswer,
-	SpeechSourceKindNarrationEvent,
-	SpeechSourceKindProgressHighlight,
 }
 
 var voiceSelectionModeValues = []VoiceSelectionMode{
@@ -151,16 +139,6 @@ type SpeechCapabilities struct {
 	AIVoiceDisclosure           string               `json:"aiVoiceDisclosure"`
 }
 
-type SpeechCredentialValidationResult struct {
-	Provider SpeechProvider `json:"provider"`
-	Valid    bool           `json:"valid"`
-}
-
-type SpeechCredentialStatus struct {
-	Provider       SpeechProvider       `json:"provider"`
-	ProviderStatus SpeechProviderStatus `json:"providerStatus"`
-}
-
 type SpeechTranscriptionSession struct {
 	ClientSecret                string `json:"clientSecret"`
 	ExpiresAt                   string `json:"expiresAt"`
@@ -172,10 +150,9 @@ type SpeechTranscriptionSession struct {
 }
 
 type SpeechSource struct {
-	Speaker        SpeechSpeaker    `json:"speaker"`
-	Kind           SpeechSourceKind `json:"kind"`
-	EventID        string           `json:"eventId"`
-	ConversationID *string          `json:"conversationId"`
+	Speaker        SpeechSpeaker `json:"speaker"`
+	EventID        string        `json:"eventId"`
+	ConversationID *string       `json:"conversationId"`
 }
 
 type SpeechSynthesisRequest struct {
@@ -202,12 +179,6 @@ type SynthesizedAudio struct {
 	Format    string
 }
 
-type ProviderSynthesisInput struct {
-	Text    string
-	VoiceID SpeechVoiceID
-	Rate    float64
-}
-
 type ResolvedSpeechSource struct {
 	Source          SpeechSource
 	Text            string
@@ -224,7 +195,6 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SpeechProviderStatus", Values: stringValues(speechProviderStatusValues)},
 		{Name: "SpeechProvider", Values: stringValues(speechProviderValues)},
 		{Name: "SpeechSpeaker", Values: stringValues(speechSpeakerValues)},
-		{Name: "SpeechSourceKind", Values: stringValues(speechSourceKindValues)},
 		{Name: "VoiceSelectionMode", Values: stringValues(voiceSelectionModeValues)},
 		{Name: "VoiceReuseReason", Values: stringValues(voiceReuseReasonValues)},
 		{Name: "SpeechVoiceID", Values: stringValues(openAISpeechVoiceIDs[:])},

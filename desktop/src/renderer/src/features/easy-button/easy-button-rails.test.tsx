@@ -9,7 +9,7 @@ import { describe, expect, test } from "vitest";
 import {
   ArtifactRail,
   HighlightRail,
-  type EasyButtonProgressHighlight,
+  type EasyButtonMilestone,
   milestoneElapsedLabel,
   readVisibleArtifactPayloads,
 } from "./easy-button-rails";
@@ -19,61 +19,45 @@ const conversationId = "conversation_topic";
 const workspaceId = "workspace_topic";
 
 describe("Easy Button conversation rails", () => {
-  test("renders event-backed progress highlights without provider-thread identity", () => {
+  test("renders persisted narrator milestones without provider-thread identity", () => {
     const html = renderToString(
-      <HighlightRail highlights={[highlight("highlight_first"), highlight("highlight_second")]} />,
+      <HighlightRail milestones={[milestone("milestone_first"), milestone("milestone_second")]} />,
     );
 
-    expect(html).toContain('aria-label="NOW highlights"');
-    expect(html).toContain('data-easy-button-highlight-id="highlight_first"');
-    expect(html).toContain('data-easy-button-highlight-id="highlight_second"');
-    expect(html).toContain("Title highlight_first");
-    expect(html).toContain("Body highlight_second");
+    expect(html).toContain('aria-label="Milestones"');
+    expect(html).toContain('data-easy-button-highlight-id="milestone_first"');
+    expect(html).toContain('data-easy-button-highlight-id="milestone_second"');
     expect(html).not.toContain("providerThreadId");
     expect(html.match(/class="easy-button-highlight-dot"/g)).toHaveLength(2);
     expect(html).not.toContain("data-easy-button-highlight-speaking");
   });
 
-  test("marks only the highlight currently spoken by playback", () => {
+  test("marks only the milestone currently spoken by playback", () => {
     const html = renderToString(
       <HighlightRail
-        highlights={[highlight("highlight_first"), highlight("highlight_second")]}
-        speakingHighlightId="highlight_first"
+        milestones={[milestone("milestone_first"), milestone("milestone_second")]}
+        speakingMilestoneId="milestone_first"
       />,
     );
 
-    expect(html).toContain('data-easy-button-highlight-id="highlight_first"');
+    expect(html).toContain('data-easy-button-highlight-id="milestone_first"');
     expect(html).toContain('data-easy-button-highlight-speaking="true"');
     expect(html.match(/data-easy-button-highlight-speaking="true"/g)).toHaveLength(1);
     expect(html).toContain('aria-current="true"');
-    expect(html).toContain('data-easy-button-highlight-id="highlight_second"');
+    expect(html).toContain('data-easy-button-highlight-id="milestone_second"');
   });
 
-  test("labels the highlight rail accurately when it contains a status reply", () => {
+  test("labels the milestone rail accurately when it contains a status reply", () => {
     const html = renderToString(
-      <HighlightRail highlights={[]} statusReply={statusReply("The agent is still working.")} />,
+      <HighlightRail milestones={[]} statusReply={statusReply("The agent is still working.")} />,
     );
 
-    expect(html).toContain('aria-label="Status and NOW highlights"');
+    expect(html).toContain('aria-label="Status and milestones"');
     expect(html).toContain('data-easy-button-rail-empty="false"');
     expect(html).toContain('data-testid="easy-button-status-reply"');
     expect(html.indexOf('data-testid="easy-button-status-reply"')).toBeLessThan(
       html.indexOf('data-testid="easy-button-highlights"'),
     );
-  });
-
-  test("renders only the latest five progress highlights", () => {
-    const html = renderToString(
-      <HighlightRail
-        highlights={Array.from({ length: 7 }, (_, index) => highlight(`highlight_${index + 1}`))}
-      />,
-    );
-
-    expect(html).toContain('data-easy-button-highlight-window-size="5"');
-    expect(html).not.toContain('data-easy-button-highlight-id="highlight_1"');
-    expect(html).not.toContain('data-easy-button-highlight-id="highlight_2"');
-    expect(html).toContain('data-easy-button-highlight-id="highlight_3"');
-    expect(html).toContain('data-easy-button-highlight-id="highlight_7"');
   });
 
   test("measures each milestone from its own conversation turn", () => {
@@ -207,12 +191,11 @@ describe("Easy Button conversation rails", () => {
   });
 });
 
-function highlight(id: string): EasyButtonProgressHighlight {
+function milestone(id: string): EasyButtonMilestone {
   return {
     at: "2026-07-11T20:00:01Z",
-    body: `Body ${id}`,
     id,
-    title: `Title ${id}`,
+    text: id,
     turnStartedAt: "2026-07-11T20:00:00Z",
   };
 }

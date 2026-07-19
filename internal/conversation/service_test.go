@@ -58,7 +58,29 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	assertExhaustedPaletteProfile(t, exhausted.PresentationProfile, created[0].Conversation.ID)
 
 	alpha := created[0]
-	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-1)
+	bindings = append(bindings, WorkspacePaneBinding{
+		PaneID:         "pane-alpha-duplicate",
+		ConversationID: alpha.Conversation.ID,
+	})
+	replacePaletteTestPaneBindings(t, store, workspaceID, bindings)
+	alphaWithDuplicateViews, err := service.ReadSnapshot(ctx, workspaceID, alpha.Conversation.ID)
+	if err != nil {
+		t.Fatalf("read alpha with duplicate views: %v", err)
+	}
+	if alphaWithDuplicateViews.PresentationProfile.PaletteSelection !=
+		alpha.PresentationProfile.PaletteSelection ||
+		alphaWithDuplicateViews.PresentationProfile.RequestedPaletteID != nil ||
+		alphaWithDuplicateViews.PresentationProfile.ResolvedPaletteID !=
+			alpha.PresentationProfile.ResolvedPaletteID ||
+		alphaWithDuplicateViews.PresentationProfile.PaletteReuse != nil {
+		t.Fatalf(
+			"duplicate views changed presentation: got %+v want %+v",
+			alphaWithDuplicateViews.PresentationProfile,
+			alpha.PresentationProfile,
+		)
+	}
+
+	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-2)
 	for _, binding := range bindings {
 		if binding.ConversationID != alpha.Conversation.ID {
 			remainingBindings = append(remainingBindings, binding)
@@ -429,9 +451,7 @@ type serviceTestAgentRuntime struct {
 	injectErr            error
 	injections           []serviceTestInjection
 	lastApproval         *agent.ApprovalResponse
-	operationLog         []string
 	resolveRequests      []agent.Invocation
-	resumeRequests       []serviceTestResume
 	runRequests          []agent.TurnRequest
 	startRequests        []agent.StartThreadRequest
 	started              chan string
@@ -446,11 +466,6 @@ type serviceTestAgentRuntime struct {
 type serviceTestInjection struct {
 	threadID string
 	items    []agent.InjectedTextItem
-}
-
-type serviceTestResume struct {
-	threadID string
-	request  agent.StartThreadRequest
 }
 
 func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
@@ -489,40 +504,10 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 	thread := agent.Thread{
 		ID:        fmt.Sprintf("provider-thread-%d", runtime.threads),
 		SessionID: fmt.Sprintf("session-%d", runtime.threads),
-		CWD:       request.WorkspaceRoot,
-		Model:     request.Invocation.Model,
-		Ephemeral: request.Ephemeral,
+		Model:     "gpt-5.6-sol",
 	}
 	runtime.providerThreads[thread.ID] = thread
-	runtime.operationLog = append(runtime.operationLog, "thread/start:"+thread.ID)
 	return thread, nil
-}
-
-func (runtime *serviceTestAgentRuntime) ResumeThreadWithConfiguration(
-	_ context.Context,
-	threadID string,
-	request agent.StartThreadRequest,
-) (agent.ThreadResumeResult, error) {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	runtime.resumeRequests = append(runtime.resumeRequests, serviceTestResume{
-		threadID: threadID,
-		request:  request,
-	})
-	runtime.operationLog = append(runtime.operationLog, "thread/resume:"+threadID)
-	thread, ok := runtime.providerThreads[threadID]
-	if !ok {
-		return agent.ThreadResumeResult{}, &agent.ProviderThreadMissingError{
-			Operation: "resume agent thread",
-			ThreadID:  threadID,
-			Err:       fmt.Errorf("scripted provider thread %s missing", threadID),
-		}
-	}
-	thread.CWD = request.WorkspaceRoot
-	thread.Model = request.Invocation.Model
-	thread.Ephemeral = request.Ephemeral
-	runtime.providerThreads[threadID] = thread
-	return agent.ThreadResumeResult{Thread: thread, Resumed: true}, nil
 }
 
 func (runtime *serviceTestAgentRuntime) ForkThread(
@@ -564,20 +549,6 @@ func (runtime *serviceTestAgentRuntime) InjectItems(
 	return runtime.injectErr
 }
 
-func (runtime *serviceTestAgentRuntime) MaterializeThread(
-	_ context.Context,
-	threadID string,
-	marker string,
-) error {
-	runtime.mu.Lock()
-	runtime.operationLog = append(runtime.operationLog, "thread/materialize:"+threadID)
-	runtime.mu.Unlock()
-	return runtime.InjectItems(context.Background(), threadID, []agent.InjectedTextItem{{
-		Role: "user",
-		Text: marker,
-	}})
-}
-
 func (runtime *serviceTestAgentRuntime) RunTurn(
 	ctx context.Context,
 	request agent.TurnRequest,
@@ -586,7 +557,6 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 	runtime.mu.Lock()
 	runtime.turns++
 	runtime.runRequests = append(runtime.runRequests, request)
-	runtime.operationLog = append(runtime.operationLog, "turn/start:"+request.ProviderThreadID+":"+request.Text)
 	providerTurnID := fmt.Sprintf("provider-turn-%d", runtime.turns)
 	control := make(chan string, 1)
 	runtime.controls[providerTurnID] = control
@@ -643,12 +613,8 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 	control <-chan string,
 ) (agent.TurnResult, error) {
 	switch text {
-	case "approval", "secret approval", "approval long window":
-		postApprovalEvents := 0
-		if text == "approval long window" {
-			postApprovalEvents = MaxSnapshotTrajectoryEvents + 2
-		}
-		if err := runtime.runApprovalScenario(ctx, text == "secret approval", postApprovalEvents, sink, base, control); err != nil {
+	case "approval", "secret approval":
+		if err := runtime.runApprovalScenario(ctx, text == "secret approval", sink, base, control); err != nil {
 			return agent.TurnResult{}, err
 		}
 	case "hold side context":
@@ -787,7 +753,6 @@ func (runtime *serviceTestAgentRuntime) runSideContextHeldScenario(
 func (runtime *serviceTestAgentRuntime) runApprovalScenario(
 	ctx context.Context,
 	secret bool,
-	postApprovalEvents int,
 	sink agent.EventSink,
 	base agent.Event,
 	control <-chan string,
@@ -802,17 +767,6 @@ func (runtime *serviceTestAgentRuntime) runApprovalScenario(
 	}
 	if err := sink.HandleAgentEvent(approval); err != nil {
 		return err
-	}
-	for index := 0; index < postApprovalEvents; index++ {
-		progress := base
-		progress.Kind = agent.EventKindAgentTextDelta
-		progress.Text = &agent.TextEvent{
-			ProviderItemID: fmt.Sprintf("approval-progress-%03d", index),
-			Text:           "waiting",
-		}
-		if err := sink.HandleAgentEvent(progress); err != nil {
-			return err
-		}
 	}
 	select {
 	case <-control:
@@ -1069,12 +1023,6 @@ func (runtime *serviceTestAgentRuntime) startThreadRequests() []agent.StartThrea
 	return append([]agent.StartThreadRequest{}, runtime.startRequests...)
 }
 
-func (runtime *serviceTestAgentRuntime) operations() []string {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	return append([]string{}, runtime.operationLog...)
-}
-
 func (runtime *serviceTestAgentRuntime) unsubscribedThreads() []string {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
@@ -1145,10 +1093,12 @@ func latestSnapshotTurn(snapshot ConversationSnapshot) ConversationTurn {
 }
 
 func latestPendingApprovalID(snapshot ConversationSnapshot) string {
-	if len(snapshot.PendingApprovals) == 0 {
-		return ""
+	for index := len(snapshot.Trajectory.Events) - 1; index >= 0; index-- {
+		if approval := snapshot.Trajectory.Events[index].ApprovalRequested; approval != nil {
+			return approval.Approval.ID
+		}
 	}
-	return snapshot.PendingApprovals[len(snapshot.PendingApprovals)-1].Approval.ID
+	return ""
 }
 
 func readServiceEvent(t *testing.T, subscription ConversationEventSubscription) ConversationEvent {

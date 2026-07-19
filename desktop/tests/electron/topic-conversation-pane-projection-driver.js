@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v32";
+  const version = "setta-topic-conversation-pane-projection-driver-v28";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -12,10 +12,6 @@
       topicConversationPaneProjectionVersion: version,
       topicConversationArchiveFromNavigator,
       topicConversationCloseOneBoundPane,
-      topicConversationClickEmptyFrameConversation,
-      topicConversationClickNewConversationHeader,
-      topicConversationClickNewFrameConversation,
-      topicConversationCreationWorkspaceState,
       topicConversationDenyApproval,
       topicConversationEndSide,
       topicConversationFirstRunState,
@@ -23,16 +19,15 @@
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
+      topicConversationOpenNewViewFromNavigator,
       topicConversationRespondApproval,
       topicConversationShellSpeechCapture,
       topicConversationShellSpeechState,
       topicConversationPresentFromNavigator,
       topicConversationRequestPresentation,
       topicConversationRenderedScrollOwners,
-      topicConversationRequestEmptyFrameConversationWithDestinationRace,
       topicConversationStartupState,
       topicConversationSubmitAndClose,
-      topicConversationSplitFirstPaneToEmptyFrame,
       topicConversationStop,
       topicConversationSubmit,
       topicConversationSendSide,
@@ -57,115 +52,12 @@
     };
   }
 
-  function topicConversationCreationWorkspaceState() {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).map(
-      (host) => ({
-        conversationId: datasetValue(host, "conversationId"),
-        focused: datasetValue(host, "focused") === "true",
-        paneId: datasetValue(host, "paneId"),
-        runtimeState: datasetValue(host, "runtimeState"),
-        surfaceKind: datasetValue(host, "surfaceKind"),
-        visible: datasetValue(host, "visible") === "true",
-      }),
-    );
-    const newConversationButton = findButtonByAriaLabel("New conversation");
-    const newFrameButton = findButtonByAriaLabel("New frame");
-    return {
-      easyButtonHostCount: hosts.filter((host) => host.surfaceKind === "easy-button").length,
-      emptyFrameHostCount: hosts.filter((host) => host.surfaceKind === "empty-frame").length,
-      hosts,
-      newConversationButtonEnabled:
-        newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
-      newFrameButtonEnabled:
-        newFrameButton instanceof HTMLButtonElement && !newFrameButton.disabled,
-      operationErrorText: elementText(
-        document.querySelector('[data-testid="workspace-operation-error"]'),
-      ),
-      paneCount: Number(datasetValue(area, "paneCount")),
-      workspaceId: datasetValue(area, "workspaceId"),
-    };
-  }
-
-  function topicConversationClickNewConversationHeader({ clicks = 1 } = {}) {
-    const button = findButtonByAriaLabel("New conversation");
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { clicked: false, clickCount: 0, reason: "new-conversation-unavailable" };
-    }
-    const boundedClicks = Math.max(1, Math.min(Number(clicks) || 1, 5));
-    for (let index = 0; index < boundedClicks; index += 1) {
-      button.click();
-    }
-    return { clicked: true, clickCount: boundedClicks };
-  }
-
-  async function topicConversationClickNewFrameConversation() {
-    const menuButton = findButtonByAriaLabel("New frame");
-    if (!(menuButton instanceof HTMLButtonElement) || menuButton.disabled) {
-      return { clicked: false, reason: "new-frame-menu-unavailable" };
-    }
-    menuButton.click();
-    await nextAnimationFrame();
-    const item = Array.from(document.querySelectorAll('button[role="menuitem"]')).find(
-      (candidate) =>
-        candidate.closest('[role="menu"]') !== null &&
-        candidate.textContent?.includes("Conversation"),
-    );
-    if (!(item instanceof HTMLButtonElement) || item.disabled) {
-      return { clicked: false, reason: "conversation-menu-item-unavailable" };
-    }
-    item.click();
-    return { clicked: true };
-  }
-
-  function topicConversationClickEmptyFrameConversation({ paneId = null } = {}) {
-    const host = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).find(
-      (candidate) =>
-        datasetValue(candidate, "surfaceKind") === "empty-frame" &&
-        (paneId === null || datasetValue(candidate, "paneId") === paneId),
-    );
-    const button = host?.querySelector(
-      '[data-workspace-empty-frame-action="true"][data-workspace-frame-action-id="conversation"]',
-    );
-    if (!(host instanceof HTMLElement) || !(button instanceof HTMLButtonElement)) {
-      return { clicked: false, paneId: paneId ?? "", reason: "empty-frame-action-missing" };
-    }
-    if (button.disabled) {
-      return { clicked: false, paneId: datasetValue(host, "paneId"), reason: "action-disabled" };
-    }
-    button.click();
-    return { clicked: true, paneId: datasetValue(host, "paneId") };
-  }
-
-  function topicConversationSplitFirstPaneToEmptyFrame() {
-    const target = enabledPaneInsertionAction();
-    if (!target) {
-      return {
-        clicked: false,
-        reason: "pane-insertion-action-missing",
-      };
-    }
-    const beforePaneIds = paneHostIds();
-    target.button.click();
-    return {
-      clicked: true,
-      action: datasetValue(target.button, "workspacePaneAction"),
-      createdPaneId: "",
-      paneCountBefore: beforePaneIds.length,
-      paneId: datasetValue(target.host, "paneId"),
-    };
-  }
-
   function topicConversationFirstRunState() {
-    const newConversationButton = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === "New conversation",
-    );
     return {
       chooseFolder: Boolean(document.querySelector('[data-testid="choose-project-folder"]')),
       easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
       emptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
-      newTopic:
-        newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
+      newTopic: Boolean(document.querySelector('[aria-label="Create topic conversation"]')),
       search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
     };
   }
@@ -306,7 +198,6 @@
       helperPresent: elements.helper !== null,
       helperText: elementText(elements.helper),
       highlightedMilestoneCount: elements.highlights.length,
-      highlights: Array.from(elements.highlights).map(highlightItemSnapshot),
       hostAccentDark: elements.host.style.getPropertyValue("--conversation-accent-dark"),
       hostConversationId: datasetValue(elements.host, "conversationId"),
       hostFocusRing: computedStyleValue(elements.host, "--workspace-pane-focus-ring"),
@@ -340,16 +231,6 @@
       trajectoryHasEarlier: datasetValue(surface, "easyButtonTrajectoryHasEarlier") === "true",
       voiceCaptureAvailable: voice.available,
       voiceCaptureLabel: voice.label,
-    };
-  }
-
-  function highlightItemSnapshot(item) {
-    return {
-      body: elementText(item.querySelector(".easy-button-highlight-body")),
-      id: datasetValue(item, "easyButtonHighlightId"),
-      speaking: datasetValue(item, "easyButtonHighlightSpeaking") === "true",
-      text: elementText(item),
-      title: elementText(item.querySelector(".easy-button-highlight-title")),
     };
   }
 
@@ -592,52 +473,20 @@
     return { conversationId, denied: true };
   }
 
-  async function topicConversationOpenBoundPane({
-    conversationId,
-    title = null,
-    workspaceId = null,
-  }) {
-    const targetWorkspaceId = workspaceId ?? currentWorkspaceLayoutId();
-    if (!targetWorkspaceId) {
-      return { conversationId, reason: "workspace unavailable", requested: false };
-    }
-    const request = {
-      conversationId,
-      title: title ?? conversationTitleForNavigation(conversationId),
-      workspaceId: targetWorkspaceId,
-    };
-    const completion = requestConversationPaneNavigation(request);
-    if (!(completion instanceof Promise)) {
-      return {
-        conversationId,
-        reason: "conversation pane coordinator unavailable",
-        requested: false,
-      };
-    }
-    const result = await completion;
-    return {
-      conversationId,
-      requested: conversationPaneNavigationRequested(result),
-      result,
-    };
-  }
-
-  function currentWorkspaceLayoutId() {
-    return (
-      document
-        .querySelector('[data-testid="workspace-layout-area"]')
-        ?.getAttribute("data-workspace-id") ?? ""
+  function topicConversationOpenBoundPane({ conversationId }) {
+    window.dispatchEvent(
+      new CustomEvent("setta:workspace-open-pane-request", {
+        detail: {
+          easyButtonConfig: { conversationId },
+          subtitle: "topic conversation duplicate view",
+          surfaceKind: "easy-button",
+          title: "Topic conversation copy",
+          tone: "cyan",
+          widthSpec: { unit: "proportion", value: 1 },
+        },
+      }),
     );
-  }
-
-  function requestConversationPaneNavigation(request) {
-    const detail = { completion: null, request };
-    window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
-    return detail.completion;
-  }
-
-  function conversationPaneNavigationRequested(result) {
-    return result.kind === "focused" || result.kind === "opened";
+    return { conversationId, requested: true };
   }
 
   function topicConversationNavigatorState({ conversationId }) {
@@ -649,13 +498,9 @@
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).filter((surface) => datasetValue(surface, "conversationId") === conversationId);
     const rowPresentation = conversationNavigatorRowPresentation(rows[0]);
-    const duplicateViewButtonCount = Array.from(
-      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
-    ).filter((button) => datasetValue(button, "conversationId") === conversationId).length;
     return {
       ...rowPresentation,
       conversationId: rows.length === 1 ? rowPresentation.conversationId : "",
-      duplicateViewButtonCount,
       focusedPaneId:
         document
           .querySelector('[data-testid="workspace-pane-host"][data-focused="true"]')
@@ -704,18 +549,21 @@
     return { clicked: true, conversationId };
   }
 
-  function conversationTitleForNavigation(conversationId) {
-    const row = Array.from(
-      document.querySelectorAll('[data-testid="conversation-navigator-item"]'),
+  function topicConversationOpenNewViewFromNavigator({ conversationId }) {
+    const button = Array.from(
+      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
     ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
-    const title = row?.getAttribute("title")?.trim();
-    return title || "Topic conversation";
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false, conversationId };
+    }
+    button.click();
+    return { clicked: true, conversationId };
   }
 
   async function topicConversationRequestPresentation({ conversationId, title, workspaceId }) {
     const detail = {
       completion: null,
-      request: { conversationId, title, workspaceId },
+      request: { conversationId, title, viewAction: "focus-or-open", workspaceId },
     };
     window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
     if (!(detail.completion instanceof Promise)) {
@@ -757,19 +605,12 @@
     const surface = Array.from(
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
-    const host = surface?.closest('[data-testid="workspace-pane-host"]');
-    const paneId = datasetValue(host, "paneId");
-    const button = host?.querySelector('[data-workspace-pane-action="close"]');
+    const paneId = datasetValue(surface?.closest('[data-testid="workspace-pane-host"]'), "paneId");
+    const button = Array.from(
+      document.querySelectorAll('[data-workspace-pane-action="close"]'),
+    ).find((candidate) => datasetValue(candidate, "paneId") === paneId);
     if (!(button instanceof HTMLButtonElement)) {
-      return {
-        clicked: false,
-        conversationId,
-        paneId,
-        reason: host instanceof HTMLElement ? "missing-close-button" : "missing-host",
-      };
-    }
-    if (button.disabled) {
-      return { clicked: false, conversationId, paneId, reason: "close-button-disabled" };
+      return { clicked: false, conversationId, paneId };
     }
     const originalConfirm = window.confirm;
     if (confirmSide) {
@@ -780,116 +621,6 @@
     }
     button.click();
     return { clicked: true, conversationId, paneId };
-  }
-
-  function topicConversationRequestEmptyFrameConversationWithDestinationRace({ mutation, paneId }) {
-    const workspaceId = currentWorkspaceLayoutId();
-    if (!workspaceId) {
-      return { mutation, paneId, reason: "workspace unavailable", requested: false };
-    }
-    const detail = {
-      completion: null,
-      request: {
-        destination: conversationCreationRaceDestination(paneId, mutation),
-        workspaceId,
-      },
-    };
-    window.dispatchEvent(new CustomEvent("setta:conversation-creation-request", { detail }));
-    return {
-      mutation,
-      paneId,
-      requested: detail.completion instanceof Promise,
-      workspaceId,
-    };
-  }
-
-  function conversationCreationRaceDestination(paneId, mutation) {
-    let kindAccessCount = 0;
-    let paneIdAccessCount = 0;
-    let mutationApplied = false;
-    return {
-      get kind() {
-        kindAccessCount += 1;
-        if (mutation === "fill-target-browser" && kindAccessCount > 2 && !mutationApplied) {
-          mutationApplied = clickEmptyFrameBrowserAction(paneId);
-        }
-        return "empty-frame";
-      },
-      get paneId() {
-        paneIdAccessCount += 1;
-        if (mutation === "close-target" && paneIdAccessCount > 2) {
-          if (!mutationApplied) {
-            mutationApplied = clickCloseWorkspacePaneAction(paneId);
-          }
-          return `${paneId}_missing_after_create`;
-        }
-        return paneId;
-      },
-    };
-  }
-
-  function clickCloseWorkspacePaneAction(paneId) {
-    const host = paneHostById(paneId);
-    const button = host?.querySelector('[data-workspace-pane-action="close"]');
-    if (
-      !(host instanceof HTMLElement) ||
-      !(button instanceof HTMLButtonElement) ||
-      button.disabled
-    ) {
-      return false;
-    }
-    button.click();
-    return true;
-  }
-
-  function clickEmptyFrameBrowserAction(paneId) {
-    const host = paneHostById(paneId);
-    const button = host?.querySelector(
-      '[data-workspace-empty-frame-action="true"][data-workspace-frame-action-id="browser"]',
-    );
-    if (
-      !(host instanceof HTMLElement) ||
-      !(button instanceof HTMLButtonElement) ||
-      button.disabled
-    ) {
-      return false;
-    }
-    button.click();
-    return true;
-  }
-
-  function paneHostById(paneId) {
-    return (
-      Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).find(
-        (candidate) => datasetValue(candidate, "paneId") === paneId,
-      ) ?? null
-    );
-  }
-
-  function paneHostIds() {
-    return Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).map(
-      (host) => datasetValue(host, "paneId"),
-    );
-  }
-
-  function enabledPaneInsertionAction() {
-    for (const action of ["add-below", "add-above"]) {
-      const target = enabledPaneAction(action);
-      if (target) {
-        return target;
-      }
-    }
-    return null;
-  }
-
-  function enabledPaneAction(action) {
-    for (const host of document.querySelectorAll('[data-testid="workspace-pane-host"]')) {
-      const button = host.querySelector(`[data-workspace-pane-action="${action}"]`);
-      if (host instanceof HTMLElement && button instanceof HTMLButtonElement && !button.disabled) {
-        return { button, host };
-      }
-    }
-    return null;
   }
 
   function datasetValue(element, key) {
@@ -931,18 +662,6 @@
         return datasetValue(host, "paneId") === paneId;
       },
     );
-  }
-
-  function findButtonByAriaLabel(label) {
-    return Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === label,
-    );
-  }
-
-  function nextAnimationFrame() {
-    return new Promise((resolve) => {
-      window.requestAnimationFrame(() => resolve());
-    });
   }
 
   function setInputValue(input, value) {

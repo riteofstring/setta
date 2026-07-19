@@ -1,16 +1,11 @@
 import type {
   ConversationPresentationProfile,
-  MasterVoiceSelection,
   NarrationEvent,
   SpeechAudio,
   SpeechSynthesisRequest,
-  ShellInteractionState,
-  TrajectoryEvent,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
-import { masterSpeechPlaybackIntent } from "./app-shell-master-speech-playback-intent";
-import { progressHighlightSpeechPlaybackIntent } from "./app-shell-progress-highlight-speech-playback-intent";
 import {
   AppShellSpeechPlaybackController,
   narrationSpeechPlaybackIntent,
@@ -22,70 +17,49 @@ import {
 } from "./app-shell-speech-playback-controller";
 
 describe("app-shell speech playback controller", () => {
-  test("derives source-aware priorities from status replies and progress highlights", () => {
+  test("derives source-aware priorities from live narration and ignores non-speech channels", () => {
     expect(
-      narrationSpeechPlaybackIntent(narrationEvent("status_reply", "status"), profile()),
-    ).toMatchObject({
-      kind: "status_reply",
-      resolvedVoiceId: "cedar",
-      source: expect.objectContaining({ kind: "narration_event" }),
-    });
+      narrationSpeechPlaybackIntent(narrationEvent("status_reply", "status"), profile(), null),
+    ).toMatchObject({ kind: "status_reply", resolvedVoiceId: "cedar" });
     expect(
       narrationSpeechPlaybackIntent(
         narrationEvent("milestone", "approval", { trigger: "approval_required" }),
         profile(),
+        "running",
       ),
-    ).toBeNull();
+    ).toMatchObject({ kind: "attention" });
     expect(
-      narrationSpeechPlaybackIntent(narrationEvent("final_summary", "final"), profile()),
-    ).toBeNull();
+      narrationSpeechPlaybackIntent(
+        narrationEvent("final_summary", "final"),
+        profile(),
+        "completed",
+      ),
+    ).toMatchObject({ kind: "final_summary" });
     expect(
-      narrationSpeechPlaybackIntent(narrationEvent("final_summary", "failed"), profile()),
-    ).toBeNull();
+      narrationSpeechPlaybackIntent(narrationEvent("final_summary", "failed"), profile(), "failed"),
+    ).toMatchObject({ kind: "error" });
     expect(
-      narrationSpeechPlaybackIntent(narrationEvent("topic_descriptor", "descriptor"), profile()),
+      narrationSpeechPlaybackIntent(narrationEvent("milestone", "milestone"), profile(), "running"),
+    ).toMatchObject({
+      kind: "milestone",
+      source: {
+        conversationId: "conversation-playback",
+        eventId: "milestone",
+        speaker: "narrator",
+      },
+    });
+    expect(
+      narrationSpeechPlaybackIntent(
+        narrationEvent("topic_descriptor", "descriptor"),
+        profile(),
+        "running",
+      ),
     ).toBeNull();
     expect(
       narrationSpeechPlaybackIntent(
         narrationEvent("milestone", "disabled"),
         profile({ narratorSpeechEnabled: false, resolvedNarratorVoiceId: null }),
-      ),
-    ).toBeNull();
-    expect(
-      progressHighlightSpeechPlaybackIntent(trajectoryEvent("turn_started"), profile()),
-    ).toMatchObject({
-      kind: "progress_highlight",
-      resolvedVoiceId: "cedar",
-      source: {
-        conversationId: "conversation-playback",
-        eventId: "trajectory-turn-started",
-        kind: "progress_highlight",
-        speaker: "narrator",
-      },
-    });
-    expect(
-      progressHighlightSpeechPlaybackIntent(trajectoryEvent("agent_public_text_delta"), profile()),
-    ).toBeNull();
-    expect(
-      progressHighlightSpeechPlaybackIntent(
-        trajectoryEvent("turn_completed"),
-        profile({ narratorSpeechEnabled: false, resolvedNarratorVoiceId: null }),
-      ),
-    ).toBeNull();
-    expect(masterSpeechPlaybackIntent(masterAnswerState(), masterVoice())).toMatchObject({
-      kind: "master_answer",
-      resolvedVoiceId: "marin",
-      source: {
-        conversationId: null,
-        eventId: "master-input-answer",
-        kind: "master_answer",
-        speaker: "master",
-      },
-    });
-    expect(
-      masterSpeechPlaybackIntent(
-        { ...masterAnswerState(), status: "routing", decision: null },
-        masterVoice(),
+        "running",
       ),
     ).toBeNull();
     expect([
@@ -95,8 +69,7 @@ describe("app-shell speech playback controller", () => {
       speechPlaybackPriority("error"),
       speechPlaybackPriority("final_summary"),
       speechPlaybackPriority("milestone"),
-      speechPlaybackPriority("progress_highlight"),
-    ]).toEqual([4, 4, 3, 3, 2, 1, 1]);
+    ]).toEqual([4, 4, 3, 3, 2, 1]);
   });
 
   test("orders one queue by priority and FIFO within a priority across conversations", async () => {
@@ -511,50 +484,6 @@ function createHarness(
   };
 }
 
-function masterAnswerState(): ShellInteractionState {
-  return {
-    decision: {
-      answerGlobal: { text: "The master answer is ready." },
-      askNarrator: null,
-      clarify: null,
-      createConversation: null,
-      createSideConversation: null,
-      focusConversation: null,
-      forkConversation: null,
-      kind: "answer_global",
-      queueAgentTurn: null,
-      sendToAgent: null,
-      steerActiveTurn: null,
-    },
-    failure: null,
-    input: {
-      focusedConversationId: null,
-      focusedPaneId: null,
-      focusedWorkspaceId: null,
-      id: "master-input-answer",
-      modality: "voice",
-      originatingConversationId: null,
-      originatingConversationInputId: null,
-      originatingPaneId: null,
-      originatingWorkspaceId: null,
-      source: "shell",
-      submittedAt: "2026-07-12T18:00:00Z",
-      text: "Answer globally.",
-    },
-    status: "decided",
-  };
-}
-
-function masterVoice(): MasterVoiceSelection {
-  return {
-    requestedVoiceId: "marin",
-    resolvedVoiceId: "marin",
-    reuse: null,
-    selection: "exact",
-    updatedAt: "2026-07-12T18:00:00Z",
-  };
-}
-
 function intent(
   kind: NarratorSpeechPlaybackIntent["kind"],
   eventId: string,
@@ -575,7 +504,6 @@ function intent(
     source: {
       conversationId,
       eventId,
-      kind: "narration_event",
       speaker: "narrator",
       ...sourceOverrides,
     },
@@ -615,64 +543,6 @@ function narrationEvent(
     turnId: "turn-playback",
     ...overrides,
   };
-}
-
-function trajectoryEvent(kind: TrajectoryEvent["kind"]): TrajectoryEvent {
-  const event: TrajectoryEvent = {
-    actor: "agent",
-    activityCompleted: null,
-    activityFailed: null,
-    activityProgressed: null,
-    activityStarted: null,
-    agentLivenessChanged: null,
-    agentMessageCompleted: null,
-    agentPublicTextDelta: null,
-    approvalRequested: null,
-    approvalResolved: null,
-    artifactEmitted: null,
-    conversationId: "conversation-playback",
-    emittedAt: "2026-07-12T18:00:00Z",
-    fileChangeCompleted: null,
-    fileChangeProposed: null,
-    id: `trajectory-${kind.replaceAll("_", "-")}`,
-    kind,
-    modelRerouted: null,
-    planChanged: null,
-    providerEventId: null,
-    providerLifecycleChanged: null,
-    providerThreadId: null,
-    providerTurnId: null,
-    publicReasoningSummaryUpdated: null,
-    sequence: 8,
-    subagentCompleted: null,
-    subagentStarted: null,
-    subagentUpdated: null,
-    turnCompleted: null,
-    turnFailed: null,
-    turnId: "turn-playback",
-    turnInterrupted: null,
-    turnPromoted: null,
-    turnQueued: null,
-    turnStarted: null,
-    turnSteered: null,
-    userInputAccepted: null,
-  };
-  switch (kind) {
-    case "turn_started":
-      event.turnStarted = {
-        invocation: {} as NonNullable<TrajectoryEvent["turnStarted"]>["invocation"],
-      };
-      break;
-    case "turn_completed":
-      event.turnCompleted = {};
-      break;
-    case "agent_public_text_delta":
-      event.agentPublicTextDelta = { delta: "Routine", providerItemId: "provider-text" };
-      break;
-    default:
-      throw new Error(`unsupported trajectory test kind ${kind}`);
-  }
-  return event;
 }
 
 function profile(

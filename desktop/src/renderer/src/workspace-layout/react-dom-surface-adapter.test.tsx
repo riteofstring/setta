@@ -179,10 +179,10 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("fake-dom"),
+      fakePane("settings-dom"),
       ({ activated, focused }) => {
         surfaceStates.push({ activated, focused });
-        return activated ? "loaded surface" : "unloaded surface";
+        return activated ? "loaded settings" : "unloaded settings";
       },
       rootFactory,
     );
@@ -207,10 +207,10 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("fake-dom"),
+      fakePane("settings-dom"),
       ({ activated, focused }) => {
         surfaceStates.push({ activated, focused });
-        return focused ? "active surface" : "inactive surface";
+        return focused ? "active settings" : "inactive settings";
       },
       rootFactory,
     );

@@ -24,7 +24,6 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDriverAction,
@@ -113,25 +112,20 @@ try {
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
+      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
-    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   await context.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
 
-  const backend = await backendProbe(artifactDir);
+  const backend = await backendProbe(artifactDir, context.client);
   const workspaceId = await openWorkspace(context.client);
-  await saveOpenAIVoiceCredentialThroughSettingsAndClose(
-    context.client,
-    speechProvider.apiKey,
-    workflowTimeoutMs,
-  );
   const topic = await createTopic(
     context.client,
     backend,
@@ -180,7 +174,7 @@ try {
   });
   const playback = await waitForPlaybackBaseline(
     artifactDir,
-    progressHighlightSpeechEvents(snapshot).map((event) => event.id),
+    snapshot.narration.events.map((event) => event.id),
     workflowTimeoutMs,
   );
   const artifactPolicy = await runArtifactPolicyMatrix({
@@ -355,8 +349,8 @@ function recoveryBaselineSnapshotReady(snapshot) {
   );
 }
 
-async function waitForPlaybackBaseline(artifactDirectory, sourceIds, timeoutMs) {
-  const expected = new Set(sourceIds);
+async function waitForPlaybackBaseline(artifactDirectory, narrationIds, timeoutMs) {
+  const expected = new Set(narrationIds);
   const startedAt = Date.now();
   let last = { observations: [], timedRecords: [] };
   while (Date.now() - startedAt < timeoutMs) {
@@ -413,12 +407,9 @@ function summarizeBaseline({
   const narratorRecords = events
     .filter((event) => event.type === "narrator_output_observed")
     .map((event) => event.payload);
-  const speechSourceCreatedAt = new Map(
+  const narrationCreatedAt = new Map(
     narratorRecords.map((record) => [record.narrationId, record.createdAt]),
   );
-  for (const event of progressHighlightSpeechEvents(snapshot)) {
-    speechSourceCreatedAt.set(event.id, event.emittedAt);
-  }
   return {
     artifactOutput: artifactOutput(snapshot),
     artifactPolicy,
@@ -429,7 +420,7 @@ function summarizeBaseline({
     focusRevisionCount: snapshot.narratorState.currentFocusRevision,
     narratorEventCount: snapshot.narration.events.length,
     narratorEventKinds: countBy(snapshot.narration.events.map((event) => event.kind)),
-    playbackLatencyMs: playbackLatency(playback.timedRecords, speechSourceCreatedAt),
+    playbackLatencyMs: playbackLatency(playback.timedRecords, narrationCreatedAt),
     renderedScrollOwners: scrollOwners,
     requestText,
     suppliedDataset,
@@ -473,10 +464,10 @@ function countBy(values) {
   return counts;
 }
 
-function playbackLatency(records, speechSourceCreatedAt) {
+function playbackLatency(records, narrationCreatedAt) {
   return records.flatMap((record) => {
     const eventId = record.observation.intent?.source?.eventId;
-    const createdAt = speechSourceCreatedAt.get(eventId);
+    const createdAt = narrationCreatedAt.get(eventId);
     if (!createdAt) {
       return [];
     }
@@ -488,23 +479,6 @@ function playbackLatency(records, speechSourceCreatedAt) {
         latencyMs: Date.parse(record.at) - Date.parse(createdAt),
       },
     ];
-  });
-}
-
-function progressHighlightSpeechEvents(snapshot) {
-  return snapshot.trajectory.events.filter((event) => {
-    switch (event.kind) {
-      case "turn_started":
-      case "approval_requested":
-      case "approval_resolved":
-      case "artifact_emitted":
-      case "turn_completed":
-      case "turn_failed":
-      case "turn_interrupted":
-        return true;
-      default:
-        return false;
-    }
   });
 }
 
