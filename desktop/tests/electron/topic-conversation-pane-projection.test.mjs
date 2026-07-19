@@ -52,6 +52,7 @@ import {
   updateMasterVoice,
 } from "./topic-conversation-narrator-voice-workflow.mjs";
 import { assertRecordedPaneLayouts } from "./topic-conversation-layout-recording.mjs";
+import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDistinctConversationPalettes,
@@ -149,24 +150,29 @@ try {
   context = await launchElectronCdpContext({
     artifactDir: firstLaunchDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS: String(initialThreadStartDelayMs),
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  let backend = await backendProbe(firstLaunchDir, context.client);
-  runtimeDeviceTokens.push(await backend.currentRuntimeCredential());
+  let backend = await backendProbe(firstLaunchDir);
+  runtimeDeviceTokens.push(backend.deviceToken);
   const workspaceOpenStartedAt = Date.now();
   const workspaceId = await openWorkspace(context.client);
   const initialPanePlaceholder = await assertImmediateInitialEasyButtonPlaceholder(
     context.client,
     workspaceOpenStartedAt,
+  );
+  await saveOpenAIVoiceCredentialThroughSettingsAndClose(
+    context.client,
+    speechProvider.apiKey,
+    workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "initial-easy-button-startup.png"));
   const initialConversation = await waitForInitialConversation(backend, workspaceId);
@@ -258,19 +264,19 @@ try {
   context = await launchElectronCdpContext({
     artifactDir: secondLaunchDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS: String(initialThreadStartDelayMs),
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  backend = await backendProbe(secondLaunchDir, context.client);
-  runtimeDeviceTokens.push(await backend.currentRuntimeCredential());
+  backend = await backendProbe(secondLaunchDir);
+  runtimeDeviceTokens.push(backend.deviceToken);
   await assertPersistedMasterCancellation(backend, cancelledMasterInput);
   const restoredWorkspaceId = await openWorkspace(context.client);
   if (restoredWorkspaceId !== workspaceId) {

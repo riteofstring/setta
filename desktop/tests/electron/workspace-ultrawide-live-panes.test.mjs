@@ -88,7 +88,7 @@ try {
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
   const conversationId = await createFixtureConversation(
-    await backendProbe(artifactDir, context.client),
+    await backendProbe(artifactDir),
     workspaceId,
   );
   await persistUltraWideLayout(context.client, workspaceId, conversationId);
@@ -403,8 +403,9 @@ async function assertVisiblePaneClickFocusesWithoutReveal(client, snapshot, surf
   if (!target) {
     throw new Error(`no unfocused visible ${surfaceKind} host was available`);
   }
+  const horizontalClickFraction = surfaceKind === "easy-button" ? 0.25 : 0.5;
   await dispatchMouseClick(client, {
-    x: Math.round((target.rect.left + target.rect.right) / 2),
+    x: Math.round(target.rect.left + target.rect.width * horizontalClickFraction),
     y: Math.round(target.rect.top + target.rect.height / 2),
   });
   await delay(100);

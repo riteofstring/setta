@@ -63,7 +63,7 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  let backend = await backendProbe(firstLaunchDir, context.client);
+  let backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
   const archivedTopic = await createTopic(
     context.client,
@@ -109,7 +109,7 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  backend = await backendProbe(secondLaunchDir, context.client);
+  backend = await backendProbe(secondLaunchDir);
   const restoredWorkspaceId = await openWorkspace(context.client);
   assertEqual(restoredWorkspaceId, workspaceId, "restored archive workspace");
   const restoredSnapshot = await waitForArchivedBackendState(

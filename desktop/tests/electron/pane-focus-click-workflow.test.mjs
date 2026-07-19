@@ -54,7 +54,7 @@ try {
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await context.client.installDriver();
-  const backend = await backendProbe(artifactDir, context.client);
+  const backend = await backendProbe(artifactDir);
   const seededWorkspaceId = await seedTwoPaneWorkspaceLayout(backend, fixture.workspaceRoot);
   await waitForWorkspaceLayoutArea(context.client);
   await openSeededWorkspaceInRenderer(context.client, seededWorkspaceId);

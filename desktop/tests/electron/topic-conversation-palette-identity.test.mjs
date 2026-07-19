@@ -64,7 +64,7 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  const backend = await backendProbe(artifactDir, context.client);
+  const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
   const dormantTopics = await createDormantPresentationTopics(context.client, workspaceId, 9);
   const alpha = await createTopic(

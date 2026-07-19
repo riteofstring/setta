@@ -59,7 +59,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  let backend = await backendProbe(firstLaunchDir, context.client);
+  let backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
   const alpha = await waitForInitialTopic(backend, workspaceId);
   const beta = await createTopic(
@@ -131,7 +131,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  backend = await backendProbe(secondLaunchDir, context.client);
+  backend = await backendProbe(secondLaunchDir);
   const restoredWorkspaceId = await openWorkspace(context.client);
   assertEqual(restoredWorkspaceId, workspaceId, "restored presentation workspace");
   await openVoiceSettings(context.client);

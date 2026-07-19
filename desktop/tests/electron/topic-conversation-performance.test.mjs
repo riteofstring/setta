@@ -80,7 +80,7 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  const backend = await backendProbe(artifactDir, context.client);
+  const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
   const initialConversationCount = (
     await waitForBackendState(
