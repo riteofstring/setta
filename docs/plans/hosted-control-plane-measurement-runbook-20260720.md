@@ -233,11 +233,16 @@ Implemented on 2026-07-20:
     and resolves credentials only for providers represented by durable intent
     or resource state. It removes and confirms the Sprite before Fly
     reconciliation so a Fly inventory failure cannot strand the Sprite.
+11. Shared public IPv4 preparation inventories typed `flyctl --json` output
+    with the read-only credential, allocates only the free shared address type
+    with the mutation credential when absent, and requires an independent
+    post-allocation inventory confirmation. Duplicate or malformed inventory
+    fails closed.
 
 Still required before a live create/deployment mutation:
 
 1. Add the checked-artifact image build/push and digest-resolution surface,
-   public IP allocation, staged-secret activation, and executable provision
+   executable public-IP/secret preparation, staged-secret activation, and provision
    command. The operator CLI intentionally exposes only `dry-run` and exact
    cleanup; it cannot create resources.
 2. Add the signed runtime install, bootstrap, health, workload, and local
