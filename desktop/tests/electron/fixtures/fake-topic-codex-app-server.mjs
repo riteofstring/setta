@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
@@ -1250,7 +1250,7 @@ function readPersistedState() {
     throw new Error("fake topic Codex state is malformed");
   }
   interruptStaleDurableTurns(state);
-  writeFileSync(persistedStatePath, `${JSON.stringify(state)}\n`, "utf8");
+  writePersistedStateAtomically(state);
   return state;
 }
 
@@ -1284,20 +1284,22 @@ function persistState() {
   if (persistedStatePath === "") {
     return;
   }
-  writeFileSync(
-    persistedStatePath,
-    `${JSON.stringify({
-      approvalCounter,
-      heldStructuredKeys: [...heldStructuredKeys],
-      heldTurnStartKeys: [...heldTurnStartKeys],
-      threadCounter,
-      threads: [...threads.values()],
-      toolCallCounter,
-      turnCounter,
-      turns: [...turns.values()],
-    })}\n`,
-    "utf8",
-  );
+  writePersistedStateAtomically({
+    approvalCounter,
+    heldStructuredKeys: [...heldStructuredKeys],
+    heldTurnStartKeys: [...heldTurnStartKeys],
+    threadCounter,
+    threads: [...threads.values()],
+    toolCallCounter,
+    turnCounter,
+    turns: [...turns.values()],
+  });
+}
+
+function writePersistedStateAtomically(state) {
+  const temporaryPath = `${persistedStatePath}.${process.pid}.tmp`;
+  writeFileSync(temporaryPath, `${JSON.stringify(state)}\n`, "utf8");
+  renameSync(temporaryPath, persistedStatePath);
 }
 
 function fakeModel(id, effort, isDefault) {
