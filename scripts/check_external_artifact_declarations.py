@@ -17,7 +17,9 @@ BASH_ASSIGNMENT_RE = re.compile(
     r"""^\s*([A-Za-z_][A-Za-z0-9_]*)=(?:"([^"]*)"|'([^']*)'|([^#\n]*))""",
     re.MULTILINE,
 )
-BASH_VARIABLE_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+BASH_VARIABLE_RE = re.compile(
+    r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)"
+)
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 PINNED_RELEASE_RE = re.compile(r"^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 TS_FIELD_RE = re.compile(
@@ -107,7 +109,10 @@ def expand_bash_assignments(values: dict[str, str]) -> dict[str, str]:
         changed = False
         for name, value in list(expanded.items()):
             next_value = BASH_VARIABLE_RE.sub(
-                lambda match: expanded.get(match.group(1), match.group(0)), value
+                lambda match: expanded.get(
+                    match.group(1) or match.group(2), match.group(0)
+                ),
+                value,
             )
             if next_value != value:
                 expanded[name] = next_value
@@ -211,7 +216,7 @@ def validator_findings(validator: str, value: str) -> list[str]:
 
 
 def identity_findings(value: str) -> list[str]:
-    if "${" in value or "$(" in value:
+    if BASH_VARIABLE_RE.search(value) or "$(" in value:
         return [f"must be fully resolved, found {value}"]
     if value in {"main", "master", "latest"}:
         return [f"must not use floating identity {value}"]

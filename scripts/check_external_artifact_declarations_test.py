@@ -43,6 +43,18 @@ class ExternalArtifactDeclarationTests(unittest.TestCase):
             "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-v1.9.1-xcframework.zip",
         )
 
+    def test_parses_bash_assignments_and_expands_bare_variable_references(self) -> None:
+        declaration = VALID_BASH_DECLARATION.replace(
+            "${whisper_release_version}", "$whisper_release_version"
+        ).replace("${whisper_xcframework_filename}", "$whisper_xcframework_filename")
+
+        values = parse_bash_assignments(declaration)
+
+        self.assertEqual(
+            values["whisper_xcframework_url"],
+            "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-v1.9.1-xcframework.zip",
+        )
+
     def test_parses_typescript_const_object_fields(self) -> None:
         fields = parse_ts_const_object(
             VALID_TS_DECLARATION, "defaultLocalMacOSVoiceModelDownloadSpec"
@@ -80,6 +92,24 @@ class ExternalArtifactDeclarationTests(unittest.TestCase):
                 "missing expected SHA-256 field whisper_xcframework_sha256" in finding
                 for finding in findings
             ),
+            findings,
+        )
+
+    def test_rejects_unresolved_bare_bash_variable(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="setta-artifact-audit-") as raw_root:
+            root = Path(raw_root)
+            write_artifact_files(
+                root,
+                VALID_BASH_DECLARATION.replace(
+                    "${whisper_xcframework_filename}", "$missing_xcframework_filename"
+                ),
+                VALID_TS_DECLARATION,
+            )
+
+            findings = audit_repository(root)
+
+        self.assertTrue(
+            any("must be fully resolved" in finding for finding in findings),
             findings,
         )
 
