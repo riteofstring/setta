@@ -141,6 +141,7 @@ final class AlwaysListeningSessionStore {
   private let microphone: MicrophoneOwnershipCoordinator
   private var active = false
   private var pauseReasons = Set<String>()
+  private var processor: AlwaysListeningAudioProcessor?
 
   init(microphone: MicrophoneOwnershipCoordinator) {
     self.microphone = microphone
@@ -158,6 +159,7 @@ final class AlwaysListeningSessionStore {
     }
     active = true
     pauseReasons.removeAll()
+    processor = AlwaysListeningAudioProcessor(request: request)
     lock.unlock()
     do {
       try microphone.claimAlwaysListening()
@@ -165,6 +167,7 @@ final class AlwaysListeningSessionStore {
     } catch {
       lock.lock()
       active = false
+      processor = nil
       lock.unlock()
       throw error
     }
@@ -178,6 +181,7 @@ final class AlwaysListeningSessionStore {
     let wasActive = active
     active = false
     pauseReasons.removeAll()
+    processor = nil
     lock.unlock()
     guard wasActive else {
       throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
@@ -215,11 +219,35 @@ final class AlwaysListeningSessionStore {
     return (ListenerLifecycleResult(status: "resumed"), shouldReclaim)
   }
 
+  func ingestPCM(_ request: ListenerPCMPayload) throws
+    -> (ListenerPCMIngestOutcome, AlwaysListeningAudioProcessor)
+  {
+    lock.lock()
+    guard active, let processor else {
+      lock.unlock()
+      throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
+    }
+    guard pauseReasons.isEmpty else {
+      lock.unlock()
+      throw HelperCommandError(code: "invalid_listener", message: "Always listening is paused.")
+    }
+    let outcome: ListenerPCMIngestOutcome
+    do {
+      outcome = try processor.ingest(request)
+    } catch {
+      lock.unlock()
+      throw error
+    }
+    lock.unlock()
+    return (outcome, processor)
+  }
+
   func stopIfActive() {
     lock.lock()
     let wasActive = active
     active = false
     pauseReasons.removeAll()
+    processor = nil
     lock.unlock()
     if wasActive {
       microphone.releaseAlwaysListening()
@@ -270,7 +298,14 @@ final class AlwaysListeningSessionStore {
         message: "Wake model hash does not match the expected Setta model."
       )
     }
-    try MicrophoneAccess.ensureGranted()
+    if !scriptedPCMFixturesEnabled() {
+      try MicrophoneAccess.ensureGranted()
+    }
+  }
+
+  private func scriptedPCMFixturesEnabled() -> Bool {
+    trimmed(ProcessInfo.processInfo.environment["SETTA_LOCAL_MACOS_VOICE_SCRIPTED_PCM_FIXTURES"] ?? "")
+      == "1"
   }
 }
 
@@ -347,6 +382,24 @@ final class LocalMacOSVoiceHelperRuntime: @unchecked Sendable {
       let command = try decodeCommand(SessionPayload.self, from: data)
       send(id: command.id) {
         try sessions.finish(command.payload, transcriber: transcriber)
+      }
+    case "ingest_listener_pcm":
+      let command = try decodeCommand(ListenerPCMPayload.self, from: data)
+      send(id: command.id) {
+        let (outcome, processor) = try listener.ingestPCM(command.payload)
+        for event in outcome.events {
+          writer.sendListenerEvent(event)
+        }
+        do {
+          if let event = try processor.finalizedTranscriptEvent(for: outcome, transcriber: transcriber)
+          {
+            writer.sendListenerEvent(event)
+          }
+        } catch let error as HelperCommandError {
+          writer.sendListenerEvent(.engineFailed(message: error.message))
+          throw error
+        }
+        return ListenerPCMResult(sampleCount: outcome.sampleCount, status: "accepted")
       }
     case "list_voices":
       let command = try decodeCommand(EmptyPayload.self, from: data)

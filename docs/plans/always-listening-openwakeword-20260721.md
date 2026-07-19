@@ -270,15 +270,16 @@ documented command, and a clear threshold candidate.
   capture and always listening.
 - [x] Add explicit arbitration between armed wake detection, manual click-to-talk,
   active capture, and playback.
-- [ ] Keep pre-wake audio memory-only.
-- [ ] Add native/helper tests using scripted PCM fixtures instead of real microphone
+- [x] Keep pre-wake audio memory-only.
+- [x] Add native/helper tests using scripted PCM fixtures instead of real microphone
   timing.
 
 Repository note: the first Phase 2 batch added the main-process listener
 protocol/state machine and focused arbitration tests. The second Phase 2 batch
 wired the production helper listener lifecycle and helper-owned microphone
-arbitration. Wake audio ingestion, pre-wake buffering, and scripted PCM helper
-fixtures remain.
+arbitration. The third Phase 2 batch added helper-side scripted PCM ingestion,
+memory-only pre-wake buffering, endpoint finalization through the existing local
+transcription boundary, and native helper coverage for the wake/capture path.
 
 Exit criteria: fake audio can trigger wake, capture, endpoint, and transcript
 events through the production engine boundary.

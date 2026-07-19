@@ -50,6 +50,14 @@ struct ListenerReasonPayload: Codable {
   let reason: String
 }
 
+struct ListenerPCMPayload: Codable {
+  let endOfInput: Bool?
+  let sampleRate: Int
+  let samplesBase64: String
+  let vadVoice: Bool
+  let wakeScore: Double?
+}
+
 struct SynthesisPayload: Codable {
   let operationId: String
   let rate: Double
@@ -89,6 +97,11 @@ struct ListenerLifecycleResult: Encodable {
   let status: String
 }
 
+struct ListenerPCMResult: Encodable {
+  let sampleCount: Int
+  let status: String
+}
+
 struct ListenerEvent: Encodable {
   let message: String?
   let score: Double?
@@ -98,6 +111,50 @@ struct ListenerEvent: Encodable {
 
   static func armed() -> ListenerEvent {
     ListenerEvent(message: nil, score: nil, timeMs: nil, transcript: nil, type: "listener_armed")
+  }
+
+  static func wakeDetected(score: Double, timeMs: Int) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: score,
+      timeMs: timeMs,
+      transcript: nil,
+      type: "wake_detected"
+    )
+  }
+
+  static func messageSpeechStarted(timeMs: Int) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: nil,
+      timeMs: timeMs,
+      transcript: nil,
+      type: "message_speech_started"
+    )
+  }
+
+  static func candidateEndpointDetected(timeMs: Int) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: nil,
+      timeMs: timeMs,
+      transcript: nil,
+      type: "candidate_endpoint_detected"
+    )
+  }
+
+  static func utteranceFinalized(transcript: String) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: nil,
+      timeMs: nil,
+      transcript: transcript,
+      type: "utterance_finalized"
+    )
+  }
+
+  static func engineFailed(message: String) -> ListenerEvent {
+    ListenerEvent(message: message, score: nil, timeMs: nil, transcript: nil, type: "engine_failed")
   }
 }
 

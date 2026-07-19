@@ -3,6 +3,7 @@
 import { strict as assert } from "node:assert";
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { access, chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
@@ -37,14 +38,18 @@ async function runIntegration() {
   const fakeWhisperPath = join(tempRoot, "whisper-cli");
   const modelPath = join(tempRoot, "ggml-base.en.bin");
   const missingModelPath = join(tempRoot, "missing-model.bin");
+  const wakeModelPath = join(tempRoot, "hey-setta.onnx");
+  const wakeModelBytes = "native-local-wake-model-bytes";
   const client = new HelperClient(helperPath, {
     ...process.env,
+    SETTA_LOCAL_MACOS_VOICE_SCRIPTED_PCM_FIXTURES: "1",
     SETTA_LOCAL_MACOS_VOICE_WHISPER_CLI_PATH: fakeWhisperPath,
   });
 
   try {
     await writeFakeWhisper(fakeWhisperPath);
     await writeFile(modelPath, "native-local-model-bytes");
+    await writeFile(wakeModelPath, wakeModelBytes);
     await assertPackagedWhisperHealth(modelPath);
 
     client.writeLine("{ malformed json");
@@ -86,6 +91,19 @@ async function runIntegration() {
       await client.command("start_listener", listenerStartPayload(modelPath, missingModelPath)),
       "missing_model",
     );
+    assertOkResult(
+      await client.command(
+        "start_listener",
+        listenerStartPayload(modelPath, wakeModelPath, sha256(wakeModelBytes)),
+        "native_listener_start",
+      ),
+      { status: "started" },
+    );
+    assert.deepEqual(client.listenerEvents(), [{ type: "listener_armed" }]);
+    await assertScriptedPCMListenerCapture(client);
+    assertOkResult(await client.command("stop_listener", { reason: "setting_disabled" }), {
+      status: "stopped",
+    });
     assertErrorCode(
       await client.command("start_capture", { sessionId: "native_malformed_command" }),
       "malformed_command",
@@ -109,7 +127,28 @@ async function assertPackagedWhisperHealth(modelPath) {
 }
 
 async function writeFakeWhisper(path) {
-  await writeFile(path, "#!/bin/sh\nprintf 'native helper transcript\\n'\n");
+  await writeFile(
+    path,
+    `#!/usr/bin/env node
+const { readFileSync } = require("node:fs");
+const args = process.argv.slice(2);
+const audioIndex = args.indexOf("-f");
+if (audioIndex < 0 || audioIndex + 1 >= args.length) {
+  process.stderr.write("missing audio path\\n");
+  process.exit(2);
+}
+const audio = readFileSync(args[audioIndex + 1]);
+if (audio.subarray(0, 4).toString("ascii") !== "RIFF" || audio.subarray(8, 12).toString("ascii") !== "WAVE") {
+  process.stderr.write("invalid wav\\n");
+  process.exit(2);
+}
+const dataBytes = audio.readUInt32LE(40);
+const sampleCount = dataBytes / 2;
+const first = audio.readInt16LE(44);
+const last = audio.readInt16LE(44 + dataBytes - 2);
+process.stdout.write(\`scripted pcm sampleCount=\${sampleCount} first=\${first} last=\${last}\\n\`);
+`,
+  );
   await chmod(path, 0o755);
 }
 
@@ -165,30 +204,113 @@ function assertErrorCode(response, code) {
   assert.notEqual(response.error.message, "");
 }
 
-function listenerStartPayload(transcriptionModelPath, wakeModelPath) {
+async function assertScriptedPCMListenerCapture(client) {
+  assertOkResult(
+    await client.command("ingest_listener_pcm", pcmPayload(150, 100), "native_pcm_prewake_a"),
+    { sampleCount: 2_400, status: "accepted" },
+  );
+  assertOkResult(
+    await client.command("ingest_listener_pcm", pcmPayload(100, 200), "native_pcm_prewake_b"),
+    { sampleCount: 1_600, status: "accepted" },
+  );
+  assert.deepEqual(client.listenerEvents(), [{ type: "listener_armed" }]);
+
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(80, 300, { wakeScore: 0.7 }),
+      "native_pcm_wake",
+    ),
+    { sampleCount: 1_280, status: "accepted" },
+  );
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(40, 400, { vadVoice: true }),
+      "native_pcm_speech_start",
+    ),
+    { sampleCount: 640, status: "accepted" },
+  );
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(80, 500, { vadVoice: true }),
+      "native_pcm_speech_continue",
+    ),
+    { sampleCount: 1_280, status: "accepted" },
+  );
+  assertOkResult(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(80, 600, { endOfInput: true }),
+      "native_pcm_endpoint",
+    ),
+    { sampleCount: 1_280, status: "accepted" },
+  );
+
+  assert.deepEqual(client.listenerEvents(), [
+    { type: "listener_armed" },
+    { score: 0.7, timeMs: 330, type: "wake_detected" },
+    { timeMs: 370, type: "message_speech_started" },
+    { timeMs: 530, type: "candidate_endpoint_detected" },
+    {
+      transcript: "scripted pcm sampleCount=6080 first=200 last=600",
+      type: "utterance_finalized",
+    },
+  ]);
+}
+
+function listenerStartPayload(
+  transcriptionModelPath,
+  wakeModelPath,
+  wakeModelSHA256 = "0".repeat(64),
+) {
   return {
-    audioCopiedBeforeWakeMs: 400,
-    hardTrailingSilenceLimitMs: 2_200,
-    maximumUtteranceMs: 45_000,
-    noMessageTimeoutMs: 4_000,
-    preWakeRingBufferMs: 1_000,
+    audioCopiedBeforeWakeMs: 100,
+    hardTrailingSilenceLimitMs: 80,
+    maximumUtteranceMs: 5_000,
+    noMessageTimeoutMs: 1_000,
+    preWakeRingBufferMs: 200,
     rearmCooldownMs: 300,
     runtime: "onnx",
-    speechStartDebounceMs: 160,
+    speechStartDebounceMs: 40,
     threshold: 0.6,
-    trailingAudioPaddingMs: 400,
+    trailingAudioPaddingMs: 40,
     transcriptionModelPath,
     vadFrameMs: 20,
     wakeFrameMs: 80,
     wakeModelPath,
-    wakeModelSHA256: "0".repeat(64),
+    wakeModelSHA256,
   };
+}
+
+function pcmPayload(durationMs, value, options = {}) {
+  const sampleCount = durationMs * 16;
+  const samples = Buffer.alloc(sampleCount * 2);
+  for (let index = 0; index < sampleCount; index += 1) {
+    samples.writeInt16LE(value, index * 2);
+  }
+  const payload = {
+    endOfInput: options.endOfInput ?? false,
+    sampleRate: 16_000,
+    samplesBase64: samples.toString("base64"),
+    vadVoice: options.vadVoice ?? false,
+  };
+  if (options.wakeScore !== undefined) {
+    payload.wakeScore = options.wakeScore;
+  }
+  return payload;
+}
+
+function sha256(content) {
+  return createHash("sha256").update(content).digest("hex");
 }
 
 class HelperClient {
   #buffer = "";
   #child;
   #closed = false;
+  #events = [];
   #pending = new Map();
   #sequence = 0;
   #stderr = "";
@@ -219,6 +341,10 @@ class HelperClient {
 
   writeLine(line) {
     this.#child.stdin.write(`${line}\n`, "utf8");
+  }
+
+  listenerEvents() {
+    return [...this.#events];
   }
 
   close() {
@@ -265,6 +391,10 @@ class HelperClient {
 
   #receiveLine(line) {
     const response = JSON.parse(line);
+    if (response.type === "listener_event") {
+      this.#events.push(response.event);
+      return;
+    }
     const pending = this.#pending.get(response.id);
     if (!pending) {
       this.#failPending(new Error(`helper returned unexpected response ${response.id}`));
