@@ -1,4 +1,3 @@
-import type { WorkspaceUILayout } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import { LoaderCircle, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,12 +9,13 @@ import {
 } from "./app-pane-layout-adapter";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import type { WorkspaceRuntime } from "./workspace-runtime";
+import type { RealWorkspaceStoredLayout } from "./workspace-scene";
 
 export type WorkspaceUILayoutLoad =
   | {
       error: null;
       key: string;
-      layout: WorkspaceUILayout | null;
+      layout: RealWorkspaceStoredLayout | null;
       maximizedPaneId: string | null;
       status: "loaded";
     }

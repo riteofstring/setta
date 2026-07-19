@@ -7,11 +7,10 @@ import {
   type AppPaneLayout,
   type AppPaneTone,
   type WorkspaceUIColumn,
-  type WorkspaceUILayout,
-  type WorkspaceUIPane,
 } from "@generated/backend";
 
 import type { ColumnWidthSpec, WorkspaceColumn, WorkspacePane, WorkspaceScene } from "./types";
+import type { RealWorkspaceStoredLayout } from "./workspace-scene";
 
 const appMasterPaneId = "app_pane_master";
 const appMasterSurfaceId = "app_surface_master";
@@ -25,7 +24,7 @@ interface AppPaneLayoutToWorkspaceLayoutInput {
 }
 
 interface AppPaneLayoutToWorkspaceLayoutResult {
-  layout: WorkspaceUILayout | null;
+  layout: RealWorkspaceStoredLayout | null;
   maximizedPaneId: string | null;
 }
 
@@ -33,7 +32,7 @@ interface CurrentWorkspaceLayout {
   columns: WorkspaceUIColumn[];
   focusedPaneId: string;
   maximizedPaneId: string | null;
-  panes: WorkspaceUIPane[];
+  panes: WorkspacePane[];
 }
 
 interface WorkspaceSceneToAppPaneLayoutInput {
@@ -89,7 +88,7 @@ function currentWorkspaceFocusedPaneId(
   appFocusedPaneId: string,
   paneIds: ReadonlySet<string>,
   columns: readonly WorkspaceUIColumn[],
-  panes: readonly WorkspaceUIPane[],
+  panes: readonly WorkspacePane[],
 ): string {
   if (paneIds.has(appFocusedPaneId)) {
     return appFocusedPaneId;
@@ -114,6 +113,21 @@ export function appPaneLayoutFromWorkspaceScene({
   workspaceRootPath,
 }: WorkspaceSceneToAppPaneLayoutInput): AppPaneLayout {
   const paneIds = new Set(scene.panes.map((pane) => pane.paneId));
+  const masterPanes = scene.panes.filter((pane) => pane.surfaceKind === "master");
+  if (masterPanes.length > 1) {
+    throw new Error(
+      `app layout scene must contain exactly one master pane, got ${masterPanes.length}`,
+    );
+  }
+  if (masterPanes.length === 1) {
+    return {
+      columns: scene.columns.map((column) => appPaneColumnFromWorkspaceColumn(column)),
+      focusedPaneId,
+      maximizedPaneId: maximizedPaneId && paneIds.has(maximizedPaneId) ? maximizedPaneId : null,
+      panes: scene.panes.map((pane) => appPaneFromWorkspacePane(pane, workspaceRootPath)),
+      schemaVersion: appPaneLayoutSchemaVersion,
+    };
+  }
   const surfaceIds = new Set(scene.panes.map((pane) => pane.surfaceId));
   const columnIds = new Set(scene.columns.map((column) => column.columnId));
   const masterPaneId = uniqueAppLayoutId(appMasterPaneId, paneIds);
@@ -122,7 +136,7 @@ export function appPaneLayoutFromWorkspaceScene({
   return {
     columns: [
       appPaneMasterColumn(masterColumnId, masterPaneId),
-      ...scene.columns.map(appPaneColumnFromWorkspaceColumn),
+      ...scene.columns.map((column) => appPaneColumnFromWorkspaceColumn(column, 1)),
     ],
     focusedPaneId,
     maximizedPaneId: maximizedPaneId && paneIds.has(maximizedPaneId) ? maximizedPaneId : null,
@@ -137,7 +151,7 @@ export function appPaneLayoutFromWorkspaceScene({
 function workspacePaneFromAppPane(
   pane: AppPane,
   workspaceRootPath: string | null,
-): WorkspaceUIPane[] {
+): WorkspacePane[] {
   const fields = workspacePaneFieldsFromAppPane(pane);
   switch (pane.surfaceKind) {
     case "conversation":
@@ -153,9 +167,9 @@ function workspacePaneFromAppPane(
       ];
     case "browser":
     case "empty-frame":
-      return [{ ...fields, conversationConfig: null, surfaceKind: pane.surfaceKind }];
+      return [{ ...fields, surfaceKind: pane.surfaceKind }];
     case "master":
-      return [];
+      return [{ ...fields, surfaceKind: pane.surfaceKind }];
     default:
       return assertNever(pane);
   }
@@ -180,6 +194,13 @@ function appPaneFromWorkspacePane(pane: WorkspacePane, workspaceRootPath: string
         },
         masterConfig: null,
         surfaceKind: "conversation",
+      };
+    case "master":
+      return {
+        ...fields,
+        conversationConfig: null,
+        masterConfig: {},
+        surfaceKind: pane.surfaceKind,
       };
     case "browser":
     case "empty-frame":
@@ -244,15 +265,15 @@ function workspaceColumnFromAppPaneColumn(
   ];
 }
 
-function appPaneColumnFromWorkspaceColumn(column: WorkspaceColumn): AppPaneColumn {
+function appPaneColumnFromWorkspaceColumn(column: WorkspaceColumn, offset = 0): AppPaneColumn {
   return {
     columnId: column.columnId,
     idealWidthSpec: appPaneColumnWidthSpec(column.idealWidthSpec),
-    index: column.index + 1,
+    index: column.index + offset,
     paneIds: [...column.paneIds],
     planeIndex: column.planeIndex,
     previousProportionWidth: column.previousProportionWidth ?? null,
-    slotIndex: (column.slotIndex ?? column.index) + 1,
+    slotIndex: (column.slotIndex ?? column.index) + offset,
     widthSpec: appPaneColumnWidthSpec(column.widthSpec),
   };
 }

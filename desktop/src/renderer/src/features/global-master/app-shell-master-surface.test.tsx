@@ -11,8 +11,8 @@ import {
   AppShellMasterSurface,
   isMasterOverlayShortcut,
   masterOverlayShortcutLabel,
-  MasterSidebarLauncher,
 } from "./app-shell-master-surface";
+import { MasterSidebarLauncher } from "./master-sidebar-launcher";
 import { isMasterVoiceShortcut, masterVoiceShortcutLabel } from "./master-shortcuts";
 
 describe("app-shell master surface", () => {

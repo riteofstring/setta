@@ -1,13 +1,10 @@
-import type {
-  WorkspaceConversationPaneConfig,
-  SurfaceKind as PersistedSurfaceKind,
-} from "@generated/backend";
+import type { AppPaneSurfaceKind, WorkspaceConversationPaneConfig } from "@generated/backend";
 
 export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
 
-export type ProductSurfaceKind = PersistedSurfaceKind;
+export type ProductSurfaceKind = AppPaneSurfaceKind;
 type DiagnosticSurfaceKind = "fake-dom" | "fake-heavy-dom" | "snapshot";
 export type SurfaceKind = ProductSurfaceKind | DiagnosticSurfaceKind;
 export type NonConversationSurfaceKind = Exclude<SurfaceKind, "conversation">;

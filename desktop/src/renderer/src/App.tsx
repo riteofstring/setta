@@ -41,6 +41,7 @@ import {
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
+import type { AppShellSpeechPlaybackController } from "./features/global-speech/app-shell-speech-playback-controller";
 import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
 import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
@@ -371,11 +372,13 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     master,
     masterOverlayOpen = false,
     speechCapture,
+    speechPlayback,
     speechPresentation,
   }: {
     master?: AppShellMasterController;
     masterOverlayOpen?: boolean;
     speechCapture?: AppShellSpeechCaptureController;
+    speechPlayback?: AppShellSpeechPlaybackController;
     speechPresentation?: GlobalSpeechPresentationSource;
   } = {}) => {
     const workspaceShellHidden = masterOverlayOpen || settingsPageOpen;
@@ -417,8 +420,12 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
             <WorkspaceLayoutArea
               focusConversationRequest={workspaceConversationFocusRequest}
               initialConversationPaneStartup={initialConversationPaneStartup}
+              masterController={master}
+              masterSpeechCapture={speechCapture}
+              masterSpeechPlayback={speechPlayback}
               onConversationPresentationError={setConversationPresentationError}
               onOpenSettingsPage={openSettingsPage}
+              onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
               placementPreflightRequest={workspaceConversationPlacementPreflightRequest}
               onToggleProjectPane={toggleProjectPane}
               platform={platform}
@@ -468,6 +475,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
                       master,
                       masterOverlayOpen,
                       speechCapture,
+                      speechPlayback: playback,
                       speechPresentation,
                     })
                   }

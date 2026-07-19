@@ -148,8 +148,11 @@ function shellLayoutRestored(state, workspaceId) {
   return (
     state.ready &&
     state.workspaceId === workspaceId &&
-    state.paneCount === "2" &&
+    state.paneCount === "3" &&
     state.maximizedPaneId === "app_shell_conversation" &&
+    state.hosts.some(
+      (host) => host.paneId === "app_shell_master" && host.surfaceKind === "master",
+    ) &&
     state.hosts.some(
       (host) =>
         host.paneId === "app_shell_conversation" &&
@@ -168,7 +171,9 @@ function appLayoutShellPersisted(state) {
     state.surfaceKind === "conversation" &&
     state.columns.some(
       (column) =>
-        column.columnId === "app_column_master" && column.index === 0 && column.slotIndex === 0,
+        column.columnId === "app_shell_column_master" &&
+        column.index === 0 &&
+        column.slotIndex === 0,
     ) &&
     state.columns.some(
       (column) =>

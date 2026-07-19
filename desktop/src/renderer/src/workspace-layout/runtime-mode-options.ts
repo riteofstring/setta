@@ -1,4 +1,3 @@
-import type { WorkspaceUILayout } from "@generated/backend";
 import {
   generateBenchmarkScene,
   phaseOneVisiblePaneCount,
@@ -10,6 +9,7 @@ import { DEFAULT_PANE_BUDGET } from "./runtime-policy";
 import {
   createRealWorkspaceScene,
   defaultRealWorkspacePaneLimits,
+  type RealWorkspaceStoredLayout,
   type RealWorkspaceSceneResult,
 } from "./workspace-scene";
 import type { WorkspaceScene, PaneId, PaneRuntimeBudget } from "./types";
@@ -53,7 +53,7 @@ export function createRealSceneForRuntime({
   workspaceName,
 }: {
   mode: WorkspaceSceneMode;
-  storedLayout: WorkspaceUILayout | null;
+  storedLayout: RealWorkspaceStoredLayout | null;
   workspaceId: string;
   workspaceName: string;
 }): RealWorkspaceSceneResult | null {

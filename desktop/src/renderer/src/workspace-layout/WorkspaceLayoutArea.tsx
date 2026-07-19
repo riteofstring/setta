@@ -103,8 +103,12 @@ const overviewDragThresholdPx = 6;
 export function WorkspaceLayoutArea({
   focusConversationRequest = null,
   initialConversationPaneStartup = null,
+  masterController,
+  masterSpeechCapture,
+  masterSpeechPlayback,
   onConversationPresentationError,
   onOpenSettingsPage,
+  onOpenVoiceCredentialSettings,
   placementPreflightRequest = null,
   onToggleProjectPane,
   platform,
@@ -139,10 +143,14 @@ export function WorkspaceLayoutArea({
       initialLayout={layoutLoad.layout}
       initialMaximizedPaneId={layoutLoad.maximizedPaneId}
       layoutLoadError={layoutLoad.error}
+      masterController={masterController}
+      masterSpeechCapture={masterSpeechCapture}
+      masterSpeechPlayback={masterSpeechPlayback}
       mode={mode}
       onToggleProjectPane={onToggleProjectPane}
       onConversationPresentationError={onConversationPresentationError}
       onOpenSettingsPage={onOpenSettingsPage}
+      onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
       placementPreflightRequest={placementPreflightRequest}
       platform={platform}
       projectPaneOpen={projectPaneOpen}
@@ -162,10 +170,14 @@ function WorkspaceLayoutRuntimeArea({
   initialLayout,
   initialMaximizedPaneId,
   layoutLoadError,
+  masterController,
+  masterSpeechCapture,
+  masterSpeechPlayback,
   mode,
   onToggleProjectPane,
   onConversationPresentationError,
   onOpenSettingsPage,
+  onOpenVoiceCredentialSettings,
   placementPreflightRequest,
   platform,
   projectPaneOpen,
@@ -191,8 +203,6 @@ function WorkspaceLayoutRuntimeArea({
   const schedulerRef = useRef<FrameScheduler | null>(null);
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createWorkspaceTrackpadNavigationState());
-  // Committed pane frames frozen while an insert preview is active, so hover
-  // resolution stays a pure function of the pre-reflow layout (no oscillation).
   const overviewInsertPreviewFramesRef = useRef<OverviewPaneFrame[] | null>(null);
   const overviewGhostTargetRef = useRef<OverviewGhostTarget | null>(null);
   const showPerformanceStats = useAppearanceStore(
@@ -218,9 +228,14 @@ function WorkspaceLayoutRuntimeArea({
       createWorkspaceRuntime({
         allowResizedPanesToOverflowViewport,
         initialMaximizedPaneId,
+        masterController,
+        masterSpeechCapture,
+        masterSpeechPlayback,
         mode,
+        onOpenVoiceCredentialSettings,
         overviewCardMaxWidthPx,
         overviewCardMinWidthPx,
+        platform,
         speechCapture,
         speechPresentation,
         storedLayout: initialLayout,
@@ -231,7 +246,11 @@ function WorkspaceLayoutRuntimeArea({
       allowResizedPanesToOverflowViewport,
       initialLayout,
       initialMaximizedPaneId,
+      masterController,
+      masterSpeechCapture,
+      masterSpeechPlayback,
       mode,
+      onOpenVoiceCredentialSettings,
       overviewCardMaxWidthPx,
       overviewCardMinWidthPx,
       speechCapture,
@@ -860,8 +879,6 @@ function WorkspaceLayoutRuntimeArea({
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
     schedulerRef.current?.requestFrame();
   }, [runtime, showPerformanceStats]);
-  // The full-screen project pane overlay covers the stage, so any workspace
-  // action from the bottom bar dismisses it first to reveal its effect.
   const dismissProjectPaneOverlay = () => {
     if (projectPaneOpen) {
       onToggleProjectPane();

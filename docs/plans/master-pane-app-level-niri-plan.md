@@ -329,6 +329,25 @@ contracts.
 
 ### 3. Build The Master Pane Surface
 
+**Status:** Completed.
+
+Completed repository work:
+
+- Restored app-level `master` pane records into the live renderer Niri scene instead of filtering
+  them out during app layout load.
+- Added a React DOM surface adapter path for `master` panes, threaded the app-shell master
+  controller and speech controllers into separate pane React roots, and rendered the master pane as
+  a first-class Niri pane with composer, current interaction state, progress, routing results,
+  cancellation/retry controls, voice controls, and product-safe unavailable state.
+- Preserved existing app-level master pane records during layout save so renderer persistence does
+  not create duplicate master panes, and kept master pane close requests non-destructive.
+- Updated the focused app pane Electron workflow to verify the live master host is restored through
+  renderer, preload, main, backend HTTP, and app-level layout storage.
+
+Remaining repository work:
+
+- None.
+
 Create a React DOM surface adapter for `master`.
 
 Render the master as a Niri pane with a long transcript, composer, progress state, route/action

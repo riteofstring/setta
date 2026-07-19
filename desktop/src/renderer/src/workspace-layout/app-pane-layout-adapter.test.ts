@@ -64,7 +64,7 @@ describe("app pane layout adapter", () => {
     });
   });
 
-  test("restores app-level conversation records into the current workspace scene shape", () => {
+  test("restores app-level master and conversation records into the current scene shape", () => {
     const layout: AppPaneLayout = {
       columns: [
         {
@@ -139,13 +139,26 @@ describe("app pane layout adapter", () => {
 
     expect(restored.maximizedPaneId).toBe("app_pane_topic");
     expect(restored.layout).toMatchObject({
-      focusedPaneId: "app_pane_topic",
+      focusedPaneId: "app_pane_master",
       workspaceId: "workspace_api",
     });
     expect(restored.layout?.columns.map((column) => [column.index, column.slotIndex])).toEqual([
       [0, 0],
+      [1, 1],
     ]);
     expect(restored.layout?.panes).toEqual([
+      {
+        columnId: "app_column_master",
+        heat: 0,
+        paneId: "app_pane_master",
+        sequence: 0,
+        subtitle: "Global coordinator",
+        surfaceId: "app_surface_master",
+        surfaceKind: "master",
+        title: "Setta",
+        tone: "slate",
+        weight: 1,
+      },
       {
         columnId: "app_column_0",
         conversationConfig: { conversationId: "conversation_api" },
@@ -162,7 +175,7 @@ describe("app pane layout adapter", () => {
     ]);
   });
 
-  test("does not restore app conversation panes bound to a different workspace folder", () => {
+  test("keeps the master pane when app conversation panes are bound elsewhere", () => {
     const layout: AppPaneLayout = {
       columns: [
         {
@@ -229,19 +242,49 @@ describe("app pane layout adapter", () => {
       schemaVersion: appPaneLayoutSchemaVersion,
     };
 
-    expect(
-      appPaneLayoutToWorkspaceUILayout({
-        layout,
+    const restored = appPaneLayoutToWorkspaceUILayout({
+      layout,
+      workspaceId: "workspace_other",
+      workspaceRootPath: "/tmp/other",
+    });
+
+    expect(restored).toEqual({
+      layout: {
+        columns: [
+          {
+            columnId: "app_column_master",
+            idealWidthSpec: { unit: "px", value: 520 },
+            index: 0,
+            paneIds: ["app_pane_master"],
+            planeIndex: 0,
+            previousProportionWidth: null,
+            slotIndex: 0,
+            widthSpec: { unit: "px", value: 520 },
+          },
+        ],
+        focusedPaneId: "app_pane_master",
+        panes: [
+          {
+            columnId: "app_column_master",
+            heat: 0,
+            paneId: "app_pane_master",
+            sequence: 0,
+            subtitle: "Global coordinator",
+            surfaceId: "app_surface_master",
+            surfaceKind: "master",
+            title: "Setta",
+            tone: "slate",
+            weight: 1,
+          },
+        ],
+        schemaVersion: appPaneLayoutSchemaVersion,
         workspaceId: "workspace_other",
-        workspaceRootPath: "/tmp/other",
-      }),
-    ).toEqual({
-      layout: null,
+      },
       maximizedPaneId: null,
     });
   });
 
-  test("ignores master records until the renderer has a master surface adapter", () => {
+  test("restores a master-only app layout", () => {
     const layout: AppPaneLayout = {
       columns: [
         {
@@ -283,8 +326,38 @@ describe("app pane layout adapter", () => {
         workspaceRootPath: "/tmp/setta-api",
       }),
     ).toEqual({
-      layout: null,
-      maximizedPaneId: null,
+      layout: {
+        columns: [
+          {
+            columnId: "app_column_0",
+            idealWidthSpec: { unit: "px", value: 520 },
+            index: 0,
+            paneIds: ["app_pane_master"],
+            planeIndex: 0,
+            previousProportionWidth: null,
+            slotIndex: 0,
+            widthSpec: { unit: "px", value: 520 },
+          },
+        ],
+        focusedPaneId: "app_pane_master",
+        panes: [
+          {
+            columnId: "app_column_0",
+            heat: 0,
+            paneId: "app_pane_master",
+            sequence: 0,
+            subtitle: "Global coordinator",
+            surfaceId: "app_surface_master",
+            surfaceKind: "master",
+            title: "Setta",
+            tone: "slate",
+            weight: 1,
+          },
+        ],
+        schemaVersion: appPaneLayoutSchemaVersion,
+        workspaceId: "workspace_api",
+      },
+      maximizedPaneId: "app_pane_master",
     });
   });
 });

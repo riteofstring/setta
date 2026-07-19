@@ -82,6 +82,24 @@
   width: 100%;
 }
 
+.setta-master-pane.setta-master-overlay {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  height: 100%;
+  max-height: none;
+  max-width: none;
+  min-height: 0;
+}
+
+.setta-master-pane .setta-master-overlay-header {
+  padding: 12px 14px;
+}
+
+.setta-master-pane .setta-master-overlay-shortcuts {
+  display: none;
+}
+
 .setta-master-overlay-header {
   align-items: center;
   border-bottom: 1px solid color-mix(in oklch, var(--setta-600) 34%, transparent);

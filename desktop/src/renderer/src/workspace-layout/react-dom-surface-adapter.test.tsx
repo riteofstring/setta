@@ -2,6 +2,8 @@ import { isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
+import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
+import { AppShellMasterPaneSurface } from "../features/global-master/app-shell-master-pane-surface";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import { reactDomSurfaceHostChangedEvent } from "./react-dom-surface-events";
 import {
@@ -264,6 +266,40 @@ describe("workspace React DOM surface adapter", () => {
     expect(renderedNode.props.speechCapture).toBe(speechCapture);
     expect(renderedNode.props.speechPresentation).toBe(speechPresentation);
     expect(renderedNode.props.workspaceId).toBe("workspace_test");
+  });
+
+  test("mounts the master pane as a focused React DOM surface that cannot be removed", async () => {
+    const root = new RecordingRoot([]);
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return root;
+      },
+    };
+    const host = createFakeHost();
+    const masterController = {} as AppShellMasterController;
+    const adapter = createReactDomSurfaceAdapter(fakePane("master"), rootFactory, {
+      masterController,
+      platform: "linux",
+    });
+
+    adapter.mount(host);
+    adapter.setFocused(true);
+    const closeResult = await adapter.requestPaneClose({ confirm: () => true });
+
+    const renderedNode = root.renderedNodes.at(-1);
+    if (
+      !isValidElement<{
+        controller: AppShellMasterController;
+        focused: boolean;
+      }>(renderedNode)
+    ) {
+      throw new Error("master surface did not render a React element");
+    }
+    expect(host.dataset.surfaceKind).toBe("master");
+    expect(renderedNode.type).toBe(AppShellMasterPaneSurface);
+    expect(renderedNode.props.controller).toBe(masterController);
+    expect(renderedNode.props.focused).toBe(true);
+    expect(closeResult).toEqual({ removePane: false });
   });
 });
 

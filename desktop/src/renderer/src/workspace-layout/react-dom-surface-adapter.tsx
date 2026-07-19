@@ -1,8 +1,16 @@
+import type { DesktopPlatform } from "@shared/types";
 import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
 import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
 import { requestEasyButtonPaneClose } from "../features/easy-button/easy-button-conversation-commands";
+import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
+import {
+  AppShellMasterPaneSurface,
+  AppShellMasterPaneUnavailable,
+} from "../features/global-master/app-shell-master-pane-surface";
+import type { AppShellSpeechCaptureController } from "../features/global-speech/app-shell-speech-capture-controller";
+import type { AppShellSpeechPlaybackController } from "../features/global-speech/app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import {
@@ -40,6 +48,11 @@ export interface ReactDomSurfaceState {
 }
 
 export interface ReactDomSurfaceAdapterOptions {
+  masterController?: AppShellMasterController;
+  onOpenVoiceCredentialSettings?: () => void;
+  masterSpeechCapture?: AppShellSpeechCaptureController;
+  masterSpeechPlayback?: AppShellSpeechPlaybackController;
+  platform?: DesktopPlatform;
   speechCapture?: SpeechCaptureRequester;
   speechPresentation?: GlobalSpeechPresentationSource;
   workspaceId?: string;
@@ -340,16 +353,19 @@ export function createReactDomSurfaceAdapter(
       pane,
       renderSurface,
       rootFactory,
-      conversationPaneCloseRequest(pane, options),
+      reactDomPaneCloseRequest(pane, options),
     );
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
 
-function conversationPaneCloseRequest(
+function reactDomPaneCloseRequest(
   pane: WorkspacePane,
   options: ReactDomSurfaceAdapterOptions,
 ): ((request: SurfacePaneCloseRequest) => Promise<SurfacePaneCloseResult>) | undefined {
+  if (pane.surfaceKind === "master") {
+    return () => Promise.resolve({ removePane: false });
+  }
   if (pane.surfaceKind !== "conversation") {
     return undefined;
   }
@@ -373,6 +389,20 @@ function reactDomSurfaceRenderFactory(
   options: ReactDomSurfaceAdapterOptions,
 ): ((state: ReactDomSurfaceState) => ReactNode) | undefined {
   switch (pane.surfaceKind) {
+    case "master":
+      return ({ focused }) =>
+        options.masterController ? (
+          <AppShellMasterPaneSurface
+            controller={options.masterController}
+            focused={focused}
+            onOpenVoiceCredentialSettings={options.onOpenVoiceCredentialSettings}
+            platform={options.platform ?? "linux"}
+            speechCapture={options.masterSpeechCapture}
+            speechPlayback={options.masterSpeechPlayback}
+          />
+        ) : (
+          <AppShellMasterPaneUnavailable />
+        );
     case "conversation":
       return () => (
         <EasyButtonSurface

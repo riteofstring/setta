@@ -23,6 +23,7 @@ const surfaceKindLabels = {
   "empty-frame": "empty frame",
   "fake-dom": "fake light",
   "fake-heavy-dom": "fake heavy",
+  master: "master",
   snapshot: "snapshot",
 } satisfies Record<SurfaceKind, string>;
 

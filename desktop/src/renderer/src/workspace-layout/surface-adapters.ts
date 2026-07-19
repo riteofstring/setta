@@ -1,3 +1,7 @@
+import type { DesktopPlatform } from "@shared/types";
+import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
+import type { AppShellSpeechCaptureController } from "../features/global-speech/app-shell-speech-capture-controller";
+import type { AppShellSpeechPlaybackController } from "../features/global-speech/app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import {
@@ -39,6 +43,11 @@ export interface SnapshotSurfaceAdapterOptions {
 }
 
 export interface DefaultSurfaceAdapterOptions {
+  masterController?: AppShellMasterController;
+  onOpenVoiceCredentialSettings?: () => void;
+  masterSpeechCapture?: AppShellSpeechCaptureController;
+  masterSpeechPlayback?: AppShellSpeechPlaybackController;
+  platform?: DesktopPlatform;
   speechCapture?: SpeechCaptureRequester;
   speechPresentation?: GlobalSpeechPresentationSource;
   workspaceId?: string;
@@ -586,6 +595,11 @@ const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurface
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
   conversation: (pane, options) =>
     createReactDomSurfaceAdapter(pane, undefined, {
+      masterController: options.masterController,
+      onOpenVoiceCredentialSettings: options.onOpenVoiceCredentialSettings,
+      masterSpeechCapture: options.masterSpeechCapture,
+      masterSpeechPlayback: options.masterSpeechPlayback,
+      platform: options.platform,
       speechCapture: options.speechCapture,
       speechPresentation: options.speechPresentation,
       workspaceId: options.workspaceId,
@@ -593,6 +607,17 @@ const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurface
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
+  master: (pane, options) =>
+    createReactDomSurfaceAdapter(pane, undefined, {
+      masterController: options.masterController,
+      onOpenVoiceCredentialSettings: options.onOpenVoiceCredentialSettings,
+      masterSpeechCapture: options.masterSpeechCapture,
+      masterSpeechPlayback: options.masterSpeechPlayback,
+      platform: options.platform,
+      speechCapture: options.speechCapture,
+      speechPresentation: options.speechPresentation,
+      workspaceId: options.workspaceId,
+    }),
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
 };
 
