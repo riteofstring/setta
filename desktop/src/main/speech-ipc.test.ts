@@ -5,7 +5,10 @@ import type { SpeechProviderSelectionSettings } from "@shared/speech-ipc";
 import { describe, expect, test, vi } from "vitest";
 
 import { registerSpeechIpcHandlers } from "./speech-ipc";
-import { LocalMacOSVoiceHelperCommandError } from "./local-macos-voice-helper";
+import {
+  LocalMacOSVoiceHelperCommandError,
+  type LocalMacOSVoiceListenerEventHandler,
+} from "./local-macos-voice-helper";
 
 const localWAVAudioBase64 = "UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
 
@@ -307,6 +310,42 @@ describe("speech IPC handlers", () => {
     });
     expect(helper.finishCapture).toHaveBeenCalledWith({ sessionId: "capture_local" });
     expect(helper.cancelCapture).toHaveBeenCalledWith({ sessionId: "capture_cancel" });
+  });
+
+  test("rejects competing local macOS capture sessions before reaching the helper", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const helper = localMacOSVoiceHelper();
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    const first = await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_first",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+    const second = await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_second",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+
+    expect(first).toEqual({ captureSessionId: "capture_first", status: "started" });
+    expect(second).toEqual({
+      failure: {
+        code: "invalid_session",
+        message: "Local macOS voice capture session is already active.",
+      },
+      status: "failed",
+    });
+    expect(helper.startCapture).toHaveBeenCalledOnce();
   });
 
   test("rejects empty and oversized local macOS transcripts before routing", async () => {
@@ -827,15 +866,30 @@ function localMacOSVoiceHelper() {
       version: "fixture-local-voices",
       voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
     })),
+    pauseListener: vi.fn(async () => ({
+      status: "paused" as const,
+    })),
     readHealth: vi.fn(async () => ({
       helperPath: null,
       message: "The local macOS voice helper is not installed.",
       provider: "local_macos" as const,
       status: "helper_unavailable" as const,
     })),
+    resumeListener: vi.fn(async () => ({
+      status: "resumed" as const,
+    })),
     shutdown: vi.fn(),
     startCapture: vi.fn(async (request: { sessionId: string }) => ({
       sessionId: request.sessionId,
+    })),
+    startListener: vi.fn(
+      async (_request: unknown, onEvent: LocalMacOSVoiceListenerEventHandler) => {
+        onEvent({ type: "listener_armed" });
+        return { status: "started" as const };
+      },
+    ),
+    stopListener: vi.fn(async () => ({
+      status: "stopped" as const,
     })),
     synthesizeSpeech: vi.fn(async (request: { operationId: string }) => ({
       audioBase64: localWAVAudioBase64,

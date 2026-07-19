@@ -83,6 +83,10 @@ async function runIntegration() {
       "invalid_session",
     );
     assertErrorCode(
+      await client.command("start_listener", listenerStartPayload(modelPath, missingModelPath)),
+      "missing_model",
+    );
+    assertErrorCode(
       await client.command("start_capture", { sessionId: "native_malformed_command" }),
       "malformed_command",
     );
@@ -159,6 +163,26 @@ function assertErrorCode(response, code) {
   assert.equal(response.error?.code, code);
   assert.equal(typeof response.error?.message, "string");
   assert.notEqual(response.error.message, "");
+}
+
+function listenerStartPayload(transcriptionModelPath, wakeModelPath) {
+  return {
+    audioCopiedBeforeWakeMs: 400,
+    hardTrailingSilenceLimitMs: 2_200,
+    maximumUtteranceMs: 45_000,
+    noMessageTimeoutMs: 4_000,
+    preWakeRingBufferMs: 1_000,
+    rearmCooldownMs: 300,
+    runtime: "onnx",
+    speechStartDebounceMs: 160,
+    threshold: 0.6,
+    trailingAudioPaddingMs: 400,
+    transcriptionModelPath,
+    vadFrameMs: 20,
+    wakeFrameMs: 80,
+    wakeModelPath,
+    wakeModelSHA256: "0".repeat(64),
+  };
 }
 
 class HelperClient {

@@ -3,6 +3,9 @@ import { createInterface } from "node:readline";
 const mode = process.argv[2] ?? "ok";
 const sessions = new Map();
 const synthesisOperations = new Map();
+const listenerPauseReasons = new Set();
+let microphoneOwner = null;
+let listenerActive = false;
 const localVoiceIds = [
   "com.apple.voice.compact.en-US.Samantha",
   "com.apple.voice.compact.en-US.Alex",
@@ -14,8 +17,12 @@ const commandHandlers = new Map([
   ["cancel_synthesis", handleCancelSynthesis],
   ["finish_capture", handleFinishCapture],
   ["list_voices", handleListVoices],
+  ["pause_listener", handlePauseListener],
   ["read_health", handleReadHealth],
+  ["resume_listener", handleResumeListener],
   ["start_capture", handleStartCapture],
+  ["start_listener", handleStartListener],
+  ["stop_listener", handleStopListener],
   ["synthesize_speech", handleSynthesizeSpeech],
 ]);
 
@@ -48,6 +55,7 @@ input.on("line", (line) => {
 
 function handleCancelCapture(command) {
   sessions.delete(command.payload.sessionId);
+  releaseMicrophoneOwner("manual_capture", command.payload.sessionId);
   respond(command.id, { sessionId: command.payload.sessionId });
 }
 
@@ -57,6 +65,7 @@ function handleFinishCapture(command) {
     return;
   }
   sessions.delete(command.payload.sessionId);
+  releaseMicrophoneOwner("manual_capture", command.payload.sessionId);
   if (command.payload.sessionId.includes("microphone_revoked")) {
     reject(command.id, "microphone_denied", "microphone access was revoked during capture");
     return;
@@ -108,7 +117,12 @@ function handleStartCapture(command) {
     reject(command.id, "missing_model", "model file is missing");
     return;
   }
+  if (!claimMicrophoneOwner({ sessionId: command.payload.sessionId, type: "manual_capture" })) {
+    reject(command.id, "microphone_busy", "Local macOS microphone is already in use.");
+    return;
+  }
   if (command.payload.sessionId.includes("microphone_denied")) {
+    releaseMicrophoneOwner("manual_capture", command.payload.sessionId);
     reject(command.id, "microphone_denied", "microphone access is denied for Setta");
     return;
   }
@@ -117,6 +131,75 @@ function handleStartCapture(command) {
     maximumTranscriptCharacters: command.payload.maximumTranscriptCharacters,
   });
   respond(command.id, { sessionId: command.payload.sessionId });
+}
+
+function handleStartListener(command) {
+  const payload = command.payload;
+  if (!payload.transcriptionModelPath || payload.transcriptionModelPath.includes("missing-model")) {
+    reject(command.id, "missing_model", "model file is missing");
+    return;
+  }
+  if (!payload.wakeModelPath || payload.wakeModelPath.includes("missing-wake-model")) {
+    reject(command.id, "missing_model", "wake model file is missing");
+    return;
+  }
+  if (listenerActive) {
+    reject(command.id, "invalid_listener", "Always listening is already active.");
+    return;
+  }
+  if (!claimMicrophoneOwner({ type: "always_listening" })) {
+    reject(command.id, "microphone_busy", "Local macOS microphone is already in use.");
+    return;
+  }
+  listenerActive = true;
+  listenerPauseReasons.clear();
+  respond(command.id, { status: "started" });
+  emitListenerEvent({ type: "listener_armed" });
+  if (mode === "scripted_listener") {
+    emitListenerEvent({ score: 0.74, timeMs: 960, type: "wake_detected" });
+    emitListenerEvent({ timeMs: 1_140, type: "message_speech_started" });
+    emitListenerEvent({ timeMs: 2_220, type: "candidate_endpoint_detected" });
+    emitListenerEvent({ transcript: "open the release checklist", type: "utterance_finalized" });
+  }
+}
+
+function handleStopListener(command) {
+  if (!listenerActive) {
+    reject(command.id, "invalid_listener", "Always listening is not active.");
+    return;
+  }
+  listenerActive = false;
+  listenerPauseReasons.clear();
+  releaseMicrophoneOwner("always_listening");
+  respond(command.id, { status: "stopped" });
+}
+
+function handlePauseListener(command) {
+  if (!listenerActive) {
+    reject(command.id, "invalid_listener", "Always listening is not active.");
+    return;
+  }
+  listenerPauseReasons.add(command.payload.reason);
+  releaseMicrophoneOwner("always_listening");
+  respond(command.id, { status: "paused" });
+}
+
+function handleResumeListener(command) {
+  if (!listenerActive) {
+    reject(command.id, "invalid_listener", "Always listening is not active.");
+    return;
+  }
+  listenerPauseReasons.delete(command.payload.reason);
+  if (listenerPauseReasons.size === 0) {
+    if (!claimMicrophoneOwner({ type: "always_listening" })) {
+      reject(command.id, "microphone_busy", "Local macOS microphone is already in use.");
+      return;
+    }
+    respond(command.id, { status: "resumed" });
+    emitListenerEvent({ type: "listener_armed" });
+    return;
+  }
+  respond(command.id, { status: "resumed" });
 }
 
 function handleSynthesizeSpeech(command) {
@@ -193,4 +276,30 @@ function reject(id, code, message) {
       type: "response",
     }) + "\n",
   );
+}
+
+function claimMicrophoneOwner(owner) {
+  if (microphoneOwner !== null) {
+    return false;
+  }
+  microphoneOwner = owner;
+  return true;
+}
+
+function releaseMicrophoneOwner(type, sessionId) {
+  if (microphoneOwner === null || microphoneOwner.type !== type) {
+    return;
+  }
+  if (
+    type === "manual_capture" &&
+    sessionId !== undefined &&
+    microphoneOwner.sessionId !== sessionId
+  ) {
+    return;
+  }
+  microphoneOwner = null;
+}
+
+function emitListenerEvent(event) {
+  process.stdout.write(JSON.stringify({ event, type: "listener_event" }) + "\n");
 }

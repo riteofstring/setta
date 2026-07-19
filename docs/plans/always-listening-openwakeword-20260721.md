@@ -266,17 +266,19 @@ documented command, and a clear threshold candidate.
 ### Phase 2: Local Voice Engine Boundary
 
 - [x] Define a typed listener command/event protocol owned by Electron main.
-- [ ] Extend the local voice engine so it owns microphone capture for both manual
+- [x] Extend the local voice engine so it owns microphone capture for both manual
   capture and always listening.
-- [ ] Add explicit arbitration between armed wake detection, manual click-to-talk,
+- [x] Add explicit arbitration between armed wake detection, manual click-to-talk,
   active capture, and playback.
 - [ ] Keep pre-wake audio memory-only.
 - [ ] Add native/helper tests using scripted PCM fixtures instead of real microphone
   timing.
 
 Repository note: the first Phase 2 batch added the main-process listener
-protocol/state machine and focused arbitration tests. Production helper
-boundary wiring remains.
+protocol/state machine and focused arbitration tests. The second Phase 2 batch
+wired the production helper listener lifecycle and helper-owned microphone
+arbitration. Wake audio ingestion, pre-wake buffering, and scripted PCM helper
+fixtures remain.
 
 Exit criteria: fake audio can trigger wake, capture, endpoint, and transcript
 events through the production engine boundary.

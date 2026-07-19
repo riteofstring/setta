@@ -44,6 +44,7 @@ const localMacOSCommandFailureCodes = {
   duration_limit: "duration_limit",
   helper_unavailable: "provider_unavailable",
   invalid_session: "invalid_session",
+  microphone_busy: "invalid_session",
   microphone_denied: "microphone_permission_denied",
   missing_model: "not_configured",
   model_hash_mismatch: "not_configured",
@@ -334,7 +335,7 @@ async function startLocalMacOSVoiceCapture(
   sessions: LocalMacOSCaptureSessions,
   request: LocalMacOSVoiceStartCaptureRequest,
 ): Promise<LocalMacOSVoiceStartCaptureResult> {
-  if (sessions.has(request.captureSessionId)) {
+  if (sessions.hasActive()) {
     return localCaptureFailed(
       "invalid_session",
       "Local macOS voice capture session is already active.",
@@ -725,6 +726,10 @@ interface LocalMacOSCaptureSession {
 
 class LocalMacOSCaptureSessions {
   private readonly active = new Map<string, LocalMacOSCaptureSession>();
+
+  hasActive(): boolean {
+    return this.active.size > 0;
+  }
 
   has(captureSessionId: string): boolean {
     return this.active.has(captureSessionId);
