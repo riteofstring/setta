@@ -234,6 +234,9 @@ WHERE id = ? AND archived_at IS NULL
 	if err != nil {
 		return master.RouteConversationTarget{}, false, fmt.Errorf("read master route target %s: %w", conversationID, err)
 	}
+	if conversation.WorkspaceID == nil {
+		return master.RouteConversationTarget{}, false, nil
+	}
 	openPaneIDs, openPaneCount, err := readMasterRouteTargetPanes(ctx, reader, conversationID)
 	if err != nil {
 		return master.RouteConversationTarget{}, false, err
@@ -258,7 +261,7 @@ WHERE id = ? AND archived_at IS NULL
 	}
 	target := master.RouteConversationTarget{
 		ConversationID:       conversation.ID,
-		WorkspaceID:          conversation.WorkspaceID,
+		WorkspaceID:          *conversation.WorkspaceID,
 		Title:                conversation.Title,
 		Status:               string(conversation.Status),
 		OpenPaneIDs:          openPaneIDs,

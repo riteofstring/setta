@@ -5,8 +5,8 @@ import (
 )
 
 type CreateTopicConversationRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	Title       string `json:"title"`
+	WorkspaceID *string `json:"workspaceId"`
+	Title       string  `json:"title"`
 }
 
 type ArchiveTopicConversationRequest struct {

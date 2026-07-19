@@ -394,12 +394,18 @@ Completed repository work:
   matching folder binding.
 - Kept restored folderless conversation panes folderless when the renderer saves the app pane layout
   again.
+- Made topic conversation ownership optional in the Go domain, store schema, service creation path,
+  HTTP create contract, generated TypeScript surface, and renderer workspace-scoped projection guards.
+- Added backend resource-required handling for folder-dependent topic work started from a folderless
+  conversation, returning a stable `conversation_resource_required` API error code instead of treating
+  missing workspace ownership as an internal failure.
+- Kept folderless conversations out of workspace-scoped topic indexes, navigator pages, legacy pane
+  binding projection, and narration observers until a folder resource exists.
 
 Remaining repository work:
 
-- Change conversation creation request/service/store ownership so a topic conversation can be
-  created without a workspace id.
-- Add resource request handling for work that needs a folder after a folderless conversation exists.
+- Surface folder resource requests through ephemeral UI, bind the selected folder resource to the
+  folderless conversation and pane, and retry or continue the folder-required work after binding.
 
 Change conversation pane config and conversation creation so resource bindings are explicit and
 optional.

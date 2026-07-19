@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 72;
-export const backendContractSchemaHash = "sha256:b690b017f1dbe66118d34a28972f3db6a1da11aa3db39908773ac6483101260c";
+export const backendProtocolVersion = 73;
+export const backendContractSchemaHash = "sha256:f073a73d8f760e2d67cdc69e0654bbeeb7efb97492e598612bf69208fe614695";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1967,13 +1967,13 @@ export interface SaveAppPaneLayoutRequest {
 }
 
 export interface CreateTopicConversationRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   title: string;
 }
 
 export interface TopicConversation {
   id: string;
-  workspaceId: string;
+  workspaceId: string | null;
   title: string;
   topicDescriptor: string;
   status: ConversationStatus;
@@ -2762,7 +2762,7 @@ export interface ConversationEvent {
   sequence: number;
   eventId: string;
   emittedAt: string;
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   payload: ConversationEventPayload;
 }
@@ -4628,7 +4628,7 @@ export function decodeCreateTopicConversationRequest(value: unknown): CreateTopi
   const record = assertRecord(value, "CreateTopicConversationRequest");
   assertKnownFields(record, "CreateTopicConversationRequest", ["workspaceId", "title"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.workspaceId", (item) => decodeString(item, "CreateTopicConversationRequest.workspaceId")),
     title: decodeString(requireField(record, "title", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.title"),
   };
 }
@@ -4638,7 +4638,7 @@ export function decodeTopicConversation(value: unknown): TopicConversation {
   assertKnownFields(record, "TopicConversation", ["id", "workspaceId", "title", "topicDescriptor", "status", "createdAt", "updatedAt", "archivedAt", "lastTrajectorySequence"]);
   return {
     id: decodeString(requireField(record, "id", "TopicConversation"), "TopicConversation.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "TopicConversation"), "TopicConversation.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "TopicConversation"), "TopicConversation.workspaceId", (item) => decodeString(item, "TopicConversation.workspaceId")),
     title: decodeString(requireField(record, "title", "TopicConversation"), "TopicConversation.title"),
     topicDescriptor: decodeString(requireField(record, "topicDescriptor", "TopicConversation"), "TopicConversation.topicDescriptor"),
     status: decodeConversationStatus(requireField(record, "status", "TopicConversation"), "TopicConversation.status"),
@@ -5927,7 +5927,7 @@ export function decodeConversationEvent(value: unknown): ConversationEvent {
     sequence: decodeInteger(requireField(record, "sequence", "ConversationEvent"), "ConversationEvent.sequence"),
     eventId: decodeString(requireField(record, "eventId", "ConversationEvent"), "ConversationEvent.eventId"),
     emittedAt: decodeString(requireField(record, "emittedAt", "ConversationEvent"), "ConversationEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ConversationEvent"), "ConversationEvent.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "ConversationEvent"), "ConversationEvent.workspaceId", (item) => decodeString(item, "ConversationEvent.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationEvent"), "ConversationEvent.conversationId"),
     payload: decodeConversationEventPayload(requireField(record, "payload", "ConversationEvent")),
   };

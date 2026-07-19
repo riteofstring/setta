@@ -169,7 +169,7 @@ func conversationResyncEvent(
 
 func conversationEventFromCommitted(
 	committed CommittedEvent,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 ) (ConversationEvent, error) {
 	payload, err := decodeConversationEventPayload(ConversationEventType(committed.Kind), committed.Payload)

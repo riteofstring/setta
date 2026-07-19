@@ -228,6 +228,10 @@ func writeConversationError(response http.ResponseWriter, code string, err error
 	if conversation.IsCommandConflict(err) {
 		status = http.StatusConflict
 	}
+	if conversation.IsResourceRequired(err) {
+		writeError(response, http.StatusConflict, "conversation_resource_required", err.Error())
+		return
+	}
 	if conversation.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_conversation_state", err.Error())
 		return

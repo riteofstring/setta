@@ -528,7 +528,7 @@ func createRuntimeLiveTopic(
 		client,
 		baseURL,
 		"/conversations/create",
-		httpapi.CreateTopicConversationRequest{WorkspaceID: workspaceID, Title: title},
+		httpapi.CreateTopicConversationRequest{WorkspaceID: &workspaceID, Title: title},
 		http.StatusOK,
 	)
 }

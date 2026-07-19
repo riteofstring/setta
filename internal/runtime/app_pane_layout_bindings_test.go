@@ -12,9 +12,9 @@ import (
 )
 
 func TestAppPaneLayoutPaneBindingObserverProjectsConversationPanes(t *testing.T) {
-	store := newRecordingAppPaneBindingStore(map[string]string{
-		"conversation_alpha": "workspace_alpha",
-		"conversation_beta":  "workspace_beta",
+	store := newRecordingAppPaneBindingStore(map[string]*string{
+		"conversation_alpha": appPaneBindingStringPointer("workspace_alpha"),
+		"conversation_beta":  appPaneBindingStringPointer("workspace_beta"),
 	})
 	observer := newTestAppPaneLayoutObserver(t, store)
 	layout := appPaneLayoutForBindings(
@@ -47,8 +47,8 @@ func TestAppPaneLayoutPaneBindingObserverProjectsConversationPanes(t *testing.T)
 }
 
 func TestAppPaneLayoutPaneBindingObserverClearsPreviousWorkspacePanes(t *testing.T) {
-	store := newRecordingAppPaneBindingStore(map[string]string{
-		"conversation_alpha": "workspace_alpha",
+	store := newRecordingAppPaneBindingStore(map[string]*string{
+		"conversation_alpha": appPaneBindingStringPointer("workspace_alpha"),
 	})
 	observer := newTestAppPaneLayoutObserver(t, store)
 	previous := appPaneLayoutForBindings(
@@ -72,7 +72,7 @@ func TestAppPaneLayoutPaneBindingObserverClearsPreviousWorkspacePanes(t *testing
 }
 
 func TestAppPaneLayoutPaneBindingObserverRejectsMissingCurrentConversation(t *testing.T) {
-	store := newRecordingAppPaneBindingStore(map[string]string{})
+	store := newRecordingAppPaneBindingStore(map[string]*string{})
 	observer := newTestAppPaneLayoutObserver(t, store)
 	layout := appPaneLayoutForBindings(
 		"app_pane_alpha",
@@ -85,6 +85,24 @@ func TestAppPaneLayoutPaneBindingObserverRejectsMissingCurrentConversation(t *te
 	}
 	if len(store.replacements) != 0 {
 		t.Fatalf("replacements = %+v, want none", store.replacements)
+	}
+}
+
+func TestAppPaneLayoutPaneBindingObserverSkipsFolderlessConversationPanes(t *testing.T) {
+	store := newRecordingAppPaneBindingStore(map[string]*string{
+		"conversation_folderless": nil,
+	})
+	observer := newTestAppPaneLayoutObserver(t, store)
+	layout := appPaneLayoutForBindings(
+		"app_pane_folderless",
+		appConversationPaneForBindings("app_pane_folderless", "conversation_folderless"),
+	)
+
+	if err := observer.ObserveAppPaneLayout(nil, layout); err != nil {
+		t.Fatalf("observe folderless layout: %v", err)
+	}
+	if len(store.replacements) != 0 {
+		t.Fatalf("folderless replacements = %+v, want none", store.replacements)
 	}
 }
 
@@ -105,7 +123,7 @@ func newTestAppPaneLayoutObserver(
 }
 
 type recordingAppPaneBindingStore struct {
-	owners       map[string]string
+	owners       map[string]*string
 	replacements []recordedAppPaneBindingReplacement
 }
 
@@ -115,19 +133,19 @@ type recordedAppPaneBindingReplacement struct {
 	updatedAt   string
 }
 
-func newRecordingAppPaneBindingStore(owners map[string]string) *recordingAppPaneBindingStore {
+func newRecordingAppPaneBindingStore(owners map[string]*string) *recordingAppPaneBindingStore {
 	return &recordingAppPaneBindingStore{
 		owners: owners,
 	}
 }
 
-func (store *recordingAppPaneBindingStore) ReadConversationWorkspaceID(
+func (store *recordingAppPaneBindingStore) ReadConversationWorkspaceBindingID(
 	_ context.Context,
 	conversationID string,
-) (string, error) {
+) (*string, error) {
 	workspaceID, ok := store.owners[conversationID]
 	if !ok {
-		return "", conversation.ErrConversationNotFound
+		return nil, conversation.ErrConversationNotFound
 	}
 	return workspaceID, nil
 }
@@ -144,6 +162,10 @@ func (store *recordingAppPaneBindingStore) ReplaceWorkspacePaneBindings(
 		updatedAt:   updatedAt,
 	})
 	return nil
+}
+
+func appPaneBindingStringPointer(value string) *string {
+	return &value
 }
 
 func assertAppPaneBindingReplacement(

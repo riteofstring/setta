@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -75,6 +76,43 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	if relieved.PresentationProfile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
 		relieved.PresentationProfile.PaletteReuse != nil {
 		t.Fatalf("palette reuse did not clear after visible pressure left: %+v", relieved.PresentationProfile)
+	}
+}
+
+func TestServiceCreatesFolderlessTopicAndRequiresFolderForTurns(t *testing.T) {
+	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownContext)
+		_ = store.Close()
+	})
+	ctx := context.Background()
+
+	created, err := service.CreateTopicWithOptionalWorkspace(ctx, nil, "App-level request")
+	if err != nil {
+		t.Fatalf("CreateTopicWithOptionalWorkspace: %v", err)
+	}
+	if created.Conversation.WorkspaceID != nil {
+		t.Fatalf("folderless conversation workspace = %q, want nil", *created.Conversation.WorkspaceID)
+	}
+	reloaded, err := store.ReadSnapshotByID(ctx, created.Conversation.ID)
+	if err != nil {
+		t.Fatalf("ReadSnapshotByID: %v", err)
+	}
+	if reloaded.Conversation.WorkspaceID != nil {
+		t.Fatalf("reloaded folderless conversation workspace = %q, want nil", *reloaded.Conversation.WorkspaceID)
+	}
+	if _, err := store.ReadSnapshot(ctx, workspaceID, created.Conversation.ID); !IsConversationNotFound(err) {
+		t.Fatalf("workspace-scoped ReadSnapshot error = %T %v, want conversation not found", err, err)
+	}
+
+	_, err = service.acceptTurn(ctx, created, "needs the project folder", TurnDeliveryNormal, 0, "turn-folderless")
+	var resourceRequired *ResourceRequiredError
+	if !errors.As(err, &resourceRequired) ||
+		resourceRequired.ConversationID != created.Conversation.ID ||
+		resourceRequired.ResourceKind != "folder" {
+		t.Fatalf("folderless turn error = %T %v, want folder ResourceRequiredError", err, err)
 	}
 }
 

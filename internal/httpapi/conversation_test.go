@@ -74,7 +74,7 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t,
 		handler,
 		"/conversations/create",
-		CreateTopicConversationRequest{WorkspaceID: "workspace-api", Title: "Created topic"},
+		CreateTopicConversationRequest{WorkspaceID: httpTestStringPointer("workspace-api"), Title: "Created topic"},
 		http.StatusOK,
 	)
 	if service.command != "create" || created.Conversation.Title != "Created topic" {
@@ -162,6 +162,54 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		service.presentationSettings.NarratorSpeechEnabled ||
 		profile.ResolvedNarratorVoiceID == nil {
 		t.Fatalf("presentation command=%q settings=%+v profile=%+v", service.command, service.presentationSettings, profile)
+	}
+}
+
+func TestCreateTopicConversationAllowsFolderlessRequest(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	created := postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/create",
+		CreateTopicConversationRequest{Title: "App-level request"},
+		http.StatusOK,
+	)
+	if service.command != "create" || service.commandWorkspaceID != "" {
+		t.Fatalf("folderless create service command = %q workspace %q", service.command, service.commandWorkspaceID)
+	}
+	if created.Conversation.WorkspaceID != nil || created.Conversation.Title != "App-level request" {
+		t.Fatalf("folderless create snapshot = %+v", created.Conversation)
+	}
+}
+
+func TestConversationResourceRequiredErrorsUseStableAPICode(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	service.archiveErr = &conversation.ResourceRequiredError{
+		ConversationID: "conversation-api",
+		ResourceKind:   "folder",
+	}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/conversations/archive",
+		ArchiveTopicConversationRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+		},
+		http.StatusConflict,
+	)
+	if response.Error.Code != "conversation_resource_required" {
+		t.Fatalf("resource required error code = %q", response.Error.Code)
 	}
 }
 
@@ -361,7 +409,7 @@ func TestConversationEventStreamUsesConversationScopedCursorAndTypedEvent(t *tes
 		Sequence:       3,
 		EventID:        eventID,
 		EmittedAt:      httpConversationTestTime,
-		WorkspaceID:    "workspace-api",
+		WorkspaceID:    httpTestStringPointer("workspace-api"),
 		ConversationID: "conversation-api",
 		Payload: conversation.ConversationUpdatedEventPayload{
 			Type:         conversation.ConversationEventTypeConversationUpdated,
@@ -474,9 +522,23 @@ func (service *httpTestConversationService) CreateTopic(
 	workspaceID string,
 	title string,
 ) (conversation.ConversationSnapshot, error) {
+	return service.CreateTopicWithOptionalWorkspace(context.Background(), &workspaceID, title)
+}
+
+func (service *httpTestConversationService) CreateTopicWithOptionalWorkspace(
+	_ context.Context,
+	workspaceID *string,
+	title string,
+) (conversation.ConversationSnapshot, error) {
 	service.command = "create"
-	service.commandWorkspaceID = workspaceID
-	service.snapshot.Conversation.WorkspaceID = workspaceID
+	if workspaceID != nil {
+		service.commandWorkspaceID = *workspaceID
+		copied := *workspaceID
+		service.snapshot.Conversation.WorkspaceID = &copied
+	} else {
+		service.commandWorkspaceID = ""
+		service.snapshot.Conversation.WorkspaceID = nil
+	}
 	service.snapshot.Conversation.Title = title
 	return service.snapshot, nil
 }
@@ -572,7 +634,7 @@ func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {
 		SchemaVersion: conversation.ConversationContractSchemaVersion,
 		Conversation: conversation.TopicConversation{
 			ID:          "conversation-api",
-			WorkspaceID: "workspace-api",
+			WorkspaceID: httpTestStringPointer("workspace-api"),
 			Title:       "HTTP conversation contracts",
 			Status:      conversation.ConversationStatusIdle,
 			CreatedAt:   httpConversationTestTime,
@@ -604,6 +666,10 @@ func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {
 }
 
 func voiceIDPointerForHTTPTest(value speech.SpeechVoiceID) *speech.SpeechVoiceID {
+	return &value
+}
+
+func httpTestStringPointer(value string) *string {
 	return &value
 }
 

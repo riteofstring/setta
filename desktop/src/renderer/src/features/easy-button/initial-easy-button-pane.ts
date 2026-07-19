@@ -270,8 +270,15 @@ function presentationRequest(item: NavigatorItem): ConversationPanePresentationR
   return {
     conversationId: item.conversation.id,
     title: item.conversation.title,
-    workspaceId: item.conversation.workspaceId,
+    workspaceId: navigatorItemWorkspaceID(item),
   };
+}
+
+function navigatorItemWorkspaceID(item: NavigatorItem): string {
+  if (item.conversation.workspaceId === null) {
+    throw new Error("The initial conversation is not linked to the selected workspace.");
+  }
+  return item.conversation.workspaceId;
 }
 
 function errorMessage(error: unknown): string {

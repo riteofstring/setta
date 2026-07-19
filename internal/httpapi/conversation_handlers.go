@@ -19,11 +19,11 @@ func (handler handler) createTopicConversation(response http.ResponseWriter, req
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	if strings.TrimSpace(payload.WorkspaceID) == "" || payload.WorkspaceID != strings.TrimSpace(payload.WorkspaceID) {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_create_request", "workspace id is required without surrounding whitespace")
+	if payload.WorkspaceID != nil && *payload.WorkspaceID != strings.TrimSpace(*payload.WorkspaceID) {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_create_request", "workspace id must not have surrounding whitespace")
 		return
 	}
-	snapshot, err := service.CreateTopic(request.Context(), payload.WorkspaceID, payload.Title)
+	snapshot, err := service.CreateTopicWithOptionalWorkspace(request.Context(), payload.WorkspaceID, payload.Title)
 	if err != nil {
 		writeConversationError(response, "create_topic_conversation_failed", err)
 		return

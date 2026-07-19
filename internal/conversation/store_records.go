@@ -33,7 +33,7 @@ INSERT INTO conversations (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		conversation.ID,
-		conversation.WorkspaceID,
+		nullableString(conversation.WorkspaceID),
 		conversation.Title,
 		conversation.TopicDescriptor,
 		conversation.Status,
@@ -93,7 +93,7 @@ WHERE id = ?
 UPDATE conversations
 SET title = ?, topic_descriptor = ?, status = ?, updated_at = ?, archived_at = ?
 WHERE id = ?
-  AND workspace_id = ?
+  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
   AND created_at = ?
   AND updated_at = ?
   AND last_trajectory_sequence = ?
@@ -104,7 +104,8 @@ WHERE id = ?
 		conversation.UpdatedAt,
 		nullableString(conversation.ArchivedAt),
 		conversation.ID,
-		conversation.WorkspaceID,
+		nullableString(conversation.WorkspaceID),
+		nullableString(conversation.WorkspaceID),
 		conversation.CreatedAt,
 		expected.UpdatedAt,
 		expected.LastTrajectorySequence,

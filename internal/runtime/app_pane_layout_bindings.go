@@ -16,7 +16,7 @@ type appPaneLayoutPaneBindingObserver struct {
 }
 
 type appPaneLayoutConversationStore interface {
-	ReadConversationWorkspaceID(context.Context, string) (string, error)
+	ReadConversationWorkspaceBindingID(context.Context, string) (*string, error)
 	ReplaceWorkspacePaneBindings(
 		context.Context,
 		string,
@@ -89,7 +89,7 @@ func (observer *appPaneLayoutPaneBindingObserver) projectLayoutBindings(
 		if pane.ConversationConfig == nil {
 			continue
 		}
-		workspaceID, err := observer.store.ReadConversationWorkspaceID(
+		workspaceID, err := observer.store.ReadConversationWorkspaceBindingID(
 			context.Background(),
 			pane.ConversationConfig.ConversationID,
 		)
@@ -99,8 +99,11 @@ func (observer *appPaneLayoutPaneBindingObserver) projectLayoutBindings(
 			}
 			return nil, nil, err
 		}
-		workspaceIDs[workspaceID] = true
-		bindingsByWorkspace[workspaceID] = append(bindingsByWorkspace[workspaceID], conversation.WorkspacePaneBinding{
+		if workspaceID == nil {
+			continue
+		}
+		workspaceIDs[*workspaceID] = true
+		bindingsByWorkspace[*workspaceID] = append(bindingsByWorkspace[*workspaceID], conversation.WorkspacePaneBinding{
 			PaneID:         pane.PaneID,
 			ConversationID: pane.ConversationConfig.ConversationID,
 			Focused:        pane.PaneID == layout.FocusedPaneID,
