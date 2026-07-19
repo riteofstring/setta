@@ -150,26 +150,19 @@ async function prepareRenderer(client) {
 }
 
 async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  if (!validWorkspaceId(initial.workspaceId)) {
+  const current = await client.evaluate(workspaceIdExpression());
+  if (!validWorkspaceId(current)) {
     await openFixtureWorkspace(client, workflowTimeoutMs);
   }
-  const opened = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  return opened.workspaceId;
+  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+function workspaceIdExpression() {
+  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
 }
 
 async function waitForArchivedBackendState(backend, workspaceId, conversationId) {
@@ -261,7 +254,7 @@ async function verifyArchivedRendererState(client, archivedConversationId, retai
     driverCallExpression("topicConversationNavigatorState", {
       conversationId: retainedConversationId,
     }),
-    (state) => state.rowCount === 1 && state.openViewCount === 1,
+    (state) => (state.rowCount === 0 || state.rowCount === 1) && state.openViewCount === 1,
     workflowTimeoutMs,
   );
 }

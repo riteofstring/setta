@@ -9,7 +9,6 @@ import { describe, expect, test } from "vitest";
 
 import { AppShellMasterController } from "./app-shell-master-controller";
 import { AppShellMasterSurface } from "./app-shell-master-surface";
-import { MasterSidebarLauncher } from "./master-sidebar-launcher";
 import { isMasterVoiceShortcut, masterVoiceShortcutLabel } from "./master-shortcuts";
 import {
   isMasterPaneFocusShortcut,
@@ -94,14 +93,6 @@ describe("app-shell master surface", () => {
     html = renderSurface(controller);
     expect(html).toContain("Request cancelled");
     expect(html).toContain('data-master-routing-status="cancelled"');
-  });
-
-  test("renders the compact sidebar launcher as a distinct entry point", () => {
-    const html = renderToString(<MasterSidebarLauncher disabled={false} onOpen={() => {}} />);
-
-    expect(html).toContain('data-testid="master-sidebar-launcher"');
-    expect(html).toContain('aria-label="Open Ask Setta"');
-    expect(html).toContain("Ask Setta");
   });
 
   test("accepts the primary-modifier shortcut without stealing modified variants", () => {

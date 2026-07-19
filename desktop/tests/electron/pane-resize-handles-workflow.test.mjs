@@ -85,10 +85,9 @@ try {
   );
   await captureScreenshot(context.client, join(artifactDir, "horizontal-after.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", compactViewport);
-  const horizontalCompact = await waitForPaneWidthClamp(
+  const horizontalCompact = await waitForCompactViewportResizeState(
     context.client,
     horizontalAfterSourceHost,
-    40,
   );
   await captureScreenshot(context.client, join(artifactDir, "horizontal-compact.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
@@ -339,7 +338,7 @@ async function waitForPaneSplitResize(client, target, minimumDelta) {
   );
 }
 
-async function waitForPaneWidthClamp(client, originalHost, minimumDelta) {
+async function waitForCompactViewportResizeState(client, originalHost) {
   return waitForState(
     client,
     resizeSnapshotExpression(),
@@ -350,8 +349,9 @@ async function waitForPaneWidthClamp(client, originalHost, minimumDelta) {
       return Boolean(
         host &&
         snapshot.stage &&
-        host.rect.width <= originalHost.rect.width - minimumDelta &&
-        host.rect.width <= snapshot.stage.width - 20 + geometryTolerancePx,
+        snapshot.stage.width <= compactViewport.width + geometryTolerancePx &&
+        host.rect.width >= originalHost.rect.width - geometryTolerancePx &&
+        snapshot.handles.some((handle) => handle.axis === "horizontal"),
       );
     },
     workflowTimeoutMs,

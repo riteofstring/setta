@@ -1,4 +1,11 @@
-import { CircleAlert, LoaderCircle, MessageCircle, MessageSquarePlus, Search } from "lucide-react";
+import {
+  Archive,
+  CircleAlert,
+  LoaderCircle,
+  MessageCircle,
+  MessageSquarePlus,
+  Search,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { newConversationTitle } from "../easy-button/conversation-creation-command";
@@ -17,6 +24,7 @@ import {
 
 type MasterConversationPickerBusyState =
   | { type: "idle" }
+  | { conversationId: string; type: "archiving" }
   | { type: "creating" }
   | { conversationId: string; type: "opening" };
 
@@ -27,6 +35,7 @@ export function MasterConversationPicker() {
   const [query, setQuery] = useState("");
   const session = useWorkspaceStore((state) => state.session);
   const conversationWorkspaces = useConversationNavigatorStore((state) => state.workspaces);
+  const upsertConversationSnapshot = useConversationNavigatorStore((state) => state.upsertSnapshot);
   const conversationPanes = useConversationPaneStore((state) => state.workspaces);
   const selection = useMemo(
     () =>
@@ -91,6 +100,28 @@ export function MasterConversationPicker() {
     }
   }
 
+  async function archiveConversation(item: MasterConversationPickerItem) {
+    if (!canRunCommand) {
+      return;
+    }
+    if (!window.confirm(`Archive "${item.title}"?`)) {
+      return;
+    }
+    setBusy({ conversationId: item.conversationId, type: "archiving" });
+    setError(null);
+    try {
+      const snapshot = await window.setta.conversations.archive({
+        conversationId: item.conversationId,
+        workspaceId: item.workspaceId,
+      });
+      upsertConversationSnapshot(snapshot);
+    } catch (caught) {
+      setError(commandErrorMessage(caught));
+    } finally {
+      setBusy({ type: "idle" });
+    }
+  }
+
   return (
     <div className="setta-master-conversation-picker" data-testid="master-conversation-picker">
       <div className="setta-master-conversation-actions">
@@ -147,29 +178,51 @@ export function MasterConversationPicker() {
             role="listbox"
           >
             {selection.items.map((item) => (
-              <button
+              <div
                 aria-label={conversationItemAriaLabel(item)}
                 className="setta-master-conversation-row"
                 data-conversation-id={item.conversationId}
-                data-testid="master-conversation-picker-row"
-                disabled={!canRunCommand}
                 key={`${item.workspaceId}:${item.conversationId}`}
-                onClick={() => void openConversation(item)}
                 role="option"
-                type="button"
               >
-                {busy.type === "opening" && busy.conversationId === item.conversationId ? (
-                  <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
-                ) : (
-                  <MessageCircle aria-hidden="true" />
-                )}
-                <span className="setta-master-conversation-row-main">
-                  <span className="setta-master-conversation-row-title">{item.title}</span>
-                  <span className="setta-master-conversation-row-meta">
-                    {conversationItemMeta(item)}
+                <button
+                  aria-label={`Open ${conversationItemAriaLabel(item)}`}
+                  className="setta-master-conversation-open"
+                  data-conversation-id={item.conversationId}
+                  data-testid="master-conversation-picker-row"
+                  disabled={!canRunCommand}
+                  onClick={() => void openConversation(item)}
+                  type="button"
+                >
+                  {busy.type === "opening" && busy.conversationId === item.conversationId ? (
+                    <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
+                  ) : (
+                    <MessageCircle aria-hidden="true" />
+                  )}
+                  <span className="setta-master-conversation-row-main">
+                    <span className="setta-master-conversation-row-title">{item.title}</span>
+                    <span className="setta-master-conversation-row-meta">
+                      {conversationItemMeta(item)}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+                <button
+                  aria-label={`Archive ${item.title}`}
+                  className="setta-master-conversation-archive"
+                  data-conversation-id={item.conversationId}
+                  data-testid="master-conversation-archive"
+                  disabled={!canRunCommand}
+                  onClick={() => void archiveConversation(item)}
+                  title={`Archive ${item.title}`}
+                  type="button"
+                >
+                  {busy.type === "archiving" && busy.conversationId === item.conversationId ? (
+                    <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
+                  ) : (
+                    <Archive aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             ))}
             {selection.status.message ? (
               <div className="setta-master-conversation-status" role="status">
@@ -191,11 +244,10 @@ function currentPaneLayoutWorkspaceId(selectedWorkspaceId: string): string {
 }
 
 function conversationAPIAvailable(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    Boolean(window.setta?.conversations?.create) &&
-    Boolean(window.setta?.conversations?.list)
-  );
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return Boolean(window.setta?.conversations);
 }
 
 function conversationItemAriaLabel(item: MasterConversationPickerItem): string {

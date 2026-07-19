@@ -22,7 +22,11 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import { createTopic, listTopics } from "./topic-conversation-fork-workflow.mjs";
+import {
+  assertDriverAction,
+  createTopic,
+  listTopics,
+} from "./topic-conversation-fork-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-presentation-configuration";
@@ -61,6 +65,10 @@ try {
   await context.client.installDriver();
   let backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
+  assertDriverAction(
+    await context.client.driver("topicConversationClickNewFrameConversation"),
+    "clicked",
+  );
   const alpha = await waitForInitialTopic(backend, workspaceId);
   const beta = await createTopic(
     context.client,
@@ -270,26 +278,19 @@ try {
 }
 
 async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  if (!validWorkspaceId(initial.workspaceId)) {
+  const current = await client.evaluate(workspaceIdExpression());
+  if (!validWorkspaceId(current)) {
     await openFixtureWorkspace(client, workflowTimeoutMs);
   }
-  const opened = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  return opened.workspaceId;
+  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+function workspaceIdExpression() {
+  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
 }
 
 async function waitForInitialTopic(backend, workspaceId) {
@@ -438,12 +439,6 @@ function waitForGlobalConfiguration(client, masterVoiceId, narratorDefaultVoiceI
 }
 
 async function presentConversation(client, conversationId) {
-  await waitForState(
-    client,
-    driverCallExpression("topicConversationNavigatorState", { conversationId }),
-    (state) => state.rowCount === 1,
-    workflowTimeoutMs,
-  );
   const result = await client.driver("topicConversationPresentFromNavigator", { conversationId });
   if (!result.clicked) {
     throw new Error(`Conversation ${conversationId} could not be presented from the navigator`);

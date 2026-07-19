@@ -8,7 +8,6 @@ import {
   captureScreenshot,
   clickEnabledButtonByAria,
   dispatchKeyEvent,
-  waitForSelector,
   waitForState,
 } from "./electron-cdp-harness.mjs";
 
@@ -20,9 +19,9 @@ export async function exerciseMasterOverlayEntryPoints({
   workspaceId,
   waitForNavigation = false,
 }) {
-  await assertFixedMasterLauncher(client, timeoutMs);
-  await openFromSidebarAndRetainDraft(client, text, timeoutMs);
-  await collapseProjectSidebar(client, timeoutMs);
+  await assertMasterPaneEntryPoint(client, timeoutMs);
+  await focusMasterPaneFromGlobalShortcut(client, "", timeoutMs);
+  await setMasterPaneDraft(client, text, timeoutMs);
   await openFromAppChrome(client, text, timeoutMs);
   await openFromGlobalShortcut(client, text, timeoutMs);
 
@@ -32,13 +31,13 @@ export async function exerciseMasterOverlayEntryPoints({
   assertRecordedTypedMasterInput(recorded, workspaceId);
 
   if (waitForNavigation) {
-    await waitForMasterOverlayClosed(client, timeoutMs);
-  } else {
-    await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
-    await waitForMasterOverlayClosed(client, timeoutMs);
+    await waitForState(
+      client,
+      `(() => ({ overlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')) }))()`,
+      (state) => !state.overlayOpen,
+      timeoutMs,
+    );
   }
-  await clickEnabledButtonByAria(client, "Show project sidebar", timeoutMs);
-  await waitForSelector(client, '[data-testid="master-sidebar-launcher"]', timeoutMs);
   return recorded;
 }
 
@@ -74,10 +73,9 @@ export async function exerciseMasterCancellation({
   timeoutMs,
   workspaceId,
 }) {
-  await assertFixedMasterLauncher(client, timeoutMs);
-  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
-  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
-  await setMasterOverlayDraft(client, text, timeoutMs);
+  await assertMasterPaneEntryPoint(client, timeoutMs);
+  await focusMasterPaneFromGlobalShortcut(client, "", timeoutMs);
+  await setMasterPaneDraft(client, text, timeoutMs);
   await clickEnabledButtonByAria(client, "Send to Setta", timeoutMs);
   await assertActiveMasterInteraction(client, { expectedText: text }, timeoutMs);
   const recorded = await waitForRecordedMasterOverlayInput(artifactDirectory, text, timeoutMs);
@@ -114,9 +112,7 @@ export async function exerciseMasterCancellation({
     timeoutMs,
   );
   await captureScreenshot(client, join(artifactDirectory, "master-route-cancelled.png"));
-  await closeMasterOverlay(client, timeoutMs);
-  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
-  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
+  await focusMasterPaneFromGlobalShortcut(client, "", timeoutMs);
   const restoredTranscript = await waitForState(
     client,
     `(() => ({
@@ -134,7 +130,6 @@ export async function exerciseMasterCancellation({
       `cancelled master interaction did not restore as transcript: ${JSON.stringify(restoredTranscript)}`,
     );
   }
-  await closeMasterOverlay(client, timeoutMs);
   return {
     activeProviderTurnId: activeProvider.turn.id,
     cancelled,
@@ -207,46 +202,16 @@ function topicTurnOrdinal(turnId) {
   return match ? Number(match[1]) : -1;
 }
 
-async function assertFixedMasterLauncher(client, timeoutMs) {
+async function assertMasterPaneEntryPoint(client, timeoutMs) {
   const state = await waitForState(
     client,
-    `(() => {
-      const launcher = document.querySelector('[data-testid="master-sidebar-launcher"]');
-      const scroll = document.querySelector('[data-testid="sidebar-scrollable-sections"]');
-      return {
-        available: launcher instanceof HTMLButtonElement && !launcher.disabled,
-        insideScrollableNavigator: Boolean(launcher && scroll?.contains(launcher)),
-      };
-    })()`,
-    (candidate) => candidate.available,
+    driverCallExpression("masterPaneState", { draft: "" }),
+    (candidate) => candidate.open && !candidate.overlayOpen,
     timeoutMs,
   );
-  if (state.insideScrollableNavigator) {
-    throw new Error(
-      `master sidebar launcher is not fixed above navigation: ${JSON.stringify(state)}`,
-    );
+  if (!state.open || state.overlayOpen) {
+    throw new Error(`master pane entry point is not available: ${JSON.stringify(state)}`);
   }
-}
-
-async function openFromSidebarAndRetainDraft(client, text, timeoutMs) {
-  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
-  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
-  await setMasterOverlayDraft(client, text, timeoutMs);
-  await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
-  await waitForMasterOverlayClosed(client, timeoutMs);
-}
-
-async function collapseProjectSidebar(client, timeoutMs) {
-  await clickEnabledButtonByAria(client, "Hide project sidebar", timeoutMs);
-  await waitForState(
-    client,
-    `(() => ({
-      launcherPresent: Boolean(document.querySelector('[data-testid="master-sidebar-launcher"]')),
-      reopenAvailable: Boolean(document.querySelector('[aria-label="Show project sidebar"]')),
-    }))()`,
-    (state) => !state.launcherPresent && state.reopenAvailable,
-    timeoutMs,
-  );
 }
 
 async function openFromAppChrome(client, text, timeoutMs) {
@@ -257,6 +222,10 @@ async function openFromAppChrome(client, text, timeoutMs) {
 }
 
 async function openFromGlobalShortcut(client, text, timeoutMs) {
+  await focusMasterPaneFromGlobalShortcut(client, text, timeoutMs);
+}
+
+async function focusMasterPaneFromGlobalShortcut(client, text, timeoutMs) {
   await dispatchKeyEvent(client, { code: "KeyK", key: "k", modifiers: 2 });
   await dispatchKeyEvent(client, {
     code: "KeyK",
@@ -264,10 +233,13 @@ async function openFromGlobalShortcut(client, text, timeoutMs) {
     modifiers: 2,
     type: "keyUp",
   });
-  const state = await waitForMasterPane(client, { draft: text, focused: true }, timeoutMs);
-  if (state.overlayOpen || !state.maximized || !state.masterHostFocused) {
-    throw new Error(`master shortcut did not focus the master pane: ${JSON.stringify(state)}`);
-  }
+  await waitForState(
+    client,
+    driverCallExpression("masterPaneState", { draft: text }),
+    (state) =>
+      state.open && state.draft === text && state.focused && !state.overlayOpen && state.maximized,
+    timeoutMs,
+  );
 }
 
 async function clickMasterSurfaceEntry(client, testId, timeoutMs) {
@@ -293,9 +265,9 @@ async function clickMasterSurfaceEntry(client, testId, timeoutMs) {
   }
 }
 
-async function setMasterOverlayDraft(client, text, timeoutMs) {
+async function setMasterPaneDraft(client, text, timeoutMs) {
   const updated = await client.evaluate(`(() => {
-    const textarea = document.querySelector('[data-testid="master-overlay"] textarea[aria-label="Ask Setta"]');
+    const textarea = document.querySelector('[data-testid="master-pane-surface"] textarea[aria-label="Ask Setta"]');
     if (!(textarea instanceof HTMLTextAreaElement)) {
       return false;
     }
@@ -305,9 +277,9 @@ async function setMasterOverlayDraft(client, text, timeoutMs) {
     return true;
   })()`);
   if (!updated) {
-    throw new Error("master overlay draft could not be updated");
+    throw new Error("master pane draft could not be updated");
   }
-  await waitForMasterOverlay(client, { draft: text, focused: true }, timeoutMs);
+  await waitForMasterPane(client, { draft: text, focused: true }, timeoutMs);
 }
 
 async function waitForMasterOverlay(client, { draft, focused }, timeoutMs) {
@@ -392,8 +364,7 @@ export async function verifyRestoredMasterInteraction({
   expectedText,
   timeoutMs,
 }) {
-  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
-  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
+  await focusMasterPaneFromGlobalShortcut(client, "", timeoutMs);
   await captureActiveMasterInteraction({
     artifactPath,
     client,
@@ -404,6 +375,18 @@ export async function verifyRestoredMasterInteraction({
 }
 
 export async function closeMasterOverlay(client, timeoutMs) {
+  const state = await waitForState(
+    client,
+    `(() => ({
+      overlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+      paneOpen: Boolean(document.querySelector('[data-testid="master-pane-surface"]')),
+    }))()`,
+    (candidate) => candidate.overlayOpen || candidate.paneOpen,
+    timeoutMs,
+  );
+  if (!state.overlayOpen) {
+    return;
+  }
   await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
   await waitForMasterOverlayClosed(client, timeoutMs);
 }

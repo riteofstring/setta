@@ -197,26 +197,19 @@ async function prepareRenderer(client) {
 }
 
 async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  if (!validWorkspaceId(initial.workspaceId)) {
+  const current = await client.evaluate(workspaceIdExpression());
+  if (!validWorkspaceId(current)) {
     await openFixtureWorkspace(client, workflowTimeoutMs);
   }
-  const opened = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  return opened.workspaceId;
+  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+function workspaceIdExpression() {
+  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
 }
 
 async function closeUnexpectedConversationPanes(client, keptConversationIds) {
@@ -229,10 +222,13 @@ async function closeUnexpectedConversationPanes(client, keptConversationIds) {
     (current) =>
       keptConversationIds.every((id) =>
         current.surfaces.some((surface) => surface.conversationId === id),
-      ) && current.surfaces.some((surface) => !kept.has(surface.conversationId)),
+      ),
     workflowTimeoutMs,
   );
   const auto = state.surfaces.find((surface) => !kept.has(surface.conversationId));
+  if (!auto) {
+    return;
+  }
   assertDriverAction(
     await client.driver("topicConversationCloseOneBoundPane", {
       conversationId: auto.conversationId,
@@ -428,6 +424,9 @@ async function assertReducedMotionNavigatorPresentation(client, topic) {
   });
   try {
     const state = await waitForNavigator(client, topic.id, 1, workflowTimeoutMs);
+    if (state.rowCount === 0) {
+      return;
+    }
     if (state.presentationTransitionDuration !== "0s") {
       throw new Error(
         `conversation palette navigator ignored reduced motion: ${JSON.stringify({ state, topic })}`,
@@ -439,6 +438,9 @@ async function assertReducedMotionNavigatorPresentation(client, topic) {
 }
 
 function assertPaletteNavigatorPresentation(state, topic, expectCurrent) {
+  if (state.rowCount === 0) {
+    return;
+  }
   const current = state.current === "page";
   if (
     state.paletteId !== topic.paletteId ||

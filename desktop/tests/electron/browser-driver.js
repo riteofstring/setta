@@ -117,6 +117,36 @@
     };
   }
 
+  function workspaceFirstRunMasterPaneState() {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const masterHost = document.querySelector(
+      '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
+    );
+    const masterPane = masterHost?.querySelector('[data-testid="master-pane-surface"]');
+    const masterComposer = masterPane?.querySelector('textarea[aria-label="Ask Setta"]');
+    const openFolderButtons = Array.from(document.querySelectorAll("button")).filter((button) =>
+      folderChoiceButtonLabel(
+        (button.textContent ?? "") + " " + (button.getAttribute("aria-label") ?? ""),
+      ),
+    );
+    return {
+      easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
+      folderChoiceControls: openFolderButtons.length,
+      masterFocused: masterComposer === document.activeElement,
+      masterHostFocused: masterHost?.getAttribute("data-focused") === "true",
+      masterMaximized: masterHost?.getAttribute("data-maximized") === "true",
+      masterOpen: Boolean(masterPane),
+      oldEmptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
+      paneCount: area instanceof HTMLElement ? (area.dataset.paneCount ?? "") : "",
+      search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
+      workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
+    };
+  }
+
+  function folderChoiceButtonLabel(label) {
+    return /folder|project/i.test(label) && /open|choose|select/i.test(label);
+  }
+
   function setInputValue({ selector, value }) {
     const element = document.querySelector(selector);
     if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLTextAreaElement)) {
@@ -150,5 +180,6 @@
     masterPaneState,
     setInputValue,
     version: "setta-e2e-driver-v13",
+    workspaceFirstRunMasterPaneState,
   };
 })();
