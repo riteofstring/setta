@@ -1,12 +1,16 @@
 import type {
-  ConversationPresentationProfile,
-  NarrationEvent,
   SpeechAudio,
   SpeechSource,
   SpeechSynthesisRequest,
   SpeechVoiceID,
-  TurnStatus,
 } from "@generated/backend";
+
+import { speechPlaybackPriority } from "./app-shell-speech-playback-intent";
+
+export {
+  narrationSpeechPlaybackIntent,
+  speechPlaybackPriority,
+} from "./app-shell-speech-playback-intent";
 
 export type SpeechPlaybackIntentKind =
   | "master_answer"
@@ -180,6 +184,10 @@ export class AppShellSpeechPlaybackController {
       return;
     }
     this.automaticSourceKeys.add(automaticKey);
+    if (this.captureActive) {
+      this.observe(item, "dropped", "capture", null);
+      return;
+    }
     this.enqueue(item, "automatic");
   };
 
@@ -190,6 +198,11 @@ export class AppShellSpeechPlaybackController {
 
   stop = (): void => {
     this.stopWithReason("user");
+  };
+
+  preemptForUserInput = (): void => {
+    this.assertUsable();
+    this.dropAutomaticWork("user");
   };
 
   preemptForCapture = (): void => {
@@ -636,7 +649,7 @@ export class AppShellSpeechPlaybackController {
   }
 
   private retainForCapture(item: QueuedSpeech): boolean {
-    return !isAutomaticMilestone(item) || !this.isExpiredAutomaticMilestone(item);
+    return item.origin !== "automatic";
   }
 
   private isExpiredAutomaticMilestone(item: QueuedSpeech): boolean {
@@ -675,6 +688,31 @@ export class AppShellSpeechPlaybackController {
     for (const item of queued) {
       this.observe(item, "dropped", reason, null);
     }
+  }
+
+  private dropAutomaticWork(reason: "capture" | "user"): void {
+    const queued = [...this.queue];
+    this.queue = queued.filter((item) => item.origin !== "automatic");
+    for (const item of queued) {
+      if (item.origin === "automatic") {
+        this.observe(item, "dropped", reason, null);
+      }
+    }
+    if (this.activeItem?.origin !== "automatic") {
+      if (queued.length !== this.queue.length) {
+        this.publishSnapshot(this.snapshotValue.state);
+      }
+      return;
+    }
+    const active = this.activeItem;
+    this.lifecycle += 1;
+    this.abortController?.abort();
+    this.abortController = null;
+    this.stopActiveAudio();
+    this.activeItem = null;
+    this.observe(active, "dropped", reason, null);
+    this.transition({ intent: active.intent, reason, type: "stopped" });
+    this.playNext();
   }
 
   private observe(
@@ -750,77 +788,6 @@ export class AppShellSpeechPlaybackController {
     if (this.disposed) {
       throw new Error("app-shell speech playback controller is disposed");
     }
-  }
-}
-
-export function narrationSpeechPlaybackIntent(
-  event: NarrationEvent,
-  profile: ConversationPresentationProfile,
-  turnStatus: TurnStatus | null,
-): NarratorSpeechPlaybackIntent | null {
-  if (event.conversationId !== profile.conversationId) {
-    throw new Error("narration speech event and presentation profile ownership do not match");
-  }
-  if (!profile.narratorSpeechEnabled) {
-    return null;
-  }
-  if (!profile.resolvedNarratorVoiceId) {
-    throw new Error("enabled narrator speech requires a resolved narrator voice");
-  }
-  const kind = narrationPlaybackKind(event, turnStatus);
-  if (!kind) {
-    return null;
-  }
-  return {
-    kind,
-    resolvedVoiceId: profile.resolvedNarratorVoiceId,
-    source: {
-      conversationId: event.conversationId,
-      eventId: event.id,
-      speaker: "narrator",
-    },
-    sourceCreatedAt: event.createdAt,
-    sourceSequenceEnd: event.sourceSequenceEnd,
-    sourceSequenceStart: event.sourceSequenceStart,
-    turnId: event.turnId,
-  };
-}
-
-export function speechPlaybackPriority(kind: SpeechPlaybackIntentKind): number {
-  switch (kind) {
-    case "master_answer":
-    case "status_reply":
-      return 4;
-    case "attention":
-    case "error":
-      return 3;
-    case "final_summary":
-      return 2;
-    case "milestone":
-      return 1;
-    default:
-      return assertNever(kind);
-  }
-}
-
-function narrationPlaybackKind(
-  event: NarrationEvent,
-  turnStatus: TurnStatus | null,
-): NarratorSpeechPlaybackIntent["kind"] | null {
-  switch (event.kind) {
-    case "status_reply":
-      return "status_reply";
-    case "final_summary":
-      if (turnStatus === null) {
-        throw new Error("final narration playback requires its authoritative turn status");
-      }
-      return turnStatus === "failed" ? "error" : "final_summary";
-    case "milestone":
-      return event.trigger === "approval_required" ? "attention" : "milestone";
-    case "topic_descriptor":
-      return null;
-    default:
-      return assertNever(event.kind);
   }
 }
 

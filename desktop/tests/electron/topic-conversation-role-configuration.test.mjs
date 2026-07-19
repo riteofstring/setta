@@ -269,7 +269,7 @@ async function openWorkspace(client) {
 async function openRoleSettings(client) {
   const opened = await client.driver("roleConfigurationOpenSettings");
   if (!opened.ready && !opened.opened) {
-    throw new Error("Settings pane was not available for AI role configuration");
+    throw new Error("Settings page was not available for AI role configuration");
   }
   await waitForSelector(client, "#settings-subtab-roles", workflowTimeoutMs);
   const tab = await client.driver("roleConfigurationOpenTab");
@@ -367,7 +367,19 @@ function waitForWorkspaceAgentConfiguration(
 }
 
 async function createTopic(client, workspaceId, title) {
-  return client.driver("roleConfigurationCreateTopic", { title, workspaceId });
+  const created = await client.driver("roleConfigurationCreateTopic", { title, workspaceId });
+  if (created.threadLinked) {
+    throw new Error(`Created topic eagerly linked a provider thread: ${JSON.stringify(created)}`);
+  }
+  const text = `verify ${title}`;
+  const turn = await submitAndWaitForAgentTurnText(
+    client,
+    workspaceId,
+    created.conversationId,
+    roleConfigurationInputID(title),
+    text,
+  );
+  return { ...created, model: turn.threadModel };
 }
 
 async function configureConversationAgent(client, workspaceId, conversationId, modelId, effort) {
@@ -380,8 +392,16 @@ async function configureConversationAgent(client, workspaceId, conversationId, m
 }
 
 async function submitAndWaitForAgentTurn(client, workspaceId, conversationId) {
-  const inputId = "role_configuration_precedence_input";
-  const text = "verify conversation role precedence";
+  return submitAndWaitForAgentTurnText(
+    client,
+    workspaceId,
+    conversationId,
+    "role_configuration_precedence_input",
+    "verify conversation role precedence",
+  );
+}
+
+async function submitAndWaitForAgentTurnText(client, workspaceId, conversationId, inputId, text) {
   const submitted = await client.driver("roleConfigurationSubmitInput", {
     conversationId,
     inputId,
@@ -401,6 +421,14 @@ async function submitAndWaitForAgentTurn(client, workspaceId, conversationId) {
     (state) => ["cancelled", "completed", "failed"].includes(state.status),
     workflowTimeoutMs,
   );
+}
+
+function roleConfigurationInputID(title) {
+  return `role_configuration_create_${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48)}`;
 }
 
 async function resetConversationAgent(client, workspaceId, conversationId) {

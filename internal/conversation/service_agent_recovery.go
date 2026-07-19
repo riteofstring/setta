@@ -83,6 +83,13 @@ func (service *Service) recoverAgentTurn(
 	ctx context.Context,
 	target AgentTurnRecoveryTarget,
 ) error {
+	if err := service.resumeAgentThreadForRecovery(ctx, target); err != nil {
+		return service.persistAgentRecoveryFailure(
+			ctx,
+			recoveredActiveConversationTurn(target),
+			fmt.Errorf("resume provider thread before reconciliation: %w", err),
+		)
+	}
 	result, active, reconcileErr := service.agent.ReconcileTurn(
 		ctx,
 		target.ProviderThreadID,
@@ -143,6 +150,46 @@ func (service *Service) recoverAgentTurn(
 	}
 	if err := service.persistRecoveredAgentTerminal(ctx, target.ConversationID, recovered, event); err != nil {
 		return fmt.Errorf("persist reconciled agent turn %s: %w", target.TurnID, err)
+	}
+	return nil
+}
+
+func (service *Service) resumeAgentThreadForRecovery(
+	ctx context.Context,
+	target AgentTurnRecoveryTarget,
+) error {
+	snapshot, err := service.store.ReadSnapshot(ctx, target.WorkspaceID, target.ConversationID)
+	if err != nil {
+		return err
+	}
+	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID != target.ProviderThreadID {
+		return fmt.Errorf("recovery target thread binding changed for %s", target.ConversationID)
+	}
+	turn, err := findConversationTurn(snapshot, target.TurnID)
+	if err != nil {
+		return err
+	}
+	invocation, err := agentInvocation(turn.RequestedRoleProfile)
+	if err != nil {
+		return err
+	}
+	workspace, err := service.workspaces.ResolveActiveWorkspace(target.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	request := service.agentThreadStartRequest(
+		target.WorkspaceID,
+		target.ConversationID,
+		workspace.RootPath,
+		invocation,
+	)
+	request.RequireProviderResume = true
+	binding, err := service.resumeAndPersistAgentThreadBinding(ctx, snapshot, request)
+	if err != nil {
+		return err
+	}
+	if binding.ThreadID != target.ProviderThreadID {
+		return fmt.Errorf("recovery resumed provider thread %s, want %s", binding.ThreadID, target.ProviderThreadID)
 	}
 	return nil
 }

@@ -10,7 +10,6 @@ import (
 	"setta/internal/conversation"
 	"setta/internal/master"
 	"setta/internal/runtimeauth"
-	"setta/internal/runtimecapability"
 	"setta/internal/speech"
 	"setta/internal/workspaceui"
 	"setta/internal/workspaceui/conversationpalette"
@@ -105,9 +104,6 @@ func contractValueSets() []contractValueSet {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range runtimeauth.ContractValueSets() {
-		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range runtimecapability.ContractValueSets() {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range speech.ContractValueSets() {

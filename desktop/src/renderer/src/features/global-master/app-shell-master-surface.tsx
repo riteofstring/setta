@@ -17,10 +17,11 @@ import {
   Sparkles,
   Square,
   Trash2,
+  Volume2,
   X,
 } from "lucide-react";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type {
   AppShellMasterController,
@@ -44,6 +45,9 @@ import {
   type AppShellSpeechCaptureContextValue,
   useAppShellSpeechCapture,
 } from "../global-speech/app-shell-speech-capture";
+import { masterSpeechPlaybackIntent } from "../global-speech/app-shell-master-speech-playback-intent";
+import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
+import { useAppShellSpeechPlayback } from "../global-speech/app-shell-speech-playback";
 import { useAppearanceStore } from "../../stores/appearance-store";
 import { defaultShortcutsSettings } from "../../workspace-layout/workspace-shortcuts";
 
@@ -52,10 +56,12 @@ export { isMasterOverlayShortcut, masterOverlayShortcutLabel } from "./master-sh
 export function AppShellMasterSurface({
   children,
   controller,
+  onOpenVoiceCredentialSettings,
   platform,
 }: {
   children: (overlayOpen: boolean) => ReactNode;
   controller: AppShellMasterController;
+  onOpenVoiceCredentialSettings: () => void;
   platform: DesktopPlatform;
 }) {
   const snapshot = useSyncExternalStore(
@@ -70,6 +76,10 @@ export function AppShellMasterSurface({
       (state.draft ?? state.settings)?.shortcuts?.masterVoice ??
       defaultShortcutsSettings.masterVoice,
   );
+  const openVoiceCredentialSettingsFromMaster = useCallback(() => {
+    controller.closeOverlay();
+    onOpenVoiceCredentialSettings();
+  }, [controller, onOpenVoiceCredentialSettings]);
 
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
@@ -78,7 +88,7 @@ export function AppShellMasterSurface({
       }
       if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
         event.preventDefault();
-        executeMasterVoiceCommand(speechCaptureController);
+        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
         return;
       }
       if (isMasterOverlayShortcut(event)) {
@@ -97,7 +107,7 @@ export function AppShellMasterSurface({
     };
     const handleNativeViewKey = (event: WorkspaceBrowserViewKeyEvent) => {
       if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
-        executeMasterVoiceCommand(speechCaptureController);
+        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
         return;
       }
       if (isMasterOverlayShortcut(event)) {
@@ -111,7 +121,13 @@ export function AppShellMasterSurface({
       unsubscribeNativeViewKey();
       window.removeEventListener("keydown", handleWindowKeyDown, { capture: true });
     };
-  }, [controller, masterVoiceShortcut, platform, speechCaptureController]);
+  }, [
+    controller,
+    masterVoiceShortcut,
+    openVoiceCredentialSettingsFromMaster,
+    platform,
+    speechCaptureController,
+  ]);
 
   return (
     <>
@@ -120,6 +136,7 @@ export function AppShellMasterSurface({
         <MasterOverlay
           controller={controller}
           masterVoiceShortcut={masterVoiceShortcut}
+          onOpenVoiceCredentialSettings={openVoiceCredentialSettingsFromMaster}
           platform={platform}
           snapshot={snapshot}
           speechCapture={speechCapture}
@@ -157,12 +174,14 @@ export function MasterSidebarLauncher({
 function MasterOverlay({
   controller,
   masterVoiceShortcut,
+  onOpenVoiceCredentialSettings,
   platform,
   snapshot,
   speechCapture,
 }: {
   controller: AppShellMasterController;
   masterVoiceShortcut: AppearanceMasterVoiceShortcut;
+  onOpenVoiceCredentialSettings: () => void;
   platform: DesktopPlatform;
   snapshot: AppShellMasterSnapshot;
   speechCapture: AppShellSpeechCaptureContextValue | null;
@@ -271,7 +290,10 @@ function MasterOverlay({
               rows={2}
               value={snapshot.draft}
             />
-            <MasterVoiceButton model={masterVoice} />
+            <MasterVoiceButton
+              model={masterVoice}
+              onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+            />
             <button
               aria-label="Send to Setta"
               className="setta-master-overlay-send"
@@ -398,6 +420,7 @@ function MasterRoutingResult({
   snapshot: AppShellMasterSnapshot;
   state: ShellInteractionState;
 }) {
+  const playback = useAppShellSpeechPlayback();
   switch (state.status) {
     case "accepted":
       return (
@@ -440,12 +463,62 @@ function MasterRoutingResult({
             <strong>{result.heading}</strong>
             <p>{result.text}</p>
           </div>
+          {result.kind === "answer_global" ? (
+            <MasterAnswerReplayButton controller={playback?.controller ?? null} state={state} />
+          ) : null}
         </div>
       );
     }
     default:
       return assertNever(state.status);
   }
+}
+
+function MasterAnswerReplayButton({
+  controller,
+  state,
+}: {
+  controller: AppShellSpeechPlaybackController | null;
+  state: ShellInteractionState;
+}) {
+  const readMasterVoiceSelection =
+    typeof window === "undefined" ? undefined : window.setta.speech.readMasterVoiceSelection;
+  const disabled = controller === null || !readMasterVoiceSelection;
+  return (
+    <button
+      aria-label="Replay master answer"
+      className="setta-master-overlay-replay"
+      data-testid="master-answer-replay"
+      disabled={disabled}
+      onClick={() => replayMasterAnswer(controller, state)}
+      title="Replay master answer"
+      type="button"
+    >
+      <Volume2 aria-hidden="true" />
+    </button>
+  );
+}
+
+function replayMasterAnswer(
+  controller: AppShellSpeechPlaybackController | null,
+  state: ShellInteractionState,
+): void {
+  const readMasterVoiceSelection =
+    typeof window === "undefined" ? undefined : window.setta.speech.readMasterVoiceSelection;
+  if (!controller || !readMasterVoiceSelection) {
+    return;
+  }
+  void readMasterVoiceSelection()
+    .then((masterVoice) => {
+      const intent = masterSpeechPlaybackIntent(state, masterVoice);
+      if (!intent) {
+        throw new Error("master answer replay requires a committed global answer");
+      }
+      controller.replay(intent);
+    })
+    .catch((error: unknown) => {
+      console.info(`Master answer replay failed: ${masterSurfaceErrorMessage(error)}`);
+    });
 }
 
 function MasterActiveRoutingControls({

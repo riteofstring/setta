@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import { decodeCodexAccountChangeEvent, decodeConversationEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
+import { decodeSpeechCredentialSettings } from "@shared/speech-ipc";
 import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
   BackendProcessStatus,
@@ -48,7 +49,6 @@ const api: SettaAPI = {
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
     current: () => invoke("runtimeCurrent"),
-    currentRuntimeCredential: () => invoke("runtimeCurrentCredential"),
     list: () => invoke("runtimeList"),
     onConnectionState: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
@@ -110,9 +110,21 @@ const api: SettaAPI = {
   speech: {
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
     createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
+    onCredentialSettingsChanged: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeSpeechCredentialSettings(payload));
+      };
+      ipcRenderer.on(ipcEvents.speechCredentialSettingsChanged, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.speechCredentialSettingsChanged, handler);
+      };
+    },
     readCapabilities: () => invoke("speechReadCapabilities"),
+    readCredentialSettings: () => invoke("speechReadCredentialSettings"),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
+    removeCredential: () => invoke("speechRemoveCredential"),
+    saveCredential: (request) => invoke("speechSaveCredential", request),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
     updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
     updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),

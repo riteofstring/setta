@@ -31,6 +31,7 @@ const (
 	MaximumRecordingSeconds       = 120
 	MaximumTranscriptCharacters   = 8_000
 	MaximumSynthesisAudioBytes    = 8 * 1024 * 1024
+	AssistantSynthesisRate        = 1.2
 	AIVoiceDisclosure             = "This voice is AI-generated and not a human voice."
 )
 
@@ -139,6 +140,16 @@ type SpeechCapabilities struct {
 	AIVoiceDisclosure           string               `json:"aiVoiceDisclosure"`
 }
 
+type SpeechCredentialValidationResult struct {
+	Provider SpeechProvider `json:"provider"`
+	Valid    bool           `json:"valid"`
+}
+
+type SpeechCredentialStatus struct {
+	Provider       SpeechProvider       `json:"provider"`
+	ProviderStatus SpeechProviderStatus `json:"providerStatus"`
+}
+
 type SpeechTranscriptionSession struct {
 	ClientSecret                string `json:"clientSecret"`
 	ExpiresAt                   string `json:"expiresAt"`
@@ -177,6 +188,12 @@ type SynthesizedAudio struct {
 	Bytes     []byte
 	MediaType string
 	Format    string
+}
+
+type ProviderSynthesisInput struct {
+	Text    string
+	VoiceID SpeechVoiceID
+	Rate    float64
 }
 
 type ResolvedSpeechSource struct {

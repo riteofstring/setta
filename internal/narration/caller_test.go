@@ -3,6 +3,7 @@ package narration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -61,8 +62,8 @@ func testCallerFocusProjection(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"focus_projection",
 		"sourceThroughSequence":1,
-		"currentFocus":"Implementing the narrator provider boundary.",
-		"topicDescriptor":"Narrator provider calls"
+		"currentFocus":"Implementing clear narrator updates for users.",
+		"topicDescriptor":"Narrator language contract"
 	}`)}
 	caller := newTestCaller(t, provider)
 	result, err := caller.Call(context.Background(), CallRequest{
@@ -82,6 +83,13 @@ func testCallerFocusProjection(t *testing.T) {
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
 		[]string{"currentFocus", "kind", "sourceThroughSequence", "topicDescriptor"},
 	)
+	assertSchemaTextField(t, provider.requests[0].OutputSchema, "currentFocus", MaxNarratorCurrentFocusCharacters, "Current user objective")
+	assertSchemaNullableTextField(t, provider.requests[0].OutputSchema, "topicDescriptor", MaxNarratorTopicDescriptorCharacters, "Stable navigator description")
+	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
+		"Write for the user whose objective appears in the supplied context.",
+		"Omit Setta's bookkeeping",
+		"Avoid: \"Narrator evaluated the deployment through sequence 41.\"",
+	})
 }
 
 func testCallerWorkingProjection(t *testing.T) {
@@ -90,7 +98,7 @@ func testCallerWorkingProjection(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":3,
-		"milestones":["The provider boundary is now typed."]
+		"milestones":["Voice requests now preserve the configured narrator and speaking pace across restarts."]
 	}`)}
 	caller := newTestCaller(t, provider)
 	result := callProjection(t, caller, bundle)
@@ -102,6 +110,14 @@ func testCallerWorkingProjection(t *testing.T) {
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
 		[]string{"kind", "milestones", "observedThroughSequence"},
 	)
+	assertSchemaMilestoneField(t, provider.requests[0].OutputSchema)
+	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
+		"Milestones are shown in the Now rail and read aloud when narrator voice is enabled",
+		"prefer an empty milestone list for normal progress, repeated blocked states",
+		"Write for the user whose objective appears in the supplied context.",
+		"Lead with the observable outcome",
+		"Prefer: no milestone.",
+	})
 }
 
 func testCallerTerminalProjection(t *testing.T) {
@@ -111,7 +127,7 @@ func testCallerTerminalProjection(t *testing.T) {
 		"kind":"terminal_projection",
 		"observedThroughSequence":3,
 		"milestones":[],
-		"finalSummary":"The isolated provider call completed with a strict terminal projection."
+		"finalSummary":"The narrator language checks passed, and no failed output was treated as successful."
 	}`)}
 	caller := newTestCaller(t, provider)
 	result := callProjection(t, caller, bundle)
@@ -124,6 +140,13 @@ func testCallerTerminalProjection(t *testing.T) {
 		[]string{"finalSummary", "kind", "milestones", "observedThroughSequence"},
 	)
 	assertSchemaIntegerBounds(t, provider.requests[0].OutputSchema, "observedThroughSequence", 3, 3)
+	assertSchemaTextField(t, provider.requests[0].OutputSchema, "finalSummary", MaxNarratorFinalSummaryCharacters, "One short outcome sentence")
+	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
+		"finalSummary is one short sentence summarizing the outcome.",
+		"If an artifact contains the detailed result, mention the artifact without repeating its contents.",
+		"Write for the user whose objective appears in the supplied context.",
+		"If the turn failed or was stopped, say so directly and include only the important caveat.",
+	})
 }
 
 func TestCallerRejectsTerminalProjectionBeforeTerminalBoundary(t *testing.T) {
@@ -163,7 +186,7 @@ func testCallerStatusReply(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"status_reply",
 		"sourceThroughSequence":3,
-		"statusReply":"The narrator provider boundary is being verified."
+		"statusReply":"The narrator language checks are running against the current conversation state."
 	}`)}
 	caller := newTestCaller(t, provider)
 	result, err := caller.Call(context.Background(), CallRequest{
@@ -183,6 +206,165 @@ func testCallerStatusReply(t *testing.T) {
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
 		[]string{"kind", "sourceThroughSequence", "statusReply"},
 	)
+	assertSchemaTextField(t, provider.requests[0].OutputSchema, "statusReply", MaxNarratorStatusReplyCharacters, "Current state")
+	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
+		"Answer the exact question",
+		"Write for the user whose objective appears in the supplied context.",
+		"current state, evidence, and blocker or next step",
+	})
+}
+
+func TestNarratorOutputRejectsNewFieldLimitOverflows(t *testing.T) {
+	focusContext := FocusContextBundle{
+		Kind:                  ContextKindFocus,
+		Trigger:               conversation.NarrationTriggerInputAccepted,
+		SourceThroughSequence: 1,
+	}
+	workingContext := ProjectionContextBundle{
+		Kind:                     ContextKindProjection,
+		Trigger:                  conversation.NarrationTriggerPlanChanged,
+		RequestedChannel:         ProjectionChannelWorking,
+		RequestedThroughSequence: 1,
+		PreCallCursor:            NarratorCursor{ObservedThroughSequence: 0},
+		EvaluationRange:          conversation.TrajectorySequenceRange{Start: 1, End: 1},
+		PriorMilestones:          []PriorMilestone{},
+	}
+	terminalContext := workingContext
+	terminalContext.Trigger = conversation.NarrationTriggerTurnTerminal
+	terminalContext.RequestedChannel = ProjectionChannelTerminal
+	statusContext := StatusContextBundle{
+		Kind:                  ContextKindStatus,
+		Trigger:               conversation.NarrationTriggerExplicitStatusRequested,
+		SourceThroughSequence: 1,
+	}
+
+	tests := []struct {
+		name    string
+		output  NarratorCallOutput
+		context any
+		message string
+	}{
+		{
+			name: "topic descriptor",
+			output: NarratorCallOutput{
+				Kind: CallOutputFocusProjection,
+				FocusProjection: &FocusProjectionOutput{
+					SourceThroughSequence: 1,
+					CurrentFocus:          exactNarratorText(MaxNarratorCurrentFocusCharacters),
+					TopicDescriptor:       narratorTextPointer(exactNarratorText(MaxNarratorTopicDescriptorCharacters + 1)),
+				},
+			},
+			context: focusContext,
+			message: "narrator topic descriptor exceeds 160 characters",
+		},
+		{
+			name: "current focus",
+			output: NarratorCallOutput{
+				Kind: CallOutputFocusProjection,
+				FocusProjection: &FocusProjectionOutput{
+					SourceThroughSequence: 1,
+					CurrentFocus:          exactNarratorText(MaxNarratorCurrentFocusCharacters + 1),
+					TopicDescriptor:       narratorTextPointer(exactNarratorText(MaxNarratorTopicDescriptorCharacters)),
+				},
+			},
+			context: focusContext,
+			message: "narrator current focus exceeds 240 characters",
+		},
+		{
+			name: "milestone",
+			output: NarratorCallOutput{
+				Kind: CallOutputWorkingProjection,
+				WorkingProjection: &WorkingProjectionOutput{
+					ObservedThroughSequence: 1,
+					Milestones:              []string{exactNarratorText(MaxNarratorMilestoneCharacters + 1)},
+				},
+			},
+			context: workingContext,
+			message: "narrator milestone 0 exceeds 200 characters",
+		},
+		{
+			name: "final summary",
+			output: NarratorCallOutput{
+				Kind: CallOutputTerminalProjection,
+				TerminalProjection: &TerminalProjectionOutput{
+					ObservedThroughSequence: 1,
+					Milestones:              []string{},
+					FinalSummary:            exactNarratorText(MaxNarratorFinalSummaryCharacters + 1),
+				},
+			},
+			context: terminalContext,
+			message: "narrator final summary exceeds 220 characters",
+		},
+		{
+			name: "status reply",
+			output: NarratorCallOutput{
+				Kind: CallOutputStatusReply,
+				StatusReply: &StatusReplyOutput{
+					SourceThroughSequence: 1,
+					StatusReply:           exactNarratorText(MaxNarratorStatusReplyCharacters + 1),
+				},
+			},
+			context: statusContext,
+			message: "narrator status reply exceeds 400 characters",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateNarratorOutputForTest(test.output, test.context)
+			if err == nil || !strings.Contains(err.Error(), test.message) {
+				t.Fatalf("overflow validation error = %v, want %q", err, test.message)
+			}
+		})
+	}
+
+	valid := NarratorCallOutput{
+		Kind: CallOutputStatusReply,
+		StatusReply: &StatusReplyOutput{
+			SourceThroughSequence: 1,
+			StatusReply:           exactNarratorText(MaxNarratorStatusReplyCharacters),
+		},
+	}
+	if err := valid.ValidateStatus(statusContext); err != nil {
+		t.Fatalf("exact status boundary was rejected: %v", err)
+	}
+}
+
+func TestNarratorProjectionMilestoneCardinalityAllowsZeroOrOne(t *testing.T) {
+	context := ProjectionContextBundle{
+		Kind:                     ContextKindProjection,
+		Trigger:                  conversation.NarrationTriggerPlanChanged,
+		RequestedChannel:         ProjectionChannelWorking,
+		RequestedThroughSequence: 1,
+		PreCallCursor:            NarratorCursor{ObservedThroughSequence: 0},
+		EvaluationRange:          conversation.TrajectorySequenceRange{Start: 1, End: 1},
+		PriorMilestones:          []PriorMilestone{},
+	}
+	for _, milestones := range [][]string{
+		{},
+		{"The user-visible result is ready."},
+	} {
+		output := NarratorCallOutput{
+			Kind: CallOutputWorkingProjection,
+			WorkingProjection: &WorkingProjectionOutput{
+				ObservedThroughSequence: 1,
+				Milestones:              milestones,
+			},
+		}
+		if err := output.ValidateProjection(context); err != nil {
+			t.Fatalf("valid milestone cardinality %v rejected: %v", milestones, err)
+		}
+	}
+	tooMany := NarratorCallOutput{
+		Kind: CallOutputWorkingProjection,
+		WorkingProjection: &WorkingProjectionOutput{
+			ObservedThroughSequence: 1,
+			Milestones:              []string{"One result is ready.", "Another result is ready."},
+		},
+	}
+	if err := tooMany.ValidateProjection(context); err == nil || !strings.Contains(err.Error(), "maximum is 1") {
+		t.Fatalf("too many milestones error = %v", err)
+	}
 }
 
 func testCallerCheckpoint(t *testing.T) {
@@ -594,4 +776,115 @@ func assertSchemaIntegerBounds(
 			wantMaximum,
 		)
 	}
+}
+
+func assertSchemaTextField(
+	t *testing.T,
+	raw json.RawMessage,
+	property string,
+	wantMaxLength int,
+	wantDescription string,
+) {
+	t.Helper()
+	value := schemaProperty(t, raw, property)
+	if value["maxLength"] != float64(wantMaxLength) {
+		t.Fatalf("output schema %s maxLength = %v, want %d", property, value["maxLength"], wantMaxLength)
+	}
+	assertSchemaDescription(t, value, property, wantDescription)
+}
+
+func assertSchemaNullableTextField(
+	t *testing.T,
+	raw json.RawMessage,
+	property string,
+	wantMaxLength int,
+	wantDescription string,
+) {
+	t.Helper()
+	value := schemaProperty(t, raw, property)
+	assertSchemaDescription(t, value, property, wantDescription)
+	branches, ok := value["anyOf"].([]any)
+	if !ok {
+		t.Fatalf("output schema %s anyOf = %+v", property, value["anyOf"])
+	}
+	for _, branch := range branches {
+		branchSchema, ok := branch.(map[string]any)
+		if !ok || branchSchema["type"] != "string" {
+			continue
+		}
+		if branchSchema["maxLength"] != float64(wantMaxLength) {
+			t.Fatalf("output schema %s string maxLength = %v, want %d", property, branchSchema["maxLength"], wantMaxLength)
+		}
+		return
+	}
+	t.Fatalf("output schema %s did not include a string branch: %+v", property, value)
+}
+
+func assertSchemaMilestoneField(t *testing.T, raw json.RawMessage) {
+	t.Helper()
+	value := schemaProperty(t, raw, "milestones")
+	assertSchemaDescription(t, value, "milestones", "Audible user-facing results")
+	if value["maxItems"] != float64(MaxNarratorMilestonesPerCall) {
+		t.Fatalf("milestones maxItems = %v, want %d", value["maxItems"], MaxNarratorMilestonesPerCall)
+	}
+	items, ok := value["items"].(map[string]any)
+	if !ok {
+		t.Fatalf("milestone items schema = %+v", value["items"])
+	}
+	if items["maxLength"] != float64(MaxNarratorMilestoneCharacters) {
+		t.Fatalf("milestone item maxLength = %v, want %d", items["maxLength"], MaxNarratorMilestoneCharacters)
+	}
+	assertSchemaDescription(t, items, "milestones.items", "One complete sentence")
+}
+
+func schemaProperty(t *testing.T, raw json.RawMessage, property string) map[string]any {
+	t.Helper()
+	var schema map[string]any
+	if err := json.Unmarshal(raw, &schema); err != nil {
+		t.Fatalf("decode output schema: %v", err)
+	}
+	properties := schema["properties"].(map[string]any)
+	value, ok := properties[property].(map[string]any)
+	if !ok {
+		t.Fatalf("output schema %s property = %+v", property, properties[property])
+	}
+	return value
+}
+
+func assertSchemaDescription(t *testing.T, value map[string]any, label string, want string) {
+	t.Helper()
+	description, ok := value["description"].(string)
+	if !ok || !strings.Contains(description, want) {
+		t.Fatalf("output schema %s description = %q, want to contain %q", label, description, want)
+	}
+}
+
+func assertInstructionsContain(t *testing.T, instructions string, snippets []string) {
+	t.Helper()
+	for _, snippet := range snippets {
+		if !strings.Contains(instructions, snippet) {
+			t.Fatalf("developer instructions missing %q:\n%s", snippet, instructions)
+		}
+	}
+}
+
+func validateNarratorOutputForTest(output NarratorCallOutput, context any) error {
+	switch typed := context.(type) {
+	case FocusContextBundle:
+		return output.ValidateFocus(typed)
+	case ProjectionContextBundle:
+		return output.ValidateProjection(typed)
+	case StatusContextBundle:
+		return output.ValidateStatus(typed)
+	default:
+		return fmt.Errorf("unsupported test context %T", context)
+	}
+}
+
+func exactNarratorText(length int) string {
+	return strings.Repeat("x", length)
+}
+
+func narratorTextPointer(value string) *string {
+	return &value
 }

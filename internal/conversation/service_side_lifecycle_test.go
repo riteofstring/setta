@@ -27,10 +27,7 @@ func TestSideConversationTurnEventsStayIsolatedWhileParentContinues(t *testing.T
 func TestSideConversationSnapshotRetainsOpenSideOverDisposedHistory(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Long-lived open side")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Long-lived open side")
 	created, err := service.createRouterSideConversationForTest(
 		ctx,
 		workspaceID,
@@ -234,10 +231,7 @@ func assertParentContinuesAfterSide(
 func TestSideConversationDisposalFailureIsDurableAndRetryable(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Retry side cleanup")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Retry side cleanup")
 	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-retry")
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
@@ -289,10 +283,7 @@ func TestSideConversationDisposalFailureIsDurableAndRetryable(t *testing.T) {
 func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Failed side attachment")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Failed side attachment")
 	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-runtime-failure")
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
@@ -345,10 +336,7 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 func TestSideConversationDisposalInterruptsItsActiveTurn(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Interrupt active side")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Interrupt active side")
 	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-active")
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
@@ -389,10 +377,7 @@ func TestSideConversationDisposalTrustsDurableTerminalOverRacingInterruptRejecti
 		err:                     errors.New("provider turn already terminated"),
 	}
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Terminal race side")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Terminal race side")
 	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-terminal-race")
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
@@ -464,10 +449,7 @@ func (runtime *terminalThenRejectSideInterruptRuntime) InterruptTurn(
 func TestSideConversationModelReroutePersistsAcrossTurnsAndDisposal(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Rerouted side model")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Rerouted side model")
 	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-reroute")
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
@@ -507,10 +489,7 @@ func TestSideConversationModelReroutePersistsAcrossTurnsAndDisposal(t *testing.T
 func TestRecoverSideConversationsDisposesInterruptedEphemeralChildren(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
-	parent, err := service.CreateTopic(context.Background(), workspaceID, "Restart side cleanup")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, context.Background(), service, runtime, workspaceID, "Restart side cleanup")
 	created, err := service.createRouterSideConversationForTest(
 		context.Background(),
 		workspaceID,
@@ -560,10 +539,7 @@ func TestRecoverSideConversationsDisposesInterruptedEphemeralChildren(t *testing
 func TestRecoverSideConversationsPersistsCleanupFailureAndRetries(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
-	parent, err := service.CreateTopic(context.Background(), workspaceID, "Restart side cleanup failure")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, context.Background(), service, runtime, workspaceID, "Restart side cleanup failure")
 	created, err := service.createRouterSideConversationForTest(
 		context.Background(),
 		workspaceID,
@@ -652,10 +628,7 @@ func startActiveSideBeforeRestart(
 	workspaceID string,
 ) (string, string, string, string) {
 	t.Helper()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Restart active side cleanup retry")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Restart active side cleanup retry")
 	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-active-retry")
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)

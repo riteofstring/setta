@@ -22,6 +22,7 @@ import {
   paneSpeechPresentation,
   type PaneSpeechPresentation,
   shellSpeechCaptureAction,
+  type ShellSpeechCaptureAction,
   shellSpeechCaptureControlLabel,
   shellSpeechCaptureLabel,
   shellSpeechPlaybackLabel,
@@ -30,8 +31,12 @@ import {
   speechPresentationConversationId,
 } from "./global-speech-presentation";
 
-export function AppShellSpeechStatus() {
-  const model = useShellSpeechStatusModel();
+export function AppShellSpeechStatus({
+  onOpenVoiceCredentialSettings,
+}: {
+  onOpenVoiceCredentialSettings: () => void;
+}) {
+  const model = useShellSpeechStatusModel(onOpenVoiceCredentialSettings);
   return model ? <ShellSpeechStatusView model={model} /> : null;
 }
 
@@ -44,10 +49,13 @@ interface ShellSpeechStatusModel {
   playbackController: AppShellSpeechPlaybackController;
   playbackLabel: string | null;
   playbackSnapshot: SpeechPlaybackSnapshot;
+  onOpenVoiceCredentialSettings: () => void;
   sourceConversationId: string | null;
 }
 
-function useShellSpeechStatusModel(): ShellSpeechStatusModel | null {
+function useShellSpeechStatusModel(
+  onOpenVoiceCredentialSettings: () => void,
+): ShellSpeechStatusModel | null {
   const captureContext = useAppShellSpeechCapture();
   const playbackContext = useAppShellSpeechPlayback();
   const capture = captureFromContext(captureContext);
@@ -73,6 +81,7 @@ function useShellSpeechStatusModel(): ShellSpeechStatusModel | null {
     playbackController: playbackContext.controller,
     playbackLabel: shellSpeechPlaybackLabel(playbackContext.snapshot, sourceConversationTitle),
     playbackSnapshot: playbackContext.snapshot,
+    onOpenVoiceCredentialSettings,
     sourceConversationId,
   };
 }
@@ -120,7 +129,13 @@ function ShellSpeechStatusView({ model }: { model: ShellSpeechStatusModel }) {
         className="setta-shell-speech-button"
         data-testid="shell-speech-capture-control"
         disabled={model.action === null}
-        onClick={() => executeShellCaptureAction(model.captureController, model.action)}
+        onClick={() =>
+          executeShellCaptureAction(
+            model.captureController,
+            model.action,
+            model.onOpenVoiceCredentialSettings,
+          )
+        }
         title={model.captureControlLabel}
         type="button"
       >
@@ -321,23 +336,34 @@ function FailedCaptureDiscardButton({
 
 function executeShellCaptureAction(
   controller: AppShellSpeechCaptureController,
-  action: ReturnType<typeof shellSpeechCaptureAction>,
+  action: ShellSpeechCaptureAction,
+  onOpenVoiceCredentialSettings: () => void,
 ): void {
-  if (action !== null) {
-    shellCaptureActionExecutors[action](controller);
+  switch (action) {
+    case "cancel":
+      controller.cancel();
+      return;
+    case "commit":
+      controller.commit();
+      return;
+    case "open_voice_credential_settings":
+      onOpenVoiceCredentialSettings();
+      return;
+    case "retry_conversation":
+      controller.retryConversationSubmission();
+      return;
+    case "retry_master":
+      controller.retryMasterSubmission();
+      return;
+    case "start":
+      startShellCapture(controller);
+      return;
+    case null:
+      return;
+    default:
+      return assertNever(action);
   }
 }
-
-const shellCaptureActionExecutors = {
-  cancel: (controller) => controller.cancel(),
-  commit: (controller) => controller.commit(),
-  retry_conversation: (controller) => controller.retryConversationSubmission(),
-  retry_master: (controller) => controller.retryMasterSubmission(),
-  start: startShellCapture,
-} satisfies Record<
-  NonNullable<ReturnType<typeof shellSpeechCaptureAction>>,
-  (controller: AppShellSpeechCaptureController) => void
->;
 
 function startShellCapture(controller: AppShellSpeechCaptureController): void {
   void controller.startMasterCapture();

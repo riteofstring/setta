@@ -27,13 +27,11 @@ const frozenLiveVisualSurfaceKinds = new Set<SurfaceKind>([
   "empty-frame",
   "fake-dom",
   "fake-heavy-dom",
-  "settings-dom",
 ]);
 const movementDegradedSurfaceKinds = new Set<SurfaceKind>([
   "browser",
   "easy-button",
   "fake-heavy-dom",
-  "settings-dom",
 ]);
 const surfaceRuntimeCategories = {
   browser: "browser",
@@ -41,7 +39,6 @@ const surfaceRuntimeCategories = {
   "empty-frame": "always-live",
   "fake-dom": "always-live",
   "fake-heavy-dom": "heavy-dom",
-  "settings-dom": "always-live",
   snapshot: "snapshot",
 } satisfies Record<SurfaceKind, SurfaceRuntimeCategory>;
 
