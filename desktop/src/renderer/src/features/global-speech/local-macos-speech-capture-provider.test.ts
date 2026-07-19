@@ -1,4 +1,4 @@
-import { speechVoiceIDValues, type SpeechCapabilities } from "@generated/backend";
+import type { SpeechCapabilities, SpeechVoiceCatalog } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalMacOSSpeechCaptureProvider } from "./local-macos-speech-capture-provider";
@@ -9,6 +9,7 @@ describe("local macOS speech capture provider", () => {
     const provider = createLocalMacOSSpeechCaptureProvider({
       cancelCapture: vi.fn(),
       finishCapture: vi.fn(),
+      listVoices: vi.fn(async () => localVoiceCatalog()),
       readCapabilities: vi.fn(async () => openAICapabilities()),
       readHealth: vi.fn(async () => ({
         helperPath: "/tmp/setta-local-helper",
@@ -22,7 +23,7 @@ describe("local macOS speech capture provider", () => {
 
     await expect(provider.readCapabilities()).resolves.toMatchObject({
       providerStatus: "configured",
-      voiceCatalog: { provider: "local_macos" },
+      voiceCatalog: localVoiceCatalog(),
     });
   });
 
@@ -30,6 +31,7 @@ describe("local macOS speech capture provider", () => {
     const provider = createLocalMacOSSpeechCaptureProvider({
       cancelCapture: vi.fn(),
       finishCapture: vi.fn(),
+      listVoices: vi.fn(async () => localVoiceCatalog()),
       readCapabilities: vi.fn(async () => openAICapabilities()),
       readHealth: vi.fn(async () => ({
         message: "The configured Whisper model file is missing.",
@@ -42,7 +44,7 @@ describe("local macOS speech capture provider", () => {
 
     await expect(provider.readCapabilities()).resolves.toMatchObject({
       providerStatus: "not_configured",
-      voiceCatalog: { provider: "local_macos" },
+      voiceCatalog: localVoiceCatalog(),
     });
   });
 
@@ -55,6 +57,7 @@ describe("local macOS speech capture provider", () => {
     const provider = createLocalMacOSSpeechCaptureProvider({
       cancelCapture: vi.fn(),
       finishCapture,
+      listVoices: vi.fn(async () => localVoiceCatalog()),
       readCapabilities: vi.fn(async () => openAICapabilities()),
       readHealth: vi.fn(),
       startCapture: vi.fn(async () => ({
@@ -90,6 +93,7 @@ describe("local macOS speech capture provider", () => {
     const provider = createLocalMacOSSpeechCaptureProvider({
       cancelCapture,
       finishCapture: vi.fn(),
+      listVoices: vi.fn(async () => localVoiceCatalog()),
       readCapabilities: vi.fn(async () => openAICapabilities()),
       readHealth: vi.fn(),
       startCapture: vi.fn(async () => ({
@@ -111,6 +115,7 @@ describe("local macOS speech capture provider", () => {
     const provider = createLocalMacOSSpeechCaptureProvider({
       cancelCapture: vi.fn(),
       finishCapture: vi.fn(),
+      listVoices: vi.fn(async () => localVoiceCatalog()),
       readCapabilities: vi.fn(async () => openAICapabilities()),
       readHealth: vi.fn(),
       startCapture: vi.fn(async () => ({
@@ -146,6 +151,7 @@ describe("local macOS speech capture provider", () => {
         },
         status: "failed" as const,
       })),
+      listVoices: vi.fn(async () => localVoiceCatalog()),
       readCapabilities: vi.fn(async () => openAICapabilities()),
       readHealth: vi.fn(),
       startCapture: vi.fn(async () => ({
@@ -192,7 +198,15 @@ function openAICapabilities(): SpeechCapabilities {
     voiceCatalog: {
       provider: "openai",
       version: "test",
-      voiceIds: [...speechVoiceIDValues],
+      voiceIds: ["marin", "cedar"],
     },
+  };
+}
+
+function localVoiceCatalog(): SpeechVoiceCatalog {
+  return {
+    provider: "local_macos",
+    version: "fixture-local-voices",
+    voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
   };
 }

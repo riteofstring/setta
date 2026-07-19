@@ -25,6 +25,7 @@ describe("preload speech API", () => {
       cancelLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["cancelLocalMacOSVoiceCapture"]>;
       cancelSynthesis: NonNullable<SettaAPI["speech"]["cancelSynthesis"]>;
       finishLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["finishLocalMacOSVoiceCapture"]>;
+      listLocalMacOSVoices: NonNullable<SettaAPI["speech"]["listLocalMacOSVoices"]>;
       readLocalMacOSVoiceHealth: NonNullable<SettaAPI["speech"]["readLocalMacOSVoiceHealth"]>;
       readMasterVoiceSelection: NonNullable<SettaAPI["speech"]["readMasterVoiceSelection"]>;
       readNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["readNarratorVoiceDefault"]>;
@@ -35,6 +36,7 @@ describe("preload speech API", () => {
     };
     await speech.readCapabilities();
     await speech.readLocalMacOSVoiceHealth();
+    await speech.listLocalMacOSVoices();
     await speech.startLocalMacOSVoiceCapture({
       captureSessionId: "capture_local",
       maximumRecordingSeconds: 120,
@@ -70,6 +72,7 @@ describe("preload speech API", () => {
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
       [ipcChannels.speechReadLocalMacOSVoiceHealth],
+      [ipcChannels.speechListLocalMacOSVoices],
       [
         ipcChannels.speechStartLocalMacOSVoiceCapture,
         {

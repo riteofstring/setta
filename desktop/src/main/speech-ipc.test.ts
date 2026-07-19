@@ -1,5 +1,5 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
-import { speechVoiceIDValues, type BackendClient } from "@generated/backend";
+import type { BackendClient } from "@generated/backend";
 import { ipcChannels, type IpcObserver } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
 
@@ -37,7 +37,7 @@ describe("speech IPC handlers", () => {
         voiceCatalog: {
           provider: "openai",
           version: "test",
-          voiceIds: [...speechVoiceIDValues],
+          voiceIds: ["marin", "cedar"],
         },
       })),
       readMasterVoiceSelection: vi.fn(async () => ({
@@ -82,6 +82,7 @@ describe("speech IPC handlers", () => {
 
     const capabilities = await invoke(handlers, ipcChannels.speechReadCapabilities);
     const localHealth = await invoke(handlers, ipcChannels.speechReadLocalMacOSVoiceHealth);
+    const localVoices = await invoke(handlers, ipcChannels.speechListLocalMacOSVoices);
     const masterVoice = await invoke(handlers, ipcChannels.speechReadMasterVoiceSelection);
     const narratorDefault = await invoke(handlers, ipcChannels.speechReadNarratorVoiceDefault);
     const updatedMasterVoice = await invoke(
@@ -119,6 +120,11 @@ describe("speech IPC handlers", () => {
       provider: "local_macos",
       status: "helper_unavailable",
     });
+    expect(localVoices).toEqual({
+      provider: "local_macos",
+      version: "fixture-local-voices",
+      voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
+    });
     expect(masterVoice).toMatchObject({ resolvedVoiceId: "marin", selection: "exact" });
     expect(updatedMasterVoice).toMatchObject({ resolvedVoiceId: "cedar", selection: "exact" });
     expect(narratorDefault).toMatchObject({ requestedVoiceId: null, selection: "auto_distinct" });
@@ -128,11 +134,12 @@ describe("speech IPC handlers", () => {
     expect(backend.synthesizeSpeech).toHaveBeenCalledWith(synthesisRequest, {
       signal: expect.any(AbortSignal),
     });
-    expect(observer.finished).toHaveBeenCalledTimes(8);
+    expect(observer.finished).toHaveBeenCalledTimes(9);
     const observedResults = observer.finished.mock.calls.map(([event]) => event.result);
     expect(observedResults).toEqual([
       capabilities,
       localHealth,
+      localVoices,
       masterVoice,
       narratorDefault,
       updatedMasterVoice,
@@ -664,6 +671,11 @@ function localMacOSVoiceHelper() {
     finishCapture: vi.fn(async (request: { sessionId: string }) => ({
       sessionId: request.sessionId,
       transcript: "Local helper transcript.",
+    })),
+    listVoices: vi.fn(async () => ({
+      provider: "local_macos" as const,
+      version: "fixture-local-voices",
+      voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
     })),
     readHealth: vi.fn(async () => ({
       helperPath: null,

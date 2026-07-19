@@ -126,6 +126,12 @@ export function registerSpeechIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "speechListLocalMacOSVoices",
+    async () => requireLocalMacOSVoiceHelper().listVoices(),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "speechStartLocalMacOSVoiceCapture",
     async (_event, request) => {
       const decoded = decodeLocalStartRequest(request);

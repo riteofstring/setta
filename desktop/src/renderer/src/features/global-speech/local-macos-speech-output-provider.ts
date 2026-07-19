@@ -16,11 +16,10 @@ export function createLocalMacOSSpeechOutputProvider(
       return setta.speech.cancelSynthesis(operationId);
     },
     listVoices: async () => {
-      const capabilities = await setta.speech.readCapabilities();
-      return {
-        ...capabilities.voiceCatalog,
-        provider,
-      };
+      if (!setta.speech.listLocalMacOSVoices) {
+        return Promise.reject(new Error("the desktop local macOS voice catalog is unavailable"));
+      }
+      return setta.speech.listLocalMacOSVoices();
     },
     synthesize: (request, operationId) => {
       if (!setta.speech.synthesize) {

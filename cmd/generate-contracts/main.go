@@ -24,6 +24,7 @@ type contractSpec struct {
 	Interfaces                     []interfaceSpec
 	ProtocolVersion                int
 	SchemaHash                     string
+	StringAliases                  []stringAliasSpec
 	Unions                         []unionSpec
 	ValueSets                      []valueSetSpec
 	WorkspaceUILayoutSchemaVersion int
@@ -76,6 +77,10 @@ type valueSetSpec struct {
 	Values []string
 }
 
+type stringAliasSpec struct {
+	Name string
+}
+
 type contractCollector struct {
 	specs          []interfaceSpec
 	states         map[reflect.Type]visitState
@@ -84,6 +89,8 @@ type contractCollector struct {
 	unions         []unionSpec
 	usedUnions     map[reflect.Type]bool
 	valueSets      map[string]valueSetSpec
+	stringAliases  []stringAliasSpec
+	usedAliasNames map[string]bool
 	usedValueSets  []valueSetSpec
 	usedValueNames map[string]bool
 	fieldLiterals  map[reflect.Type]map[string]string
@@ -142,6 +149,7 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 		unionRegistry:  contractUnions(),
 		usedUnions:     map[reflect.Type]bool{},
 		valueSets:      valueSets,
+		usedAliasNames: map[string]bool{},
 		usedValueNames: map[string]bool{},
 		fieldLiterals:  map[reflect.Type]map[string]string{},
 	}
@@ -177,6 +185,7 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 		Interfaces:                     collector.specs,
 		ProtocolVersion:                httpapi.ProtocolVersion,
 		SchemaHash:                     schemaHash,
+		StringAliases:                  collector.stringAliases,
 		Unions:                         collector.unions,
 		ValueSets:                      collector.usedValueSets,
 		WorkspaceUILayoutSchemaVersion: workspaceui.SchemaVersion,
@@ -383,7 +392,15 @@ func (collector *contractCollector) addStringAlias(goType reflect.Type) error {
 	}
 	spec, ok := collector.valueSets[goType.Name()]
 	if !ok {
-		return fmt.Errorf("named string contract type %s has no registered value set", goType)
+		if err := collector.registerStructName(goType.Name(), goType); err != nil {
+			return err
+		}
+		if collector.usedAliasNames[goType.Name()] {
+			return nil
+		}
+		collector.usedAliasNames[goType.Name()] = true
+		collector.stringAliases = append(collector.stringAliases, stringAliasSpec{Name: goType.Name()})
+		return nil
 	}
 	if collector.usedValueNames[spec.Name] {
 		return nil
@@ -483,6 +500,7 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 	renderProtocolMetadata(buffer, specs)
 	renderWorkspaceUILayoutMetadata(buffer, specs.WorkspaceUILayoutSchemaVersion)
 	renderConversationSnapshotLimits(buffer, specs.ConversationSnapshotLimits)
+	renderStringAliases(buffer, specs.StringAliases)
 	renderValueSets(buffer, specs.ValueSets)
 	renderConversationPaletteCatalog(buffer, specs.ConversationPaletteCatalog)
 	renderContractLiteralDecoder(buffer, specs.Interfaces)

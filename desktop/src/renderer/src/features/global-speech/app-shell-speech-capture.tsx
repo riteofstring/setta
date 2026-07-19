@@ -180,6 +180,9 @@ function browserControllerDependencies(
     readHealth: () =>
       setta.speech.readLocalMacOSVoiceHealth?.() ??
       Promise.reject(new Error("the desktop local macOS voice health boundary is unavailable")),
+    listVoices: () =>
+      setta.speech.listLocalMacOSVoices?.() ??
+      Promise.reject(new Error("the desktop local macOS voice catalog boundary is unavailable")),
     startCapture: (request) =>
       setta.speech.startLocalMacOSVoiceCapture?.(request) ??
       Promise.reject(new Error("the desktop local macOS voice capture boundary is unavailable")),

@@ -1,4 +1,4 @@
-import type { SpeechCapabilities } from "@generated/backend";
+import type { SpeechCapabilities, SpeechVoiceCatalog } from "@generated/backend";
 import type {
   LocalMacOSVoiceCancelCaptureResult,
   LocalMacOSVoiceCaptureFailure,
@@ -28,6 +28,7 @@ export interface LocalMacOSSpeechCaptureProviderDependencies {
   }) => Promise<LocalMacOSVoiceFinishCaptureResult>;
   readCapabilities: () => Promise<SpeechCapabilities>;
   readHealth: () => Promise<LocalMacOSVoiceHealth>;
+  listVoices: () => Promise<SpeechVoiceCatalog>;
   readSupport?: () => SpeechCaptureSupport;
   startCapture: (request: {
     captureSessionId: string;
@@ -50,17 +51,15 @@ class LocalMacOSSpeechCaptureProvider implements VoiceInputProvider {
   constructor(private readonly dependencies: LocalMacOSSpeechCaptureProviderDependencies) {}
 
   readCapabilities = async (): Promise<SpeechCapabilities> => {
-    const [capabilities, health] = await Promise.all([
+    const [capabilities, health, voiceCatalog] = await Promise.all([
       this.dependencies.readCapabilities(),
       this.dependencies.readHealth(),
+      this.dependencies.listVoices(),
     ]);
     return {
       ...capabilities,
       providerStatus: health.status === "ready" ? "configured" : "not_configured",
-      voiceCatalog: {
-        ...capabilities.voiceCatalog,
-        provider: localMacOSProvider,
-      },
+      voiceCatalog,
     };
   };
 

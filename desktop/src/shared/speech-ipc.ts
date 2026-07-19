@@ -8,6 +8,7 @@ import {
   type SpeechCapabilities,
   type SpeechSynthesisRequest,
   type SpeechTranscriptionSession,
+  type SpeechVoiceCatalog,
   type VoiceSelectionRequest,
 } from "@generated/backend";
 
@@ -16,6 +17,7 @@ export const speechIpcChannels = {
   speechCancelLocalMacOSVoiceCapture: "speech:cancel-local-macos-voice-capture",
   speechCreateTranscriptionSession: "speech:create-transcription-session",
   speechFinishLocalMacOSVoiceCapture: "speech:finish-local-macos-voice-capture",
+  speechListLocalMacOSVoices: "speech:list-local-macos-voices",
   speechReadLocalMacOSVoiceHealth: "speech:read-local-macos-voice-health",
   speechReadCredentialSettings: "speech:read-credential-settings",
   speechReadCapabilities: "speech:read-capabilities",
@@ -176,6 +178,10 @@ export interface SpeechIpcContract {
   speechFinishLocalMacOSVoiceCapture: {
     args: [request: LocalMacOSVoiceSessionRequest];
     result: LocalMacOSVoiceFinishCaptureResult;
+  };
+  speechListLocalMacOSVoices: {
+    args: [];
+    result: SpeechVoiceCatalog;
   };
   speechReadLocalMacOSVoiceHealth: {
     args: [];

@@ -1,8 +1,4 @@
-import {
-  speechVoiceIDValues,
-  type ConversationInput,
-  type SpeechCapabilities,
-} from "@generated/backend";
+import { type ConversationInput, type SpeechCapabilities } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import type { AppShellSpeechCaptureSnapshot } from "./app-shell-speech-capture-controller";
@@ -262,7 +258,7 @@ function capabilities(): SpeechCapabilities {
     voiceCatalog: {
       provider: "openai",
       version: "test",
-      voiceIds: [...speechVoiceIDValues],
+      voiceIds: ["marin", "cedar"],
     },
   };
 }

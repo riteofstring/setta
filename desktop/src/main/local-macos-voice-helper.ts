@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { access, constants } from "node:fs/promises";
 
-import type { SpeechVoiceID } from "@generated/backend";
+import type { SpeechVoiceCatalog, SpeechVoiceID } from "@generated/backend";
 import type { LocalMacOSVoiceHealth } from "@shared/speech-ipc";
 import { localMacOSSpeechProviderID } from "@shared/speech-providers";
 
@@ -17,6 +17,7 @@ export interface LocalMacOSVoiceHelper {
   finishCapture: (
     request: LocalMacOSVoiceFinishCaptureRequest,
   ) => Promise<LocalMacOSVoiceTranscriptionResult>;
+  listVoices: () => Promise<SpeechVoiceCatalog>;
   readHealth: () => Promise<LocalMacOSVoiceHealth>;
   shutdown: () => void;
   startCapture: (
@@ -51,6 +52,7 @@ export interface LocalMacOSVoiceHelperClient {
   finishCapture: (
     request: LocalMacOSVoiceFinishCaptureRequest,
   ) => Promise<LocalMacOSVoiceTranscriptionResult>;
+  listVoices: () => Promise<LocalMacOSVoiceCatalogResult>;
   readHealth: (
     request: LocalMacOSVoiceHelperHealthRequest,
   ) => Promise<LocalMacOSVoiceHelperHealthResult>;
@@ -130,6 +132,11 @@ export interface LocalMacOSVoiceSynthesisCanceled {
   operationId: string;
 }
 
+export interface LocalMacOSVoiceCatalogResult {
+  version: string;
+  voiceIds: SpeechVoiceID[];
+}
+
 interface HelperCommandEnvelope {
   id: string;
   payload: object;
@@ -140,6 +147,7 @@ type HelperCommandType =
   | "cancel_capture"
   | "cancel_synthesis"
   | "finish_capture"
+  | "list_voices"
   | "read_health"
   | "start_capture"
   | "synthesize_speech";
@@ -274,6 +282,19 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
     request: LocalMacOSVoiceFinishCaptureRequest,
   ): Promise<LocalMacOSVoiceTranscriptionResult> {
     return this.requireClient().finishCapture(request);
+  }
+
+  async listVoices(): Promise<SpeechVoiceCatalog> {
+    const preflight = await this.readHelperPreflight();
+    if (preflight.status === "unavailable") {
+      throw new LocalMacOSVoiceHelperUnavailableError(preflight.health);
+    }
+    const catalog = await this.requireClient().listVoices();
+    return {
+      provider: localMacOSProvider,
+      version: catalog.version,
+      voiceIds: catalog.voiceIds,
+    };
   }
 
   cancelCapture(
@@ -423,6 +444,9 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
       await this.sendCommand("finish_capture", request),
       decodeTranscriptionResult,
     );
+
+  listVoices = async (): Promise<LocalMacOSVoiceCatalogResult> =>
+    this.decodeCommandResult(await this.sendCommand("list_voices", {}), decodeVoiceCatalogResult);
 
   cancelCapture = async (
     request: LocalMacOSVoiceCancelCaptureRequest,
@@ -780,6 +804,29 @@ function decodeTranscriptionResult(value: unknown): LocalMacOSVoiceTranscription
   };
 }
 
+function decodeVoiceCatalogResult(value: unknown): LocalMacOSVoiceCatalogResult {
+  const record = assertRecord(value, "LocalMacOSVoiceHelper.list_voices");
+  assertKnownFields(record, "LocalMacOSVoiceHelper.list_voices", ["version", "voiceIds"]);
+  const version = stringField(record, "version", "LocalMacOSVoiceHelper.list_voices");
+  const voiceIds = arrayField(record, "voiceIds", "LocalMacOSVoiceHelper.list_voices", (item) =>
+    requiredTrimmedString(item, "LocalMacOSVoiceHelper.list_voices.voiceIds item"),
+  );
+  if (voiceIds.length === 0) {
+    throw new Error("LocalMacOSVoiceHelper.list_voices.voiceIds must contain at least one voice");
+  }
+  const seen = new Set<string>();
+  for (const voiceId of voiceIds) {
+    if (seen.has(voiceId)) {
+      throw new Error(`LocalMacOSVoiceHelper.list_voices repeats voice ${JSON.stringify(voiceId)}`);
+    }
+    seen.add(voiceId);
+  }
+  return {
+    version: requiredTrimmedString(version, "LocalMacOSVoiceHelper.list_voices.version"),
+    voiceIds,
+  };
+}
+
 function decodeSynthesisResult(value: unknown): LocalMacOSVoiceSynthesisResult {
   const record = assertRecord(value, "LocalMacOSVoiceHelper.synthesize_speech");
   assertKnownFields(record, "LocalMacOSVoiceHelper.synthesize_speech", [
@@ -833,10 +880,30 @@ function stringField(record: Record<string, unknown>, field: string, label: stri
   return value;
 }
 
+function arrayField<T>(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+  decode: (item: unknown) => T,
+): T[] {
+  const value = record[field];
+  if (!Array.isArray(value)) {
+    throw new Error(`${label}.${field} must be an array`);
+  }
+  return value.map(decode);
+}
+
 function booleanField(record: Record<string, unknown>, field: string, label: string): boolean {
   const value = record[field];
   if (typeof value !== "boolean") {
     throw new Error(`${label}.${field} must be a boolean`);
+  }
+  return value;
+}
+
+function requiredTrimmedString(value: unknown, label: string): SpeechVoiceID {
+  if (typeof value !== "string" || value.trim() === "" || value.trim() !== value) {
+    throw new Error(`${label} must be a trimmed string`);
   }
   return value;
 }

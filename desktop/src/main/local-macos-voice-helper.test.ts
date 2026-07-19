@@ -189,6 +189,26 @@ describe("LocalMacOSVoiceHealthService", () => {
       voiceId: "marin",
     });
   });
+
+  test("lists installed helper voices without requiring a Whisper model", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-catalog-"));
+    const helperPath = join(root, "helper");
+    await writeFile(helperPath, "#!/bin/sh\n");
+    await chmod(helperPath, 0o755);
+    const helper = new FakeLocalMacOSVoiceHelperClient({ status: "ready" });
+    const service = new LocalMacOSVoiceHealthService({
+      createClient: vi.fn(() => helper),
+      helperPath,
+      platform: "darwin",
+    });
+
+    await expect(service.listVoices()).resolves.toEqual({
+      provider: "local_macos",
+      version: "fixture-local-voices",
+      voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
+    });
+    expect(helper.listVoices).toHaveBeenCalledWith();
+  });
 });
 
 describe("LocalMacOSVoiceHelperProcessClient", () => {
@@ -200,6 +220,10 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
 
     await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).resolves.toEqual({
       status: "ready",
+    });
+    await expect(client.listVoices()).resolves.toEqual({
+      version: "fixture-local-voices",
+      voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
     });
     await expect(
       client.startCapture({
@@ -298,20 +322,25 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     client.shutdown();
   });
 
-  test.each(["malformed", "malformed_result", "omitted_error", "unknown_id"])(
-    "rejects %s helper events before accepting local capture results",
-    async (mode) => {
-      const client = new LocalMacOSVoiceHelperProcessClient({
-        args: [fixturePath, mode],
-        command: process.execPath,
-      });
+  test.each([
+    "malformed",
+    "malformed_result",
+    "malformed_voice_catalog",
+    "omitted_error",
+    "unknown_id",
+  ])("rejects %s helper events before accepting local capture results", async (mode) => {
+    const client = new LocalMacOSVoiceHelperProcessClient({
+      args: [fixturePath, mode],
+      command: process.execPath,
+    });
 
-      await expect(
-        client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" }),
-      ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperProtocolError);
-      client.shutdown();
-    },
-  );
+    const command =
+      mode === "malformed_voice_catalog"
+        ? client.listVoices()
+        : client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" });
+    await expect(command).rejects.toBeInstanceOf(LocalMacOSVoiceHelperProtocolError);
+    client.shutdown();
+  });
 });
 
 class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
@@ -331,6 +360,11 @@ class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
   finishCapture(): Promise<never> {
     return Promise.reject(new Error("unexpected finish"));
   }
+
+  listVoices = vi.fn<LocalMacOSVoiceHelperClient["listVoices"]>(async () => ({
+    version: "fixture-local-voices",
+    voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
+  }));
 
   startCapture = vi.fn<LocalMacOSVoiceHelperClient["startCapture"]>(async (request) => ({
     sessionId: request.sessionId,

@@ -47,6 +47,7 @@ import type {
   SpeechCapabilities,
   SpeechSynthesisRequest,
   SpeechTranscriptionSession,
+  SpeechVoiceCatalog,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   StopTopicConversationTurnRequest,
@@ -370,6 +371,7 @@ export interface SettaAPI {
       request: SpeechCredentialProviderRequest,
     ) => Promise<SpeechCredentialSettings>;
     readLocalMacOSVoiceHealth?: () => Promise<LocalMacOSVoiceHealth>;
+    listLocalMacOSVoices?: () => Promise<SpeechVoiceCatalog>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
     readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
     removeCredential?: (

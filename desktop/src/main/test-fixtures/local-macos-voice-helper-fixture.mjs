@@ -8,6 +8,7 @@ const commandHandlers = new Map([
   ["cancel_capture", handleCancelCapture],
   ["cancel_synthesis", handleCancelSynthesis],
   ["finish_capture", handleFinishCapture],
+  ["list_voices", handleListVoices],
   ["read_health", handleReadHealth],
   ["start_capture", handleStartCapture],
   ["synthesize_speech", handleSynthesizeSpeech],
@@ -78,6 +79,23 @@ function handleReadHealth(command) {
     return;
   }
   respond(command.id, { status: "ready" });
+}
+
+function handleListVoices(command) {
+  if (mode === "malformed_voice_catalog") {
+    respond(command.id, {
+      version: "fixture-local-voices",
+      voiceIds: [
+        "com.apple.voice.compact.en-US.Samantha",
+        "com.apple.voice.compact.en-US.Samantha",
+      ],
+    });
+    return;
+  }
+  respond(command.id, {
+    version: "fixture-local-voices",
+    voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
+  });
 }
 
 function handleStartCapture(command) {

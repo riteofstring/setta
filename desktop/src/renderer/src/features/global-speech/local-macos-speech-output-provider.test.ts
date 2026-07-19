@@ -21,7 +21,7 @@ describe("local macOS speech output provider", () => {
     );
     const provider = createLocalMacOSSpeechOutputProvider({
       speech: {
-        readCapabilities: vi.fn(),
+        listLocalMacOSVoices: vi.fn(),
         synthesize,
       },
     } as unknown as Pick<SettaAPI, "speech">);
@@ -36,5 +36,25 @@ describe("local macOS speech output provider", () => {
       },
       "speech-operation",
     );
+  });
+
+  test("lists helper-installed local macOS voices", async () => {
+    const listLocalMacOSVoices = vi.fn(async () => ({
+      provider: "local_macos" as const,
+      version: "fixture-local-voices",
+      voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
+    }));
+    const provider = createLocalMacOSSpeechOutputProvider({
+      speech: {
+        listLocalMacOSVoices,
+      },
+    } as unknown as Pick<SettaAPI, "speech">);
+
+    await expect(provider.listVoices()).resolves.toEqual({
+      provider: "local_macos",
+      version: "fixture-local-voices",
+      voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
+    });
+    expect(listLocalMacOSVoices).toHaveBeenCalledWith();
   });
 });

@@ -18,7 +18,7 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 68;
+export const backendProtocolVersion = 69;
 export const backendContractSchemaHash = "sha256:71f96c14b6b9635be2cfbfd7d2a296e64aa22579fb58ed0198da220035e73910";
 
 export const workspaceUILayoutSchemaVersion = 1;
@@ -33,6 +33,12 @@ export const conversationSnapshotLimits = {
   trajectoryEvents: 200,
   turns: 51,
 } as const;
+
+export type SpeechVoiceID = string;
+
+export function decodeSpeechVoiceID(value: unknown, label = "SpeechVoiceID"): SpeechVoiceID {
+  return decodeString(value, label);
+}
 
 export type DeviceScope = "full";
 
@@ -922,44 +928,6 @@ export function decodeVoiceSelectionMode(value: unknown, label = "VoiceSelection
     case "auto_distinct":
       return decoded;
     case "exact":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type SpeechVoiceID = "alloy" | "ash" | "ballad" | "coral" | "echo" | "fable" | "onyx" | "nova" | "sage" | "shimmer" | "verse" | "marin" | "cedar";
-
-export const speechVoiceIDValues = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse", "marin", "cedar"] as const satisfies readonly SpeechVoiceID[];
-
-export function decodeSpeechVoiceID(value: unknown, label = "SpeechVoiceID"): SpeechVoiceID {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "alloy":
-      return decoded;
-    case "ash":
-      return decoded;
-    case "ballad":
-      return decoded;
-    case "coral":
-      return decoded;
-    case "echo":
-      return decoded;
-    case "fable":
-      return decoded;
-    case "onyx":
-      return decoded;
-    case "nova":
-      return decoded;
-    case "sage":
-      return decoded;
-    case "shimmer":
-      return decoded;
-    case "verse":
-      return decoded;
-    case "marin":
-      return decoded;
-    case "cedar":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);

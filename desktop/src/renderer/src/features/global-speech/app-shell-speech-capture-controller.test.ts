@@ -1,5 +1,4 @@
 import {
-  speechVoiceIDValues,
   type AcceptedConversationInput,
   type AcceptedMasterInput,
   type SpeechCapabilities,
@@ -1331,7 +1330,7 @@ function capabilities(overrides: Partial<SpeechCapabilities> = {}): SpeechCapabi
     voiceCatalog: {
       provider: "openai",
       version: "test",
-      voiceIds: [...speechVoiceIDValues],
+      voiceIds: ["marin", "cedar"],
     },
     ...overrides,
   };

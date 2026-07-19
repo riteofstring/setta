@@ -1,4 +1,4 @@
-import { speechVoiceIDValues, type SpeechAudio, type SpeechCapabilities } from "@generated/backend";
+import type { SpeechAudio, SpeechCapabilities } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -180,7 +180,7 @@ function capabilities(
     voiceCatalog: {
       provider,
       version: "test",
-      voiceIds: [...speechVoiceIDValues],
+      voiceIds: ["marin", "cedar"],
     },
   };
 }

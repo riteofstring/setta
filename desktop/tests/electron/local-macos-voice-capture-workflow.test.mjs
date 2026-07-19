@@ -83,6 +83,10 @@ try {
 
   const health = await context.client.evaluate("window.setta.speech.readLocalMacOSVoiceHealth()");
   assertReadyHealth(health);
+  const localVoiceCatalog = await context.client.evaluate(
+    "window.setta.speech.listLocalMacOSVoices()",
+  );
+  assertLocalVoiceCatalog(localVoiceCatalog);
   const started = await startCapture(context.client, "capture_local");
   assertStatus(started, "started", "capture_local");
   const finished = await finishCapture(context.client, "capture_local");
@@ -147,6 +151,7 @@ try {
     finishedTranscript: finished.transcript,
     health,
     invalidFinishFailure: invalidFinish.failure,
+    localVoiceCatalog,
     oversizedFailure: oversizedFinish.failure,
     revokedFinishFailure: revokedFinish.failure,
     revokedStaleFinishFailure: revokedStaleFinish.failure,
@@ -330,6 +335,17 @@ function assertReadyHealth(health) {
     health.modelSHA256 !== sha256("local-model-bytes")
   ) {
     throw new Error(`invalid local macOS voice health: ${JSON.stringify(health)}`);
+  }
+}
+
+function assertLocalVoiceCatalog(catalog) {
+  const want = ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"];
+  if (
+    catalog?.provider !== "local_macos" ||
+    catalog.version !== "fixture-local-voices" ||
+    JSON.stringify(catalog.voiceIds) !== JSON.stringify(want)
+  ) {
+    throw new Error(`invalid local macOS voice catalog: ${JSON.stringify(catalog)}`);
   }
 }
 

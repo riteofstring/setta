@@ -224,7 +224,6 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SpeechSpeaker", Values: stringValues(speechSpeakerValues)},
 		{Name: "VoiceSelectionMode", Values: stringValues(voiceSelectionModeValues)},
 		{Name: "VoiceReuseReason", Values: stringValues(voiceReuseReasonValues)},
-		{Name: "SpeechVoiceID", Values: stringValues(openAISpeechVoiceIDs[:])},
 	}
 }
 

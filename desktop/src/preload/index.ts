@@ -125,6 +125,7 @@ const api: SettaAPI = {
     },
     readCapabilities: () => invoke("speechReadCapabilities"),
     readCredentialSettings: (request) => invoke("speechReadCredentialSettings", request),
+    listLocalMacOSVoices: () => invoke("speechListLocalMacOSVoices"),
     readLocalMacOSVoiceHealth: () => invoke("speechReadLocalMacOSVoiceHealth"),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
