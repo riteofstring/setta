@@ -52,6 +52,65 @@ describe("local macOS voice listener service", () => {
     }
   });
 
+  test("strips the leading Hey Setta wake phrase from finalized wake transcripts", async () => {
+    const harness = await createHarness();
+    try {
+      await harness.service.updateSettings(true);
+      harness.emit({ type: "listener_armed" });
+      harness.emit({ score: 0.74, timeMs: 960, type: "wake_detected" });
+      harness.emit({ timeMs: 1_140, type: "message_speech_started" });
+      harness.emit({ timeMs: 2_220, type: "candidate_endpoint_detected" });
+      harness.emit({
+        transcript: "  Hey, Setta: open the release checklist  ",
+        type: "utterance_finalized",
+      });
+
+      await vi.waitFor(() =>
+        expect(harness.events.some((event) => event.type === "wake_transcript")).toBe(true),
+      );
+      const wake = harness.events.find((event) => event.type === "wake_transcript");
+      expect(wake).toMatchObject({
+        settings: { state: { status: "submitting", transcript: "open the release checklist" } },
+        transcript: "open the release checklist",
+        type: "wake_transcript",
+      });
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  test("keeps finalized wake transcripts that do not start with the exact wake phrase", async () => {
+    const harness = await createHarness();
+    try {
+      await harness.service.updateSettings(true);
+      harness.emit({ type: "listener_armed" });
+      harness.emit({ score: 0.74, timeMs: 960, type: "wake_detected" });
+      harness.emit({ timeMs: 1_140, type: "message_speech_started" });
+      harness.emit({ timeMs: 2_220, type: "candidate_endpoint_detected" });
+      harness.emit({
+        transcript: "Hey setter, open the release checklist",
+        type: "utterance_finalized",
+      });
+
+      await vi.waitFor(() =>
+        expect(harness.events.some((event) => event.type === "wake_transcript")).toBe(true),
+      );
+      const wake = harness.events.find((event) => event.type === "wake_transcript");
+      expect(wake).toMatchObject({
+        settings: {
+          state: {
+            status: "submitting",
+            transcript: "Hey setter, open the release checklist",
+          },
+        },
+        transcript: "Hey setter, open the release checklist",
+        type: "wake_transcript",
+      });
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   test("pauses and resumes an armed listener around manual capture", async () => {
     const harness = await createHarness();
     try {

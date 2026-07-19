@@ -317,13 +317,18 @@ to the focused conversation without clicking the mic button.
 
 ### Phase 4: Endpointing and Product Hardening
 
-- Tune VAD, silence, padding, and maximum-duration parameters.
-- Strip leading wake phrase text deterministically from transcripts.
-- Add half-duplex playback suppression.
-- Add recovery for helper crash, model load failure, microphone denial, and
+- [ ] Tune VAD, silence, padding, and maximum-duration parameters.
+- [x] Strip leading wake phrase text deterministically from transcripts.
+- [ ] Add half-duplex playback suppression.
+- [ ] Add recovery for helper crash, model load failure, microphone denial, and
   local voice not ready.
-- Add a visible path from failed listener state to Settings -> Voices.
-- Record CPU/memory/battery measurements in the report.
+- [ ] Add a visible path from failed listener state to Settings -> Voices.
+- [ ] Record CPU/memory/battery measurements in the report.
+
+Implementation note (2026-07-21): finalized wake transcripts now strip only the
+canonical leading "Hey Setta" phrase grammar before entering the renderer
+submission path. Focused service coverage verifies both the stripped transcript
+and a near-miss phrase that must remain untouched.
 
 Exit criteria: dogfood builds can stay armed for long sessions without obvious
 false wakes, clipped first words, or stuck capture.

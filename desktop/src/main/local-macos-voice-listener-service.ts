@@ -444,11 +444,10 @@ function transitionsForEngineEvent(
       return [{ timeMs: event.timeMs, type: "message_speech_started" }];
     case "candidate_endpoint_detected":
       return [{ timeMs: event.timeMs, type: "candidate_endpoint_detected" }];
-    case "utterance_finalized":
-      return [
-        { type: "endpoint_accepted" },
-        { transcript: event.transcript, type: "transcription_finalized" },
-      ];
+    case "utterance_finalized": {
+      const transcript = stripLeadingWakePhrase(event.transcript);
+      return [{ type: "endpoint_accepted" }, { transcript, type: "transcription_finalized" }];
+    }
     case "microphone_denied":
       return [{ message: event.message, type: "microphone_denied" }];
     case "local_voice_not_ready":
@@ -587,6 +586,13 @@ async function readWakeModelSHA256(path: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+function stripLeadingWakePhrase(transcript: string): string {
+  return transcript
+    .trim()
+    .replace(/^hey[\s,;:.!?]+setta(?=$|[\s,;:.!?])[\s,;:.!?]*/i, "")
+    .trim();
 }
 
 function assertNever(value: never): never {
