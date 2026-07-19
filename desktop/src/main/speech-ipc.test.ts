@@ -91,8 +91,11 @@ describe("speech IPC handlers", () => {
       ipcChannels.speechUpdateNarratorVoiceDefault,
       { requestedVoiceId: "ash", selection: "exact" },
     );
-    const session = await invoke(handlers, ipcChannels.speechCreateTranscriptionSession);
+    const session = await invoke(handlers, ipcChannels.speechCreateTranscriptionSession, {
+      provider: "openai",
+    });
     const synthesisRequest = {
+      provider: "openai" as const,
       resolvedVoiceId: "cedar" as const,
       source: {
         conversationId: "conversation-speech",
@@ -105,7 +108,7 @@ describe("speech IPC handlers", () => {
       request: synthesisRequest,
     });
 
-    expect(backend.createSpeechTranscriptionSession).toHaveBeenCalledWith({});
+    expect(backend.createSpeechTranscriptionSession).toHaveBeenCalledWith({ provider: "openai" });
     expect(capabilities).toMatchObject({ providerStatus: "configured" });
     expect(masterVoice).toMatchObject({ resolvedVoiceId: "marin", selection: "exact" });
     expect(updatedMasterVoice).toMatchObject({ resolvedVoiceId: "cedar", selection: "exact" });
@@ -163,6 +166,7 @@ describe("speech IPC handlers", () => {
     const request = {
       operationId: "speech-cancel",
       request: {
+        provider: "openai",
         resolvedVoiceId: "cedar",
         source: {
           conversationId: "conversation-speech",
@@ -206,16 +210,22 @@ describe("speech IPC handlers", () => {
       requireSpeechCredentialCoordinator: () => coordinator,
     });
 
-    const read = await invoke(handlers, ipcChannels.speechReadCredentialSettings);
+    const read = await invoke(handlers, ipcChannels.speechReadCredentialSettings, {
+      provider: "openai",
+    });
     const saved = await invoke(handlers, ipcChannels.speechSaveCredential, {
+      provider: "openai",
       apiKey: " ipc-whitespace-candidate ",
     });
-    const removed = await invoke(handlers, ipcChannels.speechRemoveCredential);
+    const removed = await invoke(handlers, ipcChannels.speechRemoveCredential, {
+      provider: "openai",
+    });
 
     expect(read).toEqual({ provider: "openai", status: "not_configured" });
     expect(saved).toEqual({ provider: "openai", status: "configured" });
     expect(removed).toEqual({ provider: "openai", status: "not_configured" });
     expect(coordinator.saveCredential).toHaveBeenCalledWith({
+      provider: "openai",
       apiKey: " ipc-whitespace-candidate ",
     });
     expect(activeRuntimeBackend.validateDesktopSpeechCredential).not.toHaveBeenCalled();
@@ -238,6 +248,7 @@ describe("speech IPC handlers", () => {
     });
 
     const settings = await invoke(handlers, ipcChannels.speechSaveCredential, {
+      provider: "openai",
       apiKey: "sk-setta-ipc-credential",
       duplicateSecret: "sk-setta-ipc-duplicate",
     });
@@ -262,14 +273,20 @@ function observerSpies() {
 
 function credentialCoordinator() {
   return {
-    readCredentialSettings: vi.fn(async () => ({
-      provider: "openai" as const,
-      status: "not_configured" as const,
-    })),
-    removeCredential: vi.fn(async () => ({
-      provider: "openai" as const,
-      status: "not_configured" as const,
-    })),
+    readCredentialSettings: vi.fn(async (request: { provider: "openai" }) => {
+      expect(request).toEqual({ provider: "openai" });
+      return {
+        provider: "openai" as const,
+        status: "not_configured" as const,
+      };
+    }),
+    removeCredential: vi.fn(async (request: { provider: "openai" }) => {
+      expect(request).toEqual({ provider: "openai" });
+      return {
+        provider: "openai" as const,
+        status: "not_configured" as const,
+      };
+    }),
     saveCredential: vi.fn(async () => ({
       provider: "openai" as const,
       status: "configured" as const,

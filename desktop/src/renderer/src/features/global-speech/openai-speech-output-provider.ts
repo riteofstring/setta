@@ -22,7 +22,10 @@ export function createOpenAIBackendSpeechOutputProvider(
       if (!setta.speech.synthesize) {
         return Promise.reject(new Error("the desktop speech synthesis boundary is unavailable"));
       }
-      return setta.speech.synthesize(request, operationId);
+      return setta.speech.synthesize(
+        { ...request, provider: openAISpeechProviderID() },
+        operationId,
+      );
     },
   };
 }

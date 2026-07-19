@@ -86,11 +86,13 @@ export interface VoiceInputProvider {
   startCapture: (request: VoiceCaptureStartRequest) => Promise<VoiceCaptureSession>;
 }
 
+export type VoiceSynthesisRequest = Omit<SpeechSynthesisRequest, "provider">;
+
 export interface VoiceOutputProvider {
   readonly id: SpeechProvider;
   cancel: (operationId: string) => Promise<void>;
   listVoices: () => Promise<SpeechVoiceCatalog>;
-  synthesize: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
+  synthesize: (request: VoiceSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
 }
 
 export class VoiceCaptureProviderError extends Error {

@@ -3,7 +3,9 @@ import type { IpcMain } from "electron";
 import type { BackendClient } from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import {
+  decodeSpeechCredentialProviderRequest,
   decodeSpeechCredentialSaveRequest,
+  type SpeechCredentialProviderRequest,
   type SpeechCredentialSaveRequest,
   type SpeechCredentialSettings,
   type SpeechSynthesisIpcRequest,
@@ -11,8 +13,10 @@ import {
 } from "@shared/speech-ipc";
 
 interface SpeechCredentialIpcCoordinator {
-  readCredentialSettings: () => Promise<SpeechCredentialSettings>;
-  removeCredential: () => Promise<SpeechCredentialSettings>;
+  readCredentialSettings: (
+    request: SpeechCredentialProviderRequest,
+  ) => Promise<SpeechCredentialSettings>;
+  removeCredential: (request: SpeechCredentialProviderRequest) => Promise<SpeechCredentialSettings>;
   saveCredential: (request: SpeechCredentialSaveRequest) => Promise<SpeechCredentialSettings>;
 }
 
@@ -36,7 +40,13 @@ export function registerSpeechIpcHandlers({
   handleIpc(
     ipcMain,
     "speechReadCredentialSettings",
-    async () => requireSpeechCredentialCoordinator().readCredentialSettings(),
+    async (_event, request) => {
+      const decoded = decodeCredentialProviderRequest(request);
+      if (decoded === null) {
+        return invalidCredentialProviderRequestSettings("read");
+      }
+      return requireSpeechCredentialCoordinator().readCredentialSettings(decoded);
+    },
     ipcObserver,
   );
   handleIpc(
@@ -54,7 +64,13 @@ export function registerSpeechIpcHandlers({
   handleIpc(
     ipcMain,
     "speechRemoveCredential",
-    async () => requireSpeechCredentialCoordinator().removeCredential(),
+    async (_event, request) => {
+      const decoded = decodeCredentialProviderRequest(request);
+      if (decoded === null) {
+        return invalidCredentialProviderRequestSettings("remove");
+      }
+      return requireSpeechCredentialCoordinator().removeCredential(decoded);
+    },
     ipcObserver,
   );
   handleIpc(
@@ -90,7 +106,7 @@ export function registerSpeechIpcHandlers({
   handleIpc(
     ipcMain,
     "speechCreateTranscriptionSession",
-    async () => requireBackendClient().createSpeechTranscriptionSession({}),
+    async (_event, request) => requireBackendClient().createSpeechTranscriptionSession(request),
     observerWithRedactedResult(ipcObserver),
   );
   handleIpc(
@@ -112,10 +128,28 @@ function decodeCredentialSaveRequest(request: unknown): SpeechCredentialSaveRequ
   }
 }
 
+function decodeCredentialProviderRequest(request: unknown): SpeechCredentialProviderRequest | null {
+  try {
+    return decodeSpeechCredentialProviderRequest(request);
+  } catch {
+    return null;
+  }
+}
+
 function invalidCredentialSaveRequestSettings(): SpeechCredentialSettings {
   return {
     message: "Speech credential save request is invalid.",
     operation: "save",
+    status: "failed",
+  };
+}
+
+function invalidCredentialProviderRequestSettings(
+  operation: "read" | "remove",
+): SpeechCredentialSettings {
+  return {
+    message: "Speech credential provider request is invalid.",
+    operation,
     status: "failed",
   };
 }

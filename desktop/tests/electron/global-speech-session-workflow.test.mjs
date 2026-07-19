@@ -111,7 +111,7 @@ try {
   );
   assertMasterVoiceSelection(firstMasterVoiceSelection);
   initialTranscriptionSession = await context.client.evaluate(
-    "window.setta.speech.createTranscriptionSession()",
+    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
   );
   assertTranscriptionSession(initialTranscriptionSession, provider.clientSecret);
   const easyButtonPaneCount = await context.client.evaluate(
@@ -134,7 +134,7 @@ try {
   );
   assertRejectedReplacement(rejectedReplacement);
   previousCredentialTranscriptionSession = await context.client.evaluate(
-    "window.setta.speech.createTranscriptionSession()",
+    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
   );
   assertTranscriptionSession(previousCredentialTranscriptionSession, provider.clientSecret);
 
@@ -143,7 +143,7 @@ try {
     replacementCredential.apiKey,
   );
   replacementTranscriptionSession = await context.client.evaluate(
-    "window.setta.speech.createTranscriptionSession()",
+    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
   );
   assertTranscriptionSession(replacementTranscriptionSession, replacementCredential.clientSecret);
   await assertConfiguredCredentialSettings(context.client);
@@ -156,7 +156,7 @@ try {
   );
   assertConfiguredCapabilities(reloadedCapabilities);
   reloadedTranscriptionSession = await context.client.evaluate(
-    "window.setta.speech.createTranscriptionSession()",
+    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
   );
   assertTranscriptionSession(reloadedTranscriptionSession, replacementCredential.clientSecret);
 
@@ -165,7 +165,7 @@ try {
     firstLocalRuntimeAccess,
   );
   switchedBackTranscriptionSession = await context.client.evaluate(
-    "window.setta.speech.createTranscriptionSession()",
+    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
   );
   assertTranscriptionSession(switchedBackTranscriptionSession, replacementCredential.clientSecret);
 
@@ -214,7 +214,7 @@ try {
     );
   }
   restoredTranscriptionSession = await context.client.evaluate(
-    "window.setta.speech.createTranscriptionSession()",
+    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
   );
   assertTranscriptionSession(restoredTranscriptionSession, replacementCredential.clientSecret);
   secondAcceptedInput = await submitMasterInput(context.client, masterInputRequest);
@@ -444,7 +444,7 @@ async function assertNotConfiguredCredentialSettings(client) {
 function waitForCredentialSettingsStatus(client, status) {
   return waitForState(
     client,
-    "window.setta.speech.readCredentialSettings()",
+    'window.setta.speech.readCredentialSettings({ provider: "openai" })',
     (settings) => settings?.status === status,
     workflowTimeoutMs,
   );
@@ -488,7 +488,7 @@ function assertTranscriptionSession(session, expectedSecret) {
 async function assertSpeechNotConfigured(client, label) {
   const result = await client.evaluate(`(async () => {
     try {
-      await window.setta.speech.createTranscriptionSession();
+      await window.setta.speech.createTranscriptionSession({ provider: "openai" });
       return { ok: true, message: "" };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error) };

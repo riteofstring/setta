@@ -137,36 +137,41 @@ func TestSpeechCredentialEndpointsExposeTypedOperationsAndAuthenticatedDeviceSco
 		t,
 		fixture.handler,
 		"/speech/credentials/desktop/validate",
-		SpeechCredentialRequest{APIKey: credential},
+		SpeechCredentialRequest{Provider: speech.SpeechProviderOpenAI, APIKey: credential},
 		fixture.token,
 		http.StatusOK,
 	)
 	if validated != fixture.service.credentialValidationResult ||
+		fixture.service.credentialValidationProvider != speech.SpeechProviderOpenAI ||
 		fixture.service.credentialValidationAPIKey != credential ||
 		fixture.service.credentialValidationDeviceID != fixture.deviceID {
-		t.Fatalf("validated=%+v credential=%q device=%q", validated, fixture.service.credentialValidationAPIKey, fixture.service.credentialValidationDeviceID)
+		t.Fatalf("validated=%+v provider=%q credential=%q device=%q", validated, fixture.service.credentialValidationProvider, fixture.service.credentialValidationAPIKey, fixture.service.credentialValidationDeviceID)
 	}
 	loaded := postJSONWithToken[speech.SpeechCredentialStatus](
 		t,
 		fixture.handler,
 		"/speech/credentials/desktop/load",
-		SpeechCredentialRequest{APIKey: credential},
+		SpeechCredentialRequest{Provider: speech.SpeechProviderOpenAI, APIKey: credential},
 		fixture.token,
 		http.StatusOK,
 	)
-	if loaded != fixture.service.credentialStatus || fixture.service.loadedCredentialAPIKey != credential {
-		t.Fatalf("loaded=%+v credential=%q", loaded, fixture.service.loadedCredentialAPIKey)
+	if loaded != fixture.service.credentialStatus ||
+		fixture.service.loadedCredentialProvider != speech.SpeechProviderOpenAI ||
+		fixture.service.loadedCredentialAPIKey != credential {
+		t.Fatalf("loaded=%+v provider=%q credential=%q", loaded, fixture.service.loadedCredentialProvider, fixture.service.loadedCredentialAPIKey)
 	}
 	cleared := postJSONWithToken[speech.SpeechCredentialStatus](
 		t,
 		fixture.handler,
 		"/speech/credentials/desktop/clear",
-		ClearDesktopSpeechCredentialRequest{},
+		ClearDesktopSpeechCredentialRequest{Provider: speech.SpeechProviderOpenAI},
 		fixture.token,
 		http.StatusOK,
 	)
-	if cleared != fixture.service.clearCredentialStatus || !fixture.service.credentialCleared {
-		t.Fatalf("cleared=%+v credentialCleared=%v", cleared, fixture.service.credentialCleared)
+	if cleared != fixture.service.clearCredentialStatus ||
+		fixture.service.clearedCredentialProvider != speech.SpeechProviderOpenAI ||
+		!fixture.service.credentialCleared {
+		t.Fatalf("cleared=%+v provider=%q credentialCleared=%v", cleared, fixture.service.clearedCredentialProvider, fixture.service.credentialCleared)
 	}
 }
 
@@ -177,18 +182,21 @@ func TestSpeechRealtimeEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope
 		t,
 		fixture.handler,
 		"/speech/transcription/sessions",
-		CreateSpeechTranscriptionSessionRequest{},
+		CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
 		fixture.token,
 		http.StatusOK,
 	)
-	if created != fixture.service.session || fixture.service.transcriptionDeviceID != fixture.deviceID {
-		t.Fatalf("created=%+v device=%q", created, fixture.service.transcriptionDeviceID)
+	if created != fixture.service.session ||
+		fixture.service.transcriptionProvider != speech.SpeechProviderOpenAI ||
+		fixture.service.transcriptionDeviceID != fixture.deviceID {
+		t.Fatalf("created=%+v provider=%q device=%q", created, fixture.service.transcriptionProvider, fixture.service.transcriptionDeviceID)
 	}
 	synthesized := postJSONWithToken[speech.SpeechAudio](
 		t,
 		fixture.handler,
 		"/speech/synthesis",
 		speech.SpeechSynthesisRequest{
+			Provider:        speech.SpeechProviderOpenAI,
 			Source:          fixture.service.synthesisAudio.Source,
 			ResolvedVoiceID: fixture.service.synthesisAudio.ResolvedVoiceID,
 		},
@@ -220,11 +228,11 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 		{method: http.MethodPost, path: "/speech/voices/master/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
 		{method: http.MethodGet, path: "/speech/voices/narrator-default"},
 		{method: http.MethodPost, path: "/speech/voices/narrator-default/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
-		{method: http.MethodPost, path: "/speech/credentials/desktop/validate", body: `{"apiKey":"sk-setta-http-speech-credential"}`},
-		{method: http.MethodPost, path: "/speech/credentials/desktop/load", body: `{"apiKey":"sk-setta-http-speech-credential"}`},
-		{method: http.MethodPost, path: "/speech/credentials/desktop/clear", body: `{}`},
-		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{}`},
-		{method: http.MethodPost, path: "/speech/synthesis", body: `{"source":{"speaker":"master","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
+		{method: http.MethodPost, path: "/speech/credentials/desktop/validate", body: `{"provider":"openai","apiKey":"sk-setta-http-speech-credential"}`},
+		{method: http.MethodPost, path: "/speech/credentials/desktop/load", body: `{"provider":"openai","apiKey":"sk-setta-http-speech-credential"}`},
+		{method: http.MethodPost, path: "/speech/credentials/desktop/clear", body: `{"provider":"openai"}`},
+		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{"provider":"openai"}`},
+		{method: http.MethodPost, path: "/speech/synthesis", body: `{"provider":"openai","source":{"speaker":"master","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
 	}
 	for _, test := range tests {
 		request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
@@ -303,7 +311,13 @@ func TestSpeechEndpointMapsTypedFailures(t *testing.T) {
 				Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
 				SpeechService: service,
 			})
-			response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, test.wantStatus)
+			response := postJSON[ErrorResponse](
+				t,
+				handler,
+				"/speech/transcription/sessions",
+				CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
+				test.wantStatus,
+			)
 			if response.Error.Code != string(test.code) || response.Error.Message != "safe classified speech failure" {
 				t.Fatalf("error = %+v", response.Error)
 			}
@@ -317,7 +331,13 @@ func TestSpeechEndpointMapsUnclassifiedFailureWithoutChangingOperationState(t *t
 		Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
 		SpeechService: service,
 	})
-	response := postJSON[ErrorResponse](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, http.StatusBadRequest)
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/speech/transcription/sessions",
+		CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
+		http.StatusBadRequest,
+	)
 	if response.Error.Code != "create_speech_transcription_session_failed" {
 		t.Fatalf("error = %+v", response.Error)
 	}
@@ -362,6 +382,7 @@ func TestSpeechSynthesisEndpointMapsSourceStateFailures(t *testing.T) {
 				handler,
 				"/speech/synthesis",
 				speech.SpeechSynthesisRequest{
+					Provider: speech.SpeechProviderOpenAI,
 					Source: speech.SpeechSource{
 						Speaker: speech.SpeechSpeakerMaster,
 						EventID: "master-answer",
@@ -383,7 +404,13 @@ func TestSpeechEndpointRejectsRemovedWorkspaceScope(t *testing.T) {
 		Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
 		SpeechService: service,
 	})
-	response := postRaw[ErrorResponse](t, handler, "/speech/transcription/sessions", `{"workspaceId":"workspace_old"}`, http.StatusBadRequest)
+	response := postRaw[ErrorResponse](
+		t,
+		handler,
+		"/speech/transcription/sessions",
+		`{"provider":"openai","workspaceId":"workspace_old"}`,
+		http.StatusBadRequest,
+	)
 	if response.Error.Code != "invalid_json" || service.calls != 0 {
 		t.Fatalf("error=%+v serviceCalls=%d", response.Error, service.calls)
 	}
@@ -399,7 +426,7 @@ func TestSpeechCredentialEndpointRejectsUnknownFields(t *testing.T) {
 		t,
 		handler,
 		"/speech/credentials/desktop/validate",
-		`{"apiKey":"sk-setta-http-speech-credential","extra":true}`,
+		`{"provider":"openai","apiKey":"sk-setta-http-speech-credential","extra":true}`,
 		http.StatusBadRequest,
 	)
 	if response.Error.Code != "invalid_json" || service.calls != 0 {
@@ -443,19 +470,23 @@ type fakeHTTPSpeechService struct {
 	narratorVoiceDefaultUpdateErr error
 	credentialValidationResult    speech.SpeechCredentialValidationResult
 	credentialValidationErr       error
+	credentialValidationProvider  speech.SpeechProvider
 	credentialValidationAPIKey    string
 	credentialValidationDeviceID  string
 	credentialStatus              speech.SpeechCredentialStatus
 	loadCredentialErr             error
+	loadedCredentialProvider      speech.SpeechProvider
 	loadedCredentialAPIKey        string
 	clearCredentialStatus         speech.SpeechCredentialStatus
 	clearCredentialErr            error
+	clearedCredentialProvider     speech.SpeechProvider
 	credentialCleared             bool
 	synthesisAudio                speech.SpeechAudio
 	synthesisErr                  error
 	synthesisRequest              speech.SpeechSynthesisRequest
 	session                       speech.SpeechTranscriptionSession
 	transcriptionErr              error
+	transcriptionProvider         speech.SpeechProvider
 	transcriptionDeviceID         string
 	calls                         int
 }
@@ -510,10 +541,12 @@ func (service *fakeHTTPSpeechService) UpdateNarratorVoiceDefault(
 
 func (service *fakeHTTPSpeechService) ValidateCredential(
 	_ context.Context,
+	provider speech.SpeechProvider,
 	apiKey string,
 	deviceID string,
 ) (speech.SpeechCredentialValidationResult, error) {
 	service.calls++
+	service.credentialValidationProvider = provider
 	service.credentialValidationAPIKey = apiKey
 	service.credentialValidationDeviceID = deviceID
 	return service.credentialValidationResult, service.credentialValidationErr
@@ -521,21 +554,32 @@ func (service *fakeHTTPSpeechService) ValidateCredential(
 
 func (service *fakeHTTPSpeechService) LoadCredential(
 	_ context.Context,
+	provider speech.SpeechProvider,
 	apiKey string,
 ) (speech.SpeechCredentialStatus, error) {
 	service.calls++
+	service.loadedCredentialProvider = provider
 	service.loadedCredentialAPIKey = apiKey
 	return service.credentialStatus, service.loadCredentialErr
 }
 
-func (service *fakeHTTPSpeechService) ClearCredential(context.Context) (speech.SpeechCredentialStatus, error) {
+func (service *fakeHTTPSpeechService) ClearCredential(
+	_ context.Context,
+	provider speech.SpeechProvider,
+) (speech.SpeechCredentialStatus, error) {
 	service.calls++
+	service.clearedCredentialProvider = provider
 	service.credentialCleared = true
 	return service.clearCredentialStatus, service.clearCredentialErr
 }
 
-func (service *fakeHTTPSpeechService) CreateTranscriptionSession(_ context.Context, deviceID string) (speech.SpeechTranscriptionSession, error) {
+func (service *fakeHTTPSpeechService) CreateTranscriptionSession(
+	_ context.Context,
+	provider speech.SpeechProvider,
+	deviceID string,
+) (speech.SpeechTranscriptionSession, error) {
 	service.calls++
+	service.transcriptionProvider = provider
 	service.transcriptionDeviceID = deviceID
 	return service.session, service.transcriptionErr
 }

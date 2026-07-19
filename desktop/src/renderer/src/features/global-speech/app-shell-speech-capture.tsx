@@ -25,6 +25,7 @@ import {
   createOpenAIBrowserSpeechCaptureProvider,
   type OpenAIBrowserSpeechCaptureProviderDependencies,
 } from "./openai-speech-capture-provider";
+import { openAISpeechProviderID } from "./openai-speech-provider-id";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 
 export interface AppShellSpeechCaptureContextValue {
@@ -154,7 +155,8 @@ function browserControllerDependencies(
 ): AppShellSpeechCaptureControllerDependencies {
   const providerDependencies: OpenAIBrowserSpeechCaptureProviderDependencies = {
     createBufferedCapture: createBufferedMicrophoneCapture,
-    createTranscriptionSession: () => setta.speech.createTranscriptionSession(),
+    createTranscriptionSession: () =>
+      setta.speech.createTranscriptionSession({ provider: openAISpeechProviderID() }),
     createTransport: createRealtimeTranscriptionTransport,
     deferProviderConnection: (handler) => {
       globalThis.requestAnimationFrame(() => {

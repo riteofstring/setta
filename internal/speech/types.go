@@ -167,8 +167,9 @@ type SpeechSource struct {
 }
 
 type SpeechSynthesisRequest struct {
-	Source          SpeechSource  `json:"source"`
-	ResolvedVoiceID SpeechVoiceID `json:"resolvedVoiceId"`
+	Provider        SpeechProvider `json:"provider"`
+	Source          SpeechSource   `json:"source"`
+	ResolvedVoiceID SpeechVoiceID  `json:"resolvedVoiceId"`
 }
 
 type SpeechAudio struct {

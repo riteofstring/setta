@@ -26,6 +26,7 @@ describe("preload speech API", () => {
     await api.speech.readNarratorVoiceDefault?.();
     await api.speech.synthesize?.(
       {
+        provider: "openai",
         resolvedVoiceId: "cedar",
         source: {
           conversationId: "conversation-speech",
@@ -44,7 +45,7 @@ describe("preload speech API", () => {
       requestedVoiceId: "ash",
       selection: "exact",
     });
-    await api.speech.createTranscriptionSession();
+    await api.speech.createTranscriptionSession({ provider: "openai" });
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
@@ -55,6 +56,7 @@ describe("preload speech API", () => {
         {
           operationId: "speech-operation",
           request: {
+            provider: "openai",
             resolvedVoiceId: "cedar",
             source: {
               conversationId: "conversation-speech",
@@ -73,7 +75,7 @@ describe("preload speech API", () => {
         ipcChannels.speechUpdateNarratorVoiceDefault,
         { requestedVoiceId: "ash", selection: "exact" },
       ],
-      [ipcChannels.speechCreateTranscriptionSession],
+      [ipcChannels.speechCreateTranscriptionSession, { provider: "openai" }],
     ]);
   });
 
@@ -93,9 +95,12 @@ describe("preload speech API", () => {
     await import("./index");
     const api = exposed.setta as SettaAPI;
 
-    await api.speech.readCredentialSettings?.();
-    await api.speech.saveCredential?.({ apiKey: "sk-setta-preload-speech" });
-    await api.speech.removeCredential?.();
+    await api.speech.readCredentialSettings?.({ provider: "openai" });
+    await api.speech.saveCredential?.({
+      provider: "openai",
+      apiKey: "sk-setta-preload-speech",
+    });
+    await api.speech.removeCredential?.({ provider: "openai" });
     const listener = vi.fn();
     const unsubscribe = api.speech.onCredentialSettingsChanged?.(listener);
     const handler = eventHandler(on, ipcEvents.speechCredentialSettingsChanged);
@@ -103,9 +108,9 @@ describe("preload speech API", () => {
     unsubscribe?.();
 
     expect(invoke.mock.calls).toEqual([
-      [ipcChannels.speechReadCredentialSettings],
-      [ipcChannels.speechSaveCredential, { apiKey: "sk-setta-preload-speech" }],
-      [ipcChannels.speechRemoveCredential],
+      [ipcChannels.speechReadCredentialSettings, { provider: "openai" }],
+      [ipcChannels.speechSaveCredential, { provider: "openai", apiKey: "sk-setta-preload-speech" }],
+      [ipcChannels.speechRemoveCredential, { provider: "openai" }],
     ]);
     expect(listener).toHaveBeenCalledWith({ provider: "openai", status: "configured" });
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.speechCredentialSettingsChanged, handler);

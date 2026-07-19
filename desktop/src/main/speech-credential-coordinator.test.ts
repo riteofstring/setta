@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { openAISpeechProviderID } from "@shared/speech-providers";
 
 import type {
   SpeechCredentialRuntimeClient,
@@ -10,6 +11,8 @@ import type {
   SpeechCredentialVaultRecoverySnapshot,
 } from "./speech-credential-vault";
 import { SpeechCredentialVaultError } from "./speech-credential-vault";
+
+const openAIProvider = openAISpeechProviderID();
 
 describe("SpeechCredentialCoordinator", () => {
   beforeEach(() => {
@@ -28,6 +31,7 @@ describe("SpeechCredentialCoordinator", () => {
     published.length = 0;
 
     const settings = await coordinator.saveCredential({
+      provider: openAIProvider,
       apiKey: "sk-setta-coordinator-new",
     });
 
@@ -50,6 +54,7 @@ describe("SpeechCredentialCoordinator", () => {
     await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
+      provider: openAIProvider,
       apiKey: "sk-setta invalid",
     });
 
@@ -69,6 +74,7 @@ describe("SpeechCredentialCoordinator", () => {
     await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
+      provider: openAIProvider,
       apiKey: " coordinator-whitespace-candidate ",
     });
 
@@ -89,6 +95,7 @@ describe("SpeechCredentialCoordinator", () => {
     await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
+      provider: openAIProvider,
       apiKey: "sk-setta-coordinator-new",
     });
 
@@ -118,6 +125,7 @@ describe("SpeechCredentialCoordinator", () => {
     await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
+      provider: openAIProvider,
       apiKey: "sk-setta-coordinator-new",
     });
 
@@ -148,6 +156,7 @@ describe("SpeechCredentialCoordinator", () => {
     await connectLocalRuntime(coordinator, vault, runtime);
 
     const settings = await coordinator.saveCredential({
+      provider: openAIProvider,
       apiKey: "sk-setta-coordinator-new",
     });
 
@@ -167,7 +176,7 @@ describe("SpeechCredentialCoordinator", () => {
     const coordinator = new SpeechCredentialCoordinator({ vault });
     await connectLocalRuntime(coordinator, vault, runtime);
 
-    const settings = await coordinator.removeCredential();
+    const settings = await coordinator.removeCredential({ provider: openAIProvider });
 
     expect(settings).toEqual({ provider: "openai", status: "not_configured" });
     expect(vault.persistedAPIKey).toBeNull();
@@ -185,7 +194,7 @@ describe("SpeechCredentialCoordinator", () => {
     const coordinator = new SpeechCredentialCoordinator({ vault });
     await connectLocalRuntime(coordinator, vault, runtime);
 
-    const settings = await coordinator.removeCredential();
+    const settings = await coordinator.removeCredential({ provider: openAIProvider });
 
     expect(settings).toEqual({
       message:
@@ -205,11 +214,15 @@ describe("SpeechCredentialCoordinator", () => {
     const coordinator = new SpeechCredentialCoordinator({ vault });
     await connectLocalRuntime(coordinator, vault, runtime);
 
-    const first = coordinator.saveCredential({ apiKey: "sk-setta-coordinator-first" });
+    const first = coordinator.saveCredential({
+      provider: openAIProvider,
+      apiKey: "sk-setta-coordinator-first",
+    });
     await vi.waitFor(() => {
       expect(runtime.operations).toEqual(["1:runtime:validate:sk-setta-coordinator-first"]);
     });
     const second = await coordinator.saveCredential({
+      provider: openAIProvider,
       apiKey: "sk-setta-coordinator-second",
     });
     validation.resolve();
@@ -239,15 +252,19 @@ describe("SpeechCredentialCoordinator", () => {
       vault: null,
     });
 
-    await expect(corruptCoordinator.saveCredential({ apiKey: "sk-setta-new" })).resolves.toEqual({
+    await expect(
+      corruptCoordinator.saveCredential({ provider: openAIProvider, apiKey: "sk-setta-new" }),
+    ).resolves.toEqual({
       message: "The saved speech credential ciphertext is invalid.",
       reason: "invalid_base64",
       status: "corrupt",
     });
-    await expect(unavailable.readCredentialSettings()).resolves.toEqual({
-      message: "Electron safeStorage encryption is unavailable.",
-      status: "secure_storage_unavailable",
-    });
+    await expect(unavailable.readCredentialSettings({ provider: openAIProvider })).resolves.toEqual(
+      {
+        message: "Electron safeStorage encryption is unavailable.",
+        status: "secure_storage_unavailable",
+      },
+    );
   });
 
   test("restores a persisted credential into the authenticated local runtime", async () => {
@@ -482,7 +499,16 @@ class FakeSpeechCredentialRuntime implements SpeechCredentialRuntimeClient {
     this.activeAPIKey = initialAPIKey;
   }
 
-  async validateDesktopSpeechCredential({ apiKey }: { apiKey: string }) {
+  async validateDesktopSpeechCredential({
+    provider,
+    apiKey,
+  }: {
+    provider: typeof openAIProvider;
+    apiKey: string;
+  }) {
+    if (provider !== openAIProvider) {
+      throw new Error(`unexpected credential validation provider ${provider}`);
+    }
     this.record(`runtime:validate:${apiKey}`);
     await this.beforeValidate?.();
     if (this.validateError) {
@@ -491,7 +517,16 @@ class FakeSpeechCredentialRuntime implements SpeechCredentialRuntimeClient {
     return { provider: "openai" as const, valid: true };
   }
 
-  async loadDesktopSpeechCredential({ apiKey }: { apiKey: string }) {
+  async loadDesktopSpeechCredential({
+    provider,
+    apiKey,
+  }: {
+    provider: typeof openAIProvider;
+    apiKey: string;
+  }) {
+    if (provider !== openAIProvider) {
+      throw new Error(`unexpected credential load provider ${provider}`);
+    }
     this.record(`runtime:load:${apiKey}`);
     if (this.failLoadsFor.has(apiKey)) {
       throw new Error("load failed");
@@ -500,7 +535,10 @@ class FakeSpeechCredentialRuntime implements SpeechCredentialRuntimeClient {
     return { provider: "openai" as const, providerStatus: "configured" as const };
   }
 
-  async clearDesktopSpeechCredential() {
+  async clearDesktopSpeechCredential({ provider }: { provider: typeof openAIProvider }) {
+    if (provider !== openAIProvider) {
+      throw new Error(`unexpected credential clear provider ${provider}`);
+    }
     this.record("runtime:clear");
     if (this.clearError) {
       throw this.clearError;

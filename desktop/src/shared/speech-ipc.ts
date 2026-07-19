@@ -1,12 +1,14 @@
-import type {
-  MasterVoiceSelection,
-  NarratorVoiceDefault,
-  SpeechProvider,
-  SpeechAudio,
-  SpeechCapabilities,
-  SpeechSynthesisRequest,
-  SpeechTranscriptionSession,
-  VoiceSelectionRequest,
+import {
+  decodeSpeechProvider,
+  type MasterVoiceSelection,
+  type NarratorVoiceDefault,
+  type CreateSpeechTranscriptionSessionRequest,
+  type SpeechProvider,
+  type SpeechAudio,
+  type SpeechCapabilities,
+  type SpeechSynthesisRequest,
+  type SpeechTranscriptionSession,
+  type VoiceSelectionRequest,
 } from "@generated/backend";
 
 export const speechIpcChannels = {
@@ -40,7 +42,11 @@ export type SpeechCredentialSettings =
   | { status: "corrupt"; reason: SpeechCredentialCorruptionReason; message: string }
   | { status: "failed"; operation: SpeechCredentialOperation; message: string };
 
-export interface SpeechCredentialSaveRequest {
+export interface SpeechCredentialProviderRequest {
+  provider: SpeechProvider;
+}
+
+export interface SpeechCredentialSaveRequest extends SpeechCredentialProviderRequest {
   apiKey: string;
 }
 
@@ -61,7 +67,7 @@ export interface SpeechIpcContract {
     result: void;
   };
   speechCreateTranscriptionSession: {
-    args: [];
+    args: [request: CreateSpeechTranscriptionSessionRequest];
     result: SpeechTranscriptionSession;
   };
   speechReadCapabilities: {
@@ -69,7 +75,7 @@ export interface SpeechIpcContract {
     result: SpeechCapabilities;
   };
   speechReadCredentialSettings: {
-    args: [];
+    args: [request: SpeechCredentialProviderRequest];
     result: SpeechCredentialSettings;
   };
   speechReadMasterVoiceSelection: {
@@ -81,7 +87,7 @@ export interface SpeechIpcContract {
     result: NarratorVoiceDefault;
   };
   speechRemoveCredential: {
-    args: [];
+    args: [request: SpeechCredentialProviderRequest];
     result: SpeechCredentialSettings;
   };
   speechSaveCredential: {
@@ -142,19 +148,27 @@ export function decodeSpeechCredentialSettings(value: unknown): SpeechCredential
 
 export function decodeSpeechCredentialSaveRequest(value: unknown): SpeechCredentialSaveRequest {
   const record = assertRecord(value, "SpeechCredentialSaveRequest");
-  assertKnownFields(record, "SpeechCredentialSaveRequest", ["apiKey"]);
+  assertKnownFields(record, "SpeechCredentialSaveRequest", ["provider", "apiKey"]);
   return {
+    provider: decodeSpeechProvider(
+      stringField(record, "provider", "SpeechCredentialSaveRequest"),
+      "SpeechCredentialSaveRequest.provider",
+    ),
     apiKey: stringField(record, "apiKey", "SpeechCredentialSaveRequest"),
   };
 }
 
-function decodeSpeechProvider(value: string): SpeechProvider {
-  switch (value) {
-    case "openai":
-      return value;
-    default:
-      throw new Error("SpeechCredentialSettings.provider is unsupported: " + value);
-  }
+export function decodeSpeechCredentialProviderRequest(
+  value: unknown,
+): SpeechCredentialProviderRequest {
+  const record = assertRecord(value, "SpeechCredentialProviderRequest");
+  assertKnownFields(record, "SpeechCredentialProviderRequest", ["provider"]);
+  return {
+    provider: decodeSpeechProvider(
+      stringField(record, "provider", "SpeechCredentialProviderRequest"),
+      "SpeechCredentialProviderRequest.provider",
+    ),
+  };
 }
 
 function decodeSpeechCredentialCorruptionReason(value: string): SpeechCredentialCorruptionReason {

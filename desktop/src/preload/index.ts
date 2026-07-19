@@ -109,7 +109,7 @@ const api: SettaAPI = {
   },
   speech: {
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
-    createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
+    createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
     onCredentialSettingsChanged: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeSpeechCredentialSettings(payload));
@@ -120,10 +120,10 @@ const api: SettaAPI = {
       };
     },
     readCapabilities: () => invoke("speechReadCapabilities"),
-    readCredentialSettings: () => invoke("speechReadCredentialSettings"),
+    readCredentialSettings: (request) => invoke("speechReadCredentialSettings", request),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
-    removeCredential: () => invoke("speechRemoveCredential"),
+    removeCredential: (request) => invoke("speechRemoveCredential", request),
     saveCredential: (request) => invoke("speechSaveCredential", request),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
     updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),

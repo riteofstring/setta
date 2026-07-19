@@ -142,7 +142,10 @@ describe("appearance settings", () => {
   test("preserves leading and trailing whitespace in the credential save request", () => {
     const draft = " renderer-whitespace-candidate ";
 
-    expect(speechCredentialSaveRequestFromDraft(draft)).toEqual({ apiKey: draft });
+    expect(speechCredentialSaveRequestFromDraft(draft)).toEqual({
+      provider: "openai",
+      apiKey: draft,
+    });
     expect(speechCredentialSaveRequestFromDraft(" \n\t ")).toBeNull();
   });
 

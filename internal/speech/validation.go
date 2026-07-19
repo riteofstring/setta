@@ -174,6 +174,9 @@ func (source SpeechSource) Validate() error {
 }
 
 func (request SpeechSynthesisRequest) Validate() error {
+	if !validValue(request.Provider, speechProviderValues) {
+		return fmt.Errorf("unsupported speech synthesis provider %q", request.Provider)
+	}
 	if err := request.Source.Validate(); err != nil {
 		return err
 	}

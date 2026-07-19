@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 65;
-export const backendContractSchemaHash = "sha256:e33f8e1cc80972f8cadfbc747628ceac4ce593372b6f8fd3c719f564cc2c09fa";
+export const backendProtocolVersion = 66;
+export const backendContractSchemaHash = "sha256:374198a960ee3f1376ea729d7e03304f67f2ab6087d99ecac712d445c56f6e48";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -3242,6 +3242,7 @@ export interface NarratorVoiceDefault {
 }
 
 export interface SpeechCredentialRequest {
+  provider: SpeechProvider;
   apiKey: string;
 }
 
@@ -3256,9 +3257,11 @@ export interface SpeechCredentialStatus {
 }
 
 export interface ClearDesktopSpeechCredentialRequest {
+  provider: SpeechProvider;
 }
 
 export interface CreateSpeechTranscriptionSessionRequest {
+  provider: SpeechProvider;
 }
 
 export interface SpeechTranscriptionSession {
@@ -3278,6 +3281,7 @@ export interface SpeechSource {
 }
 
 export interface SpeechSynthesisRequest {
+  provider: SpeechProvider;
   source: SpeechSource;
   resolvedVoiceId: SpeechVoiceID;
 }
@@ -6569,8 +6573,9 @@ export function decodeNarratorVoiceDefault(value: unknown): NarratorVoiceDefault
 
 export function decodeSpeechCredentialRequest(value: unknown): SpeechCredentialRequest {
   const record = assertRecord(value, "SpeechCredentialRequest");
-  assertKnownFields(record, "SpeechCredentialRequest", ["apiKey"]);
+  assertKnownFields(record, "SpeechCredentialRequest", ["provider", "apiKey"]);
   return {
+    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechCredentialRequest"), "SpeechCredentialRequest.provider"),
     apiKey: decodeString(requireField(record, "apiKey", "SpeechCredentialRequest"), "SpeechCredentialRequest.apiKey"),
   };
 }
@@ -6595,15 +6600,17 @@ export function decodeSpeechCredentialStatus(value: unknown): SpeechCredentialSt
 
 export function decodeClearDesktopSpeechCredentialRequest(value: unknown): ClearDesktopSpeechCredentialRequest {
   const record = assertRecord(value, "ClearDesktopSpeechCredentialRequest");
-  assertKnownFields(record, "ClearDesktopSpeechCredentialRequest", []);
+  assertKnownFields(record, "ClearDesktopSpeechCredentialRequest", ["provider"]);
   return {
+    provider: decodeSpeechProvider(requireField(record, "provider", "ClearDesktopSpeechCredentialRequest"), "ClearDesktopSpeechCredentialRequest.provider"),
   };
 }
 
 export function decodeCreateSpeechTranscriptionSessionRequest(value: unknown): CreateSpeechTranscriptionSessionRequest {
   const record = assertRecord(value, "CreateSpeechTranscriptionSessionRequest");
-  assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", []);
+  assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", ["provider"]);
   return {
+    provider: decodeSpeechProvider(requireField(record, "provider", "CreateSpeechTranscriptionSessionRequest"), "CreateSpeechTranscriptionSessionRequest.provider"),
   };
 }
 
@@ -6633,8 +6640,9 @@ export function decodeSpeechSource(value: unknown): SpeechSource {
 
 export function decodeSpeechSynthesisRequest(value: unknown): SpeechSynthesisRequest {
   const record = assertRecord(value, "SpeechSynthesisRequest");
-  assertKnownFields(record, "SpeechSynthesisRequest", ["source", "resolvedVoiceId"]);
+  assertKnownFields(record, "SpeechSynthesisRequest", ["provider", "source", "resolvedVoiceId"]);
   return {
+    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechSynthesisRequest"), "SpeechSynthesisRequest.provider"),
     source: decodeSpeechSource(requireField(record, "source", "SpeechSynthesisRequest")),
     resolvedVoiceId: decodeSpeechVoiceID(requireField(record, "resolvedVoiceId", "SpeechSynthesisRequest"), "SpeechSynthesisRequest.resolvedVoiceId"),
   };

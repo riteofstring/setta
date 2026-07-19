@@ -157,10 +157,12 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 	conversationID := "conversation-1"
 	requests := []SpeechSynthesisRequest{
 		{
+			Provider:        SpeechProviderOpenAI,
 			Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
 			ResolvedVoiceID: SpeechVoiceMarin,
 		},
 		{
+			Provider: SpeechProviderOpenAI,
 			Source: SpeechSource{
 				Speaker:        SpeechSpeakerNarrator,
 				EventID:        "status-reply-1",
@@ -176,10 +178,11 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 	}
 
 	invalid := []SpeechSynthesisRequest{
-		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
-		{Source: SpeechSource{Speaker: SpeechSpeakerNarrator, EventID: "status"}, ResolvedVoiceID: SpeechVoiceCedar},
-		{Source: SpeechSource{Speaker: "unknown", EventID: "event"}, ResolvedVoiceID: SpeechVoiceMarin},
-		{Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer"}, ResolvedVoiceID: "retired"},
+		{Provider: "", Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer"}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerNarrator, EventID: "status"}, ResolvedVoiceID: SpeechVoiceCedar},
+		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: "unknown", EventID: "event"}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer"}, ResolvedVoiceID: "retired"},
 	}
 	for _, request := range invalid {
 		if err := request.Validate(); err == nil {
