@@ -763,6 +763,36 @@ describe("app-shell speech capture controller", () => {
     });
   });
 
+  test("refreshes unavailable capture after provider setup becomes ready", async () => {
+    const reads = [
+      capabilities({ providerStatus: "not_configured" }),
+      capabilities({ providerStatus: "configured" }),
+    ];
+    const harness = createHarness({ readCapabilities: async () => reads.shift()! });
+
+    await harness.controller.synchronizeRuntime("runtime_capture");
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "not_configured" },
+      runtimeId: "runtime_capture",
+    });
+
+    await harness.controller.refreshCapabilities();
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "configured" },
+      runtimeId: "runtime_capture",
+    });
+
+    const start = harness.startMaster();
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await flushPromises();
+    await start;
+
+    expect(harness.currentCapture()).toMatchObject({ connection: "ready", type: "recording" });
+    expect(harness.mediaConstraints).toEqual([{ audio: true, video: false }]);
+    harness.controller.cancel();
+  });
+
   test("the recording-duration limit visibly fails and tears down capture", async () => {
     const session = deferred<SpeechTranscriptionSession>();
     const harness = createHarness({ createTranscriptionSession: () => session.promise });

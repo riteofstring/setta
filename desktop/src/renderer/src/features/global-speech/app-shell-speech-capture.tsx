@@ -1,4 +1,5 @@
 import type { SettaAPI } from "@shared/types";
+import type { LocalMacOSVoiceModelDownloadStatus } from "@shared/speech-ipc";
 import {
   createContext,
   type ReactNode,
@@ -88,10 +89,7 @@ export function AppShellSpeechCaptureProvider({
   useEffect(() => {
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);
-  useEffect(
-    () => subscribeSpeechCredentialCapabilityRefresh(setta, controller),
-    [controller, setta],
-  );
+  useEffect(() => subscribeSpeechCapabilityRefresh(setta, controller), [controller, setta]);
 
   return (
     <AppShellSpeechCaptureContext.Provider value={context}>
@@ -100,7 +98,7 @@ export function AppShellSpeechCaptureProvider({
   );
 }
 
-export function subscribeSpeechCredentialCapabilityRefresh(
+export function subscribeSpeechCapabilityRefresh(
   setta: SettaAPI,
   controller: Pick<AppShellSpeechCaptureController, "refreshCapabilities">,
 ): () => void {
@@ -112,10 +110,23 @@ export function subscribeSpeechCredentialCapabilityRefresh(
     setta.speech.onProviderSelectionChanged?.(() => {
       void controller.refreshCapabilities();
     }) ?? (() => {});
+  const unsubscribeLocalMacOSDownload =
+    setta.speech.onLocalMacOSVoiceModelDownloadChanged?.((status) => {
+      if (localMacOSDownloadChangesCaptureReadiness(status)) {
+        void controller.refreshCapabilities();
+      }
+    }) ?? (() => {});
   return () => {
     unsubscribeCredential();
+    unsubscribeLocalMacOSDownload();
     unsubscribeProvider();
   };
+}
+
+function localMacOSDownloadChangesCaptureReadiness(
+  status: LocalMacOSVoiceModelDownloadStatus,
+): boolean {
+  return status.status === "ready";
 }
 
 interface SpeechCaptureControllerDisposable {
