@@ -335,7 +335,7 @@ describe("app pane layout adapter", () => {
     });
   });
 
-  test("keeps the master pane when app conversation panes are bound elsewhere", () => {
+  test("restores app conversation panes bound to another folder", () => {
     const layout: AppPaneLayout = {
       columns: [
         {
@@ -408,39 +408,30 @@ describe("app pane layout adapter", () => {
       workspaceRootPath: "/tmp/other",
     });
 
-    expect(restored).toEqual({
-      layout: {
-        columns: [
-          {
-            columnId: "app_column_master",
-            idealWidthSpec: { unit: "px", value: 520 },
-            index: 0,
-            paneIds: ["app_pane_master"],
-            planeIndex: 0,
-            previousProportionWidth: null,
-            slotIndex: 0,
-            widthSpec: { unit: "px", value: 520 },
-          },
-        ],
-        focusedPaneId: "app_pane_master",
-        panes: [
-          {
-            columnId: "app_column_master",
-            heat: 0,
-            paneId: "app_pane_master",
-            sequence: 0,
-            subtitle: "Global coordinator",
-            surfaceId: "app_surface_master",
-            surfaceKind: "master",
-            title: "Setta",
-            tone: "slate",
-            weight: 1,
-          },
-        ],
-        schemaVersion: appPaneLayoutSchemaVersion,
-        workspaceId: "workspace_other",
+    expect(restored.maximizedPaneId).toBe("app_pane_topic");
+    expect(restored.layout).toMatchObject({
+      focusedPaneId: "app_pane_topic",
+      workspaceId: "workspace_other",
+    });
+    expect(restored.layout?.columns.map((column) => [column.index, column.slotIndex])).toEqual([
+      [0, 0],
+      [1, 1],
+    ]);
+    expect(restored.layout?.panes.find((pane) => pane.paneId === "app_pane_topic")).toEqual({
+      columnId: "app_column_0",
+      conversationConfig: {
+        conversationId: "conversation_api",
+        resourceBindings: [{ folder: { rootPath: "/tmp/setta-api" }, kind: "folder" }],
       },
-      maximizedPaneId: null,
+      heat: 12,
+      paneId: "app_pane_topic",
+      sequence: 4,
+      subtitle: "Topic conversation",
+      surfaceId: "app_surface_topic",
+      surfaceKind: "conversation",
+      title: "Build the API",
+      tone: "cyan",
+      weight: 1,
     });
   });
 

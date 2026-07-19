@@ -236,6 +236,7 @@ describe("conversation pane coordinator", () => {
           target: {
             conversationId: "conversation_shared",
             preferredPaneId: "pane_shared",
+            resourceBindings: [{ folder: { rootPath: "/tmp/setta-api" }, kind: "folder" }],
             title: "Shared topic",
             workspaceId: "workspace_api",
           },
@@ -255,6 +256,7 @@ describe("conversation pane coordinator", () => {
     ).toEqual({
       conversationId: "conversation_shared",
       preferredPaneId: "pane_shared",
+      resourceBindings: [{ folder: { rootPath: "/tmp/setta-api" }, kind: "folder" }],
       title: "Shared topic",
       workspaceId: "workspace_api",
     });

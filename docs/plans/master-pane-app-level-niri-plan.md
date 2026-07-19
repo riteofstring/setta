@@ -462,6 +462,29 @@ Replace its remaining jobs with:
 
 ### 7. Rework Presentation And Routing
 
+**Status:** In progress.
+
+Completed repository work:
+
+- Added explicit conversation pane resource bindings to trusted master presentation targets,
+  regenerated the backend TypeScript contract, and bumped the backend protocol version for the
+  breaking contract shape.
+- Resolved active workspace folder bindings into backend-built master route commands without
+  exposing folder paths to the routing model output.
+- Changed master presentation and master topic-picker open actions to present conversation panes in
+  the currently mounted app-level pane scene with explicit resource bindings instead of selecting the
+  target workspace first.
+- Restored app-level conversation panes regardless of their folder binding, and made conversation
+  surfaces resolve folder bindings back to active workspace ids before reading/subscribing to
+  conversation projection state.
+
+Remaining repository work:
+
+- Rework remaining non-master conversation focus/create/open command paths that still require
+  selecting or mounting a workspace before presenting a pane.
+- Rework focus hints and pane indexing so focused conversation context is derived from app-level
+  panes and their resource bindings instead of the selected-workspace pane index.
+
 Presentation intents should target app-level panes.
 
 Conversation focus/create/open commands should no longer select a workspace first. They should

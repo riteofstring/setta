@@ -55,7 +55,8 @@ export function appPaneLayoutToWorkspaceUILayout({
       maximizedPaneId: appMasterPaneId,
     };
   }
-  const currentLayout = currentWorkspaceLayoutFromAppLayout(layout, workspaceRootPath);
+  void workspaceRootPath;
+  const currentLayout = currentWorkspaceLayoutFromAppLayout(layout);
   if (!currentLayout) {
     return { layout: null, maximizedPaneId: null };
   }
@@ -109,11 +110,8 @@ function defaultMasterWorkspacePane(): WorkspacePane {
   };
 }
 
-function currentWorkspaceLayoutFromAppLayout(
-  layout: AppPaneLayout,
-  workspaceRootPath: string | null,
-): CurrentWorkspaceLayout | null {
-  const panes = layout.panes.flatMap((pane) => workspacePaneFromAppPane(pane, workspaceRootPath));
+function currentWorkspaceLayoutFromAppLayout(layout: AppPaneLayout): CurrentWorkspaceLayout | null {
+  const panes = layout.panes.flatMap((pane) => workspacePaneFromAppPane(pane));
   const paneIds = new Set(panes.map((pane) => pane.paneId));
   const columns = workspaceColumnsFromAppPaneColumns(layout.columns, paneIds);
   if (panes.length === 0 || columns.length === 0) {
@@ -191,16 +189,10 @@ export function appPaneLayoutFromWorkspaceScene({
   };
 }
 
-function workspacePaneFromAppPane(
-  pane: AppPane,
-  workspaceRootPath: string | null,
-): WorkspacePane[] {
+function workspacePaneFromAppPane(pane: AppPane): WorkspacePane[] {
   const fields = workspacePaneFieldsFromAppPane(pane);
   switch (pane.surfaceKind) {
     case "conversation":
-      if (!conversationPaneBelongsToWorkspace(pane, workspaceRootPath)) {
-        return [];
-      }
       return [
         {
           ...fields,
@@ -320,22 +312,6 @@ function appPaneColumnFromWorkspaceColumn(column: WorkspaceColumn, offset = 0): 
     slotIndex: (column.slotIndex ?? column.index) + offset,
     widthSpec: appPaneColumnWidthSpec(column.widthSpec),
   };
-}
-
-function conversationPaneBelongsToWorkspace(
-  pane: Extract<AppPane, { surfaceKind: "conversation" }>,
-  workspaceRootPath: string | null,
-): boolean {
-  const folderBindings = conversationResourceBindings(pane.conversationConfig).filter(
-    (binding) => binding.kind === "folder",
-  );
-  if (folderBindings.length === 0) {
-    return true;
-  }
-  if (!workspaceRootPath) {
-    return false;
-  }
-  return folderBindings.some((binding) => binding.folder.rootPath === workspaceRootPath);
 }
 
 function resourceBindingsFromWorkspacePane(

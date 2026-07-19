@@ -726,6 +726,7 @@ function focusPresentation(inputId: string): PresentationIntent {
       target: {
         conversationId: "conversation_alpha",
         preferredPaneId: "pane_alpha",
+        resourceBindings: [{ folder: { rootPath: "/tmp/setta-alpha" }, kind: "folder" }],
         title: "Alpha topic",
         workspaceId: "workspace_alpha",
       },

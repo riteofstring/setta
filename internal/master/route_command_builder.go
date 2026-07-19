@@ -3,6 +3,8 @@ package master
 import (
 	"errors"
 	"fmt"
+
+	"setta/internal/applayout"
 )
 
 func (service *RouteService) buildRouteCommand(
@@ -19,7 +21,7 @@ func (service *RouteService) buildRouteCommand(
 	case RouteDecisionKindAskNarrator:
 		return service.buildAskNarratorCommand(decision, bundle)
 	case RouteDecisionKindFocusConversation:
-		return buildFocusConversationCommand(decision, bundle)
+		return service.buildFocusConversationCommand(decision, bundle)
 	case RouteDecisionKindCreateConversation:
 		return service.buildCreateConversationCommand(decision)
 	case RouteDecisionKindCreateSideConversation:
@@ -43,11 +45,15 @@ func (service *RouteService) buildSendToAgentCommand(decision RouteDecision, bun
 	if err != nil {
 		return RouteCommand{}, err
 	}
+	presentationTarget, err := service.presentationTargetFor(target)
+	if err != nil {
+		return RouteCommand{}, err
+	}
 	turnID, err := service.routeCommandID("conversation_turn")
 	return RouteCommand{
 		Kind: decision.Kind,
 		SendToAgent: &MasterSendToAgentRouteCommand{
-			Target: presentationTargetFor(target), TurnID: turnID, AuthoredInput: decision.SendToAgent.AuthoredInput,
+			Target: presentationTarget, TurnID: turnID, AuthoredInput: decision.SendToAgent.AuthoredInput,
 		},
 	}, err
 }
@@ -57,11 +63,15 @@ func (service *RouteService) buildQueueAgentTurnCommand(decision RouteDecision, 
 	if err != nil {
 		return RouteCommand{}, err
 	}
+	presentationTarget, err := service.presentationTargetFor(target)
+	if err != nil {
+		return RouteCommand{}, err
+	}
 	turnID, err := service.routeCommandID("conversation_turn")
 	return RouteCommand{
 		Kind: decision.Kind,
 		QueueAgentTurn: &MasterQueueAgentTurnRouteCommand{
-			Target: presentationTargetFor(target), TurnID: turnID, AuthoredInput: decision.QueueAgentTurn.AuthoredInput,
+			Target: presentationTarget, TurnID: turnID, AuthoredInput: decision.QueueAgentTurn.AuthoredInput,
 		},
 	}, err
 }
@@ -77,10 +87,14 @@ func (service *RouteService) buildSteerActiveTurnCommand(decision RouteDecision,
 			errors.New("master route steering target has no active turn"),
 		)
 	}
+	presentationTarget, err := service.presentationTargetFor(target)
+	if err != nil {
+		return RouteCommand{}, err
+	}
 	return RouteCommand{
 		Kind: decision.Kind,
 		SteerActiveTurn: &MasterSteerActiveTurnRouteCommand{
-			Target: presentationTargetFor(target), TargetTurnID: *target.ActiveTurnID, AuthoredInput: decision.SteerActiveTurn.AuthoredInput,
+			Target: presentationTarget, TargetTurnID: *target.ActiveTurnID, AuthoredInput: decision.SteerActiveTurn.AuthoredInput,
 		},
 	}, nil
 }
@@ -90,23 +104,31 @@ func (service *RouteService) buildAskNarratorCommand(decision RouteDecision, bun
 	if err != nil {
 		return RouteCommand{}, err
 	}
+	presentationTarget, err := service.presentationTargetFor(target)
+	if err != nil {
+		return RouteCommand{}, err
+	}
 	requestID, err := service.routeCommandID("narrator_status")
 	return RouteCommand{
 		Kind: decision.Kind,
 		AskNarrator: &MasterAskNarratorRouteCommand{
-			Target: presentationTargetFor(target), RequestID: requestID, Question: decision.AskNarrator.Question,
+			Target: presentationTarget, RequestID: requestID, Question: decision.AskNarrator.Question,
 		},
 	}, err
 }
 
-func buildFocusConversationCommand(decision RouteDecision, bundle RouteContextBundle) (RouteCommand, error) {
+func (service *RouteService) buildFocusConversationCommand(decision RouteDecision, bundle RouteContextBundle) (RouteCommand, error) {
 	target, err := routeCommandTargetFor(bundle, decision.FocusConversation.ConversationID)
+	if err != nil {
+		return RouteCommand{}, err
+	}
+	presentationTarget, err := service.presentationTargetFor(target)
 	if err != nil {
 		return RouteCommand{}, err
 	}
 	return RouteCommand{
 		Kind:              decision.Kind,
-		FocusConversation: &MasterFocusConversationRouteCommand{Target: presentationTargetFor(target)},
+		FocusConversation: &MasterFocusConversationRouteCommand{Target: presentationTarget},
 	}, nil
 }
 
@@ -115,12 +137,16 @@ func (service *RouteService) buildCreateConversationCommand(decision RouteDecisi
 	if err != nil {
 		return RouteCommand{}, err
 	}
+	resourceBindings, err := service.presentationResourceBindingsForWorkspace(decision.CreateConversation.WorkspaceID)
+	if err != nil {
+		return RouteCommand{}, err
+	}
 	turnID, err := service.routeCommandID("conversation_turn")
 	return RouteCommand{
 		Kind: decision.Kind,
 		CreateConversation: &MasterCreateConversationRouteCommand{
 			Target: ConversationPresentationTarget{
-				WorkspaceID: decision.CreateConversation.WorkspaceID, ConversationID: conversationID, Title: decision.CreateConversation.ProposedTitle,
+				WorkspaceID: decision.CreateConversation.WorkspaceID, ConversationID: conversationID, ResourceBindings: resourceBindings, Title: decision.CreateConversation.ProposedTitle,
 			},
 			TurnID: turnID, InitialInput: decision.CreateConversation.InitialInput,
 		},
@@ -132,6 +158,10 @@ func (service *RouteService) buildCreateSideConversationCommand(decision RouteDe
 	if err != nil {
 		return RouteCommand{}, err
 	}
+	presentationTarget, err := service.presentationTargetFor(target)
+	if err != nil {
+		return RouteCommand{}, err
+	}
 	sideID, err := service.routeCommandID("side_conversation")
 	if err != nil {
 		return RouteCommand{}, err
@@ -140,7 +170,7 @@ func (service *RouteService) buildCreateSideConversationCommand(decision RouteDe
 	return RouteCommand{
 		Kind: decision.Kind,
 		CreateSideConversation: &MasterCreateSideConversationRouteCommand{
-			Target: presentationTargetFor(target), SideConversationID: sideID, TurnID: turnID, Input: decision.CreateSideConversation.Input,
+			Target: presentationTarget, SideConversationID: sideID, TurnID: turnID, Input: decision.CreateSideConversation.Input,
 		},
 	}, err
 }
@@ -154,13 +184,17 @@ func (service *RouteService) buildForkConversationCommand(decision RouteDecision
 	if err != nil {
 		return RouteCommand{}, err
 	}
+	resourceBindings, err := service.presentationResourceBindingsForWorkspace(parent.WorkspaceID)
+	if err != nil {
+		return RouteCommand{}, err
+	}
 	turnID, err := service.routeCommandID("conversation_turn")
 	return RouteCommand{
 		Kind: decision.Kind,
 		ForkConversation: &MasterForkConversationRouteCommand{
 			ParentConversationID: parent.ConversationID,
 			Target: ConversationPresentationTarget{
-				WorkspaceID: parent.WorkspaceID, ConversationID: childID, Title: masterForkTitle(parent.Title),
+				WorkspaceID: parent.WorkspaceID, ConversationID: childID, ResourceBindings: resourceBindings, Title: masterForkTitle(parent.Title),
 			},
 			ForkedAtTurnID: decision.ForkConversation.ForkedAtTurnID, TurnID: turnID, Input: decision.ForkConversation.Input,
 		},
@@ -179,18 +213,52 @@ func routeCommandTargetFor(bundle RouteContextBundle, conversationID string) (Ro
 	)
 }
 
-func presentationTargetFor(target RouteConversationTarget) ConversationPresentationTarget {
+func (service *RouteService) presentationTargetFor(target RouteConversationTarget) (ConversationPresentationTarget, error) {
+	resourceBindings, err := service.presentationResourceBindingsForWorkspace(target.WorkspaceID)
+	if err != nil {
+		return ConversationPresentationTarget{}, err
+	}
 	var preferredPaneID *string
 	if len(target.OpenPaneIDs) > 0 {
 		paneID := target.OpenPaneIDs[0]
 		preferredPaneID = &paneID
 	}
 	return ConversationPresentationTarget{
-		WorkspaceID:     target.WorkspaceID,
-		ConversationID:  target.ConversationID,
-		Title:           target.Title,
-		PreferredPaneID: preferredPaneID,
+		WorkspaceID:      target.WorkspaceID,
+		ConversationID:   target.ConversationID,
+		ResourceBindings: resourceBindings,
+		Title:            target.Title,
+		PreferredPaneID:  preferredPaneID,
+	}, nil
+}
+
+func (service *RouteService) presentationResourceBindingsForWorkspace(
+	workspaceID string,
+) ([]applayout.ConversationPaneResourceBinding, error) {
+	if service == nil || service.workspaces == nil {
+		return nil, NewRouteAttemptFailure(
+			RouteFailureKindStateUnavailable,
+			errors.New("master route workspace source is unavailable"),
+		)
 	}
+	resolved, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
+	if err != nil {
+		return nil, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
+	}
+	if resolved.ID != workspaceID {
+		return nil, NewRouteAttemptFailure(
+			RouteFailureKindStateUnavailable,
+			fmt.Errorf("master route workspace resolved as %s, want %s", resolved.ID, workspaceID),
+		)
+	}
+	bindings := []applayout.ConversationPaneResourceBinding{{
+		Folder: &applayout.FolderResourceBinding{RootPath: resolved.RootPath},
+		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
+	}}
+	if err := validatePresentationResourceBindings(bindings); err != nil {
+		return nil, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
+	}
+	return bindings, nil
 }
 
 func (service *RouteService) routeCommandID(prefix string) (string, error) {

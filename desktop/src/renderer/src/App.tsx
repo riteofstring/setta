@@ -283,7 +283,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     async (intent: PresentationIntent) => {
       const request = conversationPaneRequestForPresentationIntent(intent);
       if (request) {
-        return presentConversationRequest(request);
+        return presentConversationRequest(appLevelConversationPresentationRequest(request));
       }
       throw new Error(`Master presentation intent ${intent.id} has no conversation target.`);
     },
@@ -295,7 +295,9 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       if (!detail?.request || detail.completion) {
         return;
       }
-      detail.completion = presentConversationRequest(detail.request);
+      detail.completion = presentConversationRequest(
+        appLevelConversationPresentationRequest(detail.request),
+      );
     };
     window.addEventListener(conversationPaneNavigationRequestEvent, navigate);
     return () => window.removeEventListener(conversationPaneNavigationRequestEvent, navigate);
@@ -447,6 +449,20 @@ function optionalWorkspaceId(workspaceId: string): string | null {
 
 function currentMountedPaneWorkspaceId(selectedWorkspaceId: string): string {
   return selectedWorkspaceId.length > 0 ? selectedWorkspaceId : emptyWorkspaceRuntimeId;
+}
+
+function appLevelConversationPresentationRequest(
+  request: ConversationPanePresentationRequest,
+): ConversationPanePresentationRequest {
+  if (request.resourceBindings === undefined) {
+    return request;
+  }
+  return {
+    ...request,
+    workspaceId: currentMountedPaneWorkspaceId(
+      useWorkspaceStore.getState().session?.selectedWorkspaceId ?? "",
+    ),
+  };
 }
 
 async function ensureConversationPresentationWorkspaceMounted(

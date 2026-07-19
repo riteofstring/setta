@@ -14,6 +14,7 @@ export interface MasterConversationPickerItem {
   updatedAt: string;
   workspaceId: string;
   workspaceName: string;
+  workspaceRootPath: string;
 }
 
 interface MasterConversationPickerStatus {
@@ -65,6 +66,7 @@ export function selectMasterConversationPickerItems({
           updatedAt: item.conversation.updatedAt,
           workspaceId: workspace.id,
           workspaceName: workspace.displayName,
+          workspaceRootPath: workspace.rootPath,
         },
       ];
     });

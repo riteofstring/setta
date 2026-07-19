@@ -45,6 +45,7 @@ describe("master conversation picker model", () => {
       focused: true,
       openPaneId: "pane_api",
       workspaceName: "api",
+      workspaceRootPath: "/tmp/api",
     });
     expect(selection.status).toEqual({
       hasActiveWorkspaces: true,

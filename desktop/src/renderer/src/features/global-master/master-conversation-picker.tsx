@@ -87,8 +87,9 @@ export function MasterConversationPicker() {
     try {
       const result = await requestConversationPaneNavigation({
         conversationId: item.conversationId,
+        resourceBindings: [{ folder: { rootPath: item.workspaceRootPath }, kind: "folder" }],
         title: item.title,
-        workspaceId: item.workspaceId,
+        workspaceId: currentPaneLayoutWorkspaceId(session?.selectedWorkspaceId ?? ""),
       });
       requirePresentationSuccess(result);
       setExpanded(false);

@@ -68,6 +68,7 @@ function presentationTargetRequest(payload: {
   target: {
     conversationId: string;
     preferredPaneId: string | null;
+    resourceBindings: ConversationPaneResourceBinding[];
     title: string;
     workspaceId: string;
   };
@@ -75,6 +76,7 @@ function presentationTargetRequest(payload: {
   return {
     conversationId: payload.target.conversationId,
     preferredPaneId: payload.target.preferredPaneId,
+    resourceBindings: [...payload.target.resourceBindings],
     title: payload.target.title,
     workspaceId: payload.target.workspaceId,
   };

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 74;
-export const backendContractSchemaHash = "sha256:7eae14bcaf3cfb8c00e9bb47673c978740cfdfe5153aeae85c7d6624d30afb7e";
+export const backendProtocolVersion = 75;
+export const backendContractSchemaHash = "sha256:27a181f9c5776d53652ddb0124bfa5bf5be4b29624755d96746ba43569dd5773";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -3211,6 +3211,7 @@ export interface RouteInvocationAudit {
 export interface ConversationPresentationTarget {
   workspaceId: string;
   conversationId: string;
+  resourceBindings: ConversationPaneResourceBinding[];
   title: string;
   preferredPaneId: string | null;
 }
@@ -6689,10 +6690,11 @@ export function decodeRouteInvocationAudit(value: unknown): RouteInvocationAudit
 
 export function decodeConversationPresentationTarget(value: unknown): ConversationPresentationTarget {
   const record = assertRecord(value, "ConversationPresentationTarget");
-  assertKnownFields(record, "ConversationPresentationTarget", ["workspaceId", "conversationId", "title", "preferredPaneId"]);
+  assertKnownFields(record, "ConversationPresentationTarget", ["workspaceId", "conversationId", "resourceBindings", "title", "preferredPaneId"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "ConversationPresentationTarget"), "ConversationPresentationTarget.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationPresentationTarget"), "ConversationPresentationTarget.conversationId"),
+    resourceBindings: decodeArray(requireField(record, "resourceBindings", "ConversationPresentationTarget"), "ConversationPresentationTarget.resourceBindings", (item) => decodeConversationPaneResourceBinding(item)),
     title: decodeString(requireField(record, "title", "ConversationPresentationTarget"), "ConversationPresentationTarget.title"),
     preferredPaneId: decodeNullable(requireField(record, "preferredPaneId", "ConversationPresentationTarget"), "ConversationPresentationTarget.preferredPaneId", (item) => decodeString(item, "ConversationPresentationTarget.preferredPaneId")),
   };

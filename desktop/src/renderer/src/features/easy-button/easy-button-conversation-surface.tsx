@@ -1,4 +1,4 @@
-import type { ConversationPaneResourceBinding } from "@generated/backend";
+import type { ConversationPaneResourceBinding, WorkspaceSession } from "@generated/backend";
 import { useEffect } from "react";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
@@ -40,6 +40,7 @@ export function EasyButtonSurface({
   const effectiveWorkspaceId = conversationSurfaceWorkspaceId({
     projection,
     resourceBindings,
+    workspaceSession,
     workspaceId: workspaceId ?? null,
   });
   const workspaceAvailable =
@@ -87,14 +88,39 @@ export function EasyButtonSurface({
 function conversationSurfaceWorkspaceId({
   projection,
   resourceBindings,
+  workspaceSession,
   workspaceId,
 }: {
   projection: ConversationProjection | undefined;
   resourceBindings: ConversationPaneResourceBinding[] | undefined;
+  workspaceSession: WorkspaceSession | null;
   workspaceId: string | null;
 }): string | null {
-  if (resourceBindings) {
-    return resourceBindings.some((binding) => binding.kind === "folder") ? workspaceId : null;
+  const projectedWorkspaceId = projectionWorkspaceId(projection);
+  if (resourceBindings === undefined) {
+    return projectedWorkspaceId ?? workspaceId;
   }
-  return projection?.snapshot?.conversation.workspaceId ?? workspaceId;
+  const folderRootPath = folderBindingRootPath(resourceBindings);
+  if (folderRootPath === null) {
+    return null;
+  }
+  return activeWorkspaceIdForRootPath(workspaceSession, folderRootPath) ?? projectedWorkspaceId;
+}
+
+function projectionWorkspaceId(projection: ConversationProjection | undefined): string | null {
+  return projection?.snapshot?.conversation.workspaceId ?? null;
+}
+
+function folderBindingRootPath(resourceBindings: ConversationPaneResourceBinding[]): string | null {
+  return resourceBindings.find((binding) => binding.kind === "folder")?.folder.rootPath ?? null;
+}
+
+function activeWorkspaceIdForRootPath(
+  workspaceSession: WorkspaceSession | null,
+  rootPath: string,
+): string | null {
+  return (
+    workspaceSession?.activeWorkspaces.find((workspace) => workspace.rootPath === rootPath)?.id ??
+    null
+  );
 }
