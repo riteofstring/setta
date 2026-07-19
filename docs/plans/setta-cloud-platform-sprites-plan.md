@@ -7,13 +7,13 @@ was closed as unobservable and the owner signed Option A on 2026-07-17. The
 Phase 2 offline build-out, live install loop, and provider conformance
 validation completed on the old base. Their provider-neutral implementation,
 the Phase 1c measurement driver, and the viability harnesses are now ported to
-the rebased `setta-3-sprites` branch. The new-base Phase 2 implementation is
-complete offline at protocol version 64: signed runtime credentials, setup
-attestation, capability diagnostics, HTTPS origin/host policy, encrypted
-desktop identities, restart/revocation behavior, and production conversation
-workflows are wired and verified. A fresh live Sprite install/conformance run
-is still required to close the new-base Phase 2 exit; it remains explicitly
-owner-authorized because it is billable and destructive. Live Phase 1c
+the rebased `setta-3-sprites` branch. The new-base Phase 2 implementation and
+live exit proof are complete at protocol version 64: signed runtime
+credentials, setup attestation, capability diagnostics, HTTPS origin/host
+policy, encrypted desktop identities, restart/revocation behavior, production
+conversation workflows, a signed live install, and the six-case provider
+conformance suite are verified. Both live validation Sprites were destroyed
+and `setta-100` was independently confirmed empty afterward. Live Phase 1c
 measurements and Phase 3 comparison budgets remain deferred per
 `docs/plans/morning-decisions-20260717.md` while the end-to-end cloud UX
 viability path is proved.
@@ -1095,9 +1095,9 @@ and the latency budgets needed for the access-path decision.
   and post-restore re-attestation.
 
 Exit: a freshly provisioned Sprite proves it is the intended runtime and can
-authenticate a Setta device without provider credentials. The implementation
-checklist is complete on the new base; this live exit proof remains pending
-explicit authorization for the billable, destructive Sprite run.
+authenticate a Setta device without provider credentials. Complete on the new
+base on 2026-07-19: the signed install loop and all six live conformance cases
+passed, teardown was verified, and the organization returned to empty.
 
 ### Phase 3: choose and harden the client access path
 
@@ -1825,3 +1825,24 @@ Stop and reassess rather than hiding the problem if any of these occur:
   gate is the explicitly authorized new-base live install/conformance proof;
   Phase 3's Candidate A/B experiments and final access-path selection require
   the deferred comparison budgets and live provider operations.
+- 2026-07-19 (new-base Phase 2 live exit): Owner authorized only the signed
+  runtime install loop and provider lifecycle conformance in `setta-100`, with
+  a $5 maximum spend and immediate cleanup. Preflight confirmed commit
+  `b5bb0fc4d`, Sprites CLI `v0.0.1-rc45`, `minisign`, the selected
+  `https://api.sprites.dev` endpoint, and an empty organization. The signed
+  install loop passed in 86.16 seconds on disposable Sprite
+  `setta-u-d8ed9ace4b8b61822c358e48cc995837`: the uploaded release verifier
+  reproduced SHA-256
+  `ffeda0423218bc07ebb1433c4b81e0be49268e40f100aad86483f57d55c9cdf3`
+  before becoming executable, the throwaway `phase2-test` release installed,
+  and runtime health passed. Cleanup destroyed the Sprite and a separate API
+  inventory query confirmed zero Sprites. The lifecycle harness then passed
+  all six conformance cases in 183.14 seconds on disposable Sprite
+  `setta-u-ff457a6b725dc4c1bfce7872bedc42c1` against provider server
+  `0.0.1-rc46`: identity/label round-trip, filesystem/service warm
+  preservation, service restart detection, checkpoint rollback, workload
+  lease lifecycle, and destroy-verified absence. A final independent API
+  query at 2026-07-19 13:55:36 EDT reported `running=0`, `warm=0`, `cold=0`,
+  and an empty Sprite list. Phase 2 is complete on the new base. Per the
+  authorization boundary, no Phase 1c measurement or Phase 3 Candidate A/B
+  experiment was run.
