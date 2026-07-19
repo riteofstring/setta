@@ -8,7 +8,6 @@ import {
 } from "./fake-topic-artifact-tool.mjs";
 import { artifactToolResponseAction } from "./fake-topic-artifact-turns.mjs";
 import {
-  emitSimultaneousAudioHoldProgress,
   listCursorOffset,
   listLimit,
   optionalNonNegativeIntegerEnvironment,
@@ -271,7 +270,7 @@ function validEphemeralSideSettings(params) {
   return [
     !Object.hasOwn(params, "lastTurnId"),
     params.model === "gpt-5.6-luna",
-    params.approvalPolicy === "never",
+    params.approvalPolicy === "on-request",
     params.sandbox === "read-only",
     params.serviceTier === null,
     config.model_reasoning_effort === "medium",
@@ -913,13 +912,15 @@ function emitStructuredProjection(threadId, turnId, context) {
   const objective = objectiveSubject(
     (context.authoritative?.currentInstructions?.objective?.text ?? "topic work").trim(),
   );
+  const observedThroughSequence = context.evaluationRange.end;
   const output = {
     kind: "working_projection",
     milestones: projectionMilestones(context, objective),
+    observedThroughSequence,
   };
   if (context.requestedChannel === "terminal_projection") {
     output.kind = "terminal_projection";
-    delete output.milestones;
+    output.milestones = [];
     output.finalSummary = terminalProjectionSummary(context, objective);
   }
   emitAgentMessage(threadId, turnId, JSON.stringify(output));
@@ -1014,7 +1015,6 @@ function emitTurnScenario(threadId, turnId, text) {
     }
   }
   if (text.includes("hold")) {
-    emitSimultaneousAudioHoldProgress(emitAgentMessage, threadId, turnId, text);
     heldTurns.set(turnId, { threadId, text });
     return;
   }
@@ -1234,10 +1234,10 @@ function emitTextDelta(threadId, turnId, delta) {
   });
 }
 
-function emitAgentMessage(threadId, turnId, text, itemId = `agent-${turnId}`) {
+function emitAgentMessage(threadId, turnId, text) {
   notify("item/completed", {
     completedAtMs: Date.now(),
-    item: { id: itemId, text, type: "agentMessage" },
+    item: { id: `agent-${turnId}`, text, type: "agentMessage" },
     threadId,
     turnId,
   });
@@ -1440,7 +1440,7 @@ function fakeThread(threadId) {
 
 function threadOperationResponse(thread, state) {
   return {
-    approvalPolicy: state.approvalPolicy ?? "never",
+    approvalPolicy: state.approvalPolicy ?? "on-request",
     approvalsReviewer: "user",
     cwd: state.cwd ?? "/tmp/setta-topic-codex",
     instructionSources: [],

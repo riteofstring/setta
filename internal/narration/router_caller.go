@@ -108,11 +108,7 @@ func (caller *ConversationRouteCaller) Call(
 			fmt.Errorf("run conversation router call for %s: %w", result.ConversationID, err),
 		)
 	}
-	completed, err := caller.completeConversationRouteCall(result, providerResult, contextBundle)
-	if err == nil || !conversationRouteProviderOutputInvalid(err) {
-		return completed, err
-	}
-	return caller.repairConversationRouteCall(ctx, providerRequest, completed, err, contextBundle)
+	return caller.completeConversationRouteCall(result, providerResult, contextBundle)
 }
 
 func validateConversationRouteCall(
@@ -165,69 +161,6 @@ func (caller *ConversationRouteCaller) completeConversationRouteCall(
 	}
 	result.Decision = decision
 	return result, nil
-}
-
-func (caller *ConversationRouteCaller) repairConversationRouteCall(
-	ctx context.Context,
-	original agent.FreshStructuredCallRequest,
-	previous ConversationRouteCallResult,
-	validationErr error,
-	contextBundle ConversationRouteContextBundle,
-) (ConversationRouteCallResult, error) {
-	repairID, err := conversationRouteRepairRequestID(original.ID)
-	if err != nil {
-		return previous, NewAttemptFailure(FailureKindInternal, err)
-	}
-	repairRequest := original
-	repairRequest.ID = repairID
-	repairRequest.DeveloperInstructions = conversationRouteRepairInstructions(validationErr)
-	if err := repairRequest.Validate(); err != nil {
-		return previous, NewAttemptFailure(
-			FailureKindInternal,
-			fmt.Errorf("validate conversation router repair provider call: %w", err),
-		)
-	}
-	repair := previous
-	repair.RequestID = repairID
-	repair.ProviderThreadID = ""
-	repair.ProviderTurnID = ""
-	repair.OutputBytes = 0
-	repair.StructuredOutput = nil
-	repair.Decision = conversation.ConversationRouteDecision{}
-	repair.StartedAt, err = caller.timestampAfter(previous.EndedAt)
-	if err != nil {
-		return previous, NewAttemptFailure(FailureKindInternal, err)
-	}
-	providerResult, err := caller.provider.RunFreshStructuredCall(ctx, repairRequest)
-	if err != nil {
-		return repair, narratorCallFailure(
-			ctx,
-			FailureKindProviderUnavailable,
-			fmt.Errorf("repair conversation router call for %s: %w", repair.ConversationID, err),
-		)
-	}
-	return caller.completeConversationRouteCall(repair, providerResult, contextBundle)
-}
-
-func conversationRouteRepairRequestID(requestID string) (string, error) {
-	repairID := requestID + "_repair"
-	if err := validateIdentifier("conversation router repair request id", repairID); err != nil {
-		return "", err
-	}
-	return repairID, nil
-}
-
-func conversationRouteRepairInstructions(validationErr error) string {
-	return conversationRouteInstructions() + "\n\n" + strings.Join([]string{
-		"The previous routing decision was rejected by Setta's validator.",
-		"Validation error: " + validationErr.Error(),
-		"Return a fresh decision that satisfies the strict schema and the supplied allowedDecisionKinds exactly.",
-	}, "\n")
-}
-
-func conversationRouteProviderOutputInvalid(err error) bool {
-	var failure *AttemptFailure
-	return errors.As(err, &failure) && failure.Kind == FailureKindProviderOutputInvalid
 }
 
 func freezeConversationRouteContext(

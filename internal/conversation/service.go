@@ -67,16 +67,15 @@ type Service struct {
 }
 
 type activeConversationTurn struct {
-	conversationID                string
-	interruptionReason            TurnInterruptionReason
-	providerThreadID              string
-	providerThreadRepairAttempted bool
-	providerTurnID                string
-	queueOrdinal                  int
-	request                       agent.TurnRequest
-	roleProfile                   RoleProfile
-	turnID                        string
-	workspaceID                   string
+	conversationID     string
+	interruptionReason TurnInterruptionReason
+	providerThreadID   string
+	providerTurnID     string
+	queueOrdinal       int
+	request            agent.TurnRequest
+	roleProfile        RoleProfile
+	turnID             string
+	workspaceID        string
 }
 
 type activeSideConversationTurn struct {

@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 /* global console */
 
-import { execFile } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { basename, delimiter, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
-import { promisify } from "node:util";
 
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
@@ -35,7 +33,6 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-provider-thread-lifecycle";
 const workflowTimeoutMs = 60_000;
-const execFileAsync = promisify(execFile);
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -155,48 +152,6 @@ try {
     workspaceId,
   });
 
-  const staleBlank = await prepareStaleBlankThreadBinding({
-    backend,
-    client: context.client,
-    workspaceId,
-  });
-
-  await stopElectronCdpContext(context);
-  context = null;
-  await seedStaleBlankBinding(
-    fixture.appDataDir,
-    staleBlank.conversationId,
-    staleBlank.orphanThreadId,
-  );
-
-  launch = await launchWorkflowElectron();
-  context = launch.context;
-  backend = launch.backend;
-  await openWorkspace(context.client);
-  await presentConversation(context.client, staleBlank.conversationId);
-  const staleBlankBeforeSequence = latestProviderMethodSequence(
-    await readFakeCodexState(fakeCodex.statePath),
-  );
-  await submitTopicInput(context.client, staleBlank.conversationId, staleBlank.inputText);
-  const staleBlankCompleted = await waitForConversationSnapshot(
-    backend,
-    workspaceId,
-    staleBlank.conversationId,
-    (snapshot) =>
-      snapshot.threadBinding !== null &&
-      snapshot.threadBinding.threadId !== staleBlank.orphanThreadId &&
-      snapshot.conversation.status === "idle" &&
-      snapshot.turns.turns.length === 1 &&
-      latestTurn(snapshot)?.status === "completed",
-  );
-  assertStaleBlankBindingReplaced(
-    await readFakeCodexState(fakeCodex.statePath),
-    staleBlankBeforeSequence,
-    staleBlank.orphanThreadId,
-    staleBlankCompleted.threadBinding.threadId,
-    staleBlank.inputText,
-  );
-
   const missingHistorical = await prepareMissingHistoricalThread({
     backend,
     client: context.client,
@@ -246,11 +201,6 @@ try {
     },
     providerThreadId,
     providerCrash,
-    staleBlank: {
-      conversationId: staleBlank.conversationId,
-      orphanThreadId: staleBlank.orphanThreadId,
-      providerThreadId: staleBlankCompleted.threadBinding.threadId,
-    },
     status: "passed",
     workspaceId,
   });
@@ -465,81 +415,6 @@ async function prepareMissingHistoricalThread({ backend, client, statePath, work
     conversationId: conversation.id,
     threadId: completed.threadBinding.threadId,
   };
-}
-
-async function prepareStaleBlankThreadBinding({ backend, client, workspaceId }) {
-  const conversation = await createConversationThroughHeader({ backend, client, workspaceId });
-  await waitForPersistedConversationPane(backend, workspaceId, conversation.id, workflowTimeoutMs);
-  assertUnlinkedCreatedConversation(
-    await readConversationSnapshot(backend, workspaceId, conversation.id),
-  );
-  return {
-    conversationId: conversation.id,
-    inputText: "stale blank binding first turn",
-    orphanThreadId: `orphan-blank-${conversation.id}`,
-  };
-}
-
-async function seedStaleBlankBinding(appDataDir, conversationId, threadId) {
-  const databasePath = join(appDataDir, "topic-conversations-v3", "conversations.sqlite");
-  await execFileAsync("sqlite3", [
-    databasePath,
-    `
-INSERT INTO agent_thread_bindings (
-  conversation_id, provider, thread_id, status, created_at, last_resumed_at,
-  last_turn_id, provider_metadata_json
-)
-SELECT id, 'codex', ${sqlString(threadId)}, 'linked', created_at, NULL, NULL, '{}'
-FROM conversations
-WHERE id = ${sqlString(conversationId)};
-`,
-  ]);
-}
-
-function assertStaleBlankBindingReplaced(
-  state,
-  beforeSequence,
-  orphanThreadId,
-  replacementThreadId,
-  inputText,
-) {
-  const methods = providerMethodsAfter(state, beforeSequence);
-  const orphanUsage = methods.filter(
-    (entry) =>
-      entry.threadId === orphanThreadId &&
-      ["thread/resume", "thread/inject_items", "turn/start"].includes(entry.method),
-  );
-  const replacementStarts = methods.filter(
-    (entry) => entry.method === "thread/start" && entry.threadId === replacementThreadId,
-  );
-  const replacementMaterializations = methods.filter(
-    (entry) => entry.method === "thread/inject_items" && entry.threadId === replacementThreadId,
-  );
-  const replacementTurnStarts = methods.filter(
-    (entry) =>
-      entry.method === "turn/start" &&
-      entry.threadId === replacementThreadId &&
-      entry.inputText === inputText,
-  );
-  if (
-    orphanUsage.length !== 0 ||
-    replacementStarts.length !== 1 ||
-    replacementMaterializations.length !== 1 ||
-    replacementTurnStarts.length !== 1
-  ) {
-    throw new Error(
-      `stale blank binding was not replaced before first turn: ${JSON.stringify({
-        methods,
-        orphanThreadId,
-        orphanUsage,
-        replacementMaterializations,
-        replacementStarts,
-        replacementThreadId,
-        replacementTurnStarts,
-      })}`,
-    );
-  }
-  assertFirstTurnProviderOrder(state, replacementThreadId, inputText);
 }
 
 function missingHistoricalThreadFailed(snapshot, threadId) {
@@ -835,10 +710,6 @@ function providerMethodsAfter(state, sequence) {
 
 function latestProviderMethodSequence(state) {
   return state.methodLog.reduce((max, entry) => Math.max(max, entry.sequence ?? 0), 0);
-}
-
-function sqlString(value) {
-  return `'${String(value).replaceAll("'", "''")}'`;
 }
 
 async function readFakeCodexState(path) {

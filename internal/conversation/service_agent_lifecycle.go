@@ -27,38 +27,27 @@ func (sink *conversationAgentEventSink) HandleAgentEvent(event agent.Event) erro
 
 func (service *Service) runTurn(active *activeConversationTurn) {
 	defer service.turns.Done()
-	for {
-		invocationID, err := service.newID("invocation")
-		if err != nil {
-			service.finishRunTurn(active, err)
-			return
-		}
-		resolved, err := service.agent.ResolveInvocation(service.lifecycleCtx, active.request.Invocation)
-		if err != nil {
-			service.finishRunTurn(active, fmt.Errorf("resolve agent invocation: %w", err))
-			return
-		}
-		_, err = service.agent.RunTurn(
-			service.lifecycleCtx,
-			active.request,
-			&conversationAgentEventSink{
-				invocationID: invocationID,
-				resolved:     resolved,
-				service:      service,
-				turn:         active,
-			},
-		)
-		retry, retryErr := service.repairMissingProviderThreadBeforeTurnStart(active, err)
-		if retryErr != nil {
-			service.finishRunTurn(active, errors.Join(err, retryErr))
-			return
-		}
-		if retry {
-			continue
-		}
+	invocationID, err := service.newID("invocation")
+	if err != nil {
 		service.finishRunTurn(active, err)
 		return
 	}
+	resolved, err := service.agent.ResolveInvocation(service.lifecycleCtx, active.request.Invocation)
+	if err != nil {
+		service.finishRunTurn(active, fmt.Errorf("resolve agent invocation: %w", err))
+		return
+	}
+	_, err = service.agent.RunTurn(
+		service.lifecycleCtx,
+		active.request,
+		&conversationAgentEventSink{
+			invocationID: invocationID,
+			resolved:     resolved,
+			service:      service,
+			turn:         active,
+		},
+	)
+	service.finishRunTurn(active, err)
 }
 
 func (service *Service) finishRunTurn(active *activeConversationTurn, runErr error) {
@@ -377,9 +366,8 @@ func (service *Service) commitTurnStart(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.snapshot.Conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			mutation.events,
-			nil,
 			false,
 		)
 	}
@@ -607,9 +595,8 @@ func (service *Service) commitTurnTerminal(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			[]TrajectoryEvent{mutation.trajectory},
-			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)
 	}

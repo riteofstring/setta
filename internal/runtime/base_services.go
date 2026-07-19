@@ -344,11 +344,11 @@ func recoverRuntimeConversationServices(
 	if err := conversationService.RecoverSideConversations(context.Background()); err != nil {
 		return fmt.Errorf("recover side conversations: %w", err)
 	}
+	if err := narratorService.RecoverCommittedTrajectory(context.Background()); err != nil {
+		return fmt.Errorf("recover narrator trajectory: %w", err)
+	}
 	if err := narratorService.RecoverConversationInputs(context.Background()); err != nil {
 		return fmt.Errorf("recover conversation input routing: %w", err)
-	}
-	if err := narratorService.RecoverTerminalProjections(context.Background()); err != nil {
-		return fmt.Errorf("recover terminal narrator projections: %w", err)
 	}
 	return nil
 }

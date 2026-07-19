@@ -253,9 +253,8 @@ func (service *Service) commitUnexpectedTurnEnd(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			[]TrajectoryEvent{mutation.trajectory},
-			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)
 	}

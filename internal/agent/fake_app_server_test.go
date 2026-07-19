@@ -714,7 +714,7 @@ func fakeAgentThreadOperationResponse(
 	params map[string]any,
 	model string,
 ) map[string]any {
-	approvalPolicy := any("never")
+	approvalPolicy := any("on-request")
 	if requested, ok := params["approvalPolicy"]; ok {
 		approvalPolicy = requested
 	}

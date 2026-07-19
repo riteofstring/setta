@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 65;
-export const backendContractSchemaHash = "sha256:e33f8e1cc80972f8cadfbc747628ceac4ce593372b6f8fd3c719f564cc2c09fa";
+export const backendProtocolVersion = 64;
+export const backendContractSchemaHash = "sha256:c082c237f132bd3baf96f85b26fa187dfff6b85756b2993c9fc1f40548d8c5b6";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1090,22 +1090,6 @@ export function decodeConversationInputStatus(value: unknown, label = "Conversat
     case "dispatched":
       return decoded;
     case "failed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ConversationRouteDecisionAuthority = "narrator_model" | "product_invariant";
-
-export const conversationRouteDecisionAuthorityValues = ["narrator_model", "product_invariant"] as const satisfies readonly ConversationRouteDecisionAuthority[];
-
-export function decodeConversationRouteDecisionAuthority(value: unknown, label = "ConversationRouteDecisionAuthority"): ConversationRouteDecisionAuthority {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "narrator_model":
-      return decoded;
-    case "product_invariant":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2652,7 +2636,6 @@ export interface TrajectorySequenceRange {
 }
 
 export interface ConversationRouteContextAudit {
-  decisionAuthority: ConversationRouteDecisionAuthority;
   inputSequence: number;
   clarificationInputSequence: number | null;
   latestTrajectorySequence: number;
@@ -5572,9 +5555,8 @@ export function decodeTrajectorySequenceRange(value: unknown): TrajectorySequenc
 
 export function decodeConversationRouteContextAudit(value: unknown): ConversationRouteContextAudit {
   const record = assertRecord(value, "ConversationRouteContextAudit");
-  assertKnownFields(record, "ConversationRouteContextAudit", ["decisionAuthority", "inputSequence", "clarificationInputSequence", "latestTrajectorySequence", "availableTrajectoryRange", "includedTrajectoryRange", "priorNarrationCount", "priorRouteDecisionCount", "validCompletedForkPointCount", "allowedDecisionKinds"]);
+  assertKnownFields(record, "ConversationRouteContextAudit", ["inputSequence", "clarificationInputSequence", "latestTrajectorySequence", "availableTrajectoryRange", "includedTrajectoryRange", "priorNarrationCount", "priorRouteDecisionCount", "validCompletedForkPointCount", "allowedDecisionKinds"]);
   return {
-    decisionAuthority: decodeConversationRouteDecisionAuthority(requireField(record, "decisionAuthority", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.decisionAuthority"),
     inputSequence: decodeInteger(requireField(record, "inputSequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.inputSequence"),
     clarificationInputSequence: decodeNullable(requireField(record, "clarificationInputSequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.clarificationInputSequence", (item) => decodeInteger(item, "ConversationRouteContextAudit.clarificationInputSequence")),
     latestTrajectorySequence: decodeInteger(requireField(record, "latestTrajectorySequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.latestTrajectorySequence"),

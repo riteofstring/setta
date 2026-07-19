@@ -676,7 +676,7 @@ func assertSideForkRequest(
 		request.Invocation.Model != *profile.ModelSelection.ModelID ||
 		request.Invocation.ReasoningEffort != string(profile.ReasoningEffort) ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||
-		request.Invocation.ApprovalMode != agent.ApprovalModeNever ||
+		request.Invocation.ApprovalMode != agent.ApprovalModeOnRequest ||
 		!strings.Contains(request.DeveloperInstructions, "ephemeral side conversation") {
 		t.Fatalf("side fork request = %+v", request)
 	}

@@ -32,17 +32,21 @@ func projectionOutputSchema(context ProjectionContextBundle) (json.RawMessage, e
 		return nil, err
 	}
 	properties := map[string]any{
-		"milestones": milestoneArraySchema(),
+		"observedThroughSequence": boundedIntegerSchema(context.EvaluationRange.Start, context.EvaluationRange.End),
+		"milestones":              milestoneArraySchema(),
 	}
 	switch context.RequestedChannel {
 	case ProjectionChannelWorking:
 		properties["kind"] = enumStringSchema(string(CallOutputWorkingProjection))
 	case ProjectionChannelTerminal:
 		properties["kind"] = enumStringSchema(string(CallOutputTerminalProjection))
-		delete(properties, "milestones")
+		properties["observedThroughSequence"] = boundedIntegerSchema(
+			context.EvaluationRange.End,
+			context.EvaluationRange.End,
+		)
 		properties["finalSummary"] = describedBoundedStringSchema(
 			MaxNarratorFinalSummaryCharacters,
-			"One short outcome sentence. If an artifact has the detailed result, do not repeat its contents.",
+			"Outcome plus important evidence or caveats. Write two or three compact sentences when needed.",
 		)
 	default:
 		return nil, fmt.Errorf("narrator projection schema received channel %q", context.RequestedChannel)
@@ -130,10 +134,10 @@ func boundedIntegerSchema(minimum int, maximum int) map[string]any {
 func milestoneArraySchema() map[string]any {
 	return map[string]any{
 		"type":        "array",
-		"description": "Audible user-facing results, blockers needing user action, or material phase changes. Return an empty array for normal progress or repeated blocked states.",
+		"description": "Meaningful new user-facing results, blockers, or phase changes. Return an empty array when nothing meaningful changed.",
 		"items": describedBoundedStringSchema(
 			MaxNarratorMilestoneCharacters,
-			"One complete sentence, usually 12-24 words, describing a new result, action-needed blocker, or material phase change.",
+			"One complete sentence, usually 12-24 words, describing a meaningful new result, blocker, or phase change.",
 		),
 		"maxItems": MaxNarratorMilestonesPerCall,
 	}

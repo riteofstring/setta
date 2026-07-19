@@ -354,9 +354,8 @@ func (service *Service) commitAcceptedTurn(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			mutation.trajectory,
-			nil,
 			false,
 		)
 	}

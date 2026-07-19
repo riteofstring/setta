@@ -50,10 +50,11 @@ func DefaultAgentRoleProfile() RoleProfile {
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
 		ReasoningEffort: ReasoningEffortHigh,
 		PermissionProfile: PermissionProfile{
-			ApprovalPolicy:            ApprovalPolicyNever,
+			ApprovalPolicy:            ApprovalPolicyOnRequest,
 			ProviderPermissionProfile: ":workspace",
 			ToolAccess:                ToolAccessPolicy{Mode: ToolAccessAll, AllowedTools: []string{}},
 			WorkspaceMutation:         true,
+			Approvals:                 true,
 		},
 		ContextBudget: ContextBudget{
 			MaxInputBytes:        256 * 1024,
@@ -97,10 +98,11 @@ func DefaultSideAgentRoleProfile() RoleProfile {
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
 		ReasoningEffort: ReasoningEffortMedium,
 		PermissionProfile: PermissionProfile{
-			ApprovalPolicy:            ApprovalPolicyNever,
+			ApprovalPolicy:            ApprovalPolicyOnRequest,
 			ProviderPermissionProfile: ":read-only",
 			ToolAccess:                ToolAccessPolicy{Mode: ToolAccessAll, AllowedTools: []string{}},
 			WorkspaceMutation:         false,
+			Approvals:                 true,
 		},
 		ContextBudget: ContextBudget{
 			MaxInputBytes:        256 * 1024,

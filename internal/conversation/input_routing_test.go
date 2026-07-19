@@ -294,7 +294,6 @@ func validConversationRouteDecisionCommit(
 		InputID:        "input_alpha",
 		RoutingAttempt: 1,
 		RouterContext: ConversationRouteContextAudit{
-			DecisionAuthority:    ConversationRouteDecisionAuthorityNarratorModel,
 			InputSequence:        1,
 			AllowedDecisionKinds: []ConversationRouteDecisionKind{decision.Kind},
 		},

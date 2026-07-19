@@ -37,7 +37,7 @@ import {
 } from "./topic-conversation-fork-workflow.mjs";
 import {
   hasFinalNarrationForEveryTurn,
-  terminalTurnsHaveFinalNarration,
+  narratorCaughtUp,
 } from "./topic-conversation-projection-assertions.mjs";
 import {
   openMasterOverlayForSpeech,
@@ -106,8 +106,11 @@ try {
     workflowTimeoutMs,
   );
   await submitTopicInput(context.client, agentTopic.id, "seed crash branch");
-  await waitForConversationSnapshot(backend, workspaceId, agentTopic.id, (snapshot) =>
-    hasFinalNarrationForEveryTurn(snapshot),
+  await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    agentTopic.id,
+    (snapshot) => hasFinalNarrationForEveryTurn(snapshot) && narratorCaughtUp(snapshot),
   );
 
   await submitTopicInput(context.client, narratorTopic.id, "crash narrator");
@@ -118,7 +121,7 @@ try {
     (snapshot) =>
       snapshot.turns.turns.length === 1 &&
       snapshot.turns.turns[0]?.status === "completed" &&
-      !terminalTurnsHaveFinalNarration(snapshot),
+      snapshot.narratorState.observedThroughSequence < snapshot.conversation.lastTrajectorySequence,
   );
   await waitForFakeCodexHold(fakeCodex.statePath, "narrator:crash-projection");
 
@@ -349,6 +352,8 @@ try {
     workspaceId,
     narratorTopic.id,
     (snapshot) =>
+      snapshot.narratorState.observedThroughSequence ===
+        snapshot.conversation.lastTrajectorySequence &&
       snapshot.narration.events.some(
         (event) =>
           event.turnId === narratorBeforeCrash.turns.turns[0]?.id && event.kind === "final_summary",

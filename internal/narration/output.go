@@ -16,7 +16,7 @@ const (
 	MaxNarratorMilestonesPerCall         = 1
 	MaxNarratorMilestoneCharacters       = 200
 	MaxNarratorCurrentFocusCharacters    = 240
-	MaxNarratorFinalSummaryCharacters    = 220
+	MaxNarratorFinalSummaryCharacters    = 480
 	MaxNarratorStatusReplyCharacters     = 400
 	MaxNarratorTopicDescriptorCharacters = 160
 )
@@ -37,11 +37,14 @@ type FocusProjectionOutput struct {
 }
 
 type WorkingProjectionOutput struct {
-	Milestones []string `json:"milestones"`
+	ObservedThroughSequence int      `json:"observedThroughSequence"`
+	Milestones              []string `json:"milestones"`
 }
 
 type TerminalProjectionOutput struct {
-	FinalSummary string `json:"finalSummary"`
+	ObservedThroughSequence int      `json:"observedThroughSequence"`
+	Milestones              []string `json:"milestones"`
+	FinalSummary            string   `json:"finalSummary"`
 }
 
 type StatusReplyOutput struct {
@@ -68,13 +71,16 @@ type focusProjectionWireOutput struct {
 }
 
 type workingProjectionWireOutput struct {
-	Kind       CallOutputKind `json:"kind"`
-	Milestones []string       `json:"milestones"`
+	Kind                    CallOutputKind `json:"kind"`
+	ObservedThroughSequence int            `json:"observedThroughSequence"`
+	Milestones              []string       `json:"milestones"`
 }
 
 type terminalProjectionWireOutput struct {
-	Kind         CallOutputKind `json:"kind"`
-	FinalSummary string         `json:"finalSummary"`
+	Kind                    CallOutputKind `json:"kind"`
+	ObservedThroughSequence int            `json:"observedThroughSequence"`
+	Milestones              []string       `json:"milestones"`
+	FinalSummary            string         `json:"finalSummary"`
 }
 
 type statusReplyWireOutput struct {
@@ -119,7 +125,8 @@ func decodeProjectionOutput(
 		output := NarratorCallOutput{
 			Kind: CallOutputWorkingProjection,
 			WorkingProjection: &WorkingProjectionOutput{
-				Milestones: wire.Milestones,
+				ObservedThroughSequence: wire.ObservedThroughSequence,
+				Milestones:              wire.Milestones,
 			},
 		}
 		if wire.Kind != output.Kind {
@@ -134,7 +141,9 @@ func decodeProjectionOutput(
 		output := NarratorCallOutput{
 			Kind: CallOutputTerminalProjection,
 			TerminalProjection: &TerminalProjectionOutput{
-				FinalSummary: wire.FinalSummary,
+				ObservedThroughSequence: wire.ObservedThroughSequence,
+				Milestones:              wire.Milestones,
+				FinalSummary:            wire.FinalSummary,
 			},
 		}
 		if wire.Kind != output.Kind {
@@ -243,6 +252,9 @@ func validateWorkingProjectionOutput(
 	if context.RequestedChannel != ProjectionChannelWorking {
 		return fmt.Errorf("working narrator output received requested channel %q", context.RequestedChannel)
 	}
+	if err := context.ValidateObservedAdvance(projection.ObservedThroughSequence); err != nil {
+		return err
+	}
 	return validateProjectionMilestones(projection.Milestones, context.PriorMilestones)
 }
 
@@ -253,6 +265,25 @@ func validateTerminalProjectionOutput(
 	if context.RequestedChannel != ProjectionChannelTerminal || context.Trigger != conversation.NarrationTriggerTurnTerminal {
 		return fmt.Errorf("terminal narrator output requires terminal projection context")
 	}
+	if terminalFinalizesObservedCursor(context, projection.ObservedThroughSequence) {
+		if len(projection.Milestones) > 0 {
+			return fmt.Errorf("terminal narrator finalization at current cursor cannot emit milestones")
+		}
+	} else {
+		if err := context.ValidateObservedAdvance(projection.ObservedThroughSequence); err != nil {
+			return err
+		}
+		if projection.ObservedThroughSequence != context.EvaluationRange.End {
+			return fmt.Errorf(
+				"terminal narrator projection must observe terminal boundary %d, got %d",
+				context.EvaluationRange.End,
+				projection.ObservedThroughSequence,
+			)
+		}
+	}
+	if err := validateProjectionMilestones(projection.Milestones, context.PriorMilestones); err != nil {
+		return err
+	}
 	return validateBoundedNarratorText(
 		"narrator final summary",
 		projection.FinalSummary,
@@ -262,12 +293,14 @@ func validateTerminalProjectionOutput(
 
 func terminalFinalizesObservedCursor(
 	context ProjectionContextBundle,
+	observedThroughSequence int,
 ) bool {
 	return context.RequestedChannel == ProjectionChannelTerminal &&
 		context.Trigger == conversation.NarrationTriggerTurnTerminal &&
 		context.PreCallCursor.ObservedThroughSequence == context.RequestedThroughSequence &&
 		context.EvaluationRange.Start == context.RequestedThroughSequence &&
-		context.EvaluationRange.End == context.RequestedThroughSequence
+		context.EvaluationRange.End == context.RequestedThroughSequence &&
+		observedThroughSequence == context.RequestedThroughSequence
 }
 
 func (output NarratorCallOutput) ValidateStatus(context StatusContextBundle) error {
