@@ -113,6 +113,7 @@ func testCallerWorkingProjection(t *testing.T) {
 	assertSchemaMilestoneField(t, provider.requests[0].OutputSchema)
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
 		"For working projections, return an empty milestone list when no meaningful user-facing change occurred.",
+		"Write for the user whose objective appears in the supplied context.",
 		"Lead with the observable outcome",
 		"Prefer: no milestone.",
 	})
@@ -141,6 +142,7 @@ func testCallerTerminalProjection(t *testing.T) {
 	assertSchemaTextField(t, provider.requests[0].OutputSchema, "finalSummary", MaxNarratorFinalSummaryCharacters, "Outcome plus important evidence")
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
 		"finalSummary states the outcome plus important evidence or caveats.",
+		"Write for the user whose objective appears in the supplied context.",
 		"If the turn failed or was stopped, say so directly.",
 	})
 }
@@ -205,6 +207,7 @@ func testCallerStatusReply(t *testing.T) {
 	assertSchemaTextField(t, provider.requests[0].OutputSchema, "statusReply", MaxNarratorStatusReplyCharacters, "Current state")
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
 		"Answer the exact question",
+		"Write for the user whose objective appears in the supplied context.",
 		"current state, evidence, and blocker or next step",
 	})
 }

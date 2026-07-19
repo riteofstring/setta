@@ -552,7 +552,6 @@ func decodeCallOutput(result *CallResult, prepared preparedCallRequest, raw json
 func focusInstructions() string {
 	lines := []string{
 		"Act as Setta's stable focus projector. Use only the supplied authoritative context JSON.",
-		"Write for the user whose objective appears in the supplied context.",
 		"Return the stable user-facing topic or objective for the accepted input or steering source.",
 		"currentFocus names the current user objective as one complete sentence or phrase.",
 		"topicDescriptor is a clear navigator noun phrase; return null when the broader topic did not change.",
@@ -612,6 +611,7 @@ func checkpointInstructions() string {
 
 func userVisibleNarratorLanguageInstructions() []string {
 	return []string{
+		"Write for the user whose objective appears in the supplied context.",
 		"State what is now true, what changed, or what is blocking progress.",
 		"Lead with the observable outcome, not the mechanism that observed it.",
 		"Write the shortest complete update, preserving the subject, result, and any caveat that changes how the result should be understood.",
