@@ -13,12 +13,14 @@ var (
 	ErrAmbiguousInventory = errors.New("hosted measurement provider inventory is ambiguous")
 	ErrProviderNotFound   = errors.New("hosted measurement provider resource not found")
 	flyImagePattern       = regexp.MustCompile(`^[a-z0-9][a-z0-9._:/-]{0,254}@sha256:[a-f0-9]{64}$`)
+	flyDigestPattern      = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 )
 
 type ProviderResource struct {
-	ID     string
-	Name   string
-	Region string
+	ID          string
+	Name        string
+	Region      string
+	ImageDigest string
 }
 
 type VolumeSpec struct {
@@ -159,7 +161,15 @@ func (provisioner Provisioner) ensureMachine(
 			return provisioner.createMachine(ctx, authorization, imageReference, app, volume)
 		},
 	)
-	return requireAuthorizedRegion(resource, authorization.Manifest.FlyRegion, err)
+	resource, err = requireAuthorizedRegion(resource, authorization.Manifest.FlyRegion, err)
+	if err != nil {
+		return ProviderResource{}, err
+	}
+	wantDigest := imageReference[strings.LastIndex(imageReference, "@")+1:]
+	if resource.ImageDigest != wantDigest {
+		return ProviderResource{}, errors.New("Fly machine inventory differs from the authorized image digest")
+	}
+	return resource, nil
 }
 
 func requireAuthorizedRegion(resource ProviderResource, region string, providerErr error) (ProviderResource, error) {

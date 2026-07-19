@@ -159,7 +159,10 @@ func (client *FlyMachinesClient) ListMachines(ctx context.Context, appName strin
 	}
 	resources := make([]ProviderResource, 0, len(response))
 	for _, machine := range response {
-		resource := ProviderResource{ID: machine.ID, Name: machine.Name, Region: machine.Region}
+		resource := ProviderResource{
+			ID: machine.ID, Name: machine.Name, Region: machine.Region,
+			ImageDigest: machine.ImageReference.Digest,
+		}
 		if err := validateProviderResource(resource); err != nil {
 			return nil, fmt.Errorf("decode Fly machine inventory: %w", err)
 		}
@@ -178,7 +181,10 @@ func (client *FlyMachinesClient) CreateMachine(ctx context.Context, spec Machine
 	if err := client.doJSON(ctx, "create_machine", http.MethodPost, path, nil, request, client.mutationToken, http.StatusOK, &response); err != nil {
 		return ProviderResource{}, err
 	}
-	resource := ProviderResource{ID: response.ID, Name: response.Name, Region: response.Region}
+	resource := ProviderResource{
+		ID: response.ID, Name: response.Name, Region: response.Region,
+		ImageDigest: response.ImageReference.Digest,
+	}
 	if err := validateProviderResource(resource); err != nil {
 		return ProviderResource{}, fmt.Errorf("decode created Fly machine: %w", err)
 	}
@@ -315,6 +321,9 @@ func validateProviderResource(resource ProviderResource) error {
 	}
 	if resource.Region != "" && !regionPattern.MatchString(resource.Region) {
 		return errors.New("Fly provider resource has an invalid region")
+	}
+	if resource.ImageDigest != "" && !flyDigestPattern.MatchString(resource.ImageDigest) {
+		return errors.New("Fly provider resource has an invalid image digest")
 	}
 	return nil
 }

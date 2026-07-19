@@ -267,6 +267,26 @@ func TestProvisionerDeadlineTransitionsToCleanupWithoutFurtherCreates(t *testing
 	}
 }
 
+func TestProvisionerRestartRejectsMachineWithDifferentImageDigest(t *testing.T) {
+	authorization, directory := loadTestAuthorization(t)
+	store, err := OpenStateStore(directory, authorization, testAuthorizedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fly := newFakeFly()
+	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return testAuthorizedAt.Add(2 * time.Minute) }, State: store}
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err != nil {
+		t.Fatal(err)
+	}
+	fly.machines[0].ImageDigest = "sha256:" + strings.Repeat("b", 64)
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
+		t.Fatal("ProvisionFly adopted a restarted Machine with a different image digest")
+	}
+	if fly.createMachineCalls != 1 {
+		t.Fatalf("restart created another Machine: %d creates", fly.createMachineCalls)
+	}
+}
+
 func TestDurableIntentRecoversCreateAfterResourceJournalInterruption(t *testing.T) {
 	authorization, directory := loadTestAuthorization(t)
 	store, err := OpenStateStore(directory, authorization, testAuthorizedAt.Add(time.Minute))
@@ -475,7 +495,10 @@ func (fly *fakeFly) CreateMachine(_ context.Context, spec MachineSpec) (Provider
 	if fly.machineCreateError != nil {
 		return ProviderResource{}, fly.machineCreateError
 	}
-	resource := ProviderResource{ID: "machine-night", Name: spec.Name, Region: spec.Region}
+	resource := ProviderResource{
+		ID: "machine-night", Name: spec.Name, Region: spec.Region,
+		ImageDigest: spec.ImageReference[strings.LastIndex(spec.ImageReference, "@")+1:],
+	}
 	fly.machines = append(fly.machines, resource)
 	return resource, nil
 }
