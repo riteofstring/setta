@@ -205,6 +205,53 @@ func (client *FlyMachinesClient) DestroyMachine(ctx context.Context, appName str
 	return client.doJSON(ctx, "delete_machine", http.MethodDelete, path, query, nil, client.mutationToken, http.StatusOK, nil)
 }
 
+type FlyMachineExecRequest struct {
+	AppName        string
+	MachineID      string
+	Command        string
+	Stdin          []byte
+	TimeoutSeconds int
+}
+
+type FlyMachineExecResult struct {
+	ExitCode int
+	Stdout   []byte
+	Stderr   []byte
+}
+
+// ExecMachine executes one bounded command on an exact Machine through the
+// typed Machines API. Output is returned only to the caller and is never
+// included in transport or status errors.
+func (client *FlyMachinesClient) ExecMachine(ctx context.Context, request FlyMachineExecRequest) (FlyMachineExecResult, error) {
+	if err := validateFlyMachineExecRequest(request); err != nil {
+		return FlyMachineExecResult{}, err
+	}
+	path := "/apps/" + url.PathEscape(request.AppName) + "/machines/" + url.PathEscape(request.MachineID) + "/exec"
+	body := flyMachineExecRequest{
+		Command: request.Command, Stdin: string(request.Stdin), TimeoutSeconds: request.TimeoutSeconds,
+	}
+	var response flyMachineExecResponse
+	if err := client.doJSON(ctx, "exec_machine", http.MethodPost, path, nil, body, client.mutationToken, http.StatusOK, &response); err != nil {
+		return FlyMachineExecResult{}, err
+	}
+	return FlyMachineExecResult{
+		ExitCode: response.ExitCode, Stdout: []byte(response.Stdout), Stderr: []byte(response.Stderr),
+	}, nil
+}
+
+func validateFlyMachineExecRequest(request FlyMachineExecRequest) error {
+	if !organizationPattern.MatchString(request.AppName) || !flyProviderIDPattern.MatchString(request.MachineID) {
+		return errors.New("Fly Machine exec requires an exact app and Machine identity")
+	}
+	if request.Command == "" || len(request.Command) > 32*1024 || strings.ContainsAny(request.Command, "\x00\r\n") {
+		return errors.New("Fly Machine exec command must be a bounded single-line value")
+	}
+	if len(request.Stdin) > maximumFlyTokenBytes || request.TimeoutSeconds < 1 || request.TimeoutSeconds > 300 {
+		return errors.New("Fly Machine exec stdin or timeout exceeds the fixed bounds")
+	}
+	return nil
+}
+
 func (client *FlyMachinesClient) doJSON(
 	ctx context.Context,
 	operation string,
@@ -483,6 +530,18 @@ type flyCreateMachineRequest struct {
 	Name   string           `json:"name"`
 	Region string           `json:"region"`
 	Config flyMachineConfig `json:"config"`
+}
+
+type flyMachineExecRequest struct {
+	Command        string `json:"cmd"`
+	Stdin          string `json:"stdin,omitempty"`
+	TimeoutSeconds int    `json:"timeout"`
+}
+
+type flyMachineExecResponse struct {
+	ExitCode int    `json:"exit_code"`
+	Stdout   string `json:"stdout"`
+	Stderr   string `json:"stderr"`
 }
 
 type flyMachineConfig struct {

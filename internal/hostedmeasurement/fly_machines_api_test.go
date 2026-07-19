@@ -128,6 +128,54 @@ func TestFlyMachinesClientMachineLifecycleRendersFixedProductionShape(t *testing
 	script.assertComplete()
 }
 
+func TestFlyMachinesClientExecUsesExactMachineAndKeepsStdinOutOfErrors(t *testing.T) {
+	request := FlyMachineExecRequest{
+		AppName: "setta-gateway-night", MachineID: "machine_123",
+		Command: "/usr/local/bin/setta-control-plane bootstrap --runtime-name setta-u-1234",
+		Stdin:   []byte("private-client-credential"), TimeoutSeconds: 120,
+	}
+	script := &flyAPIScript{t: t, requests: []flyExpectedRequest{{
+		method: http.MethodPost, path: "/v1/apps/setta-gateway-night/machines/machine_123/exec",
+		token: testMutationToken, status: http.StatusOK,
+		body:     flyMachineExecRequest{Command: request.Command, Stdin: string(request.Stdin), TimeoutSeconds: 120},
+		response: `{"exit_code":0,"stdout":"{\"event\":\"control_plane_bootstrap_ready\"}\n","stderr":""}`,
+	}}}
+	client, closeServer := newTestFlyMachinesClient(t, script)
+	defer closeServer()
+	result, err := client.ExecMachine(context.Background(), request)
+	if err != nil || result.ExitCode != 0 || !strings.Contains(string(result.Stdout), "bootstrap_ready") {
+		t.Fatalf("ExecMachine = %+v, %v", result, err)
+	}
+	script.assertComplete()
+
+	failingScript := &flyAPIScript{t: t, requests: []flyExpectedRequest{{
+		method: http.MethodPost, path: "/v1/apps/setta-gateway-night/machines/machine_123/exec",
+		token: testMutationToken, status: http.StatusInternalServerError,
+		body:     flyMachineExecRequest{Command: request.Command, Stdin: string(request.Stdin), TimeoutSeconds: 120},
+		response: `{"error":"private-client-credential"}`,
+	}}}
+	failingClient, closeFailingServer := newTestFlyMachinesClient(t, failingScript)
+	defer closeFailingServer()
+	_, err = failingClient.ExecMachine(context.Background(), request)
+	if err == nil || strings.Contains(err.Error(), "private-client-credential") {
+		t.Fatalf("contentful exec error = %v", err)
+	}
+	failingScript.assertComplete()
+}
+
+func TestFlyMachinesClientExecRejectsUnsafeInputBeforeTransport(t *testing.T) {
+	client := &FlyMachinesClient{}
+	for _, request := range []FlyMachineExecRequest{
+		{AppName: "bad/app", MachineID: "machine_123", Command: "true", TimeoutSeconds: 1},
+		{AppName: "setta-gateway-night", MachineID: "machine_123", Command: "bad\ncommand", TimeoutSeconds: 1},
+		{AppName: "setta-gateway-night", MachineID: "machine_123", Command: "true", TimeoutSeconds: 301},
+	} {
+		if _, err := client.ExecMachine(context.Background(), request); err == nil {
+			t.Fatalf("ExecMachine accepted unsafe request: %+v", request)
+		}
+	}
+}
+
 func TestFlyMachinesClientRejectsUnsafeConfigurationAndWrongShape(t *testing.T) {
 	tests := []FlyMachinesClientConfig{
 		{BaseURL: "http://api.machines.dev/v1", HTTPClient: &http.Client{Timeout: time.Second}, MutationToken: []byte("one"), InventoryToken: []byte("two")},

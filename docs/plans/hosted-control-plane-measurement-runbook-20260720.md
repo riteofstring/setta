@@ -272,6 +272,10 @@ Implemented on 2026-07-20:
 19. Hosted Sprite runtime preparation now composes durable provisioning,
     verifier installation, the existing signed release install loop, and its
     identity/version/health proof in one ordered, restart-safe operation.
+20. The typed Fly Machines binding includes bounded exact-Machine execution
+    with the mutation credential, private stdin, structured output, and
+    content-free errors; invalid app, Machine, command, input, or timeout
+    boundaries fail before transport.
 
 Still required before a live create/deployment mutation:
 
