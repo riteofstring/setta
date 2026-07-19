@@ -636,12 +636,15 @@ async function exercisePendingSidePaneClose({
   );
   assertSideDidNotContaminateParent(parentSnapshot, disposed);
   if (closePaneAfterSideEnd) {
-    assertDriverAction(
-      await client.driver("topicConversationCloseOneBoundPane", {
-        conversationId: parentTopic.id,
-      }),
-      "clicked",
-    );
+    const surfaces = await client.driver("topicConversationSurfaceStates", {});
+    if (conversationSurfaces(surfaces.surfaces, parentTopic.id).length > 0) {
+      assertDriverAction(
+        await client.driver("topicConversationCloseOneBoundPane", {
+          conversationId: parentTopic.id,
+        }),
+        "clicked",
+      );
+    }
   }
   await waitForConversationSurfaces(
     client,

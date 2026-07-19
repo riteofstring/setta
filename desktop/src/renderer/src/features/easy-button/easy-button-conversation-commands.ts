@@ -74,7 +74,7 @@ function usePendingSideCreationCompletion(
     if (!workspaceId || !paneId || !snapshot) {
       return;
     }
-    if (openSideConversationForPane(snapshot, paneId)) {
+    if (pendingSideCreationSettled(snapshot, paneId)) {
       finishPendingSideCreation(workspaceId, conversationId, paneId);
     }
   }, [conversationId, paneId, snapshot, workspaceId]);
@@ -447,6 +447,17 @@ function finishPendingSideCreationForInput(
   if (workspaceId && paneId) {
     finishPendingSideCreation(workspaceId, conversationId, paneId);
   }
+}
+
+export function pendingSideCreationSettled(
+  snapshot: ConversationSnapshot,
+  paneId: string | null,
+): boolean {
+  const side = openSideConversationForPane(snapshot, paneId);
+  if (!side) {
+    return false;
+  }
+  return side.status === "failed" || side.activeTurnId !== null || side.lastEventSequence > 0;
 }
 
 function beginPendingSideCreation(
