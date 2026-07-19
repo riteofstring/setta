@@ -88,6 +88,20 @@ func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization A
 	return provisioner.provisionFlyResources(ctx, authorization, imageReference)
 }
 
+func (provisioner Provisioner) ProvisionApp(ctx context.Context, authorization Authorization) error {
+	if provisioner.Fly == nil || provisioner.State == nil || provisioner.Now == nil {
+		return errors.New("hosted measurement app provisioner requires Fly, clock, and durable state")
+	}
+	if err := provisioner.checkCreateClock(authorization); err != nil {
+		return err
+	}
+	if err := provisioner.State.SetPhase(PhaseDeploying, provisioner.Now()); err != nil {
+		return err
+	}
+	_, err := provisioner.ensureApp(ctx, authorization)
+	return err
+}
+
 func (provisioner Provisioner) provisionFlyResources(
 	ctx context.Context,
 	authorization Authorization,

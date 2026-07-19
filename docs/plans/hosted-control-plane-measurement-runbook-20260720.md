@@ -251,6 +251,11 @@ Implemented on 2026-07-20:
     exact `SHA256SUMS` input before either command, pushes only linux/amd64 with
     local Buildx, and reuses a prior result only when its private metadata is
     already valid.
+15. The top-level run coordinator arms cleanup before the first mutation,
+    durably creates the registry-owning App, publishes its image, resumes the
+    remaining fixed provisioning, enters measuring state, executes an injected
+    workload, and always invokes cleanup with a context independent from a
+    canceled workload.
 
 Still required before a live create/deployment mutation:
 
