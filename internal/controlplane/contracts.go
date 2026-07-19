@@ -96,6 +96,14 @@ type DeviceCredential struct {
 	Token    string `json:"token"`
 }
 
+const BootstrapReadyEvent = "control_plane_bootstrap_ready"
+
+type BootstrapEvent struct {
+	DeviceID    string `json:"device_id"`
+	Event       string `json:"event"`
+	RuntimeName string `json:"runtime_name"`
+}
+
 type EnsureDeviceGrantRequest struct {
 	Credential  DeviceCredential
 	UserID      string

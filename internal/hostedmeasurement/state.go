@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	StateSchemaVersion = 1
+	StateSchemaVersion = 2
 	maximumStateBytes  = 256 * 1024
 	stateFileName      = "state.json"
 )
@@ -72,6 +72,14 @@ type ResourceIntent struct {
 	Name string       `json:"name"`
 }
 
+type BootstrapState struct {
+	MachineID         string `json:"machine_id"`
+	RuntimeName       string `json:"runtime_name"`
+	DeviceID          string `json:"device_id"`
+	CredentialSHA256  string `json:"credential_sha256"`
+	BootstrapAccepted string `json:"bootstrap_accepted_at,omitempty"`
+}
+
 type State struct {
 	SchemaVersion  int              `json:"schema_version"`
 	RunID          string           `json:"run_id"`
@@ -81,6 +89,7 @@ type State struct {
 	Intents        []ResourceIntent `json:"intents"`
 	Resources      []ResourceState  `json:"resources"`
 	Operations     []OperationEvent `json:"operations"`
+	Bootstrap      *BootstrapState  `json:"bootstrap,omitempty"`
 }
 
 type StateStore struct {
@@ -252,6 +261,35 @@ func (store *StateStore) RecordDeletion(kind ResourceKind, code OperationCode, n
 	})
 }
 
+func (store *StateStore) RecordBootstrapIntent(bootstrap BootstrapState, now time.Time) error {
+	if bootstrap.BootstrapAccepted != "" {
+		return errors.New("hosted measurement bootstrap intent cannot already be accepted")
+	}
+	return store.update(now, func(state *State) error {
+		if state.Bootstrap != nil {
+			if *state.Bootstrap == bootstrap {
+				return nil
+			}
+			return errors.New("hosted measurement bootstrap intent differs from durable state")
+		}
+		state.Bootstrap = &bootstrap
+		return nil
+	})
+}
+
+func (store *StateStore) RecordBootstrapAccepted(now time.Time) error {
+	return store.update(now, func(state *State) error {
+		if state.Bootstrap == nil {
+			return errors.New("hosted measurement bootstrap intent is not recorded")
+		}
+		if state.Bootstrap.BootstrapAccepted != "" {
+			return nil
+		}
+		state.Bootstrap.BootstrapAccepted = now.UTC().Format(time.RFC3339Nano)
+		return nil
+	})
+}
+
 func (store *StateStore) update(now time.Time, mutate func(*State) error) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -342,7 +380,55 @@ func validateState(state State, authorization Authorization) error {
 	if err := validateResources(state.Resources, intentNames); err != nil {
 		return err
 	}
-	return validateOperationEvents(state.Operations)
+	if err := validateOperationEvents(state.Operations); err != nil {
+		return err
+	}
+	return validateBootstrapState(state.Bootstrap, state.Resources)
+}
+
+func validateBootstrapState(bootstrap *BootstrapState, resources []ResourceState) error {
+	if bootstrap == nil {
+		return nil
+	}
+	if err := validateBootstrapIdentity(*bootstrap); err != nil {
+		return err
+	}
+	if err := validateBootstrapResources(*bootstrap, resources); err != nil {
+		return err
+	}
+	if bootstrap.BootstrapAccepted == "" {
+		return nil
+	}
+	if _, err := time.Parse(time.RFC3339Nano, bootstrap.BootstrapAccepted); err != nil {
+		return errors.New("hosted measurement bootstrap acceptance must be RFC3339Nano")
+	}
+	return nil
+}
+
+func validateBootstrapIdentity(bootstrap BootstrapState) error {
+	if !opaqueIDPattern.MatchString(bootstrap.MachineID) || !opaqueIDPattern.MatchString(bootstrap.RuntimeName) ||
+		!opaqueIDPattern.MatchString(bootstrap.DeviceID) || !isLowerSHA256(bootstrap.CredentialSHA256) {
+		return errors.New("hosted measurement bootstrap state has invalid identities or credential digest")
+	}
+	return nil
+}
+
+func validateBootstrapResources(bootstrap BootstrapState, resources []ResourceState) error {
+	machine, hasMachine := resourceFromSlice(resources, ResourceFlyMachine)
+	runtime, hasRuntime := resourceFromSlice(resources, ResourceSprite)
+	if !hasMachine || !hasRuntime || machine.ID != bootstrap.MachineID || runtime.Name != bootstrap.RuntimeName {
+		return errors.New("hosted measurement bootstrap state differs from durable Machine or Sprite resources")
+	}
+	return nil
+}
+
+func resourceFromSlice(resources []ResourceState, kind ResourceKind) (ResourceState, bool) {
+	for _, resource := range resources {
+		if resource.Kind == kind {
+			return resource, true
+		}
+	}
+	return ResourceState{}, false
 }
 
 func validateResourceIntents(intents []ResourceIntent) (map[ResourceKind]string, error) {
@@ -446,6 +532,10 @@ func cloneState(state State) State {
 	cloned.Intents = append([]ResourceIntent(nil), state.Intents...)
 	cloned.Resources = append([]ResourceState(nil), state.Resources...)
 	cloned.Operations = append([]OperationEvent(nil), state.Operations...)
+	if state.Bootstrap != nil {
+		bootstrap := *state.Bootstrap
+		cloned.Bootstrap = &bootstrap
+	}
 	return cloned
 }
 

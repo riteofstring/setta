@@ -295,6 +295,11 @@ Implemented on 2026-07-20:
     Sprite runtime before Fly Machine creation, passes the freshly minted inner
     credential only into secret staging, clears it immediately afterward, and
     never exposes it to the measurement workload.
+25. Hosted bootstrap creates one private local client credential, journals its
+    digest plus the exact Machine/Sprite/device identities before remote exec,
+    passes it through bounded stdin, validates the typed ready event, and skips
+    only after durable acceptance. Missing or drifted restart credentials fail
+    closed instead of minting replacements.
 
 Still required before a live create/deployment mutation:
 

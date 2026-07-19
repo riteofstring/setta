@@ -34,12 +34,6 @@ type bootstrapConfig struct {
 	UserID                string
 }
 
-type bootstrapEvent struct {
-	DeviceID    string `json:"device_id"`
-	Event       string `json:"event"`
-	RuntimeName string `json:"runtime_name"`
-}
-
 func runBootstrap(
 	args []string,
 	stdin io.Reader,
@@ -109,9 +103,9 @@ func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(stdout).Encode(bootstrapEvent{
+	return json.NewEncoder(stdout).Encode(controlplane.BootstrapEvent{
 		DeviceID:    created.Device.ID,
-		Event:       "control_plane_bootstrap_ready",
+		Event:       controlplane.BootstrapReadyEvent,
 		RuntimeName: created.Grant.RuntimeName,
 	})
 }

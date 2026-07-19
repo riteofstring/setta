@@ -196,11 +196,11 @@ func runBootstrapAttempt(t *testing.T, args []string, runtimeName string, attemp
 	if exitCode := runBootstrap(args, &bytes.Buffer{}, &stdout, &bytes.Buffer{}, mapEnvironment(nil)); exitCode != 0 {
 		t.Fatalf("bootstrap attempt %d exit code = %d", attempt+1, exitCode)
 	}
-	var event bootstrapEvent
+	var event controlplane.BootstrapEvent
 	if err := json.Unmarshal(stdout.Bytes(), &event); err != nil {
 		t.Fatalf("decode bootstrap event: %v", err)
 	}
-	if event.Event != "control_plane_bootstrap_ready" || event.RuntimeName != runtimeName {
+	if event.Event != controlplane.BootstrapReadyEvent || event.RuntimeName != runtimeName {
 		t.Fatalf("bootstrap event = %+v", event)
 	}
 }
