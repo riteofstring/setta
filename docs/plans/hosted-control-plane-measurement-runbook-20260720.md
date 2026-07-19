@@ -269,6 +269,9 @@ Implemented on 2026-07-20:
     local bytes before provider calls, rejects remote symlinks and digest drift,
     stages non-executable bytes with argv-only commands, verifies them remotely,
     publishes atomically, and re-verifies the selected path.
+19. Hosted Sprite runtime preparation now composes durable provisioning,
+    verifier installation, the existing signed release install loop, and its
+    identity/version/health proof in one ordered, restart-safe operation.
 
 Still required before a live create/deployment mutation:
 
