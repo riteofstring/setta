@@ -299,7 +299,6 @@ func TestRuntimeLiveCodexBackendProcessHelper(t *testing.T) {
 	config.Stdout = os.Stdout
 	config.Stderr = os.Stderr
 	config.Version = "live-topic-acceptance"
-	config.SpeechCredentialOwner = SpeechCredentialOwnerElectronVault
 	server, err := Start(context.Background(), config)
 	if err != nil {
 		t.Fatalf("start live Codex child backend: %v", err)

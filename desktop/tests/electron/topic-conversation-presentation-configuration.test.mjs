@@ -78,7 +78,6 @@ try {
 
   await configureGlobalVoices(context.client, "cedar", "ash");
   const configuredGlobal = await waitForGlobalConfiguration(context.client, "cedar", "ash");
-  await closeSettingsShell(context.client);
 
   await presentConversation(context.client, alpha.id);
   await openConversationConfiguration(context.client, alpha.id);
@@ -138,7 +137,6 @@ try {
   await openVoiceSettings(context.client);
   const restoredGlobalSettings = await waitForGlobalSettings(context.client, "cedar", "ash");
   const restoredGlobal = await waitForGlobalConfiguration(context.client, "cedar", "ash");
-  await closeSettingsShell(context.client);
   const restoredAlpha = await waitForConversationProfile(context.client, workspaceId, alpha.id, {
     narratorSpeechEnabled: false,
     narratorVoiceSelection: "exact",
@@ -312,7 +310,7 @@ async function waitForInitialTopic(backend, workspaceId) {
 async function openVoiceSettings(client) {
   const opened = await client.driver("presentationConfigurationOpenSettings");
   if (!opened.ready && !opened.opened) {
-    throw new Error("Settings page was unavailable for voice configuration");
+    throw new Error("Settings pane was unavailable for voice configuration");
   }
   await waitForSelector(client, "#settings-subtab-speech", workflowTimeoutMs);
   const tab = await client.driver("presentationConfigurationOpenGlobalTab");
@@ -322,35 +320,6 @@ async function openVoiceSettings(client) {
   await waitForSelector(
     client,
     '[data-testid="presentation-configuration-settings"]',
-    workflowTimeoutMs,
-  );
-}
-
-async function closeSettingsShell(client) {
-  const clicked = await client.evaluate(`(() => {
-    const page = document.querySelector('[data-testid="settings-shell-page"]');
-    if (!page) {
-      return { clicked: false, closed: true };
-    }
-    const button = Array.from(page.querySelectorAll("button")).find(
-      (candidate) => candidate.textContent?.trim() === "Back to workspace",
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { clicked: false, closed: false };
-    }
-    button.click();
-    return { clicked: true, closed: false };
-  })()`);
-  if (!clicked.closed && !clicked.clicked) {
-    throw new Error("Back to workspace button was not clickable");
-  }
-  await waitForState(
-    client,
-    `(() => ({
-      settingsClosed: !document.querySelector('[data-testid="settings-shell-page"]'),
-      workspaceReady: Boolean(document.querySelector('[data-testid="workspace-layout-area"]')),
-    }))()`,
-    (state) => state.settingsClosed && state.workspaceReady,
     workflowTimeoutMs,
   );
 }

@@ -15,15 +15,7 @@ import (
 	"setta/internal/speech"
 )
 
-type httpSpeechEndpointFixture struct {
-	handler  http.Handler
-	token    string
-	deviceID string
-	service  *fakeHTTPSpeechService
-}
-
-func newHTTPSpeechEndpointFixture(t *testing.T) httpSpeechEndpointFixture {
-	t.Helper()
+func TestSpeechEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *testing.T) {
 	authStore, token := newTestRuntimeAuthStore(t)
 	device, ok, err := authStore.ResolveDeviceToken(context.Background(), token)
 	if err != nil || !ok {
@@ -33,18 +25,6 @@ func newHTTPSpeechEndpointFixture(t *testing.T) httpSpeechEndpointFixture {
 		capabilities:         validHTTPSpeechCapabilities(),
 		masterVoiceSelection: speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z"),
 		narratorVoiceDefault: speech.DefaultNarratorVoiceSelection("2026-07-12T18:00:00Z"),
-		credentialValidationResult: speech.SpeechCredentialValidationResult{
-			Provider: speech.SpeechProviderOpenAI,
-			Valid:    true,
-		},
-		credentialStatus: speech.SpeechCredentialStatus{
-			Provider:       speech.SpeechProviderOpenAI,
-			ProviderStatus: speech.SpeechProviderStatusConfigured,
-		},
-		clearCredentialStatus: speech.SpeechCredentialStatus{
-			Provider:       speech.SpeechProviderOpenAI,
-			ProviderStatus: speech.SpeechProviderStatusNotConfigured,
-		},
 		session: speech.SpeechTranscriptionSession{
 			ClientSecret:                "ek_test_http",
 			ExpiresAt:                   "2099-07-10T12:00:00Z",
@@ -72,133 +52,70 @@ func newHTTPSpeechEndpointFixture(t *testing.T) httpSpeechEndpointFixture {
 		RuntimeAuthService: authStore,
 		SpeechService:      service,
 	})
-	return httpSpeechEndpointFixture{
-		handler:  handler,
-		token:    token,
-		deviceID: device.ID,
-		service:  service,
-	}
-}
 
-func TestSpeechVoiceEndpointsExposeTypedOperations(t *testing.T) {
-	fixture := newHTTPSpeechEndpointFixture(t)
-
-	capabilities := getSpeechJSONWithToken[speech.SpeechCapabilities](t, fixture.handler, "/speech/capabilities", fixture.token, http.StatusOK)
-	if !reflect.DeepEqual(capabilities, fixture.service.capabilities) {
-		t.Fatalf("capabilities = %+v, want %+v", capabilities, fixture.service.capabilities)
+	capabilities := getSpeechJSONWithToken[speech.SpeechCapabilities](t, handler, "/speech/capabilities", token, http.StatusOK)
+	if !reflect.DeepEqual(capabilities, service.capabilities) {
+		t.Fatalf("capabilities = %+v, want %+v", capabilities, service.capabilities)
 	}
-	selection := getSpeechJSONWithToken[speech.MasterVoiceSelection](t, fixture.handler, "/speech/voices/master", fixture.token, http.StatusOK)
-	if !reflect.DeepEqual(selection, fixture.service.masterVoiceSelection) {
-		t.Fatalf("master voice selection = %+v, want %+v", selection, fixture.service.masterVoiceSelection)
+	selection := getSpeechJSONWithToken[speech.MasterVoiceSelection](t, handler, "/speech/voices/master", token, http.StatusOK)
+	if !reflect.DeepEqual(selection, service.masterVoiceSelection) {
+		t.Fatalf("master voice selection = %+v, want %+v", selection, service.masterVoiceSelection)
 	}
 	cedar := speech.SpeechVoiceCedar
 	updated := postJSONWithToken[speech.MasterVoiceSelection](
 		t,
-		fixture.handler,
+		handler,
 		"/speech/voices/master/update",
 		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionExact, RequestedVoiceID: &cedar},
-		fixture.token,
+		token,
 		http.StatusOK,
 	)
 	if updated.ResolvedVoiceID == nil || *updated.ResolvedVoiceID != cedar ||
-		fixture.service.masterVoiceUpdate.RequestedVoiceID == nil || *fixture.service.masterVoiceUpdate.RequestedVoiceID != cedar {
-		t.Fatalf("updated master voice=%+v request=%+v", updated, fixture.service.masterVoiceUpdate)
+		service.masterVoiceUpdate.RequestedVoiceID == nil || *service.masterVoiceUpdate.RequestedVoiceID != cedar {
+		t.Fatalf("updated master voice=%+v request=%+v", updated, service.masterVoiceUpdate)
 	}
 	narratorDefault := getSpeechJSONWithToken[speech.NarratorVoiceDefault](
 		t,
-		fixture.handler,
+		handler,
 		"/speech/voices/narrator-default",
-		fixture.token,
+		token,
 		http.StatusOK,
 	)
-	if !reflect.DeepEqual(narratorDefault, fixture.service.narratorVoiceDefault) {
-		t.Fatalf("narrator voice default = %+v, want %+v", narratorDefault, fixture.service.narratorVoiceDefault)
+	if !reflect.DeepEqual(narratorDefault, service.narratorVoiceDefault) {
+		t.Fatalf("narrator voice default = %+v, want %+v", narratorDefault, service.narratorVoiceDefault)
 	}
 	updatedDefault := postJSONWithToken[speech.NarratorVoiceDefault](
 		t,
-		fixture.handler,
+		handler,
 		"/speech/voices/narrator-default/update",
 		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionExact, RequestedVoiceID: &cedar},
-		fixture.token,
+		token,
 		http.StatusOK,
 	)
 	if updatedDefault.RequestedVoiceID == nil || *updatedDefault.RequestedVoiceID != cedar ||
-		fixture.service.narratorVoiceDefaultUpdate.RequestedVoiceID == nil ||
-		*fixture.service.narratorVoiceDefaultUpdate.RequestedVoiceID != cedar {
-		t.Fatalf("updated narrator default=%+v request=%+v", updatedDefault, fixture.service.narratorVoiceDefaultUpdate)
+		service.narratorVoiceDefaultUpdate.RequestedVoiceID == nil ||
+		*service.narratorVoiceDefaultUpdate.RequestedVoiceID != cedar {
+		t.Fatalf("updated narrator default=%+v request=%+v", updatedDefault, service.narratorVoiceDefaultUpdate)
 	}
-}
-
-func TestSpeechCredentialEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *testing.T) {
-	fixture := newHTTPSpeechEndpointFixture(t)
-
-	credential := "sk-setta-http-speech-credential"
-	validated := postJSONWithToken[speech.SpeechCredentialValidationResult](
-		t,
-		fixture.handler,
-		"/speech/credentials/desktop/validate",
-		SpeechCredentialRequest{APIKey: credential},
-		fixture.token,
-		http.StatusOK,
-	)
-	if validated != fixture.service.credentialValidationResult ||
-		fixture.service.credentialValidationAPIKey != credential ||
-		fixture.service.credentialValidationDeviceID != fixture.deviceID {
-		t.Fatalf("validated=%+v credential=%q device=%q", validated, fixture.service.credentialValidationAPIKey, fixture.service.credentialValidationDeviceID)
-	}
-	loaded := postJSONWithToken[speech.SpeechCredentialStatus](
-		t,
-		fixture.handler,
-		"/speech/credentials/desktop/load",
-		SpeechCredentialRequest{APIKey: credential},
-		fixture.token,
-		http.StatusOK,
-	)
-	if loaded != fixture.service.credentialStatus || fixture.service.loadedCredentialAPIKey != credential {
-		t.Fatalf("loaded=%+v credential=%q", loaded, fixture.service.loadedCredentialAPIKey)
-	}
-	cleared := postJSONWithToken[speech.SpeechCredentialStatus](
-		t,
-		fixture.handler,
-		"/speech/credentials/desktop/clear",
-		ClearDesktopSpeechCredentialRequest{},
-		fixture.token,
-		http.StatusOK,
-	)
-	if cleared != fixture.service.clearCredentialStatus || !fixture.service.credentialCleared {
-		t.Fatalf("cleared=%+v credentialCleared=%v", cleared, fixture.service.credentialCleared)
-	}
-}
-
-func TestSpeechRealtimeEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope(t *testing.T) {
-	fixture := newHTTPSpeechEndpointFixture(t)
-
-	created := postJSONWithToken[speech.SpeechTranscriptionSession](
-		t,
-		fixture.handler,
-		"/speech/transcription/sessions",
-		CreateSpeechTranscriptionSessionRequest{},
-		fixture.token,
-		http.StatusOK,
-	)
-	if created != fixture.service.session || fixture.service.transcriptionDeviceID != fixture.deviceID {
-		t.Fatalf("created=%+v device=%q", created, fixture.service.transcriptionDeviceID)
+	created := postJSONWithToken[speech.SpeechTranscriptionSession](t, handler, "/speech/transcription/sessions", CreateSpeechTranscriptionSessionRequest{}, token, http.StatusOK)
+	if created != service.session || service.transcriptionDeviceID != device.ID {
+		t.Fatalf("created=%+v device=%q", created, service.transcriptionDeviceID)
 	}
 	synthesized := postJSONWithToken[speech.SpeechAudio](
 		t,
-		fixture.handler,
+		handler,
 		"/speech/synthesis",
 		speech.SpeechSynthesisRequest{
-			Source:          fixture.service.synthesisAudio.Source,
-			ResolvedVoiceID: fixture.service.synthesisAudio.ResolvedVoiceID,
+			Source:          service.synthesisAudio.Source,
+			ResolvedVoiceID: service.synthesisAudio.ResolvedVoiceID,
 		},
-		fixture.token,
+		token,
 		http.StatusOK,
 	)
-	if !reflect.DeepEqual(synthesized, fixture.service.synthesisAudio) ||
-		!reflect.DeepEqual(fixture.service.synthesisRequest.Source, fixture.service.synthesisAudio.Source) ||
-		fixture.service.synthesisRequest.ResolvedVoiceID != fixture.service.synthesisAudio.ResolvedVoiceID {
-		t.Fatalf("synthesized=%+v request=%+v", synthesized, fixture.service.synthesisRequest)
+	if !reflect.DeepEqual(synthesized, service.synthesisAudio) ||
+		!reflect.DeepEqual(service.synthesisRequest.Source, service.synthesisAudio.Source) ||
+		service.synthesisRequest.ResolvedVoiceID != service.synthesisAudio.ResolvedVoiceID {
+		t.Fatalf("synthesized=%+v request=%+v", synthesized, service.synthesisRequest)
 	}
 }
 
@@ -220,9 +137,6 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 		{method: http.MethodPost, path: "/speech/voices/master/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
 		{method: http.MethodGet, path: "/speech/voices/narrator-default"},
 		{method: http.MethodPost, path: "/speech/voices/narrator-default/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
-		{method: http.MethodPost, path: "/speech/credentials/desktop/validate", body: `{"apiKey":"sk-setta-http-speech-credential"}`},
-		{method: http.MethodPost, path: "/speech/credentials/desktop/load", body: `{"apiKey":"sk-setta-http-speech-credential"}`},
-		{method: http.MethodPost, path: "/speech/credentials/desktop/clear", body: `{}`},
 		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{}`},
 		{method: http.MethodPost, path: "/speech/synthesis", body: `{"source":{"speaker":"master","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
 	}
@@ -292,7 +206,6 @@ func TestSpeechEndpointMapsTypedFailures(t *testing.T) {
 		{code: speech.ErrorProviderResponseMalformed, wantStatus: http.StatusBadGateway},
 		{code: speech.ErrorAudioTooLarge, wantStatus: http.StatusBadGateway},
 		{code: speech.ErrorSourceUnavailable, wantStatus: http.StatusConflict},
-		{code: speech.ErrorCredentialInvalid, wantStatus: http.StatusBadRequest},
 	}
 	for _, test := range tests {
 		t.Run(string(test.code), func(t *testing.T) {
@@ -389,44 +302,12 @@ func TestSpeechEndpointRejectsRemovedWorkspaceScope(t *testing.T) {
 	}
 }
 
-func TestSpeechCredentialEndpointRejectsUnknownFields(t *testing.T) {
-	service := &fakeHTTPSpeechService{}
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		Metadata:      BackendMetadata{Name: BackendName, Version: "test"},
-		SpeechService: service,
-	})
-	response := postRaw[ErrorResponse](
-		t,
-		handler,
-		"/speech/credentials/desktop/validate",
-		`{"apiKey":"sk-setta-http-speech-credential","extra":true}`,
-		http.StatusBadRequest,
-	)
-	if response.Error.Code != "invalid_json" || service.calls != 0 {
-		t.Fatalf("error=%+v serviceCalls=%d", response.Error, service.calls)
-	}
-}
-
 func TestSpeechEndpointRejectsOversizedRequestBeforeAuthenticationOrDecode(t *testing.T) {
 	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
-	tests := []struct {
-		path string
-		body string
-	}{
-		{
-			path: "/speech/transcription/sessions",
-			body: `{"workspaceId":"` + strings.Repeat("x", int(speechRequestBodyLimitBytes)+1) + `"}`,
-		},
-		{
-			path: "/speech/credentials/desktop/validate",
-			body: `{"apiKey":"` + strings.Repeat("x", int(speechRequestBodyLimitBytes)+1) + `"}`,
-		},
-	}
-	for _, test := range tests {
-		response := postRaw[ErrorResponse](t, handler, test.path, test.body, http.StatusRequestEntityTooLarge)
-		if response.Error.Code != "request_body_too_large" || !strings.Contains(response.Error.Message, "16384 bytes") {
-			t.Fatalf("%s error = %+v", test.path, response.Error)
-		}
+	body := `{"workspaceId":"` + strings.Repeat("x", int(speechRequestBodyLimitBytes)+1) + `"}`
+	response := postRaw[ErrorResponse](t, handler, "/speech/transcription/sessions", body, http.StatusRequestEntityTooLarge)
+	if response.Error.Code != "request_body_too_large" || !strings.Contains(response.Error.Message, "16384 bytes") {
+		t.Fatalf("error = %+v", response.Error)
 	}
 }
 
@@ -441,16 +322,6 @@ type fakeHTTPSpeechService struct {
 	narratorVoiceDefaultErr       error
 	narratorVoiceDefaultUpdate    speech.VoiceSelectionRequest
 	narratorVoiceDefaultUpdateErr error
-	credentialValidationResult    speech.SpeechCredentialValidationResult
-	credentialValidationErr       error
-	credentialValidationAPIKey    string
-	credentialValidationDeviceID  string
-	credentialStatus              speech.SpeechCredentialStatus
-	loadCredentialErr             error
-	loadedCredentialAPIKey        string
-	clearCredentialStatus         speech.SpeechCredentialStatus
-	clearCredentialErr            error
-	credentialCleared             bool
 	synthesisAudio                speech.SpeechAudio
 	synthesisErr                  error
 	synthesisRequest              speech.SpeechSynthesisRequest
@@ -506,32 +377,6 @@ func (service *fakeHTTPSpeechService) UpdateNarratorVoiceDefault(
 	value.Selection = request.Selection
 	value.RequestedVoiceID = request.RequestedVoiceID
 	return value, nil
-}
-
-func (service *fakeHTTPSpeechService) ValidateCredential(
-	_ context.Context,
-	apiKey string,
-	deviceID string,
-) (speech.SpeechCredentialValidationResult, error) {
-	service.calls++
-	service.credentialValidationAPIKey = apiKey
-	service.credentialValidationDeviceID = deviceID
-	return service.credentialValidationResult, service.credentialValidationErr
-}
-
-func (service *fakeHTTPSpeechService) LoadCredential(
-	_ context.Context,
-	apiKey string,
-) (speech.SpeechCredentialStatus, error) {
-	service.calls++
-	service.loadedCredentialAPIKey = apiKey
-	return service.credentialStatus, service.loadCredentialErr
-}
-
-func (service *fakeHTTPSpeechService) ClearCredential(context.Context) (speech.SpeechCredentialStatus, error) {
-	service.calls++
-	service.credentialCleared = true
-	return service.clearCredentialStatus, service.clearCredentialErr
 }
 
 func (service *fakeHTTPSpeechService) CreateTranscriptionSession(_ context.Context, deviceID string) (speech.SpeechTranscriptionSession, error) {

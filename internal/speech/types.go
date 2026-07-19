@@ -139,16 +139,6 @@ type SpeechCapabilities struct {
 	AIVoiceDisclosure           string               `json:"aiVoiceDisclosure"`
 }
 
-type SpeechCredentialValidationResult struct {
-	Provider SpeechProvider `json:"provider"`
-	Valid    bool           `json:"valid"`
-}
-
-type SpeechCredentialStatus struct {
-	Provider       SpeechProvider       `json:"provider"`
-	ProviderStatus SpeechProviderStatus `json:"providerStatus"`
-}
-
 type SpeechTranscriptionSession struct {
 	ClientSecret                string `json:"clientSecret"`
 	ExpiresAt                   string `json:"expiresAt"`

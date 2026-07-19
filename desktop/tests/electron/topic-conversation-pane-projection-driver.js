@@ -19,6 +19,7 @@
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
+      topicConversationOpenNewViewFromNavigator,
       topicConversationRespondApproval,
       topicConversationShellSpeechCapture,
       topicConversationShellSpeechState,
@@ -52,15 +53,11 @@
   }
 
   function topicConversationFirstRunState() {
-    const newConversationButton = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === "New conversation",
-    );
     return {
       chooseFolder: Boolean(document.querySelector('[data-testid="choose-project-folder"]')),
       easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
       emptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
-      newTopic:
-        newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
+      newTopic: Boolean(document.querySelector('[aria-label="Create topic conversation"]')),
       search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
     };
   }
@@ -476,52 +473,20 @@
     return { conversationId, denied: true };
   }
 
-  async function topicConversationOpenBoundPane({
-    conversationId,
-    title = null,
-    workspaceId = null,
-  }) {
-    const targetWorkspaceId = workspaceId ?? currentWorkspaceLayoutId();
-    if (!targetWorkspaceId) {
-      return { conversationId, reason: "workspace unavailable", requested: false };
-    }
-    const request = {
-      conversationId,
-      title: title ?? conversationTitleForNavigation(conversationId),
-      workspaceId: targetWorkspaceId,
-    };
-    const completion = requestConversationPaneNavigation(request);
-    if (!(completion instanceof Promise)) {
-      return {
-        conversationId,
-        reason: "conversation pane coordinator unavailable",
-        requested: false,
-      };
-    }
-    const result = await completion;
-    return {
-      conversationId,
-      requested: conversationPaneNavigationRequested(result),
-      result,
-    };
-  }
-
-  function currentWorkspaceLayoutId() {
-    return (
-      document
-        .querySelector('[data-testid="workspace-layout-area"]')
-        ?.getAttribute("data-workspace-id") ?? ""
+  function topicConversationOpenBoundPane({ conversationId }) {
+    window.dispatchEvent(
+      new CustomEvent("setta:workspace-open-pane-request", {
+        detail: {
+          easyButtonConfig: { conversationId },
+          subtitle: "topic conversation duplicate view",
+          surfaceKind: "easy-button",
+          title: "Topic conversation copy",
+          tone: "cyan",
+          widthSpec: { unit: "proportion", value: 1 },
+        },
+      }),
     );
-  }
-
-  function requestConversationPaneNavigation(request) {
-    const detail = { completion: null, request };
-    window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
-    return detail.completion;
-  }
-
-  function conversationPaneNavigationRequested(result) {
-    return result.kind === "focused" || result.kind === "opened";
+    return { conversationId, requested: true };
   }
 
   function topicConversationNavigatorState({ conversationId }) {
@@ -533,13 +498,9 @@
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).filter((surface) => datasetValue(surface, "conversationId") === conversationId);
     const rowPresentation = conversationNavigatorRowPresentation(rows[0]);
-    const duplicateViewButtonCount = Array.from(
-      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
-    ).filter((button) => datasetValue(button, "conversationId") === conversationId).length;
     return {
       ...rowPresentation,
       conversationId: rows.length === 1 ? rowPresentation.conversationId : "",
-      duplicateViewButtonCount,
       focusedPaneId:
         document
           .querySelector('[data-testid="workspace-pane-host"][data-focused="true"]')
@@ -588,18 +549,21 @@
     return { clicked: true, conversationId };
   }
 
-  function conversationTitleForNavigation(conversationId) {
-    const row = Array.from(
-      document.querySelectorAll('[data-testid="conversation-navigator-item"]'),
+  function topicConversationOpenNewViewFromNavigator({ conversationId }) {
+    const button = Array.from(
+      document.querySelectorAll('[data-testid="conversation-open-new-view"]'),
     ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
-    const title = row?.getAttribute("title")?.trim();
-    return title || "Topic conversation";
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false, conversationId };
+    }
+    button.click();
+    return { clicked: true, conversationId };
   }
 
   async function topicConversationRequestPresentation({ conversationId, title, workspaceId }) {
     const detail = {
       completion: null,
-      request: { conversationId, title, workspaceId },
+      request: { conversationId, title, viewAction: "focus-or-open", workspaceId },
     };
     window.dispatchEvent(new CustomEvent("setta:conversation-pane-navigation-request", { detail }));
     if (!(detail.completion instanceof Promise)) {
@@ -641,19 +605,12 @@
     const surface = Array.from(
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).find((candidate) => datasetValue(candidate, "conversationId") === conversationId);
-    const host = surface?.closest('[data-testid="workspace-pane-host"]');
-    const paneId = datasetValue(host, "paneId");
-    const button = host?.querySelector('[data-workspace-pane-action="close"]');
+    const paneId = datasetValue(surface?.closest('[data-testid="workspace-pane-host"]'), "paneId");
+    const button = Array.from(
+      document.querySelectorAll('[data-workspace-pane-action="close"]'),
+    ).find((candidate) => datasetValue(candidate, "paneId") === paneId);
     if (!(button instanceof HTMLButtonElement)) {
-      return {
-        clicked: false,
-        conversationId,
-        paneId,
-        reason: host instanceof HTMLElement ? "missing-close-button" : "missing-host",
-      };
-    }
-    if (button.disabled) {
-      return { clicked: false, conversationId, paneId, reason: "close-button-disabled" };
+      return { clicked: false, conversationId, paneId };
     }
     const originalConfirm = window.confirm;
     if (confirmSide) {

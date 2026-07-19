@@ -31,21 +31,19 @@ export async function createTopic(
 }
 
 async function createAndListTopic({ backend, timeoutMs, title, workspaceId }) {
-  const before = await listTopics(backend, workspaceId);
   const created = await backend.post("/conversations/create", { title, workspaceId });
   if (created.conversation?.title !== title || created.conversation?.workspaceId !== workspaceId) {
     throw new Error(`created topic did not match its request: ${JSON.stringify(created)}`);
   }
+  const conversationId = created.conversation.id;
   const page = await waitForBackendState(
     async () => listTopics(backend, workspaceId),
-    (current) =>
-      current.items.length === Math.min(before.items.length + 1, navigatorPageLimit) &&
-      current.items.some((item) => item.conversation.title === title),
+    (current) => current.items.some((item) => item.conversation.id === conversationId),
     timeoutMs,
   );
   return requireListedTopic(
     page,
-    (candidate) => candidate.conversation.title === title,
+    (candidate) => candidate.conversation.id === conversationId,
     `created topic ${title}`,
   );
 }
@@ -894,10 +892,7 @@ export async function exerciseDurableForkWorkflow({
     driverCallExpression("topicConversationNavigatorState", {
       conversationId: forkTopicSummary.id,
     }),
-    (state) =>
-      state.rowCount === 1 &&
-      state.openViewCount === 1 &&
-      state.label.includes("open in workspace"),
+    (state) => state.rowCount === 1 && state.label.includes("1 open view"),
     timeoutMs,
   );
   assertCondition(
@@ -1168,7 +1163,7 @@ function completedForkSurface(surface) {
     surface.state === "complete" &&
     surface.status === "completed" &&
     surface.artifactCount === 1 &&
-    surface.summaryText === "Fork child artifact completed."
+    surface.summaryText === "Narrator completed fork child artifact."
   );
 }
 
