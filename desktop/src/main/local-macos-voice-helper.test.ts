@@ -244,17 +244,74 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     client.shutdown();
   });
 
-  test("rejects malformed helper events before accepting local capture results", async () => {
+  test("surfaces helper-reported bad model paths without stopping the helper", async () => {
     const client = new LocalMacOSVoiceHelperProcessClient({
-      args: [fixturePath, "malformed"],
+      args: [fixturePath],
       command: process.execPath,
     });
 
-    await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).rejects.toBeInstanceOf(
-      LocalMacOSVoiceHelperProtocolError,
-    );
+    await expect(client.readHealth({ modelPath: "/tmp/missing-model.bin" })).resolves.toEqual({
+      message: "model file is missing",
+      status: "missing_model",
+    });
+    await expect(
+      client.startCapture({
+        maximumRecordingSeconds: 120,
+        maximumTranscriptCharacters: 8000,
+        modelPath: "/tmp/missing-model.bin",
+        sessionId: "session_missing_model",
+      }),
+    ).rejects.toMatchObject({
+      code: "missing_model",
+      message: "model file is missing",
+      name: "LocalMacOSVoiceHelperCommandError",
+    });
+    await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).resolves.toEqual({
+      status: "ready",
+    });
+
     client.shutdown();
   });
+
+  test("cancels pending synthesis through helper command framing", async () => {
+    const client = new LocalMacOSVoiceHelperProcessClient({
+      args: [fixturePath],
+      command: process.execPath,
+    });
+
+    const synthesis = client.synthesizeSpeech({
+      operationId: "speech_cancel",
+      rate: 1.2,
+      text: "Local helper speech.",
+      voiceId: "marin",
+    });
+    const synthesisFailure = expect(synthesis).rejects.toMatchObject({
+      code: "synthesis_failed",
+      message: "synthesis was canceled",
+      name: "LocalMacOSVoiceHelperCommandError",
+    });
+    await expect(client.cancelSynthesis({ operationId: "speech_cancel" })).resolves.toEqual({
+      operationId: "speech_cancel",
+    });
+    await synthesisFailure;
+
+    client.shutdown();
+  });
+
+  test.each(["malformed", "malformed_result", "omitted_error", "unknown_id"])(
+    "rejects %s helper events before accepting local capture results",
+    async (mode) => {
+      const client = new LocalMacOSVoiceHelperProcessClient({
+        args: [fixturePath, mode],
+        command: process.execPath,
+      });
+
+      await expect(
+        client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" }),
+      ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperProtocolError);
+      client.shutdown();
+    },
+  );
 });
 
 class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {

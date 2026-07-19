@@ -14,12 +14,24 @@ const commandHandlers = new Map([
 ]);
 
 input.on("line", (line) => {
-  if (mode === "malformed") {
+  if (mode === "malformed" || mode === "malformed_json") {
     process.stdout.write("not-json\n");
     return;
   }
 
   const command = JSON.parse(line);
+  if (mode === "unknown_id") {
+    respond("local-macos-voice-unknown", { status: "ready" });
+    return;
+  }
+  if (mode === "omitted_error") {
+    process.stdout.write(JSON.stringify({ id: command.id, ok: false, type: "response" }) + "\n");
+    return;
+  }
+  if (mode === "malformed_result" && command.type === "read_health") {
+    respond(command.id, { extra: true, status: "ready" });
+    return;
+  }
   const handler = commandHandlers.get(command.type);
   if (!handler) {
     reject(command.id, "unsupported_command", "command is unsupported");
@@ -61,12 +73,16 @@ function handleFinishCapture(command) {
 }
 
 function handleReadHealth(command) {
+  if (command.payload.modelPath.includes("missing-model")) {
+    respond(command.id, { message: "model file is missing", status: "missing_model" });
+    return;
+  }
   respond(command.id, { status: "ready" });
 }
 
 function handleStartCapture(command) {
-  if (!command.payload.modelPath) {
-    reject(command.id, "missing_model", "model path is required");
+  if (!command.payload.modelPath || command.payload.modelPath.includes("missing-model")) {
+    reject(command.id, "missing_model", "model file is missing");
     return;
   }
   if (command.payload.sessionId.includes("microphone_denied")) {

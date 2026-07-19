@@ -407,34 +407,43 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
   readHealth = async (
     request: LocalMacOSVoiceHelperHealthRequest,
   ): Promise<LocalMacOSVoiceHelperHealthResult> =>
-    decodeHealthResult(await this.sendCommand("read_health", request));
+    this.decodeCommandResult(await this.sendCommand("read_health", request), decodeHealthResult);
 
   startCapture = async (
     request: LocalMacOSVoiceStartCaptureRequest,
   ): Promise<LocalMacOSVoiceCaptureStarted> =>
-    decodeSessionResult(await this.sendCommand("start_capture", request), "start_capture");
+    this.decodeCommandResult(await this.sendCommand("start_capture", request), (result) =>
+      decodeSessionResult(result, "start_capture"),
+    );
 
   finishCapture = async (
     request: LocalMacOSVoiceFinishCaptureRequest,
   ): Promise<LocalMacOSVoiceTranscriptionResult> =>
-    decodeTranscriptionResult(await this.sendCommand("finish_capture", request));
+    this.decodeCommandResult(
+      await this.sendCommand("finish_capture", request),
+      decodeTranscriptionResult,
+    );
 
   cancelCapture = async (
     request: LocalMacOSVoiceCancelCaptureRequest,
   ): Promise<LocalMacOSVoiceCaptureCanceled> =>
-    decodeSessionResult(await this.sendCommand("cancel_capture", request), "cancel_capture");
+    this.decodeCommandResult(await this.sendCommand("cancel_capture", request), (result) =>
+      decodeSessionResult(result, "cancel_capture"),
+    );
 
   synthesizeSpeech = async (
     request: LocalMacOSVoiceSynthesisRequest,
   ): Promise<LocalMacOSVoiceSynthesisResult> =>
-    decodeSynthesisResult(await this.sendCommand("synthesize_speech", request));
+    this.decodeCommandResult(
+      await this.sendCommand("synthesize_speech", request),
+      decodeSynthesisResult,
+    );
 
   cancelSynthesis = async (
     request: LocalMacOSVoiceCancelSynthesisRequest,
   ): Promise<LocalMacOSVoiceSynthesisCanceled> =>
-    decodeSynthesisCancelResult(
-      await this.sendCommand("cancel_synthesis", request),
-      "cancel_synthesis",
+    this.decodeCommandResult(await this.sendCommand("cancel_synthesis", request), (result) =>
+      decodeSynthesisCancelResult(result, "cancel_synthesis"),
     );
 
   shutdown(): void {
@@ -538,9 +547,11 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
       return;
     }
     if (!response.error) {
-      pending.reject(
-        new LocalMacOSVoiceHelperProtocolError("Local macOS voice helper omitted error details."),
+      const error = new LocalMacOSVoiceHelperProtocolError(
+        "Local macOS voice helper omitted error details.",
       );
+      pending.reject(error);
+      this.stopAfterProtocolError(error);
       return;
     }
     pending.reject(
@@ -549,9 +560,26 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
   }
 
   private failProtocol(message: string, cause?: unknown): void {
+    this.stopAfterProtocolError(new LocalMacOSVoiceHelperProtocolError(message, { cause }));
+  }
+
+  private decodeCommandResult<T>(result: unknown, decode: (result: unknown) => T): T {
+    try {
+      return decode(result);
+    } catch (cause) {
+      const error = new LocalMacOSVoiceHelperProtocolError(
+        "Local macOS voice helper returned a malformed event.",
+        { cause },
+      );
+      this.stopAfterProtocolError(error);
+      throw error;
+    }
+  }
+
+  private stopAfterProtocolError(error: LocalMacOSVoiceHelperProtocolError): void {
     this.child?.kill();
     this.child = null;
-    this.failPending(new LocalMacOSVoiceHelperProtocolError(message, { cause }));
+    this.failPending(error);
   }
 
   private failPending(error: Error): void {
