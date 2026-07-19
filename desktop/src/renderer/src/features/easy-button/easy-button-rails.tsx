@@ -108,7 +108,7 @@ export function ArtifactRail({
   readArtifact?: ArtifactReader;
   workspaceId: string | null;
 }) {
-  const visibleArtifacts = useMemo(() => artifacts.slice(-maxRenderedArtifacts), [artifacts]);
+  const visibleArtifacts = useMemo(() => visibleArtifactMetadata(artifacts), [artifacts]);
   useVisibleArtifactPayloads({
     artifacts: visibleArtifacts,
     conversationId,
@@ -137,6 +137,12 @@ export function ArtifactRail({
   );
 }
 
+export function visibleArtifactMetadata(
+  artifacts: readonly ArtifactMetadata[],
+): readonly ArtifactMetadata[] {
+  return artifacts.slice(-maxRenderedArtifacts);
+}
+
 export function readVisibleArtifactPayloads({
   artifacts,
   conversationId,
@@ -149,13 +155,30 @@ export function readVisibleArtifactPayloads({
   workspaceId: string;
 }): Promise<Artifact[]> {
   return Promise.all(
-    artifacts
-      .slice(-maxRenderedArtifacts)
-      .map((artifact) => readArtifactPayload(artifact, workspaceId, conversationId, readArtifact)),
+    visibleArtifactMetadata(artifacts).map((artifact) =>
+      readArtifactPayload(artifact, workspaceId, conversationId, readArtifact),
+    ),
   );
 }
 
-function useVisibleArtifactPayloads({
+export function cachedVisibleArtifactPayloads({
+  artifacts,
+  conversationId,
+  workspaceId,
+}: {
+  artifacts: readonly ArtifactMetadata[];
+  conversationId: string;
+  workspaceId: string;
+}): Artifact[] {
+  return visibleArtifactMetadata(artifacts).flatMap((artifact) => {
+    const cached = artifactPayloadCache.get(
+      artifactPayloadCacheKey(workspaceId, conversationId, artifact.id),
+    );
+    return cached?.status === "loaded" ? [cached.artifact] : [];
+  });
+}
+
+export function useVisibleArtifactPayloads({
   artifacts,
   conversationId,
   readArtifact,
@@ -165,8 +188,8 @@ function useVisibleArtifactPayloads({
   conversationId: string;
   readArtifact: ArtifactReader | undefined;
   workspaceId: string | null;
-}) {
-  const [, setRevision] = useState(0);
+}): number {
+  const [revision, setRevision] = useState(0);
   const artifactIds = artifacts.map((artifact) => artifact.id).join("\x00");
   useEffect(() => {
     if (!workspaceId) {
@@ -190,6 +213,7 @@ function useVisibleArtifactPayloads({
       active = false;
     };
   }, [artifactIds, artifacts, conversationId, readArtifact, workspaceId]);
+  return revision;
 }
 
 function readArtifactPayload(

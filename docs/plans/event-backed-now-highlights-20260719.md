@@ -15,7 +15,7 @@ or legacy narrator milestone behavior as part of this work.
 - [x] Narration and speech cadence: automatic narrator milestones are now
   constrained so routine progress is visual-only and automatic speech is
   reserved for attention/status events.
-- [ ] Completion: artifact-bearing terminal turns still need compact,
+- [x] Completion: artifact-bearing terminal turns now use compact,
   artifact-first center summaries derived from typed artifact data.
 - [ ] Defaults: the primary topic-agent role default still needs the yolo
   permission cutover.

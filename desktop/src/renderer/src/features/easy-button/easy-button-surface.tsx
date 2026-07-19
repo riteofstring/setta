@@ -1,13 +1,13 @@
 import { Check, Sparkles, Square, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import {
+  type Artifact,
   type ArtifactMetadata,
   type ConversationPaletteID,
   type ConversationPresentationProfile,
   type ConversationSnapshot,
   type ConversationTurn,
-  type NarrationEvent,
   type NarratorState,
   type Subagent,
   type TopicConversation,
@@ -64,11 +64,19 @@ import {
 import { useEasyButtonPaneTitle } from "./easy-button-pane-title";
 import { EasyButtonPresentationChrome } from "./easy-button-presentation-chrome";
 import { progressHighlightViews } from "./easy-button-progress-highlights";
-import { ArtifactRail, HighlightRail, type EasyButtonProgressHighlight } from "./easy-button-rails";
+import {
+  ArtifactRail,
+  cachedVisibleArtifactPayloads,
+  HighlightRail,
+  type EasyButtonProgressHighlight,
+  useVisibleArtifactPayloads,
+  visibleArtifactMetadata,
+} from "./easy-button-rails";
 import { speakingProgressHighlightId } from "./easy-button-speaking-highlight";
 import { EasyButtonSideConversation } from "./easy-button-side-conversation";
 import { easyButtonSideView, type EasyButtonSideView } from "./easy-button-side-projection";
 import {
+  easyButtonTerminalSummary,
   EasyButtonTerminalSummary,
   type EasyButtonTerminalSummaryRecord,
 } from "./easy-button-terminal-summary";
@@ -83,6 +91,14 @@ interface EasyButtonSurfaceProps {
   speechPresentation?: GlobalSpeechPresentationSource;
   workspaceId?: string | null;
 }
+
+interface EasyButtonArtifactPayloadSource {
+  artifacts: readonly ArtifactMetadata[];
+  conversationId: string;
+  workspaceId: string | null;
+}
+
+const emptyArtifactMetadata: readonly ArtifactMetadata[] = [];
 
 export interface EasyButtonProjectionView {
   activeAgentCount: number;
@@ -153,7 +169,14 @@ export function EasyButtonSurface({
       )?.conversation.title ?? null
     );
   });
-  const projectedView = easyButtonProjectionView(conversationId, projection, paneId, parentTitle);
+  const artifactPayloads = useEasyButtonArtifactPayloads(projection, conversationId, workspaceId);
+  const projectedView = easyButtonProjectionView(
+    conversationId,
+    projection,
+    paneId,
+    parentTitle,
+    artifactPayloads,
+  );
   const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
   return (
     <EasyButtonProjectionSurface
@@ -163,6 +186,56 @@ export function EasyButtonSurface({
       view={view}
     />
   );
+}
+
+function useEasyButtonArtifactPayloads(
+  projection: ConversationProjection | undefined,
+  conversationId: string,
+  workspaceId: string | null | undefined,
+): readonly Artifact[] {
+  const source = artifactPayloadSource(projection, conversationId, workspaceId);
+  const visibleArtifacts = useMemo(
+    () => visibleArtifactMetadata(source.artifacts),
+    [source.artifacts],
+  );
+  useVisibleArtifactPayloads({
+    artifacts: visibleArtifacts,
+    conversationId: source.conversationId,
+    readArtifact: undefined,
+    workspaceId: source.workspaceId,
+  });
+  return cachedArtifactPayloadsForSource(source);
+}
+
+function artifactPayloadSource(
+  projection: ConversationProjection | undefined,
+  conversationId: string,
+  workspaceId: string | null | undefined,
+): EasyButtonArtifactPayloadSource {
+  const snapshot = projection?.snapshot;
+  if (!snapshot) {
+    return {
+      artifacts: emptyArtifactMetadata,
+      conversationId,
+      workspaceId: workspaceId ?? null,
+    };
+  }
+  return {
+    artifacts: snapshot.artifacts.artifacts,
+    conversationId: snapshot.conversation.id,
+    workspaceId: snapshot.conversation.workspaceId,
+  };
+}
+
+function cachedArtifactPayloadsForSource(source: EasyButtonArtifactPayloadSource): Artifact[] {
+  if (!source.workspaceId) {
+    return [];
+  }
+  return cachedVisibleArtifactPayloads({
+    artifacts: source.artifacts,
+    conversationId: source.conversationId,
+    workspaceId: source.workspaceId,
+  });
 }
 
 export function easyButtonConversationProjection(
@@ -443,6 +516,7 @@ export function easyButtonProjectionView(
   projection: ConversationProjection | undefined,
   paneId: string | null = null,
   parentTitle: string | null = null,
+  artifactPayloads: readonly Artifact[] = [],
 ): EasyButtonProjectionView {
   if (!projection) {
     return unavailableView({
@@ -461,22 +535,31 @@ export function easyButtonProjectionView(
       projectionStatus,
     });
   }
-  return projectConversationSnapshot(
-    projection.snapshot,
-    projection,
-    projectionStatus,
+  return projectConversationSnapshot({
+    artifactPayloads,
     paneId,
     parentTitle,
-  );
+    projection,
+    projectionStatus,
+    snapshot: projection.snapshot,
+  });
 }
 
-function projectConversationSnapshot(
-  snapshot: ConversationSnapshot,
-  projection: ConversationProjection,
-  projectionStatus: EasyButtonProjectionStatus,
-  paneId: string | null,
-  parentTitle: string | null,
-): EasyButtonProjectionView {
+function projectConversationSnapshot({
+  artifactPayloads,
+  paneId,
+  parentTitle,
+  projection,
+  projectionStatus,
+  snapshot,
+}: {
+  artifactPayloads: readonly Artifact[];
+  paneId: string | null;
+  parentTitle: string | null;
+  projection: ConversationProjection;
+  projectionStatus: EasyButtonProjectionStatus;
+  snapshot: ConversationSnapshot;
+}): EasyButtonProjectionView {
   const latestTurn = latestConversationTurn(snapshot.turns.turns);
   const runningTurnId = runningConversationTurnID(snapshot);
   const viewState = conversationViewState(snapshot.conversation, latestTurn);
@@ -511,12 +594,14 @@ function projectConversationSnapshot(
       snapshot.conversation.lastTrajectorySequence,
     ),
     side: easyButtonSideView(snapshot, paneId),
-    terminalSummary: terminalSummary(
-      snapshot.narration.events,
-      snapshot.trajectory.events,
+    terminalSummary: easyButtonTerminalSummary({
+      artifactPayloads,
+      artifacts: snapshot.artifacts.artifacts,
       latestTurn,
+      narration: snapshot.narration.events,
+      trajectory: snapshot.trajectory.events,
       viewState,
-    ),
+    }),
     title: snapshot.conversation.title,
     trajectoryEventCount: snapshot.trajectory.events.length,
     trajectoryHasEarlier: snapshot.trajectory.hasEarlier,
@@ -710,96 +795,6 @@ function terminalHelperCopy(latestTurn: ConversationTurn | null): string {
       return "Work cancelled";
     case "failed":
       return "Work failed";
-  }
-}
-
-function terminalSummary(
-  narration: readonly NarrationEvent[],
-  trajectory: readonly TrajectoryEvent[],
-  latestTurn: ConversationTurn | null,
-  viewState: EasyButtonViewState,
-): EasyButtonTerminalSummaryRecord | null {
-  if (!latestTurn || viewState !== "complete" || !terminalTurn(latestTurn)) {
-    return null;
-  }
-  const narrated = narratedTerminalSummary(narration, latestTurn);
-  if (narrated) {
-    return narrated;
-  }
-  const agentMessage = agentTerminalSummary(trajectory, latestTurn);
-  if (agentMessage) {
-    return agentMessage;
-  }
-  return {
-    id: `turn:${latestTurn.id}`,
-    status: latestTurn.status,
-    text: terminalFallbackText(latestTurn),
-    turnId: latestTurn.id,
-  };
-}
-
-function narratedTerminalSummary(
-  narration: readonly NarrationEvent[],
-  latestTurn: ConversationTurn & {
-    status: Extract<ConversationTurn["status"], "completed" | "cancelled" | "failed">;
-  },
-): EasyButtonTerminalSummaryRecord | null {
-  for (let index = narration.length - 1; index >= 0; index -= 1) {
-    const event = narration[index];
-    if (
-      event &&
-      event.kind === "final_summary" &&
-      event.turnId === latestTurn.id &&
-      event.finalSummary
-    ) {
-      return {
-        id: event.id,
-        status: latestTurn.status,
-        text: event.finalSummary.text,
-        turnId: latestTurn.id,
-      };
-    }
-  }
-  return null;
-}
-
-function agentTerminalSummary(
-  trajectory: readonly TrajectoryEvent[],
-  latestTurn: ConversationTurn & {
-    status: Extract<ConversationTurn["status"], "completed" | "cancelled" | "failed">;
-  },
-): EasyButtonTerminalSummaryRecord | null {
-  for (let index = trajectory.length - 1; index >= 0; index -= 1) {
-    const event = trajectory[index];
-    if (
-      event &&
-      event.turnId === latestTurn.id &&
-      event.agentMessageCompleted &&
-      event.agentMessageCompleted.text.trim()
-    ) {
-      return {
-        id: event.id,
-        status: latestTurn.status,
-        text: event.agentMessageCompleted.text,
-        turnId: latestTurn.id,
-      };
-    }
-  }
-  return null;
-}
-
-function terminalFallbackText(
-  turn: ConversationTurn & {
-    status: Extract<ConversationTurn["status"], "completed" | "cancelled" | "failed">;
-  },
-): string {
-  switch (turn.status) {
-    case "completed":
-      return "Work completed.";
-    case "cancelled":
-      return "Work cancelled.";
-    case "failed":
-      return turn.error?.message ?? "Work failed.";
   }
 }
 
