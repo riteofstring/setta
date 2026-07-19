@@ -8,10 +8,10 @@ import {
 import {
   browserSpeechCaptureSupport,
   failureForBufferedCaptureError,
-  failureForRealtimeError,
   microphoneFailure,
   safeSessionErrorMessage,
 } from "./app-shell-speech-capture-failures";
+import { failureForOpenAIRealtimeError } from "./openai-speech-capture-failures";
 import { RealtimeTranscriptionError } from "./realtime-transcription-error";
 import type { RealtimeTranscriptionUpdate } from "./realtime-transcription-session";
 import type {
@@ -316,7 +316,7 @@ class OpenAIBrowserVoiceCaptureSession implements VoiceCaptureSession {
     }
     console.info(`OpenAI Realtime transcription failed: code=${error.code}`);
     this.fail(
-      new VoiceCaptureProviderError(failureForRealtimeError(error.code), error.message, {
+      new VoiceCaptureProviderError(failureForOpenAIRealtimeError(error.code), error.message, {
         cause: error,
       }),
     );
@@ -439,7 +439,7 @@ function sessionCaptureError(
     if (error.code === "aborted") {
       return new VoiceCaptureProviderAbortedError("Voice capture was canceled.", { cause: error });
     }
-    return new VoiceCaptureProviderError(failureForRealtimeError(error.code), error.message, {
+    return new VoiceCaptureProviderError(failureForOpenAIRealtimeError(error.code), error.message, {
       cause: error,
     });
   }

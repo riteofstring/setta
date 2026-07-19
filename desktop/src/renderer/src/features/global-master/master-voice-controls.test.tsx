@@ -102,7 +102,8 @@ describe("master voice controls", () => {
     const { context, controller, startMasterCapture } = captureContext(
       { type: "idle" },
       {
-        message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+        message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
+        provider: "openai",
         setupAction: "open_voice_credential_settings",
         type: "not_configured",
       },
@@ -113,7 +114,7 @@ describe("master voice controls", () => {
       action: "open_voice_credential_settings",
       controlLabel: "Set up OpenAI voice in Settings -> Voices",
       state: "unavailable",
-      statusLabel: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+      statusLabel: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
     });
     const button = renderToString(
       <MasterVoiceButton

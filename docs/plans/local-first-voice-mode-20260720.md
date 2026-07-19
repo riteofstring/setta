@@ -18,7 +18,7 @@ Wake word, always-listening behavior, semantic endpointing, cross-platform local
 ## Implementation Status
 
 - Step 1: Implementation complete; ready for phase audit. 2026-07-20 repository batch: added a renderer voice provider boundary, introduced provider-neutral capture and synthesis interfaces, moved browser microphone buffering plus OpenAI Realtime capture setup behind the OpenAI capture provider, and moved existing backend speech synthesis behind the OpenAI output provider. Repository verification completed for this batch: focused renderer speech tests, desktop typecheck, `./check_quality.sh --git-changes`, and the deterministic `global-speech-session` Electron workflow. Release/audit gate: live OpenAI voice workflow remains to run when the app-supported local live-provider setup is available.
-- Step 2: Not started.
+- Step 2: In progress. 2026-07-20 repository batch: made renderer voice setup availability provider-aware, centralized the OpenAI setup guidance used by shell, pane, and master voice controls, and moved OpenAI Realtime failure copy out of generic capture-failure mapping into an OpenAI provider module. Repository verification completed for this batch: focused renderer availability, presentation, master voice control, and capture-controller tests; `./scripts/format.sh`; and `./check_quality.sh --git-changes`. Release/audit gate: live OpenAI voice workflow remains to run when the app-supported local live-provider setup is available.
 - Step 3: Not started.
 - Step 4: Not started.
 

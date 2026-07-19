@@ -1,4 +1,4 @@
-import type { SpeechCapabilities } from "@generated/backend";
+import type { SpeechCapabilities, SpeechProvider } from "@generated/backend";
 
 import type { SpeechCaptureFailureCode, SpeechCaptureSupport } from "./voice-provider-boundary";
 
@@ -8,7 +8,8 @@ export type SpeechCaptureAvailability =
   | { capabilities: SpeechCapabilities; type: "configured" }
   | {
       message: string;
-      setupAction: SpeechCredentialSetupAction;
+      provider: SpeechProvider;
+      setupAction: VoiceProviderSetupAction;
       type: "not_configured";
     }
   | {
@@ -19,7 +20,7 @@ export type SpeechCaptureAvailability =
     }
   | { message: string; type: "failed" };
 
-export type SpeechCredentialSetupAction = "open_voice_credential_settings";
+export type VoiceProviderSetupAction = "open_voice_credential_settings";
 
 export function speechAvailabilityForCapabilities(
   capabilities: SpeechCapabilities,
@@ -29,9 +30,11 @@ export function speechAvailabilityForCapabilities(
     return { ...support, capabilities, type: "unsupported" };
   }
   if (capabilities.providerStatus === "not_configured") {
+    const provider = capabilities.voiceCatalog.provider;
     return {
-      message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
-      setupAction: "open_voice_credential_settings",
+      message: voiceProviderSetupMessage(provider),
+      provider,
+      setupAction: voiceProviderSetupAction(provider),
       type: "not_configured",
     };
   }
@@ -44,4 +47,35 @@ export function speechAvailabilityForCapabilities(
     return { message: "The runtime returned invalid voice-capture limits.", type: "failed" };
   }
   return { capabilities, type: "configured" };
+}
+
+export function voiceProviderSetupActionLabel(action: VoiceProviderSetupAction): string {
+  switch (action) {
+    case "open_voice_credential_settings":
+      return "Set up OpenAI voice in Settings -> Voices";
+    default:
+      return assertNever(action);
+  }
+}
+
+function voiceProviderSetupAction(provider: SpeechProvider): VoiceProviderSetupAction {
+  switch (provider) {
+    case "openai":
+      return "open_voice_credential_settings";
+    default:
+      return assertNever(provider);
+  }
+}
+
+function voiceProviderSetupMessage(provider: SpeechProvider): string {
+  switch (provider) {
+    case "openai":
+      return "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.";
+    default:
+      return assertNever(provider);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported voice provider setup value: ${JSON.stringify(value)}`);
 }

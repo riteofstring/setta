@@ -8,6 +8,7 @@ import type {
   AppShellSpeechCaptureSnapshot,
   SpeechCaptureState,
 } from "../global-speech/app-shell-speech-capture-controller";
+import { voiceProviderSetupActionLabel } from "../global-speech/speech-capture-availability";
 import { masterVoiceShortcutLabel } from "./master-shortcuts";
 
 type MasterVoiceAction =
@@ -235,7 +236,7 @@ function availabilityVoiceModel(
     case "not_configured":
       return {
         action: "open_voice_credential_settings",
-        controlLabel: "Set up OpenAI voice in Settings -> Voices",
+        controlLabel: voiceProviderSetupActionLabel(availability.setupAction),
         controller,
         state: "unavailable",
         statusLabel: availability.message,

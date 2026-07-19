@@ -161,7 +161,8 @@ describe("global speech presentation", () => {
     const capture = globalSpeechCapturePresentation(
       captureSnapshot({
         availability: {
-          message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+          message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
+          provider: "openai",
           setupAction: "open_voice_credential_settings",
           type: "not_configured",
         },
@@ -169,7 +170,7 @@ describe("global speech presentation", () => {
     );
 
     expect(capture).toEqual({
-      message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+      message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
       setupAction: "open_voice_credential_settings",
       source: null,
       state: "unavailable",
