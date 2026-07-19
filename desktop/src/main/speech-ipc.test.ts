@@ -197,6 +197,55 @@ describe("speech IPC handlers", () => {
     expect(changed).toHaveBeenCalledWith(updated);
   });
 
+  test("routes local macOS model download status through the download service", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const downloadService = {
+      readStatus: vi.fn(async () => ({
+        bytesTotal: 147_964_211,
+        modelName: "base.en",
+        modelPath: "/tmp/setta/ggml-base.en.bin",
+        modelSHA256: "a".repeat(64),
+        provider: "local_macos" as const,
+        status: "idle" as const,
+      })),
+      startDownload: vi.fn(async () => ({
+        bytesDownloaded: 0,
+        bytesTotal: 147_964_211,
+        modelName: "base.en",
+        modelPath: "/tmp/setta/ggml-base.en.bin",
+        modelSHA256: "a".repeat(64),
+        provider: "local_macos" as const,
+        status: "downloading" as const,
+      })),
+    };
+
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => localMacOSVoiceHelper(),
+      requireLocalMacOSVoiceModelDownloadService: () => downloadService,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    await expect(
+      invoke(handlers, ipcChannels.speechReadLocalMacOSVoiceModelDownload),
+    ).resolves.toMatchObject({
+      status: "idle",
+    });
+    await expect(
+      invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceModelDownload),
+    ).resolves.toMatchObject({
+      bytesDownloaded: 0,
+      status: "downloading",
+    });
+    expect(downloadService.readStatus).toHaveBeenCalledWith();
+    expect(downloadService.startDownload).toHaveBeenCalledWith();
+  });
+
   test("routes local macOS capture lifecycle through the helper", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const helper = localMacOSVoiceHelper();

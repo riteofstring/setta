@@ -219,7 +219,11 @@ export function createLocalMacOSVoiceHelperFromEnvironment(
   platform: NodeJS.Platform = process.platform,
   options: LocalMacOSVoiceEnvironmentOptions = {},
 ): LocalMacOSVoiceHelper {
-  const configuration = resolveLocalMacOSVoiceHelperConfiguration(env, options.resourceRoots ?? []);
+  const configuration = resolveLocalMacOSVoiceHelperConfiguration(
+    env,
+    options.resourceRoots ?? [],
+    options.defaultModel,
+  );
   return new LocalMacOSVoiceHealthService({
     configurationFailure: configuration.configurationFailure,
     expectedModelSHA256: configuration.expectedModelSHA256,

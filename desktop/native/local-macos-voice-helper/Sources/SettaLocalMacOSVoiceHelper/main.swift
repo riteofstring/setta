@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 final class CaptureSessionStore {
@@ -226,4 +227,9 @@ final class LocalMacOSVoiceHelperRuntime: @unchecked Sendable {
   }
 }
 
-LocalMacOSVoiceHelperRuntime().run()
+let runtime = LocalMacOSVoiceHelperRuntime()
+DispatchQueue.global(qos: .userInitiated).async {
+  runtime.run()
+  exit(EXIT_SUCCESS)
+}
+RunLoop.main.run()

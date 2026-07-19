@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { strict as assert } from "node:assert";
+import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { access, chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
@@ -16,6 +17,11 @@ const helperPath = join(
   repoRoot,
   "desktop/out/local-macos-voice/bin/setta-local-macos-voice-helper",
 );
+const whisperCLIPath = join(dirname(helperPath), "whisper-cli");
+const whisperFrameworkPath = join(
+  dirname(dirname(helperPath)),
+  "Frameworks/whisper.framework/Versions/A/whisper",
+);
 
 if (process.platform !== "darwin") {
   console.log("Local macOS voice helper integration skipped: provider is macOS-only");
@@ -23,6 +29,8 @@ if (process.platform !== "darwin") {
 }
 
 await access(helperPath, constants.X_OK);
+await access(whisperCLIPath, constants.X_OK);
+await access(whisperFrameworkPath, constants.R_OK);
 
 async function runIntegration() {
   const tempRoot = await mkdtemp(join(tmpdir(), "setta-native-local-voice-"));
@@ -37,8 +45,20 @@ async function runIntegration() {
   try {
     await writeFakeWhisper(fakeWhisperPath);
     await writeFile(modelPath, "native-local-model-bytes");
+    await assertPackagedWhisperHealth(modelPath);
 
     client.writeLine("{ malformed json");
+
+    const catalog = await client.command("list_voices", {}, "voices");
+    assertValidVoiceCatalog(catalog);
+    assertValidSynthesis(
+      await client.command("synthesize_speech", {
+        operationId: "native_synthesis",
+        rate: 1,
+        text: "Done.",
+        voiceId: selectSynthesisVoiceId(catalog.result.voiceIds),
+      }),
+    );
 
     assertValidModelHealth(await client.command("read_health", { modelPath }, "health_valid"));
     assertOkResult(await client.command("read_health", { modelPath: missingModelPath }), {
@@ -75,6 +95,15 @@ async function runIntegration() {
   console.log("Local macOS voice helper integration passed");
 }
 
+async function assertPackagedWhisperHealth(modelPath) {
+  const packagedClient = new HelperClient(helperPath, process.env);
+  try {
+    assertValidModelHealth(await packagedClient.command("read_health", { modelPath }));
+  } finally {
+    await packagedClient.close();
+  }
+}
+
 async function writeFakeWhisper(path) {
   await writeFile(path, "#!/bin/sh\nprintf 'native helper transcript\\n'\n");
   await chmod(path, 0o755);
@@ -93,6 +122,35 @@ function assertValidModelHealth(response) {
   if (response.result.status === "microphone_denied") {
     assert.equal(response.result.message, "Microphone access is denied for Setta.");
   }
+}
+
+function assertValidVoiceCatalog(response) {
+  assert.equal(response.type, "response");
+  assert.equal(response.ok, true);
+  assert.equal(typeof response.result?.version, "string");
+  assert.ok(response.result.version.startsWith("apple-system-voices-"));
+  assert.ok(Array.isArray(response.result.voiceIds));
+  assert.ok(response.result.voiceIds.length > 0);
+}
+
+function selectSynthesisVoiceId(voiceIds) {
+  return (
+    voiceIds.find((voiceId) => voiceId.includes(".en-US.")) ??
+    voiceIds.find((voiceId) => voiceId.includes(".en-")) ??
+    voiceIds[0]
+  );
+}
+
+function assertValidSynthesis(response) {
+  assert.equal(response.type, "response");
+  assert.equal(response.ok, true);
+  assert.equal(response.result?.format, "wav");
+  assert.equal(response.result?.mediaType, "audio/wav");
+  assert.equal(response.result?.operationId, "native_synthesis");
+  const audio = Buffer.from(response.result.audioBase64, "base64");
+  assert.ok(audio.length > 44);
+  assert.equal(audio.subarray(0, 4).toString("ascii"), "RIFF");
+  assert.equal(audio.subarray(8, 12).toString("ascii"), "WAVE");
 }
 
 function assertErrorCode(response, code) {

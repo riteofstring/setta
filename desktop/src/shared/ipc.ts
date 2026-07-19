@@ -88,6 +88,7 @@ export const ipcEvents = {
   conversationEvent: "conversation:event",
   runtimeConnectionState: "runtimes:connection-state",
   speechCredentialSettingsChanged: "speech:credential-settings-changed",
+  speechLocalMacOSVoiceModelDownloadChanged: "speech:local-macos-voice-model-download-changed",
   speechProviderSelectionChanged: "speech:provider-selection-changed",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",

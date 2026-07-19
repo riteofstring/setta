@@ -1,12 +1,16 @@
 import type { SpeechProvider } from "@generated/backend";
-import type { LocalMacOSVoiceHealth, SpeechProviderSelectionSettings } from "@shared/speech-ipc";
+import type {
+  LocalMacOSVoiceHealth,
+  LocalMacOSVoiceModelDownloadStatus,
+  SpeechProviderSelectionSettings,
+} from "@shared/speech-ipc";
 import {
   localMacOSSpeechProviderID,
   openAISpeechProviderID,
   supportedDesktopSpeechProviderIDs,
 } from "@shared/speech-providers";
-import { Check, CircleAlert, Loader2, Mic2 } from "lucide-react";
-import { type Ref, useEffect, useRef, useState } from "react";
+import { Check, CircleAlert, Download, Loader2, Mic2 } from "lucide-react";
+import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
 import {
@@ -18,10 +22,30 @@ import { Button } from "./ui/button";
 const localMacOSProvider = localMacOSSpeechProviderID();
 const openAIProvider = openAISpeechProviderID();
 const defaultSupportedProviders: SpeechProvider[] = [localMacOSProvider, openAIProvider];
+const localMacOSDownloadActionByStatus = {
+  downloading: true,
+  failed: true,
+  idle: undefined,
+  ready: false,
+  unavailable: false,
+} satisfies Record<LocalMacOSVoiceModelDownloadStatus["status"], boolean | undefined>;
+const localMacOSHealthLabels = {
+  helper_unavailable: "Helper unavailable",
+  microphone_denied: "Microphone denied",
+  missing_model: "Missing model",
+  model_hash_mismatch: "Model mismatch",
+  ready: "Ready",
+  synthesis_unavailable: "Speech unavailable",
+} satisfies Record<LocalMacOSVoiceHealth["status"], string>;
+const localMacOSModelProblemStatuses = new Set<LocalMacOSVoiceHealth["status"]>([
+  "missing_model",
+  "model_hash_mismatch",
+]);
 
 interface SpeechProviderSelectionCardState {
   error: string | null;
   localHealth: LocalMacOSVoiceHealth | null;
+  localModelDownload: LocalMacOSVoiceModelDownloadStatus | null;
   selection: SpeechProviderSelectionSettings | null;
 }
 
@@ -33,6 +57,7 @@ export function SpeechProviderSelectionCard({
   const [state, setState] = useState<SpeechProviderSelectionCardState>({
     error: null,
     localHealth: null,
+    localModelDownload: null,
     selection: null,
   });
   const [updatingProvider, setUpdatingProvider] = useState<SpeechProvider | null>(null);
@@ -44,6 +69,7 @@ export function SpeechProviderSelectionCard({
       setState({
         error: "Voice provider selection is unavailable in this client.",
         localHealth: null,
+        localModelDownload: null,
         selection: null,
       });
       return;
@@ -53,11 +79,15 @@ export function SpeechProviderSelectionCard({
       speech
         .readLocalMacOSVoiceHealth?.()
         .catch((reason: unknown) => unavailableLocalHealth(reason)),
+      speech
+        .readLocalMacOSVoiceModelDownload?.()
+        .catch((reason: unknown) => unavailableLocalModelDownload(reason)),
     ]).then(
-      ([selection, localHealth]) => {
+      ([selection, localHealth, localModelDownload]) => {
         setState({
           error: null,
           localHealth: localHealth ?? null,
+          localModelDownload: localModelDownload ?? null,
           selection,
         });
       },
@@ -65,6 +95,7 @@ export function SpeechProviderSelectionCard({
         setState({
           error: errorMessage(reason),
           localHealth: null,
+          localModelDownload: null,
           selection: null,
         });
       },
@@ -73,9 +104,21 @@ export function SpeechProviderSelectionCard({
 
   useEffect(() => {
     load();
-    return rendererSpeechAPI()?.onProviderSelectionChanged?.((selection) => {
+    const unsubscribeProvider = rendererSpeechAPI()?.onProviderSelectionChanged?.((selection) => {
       setState((current) => ({ ...current, error: null, selection }));
     });
+    const unsubscribeDownload = rendererSpeechAPI()?.onLocalMacOSVoiceModelDownloadChanged?.(
+      (localModelDownload) => {
+        setState((current) => ({ ...current, localModelDownload }));
+        if (localModelDownload.status === "ready") {
+          load();
+        }
+      },
+    );
+    return () => {
+      unsubscribeProvider?.();
+      unsubscribeDownload?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -104,6 +147,25 @@ export function SpeechProviderSelectionCard({
     );
   };
 
+  const downloadLocalModel = () => {
+    const startDownload = rendererSpeechAPI()?.startLocalMacOSVoiceModelDownload;
+    if (!startDownload || updatingProvider !== null) {
+      return;
+    }
+    setState((current) => ({ ...current, error: null }));
+    void startDownload().then(
+      (localModelDownload) => {
+        setState((current) => ({ ...current, error: null, localModelDownload }));
+        if (localModelDownload.status === "ready") {
+          load();
+        }
+      },
+      (reason: unknown) => {
+        setState((current) => ({ ...current, error: errorMessage(reason) }));
+      },
+    );
+  };
+
   return (
     <SpeechProviderSelectionCardView
       cardRef={cardRef}
@@ -111,6 +173,8 @@ export function SpeechProviderSelectionCard({
       error={state.error}
       fallbackSupportedProviders={supportedProvidersForRenderer()}
       localHealth={state.localHealth}
+      localModelDownload={state.localModelDownload}
+      onDownloadLocalModel={downloadLocalModel}
       onRefresh={load}
       onSelectProvider={selectProvider}
       selection={state.selection}
@@ -125,6 +189,8 @@ export function SpeechProviderSelectionCardView({
   error,
   fallbackSupportedProviders = defaultSupportedProviders,
   localHealth,
+  localModelDownload = null,
+  onDownloadLocalModel = noop,
   onRefresh,
   onSelectProvider,
   selection,
@@ -135,6 +201,8 @@ export function SpeechProviderSelectionCardView({
   error: string | null;
   fallbackSupportedProviders?: SpeechProvider[];
   localHealth: LocalMacOSVoiceHealth | null;
+  localModelDownload?: LocalMacOSVoiceModelDownloadStatus | null;
+  onDownloadLocalModel?: () => void;
   onRefresh: () => void;
   onSelectProvider: (provider: SpeechProvider) => void;
   selection: SpeechProviderSelectionSettings | null;
@@ -153,7 +221,9 @@ export function SpeechProviderSelectionCardView({
       <ProviderOptions
         error={error}
         localHealth={localHealth}
+        localModelDownload={localModelDownload}
         canUpdateProvider={canUpdateProvider}
+        onDownloadLocalModel={onDownloadLocalModel}
         onSelectProvider={onSelectProvider}
         selection={selection}
         supportedProviders={supportedProviders}
@@ -213,7 +283,9 @@ function ProviderOptions({
   canUpdateProvider,
   error,
   localHealth,
+  localModelDownload,
   onSelectProvider,
+  onDownloadLocalModel,
   selection,
   supportedProviders,
   updatingProvider,
@@ -221,7 +293,9 @@ function ProviderOptions({
   canUpdateProvider: boolean;
   error: string | null;
   localHealth: LocalMacOSVoiceHealth | null;
+  localModelDownload: LocalMacOSVoiceModelDownloadStatus | null;
   onSelectProvider: (provider: SpeechProvider) => void;
+  onDownloadLocalModel: () => void;
   selection: SpeechProviderSelectionSettings | null;
   supportedProviders: SpeechProvider[];
   updatingProvider: SpeechProvider | null;
@@ -236,6 +310,8 @@ function ProviderOptions({
     <div className="grid gap-2 md:grid-cols-2">
       <LocalProviderOption
         localHealth={localHealth}
+        localModelDownload={localModelDownload}
+        onDownloadLocalModel={onDownloadLocalModel}
         onSelectProvider={onSelectProvider}
         state={state}
         supportedProviders={supportedProviders}
@@ -278,12 +354,16 @@ function providerOptionState({
 
 function LocalProviderOption({
   localHealth,
+  localModelDownload,
+  onDownloadLocalModel,
   onSelectProvider,
   state,
   supportedProviders,
   updatingProvider,
 }: {
   localHealth: LocalMacOSVoiceHealth | null;
+  localModelDownload: LocalMacOSVoiceModelDownloadStatus | null;
+  onDownloadLocalModel: () => void;
   onSelectProvider: (provider: SpeechProvider) => void;
   state: ProviderOptionState;
   supportedProviders: SpeechProvider[];
@@ -292,15 +372,21 @@ function LocalProviderOption({
   if (!supportedProviders.includes(localMacOSProvider)) {
     return null;
   }
+  const modelDownloadAction = localMacOSModelDownloadAction(
+    localHealth,
+    localModelDownload,
+    onDownloadLocalModel,
+  );
   return (
     <ProviderOption
       defaultProvider={state.defaultProvider}
-      description={localMacOSHealthSummary(localHealth)}
+      description={localMacOSHealthSummary(localHealth, localModelDownload)}
       disabled={state.disabled}
       onSelect={() => onSelectProvider(localMacOSProvider)}
       provider={localMacOSProvider}
       selectedProvider={state.selectedProvider}
-      status={localMacOSHealthLabel(localHealth)}
+      secondaryAction={modelDownloadAction}
+      status={localMacOSHealthLabel(localHealth, localModelDownload)}
       updating={updatingProvider === localMacOSProvider}
     />
   );
@@ -379,6 +465,7 @@ function ProviderOption({
   disabled,
   onSelect,
   provider,
+  secondaryAction,
   selectedProvider,
   status,
   updating,
@@ -388,6 +475,7 @@ function ProviderOption({
   disabled: boolean;
   onSelect: () => void;
   provider: SpeechProvider;
+  secondaryAction?: ReactNode;
   selectedProvider: SpeechProvider | null;
   status: string;
   updating: boolean;
@@ -412,17 +500,20 @@ function ProviderOption({
         </span>
       </div>
       <div className="flex justify-end">
-        <Button disabled={disabled || selected} onClick={onSelect} type="button">
-          {updating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          {selected ? (
-            <>
-              <Check className="h-3.5 w-3.5" />
-              Selected
-            </>
-          ) : (
-            `Use ${providerDisplayName(provider)}`
-          )}
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {secondaryAction}
+          <Button disabled={disabled || selected} onClick={onSelect} type="button">
+            {updating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {selected ? (
+              <>
+                <Check className="h-3.5 w-3.5" />
+                Selected
+              </>
+            ) : (
+              `Use ${providerDisplayName(provider)}`
+            )}
+          </Button>
+        </div>
       </div>
     </section>
   );
@@ -444,37 +535,117 @@ function ProviderBadge({ label, tone }: { label: string; tone: "muted" | "pendin
   );
 }
 
-function localMacOSHealthLabel(health: LocalMacOSVoiceHealth | null): string {
-  if (!health) {
-    return "Checking";
+function localMacOSModelDownloadAction(
+  health: LocalMacOSVoiceHealth | null,
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+  onDownload: () => void,
+): ReactNode {
+  if (!localMacOSNeedsModelDownload(health, downloadStatus)) {
+    return null;
   }
-  switch (health.status) {
+  if (downloadStatus?.status === "downloading") {
+    return (
+      <Button disabled type="button">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        {downloadPercent(downloadStatus)}%
+      </Button>
+    );
+  }
+  return (
+    <Button onClick={onDownload} type="button">
+      <Download className="h-3.5 w-3.5" />
+      {downloadStatus?.status === "failed" || health?.status === "model_hash_mismatch"
+        ? "Retry model"
+        : "Download model"}
+    </Button>
+  );
+}
+
+function localMacOSNeedsModelDownload(
+  health: LocalMacOSVoiceHealth | null,
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+): boolean {
+  const downloadActionRequired =
+    downloadStatus === null ? undefined : localMacOSDownloadActionByStatus[downloadStatus.status];
+  return downloadActionRequired ?? localMacOSModelProblemStatuses.has(health?.status ?? "ready");
+}
+
+function localMacOSHealthLabel(
+  health: LocalMacOSVoiceHealth | null,
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+): string {
+  const downloadLabel = localMacOSModelDownloadHealthLabel(health, downloadStatus);
+  return downloadLabel ?? (health === null ? "Checking" : localMacOSHealthLabels[health.status]);
+}
+
+function localMacOSModelDownloadHealthLabel(
+  health: LocalMacOSVoiceHealth | null,
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+): string | null {
+  if (downloadStatus === null) {
+    return null;
+  }
+  switch (downloadStatus.status) {
+    case "downloading":
+      return "Downloading";
+    case "failed":
+      return "Download failed";
     case "ready":
-      return "Ready";
-    case "missing_model":
-      return "Missing model";
-    case "model_hash_mismatch":
-      return "Model mismatch";
-    case "helper_unavailable":
-      return "Helper unavailable";
-    case "microphone_denied":
-      return "Microphone denied";
-    case "synthesis_unavailable":
-      return "Speech unavailable";
+      return health?.status === "ready" ? null : "Model ready";
+    case "idle":
+    case "unavailable":
+      return null;
     default:
-      return assertNever(health);
+      return assertNever(downloadStatus);
   }
 }
 
-function localMacOSHealthSummary(health: LocalMacOSVoiceHealth | null): string {
-  if (!health) {
+function localMacOSHealthSummary(
+  health: LocalMacOSVoiceHealth | null,
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+): string {
+  const downloadSummary = localMacOSModelDownloadHealthSummary(health, downloadStatus);
+  return downloadSummary ?? localMacOSBaseHealthSummary(health, downloadStatus);
+}
+
+function localMacOSModelDownloadHealthSummary(
+  health: LocalMacOSVoiceHealth | null,
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+): string | null {
+  if (downloadStatus === null) {
+    return null;
+  }
+  switch (downloadStatus.status) {
+    case "downloading":
+      return `Downloading ${downloadStatus.modelName} voice model (${formatBytes(downloadStatus.bytesDownloaded)} of ${formatBytes(downloadStatus.bytesTotal)}).`;
+    case "failed":
+      return downloadStatus.message;
+    case "ready":
+      return health?.status === "ready"
+        ? null
+        : "Local voice model is verified. Checking helper readiness.";
+    case "idle":
+    case "unavailable":
+      return null;
+    default:
+      return assertNever(downloadStatus);
+  }
+}
+
+function localMacOSBaseHealthSummary(
+  health: LocalMacOSVoiceHealth | null,
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+): string {
+  if (health === null) {
     return "Checking local helper, model, microphone, and system voice availability.";
   }
   switch (health.status) {
     case "ready":
       return "Uses the installed helper, verified Whisper model, microphone, and system voices.";
     case "missing_model":
+      return localMacOSMissingModelSummary(downloadStatus);
     case "model_hash_mismatch":
+      return localMacOSModelHashMismatchSummary(downloadStatus);
     case "helper_unavailable":
     case "microphone_denied":
     case "synthesis_unavailable":
@@ -484,6 +655,24 @@ function localMacOSHealthSummary(health: LocalMacOSVoiceHealth | null): string {
   }
 }
 
+function localMacOSMissingModelSummary(
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+): string {
+  if (downloadStatus?.status === "idle") {
+    return `Download the ${downloadStatus.modelName} voice model (${formatBytes(downloadStatus.bytesTotal)}) to enable local transcription.`;
+  }
+  return "Download the local voice model to enable local transcription.";
+}
+
+function localMacOSModelHashMismatchSummary(
+  downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
+): string {
+  if (downloadStatus?.status === "idle") {
+    return `Replace the local voice model with Setta's verified ${downloadStatus.modelName} model.`;
+  }
+  return "Replace the local voice model with Setta's verified model.";
+}
+
 function unavailableLocalHealth(reason: unknown): LocalMacOSVoiceHealth {
   return {
     helperPath: null,
@@ -491,6 +680,25 @@ function unavailableLocalHealth(reason: unknown): LocalMacOSVoiceHealth {
     provider: localMacOSProvider,
     status: "helper_unavailable",
   };
+}
+
+function unavailableLocalModelDownload(reason: unknown): LocalMacOSVoiceModelDownloadStatus {
+  return {
+    message: errorMessage(reason),
+    provider: localMacOSProvider,
+    status: "unavailable",
+  };
+}
+
+function downloadPercent(
+  status: Extract<LocalMacOSVoiceModelDownloadStatus, { status: "downloading" }>,
+) {
+  return Math.max(0, Math.min(100, Math.floor((status.bytesDownloaded / status.bytesTotal) * 100)));
+}
+
+function formatBytes(value: number): string {
+  const mib = value / (1024 * 1024);
+  return `${Math.round(mib)} MB`;
 }
 
 function providerDisplayName(provider: SpeechProvider): string {
@@ -530,3 +738,5 @@ function errorMessage(error: unknown): string {
 function assertNever(value: never): never {
   throw new Error(`Unhandled voice provider value: ${JSON.stringify(value)}`);
 }
+
+function noop(): void {}

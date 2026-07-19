@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { decodeCodexAccountChangeEvent, decodeConversationEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import {
+  decodeLocalMacOSVoiceModelDownloadStatus,
   decodeSpeechCredentialSettings,
   decodeSpeechProviderSelectionSettings,
 } from "@shared/speech-ipc";
@@ -135,16 +136,27 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.speechProviderSelectionChanged, handler);
       };
     },
+    onLocalMacOSVoiceModelDownloadChanged: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeLocalMacOSVoiceModelDownloadStatus(payload));
+      };
+      ipcRenderer.on(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, handler);
+      };
+    },
     readCapabilities: () => invoke("speechReadCapabilities"),
     readCredentialSettings: (request) => invoke("speechReadCredentialSettings", request),
     listLocalMacOSVoices: () => invoke("speechListLocalMacOSVoices"),
     readLocalMacOSVoiceHealth: () => invoke("speechReadLocalMacOSVoiceHealth"),
+    readLocalMacOSVoiceModelDownload: () => invoke("speechReadLocalMacOSVoiceModelDownload"),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
     readProviderSelection: () => invoke("speechReadProviderSelection"),
     removeCredential: (request) => invoke("speechRemoveCredential", request),
     saveCredential: (request) => invoke("speechSaveCredential", request),
     startLocalMacOSVoiceCapture: (request) => invoke("speechStartLocalMacOSVoiceCapture", request),
+    startLocalMacOSVoiceModelDownload: () => invoke("speechStartLocalMacOSVoiceModelDownload"),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
     updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
     updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),

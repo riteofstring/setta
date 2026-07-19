@@ -5,7 +5,13 @@ import type { LocalMacOSVoiceHealth } from "@shared/speech-ipc";
 import { localMacOSSpeechProviderID } from "@shared/speech-providers";
 
 export interface LocalMacOSVoiceEnvironmentOptions {
+  defaultModel?: LocalMacOSVoiceDefaultModelConfiguration;
   resourceRoots?: readonly string[];
+}
+
+export interface LocalMacOSVoiceDefaultModelConfiguration {
+  modelPath: string;
+  modelSHA256: string;
 }
 
 export interface LocalMacOSVoiceResolvedConfiguration {
@@ -51,19 +57,25 @@ const localMacOSProvider = localMacOSSpeechProviderID();
 export function resolveLocalMacOSVoiceHelperConfiguration(
   env: NodeJS.ProcessEnv,
   resourceRoots: readonly string[],
+  defaultModel?: LocalMacOSVoiceDefaultModelConfiguration,
 ): LocalMacOSVoiceResolvedConfiguration {
   const manifestResult = readLocalMacOSVoiceResourceManifest(env, resourceRoots);
   if (manifestResult.status === "unavailable") {
     return unavailableConfiguration(manifestResult.health);
   }
   const manifest = loadedManifestOrEmpty(manifestResult);
+  const explicitOrManifestModelPath = configuredResourceValue(
+    env[modelPathEnvironmentVariable],
+    manifest.modelPath,
+  );
   return {
     expectedModelSHA256: configuredResourceValue(
       env[modelSHA256EnvironmentVariable],
-      manifest.modelSHA256,
+      manifest.modelSHA256 ??
+        (explicitOrManifestModelPath === null ? (defaultModel?.modelSHA256 ?? null) : null),
     ),
     helperPath: configuredResourceValue(env[helperPathEnvironmentVariable], manifest.helperPath),
-    modelPath: configuredResourceValue(env[modelPathEnvironmentVariable], manifest.modelPath),
+    modelPath: explicitOrManifestModelPath ?? defaultModel?.modelPath ?? null,
   };
 }
 

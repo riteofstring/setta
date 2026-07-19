@@ -74,6 +74,7 @@ import type {
   SpeechCredentialProviderRequest,
   SpeechCredentialSaveRequest,
   SpeechCredentialSettings,
+  LocalMacOSVoiceModelDownloadStatus,
   SpeechProviderSelectionSettings,
   SpeechProviderSelectionUpdateRequest,
   LocalMacOSVoiceHealth,
@@ -371,11 +372,15 @@ export interface SettaAPI {
     onProviderSelectionChanged?: (
       listener: (settings: SpeechProviderSelectionSettings) => void,
     ) => () => void;
+    onLocalMacOSVoiceModelDownloadChanged?: (
+      listener: (status: LocalMacOSVoiceModelDownloadStatus) => void,
+    ) => () => void;
     readCapabilities: () => Promise<SpeechCapabilities>;
     readCredentialSettings?: (
       request: SpeechCredentialProviderRequest,
     ) => Promise<SpeechCredentialSettings>;
     readLocalMacOSVoiceHealth?: () => Promise<LocalMacOSVoiceHealth>;
+    readLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
     listLocalMacOSVoices?: () => Promise<SpeechVoiceCatalog>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
     readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
@@ -387,6 +392,7 @@ export interface SettaAPI {
     startLocalMacOSVoiceCapture?: (
       request: LocalMacOSVoiceStartCaptureRequest,
     ) => Promise<LocalMacOSVoiceStartCaptureResult>;
+    startLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
     updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;

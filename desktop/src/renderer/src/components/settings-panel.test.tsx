@@ -17,6 +17,7 @@ import type {
 } from "@generated/backend";
 import type {
   LocalMacOSVoiceHealth,
+  LocalMacOSVoiceModelDownloadStatus,
   SpeechCredentialSettings,
   SpeechProviderSelectionSettings,
 } from "@shared/speech-ipc";
@@ -165,6 +166,46 @@ describe("appearance settings", () => {
     expect(html).toContain("Selected");
     expect(html).toContain("OpenAI");
     expect(html).toContain("Use OpenAI");
+  });
+
+  test("renders a verified local model download action while the model is missing", () => {
+    const html = renderToString(
+      <SpeechProviderSelectionCardView
+        error={null}
+        localHealth={localVoiceHealth("missing_model")}
+        localModelDownload={localModelDownloadStatus("idle")}
+        onDownloadLocalModel={vi.fn()}
+        onRefresh={vi.fn()}
+        onSelectProvider={vi.fn()}
+        selection={providerSelection("local_macos")}
+        updatingProvider={null}
+      />,
+    );
+
+    expect(html).toContain("Missing model");
+    expect(html).toContain("Download model");
+    expect(html).toContain("Download the base.en voice model (141 MB)");
+  });
+
+  test("renders local model download progress without changing provider selection", () => {
+    const html = renderToString(
+      <SpeechProviderSelectionCardView
+        error={null}
+        localHealth={localVoiceHealth("missing_model")}
+        localModelDownload={localModelDownloadStatus("downloading")}
+        onDownloadLocalModel={vi.fn()}
+        onRefresh={vi.fn()}
+        onSelectProvider={vi.fn()}
+        selection={providerSelection("local_macos")}
+        updatingProvider={null}
+      />,
+    );
+    const normalizedHtml = html.replaceAll("<!-- -->", "");
+
+    expect(normalizedHtml).toContain("Downloading");
+    expect(normalizedHtml).toContain("16%");
+    expect(normalizedHtml).toContain("Downloading base.en voice model (24 MB of 141 MB).");
+    expect(normalizedHtml).toContain("Selected");
   });
 
   test("keeps a current provider selectable after provider selection storage fails", () => {
@@ -689,11 +730,42 @@ function localVoiceHealth(status: LocalMacOSVoiceHealth["status"]): LocalMacOSVo
       status,
     };
   }
+  if (status === "missing_model") {
+    return {
+      message: "The configured Whisper model file is missing.",
+      modelPath: "/tmp/ggml-base.en.bin",
+      provider: "local_macos",
+      status,
+    };
+  }
   return {
     helperPath: null,
     message: "The local macOS voice helper is not installed.",
     provider: "local_macos",
     status: "helper_unavailable",
+  };
+}
+
+function localModelDownloadStatus(
+  status: "downloading" | "idle",
+): LocalMacOSVoiceModelDownloadStatus {
+  const base = {
+    bytesTotal: 147_964_211,
+    modelName: "base.en",
+    modelPath: "/tmp/ggml-base.en.bin",
+    modelSHA256: "a".repeat(64),
+    provider: "local_macos" as const,
+  };
+  if (status === "downloading") {
+    return {
+      ...base,
+      bytesDownloaded: 25_000_000,
+      status,
+    };
+  }
+  return {
+    ...base,
+    status,
   };
 }
 

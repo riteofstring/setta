@@ -27,10 +27,16 @@ describe("preload speech API", () => {
       finishLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["finishLocalMacOSVoiceCapture"]>;
       listLocalMacOSVoices: NonNullable<SettaAPI["speech"]["listLocalMacOSVoices"]>;
       readLocalMacOSVoiceHealth: NonNullable<SettaAPI["speech"]["readLocalMacOSVoiceHealth"]>;
+      readLocalMacOSVoiceModelDownload: NonNullable<
+        SettaAPI["speech"]["readLocalMacOSVoiceModelDownload"]
+      >;
       readMasterVoiceSelection: NonNullable<SettaAPI["speech"]["readMasterVoiceSelection"]>;
       readNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["readNarratorVoiceDefault"]>;
       readProviderSelection: NonNullable<SettaAPI["speech"]["readProviderSelection"]>;
       startLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["startLocalMacOSVoiceCapture"]>;
+      startLocalMacOSVoiceModelDownload: NonNullable<
+        SettaAPI["speech"]["startLocalMacOSVoiceModelDownload"]
+      >;
       synthesize: NonNullable<SettaAPI["speech"]["synthesize"]>;
       updateMasterVoiceSelection: NonNullable<SettaAPI["speech"]["updateMasterVoiceSelection"]>;
       updateNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["updateNarratorVoiceDefault"]>;
@@ -39,6 +45,7 @@ describe("preload speech API", () => {
     await speech.readCapabilities();
     await speech.readProviderSelection();
     await speech.readLocalMacOSVoiceHealth();
+    await speech.readLocalMacOSVoiceModelDownload();
     await speech.listLocalMacOSVoices();
     await speech.startLocalMacOSVoiceCapture({
       captureSessionId: "capture_local",
@@ -71,12 +78,14 @@ describe("preload speech API", () => {
       selection: "exact",
     });
     await speech.updateProviderSelection({ provider: "local_macos" });
+    await speech.startLocalMacOSVoiceModelDownload();
     await speech.createTranscriptionSession({ provider: "openai" });
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
       [ipcChannels.speechReadProviderSelection],
       [ipcChannels.speechReadLocalMacOSVoiceHealth],
+      [ipcChannels.speechReadLocalMacOSVoiceModelDownload],
       [ipcChannels.speechListLocalMacOSVoices],
       [
         ipcChannels.speechStartLocalMacOSVoiceCapture,
@@ -115,6 +124,7 @@ describe("preload speech API", () => {
         { requestedVoiceId: "ash", selection: "exact" },
       ],
       [ipcChannels.speechUpdateProviderSelection, { provider: "local_macos" }],
+      [ipcChannels.speechStartLocalMacOSVoiceModelDownload],
       [ipcChannels.speechCreateTranscriptionSession, { provider: "openai" }],
     ]);
   });
@@ -190,6 +200,53 @@ describe("preload speech API", () => {
       supportedProviders: ["local_macos", "openai"],
     });
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.speechProviderSelectionChanged, handler);
+  });
+
+  test("exposes local macOS model download change events", async () => {
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    const exposed: Record<string, unknown> = {};
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: { invoke: vi.fn(), on, removeListener, send: vi.fn() },
+    }));
+    await import("./index");
+    const api = exposed.setta as SettaAPI;
+
+    const listener = vi.fn();
+    const unsubscribe = api.speech.onLocalMacOSVoiceModelDownloadChanged?.(listener);
+    const handler = eventHandler(on, ipcEvents.speechLocalMacOSVoiceModelDownloadChanged);
+    handler(
+      {},
+      {
+        bytesDownloaded: 1_000_000,
+        bytesTotal: 147_964_211,
+        modelName: "base.en",
+        modelPath: "/tmp/setta/ggml-base.en.bin",
+        modelSHA256: "a".repeat(64),
+        provider: "local_macos",
+        status: "downloading",
+      },
+    );
+    unsubscribe?.();
+
+    expect(listener).toHaveBeenCalledWith({
+      bytesDownloaded: 1_000_000,
+      bytesTotal: 147_964_211,
+      modelName: "base.en",
+      modelPath: "/tmp/setta/ggml-base.en.bin",
+      modelSHA256: "a".repeat(64),
+      provider: "local_macos",
+      status: "downloading",
+    });
+    expect(removeListener).toHaveBeenCalledWith(
+      ipcEvents.speechLocalMacOSVoiceModelDownloadChanged,
+      handler,
+    );
   });
 });
 

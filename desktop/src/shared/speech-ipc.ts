@@ -18,6 +18,7 @@ export const speechIpcChannels = {
   speechCreateTranscriptionSession: "speech:create-transcription-session",
   speechFinishLocalMacOSVoiceCapture: "speech:finish-local-macos-voice-capture",
   speechListLocalMacOSVoices: "speech:list-local-macos-voices",
+  speechReadLocalMacOSVoiceModelDownload: "speech:read-local-macos-voice-model-download",
   speechReadLocalMacOSVoiceHealth: "speech:read-local-macos-voice-health",
   speechReadCredentialSettings: "speech:read-credential-settings",
   speechReadCapabilities: "speech:read-capabilities",
@@ -26,6 +27,7 @@ export const speechIpcChannels = {
   speechReadProviderSelection: "speech:read-provider-selection",
   speechRemoveCredential: "speech:remove-credential",
   speechSaveCredential: "speech:save-credential",
+  speechStartLocalMacOSVoiceModelDownload: "speech:start-local-macos-voice-model-download",
   speechStartLocalMacOSVoiceCapture: "speech:start-local-macos-voice-capture",
   speechSynthesize: "speech:synthesize",
   speechUpdateMasterVoiceSelection: "speech:update-master-voice-selection",
@@ -168,6 +170,36 @@ export type LocalMacOSVoiceHealth =
       status: "synthesis_unavailable";
     });
 
+interface LocalMacOSVoiceModelDownloadBase {
+  bytesTotal: number;
+  modelName: string;
+  modelPath: string;
+  modelSHA256: string;
+  provider: SpeechProvider;
+}
+
+export type LocalMacOSVoiceModelDownloadStatus =
+  | (LocalMacOSVoiceModelDownloadBase & {
+      status: "idle";
+    })
+  | (LocalMacOSVoiceModelDownloadBase & {
+      bytesDownloaded: number;
+      status: "downloading";
+    })
+  | (LocalMacOSVoiceModelDownloadBase & {
+      status: "ready";
+    })
+  | (LocalMacOSVoiceModelDownloadBase & {
+      bytesDownloaded: number;
+      message: string;
+      status: "failed";
+    })
+  | {
+      message: string;
+      provider: SpeechProvider;
+      status: "unavailable";
+    };
+
 export function validateSpeechSynthesisOperationId(operationId: string): void {
   if (!operationId || operationId.trim() !== operationId || operationId.length > 128) {
     throw new Error("Speech synthesis operation ID is invalid.");
@@ -194,6 +226,10 @@ export interface SpeechIpcContract {
   speechListLocalMacOSVoices: {
     args: [];
     result: SpeechVoiceCatalog;
+  };
+  speechReadLocalMacOSVoiceModelDownload: {
+    args: [];
+    result: LocalMacOSVoiceModelDownloadStatus;
   };
   speechReadLocalMacOSVoiceHealth: {
     args: [];
@@ -226,6 +262,10 @@ export interface SpeechIpcContract {
   speechSaveCredential: {
     args: [request: SpeechCredentialSaveRequest];
     result: SpeechCredentialSettings;
+  };
+  speechStartLocalMacOSVoiceModelDownload: {
+    args: [];
+    result: LocalMacOSVoiceModelDownloadStatus;
   };
   speechStartLocalMacOSVoiceCapture: {
     args: [request: LocalMacOSVoiceStartCaptureRequest];
@@ -352,6 +392,106 @@ export function decodeSpeechProviderSelectionUpdateRequest(
   };
 }
 
+export function decodeLocalMacOSVoiceModelDownloadStatus(
+  value: unknown,
+): LocalMacOSVoiceModelDownloadStatus {
+  const record = assertRecord(value, "LocalMacOSVoiceModelDownloadStatus");
+  const status = stringField(record, "status", "LocalMacOSVoiceModelDownloadStatus");
+  switch (status) {
+    case "idle":
+      assertKnownFields(record, "LocalMacOSVoiceModelDownloadStatus", [
+        "bytesTotal",
+        "modelName",
+        "modelPath",
+        "modelSHA256",
+        "provider",
+        "status",
+      ]);
+      return { ...decodeModelDownloadBase(record), status };
+    case "downloading":
+      assertKnownFields(record, "LocalMacOSVoiceModelDownloadStatus", [
+        "bytesDownloaded",
+        "bytesTotal",
+        "modelName",
+        "modelPath",
+        "modelSHA256",
+        "provider",
+        "status",
+      ]);
+      return {
+        ...decodeModelDownloadBase(record),
+        bytesDownloaded: nonNegativeIntegerField(
+          record,
+          "bytesDownloaded",
+          "LocalMacOSVoiceModelDownloadStatus",
+        ),
+        status,
+      };
+    case "ready":
+      assertKnownFields(record, "LocalMacOSVoiceModelDownloadStatus", [
+        "bytesTotal",
+        "modelName",
+        "modelPath",
+        "modelSHA256",
+        "provider",
+        "status",
+      ]);
+      return { ...decodeModelDownloadBase(record), status };
+    case "failed":
+      assertKnownFields(record, "LocalMacOSVoiceModelDownloadStatus", [
+        "bytesDownloaded",
+        "bytesTotal",
+        "message",
+        "modelName",
+        "modelPath",
+        "modelSHA256",
+        "provider",
+        "status",
+      ]);
+      return {
+        ...decodeModelDownloadBase(record),
+        bytesDownloaded: nonNegativeIntegerField(
+          record,
+          "bytesDownloaded",
+          "LocalMacOSVoiceModelDownloadStatus",
+        ),
+        message: stringField(record, "message", "LocalMacOSVoiceModelDownloadStatus"),
+        status,
+      };
+    case "unavailable":
+      assertKnownFields(record, "LocalMacOSVoiceModelDownloadStatus", [
+        "message",
+        "provider",
+        "status",
+      ]);
+      return {
+        message: stringField(record, "message", "LocalMacOSVoiceModelDownloadStatus"),
+        provider: decodeSpeechProvider(
+          stringField(record, "provider", "LocalMacOSVoiceModelDownloadStatus"),
+          "LocalMacOSVoiceModelDownloadStatus.provider",
+        ),
+        status,
+      };
+    default:
+      throw new Error("LocalMacOSVoiceModelDownloadStatus.status is unsupported: " + status);
+  }
+}
+
+function decodeModelDownloadBase(
+  record: Record<string, unknown>,
+): LocalMacOSVoiceModelDownloadBase {
+  return {
+    bytesTotal: positiveIntegerField(record, "bytesTotal", "LocalMacOSVoiceModelDownloadStatus"),
+    modelName: normalizedIdentifierField(record, "modelName", "LocalMacOSVoiceModelDownloadStatus"),
+    modelPath: normalizedIdentifierField(record, "modelPath", "LocalMacOSVoiceModelDownloadStatus"),
+    modelSHA256: decodeSHA256Field(record, "modelSHA256", "LocalMacOSVoiceModelDownloadStatus"),
+    provider: decodeSpeechProvider(
+      stringField(record, "provider", "LocalMacOSVoiceModelDownloadStatus"),
+      "LocalMacOSVoiceModelDownloadStatus.provider",
+    ),
+  };
+}
+
 export function decodeLocalMacOSVoiceStartCaptureRequest(
   value: unknown,
 ): LocalMacOSVoiceStartCaptureRequest {
@@ -452,6 +592,26 @@ function positiveIntegerField(
   const value = record[field];
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
     throw new Error(label + "." + field + " must be a positive integer");
+  }
+  return value;
+}
+
+function nonNegativeIntegerField(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+): number {
+  const value = record[field];
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw new Error(label + "." + field + " must be a non-negative integer");
+  }
+  return value;
+}
+
+function decodeSHA256Field(record: Record<string, unknown>, field: string, label: string): string {
+  const value = normalizedIdentifierField(record, field, label);
+  if (!/^[a-fA-F0-9]{64}$/.test(value)) {
+    throw new Error(label + "." + field + " must be a SHA-256 hex digest");
   }
   return value;
 }

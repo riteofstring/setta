@@ -17,6 +17,7 @@ import {
   type LocalMacOSVoiceCancelCaptureResult,
   type LocalMacOSVoiceCaptureFailure,
   type LocalMacOSVoiceFinishCaptureResult,
+  type LocalMacOSVoiceModelDownloadStatus,
   type LocalMacOSVoiceStartCaptureResult,
   type LocalMacOSVoiceStartCaptureRequest,
   type SpeechCredentialProviderRequest,
@@ -67,11 +68,17 @@ interface SpeechProviderSelectionIpcStore {
   ) => Promise<SpeechProviderSelectionSettings>;
 }
 
+interface LocalMacOSVoiceModelDownloadIpcService {
+  readStatus: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
+  startDownload: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
+}
+
 interface SpeechIpcRegistration {
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
   onProviderSelectionChanged?: (settings: SpeechProviderSelectionSettings) => void;
   requireLocalMacOSVoiceHelper: () => LocalMacOSVoiceHelper;
+  requireLocalMacOSVoiceModelDownloadService?: () => LocalMacOSVoiceModelDownloadIpcService;
   requireBackendClient: () => BackendClient;
   requireSpeechCredentialCoordinator: () => SpeechCredentialIpcCoordinator;
   requireSpeechProviderSelectionStore?: () => SpeechProviderSelectionIpcStore;
@@ -82,6 +89,7 @@ export function registerSpeechIpcHandlers({
   ipcObserver,
   onProviderSelectionChanged,
   requireLocalMacOSVoiceHelper,
+  requireLocalMacOSVoiceModelDownloadService,
   requireBackendClient,
   requireSpeechCredentialCoordinator,
   requireSpeechProviderSelectionStore,
@@ -92,6 +100,11 @@ export function registerSpeechIpcHandlers({
     requireSpeechProviderSelectionStore ??
     (() => {
       throw new Error("speech provider selection store is not ready");
+    });
+  const requireModelDownloadService =
+    requireLocalMacOSVoiceModelDownloadService ??
+    (() => {
+      throw new Error("local macOS voice model download service is not ready");
     });
   handleIpc(ipcMain, "speechCancelSynthesis", async (_event, operationId) => {
     synthesisOperations.cancel(operationId);
@@ -160,6 +173,18 @@ export function registerSpeechIpcHandlers({
     ipcMain,
     "speechReadLocalMacOSVoiceHealth",
     async () => requireLocalMacOSVoiceHelper().readHealth(),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "speechReadLocalMacOSVoiceModelDownload",
+    async () => requireModelDownloadService().readStatus(),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "speechStartLocalMacOSVoiceModelDownload",
+    async () => requireModelDownloadService().startDownload(),
     ipcObserver,
   );
   handleIpc(

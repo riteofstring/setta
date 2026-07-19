@@ -89,6 +89,40 @@ describe("LocalMacOSVoiceHealthService", () => {
     service.shutdown();
   });
 
+  test("uses the verified downloaded model when the resource manifest does not define a model", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-default-model-"));
+    const resourceRoot = join(root, "local-macos-voice");
+    const helperPath = join(resourceRoot, "bin", "setta-local-macos-voice-helper");
+    const modelPath = join(root, "downloaded-models", "ggml-base.en.bin");
+    const modelBytes = "downloaded-model-bytes";
+    await writeHelperScript(helperPath);
+    await mkdir(dirname(modelPath), { recursive: true });
+    await writeFile(modelPath, modelBytes);
+    await writeFile(
+      join(resourceRoot, "manifest.json"),
+      JSON.stringify({
+        helperPath: "bin/setta-local-macos-voice-helper",
+      }),
+    );
+
+    const service = createLocalMacOSVoiceHelperFromEnvironment({}, "darwin", {
+      defaultModel: {
+        modelPath,
+        modelSHA256: sha256(modelBytes),
+      },
+      resourceRoots: [resourceRoot],
+    });
+
+    await expect(service.readHealth()).resolves.toEqual({
+      helperPath,
+      modelPath,
+      modelSHA256: sha256(modelBytes),
+      provider: "local_macos",
+      status: "ready",
+    });
+    service.shutdown();
+  });
+
   test("keeps explicit local voice resource environment paths authoritative over manifest paths", async () => {
     const root = await mkdtemp(join(tmpdir(), "setta-local-voice-env-"));
     const resourceRoot = join(root, "local-macos-voice");

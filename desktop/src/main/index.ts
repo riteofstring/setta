@@ -30,6 +30,10 @@ import {
   createLocalMacOSVoiceHelperFromEnvironment,
   type LocalMacOSVoiceHelper,
 } from "./local-macos-voice-helper";
+import {
+  createLocalMacOSVoiceModelDownloadService,
+  type LocalMacOSVoiceModelDownloadService,
+} from "./local-macos-voice-model-download";
 import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
@@ -53,6 +57,7 @@ let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
 let localMacOSVoiceHelper: LocalMacOSVoiceHelper | null = null;
+let localMacOSVoiceModelDownloadService: LocalMacOSVoiceModelDownloadService | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
@@ -227,6 +232,14 @@ function broadcastSpeechProviderSelection(settings: unknown) {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) {
       window.webContents.send(ipcEvents.speechProviderSelectionChanged, settings);
+    }
+  }
+}
+
+function broadcastLocalMacOSVoiceModelDownload(status: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, status);
     }
   }
 }
@@ -573,6 +586,7 @@ function registerIpc() {
     ipcObserver,
     onProviderSelectionChanged: broadcastSpeechProviderSelection,
     requireLocalMacOSVoiceHelper,
+    requireLocalMacOSVoiceModelDownloadService,
     requireBackendClient,
     requireSpeechCredentialCoordinator,
     requireSpeechProviderSelectionStore,
@@ -715,6 +729,13 @@ function requireLocalMacOSVoiceHelper(): LocalMacOSVoiceHelper {
   return localMacOSVoiceHelper;
 }
 
+function requireLocalMacOSVoiceModelDownloadService(): LocalMacOSVoiceModelDownloadService {
+  if (!localMacOSVoiceModelDownloadService) {
+    throw new Error("local macOS voice model download service is not ready");
+  }
+  return localMacOSVoiceModelDownloadService;
+}
+
 function createSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
   let vault: SpeechCredentialVault | null = null;
   let secureStorageUnavailableMessage: string | undefined;
@@ -772,10 +793,16 @@ app.whenReady().then(async () => {
     app.getPath("userData"),
     process.platform,
   );
+  localMacOSVoiceModelDownloadService = createLocalMacOSVoiceModelDownloadService({
+    onStatusChanged: broadcastLocalMacOSVoiceModelDownload,
+    platform: process.platform,
+    userDataDir: app.getPath("userData"),
+  });
   localMacOSVoiceHelper = createLocalMacOSVoiceHelperFromEnvironment(
     process.env,
     process.platform,
     {
+      defaultModel: localMacOSVoiceModelDownloadService.defaultModelConfiguration(),
       resourceRoots: localMacOSVoiceResourceRoots(),
     },
   );
@@ -810,6 +837,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  localMacOSVoiceModelDownloadService?.shutdown();
+  localMacOSVoiceModelDownloadService = null;
   localMacOSVoiceHelper?.shutdown();
   localMacOSVoiceHelper = null;
   recorder?.close();

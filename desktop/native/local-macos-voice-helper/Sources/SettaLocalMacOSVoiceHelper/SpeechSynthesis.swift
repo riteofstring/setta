@@ -19,12 +19,21 @@ final class SystemVoiceCatalog {
   }
 
   private func installedVoiceIds() -> [String] {
+    let preferredLanguage = AVSpeechSynthesisVoice.currentLanguageCode()
+    let preferredVoiceID = AVSpeechSynthesisVoice(language: preferredLanguage)?.identifier
     var seen = Set<String>()
     return AVSpeechSynthesisVoice.speechVoices()
+      .filter { !trimmed($0.identifier).isEmpty }
+      .filter { seen.insert($0.identifier).inserted }
+      .sorted {
+        precedes(
+          $0,
+          $1,
+          preferredLanguage: preferredLanguage,
+          preferredVoiceID: preferredVoiceID
+        )
+      }
       .map(\.identifier)
-      .filter { !trimmed($0).isEmpty }
-      .filter { seen.insert($0).inserted }
-      .sorted()
   }
 
   private func version(for voiceIds: [String]) -> String {
@@ -32,6 +41,55 @@ final class SystemVoiceCatalog {
     let digest = SHA256.hash(data: Data(joined.utf8))
     let hex = digest.map { String(format: "%02x", $0) }.joined()
     return "apple-system-voices-\(hex.prefix(12))"
+  }
+
+  private func precedes(
+    _ lhs: AVSpeechSynthesisVoice,
+    _ rhs: AVSpeechSynthesisVoice,
+    preferredLanguage: String,
+    preferredVoiceID: String?
+  ) -> Bool {
+    let lhsPriority = voicePriority(
+      lhs,
+      preferredLanguage: preferredLanguage,
+      preferredVoiceID: preferredVoiceID
+    )
+    let rhsPriority = voicePriority(
+      rhs,
+      preferredLanguage: preferredLanguage,
+      preferredVoiceID: preferredVoiceID
+    )
+    if lhsPriority != rhsPriority {
+      return lhsPriority < rhsPriority
+    }
+    if lhs.quality.rawValue != rhs.quality.rawValue {
+      return lhs.quality.rawValue > rhs.quality.rawValue
+    }
+    return lhs.identifier < rhs.identifier
+  }
+
+  private func voicePriority(
+    _ voice: AVSpeechSynthesisVoice,
+    preferredLanguage: String,
+    preferredVoiceID: String?
+  ) -> Int {
+    if let preferredVoiceID, voice.identifier == preferredVoiceID {
+      return 0
+    }
+    if voice.language == preferredLanguage {
+      return 1
+    }
+    if languageFamily(voice.language) == languageFamily(preferredLanguage) {
+      return 2
+    }
+    if languageFamily(voice.language) == "en" {
+      return 3
+    }
+    return 4
+  }
+
+  private func languageFamily(_ language: String) -> String {
+    language.split(separator: "-", maxSplits: 1).first.map(String.init) ?? language
   }
 }
 
