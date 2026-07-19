@@ -137,6 +137,18 @@ func (adapter *Adapter) Inspect(
 	return observation, found, nil
 }
 
+// Suspend requests the provider's hosted-only cold transition for a runtime
+// whose exact Setta ownership has already been verified.
+func (adapter *Adapter) Suspend(ctx context.Context, name string) error {
+	if _, err := adapter.requireOwnedRuntime(ctx, name); err != nil {
+		return err
+	}
+	if err := adapter.client.Suspend(ctx, name); err != nil {
+		return operationError("suspend", err)
+	}
+	return nil
+}
+
 func (adapter *Adapter) Exec(
 	ctx context.Context,
 	request runtimeprovider.ExecRequest,

@@ -40,6 +40,7 @@ type sdkAPI interface {
 	CreateCheckpoint(context.Context, string, string) (*spritessdk.Checkpoint, error)
 	FindCheckpoint(context.Context, string, string) (*spritessdk.Checkpoint, bool, error)
 	RestoreCheckpoint(context.Context, string, string) error
+	Suspend(context.Context, string) error
 	Destroy(context.Context, string) error
 	ServerVersion(context.Context, string) (string, error)
 	OrganizationSnapshot(context.Context) (*sdkOrganizationSnapshot, error)
@@ -99,6 +100,17 @@ func (client *sdkClient) FindRuntime(
 		return nil, false, err
 	}
 	return &runtime, true, nil
+}
+
+func (client *sdkClient) Suspend(ctx context.Context, name string) error {
+	response, body, err := client.requestAPI(ctx, http.MethodPost, "/v1/sprites/"+url.PathEscape(name)+"/suspend")
+	if err != nil {
+		return err
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return spritessdk.ParseAPIError(response, body)
+	}
+	return nil
 }
 
 func (client *sdkClient) Exec(

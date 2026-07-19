@@ -109,6 +109,29 @@ func TestAdapterNeverAdoptsForeignLabels(t *testing.T) {
 	})
 }
 
+func TestAdapterSuspendRequiresExactOwnedRuntime(t *testing.T) {
+	identity := testManagedIdentity(t)
+	suspendCalls := 0
+	adapter := &Adapter{client: &fakeSDKAPI{
+		findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
+			return testRuntimeInfo(identity, "running"), true, nil
+		},
+		suspend: func(_ context.Context, name string) error {
+			suspendCalls++
+			if name != identity.Name {
+				t.Fatalf("Suspend name = %q", name)
+			}
+			return nil
+		},
+	}}
+	if err := adapter.Suspend(context.Background(), identity.Name); err != nil {
+		t.Fatal(err)
+	}
+	if suspendCalls != 1 {
+		t.Fatalf("Suspend calls = %d", suspendCalls)
+	}
+}
+
 func TestAdapterDestroyIsIdempotentAndOwnershipChecked(t *testing.T) {
 	identity := testManagedIdentity(t)
 
@@ -489,6 +512,7 @@ type fakeSDKAPI struct {
 	createCP      func(context.Context, string, string) (*spritessdk.Checkpoint, error)
 	findCP        func(context.Context, string, string) (*spritessdk.Checkpoint, bool, error)
 	restoreCP     func(context.Context, string, string) error
+	suspend       func(context.Context, string) error
 	destroy       func(context.Context, string) error
 	serverVersion func(context.Context, string) (string, error)
 	orgSnapshot   func(context.Context) (*sdkOrganizationSnapshot, error)
@@ -607,6 +631,13 @@ func (client *fakeSDKAPI) RestoreCheckpoint(ctx context.Context, name string, ch
 		return errors.New("unexpected RestoreCheckpoint call")
 	}
 	return client.restoreCP(ctx, name, checkpointID)
+}
+
+func (client *fakeSDKAPI) Suspend(ctx context.Context, name string) error {
+	if client.suspend == nil {
+		return errors.New("unexpected Suspend call")
+	}
+	return client.suspend(ctx, name)
 }
 
 func (client *fakeSDKAPI) Destroy(ctx context.Context, name string) error {
