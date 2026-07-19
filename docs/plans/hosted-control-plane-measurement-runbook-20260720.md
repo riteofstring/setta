@@ -304,15 +304,21 @@ Implemented on 2026-07-20:
     after Fly provisioning and before the measuring phase, and passes only the
     private local credential path and non-secret prepared runtime metadata to
     the authorized workload.
+27. The hosted Candidate B workload uses the private bootstrap credential for
+    fixed HTTP and SSE samples, measures cold connections, interactive HTTP,
+    first-event reconnects, and the adopted p95 budgets, and writes only a
+    private content-free report. Its controlled unauthenticated probe suspends
+    the exact owned Sprite, observes one non-active state before and after the
+    denied request, and fails if the request opens the runtime.
 
 Still required before a live create/deployment mutation:
 
-1. Wire the checked-artifact image publisher into
-   the manifest-gated provision command and staged-secret activation. The
-   operator CLI intentionally exposes only `dry-run` and exact
-   cleanup; it cannot create resources.
-2. Add the signed runtime install, bootstrap, health, workload, and local
-   credential-removal stages to the executable coordinator.
+1. Wire the implemented checked-artifact publisher, signed runtime
+   preparation, staged-secret activation, bootstrap, and hosted workload into
+   the manifest-gated provision command. The operator CLI intentionally
+   exposes only `dry-run` and exact cleanup; it cannot create resources.
+2. Add access-lifecycle measurement and revoke/remove the bootstrap client
+   credential during cleanup before provider resources are reconciled.
 3. Supply a newly valid manifest with an explicit Fly organization slug and
    region. A read-only check on 2026-07-20 found the local Fly identity exposes
    only organization `personal`; it does not expose a Fly organization named
