@@ -136,6 +136,32 @@ describe("local macOS voice listener service", () => {
     }
   });
 
+  test("pauses and resumes an armed listener around app speech playback", async () => {
+    const harness = await createHarness();
+    try {
+      await harness.service.updateSettings(true);
+      harness.emit({ type: "listener_armed" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({ status: "armed" }),
+      );
+
+      const paused = await harness.service.startPlayback("speech_playback_1");
+
+      expect(paused.state).toMatchObject({
+        operationId: "speech_playback_1",
+        status: "paused_for_playback",
+      });
+      expect(harness.helper.pauseListener).toHaveBeenCalledWith({ reason: "playback" });
+
+      const resumed = await harness.service.finishPlayback("speech_playback_1");
+
+      expect(resumed.state).toEqual({ status: "armed" });
+      expect(harness.helper.resumeListener).toHaveBeenCalledWith({ reason: "playback" });
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   test("keeps settings unavailable until local voice readiness recovers", async () => {
     const harness = await createHarness({
       initialHealth: {

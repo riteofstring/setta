@@ -229,12 +229,26 @@ describe("speech IPC handlers", () => {
       ipcChannels.speechCompleteLocalMacOSVoiceListenerSubmission,
       { captureSessionId: "wake_1" },
     );
+    const playbackStarted = await invoke(
+      handlers,
+      ipcChannels.speechStartLocalMacOSVoiceListenerPlayback,
+      { operationId: "speech_playback_1" },
+    );
+    const playbackFinished = await invoke(
+      handlers,
+      ipcChannels.speechFinishLocalMacOSVoiceListenerPlayback,
+      { operationId: "speech_playback_1" },
+    );
 
     expect(initial).toMatchObject({ enabled: false, state: { status: "disabled" } });
     expect(updated).toMatchObject({ enabled: true, state: { status: "armed" } });
     expect(completed).toMatchObject({ enabled: true, state: { status: "armed" } });
+    expect(playbackStarted).toMatchObject({ enabled: true, state: { status: "armed" } });
+    expect(playbackFinished).toMatchObject({ enabled: true, state: { status: "armed" } });
     expect(listener.updateSettings).toHaveBeenCalledWith(true);
     expect(listener.completeSubmission).toHaveBeenCalledWith("wake_1");
+    expect(listener.startPlayback).toHaveBeenCalledWith("speech_playback_1");
+    expect(listener.finishPlayback).toHaveBeenCalledWith("speech_playback_1");
   });
 
   test("routes local macOS model download status through the download service", async () => {
@@ -904,9 +918,11 @@ function listenerService() {
   });
   return {
     completeSubmission: vi.fn(async () => settings()),
+    finishPlayback: vi.fn(async () => settings()),
     finishManualCapture: vi.fn(async () => {}),
     prepareManualCaptureStart: vi.fn(async () => ({ status: "ready" as const })),
     readSettings: vi.fn(async () => settings()),
+    startPlayback: vi.fn(async () => settings()),
     updateSettings: vi.fn(async (nextEnabled: boolean) => {
       enabled = nextEnabled;
       return settings();

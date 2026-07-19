@@ -120,6 +120,10 @@ const api: SettaAPI = {
     completeLocalMacOSVoiceListenerSubmission: (request) =>
       invoke("speechCompleteLocalMacOSVoiceListenerSubmission", request),
     createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
+    finishLocalMacOSVoiceListenerPlayback: (request) =>
+      invoke("speechFinishLocalMacOSVoiceListenerPlayback", request).then(
+        decodeLocalMacOSVoiceListenerSettings,
+      ),
     finishLocalMacOSVoiceCapture: (request) =>
       invoke("speechFinishLocalMacOSVoiceCapture", request),
     onCredentialSettingsChanged: (listener) => {
@@ -173,6 +177,10 @@ const api: SettaAPI = {
     removeCredential: (request) => invoke("speechRemoveCredential", request),
     saveCredential: (request) => invoke("speechSaveCredential", request),
     startLocalMacOSVoiceCapture: (request) => invoke("speechStartLocalMacOSVoiceCapture", request),
+    startLocalMacOSVoiceListenerPlayback: (request) =>
+      invoke("speechStartLocalMacOSVoiceListenerPlayback", request).then(
+        decodeLocalMacOSVoiceListenerSettings,
+      ),
     startLocalMacOSVoiceModelDownload: () => invoke("speechStartLocalMacOSVoiceModelDownload"),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
     updateLocalMacOSVoiceListenerSettings: (request) =>

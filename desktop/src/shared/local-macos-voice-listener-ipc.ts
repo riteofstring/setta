@@ -93,6 +93,10 @@ export interface LocalMacOSVoiceListenerSubmissionRequest {
   captureSessionId: string;
 }
 
+export interface LocalMacOSVoiceListenerPlaybackRequest {
+  operationId: string;
+}
+
 export type LocalMacOSVoiceListenerEvent =
   | {
       settings: LocalMacOSVoiceListenerSettings;
@@ -162,6 +166,20 @@ export function decodeLocalMacOSVoiceListenerSubmissionRequest(
       record,
       "captureSessionId",
       "LocalMacOSVoiceListenerSubmissionRequest",
+    ),
+  };
+}
+
+export function decodeLocalMacOSVoiceListenerPlaybackRequest(
+  value: unknown,
+): LocalMacOSVoiceListenerPlaybackRequest {
+  const record = assertRecord(value, "LocalMacOSVoiceListenerPlaybackRequest");
+  assertKnownFields(record, "LocalMacOSVoiceListenerPlaybackRequest", ["operationId"]);
+  return {
+    operationId: normalizedIdentifierField(
+      record,
+      "operationId",
+      "LocalMacOSVoiceListenerPlaybackRequest",
     ),
   };
 }

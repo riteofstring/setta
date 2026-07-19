@@ -75,6 +75,7 @@ import type {
   SpeechCredentialSaveRequest,
   SpeechCredentialSettings,
   LocalMacOSVoiceListenerEvent,
+  LocalMacOSVoiceListenerPlaybackRequest,
   LocalMacOSVoiceListenerSettings,
   LocalMacOSVoiceListenerSettingsUpdateRequest,
   LocalMacOSVoiceListenerSubmissionRequest,
@@ -370,6 +371,9 @@ export interface SettaAPI {
     finishLocalMacOSVoiceCapture?: (
       request: LocalMacOSVoiceSessionRequest,
     ) => Promise<LocalMacOSVoiceFinishCaptureResult>;
+    finishLocalMacOSVoiceListenerPlayback?: (
+      request: LocalMacOSVoiceListenerPlaybackRequest,
+    ) => Promise<LocalMacOSVoiceListenerSettings>;
     completeLocalMacOSVoiceListenerSubmission?: (
       request: LocalMacOSVoiceListenerSubmissionRequest,
     ) => Promise<LocalMacOSVoiceListenerSettings>;
@@ -403,6 +407,9 @@ export interface SettaAPI {
     startLocalMacOSVoiceCapture?: (
       request: LocalMacOSVoiceStartCaptureRequest,
     ) => Promise<LocalMacOSVoiceStartCaptureResult>;
+    startLocalMacOSVoiceListenerPlayback?: (
+      request: LocalMacOSVoiceListenerPlaybackRequest,
+    ) => Promise<LocalMacOSVoiceListenerSettings>;
     startLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
     updateLocalMacOSVoiceListenerSettings?: (

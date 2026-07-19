@@ -11,7 +11,9 @@ describe("preload speech API", () => {
   test("exposes speech capabilities and transcription through typed IPC", async () => {
     const invoke = vi.fn((channel: string) => {
       if (
+        channel === ipcChannels.speechFinishLocalMacOSVoiceListenerPlayback ||
         channel === ipcChannels.speechReadLocalMacOSVoiceListenerSettings ||
+        channel === ipcChannels.speechStartLocalMacOSVoiceListenerPlayback ||
         channel === ipcChannels.speechUpdateLocalMacOSVoiceListenerSettings
       ) {
         return Promise.resolve({
@@ -39,6 +41,9 @@ describe("preload speech API", () => {
       completeLocalMacOSVoiceListenerSubmission: NonNullable<
         SettaAPI["speech"]["completeLocalMacOSVoiceListenerSubmission"]
       >;
+      finishLocalMacOSVoiceListenerPlayback: NonNullable<
+        SettaAPI["speech"]["finishLocalMacOSVoiceListenerPlayback"]
+      >;
       finishLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["finishLocalMacOSVoiceCapture"]>;
       listLocalMacOSVoices: NonNullable<SettaAPI["speech"]["listLocalMacOSVoices"]>;
       readLocalMacOSVoiceHealth: NonNullable<SettaAPI["speech"]["readLocalMacOSVoiceHealth"]>;
@@ -52,6 +57,9 @@ describe("preload speech API", () => {
       readNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["readNarratorVoiceDefault"]>;
       readProviderSelection: NonNullable<SettaAPI["speech"]["readProviderSelection"]>;
       startLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["startLocalMacOSVoiceCapture"]>;
+      startLocalMacOSVoiceListenerPlayback: NonNullable<
+        SettaAPI["speech"]["startLocalMacOSVoiceListenerPlayback"]
+      >;
       startLocalMacOSVoiceModelDownload: NonNullable<
         SettaAPI["speech"]["startLocalMacOSVoiceModelDownload"]
       >;
@@ -78,6 +86,8 @@ describe("preload speech API", () => {
     await speech.cancelLocalMacOSVoiceCapture({ captureSessionId: "capture_local" });
     await speech.updateLocalMacOSVoiceListenerSettings({ enabled: true });
     await speech.completeLocalMacOSVoiceListenerSubmission({ captureSessionId: "wake_1" });
+    await speech.startLocalMacOSVoiceListenerPlayback({ operationId: "speech_playback_1" });
+    await speech.finishLocalMacOSVoiceListenerPlayback({ operationId: "speech_playback_1" });
     await speech.readMasterVoiceSelection();
     await speech.readNarratorVoiceDefault();
     await speech.synthesize(
@@ -124,6 +134,14 @@ describe("preload speech API", () => {
       [ipcChannels.speechCancelLocalMacOSVoiceCapture, { captureSessionId: "capture_local" }],
       [ipcChannels.speechUpdateLocalMacOSVoiceListenerSettings, { enabled: true }],
       [ipcChannels.speechCompleteLocalMacOSVoiceListenerSubmission, { captureSessionId: "wake_1" }],
+      [
+        ipcChannels.speechStartLocalMacOSVoiceListenerPlayback,
+        { operationId: "speech_playback_1" },
+      ],
+      [
+        ipcChannels.speechFinishLocalMacOSVoiceListenerPlayback,
+        { operationId: "speech_playback_1" },
+      ],
       [ipcChannels.speechReadMasterVoiceSelection],
       [ipcChannels.speechReadNarratorVoiceDefault],
       [

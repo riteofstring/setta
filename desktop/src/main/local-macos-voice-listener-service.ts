@@ -158,6 +158,22 @@ export class LocalMacOSVoiceListenerService {
     return this.snapshot();
   }
 
+  async startPlayback(operationId: string): Promise<LocalMacOSVoiceListenerSettings> {
+    await this.initialize();
+    await this.enqueue(async () => {
+      await this.applyTransition({ operationId, type: "playback_started" });
+    });
+    return this.snapshot();
+  }
+
+  async finishPlayback(operationId: string): Promise<LocalMacOSVoiceListenerSettings> {
+    await this.initialize();
+    await this.enqueue(async () => {
+      await this.applyTransition({ operationId, type: "playback_finished" });
+    });
+    return this.snapshot();
+  }
+
   async shutdown(): Promise<void> {
     await this.enqueue(async () => {
       if (this.state.status !== "disabled") {

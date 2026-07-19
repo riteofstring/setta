@@ -10,6 +10,7 @@ import {
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import {
   decodeLocalMacOSVoiceSessionRequest,
+  decodeLocalMacOSVoiceListenerPlaybackRequest,
   decodeLocalMacOSVoiceListenerSettingsUpdateRequest,
   decodeLocalMacOSVoiceListenerSubmissionRequest,
   decodeLocalMacOSVoiceStartCaptureRequest,
@@ -80,9 +81,11 @@ interface LocalMacOSVoiceModelDownloadIpcService {
 
 interface LocalMacOSVoiceListenerIpcService {
   completeSubmission: (captureSessionId: string) => Promise<LocalMacOSVoiceListenerSettings>;
+  finishPlayback: (operationId: string) => Promise<LocalMacOSVoiceListenerSettings>;
   finishManualCapture: (captureSessionId: string) => Promise<void>;
   prepareManualCaptureStart: LocalMacOSVoiceListenerService["prepareManualCaptureStart"];
   readSettings: () => Promise<LocalMacOSVoiceListenerSettings>;
+  startPlayback: (operationId: string) => Promise<LocalMacOSVoiceListenerSettings>;
   updateSettings: (enabled: boolean) => Promise<LocalMacOSVoiceListenerSettings>;
 }
 
@@ -228,6 +231,24 @@ export function registerSpeechIpcHandlers({
     async (_event, request) => {
       const decoded = decodeLocalMacOSVoiceListenerSubmissionRequest(request);
       return requireListenerService().completeSubmission(decoded.captureSessionId);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "speechStartLocalMacOSVoiceListenerPlayback",
+    async (_event, request) => {
+      const decoded = decodeLocalMacOSVoiceListenerPlaybackRequest(request);
+      return requireListenerService().startPlayback(decoded.operationId);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "speechFinishLocalMacOSVoiceListenerPlayback",
+    async (_event, request) => {
+      const decoded = decodeLocalMacOSVoiceListenerPlaybackRequest(request);
+      return requireListenerService().finishPlayback(decoded.operationId);
     },
     ipcObserver,
   );

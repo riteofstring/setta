@@ -319,7 +319,7 @@ to the focused conversation without clicking the mic button.
 
 - [ ] Tune VAD, silence, padding, and maximum-duration parameters.
 - [x] Strip leading wake phrase text deterministically from transcripts.
-- [ ] Add half-duplex playback suppression.
+- [x] Add half-duplex playback suppression.
 - [ ] Add recovery for helper crash, model load failure, microphone denial, and
   local voice not ready.
 - [ ] Add a visible path from failed listener state to Settings -> Voices.
@@ -329,6 +329,12 @@ Implementation note (2026-07-21): finalized wake transcripts now strip only the
 canonical leading "Hey Setta" phrase grammar before entering the renderer
 submission path. Focused service coverage verifies both the stripped transcript
 and a near-miss phrase that must remain untouched.
+
+Implementation note (2026-07-21): renderer speech playback now notifies the
+local macOS listener service when synthesized audio starts and finishes. The
+listener pauses armed wake detection during active app playback and resumes
+after playback ends, fails, stops, or is preempted for capture through typed
+main/preload/renderer IPC coverage.
 
 Exit criteria: dogfood builds can stay armed for long sessions without obvious
 false wakes, clipped first words, or stuck capture.
