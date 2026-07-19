@@ -81,6 +81,13 @@ function desktopRoot() {
 function repoRoot() {
   return resolve(desktopRoot(), "..");
 }
+function localMacOSVoiceResourceRoots() {
+  return [
+    join(process.resourcesPath, "local-macos-voice"),
+    join(desktopRoot(), "out", "local-macos-voice"),
+    join(desktopRoot(), "resources", "local-macos-voice"),
+  ];
+}
 async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
@@ -742,7 +749,13 @@ app.whenReady().then(async () => {
     repoRoot: repoRoot(),
   });
   speechCredentialCoordinator = createSpeechCredentialCoordinator();
-  localMacOSVoiceHelper = createLocalMacOSVoiceHelperFromEnvironment(process.env);
+  localMacOSVoiceHelper = createLocalMacOSVoiceHelperFromEnvironment(
+    process.env,
+    process.platform,
+    {
+      resourceRoots: localMacOSVoiceResourceRoots(),
+    },
+  );
   await prepareBackend(appDataDir);
   await createWindow();
 });

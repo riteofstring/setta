@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { chmod, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test, vi } from "vitest";
 
 import {
+  createLocalMacOSVoiceHelperFromEnvironment,
   LocalMacOSVoiceHelperProcessClient,
   LocalMacOSVoiceHelperProtocolError,
   LocalMacOSVoiceHelperUnavailableError,
@@ -52,6 +53,103 @@ describe("LocalMacOSVoiceHealthService", () => {
       status: "missing_model",
     });
     expect(createClient).not.toHaveBeenCalled();
+  });
+
+  test("loads helper and model paths from a local voice resource manifest", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-manifest-"));
+    const resourceRoot = join(root, "local-macos-voice");
+    const helperPath = join(resourceRoot, "bin", "setta-local-macos-voice-helper");
+    const modelPath = join(resourceRoot, "models", "ggml-manifest.bin");
+    const modelBytes = "manifest-model-bytes";
+    await writeHelperScript(helperPath);
+    await mkdir(dirname(modelPath), { recursive: true });
+    await writeFile(modelPath, modelBytes);
+    await writeFile(
+      join(resourceRoot, "manifest.json"),
+      JSON.stringify({
+        helperPath: "bin/setta-local-macos-voice-helper",
+        modelPath: "models/ggml-manifest.bin",
+        modelSHA256: sha256(modelBytes),
+      }),
+    );
+
+    const service = createLocalMacOSVoiceHelperFromEnvironment({}, "darwin", {
+      resourceRoots: [resourceRoot],
+    });
+
+    await expect(service.readHealth()).resolves.toEqual({
+      helperPath,
+      modelPath,
+      modelSHA256: sha256(modelBytes),
+      provider: "local_macos",
+      status: "ready",
+    });
+    service.shutdown();
+  });
+
+  test("keeps explicit local voice resource environment paths authoritative over manifest paths", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-env-"));
+    const resourceRoot = join(root, "local-macos-voice");
+    const manifestHelperPath = join(resourceRoot, "bin", "manifest-helper");
+    const manifestModelPath = join(resourceRoot, "models", "manifest-model.bin");
+    const helperPath = join(root, "configured-helper");
+    const modelPath = join(root, "configured-model.bin");
+    const modelBytes = "configured-model-bytes";
+    await writeHelperScript(manifestHelperPath);
+    await mkdir(dirname(manifestModelPath), { recursive: true });
+    await writeFile(manifestModelPath, "manifest-model-bytes");
+    await writeHelperScript(helperPath);
+    await writeFile(modelPath, modelBytes);
+    await writeFile(
+      join(resourceRoot, "manifest.json"),
+      JSON.stringify({
+        helperPath: "bin/manifest-helper",
+        modelPath: "models/manifest-model.bin",
+        modelSHA256: sha256("manifest-model-bytes"),
+      }),
+    );
+
+    const service = createLocalMacOSVoiceHelperFromEnvironment(
+      {
+        SETTA_LOCAL_MACOS_VOICE_HELPER_PATH: helperPath,
+        SETTA_LOCAL_MACOS_VOICE_MODEL_PATH: modelPath,
+        SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256: sha256(modelBytes),
+      },
+      "darwin",
+      { resourceRoots: [resourceRoot] },
+    );
+
+    await expect(service.readHealth()).resolves.toEqual({
+      helperPath,
+      modelPath,
+      modelSHA256: sha256(modelBytes),
+      provider: "local_macos",
+      status: "ready",
+    });
+    service.shutdown();
+  });
+
+  test("reports invalid local voice resource manifests as provider health", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-invalid-manifest-"));
+    const resourceRoot = join(root, "local-macos-voice");
+    await mkdir(resourceRoot, { recursive: true });
+    await writeFile(
+      join(resourceRoot, "manifest.json"),
+      JSON.stringify({ helperPath: "helper", modelSHA256: "not-a-sha" }),
+    );
+
+    const service = createLocalMacOSVoiceHelperFromEnvironment({}, "darwin", {
+      resourceRoots: [resourceRoot],
+    });
+
+    await expect(service.readHealth()).resolves.toMatchObject({
+      helperPath: null,
+      provider: "local_macos",
+      status: "helper_unavailable",
+    });
+    await expect(service.readHealth()).resolves.toMatchObject({
+      message: expect.stringContaining("resource manifest is invalid"),
+    });
   });
 
   test("verifies model hashes before probing the helper", async () => {
@@ -398,4 +496,13 @@ class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
 
 function sha256(content: string): string {
   return createHash("sha256").update(content).digest("hex");
+}
+
+async function writeHelperScript(path: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(
+    path,
+    `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(fixturePath)}\n`,
+  );
+  await chmod(path, 0o755);
 }

@@ -7,6 +7,10 @@ import { access, constants } from "node:fs/promises";
 import type { SpeechVoiceCatalog, SpeechVoiceID } from "@generated/backend";
 import type { LocalMacOSVoiceHealth } from "@shared/speech-ipc";
 import { localMacOSSpeechProviderID } from "@shared/speech-providers";
+import {
+  resolveLocalMacOSVoiceHelperConfiguration,
+  type LocalMacOSVoiceEnvironmentOptions,
+} from "./local-macos-voice-resources";
 
 export interface LocalMacOSVoiceHelper {
   cancelCapture: (
@@ -36,6 +40,7 @@ export interface LocalMacOSVoiceHelperProcessClientOptions {
 }
 
 export interface LocalMacOSVoiceHealthServiceOptions {
+  configurationFailure?: LocalMacOSVoiceUnavailableHealth;
   createClient?: (helperPath: string) => LocalMacOSVoiceHelperClient;
   expectedModelSHA256?: string | null;
   helperPath?: string | null;
@@ -182,9 +187,6 @@ type LocalMacOSVoiceReadyPreflight =
     };
 type LocalMacOSVoiceUnavailableHealth = Exclude<LocalMacOSVoiceHealth, { status: "ready" }>;
 
-const helperPathEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_HELPER_PATH";
-const modelPathEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_MODEL_PATH";
-const modelSHA256EnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256";
 const localMacOSProvider = localMacOSSpeechProviderID();
 
 export class LocalMacOSVoiceHelperProtocolError extends Error {
@@ -215,23 +217,28 @@ export class LocalMacOSVoiceHelperUnavailableError extends Error {
 export function createLocalMacOSVoiceHelperFromEnvironment(
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform = process.platform,
+  options: LocalMacOSVoiceEnvironmentOptions = {},
 ): LocalMacOSVoiceHelper {
+  const configuration = resolveLocalMacOSVoiceHelperConfiguration(env, options.resourceRoots ?? []);
   return new LocalMacOSVoiceHealthService({
-    expectedModelSHA256: env[modelSHA256EnvironmentVariable] ?? null,
-    helperPath: env[helperPathEnvironmentVariable] ?? null,
-    modelPath: env[modelPathEnvironmentVariable] ?? null,
+    configurationFailure: configuration.configurationFailure,
+    expectedModelSHA256: configuration.expectedModelSHA256,
+    helperPath: configuration.helperPath,
+    modelPath: configuration.modelPath,
     platform,
   });
 }
 
 export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
   private client: LocalMacOSVoiceHelperClient | null = null;
+  private readonly configurationFailure: LocalMacOSVoiceUnavailableHealth | null;
   private readonly expectedModelSHA256: string | null;
   private readonly helperPath: string | null;
   private readonly modelPath: string | null;
   private readonly platform: NodeJS.Platform;
 
   constructor(private readonly options: LocalMacOSVoiceHealthServiceOptions) {
+    this.configurationFailure = options.configurationFailure ?? null;
     this.expectedModelSHA256 = normalizedOptionalText(options.expectedModelSHA256);
     this.helperPath = normalizedOptionalText(options.helperPath);
     this.modelPath = normalizedOptionalText(options.modelPath);
@@ -321,6 +328,12 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
   }
 
   private async readReadyPreflight(): Promise<LocalMacOSVoiceReadyPreflight> {
+    if (this.configurationFailure !== null) {
+      return {
+        health: this.configurationFailure,
+        status: "unavailable",
+      };
+    }
     if (this.platform !== "darwin") {
       return {
         health: helperUnavailable(this.helperPath, "Local macOS voice is available only on macOS."),
@@ -353,6 +366,12 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
     | { helperPath: string; status: "ready" }
     | { health: LocalMacOSVoiceUnavailableHealth; status: "unavailable" }
   > {
+    if (this.configurationFailure !== null) {
+      return {
+        health: this.configurationFailure,
+        status: "unavailable",
+      };
+    }
     if (this.platform !== "darwin") {
       return {
         health: helperUnavailable(this.helperPath, "Local macOS voice is available only on macOS."),
