@@ -86,7 +86,7 @@ describe("session recording privacy", () => {
     [
       ipcChannels.speechSaveCredential,
       "speech_credential_save",
-      { provider: "openai", apiKey: "private-speech-api-key" },
+      { apiKey: "private-speech-api-key" },
     ],
   ])("redacts sensitive IPC start payloads for %s", (channel, type, value) => {
     expect(ipcRecordingValue(channel, "start", [value], true)).toEqual({

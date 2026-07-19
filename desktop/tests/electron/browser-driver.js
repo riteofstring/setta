@@ -1,4 +1,4 @@
-/* global CSS, CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, document, window */
+/* global CSS, CustomEvent, Event, HTMLButtonElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, document, window */
 
 (() => {
   function bodyText() {
@@ -43,63 +43,6 @@
     return { value: "value" in (element ?? {}) ? element.value : null };
   }
 
-  function masterOverlayOpenState() {
-    return {
-      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
-    };
-  }
-
-  function emptyMasterOverlayInteraction() {
-    return { decisionText: "", inputId: "", resultKind: "", status: "", transcript: "" };
-  }
-
-  function elementText(element) {
-    return element?.textContent ?? "";
-  }
-
-  function datasetValue(element, key) {
-    return element instanceof HTMLElement ? (element.dataset[key] ?? "") : "";
-  }
-
-  function queryText(root, selector) {
-    return root ? elementText(root.querySelector(selector)) : "";
-  }
-
-  function masterOverlayRoutedInteraction() {
-    const root = document.querySelector('[data-testid="master-active-interaction"]');
-    if (!(root instanceof HTMLElement)) {
-      return emptyMasterOverlayInteraction();
-    }
-    const result = root.querySelector(".setta-master-overlay-result");
-    return {
-      decisionText: queryText(result, "p"),
-      inputId: root.dataset.masterInputId ?? "",
-      resultKind: datasetValue(result, "masterResultKind"),
-      status: root.dataset.masterRoutingStatus ?? "",
-      transcript: queryText(root, '[data-testid="master-active-request"] p'),
-    };
-  }
-
-  function masterOverlayVoiceButtonState() {
-    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return { label: "", ready: false };
-    }
-    return {
-      label: button.getAttribute("aria-label") ?? "",
-      ready: !button.disabled,
-    };
-  }
-
-  function masterOverlayVoiceClick() {
-    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { clicked: false };
-    }
-    button.click();
-    return { clicked: true };
-  }
-
   function setInputValue({ selector, value }) {
     const element = document.querySelector(selector);
     if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLTextAreaElement)) {
@@ -126,10 +69,6 @@
     clickButton,
     dispatchLayoutSnapshot,
     elementValue,
-    masterOverlayOpenState,
-    masterOverlayRoutedInteraction,
-    masterOverlayVoiceButtonState,
-    masterOverlayVoiceClick,
     setInputValue,
     version: "setta-e2e-driver-v13",
   };

@@ -1,7 +1,11 @@
-import type { SpeechAudio, SpeechSource, SpeechVoiceID } from "@generated/backend";
+import type {
+  SpeechAudio,
+  SpeechSource,
+  SpeechSynthesisRequest,
+  SpeechVoiceID,
+} from "@generated/backend";
 
 import { speechPlaybackPriority } from "./app-shell-speech-playback-intent";
-import type { VoiceSynthesisRequest } from "./voice-provider-boundary";
 
 export {
   narrationSpeechPlaybackIntent,
@@ -71,7 +75,7 @@ export interface SpeechPlaybackControllerDependencies {
   logSupersession: (decision: SpeechPlaybackSupersessionDecision) => void;
   now: () => number;
   revokeObjectURL: (url: string) => void;
-  synthesize: (request: VoiceSynthesisRequest, signal: AbortSignal) => Promise<SpeechAudio>;
+  synthesize: (request: SpeechSynthesisRequest, signal: AbortSignal) => Promise<SpeechAudio>;
 }
 
 export interface SpeechPlaybackObservation {
@@ -816,7 +820,7 @@ function sameNarratorTurn(
   );
 }
 
-function speechSynthesisRequest(intent: SpeechPlaybackIntent): VoiceSynthesisRequest {
+function speechSynthesisRequest(intent: SpeechPlaybackIntent): SpeechSynthesisRequest {
   return {
     resolvedVoiceId: intent.resolvedVoiceId,
     source: { ...intent.source },

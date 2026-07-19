@@ -40,10 +40,6 @@ func (controller *OpenAIProviderController) Configured() bool {
 	return controller.Snapshot() != nil
 }
 
-func (controller *OpenAIProviderController) ProviderID() SpeechProvider {
-	return SpeechProviderOpenAI
-}
-
 func (controller *OpenAIProviderController) Snapshot() Provider {
 	if controller == nil {
 		return nil

@@ -111,7 +111,7 @@ try {
   );
   assertMasterVoiceSelection(firstMasterVoiceSelection);
   initialTranscriptionSession = await context.client.evaluate(
-    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
+    "window.setta.speech.createTranscriptionSession()",
   );
   assertTranscriptionSession(initialTranscriptionSession, provider.clientSecret);
   const easyButtonPaneCount = await context.client.evaluate(
@@ -134,7 +134,7 @@ try {
   );
   assertRejectedReplacement(rejectedReplacement);
   previousCredentialTranscriptionSession = await context.client.evaluate(
-    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
+    "window.setta.speech.createTranscriptionSession()",
   );
   assertTranscriptionSession(previousCredentialTranscriptionSession, provider.clientSecret);
 
@@ -143,7 +143,7 @@ try {
     replacementCredential.apiKey,
   );
   replacementTranscriptionSession = await context.client.evaluate(
-    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
+    "window.setta.speech.createTranscriptionSession()",
   );
   assertTranscriptionSession(replacementTranscriptionSession, replacementCredential.clientSecret);
   await assertConfiguredCredentialSettings(context.client);
@@ -156,7 +156,7 @@ try {
   );
   assertConfiguredCapabilities(reloadedCapabilities);
   reloadedTranscriptionSession = await context.client.evaluate(
-    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
+    "window.setta.speech.createTranscriptionSession()",
   );
   assertTranscriptionSession(reloadedTranscriptionSession, replacementCredential.clientSecret);
 
@@ -165,7 +165,7 @@ try {
     firstLocalRuntimeAccess,
   );
   switchedBackTranscriptionSession = await context.client.evaluate(
-    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
+    "window.setta.speech.createTranscriptionSession()",
   );
   assertTranscriptionSession(switchedBackTranscriptionSession, replacementCredential.clientSecret);
 
@@ -214,7 +214,7 @@ try {
     );
   }
   restoredTranscriptionSession = await context.client.evaluate(
-    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
+    "window.setta.speech.createTranscriptionSession()",
   );
   assertTranscriptionSession(restoredTranscriptionSession, replacementCredential.clientSecret);
   secondAcceptedInput = await submitMasterInput(context.client, masterInputRequest);
@@ -333,7 +333,7 @@ async function ensureWorkspaceOpen(client) {
   if (validWorkspaceId(initialWorkspaceId)) {
     return initialWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
+  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -444,7 +444,7 @@ async function assertNotConfiguredCredentialSettings(client) {
 function waitForCredentialSettingsStatus(client, status) {
   return waitForState(
     client,
-    'window.setta.speech.readCredentialSettings({ provider: "openai" })',
+    "window.setta.speech.readCredentialSettings()",
     (settings) => settings?.status === status,
     workflowTimeoutMs,
   );
@@ -488,7 +488,7 @@ function assertTranscriptionSession(session, expectedSecret) {
 async function assertSpeechNotConfigured(client, label) {
   const result = await client.evaluate(`(async () => {
     try {
-      await window.setta.speech.createTranscriptionSession({ provider: "openai" });
+      await window.setta.speech.createTranscriptionSession();
       return { ok: true, message: "" };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error) };
@@ -515,7 +515,7 @@ async function exerciseRuntimeSwitchIsolation(client, firstLocalRuntimeAccess) {
   const remoteCapabilities = await client.evaluate("window.setta.speech.readCapabilities()");
   assertUnconfiguredCapabilities(remoteCapabilities);
   await assertSpeechNotConfigured(client, "remote runtime");
-  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
+  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   await waitForState(
     client,
     workspaceIdExpression(),

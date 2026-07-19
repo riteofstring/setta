@@ -14,7 +14,7 @@ import {
   type TrajectoryEvent,
 } from "@generated/backend";
 
-import { openVoiceProviderSelectionSettings } from "../../components/settings-navigation";
+import { openAIVoiceConnectionSettings } from "../../components/settings-navigation";
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
@@ -327,7 +327,7 @@ function ConversationControl({
   view: EasyButtonProjectionView;
 }) {
   const action = conversationControlAction(commands, readOnly, speech, {
-    onOpenVoiceCredentialSettings: openVoiceProviderSelectionSettings,
+    onOpenVoiceCredentialSettings: openAIVoiceConnectionSettings,
   });
   return (
     <div className="easy-button-button-well">

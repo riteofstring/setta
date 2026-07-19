@@ -148,25 +148,6 @@ func validateSpeechAudioEncoding(audio SpeechAudio) error {
 	return validateWAV(decoded)
 }
 
-func ValidateSpeechSynthesisInput(input SpeechSynthesisInput) error {
-	if !validValue(input.Provider, speechProviderValues) {
-		return fmt.Errorf("unsupported speech synthesis provider %q", input.Provider)
-	}
-	if err := input.Source.Validate(); err != nil {
-		return err
-	}
-	if err := validateSynthesisText(input.Text); err != nil {
-		return err
-	}
-	if !LookupVoice(input.ResolvedVoiceID) {
-		return unavailableVoiceError(input.ResolvedVoiceID)
-	}
-	if err := validateSynthesisRate(input.Rate); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (source SpeechSource) Validate() error {
 	if !validValue(source.Speaker, speechSpeakerValues) {
 		return fmt.Errorf("unsupported speech speaker %q", source.Speaker)
@@ -193,9 +174,6 @@ func (source SpeechSource) Validate() error {
 }
 
 func (request SpeechSynthesisRequest) Validate() error {
-	if !validValue(request.Provider, speechProviderValues) {
-		return fmt.Errorf("unsupported speech synthesis provider %q", request.Provider)
-	}
 	if err := request.Source.Validate(); err != nil {
 		return err
 	}

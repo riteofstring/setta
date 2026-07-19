@@ -126,20 +126,10 @@ type SpeechService interface {
 		context.Context,
 		speech.VoiceSelectionRequest,
 	) (speech.NarratorVoiceDefault, error)
-	ValidateCredential(
-		context.Context,
-		speech.SpeechProvider,
-		string,
-		string,
-	) (speech.SpeechCredentialValidationResult, error)
-	LoadCredential(context.Context, speech.SpeechProvider, string) (speech.SpeechCredentialStatus, error)
-	ClearCredential(context.Context, speech.SpeechProvider) (speech.SpeechCredentialStatus, error)
-	CreateTranscriptionSession(
-		context.Context,
-		speech.SpeechProvider,
-		string,
-	) (speech.SpeechTranscriptionSession, error)
-	ResolveSynthesisInput(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechSynthesisInput, error)
+	ValidateCredential(context.Context, string, string) (speech.SpeechCredentialValidationResult, error)
+	LoadCredential(context.Context, string) (speech.SpeechCredentialStatus, error)
+	ClearCredential(context.Context) (speech.SpeechCredentialStatus, error)
+	CreateTranscriptionSession(context.Context, string) (speech.SpeechTranscriptionSession, error)
 	SynthesizeSpeech(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechAudio, error)
 }
 

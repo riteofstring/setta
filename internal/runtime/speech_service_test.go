@@ -38,7 +38,7 @@ func TestRuntimeServesTextOnlySpeechCapabilitiesAndTypedFailures(t *testing.T) {
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
+		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusServiceUnavailable,
 	)
 	if failure.Error.Code != string(speech.ErrorNotConfigured) {
@@ -71,7 +71,7 @@ func TestConfiguredRuntimeServesSpeechCapabilitiesAndTranscription(t *testing.T)
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
+		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusOK,
 	)
 	if session.ClientSecret != runtimeSpeechTranscriptionSecret {
@@ -99,10 +99,7 @@ func TestElectronVaultRuntimeServesDesktopSpeechCredentialManagement(t *testing.
 
 	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 10*time.Second)
 	baseURL := "http://" + server.Addr()
-	credentialRequest := httpapi.SpeechCredentialRequest{
-		Provider: speech.SpeechProviderOpenAI,
-		APIKey:   runtimeSpeechAPIKey,
-	}
+	credentialRequest := httpapi.SpeechCredentialRequest{APIKey: runtimeSpeechAPIKey}
 	validated := postRuntimeJSON[speech.SpeechCredentialValidationResult](
 		t,
 		client,
@@ -142,7 +139,7 @@ func TestElectronVaultRuntimeServesDesktopSpeechCredentialManagement(t *testing.
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
+		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusOK,
 	)
 	if session.ClientSecret != runtimeSpeechTranscriptionSecret {
@@ -157,7 +154,7 @@ func TestElectronVaultRuntimeServesDesktopSpeechCredentialManagement(t *testing.
 		client,
 		baseURL,
 		"/speech/credentials/desktop/clear",
-		httpapi.ClearDesktopSpeechCredentialRequest{Provider: speech.SpeechProviderOpenAI},
+		httpapi.ClearDesktopSpeechCredentialRequest{},
 		http.StatusOK,
 	)
 	if cleared.Provider != speech.SpeechProviderOpenAI ||
@@ -169,7 +166,7 @@ func TestElectronVaultRuntimeServesDesktopSpeechCredentialManagement(t *testing.
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
+		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusServiceUnavailable,
 	)
 	if failure.Error.Code != string(speech.ErrorNotConfigured) {
@@ -188,7 +185,7 @@ func TestElectronVaultRuntimeRejectsMalformedDesktopSpeechCredentialWithoutLeaki
 		client,
 		"http://"+server.Addr(),
 		"/speech/credentials/desktop/load",
-		httpapi.SpeechCredentialRequest{Provider: speech.SpeechProviderOpenAI, APIKey: credential},
+		httpapi.SpeechCredentialRequest{APIKey: credential},
 		http.StatusBadRequest,
 	)
 	if bytes.Contains(body, []byte(credential)) {
@@ -217,22 +214,16 @@ func TestServerStartupRuntimeRejectsDesktopSpeechCredentialManagement(t *testing
 		payload any
 	}{
 		{
-			path: "/speech/credentials/desktop/validate",
-			payload: httpapi.SpeechCredentialRequest{
-				Provider: speech.SpeechProviderOpenAI,
-				APIKey:   runtimeSpeechAPIKey,
-			},
+			path:    "/speech/credentials/desktop/validate",
+			payload: httpapi.SpeechCredentialRequest{APIKey: runtimeSpeechAPIKey},
 		},
 		{
-			path: "/speech/credentials/desktop/load",
-			payload: httpapi.SpeechCredentialRequest{
-				Provider: speech.SpeechProviderOpenAI,
-				APIKey:   runtimeSpeechAPIKey,
-			},
+			path:    "/speech/credentials/desktop/load",
+			payload: httpapi.SpeechCredentialRequest{APIKey: runtimeSpeechAPIKey},
 		},
 		{
 			path:    "/speech/credentials/desktop/clear",
-			payload: httpapi.ClearDesktopSpeechCredentialRequest{Provider: speech.SpeechProviderOpenAI},
+			payload: httpapi.ClearDesktopSpeechCredentialRequest{},
 		},
 	}
 	for _, test := range tests {

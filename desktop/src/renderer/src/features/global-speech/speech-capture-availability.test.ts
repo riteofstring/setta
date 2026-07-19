@@ -1,4 +1,4 @@
-import type { SpeechCapabilities } from "@generated/backend";
+import { speechVoiceIDValues, type SpeechCapabilities } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import { speechAvailabilityForCapabilities } from "./speech-capture-availability";
@@ -21,18 +21,7 @@ describe("global speech capture availability", () => {
     expect(
       speechAvailabilityForCapabilities(capabilities("not_configured"), { supported: true }),
     ).toEqual({
-      message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
-      provider: "openai",
-      setupAction: "open_voice_credential_settings",
-      type: "not_configured",
-    });
-    expect(
-      speechAvailabilityForCapabilities(capabilities("not_configured", "local_macos"), {
-        supported: true,
-      }),
-    ).toEqual({
-      message: "Local macOS voice is not ready. Check local voice setup in Settings -> Voices.",
-      provider: "local_macos",
+      message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
       setupAction: "open_voice_credential_settings",
       type: "not_configured",
     });
@@ -48,10 +37,7 @@ describe("global speech capture availability", () => {
   });
 });
 
-function capabilities(
-  providerStatus: SpeechCapabilities["providerStatus"],
-  provider: SpeechCapabilities["voiceCatalog"]["provider"] = "openai",
-): SpeechCapabilities {
+function capabilities(providerStatus: SpeechCapabilities["providerStatus"]): SpeechCapabilities {
   return {
     aiVoiceDisclosure: "AI-generated voice",
     maximumRecordingSeconds: 120,
@@ -61,9 +47,9 @@ function capabilities(
     synthesisModel: "gpt-4o-mini-tts",
     transcriptionModel: "gpt-realtime-whisper",
     voiceCatalog: {
-      provider,
+      provider: "openai",
       version: "test",
-      voiceIds: ["marin", "cedar"],
+      voiceIds: [...speechVoiceIDValues],
     },
   };
 }

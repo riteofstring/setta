@@ -54,11 +54,7 @@ func TestSpeechServiceCreatesDeviceScopedTranscriptionSession(t *testing.T) {
 	}
 	service := newServiceTestService(t, provider)
 
-	session, err := service.CreateTranscriptionSession(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"device_sensitive_principal",
-	)
+	session, err := service.CreateTranscriptionSession(context.Background(), "device_sensitive_principal")
 	if err != nil {
 		t.Fatalf("create transcription session: %v", err)
 	}
@@ -86,7 +82,6 @@ func TestSpeechServiceValidatesCredentialWithoutConfiguringProvider(t *testing.T
 	)
 	result, err := service.ValidateCredential(
 		context.Background(),
-		SpeechProviderOpenAI,
 		"sk-setta-candidate",
 		"device_sensitive_principal",
 	)
@@ -115,7 +110,7 @@ func TestSpeechServiceLoadAndClearCredentialReportNonSecretStatus(t *testing.T) 
 		&serviceTestSourceResolver{},
 	)
 
-	status, err := service.LoadCredential(context.Background(), SpeechProviderOpenAI, "sk-setta-active")
+	status, err := service.LoadCredential(context.Background(), "sk-setta-active")
 	if err != nil {
 		t.Fatalf("load credential: %v", err)
 	}
@@ -126,7 +121,7 @@ func TestSpeechServiceLoadAndClearCredentialReportNonSecretStatus(t *testing.T) 
 		t.Fatalf("loaded status = %+v controller = %+v", status, controller)
 	}
 
-	status, err = service.ClearCredential(context.Background(), SpeechProviderOpenAI)
+	status, err = service.ClearCredential(context.Background())
 	if err != nil {
 		t.Fatalf("clear credential: %v", err)
 	}
@@ -155,12 +150,7 @@ func TestSpeechServiceRejectsMalformedCredentialsWithoutLeakingOrCallingControll
 				&serviceTestSourceResolver{},
 			)
 
-			_, err := service.ValidateCredential(
-				context.Background(),
-				SpeechProviderOpenAI,
-				candidate,
-				"device_one",
-			)
+			_, err := service.ValidateCredential(context.Background(), candidate, "device_one")
 			assertSpeechServiceErrorCode(t, err, ErrorCredentialInvalid)
 			if candidate != "" && strings.Contains(err.Error(), candidate) {
 				t.Fatalf("validation error leaked credential: %v", err)
@@ -169,7 +159,7 @@ func TestSpeechServiceRejectsMalformedCredentialsWithoutLeakingOrCallingControll
 				t.Fatalf("controller validation calls = %d, want 0", controller.validateCalls)
 			}
 
-			_, err = service.LoadCredential(context.Background(), SpeechProviderOpenAI, candidate)
+			_, err = service.LoadCredential(context.Background(), candidate)
 			assertSpeechServiceErrorCode(t, err, ErrorCredentialInvalid)
 			if candidate != "" && strings.Contains(err.Error(), candidate) {
 				t.Fatalf("load error leaked credential: %v", err)
@@ -193,12 +183,7 @@ func TestSpeechServicePreservesClassifiedCredentialValidationFailure(t *testing.
 		controller,
 		&serviceTestSourceResolver{},
 	)
-	_, err := service.ValidateCredential(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"sk-setta-rejected",
-		"device_one",
-	)
+	_, err := service.ValidateCredential(context.Background(), "sk-setta-rejected", "device_one")
 	assertSpeechServiceErrorCode(t, err, ErrorProviderRejected)
 	if controller.Configured() {
 		t.Fatal("failed validation unexpectedly configured the provider")
@@ -229,11 +214,7 @@ func TestDeviceSafetyIdentifierIsStableAndDeviceScoped(t *testing.T) {
 func TestSpeechServiceUnconfiguredTranscriptionDoesNotCallProvider(t *testing.T) {
 	provider := &serviceTestProvider{}
 	service := newServiceTestService(t, provider)
-	_, err := service.CreateTranscriptionSession(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"device_one",
-	)
+	_, err := service.CreateTranscriptionSession(context.Background(), "device_one")
 	assertSpeechServiceErrorCode(t, err, ErrorNotConfigured)
 	if provider.transcriptionCalls != 0 {
 		t.Fatalf("unexpected provider calls: %+v", provider)
@@ -297,11 +278,7 @@ func TestSpeechServicePreservesTranscriptionProviderFailure(t *testing.T) {
 	providerFailure := errors.New("transcription provider failed")
 	provider := &serviceTestProvider{configured: true, transcriptionErr: providerFailure}
 	service := newServiceTestService(t, provider)
-	_, err := service.CreateTranscriptionSession(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"device_one",
-	)
+	_, err := service.CreateTranscriptionSession(context.Background(), "device_one")
 	if !errors.Is(err, providerFailure) {
 		t.Fatalf("error = %v, want provider failure", err)
 	}
@@ -329,7 +306,6 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 	}}
 	service := newServiceTestServiceWithResolver(t, provider, resolver)
 	audio, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-		Provider:        SpeechProviderOpenAI,
 		Source:          source,
 		ResolvedVoiceID: SpeechVoiceCedar,
 	})
@@ -346,7 +322,6 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 	}
 
 	_, err = service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-		Provider:        SpeechProviderOpenAI,
 		Source:          source,
 		ResolvedVoiceID: SpeechVoiceAlloy,
 	})
@@ -356,42 +331,11 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 	}
 }
 
-func TestSpeechServiceResolvesLocalSynthesisInputWithoutProviderSnapshot(t *testing.T) {
-	source := SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"}
-	provider := &serviceTestProvider{configured: false}
-	resolver := &serviceTestSourceResolver{resolved: ResolvedSpeechSource{
-		Source:          source,
-		Text:            "The local helper can synthesize this answer.",
-		ResolvedVoiceID: SpeechVoiceMarin,
-	}}
-	service := newServiceTestServiceWithResolver(t, provider, resolver)
-
-	input, err := service.ResolveSynthesisInput(context.Background(), SpeechSynthesisRequest{
-		Provider:        SpeechProviderLocalMacOS,
-		Source:          source,
-		ResolvedVoiceID: SpeechVoiceMarin,
-	})
-	if err != nil {
-		t.Fatalf("resolve local synthesis input: %v", err)
-	}
-	want := SpeechSynthesisInput{
-		Provider:        SpeechProviderLocalMacOS,
-		Source:          source,
-		Text:            resolver.resolved.Text,
-		ResolvedVoiceID: SpeechVoiceMarin,
-		Rate:            AssistantSynthesisRate,
-	}
-	if input != want || resolver.calls != 1 || provider.synthesisCalls != 0 {
-		t.Fatalf("input=%+v resolverCalls=%d providerCalls=%d", input, resolver.calls, provider.synthesisCalls)
-	}
-}
-
 func TestSpeechServiceRejectsUnavailableSynthesisBeforeProviderCall(t *testing.T) {
 	provider := &serviceTestProvider{configured: true}
 	resolver := &serviceTestSourceResolver{err: SourceUnavailable("source missing", nil)}
 	service := newServiceTestServiceWithResolver(t, provider, resolver)
 	_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-		Provider:        SpeechProviderOpenAI,
 		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
 		ResolvedVoiceID: SpeechVoiceMarin,
 	})
@@ -444,7 +388,6 @@ func TestSpeechServiceUsesSharedAssistantSynthesisRate(t *testing.T) {
 			service := newServiceTestServiceWithResolver(t, provider, resolver)
 
 			_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-				Provider:        SpeechProviderOpenAI,
 				Source:          test.source,
 				ResolvedVoiceID: test.voiceID,
 			})
@@ -495,7 +438,6 @@ func TestSpeechServiceSnapshotsSynthesisProviderBeforeResolvingSource(t *testing
 	done := make(chan error, 1)
 	go func() {
 		_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-			Provider:        SpeechProviderOpenAI,
 			Source:          source,
 			ResolvedVoiceID: SpeechVoiceMarin,
 		})
@@ -681,10 +623,6 @@ func (controller staticProviderController) Configured() bool {
 	return controller.provider != nil && controller.provider.Configured()
 }
 
-func (staticProviderController) ProviderID() SpeechProvider {
-	return SpeechProviderOpenAI
-}
-
 func (controller staticProviderController) Snapshot() Provider {
 	return controller.provider
 }
@@ -710,10 +648,6 @@ func (staticProviderController) Shutdown() {}
 
 func (controller *mutableServiceProviderController) Configured() bool {
 	return controller.provider != nil && controller.provider.Configured()
-}
-
-func (*mutableServiceProviderController) ProviderID() SpeechProvider {
-	return SpeechProviderOpenAI
 }
 
 func (controller *mutableServiceProviderController) Snapshot() Provider {
@@ -749,10 +683,6 @@ func (controller *mutableServiceProviderController) setProvider(provider Provide
 
 func (controller *serviceCredentialTestController) Configured() bool {
 	return controller.provider != nil && controller.provider.Configured()
-}
-
-func (*serviceCredentialTestController) ProviderID() SpeechProvider {
-	return SpeechProviderOpenAI
 }
 
 func (controller *serviceCredentialTestController) Snapshot() Provider {

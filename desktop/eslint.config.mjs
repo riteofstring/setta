@@ -32,14 +32,4 @@ export default tseslint.config(
       sourceType: "module",
     },
   },
-  {
-    files: ["tests/native/**/*.mjs"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      globals: {
-        ...globals.node,
-      },
-      sourceType: "module",
-    },
-  },
 );

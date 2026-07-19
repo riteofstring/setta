@@ -102,8 +102,7 @@ describe("master voice controls", () => {
     const { context, controller, startMasterCapture } = captureContext(
       { type: "idle" },
       {
-        message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
-        provider: "openai",
+        message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
         setupAction: "open_voice_credential_settings",
         type: "not_configured",
       },
@@ -112,9 +111,9 @@ describe("master voice controls", () => {
 
     expect(model).toMatchObject({
       action: "open_voice_credential_settings",
-      controlLabel: "Open voice settings",
+      controlLabel: "Set up OpenAI voice in Settings -> Voices",
       state: "unavailable",
-      statusLabel: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
+      statusLabel: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
     });
     const button = renderToString(
       <MasterVoiceButton
@@ -122,7 +121,7 @@ describe("master voice controls", () => {
         onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
       />,
     );
-    expect(button).toContain('aria-label="Open voice settings"');
+    expect(button).toContain('aria-label="Set up OpenAI voice in Settings -&gt; Voices"');
 
     executeMasterVoiceCommand(controller, openVoiceCredentialSettings);
     expect(openVoiceCredentialSettings).toHaveBeenCalledOnce();

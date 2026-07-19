@@ -59,50 +59,39 @@ func (service speechCredentialPolicyService) UpdateNarratorVoiceDefault(
 
 func (service speechCredentialPolicyService) ValidateCredential(
 	ctx context.Context,
-	provider speech.SpeechProvider,
 	apiKey string,
 	deviceID string,
 ) (speech.SpeechCredentialValidationResult, error) {
 	if err := service.validateDesktopCredentialManagement(); err != nil {
 		return speech.SpeechCredentialValidationResult{}, err
 	}
-	return service.service.ValidateCredential(ctx, provider, apiKey, deviceID)
+	return service.service.ValidateCredential(ctx, apiKey, deviceID)
 }
 
 func (service speechCredentialPolicyService) LoadCredential(
 	ctx context.Context,
-	provider speech.SpeechProvider,
 	apiKey string,
 ) (speech.SpeechCredentialStatus, error) {
 	if err := service.validateDesktopCredentialManagement(); err != nil {
 		return speech.SpeechCredentialStatus{}, err
 	}
-	return service.service.LoadCredential(ctx, provider, apiKey)
+	return service.service.LoadCredential(ctx, apiKey)
 }
 
 func (service speechCredentialPolicyService) ClearCredential(
 	ctx context.Context,
-	provider speech.SpeechProvider,
 ) (speech.SpeechCredentialStatus, error) {
 	if err := service.validateDesktopCredentialManagement(); err != nil {
 		return speech.SpeechCredentialStatus{}, err
 	}
-	return service.service.ClearCredential(ctx, provider)
+	return service.service.ClearCredential(ctx)
 }
 
 func (service speechCredentialPolicyService) CreateTranscriptionSession(
 	ctx context.Context,
-	provider speech.SpeechProvider,
 	deviceID string,
 ) (speech.SpeechTranscriptionSession, error) {
-	return service.service.CreateTranscriptionSession(ctx, provider, deviceID)
-}
-
-func (service speechCredentialPolicyService) ResolveSynthesisInput(
-	ctx context.Context,
-	request speech.SpeechSynthesisRequest,
-) (speech.SpeechSynthesisInput, error) {
-	return service.service.ResolveSynthesisInput(ctx, request)
+	return service.service.CreateTranscriptionSession(ctx, deviceID)
 }
 
 func (service speechCredentialPolicyService) SynthesizeSpeech(

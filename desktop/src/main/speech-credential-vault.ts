@@ -3,8 +3,7 @@ import { chmod, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promi
 import { randomUUID } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 
-import type { SpeechProvider } from "@generated/backend";
-import { openAISpeechProviderID } from "@shared/speech-providers";
+import { speechProviderValues, type SpeechProvider } from "@generated/backend";
 
 export interface SpeechCredentialProtection {
   encryptString(plaintext: string): Buffer;
@@ -69,7 +68,7 @@ interface StoredSpeechCredential {
 
 const storageFileName = "speech-credential.json";
 const storageSchemaVersion = 1;
-const openAISpeechProvider = openAISpeechProviderID();
+const openAISpeechProvider = onlySupportedSpeechProvider();
 const supportedLinuxStorageBackends = new Set([
   "gnome_libsecret",
   "kwallet",
@@ -279,7 +278,7 @@ function decodeStoredCredential(value: unknown): StoredSpeechCredential {
   }
   return {
     ciphertext_base64: ciphertextBase64,
-    provider: openAISpeechProvider,
+    provider,
     schema_version: storageSchemaVersion,
   };
 }
@@ -375,6 +374,14 @@ function writeFailureCause(writeError: unknown, cleanupError: unknown | null): u
     [writeError, cleanupError],
     "Speech credential write failed and temporary credential cleanup also failed.",
   );
+}
+
+function onlySupportedSpeechProvider(): SpeechProvider {
+  const provider = speechProviderValues[0];
+  if (!provider || speechProviderValues.length !== 1) {
+    throw new Error("Speech credential vault requires exactly one supported speech provider.");
+  }
+  return provider;
 }
 
 function isENOENT(error: unknown): error is NodeJS.ErrnoException {

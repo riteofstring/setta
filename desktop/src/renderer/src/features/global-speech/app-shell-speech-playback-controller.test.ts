@@ -3,6 +3,7 @@ import type {
   MasterVoiceSelection,
   NarrationEvent,
   SpeechAudio,
+  SpeechSynthesisRequest,
   ShellInteractionState,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
@@ -17,7 +18,6 @@ import {
   type SpeechPlaybackSupersessionDecision,
 } from "./app-shell-speech-playback-controller";
 import { masterSpeechPlaybackIntent } from "./app-shell-master-speech-playback-intent";
-import type { VoiceSynthesisRequest } from "./voice-provider-boundary";
 
 describe("app-shell speech playback controller", () => {
   test("derives source-aware priorities from live narration and ignores non-speech channels", () => {
@@ -540,11 +540,11 @@ class FakeAudio {
 
 function createHarness(
   options: {
-    response?: (request: VoiceSynthesisRequest) => SpeechAudio;
+    response?: (request: SpeechSynthesisRequest) => SpeechAudio;
   } = {},
 ) {
   let now = Date.parse("2026-07-12T18:00:00Z");
-  const requests: VoiceSynthesisRequest[] = [];
+  const requests: SpeechSynthesisRequest[] = [];
   const signals: AbortSignal[] = [];
   const results: Array<Deferred<SpeechAudio>> = [];
   const audios: FakeAudio[] = [];
@@ -719,7 +719,7 @@ function profile(
   };
 }
 
-function speechAudio(request: VoiceSynthesisRequest): SpeechAudio {
+function speechAudio(request: SpeechSynthesisRequest): SpeechAudio {
   return {
     audioBase64: "UklGRg==",
     format: "wav",

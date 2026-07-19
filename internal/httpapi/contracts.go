@@ -4,7 +4,6 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/conversation"
 	"setta/internal/runtimeauth"
-	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
@@ -125,17 +124,12 @@ type SubscribeConversationEventsRequest struct {
 }
 
 type SpeechCredentialRequest struct {
-	Provider speech.SpeechProvider `json:"provider"`
-	APIKey   string                `json:"apiKey"`
+	APIKey string `json:"apiKey"`
 }
 
-type ClearDesktopSpeechCredentialRequest struct {
-	Provider speech.SpeechProvider `json:"provider"`
-}
+type ClearDesktopSpeechCredentialRequest struct{}
 
-type CreateSpeechTranscriptionSessionRequest struct {
-	Provider speech.SpeechProvider `json:"provider"`
-}
+type CreateSpeechTranscriptionSessionRequest struct{}
 
 type APIError struct {
 	Code             string `json:"code"`

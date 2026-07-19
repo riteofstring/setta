@@ -20,7 +20,6 @@ type Provider interface {
 
 type ProviderController interface {
 	Configured() bool
-	ProviderID() SpeechProvider
 	Snapshot() Provider
 	Status() SpeechProviderStatus
 	ValidateCredential(context.Context, string, string) error
@@ -125,71 +124,25 @@ func (service *Service) SynthesizeSpeech(
 	if err := request.Validate(); err != nil {
 		return SpeechAudio{}, err
 	}
-	provider, err := service.requireProviderSnapshot(request.Provider)
+	provider, err := service.requireProviderSnapshot()
 	if err != nil {
 		return SpeechAudio{}, err
-	}
-	input, err := service.resolveSynthesisInput(ctx, request)
-	if err != nil {
-		return SpeechAudio{}, err
-	}
-	generated, err := provider.SynthesizeSpeech(ctx, ProviderSynthesisInput{
-		Text:    input.Text,
-		VoiceID: input.ResolvedVoiceID,
-		Rate:    input.Rate,
-	})
-	if err != nil {
-		return SpeechAudio{}, err
-	}
-	audio := SpeechAudio{
-		AudioBase64:     base64.StdEncoding.EncodeToString(generated.Bytes),
-		MediaType:       generated.MediaType,
-		Format:          generated.Format,
-		Source:          cloneSpeechSource(input.Source),
-		ResolvedVoiceID: input.ResolvedVoiceID,
-	}
-	if err := ValidateSpeechAudio(audio); err != nil {
-		return SpeechAudio{}, classifiedError(
-			ErrorProviderResponseMalformed,
-			fmt.Sprintf(
-				"%s speech returned invalid generated audio.",
-				speechProviderDisplayName(request.Provider),
-			),
-			err,
-		)
-	}
-	return audio, nil
-}
-
-func (service *Service) ResolveSynthesisInput(
-	ctx context.Context,
-	request SpeechSynthesisRequest,
-) (SpeechSynthesisInput, error) {
-	return service.resolveSynthesisInput(ctx, request)
-}
-
-func (service *Service) resolveSynthesisInput(
-	ctx context.Context,
-	request SpeechSynthesisRequest,
-) (SpeechSynthesisInput, error) {
-	if err := request.Validate(); err != nil {
-		return SpeechSynthesisInput{}, err
 	}
 	if service.sourceResolver == nil {
-		return SpeechSynthesisInput{}, errors.New("speech source resolver is required")
+		return SpeechAudio{}, errors.New("speech source resolver is required")
 	}
 	resolved, err := service.sourceResolver.ResolveSpeechSource(ctx, request.Source)
 	if err != nil {
-		return SpeechSynthesisInput{}, err
+		return SpeechAudio{}, err
 	}
 	if err := resolved.Validate(); err != nil {
-		return SpeechSynthesisInput{}, fmt.Errorf("validate resolved speech source: %w", err)
+		return SpeechAudio{}, fmt.Errorf("validate resolved speech source: %w", err)
 	}
 	if !equalSpeechSources(resolved.Source, request.Source) {
-		return SpeechSynthesisInput{}, SourceUnavailable("The requested speech source no longer matches the persisted event.", nil)
+		return SpeechAudio{}, SourceUnavailable("The requested speech source no longer matches the persisted event.", nil)
 	}
 	if resolved.ResolvedVoiceID != request.ResolvedVoiceID {
-		return SpeechSynthesisInput{}, SourceUnavailable(
+		return SpeechAudio{}, SourceUnavailable(
 			fmt.Sprintf(
 				"The requested speech source now resolves to voice %q instead of %q.",
 				resolved.ResolvedVoiceID,
@@ -198,17 +151,29 @@ func (service *Service) resolveSynthesisInput(
 			nil,
 		)
 	}
-	input := SpeechSynthesisInput{
-		Provider:        request.Provider,
+	generated, err := provider.SynthesizeSpeech(ctx, ProviderSynthesisInput{
+		Text:    resolved.Text,
+		VoiceID: resolved.ResolvedVoiceID,
+		Rate:    AssistantSynthesisRate,
+	})
+	if err != nil {
+		return SpeechAudio{}, err
+	}
+	audio := SpeechAudio{
+		AudioBase64:     base64.StdEncoding.EncodeToString(generated.Bytes),
+		MediaType:       generated.MediaType,
+		Format:          generated.Format,
 		Source:          cloneSpeechSource(resolved.Source),
-		Text:            resolved.Text,
 		ResolvedVoiceID: resolved.ResolvedVoiceID,
-		Rate:            AssistantSynthesisRate,
 	}
-	if err := ValidateSpeechSynthesisInput(input); err != nil {
-		return SpeechSynthesisInput{}, fmt.Errorf("validate resolved speech synthesis input: %w", err)
+	if err := ValidateSpeechAudio(audio); err != nil {
+		return SpeechAudio{}, classifiedError(
+			ErrorProviderResponseMalformed,
+			"OpenAI speech returned invalid generated audio.",
+			err,
+		)
 	}
-	return input, nil
+	return audio, nil
 }
 
 func (service *Service) ReadCapabilities(context.Context) (SpeechCapabilities, error) {
@@ -237,13 +202,11 @@ func (service *Service) ReadCapabilities(context.Context) (SpeechCapabilities, e
 
 func (service *Service) ValidateCredential(
 	ctx context.Context,
-	provider SpeechProvider,
 	apiKey string,
 	deviceID string,
 ) (SpeechCredentialValidationResult, error) {
-	controller, err := service.requireProviderController(provider)
-	if err != nil {
-		return SpeechCredentialValidationResult{}, err
+	if service == nil || service.providerController == nil {
+		return SpeechCredentialValidationResult{}, errors.New("speech service is required")
 	}
 	if err := validateCredentialAPIKey(apiKey); err != nil {
 		return SpeechCredentialValidationResult{}, err
@@ -252,11 +215,11 @@ func (service *Service) ValidateCredential(
 	if err != nil {
 		return SpeechCredentialValidationResult{}, err
 	}
-	if err := controller.ValidateCredential(ctx, apiKey, safetyIdentifier); err != nil {
+	if err := service.providerController.ValidateCredential(ctx, apiKey, safetyIdentifier); err != nil {
 		return SpeechCredentialValidationResult{}, err
 	}
 	result := SpeechCredentialValidationResult{
-		Provider: controller.ProviderID(),
+		Provider: SpeechProviderOpenAI,
 		Valid:    true,
 	}
 	if err := ValidateSpeechCredentialValidationResult(result); err != nil {
@@ -267,40 +230,30 @@ func (service *Service) ValidateCredential(
 
 func (service *Service) LoadCredential(
 	_ context.Context,
-	provider SpeechProvider,
 	apiKey string,
 ) (SpeechCredentialStatus, error) {
-	controller, err := service.requireProviderController(provider)
-	if err != nil {
-		return SpeechCredentialStatus{}, err
+	if service == nil || service.providerController == nil {
+		return SpeechCredentialStatus{}, errors.New("speech service is required")
 	}
 	if err := validateCredentialAPIKey(apiKey); err != nil {
 		return SpeechCredentialStatus{}, err
 	}
-	if err := controller.LoadCredential(apiKey); err != nil {
+	if err := service.providerController.LoadCredential(apiKey); err != nil {
 		return SpeechCredentialStatus{}, err
 	}
-	return speechCredentialStatus(controller)
+	return service.credentialStatus()
 }
 
-func (service *Service) ClearCredential(
-	_ context.Context,
-	provider SpeechProvider,
-) (SpeechCredentialStatus, error) {
-	controller, err := service.requireProviderController(provider)
-	if err != nil {
-		return SpeechCredentialStatus{}, err
+func (service *Service) ClearCredential(context.Context) (SpeechCredentialStatus, error) {
+	if service == nil || service.providerController == nil {
+		return SpeechCredentialStatus{}, errors.New("speech service is required")
 	}
-	controller.ClearCredential()
-	return speechCredentialStatus(controller)
+	service.providerController.ClearCredential()
+	return service.credentialStatus()
 }
 
-func (service *Service) CreateTranscriptionSession(
-	ctx context.Context,
-	providerID SpeechProvider,
-	deviceID string,
-) (SpeechTranscriptionSession, error) {
-	provider, err := service.requireProviderSnapshot(providerID)
+func (service *Service) CreateTranscriptionSession(ctx context.Context, deviceID string) (SpeechTranscriptionSession, error) {
+	provider, err := service.requireProviderSnapshot()
 	if err != nil {
 		return SpeechTranscriptionSession{}, err
 	}
@@ -416,61 +369,26 @@ func (service *Service) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (service *Service) requireProviderController(
-	provider SpeechProvider,
-) (ProviderController, error) {
+func (service *Service) requireProviderSnapshot() (Provider, error) {
 	if service == nil || service.providerController == nil {
 		return nil, errors.New("speech service is required")
 	}
-	if !validValue(provider, speechProviderValues) {
-		return nil, fmt.Errorf("unsupported speech provider %q", provider)
+	provider := service.providerController.Snapshot()
+	if provider == nil || !provider.Configured() {
+		return nil, classifiedError(ErrorNotConfigured, "OpenAI speech is not configured.", nil)
 	}
-	controller := service.providerController
-	if controller.ProviderID() != provider {
-		return nil, fmt.Errorf(
-			"speech provider %q is not available from this runtime",
-			provider,
-		)
-	}
-	return controller, nil
+	return provider, nil
 }
 
-func (service *Service) requireProviderSnapshot(provider SpeechProvider) (Provider, error) {
-	controller, err := service.requireProviderController(provider)
-	if err != nil {
-		return nil, err
-	}
-	snapshot := controller.Snapshot()
-	if snapshot == nil || !snapshot.Configured() {
-		return nil, classifiedError(
-			ErrorNotConfigured,
-			fmt.Sprintf("%s speech is not configured.", speechProviderDisplayName(provider)),
-			nil,
-		)
-	}
-	return snapshot, nil
-}
-
-func speechCredentialStatus(controller ProviderController) (SpeechCredentialStatus, error) {
+func (service *Service) credentialStatus() (SpeechCredentialStatus, error) {
 	result := SpeechCredentialStatus{
-		Provider:       controller.ProviderID(),
-		ProviderStatus: controller.Status(),
+		Provider:       SpeechProviderOpenAI,
+		ProviderStatus: service.providerController.Status(),
 	}
 	if err := ValidateSpeechCredentialStatus(result); err != nil {
 		return SpeechCredentialStatus{}, err
 	}
 	return result, nil
-}
-
-func speechProviderDisplayName(provider SpeechProvider) string {
-	switch provider {
-	case SpeechProviderLocalMacOS:
-		return "Local macOS"
-	case SpeechProviderOpenAI:
-		return "OpenAI"
-	default:
-		return string(provider)
-	}
 }
 
 func validateCredentialAPIKey(apiKey string) error {

@@ -53,7 +53,7 @@ func TestRuntimeKeepsSpeechSecretsAndAudioOutOfOutputAndPersistence(t *testing.T
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
+		httpapi.CreateSpeechTranscriptionSessionRequest{},
 		http.StatusOK,
 	)
 	if session.ClientSecret != runtimeSpeechTranscriptionSecret {

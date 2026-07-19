@@ -142,7 +142,6 @@
   function settingsShellState(settingsPage, workspaceShell) {
     const activeSettingsTab = document.querySelector('[role="tab"][aria-selected="true"]');
     const openAIVoiceCard = elementByTestId("openai-voice-connection-card");
-    const voiceProviderCard = elementByTestId("speech-provider-selection-card");
     return {
       activeSettingsSubtab:
         activeSettingsTab instanceof HTMLElement
@@ -155,8 +154,6 @@
       settingsPageOpen: settingsPage !== null,
       settingsPageRole: settingsPage?.getAttribute("role") ?? "",
       settingsPanelReady: Boolean(document.querySelector("#settings-subtab-theme")),
-      voiceProviderCardFocused: document.activeElement === voiceProviderCard,
-      voiceProviderCardVisible: voiceProviderCard !== null,
       workspaceShellHidden: workspaceShell?.getAttribute("aria-hidden") === "true",
       workspaceShellInert: Boolean(workspaceShell?.hasAttribute("inert")),
     };

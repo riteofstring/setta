@@ -1,17 +1,14 @@
 import type {
   BackendClient,
-  SpeechProvider,
   SpeechCredentialStatus,
   SpeechCredentialValidationResult,
 } from "@generated/backend";
 import { isBackendRequestError } from "@shared/backend-runtime";
 import type {
   SpeechCredentialOperation,
-  SpeechCredentialProviderRequest,
   SpeechCredentialSaveRequest,
   SpeechCredentialSettings,
 } from "@shared/speech-ipc";
-import { openAISpeechProviderID } from "@shared/speech-providers";
 import {
   SpeechCredentialVaultError,
   type SpeechCredentialVaultReadResult,
@@ -42,7 +39,7 @@ export interface SpeechCredentialCoordinatorOptions {
   vault: SpeechCredentialVaultStore | null;
 }
 
-const openAIProvider = openAISpeechProviderID();
+const openAIProvider = "openai";
 
 export class SpeechCredentialCoordinator {
   private localRuntime: LocalSpeechCredentialRuntime | null = null;
@@ -68,13 +65,7 @@ export class SpeechCredentialCoordinator {
     return this.restoreCredentialForRuntime(runtime, this.localRuntimeGeneration);
   }
 
-  async readCredentialSettings(
-    request: SpeechCredentialProviderRequest,
-  ): Promise<SpeechCredentialSettings> {
-    const providerFailure = requireOpenAIProvider(request.provider, "read");
-    if (providerFailure !== null) {
-      return providerFailure;
-    }
+  async readCredentialSettings(): Promise<SpeechCredentialSettings> {
     const vault = this.options.vault;
     if (vault === null) {
       return secureStorageUnavailableSettings(this.options.secureStorageUnavailableMessage);
@@ -87,19 +78,13 @@ export class SpeechCredentialCoordinator {
     return this.runCredentialOperation("save", () => this.saveCredentialUnlocked(request));
   }
 
-  async removeCredential(
-    request: SpeechCredentialProviderRequest,
-  ): Promise<SpeechCredentialSettings> {
-    return this.runCredentialOperation("remove", () => this.removeCredentialUnlocked(request));
+  async removeCredential(): Promise<SpeechCredentialSettings> {
+    return this.runCredentialOperation("remove", () => this.removeCredentialUnlocked());
   }
 
   private async saveCredentialUnlocked(
     request: SpeechCredentialSaveRequest,
   ): Promise<SpeechCredentialSettings> {
-    const providerFailure = requireOpenAIProvider(request.provider, "save");
-    if (providerFailure !== null) {
-      return this.publish(providerFailure);
-    }
     const validationMessage = validateSubmittedAPIKey(request.apiKey);
     if (validationMessage !== null) {
       return this.publish(failedSettings("save", validationMessage));
@@ -117,7 +102,7 @@ export class SpeechCredentialCoordinator {
       return this.publish(failedSettings("save", "Local speech runtime is not connected."));
     }
 
-    const validated = await validateCandidate(runtime.client, request.provider, request.apiKey);
+    const validated = await validateCandidate(runtime.client, request.apiKey);
     if (validated.status === "failed") {
       return this.publish(failedSettings("save", validated.message));
     }
@@ -132,7 +117,7 @@ export class SpeechCredentialCoordinator {
       return this.publish(failedSettings("save", persisted.message));
     }
 
-    const loaded = await loadCandidate(runtime.client, request.provider, request.apiKey);
+    const loaded = await loadCandidate(runtime.client, request.apiKey);
     if (loaded.status === "configured") {
       return this.publish(configuredSettings());
     }
@@ -142,13 +127,7 @@ export class SpeechCredentialCoordinator {
     );
   }
 
-  private async removeCredentialUnlocked(
-    request: SpeechCredentialProviderRequest,
-  ): Promise<SpeechCredentialSettings> {
-    const providerFailure = requireOpenAIProvider(request.provider, "remove");
-    if (providerFailure !== null) {
-      return this.publish(providerFailure);
-    }
+  private async removeCredentialUnlocked(): Promise<SpeechCredentialSettings> {
     const vault = this.options.vault;
     if (vault === null) {
       return this.publish(
@@ -171,7 +150,7 @@ export class SpeechCredentialCoordinator {
       );
     }
 
-    const cleared = await clearRuntimeCredential(runtime.client, request.provider);
+    const cleared = await clearRuntimeCredential(runtime.client);
     if (cleared.status === "failed") {
       return this.publish(
         failedSettings(
@@ -250,7 +229,7 @@ export class SpeechCredentialCoordinator {
     generation: number,
     apiKey: string,
   ): Promise<SpeechCredentialSettings | null> {
-    const loaded = await loadCandidate(runtime.client, openAIProvider, apiKey);
+    const loaded = await loadCandidate(runtime.client, apiKey);
     if (!this.isCurrentLocalRuntime(runtime, generation)) {
       return null;
     }
@@ -335,14 +314,13 @@ export class SpeechCredentialCoordinator {
 
 async function validateCandidate(
   client: SpeechCredentialRuntimeClient,
-  provider: SpeechProvider,
   apiKey: string,
 ): Promise<
   | { status: "valid"; result: SpeechCredentialValidationResult }
   | { status: "failed"; message: string }
 > {
   try {
-    const result = await client.validateDesktopSpeechCredential({ provider, apiKey });
+    const result = await client.validateDesktopSpeechCredential({ apiKey });
     if (!result.valid) {
       return { message: "OpenAI rejected the speech credential.", status: "failed" };
     }
@@ -372,13 +350,12 @@ async function persistCandidate(
 
 async function loadCandidate(
   client: SpeechCredentialRuntimeClient,
-  provider: SpeechProvider,
   apiKey: string,
 ): Promise<
   { status: "configured"; result: SpeechCredentialStatus } | { status: "failed"; message: string }
 > {
   try {
-    const result = await client.loadDesktopSpeechCredential({ provider, apiKey });
+    const result = await client.loadDesktopSpeechCredential({ apiKey });
     if (result.providerStatus !== "configured") {
       return {
         message: "The local speech runtime did not configure the saved credential.",
@@ -426,12 +403,11 @@ async function removePersistedCredential(
 
 async function clearRuntimeCredential(
   client: SpeechCredentialRuntimeClient,
-  provider: SpeechProvider,
 ): Promise<
   { status: "cleared"; result: SpeechCredentialStatus } | { status: "failed"; message: string }
 > {
   try {
-    const result = await client.clearDesktopSpeechCredential({ provider });
+    const result = await client.clearDesktopSpeechCredential({});
     return { result, status: "cleared" };
   } catch {
     return { message: "Failed to clear the local speech runtime credential.", status: "failed" };
@@ -456,7 +432,7 @@ async function restoreRuntimeFromSnapshot(
   snapshot: Exclude<SpeechCredentialVaultRecoverySnapshot, { status: "corrupt" }>,
 ): Promise<{ status: "restored" } | { status: "failed" }> {
   if (snapshot.status === "missing") {
-    const cleared = await clearRuntimeCredential(runtime, openAIProvider);
+    const cleared = await clearRuntimeCredential(runtime);
     return cleared.status === "cleared" ? { status: "restored" } : { status: "failed" };
   }
 
@@ -464,7 +440,7 @@ async function restoreRuntimeFromSnapshot(
   if (read.status !== "present") {
     return { status: "failed" };
   }
-  const loaded = await loadCandidate(runtime, openAIProvider, read.apiKey);
+  const loaded = await loadCandidate(runtime, read.apiKey);
   return loaded.status === "configured" ? { status: "restored" } : { status: "failed" };
 }
 
@@ -514,16 +490,6 @@ function failedSettings(
   message: string,
 ): SpeechCredentialSettings {
   return { message, operation, status: "failed" };
-}
-
-function requireOpenAIProvider(
-  provider: SpeechProvider,
-  operation: SpeechCredentialOperation,
-): SpeechCredentialSettings | null {
-  if (provider === openAIProvider) {
-    return null;
-  }
-  return failedSettings(operation, `Speech credentials do not support provider ${provider}.`);
 }
 
 function validateSubmittedAPIKey(apiKey: string): string | null {
