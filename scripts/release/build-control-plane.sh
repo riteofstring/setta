@@ -29,17 +29,21 @@ if [ -e "${binary_path}" ] || [ -e "${checksums_path}" ]; then
 fi
 
 mkdir -p "${output_directory}"
+chmod 0700 "${output_directory}"
 
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
   "${repo_root}/scripts/go.sh" build \
+  -buildvcs=false \
   -trimpath \
   -o "${binary_path}" \
   ./cmd/setta-control-plane
+chmod 0700 "${binary_path}"
 
 (
   cd "${output_directory}"
   shasum -a 256 "$(basename -- "${binary_path}")" >"${checksums_path}"
 )
+chmod 0600 "${checksums_path}"
 
 echo "Built ${binary_path}"
 echo "Wrote ${checksums_path}"
