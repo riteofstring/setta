@@ -22,6 +22,10 @@ import {
   type WebEventStreamOptions,
 } from "./setta-web-event-stream";
 import { createSpeechWebAPI } from "./speech-web-api";
+import {
+  createBrowserWebEventStreamActivity,
+  type WebEventStreamActivity,
+} from "./web-event-stream-activity";
 
 const webDeviceStorageKey = "setta.web.device-session.v1";
 
@@ -54,9 +58,12 @@ export function installWebSettaAPIIfNeeded(): void {
   void completePairingFromLocation(target.setta);
 }
 
-export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): SettaAPI {
+export function createWebSettaAPI(
+  options: { fetchImpl?: BackendFetch; streamActivity?: WebEventStreamActivity } = {},
+): SettaAPI {
   const baseURL = sameOriginBaseURL();
   const rawFetch = options.fetchImpl ?? fetch.bind(window);
+  const streamActivity = options.streamActivity ?? createBrowserWebEventStreamActivity();
   const connectionListeners = new Set<(snapshot: RuntimeRegistrySnapshot) => void>();
   const processStatusListeners = new Set<(status: BackendProcessStatus) => void>();
   const eventStreams = new Set<WebEventStreamRegistration>();
@@ -66,6 +73,16 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
   let stopCodexAccountEventStream: (() => void) | null = null;
   const conversationEventListeners = new Set<Parameters<SettaAPI["conversations"]["onEvent"]>[0]>();
   const conversationEventStreams = new Map<string, { keepAlive: boolean; stop: () => void }>();
+  let eventStreamsActive = streamActivity.isActive();
+
+  streamActivity.onChanged((active) => {
+    eventStreamsActive = active;
+    if (active) {
+      startInactiveEventStreams();
+    } else {
+      stopActiveEventStreams();
+    }
+  });
 
   const api: SettaAPI = {
     app: {
@@ -446,9 +463,10 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
 
   function subscribeWebBackendEventStream<T>(options: WebEventStreamOptions<T>): () => void {
     let unsubscribeActive: (() => void) | null = null;
+    let cursor = options.initialCursor ?? { sequence: 0, streamId: "" };
     const registration: WebEventStreamRegistration = {
       start: () => {
-        if (unsubscribeActive) {
+        if (unsubscribeActive || !eventStreamsActive) {
           return;
         }
         const stored = loadStoredDeviceSession();
@@ -462,6 +480,10 @@ export function createWebSettaAPI(options: { fetchImpl?: BackendFetch } = {}): S
         unsubscribeActive = startWebBackendEventStream({
           ...options,
           authToken: stored.deviceToken,
+          cursorChanged: (next) => {
+            cursor = next;
+          },
+          initialCursor: cursor,
         });
       },
       stop: () => {

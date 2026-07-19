@@ -331,11 +331,22 @@ func measureLivePhase3CandidateB(
 		transport:   privateTransport,
 		credential:  firstDevice.Token,
 	}
-	gateway, err := runtimeaccess.NewGateway(authorizer, routes)
+	gateway, err := runtimeaccess.NewGateway(runtimeaccess.GatewayConfig{
+		Authorizer: authorizer,
+		Observer: runtimeaccess.GatewayObserverFunc(func(
+			runtimeaccess.GatewayRequestObservation,
+		) {
+		}),
+		Routes: routes,
+	})
 	if err != nil {
 		t.Fatalf("NewGateway: %v", err)
 	}
-	gatewayServer := httptest.NewServer(gateway)
+	gatewayHTTPServer, err := runtimeaccess.NewGatewayHTTPServer(gateway)
+	if err != nil {
+		t.Fatalf("NewGatewayHTTPServer: %v", err)
+	}
+	gatewayServer := httptest.NewServer(gatewayHTTPServer.Handler)
 	defer gatewayServer.Close()
 	client := gatewayServer.Client()
 	client.Timeout = 20 * time.Second

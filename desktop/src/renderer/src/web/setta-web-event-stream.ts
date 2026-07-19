@@ -16,6 +16,7 @@ type StreamCursorForEvent<T> = (event: T, message: ServerSentEvent) => StreamCur
 
 export interface WebEventStreamOptions<T> {
   baseURL: string;
+  cursorChanged?: (cursor: StreamCursor) => void;
   cursorForEvent: StreamCursorForEvent<T>;
   decode: StreamDecode<T>;
   endpoint: { method: string; path: string };
@@ -124,9 +125,19 @@ async function streamWebEventsOnce<T>(
       continue;
     }
     cursor = nextCursor;
+    publishCursor(options.cursorChanged, cursor);
     options.sendEvent(event);
   }
   return cursor;
+}
+
+function publishCursor(
+  cursorChanged: WebEventStreamOptions<unknown>["cursorChanged"],
+  cursor: StreamCursor,
+): void {
+  if (cursorChanged) {
+    cursorChanged(cursor);
+  }
 }
 
 function streamEventIsDuplicate(

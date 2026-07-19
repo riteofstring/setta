@@ -62,7 +62,7 @@ func TestGatewayAuthorizesBeforeRoutingAndSeparatesCredentials(t *testing.T) {
 	request.Header.Set("X-Drop-Me", "spoofed")
 	response := httptest.NewRecorder()
 
-	gateway.ServeHTTP(response, request)
+	gateway.serveHTTP(response, request)
 
 	if response.Code != http.StatusAccepted || response.Body.String() != `{"accepted":true}` {
 		t.Fatalf("response = %d %q", response.Code, response.Body.String())
@@ -140,7 +140,7 @@ func TestGatewayDenialsNeverResolveOrOpenProviderTransport(t *testing.T) {
 			}
 			response := httptest.NewRecorder()
 
-			gateway.ServeHTTP(response, request)
+			gateway.serveHTTP(response, request)
 
 			if response.Code != test.wantStatus || !strings.Contains(response.Body.String(), `"error":"`+test.wantCode+`"`) {
 				t.Fatalf("response = %d %q", response.Code, response.Body.String())
@@ -180,7 +180,7 @@ func TestGatewayResolvesRotatedRuntimeCredentialForEveryRequest(t *testing.T) {
 		request := httptest.NewRequest(http.MethodGet, "https://gateway.example/v1/health", nil)
 		request.Header.Set("Authorization", "Bearer client")
 		response := httptest.NewRecorder()
-		gateway.ServeHTTP(response, request)
+		gateway.serveHTTP(response, request)
 		if response.Code != http.StatusNoContent {
 			t.Fatalf("response status = %d", response.Code)
 		}
@@ -209,7 +209,7 @@ func TestGatewayFailsLoudlyOnUnimplementedProtocolUpgradeBeforeRouting(t *testin
 	request.Header.Set("Upgrade", "websocket")
 	response := httptest.NewRecorder()
 
-	gateway.ServeHTTP(response, request)
+	gateway.serveHTTP(response, request)
 
 	if response.Code != http.StatusNotImplemented || resolveCalls != 0 ||
 		!strings.Contains(response.Body.String(), `"error":"protocol_upgrade_not_implemented"`) {
@@ -275,7 +275,7 @@ func TestGatewayFlushesEventStreams(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "https://gateway.example/v1/conversations/events", nil)
 	request.Header.Set("Authorization", "Bearer client")
 
-	gateway.ServeHTTP(writer, request)
+	gateway.serveHTTP(writer, request)
 
 	if writer.Code != http.StatusOK || writer.flushes == 0 || writer.Body.String() != "data: ready\n\n" {
 		t.Fatalf("response = %d, flushes = %d, body = %q", writer.Code, writer.flushes, writer.Body.String())
@@ -314,7 +314,7 @@ func TestGatewayPushCancellationStopsEstablishedStream(t *testing.T) {
 	response := httptest.NewRecorder()
 	done := make(chan struct{})
 	go func() {
-		gateway.ServeHTTP(response, request)
+		gateway.serveHTTP(response, request)
 		close(done)
 	}()
 
@@ -334,6 +334,154 @@ func TestGatewayPushCancellationStopsEstablishedStream(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("gateway request did not return")
+	}
+}
+
+func TestGatewayObservesContentFreeBandwidthAndTransportState(t *testing.T) {
+	runtimeName := testRuntimeName(t)
+	times := []time.Time{
+		time.Date(2026, time.July, 19, 19, 0, 0, 0, time.UTC),
+		time.Date(2026, time.July, 19, 19, 0, 0, int((25 * time.Millisecond).Nanoseconds()), time.UTC),
+	}
+	clockCall := 0
+	var observations []GatewayRequestObservation
+	gateway, err := NewGateway(GatewayConfig{
+		Authorizer: clientAuthorizerFunc(func(context.Context, string) (ClientAuthorization, error) {
+			return ClientAuthorization{Outcome: AuthorizationAllowed, RuntimeName: runtimeName}, nil
+		}),
+		Clock: func() time.Time {
+			current := times[clockCall]
+			clockCall++
+			return current
+		},
+		Observer: GatewayObserverFunc(func(observation GatewayRequestObservation) {
+			observations = append(observations, observation)
+		}),
+		Routes: runtimeRouteResolverFunc(func(context.Context, string) (RuntimeRoute, error) {
+			return RuntimeRoute{
+				RuntimeName:       runtimeName,
+				UpstreamAuthority: "127.0.0.1:7345",
+				RuntimeCredential: "runtime-secret-must-not-be-observed",
+				Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+					body, readErr := io.ReadAll(request.Body)
+					if readErr != nil || string(body) != "request-body" {
+						t.Fatalf("upstream body = %q err=%v", body, readErr)
+					}
+					return &http.Response{
+						StatusCode: http.StatusAccepted,
+						Header:     make(http.Header),
+						Body:       io.NopCloser(strings.NewReader("response-body")),
+					}, nil
+				}),
+			}, nil
+		}),
+	})
+	if err != nil {
+		t.Fatalf("NewGateway: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "https://gateway.example/private?secret=query", strings.NewReader("request-body"))
+	request.Header.Set("Authorization", "Bearer client-secret-must-not-be-observed")
+	response := httptest.NewRecorder()
+
+	gateway.serveHTTP(response, request)
+
+	if response.Code != http.StatusAccepted || response.Body.String() != "response-body" {
+		t.Fatalf("response = %d %q", response.Code, response.Body.String())
+	}
+	if len(observations) != 1 {
+		t.Fatalf("observations = %d, want 1", len(observations))
+	}
+	want := GatewayRequestObservation{
+		CompletedAt:             times[1],
+		Duration:                25 * time.Millisecond,
+		Method:                  GatewayMethodPost,
+		ProviderTransportOpened: true,
+		RequestBytes:            int64(len("request-body")),
+		ResponseBytes:           int64(len("response-body")),
+		Result:                  GatewayResultForwarded,
+		RouteResolved:           true,
+		Status:                  http.StatusAccepted,
+	}
+	if observations[0] != want {
+		t.Fatalf("observation = %+v, want %+v", observations[0], want)
+	}
+}
+
+func TestGatewayObservesDenialBeforeRouteOrProviderTransport(t *testing.T) {
+	var observation GatewayRequestObservation
+	gateway, err := NewGateway(GatewayConfig{
+		Authorizer: clientAuthorizerFunc(func(context.Context, string) (ClientAuthorization, error) {
+			t.Fatal("authorizer called without a credential")
+			return ClientAuthorization{}, nil
+		}),
+		Observer: GatewayObserverFunc(func(current GatewayRequestObservation) {
+			observation = current
+		}),
+		Routes: runtimeRouteResolverFunc(func(context.Context, string) (RuntimeRoute, error) {
+			t.Fatal("route resolved for denied request")
+			return RuntimeRoute{}, nil
+		}),
+	})
+	if err != nil {
+		t.Fatalf("NewGateway: %v", err)
+	}
+	request := httptest.NewRequest("SECRET-METHOD", "https://gateway.example/private?secret=query", nil)
+	response := httptest.NewRecorder()
+
+	gateway.serveHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized || observation.Result != GatewayResultUnauthorized ||
+		observation.Method != GatewayMethodOther || observation.RouteResolved || observation.ProviderTransportOpened {
+		t.Fatalf("response = %d observation = %+v", response.Code, observation)
+	}
+}
+
+func TestGatewayHTTPServerUsesStreamingSafeBounds(t *testing.T) {
+	gateway := newTestGateway(t,
+		clientAuthorizerFunc(func(context.Context, string) (ClientAuthorization, error) {
+			return ClientAuthorization{Outcome: AuthorizationUnauthorized}, nil
+		}),
+		runtimeRouteResolverFunc(func(context.Context, string) (RuntimeRoute, error) {
+			return RuntimeRoute{}, errors.New("not reached")
+		}),
+	)
+	server, err := NewGatewayHTTPServer(gateway)
+	if err != nil {
+		t.Fatalf("NewGatewayHTTPServer: %v", err)
+	}
+	if server.Handler == nil || server.ReadHeaderTimeout != gatewayHTTPReadHeaderTimeout ||
+		server.ReadTimeout != gatewayHTTPReadTimeout || server.IdleTimeout != gatewayHTTPIdleTimeout ||
+		server.MaxHeaderBytes != gatewayHTTPMaxHeaderBytes || server.WriteTimeout != 0 {
+		t.Fatalf("gateway HTTP server = %+v", server)
+	}
+}
+
+func TestGatewayRequiresProductionBoundaryDependencies(t *testing.T) {
+	runtimeName := testRuntimeName(t)
+	authorizer := clientAuthorizerFunc(func(context.Context, string) (ClientAuthorization, error) {
+		return ClientAuthorization{Outcome: AuthorizationAllowed, RuntimeName: runtimeName}, nil
+	})
+	observer := GatewayObserverFunc(func(GatewayRequestObservation) {})
+	routes := runtimeRouteResolverFunc(func(context.Context, string) (RuntimeRoute, error) {
+		return RuntimeRoute{}, nil
+	})
+	tests := []struct {
+		name   string
+		config GatewayConfig
+	}{
+		{name: "authorizer", config: GatewayConfig{Observer: observer, Routes: routes}},
+		{name: "observer", config: GatewayConfig{Authorizer: authorizer, Routes: routes}},
+		{name: "routes", config: GatewayConfig{Authorizer: authorizer, Observer: observer}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := NewGateway(test.config); err == nil {
+				t.Fatalf("NewGateway without %s succeeded", test.name)
+			}
+		})
+	}
+	if _, err := NewGatewayHTTPServer(nil); err == nil {
+		t.Fatal("NewGatewayHTTPServer without gateway succeeded")
 	}
 }
 
@@ -367,7 +515,11 @@ func (recorder *flushingRecorder) Flush() {
 
 func newTestGateway(t *testing.T, authorizer ClientAuthorizer, routes RuntimeRouteResolver) *Gateway {
 	t.Helper()
-	gateway, err := NewGateway(authorizer, routes)
+	gateway, err := NewGateway(GatewayConfig{
+		Authorizer: authorizer,
+		Observer:   GatewayObserverFunc(func(GatewayRequestObservation) {}),
+		Routes:     routes,
+	})
 	if err != nil {
 		t.Fatalf("NewGateway: %v", err)
 	}
@@ -390,7 +542,7 @@ func serveAuthorizedRequest(gateway *Gateway) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(http.MethodGet, "https://gateway.example/v1/health", nil)
 	request.Header.Set("Authorization", "Bearer client")
 	response := httptest.NewRecorder()
-	gateway.ServeHTTP(response, request)
+	gateway.serveHTTP(response, request)
 	return response
 }
 

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"setta/internal/runtimeprovider"
 )
@@ -62,63 +63,161 @@ type RuntimeRouteResolver interface {
 	ResolveRuntimeRoute(context.Context, string) (RuntimeRoute, error)
 }
 
-// Gateway is the non-deployable Phase 3 routing core. A production server must
-// still provide TLS, trusted client authorization, rate limiting, credential
-// storage, observability, and active-stream revocation.
+type GatewayRequestResult string
+type GatewayRequestMethod string
+
+const (
+	GatewayMethodDelete  GatewayRequestMethod = "DELETE"
+	GatewayMethodGet     GatewayRequestMethod = "GET"
+	GatewayMethodHead    GatewayRequestMethod = "HEAD"
+	GatewayMethodOptions GatewayRequestMethod = "OPTIONS"
+	GatewayMethodPatch   GatewayRequestMethod = "PATCH"
+	GatewayMethodPost    GatewayRequestMethod = "POST"
+	GatewayMethodPut     GatewayRequestMethod = "PUT"
+	GatewayMethodOther   GatewayRequestMethod = "OTHER"
+
+	GatewayResultForwarded                  GatewayRequestResult = "forwarded"
+	GatewayResultUnauthorized               GatewayRequestResult = "unauthorized"
+	GatewayResultRevoked                    GatewayRequestResult = "revoked"
+	GatewayResultSuspended                  GatewayRequestResult = "suspended"
+	GatewayResultRateLimited                GatewayRequestResult = "rate_limited"
+	GatewayResultAccessCheckUnavailable     GatewayRequestResult = "access_check_unavailable"
+	GatewayResultInvalidAuthorization       GatewayRequestResult = "invalid_client_authorization"
+	GatewayResultProtocolUpgradeUnsupported GatewayRequestResult = "protocol_upgrade_not_implemented"
+	GatewayResultRouteUnavailable           GatewayRequestResult = "runtime_route_unavailable"
+	GatewayResultInvalidRoute               GatewayRequestResult = "invalid_runtime_route"
+	GatewayResultRuntimeUnavailable         GatewayRequestResult = "runtime_unavailable"
+	GatewayResultRuntimeStreamFailed        GatewayRequestResult = "runtime_stream_failed"
+)
+
+// GatewayRequestObservation is deliberately content-free. It contains enough
+// information to measure latency, relayed bandwidth, denials before provider
+// access, and upstream failures without retaining URLs, runtime names, client
+// addresses, headers, credentials, queries, or bodies.
+type GatewayRequestObservation struct {
+	CompletedAt             time.Time
+	Duration                time.Duration
+	Method                  GatewayRequestMethod
+	ProviderTransportOpened bool
+	RequestBytes            int64
+	ResponseBytes           int64
+	Result                  GatewayRequestResult
+	RouteResolved           bool
+	Status                  int
+}
+
+type GatewayObserver interface {
+	ObserveGatewayRequest(GatewayRequestObservation)
+}
+
+type GatewayObserverFunc func(GatewayRequestObservation)
+
+func (function GatewayObserverFunc) ObserveGatewayRequest(observation GatewayRequestObservation) {
+	function(observation)
+}
+
+type GatewayConfig struct {
+	Authorizer ClientAuthorizer
+	Clock      func() time.Time
+	Observer   GatewayObserver
+	Routes     RuntimeRouteResolver
+}
+
+// Gateway is the Phase 3 HTTP/SSE routing boundary. The hosting deployable must
+// terminate TLS and provide durable implementations of the authorization and
+// route contracts; provider credentials remain confined to each route's
+// transport.
 type Gateway struct {
 	authorizer ClientAuthorizer
+	clock      func() time.Time
+	observer   GatewayObserver
 	routes     RuntimeRouteResolver
 }
 
 // NewGateway constructs the private-access routing core.
-func NewGateway(authorizer ClientAuthorizer, routes RuntimeRouteResolver) (*Gateway, error) {
-	if authorizer == nil {
+func NewGateway(config GatewayConfig) (*Gateway, error) {
+	if config.Authorizer == nil {
 		return nil, fmt.Errorf("client authorizer is required")
 	}
-	if routes == nil {
+	if config.Routes == nil {
 		return nil, fmt.Errorf("runtime route resolver is required")
 	}
-	return &Gateway{authorizer: authorizer, routes: routes}, nil
+	if config.Observer == nil {
+		return nil, fmt.Errorf("gateway observer is required")
+	}
+	if config.Clock == nil {
+		config.Clock = time.Now
+	}
+	return &Gateway{
+		authorizer: config.Authorizer,
+		clock:      config.Clock,
+		observer:   config.Observer,
+		routes:     config.Routes,
+	}, nil
 }
 
-func (gateway *Gateway) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+func (gateway *Gateway) serveHTTP(response http.ResponseWriter, request *http.Request) {
+	startedAt := gateway.clock()
+	observation := GatewayRequestObservation{
+		Method: gatewayRequestMethod(request.Method),
+		Result: GatewayResultInvalidAuthorization,
+		Status: http.StatusInternalServerError,
+	}
+	observedResponse := &gatewayResponseWriter{ResponseWriter: response}
+	var observedRequest *gatewayRequestBody
+	defer func() { gateway.completeObservation(startedAt, &observation, observedRequest, observedResponse) }()
+
 	credential, ok := bearerCredential(request.Header.Values("Authorization"))
 	if !ok {
-		writeGatewayError(response, http.StatusUnauthorized, "unauthorized")
+		observation.Result = GatewayResultUnauthorized
+		observation.Status = http.StatusUnauthorized
+		writeGatewayError(observedResponse, observation.Status, string(observation.Result))
 		return
 	}
 
 	authorization, err := gateway.authorizer.AuthorizeClient(request.Context(), credential)
 	if err != nil {
-		writeGatewayError(response, http.StatusServiceUnavailable, "access_check_unavailable")
+		observation.Result = GatewayResultAccessCheckUnavailable
+		observation.Status = http.StatusServiceUnavailable
+		writeGatewayError(observedResponse, observation.Status, string(observation.Result))
 		return
 	}
-	status, code, allowed := authorizationResult(authorization)
+	status, result, allowed := authorizationResult(authorization)
 	if !allowed {
-		writeGatewayError(response, status, code)
+		observation.Result = result
+		observation.Status = status
+		writeGatewayError(observedResponse, status, string(result))
 		return
 	}
 	requestContext, cancel, valid := authorizationContext(request.Context(), authorization.Invalidated)
 	if !valid {
-		writeGatewayError(response, http.StatusUnauthorized, "revoked")
+		observation.Result = GatewayResultRevoked
+		observation.Status = http.StatusUnauthorized
+		writeGatewayError(observedResponse, observation.Status, string(observation.Result))
 		return
 	}
 	defer cancel()
 	if request.Method == http.MethodConnect || isProtocolUpgrade(request.Header) {
-		writeGatewayError(response, http.StatusNotImplemented, "protocol_upgrade_not_implemented")
+		observation.Result = GatewayResultProtocolUpgradeUnsupported
+		observation.Status = http.StatusNotImplemented
+		writeGatewayError(observedResponse, observation.Status, string(observation.Result))
 		return
 	}
 
 	route, err := gateway.routes.ResolveRuntimeRoute(requestContext, authorization.RuntimeName)
 	if err != nil {
-		writeGatewayError(response, http.StatusBadGateway, "runtime_route_unavailable")
+		observation.Result = GatewayResultRouteUnavailable
+		observation.Status = http.StatusBadGateway
+		writeGatewayError(observedResponse, observation.Status, string(observation.Result))
 		return
 	}
+	observation.RouteResolved = true
 	if err := validateRuntimeRoute(route, authorization.RuntimeName); err != nil {
-		writeGatewayError(response, http.StatusInternalServerError, "invalid_runtime_route")
+		observation.Result = GatewayResultInvalidRoute
+		observation.Status = http.StatusInternalServerError
+		writeGatewayError(observedResponse, observation.Status, string(observation.Result))
 		return
 	}
-
 	upstreamRequest := request.Clone(requestContext)
 	upstreamRequest.RequestURI = ""
 	upstreamRequest.URL = cloneURL(request.URL)
@@ -128,17 +227,77 @@ func (gateway *Gateway) ServeHTTP(response http.ResponseWriter, request *http.Re
 	upstreamRequest.Header = request.Header.Clone()
 	stripUntrustedRequestHeaders(upstreamRequest.Header)
 	upstreamRequest.Header.Set("Authorization", "Bearer "+route.RuntimeCredential)
+	observedRequest = observeGatewayRequestBody(upstreamRequest)
 
+	observation.ProviderTransportOpened = true
 	upstreamResponse, err := route.Transport.RoundTrip(upstreamRequest)
 	if err != nil {
-		writeGatewayError(response, http.StatusBadGateway, "runtime_unavailable")
+		observation.Result = GatewayResultRuntimeUnavailable
+		observation.Status = http.StatusBadGateway
+		writeGatewayError(observedResponse, observation.Status, string(observation.Result))
 		return
 	}
 	defer upstreamResponse.Body.Close()
+	forwardGatewayResponse(observedResponse, upstreamResponse, &observation)
+}
 
-	copyResponseHeaders(response.Header(), upstreamResponse.Header)
-	response.WriteHeader(upstreamResponse.StatusCode)
-	streamResponse(response, upstreamResponse)
+func (gateway *Gateway) completeObservation(
+	startedAt time.Time,
+	observation *GatewayRequestObservation,
+	requestBody *gatewayRequestBody,
+	response *gatewayResponseWriter,
+) {
+	observation.CompletedAt = gateway.clock()
+	observation.Duration = observation.CompletedAt.Sub(startedAt)
+	if requestBody != nil {
+		observation.RequestBytes = requestBody.bytes
+	}
+	observation.ResponseBytes = response.bytes
+	gateway.observer.ObserveGatewayRequest(*observation)
+}
+
+func observeGatewayRequestBody(request *http.Request) *gatewayRequestBody {
+	if request.Body == nil {
+		return nil
+	}
+	body := &gatewayRequestBody{ReadCloser: request.Body}
+	request.Body = body
+	return body
+}
+
+func forwardGatewayResponse(
+	response *gatewayResponseWriter,
+	upstream *http.Response,
+	observation *GatewayRequestObservation,
+) {
+	observation.Result = GatewayResultForwarded
+	observation.Status = upstream.StatusCode
+	copyResponseHeaders(response.Header(), upstream.Header)
+	response.WriteHeader(upstream.StatusCode)
+	if err := streamResponse(response, upstream); err != nil {
+		observation.Result = GatewayResultRuntimeStreamFailed
+	}
+}
+
+func gatewayRequestMethod(method string) GatewayRequestMethod {
+	switch method {
+	case http.MethodDelete:
+		return GatewayMethodDelete
+	case http.MethodGet:
+		return GatewayMethodGet
+	case http.MethodHead:
+		return GatewayMethodHead
+	case http.MethodOptions:
+		return GatewayMethodOptions
+	case http.MethodPatch:
+		return GatewayMethodPatch
+	case http.MethodPost:
+		return GatewayMethodPost
+	case http.MethodPut:
+		return GatewayMethodPut
+	default:
+		return GatewayMethodOther
+	}
 }
 
 func authorizationContext(
@@ -165,23 +324,23 @@ func authorizationContext(
 	return ctx, cancel, true
 }
 
-func authorizationResult(authorization ClientAuthorization) (int, string, bool) {
+func authorizationResult(authorization ClientAuthorization) (int, GatewayRequestResult, bool) {
 	switch authorization.Outcome {
 	case AuthorizationAllowed:
 		if runtimeprovider.ValidateManagedName(authorization.RuntimeName) != nil {
-			return http.StatusInternalServerError, "invalid_client_authorization", false
+			return http.StatusInternalServerError, GatewayResultInvalidAuthorization, false
 		}
 		return 0, "", true
 	case AuthorizationUnauthorized:
-		return http.StatusUnauthorized, "unauthorized", false
+		return http.StatusUnauthorized, GatewayResultUnauthorized, false
 	case AuthorizationRevoked:
-		return http.StatusUnauthorized, "revoked", false
+		return http.StatusUnauthorized, GatewayResultRevoked, false
 	case AuthorizationSuspended:
-		return http.StatusForbidden, "suspended", false
+		return http.StatusForbidden, GatewayResultSuspended, false
 	case AuthorizationRateLimited:
-		return http.StatusTooManyRequests, "rate_limited", false
+		return http.StatusTooManyRequests, GatewayResultRateLimited, false
 	default:
-		return http.StatusInternalServerError, "invalid_client_authorization", false
+		return http.StatusInternalServerError, GatewayResultInvalidAuthorization, false
 	}
 }
 
@@ -292,14 +451,20 @@ func copyResponseHeaders(destination http.Header, source http.Header) {
 	}
 }
 
-func streamResponse(writer http.ResponseWriter, response *http.Response) {
+func streamResponse(writer http.ResponseWriter, response *http.Response) error {
 	mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	flushStream := err == nil && mediaType == "text/event-stream"
 	buffer := make([]byte, 32*1024)
 	for {
 		read, readErr := response.Body.Read(buffer)
 		if read > 0 {
-			_, _ = writer.Write(buffer[:read])
+			written, writeErr := writer.Write(buffer[:read])
+			if writeErr != nil {
+				return writeErr
+			}
+			if written != read {
+				return io.ErrShortWrite
+			}
 			if flushStream {
 				if flusher, ok := writer.(http.Flusher); ok {
 					flusher.Flush()
@@ -308,10 +473,38 @@ func streamResponse(writer http.ResponseWriter, response *http.Response) {
 		}
 		if readErr != nil {
 			if readErr != io.EOF {
-				return
+				return readErr
 			}
-			return
+			return nil
 		}
+	}
+}
+
+type gatewayRequestBody struct {
+	io.ReadCloser
+	bytes int64
+}
+
+func (body *gatewayRequestBody) Read(buffer []byte) (int, error) {
+	read, err := body.ReadCloser.Read(buffer)
+	body.bytes += int64(read)
+	return read, err
+}
+
+type gatewayResponseWriter struct {
+	http.ResponseWriter
+	bytes int64
+}
+
+func (writer *gatewayResponseWriter) Write(buffer []byte) (int, error) {
+	written, err := writer.ResponseWriter.Write(buffer)
+	writer.bytes += int64(written)
+	return written, err
+}
+
+func (writer *gatewayResponseWriter) Flush() {
+	if flusher, ok := writer.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
 	}
 }
 

@@ -1,8 +1,13 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { backendProtocolVersion, speechVoiceIDValues } from "@generated/backend";
+import {
+  backendProtocolVersion,
+  speechVoiceIDValues,
+  type ConversationEvent,
+} from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { authenticatedWebFetch, createWebSettaAPI } from "./setta-web-api";
+import type { WebEventStreamActivity } from "./web-event-stream-activity";
 
 describe("web SettaAPI request auth", () => {
   test("injects bearer authorization while preserving existing headers", async () => {
@@ -51,6 +56,7 @@ describe("web SettaAPI unpaired runtime state", () => {
         }
         throw new Error(`unexpected request while unpaired: ${input.pathname}`);
       },
+      streamActivity: controlledStreamActivity().activity,
     });
 
     const unsubscribe = api.conversations.onEvent(() => {});
@@ -92,6 +98,7 @@ describe("web SettaAPI unpaired runtime state", () => {
             throw new Error(`unexpected request: ${input.pathname}`);
         }
       },
+      streamActivity: controlledStreamActivity().activity,
     });
 
     const unsubscribe = api.conversations.onEvent(() => {});
@@ -119,6 +126,73 @@ describe("web SettaAPI unpaired runtime state", () => {
     });
     unsubscribe();
     unsubscribeAccount();
+  });
+
+  test("disconnects while inactive and resumes once from the last conversation cursor", async () => {
+    withWebGlobals();
+    const streamActivity = controlledStreamActivity();
+    const event = conversationResyncEvent(3);
+    const streamCalls: Array<{ lastEventId: string | null; signal: AbortSignal }> = [];
+    const forwarded: ConversationEvent[] = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          case "/conversations/events": {
+            const signal = init.signal as AbortSignal;
+            streamCalls.push({
+              lastEventId: new Headers(init.headers).get("Last-Event-ID"),
+              signal,
+            });
+            const body =
+              streamCalls.length === 1
+                ? conversationSSE(event, signal)
+                : streamUntilAbort("", signal);
+            return new Response(body, { status: 200 });
+          }
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+      streamActivity: streamActivity.activity,
+    });
+    const unsubscribe = api.conversations.onEvent((current) => forwarded.push(current));
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+    await api.conversations.subscribe({
+      conversationId: "conversation_web",
+      cursor: { sequence: 0, streamId: "conversation-stream-web" },
+      workspaceId: "workspace_web",
+    });
+    await waitFor(() => forwarded.length === 1);
+
+    streamActivity.setActive(false);
+    await waitFor(() => streamCalls[0]?.signal.aborted === true);
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    expect(streamCalls).toHaveLength(1);
+
+    streamActivity.setActive(true);
+    await waitFor(() => streamCalls.length === 2);
+
+    expect(streamCalls.map((call) => call.lastEventId)).toEqual([
+      "conversation-stream-web:0",
+      "conversation-stream-web:3",
+    ]);
+    unsubscribe();
+    await api.conversations.release({
+      conversationId: "conversation_web",
+      keepAlive: false,
+      workspaceId: "workspace_web",
+    });
   });
 
   test("exposes authenticated generated speech operations", async () => {
@@ -152,6 +226,7 @@ describe("web SettaAPI unpaired runtime state", () => {
             throw new Error(`unexpected request: ${input.pathname}`);
         }
       },
+      streamActivity: controlledStreamActivity().activity,
     });
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
     requests.length = 0;
@@ -294,6 +369,73 @@ function codexAccountSSE(): string {
     streamId: "codex-account-stream-web",
   };
   return `id: ${event.streamId}:${event.sequence}\nevent: codex.account.changed\ndata: ${JSON.stringify(event)}\n\n`;
+}
+
+function conversationResyncEvent(sequence: number): ConversationEvent {
+  return {
+    conversationId: "conversation_web",
+    emittedAt: "2026-07-19T19:00:00Z",
+    eventId: `conversation-stream-web:${sequence}`,
+    payload: {
+      currentSequence: sequence,
+      currentStreamId: "conversation-stream-web",
+      reason: "snapshot required after inactive client",
+      requestedSequence: 0,
+      requestedStreamId: "conversation-stream-web",
+      type: "conversation.resync_required",
+    },
+    schemaVersion: 1,
+    sequence,
+    streamId: "conversation-stream-web",
+    workspaceId: "workspace_web",
+  };
+}
+
+function conversationSSE(
+  event: ConversationEvent,
+  signal: AbortSignal,
+): ReadableStream<Uint8Array> {
+  return streamUntilAbort(
+    `id: ${event.eventId}\nevent: ${event.payload.type}\ndata: ${JSON.stringify(event)}\n\n`,
+    signal,
+  );
+}
+
+function streamUntilAbort(text: string, signal: AbortSignal): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      if (text !== "") {
+        controller.enqueue(new TextEncoder().encode(text));
+      }
+      signal.addEventListener("abort", () => controller.close(), { once: true });
+    },
+  });
+}
+
+function controlledStreamActivity(initialActive = true): {
+  activity: WebEventStreamActivity;
+  setActive: (active: boolean) => void;
+} {
+  let active = initialActive;
+  const listeners = new Set<(active: boolean) => void>();
+  return {
+    activity: {
+      isActive: () => active,
+      onChanged: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    },
+    setActive: (next) => {
+      if (next === active) {
+        return;
+      }
+      active = next;
+      for (const listener of listeners) {
+        listener(active);
+      }
+    },
+  };
 }
 
 function webSpeechResponse(path: string): Response | null {
