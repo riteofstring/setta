@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"reflect"
+	"strings"
 
 	"setta/internal/appearance"
 	"setta/internal/codexaccount"
@@ -45,6 +46,9 @@ var apiEndpoints = []endpoint{
 	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
 	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
 	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
+	unauthenticated(post[LocalCredentialEnrollRequest, LocalCredentialEnrollResponse]("LocalCredentialEnroll", "/local-credentials/enroll", handler.localCredentialEnroll)),
+	unauthenticated(post[LocalCredentialRefreshRequest, LocalCredentialRefreshResponse]("LocalCredentialRefresh", "/local-credentials/refresh", handler.localCredentialRefresh)),
+	unauthenticated(post[SetupAttestationRequest, SetupAttestationResponse]("SetupAttestation", "/setup/attestation", handler.setupAttestation)),
 	post[UpdateRuntimeDisplayNameRequest, RuntimeInfoResponse]("UpdateRuntimeDisplayName", "/runtime/display-name/update", handler.updateRuntimeDisplayName),
 	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
 	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),
@@ -96,9 +100,6 @@ var apiEndpoints = []endpoint{
 	post[speech.VoiceSelectionRequest, speech.MasterVoiceSelection]("UpdateMasterVoiceSelection", "/speech/voices/master/update", handler.updateMasterVoiceSelection),
 	get[speech.NarratorVoiceDefault]("ReadNarratorVoiceDefault", "/speech/voices/narrator-default", handler.readNarratorVoiceDefault),
 	post[speech.VoiceSelectionRequest, speech.NarratorVoiceDefault]("UpdateNarratorVoiceDefault", "/speech/voices/narrator-default/update", handler.updateNarratorVoiceDefault),
-	postWithRequestBodyLimit[SpeechCredentialRequest, speech.SpeechCredentialValidationResult]("ValidateDesktopSpeechCredential", "/speech/credentials/desktop/validate", speechRequestBodyLimitBytes, handler.validateDesktopSpeechCredential),
-	postWithRequestBodyLimit[SpeechCredentialRequest, speech.SpeechCredentialStatus]("LoadDesktopSpeechCredential", "/speech/credentials/desktop/load", speechRequestBodyLimitBytes, handler.loadDesktopSpeechCredential),
-	postWithRequestBodyLimit[ClearDesktopSpeechCredentialRequest, speech.SpeechCredentialStatus]("ClearDesktopSpeechCredential", "/speech/credentials/desktop/clear", speechRequestBodyLimitBytes, handler.clearDesktopSpeechCredential),
 	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
 	postWithRequestBodyLimit[speech.SpeechSynthesisRequest, speech.SpeechAudio]("SynthesizeSpeech", "/speech/synthesis", speechRequestBodyLimitBytes, handler.synthesizeSpeech),
 	get[codexaccount.CodexAccountState]("ReadCodexAccount", "/codex/account", handler.readCodexAccount),
@@ -130,6 +131,34 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 			apiHandler.dispatch(route, response, request)
 		})
 	}
+}
+
+func IsAPINamespace(path string) bool {
+	if path == "" || path[0] != '/' {
+		return false
+	}
+	for _, endpoint := range apiEndpoints {
+		root := apiPathRoot(endpoint.Path)
+		if path == root || strings.HasPrefix(path, root+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func endpointMethodAllowed(path string, method string) bool {
+	for _, endpoint := range apiEndpoints {
+		if endpoint.Path == path && endpoint.Method == method {
+			return true
+		}
+	}
+	return false
+}
+
+func apiPathRoot(path string) string {
+	trimmed := strings.TrimPrefix(path, "/")
+	segment, _, _ := strings.Cut(trimmed, "/")
+	return "/" + segment
 }
 
 func unauthenticated(route endpoint) endpoint {

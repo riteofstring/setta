@@ -142,7 +142,7 @@ export type PaneDropIntent =
       targetPaneId: PaneId;
     };
 
-export type PaneLimitPolicy = Partial<Record<Exclude<SurfaceKind, "easy-button">, number>>;
+export type PaneLimitPolicy = Partial<Record<SurfaceKind, number>>;
 
 export interface LayoutFrameInput {
   focusedPaneId: PaneId;

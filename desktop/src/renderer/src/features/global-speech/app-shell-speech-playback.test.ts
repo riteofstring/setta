@@ -27,7 +27,7 @@ describe("app-shell speech playback provider", () => {
     Reflect.deleteProperty(globalThis, "window");
   });
 
-  test("turns only speech-worthy live narration events into automatic playback intents", () => {
+  test("turns only a live narration event into one automatic playback intent", () => {
     const controller = playbackController();
     const enqueue = vi.spyOn(controller, "enqueueAutomatic");
     useConversationStore.setState({
@@ -44,10 +44,7 @@ describe("app-shell speech playback provider", () => {
                 streamId: "conversation:conversation-playback",
               },
               presentationProfile: profile(),
-              turns: {
-                hasEarlier: false,
-                turns: [{ id: "turn-playback", status: "completed" }],
-              },
+              turns: { hasEarlier: false, turns: [] },
             } as unknown as ConversationSnapshot,
             status: "ready",
             workspaceId: "workspace-playback",
@@ -57,8 +54,6 @@ describe("app-shell speech playback provider", () => {
     });
 
     handlePlaybackConversationEvent(controller, narrationCreatedEvent());
-    handlePlaybackConversationEvent(controller, routineMilestoneEvent());
-    handlePlaybackConversationEvent(controller, finalNarrationEvent());
     handlePlaybackConversationEvent(controller, {
       ...narrationCreatedEvent(),
       payload: { type: "conversation.queue.updated", queue: [] },
@@ -186,29 +181,6 @@ function narrationCreatedEvent(): ConversationEvent {
   };
 }
 
-function routineMilestoneEvent(): ConversationEvent {
-  const event = narrationCreatedEvent();
-  if (event.payload.type !== "conversation.narration.created") {
-    throw new Error("narration fixture must contain a narration event");
-  }
-  return {
-    ...event,
-    eventId: "conversation:conversation-playback:2",
-    payload: {
-      event: {
-        ...event.payload.event,
-        id: "routine-milestone",
-        kind: "milestone",
-        milestone: { text: "Routine progress remains visual-only." },
-        statusReply: null,
-        trigger: "plan_changed",
-      },
-      type: "conversation.narration.created",
-    },
-    sequence: 3,
-  };
-}
-
 function failedTurnEvent(): ConversationEvent {
   return {
     conversationId: "conversation-playback",
@@ -236,11 +208,11 @@ function finalNarrationEvent(): ConversationEvent {
   }
   return {
     ...event,
-    eventId: "conversation:conversation-playback:3",
+    eventId: "conversation:conversation-playback:2",
     payload: {
       event: {
         ...event.payload.event,
-        finalSummary: { text: "The topic reached a terminal state." },
+        finalSummary: { text: "The topic failed." },
         kind: "final_summary",
         statusReply: null,
       },

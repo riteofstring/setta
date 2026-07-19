@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"sort"
 )
 
 func readSnapshotTrajectory(ctx context.Context, reader snapshotReader, conversationID string) (ConversationTrajectoryWindow, error) {
@@ -38,89 +37,6 @@ LIMIT ?
 	}
 	reverseSlice(events)
 	return ConversationTrajectoryWindow{Events: events, HasEarlier: hasEarlier}, nil
-}
-
-func readSnapshotPendingApprovals(
-	ctx context.Context,
-	reader snapshotReader,
-	conversationID string,
-	turns []ConversationTurn,
-) ([]ConversationPendingApproval, error) {
-	pending := map[string]ConversationPendingApproval{}
-	for _, turn := range turns {
-		if turn.Status != TurnStatusRunning {
-			continue
-		}
-		if err := readSnapshotPendingApprovalsForTurn(ctx, reader, conversationID, turn.ID, pending); err != nil {
-			return nil, err
-		}
-	}
-	result := make([]ConversationPendingApproval, 0, len(pending))
-	for _, approval := range pending {
-		result = append(result, approval)
-	}
-	sort.Slice(result, func(left, right int) bool {
-		if result[left].SourceSequence != result[right].SourceSequence {
-			return result[left].SourceSequence < result[right].SourceSequence
-		}
-		return result[left].Approval.ID < result[right].Approval.ID
-	})
-	if len(result) > MaxSnapshotPendingApprovals {
-		return nil, errors.New("conversation snapshot pending approval window is exhausted")
-	}
-	return result, nil
-}
-
-func readSnapshotPendingApprovalsForTurn(
-	ctx context.Context,
-	reader snapshotReader,
-	conversationID string,
-	turnID string,
-	pending map[string]ConversationPendingApproval,
-) error {
-	rows, err := reader.QueryContext(ctx, `
-SELECT id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
-       provider_event_id, provider_thread_id, provider_turn_id, payload_json
-FROM trajectory_events
-WHERE conversation_id = ?
-  AND turn_id = ?
-  AND kind IN ('approval_requested', 'approval_resolved')
-ORDER BY sequence ASC
-`, conversationID, turnID)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		event, scanErr := scanTrajectoryEvent(rows)
-		if scanErr != nil {
-			return scanErr
-		}
-		applyPendingApprovalEvent(pending, turnID, event)
-	}
-	return rows.Err()
-}
-
-func applyPendingApprovalEvent(
-	pending map[string]ConversationPendingApproval,
-	turnID string,
-	event TrajectoryEvent,
-) {
-	if event.ApprovalRequested != nil {
-		request := event.ApprovalRequested.Approval
-		pending[pendingApprovalKey(turnID, request.ID)] = ConversationPendingApproval{
-			TurnID:         turnID,
-			SourceSequence: event.Sequence,
-			Approval:       request,
-		}
-	}
-	if event.ApprovalResolved != nil {
-		delete(pending, pendingApprovalKey(turnID, event.ApprovalResolved.Resolution.ApprovalID))
-	}
-}
-
-func pendingApprovalKey(turnID string, approvalID string) string {
-	return turnID + "\x00" + approvalID
 }
 
 func readSnapshotArtifacts(ctx context.Context, reader snapshotReader, conversationID string) (ConversationArtifactWindow, error) {

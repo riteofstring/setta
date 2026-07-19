@@ -183,7 +183,8 @@
     const snapshot = await window.setta.conversations.create({ title, workspaceId });
     return {
       conversationId: snapshot.conversation.id,
-      threadLinked: snapshot.threadBinding !== null,
+      model: snapshot.threadBinding?.providerMetadata.model ?? "",
+      threadId: snapshot.threadBinding?.threadId ?? "",
     };
   }
 
@@ -225,11 +226,9 @@
     const snapshot = await window.setta.conversations.read({ conversationId, workspaceId });
     const turn = snapshot.turns.turns.find((candidate) => candidate.authoredInput.text === text);
     return {
-      ...turnPermissionSummary(turn),
       requestedModel: roleConfigurationTurnRequestedModel(turn),
       resolvedModel: roleConfigurationTurnResolvedModel(turn),
       status: turn?.status ?? "",
-      threadModel: snapshot.threadBinding?.providerMetadata.model ?? "",
     };
   }
 
@@ -256,7 +255,6 @@
     return {
       conversationId: item.conversation.id,
       parentConversationId: snapshot.branch?.parentConversationId ?? "",
-      ...turnPermissionSummary(turn),
       requestedModel: roleConfigurationTurnRequestedModel(turn),
       resolvedModel: roleConfigurationTurnResolvedModel(turn),
       status: turn?.status ?? "",
@@ -270,30 +268,6 @@
 
   function roleConfigurationTurnResolvedModel(turn) {
     return turn?.resolvedInvocation?.resolved.modelId ?? "";
-  }
-
-  function turnPermissionSummary(turn) {
-    const permission = turn?.resolvedInvocation?.resolved.permissionProfile;
-    if (!permission) {
-      return emptyTurnPermissionSummary();
-    }
-    return {
-      approvals: permission.approvals,
-      approvalPolicy: permission.approvalPolicy,
-      providerPermissionProfile: permission.providerPermissionProfile,
-      toolAccessMode: permission.toolAccess.mode,
-      workspaceMutation: permission.workspaceMutation,
-    };
-  }
-
-  function emptyTurnPermissionSummary() {
-    return {
-      approvals: null,
-      approvalPolicy: "",
-      providerPermissionProfile: "",
-      toolAccessMode: "",
-      workspaceMutation: null,
-    };
   }
 
   function emptyRoleConfigurationForkState() {
@@ -319,14 +293,9 @@
   function roleAgentSummary(configuration) {
     const agent = findAgent(configuration);
     return {
-      approvals: agent.effective.permissionProfile.approvals,
-      approvalPolicy: agent.effective.permissionProfile.approvalPolicy,
       effectiveSource: agent.effectiveSource,
       hasOverride: agent.override !== null,
       modelId: agent.resolved.modelId,
-      providerPermissionProfile: agent.effective.permissionProfile.providerPermissionProfile,
-      toolAccessMode: agent.effective.permissionProfile.toolAccess.mode,
-      workspaceMutation: agent.effective.permissionProfile.workspaceMutation,
     };
   }
 

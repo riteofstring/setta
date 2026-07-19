@@ -79,7 +79,7 @@ describe("workspace runtime mode options", () => {
       renderItem("conversation", "easy-button"),
       renderItem("browser", "browser"),
       renderItem("heavy", "fake-heavy-dom"),
-      renderItem("light", "fake-dom"),
+      renderItem("settings", "settings-dom"),
       renderItem("empty", "empty-frame"),
     ].map((item) => ({ ...item, resizing: true }));
     const policy = new PaneRuntimePolicy(
@@ -93,7 +93,7 @@ describe("workspace runtime mode options", () => {
       ["conversation", "live"],
       ["browser", "live"],
       ["heavy", "live"],
-      ["light", "live"],
+      ["settings", "live"],
       ["empty", "live"],
     ]);
     expect(summary.live).toBe(items.length);

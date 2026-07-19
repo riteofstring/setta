@@ -38,71 +38,6 @@ func TestConversationSnapshotIsBoundedOwnedAndCursorAligned(t *testing.T) {
 	assertValidationErrorContains(t, invalid.Validate(), "exceeds")
 }
 
-func TestConversationSnapshotPendingApprovalsAreRunningTurnState(t *testing.T) {
-	snapshot := validConversationSnapshot()
-	turn := validConversationTurn(TurnStatusRunning)
-	request := TrajectoryApprovalRequest{
-		ID:             "approval-1",
-		ProviderItemID: "provider-approval-1",
-		Kind:           TrajectoryApprovalKindUserInput,
-		Title:          "Scope",
-		Body:           "Choose the scope.",
-		FilePaths:      []string{},
-		Questions: []TrajectoryApprovalQuestion{{
-			ID:       "scope",
-			Header:   "Scope",
-			Question: "Which scope?",
-			Options:  []string{"focused"},
-		}},
-		RequestedAt: testTimeStarted,
-	}
-	snapshot.Conversation.Status = ConversationStatusWaitingForApproval
-	snapshot.Conversation.LastTrajectorySequence = 25
-	snapshot.Turns = ConversationTurnWindow{Turns: []ConversationTurn{turn}}
-	snapshot.Queue = []QueuedConversationTurn{}
-	snapshot.Trajectory = ConversationTrajectoryWindow{
-		Events: []TrajectoryEvent{{
-			ID:             "trajectory-latest",
-			ConversationID: snapshot.Conversation.ID,
-			TurnID:         &turn.ID,
-			Sequence:       25,
-			EmittedAt:      testTimeStarted,
-			Kind:           TrajectoryEventAgentPublicTextDelta,
-			Actor:          TrajectoryActorAgent,
-			AgentPublicTextDelta: &TrajectoryAgentPublicTextDelta{
-				ProviderItemID: "provider-text-25",
-				Delta:          "Still waiting.",
-			},
-		}},
-		HasEarlier: true,
-	}
-	snapshot.PendingApprovals = []ConversationPendingApproval{{
-		TurnID:         turn.ID,
-		SourceSequence: 3,
-		Approval:       request,
-	}}
-	if err := snapshot.Validate(); err != nil {
-		t.Fatalf("valid pending approval snapshot: %v", err)
-	}
-
-	invalid := snapshot
-	invalid.PendingApprovals = nil
-	assertValidationErrorContains(t, invalid.Validate(), "pending approvals must be an array")
-
-	invalid = snapshot
-	invalid.PendingApprovals = append([]ConversationPendingApproval{}, snapshot.PendingApprovals...)
-	invalid.PendingApprovals[0].SourceSequence = 26
-	assertValidationErrorContains(t, invalid.Validate(), "invalid source sequence")
-
-	invalid = snapshot
-	completedTurn := turn
-	completedTurn.Status = TurnStatusCompleted
-	completedTurn.EndedAt = stringPointer(testTimeEnded)
-	completedTurn.ResolvedInvocation = invocationPointer(validInvocation(RoleAgent, InvocationOutcomeSucceeded))
-	invalid.Turns = ConversationTurnWindow{Turns: []ConversationTurn{completedTurn}}
-	assertValidationErrorContains(t, invalid.Validate(), "not attached to a running turn")
-}
-
 func TestConversationSnapshotTrajectoryIsAContiguousLatestWindow(t *testing.T) {
 	snapshot := validConversationSnapshot()
 	first := baseTrajectoryEvent(TrajectoryEventUserInputAccepted)
@@ -343,7 +278,6 @@ func validConversationSnapshot() ConversationSnapshot {
 			QueuedAt:       testTimeStarted,
 		}},
 		Trajectory:           ConversationTrajectoryWindow{Events: []TrajectoryEvent{}},
-		PendingApprovals:     []ConversationPendingApproval{},
 		Artifacts:            ConversationArtifactWindow{Artifacts: []ArtifactMetadata{}},
 		NarratorState:        narratorState,
 		Narration:            ConversationNarrationWindow{Events: []NarrationEvent{}},

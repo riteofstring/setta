@@ -550,54 +550,36 @@ func decodeCallOutput(result *CallResult, prepared preparedCallRequest, raw json
 }
 
 func focusInstructions() string {
-	lines := []string{
+	return strings.Join([]string{
 		"Act as Setta's stable focus projector. Use only the supplied authoritative context JSON.",
 		"Return the stable user-facing topic or objective for the accepted input or steering source.",
-		"currentFocus names the current user objective as one complete sentence or phrase.",
-		"topicDescriptor is a clear navigator noun phrase; return null when the broader topic did not change.",
 		"For steering that does not materially change the objective, return the existing authoritative currentFocus exactly.",
-	}
-	lines = append(lines, userVisibleNarratorLanguageInstructions()...)
-	lines = append(lines, narratorLanguageExamples()...)
-	return strings.Join(lines, "\n")
+		"Use topicDescriptor only for broader routing metadata when the objective changes; otherwise return null.",
+	}, "\n")
 }
 
 func projectionInstructions(channel ProjectionChannel) string {
 	lines := []string{
 		"Act as Setta's narrator projector. Use only the supplied authoritative context JSON.",
 		"Current objective, constraints, and accepted steering override historical checkpoint text.",
-		"Emit at most one milestone only for an approval blocker selected by the typed trigger.",
-		"For working projections, return an empty milestone list for routine progress, elapsed windows, command activity, and phase labels.",
+		"Emit at most one sparse phase-change milestone; an empty milestones array is valid.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}
-	lines = append(lines, userVisibleNarratorLanguageInstructions()...)
 	if channel == ProjectionChannelTerminal {
-		lines = append(
-			lines,
-			"Return the terminal projection with exactly one finalSummary for this turn.",
-			"finalSummary states the outcome plus important evidence or caveats. If the turn failed or was stopped, say so directly.",
-		)
+		lines = append(lines, "Return the terminal projection with exactly one bounded finalSummary for this turn.")
 	} else {
-		lines = append(
-			lines,
-			"Return the working projection only; do not invent a final summary or status reply.",
-		)
+		lines = append(lines, "Return the working projection only; do not invent a final summary or status reply.")
 	}
-	lines = append(lines, narratorLanguageExamples()...)
 	return strings.Join(lines, "\n")
 }
 
 func statusInstructions() string {
-	lines := []string{
+	return strings.Join([]string{
 		"Act as Setta's narrator status responder. Use only the supplied read-only status context JSON.",
 		"Answer the exact question from authoritative current state and explicitly represented trajectory ranges.",
-		"Return one voice-ready status reply with current state, evidence, and blocker or next step when relevant.",
-		"Do not emit projection fields or claim to advance a cursor.",
-	}
-	lines = append(lines, userVisibleNarratorLanguageInstructions()...)
-	lines = append(lines, narratorLanguageExamples()...)
-	return strings.Join(lines, "\n")
+		"Return one concise voice-ready status reply. Do not emit projection fields or claim to advance a cursor.",
+	}, "\n")
 }
 
 func checkpointInstructions() string {
@@ -607,30 +589,4 @@ func checkpointInstructions() string {
 		"Current objective, constraints, and steering are authoritative context only and must not be redefined by the historical summary.",
 		"Return only the exact coveredThroughSequence and a non-empty bounded historicalSummary.",
 	}, "\n")
-}
-
-func userVisibleNarratorLanguageInstructions() []string {
-	return []string{
-		"Write for the user whose objective appears in the supplied context.",
-		"State what is now true, what changed, or what is blocking progress.",
-		"Lead with the observable outcome, not the mechanism that observed it.",
-		"Write the shortest complete update, preserving the subject, result, and any caveat that changes how the result should be understood.",
-		"Prefer a natural sentence over a compressed fragment or headline shorthand.",
-		"Prefer words already used in the user's objective.",
-		"Use a technical term when the user's task or result genuinely depends on that term; otherwise explain the result in ordinary language.",
-		"Omit Setta's bookkeeping, including projection passes, trajectory cursors, sequence numbers, provider calls, schemas, and typed boundaries, unless that machinery is itself the user's subject.",
-		"Do not prefix text with \"Narrator,\" \"Milestone,\" \"Update,\" or similar meta narration.",
-		"Do not restate the current objective or paraphrase a prior milestone.",
-		"State failures and blockers directly. Brevity must not turn an incomplete or failed result into a success claim.",
-	}
-}
-
-func narratorLanguageExamples() []string {
-	return []string{
-		"Examples teach voice and relevance:",
-		"Avoid: \"Narrator evaluated the deployment through sequence 41.\" Prefer: \"The deployment now completes successfully, and failed releases keep the previous version running.\"",
-		"Avoid: \"The provider boundary is now typed.\" Prefer: \"Voice requests now preserve the configured narrator and speaking pace across restarts.\"",
-		"Avoid: \"A terminal projection was durably committed.\" Prefer: \"The final summary is saved with the conversation and remains available after restart.\"",
-		"Avoid: \"Continued working on the current objective.\" Prefer: no milestone.",
-	}
 }
