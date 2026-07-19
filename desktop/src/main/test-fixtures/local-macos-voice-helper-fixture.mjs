@@ -123,6 +123,15 @@ function handleSynthesizeSpeech(command) {
     reject(command.id, "synthesis_failed", "synthesis request is invalid");
     return;
   }
+  if (command.payload.operationId.includes("malformed_audio")) {
+    respond(command.id, {
+      audioBase64: "not base64 audio",
+      format: "wav",
+      mediaType: "audio/wav",
+      operationId: command.payload.operationId,
+    });
+    return;
+  }
   if (mode === "slow_synthesis" || command.payload.operationId.includes("cancel")) {
     synthesisOperations.set(command.payload.operationId, command.id);
     return;

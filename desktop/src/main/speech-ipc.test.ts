@@ -428,6 +428,52 @@ describe("speech IPC handlers", () => {
     });
   });
 
+  test("rejects malformed local macOS synthesis audio before playback", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const source = {
+      conversationId: null,
+      eventId: "master-answer-speech",
+      speaker: "master" as const,
+    };
+    const backend = {
+      resolveSpeechSynthesisInput: vi.fn(async (request) => ({
+        provider: "local_macos" as const,
+        rate: 1.2,
+        resolvedVoiceId: request.resolvedVoiceId,
+        source: request.source,
+        text: "Local helper speech.",
+      })),
+    } as unknown as BackendClient;
+    const helper = localMacOSVoiceHelper();
+    helper.synthesizeSpeech.mockResolvedValueOnce({
+      audioBase64: "not base64 audio",
+      format: "wav",
+      mediaType: "audio/wav",
+      operationId: "speech-local-malformed",
+    });
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => backend,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    await expect(
+      invoke(handlers, ipcChannels.speechSynthesize, {
+        operationId: "speech-local-malformed",
+        request: {
+          provider: "local_macos",
+          resolvedVoiceId: "marin",
+          source,
+        },
+      }),
+    ).rejects.toThrow("Local macOS speech output returned invalid audio.");
+  });
+
   test("returns product-level failures for invalid local capture requests", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const helper = localMacOSVoiceHelper();

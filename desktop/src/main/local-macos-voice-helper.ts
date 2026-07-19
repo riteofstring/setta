@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
@@ -835,11 +836,21 @@ function decodeSynthesisResult(value: unknown): LocalMacOSVoiceSynthesisResult {
     "mediaType",
     "operationId",
   ]);
+  const audioBase64 = stringField(record, "audioBase64", "LocalMacOSVoiceHelper.synthesize_speech");
+  const format = stringField(record, "format", "LocalMacOSVoiceHelper.synthesize_speech");
+  const mediaType = stringField(record, "mediaType", "LocalMacOSVoiceHelper.synthesize_speech");
+  const operationId = requiredTrimmedString(
+    stringField(record, "operationId", "LocalMacOSVoiceHelper.synthesize_speech"),
+    "LocalMacOSVoiceHelper.synthesize_speech.operationId",
+  );
+  if (format !== "wav" || mediaType !== "audio/wav" || !isCanonicalBase64(audioBase64)) {
+    throw new Error("LocalMacOSVoiceHelper.synthesize_speech audio is invalid");
+  }
   return {
-    audioBase64: stringField(record, "audioBase64", "LocalMacOSVoiceHelper.synthesize_speech"),
-    format: stringField(record, "format", "LocalMacOSVoiceHelper.synthesize_speech"),
-    mediaType: stringField(record, "mediaType", "LocalMacOSVoiceHelper.synthesize_speech"),
-    operationId: stringField(record, "operationId", "LocalMacOSVoiceHelper.synthesize_speech"),
+    audioBase64,
+    format,
+    mediaType,
+    operationId,
   };
 }
 
@@ -906,6 +917,16 @@ function requiredTrimmedString(value: unknown, label: string): SpeechVoiceID {
     throw new Error(`${label} must be a trimmed string`);
   }
   return value;
+}
+
+function isCanonicalBase64(value: string): boolean {
+  if (value === "" || value.trim() !== value) {
+    return false;
+  }
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
+    return false;
+  }
+  return Buffer.from(value, "base64").toString("base64") === value;
 }
 
 function normalizedOptionalText(value: string | null | undefined): string | null {

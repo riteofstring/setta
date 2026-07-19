@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import type { IpcMain } from "electron";
 
 import {
@@ -494,12 +495,7 @@ async function synthesizeLocalMacOSSpeech({
     },
     signal,
   );
-  if (
-    result.operationId !== operationId ||
-    result.mediaType !== "audio/wav" ||
-    result.format !== "wav" ||
-    result.audioBase64 === ""
-  ) {
+  if (!validLocalMacOSSynthesisResult(result, operationId)) {
     throw new Error("Local macOS speech output returned invalid audio.");
   }
   return {
@@ -509,6 +505,18 @@ async function synthesizeLocalMacOSSpeech({
     resolvedVoiceId: input.resolvedVoiceId,
     source: input.source,
   };
+}
+
+function validLocalMacOSSynthesisResult(
+  result: Awaited<ReturnType<LocalMacOSVoiceHelper["synthesizeSpeech"]>>,
+  operationId: string,
+): boolean {
+  return (
+    result.operationId === operationId &&
+    result.mediaType === "audio/wav" &&
+    result.format === "wav" &&
+    isCanonicalBase64(result.audioBase64)
+  );
 }
 
 function validateResolvedLocalSynthesisInput(
@@ -578,6 +586,16 @@ function localMacOSSynthesisError(error: unknown): Error {
 
 function synthesisAbortError(): DOMException {
   return new DOMException("Speech synthesis was stopped.", "AbortError");
+}
+
+function isCanonicalBase64(value: string): boolean {
+  if (value === "" || value.trim() !== value) {
+    return false;
+  }
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
+    return false;
+  }
+  return Buffer.from(value, "base64").toString("base64") === value;
 }
 
 function invalidCredentialSaveRequestSettings(): SpeechCredentialSettings {

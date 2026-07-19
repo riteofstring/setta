@@ -140,6 +140,8 @@ try {
   assertSynthesisCanceled(canceledSynthesis);
   const unavailableSynthesis = await synthesizeUnavailableLocalSpeech(context.client, source);
   assertSynthesisUnavailable(unavailableSynthesis);
+  const malformedSynthesis = await synthesizeMalformedLocalSpeech(context.client, source);
+  assertMalformedSynthesis(malformedSynthesis);
 
   await captureScreenshot(context.client, join(artifactDir, "local-macos-voice-capture.png"));
   await writeJson(join(artifactDir, "summary.json"), {
@@ -152,6 +154,7 @@ try {
     health,
     invalidFinishFailure: invalidFinish.failure,
     localVoiceCatalog,
+    malformedSynthesis,
     oversizedFailure: oversizedFinish.failure,
     revokedFinishFailure: revokedFinish.failure,
     revokedStaleFinishFailure: revokedStaleFinish.failure,
@@ -326,6 +329,27 @@ function synthesizeUnavailableLocalSpeech(client, source) {
   );
 }
 
+function synthesizeMalformedLocalSpeech(client, source) {
+  return client.evaluate(
+    `(async () => {
+      try {
+        await window.setta.speech.synthesize(${JSON.stringify({
+          provider: "local_macos",
+          resolvedVoiceId: "marin",
+          source,
+        })}, "speech-local-malformed_audio");
+        return { status: "completed" };
+      } catch (error) {
+        return {
+          message: error instanceof Error ? error.message : String(error),
+          name: error instanceof Error ? error.name : "",
+          status: "failed",
+        };
+      }
+    })()`,
+  );
+}
+
 function assertReadyHealth(health) {
   if (
     health?.status !== "ready" ||
@@ -416,6 +440,16 @@ function assertSynthesisUnavailable(result) {
     !result.message.includes("system speech synthesis is unavailable")
   ) {
     throw new Error(`invalid local macOS synthesis unavailable failure: ${JSON.stringify(result)}`);
+  }
+}
+
+function assertMalformedSynthesis(result) {
+  if (
+    result?.status !== "failed" ||
+    result.name !== "Error" ||
+    !result.message.includes("Local macOS speech output returned invalid audio.")
+  ) {
+    throw new Error(`invalid local macOS malformed synthesis failure: ${JSON.stringify(result)}`);
   }
 }
 

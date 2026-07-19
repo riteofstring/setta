@@ -322,6 +322,24 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     client.shutdown();
   });
 
+  test("rejects malformed synthesis audio before it reaches playback", async () => {
+    const client = new LocalMacOSVoiceHelperProcessClient({
+      args: [fixturePath],
+      command: process.execPath,
+    });
+
+    await expect(
+      client.synthesizeSpeech({
+        operationId: "speech_malformed_audio",
+        rate: 1.2,
+        text: "Local helper speech.",
+        voiceId: "marin",
+      }),
+    ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperProtocolError);
+
+    client.shutdown();
+  });
+
   test.each([
     "malformed",
     "malformed_result",
