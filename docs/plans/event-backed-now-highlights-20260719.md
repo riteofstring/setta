@@ -6,6 +6,22 @@
 compatibility shims, migrations, transitional rendering, dual highlight sources,
 or legacy narrator milestone behavior as part of this work.
 
+## Implementation Status
+
+- [x] Renderer: `NOW` is projected from trajectory events, artifact metadata,
+  pending approval state, and terminal turn state. The rail no longer uses
+  narrator milestones as highlight sources, and the rail item type is now
+  progress-highlight oriented.
+- [ ] Narration and speech cadence: automatic narrator milestones still need to
+  be constrained so routine progress is visual-only and automatic speech is
+  reserved for attention/status events.
+- [ ] Completion: artifact-bearing terminal turns still need compact,
+  artifact-first center summaries derived from typed artifact data.
+- [ ] Defaults: the primary topic-agent role default still needs the yolo
+  permission cutover.
+- [ ] Phase audit and release gates: run the broader deterministic coverage and
+  any remaining live-provider checks at the audit point.
+
 ## Intent
 
 The Easy Button `NOW` rail should remain visible and useful. It should show the

@@ -63,7 +63,8 @@ import {
 } from "./easy-button-intent-slot";
 import { useEasyButtonPaneTitle } from "./easy-button-pane-title";
 import { EasyButtonPresentationChrome } from "./easy-button-presentation-chrome";
-import { ArtifactRail, HighlightRail, type EasyButtonMilestone } from "./easy-button-rails";
+import { progressHighlightViews } from "./easy-button-progress-highlights";
+import { ArtifactRail, HighlightRail, type EasyButtonProgressHighlight } from "./easy-button-rails";
 import { EasyButtonSideConversation } from "./easy-button-side-conversation";
 import { easyButtonSideView, type EasyButtonSideView } from "./easy-button-side-projection";
 import {
@@ -92,9 +93,9 @@ export interface EasyButtonProjectionView {
   eventCursorSequence: number;
   focusStatus: EasyButtonFocusStatus;
   helperCopy: string;
+  highlights: EasyButtonProgressHighlight[];
   intentSlot: EasyButtonIntentSlot;
   lineage: EasyButtonForkLineage | null;
-  milestones: EasyButtonMilestone[];
   narratorDegradation: string | null;
   paletteId: ConversationPaletteID | null;
   pendingApproval: PendingConversationApproval | null;
@@ -283,8 +284,8 @@ function EasyButtonProjectionContent({
   return (
     <>
       <HighlightRail
-        milestones={view.milestones}
-        speakingMilestoneId={speech?.speakingSourceEventId ?? null}
+        highlights={view.highlights}
+        speakingHighlightId={speech?.speakingSourceEventId ?? null}
         statusReply={view.statusReply}
       />
       <main className="easy-button-stage">
@@ -479,6 +480,10 @@ function projectConversationSnapshot(
   const viewState = conversationViewState(snapshot.conversation, latestTurn);
   const statusTone = conversationStatusTone(snapshot.conversation, latestTurn);
   const focusStatus = narratorFocusStatus(snapshot.narratorState);
+  const pendingApproval =
+    snapshot.conversation.status === "waiting_for_approval" && runningTurnId
+      ? pendingConversationApproval(snapshot.trajectory.events, runningTurnId)
+      : null;
   return {
     activeAgentCount: activeAgentCount(snapshot, viewState),
     archived: snapshot.conversation.archivedAt !== null,
@@ -489,15 +494,12 @@ function projectConversationSnapshot(
     eventCursorSequence: snapshot.eventCursor.sequence,
     focusStatus,
     helperCopy: conversationHelperCopy(snapshot.conversation, latestTurn, projectionStatus),
+    highlights: progressHighlightViews(snapshot, latestTurn, pendingApproval),
     intentSlot: conversationIntentSlot(snapshot, focusStatus),
     lineage: forkLineage(snapshot.branch, parentTitle),
-    milestones: milestoneViews(snapshot.narration.events, snapshot.turns.turns),
     narratorDegradation: narratorDegradationMessage(snapshot.narratorState),
     paletteId: snapshot.presentationProfile.resolvedPaletteId,
-    pendingApproval:
-      snapshot.conversation.status === "waiting_for_approval" && runningTurnId
-        ? pendingConversationApproval(snapshot.trajectory.events, runningTurnId)
-        : null,
+    pendingApproval,
     presentationProfile: snapshot.presentationProfile,
     projectionStatus,
     queuedTurnCount: snapshot.queue.length,
@@ -559,13 +561,13 @@ function unavailableView(options: {
     eventCursorSequence: 0,
     focusStatus: "none",
     helperCopy: options.helperCopy,
+    highlights: [],
     intentSlot: {
       label: "Current focus",
       state: "stable",
       text: "",
     },
     lineage: null,
-    milestones: [],
     narratorDegradation: null,
     paletteId: null,
     pendingApproval: null,
@@ -707,26 +709,6 @@ function terminalHelperCopy(latestTurn: ConversationTurn | null): string {
     case "failed":
       return "Work failed";
   }
-}
-
-function milestoneViews(
-  narration: readonly NarrationEvent[],
-  turns: readonly ConversationTurn[],
-): EasyButtonMilestone[] {
-  const startedAtByTurn = new Map(turns.map((turn) => [turn.id, turn.startedAt]));
-  const milestones: EasyButtonMilestone[] = [];
-  for (const event of narration) {
-    if (event.kind !== "milestone" || !event.milestone) {
-      continue;
-    }
-    milestones.push({
-      at: event.createdAt,
-      id: event.id,
-      text: event.milestone.text,
-      turnStartedAt: event.turnId ? (startedAtByTurn.get(event.turnId) ?? null) : null,
-    });
-  }
-  return milestones;
 }
 
 function terminalSummary(

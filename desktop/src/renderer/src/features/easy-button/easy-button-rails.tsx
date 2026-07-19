@@ -12,15 +12,16 @@ import {
   usePresentedStatusReply,
 } from "./easy-button-narrator-status";
 
-export interface EasyButtonMilestone {
+export interface EasyButtonProgressHighlight {
   at: string;
+  body: string;
   id: string;
-  text: string;
+  title: string;
   turnStartedAt: string | null;
 }
 
 const maxRenderedArtifacts = 6;
-const maxRenderedMilestones = 5;
+const maxRenderedHighlights = 5;
 
 type ArtifactReader = (request: ReadConversationArtifactRequest) => Promise<Artifact>;
 
@@ -32,34 +33,34 @@ type ArtifactPayloadCacheEntry =
 const artifactPayloadCache = new Map<string, ArtifactPayloadCacheEntry>();
 
 export function HighlightRail({
-  milestones,
-  speakingMilestoneId = null,
+  highlights,
+  speakingHighlightId = null,
   statusReply = null,
 }: {
-  milestones: readonly EasyButtonMilestone[];
-  speakingMilestoneId?: string | null;
+  highlights: readonly EasyButtonProgressHighlight[];
+  speakingHighlightId?: string | null;
   statusReply?: EasyButtonNarratorStatusReply | null;
 }) {
-  const visibleMilestones = milestones.slice(-maxRenderedMilestones);
+  const visibleHighlights = highlights.slice(-maxRenderedHighlights);
   const presentedStatusReply = usePresentedStatusReply(statusReply);
   return (
     <aside
-      aria-label={presentedStatusReply ? "Status and milestones" : "Milestones"}
+      aria-label={presentedStatusReply ? "Status and NOW highlights" : "NOW highlights"}
       className="easy-button-rail easy-button-rail-left"
       data-easy-button-rail-empty={
-        milestones.length === 0 && !presentedStatusReply ? "true" : "false"
+        highlights.length === 0 && !presentedStatusReply ? "true" : "false"
       }
-      data-easy-button-highlight-window-size={visibleMilestones.length}
+      data-easy-button-highlight-window-size={visibleHighlights.length}
     >
       <NarratorStatusReply reply={presentedStatusReply} />
       <p className="easy-button-rail-label">Now</p>
       <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
-        {visibleMilestones.map((milestone, index) => (
-          <MilestoneItem
-            key={milestone.id}
-            age={visibleMilestones.length - index - 1}
-            milestone={milestone}
-            speaking={milestone.id === speakingMilestoneId}
+        {visibleHighlights.map((highlight, index) => (
+          <HighlightItem
+            highlight={highlight}
+            key={highlight.id}
+            age={visibleHighlights.length - index - 1}
+            speaking={highlight.id === speakingHighlightId}
           />
         ))}
       </ol>
@@ -67,13 +68,13 @@ export function HighlightRail({
   );
 }
 
-function MilestoneItem({
+function HighlightItem({
   age,
-  milestone,
+  highlight,
   speaking,
 }: {
   age: number;
-  milestone: EasyButtonMilestone;
+  highlight: EasyButtonProgressHighlight;
   speaking: boolean;
 }) {
   return (
@@ -81,13 +82,16 @@ function MilestoneItem({
       aria-current={speaking ? "true" : undefined}
       className="easy-button-highlight-item"
       data-easy-button-highlight-age={age}
-      data-easy-button-highlight-id={milestone.id}
+      data-easy-button-highlight-id={highlight.id}
       data-easy-button-highlight-speaking={speaking ? "true" : undefined}
     >
       <span aria-hidden="true" className="easy-button-highlight-dot" />
-      <span className="easy-button-highlight-text">{milestone.text}</span>
+      <span className="easy-button-highlight-copy">
+        <span className="easy-button-highlight-title">{highlight.title}</span>
+        <span className="easy-button-highlight-body">{highlight.body}</span>
+      </span>
       <span className="easy-button-highlight-time">
-        {milestoneElapsedLabel(milestone.turnStartedAt, milestone.at)}
+        {milestoneElapsedLabel(highlight.turnStartedAt, highlight.at)}
       </span>
     </li>
   );

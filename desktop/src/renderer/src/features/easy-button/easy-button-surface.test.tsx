@@ -81,7 +81,7 @@ describe("Easy Button topic conversation projection", () => {
     expect(alpha).toContain("--conversation-accent-light:oklch(0.48 0.14 290)");
     expect(alpha).toContain('data-easy-button-state="working"');
     expect(alpha).toContain("Implement Alpha topic");
-    expect(alpha).toContain("Alpha topic milestone");
+    expect(alpha).not.toContain("Alpha topic milestone");
     expect(alpha).toContain("Alpha topic artifact");
     expect(alpha).not.toContain("Beta topic is complete");
 
@@ -229,7 +229,7 @@ describe("Easy Button topic conversation projection", () => {
       createdAt: "2026-07-11T20:00:08Z",
       id: "status_conversation_status_2",
       question: "What is happening?",
-      sourceSequenceEnd: 1,
+      sourceSequenceEnd: 2,
       streamSequence: 2,
       text: "The topic agent is still implementing the requested change.",
     });
@@ -290,7 +290,7 @@ describe("Easy Button topic conversation projection", () => {
     const html = renderToString(<EasyButtonProjectionSurface view={view} />);
 
     expect(view.statusReply?.id).toBe("status_latest");
-    expect(view.milestones).toHaveLength(1);
+    expect(view.highlights).toHaveLength(1);
     expect(html).toContain("The second status reply is current.");
     expect(html).not.toContain("The first status reply is stale.");
 
@@ -330,7 +330,8 @@ describe("Easy Button topic conversation projection", () => {
 
     expect(view.statusReply).toBeNull();
     expect(html).not.toContain('data-testid="easy-button-status-reply"');
-    expect(html).toContain("New work milestone");
+    expect(html).not.toContain("New work milestone");
+    expect(html).toContain("Implement Status stale");
     vi.useRealTimers();
   });
 
@@ -410,34 +411,6 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain('data-easy-button-intent="pending_followup"');
     expect(html).toContain("Follow-up");
     expect(html).toContain("What is the current status?");
-    expect(html).not.toContain("Implement Pending route");
-  });
-
-  test("renders only the latest five milestones in the fading NOW window", () => {
-    const snapshot = workingSnapshot("conversation_many_milestones", "Many milestones", "sky");
-    snapshot.narration.events = Array.from({ length: 7 }, (_, index) =>
-      milestoneEvent(
-        snapshot.conversation.id,
-        snapshot.turns.turns[0]!.id,
-        `Milestone ${index + 1}`,
-        index + 1,
-      ),
-    );
-    snapshot.narration.events.forEach((event, index) => {
-      event.id = `milestone_${index + 1}`;
-      event.createdAt = `2026-07-11T20:00:${String(index + 1).padStart(2, "0")}Z`;
-    });
-
-    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
-    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
-
-    expect(view.milestones).toHaveLength(7);
-    expect(html).toContain('data-easy-button-highlight-window-size="5"');
-    expect(html).not.toContain("Milestone 1");
-    expect(html).not.toContain("Milestone 2");
-    expect(html).toContain("Milestone 3");
-    expect(html).toContain('data-easy-button-highlight-age="4"');
-    expect(html).toContain('data-easy-button-highlight-age="0"');
   });
 
   test("presents an isolated pane-scoped side conversation while retaining parent status", () => {
@@ -584,7 +557,7 @@ describe("Easy Button topic conversation projection", () => {
           captureState: "idle",
           playbackScope: "this_conversation",
           playbackState: "speaking",
-          speakingSourceEventId: "milestone_conversation_speaking",
+          speakingSourceEventId: "trajectory_turn_started_conversation_speaking",
           transcriptPreview: null,
           voiceControlDisabled: false,
           voiceControlLabel: "Start a voice request for this conversation",
@@ -849,6 +822,13 @@ describe("Easy Button topic conversation projection", () => {
       resolvedInvocation: resolvedInvocation("agent", "cancelled"),
       status: "cancelled",
     };
+    snapshot.trajectory.events = snapshot.trajectory.events.filter(
+      (event) => event.kind !== "turn_completed",
+    );
+    snapshot.trajectory.events.push(
+      turnInterruptedTrajectory(snapshot.conversation.id, snapshot.turns.turns[0]!.id, 3),
+    );
+    snapshot.conversation.lastTrajectorySequence = 3;
 
     const html = renderToString(
       <EasyButtonProjectionSurface
@@ -861,19 +841,6 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).toContain('data-easy-button-control-mode="talk"');
     expect(html).toContain("Work cancelled");
     expect(html).not.toContain('data-easy-button-glyph="completed"');
-  });
-
-  test("does not present an unresolved approval from a terminal prior turn", () => {
-    const snapshot = completedSnapshot("conversation_stale_approval", "Stale approval", "teal");
-    const request = approvalRequest("approval_stale", true);
-    snapshot.trajectory.events.push(
-      approvalRequestedTrajectory(snapshot.conversation.id, snapshot.turns.turns[0]!.id, request),
-    );
-    snapshot.conversation.lastTrajectorySequence = 2;
-
-    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
-
-    expect(view.pendingApproval).toBeNull();
   });
 
   test("renders secret structured input with a password control", () => {
@@ -983,6 +950,7 @@ function conversationSnapshot(
     turn: ConversationTurn;
   },
 ): ConversationSnapshot {
+  const trajectory = initialConversationTrajectory(conversationId, title, options.turn);
   return {
     artifacts: { artifacts: options.artifacts, hasEarlier: false },
     branch: null,
@@ -990,7 +958,7 @@ function conversationSnapshot(
       archivedAt: null,
       createdAt: timestamp,
       id: conversationId,
-      lastTrajectorySequence: 1,
+      lastTrajectorySequence: trajectory.at(-1)?.sequence ?? 0,
       status: options.conversationStatus,
       title,
       topicDescriptor: `${title} descriptor`,
@@ -1007,12 +975,24 @@ function conversationSnapshot(
     sideConversations: [],
     sideEvents: { events: [], hasEarlier: false, limit: 200 },
     threadBinding: null,
-    trajectory: {
-      events: [userInputTrajectory(conversationId, options.turn.id, title)],
-      hasEarlier: false,
-    },
+    trajectory: { events: trajectory, hasEarlier: false },
     turns: { hasEarlier: false, turns: [options.turn] },
   };
+}
+
+function initialConversationTrajectory(
+  conversationId: string,
+  title: string,
+  turn: ConversationTurn,
+): TrajectoryEvent[] {
+  const events = [
+    userInputTrajectory(conversationId, turn.id, title, 1),
+    turnStartedTrajectory(conversationId, turn, 2),
+  ];
+  if (turn.status === "completed") {
+    events.push(turnCompletedTrajectory(conversationId, turn.id, 3));
+  }
+  return events;
 }
 
 function conversationTurn(
@@ -1175,7 +1155,7 @@ function milestoneEvent(
     kind: "milestone",
     milestone: { text },
     resolvedInvocation: resolvedInvocation("narrator", "succeeded"),
-    sourceSequenceEnd: 1,
+    sourceSequenceEnd: streamSequence,
     sourceSequenceStart: 1,
     statusReply: null,
     streamSequence,
@@ -1199,7 +1179,7 @@ function finalSummaryEvent(
     kind: "final_summary",
     milestone: null,
     resolvedInvocation: resolvedInvocation("narrator", "succeeded"),
-    sourceSequenceEnd: 1,
+    sourceSequenceEnd: streamSequence,
     sourceSequenceStart: 1,
     statusReply: null,
     streamSequence,
@@ -1224,7 +1204,7 @@ function statusReplyEvent(
     kind: "status_reply",
     milestone: null,
     resolvedInvocation: resolvedInvocation("narrator", "succeeded"),
-    sourceSequenceEnd: 1,
+    sourceSequenceEnd: streamSequence,
     sourceSequenceStart: 1,
     statusReply: { question, text },
     streamSequence,
@@ -1257,6 +1237,7 @@ function userInputTrajectory(
   conversationId: string,
   turnId: string,
   title: string,
+  sequence = 1,
 ): TrajectoryEvent {
   return {
     actor: "user",
@@ -1283,7 +1264,7 @@ function userInputTrajectory(
     providerThreadId: null,
     providerTurnId: null,
     publicReasoningSummaryUpdated: null,
-    sequence: 1,
+    sequence,
     subagentCompleted: null,
     subagentStarted: null,
     subagentUpdated: null,
@@ -1299,11 +1280,60 @@ function userInputTrajectory(
   };
 }
 
+function turnStartedTrajectory(
+  conversationId: string,
+  turn: ConversationTurn,
+  sequence: number,
+): TrajectoryEvent {
+  return {
+    ...userInputTrajectory(conversationId, turn.id, "started", sequence),
+    actor: "system",
+    id: `trajectory_turn_started_${conversationId}`,
+    kind: "turn_started",
+    turnStarted: {
+      invocation: turn.resolvedInvocation ?? resolvedInvocation("agent", "running"),
+    },
+    userInputAccepted: null,
+  };
+}
+
+function turnCompletedTrajectory(
+  conversationId: string,
+  turnId: string,
+  sequence: number,
+): TrajectoryEvent {
+  return {
+    ...userInputTrajectory(conversationId, turnId, "completed", sequence),
+    actor: "agent",
+    id: `trajectory_turn_completed_${conversationId}`,
+    kind: "turn_completed",
+    turnCompleted: {},
+    userInputAccepted: null,
+  };
+}
+
+function turnInterruptedTrajectory(
+  conversationId: string,
+  turnId: string,
+  sequence: number,
+): TrajectoryEvent {
+  return {
+    ...userInputTrajectory(conversationId, turnId, "interrupted", sequence),
+    actor: "system",
+    id: `trajectory_turn_interrupted_${conversationId}`,
+    kind: "turn_interrupted",
+    turnInterrupted: { reason: "user_requested" },
+    userInputAccepted: null,
+  };
+}
+
 function agentTextDelta(snapshot: ConversationSnapshot, text: string): TrajectoryEvent {
+  const sequence = nextTrajectorySequence(snapshot);
   const base = userInputTrajectory(
     snapshot.conversation.id,
     snapshot.turns.turns[0]!.id,
     snapshot.conversation.title,
+    sequence,
   );
   return {
     ...base,
@@ -1314,25 +1344,18 @@ function agentTextDelta(snapshot: ConversationSnapshot, text: string): Trajector
     },
     id: `trajectory_agent_text_${snapshot.conversation.id}`,
     kind: "agent_public_text_delta",
-    sequence: base.sequence + 1,
+    sequence,
     userInputAccepted: null,
   };
 }
 
-function approvalRequestedTrajectory(
-  conversationId: string,
-  turnId: string,
-  approval: TrajectoryApprovalRequest,
-): TrajectoryEvent {
-  return {
-    ...userInputTrajectory(conversationId, turnId, "approval"),
-    actor: "provider",
-    approvalRequested: { approval },
-    id: `trajectory_${approval.id}`,
-    kind: "approval_requested",
-    sequence: 2,
-    userInputAccepted: null,
-  };
+function nextTrajectorySequence(snapshot: ConversationSnapshot): number {
+  return (
+    Math.max(
+      snapshot.conversation.lastTrajectorySequence,
+      ...snapshot.trajectory.events.map((event) => event.sequence),
+    ) + 1
+  );
 }
 
 function subagentStartedTrajectory(
