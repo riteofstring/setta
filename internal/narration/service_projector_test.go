@@ -58,6 +58,37 @@ func TestServiceSubmitsTerminalProjectionBeforeRawBacklogCheckpoint(t *testing.T
 	assertTerminalBypassesBacklogCheckpoint(t, provider.snapshotCalls(), terminal.Sequence)
 }
 
+func TestServiceRecoversInterruptedRunningTerminalProjection(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
+	state, err := store.ReadNarratorState(context.Background(), conversationID)
+	if err != nil {
+		t.Fatalf("ReadNarratorState: %v", err)
+	}
+	if _, err := store.CommitNarratorInvocationStarted(context.Background(), conversation.NarratorInvocationStartedCommit{
+		ConversationID:   conversationID,
+		Expected:         projectorNarratorExpectation(state),
+		CommittedEventID: "recovered-terminal-start-marker",
+		StartedAt:        "2026-07-12T12:01:30Z",
+	}); err != nil {
+		t.Fatalf("CommitNarratorInvocationStarted: %v", err)
+	}
+	provider := &projectorTestAgentRuntime{}
+	service := newProjectorTestService(t, store, provider)
+
+	if err := service.RecoverTerminalProjections(context.Background()); err != nil {
+		t.Fatalf("RecoverTerminalProjections: %v", err)
+	}
+
+	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		return current.NarratorState.Status == conversation.NarratorStatusReady &&
+			current.NarratorState.ObservedThroughSequence == terminal.Sequence &&
+			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+	})
+	assertTerminalProjectorState(t, snapshot, turnID)
+	assertTerminalBypassesBacklogCheckpoint(t, provider.snapshotCalls(), terminal.Sequence)
+}
+
 func TestServiceWaitsForAcceptedInputFocusBeforeTerminalProjection(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
@@ -1248,6 +1279,15 @@ func waitForTerminalProjectorIdle(
 			t.Fatalf("timed out waiting for terminal projector retry exhaustion")
 		}
 		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func projectorNarratorExpectation(state conversation.NarratorState) conversation.NarratorStateExpectation {
+	return conversation.NarratorStateExpectation{
+		ObservedThroughSequence:   state.ObservedThroughSequence,
+		CheckpointThroughSequence: state.CheckpointThroughSequence,
+		CurrentFocusRevision:      state.CurrentFocusRevision,
+		UpdatedAt:                 state.UpdatedAt,
 	}
 }
 

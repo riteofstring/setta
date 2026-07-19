@@ -4,15 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"setta/internal/conversation"
 )
+
+type narratorInvocationStartStore interface {
+	CommitNarratorInvocationStarted(
+		context.Context,
+		conversation.NarratorInvocationStartedCommit,
+	) (conversation.NarratorState, error)
+}
 
 type serviceAttemptWorker struct {
 	caller       *Caller
 	committer    *OutputCommitter
 	materializer *ContextMaterializer
 	profiles     RoleProfileSource
+	starts       narratorInvocationStartStore
 	workspaces   WorkspaceResolver
 }
 
@@ -47,6 +56,7 @@ func newServiceRegistry(
 		committer:    committer,
 		materializer: materializer,
 		profiles:     store,
+		starts:       store,
 		workspaces:   workspaces,
 	}
 	worker, err := NewResilientWorker(attempts, failures)
@@ -86,7 +96,8 @@ func (worker *serviceAttemptWorker) PrepareAttempt(
 
 func (worker *serviceAttemptWorker) validateInvocation(invocation Invocation) error {
 	if worker == nil || worker.caller == nil || worker.committer == nil ||
-		worker.materializer == nil || worker.profiles == nil || worker.workspaces == nil {
+		worker.materializer == nil || worker.profiles == nil || worker.starts == nil ||
+		worker.workspaces == nil {
 		return NewAttemptFailure(FailureKindInternal, errors.New("narrator attempt worker is required"))
 	}
 	if err := invocation.Request.Validate(); err != nil {
@@ -149,11 +160,79 @@ func (worker *serviceAttemptWorker) prepareProjection(
 	if noWork {
 		return noOpPreparedCommit, nil
 	}
+	if invocation.Request.Trigger == conversation.NarrationTriggerTurnTerminal {
+		var err error
+		bundle, err = worker.markTerminalProjectionStarted(
+			ctx,
+			invocation.Request.ConversationID,
+			bundle,
+			limits.MaxInputBytes,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
 	workspaceRoot, err := worker.resolveWorkspaceRoot(operation.WorkspaceID)
 	if err != nil {
 		return nil, err
 	}
 	return worker.callAndPrepare(ctx, invocation, workspaceRoot, CallRequest{Projection: &bundle})
+}
+
+func (worker *serviceAttemptWorker) markTerminalProjectionStarted(
+	ctx context.Context,
+	conversationID string,
+	bundle ProjectionContextBundle,
+	maxInputBytes int,
+) (ProjectionContextBundle, error) {
+	eventID, err := worker.committer.newID("conversation_event")
+	if err != nil {
+		return ProjectionContextBundle{}, NewAttemptFailure(FailureKindInternal, err)
+	}
+	startedAt, err := narratorInvocationStartedAt(bundle.PreCallCursor.UpdatedAt)
+	if err != nil {
+		return ProjectionContextBundle{}, NewAttemptFailure(FailureKindInternal, err)
+	}
+	state, err := worker.starts.CommitNarratorInvocationStarted(ctx, conversation.NarratorInvocationStartedCommit{
+		ConversationID:   conversationID,
+		Expected:         narratorStateExpectation(bundle.PreCallCursor),
+		CommittedEventID: eventID,
+		StartedAt:        startedAt,
+	})
+	if err != nil {
+		return ProjectionContextBundle{}, NewAttemptFailure(
+			FailureKindStateUnavailable,
+			fmt.Errorf("commit narrator terminal projection start: %w", err),
+		)
+	}
+	bundle.PreCallCursor = narratorCursor(state)
+	bundle.InputBytes = 0
+	size, err := contextBytes(bundle)
+	if err != nil {
+		return ProjectionContextBundle{}, NewAttemptFailure(FailureKindInternal, err)
+	}
+	if size > maxInputBytes {
+		return ProjectionContextBundle{}, budgetError(
+			ContextKindProjection,
+			maxInputBytes,
+			size,
+			"terminal projection start marker must remain in the provider context",
+		)
+	}
+	bundle.InputBytes = size
+	return bundle, nil
+}
+
+func narratorInvocationStartedAt(expectedUpdatedAt string) (string, error) {
+	expected, err := canonicalNarratorTime("narrator invocation expected updatedAt", expectedUpdatedAt)
+	if err != nil {
+		return "", err
+	}
+	started := time.Now().UTC()
+	if !started.After(expected) {
+		started = expected.Add(time.Nanosecond)
+	}
+	return started.Format(time.RFC3339Nano), nil
 }
 
 func (worker *serviceAttemptWorker) materializeProjection(

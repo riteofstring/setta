@@ -347,6 +347,9 @@ func recoverRuntimeConversationServices(
 	if err := narratorService.RecoverConversationInputs(context.Background()); err != nil {
 		return fmt.Errorf("recover conversation input routing: %w", err)
 	}
+	if err := narratorService.RecoverTerminalProjections(context.Background()); err != nil {
+		return fmt.Errorf("recover terminal narrator projections: %w", err)
+	}
 	return nil
 }
 

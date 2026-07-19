@@ -297,6 +297,51 @@ func TestConversationInputRouterFallsBackToClarificationWhenInvalidOutputCannotR
 	assertFixtureRouterProviderRequests(t, fixture.provider, 2)
 }
 
+func TestConversationInputRouterInvalidClarificationOutputDoesNotExposeModelInternals(t *testing.T) {
+	fixture := newStatusServiceFixture(t, nil)
+	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
+		conversation.ConversationRouteDecisionKindClarify,
+		conversation.ConversationRouteDecisionKindSteerParentTurn,
+	}
+	router := configuredFixtureInputRouter(fixture.service.inputRouter)
+	inputService := fixtureInputService(t, fixture.store)
+	root := submitFixtureRouteInput(
+		t,
+		inputService,
+		fixture.conversationID,
+		"input-route-invalid-clarification-root",
+		nil,
+	)
+
+	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
+		t.Fatalf("clarification ProcessNext = %t, %v", processed, err)
+	}
+	reply := submitFixtureRouteInput(
+		t,
+		inputService,
+		fixture.conversationID,
+		"input-route-invalid-clarification-reply",
+		&root.Input.ID,
+	)
+	fixture.provider.invalidRouteOutputsRemaining = 2
+	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
+		t.Fatalf("invalid clarification ProcessNext = %t, %v", processed, err)
+	}
+
+	state := readFixtureRoutingState(t, fixture, root.Input.ID)
+	if state.ClarificationReply == nil ||
+		state.ClarificationReply.Input.ID != reply.Input.ID ||
+		state.ClarificationReply.Status != conversation.ConversationInputStatusFailed ||
+		state.ClarificationReply.Failure == nil ||
+		state.ClarificationReply.Failure.Code != "conversation_router_provider_output_invalid" ||
+		state.ClarificationReply.Failure.Message != "Conversation routing is temporarily unavailable." ||
+		strings.Contains(strings.ToLower(state.ClarificationReply.Failure.Message), "invalid decision") ||
+		strings.Contains(strings.ToLower(state.ClarificationReply.Failure.Message), "model") {
+		t.Fatalf("invalid clarification route state = %+v", state)
+	}
+	assertFixtureRouterProviderRequests(t, fixture.provider, 3)
+}
+
 func TestConversationInputRouterClassifiesCommandIDFailureAsInternal(t *testing.T) {
 	fixture := newStatusServiceFixture(t, nil)
 	router := configuredFixtureInputRouter(fixture.service.inputRouter)

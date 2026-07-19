@@ -284,7 +284,7 @@ func (router *ConversationInputRouter) commitProductInvariantRecovery(
 	if !ok {
 		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(
 			FailureKindProviderOutputInvalid,
-			errors.New("conversation router model returned invalid output and no product invariant route was available"),
+			errors.New("conversation router provider output could not be repaired and no product invariant route was available"),
 		)
 	}
 	audit.DecisionAuthority = conversation.ConversationRouteDecisionAuthorityProductInvariant
@@ -745,7 +745,7 @@ func conversationRouteFailureMessage(kind FailureKind) string {
 	case FailureKindProviderUnavailable:
 		return "Conversation routing is temporarily unavailable because the narrator model could not be reached."
 	case FailureKindProviderOutputInvalid:
-		return "Conversation routing is temporarily unavailable because the narrator model returned an invalid decision."
+		return "Conversation routing is temporarily unavailable."
 	case FailureKindConfigurationInvalid:
 		return "Conversation routing is unavailable because the narrator model configuration is invalid."
 	case FailureKindContextBudgetExceeded:
