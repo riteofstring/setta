@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline";
 
 const mode = process.argv[2] ?? "ok";
-const sessions = new Set();
+const sessions = new Map();
 const synthesisOperations = new Map();
 const input = createInterface({ input: process.stdin });
 const commandHandlers = new Map([
@@ -39,6 +39,17 @@ function handleFinishCapture(command) {
     return;
   }
   sessions.delete(command.payload.sessionId);
+  if (command.payload.sessionId.includes("duration_limit")) {
+    reject(command.id, "duration_limit", "local capture reached the recording limit");
+    return;
+  }
+  if (command.payload.sessionId.includes("empty")) {
+    respond(command.id, {
+      sessionId: command.payload.sessionId,
+      transcript: "   ",
+    });
+    return;
+  }
   respond(command.id, {
     sessionId: command.payload.sessionId,
     transcript: `local transcript for ${command.payload.sessionId}`,
@@ -54,7 +65,10 @@ function handleStartCapture(command) {
     reject(command.id, "missing_model", "model path is required");
     return;
   }
-  sessions.add(command.payload.sessionId);
+  sessions.set(command.payload.sessionId, {
+    maximumRecordingSeconds: command.payload.maximumRecordingSeconds,
+    maximumTranscriptCharacters: command.payload.maximumTranscriptCharacters,
+  });
   respond(command.id, { sessionId: command.payload.sessionId });
 }
 

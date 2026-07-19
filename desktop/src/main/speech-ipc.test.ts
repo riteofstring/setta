@@ -4,6 +4,7 @@ import { ipcChannels, type IpcObserver } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
 
 import { registerSpeechIpcHandlers } from "./speech-ipc";
+import { LocalMacOSVoiceHelperCommandError } from "./local-macos-voice-helper";
 
 describe("speech IPC handlers", () => {
   test("forwards speech capabilities and redacts transcription credentials", async () => {
@@ -172,6 +173,14 @@ describe("speech IPC handlers", () => {
       captureSessionId: "capture_local",
     });
     const canceled = await invoke(handlers, ipcChannels.speechCancelLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_local",
+    });
+    const secondStarted = await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_cancel",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+    const secondCanceled = await invoke(handlers, ipcChannels.speechCancelLocalMacOSVoiceCapture, {
       captureSessionId: "capture_cancel",
     });
 
@@ -181,14 +190,131 @@ describe("speech IPC handlers", () => {
       status: "completed",
       transcript: "Local helper transcript.",
     });
-    expect(canceled).toEqual({ captureSessionId: "capture_cancel", status: "canceled" });
-    expect(helper.startCapture).toHaveBeenCalledWith({
+    expect(canceled).toEqual({
+      failure: {
+        code: "invalid_session",
+        message: "Local macOS voice capture session is not active.",
+      },
+      status: "failed",
+    });
+    expect(secondStarted).toEqual({ captureSessionId: "capture_cancel", status: "started" });
+    expect(secondCanceled).toEqual({ captureSessionId: "capture_cancel", status: "canceled" });
+    expect(helper.startCapture).toHaveBeenNthCalledWith(1, {
       maximumRecordingSeconds: 120,
       maximumTranscriptCharacters: 8000,
       sessionId: "capture_local",
     });
+    expect(helper.startCapture).toHaveBeenNthCalledWith(2, {
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+      sessionId: "capture_cancel",
+    });
     expect(helper.finishCapture).toHaveBeenCalledWith({ sessionId: "capture_local" });
     expect(helper.cancelCapture).toHaveBeenCalledWith({ sessionId: "capture_cancel" });
+  });
+
+  test("rejects empty and oversized local macOS transcripts before routing", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const helper = localMacOSVoiceHelper();
+    helper.finishCapture
+      .mockResolvedValueOnce({
+        sessionId: "capture_empty",
+        transcript: "   ",
+      })
+      .mockResolvedValueOnce({
+        sessionId: "capture_large",
+        transcript: "Local helper transcript.",
+      });
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_empty",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+    const empty = await invoke(handlers, ipcChannels.speechFinishLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_empty",
+    });
+    await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_large",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8,
+    });
+    const oversized = await invoke(handlers, ipcChannels.speechFinishLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_large",
+    });
+
+    expect(empty).toEqual({
+      failure: {
+        code: "no_speech",
+        message: "No speech was detected. Please try again.",
+      },
+      status: "failed",
+    });
+    expect(oversized).toEqual({
+      failure: {
+        code: "transcript_too_large",
+        message: "Local macOS voice transcript exceeded the maximum allowed length.",
+      },
+      status: "failed",
+    });
+  });
+
+  test("maps local macOS helper duration-limit failures while clearing the capture session", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const helper = localMacOSVoiceHelper();
+    helper.finishCapture.mockRejectedValueOnce(
+      new LocalMacOSVoiceHelperCommandError(
+        "duration_limit",
+        "Local macOS voice reached the recording limit.",
+      ),
+    );
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_duration_limit",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+    const limited = await invoke(handlers, ipcChannels.speechFinishLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_duration_limit",
+    });
+    const stale = await invoke(handlers, ipcChannels.speechFinishLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_duration_limit",
+    });
+
+    expect(limited).toEqual({
+      failure: {
+        code: "duration_limit",
+        message: "Local macOS voice reached the recording limit.",
+      },
+      status: "failed",
+    });
+    expect(stale).toEqual({
+      failure: {
+        code: "invalid_session",
+        message: "Local macOS voice capture session is not active.",
+      },
+      status: "failed",
+    });
   });
 
   test("routes local macOS synthesis through backend source resolution and helper", async () => {

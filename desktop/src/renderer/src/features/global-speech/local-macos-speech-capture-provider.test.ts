@@ -135,6 +135,49 @@ describe("local macOS speech capture provider", () => {
       name: "VoiceCaptureProviderError",
     } satisfies Partial<VoiceCaptureProviderError>);
   });
+
+  test("publishes local finish failures as provider-neutral session failures", async () => {
+    const provider = createLocalMacOSSpeechCaptureProvider({
+      cancelCapture: vi.fn(),
+      finishCapture: vi.fn(async () => ({
+        failure: {
+          code: "no_speech" as const,
+          message: "No speech was detected. Please try again.",
+        },
+        status: "failed" as const,
+      })),
+      readCapabilities: vi.fn(async () => openAICapabilities()),
+      readHealth: vi.fn(),
+      startCapture: vi.fn(async () => ({
+        captureSessionId: "capture_empty",
+        status: "started" as const,
+      })),
+    });
+
+    const session = await provider.startCapture({
+      capabilities: openAICapabilities(),
+      captureSessionId: "capture_empty",
+    });
+    const events: unknown[] = [];
+    session.subscribe((event) => events.push(event));
+
+    await expect(session.finish()).rejects.toMatchObject({
+      failure: {
+        code: "no_speech",
+        message: "No speech was detected. Please try again.",
+      },
+      name: "VoiceCaptureProviderError",
+    } satisfies Partial<VoiceCaptureProviderError>);
+    expect(events).toEqual([
+      {
+        failure: {
+          code: "no_speech",
+          message: "No speech was detected. Please try again.",
+        },
+        type: "failed",
+      },
+    ]);
+  });
 });
 
 function openAICapabilities(): SpeechCapabilities {

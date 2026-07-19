@@ -72,6 +72,7 @@ export function registerSpeechIpcHandlers({
   requireSpeechCredentialCoordinator,
 }: SpeechIpcRegistration): void {
   const synthesisOperations = new SpeechSynthesisOperations();
+  const localCaptureSessions = new LocalMacOSCaptureSessions();
   handleIpc(ipcMain, "speechCancelSynthesis", async (_event, operationId) => {
     synthesisOperations.cancel(operationId);
   });
@@ -134,7 +135,11 @@ export function registerSpeechIpcHandlers({
           "Local macOS voice capture start request is invalid.",
         );
       }
-      return startLocalMacOSVoiceCapture(requireLocalMacOSVoiceHelper(), decoded);
+      return startLocalMacOSVoiceCapture(
+        requireLocalMacOSVoiceHelper(),
+        localCaptureSessions,
+        decoded,
+      );
     },
     ipcObserver,
   );
@@ -149,18 +154,11 @@ export function registerSpeechIpcHandlers({
           "Local macOS voice capture finish request is invalid.",
         );
       }
-      try {
-        const result = await requireLocalMacOSVoiceHelper().finishCapture({
-          sessionId: decoded.captureSessionId,
-        });
-        return {
-          captureSessionId: result.sessionId,
-          status: "completed",
-          transcript: result.transcript,
-        } satisfies LocalMacOSVoiceFinishCaptureResult;
-      } catch (error) {
-        return localCaptureFailedFromError(error);
-      }
+      return finishLocalMacOSVoiceCapture(
+        requireLocalMacOSVoiceHelper(),
+        localCaptureSessions,
+        decoded,
+      );
     },
     ipcObserver,
   );
@@ -175,17 +173,11 @@ export function registerSpeechIpcHandlers({
           "Local macOS voice capture cancel request is invalid.",
         );
       }
-      try {
-        const result = await requireLocalMacOSVoiceHelper().cancelCapture({
-          sessionId: decoded.captureSessionId,
-        });
-        return {
-          captureSessionId: result.sessionId,
-          status: "canceled",
-        } satisfies LocalMacOSVoiceCancelCaptureResult;
-      } catch (error) {
-        return localCaptureFailedFromError(error);
-      }
+      return cancelLocalMacOSVoiceCapture(
+        requireLocalMacOSVoiceHelper(),
+        localCaptureSessions,
+        decoded,
+      );
     },
     ipcObserver,
   );
@@ -270,14 +262,28 @@ function decodeLocalSessionRequest(request: unknown): { captureSessionId: string
 
 async function startLocalMacOSVoiceCapture(
   helper: LocalMacOSVoiceHelper,
+  sessions: LocalMacOSCaptureSessions,
   request: LocalMacOSVoiceStartCaptureRequest,
 ): Promise<LocalMacOSVoiceStartCaptureResult> {
+  if (sessions.has(request.captureSessionId)) {
+    return localCaptureFailed(
+      "invalid_session",
+      "Local macOS voice capture session is already active.",
+    );
+  }
   try {
     const result = await helper.startCapture({
       maximumRecordingSeconds: request.maximumRecordingSeconds,
       maximumTranscriptCharacters: request.maximumTranscriptCharacters,
       sessionId: request.captureSessionId,
     });
+    if (result.sessionId !== request.captureSessionId) {
+      return localCaptureFailed(
+        "invalid_session",
+        "Local macOS voice helper returned a different capture session.",
+      );
+    }
+    sessions.start(request);
     return {
       captureSessionId: result.sessionId,
       status: "started",
@@ -285,6 +291,92 @@ async function startLocalMacOSVoiceCapture(
   } catch (error) {
     return localCaptureFailedFromError(error);
   }
+}
+
+async function finishLocalMacOSVoiceCapture(
+  helper: LocalMacOSVoiceHelper,
+  sessions: LocalMacOSCaptureSessions,
+  request: { captureSessionId: string },
+): Promise<LocalMacOSVoiceFinishCaptureResult> {
+  const session = sessions.read(request.captureSessionId);
+  if (!session) {
+    return localCaptureFailed(
+      "invalid_session",
+      "Local macOS voice capture session is not active.",
+    );
+  }
+  try {
+    const result = await helper.finishCapture({
+      sessionId: request.captureSessionId,
+    });
+    sessions.finish(request.captureSessionId);
+    if (result.sessionId !== request.captureSessionId) {
+      return localCaptureFailed(
+        "invalid_session",
+        "Local macOS voice helper returned a different capture session.",
+      );
+    }
+    const failure = validateLocalMacOSVoiceTranscript(result.transcript, session);
+    if (failure) {
+      return failure;
+    }
+    return {
+      captureSessionId: result.sessionId,
+      status: "completed",
+      transcript: result.transcript,
+    };
+  } catch (error) {
+    sessions.finish(request.captureSessionId);
+    return localCaptureFailedFromError(error);
+  }
+}
+
+async function cancelLocalMacOSVoiceCapture(
+  helper: LocalMacOSVoiceHelper,
+  sessions: LocalMacOSCaptureSessions,
+  request: { captureSessionId: string },
+): Promise<LocalMacOSVoiceCancelCaptureResult> {
+  if (!sessions.has(request.captureSessionId)) {
+    return localCaptureFailed(
+      "invalid_session",
+      "Local macOS voice capture session is not active.",
+    );
+  }
+  try {
+    const result = await helper.cancelCapture({
+      sessionId: request.captureSessionId,
+    });
+    sessions.finish(request.captureSessionId);
+    if (result.sessionId !== request.captureSessionId) {
+      return localCaptureFailed(
+        "invalid_session",
+        "Local macOS voice helper returned a different capture session.",
+      );
+    }
+    return {
+      captureSessionId: result.sessionId,
+      status: "canceled",
+    };
+  } catch (error) {
+    sessions.finish(request.captureSessionId);
+    return localCaptureFailedFromError(error);
+  }
+}
+
+function validateLocalMacOSVoiceTranscript(
+  transcript: string,
+  session: LocalMacOSCaptureSession,
+): LocalMacOSVoiceFinishCaptureResult | null {
+  if (transcript.trim() === "") {
+    return localCaptureFailed("no_speech", "No speech was detected. Please try again.");
+  }
+  if (transcript.length > session.maximumTranscriptCharacters) {
+    return localCaptureFailed(
+      "transcript_too_large",
+      "Local macOS voice transcript exceeded the maximum allowed length.",
+    );
+  }
+  return null;
 }
 
 function localCaptureFailed(
@@ -530,6 +622,32 @@ class SpeechSynthesisOperations {
         this.active.delete(operation.operationId);
       }
     }
+  }
+}
+
+interface LocalMacOSCaptureSession {
+  maximumTranscriptCharacters: number;
+}
+
+class LocalMacOSCaptureSessions {
+  private readonly active = new Map<string, LocalMacOSCaptureSession>();
+
+  has(captureSessionId: string): boolean {
+    return this.active.has(captureSessionId);
+  }
+
+  read(captureSessionId: string): LocalMacOSCaptureSession | null {
+    return this.active.get(captureSessionId) ?? null;
+  }
+
+  start(request: LocalMacOSVoiceStartCaptureRequest): void {
+    this.active.set(request.captureSessionId, {
+      maximumTranscriptCharacters: request.maximumTranscriptCharacters,
+    });
+  }
+
+  finish(captureSessionId: string): void {
+    this.active.delete(captureSessionId);
   }
 }
 

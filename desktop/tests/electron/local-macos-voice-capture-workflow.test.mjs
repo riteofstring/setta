@@ -85,9 +85,7 @@ try {
   assertReadyHealth(health);
   const started = await startCapture(context.client, "capture_local");
   assertStatus(started, "started", "capture_local");
-  const finished = await context.client.evaluate(
-    'window.setta.speech.finishLocalMacOSVoiceCapture({ captureSessionId: "capture_local" })',
-  );
+  const finished = await finishCapture(context.client, "capture_local");
   assertCompleted(finished, "capture_local", "local transcript for capture_local");
 
   const secondStarted = await startCapture(context.client, "capture_cancel");
@@ -97,10 +95,24 @@ try {
   );
   assertStatus(canceled, "canceled", "capture_cancel");
 
-  const invalidFinish = await context.client.evaluate(
-    'window.setta.speech.finishLocalMacOSVoiceCapture({ captureSessionId: "capture_missing" })',
-  );
+  const invalidFinish = await finishCapture(context.client, "capture_missing");
   assertFailure(invalidFinish, "invalid_session");
+  const emptyStarted = await startCapture(context.client, "capture_empty");
+  assertStatus(emptyStarted, "started", "capture_empty");
+  const emptyFinish = await finishCapture(context.client, "capture_empty");
+  assertFailure(emptyFinish, "no_speech");
+  const oversizedStarted = await startCapture(context.client, "capture_too_large", {
+    maximumTranscriptCharacters: 8,
+  });
+  assertStatus(oversizedStarted, "started", "capture_too_large");
+  const oversizedFinish = await finishCapture(context.client, "capture_too_large");
+  assertFailure(oversizedFinish, "transcript_too_large");
+  const durationStarted = await startCapture(context.client, "capture_duration_limit", {
+    maximumRecordingSeconds: 1,
+  });
+  assertStatus(durationStarted, "started", "capture_duration_limit");
+  const durationFinish = await finishCapture(context.client, "capture_duration_limit");
+  assertFailure(durationFinish, "duration_limit");
 
   const routedVoiceInput = await submitLocalVoiceThroughMasterOverlay(context.client);
   const source = { conversationId: null, eventId: routedVoiceInput.inputId, speaker: "master" };
@@ -119,9 +131,12 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     canceledSynthesis,
+    durationFailure: durationFinish.failure,
+    emptyFailure: emptyFinish.failure,
     finishedTranscript: finished.transcript,
     health,
     invalidFinishFailure: invalidFinish.failure,
+    oversizedFailure: oversizedFinish.failure,
     routedVoiceInput,
     synthesized: {
       audioBase64: synthesized.audioBase64,
@@ -154,12 +169,20 @@ if (workflowError) {
 }
 console.log(`Electron local macOS voice capture workflow passed: ${artifactDir}`);
 
-function startCapture(client, captureSessionId) {
+function startCapture(client, captureSessionId, limits = {}) {
   return client.evaluate(
     `window.setta.speech.startLocalMacOSVoiceCapture(${JSON.stringify({
       captureSessionId,
-      maximumRecordingSeconds: 120,
-      maximumTranscriptCharacters: 8000,
+      maximumRecordingSeconds: limits.maximumRecordingSeconds ?? 120,
+      maximumTranscriptCharacters: limits.maximumTranscriptCharacters ?? 8000,
+    })})`,
+  );
+}
+
+function finishCapture(client, captureSessionId) {
+  return client.evaluate(
+    `window.setta.speech.finishLocalMacOSVoiceCapture(${JSON.stringify({
+      captureSessionId,
     })})`,
   );
 }
