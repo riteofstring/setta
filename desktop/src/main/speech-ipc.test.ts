@@ -1,7 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import type { BackendClient } from "@generated/backend";
 import { ipcChannels, type IpcObserver } from "@shared/ipc";
-import type { SpeechProviderSelectionSettings } from "@shared/speech-ipc";
 import { describe, expect, test, vi } from "vitest";
 
 import { registerSpeechIpcHandlers } from "./speech-ipc";
@@ -158,43 +157,6 @@ describe("speech IPC handlers", () => {
     ]);
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(clientSecret);
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(audioBase64);
-  });
-
-  test("routes provider selection through the desktop store and publishes changes", async () => {
-    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
-    const store = providerSelectionStore();
-    const changed = vi.fn();
-
-    registerSpeechIpcHandlers({
-      ipcMain: {
-        handle: (channel, handler) => {
-          handlers.set(channel, handler);
-        },
-      } as Pick<IpcMain, "handle">,
-      onProviderSelectionChanged: changed,
-      requireLocalMacOSVoiceHelper: () => localMacOSVoiceHelper(),
-      requireBackendClient: () => ({}) as BackendClient,
-      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
-      requireSpeechProviderSelectionStore: () => store,
-    });
-
-    const initial = await invoke(handlers, ipcChannels.speechReadProviderSelection);
-    const updated = await invoke(handlers, ipcChannels.speechUpdateProviderSelection, {
-      provider: "openai",
-    });
-
-    expect(initial).toEqual({
-      defaultProvider: "local_macos",
-      provider: "local_macos",
-      supportedProviders: ["local_macos", "openai"],
-    });
-    expect(updated).toEqual({
-      defaultProvider: "local_macos",
-      provider: "openai",
-      supportedProviders: ["local_macos", "openai"],
-    });
-    expect(store.update).toHaveBeenCalledWith("openai");
-    expect(changed).toHaveBeenCalledWith(updated);
   });
 
   test("routes local macOS capture lifecycle through the helper", async () => {
@@ -743,21 +705,6 @@ function credentialCoordinator() {
       provider: "openai" as const,
       status: "configured" as const,
     })),
-  };
-}
-
-function providerSelectionStore() {
-  let settings: SpeechProviderSelectionSettings = {
-    defaultProvider: "local_macos" as const,
-    provider: "local_macos" as const,
-    supportedProviders: ["local_macos" as const, "openai" as const],
-  };
-  return {
-    read: vi.fn(async () => settings),
-    update: vi.fn(async (provider: "local_macos" | "openai") => {
-      settings = { ...settings, provider };
-      return settings;
-    }),
   };
 }
 

@@ -23,14 +23,12 @@ export const speechIpcChannels = {
   speechReadCapabilities: "speech:read-capabilities",
   speechReadMasterVoiceSelection: "speech:read-master-voice-selection",
   speechReadNarratorVoiceDefault: "speech:read-narrator-voice-default",
-  speechReadProviderSelection: "speech:read-provider-selection",
   speechRemoveCredential: "speech:remove-credential",
   speechSaveCredential: "speech:save-credential",
   speechStartLocalMacOSVoiceCapture: "speech:start-local-macos-voice-capture",
   speechSynthesize: "speech:synthesize",
   speechUpdateMasterVoiceSelection: "speech:update-master-voice-selection",
   speechUpdateNarratorVoiceDefault: "speech:update-narrator-voice-default",
-  speechUpdateProviderSelection: "speech:update-provider-selection",
 } as const;
 
 type SpeechCredentialCorruptionReason =
@@ -61,16 +59,6 @@ export interface SpeechCredentialSaveRequest extends SpeechCredentialProviderReq
 export interface SpeechSynthesisIpcRequest {
   operationId: string;
   request: SpeechSynthesisRequest;
-}
-
-export interface SpeechProviderSelectionSettings {
-  defaultProvider: SpeechProvider;
-  provider: SpeechProvider;
-  supportedProviders: SpeechProvider[];
-}
-
-export interface SpeechProviderSelectionUpdateRequest {
-  provider: SpeechProvider;
 }
 
 type LocalMacOSVoiceCaptureFailureCode =
@@ -215,10 +203,6 @@ export interface SpeechIpcContract {
     args: [];
     result: NarratorVoiceDefault;
   };
-  speechReadProviderSelection: {
-    args: [];
-    result: SpeechProviderSelectionSettings;
-  };
   speechRemoveCredential: {
     args: [request: SpeechCredentialProviderRequest];
     result: SpeechCredentialSettings;
@@ -242,10 +226,6 @@ export interface SpeechIpcContract {
   speechUpdateNarratorVoiceDefault: {
     args: [request: VoiceSelectionRequest];
     result: NarratorVoiceDefault;
-  };
-  speechUpdateProviderSelection: {
-    args: [request: SpeechProviderSelectionUpdateRequest];
-    result: SpeechProviderSelectionSettings;
   };
 }
 
@@ -308,46 +288,6 @@ export function decodeSpeechCredentialProviderRequest(
     provider: decodeSpeechProvider(
       stringField(record, "provider", "SpeechCredentialProviderRequest"),
       "SpeechCredentialProviderRequest.provider",
-    ),
-  };
-}
-
-export function decodeSpeechProviderSelectionSettings(
-  value: unknown,
-): SpeechProviderSelectionSettings {
-  const record = assertRecord(value, "SpeechProviderSelectionSettings");
-  assertKnownFields(record, "SpeechProviderSelectionSettings", [
-    "defaultProvider",
-    "provider",
-    "supportedProviders",
-  ]);
-  const supportedProviders = arrayField(
-    record,
-    "supportedProviders",
-    "SpeechProviderSelectionSettings",
-  ).map((item) => decodeSpeechProvider(item, "SpeechProviderSelectionSettings.supportedProviders"));
-  return {
-    defaultProvider: decodeSpeechProvider(
-      stringField(record, "defaultProvider", "SpeechProviderSelectionSettings"),
-      "SpeechProviderSelectionSettings.defaultProvider",
-    ),
-    provider: decodeSpeechProvider(
-      stringField(record, "provider", "SpeechProviderSelectionSettings"),
-      "SpeechProviderSelectionSettings.provider",
-    ),
-    supportedProviders,
-  };
-}
-
-export function decodeSpeechProviderSelectionUpdateRequest(
-  value: unknown,
-): SpeechProviderSelectionUpdateRequest {
-  const record = assertRecord(value, "SpeechProviderSelectionUpdateRequest");
-  assertKnownFields(record, "SpeechProviderSelectionUpdateRequest", ["provider"]);
-  return {
-    provider: decodeSpeechProvider(
-      stringField(record, "provider", "SpeechProviderSelectionUpdateRequest"),
-      "SpeechProviderSelectionUpdateRequest.provider",
     ),
   };
 }
@@ -452,14 +392,6 @@ function positiveIntegerField(
   const value = record[field];
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
     throw new Error(label + "." + field + " must be a positive integer");
-  }
-  return value;
-}
-
-function arrayField(record: Record<string, unknown>, field: string, label: string): unknown[] {
-  const value = record[field];
-  if (!Array.isArray(value)) {
-    throw new Error(label + "." + field + " must be an array");
   }
   return value;
 }
