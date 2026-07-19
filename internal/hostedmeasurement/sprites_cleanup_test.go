@@ -3,130 +3,102 @@ package hostedmeasurement
 import (
 	"context"
 	"errors"
-	"net/http"
 	"reflect"
 	"strings"
 	"testing"
 
-	spritessdk "github.com/superfly/sprites-go"
-
 	"setta/internal/runtimeprovider"
 )
 
-func TestSpritesCleanupClientListsOwnedRuntimeWithBoundedPaginationAndDestroysExactID(t *testing.T) {
+func TestSpritesCleanupClientInspectsAndDestroysExactOwnedRuntime(t *testing.T) {
 	name := testManagedRuntimeName()
 	identity, err := runtimeprovider.ManagedIdentityFromName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sprite := spritessdk.SpriteInfo{
-		ID: "sprite_123", Name: name, Organization: "setta-100", Labels: identity.Labels, PrimaryRegion: "yyz",
-	}
-	api := &fakeSpritesCleanupAPI{pages: []*spritessdk.SpriteList{
-		{HasMore: true, NextContinuationToken: "page-two"},
-		{Sprites: []spritessdk.SpriteInfo{sprite}},
-		{Sprites: []spritessdk.SpriteInfo{sprite}},
-	}}
+	api := &fakeSpritesCleanupAPI{observation: runtimeprovider.RuntimeObservation{
+		ProviderResourceID: "sprite_123", Name: name, Labels: identity.Labels, Placement: "yyz",
+	}, found: true}
 	client := newSpritesCleanupClient(api, "setta-100", name)
 	resources, err := client.List(context.Background(), "setta-100")
 	if err != nil {
-		t.Fatalf("List: %v", err)
+		t.Fatal(err)
 	}
 	want := []ProviderResource{{ID: "sprite_123", Name: name, Region: "yyz"}}
 	if !reflect.DeepEqual(resources, want) {
 		t.Fatalf("resources = %+v, want %+v", resources, want)
 	}
 	if err := client.Destroy(context.Background(), "setta-100", "sprite_123"); err != nil {
-		t.Fatalf("Destroy: %v", err)
+		t.Fatal(err)
 	}
-	if api.deletedName != name {
-		t.Fatalf("deleted name = %q, want %q", api.deletedName, name)
-	}
-	if len(api.options) != 3 || api.options[0].ContinuationToken != "" || api.options[1].ContinuationToken != "page-two" {
-		t.Fatalf("list options = %+v", api.options)
+	if api.destroyedName != name {
+		t.Fatalf("destroyed name = %q", api.destroyedName)
 	}
 }
 
-func TestSpritesCleanupClientFailsClosedOnOwnershipOrganizationAndContentfulErrors(t *testing.T) {
+func TestSpritesCleanupClientHandlesExactAbsenceAndRejectsUnsafeInventory(t *testing.T) {
 	name := testManagedRuntimeName()
-	identity, err := runtimeprovider.ManagedIdentityFromName(name)
-	if err != nil {
-		t.Fatal(err)
+	client := newSpritesCleanupClient(&fakeSpritesCleanupAPI{}, "setta-100", name)
+	resources, err := client.List(context.Background(), "setta-100")
+	if err != nil || len(resources) != 0 {
+		t.Fatalf("absent resources = %+v, %v", resources, err)
 	}
-	tests := []spritessdk.SpriteInfo{
-		{ID: "sprite_123", Name: name, Organization: "wrong-org", Labels: identity.Labels},
-		{ID: "sprite_123", Name: name, Organization: "setta-100", Labels: []string{"wrong-label"}},
-		{ID: "sprite_123", Name: name + "-other", Organization: "setta-100", Labels: identity.Labels},
+	if err := client.Destroy(context.Background(), "setta-100", "sprite_123"); !errors.Is(err, ErrProviderNotFound) {
+		t.Fatalf("absent destroy error = %v", err)
 	}
-	for _, sprite := range tests {
-		api := &fakeSpritesCleanupAPI{pages: []*spritessdk.SpriteList{{Sprites: []spritessdk.SpriteInfo{sprite}}}}
+
+	identity, _ := runtimeprovider.ManagedIdentityFromName(name)
+	tests := []runtimeprovider.RuntimeObservation{
+		{ProviderResourceID: "sprite_123", Name: name + "-other", Labels: identity.Labels},
+		{ProviderResourceID: "sprite_123", Name: name, Labels: []string{"wrong-label"}},
+		{ProviderResourceID: "bad\nid", Name: name, Labels: identity.Labels},
+	}
+	for _, observation := range tests {
+		api := &fakeSpritesCleanupAPI{observation: observation, found: true}
 		client := newSpritesCleanupClient(api, "setta-100", name)
 		if _, err := client.List(context.Background(), "setta-100"); err == nil {
-			t.Fatalf("List accepted unsafe Sprite inventory: %+v", sprite)
+			t.Fatalf("unsafe observation accepted: %+v", observation)
 		}
-	}
-	api := &fakeSpritesCleanupAPI{listErr: errors.New("sprite-token-sentinel provider detail")}
-	client := newSpritesCleanupClient(api, "setta-100", name)
-	_, err = client.List(context.Background(), "setta-100")
-	if err == nil || strings.Contains(err.Error(), "sentinel") || strings.Contains(err.Error(), "provider detail") {
-		t.Fatalf("contentful Sprite error = %v", err)
 	}
 }
 
-func TestSpritesCleanupClientRejectsRepeatedPaginationAndWrongDeleteID(t *testing.T) {
+func TestSpritesCleanupClientRedactsProviderErrorsAndRejectsWrongDeleteID(t *testing.T) {
 	name := testManagedRuntimeName()
-	api := &fakeSpritesCleanupAPI{pages: []*spritessdk.SpriteList{
-		{HasMore: true, NextContinuationToken: "repeat"},
-		{HasMore: true, NextContinuationToken: "repeat"},
-	}}
+	api := &fakeSpritesCleanupAPI{inspectErr: errors.New("sprite-token-sentinel provider detail")}
 	client := newSpritesCleanupClient(api, "setta-100", name)
-	if _, err := client.List(context.Background(), "setta-100"); err == nil {
-		t.Fatal("List accepted repeated pagination token")
+	_, err := client.List(context.Background(), "setta-100")
+	if err == nil || strings.Contains(err.Error(), "sentinel") || strings.Contains(err.Error(), "provider detail") {
+		t.Fatalf("contentful inspect error = %v", err)
 	}
-	identity, err := runtimeprovider.ManagedIdentityFromName(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	api = &fakeSpritesCleanupAPI{pages: []*spritessdk.SpriteList{{Sprites: []spritessdk.SpriteInfo{{
-		ID: "sprite_123", Name: name, Organization: "setta-100", Labels: identity.Labels,
-	}}}}}
+	identity, _ := runtimeprovider.ManagedIdentityFromName(name)
+	api = &fakeSpritesCleanupAPI{observation: runtimeprovider.RuntimeObservation{
+		ProviderResourceID: "sprite_123", Name: name, Labels: identity.Labels,
+	}, found: true}
 	client = newSpritesCleanupClient(api, "setta-100", name)
 	if err := client.Destroy(context.Background(), "setta-100", "wrong-id"); !errors.Is(err, ErrAmbiguousInventory) {
-		t.Fatalf("Destroy wrong id error = %v", err)
+		t.Fatalf("wrong ID error = %v", err)
 	}
-	api.pages = []*spritessdk.SpriteList{{Sprites: []spritessdk.SpriteInfo{{
-		ID: "sprite_123", Name: name, Organization: "setta-100", Labels: identity.Labels,
-	}}}}
-	api.deleteErr = &spritessdk.APIError{StatusCode: http.StatusNotFound, Message: "contentful missing detail"}
-	if err := client.Destroy(context.Background(), "setta-100", "sprite_123"); !errors.Is(err, ErrProviderNotFound) {
-		t.Fatalf("Destroy missing Sprite error = %v", err)
+	api.destroyErr = errors.New("private provider detail")
+	if err := client.Destroy(context.Background(), "setta-100", "sprite_123"); err == nil || strings.Contains(err.Error(), "private") {
+		t.Fatalf("contentful destroy error = %v", err)
 	}
 }
 
 type fakeSpritesCleanupAPI struct {
-	pages       []*spritessdk.SpriteList
-	listErr     error
-	deleteErr   error
-	deletedName string
-	options     []spritessdk.ListOptions
+	observation   runtimeprovider.RuntimeObservation
+	found         bool
+	inspectErr    error
+	destroyErr    error
+	destroyedName string
 }
 
-func (api *fakeSpritesCleanupAPI) ListSprites(_ context.Context, options *spritessdk.ListOptions) (*spritessdk.SpriteList, error) {
-	api.options = append(api.options, *options)
-	if api.listErr != nil {
-		return nil, api.listErr
-	}
-	if len(api.pages) == 0 {
-		return &spritessdk.SpriteList{}, nil
-	}
-	page := api.pages[0]
-	api.pages = api.pages[1:]
-	return page, nil
+func (api *fakeSpritesCleanupAPI) Inspect(context.Context, string) (runtimeprovider.RuntimeObservation, bool, error) {
+	return api.observation, api.found, api.inspectErr
 }
 
-func (api *fakeSpritesCleanupAPI) DeleteSprite(_ context.Context, name string) error {
-	api.deletedName = name
-	return api.deleteErr
+func (api *fakeSpritesCleanupAPI) Destroy(_ context.Context, name string) error {
+	api.destroyedName = name
+	return api.destroyErr
 }
 
 func testManagedRuntimeName() string {
