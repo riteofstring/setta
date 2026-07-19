@@ -18,7 +18,7 @@ import (
 	"setta/internal/workspaceui/conversationpalette"
 )
 
-func TestServiceProjectsTerminalBacklogInOrderAndCheckpointsBeforeResuming(t *testing.T) {
+func TestServiceSubmitsTerminalProjectionBeforeRawBacklogCheckpoint(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
 	retryStarted := make(chan time.Duration, 1)
@@ -55,7 +55,7 @@ func TestServiceProjectsTerminalBacklogInOrderAndCheckpointsBeforeResuming(t *te
 			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
 	})
 	assertTerminalProjectorState(t, snapshot, turnID)
-	assertTerminalProjectorCalls(t, provider.snapshotCalls(), terminal.Sequence)
+	assertTerminalBypassesBacklogCheckpoint(t, provider.snapshotCalls(), terminal.Sequence)
 }
 
 func TestServiceWaitsForAcceptedInputFocusBeforeTerminalProjection(t *testing.T) {
@@ -244,7 +244,7 @@ func TestServiceKeepsTerminalProjectionBehindRetriedFocus(t *testing.T) {
 	t.Fatalf("terminal projection call was not recorded: %+v", provider.snapshotCalls())
 }
 
-func TestServiceResumesFailedTerminalProjectionAfterCatchUpCheckpoint(t *testing.T) {
+func TestServiceResumesTerminalProjectionAfterActiveProgressFinishes(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
 	progressStarted := make(chan struct{})
@@ -297,7 +297,7 @@ func TestServiceResumesFailedTerminalProjectionAfterCatchUpCheckpoint(t *testing
 	assertTerminalProjectorState(t, snapshot, turnID)
 }
 
-func TestServiceFinalizesTerminalProjectionAfterCheckpointCaughtUp(t *testing.T) {
+func TestServiceFinalizesTerminalProjectionAtObservedCursor(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
 	markNarratorCaughtUpAtTerminal(t, store, conversationID, terminal.Sequence)
@@ -536,7 +536,7 @@ func TestServiceSchedulesProgressWindowWithoutPolling(t *testing.T) {
 	}
 }
 
-func TestServiceSerializesTerminalCatchUpAcrossPromotedTurns(t *testing.T) {
+func TestServiceSerializesTerminalSummariesAcrossPromotedTurns(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, firstTurnID, firstTerminal := seedTerminalProjectorConversation(t, store)
 	secondTurnID, plan, secondTerminal := appendSecondTerminalProjectorTurn(t, store, conversationID)
@@ -722,12 +722,12 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 		if runtime.emitProjectionMilestones && bundle.RequestedChannel == ProjectionChannelWorking &&
 			len(bundle.PriorMilestones) == 0 {
 			output["milestones"] = []string{
-				fmt.Sprintf("The backlog now covers event %d.", bundle.EvaluationRange.End),
+				fmt.Sprintf("The working projection now covers event %d.", bundle.EvaluationRange.End),
 			}
 		}
 		if bundle.RequestedChannel == ProjectionChannelTerminal {
 			output["kind"] = string(CallOutputTerminalProjection)
-			output["finalSummary"] = "The terminal backlog is fully caught up."
+			output["finalSummary"] = "The terminal projector result is summarized immediately."
 		}
 		encoded, err := json.Marshal(output)
 		return call, encoded, err
@@ -859,6 +859,29 @@ func seedTerminalProjectorConversation(
 			},
 		})
 	}
+	artifactSequence := len(trajectory) + 1
+	artifact := conversation.Artifact{
+		ID:                 "projector-artifact",
+		ConversationID:     conversationID,
+		TurnID:             &turnID,
+		TrajectorySequence: &artifactSequence,
+		Kind:               conversation.ArtifactKindMarkdown,
+		Title:              "Terminal projector result",
+		CreatedAt:          endedAt,
+		Markdown:           &conversation.MarkdownArtifactPayload{Markdown: "The terminal projector produced a deterministic artifact."},
+	}
+	trajectory = append(trajectory, conversation.TrajectoryEvent{
+		ID:             "projector-artifact-emitted",
+		ConversationID: conversationID,
+		TurnID:         &turnID,
+		Sequence:       artifactSequence,
+		EmittedAt:      endedAt,
+		Kind:           conversation.TrajectoryEventArtifactEmitted,
+		Actor:          conversation.TrajectoryActorSystem,
+		ArtifactEmitted: &conversation.TrajectoryArtifactEmitted{
+			ArtifactID: artifact.ID,
+		},
+	})
 	terminal := conversation.TrajectoryEvent{
 		ID:             "projector-terminal",
 		ConversationID: conversationID,
@@ -914,6 +937,9 @@ func seedTerminalProjectorConversation(
 			if err := tx.AppendTrajectoryEvent(event); err != nil {
 				return err
 			}
+		}
+		if err := tx.InsertArtifact(artifact); err != nil {
+			return err
 		}
 		_, err := tx.AppendCommittedEvent(conversation.CommittedEventDraft{
 			ID:          "terminal-projector-seed-event",
@@ -1047,7 +1073,7 @@ func markNarratorCaughtUpAtTerminal(
 	t.Helper()
 	state, err := store.ReadNarratorState(context.Background(), conversationID)
 	if err != nil {
-		t.Fatalf("read narrator state before catch-up: %v", err)
+		t.Fatalf("read narrator state before terminal finalization: %v", err)
 	}
 	updated := state
 	updated.ObservedThroughSequence = terminalSequence
@@ -1254,8 +1280,7 @@ func assertTerminalProjectorState(
 ) {
 	t.Helper()
 	state := snapshot.NarratorState
-	if state.CheckpointThroughSequence <= 0 ||
-		state.CheckpointThroughSequence > state.ObservedThroughSequence ||
+	if state.CheckpointThroughSequence > state.ObservedThroughSequence ||
 		state.Status != conversation.NarratorStatusReady || state.Degradation != nil {
 		t.Fatalf("terminal projector state = %+v", state)
 	}
@@ -1264,44 +1289,38 @@ func assertTerminalProjectorState(
 		final.Trigger != conversation.NarrationTriggerTurnTerminal ||
 		final.SourceSequenceEnd != snapshot.Conversation.LastTrajectorySequence ||
 		final.FinalSummary == nil ||
-		final.FinalSummary.Text != "The terminal backlog is fully caught up." {
+		final.FinalSummary.Text != "The terminal projector result is summarized immediately." {
 		t.Fatalf("terminal final summary = %+v", final)
 	}
 }
 
-func assertTerminalProjectorCalls(
+func assertTerminalBypassesBacklogCheckpoint(
 	t *testing.T,
 	calls []projectorTestCall,
 	terminalSequence int,
 ) {
 	t.Helper()
-	if len(calls) < 4 {
-		t.Fatalf("projector calls = %+v, want retry, catch-up, checkpoint, and terminal", calls)
-	}
-	checkpointSeen := false
-	successfulProjectionSeen := false
+	terminalIndex := -1
 	for index, call := range calls {
-		switch call.kind {
-		case ContextKindCheckpoint:
-			checkpointSeen = true
-			if call.checkpointRangeStart <= 0 || call.checkpointRangeEnd < call.checkpointRangeStart {
-				t.Fatalf("checkpoint call %d has invalid range: %+v", index, call)
-			}
-		case ContextKindProjection:
-			if index > 0 {
-				successfulProjectionSeen = true
-				if call.evaluationStart != call.preCallObserved+1 {
-					t.Fatalf("projection call %d skipped trajectory: %+v", index, call)
-				}
-			}
+		if call.kind == ContextKindCheckpoint && terminalIndex < 0 {
+			t.Fatalf("checkpoint ran before terminal summary request: calls=%+v", calls)
+		}
+		if call.kind != ContextKindProjection ||
+			call.requestedChannel != ProjectionChannelTerminal {
+			continue
+		}
+		if terminalIndex >= 0 {
+			continue
+		}
+		terminalIndex = index
+		if call.trigger != conversation.NarrationTriggerTurnTerminal ||
+			call.evaluationStart != call.preCallObserved+1 ||
+			call.evaluationEnd != terminalSequence {
+			t.Fatalf("terminal call %d = %+v, want direct terminal through %d", index, call, terminalSequence)
 		}
 	}
-	last := calls[len(calls)-1]
-	if !checkpointSeen || !successfulProjectionSeen ||
-		last.kind != ContextKindProjection || last.requestedChannel != ProjectionChannelTerminal ||
-		last.trigger != conversation.NarrationTriggerTurnTerminal ||
-		last.evaluationEnd != terminalSequence {
-		t.Fatalf("terminal projector call order = %+v", calls)
+	if terminalIndex != 0 {
+		t.Fatalf("terminal summary request was not first provider call: calls=%+v", calls)
 	}
 }
 

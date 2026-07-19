@@ -9,7 +9,7 @@ import { describe, expect, test, vi } from "vitest";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 
 describe("conversation event registry", () => {
-  test("keeps a pane-released active stream until the conversation leaves active work", async () => {
+  test("keeps a pane-released active stream until terminal narration arrives", async () => {
     const harness = registryHarness();
     harness.registry.subscribe(harness.sender, target, cursor);
     await harness.registry.release(harness.sender, target, true);
@@ -19,13 +19,16 @@ describe("conversation event registry", () => {
     expect(harness.stop).not.toHaveBeenCalled();
 
     harness.forward(conversationUpdated("idle"));
+    expect(harness.stop).not.toHaveBeenCalled();
+
+    harness.forward(narrationCreated("final_summary", "turn_terminal"));
     await Promise.resolve();
 
-    expect(harness.sender.send).toHaveBeenCalledTimes(3);
+    expect(harness.sender.send).toHaveBeenCalledTimes(4);
     expect(harness.stop).toHaveBeenCalledOnce();
   });
 
-  test("keeps a waiting-for-approval stream and ignores final narration as a stop boundary", async () => {
+  test("stops a released stream when terminal status follows terminal narration", async () => {
     const harness = registryHarness();
     harness.registry.subscribe(harness.sender, target, cursor);
     await harness.registry.release(harness.sender, target, true);
@@ -107,14 +110,15 @@ function conversationUpdated(
 
 function narrationCreated(
   kind: NarrationEvent["kind"],
-  turnId = "turn_terminal",
+  trigger: NarrationEvent["trigger"] = "progress_window_elapsed",
 ): ConversationEvent {
   return event({
     event: {
       conversationId: target.conversationId,
       id: `narration_${kind}`,
       kind,
-      turnId,
+      trigger,
+      turnId: "turn_registry",
     } as NarrationEvent,
     type: "conversation.narration.created",
   });

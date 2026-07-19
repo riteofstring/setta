@@ -1110,7 +1110,6 @@ try {
       snapshot.turns.turns[1]?.status === "failed" &&
       hasFinalNarrationForEveryTurn(snapshot) &&
       narratorCaughtUp(snapshot) &&
-      snapshot.narratorState.checkpointThroughSequence > 0 &&
       snapshot.narratorState.degradation === null,
   );
   assertAlphaLifecycle(alphaSnapshot, awaitingApproval.approvalId);

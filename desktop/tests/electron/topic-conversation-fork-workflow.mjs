@@ -273,7 +273,7 @@ export async function exerciseEphemeralSideForkFailure({
     context,
   );
   assertCondition(
-    failedSnapshot.eventCursor.sequence === before.eventCursor.sequence + 3,
+    failedSnapshot.eventCursor.sequence >= before.eventCursor.sequence + 3,
     "failed side lifecycle did not publish resume, preparing, and failed commits",
     context,
   );

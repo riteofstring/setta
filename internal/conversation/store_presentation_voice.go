@@ -149,8 +149,7 @@ func (presentation *activeConversationPresentation) refreshActivity() {
 		(presentation.PaletteVisible ||
 			presentation.ConversationStatus == ConversationStatusWorking ||
 			presentation.ConversationStatus == ConversationStatusWaitingForApproval ||
-			presentation.NarratorStatus == NarratorStatusRunning ||
-			presentation.ObservedThroughSequence < presentation.LatestTrajectorySequence)
+			presentation.NarratorStatus == NarratorStatusRunning)
 }
 
 func (presentation activeConversationPresentation) withProfile(

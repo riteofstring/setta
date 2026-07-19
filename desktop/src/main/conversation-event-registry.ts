@@ -39,6 +39,8 @@ interface RegisteredConversationStream {
   sender: ConversationEventSender;
   stream: ConversationEventStream;
   target: ConversationEventTarget;
+  terminalNarrationSeen: boolean;
+  terminalStatusSeen: boolean;
 }
 
 export class ConversationEventRegistry {
@@ -72,6 +74,8 @@ export class ConversationEventRegistry {
       sender,
       stream,
       target,
+      terminalNarrationSeen: false,
+      terminalStatusSeen: false,
     });
     this.observeSender(sender);
   }
@@ -111,9 +115,24 @@ export class ConversationEventRegistry {
     current: RegisteredConversationStream,
     event: ConversationEvent,
   ): boolean {
+    if (!current.keepAlive) {
+      return false;
+    }
     switch (event.payload.type) {
       case "conversation.updated":
-        return current.keepAlive && !conversationHasActiveWork(event.payload.conversation.status);
+        if (conversationHasActiveWork(event.payload.conversation.status)) {
+          current.terminalNarrationSeen = false;
+          current.terminalStatusSeen = false;
+          return false;
+        }
+        current.terminalStatusSeen = true;
+        return current.terminalNarrationSeen;
+      case "conversation.narration.created":
+        if (!terminalFinalSummary(event.payload.event)) {
+          return false;
+        }
+        current.terminalNarrationSeen = true;
+        return current.terminalStatusSeen;
       default:
         return false;
     }
@@ -172,6 +191,12 @@ function conversationHasActiveWork(
     default:
       return assertNever(status);
   }
+}
+
+function terminalFinalSummary(
+  event: Extract<ConversationEvent["payload"], { type: "conversation.narration.created" }>["event"],
+): boolean {
+  return event.kind === "final_summary" && event.trigger === "turn_terminal";
 }
 
 function assertNever(value: never): never {

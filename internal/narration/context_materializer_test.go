@@ -270,6 +270,50 @@ func TestContextMaterializerRequiresCheckpointBeforeSkippingObservedBacklog(t *t
 	}
 }
 
+func TestContextMaterializerBuildsTerminalProjectionWithoutCheckpointCatchUp(t *testing.T) {
+	source := newFakeNarratorContextSource(9)
+	source.state.ObservedThroughSequence = 3
+	source.state.CheckpointThroughSequence = 0
+	endedAt := "2026-07-12T12:01:00Z"
+	source.conversation.Status = conversation.ConversationStatusIdle
+	source.turn.Status = conversation.TurnStatusCompleted
+	source.turn.EndedAt = &endedAt
+	source.events[8].Kind = conversation.TrajectoryEventTurnCompleted
+	source.events[8].Actor = conversation.TrajectoryActorProvider
+	source.events[8].AgentPublicTextDelta = nil
+	source.events[8].TurnCompleted = &conversation.TrajectoryTurnCompleted{}
+	materializer := newFakeContextMaterializer(t, source)
+
+	bundle, err := materializer.Projection(context.Background(), ProjectionContextRequest{
+		ConversationID:  source.conversation.ID,
+		TurnID:          source.turn.ID,
+		Trigger:         conversation.NarrationTriggerTurnTerminal,
+		ThroughSequence: 9,
+		Limits:          testContextLimits(2),
+	})
+	if err != nil {
+		t.Fatalf("materialize terminal projection without checkpoint catch-up: %v", err)
+	}
+	if bundle.RequestedChannel != ProjectionChannelTerminal {
+		t.Fatalf("terminal channel = %s", bundle.RequestedChannel)
+	}
+	assertSequenceRange(t, bundle.EvaluationRange, 4, 9)
+	if len(bundle.Trajectory) != 0 || bundle.IncludedRange.Start != 0 || bundle.IncludedRange.End != 0 {
+		t.Fatalf("terminal projection consumed raw backlog: trajectory=%+v range=%+v", bundle.Trajectory, bundle.IncludedRange)
+	}
+	if bundle.RemainingUnobservedRange != nil {
+		t.Fatalf("terminal projection left remaining range: %+v", bundle.RemainingUnobservedRange)
+	}
+	if err := bundle.ValidateObservedAdvance(9); err != nil {
+		t.Fatalf("terminal observed advance validation: %v", err)
+	}
+	if len(source.requests) != 1 ||
+		source.requests[0].Kind != conversation.NarratorContextReadProjection ||
+		source.requests[0].ProjectionThroughSequence != 9 {
+		t.Fatalf("terminal context requests = %+v", source.requests)
+	}
+}
+
 func TestProjectionContextConstrainsObservedCursorToSuppliedWindow(t *testing.T) {
 	source := newFakeNarratorContextSource(6)
 	source.state.ObservedThroughSequence = 2

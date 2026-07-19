@@ -163,32 +163,15 @@ func (worker *serviceAttemptWorker) materializeProjection(
 	operation ProjectionOperation,
 	limits ContextLimits,
 ) (ProjectionContextBundle, bool, error) {
-	materializeTrigger := trigger
-	if trigger == conversation.NarrationTriggerTurnTerminal {
-		materializeTrigger = conversation.NarrationTriggerProgressWindowElapsed
-	}
 	bundle, err := worker.materializer.Projection(ctx, ProjectionContextRequest{
 		ConversationID:  conversationID,
 		TurnID:          operation.TurnID,
-		Trigger:         materializeTrigger,
+		Trigger:         trigger,
 		ThroughSequence: operation.ThroughSequence,
 		Limits:          limits,
 	})
 	if err != nil {
 		return worker.handleProjectionMaterializationError(ctx, conversationID, trigger, operation, limits, err)
-	}
-	if trigger == conversation.NarrationTriggerTurnTerminal &&
-		bundle.EvaluationRange.End == operation.ThroughSequence {
-		bundle, err = worker.materializer.Projection(ctx, ProjectionContextRequest{
-			ConversationID:  conversationID,
-			TurnID:          operation.TurnID,
-			Trigger:         trigger,
-			ThroughSequence: operation.ThroughSequence,
-			Limits:          limits,
-		})
-		if err != nil {
-			return ProjectionContextBundle{}, false, err
-		}
 	}
 	if err := requireBundleWorkspace(bundle.Authoritative, operation.WorkspaceID, "projection"); err != nil {
 		return ProjectionContextBundle{}, false, err

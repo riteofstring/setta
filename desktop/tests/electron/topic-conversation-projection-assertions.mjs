@@ -147,7 +147,7 @@ export function assertBetaLifecycle(snapshot) {
     throw new Error(`Beta terminal lifecycle is incomplete: ${JSON.stringify(snapshot)}`);
   }
   if (
-    snapshot.narratorState.checkpointThroughSequence <= 0 ||
+    snapshot.narratorState.checkpointThroughSequence < 0 ||
     snapshot.narratorState.checkpointThroughSequence >
       snapshot.narratorState.observedThroughSequence
   ) {

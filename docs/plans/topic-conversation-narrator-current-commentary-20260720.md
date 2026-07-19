@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 
-**Status:** Proposed
+**Status:** In Progress
 
 **Scope:** Topic conversation narrator highlights, final summaries, narrator scheduling, narrator context, and automatic narrator speech. This plan addresses the latest recording where the artifact and work completion were visible long before the final summary was generated.
 
@@ -244,6 +244,13 @@ Renderer speech still enforces ownership:
 
 ### Phase 1: Document and test the failure
 
+Status: Complete.
+
+Repository progress:
+
+- Backend projector regression added for terminal summary bypass of raw-delta/checkpoint backlog.
+- Direct `topic-conversation-pane-projection` Electron workflow coverage verifies terminal final summaries without raw checkpoint catch-up.
+
 Add a deterministic workflow that reproduces the latest failure:
 
 1. Start a topic conversation with narrator enabled.
@@ -359,4 +366,3 @@ The plan succeeds only if these are all true:
 - Startup cannot generate or speak old narrator output.
 - AI still writes every highlight and final summary.
 - The regression tests fail on the old behavior and pass on the new behavior.
-
