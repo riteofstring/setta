@@ -68,6 +68,9 @@ const conversationEvents = new ConversationEventRegistry({
   recordEvent: (event) => {
     recorder?.recordConversationEvent(event);
   },
+  recordDisconnect: (error) => {
+    recorder?.recordAppEvent("conversation_event_stream_disconnected", errorPayload(error));
+  },
 });
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
@@ -180,8 +183,18 @@ function startBackendEventStreams() {
   codexAccountEventStream = startCodexAccountEventStream({
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
+    reportDisconnect: (error) => {
+      recorder?.recordAppEvent("codex_account_event_stream_disconnected", errorPayload(error));
+    },
     sendEvent: forwardCodexAccountChange,
   });
+}
+
+function errorPayload(error: unknown): { message: string; name: string } {
+  if (error instanceof Error) {
+    return { message: error.message, name: error.name };
+  }
+  return { message: "non-error stream failure", name: "UnknownError" };
 }
 
 function forwardCodexAccountChange(event: CodexAccountChangeEvent) {
