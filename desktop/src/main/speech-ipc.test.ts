@@ -74,11 +74,13 @@ describe("speech IPC handlers", () => {
     registerSpeechIpcHandlers({
       ipcMain,
       ipcObserver: observer,
+      requireLocalMacOSVoiceHelper: () => localMacOSVoiceHelper(),
       requireBackendClient: () => backend,
       requireSpeechCredentialCoordinator: () => credentialCoordinator(),
     });
 
     const capabilities = await invoke(handlers, ipcChannels.speechReadCapabilities);
+    const localHealth = await invoke(handlers, ipcChannels.speechReadLocalMacOSVoiceHealth);
     const masterVoice = await invoke(handlers, ipcChannels.speechReadMasterVoiceSelection);
     const narratorDefault = await invoke(handlers, ipcChannels.speechReadNarratorVoiceDefault);
     const updatedMasterVoice = await invoke(
@@ -110,6 +112,12 @@ describe("speech IPC handlers", () => {
 
     expect(backend.createSpeechTranscriptionSession).toHaveBeenCalledWith({ provider: "openai" });
     expect(capabilities).toMatchObject({ providerStatus: "configured" });
+    expect(localHealth).toEqual({
+      helperPath: null,
+      message: "The local macOS voice helper is not installed.",
+      provider: "local_macos",
+      status: "helper_unavailable",
+    });
     expect(masterVoice).toMatchObject({ resolvedVoiceId: "marin", selection: "exact" });
     expect(updatedMasterVoice).toMatchObject({ resolvedVoiceId: "cedar", selection: "exact" });
     expect(narratorDefault).toMatchObject({ requestedVoiceId: null, selection: "auto_distinct" });
@@ -119,10 +127,11 @@ describe("speech IPC handlers", () => {
     expect(backend.synthesizeSpeech).toHaveBeenCalledWith(synthesisRequest, {
       signal: expect.any(AbortSignal),
     });
-    expect(observer.finished).toHaveBeenCalledTimes(7);
+    expect(observer.finished).toHaveBeenCalledTimes(8);
     const observedResults = observer.finished.mock.calls.map(([event]) => event.result);
     expect(observedResults).toEqual([
       capabilities,
+      localHealth,
       masterVoice,
       narratorDefault,
       updatedMasterVoice,
@@ -160,6 +169,7 @@ describe("speech IPC handlers", () => {
           handlers.set(channel, handler);
         },
       } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => localMacOSVoiceHelper(),
       requireBackendClient: () => backend,
       requireSpeechCredentialCoordinator: () => credentialCoordinator(),
     });
@@ -206,6 +216,7 @@ describe("speech IPC handlers", () => {
           handlers.set(channel, handler);
         },
       } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => localMacOSVoiceHelper(),
       requireBackendClient: () => activeRuntimeBackend,
       requireSpeechCredentialCoordinator: () => coordinator,
     });
@@ -243,6 +254,7 @@ describe("speech IPC handlers", () => {
           handlers.set(channel, handler);
         },
       } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => localMacOSVoiceHelper(),
       requireBackendClient: () => ({}) as BackendClient,
       requireSpeechCredentialCoordinator: () => coordinator,
     });
@@ -273,14 +285,14 @@ function observerSpies() {
 
 function credentialCoordinator() {
   return {
-    readCredentialSettings: vi.fn(async (request: { provider: "openai" }) => {
+    readCredentialSettings: vi.fn(async (request: { provider: unknown }) => {
       expect(request).toEqual({ provider: "openai" });
       return {
         provider: "openai" as const,
         status: "not_configured" as const,
       };
     }),
-    removeCredential: vi.fn(async (request: { provider: "openai" }) => {
+    removeCredential: vi.fn(async (request: { provider: unknown }) => {
       expect(request).toEqual({ provider: "openai" });
       return {
         provider: "openai" as const,
@@ -291,6 +303,18 @@ function credentialCoordinator() {
       provider: "openai" as const,
       status: "configured" as const,
     })),
+  };
+}
+
+function localMacOSVoiceHelper() {
+  return {
+    readHealth: vi.fn(async () => ({
+      helperPath: null,
+      message: "The local macOS voice helper is not installed.",
+      provider: "local_macos" as const,
+      status: "helper_unavailable" as const,
+    })),
+    shutdown: vi.fn(),
   };
 }
 

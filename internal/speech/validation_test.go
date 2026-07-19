@@ -238,6 +238,9 @@ func TestSpeechContractValueSetsOwnProviderAndVoiceValues(t *testing.T) {
 	if strings.Join(sets[0].Values, ",") != strings.Join(want, ",") {
 		t.Fatalf("provider statuses = %v, want %v", sets[0].Values, want)
 	}
+	if strings.Join(sets[1].Values, ",") != "openai,local_macos" {
+		t.Fatalf("speech providers = %v", sets[1].Values)
+	}
 	if strings.Join(sets[2].Values, ",") != "master,narrator" {
 		t.Fatalf("speech speakers = %v", sets[2].Values)
 	}

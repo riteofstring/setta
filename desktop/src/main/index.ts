@@ -26,6 +26,10 @@ import {
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import {
+  createLocalMacOSVoiceHelperFromEnvironment,
+  type LocalMacOSVoiceHelper,
+} from "./local-macos-voice-helper";
 import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
@@ -47,6 +51,7 @@ let codexAccountEventStream: CodexAccountEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
+let localMacOSVoiceHelper: LocalMacOSVoiceHelper | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
@@ -549,6 +554,7 @@ function registerIpc() {
   registerSpeechIpcHandlers({
     ipcMain,
     ipcObserver,
+    requireLocalMacOSVoiceHelper,
     requireBackendClient,
     requireSpeechCredentialCoordinator,
   });
@@ -676,6 +682,13 @@ function requireSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
   return speechCredentialCoordinator;
 }
 
+function requireLocalMacOSVoiceHelper(): LocalMacOSVoiceHelper {
+  if (!localMacOSVoiceHelper) {
+    throw new Error("local macOS voice helper is not ready");
+  }
+  return localMacOSVoiceHelper;
+}
+
 function createSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
   let vault: SpeechCredentialVault | null = null;
   let secureStorageUnavailableMessage: string | undefined;
@@ -729,6 +742,7 @@ app.whenReady().then(async () => {
     repoRoot: repoRoot(),
   });
   speechCredentialCoordinator = createSpeechCredentialCoordinator();
+  localMacOSVoiceHelper = createLocalMacOSVoiceHelperFromEnvironment(process.env);
   await prepareBackend(appDataDir);
   await createWindow();
 });
@@ -760,6 +774,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  localMacOSVoiceHelper?.shutdown();
+  localMacOSVoiceHelper = null;
   recorder?.close();
 });
 

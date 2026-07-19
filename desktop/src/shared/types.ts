@@ -71,6 +71,7 @@ import type {
   SpeechCredentialProviderRequest,
   SpeechCredentialSaveRequest,
   SpeechCredentialSettings,
+  LocalMacOSVoiceHealth,
 } from "./speech-ipc";
 
 export interface RuntimeVersions {
@@ -357,6 +358,7 @@ export interface SettaAPI {
     readCredentialSettings?: (
       request: SpeechCredentialProviderRequest,
     ) => Promise<SpeechCredentialSettings>;
+    readLocalMacOSVoiceHealth?: () => Promise<LocalMacOSVoiceHealth>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
     readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
     removeCredential?: (

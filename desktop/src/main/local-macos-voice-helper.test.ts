@@ -1,0 +1,187 @@
+import { createHash } from "node:crypto";
+import { chmod, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { describe, expect, test, vi } from "vitest";
+
+import {
+  LocalMacOSVoiceHelperProcessClient,
+  LocalMacOSVoiceHelperProtocolError,
+  LocalMacOSVoiceHealthService,
+  type LocalMacOSVoiceHelperClient,
+  type LocalMacOSVoiceHelperHealthResult,
+} from "./local-macos-voice-helper";
+
+const fixturePath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "test-fixtures/local-macos-voice-helper-fixture.mjs",
+);
+
+describe("LocalMacOSVoiceHealthService", () => {
+  test("reports unsupported platforms and missing models without starting the helper", async () => {
+    const createClient =
+      vi.fn<
+        NonNullable<ConstructorParameters<typeof LocalMacOSVoiceHealthService>[0]["createClient"]>
+      >();
+    const nonMac = new LocalMacOSVoiceHealthService({
+      createClient,
+      helperPath: "/tmp/setta-local-helper",
+      modelPath: "/tmp/setta-model.bin",
+      platform: "linux",
+    });
+    await expect(nonMac.readHealth()).resolves.toEqual({
+      helperPath: "/tmp/setta-local-helper",
+      message: "Local macOS voice is available only on macOS.",
+      provider: "local_macos",
+      status: "helper_unavailable",
+    });
+
+    const missingModel = new LocalMacOSVoiceHealthService({
+      createClient,
+      helperPath: "/tmp/setta-local-helper",
+      modelPath: "/tmp/setta-missing-model.bin",
+      platform: "darwin",
+    });
+    await expect(missingModel.readHealth()).resolves.toEqual({
+      message: "The configured Whisper model file is missing.",
+      modelPath: "/tmp/setta-missing-model.bin",
+      provider: "local_macos",
+      status: "missing_model",
+    });
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  test("verifies model hashes before probing the helper", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-health-"));
+    const helperPath = join(root, "helper");
+    const modelPath = join(root, "ggml-base.en.bin");
+    await writeFile(helperPath, "#!/bin/sh\n");
+    await chmod(helperPath, 0o755);
+    await writeFile(modelPath, "model-bytes");
+
+    const service = new LocalMacOSVoiceHealthService({
+      createClient: vi.fn(),
+      expectedModelSHA256: "0".repeat(64),
+      helperPath,
+      modelPath,
+      platform: "darwin",
+    });
+
+    await expect(service.readHealth()).resolves.toEqual({
+      actualSHA256: sha256("model-bytes"),
+      expectedSHA256: "0".repeat(64),
+      message: "The configured Whisper model hash does not match the expected Setta model.",
+      modelPath,
+      provider: "local_macos",
+      status: "model_hash_mismatch",
+    });
+  });
+
+  test("returns ready and provider-level helper health states from the persistent helper", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-ready-"));
+    const helperPath = join(root, "helper");
+    const modelPath = join(root, "ggml-base.en.bin");
+    await writeFile(helperPath, "#!/bin/sh\n");
+    await chmod(helperPath, 0o755);
+    await writeFile(modelPath, "model-bytes");
+    const helper = new FakeLocalMacOSVoiceHelperClient({ status: "ready" });
+    const service = new LocalMacOSVoiceHealthService({
+      createClient: vi.fn(() => helper),
+      helperPath,
+      modelPath,
+      platform: "darwin",
+    });
+
+    await expect(service.readHealth()).resolves.toEqual({
+      helperPath,
+      modelPath,
+      modelSHA256: sha256("model-bytes"),
+      provider: "local_macos",
+      status: "ready",
+    });
+    helper.healthResult = {
+      message: "Microphone access is denied for Setta.",
+      status: "microphone_denied",
+    };
+    await expect(service.readHealth()).resolves.toEqual({
+      message: "Microphone access is denied for Setta.",
+      provider: "local_macos",
+      status: "microphone_denied",
+    });
+  });
+});
+
+describe("LocalMacOSVoiceHelperProcessClient", () => {
+  test("frames capture start, finish, and cancellation commands through one helper", async () => {
+    const client = new LocalMacOSVoiceHelperProcessClient({
+      args: [fixturePath],
+      command: process.execPath,
+    });
+
+    await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).resolves.toEqual({
+      status: "ready",
+    });
+    await expect(
+      client.startCapture({
+        maximumRecordingSeconds: 120,
+        maximumTranscriptCharacters: 8000,
+        modelPath: "/tmp/ggml-base.en.bin",
+        sessionId: "session_one",
+      }),
+    ).resolves.toEqual({ sessionId: "session_one" });
+    await expect(client.finishCapture({ sessionId: "session_one" })).resolves.toEqual({
+      sessionId: "session_one",
+      transcript: "local transcript for session_one",
+    });
+    await expect(
+      client.startCapture({
+        maximumRecordingSeconds: 120,
+        maximumTranscriptCharacters: 8000,
+        modelPath: "/tmp/ggml-base.en.bin",
+        sessionId: "session_two",
+      }),
+    ).resolves.toEqual({ sessionId: "session_two" });
+    await expect(client.cancelCapture({ sessionId: "session_two" })).resolves.toEqual({
+      sessionId: "session_two",
+    });
+
+    client.shutdown();
+  });
+
+  test("rejects malformed helper events before accepting local capture results", async () => {
+    const client = new LocalMacOSVoiceHelperProcessClient({
+      args: [fixturePath, "malformed"],
+      command: process.execPath,
+    });
+
+    await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).rejects.toBeInstanceOf(
+      LocalMacOSVoiceHelperProtocolError,
+    );
+    client.shutdown();
+  });
+});
+
+class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
+  constructor(public healthResult: LocalMacOSVoiceHelperHealthResult) {}
+
+  readHealth = vi.fn(async () => this.healthResult);
+  shutdown = vi.fn();
+
+  cancelCapture(): Promise<never> {
+    return Promise.reject(new Error("unexpected cancel"));
+  }
+
+  finishCapture(): Promise<never> {
+    return Promise.reject(new Error("unexpected finish"));
+  }
+
+  startCapture(): Promise<never> {
+    return Promise.reject(new Error("unexpected start"));
+  }
+}
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}

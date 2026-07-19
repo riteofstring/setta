@@ -11,6 +11,7 @@ import {
   type SpeechSynthesisIpcRequest,
   validateSpeechSynthesisOperationId,
 } from "@shared/speech-ipc";
+import type { LocalMacOSVoiceHelper } from "./local-macos-voice-helper";
 
 interface SpeechCredentialIpcCoordinator {
   readCredentialSettings: (
@@ -23,6 +24,7 @@ interface SpeechCredentialIpcCoordinator {
 interface SpeechIpcRegistration {
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
+  requireLocalMacOSVoiceHelper: () => LocalMacOSVoiceHelper;
   requireBackendClient: () => BackendClient;
   requireSpeechCredentialCoordinator: () => SpeechCredentialIpcCoordinator;
 }
@@ -30,6 +32,7 @@ interface SpeechIpcRegistration {
 export function registerSpeechIpcHandlers({
   ipcMain,
   ipcObserver,
+  requireLocalMacOSVoiceHelper,
   requireBackendClient,
   requireSpeechCredentialCoordinator,
 }: SpeechIpcRegistration): void {
@@ -77,6 +80,12 @@ export function registerSpeechIpcHandlers({
     ipcMain,
     "speechReadCapabilities",
     async () => requireBackendClient().readSpeechCapabilities(),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "speechReadLocalMacOSVoiceHealth",
+    async () => requireLocalMacOSVoiceHelper().readHealth(),
     ipcObserver,
   );
   handleIpc(

@@ -12,7 +12,8 @@ const (
 	SpeechProviderStatusConfigured    SpeechProviderStatus = "configured"
 	SpeechProviderStatusNotConfigured SpeechProviderStatus = "not_configured"
 
-	SpeechProviderOpenAI SpeechProvider = "openai"
+	SpeechProviderLocalMacOS SpeechProvider = "local_macos"
+	SpeechProviderOpenAI     SpeechProvider = "openai"
 
 	SpeechSpeakerMaster   SpeechSpeaker = "master"
 	SpeechSpeakerNarrator SpeechSpeaker = "narrator"
@@ -40,7 +41,7 @@ var speechProviderStatusValues = []SpeechProviderStatus{
 	SpeechProviderStatusNotConfigured,
 }
 
-var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI}
+var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI, SpeechProviderLocalMacOS}
 
 var speechSpeakerValues = []SpeechSpeaker{
 	SpeechSpeakerMaster,

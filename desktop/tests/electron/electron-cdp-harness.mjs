@@ -261,14 +261,13 @@ export async function clickEnabledButtonByAria(client, label, timeoutMs = stateW
     timeoutMs,
   );
   const clicked = await client.evaluate(`(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
+    const button = Array.from(document.querySelectorAll("button")).find((candidate) =>
+      candidate.getAttribute("aria-label") === ${JSON.stringify(label)} &&
+      candidate instanceof HTMLButtonElement &&
+      !candidate.disabled
     );
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-button" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-button" };
     }
     button.click();
     return { ok: true };
@@ -280,13 +279,19 @@ export async function clickEnabledButtonByAria(client, label, timeoutMs = stateW
 
 function enabledButtonByAriaExpression(label) {
   return `(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
+    const buttons = Array.from(document.querySelectorAll("button")).filter(
       (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
     );
+    const button = buttons.find(
+      (candidate) => candidate instanceof HTMLButtonElement && !candidate.disabled
+    );
     if (!(button instanceof HTMLButtonElement)) {
-      return { ready: false, reason: "missing-button" };
+      return {
+        ready: false,
+        reason: buttons.length === 0 ? "missing-button" : "disabled-button"
+      };
     }
-    return { ready: !button.disabled, reason: button.disabled ? "disabled-button" : "ready" };
+    return { ready: true, reason: "ready" };
   })()`;
 }
 

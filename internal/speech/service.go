@@ -433,6 +433,8 @@ func speechCredentialStatus(controller ProviderController) (SpeechCredentialStat
 
 func speechProviderDisplayName(provider SpeechProvider) string {
 	switch provider {
+	case SpeechProviderLocalMacOS:
+		return "Local macOS"
 	case SpeechProviderOpenAI:
 		return "OpenAI"
 	default:

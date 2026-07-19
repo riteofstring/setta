@@ -22,6 +22,7 @@ describe("preload speech API", () => {
     await import("./index");
     const api = exposed.setta as SettaAPI;
     await api.speech.readCapabilities();
+    await api.speech.readLocalMacOSVoiceHealth?.();
     await api.speech.readMasterVoiceSelection?.();
     await api.speech.readNarratorVoiceDefault?.();
     await api.speech.synthesize?.(
@@ -49,6 +50,7 @@ describe("preload speech API", () => {
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
+      [ipcChannels.speechReadLocalMacOSVoiceHealth],
       [ipcChannels.speechReadMasterVoiceSelection],
       [ipcChannels.speechReadNarratorVoiceDefault],
       [

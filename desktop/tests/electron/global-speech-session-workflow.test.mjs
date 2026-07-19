@@ -333,7 +333,7 @@ async function ensureWorkspaceOpen(client) {
   if (validWorkspaceId(initialWorkspaceId)) {
     return initialWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -515,7 +515,7 @@ async function exerciseRuntimeSwitchIsolation(client, firstLocalRuntimeAccess) {
   const remoteCapabilities = await client.evaluate("window.setta.speech.readCapabilities()");
   assertUnconfiguredCapabilities(remoteCapabilities);
   await assertSpeechNotConfigured(client, "remote runtime");
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
   await waitForState(
     client,
     workspaceIdExpression(),

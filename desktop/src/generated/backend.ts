@@ -18,7 +18,7 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 66;
+export const backendProtocolVersion = 67;
 export const backendContractSchemaHash = "sha256:374198a960ee3f1376ea729d7e03304f67f2ab6087d99ecac712d445c56f6e48";
 
 export const workspaceUILayoutSchemaVersion = 1;
@@ -1298,14 +1298,16 @@ export function decodeSpeechProviderStatus(value: unknown, label = "SpeechProvid
   }
 }
 
-export type SpeechProvider = "openai";
+export type SpeechProvider = "openai" | "local_macos";
 
-export const speechProviderValues = ["openai"] as const satisfies readonly SpeechProvider[];
+export const speechProviderValues = ["openai", "local_macos"] as const satisfies readonly SpeechProvider[];
 
 export function decodeSpeechProvider(value: unknown, label = "SpeechProvider"): SpeechProvider {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "openai":
+      return decoded;
+    case "local_macos":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);

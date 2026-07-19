@@ -14,6 +14,7 @@ import {
 export const speechIpcChannels = {
   speechCancelSynthesis: "speech:cancel-synthesis",
   speechCreateTranscriptionSession: "speech:create-transcription-session",
+  speechReadLocalMacOSVoiceHealth: "speech:read-local-macos-voice-health",
   speechReadCredentialSettings: "speech:read-credential-settings",
   speechReadCapabilities: "speech:read-capabilities",
   speechReadMasterVoiceSelection: "speech:read-master-voice-selection",
@@ -55,6 +56,43 @@ export interface SpeechSynthesisIpcRequest {
   request: SpeechSynthesisRequest;
 }
 
+interface LocalMacOSVoiceHealthBase {
+  provider: SpeechProvider;
+}
+
+export type LocalMacOSVoiceHealth =
+  | (LocalMacOSVoiceHealthBase & {
+      helperPath: string;
+      modelPath: string;
+      modelSHA256: string | null;
+      status: "ready";
+    })
+  | (LocalMacOSVoiceHealthBase & {
+      message: string;
+      modelPath: string | null;
+      status: "missing_model";
+    })
+  | (LocalMacOSVoiceHealthBase & {
+      actualSHA256: string;
+      expectedSHA256: string;
+      message: string;
+      modelPath: string;
+      status: "model_hash_mismatch";
+    })
+  | (LocalMacOSVoiceHealthBase & {
+      helperPath: string | null;
+      message: string;
+      status: "helper_unavailable";
+    })
+  | (LocalMacOSVoiceHealthBase & {
+      message: string;
+      status: "microphone_denied";
+    })
+  | (LocalMacOSVoiceHealthBase & {
+      message: string;
+      status: "synthesis_unavailable";
+    });
+
 export function validateSpeechSynthesisOperationId(operationId: string): void {
   if (!operationId || operationId.trim() !== operationId || operationId.length > 128) {
     throw new Error("Speech synthesis operation ID is invalid.");
@@ -69,6 +107,10 @@ export interface SpeechIpcContract {
   speechCreateTranscriptionSession: {
     args: [request: CreateSpeechTranscriptionSessionRequest];
     result: SpeechTranscriptionSession;
+  };
+  speechReadLocalMacOSVoiceHealth: {
+    args: [];
+    result: LocalMacOSVoiceHealth;
   };
   speechReadCapabilities: {
     args: [];

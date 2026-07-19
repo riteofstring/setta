@@ -2,7 +2,8 @@ import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/p
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { speechProviderValues, type SpeechProvider } from "@generated/backend";
+import type { SpeechProvider } from "@generated/backend";
+import { openAISpeechProviderID } from "@shared/speech-providers";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -347,9 +348,5 @@ async function rejectedError(promise: Promise<unknown>): Promise<Error> {
 }
 
 function expectedProvider(): SpeechProvider {
-  const provider = speechProviderValues[0];
-  if (!provider) {
-    throw new Error("generated speech provider list is empty");
-  }
-  return provider;
+  return openAISpeechProviderID();
 }
