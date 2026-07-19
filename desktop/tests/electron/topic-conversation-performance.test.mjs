@@ -117,7 +117,7 @@ try {
     );
   }
   await expandNavigatorWorkspaces(context.client, navigatorWorkspaces, workspaceId);
-  const beforeExistingFocus = await waitForPerformanceState(
+  const beforeDuplicate = await waitForPerformanceState(
     context.client,
     (snapshot) => snapshot.paneCount === conversationCount + initialConversationCount,
   );
@@ -129,13 +129,13 @@ try {
   );
   await waitForPerformanceState(
     context.client,
-    (snapshot) => snapshot.paneCount === beforeExistingFocus.paneCount,
+    (snapshot) => snapshot.paneCount === beforeDuplicate.paneCount + 1,
   );
-  const existingPaneResult = await waitForSingleConversationPaneLayout(
+  const duplicatePaneResult = await waitForDuplicatePaneLayout(
     backend,
     workspaceId,
     conversations[0].id,
-    conversationCount + initialConversationCount,
+    conversationCount + initialConversationCount + 1,
   );
   const navigatorResult = await profileLargeNavigator({
     client: context.client,
@@ -157,7 +157,7 @@ try {
   const ready = await waitForPerformanceState(
     context.client,
     (snapshot) =>
-      snapshot.paneCount === beforeExistingFocus.paneCount &&
+      snapshot.paneCount === beforeDuplicate.paneCount + 1 &&
       snapshot.surfaces.every(
         (surface) =>
           surface.projectionStatus === "ready" &&
@@ -241,7 +241,7 @@ try {
     artifactDir,
     conversationCount,
     cursorDelta,
-    existingConversationPane: existingPaneResult,
+    duplicatePane: duplicatePaneResult,
     eventsPerConversation,
     final: stopped.final,
     frameBudget: frameBudgetSummary(stopped.sample),
@@ -543,12 +543,7 @@ async function readProfiledPanes(client, conversations) {
   return panes;
 }
 
-async function waitForSingleConversationPaneLayout(
-  backend,
-  workspaceId,
-  conversationId,
-  expectedPaneCount,
-) {
+async function waitForDuplicatePaneLayout(backend, workspaceId, conversationId, expectedPaneCount) {
   const result = await waitForBackendState(
     () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
     (current) => {
@@ -556,7 +551,7 @@ async function waitForSingleConversationPaneLayout(
       return (
         panes.filter((pane) => pane.easyButtonConfig !== null).length === expectedPaneCount &&
         panes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId).length ===
-          1
+          2
       );
     },
     workflowTimeoutMs,
@@ -565,7 +560,7 @@ async function waitForSingleConversationPaneLayout(
   return {
     conversationId,
     easyButtonPaneCount: panes.filter((pane) => pane.easyButtonConfig !== null).length,
-    matchingPaneCount: panes.filter(
+    duplicatePaneCount: panes.filter(
       (pane) => pane.easyButtonConfig?.conversationId === conversationId,
     ).length,
   };

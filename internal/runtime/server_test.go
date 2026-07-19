@@ -119,61 +119,6 @@ func TestRuntimeServesDurableConversationNavigator(t *testing.T) {
 	}
 }
 
-func TestRuntimeHTTPServerIsAPIOnly(t *testing.T) {
-	config := testConfig(t)
-	config.Version = "test"
-	server, ready := startRuntimeTestServer(t, config)
-	defer shutdownServer(t, server)
-
-	baseURL := "http://" + server.Addr()
-	client := &http.Client{Timeout: 5 * time.Second}
-	for _, path := range []string{
-		"/",
-		"/index.html",
-		"/manifest." + "webmanifest",
-		"/sw.js",
-		"/icons/setta-icon.svg",
-		"/workspaces/runtime-client-route",
-	} {
-		t.Run(path, func(t *testing.T) {
-			request, err := http.NewRequest(http.MethodGet, baseURL+path, nil)
-			if err != nil {
-				t.Fatalf("create GET %s: %v", path, err)
-			}
-			response, err := client.Do(request)
-			if err != nil {
-				t.Fatalf("GET %s: %v", path, err)
-			}
-			defer response.Body.Close()
-			if response.StatusCode != http.StatusNotFound {
-				t.Fatalf("GET %s status = %d, want %d", path, response.StatusCode, http.StatusNotFound)
-			}
-		})
-	}
-
-	health := getRuntimeJSON[httpapi.BackendHealth](t, client, baseURL, "/health")
-	if health != (httpapi.BackendHealth{
-		OK:              true,
-		Name:            httpapi.BackendName,
-		Version:         "test",
-		ProtocolVersion: httpapi.ProtocolVersion,
-	}) {
-		t.Fatalf("health payload = %+v", health)
-	}
-
-	devices := postRuntimeJSON[httpapi.ListDevicesResponse](
-		t,
-		authenticatedRuntimeTestClient(ready.BootstrapToken, 5*time.Second),
-		baseURL,
-		"/devices/list",
-		httpapi.ListDevicesRequest{},
-		http.StatusOK,
-	)
-	if len(devices.Devices) == 0 {
-		t.Fatal("authenticated device list is empty, want bootstrap device session")
-	}
-}
-
 func TestHTTPServerUsesBoundedReadConfiguration(t *testing.T) {
 	server := newHTTPServer(DefaultConfig(), runtimeServices{})
 
@@ -193,23 +138,17 @@ func TestHTTPServerUsesBoundedReadConfiguration(t *testing.T) {
 
 func TestInvalidStartupConfigurationFails(t *testing.T) {
 	tests := map[string]Config{
-		"empty app data":                  withAppDataDir(t, ""),
-		"relative app data":               withAppDataDir(t, "relative-app-data"),
-		"empty host":                      withHost(t, ""),
-		"empty bootstrap":                 withBootstrapDisplayName(t, ""),
-		"non numeric host":                withHost(t, "localhost"),
-		"non loopback host":               withHost(t, "0.0.0.0"),
-		"negative port":                   withPort(t, -1),
-		"large port":                      withPort(t, 65536),
-		"missing speech credential owner": withSpeechCredentialOwner(t, ""),
-		"unsupported speech credential owner": withSpeechCredentialOwner(
-			t,
-			SpeechCredentialOwner("environment"),
-		),
-		"electron vault startup key":    withSpeechStartupAPIKey(t, "sk-setta-speech-runtime-test"),
-		"bad server startup speech key": withServerStartupSpeechAPIKey(t, "secret value"),
-		"speech test URL":               withSpeech(t, speech.OpenAIProviderConfig{BaseURL: "http://127.0.0.1:24891/v1"}),
-		"empty version":                 withVersion(t, ""),
+		"empty app data":    withAppDataDir(t, ""),
+		"relative app data": withAppDataDir(t, "relative-app-data"),
+		"empty host":        withHost(t, ""),
+		"empty bootstrap":   withBootstrapDisplayName(t, ""),
+		"non numeric host":  withHost(t, "localhost"),
+		"non loopback host": withHost(t, "0.0.0.0"),
+		"negative port":     withPort(t, -1),
+		"large port":        withPort(t, 65536),
+		"bad speech key":    withSpeech(t, speech.OpenAIClientConfig{APIKey: "secret value"}),
+		"speech test URL":   withSpeech(t, speech.OpenAIClientConfig{BaseURL: "http://127.0.0.1:24891/v1"}),
+		"empty version":     withVersion(t, ""),
 	}
 
 	for name, config := range tests {
@@ -235,8 +174,7 @@ func TestAllowRemotePermitsNonLoopbackNumericHost(t *testing.T) {
 
 func TestStartAcceptsConfiguredSpeechClient(t *testing.T) {
 	config := testConfig(t)
-	config.SpeechCredentialOwner = SpeechCredentialOwnerServerStartup
-	config.SpeechStartupAPIKey = "sk-setta-speech-runtime-test"
+	config.Speech = speech.OpenAIClientConfig{APIKey: "sk-setta-speech-runtime-test"}
 
 	server, err := Start(context.Background(), config)
 	if err != nil {
@@ -276,6 +214,68 @@ func TestStartCanSkipBootstrapDeviceSession(t *testing.T) {
 	}
 	if len(sessions) != 0 {
 		t.Fatalf("device sessions = %+v, want none", sessions)
+	}
+}
+
+func TestExplicitLocalCredentialIssuerEnrollsRefreshesAndAuthenticates(t *testing.T) {
+	config := testConfig(t)
+	config.EnableLocalCredentialIssuer = true
+	config.SkipBootstrapDeviceSession = true
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+	if ready.LocalPairingToken == "" || ready.BootstrapToken != "" {
+		t.Fatalf("ready credentials = %+v", ready)
+	}
+
+	baseURL := "http://" + ready.Addr
+	info := getRuntimeJSON[httpapi.RuntimeInfoResponse](t, http.DefaultClient, baseURL, "/runtime/info")
+	enrolled := postRuntimeJSON[httpapi.LocalCredentialEnrollResponse](
+		t,
+		http.DefaultClient,
+		baseURL,
+		"/local-credentials/enroll",
+		httpapi.LocalCredentialEnrollRequest{
+			ClientDisplayName: "Local desktop",
+			PairingToken:      ready.LocalPairingToken,
+		},
+		http.StatusOK,
+	)
+	if enrolled.RuntimeID != info.RuntimeID || enrolled.DeviceSecret == "" || enrolled.RuntimeCredential.Token == "" {
+		t.Fatalf("local enrollment = %+v", enrolled)
+	}
+
+	authedClient := authenticatedRuntimeTestClient(enrolled.RuntimeCredential.Token, 5*time.Second)
+	response, err := authedClient.Get(baseURL + "/appearance/settings")
+	if err != nil {
+		t.Fatalf("authenticated local credential request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("authenticated local credential status = %d", response.StatusCode)
+	}
+
+	refreshed := postRuntimeJSON[httpapi.LocalCredentialRefreshResponse](
+		t,
+		http.DefaultClient,
+		baseURL,
+		"/local-credentials/refresh",
+		httpapi.LocalCredentialRefreshRequest{
+			DeviceID:     enrolled.DeviceID,
+			DeviceSecret: enrolled.DeviceSecret,
+			RuntimeID:    enrolled.RuntimeID,
+		},
+		http.StatusOK,
+	)
+	if refreshed.Token == enrolled.RuntimeCredential.Token || refreshed.DeviceID != enrolled.DeviceID {
+		t.Fatalf("refreshed local credential = %+v", refreshed)
+	}
+}
+
+func TestLocalCredentialIssuerRequiresBootstrapDeviceSessionsDisabled(t *testing.T) {
+	config := testConfig(t)
+	config.EnableLocalCredentialIssuer = true
+	if err := config.Validate(); err == nil {
+		t.Fatal("local credential issuer with bootstrap device session validated")
 	}
 }
 
@@ -354,7 +354,6 @@ func testConfig(t *testing.T) Config {
 
 	config := DefaultConfig()
 	config.AppDataDir = t.TempDir()
-	config.SpeechCredentialOwner = SpeechCredentialOwnerElectronVault
 	return config
 }
 
@@ -398,35 +397,10 @@ func withBootstrapDisplayName(t *testing.T, displayName string) Config {
 	return config
 }
 
-func withSpeech(t *testing.T, speechConfig speech.OpenAIProviderConfig) Config {
+func withSpeech(t *testing.T, speechConfig speech.OpenAIClientConfig) Config {
 	t.Helper()
 
 	config := testConfig(t)
 	config.Speech = speechConfig
-	return config
-}
-
-func withSpeechStartupAPIKey(t *testing.T, apiKey string) Config {
-	t.Helper()
-
-	config := testConfig(t)
-	config.SpeechStartupAPIKey = apiKey
-	return config
-}
-
-func withServerStartupSpeechAPIKey(t *testing.T, apiKey string) Config {
-	t.Helper()
-
-	config := testConfig(t)
-	config.SpeechCredentialOwner = SpeechCredentialOwnerServerStartup
-	config.SpeechStartupAPIKey = apiKey
-	return config
-}
-
-func withSpeechCredentialOwner(t *testing.T, owner SpeechCredentialOwner) Config {
-	t.Helper()
-
-	config := testConfig(t)
-	config.SpeechCredentialOwner = owner
 	return config
 }

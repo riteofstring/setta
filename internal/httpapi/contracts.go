@@ -3,11 +3,17 @@ package httpapi
 import (
 	"setta/internal/appearance"
 	"setta/internal/conversation"
+	"setta/internal/localcredissuer"
 	"setta/internal/runtimeauth"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
+
+type LocalCredentialEnrollRequest = localcredissuer.EnrollRequest
+type LocalCredentialEnrollResponse = localcredissuer.EnrollResponse
+type LocalCredentialRefreshRequest = localcredissuer.RefreshRequest
+type LocalCredentialRefreshResponse = localcredissuer.RuntimeCredentialResponse
 
 type RuntimeInfoResponse struct {
 	RuntimeID              string                        `json:"runtimeId"`
@@ -122,12 +128,6 @@ type SubscribeConversationEventsRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 }
-
-type SpeechCredentialRequest struct {
-	APIKey string `json:"apiKey"`
-}
-
-type ClearDesktopSpeechCredentialRequest struct{}
 
 type CreateSpeechTranscriptionSessionRequest struct{}
 
