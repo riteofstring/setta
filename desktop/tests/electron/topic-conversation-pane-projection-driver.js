@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v29";
+  const version = "setta-topic-conversation-pane-projection-driver-v32";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -29,8 +29,10 @@
       topicConversationPresentFromNavigator,
       topicConversationRequestPresentation,
       topicConversationRenderedScrollOwners,
+      topicConversationRequestEmptyFrameConversationWithDestinationRace,
       topicConversationStartupState,
       topicConversationSubmitAndClose,
+      topicConversationSplitFirstPaneToEmptyFrame,
       topicConversationStop,
       topicConversationSubmit,
       topicConversationSendSide,
@@ -133,6 +135,25 @@
     }
     button.click();
     return { clicked: true, paneId: datasetValue(host, "paneId") };
+  }
+
+  function topicConversationSplitFirstPaneToEmptyFrame() {
+    const target = enabledPaneInsertionAction();
+    if (!target) {
+      return {
+        clicked: false,
+        reason: "pane-insertion-action-missing",
+      };
+    }
+    const beforePaneIds = paneHostIds();
+    target.button.click();
+    return {
+      clicked: true,
+      action: datasetValue(target.button, "workspacePaneAction"),
+      createdPaneId: "",
+      paneCountBefore: beforePaneIds.length,
+      paneId: datasetValue(target.host, "paneId"),
+    };
   }
 
   function topicConversationFirstRunState() {
@@ -748,6 +769,116 @@
     }
     button.click();
     return { clicked: true, conversationId, paneId };
+  }
+
+  function topicConversationRequestEmptyFrameConversationWithDestinationRace({ mutation, paneId }) {
+    const workspaceId = currentWorkspaceLayoutId();
+    if (!workspaceId) {
+      return { mutation, paneId, reason: "workspace unavailable", requested: false };
+    }
+    const detail = {
+      completion: null,
+      request: {
+        destination: conversationCreationRaceDestination(paneId, mutation),
+        workspaceId,
+      },
+    };
+    window.dispatchEvent(new CustomEvent("setta:conversation-creation-request", { detail }));
+    return {
+      mutation,
+      paneId,
+      requested: detail.completion instanceof Promise,
+      workspaceId,
+    };
+  }
+
+  function conversationCreationRaceDestination(paneId, mutation) {
+    let kindAccessCount = 0;
+    let paneIdAccessCount = 0;
+    let mutationApplied = false;
+    return {
+      get kind() {
+        kindAccessCount += 1;
+        if (mutation === "fill-target-browser" && kindAccessCount > 2 && !mutationApplied) {
+          mutationApplied = clickEmptyFrameBrowserAction(paneId);
+        }
+        return "empty-frame";
+      },
+      get paneId() {
+        paneIdAccessCount += 1;
+        if (mutation === "close-target" && paneIdAccessCount > 2) {
+          if (!mutationApplied) {
+            mutationApplied = clickCloseWorkspacePaneAction(paneId);
+          }
+          return `${paneId}_missing_after_create`;
+        }
+        return paneId;
+      },
+    };
+  }
+
+  function clickCloseWorkspacePaneAction(paneId) {
+    const host = paneHostById(paneId);
+    const button = host?.querySelector('[data-workspace-pane-action="close"]');
+    if (
+      !(host instanceof HTMLElement) ||
+      !(button instanceof HTMLButtonElement) ||
+      button.disabled
+    ) {
+      return false;
+    }
+    button.click();
+    return true;
+  }
+
+  function clickEmptyFrameBrowserAction(paneId) {
+    const host = paneHostById(paneId);
+    const button = host?.querySelector(
+      '[data-workspace-empty-frame-action="true"][data-workspace-frame-action-id="browser"]',
+    );
+    if (
+      !(host instanceof HTMLElement) ||
+      !(button instanceof HTMLButtonElement) ||
+      button.disabled
+    ) {
+      return false;
+    }
+    button.click();
+    return true;
+  }
+
+  function paneHostById(paneId) {
+    return (
+      Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).find(
+        (candidate) => datasetValue(candidate, "paneId") === paneId,
+      ) ?? null
+    );
+  }
+
+  function paneHostIds() {
+    return Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]')).map(
+      (host) => datasetValue(host, "paneId"),
+    );
+  }
+
+  function enabledPaneInsertionAction() {
+    for (const action of ["add-below", "add-above"]) {
+      const target = enabledPaneAction(action);
+      if (target) {
+        return target;
+      }
+    }
+    return null;
+  }
+
+  function enabledPaneAction(action) {
+    for (const host of document.querySelectorAll('[data-testid="workspace-pane-host"]')) {
+      const button = host.querySelector(`[data-workspace-pane-action="${action}"]`);
+      if (host instanceof HTMLElement && button instanceof HTMLButtonElement && !button.disabled) {
+        return { button, host };
+      }
+    }
+    return null;
   }
 
   function datasetValue(element, key) {

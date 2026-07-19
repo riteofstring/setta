@@ -87,11 +87,8 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
-  const conversationIds = await createFixtureConversations(
-    await backendProbe(artifactDir),
-    workspaceId,
-    paneCount / 2,
-  );
+  const backend = await backendProbe(artifactDir);
+  const conversationIds = await createFixtureConversations(backend, workspaceId, paneCount / 2);
   await persistUltraWideLayout(context.client, workspaceId, conversationIds);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
@@ -99,6 +96,11 @@ try {
   const snapshot = await waitForLivePaneSnapshot(context.client, {
     expectedIntersectingPaneCount,
     paneCount,
+  });
+  const highPaneBindingAudit = await assertHighPaneEasyButtonBindings({
+    backend,
+    expectedConversationIds: conversationIds,
+    workspaceId,
   });
   await captureScreenshot(context.client, join(artifactDir, "ultrawide-live-panes.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", multiRowConstrainedViewport);
@@ -171,6 +173,7 @@ try {
     artifactDir,
     clickPreservationChecks,
     constrainedMultiRowSnapshot,
+    highPaneBindingAudit,
     multiRowConstrainedViewport,
     multiRowSnapshot,
     multiRowViewport,
@@ -237,6 +240,41 @@ async function createFixtureConversation(backend, workspaceId, index) {
     throw new Error(`fixture conversation was not created: ${JSON.stringify(snapshot)}`);
   }
   return conversationId;
+}
+
+async function assertHighPaneEasyButtonBindings({ backend, expectedConversationIds, workspaceId }) {
+  const result = await backend.post("/workspaces/ui/layout/read", { workspaceId });
+  const layout = result.layout;
+  if (!layout) {
+    throw new Error(`high-pane workspace layout was not persisted: ${JSON.stringify(result)}`);
+  }
+  const easyButtonPanes = layout.panes.filter(
+    (pane) => pane.surfaceKind === "easy-button" && pane.easyButtonConfig?.conversationId,
+  );
+  const conversationIds = easyButtonPanes.map((pane) => pane.easyButtonConfig.conversationId);
+  const missingConversationIds = expectedConversationIds.filter(
+    (conversationId) => !conversationIds.includes(conversationId),
+  );
+  if (
+    easyButtonPanes.length <= 10 ||
+    easyButtonPanes.length !== expectedConversationIds.length ||
+    new Set(conversationIds).size !== conversationIds.length ||
+    missingConversationIds.length > 0
+  ) {
+    throw new Error(
+      `high-pane Easy Button bindings drifted: ${JSON.stringify({
+        conversationIds,
+        easyButtonPaneCount: easyButtonPanes.length,
+        expectedConversationIds,
+        missingConversationIds,
+      })}`,
+    );
+  }
+  return {
+    easyButtonPaneCount: easyButtonPanes.length,
+    formerPaneCapExceeded: easyButtonPanes.length > 10,
+    uniqueConversationBindingCount: new Set(conversationIds).size,
+  };
 }
 
 async function persistUltraWideLayout(client, workspaceId, conversationIds) {

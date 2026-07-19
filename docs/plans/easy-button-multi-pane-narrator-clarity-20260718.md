@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Status:** In progress — Phase 5 deterministic product workflow verification has begun with UI-created conversation coverage; remaining repository workflow audit items and external speech-duration/GUI evidence are still release gates
+**Status:** In progress — Phase 5 deterministic product workflow verification now covers UI-created conversation lifecycle, high-pane bindings, and creation race failures; remaining Settings, speech, live-provider, and external speech-duration/GUI evidence are still release gates
 
 **Scope:** Immediate removal of the PWA/web client and static web hosting, Desktop Easy Button conversation creation and pane presentation, shell-level Settings navigation, user-visible narrator projections, and assistant speech synthesis cadence.
 
@@ -342,9 +342,9 @@ This phase preempts every later phase and the pending Phase 1 broad audit. Do no
 - [x] Cover queueing, steering, streamed output, completion/cancellation/failure, queued-work promotion or preservation, and approvals wherever the changed path intersects them.
 - [x] Verify every **New conversation** action creates a different conversation ID with isolated streamed state, while selecting an existing row focuses or restores it without creating another pane.
 - [x] Create more than 10 Easy Button conversations through the production path to prove the old cap is gone.
-- [ ] Exercise the established high-pane workspace benchmark without introducing a replacement count limit.
+- [x] Exercise the established high-pane workspace benchmark without introducing a replacement count limit.
 - [x] Verify reload of UI-created conversation pane bindings through production main/preload/renderer/HTTP/store paths using temporary app data.
-- [ ] Verify rapid-repeat, disappearing-target, and created-but-not-presented behavior through production main/preload/renderer/HTTP/store paths using temporary app data.
+- [x] Verify rapid-repeat, disappearing-target, and created-but-not-presented behavior through production main/preload/renderer/HTTP/store paths using temporary app data.
 - [ ] Replace the registered `settings-pane` workflow with `settings-page`; assert viewport coverage, workspace inertness, unchanged pane identities/count/layout state, native-view occlusion, focused-section navigation, and exact workspace restoration after return.
 - [ ] Exercise Settings from desktop, mobile, no-workspace, unavailable-runtime, and voice-credential entry points. Verify pane and overview shortcuts cannot mutate the hidden workspace.
 - [ ] Extend the deterministic speech workflow to assert the exact shared narrator/master synthesis payload rate while retaining preemption, cancellation, replay, and one-audio-at-a-time coverage.
