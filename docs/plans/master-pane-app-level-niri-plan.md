@@ -420,6 +420,29 @@ of blocking app startup or conversation creation.
 
 ### 6. Remove The Left Pane Shell
 
+**Status:** In progress.
+
+Completed repository work:
+
+- Removed the permanent `ProjectPane`/`WorkspaceSidebar` host from the primary renderer app shell,
+  including the desktop project-sidebar toggle, mobile project-pane overlay, sidebar width state, and
+  native-view left clipping inset.
+- Removed the blocking no-folder first-run folder picker from the pane scene so folderless startup
+  loads the app-level pane layout and falls back to a focused, maximized master pane when no app
+  layout has been saved.
+- Removed the selected-workspace initial Easy Button startup hook and its transient startup overlay
+  from the primary shell/layout contract.
+- Kept settings reachable from app-level desktop and mobile chrome, renamed the settings return
+  action to pane-level language, and updated focused Electron workflow assumptions to open fixture
+  folders through production preload/main/backend/store paths instead of the removed sidebar button.
+
+Remaining repository work:
+
+- Replace the removed sidebar's conversation search/list/create affordances with master transcript
+  actions, a command/search palette, or typed ephemeral pickers.
+- Add the pane focus/maximize master keyboard shortcut behavior and settings entry points needed to
+  fully replace the old sidebar navigation model.
+
 Delete the permanent `ProjectPane`/`WorkspaceSidebar` from the primary app shell.
 
 Replace its remaining jobs with:

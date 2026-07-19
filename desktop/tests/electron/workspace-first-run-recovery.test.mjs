@@ -12,6 +12,7 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -67,7 +68,7 @@ try {
   const freshSession = await backend.get("/workspace-session");
   assertFreshSession(freshSession);
   await assertFirstRunSurface(context.client);
-  await clickEnabledButtonByAria(context.client, "Choose project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(context.client, workflowTimeoutMs);
 
   const openedSession = await waitForBackendState(
     () => backend.get("/workspace-session"),

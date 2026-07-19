@@ -9,12 +9,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchKeyEvent,
   dispatchMouseDrag,
   dispatchMouseClick,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -214,7 +214,7 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForWorkspaceDriverState(
     client,
     "workspaceUltrawideWorkspaceId",

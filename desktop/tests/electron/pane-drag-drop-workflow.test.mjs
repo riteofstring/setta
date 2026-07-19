@@ -12,6 +12,7 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -56,7 +57,6 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
-  await waitForInitialEasyButtonStartupToSettle(context.client);
   await persistFourColumnLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -358,7 +358,7 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -372,15 +372,6 @@ async function persistFourColumnLayout(client, workspaceId) {
     await window.setta.appLayout.savePaneLayout(${JSON.stringify(fourColumnAppLayout(workspaceId))});
     return true;
   })()`);
-}
-
-async function waitForInitialEasyButtonStartupToSettle(client) {
-  await waitForState(
-    client,
-    "Boolean(document.querySelector('[data-testid=\"initial-easy-button-pane\"]'))",
-    (present) => !present,
-    workflowTimeoutMs,
-  );
 }
 
 function fourColumnLayout(workspaceId) {

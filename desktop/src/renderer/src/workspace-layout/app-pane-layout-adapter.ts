@@ -50,7 +50,10 @@ export function appPaneLayoutToWorkspaceUILayout({
   workspaceRootPath,
 }: AppPaneLayoutToWorkspaceLayoutInput): AppPaneLayoutToWorkspaceLayoutResult {
   if (!layout) {
-    return { layout: null, maximizedPaneId: null };
+    return {
+      layout: defaultMasterWorkspaceLayout(workspaceId),
+      maximizedPaneId: appMasterPaneId,
+    };
   }
   const currentLayout = currentWorkspaceLayoutFromAppLayout(layout, workspaceRootPath);
   if (!currentLayout) {
@@ -65,6 +68,44 @@ export function appPaneLayoutToWorkspaceUILayout({
       workspaceId,
     },
     maximizedPaneId: currentLayout.maximizedPaneId,
+  };
+}
+
+function defaultMasterWorkspaceLayout(workspaceId: string): RealWorkspaceStoredLayout {
+  return {
+    columns: [defaultMasterWorkspaceColumn()],
+    focusedPaneId: appMasterPaneId,
+    panes: [defaultMasterWorkspacePane()],
+    schemaVersion: workspaceUILayoutSchemaVersion,
+    workspaceId,
+  };
+}
+
+function defaultMasterWorkspaceColumn(): WorkspaceUIColumn {
+  return {
+    columnId: appMasterColumnId,
+    idealWidthSpec: appMasterColumnWidth,
+    index: 0,
+    paneIds: [appMasterPaneId],
+    planeIndex: 0,
+    previousProportionWidth: null,
+    slotIndex: 0,
+    widthSpec: appMasterColumnWidth,
+  };
+}
+
+function defaultMasterWorkspacePane(): WorkspacePane {
+  return {
+    columnId: appMasterColumnId,
+    heat: 0,
+    paneId: appMasterPaneId,
+    sequence: 0,
+    subtitle: "Global coordinator",
+    surfaceId: appMasterSurfaceId,
+    surfaceKind: "master",
+    title: "Setta",
+    tone: "slate",
+    weight: 1,
   };
 }
 

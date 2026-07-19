@@ -13,6 +13,7 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -213,7 +214,7 @@ async function ensureWorkspaceOpen(client) {
   if (validWorkspaceId(initialWorkspaceId)) {
     return initialWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),

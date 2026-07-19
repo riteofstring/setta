@@ -4,7 +4,6 @@ import type { AppShellMasterController } from "../features/global-master/app-she
 import type { AppShellSpeechCaptureController } from "../features/global-speech/app-shell-speech-capture-controller";
 import type { AppShellSpeechPlaybackController } from "../features/global-speech/app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import type { InitialEasyButtonPaneStartup as InitialConversationPaneStartup } from "../features/easy-button/initial-easy-button-pane";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import type {
   WorkspaceConversationFocusRequest,
@@ -15,7 +14,6 @@ import type { RealWorkspaceStoredLayout } from "./workspace-scene";
 
 export interface WorkspaceLayoutAreaProps {
   focusConversationRequest?: WorkspaceConversationFocusRequest | null;
-  initialConversationPaneStartup?: InitialConversationPaneStartup;
   masterController?: AppShellMasterController;
   masterSpeechCapture?: AppShellSpeechCaptureController;
   masterSpeechPlayback?: AppShellSpeechPlaybackController;
@@ -23,10 +21,7 @@ export interface WorkspaceLayoutAreaProps {
   onOpenSettingsPage: () => void;
   onOpenVoiceCredentialSettings?: () => void;
   placementPreflightRequest?: WorkspaceConversationPlacementPreflightRequest | null;
-  onToggleProjectPane: () => void;
   platform: DesktopPlatform;
-  projectPaneOpen: boolean;
-  projectPaneWidth: number;
   shellOverlayActive?: boolean;
   speechCapture?: SpeechCaptureRequester;
   speechPresentation?: GlobalSpeechPresentationSource;
@@ -34,7 +29,6 @@ export interface WorkspaceLayoutAreaProps {
 
 export interface WorkspaceLayoutRuntimeAreaProps {
   focusConversationRequest: WorkspaceConversationFocusRequest | null;
-  initialConversationPaneStartup: InitialConversationPaneStartup;
   initialLayout: RealWorkspaceStoredLayout | null;
   initialMaximizedPaneId: string | null;
   layoutLoadError: string | null;
@@ -46,10 +40,7 @@ export interface WorkspaceLayoutRuntimeAreaProps {
   onOpenSettingsPage: () => void;
   onOpenVoiceCredentialSettings: (() => void) | undefined;
   placementPreflightRequest: WorkspaceConversationPlacementPreflightRequest | null;
-  onToggleProjectPane: () => void;
   platform: DesktopPlatform;
-  projectPaneOpen: boolean;
-  projectPaneWidth: number;
   shellOverlayActive: boolean;
   speechCapture: SpeechCaptureRequester | undefined;
   speechPresentation: GlobalSpeechPresentationSource | undefined;

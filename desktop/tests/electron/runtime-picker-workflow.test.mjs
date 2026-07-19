@@ -18,6 +18,7 @@ import {
   createFixture,
   failureWithLogs,
   launchContext,
+  openFixtureWorkspace,
   pathTimestamp,
   setInputValue,
   stopLaunchedContext,
@@ -85,7 +86,7 @@ try {
   assertRemoteSessionEmpty(remoteEmptySession);
   await waitForRendererEmptyWorkspace(context.client);
 
-  await clickButtonByAria(context.client, "Open project folder");
+  await openFixtureWorkspace(context.client, workflowTimeoutMs);
   const canonicalWorkspaceRoot = await realpath(fixture.workspaceRoot);
   const remoteSession = await waitForRemoteWorkspace(probe, canonicalWorkspaceRoot);
   await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
@@ -245,7 +246,7 @@ async function triggerRendererBackendRead(client) {
 }
 
 async function openWorkspaceFromSidebar(client) {
-  await clickButtonByAria(client, "Open project folder");
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   await waitForSelectedWorkspaceLayout(client);
 }
 
@@ -279,13 +280,16 @@ async function waitForRendererEmptyWorkspace(client) {
     client,
     `(() => {
       const area = document.querySelector('[data-testid="workspace-layout-area"]');
+      const masterPane = document.querySelector(
+        '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
+      );
       return {
-        emptyVisible: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
+        masterVisible: Boolean(masterPane),
         paneCount: area instanceof HTMLElement ? area.dataset.paneCount ?? "" : "",
         workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? null : null,
       };
     })()`,
-    (state) => state.emptyVisible && state.workspaceId === "" && state.paneCount === "0",
+    (state) => state.masterVisible && state.workspaceId === "empty" && state.paneCount === "1",
     workflowTimeoutMs,
   );
 }

@@ -86,13 +86,9 @@ import type {
   WorkspaceLayoutAreaProps,
   WorkspaceLayoutRuntimeAreaProps,
 } from "./workspace-layout-area-contract";
-import {
-  WorkspaceAvailabilityNotice,
-  WorkspaceFirstRunSurface,
-} from "./workspace-availability-surface";
+import { WorkspaceAvailabilityNotice } from "./workspace-availability-surface";
 import { useWorkspaceLayoutSnapshot, useWorkspaceLayoutTarget } from "./workspace-layout-state";
 import {
-  WorkspaceInitialConversationPane,
   WorkspaceLayoutLoading,
   useWorkspaceUILayoutLoad,
   useWorkspaceUILayoutPersistence,
@@ -103,7 +99,6 @@ import type { PaneDropIntent, Rect } from "./types";
 const overviewDragThresholdPx = 6;
 export function WorkspaceLayoutArea({
   focusConversationRequest = null,
-  initialConversationPaneStartup = null,
   masterController,
   masterSpeechCapture,
   masterSpeechPlayback,
@@ -111,10 +106,7 @@ export function WorkspaceLayoutArea({
   onOpenSettingsPage,
   onOpenVoiceCredentialSettings,
   placementPreflightRequest = null,
-  onToggleProjectPane,
   platform,
-  projectPaneOpen,
-  projectPaneWidth,
   shellOverlayActive = false,
   speechCapture,
   speechPresentation,
@@ -124,23 +116,12 @@ export function WorkspaceLayoutArea({
   const mode = workspaceSceneMode();
   const { workspaceId, workspaceName, workspaceRootPath } = workspaceRuntimeIdentity(workspace);
   const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, workspaceRootPath, mode);
-  if (!workspace && mode === "workspace") {
-    return <WorkspaceFirstRunSurface platform={platform} status={workspaceTarget.status} />;
-  }
   if (layoutLoad.status === "loading") {
-    return (
-      <WorkspaceLayoutLoading
-        initialConversationPaneStartup={initialConversationPaneStartup}
-        mode={mode}
-        platform={platform}
-        workspaceId={workspaceId}
-      />
-    );
+    return <WorkspaceLayoutLoading mode={mode} platform={platform} workspaceId={workspaceId} />;
   }
   return (
     <WorkspaceLayoutRuntimeArea
       focusConversationRequest={focusConversationRequest}
-      initialConversationPaneStartup={initialConversationPaneStartup}
       initialLayout={layoutLoad.layout}
       initialMaximizedPaneId={layoutLoad.maximizedPaneId}
       layoutLoadError={layoutLoad.error}
@@ -148,14 +129,11 @@ export function WorkspaceLayoutArea({
       masterSpeechCapture={masterSpeechCapture}
       masterSpeechPlayback={masterSpeechPlayback}
       mode={mode}
-      onToggleProjectPane={onToggleProjectPane}
       onConversationPresentationError={onConversationPresentationError}
       onOpenSettingsPage={onOpenSettingsPage}
       onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
       placementPreflightRequest={placementPreflightRequest}
       platform={platform}
-      projectPaneOpen={projectPaneOpen}
-      projectPaneWidth={projectPaneWidth}
       shellOverlayActive={shellOverlayActive}
       speechCapture={speechCapture}
       speechPresentation={speechPresentation}
@@ -167,7 +145,6 @@ export function WorkspaceLayoutArea({
 }
 function WorkspaceLayoutRuntimeArea({
   focusConversationRequest,
-  initialConversationPaneStartup,
   initialLayout,
   initialMaximizedPaneId,
   layoutLoadError,
@@ -175,14 +152,11 @@ function WorkspaceLayoutRuntimeArea({
   masterSpeechCapture,
   masterSpeechPlayback,
   mode,
-  onToggleProjectPane,
   onConversationPresentationError,
   onOpenSettingsPage,
   onOpenVoiceCredentialSettings,
   placementPreflightRequest,
   platform,
-  projectPaneOpen,
-  projectPaneWidth,
   shellOverlayActive,
   speechCapture,
   speechPresentation,
@@ -287,14 +261,12 @@ function WorkspaceLayoutRuntimeArea({
   }, [runtime, setOverviewGhostTarget]);
   const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
     useWorkspaceUILayoutPersistence(runtime, workspaceRootPath);
-  const projectPaneWidthRef = useRef(projectPaneWidth);
-  projectPaneWidthRef.current = projectPaneWidth;
   const stageViewport = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) {
       throw new Error("workspace layout stage is not mounted");
     }
-    return viewportRect(stage, projectPaneWidthRef.current);
+    return viewportRect(stage, 0);
   }, []);
   const runLayoutAction = useCallback(
     (action: () => void) => {
@@ -317,7 +289,7 @@ function WorkspaceLayoutRuntimeArea({
       runtime.store.snapScrollToTarget();
     }
     schedulerRef.current?.requestFrame();
-  }, [projectPaneWidth, runtime, stageViewport]);
+  }, [runtime, stageViewport]);
   useEffect(() => {
     schedulerRef.current?.requestFrame();
   }, [nativeViewsOccluded]);
@@ -358,7 +330,7 @@ function WorkspaceLayoutRuntimeArea({
     }
     runtime.presentation.setDropPreviewOverlay(paneDropPreviewRef.current);
     installWindowReportHooksForRuntime(runtime);
-    const viewportProvider = () => viewportRect(stage, projectPaneWidthRef.current);
+    const viewportProvider = () => viewportRect(stage, 0);
     const uninstallResizeReportHooks = installResizeReportHooksForRuntime(
       runtime,
       viewportProvider,
@@ -880,11 +852,6 @@ function WorkspaceLayoutRuntimeArea({
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
     schedulerRef.current?.requestFrame();
   }, [runtime, showPerformanceStats]);
-  const dismissProjectPaneOverlay = () => {
-    if (projectPaneOpen) {
-      onToggleProjectPane();
-    }
-  };
   const layoutRecoveryMessage = workspaceLayoutRecoveryMessage({
     dismissed: layoutRecoveryDismissed,
     layoutLoadError,
@@ -899,7 +866,7 @@ function WorkspaceLayoutRuntimeArea({
       data-compact-layout={mobileLayout}
       data-desktop-platform={platform}
       data-maximized-pane-id={layoutSnapshot.maximizedPaneId ?? ""}
-      data-native-view-clip-left={projectPaneWidth}
+      data-native-view-clip-left={0}
       data-native-view-overlay-active={nativeViewsOccluded}
       data-pane-count={currentScene.totalPanes}
       data-presentation-mode={layoutSnapshot.presentationMode}
@@ -908,7 +875,6 @@ function WorkspaceLayoutRuntimeArea({
       data-testid="workspace-layout-area"
       ref={rootRef}
     >
-      <WorkspaceInitialConversationPane startup={initialConversationPaneStartup} />
       <WorkspaceAvailabilityNotice workspaceId={workspaceId} workspaceName={workspaceName} />
       <WorkspaceLayoutRecoveryNotice
         message={layoutRecoveryMessage}
@@ -954,13 +920,10 @@ function WorkspaceLayoutRuntimeArea({
         showPerformanceStats={showPerformanceStats}
       />
       <WorkspaceMobileControlsLayer
-        dismissProjectPaneOverlay={dismissProjectPaneOverlay}
         mobileLayout={mobileLayout}
         onOpenSettingsPage={onOpenSettingsPage}
-        onToggleProjectPane={onToggleProjectPane}
         overviewActive={layoutSnapshot.presentationMode === "overview"}
         persistLayout={persistLayout}
-        projectPaneOpen={projectPaneOpen}
         runLayoutAction={runLayoutAction}
         runtime={runtime}
         stageViewport={stageViewport}

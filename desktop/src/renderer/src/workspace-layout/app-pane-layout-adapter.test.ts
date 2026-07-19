@@ -1,4 +1,8 @@
-import { appPaneLayoutSchemaVersion, type AppPaneLayout } from "@generated/backend";
+import {
+  appPaneLayoutSchemaVersion,
+  workspaceUILayoutSchemaVersion,
+  type AppPaneLayout,
+} from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -10,6 +14,49 @@ import { WorkspaceLayoutStore } from "./layout-store";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
 describe("app pane layout adapter", () => {
+  test("creates a focused master pane when no app layout has been saved", () => {
+    const restored = appPaneLayoutToWorkspaceUILayout({
+      layout: null,
+      workspaceId: "empty",
+      workspaceRootPath: null,
+    });
+
+    expect(restored).toEqual({
+      layout: {
+        columns: [
+          {
+            columnId: "app_column_master",
+            idealWidthSpec: { unit: "px", value: 520 },
+            index: 0,
+            paneIds: ["app_pane_master"],
+            planeIndex: 0,
+            previousProportionWidth: null,
+            slotIndex: 0,
+            widthSpec: { unit: "px", value: 520 },
+          },
+        ],
+        focusedPaneId: "app_pane_master",
+        panes: [
+          {
+            columnId: "app_column_master",
+            heat: 0,
+            paneId: "app_pane_master",
+            sequence: 0,
+            subtitle: "Global coordinator",
+            surfaceId: "app_surface_master",
+            surfaceKind: "master",
+            title: "Setta",
+            tone: "slate",
+            weight: 1,
+          },
+        ],
+        schemaVersion: workspaceUILayoutSchemaVersion,
+        workspaceId: "empty",
+      },
+      maximizedPaneId: "app_pane_master",
+    });
+  });
+
   test("stores current conversation panes as app-level conversation records", () => {
     const initial = createRealWorkspaceScene({
       storedLayout: null,

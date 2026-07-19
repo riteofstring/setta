@@ -10,9 +10,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   readLocalRuntimeAccess,
   reloadPage,
@@ -333,7 +333,7 @@ async function ensureWorkspaceOpen(client) {
   if (validWorkspaceId(initialWorkspaceId)) {
     return initialWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -515,7 +515,7 @@ async function exerciseRuntimeSwitchIsolation(client, firstLocalRuntimeAccess) {
   const remoteCapabilities = await client.evaluate("window.setta.speech.readCapabilities()");
   assertUnconfiguredCapabilities(remoteCapabilities);
   await assertSpeechNotConfigured(client, "remote runtime");
-  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   await waitForState(
     client,
     workspaceIdExpression(),

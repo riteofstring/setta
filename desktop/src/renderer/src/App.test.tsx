@@ -2,7 +2,7 @@ import type { NavigatorItem } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { App, masterInputFocusHints, sidebarWorkspaceBusy } from "./App";
+import { App, masterInputFocusHints } from "./App";
 import { compactPaneWidth } from "./app-layout";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { useAppearanceStore } from "./stores/appearance-store";
@@ -31,7 +31,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("window.setta");
   });
 
-  test("renders the empty workspace surface inside the preserved shell", () => {
+  test("renders the pane shell without the project sidebar or folder picker", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
@@ -48,21 +48,19 @@ describe("workspace renderer states", () => {
     expect(html).toContain("setta-shell-top-bar-logo");
     expect(html).not.toContain('data-testid="shell-icon-rail"');
     expect(html).not.toContain('data-testid="shell-chrome-plate"');
-    expect(html).toContain('aria-label="Hide project sidebar"');
-    expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain('data-testid="project-sidebar-toggle"');
+    expect(html).not.toContain('aria-label="Hide project sidebar"');
+    expect(html).not.toContain('data-testid="project-sidebar-toggle"');
     expect(html).toContain('data-testid="shell-settings-button"');
     expect(html).toContain('data-testid="workspace-layout-area"');
     expect(html).toContain('data-desktop-platform="darwin"');
-    expect(html).toContain('data-testid="workspace-empty-state"');
-    expect(html).toContain("Choose a project folder");
-    expect(html).toContain('data-testid="choose-project-folder"');
-    expect(html).toContain('data-pane-count="0"');
+    expect(html).not.toContain('data-testid="workspace-empty-state"');
+    expect(html).not.toContain("Choose a project folder");
+    expect(html).not.toContain('data-testid="choose-project-folder"');
+    expect(html).toContain('data-pane-count="1"');
     expect(html).toContain('data-workspace-mode="workspace"');
     expect(html).not.toContain('data-testid="workspace-layout-status"');
     expect(html).not.toContain('data-testid="workspace-benchmark-status"');
     expect(html).not.toContain('data-testid="workspace-performance-stats"');
-    expect(html).not.toContain('data-testid="workspace-toolbar"');
     expect(html).not.toContain('data-testid="sidebar-logo-shell"');
     expect(html).not.toContain('data-testid="sidebar-memory-footer"');
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
@@ -86,7 +84,7 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain('data-testid="shell-icon-rail"');
     expect(html).not.toContain('data-testid="shell-chrome-plate"');
     expect(html).toContain('data-desktop-platform="win32"');
-    expect(html).toContain('aria-label="Hide project sidebar"');
+    expect(html).not.toContain('aria-label="Hide project sidebar"');
   });
 
   test("caps project pane widths at compact viewport sizes without growing stored widths", () => {
@@ -242,13 +240,6 @@ describe("workspace renderer states", () => {
     expect(html).toContain("web");
     expect(html).not.toContain("Old API topic");
     expect(html).toContain("Loading conversations");
-  });
-
-  test("keeps sidebar actions available while selecting a ready workspace", () => {
-    expect(sidebarWorkspaceBusy("selecting", "ready")).toBe(false);
-    expect(sidebarWorkspaceBusy("opening", "ready")).toBe(true);
-    expect(sidebarWorkspaceBusy(null, "loading")).toBe(true);
-    expect(sidebarWorkspaceBusy(null, "ready")).toBe(false);
   });
 
   test("renders failed durable conversation status without requiring an open pane", () => {

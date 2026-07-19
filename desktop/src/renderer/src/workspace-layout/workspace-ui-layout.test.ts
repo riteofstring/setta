@@ -25,7 +25,7 @@ describe("workspace UI layout loading", () => {
     });
   });
 
-  test("does not block benchmark or empty workspaces on app pane layout reads", () => {
+  test("does not block benchmark workspaces on app pane layout reads", () => {
     vi.stubGlobal("window", {
       setta: {
         appLayout: {
@@ -35,6 +35,23 @@ describe("workspace UI layout loading", () => {
     });
 
     expect(initialWorkspaceUILayoutLoadState("workspace_api", "benchmark").status).toBe("loaded");
-    expect(initialWorkspaceUILayoutLoadState("empty", "workspace").status).toBe("loaded");
+  });
+
+  test("starts empty app-level workspaces in loading state when app pane layout reads are available", () => {
+    vi.stubGlobal("window", {
+      setta: {
+        appLayout: {
+          readPaneLayout: vi.fn(),
+        },
+      },
+    });
+
+    expect(initialWorkspaceUILayoutLoadState("empty", "workspace")).toStrictEqual({
+      error: null,
+      key: "workspace:empty",
+      layout: null,
+      maximizedPaneId: null,
+      status: "loading",
+    });
   });
 });

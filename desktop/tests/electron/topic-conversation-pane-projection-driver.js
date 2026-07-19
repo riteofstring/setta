@@ -49,12 +49,8 @@
 
   function topicConversationWorkspaceOpenState({ workspaceId }) {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === "Open project folder",
-    );
     return {
       expectedWorkspaceId: workspaceId,
-      openButtonReady: button instanceof HTMLButtonElement && !button.disabled,
       workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
     };
   }
@@ -214,9 +210,7 @@
       (candidate) => candidate.getAttribute("aria-label") === "New conversation",
     );
     return {
-      chooseFolder: Boolean(document.querySelector('[data-testid="choose-project-folder"]')),
       easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
-      emptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
       newTopic:
         newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
       search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
@@ -248,7 +242,6 @@
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).find((surface) => datasetValue(surface, "conversationId") === conversationId);
     const matchingHost = matchingSurface?.closest('[data-testid="workspace-pane-host"]');
-    const startupPane = document.querySelector('[data-testid="initial-easy-button-pane"]');
     return {
       actionCount: matchingHost?.querySelectorAll("[data-workspace-pane-action]").length ?? 0,
       createControlPresent:
@@ -265,8 +258,6 @@
       paneId: datasetValue(matchingHost, "paneId"),
       searchControlPresent:
         document.querySelector('input[aria-label="Search conversations"]') !== null,
-      startupPanePresent: startupPane !== null,
-      startupState: datasetValue(startupPane, "startupState"),
       topBarSpeechStatusPresent: Boolean(
         document
           .querySelector('[data-testid="shell-top-bar"]')

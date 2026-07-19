@@ -9,10 +9,10 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchMouseDrag,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -62,7 +62,6 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
-  await waitForInitialEasyButtonStartupToSettle(context.client);
   await persistTwoColumnLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -152,7 +151,7 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -166,15 +165,6 @@ async function persistTwoColumnLayout(client, workspaceId) {
     await window.setta.appLayout.savePaneLayout(${JSON.stringify(twoColumnAppLayout(workspaceId))});
     return true;
   })()`);
-}
-
-async function waitForInitialEasyButtonStartupToSettle(client) {
-  await waitForState(
-    client,
-    "Boolean(document.querySelector('[data-testid=\"initial-easy-button-pane\"]'))",
-    (present) => !present,
-    workflowTimeoutMs,
-  );
 }
 
 function twoColumnLayout(workspaceId) {

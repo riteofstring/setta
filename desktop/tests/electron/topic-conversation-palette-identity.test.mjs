@@ -8,9 +8,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -73,7 +73,7 @@ try {
     "Alpha palette identity",
     workflowTimeoutMs,
   );
-  await disposeInitialEasyButtonPane(context.client, [alpha.id]);
+  await closeUnexpectedConversationPanes(context.client, [alpha.id]);
   const beta = await createTopic(
     context.client,
     backend,
@@ -204,7 +204,7 @@ async function openWorkspace(client) {
     workflowTimeoutMs,
   );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,
@@ -219,13 +219,9 @@ function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
-async function disposeInitialEasyButtonPane(client, keptConversationIds) {
-  // The first-run feature guarantees an easy-button pane on an empty workspace, so
-  // this test's topics open alongside an auto "New conversation" pane. Close it
-  // while exactly one real pane exists (the survivor stays focused/live, and there
-  // is no far neighbor to strand), restoring the pristine layout the palette checks
-  // assume. `useInitialEasyButtonPane` marks the workspace handled, so it is not
-  // recreated.
+async function closeUnexpectedConversationPanes(client, keptConversationIds) {
+  // Keep only the fixture topic pane so palette assertions are not affected by
+  // any previously restored conversation panes in the app layout.
   const kept = new Set(keptConversationIds);
   const state = await waitForState(
     client,

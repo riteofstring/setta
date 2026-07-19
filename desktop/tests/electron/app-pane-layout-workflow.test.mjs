@@ -8,9 +8,9 @@ import process from "node:process";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -119,7 +119,7 @@ async function ensureWorkspaceOpen(client) {
   if (validWorkspaceId(current.workspaceId)) {
     return current.workspaceId;
   }
-  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   const opened = await waitForState(
     client,
     driverCallExpression("appPaneLayoutShellState"),

@@ -10,10 +10,10 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchMouseClick,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -138,17 +138,11 @@ async function waitForWorkspaceLayoutArea(client) {
 }
 
 async function openSeededWorkspaceInRenderer(client, workspaceId) {
-  const initialState = await waitForLoggedState(
-    client,
-    seededWorkspaceOpenStateExpression(),
-    "seeded workspace visible or open button",
-    (state) => state.workspaceId === workspaceId || state.openButtonReady,
-    (state) => ({ ...state, expectedWorkspaceId: workspaceId }),
-  );
-  if (initialState.workspaceId === workspaceId) {
+  const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
+  if (initialWorkspaceId === workspaceId) {
     return;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   await waitForLoggedState(
     client,
     workspaceIdExpression(),
@@ -351,19 +345,6 @@ function workspaceIdExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
-  })()`;
-}
-
-function seededWorkspaceOpenStateExpression() {
-  return `(() => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === "Open project folder",
-    );
-    return {
-      openButtonReady: button instanceof HTMLButtonElement && !button.disabled,
-      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
-    };
   })()`;
 }
 

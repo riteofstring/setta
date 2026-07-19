@@ -15,6 +15,7 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -1323,14 +1324,9 @@ try {
 }
 
 async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
+  const initial = await client.driver("topicConversationWorkspaceOpenState", { workspaceId: "" });
   if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,
@@ -1389,7 +1385,6 @@ function initialEasyButtonExperienceReady(state) {
   return [
     !state.createControlPresent,
     !state.searchControlPresent,
-    !state.startupPanePresent,
     state.topBarSpeechStatusPresent,
     !state.voiceOffPresent,
     state.actionCount === 5,
