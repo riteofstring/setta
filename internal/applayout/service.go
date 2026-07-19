@@ -48,14 +48,13 @@ func (service *Service) SaveLayout(layout AppPaneLayout) (AppPaneLayout, error) 
 	if err != nil && !IsCorruptStateError(err) {
 		return AppPaneLayout{}, err
 	}
-	saved, err := service.store.SaveLayout(layout)
-	if err != nil {
+	if err := validateLayout(layout, StateFilePath(service.store.appDataDir)); err != nil {
 		return AppPaneLayout{}, err
 	}
-	if err := service.observeLayout(previous.Layout, saved); err != nil {
+	if err := service.observeLayout(previous.Layout, layout); err != nil {
 		return AppPaneLayout{}, err
 	}
-	return saved, nil
+	return service.store.SaveLayout(layout)
 }
 
 func (service *Service) observeLayout(previous *AppPaneLayout, layout AppPaneLayout) error {

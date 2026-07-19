@@ -2,6 +2,7 @@ package applayout
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,6 +305,34 @@ func TestServiceObservesPreviousAppPaneLayoutOnSave(t *testing.T) {
 	}
 }
 
+func TestServiceDoesNotPersistAppPaneLayoutWhenObserverRejects(t *testing.T) {
+	store := newTestStore(t, t.TempDir())
+	observer := &recordingLayoutObserver{}
+	service, err := NewService(store, observer)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	previous := testLayout()
+	next := testLayout()
+	next.FocusedPaneID = "app_pane_conversation"
+
+	if _, err := service.SaveLayout(previous); err != nil {
+		t.Fatalf("save previous layout: %v", err)
+	}
+	observer.err = errors.New("observer rejected layout")
+	_, err = service.SaveLayout(next)
+	if !errors.Is(err, observer.err) {
+		t.Fatalf("save error = %v, want observer rejection", err)
+	}
+	loaded, err := store.LoadLayout()
+	if err != nil {
+		t.Fatalf("load layout after observer rejection: %v", err)
+	}
+	if loaded.Layout == nil || loaded.Layout.FocusedPaneID != previous.FocusedPaneID {
+		t.Fatalf("persisted layout = %+v, want previous focus %s", loaded.Layout, previous.FocusedPaneID)
+	}
+}
+
 func newTestStore(t *testing.T, appDataDir string) *Store {
 	t.Helper()
 
@@ -316,6 +345,7 @@ func newTestStore(t *testing.T, appDataDir string) *Store {
 
 type recordingLayoutObserver struct {
 	calls []recordedLayoutObservation
+	err   error
 }
 
 type recordedLayoutObservation struct {
@@ -331,7 +361,7 @@ func (observer *recordingLayoutObserver) ObserveAppPaneLayout(
 		previous: previous,
 		layout:   layout,
 	})
-	return nil
+	return observer.err
 }
 
 func testLayout() AppPaneLayout {

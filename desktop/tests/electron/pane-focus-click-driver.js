@@ -61,7 +61,7 @@
 
   function visiblePaneHosts() {
     return Array.from(document.querySelectorAll(visiblePaneHostSelector)).filter(
-      (host) => host instanceof HTMLElement,
+      (host) => host instanceof HTMLElement && host.dataset.surfaceKind !== "master",
     );
   }
 

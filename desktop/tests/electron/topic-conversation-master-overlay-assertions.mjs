@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { driverCallExpression } from "./cdp-client.mjs";
 import { waitForBackendState } from "./electron-workflow-harness.mjs";
 import {
   captureScreenshot,
@@ -341,14 +342,7 @@ async function assertActiveMasterInteraction(
 ) {
   return waitForState(
     client,
-    `(() => ({
-      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
-      interactionCount: document.querySelectorAll('[data-testid="master-active-interaction"]').length,
-      legacyHistoryPresent: Boolean(document.querySelector('[aria-label="Recent master exchanges"]')),
-      requestCount: document.querySelectorAll('[data-testid="master-active-request"]').length,
-      requestText: document.querySelector('[data-testid="master-active-request"] p')?.textContent ?? null,
-      resultKind: document.querySelector('[data-master-result-kind]')?.getAttribute('data-master-result-kind') ?? null,
-    }))()`,
+    driverCallExpression("topicConversationMasterActiveInteractionState"),
     (state) =>
       state.open &&
       state.interactionCount === 1 &&

@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v32";
+  const version = "setta-topic-conversation-pane-projection-driver-v33";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -20,6 +20,7 @@
       topicConversationEndSide,
       topicConversationFirstRunState,
       topicConversationInstallCaptureTimingObserver,
+      topicConversationMasterActiveInteractionState,
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
@@ -55,6 +56,39 @@
       openButtonReady: button instanceof HTMLButtonElement && !button.disabled,
       workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
     };
+  }
+
+  function topicConversationMasterActiveInteractionState() {
+    const overlay = masterOverlay();
+    return {
+      interactionCount: overlayCount(overlay, '[data-testid="master-active-interaction"]'),
+      legacyHistoryPresent: overlayHas(overlay, '[aria-label="Recent master exchanges"]'),
+      open: Boolean(overlay),
+      requestCount: overlayCount(overlay, '[data-testid="master-active-request"]'),
+      requestText: overlayText(overlay, '[data-testid="master-active-request"] p'),
+      resultKind: overlayAttribute(overlay, "[data-master-result-kind]", "data-master-result-kind"),
+    };
+  }
+
+  function masterOverlay() {
+    const overlay = document.querySelector('[data-testid="master-overlay"]');
+    return overlay instanceof HTMLElement ? overlay : null;
+  }
+
+  function overlayCount(overlay, selector) {
+    return overlay?.querySelectorAll(selector).length ?? 0;
+  }
+
+  function overlayHas(overlay, selector) {
+    return overlay?.querySelector(selector) !== null;
+  }
+
+  function overlayText(overlay, selector) {
+    return overlay?.querySelector(selector)?.textContent ?? null;
+  }
+
+  function overlayAttribute(overlay, selector, attribute) {
+    return overlay?.querySelector(selector)?.getAttribute(attribute) ?? null;
   }
 
   function topicConversationCreationWorkspaceState() {

@@ -759,57 +759,5 @@ function frameMetricsResetExpression() {
 }
 
 function paneSnapshotExpression() {
-  return `(() => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
-    const stageRect = stage instanceof HTMLElement
-      ? stage.getBoundingClientRect()
-      : { left: 0, top: 0, width: 0, height: 0 };
-    const ghost = document.querySelector('[data-workspace-overview-ghost]');
-    const ghostHost = ghost instanceof HTMLElement
-      ? (() => {
-          const rect = ghost.getBoundingClientRect();
-          return {
-            placement: ghost.dataset.overviewGhostPlacement ?? "",
-            paneId: ghost.dataset.overviewGhostPaneId ?? "",
-            rect: { height: rect.height, left: rect.left, top: rect.top, width: rect.width },
-          };
-        })()
-      : null;
-    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
-      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
-      .map((host) => {
-        const rect = host.getBoundingClientRect();
-        return {
-          dragSource: host.dataset.dragSource === "true",
-          dropAxis: host.dataset.dropAxis ?? "",
-          dropPreview: host.dataset.dropPreview === "true",
-          dropTarget: host.dataset.dropTarget ?? "",
-          focused: host.dataset.focused === "true",
-          paneId: host.dataset.paneId ?? "",
-          presentationMode: host.dataset.presentationMode ?? "",
-          rect: {
-            height: rect.height,
-            left: rect.left,
-            top: rect.top,
-            width: rect.width,
-          },
-        };
-      });
-    return {
-      focusedPaneId: visibleHosts.find((host) => host.focused)?.paneId ?? "",
-      ghost: ghostHost,
-      mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
-      overviewDragging: area instanceof HTMLElement ? area.dataset.overviewDragging ?? "" : "",
-      paneDragging: area instanceof HTMLElement ? area.dataset.paneDragging ?? "" : "",
-      stageRect: {
-        height: stageRect.height,
-        left: stageRect.left,
-        top: stageRect.top,
-        width: stageRect.width,
-      },
-      visibleHosts,
-      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
-    };
-  })()`;
+  return driverCallExpression("paneDragDropPaneSnapshot");
 }

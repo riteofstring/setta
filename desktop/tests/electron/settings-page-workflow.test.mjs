@@ -320,8 +320,9 @@ async function waitForLayoutWithoutSettings(client, workspaceId) {
     settingsPageStateExpression(),
     (state) =>
       state.workspaceId === workspaceId &&
-      state.paneCount === 3 &&
-      state.paneIds.length === 3 &&
+      state.paneCount === 4 &&
+      state.paneIds.length === 4 &&
+      countSurfaceKind(state, "master") === 1 &&
       countSurfaceKind(state, "conversation") === 1 &&
       countSurfaceKind(state, "empty-frame") === 2 &&
       state.presentationMode === "normal" &&

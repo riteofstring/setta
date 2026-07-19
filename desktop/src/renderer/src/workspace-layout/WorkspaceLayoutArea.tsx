@@ -253,6 +253,7 @@ function WorkspaceLayoutRuntimeArea({
       onOpenVoiceCredentialSettings,
       overviewCardMaxWidthPx,
       overviewCardMinWidthPx,
+      platform,
       speechCapture,
       speechPresentation,
       workspaceId,

@@ -1,7 +1,7 @@
 /* global HTMLElement, KeyboardEvent, PerformanceObserver, document, performance, requestAnimationFrame, window */
 
 (() => {
-  const version = "setta-pane-drag-drop-performance-driver-v2";
+  const version = "setta-pane-drag-drop-performance-driver-v3";
   const paneHostSelector = '[data-testid="workspace-pane-host"]';
   const visiblePaneHostSelector = `${paneHostSelector}[data-visible="true"]`;
   const workspaceLayoutSelector = '[data-testid="workspace-layout-area"]';
@@ -139,9 +139,9 @@
   function paneDragDropPaneSnapshot() {
     const area = document.querySelector(workspaceLayoutSelector);
     const stageRect = workspaceStageRect();
-    const visibleHosts = Array.from(document.querySelectorAll(visiblePaneHostSelector)).map(
-      (host) => paneHostSnapshot(host),
-    );
+    const visibleHosts = Array.from(document.querySelectorAll(visiblePaneHostSelector))
+      .filter(isWorkspacePaneHost)
+      .map((host) => paneHostSnapshot(host));
     return {
       focusedPaneId: visibleHosts.find((host) => host.focused)?.paneId ?? "",
       ghost: overviewGhostSnapshot(),
@@ -149,7 +149,7 @@
       overviewDragging: workspaceDataset(area, "overviewDragging"),
       paneDragging: workspaceDataset(area, "paneDragging"),
       stageRect: stageRectSnapshot(stageRect),
-      totalPanes: workspaceDatasetNumber(area, "paneCount"),
+      totalPanes: visibleHosts.length,
       visibleHosts,
       workspaceId: workspaceDataset(area, "workspaceId"),
       workspaceMode: workspaceDataset(area, "workspaceMode"),
@@ -301,8 +301,12 @@
 
   function visiblePaneHostByPaneId(paneId) {
     return Array.from(document.querySelectorAll(visiblePaneHostSelector)).find(
-      (host) => host instanceof HTMLElement && host.dataset.paneId === paneId,
+      (host) => isWorkspacePaneHost(host) && host.dataset.paneId === paneId,
     );
+  }
+
+  function isWorkspacePaneHost(host) {
+    return host instanceof HTMLElement && host.dataset.surfaceKind !== "master";
   }
 
   function paneHostSnapshot(host) {
@@ -353,10 +357,6 @@
 
   function workspaceDataset(element, key) {
     return element instanceof HTMLElement ? (element.dataset[key] ?? "") : "";
-  }
-
-  function workspaceDatasetNumber(element, key) {
-    return Number(workspaceDataset(element, key) || "0");
   }
 
   function pointInsideRect(point, rect) {
