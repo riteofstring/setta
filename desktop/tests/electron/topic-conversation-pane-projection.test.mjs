@@ -26,6 +26,10 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 import {
+  configureConversationAgentApprovals,
+  submitDefaultApprovalLikeTurn,
+} from "./topic-conversation-default-permission-workflow.mjs";
+import {
   assertPersistedMasterCancellation,
   exerciseVerifiedMasterCancellation,
 } from "./topic-conversation-master-cancellation-workflow.mjs";
@@ -196,6 +200,12 @@ try {
     context.client,
     initialConversation.conversation.id,
   );
+  await submitDefaultApprovalLikeTurn({
+    client: context.client,
+    conversationId: initialConversation.conversation.id,
+    text: "approval default yolo",
+    timeoutMs: workflowTimeoutMs,
+  });
   await exerciseCodexAccountNotificationWorkflow({
     backend,
     client: context.client,
@@ -206,6 +216,7 @@ try {
     createTopic(context.client, backend, workspaceId, title, workflowTimeoutMs);
   const alpha = await createInitialTopic("Alpha topic");
   const beta = await createInitialTopic("Beta topic");
+  await configureConversationAgentApprovals(backend, workspaceId, alpha.id);
   assertDistinctNarratorVoices(alpha, beta, "marin");
   const masterVoice = await updateMasterVoice(context.client, {
     requestedVoiceId: "alloy",
@@ -1361,7 +1372,6 @@ async function openWorkspace(client) {
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
-
 async function waitForInitialConversation(backend, workspaceId) {
   const page = await waitForBackendState(
     () => listTopics(backend, workspaceId),
@@ -1371,7 +1381,6 @@ async function waitForInitialConversation(backend, workspaceId) {
   );
   return page.items[0];
 }
-
 async function assertInitialEasyButtonExperience(client, conversationId) {
   const state = await waitForState(
     client,
@@ -1401,7 +1410,6 @@ async function assertInitialEasyButtonExperience(client, conversationId) {
     workflowTimeoutMs,
   );
 }
-
 function initialEasyButtonExperienceReady(state) {
   return [
     !state.createControlPresent,
@@ -1416,7 +1424,6 @@ function initialEasyButtonExperienceReady(state) {
     state.matchingSurfaceCount === 1,
   ].every(Boolean);
 }
-
 async function assertNavigatorDoesNotOfferAnotherEasyButtonView(client, conversationId) {
   const before = await waitForNavigator(client, conversationId, 1, workflowTimeoutMs);
   if (before.duplicateViewButtonCount !== 0) {
@@ -1430,14 +1437,12 @@ async function assertNavigatorDoesNotOfferAnotherEasyButtonView(client, conversa
   );
   await waitForNavigator(client, conversationId, 1, workflowTimeoutMs);
 }
-
 async function installScriptedRealtimeBrowser(client) {
   await client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
   await client.evaluate(
     `globalThis.__settaSpeechRealtimeBrowserFixture.setTranscript(${JSON.stringify(paneSpeechTranscript)})`,
   );
 }
-
 async function submitAndWaitForQueue(client, conversationId, text, queueCount) {
   assertDriverAction(
     await client.driver("topicConversationSubmit", { conversationId, text }),

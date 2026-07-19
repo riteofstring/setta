@@ -8,6 +8,7 @@ import {
 } from "./fake-topic-artifact-tool.mjs";
 import { artifactToolResponseAction } from "./fake-topic-artifact-turns.mjs";
 import {
+  approvalScenarioKind,
   listCursorOffset,
   listLimit,
   optionalNonNegativeIntegerEnvironment,
@@ -1002,8 +1003,8 @@ function isCrashNarratorProjection(context) {
     context.authoritative?.currentInstructions?.objective?.text === "crash narrator"
   );
 }
-
 function emitTurnScenario(threadId, turnId, text) {
+  const thread = loadedThreads.get(threadId) ?? durableThreads.get(threadId);
   const profiledEventCount = performanceEventCount(text);
   if (profiledEventCount !== null) {
     emitProfiledTurn(threadId, turnId, text, profiledEventCount, 0);
@@ -1019,12 +1020,7 @@ function emitTurnScenario(threadId, turnId, text) {
     heldTurns.set(turnId, { threadId, text });
     return;
   }
-  if (text.includes("command approval")) {
-    requestCommandApproval(threadId, turnId);
-    return;
-  }
-  if (text.includes("approval")) {
-    requestApproval(threadId, turnId);
+  if (emitApprovalScenario(thread, threadId, turnId, text)) {
     return;
   }
   if (emitArtifactToolScenario(threadId, turnId, text)) {
@@ -1038,7 +1034,21 @@ function emitTurnScenario(threadId, turnId, text) {
   emitAgentMessage(threadId, turnId, `Completed ${text}.`);
   completeTurn(threadId, turnId, "completed");
 }
-
+function emitApprovalScenario(thread, threadId, turnId, text) {
+  const approvalKind = approvalScenarioKind(text);
+  if (!approvalKind) return false;
+  if (thread?.approvalPolicy === "never") {
+    emitAgentMessage(threadId, turnId, `Completed ${text}.`);
+    completeTurn(threadId, turnId, "completed");
+    return true;
+  }
+  if (approvalKind === "command") {
+    requestCommandApproval(threadId, turnId);
+  } else {
+    requestApproval(threadId, turnId);
+  }
+  return true;
+}
 function performanceEventCount(text) {
   const match = /^Profile exactly (\d+) conversation events for pane \d+\.$/.exec(text);
   if (!match) {
@@ -1050,7 +1060,6 @@ function performanceEventCount(text) {
   }
   return count;
 }
-
 function emitArtifactToolScenario(threadId, turnId, text) {
   const scenario = artifactPolicyScenarioForText(text);
   if (!scenario) {
@@ -1064,13 +1073,11 @@ function emitArtifactToolScenario(threadId, turnId, text) {
   emitArtifactToolCall(threadId, turnId, scenario, 0);
   return true;
 }
-
 function emitLegacyArtifactIfRequested(threadId, turnId, text) {
   if (text.includes("artifact")) {
     emitArtifact(threadId, turnId);
   }
 }
-
 function emitProfiledTurn(threadId, turnId, text, eventCount, emittedCount) {
   const chunkEnd = Math.min(eventCount, emittedCount + 8);
   for (let index = emittedCount; index < chunkEnd; index += 1) {
@@ -1083,7 +1090,6 @@ function emitProfiledTurn(threadId, turnId, text, eventCount, emittedCount) {
   emitAgentMessage(threadId, turnId, `Completed ${text}`);
   completeTurn(threadId, turnId, "completed");
 }
-
 function steerTurn(message) {
   const turnId = requiredString(message.params, "expectedTurnId");
   const held = heldTurns.get(turnId);
@@ -1106,13 +1112,11 @@ function steerTurn(message) {
   }
   setImmediate(() => completeSteeredTurn(completion));
 }
-
 function completeSteeredTurn({ held, text, turnId }) {
   emitTextDelta(held.threadId, turnId, `Steered with ${text}. `);
   emitAgentMessage(held.threadId, turnId, `Steering completed ${held.text}.`);
   completeTurn(held.threadId, turnId, "completed");
 }
-
 function interruptTurn(message) {
   const turnId = requiredString(message.params, "turnId");
   const held = heldTurns.get(turnId);
@@ -1441,7 +1445,7 @@ function fakeThread(threadId) {
 
 function threadOperationResponse(thread, state) {
   return {
-    approvalPolicy: state.approvalPolicy ?? "on-request",
+    approvalPolicy: state.approvalPolicy ?? "never",
     approvalsReviewer: "user",
     cwd: state.cwd ?? "/tmp/setta-topic-codex",
     instructionSources: [],
@@ -1449,16 +1453,14 @@ function threadOperationResponse(thread, state) {
     modelProvider: "fake",
     reasoningEffort: state.reasoningEffort ?? restrictedThread.modelReasoningEffort(state.model),
     runtimeWorkspaceRoots: state.runtimeWorkspaceRoots ?? [],
-    sandbox: restrictedThread.sandboxPolicy(state.sandbox ?? "workspace-write"),
+    sandbox: restrictedThread.sandboxPolicy(state.sandbox ?? "danger-full-access"),
     serviceTier: state.serviceTier ?? null,
     thread,
   };
 }
-
 function fakeTurn(turnId, status) {
   return { id: turnId, items: [], status };
 }
-
 function turnInputText(params) {
   const items = params?.input;
   if (!Array.isArray(items) || items.length === 0) {
@@ -1466,7 +1468,6 @@ function turnInputText(params) {
   }
   return items.map((item) => item?.text ?? "").join("\n");
 }
-
 function requiredString(value, field) {
   const result = value?.[field];
   if (typeof result !== "string" || result === "") {
@@ -1474,7 +1475,6 @@ function requiredString(value, field) {
   }
   return result;
 }
-
 function respond(id, result) {
   write({ id, jsonrpc: "2.0", result });
 }

@@ -50,11 +50,10 @@ func DefaultAgentRoleProfile() RoleProfile {
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
 		ReasoningEffort: ReasoningEffortHigh,
 		PermissionProfile: PermissionProfile{
-			ApprovalPolicy:            ApprovalPolicyOnRequest,
-			ProviderPermissionProfile: ":workspace",
+			ApprovalPolicy:            ApprovalPolicyNever,
+			ProviderPermissionProfile: ":full-access",
 			ToolAccess:                ToolAccessPolicy{Mode: ToolAccessAll, AllowedTools: []string{}},
 			WorkspaceMutation:         true,
-			Approvals:                 true,
 		},
 		ContextBudget: ContextBudget{
 			MaxInputBytes:        256 * 1024,

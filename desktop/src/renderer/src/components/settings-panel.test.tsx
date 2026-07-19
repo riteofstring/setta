@@ -714,9 +714,9 @@ function sampleRoleProfile(role: Role, modelId: string, effort: string): RolePro
     },
     modelSelection: { mode: "exact", modelId },
     permissionProfile: {
-      approvalPolicy: role === "narrator" || role === "master" ? "never" : "on-request",
-      approvals: role !== "narrator" && role !== "master",
-      providerPermissionProfile: role === "agent" ? ":workspace" : ":read-only",
+      approvalPolicy: role === "side_agent" ? "on-request" : "never",
+      approvals: role === "side_agent",
+      providerPermissionProfile: role === "agent" ? ":full-access" : ":read-only",
       toolAccess: {
         allowedTools: [],
         mode: role === "narrator" ? "none" : "all",

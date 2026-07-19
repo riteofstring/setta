@@ -12,6 +12,12 @@ export function optionalNonNegativeIntegerEnvironment(name) {
   return value;
 }
 
+export function approvalScenarioKind(text) {
+  if (text.includes("command approval")) return "command";
+  if (text.includes("approval")) return "question";
+  return null;
+}
+
 export function validSideBoundary(boundary, context) {
   return [
     boundary.includes("Side conversation boundary."),

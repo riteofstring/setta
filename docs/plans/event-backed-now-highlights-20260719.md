@@ -17,9 +17,9 @@ or legacy narrator milestone behavior as part of this work.
   reserved for attention/status events.
 - [x] Completion: artifact-bearing terminal turns now use compact,
   artifact-first center summaries derived from typed artifact data.
-- [ ] Defaults: the primary topic-agent role default still needs the yolo
+- [x] Defaults: the primary topic-agent role default now uses the yolo
   permission cutover.
-- [ ] Phase audit and release gates: run the broader deterministic coverage and
+- [x] Phase audit and release gates: run the broader deterministic coverage and
   any remaining live-provider checks at the audit point.
 
 ## Intent
