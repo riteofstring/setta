@@ -22,6 +22,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { driverCallExpression } from "./cdp-client.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -101,9 +102,8 @@ try {
   );
   assertFailure(invalidFinish, "invalid_session");
 
-  const masterInputId = "master_input_local_macos_speech_e2e";
-  await submitVoiceMasterInput(context.client, masterInputId);
-  const source = { conversationId: null, eventId: masterInputId, speaker: "master" };
+  const routedVoiceInput = await submitLocalVoiceThroughMasterOverlay(context.client);
+  const source = { conversationId: null, eventId: routedVoiceInput.inputId, speaker: "master" };
   const synthesized = await context.client.evaluate(
     `window.setta.speech.synthesize(${JSON.stringify({
       provider: "local_macos",
@@ -122,6 +122,7 @@ try {
     finishedTranscript: finished.transcript,
     health,
     invalidFinishFailure: invalidFinish.failure,
+    routedVoiceInput,
     synthesized: {
       audioBase64: synthesized.audioBase64,
       resolvedVoiceId: synthesized.resolvedVoiceId,
@@ -188,35 +189,53 @@ function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
-async function submitVoiceMasterInput(client, inputId) {
-  const request = {
-    input: {
-      focusedConversationId: null,
-      focusedPaneId: null,
-      focusedWorkspaceId: null,
-      id: inputId,
-      modality: "voice",
-      originatingConversationId: null,
-      originatingConversationInputId: null,
-      originatingPaneId: null,
-      originatingWorkspaceId: null,
-      source: "shell",
-      submittedAt: "2026-07-21T18:00:00Z",
-      text: "Local macOS speech output check.",
-    },
-  };
-  await client.evaluate(`window.setta.master.submitInput(${JSON.stringify(request)})`);
-  const interaction = await client.evaluate(
-    `window.setta.master.waitInteraction(${JSON.stringify({ inputId })})`,
+async function submitLocalVoiceThroughMasterOverlay(client) {
+  await openMasterOverlay(client);
+  await clickMasterOverlayVoice(client);
+  await waitForState(
+    client,
+    driverCallExpression("masterOverlayVoiceButtonState"),
+    (state) => state.ready && state.label.startsWith("Finish Global master voice request"),
+    workflowTimeoutMs,
+  );
+  await clickMasterOverlayVoice(client);
+  const interaction = await waitForState(
+    client,
+    driverCallExpression("masterOverlayRoutedInteraction"),
+    (value) =>
+      value.status === "decided" &&
+      value.resultKind === "answer_global" &&
+      value.transcript.startsWith("local transcript for "),
+    workflowTimeoutMs,
   );
   if (
-    interaction?.status !== "decided" ||
-    interaction.decision?.kind !== "answer_global" ||
-    interaction.decision.answerGlobal?.text !== "The shell voice request was received."
+    interaction.decisionText !== "The shell voice request was received." ||
+    interaction.transcript !== `local transcript for ${interaction.inputId}`
   ) {
     throw new Error(
-      `master voice input did not resolve to a speech source: ${JSON.stringify(interaction)}`,
+      `local master voice input did not route the helper transcript: ${JSON.stringify(interaction)}`,
     );
+  }
+  return {
+    decisionText: interaction.decisionText,
+    inputId: interaction.inputId,
+    transcript: interaction.transcript,
+  };
+}
+
+async function openMasterOverlay(client) {
+  const state = await client.driver("masterOverlayOpenState");
+  if (state.open) {
+    return;
+  }
+  await clickEnabledButtonByAria(client, "Open Ask Setta", workflowTimeoutMs);
+  await waitForSelector(client, '[data-testid="master-overlay"]');
+}
+
+async function clickMasterOverlayVoice(client) {
+  const result = await client.driver("masterOverlayVoiceClick");
+  if (!result.clicked) {
+    throw new Error("master overlay voice control was not clickable");
   }
 }
 

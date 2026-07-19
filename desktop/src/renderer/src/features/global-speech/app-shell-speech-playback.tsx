@@ -20,7 +20,10 @@ import {
   type SpeechPlaybackControllerDependencies,
   type SpeechPlaybackSnapshot,
 } from "./app-shell-speech-playback-controller";
+import { selectDesktopVoiceOutputProvider } from "./desktop-speech-provider-coordinator";
+import { createLocalMacOSSpeechOutputProvider } from "./local-macos-speech-output-provider";
 import { createOpenAIBackendSpeechOutputProvider } from "./openai-speech-output-provider";
+import type { VoiceOutputProvider } from "./voice-provider-boundary";
 
 export interface AppShellSpeechPlaybackContextValue {
   controller: AppShellSpeechPlaybackController;
@@ -192,7 +195,8 @@ function scheduleMicrotask(handler: () => void): void {
 }
 
 function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerDependencies {
-  const outputProvider = createOpenAIBackendSpeechOutputProvider(setta);
+  const openAIOutputProvider = createOpenAIBackendSpeechOutputProvider(setta);
+  const localMacOSOutputProvider = createLocalMacOSSpeechOutputProvider(setta);
   return {
     createAbortController: () => new AbortController(),
     createAudio: (url) => new Audio(url),
@@ -208,9 +212,21 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     synthesize: (request, signal) => {
       const operationId = createSpeechSynthesisOperationId();
+      let outputProvider: VoiceOutputProvider | null = null;
       return abortableSpeechRequest(
-        () => outputProvider.synthesize(request, operationId),
-        () => outputProvider.cancel(operationId),
+        async () => {
+          outputProvider = await selectDesktopVoiceOutputProvider({
+            localMacOS: localMacOSOutputProvider,
+            openAI: openAIOutputProvider,
+            platform: setta.app.platform,
+            readLocalMacOSVoiceHealth: setta.speech.readLocalMacOSVoiceHealth,
+          });
+          if (signal.aborted) {
+            throw speechSynthesisStoppedError();
+          }
+          return outputProvider.synthesize(request, operationId);
+        },
+        () => outputProvider?.cancel(operationId) ?? Promise.resolve(),
         signal,
       );
     },
@@ -241,12 +257,12 @@ function abortableSpeechRequest<T>(
   signal: AbortSignal,
 ): Promise<T> {
   if (signal.aborted) {
-    return Promise.reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
+    return Promise.reject(speechSynthesisStoppedError());
   }
   return new Promise<T>((resolve, reject) => {
     const aborted = () => {
       void cancel().catch(() => undefined);
-      reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
+      reject(speechSynthesisStoppedError());
     };
     signal.addEventListener("abort", aborted, { once: true });
     void start().then(
@@ -260,4 +276,8 @@ function abortableSpeechRequest<T>(
       },
     );
   });
+}
+
+function speechSynthesisStoppedError(): DOMException {
+  return new DOMException("Speech synthesis was stopped.", "AbortError");
 }
