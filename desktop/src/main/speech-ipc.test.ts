@@ -399,6 +399,40 @@ describe("speech IPC handlers", () => {
     expect(helper.startCapture).toHaveBeenCalledOnce();
   });
 
+  test("releases listener manual-capture pause when helper returns a mismatched session", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const helper = localMacOSVoiceHelper();
+    const listener = listenerService();
+    helper.startCapture.mockResolvedValueOnce({ sessionId: "capture_other" });
+    registerTestSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireLocalMacOSVoiceListenerService: () => listener,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    const result = await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_local",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+
+    expect(result).toEqual({
+      failure: {
+        code: "invalid_session",
+        message: "Local macOS voice helper returned a different capture session.",
+      },
+      status: "failed",
+    });
+    expect(listener.prepareManualCaptureStart).toHaveBeenCalledWith("capture_local");
+    expect(listener.finishManualCapture).toHaveBeenCalledWith("capture_local");
+  });
+
   test("rejects empty and oversized local macOS transcripts before routing", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const helper = localMacOSVoiceHelper();

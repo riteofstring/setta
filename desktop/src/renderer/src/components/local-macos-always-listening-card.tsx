@@ -152,6 +152,7 @@ export function LocalMacOSAlwaysListeningCardView({
           updating={updating}
         />
       ) : null}
+      {model.failureMessage ? <AlwaysListeningFailurePanel message={model.failureMessage} /> : null}
       <label className="flex min-w-0 items-center justify-between gap-3 rounded-sm border border-border bg-background/60 p-3 text-xs">
         <span className="min-w-0">
           <span className="block font-medium text-foreground">Listen for Hey Setta</span>
@@ -189,6 +190,18 @@ function AlwaysListeningUnavailablePanel({
           Download model
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+function AlwaysListeningFailurePanel({ message }: { message: string }) {
+  return (
+    <div
+      className="flex min-w-0 items-start gap-2 rounded-sm border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
+      role="alert"
+    >
+      <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <span className="min-w-0 break-words">{message}</span>
     </div>
   );
 }
@@ -239,6 +252,7 @@ function alwaysListeningCardModel(
     description: enabled ? listenerStateLabel(settings?.state.status ?? "armed") : "Off",
     disabled: updating || settings === null || unavailable !== null,
     enabled,
+    failureMessage: unavailable === null ? listenerFailureMessage(settings) : null,
     unavailable,
   };
 }
@@ -246,6 +260,19 @@ function alwaysListeningCardModel(
 function unavailableSettings(settings: LocalMacOSVoiceListenerSettings | null) {
   return settings?.availability.status === "unavailable" ? settings.availability : null;
 }
+
+function listenerFailureMessage(settings: LocalMacOSVoiceListenerSettings | null): string | null {
+  if (!settings?.enabled || !listenerFailureStatuses.has(settings.state.status)) {
+    return null;
+  }
+  return "message" in settings.state ? settings.state.message : "Always listening needs attention.";
+}
+
+const listenerFailureStatuses = new Set<LocalMacOSVoiceListenerSettings["state"]["status"]>([
+  "engine_failed",
+  "local_voice_not_ready",
+  "microphone_denied",
+]);
 
 const listenerStateLabels = {
   armed: "Armed",

@@ -87,6 +87,8 @@ const listenerTiming = {
 } as const;
 
 export class LocalMacOSVoiceListenerService {
+  private activeManualCaptureSessionId: string | null = null;
+  private activePlaybackOperationId: string | null = null;
   private availability: LocalMacOSVoiceListenerAvailability = { status: "ready" };
   private enabled = false;
   private initialized = false;
@@ -131,6 +133,7 @@ export class LocalMacOSVoiceListenerService {
         wakeStatus: reflected.status,
       };
     }
+    this.activeManualCaptureSessionId = captureSessionId;
     await this.enqueue(async () => {
       await this.applyTransition({ captureSessionId, type: "manual_capture_started" });
     });
@@ -139,9 +142,16 @@ export class LocalMacOSVoiceListenerService {
 
   async finishManualCapture(captureSessionId: string): Promise<void> {
     await this.initialize();
+    const clearedBlocker = this.activeManualCaptureSessionId === captureSessionId;
+    if (clearedBlocker) {
+      this.activeManualCaptureSessionId = null;
+    }
     await this.enqueue(async () => {
       await this.applyTransition({ captureSessionId, type: "manual_capture_finished" });
     });
+    if (clearedBlocker) {
+      await this.recoverAfterBlockerCleared();
+    }
   }
 
   async completeSubmission(captureSessionId: string): Promise<LocalMacOSVoiceListenerSettings> {
@@ -157,6 +167,7 @@ export class LocalMacOSVoiceListenerService {
 
   async startPlayback(operationId: string): Promise<LocalMacOSVoiceListenerSettings> {
     await this.initialize();
+    this.activePlaybackOperationId = operationId;
     await this.enqueue(async () => {
       await this.applyTransition({ operationId, type: "playback_started" });
     });
@@ -165,9 +176,16 @@ export class LocalMacOSVoiceListenerService {
 
   async finishPlayback(operationId: string): Promise<LocalMacOSVoiceListenerSettings> {
     await this.initialize();
+    const clearedBlocker = this.activePlaybackOperationId === operationId;
+    if (clearedBlocker) {
+      this.activePlaybackOperationId = null;
+    }
     await this.enqueue(async () => {
       await this.applyTransition({ operationId, type: "playback_finished" });
     });
+    if (clearedBlocker) {
+      await this.recoverAfterBlockerCleared();
+    }
     return this.snapshot();
   }
 
@@ -243,10 +261,7 @@ export class LocalMacOSVoiceListenerService {
   private async startListener(): Promise<void> {
     const readiness = await this.refreshReadinessState();
     if (readiness.status === "unavailable") {
-      await this.applyTransition({
-        message: readiness.availability.message,
-        type: "local_voice_not_ready",
-      });
+      await this.applyTransition(readiness.transition);
       return;
     }
     try {
@@ -359,7 +374,12 @@ export class LocalMacOSVoiceListenerService {
     const previousAvailability = this.listenerAvailability();
     const readiness = await this.readListenerReadiness();
     this.availability = readiness.availability;
-    const transition = readinessTransitionForState(this.enabled, this.state, readiness);
+    const transition = readinessTransitionForState(
+      this.enabled,
+      this.hasActiveBlocker(),
+      this.state,
+      readiness,
+    );
     if (transition) {
       await this.enqueue(async () => {
         await this.applyTransition(transition);
@@ -371,6 +391,21 @@ export class LocalMacOSVoiceListenerService {
       this.publishState();
     }
     return readiness;
+  }
+
+  private async recoverAfterBlockerCleared(): Promise<void> {
+    if (
+      !this.enabled ||
+      this.hasActiveBlocker() ||
+      !recoverableFailureStatuses.has(this.state.status)
+    ) {
+      return;
+    }
+    await this.refreshReadinessState();
+  }
+
+  private hasActiveBlocker(): boolean {
+    return this.activeManualCaptureSessionId !== null || this.activePlaybackOperationId !== null;
   }
 
   private async readListenerReadiness(): Promise<LocalMacOSVoiceListenerReadiness> {
@@ -621,6 +656,7 @@ const recoverableFailureStatuses = new Set<LocalMacOSVoiceListenerState["status"
 
 function readinessTransitionForState(
   enabled: boolean,
+  blocked: boolean,
   state: LocalMacOSVoiceListenerState,
   readiness: LocalMacOSVoiceListenerReadiness,
 ): LocalMacOSVoiceListenerTransitionEvent | null {
@@ -628,7 +664,9 @@ function readinessTransitionForState(
     return null;
   }
   if (readiness.status === "ready") {
-    return recoverableFailureStatuses.has(state.status) ? { type: "local_voice_ready" } : null;
+    return !blocked && recoverableFailureStatuses.has(state.status)
+      ? { type: "local_voice_ready" }
+      : null;
   }
   return shouldApplyUnavailableReadiness(state, readiness.transition) ? readiness.transition : null;
 }

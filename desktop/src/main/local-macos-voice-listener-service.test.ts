@@ -267,6 +267,43 @@ describe("local macOS voice listener service", () => {
     }
   });
 
+  test("preserves microphone denial when readiness changes while the listener starts", async () => {
+    const harness = await createHarness();
+    try {
+      harness.helper.readHealth
+        .mockResolvedValueOnce({
+          helperPath: "/tmp/setta-local-helper",
+          modelPath: "/tmp/ggml-base.en.bin",
+          modelSHA256: "b".repeat(64),
+          provider: "local_macos",
+          status: "ready",
+        })
+        .mockResolvedValueOnce({
+          message: "Microphone access is denied for Setta.",
+          provider: "local_macos",
+          status: "microphone_denied",
+        });
+
+      const enabled = await harness.service.updateSettings(true);
+
+      expect(enabled).toEqual({
+        availability: {
+          message: "Microphone access is denied for Setta.",
+          setupAction: null,
+          status: "unavailable",
+        },
+        enabled: true,
+        state: {
+          message: "Microphone access is denied for Setta.",
+          status: "microphone_denied",
+        },
+      });
+      expect(harness.helper.startListener).not.toHaveBeenCalled();
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   test("restarts the listener after a runtime engine failure when readiness is healthy", async () => {
     const harness = await createHarness();
     try {
@@ -291,6 +328,86 @@ describe("local macOS voice listener service", () => {
         enabled: true,
         state: { status: "arming" },
       });
+      expect(harness.helper.startListener).toHaveBeenCalledTimes(2);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  test("defers listener recovery until active playback finishes", async () => {
+    const harness = await createHarness();
+    try {
+      await harness.service.updateSettings(true);
+      harness.emit({ type: "listener_armed" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({ status: "armed" }),
+      );
+
+      harness.emit({ message: "Always listening helper exited.", type: "engine_failed" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({
+          message: "Always listening helper exited.",
+          status: "engine_failed",
+        }),
+      );
+      await harness.service.startPlayback("speech_playback_1");
+
+      const blockedRefresh = await harness.service.refreshReadiness();
+
+      expect(blockedRefresh).toMatchObject({
+        availability: { status: "ready" },
+        enabled: true,
+        state: {
+          message: "Always listening helper exited.",
+          status: "engine_failed",
+        },
+      });
+      expect(harness.helper.startListener).toHaveBeenCalledOnce();
+
+      const recovered = await harness.service.finishPlayback("speech_playback_1");
+
+      expect(recovered).toMatchObject({
+        availability: { status: "ready" },
+        enabled: true,
+        state: { status: "arming" },
+      });
+      expect(harness.helper.startListener).toHaveBeenCalledTimes(2);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  test("defers listener recovery until active manual capture finishes", async () => {
+    const harness = await createHarness();
+    try {
+      await harness.service.updateSettings(true);
+      harness.emit({ type: "listener_armed" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({ status: "armed" }),
+      );
+
+      harness.emit({ message: "Always listening helper exited.", type: "engine_failed" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({
+          message: "Always listening helper exited.",
+          status: "engine_failed",
+        }),
+      );
+      await expect(harness.service.prepareManualCaptureStart("capture_manual")).resolves.toEqual({
+        status: "ready",
+      });
+
+      const blockedRefresh = await harness.service.refreshReadiness();
+
+      expect(blockedRefresh.state).toEqual({
+        message: "Always listening helper exited.",
+        status: "engine_failed",
+      });
+      expect(harness.helper.startListener).toHaveBeenCalledOnce();
+
+      await harness.service.finishManualCapture("capture_manual");
+
+      expect(harness.events.at(-1)?.settings.state).toEqual({ status: "arming" });
       expect(harness.helper.startListener).toHaveBeenCalledTimes(2);
     } finally {
       await harness.cleanup();

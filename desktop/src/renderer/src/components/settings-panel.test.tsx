@@ -247,6 +247,22 @@ describe("appearance settings", () => {
         updating={false}
       />,
     );
+    const failed = renderToString(
+      <LocalMacOSAlwaysListeningCardView
+        error={null}
+        onDownloadLocalModel={vi.fn()}
+        onToggle={vi.fn()}
+        settings={{
+          availability: { status: "ready" },
+          enabled: true,
+          state: {
+            message: "Always listening helper exited.",
+            status: "engine_failed",
+          },
+        }}
+        updating={false}
+      />,
+    );
 
     expect(unavailable).toContain('data-testid="local-macos-always-listening-card"');
     expect(unavailable).toContain("Always listening");
@@ -255,6 +271,9 @@ describe("appearance settings", () => {
     expect(unavailable).toContain('disabled=""');
     expect(active).toContain("Recording");
     expect(active).toContain('checked=""');
+    expect(failed).toContain("Needs attention");
+    expect(failed).toContain("Always listening helper exited.");
+    expect(failed).toContain('role="alert"');
   });
 
   test("keeps a current provider selectable after provider selection storage fails", () => {

@@ -423,6 +423,7 @@ async function startLocalMacOSVoiceCapture(
       sessionId: request.captureSessionId,
     });
     if (result.sessionId !== request.captureSessionId) {
+      await listener.finishManualCapture(request.captureSessionId);
       return localCaptureFailed(
         "invalid_session",
         "Local macOS voice helper returned a different capture session.",
