@@ -47,6 +47,7 @@ function completedSnapshot(): ConversationSnapshot {
     eventCursor: { sequence: 4, streamId: `conversation:${conversationId}` },
     narration: { events: [], hasEarlier: false },
     narratorState: narratorState(),
+    pendingApprovals: [],
     presentationProfile: presentationProfile(),
     queue: [],
     roleProfileOverrides: [],

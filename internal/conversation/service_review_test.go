@@ -52,6 +52,45 @@ func TestQueueWhileApprovalPendingPreservesApprovalState(t *testing.T) {
 	})
 }
 
+func TestApprovalSubmissionSurvivesTruncatedTrajectoryWindow(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	created, err := service.CreateTopic(ctx, workspaceID, "Long approval")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	conversationID := created.Conversation.ID
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, "approval long window"); err != nil {
+		t.Fatalf("SendTurn: %v", err)
+	}
+	runtime.waitForStart(t, "approval long window")
+	waiting := assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Conversation.Status == ConversationStatusWaitingForApproval &&
+			snapshot.Trajectory.HasEarlier &&
+			len(snapshot.Trajectory.Events) == MaxSnapshotTrajectoryEvents &&
+			len(snapshot.PendingApprovals) == 1 &&
+			snapshot.Trajectory.Events[0].Sequence > snapshot.PendingApprovals[0].SourceSequence
+	})
+	if lifecycleRequest, _ := approvalLifecycle(waiting, waiting.PendingApprovals[0].Approval.ID); lifecycleRequest != nil {
+		t.Fatal("approval request unexpectedly remained in the bounded trajectory window")
+	}
+	if _, err := service.SubmitApproval(ctx, workspaceID, conversationID, ConversationApprovalResponse{
+		ApprovalID: waiting.PendingApprovals[0].Approval.ID,
+		Decision:   TrajectoryApprovalDecisionAnswered,
+		Answers: []ConversationApprovalAnswer{{
+			QuestionID: "scope",
+			Answers:    []string{"focused"},
+		}},
+	}); err != nil {
+		t.Fatalf("SubmitApproval after trajectory truncation: %v", err)
+	}
+	assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Conversation.Status == ConversationStatusIdle &&
+			latestSnapshotTurn(snapshot).Status == TurnStatusCompleted &&
+			len(snapshot.PendingApprovals) == 0
+	})
+}
+
 func TestApprovalIsValidatedBeforeProviderSubmissionAndSecretsAreRedacted(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()

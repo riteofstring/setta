@@ -32,6 +32,7 @@ type contractSpec struct {
 type conversationSnapshotLimitSpec struct {
 	Artifacts            int
 	NarrationEvents      int
+	PendingApprovals     int
 	QueuedTurns          int
 	RoleProfileOverrides int
 	SideConversations    int
@@ -165,6 +166,7 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 		ConversationSnapshotLimits: conversationSnapshotLimitSpec{
 			Artifacts:            conversation.MaxSnapshotArtifacts,
 			NarrationEvents:      conversation.MaxSnapshotNarrationEvents,
+			PendingApprovals:     conversation.MaxSnapshotPendingApprovals,
 			QueuedTurns:          conversation.MaxSnapshotQueuedTurns,
 			RoleProfileOverrides: conversation.MaxSnapshotRoleOverrides,
 			SideConversations:    conversation.MaxSnapshotSideConversations,
@@ -503,6 +505,7 @@ func renderConversationSnapshotLimits(buffer *bytes.Buffer, limits conversationS
 	buffer.WriteString("export const conversationSnapshotLimits = {\n")
 	fmt.Fprintf(buffer, "  artifacts: %d,\n", limits.Artifacts)
 	fmt.Fprintf(buffer, "  narrationEvents: %d,\n", limits.NarrationEvents)
+	fmt.Fprintf(buffer, "  pendingApprovals: %d,\n", limits.PendingApprovals)
 	fmt.Fprintf(buffer, "  queuedTurns: %d,\n", limits.QueuedTurns)
 	fmt.Fprintf(buffer, "  roleProfileOverrides: %d,\n", limits.RoleProfileOverrides)
 	fmt.Fprintf(buffer, "  sideConversations: %d,\n", limits.SideConversations)

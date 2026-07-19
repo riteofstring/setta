@@ -567,7 +567,7 @@ function projectConversationSnapshot({
   const focusStatus = narratorFocusStatus(snapshot.narratorState);
   const pendingApproval =
     snapshot.conversation.status === "waiting_for_approval" && runningTurnId
-      ? pendingConversationApproval(snapshot.trajectory.events, runningTurnId)
+      ? pendingConversationApproval(snapshot.pendingApprovals, runningTurnId)
       : null;
   return {
     activeAgentCount: activeAgentCount(snapshot, viewState),

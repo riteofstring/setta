@@ -766,6 +766,13 @@ describe("Easy Button topic conversation projection", () => {
   test("projects approval, degradation, and resynchronization explicitly", () => {
     const snapshot = workingSnapshot("conversation_approval", "Approval topic", "teal");
     snapshot.conversation.status = "waiting_for_approval";
+    snapshot.pendingApprovals = [
+      {
+        approval: approvalRequest("approval_surface", false),
+        sourceSequence: 2,
+        turnId: snapshot.turns.turns[0]!.id,
+      },
+    ];
     snapshot.narratorState = {
       ...snapshot.narratorState,
       degradation: {
@@ -972,6 +979,7 @@ function conversationSnapshot(
     eventCursor: { sequence: 0, streamId: conversationStreamId(conversationId) },
     narration: { events: options.narration, hasEarlier: false },
     narratorState: narratorState(conversationId, options.focus, options.narratorStatus),
+    pendingApprovals: [],
     presentationProfile: presentationProfile(conversationId, palette),
     queue: [],
     roleProfileOverrides: [],

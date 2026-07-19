@@ -18,14 +18,15 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 64;
-export const backendContractSchemaHash = "sha256:c082c237f132bd3baf96f85b26fa187dfff6b85756b2993c9fc1f40548d8c5b6";
+export const backendProtocolVersion = 65;
+export const backendContractSchemaHash = "sha256:9fbd39272c5e682ae9f4b55ea126fe1b7f7de12e53260fbed1baf951ef88aa2c";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
   narrationEvents: 100,
+  pendingApprovals: 16,
   queuedTurns: 50,
   roleProfileOverrides: 4,
   sideConversations: 32,
@@ -2190,6 +2191,12 @@ export interface ConversationTrajectoryWindow {
   hasEarlier: boolean;
 }
 
+export interface ConversationPendingApproval {
+  turnId: string;
+  sourceSequence: number;
+  approval: TrajectoryApprovalRequest;
+}
+
 export interface ArtifactMetadata {
   id: string;
   conversationId: string;
@@ -2351,6 +2358,7 @@ export interface ConversationSnapshot {
   queue: QueuedConversationTurn[];
   threadBinding: AgentThreadBinding | null;
   trajectory: ConversationTrajectoryWindow;
+  pendingApprovals: ConversationPendingApproval[];
   artifacts: ConversationArtifactWindow;
   narratorState: NarratorState;
   narration: ConversationNarrationWindow;
@@ -4834,6 +4842,16 @@ export function decodeConversationTrajectoryWindow(value: unknown): Conversation
   };
 }
 
+export function decodeConversationPendingApproval(value: unknown): ConversationPendingApproval {
+  const record = assertRecord(value, "ConversationPendingApproval");
+  assertKnownFields(record, "ConversationPendingApproval", ["turnId", "sourceSequence", "approval"]);
+  return {
+    turnId: decodeString(requireField(record, "turnId", "ConversationPendingApproval"), "ConversationPendingApproval.turnId"),
+    sourceSequence: decodeInteger(requireField(record, "sourceSequence", "ConversationPendingApproval"), "ConversationPendingApproval.sourceSequence"),
+    approval: decodeTrajectoryApprovalRequest(requireField(record, "approval", "ConversationPendingApproval")),
+  };
+}
+
 export function decodeArtifactMetadata(value: unknown): ArtifactMetadata {
   const record = assertRecord(value, "ArtifactMetadata");
   assertKnownFields(record, "ArtifactMetadata", ["id", "conversationId", "turnId", "trajectorySequence", "kind", "title", "createdAt"]);
@@ -5069,7 +5087,7 @@ export function decodeConversationEventCursor(value: unknown): ConversationEvent
 
 export function decodeConversationSnapshot(value: unknown): ConversationSnapshot {
   const record = assertRecord(value, "ConversationSnapshot");
-  assertKnownFields(record, "ConversationSnapshot", ["schemaVersion", "conversation", "turns", "queue", "threadBinding", "trajectory", "artifacts", "narratorState", "narration", "roleProfileOverrides", "presentationProfile", "branch", "sideConversations", "sideEvents", "eventCursor"]);
+  assertKnownFields(record, "ConversationSnapshot", ["schemaVersion", "conversation", "turns", "queue", "threadBinding", "trajectory", "pendingApprovals", "artifacts", "narratorState", "narration", "roleProfileOverrides", "presentationProfile", "branch", "sideConversations", "sideEvents", "eventCursor"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ConversationSnapshot"), "ConversationSnapshot.schemaVersion"),
     conversation: decodeTopicConversation(requireField(record, "conversation", "ConversationSnapshot")),
@@ -5077,6 +5095,7 @@ export function decodeConversationSnapshot(value: unknown): ConversationSnapshot
     queue: decodeArray(requireField(record, "queue", "ConversationSnapshot"), "ConversationSnapshot.queue", (item) => decodeQueuedConversationTurn(item)),
     threadBinding: decodeNullable(requireField(record, "threadBinding", "ConversationSnapshot"), "ConversationSnapshot.threadBinding", (item) => decodeAgentThreadBinding(item)),
     trajectory: decodeConversationTrajectoryWindow(requireField(record, "trajectory", "ConversationSnapshot")),
+    pendingApprovals: decodeArray(requireField(record, "pendingApprovals", "ConversationSnapshot"), "ConversationSnapshot.pendingApprovals", (item) => decodeConversationPendingApproval(item)),
     artifacts: decodeConversationArtifactWindow(requireField(record, "artifacts", "ConversationSnapshot")),
     narratorState: decodeNarratorState(requireField(record, "narratorState", "ConversationSnapshot")),
     narration: decodeConversationNarrationWindow(requireField(record, "narration", "ConversationSnapshot")),

@@ -643,8 +643,12 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 	control <-chan string,
 ) (agent.TurnResult, error) {
 	switch text {
-	case "approval", "secret approval":
-		if err := runtime.runApprovalScenario(ctx, text == "secret approval", sink, base, control); err != nil {
+	case "approval", "secret approval", "approval long window":
+		postApprovalEvents := 0
+		if text == "approval long window" {
+			postApprovalEvents = MaxSnapshotTrajectoryEvents + 2
+		}
+		if err := runtime.runApprovalScenario(ctx, text == "secret approval", postApprovalEvents, sink, base, control); err != nil {
 			return agent.TurnResult{}, err
 		}
 	case "hold side context":
@@ -783,6 +787,7 @@ func (runtime *serviceTestAgentRuntime) runSideContextHeldScenario(
 func (runtime *serviceTestAgentRuntime) runApprovalScenario(
 	ctx context.Context,
 	secret bool,
+	postApprovalEvents int,
 	sink agent.EventSink,
 	base agent.Event,
 	control <-chan string,
@@ -797,6 +802,17 @@ func (runtime *serviceTestAgentRuntime) runApprovalScenario(
 	}
 	if err := sink.HandleAgentEvent(approval); err != nil {
 		return err
+	}
+	for index := 0; index < postApprovalEvents; index++ {
+		progress := base
+		progress.Kind = agent.EventKindAgentTextDelta
+		progress.Text = &agent.TextEvent{
+			ProviderItemID: fmt.Sprintf("approval-progress-%03d", index),
+			Text:           "waiting",
+		}
+		if err := sink.HandleAgentEvent(progress); err != nil {
+			return err
+		}
 	}
 	select {
 	case <-control:
@@ -1129,12 +1145,10 @@ func latestSnapshotTurn(snapshot ConversationSnapshot) ConversationTurn {
 }
 
 func latestPendingApprovalID(snapshot ConversationSnapshot) string {
-	for index := len(snapshot.Trajectory.Events) - 1; index >= 0; index-- {
-		if approval := snapshot.Trajectory.Events[index].ApprovalRequested; approval != nil {
-			return approval.Approval.ID
-		}
+	if len(snapshot.PendingApprovals) == 0 {
+		return ""
 	}
-	return ""
+	return snapshot.PendingApprovals[len(snapshot.PendingApprovals)-1].Approval.ID
 }
 
 func readServiceEvent(t *testing.T, subscription ConversationEventSubscription) ConversationEvent {

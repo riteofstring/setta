@@ -104,18 +104,23 @@ func readConversationSnapshotCore(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
+	pendingApprovals, err := readSnapshotPendingApprovals(ctx, reader, conversationID, turns.Turns)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
 	artifacts, err := readSnapshotArtifacts(ctx, reader, conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
 	return ConversationSnapshot{
-		SchemaVersion: ConversationContractSchemaVersion,
-		Conversation:  conversation,
-		Turns:         turns,
-		Queue:         queue,
-		ThreadBinding: binding,
-		Trajectory:    trajectory,
-		Artifacts:     artifacts,
+		SchemaVersion:    ConversationContractSchemaVersion,
+		Conversation:     conversation,
+		Turns:            turns,
+		Queue:            queue,
+		ThreadBinding:    binding,
+		Trajectory:       trajectory,
+		PendingApprovals: pendingApprovals,
+		Artifacts:        artifacts,
 	}, nil
 }
 

@@ -117,7 +117,11 @@ describe("Easy Button progress highlight projection", () => {
       events: [userInputAccepted(1), turnStarted(2)],
       turn,
     });
-    const pending: PendingConversationApproval = { approval, turnId: turn.id };
+    const pending: PendingConversationApproval = {
+      approval,
+      sourceSequence: 3,
+      turnId: turn.id,
+    };
 
     expect(progressHighlightViews(snapshot, turn, pending)).toEqual([
       expect.objectContaining({
@@ -199,6 +203,7 @@ function conversationSnapshot({
     eventCursor: { sequence: 0, streamId: `conversation:${conversationId}` },
     narration: { events: [], hasEarlier: false },
     narratorState: narratorState(),
+    pendingApprovals: [],
     presentationProfile: presentationProfile(),
     queue: [],
     roleProfileOverrides: [],

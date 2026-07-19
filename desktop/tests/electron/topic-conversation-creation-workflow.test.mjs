@@ -22,6 +22,7 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
+import { configureConversationAgentApprovals } from "./topic-conversation-default-permission-workflow.mjs";
 import {
   assertDriverAction,
   conversationSurfaces,
@@ -678,6 +679,7 @@ async function exerciseUICreatedConversationLifecycle({
     conversation.id,
     (surface) => surface.state === "working" && surface.queueCount === 1,
   );
+  await configureConversationAgentApprovals(backend, workspaceId, conversation.id);
   assertDriverAction(
     await client.driver("topicConversationSubmit", {
       conversationId: conversation.id,

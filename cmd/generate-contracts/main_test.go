@@ -267,6 +267,7 @@ func TestConversationSnapshotLimitsRenderFromGoOwner(t *testing.T) {
 		"export const conversationSnapshotLimits = {",
 		fmt.Sprintf("  artifacts: %d,", conversation.MaxSnapshotArtifacts),
 		fmt.Sprintf("  narrationEvents: %d,", conversation.MaxSnapshotNarrationEvents),
+		fmt.Sprintf("  pendingApprovals: %d,", conversation.MaxSnapshotPendingApprovals),
 		fmt.Sprintf("  queuedTurns: %d,", conversation.MaxSnapshotQueuedTurns),
 		fmt.Sprintf("  roleProfileOverrides: %d,", conversation.MaxSnapshotRoleOverrides),
 		fmt.Sprintf("  sideConversations: %d,", conversation.MaxSnapshotSideConversations),
