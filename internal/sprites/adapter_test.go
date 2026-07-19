@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"slices"
 	"testing"
 	"time"
@@ -169,6 +170,78 @@ func TestAdapterConfigureURLMapsOnlyProvenModes(t *testing.T) {
 	}
 	if err := adapter.ConfigureURL(context.Background(), identity.Name, "private-access"); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
 		t.Fatalf("ConfigureURL invalid error = %v", err)
+	}
+}
+
+func TestAdapterDialsOnlyOwnedRuntimeLoopback(t *testing.T) {
+	identity := testManagedIdentity(t)
+	clientConnection, serverConnection := net.Pipe()
+	t.Cleanup(func() {
+		clientConnection.Close()
+		serverConnection.Close()
+	})
+
+	var gotNetwork string
+	var gotName string
+	var gotAddress string
+	adapter := &Adapter{client: &fakeSDKAPI{
+		findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
+			return testRuntimeInfo(identity, "running"), true, nil
+		},
+		proxySocket: func(_ context.Context, network string, name string, address string) (net.Conn, error) {
+			gotNetwork = network
+			gotName = name
+			gotAddress = address
+			return clientConnection, nil
+		},
+	}}
+
+	connection, err := adapter.DialPrivateRuntime(context.Background(), identity.Name, "tcp", "127.0.0.1:8080")
+	if err != nil {
+		t.Fatalf("DialPrivateRuntime: %v", err)
+	}
+	if connection != clientConnection {
+		t.Fatal("DialPrivateRuntime returned a different connection")
+	}
+	if gotNetwork != "tcp" || gotName != identity.Name || gotAddress != "127.0.0.1:8080" {
+		t.Fatalf("proxy call = (%q, %q, %q)", gotNetwork, gotName, gotAddress)
+	}
+}
+
+func TestAdapterRejectsUnsafePrivateRuntimeDialBeforeProviderCall(t *testing.T) {
+	identity := testManagedIdentity(t)
+	providerCalls := 0
+	adapter := &Adapter{client: &fakeSDKAPI{
+		findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
+			providerCalls++
+			return testRuntimeInfo(identity, "running"), true, nil
+		},
+		proxySocket: func(context.Context, string, string, string) (net.Conn, error) {
+			providerCalls++
+			return nil, errors.New("unexpected proxy call")
+		},
+	}}
+
+	for _, test := range []struct {
+		name    string
+		network string
+		address string
+	}{
+		{name: "udp", network: "udp", address: "127.0.0.1:8080"},
+		{name: "public host", network: "tcp", address: "example.com:8080"},
+		{name: "unspecified host", network: "tcp", address: ":8080"},
+		{name: "zero port", network: "tcp", address: "localhost:0"},
+		{name: "missing port", network: "tcp", address: "localhost"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := adapter.DialPrivateRuntime(context.Background(), identity.Name, test.network, test.address)
+			if !errors.Is(err, runtimeprovider.ErrInvalidContract) {
+				t.Fatalf("DialPrivateRuntime error = %v", err)
+			}
+		})
+	}
+	if providerCalls != 0 {
+		t.Fatalf("provider calls = %d, want 0", providerCalls)
 	}
 }
 
@@ -408,6 +481,7 @@ type fakeSDKAPI struct {
 	findRuntime   func(context.Context, string) (*spritessdk.SpriteInfo, bool, error)
 	exec          func(context.Context, runtimeprovider.ExecRequest) (runtimeprovider.ExecResult, error)
 	configureURL  func(context.Context, string, string) error
+	proxySocket   func(context.Context, string, string, string) (net.Conn, error)
 	ensureService func(context.Context, string, runtimeprovider.ServiceSpec) (*spritessdk.ServiceWithState, error)
 	findService   func(context.Context, string, string) (*spritessdk.ServiceWithState, bool, error)
 	applyPolicy   func(context.Context, string, *spritessdk.NetworkPolicy) error
@@ -449,6 +523,18 @@ func (client *fakeSDKAPI) ConfigureURL(ctx context.Context, name string, auth st
 		return errors.New("unexpected ConfigureURL call")
 	}
 	return client.configureURL(ctx, name, auth)
+}
+
+func (client *fakeSDKAPI) ProxySocket(
+	ctx context.Context,
+	network string,
+	name string,
+	address string,
+) (net.Conn, error) {
+	if client.proxySocket == nil {
+		return nil, errors.New("unexpected ProxySocket call")
+	}
+	return client.proxySocket(ctx, network, name, address)
 }
 
 func (client *fakeSDKAPI) EnsureService(

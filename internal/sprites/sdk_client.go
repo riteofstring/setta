@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -31,6 +32,7 @@ type sdkAPI interface {
 	FindRuntime(context.Context, string) (*spritessdk.SpriteInfo, bool, error)
 	Exec(context.Context, runtimeprovider.ExecRequest) (runtimeprovider.ExecResult, error)
 	ConfigureURL(context.Context, string, string) error
+	ProxySocket(context.Context, string, string, string) (net.Conn, error)
 	EnsureService(context.Context, string, runtimeprovider.ServiceSpec) (*spritessdk.ServiceWithState, error)
 	FindService(context.Context, string, string) (*spritessdk.ServiceWithState, bool, error)
 	ApplyNetworkPolicy(context.Context, string, *spritessdk.NetworkPolicy) error
@@ -155,6 +157,15 @@ func (client *sdkClient) requestAPI(
 
 func (client *sdkClient) ConfigureURL(ctx context.Context, name string, auth string) error {
 	return client.client.UpdateURLSettings(ctx, name, &spritessdk.URLSettings{Auth: auth})
+}
+
+func (client *sdkClient) ProxySocket(
+	ctx context.Context,
+	network string,
+	name string,
+	address string,
+) (net.Conn, error) {
+	return client.client.ProxySocket(ctx, network, name, address)
 }
 
 func (client *sdkClient) EnsureService(

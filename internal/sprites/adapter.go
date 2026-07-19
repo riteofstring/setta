@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"slices"
 	"strconv"
 	"strings"
@@ -170,6 +171,51 @@ func (adapter *Adapter) ConfigureURL(ctx context.Context, name string, access ru
 	}
 	if err := adapter.client.ConfigureURL(ctx, name, providerAuth); err != nil {
 		return operationError("configure URL", err)
+	}
+	return nil
+}
+
+// DialPrivateRuntime opens a provider-authenticated TCP tunnel to a loopback
+// service inside an owned runtime. Restricting the target to loopback keeps the
+// provider proxy from becoming a general-purpose network relay.
+func (adapter *Adapter) DialPrivateRuntime(
+	ctx context.Context,
+	name string,
+	network string,
+	address string,
+) (net.Conn, error) {
+	if network != "tcp" {
+		return nil, fmt.Errorf("%w: private runtime network must be tcp", runtimeprovider.ErrInvalidContract)
+	}
+	if err := validatePrivateRuntimeAddress(address); err != nil {
+		return nil, err
+	}
+	if _, err := adapter.requireOwnedRuntime(ctx, name); err != nil {
+		return nil, err
+	}
+
+	connection, err := adapter.client.ProxySocket(ctx, network, name, address)
+	if err != nil {
+		return nil, operationError("dial private runtime", err)
+	}
+	return connection, nil
+}
+
+func validatePrivateRuntimeAddress(address string) error {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("%w: private runtime address is invalid: %v", runtimeprovider.ErrInvalidContract, err)
+	}
+	parsedPort, err := strconv.ParseUint(port, 10, 16)
+	if err != nil || parsedPort == 0 {
+		return fmt.Errorf("%w: private runtime port must be between 1 and 65535", runtimeprovider.ErrInvalidContract)
+	}
+	if host == "localhost" {
+		return nil
+	}
+	parsedHost := net.ParseIP(host)
+	if parsedHost == nil || !parsedHost.IsLoopback() {
+		return fmt.Errorf("%w: private runtime host must be loopback", runtimeprovider.ErrInvalidContract)
 	}
 	return nil
 }
@@ -638,6 +684,7 @@ func pinnedSDKHTTPError(err error) (int, string, bool) {
 }
 
 var _ runtimeprovider.Provider = (*Adapter)(nil)
+var _ runtimeprovider.PrivateAccessDialer = (*Adapter)(nil)
 
 func mapServiceSpecToSDK(spec runtimeprovider.ServiceSpec) (*spritessdk.ServiceRequest, error) {
 	if err := validateServiceSpec(spec); err != nil {
