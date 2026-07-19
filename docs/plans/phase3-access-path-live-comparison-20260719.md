@@ -164,8 +164,14 @@ the hard cleanup deadline.
 1. Deploy the selected thin gateway in its intended region and measure
    bandwidth, operating cost, high availability, and failure behavior.
 2. Apply the idle/disconnect policy to real UI event streams and measure
-   attached-idle cost.
+   attached-idle cost. The push-based hidden/offline web policy and cursor-safe
+   deterministic coverage were completed offline on 2026-07-19; hosted cost
+   measurement remains.
 3. Run desktop and representative-device mobile transition checks.
 4. Carry the exact production conversation submit → streamed event → cursor
    replay workload into Phase 4 data-plane validation.
 5. Have the owner review Cost Explorer against the $5 cap.
+
+Subsequent offline hardening is recorded in
+`phase3-offline-hardening-20260719.md` and
+`../reports/performance/cloud-event-stream-idle-policy-20260719.md`.

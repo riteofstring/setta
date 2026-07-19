@@ -1127,7 +1127,11 @@ passed, teardown was verified, and the organization returned to empty.
   suspension, log-redaction, and wake-abuse tests for the selected path.
 - [ ] Apply the connection and idle policy to UI event streams, terminals, and
   previews. Measure recurring reconnect behavior and attached-idle cost; do not
-  create Tasks merely to preserve idle client attachments.
+  create Tasks merely to preserve idle client attachments. The current web UI
+  now closes SSE while hidden, page-cached, or offline and resumes once from the
+  last accepted cursor without polling. Terminals are shelved, previews and
+  future desktop-cloud wiring still need application, and attached-idle cost
+  still requires a hosted measurement.
 - [ ] Verify desktop and a representative real mobile device, using a minimal
   test client, can reconnect after the laptop closes and across a mobile
   network transition. This does not select the product phone architecture.
@@ -1894,3 +1898,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   than 91 minutes before deadline. Full evidence is in
   `phase3-access-path-live-comparison-20260719.md`; Phase 1c and WebSockets were
   not run.
+- 2026-07-19 (Phase 3 selected-path offline hardening): Made the Candidate B
+  gateway require explicit authorization, routing, and content-free observation
+  dependencies; added streaming-safe bounded HTTP server defaults and exact
+  relayed-byte/transport-state observations without URLs, runtime identifiers,
+  client addresses, queries, headers, credentials, or bodies. Applied the
+  push-based web connection policy: hidden, page-cached, and offline pages close
+  SSE immediately; visible/online recovery opens each registration once from
+  its last accepted cursor. A deterministic 550 ms inactive interval produced
+  zero reconnect attempts, followed by one cursor-3 resume instead of the
+  original cursor 0. No Sprite or external infrastructure was touched. Hosted
+  region/cost/availability/attached-idle measurement and a real-device network
+  transition remain. Evidence is in `phase3-offline-hardening-20260719.md` and
+  `../reports/performance/cloud-event-stream-idle-policy-20260719.md`.
