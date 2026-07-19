@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir, rename, stat, unlink } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import type { LocalMacOSVoiceModelDownloadStatus } from "@shared/speech-ipc";
 import { localMacOSSpeechProviderID } from "@shared/speech-providers";
@@ -35,6 +35,7 @@ type LocalMacOSVoiceModelFetch = (url: string, init: { signal: AbortSignal }) =>
 
 const localMacOSProvider = localMacOSSpeechProviderID();
 const progressEmitIntervalBytes = 1_000_000;
+const e2eModelDownloadSpecEnvironmentVariable = "SETTA_E2E_LOCAL_MACOS_VOICE_MODEL_DOWNLOAD_SPEC";
 
 // setta-supply-chain-artifact: local-macos-voice.default-whisper-model
 // setta-supply-chain-owner-file: desktop/src/main/local-macos-voice-model-download.ts
@@ -60,6 +61,30 @@ export function createLocalMacOSVoiceModelDownloadService({
     platform,
     targetPath: localMacOSVoiceModelPath(userDataDir, model),
   });
+}
+
+export function localMacOSVoiceModelDownloadSpecFromEnvironment(
+  env: NodeJS.ProcessEnv,
+): LocalMacOSVoiceModelDownloadSpec | undefined {
+  if (env.SETTA_E2E !== "1") {
+    return undefined;
+  }
+  const rawSpec = env[e2eModelDownloadSpecEnvironmentVariable]?.trim();
+  if (!rawSpec) {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawSpec);
+  } catch (error) {
+    throw new Error(
+      `${e2eModelDownloadSpecEnvironmentVariable} must be valid JSON: ${modelDownloadErrorMessage(
+        error,
+      )}`,
+      { cause: error },
+    );
+  }
+  return decodeModelDownloadSpec(parsed, e2eModelDownloadSpecEnvironmentVariable);
 }
 
 export function localMacOSVoiceModelPath(
@@ -384,6 +409,88 @@ function modelDownloadErrorMessage(error: unknown): string {
     return "The local voice model download was stopped.";
   }
   return error instanceof Error ? error.message : "The local voice model download failed.";
+}
+
+function decodeModelDownloadSpec(value: unknown, label: string): LocalMacOSVoiceModelDownloadSpec {
+  const record = assertRecord(value, label);
+  assertKnownFields(record, label, ["bytes", "filename", "name", "sha256", "url"]);
+  return {
+    bytes: positiveIntegerField(record, "bytes", label),
+    filename: filenameField(record, "filename", label),
+    name: nonEmptyStringField(record, "name", label),
+    sha256: sha256Field(record, "sha256", label),
+    url: urlField(record, "url", label),
+  };
+}
+
+function assertRecord(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function assertKnownFields(
+  record: Record<string, unknown>,
+  label: string,
+  fields: readonly string[],
+): void {
+  const known = new Set(fields);
+  for (const field of Object.keys(record)) {
+    if (!known.has(field)) {
+      throw new Error(`${label} contains unknown field ${field}`);
+    }
+  }
+}
+
+function positiveIntegerField(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+): number {
+  const value = record[field];
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${label}.${field} must be a positive integer`);
+  }
+  return value;
+}
+
+function filenameField(record: Record<string, unknown>, field: string, label: string): string {
+  const value = nonEmptyStringField(record, field, label);
+  if (value !== basename(value) || value === "." || value === ".." || value.includes("\\")) {
+    throw new Error(`${label}.${field} must be a filename, not a path`);
+  }
+  return value;
+}
+
+function sha256Field(record: Record<string, unknown>, field: string, label: string): string {
+  const value = nonEmptyStringField(record, field, label);
+  if (!/^[a-fA-F0-9]{64}$/.test(value)) {
+    throw new Error(`${label}.${field} must be a SHA-256 hex digest`);
+  }
+  return value.toLowerCase();
+}
+
+function urlField(record: Record<string, unknown>, field: string, label: string): string {
+  const value = nonEmptyStringField(record, field, label);
+  try {
+    new URL(value);
+  } catch {
+    throw new Error(`${label}.${field} must be a URL`);
+  }
+  return value;
+}
+
+function nonEmptyStringField(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+): string {
+  const value = record[field];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${label}.${field} must be a non-empty string`);
+  }
+  return value.trim();
 }
 
 function isENOENT(error: unknown): boolean {

@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /* global console */
 
+import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { chmod, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -58,6 +60,7 @@ const helperPath = join(fixture.tempRoot, "local-macos-voice-helper");
 const modelPath = join(fixture.tempRoot, "ggml-base.en.bin");
 const wakeModelPath = join(fixture.tempRoot, "hey-setta.onnx");
 let context = null;
+let modelDownloadFixture = null;
 let workflowError = null;
 
 try {
@@ -152,6 +155,31 @@ try {
   await stopElectronCdpContext(context);
   context = null;
 
+  modelDownloadFixture = await createLocalModelDownloadFixture();
+  const missingModelArtifactDir = join(artifactDir, "missing-model-download");
+  context = await launchLocalVoiceElectron({
+    launchArtifactDir: missingModelArtifactDir,
+    modelDownloadSpec: modelDownloadFixture.spec,
+    modelSource: "download",
+    scriptedListenerEvents: [],
+  });
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  const missingModelWorkspaceId = await ensureWorkspaceOpen(context.client);
+  assertRestartedWorkspace(workspaceId, missingModelWorkspaceId);
+  const missingModelSettings = await readAlwaysListeningSettings(context.client);
+  assertAlwaysListeningMissingModel(missingModelSettings);
+  const idleModelDownload = await readLocalModelDownloadStatus(context.client);
+  assertModelDownloadStatus(idleModelDownload, "idle");
+  const startedModelDownload = await startLocalModelDownload(context.client);
+  assertModelDownloadStatus(startedModelDownload, "downloading");
+  const readyModelDownload = await waitForLocalModelDownloadStatus(context.client, "ready");
+  const armedAfterModelDownload = await waitForAlwaysListeningState(context.client, "armed");
+
+  await stopElectronCdpContext(context);
+  context = null;
+  await modelDownloadFixture.close();
+  modelDownloadFixture = null;
+
   const restartArtifactDir = join(artifactDir, "restart-enabled");
   context = await launchLocalVoiceElectron({
     launchArtifactDir: restartArtifactDir,
@@ -198,6 +226,13 @@ try {
     localVoiceCatalog,
     malformedSynthesis,
     manualArbitration,
+    missingModelRecovery: {
+      armedAfterModelDownload,
+      idleModelDownload,
+      missingModelSettings,
+      readyModelDownload,
+      startedModelDownload,
+    },
     oversizedFailure: oversizedFinish.failure,
     playbackSuppression,
     revokedFinishFailure: revokedFinish.failure,
@@ -227,6 +262,11 @@ try {
   }).catch(() => {});
 } finally {
   await stopElectronCdpContext(context).catch((error) => {
+    if (workflowError === null) {
+      workflowError = error;
+    }
+  });
+  await modelDownloadFixture?.close().catch((error) => {
     if (workflowError === null) {
       workflowError = error;
     }
@@ -267,6 +307,14 @@ function updateAlwaysListeningSettings(client, enabled) {
   );
 }
 
+function readLocalModelDownloadStatus(client) {
+  return client.evaluate("window.setta.speech.readLocalMacOSVoiceModelDownload()");
+}
+
+function startLocalModelDownload(client) {
+  return client.evaluate("window.setta.speech.startLocalMacOSVoiceModelDownload()");
+}
+
 async function ensureWorkspaceOpen(client) {
   const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
   if (validWorkspaceId(initialWorkspaceId)) {
@@ -296,20 +344,32 @@ async function launchLocalVoiceElectron({
   helperExitAfterStartDelayMs,
   helperMode = "scripted_listener",
   launchArtifactDir,
+  modelDownloadSpec,
+  modelSource = "explicit",
   scriptedListenerEvents,
 }) {
   await writeHelperScript(helperMode);
   const extraEnv = {
     PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
     SETTA_LOCAL_MACOS_VOICE_HELPER_PATH: helperPath,
-    SETTA_LOCAL_MACOS_VOICE_MODEL_PATH: modelPath,
-    SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256: sha256("local-model-bytes"),
     SETTA_LOCAL_MACOS_VOICE_WAKE_MODEL_PATH: wakeModelPath,
     SETTA_LOCAL_MACOS_VOICE_WAKE_MODEL_SHA256: sha256("wake-model-bytes"),
     SETTA_LOCAL_MACOS_VOICE_WAKE_RUNTIME: "onnx",
     SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
   };
   const unsetEnv = ["OPENAI_API_KEY"];
+  if (modelSource === "download") {
+    if (!modelDownloadSpec) {
+      throw new Error("download-model local voice launch requires a model download spec");
+    }
+    extraEnv.SETTA_E2E_LOCAL_MACOS_VOICE_MODEL_DOWNLOAD_SPEC = JSON.stringify(modelDownloadSpec);
+    unsetEnv.push("SETTA_LOCAL_MACOS_VOICE_MODEL_PATH");
+    unsetEnv.push("SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256");
+  } else {
+    extraEnv.SETTA_LOCAL_MACOS_VOICE_MODEL_PATH = modelPath;
+    extraEnv.SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256 = sha256("local-model-bytes");
+    unsetEnv.push("SETTA_E2E_LOCAL_MACOS_VOICE_MODEL_DOWNLOAD_SPEC");
+  }
   if (scriptedListenerEvents === undefined) {
     unsetEnv.push(scriptedListenerEventsEnvironmentVariable);
   } else {
@@ -350,6 +410,43 @@ function scriptedWakeEvents(transcript) {
   ];
 }
 
+async function createLocalModelDownloadFixture() {
+  const bytes = Buffer.from("downloaded local model bytes", "utf8");
+  const server = createServer((request, response) => {
+    if (request.url !== "/ggml-e2e-download.bin") {
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+    response.writeHead(200, {
+      "content-length": String(bytes.length),
+      "content-type": "application/octet-stream",
+    });
+    response.end(bytes);
+  });
+  await new Promise((resolvePromise, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolvePromise);
+  });
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("failed to start local model download fixture");
+  }
+  return {
+    close: () =>
+      new Promise((resolvePromise, reject) => {
+        server.close((error) => (error ? reject(error) : resolvePromise()));
+      }),
+    spec: {
+      bytes: bytes.length,
+      filename: "ggml-e2e-download.bin",
+      name: "e2e-download",
+      sha256: sha256(bytes),
+      url: `http://127.0.0.1:${address.port}/ggml-e2e-download.bin`,
+    },
+  };
+}
+
 async function waitForAlwaysListeningState(client, status) {
   return waitForState(
     client,
@@ -358,6 +455,15 @@ async function waitForAlwaysListeningState(client, status) {
       settings?.availability?.status === "ready" &&
       settings.enabled === true &&
       settings.state?.status === status,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForLocalModelDownloadStatus(client, status) {
+  return waitForState(
+    client,
+    "window.setta.speech.readLocalMacOSVoiceModelDownload()",
+    (download) => download?.status === status,
     workflowTimeoutMs,
   );
 }
@@ -675,6 +781,30 @@ function assertAlwaysListeningDisabled(settings) {
     settings.state?.status !== "disabled"
   ) {
     throw new Error(`invalid disabled always-listening state: ${JSON.stringify(settings)}`);
+  }
+}
+
+function assertAlwaysListeningMissingModel(settings) {
+  if (
+    settings?.availability?.status !== "unavailable" ||
+    settings.availability.setupAction !== "download_local_macos_voice_model" ||
+    settings.enabled !== true ||
+    settings.state?.status !== "local_voice_not_ready" ||
+    !settings.state.message.includes("model")
+  ) {
+    throw new Error(`invalid missing-model always-listening state: ${JSON.stringify(settings)}`);
+  }
+}
+
+function assertModelDownloadStatus(download, status) {
+  if (
+    download?.status !== status ||
+    download.provider !== "local_macos" ||
+    download.modelName !== "e2e-download" ||
+    download.bytesTotal !== Buffer.byteLength("downloaded local model bytes", "utf8") ||
+    !String(download.modelPath ?? "").endsWith("/ggml-e2e-download.bin")
+  ) {
+    throw new Error(`invalid local model download ${status} status: ${JSON.stringify(download)}`);
   }
 }
 

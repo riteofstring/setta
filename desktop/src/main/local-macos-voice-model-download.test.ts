@@ -8,6 +8,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   createLocalMacOSVoiceModelDownloadService,
   localMacOSVoiceModelPath,
+  localMacOSVoiceModelDownloadSpecFromEnvironment,
   type LocalMacOSVoiceModelDownloadSpec,
 } from "./local-macos-voice-model-download";
 
@@ -109,6 +110,39 @@ describe("LocalMacOSVoiceModelDownloadService", () => {
       provider: "local_macos",
       status: "unavailable",
     });
+  });
+
+  test("accepts an E2E model download spec only during E2E runs", () => {
+    const modelBytes = Buffer.from("e2e local model bytes", "utf8");
+    const model = modelSpec(modelBytes);
+    const raw = JSON.stringify(model);
+
+    expect(
+      localMacOSVoiceModelDownloadSpecFromEnvironment({
+        SETTA_E2E: "1",
+        SETTA_E2E_LOCAL_MACOS_VOICE_MODEL_DOWNLOAD_SPEC: raw,
+      }),
+    ).toEqual(model);
+    expect(
+      localMacOSVoiceModelDownloadSpecFromEnvironment({
+        SETTA_E2E_LOCAL_MACOS_VOICE_MODEL_DOWNLOAD_SPEC: raw,
+      }),
+    ).toBeUndefined();
+  });
+
+  test("rejects invalid E2E model download specs", () => {
+    const modelBytes = Buffer.from("e2e invalid local model bytes", "utf8");
+    const model = modelSpec(modelBytes);
+
+    expect(() =>
+      localMacOSVoiceModelDownloadSpecFromEnvironment({
+        SETTA_E2E: "1",
+        SETTA_E2E_LOCAL_MACOS_VOICE_MODEL_DOWNLOAD_SPEC: JSON.stringify({
+          ...model,
+          filename: "../ggml-test-model.bin",
+        }),
+      }),
+    ).toThrow("filename must be a filename");
   });
 });
 

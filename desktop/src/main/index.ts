@@ -34,6 +34,7 @@ import { LocalMacOSVoiceListenerService } from "./local-macos-voice-listener-ser
 import { LocalMacOSVoiceListenerSettingsStore } from "./local-macos-voice-listener-store";
 import {
   createLocalMacOSVoiceModelDownloadService,
+  localMacOSVoiceModelDownloadSpecFromEnvironment,
   type LocalMacOSVoiceModelDownloadService,
 } from "./local-macos-voice-model-download";
 import { resolveLocalMacOSVoiceHelperConfiguration } from "./local-macos-voice-resources";
@@ -827,7 +828,11 @@ app.whenReady().then(async () => {
     app.getPath("userData"),
     process.platform,
   );
+  const localMacOSVoiceModelDownloadSpec = localMacOSVoiceModelDownloadSpecFromEnvironment(
+    process.env,
+  );
   localMacOSVoiceModelDownloadService = createLocalMacOSVoiceModelDownloadService({
+    ...(localMacOSVoiceModelDownloadSpec ? { model: localMacOSVoiceModelDownloadSpec } : {}),
     onStatusChanged: broadcastLocalMacOSVoiceModelDownload,
     platform: process.platform,
     userDataDir: app.getPath("userData"),
