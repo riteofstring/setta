@@ -375,9 +375,12 @@ func (provisioner Provisioner) createMachine(
 }
 
 func (provisioner Provisioner) checkCreateClock(authorization Authorization) error {
-	now := provisioner.Now()
+	return requireCreateWindow(provisioner.Now(), authorization, provisioner.State)
+}
+
+func requireCreateWindow(now time.Time, authorization Authorization, state *StateStore) error {
 	if now.After(authorization.StartDeadline) || !now.Add(cleanupReserve).Before(authorization.CleanupDeadline) {
-		if setErr := provisioner.State.SetPhase(PhaseCleaning, now); setErr != nil {
+		if setErr := state.SetPhase(PhaseCleaning, now); setErr != nil {
 			return errors.Join(errors.New("hosted measurement create window has closed"), setErr)
 		}
 		return errors.New("hosted measurement create window has closed; cleanup is required")

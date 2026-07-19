@@ -256,6 +256,10 @@ Implemented on 2026-07-20:
     remaining fixed provisioning, enters measuring state, executes an injected
     workload, and always invokes cleanup with a context independent from a
     canceled workload.
+16. Sprite provisioning derives one deterministic run identity, records intent
+    before creation, refuses an unjournaled pre-existing runtime, verifies the
+    exact provider ID/name/ownership labels on create and restart, persists
+    actual placement, and shares the same cleanup-reserve cutoff as Fly.
 
 Still required before a live create/deployment mutation:
 
