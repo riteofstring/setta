@@ -129,33 +129,14 @@ func (service *Service) SynthesizeSpeech(
 	if err != nil {
 		return SpeechAudio{}, err
 	}
-	if service.sourceResolver == nil {
-		return SpeechAudio{}, errors.New("speech source resolver is required")
-	}
-	resolved, err := service.sourceResolver.ResolveSpeechSource(ctx, request.Source)
+	input, err := service.resolveSynthesisInput(ctx, request)
 	if err != nil {
 		return SpeechAudio{}, err
 	}
-	if err := resolved.Validate(); err != nil {
-		return SpeechAudio{}, fmt.Errorf("validate resolved speech source: %w", err)
-	}
-	if !equalSpeechSources(resolved.Source, request.Source) {
-		return SpeechAudio{}, SourceUnavailable("The requested speech source no longer matches the persisted event.", nil)
-	}
-	if resolved.ResolvedVoiceID != request.ResolvedVoiceID {
-		return SpeechAudio{}, SourceUnavailable(
-			fmt.Sprintf(
-				"The requested speech source now resolves to voice %q instead of %q.",
-				resolved.ResolvedVoiceID,
-				request.ResolvedVoiceID,
-			),
-			nil,
-		)
-	}
 	generated, err := provider.SynthesizeSpeech(ctx, ProviderSynthesisInput{
-		Text:    resolved.Text,
-		VoiceID: resolved.ResolvedVoiceID,
-		Rate:    AssistantSynthesisRate,
+		Text:    input.Text,
+		VoiceID: input.ResolvedVoiceID,
+		Rate:    input.Rate,
 	})
 	if err != nil {
 		return SpeechAudio{}, err
@@ -164,8 +145,8 @@ func (service *Service) SynthesizeSpeech(
 		AudioBase64:     base64.StdEncoding.EncodeToString(generated.Bytes),
 		MediaType:       generated.MediaType,
 		Format:          generated.Format,
-		Source:          cloneSpeechSource(resolved.Source),
-		ResolvedVoiceID: resolved.ResolvedVoiceID,
+		Source:          cloneSpeechSource(input.Source),
+		ResolvedVoiceID: input.ResolvedVoiceID,
 	}
 	if err := ValidateSpeechAudio(audio); err != nil {
 		return SpeechAudio{}, classifiedError(
@@ -178,6 +159,56 @@ func (service *Service) SynthesizeSpeech(
 		)
 	}
 	return audio, nil
+}
+
+func (service *Service) ResolveSynthesisInput(
+	ctx context.Context,
+	request SpeechSynthesisRequest,
+) (SpeechSynthesisInput, error) {
+	return service.resolveSynthesisInput(ctx, request)
+}
+
+func (service *Service) resolveSynthesisInput(
+	ctx context.Context,
+	request SpeechSynthesisRequest,
+) (SpeechSynthesisInput, error) {
+	if err := request.Validate(); err != nil {
+		return SpeechSynthesisInput{}, err
+	}
+	if service.sourceResolver == nil {
+		return SpeechSynthesisInput{}, errors.New("speech source resolver is required")
+	}
+	resolved, err := service.sourceResolver.ResolveSpeechSource(ctx, request.Source)
+	if err != nil {
+		return SpeechSynthesisInput{}, err
+	}
+	if err := resolved.Validate(); err != nil {
+		return SpeechSynthesisInput{}, fmt.Errorf("validate resolved speech source: %w", err)
+	}
+	if !equalSpeechSources(resolved.Source, request.Source) {
+		return SpeechSynthesisInput{}, SourceUnavailable("The requested speech source no longer matches the persisted event.", nil)
+	}
+	if resolved.ResolvedVoiceID != request.ResolvedVoiceID {
+		return SpeechSynthesisInput{}, SourceUnavailable(
+			fmt.Sprintf(
+				"The requested speech source now resolves to voice %q instead of %q.",
+				resolved.ResolvedVoiceID,
+				request.ResolvedVoiceID,
+			),
+			nil,
+		)
+	}
+	input := SpeechSynthesisInput{
+		Provider:        request.Provider,
+		Source:          cloneSpeechSource(resolved.Source),
+		Text:            resolved.Text,
+		ResolvedVoiceID: resolved.ResolvedVoiceID,
+		Rate:            AssistantSynthesisRate,
+	}
+	if err := ValidateSpeechSynthesisInput(input); err != nil {
+		return SpeechSynthesisInput{}, fmt.Errorf("validate resolved speech synthesis input: %w", err)
+	}
+	return input, nil
 }
 
 func (service *Service) ReadCapabilities(context.Context) (SpeechCapabilities, error) {

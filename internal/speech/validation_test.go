@@ -213,6 +213,32 @@ func TestProviderSynthesisInputRequiresValidatedTextVoiceAndRate(t *testing.T) {
 	}
 }
 
+func TestSpeechSynthesisInputRequiresValidatedProviderSourceTextVoiceAndRate(t *testing.T) {
+	conversationID := "conversation"
+	valid := SpeechSynthesisInput{
+		Provider:        SpeechProviderLocalMacOS,
+		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+		Text:            "The persisted answer is ready.",
+		ResolvedVoiceID: SpeechVoiceMarin,
+		Rate:            AssistantSynthesisRate,
+	}
+	if err := ValidateSpeechSynthesisInput(valid); err != nil {
+		t.Fatalf("validate speech synthesis input: %v", err)
+	}
+	invalid := []SpeechSynthesisInput{
+		{Provider: "", Source: valid.Source, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
+		{Provider: valid.Provider, Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer", ConversationID: &conversationID}, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
+		{Provider: valid.Provider, Source: valid.Source, Text: "", ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
+		{Provider: valid.Provider, Source: valid.Source, Text: valid.Text, ResolvedVoiceID: "retired", Rate: valid.Rate},
+		{Provider: valid.Provider, Source: valid.Source, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: 0.24},
+	}
+	for _, input := range invalid {
+		if err := ValidateSpeechSynthesisInput(input); err == nil {
+			t.Fatalf("invalid speech synthesis input passed: %+v", input)
+		}
+	}
+}
+
 func TestValidateWAVRequiresOddChunkPadding(t *testing.T) {
 	padded := validTestWAVWithDataLength(1)
 	if err := validateWAV(padded); err != nil {

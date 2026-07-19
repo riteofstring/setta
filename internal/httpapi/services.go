@@ -139,6 +139,7 @@ type SpeechService interface {
 		speech.SpeechProvider,
 		string,
 	) (speech.SpeechTranscriptionSession, error)
+	ResolveSynthesisInput(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechSynthesisInput, error)
 	SynthesizeSpeech(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechAudio, error)
 }
 

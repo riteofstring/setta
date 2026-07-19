@@ -181,6 +181,14 @@ type SpeechAudio struct {
 	ResolvedVoiceID SpeechVoiceID `json:"resolvedVoiceId"`
 }
 
+type SpeechSynthesisInput struct {
+	Provider        SpeechProvider `json:"provider"`
+	Source          SpeechSource   `json:"source"`
+	Text            string         `json:"text"`
+	ResolvedVoiceID SpeechVoiceID  `json:"resolvedVoiceId"`
+	Rate            float64        `json:"rate"`
+}
+
 type SpeechTranscriptionClientSecret struct {
 	Value     string
 	ExpiresAt time.Time

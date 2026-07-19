@@ -167,6 +167,23 @@ func (handler handler) createSpeechTranscriptionSession(response http.ResponseWr
 	writeJSON(response, http.StatusOK, session)
 }
 
+func (handler handler) resolveSpeechSynthesisInput(response http.ResponseWriter, request *http.Request) {
+	service := requireSpeechService(response, handler.speechService)
+	if service == nil {
+		return
+	}
+	var payload speech.SpeechSynthesisRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	input, err := service.ResolveSynthesisInput(request.Context(), payload)
+	if err != nil {
+		writeSpeechError(response, "resolve_speech_synthesis_input_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, input)
+}
+
 func (handler handler) synthesizeSpeech(response http.ResponseWriter, request *http.Request) {
 	service := requireSpeechService(response, handler.speechService)
 	if service == nil {

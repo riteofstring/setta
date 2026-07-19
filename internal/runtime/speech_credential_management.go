@@ -98,6 +98,13 @@ func (service speechCredentialPolicyService) CreateTranscriptionSession(
 	return service.service.CreateTranscriptionSession(ctx, provider, deviceID)
 }
 
+func (service speechCredentialPolicyService) ResolveSynthesisInput(
+	ctx context.Context,
+	request speech.SpeechSynthesisRequest,
+) (speech.SpeechSynthesisInput, error) {
+	return service.service.ResolveSynthesisInput(ctx, request)
+}
+
 func (service speechCredentialPolicyService) SynthesizeSpeech(
 	ctx context.Context,
 	request speech.SpeechSynthesisRequest,

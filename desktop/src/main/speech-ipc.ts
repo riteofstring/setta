@@ -1,6 +1,12 @@
 import type { IpcMain } from "electron";
 
-import type { BackendClient } from "@generated/backend";
+import {
+  decodeSpeechSynthesisRequest,
+  type BackendClient,
+  type SpeechAudio,
+  type SpeechSynthesisInput,
+  type SpeechSynthesisRequest,
+} from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import {
   decodeLocalMacOSVoiceSessionRequest,
@@ -18,12 +24,16 @@ import {
   type SpeechSynthesisIpcRequest,
   validateSpeechSynthesisOperationId,
 } from "@shared/speech-ipc";
+import { localMacOSSpeechProviderID, openAISpeechProviderID } from "@shared/speech-providers";
 import {
   LocalMacOSVoiceHelperCommandError,
   LocalMacOSVoiceHelperProtocolError,
   LocalMacOSVoiceHelperUnavailableError,
   type LocalMacOSVoiceHelper,
 } from "./local-macos-voice-helper";
+
+const localMacOSProvider = localMacOSSpeechProviderID();
+const openAIProvider = openAISpeechProviderID();
 
 const localMacOSCommandFailureCodes = {
   duration_limit: "duration_limit",
@@ -213,8 +223,14 @@ export function registerSpeechIpcHandlers({
     ipcMain,
     "speechSynthesize",
     async (_event, operation) =>
-      synthesisOperations.run(operation, (request, signal) =>
-        requireBackendClient().synthesizeSpeech(request, { signal }),
+      synthesisOperations.run(operation, (request, operationId, signal) =>
+        synthesizeSpeechWithProvider({
+          backend: requireBackendClient(),
+          operationId,
+          request,
+          requireLocalMacOSVoiceHelper,
+          signal,
+        }),
       ),
     observerWithRedactedAudio(ipcObserver),
   );
@@ -327,6 +343,145 @@ function localCaptureFailedFromCommandError(error: LocalMacOSVoiceHelperCommandE
   return localCaptureFailed(code, error.message);
 }
 
+function synthesizeSpeechWithProvider({
+  backend,
+  operationId,
+  request,
+  requireLocalMacOSVoiceHelper,
+  signal,
+}: {
+  backend: BackendClient;
+  operationId: string;
+  request: SpeechSynthesisRequest;
+  requireLocalMacOSVoiceHelper: () => LocalMacOSVoiceHelper;
+  signal: AbortSignal;
+}): Promise<SpeechAudio> {
+  if (request.provider === openAIProvider) {
+    return backend.synthesizeSpeech(request, { signal });
+  }
+  if (request.provider === localMacOSProvider) {
+    return synthesizeLocalMacOSSpeech({
+      backend,
+      helper: requireLocalMacOSVoiceHelper(),
+      operationId,
+      request,
+      signal,
+    });
+  }
+  throw new Error(`Unsupported speech synthesis provider ${JSON.stringify(request.provider)}.`);
+}
+
+async function synthesizeLocalMacOSSpeech({
+  backend,
+  helper,
+  operationId,
+  request,
+  signal,
+}: {
+  backend: BackendClient;
+  helper: LocalMacOSVoiceHelper;
+  operationId: string;
+  request: SpeechSynthesisRequest;
+  signal: AbortSignal;
+}): Promise<SpeechAudio> {
+  const input = await backend.resolveSpeechSynthesisInput(request, { signal });
+  validateResolvedLocalSynthesisInput(input, request);
+  const result = await runAbortableLocalMacOSSynthesis(
+    helper,
+    {
+      operationId,
+      rate: input.rate,
+      text: input.text,
+      voiceId: input.resolvedVoiceId,
+    },
+    signal,
+  );
+  if (
+    result.operationId !== operationId ||
+    result.mediaType !== "audio/wav" ||
+    result.format !== "wav" ||
+    result.audioBase64 === ""
+  ) {
+    throw new Error("Local macOS speech output returned invalid audio.");
+  }
+  return {
+    audioBase64: result.audioBase64,
+    format: result.format,
+    mediaType: result.mediaType,
+    resolvedVoiceId: input.resolvedVoiceId,
+    source: input.source,
+  };
+}
+
+function validateResolvedLocalSynthesisInput(
+  input: SpeechSynthesisInput,
+  request: SpeechSynthesisRequest,
+): void {
+  if (
+    input.provider !== localMacOSProvider ||
+    input.resolvedVoiceId !== request.resolvedVoiceId ||
+    input.source.speaker !== request.source.speaker ||
+    input.source.eventId !== request.source.eventId ||
+    input.source.conversationId !== request.source.conversationId ||
+    input.text.trim() === "" ||
+    input.rate <= 0
+  ) {
+    throw new Error("The runtime returned invalid local speech synthesis input.");
+  }
+}
+
+function runAbortableLocalMacOSSynthesis(
+  helper: LocalMacOSVoiceHelper,
+  request: Parameters<LocalMacOSVoiceHelper["synthesizeSpeech"]>[0],
+  signal: AbortSignal,
+): Promise<Awaited<ReturnType<LocalMacOSVoiceHelper["synthesizeSpeech"]>>> {
+  if (signal.aborted) {
+    return Promise.reject(synthesisAbortError());
+  }
+  return new Promise((resolve, reject) => {
+    const aborted = () => {
+      void helper.cancelSynthesis({ operationId: request.operationId }).catch(() => undefined);
+      reject(synthesisAbortError());
+    };
+    signal.addEventListener("abort", aborted, { once: true });
+    void helper.synthesizeSpeech(request).then(
+      (value) => {
+        signal.removeEventListener("abort", aborted);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", aborted);
+        reject(localMacOSSynthesisError(error));
+      },
+    );
+  });
+}
+
+function localMacOSSynthesisError(error: unknown): Error {
+  if (error instanceof LocalMacOSVoiceHelperUnavailableError) {
+    return new Error(error.health.message);
+  }
+  if (error instanceof LocalMacOSVoiceHelperCommandError) {
+    switch (error.code) {
+      case "synthesis_failed":
+      case "synthesis_unavailable":
+      case "text_too_large":
+      case "voice_unavailable":
+        return new Error(error.message);
+      default:
+        return new Error("Local macOS speech output failed.");
+    }
+  }
+  if (error instanceof LocalMacOSVoiceHelperProtocolError) {
+    return new Error("Local macOS speech output returned invalid audio.");
+  }
+  return error instanceof Error ? error : new Error("Local macOS speech output failed.");
+}
+
+function synthesisAbortError(): DOMException {
+  return new DOMException("Speech synthesis was stopped.", "AbortError");
+}
+
 function invalidCredentialSaveRequestSettings(): SpeechCredentialSettings {
   return {
     message: "Speech credential save request is invalid.",
@@ -356,18 +511,20 @@ class SpeechSynthesisOperations {
   async run(
     operation: SpeechSynthesisIpcRequest,
     synthesize: (
-      request: SpeechSynthesisIpcRequest["request"],
+      request: SpeechSynthesisRequest,
+      operationId: string,
       signal: AbortSignal,
-    ) => ReturnType<BackendClient["synthesizeSpeech"]>,
+    ) => Promise<SpeechAudio>,
   ) {
     validateSpeechSynthesisOperationId(operation.operationId);
+    const request = decodeSpeechSynthesisRequest(operation.request);
     if (this.active.has(operation.operationId)) {
       throw new Error("Speech synthesis operation is already active.");
     }
     const controller = new AbortController();
     this.active.set(operation.operationId, controller);
     try {
-      return await synthesize(operation.request, controller.signal);
+      return await synthesize(request, operation.operationId, controller.signal);
     } finally {
       if (this.active.get(operation.operationId) === controller) {
         this.active.delete(operation.operationId);

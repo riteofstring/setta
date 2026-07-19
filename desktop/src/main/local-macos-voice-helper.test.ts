@@ -156,10 +156,43 @@ describe("LocalMacOSVoiceHealthService", () => {
       }),
     ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperUnavailableError);
   });
+
+  test("synthesizes speech through the helper without requiring a Whisper model", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-synthesis-"));
+    const helperPath = join(root, "helper");
+    await writeFile(helperPath, "#!/bin/sh\n");
+    await chmod(helperPath, 0o755);
+    const helper = new FakeLocalMacOSVoiceHelperClient({ status: "ready" });
+    const service = new LocalMacOSVoiceHealthService({
+      createClient: vi.fn(() => helper),
+      helperPath,
+      platform: "darwin",
+    });
+
+    await expect(
+      service.synthesizeSpeech({
+        operationId: "speech_local",
+        rate: 1.2,
+        text: "Local helper speech.",
+        voiceId: "marin",
+      }),
+    ).resolves.toEqual({
+      audioBase64: "bG9jYWwtYXVkaW8=",
+      format: "wav",
+      mediaType: "audio/wav",
+      operationId: "speech_local",
+    });
+    expect(helper.synthesizeSpeech).toHaveBeenCalledWith({
+      operationId: "speech_local",
+      rate: 1.2,
+      text: "Local helper speech.",
+      voiceId: "marin",
+    });
+  });
 });
 
 describe("LocalMacOSVoiceHelperProcessClient", () => {
-  test("frames capture start, finish, and cancellation commands through one helper", async () => {
+  test("frames capture and synthesis commands through one helper", async () => {
     const client = new LocalMacOSVoiceHelperProcessClient({
       args: [fixturePath],
       command: process.execPath,
@@ -191,6 +224,22 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     await expect(client.cancelCapture({ sessionId: "session_two" })).resolves.toEqual({
       sessionId: "session_two",
     });
+    await expect(
+      client.synthesizeSpeech({
+        operationId: "speech_one",
+        rate: 1.2,
+        text: "Local helper speech.",
+        voiceId: "marin",
+      }),
+    ).resolves.toEqual({
+      audioBase64: "bG9jYWwgc3BlZWNoIGZvciBzcGVlY2hfb25l",
+      format: "wav",
+      mediaType: "audio/wav",
+      operationId: "speech_one",
+    });
+    await expect(client.cancelSynthesis({ operationId: "speech_one" })).resolves.toEqual({
+      operationId: "speech_one",
+    });
 
     client.shutdown();
   });
@@ -218,12 +267,23 @@ class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
     return Promise.reject(new Error("unexpected cancel"));
   }
 
+  cancelSynthesis = vi.fn<LocalMacOSVoiceHelperClient["cancelSynthesis"]>(async (request) => ({
+    operationId: request.operationId,
+  }));
+
   finishCapture(): Promise<never> {
     return Promise.reject(new Error("unexpected finish"));
   }
 
   startCapture = vi.fn<LocalMacOSVoiceHelperClient["startCapture"]>(async (request) => ({
     sessionId: request.sessionId,
+  }));
+
+  synthesizeSpeech = vi.fn<LocalMacOSVoiceHelperClient["synthesizeSpeech"]>(async (request) => ({
+    audioBase64: "bG9jYWwtYXVkaW8=",
+    format: "wav",
+    mediaType: "audio/wav",
+    operationId: request.operationId,
   }));
 }
 

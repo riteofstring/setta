@@ -1,27 +1,32 @@
 #!/usr/bin/env node
 /* global console */
 
+import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { chmod, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
+  waitForState,
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "local-macos-voice-capture";
+const workflowTimeoutMs = 30_000;
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const helperFixturePath = resolve(
   scriptDir,
@@ -45,6 +50,7 @@ if (!options.skipBuild) {
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
 await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
+const fakeCodex = await installFakeTopicCodex(fixture);
 const helperPath = join(fixture.tempRoot, "local-macos-voice-helper");
 const modelPath = join(fixture.tempRoot, "ggml-base.en.bin");
 let context = null;
@@ -61,15 +67,18 @@ try {
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_LOCAL_MACOS_VOICE_HELPER_PATH: helperPath,
       SETTA_LOCAL_MACOS_VOICE_MODEL_PATH: modelPath,
       SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256: sha256("local-model-bytes"),
+      SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
     unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await ensureWorkspaceOpen(context.client);
 
   const health = await context.client.evaluate("window.setta.speech.readLocalMacOSVoiceHealth()");
   assertReadyHealth(health);
@@ -92,12 +101,32 @@ try {
   );
   assertFailure(invalidFinish, "invalid_session");
 
+  const masterInputId = "master_input_local_macos_speech_e2e";
+  await submitVoiceMasterInput(context.client, masterInputId);
+  const source = { conversationId: null, eventId: masterInputId, speaker: "master" };
+  const synthesized = await context.client.evaluate(
+    `window.setta.speech.synthesize(${JSON.stringify({
+      provider: "local_macos",
+      resolvedVoiceId: "marin",
+      source,
+    })}, "speech-local-success")`,
+  );
+  assertSynthesized(synthesized, source, "speech-local-success");
+  const canceledSynthesis = await cancelLocalSynthesis(context.client, source);
+  assertSynthesisCanceled(canceledSynthesis);
+
   await captureScreenshot(context.client, join(artifactDir, "local-macos-voice-capture.png"));
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
+    canceledSynthesis,
     finishedTranscript: finished.transcript,
     health,
     invalidFinishFailure: invalidFinish.failure,
+    synthesized: {
+      audioBase64: synthesized.audioBase64,
+      resolvedVoiceId: synthesized.resolvedVoiceId,
+      source: synthesized.source,
+    },
     status: "passed",
   });
 } catch (error) {
@@ -134,6 +163,87 @@ function startCapture(client, captureSessionId) {
   );
 }
 
+async function ensureWorkspaceOpen(client) {
+  const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
+  if (validWorkspaceId(initialWorkspaceId)) {
+    return initialWorkspaceId;
+  }
+  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
+  return waitForState(
+    client,
+    workspaceIdExpression(),
+    (workspaceId) => validWorkspaceId(workspaceId),
+    workflowTimeoutMs,
+  );
+}
+
+function workspaceIdExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+  })()`;
+}
+
+function validWorkspaceId(workspaceId) {
+  return workspaceId !== "" && workspaceId !== "empty";
+}
+
+async function submitVoiceMasterInput(client, inputId) {
+  const request = {
+    input: {
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId: null,
+      id: inputId,
+      modality: "voice",
+      originatingConversationId: null,
+      originatingConversationInputId: null,
+      originatingPaneId: null,
+      originatingWorkspaceId: null,
+      source: "shell",
+      submittedAt: "2026-07-21T18:00:00Z",
+      text: "Local macOS speech output check.",
+    },
+  };
+  await client.evaluate(`window.setta.master.submitInput(${JSON.stringify(request)})`);
+  const interaction = await client.evaluate(
+    `window.setta.master.waitInteraction(${JSON.stringify({ inputId })})`,
+  );
+  if (
+    interaction?.status !== "decided" ||
+    interaction.decision?.kind !== "answer_global" ||
+    interaction.decision.answerGlobal?.text !== "The shell voice request was received."
+  ) {
+    throw new Error(
+      `master voice input did not resolve to a speech source: ${JSON.stringify(interaction)}`,
+    );
+  }
+}
+
+async function cancelLocalSynthesis(client, source) {
+  return client.evaluate(
+    `(async () => {
+      const promise = window.setta.speech.synthesize(${JSON.stringify({
+        provider: "local_macos",
+        resolvedVoiceId: "marin",
+        source,
+      })}, "speech-local-cancel");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await window.setta.speech.cancelSynthesis("speech-local-cancel");
+      try {
+        await promise;
+        return { status: "completed" };
+      } catch (error) {
+        return {
+          message: error instanceof Error ? error.message : String(error),
+          name: error instanceof Error ? error.name : "",
+          status: "failed",
+        };
+      }
+    })()`,
+  );
+}
+
 function assertReadyHealth(health) {
   if (
     health?.status !== "ready" ||
@@ -165,6 +275,44 @@ function assertCompleted(result, captureSessionId, transcript) {
 function assertFailure(result, code) {
   if (result?.status !== "failed" || result.failure?.code !== code) {
     throw new Error(`invalid local macOS voice failure result: ${JSON.stringify(result)}`);
+  }
+}
+
+function assertSynthesized(audio, source, operationId) {
+  if (!synthesizedAudioMatches(audio, source, operationId)) {
+    throw new Error(`invalid local macOS synthesis result: ${JSON.stringify(audio)}`);
+  }
+}
+
+function synthesizedAudioMatches(audio, source, operationId) {
+  return (
+    audio?.audioBase64 === expectedSynthesisAudioBase64(operationId) &&
+    audio.format === "wav" &&
+    audio.mediaType === "audio/wav" &&
+    audio.resolvedVoiceId === "marin" &&
+    synthesizedSourceMatches(audio.source, source)
+  );
+}
+
+function synthesizedSourceMatches(actual, expected) {
+  return (
+    actual?.speaker === expected.speaker &&
+    actual.eventId === expected.eventId &&
+    actual.conversationId === expected.conversationId
+  );
+}
+
+function expectedSynthesisAudioBase64(operationId) {
+  return Buffer.from(`local speech for ${operationId}`, "utf8").toString("base64");
+}
+
+function assertSynthesisCanceled(result) {
+  if (
+    result?.status !== "failed" ||
+    result.name !== "Error" ||
+    !result.message.includes("AbortError: Speech synthesis was stopped.")
+  ) {
+    throw new Error(`invalid local macOS synthesis cancellation: ${JSON.stringify(result)}`);
   }
 }
 

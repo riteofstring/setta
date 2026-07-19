@@ -191,6 +191,62 @@ describe("speech IPC handlers", () => {
     expect(helper.cancelCapture).toHaveBeenCalledWith({ sessionId: "capture_cancel" });
   });
 
+  test("routes local macOS synthesis through backend source resolution and helper", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const source = {
+      conversationId: null,
+      eventId: "master-answer-speech",
+      speaker: "master" as const,
+    };
+    const backend = {
+      resolveSpeechSynthesisInput: vi.fn(async (request) => ({
+        provider: "local_macos" as const,
+        rate: 1.2,
+        resolvedVoiceId: request.resolvedVoiceId,
+        source: request.source,
+        text: "Local helper speech.",
+      })),
+    } as unknown as BackendClient;
+    const helper = localMacOSVoiceHelper();
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => backend,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+    const request = {
+      provider: "local_macos" as const,
+      resolvedVoiceId: "marin" as const,
+      source,
+    };
+
+    const audio = await invoke(handlers, ipcChannels.speechSynthesize, {
+      operationId: "speech-local",
+      request,
+    });
+
+    expect(backend.resolveSpeechSynthesisInput).toHaveBeenCalledWith(request, {
+      signal: expect.any(AbortSignal),
+    });
+    expect(helper.synthesizeSpeech).toHaveBeenCalledWith({
+      operationId: "speech-local",
+      rate: 1.2,
+      text: "Local helper speech.",
+      voiceId: "marin",
+    });
+    expect(audio).toEqual({
+      audioBase64: "bG9jYWwtYXVkaW8=",
+      format: "wav",
+      mediaType: "audio/wav",
+      resolvedVoiceId: "marin",
+      source,
+    });
+  });
+
   test("returns product-level failures for invalid local capture requests", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const helper = localMacOSVoiceHelper();
@@ -265,6 +321,51 @@ describe("speech IPC handlers", () => {
     expect(backend.synthesizeSpeech).toHaveBeenCalledWith(request.request, {
       signal: expect.objectContaining({ aborted: true }),
     });
+  });
+
+  test("cancels an active local macOS synthesis operation through the helper", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const source = {
+      conversationId: null,
+      eventId: "master-answer-speech",
+      speaker: "master" as const,
+    };
+    const backend = {
+      resolveSpeechSynthesisInput: vi.fn(async (request) => ({
+        provider: "local_macos" as const,
+        rate: 1.2,
+        resolvedVoiceId: request.resolvedVoiceId,
+        source: request.source,
+        text: "Local helper speech.",
+      })),
+    } as unknown as BackendClient;
+    const helper = localMacOSVoiceHelper();
+    helper.synthesizeSpeech.mockImplementation(async () => new Promise(() => {}));
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => backend,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+    const request = {
+      operationId: "speech-local-cancel",
+      request: {
+        provider: "local_macos",
+        resolvedVoiceId: "marin",
+        source,
+      },
+    };
+
+    const synthesis = invoke(handlers, ipcChannels.speechSynthesize, request);
+    await vi.waitFor(() => expect(helper.synthesizeSpeech).toHaveBeenCalled());
+    await invoke(handlers, ipcChannels.speechCancelSynthesis, request.operationId);
+
+    await expect(synthesis).rejects.toMatchObject({ name: "AbortError" });
+    expect(helper.cancelSynthesis).toHaveBeenCalledWith({ operationId: "speech-local-cancel" });
   });
 
   test("routes credential management through the local coordinator", async () => {
@@ -383,6 +484,9 @@ function localMacOSVoiceHelper() {
     cancelCapture: vi.fn(async (request: { sessionId: string }) => ({
       sessionId: request.sessionId,
     })),
+    cancelSynthesis: vi.fn(async (request: { operationId: string }) => ({
+      operationId: request.operationId,
+    })),
     finishCapture: vi.fn(async (request: { sessionId: string }) => ({
       sessionId: request.sessionId,
       transcript: "Local helper transcript.",
@@ -396,6 +500,12 @@ function localMacOSVoiceHelper() {
     shutdown: vi.fn(),
     startCapture: vi.fn(async (request: { sessionId: string }) => ({
       sessionId: request.sessionId,
+    })),
+    synthesizeSpeech: vi.fn(async (request: { operationId: string }) => ({
+      audioBase64: "bG9jYWwtYXVkaW8=",
+      format: "wav",
+      mediaType: "audio/wav",
+      operationId: request.operationId,
     })),
   };
 }

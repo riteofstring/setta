@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { access, constants } from "node:fs/promises";
 
+import type { SpeechVoiceID } from "@generated/backend";
 import type { LocalMacOSVoiceHealth } from "@shared/speech-ipc";
 import { localMacOSSpeechProviderID } from "@shared/speech-providers";
 
@@ -10,6 +11,9 @@ export interface LocalMacOSVoiceHelper {
   cancelCapture: (
     request: LocalMacOSVoiceCancelCaptureRequest,
   ) => Promise<LocalMacOSVoiceCaptureCanceled>;
+  cancelSynthesis: (
+    request: LocalMacOSVoiceCancelSynthesisRequest,
+  ) => Promise<LocalMacOSVoiceSynthesisCanceled>;
   finishCapture: (
     request: LocalMacOSVoiceFinishCaptureRequest,
   ) => Promise<LocalMacOSVoiceTranscriptionResult>;
@@ -18,6 +22,9 @@ export interface LocalMacOSVoiceHelper {
   startCapture: (
     request: Omit<LocalMacOSVoiceStartCaptureRequest, "modelPath">,
   ) => Promise<LocalMacOSVoiceCaptureStarted>;
+  synthesizeSpeech: (
+    request: LocalMacOSVoiceSynthesisRequest,
+  ) => Promise<LocalMacOSVoiceSynthesisResult>;
 }
 
 export interface LocalMacOSVoiceHelperProcessClientOptions {
@@ -38,6 +45,9 @@ export interface LocalMacOSVoiceHelperClient {
   cancelCapture: (
     request: LocalMacOSVoiceCancelCaptureRequest,
   ) => Promise<LocalMacOSVoiceCaptureCanceled>;
+  cancelSynthesis: (
+    request: LocalMacOSVoiceCancelSynthesisRequest,
+  ) => Promise<LocalMacOSVoiceSynthesisCanceled>;
   finishCapture: (
     request: LocalMacOSVoiceFinishCaptureRequest,
   ) => Promise<LocalMacOSVoiceTranscriptionResult>;
@@ -48,6 +58,9 @@ export interface LocalMacOSVoiceHelperClient {
   startCapture: (
     request: LocalMacOSVoiceStartCaptureRequest,
   ) => Promise<LocalMacOSVoiceCaptureStarted>;
+  synthesizeSpeech: (
+    request: LocalMacOSVoiceSynthesisRequest,
+  ) => Promise<LocalMacOSVoiceSynthesisResult>;
 }
 
 export interface LocalMacOSVoiceHelperHealthRequest {
@@ -67,6 +80,17 @@ export interface LocalMacOSVoiceFinishCaptureRequest {
 
 export interface LocalMacOSVoiceCancelCaptureRequest {
   sessionId: string;
+}
+
+export interface LocalMacOSVoiceSynthesisRequest {
+  operationId: string;
+  rate: number;
+  text: string;
+  voiceId: SpeechVoiceID;
+}
+
+export interface LocalMacOSVoiceCancelSynthesisRequest {
+  operationId: string;
 }
 
 export type LocalMacOSVoiceHelperHealthResult =
@@ -95,13 +119,30 @@ export interface LocalMacOSVoiceTranscriptionResult {
   transcript: string;
 }
 
+export interface LocalMacOSVoiceSynthesisResult {
+  audioBase64: string;
+  format: string;
+  mediaType: string;
+  operationId: string;
+}
+
+export interface LocalMacOSVoiceSynthesisCanceled {
+  operationId: string;
+}
+
 interface HelperCommandEnvelope {
   id: string;
   payload: object;
   type: string;
 }
 
-type HelperCommandType = "cancel_capture" | "finish_capture" | "read_health" | "start_capture";
+type HelperCommandType =
+  | "cancel_capture"
+  | "cancel_synthesis"
+  | "finish_capture"
+  | "read_health"
+  | "start_capture"
+  | "synthesize_speech";
 
 interface HelperResponseEnvelope {
   error?: {
@@ -241,6 +282,22 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
     return this.requireClient().cancelCapture(request);
   }
 
+  async synthesizeSpeech(
+    request: LocalMacOSVoiceSynthesisRequest,
+  ): Promise<LocalMacOSVoiceSynthesisResult> {
+    const preflight = await this.readHelperPreflight();
+    if (preflight.status === "unavailable") {
+      throw new LocalMacOSVoiceHelperUnavailableError(preflight.health);
+    }
+    return this.requireClient().synthesizeSpeech(request);
+  }
+
+  cancelSynthesis(
+    request: LocalMacOSVoiceCancelSynthesisRequest,
+  ): Promise<LocalMacOSVoiceSynthesisCanceled> {
+    return this.requireClient().cancelSynthesis(request);
+  }
+
   private async readReadyPreflight(): Promise<LocalMacOSVoiceReadyPreflight> {
     if (this.platform !== "darwin") {
       return {
@@ -258,6 +315,28 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
     if (typeof modelSHA256 !== "string") {
       return { health: modelSHA256, status: "unavailable" };
     }
+    const helperPreflight = await this.readHelperPreflight();
+    if (helperPreflight.status === "unavailable") {
+      return helperPreflight;
+    }
+    return {
+      helperPath: helperPreflight.helperPath,
+      modelPath: this.modelPath,
+      modelSHA256,
+      status: "ready",
+    };
+  }
+
+  private async readHelperPreflight(): Promise<
+    | { helperPath: string; status: "ready" }
+    | { health: LocalMacOSVoiceUnavailableHealth; status: "unavailable" }
+  > {
+    if (this.platform !== "darwin") {
+      return {
+        health: helperUnavailable(this.helperPath, "Local macOS voice is available only on macOS."),
+        status: "unavailable",
+      };
+    }
     if (this.helperPath === null) {
       return {
         health: helperUnavailable(null, "The local macOS voice helper is not installed."),
@@ -272,8 +351,6 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
     }
     return {
       helperPath: this.helperPath,
-      modelPath: this.modelPath,
-      modelSHA256,
       status: "ready",
     };
   }
@@ -346,6 +423,19 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
     request: LocalMacOSVoiceCancelCaptureRequest,
   ): Promise<LocalMacOSVoiceCaptureCanceled> =>
     decodeSessionResult(await this.sendCommand("cancel_capture", request), "cancel_capture");
+
+  synthesizeSpeech = async (
+    request: LocalMacOSVoiceSynthesisRequest,
+  ): Promise<LocalMacOSVoiceSynthesisResult> =>
+    decodeSynthesisResult(await this.sendCommand("synthesize_speech", request));
+
+  cancelSynthesis = async (
+    request: LocalMacOSVoiceCancelSynthesisRequest,
+  ): Promise<LocalMacOSVoiceSynthesisCanceled> =>
+    decodeSynthesisCancelResult(
+      await this.sendCommand("cancel_synthesis", request),
+      "cancel_synthesis",
+    );
 
   shutdown(): void {
     const child = this.child;
@@ -660,6 +750,31 @@ function decodeTranscriptionResult(value: unknown): LocalMacOSVoiceTranscription
     sessionId: stringField(record, "sessionId", "LocalMacOSVoiceHelper.finish_capture"),
     transcript: stringField(record, "transcript", "LocalMacOSVoiceHelper.finish_capture"),
   };
+}
+
+function decodeSynthesisResult(value: unknown): LocalMacOSVoiceSynthesisResult {
+  const record = assertRecord(value, "LocalMacOSVoiceHelper.synthesize_speech");
+  assertKnownFields(record, "LocalMacOSVoiceHelper.synthesize_speech", [
+    "audioBase64",
+    "format",
+    "mediaType",
+    "operationId",
+  ]);
+  return {
+    audioBase64: stringField(record, "audioBase64", "LocalMacOSVoiceHelper.synthesize_speech"),
+    format: stringField(record, "format", "LocalMacOSVoiceHelper.synthesize_speech"),
+    mediaType: stringField(record, "mediaType", "LocalMacOSVoiceHelper.synthesize_speech"),
+    operationId: stringField(record, "operationId", "LocalMacOSVoiceHelper.synthesize_speech"),
+  };
+}
+
+function decodeSynthesisCancelResult(
+  value: unknown,
+  label: string,
+): LocalMacOSVoiceSynthesisCanceled {
+  const record = assertRecord(value, `LocalMacOSVoiceHelper.${label}`);
+  assertKnownFields(record, `LocalMacOSVoiceHelper.${label}`, ["operationId"]);
+  return { operationId: stringField(record, "operationId", `LocalMacOSVoiceHelper.${label}`) };
 }
 
 function assertRecord(value: unknown, label: string): Record<string, unknown> {

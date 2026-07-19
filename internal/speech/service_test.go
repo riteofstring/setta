@@ -356,6 +356,36 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 	}
 }
 
+func TestSpeechServiceResolvesLocalSynthesisInputWithoutProviderSnapshot(t *testing.T) {
+	source := SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"}
+	provider := &serviceTestProvider{configured: false}
+	resolver := &serviceTestSourceResolver{resolved: ResolvedSpeechSource{
+		Source:          source,
+		Text:            "The local helper can synthesize this answer.",
+		ResolvedVoiceID: SpeechVoiceMarin,
+	}}
+	service := newServiceTestServiceWithResolver(t, provider, resolver)
+
+	input, err := service.ResolveSynthesisInput(context.Background(), SpeechSynthesisRequest{
+		Provider:        SpeechProviderLocalMacOS,
+		Source:          source,
+		ResolvedVoiceID: SpeechVoiceMarin,
+	})
+	if err != nil {
+		t.Fatalf("resolve local synthesis input: %v", err)
+	}
+	want := SpeechSynthesisInput{
+		Provider:        SpeechProviderLocalMacOS,
+		Source:          source,
+		Text:            resolver.resolved.Text,
+		ResolvedVoiceID: SpeechVoiceMarin,
+		Rate:            AssistantSynthesisRate,
+	}
+	if input != want || resolver.calls != 1 || provider.synthesisCalls != 0 {
+		t.Fatalf("input=%+v resolverCalls=%d providerCalls=%d", input, resolver.calls, provider.synthesisCalls)
+	}
+}
+
 func TestSpeechServiceRejectsUnavailableSynthesisBeforeProviderCall(t *testing.T) {
 	provider := &serviceTestProvider{configured: true}
 	resolver := &serviceTestSourceResolver{err: SourceUnavailable("source missing", nil)}
