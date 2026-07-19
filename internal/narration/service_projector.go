@@ -30,6 +30,39 @@ type deferredProjection struct {
 	trigger   conversation.NarrationTrigger
 }
 
+// RecoverCommittedTrajectory re-admits durable work that survived a narrator
+// process restart. It is a bounded startup scan, not polling; every provider
+// call still runs asynchronously through the normal per-conversation actor.
+func (service *Service) RecoverCommittedTrajectory(ctx context.Context) error {
+	if service == nil || service.store == nil || service.registry == nil {
+		return errors.New("narrator service is required")
+	}
+	if ctx == nil {
+		return errors.New("narrator recovery context is required")
+	}
+	targets, err := service.store.ListNarratorRecoveryTargets(ctx)
+	if err != nil {
+		return err
+	}
+	for _, target := range targets {
+		operation := ProjectionOperation{
+			WorkspaceID:     target.WorkspaceID,
+			TurnID:          target.TurnID,
+			ThroughSequence: target.ThroughSequence,
+		}
+		if target.Terminal {
+			service.enqueueTerminalProjection(target.ConversationID, operation)
+			continue
+		}
+		service.submitProjection(
+			target.ConversationID,
+			operation,
+			conversation.NarrationTriggerProgressWindowElapsed,
+		)
+	}
+	return nil
+}
+
 // ObserveCommittedTrajectory is the production push boundary from the topic
 // conversation lifecycle. It performs no provider or persistence work inline.
 func (service *Service) ObserveCommittedTrajectory(
@@ -634,6 +667,9 @@ func (service *Service) continueProjection(request Request) {
 			})
 			return
 		}
+		if request.Trigger != conversation.NarrationTriggerTurnTerminal {
+			service.recoverTerminalTrajectory(ctx, request.ConversationID)
+		}
 	})
 }
 
@@ -701,7 +737,25 @@ func (service *Service) continueCheckpoint(request Request) {
 			service.submitCheckpoint(request.ConversationID, operation)
 			return
 		}
+		service.recoverTerminalTrajectory(ctx, request.ConversationID)
 	})
+}
+
+func (service *Service) recoverTerminalTrajectory(ctx context.Context, conversationID string) {
+	targets, err := service.store.ListNarratorRecoveryTargets(ctx)
+	if err != nil {
+		return
+	}
+	for _, target := range targets {
+		if !target.Terminal || target.ConversationID != conversationID {
+			continue
+		}
+		service.enqueueTerminalProjection(target.ConversationID, ProjectionOperation{
+			WorkspaceID:     target.WorkspaceID,
+			TurnID:          target.TurnID,
+			ThroughSequence: target.ThroughSequence,
+		})
+	}
 }
 
 func (service *Service) resumeCheckpointTerminalProjection(

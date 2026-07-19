@@ -17,7 +17,7 @@ import (
 
 const (
 	MaxStatusQuestionBytes         = 16 * 1024
-	defaultProgressWindow          = 30 * time.Second
+	defaultProgressWindow          = 15 * time.Second
 	defaultCheckpointWindowEvents  = 64
 	projectionRecentFinalSummaries = 8
 	statusRecentFinalSummaries     = 8
@@ -66,9 +66,8 @@ func WithServiceRetryWait(wait RetryWait) ServiceOption {
 }
 
 // Service is the production command and lifecycle boundary for narrator work.
-// Explicit status, automatic projections, live terminal projections,
-// checkpoints, and recoverable retries all share one priority mailbox per
-// conversation.
+// Explicit status, automatic projections, terminal catch-up, checkpoints, and
+// recoverable retries all share one priority mailbox per conversation.
 type Service struct {
 	store                  *conversation.Store
 	registry               *Registry

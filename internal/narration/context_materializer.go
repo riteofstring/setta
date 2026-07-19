@@ -176,11 +176,11 @@ func materializeProjection(
 	source conversation.NarratorContextSource,
 	request ProjectionContextRequest,
 ) (ProjectionContextBundle, error) {
-	if request.Trigger == conversation.NarrationTriggerTurnTerminal {
-		return materializeTerminalProjection(source, request)
-	}
 	state := source.NarratorState
 	if state.ObservedThroughSequence >= request.ThroughSequence {
+		if canFinalizeObservedTerminal(source, request) {
+			return materializeObservedTerminalProjection(source, request)
+		}
 		return ProjectionContextBundle{}, ErrNoProjectionWork
 	}
 	bundle, baseBytes, err := newProjectionBundle(source, request)
@@ -205,66 +205,13 @@ func materializeProjection(
 	return ProjectionContextBundle{}, projectionAdvanceError(source, request, baseBytes, firstRejectedBytes)
 }
 
-func materializeTerminalProjection(
+func canFinalizeObservedTerminal(
 	source conversation.NarratorContextSource,
 	request ProjectionContextRequest,
-) (ProjectionContextBundle, error) {
-	state := source.NarratorState
-	if source.CurrentTurnFinalSummary != nil || state.ObservedThroughSequence > request.ThroughSequence {
-		return ProjectionContextBundle{}, ErrNoProjectionWork
-	}
-	if state.ObservedThroughSequence == request.ThroughSequence {
-		return materializeObservedTerminalProjection(source, request)
-	}
-	bundle, _, err := newProjectionBundle(source, request)
-	if err != nil {
-		return ProjectionContextBundle{}, err
-	}
-	bundle.EvaluationRange = conversation.TrajectorySequenceRange{
-		Start: state.ObservedThroughSequence + 1,
-		End:   request.ThroughSequence,
-	}
-	bundle.Trajectory = terminalBoundaryTrajectory(source, request.ThroughSequence)
-	if len(bundle.Trajectory) > 0 {
-		bundle.IncludedRange = conversation.TrajectorySequenceRange{
-			Start: request.ThroughSequence,
-			End:   request.ThroughSequence,
-		}
-	}
-	size, err := contextBytes(bundle)
-	if err != nil {
-		return ProjectionContextBundle{}, err
-	}
-	if size > request.Limits.MaxInputBytes && len(bundle.Trajectory) > 0 {
-		bundle.Trajectory = []conversation.TrajectoryEvent{}
-		bundle.IncludedRange = conversation.TrajectorySequenceRange{}
-		size, err = contextBytes(bundle)
-		if err != nil {
-			return ProjectionContextBundle{}, err
-		}
-	}
-	if size > request.Limits.MaxInputBytes {
-		return ProjectionContextBundle{}, budgetError(
-			ContextKindProjection,
-			request.Limits.MaxInputBytes,
-			size,
-			"authoritative terminal fields and prior narration are required",
-		)
-	}
-	bundle.InputBytes = size
-	return bundle, nil
-}
-
-func terminalBoundaryTrajectory(
-	source conversation.NarratorContextSource,
-	throughSequence int,
-) []conversation.TrajectoryEvent {
-	for _, event := range source.Trajectory.Events {
-		if event.Sequence == throughSequence {
-			return []conversation.TrajectoryEvent{event}
-		}
-	}
-	return []conversation.TrajectoryEvent{}
+) bool {
+	return request.Trigger == conversation.NarrationTriggerTurnTerminal &&
+		source.NarratorState.ObservedThroughSequence == request.ThroughSequence &&
+		source.CurrentTurnFinalSummary == nil
 }
 
 func materializeObservedTerminalProjection(

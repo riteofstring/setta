@@ -33,6 +33,10 @@ describe("pane chrome title metadata", () => {
   });
 
   test("keeps pane icons and titles driven by surviving surface kinds", () => {
+    expect(paneChromeTitleModel(fakePane("settings-dom", "Settings"))).toMatchObject({
+      icon: "settings",
+      title: "Settings",
+    });
     expect(paneChromeTitleModel(fakePane("easy-button", "Easy Button"))).toMatchObject({
       icon: "sparkles",
       title: "Easy Button",

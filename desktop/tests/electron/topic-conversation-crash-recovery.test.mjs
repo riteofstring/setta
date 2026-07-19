@@ -43,7 +43,6 @@ import {
   openMasterOverlayForSpeech,
   safeTopicConversationSurfaceStates,
 } from "./topic-conversation-speech-state-assertions.mjs";
-import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -83,13 +82,8 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  const backend = await backendProbe(firstLaunchDir);
+  const backend = await backendProbe(firstLaunchDir, context.client);
   const workspaceId = await openWorkspace(context.client);
-  await saveOpenAIVoiceCredentialThroughSettingsAndClose(
-    context.client,
-    speechProvider.apiKey,
-    workflowTimeoutMs,
-  );
 
   const agentTopic = await createTopic(
     context.client,
@@ -280,7 +274,7 @@ try {
   });
   await prepareRenderer(context.client);
   await installScriptedRealtimeBrowser(context.client, crashTranscript);
-  const restartedBackend = await backendProbe(secondLaunchDir);
+  const restartedBackend = await backendProbe(secondLaunchDir, context.client);
   const restartedWorkspaceId = await openWorkspace(context.client);
   if (restartedWorkspaceId !== workspaceId) {
     throw new Error(
@@ -417,13 +411,13 @@ function launchCrashIsolatedElectron({ artifactDir, fakeCodex, fixture, speechPr
   return launchElectronCdpContext({
     artifactDir,
     extraEnv: {
+      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
     isolatedProcessGroup: true,
-    unsetEnv: ["OPENAI_API_KEY"],
     visible,
   });
 }

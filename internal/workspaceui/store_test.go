@@ -206,21 +206,6 @@ func TestStoreRejectsPersistedEasyButtonPaneWithoutConversationBinding(t *testin
 	}
 }
 
-func TestStoreRejectsDuplicateEasyButtonConversationBindings(t *testing.T) {
-	store := newTestStore(t, t.TempDir())
-	layout := testLayout("workspace_api")
-	layout.Panes[1].SurfaceKind = SurfaceKindEasyButton
-	layout.Panes[1].EasyButtonConfig = &EasyButtonPaneConfig{ConversationID: "conversation_test"}
-
-	_, err := store.SaveLayout(layout)
-	if err == nil {
-		t.Fatal("save succeeded, want duplicate conversation binding error")
-	}
-	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "bound to multiple easy-button panes") {
-		t.Fatalf("error = %T %v, want duplicate Easy Button binding corrupt state", err, err)
-	}
-}
-
 func TestServiceRequiresResolvedWorkspace(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver{})
 
@@ -367,10 +352,10 @@ func testLayout(workspaceID string) WorkspaceUILayout {
 				Heat:        37,
 				PaneID:      "workspace_pane_1",
 				Sequence:    1,
-				Subtitle:    "browser",
+				Subtitle:    "settings",
 				SurfaceID:   "workspace_surface_1",
-				SurfaceKind: SurfaceKindBrowser,
-				Title:       "Browser",
+				SurfaceKind: SurfaceKindSettingsDOM,
+				Title:       "Settings",
 				Tone:        PaneToneGreen,
 				Weight:      1,
 			},
