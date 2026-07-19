@@ -36,9 +36,7 @@ describe("real workspace layout scene", () => {
   test("defines default pane limits for surviving workspace surfaces", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
       browser: 10,
-      "easy-button": 10,
       "empty-frame": 10,
-      "settings-dom": 1,
     });
   });
 
@@ -55,8 +53,8 @@ describe("real workspace layout scene", () => {
       initial.focusedPaneId,
     );
     const paneId = store.openPane({
-      surfaceKind: "settings-dom",
-      title: "Settings",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "slate",
     });
 
@@ -80,8 +78,8 @@ describe("real workspace layout scene", () => {
     expect(restored.layoutRecovery).toBeNull();
     expect(restored.scene.totalPanes).toBe(2);
     expect(restored.scene.paneById.get(paneId)).toMatchObject({
-      surfaceKind: "settings-dom",
-      title: "Settings",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "slate",
     });
   });
@@ -163,7 +161,7 @@ describe("real workspace layout scene", () => {
     });
   });
 
-  test("opens and restores multiple easy button views of one conversation", () => {
+  test("opens and restores one easy button view per conversation without a pane cap", () => {
     const workspaceId = "workspace_api";
     const initial = createRealWorkspaceScene({
       storedLayout: null,
@@ -182,16 +180,26 @@ describe("real workspace layout scene", () => {
       surfaceKind: "easy-button",
       title: "Topic",
     });
-    const secondPaneId = store.openPane({
-      easyButtonConfig,
-      surfaceKind: "easy-button",
-      title: "Topic copy",
-    });
+    expect(() =>
+      store.openPane({
+        easyButtonConfig,
+        surfaceKind: "easy-button",
+        title: "Topic copy",
+      }),
+    ).toThrow("conversation conversation-1 is already bound to pane");
+
+    for (let index = 2; index <= 11; index += 1) {
+      store.openPane({
+        easyButtonConfig: { conversationId: `conversation-${index}` },
+        surfaceKind: "easy-button",
+        title: `Topic ${index}`,
+      });
+    }
 
     expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
       allowed: true,
-      count: 2,
-      limit: 10,
+      count: 11,
+      limit: null,
       surfaceKind: "easy-button",
     });
 
@@ -206,11 +214,10 @@ describe("real workspace layout scene", () => {
       workspaceName: "Ignored after restore",
     });
 
-    expect(
-      [firstPaneId, secondPaneId].map(
-        (paneId) => restored.scene.paneById.get(paneId)?.easyButtonConfig,
-      ),
-    ).toEqual([easyButtonConfig, easyButtonConfig]);
+    expect(restored.scene.paneById.get(firstPaneId)?.easyButtonConfig).toEqual(easyButtonConfig);
+    expect(restored.scene.panes.filter((pane) => pane.surfaceKind === "easy-button")).toHaveLength(
+      11,
+    );
   });
 
   test("drops persisted columns that reference missing pane metadata", () => {

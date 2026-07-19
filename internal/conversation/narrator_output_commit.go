@@ -136,6 +136,9 @@ func validateNarratorProjectionChannel(request NarratorProjectionCommit) error {
 	} else if request.FinalSummary != nil {
 		return fmt.Errorf("nonterminal narrator projection cannot persist final summary")
 	}
+	if len(request.Milestones) > 0 && request.Trigger != NarrationTriggerApprovalRequired {
+		return fmt.Errorf("narrator projection trigger %q cannot persist milestones", request.Trigger)
+	}
 	return nil
 }
 

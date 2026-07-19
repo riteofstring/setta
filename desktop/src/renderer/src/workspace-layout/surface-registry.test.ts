@@ -73,13 +73,7 @@ describe("workspace surface registry", () => {
     expect(host.dataset.surfaceKind).toBe("browser");
   });
 
-  test.each([
-    "easy-button",
-    "empty-frame",
-    "fake-dom",
-    "fake-heavy-dom",
-    "settings-dom",
-  ] satisfies SurfaceKind[])(
+  test.each(["easy-button", "empty-frame", "fake-dom", "fake-heavy-dom"] satisfies SurfaceKind[])(
     "keeps %s adapters mounted for frozen runtime handoff",
     (surfaceKind) => {
       const pane = fakePane(surfaceKind);

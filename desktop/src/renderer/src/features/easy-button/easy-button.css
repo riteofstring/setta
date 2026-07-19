@@ -178,9 +178,27 @@
   box-shadow: 0 0 0 4px color-mix(in oklab, var(--easy-button-primary) 20%, transparent);
 }
 
-.easy-button-highlight-text {
+.easy-button-highlight-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.easy-button-highlight-title,
+.easy-button-highlight-body {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.easy-button-highlight-title {
+  color: currentColor;
+  font-weight: 600;
+}
+
+.easy-button-highlight-body {
+  color: var(--easy-button-muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .easy-button-highlight-time {

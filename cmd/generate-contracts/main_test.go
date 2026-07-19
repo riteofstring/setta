@@ -400,7 +400,6 @@ func TestRenderWorkspaceUIPaneRequiresDiscriminatedConversationBinding(t *testin
 		"surfaceKind: \"browser\";\n      easyButtonConfig: null;",
 		"surfaceKind: \"easy-button\";\n      easyButtonConfig: EasyButtonPaneConfig;",
 		"surfaceKind: \"empty-frame\";\n      easyButtonConfig: null;",
-		"surfaceKind: \"settings-dom\";\n      easyButtonConfig: null;",
 		"switch (result.surfaceKind)",
 		"WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button",
 		"WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame",
@@ -408,6 +407,9 @@ func TestRenderWorkspaceUIPaneRequiresDiscriminatedConversationBinding(t *testin
 		if !strings.Contains(output, want) {
 			t.Fatalf("generated workspace UI contract missing %q:\n%s", want, output)
 		}
+	}
+	if strings.Contains(output, "settings-dom") {
+		t.Fatalf("generated workspace UI contract retained removed settings surface:\n%s", output)
 	}
 }
 
