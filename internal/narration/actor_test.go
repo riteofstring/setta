@@ -670,32 +670,6 @@ func TestRegistryFreezesStatusOperationAtAdmission(t *testing.T) {
 	}
 }
 
-func TestCheckpointResumeOperationRequiresMatchingTargetTurn(t *testing.T) {
-	projection := ProjectionOperation{
-		WorkspaceID:     "workspace-checkpoint",
-		TurnID:          "turn-projection",
-		ThroughSequence: 3,
-	}
-	operation := CheckpointOperation{
-		WorkspaceID:      projection.WorkspaceID,
-		ResumeProjection: &projection,
-		ResumeTrigger:    conversation.NarrationTriggerTurnTerminal,
-	}
-	if err := operation.Validate(); err == nil {
-		t.Fatal("checkpoint resume without target turn error = nil")
-	}
-	mismatched := "turn-other"
-	operation.TurnID = &mismatched
-	if err := operation.Validate(); err == nil {
-		t.Fatal("checkpoint resume with mismatched target turn error = nil")
-	}
-	matching := projection.TurnID
-	operation.TurnID = &matching
-	if err := operation.Validate(); err != nil {
-		t.Fatalf("matching checkpoint resume: %v", err)
-	}
-}
-
 func newTestRegistry(t *testing.T, worker Worker) *Registry {
 	t.Helper()
 	registry, err := NewRegistry(worker)

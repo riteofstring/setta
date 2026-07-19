@@ -10,7 +10,6 @@ import (
 
 var (
 	ErrContextBudgetExceeded = errors.New("narrator required context exceeds its byte budget")
-	ErrCheckpointRequired    = errors.New("narrator checkpoint maintenance is required before projection can advance")
 	ErrNoProjectionWork      = errors.New("narrator projection has no unobserved trajectory")
 	ErrNoCheckpointWork      = errors.New("narrator checkpoint has no observed trajectory to compact")
 )
@@ -44,13 +43,6 @@ type ContextBudgetError struct {
 	MaxInputBytes int
 	RequiredBytes int
 	Reason        string
-}
-
-type CheckpointRequiredError struct {
-	CheckpointThroughSequence int
-	ObservedThroughSequence   int
-	NextUnobservedSequence    int
-	Reason                    string
 }
 
 type ConversationIdentity struct {
@@ -233,20 +225,6 @@ func (err *ContextBudgetError) Error() string {
 
 func (err *ContextBudgetError) Unwrap() error {
 	return ErrContextBudgetExceeded
-}
-
-func (err *CheckpointRequiredError) Error() string {
-	return fmt.Sprintf(
-		"narrator checkpoint at %d must advance within observed cursor %d before sequence %d can be evaluated: %s",
-		err.CheckpointThroughSequence,
-		err.ObservedThroughSequence,
-		err.NextUnobservedSequence,
-		err.Reason,
-	)
-}
-
-func (err *CheckpointRequiredError) Unwrap() error {
-	return ErrCheckpointRequired
 }
 
 // ValidateObservedAdvance constrains a future working or terminal projection

@@ -563,12 +563,6 @@ func preemptableWorkingTurn(request Request) (string, bool) {
 		request.Projection != nil {
 		return request.Projection.TurnID, true
 	}
-	if request.Kind == RequestKindCheckpoint &&
-		request.Checkpoint != nil &&
-		request.Checkpoint.ResumeProjection != nil &&
-		request.Checkpoint.ResumeTrigger != conversation.NarrationTriggerTurnTerminal {
-		return request.Checkpoint.ResumeProjection.TurnID, true
-	}
 	return "", false
 }
 
@@ -620,11 +614,8 @@ func sameCheckpointOperation(left *CheckpointOperation, right *CheckpointOperati
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}
-	if left.WorkspaceID != right.WorkspaceID || left.ResumeTrigger != right.ResumeTrigger ||
-		!sameOptionalOperationString(left.TurnID, right.TurnID) {
-		return false
-	}
-	return sameProjectionOperation(left.ResumeProjection, right.ResumeProjection)
+	return left.WorkspaceID == right.WorkspaceID &&
+		sameOptionalOperationString(left.TurnID, right.TurnID)
 }
 
 func sameOptionalOperationString(left *string, right *string) bool {

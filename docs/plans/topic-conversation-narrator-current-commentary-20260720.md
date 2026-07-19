@@ -319,6 +319,14 @@ When terminal semantic event arrives:
 
 ### Phase 5: Keep checkpointing out of the user path
 
+Status: Complete.
+
+Repository progress:
+
+- Checkpoint requests are now maintenance-only and no longer carry resume-projection metadata.
+- Projection continuation no longer waits for checkpoint catch-up when the checkpoint cursor lags the observed cursor; working or terminal projection is resubmitted first.
+- Checkpoint maintenance still runs after user-facing projection when the maintenance window is exceeded, and focused coverage verifies working projection runs before checkpoint maintenance.
+
 Retain checkpointing only if it is still needed for narrator context size.
 
 Run it after user-facing narration, never before terminal summary.

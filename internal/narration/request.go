@@ -81,14 +81,11 @@ func (operation FocusOperation) Validate() error {
 }
 
 // CheckpointOperation carries the workspace and optional turn whose current
-// authoritative state accompanies historical compaction. ResumeProjection is
-// scheduler metadata: after the checkpoint commits, the exact frozen
-// projection target is eligible to continue through a new mailbox request.
+// authoritative state accompanies historical compaction. It is maintenance
+// work only; user-facing projection requests must not wait behind it.
 type CheckpointOperation struct {
-	WorkspaceID      string
-	TurnID           *string
-	ResumeProjection *ProjectionOperation
-	ResumeTrigger    conversation.NarrationTrigger
+	WorkspaceID string
+	TurnID      *string
 }
 
 func (operation CheckpointOperation) Validate() error {
@@ -99,27 +96,6 @@ func (operation CheckpointOperation) Validate() error {
 		if err := validateIdentifier("narrator checkpoint turn id", *operation.TurnID); err != nil {
 			return err
 		}
-	}
-	if operation.ResumeProjection == nil {
-		if operation.ResumeTrigger != "" {
-			return fmt.Errorf("narrator checkpoint resume trigger requires a projection")
-		}
-		return nil
-	}
-	if operation.TurnID == nil {
-		return fmt.Errorf("narrator checkpoint resume projection requires its target turn")
-	}
-	if err := operation.ResumeProjection.Validate(); err != nil {
-		return fmt.Errorf("narrator checkpoint resume projection: %w", err)
-	}
-	if operation.ResumeProjection.WorkspaceID != operation.WorkspaceID {
-		return fmt.Errorf("narrator checkpoint resume projection changed workspace")
-	}
-	if operation.ResumeProjection.TurnID != *operation.TurnID {
-		return fmt.Errorf("narrator checkpoint resume projection changed target turn")
-	}
-	if !isProjectionTrigger(operation.ResumeTrigger) {
-		return fmt.Errorf("narrator checkpoint has unsupported resume trigger %q", operation.ResumeTrigger)
 	}
 	return nil
 }
@@ -296,10 +272,6 @@ func cloneRequest(request Request) Request {
 		if request.Checkpoint.TurnID != nil {
 			turnID := *request.Checkpoint.TurnID
 			checkpoint.TurnID = &turnID
-		}
-		if request.Checkpoint.ResumeProjection != nil {
-			projection := *request.Checkpoint.ResumeProjection
-			checkpoint.ResumeProjection = &projection
 		}
 		cloned.Checkpoint = &checkpoint
 	}

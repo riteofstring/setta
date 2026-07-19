@@ -284,7 +284,7 @@ func (worker *serviceAttemptWorker) handleProjectionMaterializationError(
 		}
 		sourceErr = err
 	}
-	if errors.Is(sourceErr, ErrNoProjectionWork) || errors.Is(sourceErr, ErrCheckpointRequired) {
+	if errors.Is(sourceErr, ErrNoProjectionWork) {
 		return ProjectionContextBundle{}, true, nil
 	}
 	return ProjectionContextBundle{}, false, sourceErr

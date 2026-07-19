@@ -526,7 +526,6 @@ func (service *Service) submitCheckpoint(
 	service.startTask(func(ctx context.Context) {
 		requestID, err := service.newID("narrator_checkpoint")
 		if err != nil {
-			service.releaseCheckpointTerminalProjection(conversationID, operation)
 			return
 		}
 		_, err = service.registry.Submit(ctx, Request{
@@ -536,24 +535,7 @@ func (service *Service) submitCheckpoint(
 			Trigger:        conversation.NarrationTriggerCheckpointWindowExceeded,
 			Checkpoint:     &operation,
 		})
-		if err != nil {
-			service.releaseCheckpointTerminalProjection(conversationID, operation)
-		}
 	})
-}
-
-func (service *Service) releaseCheckpointTerminalProjection(
-	conversationID string,
-	operation CheckpointOperation,
-) {
-	if operation.ResumeProjection == nil {
-		return
-	}
-	service.releaseTerminalProjection(
-		conversationID,
-		*operation.ResumeProjection,
-		operation.ResumeTrigger,
-	)
 }
 
 func (service *Service) startTask(task func(context.Context)) bool {
@@ -622,12 +604,7 @@ func (service *Service) releaseRequestTerminalProjection(request Request) {
 			)
 		}
 	case RequestKindCheckpoint:
-		if request.Checkpoint != nil {
-			service.releaseCheckpointTerminalProjection(
-				request.ConversationID,
-				*request.Checkpoint,
-			)
-		}
+		return
 	case RequestKindStatus:
 		return
 	}
@@ -642,16 +619,6 @@ func (service *Service) continueProjection(request Request) {
 			return
 		}
 		if state.ObservedThroughSequence < operation.ThroughSequence {
-			if state.CheckpointThroughSequence < state.ObservedThroughSequence {
-				turnID := operation.TurnID
-				service.submitCheckpoint(request.ConversationID, CheckpointOperation{
-					WorkspaceID:      operation.WorkspaceID,
-					TurnID:           &turnID,
-					ResumeProjection: &operation,
-					ResumeTrigger:    request.Trigger,
-				})
-				return
-			}
 			service.submitProjection(request.ConversationID, operation, request.Trigger)
 			return
 		}
@@ -708,44 +675,12 @@ func (service *Service) continueCheckpoint(request Request) {
 			service.submitCheckpoint(request.ConversationID, operation)
 			return
 		}
-		if operation.ResumeProjection != nil {
-			if state.CheckpointThroughSequence < state.ObservedThroughSequence {
-				service.submitCheckpoint(request.ConversationID, operation)
-				return
-			}
-			if operation.ResumeTrigger == conversation.NarrationTriggerTurnTerminal {
-				service.resumeCheckpointTerminalProjection(
-					request.ConversationID,
-					*operation.ResumeProjection,
-				)
-				return
-			}
-			service.submitProjection(
-				request.ConversationID,
-				*operation.ResumeProjection,
-				operation.ResumeTrigger,
-			)
-			return
-		}
 		if state.ObservedThroughSequence-state.CheckpointThroughSequence >=
 			service.checkpointWindowEvents {
 			service.submitCheckpoint(request.ConversationID, operation)
 			return
 		}
 	})
-}
-
-func (service *Service) resumeCheckpointTerminalProjection(
-	conversationID string,
-	operation ProjectionOperation,
-) {
-	service.lifecycleMu.Lock()
-	queue := service.terminal[conversationID]
-	if queue != nil && sameProjectionOperation(&queue.active, &operation) {
-		queue.activeInFlight = false
-	}
-	service.lifecycleMu.Unlock()
-	service.resumeTerminalProjection(conversationID)
 }
 
 func (service *Service) Shutdown(ctx context.Context) error {
