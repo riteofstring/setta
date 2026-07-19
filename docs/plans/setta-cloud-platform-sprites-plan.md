@@ -1101,9 +1101,9 @@ passed, teardown was verified, and the organization returned to empty.
 
 ### Phase 3: choose and harden the client access path
 
-- [ ] Implement the minimum Candidate A experiment, including measurement of
+- [x] Implement the minimum Candidate A experiment, including measurement of
   wakes caused before in-runtime authentication can run.
-- [ ] Implement the minimum Candidate B experiment without making it a
+- [x] Implement the minimum Candidate B experiment without making it a
   production service, including the Proxy API transport first and separate
   Fly-edge and gateway-to-runtime authentication.
 - [x] Evaluate a provider-native pre-wake Setta authentication mechanism if
@@ -1112,12 +1112,18 @@ passed, teardown was verified, and the organization returned to empty.
   API, Proxy, lifecycle, connector documentation, and pinned SDK on 2026-07-19;
   no inbound Setta identity mode or scoped end-user Proxy credential exists.
   The offline Candidate B HTTP/SSE core and threat-path evidence are recorded
-  in `phase3-access-path-soft-check-20260719.md`; live comparison remains open.
+  in `phase3-access-path-soft-check-20260719.md`; the subsequent live comparison
+  is recorded in `phase3-access-path-live-comparison-20260719.md`.
 - [ ] Record the comparison budgets before the final experiment and run both
-  candidates with identical workloads and regions.
-- [ ] Produce a written comparison using the gate criteria above.
-- [ ] Select one access path and delete the losing experiment.
-- [ ] Add authentication, credential-epoch, revocation, rate-limit,
+  candidates with identical workloads and regions. Budgets and identical
+  workloads are complete; the provider returned no placement for either
+  Sprite, so physical-region equality remains unverifiable and must be closed
+  with the hosted-gateway measurement.
+- [x] Produce a written comparison using the gate criteria above.
+- [x] Select one access path and delete the losing experiment. Candidate B won
+  on 2026-07-19; no Candidate A production path was added, and its live harness
+  remains only as regression evidence.
+- [x] Add authentication, credential-epoch, revocation, rate-limit,
   suspension, log-redaction, and wake-abuse tests for the selected path.
 - [ ] Apply the connection and idle policy to UI event streams, terminals, and
   previews. Measure recurring reconnect behavior and attached-idle cost; do not
@@ -1867,3 +1873,24 @@ Stop and reassess rather than hiding the problem if any of these occur:
   explicitly unadopted comparison budgets in
   `phase3-access-path-soft-check-20260719.md`. No Sprite was created or woken,
   no spend occurred, Phase 1c was not run, and no access path was selected.
+- 2026-07-19 (Phase 3 live access selection): Owner adopted 2,500 ms cold,
+  250 ms interactive, 100 ms Candidate B overhead, 3,000 ms reconnect,
+  5 s/10 s new-request/stream revocation, and $0/day unauthenticated-wake
+  budgets, then authorized an immediate Candidate A/B HTTP/SSE comparison in
+  `setta-100` under a $5 cap and two-hour cleanup deadline. Both candidates
+  used the same locally built and minisign-verified runtime release on provider
+  server `0.0.1-rc46`. Candidate A woke on a missing-credential 401 and did not
+  close an established revoked SSE stream within 12 seconds. Candidate B
+  rejected missing, revoked, suspended, and rate-limited credentials before
+  route or Proxy dial; did not wake on denial; rotated both client and runtime
+  credentials; and push-cancelled established SSE in 0.437 ms. Candidate B
+  measured 150.977 ms protected-HTTP p95, 23.875 ms added interactive overhead,
+  512.208 ms fresh-SSE reconnect p95, and 1,487.738 ms observed-cold wake p95,
+  all inside the adopted applicable budgets. Selected Candidate B. The provider
+  exposed no placement value, and hosted-gateway region/cost/bandwidth, exact
+  conversation replay, idle policy, and real mobile transition remain open.
+  Two discarded precondition attempts and the final candidate Sprites were all
+  destroyed; an independent 19:09:59 EDT inventory reported an empty org more
+  than 91 minutes before deadline. Full evidence is in
+  `phase3-access-path-live-comparison-20260719.md`; Phase 1c and WebSockets were
+  not run.

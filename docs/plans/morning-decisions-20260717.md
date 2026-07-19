@@ -30,19 +30,22 @@ The runbook requires these recorded before any live run:
 
 ## 4. Record Phase 3 access-path budgets (required BEFORE candidate comparison)
 
-**Deferred (owner, 2026-07-17):** budgets are not being recorded now — the
-immediate goal is proving the end-to-end cloud UX is workable, built
-provider-portably. This item becomes required again before the formal
-Candidate A/B comparison.
+**DONE (owner, 2026-07-19):** adopted before the formal Candidate A/B live
+comparison:
 
-The plan requires these written down before Candidate A/B experiments so the
-decision can't be retrofitted:
+- Cold authenticated connection p95: 2,500 ms
+- Interactive access-path p95: 250 ms
+- Candidate B added interactive overhead: 100 ms maximum
+- Reconnect p95: 3,000 ms
+- Revocation: new requests within 5 s; existing SSE within 10 s
+- Maximum unauthenticated production wake cost tolerated: $0/day
 
-- Cold connection time budget: ______ ms (docs claim 1–2s cold wake)
-- Interactive terminal p95 latency budget: ______ ms
-- Reconnect time budget: ______ ms
-- Revocation latency budget: ______ s
-- Maximum unauthenticated wake cost tolerated: $______ /day
+The owner separately authorized `setta-100`, a $5 maximum spend, current default
+placement, immediate start and per-candidate cleanup, with a hard two-hour
+cleanup deadline. HTTP/SSE, controlled wake probes, rotation, revocation,
+suspension, rate limiting, reconnect, and redaction checks were authorized;
+WebSocket work and Phase 1c remained excluded. Results and the Candidate B
+selection are recorded in `phase3-access-path-live-comparison-20260719.md`.
 
 ## 5. Optional sends
 
