@@ -598,6 +598,27 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     client.shutdown();
   });
 
+  test("recovers helper commands after a protocol-invalid response stops the helper", async () => {
+    const client = new LocalMacOSVoiceHelperProcessClient({
+      args: [fixturePath],
+      command: process.execPath,
+    });
+
+    await expect(
+      client.synthesizeSpeech({
+        operationId: "speech_malformed_audio",
+        rate: 1.2,
+        text: "Local helper speech.",
+        voiceId: localVoiceID,
+      }),
+    ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperProtocolError);
+    await expect(client.readHealth({ modelPath: "/tmp/ggml-base.en.bin" })).resolves.toEqual({
+      status: "ready",
+    });
+
+    client.shutdown();
+  });
+
   test.each([
     "malformed",
     "malformed_result",

@@ -163,6 +163,7 @@ export type LocalMacOSVoiceListenerPauseReason = "manual_capture" | "playback";
 export type LocalMacOSVoiceListenerTransitionEvent =
   | {
       localVoiceReady: boolean;
+      message?: string;
       type: "setting_enabled";
     }
   | {
@@ -344,7 +345,7 @@ function reduceSettingEnabled(
   return event.localVoiceReady
     ? transition({ status: "arming" }, { type: "start_listener" })
     : transition({
-        message: "Local macOS voice is not ready for always listening.",
+        message: event.message ?? "Local macOS voice is not ready for always listening.",
         status: "local_voice_not_ready",
       });
 }

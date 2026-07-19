@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import type { LocalMacOSVoiceListenerEvent } from "@shared/speech-ipc";
+import type { LocalMacOSVoiceHealth, LocalMacOSVoiceListenerEvent } from "@shared/speech-ipc";
 import { describe, expect, test, vi } from "vitest";
 
 import type {
@@ -75,13 +75,84 @@ describe("local macOS voice listener service", () => {
       await harness.cleanup();
     }
   });
+
+  test("keeps settings unavailable until local voice readiness recovers", async () => {
+    const harness = await createHarness({
+      initialHealth: {
+        message: "The local macOS voice model has not been downloaded.",
+        modelPath: "/tmp/ggml-base.en.bin",
+        provider: "local_macos",
+        status: "missing_model",
+      },
+    });
+    try {
+      const initial = await harness.service.readSettings();
+      expect(initial).toEqual({
+        availability: {
+          message: "The local macOS voice model has not been downloaded.",
+          setupAction: "download_local_macos_voice_model",
+          status: "unavailable",
+        },
+        enabled: false,
+        state: { status: "disabled" },
+      });
+
+      const enabled = await harness.service.updateSettings(true);
+      expect(enabled).toEqual({
+        availability: {
+          message: "The local macOS voice model has not been downloaded.",
+          setupAction: "download_local_macos_voice_model",
+          status: "unavailable",
+        },
+        enabled: true,
+        state: {
+          message: "The local macOS voice model has not been downloaded.",
+          status: "local_voice_not_ready",
+        },
+      });
+      expect(harness.helper.startListener).not.toHaveBeenCalled();
+
+      harness.setHealth({
+        helperPath: "/tmp/setta-local-helper",
+        modelPath: "/tmp/ggml-base.en.bin",
+        modelSHA256: "b".repeat(64),
+        provider: "local_macos",
+        status: "ready",
+      });
+      const refreshed = await harness.service.refreshReadiness();
+      expect(refreshed).toMatchObject({
+        availability: { status: "ready" },
+        enabled: true,
+        state: { status: "arming" },
+      });
+      expect(harness.helper.startListener).toHaveBeenCalledOnce();
+
+      harness.emit({ type: "listener_armed" });
+      await vi.waitFor(() =>
+        expect(harness.events.at(-1)?.settings.state).toEqual({ status: "armed" }),
+      );
+    } finally {
+      await harness.cleanup();
+    }
+  });
 });
 
-async function createHarness() {
+async function createHarness({
+  initialHealth = {
+    helperPath: "/tmp/setta-local-helper",
+    modelPath: "/tmp/ggml-base.en.bin",
+    modelSHA256: "b".repeat(64),
+    provider: "local_macos" as const,
+    status: "ready" as const,
+  },
+}: {
+  initialHealth?: LocalMacOSVoiceHealth;
+} = {}) {
   const tempRoot = await mkdtemp(join(tmpdir(), "setta-listener-service-"));
   const wakeModelPath = join(tempRoot, "hey-setta.onnx");
   await writeFile(wakeModelPath, "wake-model");
   let enabled = false;
+  let health = initialHealth;
   let listener: LocalMacOSVoiceListenerEventHandler | null = null;
   const events: LocalMacOSVoiceListenerEvent[] = [];
   const helper = {
@@ -90,13 +161,7 @@ async function createHarness() {
     finishCapture: vi.fn(),
     listVoices: vi.fn(),
     pauseListener: vi.fn(async () => ({ status: "paused" as const })),
-    readHealth: vi.fn(async () => ({
-      helperPath: "/tmp/setta-local-helper",
-      modelPath: "/tmp/ggml-base.en.bin",
-      modelSHA256: "b".repeat(64),
-      provider: "local_macos" as const,
-      status: "ready" as const,
-    })),
+    readHealth: vi.fn(async () => health),
     resumeListener: vi.fn(async () => ({ status: "resumed" as const })),
     shutdown: vi.fn(),
     startCapture: vi.fn(),
@@ -138,6 +203,9 @@ async function createHarness() {
     events,
     helper,
     service,
+    setHealth: (nextHealth: LocalMacOSVoiceHealth) => {
+      health = nextHealth;
+    },
     wakeModelPath,
   };
 }

@@ -225,6 +225,7 @@ export class AppShellSpeechCaptureController {
     }
     this.conversationSubmission.clearAccepted();
     this.masterSubmission.clearAccepted();
+    this.updateSnapshot({ capture: { type: "idle" } });
     const conversationRequest = this.focusedConversationWakeRequest();
     if (conversationRequest) {
       this.conversationSubmission.submitTranscript({
@@ -234,6 +235,18 @@ export class AppShellSpeechCaptureController {
         transcript: normalizedTranscript,
       });
     } else {
+      if (!this.masterSubmission.canSubmitInput()) {
+        this.updateSnapshot({
+          capture: {
+            code: "master_submission_pending",
+            message:
+              "The active master request must settle before another voice request can start.",
+            type: "failed",
+          },
+        });
+        this.completeWakeSubmission(captureSessionId);
+        return;
+      }
       this.masterSubmission.submitVoiceTranscript(
         captureSessionId,
         runtimeId,

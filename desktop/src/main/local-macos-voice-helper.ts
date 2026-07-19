@@ -671,6 +671,9 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
     child.stdout.on("data", (chunk: string) => this.receive(chunk));
     child.stderr.resume();
     child.once("error", (error) => {
+      if (this.child !== child) {
+        return;
+      }
       this.child = null;
       this.failPending(
         new LocalMacOSVoiceHelperProtocolError("Local macOS voice helper failed to start.", {
@@ -679,6 +682,9 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
       );
     });
     child.once("exit", (code, signal) => {
+      if (this.child !== child) {
+        return;
+      }
       this.child = null;
       const detail = signal === null ? `exit code ${code ?? "unknown"}` : `signal ${signal}`;
       this.failPending(

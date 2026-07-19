@@ -246,6 +246,11 @@ function broadcastLocalMacOSVoiceModelDownload(status: unknown) {
       window.webContents.send(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, status);
     }
   }
+  if (localMacOSVoiceModelDownloadReady(status)) {
+    void localMacOSVoiceListenerService?.refreshReadiness().catch((error: unknown) => {
+      console.warn("Local macOS voice listener readiness refresh failed", error);
+    });
+  }
 }
 
 function broadcastLocalMacOSVoiceListener(event: unknown) {
@@ -254,6 +259,15 @@ function broadcastLocalMacOSVoiceListener(event: unknown) {
       window.webContents.send(ipcEvents.speechLocalMacOSVoiceListenerChanged, event);
     }
   }
+}
+
+function localMacOSVoiceModelDownloadReady(status: unknown): boolean {
+  return (
+    typeof status === "object" &&
+    status !== null &&
+    "status" in status &&
+    (status as { status?: unknown }).status === "ready"
+  );
 }
 
 function sendRuntimeSnapshot(window: BrowserWindow) {
