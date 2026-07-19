@@ -2,8 +2,9 @@
 
 ## Status and decision
 
-This is an offline, fail-closed design. It does not authorize a deployment and
-has not created a Fly App, Machine, volume, secret, image, or Sprite.
+This now has an offline, fail-closed runner foundation. It does not itself
+authorize a deployment and has not created a Fly App, Machine, volume, secret,
+image, or Sprite.
 
 Use one disposable Fly App containing one Fly Machine and one encrypted 1 GiB
 Fly Volume for the first hosted Candidate B measurement. The control plane
@@ -186,15 +187,43 @@ placement differs, the app shape differs, health or access-path budgets fail,
 an unauthenticated request opens a Sprite transport, the state file cannot be
 synced, inventory is ambiguous, or the teardown reserve begins.
 
-## Offline implementation still required
+## Offline implementation status
 
-Before requesting live authorization:
+Implemented on 2026-07-20:
 
-1. Add the typed manifest/state package and deterministic Fly adapter behind a
-   fake command/API runner.
-2. Add checked-in pinned image and app-config templates.
-3. Prove interrupted create, deploy failure, partial state writes, restart,
-   expired authorization, deadline-triggered cleanup, partial cleanup, and
-   independent empty inventory in deterministic tests.
-4. Add one dry-run command that renders the complete plan without resolving
-   credentials or contacting either provider.
+1. `internal/hostedmeasurement` strictly decodes the mode-0600 manifest,
+   rejects duplicate/unknown fields and unsafe filesystem boundaries, validates
+   the fixed workload and two-hour window, and keeps cleanup callable after
+   expiry.
+2. The package writes a mode-0600, atomically replaced and directory-synced
+   state journal. A durable deterministic-name intent is committed before each
+   provider create, so a process interruption between provider success and ID
+   persistence can be reconciled without a duplicate create.
+3. The fixed one-App/one-volume/one-Machine provisioner and cleanup coordinator
+   are provider-interface driven. Cleanup is ordered, idempotent, uses exact
+   IDs, and proves absence through bounded independent inventory checks. The
+   bounded recheck remains the only polling path.
+4. Deterministic race-enabled tests cover strict authorization, expiry,
+   teardown reserve, ambiguous create adoption, deploy interruption, journal
+   interruption, restart, partial cleanup, idempotent cleanup, and final empty
+   inventories.
+5. `setta-hosted-measurement dry-run` emits the complete content-free action
+   plan without reading provider credentials, contacting a provider, or
+   creating `state.json`.
+6. `deploy/hosted-control-plane` contains the pinned linux/amd64 distroless
+   image and fixed Fly configuration template. The base manifest digest was
+   resolved read-only on 2026-07-20.
+
+Still required before a live mutation:
+
+1. Bind the provider interfaces to the Machines API/flyctl secret-import and
+   image-push surfaces; the operator CLI intentionally exposes only `dry-run`
+   until that adapter is complete.
+2. Add the signed runtime install, bootstrap, health, workload, and local
+   credential-removal stages to the executable coordinator.
+3. Supply a newly valid manifest with an explicit Fly organization slug and
+   region. A read-only check on 2026-07-20 found the local Fly identity exposes
+   only organization `personal`; it does not expose a Fly organization named
+   `setta-100`. The same check found no existing `setta-gateway-` Sprite in the
+   Sprites `setta-100` organization. No target was inferred and no mutation was
+   attempted.

@@ -1141,6 +1141,15 @@ authorization, teardown, and inventory design in
 `hosted-control-plane-measurement-runbook-20260720.md`. It deliberately leaves
 the Fly organization and region blank until newly authorized.
 
+The 2026-07-20 offline implementation added the strict authorization loader,
+durable pre-create intents and atomic state, fixed-shape reconciliation,
+restart-safe ordered cleanup, independent inventory proof, pinned deployment
+templates, and a provider/credential-free dry-run. The live provider binding,
+runtime install/workload stages, and an explicit Fly organization/region remain
+open. A read-only local Fly check exposed only organization `personal`, so the
+Sprites organization `setta-100` was not assumed to be the Fly billing target;
+no resource was created.
+
 Exit: the selected path has pre-declared latency, revocation, security, wake,
 and cost behavior, and no Fly signup, provider token, or manual endpoint entry
 is required by the end user.

@@ -152,20 +152,22 @@ Deterministic tests cover:
 
 ## Deliberate limits before live authorization
 
-This is not yet ready for the time-limited hosted run. The following offline
-work remains:
+This is not yet ready for the time-limited hosted run. The hosted runner now
+has strict manifest validation, an atomic state journal with pre-create
+intents, fixed-shape provision reconciliation, restart-safe teardown,
+independent inventory proof, pinned deployment templates, and a credential-free
+dry-run. The following work remains:
 
-1. Implement the selected one-App/one-Machine/one-volume Fly adapter from
-   `hosted-control-plane-measurement-runbook-20260720.md`; the Fly organization
-   and region remain intentionally unselected pending new authorization.
-2. Implement the recorded authorization-manifest gate, hard cleanup deadline,
-   independent inventory proof, and deployment teardown path.
-3. Add signed runtime installation, attestation, credential issuance, and
+1. Bind the deterministic Fly provider interface to the live Machines API,
+   staged secret import, and pinned-image push. The Fly organization and region
+   remain intentionally unselected; read-only discovery exposed only the
+   `personal` Fly organization, not a Fly organization named `setta-100`.
+2. Add signed runtime installation, attestation, credential issuance, and
    health stages to the provisioning state machine before it may mark a runtime
    ready.
-4. Add backup/restore and record the single-instance failure expectations, or
+3. Add backup/restore and record the single-instance failure expectations, or
    explicitly constrain the hosted run to disposable measurement state.
-5. Exercise the web client through this control-plane server in a deterministic
+4. Exercise the web client through this control-plane server in a deterministic
    production Electron workflow.
 
 Current availability is single instance on one durable volume. There is no
