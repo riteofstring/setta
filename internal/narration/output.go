@@ -255,6 +255,9 @@ func validateWorkingProjectionOutput(
 	if err := context.ValidateObservedAdvance(projection.ObservedThroughSequence); err != nil {
 		return err
 	}
+	if err := validateProjectionMilestoneLimit(projection.Milestones, context); err != nil {
+		return err
+	}
 	return validateProjectionMilestones(projection.Milestones, context.PriorMilestones)
 }
 
@@ -281,6 +284,9 @@ func validateTerminalProjectionOutput(
 			)
 		}
 	}
+	if err := validateProjectionMilestoneLimit(projection.Milestones, context); err != nil {
+		return err
+	}
 	if err := validateProjectionMilestones(projection.Milestones, context.PriorMilestones); err != nil {
 		return err
 	}
@@ -288,6 +294,28 @@ func validateTerminalProjectionOutput(
 		"narrator final summary",
 		projection.FinalSummary,
 		MaxNarratorFinalSummaryCharacters,
+	)
+}
+
+func validateProjectionMilestoneLimit(
+	milestones []string,
+	context ProjectionContextBundle,
+) error {
+	limit := projectionMilestoneLimit(context)
+	if len(milestones) <= limit {
+		return nil
+	}
+	if limit == 0 {
+		return fmt.Errorf(
+			"narrator projection trigger %q on %s channel cannot emit milestones",
+			context.Trigger,
+			context.RequestedChannel,
+		)
+	}
+	return fmt.Errorf(
+		"narrator projection emitted %d milestones, maximum is %d",
+		len(milestones),
+		limit,
 	)
 }
 

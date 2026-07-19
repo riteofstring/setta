@@ -723,7 +723,9 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 			"observedThroughSequence": bundle.EvaluationRange.End,
 			"milestones":              []string{},
 		}
-		if runtime.emitProjectionMilestones && bundle.RequestedChannel == ProjectionChannelWorking &&
+		if runtime.emitProjectionMilestones &&
+			bundle.RequestedChannel == ProjectionChannelWorking &&
+			bundle.Trigger == conversation.NarrationTriggerApprovalRequired &&
 			len(bundle.PriorMilestones) == 0 {
 			output["milestones"] = []string{
 				fmt.Sprintf("The backlog now covers event %d.", bundle.EvaluationRange.End),

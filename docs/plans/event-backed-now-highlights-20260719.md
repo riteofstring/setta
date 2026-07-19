@@ -12,8 +12,8 @@ or legacy narrator milestone behavior as part of this work.
   pending approval state, and terminal turn state. The rail no longer uses
   narrator milestones as highlight sources, and the rail item type is now
   progress-highlight oriented.
-- [ ] Narration and speech cadence: automatic narrator milestones still need to
-  be constrained so routine progress is visual-only and automatic speech is
+- [x] Narration and speech cadence: automatic narrator milestones are now
+  constrained so routine progress is visual-only and automatic speech is
   reserved for attention/status events.
 - [ ] Completion: artifact-bearing terminal turns still need compact,
   artifact-first center summaries derived from typed artifact data.

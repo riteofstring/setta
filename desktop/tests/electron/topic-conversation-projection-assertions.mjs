@@ -175,7 +175,7 @@ function assertAutomaticNarration(snapshot, label) {
   const milestones = snapshot.narration.events.filter((event) => event.kind === "milestone");
   const finals = snapshot.narration.events.filter((event) => event.kind === "final_summary");
   if (
-    milestones.length === 0 ||
+    milestones.some((event) => event.trigger !== "approval_required") ||
     finals.length !== snapshot.turns.turns.length ||
     finals.some(
       (event) =>

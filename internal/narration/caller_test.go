@@ -98,7 +98,7 @@ func testCallerWorkingProjection(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":3,
-		"milestones":["Voice requests now preserve the configured narrator and speaking pace across restarts."]
+		"milestones":[]
 	}`)}
 	caller := newTestCaller(t, provider)
 	result := callProjection(t, caller, bundle)
@@ -110,13 +110,34 @@ func testCallerWorkingProjection(t *testing.T) {
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
 		[]string{"kind", "milestones", "observedThroughSequence"},
 	)
-	assertSchemaMilestoneField(t, provider.requests[0].OutputSchema)
+	assertSchemaMilestoneField(t, provider.requests[0].OutputSchema, 0)
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
-		"For working projections, return an empty milestone list when no meaningful user-facing change occurred.",
+		"For working projections, return an empty milestone list for routine progress",
 		"Write for the user whose objective appears in the supplied context.",
 		"Lead with the observable outcome",
 		"Prefer: no milestone.",
 	})
+}
+
+func TestCallerAllowsApprovalRequiredProjectionMilestone(t *testing.T) {
+	source := newFakeNarratorContextSource(3)
+	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerApprovalRequired)
+	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
+		"kind":"working_projection",
+		"observedThroughSequence":3,
+		"milestones":["Approval is needed before the requested filesystem change can continue."]
+	}`)}
+	caller := newTestCaller(t, provider)
+
+	result := callProjection(t, caller, bundle)
+	if result.Kind != RequestKindProjection ||
+		result.Trigger != conversation.NarrationTriggerApprovalRequired ||
+		result.NarratorOutput == nil ||
+		result.NarratorOutput.WorkingProjection == nil ||
+		len(result.NarratorOutput.WorkingProjection.Milestones) != 1 {
+		t.Fatalf("approval working call result = %+v", result)
+	}
+	assertSchemaMilestoneField(t, provider.requests[0].OutputSchema, MaxNarratorMilestonesPerCall)
 }
 
 func testCallerTerminalProjection(t *testing.T) {
@@ -220,7 +241,7 @@ func TestNarratorOutputRejectsNewFieldLimitOverflows(t *testing.T) {
 	}
 	workingContext := ProjectionContextBundle{
 		Kind:                     ContextKindProjection,
-		Trigger:                  conversation.NarrationTriggerPlanChanged,
+		Trigger:                  conversation.NarrationTriggerApprovalRequired,
 		RequestedChannel:         ProjectionChannelWorking,
 		RequestedThroughSequence: 1,
 		PreCallCursor:            NarratorCursor{ObservedThroughSequence: 0},
@@ -328,10 +349,10 @@ func TestNarratorOutputRejectsNewFieldLimitOverflows(t *testing.T) {
 	}
 }
 
-func TestNarratorProjectionMilestoneCardinalityAllowsZeroOrOne(t *testing.T) {
-	context := ProjectionContextBundle{
+func TestNarratorProjectionMilestoneCardinalityAllowsZeroOrOneForApprovalsOnly(t *testing.T) {
+	approvalContext := ProjectionContextBundle{
 		Kind:                     ContextKindProjection,
-		Trigger:                  conversation.NarrationTriggerPlanChanged,
+		Trigger:                  conversation.NarrationTriggerApprovalRequired,
 		RequestedChannel:         ProjectionChannelWorking,
 		RequestedThroughSequence: 1,
 		PreCallCursor:            NarratorCursor{ObservedThroughSequence: 0},
@@ -340,7 +361,7 @@ func TestNarratorProjectionMilestoneCardinalityAllowsZeroOrOne(t *testing.T) {
 	}
 	for _, milestones := range [][]string{
 		{},
-		{"The user-visible result is ready."},
+		{"Approval is needed before the requested change can continue."},
 	} {
 		output := NarratorCallOutput{
 			Kind: CallOutputWorkingProjection,
@@ -349,9 +370,22 @@ func TestNarratorProjectionMilestoneCardinalityAllowsZeroOrOne(t *testing.T) {
 				Milestones:              milestones,
 			},
 		}
-		if err := output.ValidateProjection(context); err != nil {
+		if err := output.ValidateProjection(approvalContext); err != nil {
 			t.Fatalf("valid milestone cardinality %v rejected: %v", milestones, err)
 		}
+	}
+	routineContext := approvalContext
+	routineContext.Trigger = conversation.NarrationTriggerPlanChanged
+	routineMilestone := NarratorCallOutput{
+		Kind: CallOutputWorkingProjection,
+		WorkingProjection: &WorkingProjectionOutput{
+			ObservedThroughSequence: 1,
+			Milestones:              []string{"A routine progress update should remain visual-only."},
+		},
+	}
+	if err := routineMilestone.ValidateProjection(routineContext); err == nil ||
+		!strings.Contains(err.Error(), "cannot emit milestones") {
+		t.Fatalf("routine milestone error = %v", err)
 	}
 	tooMany := NarratorCallOutput{
 		Kind: CallOutputWorkingProjection,
@@ -360,7 +394,7 @@ func TestNarratorProjectionMilestoneCardinalityAllowsZeroOrOne(t *testing.T) {
 			Milestones:              []string{"One result is ready.", "Another result is ready."},
 		},
 	}
-	if err := tooMany.ValidateProjection(context); err == nil || !strings.Contains(err.Error(), "maximum is 1") {
+	if err := tooMany.ValidateProjection(approvalContext); err == nil || !strings.Contains(err.Error(), "maximum is 1") {
 		t.Fatalf("too many milestones error = %v", err)
 	}
 }
@@ -406,7 +440,7 @@ func TestCallerRejectsMalformedOrCrossChannelNarratorOutput(t *testing.T) {
 	source.milestones = []conversation.NarrationEvent{
 		fakeMilestone("prior-milestone", 1, "The existing milestone remains unique."),
 	}
-	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
+	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerApprovalRequired)
 	tests := []struct {
 		name    string
 		output  string
@@ -818,12 +852,12 @@ func assertSchemaNullableTextField(
 	t.Fatalf("output schema %s did not include a string branch: %+v", property, value)
 }
 
-func assertSchemaMilestoneField(t *testing.T, raw json.RawMessage) {
+func assertSchemaMilestoneField(t *testing.T, raw json.RawMessage, wantMaxItems int) {
 	t.Helper()
 	value := schemaProperty(t, raw, "milestones")
-	assertSchemaDescription(t, value, "milestones", "Meaningful new user-facing results")
-	if value["maxItems"] != float64(MaxNarratorMilestonesPerCall) {
-		t.Fatalf("milestones maxItems = %v, want %d", value["maxItems"], MaxNarratorMilestonesPerCall)
+	assertSchemaDescription(t, value, "milestones", "Attention-worthy blockers")
+	if value["maxItems"] != float64(wantMaxItems) {
+		t.Fatalf("milestones maxItems = %v, want %d", value["maxItems"], wantMaxItems)
 	}
 	items, ok := value["items"].(map[string]any)
 	if !ok {
@@ -832,7 +866,7 @@ func assertSchemaMilestoneField(t *testing.T, raw json.RawMessage) {
 	if items["maxLength"] != float64(MaxNarratorMilestoneCharacters) {
 		t.Fatalf("milestone item maxLength = %v, want %d", items["maxLength"], MaxNarratorMilestoneCharacters)
 	}
-	assertSchemaDescription(t, items, "milestones.items", "One complete sentence")
+	assertSchemaDescription(t, items, "milestones.items", "attention-worthy blocker or concrete result")
 }
 
 func schemaProperty(t *testing.T, raw json.RawMessage, property string) map[string]any {

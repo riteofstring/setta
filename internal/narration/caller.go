@@ -566,8 +566,8 @@ func projectionInstructions(channel ProjectionChannel) string {
 	lines := []string{
 		"Act as Setta's narrator projector. Use only the supplied authoritative context JSON.",
 		"Current objective, constraints, and accepted steering override historical checkpoint text.",
-		"Emit at most one milestone only for a meaningful new user-facing result, blocker, or phase change.",
-		"For working projections, return an empty milestone list when no meaningful user-facing change occurred.",
+		"Emit at most one milestone only for an approval blocker selected by the typed trigger.",
+		"For working projections, return an empty milestone list for routine progress, elapsed windows, command activity, and phase labels.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}

@@ -239,7 +239,6 @@ function forkThreadState(params, parent, parentThreadId, threadId, ephemeral, so
     turnIds: sourceTurnIds,
   };
 }
-
 function durableForkSourceTurns(message, parent) {
   const lastTurnId = requiredString(message.params, "lastTurnId");
   const sourceIndex = parent.turnIds.indexOf(lastTurnId);
@@ -944,12 +943,14 @@ function emitStructuredFocus(threadId, turnId, context) {
   completeTurn(threadId, turnId, "completed");
 }
 function projectionMilestones(context, objective) {
-  const steering = context.authoritative?.currentInstructions?.acceptedSteering ?? [];
-  const suppress =
-    context.requestedChannel !== "terminal_projection" &&
-    steering.some((item) => item.input?.text === simultaneousCompletionInput);
-  if (suppress || context.priorMilestones?.length > 0) return [];
-  return [`${objectiveSubject(objective)} has visible progress.`];
+  if (
+    context.requestedChannel !== "working_projection" ||
+    context.trigger !== "approval_required" ||
+    context.priorMilestones?.length > 0
+  ) {
+    return [];
+  }
+  return [`${objectiveSubject(objective)} needs approval before continuing.`];
 }
 function terminalProjectionSummary(context, objective) {
   const subject = objectiveSubject(objective);

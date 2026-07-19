@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+
+	"setta/internal/conversation"
 )
 
 func focusOutputSchema(context FocusContextBundle) (json.RawMessage, error) {
@@ -33,7 +35,7 @@ func projectionOutputSchema(context ProjectionContextBundle) (json.RawMessage, e
 	}
 	properties := map[string]any{
 		"observedThroughSequence": boundedIntegerSchema(context.EvaluationRange.Start, context.EvaluationRange.End),
-		"milestones":              milestoneArraySchema(),
+		"milestones":              milestoneArraySchema(projectionMilestoneLimit(context)),
 	}
 	switch context.RequestedChannel {
 	case ProjectionChannelWorking:
@@ -131,16 +133,24 @@ func boundedIntegerSchema(minimum int, maximum int) map[string]any {
 	}
 }
 
-func milestoneArraySchema() map[string]any {
+func milestoneArraySchema(maxItems int) map[string]any {
 	return map[string]any{
 		"type":        "array",
-		"description": "Meaningful new user-facing results, blockers, or phase changes. Return an empty array when nothing meaningful changed.",
+		"description": "Attention-worthy blockers or concrete user-facing results. Return an empty array for routine progress, elapsed windows, command activity, or phase labels.",
 		"items": describedBoundedStringSchema(
 			MaxNarratorMilestoneCharacters,
-			"One complete sentence, usually 12-24 words, describing a meaningful new result, blocker, or phase change.",
+			"One complete sentence, usually 12-24 words, describing an attention-worthy blocker or concrete result.",
 		),
-		"maxItems": MaxNarratorMilestonesPerCall,
+		"maxItems": maxItems,
 	}
+}
+
+func projectionMilestoneLimit(context ProjectionContextBundle) int {
+	if context.RequestedChannel == ProjectionChannelWorking &&
+		context.Trigger == conversation.NarrationTriggerApprovalRequired {
+		return MaxNarratorMilestonesPerCall
+	}
+	return 0
 }
 
 func marshalOutputSchema(schema map[string]any) (json.RawMessage, error) {

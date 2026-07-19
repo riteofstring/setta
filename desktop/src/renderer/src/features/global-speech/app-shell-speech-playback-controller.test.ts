@@ -37,20 +37,20 @@ describe("app-shell speech playback controller", () => {
         profile(),
         "completed",
       ),
-    ).toMatchObject({ kind: "final_summary" });
+    ).toBeNull();
     expect(
       narrationSpeechPlaybackIntent(narrationEvent("final_summary", "failed"), profile(), "failed"),
     ).toMatchObject({ kind: "error" });
     expect(
+      narrationSpeechPlaybackIntent(
+        narrationEvent("final_summary", "cancelled"),
+        profile(),
+        "cancelled",
+      ),
+    ).toMatchObject({ kind: "error" });
+    expect(
       narrationSpeechPlaybackIntent(narrationEvent("milestone", "milestone"), profile(), "running"),
-    ).toMatchObject({
-      kind: "milestone",
-      source: {
-        conversationId: "conversation-playback",
-        eventId: "milestone",
-        speaker: "narrator",
-      },
-    });
+    ).toBeNull();
     expect(
       narrationSpeechPlaybackIntent(
         narrationEvent("topic_descriptor", "descriptor"),

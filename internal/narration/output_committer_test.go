@@ -66,7 +66,7 @@ func testPrepareFocusOutputCommit(t *testing.T) {
 
 func testPrepareWorkingOutputCommit(t *testing.T) {
 	source := newFakeNarratorContextSource(3)
-	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
+	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerApprovalRequired)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
 		"observedThroughSequence":3,
