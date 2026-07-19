@@ -37,6 +37,7 @@ type LayoutStoreListener = (snapshot: WorkspaceLayoutSnapshot) => void;
 const scrollAnimationTimeConstantMs = 115;
 const maxAnimationStepMs = 1000 / 60;
 const defaultViewportHeight = 900;
+const masterPaneWidthSpec: ColumnWidthSpec = { unit: "px", value: 520 };
 
 export interface WorkspacePaneLimitState {
   allowed: boolean;
@@ -463,6 +464,22 @@ export class WorkspaceLayoutStore {
     return pane.paneId;
   }
 
+  ensureMasterPane(): PaneId {
+    const existingMasterPaneId = this.toScene().panes.find(
+      (candidate) => candidate.surfaceKind === "master",
+    )?.paneId;
+    if (existingMasterPaneId) {
+      return existingMasterPaneId;
+    }
+    return this.openPane({
+      subtitle: "Global coordinator",
+      surfaceKind: "master",
+      title: "Setta",
+      tone: "slate",
+      widthSpec: masterPaneWidthSpec,
+    });
+  }
+
   focusPane(paneId: PaneId): boolean {
     if (!this.engine.paneLocation(paneId)) {
       return false;
@@ -650,6 +667,16 @@ export class WorkspaceLayoutStore {
     this.maximizedPaneId = this.maximizedPaneId === paneId ? null : paneId;
     this.setFocusedPane(paneId);
     this.notify();
+  }
+
+  maximizePane(paneId: PaneId): boolean {
+    if (!this.engine.paneLocation(paneId)) {
+      return false;
+    }
+    this.maximizedPaneId = paneId;
+    this.setFocusedPane(paneId);
+    this.notify();
+    return true;
   }
 
   toggleOverviewMode(): void {

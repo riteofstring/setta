@@ -264,9 +264,9 @@ async function openFromGlobalShortcut(client, text, timeoutMs) {
     modifiers: 2,
     type: "keyUp",
   });
-  const state = await waitForMasterOverlay(client, { draft: text, focused: true }, timeoutMs);
-  if (!state.shellInert || !state.nativeViewsOccluded) {
-    throw new Error(`master overlay did not isolate shell/native panes: ${JSON.stringify(state)}`);
+  const state = await waitForMasterPane(client, { draft: text, focused: true }, timeoutMs);
+  if (state.overlayOpen || !state.maximized || !state.masterHostFocused) {
+    throw new Error(`master shortcut did not focus the master pane: ${JSON.stringify(state)}`);
   }
 }
 
@@ -326,6 +326,15 @@ async function waitForMasterOverlay(client, { draft, focused }, timeoutMs) {
         shellInert: Boolean(shell),
       };
     })()`,
+    (state) => state.open && state.draft === draft && state.focused === focused,
+    timeoutMs,
+  );
+}
+
+async function waitForMasterPane(client, { draft, focused }, timeoutMs) {
+  return waitForState(
+    client,
+    driverCallExpression("masterPaneState", { draft }),
     (state) => state.open && state.draft === draft && state.focused === focused,
     timeoutMs,
   );

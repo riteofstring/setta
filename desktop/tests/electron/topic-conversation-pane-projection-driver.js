@@ -56,7 +56,8 @@
   }
 
   function topicConversationMasterActiveInteractionState() {
-    const overlay = masterOverlay();
+    const overlay =
+      masterOverlay() ?? document.querySelector('[data-testid="master-pane-surface"]');
     return {
       interactionCount: overlayCount(overlay, '[data-testid="master-active-interaction"]'),
       legacyHistoryPresent: overlayHas(overlay, '[aria-label="Recent master exchanges"]'),

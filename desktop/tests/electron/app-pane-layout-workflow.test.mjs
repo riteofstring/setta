@@ -78,10 +78,16 @@ try {
     (state) => shellLayoutRestored(state, workspaceId),
     workflowTimeoutMs,
   );
-  const click = await context.client.driver("appPaneLayoutClickFocusedMaximize");
-  if (!click.clicked) {
-    throw new Error(`app pane layout shell maximize click failed: ${JSON.stringify(click)}`);
+  const shortcut = await context.client.driver("appPaneLayoutPressMasterFocusShortcut");
+  if (!shortcut.defaultPrevented) {
+    throw new Error(`master pane focus shortcut was not handled: ${JSON.stringify(shortcut)}`);
   }
+  const focusedMaster = await waitForState(
+    context.client,
+    driverCallExpression("appPaneLayoutMasterFocusState"),
+    masterPaneFocusedByShortcut,
+    workflowTimeoutMs,
+  );
   const persistedShell = await waitForState(
     context.client,
     driverCallExpression("appPaneLayoutPersistedShellState", { workspaceRoot }),
@@ -91,6 +97,7 @@ try {
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
+    focusedMaster,
     focusedPaneId: result.readBack.layout.focusedPaneId,
     persistedShell,
     restoredShell,
@@ -165,8 +172,8 @@ function shellLayoutRestored(state, workspaceId) {
 
 function appLayoutShellPersisted(state) {
   return (
-    state.focusedPaneId === "app_shell_conversation" &&
-    state.maximizedPaneId === null &&
+    state.focusedPaneId === "app_shell_master" &&
+    state.maximizedPaneId === "app_shell_master" &&
     state.resourceRoot === state.workspaceRoot &&
     state.surfaceKind === "conversation" &&
     state.columns.some(
@@ -182,6 +189,22 @@ function appLayoutShellPersisted(state) {
     state.columns.some(
       (column) =>
         column.columnId === "app_shell_column_1" && column.index === 2 && column.slotIndex === 2,
+    )
+  );
+}
+
+function masterPaneFocusedByShortcut(state) {
+  return (
+    state.ready &&
+    state.maximizedPaneId === "app_shell_master" &&
+    !state.masterOverlayOpen &&
+    state.masterComposerFocused &&
+    state.hosts.some(
+      (host) =>
+        host.paneId === "app_shell_master" &&
+        host.focused === "true" &&
+        host.maximized === "true" &&
+        host.surfaceKind === "master",
     )
   );
 }

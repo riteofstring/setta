@@ -100,6 +100,23 @@
     return { clicked: true };
   }
 
+  function masterPaneState({ draft }) {
+    const masterHost = document.querySelector(
+      '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
+    );
+    const pane = masterHost?.querySelector('[data-testid="master-pane-surface"]');
+    const textarea = pane?.querySelector('textarea[aria-label="Ask Setta"]');
+    return {
+      draft: textarea instanceof HTMLTextAreaElement ? textarea.value : null,
+      expectedDraft: draft,
+      focused: textarea === document.activeElement,
+      masterHostFocused: masterHost?.getAttribute("data-focused") === "true",
+      maximized: masterHost?.getAttribute("data-maximized") === "true",
+      open: Boolean(pane),
+      overlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+    };
+  }
+
   function setInputValue({ selector, value }) {
     const element = document.querySelector(selector);
     if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLTextAreaElement)) {
@@ -130,6 +147,7 @@
     masterOverlayRoutedInteraction,
     masterOverlayVoiceButtonState,
     masterOverlayVoiceClick,
+    masterPaneState,
     setInputValue,
     version: "setta-e2e-driver-v13",
   };

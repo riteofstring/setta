@@ -8,13 +8,13 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { AppShellMasterController } from "./app-shell-master-controller";
-import {
-  AppShellMasterSurface,
-  isMasterOverlayShortcut,
-  masterOverlayShortcutLabel,
-} from "./app-shell-master-surface";
+import { AppShellMasterSurface } from "./app-shell-master-surface";
 import { MasterSidebarLauncher } from "./master-sidebar-launcher";
 import { isMasterVoiceShortcut, masterVoiceShortcutLabel } from "./master-shortcuts";
+import {
+  isMasterPaneFocusShortcut,
+  masterPaneFocusShortcutLabel,
+} from "../../workspace-layout/master-pane-focus";
 
 describe("app-shell master surface", () => {
   test("renders the active routing interaction and then durable transcript history", async () => {
@@ -110,8 +110,8 @@ describe("app-shell master surface", () => {
     expect(shortcut({ altKey: true, metaKey: true })).toBe(false);
     expect(shortcut({ ctrlKey: true, shiftKey: true })).toBe(false);
     expect(shortcut({ ctrlKey: true, key: "j" })).toBe(false);
-    expect(masterOverlayShortcutLabel("darwin")).toBe("⌘K");
-    expect(masterOverlayShortcutLabel("win32")).toBe("Ctrl+K");
+    expect(masterPaneFocusShortcutLabel("darwin")).toBe("⌘K");
+    expect(masterPaneFocusShortcutLabel("win32")).toBe("Ctrl+K");
   });
 
   test("matches the configured master voice shortcut by platform", () => {
@@ -310,8 +310,8 @@ function decidedState(
   };
 }
 
-function shortcut(overrides: Partial<Parameters<typeof isMasterOverlayShortcut>[0]>) {
-  return isMasterOverlayShortcut({
+function shortcut(overrides: Partial<Parameters<typeof isMasterPaneFocusShortcut>[0]>) {
+  return isMasterPaneFocusShortcut({
     altKey: false,
     ctrlKey: false,
     key: "k",

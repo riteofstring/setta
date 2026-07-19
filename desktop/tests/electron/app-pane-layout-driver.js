@@ -1,4 +1,4 @@
-/* global HTMLButtonElement, HTMLElement, document, window */
+/* global HTMLButtonElement, HTMLElement, KeyboardEvent, document, window */
 
 (() => {
   const version = "setta-app-pane-layout-driver-v1";
@@ -11,7 +11,9 @@
     }
     Object.assign(driver, {
       appPaneLayoutClickFocusedMaximize,
+      appPaneLayoutMasterFocusState,
       appPaneLayoutPersistedShellState,
+      appPaneLayoutPressMasterFocusShortcut,
       appPaneLayoutRoundTrip,
       appPaneLayoutShellState,
       appPaneLayoutVersion: version,
@@ -59,6 +61,38 @@
     }
     button.click();
     return { clicked: true, reason: "clicked" };
+  }
+
+  function appPaneLayoutPressMasterFocusShortcut() {
+    const event = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      key: "k",
+    });
+    window.dispatchEvent(event);
+    return {
+      defaultPrevented: event.defaultPrevented,
+      state: appPaneLayoutMasterFocusState(),
+    };
+  }
+
+  function appPaneLayoutMasterFocusState() {
+    const state = appPaneLayoutShellState();
+    const masterHost = document.querySelector(
+      '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
+    );
+    const composer =
+      masterHost instanceof HTMLElement
+        ? masterHost.querySelector(
+            '[data-testid="master-pane-surface"] textarea[aria-label="Ask Setta"]',
+          )
+        : null;
+    return {
+      ...state,
+      masterComposerFocused: document.activeElement === composer,
+      masterOverlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+    };
   }
 
   async function appPaneLayoutPersistedShellState({ workspaceRoot }) {

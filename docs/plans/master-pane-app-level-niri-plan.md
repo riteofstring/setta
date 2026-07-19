@@ -435,13 +435,16 @@ Completed repository work:
 - Kept settings reachable from app-level desktop and mobile chrome, renamed the settings return
   action to pane-level language, and updated focused Electron workflow assumptions to open fixture
   folders through production preload/main/backend/store paths instead of the removed sidebar button.
+- Replaced the primary Ask Setta keyboard/native-key path with an app-level master pane focus
+  command that closes settings when needed, ensures a master pane exists, focuses it, maximizes it,
+  focuses the composer, and verifies the behavior through the focused app pane Electron workflow.
 
 Remaining repository work:
 
 - Replace the removed sidebar's conversation search/list/create affordances with master transcript
   actions, a command/search palette, or typed ephemeral pickers.
-- Add the pane focus/maximize master keyboard shortcut behavior and settings entry points needed to
-  fully replace the old sidebar navigation model.
+- Add command/search or typed picker entry points needed to fully replace the old sidebar
+  conversation navigation model.
 
 Delete the permanent `ProjectPane`/`WorkspaceSidebar` from the primary app shell.
 

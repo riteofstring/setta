@@ -25,10 +25,7 @@ import type {
   AppShellMasterController,
   MasterInputFocusHints,
 } from "./features/global-master/app-shell-master-controller";
-import {
-  AppShellMasterSurface,
-  masterOverlayShortcutLabel,
-} from "./features/global-master/app-shell-master-surface";
+import { AppShellMasterSurface } from "./features/global-master/app-shell-master-surface";
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
@@ -36,6 +33,7 @@ import type { AppShellSpeechPlaybackController } from "./features/global-speech/
 import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
 import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
+import { masterPaneFocusRequestEvent } from "./workspace-layout/master-pane-focus";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
 import type {
   WorkspaceConversationFocusRequest,
@@ -126,6 +124,16 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     }
     settingsRouteWasOpenRef.current = settingsPageOpen;
   }, [settingsPageOpen]);
+  useEffect(() => {
+    const closeSettingsForMasterPaneFocus = () => {
+      if (useSettingsNavigationStore.getState().route.page === "settings") {
+        closeSettings();
+      }
+    };
+    window.addEventListener(masterPaneFocusRequestEvent, closeSettingsForMasterPaneFocus);
+    return () =>
+      window.removeEventListener(masterPaneFocusRequestEvent, closeSettingsForMasterPaneFocus);
+  }, [closeSettings]);
   const applyConversationPresentationRequest = useCallback(
     async (
       request: ConversationPanePresentationRequest,
@@ -655,7 +663,7 @@ function DesktopShellTopBar({
             {master ? (
               <ShellTopBarButton
                 active={masterOverlayOpen}
-                label={`Ask Setta (${masterOverlayShortcutLabel(platform)})`}
+                label="Ask Setta"
                 onClick={master.openOverlay}
                 testId="master-overlay-button"
               >

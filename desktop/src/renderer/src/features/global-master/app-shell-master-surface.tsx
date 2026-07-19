@@ -6,7 +6,7 @@ import type {
   RouteDecisionKind,
   ShellInteractionState,
 } from "@generated/backend";
-import type { DesktopPlatform, WorkspaceBrowserViewKeyEvent } from "@shared/types";
+import type { DesktopPlatform } from "@shared/types";
 import {
   ArrowUp,
   Check,
@@ -33,15 +33,13 @@ import {
   MasterTranscriptLoading,
   visibleTranscriptEntries,
 } from "./app-shell-master-transcript-view";
-import { isMasterOverlayShortcut, isMasterVoiceShortcut } from "./master-shortcuts";
 import { MasterSurfaceHeader } from "./app-shell-master-surface-header";
 import {
-  cancelMasterCaptureIfActive,
   createMasterVoiceModel,
-  executeMasterVoiceCommand,
   MasterVoiceButton,
   MasterVoiceStatus,
 } from "./master-voice-controls";
+import { useAppShellMasterShortcuts } from "./app-shell-master-shortcuts";
 import {
   type AppShellSpeechCaptureContextValue,
   useAppShellSpeechCapture,
@@ -51,9 +49,6 @@ import type { AppShellSpeechPlaybackController } from "../global-speech/app-shel
 import { useAppShellSpeechPlayback } from "../global-speech/app-shell-speech-playback";
 import { useAppearanceStore } from "../../stores/appearance-store";
 import { defaultShortcutsSettings } from "../../workspace-layout/workspace-shortcuts";
-
-export { isMasterOverlayShortcut, masterOverlayShortcutLabel } from "./master-shortcuts";
-
 export function AppShellMasterSurface({
   children,
   controller,
@@ -78,53 +73,13 @@ export function AppShellMasterSurface({
     onOpenVoiceCredentialSettings();
   }, [controller, onOpenVoiceCredentialSettings]);
 
-  useEffect(() => {
-    const handleWindowKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing) {
-        return;
-      }
-      if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
-        event.preventDefault();
-        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
-        return;
-      }
-      if (isMasterOverlayShortcut(event)) {
-        event.preventDefault();
-        controller.openOverlay();
-        return;
-      }
-      if (event.key === "Escape" && cancelMasterCaptureIfActive(speechCaptureController)) {
-        event.preventDefault();
-        return;
-      }
-      if (event.key === "Escape" && controller.getSnapshot().overlayOpen) {
-        event.preventDefault();
-        controller.closeOverlay();
-      }
-    };
-    const handleNativeViewKey = (event: WorkspaceBrowserViewKeyEvent) => {
-      if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
-        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
-        return;
-      }
-      if (isMasterOverlayShortcut(event)) {
-        controller.openOverlay();
-      }
-    };
-    const unsubscribeNativeViewKey =
-      window.setta.workspaceNativeViews?.onBrowserViewKey(handleNativeViewKey) ?? (() => {});
-    window.addEventListener("keydown", handleWindowKeyDown, { capture: true });
-    return () => {
-      unsubscribeNativeViewKey();
-      window.removeEventListener("keydown", handleWindowKeyDown, { capture: true });
-    };
-  }, [
+  useAppShellMasterShortcuts({
     controller,
     masterVoiceShortcut,
     openVoiceCredentialSettingsFromMaster,
     platform,
     speechCaptureController,
-  ]);
+  });
 
   return (
     <>

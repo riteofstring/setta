@@ -56,6 +56,14 @@ import {
 } from "./workspace-interactions";
 import { defaultShortcutsSettings } from "./workspace-shortcuts";
 import {
+  consumePendingMasterPaneFocusRequest,
+  focusMasterPaneComposer,
+  markMasterPaneFocusRequestHandled,
+  masterPaneFocusRequestDetail,
+  masterPaneFocusRequestEvent,
+  type MasterPaneFocusRequestDetail,
+} from "./master-pane-focus";
+import {
   applyPaneDrop,
   beginPaneDragSession,
   collectVisiblePaneHostRects,
@@ -369,6 +377,28 @@ function WorkspaceLayoutRuntimeArea({
             shortcuts: shortcuts ?? undefined,
             viewportProvider: stageViewport,
           });
+    const focusMasterPane = (request: MasterPaneFocusRequestDetail | null) => {
+      if (request) {
+        markMasterPaneFocusRequestHandled(request.requestId);
+      }
+      scheduler.pauseBenchmark();
+      void runLayoutAction(() => {
+        if (runtime.store.getSnapshot().presentationMode === "overview") {
+          runtime.store.toggleOverviewMode();
+        }
+        const masterPaneId = runtime.store.ensureMasterPane();
+        if (!runtime.store.maximizePane(masterPaneId)) {
+          return;
+        }
+        runtime.store.ensureFocusedPaneVisible(stageViewport());
+        runtime.store.snapScrollToTarget();
+      });
+      focusMasterPaneComposer(root);
+      scheduler.requestFrame();
+    };
+    const handleMasterPaneFocusRequest = (event: Event) => {
+      focusMasterPane(masterPaneFocusRequestDetail(event));
+    };
     const handleWheel = (event: WheelEvent) => {
       if (shellOverlayActiveRef.current) {
         return;
@@ -805,6 +835,7 @@ function WorkspaceLayoutRuntimeArea({
           viewportProvider: stageViewport,
         });
       }) ?? (() => {});
+    window.addEventListener(masterPaneFocusRequestEvent, handleMasterPaneFocusRequest);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("pointermove", handlePointerMove, { capture: true });
     window.addEventListener("pointerup", handlePointerUp, { capture: true });
@@ -813,10 +844,15 @@ function WorkspaceLayoutRuntimeArea({
     root.addEventListener("click", handleClick, { capture: true });
     root.addEventListener("pointerdown", handlePointerDown, { capture: true });
     window.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+    const pendingMasterPaneFocusRequest = consumePendingMasterPaneFocusRequest();
+    if (pendingMasterPaneFocusRequest) {
+      queueMicrotask(() => focusMasterPane(pendingMasterPaneFocusRequest));
+    }
     scheduler.start();
     return () => {
       uninstallResizeReportHooks();
       unsubscribeNativeKey();
+      window.removeEventListener(masterPaneFocusRequestEvent, handleMasterPaneFocusRequest);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("pointermove", handlePointerMove, { capture: true });
       window.removeEventListener("pointerup", handlePointerUp, { capture: true });
@@ -931,6 +967,7 @@ function WorkspaceLayoutRuntimeArea({
     </section>
   );
 }
+
 function installResizeReportHooksForRuntime(
   runtime: WorkspaceRuntime,
   viewportProvider: () => Rect,

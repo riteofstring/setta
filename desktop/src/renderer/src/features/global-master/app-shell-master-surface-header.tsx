@@ -2,7 +2,7 @@ import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import { Sparkles, X } from "lucide-react";
 
-import { masterOverlayShortcutLabel, masterVoiceShortcutLabel } from "./master-shortcuts";
+import { masterPaneFocusShortcutLabel, masterVoiceShortcutLabel } from "./master-shortcuts";
 
 export function MasterSurfaceHeader({
   headingId,
@@ -28,7 +28,7 @@ export function MasterSurfaceHeader({
       </div>
       <span className="setta-master-overlay-shortcuts">
         <kbd className="setta-master-overlay-shortcut">
-          Text {masterOverlayShortcutLabel(platform)}
+          Text {masterPaneFocusShortcutLabel(platform)}
         </kbd>
         <kbd className="setta-master-overlay-shortcut">
           Voice {masterVoiceShortcutLabel(platform, masterVoiceShortcut)}
