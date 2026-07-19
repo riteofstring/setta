@@ -8,17 +8,36 @@ import type {
   AppearanceTailwindPalette,
   AppearanceWorkspacePalette,
   ConversationPresentationProfile,
+  MasterVoiceSelection,
+  NarratorVoiceDefault,
   Role,
   RoleConfiguration,
   RoleProfile,
+  SpeechCapabilities,
 } from "@generated/backend";
+import type { SpeechCredentialSettings } from "@shared/speech-ipc";
+import type { RuntimeConnectionStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
+import {
+  completeSettingsNavigationRequest,
+  requestOpenAIVoiceConnectionSettings,
+  useSettingsNavigationStore,
+} from "../stores/settings-navigation-store";
 import { DeveloperSettingsEditor } from "./developer-settings";
+import {
+  OpenAIVoiceConnectionCardView,
+  speechCredentialSaveRequestFromDraft,
+} from "./openai-voice-connection-card";
+import {
+  ConversationPresentationConfiguration,
+  connectedRuntimeConfigurationKey,
+  GlobalVoiceConfigurationForm,
+} from "./presentation-configuration-settings";
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
-import { ConversationPresentationConfiguration } from "./presentation-configuration-settings";
+import { openAIVoiceConnectionSettings } from "./settings-navigation";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
 
 describe("appearance settings", () => {
@@ -72,6 +91,296 @@ describe("appearance settings", () => {
     expect(html).toContain('value="blue" selected=""');
     expect(html).toContain("Sky");
     expect(html).toContain("Teal");
+  });
+
+  test("keeps voice catalog selectors enabled while OpenAI voice is disconnected", () => {
+    const html = renderToString(
+      <GlobalVoiceConfigurationForm
+        configuration={{
+          capabilities: sampleSpeechCapabilities("not_configured"),
+          master: sampleMasterVoiceSelection(),
+          narratorDefault: sampleNarratorVoiceDefault(),
+        }}
+        onMasterUpdate={vi.fn()}
+        onNarratorDefaultUpdate={vi.fn()}
+      />,
+    );
+    const normalizedHtml = html.replaceAll("<!-- -->", "");
+
+    expect(normalizedHtml).toContain("Voice catalog · 3 voices");
+    expect(html).toContain("Marin");
+    expect(html).toContain("Cedar");
+    expect(selectTagDisabled(html, "Master voice selection")).toBe(false);
+    expect(selectTagDisabled(html, "Default narrator voice selection")).toBe(false);
+    expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("renders the OpenAI voice connection setup card", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "not_configured",
+        })}
+        apiKeyDraft=""
+        canManage
+        mode={null}
+      />,
+    );
+
+    expect(html).toContain('data-testid="openai-voice-connection-card"');
+    expect(html).toContain("OpenAI voice connection");
+    expect(html).toContain("Not connected");
+    expect(html).toContain("Applies to Local only");
+    expect(html).toContain("OpenAI API key");
+    expect(html).toContain('type="password"');
+    expect(html).toContain("Save and verify");
+    expect(html).toContain("OpenAI API keys");
+    expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("preserves leading and trailing whitespace in the credential save request", () => {
+    const draft = " renderer-whitespace-candidate ";
+
+    expect(speechCredentialSaveRequestFromDraft(draft)).toEqual({ apiKey: draft });
+    expect(speechCredentialSaveRequestFromDraft(" \n\t ")).toBeNull();
+  });
+
+  test("keeps the password draft after a save validation failure", () => {
+    const draft = " renderer-leading-trailing-candidate ";
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "OpenAI API key must not contain leading or trailing whitespace.",
+          operation: "save",
+          status: "failed",
+        })}
+        apiKeyDraft={draft}
+        canManage
+      />,
+    );
+
+    expect(html).toContain('type="password"');
+    expect(html).toContain(`value="${draft}"`);
+    expect(html).toContain("Save failed");
+  });
+
+  test("records and completes typed navigation to the OpenAI voice connection card", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestOpenAIVoiceConnectionSettings();
+    const request = useSettingsNavigationStore.getState().request;
+
+    expect(request).toEqual({
+      focusTarget: "openai_voice_connection",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "openai_voice_connection",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+
+    completeSettingsNavigationRequest(request?.requestId ?? 0);
+
+    expect(useSettingsNavigationStore.getState().request).toBeNull();
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: null,
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+
+    requestOpenAIVoiceConnectionSettings();
+
+    expect(useSettingsNavigationStore.getState().request?.requestId).toBe(2);
+  });
+
+  test("clears pending typed navigation when closing Settings", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestOpenAIVoiceConnectionSettings();
+    useSettingsNavigationStore.getState().closeSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toBeNull();
+    expect(useSettingsNavigationStore.getState().route).toEqual({ page: "workspace" });
+  });
+
+  test("opens the Settings page when routing to OpenAI voice setup", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    openAIVoiceConnectionSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toEqual({
+      focusTarget: "openai_voice_connection",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "openai_voice_connection",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+  });
+
+  test("renders a connected OpenAI voice card without a saved value", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        apiKeyDraft="candidate-value-that-must-not-render"
+        canManage
+        mode={null}
+      />,
+    );
+
+    expect(html).toContain("Connected");
+    expect(html).toContain("Replace");
+    expect(html).toContain("Disconnect");
+    expect(html).not.toContain('type="password"');
+    expect(html).not.toContain("candidate-value-that-must-not-render");
+  });
+
+  test("distinguishes the local credential from active remote runtime voice status", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        activeRuntimeVoiceStatus={{
+          displayName: "Remote lab",
+          message: null,
+          providerStatus: "not_configured",
+        }}
+        canManage
+      />,
+    );
+
+    expect(html).toContain("Local desktop credential");
+    expect(html).toContain("Active runtime voice status");
+    expect(html).toContain("Remote lab reports voice not connected.");
+    expect(html).toContain("Configure voice on that runtime.");
+    expect(html).toContain("The Local credential on this card is not sent there.");
+    expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("shows active remote runtime voice status as checking while switching", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        activeRuntimeVoiceStatus={{
+          displayName: "Remote lab",
+          message: null,
+          providerStatus: "loading",
+        }}
+        canManage
+      />,
+    );
+
+    expect(html).toContain("Checking voice status for Remote lab.");
+    expect(html).toContain("The Local credential on this card is not sent to remote runtimes.");
+  });
+
+  test("loads voice configuration only for a connected active runtime snapshot", () => {
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "connecting" })),
+    ).toBeNull();
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "unreachable" })),
+    ).toBeNull();
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "connected" })),
+    ).toBe("remote-runtime:63:2026-07-18T12:00:00.000Z");
+  });
+
+  test("renders replacement mode with an empty password control", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        apiKeyDraft=""
+        canManage
+        mode="replace"
+      />,
+    );
+
+    expect(html).toContain("Connected");
+    expect(html).toContain("OpenAI API key");
+    expect(html).toContain("Cancel");
+    expect(html).toContain("Save and verify");
+  });
+
+  test("renders secure-storage and corrupt credential failures without an entry field", () => {
+    const secureStorage = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Electron safeStorage encryption is unavailable.",
+          status: "secure_storage_unavailable",
+        })}
+        canManage
+      />,
+    );
+    const corrupt = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Stored credential ciphertext could not be decrypted.",
+          reason: "decrypt_failed",
+          status: "corrupt",
+        })}
+        canManage
+      />,
+    );
+
+    expect(secureStorage).toContain("Storage unavailable");
+    expect(secureStorage).toContain("Electron safeStorage encryption is unavailable.");
+    expect(secureStorage).not.toContain('type="password"');
+    expect(corrupt).toContain("Needs attention");
+    expect(corrupt).toContain("Stored credential ciphertext could not be decrypted.");
+    expect(corrupt).toContain("Disconnect");
+    expect(corrupt).not.toContain('type="password"');
+    expect(corrupt).not.toContain("Replace");
+    expect(corrupt).not.toContain("Save and verify");
+  });
+
+  test("renders retry and failed-save credential presentations", () => {
+    const failedRead = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Local speech runtime is not connected.",
+          operation: "read",
+          status: "failed",
+        })}
+        canManage
+      />,
+    );
+    const failedSave = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "OpenAI voice credential could not be verified.",
+          operation: "save",
+          status: "failed",
+        })}
+        canManage
+      />,
+    );
+
+    expect(failedRead).toContain("Read failed");
+    expect(failedRead).toContain("Retry");
+    expect(failedRead).not.toContain('type="password"');
+    expect(failedSave).toContain("Save failed");
+    expect(failedSave).toContain("OpenAI API key");
+    expect(failedSave).toContain("Save and verify");
   });
 
   test("renders independent model and reasoning controls for every AI role", () => {
@@ -254,6 +563,107 @@ describe("appearance settings", () => {
     expect(html).toContain("Warning foreground");
   });
 });
+
+function credentialCardProps(
+  settings: SpeechCredentialSettings,
+): Parameters<typeof OpenAIVoiceConnectionCardView>[0] {
+  return {
+    apiKeyDraft: "",
+    canManage: false,
+    mode: null,
+    onApiKeyDraftChange: vi.fn(),
+    onCancelReplace: vi.fn(),
+    onDisconnect: vi.fn(),
+    onOpenApiKeys: vi.fn(),
+    onReplace: vi.fn(),
+    onRetry: vi.fn(),
+    onSave: vi.fn(),
+    operation: null,
+    settings,
+  };
+}
+
+function sampleSpeechCapabilities(
+  providerStatus: SpeechCapabilities["providerStatus"],
+): SpeechCapabilities {
+  return {
+    aiVoiceDisclosure: "AI-generated voice",
+    maximumRecordingSeconds: 60,
+    maximumSynthesisCharacters: 4096,
+    maximumTranscriptCharacters: 12000,
+    providerStatus,
+    synthesisModel: "gpt-4o-mini-tts",
+    transcriptionModel: "gpt-4o-transcribe",
+    voiceCatalog: {
+      provider: "openai",
+      version: "test-catalog",
+      voiceIds: ["alloy", "marin", "cedar"],
+    },
+  };
+}
+
+function sampleMasterVoiceSelection(): MasterVoiceSelection {
+  return {
+    requestedVoiceId: "marin",
+    resolvedVoiceId: "marin",
+    reuse: null,
+    selection: "exact",
+    updatedAt: "2026-07-18T12:00:00Z",
+  };
+}
+
+function sampleNarratorVoiceDefault(): NarratorVoiceDefault {
+  return {
+    requestedVoiceId: null,
+    selection: "auto_distinct",
+    updatedAt: "2026-07-18T12:00:00Z",
+  };
+}
+
+function runtimeSnapshot({
+  connectionStatus,
+}: {
+  connectionStatus: RuntimeConnectionStatus;
+}): RuntimeRegistrySnapshot {
+  return {
+    activeRuntimeId: "remote-runtime",
+    connection: {
+      message:
+        connectionStatus === "connected" ? "Connected to Remote lab" : "Connecting to Remote lab",
+      protocolVersion: connectionStatus === "connected" ? 63 : null,
+      runtimeId: "remote-runtime",
+      status: connectionStatus,
+      updatedAt: "2026-07-18T12:00:00.000Z",
+    },
+    runtimes: [
+      {
+        active: true,
+        baseUrl: "https://remote-runtime.example",
+        connectionMessage:
+          connectionStatus === "connected" ? "Connected to Remote lab" : "Connecting to Remote lab",
+        connectionStatus,
+        displayName: "Remote lab",
+        infrastructureProvider: {
+          displayName: "Manual",
+          iconUrl: "",
+          id: "manual",
+        },
+        isLocal: false,
+        lastConnected: null,
+        runtimeId: "remote-runtime",
+      },
+    ],
+    switching: connectionStatus === "connecting",
+  };
+}
+
+function selectTagDisabled(html: string, ariaLabel: string): boolean {
+  const match = new RegExp(`<select[^>]*aria-label="${ariaLabel}"[^>]*>`, "u").exec(html);
+  if (!match) {
+    throw new Error(`Missing select with aria-label ${ariaLabel}.`);
+  }
+  return /\sdisabled(=|\s|>)/u.test(match[0]);
+}
 
 function sampleRoleConfiguration(): RoleConfiguration {
   const profiles = [

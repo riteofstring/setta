@@ -271,6 +271,15 @@ export class WorkspaceLayoutStore {
     return closedPaneId;
   }
 
+  closeFocusedPaneOrClearLastPane(): PaneId {
+    if (this.engine.paneCount() <= 1) {
+      const paneId = this.focusedPaneId();
+      this.configurePane(paneId, emptyFramePaneRequest());
+      return paneId;
+    }
+    return this.closeFocusedPane()!;
+  }
+
   moveFocusedPane(direction: "up" | "down" | "left" | "right"): PaneId {
     const paneId = this.focusedPaneId();
     this.engine.movePane(paneId, direction);
@@ -284,6 +293,7 @@ export class WorkspaceLayoutStore {
     if (!limitState.allowed) {
       throw new Error(`workspace pane limit reached for ${limitState.surfaceKind}`);
     }
+    this.assertConversationPaneBindingAvailable(request);
     const columnId = request.columnId;
     const paneId = this.engine.openPane({
       ...request,
@@ -316,6 +326,7 @@ export class WorkspaceLayoutStore {
     if (!limitState.allowed && !this.configureKeepsPaneSurfaceKind(paneId, request)) {
       throw new Error(`workspace pane limit reached for ${limitState.surfaceKind}`);
     }
+    this.assertConversationPaneBindingAvailable(request, paneId);
     const configuredPaneId = this.engine.configurePane(paneId, request);
     this.setFocusedPane(configuredPaneId);
     this.notify();
@@ -335,7 +346,10 @@ export class WorkspaceLayoutStore {
   }
 
   canOpenPane(request: OpenPaneRequest): boolean {
-    return this.paneLimitState(request).allowed;
+    return (
+      this.paneLimitState(request).allowed &&
+      this.conversationPaneBindingConflict(request, null) === null
+    );
   }
 
   paneLimitState(request: { surfaceKind?: SurfaceKind }): WorkspacePaneLimitState {
@@ -348,8 +362,16 @@ export class WorkspaceLayoutStore {
         surfaceKind,
       };
     }
-    const limit = this.options.paneLimits?.[surfaceKind] ?? null;
     const count = this.toScene().panes.filter((pane) => pane.surfaceKind === surfaceKind).length;
+    if (surfaceKind === "easy-button") {
+      return {
+        allowed: true,
+        count,
+        limit: null,
+        surfaceKind,
+      };
+    }
+    const limit = this.options.paneLimits?.[surfaceKind] ?? null;
     return {
       allowed: limit === null || count < limit,
       count,
@@ -767,6 +789,35 @@ export class WorkspaceLayoutStore {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  private assertConversationPaneBindingAvailable(
+    request: OpenPaneRequest,
+    targetPaneId: PaneId | null = null,
+  ): void {
+    const conflict = this.conversationPaneBindingConflict(request, targetPaneId);
+    if (conflict) {
+      throw new Error(conflict);
+    }
+  }
+
+  private conversationPaneBindingConflict(
+    request: OpenPaneRequest,
+    targetPaneId: PaneId | null,
+  ): string | null {
+    if (request.surfaceKind !== "easy-button" || !request.easyButtonConfig?.conversationId) {
+      return null;
+    }
+    const conversationId = request.easyButtonConfig.conversationId;
+    const existing = this.toScene().panes.find(
+      (pane) =>
+        pane.paneId !== targetPaneId &&
+        pane.surfaceKind === "easy-button" &&
+        pane.easyButtonConfig.conversationId === conversationId,
+    );
+    return existing
+      ? `conversation ${conversationId} is already bound to pane ${existing.paneId}`
+      : null;
   }
 
   private notify(): void {

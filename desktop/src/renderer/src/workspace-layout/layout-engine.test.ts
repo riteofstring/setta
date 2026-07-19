@@ -51,7 +51,7 @@ describe("workspace browser-pane layout engine", () => {
     expect(scene.columns).toHaveLength(100);
     expect(scene.paneById.get("workspace_pane_0")?.surfaceKind).toBe("fake-dom");
     expect(scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("fake-heavy-dom");
-    expect(scene.paneById.get("workspace_pane_2")?.surfaceKind).toBe("settings-dom");
+    expect(scene.paneById.get("workspace_pane_2")?.surfaceKind).toBe("fake-dom");
     expect(scene.paneById.get("workspace_pane_3")?.surfaceKind).toBe("fake-dom");
     expect(scene.paneById.get("workspace_pane_4")?.surfaceKind).toBe("fake-heavy-dom");
     expect(scene.paneById.get("workspace_pane_5")?.surfaceKind).toBe("fake-heavy-dom");
@@ -959,7 +959,7 @@ describe("real workspace layout column sizing", () => {
     });
     const engine = new WorkspaceLikeLayoutEngine(scene);
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
-    store.focusPaneBySurfaceKind("settings-dom");
+    store.focusPaneBySurfaceKind("browser");
     const firstLowerPaneId = store.splitFocusedPaneToPlane("down");
     store.focusPaneBySurfaceKind("easy-button");
 
@@ -1025,7 +1025,7 @@ describe("real workspace layout column sizing", () => {
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
     store.splitFocusedPaneToPlane("down");
 
-    store.focusPaneBySurfaceKind("settings-dom");
+    store.focusPaneBySurfaceKind("browser");
     const focusedPaneBeforeMove = store.focusedPaneId();
     store.moveFocus("right", { ...viewport, width: 1200 });
 
@@ -1213,7 +1213,7 @@ describe("real workspace layout column sizing", () => {
     const engine = new WorkspaceLikeLayoutEngine(scene);
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
 
-    store.focusPaneBySurfaceKind("settings-dom");
+    store.focusPaneBySurfaceKind("browser");
     store.ensureFocusedPaneVisible({ ...viewport, width: 1200 });
     store.snapScrollToTarget();
     store.ensureFocusedPaneVisible({ ...viewport, width: 900 });
@@ -1392,8 +1392,8 @@ function createSparseGeneratedPaneScene(): WorkspaceScene {
       sequence: 8,
       subtitle: "Old",
       surfaceId: "workspace_surface_8",
-      surfaceKind: "settings-dom",
-      title: "Settings",
+      surfaceKind: "browser",
+      title: "Browser",
       tone: "cyan",
       weight: 1,
     },

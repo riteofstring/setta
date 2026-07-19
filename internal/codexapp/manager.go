@@ -35,12 +35,13 @@ type ManagerConfig struct {
 type Manager struct {
 	config ManagerConfig
 
-	startMu sync.Mutex
-	mu      sync.Mutex
-	client  *Client
-	state   ManagerState
-	err     error
-	closed  bool
+	startMu    sync.Mutex
+	mu         sync.Mutex
+	client     *Client
+	state      ManagerState
+	err        error
+	closed     bool
+	generation uint64
 
 	nextSessionID int
 	sessions      map[int]*Session
@@ -139,12 +140,6 @@ func NewManager(config ManagerConfig) *Manager {
 		notificationHandlers: map[string][]NotificationHandler{},
 		requestHandlers:      map[string][]RequestHandler{},
 	}
-}
-
-func (manager *Manager) State() (ManagerState, error) {
-	manager.mu.Lock()
-	defer manager.mu.Unlock()
-	return manager.state, manager.err
 }
 
 func (manager *Manager) RegisterNotificationHandler(method string, handler NotificationHandler) {
@@ -276,6 +271,7 @@ func (manager *Manager) ensureStarted(ctx context.Context) (*Client, error) {
 	manager.client = client
 	manager.state = ManagerStateReady
 	manager.err = nil
+	manager.generation++
 	manager.mu.Unlock()
 
 	go manager.dispatchLoop(client)
@@ -423,6 +419,7 @@ func (manager *Manager) handleClientDone(client *Client) {
 		return
 	}
 	manager.client = nil
+	manager.generation++
 	if len(manager.sessions) == 0 {
 		manager.state = ManagerStateStopped
 	} else {

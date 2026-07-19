@@ -341,7 +341,7 @@
   display: grid;
   font-size: 11px;
   gap: 9px;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   line-height: 16px;
   padding: 10px 11px;
 }
@@ -365,6 +365,33 @@
 .setta-master-overlay-result > svg {
   height: 14px;
   margin-top: 1px;
+  width: 14px;
+}
+
+.setta-master-overlay-replay {
+  align-items: center;
+  border-radius: 6px;
+  color: inherit;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  opacity: 0.78;
+  width: 28px;
+}
+
+.setta-master-overlay-replay:hover:not(:disabled),
+.setta-master-overlay-replay:focus-visible {
+  background: color-mix(in oklch, var(--setta-100) 10%, transparent);
+  opacity: 1;
+}
+
+.setta-master-overlay-replay:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.setta-master-overlay-replay svg {
+  height: 14px;
   width: 14px;
 }
 

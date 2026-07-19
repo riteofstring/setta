@@ -17,7 +17,6 @@ interface ConversationEventStreamOptions {
   conversationId: string;
   cursor: ConversationEventCursor;
   fetchImpl: BackendFetch;
-  reportDisconnect?: (error: unknown) => void;
   reconnectDelayMs?: number;
   sendEvent: (event: ConversationEvent) => void;
   workspaceId: string;
@@ -63,7 +62,7 @@ async function runConversationEventStreamLoop(
       if (options.signal.aborted) {
         return;
       }
-      options.reportDisconnect?.(error);
+      console.warn("Conversation event stream disconnected", error);
     }
     await sleepWithAbort(options.reconnectDelayMs, options.signal);
   }

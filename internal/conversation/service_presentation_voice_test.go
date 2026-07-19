@@ -169,7 +169,7 @@ func TestServiceUpdatesPaletteAndNarratorSpeechAsOnePersistedPresentation(t *tes
 	assertExactBluePresentation(t, restored.PresentationProfile)
 }
 
-func TestVisiblePresentationIdentitySurvivesDuplicatePanesAndRestart(t *testing.T) {
+func TestVisiblePresentationIdentitySurvivesPaneBindingsAndRestart(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, _, workspaceID := newConversationServiceTestHarness(t, appDataDir)
 	ctx := context.Background()
@@ -177,7 +177,6 @@ func TestVisiblePresentationIdentitySurvivesDuplicatePanesAndRestart(t *testing.
 	beta := createPresentationTestTopic(t, ctx, service, workspaceID, "Restart identity beta")
 	bindings := []WorkspacePaneBinding{
 		{PaneID: "pane-alpha-primary", ConversationID: alpha.Conversation.ID},
-		{PaneID: "pane-alpha-duplicate", ConversationID: alpha.Conversation.ID},
 		{PaneID: "pane-beta", ConversationID: beta.Conversation.ID},
 	}
 	if err := store.ReplaceWorkspacePaneBindings(
@@ -203,7 +202,7 @@ func TestVisiblePresentationIdentitySurvivesDuplicatePanesAndRestart(t *testing.
 		bindings,
 		"2026-07-11T22:00:00Z",
 	); err != nil {
-		t.Fatalf("restore duplicate pane bindings: %v", err)
+		t.Fatalf("restore pane bindings: %v", err)
 	}
 	alphaAfter := readPresentationTestSnapshot(t, ctx, reopened, workspaceID, alpha.Conversation.ID)
 	betaAfter := readPresentationTestSnapshot(t, ctx, reopened, workspaceID, beta.Conversation.ID)

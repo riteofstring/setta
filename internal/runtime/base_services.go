@@ -49,7 +49,11 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 			shutdownRuntimeFoundation(foundation, config.ShutdownTimeout)
 		}
 	}()
-	speechService, err := newSpeechService(config.Speech, foundation.conversationStore)
+	speechService, err := newSpeechService(
+		config.Speech,
+		config.SpeechStartupAPIKey,
+		foundation.conversationStore,
+	)
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
@@ -290,7 +294,6 @@ func newRuntimeAgentServices(
 	workspaceService *workspacesession.Service,
 ) (runtimeAgentServices, error) {
 	agentRuntime := agent.NewRuntime(agent.Config{
-		Command:     config.CodexCommand,
 		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
 		Version:     config.Version,
 	})

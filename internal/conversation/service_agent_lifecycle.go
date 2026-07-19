@@ -67,7 +67,7 @@ func (service *Service) finishRunTurn(active *activeConversationTurn, runErr err
 	}
 	service.activeMu.Unlock()
 	lock.Unlock()
-	if persisted {
+	if persisted && !agent.IsProviderThreadMissing(runErr) {
 		service.promoteNextTurn(active.workspaceID, active.conversationID)
 	}
 }
@@ -115,7 +115,7 @@ func (service *Service) promoteNextTurnWithResult(
 		}
 		return nil
 	}
-	if err := service.launchTurnLocked(workspaceSummary.RootPath, workspaceID, turn, queued.Ordinal); err != nil {
+	if err := service.launchTurnLocked(ctx, workspaceSummary.RootPath, workspaceID, turn, queued.Ordinal); err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(ctx, &activeConversationTurn{
 			conversationID: conversationID,
 			queueOrdinal:   queued.Ordinal,
@@ -253,7 +253,6 @@ func (service *Service) prepareTurnStart(
 	turn.ResolvedInvocation = &invocation
 	turn.ProviderTurnID = &event.ProviderTurnID
 	binding := *snapshot.ThreadBinding
-	binding.LastResumedAt = &now
 	binding.LastTurnID = &turn.ID
 	events, err := service.turnStartTrajectories(active, snapshot, turn, invocation, event, now)
 	if err != nil {

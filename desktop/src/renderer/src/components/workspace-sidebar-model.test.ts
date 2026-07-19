@@ -23,7 +23,7 @@ describe("conversation navigator sidebar model", () => {
         {
           focusedConversationId: "conversation_web",
           focusedPaneId: "pane_web_a",
-          paneIdsByConversationId: new Map([["conversation_web", ["pane_web_a", "pane_web_b"]]]),
+          paneIdByConversationId: new Map([["conversation_web", "pane_web_a"]]),
         },
       ],
     ]);
@@ -48,20 +48,12 @@ describe("conversation navigator sidebar model", () => {
           conversationId: "conversation_web",
           title: "Build web",
           type: "presentConversation",
-          viewAction: "focus-or-open",
-          workspaceId: web.id,
-        },
-        openNewView: {
-          conversationId: "conversation_web",
-          title: "Build web",
-          type: "presentConversation",
-          viewAction: "open-new-view",
           workspaceId: web.id,
         },
       },
       focused: true,
       kind: "conversation",
-      openPaneCount: 2,
+      openPaneId: "pane_web_a",
     });
   });
 
@@ -77,7 +69,7 @@ describe("conversation navigator sidebar model", () => {
     expect(items[1]).toMatchObject({
       focused: false,
       kind: "conversation",
-      openPaneCount: 0,
+      openPaneId: null,
     });
   });
 
