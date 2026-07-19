@@ -14,6 +14,7 @@ func TestRuntimeFoundationRestoresDurableRestrictedMasterSession(t *testing.T) {
 	installRuntimeMasterCodexFixture(t)
 	config := DefaultConfig()
 	config.AppDataDir = appDataDir
+	config.SpeechCredentialOwner = SpeechCredentialOwnerElectronVault
 	config.Version = "master-session-integration-test"
 
 	first := newTestRuntimeFoundation(t, config)

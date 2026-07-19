@@ -9,7 +9,11 @@ export type SpeechCaptureAvailability =
   | { type: "disconnected" }
   | { type: "loading" }
   | { capabilities: SpeechCapabilities; type: "configured" }
-  | { message: string; type: "not_configured" }
+  | {
+      message: string;
+      setupAction: SpeechCredentialSetupAction;
+      type: "not_configured";
+    }
   | {
       capabilities: SpeechCapabilities;
       code: Extract<SpeechCaptureFailureCode, "insecure_context" | "unsupported_browser">;
@@ -17,6 +21,8 @@ export type SpeechCaptureAvailability =
       type: "unsupported";
     }
   | { message: string; type: "failed" };
+
+export type SpeechCredentialSetupAction = "open_voice_credential_settings";
 
 export function speechAvailabilityForCapabilities(
   capabilities: SpeechCapabilities,
@@ -27,7 +33,8 @@ export function speechAvailabilityForCapabilities(
   }
   if (capabilities.providerStatus === "not_configured") {
     return {
-      message: "Voice needs OPENAI_API_KEY on the runtime. Typed requests still work.",
+      message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+      setupAction: "open_voice_credential_settings",
       type: "not_configured",
     };
   }
