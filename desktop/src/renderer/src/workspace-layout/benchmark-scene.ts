@@ -2,7 +2,7 @@ import type {
   WorkspaceColumn,
   WorkspacePane,
   WorkspaceScene,
-  NonEasyButtonSurfaceKind,
+  NonConversationSurfaceKind,
   SurfaceKind,
 } from "./types";
 
@@ -12,17 +12,18 @@ export const phaseOneVisiblePaneCount = 40;
 const defaultPanesPerColumn = 5;
 const toneSequence = ["cyan", "green", "orange", "pink", "slate"] as const;
 const workKinds = ["notes", "diff", "trace", "task", "search"] as const;
-const seededSurfaceKinds = new Map<number, NonEasyButtonSurfaceKind>([
+const seededSurfaceKinds = new Map<number, NonConversationSurfaceKind>([
   [1, "fake-heavy-dom"],
   [2, "fake-dom"],
   [3, "fake-dom"],
 ]);
 const surfaceKindLabels = {
   browser: "browser",
-  "easy-button": "easy button",
+  conversation: "conversation",
   "empty-frame": "empty frame",
   "fake-dom": "fake light",
   "fake-heavy-dom": "fake heavy",
+  master: "master",
   snapshot: "snapshot",
 } satisfies Record<SurfaceKind, string>;
 
@@ -103,7 +104,7 @@ function createFakePane(columnId: string, sequence: number, rowIndex: number): W
   };
 }
 
-function fakeSurfaceKind(sequence: number): NonEasyButtonSurfaceKind {
+function fakeSurfaceKind(sequence: number): NonConversationSurfaceKind {
   const seededKind = seededSurfaceKinds.get(sequence);
   if (seededKind) {
     return seededKind;

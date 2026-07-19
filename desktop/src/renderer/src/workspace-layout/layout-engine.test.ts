@@ -392,12 +392,12 @@ describe("real workspace layout column sizing", () => {
     const engine = createRealEngine();
     const before = engine.toScene();
     const invalidRequest = {
-      surfaceKind: "easy-button",
+      surfaceKind: "conversation",
       title: "Missing binding",
     } as unknown as OpenPaneRequest;
 
     expect(() => engine.openPaneNearPane("workspace_pane_0", "right", invalidRequest)).toThrow(
-      "easy-button panes require an easyButtonConfig conversation binding",
+      "conversation panes require a conversationConfig conversation binding",
     );
     expect(engine.toScene().columns).toEqual(before.columns);
     expect(engine.toScene().panes).toEqual(before.panes);
@@ -961,7 +961,7 @@ describe("real workspace layout column sizing", () => {
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
     store.focusPaneBySurfaceKind("browser");
     const firstLowerPaneId = store.splitFocusedPaneToPlane("down");
-    store.focusPaneBySurfaceKind("easy-button");
+    store.focusPaneBySurfaceKind("conversation");
 
     const focusedPaneIdBeforeSplit = store.focusedPaneId();
     const secondLowerPaneId = store.splitFocusedPaneToPlane("down");

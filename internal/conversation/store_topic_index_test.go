@@ -14,7 +14,7 @@ func TestTopicIndexProjectionRollsBackWithAuthoritativeConversation(t *testing.T
 	store := newTestStore(t)
 	conversation := TopicConversation{
 		ID:              "conversation-index-rollback",
-		WorkspaceID:     "workspace-a",
+		WorkspaceID:     stringPointer("workspace-a"),
 		Title:           "Rollback topic card",
 		TopicDescriptor: "atomic projection",
 		Status:          ConversationStatusIdle,
@@ -244,7 +244,7 @@ func TestTopicIndexBoundsGlobalRetrievalWithWorkspaceAndRecencyFilters(t *testin
 
 	workspaceMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
 		Query:        "retrieval",
-		WorkspaceIDs: []string{older.WorkspaceID},
+		WorkspaceIDs: []string{*older.WorkspaceID},
 		Limit:        5,
 	})
 	if len(workspaceMatches) != 1 || workspaceMatches[0].Card.ConversationID != older.ID {
@@ -343,7 +343,7 @@ func seedTopicIndexConversation(
 	t.Helper()
 	conversation := TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     workspaceID,
+		WorkspaceID:     &workspaceID,
 		Title:           title,
 		TopicDescriptor: descriptor,
 		Status:          ConversationStatusIdle,
@@ -491,7 +491,7 @@ func seedTopicIndexPaneBinding(
 INSERT INTO pane_bindings (
   pane_id, workspace_id, conversation_id, created_at, updated_at, last_focused_at
 ) VALUES (?, ?, ?, ?, ?, ?)
-`, "pane-index-a", conversation.WorkspaceID, conversation.ID, testTimeStarted, testTimeStarted, testTimeStarted)
+	`, "pane-index-a", *conversation.WorkspaceID, conversation.ID, testTimeStarted, testTimeStarted, testTimeStarted)
 		return err
 	}); err != nil {
 		t.Fatalf("seed topic index pane binding: %v", err)

@@ -11,7 +11,9 @@ import {
   captureScreenshot,
   clickEnabledButtonByAria,
   createElectronFixture,
+  dispatchKeyEvent,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -67,7 +69,8 @@ try {
   const freshSession = await backend.get("/workspace-session");
   assertFreshSession(freshSession);
   await assertFirstRunSurface(context.client);
-  await clickEnabledButtonByAria(context.client, "Choose project folder", workflowTimeoutMs);
+  await captureScreenshot(context.client, join(firstLaunchDir, "first-run-master-pane.png"));
+  await openFixtureWorkspace(context.client, workflowTimeoutMs);
 
   const openedSession = await waitForBackendState(
     () => backend.get("/workspace-session"),
@@ -77,6 +80,7 @@ try {
     workflowTimeoutMs,
   );
   workspaceId = openedSession.selectedWorkspaceId;
+  await createConversationFromToolbar(context.client);
   const initialPage = await waitForBackendState(
     () => listConversations(backend, workspaceId),
     (page) => page.items.length === 1 && page.items[0]?.conversation.title === "New conversation",
@@ -85,7 +89,7 @@ try {
   conversationId = initialPage.items[0].conversation.id;
   await assertWritableEasyButton(context.client, conversationId);
   await waitForPersistedEasyButton(backend, workspaceId, conversationId);
-  await captureScreenshot(context.client, join(firstLaunchDir, "first-run-easy-button.png"));
+  await captureScreenshot(context.client, join(firstLaunchDir, "first-run-conversation-pane.png"));
 
   await stopElectronCdpContext(context);
   context = null;
@@ -137,6 +141,7 @@ try {
     workflowTimeoutMs,
   );
   assertStableWorkspaceIdentity(relocatedSession, workspaceId);
+  await reopenConversationFromMasterPicker(context.client, conversationId);
   await assertWritableEasyButton(context.client, conversationId);
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -178,12 +183,16 @@ function assertFreshSession(session) {
 async function assertFirstRunSurface(client) {
   await waitForState(
     client,
-    driverCallExpression("topicConversationFirstRunState"),
+    driverCallExpression("workspaceFirstRunMasterPaneState", {}),
     (state) =>
-      state.chooseFolder &&
-      state.emptyState &&
       state.easyButtons === 0 &&
-      !state.newTopic &&
+      state.folderChoiceControls === 0 &&
+      state.masterFocused &&
+      state.masterHostFocused &&
+      state.masterMaximized &&
+      state.masterOpen &&
+      !state.oldEmptyState &&
+      state.paneCount === "1" &&
       !state.search,
     workflowTimeoutMs,
   );
@@ -204,6 +213,93 @@ async function assertWritableEasyButton(client, targetConversationId) {
   );
 }
 
+async function createConversationFromToolbar(client) {
+  const result = await client.driver("topicConversationClickNewFrameConversation");
+  if (!result.clicked) {
+    throw new Error(`new frame conversation action failed: ${JSON.stringify(result)}`);
+  }
+}
+
+async function reopenConversationFromMasterPicker(client, targetConversationId) {
+  await focusMasterPane(client);
+  await clickMasterTopicsButton(client);
+  await waitForState(
+    client,
+    `(() => {
+      const row = document.querySelector(
+        '[data-testid="master-conversation-picker-row"][data-conversation-id=${JSON.stringify(
+          targetConversationId,
+        )}]',
+      );
+      return {
+        available: row instanceof HTMLButtonElement && !row.disabled,
+        rowCount: document.querySelectorAll('[data-testid="master-conversation-picker-row"]').length,
+      };
+    })()`,
+    (state) => state.available,
+    workflowTimeoutMs,
+  );
+  const clicked = await client.evaluate(`(() => {
+    const row = document.querySelector(
+      '[data-testid="master-conversation-picker-row"][data-conversation-id=${JSON.stringify(
+        targetConversationId,
+      )}]',
+    );
+    if (!(row instanceof HTMLButtonElement) || row.disabled) {
+      return false;
+    }
+    row.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error(`master conversation picker did not reopen ${targetConversationId}`);
+  }
+}
+
+async function focusMasterPane(client) {
+  await dispatchKeyEvent(client, { code: "KeyK", key: "k", modifiers: 2 });
+  await dispatchKeyEvent(client, {
+    code: "KeyK",
+    key: "k",
+    modifiers: 2,
+    type: "keyUp",
+  });
+  await waitForState(
+    client,
+    `(() => {
+      const host = document.querySelector(
+        '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
+      );
+      const pane = host?.querySelector('[data-testid="master-pane-surface"]');
+      const composer = pane?.querySelector('textarea[aria-label="Ask Setta"]');
+      return {
+        focused: composer === document.activeElement,
+        hostFocused: host?.getAttribute("data-focused") === "true",
+        maximized: host?.getAttribute("data-maximized") === "true",
+        open: Boolean(pane),
+      };
+    })()`,
+    (state) => state.open && state.focused && state.hostFocused,
+    workflowTimeoutMs,
+  );
+}
+
+async function clickMasterTopicsButton(client) {
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector(
+      '[data-testid="master-pane-surface"] [data-testid="master-topics-button"]',
+    );
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error("master topics picker button was unavailable");
+  }
+}
+
 async function assertReadOnlyMissingWorkspace(client, targetConversationId) {
   await waitForState(
     client,
@@ -220,16 +316,14 @@ async function assertReadOnlyMissingWorkspace(client, targetConversationId) {
 }
 
 async function waitForPersistedEasyButton(backend, targetWorkspaceId, targetConversationId) {
+  void targetWorkspaceId;
   await waitForBackendState(
-    () =>
-      backend.post("/workspaces/ui/layout/read", {
-        workspaceId: targetWorkspaceId,
-      }),
+    () => backend.get("/app/panes/layout"),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
-          pane.surfaceKind === "easy-button" &&
-          pane.easyButtonConfig?.conversationId === targetConversationId,
+          pane.surfaceKind === "conversation" &&
+          pane.conversationConfig?.conversationId === targetConversationId,
       ) === true,
     workflowTimeoutMs,
   );

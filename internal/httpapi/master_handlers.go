@@ -20,6 +20,10 @@ type CancelMasterInputRequest struct {
 	InputID string `json:"inputId"`
 }
 
+type ReadMasterTranscriptRequest struct {
+	Limit int `json:"limit"`
+}
+
 func (handler handler) readActiveMasterShellInteraction(response http.ResponseWriter, request *http.Request) {
 	service := requireMasterInputService(response, handler.masterInputService)
 	if service == nil {
@@ -98,6 +102,27 @@ func (handler handler) readMasterInputRoutingState(response http.ResponseWriter,
 		return
 	}
 	writeJSON(response, http.StatusOK, state)
+}
+
+func (handler handler) readMasterTranscript(response http.ResponseWriter, request *http.Request) {
+	service := requireMasterInputService(response, handler.masterInputService)
+	if service == nil {
+		return
+	}
+	var payload ReadMasterTranscriptRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	transcript, err := service.ReadTranscript(request.Context(), payload.Limit)
+	if err != nil {
+		writeMasterTranscriptError(response, err)
+		return
+	}
+	if err := transcript.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_master_transcript", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, transcript)
 }
 
 func (handler handler) waitMasterShellInteraction(response http.ResponseWriter, request *http.Request) {

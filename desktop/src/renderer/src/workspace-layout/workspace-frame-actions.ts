@@ -1,12 +1,13 @@
 import { requestConversationCreation } from "../features/easy-button/conversation-creation-command";
 import type { ConversationPanePlacementDestination } from "./conversation-pane-coordinator";
 import type { WorkspaceLayoutStore, WorkspacePaneLimitState } from "./layout-store";
-import type { NonEasyButtonSurfaceKind, OpenPaneRequest, PaneId } from "./types";
+import type { NonConversationSurfaceKind, OpenPaneRequest, PaneId } from "./types";
+import { emptyWorkspaceRuntimeId } from "./workspace-layout-area-runtime";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 
 export type SurfaceFrameActionRequest = OpenPaneRequest & {
-  easyButtonConfig?: never;
-  surfaceKind?: NonEasyButtonSurfaceKind;
+  conversationConfig?: never;
+  surfaceKind?: NonConversationSurfaceKind;
 };
 
 export type WorkspaceFrameAction =
@@ -69,7 +70,7 @@ export function executeWorkspaceFrameAction({
     case "conversation":
       return requestConversationCreation({
         destination: conversationDestinationForPlacement(placement),
-        workspaceId: runtime.scene.id,
+        workspaceId: conversationWorkspaceIdForRuntime(runtime.scene.id),
       }).then(
         () => true,
         () => false,
@@ -111,6 +112,10 @@ function conversationDestinationForPlacement(
     default:
       return assertNever(placement);
   }
+}
+
+function conversationWorkspaceIdForRuntime(runtimeWorkspaceId: string): string | null {
+  return runtimeWorkspaceId === emptyWorkspaceRuntimeId ? null : runtimeWorkspaceId;
 }
 
 function assertNever(value: never): never {
