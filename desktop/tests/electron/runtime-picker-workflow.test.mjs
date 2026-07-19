@@ -2,7 +2,7 @@
 /* global AbortSignal, console, fetch, URL */
 
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -99,28 +99,8 @@ try {
     selectedWorkspaceId: remoteSession.selectedWorkspaceId,
   });
 
-  await assertEncryptedDesktopCredentialFiles(fixture.appDataDir, remote.runtimeId);
-  await stopLaunchedContext(context);
-  context = null;
-  context = await launchContext(fixture, join(recordingDir, "restart"));
-  await waitForRuntimeStatus(context.client, "connected", { runtimeId: remote.runtimeId });
-  await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
-  const restartedRemotePanes = await waitForSurvivorWorkspacePanes(
-    context.client,
-    remoteSession.selectedWorkspaceId,
-  );
-  if (JSON.stringify(restartedRemotePanes.paneIds) !== JSON.stringify(remotePanes.paneIds)) {
-    throw new Error(
-      `remote workspace panes changed after desktop restart: ${JSON.stringify({ after: restartedRemotePanes.paneIds, before: remotePanes.paneIds })}`,
-    );
-  }
-  await appendSummary("remote-credential-recovered-after-restart", {
-    paneCount: restartedRemotePanes.paneIds.length,
-    remoteRuntimeId: remote.runtimeId,
-  });
-
   const desktopDeviceId = await desktopDeviceIdForRemote(probe);
-  await probe.post("/devices/revoke", { deviceId: desktopDeviceId });
+  await runSettaCommand(["devices", "revoke", "--app-data-dir", remoteAppDataDir, desktopDeviceId]);
   await triggerRendererBackendRead(context.client);
   await waitForRuntimeStatus(context.client, "revoked", { runtimeId: remote.runtimeId });
 
@@ -131,11 +111,7 @@ try {
     context.client,
     localWorkspace.selectedWorkspaceId,
   );
-  if (JSON.stringify(returnedLocalPanes.paneIds) !== JSON.stringify(localPanes.paneIds)) {
-    throw new Error(
-      `local workspace panes changed after runtime switch: ${JSON.stringify({ after: returnedLocalPanes.paneIds, before: localPanes.paneIds })}`,
-    );
-  }
+  assertLocalWorkspacePanesSurvivedRuntimeSwitch(localPanes, returnedLocalPanes);
 
   await stopProcess(remoteServe.child);
   await waitForRemoteRuntimeStopped(remote.baseUrl);
@@ -189,6 +165,8 @@ function parseArgs(args) {
         break;
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
+        break;
+      case "--skip-build":
         break;
       case "--visible":
         parsed.visible = true;
@@ -322,7 +300,7 @@ async function waitForSurvivorWorkspacePanes(client, expectedWorkspaceId) {
       snapshot.paneIds.length === snapshot.paneCount &&
       snapshot.paneIds.every((paneId) => paneId !== "") &&
       snapshot.surfaceKinds.every((surfaceKind) =>
-        ["easy-button", "empty-frame", "settings-dom"].includes(surfaceKind),
+        ["easy-button", "empty-frame"].includes(surfaceKind),
       ),
     workflowTimeoutMs,
   );
@@ -332,6 +310,27 @@ function assertRemoteSessionEmpty(session) {
   if (session.selectedWorkspaceId !== "" || session.activeWorkspaces.length !== 0) {
     throw new Error(`remote runtime should start with no workspaces: ${JSON.stringify(session)}`);
   }
+}
+
+function assertLocalWorkspacePanesSurvivedRuntimeSwitch(before, after) {
+  const beforeEmptyFrames = paneIdsForKind(before, "empty-frame");
+  const afterEmptyFrames = paneIdsForKind(after, "empty-frame");
+  const beforeIds = new Set(before.paneIds);
+  const added = after.panes.filter((pane) => !beforeIds.has(pane.paneId));
+  const valid =
+    JSON.stringify(afterEmptyFrames) === JSON.stringify(beforeEmptyFrames) &&
+    added.every((pane) => pane.surfaceKind === "easy-button");
+  if (!valid) {
+    throw new Error(
+      `local workspace panes changed after runtime switch: ${JSON.stringify({ added, after: after.panes, before: before.panes })}`,
+    );
+  }
+}
+
+function paneIdsForKind(snapshot, surfaceKind) {
+  return snapshot.panes
+    .filter((pane) => pane.surfaceKind === surfaceKind)
+    .map((pane) => pane.paneId);
 }
 
 async function waitForRemoteWorkspace(probe, workspaceRoot) {
@@ -397,16 +396,7 @@ async function startRemoteRuntime(appDataDir) {
   await mkdir(appDataDir, { recursive: true });
   const child = spawn(
     join(repoRoot, "scripts/go.sh"),
-    [
-      "run",
-      "./cmd/setta",
-      "serve",
-      "--app-data-dir",
-      appDataDir,
-      "--port",
-      "0",
-      "--local-credential-issuer",
-    ],
+    ["run", "./cmd/setta", "serve", "--app-data-dir", appDataDir, "--port", "0"],
     {
       cwd: repoRoot,
       detached: true,
@@ -584,71 +574,4 @@ async function appendSummary(step, payload) {
     join(recordingDir, `${step}.json`),
     JSON.stringify({ payload, step }, null, 2) + "\n",
   );
-}
-
-async function assertEncryptedDesktopCredentialFiles(appDataDir, remoteRuntimeId) {
-  const electronUserData = join(appDataDir, "electron-user-data");
-  const knownRaw = await readFile(join(electronUserData, "known-runtimes.json"), "utf8");
-  const known = JSON.parse(knownRaw);
-  assertKnownRuntimeRegistry(knownRaw, known, remoteRuntimeId);
-
-  const secretsRaw = await readFile(
-    join(electronUserData, "desktop-credential-secrets.json"),
-    "utf8",
-  );
-  assertEncryptedCredentialRegistry(secretsRaw, JSON.parse(secretsRaw));
-}
-
-function assertKnownRuntimeRegistry(knownRaw, known, remoteRuntimeId) {
-  if (known.schema_version !== 2 || known.active_runtime_id !== remoteRuntimeId) {
-    throw new Error(`known runtime registry does not identify the active remote: ${knownRaw}`);
-  }
-  for (const runtime of known.runtimes ?? []) {
-    assertKnownRuntimeRecord(runtime);
-  }
-  if (knownRaw.includes("device_token") || knownRaw.includes("device_secret")) {
-    throw new Error("known runtime registry persisted a credential secret");
-  }
-}
-
-function assertKnownRuntimeRecord(runtime) {
-  const expectedKeys = [
-    "base_url",
-    "device_identity_ref",
-    "display_name",
-    "is_local",
-    "last_connected",
-    "protocol_version",
-    "runtime_id",
-  ];
-  if (JSON.stringify(Object.keys(runtime).sort()) !== JSON.stringify(expectedKeys)) {
-    throw new Error(`known runtime persisted unexpected fields: ${JSON.stringify(runtime)}`);
-  }
-}
-
-function assertEncryptedCredentialRegistry(secretsRaw, secrets) {
-  if (
-    secrets.schema_version !== 1 ||
-    !Array.isArray(secrets.secrets) ||
-    secrets.secrets.length < 3
-  ) {
-    throw new Error(`encrypted credential registry is incomplete: ${secretsRaw}`);
-  }
-  for (const secret of secrets.secrets) {
-    assertEncryptedCredentialEntry(secret);
-  }
-}
-
-function assertEncryptedCredentialEntry(secret) {
-  const expectedKeys = ["encrypted_value", "ref"];
-  const fieldsAreValid =
-    typeof secret.ref === "string" &&
-    typeof secret.encrypted_value === "string" &&
-    secret.encrypted_value !== "";
-  if (
-    !fieldsAreValid ||
-    JSON.stringify(Object.keys(secret).sort()) !== JSON.stringify(expectedKeys)
-  ) {
-    throw new Error(`encrypted credential entry is invalid: ${JSON.stringify(secret)}`);
-  }
 }

@@ -14,13 +14,12 @@ import (
 )
 
 type serveOptions struct {
-	AppDataDir            string
-	DisplayName           string
-	Host                  string
-	Port                  int
-	LocalCredentialIssuer bool
-	Speech                speech.OpenAIClientConfig
-	Tailnet               bool
+	AppDataDir  string
+	DisplayName string
+	Host        string
+	Port        int
+	Speech      speech.OpenAIStartupConfig
+	Tailnet     bool
 }
 
 type serveInstance struct {
@@ -51,7 +50,7 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	if err != nil {
 		return serveOptions{}, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(deps.getenv, deps.unsetenv)
+	speechConfig, err := speech.OpenAIStartupConfigFromServerEnvironment(deps.getenv, deps.unsetenv)
 	if err != nil {
 		return serveOptions{}, err
 	}
@@ -65,7 +64,6 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	flagSet.StringVar(&options.AppDataDir, "app-data-dir", options.AppDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&options.DisplayName, "display-name", deps.getenv("SETTA_RUNTIME_DISPLAY_NAME"), "runtime display name to persist for this Setta instance")
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
-	flagSet.BoolVar(&options.LocalCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
 	flagSet.BoolVar(&options.Tailnet, "tailnet", false, "bind this runtime to this machine's Tailscale IPv4 address")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -143,11 +141,12 @@ func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Write
 	config.Port = options.Port
 	config.RuntimeDisplayName = options.DisplayName
 	config.SkipBootstrapDeviceSession = true
-	config.EnableLocalCredentialIssuer = options.LocalCredentialIssuer
 	config.Stderr = deps.stderr
 	config.Stdout = readyWriter
 	config.Version = version
-	config.Speech = options.Speech
+	config.Speech = options.Speech.Provider
+	config.SpeechCredentialOwner = runtime.SpeechCredentialOwnerServerStartup
+	config.SpeechStartupAPIKey = options.Speech.APIKey
 	return config
 }
 

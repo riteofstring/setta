@@ -5,7 +5,6 @@ import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
 import { requestEasyButtonPaneClose } from "../features/easy-button/easy-button-conversation-commands";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
-import { WorkspaceSettingsSurface } from "./workspace-dom-surfaces";
 import {
   applySnapshotScrollOffsets,
   cloneSnapshotNode,
@@ -383,10 +382,6 @@ function reactDomSurfaceRenderFactory(
           speechPresentation={options.speechPresentation}
           workspaceId={options.workspaceId ?? null}
         />
-      );
-    case "settings-dom":
-      return ({ activated, focused }) => (
-        <WorkspaceSettingsSurface active={focused} loaded={activated} />
       );
     default:
       return undefined;

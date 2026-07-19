@@ -581,6 +581,7 @@ func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {
 		Turns:                conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{}},
 		Queue:                []conversation.QueuedConversationTurn{},
 		Trajectory:           conversation.ConversationTrajectoryWindow{Events: []conversation.TrajectoryEvent{}},
+		PendingApprovals:     []conversation.ConversationPendingApproval{},
 		Artifacts:            conversation.ConversationArtifactWindow{Artifacts: []conversation.ArtifactMetadata{}},
 		NarratorState:        conversation.NarratorState{ConversationID: "conversation-api", Status: conversation.NarratorStatusReady, UpdatedAt: httpConversationTestTime},
 		Narration:            conversation.ConversationNarrationWindow{Events: []conversation.NarrationEvent{}},

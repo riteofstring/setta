@@ -5,6 +5,7 @@ import {
   type ConversationBranch,
   type ConversationEvent,
   type ConversationEventPayload,
+  type ConversationPendingApproval,
   type ConversationPresentationProfile,
   type ConversationSnapshot,
   type ConversationTurn,
@@ -89,6 +90,7 @@ describe("conversation store", () => {
     expect(current.queue.map((queued) => queued.turnId)).toEqual(["turn_a"]);
     expect(current.threadBinding?.threadId).toBe("thread_a");
     expect(current.trajectory.events.map((event) => event.id)).toEqual(["trajectory_a"]);
+    expect(current.pendingApprovals).toEqual([]);
     expect(current.artifacts.artifacts.map((artifact) => artifact.id)).toEqual(["artifact_a"]);
     expect(current.narratorState.currentFocus).toBe("Implement the normalized store.");
     expect(current.narration.events.map((event) => event.id)).toEqual(["narration_a"]);
@@ -188,6 +190,97 @@ describe("conversation store", () => {
     expect(current.narration).toMatchObject({ hasEarlier: true });
     expect(current.narration.events).toHaveLength(conversationSnapshotLimits.narrationEvents);
     expect(current.narration.events.at(-1)?.id).toBe("narration_latest");
+  });
+
+  test("projects pending approvals independently of the retained trajectory window", () => {
+    const snapshot = conversationSnapshot(conversationA);
+    snapshot.turns.turns = [{ ...queuedTurn(conversationA), status: "running" }];
+    snapshot.conversation.status = "waiting_for_approval";
+    snapshot.trajectory.events = Array.from(
+      { length: conversationSnapshotLimits.trajectoryEvents },
+      (_, index) => ({
+        ...trajectoryEvent(conversationA),
+        id: `trajectory_${index}`,
+        kind: "agent_public_text_delta",
+        sequence: index + 1,
+        agentPublicTextDelta: {
+          delta: "routine",
+          providerItemId: `provider_text_${index}`,
+        },
+        userInputAccepted: null,
+      }),
+    );
+    snapshot.conversation.lastTrajectorySequence = conversationSnapshotLimits.trajectoryEvents;
+    useConversationStore.getState().hydrateSnapshot(workspaceId, conversationA, snapshot);
+
+    const approvalEvent = conversationEvent(conversationA, 1, {
+      event: {
+        ...trajectoryEvent(conversationA),
+        id: "trajectory_approval",
+        kind: "approval_requested",
+        sequence: conversationSnapshotLimits.trajectoryEvents + 1,
+        approvalRequested: {
+          approval: approvalRequest("approval_a"),
+        },
+        userInputAccepted: null,
+      },
+      type: "conversation.trajectory.appended",
+    });
+    const routineEvents = Array.from(
+      { length: conversationSnapshotLimits.trajectoryEvents },
+      (_, index) =>
+        conversationEvent(conversationA, index + 2, {
+          event: {
+            ...trajectoryEvent(conversationA),
+            id: `trajectory_after_approval_${index}`,
+            kind: "agent_public_text_delta",
+            sequence: conversationSnapshotLimits.trajectoryEvents + index + 2,
+            agentPublicTextDelta: {
+              delta: "routine",
+              providerItemId: `provider_text_after_${index}`,
+            },
+            userInputAccepted: null,
+          },
+          type: "conversation.trajectory.appended",
+        }),
+    );
+    useConversationStore.getState().applyEvents([approvalEvent, ...routineEvents]);
+
+    const blocked = projection(conversationA).snapshot!;
+    expect(blocked.trajectory.events.at(0)?.sequence).toBe(
+      conversationSnapshotLimits.trajectoryEvents + 2,
+    );
+    expect(blocked.trajectory.events.some((event) => event.id === "trajectory_approval")).toBe(
+      false,
+    );
+    expect(blocked.pendingApprovals.map((approval) => approval.approval.id)).toEqual([
+      "approval_a",
+    ]);
+
+    useConversationStore.getState().applyEvent(
+      conversationEvent(conversationA, conversationSnapshotLimits.trajectoryEvents + 2, {
+        event: {
+          ...trajectoryEvent(conversationA),
+          id: "trajectory_approval_resolved",
+          kind: "approval_resolved",
+          sequence: conversationSnapshotLimits.trajectoryEvents * 2 + 2,
+          approvalResolved: {
+            resolution: {
+              answers: [],
+              approvalId: "approval_a",
+              decision: "approved",
+              resolvedAt: timestamp,
+              response: "",
+              secretsRedacted: false,
+            },
+          },
+          userInputAccepted: null,
+        },
+        type: "conversation.trajectory.appended",
+      }),
+    );
+
+    expect(projection(conversationA).snapshot?.pendingApprovals).toEqual([]);
   });
 
   test("requires backend reselection when the selected side window overflows", () => {
@@ -744,6 +837,7 @@ function conversationSnapshot(
     eventCursor: { sequence, streamId: conversationStreamId(conversationId) },
     narration: { events: [], hasEarlier: false },
     narratorState: narratorState(conversationId),
+    pendingApprovals: [],
     presentationProfile: presentationProfile(conversationId),
     queue: [],
     roleProfileOverrides: [],
@@ -855,6 +949,22 @@ function artifact(conversationId: string): ArtifactMetadata {
     trajectorySequence: 1,
     turnId: "turn_a",
   };
+}
+
+function approvalRequest(id: string) {
+  return {
+    body: "Allow the operation.",
+    command: null,
+    cwd: null,
+    filePaths: [],
+    id,
+    kind: "permission",
+    providerItemId: `provider_${id}`,
+    questions: [],
+    requestedAt: timestamp,
+    requestedPermissionProfile: null,
+    title: "Approval",
+  } satisfies ConversationPendingApproval["approval"];
 }
 
 function narratorState(conversationId: string, currentFocus = "Ready"): NarratorState {

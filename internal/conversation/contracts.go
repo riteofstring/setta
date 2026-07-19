@@ -103,6 +103,7 @@ type ConversationSnapshot struct {
 	Queue                []QueuedConversationTurn        `json:"queue"`
 	ThreadBinding        *AgentThreadBinding             `json:"threadBinding"`
 	Trajectory           ConversationTrajectoryWindow    `json:"trajectory"`
+	PendingApprovals     []ConversationPendingApproval   `json:"pendingApprovals"`
 	Artifacts            ConversationArtifactWindow      `json:"artifacts"`
 	NarratorState        NarratorState                   `json:"narratorState"`
 	Narration            ConversationNarrationWindow     `json:"narration"`
@@ -259,7 +260,8 @@ func (snapshot ConversationSnapshot) Validate() error {
 }
 
 func validateSnapshotExecution(snapshot ConversationSnapshot, conversationID string) error {
-	if err := validateSnapshotTurns(snapshot.Turns, snapshot.Queue, conversationID); err != nil {
+	turns, err := validateSnapshotTurns(snapshot.Turns, snapshot.Queue, conversationID)
+	if err != nil {
 		return err
 	}
 	if err := validateSnapshotOwnedRecord("thread binding", conversationID, snapshot.ThreadBinding, func(binding AgentThreadBinding) (string, error) {
@@ -268,6 +270,9 @@ func validateSnapshotExecution(snapshot ConversationSnapshot, conversationID str
 		return err
 	}
 	if err := validateSnapshotTrajectory(snapshot.Trajectory, snapshot.Conversation); err != nil {
+		return err
+	}
+	if err := validateSnapshotPendingApprovals(snapshot.PendingApprovals, conversationID, snapshot.Conversation.LastTrajectorySequence, turns); err != nil {
 		return err
 	}
 	if err := validateSnapshotArtifacts(snapshot.Artifacts, conversationID, snapshot.Conversation.LastTrajectorySequence); err != nil {
@@ -314,12 +319,12 @@ func validateSnapshotConfiguration(snapshot ConversationSnapshot, conversationID
 	return nil
 }
 
-func validateSnapshotTurns(window ConversationTurnWindow, queue []QueuedConversationTurn, conversationID string) error {
+func validateSnapshotTurns(window ConversationTurnWindow, queue []QueuedConversationTurn, conversationID string) (map[string]ConversationTurn, error) {
 	turns, err := validateSnapshotTurnWindow(window, conversationID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return validateSnapshotQueue(queue, conversationID, turns)
+	return turns, validateSnapshotQueue(queue, conversationID, turns)
 }
 
 func validateSnapshotTurnWindow(window ConversationTurnWindow, conversationID string) (map[string]ConversationTurn, error) {

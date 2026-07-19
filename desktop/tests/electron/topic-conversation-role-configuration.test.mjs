@@ -60,6 +60,13 @@ try {
 
   const initial = await waitForRoleSettings(context.client, "gpt-5.6-sol", "high", false, "global");
   assertRoleInventory(initial, ["agent", "narrator", "master", "side_agent"]);
+  const builtInInitial = await waitForGlobalAgentConfiguration(
+    context.client,
+    "gpt-5.6-sol",
+    "built_in",
+    false,
+  );
+  assertDefaultAgentPermissions(builtInInitial, "initial built-in agent");
   await selectAgentModel(context.client, "gpt-5.6-terra");
   await waitForRoleSettings(context.client, "gpt-5.6-terra", "medium", true, "global");
   await saveRoleSettings(context.client);
@@ -105,6 +112,7 @@ try {
     "Workspace role precedence before restart",
   );
   assertEqual(firstWorkspaceTopic.model, "gpt-5.6-luna", "workspace primary-agent model");
+  assertDefaultAgentPermissions(firstWorkspaceTopic, "workspace primary-agent turn");
   await captureScreenshot(context.client, join(artifactDir, "configured-workspace-agent.png"));
 
   await stopElectronCdpContext(context);
@@ -154,6 +162,7 @@ try {
     "Workspace role precedence",
   );
   assertEqual(workspaceTopic.model, "gpt-5.6-luna", "workspace primary-agent thread model");
+  assertDefaultAgentPermissions(workspaceTopic, "reloaded workspace primary-agent turn");
 
   const conversationConfigured = await configureConversationAgent(
     context.client,
@@ -175,6 +184,7 @@ try {
   assertEqual(turn.status, "completed", "conversation role-precedence turn status");
   assertEqual(turn.requestedModel, "gpt-5.6-sol", "conversation requested agent model");
   assertEqual(turn.resolvedModel, "gpt-5.6-sol", "conversation resolved agent model");
+  assertDefaultAgentPermissions(turn, "conversation role-precedence turn");
 
   const fork = await createAndWaitForFork(
     context.client,
@@ -184,6 +194,7 @@ try {
   assertEqual(fork.threadModel, "gpt-5.6-luna", "durable fork thread model");
   assertEqual(fork.requestedModel, "gpt-5.6-luna", "durable fork requested agent model");
   assertEqual(fork.resolvedModel, "gpt-5.6-luna", "durable fork resolved agent model");
+  assertDefaultAgentPermissions(fork, "durable fork agent turn");
 
   const conversationReset = await resetConversationAgent(
     context.client,
@@ -207,6 +218,7 @@ try {
     "Global role precedence after workspace reset",
   );
   assertEqual(globalInheritedTopic.model, "gpt-5.6-terra", "global inherited agent model");
+  assertDefaultAgentPermissions(globalInheritedTopic, "global inherited agent turn");
 
   await selectRoleScope(context.client, "global");
   await resetGlobalAgentFromSettings(context.client);
@@ -216,8 +228,10 @@ try {
     "built_in",
     false,
   );
+  assertDefaultAgentPermissions(reset, "reset built-in agent");
   const builtInTopic = await createTopic(context.client, workspaceId, "Built-in role precedence");
   assertEqual(builtInTopic.model, "gpt-5.6-sol", "reset primary-agent thread model");
+  assertDefaultAgentPermissions(builtInTopic, "reset primary-agent turn");
   await captureScreenshot(context.client, join(artifactDir, "reset-built-in-agent.png"));
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -269,7 +283,7 @@ async function openWorkspace(client) {
 async function openRoleSettings(client) {
   const opened = await client.driver("roleConfigurationOpenSettings");
   if (!opened.ready && !opened.opened) {
-    throw new Error("Settings pane was not available for AI role configuration");
+    throw new Error("Settings page was not available for AI role configuration");
   }
   await waitForSelector(client, "#settings-subtab-roles", workflowTimeoutMs);
   const tab = await client.driver("roleConfigurationOpenTab");
@@ -367,7 +381,19 @@ function waitForWorkspaceAgentConfiguration(
 }
 
 async function createTopic(client, workspaceId, title) {
-  return client.driver("roleConfigurationCreateTopic", { title, workspaceId });
+  const created = await client.driver("roleConfigurationCreateTopic", { title, workspaceId });
+  if (created.threadLinked) {
+    throw new Error(`Created topic eagerly linked a provider thread: ${JSON.stringify(created)}`);
+  }
+  const text = `verify ${title}`;
+  const turn = await submitAndWaitForAgentTurnText(
+    client,
+    workspaceId,
+    created.conversationId,
+    roleConfigurationInputID(title),
+    text,
+  );
+  return { ...created, ...turn, model: turn.threadModel };
 }
 
 async function configureConversationAgent(client, workspaceId, conversationId, modelId, effort) {
@@ -380,8 +406,16 @@ async function configureConversationAgent(client, workspaceId, conversationId, m
 }
 
 async function submitAndWaitForAgentTurn(client, workspaceId, conversationId) {
-  const inputId = "role_configuration_precedence_input";
-  const text = "verify conversation role precedence";
+  return submitAndWaitForAgentTurnText(
+    client,
+    workspaceId,
+    conversationId,
+    "role_configuration_precedence_input",
+    "verify conversation role precedence",
+  );
+}
+
+async function submitAndWaitForAgentTurnText(client, workspaceId, conversationId, inputId, text) {
   const submitted = await client.driver("roleConfigurationSubmitInput", {
     conversationId,
     inputId,
@@ -401,6 +435,14 @@ async function submitAndWaitForAgentTurn(client, workspaceId, conversationId) {
     (state) => ["cancelled", "completed", "failed"].includes(state.status),
     workflowTimeoutMs,
   );
+}
+
+function roleConfigurationInputID(title) {
+  return `role_configuration_create_${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48)}`;
 }
 
 async function resetConversationAgent(client, workspaceId, conversationId) {
@@ -466,5 +508,25 @@ function validWorkspaceId(workspaceId) {
 function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(`${label} = ${JSON.stringify(actual)}, want ${JSON.stringify(expected)}`);
+  }
+}
+
+function assertDefaultAgentPermissions(state, label) {
+  const actual = {
+    approvals: state.approvals,
+    approvalPolicy: state.approvalPolicy,
+    providerPermissionProfile: state.providerPermissionProfile,
+    toolAccessMode: state.toolAccessMode,
+    workspaceMutation: state.workspaceMutation,
+  };
+  const expected = {
+    approvals: false,
+    approvalPolicy: "never",
+    providerPermissionProfile: ":full-access",
+    toolAccessMode: "all",
+    workspaceMutation: true,
+  };
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${label} permissions = ${JSON.stringify(actual)}`);
   }
 }

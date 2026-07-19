@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
@@ -25,22 +25,17 @@ import {
 } from "./codex-account-event-stream";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
-import { DesktopCredentialStore, type RuntimeAccessCredential } from "./desktop-credential-store";
-import { createElectronCredentialSecretStore } from "./electron-credential-secret-store";
 import { KnownRuntimeStore } from "./known-runtime-store";
-import {
-  enrollWithLocalRuntimeIssuer,
-  LocalRuntimeCredentialClient,
-} from "./local-runtime-credential-client";
 import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { registerRoleConfigurationIpcHandlers } from "./role-configuration-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
+import { SpeechCredentialCoordinator } from "./speech-credential-coordinator";
 import {
-  RuntimeCredentialManager,
-  UnconfiguredControlPlaneRuntimeCredentialClient,
-} from "./runtime-credential-manager";
+  createElectronSafeStorageCredentialProtection,
+  SpeechCredentialVault,
+} from "./speech-credential-vault";
 import { registerSpeechIpcHandlers } from "./speech-ipc";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
@@ -55,7 +50,9 @@ let mainWindow: BrowserWindow | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
+let speechCredentialCoordinator: SpeechCredentialCoordinator | null = null;
 const backendRequests = createBackendRequestLifecycle();
+const localBackendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
 const conversationEvents = new ConversationEventRegistry({
   backendConnection: () => {
@@ -83,7 +80,12 @@ async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
     backend = await startBackend(repoRoot(), appDataDir, process.env);
+    localBackendRequests.setStopping(false);
     backendStartupError = null;
+    backend.events.on("exit", () => {
+      localBackendRequests.setStopping(true);
+      void speechCredentialCoordinator?.setLocalRuntime(null);
+    });
     attachBackendObservers({
       backend,
       emitBackendProcessStatus,
@@ -96,11 +98,17 @@ async function prepareBackend(appDataDir: string) {
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
-      pairingToken: backend.localPairingToken,
+      deviceToken: backend.bootstrapToken,
+    });
+    await speechCredentialCoordinator?.setLocalRuntime({
+      client: createLocalSpeechCredentialClient(localRuntime),
+      runtimeId: localRuntime.runtimeId,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
   } catch (error) {
     backend = null;
+    localBackendRequests.setStopping(true);
+    void speechCredentialCoordinator?.setLocalRuntime(null);
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
     emitBackendProcessStatus({ message: backendStartupError, status: "failed" });
     recorder?.recordBackendStartupError(backendStartupError);
@@ -108,17 +116,8 @@ async function prepareBackend(appDataDir: string) {
 }
 
 function createRuntimeRegistry() {
-  const credentials = new DesktopCredentialStore(
-    createElectronCredentialSecretStore(app.getPath("userData")),
-  );
   return new RuntimeRegistryController({
     clientDisplayName,
-    enrollRuntime: (pairing, displayName) =>
-      enrollWithLocalRuntimeIssuer({
-        clientDisplayName: displayName,
-        fetchImpl: fetch,
-        pairing,
-      }),
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     hooks: {
       activeRuntimeFailed: handleRuntimeFailed,
@@ -127,14 +126,7 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    runtimeCredentials: new RuntimeCredentialManager(
-      credentials,
-      new UnconfiguredControlPlaneRuntimeCredentialClient(),
-      {
-        localRuntimeCredentialClient: new LocalRuntimeCredentialClient(fetch),
-      },
-    ),
-    store: new KnownRuntimeStore(app.getPath("userData"), credentials),
+    store: new KnownRuntimeStore(app.getPath("userData")),
   });
 }
 
@@ -205,6 +197,14 @@ function broadcastRuntimeSnapshot(snapshot: RuntimeRegistrySnapshot) {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) {
       window.webContents.send(ipcEvents.runtimeConnectionState, snapshot);
+    }
+  }
+}
+
+function broadcastSpeechCredentialSettings(settings: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechCredentialSettingsChanged, settings);
     }
   }
 }
@@ -546,7 +546,12 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerSpeechIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  registerSpeechIpcHandlers({
+    ipcMain,
+    ipcObserver,
+    requireBackendClient,
+    requireSpeechCredentialCoordinator,
+  });
   registerMasterIpcHandlers({
     ipcMain,
     ipcObserver,
@@ -625,31 +630,32 @@ function requireBackendClient(): BackendClient {
   return createBackendClient(runtime.baseUrl, backendRequests.wrapFetch(backendFetch()));
 }
 
-function backendFetch(): BackendFetch {
+function createLocalSpeechCredentialClient(localRuntime: {
+  baseUrl: string;
+  deviceToken: string;
+  runtimeId: string;
+}): BackendClient {
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  return authenticatedBackendFetch(
-    fetchImpl,
-    async () => {
-      const runtime = activeRuntime();
-      if (!runtime) {
-        throw new Error(runtimeUnavailableMessage());
-      }
-      return (await currentRuntimeCredential(runtime)).token;
-    },
-    () => {
+  const authenticatedFetch = authenticatedBackendFetch(fetchImpl, localRuntime.deviceToken, () => {
+    if (activeRuntime()?.runtimeId === localRuntime.runtimeId) {
       void runtimeRegistry?.markActiveRuntimeRevoked();
-    },
+    }
+  });
+  return createBackendClient(
+    localRuntime.baseUrl,
+    localBackendRequests.wrapFetch(authenticatedFetch),
   );
 }
 
-async function currentRuntimeCredential(runtime: ActiveRuntime): Promise<RuntimeAccessCredential> {
-  const registry = requireRuntimeRegistry();
-  const credential = await registry.currentRuntimeCredential();
-  const current = activeRuntime();
-  if (!current || current.runtimeId !== runtime.runtimeId) {
-    throw new Error("runtime changed while resolving runtime credential");
+function backendFetch(): BackendFetch {
+  const runtime = activeRuntime();
+  if (!runtime) {
+    throw new Error(runtimeUnavailableMessage());
   }
-  return credential;
+  const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
+  return authenticatedBackendFetch(fetchImpl, runtime.deviceToken, () => {
+    void runtimeRegistry?.markActiveRuntimeRevoked();
+  });
 }
 
 function activeRuntime(): ActiveRuntime | null {
@@ -663,6 +669,32 @@ function requireRuntimeRegistry(): RuntimeRegistryController {
   return runtimeRegistry;
 }
 
+function requireSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
+  if (!speechCredentialCoordinator) {
+    throw new Error("speech credential coordinator is not ready");
+  }
+  return speechCredentialCoordinator;
+}
+
+function createSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
+  let vault: SpeechCredentialVault | null = null;
+  let secureStorageUnavailableMessage: string | undefined;
+  try {
+    vault = new SpeechCredentialVault(
+      app.getPath("userData"),
+      createElectronSafeStorageCredentialProtection({ app, safeStorage }),
+    );
+  } catch (error) {
+    secureStorageUnavailableMessage =
+      error instanceof Error ? error.message : "Secure storage is unavailable.";
+  }
+  return new SpeechCredentialCoordinator({
+    onSettingsChanged: broadcastSpeechCredentialSettings,
+    secureStorageUnavailableMessage,
+    vault,
+  });
+}
+
 function runtimeUnavailableMessage() {
   const snapshot = runtimeRegistry?.snapshot();
   return snapshot?.connection.message ?? backendStartupError ?? "runtime is not connected";
@@ -670,11 +702,16 @@ function runtimeUnavailableMessage() {
 
 async function stopBackend() {
   backendRequests.setStopping(true);
+  localBackendRequests.setStopping(true);
   emitBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
   await stopBackendEventStreams();
-  await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
+  await Promise.all([
+    backendRequests.waitForIdle(backendRequestDrainTimeoutMs),
+    localBackendRequests.waitForIdle(backendRequestDrainTimeoutMs),
+  ]);
   await backend?.stop();
   backend = null;
+  void speechCredentialCoordinator?.setLocalRuntime(null);
 }
 
 function requestQuit() {
@@ -691,6 +728,7 @@ app.whenReady().then(async () => {
     desktopRoot: desktopRoot(),
     repoRoot: repoRoot(),
   });
+  speechCredentialCoordinator = createSpeechCredentialCoordinator();
   await prepareBackend(appDataDir);
   await createWindow();
 });
