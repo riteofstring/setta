@@ -265,6 +265,10 @@ Implemented on 2026-07-20:
     files, fixes the target to Linux AMD64, validates the release identity at
     its owning package boundary, pins the custom verifier by SHA-256, and
     derives its protected remote path in code.
+18. The provider-neutral verifier installer reads and hashes the exact private
+    local bytes before provider calls, rejects remote symlinks and digest drift,
+    stages non-executable bytes with argv-only commands, verifies them remotely,
+    publishes atomically, and re-verifies the selected path.
 
 Still required before a live create/deployment mutation:
 
