@@ -1,6 +1,9 @@
-import type { WorkspaceConversationPaneConfig } from "@generated/backend";
-
-import type { NonConversationSurfaceKind, WorkspacePane, OpenPaneRequest } from "./types";
+import type {
+  NonConversationSurfaceKind,
+  WorkspaceConversationPaneConfig,
+  WorkspacePane,
+  OpenPaneRequest,
+} from "./types";
 
 type WorkspacePaneSurface =
   | { conversationConfig: WorkspaceConversationPaneConfig; surfaceKind: "conversation" }

@@ -44,6 +44,7 @@ func (service *Service) SaveLayout(layout AppPaneLayout) (AppPaneLayout, error) 
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
+	layout = normalizeLayout(layout)
 	previous, err := service.store.LoadLayout()
 	if err != nil && !IsCorruptStateError(err) {
 		return AppPaneLayout{}, err

@@ -169,13 +169,6 @@ func TestStoreRejectsInvalidPaneConfigs(t *testing.T) {
 			want: "conversationConfig is required for conversation panes",
 		},
 		{
-			name: "null resource bindings",
-			mutate: func(layout *AppPaneLayout) {
-				layout.Panes[1].ConversationConfig.ResourceBindings = nil
-			},
-			want: "resourceBindings must not be null",
-		},
-		{
 			name: "relative folder binding",
 			mutate: func(layout *AppPaneLayout) {
 				layout.Panes[1].ConversationConfig.ResourceBindings = []ConversationPaneResourceBinding{{
@@ -201,6 +194,83 @@ func TestStoreRejectsInvalidPaneConfigs(t *testing.T) {
 				t.Fatalf("error = %T %v, want corrupt state containing %q", err, err, test.want)
 			}
 		})
+	}
+}
+
+func TestStoreNormalizesFolderlessConversationPaneResourceBindings(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := newTestStore(t, appDataDir)
+	layout := testLayout()
+	layout.Panes[1].ConversationConfig.ResourceBindings = nil
+
+	saved, err := store.SaveLayout(layout)
+	if err != nil {
+		t.Fatalf("save folderless layout: %v", err)
+	}
+	if saved.Panes[1].ConversationConfig == nil ||
+		saved.Panes[1].ConversationConfig.ResourceBindings == nil ||
+		len(saved.Panes[1].ConversationConfig.ResourceBindings) != 0 {
+		t.Fatalf("saved resource bindings = %+v, want empty slice", saved.Panes[1].ConversationConfig)
+	}
+
+	loaded, err := store.LoadLayout()
+	if err != nil {
+		t.Fatalf("load folderless layout: %v", err)
+	}
+	if loaded.Layout == nil ||
+		loaded.Layout.Panes[1].ConversationConfig == nil ||
+		loaded.Layout.Panes[1].ConversationConfig.ResourceBindings == nil ||
+		len(loaded.Layout.Panes[1].ConversationConfig.ResourceBindings) != 0 {
+		t.Fatalf("loaded resource bindings = %+v, want empty slice", loaded.Layout)
+	}
+}
+
+func TestStoreLoadsPersistedConversationPaneWithMissingResourceBindings(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := newTestStore(t, appDataDir)
+	layout := testLayout()
+	payload, err := json.Marshal(layout)
+	if err != nil {
+		t.Fatalf("marshal layout fixture: %v", err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(payload, &record); err != nil {
+		t.Fatalf("unmarshal layout fixture: %v", err)
+	}
+	panes, ok := record["panes"].([]any)
+	if !ok || len(panes) < 2 {
+		t.Fatalf("fixture panes = %+v, want at least two panes", record["panes"])
+	}
+	conversationPane, ok := panes[1].(map[string]any)
+	if !ok {
+		t.Fatalf("fixture conversation pane = %+v, want object", panes[1])
+	}
+	conversationConfig, ok := conversationPane["conversationConfig"].(map[string]any)
+	if !ok {
+		t.Fatalf("fixture conversation config = %+v, want object", conversationPane["conversationConfig"])
+	}
+	delete(conversationConfig, "resourceBindings")
+	payload, err = json.Marshal(record)
+	if err != nil {
+		t.Fatalf("marshal missing resource bindings fixture: %v", err)
+	}
+	path := StateFilePath(appDataDir)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create state dir: %v", err)
+	}
+	if err := os.WriteFile(path, payload, 0o644); err != nil {
+		t.Fatalf("write missing resource bindings fixture: %v", err)
+	}
+
+	loaded, err := store.LoadLayout()
+	if err != nil {
+		t.Fatalf("load layout with missing resource bindings: %v", err)
+	}
+	if loaded.Layout == nil ||
+		loaded.Layout.Panes[1].ConversationConfig == nil ||
+		loaded.Layout.Panes[1].ConversationConfig.ResourceBindings == nil ||
+		len(loaded.Layout.Panes[1].ConversationConfig.ResourceBindings) != 0 {
+		t.Fatalf("loaded resource bindings = %+v, want empty slice", loaded.Layout)
 	}
 }
 

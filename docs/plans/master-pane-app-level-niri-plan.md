@@ -382,6 +382,25 @@ route audit remains internal state.
 
 ### 5. Make Conversation Context Explicit
 
+**Status:** In progress.
+
+Completed repository work:
+
+- Made app pane layout persistence accept conversation panes without persisted resource bindings and
+  normalize them to an empty binding list, so folderless pane records remain deterministic on read
+  and save.
+- Preserved app-level conversation resource bindings in the renderer scene when restoring app pane
+  layout, and kept folderless conversation panes visible instead of filtering them out for lack of a
+  matching folder binding.
+- Kept restored folderless conversation panes folderless when the renderer saves the app pane layout
+  again.
+
+Remaining repository work:
+
+- Change conversation creation request/service/store ownership so a topic conversation can be
+  created without a workspace id.
+- Add resource request handling for work that needs a folder after a folderless conversation exists.
+
 Change conversation pane config and conversation creation so resource bindings are explicit and
 optional.
 

@@ -161,7 +161,10 @@ describe("app pane layout adapter", () => {
       },
       {
         columnId: "app_column_0",
-        conversationConfig: { conversationId: "conversation_api" },
+        conversationConfig: {
+          conversationId: "conversation_api",
+          resourceBindings: [{ folder: { rootPath: "/tmp/setta-api" }, kind: "folder" }],
+        },
         heat: 12,
         paneId: "app_pane_topic",
         sequence: 4,
@@ -173,6 +176,116 @@ describe("app pane layout adapter", () => {
         weight: 1,
       },
     ]);
+  });
+
+  test("preserves folderless conversation panes across restore and save", () => {
+    const layout: AppPaneLayout = {
+      columns: [
+        {
+          columnId: "app_column_master",
+          idealWidthSpec: { unit: "px", value: 520 },
+          index: 0,
+          paneIds: ["app_pane_master"],
+          planeIndex: 0,
+          previousProportionWidth: null,
+          slotIndex: 0,
+          widthSpec: { unit: "px", value: 520 },
+        },
+        {
+          columnId: "app_column_0",
+          idealWidthSpec: { unit: "px", value: 520 },
+          index: 1,
+          paneIds: ["app_pane_folderless"],
+          planeIndex: 0,
+          previousProportionWidth: null,
+          slotIndex: 1,
+          widthSpec: { unit: "px", value: 520 },
+        },
+      ],
+      focusedPaneId: "app_pane_folderless",
+      maximizedPaneId: null,
+      panes: [
+        {
+          columnId: "app_column_master",
+          conversationConfig: null,
+          heat: 0,
+          masterConfig: {},
+          paneId: "app_pane_master",
+          sequence: 0,
+          subtitle: "Global coordinator",
+          surfaceId: "app_surface_master",
+          surfaceKind: "master",
+          title: "Setta",
+          tone: "slate",
+          weight: 1,
+        },
+        {
+          columnId: "app_column_0",
+          conversationConfig: {
+            conversationId: "conversation_folderless",
+            presentationIdentity: {
+              subtitle: "Topic conversation",
+              title: "Folderless topic",
+              tone: "green",
+            },
+            resourceBindings: [],
+          },
+          heat: 6,
+          masterConfig: null,
+          paneId: "app_pane_folderless",
+          sequence: 1,
+          subtitle: "Topic conversation",
+          surfaceId: "app_surface_folderless",
+          surfaceKind: "conversation",
+          title: "Folderless topic",
+          tone: "green",
+          weight: 1,
+        },
+      ],
+      schemaVersion: appPaneLayoutSchemaVersion,
+    };
+
+    const restored = appPaneLayoutToWorkspaceUILayout({
+      layout,
+      workspaceId: "workspace_api",
+      workspaceRootPath: "/tmp/setta-api",
+    });
+
+    expect(restored.layout?.panes.find((pane) => pane.paneId === "app_pane_folderless")).toEqual({
+      columnId: "app_column_0",
+      conversationConfig: {
+        conversationId: "conversation_folderless",
+        resourceBindings: [],
+      },
+      heat: 6,
+      paneId: "app_pane_folderless",
+      sequence: 1,
+      subtitle: "Topic conversation",
+      surfaceId: "app_surface_folderless",
+      surfaceKind: "conversation",
+      title: "Folderless topic",
+      tone: "green",
+      weight: 1,
+    });
+
+    const scene = createRealWorkspaceScene({
+      storedLayout: restored.layout,
+      workspaceId: "workspace_api",
+      workspaceName: "Repo",
+    });
+    const saved = appPaneLayoutFromWorkspaceScene({
+      focusedPaneId: scene.focusedPaneId,
+      maximizedPaneId: restored.maximizedPaneId,
+      scene: scene.scene,
+      workspaceRootPath: "/tmp/setta-api",
+    });
+
+    expect(
+      saved.panes.find((pane) => pane.paneId === "app_pane_folderless")?.conversationConfig,
+    ).toMatchObject({
+      conversationId: "conversation_folderless",
+      resourceBindings: [],
+    });
   });
 
   test("keeps the master pane when app conversation panes are bound elsewhere", () => {

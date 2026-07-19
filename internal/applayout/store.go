@@ -86,6 +86,7 @@ func (store *Store) LoadLayout() (AppPaneLayoutReadResult, error) {
 	if err := jsonio.DecodeSingle(file, &layout); err != nil {
 		return AppPaneLayoutReadResult{}, corruptStateError(path, err)
 	}
+	layout = normalizeLayout(layout)
 	if err := validateLayout(layout, path); err != nil {
 		return AppPaneLayoutReadResult{}, err
 	}
@@ -94,6 +95,7 @@ func (store *Store) LoadLayout() (AppPaneLayoutReadResult, error) {
 
 func (store *Store) SaveLayout(layout AppPaneLayout) (AppPaneLayout, error) {
 	path := StateFilePath(store.appDataDir)
+	layout = normalizeLayout(layout)
 	if err := validateLayout(layout, path); err != nil {
 		return AppPaneLayout{}, err
 	}
@@ -127,6 +129,16 @@ func (store *Store) SaveLayout(layout AppPaneLayout) (AppPaneLayout, error) {
 	}
 	removeTemp = false
 	return layout, nil
+}
+
+func normalizeLayout(layout AppPaneLayout) AppPaneLayout {
+	for index := range layout.Panes {
+		config := layout.Panes[index].ConversationConfig
+		if config != nil && config.ResourceBindings == nil {
+			config.ResourceBindings = []ConversationPaneResourceBinding{}
+		}
+	}
+	return layout
 }
 
 func validateLayout(layout AppPaneLayout, path string) error {
@@ -292,9 +304,6 @@ func validateConversationPaneConfig(config ConversationPaneConfig, paneIndex int
 	}
 	if strings.TrimSpace(config.ConversationID) != config.ConversationID {
 		return corruptStateErrorf(path, "panes[%d].conversationConfig.conversationId must not have surrounding whitespace", paneIndex)
-	}
-	if config.ResourceBindings == nil {
-		return corruptStateErrorf(path, "panes[%d].conversationConfig.resourceBindings must not be null", paneIndex)
 	}
 	if config.PresentationIdentity.Title == "" {
 		return corruptStateErrorf(path, "panes[%d].conversationConfig.presentationIdentity.title is required", paneIndex)

@@ -6,6 +6,8 @@ import {
   type AppPaneColumnWidthSpec,
   type AppPaneLayout,
   type AppPaneTone,
+  type ConversationPaneConfig,
+  type ConversationPaneResourceBinding,
   type WorkspaceUIColumn,
 } from "@generated/backend";
 
@@ -161,7 +163,10 @@ function workspacePaneFromAppPane(
       return [
         {
           ...fields,
-          conversationConfig: { conversationId: pane.conversationConfig.conversationId },
+          conversationConfig: {
+            conversationId: pane.conversationConfig.conversationId,
+            resourceBindings: conversationResourceBindings(pane.conversationConfig),
+          },
           surfaceKind: "conversation",
         },
       ];
@@ -188,9 +193,7 @@ function appPaneFromWorkspacePane(pane: WorkspacePane, workspaceRootPath: string
             title: pane.title,
             tone: appPaneTone(pane.tone),
           },
-          resourceBindings: workspaceRootPath
-            ? [{ folder: { rootPath: workspaceRootPath }, kind: "folder" }]
-            : [],
+          resourceBindings: resourceBindingsFromWorkspacePane(pane, workspaceRootPath),
         },
         masterConfig: null,
         surfaceKind: "conversation",
@@ -282,12 +285,35 @@ function conversationPaneBelongsToWorkspace(
   pane: Extract<AppPane, { surfaceKind: "conversation" }>,
   workspaceRootPath: string | null,
 ): boolean {
+  const folderBindings = conversationResourceBindings(pane.conversationConfig).filter(
+    (binding) => binding.kind === "folder",
+  );
+  if (folderBindings.length === 0) {
+    return true;
+  }
   if (!workspaceRootPath) {
     return false;
   }
-  return pane.conversationConfig.resourceBindings.some(
-    (binding) => binding.kind === "folder" && binding.folder.rootPath === workspaceRootPath,
-  );
+  return folderBindings.some((binding) => binding.folder.rootPath === workspaceRootPath);
+}
+
+function resourceBindingsFromWorkspacePane(
+  pane: Extract<WorkspacePane, { surfaceKind: "conversation" }>,
+  workspaceRootPath: string | null,
+): ConversationPaneResourceBinding[] {
+  if (pane.conversationConfig.resourceBindings) {
+    return [...pane.conversationConfig.resourceBindings];
+  }
+  if (!workspaceRootPath) {
+    return [];
+  }
+  return [{ folder: { rootPath: workspaceRootPath }, kind: "folder" }];
+}
+
+function conversationResourceBindings(
+  config: ConversationPaneConfig,
+): ConversationPaneResourceBinding[] {
+  return config.resourceBindings ?? [];
 }
 
 function workspaceColumnsFromAppPaneColumns(

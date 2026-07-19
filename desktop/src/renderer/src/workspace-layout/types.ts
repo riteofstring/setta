@@ -1,4 +1,8 @@
-import type { AppPaneSurfaceKind, WorkspaceConversationPaneConfig } from "@generated/backend";
+import type {
+  AppPaneSurfaceKind,
+  ConversationPaneResourceBinding,
+  WorkspaceConversationPaneConfig as GeneratedWorkspaceConversationPaneConfig,
+} from "@generated/backend";
 
 export type PaneId = string;
 export type ColumnId = string;
@@ -8,6 +12,10 @@ export type ProductSurfaceKind = AppPaneSurfaceKind;
 type DiagnosticSurfaceKind = "fake-dom" | "fake-heavy-dom" | "snapshot";
 export type SurfaceKind = ProductSurfaceKind | DiagnosticSurfaceKind;
 export type NonConversationSurfaceKind = Exclude<SurfaceKind, "conversation">;
+
+export interface WorkspaceConversationPaneConfig extends GeneratedWorkspaceConversationPaneConfig {
+  resourceBindings?: ConversationPaneResourceBinding[];
+}
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 
