@@ -22,7 +22,6 @@ import type { ConversationProjection } from "../../stores/conversation-projectio
 import { useConversationStore } from "../../stores/conversation-store";
 import {
   EasyButtonProjectionSurface,
-  EasyButtonSurface,
   easyButtonConversationProjection,
   easyButtonProjectionView,
 } from "./easy-button-surface";
@@ -90,14 +89,6 @@ describe("Easy Button topic conversation projection", () => {
     expect(beta).toContain('data-easy-button-state="complete"');
     expect(beta).toContain("Beta topic is complete");
     expect(beta).not.toContain("Alpha topic milestone");
-  });
-
-  test("reports an unloaded bound pane without reading selected-workspace state", () => {
-    const unloaded = renderToString(<EasyButtonSurface conversationId="conversation_unloaded" />);
-
-    expect(unloaded).toContain('data-conversation-id="conversation_unloaded"');
-    expect(unloaded).toContain('data-easy-button-projection="unloaded"');
-    expect(unloaded).toContain("Conversation projection is not loaded");
   });
 
   test("keeps an archived conversation projection visible but read-only", () => {

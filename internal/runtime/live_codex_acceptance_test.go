@@ -750,7 +750,7 @@ func assertRuntimeLiveConcurrentTopics(
 	t.Helper()
 	firstTurn := latestRuntimeLiveTurn(t, first)
 	secondTurn := latestRuntimeLiveTurn(t, second)
-	if first.Conversation.WorkspaceID != second.Conversation.WorkspaceID ||
+	if !sameRuntimeLiveWorkspaceID(first.Conversation.WorkspaceID, second.Conversation.WorkspaceID) ||
 		first.Conversation.ID == second.Conversation.ID ||
 		firstTurn.Status != conversation.TurnStatusRunning ||
 		secondTurn.Status != conversation.TurnStatusRunning ||
@@ -760,6 +760,13 @@ func assertRuntimeLiveConcurrentTopics(
 		*firstTurn.ProviderTurnID == *secondTurn.ProviderTurnID {
 		t.Fatalf("live topics are not concurrently isolated: first=%+v/%+v second=%+v/%+v", first.Conversation, firstTurn, second.Conversation, secondTurn)
 	}
+}
+
+func sameRuntimeLiveWorkspaceID(first *string, second *string) bool {
+	if first == nil || second == nil {
+		return first == nil && second == nil
+	}
+	return *first == *second
 }
 
 func runtimeLiveTurnHasSteering(

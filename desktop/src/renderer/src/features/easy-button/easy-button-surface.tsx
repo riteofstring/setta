@@ -1,5 +1,5 @@
 import { Check, FolderOpen, Sparkles, Square, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import {
   type ArtifactMetadata,
@@ -16,16 +16,7 @@ import {
 
 import { openVoiceProviderSelectionSettings } from "../../components/settings-navigation";
 import type { ConversationProjection } from "../../stores/conversation-projection";
-import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
-import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
-import type {
-  GlobalSpeechPresentationSource,
-  PaneSpeechPresentation,
-} from "../global-speech/global-speech-presentation";
-import type { SpeechCaptureRequester } from "../global-speech/speech-capture-destination";
-import { useConversationStore } from "../../stores/conversation-store";
-import { workspaceAvailability, useWorkspaceStore } from "../../stores/workspace-store";
-import { retainConversationProjection } from "../../stores/conversation-projection-runtime";
+import type { PaneSpeechPresentation } from "../global-speech/global-speech-presentation";
 import { conversationPaletteStyle } from "./conversation-palette-style";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 import {
@@ -33,10 +24,7 @@ import {
   type PendingConversationApproval,
 } from "./easy-button-approval-projection";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
-import {
-  type EasyButtonConversationCommands,
-  useEasyButtonConversationCommands,
-} from "./easy-button-conversation-commands";
+import type { EasyButtonConversationCommands } from "./easy-button-conversation-commands";
 import { conversationComposerBindings } from "./easy-button-conversation-composer-bindings";
 import {
   conversationControlAction,
@@ -74,13 +62,6 @@ import {
 type EasyButtonViewState = "idle" | "working" | "complete";
 type EasyButtonStatusTone = "none" | "completed" | "failed" | "stopped";
 type EasyButtonProjectionStatus = "unloaded" | "loading" | "ready" | "error" | "resyncing";
-interface EasyButtonSurfaceProps {
-  conversationId: string;
-  paneId?: string | null;
-  speechCapture?: SpeechCaptureRequester;
-  speechPresentation?: GlobalSpeechPresentationSource;
-  workspaceId?: string | null;
-}
 
 export interface EasyButtonProjectionView {
   activeAgentCount: number;
@@ -110,59 +91,6 @@ export interface EasyButtonProjectionView {
   trajectoryHasEarlier: boolean;
   viewState: EasyButtonViewState;
   workspaceId: string | null;
-}
-
-export function EasyButtonSurface({
-  conversationId,
-  paneId = null,
-  speechCapture,
-  speechPresentation,
-  workspaceId,
-}: EasyButtonSurfaceProps) {
-  const workspaceSession = useWorkspaceStore((state) => state.session);
-  const workspaceAvailable =
-    workspaceAvailability(workspaceSession, workspaceId)?.available ?? false;
-  const projection = useConversationStore((state) =>
-    easyButtonConversationProjection(state.conversations, conversationId),
-  );
-  useEffect(() => {
-    if (!workspaceId) {
-      return;
-    }
-    return retainConversationProjection(workspaceId, conversationId);
-  }, [conversationId, workspaceId]);
-  const commands = useEasyButtonConversationCommands({
-    conversationId,
-    paneId,
-    projection,
-    speechCapture,
-    workspaceAvailable,
-    workspaceId: workspaceId ?? null,
-  });
-  const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
-  const folderResourceRequired = !workspaceId;
-  const readOnly = !folderResourceRequired && !workspaceAvailable;
-  const parentTitle = useConversationNavigatorStore((state) => {
-    const parentConversationId = projection?.snapshot?.branch?.parentConversationId;
-    if (!workspaceId || !parentConversationId) {
-      return null;
-    }
-    return (
-      state.workspaces[workspaceId]?.items.find(
-        (item) => item.conversation.id === parentConversationId,
-      )?.conversation.title ?? null
-    );
-  });
-  const projectedView = easyButtonProjectionView(conversationId, projection, paneId, parentTitle);
-  const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
-  return (
-    <EasyButtonProjectionSurface
-      commands={commands}
-      readOnly={readOnly}
-      speech={speech}
-      view={view}
-    />
-  );
 }
 
 export function easyButtonConversationProjection(

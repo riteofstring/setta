@@ -2,7 +2,7 @@ import type { DesktopPlatform } from "@shared/types";
 import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
-import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
+import { EasyButtonSurface } from "../features/easy-button/easy-button-conversation-surface";
 import { requestEasyButtonPaneClose } from "../features/easy-button/easy-button-conversation-commands";
 import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
 import {
@@ -408,6 +408,7 @@ function reactDomSurfaceRenderFactory(
         <EasyButtonSurface
           conversationId={pane.conversationConfig.conversationId}
           paneId={pane.paneId}
+          resourceBindings={pane.conversationConfig.resourceBindings}
           speechCapture={options.speechCapture}
           speechPresentation={options.speechPresentation}
           workspaceId={options.workspaceId ?? null}
