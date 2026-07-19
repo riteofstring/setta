@@ -250,6 +250,8 @@ voice external artifact loses its provenance or hash declaration.
 - [ ] Train or generate the first “Hey Setta” openWakeWord model.
 - [x] Build an offline evaluator that accepts WAV fixtures and reports wake
   scores, false accepts, false rejects, and timing.
+- [x] Verify packaged wake-model resource resolution and SHA-256 preflight from
+  app resource manifests or explicit packaging-spike environment values.
 - [ ] Prove wake inference can run from packaged app resources without user
   Python.
 - [ ] Choose ONNX Runtime or TFLite based on measured packaging/runtime
@@ -259,6 +261,13 @@ voice external artifact loses its provenance or hash declaration.
 - [x] Record the repository-local evaluator baseline and unavailable external
   release gates in
   `docs/reports/voice/always-listening-openwakeword-phase1-evaluator-20260721.md`.
+
+Repository note: the packaged wake-resource boundary now resolves
+`wakeModelPath`, `wakeModelSHA256`, and `wakeRuntime` from the local macOS voice
+resource manifest or explicit environment values, and the listener verifies the
+configured model SHA-256 before arming. This does not complete the openWakeWord
+runtime proof until a Setta-owned model and packaged ONNX/TFLite runtime produce
+real wake-score traces from app resources.
 
 Exit criteria: a reproducible model artifact, a checked-in evaluator script or
 documented command, and a clear threshold candidate.

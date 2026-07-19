@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, type WriteStream } from "node:fs";
+import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir, rename, stat, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import type { LocalMacOSVoiceModelDownloadStatus } from "@shared/speech-ipc";
 import { localMacOSSpeechProviderID } from "@shared/speech-providers";
+import { sha256File } from "./file-hash";
 import type { LocalMacOSVoiceDefaultModelConfiguration } from "./local-macos-voice-resources";
 
 export interface LocalMacOSVoiceModelDownloadService {
@@ -375,16 +376,6 @@ function closeWriteStream(stream: WriteStream): Promise<void> {
       stream.off("error", failed);
       resolve();
     });
-  });
-}
-
-async function sha256File(path: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const hash = createHash("sha256");
-    const stream = createReadStream(path);
-    stream.on("error", reject);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resolve(hash.digest("hex")));
   });
 }
 

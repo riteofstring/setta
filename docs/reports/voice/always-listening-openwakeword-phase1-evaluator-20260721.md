@@ -66,6 +66,25 @@ Coverage includes accepted wake timing, false rejects, false accepts per hour,
 CLI JSON output, WAV format rejection, and score rows that exceed fixture
 duration.
 
+## Packaged Resource Preflight
+
+The app resource boundary now resolves packaged wake-model settings from the
+local macOS voice resource manifest or explicit packaging-spike environment
+values:
+
+- `wakeModelPath`
+- `wakeModelSHA256`
+- `wakeRuntime`
+
+Before arming always listening, the main-process listener service verifies that
+the configured wake model is readable and that its SHA-256 matches the configured
+digest. A missing or mismatched packaged wake model leaves the listener
+unavailable and does not start the helper.
+
+This proves the repository-local packaging contract and identity preflight. It
+does not prove openWakeWord inference, runtime performance, or threshold quality
+without a Setta-owned model and packaged ONNX/TFLite runtime.
+
 ## External Release Gate
 
 The following Phase 1 evidence is not available in this implementation loop and

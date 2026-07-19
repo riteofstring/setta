@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -42,7 +43,7 @@ describe("local macOS voice listener service", () => {
         expect.objectContaining({
           runtime: "onnx",
           wakeModelPath: harness.wakeModelPath,
-          wakeModelSHA256: "a".repeat(64),
+          wakeModelSHA256: harness.wakeModelSHA256,
         }),
         expect.any(Function),
       );
@@ -135,6 +136,30 @@ describe("local macOS voice listener service", () => {
       await harness.cleanup();
     }
   });
+
+  test("keeps settings unavailable when the packaged wake model hash mismatches", async () => {
+    const harness = await createHarness({ wakeModelSHA256: "0".repeat(64) });
+    try {
+      const enabled = await harness.service.updateSettings(true);
+
+      expect(enabled).toEqual({
+        availability: {
+          message: "The packaged Hey Setta wake model hash does not match Setta's expected model.",
+          setupAction: null,
+          status: "unavailable",
+        },
+        enabled: true,
+        state: {
+          message: "The packaged Hey Setta wake model hash does not match Setta's expected model.",
+          status: "local_voice_not_ready",
+        },
+      });
+      expect(harness.helper.readHealth).not.toHaveBeenCalled();
+      expect(harness.helper.startListener).not.toHaveBeenCalled();
+    } finally {
+      await harness.cleanup();
+    }
+  });
 });
 
 async function createHarness({
@@ -145,12 +170,15 @@ async function createHarness({
     provider: "local_macos" as const,
     status: "ready" as const,
   },
+  wakeModelSHA256,
 }: {
   initialHealth?: LocalMacOSVoiceHealth;
+  wakeModelSHA256?: string;
 } = {}) {
   const tempRoot = await mkdtemp(join(tmpdir(), "setta-listener-service-"));
   const wakeModelPath = join(tempRoot, "hey-setta.onnx");
-  await writeFile(wakeModelPath, "wake-model");
+  const wakeModelBytes = "wake-model";
+  await writeFile(wakeModelPath, wakeModelBytes);
   let enabled = false;
   let health = initialHealth;
   let listener: LocalMacOSVoiceListenerEventHandler | null = null;
@@ -177,7 +205,7 @@ async function createHarness({
   const service = new LocalMacOSVoiceListenerService({
     configuration: {
       wakeModelPath,
-      wakeModelSHA256: "a".repeat(64),
+      wakeModelSHA256: wakeModelSHA256 ?? sha256(wakeModelBytes),
       wakeRuntime: "onnx",
     },
     helper,
@@ -207,5 +235,10 @@ async function createHarness({
       health = nextHealth;
     },
     wakeModelPath,
+    wakeModelSHA256: wakeModelSHA256 ?? sha256(wakeModelBytes),
   };
+}
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
 }

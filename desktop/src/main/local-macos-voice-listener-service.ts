@@ -12,6 +12,7 @@ import {
   LocalMacOSVoiceHelperUnavailableError,
   type LocalMacOSVoiceHelper,
 } from "./local-macos-voice-helper";
+import { sha256File } from "./file-hash";
 import {
   initialLocalMacOSVoiceListenerState,
   reduceLocalMacOSVoiceListenerState,
@@ -386,6 +387,22 @@ export class LocalMacOSVoiceListenerService {
         status: "unavailable",
       });
     }
+    const actualWakeModelSHA256 = await readWakeModelSHA256(wakeModelPath);
+    if (actualWakeModelSHA256 === null) {
+      return unavailableReadiness({
+        message:
+          "Always listening could not verify the packaged Hey Setta wake model before enabling.",
+        setupAction: null,
+        status: "unavailable",
+      });
+    }
+    if (actualWakeModelSHA256.toLowerCase() !== wakeModelSHA256.toLowerCase()) {
+      return unavailableReadiness({
+        message: "The packaged Hey Setta wake model hash does not match Setta's expected model.",
+        setupAction: null,
+        status: "unavailable",
+      });
+    }
     const health = await this.options.helper.readHealth();
     if (health.status !== "ready") {
       return unavailableReadiness(listenerAvailabilityForUnavailableHealth(health));
@@ -561,6 +578,14 @@ async function fileReadable(path: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function readWakeModelSHA256(path: string): Promise<string | null> {
+  try {
+    return await sha256File(path);
+  } catch {
+    return null;
   }
 }
 

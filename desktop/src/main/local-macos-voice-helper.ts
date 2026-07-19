@@ -1,6 +1,4 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
 import { access, constants } from "node:fs/promises";
 
 import type { SpeechVoiceCatalog, SpeechVoiceID } from "@generated/backend";
@@ -34,6 +32,7 @@ import {
   resolveLocalMacOSVoiceHelperConfiguration,
   type LocalMacOSVoiceEnvironmentOptions,
 } from "./local-macos-voice-resources";
+import { sha256File } from "./file-hash";
 import type { LocalMacOSVoiceListenerEngineEvent } from "./local-macos-voice-listener";
 
 export type {
@@ -892,16 +891,6 @@ async function fileAccessible(path: string, mode: number): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function sha256File(path: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const hash = createHash("sha256");
-    const stream = createReadStream(path);
-    stream.on("error", reject);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resolve(hash.digest("hex")));
-  });
 }
 
 function normalizedOptionalText(value: string | null | undefined): string | null {
