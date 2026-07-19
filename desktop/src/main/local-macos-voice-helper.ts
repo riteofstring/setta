@@ -7,8 +7,17 @@ import type { LocalMacOSVoiceHealth } from "@shared/speech-ipc";
 import { localMacOSSpeechProviderID } from "@shared/speech-providers";
 
 export interface LocalMacOSVoiceHelper {
+  cancelCapture: (
+    request: LocalMacOSVoiceCancelCaptureRequest,
+  ) => Promise<LocalMacOSVoiceCaptureCanceled>;
+  finishCapture: (
+    request: LocalMacOSVoiceFinishCaptureRequest,
+  ) => Promise<LocalMacOSVoiceTranscriptionResult>;
   readHealth: () => Promise<LocalMacOSVoiceHealth>;
   shutdown: () => void;
+  startCapture: (
+    request: Omit<LocalMacOSVoiceStartCaptureRequest, "modelPath">,
+  ) => Promise<LocalMacOSVoiceCaptureStarted>;
 }
 
 export interface LocalMacOSVoiceHelperProcessClientOptions {
@@ -118,9 +127,10 @@ type LocalMacOSVoiceReadyPreflight =
       status: "ready";
     }
   | {
-      health: LocalMacOSVoiceHealth;
+      health: LocalMacOSVoiceUnavailableHealth;
       status: "unavailable";
     };
+type LocalMacOSVoiceUnavailableHealth = Exclude<LocalMacOSVoiceHealth, { status: "ready" }>;
 
 const helperPathEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_HELPER_PATH";
 const modelPathEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_MODEL_PATH";
@@ -134,7 +144,7 @@ export class LocalMacOSVoiceHelperProtocolError extends Error {
   }
 }
 
-class LocalMacOSVoiceHelperCommandError extends Error {
+export class LocalMacOSVoiceHelperCommandError extends Error {
   constructor(
     readonly code: string,
     message: string,
@@ -142,6 +152,13 @@ class LocalMacOSVoiceHelperCommandError extends Error {
   ) {
     super(message, options);
     this.name = "LocalMacOSVoiceHelperCommandError";
+  }
+}
+
+export class LocalMacOSVoiceHelperUnavailableError extends Error {
+  constructor(readonly health: LocalMacOSVoiceUnavailableHealth) {
+    super(health.message);
+    this.name = "LocalMacOSVoiceHelperUnavailableError";
   }
 }
 
@@ -199,6 +216,31 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
     }
   }
 
+  async startCapture(
+    request: Omit<LocalMacOSVoiceStartCaptureRequest, "modelPath">,
+  ): Promise<LocalMacOSVoiceCaptureStarted> {
+    const preflight = await this.readReadyPreflight();
+    if (preflight.status === "unavailable") {
+      throw new LocalMacOSVoiceHelperUnavailableError(preflight.health);
+    }
+    return this.requireClient().startCapture({
+      ...request,
+      modelPath: preflight.modelPath,
+    });
+  }
+
+  finishCapture(
+    request: LocalMacOSVoiceFinishCaptureRequest,
+  ): Promise<LocalMacOSVoiceTranscriptionResult> {
+    return this.requireClient().finishCapture(request);
+  }
+
+  cancelCapture(
+    request: LocalMacOSVoiceCancelCaptureRequest,
+  ): Promise<LocalMacOSVoiceCaptureCanceled> {
+    return this.requireClient().cancelCapture(request);
+  }
+
   private async readReadyPreflight(): Promise<LocalMacOSVoiceReadyPreflight> {
     if (this.platform !== "darwin") {
       return {
@@ -238,7 +280,7 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
 
   private async readVerifiedModelSHA256(
     modelPath: string,
-  ): Promise<string | LocalMacOSVoiceHealth> {
+  ): Promise<string | LocalMacOSVoiceUnavailableHealth> {
     if (!(await fileAccessible(modelPath, constants.R_OK))) {
       return missingModel(modelPath, "The configured Whisper model file is missing.");
     }
@@ -466,7 +508,10 @@ function healthFromHelperResult(
   }
 }
 
-function missingModel(modelPath: string | null, message: string): LocalMacOSVoiceHealth {
+function missingModel(
+  modelPath: string | null,
+  message: string,
+): Extract<LocalMacOSVoiceUnavailableHealth, { status: "missing_model" }> {
   return {
     message,
     modelPath,
@@ -475,7 +520,10 @@ function missingModel(modelPath: string | null, message: string): LocalMacOSVoic
   };
 }
 
-function helperUnavailable(helperPath: string | null, message: string): LocalMacOSVoiceHealth {
+function helperUnavailable(
+  helperPath: string | null,
+  message: string,
+): Extract<LocalMacOSVoiceUnavailableHealth, { status: "helper_unavailable" }> {
   return {
     helperPath,
     message,
@@ -487,7 +535,7 @@ function helperUnavailable(helperPath: string | null, message: string): LocalMac
 function healthFromHelperError(
   error: unknown,
   context: { helperPath: string; modelPath: string },
-): LocalMacOSVoiceHealth | null {
+): LocalMacOSVoiceUnavailableHealth | null {
   if (!(error instanceof LocalMacOSVoiceHelperCommandError)) {
     return null;
   }

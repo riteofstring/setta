@@ -149,6 +149,78 @@ describe("speech IPC handlers", () => {
     expect(JSON.stringify(observer.finished.mock.calls)).not.toContain(audioBase64);
   });
 
+  test("routes local macOS capture lifecycle through the helper", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const helper = localMacOSVoiceHelper();
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    const started = await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_local",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+    const finished = await invoke(handlers, ipcChannels.speechFinishLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_local",
+    });
+    const canceled = await invoke(handlers, ipcChannels.speechCancelLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_cancel",
+    });
+
+    expect(started).toEqual({ captureSessionId: "capture_local", status: "started" });
+    expect(finished).toEqual({
+      captureSessionId: "capture_local",
+      status: "completed",
+      transcript: "Local helper transcript.",
+    });
+    expect(canceled).toEqual({ captureSessionId: "capture_cancel", status: "canceled" });
+    expect(helper.startCapture).toHaveBeenCalledWith({
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+      sessionId: "capture_local",
+    });
+    expect(helper.finishCapture).toHaveBeenCalledWith({ sessionId: "capture_local" });
+    expect(helper.cancelCapture).toHaveBeenCalledWith({ sessionId: "capture_cancel" });
+  });
+
+  test("returns product-level failures for invalid local capture requests", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const helper = localMacOSVoiceHelper();
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    const result = await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: " capture_local ",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+
+    expect(result).toEqual({
+      failure: {
+        code: "session_failed",
+        message: "Local macOS voice capture start request is invalid.",
+      },
+      status: "failed",
+    });
+    expect(helper.startCapture).not.toHaveBeenCalled();
+  });
+
   test("cancels an active synthesis operation through its backend abort signal", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const backend = {
@@ -308,6 +380,13 @@ function credentialCoordinator() {
 
 function localMacOSVoiceHelper() {
   return {
+    cancelCapture: vi.fn(async (request: { sessionId: string }) => ({
+      sessionId: request.sessionId,
+    })),
+    finishCapture: vi.fn(async (request: { sessionId: string }) => ({
+      sessionId: request.sessionId,
+      transcript: "Local helper transcript.",
+    })),
     readHealth: vi.fn(async () => ({
       helperPath: null,
       message: "The local macOS voice helper is not installed.",
@@ -315,6 +394,9 @@ function localMacOSVoiceHelper() {
       status: "helper_unavailable" as const,
     })),
     shutdown: vi.fn(),
+    startCapture: vi.fn(async (request: { sessionId: string }) => ({
+      sessionId: request.sessionId,
+    })),
   };
 }
 

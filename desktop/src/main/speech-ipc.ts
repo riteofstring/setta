@@ -3,15 +3,40 @@ import type { IpcMain } from "electron";
 import type { BackendClient } from "@generated/backend";
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import {
+  decodeLocalMacOSVoiceSessionRequest,
+  decodeLocalMacOSVoiceStartCaptureRequest,
   decodeSpeechCredentialProviderRequest,
   decodeSpeechCredentialSaveRequest,
+  type LocalMacOSVoiceCancelCaptureResult,
+  type LocalMacOSVoiceCaptureFailure,
+  type LocalMacOSVoiceFinishCaptureResult,
+  type LocalMacOSVoiceStartCaptureResult,
+  type LocalMacOSVoiceStartCaptureRequest,
   type SpeechCredentialProviderRequest,
   type SpeechCredentialSaveRequest,
   type SpeechCredentialSettings,
   type SpeechSynthesisIpcRequest,
   validateSpeechSynthesisOperationId,
 } from "@shared/speech-ipc";
-import type { LocalMacOSVoiceHelper } from "./local-macos-voice-helper";
+import {
+  LocalMacOSVoiceHelperCommandError,
+  LocalMacOSVoiceHelperProtocolError,
+  LocalMacOSVoiceHelperUnavailableError,
+  type LocalMacOSVoiceHelper,
+} from "./local-macos-voice-helper";
+
+const localMacOSCommandFailureCodes = {
+  duration_limit: "duration_limit",
+  helper_unavailable: "provider_unavailable",
+  invalid_session: "invalid_session",
+  microphone_denied: "microphone_permission_denied",
+  missing_model: "not_configured",
+  model_hash_mismatch: "not_configured",
+  no_speech: "no_speech",
+  synthesis_unavailable: "provider_unavailable",
+  transcript_too_large: "transcript_too_large",
+  transcription_failed: "transcription_failed",
+} as const satisfies Record<string, LocalMacOSVoiceCaptureFailure["code"]>;
 
 interface SpeechCredentialIpcCoordinator {
   readCredentialSettings: (
@@ -90,6 +115,72 @@ export function registerSpeechIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "speechStartLocalMacOSVoiceCapture",
+    async (_event, request) => {
+      const decoded = decodeLocalStartRequest(request);
+      if (decoded === null) {
+        return localCaptureFailed(
+          "session_failed",
+          "Local macOS voice capture start request is invalid.",
+        );
+      }
+      return startLocalMacOSVoiceCapture(requireLocalMacOSVoiceHelper(), decoded);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "speechFinishLocalMacOSVoiceCapture",
+    async (_event, request) => {
+      const decoded = decodeLocalSessionRequest(request);
+      if (decoded === null) {
+        return localCaptureFailed(
+          "session_failed",
+          "Local macOS voice capture finish request is invalid.",
+        );
+      }
+      try {
+        const result = await requireLocalMacOSVoiceHelper().finishCapture({
+          sessionId: decoded.captureSessionId,
+        });
+        return {
+          captureSessionId: result.sessionId,
+          status: "completed",
+          transcript: result.transcript,
+        } satisfies LocalMacOSVoiceFinishCaptureResult;
+      } catch (error) {
+        return localCaptureFailedFromError(error);
+      }
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "speechCancelLocalMacOSVoiceCapture",
+    async (_event, request) => {
+      const decoded = decodeLocalSessionRequest(request);
+      if (decoded === null) {
+        return localCaptureFailed(
+          "session_failed",
+          "Local macOS voice capture cancel request is invalid.",
+        );
+      }
+      try {
+        const result = await requireLocalMacOSVoiceHelper().cancelCapture({
+          sessionId: decoded.captureSessionId,
+        });
+        return {
+          captureSessionId: result.sessionId,
+          status: "canceled",
+        } satisfies LocalMacOSVoiceCancelCaptureResult;
+      } catch (error) {
+        return localCaptureFailedFromError(error);
+      }
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "speechReadNarratorVoiceDefault",
     async () => requireBackendClient().readNarratorVoiceDefault(),
     ipcObserver,
@@ -143,6 +234,97 @@ function decodeCredentialProviderRequest(request: unknown): SpeechCredentialProv
   } catch {
     return null;
   }
+}
+
+function decodeLocalStartRequest(request: unknown): LocalMacOSVoiceStartCaptureRequest | null {
+  try {
+    return decodeLocalMacOSVoiceStartCaptureRequest(request);
+  } catch {
+    return null;
+  }
+}
+
+function decodeLocalSessionRequest(request: unknown): { captureSessionId: string } | null {
+  try {
+    return decodeLocalMacOSVoiceSessionRequest(request);
+  } catch {
+    return null;
+  }
+}
+
+async function startLocalMacOSVoiceCapture(
+  helper: LocalMacOSVoiceHelper,
+  request: LocalMacOSVoiceStartCaptureRequest,
+): Promise<LocalMacOSVoiceStartCaptureResult> {
+  try {
+    const result = await helper.startCapture({
+      maximumRecordingSeconds: request.maximumRecordingSeconds,
+      maximumTranscriptCharacters: request.maximumTranscriptCharacters,
+      sessionId: request.captureSessionId,
+    });
+    return {
+      captureSessionId: result.sessionId,
+      status: "started",
+    };
+  } catch (error) {
+    return localCaptureFailedFromError(error);
+  }
+}
+
+function localCaptureFailed(
+  code: LocalMacOSVoiceCaptureFailure["code"],
+  message: string,
+): { failure: LocalMacOSVoiceCaptureFailure; status: "failed" } {
+  return { failure: { code, message }, status: "failed" };
+}
+
+function localCaptureFailedFromError(error: unknown): {
+  failure: LocalMacOSVoiceCaptureFailure;
+  status: "failed";
+} {
+  if (error instanceof LocalMacOSVoiceHelperUnavailableError) {
+    return localCaptureFailedFromHealth(error);
+  }
+  if (error instanceof LocalMacOSVoiceHelperCommandError) {
+    return localCaptureFailedFromCommandError(error);
+  }
+  if (error instanceof LocalMacOSVoiceHelperProtocolError) {
+    return localCaptureFailed(
+      "malformed_event",
+      "Local macOS voice helper returned an invalid session event.",
+    );
+  }
+  return localCaptureFailed("session_failed", "Local macOS voice capture failed.");
+}
+
+function localCaptureFailedFromHealth(error: LocalMacOSVoiceHelperUnavailableError): {
+  failure: LocalMacOSVoiceCaptureFailure;
+  status: "failed";
+} {
+  switch (error.health.status) {
+    case "missing_model":
+    case "model_hash_mismatch":
+      return localCaptureFailed("not_configured", error.health.message);
+    case "helper_unavailable":
+    case "synthesis_unavailable":
+      return localCaptureFailed("provider_unavailable", error.health.message);
+    case "microphone_denied":
+      return localCaptureFailed("microphone_permission_denied", error.health.message);
+    default:
+      return assertNever(error.health);
+  }
+}
+
+function localCaptureFailedFromCommandError(error: LocalMacOSVoiceHelperCommandError): {
+  failure: LocalMacOSVoiceCaptureFailure;
+  status: "failed";
+} {
+  const code =
+    localMacOSCommandFailureCodes[error.code as keyof typeof localMacOSCommandFailureCodes];
+  if (!code) {
+    return localCaptureFailed("transcription_failed", "Local macOS voice capture failed.");
+  }
+  return localCaptureFailed(code, error.message);
 }
 
 function invalidCredentialSaveRequestSettings(): SpeechCredentialSettings {
@@ -236,4 +418,8 @@ function observerWithRedactedAudio(observer: IpcObserver | undefined): IpcObserv
     },
     started: observer.started,
   };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled speech IPC value: ${JSON.stringify(value)}`);
 }

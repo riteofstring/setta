@@ -13,7 +13,9 @@ import {
 
 export const speechIpcChannels = {
   speechCancelSynthesis: "speech:cancel-synthesis",
+  speechCancelLocalMacOSVoiceCapture: "speech:cancel-local-macos-voice-capture",
   speechCreateTranscriptionSession: "speech:create-transcription-session",
+  speechFinishLocalMacOSVoiceCapture: "speech:finish-local-macos-voice-capture",
   speechReadLocalMacOSVoiceHealth: "speech:read-local-macos-voice-health",
   speechReadCredentialSettings: "speech:read-credential-settings",
   speechReadCapabilities: "speech:read-capabilities",
@@ -21,6 +23,7 @@ export const speechIpcChannels = {
   speechReadNarratorVoiceDefault: "speech:read-narrator-voice-default",
   speechRemoveCredential: "speech:remove-credential",
   speechSaveCredential: "speech:save-credential",
+  speechStartLocalMacOSVoiceCapture: "speech:start-local-macos-voice-capture",
   speechSynthesize: "speech:synthesize",
   speechUpdateMasterVoiceSelection: "speech:update-master-voice-selection",
   speechUpdateNarratorVoiceDefault: "speech:update-narrator-voice-default",
@@ -55,6 +58,64 @@ export interface SpeechSynthesisIpcRequest {
   operationId: string;
   request: SpeechSynthesisRequest;
 }
+
+type LocalMacOSVoiceCaptureFailureCode =
+  | "duration_limit"
+  | "invalid_session"
+  | "malformed_event"
+  | "microphone_permission_denied"
+  | "no_speech"
+  | "not_configured"
+  | "provider_unavailable"
+  | "session_failed"
+  | "transcript_too_large"
+  | "transcription_failed";
+
+export interface LocalMacOSVoiceCaptureFailure {
+  code: LocalMacOSVoiceCaptureFailureCode;
+  message: string;
+}
+
+export interface LocalMacOSVoiceStartCaptureRequest {
+  captureSessionId: string;
+  maximumRecordingSeconds: number;
+  maximumTranscriptCharacters: number;
+}
+
+export interface LocalMacOSVoiceSessionRequest {
+  captureSessionId: string;
+}
+
+export type LocalMacOSVoiceStartCaptureResult =
+  | {
+      captureSessionId: string;
+      status: "started";
+    }
+  | {
+      failure: LocalMacOSVoiceCaptureFailure;
+      status: "failed";
+    };
+
+export type LocalMacOSVoiceFinishCaptureResult =
+  | {
+      captureSessionId: string;
+      status: "completed";
+      transcript: string;
+    }
+  | {
+      failure: LocalMacOSVoiceCaptureFailure;
+      status: "failed";
+    };
+
+export type LocalMacOSVoiceCancelCaptureResult =
+  | {
+      captureSessionId: string;
+      status: "canceled";
+    }
+  | {
+      failure: LocalMacOSVoiceCaptureFailure;
+      status: "failed";
+    };
 
 interface LocalMacOSVoiceHealthBase {
   provider: SpeechProvider;
@@ -104,9 +165,17 @@ export interface SpeechIpcContract {
     args: [operationId: string];
     result: void;
   };
+  speechCancelLocalMacOSVoiceCapture: {
+    args: [request: LocalMacOSVoiceSessionRequest];
+    result: LocalMacOSVoiceCancelCaptureResult;
+  };
   speechCreateTranscriptionSession: {
     args: [request: CreateSpeechTranscriptionSessionRequest];
     result: SpeechTranscriptionSession;
+  };
+  speechFinishLocalMacOSVoiceCapture: {
+    args: [request: LocalMacOSVoiceSessionRequest];
+    result: LocalMacOSVoiceFinishCaptureResult;
   };
   speechReadLocalMacOSVoiceHealth: {
     args: [];
@@ -135,6 +204,10 @@ export interface SpeechIpcContract {
   speechSaveCredential: {
     args: [request: SpeechCredentialSaveRequest];
     result: SpeechCredentialSettings;
+  };
+  speechStartLocalMacOSVoiceCapture: {
+    args: [request: LocalMacOSVoiceStartCaptureRequest];
+    result: LocalMacOSVoiceStartCaptureResult;
   };
   speechSynthesize: {
     args: [operation: SpeechSynthesisIpcRequest];
@@ -213,6 +286,46 @@ export function decodeSpeechCredentialProviderRequest(
   };
 }
 
+export function decodeLocalMacOSVoiceStartCaptureRequest(
+  value: unknown,
+): LocalMacOSVoiceStartCaptureRequest {
+  const record = assertRecord(value, "LocalMacOSVoiceStartCaptureRequest");
+  assertKnownFields(record, "LocalMacOSVoiceStartCaptureRequest", [
+    "captureSessionId",
+    "maximumRecordingSeconds",
+    "maximumTranscriptCharacters",
+  ]);
+  return {
+    captureSessionId: normalizedIdentifierField(
+      record,
+      "captureSessionId",
+      "LocalMacOSVoiceStartCaptureRequest",
+    ),
+    maximumRecordingSeconds: positiveIntegerField(
+      record,
+      "maximumRecordingSeconds",
+      "LocalMacOSVoiceStartCaptureRequest",
+    ),
+    maximumTranscriptCharacters: positiveIntegerField(
+      record,
+      "maximumTranscriptCharacters",
+      "LocalMacOSVoiceStartCaptureRequest",
+    ),
+  };
+}
+
+export function decodeLocalMacOSVoiceSessionRequest(value: unknown): LocalMacOSVoiceSessionRequest {
+  const record = assertRecord(value, "LocalMacOSVoiceSessionRequest");
+  assertKnownFields(record, "LocalMacOSVoiceSessionRequest", ["captureSessionId"]);
+  return {
+    captureSessionId: normalizedIdentifierField(
+      record,
+      "captureSessionId",
+      "LocalMacOSVoiceSessionRequest",
+    ),
+  };
+}
+
 function decodeSpeechCredentialCorruptionReason(value: string): SpeechCredentialCorruptionReason {
   switch (value) {
     case "decrypt_failed":
@@ -249,6 +362,30 @@ function stringField(record: Record<string, unknown>, field: string, label: stri
   const value = record[field];
   if (typeof value !== "string") {
     throw new Error(label + "." + field + " must be a string");
+  }
+  return value;
+}
+
+function normalizedIdentifierField(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+): string {
+  const value = stringField(record, field, label);
+  if (value.trim() === "" || value.trim() !== value) {
+    throw new Error(label + "." + field + " must be non-empty and normalized");
+  }
+  return value;
+}
+
+function positiveIntegerField(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+): number {
+  const value = record[field];
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    throw new Error(label + "." + field + " must be a positive integer");
   }
   return value;
 }

@@ -108,8 +108,12 @@ const api: SettaAPI = {
     updateWorkspace: (request) => invoke("roleConfigurationUpdateWorkspace", request),
   },
   speech: {
+    cancelLocalMacOSVoiceCapture: (request) =>
+      invoke("speechCancelLocalMacOSVoiceCapture", request),
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
     createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
+    finishLocalMacOSVoiceCapture: (request) =>
+      invoke("speechFinishLocalMacOSVoiceCapture", request),
     onCredentialSettingsChanged: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeSpeechCredentialSettings(payload));
@@ -126,6 +130,7 @@ const api: SettaAPI = {
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
     removeCredential: (request) => invoke("speechRemoveCredential", request),
     saveCredential: (request) => invoke("speechSaveCredential", request),
+    startLocalMacOSVoiceCapture: (request) => invoke("speechStartLocalMacOSVoiceCapture", request),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
     updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
     updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),

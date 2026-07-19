@@ -9,6 +9,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   LocalMacOSVoiceHelperProcessClient,
   LocalMacOSVoiceHelperProtocolError,
+  LocalMacOSVoiceHelperUnavailableError,
   LocalMacOSVoiceHealthService,
   type LocalMacOSVoiceHelperClient,
   type LocalMacOSVoiceHelperHealthResult,
@@ -111,6 +112,50 @@ describe("LocalMacOSVoiceHealthService", () => {
       status: "microphone_denied",
     });
   });
+
+  test("starts capture only after model and helper preflight succeed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "setta-local-voice-start-"));
+    const helperPath = join(root, "helper");
+    const modelPath = join(root, "ggml-base.en.bin");
+    await writeFile(helperPath, "#!/bin/sh\n");
+    await chmod(helperPath, 0o755);
+    await writeFile(modelPath, "model-bytes");
+    const helper = new FakeLocalMacOSVoiceHelperClient({ status: "ready" });
+    const service = new LocalMacOSVoiceHealthService({
+      createClient: vi.fn(() => helper),
+      helperPath,
+      modelPath,
+      platform: "darwin",
+    });
+
+    await expect(
+      service.startCapture({
+        maximumRecordingSeconds: 120,
+        maximumTranscriptCharacters: 8000,
+        sessionId: "session_start",
+      }),
+    ).resolves.toEqual({ sessionId: "session_start" });
+    expect(helper.startCapture).toHaveBeenCalledWith({
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+      modelPath,
+      sessionId: "session_start",
+    });
+
+    const missingModel = new LocalMacOSVoiceHealthService({
+      createClient: vi.fn(),
+      helperPath,
+      modelPath: join(root, "missing.bin"),
+      platform: "darwin",
+    });
+    await expect(
+      missingModel.startCapture({
+        maximumRecordingSeconds: 120,
+        maximumTranscriptCharacters: 8000,
+        sessionId: "session_missing",
+      }),
+    ).rejects.toBeInstanceOf(LocalMacOSVoiceHelperUnavailableError);
+  });
 });
 
 describe("LocalMacOSVoiceHelperProcessClient", () => {
@@ -177,9 +222,9 @@ class FakeLocalMacOSVoiceHelperClient implements LocalMacOSVoiceHelperClient {
     return Promise.reject(new Error("unexpected finish"));
   }
 
-  startCapture(): Promise<never> {
-    return Promise.reject(new Error("unexpected start"));
-  }
+  startCapture = vi.fn<LocalMacOSVoiceHelperClient["startCapture"]>(async (request) => ({
+    sessionId: request.sessionId,
+  }));
 }
 
 function sha256(content: string): string {

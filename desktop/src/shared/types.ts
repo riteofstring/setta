@@ -68,10 +68,15 @@ import type {
   ConversationEventSubscriptionRequest,
 } from "./conversation-ipc";
 import type {
+  LocalMacOSVoiceCancelCaptureResult,
+  LocalMacOSVoiceFinishCaptureResult,
   SpeechCredentialProviderRequest,
   SpeechCredentialSaveRequest,
   SpeechCredentialSettings,
   LocalMacOSVoiceHealth,
+  LocalMacOSVoiceSessionRequest,
+  LocalMacOSVoiceStartCaptureRequest,
+  LocalMacOSVoiceStartCaptureResult,
 } from "./speech-ipc";
 
 export interface RuntimeVersions {
@@ -348,9 +353,15 @@ export interface SettaAPI {
   };
   speech: {
     cancelSynthesis?: (operationId: string) => Promise<void>;
+    cancelLocalMacOSVoiceCapture?: (
+      request: LocalMacOSVoiceSessionRequest,
+    ) => Promise<LocalMacOSVoiceCancelCaptureResult>;
     createTranscriptionSession: (
       request: CreateSpeechTranscriptionSessionRequest,
     ) => Promise<SpeechTranscriptionSession>;
+    finishLocalMacOSVoiceCapture?: (
+      request: LocalMacOSVoiceSessionRequest,
+    ) => Promise<LocalMacOSVoiceFinishCaptureResult>;
     onCredentialSettingsChanged?: (
       listener: (settings: SpeechCredentialSettings) => void,
     ) => () => void;
@@ -365,6 +376,9 @@ export interface SettaAPI {
       request: ClearDesktopSpeechCredentialRequest,
     ) => Promise<SpeechCredentialSettings>;
     saveCredential?: (request: SpeechCredentialSaveRequest) => Promise<SpeechCredentialSettings>;
+    startLocalMacOSVoiceCapture?: (
+      request: LocalMacOSVoiceStartCaptureRequest,
+    ) => Promise<LocalMacOSVoiceStartCaptureResult>;
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
     updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;

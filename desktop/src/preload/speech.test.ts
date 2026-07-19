@@ -21,11 +21,30 @@ describe("preload speech API", () => {
     }));
     await import("./index");
     const api = exposed.setta as SettaAPI;
-    await api.speech.readCapabilities();
-    await api.speech.readLocalMacOSVoiceHealth?.();
-    await api.speech.readMasterVoiceSelection?.();
-    await api.speech.readNarratorVoiceDefault?.();
-    await api.speech.synthesize?.(
+    const speech = api.speech as SettaAPI["speech"] & {
+      cancelLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["cancelLocalMacOSVoiceCapture"]>;
+      cancelSynthesis: NonNullable<SettaAPI["speech"]["cancelSynthesis"]>;
+      finishLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["finishLocalMacOSVoiceCapture"]>;
+      readLocalMacOSVoiceHealth: NonNullable<SettaAPI["speech"]["readLocalMacOSVoiceHealth"]>;
+      readMasterVoiceSelection: NonNullable<SettaAPI["speech"]["readMasterVoiceSelection"]>;
+      readNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["readNarratorVoiceDefault"]>;
+      startLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["startLocalMacOSVoiceCapture"]>;
+      synthesize: NonNullable<SettaAPI["speech"]["synthesize"]>;
+      updateMasterVoiceSelection: NonNullable<SettaAPI["speech"]["updateMasterVoiceSelection"]>;
+      updateNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["updateNarratorVoiceDefault"]>;
+    };
+    await speech.readCapabilities();
+    await speech.readLocalMacOSVoiceHealth();
+    await speech.startLocalMacOSVoiceCapture({
+      captureSessionId: "capture_local",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+    await speech.finishLocalMacOSVoiceCapture({ captureSessionId: "capture_local" });
+    await speech.cancelLocalMacOSVoiceCapture({ captureSessionId: "capture_local" });
+    await speech.readMasterVoiceSelection();
+    await speech.readNarratorVoiceDefault();
+    await speech.synthesize(
       {
         provider: "openai",
         resolvedVoiceId: "cedar",
@@ -37,20 +56,30 @@ describe("preload speech API", () => {
       },
       "speech-operation",
     );
-    await api.speech.cancelSynthesis?.("speech-operation");
-    await api.speech.updateMasterVoiceSelection?.({
+    await speech.cancelSynthesis("speech-operation");
+    await speech.updateMasterVoiceSelection({
       requestedVoiceId: "cedar",
       selection: "exact",
     });
-    await api.speech.updateNarratorVoiceDefault?.({
+    await speech.updateNarratorVoiceDefault({
       requestedVoiceId: "ash",
       selection: "exact",
     });
-    await api.speech.createTranscriptionSession({ provider: "openai" });
+    await speech.createTranscriptionSession({ provider: "openai" });
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.speechReadCapabilities],
       [ipcChannels.speechReadLocalMacOSVoiceHealth],
+      [
+        ipcChannels.speechStartLocalMacOSVoiceCapture,
+        {
+          captureSessionId: "capture_local",
+          maximumRecordingSeconds: 120,
+          maximumTranscriptCharacters: 8000,
+        },
+      ],
+      [ipcChannels.speechFinishLocalMacOSVoiceCapture, { captureSessionId: "capture_local" }],
+      [ipcChannels.speechCancelLocalMacOSVoiceCapture, { captureSessionId: "capture_local" }],
       [ipcChannels.speechReadMasterVoiceSelection],
       [ipcChannels.speechReadNarratorVoiceDefault],
       [
