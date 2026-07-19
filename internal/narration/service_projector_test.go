@@ -535,15 +535,16 @@ type projectorTestCall struct {
 }
 
 type projectorTestAgentRuntime struct {
-	mu                       sync.Mutex
-	calls                    []projectorTestCall
-	failFocusCalls           int
-	failProjectionCalls      int
-	blockFirstProjection     bool
-	emitProjectionMilestones bool
-	firstCallStarted         chan struct{}
-	releaseFirstCall         chan struct{}
-	firstCallReturned        chan struct{}
+	mu                                sync.Mutex
+	calls                             []projectorTestCall
+	failFocusCalls                    int
+	failProjectionCalls               int
+	blockFirstProjection              bool
+	emitProjectionMilestones          bool
+	emitProjectionMilestonesWithPrior bool
+	firstCallStarted                  chan struct{}
+	releaseFirstCall                  chan struct{}
+	firstCallReturned                 chan struct{}
 }
 
 func (*projectorTestAgentRuntime) ResolveInvocation(
@@ -654,8 +655,9 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 			"kind":       string(CallOutputWorkingProjection),
 			"milestones": []string{},
 		}
-		if runtime.emitProjectionMilestones && bundle.RequestedChannel == ProjectionChannelWorking &&
-			len(bundle.PriorMilestones) == 0 {
+		if runtime.emitProjectionMilestones &&
+			bundle.RequestedChannel == ProjectionChannelWorking &&
+			(runtime.emitProjectionMilestonesWithPrior || len(bundle.PriorMilestones) == 0) {
 			output["milestones"] = []string{
 				fmt.Sprintf("The working projection now covers event %d.", bundle.EvaluationRange.End),
 			}

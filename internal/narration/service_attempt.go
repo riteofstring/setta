@@ -39,7 +39,11 @@ func newServiceRegistry(
 	if err != nil {
 		return nil, err
 	}
-	caller, err := NewCaller(models, agentRuntime)
+	var callerOptions []CallerOption
+	if service.callerClock != nil {
+		callerOptions = append(callerOptions, WithCallerClock(service.callerClock))
+	}
+	caller, err := NewCaller(models, agentRuntime, callerOptions...)
 	if err != nil {
 		return nil, err
 	}

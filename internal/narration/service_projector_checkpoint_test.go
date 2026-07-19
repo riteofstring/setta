@@ -67,13 +67,33 @@ func appendProjectorPlanTrajectory(
 	turnID string,
 ) conversation.TrajectoryEvent {
 	t.Helper()
+	return appendProjectorPlanTrajectoryAt(
+		t,
+		store,
+		conversationID,
+		turnID,
+		"projector-plan-before-checkpoint",
+		"Keep projection ahead of checkpoint maintenance.",
+		"2026-07-12T12:00:20Z",
+	)
+}
+
+func appendProjectorPlanTrajectoryAt(
+	t *testing.T,
+	store *conversation.Store,
+	conversationID string,
+	turnID string,
+	id string,
+	text string,
+	emittedAt string,
+) conversation.TrajectoryEvent {
+	t.Helper()
 	snapshot, err := store.ReadSnapshot(context.Background(), "workspace-status-service", conversationID)
 	if err != nil {
 		t.Fatalf("read projector plan seed snapshot: %v", err)
 	}
-	emittedAt := "2026-07-12T12:00:20Z"
 	plan := conversation.TrajectoryEvent{
-		ID:             "projector-plan-before-checkpoint",
+		ID:             id,
 		ConversationID: conversationID,
 		TurnID:         &turnID,
 		Sequence:       snapshot.Conversation.LastTrajectorySequence + 1,
@@ -81,16 +101,16 @@ func appendProjectorPlanTrajectory(
 		Kind:           conversation.TrajectoryEventPlanChanged,
 		Actor:          conversation.TrajectoryActorAgent,
 		PlanChanged: &conversation.TrajectoryPlanChanged{Steps: []conversation.PlanStep{{
-			Text:   "Keep projection ahead of checkpoint maintenance.",
+			Text:   text,
 			Status: conversation.PlanStepStatusCompleted,
 		}}},
 	}
-	_, err = store.Transact(context.Background(), "append projector plan before checkpoint", func(tx *conversation.WriteTransaction) error {
+	_, err = store.Transact(context.Background(), "append projector plan trajectory", func(tx *conversation.WriteTransaction) error {
 		if err := tx.AppendTrajectoryEvent(plan); err != nil {
 			return err
 		}
 		_, err := tx.AppendCommittedEvent(conversation.CommittedEventDraft{
-			ID:          "projector-plan-before-checkpoint-publication",
+			ID:          id + "-publication",
 			StreamID:    "conversation:" + conversationID,
 			Kind:        string(conversation.ConversationEventTypeConversationUpdated),
 			Payload:     map[string]string{"conversationId": conversationID},

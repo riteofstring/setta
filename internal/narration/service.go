@@ -65,6 +65,16 @@ func WithServiceRetryWait(wait RetryWait) ServiceOption {
 	}
 }
 
+func WithServiceCallerClock(now func() time.Time) ServiceOption {
+	return func(service *Service) error {
+		if now == nil {
+			return errors.New("narrator service caller clock is required")
+		}
+		service.callerClock = now
+		return nil
+	}
+}
+
 // Service is the production command and lifecycle boundary for narrator work.
 // Explicit status, automatic projections, live terminal projections,
 // checkpoints, and recoverable retries all share one priority mailbox per
@@ -76,6 +86,7 @@ type Service struct {
 	newID                  func(string) (string, error)
 	progressWait           RetryWait
 	retryWait              RetryWait
+	callerClock            func() time.Time
 	progressWindow         time.Duration
 	checkpointWindowEvents int
 
