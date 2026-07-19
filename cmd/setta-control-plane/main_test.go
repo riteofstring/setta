@@ -76,6 +76,41 @@ func TestBootstrapIsRestartSafeAndKeepsCredentialsInPrivateFiles(t *testing.T) {
 	verifyBootstrapState(t, fixture)
 }
 
+func TestBootstrapAcceptsOnePinnedClientCredentialFromStdinAcrossRetries(t *testing.T) {
+	fixture := newBootstrapFixture(t)
+	credential, err := controlplane.NewDeviceCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := append(append([]string(nil), fixture.args...), "--client-credential-stdin")
+	for attempt := 0; attempt < 2; attempt++ {
+		var stdout bytes.Buffer
+		if exitCode := runBootstrap(args, bytes.NewReader(payload), &stdout, &bytes.Buffer{}, mapEnvironment(nil)); exitCode != 0 {
+			t.Fatalf("stdin bootstrap attempt %d exit code = %d", attempt+1, exitCode)
+		}
+	}
+	stored, err := os.ReadFile(fixture.clientCredentialFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var storedCredential controlplane.DeviceCredential
+	if err := json.Unmarshal(stored, &storedCredential); err != nil || storedCredential != credential {
+		t.Fatalf("stored credential = %+v, %v", storedCredential, err)
+	}
+	different, err := controlplane.NewDeviceCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	differentPayload, _ := json.Marshal(different)
+	if exitCode := runBootstrap(args, bytes.NewReader(differentPayload), &bytes.Buffer{}, &bytes.Buffer{}, mapEnvironment(nil)); exitCode != 1 {
+		t.Fatalf("mismatched stdin bootstrap exit code = %d", exitCode)
+	}
+}
+
 func TestEnsureRuntimeCommandPersistsOneRestartSafeIntent(t *testing.T) {
 	root := t.TempDir()
 	identity, err := runtimeprovider.NewManagedIdentity("control-plane-ensure-command")
@@ -158,7 +193,7 @@ func newBootstrapFixture(t *testing.T) bootstrapFixture {
 func runBootstrapAttempt(t *testing.T, args []string, runtimeName string, attempt int) {
 	t.Helper()
 	var stdout bytes.Buffer
-	if exitCode := runBootstrap(args, &stdout, &bytes.Buffer{}, mapEnvironment(nil)); exitCode != 0 {
+	if exitCode := runBootstrap(args, &bytes.Buffer{}, &stdout, &bytes.Buffer{}, mapEnvironment(nil)); exitCode != 0 {
 		t.Fatalf("bootstrap attempt %d exit code = %d", attempt+1, exitCode)
 	}
 	var event bootstrapEvent
@@ -208,7 +243,7 @@ func verifyBootstrapState(t *testing.T, fixture bootstrapFixture) {
 
 func TestRunRequiresExplicitSubcommand(t *testing.T) {
 	var stderr bytes.Buffer
-	if exitCode := run(nil, &bytes.Buffer{}, &stderr, mapEnvironment(nil), func(string) error { return nil }); exitCode != 2 {
+	if exitCode := run(nil, &bytes.Buffer{}, &bytes.Buffer{}, &stderr, mapEnvironment(nil), func(string) error { return nil }); exitCode != 2 {
 		t.Fatalf("run without subcommand exit code = %d", exitCode)
 	}
 }

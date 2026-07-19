@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,7 @@ const maximumBootstrapCredentialBytes = 16 * 1024
 
 type bootstrapConfig struct {
 	ClientCredentialFile  string
+	ClientCredentialStdin bool
 	CredentialEpoch       uint64
 	DataDirectory         string
 	DeviceDisplayName     string
@@ -40,6 +42,7 @@ type bootstrapEvent struct {
 
 func runBootstrap(
 	args []string,
+	stdin io.Reader,
 	stdout io.Writer,
 	stderr io.Writer,
 	getenv func(string) string,
@@ -49,15 +52,15 @@ func runBootstrap(
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 2
 	}
-	if err := bootstrapControlPlane(context.Background(), config, stdout); err != nil {
+	if err := bootstrapControlPlane(context.Background(), config, stdin, stdout); err != nil {
 		fmt.Fprintf(stderr, "bootstrap control plane: %v\n", err)
 		return 1
 	}
 	return 0
 }
 
-func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdout io.Writer) (returnErr error) {
-	credential, err := ensureDeviceCredentialFile(config.ClientCredentialFile)
+func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io.Reader, stdout io.Writer) (returnErr error) {
+	credential, err := ensureDeviceCredential(config.ClientCredentialFile, config.ClientCredentialStdin, stdin)
 	if err != nil {
 		return err
 	}
@@ -127,7 +130,8 @@ func bootstrapConfigFromArgs(
 	}
 	flagSet := flag.NewFlagSet("setta-control-plane bootstrap", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
-	flagSet.StringVar(&config.ClientCredentialFile, "client-credential-file", "", "private output file for the generated client credential")
+	flagSet.StringVar(&config.ClientCredentialFile, "client-credential-file", "", "private durable file for the client credential")
+	flagSet.BoolVar(&config.ClientCredentialStdin, "client-credential-stdin", false, "read and persist the client credential from stdin")
 	flagSet.Uint64Var(&config.CredentialEpoch, "credential-epoch", config.CredentialEpoch, "runtime credential epoch")
 	flagSet.StringVar(&config.DataDirectory, "data-dir", config.DataDirectory, "absolute durable control-plane database directory")
 	flagSet.StringVar(&config.DeviceDisplayName, "device-name", "", "operator-visible device name")
@@ -149,6 +153,56 @@ func bootstrapConfigFromArgs(
 		return bootstrapConfig{}, err
 	}
 	return config, nil
+}
+
+func ensureDeviceCredential(path string, fromStdin bool, stdin io.Reader) (controlplane.DeviceCredential, error) {
+	if !fromStdin {
+		return ensureDeviceCredentialFile(path)
+	}
+	if stdin == nil {
+		return controlplane.DeviceCredential{}, errors.New("bootstrap client credential stdin is required")
+	}
+	credential, err := decodeDeviceCredential(stdin)
+	if err != nil {
+		return controlplane.DeviceCredential{}, err
+	}
+	if err := controlplane.ValidateDeviceCredential(credential); err != nil {
+		return controlplane.DeviceCredential{}, err
+	}
+	existing, err := readDeviceCredentialFile(path)
+	if err == nil {
+		if existing != credential {
+			return controlplane.DeviceCredential{}, errors.New("bootstrap client credential differs from the durable credential")
+		}
+		return existing, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return controlplane.DeviceCredential{}, err
+	}
+	if err := writePrivateJSONFile(path, credential); err != nil {
+		return controlplane.DeviceCredential{}, err
+	}
+	return credential, nil
+}
+
+func decodeDeviceCredential(reader io.Reader) (controlplane.DeviceCredential, error) {
+	payload, err := io.ReadAll(io.LimitReader(reader, maximumBootstrapCredentialBytes+1))
+	if err != nil {
+		return controlplane.DeviceCredential{}, fmt.Errorf("read bootstrap client credential stdin: %w", err)
+	}
+	if len(payload) > maximumBootstrapCredentialBytes {
+		return controlplane.DeviceCredential{}, errors.New("bootstrap client credential stdin exceeds the size limit")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var credential controlplane.DeviceCredential
+	if err := decoder.Decode(&credential); err != nil {
+		return controlplane.DeviceCredential{}, fmt.Errorf("decode bootstrap client credential stdin: %w", err)
+	}
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		return controlplane.DeviceCredential{}, errors.New("bootstrap client credential stdin must contain one JSON value")
+	}
+	return credential, nil
 }
 
 func validateBootstrapConfig(config bootstrapConfig) error {

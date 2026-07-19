@@ -828,6 +828,12 @@ func NewDeviceCredential() (DeviceCredential, error) {
 	return DeviceCredential{DeviceID: deviceID, Token: token}, nil
 }
 
+// ValidateDeviceCredential validates a credential before it crosses a
+// process or provider boundary.
+func ValidateDeviceCredential(credential DeviceCredential) error {
+	return validateDeviceCredential(credential)
+}
+
 func validateDeviceCredential(credential DeviceCredential) error {
 	if err := validateIdentifier("device id", credential.DeviceID); err != nil {
 		return err

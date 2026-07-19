@@ -276,6 +276,10 @@ Implemented on 2026-07-20:
     with the mutation credential, private stdin, structured output, and
     content-free errors; invalid app, Machine, command, input, or timeout
     boundaries fail before transport.
+21. Control-plane bootstrap can accept a locally generated device credential
+    through bounded stdin, validate and durably persist it with private
+    permissions, and require exact equality on restart. This removes any need
+    to print or copy the credential back out of the distroless Machine.
 
 Still required before a live create/deployment mutation:
 

@@ -56,11 +56,12 @@ type controlPlaneServices struct {
 }
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, os.Unsetenv))
+	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, os.Getenv, os.Unsetenv))
 }
 
 func run(
 	args []string,
+	stdin io.Reader,
 	stdout io.Writer,
 	stderr io.Writer,
 	getenv func(string) string,
@@ -71,7 +72,7 @@ func run(
 		return 2
 	}
 	if args[0] == "bootstrap" {
-		return runBootstrap(args[1:], stdout, stderr, getenv)
+		return runBootstrap(args[1:], stdin, stdout, stderr, getenv)
 	}
 	if args[0] == "ensure-runtime" {
 		return runEnsureRuntime(args[1:], stdout, stderr, getenv)
