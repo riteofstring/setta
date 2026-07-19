@@ -531,6 +531,7 @@ type projectorTestCall struct {
 	sourceThrough        int
 	currentFocus         string
 	turnID               string
+	semanticSequences    []int
 }
 
 type projectorTestAgentRuntime struct {
@@ -644,6 +645,7 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 			priorMilestoneCount:  len(bundle.PriorMilestones),
 			requestedChannel:     bundle.RequestedChannel,
 			currentFocus:         bundle.Authoritative.CurrentFocus,
+			semanticSequences:    projectorSemanticSequences(bundle.SemanticEvents),
 		}
 		if bundle.Authoritative.CurrentInstructions != nil {
 			call.turnID = bundle.Authoritative.CurrentInstructions.TurnID

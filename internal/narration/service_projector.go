@@ -464,6 +464,10 @@ func (service *Service) deferProjectionBehindTerminal(
 			deferred.operation.ThroughSequence,
 			operation.ThroughSequence,
 		)
+		deferred.operation.SemanticEvents = mergeProjectionSemanticEvents(
+			deferred.operation.SemanticEvents,
+			operation.SemanticEvents,
+		)
 		if projectionTriggerPriority(trigger) > projectionTriggerPriority(deferred.trigger) {
 			deferred.trigger = trigger
 		}

@@ -148,6 +148,40 @@ describe("conversation projection runtime", () => {
     });
   });
 
+  test("retains a queued terminal release that observed live work before flush", async () => {
+    const scheduler = manualFrameScheduler();
+    const release = vi.fn().mockResolvedValue(undefined);
+    const subscribe = vi.fn().mockResolvedValue(undefined);
+    installConversationAPI(
+      vi.fn().mockResolvedValue(terminalConversationSnapshot()),
+      scheduler.windowOverrides,
+      { release, subscribe },
+    );
+    const releaseProjection = retainConversationProjection(workspaceId, conversationId);
+    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledOnce());
+    const working = conversationUpdatedEvent(2);
+    if (working.payload.type !== "conversation.updated") {
+      throw new Error("working fixture must update a conversation");
+    }
+    working.payload.conversation.status = "working";
+    const terminal = conversationUpdatedEvent(3);
+    if (terminal.payload.type !== "conversation.updated") {
+      throw new Error("terminal fixture must update a conversation");
+    }
+    terminal.payload.conversation.status = "idle";
+
+    enqueueConversationProjectionEvent(working);
+    enqueueConversationProjectionEvent(terminal);
+    releaseProjection();
+
+    expect(projectionSnapshot()?.conversation.status).toBe("idle");
+    expect(release).toHaveBeenCalledWith({
+      conversationId,
+      keepAlive: true,
+      workspaceId,
+    });
+  });
+
   test("retains speech streams only while released conversations still have active work", () => {
     const working = conversationSnapshot(1);
     working.conversation.status = "working";
@@ -168,6 +202,40 @@ describe("conversation projection runtime", () => {
 
     terminal.presentationProfile.narratorSpeechEnabled = false;
     expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
+  });
+
+  test("retains a live terminal stream until final narration arrives", () => {
+    const terminal = terminalConversationSnapshot();
+    expect(conversationProjectionNeedsKeepAlive(terminal, true)).toBe(true);
+    expect(conversationProjectionNeedsKeepAlive(terminal, false)).toBe(false);
+
+    terminal.narration.events.push({
+      conversationId,
+      id: "final_summary_terminal",
+      kind: "final_summary",
+      trigger: "turn_terminal",
+      turnId: "turn_terminal",
+    } as ConversationSnapshot["narration"]["events"][number]);
+
+    expect(conversationProjectionNeedsKeepAlive(terminal, true)).toBe(false);
+  });
+
+  test("does not retain a live terminal stream for an older missing summary", () => {
+    const terminal = terminalConversationSnapshot();
+    terminal.turns.turns.unshift({
+      conversationId,
+      id: "turn_older_missing_summary",
+      status: "completed",
+    } as ConversationSnapshot["turns"]["turns"][number]);
+    terminal.narration.events.push({
+      conversationId,
+      id: "final_summary_terminal",
+      kind: "final_summary",
+      trigger: "turn_terminal",
+      turnId: "turn_terminal",
+    } as ConversationSnapshot["narration"]["events"][number]);
+
+    expect(conversationProjectionNeedsKeepAlive(terminal, true)).toBe(false);
   });
 });
 

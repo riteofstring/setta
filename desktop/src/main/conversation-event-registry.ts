@@ -40,7 +40,7 @@ interface RegisteredConversationStream {
   stream: ConversationEventStream;
   target: ConversationEventTarget;
   terminalNarrationSeen: boolean;
-  terminalStatusSeen: boolean;
+  terminalStatusSequence: number | null;
 }
 
 export class ConversationEventRegistry {
@@ -75,7 +75,7 @@ export class ConversationEventRegistry {
       stream,
       target,
       terminalNarrationSeen: false,
-      terminalStatusSeen: false,
+      terminalStatusSequence: null,
     });
     this.observeSender(sender);
   }
@@ -122,13 +122,13 @@ export class ConversationEventRegistry {
       case "conversation.updated":
         if (conversationHasActiveWork(event.payload.conversation.status)) {
           current.terminalNarrationSeen = false;
-          current.terminalStatusSeen = false;
+          current.terminalStatusSequence = null;
           return false;
         }
-        current.terminalStatusSeen = true;
+        current.terminalStatusSequence = event.payload.conversation.lastTrajectorySequence;
         return current.keepAlive && terminalBoundaryComplete(current);
       case "conversation.narration.created":
-        if (!terminalFinalSummary(event.payload.event)) {
+        if (!terminalFinalSummary(event.payload.event, current.terminalStatusSequence)) {
           return false;
         }
         current.terminalNarrationSeen = true;
@@ -195,12 +195,18 @@ function conversationHasActiveWork(
 
 function terminalFinalSummary(
   event: Extract<ConversationEvent["payload"], { type: "conversation.narration.created" }>["event"],
+  terminalStatusSequence: number | null,
 ): boolean {
-  return event.kind === "final_summary" && event.trigger === "turn_terminal";
+  return (
+    terminalStatusSequence !== null &&
+    event.kind === "final_summary" &&
+    event.trigger === "turn_terminal" &&
+    event.sourceSequenceEnd === terminalStatusSequence
+  );
 }
 
 function terminalBoundaryComplete(current: RegisteredConversationStream): boolean {
-  return current.terminalStatusSeen && current.terminalNarrationSeen;
+  return current.terminalStatusSequence !== null && current.terminalNarrationSeen;
 }
 
 function assertNever(value: never): never {

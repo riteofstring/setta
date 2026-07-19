@@ -28,16 +28,19 @@ describe("conversation event registry", () => {
     expect(harness.stop).toHaveBeenCalledOnce();
   });
 
-  test("stops a released stream when terminal status follows terminal narration", async () => {
+  test("ignores terminal narration that does not match the terminal status boundary", async () => {
     const harness = registryHarness();
     harness.registry.subscribe(harness.sender, target, cursor);
     await harness.registry.release(harness.sender, target, true);
 
-    harness.forward(conversationUpdated("waiting_for_approval"));
-    harness.forward(narrationCreated("final_summary", "turn_terminal"));
+    harness.forward(conversationUpdated("waiting_for_approval", 12));
+    harness.forward(narrationCreated("final_summary", "turn_terminal", 8));
     expect(harness.stop).not.toHaveBeenCalled();
 
-    harness.forward(conversationUpdated("failed"));
+    harness.forward(conversationUpdated("failed", 12));
+    expect(harness.stop).not.toHaveBeenCalled();
+
+    harness.forward(narrationCreated("final_summary", "turn_terminal", 12));
     await Promise.resolve();
 
     expect(harness.stop).toHaveBeenCalledOnce();
@@ -146,12 +149,14 @@ function conversationUpdated(
 function narrationCreated(
   kind: NarrationEvent["kind"],
   trigger: NarrationEvent["trigger"] = "progress_window_elapsed",
+  sourceSequenceEnd = 9,
 ): ConversationEvent {
   return event({
     event: {
       conversationId: target.conversationId,
       id: `narration_${kind}`,
       kind,
+      sourceSequenceEnd,
       trigger,
       turnId: "turn_registry",
     } as NarrationEvent,
