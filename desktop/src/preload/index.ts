@@ -50,6 +50,10 @@ const api: SettaAPI = {
       };
     },
   },
+  appLayout: {
+    readPaneLayout: () => invoke("appPaneLayoutRead"),
+    savePaneLayout: (layout) => invoke("appPaneLayoutSave", layout),
+  },
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
     current: () => invoke("runtimeCurrent"),

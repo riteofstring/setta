@@ -9,6 +9,7 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/appearance"
+	"setta/internal/applayout"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
 	"setta/internal/conversationindex"
@@ -23,6 +24,7 @@ const masterRuntimeDirectoryName = "master"
 
 type runtimeBaseServices struct {
 	appearanceService        *appearance.Service
+	appPaneLayoutService     *applayout.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
@@ -60,6 +62,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	closeFoundationOnFailure = false
 	return runtimeBaseServices{
 		appearanceService:        foundation.appearanceService,
+		appPaneLayoutService:     foundation.appPaneLayoutService,
 		codexManager:             foundation.codexManager,
 		conversationService:      foundation.conversationService,
 		conversationInputService: foundation.conversationInputService,
@@ -92,6 +95,7 @@ func shutdownRuntimeFoundation(foundation runtimeFoundation, timeout time.Durati
 
 type runtimeFoundation struct {
 	appearanceService        *appearance.Service
+	appPaneLayoutService     *applayout.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
@@ -120,6 +124,10 @@ type runtimeConversationServices struct {
 
 func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	appearanceService, err := newAppearanceService(config.AppDataDir)
+	if err != nil {
+		return runtimeFoundation{}, err
+	}
+	appPaneLayoutService, err := newAppPaneLayoutService(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, err
 	}
@@ -175,6 +183,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	conversationInputService := conversationServices.conversationInputService
 	foundation := runtimeFoundation{
 		appearanceService:        appearanceService,
+		appPaneLayoutService:     appPaneLayoutService,
 		codexManager:             codexManager,
 		conversationService:      conversationService,
 		conversationInputService: conversationInputService,

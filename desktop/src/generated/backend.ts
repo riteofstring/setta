@@ -18,10 +18,12 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 69;
-export const backendContractSchemaHash = "sha256:71f96c14b6b9635be2cfbfd7d2a296e64aa22579fb58ed0198da220035e73910";
+export const backendProtocolVersion = 70;
+export const backendContractSchemaHash = "sha256:c65693b579ff2270ab54b42b9fa96bb98a63a360666b6d4ba16a06623da6b764";
 
 export const workspaceUILayoutSchemaVersion = 1;
+
+export const appPaneLayoutSchemaVersion = 1;
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -220,6 +222,78 @@ export function decodePaneTone(value: unknown, label = "PaneTone"): PaneTone {
     case "pink":
       return decoded;
     case "slate":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type AppPaneColumnWidthUnit = "proportion" | "px";
+
+export const appPaneColumnWidthUnitValues = ["proportion", "px"] as const satisfies readonly AppPaneColumnWidthUnit[];
+
+export function decodeAppPaneColumnWidthUnit(value: unknown, label = "AppPaneColumnWidthUnit"): AppPaneColumnWidthUnit {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "proportion":
+      return decoded;
+    case "px":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type AppPaneTone = "cyan" | "green" | "orange" | "pink" | "slate";
+
+export const appPaneToneValues = ["cyan", "green", "orange", "pink", "slate"] as const satisfies readonly AppPaneTone[];
+
+export function decodeAppPaneTone(value: unknown, label = "AppPaneTone"): AppPaneTone {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "cyan":
+      return decoded;
+    case "green":
+      return decoded;
+    case "orange":
+      return decoded;
+    case "pink":
+      return decoded;
+    case "slate":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ConversationPaneResourceBindingKind = "folder";
+
+export const conversationPaneResourceBindingKindValues = ["folder"] as const satisfies readonly ConversationPaneResourceBindingKind[];
+
+export function decodeConversationPaneResourceBindingKind(value: unknown, label = "ConversationPaneResourceBindingKind"): ConversationPaneResourceBindingKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "folder":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type AppPaneSurfaceKind = "master" | "conversation" | "browser" | "empty-frame";
+
+export const appPaneSurfaceKindValues = ["master", "conversation", "browser", "empty-frame"] as const satisfies readonly AppPaneSurfaceKind[];
+
+export function decodeAppPaneSurfaceKind(value: unknown, label = "AppPaneSurfaceKind"): AppPaneSurfaceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "master":
+      return decoded;
+    case "conversation":
+      return decoded;
+    case "browser":
+      return decoded;
+    case "empty-frame":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1776,6 +1850,98 @@ export interface WorkspaceUILayoutReadResult {
 
 export interface SaveWorkspaceUILayoutRequest {
   layout: WorkspaceUILayout;
+}
+
+export interface AppPaneColumnWidthSpec {
+  unit: AppPaneColumnWidthUnit;
+  value: number;
+}
+
+export interface AppPaneColumn {
+  columnId: string;
+  idealWidthSpec: AppPaneColumnWidthSpec;
+  index: number;
+  paneIds: string[];
+  planeIndex: number;
+  previousProportionWidth: number | null;
+  slotIndex: number;
+  widthSpec: AppPaneColumnWidthSpec;
+}
+
+export interface ConversationPanePresentationIdentity {
+  subtitle: string;
+  title: string;
+  tone: AppPaneTone;
+}
+
+export interface FolderResourceBinding {
+  rootPath: string;
+}
+
+export type ConversationPaneResourceBinding = {
+} & (
+  | {
+      kind: "folder";
+      folder: FolderResourceBinding;
+    }
+);
+
+export interface ConversationPaneConfig {
+  conversationId: string;
+  presentationIdentity: ConversationPanePresentationIdentity;
+  resourceBindings: ConversationPaneResourceBinding[];
+}
+
+export interface MasterPaneConfig {
+}
+
+export type AppPane = {
+  columnId: string;
+  heat: number;
+  paneId: string;
+  sequence: number;
+  subtitle: string;
+  surfaceId: string;
+  title: string;
+  tone: AppPaneTone;
+  weight: number;
+} & (
+  | {
+      surfaceKind: "master";
+      masterConfig: MasterPaneConfig;
+      conversationConfig: null;
+    }
+  | {
+      surfaceKind: "conversation";
+      masterConfig: null;
+      conversationConfig: ConversationPaneConfig;
+    }
+  | {
+      surfaceKind: "browser";
+      masterConfig: null;
+      conversationConfig: null;
+    }
+  | {
+      surfaceKind: "empty-frame";
+      masterConfig: null;
+      conversationConfig: null;
+    }
+);
+
+export interface AppPaneLayout {
+  schemaVersion: number;
+  focusedPaneId: string;
+  maximizedPaneId: string | null;
+  columns: AppPaneColumn[];
+  panes: AppPane[];
+}
+
+export interface AppPaneLayoutReadResult {
+  layout: AppPaneLayout | null;
+}
+
+export interface SaveAppPaneLayoutRequest {
+  layout: AppPaneLayout;
 }
 
 export interface CreateTopicConversationRequest {
@@ -3442,6 +3608,15 @@ export const backendEndpoints = {
     path: "/workspaces/ui/layout/save",
     requestBodyLimitBytes: 4194304,
   },
+  ReadAppPaneLayout: {
+    method: "GET",
+    path: "/app/panes/layout",
+  },
+  SaveAppPaneLayout: {
+    method: "POST",
+    path: "/app/panes/layout/save",
+    requestBodyLimitBytes: 4194304,
+  },
   CreateTopicConversation: {
     method: "POST",
     path: "/conversations/create",
@@ -4179,6 +4354,195 @@ export function decodeSaveWorkspaceUILayoutRequest(value: unknown): SaveWorkspac
   assertKnownFields(record, "SaveWorkspaceUILayoutRequest", ["layout"]);
   return {
     layout: decodeWorkspaceUILayout(requireField(record, "layout", "SaveWorkspaceUILayoutRequest")),
+  };
+}
+
+export function decodeAppPaneColumnWidthSpec(value: unknown): AppPaneColumnWidthSpec {
+  const record = assertRecord(value, "AppPaneColumnWidthSpec");
+  assertKnownFields(record, "AppPaneColumnWidthSpec", ["unit", "value"]);
+  return {
+    unit: decodeAppPaneColumnWidthUnit(requireField(record, "unit", "AppPaneColumnWidthSpec"), "AppPaneColumnWidthSpec.unit"),
+    value: decodeNumber(requireField(record, "value", "AppPaneColumnWidthSpec"), "AppPaneColumnWidthSpec.value"),
+  };
+}
+
+export function decodeAppPaneColumn(value: unknown): AppPaneColumn {
+  const record = assertRecord(value, "AppPaneColumn");
+  assertKnownFields(record, "AppPaneColumn", ["columnId", "idealWidthSpec", "index", "paneIds", "planeIndex", "previousProportionWidth", "slotIndex", "widthSpec"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "AppPaneColumn"), "AppPaneColumn.columnId"),
+    idealWidthSpec: decodeAppPaneColumnWidthSpec(requireField(record, "idealWidthSpec", "AppPaneColumn")),
+    index: decodeInteger(requireField(record, "index", "AppPaneColumn"), "AppPaneColumn.index"),
+    paneIds: decodeArray(requireField(record, "paneIds", "AppPaneColumn"), "AppPaneColumn.paneIds", (item) => decodeString(item, "AppPaneColumn.paneIds item")),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "AppPaneColumn"), "AppPaneColumn.planeIndex"),
+    previousProportionWidth: decodeNullable(requireField(record, "previousProportionWidth", "AppPaneColumn"), "AppPaneColumn.previousProportionWidth", (item) => decodeNumber(item, "AppPaneColumn.previousProportionWidth")),
+    slotIndex: decodeInteger(requireField(record, "slotIndex", "AppPaneColumn"), "AppPaneColumn.slotIndex"),
+    widthSpec: decodeAppPaneColumnWidthSpec(requireField(record, "widthSpec", "AppPaneColumn")),
+  };
+}
+
+export function decodeConversationPanePresentationIdentity(value: unknown): ConversationPanePresentationIdentity {
+  const record = assertRecord(value, "ConversationPanePresentationIdentity");
+  assertKnownFields(record, "ConversationPanePresentationIdentity", ["subtitle", "title", "tone"]);
+  return {
+    subtitle: decodeString(requireField(record, "subtitle", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.subtitle"),
+    title: decodeString(requireField(record, "title", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.title"),
+    tone: decodeAppPaneTone(requireField(record, "tone", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.tone"),
+  };
+}
+
+export function decodeFolderResourceBinding(value: unknown): FolderResourceBinding {
+  const record = assertRecord(value, "FolderResourceBinding");
+  assertKnownFields(record, "FolderResourceBinding", ["rootPath"]);
+  return {
+    rootPath: decodeString(requireField(record, "rootPath", "FolderResourceBinding"), "FolderResourceBinding.rootPath"),
+  };
+}
+
+export function decodeConversationPaneResourceBinding(value: unknown): ConversationPaneResourceBinding {
+  const record = assertRecord(value, "ConversationPaneResourceBinding");
+  assertKnownFields(record, "ConversationPaneResourceBinding", ["folder", "kind"]);
+  const result = {
+    folder: decodeNullable(requireField(record, "folder", "ConversationPaneResourceBinding"), "ConversationPaneResourceBinding.folder", (item) => decodeFolderResourceBinding(item)),
+    kind: decodeConversationPaneResourceBindingKind(requireField(record, "kind", "ConversationPaneResourceBinding"), "ConversationPaneResourceBinding.kind"),
+  };
+  switch (result.kind) {
+    case "folder": {
+      if (result.folder === null) {
+        throw new Error("ConversationPaneResourceBinding.folder is required when kind is folder");
+      }
+      return {
+        ...result,
+        kind: "folder",
+        folder: result.folder,
+      };
+    }
+    default:
+      throw new Error("ConversationPaneResourceBinding.kind is unsupported: " + result.kind);
+  }
+}
+
+export function decodeConversationPaneConfig(value: unknown): ConversationPaneConfig {
+  const record = assertRecord(value, "ConversationPaneConfig");
+  assertKnownFields(record, "ConversationPaneConfig", ["conversationId", "presentationIdentity", "resourceBindings"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "ConversationPaneConfig"), "ConversationPaneConfig.conversationId"),
+    presentationIdentity: decodeConversationPanePresentationIdentity(requireField(record, "presentationIdentity", "ConversationPaneConfig")),
+    resourceBindings: decodeArray(requireField(record, "resourceBindings", "ConversationPaneConfig"), "ConversationPaneConfig.resourceBindings", (item) => decodeConversationPaneResourceBinding(item)),
+  };
+}
+
+export function decodeMasterPaneConfig(value: unknown): MasterPaneConfig {
+  const record = assertRecord(value, "MasterPaneConfig");
+  assertKnownFields(record, "MasterPaneConfig", []);
+  return {
+  };
+}
+
+export function decodeAppPane(value: unknown): AppPane {
+  const record = assertRecord(value, "AppPane");
+  assertKnownFields(record, "AppPane", ["columnId", "conversationConfig", "heat", "masterConfig", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
+  const result = {
+    columnId: decodeString(requireField(record, "columnId", "AppPane"), "AppPane.columnId"),
+    conversationConfig: decodeNullable(requireField(record, "conversationConfig", "AppPane"), "AppPane.conversationConfig", (item) => decodeConversationPaneConfig(item)),
+    heat: decodeInteger(requireField(record, "heat", "AppPane"), "AppPane.heat"),
+    masterConfig: decodeNullable(requireField(record, "masterConfig", "AppPane"), "AppPane.masterConfig", (item) => decodeMasterPaneConfig(item)),
+    paneId: decodeString(requireField(record, "paneId", "AppPane"), "AppPane.paneId"),
+    sequence: decodeInteger(requireField(record, "sequence", "AppPane"), "AppPane.sequence"),
+    subtitle: decodeString(requireField(record, "subtitle", "AppPane"), "AppPane.subtitle"),
+    surfaceId: decodeString(requireField(record, "surfaceId", "AppPane"), "AppPane.surfaceId"),
+    surfaceKind: decodeAppPaneSurfaceKind(requireField(record, "surfaceKind", "AppPane"), "AppPane.surfaceKind"),
+    title: decodeString(requireField(record, "title", "AppPane"), "AppPane.title"),
+    tone: decodeAppPaneTone(requireField(record, "tone", "AppPane"), "AppPane.tone"),
+    weight: decodeNumber(requireField(record, "weight", "AppPane"), "AppPane.weight"),
+  };
+  switch (result.surfaceKind) {
+    case "master": {
+      if (result.masterConfig === null) {
+        throw new Error("AppPane.masterConfig is required when surfaceKind is master");
+      }
+      if (result.conversationConfig !== null) {
+        throw new Error("AppPane.conversationConfig must be null when surfaceKind is master");
+      }
+      return {
+        ...result,
+        surfaceKind: "master",
+        masterConfig: result.masterConfig,
+        conversationConfig: null,
+      };
+    }
+    case "conversation": {
+      if (result.masterConfig !== null) {
+        throw new Error("AppPane.masterConfig must be null when surfaceKind is conversation");
+      }
+      if (result.conversationConfig === null) {
+        throw new Error("AppPane.conversationConfig is required when surfaceKind is conversation");
+      }
+      return {
+        ...result,
+        surfaceKind: "conversation",
+        masterConfig: null,
+        conversationConfig: result.conversationConfig,
+      };
+    }
+    case "browser": {
+      if (result.masterConfig !== null) {
+        throw new Error("AppPane.masterConfig must be null when surfaceKind is browser");
+      }
+      if (result.conversationConfig !== null) {
+        throw new Error("AppPane.conversationConfig must be null when surfaceKind is browser");
+      }
+      return {
+        ...result,
+        surfaceKind: "browser",
+        masterConfig: null,
+        conversationConfig: null,
+      };
+    }
+    case "empty-frame": {
+      if (result.masterConfig !== null) {
+        throw new Error("AppPane.masterConfig must be null when surfaceKind is empty-frame");
+      }
+      if (result.conversationConfig !== null) {
+        throw new Error("AppPane.conversationConfig must be null when surfaceKind is empty-frame");
+      }
+      return {
+        ...result,
+        surfaceKind: "empty-frame",
+        masterConfig: null,
+        conversationConfig: null,
+      };
+    }
+    default:
+      throw new Error("AppPane.surfaceKind is unsupported: " + result.surfaceKind);
+  }
+}
+
+export function decodeAppPaneLayout(value: unknown): AppPaneLayout {
+  const record = assertRecord(value, "AppPaneLayout");
+  assertKnownFields(record, "AppPaneLayout", ["schemaVersion", "focusedPaneId", "maximizedPaneId", "columns", "panes"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "AppPaneLayout"), "AppPaneLayout.schemaVersion"),
+    focusedPaneId: decodeString(requireField(record, "focusedPaneId", "AppPaneLayout"), "AppPaneLayout.focusedPaneId"),
+    maximizedPaneId: decodeNullable(requireField(record, "maximizedPaneId", "AppPaneLayout"), "AppPaneLayout.maximizedPaneId", (item) => decodeString(item, "AppPaneLayout.maximizedPaneId")),
+    columns: decodeArray(requireField(record, "columns", "AppPaneLayout"), "AppPaneLayout.columns", (item) => decodeAppPaneColumn(item)),
+    panes: decodeArray(requireField(record, "panes", "AppPaneLayout"), "AppPaneLayout.panes", (item) => decodeAppPane(item)),
+  };
+}
+
+export function decodeAppPaneLayoutReadResult(value: unknown): AppPaneLayoutReadResult {
+  const record = assertRecord(value, "AppPaneLayoutReadResult");
+  assertKnownFields(record, "AppPaneLayoutReadResult", ["layout"]);
+  return {
+    layout: decodeNullable(requireField(record, "layout", "AppPaneLayoutReadResult"), "AppPaneLayoutReadResult.layout", (item) => decodeAppPaneLayout(item)),
+  };
+}
+
+export function decodeSaveAppPaneLayoutRequest(value: unknown): SaveAppPaneLayoutRequest {
+  const record = assertRecord(value, "SaveAppPaneLayoutRequest");
+  assertKnownFields(record, "SaveAppPaneLayoutRequest", ["layout"]);
+  return {
+    layout: decodeAppPaneLayout(requireField(record, "layout", "SaveAppPaneLayoutRequest")),
   };
 }
 
@@ -6819,6 +7183,8 @@ export interface BackendClient {
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayoutReadResult>;
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayout>;
+  readAppPaneLayout: (options?: BackendRequestOptions) => Promise<AppPaneLayoutReadResult>;
+  saveAppPaneLayout: (request: SaveAppPaneLayoutRequest, options?: BackendRequestOptions) => Promise<AppPaneLayout>;
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   archiveTopicConversation: (request: ArchiveTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   sendSideConversationTurn: (request: SendSideConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
@@ -7035,6 +7401,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceUILayout,
       endpoint: backendEndpoints.SaveWorkspaceUILayout,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readAppPaneLayout: (options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAppPaneLayoutReadResult,
+      endpoint: backendEndpoints.ReadAppPaneLayout,
+      fetchImpl,
+      requestPayload: undefined,
+      signal: options?.signal,
+    }),
+    saveAppPaneLayout: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAppPaneLayout,
+      endpoint: backendEndpoints.SaveAppPaneLayout,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

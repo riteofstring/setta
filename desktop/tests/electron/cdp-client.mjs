@@ -7,6 +7,11 @@ const driverScriptPath = join(driverScriptDir, "browser-driver.js");
 const driverExtensionScripts = [
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.appPaneLayoutVersion === "setta-app-pane-layout-driver-v1"',
+    path: join(driverScriptDir, "app-pane-layout-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.appWindowDragVersion === "setta-app-window-drag-driver-v1"',
     path: join(driverScriptDir, "app-window-drag-driver.js"),
   },

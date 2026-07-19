@@ -6,6 +6,8 @@ import type {
   AppearanceMasterVoiceShortcut,
   AppearancePresetList,
   AppearanceSettings,
+  AppPaneLayout,
+  AppPaneLayoutReadResult,
   BackendHealth,
   CancelMasterInputRequest,
   CancelCodexLoginRequest,
@@ -291,6 +293,10 @@ export interface SettaAPI {
   backend: {
     health: () => Promise<BackendHealth>;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
+  };
+  appLayout: {
+    readPaneLayout: () => Promise<AppPaneLayoutReadResult>;
+    savePaneLayout: (layout: AppPaneLayout) => Promise<AppPaneLayout>;
   };
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;

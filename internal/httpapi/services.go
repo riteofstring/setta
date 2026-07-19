@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"setta/internal/appearance"
+	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/master"
@@ -35,6 +36,11 @@ type WorkspaceService interface {
 type WorkspaceUIService interface {
 	ReadLayout(workspaceID string) (workspaceui.WorkspaceUILayoutReadResult, error)
 	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
+}
+
+type AppPaneLayoutService interface {
+	ReadLayout() (applayout.AppPaneLayoutReadResult, error)
+	SaveLayout(layout applayout.AppPaneLayout) (applayout.AppPaneLayout, error)
 }
 
 type ConversationService interface {
@@ -173,6 +179,7 @@ type RuntimeIdentityService interface {
 
 type HandlerConfig struct {
 	AppearanceService            AppearanceService
+	AppPaneLayoutService         AppPaneLayoutService
 	Metadata                     BackendMetadata
 	ConversationInputService     ConversationInputService
 	ConversationNavigatorService ConversationNavigatorService
@@ -192,6 +199,7 @@ type HandlerConfig struct {
 
 type handler struct {
 	appearanceService            AppearanceService
+	appPaneLayoutService         AppPaneLayoutService
 	metadata                     BackendMetadata
 	conversationInputService     ConversationInputService
 	conversationNavigatorService ConversationNavigatorService
@@ -220,6 +228,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 	}
 	apiHandler := handler{
 		appearanceService:            config.AppearanceService,
+		appPaneLayoutService:         config.AppPaneLayoutService,
 		metadata:                     config.Metadata,
 		conversationInputService:     config.ConversationInputService,
 		conversationNavigatorService: config.ConversationNavigatorService,

@@ -277,6 +277,20 @@ Native/browser pane key forwarding must route this shortcut to the shell.
 
 ### 1. Replace Workspace UI Layout With App Pane Layout
 
+**Status:** In progress.
+
+Completed repository work:
+
+- Added a Go-owned app pane layout contract, store, service, HTTP endpoints, generated TypeScript
+  surface, and Electron IPC/preload bridge.
+- Added a focused Electron workflow that round-trips the app pane layout through renderer preload,
+  main IPC, backend HTTP, and app-level layout storage.
+
+Remaining repository work:
+
+- Move the primary renderer shell from workspace-scoped layout load/save to the app pane layout API.
+- Delete workspace UI layout read/save usage from the primary shell path instead of bridging it.
+
 Create a new Go-owned app pane layout contract and generated TypeScript surface.
 
 Remove the workspace-scoped UI layout dependency from the primary renderer shell. Delete old

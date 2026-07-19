@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"setta/internal/appearance"
+	"setta/internal/applayout"
 	"setta/internal/appstate"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
@@ -76,6 +77,7 @@ type Server struct {
 
 type runtimeServices struct {
 	appearanceService        *appearance.Service
+	appPaneLayoutService     *applayout.Service
 	authStore                *runtimeauth.Store
 	bootstrapToken           string
 	codexAccountService      *codexaccount.Service
@@ -257,6 +259,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	closeConversationStoreOnFailure = false
 	return runtimeServices{
 		appearanceService:        baseServices.appearanceService,
+		appPaneLayoutService:     baseServices.appPaneLayoutService,
 		authStore:                authBootstrap.store,
 		bootstrapToken:           authBootstrap.bootstrapToken,
 		codexAccountService:      codexAccountService,
@@ -334,6 +337,18 @@ func newAppearanceService(appDataDir string) (*appearance.Service, error) {
 		return nil, fmt.Errorf("load appearance settings: %w", err)
 	}
 	return appearanceService, nil
+}
+
+func newAppPaneLayoutService(appDataDir string) (*applayout.Service, error) {
+	store, err := applayout.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create app pane layout store: %w", err)
+	}
+	service, err := applayout.NewService(store)
+	if err != nil {
+		return nil, fmt.Errorf("create app pane layout service: %w", err)
+	}
+	return service, nil
 }
 
 func newWorkspaceService(appDataDir string) (*workspacesession.Service, error) {
