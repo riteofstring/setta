@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -11,6 +12,7 @@ import (
 var (
 	ErrAmbiguousInventory = errors.New("hosted measurement provider inventory is ambiguous")
 	ErrProviderNotFound   = errors.New("hosted measurement provider resource not found")
+	flyImagePattern       = regexp.MustCompile(`^[a-z0-9][a-z0-9._:/-]{0,254}@sha256:[a-f0-9]{64}$`)
 )
 
 type ProviderResource struct {
@@ -97,7 +99,7 @@ func (provisioner Provisioner) validate(imageReference string) error {
 	if provisioner.Fly == nil || provisioner.State == nil || provisioner.Now == nil {
 		return errors.New("hosted measurement provisioner requires Fly, clock, and durable state")
 	}
-	if imageReference == "" || !strings.Contains(imageReference, "@sha256:") {
+	if !flyImagePattern.MatchString(imageReference) {
 		return errors.New("hosted measurement requires a registry image pinned by digest")
 	}
 	return nil

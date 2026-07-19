@@ -216,7 +216,8 @@ Implemented on 2026-07-20:
 7. The Fly provider binding uses separate inventory and mutation credentials,
    bounded typed Machines API responses, exact App/volume/Machine identities,
    and the fixed one-CPU/256-MiB/one-volume service shape. It rejects an image
-   that is not a registry reference pinned by digest.
+   that is not a registry reference pinned by a complete SHA-256 digest and
+   rejects a created Machine unless the provider attests that same digest.
 8. Secret staging invokes an absolute resolved `flyctl` binary without a
    shell, imports exactly `SPRITE_TOKEN` and the base64-encoded inner runtime
    credential through stdin, and excludes inherited provider credentials.

@@ -97,7 +97,7 @@ func TestFlyMachinesClientVolumeLifecycleEnforcesDisposableShape(t *testing.T) {
 
 func TestFlyMachinesClientMachineLifecycleRendersFixedProductionShape(t *testing.T) {
 	spec := testMachineSpec()
-	machineResponse := `{"id":"machine_123","name":"setta-gateway-night-machine","region":"yyz","state":"started"}`
+	machineResponse := `{"id":"machine_123","name":"setta-gateway-night-machine","region":"yyz","state":"started","image_ref":{"digest":"sha256:` + strings.Repeat("a", 64) + `"}}`
 	script := &flyAPIScript{t: t, requests: []flyExpectedRequest{
 		{
 			method: http.MethodGet, path: "/v1/apps/setta-gateway-night/machines", token: testInventoryToken,
@@ -148,6 +148,26 @@ func TestFlyMachinesClientRejectsUnsafeConfigurationAndWrongShape(t *testing.T) 
 	if _, err := client.CreateMachine(context.Background(), badMachine); err == nil {
 		t.Fatal("CreateMachine accepted a non-fixed shape")
 	}
+	badMachine = testMachineSpec()
+	badMachine.ImageReference = "registry.fly.io/setta-gateway-night@sha256:abc"
+	if _, err := client.CreateMachine(context.Background(), badMachine); err == nil {
+		t.Fatal("CreateMachine accepted a malformed image digest")
+	}
+}
+
+func TestFlyMachinesClientRejectsCreatedMachineWithDifferentImageDigest(t *testing.T) {
+	spec := testMachineSpec()
+	response := `{"id":"machine_123","name":"setta-gateway-night-machine","region":"yyz","image_ref":{"digest":"sha256:` + strings.Repeat("b", 64) + `"}}`
+	script := &flyAPIScript{t: t, requests: []flyExpectedRequest{{
+		method: http.MethodPost, path: "/v1/apps/setta-gateway-night/machines", token: testMutationToken,
+		status: http.StatusOK, response: response, body: buildCreateMachineRequest(spec),
+	}}}
+	client, closeServer := newTestFlyMachinesClient(t, script)
+	defer closeServer()
+	if _, err := client.CreateMachine(context.Background(), spec); err == nil {
+		t.Fatal("CreateMachine accepted a response attesting a different image digest")
+	}
+	script.assertComplete()
 }
 
 func TestFlyMachinesClientErrorsAreContentFreeAndMapNotFound(t *testing.T) {
@@ -176,7 +196,7 @@ func TestFlyMachinesClientErrorsAreContentFreeAndMapNotFound(t *testing.T) {
 func testMachineSpec() MachineSpec {
 	return MachineSpec{
 		AppName: "setta-gateway-night", Name: "setta-gateway-night-machine", Region: "yyz",
-		ImageReference: "registry.fly.io/setta-gateway-night@sha256:abc", VolumeID: "vol_123", VolumeMountPath: "/data",
+		ImageReference: testImageReference(), VolumeID: "vol_123", VolumeMountPath: "/data",
 		CPUKind: "shared", CPUs: 1, MemoryMiB: 256, InternalPort: 8080, ForceHTTPS: true,
 		HardConcurrencyLimit: 64, AutoStartMachines: true, AutoStopMachines: "stop", MinimumMachines: 0,
 		HealthPath: "/healthz",

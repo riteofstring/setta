@@ -14,6 +14,10 @@ import (
 
 var testAuthorizedAt = time.Date(2026, 7, 20, 1, 0, 0, 0, time.UTC)
 
+func testImageReference() string {
+	return "registry.fly.io/setta-gateway-night@sha256:" + strings.Repeat("a", 64)
+}
+
 func TestLoadManifestValidatesStrictAuthorizationAndCleanupExpiryException(t *testing.T) {
 	directory, path := writeTestManifest(t, validManifest(), nil)
 	authorization, err := LoadManifest(path, testAuthorizedAt.Add(10*time.Minute), ValidateForStart)
@@ -197,7 +201,7 @@ func TestProvisionerAdoptsAmbiguousCreateAndResumesAfterFailure(t *testing.T) {
 	fly.machineCreateError = errors.New("injected machine failure")
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, "registry.fly.io/app@sha256:image"); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
 		t.Fatal("ProvisionFly succeeded across machine failure")
 	}
 	assertInterruptedProvisionState(t, store.Snapshot())
@@ -207,7 +211,7 @@ func TestProvisionerAdoptsAmbiguousCreateAndResumesAfterFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	provisioner.State = restarted
-	if err := provisioner.ProvisionFly(context.Background(), authorization, "registry.fly.io/app@sha256:image"); err != nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err != nil {
 		t.Fatalf("restart ProvisionFly: %v", err)
 	}
 	assertRestartedProvision(t, restarted.Snapshot(), fly)
@@ -255,7 +259,7 @@ func TestProvisionerDeadlineTransitionsToCleanupWithoutFurtherCreates(t *testing
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	fly.afterCreateApp = func() { now = authorization.CleanupDeadline.Add(-10 * time.Minute) }
 	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, "registry.fly.io/app@sha256:image"); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
 		t.Fatal("ProvisionFly continued into the teardown reserve")
 	}
 	if store.Snapshot().Phase != PhaseCleaning || fly.createVolumeCalls != 0 {
@@ -280,7 +284,7 @@ func TestDurableIntentRecoversCreateAfterResourceJournalInterruption(t *testing.
 	fly := newFakeFly()
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, "registry.fly.io/app@sha256:image"); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
 		t.Fatal("ProvisionFly succeeded across interrupted resource journal write")
 	}
 	if len(fly.apps) != 1 {

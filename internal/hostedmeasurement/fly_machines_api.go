@@ -185,6 +185,10 @@ func (client *FlyMachinesClient) CreateMachine(ctx context.Context, spec Machine
 	if resource.Name != spec.Name || resource.Region != spec.Region {
 		return ProviderResource{}, errors.New("created Fly machine response differs from the requested identity or region")
 	}
+	wantDigest := spec.ImageReference[strings.LastIndex(spec.ImageReference, "@")+1:]
+	if response.ImageReference.Digest != wantDigest {
+		return ProviderResource{}, errors.New("created Fly machine did not attest the requested image digest")
+	}
 	return resource, nil
 }
 
@@ -362,7 +366,7 @@ func validateMachineSpec(spec MachineSpec) error {
 }
 
 func validateMachineIdentity(spec MachineSpec) error {
-	if spec.AppName == "" || spec.Name == "" || !regionPattern.MatchString(spec.Region) || !strings.Contains(spec.ImageReference, "@sha256:") {
+	if spec.AppName == "" || spec.Name == "" || !regionPattern.MatchString(spec.Region) || !flyImagePattern.MatchString(spec.ImageReference) {
 		return errors.New("Fly machine spec requires app, name, region, and digest-pinned image")
 	}
 	return nil
@@ -548,9 +552,14 @@ type flyMachineRestart struct {
 }
 
 type flyMachineResponse struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Region string `json:"region"`
+	ID             string                   `json:"id"`
+	Name           string                   `json:"name"`
+	Region         string                   `json:"region"`
+	ImageReference flyMachineImageReference `json:"image_ref"`
+}
+
+type flyMachineImageReference struct {
+	Digest string `json:"digest"`
 }
 
 var _ FlyProvider = (*FlyMachinesClient)(nil)
