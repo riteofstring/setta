@@ -43,6 +43,41 @@ describe("conversation event registry", () => {
     expect(harness.stop).toHaveBeenCalledOnce();
   });
 
+  test("stops when a stream is released after terminal status but before terminal narration", async () => {
+    const harness = registryHarness();
+    harness.registry.subscribe(harness.sender, target, cursor);
+
+    harness.forward(conversationUpdated("idle"));
+    await harness.registry.release(harness.sender, target, true);
+    harness.forward(narrationCreated("final_summary", "turn_terminal"));
+    await Promise.resolve();
+
+    expect(harness.stop).toHaveBeenCalledOnce();
+  });
+
+  test("stops immediately when a stream is released after terminal narration completed", async () => {
+    const harness = registryHarness();
+    harness.registry.subscribe(harness.sender, target, cursor);
+
+    harness.forward(conversationUpdated("idle"));
+    harness.forward(narrationCreated("final_summary", "turn_terminal"));
+    await harness.registry.release(harness.sender, target, true);
+    await Promise.resolve();
+
+    expect(harness.stop).toHaveBeenCalledOnce();
+  });
+
+  test("keeps an active subscription after terminal narration completed", async () => {
+    const harness = registryHarness();
+    harness.registry.subscribe(harness.sender, target, cursor);
+
+    harness.forward(narrationCreated("final_summary", "turn_terminal"));
+    harness.forward(conversationUpdated("idle"));
+    await Promise.resolve();
+
+    expect(harness.stop).not.toHaveBeenCalled();
+  });
+
   test("stops immediately when a released stream is not kept alive", async () => {
     const harness = registryHarness();
     harness.registry.subscribe(harness.sender, target, cursor);

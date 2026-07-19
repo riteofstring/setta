@@ -91,6 +91,9 @@ export class ConversationEventRegistry {
       return Promise.resolve();
     }
     current.keepAlive = keepAlive;
+    if (keepAlive && terminalBoundaryComplete(current)) {
+      return this.stop(key);
+    }
     return keepAlive ? Promise.resolve() : this.stop(key);
   }
 
@@ -115,9 +118,6 @@ export class ConversationEventRegistry {
     current: RegisteredConversationStream,
     event: ConversationEvent,
   ): boolean {
-    if (!current.keepAlive) {
-      return false;
-    }
     switch (event.payload.type) {
       case "conversation.updated":
         if (conversationHasActiveWork(event.payload.conversation.status)) {
@@ -126,13 +126,13 @@ export class ConversationEventRegistry {
           return false;
         }
         current.terminalStatusSeen = true;
-        return current.terminalNarrationSeen;
+        return current.keepAlive && terminalBoundaryComplete(current);
       case "conversation.narration.created":
         if (!terminalFinalSummary(event.payload.event)) {
           return false;
         }
         current.terminalNarrationSeen = true;
-        return current.terminalStatusSeen;
+        return current.keepAlive && terminalBoundaryComplete(current);
       default:
         return false;
     }
@@ -197,6 +197,10 @@ function terminalFinalSummary(
   event: Extract<ConversationEvent["payload"], { type: "conversation.narration.created" }>["event"],
 ): boolean {
   return event.kind === "final_summary" && event.trigger === "turn_terminal";
+}
+
+function terminalBoundaryComplete(current: RegisteredConversationStream): boolean {
+  return current.terminalStatusSeen && current.terminalNarrationSeen;
 }
 
 function assertNever(value: never): never {
