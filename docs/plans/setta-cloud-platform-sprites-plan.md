@@ -1136,6 +1136,11 @@ passed, teardown was verified, and the organization returned to empty.
   test client, can reconnect after the laptop closes and across a mobile
   network transition. This does not select the product phone architecture.
 
+The remaining hosted-gateway measurement now has a fail-closed deployment,
+authorization, teardown, and inventory design in
+`hosted-control-plane-measurement-runbook-20260720.md`. It deliberately leaves
+the Fly organization and region blank until newly authorized.
+
 Exit: the selected path has pre-declared latency, revocation, security, wake,
 and cost behavior, and no Fly signup, provider token, or manual endpoint entry
 is required by the end user.

@@ -155,10 +155,11 @@ Deterministic tests cover:
 This is not yet ready for the time-limited hosted run. The following offline
 work remains:
 
-1. Choose and implement the ephemeral hosting adapter and intended measurement
-   region without creating resources.
-2. Add the authorization-manifest gate, hard cleanup deadline, independent
-   inventory proof, and deployment teardown path.
+1. Implement the selected one-App/one-Machine/one-volume Fly adapter from
+   `hosted-control-plane-measurement-runbook-20260720.md`; the Fly organization
+   and region remain intentionally unselected pending new authorization.
+2. Implement the recorded authorization-manifest gate, hard cleanup deadline,
+   independent inventory proof, and deployment teardown path.
 3. Add signed runtime installation, attestation, credential issuance, and
    health stages to the provisioning state machine before it may mark a runtime
    ready.
