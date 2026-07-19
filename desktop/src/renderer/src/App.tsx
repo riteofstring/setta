@@ -114,8 +114,8 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const settingsRouteWasOpenRef = useRef(false);
   const settingsRoute = useSettingsNavigationStore((state) => state.route);
   const openSettings = useSettingsNavigationStore((state) => state.openSettings);
-  const openOpenAIVoiceConnection = useSettingsNavigationStore(
-    (state) => state.openOpenAIVoiceConnection,
+  const openVoiceProviderSelection = useSettingsNavigationStore(
+    (state) => state.openVoiceProviderSelection,
   );
   const closeSettings = useSettingsNavigationStore((state) => state.closeSettings);
   const settingsPageOpen = settingsRoute.page === "settings";
@@ -139,8 +139,8 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }, [captureSettingsFocusOrigin, openSettings]);
   const openVoiceCredentialSettings = useCallback(() => {
     captureSettingsFocusOrigin();
-    openOpenAIVoiceConnection();
-  }, [captureSettingsFocusOrigin, openOpenAIVoiceConnection]);
+    openVoiceProviderSelection();
+  }, [captureSettingsFocusOrigin, openVoiceProviderSelection]);
   const closeSettingsPage = useCallback(() => {
     closeSettings();
   }, [closeSettings]);

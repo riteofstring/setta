@@ -4,6 +4,7 @@ import type {
   SpeechCredentialSaveRequest,
   SpeechCredentialSettings,
 } from "@shared/speech-ipc";
+import { openAISpeechProviderID } from "@shared/speech-providers";
 import {
   ExternalLink,
   KeyRound,
@@ -24,6 +25,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 const openAIApiKeysURL = "https://platform.openai.com/api-keys";
+const openAIProvider = openAISpeechProviderID();
 
 export function OpenAIVoiceConnectionCard({
   activeRuntimeVoiceStatus = null,
@@ -52,7 +54,7 @@ export function OpenAIVoiceConnectionCard({
       return;
     }
     setOperation("read");
-    void readCredentialSettings().then(
+    void readCredentialSettings({ provider: openAIProvider }).then(
       (next) => {
         setSettings(next);
         setOperation(null);
@@ -118,7 +120,7 @@ export function OpenAIVoiceConnectionCard({
       return;
     }
     setOperation("remove");
-    void removeCredential().then(
+    void removeCredential({ provider: openAIProvider }).then(
       (next) => {
         setApiKeyDraft("");
         setMode(null);
@@ -213,8 +215,7 @@ export function OpenAIVoiceConnectionCardView({
               OpenAI voice connection
             </h2>
             <p className="text-[11px] leading-4 text-muted-foreground">
-              Local desktop credential. Applies to Local only. OpenAI bills API usage separately
-              from ChatGPT.
+              Optional cloud voice provider. OpenAI bills API usage separately from ChatGPT.
             </p>
           </div>
         </div>
@@ -553,7 +554,7 @@ export function speechCredentialSaveRequestFromDraft(
   if (apiKeyDraft.trim().length === 0) {
     return null;
   }
-  return { apiKey: apiKeyDraft };
+  return { provider: openAIProvider, apiKey: apiKeyDraft };
 }
 
 function speechCredentialStatusPresentation(settings: SpeechCredentialSettings): {
@@ -654,6 +655,8 @@ function activeRuntimeVoiceStatusPresentation(status: ActiveRuntimeVoiceStatus):
 
 function providerLabel(provider: SpeechProvider): string {
   switch (provider) {
+    case "local_macos":
+      return "Local macOS";
     case "openai":
       return "OpenAI";
     default:

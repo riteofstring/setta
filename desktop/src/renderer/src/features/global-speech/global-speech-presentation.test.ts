@@ -1,8 +1,4 @@
-import {
-  speechVoiceIDValues,
-  type ConversationInput,
-  type SpeechCapabilities,
-} from "@generated/backend";
+import { type ConversationInput, type SpeechCapabilities } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import type { AppShellSpeechCaptureSnapshot } from "./app-shell-speech-capture-controller";
@@ -161,7 +157,8 @@ describe("global speech presentation", () => {
     const capture = globalSpeechCapturePresentation(
       captureSnapshot({
         availability: {
-          message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+          message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
+          provider: "openai",
           setupAction: "open_voice_credential_settings",
           type: "not_configured",
         },
@@ -169,15 +166,13 @@ describe("global speech presentation", () => {
     );
 
     expect(capture).toEqual({
-      message: "Voice is not connected. Add your OpenAI API key in Settings -> Voices.",
+      message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
       setupAction: "open_voice_credential_settings",
       source: null,
       state: "unavailable",
     });
     expect(shellSpeechCaptureAction(capture)).toBe("open_voice_credential_settings");
-    expect(shellSpeechCaptureControlLabel(capture)).toBe(
-      "Set up OpenAI voice in Settings -> Voices",
-    );
+    expect(shellSpeechCaptureControlLabel(capture)).toBe("Open voice settings");
     expect(
       paneSpeechPresentation(capture, idlePlayback(), {
         conversationId: "conversation-alpha",
@@ -186,7 +181,7 @@ describe("global speech presentation", () => {
     ).toMatchObject({
       captureState: "unavailable",
       voiceControlDisabled: false,
-      voiceControlLabel: "Set up OpenAI voice in Settings -> Voices",
+      voiceControlLabel: "Open voice settings",
       voiceControlSetupAction: "open_voice_credential_settings",
     });
   });
@@ -261,7 +256,7 @@ function capabilities(): SpeechCapabilities {
     voiceCatalog: {
       provider: "openai",
       version: "test",
-      voiceIds: [...speechVoiceIDValues],
+      voiceIds: ["marin", "cedar"],
     },
   };
 }

@@ -70,6 +70,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "local-macos-voice-capture-workflow.test.mjs",
+    name: "local-macos-voice-capture",
+    tiers: ["required"],
+  },
+  {
     file: "topic-conversation-speech-arbitration.test.mjs",
     name: "topic-conversation-speech-arbitration",
     tiers: ["required"],

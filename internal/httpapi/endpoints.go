@@ -100,6 +100,7 @@ var apiEndpoints = []endpoint{
 	postWithRequestBodyLimit[SpeechCredentialRequest, speech.SpeechCredentialStatus]("LoadDesktopSpeechCredential", "/speech/credentials/desktop/load", speechRequestBodyLimitBytes, handler.loadDesktopSpeechCredential),
 	postWithRequestBodyLimit[ClearDesktopSpeechCredentialRequest, speech.SpeechCredentialStatus]("ClearDesktopSpeechCredential", "/speech/credentials/desktop/clear", speechRequestBodyLimitBytes, handler.clearDesktopSpeechCredential),
 	postWithRequestBodyLimit[CreateSpeechTranscriptionSessionRequest, speech.SpeechTranscriptionSession]("CreateSpeechTranscriptionSession", "/speech/transcription/sessions", speechRequestBodyLimitBytes, handler.createSpeechTranscriptionSession),
+	postWithRequestBodyLimit[speech.SpeechSynthesisRequest, speech.SpeechSynthesisInput]("ResolveSpeechSynthesisInput", "/speech/synthesis/resolve", speechRequestBodyLimitBytes, handler.resolveSpeechSynthesisInput),
 	postWithRequestBodyLimit[speech.SpeechSynthesisRequest, speech.SpeechAudio]("SynthesizeSpeech", "/speech/synthesis", speechRequestBodyLimitBytes, handler.synthesizeSpeech),
 	get[codexaccount.CodexAccountState]("ReadCodexAccount", "/codex/account", handler.readCodexAccount),
 	post[codexaccount.RefreshCodexAccountRequest, codexaccount.CodexAccountState]("RefreshCodexAccount", "/codex/account/refresh", handler.refreshCodexAccount),

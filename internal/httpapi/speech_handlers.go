@@ -95,7 +95,12 @@ func (handler handler) validateDesktopSpeechCredential(response http.ResponseWri
 	if !ok {
 		return
 	}
-	result, err := service.ValidateCredential(request.Context(), payload.APIKey, device.ID)
+	result, err := service.ValidateCredential(
+		request.Context(),
+		payload.Provider,
+		payload.APIKey,
+		device.ID,
+	)
 	if err != nil {
 		writeSpeechError(response, "validate_desktop_speech_credential_failed", err)
 		return
@@ -112,7 +117,7 @@ func (handler handler) loadDesktopSpeechCredential(response http.ResponseWriter,
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	status, err := service.LoadCredential(request.Context(), payload.APIKey)
+	status, err := service.LoadCredential(request.Context(), payload.Provider, payload.APIKey)
 	if err != nil {
 		writeSpeechError(response, "load_desktop_speech_credential_failed", err)
 		return
@@ -129,7 +134,7 @@ func (handler handler) clearDesktopSpeechCredential(response http.ResponseWriter
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	status, err := service.ClearCredential(request.Context())
+	status, err := service.ClearCredential(request.Context(), payload.Provider)
 	if err != nil {
 		writeSpeechError(response, "clear_desktop_speech_credential_failed", err)
 		return
@@ -150,12 +155,33 @@ func (handler handler) createSpeechTranscriptionSession(response http.ResponseWr
 	if !ok {
 		return
 	}
-	session, err := service.CreateTranscriptionSession(request.Context(), device.ID)
+	session, err := service.CreateTranscriptionSession(
+		request.Context(),
+		payload.Provider,
+		device.ID,
+	)
 	if err != nil {
 		writeSpeechError(response, "create_speech_transcription_session_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, session)
+}
+
+func (handler handler) resolveSpeechSynthesisInput(response http.ResponseWriter, request *http.Request) {
+	service := requireSpeechService(response, handler.speechService)
+	if service == nil {
+		return
+	}
+	var payload speech.SpeechSynthesisRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	input, err := service.ResolveSynthesisInput(request.Context(), payload)
+	if err != nil {
+		writeSpeechError(response, "resolve_speech_synthesis_input_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, input)
 }
 
 func (handler handler) synthesizeSpeech(response http.ResponseWriter, request *http.Request) {

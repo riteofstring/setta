@@ -26,6 +26,14 @@ import {
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import {
+  createLocalMacOSVoiceHelperFromEnvironment,
+  type LocalMacOSVoiceHelper,
+} from "./local-macos-voice-helper";
+import {
+  createLocalMacOSVoiceModelDownloadService,
+  type LocalMacOSVoiceModelDownloadService,
+} from "./local-macos-voice-model-download";
 import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
@@ -37,6 +45,7 @@ import {
   SpeechCredentialVault,
 } from "./speech-credential-vault";
 import { registerSpeechIpcHandlers } from "./speech-ipc";
+import { SpeechProviderSelectionStore } from "./speech-provider-selection-store";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
@@ -47,10 +56,13 @@ let codexAccountEventStream: CodexAccountEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
+let localMacOSVoiceHelper: LocalMacOSVoiceHelper | null = null;
+let localMacOSVoiceModelDownloadService: LocalMacOSVoiceModelDownloadService | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
 let speechCredentialCoordinator: SpeechCredentialCoordinator | null = null;
+let speechProviderSelectionStore: SpeechProviderSelectionStore | null = null;
 const backendRequests = createBackendRequestLifecycle();
 const localBackendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
@@ -75,6 +87,13 @@ function desktopRoot() {
 }
 function repoRoot() {
   return resolve(desktopRoot(), "..");
+}
+function localMacOSVoiceResourceRoots() {
+  return [
+    join(process.resourcesPath, "local-macos-voice"),
+    join(desktopRoot(), "out", "local-macos-voice"),
+    join(desktopRoot(), "resources", "local-macos-voice"),
+  ];
 }
 async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
@@ -205,6 +224,22 @@ function broadcastSpeechCredentialSettings(settings: unknown) {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) {
       window.webContents.send(ipcEvents.speechCredentialSettingsChanged, settings);
+    }
+  }
+}
+
+function broadcastSpeechProviderSelection(settings: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechProviderSelectionChanged, settings);
+    }
+  }
+}
+
+function broadcastLocalMacOSVoiceModelDownload(status: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, status);
     }
   }
 }
@@ -549,8 +584,12 @@ function registerIpc() {
   registerSpeechIpcHandlers({
     ipcMain,
     ipcObserver,
+    onProviderSelectionChanged: broadcastSpeechProviderSelection,
+    requireLocalMacOSVoiceHelper,
+    requireLocalMacOSVoiceModelDownloadService,
     requireBackendClient,
     requireSpeechCredentialCoordinator,
+    requireSpeechProviderSelectionStore,
   });
   registerMasterIpcHandlers({
     ipcMain,
@@ -676,6 +715,27 @@ function requireSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
   return speechCredentialCoordinator;
 }
 
+function requireSpeechProviderSelectionStore(): SpeechProviderSelectionStore {
+  if (!speechProviderSelectionStore) {
+    throw new Error("speech provider selection store is not ready");
+  }
+  return speechProviderSelectionStore;
+}
+
+function requireLocalMacOSVoiceHelper(): LocalMacOSVoiceHelper {
+  if (!localMacOSVoiceHelper) {
+    throw new Error("local macOS voice helper is not ready");
+  }
+  return localMacOSVoiceHelper;
+}
+
+function requireLocalMacOSVoiceModelDownloadService(): LocalMacOSVoiceModelDownloadService {
+  if (!localMacOSVoiceModelDownloadService) {
+    throw new Error("local macOS voice model download service is not ready");
+  }
+  return localMacOSVoiceModelDownloadService;
+}
+
 function createSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
   let vault: SpeechCredentialVault | null = null;
   let secureStorageUnavailableMessage: string | undefined;
@@ -729,6 +789,23 @@ app.whenReady().then(async () => {
     repoRoot: repoRoot(),
   });
   speechCredentialCoordinator = createSpeechCredentialCoordinator();
+  speechProviderSelectionStore = new SpeechProviderSelectionStore(
+    app.getPath("userData"),
+    process.platform,
+  );
+  localMacOSVoiceModelDownloadService = createLocalMacOSVoiceModelDownloadService({
+    onStatusChanged: broadcastLocalMacOSVoiceModelDownload,
+    platform: process.platform,
+    userDataDir: app.getPath("userData"),
+  });
+  localMacOSVoiceHelper = createLocalMacOSVoiceHelperFromEnvironment(
+    process.env,
+    process.platform,
+    {
+      defaultModel: localMacOSVoiceModelDownloadService.defaultModelConfiguration(),
+      resourceRoots: localMacOSVoiceResourceRoots(),
+    },
+  );
   await prepareBackend(appDataDir);
   await createWindow();
 });
@@ -760,6 +837,10 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  localMacOSVoiceModelDownloadService?.shutdown();
+  localMacOSVoiceModelDownloadService = null;
+  localMacOSVoiceHelper?.shutdown();
+  localMacOSVoiceHelper = null;
   recorder?.close();
 });
 

@@ -331,7 +331,7 @@ function assertUnconfiguredSpeechCapabilities(capabilities) {
 async function readConfiguredSpeechState(client) {
   const credentialSettings = await waitForState(
     client,
-    "window.setta.speech.readCredentialSettings()",
+    'window.setta.speech.readCredentialSettings({ provider: "openai" })',
     (settings) => settings?.status === "configured",
     workflowTimeoutMs,
   );
@@ -342,7 +342,9 @@ async function readConfiguredSpeechState(client) {
     workflowTimeoutMs,
   );
   assertConfiguredSpeechCapabilities(capabilities);
-  const session = await client.evaluate("window.setta.speech.createTranscriptionSession()");
+  const session = await client.evaluate(
+    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
+  );
   assertTranscriptionSession(session);
   return {
     capabilities,

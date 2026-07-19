@@ -10,7 +10,10 @@ import type {
   SpeechPlaybackSnapshot,
   SpeechPlaybackState,
 } from "./app-shell-speech-playback-controller";
-import type { SpeechCredentialSetupAction } from "./speech-capture-availability";
+import {
+  type VoiceProviderSetupAction,
+  voiceProviderSetupActionLabel,
+} from "./speech-capture-availability";
 import type { SpeechCaptureRequest } from "./speech-capture-destination";
 
 type GlobalSpeechSource =
@@ -27,7 +30,7 @@ export type GlobalSpeechCapturePresentation =
   | { source: null; state: "idle" }
   | {
       message: string;
-      setupAction: SpeechCredentialSetupAction | null;
+      setupAction: VoiceProviderSetupAction | null;
       source: null;
       state: "unavailable";
     }
@@ -67,7 +70,7 @@ export interface PaneSpeechPresentation {
   transcriptPreview: string | null;
   voiceControlDisabled: boolean;
   voiceControlLabel: string;
-  voiceControlSetupAction: SpeechCredentialSetupAction | null;
+  voiceControlSetupAction: VoiceProviderSetupAction | null;
 }
 
 export interface GlobalSpeechPresentationSource {
@@ -78,7 +81,7 @@ export interface GlobalSpeechPresentationSource {
 export type ShellSpeechCaptureAction =
   | "cancel"
   | "commit"
-  | SpeechCredentialSetupAction
+  | VoiceProviderSetupAction
   | "retry_conversation"
   | "retry_master"
   | "start"
@@ -278,7 +281,7 @@ export function shellSpeechCaptureLabel(
     return capture.message;
   }
   if (capture.state === "unavailable") {
-    return capture.setupAction === null ? capture.message : voiceCredentialSetupLabel;
+    return unavailableCaptureControlLabel(capture);
   }
   const destination = speechSourceLabel(capture.source, sourceConversationTitle);
   return shellCaptureLabelers[capture.state](destination);
@@ -295,7 +298,7 @@ export function shellSpeechCaptureControlLabel(
       : `Retry the voice request for ${destination}`;
   }
   if (capture.state === "unavailable") {
-    return capture.setupAction === null ? capture.message : voiceCredentialSetupLabel;
+    return unavailableCaptureControlLabel(capture);
   }
   return shellCaptureControlLabelers[capture.state](destination);
 }
@@ -602,7 +605,7 @@ function panePlaybackLabel(
 interface PaneVoiceControl {
   disabled: boolean;
   label: string;
-  setupAction: SpeechCredentialSetupAction | null;
+  setupAction: VoiceProviderSetupAction | null;
 }
 
 function paneVoiceControl(
@@ -618,7 +621,7 @@ function paneVoiceControl(
   if (capture.state === "unavailable") {
     return {
       disabled: capture.setupAction === null,
-      label: capture.setupAction === null ? capture.message : voiceCredentialSetupLabel,
+      label: unavailableCaptureControlLabel(capture),
       setupAction: capture.setupAction,
     };
   }
@@ -668,7 +671,13 @@ function recordingPaneVoiceControl(scope: PaneSpeechSourceScope) {
   return activePaneVoiceControl(scope);
 }
 
-const voiceCredentialSetupLabel = "Set up OpenAI voice in Settings -> Voices";
+function unavailableCaptureControlLabel(
+  capture: Extract<GlobalSpeechCapturePresentation, { state: "unavailable" }>,
+): string {
+  return capture.setupAction === null
+    ? capture.message
+    : voiceProviderSetupActionLabel(capture.setupAction);
+}
 
 function speechSourceLabel(
   source: GlobalSpeechSource | null,

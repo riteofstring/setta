@@ -1,4 +1,5 @@
 import type { SettaAPI } from "@shared/types";
+import type { LocalMacOSVoiceModelDownloadStatus } from "@shared/speech-ipc";
 import {
   createContext,
   type ReactNode,
@@ -17,11 +18,17 @@ import {
   AppShellSpeechCaptureController,
   type AppShellSpeechCaptureControllerDependencies,
   type AppShellSpeechCaptureSnapshot,
-  browserSpeechCaptureSupport,
 } from "./app-shell-speech-capture-controller";
 import type { AppShellSpeechPlaybackController } from "./app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "./global-speech-presentation";
 import { createBufferedMicrophoneCapture } from "./buffered-microphone-capture";
+import {
+  createOpenAIBrowserSpeechCaptureProvider,
+  type OpenAIBrowserSpeechCaptureProviderDependencies,
+} from "./openai-speech-capture-provider";
+import { createDesktopVoiceInputProvider } from "./desktop-speech-provider-coordinator";
+import { createLocalMacOSSpeechCaptureProvider } from "./local-macos-speech-capture-provider";
+import { openAISpeechProviderID } from "./openai-speech-provider-id";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 
 export interface AppShellSpeechCaptureContextValue {
@@ -82,10 +89,7 @@ export function AppShellSpeechCaptureProvider({
   useEffect(() => {
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);
-  useEffect(
-    () => subscribeSpeechCredentialCapabilityRefresh(setta, controller),
-    [controller, setta],
-  );
+  useEffect(() => subscribeSpeechCapabilityRefresh(setta, controller), [controller, setta]);
 
   return (
     <AppShellSpeechCaptureContext.Provider value={context}>
@@ -94,15 +98,35 @@ export function AppShellSpeechCaptureProvider({
   );
 }
 
-export function subscribeSpeechCredentialCapabilityRefresh(
+export function subscribeSpeechCapabilityRefresh(
   setta: SettaAPI,
   controller: Pick<AppShellSpeechCaptureController, "refreshCapabilities">,
 ): () => void {
-  return (
+  const unsubscribeCredential =
     setta.speech.onCredentialSettingsChanged?.(() => {
       void controller.refreshCapabilities();
-    }) ?? (() => {})
-  );
+    }) ?? (() => {});
+  const unsubscribeProvider =
+    setta.speech.onProviderSelectionChanged?.(() => {
+      void controller.refreshCapabilities();
+    }) ?? (() => {});
+  const unsubscribeLocalMacOSDownload =
+    setta.speech.onLocalMacOSVoiceModelDownloadChanged?.((status) => {
+      if (localMacOSDownloadChangesCaptureReadiness(status)) {
+        void controller.refreshCapabilities();
+      }
+    }) ?? (() => {});
+  return () => {
+    unsubscribeCredential();
+    unsubscribeLocalMacOSDownload();
+    unsubscribeProvider();
+  };
+}
+
+function localMacOSDownloadChangesCaptureReadiness(
+  status: LocalMacOSVoiceModelDownloadStatus,
+): boolean {
+  return status.status === "ready";
 }
 
 interface SpeechCaptureControllerDisposable {
@@ -149,11 +173,10 @@ function browserControllerDependencies(
   onCaptureStart: (() => void) | undefined,
   onCaptureEnd: (() => void) | undefined,
 ): AppShellSpeechCaptureControllerDependencies {
-  return {
-    clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+  const providerDependencies: OpenAIBrowserSpeechCaptureProviderDependencies = {
     createBufferedCapture: createBufferedMicrophoneCapture,
-    createCaptureSessionId: () => globalThis.crypto.randomUUID(),
-    createTranscriptionSession: () => setta.speech.createTranscriptionSession(),
+    createTranscriptionSession: () =>
+      setta.speech.createTranscriptionSession({ provider: openAISpeechProviderID() }),
     createTransport: createRealtimeTranscriptionTransport,
     deferProviderConnection: (handler) => {
       globalThis.requestAnimationFrame(() => {
@@ -161,10 +184,40 @@ function browserControllerDependencies(
       });
     },
     getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+    readCapabilities: () => setta.speech.readCapabilities(),
+  };
+  const openAIProvider = createOpenAIBrowserSpeechCaptureProvider(providerDependencies);
+  const localMacOSProvider = createLocalMacOSSpeechCaptureProvider({
+    cancelCapture: (request) =>
+      setta.speech.cancelLocalMacOSVoiceCapture?.(request) ??
+      Promise.reject(new Error("the desktop local macOS voice capture boundary is unavailable")),
+    finishCapture: (request) =>
+      setta.speech.finishLocalMacOSVoiceCapture?.(request) ??
+      Promise.reject(new Error("the desktop local macOS voice capture boundary is unavailable")),
+    readCapabilities: () => setta.speech.readCapabilities(),
+    readHealth: () =>
+      setta.speech.readLocalMacOSVoiceHealth?.() ??
+      Promise.reject(new Error("the desktop local macOS voice health boundary is unavailable")),
+    listVoices: () =>
+      setta.speech.listLocalMacOSVoices?.() ??
+      Promise.reject(new Error("the desktop local macOS voice catalog boundary is unavailable")),
+    startCapture: (request) =>
+      setta.speech.startLocalMacOSVoiceCapture?.(request) ??
+      Promise.reject(new Error("the desktop local macOS voice capture boundary is unavailable")),
+  });
+  return {
+    captureProvider: createDesktopVoiceInputProvider({
+      localMacOS: localMacOSProvider,
+      openAI: openAIProvider,
+      platform: setta.app.platform,
+      readLocalMacOSVoiceHealth: setta.speech.readLocalMacOSVoiceHealth,
+      readProviderSelection: setta.speech.readProviderSelection,
+    }),
+    clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+    createCaptureSessionId: () => globalThis.crypto.randomUUID(),
     now: () => new Date(),
     onCaptureEnd: onCaptureEnd ?? (() => {}),
     onCaptureStart: onCaptureStart ?? (() => {}),
-    readCapabilities: () => setta.speech.readCapabilities(),
     settleConversationInput: async (accepted, completed) => {
       if (!setta.conversations.waitInputState) {
         throw new Error("the desktop conversation routing boundary is unavailable");
@@ -178,7 +231,6 @@ function browserControllerDependencies(
       await applyConversationRoutingPresentation(workspaceId, state);
     },
     setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
-    support: browserSpeechCaptureSupport,
     submitConversationInput: (request) => {
       if (!setta.conversations.submitInput) {
         return Promise.reject(new Error("the desktop conversation input boundary is unavailable"));
