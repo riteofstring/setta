@@ -2,9 +2,12 @@
 
 **Date:** 2026-07-19
 
-**Status:** Plan of record for the next implementation pass. Do not implement
-compatibility shims, migrations, transitional rendering, dual highlight sources,
-or legacy narrator milestone behavior as part of this work.
+**Status:** Follow-up implementation pass required. The prior loop completed
+the event-backed renderer, artifact-first completion, and yolo default cutover.
+This pass corrects the speech rule: `NOW` highlights are sparse because every
+highlight is speech-worthy and should be spoken. Do not implement compatibility
+shims, migrations, transitional rendering, dual highlight sources, or legacy
+narrator milestone behavior as part of this work.
 
 ## Implementation Status
 
@@ -12,20 +15,20 @@ or legacy narrator milestone behavior as part of this work.
   pending approval state, and terminal turn state. The rail no longer uses
   narrator milestones as highlight sources, and the rail item type is now
   progress-highlight oriented.
-- [x] Narration and speech cadence: automatic narrator milestones are now
-  constrained so routine progress is visual-only and automatic speech is
-  reserved for attention/status events.
+- [ ] Speech: every newly created event-backed `NOW` highlight should be
+  spoken exactly once when narrator speech is enabled. If a progress item would
+  be annoying when spoken, it should not be a `NOW` highlight.
 - [x] Completion: artifact-bearing terminal turns now use compact,
   artifact-first center summaries derived from typed artifact data.
 - [x] Defaults: the primary topic-agent role default now uses the yolo
   permission cutover.
-- [x] Phase audit and release gates: run the broader deterministic coverage and
+- [ ] Phase audit and release gates: run the broader deterministic coverage and
   any remaining live-provider checks at the audit point.
 
 ## Intent
 
 The Easy Button `NOW` rail should remain visible and useful. It should show the
-small number of moments a user can glance at to understand the run:
+small number of moments a user can glance at or hear to understand the run:
 
 - work started;
 - the run is blocked on the user;
@@ -34,7 +37,9 @@ small number of moments a user can glance at to understand the run:
 - the turn completed, failed, or was cancelled.
 
 It should not be a narrator diary, command log, or periodic "nothing visible
-yet" feed.
+yet" feed. The speech layer is not a second severity filter. The way to avoid
+annoying speech is to make the highlight set meaningful, not to create
+visual-only highlights.
 
 ## Source Recording
 
@@ -75,40 +80,40 @@ absence of results or the narrator's limited view of a window.
 ## Target UX for the Recorded Conversation
 
 With default yolo permissions, the same conversation should show this `NOW`
-progression:
+progression. Each entry should be spoken once when it first appears:
 
 ```text
 Counting repo LOC
-Scanning tracked files by language.
+Scanning tracked files and grouping them by language.
 
 Counting with cloc
-Running the language breakdown.
+Running a comment-aware language breakdown.
 
 Table ready
-Setta repository LOC breakdown created.
+The repository LOC table is ready with language totals.
 
 Complete
-Source total: 245,293 LOC.
+Source total: 245,293 LOC; the table has the full breakdown.
 ```
 
 If approvals are explicitly enabled for that role profile, the same conversation
-should show one approval step:
+should show one approval step. Every displayed entry is still spoken:
 
 ```text
 Counting repo LOC
-Scanning tracked files by language.
+Scanning tracked files and grouping them by language.
 
 Needs approval
 Download cloc to /tmp for comment-aware counts?
 
 Counting with cloc
-Approval received. Running the language breakdown.
+Approval received. Running a comment-aware language breakdown.
 
 Table ready
-Setta repository LOC breakdown created.
+The repository LOC table is ready with language totals.
 
 Complete
-Source total: 245,293 LOC.
+Source total: 245,293 LOC; the table has the full breakdown.
 ```
 
 No mode chip is part of this plan.
@@ -176,12 +181,28 @@ approval request payload rather than inferred from keywords.
 
 ### Speech Cadence
 
-Automatic narrator speech should follow the same event-backed severity model.
-Routine progress entries are visual only. Speech is automatic only for attention
-states: approval needed, failure, cancellation, or an explicit user status
-request.
+Automatic narrator speech should be driven by the same event-backed `NOW`
+projection. A `NOW` highlight is speech-worthy by definition.
+
+Every newly created `NOW` highlight should enqueue narrator speech exactly once
+when narrator speech is enabled for that conversation. The spoken text can be
+derived from the same title/body facts, or from a sibling `speechText` field
+computed by the same projection, but it must describe the same event-backed
+fact. It must not come from an independent narrator milestone decision.
+
+Do not demote routine-looking highlights to visual-only speech behavior. If the
+highlight would be tedious or annoying when spoken, tighten highlight
+eligibility or wording so that the item is not emitted as a `NOW` highlight.
+
+Restored historical highlights after reload should remain visible but should
+not automatically replay. Speech is for live creation of new highlights, not for
+snapshot hydration.
 
 The recorded routine milestone playbacks would not occur.
+
+Explicit user status replies remain supported as status replies. They are not
+`NOW` highlights, and their speech behavior remains separate from this
+highlight-driven progress speech.
 
 ## Artifact-First Completion
 
@@ -254,8 +275,8 @@ Likely renderer ownership:
 - rename the local type from `EasyButtonMilestone` to a progress-oriented name;
 - keep the left rail label as `NOW`;
 - keep the max visible item count small;
-- update speaking/highlight state to use event-backed attention entries rather
-  than every narration milestone.
+- update speaking/highlight state to use event-backed highlight identities for
+  every spoken `NOW` entry, not narrator milestone identities.
 
 ### Narration
 
@@ -276,6 +297,32 @@ current user objective
 
 The allowed output is only label/body text for that event or no copy. It is not
 allowed to add another highlight.
+
+Do not reintroduce narrator milestones as a speech workaround. Narration can
+help phrase a code-selected highlight, but it does not own highlight existence
+or the decision to speak.
+
+### Speech
+
+The current implementation still treats persisted narration events as the live
+automatic speech source. That is the wrong ownership boundary for `NOW`.
+
+Replace it with highlight-driven speech:
+
+- each event-backed `NOW` highlight has a stable source identity;
+- the source identity is derived from persisted conversation data, such as the
+  trajectory event id, artifact id, pending approval id, or terminal turn id;
+- the backend speech resolver can authoritatively recover the highlight speech
+  text from persisted trajectory, artifact, approval, turn, and presentation
+  data;
+- the renderer enqueues speech when a new highlight source identity first
+  appears live for the conversation;
+- re-renders and snapshot hydration do not replay already-seen highlights;
+- no arbitrary renderer-only text is sent directly to the speech provider.
+
+The simple mental model: `NOW` creates one product moment; that product moment
+is displayed in the rail and spoken by the narrator. There is no separate
+"important enough to speak" classification after the highlight exists.
 
 ### Completion
 
@@ -328,10 +375,18 @@ Required default-permission test:
 
 Required speech test:
 
-1. Emit routine progress events.
-2. Assert no automatic speech synthesis is queued.
-3. Emit approval, failure, and explicit status-request events.
-4. Assert only those attention/status events enqueue speech.
+1. Emit routine activity and text-delta events that are not eligible for `NOW`.
+2. Assert they create no `NOW` highlight and enqueue no speech.
+3. Emit each eligible `NOW` event: turn start, approval requested, approval
+   resolved, artifact emitted, completed, failed, and cancelled/stopped.
+4. Assert every created `NOW` highlight enqueues one narrator speech synthesis
+   request when narrator speech is enabled.
+5. Assert the speech source id maps back to the same highlighted product moment,
+   not to an unrelated narrator milestone.
+6. Assert re-rendering and reload/hydration preserve the visible highlights but
+   do not automatically replay old highlight speech.
+7. Assert explicit user status replies can still speak as status replies without
+   becoming `NOW` highlights.
 
 Run narrow checks first. Before committing implementation, run
 `./scripts/format.sh` and `./check_quality.sh --git-changes`. If live Codex E2E
@@ -342,7 +397,9 @@ is available through ChatGPT auth, run it for this change set; do not use
 
 - No mode chip.
 - No command-by-command `NOW` log.
+- No visual-only `NOW` highlights.
 - No legacy narrator milestone renderer.
+- No narrator milestone speech workaround for event-backed highlights.
 - No migration of existing narrator milestones into the new projection.
 - No heuristic suppression of final text based on words like "table" or
   "artifact".
