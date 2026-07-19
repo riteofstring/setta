@@ -462,7 +462,7 @@ Replace its remaining jobs with:
 
 ### 7. Rework Presentation And Routing
 
-**Status:** In progress.
+**Status:** Completed.
 
 Completed repository work:
 
@@ -477,13 +477,21 @@ Completed repository work:
 - Restored app-level conversation panes regardless of their folder binding, and made conversation
   surfaces resolve folder bindings back to active workspace ids before reading/subscribing to
   conversation projection state.
+- Retargeted renderer conversation navigation requests through the currently mounted app pane scene
+  while deriving folder resource bindings from the active workspace session when older non-master
+  callers only know a workspace id.
+- Removed workspace selection from the shared conversation creation command, made creation in the
+  empty app pane scene create a folderless conversation, and preserved explicit empty resource
+  bindings when presenting that new pane.
+- Extended the app-level conversation pane index to retain per-pane resource bindings, and made
+  master focus hints and the master conversation picker derive focused/open conversation context from
+  app-level panes and their folder bindings instead of from a selected-workspace pane index.
+- Deleted the unused initial Easy Button startup helper that still encoded selected-workspace
+  conversation creation assumptions.
 
 Remaining repository work:
 
-- Rework remaining non-master conversation focus/create/open command paths that still require
-  selecting or mounting a workspace before presenting a pane.
-- Rework focus hints and pane indexing so focused conversation context is derived from app-level
-  panes and their resource bindings instead of the selected-workspace pane index.
+- None.
 
 Presentation intents should target app-level panes.
 

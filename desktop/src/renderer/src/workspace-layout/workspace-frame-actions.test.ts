@@ -122,6 +122,37 @@ describe("workspace frame actions", () => {
     expect(store.openPane).not.toHaveBeenCalled();
     expect(store.configurePane).not.toHaveBeenCalled();
   });
+
+  test("dispatches folderless conversation creation from the empty app pane scene", async () => {
+    stubCustomEvent();
+    const dispatched: Array<{
+      detail: ConversationCreationEventDetail;
+      type: string;
+    }> = [];
+    vi.stubGlobal("window", {
+      dispatchEvent: vi.fn((event: { detail: ConversationCreationEventDetail; type: string }) => {
+        dispatched.push(event);
+        event.detail.completion = Promise.resolve({
+          conversationId: "conversation_folderless",
+          paneId: "workspace_pane_empty",
+          workspaceId: null,
+        });
+        return true;
+      }),
+    });
+
+    await executeWorkspaceFrameAction({
+      action: { kind: "conversation" },
+      placement: { kind: "new-pane" },
+      runLayoutAction: vi.fn(),
+      runtime: workspaceRuntime({}, "empty"),
+    });
+
+    expect(dispatched[0]?.detail.request).toEqual({
+      destination: { kind: "new-pane" },
+      workspaceId: null,
+    });
+  });
 });
 
 function browserSurfaceAction(): Extract<WorkspaceFrameAction, { kind: "surface" }> {
@@ -134,9 +165,9 @@ function browserSurfaceAction(): Extract<WorkspaceFrameAction, { kind: "surface"
   };
 }
 
-function workspaceRuntime(store: unknown): WorkspaceRuntime {
+function workspaceRuntime(store: unknown, workspaceId = "workspace_topic"): WorkspaceRuntime {
   return {
-    scene: { id: "workspace_topic" },
+    scene: { id: workspaceId },
     store,
   } as WorkspaceRuntime;
 }

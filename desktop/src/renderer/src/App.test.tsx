@@ -1,4 +1,5 @@
 import { renderToString } from "react-dom/server";
+import type { ConversationPaneResourceBinding, WorkspaceSession } from "@generated/backend";
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { App, masterInputFocusHints } from "./App";
@@ -91,22 +92,55 @@ describe("workspace renderer states", () => {
     expect(compactPaneWidth(360, 900, 128, 0.28)).toBe(360);
   });
 
-  test("maps the selected workspace's focused pane and conversation into master hints", () => {
+  test("maps the focused app pane resource binding into master hints", () => {
+    const resourceBindings: ConversationPaneResourceBinding[] = [
+      { folder: { rootPath: "/tmp/api" }, kind: "folder" },
+    ];
     const focused = {
       focusedConversationId: "conversation_api",
+      focusedConversationResourceBindings: resourceBindings,
       focusedPaneId: "pane_api",
       paneIdByConversationId: new Map([["conversation_api", "pane_api"]]),
+      resourceBindingsByConversationId: new Map([["conversation_api", resourceBindings]]),
     };
 
-    expect(masterInputFocusHints("workspace_api", focused)).toEqual({
+    expect(masterInputFocusHints(workspaceSession(), focused)).toEqual({
       focusedConversationId: "conversation_api",
       focusedPaneId: "pane_api",
       focusedWorkspaceId: "workspace_api",
     });
-    expect(masterInputFocusHints(null, focused)).toEqual({
+    expect(
+      masterInputFocusHints(workspaceSession(), {
+        ...focused,
+        focusedConversationResourceBindings: [],
+      }),
+    ).toEqual({
+      focusedConversationId: "conversation_api",
+      focusedPaneId: "pane_api",
+      focusedWorkspaceId: null,
+    });
+    expect(masterInputFocusHints(workspaceSession(), undefined)).toEqual({
       focusedConversationId: null,
       focusedPaneId: null,
       focusedWorkspaceId: null,
     });
   });
 });
+
+function workspaceSession(): WorkspaceSession {
+  return {
+    activeWorkspaces: [
+      {
+        displayName: "api",
+        id: "workspace_api",
+        lastOpenedAt: "2026-07-22T20:00:00Z",
+        rootPath: "/tmp/api",
+      },
+    ],
+    recentWorkspaces: [],
+    selectedWorkspaceId: "workspace_other",
+    workspaceAvailabilities: [
+      { available: true, unavailableReason: "", workspaceId: "workspace_api" },
+    ],
+  };
+}

@@ -11,6 +11,7 @@ import {
   type ConversationPanePresentationRequest,
   type ConversationPanePresentationSuccess,
 } from "../../workspace-layout/conversation-pane-coordinator";
+import { emptyWorkspaceRuntimeId } from "../../workspace-layout/workspace-layout-area-runtime";
 
 export const newConversationTitle = "New conversation";
 
@@ -18,7 +19,7 @@ export const conversationCreationRequestEvent = "setta:conversation-creation-req
 
 export interface ConversationCreationRequest {
   destination: ConversationPanePlacementDestination;
-  workspaceId: string;
+  workspaceId: string | null;
 }
 
 interface ConversationCreationLifecycle {
@@ -33,7 +34,7 @@ export interface ConversationCreationEventDetail {
 export interface ConversationCreationResult {
   conversationId: string;
   paneId: string;
-  workspaceId: string;
+  workspaceId: string | null;
 }
 
 export type ConversationCreationCommand = (
@@ -62,8 +63,7 @@ export function requestConversationCreation(
 export interface ConversationCreationCommandOptions {
   assertCurrent?: () => void;
   createConversation: SettaAPI["conversations"]["create"];
-  ensureWorkspaceAvailable: (workspaceId: string) => void;
-  ensureWorkspaceSelected: (workspaceId: string) => Promise<void>;
+  ensureWorkspaceAvailable: (workspaceId: string | null) => void;
   hydrateSnapshot?: (snapshot: ConversationSnapshot) => void;
   preflightPlacement: (request: ConversationPanePlacementRequest) => Promise<void>;
   presentConversation: (
@@ -106,7 +106,6 @@ export async function createAndPresentConversation({
   assertCurrent,
   createConversation,
   ensureWorkspaceAvailable,
-  ensureWorkspaceSelected,
   hydrateSnapshot = hydrateConversationProjectionSnapshot,
   preflightPlacement,
   presentConversation,
@@ -114,11 +113,11 @@ export async function createAndPresentConversation({
 }: ConversationCreationCommandOptions): Promise<ConversationCreationResult> {
   assertCurrent?.();
   ensureWorkspaceAvailable(request.workspaceId);
-  await ensureWorkspaceSelected(request.workspaceId);
   assertCurrent?.();
+  const paneLayoutWorkspaceId = conversationCreationPaneLayoutWorkspaceId(request.workspaceId);
   await preflightPlacement({
     destination: request.destination,
-    workspaceId: request.workspaceId,
+    workspaceId: paneLayoutWorkspaceId,
   });
   assertCurrent?.();
   const snapshot = await createConversation({
@@ -132,8 +131,9 @@ export async function createAndPresentConversation({
     const presentation = await presentConversation({
       conversationId: snapshot.conversation.id,
       destination: request.destination,
+      resourceBindings: workspaceId === null ? [] : undefined,
       title: snapshot.conversation.title,
-      workspaceId,
+      workspaceId: paneLayoutWorkspaceId,
     });
     return {
       conversationId: snapshot.conversation.id,
@@ -149,23 +149,28 @@ export async function createAndPresentConversation({
 
 function createdConversationWorkspaceID(
   snapshot: ConversationSnapshot,
-  requestedWorkspaceId: string,
-): string {
+  requestedWorkspaceId: string | null,
+): string | null {
   if (snapshot.conversation.workspaceId !== requestedWorkspaceId) {
-    throw new Error("The created conversation was not linked to the selected workspace.");
+    throw new Error("The created conversation was not linked to the requested resource.");
   }
   return snapshot.conversation.workspaceId;
 }
 
 export function conversationCreationRequestKey(request: ConversationCreationRequest): string {
+  const workspaceKey = request.workspaceId ?? "folderless";
   switch (request.destination.kind) {
     case "new-pane":
-      return `${request.workspaceId}\u0000new-pane`;
+      return `${workspaceKey}\u0000new-pane`;
     case "empty-frame":
-      return `${request.workspaceId}\u0000empty-frame\u0000${request.destination.paneId}`;
+      return `${workspaceKey}\u0000empty-frame\u0000${request.destination.paneId}`;
     default:
       return assertNever(request.destination);
   }
+}
+
+function conversationCreationPaneLayoutWorkspaceId(workspaceId: string | null): string {
+  return workspaceId ?? emptyWorkspaceRuntimeId;
 }
 
 function createdConversationPresentationFailureMessage(reason: string): string {

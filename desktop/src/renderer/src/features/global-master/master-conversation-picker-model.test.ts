@@ -10,11 +10,17 @@ describe("master conversation picker model", () => {
     const selection = selectMasterConversationPickerItems({
       conversationPanes: new Map<string, ConversationPaneWorkspaceState>([
         [
-          "workspace_api",
+          "app_scene",
           {
             focusedConversationId: "conversation_api",
+            focusedConversationResourceBindings: [
+              { folder: { rootPath: "/tmp/api" }, kind: "folder" },
+            ],
             focusedPaneId: "pane_api",
             paneIdByConversationId: new Map([["conversation_api", "pane_api"]]),
+            resourceBindingsByConversationId: new Map([
+              ["conversation_api", [{ folder: { rootPath: "/tmp/api" }, kind: "folder" }]],
+            ]),
           },
         ],
       ]),

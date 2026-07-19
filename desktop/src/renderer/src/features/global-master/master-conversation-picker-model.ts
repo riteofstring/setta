@@ -1,4 +1,8 @@
-import type { NavigatorItem, WorkspaceSession } from "@generated/backend";
+import type {
+  ConversationPaneResourceBinding,
+  NavigatorItem,
+  WorkspaceSession,
+} from "@generated/backend";
 
 import type { ConversationNavigatorWorkspaceState } from "../../stores/conversation-navigator-store";
 import type { ConversationPaneWorkspaceState } from "../../stores/conversation-pane-store";
@@ -50,17 +54,21 @@ export function selectMasterConversationPickerItems({
     if (!state) {
       return [];
     }
-    const panes = conversationPanes.get(workspace.id);
     return state.items.flatMap((item) => {
       if (!pickerItemMatches(item, workspace.displayName, normalizedQuery)) {
         return [];
       }
       const conversationId = item.conversation.id;
+      const pane = appLevelConversationPaneMatch({
+        conversationId,
+        conversationPanes,
+        workspaceRootPath: workspace.rootPath,
+      });
       return [
         {
           conversationId,
-          focused: panes?.focusedConversationId === conversationId,
-          openPaneId: panes?.paneIdByConversationId.get(conversationId) ?? null,
+          focused: pane?.focused ?? false,
+          openPaneId: pane?.paneId ?? null,
           status: item.conversation.status,
           title: item.conversation.title,
           updatedAt: item.conversation.updatedAt,
@@ -83,6 +91,38 @@ export function selectMasterConversationPickerItems({
       query: normalizedQuery,
     }),
   };
+}
+
+function appLevelConversationPaneMatch({
+  conversationId,
+  conversationPanes,
+  workspaceRootPath,
+}: {
+  conversationId: string;
+  conversationPanes: ReadonlyMap<string, ConversationPaneWorkspaceState>;
+  workspaceRootPath: string;
+}): { focused: boolean; paneId: string } | null {
+  for (const panes of conversationPanes.values()) {
+    const paneId = panes.paneIdByConversationId.get(conversationId);
+    if (!paneId) {
+      continue;
+    }
+    const bindings = panes.resourceBindingsByConversationId.get(conversationId) ?? [];
+    if (folderBindingRootPath(bindings) !== workspaceRootPath) {
+      continue;
+    }
+    return {
+      focused: panes.focusedConversationId === conversationId,
+      paneId,
+    };
+  }
+  return null;
+}
+
+function folderBindingRootPath(
+  bindings: readonly ConversationPaneResourceBinding[],
+): string | null {
+  return bindings.find((binding) => binding.kind === "folder")?.folder.rootPath ?? null;
 }
 
 function pickerStatus({
