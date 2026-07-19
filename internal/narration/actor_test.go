@@ -53,13 +53,18 @@ func TestRegistryPrioritizesOneConversationMailbox(t *testing.T) {
 		}), nil
 	})
 	registry := newTestRegistry(t, worker)
-	blocker := submitTestRequest(t, registry, projectionRequest(
+	blocker := submitTestRequest(t, registry, statusRequest(
 		"blocker",
 		"conversation-priority",
-		conversation.NarrationTriggerPlanChanged,
 	))
 	waitSignal(t, blockerStarted, "blocking projection start")
 
+	terminal := projectionRequest(
+		"terminal",
+		"conversation-priority",
+		conversation.NarrationTriggerTurnTerminal,
+	)
+	terminal.Projection.TurnID = "turn-terminal-priority"
 	receipts := []*Receipt{
 		submitTestRequest(t, registry, checkpointRequest("checkpoint", "conversation-priority")),
 		submitTestRequest(t, registry, checkpointRetryRequest("checkpoint-retry", "conversation-priority")),
@@ -70,11 +75,7 @@ func TestRegistryPrioritizesOneConversationMailbox(t *testing.T) {
 			conversation.NarrationTriggerPhaseActivityCompleted,
 		)),
 		submitTestRequest(t, registry, statusRequest("status", "conversation-priority")),
-		submitTestRequest(t, registry, projectionRequest(
-			"terminal",
-			"conversation-priority",
-			conversation.NarrationTriggerTurnTerminal,
-		)),
+		submitTestRequest(t, registry, terminal),
 		submitTestRequest(t, registry, projectionRequest(
 			"approval",
 			"conversation-priority",
@@ -105,6 +106,73 @@ func TestRegistryPrioritizesOneConversationMailbox(t *testing.T) {
 	}
 	if maxPreparations != 1 {
 		t.Fatalf("maximum concurrent preparations = %d, want 1", maxPreparations)
+	}
+}
+
+func TestTerminalProjectionPreemptsActiveWorkingProjection(t *testing.T) {
+	workingStarted := make(chan struct{})
+	workingCancelled := make(chan struct{})
+	releaseLateResponse := make(chan struct{})
+	workingReturned := make(chan struct{})
+	terminalStarted := make(chan struct{})
+	var mu sync.Mutex
+	var committed []string
+	var invocations []Invocation
+	worker := workerFunc(func(ctx context.Context, invocation Invocation) (PreparedWork, error) {
+		mu.Lock()
+		invocations = append(invocations, invocation)
+		mu.Unlock()
+		switch invocation.Request.ID {
+		case "working":
+			close(workingStarted)
+			<-ctx.Done()
+			close(workingCancelled)
+			<-releaseLateResponse
+			close(workingReturned)
+		case "terminal":
+			close(terminalStarted)
+		}
+		return successfulPreparedWork(func(context.Context) error {
+			mu.Lock()
+			committed = append(committed, invocation.Request.ID)
+			mu.Unlock()
+			return nil
+		}), nil
+	})
+	registry := newTestRegistry(t, worker)
+	working := submitTestRequest(t, registry, projectionRequest(
+		"working",
+		"conversation-terminal-preemption",
+		conversation.NarrationTriggerPlanChanged,
+	))
+	waitSignal(t, workingStarted, "working projection start")
+	terminal := submitTestRequest(t, registry, projectionRequest(
+		"terminal",
+		"conversation-terminal-preemption",
+		conversation.NarrationTriggerTurnTerminal,
+	))
+	waitSignal(t, workingCancelled, "working projection cancellation")
+	waitSignal(t, terminalStarted, "terminal projection start")
+	waitReceipt(t, terminal)
+	if err := waitReceiptError(t, working); !errors.Is(err, ErrWorkingPreempted) {
+		t.Fatalf("working receipt error = %v, want ErrWorkingPreempted", err)
+	}
+
+	mu.Lock()
+	if !reflect.DeepEqual(committed, []string{"terminal"}) {
+		t.Fatalf("committed before late working response = %v, want [terminal]", committed)
+	}
+	if len(invocations) != 2 || invocations[0].Generation != 1 || invocations[1].Generation != 2 {
+		t.Fatalf("invocation generations = %#v, want working 1 then terminal 2", invocations)
+	}
+	mu.Unlock()
+	close(releaseLateResponse)
+	waitSignal(t, workingReturned, "late working response")
+	shutdownTestRegistry(t, registry)
+	mu.Lock()
+	defer mu.Unlock()
+	if !reflect.DeepEqual(committed, []string{"terminal"}) {
+		t.Fatalf("committed after late working response = %v, want [terminal]", committed)
 	}
 }
 

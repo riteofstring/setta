@@ -257,56 +257,6 @@ func TestServiceKeepsTerminalProjectionBehindRetriedFocus(t *testing.T) {
 	t.Fatalf("terminal projection call was not recorded: %+v", provider.snapshotCalls())
 }
 
-func TestServiceResumesTerminalProjectionAfterActiveProgressFinishes(t *testing.T) {
-	store := newProjectorTestStore(t)
-	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
-	progressStarted := make(chan struct{})
-	releaseProgress := make(chan struct{})
-	provider := &projectorTestAgentRuntime{
-		blockFirstProjection: true,
-		firstCallStarted:     progressStarted,
-		releaseFirstCall:     releaseProgress,
-	}
-	service := newProjectorTestService(t, store, provider, WithServiceProgressWait(
-		func(ctx context.Context, _ time.Duration) error {
-			return ctx.Err()
-		},
-	))
-
-	progress := conversation.TrajectoryEvent{
-		ConversationID: conversationID,
-		TurnID:         &turnID,
-		Sequence:       14,
-		Kind:           conversation.TrajectoryEventAgentPublicTextDelta,
-	}
-	service.submitProjection(
-		conversationID,
-		ProjectionOperation{
-			WorkspaceID:     "workspace-status-service",
-			TurnID:          turnID,
-			ThroughSequence: progress.Sequence,
-			SemanticEvents: []conversation.NarratorSemanticEvent{
-				projectorProgressSemantic(conversationID, turnID, progress.Sequence),
-			},
-		},
-		conversation.NarrationTriggerProgressWindowElapsed,
-	)
-	select {
-	case <-progressStarted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for active progress projection")
-	}
-
-	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, turnID, terminal))
-	close(releaseProgress)
-
-	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
-		return current.NarratorState.ObservedThroughSequence == terminal.Sequence &&
-			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
-	})
-	assertTerminalProjectorState(t, snapshot, turnID)
-}
-
 func TestServiceFinalizesTerminalProjectionAtObservedCursor(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
@@ -592,6 +542,7 @@ type projectorTestAgentRuntime struct {
 	emitProjectionMilestones bool
 	firstCallStarted         chan struct{}
 	releaseFirstCall         chan struct{}
+	firstCallReturned        chan struct{}
 }
 
 func (*projectorTestAgentRuntime) ResolveInvocation(
@@ -643,6 +594,9 @@ func (runtime *projectorTestAgentRuntime) RunFreshStructuredCall(
 	if block {
 		close(runtime.firstCallStarted)
 		<-runtime.releaseFirstCall
+		if runtime.firstCallReturned != nil {
+			close(runtime.firstCallReturned)
+		}
 	}
 	return agent.FreshStructuredCallResult{
 		ProviderThreadID: fmt.Sprintf("projector-thread-%d", callNumber),

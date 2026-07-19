@@ -14,6 +14,7 @@ import (
 var (
 	ErrMailboxClosed        = errors.New("narrator mailbox is closed")
 	ErrCheckpointSuperseded = errors.New("narrator checkpoint request was superseded")
+	ErrWorkingPreempted     = errors.New("narrator working projection was preempted by terminal projection")
 )
 
 // PreparedCommit is returned only after external narrator work and output
@@ -274,6 +275,7 @@ type actorState struct {
 	queues         [mailboxPriorityCount][]queuedRequest
 	active         *activeInvocation
 	nextGeneration uint64
+	terminalTurns  map[string]struct{}
 }
 
 func (state *actorState) accept(actor *conversationActor, command submission) {
@@ -288,6 +290,14 @@ func (state *actorState) acceptQueued(actor *conversationActor, queued queuedReq
 }
 
 func (state *actorState) enqueue(actor *conversationActor, queued queuedRequest) {
+	if state.isPreemptedByTerminal(queued.request) {
+		state.completePreempted(actor, queued)
+		return
+	}
+	if turnID, ok := terminalProjectionTurn(queued.request); ok {
+		state.markTerminalTurn(turnID)
+		state.preemptWorkingForTurn(actor, turnID)
+	}
 	priority := requestPriority(queued.request)
 	state.queues[priority] = append(state.queues[priority], queued)
 	if state.active != nil &&
@@ -295,6 +305,51 @@ func (state *actorState) enqueue(actor *conversationActor, queued queuedRequest)
 		priority < priorityCheckpoint {
 		state.supersedeCheckpoint(actor)
 	}
+}
+
+func (state *actorState) markTerminalTurn(turnID string) {
+	if state.terminalTurns == nil {
+		state.terminalTurns = map[string]struct{}{}
+	}
+	state.terminalTurns[turnID] = struct{}{}
+}
+
+func (state *actorState) isPreemptedByTerminal(request Request) bool {
+	turnID, ok := preemptableWorkingTurn(request)
+	if !ok || state.terminalTurns == nil {
+		return false
+	}
+	_, terminal := state.terminalTurns[turnID]
+	return terminal
+}
+
+func (state *actorState) preemptWorkingForTurn(actor *conversationActor, turnID string) {
+	if state.active != nil && requestPreemptedByTerminalTurn(state.active.queued.request, turnID) {
+		active := state.active
+		active.cancel()
+		state.completePreempted(actor, active.queued)
+		state.active = nil
+	}
+	for priority := mailboxPriority(0); priority < mailboxPriorityCount; priority++ {
+		queue := state.queues[priority]
+		kept := queue[:0]
+		for _, queued := range queue {
+			if requestPreemptedByTerminalTurn(queued.request, turnID) {
+				state.completePreempted(actor, queued)
+				continue
+			}
+			kept = append(kept, queued)
+		}
+		state.queues[priority] = kept
+	}
+}
+
+func (state *actorState) completePreempted(actor *conversationActor, queued queuedRequest) {
+	actor.complete(queued, fmt.Errorf(
+		"narrator request %s: %w",
+		queued.request.ID,
+		ErrWorkingPreempted,
+	), false)
 }
 
 // drainReadyWork batches every request that is already ready when an invocation
@@ -491,6 +546,35 @@ func validateRetryOperation(request Request, retry Request) error {
 		return errors.New("worker retry changed the narrator checkpoint operation")
 	}
 	return nil
+}
+
+func terminalProjectionTurn(request Request) (string, bool) {
+	if request.Kind != RequestKindProjection ||
+		request.Trigger != conversation.NarrationTriggerTurnTerminal ||
+		request.Projection == nil {
+		return "", false
+	}
+	return request.Projection.TurnID, true
+}
+
+func preemptableWorkingTurn(request Request) (string, bool) {
+	if request.Kind == RequestKindProjection &&
+		request.Trigger != conversation.NarrationTriggerTurnTerminal &&
+		request.Projection != nil {
+		return request.Projection.TurnID, true
+	}
+	if request.Kind == RequestKindCheckpoint &&
+		request.Checkpoint != nil &&
+		request.Checkpoint.ResumeProjection != nil &&
+		request.Checkpoint.ResumeTrigger != conversation.NarrationTriggerTurnTerminal {
+		return request.Checkpoint.ResumeProjection.TurnID, true
+	}
+	return "", false
+}
+
+func requestPreemptedByTerminalTurn(request Request, turnID string) bool {
+	requestTurnID, ok := preemptableWorkingTurn(request)
+	return ok && requestTurnID == turnID
 }
 
 func sameFocusOperation(left *FocusOperation, right *FocusOperation) bool {

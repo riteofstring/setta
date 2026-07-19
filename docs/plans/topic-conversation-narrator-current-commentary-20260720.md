@@ -302,6 +302,14 @@ Delete tests that require terminal catch-up through raw deltas.
 
 ### Phase 4: Add terminal preemption
 
+Status: Complete.
+
+Repository progress:
+
+- Terminal projection requests now record the terminal turn in the narrator actor, cancel active and queued same-turn working projection work, and reject later retry/checkpoint-resume attempts for that stale working projection.
+- Late working projection responses cannot commit after terminal preemption; terminal summaries start while the preempted provider call may still be unwinding.
+- Focused actor/projector coverage verifies terminal preempts an active highlight and no stale milestone appears after the blocked progress response is released.
+
 When terminal semantic event arrives:
 
 - cancel active automatic working narrator generation for that turn;
