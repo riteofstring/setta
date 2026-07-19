@@ -22,9 +22,7 @@ const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 export const defaultRealWorkspacePaneLimits = {
   browser: 10,
-  "easy-button": 10,
   "empty-frame": 10,
-  "settings-dom": 1,
 } satisfies PaneLimitPolicy;
 
 export interface RealWorkspaceSceneOptions {
@@ -190,7 +188,6 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
       };
     case "browser":
     case "empty-frame":
-    case "settings-dom":
       return { ...fields, surfaceKind: pane.surfaceKind };
   }
 }
@@ -216,7 +213,6 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
       };
     case "browser":
     case "empty-frame":
-    case "settings-dom":
       return { ...fields, easyButtonConfig: null, surfaceKind: pane.surfaceKind };
     default:
       return persistedDiagnosticPaneError(pane.surfaceKind);

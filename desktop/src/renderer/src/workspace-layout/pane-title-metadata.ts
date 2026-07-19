@@ -9,7 +9,7 @@ export interface PaneChromeTitleModel {
   truncation: PaneTitleTruncation;
 }
 
-export type PaneChromeIconName = "document" | "settings" | "sparkles";
+export type PaneChromeIconName = "document" | "sparkles";
 
 interface PaneTitleOverride {
   fullTitle?: string;
@@ -20,7 +20,6 @@ interface PaneTitleOverride {
 const fallbackTitle = "Pane";
 const paneChromeIconsBySurfaceKind: Partial<Record<SurfaceKind, PaneChromeIconName>> = {
   "easy-button": "sparkles",
-  "settings-dom": "settings",
 };
 
 export function paneChromeTitleModel(

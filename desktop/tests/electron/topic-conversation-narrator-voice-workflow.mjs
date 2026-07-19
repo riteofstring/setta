@@ -110,6 +110,13 @@ export async function exhaustNarratorVoiceCatalog(client, backend, workspaceId, 
     if (!closed.clicked) {
       throw new Error(`voice exhaustion topic pane did not close: ${JSON.stringify(closed)}`);
     }
+    await waitForState(
+      client,
+      driverCallExpression("topicConversationSurfaceStates", {}),
+      (state) =>
+        state.surfaces.every((surface) => surface.conversationId !== dormant.conversation.id),
+      timeoutMs,
+    );
     await waitForBackendState(
       () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
       (result) =>

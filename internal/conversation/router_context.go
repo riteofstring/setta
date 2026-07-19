@@ -137,6 +137,7 @@ func validateConversationRouterSourceBounds(
 
 func conversationRouterContextAudit(source ConversationRouterContextSource) ConversationRouteContextAudit {
 	audit := ConversationRouteContextAudit{
+		DecisionAuthority:            ConversationRouteDecisionAuthorityNarratorModel,
 		InputSequence:                source.Work.Input.Sequence,
 		LatestTrajectorySequence:     source.Conversation.LastTrajectorySequence,
 		AvailableTrajectoryRange:     cloneTrajectorySequenceRange(source.Trajectory.AvailableRange),

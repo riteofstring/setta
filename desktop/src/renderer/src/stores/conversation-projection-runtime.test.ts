@@ -148,30 +148,24 @@ describe("conversation projection runtime", () => {
     });
   });
 
-  test("retains terminal speech streams only while final narration can still arrive", () => {
+  test("retains speech streams only while released conversations still have active work", () => {
     const working = conversationSnapshot(1);
     working.conversation.status = "working";
     expect(conversationProjectionNeedsKeepAlive(working)).toBe(true);
 
+    const waiting = conversationSnapshot(1);
+    waiting.conversation.status = "waiting_for_approval";
+    expect(conversationProjectionNeedsKeepAlive(waiting)).toBe(true);
+
     const terminal = terminalConversationSnapshot();
-    expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(true);
-
-    terminal.narration.events.push({
-      conversationId,
-      id: "narration_final",
-      kind: "final_summary",
-      turnId: "turn_terminal",
-    } as ConversationSnapshot["narration"]["events"][number]);
     expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
 
-    terminal.narration.events = [];
-    terminal.narratorState.status = "degraded";
-    terminal.narratorState.degradation = {
-      retryable: false,
-    } as NonNullable<ConversationSnapshot["narratorState"]["degradation"]>;
+    terminal.conversation.status = "failed";
     expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
 
-    terminal.narratorState.degradation = null;
+    working.presentationProfile.narratorSpeechEnabled = false;
+    expect(conversationProjectionNeedsKeepAlive(working)).toBe(false);
+
     terminal.presentationProfile.narratorSpeechEnabled = false;
     expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
   });

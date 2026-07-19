@@ -403,7 +403,9 @@ function assertCaptureSurface(surface, conversationId, sourcePaneId, transcriptP
     assertSourcePaneCapture(surface, transcriptPreview);
     return;
   }
-  assertDuplicateViewCapture(surface);
+  throw new Error(
+    `conversation rendered in multiple panes during capture: ${JSON.stringify(surface)}`,
+  );
 }
 
 function assertOtherConversationCapture(surface) {
@@ -429,19 +431,6 @@ function assertSourcePaneCapture(surface, transcriptPreview) {
       surface.speechTranscriptText.includes(transcriptPreview),
     ],
     "source pane did not own its capture",
-    surface,
-  );
-}
-
-function assertDuplicateViewCapture(surface) {
-  assertState(
-    [
-      surface.captureScope === "this_conversation",
-      !surface.voiceCaptureAvailable,
-      surface.speechActivityText.includes("another view"),
-      surface.speechTranscriptText === "",
-    ],
-    "duplicate topic view claimed source-pane capture",
     surface,
   );
 }

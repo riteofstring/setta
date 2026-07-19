@@ -165,7 +165,6 @@ async function presentCreatedSideConversation(
     conversationId,
     preferredPaneId: side.parentPaneId,
     title: conversationTitle(conversationId),
-    viewAction: "focus-or-open",
     workspaceId,
   });
 }
@@ -180,7 +179,6 @@ async function presentForkedConversation(
   await presentConversationPane({
     conversationId: fork.childConversationId,
     title: fork.proposedTitle,
-    viewAction: "focus-or-open",
     workspaceId,
   });
 }
