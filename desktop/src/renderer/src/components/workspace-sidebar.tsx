@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
-import { MasterSidebarLauncher } from "../features/global-master/app-shell-master-surface";
+import { MasterSidebarLauncher } from "../features/global-master/master-sidebar-launcher";
 import { useConversationNavigatorStore } from "../stores/conversation-navigator-store";
 import { useConversationPaneStore } from "../stores/conversation-pane-store";
 import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";

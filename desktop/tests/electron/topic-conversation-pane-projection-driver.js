@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, document, window */
 
 (() => {
-  const version = "setta-topic-conversation-pane-projection-driver-v32";
+  const version = "setta-topic-conversation-pane-projection-driver-v33";
 
   function installTopicConversationPaneProjectionDriver() {
     const driver = globalThis.__settaE2EDriver;
@@ -20,6 +20,8 @@
       topicConversationEndSide,
       topicConversationFirstRunState,
       topicConversationInstallCaptureTimingObserver,
+      topicConversationMasterActiveInteractionState,
+      topicConversationMasterOverlaySpeechIsolationState,
       topicConversationNavigatorState,
       topicConversationOpenParent,
       topicConversationOpenBoundPane,
@@ -47,14 +49,62 @@
 
   function topicConversationWorkspaceOpenState({ workspaceId }) {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === "Open project folder",
-    );
     return {
       expectedWorkspaceId: workspaceId,
-      openButtonReady: button instanceof HTMLButtonElement && !button.disabled,
       workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
     };
+  }
+
+  function topicConversationMasterActiveInteractionState() {
+    const overlay =
+      masterOverlay() ?? document.querySelector('[data-testid="master-pane-surface"]');
+    return {
+      interactionCount: overlayCount(overlay, '[data-testid="master-active-interaction"]'),
+      legacyHistoryPresent: overlayHas(overlay, '[aria-label="Recent master exchanges"]'),
+      open: Boolean(overlay),
+      requestCount: overlayCount(overlay, '[data-testid="master-active-request"]'),
+      requestText: overlayText(overlay, '[data-testid="master-active-request"] p'),
+      resultKind: overlayAttribute(overlay, "[data-master-result-kind]", "data-master-result-kind"),
+    };
+  }
+
+  function topicConversationMasterOverlaySpeechIsolationState({ excludedTexts = [] }) {
+    const overlay = masterOverlay();
+    const activeRequestText = overlayText(overlay, '[data-testid="master-active-request"]');
+    const composerText = overlay?.querySelector('textarea[aria-label="Ask Setta"]')?.value ?? "";
+    const voiceStatusText = overlayText(overlay, '[data-testid="master-overlay-voice-status"]');
+    const scopedText = [activeRequestText, composerText, voiceStatusText].join("\n");
+    return {
+      containsExcludedText: excludedTexts.some(
+        (excluded) => excluded !== "" && scopedText.includes(excluded),
+      ),
+      masterVoiceControlPresent: overlayHas(
+        overlay,
+        '[data-testid="master-overlay-voice-capture"]',
+      ),
+      open: Boolean(overlay),
+    };
+  }
+
+  function masterOverlay() {
+    const overlay = document.querySelector('[data-testid="master-overlay"]');
+    return overlay instanceof HTMLElement ? overlay : null;
+  }
+
+  function overlayCount(overlay, selector) {
+    return overlay?.querySelectorAll(selector).length ?? 0;
+  }
+
+  function overlayHas(overlay, selector) {
+    return overlay?.querySelector(selector) !== null;
+  }
+
+  function overlayText(overlay, selector) {
+    return overlay?.querySelector(selector)?.textContent ?? null;
+  }
+
+  function overlayAttribute(overlay, selector, attribute) {
+    return overlay?.querySelector(selector)?.getAttribute(attribute) ?? null;
   }
 
   function topicConversationCreationWorkspaceState() {
@@ -72,7 +122,7 @@
     const newConversationButton = findButtonByAriaLabel("New conversation");
     const newFrameButton = findButtonByAriaLabel("New frame");
     return {
-      easyButtonHostCount: hosts.filter((host) => host.surfaceKind === "easy-button").length,
+      easyButtonHostCount: hosts.filter((host) => host.surfaceKind === "conversation").length,
       emptyFrameHostCount: hosts.filter((host) => host.surfaceKind === "empty-frame").length,
       hosts,
       newConversationButtonEnabled:
@@ -161,9 +211,7 @@
       (candidate) => candidate.getAttribute("aria-label") === "New conversation",
     );
     return {
-      chooseFolder: Boolean(document.querySelector('[data-testid="choose-project-folder"]')),
       easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
-      emptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
       newTopic:
         newConversationButton instanceof HTMLButtonElement && !newConversationButton.disabled,
       search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
@@ -195,13 +243,12 @@
       document.querySelectorAll('[data-testid="easy-button-surface"]'),
     ).find((surface) => datasetValue(surface, "conversationId") === conversationId);
     const matchingHost = matchingSurface?.closest('[data-testid="workspace-pane-host"]');
-    const startupPane = document.querySelector('[data-testid="initial-easy-button-pane"]');
     return {
       actionCount: matchingHost?.querySelectorAll("[data-workspace-pane-action]").length ?? 0,
       createControlPresent:
         document.querySelector('[data-testid="conversation-create-form"]') !== null,
       easyButtonPaneCount: visibleHosts.filter(
-        (host) => datasetValue(host, "surfaceKind") === "easy-button",
+        (host) => datasetValue(host, "surfaceKind") === "conversation",
       ).length,
       emptyFramePaneCount: visibleHosts.filter(
         (host) => datasetValue(host, "surfaceKind") === "empty-frame",
@@ -212,8 +259,6 @@
       paneId: datasetValue(matchingHost, "paneId"),
       searchControlPresent:
         document.querySelector('input[aria-label="Search conversations"]') !== null,
-      startupPanePresent: startupPane !== null,
-      startupState: datasetValue(startupPane, "startupState"),
       topBarSpeechStatusPresent: Boolean(
         document
           .querySelector('[data-testid="shell-top-bar"]')

@@ -553,19 +553,7 @@ export async function openMasterOverlayForSpeech(client, timeoutMs) {
 async function assertMasterOverlayExcludesTopicSpeech(client, excludedTexts, timeoutMs) {
   await waitForState(
     client,
-    `(() => {
-      const overlay = document.querySelector('[data-testid="master-overlay"]');
-      const text = overlay?.textContent ?? "";
-      return {
-        containsExcludedText: ${JSON.stringify(excludedTexts)}.some(
-          (excluded) => excluded !== "" && text.includes(excluded),
-        ),
-        masterVoiceControlPresent: Boolean(
-          overlay?.querySelector('[data-testid="master-overlay-voice-capture"]'),
-        ),
-        open: Boolean(overlay),
-      };
-    })()`,
+    driverCallExpression("topicConversationMasterOverlaySpeechIsolationState", { excludedTexts }),
     (state) => state.open && state.masterVoiceControlPresent && !state.containsExcludedText,
     timeoutMs,
   );

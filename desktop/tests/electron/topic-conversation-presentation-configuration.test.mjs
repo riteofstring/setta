@@ -9,10 +9,10 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchMouseClick,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -277,7 +277,7 @@ async function openWorkspace(client) {
     workflowTimeoutMs,
   );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,
@@ -333,7 +333,7 @@ async function closeSettingsShell(client) {
       return { clicked: false, closed: true };
     }
     const button = Array.from(page.querySelectorAll("button")).find(
-      (candidate) => candidate.textContent?.trim() === "Back to workspace",
+      (candidate) => candidate.textContent?.trim() === "Back to panes",
     );
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { clicked: false, closed: false };
@@ -342,7 +342,7 @@ async function closeSettingsShell(client) {
     return { clicked: true, closed: false };
   })()`);
   if (!clicked.closed && !clicked.clicked) {
-    throw new Error("Back to workspace button was not clickable");
+    throw new Error("Back to panes button was not clickable");
   }
   await waitForState(
     client,
