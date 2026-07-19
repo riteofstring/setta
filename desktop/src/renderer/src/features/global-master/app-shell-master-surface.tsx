@@ -28,6 +28,9 @@ import type {
 } from "./app-shell-master-controller";
 import {
   MasterTranscriptEntries,
+  MasterTranscriptFailure,
+  MasterTranscriptHistory,
+  MasterTranscriptLoading,
   visibleTranscriptEntries,
 } from "./app-shell-master-transcript-view";
 import { isMasterOverlayShortcut, isMasterVoiceShortcut } from "./master-shortcuts";
@@ -185,7 +188,6 @@ function MasterOverlay({
     </div>
   );
 }
-
 export function MasterSurfaceFrame({
   controller,
   focused,
@@ -382,14 +384,13 @@ function MasterInteraction({
   switch (snapshot.interaction.type) {
     case "disconnected":
     case "idle":
-      if (transcriptEntries.length > 0) {
-        return (
-          <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-            <MasterTranscriptEntries entries={transcriptEntries} />
-          </div>
-        );
-      }
-      return <EmptyMasterInteraction />;
+      return (
+        <InactiveMasterInteraction
+          controller={controller}
+          snapshot={snapshot}
+          transcriptEntries={transcriptEntries}
+        />
+      );
     case "loading":
       return (
         <InteractionStatus>
@@ -419,6 +420,36 @@ function MasterInteraction({
       );
     default:
       return assertNever(snapshot.interaction);
+  }
+}
+
+function InactiveMasterInteraction({
+  controller,
+  snapshot,
+  transcriptEntries,
+}: {
+  controller: AppShellMasterController;
+  snapshot: AppShellMasterSnapshot;
+  transcriptEntries: ReturnType<typeof visibleTranscriptEntries>;
+}) {
+  if (transcriptEntries.length > 0) {
+    return <MasterTranscriptHistory entries={transcriptEntries} />;
+  }
+  switch (snapshot.transcript.type) {
+    case "loading":
+      return <MasterTranscriptLoading />;
+    case "failed":
+      return (
+        <MasterTranscriptFailure
+          message={snapshot.transcript.message}
+          onRetryTranscript={controller.retryTranscript}
+        />
+      );
+    case "disconnected":
+    case "ready":
+      return <EmptyMasterInteraction />;
+    default:
+      return assertNever(snapshot.transcript);
   }
 }
 

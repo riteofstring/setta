@@ -35,10 +35,8 @@ export type {
   MasterInteractionState,
 } from "./app-shell-master-controller-types";
 
-// AppShellMasterController owns exactly one transient shell interaction. The
-// backend restores only in-flight work or an unresolved clarification; a
-// completed result remains local until dismissed or replaced and never grows
-// into a request history.
+// AppShellMasterController owns the active shell interaction and the durable
+// transcript read model exposed by the backend.
 export class AppShellMasterController {
   private readonly dependencies: AppShellMasterControllerDependencies;
   private readonly listeners = new Set<() => void>();
@@ -255,6 +253,15 @@ export class AppShellMasterController {
       default:
         return assertNever(this.snapshotValue.interaction);
     }
+  };
+
+  retryTranscript = (): void => {
+    this.assertUsable();
+    const runtimeId = this.snapshotValue.runtimeId;
+    if (!runtimeId || this.snapshotValue.transcript.type !== "failed") {
+      return;
+    }
+    this.loadTranscript(runtimeId, true);
   };
 
   dispose(): void {

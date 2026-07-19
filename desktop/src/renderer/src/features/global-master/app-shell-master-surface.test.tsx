@@ -64,6 +64,20 @@ describe("app-shell master surface", () => {
     expect(html).toContain("Answer Setta’s clarification…");
   });
 
+  test("renders a durable transcript load failure instead of empty history", async () => {
+    const controller = masterController(null, undefined, async () => {
+      throw new Error("private transcript failure");
+    });
+    controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    controller.openOverlay();
+
+    const html = renderSurface(controller);
+    expect(html).toContain("Setta could not load the durable master transcript.");
+    expect(html).toContain("Retry transcript");
+    expect(html).not.toContain("What should Setta bring into focus?");
+  });
+
   test("renders an explicit cancellation action and its immediate terminal result", async () => {
     const pending = new Promise<ShellInteractionState>(() => {});
     const controller = masterController(null, pending);
@@ -127,6 +141,7 @@ function renderSurface(controller: AppShellMasterController): string {
 function masterController(
   restored: ShellInteractionState | null = null,
   waitedState?: Promise<ShellInteractionState>,
+  readTranscript?: () => Promise<Transcript>,
 ): AppShellMasterController {
   let inputOrdinal = 0;
   const requests: SubmitMasterInputRequest[] = [];
@@ -150,7 +165,7 @@ function masterController(
       ...request,
       resolvedAt: "2026-07-13T20:00:02Z",
     }),
-    readTranscript: async () => transcriptForRequests(requests),
+    readTranscript: readTranscript ?? (async () => transcriptForRequests(requests)),
     submitMasterInput: async (request) => {
       requests.push(request);
       return acceptedInput(request, inputOrdinal);

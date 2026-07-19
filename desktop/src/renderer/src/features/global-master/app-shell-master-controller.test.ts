@@ -292,6 +292,33 @@ describe("app-shell master controller", () => {
     info.mockRestore();
   });
 
+  test("reports transcript load failure and retries explicitly", async () => {
+    const readTranscript = vi
+      .fn<AppShellMasterControllerDependencies["readTranscript"]>()
+      .mockRejectedValueOnce(new Error("private transcript failure"))
+      .mockResolvedValueOnce(emptyTranscript());
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const harness = createHarness({ readTranscript });
+    harness.controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+
+    expect(harness.controller.getSnapshot().transcript).toMatchObject({
+      message: "Setta could not load the durable master transcript.",
+      type: "failed",
+    });
+    harness.controller.retryTranscript();
+    expect(harness.controller.getSnapshot().transcript).toEqual({ type: "loading" });
+    await flushPromises();
+
+    expect(harness.controller.getSnapshot().transcript).toEqual({
+      transcript: emptyTranscript(),
+      type: "ready",
+    });
+    expect(readTranscript).toHaveBeenCalledTimes(2);
+    expect(info).toHaveBeenCalledWith("Master transcript load failed: runtimeId=runtime_alpha");
+    info.mockRestore();
+  });
+
   test("reconnects a failed routing-state wait without resubmitting the input", async () => {
     const retriedObservation = deferred<ShellInteractionState>();
     const wait = vi
