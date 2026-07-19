@@ -60,6 +60,7 @@ try {
   await persistFourColumnLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await context.client.installDriver();
   await waitForNormalPaneHosts(context.client, 4);
   await captureScreenshot(context.client, join(artifactDir, "normal-before.png"));
 
@@ -368,7 +369,7 @@ async function ensureWorkspaceOpen(client) {
 
 async function persistFourColumnLayout(client, workspaceId) {
   await client.evaluate(`(async () => {
-    await window.setta.workspace.saveUILayout(${JSON.stringify(fourColumnLayout(workspaceId))});
+    await window.setta.appLayout.savePaneLayout(${JSON.stringify(fourColumnAppLayout(workspaceId))});
     return true;
   })()`);
 }
@@ -411,6 +412,63 @@ function fourColumnLayout(workspaceId) {
     panes,
     schemaVersion: 1,
     workspaceId,
+  };
+}
+
+function fourColumnAppLayout(workspaceId) {
+  const layout = fourColumnLayout(workspaceId);
+  return {
+    columns: [
+      appMasterColumn(),
+      ...layout.columns.map((column) => ({
+        ...column,
+        index: column.index + 1,
+        slotIndex: column.slotIndex + 1,
+      })),
+    ],
+    focusedPaneId: layout.focusedPaneId,
+    maximizedPaneId: null,
+    panes: [appMasterPane(), ...layout.panes.map(appPaneFromWorkspacePane)],
+    schemaVersion: 1,
+  };
+}
+
+function appPaneFromWorkspacePane({ easyButtonConfig, ...pane }) {
+  void easyButtonConfig;
+  return {
+    ...pane,
+    conversationConfig: null,
+    masterConfig: null,
+  };
+}
+
+function appMasterColumn() {
+  return {
+    columnId: "app_column_master",
+    idealWidthSpec: { unit: "px", value: 520 },
+    index: 0,
+    paneIds: ["app_pane_master"],
+    planeIndex: 0,
+    previousProportionWidth: null,
+    slotIndex: 0,
+    widthSpec: { unit: "px", value: 520 },
+  };
+}
+
+function appMasterPane() {
+  return {
+    columnId: "app_column_master",
+    conversationConfig: null,
+    heat: 0,
+    masterConfig: {},
+    paneId: "app_pane_master",
+    sequence: 0,
+    subtitle: "Global coordinator",
+    surfaceId: "app_surface_master",
+    surfaceKind: "master",
+    title: "Setta",
+    tone: "slate",
+    weight: 1,
   };
 }
 
@@ -683,15 +741,7 @@ function workspaceIdExpression() {
 }
 
 function layoutSnapshotExpression() {
-  return `(async () => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const workspaceId = area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
-    if (!workspaceId || workspaceId === "empty") {
-      return { layout: null, workspaceId };
-    }
-    const result = await window.setta.workspace.readUILayout(workspaceId);
-    return { layout: result.layout, workspaceId };
-  })()`;
+  return driverCallExpression("paneDragDropPersistedWorkspaceLayout");
 }
 
 function frameMetricsExpression() {

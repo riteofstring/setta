@@ -39,6 +39,11 @@ describe("app pane layout adapter", () => {
 
     expect(layout.schemaVersion).toBe(appPaneLayoutSchemaVersion);
     expect(layout.maximizedPaneId).toBe(conversationPaneId);
+    expect(layout.columns.map((column) => [column.index, column.slotIndex])).toEqual([
+      [0, 0],
+      [1, 1],
+      [2, 2],
+    ]);
     expect(layout.panes.map((pane) => pane.surfaceKind)).toEqual([
       "master",
       "empty-frame",
@@ -79,7 +84,105 @@ describe("app pane layout adapter", () => {
           paneIds: ["app_pane_topic"],
           planeIndex: 0,
           previousProportionWidth: null,
+          slotIndex: 1,
+          widthSpec: { unit: "px", value: 520 },
+        },
+      ],
+      focusedPaneId: "app_pane_master",
+      maximizedPaneId: "app_pane_topic",
+      panes: [
+        {
+          columnId: "app_column_master",
+          conversationConfig: null,
+          heat: 0,
+          masterConfig: {},
+          paneId: "app_pane_master",
+          sequence: 0,
+          subtitle: "Global coordinator",
+          surfaceId: "app_surface_master",
+          surfaceKind: "master",
+          title: "Setta",
+          tone: "slate",
+          weight: 1,
+        },
+        {
+          columnId: "app_column_0",
+          conversationConfig: {
+            conversationId: "conversation_api",
+            presentationIdentity: {
+              subtitle: "Topic conversation",
+              title: "Build the API",
+              tone: "cyan",
+            },
+            resourceBindings: [{ folder: { rootPath: "/tmp/setta-api" }, kind: "folder" }],
+          },
+          heat: 12,
+          masterConfig: null,
+          paneId: "app_pane_topic",
+          sequence: 4,
+          subtitle: "Topic conversation",
+          surfaceId: "app_surface_topic",
+          surfaceKind: "conversation",
+          title: "Build the API",
+          tone: "cyan",
+          weight: 1,
+        },
+      ],
+      schemaVersion: appPaneLayoutSchemaVersion,
+    };
+
+    const restored = appPaneLayoutToWorkspaceUILayout({
+      layout,
+      workspaceId: "workspace_api",
+      workspaceRootPath: "/tmp/setta-api",
+    });
+
+    expect(restored.maximizedPaneId).toBe("app_pane_topic");
+    expect(restored.layout).toMatchObject({
+      focusedPaneId: "app_pane_topic",
+      workspaceId: "workspace_api",
+    });
+    expect(restored.layout?.columns.map((column) => [column.index, column.slotIndex])).toEqual([
+      [0, 0],
+    ]);
+    expect(restored.layout?.panes).toEqual([
+      {
+        columnId: "app_column_0",
+        easyButtonConfig: { conversationId: "conversation_api" },
+        heat: 12,
+        paneId: "app_pane_topic",
+        sequence: 4,
+        subtitle: "Topic conversation",
+        surfaceId: "app_surface_topic",
+        surfaceKind: "easy-button",
+        title: "Build the API",
+        tone: "cyan",
+        weight: 1,
+      },
+    ]);
+  });
+
+  test("does not restore app conversation panes bound to a different workspace folder", () => {
+    const layout: AppPaneLayout = {
+      columns: [
+        {
+          columnId: "app_column_master",
+          idealWidthSpec: { unit: "px", value: 520 },
+          index: 0,
+          paneIds: ["app_pane_master"],
+          planeIndex: 0,
+          previousProportionWidth: null,
           slotIndex: 0,
+          widthSpec: { unit: "px", value: 520 },
+        },
+        {
+          columnId: "app_column_0",
+          idealWidthSpec: { unit: "px", value: 520 },
+          index: 1,
+          paneIds: ["app_pane_topic"],
+          planeIndex: 0,
+          previousProportionWidth: null,
+          slotIndex: 1,
           widthSpec: { unit: "px", value: 520 },
         },
       ],
@@ -126,28 +229,16 @@ describe("app pane layout adapter", () => {
       schemaVersion: appPaneLayoutSchemaVersion,
     };
 
-    const restored = appPaneLayoutToWorkspaceUILayout({ layout, workspaceId: "workspace_api" });
-
-    expect(restored.maximizedPaneId).toBe("app_pane_topic");
-    expect(restored.layout).toMatchObject({
-      focusedPaneId: "app_pane_topic",
-      workspaceId: "workspace_api",
+    expect(
+      appPaneLayoutToWorkspaceUILayout({
+        layout,
+        workspaceId: "workspace_other",
+        workspaceRootPath: "/tmp/other",
+      }),
+    ).toEqual({
+      layout: null,
+      maximizedPaneId: null,
     });
-    expect(restored.layout?.panes).toEqual([
-      {
-        columnId: "app_column_0",
-        easyButtonConfig: { conversationId: "conversation_api" },
-        heat: 12,
-        paneId: "app_pane_topic",
-        sequence: 4,
-        subtitle: "Topic conversation",
-        surfaceId: "app_surface_topic",
-        surfaceKind: "easy-button",
-        title: "Build the API",
-        tone: "cyan",
-        weight: 1,
-      },
-    ]);
   });
 
   test("ignores master records until the renderer has a master surface adapter", () => {
@@ -185,7 +276,13 @@ describe("app pane layout adapter", () => {
       schemaVersion: appPaneLayoutSchemaVersion,
     };
 
-    expect(appPaneLayoutToWorkspaceUILayout({ layout, workspaceId: "workspace_api" })).toEqual({
+    expect(
+      appPaneLayoutToWorkspaceUILayout({
+        layout,
+        workspaceId: "workspace_api",
+        workspaceRootPath: "/tmp/setta-api",
+      }),
+    ).toEqual({
       layout: null,
       maximizedPaneId: null,
     });

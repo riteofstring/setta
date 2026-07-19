@@ -80,7 +80,7 @@ func newAppPaneLayoutHandler(t *testing.T) (http.Handler, string) {
 	if err != nil {
 		t.Fatalf("new app pane layout store: %v", err)
 	}
-	service, err := applayout.NewService(store)
+	service, err := applayout.NewService(store, noopAppPaneLayoutObserver{})
 	if err != nil {
 		t.Fatalf("new app pane layout service: %v", err)
 	}
@@ -88,6 +88,15 @@ func newAppPaneLayoutHandler(t *testing.T) (http.Handler, string) {
 		AppPaneLayoutService: service,
 		Metadata:             BackendMetadata{Name: BackendName, Version: "test"},
 	}), appDataDir
+}
+
+type noopAppPaneLayoutObserver struct{}
+
+func (noopAppPaneLayoutObserver) ObserveAppPaneLayout(
+	*applayout.AppPaneLayout,
+	applayout.AppPaneLayout,
+) error {
+	return nil
 }
 
 func appPaneLayout() applayout.AppPaneLayout {

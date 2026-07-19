@@ -67,19 +67,18 @@ try {
 
   const workspaceId = await ensureWorkspaceOpen(context.client);
 
-  await persistLayoutWithoutSettings(context.client, workspaceId);
+  await persistAppPaneLayoutWithoutSettings(context.client);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   const beforeOpen = await waitForLayoutWithoutSettings(context.client, workspaceId);
-  const savedLayoutBeforeOpen = await readPersistedUILayout(context.client, workspaceId);
+  const savedLayoutBeforeOpen = await readPersistedAppPaneLayout(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before-settings-open.png"));
 
   await clickDesktopSettingsButton(context.client);
   const afterOpen = await waitForSettingsPage(context.client, beforeOpen);
-  const savedLayoutWhileOpen = await assertPersistedUILayoutUnchanged(
+  const savedLayoutWhileOpen = await assertPersistedAppPaneLayoutUnchanged(
     context.client,
-    workspaceId,
     savedLayoutBeforeOpen,
     "desktop Settings open",
   );
@@ -88,9 +87,8 @@ try {
 
   await clickBackToWorkspace(context.client);
   const afterBack = await waitForWorkspaceRestored(context.client, beforeOpen);
-  const savedLayoutAfterBack = await assertPersistedUILayoutUnchanged(
+  const savedLayoutAfterBack = await assertPersistedAppPaneLayoutUnchanged(
     context.client,
-    workspaceId,
     savedLayoutBeforeOpen,
     "desktop Settings return",
   );
@@ -289,28 +287,28 @@ async function ensureWorkspaceOpen(client) {
   return opened.workspaceId;
 }
 
-async function persistLayoutWithoutSettings(client, workspaceId) {
+async function persistAppPaneLayoutWithoutSettings(client) {
   const result = await client.evaluate(`(async () => {
-    await window.setta.workspace.saveUILayout(${JSON.stringify(layoutWithoutSettings(workspaceId))});
+    await window.setta.appLayout.savePaneLayout(${JSON.stringify(appPaneLayoutWithoutSettings())});
     return true;
   })()`);
   if (!result) {
-    throw new Error("workspace UI layout was not persisted");
+    throw new Error("app pane layout was not persisted");
   }
 }
 
-async function readPersistedUILayout(client, workspaceId) {
+async function readPersistedAppPaneLayout(client) {
   return client.evaluate(`(async () => {
-    const result = await window.setta.workspace.readUILayout(${JSON.stringify(workspaceId)});
+    const result = await window.setta.appLayout.readPaneLayout();
     return result.layout;
   })()`);
 }
 
-async function assertPersistedUILayoutUnchanged(client, workspaceId, expectedLayout, label) {
-  const actual = await readPersistedUILayout(client, workspaceId);
+async function assertPersistedAppPaneLayoutUnchanged(client, expectedLayout, label) {
+  const actual = await readPersistedAppPaneLayout(client);
   if (JSON.stringify(actual) !== JSON.stringify(expectedLayout)) {
     throw new Error(
-      `${label} changed persisted workspace layout: ${JSON.stringify({ actual, expectedLayout })}`,
+      `${label} changed persisted app pane layout: ${JSON.stringify({ actual, expectedLayout })}`,
     );
   }
   return actual;
@@ -325,6 +323,7 @@ async function waitForLayoutWithoutSettings(client, workspaceId) {
       state.paneCount === 3 &&
       state.paneIds.length === 3 &&
       countSurfaceKind(state, "easy-button") === 1 &&
+      countSurfaceKind(state, "empty-frame") === 2 &&
       state.presentationMode === "normal" &&
       !state.settingsPageOpen &&
       !state.settingsPanelReady,
@@ -843,14 +842,30 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function layoutWithoutSettings(workspaceId) {
+function appPaneLayoutWithoutSettings() {
   return {
     columns: [
-      storedColumn("workspace_column_0", 0, ["workspace_pane_0"]),
-      storedColumn("workspace_column_1", 1, ["workspace_pane_1"]),
+      storedColumn("app_column_master", 0, ["app_pane_master"]),
+      storedColumn("workspace_column_0", 1, ["workspace_pane_0"]),
+      storedColumn("workspace_column_1", 2, ["workspace_pane_1"]),
     ],
     focusedPaneId: "workspace_pane_0",
+    maximizedPaneId: null,
     panes: [
+      {
+        columnId: "app_column_master",
+        conversationConfig: null,
+        heat: 0,
+        masterConfig: {},
+        paneId: "app_pane_master",
+        sequence: 0,
+        subtitle: "Global coordinator",
+        surfaceId: "app_surface_master",
+        surfaceKind: "master",
+        title: "Setta",
+        tone: "slate",
+        weight: 1,
+      },
       storedPane({
         columnId: "workspace_column_0",
         paneId: "workspace_pane_0",
@@ -875,7 +890,6 @@ function layoutWithoutSettings(workspaceId) {
       }),
     ],
     schemaVersion: 1,
-    workspaceId,
   };
 }
 
@@ -895,7 +909,8 @@ function storedColumn(columnId, index, paneIds) {
 function storedPane(pane) {
   return {
     ...pane,
-    easyButtonConfig: null,
+    conversationConfig: null,
     heat: (pane.sequence * 37) % 100,
+    masterConfig: null,
   };
 }

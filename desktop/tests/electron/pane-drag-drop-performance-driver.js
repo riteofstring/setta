@@ -18,6 +18,7 @@
       paneDragDropOverviewState,
       paneDragDropPaneSnapshot,
       paneDragDropPerformanceVersion: version,
+      paneDragDropPersistedWorkspaceLayout,
       paneDragDropResetFrameMetrics,
       paneDragDropStartFrameSampler,
       paneDragDropStopFrameSampler,
@@ -153,6 +154,74 @@
       workspaceId: workspaceDataset(area, "workspaceId"),
       workspaceMode: workspaceDataset(area, "workspaceMode"),
     };
+  }
+
+  async function paneDragDropPersistedWorkspaceLayout() {
+    const workspaceId = paneDragDropWorkspaceId();
+    if (!workspaceId || workspaceId === "empty") {
+      return { layout: null, workspaceId };
+    }
+    const result = await window.setta.appLayout.readPaneLayout();
+    return {
+      layout: workspaceLayoutFromAppLayout(result.layout, workspaceId),
+      workspaceId,
+    };
+  }
+
+  function paneDragDropWorkspaceId() {
+    const area = document.querySelector(workspaceLayoutSelector);
+    return area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "";
+  }
+
+  function workspaceLayoutFromAppLayout(layout, workspaceId) {
+    if (!layout) {
+      return null;
+    }
+    const panes = layout.panes.flatMap(workspacePaneFromAppPane);
+    const paneIds = new Set(panes.map((pane) => pane.paneId));
+    return {
+      columns: workspaceColumnsFromAppColumns(layout.columns, paneIds),
+      focusedPaneId: paneIds.has(layout.focusedPaneId)
+        ? layout.focusedPaneId
+        : (panes[0]?.paneId ?? ""),
+      panes,
+      schemaVersion: 1,
+      workspaceId,
+    };
+  }
+
+  function workspacePaneFromAppPane(pane) {
+    const { conversationConfig, masterConfig, ...fields } = pane;
+    void masterConfig;
+    if (pane.surfaceKind === "master") {
+      return [];
+    }
+    if (pane.surfaceKind === "conversation") {
+      return [
+        {
+          ...fields,
+          easyButtonConfig: { conversationId: conversationConfig.conversationId },
+          surfaceKind: "easy-button",
+        },
+      ];
+    }
+    return [{ ...fields, easyButtonConfig: null }];
+  }
+
+  function workspaceColumnsFromAppColumns(columns, paneIds) {
+    const filteredColumns = columns
+      .map((column) => ({
+        ...column,
+        paneIds: column.paneIds.filter((paneId) => paneIds.has(paneId)),
+      }))
+      .filter((column) => column.paneIds.length > 0);
+    const slotOffset = Math.min(...filteredColumns.map((column) => column.slotIndex));
+    const normalizedSlotOffset = Number.isFinite(slotOffset) ? Math.max(0, slotOffset) : 0;
+    return filteredColumns.map((column, index) => ({
+      ...column,
+      index,
+      slotIndex: Math.max(0, column.slotIndex - normalizedSlotOffset),
+    }));
   }
 
   function createFrameSampler() {

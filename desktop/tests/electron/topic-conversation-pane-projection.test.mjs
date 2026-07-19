@@ -1153,14 +1153,14 @@ try {
   });
 
   await waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
           pane.paneId === alphaRestartSide.parentPaneId &&
-          pane.easyButtonConfig?.conversationId === alpha.id,
+          pane.conversationConfig?.conversationId === alpha.id,
       ) === true &&
-      result.layout.panes.some((pane) => pane.easyButtonConfig?.conversationId === beta.id),
+      result.layout.panes.some((pane) => pane.conversationConfig?.conversationId === beta.id),
     workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));

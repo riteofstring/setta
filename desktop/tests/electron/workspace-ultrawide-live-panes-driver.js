@@ -25,8 +25,8 @@
   }
 
   async function workspaceUltrawideSaveUILayout({ layout }) {
-    await window.setta.workspace.saveUILayout(layout);
-    const readback = await window.setta.workspace.readUILayout(layout.workspaceId);
+    await window.setta.appLayout.savePaneLayout(layout);
+    const readback = await window.setta.appLayout.readPaneLayout();
     return {
       ok: readback.layout?.panes?.length === layout.panes.length,
       readbackPaneCount: readback.layout?.panes?.length ?? 0,

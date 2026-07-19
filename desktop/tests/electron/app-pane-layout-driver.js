@@ -11,14 +11,15 @@
     }
     Object.assign(driver, {
       appPaneLayoutClickFocusedMaximize,
+      appPaneLayoutPersistedShellState,
       appPaneLayoutRoundTrip,
       appPaneLayoutShellState,
       appPaneLayoutVersion: version,
     });
   }
 
-  function appPaneLayoutRoundTrip() {
-    roundTripPromise ??= runAppPaneLayoutRoundTrip();
+  function appPaneLayoutRoundTrip(args) {
+    roundTripPromise ??= runAppPaneLayoutRoundTrip(args);
     return roundTripPromise;
   }
 
@@ -60,7 +61,64 @@
     return { clicked: true, reason: "clicked" };
   }
 
-  async function runAppPaneLayoutRoundTrip() {
+  async function appPaneLayoutPersistedShellState({ workspaceRoot }) {
+    const api = appLayoutAPI();
+    if (api.status === "failed") {
+      return appPaneLayoutPersistedShellAPIFailure(api, workspaceRoot);
+    }
+    const read = await api.readPaneLayout();
+    return appPaneLayoutPersistedState(read.layout, workspaceRoot);
+  }
+
+  function appPaneLayoutPersistedShellAPIFailure(api, workspaceRoot) {
+    return { ...api, columns: [], workspaceRoot };
+  }
+
+  function appPaneLayoutPersistedState(layout, workspaceRoot) {
+    if (!layout) {
+      return appPaneLayoutMissingPersistedState(workspaceRoot);
+    }
+    const conversation = layout.panes.find((pane) => pane.paneId === "app_shell_conversation");
+    return {
+      columns: appPaneLayoutPersistedColumns(layout.columns),
+      focusedPaneId: layout.focusedPaneId,
+      maximizedPaneId: layout.maximizedPaneId,
+      resourceRoot: appPaneLayoutPersistedResourceRoot(conversation),
+      surfaceKind: conversation ? conversation.surfaceKind : "",
+      workspaceRoot,
+    };
+  }
+
+  function appPaneLayoutMissingPersistedState(workspaceRoot) {
+    return {
+      columns: [],
+      focusedPaneId: "",
+      maximizedPaneId: "__missing__",
+      resourceRoot: "",
+      surfaceKind: "",
+      workspaceRoot,
+    };
+  }
+
+  function appPaneLayoutPersistedColumns(columns) {
+    return columns.map((column) => ({
+      columnId: column.columnId,
+      index: column.index,
+      slotIndex: column.slotIndex,
+    }));
+  }
+
+  function appPaneLayoutPersistedResourceRoot(pane) {
+    if (!pane || pane.surfaceKind !== "conversation") {
+      return "";
+    }
+    const folderBinding = pane.conversationConfig.resourceBindings.find(
+      (binding) => binding.kind === "folder",
+    );
+    return folderBinding ? folderBinding.folder.rootPath : "";
+  }
+
+  async function runAppPaneLayoutRoundTrip({ conversationId, workspaceRoot }) {
     const api = appLayoutAPI();
     if (api.status === "failed") {
       return api;
@@ -70,7 +128,7 @@
     if (initialFailure) {
       return initialFailure;
     }
-    const layout = appPaneLayout();
+    const layout = appPaneLayout({ conversationId, workspaceRoot });
     const saved = await api.savePaneLayout(layout);
     const readBack = await api.readPaneLayout();
     return appPaneLayoutRoundTripResult(layout, saved, readBack);
@@ -108,7 +166,7 @@
     return { readBack, status: "passed" };
   }
 
-  function appPaneLayout() {
+  function appPaneLayout({ conversationId, workspaceRoot }) {
     return {
       columns: [
         {
@@ -142,13 +200,13 @@
         {
           columnId: "app_column_0",
           conversationConfig: {
-            conversationId: "conversation_workflow",
+            conversationId,
             presentationIdentity: {
               subtitle: "Topic conversation",
               title: "Workflow topic",
               tone: "cyan",
             },
-            resourceBindings: [],
+            resourceBindings: [{ folder: { rootPath: workspaceRoot }, kind: "folder" }],
           },
           heat: 37,
           masterConfig: null,

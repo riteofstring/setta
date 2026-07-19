@@ -549,14 +549,15 @@ async function waitForSingleConversationPaneLayout(
   conversationId,
   expectedPaneCount,
 ) {
+  void workspaceId;
   const result = await waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (current) => {
       const panes = current.layout?.panes ?? [];
       return (
-        panes.filter((pane) => pane.easyButtonConfig !== null).length === expectedPaneCount &&
-        panes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId).length ===
-          1
+        panes.filter((pane) => pane.conversationConfig !== null).length === expectedPaneCount &&
+        panes.filter((pane) => pane.conversationConfig?.conversationId === conversationId)
+          .length === 1
       );
     },
     workflowTimeoutMs,
@@ -564,9 +565,9 @@ async function waitForSingleConversationPaneLayout(
   const panes = result.layout?.panes ?? [];
   return {
     conversationId,
-    easyButtonPaneCount: panes.filter((pane) => pane.easyButtonConfig !== null).length,
+    easyButtonPaneCount: panes.filter((pane) => pane.conversationConfig !== null).length,
     matchingPaneCount: panes.filter(
-      (pane) => pane.easyButtonConfig?.conversationId === conversationId,
+      (pane) => pane.conversationConfig?.conversationId === conversationId,
     ).length,
   };
 }

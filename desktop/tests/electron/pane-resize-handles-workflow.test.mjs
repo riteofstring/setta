@@ -162,7 +162,7 @@ async function ensureWorkspaceOpen(client) {
 
 async function persistTwoColumnLayout(client, workspaceId) {
   await client.evaluate(`(async () => {
-    await window.setta.workspace.saveUILayout(${JSON.stringify(twoColumnLayout(workspaceId))});
+    await window.setta.appLayout.savePaneLayout(${JSON.stringify(twoColumnAppLayout(workspaceId))});
     return true;
   })()`);
 }
@@ -205,6 +205,63 @@ function twoColumnLayout(workspaceId) {
     panes,
     schemaVersion: 1,
     workspaceId,
+  };
+}
+
+function twoColumnAppLayout(workspaceId) {
+  const layout = twoColumnLayout(workspaceId);
+  return {
+    columns: [
+      appMasterColumn(),
+      ...layout.columns.map((column) => ({
+        ...column,
+        index: column.index + 1,
+        slotIndex: column.slotIndex + 1,
+      })),
+    ],
+    focusedPaneId: layout.focusedPaneId,
+    maximizedPaneId: null,
+    panes: [appMasterPane(), ...layout.panes.map(appPaneFromWorkspacePane)],
+    schemaVersion: 1,
+  };
+}
+
+function appPaneFromWorkspacePane({ easyButtonConfig, ...pane }) {
+  void easyButtonConfig;
+  return {
+    ...pane,
+    conversationConfig: null,
+    masterConfig: null,
+  };
+}
+
+function appMasterColumn() {
+  return {
+    columnId: "app_column_master",
+    idealWidthSpec: { unit: "px", value: 520 },
+    index: 0,
+    paneIds: ["app_pane_master"],
+    planeIndex: 0,
+    previousProportionWidth: null,
+    slotIndex: 0,
+    widthSpec: { unit: "px", value: 520 },
+  };
+}
+
+function appMasterPane() {
+  return {
+    columnId: "app_column_master",
+    conversationConfig: null,
+    heat: 0,
+    masterConfig: {},
+    paneId: "app_pane_master",
+    sequence: 0,
+    subtitle: "Global coordinator",
+    surfaceId: "app_surface_master",
+    surfaceKind: "master",
+    title: "Setta",
+    tone: "slate",
+    weight: 1,
   };
 }
 

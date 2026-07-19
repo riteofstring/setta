@@ -220,16 +220,14 @@ async function assertReadOnlyMissingWorkspace(client, targetConversationId) {
 }
 
 async function waitForPersistedEasyButton(backend, targetWorkspaceId, targetConversationId) {
+  void targetWorkspaceId;
   await waitForBackendState(
-    () =>
-      backend.post("/workspaces/ui/layout/read", {
-        workspaceId: targetWorkspaceId,
-      }),
+    () => backend.get("/app/panes/layout"),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
-          pane.surfaceKind === "easy-button" &&
-          pane.easyButtonConfig?.conversationId === targetConversationId,
+          pane.surfaceKind === "conversation" &&
+          pane.conversationConfig?.conversationId === targetConversationId,
       ) === true,
     workflowTimeoutMs,
   );

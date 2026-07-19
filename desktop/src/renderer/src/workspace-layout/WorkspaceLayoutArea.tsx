@@ -118,7 +118,7 @@ export function WorkspaceLayoutArea({
   const workspace = workspaceTarget.workspace;
   const mode = workspaceSceneMode();
   const { workspaceId, workspaceName, workspaceRootPath } = workspaceRuntimeIdentity(workspace);
-  const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, mode);
+  const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, workspaceRootPath, mode);
   if (!workspace && mode === "workspace") {
     return <WorkspaceFirstRunSurface platform={platform} status={workspaceTarget.status} />;
   }

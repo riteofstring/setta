@@ -168,9 +168,9 @@ try {
     client: context.client,
     workspaceId,
   });
-  const scaledLayout = await waitForUILayout(backend, workspaceId, (layout) => {
-    const easyButtonPanes = easyButtonLayoutPanes(layout);
-    return easyButtonPanes.length > 10 && uniqueEasyButtonConversationBindings(layout);
+  const scaledLayout = await waitForAppPaneLayout(backend, workspaceId, (layout) => {
+    const conversationPanes = appConversationLayoutPanes(layout);
+    return conversationPanes.length > 10 && uniqueAppConversationBindings(layout);
   });
   const scaledState = await waitForCreationWorkspaceState(
     context.client,
@@ -219,8 +219,8 @@ try {
     initialConversation,
     creationRaceFailures,
     rapidRepeatConversation,
-    reloadedEasyButtonPaneCount: easyButtonLayoutPanes(reloadedLayout).length,
-    scaledEasyButtonPaneCount: easyButtonLayoutPanes(scaledLayout).length,
+    reloadedEasyButtonPaneCount: appConversationLayoutPanes(reloadedLayout).length,
+    scaledEasyButtonPaneCount: appConversationLayoutPanes(scaledLayout).length,
     scaledState,
     status: "passed",
     toolbarConversation,
@@ -407,7 +407,7 @@ async function createConversationWithPostCreateLayoutRace({
     state.operationErrorText.includes(expectedError),
   );
   await waitForNavigator(client, created.id, 0, workflowTimeoutMs);
-  const layout = await waitForUILayout(backend, workspaceId, (candidate) =>
+  const layout = await waitForAppPaneLayout(backend, workspaceId, (candidate) =>
     layoutMatchesPostCreateRace(candidate, {
       conversationId: created.id,
       mutation,
@@ -828,8 +828,8 @@ async function exerciseUICreatedConversationFailure({
 
 async function createUntilMoreThanTenEasyButtonPanes({ backend, client, workspaceId }) {
   const created = [];
-  let layout = await readUILayout(backend, workspaceId);
-  while (easyButtonLayoutPanes(layout).length <= 10) {
+  let layout = await readAppPaneLayout(backend, workspaceId);
+  while (appConversationLayoutPanes(layout).length <= 10) {
     created.push(
       await createConversationThroughUI({
         action: () =>
@@ -842,7 +842,7 @@ async function createUntilMoreThanTenEasyButtonPanes({ backend, client, workspac
         workspaceId,
       }),
     );
-    layout = await readUILayout(backend, workspaceId);
+    layout = await readAppPaneLayout(backend, workspaceId);
   }
   return created;
 }
@@ -853,23 +853,23 @@ async function verifyReloadedConversationBindings({
   exactPaneBinding,
   workspaceId,
 }) {
-  return waitForUILayout(backend, workspaceId, (layout) => {
-    if (!uniqueEasyButtonConversationBindings(layout)) {
+  return waitForAppPaneLayout(backend, workspaceId, (layout) => {
+    if (!uniqueAppConversationBindings(layout)) {
       return false;
     }
-    const easyButtonPanes = easyButtonLayoutPanes(layout);
+    const conversationPanes = appConversationLayoutPanes(layout);
     const boundConversationIds = new Set(
-      easyButtonPanes.map((pane) => pane.easyButtonConfig.conversationId),
+      conversationPanes.map((pane) => pane.conversationConfig.conversationId),
     );
     const allExpectedBound = conversations.every((conversation) =>
       boundConversationIds.has(conversation.id),
     );
-    const exactBound = easyButtonPanes.some(
+    const exactBound = conversationPanes.some(
       (pane) =>
         pane.paneId === exactPaneBinding.paneId &&
-        pane.easyButtonConfig.conversationId === exactPaneBinding.conversationId,
+        pane.conversationConfig.conversationId === exactPaneBinding.conversationId,
     );
-    return allExpectedBound && exactBound && easyButtonPanes.length > 10;
+    return allExpectedBound && exactBound && conversationPanes.length > 10;
   });
 }
 
@@ -969,47 +969,49 @@ async function waitForPersistedConversationPane(
   conversationId,
   expectedPaneId,
 ) {
-  return waitForUILayout(backend, workspaceId, (layout) =>
-    easyButtonLayoutPanes(layout).some(
+  return waitForAppPaneLayout(backend, workspaceId, (layout) =>
+    appConversationLayoutPanes(layout).some(
       (pane) =>
-        pane.easyButtonConfig.conversationId === conversationId &&
+        pane.conversationConfig.conversationId === conversationId &&
         (expectedPaneId === "" || pane.paneId === expectedPaneId),
     ),
   );
 }
 
-async function waitForUILayout(backend, workspaceId, ready) {
+async function waitForAppPaneLayout(backend, workspaceId, ready) {
+  void workspaceId;
   const result = await waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (current) => Boolean(current.layout && ready(current.layout)),
     workflowTimeoutMs,
   );
   return result.layout;
 }
 
-async function readUILayout(backend, workspaceId) {
-  const result = await backend.post("/workspaces/ui/layout/read", { workspaceId });
+async function readAppPaneLayout(backend, workspaceId) {
+  void workspaceId;
+  const result = await backend.get("/app/panes/layout");
   if (!result.layout) {
-    throw new Error(`workspace layout was unavailable: ${JSON.stringify(result)}`);
+    throw new Error(`app pane layout was unavailable: ${JSON.stringify(result)}`);
   }
   return result.layout;
 }
 
-function easyButtonLayoutPanes(layout) {
+function appConversationLayoutPanes(layout) {
   return layout.panes.filter(
-    (pane) => pane.surfaceKind === "easy-button" && pane.easyButtonConfig?.conversationId,
+    (pane) => pane.surfaceKind === "conversation" && pane.conversationConfig?.conversationId,
   );
 }
 
 function layoutHasConversationPane(layout, conversationId) {
-  return easyButtonLayoutPanes(layout).some(
-    (pane) => pane.easyButtonConfig.conversationId === conversationId,
+  return appConversationLayoutPanes(layout).some(
+    (pane) => pane.conversationConfig.conversationId === conversationId,
   );
 }
 
-function uniqueEasyButtonConversationBindings(layout) {
-  const conversationIds = easyButtonLayoutPanes(layout).map(
-    (pane) => pane.easyButtonConfig.conversationId,
+function uniqueAppConversationBindings(layout) {
+  const conversationIds = appConversationLayoutPanes(layout).map(
+    (pane) => pane.conversationConfig.conversationId,
   );
   return new Set(conversationIds).size === conversationIds.length;
 }

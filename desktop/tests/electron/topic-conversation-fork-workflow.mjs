@@ -93,13 +93,14 @@ async function presentCreatedTopic({ backend, client, item, timeoutMs, workspace
 }
 
 export function waitForPersistedConversationPane(backend, workspaceId, conversationId, timeoutMs) {
+  void workspaceId;
   return waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
-          pane.surfaceKind === "easy-button" &&
-          pane.easyButtonConfig?.conversationId === conversationId,
+          pane.surfaceKind === "conversation" &&
+          pane.conversationConfig?.conversationId === conversationId,
       ) === true,
     timeoutMs,
   );

@@ -19,6 +19,7 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import { backendProbe } from "./electron-workflow-harness.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "app-pane-layout";
@@ -47,9 +48,17 @@ try {
     visible: options.visible,
   });
   await context.client.installDriver();
+  const backend = await backendProbe(artifactDir);
+  const workspaceRoot = await realpath(fixture.workspaceRoot);
+  const opened = await backend.post("/workspaces/open", { rootPath: workspaceRoot });
+  const conversationId = await createFixtureConversation(
+    backend,
+    opened.workspace.id,
+    "Workflow topic",
+  );
   const result = await waitForState(
     context.client,
-    driverCallExpression("appPaneLayoutRoundTrip"),
+    driverCallExpression("appPaneLayoutRoundTrip", { conversationId, workspaceRoot }),
     (state) => state.status === "passed" || state.status === "failed",
     workflowTimeoutMs,
   );
@@ -58,7 +67,7 @@ try {
   }
   const workspaceId = await ensureWorkspaceOpen(context.client);
   await context.client.evaluate(
-    `window.setta.appLayout.savePaneLayout(${JSON.stringify(shellAppPaneLayout())})`,
+    `window.setta.appLayout.savePaneLayout(${JSON.stringify(shellAppPaneLayout(workspaceRoot, conversationId))})`,
   );
   await context.client.call("Page.reload", { ignoreCache: true });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
@@ -73,10 +82,9 @@ try {
   if (!click.clicked) {
     throw new Error(`app pane layout shell maximize click failed: ${JSON.stringify(click)}`);
   }
-  const workspaceRoot = await realpath(fixture.workspaceRoot);
   const persistedShell = await waitForState(
     context.client,
-    shellPersistedReadExpression(workspaceRoot),
+    driverCallExpression("appPaneLayoutPersistedShellState", { workspaceRoot }),
     appLayoutShellPersisted,
     workflowTimeoutMs,
   );
@@ -125,6 +133,17 @@ function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
+async function createFixtureConversation(backend, workspaceId, title) {
+  const snapshot = await backend.post("/conversations/create", { title, workspaceId });
+  if (
+    snapshot.conversation?.workspaceId !== workspaceId ||
+    snapshot.conversation?.title !== title
+  ) {
+    throw new Error(`fixture conversation was not created: ${JSON.stringify(snapshot)}`);
+  }
+  return snapshot.conversation.id;
+}
+
 function shellLayoutRestored(state, workspaceId) {
   return (
     state.ready &&
@@ -141,31 +160,28 @@ function shellLayoutRestored(state, workspaceId) {
   );
 }
 
-function shellPersistedReadExpression(workspaceRoot) {
-  return `(async () => {
-    const read = await window.setta.appLayout.readPaneLayout();
-    const layout = read.layout;
-    const conversation = layout?.panes?.find((pane) => pane.paneId === "app_shell_conversation");
-    return {
-      focusedPaneId: layout?.focusedPaneId ?? "",
-      maximizedPaneId: layout ? layout.maximizedPaneId : "__missing__",
-      resourceRoot: conversation?.conversationConfig?.resourceBindings?.[0]?.folder?.rootPath ?? "",
-      surfaceKind: conversation?.surfaceKind ?? "",
-      workspaceRoot: ${JSON.stringify(workspaceRoot)}
-    };
-  })()`;
-}
-
 function appLayoutShellPersisted(state) {
   return (
     state.focusedPaneId === "app_shell_conversation" &&
     state.maximizedPaneId === null &&
     state.resourceRoot === state.workspaceRoot &&
-    state.surfaceKind === "conversation"
+    state.surfaceKind === "conversation" &&
+    state.columns.some(
+      (column) =>
+        column.columnId === "app_column_master" && column.index === 0 && column.slotIndex === 0,
+    ) &&
+    state.columns.some(
+      (column) =>
+        column.columnId === "app_shell_column_0" && column.index === 1 && column.slotIndex === 1,
+    ) &&
+    state.columns.some(
+      (column) =>
+        column.columnId === "app_shell_column_1" && column.index === 2 && column.slotIndex === 2,
+    )
   );
 }
 
-function shellAppPaneLayout() {
+function shellAppPaneLayout(workspaceRoot, conversationId) {
   return {
     columns: [
       {
@@ -185,7 +201,7 @@ function shellAppPaneLayout() {
         paneIds: ["app_shell_empty"],
         planeIndex: 0,
         previousProportionWidth: null,
-        slotIndex: 0,
+        slotIndex: 1,
         widthSpec: { unit: "px", value: 520 },
       },
       {
@@ -195,7 +211,7 @@ function shellAppPaneLayout() {
         paneIds: ["app_shell_conversation"],
         planeIndex: 0,
         previousProportionWidth: null,
-        slotIndex: 1,
+        slotIndex: 2,
         widthSpec: { unit: "px", value: 520 },
       },
     ],
@@ -233,13 +249,13 @@ function shellAppPaneLayout() {
       {
         columnId: "app_shell_column_1",
         conversationConfig: {
-          conversationId: "conversation_shell_workflow",
+          conversationId,
           presentationIdentity: {
             subtitle: "Topic conversation",
             title: "Shell workflow topic",
             tone: "cyan",
           },
-          resourceBindings: [],
+          resourceBindings: [{ folder: { rootPath: workspaceRoot }, kind: "folder" }],
         },
         heat: 37,
         masterConfig: null,

@@ -127,10 +127,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	if err != nil {
 		return runtimeFoundation{}, err
 	}
-	appPaneLayoutService, err := newAppPaneLayoutService(config.AppDataDir)
-	if err != nil {
-		return runtimeFoundation{}, err
-	}
 	workspaceService, err := newWorkspaceService(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, err
@@ -138,6 +134,11 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	conversationStore, err := conversation.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
+	}
+	appPaneLayoutService, err := newAppPaneLayoutService(config.AppDataDir, conversationStore)
+	if err != nil {
+		_ = conversationStore.Close()
+		return runtimeFoundation{}, err
 	}
 	workspaceUIService, err := newWorkspaceUIService(
 		config.AppDataDir,

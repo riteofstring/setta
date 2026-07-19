@@ -464,19 +464,20 @@ async function waitForPersistedTopicPanes(
   betaId,
   singlePaneConversationIds = [],
 ) {
+  void workspaceId;
   return waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (result) => {
       const topicPanes =
-        result.layout?.panes.filter((pane) => pane.surfaceKind === "easy-button") ?? [];
+        result.layout?.panes.filter((pane) => pane.surfaceKind === "conversation") ?? [];
       return (
-        topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === alphaId).length ===
+        topicPanes.filter((pane) => pane.conversationConfig?.conversationId === alphaId).length ===
           1 &&
-        topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === betaId).length ===
+        topicPanes.filter((pane) => pane.conversationConfig?.conversationId === betaId).length ===
           1 &&
         singlePaneConversationIds.every(
           (conversationId) =>
-            topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId)
+            topicPanes.filter((pane) => pane.conversationConfig?.conversationId === conversationId)
               .length === 1,
         )
       );
@@ -553,9 +554,9 @@ function paletteProfileIdentity(items, conversationIds) {
 
 function palettePaneIdentity(panes) {
   return panes
-    .filter((pane) => pane.surfaceKind === "easy-button")
+    .filter((pane) => pane.surfaceKind === "conversation")
     .map((pane) => ({
-      conversationId: pane.easyButtonConfig?.conversationId ?? "",
+      conversationId: pane.conversationConfig?.conversationId ?? "",
       paneId: pane.paneId,
     }))
     .sort((left, right) => left.paneId.localeCompare(right.paneId));

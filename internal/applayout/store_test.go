@@ -249,7 +249,8 @@ func TestStoreRejectsDuplicateConversationPaneBindings(t *testing.T) {
 }
 
 func TestServicePersistsAppPaneLayout(t *testing.T) {
-	service, err := NewService(newTestStore(t, t.TempDir()))
+	observer := &recordingLayoutObserver{}
+	service, err := NewService(newTestStore(t, t.TempDir()), observer)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
@@ -265,6 +266,42 @@ func TestServicePersistsAppPaneLayout(t *testing.T) {
 	if loaded.Layout == nil || loaded.Layout.FocusedPaneID != layout.FocusedPaneID {
 		t.Fatalf("loaded layout = %+v, want focus %s", loaded.Layout, layout.FocusedPaneID)
 	}
+	if len(observer.calls) != 2 {
+		t.Fatalf("observer calls = %d, want save and read calls", len(observer.calls))
+	}
+	if observer.calls[0].previous != nil {
+		t.Fatalf("save previous layout = %+v, want nil", observer.calls[0].previous)
+	}
+	if observer.calls[0].layout.FocusedPaneID != layout.FocusedPaneID ||
+		observer.calls[1].layout.FocusedPaneID != layout.FocusedPaneID {
+		t.Fatalf("observed layouts = %+v, want focused %s", observer.calls, layout.FocusedPaneID)
+	}
+}
+
+func TestServiceObservesPreviousAppPaneLayoutOnSave(t *testing.T) {
+	observer := &recordingLayoutObserver{}
+	service, err := NewService(newTestStore(t, t.TempDir()), observer)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	previous := testLayout()
+	next := testLayout()
+	next.FocusedPaneID = "app_pane_conversation"
+
+	if _, err := service.SaveLayout(previous); err != nil {
+		t.Fatalf("save previous layout: %v", err)
+	}
+	if _, err := service.SaveLayout(next); err != nil {
+		t.Fatalf("save next layout: %v", err)
+	}
+	if len(observer.calls) != 2 {
+		t.Fatalf("observer calls = %d, want two saves", len(observer.calls))
+	}
+	if observer.calls[1].previous == nil ||
+		observer.calls[1].previous.FocusedPaneID != previous.FocusedPaneID ||
+		observer.calls[1].layout.FocusedPaneID != next.FocusedPaneID {
+		t.Fatalf("second observed call = %+v, want previous %s next %s", observer.calls[1], previous.FocusedPaneID, next.FocusedPaneID)
+	}
 }
 
 func newTestStore(t *testing.T, appDataDir string) *Store {
@@ -275,6 +312,26 @@ func newTestStore(t *testing.T, appDataDir string) *Store {
 		t.Fatalf("new store: %v", err)
 	}
 	return store
+}
+
+type recordingLayoutObserver struct {
+	calls []recordedLayoutObservation
+}
+
+type recordedLayoutObservation struct {
+	previous *AppPaneLayout
+	layout   AppPaneLayout
+}
+
+func (observer *recordingLayoutObserver) ObserveAppPaneLayout(
+	previous *AppPaneLayout,
+	layout AppPaneLayout,
+) error {
+	observer.calls = append(observer.calls, recordedLayoutObservation{
+		previous: previous,
+		layout:   layout,
+	})
+	return nil
 }
 
 func testLayout() AppPaneLayout {

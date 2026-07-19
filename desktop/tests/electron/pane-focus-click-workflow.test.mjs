@@ -2,6 +2,7 @@
 /* global console */
 
 import { basename, join } from "node:path";
+import { realpath } from "node:fs/promises";
 import process from "node:process";
 
 import { backendProbe } from "./electron-workflow-harness.mjs";
@@ -158,17 +159,18 @@ async function openSeededWorkspaceInRenderer(client, workspaceId) {
 }
 
 async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
-  const opened = await backend.post("/workspaces/open", { rootPath: workspaceRoot });
+  const canonicalWorkspaceRoot = await realpath(workspaceRoot);
+  const opened = await backend.post("/workspaces/open", { rootPath: canonicalWorkspaceRoot });
   const workspaceId = opened.workspace?.id ?? "";
   if (workspaceId === "") {
     throw new Error(`workspace open response missing id: ${JSON.stringify(opened)}`);
   }
   const conversationId = await createFixtureConversation(backend, workspaceId);
-  const layout = twoPaneWorkspaceUILayout(workspaceId, conversationId);
-  const saved = await backend.post("/workspaces/ui/layout/save", { layout });
-  if (saved.workspaceId !== workspaceId) {
+  const layout = twoPaneAppLayout(workspaceId, conversationId, canonicalWorkspaceRoot);
+  const saved = await backend.post("/app/panes/layout/save", { layout });
+  if (saved.focusedPaneId !== layout.focusedPaneId) {
     throw new Error(
-      `saved layout workspace ${saved.workspaceId} did not match opened workspace ${workspaceId}`,
+      `saved app layout focus ${saved.focusedPaneId} did not match ${layout.focusedPaneId}`,
     );
   }
   return workspaceId;
@@ -365,8 +367,8 @@ function seededWorkspaceOpenStateExpression() {
   })()`;
 }
 
-function twoPaneWorkspaceUILayout(workspaceId, conversationId) {
-  return {
+function twoPaneAppLayout(workspaceId, conversationId, workspaceRoot) {
+  const layout = {
     columns: [
       {
         columnId: "workspace_column_0",
@@ -420,5 +422,79 @@ function twoPaneWorkspaceUILayout(workspaceId, conversationId) {
     ],
     schemaVersion: 1,
     workspaceId,
+  };
+  return {
+    columns: [
+      appMasterColumn(),
+      ...layout.columns.map((column) => ({
+        ...column,
+        index: column.index + 1,
+        slotIndex: column.slotIndex + 1,
+      })),
+    ],
+    focusedPaneId: layout.focusedPaneId,
+    maximizedPaneId: null,
+    panes: [
+      appMasterPane(),
+      appConversationPane(layout.panes[0], workspaceRoot),
+      appEmptyPane(layout.panes[1]),
+    ],
+    schemaVersion: 1,
+  };
+}
+
+function appMasterColumn() {
+  return {
+    columnId: "app_column_master",
+    idealWidthSpec: { unit: "px", value: 520 },
+    index: 0,
+    paneIds: ["app_pane_master"],
+    planeIndex: 0,
+    previousProportionWidth: null,
+    slotIndex: 0,
+    widthSpec: { unit: "px", value: 520 },
+  };
+}
+
+function appMasterPane() {
+  return {
+    columnId: "app_column_master",
+    conversationConfig: null,
+    heat: 0,
+    masterConfig: {},
+    paneId: "app_pane_master",
+    sequence: 0,
+    subtitle: "Global coordinator",
+    surfaceId: "app_surface_master",
+    surfaceKind: "master",
+    title: "Setta",
+    tone: "slate",
+    weight: 1,
+  };
+}
+
+function appConversationPane({ easyButtonConfig, ...pane }, workspaceRoot) {
+  return {
+    ...pane,
+    conversationConfig: {
+      conversationId: easyButtonConfig.conversationId,
+      presentationIdentity: {
+        subtitle: pane.subtitle,
+        title: pane.title,
+        tone: pane.tone,
+      },
+      resourceBindings: [{ folder: { rootPath: workspaceRoot }, kind: "folder" }],
+    },
+    masterConfig: null,
+    surfaceKind: "conversation",
+  };
+}
+
+function appEmptyPane({ easyButtonConfig, ...pane }) {
+  void easyButtonConfig;
+  return {
+    ...pane,
+    conversationConfig: null,
+    masterConfig: null,
   };
 }

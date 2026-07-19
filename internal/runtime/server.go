@@ -339,12 +339,19 @@ func newAppearanceService(appDataDir string) (*appearance.Service, error) {
 	return appearanceService, nil
 }
 
-func newAppPaneLayoutService(appDataDir string) (*applayout.Service, error) {
+func newAppPaneLayoutService(
+	appDataDir string,
+	conversationStore *conversation.Store,
+) (*applayout.Service, error) {
 	store, err := applayout.NewStore(appDataDir)
 	if err != nil {
 		return nil, fmt.Errorf("create app pane layout store: %w", err)
 	}
-	service, err := applayout.NewService(store)
+	observer, err := newAppPaneLayoutPaneBindingObserver(conversationStore)
+	if err != nil {
+		return nil, fmt.Errorf("create app pane layout observer: %w", err)
+	}
+	service, err := applayout.NewService(store, observer)
 	if err != nil {
 		return nil, fmt.Errorf("create app pane layout service: %w", err)
 	}

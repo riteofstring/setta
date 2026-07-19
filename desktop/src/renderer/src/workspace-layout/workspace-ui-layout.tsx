@@ -108,6 +108,7 @@ function initialEasyButtonStartupLabel(startup: Exclude<InitialEasyButtonPaneSta
 
 export function useWorkspaceUILayoutLoad(
   workspaceId: string,
+  workspaceRootPath: string | null,
   mode: WorkspaceSceneMode,
 ): WorkspaceUILayoutLoad {
   const key = `${mode}:${workspaceId}`;
@@ -145,6 +146,7 @@ export function useWorkspaceUILayoutLoad(
         const loaded = appPaneLayoutToWorkspaceUILayout({
           layout: result.layout,
           workspaceId,
+          workspaceRootPath,
         });
         setState({
           error: null,
@@ -169,7 +171,7 @@ export function useWorkspaceUILayoutLoad(
     return () => {
       cancelled = true;
     };
-  }, [key, shouldLoad, workspaceId]);
+  }, [key, shouldLoad, workspaceId, workspaceRootPath]);
 
   if (!shouldLoad) {
     return {
