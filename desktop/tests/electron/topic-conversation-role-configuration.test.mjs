@@ -209,6 +209,7 @@ try {
   assertEqual(globalInheritedTopic.model, "gpt-5.6-terra", "global inherited agent model");
 
   await selectRoleScope(context.client, "global");
+  await waitForRoleSettings(context.client, "gpt-5.6-terra", "medium", false, "global");
   await resetGlobalAgentFromSettings(context.client);
   const reset = await waitForGlobalAgentConfiguration(
     context.client,

@@ -80,7 +80,7 @@ JOIN trajectory_events AS terminal
   ON terminal.conversation_id = conversation.id
  AND terminal.turn_id = turn.id
 WHERE narrator.status = 'running'
-  AND terminal.sequence > narrator.observed_through_sequence
+  AND terminal.sequence >= narrator.observed_through_sequence
   AND (
     (turn.status = 'completed' AND terminal.kind = 'turn_completed')
     OR (turn.status = 'cancelled' AND terminal.kind = 'turn_interrupted')

@@ -1,5 +1,12 @@
 import process from "node:process";
 
+const simultaneousAudioHoldPrefix = "hold simultaneous audio ";
+
+export function emitSimultaneousAudioHoldProgress(emitAgentMessage, threadId, turnId, text) {
+  if (!text.startsWith(simultaneousAudioHoldPrefix)) return;
+  emitAgentMessage(threadId, turnId, `Visible progress for ${text}.`, `agent-progress-${turnId}`);
+}
+
 export function optionalNonNegativeIntegerEnvironment(name) {
   const raw = process.env[name] ?? "";
   if (raw === "") {

@@ -8,6 +8,7 @@ import {
 } from "./fake-topic-artifact-tool.mjs";
 import { artifactToolResponseAction } from "./fake-topic-artifact-turns.mjs";
 import {
+  emitSimultaneousAudioHoldProgress,
   listCursorOffset,
   listLimit,
   optionalNonNegativeIntegerEnvironment,
@@ -1013,6 +1014,7 @@ function emitTurnScenario(threadId, turnId, text) {
     }
   }
   if (text.includes("hold")) {
+    emitSimultaneousAudioHoldProgress(emitAgentMessage, threadId, turnId, text);
     heldTurns.set(turnId, { threadId, text });
     return;
   }
@@ -1232,10 +1234,10 @@ function emitTextDelta(threadId, turnId, delta) {
   });
 }
 
-function emitAgentMessage(threadId, turnId, text) {
+function emitAgentMessage(threadId, turnId, text, itemId = `agent-${turnId}`) {
   notify("item/completed", {
     completedAtMs: Date.now(),
-    item: { id: `agent-${turnId}`, text, type: "agentMessage" },
+    item: { id: itemId, text, type: "agentMessage" },
     threadId,
     turnId,
   });
