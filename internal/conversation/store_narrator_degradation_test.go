@@ -105,7 +105,7 @@ func TestSuccessfulNarratorRetryClearsDegradation(t *testing.T) {
 		t.Fatalf("commit successful narrator retry: %v", err)
 	}
 	if recovered.State.Status != NarratorStatusReady || recovered.State.Degradation != nil ||
-		recovered.State.ObservedThroughSequence != 10 ||
+		recovered.State.ObservedThroughSequence != 8 ||
 		recovered.State.CurrentFocus != degraded.CurrentFocus ||
 		recovered.State.LastInvocationAt == nil || *recovered.State.LastInvocationAt != narratorRetryTime {
 		t.Fatalf("recovered narrator state = %+v", recovered.State)

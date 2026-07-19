@@ -18,7 +18,7 @@ import (
 	"setta/internal/workspaceui/conversationpalette"
 )
 
-func TestServiceSubmitsTerminalProjectionBeforeRawBacklogCheckpoint(t *testing.T) {
+func TestServiceProjectsTerminalBacklogInOrderAndCheckpointsBeforeResuming(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
 	retryStarted := make(chan time.Duration, 1)
@@ -55,7 +55,27 @@ func TestServiceSubmitsTerminalProjectionBeforeRawBacklogCheckpoint(t *testing.T
 			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
 	})
 	assertTerminalProjectorState(t, snapshot, turnID)
-	assertTerminalBypassesBacklogCheckpoint(t, provider.snapshotCalls(), terminal.Sequence)
+	assertTerminalProjectorCalls(t, provider.snapshotCalls(), terminal.Sequence)
+}
+
+func TestServiceRecoversCommittedTerminalBacklogAfterRestart(t *testing.T) {
+	store := newProjectorTestStore(t)
+	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
+	provider := &projectorTestAgentRuntime{}
+	service := newProjectorTestService(t, store, provider)
+	if err := service.RecoverCommittedTrajectory(context.Background()); err != nil {
+		t.Fatalf("RecoverCommittedTrajectory: %v", err)
+	}
+
+	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
+		return current.NarratorState.ObservedThroughSequence == terminal.Sequence &&
+			latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
+	})
+	assertTerminalProjectorState(t, snapshot, turnID)
+	if calls := provider.snapshotCalls(); len(calls) == 0 ||
+		calls[len(calls)-1].requestedChannel != ProjectionChannelTerminal {
+		t.Fatalf("recovered projector calls = %+v", calls)
+	}
 }
 
 func TestServiceWaitsForAcceptedInputFocusBeforeTerminalProjection(t *testing.T) {
@@ -244,7 +264,7 @@ func TestServiceKeepsTerminalProjectionBehindRetriedFocus(t *testing.T) {
 	t.Fatalf("terminal projection call was not recorded: %+v", provider.snapshotCalls())
 }
 
-func TestServiceResumesTerminalProjectionAfterActiveProgressFinishes(t *testing.T) {
+func TestServiceResumesFailedTerminalProjectionAfterCatchUpCheckpoint(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
 	progressStarted := make(chan struct{})
@@ -297,7 +317,7 @@ func TestServiceResumesTerminalProjectionAfterActiveProgressFinishes(t *testing.
 	assertTerminalProjectorState(t, snapshot, turnID)
 }
 
-func TestServiceFinalizesTerminalProjectionAtObservedCursor(t *testing.T) {
+func TestServiceFinalizesTerminalProjectionAfterCheckpointCaughtUp(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedFailedTerminalProjectorConversation(t, store)
 	markNarratorCaughtUpAtTerminal(t, store, conversationID, terminal.Sequence)
@@ -357,7 +377,7 @@ func TestServiceFinalizesTerminalProjectionAtObservedCursor(t *testing.T) {
 	}
 }
 
-func TestServiceProgressProjectionDoesNotBackfillHistoricalTerminal(t *testing.T) {
+func TestServiceTerminalCatchUpSurvivesWorkingMilestoneCadence(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, _ := seedFailedTerminalProjectorConversation(t, store)
 	provider := &projectorTestAgentRuntime{emitProjectionMilestones: true}
@@ -377,30 +397,14 @@ func TestServiceProgressProjectionDoesNotBackfillHistoricalTerminal(t *testing.T
 	)
 	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
 		if current.NarratorState.Degradation != nil {
-			t.Fatalf("historical terminal projection degraded narrator: degradation=%+v calls=%+v",
+			t.Fatalf("terminal catch-up degraded narrator: degradation=%+v calls=%+v",
 				*current.NarratorState.Degradation,
 				provider.snapshotCalls(),
 			)
 		}
-		return current.NarratorState.ObservedThroughSequence == 14
+		return latestNarrationOfKind(current, conversation.NarrationEventKindFinalSummary) != nil
 	})
-	if final := latestNarrationOfKind(snapshot, conversation.NarrationEventKindFinalSummary); final != nil {
-		t.Fatalf("historical terminal was backfilled without a live terminal observation: %+v", final)
-	}
-	calls := provider.snapshotCalls()
-	terminalCalls := []projectorTestCall{}
-	coveredThrough := 0
-	for _, call := range calls {
-		if call.requestedChannel == ProjectionChannelTerminal {
-			terminalCalls = append(terminalCalls, call)
-		}
-		if call.requestedChannel == ProjectionChannelWorking && call.evaluationEnd > coveredThrough {
-			coveredThrough = call.evaluationEnd
-		}
-	}
-	if len(terminalCalls) != 0 || coveredThrough != 14 {
-		t.Fatalf("historical terminal progress calls = %+v", calls)
-	}
+	assertTerminalProjectorState(t, snapshot, turnID)
 }
 
 func TestServiceReadmitsTerminalProjectionAfterRetryExhaustion(t *testing.T) {
@@ -536,7 +540,7 @@ func TestServiceSchedulesProgressWindowWithoutPolling(t *testing.T) {
 	}
 }
 
-func TestServiceSerializesTerminalSummariesAcrossPromotedTurns(t *testing.T) {
+func TestServiceSerializesTerminalCatchUpAcrossPromotedTurns(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, firstTurnID, firstTerminal := seedTerminalProjectorConversation(t, store)
 	secondTurnID, plan, secondTerminal := appendSecondTerminalProjectorTurn(t, store, conversationID)
@@ -722,12 +726,12 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 		if runtime.emitProjectionMilestones && bundle.RequestedChannel == ProjectionChannelWorking &&
 			len(bundle.PriorMilestones) == 0 {
 			output["milestones"] = []string{
-				fmt.Sprintf("The working projection now covers event %d.", bundle.EvaluationRange.End),
+				fmt.Sprintf("Narrator evaluated projector catch-up through sequence %d.", bundle.EvaluationRange.End),
 			}
 		}
 		if bundle.RequestedChannel == ProjectionChannelTerminal {
 			output["kind"] = string(CallOutputTerminalProjection)
-			output["finalSummary"] = "The terminal projector result is summarized immediately."
+			output["finalSummary"] = "The durable terminal backlog was fully evaluated."
 		}
 		encoded, err := json.Marshal(output)
 		return call, encoded, err
@@ -859,29 +863,6 @@ func seedTerminalProjectorConversation(
 			},
 		})
 	}
-	artifactSequence := len(trajectory) + 1
-	artifact := conversation.Artifact{
-		ID:                 "projector-artifact",
-		ConversationID:     conversationID,
-		TurnID:             &turnID,
-		TrajectorySequence: &artifactSequence,
-		Kind:               conversation.ArtifactKindMarkdown,
-		Title:              "Terminal projector result",
-		CreatedAt:          endedAt,
-		Markdown:           &conversation.MarkdownArtifactPayload{Markdown: "The terminal projector produced a deterministic artifact."},
-	}
-	trajectory = append(trajectory, conversation.TrajectoryEvent{
-		ID:             "projector-artifact-emitted",
-		ConversationID: conversationID,
-		TurnID:         &turnID,
-		Sequence:       artifactSequence,
-		EmittedAt:      endedAt,
-		Kind:           conversation.TrajectoryEventArtifactEmitted,
-		Actor:          conversation.TrajectoryActorSystem,
-		ArtifactEmitted: &conversation.TrajectoryArtifactEmitted{
-			ArtifactID: artifact.ID,
-		},
-	})
 	terminal := conversation.TrajectoryEvent{
 		ID:             "projector-terminal",
 		ConversationID: conversationID,
@@ -937,9 +918,6 @@ func seedTerminalProjectorConversation(
 			if err := tx.AppendTrajectoryEvent(event); err != nil {
 				return err
 			}
-		}
-		if err := tx.InsertArtifact(artifact); err != nil {
-			return err
 		}
 		_, err := tx.AppendCommittedEvent(conversation.CommittedEventDraft{
 			ID:          "terminal-projector-seed-event",
@@ -1073,7 +1051,7 @@ func markNarratorCaughtUpAtTerminal(
 	t.Helper()
 	state, err := store.ReadNarratorState(context.Background(), conversationID)
 	if err != nil {
-		t.Fatalf("read narrator state before terminal finalization: %v", err)
+		t.Fatalf("read narrator state before catch-up: %v", err)
 	}
 	updated := state
 	updated.ObservedThroughSequence = terminalSequence
@@ -1280,7 +1258,8 @@ func assertTerminalProjectorState(
 ) {
 	t.Helper()
 	state := snapshot.NarratorState
-	if state.CheckpointThroughSequence > state.ObservedThroughSequence ||
+	if state.CheckpointThroughSequence <= 0 ||
+		state.CheckpointThroughSequence > state.ObservedThroughSequence ||
 		state.Status != conversation.NarratorStatusReady || state.Degradation != nil {
 		t.Fatalf("terminal projector state = %+v", state)
 	}
@@ -1289,38 +1268,44 @@ func assertTerminalProjectorState(
 		final.Trigger != conversation.NarrationTriggerTurnTerminal ||
 		final.SourceSequenceEnd != snapshot.Conversation.LastTrajectorySequence ||
 		final.FinalSummary == nil ||
-		final.FinalSummary.Text != "The terminal projector result is summarized immediately." {
+		final.FinalSummary.Text != "The durable terminal backlog was fully evaluated." {
 		t.Fatalf("terminal final summary = %+v", final)
 	}
 }
 
-func assertTerminalBypassesBacklogCheckpoint(
+func assertTerminalProjectorCalls(
 	t *testing.T,
 	calls []projectorTestCall,
 	terminalSequence int,
 ) {
 	t.Helper()
-	terminalIndex := -1
+	if len(calls) < 4 {
+		t.Fatalf("projector calls = %+v, want retry, catch-up, checkpoint, and terminal", calls)
+	}
+	checkpointSeen := false
+	successfulProjectionSeen := false
 	for index, call := range calls {
-		if call.kind == ContextKindCheckpoint && terminalIndex < 0 {
-			t.Fatalf("checkpoint ran before terminal summary request: calls=%+v", calls)
-		}
-		if call.kind != ContextKindProjection ||
-			call.requestedChannel != ProjectionChannelTerminal {
-			continue
-		}
-		if terminalIndex >= 0 {
-			continue
-		}
-		terminalIndex = index
-		if call.trigger != conversation.NarrationTriggerTurnTerminal ||
-			call.evaluationStart != call.preCallObserved+1 ||
-			call.evaluationEnd != terminalSequence {
-			t.Fatalf("terminal call %d = %+v, want direct terminal through %d", index, call, terminalSequence)
+		switch call.kind {
+		case ContextKindCheckpoint:
+			checkpointSeen = true
+			if call.checkpointRangeStart <= 0 || call.checkpointRangeEnd < call.checkpointRangeStart {
+				t.Fatalf("checkpoint call %d has invalid range: %+v", index, call)
+			}
+		case ContextKindProjection:
+			if index > 0 {
+				successfulProjectionSeen = true
+				if call.evaluationStart != call.preCallObserved+1 {
+					t.Fatalf("projection call %d skipped trajectory: %+v", index, call)
+				}
+			}
 		}
 	}
-	if terminalIndex != 0 {
-		t.Fatalf("terminal summary request was not first provider call: calls=%+v", calls)
+	last := calls[len(calls)-1]
+	if !checkpointSeen || !successfulProjectionSeen ||
+		last.kind != ContextKindProjection || last.requestedChannel != ProjectionChannelTerminal ||
+		last.trigger != conversation.NarrationTriggerTurnTerminal ||
+		last.evaluationEnd != terminalSequence {
+		t.Fatalf("terminal projector call order = %+v", calls)
 	}
 }
 

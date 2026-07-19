@@ -1,5 +1,5 @@
 import type { NavigatorItem } from "@generated/backend";
-import { AlertTriangle, Archive, Check, LoaderCircle } from "lucide-react";
+import { AlertTriangle, Archive, Check, Copy, LoaderCircle } from "lucide-react";
 
 import { conversationPaletteStyle } from "../features/easy-button/conversation-palette-style";
 import { cn } from "../lib/utils";
@@ -10,7 +10,8 @@ export function ConversationNavigatorRow({
   focused,
   item,
   lineageParentTitle,
-  openPaneId,
+  openPaneCount,
+  openNewView,
   present,
   readOnly,
 }: {
@@ -19,7 +20,8 @@ export function ConversationNavigatorRow({
   focused: boolean;
   item: NavigatorItem;
   lineageParentTitle: string | null;
-  openPaneId: string | null;
+  openPaneCount: number;
+  openNewView: () => Promise<void>;
   present: () => Promise<void>;
   readOnly: boolean;
 }) {
@@ -29,7 +31,7 @@ export function ConversationNavigatorRow({
     <div className="group/conversation-row relative h-9 min-w-0">
       <button
         aria-current={focused ? "page" : undefined}
-        aria-label={conversationRowLabel(item, lineageParentTitle, openPaneId)}
+        aria-label={conversationRowLabel(item, lineageParentTitle, openPaneCount)}
         className={cn(
           "conversation-navigator-row conversation-presentation-identity group/conversation-row grid h-9 w-full min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:text-foreground",
           focused ? "text-foreground" : "text-muted-foreground",
@@ -52,8 +54,15 @@ export function ConversationNavigatorRow({
             {conversationSubtitle(item, lineageParentTitle)}
           </span>
         </span>
-        <ConversationOpenPaneStatus open={openPaneId !== null} />
+        <ConversationPaneCount count={openPaneCount} />
       </button>
+      <ConversationOpenNewViewButton
+        busy={busy}
+        conversationId={conversation.id}
+        openPaneCount={openPaneCount}
+        openNewView={openNewView}
+        title={conversation.title}
+      />
       <button
         aria-label={`Archive ${conversation.title}`}
         className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm bg-background/95 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-focus-within/conversation-row:opacity-100 group-hover/conversation-row:opacity-100"
@@ -73,6 +82,39 @@ export function ConversationNavigatorRow({
         <Archive className="h-3.5 w-3.5" />
       </button>
     </div>
+  );
+}
+
+function ConversationOpenNewViewButton({
+  busy,
+  conversationId,
+  openPaneCount,
+  openNewView,
+  title,
+}: {
+  busy: boolean;
+  conversationId: string;
+  openPaneCount: number;
+  openNewView: () => Promise<void>;
+  title: string;
+}) {
+  if (openPaneCount <= 0) {
+    return null;
+  }
+  const label = `Open another view of ${title}`;
+  return (
+    <button
+      aria-label={label}
+      className="absolute right-8 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-sm bg-background/95 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-focus-within/conversation-row:opacity-100 group-hover/conversation-row:opacity-100"
+      data-conversation-id={conversationId}
+      data-testid="conversation-open-new-view"
+      disabled={busy}
+      onClick={() => void openNewView()}
+      title={label}
+      type="button"
+    >
+      <Copy className="h-3.5 w-3.5" />
+    </button>
   );
 }
 
@@ -116,11 +158,23 @@ function ConversationStatus({ status }: { status: NavigatorItem["conversation"][
   }
 }
 
-function ConversationOpenPaneStatus({ open }: { open: boolean }) {
-  if (!open) {
+function ConversationPaneCount({ count }: { count: number }) {
+  if (count <= 0) {
     return null;
   }
-  return <Check aria-label="Open in workspace" className="h-3.5 w-3.5" role="status" />;
+  if (count === 1) {
+    return <Check aria-label="One open view" className="h-3.5 w-3.5" role="status" />;
+  }
+  return (
+    <span
+      aria-label={`${count} open views`}
+      className="flex items-center gap-0.5 text-[10px]"
+      role="status"
+    >
+      <Copy className="h-3 w-3" />
+      {count}
+    </span>
+  );
 }
 
 function conversationSubtitle(item: NavigatorItem, lineageParentTitle: string | null) {
@@ -136,15 +190,18 @@ function conversationSubtitle(item: NavigatorItem, lineageParentTitle: string | 
 function conversationRowLabel(
   item: NavigatorItem,
   lineageParentTitle: string | null,
-  openPaneId: string | null,
+  openPaneCount: number,
 ) {
   const lineage = item.branch
     ? lineageParentTitle
       ? `, durable fork of ${lineageParentTitle}`
       : ", durable fork"
     : "";
-  const pane = openPaneId === null ? ", not open" : ", open in workspace";
-  return `${item.conversation.title}, ${statusLabel(item.conversation.status)}${lineage}${pane}`;
+  const views =
+    openPaneCount === 0
+      ? ", no open views"
+      : `, ${openPaneCount} open ${openPaneCount === 1 ? "view" : "views"}`;
+  return `${item.conversation.title}, ${statusLabel(item.conversation.status)}${lineage}${views}`;
 }
 
 function statusLabel(status: NavigatorItem["conversation"]["status"]) {

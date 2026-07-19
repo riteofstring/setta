@@ -46,25 +46,6 @@ func TestNarratorOutputCommitsProjectionStatusAndTerminalChannelsAtomically(t *t
 	assertNarratorOutputPublications(t, store, seed)
 }
 
-func TestNarratorProjectionSuppressesWorkingMilestoneWhenTrajectoryAdvanced(t *testing.T) {
-	store := newTestStore(t)
-	seed := seedNarratorContext(t, store)
-	request := narratorWorkingCommit(seed)
-	request.ObservedThroughSequence = 8
-
-	projection, err := store.CommitNarratorProjection(context.Background(), request)
-	if err != nil {
-		t.Fatalf("commit advanced narrator projection: %v", err)
-	}
-	if projection.State.ObservedThroughSequence != 8 {
-		t.Fatalf("advanced narrator state = %+v", projection.State)
-	}
-	if len(projection.Events) != 0 {
-		t.Fatalf("advanced narrator events = %+v, want no stale milestone", projection.Events)
-	}
-	assertNarratorCursorAndEventCount(t, store, seed.conversationID, 8, 2)
-}
-
 func TestTerminalNarratorProjectionCanFinalizeAlreadyObservedBoundary(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedNarratorContext(t, store)
@@ -102,6 +83,35 @@ func TestTerminalNarratorProjectionCanFinalizeAlreadyObservedBoundary(t *testing
 	if !IsStateConflict(err) {
 		t.Fatalf("duplicate terminal finalization error = %T %v, want StateConflictError", err, err)
 	}
+}
+
+func TestNarratorTerminalRecoveryOnlyFinalizesCurrentObservedBoundary(t *testing.T) {
+	store := newTestStore(t)
+	seed := seedNarratorContext(t, store)
+	projection, err := store.CommitNarratorProjection(context.Background(), narratorWorkingCommit(seed))
+	if err != nil {
+		t.Fatalf("commit working narrator projection: %v", err)
+	}
+	appendTerminalNarratorSource(t, store, seed)
+	targets, err := store.ListNarratorRecoveryTargets(context.Background())
+	if err != nil {
+		t.Fatalf("list terminal recovery targets: %v", err)
+	}
+	assertTerminalRecoveryTarget(t, targets, seed.turnID, 11, true)
+
+	caughtUp := markNarratorOutputStateCaughtUp(t, store, seed.conversationID, projection.State, 11)
+	targets, err = store.ListNarratorRecoveryTargets(context.Background())
+	if err != nil {
+		t.Fatalf("list current-boundary terminal recovery targets: %v", err)
+	}
+	assertTerminalRecoveryTarget(t, targets, seed.turnID, 11, true)
+
+	appendSecondNarratorRecoveryTurn(t, store, seed.conversationID, caughtUp, 12)
+	targets, err = store.ListNarratorRecoveryTargets(context.Background())
+	if err != nil {
+		t.Fatalf("list advanced terminal recovery targets: %v", err)
+	}
+	assertTerminalRecoveryTarget(t, targets, seed.turnID, 11, false)
 }
 
 func TestNarratorProjectionRollsBackStateOutputsAndTopicOnPublicationFailure(t *testing.T) {
@@ -248,7 +258,7 @@ DELETE FROM trajectory_events WHERE conversation_id = ? AND sequence = 7
 		if !IsStateConflict(err) {
 			t.Fatalf("stale projection error = %T %v, want StateConflictError", err, err)
 		}
-		assertNarratorCursorAndEventCount(t, store, seed.conversationID, 10, 3)
+		assertNarratorCursorAndEventCount(t, store, seed.conversationID, 8, 3)
 	})
 }
 
@@ -296,7 +306,7 @@ func narratorWorkingCommit(seed narratorContextSeed) NarratorProjectionCommit {
 			CurrentFocusRevision:      1,
 			UpdatedAt:                 testTimeStarted,
 		},
-		ObservedThroughSequence: 10,
+		ObservedThroughSequence: 8,
 		Milestones: []NarrationTextCommit{
 			{
 				NarrationEventID: "projection-milestone-1",
@@ -432,6 +442,54 @@ func markNarratorOutputStateCaughtUp(
 	return updated
 }
 
+func appendSecondNarratorRecoveryTurn(
+	t *testing.T,
+	store *Store,
+	conversationID string,
+	state NarratorState,
+	sequence int,
+) {
+	t.Helper()
+	turn := validConversationTurn(TurnStatusQueued)
+	turn.ID = "turn-recovery-next"
+	turn.ConversationID = conversationID
+	turn.AuthoredInput = AuthoredInput{Text: "Continue after the terminal boundary."}
+	turn.AcceptedAt = narratorTerminalFinalizationTime
+	accepted := contextTrajectoryEvent(conversationID, turn.ID, sequence, TrajectoryEventUserInputAccepted)
+	accepted.ID = "recovery-next-input"
+	accepted.Actor = TrajectoryActorUser
+	accepted.EmittedAt = narratorTerminalFinalizationTime
+	accepted.UserInputAccepted = &TrajectoryUserInputAccepted{
+		Input:    turn.AuthoredInput,
+		Delivery: turn.Delivery,
+	}
+	updated := state
+	updated.ObservedThroughSequence = sequence
+	updated.CheckpointThroughSequence = sequence
+	updated.CheckpointText = "Recovery advanced beyond the earlier terminal boundary."
+	updated.UpdatedAt = "2026-07-11T20:06:00Z"
+	_, err := store.Transact(context.Background(), "append second narrator recovery turn", func(transaction *WriteTransaction) error {
+		if err := transaction.InsertTurn(turn); err != nil {
+			return err
+		}
+		if err := transaction.AppendTrajectoryEvent(accepted); err != nil {
+			return err
+		}
+		if err := transaction.UpdateNarratorState(narratorExpectation(state), updated); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"recovery-next-state-publication",
+			"conversation:"+conversationID,
+			map[string]string{"conversationId": conversationID},
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("append second narrator recovery turn: %v", err)
+	}
+}
+
 func appendTerminalNarratorSource(t *testing.T, store *Store, seed narratorContextSeed) {
 	t.Helper()
 	turn := readNarratorOutputTurn(t, store, seed.turnID)
@@ -494,9 +552,30 @@ func appendMismatchedTerminalNarratorSource(t *testing.T, store *Store, seed nar
 	}
 }
 
+func assertTerminalRecoveryTarget(
+	t *testing.T,
+	targets []NarratorRecoveryTarget,
+	turnID string,
+	throughSequence int,
+	want bool,
+) {
+	t.Helper()
+	for _, target := range targets {
+		if target.Terminal && target.TurnID == turnID && target.ThroughSequence == throughSequence {
+			if !want {
+				t.Fatalf("unexpected terminal recovery target %+v in %+v", target, targets)
+			}
+			return
+		}
+	}
+	if want {
+		t.Fatalf("terminal recovery target %s/%d not found in %+v", turnID, throughSequence, targets)
+	}
+}
+
 func assertWorkingProjectionCommit(t *testing.T, result NarratorProjectionCommitResult) {
 	t.Helper()
-	if result.State.ObservedThroughSequence != 10 || result.State.CurrentFocusRevision != 1 ||
+	if result.State.ObservedThroughSequence != 8 || result.State.CurrentFocusRevision != 1 ||
 		result.State.CurrentFocus != "Materializing the authoritative narrator bundle." ||
 		result.State.TopicDescriptor != "Durable narrator context and checkpointing" ||
 		result.State.LastInvocationAt == nil || *result.State.LastInvocationAt != narratorProjectionTime {
@@ -509,7 +588,7 @@ func assertWorkingProjectionCommit(t *testing.T, result NarratorProjectionCommit
 		t.Fatalf("working narration events = %+v", result.Events)
 	}
 	for _, event := range result.Events {
-		if event.SourceSequenceStart != 7 || event.SourceSequenceEnd != 10 {
+		if event.SourceSequenceStart != 7 || event.SourceSequenceEnd != 8 {
 			t.Fatalf("working narration source range = %d..%d", event.SourceSequenceStart, event.SourceSequenceEnd)
 		}
 	}
@@ -547,7 +626,7 @@ func assertTerminalProjectionCommit(t *testing.T, result NarratorProjectionCommi
 		t.Fatalf("terminal narration events = %+v", result.Events)
 	}
 	for _, event := range result.Events {
-		if event.SourceSequenceStart != 11 || event.SourceSequenceEnd != 11 {
+		if event.SourceSequenceStart != 9 || event.SourceSequenceEnd != 11 {
 			t.Fatalf("terminal narration source range = %d..%d", event.SourceSequenceStart, event.SourceSequenceEnd)
 		}
 	}

@@ -58,6 +58,7 @@ describe("workspace pane runtime policy", () => {
       renderItem("focused-easy", "easy-button", true),
       renderItem("moving-heavy", "fake-heavy-dom", false),
       renderItem("moving-light", "fake-dom", false),
+      renderItem("moving-settings", "settings-dom", false),
     ];
 
     const summary = new PaneRuntimePolicy(budget).apply(items, "moving");
@@ -66,8 +67,9 @@ describe("workspace pane runtime policy", () => {
       ["focused-easy", "live-throttled"],
       ["moving-heavy", "live-throttled"],
       ["moving-light", "live"],
+      ["moving-settings", "live-throttled"],
     ]);
-    expect(summary.liveThrottled).toBe(2);
+    expect(summary.liveThrottled).toBe(3);
     expect(summary.snapshot).toBe(0);
   });
 
@@ -91,7 +93,7 @@ describe("workspace pane runtime policy", () => {
       renderItem("moving-heavy", "fake-heavy-dom", false),
       renderItem("moving-easy", "easy-button", false),
       renderItem("moving-browser", "browser", false),
-      renderItem("moving-empty", "empty-frame", false),
+      renderItem("moving-settings", "settings-dom", false),
     ];
 
     const summary = new PaneRuntimePolicy(
@@ -103,7 +105,7 @@ describe("workspace pane runtime policy", () => {
       ["moving-heavy", "live"],
       ["moving-easy", "live"],
       ["moving-browser", "live"],
-      ["moving-empty", "live"],
+      ["moving-settings", "live"],
     ]);
     expect(summary.live).toBe(4);
   });
@@ -127,7 +129,7 @@ describe("workspace pane runtime policy", () => {
     const items = [
       overviewItem("focused-browser", "browser", true),
       overviewItem("overview-easy", "easy-button", false),
-      overviewItem("overview-empty", "empty-frame", false),
+      overviewItem("overview-settings", "settings-dom", false),
       overviewItem("overview-light", "fake-dom", false),
     ];
 
@@ -136,7 +138,7 @@ describe("workspace pane runtime policy", () => {
     expect(runtimeStates(items)).toEqual([
       ["focused-browser", "snapshot"],
       ["overview-easy", "live-throttled"],
-      ["overview-empty", "live-throttled"],
+      ["overview-settings", "live-throttled"],
       ["overview-light", "live-throttled"],
     ]);
     expect(summary.liveThrottled).toBe(3);
@@ -147,7 +149,7 @@ describe("workspace pane runtime policy", () => {
     const items = [
       overviewItem("focused-browser", "browser", true),
       overviewItem("overview-easy", "easy-button", false),
-      overviewItem("overview-empty", "empty-frame", false),
+      overviewItem("overview-settings", "settings-dom", false),
       overviewItem("overview-light", "fake-dom", false),
     ];
 
@@ -165,7 +167,7 @@ describe("workspace pane runtime policy", () => {
       resizingItem("focused-heavy", "fake-heavy-dom", true),
       resizingItem("background-heavy", "fake-heavy-dom", false),
       resizingItem("browser", "browser", false),
-      resizingItem("empty", "empty-frame", false),
+      resizingItem("settings", "settings-dom", false),
     ];
 
     const summary = new PaneRuntimePolicy(
@@ -177,7 +179,7 @@ describe("workspace pane runtime policy", () => {
       ["focused-heavy", "live"],
       ["background-heavy", "snapshot"],
       ["browser", "live"],
-      ["empty", "live"],
+      ["settings", "live"],
     ]);
     expect(summary.snapshot).toBe(1);
   });

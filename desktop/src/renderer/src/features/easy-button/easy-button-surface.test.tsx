@@ -207,25 +207,6 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).not.toContain("The agent is preparing details.");
   });
 
-  test("shows only a compact terminal fallback while waiting for narrator summary", () => {
-    const snapshot = completedSnapshot("conversation_raw_done", "Raw done", "amber");
-    snapshot.narration.events = [];
-    snapshot.trajectory.events.push(
-      agentMessageCompletedTrajectory(
-        snapshot,
-        "The repo contains 267,153 physical source lines across 846 files. Largest languages: Go, TypeScript, JavaScript, Rust, CSS. The full breakdown is in the emitted table.",
-      ),
-    );
-
-    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
-    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
-
-    expect(view.terminalSummary?.id).toBe(`turn:${snapshot.turns.turns[0]!.id}`);
-    expect(view.terminalSummary?.text).toBe("Work completed.");
-    expect(html).toContain("Work completed.");
-    expect(html).not.toContain("267,153 physical source lines");
-  });
-
   test("renders the latest explicit narrator status reply without changing working state", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-11T20:00:10Z"));
@@ -404,7 +385,6 @@ describe("Easy Button topic conversation projection", () => {
           transcriptPreview: "Can you also compare CSS?",
           voiceControlDisabled: false,
           voiceControlLabel: "Finish this voice request",
-          voiceControlSetupAction: null,
         }}
         view={view}
       />,
@@ -470,6 +450,11 @@ describe("Easy Button topic conversation projection", () => {
       readyProjection(snapshot),
       "pane_side",
     );
+    const duplicateView = easyButtonProjectionView(
+      snapshot.conversation.id,
+      readyProjection(snapshot),
+      "pane_duplicate",
+    );
     const html = renderToString(<EasyButtonProjectionSurface view={boundView} />);
 
     expect(boundView.side).toMatchObject({
@@ -491,6 +476,7 @@ describe("Easy Button topic conversation projection", () => {
         turnId: "side_turn",
       },
     ]);
+    expect(duplicateView.side).toBeNull();
     expect(html).toContain('data-testid="easy-button-side-conversation"');
     expect(html).toContain('data-parent-conversation-status="working"');
     expect(html).toContain("Parent:");
@@ -607,7 +593,6 @@ describe("Easy Button topic conversation projection", () => {
           transcriptPreview: null,
           voiceControlDisabled: false,
           voiceControlLabel: "Start a voice request for this conversation",
-          voiceControlSetupAction: null,
         }}
         view={view}
       />,
@@ -671,42 +656,6 @@ describe("Easy Button topic conversation projection", () => {
     expect(requestVoiceCapture).toHaveBeenCalledOnce();
   });
 
-  test("routes the giant control to voice setup when credentials are missing", () => {
-    const openVoiceCredentialSettings = vi.fn();
-    const requestVoiceCapture = vi.fn();
-    const commands: EasyButtonConversationCommands = {
-      ...archivedConversationCommands(),
-      available: true,
-      requestVoiceCapture,
-      routingFailure: null,
-    };
-    const action = conversationControlAction(
-      commands,
-      true,
-      {
-        activityKind: null,
-        activityLabel: null,
-        captureScope: "none",
-        captureState: "unavailable",
-        playbackScope: "none",
-        playbackState: "idle",
-        speakingSourceEventId: null,
-        transcriptPreview: null,
-        voiceControlDisabled: false,
-        voiceControlLabel: "Set up OpenAI voice in Settings -> Voices",
-        voiceControlSetupAction: "open_voice_credential_settings",
-      },
-      { onOpenVoiceCredentialSettings: openVoiceCredentialSettings },
-    );
-
-    expect(action.mode).toBe("talk");
-    expect(action.disabled).toBe(false);
-    expect(action.label).toBe("Set up OpenAI voice in Settings -> Voices");
-    action.onClick?.();
-    expect(openVoiceCredentialSettings).toHaveBeenCalledOnce();
-    expect(requestVoiceCapture).not.toHaveBeenCalled();
-  });
-
   test("flips the giant control to finish this pane's dictation while it is listening", () => {
     const requestVoiceCapture = vi.fn();
     const commands: EasyButtonConversationCommands = {
@@ -728,7 +677,6 @@ describe("Easy Button topic conversation projection", () => {
       transcriptPreview: "Keep listening",
       voiceControlDisabled: false,
       voiceControlLabel: "Finish this voice request",
-      voiceControlSetupAction: null,
     } as const;
 
     const action = conversationControlAction(commands, false, recordingSpeech);
@@ -1333,29 +1281,6 @@ function agentTextDelta(snapshot: ConversationSnapshot, text: string): Trajector
     },
     id: `trajectory_agent_text_${snapshot.conversation.id}`,
     kind: "agent_public_text_delta",
-    sequence: base.sequence + 1,
-    userInputAccepted: null,
-  };
-}
-
-function agentMessageCompletedTrajectory(
-  snapshot: ConversationSnapshot,
-  text: string,
-): TrajectoryEvent {
-  const base = userInputTrajectory(
-    snapshot.conversation.id,
-    snapshot.turns.turns[0]!.id,
-    snapshot.conversation.title,
-  );
-  return {
-    ...base,
-    actor: "agent",
-    agentMessageCompleted: {
-      providerItemId: "provider_agent_message",
-      text,
-    },
-    id: `trajectory_agent_message_${snapshot.conversation.id}`,
-    kind: "agent_message_completed",
     sequence: base.sequence + 1,
     userInputAccepted: null,
   };

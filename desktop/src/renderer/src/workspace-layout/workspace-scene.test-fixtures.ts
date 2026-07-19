@@ -10,7 +10,7 @@ const layoutTestSurfaces = [
   { surfaceKind: "empty-frame", title: "Frame", tone: "cyan", weight: 1.6 },
   { surfaceKind: "empty-frame", title: "Frame 2", tone: "green", weight: 1 },
   { surfaceKind: "easy-button", title: "Topic", tone: "cyan", weight: 1 },
-  { surfaceKind: "browser", title: "Browser", tone: "slate", weight: 1 },
+  { surfaceKind: "settings-dom", title: "Settings", tone: "slate", weight: 1 },
 ] as const satisfies readonly {
   surfaceKind: SurfaceKind;
   title: string;

@@ -37,7 +37,7 @@ describe("runtime-derived renderer state reset", () => {
           {
             focusedConversationId: "conversation_local",
             focusedPaneId: "pane_local",
-            paneIdByConversationId: new Map([["conversation_local", "pane_local"]]),
+            paneIdsByConversationId: new Map([["conversation_local", ["pane_local"]]]),
           },
         ],
       ]),
