@@ -107,11 +107,10 @@ tool binaries, Docker configuration, and content-free image metadata.
    path while preserving the authorized invocation name, with a re-exec
    regression test.
 8. Current Buildx replaces its pre-created metadata file with mode 0644 and
-   emits `containerimage.digest` without the older optional descriptor object.
+   emits `containerimage.digest` as the current metadata contract.
    The publisher now verifies a regular file, immediately re-secures it to
-   0600 inside the mode-0700 run directory, accepts the current digest field,
-   and still rejects a conflicting descriptor. The yyz-6 image was published
-   and attested as
+   0600 inside the mode-0700 run directory, and consumes only that current
+   digest field. The yyz-6 image was published and attested as
    `sha256:1b28163fca224e4fe883a75eaa715fcd2b0de49d21dbee4979c1e64a05504c36`.
 9. Fly rejected the App-style Volume name with HTTP 400 before creating a
    Volume. The previous deterministic name contained hyphens and was 44

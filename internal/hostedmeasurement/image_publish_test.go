@@ -81,7 +81,7 @@ func writeImageBuildContext(t *testing.T, directory string) {
 func TestFlyImagePublisherReusesValidMetadataWithoutCommands(t *testing.T) {
 	authorization, directory := loadTestAuthorization(t)
 	digest := "sha256:" + strings.Repeat("a", 64)
-	metadataPath := writePrivateFile(t, directory, "image-metadata.json", []byte(`{"containerimage.digest":"`+digest+`","containerimage.descriptor":{"digest":"`+digest+`"}}`))
+	metadataPath := writePrivateFile(t, directory, "image-metadata.json", []byte(`{"containerimage.digest":"`+digest+`"}`))
 	runner := &imageRecordingRunner{}
 	publisher := FlyImagePublisher{Fly: runner, Docker: runner, MutationToken: testMutationToken}
 	reference, err := publisher.Publish(context.Background(), FlyImagePublishRequest{Authorization: authorization, MetadataPath: metadataPath})

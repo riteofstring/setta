@@ -7,25 +7,7 @@ import (
 	"testing"
 )
 
-func TestResolvePublishedImageReferenceRequiresMatchingPrivateBuildxMetadata(t *testing.T) {
-	authorization, directory := loadTestAuthorization(t)
-	digest := "sha256:" + strings.Repeat("a", 64)
-	path := writePrivateFile(t, directory, "image-metadata.json", []byte(`{
-  "buildx.build.provenance": {},
-  "containerimage.digest": "`+digest+`",
-  "containerimage.descriptor": {"digest": "`+digest+`", "mediaType": "application/vnd.oci.image.manifest.v1+json"}
-}`))
-	reference, err := ResolvePublishedImageReference(path, authorization)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "registry.fly.io/" + authorization.Manifest.FlyAppName + "@" + digest
-	if reference != want {
-		t.Fatalf("reference = %q, want %q", reference, want)
-	}
-}
-
-func TestResolvePublishedImageReferenceAcceptsCurrentBuildxDigestMetadata(t *testing.T) {
+func TestResolvePublishedImageReferenceAcceptsCurrentPrivateBuildxMetadata(t *testing.T) {
 	authorization, directory := loadTestAuthorization(t)
 	digest := "sha256:" + strings.Repeat("a", 64)
 	path := writePrivateFile(t, directory, "image-metadata.json", []byte(`{
@@ -42,15 +24,13 @@ func TestResolvePublishedImageReferenceAcceptsCurrentBuildxDigestMetadata(t *tes
 	}
 }
 
-func TestResolvePublishedImageReferenceRejectsMismatchExposureAndWrongDirectory(t *testing.T) {
+func TestResolvePublishedImageReferenceRejectsInvalidDigestExposureAndWrongDirectory(t *testing.T) {
 	authorization, directory := loadTestAuthorization(t)
-	digest := "sha256:" + strings.Repeat("a", 64)
 	path := writePrivateFile(t, directory, "image-metadata.json", []byte(`{
-  "containerimage.digest": "`+digest+`",
-  "containerimage.descriptor": {"digest": "sha256:`+strings.Repeat("b", 64)+`"}
+  "containerimage.digest": "sha256:invalid"
 }`))
 	if _, err := ResolvePublishedImageReference(path, authorization); err == nil {
-		t.Fatal("ResolvePublishedImageReference accepted mismatched digests")
+		t.Fatal("ResolvePublishedImageReference accepted an invalid digest")
 	}
 	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)

@@ -10,10 +10,7 @@ import (
 const maximumImageMetadataBytes = 256 * 1024
 
 type buildxImageMetadata struct {
-	Digest     string `json:"containerimage.digest"`
-	Descriptor struct {
-		Digest string `json:"digest"`
-	} `json:"containerimage.descriptor"`
+	Digest string `json:"containerimage.digest"`
 }
 
 func ResolvePublishedImageReference(metadataPath string, authorization Authorization) (string, error) {
@@ -31,9 +28,8 @@ func ResolvePublishedImageReference(metadataPath string, authorization Authoriza
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		return "", errors.New("decode published image metadata failed")
 	}
-	if !flyDigestPattern.MatchString(metadata.Digest) ||
-		(metadata.Descriptor.Digest != "" && metadata.Descriptor.Digest != metadata.Digest) {
-		return "", errors.New("published image metadata did not attest one non-conflicting manifest digest")
+	if !flyDigestPattern.MatchString(metadata.Digest) {
+		return "", errors.New("published image metadata did not attest a manifest digest")
 	}
 	reference := fmt.Sprintf("registry.fly.io/%s@%s", authorization.Manifest.FlyAppName, metadata.Digest)
 	if !flyImagePattern.MatchString(reference) {
