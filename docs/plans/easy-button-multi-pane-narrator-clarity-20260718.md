@@ -339,7 +339,7 @@ This phase preempts every later phase and the pending Phase 1 broad audit. Do no
 ### Phase 5 — Verify the product workflow, scale, navigation, and language quality
 
 - [x] Extend the deterministic Electron topic workflow to create distinct conversations through production UI, run them independently, close and restore panes, and exercise exact empty-frame placement.
-- [ ] Cover queueing, steering, streamed output, completion/cancellation/failure, queued-work promotion or preservation, and approvals wherever the changed path intersects them.
+- [x] Cover queueing, steering, streamed output, completion/cancellation/failure, queued-work promotion or preservation, and approvals wherever the changed path intersects them.
 - [x] Verify every **New conversation** action creates a different conversation ID with isolated streamed state, while selecting an existing row focuses or restores it without creating another pane.
 - [x] Create more than 10 Easy Button conversations through the production path to prove the old cap is gone.
 - [ ] Exercise the established high-pane workspace benchmark without introducing a replacement count limit.

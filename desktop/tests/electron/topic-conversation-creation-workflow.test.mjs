@@ -134,6 +134,18 @@ try {
     conversations: [restoredHeaderConversation, toolbarConversation],
     workspaceId,
   });
+  const uiLifecycle = await exerciseUICreatedConversationLifecycle({
+    backend,
+    client: context.client,
+    conversation: restoredHeaderConversation,
+    workspaceId,
+  });
+  const uiFailure = await exerciseUICreatedConversationFailure({
+    backend,
+    client: context.client,
+    conversation: toolbarConversation,
+    workspaceId,
+  });
   const extraConversations = await createUntilMoreThanTenEasyButtonPanes({
     backend,
     client: context.client,
@@ -192,6 +204,8 @@ try {
     scaledState,
     status: "passed",
     toolbarConversation,
+    uiFailure,
+    uiLifecycle,
     viewport,
     workspaceId,
     workspaceName: basename(fixture.workspaceRoot),
@@ -442,6 +456,208 @@ async function stopHeldConversation({ backend, client, conversation, text, works
   );
 }
 
+async function exerciseUICreatedConversationLifecycle({
+  backend,
+  client,
+  conversation,
+  workspaceId,
+}) {
+  const holdText = "hold UI lifecycle";
+  const artifactText = "artifact UI lifecycle";
+  const approvalText = "approval UI lifecycle";
+  const steeringText = "steer alpha now";
+
+  await waitForConversationSurface(
+    client,
+    conversation.id,
+    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
+  );
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", {
+      conversationId: conversation.id,
+      text: holdText,
+    }),
+    "submitted",
+  );
+  await waitForConversationSurface(
+    client,
+    conversation.id,
+    (surface) => surface.state === "working" && surface.intentText === holdText,
+  );
+  const runningSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversation.id,
+    (snapshot) =>
+      snapshot.conversation.status === "working" &&
+      turnTextHasStatus(snapshot, holdText, "running") &&
+      snapshotHasAgentText(snapshot, `Streaming ${holdText}`),
+  );
+  const runningTurn = turnByText(runningSnapshot, holdText);
+  assertCondition(runningTurn?.providerTurnId, "UI-created running turn lost provider identity", {
+    runningSnapshot,
+  });
+
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", {
+      conversationId: conversation.id,
+      text: artifactText,
+    }),
+    "submitted",
+  );
+  await waitForConversationSurface(
+    client,
+    conversation.id,
+    (surface) => surface.state === "working" && surface.queueCount === 1,
+  );
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", {
+      conversationId: conversation.id,
+      text: approvalText,
+    }),
+    "submitted",
+  );
+  const queuedSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversation.id,
+    (snapshot) =>
+      snapshot.queue.length === 2 &&
+      turnTextHasStatus(snapshot, artifactText, "queued") &&
+      turnTextHasStatus(snapshot, approvalText, "queued"),
+  );
+  await waitForConversationSurface(
+    client,
+    conversation.id,
+    (surface) => surface.state === "working" && surface.queueCount === 2,
+  );
+
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", {
+      conversationId: conversation.id,
+      text: steeringText,
+    }),
+    "submitted",
+  );
+  const awaitingApproval = await waitForConversationSurface(
+    client,
+    conversation.id,
+    (surface) =>
+      surface.approvalId !== "" &&
+      surface.artifactCount === 1 &&
+      surface.artifactText.includes("artifact.png") &&
+      surface.helperText === "Waiting for approval",
+  );
+  const promotedSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversation.id,
+    (snapshot) =>
+      snapshot.queue.length === 0 &&
+      turnTextHasStatus(snapshot, holdText, "completed") &&
+      turnTextHasStatus(snapshot, artifactText, "completed") &&
+      turnTextHasStatus(snapshot, approvalText, "running") &&
+      snapshotHasTrajectoryKind(snapshot, "turn_queued") &&
+      snapshotHasTrajectoryKind(snapshot, "turn_promoted") &&
+      snapshot.trajectory.events.some(
+        (event) => event.kind === "turn_steered" && event.turnSteered?.input?.text === steeringText,
+      ) &&
+      snapshot.trajectory.events.some(
+        (event) => event.approvalRequested?.approval?.id === awaitingApproval.approvalId,
+      ),
+  );
+
+  assertDriverAction(
+    await client.driver("topicConversationRespondApproval", {
+      answer: "setta-ui-created-approval-answer",
+      conversationId: conversation.id,
+    }),
+    "answered",
+  );
+  const completedSurface = await waitForConversationSurface(
+    client,
+    conversation.id,
+    (surface) =>
+      surface.state === "complete" &&
+      surface.status === "completed" &&
+      surface.queueCount === 0 &&
+      surface.approvalId === "" &&
+      surface.summaryText === "Approval UI lifecycle completed.",
+  );
+  const completedSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversation.id,
+    (snapshot) =>
+      snapshot.conversation.status === "idle" &&
+      turnTextHasStatus(snapshot, holdText, "completed") &&
+      turnTextHasStatus(snapshot, artifactText, "completed") &&
+      turnTextHasStatus(snapshot, approvalText, "completed") &&
+      snapshot.artifacts.artifacts.length >= 1 &&
+      snapshot.trajectory.events.some(
+        (event) => event.approvalResolved?.resolution?.approvalId === awaitingApproval.approvalId,
+      ) &&
+      hasFinalNarrationForTurnText(snapshot, holdText) &&
+      hasFinalNarrationForTurnText(snapshot, artifactText) &&
+      hasFinalNarrationForTurnText(snapshot, approvalText),
+  );
+
+  return {
+    approvalId: awaitingApproval.approvalId,
+    completedTurnCount: completedSnapshot.turns.turns.filter((turn) => turn.status === "completed")
+      .length,
+    paneId: completedSurface.paneId,
+    promotedQueueCount: promotedSnapshot.trajectory.events.filter(
+      (event) => event.kind === "turn_promoted",
+    ).length,
+    queuedTurnIds: queuedSnapshot.queue.map((turn) => turn.turnId),
+    runningTurnId: runningTurn.id,
+  };
+}
+
+async function exerciseUICreatedConversationFailure({
+  backend,
+  client,
+  conversation,
+  workspaceId,
+}) {
+  const failureText = "fail UI lifecycle";
+  await waitForConversationSurface(
+    client,
+    conversation.id,
+    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
+  );
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", {
+      conversationId: conversation.id,
+      text: failureText,
+    }),
+    "submitted",
+  );
+  const failedSurface = await waitForConversationSurface(
+    client,
+    conversation.id,
+    (surface) =>
+      surface.state === "complete" &&
+      surface.status === "failed" &&
+      surface.summaryText === "Fail UI lifecycle failed; the reported error remains visible.",
+  );
+  const failedSnapshot = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversation.id,
+    (snapshot) =>
+      snapshot.conversation.status === "failed" &&
+      turnTextHasStatus(snapshot, failureText, "failed") &&
+      hasFinalNarrationForTurnText(snapshot, failureText),
+  );
+  return {
+    failedTurnId: turnByText(failedSnapshot, failureText)?.id ?? "",
+    paneId: failedSurface.paneId,
+    summaryText: failedSurface.summaryText,
+  };
+}
+
 async function createUntilMoreThanTenEasyButtonPanes({ backend, client, workspaceId }) {
   const created = [];
   let layout = await readUILayout(backend, workspaceId);
@@ -545,6 +761,28 @@ function waitForConversationSnapshot(backend, workspaceId, conversationId, ready
 function snapshotHasAgentText(snapshot, expected) {
   return snapshot.trajectory.events.some((event) =>
     event.agentPublicTextDelta?.delta.includes(expected),
+  );
+}
+
+function snapshotHasTrajectoryKind(snapshot, kind) {
+  return snapshot.trajectory.events.some((event) => event.kind === kind);
+}
+
+function turnTextHasStatus(snapshot, text, status) {
+  return turnByText(snapshot, text)?.status === status;
+}
+
+function turnByText(snapshot, text) {
+  return snapshot.turns.turns.find((turn) => turn.authoredInput.text === text);
+}
+
+function hasFinalNarrationForTurnText(snapshot, text) {
+  const turn = turnByText(snapshot, text);
+  return Boolean(
+    turn &&
+    snapshot.narration.events.some(
+      (event) => event.kind === "final_summary" && event.turnId === turn.id,
+    ),
   );
 }
 
