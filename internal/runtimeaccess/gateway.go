@@ -32,6 +32,11 @@ const (
 type ClientAuthorization struct {
 	Outcome     AuthorizationOutcome
 	RuntimeName string
+	// Invalidated is closed by the authorization authority when this grant is
+	// revoked or suspended. Gateways use it to cancel established streaming
+	// requests without polling. It may be nil for non-streaming or immutable
+	// proof-of-concept grants.
+	Invalidated <-chan struct{}
 }
 
 // ClientAuthorizer validates a Setta client credential without contacting the
@@ -93,12 +98,18 @@ func (gateway *Gateway) ServeHTTP(response http.ResponseWriter, request *http.Re
 		writeGatewayError(response, status, code)
 		return
 	}
+	requestContext, cancel, valid := authorizationContext(request.Context(), authorization.Invalidated)
+	if !valid {
+		writeGatewayError(response, http.StatusUnauthorized, "revoked")
+		return
+	}
+	defer cancel()
 	if request.Method == http.MethodConnect || isProtocolUpgrade(request.Header) {
 		writeGatewayError(response, http.StatusNotImplemented, "protocol_upgrade_not_implemented")
 		return
 	}
 
-	route, err := gateway.routes.ResolveRuntimeRoute(request.Context(), authorization.RuntimeName)
+	route, err := gateway.routes.ResolveRuntimeRoute(requestContext, authorization.RuntimeName)
 	if err != nil {
 		writeGatewayError(response, http.StatusBadGateway, "runtime_route_unavailable")
 		return
@@ -108,7 +119,7 @@ func (gateway *Gateway) ServeHTTP(response http.ResponseWriter, request *http.Re
 		return
 	}
 
-	upstreamRequest := request.Clone(request.Context())
+	upstreamRequest := request.Clone(requestContext)
 	upstreamRequest.RequestURI = ""
 	upstreamRequest.URL = cloneURL(request.URL)
 	upstreamRequest.URL.Scheme = "http"
@@ -128,6 +139,30 @@ func (gateway *Gateway) ServeHTTP(response http.ResponseWriter, request *http.Re
 	copyResponseHeaders(response.Header(), upstreamResponse.Header)
 	response.WriteHeader(upstreamResponse.StatusCode)
 	streamResponse(response, upstreamResponse)
+}
+
+func authorizationContext(
+	parent context.Context,
+	invalidated <-chan struct{},
+) (context.Context, context.CancelFunc, bool) {
+	ctx, cancel := context.WithCancel(parent)
+	if invalidated == nil {
+		return ctx, cancel, true
+	}
+	select {
+	case <-invalidated:
+		cancel()
+		return ctx, cancel, false
+	default:
+	}
+	go func() {
+		select {
+		case <-invalidated:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel, true
 }
 
 func authorizationResult(authorization ClientAuthorization) (int, string, bool) {

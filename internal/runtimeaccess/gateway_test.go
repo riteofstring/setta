@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/runtimeprovider"
 )
@@ -278,6 +279,61 @@ func TestGatewayFlushesEventStreams(t *testing.T) {
 
 	if writer.Code != http.StatusOK || writer.flushes == 0 || writer.Body.String() != "data: ready\n\n" {
 		t.Fatalf("response = %d, flushes = %d, body = %q", writer.Code, writer.flushes, writer.Body.String())
+	}
+}
+
+func TestGatewayPushCancellationStopsEstablishedStream(t *testing.T) {
+	runtimeName := testRuntimeName(t)
+	invalidated := make(chan struct{})
+	upstreamStarted := make(chan struct{})
+	upstreamCanceled := make(chan struct{})
+	gateway := newTestGateway(t,
+		clientAuthorizerFunc(func(context.Context, string) (ClientAuthorization, error) {
+			return ClientAuthorization{
+				Outcome:     AuthorizationAllowed,
+				RuntimeName: runtimeName,
+				Invalidated: invalidated,
+			}, nil
+		}),
+		runtimeRouteResolverFunc(func(context.Context, string) (RuntimeRoute, error) {
+			return RuntimeRoute{
+				RuntimeName:       runtimeName,
+				UpstreamAuthority: "localhost:8080",
+				RuntimeCredential: "runtime-secret",
+				Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+					close(upstreamStarted)
+					<-request.Context().Done()
+					close(upstreamCanceled)
+					return nil, request.Context().Err()
+				}),
+			}, nil
+		}),
+	)
+	request := httptest.NewRequest(http.MethodGet, "https://gateway.example/v1/conversations/events", nil)
+	request.Header.Set("Authorization", "Bearer client")
+	response := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		gateway.ServeHTTP(response, request)
+		close(done)
+	}()
+
+	select {
+	case <-upstreamStarted:
+	case <-time.After(time.Second):
+		t.Fatal("upstream request did not start")
+	}
+	close(invalidated)
+
+	select {
+	case <-upstreamCanceled:
+	case <-time.After(time.Second):
+		t.Fatal("upstream request was not canceled")
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("gateway request did not return")
 	}
 }
 
