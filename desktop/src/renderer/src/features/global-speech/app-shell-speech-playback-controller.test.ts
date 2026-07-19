@@ -1,8 +1,10 @@
 import type {
   ConversationPresentationProfile,
+  MasterVoiceSelection,
   NarrationEvent,
   SpeechAudio,
   SpeechSynthesisRequest,
+  ShellInteractionState,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
@@ -15,6 +17,7 @@ import {
   type SpeechPlaybackObservation,
   type SpeechPlaybackSupersessionDecision,
 } from "./app-shell-speech-playback-controller";
+import { masterSpeechPlaybackIntent } from "./app-shell-master-speech-playback-intent";
 
 describe("app-shell speech playback controller", () => {
   test("derives source-aware priorities from live narration and ignores non-speech channels", () => {
@@ -60,6 +63,21 @@ describe("app-shell speech playback controller", () => {
         narrationEvent("milestone", "disabled"),
         profile({ narratorSpeechEnabled: false, resolvedNarratorVoiceId: null }),
         "running",
+      ),
+    ).toBeNull();
+    expect(masterSpeechPlaybackIntent(masterAnswerState(), masterVoice())).toMatchObject({
+      kind: "master_answer",
+      resolvedVoiceId: "marin",
+      source: {
+        conversationId: null,
+        eventId: "master-input-answer",
+        speaker: "master",
+      },
+    });
+    expect(
+      masterSpeechPlaybackIntent(
+        { ...masterAnswerState(), status: "routing", decision: null },
+        masterVoice(),
       ),
     ).toBeNull();
     expect([
@@ -295,7 +313,7 @@ describe("app-shell speech playback controller", () => {
     );
   });
 
-  test("capture preemption cancels active audio and drops stale pending milestones", async () => {
+  test("capture preemption cancels active audio and drops automatic speech", async () => {
     const synthesizing = createHarness();
     const synthesizingIntent = intent("status_reply", "synthesizing");
     const queuedMilestone = intent("milestone", "queued-milestone");
@@ -310,14 +328,13 @@ describe("app-shell speech playback controller", () => {
 
     expect(activeSignal.aborted).toBe(true);
     expect(synthesizing.snapshot()).toMatchObject({
-      queued: [synthesizingIntent, queuedAttention],
+      queued: [],
       state: { reason: "capture", type: "stopped" },
     });
     expect(synthesizing.requests).toHaveLength(1);
     expect(synthesizing.observations).toContainEqual(
       expect.objectContaining({
-        action: "preempted",
-        queuePosition: 1,
+        action: "dropped",
         reason: "capture",
       }),
     );
@@ -325,7 +342,6 @@ describe("app-shell speech playback controller", () => {
     synthesizing.controller.resumeAfterCapture();
 
     expect(synthesizing.requests.map((request) => request.source.eventId)).toEqual([
-      "synthesizing",
       "synthesizing",
     ]);
 
@@ -354,6 +370,101 @@ describe("app-shell speech playback controller", () => {
     speaking.controller.resumeAfterCapture();
 
     expect(speaking.requests.map((request) => request.source.eventId)).toEqual(["speaking"]);
+  });
+
+  test("user input preemption drops automatic speech without resuming it", async () => {
+    const synthesizing = createHarness();
+    const activeAutomatic = intent("status_reply", "active-automatic");
+    const queuedAutomatic = intent("milestone", "queued-automatic");
+    const replay = intent("status_reply", "explicit-replay");
+    synthesizing.controller.enqueueAutomatic(activeAutomatic);
+    synthesizing.controller.enqueueAutomatic(queuedAutomatic);
+    synthesizing.controller.replay(replay);
+    const activeSignal = synthesizing.signals[0]!;
+
+    synthesizing.controller.preemptForUserInput();
+
+    expect(activeSignal.aborted).toBe(true);
+    expect(synthesizing.requests.map((request) => request.source.eventId)).toEqual([
+      "active-automatic",
+      "explicit-replay",
+    ]);
+    expect(synthesizing.snapshot()).toMatchObject({
+      queued: [],
+      state: { intent: replay, type: "synthesizing" },
+    });
+    expect(synthesizing.observations).toContainEqual(
+      expect.objectContaining({
+        action: "dropped",
+        intent: expect.objectContaining({
+          source: expect.objectContaining({ eventId: "active-automatic" }),
+        }),
+        reason: "user",
+      }),
+    );
+    expect(synthesizing.observations).toContainEqual(
+      expect.objectContaining({
+        action: "dropped",
+        intent: expect.objectContaining({
+          source: expect.objectContaining({ eventId: "queued-automatic" }),
+        }),
+        reason: "user",
+      }),
+    );
+
+    synthesizing.resolveSynthesis(0);
+    await flushPromises();
+    expect(synthesizing.audios).toEqual([]);
+
+    synthesizing.resolveSynthesis(1);
+    await flushPromises();
+    expect(synthesizing.snapshot().state).toEqual({ intent: replay, type: "speaking" });
+
+    const speaking = createHarness();
+    const activeSpeaking = intent("status_reply", "speaking-automatic");
+    const queuedDuringSpeaking = intent("milestone", "queued-during-speaking");
+    const replayAfterSpeaking = intent("status_reply", "replay-after-speaking");
+    speaking.controller.enqueueAutomatic(activeSpeaking);
+    speaking.resolveSynthesis(0);
+    await flushPromises();
+    speaking.controller.enqueueAutomatic(queuedDuringSpeaking);
+    speaking.controller.replay(replayAfterSpeaking);
+    const audio = speaking.audios[0]!;
+    audio.currentTime = 5;
+
+    speaking.controller.preemptForUserInput();
+
+    expect(audio.pause).toHaveBeenCalledOnce();
+    expect(audio.currentTime).toBe(0);
+    expect(speaking.requests.map((request) => request.source.eventId)).toEqual([
+      "speaking-automatic",
+      "replay-after-speaking",
+    ]);
+    expect(speaking.observations).toContainEqual(
+      expect.objectContaining({
+        action: "dropped",
+        intent: expect.objectContaining({
+          source: expect.objectContaining({ eventId: "speaking-automatic" }),
+        }),
+        reason: "user",
+      }),
+    );
+    expect(speaking.observations).toContainEqual(
+      expect.objectContaining({
+        action: "dropped",
+        intent: expect.objectContaining({
+          source: expect.objectContaining({ eventId: "queued-during-speaking" }),
+        }),
+        reason: "user",
+      }),
+    );
+
+    speaking.resolveSynthesis(1);
+    await flushPromises();
+    expect(speaking.snapshot().state).toEqual({
+      intent: replayAfterSpeaking,
+      type: "speaking",
+    });
   });
 
   test("validates source attribution and reuses bounded cached audio for replay", async () => {
@@ -481,6 +592,50 @@ function createHarness(
     signals,
     snapshot: controller.getSnapshot,
     supersessions,
+  };
+}
+
+function masterAnswerState(): ShellInteractionState {
+  return {
+    decision: {
+      answerGlobal: { text: "The master answer is ready." },
+      askNarrator: null,
+      clarify: null,
+      createConversation: null,
+      createSideConversation: null,
+      focusConversation: null,
+      forkConversation: null,
+      kind: "answer_global",
+      queueAgentTurn: null,
+      sendToAgent: null,
+      steerActiveTurn: null,
+    },
+    failure: null,
+    input: {
+      focusedConversationId: null,
+      focusedPaneId: null,
+      focusedWorkspaceId: null,
+      id: "master-input-answer",
+      modality: "voice",
+      originatingConversationId: null,
+      originatingConversationInputId: null,
+      originatingPaneId: null,
+      originatingWorkspaceId: null,
+      source: "shell",
+      submittedAt: "2026-07-12T18:00:00Z",
+      text: "Answer globally.",
+    },
+    status: "decided",
+  };
+}
+
+function masterVoice(): MasterVoiceSelection {
+  return {
+    requestedVoiceId: "marin",
+    resolvedVoiceId: "marin",
+    reuse: null,
+    selection: "exact",
+    updatedAt: "2026-07-12T18:00:00Z",
   };
 }
 

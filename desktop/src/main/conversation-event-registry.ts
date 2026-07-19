@@ -1,4 +1,4 @@
-import type { ConversationEvent, ConversationEventCursor, TurnStatus } from "@generated/backend";
+import type { ConversationEvent, ConversationEventCursor } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { ipcEvents } from "@shared/ipc";
 
@@ -30,19 +30,17 @@ type NavigationListener = (
 
 interface ConversationEventRegistryOptions {
   backendConnection: () => { baseURL: string; fetchImpl: BackendFetch };
-  recordDisconnect?: (error: unknown) => void;
   recordEvent?: (event: ConversationEvent) => void;
   startEventStream?: typeof startConversationEventStream;
 }
 
 interface RegisteredConversationStream {
   keepAlive: boolean;
-  pendingTerminalNarrationSequence: number | null;
-  pendingTerminalNarrationTurnId: string | null;
   sender: ConversationEventSender;
   stream: ConversationEventStream;
   target: ConversationEventTarget;
-  terminalNarrationPending: boolean;
+  terminalNarrationSeen: boolean;
+  terminalStatusSequence: number | null;
 }
 
 export class ConversationEventRegistry {
@@ -68,18 +66,16 @@ export class ConversationEventRegistry {
       conversationId: target.conversationId,
       cursor,
       fetchImpl,
-      reportDisconnect: this.options.recordDisconnect,
       sendEvent: (event) => this.forwardEvent(key, event),
       workspaceId: target.workspaceId,
     });
     this.streams.set(key, {
       keepAlive: false,
-      pendingTerminalNarrationSequence: null,
-      pendingTerminalNarrationTurnId: null,
       sender,
       stream,
       target,
-      terminalNarrationPending: false,
+      terminalNarrationSeen: false,
+      terminalStatusSequence: null,
     });
     this.observeSender(sender);
   }
@@ -95,6 +91,9 @@ export class ConversationEventRegistry {
       return Promise.resolve();
     }
     current.keepAlive = keepAlive;
+    if (keepAlive && terminalBoundaryComplete(current)) {
+      return this.stop(key);
+    }
     return keepAlive ? Promise.resolve() : this.stop(key);
   }
 
@@ -121,15 +120,19 @@ export class ConversationEventRegistry {
   ): boolean {
     switch (event.payload.type) {
       case "conversation.updated":
-        updateTerminalNarrationBoundary(current, event.payload.conversation);
-        return false;
-      case "conversation.turn.updated":
-        updatePendingTerminalTurn(current, event.payload.turn.id, event.payload.turn.status);
-        return false;
+        if (conversationHasActiveWork(event.payload.conversation.status)) {
+          current.terminalNarrationSeen = false;
+          current.terminalStatusSequence = null;
+          return false;
+        }
+        current.terminalStatusSequence = event.payload.conversation.lastTrajectorySequence;
+        return current.keepAlive && terminalBoundaryComplete(current);
       case "conversation.narration.created":
-        return current.keepAlive && terminalNarrationMatches(current, event.payload.event);
-      case "conversation.narrator_state.updated":
-        return current.keepAlive && terminalNarrationCannotRecover(current, event.payload.state);
+        if (!terminalFinalSummary(event.payload.event, current.terminalStatusSequence)) {
+          return false;
+        }
+        current.terminalNarrationSeen = true;
+        return current.keepAlive && terminalBoundaryComplete(current);
       default:
         return false;
     }
@@ -172,74 +175,38 @@ export class ConversationEventRegistry {
   }
 }
 
-function updateTerminalNarrationBoundary(
-  current: RegisteredConversationStream,
-  conversation: Extract<
+function conversationHasActiveWork(
+  status: Extract<
     ConversationEvent["payload"],
     { type: "conversation.updated" }
-  >["conversation"],
-): void {
-  if (conversation.status === "working" || conversation.status === "waiting_for_approval") {
-    current.terminalNarrationPending = false;
-    current.pendingTerminalNarrationSequence = null;
-    current.pendingTerminalNarrationTurnId = null;
-    return;
-  }
-  current.terminalNarrationPending = true;
-  if (current.pendingTerminalNarrationSequence !== conversation.lastTrajectorySequence) {
-    current.pendingTerminalNarrationSequence = conversation.lastTrajectorySequence;
-    current.pendingTerminalNarrationTurnId = null;
-  }
-}
-
-function updatePendingTerminalTurn(
-  current: RegisteredConversationStream,
-  turnId: string,
-  status: TurnStatus,
-): void {
-  if (current.terminalNarrationPending && terminalTurnStatus(status)) {
-    current.pendingTerminalNarrationTurnId = turnId;
-  }
-}
-
-function terminalNarrationMatches(
-  current: RegisteredConversationStream,
-  event: Extract<ConversationEvent["payload"], { type: "conversation.narration.created" }>["event"],
+  >["conversation"]["status"],
 ): boolean {
-  return (
-    current.terminalNarrationPending &&
-    current.pendingTerminalNarrationTurnId !== null &&
-    event.kind === "final_summary" &&
-    event.turnId === current.pendingTerminalNarrationTurnId
-  );
-}
-
-function terminalNarrationCannotRecover(
-  current: RegisteredConversationStream,
-  state: Extract<
-    ConversationEvent["payload"],
-    { type: "conversation.narrator_state.updated" }
-  >["state"],
-): boolean {
-  return (
-    current.terminalNarrationPending &&
-    state.status === "degraded" &&
-    state.degradation?.retryable === false
-  );
-}
-
-function terminalTurnStatus(status: TurnStatus): boolean {
   switch (status) {
-    case "completed":
-    case "cancelled":
-    case "failed":
+    case "working":
+    case "waiting_for_approval":
       return true;
-    case "queued":
-    case "running":
+    case "failed":
+    case "idle":
       return false;
     default:
       return assertNever(status);
   }
+}
+
+function terminalFinalSummary(
+  event: Extract<ConversationEvent["payload"], { type: "conversation.narration.created" }>["event"],
+  terminalStatusSequence: number | null,
+): boolean {
+  return (
+    terminalStatusSequence !== null &&
+    event.kind === "final_summary" &&
+    event.trigger === "turn_terminal" &&
+    event.sourceSequenceEnd === terminalStatusSequence
+  );
+}
+
+function terminalBoundaryComplete(current: RegisteredConversationStream): boolean {
+  return current.terminalStatusSequence !== null && current.terminalNarrationSeen;
 }
 
 function assertNever(value: never): never {

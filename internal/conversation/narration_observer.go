@@ -9,6 +9,7 @@ type NarrationTrajectoryObservation struct {
 	ConversationID string
 	TurnID         string
 	Trajectory     []TrajectoryEvent
+	Semantic       []NarratorSemanticEvent
 	Terminal       bool
 }
 
@@ -21,8 +22,9 @@ type NarrationTrajectoryObserver interface {
 
 func (service *Service) observeCommittedTrajectory(
 	conversation TopicConversation,
-	turnID string,
+	turn ConversationTurn,
 	events []TrajectoryEvent,
+	artifacts []ArtifactMetadata,
 	terminal bool,
 ) {
 	if service == nil || service.narration == nil || len(events) == 0 {
@@ -30,11 +32,19 @@ func (service *Service) observeCommittedTrajectory(
 	}
 	cloned := make([]TrajectoryEvent, len(events))
 	copy(cloned, events)
+	semantic := narratorSemanticEventsForLiveCommit(
+		conversation,
+		turn,
+		cloned,
+		artifacts,
+		terminal,
+	)
 	service.narration.ObserveCommittedTrajectory(NarrationTrajectoryObservation{
 		WorkspaceID:    conversation.WorkspaceID,
 		ConversationID: conversation.ID,
-		TurnID:         turnID,
+		TurnID:         turn.ID,
 		Trajectory:     cloned,
+		Semantic:       semantic,
 		Terminal:       terminal,
 	})
 }

@@ -3,28 +3,19 @@ package httpapi
 import (
 	"setta/internal/appearance"
 	"setta/internal/conversation"
-	"setta/internal/localcredissuer"
 	"setta/internal/runtimeauth"
-	"setta/internal/runtimecapability"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
 
-type LocalCredentialEnrollRequest = localcredissuer.EnrollRequest
-type LocalCredentialEnrollResponse = localcredissuer.EnrollResponse
-type LocalCredentialRefreshRequest = localcredissuer.RefreshRequest
-type LocalCredentialRefreshResponse = localcredissuer.RuntimeCredentialResponse
-
 type RuntimeInfoResponse struct {
-	RuntimeID              string                               `json:"runtimeId"`
-	DisplayName            string                               `json:"displayName"`
-	InfrastructureProvider RuntimeInfrastructureProvider        `json:"infrastructureProvider"`
-	BackendName            string                               `json:"backendName"`
-	BackendVersion         string                               `json:"backendVersion"`
-	ProtocolVersion        int                                  `json:"protocolVersion"`
-	FeatureSet             runtimecapability.RuntimeFeatureSet  `json:"featureSet"`
-	Diagnostics            runtimecapability.RuntimeDiagnostics `json:"diagnostics"`
+	RuntimeID              string                        `json:"runtimeId"`
+	DisplayName            string                        `json:"displayName"`
+	InfrastructureProvider RuntimeInfrastructureProvider `json:"infrastructureProvider"`
+	BackendName            string                        `json:"backendName"`
+	BackendVersion         string                        `json:"backendVersion"`
+	ProtocolVersion        int                           `json:"protocolVersion"`
 }
 
 type RuntimeInfrastructureProvider struct {
@@ -47,25 +38,6 @@ type CompletePairingResponse struct {
 	DeviceToken     string `json:"deviceToken"`
 	RuntimeID       string `json:"runtimeId"`
 	ProtocolVersion int    `json:"protocolVersion"`
-}
-
-type SetupAttestationRequest struct {
-	SetupID string `json:"setupId"`
-	Nonce   string `json:"nonce"`
-}
-
-type SetupAttestationResponse struct {
-	Algorithm       string                              `json:"algorithm"`
-	BackendName     string                              `json:"backendName"`
-	RuntimeID       string                              `json:"runtimeId"`
-	RuntimeName     string                              `json:"runtimeName"`
-	SetupID         string                              `json:"setupId"`
-	ReleaseVersion  string                              `json:"releaseVersion"`
-	CredentialEpoch int                                 `json:"credentialEpoch"`
-	FeatureSet      runtimecapability.RuntimeFeatureSet `json:"featureSet"`
-	Nonce           string                              `json:"nonce"`
-	ExpiresAt       string                              `json:"expiresAt"`
-	Attestation     string                              `json:"attestation"`
 }
 
 type ListDevicesRequest struct{}
@@ -150,6 +122,12 @@ type SubscribeConversationEventsRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 }
+
+type SpeechCredentialRequest struct {
+	APIKey string `json:"apiKey"`
+}
+
+type ClearDesktopSpeechCredentialRequest struct{}
 
 type CreateSpeechTranscriptionSessionRequest struct{}
 

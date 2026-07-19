@@ -37,12 +37,13 @@ import {
 } from "./topic-conversation-fork-workflow.mjs";
 import {
   hasFinalNarrationForEveryTurn,
-  narratorCaughtUp,
+  terminalTurnsHaveFinalNarration,
 } from "./topic-conversation-projection-assertions.mjs";
 import {
   openMasterOverlayForSpeech,
   safeTopicConversationSurfaceStates,
 } from "./topic-conversation-speech-state-assertions.mjs";
+import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -82,8 +83,13 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  const backend = await backendProbe(firstLaunchDir, context.client);
+  const backend = await backendProbe(firstLaunchDir);
   const workspaceId = await openWorkspace(context.client);
+  await saveOpenAIVoiceCredentialThroughSettingsAndClose(
+    context.client,
+    speechProvider.apiKey,
+    workflowTimeoutMs,
+  );
 
   const agentTopic = await createTopic(
     context.client,
@@ -100,11 +106,8 @@ try {
     workflowTimeoutMs,
   );
   await submitTopicInput(context.client, agentTopic.id, "seed crash branch");
-  await waitForConversationSnapshot(
-    backend,
-    workspaceId,
-    agentTopic.id,
-    (snapshot) => hasFinalNarrationForEveryTurn(snapshot) && narratorCaughtUp(snapshot),
+  await waitForConversationSnapshot(backend, workspaceId, agentTopic.id, (snapshot) =>
+    hasFinalNarrationForEveryTurn(snapshot),
   );
 
   await submitTopicInput(context.client, narratorTopic.id, "crash narrator");
@@ -115,7 +118,7 @@ try {
     (snapshot) =>
       snapshot.turns.turns.length === 1 &&
       snapshot.turns.turns[0]?.status === "completed" &&
-      snapshot.narratorState.observedThroughSequence < snapshot.conversation.lastTrajectorySequence,
+      !terminalTurnsHaveFinalNarration(snapshot),
   );
   await waitForFakeCodexHold(fakeCodex.statePath, "narrator:crash-projection");
 
@@ -274,7 +277,7 @@ try {
   });
   await prepareRenderer(context.client);
   await installScriptedRealtimeBrowser(context.client, crashTranscript);
-  const restartedBackend = await backendProbe(secondLaunchDir, context.client);
+  const restartedBackend = await backendProbe(secondLaunchDir);
   const restartedWorkspaceId = await openWorkspace(context.client);
   if (restartedWorkspaceId !== workspaceId) {
     throw new Error(
@@ -346,8 +349,6 @@ try {
     workspaceId,
     narratorTopic.id,
     (snapshot) =>
-      snapshot.narratorState.observedThroughSequence ===
-        snapshot.conversation.lastTrajectorySequence &&
       snapshot.narration.events.some(
         (event) =>
           event.turnId === narratorBeforeCrash.turns.turns[0]?.id && event.kind === "final_summary",
@@ -411,13 +412,13 @@ function launchCrashIsolatedElectron({ artifactDir, fakeCodex, fixture, speechPr
   return launchElectronCdpContext({
     artifactDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
     isolatedProcessGroup: true,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible,
   });
 }

@@ -644,7 +644,6 @@ async function presentRelatedConversation(
     await presentConversationPane({
       conversationId,
       title,
-      viewAction: "focus-or-open",
       workspaceId,
     });
   } catch (error) {

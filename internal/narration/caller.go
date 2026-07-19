@@ -386,7 +386,7 @@ func prepareProjectionCall(context ProjectionContextBundle) (preparedCallRequest
 			frozen.RequestedChannel,
 		)
 	}
-	if !terminalFinalizesObservedCursor(frozen, frozen.EvaluationRange.End) {
+	if !terminalFinalizesObservedCursor(frozen) {
 		if err := frozen.ValidateObservedAdvance(frozen.EvaluationRange.End); err != nil {
 			return preparedCallRequest{}, err
 		}
@@ -550,36 +550,58 @@ func decodeCallOutput(result *CallResult, prepared preparedCallRequest, raw json
 }
 
 func focusInstructions() string {
-	return strings.Join([]string{
+	lines := []string{
 		"Act as Setta's stable focus projector. Use only the supplied authoritative context JSON.",
 		"Return the stable user-facing topic or objective for the accepted input or steering source.",
+		"currentFocus names the current user objective as one complete sentence or phrase.",
+		"topicDescriptor is a clear navigator noun phrase; return null when the broader topic did not change.",
 		"For steering that does not materially change the objective, return the existing authoritative currentFocus exactly.",
-		"Use topicDescriptor only for broader routing metadata when the objective changes; otherwise return null.",
-	}, "\n")
+	}
+	lines = append(lines, userVisibleNarratorLanguageInstructions()...)
+	lines = append(lines, narratorLanguageExamples()...)
+	return strings.Join(lines, "\n")
 }
 
 func projectionInstructions(channel ProjectionChannel) string {
 	lines := []string{
 		"Act as Setta's narrator projector. Use only the supplied authoritative context JSON.",
 		"Current objective, constraints, and accepted steering override historical checkpoint text.",
-		"Emit at most one sparse phase-change milestone; an empty milestones array is valid.",
+		"Milestones are shown in the Now rail and read aloud when narrator voice is enabled; treat each milestone as an audible interruption.",
+		"Emit at most one milestone only when the user learned a new result, a blocker needs user action, or the work entered a materially different phase.",
+		"Use semanticEvents as the only event feed for working projections; do not infer progress from raw trajectory gaps or cursor numbers.",
+		"For working projections, prefer an empty milestone list for normal progress, repeated blocked states, waiting updates, partial output streaming, or when semanticEvents do not show a meaningful change.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}
+	lines = append(lines, userVisibleNarratorLanguageInstructions()...)
 	if channel == ProjectionChannelTerminal {
-		lines = append(lines, "Return the terminal projection with exactly one bounded finalSummary for this turn.")
+		lines = append(
+			lines,
+			"Return the terminal projection with exactly one finalSummary for this turn.",
+			"For terminal projections, use currentInstructions.latestAssistantMessage, artifacts, turn status, and semanticEvents as the terminal snapshot.",
+			"finalSummary is one short sentence summarizing the outcome. If an artifact contains the detailed result, mention the artifact without repeating its contents.",
+			"If the turn failed or was stopped, say so directly and include only the important caveat.",
+		)
 	} else {
-		lines = append(lines, "Return the working projection only; do not invent a final summary or status reply.")
+		lines = append(
+			lines,
+			"Return the working projection only; do not invent a final summary or status reply.",
+		)
 	}
+	lines = append(lines, narratorLanguageExamples()...)
 	return strings.Join(lines, "\n")
 }
 
 func statusInstructions() string {
-	return strings.Join([]string{
+	lines := []string{
 		"Act as Setta's narrator status responder. Use only the supplied read-only status context JSON.",
 		"Answer the exact question from authoritative current state and explicitly represented trajectory ranges.",
-		"Return one concise voice-ready status reply. Do not emit projection fields or claim to advance a cursor.",
-	}, "\n")
+		"Return one voice-ready status reply with current state, evidence, and blocker or next step when relevant.",
+		"Do not emit projection fields or claim to advance a cursor.",
+	}
+	lines = append(lines, userVisibleNarratorLanguageInstructions()...)
+	lines = append(lines, narratorLanguageExamples()...)
+	return strings.Join(lines, "\n")
 }
 
 func checkpointInstructions() string {
@@ -589,4 +611,30 @@ func checkpointInstructions() string {
 		"Current objective, constraints, and steering are authoritative context only and must not be redefined by the historical summary.",
 		"Return only the exact coveredThroughSequence and a non-empty bounded historicalSummary.",
 	}, "\n")
+}
+
+func userVisibleNarratorLanguageInstructions() []string {
+	return []string{
+		"Write for the user whose objective appears in the supplied context.",
+		"State what is now true, what changed, or what is blocking progress.",
+		"Lead with the observable outcome, not the mechanism that observed it.",
+		"Write the shortest complete update, preserving the subject, result, and any caveat that changes how the result should be understood.",
+		"Prefer a natural sentence over a compressed fragment or headline shorthand.",
+		"Prefer words already used in the user's objective.",
+		"Use a technical term when the user's task or result genuinely depends on that term; otherwise explain the result in ordinary language.",
+		"Omit Setta's bookkeeping, including projection passes, trajectory cursors, sequence numbers, provider calls, schemas, and typed boundaries, unless that machinery is itself the user's subject.",
+		"Do not prefix text with \"Narrator,\" \"Milestone,\" \"Update,\" or similar meta narration.",
+		"Do not restate the current objective or paraphrase a prior milestone.",
+		"State failures and blockers directly. Brevity must not turn an incomplete or failed result into a success claim.",
+	}
+}
+
+func narratorLanguageExamples() []string {
+	return []string{
+		"Examples teach voice and relevance:",
+		"Avoid: \"Narrator evaluated the deployment through sequence 41.\" Prefer: \"The deployment now completes successfully, and failed releases keep the previous version running.\"",
+		"Avoid: \"The provider boundary is now typed.\" Prefer: \"Voice requests now preserve the configured narrator and speaking pace across restarts.\"",
+		"Avoid: \"A terminal projection was durably committed.\" Prefer: \"The final summary is saved with the conversation and remains available after restart.\"",
+		"Avoid: \"Continued working on the current objective.\" Prefer: no milestone.",
+	}
 }
