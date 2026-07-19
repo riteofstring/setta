@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 	"reflect"
-	"strings"
 
 	"setta/internal/appearance"
 	"setta/internal/codexaccount"
@@ -131,25 +130,6 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 			apiHandler.dispatch(route, response, request)
 		})
 	}
-}
-
-func IsAPINamespace(path string) bool {
-	if path == "" || path[0] != '/' {
-		return false
-	}
-	for _, endpoint := range apiEndpoints {
-		root := apiPathRoot(endpoint.Path)
-		if path == root || strings.HasPrefix(path, root+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-func apiPathRoot(path string) string {
-	trimmed := strings.TrimPrefix(path, "/")
-	segment, _, _ := strings.Cut(trimmed, "/")
-	return "/" + segment
 }
 
 func unauthenticated(route endpoint) endpoint {

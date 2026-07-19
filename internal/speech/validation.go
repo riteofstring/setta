@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -182,6 +183,19 @@ func (request SpeechSynthesisRequest) Validate() error {
 	return nil
 }
 
+func (input ProviderSynthesisInput) Validate() error {
+	if err := validateSynthesisText(input.Text); err != nil {
+		return err
+	}
+	if !LookupVoice(input.VoiceID) {
+		return unavailableVoiceError(input.VoiceID)
+	}
+	if err := validateSynthesisRate(input.Rate); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (source ResolvedSpeechSource) Validate() error {
 	if err := source.Source.Validate(); err != nil {
 		return err
@@ -201,6 +215,15 @@ func validateSynthesisText(text string) error {
 	}
 	if len([]rune(text)) > MaximumSynthesisCharacters {
 		return fmt.Errorf("speech synthesis text exceeds %d characters", MaximumSynthesisCharacters)
+	}
+	return nil
+}
+
+func validateSynthesisRate(rate float64) error {
+	const minimum = 0.25
+	const maximum = 4.0
+	if math.IsNaN(rate) || math.IsInf(rate, 0) || rate < minimum || rate > maximum {
+		return fmt.Errorf("speech synthesis rate %g must be between %.2g and %.2g", rate, minimum, maximum)
 	}
 	return nil
 }

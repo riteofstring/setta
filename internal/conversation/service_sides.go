@@ -320,6 +320,16 @@ func (service *Service) persistPreparingSideConversation(
 			Reason:         "originating pane already has an open side conversation",
 		}
 	}
+	binding, err := service.resumeParentAgentThreadForProviderOperationLocked(
+		ctx,
+		workspaceID,
+		workspaceRoot,
+		snapshot,
+	)
+	if err != nil {
+		return preparedSideConversation{}, err
+	}
+	snapshot.ThreadBinding = &binding
 	injectedItems, err := service.materializeSideContext(
 		ctx,
 		parentConversationID,

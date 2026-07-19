@@ -109,10 +109,7 @@ func (runtime *Runtime) StartRestrictedThread(
 	}); err != nil {
 		return Thread{}, runtime.rejectRestrictedThread(thread.ID, err)
 	}
-	if err := runtime.InjectItems(ctx, thread.ID, []InjectedTextItem{{
-		Role: "user",
-		Text: restrictedThreadInitialization,
-	}}); err != nil {
+	if err := runtime.MaterializeThread(ctx, thread.ID, restrictedThreadInitialization); err != nil {
 		return Thread{}, runtime.rejectRestrictedThread(
 			thread.ID,
 			fmt.Errorf("materialize restricted agent thread %s: %w", thread.ID, err),
@@ -272,12 +269,14 @@ func restrictedThreadResumeParams(
 	}
 	runtimeWorkspaceRoots := []codexapp.AbsolutePathBuf{}
 	baseInstructions := restrictedThreadBaseInstructions
+	excludeTurns := true
 	return codexapp.ThreadResumeParams{
 		ApprovalPolicy:        approvalPolicy,
 		BaseInstructions:      &baseInstructions,
 		Config:                &config,
 		CWD:                   &request.WorkspaceRoot,
 		DeveloperInstructions: &request.DeveloperInstructions,
+		ExcludeTurns:          &excludeTurns,
 		Model:                 &request.Invocation.Model,
 		RuntimeWorkspaceRoots: &runtimeWorkspaceRoots,
 		Sandbox:               &sandbox,

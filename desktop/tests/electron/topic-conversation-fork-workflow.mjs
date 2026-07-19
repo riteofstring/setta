@@ -214,7 +214,7 @@ export async function exerciseEphemeralSideForkFailure({
   timeoutMs,
   workspaceId,
 }) {
-  const before = await waitForConversationSnapshot(
+  const initial = await waitForConversationSnapshot(
     backend,
     workspaceId,
     parentTopic.id,
@@ -222,6 +222,14 @@ export async function exerciseEphemeralSideForkFailure({
       snapshot.conversation.status === "idle" && snapshot.sideConversations.length === 0,
     timeoutMs,
   );
+  const before = await ensureLinkedParentForSideForkFailure({
+    backend,
+    client,
+    parentSnapshot: initial,
+    parentTopic,
+    timeoutMs,
+    workspaceId,
+  });
   const surfaces = await waitForConversationSurfaces(
     client,
     (candidates) => conversationSurfaces(candidates, parentTopic.id).length > 0,
@@ -265,12 +273,41 @@ export async function exerciseEphemeralSideForkFailure({
     context,
   );
   assertCondition(
-    failedSnapshot.eventCursor.sequence === before.eventCursor.sequence + 2,
-    "failed side lifecycle did not publish preparing and failed commits",
+    failedSnapshot.eventCursor.sequence === before.eventCursor.sequence + 3,
+    "failed side lifecycle did not publish resume, preparing, and failed commits",
     context,
   );
   assertSideDidNotContaminateParent(before, failedSnapshot);
   return { failedSide, parentSnapshot: failedSnapshot };
+}
+
+async function ensureLinkedParentForSideForkFailure({
+  backend,
+  client,
+  parentSnapshot,
+  parentTopic,
+  timeoutMs,
+  workspaceId,
+}) {
+  if (parentSnapshot.threadBinding !== null) return parentSnapshot;
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", {
+      conversationId: parentTopic.id,
+      text: "complete parent before side fork no rollout",
+    }),
+    "submitted",
+  );
+  return waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.threadBinding !== null &&
+      snapshot.conversation.status === "idle" &&
+      snapshot.sideConversations.length === 0 &&
+      snapshot.turns.turns.at(-1)?.status === "completed",
+    timeoutMs,
+  );
 }
 
 export async function exerciseEphemeralSideForkWorkflow({
@@ -536,6 +573,41 @@ async function exercisePendingSidePaneClose({
   });
   assertDriverAction(action, "submitted");
   assertDriverAction(action, "closing");
+  const closeAttempt = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.sideConversations.some(
+        (candidate) =>
+          !knownSideIds.has(candidate.id) &&
+          candidate.parentPaneId === parentSurface.paneId &&
+          (candidate.status === "disposing" ||
+            (candidate.status === "active" && candidate.activeTurnId !== null)),
+      ),
+    timeoutMs,
+  );
+  const closeAttemptSide = closeAttempt.sideConversations.find(
+    (candidate) =>
+      !knownSideIds.has(candidate.id) && candidate.parentPaneId === parentSurface.paneId,
+  );
+  let closePaneAfterSideEnd = false;
+  if (closeAttemptSide?.status === "active") {
+    await waitForConversationSurface(
+      client,
+      parentTopic.id,
+      (surface) =>
+        surface.sideId === closeAttemptSide.id &&
+        surface.sideStatus === "active" &&
+        surface.sideParentStatus === "working",
+      timeoutMs,
+    );
+    assertDriverAction(
+      await client.driver("topicConversationEndSide", { conversationId: parentTopic.id }),
+      "ended",
+    );
+    closePaneAfterSideEnd = true;
+  }
   const disposed = await waitForConversationSnapshot(
     backend,
     workspaceId,
@@ -563,6 +635,14 @@ async function exercisePendingSidePaneClose({
     { disposed, parentSnapshot, parentSurface },
   );
   assertSideDidNotContaminateParent(parentSnapshot, disposed);
+  if (closePaneAfterSideEnd) {
+    assertDriverAction(
+      await client.driver("topicConversationCloseOneBoundPane", {
+        conversationId: parentTopic.id,
+      }),
+      "clicked",
+    );
+  }
   await waitForConversationSurfaces(
     client,
     (surfaces) => conversationSurfaces(surfaces, parentTopic.id).length === 0,
@@ -894,7 +974,10 @@ export async function exerciseDurableForkWorkflow({
     driverCallExpression("topicConversationNavigatorState", {
       conversationId: forkTopicSummary.id,
     }),
-    (state) => state.rowCount === 1 && state.label.includes("1 open view"),
+    (state) =>
+      state.rowCount === 1 &&
+      state.openViewCount === 1 &&
+      state.label.includes("open in workspace"),
     timeoutMs,
   );
   assertCondition(
@@ -1165,7 +1248,7 @@ function completedForkSurface(surface) {
     surface.state === "complete" &&
     surface.status === "completed" &&
     surface.artifactCount === 1 &&
-    surface.summaryText === "Narrator completed fork child artifact."
+    surface.summaryText === "Fork child artifact completed."
   );
 }
 
@@ -1264,7 +1347,6 @@ function assertSideDidNotContaminateParent(before, after) {
     "conversation",
     "turns",
     "queue",
-    "threadBinding",
     "trajectory",
     "artifacts",
     "narratorState",
@@ -1276,6 +1358,27 @@ function assertSideDidNotContaminateParent(before, after) {
       context,
     );
   }
+  assertParentThreadBindingStableAcrossSideFork(before.threadBinding, after.threadBinding, context);
+}
+
+function assertParentThreadBindingStableAcrossSideFork(before, after, context) {
+  const normalize = (binding) =>
+    binding === null
+      ? null
+      : {
+          conversationId: binding.conversationId,
+          createdAt: binding.createdAt,
+          lastTurnId: binding.lastTurnId,
+          provider: binding.provider,
+          providerMetadata: binding.providerMetadata,
+          status: binding.status,
+          threadId: binding.threadId,
+        };
+  assertCondition(
+    JSON.stringify(normalize(after)) === JSON.stringify(normalize(before)),
+    "side fork contaminated parent threadBinding",
+    context,
+  );
 }
 
 function assertCondition(condition, message, context) {

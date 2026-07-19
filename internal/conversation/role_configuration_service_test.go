@@ -351,7 +351,20 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	if err != nil {
 		t.Fatalf("CreateTopic with global profile: %v", err)
 	}
-	assertLastResolvedAgentModel(t, runtime, "gpt-agent-global")
+	if first.ThreadBinding != nil || len(runtime.invocationResolutions()) != 0 {
+		t.Fatalf("topic creation linked or resolved provider state: binding=%+v resolutions=%+v", first.ThreadBinding, runtime.invocationResolutions())
+	}
+	sendAndAssertPrimaryAgentRoleProfile(
+		t,
+		service,
+		runtime,
+		ctx,
+		workspaceID,
+		first.Conversation.ID,
+		"complete with global profile",
+		"gpt-agent-global",
+		ReasoningEffortMedium,
+	)
 
 	workspace := roleConfigurationAgentOverride(
 		RoleProfileScopeWorkspace,
@@ -366,7 +379,20 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	if err != nil {
 		t.Fatalf("CreateTopic with workspace profile: %v", err)
 	}
-	assertLastResolvedAgentModel(t, runtime, "gpt-agent-workspace")
+	if second.ThreadBinding != nil {
+		t.Fatalf("workspace topic creation linked provider thread: %+v", second.ThreadBinding)
+	}
+	sendAndAssertPrimaryAgentRoleProfile(
+		t,
+		service,
+		runtime,
+		ctx,
+		workspaceID,
+		second.Conversation.ID,
+		"complete with workspace profile",
+		"gpt-agent-workspace",
+		ReasoningEffortHigh,
+	)
 
 	conversationOverride := roleConfigurationAgentOverride(
 		RoleProfileScopeConversation,
@@ -377,25 +403,18 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	persistRoleProfileTestMutation(t, store, "set-conversation-primary-agent", func(transaction *WriteTransaction) error {
 		return transaction.UpsertRoleProfileOverride(conversationOverride)
 	})
-	completed, err := service.sendTestTurn(
+	completed := sendAndAssertPrimaryAgentRoleProfile(
+		t,
+		service,
+		runtime,
 		ctx,
 		workspaceID,
 		second.Conversation.ID,
 		"complete with conversation profile",
+		"gpt-agent-conversation",
+		ReasoningEffortXHigh,
 	)
-	if err != nil {
-		t.Fatalf("SendTurn with conversation profile: %v", err)
-	}
-	completed = assertServiceSnapshot(t, service, workspaceID, second.Conversation.ID, func(snapshot ConversationSnapshot) bool {
-		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
-	})
 	turn := latestSnapshotTurn(completed)
-	if turn.RequestedRoleProfile.ModelSelection.ModelID == nil ||
-		*turn.RequestedRoleProfile.ModelSelection.ModelID != "gpt-agent-conversation" ||
-		turn.RequestedRoleProfile.ReasoningEffort != ReasoningEffortXHigh {
-		t.Fatalf("conversation turn requested profile = %+v", turn.RequestedRoleProfile)
-	}
-	assertLastResolvedAgentModel(t, runtime, "gpt-agent-conversation")
 
 	fork, err := service.forkRouterTopicForTest(
 		ctx,
@@ -419,6 +438,45 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 
 	if first.Conversation.ID == second.Conversation.ID {
 		t.Fatal("precedence test topics unexpectedly reused an id")
+	}
+}
+
+func sendAndAssertPrimaryAgentRoleProfile(
+	t *testing.T,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	input string,
+	wantModel string,
+	wantEffort ReasoningEffort,
+) ConversationSnapshot {
+	t.Helper()
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, input); err != nil {
+		t.Fatalf("SendTurn %q: %v", input, err)
+	}
+	runtime.waitForStart(t, input)
+	completed := assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	turn := latestSnapshotTurn(completed)
+	assertPrimaryAgentTurnProfile(t, turn, wantModel, wantEffort)
+	assertLastResolvedAgentModel(t, runtime, wantModel)
+	return completed
+}
+
+func assertPrimaryAgentTurnProfile(
+	t *testing.T,
+	turn ConversationTurn,
+	wantModel string,
+	wantEffort ReasoningEffort,
+) {
+	t.Helper()
+	if turn.RequestedRoleProfile.ModelSelection.ModelID == nil ||
+		*turn.RequestedRoleProfile.ModelSelection.ModelID != wantModel ||
+		turn.RequestedRoleProfile.ReasoningEffort != wantEffort {
+		t.Fatalf("turn requested profile = %+v, want model %s effort %s", turn.RequestedRoleProfile, wantModel, wantEffort)
 	}
 }
 

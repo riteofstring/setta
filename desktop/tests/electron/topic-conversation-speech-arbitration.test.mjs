@@ -25,7 +25,10 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
-import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
+import {
+  expectedSynthesisSpeed,
+  startSpeechTranscriptionProviderFixture,
+} from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDriverAction,
   createTopic,
@@ -540,6 +543,7 @@ function assertFinalProviderRequestCount(requests, finalEvents, createdTopics, e
       (candidate) =>
         request.path === "/v1/audio/speech" &&
         request.input === candidate.input &&
+        request.speed === expectedSynthesisSpeed &&
         request.voice === candidate.voice,
     ),
   );

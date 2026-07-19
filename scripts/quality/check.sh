@@ -173,7 +173,7 @@ normalize_path() {
 
 is_generated_or_vendor_path() {
   case "$1" in
-    */node_modules/*|node_modules/*|*/dist/*|dist/*|*/build/*|build/*|*/out/*|out/*|*/coverage/*|coverage/*|*/test-results/*|test-results/*|*/playwright-report/*|playwright-report/*|*/generated/*|generated/*|internal/webapp/static/*|*.generated.*|*_gen.go|*.gen.go)
+    */node_modules/*|node_modules/*|*/dist/*|dist/*|*/build/*|build/*|*/out/*|out/*|*/coverage/*|coverage/*|*/test-results/*|test-results/*|*/playwright-report/*|playwright-report/*|*/generated/*|generated/*|*.generated.*|*_gen.go|*.gen.go)
       return 0
       ;;
   esac

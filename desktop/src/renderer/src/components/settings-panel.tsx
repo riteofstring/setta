@@ -59,35 +59,26 @@ import {
 } from "../stores/appearance-store";
 import {
   type SettingsFocusRequest,
+  type SettingsShellRoute,
   useSettingsNavigationStore,
 } from "../stores/settings-navigation-store";
 
 export function SettingsPanel() {
-  const [activeSubtab, setActiveSubtab] = useState<SettingsSubtab>("theme");
   const load = useAppearanceStore((state) => state.load);
-  const navigationRequest = useSettingsNavigationStore((state) => state.request);
-  const processedNavigationRequestId = useRef<number | null>(null);
+  const lastSubtab = useSettingsNavigationStore((state) => state.lastSubtab);
+  const route = useSettingsNavigationStore((state) => state.route);
+  const setActiveSubtab = useSettingsNavigationStore((state) => state.setActiveSubtab);
+  const activeSubtab = settingsPanelActiveSubtab(route, lastSubtab);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    if (
-      !navigationRequest ||
-      processedNavigationRequestId.current === navigationRequest.requestId
-    ) {
-      return;
-    }
-    processedNavigationRequestId.current = navigationRequest.requestId;
-    setActiveSubtab(navigationRequest.subtab);
-  }, [navigationRequest]);
-
   const focusRequest =
-    navigationRequest?.focusTarget && navigationRequest.subtab === activeSubtab
+    route.page === "settings" && route.focusTarget && route.subtab === activeSubtab
       ? {
-          requestId: navigationRequest.requestId,
-          target: navigationRequest.focusTarget,
+          requestId: route.requestId,
+          target: route.focusTarget,
         }
       : null;
 
@@ -104,6 +95,13 @@ export function SettingsPanel() {
       </div>
     </section>
   );
+}
+
+function settingsPanelActiveSubtab(
+  route: SettingsShellRoute,
+  lastSubtab: SettingsSubtab,
+): SettingsSubtab {
+  return route.page === "settings" ? route.subtab : lastSubtab;
 }
 
 function SettingsSubtabContent({

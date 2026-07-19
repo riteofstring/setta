@@ -5,13 +5,23 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "settings-pane-workflow.test.mjs",
-    name: "settings-pane",
+    file: "settings-page-workflow.test.mjs",
+    name: "settings-page",
     tiers: ["required"],
   },
   {
     file: "topic-conversation-pane-projection.test.mjs",
     name: "topic-conversation-pane-projection",
+    tiers: ["required"],
+  },
+  {
+    file: "topic-conversation-creation-workflow.test.mjs",
+    name: "topic-conversation-creation",
+    tiers: ["required"],
+  },
+  {
+    file: "topic-conversation-provider-thread-lifecycle.test.mjs",
+    name: "topic-conversation-provider-thread-lifecycle",
     tiers: ["required"],
   },
   {

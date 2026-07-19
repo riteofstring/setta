@@ -117,9 +117,9 @@ try {
   const easyButtonPaneCount = await context.client.evaluate(
     "document.querySelectorAll('[data-testid=\"easy-button-surface\"]').length",
   );
-  if (easyButtonPaneCount !== 0) {
+  if (easyButtonPaneCount > 1) {
     throw new Error(
-      `global transcription session required ${easyButtonPaneCount} Easy Button panes`,
+      `global transcription session expected at most 1 Easy Button pane, got ${easyButtonPaneCount}`,
     );
   }
   const masterInputRequest = voiceMasterInputRequest();

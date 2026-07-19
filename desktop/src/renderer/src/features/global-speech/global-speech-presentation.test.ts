@@ -22,7 +22,7 @@ import {
 import { conversationSpeechCaptureRequest } from "./speech-capture-destination";
 
 describe("global speech presentation", () => {
-  test("attributes one locally recording conversation capture across its source pane, duplicate view, and other topics", () => {
+  test("attributes one locally recording conversation capture to its source pane and other topics", () => {
     const snapshot = captureSnapshot({
       capture: {
         captureSessionId: "capture-alpha",
@@ -59,17 +59,6 @@ describe("global speech presentation", () => {
     });
     expect(
       paneSpeechPresentation(capture, playback, {
-        conversationId: "conversation-alpha",
-        paneId: "pane-alpha-copy",
-      }),
-    ).toMatchObject({
-      activityLabel: "Listening in another view",
-      captureScope: "this_conversation",
-      transcriptPreview: null,
-      voiceControlDisabled: true,
-    });
-    expect(
-      paneSpeechPresentation(capture, playback, {
         conversationId: "conversation-beta",
         paneId: "pane-beta",
       }),
@@ -81,7 +70,7 @@ describe("global speech presentation", () => {
     });
   });
 
-  test("attributes narrator playback to every duplicate topic view without claiming another topic", () => {
+  test("attributes narrator playback to its topic without claiming another topic", () => {
     const capture = globalSpeechCapturePresentation(captureSnapshot());
     const playback = speakingPlayback("conversation-alpha");
 

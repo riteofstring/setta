@@ -313,8 +313,9 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 		t.Fatalf("synthesize authoritative source: %v", err)
 	}
 	if resolver.calls != 1 || provider.synthesisCalls != 1 ||
-		provider.synthesisText != resolver.resolved.Text ||
-		provider.synthesisVoiceID != SpeechVoiceCedar ||
+		provider.synthesisInput.Text != resolver.resolved.Text ||
+		provider.synthesisInput.VoiceID != SpeechVoiceCedar ||
+		provider.synthesisInput.Rate != AssistantSynthesisRate ||
 		!equalSpeechSources(audio.Source, source) ||
 		audio.ResolvedVoiceID != SpeechVoiceCedar {
 		t.Fatalf("resolver=%+v provider=%+v audio=%+v", resolver, provider, audio)
@@ -341,6 +342,67 @@ func TestSpeechServiceRejectsUnavailableSynthesisBeforeProviderCall(t *testing.T
 	assertSpeechServiceErrorCode(t, err, ErrorSourceUnavailable)
 	if provider.synthesisCalls != 0 {
 		t.Fatalf("provider synthesis calls = %d, want 0", provider.synthesisCalls)
+	}
+}
+
+func TestSpeechServiceUsesSharedAssistantSynthesisRate(t *testing.T) {
+	conversationID := "conversation-1"
+	tests := []struct {
+		name    string
+		source  SpeechSource
+		text    string
+		voiceID SpeechVoiceID
+	}{
+		{
+			name:    "master",
+			source:  SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+			text:    "The master answer is ready.",
+			voiceID: SpeechVoiceMarin,
+		},
+		{
+			name: "narrator",
+			source: SpeechSource{
+				Speaker:        SpeechSpeakerNarrator,
+				EventID:        "status-reply-1",
+				ConversationID: &conversationID,
+			},
+			text:    "The topic agent is still working.",
+			voiceID: SpeechVoiceCedar,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			provider := &serviceTestProvider{
+				configured: true,
+				synthesized: SynthesizedAudio{
+					Bytes:     validTestWAV(),
+					MediaType: SynthesisMediaType,
+					Format:    SynthesisFormat,
+				},
+			}
+			resolver := &serviceTestSourceResolver{resolved: ResolvedSpeechSource{
+				Source:          test.source,
+				Text:            test.text,
+				ResolvedVoiceID: test.voiceID,
+			}}
+			service := newServiceTestServiceWithResolver(t, provider, resolver)
+
+			_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
+				Source:          test.source,
+				ResolvedVoiceID: test.voiceID,
+			})
+			if err != nil {
+				t.Fatalf("synthesize speech: %v", err)
+			}
+			want := ProviderSynthesisInput{
+				Text:    test.text,
+				VoiceID: test.voiceID,
+				Rate:    AssistantSynthesisRate,
+			}
+			if provider.synthesisInput != want {
+				t.Fatalf("provider synthesis input = %+v, want %+v", provider.synthesisInput, want)
+			}
+		})
 	}
 }
 
@@ -404,8 +466,7 @@ type serviceTestProvider struct {
 	transcriptionCalls int
 	synthesized        SynthesizedAudio
 	synthesisErr       error
-	synthesisText      string
-	synthesisVoiceID   SpeechVoiceID
+	synthesisInput     ProviderSynthesisInput
 	synthesisCalls     int
 }
 
@@ -534,12 +595,10 @@ func (provider *serviceTestProvider) CreateTranscriptionClientSecret(_ context.C
 
 func (provider *serviceTestProvider) SynthesizeSpeech(
 	_ context.Context,
-	text string,
-	voiceID SpeechVoiceID,
+	input ProviderSynthesisInput,
 ) (SynthesizedAudio, error) {
 	provider.synthesisCalls++
-	provider.synthesisText = text
-	provider.synthesisVoiceID = voiceID
+	provider.synthesisInput = input
 	return provider.synthesized, provider.synthesisErr
 }
 

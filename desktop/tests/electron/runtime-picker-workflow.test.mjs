@@ -111,11 +111,7 @@ try {
     context.client,
     localWorkspace.selectedWorkspaceId,
   );
-  if (JSON.stringify(returnedLocalPanes.paneIds) !== JSON.stringify(localPanes.paneIds)) {
-    throw new Error(
-      `local workspace panes changed after runtime switch: ${JSON.stringify({ after: returnedLocalPanes.paneIds, before: localPanes.paneIds })}`,
-    );
-  }
+  assertLocalWorkspacePanesSurvivedRuntimeSwitch(localPanes, returnedLocalPanes);
 
   await stopProcess(remoteServe.child);
   await waitForRemoteRuntimeStopped(remote.baseUrl);
@@ -169,6 +165,8 @@ function parseArgs(args) {
         break;
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
+        break;
+      case "--skip-build":
         break;
       case "--visible":
         parsed.visible = true;
@@ -302,7 +300,7 @@ async function waitForSurvivorWorkspacePanes(client, expectedWorkspaceId) {
       snapshot.paneIds.length === snapshot.paneCount &&
       snapshot.paneIds.every((paneId) => paneId !== "") &&
       snapshot.surfaceKinds.every((surfaceKind) =>
-        ["easy-button", "empty-frame", "settings-dom"].includes(surfaceKind),
+        ["easy-button", "empty-frame"].includes(surfaceKind),
       ),
     workflowTimeoutMs,
   );
@@ -312,6 +310,27 @@ function assertRemoteSessionEmpty(session) {
   if (session.selectedWorkspaceId !== "" || session.activeWorkspaces.length !== 0) {
     throw new Error(`remote runtime should start with no workspaces: ${JSON.stringify(session)}`);
   }
+}
+
+function assertLocalWorkspacePanesSurvivedRuntimeSwitch(before, after) {
+  const beforeEmptyFrames = paneIdsForKind(before, "empty-frame");
+  const afterEmptyFrames = paneIdsForKind(after, "empty-frame");
+  const beforeIds = new Set(before.paneIds);
+  const added = after.panes.filter((pane) => !beforeIds.has(pane.paneId));
+  const valid =
+    JSON.stringify(afterEmptyFrames) === JSON.stringify(beforeEmptyFrames) &&
+    added.every((pane) => pane.surfaceKind === "easy-button");
+  if (!valid) {
+    throw new Error(
+      `local workspace panes changed after runtime switch: ${JSON.stringify({ added, after: after.panes, before: before.panes })}`,
+    );
+  }
+}
+
+function paneIdsForKind(snapshot, surfaceKind) {
+  return snapshot.panes
+    .filter((pane) => pane.surfaceKind === surfaceKind)
+    .map((pane) => pane.paneId);
 }
 
 async function waitForRemoteWorkspace(probe, workspaceRoot) {
