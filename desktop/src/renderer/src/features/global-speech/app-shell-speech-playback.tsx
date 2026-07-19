@@ -20,6 +20,7 @@ import {
   type SpeechPlaybackControllerDependencies,
   type SpeechPlaybackSnapshot,
 } from "./app-shell-speech-playback-controller";
+import { createOpenAIBackendSpeechOutputProvider } from "./openai-speech-output-provider";
 
 export interface AppShellSpeechPlaybackContextValue {
   controller: AppShellSpeechPlaybackController;
@@ -191,6 +192,7 @@ function scheduleMicrotask(handler: () => void): void {
 }
 
 function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerDependencies {
+  const outputProvider = createOpenAIBackendSpeechOutputProvider(setta);
   return {
     createAbortController: () => new AbortController(),
     createAudio: (url) => new Audio(url),
@@ -205,13 +207,10 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
     now: () => Date.now(),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     synthesize: (request, signal) => {
-      if (!setta.speech.synthesize || !setta.speech.cancelSynthesis) {
-        return Promise.reject(new Error("the desktop speech synthesis boundary is unavailable"));
-      }
       const operationId = createSpeechSynthesisOperationId();
       return abortableSpeechRequest(
-        () => setta.speech.synthesize!(request, operationId),
-        () => setta.speech.cancelSynthesis!(operationId),
+        () => outputProvider.synthesize(request, operationId),
+        () => outputProvider.cancel(operationId),
         signal,
       );
     },

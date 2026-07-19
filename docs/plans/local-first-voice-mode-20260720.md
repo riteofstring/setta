@@ -15,6 +15,13 @@ The target sequence is:
 
 Wake word, always-listening behavior, semantic endpointing, cross-platform local TTS, and custom neural voice packs are intentionally out of scope for this plan.
 
+## Implementation Status
+
+- Step 1: Implementation complete; ready for phase audit. 2026-07-20 repository batch: added a renderer voice provider boundary, introduced provider-neutral capture and synthesis interfaces, moved browser microphone buffering plus OpenAI Realtime capture setup behind the OpenAI capture provider, and moved existing backend speech synthesis behind the OpenAI output provider. Repository verification completed for this batch: focused renderer speech tests, desktop typecheck, `./check_quality.sh --git-changes`, and the deterministic `global-speech-session` Electron workflow. Release/audit gate: live OpenAI voice workflow remains to run when the app-supported local live-provider setup is available.
+- Step 2: Not started.
+- Step 3: Not started.
+- Step 4: Not started.
+
 ## Non-Negotiables
 
 - Do not add backward compatibility shims, migrations, legacy support paths, transitional adapters, dual-read/write paths, old-field aliases, or compatibility layers.

@@ -17,11 +17,14 @@ import {
   AppShellSpeechCaptureController,
   type AppShellSpeechCaptureControllerDependencies,
   type AppShellSpeechCaptureSnapshot,
-  browserSpeechCaptureSupport,
 } from "./app-shell-speech-capture-controller";
 import type { AppShellSpeechPlaybackController } from "./app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "./global-speech-presentation";
 import { createBufferedMicrophoneCapture } from "./buffered-microphone-capture";
+import {
+  createOpenAIBrowserSpeechCaptureProvider,
+  type OpenAIBrowserSpeechCaptureProviderDependencies,
+} from "./openai-speech-capture-provider";
 import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 
 export interface AppShellSpeechCaptureContextValue {
@@ -149,10 +152,8 @@ function browserControllerDependencies(
   onCaptureStart: (() => void) | undefined,
   onCaptureEnd: (() => void) | undefined,
 ): AppShellSpeechCaptureControllerDependencies {
-  return {
-    clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+  const providerDependencies: OpenAIBrowserSpeechCaptureProviderDependencies = {
     createBufferedCapture: createBufferedMicrophoneCapture,
-    createCaptureSessionId: () => globalThis.crypto.randomUUID(),
     createTranscriptionSession: () => setta.speech.createTranscriptionSession(),
     createTransport: createRealtimeTranscriptionTransport,
     deferProviderConnection: (handler) => {
@@ -161,10 +162,15 @@ function browserControllerDependencies(
       });
     },
     getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+    readCapabilities: () => setta.speech.readCapabilities(),
+  };
+  return {
+    captureProvider: createOpenAIBrowserSpeechCaptureProvider(providerDependencies),
+    clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+    createCaptureSessionId: () => globalThis.crypto.randomUUID(),
     now: () => new Date(),
     onCaptureEnd: onCaptureEnd ?? (() => {}),
     onCaptureStart: onCaptureStart ?? (() => {}),
-    readCapabilities: () => setta.speech.readCapabilities(),
     settleConversationInput: async (accepted, completed) => {
       if (!setta.conversations.waitInputState) {
         throw new Error("the desktop conversation routing boundary is unavailable");
@@ -178,7 +184,6 @@ function browserControllerDependencies(
       await applyConversationRoutingPresentation(workspaceId, state);
     },
     setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
-    support: browserSpeechCaptureSupport,
     submitConversationInput: (request) => {
       if (!setta.conversations.submitInput) {
         return Promise.reject(new Error("the desktop conversation input boundary is unavailable"));

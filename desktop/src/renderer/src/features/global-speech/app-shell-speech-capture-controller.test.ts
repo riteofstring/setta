@@ -21,6 +21,10 @@ import {
   type CreateBufferedMicrophoneCaptureOptions,
 } from "./buffered-microphone-capture";
 import {
+  createOpenAIBrowserSpeechCaptureProvider,
+  type OpenAIBrowserSpeechCaptureProviderDependencies,
+} from "./openai-speech-capture-provider";
+import {
   RealtimeTranscriptionError,
   type RealtimeTranscriptionErrorCode,
 } from "./realtime-transcription-error";
@@ -914,7 +918,7 @@ interface HarnessOverrides {
     options: CreateBufferedMicrophoneCaptureOptions,
   ) => Promise<BufferedMicrophoneCapture>;
   createTranscriptionSession?: () => Promise<SpeechTranscriptionSession>;
-  deferProviderConnection?: AppShellSpeechCaptureControllerDependencies["deferProviderConnection"];
+  deferProviderConnection?: OpenAIBrowserSpeechCaptureProviderDependencies["deferProviderConnection"];
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   onCaptureEnd?: () => void;
   onCaptureStart?: () => void;
@@ -924,7 +928,7 @@ interface HarnessOverrides {
     request: SubmitConversationInputRequest,
   ) => Promise<AcceptedConversationInput>;
   submitMasterInput?: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
-  support?: AppShellSpeechCaptureControllerDependencies["support"];
+  support?: OpenAIBrowserSpeechCaptureProviderDependencies["readSupport"];
 }
 
 function createHarness(overrides: HarnessOverrides = {}) {
@@ -943,8 +947,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const masterInputRequests: SubmitMasterInputRequest[] = [];
   const acceptedMasterInputs = new Map<string, AcceptedMasterInput>();
   const clearTimer = vi.fn();
-  const dependencies: AppShellSpeechCaptureControllerDependencies = {
-    clearTimeout: clearTimer,
+  const captureProvider = createOpenAIBrowserSpeechCaptureProvider({
     createBufferedCapture: async (options) => {
       if (overrides.createBufferedCapture) {
         return overrides.createBufferedCapture(options);
@@ -953,10 +956,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
       captures.push(capture);
       capture.resolveReady();
       return capture;
-    },
-    createCaptureSessionId: () => {
-      captureOrdinal += 1;
-      return `capture_${captureOrdinal}`;
     },
     createTranscriptionSession: async () => {
       transcriptionSessionCalls += 1;
@@ -975,17 +974,25 @@ function createHarness(overrides: HarnessOverrides = {}) {
       mediaConstraints.push(constraints);
       return overrides.getUserMedia ? overrides.getUserMedia(constraints) : stream;
     },
+    readCapabilities: overrides.readCapabilities ?? (async () => capabilities()),
+    readSupport: overrides.support ?? (() => ({ supported: true })),
+  });
+  const dependencies: AppShellSpeechCaptureControllerDependencies = {
+    captureProvider,
+    clearTimeout: clearTimer,
+    createCaptureSessionId: () => {
+      captureOrdinal += 1;
+      return `capture_${captureOrdinal}`;
+    },
     now: () => new Date("2026-07-12T18:00:00Z"),
     onCaptureEnd: overrides.onCaptureEnd ?? (() => {}),
     onCaptureStart: overrides.onCaptureStart ?? (() => {}),
-    readCapabilities: overrides.readCapabilities ?? (async () => capabilities()),
     setTimeout: (handler, delayMs) => {
       timerHandler = handler;
       timerDelayMs = delayMs;
       return Symbol("timer");
     },
     settleConversationInput: overrides.settleConversationInput ?? (async () => {}),
-    support: overrides.support ?? (() => ({ supported: true })),
     submitConversationInput: async (request) => {
       conversationInputRequests.push(request);
       if (overrides.submitConversationInput) {

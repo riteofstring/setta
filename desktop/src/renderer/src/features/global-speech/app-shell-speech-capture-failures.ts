@@ -1,10 +1,7 @@
-import type {
-  SpeechCaptureFailureCode,
-  SpeechCaptureSupport,
-} from "./app-shell-speech-capture-controller";
 import type { BufferedMicrophoneCaptureError } from "./buffered-microphone-capture";
 import type { RealtimeTranscriptionErrorCode } from "./realtime-transcription-error";
 import type { SpeechCaptureAvailability } from "./speech-capture-availability";
+import type { SpeechCaptureFailureCode, SpeechCaptureSupport } from "./voice-provider-boundary";
 
 type Failure = { code: SpeechCaptureFailureCode; message: string };
 

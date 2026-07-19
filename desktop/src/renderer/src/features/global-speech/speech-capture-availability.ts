@@ -1,9 +1,6 @@
 import type { SpeechCapabilities } from "@generated/backend";
 
-import type {
-  SpeechCaptureFailureCode,
-  SpeechCaptureSupport,
-} from "./app-shell-speech-capture-controller";
+import type { SpeechCaptureFailureCode, SpeechCaptureSupport } from "./voice-provider-boundary";
 
 export type SpeechCaptureAvailability =
   | { type: "disconnected" }
