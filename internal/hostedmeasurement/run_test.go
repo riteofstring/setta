@@ -16,7 +16,8 @@ func TestRunCoordinatorAlwaysCleansAfterOrderedSuccess(t *testing.T) {
 	}
 	stages := []string{}
 	coordinator := RunCoordinator{
-		Image: &fakeHostedImage{stages: &stages}, Provisioner: &fakeHostedProvisioner{stages: &stages},
+		Bootstrap: &fakeHostedBootstrap{stages: &stages},
+		Image:     &fakeHostedImage{stages: &stages}, Provisioner: &fakeHostedProvisioner{stages: &stages},
 		Runtime:  &fakeHostedRuntimePreparation{stages: &stages},
 		Workload: &fakeHostedWorkload{stages: &stages}, Cleanup: &fakeHostedCleanup{stages: &stages},
 		Now: func() time.Time { return testAuthorizedAt.Add(time.Minute) }, State: store,
@@ -24,7 +25,7 @@ func TestRunCoordinatorAlwaysCleansAfterOrderedSuccess(t *testing.T) {
 	if err := coordinator.Run(context.Background(), context.Background(), authorization, FlyImagePublishRequest{}); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"app", "image", "runtime", "provision", "workload", "cleanup"}
+	want := []string{"app", "image", "runtime", "provision", "bootstrap", "workload", "cleanup"}
 	if !reflect.DeepEqual(stages, want) {
 		t.Fatalf("stages = %v, want %v", stages, want)
 	}
@@ -41,7 +42,8 @@ func TestRunCoordinatorCleansWithIndependentContextAfterFailure(t *testing.T) {
 	stages := []string{}
 	provisionErr := errors.New("injected provision failure")
 	coordinator := RunCoordinator{
-		Image: &fakeHostedImage{stages: &stages}, Provisioner: &fakeHostedProvisioner{stages: &stages, err: provisionErr},
+		Bootstrap: &fakeHostedBootstrap{stages: &stages},
+		Image:     &fakeHostedImage{stages: &stages}, Provisioner: &fakeHostedProvisioner{stages: &stages, err: provisionErr},
 		Runtime:  &fakeHostedRuntimePreparation{stages: &stages},
 		Workload: &fakeHostedWorkload{stages: &stages}, Cleanup: &fakeHostedCleanup{stages: &stages},
 		Now: func() time.Time { return testAuthorizedAt }, State: store,
@@ -79,12 +81,31 @@ func (fake *fakeHostedProvisioner) ProvisionFly(_ context.Context, _ Authorizati
 
 type fakeHostedWorkload struct{ stages *[]string }
 
-func (fake *fakeHostedWorkload) Execute(_ context.Context, _ Authorization, runtime HostedRuntime) error {
+func (fake *fakeHostedWorkload) Execute(
+	_ context.Context,
+	_ Authorization,
+	runtime HostedRuntime,
+	bootstrap ControlPlaneBootstrapResult,
+) error {
 	*fake.stages = append(*fake.stages, "workload")
 	if runtime.InnerRuntimeCredential != nil {
 		return errors.New("inner runtime credential was retained after Fly secret staging")
 	}
+	if bootstrap.ClientCredentialPath != "/private/client-credential.json" {
+		return errors.New("workload received the wrong bootstrap result")
+	}
 	return nil
+}
+
+type fakeHostedBootstrap struct{ stages *[]string }
+
+func (fake *fakeHostedBootstrap) Bootstrap(
+	context.Context,
+	Authorization,
+	HostedRuntime,
+) (ControlPlaneBootstrapResult, error) {
+	*fake.stages = append(*fake.stages, "bootstrap")
+	return ControlPlaneBootstrapResult{ClientCredentialPath: "/private/client-credential.json"}, nil
 }
 
 type fakeHostedRuntimePreparation struct{ stages *[]string }

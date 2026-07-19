@@ -300,6 +300,10 @@ Implemented on 2026-07-20:
     passes it through bounded stdin, validates the typed ready event, and skips
     only after durable acceptance. Missing or drifted restart credentials fail
     closed instead of minting replacements.
+26. The executable coordinator now requires bootstrap as an explicit stage
+    after Fly provisioning and before the measuring phase, and passes only the
+    private local credential path and non-secret prepared runtime metadata to
+    the authorized workload.
 
 Still required before a live create/deployment mutation:
 

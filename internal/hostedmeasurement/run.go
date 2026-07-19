@@ -16,11 +16,15 @@ type HostedFlyProvisioner interface {
 }
 
 type HostedWorkload interface {
-	Execute(context.Context, Authorization, HostedRuntime) error
+	Execute(context.Context, Authorization, HostedRuntime, ControlPlaneBootstrapResult) error
 }
 
 type HostedRuntimePreparation interface {
 	Prepare(context.Context, Authorization) (HostedRuntime, error)
+}
+
+type HostedControlPlaneBootstrap interface {
+	Bootstrap(context.Context, Authorization, HostedRuntime) (ControlPlaneBootstrapResult, error)
 }
 
 type HostedCleanup interface {
@@ -28,6 +32,7 @@ type HostedCleanup interface {
 }
 
 type RunCoordinator struct {
+	Bootstrap   HostedControlPlaneBootstrap
 	Cleanup     HostedCleanup
 	Image       HostedImagePublisher
 	Now         func() time.Time
@@ -67,16 +72,20 @@ func (coordinator RunCoordinator) Run(
 	}
 	clear(runtime.InnerRuntimeCredential)
 	runtime.InnerRuntimeCredential = nil
+	bootstrap, err := coordinator.Bootstrap.Bootstrap(ctx, authorization, runtime)
+	if err != nil {
+		return err
+	}
 	if err := coordinator.State.SetPhase(PhaseMeasuring, coordinator.Now()); err != nil {
 		return err
 	}
-	return coordinator.Workload.Execute(ctx, authorization, runtime)
+	return coordinator.Workload.Execute(ctx, authorization, runtime, bootstrap)
 }
 
 func (coordinator RunCoordinator) validate() error {
-	if coordinator.Cleanup == nil || coordinator.Image == nil || coordinator.Now == nil ||
+	if coordinator.Bootstrap == nil || coordinator.Cleanup == nil || coordinator.Image == nil || coordinator.Now == nil ||
 		coordinator.Provisioner == nil || coordinator.Runtime == nil || coordinator.State == nil || coordinator.Workload == nil {
-		return errors.New("hosted run requires image publication, runtime preparation, Fly provisioning, workload, cleanup, clock, and durable state")
+		return errors.New("hosted run requires image publication, runtime preparation, Fly provisioning, bootstrap, workload, cleanup, clock, and durable state")
 	}
 	return nil
 }
