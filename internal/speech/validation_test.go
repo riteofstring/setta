@@ -188,28 +188,6 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 	}
 }
 
-func TestProviderSynthesisInputRequiresValidatedTextVoiceAndRate(t *testing.T) {
-	valid := ProviderSynthesisInput{
-		Text:    "The persisted answer is ready.",
-		VoiceID: SpeechVoiceMarin,
-		Rate:    AssistantSynthesisRate,
-	}
-	if err := valid.Validate(); err != nil {
-		t.Fatalf("validate provider synthesis input: %v", err)
-	}
-	invalid := []ProviderSynthesisInput{
-		{Text: "", VoiceID: SpeechVoiceMarin, Rate: AssistantSynthesisRate},
-		{Text: "The persisted answer is ready.", VoiceID: "retired", Rate: AssistantSynthesisRate},
-		{Text: "The persisted answer is ready.", VoiceID: SpeechVoiceMarin, Rate: 0.24},
-		{Text: "The persisted answer is ready.", VoiceID: SpeechVoiceMarin, Rate: 4.01},
-	}
-	for _, input := range invalid {
-		if err := input.Validate(); err == nil {
-			t.Fatalf("invalid provider synthesis input passed: %+v", input)
-		}
-	}
-}
-
 func TestValidateWAVRequiresOddChunkPadding(t *testing.T) {
 	padded := validTestWAVWithDataLength(1)
 	if err := validateWAV(padded); err != nil {

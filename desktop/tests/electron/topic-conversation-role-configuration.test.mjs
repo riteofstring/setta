@@ -269,7 +269,7 @@ async function openWorkspace(client) {
 async function openRoleSettings(client) {
   const opened = await client.driver("roleConfigurationOpenSettings");
   if (!opened.ready && !opened.opened) {
-    throw new Error("Settings page was not available for AI role configuration");
+    throw new Error("Settings pane was not available for AI role configuration");
   }
   await waitForSelector(client, "#settings-subtab-roles", workflowTimeoutMs);
   const tab = await client.driver("roleConfigurationOpenTab");

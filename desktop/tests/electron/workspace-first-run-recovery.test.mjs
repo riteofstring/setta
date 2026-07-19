@@ -62,7 +62,7 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  let backend = await backendProbe(firstLaunchDir);
+  let backend = await backendProbe(firstLaunchDir, context.client);
 
   const freshSession = await backend.get("/workspace-session");
   assertFreshSession(freshSession);
@@ -101,7 +101,7 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  backend = await backendProbe(missingLaunchDir);
+  backend = await backendProbe(missingLaunchDir, context.client);
 
   const missingSession = await waitForBackendState(
     () => backend.get("/workspace-session"),
