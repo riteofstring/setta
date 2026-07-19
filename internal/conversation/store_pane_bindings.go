@@ -186,8 +186,7 @@ WHERE workspace_id = ?
 }
 
 func validateWorkspacePaneBindings(bindings []WorkspacePaneBinding) error {
-	seenPaneIDs := map[string]bool{}
-	seenConversationIDs := map[string]string{}
+	seen := map[string]bool{}
 	focused := 0
 	for _, binding := range bindings {
 		if err := validateIdentifier("pane binding pane id", binding.PaneID); err != nil {
@@ -196,19 +195,10 @@ func validateWorkspacePaneBindings(bindings []WorkspacePaneBinding) error {
 		if err := validateIdentifier("pane binding conversation id", binding.ConversationID); err != nil {
 			return err
 		}
-		if seenPaneIDs[binding.PaneID] {
+		if seen[binding.PaneID] {
 			return fmt.Errorf("pane binding %s is duplicated", binding.PaneID)
 		}
-		seenPaneIDs[binding.PaneID] = true
-		if existingPaneID, ok := seenConversationIDs[binding.ConversationID]; ok {
-			return fmt.Errorf(
-				"conversation %s is bound to multiple panes: %s and %s",
-				binding.ConversationID,
-				existingPaneID,
-				binding.PaneID,
-			)
-		}
-		seenConversationIDs[binding.ConversationID] = binding.PaneID
+		seen[binding.PaneID] = true
 		if binding.Focused {
 			focused++
 		}

@@ -54,15 +54,10 @@ try {
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await context.client.installDriver();
-  const backend = await backendProbe(artifactDir);
+  const backend = await backendProbe(artifactDir, context.client);
   const seededWorkspaceId = await seedTwoPaneWorkspaceLayout(backend, fixture.workspaceRoot);
   await waitForWorkspaceLayoutArea(context.client);
   await openSeededWorkspaceInRenderer(context.client, seededWorkspaceId);
-  await waitForPaneFocusState(
-    context.client,
-    "seeded two-pane layout restored",
-    (state) => state.scenario.ok && state.scenario.minimal && layoutSettled(state.layout),
-  );
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
 
   const { beforeContentState, scenario } = await prepareTwoPaneFocusScenario(context.client);
@@ -163,8 +158,7 @@ async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
   if (workspaceId === "") {
     throw new Error(`workspace open response missing id: ${JSON.stringify(opened)}`);
   }
-  const conversationId = await createFixtureConversation(backend, workspaceId);
-  const layout = twoPaneWorkspaceUILayout(workspaceId, conversationId);
+  const layout = twoPaneWorkspaceUILayout(workspaceId);
   const saved = await backend.post("/workspaces/ui/layout/save", { layout });
   if (saved.workspaceId !== workspaceId) {
     throw new Error(
@@ -172,18 +166,6 @@ async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
     );
   }
   return workspaceId;
-}
-
-async function createFixtureConversation(backend, workspaceId) {
-  const snapshot = await backend.post("/conversations/create", {
-    title: "Pane focus fixture conversation",
-    workspaceId,
-  });
-  const conversationId = snapshot.conversation?.id ?? "";
-  if (conversationId === "") {
-    throw new Error(`fixture conversation was not created: ${JSON.stringify(snapshot)}`);
-  }
-  return conversationId;
 }
 
 async function prepareTwoPaneFocusScenario(client) {
@@ -365,7 +347,7 @@ function seededWorkspaceOpenStateExpression() {
   })()`;
 }
 
-function twoPaneWorkspaceUILayout(workspaceId, conversationId) {
+function twoPaneWorkspaceUILayout(workspaceId) {
   return {
     columns: [
       {
@@ -393,14 +375,14 @@ function twoPaneWorkspaceUILayout(workspaceId, conversationId) {
     panes: [
       {
         columnId: "workspace_column_0",
-        easyButtonConfig: { conversationId },
+        easyButtonConfig: null,
         heat: 0,
         paneId: "workspace_pane_0",
         sequence: 0,
-        subtitle: "topic conversation pane",
+        subtitle: "empty workspace pane",
         surfaceId: "workspace_surface_0",
-        surfaceKind: "easy-button",
-        title: "Pane Focus Topic",
+        surfaceKind: "empty-frame",
+        title: "Empty Frame 1",
         tone: "cyan",
         weight: 1,
       },

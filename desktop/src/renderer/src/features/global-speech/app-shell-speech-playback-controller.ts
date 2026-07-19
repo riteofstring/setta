@@ -814,9 +814,9 @@ function narrationPlaybackKind(
       if (turnStatus === null) {
         throw new Error("final narration playback requires its authoritative turn status");
       }
-      return turnStatus === "failed" || turnStatus === "cancelled" ? "error" : null;
+      return turnStatus === "failed" ? "error" : "final_summary";
     case "milestone":
-      return event.trigger === "approval_required" ? "attention" : null;
+      return event.trigger === "approval_required" ? "attention" : "milestone";
     case "topic_descriptor":
       return null;
     default:

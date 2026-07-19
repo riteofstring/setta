@@ -17,18 +17,21 @@ import {
   type KnownRuntimeRegistry,
   type KnownRuntimeStore,
 } from "./known-runtime-store";
+import type { DesktopDeviceIdentity, RuntimeAccessCredential } from "./desktop-credential-store";
+import type { LocalRuntimeEnrollment } from "./local-runtime-credential-client";
 import {
-  completePairing,
   fetchRuntimeInfo,
   parsePairingURL,
+  type ParsedPairingURL,
   RuntimeConnectionError,
   RuntimePairingError,
   verifyRuntimeConnection,
 } from "./runtime-pairing";
+import type { RuntimeCredentialManager } from "./runtime-credential-manager";
 
 export interface ActiveRuntime {
   baseUrl: string;
-  deviceToken: string;
+  deviceIdentity: DesktopDeviceIdentity;
   displayName: string;
   isLocal: boolean;
   protocolVersion: number;
@@ -44,17 +47,22 @@ export interface RuntimeRegistryHooks {
 
 export interface RuntimeRegistryOptions {
   clientDisplayName: () => string;
+  enrollRuntime: (
+    pairing: ParsedPairingURL,
+    clientDisplayName: string,
+  ) => Promise<LocalRuntimeEnrollment>;
   fetchImpl: BackendFetch;
   hooks: RuntimeRegistryHooks;
   now?: () => Date;
   onSnapshot: (snapshot: RuntimeRegistrySnapshot) => void;
   resolveRuntimeHostName?: (baseUrl: string) => Promise<string | null>;
+  runtimeCredentials: RuntimeCredentialManager;
   store: KnownRuntimeStore;
 }
 
 interface LocalRuntimeInput {
   baseUrl: string;
-  deviceToken: string;
+  pairingToken: string;
 }
 
 const initialConnectionState: RuntimeConnectionState = {
@@ -145,13 +153,31 @@ export class RuntimeRegistryController {
 
   async registerLocalRuntime(input: LocalRuntimeInput): Promise<KnownRuntimeRecord> {
     const info = await fetchRuntimeInfo(input.baseUrl, this.options.fetchImpl);
+    const enrollment = await this.options.enrollRuntime(
+      {
+        baseUrl: input.baseUrl,
+        pairingToken: input.pairingToken,
+        runtimeId: info.runtimeId,
+      },
+      this.options.clientDisplayName(),
+    );
+    await this.options.runtimeCredentials.cacheRuntimeCredential(
+      {
+        baseUrl: input.baseUrl,
+        deviceIdentity: enrollment.deviceIdentity,
+        isLocal: true,
+        runtimeId: info.runtimeId,
+      },
+      enrollment.runtimeCredential,
+    );
     this.runtimeInfrastructureProviders.set(info.runtimeId, info.infrastructureProvider);
     const localRuntime: KnownRuntimeRecord = {
       baseUrl: input.baseUrl,
-      deviceToken: input.deviceToken,
+      deviceIdentity: enrollment.deviceIdentity,
       displayName: info.displayName,
       isLocal: true,
       lastConnected: null,
+      protocolVersion: enrollment.protocolVersion,
       runtimeId: info.runtimeId,
     };
     this.registry = upsertKnownRuntime(this.registry, localRuntime);
@@ -183,11 +209,7 @@ export class RuntimeRegistryController {
   async addByPairingURL(pairingURL: string): Promise<RuntimeRegistrySnapshot> {
     return this.runExclusive(async () => {
       const parsed = parsePairingURL(pairingURL);
-      const paired = await completePairing(
-        parsed,
-        this.options.clientDisplayName(),
-        this.options.fetchImpl,
-      );
+      const enrollment = await this.options.enrollRuntime(parsed, this.options.clientDisplayName());
       const info = await fetchRuntimeInfo(parsed.baseUrl, this.options.fetchImpl);
       if (info.runtimeId !== parsed.runtimeId) {
         throw new RuntimePairingError(
@@ -200,12 +222,22 @@ export class RuntimeRegistryController {
         info,
       );
       this.runtimeInfrastructureProviders.set(info.runtimeId, presentation.infrastructureProvider);
+      await this.options.runtimeCredentials.cacheRuntimeCredential(
+        {
+          baseUrl: parsed.baseUrl,
+          deviceIdentity: enrollment.deviceIdentity,
+          isLocal: false,
+          runtimeId: parsed.runtimeId,
+        },
+        enrollment.runtimeCredential,
+      );
       this.registry = upsertKnownRuntime(this.registry, {
         baseUrl: parsed.baseUrl,
-        deviceToken: paired.deviceToken,
+        deviceIdentity: enrollment.deviceIdentity,
         displayName: presentation.displayName,
         isLocal: false,
         lastConnected: null,
+        protocolVersion: enrollment.protocolVersion,
         runtimeId: parsed.runtimeId,
       });
       await this.persist();
@@ -276,6 +308,14 @@ export class RuntimeRegistryController {
     return this.activeRuntime;
   }
 
+  async currentRuntimeCredential(): Promise<RuntimeAccessCredential> {
+    const active = this.activeRuntime;
+    if (!active) {
+      throw new Error("runtime is not connected");
+    }
+    return this.options.runtimeCredentials.currentRuntimeCredential(active);
+  }
+
   list(): KnownRuntimeView[] {
     return this.snapshot().runtimes;
   }
@@ -313,7 +353,15 @@ export class RuntimeRegistryController {
       try {
         const info = await verifyRuntimeConnection({
           baseUrl: target.baseUrl,
-          deviceToken: target.deviceToken,
+          authToken: (
+            await this.options.runtimeCredentials.currentRuntimeCredential({
+              baseUrl: target.baseUrl,
+              deviceIdentity: target.deviceIdentity,
+              isLocal: target.isLocal,
+              runtimeId: target.runtimeId,
+            })
+          ).token,
+          expectedProtocolVersion: target.protocolVersion,
           expectedRuntimeId: target.runtimeId,
           fetchImpl: this.options.fetchImpl,
         });
@@ -380,7 +428,7 @@ export class RuntimeRegistryController {
   ): ActiveRuntime {
     return {
       baseUrl: runtime.baseUrl,
-      deviceToken: runtime.deviceToken,
+      deviceIdentity: runtime.deviceIdentity,
       displayName,
       isLocal: runtime.isLocal,
       protocolVersion: info.protocolVersion,

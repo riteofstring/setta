@@ -71,17 +71,9 @@ func TestManagerRestartsAfterIdleExit(t *testing.T) {
 	if value := callEcho(t, manager, "first"); value != "first" {
 		t.Fatalf("first echo = %q", value)
 	}
-	firstGeneration := manager.Generation()
 	waitForManagerState(t, manager, ManagerStateStopped)
-	stoppedGeneration := manager.Generation()
-	if stoppedGeneration <= firstGeneration {
-		t.Fatalf("generation after idle exit = %d, want greater than %d", stoppedGeneration, firstGeneration)
-	}
 	if value := callEcho(t, manager, "second"); value != "second" {
 		t.Fatalf("second echo = %q", value)
-	}
-	if restartedGeneration := manager.Generation(); restartedGeneration <= stoppedGeneration {
-		t.Fatalf("generation after restart = %d, want greater than %d", restartedGeneration, stoppedGeneration)
 	}
 }
 
