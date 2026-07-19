@@ -13,10 +13,13 @@ whisper_cli_out_path="${helper_out_dir}/whisper-cli"
 frameworks_out_dir="${desktop_out_dir}/Frameworks"
 whisper_framework_out_path="${frameworks_out_dir}/whisper.framework"
 downloads_dir="${desktop_out_dir}/downloads"
+# setta-supply-chain-artifact: local-macos-voice.whisper-xcframework
+# setta-supply-chain-owner-file: scripts/build_local_macos_voice_helper.sh
 whisper_release_version="v1.9.1"
 whisper_xcframework_filename="whisper-${whisper_release_version}-xcframework.zip"
 whisper_xcframework_url="https://github.com/ggml-org/whisper.cpp/releases/download/${whisper_release_version}/${whisper_xcframework_filename}"
 whisper_xcframework_sha256="8c3ecbe73f48b0cb9318fc3058264f951ab336fd530e82c4ccdd2298d1311a4c"
+whisper_xcframework_bytes=50438515
 whisper_xcframework_zip="${downloads_dir}/${whisper_xcframework_filename}"
 whisper_xcframework_extract_dir="${downloads_dir}/whisper-${whisper_release_version}-xcframework"
 whisper_xcframework_path="${whisper_xcframework_extract_dir}/build-apple/whisper.xcframework"
@@ -45,6 +48,11 @@ fi
 actual_whisper_sha256="$(shasum -a 256 "${whisper_xcframework_zip}" | awk '{print $1}')"
 if [[ "${actual_whisper_sha256}" != "${whisper_xcframework_sha256}" ]]; then
   echo "whisper.cpp XCFramework hash mismatch: ${actual_whisper_sha256}" >&2
+  exit 1
+fi
+actual_whisper_bytes="$(wc -c <"${whisper_xcframework_zip}" | tr -d '[:space:]')"
+if [[ "${actual_whisper_bytes}" != "${whisper_xcframework_bytes}" ]]; then
+  echo "whisper.cpp XCFramework size mismatch: ${actual_whisper_bytes}" >&2
   exit 1
 fi
 

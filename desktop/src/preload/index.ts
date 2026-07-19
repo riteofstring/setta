@@ -3,6 +3,8 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { decodeCodexAccountChangeEvent, decodeConversationEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import {
+  decodeLocalMacOSVoiceListenerEvent,
+  decodeLocalMacOSVoiceListenerSettings,
   decodeLocalMacOSVoiceModelDownloadStatus,
   decodeSpeechCredentialSettings,
   decodeSpeechProviderSelectionSettings,
@@ -115,7 +117,13 @@ const api: SettaAPI = {
     cancelLocalMacOSVoiceCapture: (request) =>
       invoke("speechCancelLocalMacOSVoiceCapture", request),
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
+    completeLocalMacOSVoiceListenerSubmission: (request) =>
+      invoke("speechCompleteLocalMacOSVoiceListenerSubmission", request),
     createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
+    finishLocalMacOSVoiceListenerPlayback: (request) =>
+      invoke("speechFinishLocalMacOSVoiceListenerPlayback", request).then(
+        decodeLocalMacOSVoiceListenerSettings,
+      ),
     finishLocalMacOSVoiceCapture: (request) =>
       invoke("speechFinishLocalMacOSVoiceCapture", request),
     onCredentialSettingsChanged: (listener) => {
@@ -125,6 +133,15 @@ const api: SettaAPI = {
       ipcRenderer.on(ipcEvents.speechCredentialSettingsChanged, handler);
       return () => {
         ipcRenderer.removeListener(ipcEvents.speechCredentialSettingsChanged, handler);
+      };
+    },
+    onLocalMacOSVoiceListenerChanged: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeLocalMacOSVoiceListenerEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.speechLocalMacOSVoiceListenerChanged, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.speechLocalMacOSVoiceListenerChanged, handler);
       };
     },
     onProviderSelectionChanged: (listener) => {
@@ -149,6 +166,10 @@ const api: SettaAPI = {
     readCredentialSettings: (request) => invoke("speechReadCredentialSettings", request),
     listLocalMacOSVoices: () => invoke("speechListLocalMacOSVoices"),
     readLocalMacOSVoiceHealth: () => invoke("speechReadLocalMacOSVoiceHealth"),
+    readLocalMacOSVoiceListenerSettings: () =>
+      invoke("speechReadLocalMacOSVoiceListenerSettings").then(
+        decodeLocalMacOSVoiceListenerSettings,
+      ),
     readLocalMacOSVoiceModelDownload: () => invoke("speechReadLocalMacOSVoiceModelDownload"),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
@@ -156,8 +177,16 @@ const api: SettaAPI = {
     removeCredential: (request) => invoke("speechRemoveCredential", request),
     saveCredential: (request) => invoke("speechSaveCredential", request),
     startLocalMacOSVoiceCapture: (request) => invoke("speechStartLocalMacOSVoiceCapture", request),
+    startLocalMacOSVoiceListenerPlayback: (request) =>
+      invoke("speechStartLocalMacOSVoiceListenerPlayback", request).then(
+        decodeLocalMacOSVoiceListenerSettings,
+      ),
     startLocalMacOSVoiceModelDownload: () => invoke("speechStartLocalMacOSVoiceModelDownload"),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
+    updateLocalMacOSVoiceListenerSettings: (request) =>
+      invoke("speechUpdateLocalMacOSVoiceListenerSettings", request).then(
+        decodeLocalMacOSVoiceListenerSettings,
+      ),
     updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
     updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),
     updateProviderSelection: (request) => invoke("speechUpdateProviderSelection", request),

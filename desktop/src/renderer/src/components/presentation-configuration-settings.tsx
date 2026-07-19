@@ -30,6 +30,7 @@ import {
   type ActiveRuntimeVoiceStatus,
   OpenAIVoiceConnectionCard,
 } from "./openai-voice-connection-card";
+import { LocalMacOSAlwaysListeningCard } from "./local-macos-always-listening-card";
 import { SpeechProviderSelectionCard } from "./speech-provider-selection-card";
 import { Button } from "./ui/button";
 
@@ -70,6 +71,9 @@ export function PresentationConfigurationSettings({
     <section className="grid gap-3" data-testid="presentation-configuration-settings">
       <SpeechProviderSelectionCard
         focusRequest={focusRequest?.target === "voice_provider_selection" ? focusRequest : null}
+      />
+      <LocalMacOSAlwaysListeningCard
+        focusRequest={focusRequest?.target === "local_macos_always_listening" ? focusRequest : null}
       />
       <OpenAIVoiceConnectionCard
         activeRuntimeVoiceStatus={state.activeRuntimeVoiceStatus}

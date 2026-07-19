@@ -67,6 +67,11 @@ check_npmrc_release_age_policy() {
     --days "${min_release_age_days}"
 }
 
+check_external_artifact_declarations() {
+  "${python_bin}" "${repo_root}/scripts/check_external_artifact_declarations.py" \
+    --repo-root "${repo_root}"
+}
+
 check_pnpm_project() {
   local project_dir="$1"
   if [[ ! -f "${repo_root}/${project_dir}/pnpm-lock.yaml" ]]; then
@@ -95,6 +100,9 @@ min_release_age_days="$(load_min_release_age_days)"
 
 echo "npmrc release-age policy checks..."
 check_npmrc_release_age_policy
+
+echo "External artifact declaration checks..."
+check_external_artifact_declarations
 
 check_go_supply_chain
 

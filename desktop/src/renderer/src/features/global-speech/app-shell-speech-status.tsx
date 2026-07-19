@@ -30,13 +30,14 @@ import {
   speechCaptureTranscriptPreview,
   speechPresentationConversationId,
 } from "./global-speech-presentation";
+import type { VoiceProviderSetupAction } from "./speech-capture-availability";
 
 export function AppShellSpeechStatus({
-  onOpenVoiceCredentialSettings,
+  onOpenVoiceSettings,
 }: {
-  onOpenVoiceCredentialSettings: () => void;
+  onOpenVoiceSettings: (action: VoiceProviderSetupAction) => void;
 }) {
-  const model = useShellSpeechStatusModel(onOpenVoiceCredentialSettings);
+  const model = useShellSpeechStatusModel(onOpenVoiceSettings);
   return model ? <ShellSpeechStatusView model={model} /> : null;
 }
 
@@ -49,12 +50,12 @@ interface ShellSpeechStatusModel {
   playbackController: AppShellSpeechPlaybackController;
   playbackLabel: string | null;
   playbackSnapshot: SpeechPlaybackSnapshot;
-  onOpenVoiceCredentialSettings: () => void;
+  onOpenVoiceSettings: (action: VoiceProviderSetupAction) => void;
   sourceConversationId: string | null;
 }
 
 function useShellSpeechStatusModel(
-  onOpenVoiceCredentialSettings: () => void,
+  onOpenVoiceSettings: (action: VoiceProviderSetupAction) => void,
 ): ShellSpeechStatusModel | null {
   const captureContext = useAppShellSpeechCapture();
   const playbackContext = useAppShellSpeechPlayback();
@@ -81,7 +82,7 @@ function useShellSpeechStatusModel(
     playbackController: playbackContext.controller,
     playbackLabel: shellSpeechPlaybackLabel(playbackContext.snapshot, sourceConversationTitle),
     playbackSnapshot: playbackContext.snapshot,
-    onOpenVoiceCredentialSettings,
+    onOpenVoiceSettings,
     sourceConversationId,
   };
 }
@@ -133,7 +134,7 @@ function ShellSpeechStatusView({ model }: { model: ShellSpeechStatusModel }) {
           executeShellCaptureAction(
             model.captureController,
             model.action,
-            model.onOpenVoiceCredentialSettings,
+            model.onOpenVoiceSettings,
           )
         }
         title={model.captureControlLabel}
@@ -337,7 +338,7 @@ function FailedCaptureDiscardButton({
 function executeShellCaptureAction(
   controller: AppShellSpeechCaptureController,
   action: ShellSpeechCaptureAction,
-  onOpenVoiceCredentialSettings: () => void,
+  onOpenVoiceSettings: (action: VoiceProviderSetupAction) => void,
 ): void {
   switch (action) {
     case "cancel":
@@ -346,8 +347,11 @@ function executeShellCaptureAction(
     case "commit":
       controller.commit();
       return;
+    case "open_always_listening_settings":
+      onOpenVoiceSettings(action);
+      return;
     case "open_voice_credential_settings":
-      onOpenVoiceCredentialSettings();
+      onOpenVoiceSettings(action);
       return;
     case "retry_conversation":
       controller.retryConversationSubmission();
@@ -418,10 +422,16 @@ const shellCaptureGlyphKinds = {
   committing: "loading",
   draining: "loading",
   idle: "microphone",
+  listener_armed: "microphone",
+  listener_arming: "loading",
+  listener_paused: "microphone",
   recording: "stop",
   requesting_permission: "loading",
   submitting: "loading",
   unavailable: "microphone",
+  wake_detected: "stop",
+  wake_finalizing: "loading",
+  wake_recording: "stop",
 } as const satisfies Record<
   Exclude<GlobalSpeechCapturePresentation["state"], "failed">,
   ShellCaptureGlyphKind

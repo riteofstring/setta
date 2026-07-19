@@ -28,6 +28,37 @@ struct SessionPayload: Codable {
   let sessionId: String
 }
 
+struct StartListenerPayload: Codable {
+  let audioCopiedBeforeWakeMs: Int
+  let candidateEndpointMs: Int
+  let hardTrailingSilenceLimitMs: Int
+  let maximumUtteranceMs: Int
+  let noMessageTimeoutMs: Int
+  let preWakeRingBufferMs: Int
+  let rearmCooldownMs: Int
+  let runtime: String
+  let speechStartDebounceMs: Int
+  let threshold: Double
+  let trailingAudioPaddingMs: Int
+  let transcriptionModelPath: String
+  let vadFrameMs: Int
+  let wakeFrameMs: Int
+  let wakeModelPath: String
+  let wakeModelSHA256: String
+}
+
+struct ListenerReasonPayload: Codable {
+  let reason: String
+}
+
+struct ListenerPCMPayload: Codable {
+  let endOfInput: Bool?
+  let sampleRate: Int
+  let samplesBase64: String
+  let vadVoice: Bool
+  let wakeScore: Double?
+}
+
 struct SynthesisPayload: Codable {
   let operationId: String
   let rate: Double
@@ -61,6 +92,81 @@ struct SessionResult: Encodable {
 struct TranscriptionResult: Encodable {
   let sessionId: String
   let transcript: String
+}
+
+struct ListenerLifecycleResult: Encodable {
+  let status: String
+}
+
+struct ListenerPCMResult: Encodable {
+  let sampleCount: Int
+  let status: String
+}
+
+struct ListenerEvent: Encodable {
+  let message: String?
+  let score: Double?
+  let timeMs: Int?
+  let transcript: String?
+  let type: String
+
+  static func armed() -> ListenerEvent {
+    ListenerEvent(message: nil, score: nil, timeMs: nil, transcript: nil, type: "listener_armed")
+  }
+
+  static func wakeDetected(score: Double, timeMs: Int) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: score,
+      timeMs: timeMs,
+      transcript: nil,
+      type: "wake_detected"
+    )
+  }
+
+  static func messageSpeechStarted(timeMs: Int) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: nil,
+      timeMs: timeMs,
+      transcript: nil,
+      type: "message_speech_started"
+    )
+  }
+
+  static func candidateEndpointDetected(timeMs: Int) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: nil,
+      timeMs: timeMs,
+      transcript: nil,
+      type: "candidate_endpoint_detected"
+    )
+  }
+
+  static func speechResumed(timeMs: Int) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: nil,
+      timeMs: timeMs,
+      transcript: nil,
+      type: "speech_resumed"
+    )
+  }
+
+  static func utteranceFinalized(transcript: String) -> ListenerEvent {
+    ListenerEvent(
+      message: nil,
+      score: nil,
+      timeMs: nil,
+      transcript: transcript,
+      type: "utterance_finalized"
+    )
+  }
+
+  static func engineFailed(message: String) -> ListenerEvent {
+    ListenerEvent(message: message, score: nil, timeMs: nil, transcript: nil, type: "engine_failed")
+  }
 }
 
 struct VoiceCatalogResult: Encodable {
@@ -103,6 +209,11 @@ private struct FailureEnvelope: Encodable {
   let type = "response"
 }
 
+private struct ListenerEventEnvelope: Encodable {
+  let event: ListenerEvent
+  let type = "listener_event"
+}
+
 final class ResponseWriter {
   private let encoder = JSONEncoder()
   private let lock = NSLock()
@@ -113,6 +224,10 @@ final class ResponseWriter {
 
   func reject(id: String, code: String, message: String) {
     write(FailureEnvelope(error: .init(code: code, message: message), id: id))
+  }
+
+  func sendListenerEvent(_ event: ListenerEvent) {
+    write(ListenerEventEnvelope(event: event))
   }
 
   private func write<Envelope: Encodable>(_ envelope: Envelope) {

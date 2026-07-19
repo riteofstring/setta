@@ -1,0 +1,739 @@
+import { access, constants } from "node:fs/promises";
+
+import type {
+  LocalMacOSVoiceHealth,
+  LocalMacOSVoiceListenerAvailability,
+  LocalMacOSVoiceListenerEvent,
+  LocalMacOSVoiceListenerSettings,
+} from "@shared/speech-ipc";
+import {
+  LocalMacOSVoiceHelperCommandError,
+  LocalMacOSVoiceHelperProtocolError,
+  LocalMacOSVoiceHelperUnavailableError,
+  type LocalMacOSVoiceHelper,
+} from "./local-macos-voice-helper";
+import { sha256File } from "./file-hash";
+import {
+  initialLocalMacOSVoiceListenerState,
+  reduceLocalMacOSVoiceListenerState,
+  type LocalMacOSVoiceListenerEffect,
+  type LocalMacOSVoiceListenerEngineEvent,
+  type LocalMacOSVoiceListenerRuntime,
+  type LocalMacOSVoiceListenerState,
+  type LocalMacOSVoiceListenerTransitionEvent,
+  type LocalMacOSVoiceWakeCaptureStatus,
+} from "./local-macos-voice-listener";
+import type { LocalMacOSVoiceListenerStoredSettings } from "./local-macos-voice-listener-store";
+import type { LocalMacOSVoiceResolvedConfiguration } from "./local-macos-voice-resources";
+
+interface LocalMacOSVoiceListenerSettingsRepository {
+  read(): Promise<LocalMacOSVoiceListenerStoredSettings>;
+  update(settings: LocalMacOSVoiceListenerStoredSettings): Promise<void>;
+}
+
+export interface LocalMacOSVoiceListenerServiceOptions {
+  configuration: Pick<
+    LocalMacOSVoiceResolvedConfiguration,
+    "wakeModelPath" | "wakeModelSHA256" | "wakeRuntime"
+  >;
+  helper: LocalMacOSVoiceHelper;
+  onEvent?: (event: LocalMacOSVoiceListenerEvent) => void;
+  platform: NodeJS.Platform;
+  store: LocalMacOSVoiceListenerSettingsRepository;
+}
+
+interface WakeModelReadiness {
+  modelPath: string;
+  modelSHA256: string;
+  runtime: LocalMacOSVoiceListenerRuntime;
+}
+
+type LocalMacOSVoiceListenerReadiness =
+  | {
+      availability: { status: "ready" };
+      readiness: WakeModelReadiness;
+      status: "ready";
+    }
+  | {
+      availability: Extract<LocalMacOSVoiceListenerAvailability, { status: "unavailable" }>;
+      transition: Extract<
+        LocalMacOSVoiceListenerTransitionEvent,
+        { type: "local_voice_not_ready" | "microphone_denied" }
+      >;
+      status: "unavailable";
+    };
+
+type ManualCaptureStartResult =
+  | {
+      status: "ready";
+    }
+  | {
+      status: "blocked_by_wake_capture";
+      wakeStatus: LocalMacOSVoiceWakeCaptureStatus;
+    };
+
+const listenerTiming = {
+  audioCopiedBeforeWakeMs: 400,
+  candidateEndpointMs: 900,
+  hardTrailingSilenceLimitMs: 2_200,
+  maximumUtteranceMs: 45_000,
+  noMessageTimeoutMs: 4_000,
+  preWakeRingBufferMs: 1_000,
+  rearmCooldownMs: 350,
+  speechStartDebounceMs: 160,
+  threshold: 0.65,
+  trailingAudioPaddingMs: 400,
+  vadFrameMs: 20,
+  wakeFrameMs: 80,
+} as const;
+
+export class LocalMacOSVoiceListenerService {
+  private activeManualCaptureSessionId: string | null = null;
+  private activePlaybackOperationId: string | null = null;
+  private availability: LocalMacOSVoiceListenerAvailability = { status: "ready" };
+  private enabled = false;
+  private initialized = false;
+  private operation: Promise<void> = Promise.resolve();
+  private state: LocalMacOSVoiceListenerState = initialLocalMacOSVoiceListenerState();
+  private wakeTranscriptSequence = 0;
+
+  constructor(private readonly options: LocalMacOSVoiceListenerServiceOptions) {}
+
+  async readSettings(): Promise<LocalMacOSVoiceListenerSettings> {
+    await this.initialize();
+    await this.refreshReadinessState();
+    return this.snapshot();
+  }
+
+  async updateSettings(enabled: boolean): Promise<LocalMacOSVoiceListenerSettings> {
+    await this.initialize();
+    const readiness = enabled ? await this.refreshReadinessState() : null;
+    await this.options.store.update({ enabled });
+    this.enabled = enabled;
+    await this.enqueue(async () => {
+      await this.applyTransition(
+        enabled ? settingEnabledTransition(readiness) : { type: "setting_disabled" },
+      );
+    });
+    return this.snapshot();
+  }
+
+  async refreshReadiness(): Promise<LocalMacOSVoiceListenerSettings> {
+    await this.initialize();
+    await this.refreshReadinessState({ publishAvailabilityChange: true });
+    return this.snapshot();
+  }
+
+  async prepareManualCaptureStart(captureSessionId: string): Promise<ManualCaptureStartResult> {
+    await this.initialize();
+    const requested = this.reduceOnly({ type: "manual_capture_requested" });
+    const reflected = requested.effects.find((effect) => effect.type === "reflect_wake_capture");
+    if (reflected) {
+      return {
+        status: "blocked_by_wake_capture",
+        wakeStatus: reflected.status,
+      };
+    }
+    this.activeManualCaptureSessionId = captureSessionId;
+    await this.enqueue(async () => {
+      await this.applyTransition({ captureSessionId, type: "manual_capture_started" });
+    });
+    return { status: "ready" };
+  }
+
+  async finishManualCapture(captureSessionId: string): Promise<void> {
+    await this.initialize();
+    const clearedBlocker = this.activeManualCaptureSessionId === captureSessionId;
+    if (clearedBlocker) {
+      this.activeManualCaptureSessionId = null;
+    }
+    await this.enqueue(async () => {
+      await this.applyTransition({ captureSessionId, type: "manual_capture_finished" });
+    });
+    if (clearedBlocker) {
+      await this.recoverAfterBlockerCleared();
+    }
+  }
+
+  async completeSubmission(captureSessionId: string): Promise<LocalMacOSVoiceListenerSettings> {
+    await this.initialize();
+    await this.enqueue(async () => {
+      if (!captureSessionId.startsWith("wake_")) {
+        throw new Error("Local macOS voice listener submission ID is invalid.");
+      }
+      await this.applyTransition({ type: "submission_completed" });
+    });
+    return this.snapshot();
+  }
+
+  async startPlayback(operationId: string): Promise<LocalMacOSVoiceListenerSettings> {
+    await this.initialize();
+    this.activePlaybackOperationId = operationId;
+    await this.enqueue(async () => {
+      await this.applyTransition({ operationId, type: "playback_started" });
+    });
+    return this.snapshot();
+  }
+
+  async finishPlayback(operationId: string): Promise<LocalMacOSVoiceListenerSettings> {
+    await this.initialize();
+    const clearedBlocker = this.activePlaybackOperationId === operationId;
+    if (clearedBlocker) {
+      this.activePlaybackOperationId = null;
+    }
+    await this.enqueue(async () => {
+      await this.applyTransition({ operationId, type: "playback_finished" });
+    });
+    if (clearedBlocker) {
+      await this.recoverAfterBlockerCleared();
+    }
+    return this.snapshot();
+  }
+
+  async shutdown(): Promise<void> {
+    await this.enqueue(async () => {
+      if (this.state.status !== "disabled") {
+        this.state = { status: "disabled" };
+        await this.runEffect({ reason: "setting_disabled", type: "stop_listener" });
+        this.publishState();
+      }
+    });
+  }
+
+  private async initialize(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+    const stored = await this.readStoredSettings();
+    this.enabled = stored.enabled;
+    this.initialized = true;
+    if (this.enabled) {
+      const readiness = await this.refreshReadinessState();
+      await this.enqueue(async () => {
+        await this.applyTransition(settingEnabledTransition(readiness));
+      });
+    }
+  }
+
+  private async readStoredSettings(): Promise<LocalMacOSVoiceListenerStoredSettings> {
+    return this.options.store.read();
+  }
+
+  private async applyTransition(event: LocalMacOSVoiceListenerTransitionEvent): Promise<void> {
+    const result = reduceLocalMacOSVoiceListenerState(this.state, event);
+    this.state = result.state;
+    this.publishState();
+    for (const effect of result.effects) {
+      await this.runEffect(effect);
+    }
+  }
+
+  private reduceOnly(
+    event: LocalMacOSVoiceListenerTransitionEvent,
+  ): ReturnType<typeof reduceLocalMacOSVoiceListenerState> {
+    return reduceLocalMacOSVoiceListenerState(this.state, event);
+  }
+
+  private async runEffect(effect: LocalMacOSVoiceListenerEffect): Promise<void> {
+    switch (effect.type) {
+      case "start_listener":
+        await this.startListener();
+        return;
+      case "stop_listener":
+        await this.stopListener(effect.reason);
+        return;
+      case "pause_listener":
+        await this.pauseListener(effect.reason);
+        return;
+      case "resume_listener":
+        await this.resumeListener(effect.reason);
+        return;
+      case "reflect_wake_capture":
+        this.publishState();
+        return;
+      case "submit_transcript":
+        this.publishWakeTranscript(effect.transcript);
+        return;
+      default:
+        return assertNever(effect);
+    }
+  }
+
+  private async startListener(): Promise<void> {
+    const readiness = await this.refreshReadinessState();
+    if (readiness.status === "unavailable") {
+      await this.applyTransition(readiness.transition);
+      return;
+    }
+    try {
+      await this.options.helper.startListener(
+        {
+          ...listenerTiming,
+          runtime: readiness.readiness.runtime,
+          wakeModelPath: readiness.readiness.modelPath,
+          wakeModelSHA256: readiness.readiness.modelSHA256,
+        },
+        (event) => this.handleEngineEvent(event),
+      );
+    } catch (error) {
+      await this.applyTransition(helperErrorTransition(error));
+    }
+  }
+
+  private async stopListener(reason: "setting_disabled"): Promise<void> {
+    try {
+      await this.options.helper.stopListener({ reason });
+    } catch (error) {
+      if (!listenerAlreadyStopped(error)) {
+        await this.applyTransition(helperErrorTransition(error));
+      }
+    }
+  }
+
+  private async pauseListener(reason: "manual_capture" | "playback"): Promise<void> {
+    try {
+      await this.options.helper.pauseListener({ reason });
+    } catch (error) {
+      await this.applyTransition(helperErrorTransition(error));
+    }
+  }
+
+  private async resumeListener(reason: "manual_capture" | "playback"): Promise<void> {
+    try {
+      await this.options.helper.resumeListener({ reason });
+    } catch (error) {
+      await this.applyTransition(helperErrorTransition(error));
+    }
+  }
+
+  private handleEngineEvent(event: LocalMacOSVoiceListenerEngineEvent): void {
+    void this.enqueue(async () => {
+      for (const transition of transitionsForEngineEvent(event)) {
+        await this.applyTransition(transition);
+      }
+    });
+  }
+
+  private publishWakeTranscript(transcript: string): void {
+    const normalized = transcript.trim();
+    if (normalized === "") {
+      void this.enqueue(async () => {
+        await this.applyTransition({
+          message: "Always listening did not detect speech to submit.",
+          type: "engine_failed",
+        });
+      });
+      return;
+    }
+    this.wakeTranscriptSequence += 1;
+    this.options.onEvent?.({
+      captureSessionId: `wake_${this.wakeTranscriptSequence}`,
+      settings: this.snapshot(),
+      transcript: normalized,
+      type: "wake_transcript",
+    });
+  }
+
+  private publishState(): void {
+    this.options.onEvent?.({
+      settings: this.snapshot(),
+      type: "state_changed",
+    });
+  }
+
+  private snapshot(): LocalMacOSVoiceListenerSettings {
+    return {
+      availability: this.listenerAvailability(),
+      enabled: this.enabled,
+      state: this.state,
+    };
+  }
+
+  private listenerAvailability(): LocalMacOSVoiceListenerAvailability {
+    if (this.options.platform !== "darwin") {
+      return macOSUnavailableAvailability();
+    }
+    if (this.state.status === "local_voice_not_ready") {
+      const availability =
+        this.availability.status === "unavailable"
+          ? this.availability
+          : localVoiceUnavailableAvailability(this.state.message);
+      return {
+        message: this.state.message,
+        setupAction: availability.setupAction,
+        status: "unavailable",
+      };
+    }
+    return this.availability;
+  }
+
+  private async refreshReadinessState({
+    publishAvailabilityChange = false,
+  }: {
+    publishAvailabilityChange?: boolean;
+  } = {}): Promise<LocalMacOSVoiceListenerReadiness> {
+    const previousAvailability = this.listenerAvailability();
+    const readiness = await this.readListenerReadiness();
+    this.availability = readiness.availability;
+    const transition = readinessTransitionForState(
+      this.enabled,
+      this.hasActiveBlocker(),
+      this.state,
+      readiness,
+    );
+    if (transition) {
+      await this.enqueue(async () => {
+        await this.applyTransition(transition);
+      });
+    } else if (
+      publishAvailabilityChange &&
+      !listenerAvailabilityEqual(previousAvailability, this.listenerAvailability())
+    ) {
+      this.publishState();
+    }
+    return readiness;
+  }
+
+  private async recoverAfterBlockerCleared(): Promise<void> {
+    if (
+      !this.enabled ||
+      this.hasActiveBlocker() ||
+      !recoverableFailureStatuses.has(this.state.status)
+    ) {
+      return;
+    }
+    await this.refreshReadinessState();
+  }
+
+  private hasActiveBlocker(): boolean {
+    return this.activeManualCaptureSessionId !== null || this.activePlaybackOperationId !== null;
+  }
+
+  private async readListenerReadiness(): Promise<LocalMacOSVoiceListenerReadiness> {
+    if (this.options.platform !== "darwin") {
+      const availability = macOSUnavailableAvailability();
+      return unavailableReadiness(availability, {
+        message: availability.message,
+        type: "local_voice_not_ready",
+      });
+    }
+    const health = await this.options.helper.readHealth();
+    if (health.status !== "ready") {
+      return unavailableReadiness(
+        listenerAvailabilityForUnavailableHealth(health),
+        unavailableHealthTransition(health),
+      );
+    }
+    const { wakeModelPath, wakeModelSHA256, wakeRuntime } = this.options.configuration;
+    if (wakeModelPath === null || wakeModelSHA256 === null || wakeRuntime === null) {
+      const message =
+        "Always listening needs a packaged Hey Setta wake model before it can be enabled.";
+      return unavailableReadiness(listenerUnavailableAvailability(message), {
+        message,
+        type: "local_voice_not_ready",
+      });
+    }
+    if (!(await fileReadable(wakeModelPath))) {
+      const message =
+        "Always listening needs a readable packaged Hey Setta wake model before it can be enabled.";
+      return unavailableReadiness(listenerUnavailableAvailability(message), {
+        message,
+        type: "local_voice_not_ready",
+      });
+    }
+    const actualWakeModelSHA256 = await readWakeModelSHA256(wakeModelPath);
+    if (actualWakeModelSHA256 === null) {
+      const message =
+        "Always listening could not verify the packaged Hey Setta wake model before enabling.";
+      return unavailableReadiness(listenerUnavailableAvailability(message), {
+        message,
+        type: "local_voice_not_ready",
+      });
+    }
+    if (actualWakeModelSHA256.toLowerCase() !== wakeModelSHA256.toLowerCase()) {
+      const message =
+        "The packaged Hey Setta wake model hash does not match Setta's expected model.";
+      return unavailableReadiness(listenerUnavailableAvailability(message), {
+        message,
+        type: "local_voice_not_ready",
+      });
+    }
+    return {
+      availability: { status: "ready" },
+      readiness: {
+        modelPath: wakeModelPath,
+        modelSHA256: wakeModelSHA256,
+        runtime: wakeRuntime,
+      },
+      status: "ready",
+    };
+  }
+
+  private enqueue(task: () => Promise<void>): Promise<void> {
+    const next = this.operation.then(task, task);
+    this.operation = next.catch(() => undefined);
+    return next;
+  }
+}
+
+function transitionsForEngineEvent(
+  event: LocalMacOSVoiceListenerEngineEvent,
+): LocalMacOSVoiceListenerTransitionEvent[] {
+  if (isTimedEngineEvent(event)) {
+    return [{ timeMs: event.timeMs, type: event.type }];
+  }
+  switch (event.type) {
+    case "listener_armed":
+      return [{ type: "engine_armed" }];
+    case "wake_detected":
+      return [
+        {
+          score: event.score,
+          timeMs: event.timeMs,
+          type: "wake_detected",
+        },
+        { type: "pre_wake_audio_buffered" },
+      ];
+    case "utterance_finalized": {
+      const transcript = stripLeadingWakePhrase(event.transcript);
+      return [{ type: "endpoint_accepted" }, { transcript, type: "transcription_finalized" }];
+    }
+    case "microphone_denied":
+      return [{ message: event.message, type: "microphone_denied" }];
+    case "local_voice_not_ready":
+      return [{ message: event.message, type: "local_voice_not_ready" }];
+    case "engine_failed":
+      return [{ message: event.message, type: "engine_failed" }];
+    default:
+      return assertNever(event);
+  }
+}
+
+type TimedEngineEvent = Extract<
+  LocalMacOSVoiceListenerEngineEvent,
+  { type: "candidate_endpoint_detected" | "message_speech_started" | "speech_resumed" }
+>;
+
+const timedEngineEventTypes = new Set<TimedEngineEvent["type"]>([
+  "candidate_endpoint_detected",
+  "message_speech_started",
+  "speech_resumed",
+]);
+
+function isTimedEngineEvent(event: LocalMacOSVoiceListenerEngineEvent): event is TimedEngineEvent {
+  return timedEngineEventTypes.has(event.type as TimedEngineEvent["type"]);
+}
+
+function settingEnabledTransition(
+  readiness: LocalMacOSVoiceListenerReadiness | null,
+): Extract<LocalMacOSVoiceListenerTransitionEvent, { type: "setting_enabled" }> {
+  if (readiness?.status === "ready") {
+    return { localVoiceReady: true, type: "setting_enabled" };
+  }
+  return {
+    localVoiceReady: false,
+    message: readiness?.status === "unavailable" ? readiness.availability.message : undefined,
+    type: "setting_enabled",
+    unavailableStatus: readiness?.status === "unavailable" ? readiness.transition.type : undefined,
+  };
+}
+
+function helperErrorTransition(error: unknown): LocalMacOSVoiceListenerTransitionEvent {
+  if (error instanceof LocalMacOSVoiceHelperUnavailableError) {
+    return unavailableHealthTransition(error.health);
+  }
+  if (error instanceof LocalMacOSVoiceHelperCommandError) {
+    if (error.code === "microphone_denied") {
+      return { message: error.message, type: "microphone_denied" };
+    }
+    if (
+      error.code === "missing_model" ||
+      error.code === "model_hash_mismatch" ||
+      error.code === "helper_unavailable"
+    ) {
+      return { message: error.message, type: "local_voice_not_ready" };
+    }
+    return { message: error.message, type: "engine_failed" };
+  }
+  if (error instanceof LocalMacOSVoiceHelperProtocolError) {
+    return {
+      message: "Local macOS voice listener returned an invalid event.",
+      type: "engine_failed",
+    };
+  }
+  return {
+    message: error instanceof Error ? error.message : "Local macOS voice listener failed.",
+    type: "engine_failed",
+  };
+}
+
+function unavailableHealthTransition(
+  health: Exclude<LocalMacOSVoiceHealth, { status: "ready" }>,
+): Extract<
+  LocalMacOSVoiceListenerTransitionEvent,
+  { type: "local_voice_not_ready" | "microphone_denied" }
+> {
+  switch (health.status) {
+    case "microphone_denied":
+      return { message: health.message, type: "microphone_denied" };
+    case "helper_unavailable":
+    case "missing_model":
+    case "model_hash_mismatch":
+    case "synthesis_unavailable":
+      return { message: health.message, type: "local_voice_not_ready" };
+    default:
+      return assertNever(health);
+  }
+}
+
+function unavailableReadiness(
+  availability: Extract<LocalMacOSVoiceListenerAvailability, { status: "unavailable" }>,
+  transition: Extract<
+    LocalMacOSVoiceListenerTransitionEvent,
+    { type: "local_voice_not_ready" | "microphone_denied" }
+  >,
+): LocalMacOSVoiceListenerReadiness {
+  return { availability, status: "unavailable", transition };
+}
+
+function macOSUnavailableAvailability(): Extract<
+  LocalMacOSVoiceListenerAvailability,
+  { status: "unavailable" }
+> {
+  return {
+    message: "Always listening is available only on macOS.",
+    setupAction: null,
+    status: "unavailable",
+  };
+}
+
+function localVoiceUnavailableAvailability(
+  message: string,
+): Extract<LocalMacOSVoiceListenerAvailability, { status: "unavailable" }> {
+  return {
+    message,
+    setupAction: "download_local_macos_voice_model",
+    status: "unavailable",
+  };
+}
+
+function listenerUnavailableAvailability(
+  message: string,
+): Extract<LocalMacOSVoiceListenerAvailability, { status: "unavailable" }> {
+  return {
+    message,
+    setupAction: null,
+    status: "unavailable",
+  };
+}
+
+function listenerAvailabilityForUnavailableHealth(
+  health: Exclude<LocalMacOSVoiceHealth, { status: "ready" }>,
+): Extract<LocalMacOSVoiceListenerAvailability, { status: "unavailable" }> {
+  switch (health.status) {
+    case "missing_model":
+    case "model_hash_mismatch":
+      return localVoiceUnavailableAvailability(health.message);
+    case "helper_unavailable":
+    case "microphone_denied":
+    case "synthesis_unavailable":
+      return {
+        message: health.message,
+        setupAction: null,
+        status: "unavailable",
+      };
+    default:
+      return assertNever(health);
+  }
+}
+
+function listenerAvailabilityEqual(
+  left: LocalMacOSVoiceListenerAvailability,
+  right: LocalMacOSVoiceListenerAvailability,
+): boolean {
+  if (left.status !== right.status) {
+    return false;
+  }
+  if (left.status === "ready") {
+    return true;
+  }
+  if (right.status === "ready") {
+    return false;
+  }
+  return left.message === right.message && left.setupAction === right.setupAction;
+}
+
+const recoverableFailureStatuses = new Set<LocalMacOSVoiceListenerState["status"]>([
+  "engine_failed",
+  "local_voice_not_ready",
+  "microphone_denied",
+]);
+
+function readinessTransitionForState(
+  enabled: boolean,
+  blocked: boolean,
+  state: LocalMacOSVoiceListenerState,
+  readiness: LocalMacOSVoiceListenerReadiness,
+): LocalMacOSVoiceListenerTransitionEvent | null {
+  if (!enabled) {
+    return null;
+  }
+  if (readiness.status === "ready") {
+    return !blocked && recoverableFailureStatuses.has(state.status)
+      ? { type: "local_voice_ready" }
+      : null;
+  }
+  return shouldApplyUnavailableReadiness(state, readiness.transition) ? readiness.transition : null;
+}
+
+function shouldApplyUnavailableReadiness(
+  state: LocalMacOSVoiceListenerState,
+  transition: Extract<
+    LocalMacOSVoiceListenerTransitionEvent,
+    { type: "local_voice_not_ready" | "microphone_denied" }
+  >,
+): boolean {
+  if (state.status === "disabled" || state.status === "arming") {
+    return false;
+  }
+  if (
+    state.status === transition.type &&
+    "message" in state &&
+    state.message === transition.message
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function listenerAlreadyStopped(error: unknown): boolean {
+  return error instanceof LocalMacOSVoiceHelperCommandError && error.code === "invalid_listener";
+}
+
+async function fileReadable(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readWakeModelSHA256(path: string): Promise<string | null> {
+  try {
+    return await sha256File(path);
+  } catch {
+    return null;
+  }
+}
+
+function stripLeadingWakePhrase(transcript: string): string {
+  return transcript
+    .trim()
+    .replace(/^hey[\s,;:.!?]+setta(?=$|[\s,;:.!?])[\s,;:.!?]*/i, "")
+    .trim();
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported local macOS voice listener value: ${JSON.stringify(value)}`);
+}

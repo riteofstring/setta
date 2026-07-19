@@ -67,10 +67,12 @@ export interface SpeechPlaybackControllerDependencies {
   createAudio: (url: string) => PlaybackAudio;
   createObjectURL: (blob: Blob) => string;
   decodeBase64: (value: string) => Uint8Array;
+  finishSpeechPlayback?: (operationId: string) => void;
   logPlayback: (observation: SpeechPlaybackObservation) => void;
   logSupersession: (decision: SpeechPlaybackSupersessionDecision) => void;
   now: () => number;
   revokeObjectURL: (url: string) => void;
+  startSpeechPlayback?: (operationId: string) => void;
   synthesize: (request: VoiceSynthesisRequest, signal: AbortSignal) => Promise<SpeechAudio>;
 }
 
@@ -125,6 +127,7 @@ interface ActivePlayback {
   audio: PlaybackAudio;
   ended: () => void;
   failed: () => void;
+  operationId: string;
 }
 
 interface CachedSpeechAudio {
@@ -506,12 +509,14 @@ export class AppShellSpeechPlaybackController {
     }
     const ended = () => this.finishAudio(item, lifecycle, audio);
     const failed = () => this.failAudio(item, lifecycle, audio);
-    this.activePlayback = { audio, ended, failed };
+    const operationId = this.createSpeechPlaybackOperationId(item);
+    this.activePlayback = { audio, ended, failed, operationId };
     audio.addEventListener("ended", ended);
     audio.addEventListener("error", failed);
     item.playbackStartedAt = this.dependencies.now();
     this.transition({ intent: item.intent, type: "speaking" });
     this.observe(item, "play", null, 0);
+    this.dependencies.startSpeechPlayback?.(operationId);
     try {
       void audio.play().catch((error: unknown) => {
         if (this.isCurrent(item, lifecycle) && this.activePlayback?.audio === audio) {
@@ -527,8 +532,7 @@ export class AppShellSpeechPlaybackController {
     if (!this.isCurrent(item, lifecycle) || this.activePlayback?.audio !== audio) {
       return;
     }
-    this.removeActiveAudioListeners();
-    this.activePlayback = null;
+    this.clearActivePlayback(false);
     this.activeItem = null;
     this.observe(item, "completed", null, null);
     this.transition({ type: "idle" });
@@ -740,20 +744,26 @@ export class AppShellSpeechPlaybackController {
     if (!this.activePlayback) {
       return;
     }
-    const { audio } = this.activePlayback;
-    this.removeActiveAudioListeners();
-    audio.pause();
-    audio.currentTime = 0;
-    this.activePlayback = null;
+    this.clearActivePlayback(true);
   }
 
-  private removeActiveAudioListeners(): void {
+  private clearActivePlayback(resetAudio: boolean): void {
     if (!this.activePlayback) {
       return;
     }
-    const { audio, ended, failed } = this.activePlayback;
+    const { audio, ended, failed, operationId } = this.activePlayback;
     audio.removeEventListener("ended", ended);
     audio.removeEventListener("error", failed);
+    if (resetAudio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    this.activePlayback = null;
+    this.dependencies.finishSpeechPlayback?.(operationId);
+  }
+
+  private createSpeechPlaybackOperationId(item: QueuedSpeech): string {
+    return `speech_playback_${item.sequence}`;
   }
 
   private releaseAllCachedAudio(): void {

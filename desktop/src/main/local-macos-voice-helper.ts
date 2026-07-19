@@ -1,16 +1,52 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
 import { access, constants } from "node:fs/promises";
 
 import type { SpeechVoiceCatalog, SpeechVoiceID } from "@generated/backend";
 import type { LocalMacOSVoiceHealth } from "@shared/speech-ipc";
 import { localMacOSSpeechProviderID } from "@shared/speech-providers";
 import {
+  decodeHealthResult,
+  decodeHelperOutputEnvelope,
+  decodeSessionResult,
+  decodeSynthesisCancelResult,
+  decodeSynthesisResult,
+  decodeTranscriptionResult,
+  decodeVoiceCatalogResult,
+  type HelperResponseEnvelope,
+} from "./local-macos-voice-helper-decoders";
+import {
+  decodeListenerLifecycleResult,
+  type LocalMacOSVoiceHelperStartListenerRequest,
+  type LocalMacOSVoiceListenerEventHandler,
+  type LocalMacOSVoiceListenerPaused,
+  type LocalMacOSVoiceListenerResumed,
+  type LocalMacOSVoiceListenerStarted,
+  type LocalMacOSVoiceListenerStopped,
+  type LocalMacOSVoicePauseListenerRequest,
+  type LocalMacOSVoiceResumeListenerRequest,
+  type LocalMacOSVoiceStartListenerRequest,
+  type LocalMacOSVoiceStopListenerRequest,
+} from "./local-macos-voice-helper-listener";
+import type { HelperListenerEventEnvelope } from "./local-macos-voice-helper-listener";
+import {
   resolveLocalMacOSVoiceHelperConfiguration,
   type LocalMacOSVoiceEnvironmentOptions,
 } from "./local-macos-voice-resources";
-import { isCanonicalWAVBase64 } from "./speech-audio-validation";
+import { sha256File } from "./file-hash";
+import type { LocalMacOSVoiceListenerEngineEvent } from "./local-macos-voice-listener";
+
+export type {
+  LocalMacOSVoiceHelperStartListenerRequest,
+  LocalMacOSVoiceListenerEventHandler,
+  LocalMacOSVoiceListenerPaused,
+  LocalMacOSVoiceListenerResumed,
+  LocalMacOSVoiceListenerStarted,
+  LocalMacOSVoiceListenerStopped,
+  LocalMacOSVoicePauseListenerRequest,
+  LocalMacOSVoiceResumeListenerRequest,
+  LocalMacOSVoiceStartListenerRequest,
+  LocalMacOSVoiceStopListenerRequest,
+} from "./local-macos-voice-helper-listener";
 
 export interface LocalMacOSVoiceHelper {
   cancelCapture: (
@@ -23,11 +59,24 @@ export interface LocalMacOSVoiceHelper {
     request: LocalMacOSVoiceFinishCaptureRequest,
   ) => Promise<LocalMacOSVoiceTranscriptionResult>;
   listVoices: () => Promise<SpeechVoiceCatalog>;
+  pauseListener: (
+    request: LocalMacOSVoicePauseListenerRequest,
+  ) => Promise<LocalMacOSVoiceListenerPaused>;
   readHealth: () => Promise<LocalMacOSVoiceHealth>;
+  resumeListener: (
+    request: LocalMacOSVoiceResumeListenerRequest,
+  ) => Promise<LocalMacOSVoiceListenerResumed>;
   shutdown: () => void;
   startCapture: (
     request: Omit<LocalMacOSVoiceStartCaptureRequest, "modelPath">,
   ) => Promise<LocalMacOSVoiceCaptureStarted>;
+  startListener: (
+    request: LocalMacOSVoiceStartListenerRequest,
+    onEvent: LocalMacOSVoiceListenerEventHandler,
+  ) => Promise<LocalMacOSVoiceListenerStarted>;
+  stopListener: (
+    request: LocalMacOSVoiceStopListenerRequest,
+  ) => Promise<LocalMacOSVoiceListenerStopped>;
   synthesizeSpeech: (
     request: LocalMacOSVoiceSynthesisRequest,
   ) => Promise<LocalMacOSVoiceSynthesisResult>;
@@ -62,10 +111,23 @@ export interface LocalMacOSVoiceHelperClient {
   readHealth: (
     request: LocalMacOSVoiceHelperHealthRequest,
   ) => Promise<LocalMacOSVoiceHelperHealthResult>;
+  pauseListener: (
+    request: LocalMacOSVoicePauseListenerRequest,
+  ) => Promise<LocalMacOSVoiceListenerPaused>;
+  resumeListener: (
+    request: LocalMacOSVoiceResumeListenerRequest,
+  ) => Promise<LocalMacOSVoiceListenerResumed>;
   shutdown: () => void;
   startCapture: (
     request: LocalMacOSVoiceStartCaptureRequest,
   ) => Promise<LocalMacOSVoiceCaptureStarted>;
+  startListener: (
+    request: LocalMacOSVoiceHelperStartListenerRequest,
+    onEvent: LocalMacOSVoiceListenerEventHandler,
+  ) => Promise<LocalMacOSVoiceListenerStarted>;
+  stopListener: (
+    request: LocalMacOSVoiceStopListenerRequest,
+  ) => Promise<LocalMacOSVoiceListenerStopped>;
   synthesizeSpeech: (
     request: LocalMacOSVoiceSynthesisRequest,
   ) => Promise<LocalMacOSVoiceSynthesisResult>;
@@ -154,20 +216,13 @@ type HelperCommandType =
   | "cancel_synthesis"
   | "finish_capture"
   | "list_voices"
+  | "pause_listener"
   | "read_health"
+  | "resume_listener"
   | "start_capture"
+  | "start_listener"
+  | "stop_listener"
   | "synthesize_speech";
-
-interface HelperResponseEnvelope {
-  error?: {
-    code: string;
-    message: string;
-  };
-  id: string;
-  ok: boolean;
-  result?: unknown;
-  type: "response";
-}
 
 interface PendingCommand {
   reject: (error: Error) => void;
@@ -288,6 +343,41 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
       ...request,
       modelPath: preflight.modelPath,
     });
+  }
+
+  async startListener(
+    request: LocalMacOSVoiceStartListenerRequest,
+    onEvent: LocalMacOSVoiceListenerEventHandler,
+  ): Promise<LocalMacOSVoiceListenerStarted> {
+    const preflight = await this.readReadyPreflight();
+    if (preflight.status === "unavailable") {
+      throw new LocalMacOSVoiceHelperUnavailableError(preflight.health);
+    }
+    return this.requireClient().startListener(
+      {
+        ...request,
+        transcriptionModelPath: preflight.modelPath,
+      },
+      onEvent,
+    );
+  }
+
+  stopListener(
+    request: LocalMacOSVoiceStopListenerRequest,
+  ): Promise<LocalMacOSVoiceListenerStopped> {
+    return this.requireClient().stopListener(request);
+  }
+
+  pauseListener(
+    request: LocalMacOSVoicePauseListenerRequest,
+  ): Promise<LocalMacOSVoiceListenerPaused> {
+    return this.requireClient().pauseListener(request);
+  }
+
+  resumeListener(
+    request: LocalMacOSVoiceResumeListenerRequest,
+  ): Promise<LocalMacOSVoiceListenerResumed> {
+    return this.requireClient().resumeListener(request);
   }
 
   finishCapture(
@@ -444,6 +534,7 @@ export class LocalMacOSVoiceHealthService implements LocalMacOSVoiceHelper {
 export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelperClient {
   private buffer = "";
   private child: ChildProcessWithoutNullStreams | null = null;
+  private listenerEventHandler: LocalMacOSVoiceListenerEventHandler | null = null;
   private pending = new Map<string, PendingCommand>();
   private sequence = 0;
 
@@ -459,6 +550,50 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
   ): Promise<LocalMacOSVoiceCaptureStarted> =>
     this.decodeCommandResult(await this.sendCommand("start_capture", request), (result) =>
       decodeSessionResult(result, "start_capture"),
+    );
+
+  startListener = async (
+    request: LocalMacOSVoiceHelperStartListenerRequest,
+    onEvent: LocalMacOSVoiceListenerEventHandler,
+  ): Promise<LocalMacOSVoiceListenerStarted> => {
+    const previousEventHandler = this.listenerEventHandler;
+    this.listenerEventHandler = onEvent;
+    try {
+      return this.decodeCommandResult(await this.sendCommand("start_listener", request), (result) =>
+        decodeListenerLifecycleResult(result, "start_listener", "started"),
+      );
+    } catch (error) {
+      if (this.listenerEventHandler === onEvent) {
+        this.listenerEventHandler = previousEventHandler;
+      }
+      throw error;
+    }
+  };
+
+  stopListener = async (
+    request: LocalMacOSVoiceStopListenerRequest,
+  ): Promise<LocalMacOSVoiceListenerStopped> => {
+    try {
+      return this.decodeCommandResult(await this.sendCommand("stop_listener", request), (result) =>
+        decodeListenerLifecycleResult(result, "stop_listener", "stopped"),
+      );
+    } finally {
+      this.listenerEventHandler = null;
+    }
+  };
+
+  pauseListener = async (
+    request: LocalMacOSVoicePauseListenerRequest,
+  ): Promise<LocalMacOSVoiceListenerPaused> =>
+    this.decodeCommandResult(await this.sendCommand("pause_listener", request), (result) =>
+      decodeListenerLifecycleResult(result, "pause_listener", "paused"),
+    );
+
+  resumeListener = async (
+    request: LocalMacOSVoiceResumeListenerRequest,
+  ): Promise<LocalMacOSVoiceListenerResumed> =>
+    this.decodeCommandResult(await this.sendCommand("resume_listener", request), (result) =>
+      decodeListenerLifecycleResult(result, "resume_listener", "resumed"),
     );
 
   finishCapture = async (
@@ -497,6 +632,7 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
   shutdown(): void {
     const child = this.child;
     this.child = null;
+    this.listenerEventHandler = null;
     child?.kill();
     this.failPending(new LocalMacOSVoiceHelperProtocolError("Local macOS voice helper stopped."));
   }
@@ -534,6 +670,9 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
     child.stdout.on("data", (chunk: string) => this.receive(chunk));
     child.stderr.resume();
     child.once("error", (error) => {
+      if (this.child !== child) {
+        return;
+      }
       this.child = null;
       this.failPending(
         new LocalMacOSVoiceHelperProtocolError("Local macOS voice helper failed to start.", {
@@ -542,11 +681,16 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
       );
     });
     child.once("exit", (code, signal) => {
+      if (this.child !== child) {
+        return;
+      }
       this.child = null;
       const detail = signal === null ? `exit code ${code ?? "unknown"}` : `signal ${signal}`;
-      this.failPending(
-        new LocalMacOSVoiceHelperProtocolError(`Local macOS voice helper exited with ${detail}.`),
+      const error = new LocalMacOSVoiceHelperProtocolError(
+        `Local macOS voice helper exited with ${detail}.`,
       );
+      this.notifyListenerEngineFailure(error.message);
+      this.failPending(error);
     });
     this.child = child;
     return child;
@@ -576,14 +720,20 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
       return;
     }
 
-    let response: HelperResponseEnvelope;
+    let envelope: HelperResponseEnvelope | HelperListenerEventEnvelope;
     try {
-      response = decodeHelperResponse(decoded);
+      envelope = decodeHelperOutputEnvelope(decoded);
     } catch (error) {
       this.failProtocol("Local macOS voice helper returned a malformed event.", error);
       return;
     }
 
+    if (envelope.type === "listener_event") {
+      this.receiveListenerEvent(envelope.event);
+      return;
+    }
+
+    const response = envelope;
     const pending = this.pending.get(response.id);
     if (!pending) {
       this.failProtocol("Local macOS voice helper returned an unknown response id.");
@@ -608,7 +758,21 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
   }
 
   private failProtocol(message: string, cause?: unknown): void {
-    this.stopAfterProtocolError(new LocalMacOSVoiceHelperProtocolError(message, { cause }));
+    const error = new LocalMacOSVoiceHelperProtocolError(message, { cause });
+    this.notifyListenerEngineFailure(error.message);
+    this.stopAfterProtocolError(error);
+  }
+
+  private receiveListenerEvent(event: LocalMacOSVoiceListenerEngineEvent): void {
+    if (this.listenerEventHandler === null) {
+      this.failProtocol("Local macOS voice helper returned a listener event without a listener.");
+      return;
+    }
+    try {
+      this.listenerEventHandler(event);
+    } catch (cause) {
+      this.failProtocol("Local macOS voice listener event handler failed.", cause);
+    }
   }
 
   private decodeCommandResult<T>(result: unknown, decode: (result: unknown) => T): T {
@@ -627,7 +791,24 @@ export class LocalMacOSVoiceHelperProcessClient implements LocalMacOSVoiceHelper
   private stopAfterProtocolError(error: LocalMacOSVoiceHelperProtocolError): void {
     this.child?.kill();
     this.child = null;
+    this.listenerEventHandler = null;
     this.failPending(error);
+  }
+
+  private notifyListenerEngineFailure(message: string): void {
+    const listener = this.listenerEventHandler;
+    if (listener === null) {
+      return;
+    }
+    try {
+      listener({ message, type: "engine_failed" });
+    } catch {
+      // The original helper failure is already being propagated to pending commands.
+    } finally {
+      if (this.listenerEventHandler === listener) {
+        this.listenerEventHandler = null;
+      }
+    }
   }
 
   private failPending(error: Error): void {
@@ -730,216 +911,6 @@ async function fileAccessible(path: string, mode: number): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function sha256File(path: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const hash = createHash("sha256");
-    const stream = createReadStream(path);
-    stream.on("error", reject);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resolve(hash.digest("hex")));
-  });
-}
-
-function decodeHelperResponse(value: unknown): HelperResponseEnvelope {
-  const record = assertRecord(value, "LocalMacOSVoiceHelperResponse");
-  assertKnownFields(record, "LocalMacOSVoiceHelperResponse", [
-    "error",
-    "id",
-    "ok",
-    "result",
-    "type",
-  ]);
-  const type = stringField(record, "type", "LocalMacOSVoiceHelperResponse");
-  if (type !== "response") {
-    throw new Error("LocalMacOSVoiceHelperResponse.type is unsupported");
-  }
-  const ok = booleanField(record, "ok", "LocalMacOSVoiceHelperResponse");
-  const response: HelperResponseEnvelope = {
-    id: stringField(record, "id", "LocalMacOSVoiceHelperResponse"),
-    ok,
-    type,
-  };
-  if ("result" in record) {
-    response.result = record.result;
-  }
-  if ("error" in record) {
-    response.error = decodeHelperError(record.error);
-  }
-  return response;
-}
-
-function decodeHelperError(value: unknown): HelperResponseEnvelope["error"] {
-  const record = assertRecord(value, "LocalMacOSVoiceHelperError");
-  assertKnownFields(record, "LocalMacOSVoiceHelperError", ["code", "message"]);
-  return {
-    code: stringField(record, "code", "LocalMacOSVoiceHelperError"),
-    message: stringField(record, "message", "LocalMacOSVoiceHelperError"),
-  };
-}
-
-function decodeHealthResult(value: unknown): LocalMacOSVoiceHelperHealthResult {
-  const record = assertRecord(value, "LocalMacOSVoiceHelperHealthResult");
-  const status = stringField(record, "status", "LocalMacOSVoiceHelperHealthResult");
-  switch (status) {
-    case "ready":
-      assertKnownFields(record, "LocalMacOSVoiceHelperHealthResult", ["status"]);
-      return { status };
-    case "helper_unavailable":
-    case "microphone_denied":
-    case "missing_model":
-    case "synthesis_unavailable":
-      assertKnownFields(record, "LocalMacOSVoiceHelperHealthResult", ["message", "status"]);
-      return {
-        message: stringField(record, "message", "LocalMacOSVoiceHelperHealthResult"),
-        status,
-      };
-    case "model_hash_mismatch":
-      assertKnownFields(record, "LocalMacOSVoiceHelperHealthResult", [
-        "actualSHA256",
-        "expectedSHA256",
-        "message",
-        "status",
-      ]);
-      return {
-        actualSHA256: stringField(record, "actualSHA256", "LocalMacOSVoiceHelperHealthResult"),
-        expectedSHA256: stringField(record, "expectedSHA256", "LocalMacOSVoiceHelperHealthResult"),
-        message: stringField(record, "message", "LocalMacOSVoiceHelperHealthResult"),
-        status,
-      };
-    default:
-      throw new Error("LocalMacOSVoiceHelperHealthResult.status is unsupported");
-  }
-}
-
-function decodeSessionResult(value: unknown, label: string): LocalMacOSVoiceCaptureStarted {
-  const record = assertRecord(value, `LocalMacOSVoiceHelper.${label}`);
-  assertKnownFields(record, `LocalMacOSVoiceHelper.${label}`, ["sessionId"]);
-  return { sessionId: stringField(record, "sessionId", `LocalMacOSVoiceHelper.${label}`) };
-}
-
-function decodeTranscriptionResult(value: unknown): LocalMacOSVoiceTranscriptionResult {
-  const record = assertRecord(value, "LocalMacOSVoiceHelper.finish_capture");
-  assertKnownFields(record, "LocalMacOSVoiceHelper.finish_capture", ["sessionId", "transcript"]);
-  return {
-    sessionId: stringField(record, "sessionId", "LocalMacOSVoiceHelper.finish_capture"),
-    transcript: stringField(record, "transcript", "LocalMacOSVoiceHelper.finish_capture"),
-  };
-}
-
-function decodeVoiceCatalogResult(value: unknown): LocalMacOSVoiceCatalogResult {
-  const record = assertRecord(value, "LocalMacOSVoiceHelper.list_voices");
-  assertKnownFields(record, "LocalMacOSVoiceHelper.list_voices", ["version", "voiceIds"]);
-  const version = stringField(record, "version", "LocalMacOSVoiceHelper.list_voices");
-  const voiceIds = arrayField(record, "voiceIds", "LocalMacOSVoiceHelper.list_voices", (item) =>
-    requiredTrimmedString(item, "LocalMacOSVoiceHelper.list_voices.voiceIds item"),
-  );
-  if (voiceIds.length === 0) {
-    throw new Error("LocalMacOSVoiceHelper.list_voices.voiceIds must contain at least one voice");
-  }
-  const seen = new Set<string>();
-  for (const voiceId of voiceIds) {
-    if (seen.has(voiceId)) {
-      throw new Error(`LocalMacOSVoiceHelper.list_voices repeats voice ${JSON.stringify(voiceId)}`);
-    }
-    seen.add(voiceId);
-  }
-  return {
-    version: requiredTrimmedString(version, "LocalMacOSVoiceHelper.list_voices.version"),
-    voiceIds,
-  };
-}
-
-function decodeSynthesisResult(value: unknown): LocalMacOSVoiceSynthesisResult {
-  const record = assertRecord(value, "LocalMacOSVoiceHelper.synthesize_speech");
-  assertKnownFields(record, "LocalMacOSVoiceHelper.synthesize_speech", [
-    "audioBase64",
-    "format",
-    "mediaType",
-    "operationId",
-  ]);
-  const audioBase64 = stringField(record, "audioBase64", "LocalMacOSVoiceHelper.synthesize_speech");
-  const format = stringField(record, "format", "LocalMacOSVoiceHelper.synthesize_speech");
-  const mediaType = stringField(record, "mediaType", "LocalMacOSVoiceHelper.synthesize_speech");
-  const operationId = requiredTrimmedString(
-    stringField(record, "operationId", "LocalMacOSVoiceHelper.synthesize_speech"),
-    "LocalMacOSVoiceHelper.synthesize_speech.operationId",
-  );
-  if (format !== "wav" || mediaType !== "audio/wav" || !isCanonicalWAVBase64(audioBase64)) {
-    throw new Error("LocalMacOSVoiceHelper.synthesize_speech audio is invalid");
-  }
-  return {
-    audioBase64,
-    format,
-    mediaType,
-    operationId,
-  };
-}
-
-function decodeSynthesisCancelResult(
-  value: unknown,
-  label: string,
-): LocalMacOSVoiceSynthesisCanceled {
-  const record = assertRecord(value, `LocalMacOSVoiceHelper.${label}`);
-  assertKnownFields(record, `LocalMacOSVoiceHelper.${label}`, ["operationId"]);
-  return { operationId: stringField(record, "operationId", `LocalMacOSVoiceHelper.${label}`) };
-}
-
-function assertRecord(value: unknown, label: string): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${label} must be an object`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function assertKnownFields(
-  record: Record<string, unknown>,
-  label: string,
-  fields: readonly string[],
-): void {
-  const known = new Set(fields);
-  for (const field of Object.keys(record)) {
-    if (!known.has(field)) {
-      throw new Error(`${label} contains unknown field ${field}`);
-    }
-  }
-}
-
-function stringField(record: Record<string, unknown>, field: string, label: string): string {
-  const value = record[field];
-  if (typeof value !== "string") {
-    throw new Error(`${label}.${field} must be a string`);
-  }
-  return value;
-}
-
-function arrayField<T>(
-  record: Record<string, unknown>,
-  field: string,
-  label: string,
-  decode: (item: unknown) => T,
-): T[] {
-  const value = record[field];
-  if (!Array.isArray(value)) {
-    throw new Error(`${label}.${field} must be an array`);
-  }
-  return value.map(decode);
-}
-
-function booleanField(record: Record<string, unknown>, field: string, label: string): boolean {
-  const value = record[field];
-  if (typeof value !== "boolean") {
-    throw new Error(`${label}.${field} must be a boolean`);
-  }
-  return value;
-}
-
-function requiredTrimmedString(value: unknown, label: string): SpeechVoiceID {
-  if (typeof value !== "string" || value.trim() === "" || value.trim() !== value) {
-    throw new Error(`${label} must be a trimmed string`);
-  }
-  return value;
 }
 
 function normalizedOptionalText(value: string | null | undefined): string | null {

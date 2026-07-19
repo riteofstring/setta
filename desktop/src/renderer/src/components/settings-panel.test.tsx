@@ -28,6 +28,7 @@ import { describe, expect, test, vi } from "vitest";
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
 import {
   completeSettingsNavigationRequest,
+  requestLocalMacOSAlwaysListeningSettings,
   requestOpenAIVoiceConnectionSettings,
   requestVoiceProviderSelectionSettings,
   useSettingsNavigationStore,
@@ -37,13 +38,14 @@ import {
   OpenAIVoiceConnectionCardView,
   speechCredentialSaveRequestFromDraft,
 } from "./openai-voice-connection-card";
+import { LocalMacOSAlwaysListeningCardView } from "./local-macos-always-listening-card";
 import {
   ConversationPresentationConfiguration,
   connectedRuntimeConfigurationKey,
   GlobalVoiceConfigurationForm,
 } from "./presentation-configuration-settings";
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
-import { openAIVoiceConnectionSettings } from "./settings-navigation";
+import { openAIVoiceConnectionSettings, openVoiceSettings } from "./settings-navigation";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
 import { SpeechProviderSelectionCardView } from "./speech-provider-selection-card";
 
@@ -208,6 +210,72 @@ describe("appearance settings", () => {
     expect(normalizedHtml).toContain("Selected");
   });
 
+  test("renders always listening readiness and active states", () => {
+    const unavailable = renderToString(
+      <LocalMacOSAlwaysListeningCardView
+        error={null}
+        onDownloadLocalModel={vi.fn()}
+        onToggle={vi.fn()}
+        settings={{
+          availability: {
+            message:
+              "Always listening needs a packaged Hey Setta wake model before it can be enabled.",
+            setupAction: null,
+            status: "unavailable",
+          },
+          enabled: false,
+          state: { status: "disabled" },
+        }}
+        updating={false}
+      />,
+    );
+    const active = renderToString(
+      <LocalMacOSAlwaysListeningCardView
+        error={null}
+        onDownloadLocalModel={vi.fn()}
+        onToggle={vi.fn()}
+        settings={{
+          availability: { status: "ready" },
+          enabled: true,
+          state: {
+            captureStartedAtMs: 1_140,
+            score: 0.74,
+            status: "capturing",
+            wakeDetectedAtMs: 960,
+          },
+        }}
+        updating={false}
+      />,
+    );
+    const failed = renderToString(
+      <LocalMacOSAlwaysListeningCardView
+        error={null}
+        onDownloadLocalModel={vi.fn()}
+        onToggle={vi.fn()}
+        settings={{
+          availability: { status: "ready" },
+          enabled: true,
+          state: {
+            message: "Always listening helper exited.",
+            status: "engine_failed",
+          },
+        }}
+        updating={false}
+      />,
+    );
+
+    expect(unavailable).toContain('data-testid="local-macos-always-listening-card"');
+    expect(unavailable).toContain("Always listening");
+    expect(unavailable).toContain("Unavailable");
+    expect(unavailable).toContain("packaged Hey Setta wake model");
+    expect(unavailable).toContain('disabled=""');
+    expect(active).toContain("Recording");
+    expect(active).toContain('checked=""');
+    expect(failed).toContain("Needs attention");
+    expect(failed).toContain("Always listening helper exited.");
+    expect(failed).toContain('role="alert"');
+  });
+
   test("keeps a current provider selectable after provider selection storage fails", () => {
     const html = renderToString(
       <SpeechProviderSelectionCardView
@@ -334,6 +402,31 @@ describe("appearance settings", () => {
       requestId: 1,
       subtab: "speech",
     });
+  });
+
+  test("opens the Settings page when routing to always listening setup", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestLocalMacOSAlwaysListeningSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toEqual({
+      focusTarget: "local_macos_always_listening",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "local_macos_always_listening",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+
+    openVoiceSettings("open_always_listening_settings");
+
+    expect(useSettingsNavigationStore.getState().request?.focusTarget).toBe(
+      "local_macos_always_listening",
+    );
+    expect(useSettingsNavigationStore.getState().request?.requestId).toBe(2);
   });
 
   test("renders a connected OpenAI voice card without a saved value", () => {

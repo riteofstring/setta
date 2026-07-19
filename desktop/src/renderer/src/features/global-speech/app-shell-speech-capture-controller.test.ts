@@ -324,6 +324,64 @@ describe("app-shell speech capture controller", () => {
     expect(harness.mediaConstraints).toHaveLength(1);
   });
 
+  test("submits a wake transcript through the master voice path when no pane is focused", async () => {
+    const harness = createHarness();
+    await harness.connect();
+
+    harness.controller.submitWakeTranscript("wake_1", "  Wake master request.  ");
+    await flushPromises();
+
+    expect(harness.masterInputRequests).toEqual([
+      {
+        input: {
+          focusedConversationId: null,
+          focusedPaneId: null,
+          focusedWorkspaceId: "workspace_capture",
+          id: "wake_1",
+          modality: "voice",
+          originatingConversationId: null,
+          originatingConversationInputId: null,
+          originatingPaneId: null,
+          originatingWorkspaceId: null,
+          source: "shell",
+          submittedAt: "2026-07-12T18:00:00Z",
+          text: "Wake master request.",
+        },
+      },
+    ]);
+    expect(harness.completedWakeSubmissions).toEqual(["wake_1"]);
+  });
+
+  test("submits a wake transcript through the focused conversation voice path", async () => {
+    const harness = createHarness({
+      focusHints: () => ({
+        focusedConversationId: "conversation_wake",
+        focusedPaneId: "pane_wake",
+        focusedWorkspaceId: "workspace_wake",
+      }),
+    });
+    await harness.connect();
+
+    harness.controller.submitWakeTranscript("wake_2", "  Focused wake request.  ");
+    await flushPromises();
+
+    expect(harness.masterInputRequests).toEqual([]);
+    expect(harness.conversationInputRequests).toEqual([
+      {
+        input: {
+          conversationId: "conversation_wake",
+          id: "wake_2",
+          modality: "voice",
+          replyToInputId: null,
+          sourcePaneId: "pane_wake",
+          submittedAt: "2026-07-12T18:00:00Z",
+          text: "Focused wake request.",
+        },
+      },
+    ]);
+    expect(harness.completedWakeSubmissions).toEqual(["wake_2"]);
+  });
+
   test("cancels only the active conversation capture for a closing source pane", async () => {
     const harness = createHarness();
     await harness.connect();
@@ -978,6 +1036,7 @@ interface HarnessOverrides {
   createTranscriptionSession?: () => Promise<SpeechTranscriptionSession>;
   deferProviderConnection?: OpenAIBrowserSpeechCaptureProviderDependencies["deferProviderConnection"];
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  focusHints?: AppShellMasterController["readFocusHints"];
   onCaptureEnd?: () => void;
   onCaptureStart?: () => void;
   readCapabilities?: () => Promise<SpeechCapabilities>;
@@ -998,6 +1057,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const transports: FakeTransport[] = [];
   const mediaConstraints: MediaStreamConstraints[] = [];
   const conversationInputRequests: SubmitConversationInputRequest[] = [];
+  const completedWakeSubmissions: string[] = [];
   let timerHandler: (() => void) | null = null;
   let timerDelayMs = 0;
   let captureOrdinal = 0;
@@ -1038,6 +1098,9 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const dependencies: AppShellSpeechCaptureControllerDependencies = {
     captureProvider,
     clearTimeout: clearTimer,
+    completeWakeTranscriptSubmission: async (captureSessionId) => {
+      completedWakeSubmissions.push(captureSessionId);
+    },
     createCaptureSessionId: () => {
       captureOrdinal += 1;
       return `capture_${captureOrdinal}`;
@@ -1072,11 +1135,13 @@ function createHarness(overrides: HarnessOverrides = {}) {
     now: dependencies.now,
     presentPresentationIntent: async () => ({ paneId: "pane_capture" }),
     readActiveInteraction: async () => ({ state: null }),
-    readFocusHints: () => ({
-      focusedConversationId: null,
-      focusedPaneId: null,
-      focusedWorkspaceId: "workspace_capture",
-    }),
+    readFocusHints:
+      overrides.focusHints ??
+      (() => ({
+        focusedConversationId: null,
+        focusedPaneId: null,
+        focusedWorkspaceId: "workspace_capture",
+      })),
     resolvePresentationIntent: async (request) => ({
       ...request,
       resolvedAt: "2026-07-12T18:00:02Z",
@@ -1125,6 +1190,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const controller = new AppShellSpeechCaptureController(dependencies, masterController);
   return {
     clearTimer,
+    completedWakeSubmissions,
     connect: () => controller.synchronizeRuntime("runtime_capture"),
     controller,
     conversationInputRequests,

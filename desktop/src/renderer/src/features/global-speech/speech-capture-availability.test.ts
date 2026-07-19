@@ -1,7 +1,10 @@
 import type { SpeechCapabilities } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
-import { speechAvailabilityForCapabilities } from "./speech-capture-availability";
+import {
+  speechAvailabilityForCapabilities,
+  voiceProviderSetupActionLabel,
+} from "./speech-capture-availability";
 
 describe("global speech capture availability", () => {
   test("reports secure-context support before runtime configuration", () => {
@@ -45,6 +48,15 @@ describe("global speech capture availability", () => {
         { supported: true },
       ),
     ).toEqual({ message: "The runtime returned invalid voice-capture limits.", type: "failed" });
+  });
+
+  test("labels always-listening setup routing distinctly from provider setup", () => {
+    expect(voiceProviderSetupActionLabel("open_always_listening_settings")).toBe(
+      "Open always listening settings",
+    );
+    expect(voiceProviderSetupActionLabel("open_voice_credential_settings")).toBe(
+      "Open voice settings",
+    );
   });
 });
 
