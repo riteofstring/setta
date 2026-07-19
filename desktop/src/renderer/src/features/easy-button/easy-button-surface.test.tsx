@@ -672,7 +672,7 @@ describe("Easy Button topic conversation projection", () => {
   });
 
   test("routes the giant control to voice setup when credentials are missing", () => {
-    const openVoiceSettings = vi.fn();
+    const openVoiceCredentialSettings = vi.fn();
     const requestVoiceCapture = vi.fn();
     const commands: EasyButtonConversationCommands = {
       ...archivedConversationCommands(),
@@ -696,14 +696,14 @@ describe("Easy Button topic conversation projection", () => {
         voiceControlLabel: "Open voice settings",
         voiceControlSetupAction: "open_voice_credential_settings",
       },
-      { onOpenVoiceSettings: openVoiceSettings },
+      { onOpenVoiceCredentialSettings: openVoiceCredentialSettings },
     );
 
     expect(action.mode).toBe("talk");
     expect(action.disabled).toBe(false);
     expect(action.label).toBe("Open voice settings");
     action.onClick?.();
-    expect(openVoiceSettings).toHaveBeenCalledWith("open_voice_credential_settings");
+    expect(openVoiceCredentialSettings).toHaveBeenCalledOnce();
     expect(requestVoiceCapture).not.toHaveBeenCalled();
   });
 

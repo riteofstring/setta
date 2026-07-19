@@ -19,18 +19,12 @@ export interface LocalMacOSVoiceResolvedConfiguration {
   expectedModelSHA256: string | null;
   helperPath: string | null;
   modelPath: string | null;
-  wakeModelPath: string | null;
-  wakeModelSHA256: string | null;
-  wakeRuntime: "onnx" | "tflite" | null;
 }
 
 interface LocalMacOSVoiceResourceManifest {
   helperPath: string | null;
   modelPath: string | null;
   modelSHA256: string | null;
-  wakeModelPath: string | null;
-  wakeModelSHA256: string | null;
-  wakeRuntime: "onnx" | "tflite" | null;
 }
 
 type LocalMacOSVoiceResourceManifestReadResult =
@@ -52,17 +46,11 @@ const helperPathEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_HELPER_PATH";
 const modelPathEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_MODEL_PATH";
 const modelSHA256EnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256";
 const resourceManifestEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_RESOURCE_MANIFEST_PATH";
-const wakeModelPathEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_WAKE_MODEL_PATH";
-const wakeModelSHA256EnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_WAKE_MODEL_SHA256";
-const wakeRuntimeEnvironmentVariable = "SETTA_LOCAL_MACOS_VOICE_WAKE_RUNTIME";
 const resourceManifestFilename = "manifest.json";
 const emptyResourceManifest = {
   helperPath: null,
   modelPath: null,
   modelSHA256: null,
-  wakeModelPath: null,
-  wakeModelSHA256: null,
-  wakeRuntime: null,
 } as const satisfies LocalMacOSVoiceResourceManifest;
 const localMacOSProvider = localMacOSSpeechProviderID();
 
@@ -88,15 +76,6 @@ export function resolveLocalMacOSVoiceHelperConfiguration(
     ),
     helperPath: configuredResourceValue(env[helperPathEnvironmentVariable], manifest.helperPath),
     modelPath: explicitOrManifestModelPath ?? defaultModel?.modelPath ?? null,
-    wakeModelPath: configuredResourceValue(
-      env[wakeModelPathEnvironmentVariable],
-      manifest.wakeModelPath,
-    ),
-    wakeModelSHA256: configuredResourceValue(
-      env[wakeModelSHA256EnvironmentVariable],
-      manifest.wakeModelSHA256,
-    ),
-    wakeRuntime: configuredWakeRuntime(env[wakeRuntimeEnvironmentVariable], manifest.wakeRuntime),
   };
 }
 
@@ -165,23 +144,17 @@ function decodeLocalMacOSVoiceResourceManifest(
     "helperPath",
     "modelPath",
     "modelSHA256",
-    "wakeModelPath",
-    "wakeModelSHA256",
-    "wakeRuntime",
   ]);
   return {
     helperPath: optionalManifestPath(record, "helperPath", manifestDir),
     modelPath: optionalManifestPath(record, "modelPath", manifestDir),
-    modelSHA256: optionalManifestSHA256(record, "modelSHA256", "modelSHA256"),
-    wakeModelPath: optionalManifestPath(record, "wakeModelPath", manifestDir),
-    wakeModelSHA256: optionalManifestSHA256(record, "wakeModelSHA256", "wakeModelSHA256"),
-    wakeRuntime: optionalWakeRuntime(record, "wakeRuntime"),
+    modelSHA256: optionalManifestSHA256(record, "modelSHA256"),
   };
 }
 
 function optionalManifestPath(
   record: Record<string, unknown>,
-  field: "helperPath" | "modelPath" | "wakeModelPath",
+  field: "helperPath" | "modelPath",
   manifestDir: string,
 ): string | null {
   if (!(field in record)) {
@@ -193,47 +166,16 @@ function optionalManifestPath(
 
 function optionalManifestSHA256(
   record: Record<string, unknown>,
-  field: "modelSHA256" | "wakeModelSHA256",
-  label: string,
+  field: "modelSHA256",
 ): string | null {
   if (!(field in record)) {
     return null;
   }
   const value = requiredTrimmedString(record[field], `LocalMacOSVoiceResourceManifest.${field}`);
   if (!/^[a-fA-F0-9]{64}$/.test(value)) {
-    throw new Error(`LocalMacOSVoiceResourceManifest.${label} must be a SHA-256 hex digest`);
+    throw new Error("LocalMacOSVoiceResourceManifest.modelSHA256 must be a SHA-256 hex digest");
   }
   return value;
-}
-
-function optionalWakeRuntime(
-  record: Record<string, unknown>,
-  field: "wakeRuntime",
-): "onnx" | "tflite" | null {
-  if (!(field in record)) {
-    return null;
-  }
-  return decodeWakeRuntime(
-    requiredTrimmedString(record[field], `LocalMacOSVoiceResourceManifest.${field}`),
-    `LocalMacOSVoiceResourceManifest.${field}`,
-  );
-}
-
-function configuredWakeRuntime(
-  value: string | undefined,
-  fallback: "onnx" | "tflite" | null,
-): "onnx" | "tflite" | null {
-  const configured = normalizedOptionalText(value);
-  return configured === null
-    ? fallback
-    : decodeWakeRuntime(configured, wakeRuntimeEnvironmentVariable);
-}
-
-function decodeWakeRuntime(value: string, label: string): "onnx" | "tflite" {
-  if (value === "onnx" || value === "tflite") {
-    return value;
-  }
-  throw new Error(`${label} must be onnx or tflite`);
 }
 
 function unavailableConfiguration(
@@ -244,9 +186,6 @@ function unavailableConfiguration(
     expectedModelSHA256: null,
     helperPath: null,
     modelPath: null,
-    wakeModelPath: null,
-    wakeModelSHA256: null,
-    wakeRuntime: null,
   };
 }
 

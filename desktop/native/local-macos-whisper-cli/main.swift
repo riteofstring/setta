@@ -2,13 +2,8 @@ import Foundation
 import whisper
 
 private struct WhisperCLIArguments {
-  let audioInput: WhisperCLIAudioInput
+  let audioPath: String
   let modelPath: String
-}
-
-private enum WhisperCLIAudioInput {
-  case file(String)
-  case standardInput
 }
 
 private struct WAVAudio {
@@ -31,7 +26,7 @@ private enum CLIError: Error, CustomStringConvertible {
   var description: String {
     switch self {
     case .invalidArguments:
-      return "usage: whisper-cli -m <model-path> -f <audio-wav|-> [-nt] [-np]"
+      return "usage: whisper-cli -m <model-path> -f <audio-wav> [-nt] [-np]"
     case .invalidWAV(let message):
       return message
     case .modelLoadFailed:
@@ -44,7 +39,7 @@ private enum CLIError: Error, CustomStringConvertible {
 
 do {
   let arguments = try parseArguments(CommandLine.arguments.dropFirst())
-  let audio = try readWAV(input: arguments.audioInput)
+  let audio = try readWAV(path: arguments.audioPath)
   let transcript = try transcribe(audio: audio, modelPath: arguments.modelPath)
   FileHandle.standardOutput.write(Data(transcript.utf8))
   FileHandle.standardOutput.write(Data("\n".utf8))
@@ -73,20 +68,11 @@ where S.Element == String {
   guard let audioPath, let modelPath else {
     throw CLIError.invalidArguments
   }
-  return WhisperCLIArguments(
-    audioInput: audioPath == "-" ? .standardInput : .file(audioPath),
-    modelPath: modelPath
-  )
+  return WhisperCLIArguments(audioPath: audioPath, modelPath: modelPath)
 }
 
-private func readWAV(input: WhisperCLIAudioInput) throws -> WAVAudio {
-  let data: Data
-  switch input {
-  case .file(let path):
-    data = try Data(contentsOf: URL(fileURLWithPath: path))
-  case .standardInput:
-    data = FileHandle.standardInput.readDataToEndOfFile()
-  }
+private func readWAV(path: String) throws -> WAVAudio {
+  let data = try Data(contentsOf: URL(fileURLWithPath: path))
   guard data.count >= 12, data.ascii(at: 0, count: 4) == "RIFF",
     data.ascii(at: 8, count: 4) == "WAVE"
   else {

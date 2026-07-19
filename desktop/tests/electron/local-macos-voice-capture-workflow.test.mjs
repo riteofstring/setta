@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 /* global console */
 
-import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { chmod, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -25,7 +23,6 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "local-macos-voice-capture";
@@ -35,8 +32,6 @@ const helperFixturePath = resolve(
   scriptDir,
   "../../src/main/test-fixtures/local-macos-voice-helper-fixture.mjs",
 );
-const scriptedListenerEventsEnvironmentVariable =
-  "SETTA_LOCAL_MACOS_VOICE_HELPER_SCRIPTED_LISTENER_EVENTS";
 
 if (options.help) {
   console.log(
@@ -58,22 +53,32 @@ const fixture = await createElectronFixture(workflowName);
 const fakeCodex = await installFakeTopicCodex(fixture);
 const helperPath = join(fixture.tempRoot, "local-macos-voice-helper");
 const modelPath = join(fixture.tempRoot, "ggml-base.en.bin");
-const wakeModelPath = join(fixture.tempRoot, "hey-setta.onnx");
 let context = null;
-let modelDownloadFixture = null;
 let workflowError = null;
 
 try {
+  await writeFile(
+    helperPath,
+    `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(helperFixturePath)}\n`,
+  );
+  await chmod(helperPath, 0o755);
   await writeFile(modelPath, "local-model-bytes");
-  await writeFile(wakeModelPath, "wake-model-bytes");
 
-  const initialWakeTranscript = "open the release checklist";
-  context = await launchLocalVoiceElectron({
-    launchArtifactDir: artifactDir,
-    scriptedListenerEvents: scriptedWakeEvents(initialWakeTranscript),
+  context = await launchElectronCdpContext({
+    artifactDir,
+    extraEnv: {
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+      SETTA_LOCAL_MACOS_VOICE_HELPER_PATH: helperPath,
+      SETTA_LOCAL_MACOS_VOICE_MODEL_PATH: modelPath,
+      SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256: sha256("local-model-bytes"),
+      SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
+    },
+    fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
+    visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const workspaceId = await ensureWorkspaceOpen(context.client);
+  await ensureWorkspaceOpen(context.client);
 
   const health = await context.client.evaluate("window.setta.speech.readLocalMacOSVoiceHealth()");
   assertReadyHealth(health);
@@ -136,84 +141,9 @@ try {
   assertSynthesisUnavailable(unavailableSynthesis);
   const malformedSynthesis = await synthesizeMalformedLocalSpeech(context.client, source);
   assertMalformedSynthesis(malformedSynthesis);
-  const initialAlwaysListening = await readAlwaysListeningSettings(context.client);
-  assertAlwaysListeningReady(initialAlwaysListening, false);
-  const enabledAlwaysListening = await updateAlwaysListeningSettings(context.client, true);
-  assertAlwaysListeningReady(enabledAlwaysListening, true);
-  const alwaysListeningInput = await waitForRecordedWakeSpeechInput(
-    artifactDir,
-    initialWakeTranscript,
-  );
-  await waitForAlwaysListeningState(context.client, "armed");
-  const disabledAlwaysListening = await updateAlwaysListeningSettings(context.client, false);
-  assertAlwaysListeningDisabled(disabledAlwaysListening);
-  const reenabledAlwaysListening = await updateAlwaysListeningSettings(context.client, true);
-  assertAlwaysListeningReady(reenabledAlwaysListening, true);
-  const manualArbitration = await exerciseManualCaptureWhileListenerArmed(context.client);
-  const playbackSuppression = await exercisePlaybackSuppression(context.client);
-
-  await stopElectronCdpContext(context);
-  context = null;
-
-  modelDownloadFixture = await createLocalModelDownloadFixture();
-  const missingModelArtifactDir = join(artifactDir, "missing-model-download");
-  context = await launchLocalVoiceElectron({
-    launchArtifactDir: missingModelArtifactDir,
-    modelDownloadSpec: modelDownloadFixture.spec,
-    modelSource: "download",
-    scriptedListenerEvents: [],
-  });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const missingModelWorkspaceId = await ensureWorkspaceOpen(context.client);
-  assertRestartedWorkspace(workspaceId, missingModelWorkspaceId);
-  const missingModelSettings = await readAlwaysListeningSettings(context.client);
-  assertAlwaysListeningMissingModel(missingModelSettings);
-  const idleModelDownload = await readLocalModelDownloadStatus(context.client);
-  assertModelDownloadStatus(idleModelDownload, "idle");
-  const startedModelDownload = await startLocalModelDownload(context.client);
-  assertModelDownloadStatus(startedModelDownload, "downloading");
-  const readyModelDownload = await waitForLocalModelDownloadStatus(context.client, "ready");
-  const armedAfterModelDownload = await waitForAlwaysListeningState(context.client, "armed");
-
-  await stopElectronCdpContext(context);
-  context = null;
-  await modelDownloadFixture.close();
-  modelDownloadFixture = null;
-
-  const restartArtifactDir = join(artifactDir, "restart-enabled");
-  context = await launchLocalVoiceElectron({
-    launchArtifactDir: restartArtifactDir,
-    scriptedListenerEvents: [],
-  });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const restartedWorkspaceId = await ensureWorkspaceOpen(context.client);
-  assertRestartedWorkspace(workspaceId, restartedWorkspaceId);
-  const restartedAlwaysListening = await waitForAlwaysListeningState(context.client, "armed");
-
-  await stopElectronCdpContext(context);
-  context = null;
-
-  const crashRecoveryArtifactDir = join(artifactDir, "helper-crash-recovery");
-  context = await launchLocalVoiceElectron({
-    helperMode: "listener_exit_after_start",
-    helperExitAfterStartDelayMs: 5_000,
-    launchArtifactDir: crashRecoveryArtifactDir,
-    scriptedListenerEvents: [],
-  });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await installListenerEventRecorder(context.client);
-  const crashRecoveryWorkspaceId = await ensureWorkspaceOpen(context.client);
-  assertRestartedWorkspace(workspaceId, crashRecoveryWorkspaceId);
-  const crashedAlwaysListening = await waitForRecordedListenerState(
-    context.client,
-    "engine_failed",
-  );
-  await writeHelperScript("scripted_listener");
-  const recoveredAlwaysListening = await waitForAlwaysListeningState(context.client, "armed");
 
   await captureScreenshot(context.client, join(artifactDir, "local-macos-voice-capture.png"));
   await writeJson(join(artifactDir, "summary.json"), {
-    alwaysListeningInput,
     artifactDir,
     canceledSynthesis,
     deniedStartFailure: deniedStart.failure,
@@ -222,25 +152,11 @@ try {
     finishedTranscript: finished.transcript,
     health,
     invalidFinishFailure: invalidFinish.failure,
-    initialAlwaysListening,
     localVoiceCatalog,
     malformedSynthesis,
-    manualArbitration,
-    missingModelRecovery: {
-      armedAfterModelDownload,
-      idleModelDownload,
-      missingModelSettings,
-      readyModelDownload,
-      startedModelDownload,
-    },
     oversizedFailure: oversizedFinish.failure,
-    playbackSuppression,
     revokedFinishFailure: revokedFinish.failure,
     revokedStaleFinishFailure: revokedStaleFinish.failure,
-    crashedAlwaysListening,
-    recoveredAlwaysListening,
-    reenabledAlwaysListening,
-    restartedAlwaysListening,
     routedVoiceInput,
     synthesized: {
       audioBase64: synthesized.audioBase64,
@@ -262,11 +178,6 @@ try {
   }).catch(() => {});
 } finally {
   await stopElectronCdpContext(context).catch((error) => {
-    if (workflowError === null) {
-      workflowError = error;
-    }
-  });
-  await modelDownloadFixture?.close().catch((error) => {
     if (workflowError === null) {
       workflowError = error;
     }
@@ -297,24 +208,6 @@ function finishCapture(client, captureSessionId) {
   );
 }
 
-function readAlwaysListeningSettings(client) {
-  return client.evaluate("window.setta.speech.readLocalMacOSVoiceListenerSettings()");
-}
-
-function updateAlwaysListeningSettings(client, enabled) {
-  return client.evaluate(
-    `window.setta.speech.updateLocalMacOSVoiceListenerSettings(${JSON.stringify({ enabled })})`,
-  );
-}
-
-function readLocalModelDownloadStatus(client) {
-  return client.evaluate("window.setta.speech.readLocalMacOSVoiceModelDownload()");
-}
-
-function startLocalModelDownload(client) {
-  return client.evaluate("window.setta.speech.startLocalMacOSVoiceModelDownload()");
-}
-
 async function ensureWorkspaceOpen(client) {
   const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
   if (validWorkspaceId(initialWorkspaceId)) {
@@ -338,314 +231,6 @@ function workspaceIdExpression() {
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
-}
-
-async function launchLocalVoiceElectron({
-  helperExitAfterStartDelayMs,
-  helperMode = "scripted_listener",
-  launchArtifactDir,
-  modelDownloadSpec,
-  modelSource = "explicit",
-  scriptedListenerEvents,
-}) {
-  await writeHelperScript(helperMode);
-  const extraEnv = {
-    PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-    SETTA_LOCAL_MACOS_VOICE_HELPER_PATH: helperPath,
-    SETTA_LOCAL_MACOS_VOICE_WAKE_MODEL_PATH: wakeModelPath,
-    SETTA_LOCAL_MACOS_VOICE_WAKE_MODEL_SHA256: sha256("wake-model-bytes"),
-    SETTA_LOCAL_MACOS_VOICE_WAKE_RUNTIME: "onnx",
-    SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
-  };
-  const unsetEnv = ["OPENAI_API_KEY"];
-  if (modelSource === "download") {
-    if (!modelDownloadSpec) {
-      throw new Error("download-model local voice launch requires a model download spec");
-    }
-    extraEnv.SETTA_E2E_LOCAL_MACOS_VOICE_MODEL_DOWNLOAD_SPEC = JSON.stringify(modelDownloadSpec);
-    unsetEnv.push("SETTA_LOCAL_MACOS_VOICE_MODEL_PATH");
-    unsetEnv.push("SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256");
-  } else {
-    extraEnv.SETTA_LOCAL_MACOS_VOICE_MODEL_PATH = modelPath;
-    extraEnv.SETTA_LOCAL_MACOS_VOICE_MODEL_SHA256 = sha256("local-model-bytes");
-    unsetEnv.push("SETTA_E2E_LOCAL_MACOS_VOICE_MODEL_DOWNLOAD_SPEC");
-  }
-  if (scriptedListenerEvents === undefined) {
-    unsetEnv.push(scriptedListenerEventsEnvironmentVariable);
-  } else {
-    extraEnv[scriptedListenerEventsEnvironmentVariable] = JSON.stringify(scriptedListenerEvents);
-  }
-  if (helperExitAfterStartDelayMs === undefined) {
-    unsetEnv.push("SETTA_LOCAL_MACOS_VOICE_HELPER_EXIT_AFTER_START_MS");
-  } else {
-    extraEnv.SETTA_LOCAL_MACOS_VOICE_HELPER_EXIT_AFTER_START_MS = String(
-      helperExitAfterStartDelayMs,
-    );
-  }
-  return launchElectronCdpContext({
-    artifactDir: launchArtifactDir,
-    extraEnv,
-    fixture,
-    unsetEnv,
-    visible: options.visible,
-  });
-}
-
-async function writeHelperScript(mode) {
-  await writeFile(
-    helperPath,
-    `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(
-      helperFixturePath,
-    )} ${JSON.stringify(mode)}\n`,
-  );
-  await chmod(helperPath, 0o755);
-}
-
-function scriptedWakeEvents(transcript) {
-  return [
-    { score: 0.74, timeMs: 960, type: "wake_detected" },
-    { timeMs: 1_140, type: "message_speech_started" },
-    { timeMs: 2_220, type: "candidate_endpoint_detected" },
-    { transcript, type: "utterance_finalized" },
-  ];
-}
-
-async function createLocalModelDownloadFixture() {
-  const bytes = Buffer.from("downloaded local model bytes", "utf8");
-  const server = createServer((request, response) => {
-    if (request.url !== "/ggml-e2e-download.bin") {
-      response.writeHead(404);
-      response.end();
-      return;
-    }
-    response.writeHead(200, {
-      "content-length": String(bytes.length),
-      "content-type": "application/octet-stream",
-    });
-    response.end(bytes);
-  });
-  await new Promise((resolvePromise, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolvePromise);
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("failed to start local model download fixture");
-  }
-  return {
-    close: () =>
-      new Promise((resolvePromise, reject) => {
-        server.close((error) => (error ? reject(error) : resolvePromise()));
-      }),
-    spec: {
-      bytes: bytes.length,
-      filename: "ggml-e2e-download.bin",
-      name: "e2e-download",
-      sha256: sha256(bytes),
-      url: `http://127.0.0.1:${address.port}/ggml-e2e-download.bin`,
-    },
-  };
-}
-
-async function waitForAlwaysListeningState(client, status) {
-  return waitForState(
-    client,
-    "window.setta.speech.readLocalMacOSVoiceListenerSettings()",
-    (settings) =>
-      settings?.availability?.status === "ready" &&
-      settings.enabled === true &&
-      settings.state?.status === status,
-    workflowTimeoutMs,
-  );
-}
-
-async function waitForLocalModelDownloadStatus(client, status) {
-  return waitForState(
-    client,
-    "window.setta.speech.readLocalMacOSVoiceModelDownload()",
-    (download) => download?.status === status,
-    workflowTimeoutMs,
-  );
-}
-
-async function installListenerEventRecorder(client) {
-  await client.evaluate(`(() => {
-    if (globalThis.__settaLocalMacOSVoiceListenerEvents) {
-      return;
-    }
-    const events = [];
-    globalThis.__settaLocalMacOSVoiceListenerEvents = events;
-    window.setta.speech.onLocalMacOSVoiceListenerChanged?.((event) => {
-      events.push(event);
-    });
-  })()`);
-}
-
-async function waitForRecordedListenerState(client, status) {
-  return waitForState(
-    client,
-    `(() => {
-      const events = globalThis.__settaLocalMacOSVoiceListenerEvents ?? [];
-      return events.find((event) => event?.settings?.state?.status === ${JSON.stringify(
-        status,
-      )})?.settings ?? null;
-    })()`,
-    (settings) => settings?.enabled === true && settings.state?.status === status,
-    workflowTimeoutMs,
-  );
-}
-
-async function exerciseManualCaptureWhileListenerArmed(client) {
-  await waitForAlwaysListeningState(client, "armed");
-  const started = await startCapture(client, "capture_manual_while_listener_armed");
-  assertStatus(started, "started", "capture_manual_while_listener_armed");
-  const paused = await waitForAlwaysListeningState(client, "paused_for_manual_capture");
-  if (paused.state.captureSessionId !== "capture_manual_while_listener_armed") {
-    throw new Error(`listener did not reflect manual capture: ${JSON.stringify(paused)}`);
-  }
-  const finished = await finishCapture(client, "capture_manual_while_listener_armed");
-  assertCompleted(
-    finished,
-    "capture_manual_while_listener_armed",
-    "local transcript for capture_manual_while_listener_armed",
-  );
-  const resumed = await waitForAlwaysListeningState(client, "armed");
-  return {
-    finishedTranscript: finished.transcript,
-    paused,
-    resumed,
-  };
-}
-
-async function exercisePlaybackSuppression(client) {
-  await waitForAlwaysListeningState(client, "armed");
-  const operationId = "workflow_playback_suppression";
-  const paused = await client.evaluate(
-    `window.setta.speech.startLocalMacOSVoiceListenerPlayback(${JSON.stringify({ operationId })})`,
-  );
-  if (paused?.state?.status !== "paused_for_playback" || paused.state.operationId !== operationId) {
-    throw new Error(`listener did not pause for playback: ${JSON.stringify(paused)}`);
-  }
-  const resumed = await client.evaluate(
-    `window.setta.speech.finishLocalMacOSVoiceListenerPlayback(${JSON.stringify({ operationId })})`,
-  );
-  if (resumed?.state?.status !== "armed") {
-    throw new Error(`listener did not resume after playback: ${JSON.stringify(resumed)}`);
-  }
-  return { paused, resumed };
-}
-
-function assertRestartedWorkspace(expected, actual) {
-  if (actual !== expected) {
-    throw new Error(`workspace changed after restart: ${JSON.stringify({ actual, expected })}`);
-  }
-}
-
-async function waitForRecordedWakeSpeechInput(runArtifactDir, transcript) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < workflowTimeoutMs) {
-    const events = await readJsonLinesWhileAppending(join(runArtifactDir, "ipc.jsonl"));
-    const starts = events.filter(
-      (event) =>
-        event.type === "ipc_start" &&
-        wakeSpeechSubmissionChannels().includes(event.channel) &&
-        event.args?.[0]?.input?.text === transcript,
-    );
-    const uniqueStarts = Array.from(
-      new Map(starts.map((start) => [start.args[0].input.id, start])).values(),
-    );
-    if (uniqueStarts.length > 1) {
-      throw new Error(`wake transcript was submitted more than once: ${uniqueStarts.length}`);
-    }
-    const completed = completedIPC(uniqueStarts[0], events);
-    if (completed) {
-      assertWakeSpeechInput(completed, transcript);
-      return summarizeWakeSpeechInput(completed);
-    }
-    await delay(50);
-  }
-  throw new Error(`timed out waiting for wake transcript ${JSON.stringify(transcript)}`);
-}
-
-function wakeSpeechSubmissionChannels() {
-  return ["conversation:submit-input", "master:submit-input"];
-}
-
-function completedIPC(start, events) {
-  if (!start) {
-    return null;
-  }
-  const finish = events.find(
-    (event) =>
-      event.type === "ipc_finish" && event.channel === start.channel && event.id === start.id,
-  );
-  return finish
-    ? { accepted: finish.result, channel: start.channel, request: start.args[0] }
-    : null;
-}
-
-function assertWakeSpeechInput(recorded, transcript) {
-  const input = recorded.request?.input;
-  assertWakeSpeechInputBase(input, transcript, recorded);
-  const assertion = wakeSpeechInputAssertion(recorded.channel);
-  if (!assertion) {
-    throw new Error(`wake speech input channel drifted: ${JSON.stringify(recorded)}`);
-  }
-  assertion(recorded, input);
-}
-
-function wakeSpeechInputAssertion(channel) {
-  if (channel === "conversation:submit-input") {
-    return assertWakeConversationInput;
-  }
-  if (channel === "master:submit-input") {
-    return assertWakeMasterInput;
-  }
-  return null;
-}
-
-function assertWakeSpeechInputBase(input, transcript, recorded) {
-  if (
-    input?.text !== transcript ||
-    input.modality !== "voice" ||
-    typeof input.id !== "string" ||
-    input.id === "" ||
-    typeof input.submittedAt !== "string" ||
-    input.submittedAt === ""
-  ) {
-    throw new Error(`wake speech input drifted: ${JSON.stringify(recorded)}`);
-  }
-}
-
-function assertWakeMasterInput(recorded, input) {
-  if (input.source !== "shell" || recorded.accepted?.input?.id !== input.id) {
-    throw new Error(`wake master input drifted: ${JSON.stringify(recorded)}`);
-  }
-}
-
-function assertWakeConversationInput(recorded, input) {
-  if (
-    typeof input.conversationId === "string" &&
-    input.conversationId !== "" &&
-    typeof input.sourcePaneId === "string" &&
-    input.sourcePaneId !== "" &&
-    recorded.accepted?.input?.id === input.id
-  ) {
-    return;
-  }
-  throw new Error(`wake conversation input drifted: ${JSON.stringify(recorded)}`);
-}
-
-function summarizeWakeSpeechInput(recorded) {
-  const input = recorded.request.input;
-  return {
-    channel: recorded.channel,
-    conversationId: input.conversationId ?? null,
-    inputId: input.id,
-    source: input.source ?? null,
-    sourcePaneId: input.sourcePaneId ?? null,
-    transcript: input.text,
-  };
 }
 
 async function submitLocalVoiceThroughMasterOverlay(client) {
@@ -764,50 +349,6 @@ function synthesizeMalformedLocalSpeech(client, source) {
   );
 }
 
-function assertAlwaysListeningReady(settings, enabled) {
-  if (
-    settings?.availability?.status !== "ready" ||
-    settings.enabled !== enabled ||
-    !settings.state?.status
-  ) {
-    throw new Error(`invalid always-listening readiness: ${JSON.stringify(settings)}`);
-  }
-}
-
-function assertAlwaysListeningDisabled(settings) {
-  if (
-    settings?.availability?.status !== "ready" ||
-    settings.enabled !== false ||
-    settings.state?.status !== "disabled"
-  ) {
-    throw new Error(`invalid disabled always-listening state: ${JSON.stringify(settings)}`);
-  }
-}
-
-function assertAlwaysListeningMissingModel(settings) {
-  if (
-    settings?.availability?.status !== "unavailable" ||
-    settings.availability.setupAction !== "download_local_macos_voice_model" ||
-    settings.enabled !== true ||
-    settings.state?.status !== "local_voice_not_ready" ||
-    !settings.state.message.includes("model")
-  ) {
-    throw new Error(`invalid missing-model always-listening state: ${JSON.stringify(settings)}`);
-  }
-}
-
-function assertModelDownloadStatus(download, status) {
-  if (
-    download?.status !== status ||
-    download.provider !== "local_macos" ||
-    download.modelName !== "e2e-download" ||
-    download.bytesTotal !== Buffer.byteLength("downloaded local model bytes", "utf8") ||
-    !String(download.modelPath ?? "").endsWith("/ggml-e2e-download.bin")
-  ) {
-    throw new Error(`invalid local model download ${status} status: ${JSON.stringify(download)}`);
-  }
-}
-
 function assertReadyHealth(health) {
   if (
     health?.status !== "ready" ||
@@ -910,10 +451,6 @@ function assertMalformedSynthesis(result) {
   ) {
     throw new Error(`invalid local macOS malformed synthesis failure: ${JSON.stringify(result)}`);
   }
-}
-
-function delay(ms) {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
 function sha256(content) {

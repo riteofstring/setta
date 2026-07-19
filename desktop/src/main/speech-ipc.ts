@@ -10,9 +10,6 @@ import {
 import { handleIpc, type IpcObserver } from "@shared/ipc";
 import {
   decodeLocalMacOSVoiceSessionRequest,
-  decodeLocalMacOSVoiceListenerPlaybackRequest,
-  decodeLocalMacOSVoiceListenerSettingsUpdateRequest,
-  decodeLocalMacOSVoiceListenerSubmissionRequest,
   decodeLocalMacOSVoiceStartCaptureRequest,
   decodeSpeechCredentialProviderRequest,
   decodeSpeechCredentialSaveRequest,
@@ -20,7 +17,6 @@ import {
   type LocalMacOSVoiceCancelCaptureResult,
   type LocalMacOSVoiceCaptureFailure,
   type LocalMacOSVoiceFinishCaptureResult,
-  type LocalMacOSVoiceListenerSettings,
   type LocalMacOSVoiceModelDownloadStatus,
   type LocalMacOSVoiceStartCaptureResult,
   type LocalMacOSVoiceStartCaptureRequest,
@@ -40,7 +36,6 @@ import {
   type LocalMacOSVoiceHelper,
 } from "./local-macos-voice-helper";
 import { isCanonicalWAVBase64 } from "./speech-audio-validation";
-import type { LocalMacOSVoiceListenerService } from "./local-macos-voice-listener-service";
 
 const localMacOSProvider = localMacOSSpeechProviderID();
 const openAIProvider = openAISpeechProviderID();
@@ -49,7 +44,6 @@ const localMacOSCommandFailureCodes = {
   duration_limit: "duration_limit",
   helper_unavailable: "provider_unavailable",
   invalid_session: "invalid_session",
-  microphone_busy: "invalid_session",
   microphone_denied: "microphone_permission_denied",
   missing_model: "not_configured",
   model_hash_mismatch: "not_configured",
@@ -79,22 +73,11 @@ interface LocalMacOSVoiceModelDownloadIpcService {
   startDownload: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
 }
 
-interface LocalMacOSVoiceListenerIpcService {
-  completeSubmission: (captureSessionId: string) => Promise<LocalMacOSVoiceListenerSettings>;
-  finishPlayback: (operationId: string) => Promise<LocalMacOSVoiceListenerSettings>;
-  finishManualCapture: (captureSessionId: string) => Promise<void>;
-  prepareManualCaptureStart: LocalMacOSVoiceListenerService["prepareManualCaptureStart"];
-  readSettings: () => Promise<LocalMacOSVoiceListenerSettings>;
-  startPlayback: (operationId: string) => Promise<LocalMacOSVoiceListenerSettings>;
-  updateSettings: (enabled: boolean) => Promise<LocalMacOSVoiceListenerSettings>;
-}
-
 interface SpeechIpcRegistration {
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
   onProviderSelectionChanged?: (settings: SpeechProviderSelectionSettings) => void;
   requireLocalMacOSVoiceHelper: () => LocalMacOSVoiceHelper;
-  requireLocalMacOSVoiceListenerService?: () => LocalMacOSVoiceListenerIpcService;
   requireLocalMacOSVoiceModelDownloadService?: () => LocalMacOSVoiceModelDownloadIpcService;
   requireBackendClient: () => BackendClient;
   requireSpeechCredentialCoordinator: () => SpeechCredentialIpcCoordinator;
@@ -106,7 +89,6 @@ export function registerSpeechIpcHandlers({
   ipcObserver,
   onProviderSelectionChanged,
   requireLocalMacOSVoiceHelper,
-  requireLocalMacOSVoiceListenerService,
   requireLocalMacOSVoiceModelDownloadService,
   requireBackendClient,
   requireSpeechCredentialCoordinator,
@@ -123,11 +105,6 @@ export function registerSpeechIpcHandlers({
     requireLocalMacOSVoiceModelDownloadService ??
     (() => {
       throw new Error("local macOS voice model download service is not ready");
-    });
-  const requireListenerService =
-    requireLocalMacOSVoiceListenerService ??
-    (() => {
-      throw new Error("local macOS voice listener service is not ready");
     });
   handleIpc(ipcMain, "speechCancelSynthesis", async (_event, operationId) => {
     synthesisOperations.cancel(operationId);
@@ -212,48 +189,6 @@ export function registerSpeechIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "speechReadLocalMacOSVoiceListenerSettings",
-    async () => requireListenerService().readSettings(),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "speechUpdateLocalMacOSVoiceListenerSettings",
-    async (_event, request) => {
-      const decoded = decodeLocalMacOSVoiceListenerSettingsUpdateRequest(request);
-      return requireListenerService().updateSettings(decoded.enabled);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "speechCompleteLocalMacOSVoiceListenerSubmission",
-    async (_event, request) => {
-      const decoded = decodeLocalMacOSVoiceListenerSubmissionRequest(request);
-      return requireListenerService().completeSubmission(decoded.captureSessionId);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "speechStartLocalMacOSVoiceListenerPlayback",
-    async (_event, request) => {
-      const decoded = decodeLocalMacOSVoiceListenerPlaybackRequest(request);
-      return requireListenerService().startPlayback(decoded.operationId);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "speechFinishLocalMacOSVoiceListenerPlayback",
-    async (_event, request) => {
-      const decoded = decodeLocalMacOSVoiceListenerPlaybackRequest(request);
-      return requireListenerService().finishPlayback(decoded.operationId);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "speechListLocalMacOSVoices",
     async () => requireLocalMacOSVoiceHelper().listVoices(),
     ipcObserver,
@@ -271,7 +206,6 @@ export function registerSpeechIpcHandlers({
       }
       return startLocalMacOSVoiceCapture(
         requireLocalMacOSVoiceHelper(),
-        requireListenerService(),
         localCaptureSessions,
         decoded,
       );
@@ -291,7 +225,6 @@ export function registerSpeechIpcHandlers({
       }
       return finishLocalMacOSVoiceCapture(
         requireLocalMacOSVoiceHelper(),
-        requireListenerService(),
         localCaptureSessions,
         decoded,
       );
@@ -311,7 +244,6 @@ export function registerSpeechIpcHandlers({
       }
       return cancelLocalMacOSVoiceCapture(
         requireLocalMacOSVoiceHelper(),
-        requireListenerService(),
         localCaptureSessions,
         decoded,
       );
@@ -399,21 +331,13 @@ function decodeLocalSessionRequest(request: unknown): { captureSessionId: string
 
 async function startLocalMacOSVoiceCapture(
   helper: LocalMacOSVoiceHelper,
-  listener: LocalMacOSVoiceListenerIpcService,
   sessions: LocalMacOSCaptureSessions,
   request: LocalMacOSVoiceStartCaptureRequest,
 ): Promise<LocalMacOSVoiceStartCaptureResult> {
-  if (sessions.hasActive()) {
+  if (sessions.has(request.captureSessionId)) {
     return localCaptureFailed(
       "invalid_session",
       "Local macOS voice capture session is already active.",
-    );
-  }
-  const listenerStart = await listener.prepareManualCaptureStart(request.captureSessionId);
-  if (listenerStart.status === "blocked_by_wake_capture") {
-    return localCaptureFailed(
-      "invalid_session",
-      `Always listening is already ${listenerStart.wakeStatus.replaceAll("_", " ")}.`,
     );
   }
   try {
@@ -423,7 +347,6 @@ async function startLocalMacOSVoiceCapture(
       sessionId: request.captureSessionId,
     });
     if (result.sessionId !== request.captureSessionId) {
-      await listener.finishManualCapture(request.captureSessionId);
       return localCaptureFailed(
         "invalid_session",
         "Local macOS voice helper returned a different capture session.",
@@ -435,14 +358,12 @@ async function startLocalMacOSVoiceCapture(
       status: "started",
     };
   } catch (error) {
-    await listener.finishManualCapture(request.captureSessionId);
     return localCaptureFailedFromError(error);
   }
 }
 
 async function finishLocalMacOSVoiceCapture(
   helper: LocalMacOSVoiceHelper,
-  listener: LocalMacOSVoiceListenerIpcService,
   sessions: LocalMacOSCaptureSessions,
   request: { captureSessionId: string },
 ): Promise<LocalMacOSVoiceFinishCaptureResult> {
@@ -458,7 +379,6 @@ async function finishLocalMacOSVoiceCapture(
       sessionId: request.captureSessionId,
     });
     sessions.finish(request.captureSessionId);
-    await listener.finishManualCapture(request.captureSessionId);
     if (result.sessionId !== request.captureSessionId) {
       return localCaptureFailed(
         "invalid_session",
@@ -476,14 +396,12 @@ async function finishLocalMacOSVoiceCapture(
     };
   } catch (error) {
     sessions.finish(request.captureSessionId);
-    await listener.finishManualCapture(request.captureSessionId);
     return localCaptureFailedFromError(error);
   }
 }
 
 async function cancelLocalMacOSVoiceCapture(
   helper: LocalMacOSVoiceHelper,
-  listener: LocalMacOSVoiceListenerIpcService,
   sessions: LocalMacOSCaptureSessions,
   request: { captureSessionId: string },
 ): Promise<LocalMacOSVoiceCancelCaptureResult> {
@@ -498,7 +416,6 @@ async function cancelLocalMacOSVoiceCapture(
       sessionId: request.captureSessionId,
     });
     sessions.finish(request.captureSessionId);
-    await listener.finishManualCapture(request.captureSessionId);
     if (result.sessionId !== request.captureSessionId) {
       return localCaptureFailed(
         "invalid_session",
@@ -511,7 +428,6 @@ async function cancelLocalMacOSVoiceCapture(
     };
   } catch (error) {
     sessions.finish(request.captureSessionId);
-    await listener.finishManualCapture(request.captureSessionId);
     return localCaptureFailedFromError(error);
   }
 }
@@ -809,10 +725,6 @@ interface LocalMacOSCaptureSession {
 
 class LocalMacOSCaptureSessions {
   private readonly active = new Map<string, LocalMacOSCaptureSession>();
-
-  hasActive(): boolean {
-    return this.active.size > 0;
-  }
 
   has(captureSessionId: string): boolean {
     return this.active.has(captureSessionId);

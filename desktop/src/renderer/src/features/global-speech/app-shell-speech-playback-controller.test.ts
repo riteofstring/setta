@@ -372,37 +372,6 @@ describe("app-shell speech playback controller", () => {
     expect(speaking.requests.map((request) => request.source.eventId)).toEqual(["speaking"]);
   });
 
-  test("notifies listener suppression for active audio playback lifetime", async () => {
-    const completed = createHarness();
-    completed.controller.enqueueAutomatic(intent("status_reply", "completed-playback"));
-
-    expect(completed.listenerPlaybackEvents).toEqual([]);
-
-    completed.resolveSynthesis(0);
-    await flushPromises();
-
-    expect(completed.listenerPlaybackEvents).toEqual([["start", "speech_playback_1"]]);
-
-    completed.audios[0]!.emit("ended");
-
-    expect(completed.listenerPlaybackEvents).toEqual([
-      ["start", "speech_playback_1"],
-      ["finish", "speech_playback_1"],
-    ]);
-
-    const preempted = createHarness();
-    preempted.controller.enqueueAutomatic(intent("status_reply", "preempted-playback"));
-    preempted.resolveSynthesis(0);
-    await flushPromises();
-
-    preempted.controller.preemptForCapture();
-
-    expect(preempted.listenerPlaybackEvents).toEqual([
-      ["start", "speech_playback_1"],
-      ["finish", "speech_playback_1"],
-    ]);
-  });
-
   test("user input preemption drops automatic speech without resuming it", async () => {
     const synthesizing = createHarness();
     const activeAutomatic = intent("status_reply", "active-automatic");
@@ -579,7 +548,6 @@ function createHarness(
   const signals: AbortSignal[] = [];
   const results: Array<Deferred<SpeechAudio>> = [];
   const audios: FakeAudio[] = [];
-  const listenerPlaybackEvents: Array<["finish" | "start", string]> = [];
   const supersessions: SpeechPlaybackSupersessionDecision[] = [];
   const observations: SpeechPlaybackObservation[] = [];
   const revokedURLs: string[] = [];
@@ -592,16 +560,10 @@ function createHarness(
     },
     createObjectURL: () => `blob:speech-${audios.length + 1}`,
     decodeBase64: () => new Uint8Array([82, 73, 70, 70]),
-    finishSpeechPlayback: (operationId) => {
-      listenerPlaybackEvents.push(["finish", operationId]);
-    },
     logPlayback: (observation) => observations.push(observation),
     logSupersession: (decision) => supersessions.push(decision),
     now: () => now,
     revokeObjectURL: (url) => revokedURLs.push(url),
-    startSpeechPlayback: (operationId) => {
-      listenerPlaybackEvents.push(["start", operationId]);
-    },
     synthesize: (request, signal) => {
       requests.push(request);
       signals.push(signal);
@@ -617,7 +579,6 @@ function createHarness(
     },
     audios,
     controller,
-    listenerPlaybackEvents,
     observations,
     requests,
     resolveSynthesis: (index: number) => {

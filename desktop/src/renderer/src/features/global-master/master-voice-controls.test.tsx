@@ -98,7 +98,7 @@ describe("master voice controls", () => {
   });
 
   test("routes unavailable master voice setup when credentials are missing", () => {
-    const openVoiceSettings = vi.fn();
+    const openVoiceCredentialSettings = vi.fn();
     const { context, controller, startMasterCapture } = captureContext(
       { type: "idle" },
       {
@@ -117,48 +117,15 @@ describe("master voice controls", () => {
       statusLabel: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
     });
     const button = renderToString(
-      <MasterVoiceButton model={model} onOpenVoiceSettings={openVoiceSettings} />,
+      <MasterVoiceButton
+        model={model}
+        onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
+      />,
     );
     expect(button).toContain('aria-label="Open voice settings"');
 
-    executeMasterVoiceCommand(controller, openVoiceSettings);
-    expect(openVoiceSettings).toHaveBeenCalledWith("open_voice_credential_settings");
-    expect(openVoiceSettings).toHaveBeenCalledOnce();
-    expect(startMasterCapture).not.toHaveBeenCalled();
-  });
-
-  test("routes failed always-listening master voice state to voice settings", () => {
-    const openVoiceSettings = vi.fn();
-    const { context, controller, startMasterCapture } = captureContext(
-      { type: "idle" },
-      { type: "loading" },
-      {
-        listener: {
-          availability: { status: "ready" },
-          enabled: true,
-          state: {
-            message: "Always listening helper exited.",
-            status: "engine_failed",
-          },
-        },
-      },
-    );
-    const model = createMasterVoiceModel(context, "linux", "ctrl_shift_k");
-
-    expect(model).toMatchObject({
-      action: "open_always_listening_settings",
-      controlLabel: "Open always listening settings",
-      state: "failed",
-      statusLabel: "Always listening helper exited.",
-    });
-    const button = renderToString(
-      <MasterVoiceButton model={model} onOpenVoiceSettings={openVoiceSettings} />,
-    );
-    expect(button).toContain('aria-label="Open always listening settings"');
-
-    executeMasterVoiceCommand(controller, openVoiceSettings);
-    expect(openVoiceSettings).toHaveBeenCalledWith("open_always_listening_settings");
-    expect(openVoiceSettings).toHaveBeenCalledOnce();
+    executeMasterVoiceCommand(controller, openVoiceCredentialSettings);
+    expect(openVoiceCredentialSettings).toHaveBeenCalledOnce();
     expect(startMasterCapture).not.toHaveBeenCalled();
   });
 });
@@ -166,9 +133,8 @@ describe("master voice controls", () => {
 function captureContext(
   capture: SpeechCaptureState,
   availability: AppShellSpeechCaptureSnapshot["availability"] = { type: "loading" },
-  overrides: Partial<AppShellSpeechCaptureSnapshot> = {},
 ) {
-  const snapshot = captureSnapshot(capture, availability, overrides);
+  const snapshot = captureSnapshot(capture, availability);
   const commit = vi.fn();
   const startMasterCapture = vi.fn(async () => {});
   const controller = {
@@ -183,7 +149,6 @@ function captureContext(
 function captureSnapshot(
   capture: SpeechCaptureState,
   availability: AppShellSpeechCaptureSnapshot["availability"],
-  overrides: Partial<AppShellSpeechCaptureSnapshot>,
 ): AppShellSpeechCaptureSnapshot {
   return {
     availability,
@@ -191,9 +156,7 @@ function captureSnapshot(
     completedConversationTranscript: null,
     completedTranscript: null,
     conversationSubmission: { type: "idle" },
-    listener: null,
     masterSubmission: { type: "idle" },
     runtimeId: "runtime-speech",
-    ...overrides,
   };
 }

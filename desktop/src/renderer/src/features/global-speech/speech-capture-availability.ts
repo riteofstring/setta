@@ -20,9 +20,7 @@ export type SpeechCaptureAvailability =
     }
   | { message: string; type: "failed" };
 
-export type VoiceProviderSetupAction =
-  | "open_always_listening_settings"
-  | "open_voice_credential_settings";
+export type VoiceProviderSetupAction = "open_voice_credential_settings";
 
 export function speechAvailabilityForCapabilities(
   capabilities: SpeechCapabilities,
@@ -53,8 +51,6 @@ export function speechAvailabilityForCapabilities(
 
 export function voiceProviderSetupActionLabel(action: VoiceProviderSetupAction): string {
   switch (action) {
-    case "open_always_listening_settings":
-      return "Open always listening settings";
     case "open_voice_credential_settings":
       return "Open voice settings";
     default:
