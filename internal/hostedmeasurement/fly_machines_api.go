@@ -342,7 +342,7 @@ func validateFlyAPIBaseURL(baseURL *url.URL) error {
 
 func validateFlyTokens(mutation []byte, inventory []byte) error {
 	if !validFlyToken(mutation) || !validFlyToken(inventory) {
-		return errors.New("Fly mutation and inventory tokens must be private visible-ASCII values")
+		return errors.New("Fly mutation and inventory tokens must be private printable-ASCII values without outer spaces")
 	}
 	if len(mutation) == len(inventory) && subtle.ConstantTimeCompare(mutation, inventory) == 1 {
 		return errors.New("Fly mutation and inventory tokens must be distinct")
@@ -354,8 +354,11 @@ func validFlyToken(token []byte) bool {
 	if len(token) == 0 || len(token) > maximumFlyTokenBytes {
 		return false
 	}
+	if token[0] == ' ' || token[len(token)-1] == ' ' {
+		return false
+	}
 	for _, character := range token {
-		if character < 0x21 || character > 0x7e {
+		if character < 0x20 || character > 0x7e {
 			return false
 		}
 	}

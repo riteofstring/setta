@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	testMutationToken  = "mutation-token-sentinel"
-	testInventoryToken = "inventory-token-sentinel"
+	testMutationToken  = "FlyV1 mutation-token-sentinel"
+	testInventoryToken = "FlyV1 inventory-token-sentinel"
 )
 
 func TestFlyMachinesClientAppLifecycleUsesSeparatedTokensAndExactPaths(t *testing.T) {

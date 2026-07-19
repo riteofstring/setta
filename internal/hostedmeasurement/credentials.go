@@ -17,7 +17,7 @@ func ReadPrivateCredentialFile(path string, authorization Authorization) ([]byte
 		return nil, err
 	}
 	if !validFlyToken(credential) {
-		return nil, errors.New("hosted measurement credential must be non-empty visible ASCII")
+		return nil, errors.New("hosted measurement credential must be non-empty printable ASCII without outer spaces")
 	}
 	return credential, nil
 }

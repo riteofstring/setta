@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -169,14 +170,14 @@ func TestOpenExistingStateStoreNeverCreatesMissingCleanupState(t *testing.T) {
 	}
 }
 
-func TestReadPrivateCredentialFileRequiresSamePrivateDirectoryAndVisibleASCII(t *testing.T) {
+func TestReadPrivateCredentialFileRequiresSamePrivateDirectoryAndBoundedPrintableASCII(t *testing.T) {
 	authorization, directory := loadTestAuthorization(t)
-	credentialPath := writePrivateFile(t, directory, "credential", []byte("private-token"))
+	credentialPath := writePrivateFile(t, directory, "credential", []byte("FlyV1 private-token"))
 	credential, err := ReadPrivateCredentialFile(credentialPath, authorization)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(credential) != "private-token" {
+	if string(credential) != "FlyV1 private-token" {
 		t.Fatalf("credential = %q", credential)
 	}
 	outside := newPrivateDirectory(t)
@@ -187,6 +188,12 @@ func TestReadPrivateCredentialFileRequiresSamePrivateDirectoryAndVisibleASCII(t 
 	invalidPath := writePrivateFile(t, directory, "invalid-credential", []byte("token\n"))
 	if _, err := ReadPrivateCredentialFile(invalidPath, authorization); err == nil {
 		t.Fatal("ReadPrivateCredentialFile accepted a multiline credential")
+	}
+	for index, invalid := range []string{" token", "token "} {
+		path := writePrivateFile(t, directory, fmt.Sprintf("outer-space-credential-%d", index), []byte(invalid))
+		if _, err := ReadPrivateCredentialFile(path, authorization); err == nil {
+			t.Fatalf("ReadPrivateCredentialFile accepted outer spaces: %q", invalid)
+		}
 	}
 }
 
