@@ -100,6 +100,7 @@ async function runIntegration() {
       { status: "started" },
     );
     assert.deepEqual(client.listenerEvents(), [{ type: "listener_armed" }]);
+    await assertFailedResumeKeepsListenerPaused(client, modelPath);
     await assertScriptedPCMListenerCapture(client);
     assertOkResult(await client.command("stop_listener", { reason: "setting_disabled" }), {
       status: "stopped",
@@ -205,6 +206,7 @@ function assertErrorCode(response, code) {
 }
 
 async function assertScriptedPCMListenerCapture(client) {
+  const armedEvents = [{ type: "listener_armed" }, { type: "listener_armed" }];
   assertOkResult(
     await client.command("ingest_listener_pcm", pcmPayload(150, 100), "native_pcm_prewake_a"),
     { sampleCount: 2_400, status: "accepted" },
@@ -213,7 +215,7 @@ async function assertScriptedPCMListenerCapture(client) {
     await client.command("ingest_listener_pcm", pcmPayload(100, 200), "native_pcm_prewake_b"),
     { sampleCount: 1_600, status: "accepted" },
   );
-  assert.deepEqual(client.listenerEvents(), [{ type: "listener_armed" }]);
+  assert.deepEqual(client.listenerEvents(), armedEvents);
 
   assertOkResult(
     await client.command(
@@ -249,7 +251,7 @@ async function assertScriptedPCMListenerCapture(client) {
   );
 
   assert.deepEqual(client.listenerEvents(), [
-    { type: "listener_armed" },
+    ...armedEvents,
     { score: 0.7, timeMs: 330, type: "wake_detected" },
     { timeMs: 370, type: "message_speech_started" },
     { timeMs: 530, type: "candidate_endpoint_detected" },
@@ -257,6 +259,46 @@ async function assertScriptedPCMListenerCapture(client) {
       transcript: "scripted pcm sampleCount=6080 first=200 last=600",
       type: "utterance_finalized",
     },
+  ]);
+}
+
+async function assertFailedResumeKeepsListenerPaused(client, modelPath) {
+  assertOkResult(await client.command("pause_listener", { reason: "manual_capture" }), {
+    status: "paused",
+  });
+  assertOkResult(
+    await client.command("start_capture", {
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8_000,
+      modelPath,
+      sessionId: "native_manual_while_listener_paused",
+    }),
+    { sessionId: "native_manual_while_listener_paused" },
+  );
+  assertErrorCode(
+    await client.command("resume_listener", { reason: "manual_capture" }),
+    "microphone_busy",
+  );
+  assertErrorCode(
+    await client.command(
+      "ingest_listener_pcm",
+      pcmPayload(20, 150, { wakeScore: 0.7 }),
+      "native_pcm_rejected_while_manual_capture_active",
+    ),
+    "invalid_listener",
+  );
+  assertOkResult(
+    await client.command("cancel_capture", {
+      sessionId: "native_manual_while_listener_paused",
+    }),
+    { sessionId: "native_manual_while_listener_paused" },
+  );
+  assertOkResult(await client.command("resume_listener", { reason: "manual_capture" }), {
+    status: "resumed",
+  });
+  assert.deepEqual(client.listenerEvents(), [
+    { type: "listener_armed" },
+    { type: "listener_armed" },
   ]);
 }
 

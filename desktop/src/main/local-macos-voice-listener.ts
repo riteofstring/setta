@@ -335,9 +335,12 @@ export function reduceLocalMacOSVoiceListenerState(
 }
 
 function reduceSettingEnabled(
-  _state: LocalMacOSVoiceListenerState,
+  state: LocalMacOSVoiceListenerState,
   event: LocalMacOSVoiceListenerEventByType["setting_enabled"],
 ): LocalMacOSVoiceListenerTransitionResult {
+  if (state.status !== "disabled" && state.status !== "local_voice_not_ready") {
+    return transition(state);
+  }
   return event.localVoiceReady
     ? transition({ status: "arming" }, { type: "start_listener" })
     : transition({

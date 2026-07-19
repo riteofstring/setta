@@ -70,20 +70,19 @@ final class CaptureSessionStore {
         message: "Capture session is already active."
       )
     }
-    sessions[request.sessionId] = session
-    lock.unlock()
+    var claimedMicrophone = false
     do {
       try microphone.claimManualCapture(sessionId: request.sessionId)
-    } catch {
-      _ = remove(request.sessionId)
-      throw error
-    }
-    do {
+      claimedMicrophone = true
       try session.start()
+      sessions[request.sessionId] = session
+      lock.unlock()
       return SessionResult(sessionId: request.sessionId)
     } catch {
-      _ = remove(request.sessionId)
-      microphone.releaseManualCapture(sessionId: request.sessionId)
+      lock.unlock()
+      if claimedMicrophone {
+        microphone.releaseManualCapture(sessionId: request.sessionId)
+      }
       throw error
     }
   }
@@ -94,8 +93,14 @@ final class CaptureSessionStore {
     guard let session = remove(request.sessionId) else {
       throw HelperCommandError(code: "invalid_session", message: "Capture session is not active.")
     }
-    defer { microphone.releaseManualCapture(sessionId: request.sessionId) }
-    let audio = try session.finish()
+    let audio: CapturedAudio
+    do {
+      audio = try session.finish()
+    } catch {
+      microphone.releaseManualCapture(sessionId: request.sessionId)
+      throw error
+    }
+    microphone.releaseManualCapture(sessionId: request.sessionId)
     let transcript = try transcriber.transcribe(audio: audio, modelPath: session.modelPath)
     if trimmed(transcript) == "" {
       throw HelperCommandError(code: "no_speech", message: "No speech was detected.")
@@ -157,17 +162,14 @@ final class AlwaysListeningSessionStore {
         message: "Always listening is already active."
       )
     }
-    active = true
-    pauseReasons.removeAll()
-    processor = AlwaysListeningAudioProcessor(request: request)
-    lock.unlock()
     do {
       try microphone.claimAlwaysListening()
+      active = true
+      pauseReasons.removeAll()
+      processor = AlwaysListeningAudioProcessor(request: request)
+      lock.unlock()
       return ListenerLifecycleResult(status: "started")
     } catch {
-      lock.lock()
-      active = false
-      processor = nil
       lock.unlock()
       throw error
     }
@@ -182,11 +184,12 @@ final class AlwaysListeningSessionStore {
     active = false
     pauseReasons.removeAll()
     processor = nil
-    lock.unlock()
     guard wasActive else {
+      lock.unlock()
       throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
     }
     microphone.releaseAlwaysListening()
+    lock.unlock()
     return ListenerLifecycleResult(status: "stopped")
   }
 
@@ -198,8 +201,8 @@ final class AlwaysListeningSessionStore {
       throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
     }
     pauseReasons.insert(request.reason)
-    lock.unlock()
     microphone.releaseAlwaysListening()
+    lock.unlock()
     return ListenerLifecycleResult(status: "paused")
   }
 
@@ -210,12 +213,18 @@ final class AlwaysListeningSessionStore {
       lock.unlock()
       throw HelperCommandError(code: "invalid_listener", message: "Always listening is not active.")
     }
-    pauseReasons.remove(request.reason)
-    let shouldReclaim = pauseReasons.isEmpty
-    lock.unlock()
+    let removedReason = pauseReasons.remove(request.reason)
+    let shouldReclaim = removedReason != nil && pauseReasons.isEmpty
     if shouldReclaim {
-      try microphone.claimAlwaysListening()
+      do {
+        try microphone.claimAlwaysListening()
+      } catch {
+        pauseReasons.insert(request.reason)
+        lock.unlock()
+        throw error
+      }
     }
+    lock.unlock()
     return (ListenerLifecycleResult(status: "resumed"), shouldReclaim)
   }
 
@@ -248,10 +257,10 @@ final class AlwaysListeningSessionStore {
     active = false
     pauseReasons.removeAll()
     processor = nil
-    lock.unlock()
     if wasActive {
       microphone.releaseAlwaysListening()
     }
+    lock.unlock()
   }
 
   private func validatePauseReason(_ reason: String) throws {

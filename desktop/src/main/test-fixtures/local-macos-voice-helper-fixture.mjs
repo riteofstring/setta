@@ -189,9 +189,10 @@ function handleResumeListener(command) {
     reject(command.id, "invalid_listener", "Always listening is not active.");
     return;
   }
-  listenerPauseReasons.delete(command.payload.reason);
-  if (listenerPauseReasons.size === 0) {
+  const hadReason = listenerPauseReasons.delete(command.payload.reason);
+  if (hadReason && listenerPauseReasons.size === 0) {
     if (!claimMicrophoneOwner({ type: "always_listening" })) {
+      listenerPauseReasons.add(command.payload.reason);
       reject(command.id, "microphone_busy", "Local macOS microphone is already in use.");
       return;
     }

@@ -75,6 +75,20 @@ describe("local macOS voice always-listening state machine", () => {
     });
   });
 
+  test("does not restart an already active listener after duplicate setting-enabled events", () => {
+    const armed = { status: "armed" } satisfies LocalMacOSVoiceListenerState;
+
+    expect(
+      reduceLocalMacOSVoiceListenerState(armed, {
+        localVoiceReady: true,
+        type: "setting_enabled",
+      }),
+    ).toEqual({
+      effects: [],
+      state: armed,
+    });
+  });
+
   test("walks wake capture through endpointing and transcript submission", () => {
     const result = reduceEvents({ status: "armed" }, [
       { score: 0.72, timeMs: 1_000, type: "wake_detected" },

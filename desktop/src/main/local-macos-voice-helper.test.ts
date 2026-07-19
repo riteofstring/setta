@@ -502,11 +502,18 @@ describe("LocalMacOSVoiceHelperProcessClient", () => {
     await expect(client.resumeListener({ reason: "manual_capture" })).rejects.toBeInstanceOf(
       LocalMacOSVoiceHelperCommandError,
     );
+    await expect(client.pauseListener({ reason: "playback" })).resolves.toEqual({
+      status: "paused",
+    });
     await expect(
       client.cancelCapture({ sessionId: "manual_after_listener_paused" }),
     ).resolves.toEqual({
       sessionId: "manual_after_listener_paused",
     });
+    await expect(client.resumeListener({ reason: "playback" })).resolves.toEqual({
+      status: "resumed",
+    });
+    expect(events).toHaveLength(5);
     await expect(client.resumeListener({ reason: "manual_capture" })).resolves.toEqual({
       status: "resumed",
     });
