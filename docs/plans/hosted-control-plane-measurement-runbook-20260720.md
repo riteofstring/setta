@@ -321,6 +321,11 @@ Implemented on 2026-07-20:
     checks client-visible bodies for credential material, and writes a private
     content-free report. The access and lifecycle workloads compose in the
     authorized Candidate B order.
+30. Cleanup now idempotently revokes every still-present local client
+    credential through the live private administration socket and removes its
+    mode-0600 file before Sprite and Fly reconciliation. A revocation failure
+    is reported but cannot strand provider resources: teardown continues, the
+    run remains in cleaning state, and a resource-empty retry can finish clean.
 
 Still required before a live create/deployment mutation:
 

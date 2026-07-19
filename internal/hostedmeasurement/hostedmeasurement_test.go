@@ -420,6 +420,42 @@ func TestCleanupIsOrderedRestartSafeAndUsesIndependentInventory(t *testing.T) {
 	}
 }
 
+func TestCleanupContinuesProviderTeardownAfterCredentialFailureAndFinishesOnRetry(t *testing.T) {
+	authorization, directory := loadTestAuthorization(t)
+	store, fly, sprites := populatedCleanupState(t, authorization, directory)
+	machine, _ := resourceByKind(store.Snapshot(), ResourceFlyMachine)
+	runtime, _ := resourceByKind(store.Snapshot(), ResourceSprite)
+	if err := store.RecordBootstrapIntent(BootstrapState{
+		MachineID: machine.ID, RuntimeName: runtime.Name, DeviceID: "device_cleanup",
+		CredentialSHA256: strings.Repeat("a", 64),
+	}, testAuthorizedAt.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	credentials := &fakeClientCredentialCleaner{err: errors.New("injected credential revocation failure")}
+	coordinator := CleanupCoordinator{
+		Credentials: credentials, Fly: fly, Sprites: sprites,
+		Now:  func() time.Time { return testAuthorizedAt.Add(3 * time.Hour) },
+		Wait: func(context.Context, time.Duration) error { return nil }, State: store,
+	}
+	if err := coordinator.Cleanup(context.Background(), authorization); err == nil {
+		t.Fatal("cleanup hid a credential revocation failure")
+	}
+	if credentials.calls != 1 || len(fly.apps) != 0 || len(fly.volumes) != 0 || len(fly.machines) != 0 || len(sprites.resources) != 0 {
+		t.Fatalf("cleanup progress after credential failure: calls=%d fly=%v/%v/%v sprites=%v",
+			credentials.calls, fly.apps, fly.volumes, fly.machines, sprites.resources)
+	}
+	if store.Snapshot().Phase != PhaseCleaning {
+		t.Fatalf("phase after credential failure = %s", store.Snapshot().Phase)
+	}
+	coordinator.Credentials = nil
+	if err := coordinator.Cleanup(context.Background(), authorization); err != nil {
+		t.Fatal(err)
+	}
+	if store.Snapshot().Phase != PhaseClean {
+		t.Fatalf("cleanup retry phase = %s", store.Snapshot().Phase)
+	}
+}
+
 func TestCleanupRemovesSpriteBeforeFlyInventoryFailure(t *testing.T) {
 	authorization, directory := loadTestAuthorization(t)
 	store, fly, sprites := populatedCleanupState(t, authorization, directory)
@@ -479,6 +515,16 @@ type fakeFly struct {
 	createMachineCalls int
 	lastMachineSpec    MachineSpec
 	destroyOrder       []string
+}
+
+type fakeClientCredentialCleaner struct {
+	err   error
+	calls int
+}
+
+func (cleaner *fakeClientCredentialCleaner) CleanupCredentials(context.Context, Authorization) error {
+	cleaner.calls++
+	return cleaner.err
 }
 
 type fakeFlyAppPreparer struct {

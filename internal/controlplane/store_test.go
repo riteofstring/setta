@@ -146,6 +146,9 @@ func TestStoreAuthorizationPushInvalidationAndDurableRateLimit(t *testing.T) {
 	if err := store.RevokeDevice(ctx, created.Device.ID); err != nil {
 		t.Fatalf("RevokeDevice: %v", err)
 	}
+	if err := store.RevokeDevice(ctx, created.Device.ID); err != nil {
+		t.Fatalf("idempotent RevokeDevice: %v", err)
+	}
 	requireClosed(t, resumed.Invalidated, "device revocation")
 	requireAuthorizationOutcome(t, store, created.Token, runtimeaccess.AuthorizationRevoked)
 }

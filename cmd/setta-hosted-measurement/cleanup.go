@@ -49,13 +49,23 @@ func runCleanup(
 		fmt.Fprintf(stderr, "open hosted measurement cleanup state: %v\n", err)
 		return 1
 	}
-	fly, sprites, err := cleanupProviders(flags, authorization, store.Snapshot())
+	state := store.Snapshot()
+	fly, sprites, err := cleanupProviders(flags, authorization, state)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
+	var credentials hostedmeasurement.ClientCredentialCleaner
+	if hostedmeasurement.StateRequiresClientCredentialCleanup(state) {
+		executor, ok := fly.(hostedmeasurement.HostedFlyMachineExecutor)
+		if !ok {
+			fmt.Fprintln(stderr, "hosted measurement cleanup Fly provider cannot execute credential revocation")
+			return 1
+		}
+		credentials = hostedmeasurement.HostedClientCredentialCleaner{Fly: executor, State: store}
+	}
 	coordinator := hostedmeasurement.CleanupCoordinator{
-		Fly: fly, Sprites: sprites, Now: now, Wait: waitForCleanupInventory, State: store,
+		Credentials: credentials, Fly: fly, Sprites: sprites, Now: now, Wait: waitForCleanupInventory, State: store,
 	}
 	if err := coordinator.Cleanup(ctx, authorization); err != nil {
 		fmt.Fprintf(stderr, "hosted measurement cleanup failed: %v\n", err)

@@ -18,21 +18,54 @@ type SpriteProvider interface {
 	Destroy(context.Context, string, string) error
 }
 
-type CleanupCoordinator struct {
-	Fly     FlyProvider
-	Sprites SpriteProvider
-	Now     func() time.Time
-	Wait    func(context.Context, time.Duration) error
-	State   *StateStore
+type ClientCredentialCleaner interface {
+	CleanupCredentials(context.Context, Authorization) error
 }
 
-func (coordinator CleanupCoordinator) Cleanup(ctx context.Context, authorization Authorization) error {
+type CleanupCoordinator struct {
+	Credentials ClientCredentialCleaner
+	Fly         FlyProvider
+	Sprites     SpriteProvider
+	Now         func() time.Time
+	Wait        func(context.Context, time.Duration) error
+	State       *StateStore
+}
+
+func StateRequiresClientCredentialCleanup(state State) bool {
+	machine, hasMachine := resourceByKind(state, ResourceFlyMachine)
+	return state.Bootstrap != nil && hasMachine && machine.AbsenceConfirmedAt == ""
+}
+
+func (coordinator CleanupCoordinator) Cleanup(
+	ctx context.Context,
+	authorization Authorization,
+) (returnErr error) {
 	if err := coordinator.validate(); err != nil {
 		return err
 	}
 	if err := coordinator.State.SetPhase(PhaseCleaning, coordinator.Now()); err != nil {
 		return err
 	}
+	var credentialErr error
+	if coordinator.Credentials != nil {
+		credentialErr = coordinator.Credentials.CleanupCredentials(ctx, authorization)
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, credentialErr)
+	}()
+	if err := coordinator.cleanupProviderResources(ctx, authorization); err != nil {
+		return err
+	}
+	if credentialErr != nil {
+		return nil
+	}
+	return coordinator.State.SetPhase(PhaseClean, coordinator.Now())
+}
+
+func (coordinator CleanupCoordinator) cleanupProviderResources(
+	ctx context.Context,
+	authorization Authorization,
+) error {
 	if coordinator.Sprites != nil {
 		if err := coordinator.reconcileSpriteIntent(ctx, authorization); err != nil {
 			return err
@@ -51,7 +84,7 @@ func (coordinator CleanupCoordinator) Cleanup(ctx context.Context, authorization
 			return coordinator.failCleanup(kind, err)
 		}
 	}
-	return coordinator.State.SetPhase(PhaseClean, coordinator.Now())
+	return nil
 }
 
 func (coordinator CleanupCoordinator) validate() error {
@@ -64,6 +97,9 @@ func (coordinator CleanupCoordinator) validate() error {
 	}
 	if stateHasAnyKind(state, ResourceSprite) && coordinator.Sprites == nil {
 		return errors.New("hosted measurement cleanup has Sprite state but no Sprites provider")
+	}
+	if StateRequiresClientCredentialCleanup(state) && coordinator.Credentials == nil {
+		return errors.New("hosted measurement cleanup has live bootstrap state but no credential cleaner")
 	}
 	return nil
 }

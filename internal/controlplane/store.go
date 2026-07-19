@@ -418,7 +418,15 @@ UPDATE devices SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL
 		return fmt.Errorf("read revoked device count: %w", err)
 	}
 	if rows == 0 {
-		return ErrNotFound
+		var existingID string
+		err := store.db.QueryRowContext(ctx, `SELECT id FROM devices WHERE id = ?`, deviceID).Scan(&existingID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("confirm control-plane device revocation: %w", err)
+		}
+		return nil
 	}
 	store.invalidateDeviceLocked(deviceID)
 	return nil
