@@ -59,13 +59,14 @@ type NarratorActiveSubagent struct {
 }
 
 type NarratorCurrentTurnProjection struct {
-	Turn             *ConversationTurn          `json:"turn"`
-	AcceptedSteering []NarratorAcceptedSteering `json:"acceptedSteering"`
-	Plan             *NarratorCurrentPlan       `json:"plan"`
-	ActiveActivities []NarratorActiveActivity   `json:"activeActivities"`
-	PendingApprovals []NarratorPendingApproval  `json:"pendingApprovals"`
-	ActiveSubagents  []NarratorActiveSubagent   `json:"activeSubagents"`
-	Artifacts        []Artifact                 `json:"artifacts"`
+	Turn                   *ConversationTurn                 `json:"turn"`
+	AcceptedSteering       []NarratorAcceptedSteering        `json:"acceptedSteering"`
+	LatestAssistantMessage *NarratorSemanticAssistantMessage `json:"latestAssistantMessage"`
+	Plan                   *NarratorCurrentPlan              `json:"plan"`
+	ActiveActivities       []NarratorActiveActivity          `json:"activeActivities"`
+	PendingApprovals       []NarratorPendingApproval         `json:"pendingApprovals"`
+	ActiveSubagents        []NarratorActiveSubagent          `json:"activeSubagents"`
+	Artifacts              []Artifact                        `json:"artifacts"`
 }
 
 type NarratorTrajectoryWindow struct {

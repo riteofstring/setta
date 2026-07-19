@@ -64,11 +64,12 @@ type ConversationIdentity struct {
 }
 
 type CurrentInstructions struct {
-	TurnID           string                                  `json:"turnId"`
-	TurnStatus       conversation.TurnStatus                 `json:"turnStatus"`
-	Objective        conversation.AuthoredInput              `json:"objective"`
-	AcceptedSteering []conversation.NarratorAcceptedSteering `json:"acceptedSteering"`
-	Authority        ContextAuthority                        `json:"authority"`
+	TurnID                 string                                         `json:"turnId"`
+	TurnStatus             conversation.TurnStatus                        `json:"turnStatus"`
+	Objective              conversation.AuthoredInput                     `json:"objective"`
+	AcceptedSteering       []conversation.NarratorAcceptedSteering        `json:"acceptedSteering"`
+	LatestAssistantMessage *conversation.NarratorSemanticAssistantMessage `json:"latestAssistantMessage"`
+	Authority              ContextAuthority                               `json:"authority"`
 }
 
 type AuthoritativeContext struct {

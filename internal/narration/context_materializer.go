@@ -518,11 +518,12 @@ func authoritativeContext(source conversation.NarratorContextSource) Authoritati
 	var instructions *CurrentInstructions
 	if current.Turn != nil {
 		instructions = &CurrentInstructions{
-			TurnID:           current.Turn.ID,
-			TurnStatus:       current.Turn.Status,
-			Objective:        current.Turn.AuthoredInput,
-			AcceptedSteering: append([]conversation.NarratorAcceptedSteering{}, current.AcceptedSteering...),
-			Authority:        ContextAuthorityCurrentInputs,
+			TurnID:                 current.Turn.ID,
+			TurnStatus:             current.Turn.Status,
+			Objective:              current.Turn.AuthoredInput,
+			AcceptedSteering:       append([]conversation.NarratorAcceptedSteering{}, current.AcceptedSteering...),
+			LatestAssistantMessage: cloneSemanticAssistantMessage(current.LatestAssistantMessage),
+			Authority:              ContextAuthorityCurrentInputs,
 		}
 	}
 	return AuthoritativeContext{
@@ -543,6 +544,16 @@ func authoritativeContext(source conversation.NarratorContextSource) Authoritati
 		Artifacts:           append([]conversation.Artifact{}, current.Artifacts...),
 		CurrentFocus:        source.NarratorState.CurrentFocus,
 	}
+}
+
+func cloneSemanticAssistantMessage(
+	message *conversation.NarratorSemanticAssistantMessage,
+) *conversation.NarratorSemanticAssistantMessage {
+	if message == nil {
+		return nil
+	}
+	copy := *message
+	return &copy
 }
 
 func historicalCheckpoint(state conversation.NarratorState) *HistoricalCheckpoint {

@@ -301,6 +301,10 @@ func TestContextMaterializerBuildsTerminalProjectionWithoutCheckpointCatchUp(t *
 	if bundle.RequestedChannel != ProjectionChannelTerminal {
 		t.Fatalf("terminal channel = %s", bundle.RequestedChannel)
 	}
+	if got := bundle.Authoritative.CurrentInstructions.LatestAssistantMessage; got == nil ||
+		got.Text != "The final assistant message is available without raw trajectory." {
+		t.Fatalf("terminal latest assistant message = %+v", got)
+	}
 	assertSequenceRange(t, bundle.EvaluationRange, 4, 9)
 	if got := semanticSequences(bundle.SemanticEvents); !reflect.DeepEqual(got, []int{9}) {
 		t.Fatalf("terminal semantic events = %v", got)
@@ -632,6 +636,10 @@ func (source *fakeNarratorContextSource) ReadNarratorContextSource(
 		CurrentTurn: conversation.NarratorCurrentTurnProjection{
 			Turn:             &source.turn,
 			AcceptedSteering: append([]conversation.NarratorAcceptedSteering{}, source.steering...),
+			LatestAssistantMessage: &conversation.NarratorSemanticAssistantMessage{
+				ProviderItemID: "fake-context-message",
+				Text:           "The final assistant message is available without raw trajectory.",
+			},
 			ActiveActivities: []conversation.NarratorActiveActivity{},
 			PendingApprovals: []conversation.NarratorPendingApproval{},
 			ActiveSubagents:  []conversation.NarratorActiveSubagent{},

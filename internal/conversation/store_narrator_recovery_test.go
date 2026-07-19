@@ -47,7 +47,7 @@ func TestNarratorInvocationStartMarksRunningAndTargetsTerminalRecovery(t *testin
 	}
 	if target := targets[0]; target.ConversationID != seed.conversationID ||
 		target.TurnID != seed.turnID ||
-		target.TerminalSequence != 11 {
+		target.TerminalSequence != narratorTerminalSourceSequence {
 		t.Fatalf("recovery target = %+v", target)
 	}
 }
@@ -92,7 +92,7 @@ func TestNarratorTerminalRecoveryIncludesObservedTerminalFinalization(t *testing
 	if err != nil {
 		t.Fatalf("ReadNarratorState: %v", err)
 	}
-	caughtUp := markNarratorOutputStateCaughtUp(t, store, seed.conversationID, state, 11)
+	caughtUp := markNarratorOutputStateCaughtUp(t, store, seed.conversationID, state, narratorTerminalSourceSequence)
 	if _, err := store.CommitNarratorInvocationStarted(context.Background(), NarratorInvocationStartedCommit{
 		ConversationID:   seed.conversationID,
 		Expected:         narratorExpectation(caughtUp),
@@ -111,7 +111,7 @@ func TestNarratorTerminalRecoveryIncludesObservedTerminalFinalization(t *testing
 	}
 	if target := targets[0]; target.ConversationID != seed.conversationID ||
 		target.TurnID != seed.turnID ||
-		target.TerminalSequence != 11 {
+		target.TerminalSequence != narratorTerminalSourceSequence {
 		t.Fatalf("observed terminal recovery target = %+v", target)
 	}
 }

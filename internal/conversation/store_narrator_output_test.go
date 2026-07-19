@@ -12,6 +12,8 @@ const (
 	narratorStatusTime               = "2026-07-11T20:03:00Z"
 	narratorTerminalTime             = "2026-07-11T20:04:00Z"
 	narratorTerminalFinalizationTime = "2026-07-11T20:05:00Z"
+	narratorWorkingThroughSequence   = 11
+	narratorTerminalSourceSequence   = 12
 )
 
 func TestNarratorOutputCommitsProjectionStatusAndTerminalChannelsAtomically(t *testing.T) {
@@ -73,7 +75,7 @@ func TestTerminalNarratorProjectionCanFinalizeAlreadyObservedBoundary(t *testing
 		t.Fatalf("commit working narrator projection: %v", err)
 	}
 	appendTerminalNarratorSource(t, store, seed)
-	caughtUp := markNarratorOutputStateCaughtUp(t, store, seed.conversationID, projection.State, 11)
+	caughtUp := markNarratorOutputStateCaughtUp(t, store, seed.conversationID, projection.State, narratorTerminalSourceSequence)
 
 	finalization, err := store.CommitNarratorProjection(
 		context.Background(),
@@ -82,14 +84,14 @@ func TestTerminalNarratorProjectionCanFinalizeAlreadyObservedBoundary(t *testing
 	if err != nil {
 		t.Fatalf("commit terminal narrator finalization: %v", err)
 	}
-	if finalization.State.ObservedThroughSequence != 11 ||
-		finalization.State.CheckpointThroughSequence != 11 {
+	if finalization.State.ObservedThroughSequence != narratorTerminalSourceSequence ||
+		finalization.State.CheckpointThroughSequence != narratorTerminalSourceSequence {
 		t.Fatalf("terminal finalization state = %+v", finalization.State)
 	}
 	if len(finalization.Events) != 1 ||
 		finalization.Events[0].Kind != NarrationEventKindFinalSummary ||
-		finalization.Events[0].SourceSequenceStart != 11 ||
-		finalization.Events[0].SourceSequenceEnd != 11 {
+		finalization.Events[0].SourceSequenceStart != narratorTerminalSourceSequence ||
+		finalization.Events[0].SourceSequenceEnd != narratorTerminalSourceSequence {
 		t.Fatalf("terminal finalization events = %+v", finalization.Events)
 	}
 
@@ -248,7 +250,7 @@ DELETE FROM trajectory_events WHERE conversation_id = ? AND sequence = 7
 		if !IsStateConflict(err) {
 			t.Fatalf("stale projection error = %T %v, want StateConflictError", err, err)
 		}
-		assertNarratorCursorAndEventCount(t, store, seed.conversationID, 10, 3)
+		assertNarratorCursorAndEventCount(t, store, seed.conversationID, narratorWorkingThroughSequence, 3)
 	})
 }
 
@@ -257,7 +259,7 @@ func TestTerminalNarratorProjectionRequiresTerminalTurnAndSourceEvent(t *testing
 	seed := seedNarratorContext(t, store)
 	request := narratorWorkingCommit(seed)
 	request.Trigger = NarrationTriggerTurnTerminal
-	request.ObservedThroughSequence = 10
+	request.ObservedThroughSequence = narratorWorkingThroughSequence
 	request.FinalSummary = &NarrationTextCommit{
 		NarrationEventID: "premature-final",
 		CommittedEventID: "premature-final-publication",
@@ -296,7 +298,7 @@ func narratorWorkingCommit(seed narratorContextSeed) NarratorProjectionCommit {
 			CurrentFocusRevision:      1,
 			UpdatedAt:                 testTimeStarted,
 		},
-		ObservedThroughSequence: 10,
+		ObservedThroughSequence: narratorWorkingThroughSequence,
 		Milestones: []NarrationTextCommit{
 			{
 				NarrationEventID: "projection-milestone-1",
@@ -335,8 +337,8 @@ func narratorStatusCommit(seed narratorContextSeed, state NarratorState) Narrato
 		ConversationID:        seed.conversationID,
 		TurnID:                stringPointer(seed.turnID),
 		Expected:              narratorExpectation(state),
-		SourceSequenceStart:   8,
-		SourceThroughSequence: 10,
+		SourceSequenceStart:   9,
+		SourceThroughSequence: narratorWorkingThroughSequence,
 		Question:              "What is happening now?",
 		Reply: NarrationTextCommit{
 			NarrationEventID: "status-reply",
@@ -354,7 +356,7 @@ func narratorTerminalCommit(seed narratorContextSeed, state NarratorState) Narra
 		ConversationID:          seed.conversationID,
 		TurnID:                  seed.turnID,
 		Expected:                narratorExpectation(state),
-		ObservedThroughSequence: 11,
+		ObservedThroughSequence: narratorTerminalSourceSequence,
 		Milestones: []NarrationTextCommit{
 			{
 				NarrationEventID: "terminal-milestone",
@@ -440,7 +442,7 @@ func appendTerminalNarratorSource(t *testing.T, store *Store, seed narratorConte
 	turn.ResolvedInvocation = invocationPointer(
 		terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeSucceeded, narratorStatusTime, nil),
 	)
-	terminal := contextTrajectoryEvent(seed.conversationID, seed.turnID, 11, TrajectoryEventTurnCompleted)
+	terminal := contextTrajectoryEvent(seed.conversationID, seed.turnID, narratorTerminalSourceSequence, TrajectoryEventTurnCompleted)
 	terminal.EmittedAt = narratorStatusTime
 	terminal.Actor = TrajectoryActorProvider
 	terminal.TurnCompleted = &TrajectoryTurnCompleted{}
@@ -471,7 +473,7 @@ func appendMismatchedTerminalNarratorSource(t *testing.T, store *Store, seed nar
 	turn.ResolvedInvocation = invocationPointer(
 		terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeSucceeded, narratorStatusTime, nil),
 	)
-	terminal := contextTrajectoryEvent(seed.conversationID, seed.turnID, 11, TrajectoryEventTurnInterrupted)
+	terminal := contextTrajectoryEvent(seed.conversationID, seed.turnID, narratorTerminalSourceSequence, TrajectoryEventTurnInterrupted)
 	terminal.EmittedAt = narratorStatusTime
 	terminal.Actor = TrajectoryActorProvider
 	terminal.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionProviderInterrupted}
@@ -496,7 +498,7 @@ func appendMismatchedTerminalNarratorSource(t *testing.T, store *Store, seed nar
 
 func assertWorkingProjectionCommit(t *testing.T, result NarratorProjectionCommitResult) {
 	t.Helper()
-	if result.State.ObservedThroughSequence != 10 || result.State.CurrentFocusRevision != 1 ||
+	if result.State.ObservedThroughSequence != narratorWorkingThroughSequence || result.State.CurrentFocusRevision != 1 ||
 		result.State.CurrentFocus != "Materializing the authoritative narrator bundle." ||
 		result.State.TopicDescriptor != "Durable narrator context and checkpointing" ||
 		result.State.LastInvocationAt == nil || *result.State.LastInvocationAt != narratorProjectionTime {
@@ -509,7 +511,7 @@ func assertWorkingProjectionCommit(t *testing.T, result NarratorProjectionCommit
 		t.Fatalf("working narration events = %+v", result.Events)
 	}
 	for _, event := range result.Events {
-		if event.SourceSequenceStart != 7 || event.SourceSequenceEnd != 10 {
+		if event.SourceSequenceStart != 7 || event.SourceSequenceEnd != narratorWorkingThroughSequence {
 			t.Fatalf("working narration source range = %d..%d", event.SourceSequenceStart, event.SourceSequenceEnd)
 		}
 	}
@@ -529,14 +531,14 @@ func assertStatusCommitDoesNotAdvanceProjection(
 		t.Fatalf("status reply changed projection state:\nbefore = %+v\nafter = %+v", before, after)
 	}
 	if result.Event.Kind != NarrationEventKindStatusReply || result.Event.StatusReply == nil ||
-		result.Event.SourceSequenceStart != 8 || result.Event.SourceSequenceEnd != 10 {
+		result.Event.SourceSequenceStart != 9 || result.Event.SourceSequenceEnd != narratorWorkingThroughSequence {
 		t.Fatalf("status narration event = %+v", result.Event)
 	}
 }
 
 func assertTerminalProjectionCommit(t *testing.T, result NarratorProjectionCommitResult) {
 	t.Helper()
-	if result.State.ObservedThroughSequence != 11 || result.State.CurrentFocusRevision != 1 {
+	if result.State.ObservedThroughSequence != narratorTerminalSourceSequence || result.State.CurrentFocusRevision != 1 {
 		t.Fatalf("terminal narrator state = %+v", result.State)
 	}
 	if result.Conversation != nil {
@@ -547,7 +549,7 @@ func assertTerminalProjectionCommit(t *testing.T, result NarratorProjectionCommi
 		t.Fatalf("terminal narration events = %+v", result.Events)
 	}
 	for _, event := range result.Events {
-		if event.SourceSequenceStart != 11 || event.SourceSequenceEnd != 11 {
+		if event.SourceSequenceStart != narratorTerminalSourceSequence || event.SourceSequenceEnd != narratorTerminalSourceSequence {
 			t.Fatalf("terminal narration source range = %d..%d", event.SourceSequenceStart, event.SourceSequenceEnd)
 		}
 	}
@@ -659,8 +661,8 @@ func TestNarratorOutputCommitValidationRejectsCrossChannelShapes(t *testing.T) {
 		CurrentFocusSourceSequence: 1,
 		UpdatedAt:                  narratorProjectionTime,
 	})
-	status.SourceSequenceStart = 11
-	status.SourceThroughSequence = 10
+	status.SourceSequenceStart = narratorTerminalSourceSequence
+	status.SourceThroughSequence = narratorWorkingThroughSequence
 	if err := status.Validate(); err == nil {
 		t.Fatal("status reply accepted reversed source range")
 	}

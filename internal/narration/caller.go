@@ -568,7 +568,7 @@ func projectionInstructions(channel ProjectionChannel) string {
 		"Current objective, constraints, and accepted steering override historical checkpoint text.",
 		"Milestones are shown in the Now rail and read aloud when narrator voice is enabled; treat each milestone as an audible interruption.",
 		"Emit at most one milestone only when the user learned a new result, a blocker needs user action, or the work entered a materially different phase.",
-		"Use semanticEvents as the only event feed for this projection; do not infer progress from raw trajectory gaps or cursor numbers.",
+		"Use semanticEvents as the only event feed for working projections; do not infer progress from raw trajectory gaps or cursor numbers.",
 		"For working projections, prefer an empty milestone list for normal progress, repeated blocked states, waiting updates, partial output streaming, or when semanticEvents do not show a meaningful change.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
@@ -578,6 +578,7 @@ func projectionInstructions(channel ProjectionChannel) string {
 		lines = append(
 			lines,
 			"Return the terminal projection with exactly one finalSummary for this turn.",
+			"For terminal projections, use currentInstructions.latestAssistantMessage, artifacts, turn status, and semanticEvents as the terminal snapshot.",
 			"finalSummary is one short sentence summarizing the outcome. If an artifact contains the detailed result, mention the artifact without repeating its contents.",
 			"If the turn failed or was stopped, say so directly and include only the important caveat.",
 		)
