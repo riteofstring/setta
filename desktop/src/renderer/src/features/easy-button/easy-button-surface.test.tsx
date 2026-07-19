@@ -36,8 +36,7 @@ import {
 import { conversationControlAction } from "./easy-button-conversation-control";
 import { statusReplyPresentationTiming } from "./easy-button-narrator-status";
 
-const workspaceId = "workspace_topic";
-const timestamp = "2026-07-11T20:00:00Z";
+const [workspaceId, timestamp] = ["workspace_topic", "2026-07-11T20:00:00Z"] as const;
 
 describe("Easy Button topic conversation projection", () => {
   beforeEach(() => {
@@ -942,6 +941,7 @@ function archivedConversationCommands(): EasyButtonConversationCommands {
     discardFailedInput: vi.fn(),
     disposeSide: vi.fn(),
     error: null,
+    folderResourceRequest: null,
     input: "",
     pending: false,
     pendingAcceptedInput: null,

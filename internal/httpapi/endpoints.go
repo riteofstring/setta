@@ -66,6 +66,7 @@ var apiEndpoints = []endpoint{
 	post[SaveAppPaneLayoutRequest, applayout.AppPaneLayout]("SaveAppPaneLayout", "/app/panes/layout/save", handler.saveAppPaneLayout),
 	post[CreateTopicConversationRequest, conversation.ConversationSnapshot]("CreateTopicConversation", "/conversations/create", handler.createTopicConversation),
 	post[ArchiveTopicConversationRequest, conversation.ConversationSnapshot]("ArchiveTopicConversation", "/conversations/archive", handler.archiveTopicConversation),
+	post[BindTopicConversationFolderRequest, conversation.ConversationSnapshot]("BindTopicConversationFolder", "/conversations/resources/folder/bind", handler.bindTopicConversationFolder),
 	post[SendSideConversationTurnRequest, conversation.ConversationSnapshot]("SendSideConversationTurn", "/conversations/sides/turns/send", handler.sendSideConversationTurn),
 	post[DisposeSideConversationRequest, conversation.ConversationSnapshot]("DisposeSideConversation", "/conversations/sides/dispose", handler.disposeSideConversation),
 	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),

@@ -56,6 +56,31 @@ func (handler handler) archiveTopicConversation(response http.ResponseWriter, re
 	writeConversationSnapshot(response, snapshot)
 }
 
+func (handler handler) bindTopicConversationFolder(response http.ResponseWriter, request *http.Request) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload BindTopicConversationFolderRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_folder_bind_request", err.Error())
+		return
+	}
+	snapshot, err := service.BindFolderResource(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ConversationID,
+	)
+	if err != nil {
+		writeConversationError(response, "bind_topic_conversation_folder_failed", err)
+		return
+	}
+	writeConversationSnapshot(response, snapshot)
+}
+
 func (handler handler) sendSideConversationTurn(response http.ResponseWriter, request *http.Request) {
 	service := requireConversationService(response, handler.conversationService)
 	if service == nil {

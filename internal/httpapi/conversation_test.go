@@ -95,6 +95,7 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t.Fatalf("archive command = %q snapshot = %+v", service.command, archived.Conversation)
 	}
 
+	assertBindFolderConversationCommand(t, handler, service)
 	assertSideConversationCommands(t, handler, service)
 
 	postJSON[conversation.ConversationSnapshot](
@@ -162,6 +163,25 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		service.presentationSettings.NarratorSpeechEnabled ||
 		profile.ResolvedNarratorVoiceID == nil {
 		t.Fatalf("presentation command=%q settings=%+v profile=%+v", service.command, service.presentationSettings, profile)
+	}
+}
+
+func assertBindFolderConversationCommand(t *testing.T, handler http.Handler, service *httpTestConversationService) {
+	t.Helper()
+	bound := postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/resources/folder/bind",
+		BindTopicConversationFolderRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+		},
+		http.StatusOK,
+	)
+	if service.command != "bind_folder" ||
+		bound.Conversation.WorkspaceID == nil ||
+		*bound.Conversation.WorkspaceID != "workspace-api" {
+		t.Fatalf("bind folder command = %q snapshot = %+v", service.command, bound.Conversation)
 	}
 }
 
@@ -555,6 +575,18 @@ func (service *httpTestConversationService) ArchiveTopic(
 	snapshot := service.snapshot
 	archivedAt := httpConversationTestTime
 	snapshot.Conversation.ArchivedAt = &archivedAt
+	return snapshot, nil
+}
+
+func (service *httpTestConversationService) BindFolderResource(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("bind_folder", workspaceID, conversationID, "")
+	snapshot := service.snapshot
+	workspace := workspaceID
+	snapshot.Conversation.WorkspaceID = &workspace
 	return snapshot, nil
 }
 

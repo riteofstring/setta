@@ -114,6 +114,31 @@ func TestServiceCreatesFolderlessTopicAndRequiresFolderForTurns(t *testing.T) {
 		resourceRequired.ResourceKind != "folder" {
 		t.Fatalf("folderless turn error = %T %v, want folder ResourceRequiredError", err, err)
 	}
+
+	bound, err := service.BindFolderResource(ctx, workspaceID, created.Conversation.ID)
+	if err != nil {
+		t.Fatalf("BindFolderResource: %v", err)
+	}
+	if bound.Conversation.WorkspaceID == nil || *bound.Conversation.WorkspaceID != workspaceID {
+		t.Fatalf("bound conversation workspace = %+v, want %q", bound.Conversation.WorkspaceID, workspaceID)
+	}
+	reloadedBound, err := store.ReadSnapshot(ctx, workspaceID, created.Conversation.ID)
+	if err != nil {
+		t.Fatalf("workspace-scoped ReadSnapshot after bind: %v", err)
+	}
+	if reloadedBound.Conversation.WorkspaceID == nil || *reloadedBound.Conversation.WorkspaceID != workspaceID {
+		t.Fatalf("reloaded bound workspace = %+v, want %q", reloadedBound.Conversation.WorkspaceID, workspaceID)
+	}
+	page, err := service.ListNavigatorPage(ctx, workspaceID, "", nil, 10)
+	if err != nil {
+		t.Fatalf("ListNavigatorPage after bind: %v", err)
+	}
+	if len(page.Items) != 1 || page.Items[0].Conversation.ID != created.Conversation.ID {
+		t.Fatalf("navigator after bind = %+v, want bound conversation", page.Items)
+	}
+	if _, err := service.acceptTurn(ctx, bound, "continue with the selected folder", TurnDeliveryNormal, 0, "turn-bound"); err != nil {
+		t.Fatalf("bound acceptTurn: %v", err)
+	}
 }
 
 func createDormantPaletteTestTopics(

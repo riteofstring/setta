@@ -47,6 +47,7 @@ type ConversationService interface {
 	CreateTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	CreateTopicWithOptionalWorkspace(context.Context, *string, string) (conversation.ConversationSnapshot, error)
 	ArchiveTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
+	BindFolderResource(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SendSideConversationTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 	DisposeSideConversation(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 	StopTurn(context.Context, string, string) (conversation.ConversationSnapshot, error)

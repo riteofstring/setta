@@ -9,6 +9,7 @@ import type {
   AppPaneLayout,
   AppPaneLayoutReadResult,
   BackendHealth,
+  BindTopicConversationFolderRequest,
   CancelMasterInputRequest,
   CancelCodexLoginRequest,
   CodexAccountChangeEvent,
@@ -310,6 +311,7 @@ export interface SettaAPI {
   };
   conversations: {
     archive: (request: ArchiveTopicConversationRequest) => Promise<ConversationSnapshot>;
+    bindFolder: (request: BindTopicConversationFolderRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     discardInput?: (
       request: DiscardConversationInputRequest,

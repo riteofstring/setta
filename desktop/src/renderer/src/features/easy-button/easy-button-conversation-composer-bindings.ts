@@ -25,7 +25,7 @@ export function conversationComposerBindings(
     return unavailableConversationComposerBindings;
   }
   const bindings: ConversationComposerBindings = {
-    available: commands.available && !commands.pending,
+    available: (commands.available || commands.folderResourceRequest !== null) && !commands.pending,
     canSubmit: commands.canSubmit,
     input: commands.input,
     onInput: commands.setInput,

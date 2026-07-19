@@ -1,4 +1,4 @@
-import { Check, Sparkles, Square, X } from "lucide-react";
+import { Check, FolderOpen, Sparkles, Square, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import {
@@ -140,6 +140,8 @@ export function EasyButtonSurface({
     workspaceId: workspaceId ?? null,
   });
   const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
+  const folderResourceRequired = !workspaceId;
+  const readOnly = !folderResourceRequired && !workspaceAvailable;
   const parentTitle = useConversationNavigatorStore((state) => {
     const parentConversationId = projection?.snapshot?.branch?.parentConversationId;
     if (!workspaceId || !parentConversationId) {
@@ -156,7 +158,7 @@ export function EasyButtonSurface({
   return (
     <EasyButtonProjectionSurface
       commands={commands}
-      readOnly={!workspaceAvailable}
+      readOnly={readOnly}
       speech={speech}
       view={view}
     />
@@ -174,18 +176,25 @@ function composerPlaceholder(
   view: EasyButtonProjectionView,
   commands: EasyButtonConversationCommands | undefined,
 ): string {
+  if (commands?.folderResourceRequest) {
+    return "Ask this topic agent...";
+  }
   if (!commands?.available) {
-    if (view.archived) {
-      return "Conversation archived";
-    }
-    return view.projectionStatus === "loading" || view.projectionStatus === "resyncing"
-      ? "Loading conversation…"
-      : "Conversation commands are unavailable";
+    return unavailableComposerPlaceholder(view);
   }
   if (commands.clarificationQuestion) {
     return "Answer the narrator’s clarification…";
   }
   return view.viewState === "working" ? "Send another request…" : "Ask this topic agent…";
+}
+
+function unavailableComposerPlaceholder(view: EasyButtonProjectionView): string {
+  if (view.archived) {
+    return "Conversation archived";
+  }
+  return view.projectionStatus === "loading" || view.projectionStatus === "resyncing"
+    ? "Loading conversation…"
+    : "Conversation commands are unavailable";
 }
 
 export function EasyButtonProjectionSurface({
@@ -354,29 +363,19 @@ function ConversationActionSlot({
   commands: EasyButtonConversationCommands | undefined;
   view: EasyButtonProjectionView;
 }) {
-  if (!view.archived && commands?.routingFailure) {
+  if (view.archived) {
+    return <EmptyActionSlot />;
+  }
+  if (commands?.folderResourceRequest) {
     return (
-      <div className="easy-button-action-slot easy-button-routing-recovery">
-        {commands.routingFailure.retryable ? (
-          <button
-            data-testid="easy-button-input-retry"
-            disabled={commands.pending}
-            onClick={commands.retryFailedInput}
-            type="button"
-          >
-            Retry routing
-          </button>
-        ) : null}
-        <button
-          data-testid="easy-button-input-discard"
-          disabled={commands.pending}
-          onClick={commands.discardFailedInput}
-          type="button"
-        >
-          Discard request
-        </button>
-      </div>
+      <FolderResourceActionSlot
+        chooseFolder={commands.folderResourceRequest.chooseFolder}
+        pending={commands.pending}
+      />
     );
+  }
+  if (commands?.routingFailure) {
+    return <RoutingRecoveryActionSlot commands={commands} />;
   }
   if (view.pendingApproval && commands) {
     return (
@@ -397,6 +396,57 @@ function ConversationActionSlot({
       </div>
     );
   }
+  return <EmptyActionSlot />;
+}
+
+function FolderResourceActionSlot({
+  chooseFolder,
+  pending,
+}: {
+  chooseFolder: () => void;
+  pending: boolean;
+}) {
+  return (
+    <div className="easy-button-action-slot easy-button-resource-request">
+      <button
+        data-testid="easy-button-folder-resource"
+        disabled={pending}
+        onClick={chooseFolder}
+        type="button"
+      >
+        <FolderOpen aria-hidden="true" className="h-3.5 w-3.5" />
+        Choose folder
+      </button>
+    </div>
+  );
+}
+
+function RoutingRecoveryActionSlot({ commands }: { commands: EasyButtonConversationCommands }) {
+  return (
+    <div className="easy-button-action-slot easy-button-routing-recovery">
+      {commands.routingFailure?.retryable ? (
+        <button
+          data-testid="easy-button-input-retry"
+          disabled={commands.pending}
+          onClick={commands.retryFailedInput}
+          type="button"
+        >
+          Retry routing
+        </button>
+      ) : null}
+      <button
+        data-testid="easy-button-input-discard"
+        disabled={commands.pending}
+        onClick={commands.discardFailedInput}
+        type="button"
+      >
+        Discard request
+      </button>
+    </div>
+  );
+}
+
+function EmptyActionSlot() {
   return <div className="easy-button-action-slot" />;
 }
 

@@ -72,6 +72,7 @@ const api: SettaAPI = {
   },
   conversations: {
     archive: (request) => invoke("conversationArchiveTopic", request),
+    bindFolder: (request) => invoke("conversationBindFolder", request),
     disposeSide: (request) => invoke("conversationDisposeSide", request),
     discardInput: (request) => invoke("conversationDiscardInput", request),
     create: (request) => invoke("conversationCreateTopic", request),

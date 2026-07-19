@@ -5,6 +5,7 @@ import { useAppearanceStore } from "../stores/appearance-store";
 import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
 import { useConversationPaneRuntime } from "./conversation-pane-runtime";
+import { useConversationPaneFolderBindingRequests } from "./conversation-pane-resource-binding";
 import {
   finishOverviewPanSession,
   beginOverviewPanSession,
@@ -348,6 +349,7 @@ function WorkspaceLayoutRuntimeArea({
     stageViewport,
     workspaceId,
   });
+  useConversationPaneFolderBindingRequests({ runLayoutAction, store: runtime.store });
   useEffect(() => {
     const root = rootRef.current;
     const stage = stageRef.current;
@@ -451,9 +453,7 @@ function WorkspaceLayoutRuntimeArea({
         clearOverviewInsertPreview();
         return;
       }
-      // Resolve the add-slot against frozen frames while the ghost is visible, so
-      // the hover target is stable even as the pointer moves within the empty slot.
-      // The ghost is an overlay only: panes do not reflow until the user clicks.
+      // Keep add-slot hover targets stable by resolving previews against frozen frames.
       const frozen = overviewGhostTargetRef.current ? overviewInsertPreviewFramesRef.current : null;
       const frames = frozen ?? captureOverviewPaneFrames(stage);
       const target = overviewGhostTargetFromFrames(frames, event.clientX, event.clientY);

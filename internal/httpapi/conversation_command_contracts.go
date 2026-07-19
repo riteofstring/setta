@@ -14,6 +14,11 @@ type ArchiveTopicConversationRequest struct {
 	ConversationID string `json:"conversationId"`
 }
 
+type BindTopicConversationFolderRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
 type SendSideConversationTurnRequest struct {
 	WorkspaceID          string `json:"workspaceId"`
 	ParentConversationID string `json:"parentConversationId"`

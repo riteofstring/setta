@@ -382,7 +382,7 @@ route audit remains internal state.
 
 ### 5. Make Conversation Context Explicit
 
-**Status:** In progress.
+**Status:** Completed.
 
 Completed repository work:
 
@@ -401,11 +401,16 @@ Completed repository work:
   missing workspace ownership as an internal failure.
 - Kept folderless conversations out of workspace-scoped topic indexes, navigator pages, legacy pane
   binding projection, and narration observers until a folder resource exists.
+- Added a backend folder-resource binding command that attaches a folderless conversation to the
+  selected workspace, republishes the conversation snapshot, and makes the bound conversation available
+  through workspace-scoped reads, navigator pages, and subsequent topic turns.
+- Added Electron IPC/preload and renderer Easy Button handling for folder resource requests: choose a
+  local folder, bind the conversation, persist the pane's folder resource binding, reload workspace
+  session state, and submit the pending text input against the newly bound workspace.
 
 Remaining repository work:
 
-- Surface folder resource requests through ephemeral UI, bind the selected folder resource to the
-  folderless conversation and pane, and retry or continue the folder-required work after binding.
+- None.
 
 Change conversation pane config and conversation creation so resource bindings are explicit and
 optional.
