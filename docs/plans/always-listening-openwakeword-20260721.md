@@ -348,16 +348,25 @@ false wakes, clipped first words, or stuck capture.
 
 ### Phase 5: Production Verification
 
-- Add deterministic Electron workflow coverage using temporary app data and fake
+- [x] Add deterministic Electron workflow coverage using temporary app data and fake
   wake/audio fixtures.
-- Cover app restart with always listening enabled.
-- Cover Settings toggle on/off.
-- Cover local voice missing model -> download -> listener becomes armable.
-- Cover manual mic capture while listener is armed.
-- Cover playback suppression.
-- Cover helper crash and recovery.
-- Run the existing local macOS voice workflow and the topic-conversation voice
+- [x] Cover app restart with always listening enabled.
+- [x] Cover Settings toggle on/off.
+- [ ] Cover local voice missing model -> download -> listener becomes armable.
+- [x] Cover manual mic capture while listener is armed.
+- [x] Cover playback suppression.
+- [x] Cover helper crash and recovery.
+- [ ] Run the existing local macOS voice workflow and the topic-conversation voice
   workflow gates.
+
+Implementation note (2026-07-21): the local macOS voice Electron workflow now
+uses temporary app data and the fake helper through the production
+Electron/main/preload/renderer/store path to cover wake submission, Settings
+toggle off/on, manual-capture pause/resume, playback pause/resume, app restart
+with always listening still enabled, and real helper-exit recovery. The
+missing-model download recovery path remains open because the production
+download still targets the real default Whisper model and no test-local
+Electron download fixture has been added in this batch.
 
 Exit criteria: production Electron/main/preload/renderer/HTTP/store paths are
 covered without real microphone timing or mutating real user state.

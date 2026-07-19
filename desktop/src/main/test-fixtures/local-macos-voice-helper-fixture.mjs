@@ -4,6 +4,13 @@ const mode = process.argv[2] ?? "ok";
 const sessions = new Map();
 const synthesisOperations = new Map();
 const listenerPauseReasons = new Set();
+const scriptedListenerEvents = parseScriptedListenerEvents(
+  process.env.SETTA_LOCAL_MACOS_VOICE_HELPER_SCRIPTED_LISTENER_EVENTS,
+);
+const listenerExitAfterStartDelayMs = parseNonNegativeInteger(
+  process.env.SETTA_LOCAL_MACOS_VOICE_HELPER_EXIT_AFTER_START_MS,
+);
+let scriptedListenerEventsEmitted = false;
 let microphoneOwner = null;
 let listenerActive = false;
 const localVoiceIds = [
@@ -156,14 +163,9 @@ function handleStartListener(command) {
   respond(command.id, { status: "started" });
   emitListenerEvent({ type: "listener_armed" });
   if (mode === "listener_exit_after_start") {
-    setTimeout(() => process.exit(42), 0);
+    setTimeout(() => process.exit(42), listenerExitAfterStartDelayMs);
   }
-  if (mode === "scripted_listener") {
-    emitListenerEvent({ score: 0.74, timeMs: 960, type: "wake_detected" });
-    emitListenerEvent({ timeMs: 1_140, type: "message_speech_started" });
-    emitListenerEvent({ timeMs: 2_220, type: "candidate_endpoint_detected" });
-    emitListenerEvent({ transcript: "open the release checklist", type: "utterance_finalized" });
-  }
+  emitScriptedListenerEvents();
 }
 
 function handleStopListener(command) {
@@ -306,4 +308,46 @@ function releaseMicrophoneOwner(type, sessionId) {
 
 function emitListenerEvent(event) {
   process.stdout.write(JSON.stringify({ event, type: "listener_event" }) + "\n");
+}
+
+function emitScriptedListenerEvents() {
+  if (scriptedListenerEventsEmitted) {
+    return;
+  }
+  const events =
+    scriptedListenerEvents ??
+    (mode === "scripted_listener"
+      ? [
+          { score: 0.74, timeMs: 960, type: "wake_detected" },
+          { timeMs: 1_140, type: "message_speech_started" },
+          { timeMs: 2_220, type: "candidate_endpoint_detected" },
+          { transcript: "open the release checklist", type: "utterance_finalized" },
+        ]
+      : []);
+  scriptedListenerEventsEmitted = true;
+  for (const event of events) {
+    emitListenerEvent(event);
+  }
+}
+
+function parseScriptedListenerEvents(raw) {
+  if (!raw) {
+    return null;
+  }
+  const events = JSON.parse(raw);
+  if (!Array.isArray(events)) {
+    throw new Error("scripted listener events must be an array");
+  }
+  return events;
+}
+
+function parseNonNegativeInteger(raw) {
+  if (!raw) {
+    return 0;
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error("listener exit delay must be a non-negative integer");
+  }
+  return value;
 }
