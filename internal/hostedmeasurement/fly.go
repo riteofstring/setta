@@ -63,10 +63,16 @@ type FlyProvider interface {
 	DestroyMachine(context.Context, string, string) error
 }
 
+type FlyAppPreparer interface {
+	StageSecrets(context.Context, string) error
+	EnsureSharedIPv4(context.Context, string) error
+}
+
 type Provisioner struct {
-	Fly   FlyProvider
-	Now   func() time.Time
-	State *StateStore
+	Fly      FlyProvider
+	Preparer FlyAppPreparer
+	Now      func() time.Time
+	State    *StateStore
 }
 
 func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization Authorization, imageReference string) error {
@@ -79,6 +85,14 @@ func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization A
 	if err := provisioner.State.SetPhase(PhaseDeploying, provisioner.Now()); err != nil {
 		return err
 	}
+	return provisioner.provisionFlyResources(ctx, authorization, imageReference)
+}
+
+func (provisioner Provisioner) provisionFlyResources(
+	ctx context.Context,
+	authorization Authorization,
+	imageReference string,
+) error {
 	app, err := provisioner.ensureApp(ctx, authorization)
 	if err != nil {
 		return err
@@ -93,13 +107,32 @@ func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization A
 	if err := provisioner.checkCreateClock(authorization); err != nil {
 		return err
 	}
+	if err := provisioner.prepareApp(ctx, authorization, app.Name); err != nil {
+		return err
+	}
 	_, err = provisioner.ensureMachine(ctx, authorization, imageReference, app, volume)
 	return err
 }
 
+func (provisioner Provisioner) prepareApp(ctx context.Context, authorization Authorization, appName string) error {
+	if err := provisioner.Preparer.StageSecrets(ctx, appName); err != nil {
+		return fmt.Errorf("stage Fly app secrets before Machine create: %w", err)
+	}
+	if err := provisioner.checkCreateClock(authorization); err != nil {
+		return err
+	}
+	if err := provisioner.Preparer.EnsureSharedIPv4(ctx, appName); err != nil {
+		return fmt.Errorf("prepare Fly shared ingress before Machine create: %w", err)
+	}
+	if err := provisioner.checkCreateClock(authorization); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (provisioner Provisioner) validate(imageReference string) error {
-	if provisioner.Fly == nil || provisioner.State == nil || provisioner.Now == nil {
-		return errors.New("hosted measurement provisioner requires Fly, clock, and durable state")
+	if provisioner.Fly == nil || provisioner.Preparer == nil || provisioner.State == nil || provisioner.Now == nil {
+		return errors.New("hosted measurement provisioner requires Fly, app preparation, clock, and durable state")
 	}
 	if !flyImagePattern.MatchString(imageReference) {
 		return errors.New("hosted measurement requires a registry image pinned by digest")

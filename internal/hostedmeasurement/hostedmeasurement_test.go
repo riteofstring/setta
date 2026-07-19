@@ -200,7 +200,7 @@ func TestProvisionerAdoptsAmbiguousCreateAndResumesAfterFailure(t *testing.T) {
 	fly.appCreateAmbiguous = true
 	fly.machineCreateError = errors.New("injected machine failure")
 	now := testAuthorizedAt.Add(2 * time.Minute)
-	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
+	provisioner := Provisioner{Fly: fly, Preparer: &fakeFlyAppPreparer{}, Now: func() time.Time { return now }, State: store}
 	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
 		t.Fatal("ProvisionFly succeeded across machine failure")
 	}
@@ -258,12 +258,35 @@ func TestProvisionerDeadlineTransitionsToCleanupWithoutFurtherCreates(t *testing
 	fly := newFakeFly()
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	fly.afterCreateApp = func() { now = authorization.CleanupDeadline.Add(-10 * time.Minute) }
-	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
+	provisioner := Provisioner{Fly: fly, Preparer: &fakeFlyAppPreparer{}, Now: func() time.Time { return now }, State: store}
 	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
 		t.Fatal("ProvisionFly continued into the teardown reserve")
 	}
 	if store.Snapshot().Phase != PhaseCleaning || fly.createVolumeCalls != 0 {
 		t.Fatalf("deadline state = %s, volume creates = %d", store.Snapshot().Phase, fly.createVolumeCalls)
+	}
+}
+
+func TestProvisionerPreparesSecretsAndIngressBeforeMachineWithDeadlineChecks(t *testing.T) {
+	authorization, directory := loadTestAuthorization(t)
+	store, err := OpenStateStore(directory, authorization, testAuthorizedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fly := newFakeFly()
+	now := testAuthorizedAt.Add(2 * time.Minute)
+	preparer := &fakeFlyAppPreparer{afterStage: func() {
+		now = authorization.CleanupDeadline.Add(-10 * time.Minute)
+	}}
+	provisioner := Provisioner{Fly: fly, Preparer: preparer, Now: func() time.Time { return now }, State: store}
+	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
+		t.Fatal("ProvisionFly crossed the cleanup reserve after staging secrets")
+	}
+	if preparer.stageCalls != 1 || preparer.ipCalls != 0 || fly.createMachineCalls != 0 {
+		t.Fatalf("preparation calls = stage %d ip %d machine %d", preparer.stageCalls, preparer.ipCalls, fly.createMachineCalls)
+	}
+	if store.Snapshot().Phase != PhaseCleaning {
+		t.Fatalf("phase = %s, want cleaning", store.Snapshot().Phase)
 	}
 }
 
@@ -274,7 +297,7 @@ func TestProvisionerRestartRejectsMachineWithDifferentImageDigest(t *testing.T) 
 		t.Fatal(err)
 	}
 	fly := newFakeFly()
-	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return testAuthorizedAt.Add(2 * time.Minute) }, State: store}
+	provisioner := Provisioner{Fly: fly, Preparer: &fakeFlyAppPreparer{}, Now: func() time.Time { return testAuthorizedAt.Add(2 * time.Minute) }, State: store}
 	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +326,7 @@ func TestDurableIntentRecoversCreateAfterResourceJournalInterruption(t *testing.
 	}
 	fly := newFakeFly()
 	now := testAuthorizedAt.Add(2 * time.Minute)
-	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
+	provisioner := Provisioner{Fly: fly, Preparer: &fakeFlyAppPreparer{}, Now: func() time.Time { return now }, State: store}
 	if err := provisioner.ProvisionFly(context.Background(), authorization, testImageReference()); err == nil {
 		t.Fatal("ProvisionFly succeeded across interrupted resource journal write")
 	}
@@ -434,6 +457,27 @@ type fakeFly struct {
 	createMachineCalls int
 	lastMachineSpec    MachineSpec
 	destroyOrder       []string
+}
+
+type fakeFlyAppPreparer struct {
+	stageErr   error
+	ipErr      error
+	afterStage func()
+	stageCalls int
+	ipCalls    int
+}
+
+func (preparer *fakeFlyAppPreparer) StageSecrets(context.Context, string) error {
+	preparer.stageCalls++
+	if preparer.afterStage != nil {
+		preparer.afterStage()
+	}
+	return preparer.stageErr
+}
+
+func (preparer *fakeFlyAppPreparer) EnsureSharedIPv4(context.Context, string) error {
+	preparer.ipCalls++
+	return preparer.ipErr
 }
 
 func newFakeFly() *fakeFly { return &fakeFly{} }

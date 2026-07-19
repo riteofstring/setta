@@ -238,12 +238,16 @@ Implemented on 2026-07-20:
     with the mutation credential when absent, and requires an independent
     post-allocation inventory confirmation. Duplicate or malformed inventory
     fails closed.
+12. The provisioner composes restart-safe secret staging and shared-ingress
+    preparation before Machine creation, with a fresh cleanup-reserve check
+    between every mutation. Crossing the reserve transitions the durable run
+    to cleanup before the next provider call.
 
 Still required before a live create/deployment mutation:
 
 1. Add the checked-artifact image build/push and digest-resolution surface,
-   executable public-IP/secret preparation, staged-secret activation, and provision
-   command. The operator CLI intentionally exposes only `dry-run` and exact
+   the manifest-gated provision command and staged-secret activation. The
+   operator CLI intentionally exposes only `dry-run` and exact
    cleanup; it cannot create resources.
 2. Add the signed runtime install, bootstrap, health, workload, and local
    credential-removal stages to the executable coordinator.
