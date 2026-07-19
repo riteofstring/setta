@@ -57,6 +57,13 @@ type ReleaseArtifact struct {
 	PublicKey     string
 }
 
+// ValidateReleaseArtifact validates the local release identity and file
+// boundaries without accepting it as trusted. Install still verifies the
+// detached signature and every required checksum before uploading bytes.
+func ValidateReleaseArtifact(artifact ReleaseArtifact) error {
+	return validateReleaseArtifactFields(artifact)
+}
+
 type verifiedArtifact struct {
 	ReleaseArtifact
 	ArchiveName   string

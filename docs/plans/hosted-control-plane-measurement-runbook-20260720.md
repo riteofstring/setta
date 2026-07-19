@@ -260,6 +260,11 @@ Implemented on 2026-07-20:
     before creation, refuses an unjournaled pre-existing runtime, verifies the
     exact provider ID/name/ownership labels on create and restart, persists
     actual placement, and shares the same cleanup-reserve cutoff as Fly.
+17. Runtime release inputs come from a strict schema-versioned manifest in the
+    private run directory. It permits only private same-directory regular
+    files, fixes the target to Linux AMD64, validates the release identity at
+    its owning package boundary, pins the custom verifier by SHA-256, and
+    derives its protected remote path in code.
 
 Still required before a live create/deployment mutation:
 
