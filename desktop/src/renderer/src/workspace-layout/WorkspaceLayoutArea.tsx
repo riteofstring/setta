@@ -117,7 +117,7 @@ export function WorkspaceLayoutArea({
   const workspaceTarget = useWorkspaceLayoutTarget();
   const workspace = workspaceTarget.workspace;
   const mode = workspaceSceneMode();
-  const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
+  const { workspaceId, workspaceName, workspaceRootPath } = workspaceRuntimeIdentity(workspace);
   const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, mode);
   if (!workspace && mode === "workspace") {
     return <WorkspaceFirstRunSurface platform={platform} status={workspaceTarget.status} />;
@@ -137,6 +137,7 @@ export function WorkspaceLayoutArea({
       focusConversationRequest={focusConversationRequest}
       initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
       initialLayout={layoutLoad.layout}
+      initialMaximizedPaneId={layoutLoad.maximizedPaneId}
       layoutLoadError={layoutLoad.error}
       mode={mode}
       onToggleProjectPane={onToggleProjectPane}
@@ -151,6 +152,7 @@ export function WorkspaceLayoutArea({
       speechPresentation={speechPresentation}
       workspaceId={workspaceId}
       workspaceName={workspaceName}
+      workspaceRootPath={workspaceRootPath}
     />
   );
 }
@@ -158,6 +160,7 @@ function WorkspaceLayoutRuntimeArea({
   focusConversationRequest,
   initialEasyButtonPaneStartup,
   initialLayout,
+  initialMaximizedPaneId,
   layoutLoadError,
   mode,
   onToggleProjectPane,
@@ -172,6 +175,7 @@ function WorkspaceLayoutRuntimeArea({
   speechPresentation,
   workspaceId,
   workspaceName,
+  workspaceRootPath,
 }: WorkspaceLayoutRuntimeAreaProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -213,6 +217,7 @@ function WorkspaceLayoutRuntimeArea({
     () =>
       createWorkspaceRuntime({
         allowResizedPanesToOverflowViewport,
+        initialMaximizedPaneId,
         mode,
         overviewCardMaxWidthPx,
         overviewCardMinWidthPx,
@@ -225,6 +230,7 @@ function WorkspaceLayoutRuntimeArea({
     [
       allowResizedPanesToOverflowViewport,
       initialLayout,
+      initialMaximizedPaneId,
       mode,
       overviewCardMaxWidthPx,
       overviewCardMinWidthPx,
@@ -259,7 +265,7 @@ function WorkspaceLayoutRuntimeArea({
     runtime.store.clearInsertFramePreview();
   }, [runtime, setOverviewGhostTarget]);
   const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
-    useWorkspaceUILayoutPersistence(runtime, workspaceId);
+    useWorkspaceUILayoutPersistence(runtime, workspaceRootPath);
   const projectPaneWidthRef = useRef(projectPaneWidth);
   projectPaneWidthRef.current = projectPaneWidth;
   const stageViewport = useCallback(() => {

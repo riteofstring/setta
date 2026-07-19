@@ -46,6 +46,7 @@ export interface WorkspacePaneLimitState {
 }
 
 interface WorkspaceLayoutStoreOptions {
+  initialMaximizedPaneId?: PaneId | null;
   paneLimits?: PaneLimitPolicy;
 }
 
@@ -90,6 +91,12 @@ export class WorkspaceLayoutStore {
     if (initialFocusedPaneId) {
       this.setFocusedPane(initialFocusedPaneId);
       this.snapScrollToTarget();
+    }
+    if (
+      options.initialMaximizedPaneId &&
+      this.engine.paneLocation(options.initialMaximizedPaneId)
+    ) {
+      this.maximizedPaneId = options.initialMaximizedPaneId;
     }
   }
 

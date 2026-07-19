@@ -4,8 +4,11 @@ import { LoaderCircle, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { InitialEasyButtonPaneStartup } from "../features/easy-button/initial-easy-button-pane";
+import {
+  appPaneLayoutFromWorkspaceScene,
+  appPaneLayoutToWorkspaceUILayout,
+} from "./app-pane-layout-adapter";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
-import { workspaceUILayoutFromScene } from "./workspace-scene";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 
 export type WorkspaceUILayoutLoad =
@@ -13,18 +16,21 @@ export type WorkspaceUILayoutLoad =
       error: null;
       key: string;
       layout: WorkspaceUILayout | null;
+      maximizedPaneId: string | null;
       status: "loaded";
     }
   | {
       error: string;
       key: string;
       layout: null;
+      maximizedPaneId: null;
       status: "failed";
     }
   | {
       error: null;
       key: string;
       layout: null;
+      maximizedPaneId: null;
       status: "loading";
     };
 
@@ -116,6 +122,7 @@ export function useWorkspaceUILayoutLoad(
         error: null,
         key,
         layout: null,
+        maximizedPaneId: null,
         status: "loaded",
       });
       return;
@@ -126,18 +133,24 @@ export function useWorkspaceUILayoutLoad(
       error: null,
       key,
       layout: null,
+      maximizedPaneId: null,
       status: "loading",
     });
-    window.setta.workspace
-      .readUILayout(workspaceId)
+    window.setta.appLayout
+      .readPaneLayout()
       .then((result) => {
         if (cancelled) {
           return;
         }
+        const loaded = appPaneLayoutToWorkspaceUILayout({
+          layout: result.layout,
+          workspaceId,
+        });
         setState({
           error: null,
           key,
-          layout: result.layout,
+          layout: loaded.layout,
+          maximizedPaneId: loaded.maximizedPaneId,
           status: "loaded",
         });
       })
@@ -146,9 +159,10 @@ export function useWorkspaceUILayoutLoad(
           return;
         }
         setState({
-          error: `Workspace UI state could not be loaded: ${layoutOperationErrorMessage(error)}`,
+          error: `App pane layout state could not be loaded: ${layoutOperationErrorMessage(error)}`,
           key,
           layout: null,
+          maximizedPaneId: null,
           status: "failed",
         });
       });
@@ -162,6 +176,7 @@ export function useWorkspaceUILayoutLoad(
       error: null,
       key,
       layout: null,
+      maximizedPaneId: null,
       status: "loaded",
     };
   }
@@ -170,6 +185,7 @@ export function useWorkspaceUILayoutLoad(
       error: null,
       key,
       layout: null,
+      maximizedPaneId: null,
       status: "loading",
     };
   }
@@ -186,6 +202,7 @@ export function initialWorkspaceUILayoutLoadState(
       error: null,
       key,
       layout: null,
+      maximizedPaneId: null,
       status: "loading",
     };
   }
@@ -193,11 +210,15 @@ export function initialWorkspaceUILayoutLoadState(
     error: null,
     key,
     layout: null,
+    maximizedPaneId: null,
     status: "loaded",
   };
 }
 
-export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, workspaceId: string) {
+export function useWorkspaceUILayoutPersistence(
+  runtime: WorkspaceRuntime,
+  workspaceRootPath: string | null,
+) {
   const pendingLayoutSaveRef = useRef<Promise<unknown>>(Promise.resolve());
   const [layoutPersistenceError, setLayoutPersistenceError] = useState<string | null>(null);
 
@@ -206,15 +227,17 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
     if (runtime.mode !== "workspace") {
       return Promise.resolve(true);
     }
-    const layout = workspaceUILayoutFromScene(
-      workspaceId,
-      runtime.store.toScene(),
-      runtime.store.focusedPaneId(),
-    );
+    const snapshot = runtime.store.getSnapshot();
+    const layout = appPaneLayoutFromWorkspaceScene({
+      focusedPaneId: snapshot.focusedPaneId,
+      maximizedPaneId: snapshot.maximizedPaneId,
+      scene: runtime.store.toScene(),
+      workspaceRootPath,
+    });
     let persisted = true;
     pendingLayoutSaveRef.current = pendingLayoutSaveRef.current
       .catch(() => {})
-      .then(() => window.setta.workspace.saveUILayout(layout))
+      .then(() => window.setta.appLayout.savePaneLayout(layout))
       .then(() => {
         setLayoutPersistenceError(null);
       })
@@ -223,7 +246,7 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
         setLayoutPersistenceError(layoutOperationErrorMessage(error));
       });
     return pendingLayoutSaveRef.current.then(() => persisted);
-  }, [runtime, workspaceId]);
+  }, [runtime, workspaceRootPath]);
   const resetLayoutPersistenceError = useCallback(() => {
     setLayoutPersistenceError(null);
   }, []);
@@ -257,12 +280,12 @@ function shouldLoadWorkspaceUILayout(workspaceId: string, mode: WorkspaceSceneMo
     mode === "workspace" &&
     workspaceId !== "empty" &&
     typeof window !== "undefined" &&
-    Boolean(window.setta?.workspace?.readUILayout)
+    Boolean(window.setta?.appLayout?.readPaneLayout)
   );
 }
 
 function layoutOperationErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Workspace layout operation failed";
+  return error instanceof Error ? error.message : "App pane layout operation failed";
 }
 
 function assertNever(value: never): never {

@@ -7,11 +7,11 @@ describe("workspace UI layout loading", () => {
     vi.unstubAllGlobals();
   });
 
-  test("starts non-empty real workspaces in loading state when persisted layout reads are available", () => {
+  test("starts non-empty real workspaces in loading state when app pane layout reads are available", () => {
     vi.stubGlobal("window", {
       setta: {
-        workspace: {
-          readUILayout: vi.fn(),
+        appLayout: {
+          readPaneLayout: vi.fn(),
         },
       },
     });
@@ -20,15 +20,16 @@ describe("workspace UI layout loading", () => {
       error: null,
       key: "workspace:workspace_api",
       layout: null,
+      maximizedPaneId: null,
       status: "loading",
     });
   });
 
-  test("does not block benchmark or empty workspaces on persisted UI layout reads", () => {
+  test("does not block benchmark or empty workspaces on app pane layout reads", () => {
     vi.stubGlobal("window", {
       setta: {
-        workspace: {
-          readUILayout: vi.fn(),
+        appLayout: {
+          readPaneLayout: vi.fn(),
         },
       },
     });

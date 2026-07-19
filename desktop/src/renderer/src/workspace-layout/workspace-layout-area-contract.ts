@@ -29,6 +29,7 @@ export interface WorkspaceLayoutRuntimeAreaProps {
   focusConversationRequest: WorkspaceConversationFocusRequest | null;
   initialEasyButtonPaneStartup: InitialEasyButtonPaneStartup;
   initialLayout: WorkspaceUILayout | null;
+  initialMaximizedPaneId: string | null;
   layoutLoadError: string | null;
   mode: WorkspaceSceneMode;
   onConversationPresentationError?: (message: string | null) => void;
@@ -43,4 +44,5 @@ export interface WorkspaceLayoutRuntimeAreaProps {
   speechPresentation: GlobalSpeechPresentationSource | undefined;
   workspaceId: string;
   workspaceName: string;
+  workspaceRootPath: string | null;
 }

@@ -6,6 +6,7 @@ import {
   benchmarkHostPoolSizeFromSearch,
   benchmarkSceneOptionsFromSearch,
   hostPoolSizeForRuntime,
+  initialFocusedPaneIdForRuntime,
   presentationOptionsForRuntime,
   runtimePolicyBudgetForRuntime,
   runtimePolicyOptionsForRuntime,
@@ -71,6 +72,17 @@ describe("workspace runtime mode options", () => {
 
     expect(hostPoolSizeForRuntime("benchmark", benchmarkScene)).toBe(phaseOneVisiblePaneCount);
     expect(hostPoolSizeForRuntime("workspace", workspaceScene)).toBe(workspaceScene.totalPanes);
+  });
+
+  test("restores the focused pane from the persisted real workspace scene", () => {
+    const engine = {
+      firstPaneId: () => "first_pane",
+    } as Parameters<typeof initialFocusedPaneIdForRuntime>[1];
+    const realScene = {
+      focusedPaneId: "persisted_pane",
+    } as Parameters<typeof initialFocusedPaneIdForRuntime>[2];
+
+    expect(initialFocusedPaneIdForRuntime("workspace", engine, realScene)).toBe("persisted_pane");
   });
 
   test("keeps every visible workspace surface live in a moving resize frame", () => {

@@ -13,14 +13,21 @@ export function workspaceSceneMode(): WorkspaceSceneMode {
     : "workspace";
 }
 
-export function workspaceRuntimeIdentity(workspace: { displayName: string; id: string } | null): {
+export function workspaceRuntimeIdentity(
+  workspace: { displayName: string; id: string; rootPath: string } | null,
+): {
   workspaceId: string;
   workspaceName: string;
+  workspaceRootPath: string | null;
 } {
   if (!workspace) {
-    return { workspaceId: "empty", workspaceName: "No workspace" };
+    return { workspaceId: "empty", workspaceName: "No workspace", workspaceRootPath: null };
   }
-  return { workspaceId: workspace.id, workspaceName: workspace.displayName };
+  return {
+    workspaceId: workspace.id,
+    workspaceName: workspace.displayName,
+    workspaceRootPath: workspace.rootPath,
+  };
 }
 
 function workspaceAutoBenchmarkEnabled(): boolean {

@@ -1,4 +1,4 @@
-/* global window */
+/* global HTMLButtonElement, HTMLElement, document, window */
 
 (() => {
   const version = "setta-app-pane-layout-driver-v1";
@@ -10,7 +10,9 @@
       throw new Error("base Setta E2E driver is not installed");
     }
     Object.assign(driver, {
+      appPaneLayoutClickFocusedMaximize,
       appPaneLayoutRoundTrip,
+      appPaneLayoutShellState,
       appPaneLayoutVersion: version,
     });
   }
@@ -18,6 +20,44 @@
   function appPaneLayoutRoundTrip() {
     roundTripPromise ??= runAppPaneLayoutRoundTrip();
     return roundTripPromise;
+  }
+
+  function appPaneLayoutShellState() {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .filter((host) => host instanceof HTMLElement && host.dataset.paneId)
+      .map((host) => ({
+        focused: host.dataset.focused ?? "",
+        maximized: host.dataset.maximized ?? "",
+        paneId: host.dataset.paneId ?? "",
+        surfaceKind: host.dataset.surfaceKind ?? "",
+        visible: host.dataset.visible ?? "",
+      }));
+    return {
+      hosts,
+      maximizedPaneId: area instanceof HTMLElement ? (area.dataset.maximizedPaneId ?? "") : "",
+      paneCount: area instanceof HTMLElement ? (area.dataset.paneCount ?? "") : "",
+      ready: area instanceof HTMLElement,
+      workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
+    };
+  }
+
+  function appPaneLayoutClickFocusedMaximize() {
+    const focusedHost = document.querySelector(
+      '[data-testid="workspace-pane-host"][data-focused="true"]',
+    );
+    const button =
+      focusedHost instanceof HTMLElement
+        ? focusedHost.querySelector('[data-workspace-pane-action="maximize"]')
+        : null;
+    if (!(button instanceof HTMLButtonElement)) {
+      return { clicked: false, reason: "missing-maximize-button" };
+    }
+    if (button.disabled) {
+      return { clicked: false, reason: "disabled-maximize-button" };
+    }
+    button.click();
+    return { clicked: true, reason: "clicked" };
   }
 
   async function runAppPaneLayoutRoundTrip() {

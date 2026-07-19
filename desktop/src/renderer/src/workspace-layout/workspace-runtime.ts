@@ -35,11 +35,13 @@ export function createWorkspaceRuntime({
   overviewCardMinWidthPx,
   speechCapture,
   speechPresentation,
+  initialMaximizedPaneId,
   storedLayout,
   workspaceId,
   workspaceName,
 }: {
   allowResizedPanesToOverflowViewport: boolean;
+  initialMaximizedPaneId?: string | null;
   mode: WorkspaceSceneMode;
   overviewCardMaxWidthPx?: number;
   overviewCardMinWidthPx?: number;
@@ -61,6 +63,7 @@ export function createWorkspaceRuntime({
     scene,
     initialFocusedPaneIdForRuntime(mode, engine, realScene),
     {
+      initialMaximizedPaneId,
       paneLimits: paneLimitsForRuntime(mode),
     },
   );

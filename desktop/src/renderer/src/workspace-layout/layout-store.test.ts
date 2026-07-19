@@ -1235,6 +1235,29 @@ describe("workspace layout store", () => {
     });
   });
 
+  test("restores initial maximized pane state", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {},
+    });
+    const { focusedPaneId, scene } = createLayoutStoreTestScene(
+      "setta:workspace-layout:store-test",
+    );
+    const store = new WorkspaceLayoutStore(
+      new WorkspaceLikeLayoutEngine(scene),
+      scene,
+      focusedPaneId,
+      {
+        initialMaximizedPaneId: "workspace_pane_1",
+      },
+    );
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedPaneId,
+      maximizedPaneId: "workspace_pane_1",
+    });
+  });
+
   test("clears maximized state when the maximized pane is closed", () => {
     const store = createStore();
 
