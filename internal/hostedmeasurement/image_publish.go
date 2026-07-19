@@ -64,7 +64,21 @@ func (publisher FlyImagePublisher) Publish(ctx context.Context, request FlyImage
 	}); err != nil {
 		return "", errors.New("build and publish Fly control-plane image failed")
 	}
+	if err := securePublishedImageMetadata(request.MetadataPath); err != nil {
+		return "", err
+	}
 	return ResolvePublishedImageReference(request.MetadataPath, request.Authorization)
+}
+
+func securePublishedImageMetadata(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return errors.New("published image metadata must be a regular file")
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		return errors.New("secure published image metadata failed")
+	}
+	return nil
 }
 
 func existingPublishedImage(request FlyImagePublishRequest) (string, bool, error) {

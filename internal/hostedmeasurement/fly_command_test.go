@@ -4,10 +4,45 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestExecFlyCommandRunnerPreservesSymlinkInvocationName(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	invocation := filepath.Join(t.TempDir(), "docker")
+	if err := os.Symlink(executable, invocation); err != nil {
+		t.Fatal(err)
+	}
+	runner, err := NewExecFlyCommandRunner(invocation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := runner.Run(context.Background(), FlyCommand{
+		Arguments:   []string{"-test.run=^TestExecFlyCommandRunnerArgv0Helper$"},
+		Environment: map[string]string{"SETTA_TEST_PRINT_ARGV0": "1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(output) != invocation {
+		t.Fatalf("invocation name = %q, want %q", output, invocation)
+	}
+}
+
+func TestExecFlyCommandRunnerArgv0Helper(t *testing.T) {
+	if os.Getenv("SETTA_TEST_PRINT_ARGV0") != "1" {
+		return
+	}
+	_, _ = os.Stdout.WriteString(os.Args[0])
+	os.Exit(0)
+}
 
 func TestFlySecretStagerUsesStdinAndDoesNotExposeInnerCredentialToProcessEnvironment(t *testing.T) {
 	runner := &recordingFlyCommandRunner{}

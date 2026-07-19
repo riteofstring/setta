@@ -54,7 +54,7 @@ func TestFlyMachinesClientAppLifecycleUsesSeparatedTokensAndExactPaths(t *testin
 func TestFlyMachinesClientVolumeLifecycleEnforcesDisposableShape(t *testing.T) {
 	backupDisabled := false
 	volume := flyVolumeResponse{
-		ID: "vol_123", Name: "setta-gateway-night-data", Region: "yyz", SizeGiB: 1,
+		ID: "vol_123", Name: "setta_data_0123456789abcdef", Region: "yyz", SizeGiB: 1,
 		Encrypted: true, AutoBackupEnabled: &backupDisabled,
 	}
 	volumeJSON := mustJSON(t, volume)
@@ -67,7 +67,7 @@ func TestFlyMachinesClientVolumeLifecycleEnforcesDisposableShape(t *testing.T) {
 			method: http.MethodPost, path: "/v1/apps/setta-gateway-night/volumes", token: testMutationToken,
 			status: http.StatusOK, response: volumeJSON,
 			body: flyCreateVolumeRequest{
-				AutoBackupEnabled: false, Encrypted: true, Name: "setta-gateway-night-data",
+				AutoBackupEnabled: false, Encrypted: true, Name: "setta_data_0123456789abcdef",
 				Region: "yyz", RequireUniqueZone: false, SizeGiB: 1,
 			},
 		},
@@ -83,7 +83,7 @@ func TestFlyMachinesClientVolumeLifecycleEnforcesDisposableShape(t *testing.T) {
 		t.Fatalf("ListVolumes = %+v, %v", volumes, err)
 	}
 	resource, err := client.CreateVolume(context.Background(), VolumeSpec{
-		AppName: "setta-gateway-night", Name: "setta-gateway-night-data", Region: "yyz",
+		AppName: "setta-gateway-night", Name: "setta_data_0123456789abcdef", Region: "yyz",
 		SizeGiB: 1, Encrypted: true, ScheduledSnapshots: false,
 	})
 	if err != nil || resource.ID != "vol_123" {
@@ -190,6 +190,12 @@ func TestFlyMachinesClientRejectsUnsafeConfigurationAndWrongShape(t *testing.T) 
 	client := &FlyMachinesClient{}
 	if _, err := client.CreateVolume(context.Background(), VolumeSpec{SizeGiB: 3}); err == nil {
 		t.Fatal("CreateVolume accepted a non-disposable shape")
+	}
+	if _, err := client.CreateVolume(context.Background(), VolumeSpec{
+		AppName: "setta-gateway-night", Name: "setta-gateway-night-data", Region: "yyz",
+		SizeGiB: 1, Encrypted: true, ScheduledSnapshots: false,
+	}); err == nil {
+		t.Fatal("CreateVolume accepted an App-style name outside the Fly volume grammar")
 	}
 	badMachine := testMachineSpec()
 	badMachine.MemoryMiB = 512

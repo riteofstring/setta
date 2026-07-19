@@ -34,7 +34,8 @@ func (err *FlyCommandError) Error() string {
 }
 
 type ExecFlyCommandRunner struct {
-	binary string
+	binary     string
+	invocation string
 }
 
 func (runner *ExecFlyCommandRunner) BinaryPath() string {
@@ -56,7 +57,7 @@ func NewExecFlyCommandRunner(binary string) (*ExecFlyCommandRunner, error) {
 	if !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
 		return nil, errors.New("flyctl binary must be an executable regular file")
 	}
-	return &ExecFlyCommandRunner{binary: resolved}, nil
+	return &ExecFlyCommandRunner{binary: resolved, invocation: filepath.Clean(binary)}, nil
 }
 
 func (runner *ExecFlyCommandRunner) Run(ctx context.Context, command FlyCommand) ([]byte, error) {
@@ -64,6 +65,7 @@ func (runner *ExecFlyCommandRunner) Run(ctx context.Context, command FlyCommand)
 		return nil, err
 	}
 	process := exec.CommandContext(ctx, runner.binary, command.Arguments...)
+	process.Args[0] = runner.invocation
 	process.Env = flyCommandEnvironment(command.Environment)
 	process.Stdin = bytes.NewReader(command.Stdin)
 	var stdout limitedBuffer

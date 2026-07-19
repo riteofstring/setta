@@ -14,7 +14,10 @@ import (
 	"strings"
 )
 
-var flyProviderIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,127}$`)
+var (
+	flyProviderIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,127}$`)
+	flyVolumeNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_]{0,63}$`)
+)
 
 const (
 	DefaultFlyMachinesAPI = "https://api.machines.dev/v1"
@@ -391,7 +394,7 @@ func volumeResources(volumes []flyVolumeResponse) ([]ProviderResource, error) {
 }
 
 func validateVolumeSpec(spec VolumeSpec) error {
-	if spec.AppName == "" || spec.Name == "" || !regionPattern.MatchString(spec.Region) {
+	if spec.AppName == "" || !flyVolumeNamePattern.MatchString(spec.Name) || !regionPattern.MatchString(spec.Region) {
 		return errors.New("Fly volume spec requires an app, deterministic name, and region")
 	}
 	if spec.SizeGiB != 1 || !spec.Encrypted || spec.ScheduledSnapshots {

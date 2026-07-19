@@ -2,12 +2,16 @@ package hostedmeasurement
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 )
+
+const flyVolumeNamePrefix = "setta_data_"
 
 var (
 	ErrAmbiguousInventory = errors.New("hosted measurement provider inventory is ambiguous")
@@ -196,7 +200,7 @@ func (provisioner Provisioner) ensureVolume(
 	}
 	resource, err := provisioner.ensureResource(
 		ResourceFlyVolume,
-		authorization.Manifest.ResourcePrefix,
+		flyVolumeResourceName(authorization.Manifest),
 		resources,
 		func() (ProviderResource, error) { return provisioner.createVolume(ctx, authorization, app) },
 	)
@@ -316,7 +320,7 @@ func (provisioner Provisioner) createApp(ctx context.Context, authorization Auth
 
 func (provisioner Provisioner) createVolume(ctx context.Context, authorization Authorization, app ProviderResource) (ProviderResource, error) {
 	manifest := authorization.Manifest
-	name := manifest.ResourcePrefix + "-data"
+	name := flyVolumeResourceName(manifest)
 	if err := provisioner.State.RecordIntent(ResourceIntent{Kind: ResourceFlyVolume, Name: name}, provisioner.Now()); err != nil {
 		return ProviderResource{}, err
 	}
@@ -330,7 +334,7 @@ func (provisioner Provisioner) createVolume(ctx context.Context, authorization A
 		if listErr != nil {
 			return ProviderResource{}, errors.Join(fmt.Errorf("create Fly volume: %w", err), fmt.Errorf("reconcile Fly volume create: %w", listErr))
 		}
-		resource, listErr = exactRunResource(resources, manifest.ResourcePrefix, name)
+		resource, listErr = exactRunResource(resources, name, name)
 		if listErr != nil {
 			return ProviderResource{}, errors.Join(fmt.Errorf("create Fly volume: %w", err), listErr)
 		}
@@ -345,6 +349,11 @@ func (provisioner Provisioner) createVolume(ctx context.Context, authorization A
 		return ProviderResource{}, err
 	}
 	return resource, nil
+}
+
+func flyVolumeResourceName(manifest Manifest) string {
+	digest := sha256.Sum256([]byte(manifest.ResourcePrefix))
+	return flyVolumeNamePrefix + hex.EncodeToString(digest[:8])
 }
 
 func (provisioner Provisioner) createMachine(

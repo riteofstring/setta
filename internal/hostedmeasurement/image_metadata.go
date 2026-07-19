@@ -31,8 +31,9 @@ func ResolvePublishedImageReference(metadataPath string, authorization Authoriza
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		return "", errors.New("decode published image metadata failed")
 	}
-	if !flyDigestPattern.MatchString(metadata.Digest) || metadata.Descriptor.Digest != metadata.Digest {
-		return "", errors.New("published image metadata did not attest one matching manifest digest")
+	if !flyDigestPattern.MatchString(metadata.Digest) ||
+		(metadata.Descriptor.Digest != "" && metadata.Descriptor.Digest != metadata.Digest) {
+		return "", errors.New("published image metadata did not attest one non-conflicting manifest digest")
 	}
 	reference := fmt.Sprintf("registry.fly.io/%s@%s", authorization.Manifest.FlyAppName, metadata.Digest)
 	if !flyImagePattern.MatchString(reference) {

@@ -17,8 +17,11 @@ func TestFlyImagePublisherUsesIsolatedAuthAndTypedPrivateMetadata(t *testing.T) 
 	writeImageBuildContext(t, directory)
 	flyRunner := &imageRecordingRunner{}
 	dockerRunner := &imageRecordingRunner{run: func(command FlyCommand) error {
-		data := []byte(`{"containerimage.digest":"` + digest + `","containerimage.descriptor":{"digest":"` + digest + `"}}`)
-		return os.WriteFile(metadataPath, data, 0o600)
+		if err := os.Remove(metadataPath); err != nil {
+			return err
+		}
+		data := []byte(`{"containerimage.digest":"` + digest + `"}`)
+		return os.WriteFile(metadataPath, data, 0o644)
 	}}
 	publisher := FlyImagePublisher{Fly: flyRunner, Docker: dockerRunner, MutationToken: testMutationToken}
 	request := FlyImagePublishRequest{
@@ -41,6 +44,13 @@ func TestFlyImagePublisherUsesIsolatedAuthAndTypedPrivateMetadata(t *testing.T) 
 	}
 	if strings.Contains(strings.Join(dockerRunner.commands[0].Arguments, " "), testMutationToken) {
 		t.Fatal("image publication exposed the mutation token in arguments")
+	}
+	info, err := os.Stat(metadataPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("published metadata mode = %v", info.Mode().Perm())
 	}
 }
 

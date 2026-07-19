@@ -491,7 +491,7 @@ func populatedCleanupState(t *testing.T, authorization Authorization, directory 
 	}
 	resources := []ResourceState{
 		{Kind: ResourceFlyApp, ID: authorization.Manifest.FlyAppName, Name: authorization.Manifest.FlyAppName},
-		{Kind: ResourceFlyVolume, ID: "vol-night", Name: authorization.Manifest.ResourcePrefix + "-data", ActualRegion: "yyz"},
+		{Kind: ResourceFlyVolume, ID: "vol-night", Name: flyVolumeResourceName(authorization.Manifest), ActualRegion: "yyz"},
 		{Kind: ResourceFlyMachine, ID: "machine-night", Name: authorization.Manifest.ResourcePrefix + "-machine", ActualRegion: "yyz"},
 		{Kind: ResourceSprite, ID: "sprite-night", Name: authorization.Manifest.ResourcePrefix + "-sprite"},
 	}
@@ -657,6 +657,19 @@ func removeProviderResource(resources []ProviderResource, id string) []ProviderR
 
 func flyAndSpriteOrder(fly *fakeFly, _ *fakeSprites) []string {
 	return append([]string(nil), fly.destroyOrder...)
+}
+
+func TestFlyVolumeResourceNameIsCompactDeterministicAndProviderSafe(t *testing.T) {
+	manifest := validManifest()
+	name := flyVolumeResourceName(manifest)
+	if name != flyVolumeResourceName(manifest) || len(name) != 27 || !flyVolumeNamePattern.MatchString(name) {
+		t.Fatalf("Fly volume name = %q", name)
+	}
+	other := manifest
+	other.ResourcePrefix += "-other"
+	if name == flyVolumeResourceName(other) {
+		t.Fatal("distinct resource prefixes produced one Fly volume name")
+	}
 }
 
 func loadTestAuthorization(t *testing.T) (Authorization, string) {

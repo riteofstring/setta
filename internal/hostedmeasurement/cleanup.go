@@ -155,7 +155,9 @@ func (coordinator CleanupCoordinator) reconcileFlyIntents(ctx context.Context, a
 	if err != nil {
 		return fmt.Errorf("reconcile Fly volume cleanup intent: %w", err)
 	}
-	if _, err := coordinator.reconcileIntentList(coordinator.State.Snapshot(), ResourceFlyVolume, volumes, authorization.Manifest.ResourcePrefix); err != nil {
+	if _, err := coordinator.reconcileIntentList(
+		coordinator.State.Snapshot(), ResourceFlyVolume, volumes, flyVolumeResourceName(authorization.Manifest),
+	); err != nil {
 		return err
 	}
 	machines, err := coordinator.Fly.ListMachines(ctx, authorization.Manifest.FlyAppName)
@@ -249,7 +251,11 @@ func (coordinator CleanupCoordinator) cleanupFlyResource(
 	list func(context.Context, string) ([]ProviderResource, error),
 	destroy func(context.Context, string, string) error,
 ) error {
-	return coordinator.cleanupListedResource(ctx, authorization.Manifest.ResourcePrefix, authorization.Manifest.FlyAppName, resource, list, destroy)
+	prefix := authorization.Manifest.ResourcePrefix
+	if resource.Kind == ResourceFlyVolume {
+		prefix = flyVolumeResourceName(authorization.Manifest)
+	}
+	return coordinator.cleanupListedResource(ctx, prefix, authorization.Manifest.FlyAppName, resource, list, destroy)
 }
 
 func (coordinator CleanupCoordinator) cleanupFlyApp(ctx context.Context, authorization Authorization, resource ResourceState) error {

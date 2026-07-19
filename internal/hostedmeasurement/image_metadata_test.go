@@ -25,6 +25,23 @@ func TestResolvePublishedImageReferenceRequiresMatchingPrivateBuildxMetadata(t *
 	}
 }
 
+func TestResolvePublishedImageReferenceAcceptsCurrentBuildxDigestMetadata(t *testing.T) {
+	authorization, directory := loadTestAuthorization(t)
+	digest := "sha256:" + strings.Repeat("a", 64)
+	path := writePrivateFile(t, directory, "image-metadata.json", []byte(`{
+  "buildx.build.provenance": {},
+  "containerimage.digest": "`+digest+`"
+}`))
+	reference, err := ResolvePublishedImageReference(path, authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "registry.fly.io/" + authorization.Manifest.FlyAppName + "@" + digest
+	if reference != want {
+		t.Fatalf("reference = %q, want %q", reference, want)
+	}
+}
+
 func TestResolvePublishedImageReferenceRejectsMismatchExposureAndWrongDirectory(t *testing.T) {
 	authorization, directory := loadTestAuthorization(t)
 	digest := "sha256:" + strings.Repeat("a", 64)
