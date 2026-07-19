@@ -342,6 +342,14 @@ Implemented on 2026-07-20:
     `db0275a17` passed independent signature, archive, inner-binary, verifier,
     and control-plane checksum verification without contacting either
     provider.
+33. The first authorized hosted attempt is recorded in
+    `hosted-control-plane-live-attempt-20260720.md`. It stopped at Fly registry
+    publication before any Machine, volume, Sprite, secret, or workload. Three
+    exact transient Apps were independently proven absent, issued organization
+    tokens were revoked, and all local credential copies were removed. The
+    installed `flyctl` was `0.3.191`; a checksummed private `0.4.71` binary is
+    prepared for a future freshly authorized retry without replacing the
+    global installation.
 
 Still required before a live create/deployment mutation:
 
