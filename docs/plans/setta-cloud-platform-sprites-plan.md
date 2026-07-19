@@ -1106,9 +1106,13 @@ passed, teardown was verified, and the organization returned to empty.
 - [ ] Implement the minimum Candidate B experiment without making it a
   production service, including the Proxy API transport first and separate
   Fly-edge and gateway-to-runtime authentication.
-- [ ] Evaluate a provider-native pre-wake Setta authentication mechanism if
+- [x] Evaluate a provider-native pre-wake Setta authentication mechanism if
   Fly offers one. Do not call a Setta forwarding proxy a separate direct-path
-  candidate merely because it is small.
+  candidate merely because it is small. Rechecked the current official CLI,
+  API, Proxy, lifecycle, connector documentation, and pinned SDK on 2026-07-19;
+  no inbound Setta identity mode or scoped end-user Proxy credential exists.
+  The offline Candidate B HTTP/SSE core and threat-path evidence are recorded
+  in `phase3-access-path-soft-check-20260719.md`; live comparison remains open.
 - [ ] Record the comparison budgets before the final experiment and run both
   candidates with identical workloads and regions.
 - [ ] Produce a written comparison using the gate criteria above.
@@ -1846,3 +1850,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   and an empty Sprite list. Phase 2 is complete on the new base. Per the
   authorization boundary, no Phase 1c measurement or Phase 3 Candidate A/B
   experiment was run.
+- 2026-07-19 (Phase 3 offline soft check): Revalidated the current official
+  Sprites CLI, API, Proxy, lifecycle, connector documentation, pinned SDK, and
+  local CLI without live provider mutation. No provider-native pre-wake Setta
+  authentication or scoped end-user Proxy credential was found, so Candidate
+  A's unauthenticated wake risk remains and Candidate B still requires a
+  server-side provider credential. Added a provider-neutral private dialer and
+  Sprites ProxySocket mapping (`248208ffd`) plus a deliberately non-production
+  HTTP/SSE gateway core (`972bff7aa`). The core separates client, provider, and
+  runtime credentials; authorizes before provider transport; binds one managed
+  runtime; strips spoofable headers; refreshes the inner credential per
+  request; flushes SSE; rejects unsupported protocol upgrades; and fails
+  closed. Deterministic tests prove unauthorized, revoked, suspended, and
+  rate-limited requests cannot resolve or dial a runtime. Recorded a threat
+  matrix, identical live workload, stop conditions, and suggested but
+  explicitly unadopted comparison budgets in
+  `phase3-access-path-soft-check-20260719.md`. No Sprite was created or woken,
+  no spend occurred, Phase 1c was not run, and no access path was selected.
