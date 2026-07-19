@@ -144,6 +144,48 @@ func TestStateStorePersistsRestartAndSurvivesInterruptedAtomicWrite(t *testing.T
 	}
 }
 
+func TestOpenExistingStateStoreNeverCreatesMissingCleanupState(t *testing.T) {
+	authorization, directory := loadTestAuthorization(t)
+	if _, err := OpenExistingStateStore(directory, authorization); err == nil {
+		t.Fatal("OpenExistingStateStore created or accepted missing cleanup state")
+	}
+	if _, err := os.Stat(filepath.Join(directory, stateFileName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing cleanup state was mutated: %v", err)
+	}
+	created, err := OpenStateStore(directory, authorization, testAuthorizedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenExistingStateStore(directory, authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(reopened.Snapshot(), created.Snapshot()) {
+		t.Fatalf("reopened cleanup state = %+v, want %+v", reopened.Snapshot(), created.Snapshot())
+	}
+}
+
+func TestReadPrivateCredentialFileRequiresSamePrivateDirectoryAndVisibleASCII(t *testing.T) {
+	authorization, directory := loadTestAuthorization(t)
+	credentialPath := writePrivateFile(t, directory, "credential", []byte("private-token"))
+	credential, err := ReadPrivateCredentialFile(credentialPath, authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(credential) != "private-token" {
+		t.Fatalf("credential = %q", credential)
+	}
+	outside := newPrivateDirectory(t)
+	outsidePath := writePrivateFile(t, outside, "credential", []byte("private-token"))
+	if _, err := ReadPrivateCredentialFile(outsidePath, authorization); err == nil {
+		t.Fatal("ReadPrivateCredentialFile accepted a credential outside the run directory")
+	}
+	invalidPath := writePrivateFile(t, directory, "invalid-credential", []byte("token\n"))
+	if _, err := ReadPrivateCredentialFile(invalidPath, authorization); err == nil {
+		t.Fatal("ReadPrivateCredentialFile accepted a multiline credential")
+	}
+}
+
 func TestProvisionerAdoptsAmbiguousCreateAndResumesAfterFailure(t *testing.T) {
 	authorization, directory := loadTestAuthorization(t)
 	store, err := OpenStateStore(directory, authorization, testAuthorizedAt.Add(time.Minute))
@@ -155,7 +197,7 @@ func TestProvisionerAdoptsAmbiguousCreateAndResumesAfterFailure(t *testing.T) {
 	fly.machineCreateError = errors.New("injected machine failure")
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, "sha256:image"); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, "registry.fly.io/app@sha256:image"); err == nil {
 		t.Fatal("ProvisionFly succeeded across machine failure")
 	}
 	assertInterruptedProvisionState(t, store.Snapshot())
@@ -165,7 +207,7 @@ func TestProvisionerAdoptsAmbiguousCreateAndResumesAfterFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	provisioner.State = restarted
-	if err := provisioner.ProvisionFly(context.Background(), authorization, "sha256:image"); err != nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, "registry.fly.io/app@sha256:image"); err != nil {
 		t.Fatalf("restart ProvisionFly: %v", err)
 	}
 	assertRestartedProvision(t, restarted.Snapshot(), fly)
@@ -213,7 +255,7 @@ func TestProvisionerDeadlineTransitionsToCleanupWithoutFurtherCreates(t *testing
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	fly.afterCreateApp = func() { now = authorization.CleanupDeadline.Add(-10 * time.Minute) }
 	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, "sha256:image"); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, "registry.fly.io/app@sha256:image"); err == nil {
 		t.Fatal("ProvisionFly continued into the teardown reserve")
 	}
 	if store.Snapshot().Phase != PhaseCleaning || fly.createVolumeCalls != 0 {
@@ -238,7 +280,7 @@ func TestDurableIntentRecoversCreateAfterResourceJournalInterruption(t *testing.
 	fly := newFakeFly()
 	now := testAuthorizedAt.Add(2 * time.Minute)
 	provisioner := Provisioner{Fly: fly, Now: func() time.Time { return now }, State: store}
-	if err := provisioner.ProvisionFly(context.Background(), authorization, "sha256:image"); err == nil {
+	if err := provisioner.ProvisionFly(context.Background(), authorization, "registry.fly.io/app@sha256:image"); err == nil {
 		t.Fatal("ProvisionFly succeeded across interrupted resource journal write")
 	}
 	if len(fly.apps) != 1 {
@@ -309,6 +351,26 @@ func TestCleanupIsOrderedRestartSafeAndUsesIndependentInventory(t *testing.T) {
 	}
 }
 
+func TestCleanupRemovesSpriteBeforeFlyInventoryFailure(t *testing.T) {
+	authorization, directory := loadTestAuthorization(t)
+	store, fly, sprites := populatedCleanupState(t, authorization, directory)
+	fly.listAppsError = errors.New("injected Fly inventory failure")
+	coordinator := CleanupCoordinator{
+		Fly: fly, Sprites: sprites, Now: func() time.Time { return testAuthorizedAt.Add(3 * time.Hour) },
+		Wait: func(context.Context, time.Duration) error { return nil }, State: store,
+	}
+	if err := coordinator.Cleanup(context.Background(), authorization); err == nil {
+		t.Fatal("Cleanup succeeded across Fly inventory failure")
+	}
+	if len(sprites.resources) != 0 || !reflect.DeepEqual(flyAndSpriteOrder(fly, sprites), []string{"sprite"}) {
+		t.Fatalf("cleanup did not make safe Sprite progress: sprites=%v order=%v", sprites.resources, flyAndSpriteOrder(fly, sprites))
+	}
+	resource, ok := resourceByKind(store.Snapshot(), ResourceSprite)
+	if !ok || resource.AbsenceConfirmedAt == "" {
+		t.Fatalf("Sprite absence was not durable before Fly failure: %+v", resource)
+	}
+}
+
 func populatedCleanupState(t *testing.T, authorization Authorization, directory string) (*StateStore, *fakeFly, *fakeSprites) {
 	t.Helper()
 	store, err := OpenStateStore(directory, authorization, testAuthorizedAt.Add(time.Minute))
@@ -341,6 +403,7 @@ type fakeFly struct {
 	appCreateAmbiguous bool
 	machineCreateError error
 	destroyVolumeError error
+	listAppsError      error
 	afterCreateApp     func()
 	createAppCalls     int
 	createVolumeCalls  int
@@ -352,6 +415,9 @@ type fakeFly struct {
 func newFakeFly() *fakeFly { return &fakeFly{} }
 
 func (fly *fakeFly) ListApps(context.Context, string) ([]ProviderResource, error) {
+	if fly.listAppsError != nil {
+		return nil, fly.listAppsError
+	}
 	return append([]ProviderResource(nil), fly.apps...), nil
 }
 

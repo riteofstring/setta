@@ -1,34 +1,47 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"setta/internal/hostedmeasurement"
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, time.Now))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	os.Exit(run(ctx, os.Args[1:], os.Stdout, os.Stderr, time.Now))
 }
 
-func run(args []string, stdout io.Writer, stderr io.Writer, now func() time.Time) int {
+func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer, now func() time.Time) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-hosted-measurement dry-run --manifest /absolute/private/manifest.json")
+		fmt.Fprintln(stderr, "usage: setta-hosted-measurement <dry-run|cleanup> [options]")
 		return 2
 	}
-	if args[0] != "dry-run" {
-		fmt.Fprintf(stderr, "unknown setta-hosted-measurement command %q; only dry-run is enabled\n", args[0])
+	switch args[0] {
+	case "dry-run":
+		return runDryRun(args[1:], stdout, stderr, now)
+	case "cleanup":
+		return runCleanup(ctx, args[1:], stdout, stderr, now)
+	default:
+		fmt.Fprintf(stderr, "unknown setta-hosted-measurement command %q\n", args[0])
 		return 2
 	}
+}
+
+func runDryRun(args []string, stdout io.Writer, stderr io.Writer, now func() time.Time) int {
 	flagSet := flag.NewFlagSet("setta-hosted-measurement dry-run", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 	var manifestPath string
 	flagSet.StringVar(&manifestPath, "manifest", "", "absolute path to the private authorization manifest")
-	if err := flagSet.Parse(args[1:]); err != nil {
+	if err := flagSet.Parse(args); err != nil {
 		return 2
 	}
 	if flagSet.NArg() != 0 {

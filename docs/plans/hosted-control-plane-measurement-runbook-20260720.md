@@ -2,9 +2,9 @@
 
 ## Status and decision
 
-This now has an offline, fail-closed runner foundation. It does not itself
-authorize a deployment and has not created a Fly App, Machine, volume, secret,
-image, or Sprite.
+This now has an offline, fail-closed runner foundation plus live provider
+bindings for exact cleanup. It does not itself authorize a deployment and has
+not created a Fly App, Machine, volume, secret, image, or Sprite.
 
 Use one disposable Fly App containing one Fly Machine and one encrypted 1 GiB
 Fly Volume for the first hosted Candidate B measurement. The control plane
@@ -213,12 +213,31 @@ Implemented on 2026-07-20:
 6. `deploy/hosted-control-plane` contains the pinned linux/amd64 distroless
    image and fixed Fly configuration template. The base manifest digest was
    resolved read-only on 2026-07-20.
+7. The Fly provider binding uses separate inventory and mutation credentials,
+   bounded typed Machines API responses, exact App/volume/Machine identities,
+   and the fixed one-CPU/256-MiB/one-volume service shape. It rejects an image
+   that is not a registry reference pinned by digest.
+8. Secret staging invokes an absolute resolved `flyctl` binary without a
+   shell, imports exactly `SPRITE_TOKEN` and the base64-encoded inner runtime
+   credential through stdin, and excludes inherited provider credentials.
+   The Machine exposes the inner credential only as a file and allows only the
+   Sprite token into the serving process environment.
+9. The Sprites cleanup binding lists a bounded number of pages, verifies the
+   exact deterministic managed identity, organization, and ownership labels,
+   and deletes only that identity. Provider response details are excluded from
+   durable and operator errors.
+10. `setta-hosted-measurement cleanup` opens an existing journal without ever
+    initializing a missing one, remains callable after authorization expiry,
+    and resolves credentials only for providers represented by durable intent
+    or resource state. It removes and confirms the Sprite before Fly
+    reconciliation so a Fly inventory failure cannot strand the Sprite.
 
-Still required before a live mutation:
+Still required before a live create/deployment mutation:
 
-1. Bind the provider interfaces to the Machines API/flyctl secret-import and
-   image-push surfaces; the operator CLI intentionally exposes only `dry-run`
-   until that adapter is complete.
+1. Add the checked-artifact image build/push and digest-resolution surface,
+   public IP allocation, staged-secret activation, and executable provision
+   command. The operator CLI intentionally exposes only `dry-run` and exact
+   cleanup; it cannot create resources.
 2. Add the signed runtime install, bootstrap, health, workload, and local
    credential-removal stages to the executable coordinator.
 3. Supply a newly valid manifest with an explicit Fly organization slug and

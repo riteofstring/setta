@@ -93,33 +93,11 @@ type StateStore struct {
 }
 
 func OpenStateStore(directory string, authorization Authorization, now time.Time) (*StateStore, error) {
-	if directory == "" || !filepath.IsAbs(directory) {
-		return nil, errors.New("hosted measurement state directory must be absolute")
-	}
-	if filepath.Clean(directory) != authorization.StateDirectory {
-		return nil, errors.New("hosted measurement state must share the authorization manifest directory")
-	}
-	if err := validatePrivateDirectory(directory); err != nil {
+	store, exists, err := openStateStore(directory, authorization)
+	if err != nil {
 		return nil, err
 	}
-	store := &StateStore{
-		directory:     filepath.Clean(directory),
-		path:          filepath.Join(filepath.Clean(directory), stateFileName),
-		authorization: authorization,
-	}
-	data, err := readPrivateRegularFile(store.path, maximumStateBytes, "hosted measurement state")
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	if err == nil {
-		state, decodeErr := decodeState(data)
-		if decodeErr != nil {
-			return nil, decodeErr
-		}
-		if validateErr := validateState(state, authorization); validateErr != nil {
-			return nil, validateErr
-		}
-		store.state = state
+	if exists {
 		return store, nil
 	}
 	store.state = State{
@@ -136,6 +114,50 @@ func OpenStateStore(directory string, authorization Authorization, now time.Time
 		return nil, err
 	}
 	return store, nil
+}
+
+func OpenExistingStateStore(directory string, authorization Authorization) (*StateStore, error) {
+	store, exists, err := openStateStore(directory, authorization)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.New("hosted measurement cleanup state does not exist")
+	}
+	return store, nil
+}
+
+func openStateStore(directory string, authorization Authorization) (*StateStore, bool, error) {
+	if directory == "" || !filepath.IsAbs(directory) {
+		return nil, false, errors.New("hosted measurement state directory must be absolute")
+	}
+	if filepath.Clean(directory) != authorization.StateDirectory {
+		return nil, false, errors.New("hosted measurement state must share the authorization manifest directory")
+	}
+	if err := validatePrivateDirectory(directory); err != nil {
+		return nil, false, err
+	}
+	store := &StateStore{
+		directory:     filepath.Clean(directory),
+		path:          filepath.Join(filepath.Clean(directory), stateFileName),
+		authorization: authorization,
+	}
+	data, err := readPrivateRegularFile(store.path, maximumStateBytes, "hosted measurement state")
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, false, err
+	}
+	if err == nil {
+		state, decodeErr := decodeState(data)
+		if decodeErr != nil {
+			return nil, false, decodeErr
+		}
+		if validateErr := validateState(state, authorization); validateErr != nil {
+			return nil, false, validateErr
+		}
+		store.state = state
+		return store, true, nil
+	}
+	return store, false, nil
 }
 
 func (store *StateStore) Snapshot() State {

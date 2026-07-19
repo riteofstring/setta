@@ -158,10 +158,13 @@ intents, fixed-shape provision reconciliation, restart-safe teardown,
 independent inventory proof, pinned deployment templates, and a credential-free
 dry-run. The following work remains:
 
-1. Bind the deterministic Fly provider interface to the live Machines API,
-   staged secret import, and pinned-image push. The Fly organization and region
-   remain intentionally unselected; read-only discovery exposed only the
-   `personal` Fly organization, not a Fly organization named `setta-100`.
+1. Complete the hosted deployment coordinator. Exact Machines API CRUD,
+   bounded inventory, staged secret import, provider-specific cleanup, and an
+   expiry-safe cleanup command are implemented; checked-artifact image push,
+   digest resolution, IP allocation, secret activation, and the provision
+   command remain. The Fly organization and region remain intentionally
+   unselected; read-only discovery exposed only the `personal` Fly
+   organization, not a Fly organization named `setta-100`.
 2. Add signed runtime installation, attestation, credential issuance, and
    health stages to the provisioning state machine before it may mark a runtime
    ready.

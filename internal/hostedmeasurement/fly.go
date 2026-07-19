@@ -32,7 +32,7 @@ type MachineSpec struct {
 	AppName              string
 	Name                 string
 	Region               string
-	ImageDigest          string
+	ImageReference       string
 	VolumeID             string
 	VolumeMountPath      string
 	CPUKind              string
@@ -65,8 +65,8 @@ type Provisioner struct {
 	State *StateStore
 }
 
-func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization Authorization, imageDigest string) error {
-	if err := provisioner.validate(imageDigest); err != nil {
+func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization Authorization, imageReference string) error {
+	if err := provisioner.validate(imageReference); err != nil {
 		return err
 	}
 	if err := provisioner.checkCreateClock(authorization); err != nil {
@@ -89,16 +89,16 @@ func (provisioner Provisioner) ProvisionFly(ctx context.Context, authorization A
 	if err := provisioner.checkCreateClock(authorization); err != nil {
 		return err
 	}
-	_, err = provisioner.ensureMachine(ctx, authorization, imageDigest, app, volume)
+	_, err = provisioner.ensureMachine(ctx, authorization, imageReference, app, volume)
 	return err
 }
 
-func (provisioner Provisioner) validate(imageDigest string) error {
+func (provisioner Provisioner) validate(imageReference string) error {
 	if provisioner.Fly == nil || provisioner.State == nil || provisioner.Now == nil {
 		return errors.New("hosted measurement provisioner requires Fly, clock, and durable state")
 	}
-	if imageDigest == "" || !strings.HasPrefix(imageDigest, "sha256:") {
-		return errors.New("hosted measurement requires a pinned image digest")
+	if imageReference == "" || !strings.Contains(imageReference, "@sha256:") {
+		return errors.New("hosted measurement requires a registry image pinned by digest")
 	}
 	return nil
 }
@@ -141,7 +141,7 @@ func (provisioner Provisioner) ensureVolume(
 func (provisioner Provisioner) ensureMachine(
 	ctx context.Context,
 	authorization Authorization,
-	imageDigest string,
+	imageReference string,
 	app ProviderResource,
 	volume ProviderResource,
 ) (ProviderResource, error) {
@@ -154,7 +154,7 @@ func (provisioner Provisioner) ensureMachine(
 		authorization.Manifest.ResourcePrefix,
 		resources,
 		func() (ProviderResource, error) {
-			return provisioner.createMachine(ctx, authorization, imageDigest, app, volume)
+			return provisioner.createMachine(ctx, authorization, imageReference, app, volume)
 		},
 	)
 	return requireAuthorizedRegion(resource, authorization.Manifest.FlyRegion, err)
@@ -277,7 +277,7 @@ func (provisioner Provisioner) createVolume(ctx context.Context, authorization A
 func (provisioner Provisioner) createMachine(
 	ctx context.Context,
 	authorization Authorization,
-	imageDigest string,
+	imageReference string,
 	app ProviderResource,
 	volume ProviderResource,
 ) (ProviderResource, error) {
@@ -287,7 +287,7 @@ func (provisioner Provisioner) createMachine(
 		return ProviderResource{}, err
 	}
 	resource, err := provisioner.Fly.CreateMachine(ctx, MachineSpec{
-		AppName: app.Name, Name: name, Region: manifest.FlyRegion, ImageDigest: imageDigest, VolumeID: volume.ID,
+		AppName: app.Name, Name: name, Region: manifest.FlyRegion, ImageReference: imageReference, VolumeID: volume.ID,
 		VolumeMountPath: "/data", CPUKind: "shared", CPUs: 1, MemoryMiB: 256, InternalPort: 8080,
 		ForceHTTPS: true, HardConcurrencyLimit: 64, AutoStartMachines: true, AutoStopMachines: "stop",
 		MinimumMachines: 0, HealthPath: "/healthz",

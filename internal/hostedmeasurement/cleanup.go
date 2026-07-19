@@ -27,21 +27,45 @@ type CleanupCoordinator struct {
 }
 
 func (coordinator CleanupCoordinator) Cleanup(ctx context.Context, authorization Authorization) error {
-	if coordinator.Fly == nil || coordinator.Sprites == nil || coordinator.Now == nil || coordinator.Wait == nil || coordinator.State == nil {
-		return errors.New("hosted measurement cleanup requires providers, clock, wait function, and durable state")
+	if err := coordinator.validate(); err != nil {
+		return err
 	}
 	if err := coordinator.State.SetPhase(PhaseCleaning, coordinator.Now()); err != nil {
 		return err
 	}
-	if err := coordinator.reconcileDurableIntents(ctx, authorization); err != nil {
-		return err
+	if coordinator.Sprites != nil {
+		if err := coordinator.reconcileSpriteIntent(ctx, authorization); err != nil {
+			return err
+		}
+		if err := coordinator.cleanupRecordedKind(ctx, authorization, ResourceSprite); err != nil {
+			return coordinator.failCleanup(ResourceSprite, err)
+		}
 	}
-	for _, kind := range []ResourceKind{ResourceSprite, ResourceFlyMachine, ResourceFlyVolume, ResourceFlyApp} {
+	if coordinator.Fly != nil {
+		if err := coordinator.reconcileFlyIntents(ctx, authorization); err != nil {
+			return err
+		}
+	}
+	for _, kind := range []ResourceKind{ResourceFlyMachine, ResourceFlyVolume, ResourceFlyApp} {
 		if err := coordinator.cleanupRecordedKind(ctx, authorization, kind); err != nil {
 			return coordinator.failCleanup(kind, err)
 		}
 	}
 	return coordinator.State.SetPhase(PhaseClean, coordinator.Now())
+}
+
+func (coordinator CleanupCoordinator) validate() error {
+	if coordinator.Now == nil || coordinator.Wait == nil || coordinator.State == nil {
+		return errors.New("hosted measurement cleanup requires a clock, wait function, and durable state")
+	}
+	state := coordinator.State.Snapshot()
+	if stateHasAnyKind(state, ResourceFlyApp, ResourceFlyVolume, ResourceFlyMachine) && coordinator.Fly == nil {
+		return errors.New("hosted measurement cleanup has Fly state but no Fly provider")
+	}
+	if stateHasAnyKind(state, ResourceSprite) && coordinator.Sprites == nil {
+		return errors.New("hosted measurement cleanup has Sprite state but no Sprites provider")
+	}
+	return nil
 }
 
 func (coordinator CleanupCoordinator) cleanupRecordedKind(
@@ -67,7 +91,17 @@ func (coordinator CleanupCoordinator) cleanupRecordedKind(
 	}
 }
 
-func (coordinator CleanupCoordinator) reconcileDurableIntents(ctx context.Context, authorization Authorization) error {
+func (coordinator CleanupCoordinator) reconcileSpriteIntent(ctx context.Context, authorization Authorization) error {
+	state := coordinator.State.Snapshot()
+	sprites, err := coordinator.Sprites.List(ctx, authorization.Manifest.SpritesOrganization)
+	if err != nil {
+		return fmt.Errorf("reconcile Sprite cleanup intent: %w", err)
+	}
+	_, err = coordinator.reconcileIntentList(state, ResourceSprite, sprites, "")
+	return err
+}
+
+func (coordinator CleanupCoordinator) reconcileFlyIntents(ctx context.Context, authorization Authorization) error {
 	state := coordinator.State.Snapshot()
 	apps, err := coordinator.Fly.ListApps(ctx, authorization.Manifest.FlyOrganization)
 	if err != nil {
@@ -75,13 +109,6 @@ func (coordinator CleanupCoordinator) reconcileDurableIntents(ctx context.Contex
 	}
 	appAvailable, err := coordinator.reconcileIntentList(state, ResourceFlyApp, apps, authorization.Manifest.ResourcePrefix)
 	if err != nil {
-		return err
-	}
-	sprites, err := coordinator.Sprites.List(ctx, authorization.Manifest.SpritesOrganization)
-	if err != nil {
-		return fmt.Errorf("reconcile Sprite cleanup intent: %w", err)
-	}
-	if _, err := coordinator.reconcileIntentList(coordinator.State.Snapshot(), ResourceSprite, sprites, authorization.Manifest.ResourcePrefix); err != nil {
 		return err
 	}
 	if !appAvailable {
@@ -116,10 +143,16 @@ func (coordinator CleanupCoordinator) reconcileIntentList(
 	}
 	intent, ok := intentByKind(state, kind)
 	if !ok {
+		if prefix == "" {
+			return false, nil
+		}
 		if matchingPrefix(resources, prefix) != 0 {
 			return false, ErrAmbiguousInventory
 		}
 		return false, nil
+	}
+	if prefix == "" {
+		return coordinator.adoptExactIntent(kind, intent, resources)
 	}
 	if matchingPrefix(resources, prefix) == 0 {
 		return false, nil
@@ -136,6 +169,32 @@ func (coordinator CleanupCoordinator) reconcileIntentList(
 	return true, nil
 }
 
+func (coordinator CleanupCoordinator) adoptExactIntent(
+	kind ResourceKind,
+	intent ResourceIntent,
+	resources []ProviderResource,
+) (bool, error) {
+	matching := make([]ProviderResource, 0, 1)
+	for _, resource := range resources {
+		if resource.Name == intent.Name {
+			matching = append(matching, resource)
+		}
+	}
+	if len(matching) == 0 {
+		return false, nil
+	}
+	if len(matching) != 1 {
+		return false, ErrAmbiguousInventory
+	}
+	resource := matching[0]
+	if err := coordinator.State.RecordResource(ResourceState{
+		Kind: kind, ID: resource.ID, Name: resource.Name, ActualRegion: resource.Region,
+	}, OperationCreateAdopted, coordinator.Now()); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (coordinator CleanupCoordinator) cleanupSprite(ctx context.Context, authorization Authorization, resource ResourceState) error {
 	list := func(ctx context.Context, _ string) ([]ProviderResource, error) {
 		return coordinator.Sprites.List(ctx, authorization.Manifest.SpritesOrganization)
@@ -143,7 +202,7 @@ func (coordinator CleanupCoordinator) cleanupSprite(ctx context.Context, authori
 	destroy := func(ctx context.Context, _ string, id string) error {
 		return coordinator.Sprites.Destroy(ctx, authorization.Manifest.SpritesOrganization, id)
 	}
-	return coordinator.cleanupListedResource(ctx, authorization.Manifest.ResourcePrefix, "", resource, list, destroy)
+	return coordinator.cleanupListedResource(ctx, "", "", resource, list, destroy)
 }
 
 func (coordinator CleanupCoordinator) cleanupFlyResource(
@@ -160,8 +219,8 @@ func (coordinator CleanupCoordinator) cleanupFlyApp(ctx context.Context, authori
 	list := func(ctx context.Context, _ string) ([]ProviderResource, error) {
 		return coordinator.Fly.ListApps(ctx, authorization.Manifest.FlyOrganization)
 	}
-	destroy := func(ctx context.Context, _ string, id string) error {
-		return coordinator.Fly.DestroyApp(ctx, authorization.Manifest.FlyOrganization, id)
+	destroy := func(ctx context.Context, _ string, _ string) error {
+		return coordinator.Fly.DestroyApp(ctx, authorization.Manifest.FlyOrganization, resource.Name)
 	}
 	return coordinator.cleanupListedResource(ctx, authorization.Manifest.ResourcePrefix, "", resource, list, destroy)
 }
@@ -230,7 +289,10 @@ func (coordinator CleanupCoordinator) failCleanup(kind ResourceKind, cleanupErr 
 func exactRecordedResource(resources []ProviderResource, prefix string, recorded ResourceState) (bool, error) {
 	present := false
 	for _, resource := range resources {
-		if !strings.HasPrefix(resource.Name, prefix) {
+		if prefix != "" && !strings.HasPrefix(resource.Name, prefix) {
+			continue
+		}
+		if prefix == "" && resource.ID != recorded.ID && resource.Name != recorded.Name {
 			continue
 		}
 		if resource.ID != recorded.ID || resource.Name != recorded.Name {
@@ -251,4 +313,16 @@ func resourceByKind(state State, kind ResourceKind) (ResourceState, bool) {
 		}
 	}
 	return ResourceState{}, false
+}
+
+func stateHasAnyKind(state State, kinds ...ResourceKind) bool {
+	for _, kind := range kinds {
+		if _, ok := resourceByKind(state, kind); ok {
+			return true
+		}
+		if _, ok := intentByKind(state, kind); ok {
+			return true
+		}
+	}
+	return false
 }
