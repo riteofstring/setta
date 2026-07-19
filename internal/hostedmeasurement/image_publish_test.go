@@ -23,7 +23,8 @@ func TestFlyImagePublisherUsesIsolatedAuthAndTypedPrivateMetadata(t *testing.T) 
 	publisher := FlyImagePublisher{Fly: flyRunner, Docker: dockerRunner, MutationToken: testMutationToken}
 	request := FlyImagePublishRequest{
 		Authorization: authorization, BuildContext: directory, Dockerfile: filepath.Join(directory, "Dockerfile"),
-		DockerConfig: filepath.Join(directory, "docker-config"), MetadataPath: metadataPath,
+		BuildxPlugin: writeBuildxPlugin(t, directory), DockerConfig: filepath.Join(directory, "docker-config"),
+		MetadataPath: metadataPath,
 	}
 	reference, err := publisher.Publish(context.Background(), request)
 	if err != nil {
@@ -41,6 +42,15 @@ func TestFlyImagePublisherUsesIsolatedAuthAndTypedPrivateMetadata(t *testing.T) 
 	if strings.Contains(strings.Join(dockerRunner.commands[0].Arguments, " "), testMutationToken) {
 		t.Fatal("image publication exposed the mutation token in arguments")
 	}
+}
+
+func writeBuildxPlugin(t *testing.T, directory string) string {
+	t.Helper()
+	path := filepath.Join(directory, "docker-buildx-fixture")
+	if err := os.WriteFile(path, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func writeImageBuildContext(t *testing.T, directory string) {
@@ -80,7 +90,8 @@ func TestFlyImagePublisherRejectsUncheckedBuildContextBeforeCommands(t *testing.
 	publisher := FlyImagePublisher{Fly: runner, Docker: runner, MutationToken: testMutationToken}
 	_, err := publisher.Publish(context.Background(), FlyImagePublishRequest{
 		Authorization: authorization, BuildContext: directory, Dockerfile: filepath.Join(directory, "Dockerfile"),
-		DockerConfig: filepath.Join(directory, "docker-config"), MetadataPath: filepath.Join(directory, "image-metadata.json"),
+		BuildxPlugin: writeBuildxPlugin(t, directory), DockerConfig: filepath.Join(directory, "docker-config"),
+		MetadataPath: filepath.Join(directory, "image-metadata.json"),
 	})
 	if err == nil || len(runner.commands) != 0 {
 		t.Fatalf("unchecked publication error = %v, commands = %v", err, runner.commands)

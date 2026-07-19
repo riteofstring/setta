@@ -23,6 +23,7 @@ type FlyImagePublisher struct {
 type FlyImagePublishRequest struct {
 	Authorization Authorization
 	BuildContext  string
+	BuildxPlugin  string
 	DockerConfig  string
 	Dockerfile    string
 	MetadataPath  string
@@ -97,7 +98,7 @@ func validateImagePublishLocations(request FlyImagePublishRequest) error {
 		filepath.Clean(filepath.Dir(request.DockerConfig)) != request.Authorization.StateDirectory {
 		return errors.New("image publisher outputs must stay in the private run directory")
 	}
-	if !filepath.IsAbs(request.BuildContext) || !filepath.IsAbs(request.Dockerfile) {
+	if !filepath.IsAbs(request.BuildContext) || !filepath.IsAbs(request.BuildxPlugin) || !filepath.IsAbs(request.Dockerfile) {
 		return errors.New("image publisher inputs must be absolute paths")
 	}
 	if filepath.Clean(filepath.Dir(request.Dockerfile)) != filepath.Clean(request.BuildContext) ||
@@ -134,11 +135,54 @@ func prepareImagePublishOutputs(request FlyImagePublishRequest) error {
 	if err := validatePrivateDirectory(request.DockerConfig); err != nil {
 		return err
 	}
+	if err := prepareBuildxPlugin(request); err != nil {
+		return err
+	}
 	file, err := os.OpenFile(request.MetadataPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return errors.New("create private image metadata file failed")
 	}
 	return file.Close()
+}
+
+func prepareBuildxPlugin(request FlyImagePublishRequest) error {
+	resolved, err := resolveBuildxPlugin(request.BuildxPlugin)
+	if err != nil {
+		return err
+	}
+	pluginDirectory := filepath.Join(request.DockerConfig, "cli-plugins")
+	if err := os.Mkdir(pluginDirectory, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+		return errors.New("create isolated Docker plugin directory failed")
+	}
+	if err := validatePrivateDirectory(pluginDirectory); err != nil {
+		return err
+	}
+	return installBuildxPluginLink(filepath.Join(pluginDirectory, "docker-buildx"), resolved)
+}
+
+func resolveBuildxPlugin(path string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", errors.New("resolve Docker Buildx plugin failed")
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		return "", errors.New("Docker Buildx plugin must be an executable regular file")
+	}
+	return resolved, nil
+}
+
+func installBuildxPluginLink(pluginPath string, resolved string) error {
+	if err := os.Symlink(resolved, pluginPath); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrExist) {
+		return errors.New("install isolated Docker Buildx plugin failed")
+	}
+	target, err := os.Readlink(pluginPath)
+	if err != nil || target != resolved {
+		return errors.New("isolated Docker Buildx plugin differs from the guarded input")
+	}
+	return nil
 }
 
 func verifyImageBuildContext(directory string) error {

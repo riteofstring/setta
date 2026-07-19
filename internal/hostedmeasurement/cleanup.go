@@ -66,7 +66,8 @@ func (coordinator CleanupCoordinator) cleanupProviderResources(
 	ctx context.Context,
 	authorization Authorization,
 ) error {
-	if coordinator.Sprites != nil {
+	state := coordinator.State.Snapshot()
+	if stateHasAnyKind(state, ResourceSprite) {
 		if err := coordinator.reconcileSpriteIntent(ctx, authorization); err != nil {
 			return err
 		}
@@ -74,7 +75,7 @@ func (coordinator CleanupCoordinator) cleanupProviderResources(
 			return coordinator.failCleanup(ResourceSprite, err)
 		}
 	}
-	if coordinator.Fly != nil {
+	if stateHasAnyKind(state, ResourceFlyApp, ResourceFlyVolume, ResourceFlyMachine) {
 		if err := coordinator.reconcileFlyIntents(ctx, authorization); err != nil {
 			return err
 		}

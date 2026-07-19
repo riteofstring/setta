@@ -27,6 +27,7 @@ const (
 
 type provisionFlags struct {
 	BuildContext               string
+	DockerBuildxPath           string
 	DockerPath                 string
 	FlyctlPath                 string
 	FlyInventoryTokenPath      string
@@ -88,6 +89,7 @@ func parseProvisionFlags(args []string, stderr io.Writer) (provisionFlags, error
 	flagSet := flag.NewFlagSet("setta-hosted-measurement run", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 	flagSet.StringVar(&config.BuildContext, "build-context", "", "absolute private checked image build context")
+	flagSet.StringVar(&config.DockerBuildxPath, "docker-buildx", "", "absolute Docker Buildx plugin path")
 	flagSet.StringVar(&config.DockerPath, "docker", "", "absolute Docker client path")
 	flagSet.StringVar(&config.FlyctlPath, "flyctl", "", "absolute flyctl path")
 	flagSet.StringVar(&config.FlyInventoryTokenPath, "fly-inventory-token-file", "", "private Fly inventory token file")
@@ -104,6 +106,7 @@ func parseProvisionFlags(args []string, stderr io.Writer) (provisionFlags, error
 	}
 	for label, value := range map[string]string{
 		"--build-context": config.BuildContext, "--docker": config.DockerPath,
+		"--docker-buildx":            config.DockerBuildxPath,
 		"--fly-inventory-token-file": config.FlyInventoryTokenPath,
 		"--fly-mutation-token-file":  config.FlyMutationTokenPath, "--flyctl": config.FlyctlPath,
 		"--manifest": config.ManifestPath, "--minisign": config.MinisignPath,
@@ -140,6 +143,7 @@ func buildProvisionDependencies(
 	}
 	publish := hostedmeasurement.FlyImagePublishRequest{
 		Authorization: authorization, BuildContext: flags.BuildContext,
+		BuildxPlugin: flags.DockerBuildxPath,
 		DockerConfig: filepath.Join(authorization.StateDirectory, "docker-config"),
 		Dockerfile:   filepath.Join(flags.BuildContext, "Dockerfile"),
 		MetadataPath: filepath.Join(authorization.StateDirectory, "image-metadata.json"),
