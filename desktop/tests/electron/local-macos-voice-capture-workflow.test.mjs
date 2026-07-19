@@ -113,6 +113,14 @@ try {
   assertStatus(durationStarted, "started", "capture_duration_limit");
   const durationFinish = await finishCapture(context.client, "capture_duration_limit");
   assertFailure(durationFinish, "duration_limit");
+  const deniedStart = await startCapture(context.client, "capture_microphone_denied");
+  assertFailure(deniedStart, "microphone_permission_denied");
+  const revokedStarted = await startCapture(context.client, "capture_microphone_revoked");
+  assertStatus(revokedStarted, "started", "capture_microphone_revoked");
+  const revokedFinish = await finishCapture(context.client, "capture_microphone_revoked");
+  assertFailure(revokedFinish, "microphone_permission_denied");
+  const revokedStaleFinish = await finishCapture(context.client, "capture_microphone_revoked");
+  assertFailure(revokedStaleFinish, "invalid_session");
 
   const routedVoiceInput = await submitLocalVoiceThroughMasterOverlay(context.client);
   const source = { conversationId: null, eventId: routedVoiceInput.inputId, speaker: "master" };
@@ -126,23 +134,29 @@ try {
   assertSynthesized(synthesized, source, "speech-local-success");
   const canceledSynthesis = await cancelLocalSynthesis(context.client, source);
   assertSynthesisCanceled(canceledSynthesis);
+  const unavailableSynthesis = await synthesizeUnavailableLocalSpeech(context.client, source);
+  assertSynthesisUnavailable(unavailableSynthesis);
 
   await captureScreenshot(context.client, join(artifactDir, "local-macos-voice-capture.png"));
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     canceledSynthesis,
+    deniedStartFailure: deniedStart.failure,
     durationFailure: durationFinish.failure,
     emptyFailure: emptyFinish.failure,
     finishedTranscript: finished.transcript,
     health,
     invalidFinishFailure: invalidFinish.failure,
     oversizedFailure: oversizedFinish.failure,
+    revokedFinishFailure: revokedFinish.failure,
+    revokedStaleFinishFailure: revokedStaleFinish.failure,
     routedVoiceInput,
     synthesized: {
       audioBase64: synthesized.audioBase64,
       resolvedVoiceId: synthesized.resolvedVoiceId,
       source: synthesized.source,
     },
+    unavailableSynthesis,
     status: "passed",
   });
 } catch (error) {
@@ -286,6 +300,27 @@ async function cancelLocalSynthesis(client, source) {
   );
 }
 
+function synthesizeUnavailableLocalSpeech(client, source) {
+  return client.evaluate(
+    `(async () => {
+      try {
+        await window.setta.speech.synthesize(${JSON.stringify({
+          provider: "local_macos",
+          resolvedVoiceId: "marin",
+          source,
+        })}, "speech-local-unavailable");
+        return { status: "completed" };
+      } catch (error) {
+        return {
+          message: error instanceof Error ? error.message : String(error),
+          name: error instanceof Error ? error.name : "",
+          status: "failed",
+        };
+      }
+    })()`,
+  );
+}
+
 function assertReadyHealth(health) {
   if (
     health?.status !== "ready" ||
@@ -355,6 +390,16 @@ function assertSynthesisCanceled(result) {
     !result.message.includes("AbortError: Speech synthesis was stopped.")
   ) {
     throw new Error(`invalid local macOS synthesis cancellation: ${JSON.stringify(result)}`);
+  }
+}
+
+function assertSynthesisUnavailable(result) {
+  if (
+    result?.status !== "failed" ||
+    result.name !== "Error" ||
+    !result.message.includes("system speech synthesis is unavailable")
+  ) {
+    throw new Error(`invalid local macOS synthesis unavailable failure: ${JSON.stringify(result)}`);
   }
 }
 

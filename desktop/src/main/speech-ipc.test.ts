@@ -317,6 +317,54 @@ describe("speech IPC handlers", () => {
     });
   });
 
+  test("maps local macOS microphone revocation while clearing the capture session", async () => {
+    const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
+    const helper = localMacOSVoiceHelper();
+    helper.finishCapture.mockRejectedValueOnce(
+      new LocalMacOSVoiceHelperCommandError(
+        "microphone_denied",
+        "Microphone access was revoked during capture.",
+      ),
+    );
+    registerSpeechIpcHandlers({
+      ipcMain: {
+        handle: (channel, handler) => {
+          handlers.set(channel, handler);
+        },
+      } as Pick<IpcMain, "handle">,
+      requireLocalMacOSVoiceHelper: () => helper,
+      requireBackendClient: () => ({}) as BackendClient,
+      requireSpeechCredentialCoordinator: () => credentialCoordinator(),
+    });
+
+    await invoke(handlers, ipcChannels.speechStartLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_microphone_revoked",
+      maximumRecordingSeconds: 120,
+      maximumTranscriptCharacters: 8000,
+    });
+    const revoked = await invoke(handlers, ipcChannels.speechFinishLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_microphone_revoked",
+    });
+    const stale = await invoke(handlers, ipcChannels.speechFinishLocalMacOSVoiceCapture, {
+      captureSessionId: "capture_microphone_revoked",
+    });
+
+    expect(revoked).toEqual({
+      failure: {
+        code: "microphone_permission_denied",
+        message: "Microphone access was revoked during capture.",
+      },
+      status: "failed",
+    });
+    expect(stale).toEqual({
+      failure: {
+        code: "invalid_session",
+        message: "Local macOS voice capture session is not active.",
+      },
+      status: "failed",
+    });
+  });
+
   test("routes local macOS synthesis through backend source resolution and helper", async () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const source = {

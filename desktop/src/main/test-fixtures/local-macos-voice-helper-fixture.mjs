@@ -39,6 +39,10 @@ function handleFinishCapture(command) {
     return;
   }
   sessions.delete(command.payload.sessionId);
+  if (command.payload.sessionId.includes("microphone_revoked")) {
+    reject(command.id, "microphone_denied", "microphone access was revoked during capture");
+    return;
+  }
   if (command.payload.sessionId.includes("duration_limit")) {
     reject(command.id, "duration_limit", "local capture reached the recording limit");
     return;
@@ -65,6 +69,10 @@ function handleStartCapture(command) {
     reject(command.id, "missing_model", "model path is required");
     return;
   }
+  if (command.payload.sessionId.includes("microphone_denied")) {
+    reject(command.id, "microphone_denied", "microphone access is denied for Setta");
+    return;
+  }
   sessions.set(command.payload.sessionId, {
     maximumRecordingSeconds: command.payload.maximumRecordingSeconds,
     maximumTranscriptCharacters: command.payload.maximumTranscriptCharacters,
@@ -73,7 +81,7 @@ function handleStartCapture(command) {
 }
 
 function handleSynthesizeSpeech(command) {
-  if (mode === "synthesis_unavailable") {
+  if (mode === "synthesis_unavailable" || command.payload.operationId.includes("unavailable")) {
     reject(command.id, "synthesis_unavailable", "system speech synthesis is unavailable");
     return;
   }
