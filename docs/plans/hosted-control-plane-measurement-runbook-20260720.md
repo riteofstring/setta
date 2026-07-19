@@ -242,10 +242,14 @@ Implemented on 2026-07-20:
     preparation before Machine creation, with a fresh cleanup-reserve check
     between every mutation. Crossing the reserve transitions the durable run
     to cleanup before the next provider call.
+13. Published-image resolution accepts only private Buildx JSON metadata in
+    the run directory, requires the top-level and OCI descriptor manifest
+    digests to match, and derives the immutable Fly registry reference without
+    parsing human command output.
 
 Still required before a live create/deployment mutation:
 
-1. Add the checked-artifact image build/push and digest-resolution surface,
+1. Add the checked-artifact image build/push command surface,
    the manifest-gated provision command and staged-secret activation. The
    operator CLI intentionally exposes only `dry-run` and exact
    cleanup; it cannot create resources.
