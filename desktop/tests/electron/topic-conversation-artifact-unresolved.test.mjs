@@ -61,7 +61,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  const backend = await backendProbe(artifactDir, context.client);
+  const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
   const topic = await createTopic(
     context.client,
