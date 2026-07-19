@@ -350,8 +350,7 @@ function recoveryBaselineSnapshotReady(snapshot) {
     snapshot.conversation.status === "idle" &&
     snapshot.turns.turns.some((turn) => turn.status === "completed") &&
     snapshot.artifacts.artifacts.length >= 2 &&
-    snapshot.narration.events.some((event) => event.kind === "final_summary") &&
-    snapshot.narratorState.observedThroughSequence === snapshot.conversation.lastTrajectorySequence
+    snapshot.narration.events.some((event) => event.kind === "final_summary")
   );
 }
 

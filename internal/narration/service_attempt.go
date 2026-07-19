@@ -247,6 +247,7 @@ func (worker *serviceAttemptWorker) materializeProjection(
 		TurnID:          operation.TurnID,
 		Trigger:         trigger,
 		ThroughSequence: operation.ThroughSequence,
+		SemanticEvents:  operation.SemanticEvents,
 		Limits:          limits,
 	})
 	if err != nil {
@@ -272,6 +273,7 @@ func (worker *serviceAttemptWorker) handleProjectionMaterializationError(
 			TurnID:          operation.TurnID,
 			Trigger:         trigger,
 			ThroughSequence: operation.ThroughSequence,
+			SemanticEvents:  operation.SemanticEvents,
 			Limits:          limits,
 		})
 		if err == nil {

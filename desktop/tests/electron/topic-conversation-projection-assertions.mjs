@@ -165,10 +165,15 @@ export function hasFinalNarrationForEveryTurn(snapshot) {
   return snapshot.turns.turns.every((turn) => summarizedTurnIds.has(turn.id));
 }
 
-export function narratorCaughtUp(snapshot) {
-  return (
-    snapshot.narratorState.observedThroughSequence === snapshot.conversation.lastTrajectorySequence
+export function terminalTurnsHaveFinalNarration(snapshot) {
+  const summarizedTurnIds = new Set(
+    snapshot.narration.events
+      .filter((event) => event.kind === "final_summary" && event.turnId)
+      .map((event) => event.turnId),
   );
+  return snapshot.turns.turns
+    .filter((turn) => ["cancelled", "completed", "failed"].includes(turn.status))
+    .every((turn) => summarizedTurnIds.has(turn.id));
 }
 
 function assertAutomaticNarration(snapshot, label, { requireMilestone = true } = {}) {

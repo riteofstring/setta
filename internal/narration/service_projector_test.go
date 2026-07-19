@@ -34,13 +34,7 @@ func TestServiceSubmitsTerminalProjectionBeforeRawBacklogCheckpoint(t *testing.T
 		},
 	))
 
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         turnID,
-		Trajectory:     []conversation.TrajectoryEvent{terminal},
-		Terminal:       true,
-	})
+	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, turnID, terminal))
 
 	select {
 	case delay := <-retryStarted:
@@ -145,13 +139,7 @@ func TestServiceWaitsForAcceptedInputFocusBeforeTerminalProjection(t *testing.T)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for focus request admission")
 	}
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         turnID,
-		Trajectory:     []conversation.TrajectoryEvent{terminal},
-		Terminal:       true,
-	})
+	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, turnID, terminal))
 	service.lifecycleMu.Lock()
 	queuedBeforeFocus := service.terminal[conversationID] != nil
 	service.lifecycleMu.Unlock()
@@ -237,13 +225,7 @@ func TestServiceKeepsTerminalProjectionBehindRetriedFocus(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for focus retry")
 	}
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         turnID,
-		Trajectory:     []conversation.TrajectoryEvent{terminal},
-		Terminal:       true,
-	})
+	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, turnID, terminal))
 	select {
 	case <-projectionStarted:
 		releaseProjectionOnce()
@@ -303,6 +285,9 @@ func TestServiceResumesTerminalProjectionAfterActiveProgressFinishes(t *testing.
 			WorkspaceID:     "workspace-status-service",
 			TurnID:          turnID,
 			ThroughSequence: progress.Sequence,
+			SemanticEvents: []conversation.NarratorSemanticEvent{
+				projectorProgressSemantic(conversationID, turnID, progress.Sequence),
+			},
 		},
 		conversation.NarrationTriggerProgressWindowElapsed,
 	)
@@ -312,13 +297,7 @@ func TestServiceResumesTerminalProjectionAfterActiveProgressFinishes(t *testing.
 		t.Fatal("timed out waiting for active progress projection")
 	}
 
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         turnID,
-		Trajectory:     []conversation.TrajectoryEvent{terminal},
-		Terminal:       true,
-	})
+	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, turnID, terminal))
 	close(releaseProgress)
 
 	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
@@ -352,13 +331,7 @@ func TestServiceFinalizesTerminalProjectionAtObservedCursor(t *testing.T) {
 	provider := &projectorTestAgentRuntime{}
 	service := newProjectorTestService(t, store, provider)
 
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         turnID,
-		Trajectory:     []conversation.TrajectoryEvent{terminal},
-		Terminal:       true,
-	})
+	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, turnID, terminal))
 
 	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
 		if current.NarratorState.Degradation != nil {
@@ -403,6 +376,9 @@ func TestServiceProgressProjectionDoesNotBackfillHistoricalTerminal(t *testing.T
 			WorkspaceID:     "workspace-status-service",
 			TurnID:          turnID,
 			ThroughSequence: 14,
+			SemanticEvents: []conversation.NarratorSemanticEvent{
+				projectorProgressSemantic(conversationID, turnID, 14),
+			},
 		},
 		conversation.NarrationTriggerProgressWindowElapsed,
 	)
@@ -444,13 +420,7 @@ func TestServiceReadmitsTerminalProjectionAfterRetryExhaustion(t *testing.T) {
 		},
 	))
 
-	observation := conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         turnID,
-		Trajectory:     []conversation.TrajectoryEvent{terminal},
-		Terminal:       true,
-	}
+	observation := projectorTerminalObservation(conversationID, turnID, terminal)
 	service.ObserveCommittedTrajectory(observation)
 	waitForTerminalProjectorIdle(t, service, provider, conversationID, 4)
 	provider.setProjectionFailures(0)
@@ -474,13 +444,7 @@ func TestServiceProactiveCheckpointUsesCurrentTurnAuthority(t *testing.T) {
 	service := newProjectorTestService(t, store, provider)
 	service.checkpointWindowEvents = 1
 
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         firstTurnID,
-		Trajectory:     []conversation.TrajectoryEvent{firstTerminal},
-		Terminal:       true,
-	})
+	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, firstTurnID, firstTerminal))
 	waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
 		return current.NarratorState.ObservedThroughSequence >= firstTerminal.Sequence &&
 			current.NarratorState.CheckpointThroughSequence >= firstTerminal.Sequence
@@ -499,9 +463,9 @@ func TestServiceProactiveCheckpointUsesCurrentTurnAuthority(t *testing.T) {
 
 func TestObservationTriggerDefersActivityCompletionToProgressWindow(t *testing.T) {
 	trigger, immediate := observationTrigger(conversation.NarrationTrajectoryObservation{
-		Trajectory: []conversation.TrajectoryEvent{{
-			Kind: conversation.TrajectoryEventActivityFailed,
-		}},
+		Semantic: []conversation.NarratorSemanticEvent{
+			projectorActivityFailedSemantic("conversation-trigger", "turn-trigger", 1),
+		},
 	})
 	if immediate || trigger != conversation.NarrationTriggerProgressWindowElapsed {
 		t.Fatalf("failed activity trigger = %s, immediate %t", trigger, immediate)
@@ -531,17 +495,19 @@ func TestServiceSchedulesProgressWindowWithoutPolling(t *testing.T) {
 		},
 	))
 	turnID := "primary-agent-turn"
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
+	started := conversation.TrajectoryEvent{
 		ConversationID: conversationID,
-		TurnID:         turnID,
-		Trajectory: []conversation.TrajectoryEvent{{
-			ConversationID: conversationID,
-			TurnID:         &turnID,
-			Sequence:       2,
-			Kind:           conversation.TrajectoryEventTurnStarted,
-		}},
-	})
+		TurnID:         &turnID,
+		Sequence:       2,
+		Kind:           conversation.TrajectoryEventTurnStarted,
+	}
+	service.ObserveCommittedTrajectory(projectorSemanticObservation(
+		conversationID,
+		turnID,
+		started,
+		projectorTaskStartedSemantic(conversationID, turnID, started.Sequence),
+		false,
+	))
 	select {
 	case delay := <-waitStarted:
 		if delay != defaultProgressWindow {
@@ -580,31 +546,14 @@ func TestServiceSerializesTerminalSummariesAcrossPromotedTurns(t *testing.T) {
 	}
 	service := newProjectorTestService(t, store, provider)
 
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         firstTurnID,
-		Trajectory:     []conversation.TrajectoryEvent{firstTerminal},
-		Terminal:       true,
-	})
+	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, firstTurnID, firstTerminal))
 	select {
 	case <-firstCallStarted:
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for first terminal projection")
 	}
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         secondTurnID,
-		Trajectory:     []conversation.TrajectoryEvent{plan},
-	})
-	service.ObserveCommittedTrajectory(conversation.NarrationTrajectoryObservation{
-		WorkspaceID:    "workspace-status-service",
-		ConversationID: conversationID,
-		TurnID:         secondTurnID,
-		Trajectory:     []conversation.TrajectoryEvent{secondTerminal},
-		Terminal:       true,
-	})
+	service.ObserveCommittedTrajectory(projectorPlanObservation(conversationID, secondTurnID, plan))
+	service.ObserveCommittedTrajectory(projectorTerminalObservation(conversationID, secondTurnID, secondTerminal))
 	close(releaseFirstCall)
 
 	snapshot := waitForProjectorSnapshot(t, store, conversationID, func(current conversation.ConversationSnapshot) bool {
@@ -746,9 +695,8 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 			call.turnID = bundle.Authoritative.CurrentInstructions.TurnID
 		}
 		output := map[string]any{
-			"kind":                    string(CallOutputWorkingProjection),
-			"observedThroughSequence": bundle.EvaluationRange.End,
-			"milestones":              []string{},
+			"kind":       string(CallOutputWorkingProjection),
+			"milestones": []string{},
 		}
 		if runtime.emitProjectionMilestones && bundle.RequestedChannel == ProjectionChannelWorking &&
 			len(bundle.PriorMilestones) == 0 {
@@ -758,6 +706,7 @@ func (runtime *projectorTestAgentRuntime) projectorOutput(
 		}
 		if bundle.RequestedChannel == ProjectionChannelTerminal {
 			output["kind"] = string(CallOutputTerminalProjection)
+			delete(output, "milestones")
 			output["finalSummary"] = "The terminal projector result is summarized immediately."
 		}
 		encoded, err := json.Marshal(output)
@@ -807,6 +756,163 @@ func (runtime *projectorTestAgentRuntime) setProjectionFailures(count int) {
 	runtime.mu.Lock()
 	runtime.failProjectionCalls = count
 	runtime.mu.Unlock()
+}
+
+func projectorSemanticObservation(conversationID, turnID string, event conversation.TrajectoryEvent, semantic conversation.NarratorSemanticEvent, terminal bool) conversation.NarrationTrajectoryObservation {
+	return conversation.NarrationTrajectoryObservation{
+		WorkspaceID:    "workspace-status-service",
+		ConversationID: conversationID,
+		TurnID:         turnID,
+		Trajectory:     []conversation.TrajectoryEvent{event},
+		Semantic:       []conversation.NarratorSemanticEvent{semantic},
+		Terminal:       terminal,
+	}
+}
+
+func projectorTerminalObservation(conversationID, turnID string, terminal conversation.TrajectoryEvent) conversation.NarrationTrajectoryObservation {
+	return projectorSemanticObservation(conversationID, turnID, terminal, projectorTerminalSemantic(conversationID, turnID, terminal), true)
+}
+
+func projectorPlanObservation(conversationID, turnID string, plan conversation.TrajectoryEvent) conversation.NarrationTrajectoryObservation {
+	return projectorSemanticObservation(conversationID, turnID, plan, projectorPlanSemantic(conversationID, turnID, plan), false)
+}
+
+func projectorProgressSemantic(
+	conversationID string,
+	turnID string,
+	sequence int,
+) conversation.NarratorSemanticEvent {
+	return conversation.NarratorSemanticEvent{
+		ConversationID:   conversationID,
+		TurnID:           turnID,
+		SemanticSequence: sequence,
+		Kind:             conversation.NarratorSemanticEventMeaningfulProgress,
+		SourceTrajectoryRange: conversation.TrajectorySequenceRange{
+			Start: sequence,
+			End:   sequence,
+		},
+		CreatedAt: serviceTestTimestamp,
+		MeaningfulProgress: &conversation.NarratorSemanticProgress{
+			AssistantMessage: &conversation.NarratorSemanticAssistantMessage{
+				ProviderItemID: fmt.Sprintf("projector-semantic-message-%d", sequence),
+				Text:           fmt.Sprintf("Projector semantic progress %d completed.", sequence),
+			},
+		},
+	}
+}
+
+func projectorPlanSemantic(
+	conversationID string,
+	turnID string,
+	plan conversation.TrajectoryEvent,
+) conversation.NarratorSemanticEvent {
+	event := projectorProgressSemantic(conversationID, turnID, plan.Sequence)
+	if plan.PlanChanged != nil {
+		planPayload := *plan.PlanChanged
+		planPayload.Steps = append([]conversation.PlanStep{}, plan.PlanChanged.Steps...)
+		event.MeaningfulProgress = &conversation.NarratorSemanticProgress{Plan: &planPayload}
+	}
+	return event
+}
+
+func projectorTaskStartedSemantic(
+	conversationID string,
+	turnID string,
+	sequence int,
+) conversation.NarratorSemanticEvent {
+	return conversation.NarratorSemanticEvent{
+		ConversationID:   conversationID,
+		TurnID:           turnID,
+		SemanticSequence: sequence,
+		Kind:             conversation.NarratorSemanticEventTaskStarted,
+		SourceTrajectoryRange: conversation.TrajectorySequenceRange{
+			Start: sequence,
+			End:   sequence,
+		},
+		CreatedAt: serviceTestTimestamp,
+		TaskStarted: &conversation.NarratorSemanticTaskStarted{
+			Objective:   conversation.AuthoredInput{Text: "Keep the primary turn running."},
+			Delivery:    conversation.TurnDeliveryQueued,
+			RoleProfile: conversation.DefaultAgentRoleProfile(),
+		},
+	}
+}
+
+func projectorActivityFailedSemantic(
+	conversationID string,
+	turnID string,
+	sequence int,
+) conversation.NarratorSemanticEvent {
+	event := projectorProgressSemantic(conversationID, turnID, sequence)
+	event.MeaningfulProgress = &conversation.NarratorSemanticProgress{
+		ActivityFailed: &conversation.TrajectoryActivityFailed{
+			Activity: conversation.TrajectoryActivity{
+				ID:    fmt.Sprintf("projector-activity-%d", sequence),
+				Kind:  conversation.TrajectoryActivityCommand,
+				Title: "Run the projector test command.",
+			},
+			Failure: conversation.Failure{
+				Code:    "projector_activity_failed",
+				Message: "The projector activity failed.",
+			},
+		},
+	}
+	return event
+}
+
+func projectorTerminalSemantic(
+	conversationID string,
+	turnID string,
+	terminal conversation.TrajectoryEvent,
+) conversation.NarratorSemanticEvent {
+	event := conversation.NarratorSemanticEvent{
+		ConversationID:   conversationID,
+		TurnID:           turnID,
+		SemanticSequence: terminal.Sequence,
+		SourceTrajectoryRange: conversation.TrajectorySequenceRange{
+			Start: terminal.Sequence,
+			End:   terminal.Sequence,
+		},
+		CreatedAt: terminal.EmittedAt,
+	}
+	objective := conversation.AuthoredInput{Text: "Keep the primary turn running."}
+	switch terminal.Kind {
+	case conversation.TrajectoryEventTurnFailed:
+		event.Kind = conversation.NarratorSemanticEventTaskFailed
+		failure := conversation.Failure{
+			Code:    "provider_turn_failed",
+			Message: "scripted terminal failure",
+		}
+		if terminal.TurnFailed != nil {
+			failure = terminal.TurnFailed.Failure
+		}
+		event.TaskFailed = &conversation.NarratorSemanticTaskFailed{
+			Objective: objective,
+			Status:    conversation.TurnStatusFailed,
+			Failure:   failure,
+			Artifacts: []conversation.ArtifactMetadata{},
+		}
+	case conversation.TrajectoryEventTurnInterrupted:
+		event.Kind = conversation.NarratorSemanticEventTaskCanceled
+		reason := conversation.TurnInterruptionUserRequested
+		if terminal.TurnInterrupted != nil {
+			reason = terminal.TurnInterrupted.Reason
+		}
+		event.TaskCanceled = &conversation.NarratorSemanticTaskCanceled{
+			Objective: objective,
+			Status:    conversation.TurnStatusCancelled,
+			Reason:    reason,
+			Artifacts: []conversation.ArtifactMetadata{},
+		}
+	default:
+		event.Kind = conversation.NarratorSemanticEventTaskCompleted
+		event.TaskCompleted = &conversation.NarratorSemanticTaskCompleted{
+			Objective: objective,
+			Status:    conversation.TurnStatusCompleted,
+			Artifacts: []conversation.ArtifactMetadata{},
+		}
+	}
+	return event
 }
 
 func newProjectorTestStore(t *testing.T) *conversation.Store {

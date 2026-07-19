@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -36,8 +37,12 @@ func TestContextMaterializerBuildsDeterministicAuthoritativeProjection(t *testin
 		ConversationID:  source.conversation.ID,
 		TurnID:          source.turn.ID,
 		Trigger:         conversation.NarrationTriggerPlanChanged,
-		ThroughSequence: 8,
-		Limits:          testContextLimits(3),
+		ThroughSequence: 5,
+		SemanticEvents: []conversation.NarratorSemanticEvent{
+			fakeSemanticProgress(source, 4),
+			fakeSemanticPlan(source, 5),
+		},
+		Limits: testContextLimits(3),
 	}
 
 	bundle, err := materializer.Projection(context.Background(), request)
@@ -47,11 +52,11 @@ func TestContextMaterializerBuildsDeterministicAuthoritativeProjection(t *testin
 	if bundle.RequestedChannel != ProjectionChannelWorking {
 		t.Fatalf("projection channel = %s", bundle.RequestedChannel)
 	}
-	assertSequenceRange(t, bundle.IncludedRange, 3, 5)
 	assertSequenceRange(t, bundle.EvaluationRange, 3, 5)
 	assertOptionalSequenceRange(t, bundle.RemainingUnobservedRange, 6, 8)
-	if got := trajectorySequences(bundle.Trajectory); !reflect.DeepEqual(got, []int{3, 4, 5}) {
-		t.Fatalf("projection trajectory = %v", got)
+	assertOptionalSequenceRange(t, bundle.SemanticSourceRange, 4, 5)
+	if got := semanticSequences(bundle.SemanticEvents); !reflect.DeepEqual(got, []int{4, 5}) {
+		t.Fatalf("projection semantic events = %v", got)
 	}
 	if bundle.HistoricalCheckpoint == nil ||
 		bundle.HistoricalCheckpoint.Authority != ContextAuthorityHistorical ||
@@ -176,7 +181,10 @@ func TestContextMaterializerReadsOneAuthoritativeStoreSnapshot(t *testing.T) {
 		TurnID:          turnID,
 		Trigger:         conversation.NarrationTriggerPlanChanged,
 		ThroughSequence: 3,
-		Limits:          testContextLimits(3),
+		SemanticEvents: []conversation.NarratorSemanticEvent{
+			fakeSemanticProgressForIDs(conversationID, turnID, 3),
+		},
+		Limits: testContextLimits(3),
 	})
 	if err != nil {
 		t.Fatalf("materialize store-backed projection: %v", err)
@@ -206,7 +214,10 @@ func TestProjectionContextDoesNotConsumeLaterTurnBeyondRequestedCutoff(t *testin
 		TurnID:          source.turn.ID,
 		Trigger:         conversation.NarrationTriggerPlanChanged,
 		ThroughSequence: 5,
-		Limits:          testContextLimits(8),
+		SemanticEvents: []conversation.NarratorSemanticEvent{
+			fakeSemanticProgress(source, 5),
+		},
+		Limits: testContextLimits(8),
 	})
 	if err != nil {
 		t.Fatalf("materialize cutoff projection: %v", err)
@@ -215,7 +226,6 @@ func TestProjectionContextDoesNotConsumeLaterTurnBeyondRequestedCutoff(t *testin
 		bundle.Authoritative.Conversation.LatestTrajectorySequence != 8 {
 		t.Fatalf("projection cutoff/latest = %d/%d", bundle.RequestedThroughSequence, bundle.Authoritative.Conversation.LatestTrajectorySequence)
 	}
-	assertSequenceRange(t, bundle.IncludedRange, 3, 5)
 	assertSequenceRange(t, bundle.EvaluationRange, 3, 5)
 	assertOptionalSequenceRange(t, bundle.RemainingUnobservedRange, 6, 8)
 	if err := bundle.ValidateObservedAdvance(6); err == nil {
@@ -223,7 +233,7 @@ func TestProjectionContextDoesNotConsumeLaterTurnBeyondRequestedCutoff(t *testin
 	}
 }
 
-func TestContextMaterializerRequiresCheckpointBeforeSkippingObservedBacklog(t *testing.T) {
+func TestContextMaterializerProjectionUsesSemanticEventsWithoutCheckpointCatchUp(t *testing.T) {
 	source := newFakeNarratorContextSource(9)
 	source.state.ObservedThroughSequence = 3
 	source.state.CheckpointThroughSequence = 0
@@ -233,16 +243,20 @@ func TestContextMaterializerRequiresCheckpointBeforeSkippingObservedBacklog(t *t
 		TurnID:          source.turn.ID,
 		Trigger:         conversation.NarrationTriggerPhaseActivityCompleted,
 		ThroughSequence: 9,
-		Limits:          testContextLimits(2),
+		SemanticEvents: []conversation.NarratorSemanticEvent{
+			fakeSemanticProgress(source, 9),
+		},
+		Limits: testContextLimits(2),
 	}
 
-	_, err := materializer.Projection(context.Background(), projectionRequest)
-	var checkpointRequired *CheckpointRequiredError
-	if !errors.Is(err, ErrCheckpointRequired) || !errors.As(err, &checkpointRequired) {
-		t.Fatalf("projection backlog error = %T %v, want CheckpointRequiredError", err, err)
+	projection, err := materializer.Projection(context.Background(), projectionRequest)
+	if err != nil {
+		t.Fatalf("materialize semantic projection without checkpoint catch-up: %v", err)
 	}
-	if checkpointRequired.NextUnobservedSequence != 4 {
-		t.Fatalf("next unobserved sequence = %d, want 4", checkpointRequired.NextUnobservedSequence)
+	assertSequenceRange(t, projection.EvaluationRange, 4, 9)
+	assertOptionalSequenceRange(t, projection.SemanticSourceRange, 9, 9)
+	if got := semanticSequences(projection.SemanticEvents); !reflect.DeepEqual(got, []int{9}) {
+		t.Fatalf("semantic projection events = %v", got)
 	}
 
 	checkpoint, err := materializer.Checkpoint(context.Background(), CheckpointContextRequest{
@@ -255,19 +269,6 @@ func TestContextMaterializerRequiresCheckpointBeforeSkippingObservedBacklog(t *t
 	}
 	assertSequenceRange(t, checkpoint.RequestedRange, 1, 2)
 	assertOptionalSequenceRange(t, checkpoint.RemainingEligibleRange, 3, 3)
-
-	source.state.CheckpointThroughSequence = 2
-	source.state.CheckpointText = "Events one and two were already evaluated."
-	projectionRequest.Limits.MaxTrajectoryEvents = 3
-	projection, err := materializer.Projection(context.Background(), projectionRequest)
-	if err != nil {
-		t.Fatalf("materialize projection after checkpoint: %v", err)
-	}
-	assertSequenceRange(t, projection.IncludedRange, 3, 5)
-	assertSequenceRange(t, projection.EvaluationRange, 4, 5)
-	if got := trajectorySequences(projection.Trajectory); !reflect.DeepEqual(got, []int{3, 4, 5}) {
-		t.Fatalf("post-checkpoint projection trajectory = %v", got)
-	}
 }
 
 func TestContextMaterializerBuildsTerminalProjectionWithoutCheckpointCatchUp(t *testing.T) {
@@ -289,7 +290,10 @@ func TestContextMaterializerBuildsTerminalProjectionWithoutCheckpointCatchUp(t *
 		TurnID:          source.turn.ID,
 		Trigger:         conversation.NarrationTriggerTurnTerminal,
 		ThroughSequence: 9,
-		Limits:          testContextLimits(2),
+		SemanticEvents: []conversation.NarratorSemanticEvent{
+			fakeTerminalSemantic(source, 9, conversation.NarratorSemanticEventTaskCompleted),
+		},
+		Limits: testContextLimits(2),
 	})
 	if err != nil {
 		t.Fatalf("materialize terminal projection without checkpoint catch-up: %v", err)
@@ -298,8 +302,8 @@ func TestContextMaterializerBuildsTerminalProjectionWithoutCheckpointCatchUp(t *
 		t.Fatalf("terminal channel = %s", bundle.RequestedChannel)
 	}
 	assertSequenceRange(t, bundle.EvaluationRange, 4, 9)
-	if len(bundle.Trajectory) != 0 || bundle.IncludedRange.Start != 0 || bundle.IncludedRange.End != 0 {
-		t.Fatalf("terminal projection consumed raw backlog: trajectory=%+v range=%+v", bundle.Trajectory, bundle.IncludedRange)
+	if got := semanticSequences(bundle.SemanticEvents); !reflect.DeepEqual(got, []int{9}) {
+		t.Fatalf("terminal semantic events = %v", got)
 	}
 	if bundle.RemainingUnobservedRange != nil {
 		t.Fatalf("terminal projection left remaining range: %+v", bundle.RemainingUnobservedRange)
@@ -325,7 +329,10 @@ func TestProjectionContextConstrainsObservedCursorToSuppliedWindow(t *testing.T)
 		TurnID:          source.turn.ID,
 		Trigger:         conversation.NarrationTriggerPlanChanged,
 		ThroughSequence: 6,
-		Limits:          testContextLimits(3),
+		SemanticEvents: []conversation.NarratorSemanticEvent{
+			fakeSemanticProgress(source, 6),
+		},
+		Limits: testContextLimits(3),
 	})
 	if err != nil {
 		t.Fatalf("materialize projection cursor window: %v", err)
@@ -333,7 +340,7 @@ func TestProjectionContextConstrainsObservedCursorToSuppliedWindow(t *testing.T)
 	if err := bundle.ValidateObservedAdvance(4); err != nil {
 		t.Fatalf("validate partial observed advance: %v", err)
 	}
-	for _, invalid := range []int{2, 6} {
+	for _, invalid := range []int{2, 7} {
 		if err := bundle.ValidateObservedAdvance(invalid); err == nil {
 			t.Errorf("ValidateObservedAdvance(%d) error = nil", invalid)
 		}
@@ -368,8 +375,8 @@ func TestContextMaterializerBuildsTerminalFinalizationAtObservedCursor(t *testin
 		t.Fatalf("terminal finalization channel = %s", bundle.RequestedChannel)
 	}
 	assertSequenceRange(t, bundle.EvaluationRange, 6, 6)
-	if len(bundle.Trajectory) != 0 || bundle.IncludedRange.Start != 0 || bundle.IncludedRange.End != 0 {
-		t.Fatalf("terminal finalization trajectory = %+v range=%+v", bundle.Trajectory, bundle.IncludedRange)
+	if len(bundle.SemanticEvents) != 0 || bundle.SemanticSourceRange != nil {
+		t.Fatalf("terminal finalization semantic events = %+v range=%+v", bundle.SemanticEvents, bundle.SemanticSourceRange)
 	}
 
 	source.currentTurnFinalSummary = fakeFinalSummaryEvent(source.conversation.ID, source.turn.ID, 6)
@@ -385,33 +392,36 @@ func TestContextMaterializerBuildsTerminalFinalizationAtObservedCursor(t *testin
 	}
 }
 
-func TestContextMaterializerUsesContiguousByteBoundedProjectionPrefix(t *testing.T) {
+func TestContextMaterializerBudgetsRequiredSemanticProjectionContext(t *testing.T) {
 	source := newFakeNarratorContextSource(7)
 	materializer := newFakeContextMaterializer(t, source)
-	twoEventRequest := ProjectionContextRequest{
+	request := ProjectionContextRequest{
 		ConversationID:  source.conversation.ID,
 		TurnID:          source.turn.ID,
 		Trigger:         conversation.NarrationTriggerPlanChanged,
 		ThroughSequence: 7,
-		Limits:          testContextLimits(2),
+		SemanticEvents: []conversation.NarratorSemanticEvent{
+			fakeSemanticProgress(source, 7),
+		},
+		Limits: testContextLimits(2),
 	}
-	twoEvents, err := materializer.Projection(context.Background(), twoEventRequest)
+	full, err := materializer.Projection(context.Background(), request)
 	if err != nil {
-		t.Fatalf("materialize two-event projection: %v", err)
+		t.Fatalf("materialize semantic projection: %v", err)
 	}
 
-	boundedRequest := twoEventRequest
+	boundedRequest := request
 	boundedRequest.Limits.MaxTrajectoryEvents = 7
-	boundedRequest.Limits.MaxInputBytes = twoEvents.InputBytes
+	boundedRequest.Limits.MaxInputBytes = full.InputBytes
 	bounded, err := materializer.Projection(context.Background(), boundedRequest)
 	if err != nil {
-		t.Fatalf("materialize byte-bounded projection: %v", err)
+		t.Fatalf("materialize byte-bounded semantic projection: %v", err)
 	}
-	if got := trajectorySequences(bounded.Trajectory); !reflect.DeepEqual(got, []int{1, 2}) {
-		t.Fatalf("byte-bounded trajectory = %v, want [1 2]", got)
+	if got := semanticSequences(bounded.SemanticEvents); !reflect.DeepEqual(got, []int{7}) {
+		t.Fatalf("byte-bounded semantic events = %v", got)
 	}
-	if bounded.InputBytes != twoEvents.InputBytes {
-		t.Fatalf("bounded input bytes = %d, want %d", bounded.InputBytes, twoEvents.InputBytes)
+	if bounded.InputBytes != full.InputBytes {
+		t.Fatalf("bounded input bytes = %d, want %d", bounded.InputBytes, full.InputBytes)
 	}
 
 	tooSmall := boundedRequest
@@ -735,6 +745,97 @@ func fakeFinalSummary(id string, turnID string, sequence int, text string) conve
 	}
 }
 
+func fakeSemanticProgress(
+	source *fakeNarratorContextSource,
+	sequence int,
+) conversation.NarratorSemanticEvent {
+	return fakeSemanticProgressForIDs(source.conversation.ID, source.turn.ID, sequence)
+}
+
+func fakeSemanticProgressForIDs(
+	conversationID string,
+	turnID string,
+	sequence int,
+) conversation.NarratorSemanticEvent {
+	return conversation.NarratorSemanticEvent{
+		ConversationID:   conversationID,
+		TurnID:           turnID,
+		SemanticSequence: sequence,
+		Kind:             conversation.NarratorSemanticEventMeaningfulProgress,
+		SourceTrajectoryRange: conversation.TrajectorySequenceRange{
+			Start: sequence,
+			End:   sequence,
+		},
+		CreatedAt: narratorContextTestTime,
+		MeaningfulProgress: &conversation.NarratorSemanticProgress{
+			AssistantMessage: &conversation.NarratorSemanticAssistantMessage{
+				ProviderItemID: fmt.Sprintf("semantic-provider-message-%d", sequence),
+				Text:           fmt.Sprintf("Semantic progress %d completed.", sequence),
+			},
+		},
+	}
+}
+
+func fakeSemanticPlan(
+	source *fakeNarratorContextSource,
+	sequence int,
+) conversation.NarratorSemanticEvent {
+	event := fakeSemanticProgress(source, sequence)
+	event.MeaningfulProgress = &conversation.NarratorSemanticProgress{
+		Plan: &conversation.TrajectoryPlanChanged{
+			Steps: []conversation.PlanStep{{
+				Text:   fmt.Sprintf("Plan step %d is underway.", sequence),
+				Status: conversation.PlanStepStatusInProgress,
+			}},
+		},
+	}
+	return event
+}
+
+func fakeTerminalSemantic(
+	source *fakeNarratorContextSource,
+	sequence int,
+	kind conversation.NarratorSemanticEventKind,
+) conversation.NarratorSemanticEvent {
+	event := conversation.NarratorSemanticEvent{
+		ConversationID:   source.conversation.ID,
+		TurnID:           source.turn.ID,
+		SemanticSequence: sequence,
+		Kind:             kind,
+		SourceTrajectoryRange: conversation.TrajectorySequenceRange{
+			Start: sequence,
+			End:   sequence,
+		},
+		CreatedAt: narratorContextTestTime,
+	}
+	switch kind {
+	case conversation.NarratorSemanticEventTaskCompleted:
+		event.TaskCompleted = &conversation.NarratorSemanticTaskCompleted{
+			Objective: source.turn.AuthoredInput,
+			Status:    conversation.TurnStatusCompleted,
+			Artifacts: []conversation.ArtifactMetadata{},
+		}
+	case conversation.NarratorSemanticEventTaskFailed:
+		event.TaskFailed = &conversation.NarratorSemanticTaskFailed{
+			Objective: source.turn.AuthoredInput,
+			Status:    conversation.TurnStatusFailed,
+			Failure: conversation.Failure{
+				Code:    "semantic_terminal_failed",
+				Message: "Semantic terminal failure.",
+			},
+			Artifacts: []conversation.ArtifactMetadata{},
+		}
+	case conversation.NarratorSemanticEventTaskCanceled:
+		event.TaskCanceled = &conversation.NarratorSemanticTaskCanceled{
+			Objective: source.turn.AuthoredInput,
+			Status:    conversation.TurnStatusCancelled,
+			Reason:    conversation.TurnInterruptionUserRequested,
+			Artifacts: []conversation.ArtifactMetadata{},
+		}
+	}
+	return event
+}
+
 func testContextLimits(maxEvents int) ContextLimits {
 	return ContextLimits{
 		MaxInputBytes:             1 << 20,
@@ -742,6 +843,14 @@ func testContextLimits(maxEvents int) ContextLimits {
 		RecentFinalSummaries:      4,
 		MaxCheckpointSummaryBytes: 256,
 	}
+}
+
+func semanticSequences(events []conversation.NarratorSemanticEvent) []int {
+	result := make([]int, len(events))
+	for index, event := range events {
+		result[index] = event.SemanticSequence
+	}
+	return result
 }
 
 func trajectorySequences(events []conversation.TrajectoryEvent) []int {

@@ -37,7 +37,6 @@ import {
   hasReadyConversation,
 } from "./topic-conversation-fork-workflow.mjs";
 import { readJsonLinesWhileAppending } from "./topic-conversation-master-overlay-assertions.mjs";
-import { narratorCaughtUp } from "./topic-conversation-projection-assertions.mjs";
 import { openMasterOverlayForSpeech } from "./topic-conversation-speech-state-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -106,7 +105,7 @@ try {
 
   const workingSnapshots = await waitForBackendState(
     () => readConversationSnapshots(backend, workspaceId, createdTopics),
-    (snapshots) => snapshots.every(workingNarratorIsCaughtUp),
+    (snapshots) => snapshots.every(workingNarratorHasMilestone),
     workflowTimeoutMs,
   );
   const workingMilestoneIds = workingSnapshots.flatMap((snapshot) =>
@@ -399,8 +398,7 @@ async function exerciseCaptureDropsAutomaticSpeech({
     topic.id,
     (snapshot) =>
       snapshot.conversation.status === "idle" &&
-      completedTurnFinalNarrationForInput(snapshot, inputText, priorEventIds) !== null &&
-      narratorCaughtUp(snapshot),
+      completedTurnFinalNarrationForInput(snapshot, inputText, priorEventIds) !== null,
   );
   const finalEvent = completedTurnFinalNarrationForInput(completed, inputText, priorEventIds);
   if (!finalEvent) {
@@ -580,12 +578,11 @@ function waitForConversationSnapshot(backend, workspaceId, conversationId, ready
   );
 }
 
-function workingNarratorIsCaughtUp(snapshot) {
+function workingNarratorHasMilestone(snapshot) {
   return (
     snapshot.conversation.status === "working" &&
     snapshot.turns.turns.some((turn) => turn.status === "running") &&
-    snapshot.narration.events.some((event) => event.kind === "milestone") &&
-    narratorCaughtUp(snapshot)
+    snapshot.narration.events.some((event) => event.kind === "milestone")
   );
 }
 
@@ -598,8 +595,7 @@ function completedTurnHasFinalNarration(snapshot) {
     completedTurnIds.size === 1 &&
     snapshot.narration.events.some(
       (event) => event.kind === "final_summary" && completedTurnIds.has(event.turnId),
-    ) &&
-    narratorCaughtUp(snapshot)
+    )
   );
 }
 

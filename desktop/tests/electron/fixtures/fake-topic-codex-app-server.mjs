@@ -912,15 +912,13 @@ function emitStructuredProjection(threadId, turnId, context) {
   const objective = objectiveSubject(
     (context.authoritative?.currentInstructions?.objective?.text ?? "topic work").trim(),
   );
-  const observedThroughSequence = context.evaluationRange.end;
   const output = {
     kind: "working_projection",
     milestones: projectionMilestones(context, objective),
-    observedThroughSequence,
   };
   if (context.requestedChannel === "terminal_projection") {
     output.kind = "terminal_projection";
-    output.milestones = [];
+    delete output.milestones;
     output.finalSummary = terminalProjectionSummary(context, objective);
   }
   emitAgentMessage(threadId, turnId, JSON.stringify(output));

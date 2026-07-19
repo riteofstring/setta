@@ -69,7 +69,6 @@ func testPrepareWorkingOutputCommit(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
-		"observedThroughSequence":3,
 		"milestones":["The milestone is saved with the current turn."]
 	}`)}
 	caller := newTimedTestCaller(t, provider)
@@ -115,8 +114,6 @@ func testPrepareTerminalOutputCommit(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerTurnTerminal)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"terminal_projection",
-		"observedThroughSequence":3,
-		"milestones":[],
 		"finalSummary":"The final summary is saved with the turn and remains available after restart."
 	}`)}
 	caller := newTimedTestCaller(t, provider)
@@ -251,7 +248,6 @@ func TestOutputCommitterRejectsMismatchedMutatedOrInvalidSuccessfulResults(t *te
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
-		"observedThroughSequence":2,
 		"milestones":[]
 	}`)}
 	caller := newTimedTestCaller(t, provider)
@@ -326,7 +322,6 @@ func TestOutputCommitterValidatesConstructionAndCommitErrors(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
-		"observedThroughSequence":1,
 		"milestones":[]
 	}`)}
 	caller := newTimedTestCaller(t, provider)

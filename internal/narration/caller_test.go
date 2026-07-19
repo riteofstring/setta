@@ -34,7 +34,6 @@ func TestCallerPinsProviderDefaultToCatalogResolution(t *testing.T) {
 	models := newTestModelResolver(t, profiles, catalog)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
-		"observedThroughSequence":3,
 		"milestones":[]
 	}`)}
 	caller, err := NewCaller(models, provider)
@@ -97,7 +96,6 @@ func testCallerWorkingProjection(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
-		"observedThroughSequence":3,
 		"milestones":["Voice requests now preserve the configured narrator and speaking pace across restarts."]
 	}`)}
 	caller := newTestCaller(t, provider)
@@ -108,7 +106,7 @@ func testCallerWorkingProjection(t *testing.T) {
 	}
 	assertCallerProviderRequest(t, provider, bundle.InputBytes, string(CallOutputWorkingProjection))
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
-		[]string{"kind", "milestones", "observedThroughSequence"},
+		[]string{"kind", "milestones"},
 	)
 	assertSchemaMilestoneField(t, provider.requests[0].OutputSchema)
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
@@ -125,8 +123,6 @@ func testCallerTerminalProjection(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerTurnTerminal)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"terminal_projection",
-		"observedThroughSequence":3,
-		"milestones":[],
 		"finalSummary":"The narrator language checks passed, and no failed output was treated as successful."
 	}`)}
 	caller := newTestCaller(t, provider)
@@ -137,9 +133,8 @@ func testCallerTerminalProjection(t *testing.T) {
 	}
 	assertCallerProviderRequest(t, provider, bundle.InputBytes, string(CallOutputTerminalProjection))
 	assertSchemaProperties(t, provider.requests[0].OutputSchema,
-		[]string{"finalSummary", "kind", "milestones", "observedThroughSequence"},
+		[]string{"finalSummary", "kind"},
 	)
-	assertSchemaIntegerBounds(t, provider.requests[0].OutputSchema, "observedThroughSequence", 3, 3)
 	assertSchemaTextField(t, provider.requests[0].OutputSchema, "finalSummary", MaxNarratorFinalSummaryCharacters, "One short outcome sentence")
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
 		"finalSummary is one short sentence summarizing the outcome.",
@@ -149,13 +144,12 @@ func testCallerTerminalProjection(t *testing.T) {
 	})
 }
 
-func TestCallerRejectsTerminalProjectionBeforeTerminalBoundary(t *testing.T) {
+func TestCallerRejectsProjectionOutputCursorField(t *testing.T) {
 	source := newFakeNarratorContextSource(3)
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerTurnTerminal)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"terminal_projection",
 		"observedThroughSequence":2,
-		"milestones":[],
 		"finalSummary":"This summary cannot cover a terminal event the narrator did not observe."
 	}`)}
 	caller := newTestCaller(t, provider)
@@ -166,8 +160,8 @@ func TestCallerRejectsTerminalProjectionBeforeTerminalBoundary(t *testing.T) {
 		WorkspaceRoot: t.TempDir(),
 		Projection:    &bundle,
 	})
-	if err == nil || !strings.Contains(err.Error(), "must observe terminal boundary 3") {
-		t.Fatalf("early terminal projection error = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("cursor projection output error = %v", err)
 	}
 }
 
@@ -275,8 +269,7 @@ func TestNarratorOutputRejectsNewFieldLimitOverflows(t *testing.T) {
 			output: NarratorCallOutput{
 				Kind: CallOutputWorkingProjection,
 				WorkingProjection: &WorkingProjectionOutput{
-					ObservedThroughSequence: 1,
-					Milestones:              []string{exactNarratorText(MaxNarratorMilestoneCharacters + 1)},
+					Milestones: []string{exactNarratorText(MaxNarratorMilestoneCharacters + 1)},
 				},
 			},
 			context: workingContext,
@@ -287,9 +280,7 @@ func TestNarratorOutputRejectsNewFieldLimitOverflows(t *testing.T) {
 			output: NarratorCallOutput{
 				Kind: CallOutputTerminalProjection,
 				TerminalProjection: &TerminalProjectionOutput{
-					ObservedThroughSequence: 1,
-					Milestones:              []string{},
-					FinalSummary:            exactNarratorText(MaxNarratorFinalSummaryCharacters + 1),
+					FinalSummary: exactNarratorText(MaxNarratorFinalSummaryCharacters + 1),
 				},
 			},
 			context: terminalContext,
@@ -347,8 +338,7 @@ func TestNarratorProjectionMilestoneCardinalityAllowsZeroOrOne(t *testing.T) {
 		output := NarratorCallOutput{
 			Kind: CallOutputWorkingProjection,
 			WorkingProjection: &WorkingProjectionOutput{
-				ObservedThroughSequence: 1,
-				Milestones:              milestones,
+				Milestones: milestones,
 			},
 		}
 		if err := output.ValidateProjection(context); err != nil {
@@ -358,8 +348,7 @@ func TestNarratorProjectionMilestoneCardinalityAllowsZeroOrOne(t *testing.T) {
 	tooMany := NarratorCallOutput{
 		Kind: CallOutputWorkingProjection,
 		WorkingProjection: &WorkingProjectionOutput{
-			ObservedThroughSequence: 1,
-			Milestones:              []string{"One result is ready.", "Another result is ready."},
+			Milestones: []string{"One result is ready.", "Another result is ready."},
 		},
 	}
 	if err := tooMany.ValidateProjection(context); err == nil || !strings.Contains(err.Error(), "maximum is 1") {
@@ -415,39 +404,38 @@ func TestCallerRejectsMalformedOrCrossChannelNarratorOutput(t *testing.T) {
 		message string
 	}{
 		{
-			name: "unknown field",
-			output: `{"kind":"working_projection","observedThroughSequence":3,` +
-				`"milestones":[],"finalSummary":"not allowed"}`,
+			name:    "unknown field",
+			output:  `{"kind":"working_projection","milestones":[],"finalSummary":"not allowed"}`,
 			message: "unknown field",
 		},
 		{
 			name:    "projection cannot carry focus",
-			output:  `{"kind":"working_projection","observedThroughSequence":3,"currentFocus":"Working.","milestones":[]}`,
+			output:  `{"kind":"working_projection","currentFocus":"Working.","milestones":[]}`,
 			message: "unknown field",
 		},
 		{
 			name:    "wrong channel",
-			output:  `{"kind":"terminal_projection","observedThroughSequence":3,"milestones":[]}`,
-			message: "has kind",
+			output:  `{"kind":"terminal_projection","finalSummary":"Wrong channel."}`,
+			message: "unknown field",
 		},
 		{
-			name:    "cursor outside range",
-			output:  `{"kind":"working_projection","observedThroughSequence":4,"milestones":[]}`,
-			message: "outside supplied evaluation range",
+			name:    "cursor field",
+			output:  `{"kind":"working_projection","observedThroughSequence":3,"milestones":[]}`,
+			message: "unknown field",
 		},
 		{
 			name:    "duplicate prior milestone",
-			output:  `{"kind":"working_projection","observedThroughSequence":3,"milestones":["The existing milestone remains unique."]}`,
+			output:  `{"kind":"working_projection","milestones":["The existing milestone remains unique."]}`,
 			message: "repeated prior active-turn milestone",
 		},
 		{
 			name:    "not voice ready",
-			output:  `{"kind":"working_projection","observedThroughSequence":3,"milestones":["line one\nline two"]}`,
+			output:  `{"kind":"working_projection","milestones":["line one\nline two"]}`,
 			message: "control characters",
 		},
 		{
 			name:    "too many milestones",
-			output:  `{"kind":"working_projection","observedThroughSequence":3,"milestones":["One.","Two."]}`,
+			output:  `{"kind":"working_projection","milestones":["One.","Two."]}`,
 			message: "maximum is 1",
 		},
 	}
@@ -506,16 +494,17 @@ func TestStatusOutputRequiresZeroSourceSequenceField(t *testing.T) {
 
 func TestCallerValidatesOutputAgainstFrozenSuppliedContext(t *testing.T) {
 	source := newFakeNarratorContextSource(3)
+	source.milestones = []conversation.NarrationEvent{
+		fakeMilestone("frozen-prior-milestone", 1, "The frozen milestone remains prior context."),
+	}
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{
 		output: json.RawMessage(`{
 			"kind":"working_projection",
-			"observedThroughSequence":4,
-			"milestones":[]
+			"milestones":["The frozen milestone remains prior context."]
 		}`),
 		beforeReturn: func() {
-			bundle.EvaluationRange.End = 4
-			bundle.RequestedThroughSequence = 4
+			bundle.PriorMilestones = nil
 		},
 	}
 	caller := newTestCaller(t, provider)
@@ -526,7 +515,7 @@ func TestCallerValidatesOutputAgainstFrozenSuppliedContext(t *testing.T) {
 		WorkspaceRoot: t.TempDir(),
 		Projection:    &bundle,
 	})
-	if err == nil || !strings.Contains(err.Error(), "outside supplied evaluation range") {
+	if err == nil || !strings.Contains(err.Error(), "repeated prior active-turn milestone") {
 		t.Fatalf("mutated post-dispatch context error = %v", err)
 	}
 }
@@ -536,7 +525,6 @@ func TestCallerRetainsAttemptMetadataWhenOutputValidationFails(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	providerOutput := json.RawMessage(`{
 		"kind":"working_projection",
-		"observedThroughSequence":3,
 		"milestones":[],
 		"finalSummary":"Cross-channel output is invalid."
 	}`)
@@ -637,12 +625,26 @@ func materializeCallerProjection(
 	trigger conversation.NarrationTrigger,
 ) ProjectionContextBundle {
 	t.Helper()
+	semanticEvents := []conversation.NarratorSemanticEvent{
+		fakeSemanticProgress(source, source.conversation.LastTrajectorySequence),
+	}
+	if trigger == conversation.NarrationTriggerTurnTerminal {
+		source.turn.Status = conversation.TurnStatusCompleted
+		semanticEvents = []conversation.NarratorSemanticEvent{
+			fakeTerminalSemantic(
+				source,
+				source.conversation.LastTrajectorySequence,
+				conversation.NarratorSemanticEventTaskCompleted,
+			),
+		}
+	}
 	materializer := newFakeContextMaterializer(t, source)
 	bundle, err := materializer.Projection(context.Background(), ProjectionContextRequest{
 		ConversationID:  source.conversation.ID,
 		TurnID:          source.turn.ID,
 		Trigger:         trigger,
 		ThroughSequence: source.conversation.LastTrajectorySequence,
+		SemanticEvents:  semanticEvents,
 		Limits:          testContextLimits(len(source.events)),
 	})
 	if err != nil {
@@ -749,32 +751,6 @@ func assertSchemaProperties(t *testing.T, raw json.RawMessage, want []string) {
 	required := schema["required"].([]any)
 	if len(required) != len(properties) {
 		t.Fatalf("output schema required = %v, properties = %v", required, got)
-	}
-}
-
-func assertSchemaIntegerBounds(
-	t *testing.T,
-	raw json.RawMessage,
-	property string,
-	wantMinimum int,
-	wantMaximum int,
-) {
-	t.Helper()
-	var schema map[string]any
-	if err := json.Unmarshal(raw, &schema); err != nil {
-		t.Fatalf("decode output schema: %v", err)
-	}
-	properties := schema["properties"].(map[string]any)
-	value := properties[property].(map[string]any)
-	if value["minimum"] != float64(wantMinimum) || value["maximum"] != float64(wantMaximum) {
-		t.Fatalf(
-			"output schema %s bounds = %v..%v, want %d..%d",
-			property,
-			value["minimum"],
-			value["maximum"],
-			wantMinimum,
-			wantMaximum,
-		)
 	}
 }
 

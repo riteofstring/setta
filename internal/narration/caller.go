@@ -386,7 +386,7 @@ func prepareProjectionCall(context ProjectionContextBundle) (preparedCallRequest
 			frozen.RequestedChannel,
 		)
 	}
-	if !terminalFinalizesObservedCursor(frozen, frozen.EvaluationRange.End) {
+	if !terminalFinalizesObservedCursor(frozen) {
 		if err := frozen.ValidateObservedAdvance(frozen.EvaluationRange.End); err != nil {
 			return preparedCallRequest{}, err
 		}
@@ -568,7 +568,8 @@ func projectionInstructions(channel ProjectionChannel) string {
 		"Current objective, constraints, and accepted steering override historical checkpoint text.",
 		"Milestones are shown in the Now rail and read aloud when narrator voice is enabled; treat each milestone as an audible interruption.",
 		"Emit at most one milestone only when the user learned a new result, a blocker needs user action, or the work entered a materially different phase.",
-		"For working projections, prefer an empty milestone list for normal progress, repeated blocked states, waiting updates, partial output streaming, or when nothing meaningful changed.",
+		"Use semanticEvents as the only event feed for this projection; do not infer progress from raw trajectory gaps or cursor numbers.",
+		"For working projections, prefer an empty milestone list for normal progress, repeated blocked states, waiting updates, partial output streaming, or when semanticEvents do not show a meaningful change.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}

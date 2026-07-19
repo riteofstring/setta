@@ -42,8 +42,12 @@ func (service *Service) ObserveCommittedTrajectory(
 		WorkspaceID:     observation.WorkspaceID,
 		TurnID:          observation.TurnID,
 		ThroughSequence: observationThroughSequence(observation.Trajectory),
+		SemanticEvents:  append([]conversation.NarratorSemanticEvent{}, observation.Semantic...),
 	}
 	service.submitFocusObservations(observation)
+	if len(operation.SemanticEvents) == 0 && !observation.Terminal {
+		return
+	}
 	trigger, immediate := observationTrigger(observation)
 	if immediate {
 		service.cancelProgressWindow(observation.ConversationID)
@@ -148,14 +152,14 @@ func (service *Service) enqueueReadyTerminalProjection(
 		service.resumeTerminalProjection(conversationID)
 		return
 	}
-	if queue.active == operation {
+	if sameProjectionOperation(&queue.active, &operation) {
 		queue.retryRequested = queue.retryRequested || queue.activeInFlight
 		service.lifecycleMu.Unlock()
 		service.resumeTerminalProjection(conversationID)
 		return
 	}
 	for _, pending := range queue.pending {
-		if pending == operation {
+		if sameProjectionOperation(&pending, &operation) {
 			queue.retryRequested = queue.retryRequested || queue.activeInFlight
 			service.lifecycleMu.Unlock()
 			service.resumeTerminalProjection(conversationID)
@@ -201,8 +205,8 @@ func observationTrigger(
 	}
 	selected := conversation.NarrationTriggerProgressWindowElapsed
 	selectedPriority := 0
-	for _, event := range observation.Trajectory {
-		trigger, priority := trajectoryTrigger(event.Kind)
+	for _, event := range observation.Semantic {
+		trigger, priority := semanticTrigger(event)
 		if priority > selectedPriority {
 			selected = trigger
 			selectedPriority = priority
@@ -211,15 +215,38 @@ func observationTrigger(
 	return selected, selectedPriority > 0
 }
 
-func trajectoryTrigger(kind conversation.TrajectoryEventKind) (conversation.NarrationTrigger, int) {
-	switch kind {
-	case conversation.TrajectoryEventApprovalRequested:
+func semanticTrigger(event conversation.NarratorSemanticEvent) (conversation.NarrationTrigger, int) {
+	switch event.Kind {
+	case conversation.NarratorSemanticEventApprovalNeeded:
 		return conversation.NarrationTriggerApprovalRequired, 4
-	case conversation.TrajectoryEventPlanChanged:
-		return conversation.NarrationTriggerPlanChanged, 2
+	case conversation.NarratorSemanticEventMeaningfulProgress:
+		if event.MeaningfulProgress != nil && event.MeaningfulProgress.Plan != nil {
+			return conversation.NarrationTriggerPlanChanged, 2
+		}
+		return conversation.NarrationTriggerProgressWindowElapsed, 0
 	default:
 		return conversation.NarrationTriggerProgressWindowElapsed, 0
 	}
+}
+
+func mergeProjectionSemanticEvents(
+	current []conversation.NarratorSemanticEvent,
+	incoming []conversation.NarratorSemanticEvent,
+) []conversation.NarratorSemanticEvent {
+	result := make([]conversation.NarratorSemanticEvent, 0, len(current)+len(incoming))
+	seen := map[int]bool{}
+	for _, event := range current {
+		seen[event.SemanticSequence] = true
+		result = append(result, event)
+	}
+	for _, event := range incoming {
+		if seen[event.SemanticSequence] {
+			continue
+		}
+		seen[event.SemanticSequence] = true
+		result = append(result, event)
+	}
+	return result
 }
 
 func (service *Service) scheduleProgressWindow(
@@ -236,6 +263,10 @@ func (service *Service) scheduleProgressWindow(
 		if operation.ThroughSequence > current.operation.ThroughSequence {
 			current.operation.ThroughSequence = operation.ThroughSequence
 		}
+		current.operation.SemanticEvents = mergeProjectionSemanticEvents(
+			current.operation.SemanticEvents,
+			operation.SemanticEvents,
+		)
 		service.lifecycleMu.Unlock()
 		return
 	}
@@ -460,7 +491,7 @@ func (service *Service) releaseTerminalProjection(
 	service.lifecycleMu.Lock()
 	queue := service.terminal[conversationID]
 	resume := false
-	if queue != nil && queue.active == operation {
+	if queue != nil && sameProjectionOperation(&queue.active, &operation) {
 		queue.activeInFlight = false
 		resume = queue.retryRequested && !service.closing
 		queue.retryRequested = false
@@ -643,7 +674,7 @@ func (service *Service) completeTerminalProjection(
 ) {
 	service.lifecycleMu.Lock()
 	queue := service.terminal[conversationID]
-	if queue == nil || queue.active != operation {
+	if queue == nil || !sameProjectionOperation(&queue.active, &operation) {
 		service.lifecycleMu.Unlock()
 		return
 	}
@@ -710,7 +741,7 @@ func (service *Service) resumeCheckpointTerminalProjection(
 ) {
 	service.lifecycleMu.Lock()
 	queue := service.terminal[conversationID]
-	if queue != nil && queue.active == operation {
+	if queue != nil && sameProjectionOperation(&queue.active, &operation) {
 		queue.activeInFlight = false
 	}
 	service.lifecycleMu.Unlock()

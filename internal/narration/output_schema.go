@@ -32,18 +32,14 @@ func projectionOutputSchema(context ProjectionContextBundle) (json.RawMessage, e
 		return nil, err
 	}
 	properties := map[string]any{
-		"observedThroughSequence": boundedIntegerSchema(context.EvaluationRange.Start, context.EvaluationRange.End),
-		"milestones":              milestoneArraySchema(),
+		"milestones": milestoneArraySchema(),
 	}
 	switch context.RequestedChannel {
 	case ProjectionChannelWorking:
 		properties["kind"] = enumStringSchema(string(CallOutputWorkingProjection))
 	case ProjectionChannelTerminal:
 		properties["kind"] = enumStringSchema(string(CallOutputTerminalProjection))
-		properties["observedThroughSequence"] = boundedIntegerSchema(
-			context.EvaluationRange.End,
-			context.EvaluationRange.End,
-		)
+		delete(properties, "milestones")
 		properties["finalSummary"] = describedBoundedStringSchema(
 			MaxNarratorFinalSummaryCharacters,
 			"One short outcome sentence. If an artifact has the detailed result, do not repeat its contents.",

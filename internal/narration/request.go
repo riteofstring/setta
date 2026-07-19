@@ -40,6 +40,7 @@ type ProjectionOperation struct {
 	WorkspaceID     string
 	TurnID          string
 	ThroughSequence int
+	SemanticEvents  []conversation.NarratorSemanticEvent
 }
 
 func (operation ProjectionOperation) Validate() error {
@@ -51,6 +52,9 @@ func (operation ProjectionOperation) Validate() error {
 	}
 	if operation.ThroughSequence <= 0 {
 		return fmt.Errorf("narrator projection through sequence must be positive")
+	}
+	if err := validateProjectionSemanticEvents(operation); err != nil {
+		return err
 	}
 	return nil
 }
@@ -208,6 +212,17 @@ func (request Request) validateProjection() error {
 	if err := request.Projection.Validate(); err != nil {
 		return fmt.Errorf("narrator projection request %s: %w", request.ID, err)
 	}
+	for index, event := range request.Projection.SemanticEvents {
+		if event.ConversationID != request.ConversationID {
+			return fmt.Errorf(
+				"narrator projection request %s semantic event %d belongs to conversation %s, want %s",
+				request.ID,
+				index,
+				event.ConversationID,
+				request.ConversationID,
+			)
+		}
+	}
 	if !isProjectionTrigger(request.Trigger) {
 		return fmt.Errorf(
 			"narrator projection request %s has unsupported trigger %q",
@@ -266,6 +281,10 @@ func cloneRequest(request Request) Request {
 	}
 	if request.Projection != nil {
 		projection := *request.Projection
+		projection.SemanticEvents = append(
+			[]conversation.NarratorSemanticEvent{},
+			request.Projection.SemanticEvents...,
+		)
 		cloned.Projection = &projection
 	}
 	if request.Status != nil {
@@ -285,6 +304,39 @@ func cloneRequest(request Request) Request {
 		cloned.Checkpoint = &checkpoint
 	}
 	return cloned
+}
+
+func validateProjectionSemanticEvents(operation ProjectionOperation) error {
+	previous := 0
+	for index, event := range operation.SemanticEvents {
+		if err := event.Validate(); err != nil {
+			return fmt.Errorf("narrator projection semantic event %d: %w", index, err)
+		}
+		if event.ConversationID == "" || event.TurnID == "" {
+			return fmt.Errorf("narrator projection semantic event %d is missing target identity", index)
+		}
+		if event.TurnID != operation.TurnID {
+			return fmt.Errorf(
+				"narrator projection semantic event %d belongs to turn %s, want %s",
+				index,
+				event.TurnID,
+				operation.TurnID,
+			)
+		}
+		if event.SourceTrajectoryRange.End > operation.ThroughSequence {
+			return fmt.Errorf(
+				"narrator projection semantic event %d source %d exceeds projection cutoff %d",
+				index,
+				event.SourceTrajectoryRange.End,
+				operation.ThroughSequence,
+			)
+		}
+		if event.SemanticSequence <= previous {
+			return fmt.Errorf("narrator projection semantic events must be strictly ordered")
+		}
+		previous = event.SemanticSequence
+	}
+	return nil
 }
 
 func validateIdentifier(label string, value string) error {

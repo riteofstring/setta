@@ -285,6 +285,15 @@ Do not add compatibility readers for old data.
 
 ### Phase 3: Move narrator generation to semantic context
 
+Status: Complete.
+
+Repository progress:
+
+- Projection requests now carry narrator semantic events into materialization and generation, and raw trajectory windows are no longer exposed to the narrator projection prompt.
+- Working highlights require semantic progress, while terminal summaries materialize from the terminal snapshot without raw checkpoint catch-up.
+- Narrator projection output now contains only model-authored narration fields; product code owns observed cursor advancement and source ranges.
+- Focused backend narration tests and the direct `topic-conversation-pane-projection` Electron workflow selector pass with the new semantic contract.
+
 Make working highlights and terminal summaries consume semantic events and authoritative snapshots.
 
 Remove the requirement that narrator observed cursor must advance through every raw trajectory event before terminal summary generation.

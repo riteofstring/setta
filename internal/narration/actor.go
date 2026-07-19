@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -503,7 +504,25 @@ func sameProjectionOperation(left *ProjectionOperation, right *ProjectionOperati
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}
-	return *left == *right
+	return left.WorkspaceID == right.WorkspaceID &&
+		left.TurnID == right.TurnID &&
+		left.ThroughSequence == right.ThroughSequence &&
+		sameProjectionSemanticEvents(left.SemanticEvents, right.SemanticEvents)
+}
+
+func sameProjectionSemanticEvents(
+	left []conversation.NarratorSemanticEvent,
+	right []conversation.NarratorSemanticEvent,
+) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if !reflect.DeepEqual(left[index], right[index]) {
+			return false
+		}
+	}
+	return true
 }
 
 func sameStatusOperation(left *StatusOperation, right *StatusOperation) bool {
