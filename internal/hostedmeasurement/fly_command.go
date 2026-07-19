@@ -37,6 +37,10 @@ type ExecFlyCommandRunner struct {
 	binary string
 }
 
+func (runner *ExecFlyCommandRunner) BinaryPath() string {
+	return runner.binary
+}
+
 func NewExecFlyCommandRunner(binary string) (*ExecFlyCommandRunner, error) {
 	if binary == "" || !filepath.IsAbs(binary) {
 		return nil, errors.New("flyctl binary path must be absolute")

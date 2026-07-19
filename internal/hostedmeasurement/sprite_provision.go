@@ -74,11 +74,11 @@ func (provisioner SpriteProvisioner) create(
 func (provisioner SpriteProvisioner) reconcileCreate(
 	ctx context.Context,
 	identity runtimeprovider.ManagedIdentity,
-	createErr error,
+	_ error,
 ) (runtimeprovider.RuntimeObservation, error) {
 	observation, found, err := provisioner.Provider.Inspect(ctx, identity.Name)
 	if err != nil || !found {
-		return runtimeprovider.RuntimeObservation{}, errors.Join(errors.New("create hosted Sprite failed"), createErr)
+		return runtimeprovider.RuntimeObservation{}, errors.New("create hosted Sprite failed and reconciliation did not confirm the identity")
 	}
 	return provisioner.record(identity, observation, OperationCreateAdopted)
 }

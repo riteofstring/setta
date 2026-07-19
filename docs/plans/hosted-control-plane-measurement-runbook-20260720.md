@@ -326,16 +326,19 @@ Implemented on 2026-07-20:
     mode-0600 file before Sprite and Fly reconciliation. A revocation failure
     is reported but cannot strand provider resources: teardown continues, the
     run remains in cleaning state, and a resource-empty retry can finish clean.
+31. `setta-hosted-measurement run` now composes the checked image publisher,
+    Fly and Sprites providers, signed runtime preparation and private pairing,
+    staged secrets and ingress, bootstrap, both Candidate B workloads, and
+    credential-first cleanup behind the validated manifest. It accepts only
+    absolute guarded inputs, verifies the complete signed runtime and image
+    build context before the first provider mutation, and preserves an
+    independent cleanup context through the manifest deadline.
 
 Still required before a live create/deployment mutation:
 
-1. Wire the implemented checked-artifact publisher, signed runtime
-   preparation, staged-secret activation, bootstrap, and hosted workload into
-   the manifest-gated provision command. The operator CLI intentionally
-   exposes only `dry-run` and exact cleanup; it cannot create resources.
-2. Add access-lifecycle measurement and revoke/remove the bootstrap client
-   credential during cleanup before provider resources are reconciled.
-3. Supply a newly valid manifest with an explicit Fly organization slug and
+1. Prepare one private checked control-plane build context and signed Linux
+   AMD64 runtime release for the exact commit selected for the live run.
+2. Supply a newly valid manifest with an explicit Fly organization slug and
    region. A read-only check on 2026-07-20 found the local Fly identity exposes
    only organization `personal`; it does not expose a Fly organization named
    `setta-100`. The same check found no existing `setta-gateway-` Sprite in the

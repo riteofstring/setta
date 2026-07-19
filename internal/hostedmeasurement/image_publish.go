@@ -79,13 +79,17 @@ func existingPublishedImage(request FlyImagePublishRequest) (string, bool, error
 }
 
 func prepareImagePublishPaths(request FlyImagePublishRequest) error {
-	if err := validateImagePublishLocations(request); err != nil {
-		return err
-	}
-	if err := validateImageBuildInputs(request); err != nil {
+	if err := ValidateImagePublishInputs(request); err != nil {
 		return err
 	}
 	return prepareImagePublishOutputs(request)
+}
+
+func ValidateImagePublishInputs(request FlyImagePublishRequest) error {
+	if err := validateImagePublishLocations(request); err != nil {
+		return err
+	}
+	return validateImageBuildInputs(request)
 }
 
 func validateImagePublishLocations(request FlyImagePublishRequest) error {

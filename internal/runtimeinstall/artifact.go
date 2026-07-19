@@ -64,6 +64,17 @@ func ValidateReleaseArtifact(artifact ReleaseArtifact) error {
 	return validateReleaseArtifactFields(artifact)
 }
 
+// VerifyReleaseArtifact performs the complete local signature, checksum, and
+// archive validation without uploading bytes or contacting a runtime provider.
+func VerifyReleaseArtifact(
+	ctx context.Context,
+	artifact ReleaseArtifact,
+	verifier SignatureVerifier,
+) error {
+	_, err := verifyReleaseArtifact(ctx, artifact, verifier)
+	return err
+}
+
 type verifiedArtifact struct {
 	ReleaseArtifact
 	ArchiveName   string

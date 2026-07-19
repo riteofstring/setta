@@ -125,6 +125,50 @@ func TestCleanupRequiresExistingStateAndWorksAfterAuthorizationExpiry(t *testing
 	}
 }
 
+func TestRunCommandRequiresEveryAbsoluteGuardedInput(t *testing.T) {
+	var stderr bytes.Buffer
+	exitCode := run(
+		context.Background(),
+		[]string{"run", "--manifest", "/private/manifest.json"},
+		&bytes.Buffer{},
+		&stderr,
+		time.Now,
+	)
+	if exitCode != 2 || !strings.Contains(stderr.String(), "must be an absolute path") {
+		t.Fatalf("incomplete run exit = %d, stderr = %q", exitCode, stderr.String())
+	}
+}
+
+func TestProvisionCredentialsMustBePrivateAndPairwiseDistinct(t *testing.T) {
+	authorizedAt := time.Date(2026, 7, 20, 1, 0, 0, 0, time.UTC)
+	directory, _, authorization := writeCommandTestManifest(t, authorizedAt, "credential-preflight")
+	flags := provisionFlags{
+		FlyMutationTokenPath:  filepath.Join(directory, "fly-mutation-token"),
+		FlyInventoryTokenPath: filepath.Join(directory, "fly-inventory-token"),
+		SpritesTokenPath:      filepath.Join(directory, "sprites-token"),
+	}
+	for path, value := range map[string]string{
+		flags.FlyMutationTokenPath:  "fly-mutation-value",
+		flags.FlyInventoryTokenPath: "fly-inventory-value",
+		flags.SpritesTokenPath:      "sprites-value",
+	} {
+		if err := os.WriteFile(path, []byte(value), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mutation, inventory, sprite, err := readProvisionCredentials(flags, authorization)
+	if err != nil || string(mutation) != "fly-mutation-value" || string(inventory) != "fly-inventory-value" ||
+		string(sprite) != "sprites-value" {
+		t.Fatalf("credential preflight = %q/%q/%q, %v", mutation, inventory, sprite, err)
+	}
+	if err := os.WriteFile(flags.SpritesTokenPath, mutation, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := readProvisionCredentials(flags, authorization); err == nil {
+		t.Fatal("credential preflight accepted repeated provider authority")
+	}
+}
+
 func writeCommandTestManifest(
 	t *testing.T,
 	authorizedAt time.Time,

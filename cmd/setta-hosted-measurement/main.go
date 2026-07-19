@@ -22,7 +22,7 @@ func main() {
 
 func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer, now func() time.Time) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-hosted-measurement <dry-run|cleanup> [options]")
+		fmt.Fprintln(stderr, "usage: setta-hosted-measurement <dry-run|run|cleanup> [options]")
 		return 2
 	}
 	switch args[0] {
@@ -30,6 +30,8 @@ func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer,
 		return runDryRun(args[1:], stdout, stderr, now)
 	case "cleanup":
 		return runCleanup(ctx, args[1:], stdout, stderr, now)
+	case "run":
+		return runProvision(ctx, args[1:], stdout, stderr, now)
 	default:
 		fmt.Fprintf(stderr, "unknown setta-hosted-measurement command %q\n", args[0])
 		return 2
