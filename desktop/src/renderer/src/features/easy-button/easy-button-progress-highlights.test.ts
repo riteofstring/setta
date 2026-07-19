@@ -11,6 +11,7 @@ import type {
   TrajectoryApprovalRequest,
   TrajectoryEvent,
 } from "@generated/backend";
+import { conversationSnapshotLimits } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import type { PendingConversationApproval } from "./easy-button-approval-projection";
@@ -126,6 +127,47 @@ describe("Easy Button progress highlight projection", () => {
       expect.objectContaining({
         body: "Work cancelled.",
         title: "Stopped",
+      }),
+    ]);
+  });
+
+  test("keeps active work visible when the turn_started event aged out of the trajectory window", () => {
+    const turn = conversationTurn("running");
+    const snapshot = conversationSnapshot({
+      events: [activityStarted(conversationSnapshotLimits.trajectoryEvents + 1)],
+      turn,
+    });
+    snapshot.trajectory.hasEarlier = true;
+
+    expect(progressHighlightViews(snapshot, turn, null)).toEqual([
+      expect.objectContaining({
+        body: "Count repository LOC",
+        id: `turn:${turn.id}:running`,
+        title: "Working",
+      }),
+    ]);
+  });
+
+  test("projects retained artifact metadata when artifact_emitted aged out before completion", () => {
+    const table = artifact("artifact_retained", "table", "Language counts", 244);
+    const turn = conversationTurn("completed");
+    const snapshot = conversationSnapshot({
+      artifacts: [table],
+      events: [turnCompleted(452)],
+      turn,
+    });
+    snapshot.trajectory.hasEarlier = true;
+
+    expect(progressHighlightViews(snapshot, turn, null)).toEqual([
+      expect.objectContaining({
+        body: "Language counts",
+        id: `artifact:${table.id}`,
+        title: "Table ready",
+      }),
+      expect.objectContaining({
+        body: "Work completed.",
+        id: "trajectory_completed",
+        title: "Complete",
       }),
     ]);
   });
@@ -326,14 +368,19 @@ function trajectoryEvent(
   };
 }
 
-function artifact(id: string, kind: ArtifactMetadata["kind"], title: string): ArtifactMetadata {
+function artifact(
+  id: string,
+  kind: ArtifactMetadata["kind"],
+  title: string,
+  trajectorySequence = 5,
+): ArtifactMetadata {
   return {
     conversationId,
     createdAt: timestamp,
     id,
     kind,
     title,
-    trajectorySequence: 5,
+    trajectorySequence,
     turnId,
   };
 }
