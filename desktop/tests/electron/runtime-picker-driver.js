@@ -21,12 +21,10 @@
       .map((host) => ({
         paneId: host.dataset.paneId ?? "",
         surfaceKind: host.dataset.surfaceKind ?? "",
-      }))
-      .toSorted((left, right) => left.paneId.localeCompare(right.paneId));
+      }));
     return {
       paneCount: Number(area instanceof HTMLElement ? (area.dataset.paneCount ?? "0") : "0"),
-      paneIds: hosts.map((host) => host.paneId),
-      panes: hosts,
+      paneIds: hosts.map((host) => host.paneId).toSorted(),
       surfaceKinds: hosts.map((host) => host.surfaceKind),
       workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
     };

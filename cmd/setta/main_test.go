@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"setta/internal/httpapi"
-	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -63,6 +62,20 @@ func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 	}
 	if options.Tailnet {
 		t.Fatal("tailnet = true, want false")
+	}
+}
+
+func TestServeOptionsRequireExplicitLocalCredentialIssuerFlag(t *testing.T) {
+	deps := testDeps()
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", t.TempDir(),
+		"--local-credential-issuer",
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if !options.LocalCredentialIssuer {
+		t.Fatal("local credential issuer was not enabled")
 	}
 }
 
@@ -127,24 +140,13 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 	if options.Speech.APIKey != "sk-openai-speech-serve" {
 		t.Fatalf("speech API key = %q, want OpenAI API key", options.Speech.APIKey)
 	}
-	if options.Speech.Provider.BaseURL != "http://127.0.0.1:24892/v1" ||
-		!options.Speech.Provider.AllowTestBaseURL {
-		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech.Provider)
+	if options.Speech.BaseURL != "http://127.0.0.1:24892/v1" || !options.Speech.AllowTestBaseURL {
+		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech)
 	}
 
 	config := serveRuntimeConfig(options, deps, io.Discard)
-	if !reflect.DeepEqual(config.Speech, options.Speech.Provider) ||
-		config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerServerStartup ||
-		config.SpeechStartupAPIKey != options.Speech.APIKey {
-		t.Fatalf(
-			"runtime speech config = %+v owner %q key %q, want %+v owner %q key %q",
-			config.Speech,
-			config.SpeechCredentialOwner,
-			config.SpeechStartupAPIKey,
-			options.Speech.Provider,
-			runtime.SpeechCredentialOwnerServerStartup,
-			options.Speech.APIKey,
-		)
+	if !reflect.DeepEqual(config.Speech, options.Speech) {
+		t.Fatalf("runtime speech config = %+v, want %+v", config.Speech, options.Speech)
 	}
 	if cleared != speech.APIKeyEnvironmentVariable {
 		t.Fatalf("cleared environment variable = %q, want %q", cleared, speech.APIKeyEnvironmentVariable)

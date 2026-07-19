@@ -4,10 +4,17 @@ import (
 	"net/http"
 
 	"setta/internal/httpapi"
+	"setta/internal/webapp"
 )
 
-func newHTTPServer(config Config, services runtimeServices) *http.Server {
-	apiHandler := httpapi.NewHandler(httpapi.HandlerConfig{
+func newHTTPServer(config Config, services runtimeServices) (*http.Server, error) {
+	var localCredentialIssuer httpapi.LocalCredentialIssuerService
+	var runtimeAccessService httpapi.RuntimeAccessService
+	if services.localCredentialIssuer != nil {
+		localCredentialIssuer = services.localCredentialIssuer
+		runtimeAccessService = services.localCredentialIssuer
+	}
+	apiHandler, err := httpapi.NewHandlerWithError(httpapi.HandlerConfig{
 		Metadata: httpapi.BackendMetadata{
 			Name:    httpapi.BackendName,
 			Version: config.Version,
@@ -19,19 +26,30 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		RoleConfigurationService:     services.roleConfigurationService,
 		MasterInputService:           services.masterInputService,
 		CodexAccountService:          services.codexAccountService,
-		RuntimeAuthService:           services.authStore,
-		RuntimeIdentityService:       services.runtimeIdentityManager,
+		LocalCredentialIssuer:        localCredentialIssuer,
+		RuntimeAccessService:         runtimeAccessService,
+		RuntimeEndpointAccess: httpapi.RuntimeEndpointAccessConfig{
+			AllowedHTTPSOrigins: config.AllowedHTTPSOrigins,
+			AllowedRequestHosts: config.AllowedRequestHosts,
+		},
+		RuntimeAuthService:        services.authStore,
+		RuntimeDiagnosticsService: services.runtimeDiagnosticsService,
+		RuntimeIdentityService:    services.runtimeIdentityManager,
 		RuntimeMetadata: httpapi.RuntimeMetadata{
 			InfrastructureProvider: services.infrastructureProvider,
 		},
-		SpeechService:      speechServiceWithCredentialPolicy(config.SpeechCredentialOwner, services.speechService),
-		WorkspaceUIService: services.workspaceUIService,
-		WorkspaceService:   services.workspaceService,
+		RuntimeSetupService: services.runtimeSetupStore,
+		SpeechService:       services.speechService,
+		WorkspaceUIService:  services.workspaceUIService,
+		WorkspaceService:    services.workspaceService,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return &http.Server{
-		Handler:           apiHandler,
+		Handler:           webapp.NewHandler(apiHandler),
 		MaxHeaderBytes:    httpMaxHeaderBytes,
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 		ReadTimeout:       httpReadTimeout,
-	}
+	}, nil
 }

@@ -99,9 +99,9 @@ The pending-setup cancellation contract is complete. After `getUserMedia` resolv
 
 ## Independent post-loop audit
 
-The core result is sound: the root-`.env` live OpenAI workflow completed the expected transcript, current retained artifacts contain neither the API key nor the ephemeral client secret, local recording was observed around 22–35 ms with a 1,500 ms provider delay, the stale shell `listening` selector is absent from source and retained artifacts, and no compatibility mechanism was found.
+The core result is sound: the root-`.env` live OpenAI workflow completed the expected transcript, current retained artifacts contain neither the API key nor the ephemeral client secret, local recording was observed around 22–35 ms with a 1,500 ms provider delay, the stale shell `listening` selector is absent from source and generated web assets, and no compatibility mechanism was found.
 
-The production teardown correction is complete: the renderer root now uses standard page lifecycle boundaries (`beforeunload`, with non-persisted `pagehide` fallback) inside Electron's renderer, active app-shell controllers register production teardown callbacks, the Phase 4 workflow exercises a real reload while capture is in flight, and the finalized fixture evidence asserts `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`. The removed private renderer teardown route and query gate are absent from source and retained artifacts.
+The production teardown correction is complete: the renderer root now uses standard page lifecycle boundaries (`beforeunload`, with non-persisted `pagehide` fallback) for Electron and web, active app-shell controllers register production teardown callbacks, the Phase 4 workflow exercises a real reload while capture is in flight, and the finalized fixture evidence asserts `commitDelta=0`, `stoppedTrackDelta=1`, and `peerCloseDelta=1`. The removed private renderer teardown route and query gate are absent from source and generated web assets.
 
 The final performance correction is complete: the Phase 4 workflow keeps one explicit cold warm-up run, collects 20 already-authorized local-readiness samples for each of the 0 ms and 1,500 ms provider-delay cohorts, interleaves those cohorts, calculates nearest-rank p95 for both cohorts, enforces `100 ms` p95 and `1000 / 60 ms` p95-difference budgets, and reports the raw samples and p95 values in `docs/reports/performance/instant-voice-capture-phase0-20260717.md`.
 
@@ -265,7 +265,7 @@ Size the ring from the backend-owned `maximumRecordingSeconds` and the actual au
 
 Phase 0 must measure and document the minimum conservative post-roll needed for the pinned WebRTC/provider path, then express it as a sample count at the audio-pipeline domain boundary. Do not implement drain as an uncorrelated `setTimeout`: completion must follow the worklet's observed emission of the queued speech and its explicit post-roll.
 
-The browser engine may resample the microphone into the audio context and WebRTC may encode the destination track as it does today. Setta should not introduce a parallel PCM encoder. The Phase 0 gate below must verify transcription quality and track acceptance with the pinned Electron/Chromium renderer/runtime path.
+The browser may resample the microphone into the audio context and WebRTC may encode the destination track as it does today. Setta should not introduce a parallel PCM encoder. The Phase 0 gate below must verify transcription quality and track acceptance with the pinned Electron/Chromium version and the web build.
 
 ## Lifecycle and resource ownership
 
@@ -408,6 +408,8 @@ node --test desktop/tests/electron/instant-voice-capture-live-openai-credentials
 pnpm -C desktop build
 node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase4-workflow --skip-build
 env -u OPENAI_API_KEY -u SETTA_E2E_OPENAI_SPEECH_BASE_URL node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-live-openai --skip-build
+pnpm -C desktop build:web
+./scripts/go.sh test ./internal/webapp
 ./scripts/test_topic_conversation_workflows.sh --deterministic-only --skip-build
 ./scripts/format.sh
 ./check_quality.sh --all

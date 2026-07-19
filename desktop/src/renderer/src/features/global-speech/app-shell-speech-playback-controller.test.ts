@@ -1,10 +1,8 @@
 import type {
   ConversationPresentationProfile,
-  MasterVoiceSelection,
   NarrationEvent,
   SpeechAudio,
   SpeechSynthesisRequest,
-  ShellInteractionState,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
@@ -17,7 +15,6 @@ import {
   type SpeechPlaybackObservation,
   type SpeechPlaybackSupersessionDecision,
 } from "./app-shell-speech-playback-controller";
-import { masterSpeechPlaybackIntent } from "./app-shell-master-speech-playback-intent";
 
 describe("app-shell speech playback controller", () => {
   test("derives source-aware priorities from live narration and ignores non-speech channels", () => {
@@ -63,21 +60,6 @@ describe("app-shell speech playback controller", () => {
         narrationEvent("milestone", "disabled"),
         profile({ narratorSpeechEnabled: false, resolvedNarratorVoiceId: null }),
         "running",
-      ),
-    ).toBeNull();
-    expect(masterSpeechPlaybackIntent(masterAnswerState(), masterVoice())).toMatchObject({
-      kind: "master_answer",
-      resolvedVoiceId: "marin",
-      source: {
-        conversationId: null,
-        eventId: "master-input-answer",
-        speaker: "master",
-      },
-    });
-    expect(
-      masterSpeechPlaybackIntent(
-        { ...masterAnswerState(), status: "routing", decision: null },
-        masterVoice(),
       ),
     ).toBeNull();
     expect([
@@ -499,50 +481,6 @@ function createHarness(
     signals,
     snapshot: controller.getSnapshot,
     supersessions,
-  };
-}
-
-function masterAnswerState(): ShellInteractionState {
-  return {
-    decision: {
-      answerGlobal: { text: "The master answer is ready." },
-      askNarrator: null,
-      clarify: null,
-      createConversation: null,
-      createSideConversation: null,
-      focusConversation: null,
-      forkConversation: null,
-      kind: "answer_global",
-      queueAgentTurn: null,
-      sendToAgent: null,
-      steerActiveTurn: null,
-    },
-    failure: null,
-    input: {
-      focusedConversationId: null,
-      focusedPaneId: null,
-      focusedWorkspaceId: null,
-      id: "master-input-answer",
-      modality: "voice",
-      originatingConversationId: null,
-      originatingConversationInputId: null,
-      originatingPaneId: null,
-      originatingWorkspaceId: null,
-      source: "shell",
-      submittedAt: "2026-07-12T18:00:00Z",
-      text: "Answer globally.",
-    },
-    status: "decided",
-  };
-}
-
-function masterVoice(): MasterVoiceSelection {
-  return {
-    requestedVoiceId: "marin",
-    resolvedVoiceId: "marin",
-    reuse: null,
-    selection: "exact",
-    updatedAt: "2026-07-12T18:00:00Z",
   };
 }
 

@@ -10,7 +10,6 @@ import type {
   SpeechPlaybackSnapshot,
   SpeechPlaybackState,
 } from "./app-shell-speech-playback-controller";
-import type { SpeechCredentialSetupAction } from "./speech-capture-availability";
 import type { SpeechCaptureRequest } from "./speech-capture-destination";
 
 type GlobalSpeechSource =
@@ -25,12 +24,7 @@ type GlobalSpeechCaptureActiveState = Exclude<SpeechCaptureState, { type: "faile
 
 export type GlobalSpeechCapturePresentation =
   | { source: null; state: "idle" }
-  | {
-      message: string;
-      setupAction: SpeechCredentialSetupAction | null;
-      source: null;
-      state: "unavailable";
-    }
+  | { message: string; source: null; state: "unavailable" }
   | {
       source: GlobalSpeechSource;
       state: GlobalSpeechCaptureActiveState["type"];
@@ -67,7 +61,6 @@ export interface PaneSpeechPresentation {
   transcriptPreview: string | null;
   voiceControlDisabled: boolean;
   voiceControlLabel: string;
-  voiceControlSetupAction: SpeechCredentialSetupAction | null;
 }
 
 export interface GlobalSpeechPresentationSource {
@@ -78,7 +71,6 @@ export interface GlobalSpeechPresentationSource {
 export type ShellSpeechCaptureAction =
   | "cancel"
   | "commit"
-  | SpeechCredentialSetupAction
   | "retry_conversation"
   | "retry_master"
   | "start"
@@ -170,34 +162,13 @@ function captureAvailabilityPresentation(
     case "configured":
       return { source: null, state: "idle" };
     case "disconnected":
-      return {
-        message: "Voice capture is disconnected.",
-        setupAction: null,
-        source: null,
-        state: "unavailable",
-      };
+      return { message: "Voice capture is disconnected.", source: null, state: "unavailable" };
     case "loading":
-      return {
-        message: "Voice capture is loading.",
-        setupAction: null,
-        source: null,
-        state: "unavailable",
-      };
-    case "not_configured":
-      return {
-        message: availability.message,
-        setupAction: availability.setupAction,
-        source: null,
-        state: "unavailable",
-      };
+      return { message: "Voice capture is loading.", source: null, state: "unavailable" };
     case "failed":
+    case "not_configured":
     case "unsupported":
-      return {
-        message: availability.message,
-        setupAction: null,
-        source: null,
-        state: "unavailable",
-      };
+      return { message: availability.message, source: null, state: "unavailable" };
     default:
       return assertNever(availability);
   }
@@ -232,16 +203,12 @@ export function paneSpeechPresentation(
       captureScope === "this_pane" ? speechCaptureTranscriptPreview(capture) : null,
     voiceControlDisabled: control.disabled,
     voiceControlLabel: control.label,
-    voiceControlSetupAction: control.setupAction,
   };
 }
 
 export function shellSpeechCaptureAction(
   capture: GlobalSpeechCapturePresentation,
 ): ShellSpeechCaptureAction {
-  if (capture.state === "unavailable" && capture.setupAction !== null) {
-    return capture.setupAction;
-  }
   if (capture.state === "failed") {
     return failedCaptureActions[capture.retry ?? "capture"];
   }
@@ -278,7 +245,7 @@ export function shellSpeechCaptureLabel(
     return capture.message;
   }
   if (capture.state === "unavailable") {
-    return capture.setupAction === null ? capture.message : voiceCredentialSetupLabel;
+    return capture.message;
   }
   const destination = speechSourceLabel(capture.source, sourceConversationTitle);
   return shellCaptureLabelers[capture.state](destination);
@@ -295,7 +262,7 @@ export function shellSpeechCaptureControlLabel(
       : `Retry the voice request for ${destination}`;
   }
   if (capture.state === "unavailable") {
-    return capture.setupAction === null ? capture.message : voiceCredentialSetupLabel;
+    return capture.message;
   }
   return shellCaptureControlLabelers[capture.state](destination);
 }
@@ -567,7 +534,7 @@ function paneCaptureLabel(label: string, scope: PaneSpeechSourceScope): string {
     case "this_pane":
       return label;
     case "this_conversation":
-      return `${label} for this topic`;
+      return `${label} in another view`;
     case "master":
       return `${label} for Setta`;
     case "other_conversation":
@@ -599,16 +566,10 @@ function panePlaybackLabel(
   }
 }
 
-interface PaneVoiceControl {
-  disabled: boolean;
-  label: string;
-  setupAction: SpeechCredentialSetupAction | null;
-}
-
 function paneVoiceControl(
   capture: GlobalSpeechCapturePresentation,
   scope: PaneSpeechSourceScope,
-): PaneVoiceControl {
+): { disabled: boolean; label: string } {
   if (capture.state === "failed") {
     return failedPaneVoiceControl(capture);
   }
@@ -616,11 +577,7 @@ function paneVoiceControl(
     return recordingPaneVoiceControl(scope);
   }
   if (capture.state === "unavailable") {
-    return {
-      disabled: capture.setupAction === null,
-      label: capture.setupAction === null ? capture.message : voiceCredentialSetupLabel,
-      setupAction: capture.setupAction,
-    };
+    return { disabled: true, label: capture.message };
   }
   return paneVoiceControls[capture.state](scope);
 }
@@ -628,47 +585,33 @@ function paneVoiceControl(
 const paneVoiceControls = {
   committing: activePaneVoiceControl,
   draining: activePaneVoiceControl,
-  idle: () => ({
-    disabled: false,
-    label: "Start a voice request for this conversation",
-    setupAction: null,
-  }),
+  idle: () => ({ disabled: false, label: "Start a voice request for this conversation" }),
   requesting_permission: activePaneVoiceControl,
   submitting: activePaneVoiceControl,
 } satisfies Record<
   Exclude<GlobalSpeechCapturePresentation["state"], "failed" | "recording" | "unavailable">,
-  (scope: PaneSpeechSourceScope) => PaneVoiceControl
+  (scope: PaneSpeechSourceScope) => { disabled: boolean; label: string }
 >;
 
 function activePaneVoiceControl(scope: PaneSpeechSourceScope) {
-  return {
-    disabled: true,
-    label: paneCaptureLabel("Voice capture is active", scope),
-    setupAction: null,
-  };
+  return { disabled: true, label: paneCaptureLabel("Voice capture is active", scope) };
 }
 
 function failedPaneVoiceControl(
   capture: Extract<GlobalSpeechCapturePresentation, { state: "failed" }>,
 ) {
   if (capture.retry === null) {
-    return {
-      disabled: false,
-      label: "Retry voice capture for this conversation",
-      setupAction: null,
-    };
+    return { disabled: false, label: "Retry voice capture for this conversation" };
   }
-  return { disabled: true, label: capture.message, setupAction: null };
+  return { disabled: true, label: capture.message };
 }
 
 function recordingPaneVoiceControl(scope: PaneSpeechSourceScope) {
   if (scope === "this_pane") {
-    return { disabled: false, label: "Finish this voice request", setupAction: null };
+    return { disabled: false, label: "Finish this voice request" };
   }
   return activePaneVoiceControl(scope);
 }
-
-const voiceCredentialSetupLabel = "Set up OpenAI voice in Settings -> Voices";
 
 function speechSourceLabel(
   source: GlobalSpeechSource | null,
