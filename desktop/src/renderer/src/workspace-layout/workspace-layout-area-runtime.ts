@@ -1,5 +1,7 @@
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 
+export const emptyWorkspaceRuntimeId = "empty";
+
 export function workspaceBenchmarkShouldRun(mode: WorkspaceSceneMode): boolean {
   return mode === "benchmark" && workspaceAutoBenchmarkEnabled();
 }
@@ -21,7 +23,11 @@ export function workspaceRuntimeIdentity(
   workspaceRootPath: string | null;
 } {
   if (!workspace) {
-    return { workspaceId: "empty", workspaceName: "No workspace", workspaceRootPath: null };
+    return {
+      workspaceId: emptyWorkspaceRuntimeId,
+      workspaceName: "No workspace",
+      workspaceRootPath: null,
+    };
   }
   return {
     workspaceId: workspace.id,

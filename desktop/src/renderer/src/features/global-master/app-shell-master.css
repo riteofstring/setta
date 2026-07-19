@@ -435,6 +435,188 @@
   padding: 12px 14px 10px;
 }
 
+.setta-master-conversation-picker {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.setta-master-conversation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.setta-master-conversation-action {
+  align-items: center;
+  background: color-mix(in oklch, var(--setta-800) 78%, transparent);
+  border: 1px solid color-mix(in oklch, var(--setta-600) 50%, transparent);
+  border-radius: 7px;
+  color: var(--setta-200);
+  display: inline-flex;
+  font-size: 10.5px;
+  gap: 6px;
+  height: 28px;
+  padding: 0 9px;
+}
+
+.setta-master-conversation-action:hover:not(:disabled),
+.setta-master-conversation-action:focus-visible {
+  background: color-mix(in oklch, var(--primary) 14%, var(--setta-800));
+  border-color: color-mix(in oklch, var(--primary) 42%, var(--setta-600));
+  color: var(--setta-50);
+}
+
+.setta-master-conversation-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.setta-master-conversation-action svg {
+  height: 13px;
+  width: 13px;
+}
+
+.setta-master-conversation-error {
+  align-items: center;
+  background: color-mix(in oklch, var(--status-critical) 8%, transparent);
+  border: 1px solid color-mix(in oklch, var(--status-critical) 30%, transparent);
+  border-radius: 8px;
+  color: color-mix(in oklch, var(--status-critical) 74%, var(--setta-100));
+  display: flex;
+  font-size: 10.5px;
+  gap: 7px;
+  line-height: 15px;
+  padding: 7px 9px;
+}
+
+.setta-master-conversation-error svg {
+  flex: 0 0 auto;
+  height: 12px;
+  width: 12px;
+}
+
+.setta-master-conversation-panel {
+  background: color-mix(in oklch, var(--setta-875) 86%, transparent);
+  border: 1px solid color-mix(in oklch, var(--setta-600) 46%, transparent);
+  border-radius: 8px;
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+}
+
+.setta-master-conversation-search {
+  align-items: center;
+  background: color-mix(in oklch, var(--setta-925) 82%, transparent);
+  border: 1px solid color-mix(in oklch, var(--setta-650) 52%, transparent);
+  border-radius: 7px;
+  color: var(--setta-400);
+  display: grid;
+  gap: 7px;
+  grid-template-columns: 14px minmax(0, 1fr);
+  height: 30px;
+  padding: 0 8px;
+}
+
+.setta-master-conversation-search:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--setta-650));
+}
+
+.setta-master-conversation-search svg {
+  height: 13px;
+  width: 13px;
+}
+
+.setta-master-conversation-search input {
+  background: transparent;
+  border: 0;
+  color: var(--setta-100);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 16px;
+  min-width: 0;
+  outline: 0;
+}
+
+.setta-master-conversation-search input::placeholder {
+  color: var(--setta-450);
+}
+
+.setta-master-conversation-list {
+  display: grid;
+  gap: 4px;
+  max-height: 190px;
+  min-height: 34px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.setta-master-conversation-row {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--setta-200);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 16px minmax(0, 1fr);
+  min-height: 36px;
+  padding: 5px 7px;
+  text-align: left;
+}
+
+.setta-master-conversation-row:hover:not(:disabled),
+.setta-master-conversation-row:focus-visible {
+  background: color-mix(in oklch, var(--primary) 9%, var(--setta-850));
+  border-color: color-mix(in oklch, var(--primary) 28%, var(--setta-700));
+  color: var(--setta-50);
+}
+
+.setta-master-conversation-row:disabled {
+  opacity: 0.56;
+}
+
+.setta-master-conversation-row svg {
+  height: 14px;
+  width: 14px;
+}
+
+.setta-master-conversation-row-main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.setta-master-conversation-row-title {
+  color: inherit;
+  font-size: 11.5px;
+  font-weight: 560;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-master-conversation-row-meta,
+.setta-master-conversation-status {
+  color: var(--setta-400);
+  font-size: 9.5px;
+  line-height: 13px;
+}
+
+.setta-master-conversation-status {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 2px;
+}
+
+.setta-master-conversation-status svg {
+  height: 12px;
+  width: 12px;
+}
+
 .setta-master-overlay-voice-status {
   align-items: center;
   background: color-mix(in oklch, var(--primary) 6%, transparent);

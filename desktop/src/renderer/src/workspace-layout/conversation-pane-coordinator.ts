@@ -1,4 +1,4 @@
-import type { PresentationIntent } from "@generated/backend";
+import type { ConversationPaneResourceBinding, PresentationIntent } from "@generated/backend";
 
 import type { WorkspaceLayoutStore } from "./layout-store";
 
@@ -8,6 +8,7 @@ export interface ConversationPanePresentationRequest {
   conversationId: string;
   destination?: ConversationPanePlacementDestination;
   preferredPaneId?: string | null;
+  resourceBindings?: ConversationPaneResourceBinding[];
   title: string;
   workspaceId: string;
 }
@@ -132,14 +133,7 @@ export function presentConversationPane(
     store.focusPane(existingPane.paneId);
     return { kind: "focused", paneId: existingPane.paneId };
   }
-  const paneRequest = {
-    conversationConfig: { conversationId: request.conversationId },
-    subtitle: "Topic conversation",
-    surfaceKind: "conversation",
-    title: request.title,
-    tone: "cyan",
-    widthSpec: { unit: "proportion", value: 1 },
-  } as const;
+  const paneRequest = conversationPaneRequest(request);
   const onlyPane = store.toScene().panes.length === 1 ? store.toScene().panes[0] : undefined;
   if (onlyPane?.surfaceKind === "empty-frame") {
     clearMaximizedPane(store);
@@ -184,7 +178,7 @@ function presentNewConversationPane(
       reason: "This conversation already has an open pane.",
     };
   }
-  const paneRequest = conversationPaneRequest(request.conversationId, request.title);
+  const paneRequest = conversationPaneRequest(request);
   switch (destination.kind) {
     case "new-pane":
       clearMaximizedPane(store);
@@ -216,12 +210,17 @@ function emptyFramePlacementPreflight(
   return { kind: "ready" };
 }
 
-function conversationPaneRequest(conversationId: string, title: string) {
+function conversationPaneRequest(request: ConversationPanePresentationRequest) {
   return {
-    conversationConfig: { conversationId },
+    conversationConfig: {
+      conversationId: request.conversationId,
+      ...(request.resourceBindings === undefined
+        ? {}
+        : { resourceBindings: request.resourceBindings }),
+    },
     subtitle: "Topic conversation",
     surfaceKind: "conversation",
-    title,
+    title: request.title,
     tone: "cyan",
     widthSpec: { unit: "proportion", value: 1 },
   } as const;

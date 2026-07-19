@@ -94,6 +94,33 @@ describe("conversation pane coordinator", () => {
     expect(store.toScene().paneById.get(initialPaneId)?.surfaceKind).toBe("empty-frame");
   });
 
+  test("opens an explicitly folderless conversation pane without workspace-derived bindings", () => {
+    const store = workspaceStore();
+
+    const result = presentConversationPane(store, {
+      conversationId: "conversation_folderless",
+      destination: { kind: "new-pane" },
+      resourceBindings: [],
+      title: "Folderless topic",
+      workspaceId: "workspace_api",
+    });
+
+    expect(result.kind).toBe("opened");
+    const pane = store
+      .toScene()
+      .panes.find(
+        (candidate) => candidate.conversationConfig?.conversationId === "conversation_folderless",
+      );
+    expect(pane).toMatchObject({
+      conversationConfig: {
+        conversationId: "conversation_folderless",
+        resourceBindings: [],
+      },
+      surfaceKind: "conversation",
+      title: "Folderless topic",
+    });
+  });
+
   test("opens newly created conversations beyond the former conversation pane cap", () => {
     const store = workspaceStore();
 

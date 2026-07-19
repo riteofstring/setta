@@ -39,6 +39,7 @@ import {
   MasterVoiceButton,
   MasterVoiceStatus,
 } from "./master-voice-controls";
+import { MasterConversationPicker } from "./master-conversation-picker";
 import { useAppShellMasterShortcuts } from "./app-shell-master-shortcuts";
 import {
   type AppShellSpeechCaptureContextValue,
@@ -284,6 +285,7 @@ function MasterSurfaceFooter({
           {synchronousError}
         </div>
       ) : null}
+      <MasterConversationPicker />
       <MasterVoiceStatus model={masterVoice} />
       <form className="setta-master-overlay-composer" onSubmit={onSubmit}>
         <textarea

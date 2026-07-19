@@ -35,6 +35,7 @@ import type { GlobalSpeechPresentationSource } from "./features/global-speech/gl
 import { cn } from "./lib/utils";
 import { masterPaneFocusRequestEvent } from "./workspace-layout/master-pane-focus";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
+import { emptyWorkspaceRuntimeId } from "./workspace-layout/workspace-layout-area-runtime";
 import type {
   WorkspaceConversationFocusRequest,
   WorkspaceConversationPlacementPreflightRequest,
@@ -49,6 +50,7 @@ import {
   type ConversationPanePresentationSuccess,
 } from "./workspace-layout/conversation-pane-coordinator";
 import { useAppearanceStore } from "./stores/appearance-store";
+import { useConversationNavigatorStore } from "./stores/conversation-navigator-store";
 import {
   type ConversationPaneWorkspaceState,
   useConversationPaneStore,
@@ -74,7 +76,13 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const selectedWorkspaceId = useWorkspaceStore(
     (state) => state.session?.selectedWorkspaceId ?? "",
   );
+  const workspaceSession = useWorkspaceStore((state) => state.session);
   const selectWorkspace = useWorkspaceStore((state) => state.selectWorkspace);
+  const syncConversationNavigatorWorkspaces = useConversationNavigatorStore(
+    (state) => state.syncWorkspaces,
+  );
+  const activeConversationWorkspaceKey =
+    workspaceSession?.activeWorkspaces.map((workspace) => workspace.id).join("\u0000") ?? "";
   const masterInputFocusHints = useMasterInputFocusHints(selectedWorkspaceId);
   const platform = setta.app.platform;
   const viewport = useViewportSize();
@@ -125,6 +133,13 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     settingsRouteWasOpenRef.current = settingsPageOpen;
   }, [settingsPageOpen]);
   useEffect(() => {
+    const workspaceIds =
+      activeConversationWorkspaceKey.length === 0
+        ? []
+        : activeConversationWorkspaceKey.split("\u0000");
+    void syncConversationNavigatorWorkspaces(workspaceIds);
+  }, [activeConversationWorkspaceKey, syncConversationNavigatorWorkspaces]);
+  useEffect(() => {
     const closeSettingsForMasterPaneFocus = () => {
       if (useSettingsNavigationStore.getState().route.page === "settings") {
         closeSettings();
@@ -138,12 +153,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     async (
       request: ConversationPanePresentationRequest,
     ): Promise<ConversationPanePresentationSuccess> => {
-      if (useWorkspaceStore.getState().session?.selectedWorkspaceId !== request.workspaceId) {
-        await selectWorkspace(request.workspaceId);
-        if (useWorkspaceStore.getState().session?.selectedWorkspaceId !== request.workspaceId) {
-          throw new Error(`Setta could not select workspace ${request.workspaceId}.`);
-        }
-      }
+      await ensureConversationPresentationWorkspaceMounted(request.workspaceId, selectWorkspace);
       setConversationPresentationError(null);
       const result = await new Promise<ConversationPanePresentationResult>((resolve) => {
         setWorkspaceConversationFocusRequest((current) => ({
@@ -433,6 +443,36 @@ function optionalWorkspaceId(workspaceId: string): string | null {
     return null;
   }
   return workspaceId;
+}
+
+function currentMountedPaneWorkspaceId(selectedWorkspaceId: string): string {
+  return selectedWorkspaceId.length > 0 ? selectedWorkspaceId : emptyWorkspaceRuntimeId;
+}
+
+async function ensureConversationPresentationWorkspaceMounted(
+  requestWorkspaceId: string,
+  selectWorkspace: (workspaceId: string) => Promise<void>,
+): Promise<void> {
+  const mountedWorkspaceId = currentMountedPaneWorkspaceId(
+    useWorkspaceStore.getState().session?.selectedWorkspaceId ?? "",
+  );
+  if (requestWorkspaceId === emptyWorkspaceRuntimeId) {
+    if (mountedWorkspaceId !== emptyWorkspaceRuntimeId) {
+      throw new Error("The folderless pane scene is not mounted.");
+    }
+    return;
+  }
+  if (mountedWorkspaceId === requestWorkspaceId) {
+    return;
+  }
+  await selectWorkspace(requestWorkspaceId);
+  if (
+    currentMountedPaneWorkspaceId(
+      useWorkspaceStore.getState().session?.selectedWorkspaceId ?? "",
+    ) !== requestWorkspaceId
+  ) {
+    throw new Error(`Setta could not select workspace ${requestWorkspaceId}.`);
+  }
 }
 
 function readSettaApi(): SettaAPI | null {

@@ -94,10 +94,19 @@ try {
     appLayoutShellPersisted,
     workflowTimeoutMs,
   );
+  const folderlessConversation = await context.client.driver(
+    "appPaneLayoutCreateFolderlessConversationFromMaster",
+  );
+  if (folderlessConversation.status !== "passed") {
+    throw new Error(
+      `master folderless conversation create failed: ${JSON.stringify(folderlessConversation)}`,
+    );
+  }
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     focusedMaster,
+    folderlessConversation,
     focusedPaneId: result.readBack.layout.focusedPaneId,
     persistedShell,
     restoredShell,

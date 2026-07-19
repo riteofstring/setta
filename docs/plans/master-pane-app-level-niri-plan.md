@@ -420,7 +420,7 @@ of blocking app startup or conversation creation.
 
 ### 6. Remove The Left Pane Shell
 
-**Status:** In progress.
+**Status:** Completed.
 
 Completed repository work:
 
@@ -438,13 +438,17 @@ Completed repository work:
 - Replaced the primary Ask Setta keyboard/native-key path with an app-level master pane focus
   command that closes settings when needed, ensures a master pane exists, focuses it, maximizes it,
   focuses the composer, and verifies the behavior through the focused app pane Electron workflow.
+- Added a master-pane topic picker that provides the removed sidebar's conversation list/search/open
+  entry point from the app-level master surface, backed by the production conversation navigator
+  store without restoring a permanent left pane.
+- Added master-pane folderless conversation creation that uses the production
+  preload/main/backend/store path, opens an app-level conversation pane with explicit empty resource
+  bindings, and verifies the persisted folderless pane through the focused app pane Electron
+  workflow.
 
 Remaining repository work:
 
-- Replace the removed sidebar's conversation search/list/create affordances with master transcript
-  actions, a command/search palette, or typed ephemeral pickers.
-- Add command/search or typed picker entry points needed to fully replace the old sidebar
-  conversation navigation model.
+- None.
 
 Delete the permanent `ProjectPane`/`WorkspaceSidebar` from the primary app shell.
 

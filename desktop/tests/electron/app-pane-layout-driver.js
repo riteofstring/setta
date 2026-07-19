@@ -11,6 +11,7 @@
     }
     Object.assign(driver, {
       appPaneLayoutClickFocusedMaximize,
+      appPaneLayoutCreateFolderlessConversationFromMaster,
       appPaneLayoutMasterFocusState,
       appPaneLayoutPersistedShellState,
       appPaneLayoutPressMasterFocusShortcut,
@@ -92,6 +93,82 @@
       ...state,
       masterComposerFocused: document.activeElement === composer,
       masterOverlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+    };
+  }
+
+  async function appPaneLayoutCreateFolderlessConversationFromMaster() {
+    const button = document.querySelector(
+      '[data-testid="master-pane-surface"] [data-testid="master-new-conversation-button"]',
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return { reason: "missing-master-new-conversation-button", status: "failed" };
+    }
+    if (button.disabled) {
+      return { reason: "disabled-master-new-conversation-button", status: "failed" };
+    }
+    button.click();
+    return waitForFolderlessConversationPane();
+  }
+
+  async function waitForFolderlessConversationPane() {
+    const deadline = Date.now() + 5000;
+    let state = await folderlessConversationPaneState();
+    while (state.status !== "passed" && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      state = await folderlessConversationPaneState();
+    }
+    return state.status === "passed" ? state : { ...state, status: "failed" };
+  }
+
+  async function folderlessConversationPaneState() {
+    const surface = document.querySelector(
+      '[data-testid="workspace-pane-host"][data-surface-kind="conversation"] [data-testid="easy-button-surface"][data-easy-button-projection="unloaded"]',
+    );
+    if (!(surface instanceof HTMLElement)) {
+      return { reason: "missing-folderless-conversation-surface", status: "pending" };
+    }
+    const resourceRequestState = folderlessConversationResourceRequestState(surface);
+    if (resourceRequestState.status !== "ready") {
+      return resourceRequestState;
+    }
+    const api = appLayoutAPI();
+    if (api.status === "failed") {
+      return api;
+    }
+    const read = await api.readPaneLayout();
+    return persistedFolderlessConversationPaneState(
+      read.layout,
+      surface.dataset.conversationId ?? "",
+    );
+  }
+
+  function folderlessConversationResourceRequestState(surface) {
+    const folderResource = surface.querySelector('[data-testid="easy-button-folder-resource"]');
+    if (!(folderResource instanceof HTMLElement)) {
+      return { reason: "missing-folder-resource-request", status: "pending" };
+    }
+    return { status: "ready" };
+  }
+
+  function persistedFolderlessConversationPaneState(layout, conversationId) {
+    const persistedPane = layout?.panes.find(
+      (pane) =>
+        pane.surfaceKind === "conversation" &&
+        pane.conversationConfig.conversationId === conversationId,
+    );
+    const resourceBindings = persistedPane?.conversationConfig?.resourceBindings;
+    if (!Array.isArray(resourceBindings) || resourceBindings.length !== 0) {
+      return {
+        conversationId,
+        reason: "folderless-resource-bindings-not-persisted",
+        resourceBindings,
+        status: "pending",
+      };
+    }
+    return {
+      conversationId,
+      paneId: persistedPane.paneId,
+      status: "passed",
     };
   }
 
