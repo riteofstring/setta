@@ -268,7 +268,6 @@ func TestTerminalNarratorProjectionRequiresTerminalTurnAndSourceEvent(t *testing
 	request := narratorWorkingCommit(seed)
 	request.Trigger = NarrationTriggerTurnTerminal
 	request.ObservedThroughSequence = 10
-	request.Milestones = []NarrationTextCommit{}
 	request.FinalSummary = &NarrationTextCommit{
 		NarrationEventID: "premature-final",
 		CommittedEventID: "premature-final-publication",
@@ -315,7 +314,7 @@ func narratorWorkingCommit(seed narratorContextSeed) NarratorProjectionCommit {
 				Text:             "The narrator output transaction is ready.",
 			},
 		},
-		Trigger:                  NarrationTriggerApprovalRequired,
+		Trigger:                  NarrationTriggerPlanChanged,
 		ResolvedInvocation:       validInvocation(RoleNarrator, InvocationOutcomeSucceeded),
 		NarratorStateCommittedID: "projection-state-publication",
 		CommittedAt:              narratorProjectionTime,
@@ -366,11 +365,17 @@ func narratorTerminalCommit(seed narratorContextSeed, state NarratorState) Narra
 		TurnID:                  seed.turnID,
 		Expected:                narratorExpectation(state),
 		ObservedThroughSequence: 11,
-		Milestones:              []NarrationTextCommit{},
+		Milestones: []NarrationTextCommit{
+			{
+				NarrationEventID: "terminal-milestone",
+				CommittedEventID: "terminal-milestone-publication",
+				Text:             "All narration channels now persist atomically.",
+			},
+		},
 		FinalSummary: &NarrationTextCommit{
 			NarrationEventID: "terminal-final-summary",
 			CommittedEventID: "terminal-final-publication",
-			Text:             "Status replies, final summaries, and topic descriptors now publish from durable state.",
+			Text:             "Milestones, status replies, final summaries, and topic descriptors now publish from durable state.",
 		},
 		Trigger:                  NarrationTriggerTurnTerminal,
 		ResolvedInvocation:       validInvocation(RoleNarrator, InvocationOutcomeSucceeded),
@@ -616,9 +621,8 @@ func assertTerminalProjectionCommit(t *testing.T, result NarratorProjectionCommi
 	if result.Conversation != nil {
 		t.Fatalf("terminal projection unexpectedly updated conversation: %+v", result.Conversation)
 	}
-	if len(result.Events) != 1 ||
-		result.Events[0].Kind != NarrationEventKindFinalSummary ||
-		result.Events[0].FinalSummary == nil {
+	if len(result.Events) != 2 || result.Events[0].Kind != NarrationEventKindMilestone ||
+		result.Events[1].Kind != NarrationEventKindFinalSummary || result.Events[1].FinalSummary == nil {
 		t.Fatalf("terminal narration events = %+v", result.Events)
 	}
 	for _, event := range result.Events {
@@ -645,6 +649,7 @@ func assertNarratorOutputSnapshot(
 		NarrationEventKindMilestone,
 		NarrationEventKindMilestone,
 		NarrationEventKindStatusReply,
+		NarrationEventKindMilestone,
 		NarrationEventKindFinalSummary,
 	}
 	if len(narration.Events) != len(wantKinds) {
@@ -673,6 +678,7 @@ func assertNarratorOutputPublications(t *testing.T, store *Store, seed narratorC
 		ConversationEventTypeNarratorStateUpdated,
 		ConversationEventTypeNarrationCreated,
 		ConversationEventTypeNarratorStateUpdated,
+		ConversationEventTypeNarrationCreated,
 		ConversationEventTypeNarrationCreated,
 	}
 	// The terminal trajectory fixture adds one non-conversation-contract test
@@ -710,12 +716,6 @@ func TestNarratorOutputCommitValidationRejectsCrossChannelShapes(t *testing.T) {
 	}
 	if err := projection.Validate(); err == nil {
 		t.Fatal("working projection accepted final summary")
-	}
-
-	projection = narratorWorkingCommit(seed)
-	projection.Trigger = NarrationTriggerPlanChanged
-	if err := projection.Validate(); err == nil {
-		t.Fatal("routine projection accepted milestone")
 	}
 
 	projection = narratorWorkingCommit(seed)

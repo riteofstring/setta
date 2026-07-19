@@ -238,11 +238,17 @@ func pendingApprovalsForTurn(
 	turnID string,
 ) map[string]TrajectoryApprovalRequest {
 	pending := map[string]TrajectoryApprovalRequest{}
-	for _, approval := range snapshot.PendingApprovals {
-		if approval.TurnID != turnID {
+	for _, event := range snapshot.Trajectory.Events {
+		if event.TurnID == nil || *event.TurnID != turnID {
 			continue
 		}
-		pending[approval.Approval.ID] = approval.Approval
+		if event.ApprovalRequested != nil {
+			request := event.ApprovalRequested.Approval
+			pending[request.ID] = request
+		}
+		if event.ApprovalResolved != nil {
+			delete(pending, event.ApprovalResolved.Resolution.ApprovalID)
+		}
 	}
 	return pending
 }

@@ -12,16 +12,15 @@ import {
   usePresentedStatusReply,
 } from "./easy-button-narrator-status";
 
-export interface EasyButtonProgressHighlight {
+export interface EasyButtonMilestone {
   at: string;
-  body: string;
   id: string;
-  title: string;
+  text: string;
   turnStartedAt: string | null;
 }
 
 const maxRenderedArtifacts = 6;
-const maxRenderedHighlights = 5;
+const maxRenderedMilestones = 5;
 
 type ArtifactReader = (request: ReadConversationArtifactRequest) => Promise<Artifact>;
 
@@ -33,34 +32,34 @@ type ArtifactPayloadCacheEntry =
 const artifactPayloadCache = new Map<string, ArtifactPayloadCacheEntry>();
 
 export function HighlightRail({
-  highlights,
-  speakingHighlightId = null,
+  milestones,
+  speakingMilestoneId = null,
   statusReply = null,
 }: {
-  highlights: readonly EasyButtonProgressHighlight[];
-  speakingHighlightId?: string | null;
+  milestones: readonly EasyButtonMilestone[];
+  speakingMilestoneId?: string | null;
   statusReply?: EasyButtonNarratorStatusReply | null;
 }) {
-  const visibleHighlights = highlights.slice(-maxRenderedHighlights);
+  const visibleMilestones = milestones.slice(-maxRenderedMilestones);
   const presentedStatusReply = usePresentedStatusReply(statusReply);
   return (
     <aside
-      aria-label={presentedStatusReply ? "Status and NOW highlights" : "NOW highlights"}
+      aria-label={presentedStatusReply ? "Status and milestones" : "Milestones"}
       className="easy-button-rail easy-button-rail-left"
       data-easy-button-rail-empty={
-        highlights.length === 0 && !presentedStatusReply ? "true" : "false"
+        milestones.length === 0 && !presentedStatusReply ? "true" : "false"
       }
-      data-easy-button-highlight-window-size={visibleHighlights.length}
+      data-easy-button-highlight-window-size={visibleMilestones.length}
     >
       <NarratorStatusReply reply={presentedStatusReply} />
       <p className="easy-button-rail-label">Now</p>
       <ol className="easy-button-highlight-list" data-testid="easy-button-highlights">
-        {visibleHighlights.map((highlight, index) => (
-          <HighlightItem
-            highlight={highlight}
-            key={highlight.id}
-            age={visibleHighlights.length - index - 1}
-            speaking={highlight.id === speakingHighlightId}
+        {visibleMilestones.map((milestone, index) => (
+          <MilestoneItem
+            key={milestone.id}
+            age={visibleMilestones.length - index - 1}
+            milestone={milestone}
+            speaking={milestone.id === speakingMilestoneId}
           />
         ))}
       </ol>
@@ -68,13 +67,13 @@ export function HighlightRail({
   );
 }
 
-function HighlightItem({
+function MilestoneItem({
   age,
-  highlight,
+  milestone,
   speaking,
 }: {
   age: number;
-  highlight: EasyButtonProgressHighlight;
+  milestone: EasyButtonMilestone;
   speaking: boolean;
 }) {
   return (
@@ -82,16 +81,13 @@ function HighlightItem({
       aria-current={speaking ? "true" : undefined}
       className="easy-button-highlight-item"
       data-easy-button-highlight-age={age}
-      data-easy-button-highlight-id={highlight.id}
+      data-easy-button-highlight-id={milestone.id}
       data-easy-button-highlight-speaking={speaking ? "true" : undefined}
     >
       <span aria-hidden="true" className="easy-button-highlight-dot" />
-      <span className="easy-button-highlight-copy">
-        <span className="easy-button-highlight-title">{highlight.title}</span>
-        <span className="easy-button-highlight-body">{highlight.body}</span>
-      </span>
+      <span className="easy-button-highlight-text">{milestone.text}</span>
       <span className="easy-button-highlight-time">
-        {milestoneElapsedLabel(highlight.turnStartedAt, highlight.at)}
+        {milestoneElapsedLabel(milestone.turnStartedAt, milestone.at)}
       </span>
     </li>
   );
@@ -108,7 +104,7 @@ export function ArtifactRail({
   readArtifact?: ArtifactReader;
   workspaceId: string | null;
 }) {
-  const visibleArtifacts = useMemo(() => visibleArtifactMetadata(artifacts), [artifacts]);
+  const visibleArtifacts = useMemo(() => artifacts.slice(-maxRenderedArtifacts), [artifacts]);
   useVisibleArtifactPayloads({
     artifacts: visibleArtifacts,
     conversationId,
@@ -137,12 +133,6 @@ export function ArtifactRail({
   );
 }
 
-export function visibleArtifactMetadata(
-  artifacts: readonly ArtifactMetadata[],
-): readonly ArtifactMetadata[] {
-  return artifacts.slice(-maxRenderedArtifacts);
-}
-
 export function readVisibleArtifactPayloads({
   artifacts,
   conversationId,
@@ -155,30 +145,13 @@ export function readVisibleArtifactPayloads({
   workspaceId: string;
 }): Promise<Artifact[]> {
   return Promise.all(
-    visibleArtifactMetadata(artifacts).map((artifact) =>
-      readArtifactPayload(artifact, workspaceId, conversationId, readArtifact),
-    ),
+    artifacts
+      .slice(-maxRenderedArtifacts)
+      .map((artifact) => readArtifactPayload(artifact, workspaceId, conversationId, readArtifact)),
   );
 }
 
-export function cachedVisibleArtifactPayloads({
-  artifacts,
-  conversationId,
-  workspaceId,
-}: {
-  artifacts: readonly ArtifactMetadata[];
-  conversationId: string;
-  workspaceId: string;
-}): Artifact[] {
-  return visibleArtifactMetadata(artifacts).flatMap((artifact) => {
-    const cached = artifactPayloadCache.get(
-      artifactPayloadCacheKey(workspaceId, conversationId, artifact.id),
-    );
-    return cached?.status === "loaded" ? [cached.artifact] : [];
-  });
-}
-
-export function useVisibleArtifactPayloads({
+function useVisibleArtifactPayloads({
   artifacts,
   conversationId,
   readArtifact,
@@ -188,8 +161,8 @@ export function useVisibleArtifactPayloads({
   conversationId: string;
   readArtifact: ArtifactReader | undefined;
   workspaceId: string | null;
-}): number {
-  const [revision, setRevision] = useState(0);
+}) {
+  const [, setRevision] = useState(0);
   const artifactIds = artifacts.map((artifact) => artifact.id).join("\x00");
   useEffect(() => {
     if (!workspaceId) {
@@ -213,7 +186,6 @@ export function useVisibleArtifactPayloads({
       active = false;
     };
   }, [artifactIds, artifacts, conversationId, readArtifact, workspaceId]);
-  return revision;
 }
 
 function readArtifactPayload(

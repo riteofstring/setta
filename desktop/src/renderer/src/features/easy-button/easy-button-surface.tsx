@@ -1,20 +1,19 @@
 import { Check, Sparkles, Square, X } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import {
-  type Artifact,
   type ArtifactMetadata,
   type ConversationPaletteID,
   type ConversationPresentationProfile,
   type ConversationSnapshot,
   type ConversationTurn,
+  type NarrationEvent,
   type NarratorState,
   type Subagent,
   type TopicConversation,
   type TrajectoryEvent,
 } from "@generated/backend";
 
-import { openAIVoiceConnectionSettings } from "../../components/settings-navigation";
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
@@ -63,20 +62,10 @@ import {
 } from "./easy-button-intent-slot";
 import { useEasyButtonPaneTitle } from "./easy-button-pane-title";
 import { EasyButtonPresentationChrome } from "./easy-button-presentation-chrome";
-import { progressHighlightViews } from "./easy-button-progress-highlights";
-import {
-  ArtifactRail,
-  cachedVisibleArtifactPayloads,
-  HighlightRail,
-  type EasyButtonProgressHighlight,
-  useVisibleArtifactPayloads,
-  visibleArtifactMetadata,
-} from "./easy-button-rails";
-import { speakingProgressHighlightId } from "./easy-button-speaking-highlight";
+import { ArtifactRail, HighlightRail, type EasyButtonMilestone } from "./easy-button-rails";
 import { EasyButtonSideConversation } from "./easy-button-side-conversation";
 import { easyButtonSideView, type EasyButtonSideView } from "./easy-button-side-projection";
 import {
-  easyButtonTerminalSummary,
   EasyButtonTerminalSummary,
   type EasyButtonTerminalSummaryRecord,
 } from "./easy-button-terminal-summary";
@@ -92,14 +81,6 @@ interface EasyButtonSurfaceProps {
   workspaceId?: string | null;
 }
 
-interface EasyButtonArtifactPayloadSource {
-  artifacts: readonly ArtifactMetadata[];
-  conversationId: string;
-  workspaceId: string | null;
-}
-
-const emptyArtifactMetadata: readonly ArtifactMetadata[] = [];
-
 export interface EasyButtonProjectionView {
   activeAgentCount: number;
   archived: boolean;
@@ -110,9 +91,9 @@ export interface EasyButtonProjectionView {
   eventCursorSequence: number;
   focusStatus: EasyButtonFocusStatus;
   helperCopy: string;
-  highlights: EasyButtonProgressHighlight[];
   intentSlot: EasyButtonIntentSlot;
   lineage: EasyButtonForkLineage | null;
+  milestones: EasyButtonMilestone[];
   narratorDegradation: string | null;
   paletteId: ConversationPaletteID | null;
   pendingApproval: PendingConversationApproval | null;
@@ -169,14 +150,7 @@ export function EasyButtonSurface({
       )?.conversation.title ?? null
     );
   });
-  const artifactPayloads = useEasyButtonArtifactPayloads(projection, conversationId, workspaceId);
-  const projectedView = easyButtonProjectionView(
-    conversationId,
-    projection,
-    paneId,
-    parentTitle,
-    artifactPayloads,
-  );
+  const projectedView = easyButtonProjectionView(conversationId, projection, paneId, parentTitle);
   const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
   return (
     <EasyButtonProjectionSurface
@@ -186,56 +160,6 @@ export function EasyButtonSurface({
       view={view}
     />
   );
-}
-
-function useEasyButtonArtifactPayloads(
-  projection: ConversationProjection | undefined,
-  conversationId: string,
-  workspaceId: string | null | undefined,
-): readonly Artifact[] {
-  const source = artifactPayloadSource(projection, conversationId, workspaceId);
-  const visibleArtifacts = useMemo(
-    () => visibleArtifactMetadata(source.artifacts),
-    [source.artifacts],
-  );
-  useVisibleArtifactPayloads({
-    artifacts: visibleArtifacts,
-    conversationId: source.conversationId,
-    readArtifact: undefined,
-    workspaceId: source.workspaceId,
-  });
-  return cachedArtifactPayloadsForSource(source);
-}
-
-function artifactPayloadSource(
-  projection: ConversationProjection | undefined,
-  conversationId: string,
-  workspaceId: string | null | undefined,
-): EasyButtonArtifactPayloadSource {
-  const snapshot = projection?.snapshot;
-  if (!snapshot) {
-    return {
-      artifacts: emptyArtifactMetadata,
-      conversationId,
-      workspaceId: workspaceId ?? null,
-    };
-  }
-  return {
-    artifacts: snapshot.artifacts.artifacts,
-    conversationId: snapshot.conversation.id,
-    workspaceId: snapshot.conversation.workspaceId,
-  };
-}
-
-function cachedArtifactPayloadsForSource(source: EasyButtonArtifactPayloadSource): Artifact[] {
-  if (!source.workspaceId) {
-    return [];
-  }
-  return cachedVisibleArtifactPayloads({
-    artifacts: source.artifacts,
-    conversationId: source.conversationId,
-    workspaceId: source.workspaceId,
-  });
 }
 
 export function easyButtonConversationProjection(
@@ -355,12 +279,11 @@ function EasyButtonProjectionContent({
       <EasyButtonSideConversation commands={commands} parentTitle={view.title} side={view.side} />
     );
   }
-  const speakingHighlightId = speakingProgressHighlightId(view.highlights, speech);
   return (
     <>
       <HighlightRail
-        highlights={view.highlights}
-        speakingHighlightId={speakingHighlightId}
+        milestones={view.milestones}
+        speakingMilestoneId={speech?.speakingSourceEventId ?? null}
         statusReply={view.statusReply}
       />
       <main className="easy-button-stage">
@@ -402,9 +325,7 @@ function ConversationControl({
   speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
 }) {
-  const action = conversationControlAction(commands, readOnly, speech, {
-    onOpenVoiceCredentialSettings: openAIVoiceConnectionSettings,
-  });
+  const action = conversationControlAction(commands, readOnly, speech);
   return (
     <div className="easy-button-button-well">
       <SwirlField />
@@ -516,7 +437,6 @@ export function easyButtonProjectionView(
   projection: ConversationProjection | undefined,
   paneId: string | null = null,
   parentTitle: string | null = null,
-  artifactPayloads: readonly Artifact[] = [],
 ): EasyButtonProjectionView {
   if (!projection) {
     return unavailableView({
@@ -535,40 +455,27 @@ export function easyButtonProjectionView(
       projectionStatus,
     });
   }
-  return projectConversationSnapshot({
-    artifactPayloads,
-    paneId,
-    parentTitle,
+  return projectConversationSnapshot(
+    projection.snapshot,
     projection,
     projectionStatus,
-    snapshot: projection.snapshot,
-  });
+    paneId,
+    parentTitle,
+  );
 }
 
-function projectConversationSnapshot({
-  artifactPayloads,
-  paneId,
-  parentTitle,
-  projection,
-  projectionStatus,
-  snapshot,
-}: {
-  artifactPayloads: readonly Artifact[];
-  paneId: string | null;
-  parentTitle: string | null;
-  projection: ConversationProjection;
-  projectionStatus: EasyButtonProjectionStatus;
-  snapshot: ConversationSnapshot;
-}): EasyButtonProjectionView {
+function projectConversationSnapshot(
+  snapshot: ConversationSnapshot,
+  projection: ConversationProjection,
+  projectionStatus: EasyButtonProjectionStatus,
+  paneId: string | null,
+  parentTitle: string | null,
+): EasyButtonProjectionView {
   const latestTurn = latestConversationTurn(snapshot.turns.turns);
   const runningTurnId = runningConversationTurnID(snapshot);
   const viewState = conversationViewState(snapshot.conversation, latestTurn);
   const statusTone = conversationStatusTone(snapshot.conversation, latestTurn);
   const focusStatus = narratorFocusStatus(snapshot.narratorState);
-  const pendingApproval =
-    snapshot.conversation.status === "waiting_for_approval" && runningTurnId
-      ? pendingConversationApproval(snapshot.pendingApprovals, runningTurnId)
-      : null;
   return {
     activeAgentCount: activeAgentCount(snapshot, viewState),
     archived: snapshot.conversation.archivedAt !== null,
@@ -579,12 +486,15 @@ function projectConversationSnapshot({
     eventCursorSequence: snapshot.eventCursor.sequence,
     focusStatus,
     helperCopy: conversationHelperCopy(snapshot.conversation, latestTurn, projectionStatus),
-    highlights: progressHighlightViews(snapshot, latestTurn, pendingApproval),
     intentSlot: conversationIntentSlot(snapshot, focusStatus),
     lineage: forkLineage(snapshot.branch, parentTitle),
+    milestones: milestoneViews(snapshot.narration.events, snapshot.turns.turns),
     narratorDegradation: narratorDegradationMessage(snapshot.narratorState),
     paletteId: snapshot.presentationProfile.resolvedPaletteId,
-    pendingApproval,
+    pendingApproval:
+      snapshot.conversation.status === "waiting_for_approval" && runningTurnId
+        ? pendingConversationApproval(snapshot.trajectory.events, runningTurnId)
+        : null,
     presentationProfile: snapshot.presentationProfile,
     projectionStatus,
     queuedTurnCount: snapshot.queue.length,
@@ -594,14 +504,12 @@ function projectConversationSnapshot({
       snapshot.conversation.lastTrajectorySequence,
     ),
     side: easyButtonSideView(snapshot, paneId),
-    terminalSummary: easyButtonTerminalSummary({
-      artifactPayloads,
-      artifacts: snapshot.artifacts.artifacts,
+    terminalSummary: terminalSummary(
+      snapshot.narration.events,
+      snapshot.trajectory.events,
       latestTurn,
-      narration: snapshot.narration.events,
-      trajectory: snapshot.trajectory.events,
       viewState,
-    }),
+    ),
     title: snapshot.conversation.title,
     trajectoryEventCount: snapshot.trajectory.events.length,
     trajectoryHasEarlier: snapshot.trajectory.hasEarlier,
@@ -648,13 +556,13 @@ function unavailableView(options: {
     eventCursorSequence: 0,
     focusStatus: "none",
     helperCopy: options.helperCopy,
-    highlights: [],
     intentSlot: {
       label: "Current focus",
       state: "stable",
       text: "",
     },
     lineage: null,
+    milestones: [],
     narratorDegradation: null,
     paletteId: null,
     pendingApproval: null,
@@ -795,6 +703,116 @@ function terminalHelperCopy(latestTurn: ConversationTurn | null): string {
       return "Work cancelled";
     case "failed":
       return "Work failed";
+  }
+}
+
+function milestoneViews(
+  narration: readonly NarrationEvent[],
+  turns: readonly ConversationTurn[],
+): EasyButtonMilestone[] {
+  const startedAtByTurn = new Map(turns.map((turn) => [turn.id, turn.startedAt]));
+  const milestones: EasyButtonMilestone[] = [];
+  for (const event of narration) {
+    if (event.kind !== "milestone" || !event.milestone) {
+      continue;
+    }
+    milestones.push({
+      at: event.createdAt,
+      id: event.id,
+      text: event.milestone.text,
+      turnStartedAt: event.turnId ? (startedAtByTurn.get(event.turnId) ?? null) : null,
+    });
+  }
+  return milestones;
+}
+
+function terminalSummary(
+  narration: readonly NarrationEvent[],
+  trajectory: readonly TrajectoryEvent[],
+  latestTurn: ConversationTurn | null,
+  viewState: EasyButtonViewState,
+): EasyButtonTerminalSummaryRecord | null {
+  if (!latestTurn || viewState !== "complete" || !terminalTurn(latestTurn)) {
+    return null;
+  }
+  const narrated = narratedTerminalSummary(narration, latestTurn);
+  if (narrated) {
+    return narrated;
+  }
+  const agentMessage = agentTerminalSummary(trajectory, latestTurn);
+  if (agentMessage) {
+    return agentMessage;
+  }
+  return {
+    id: `turn:${latestTurn.id}`,
+    status: latestTurn.status,
+    text: terminalFallbackText(latestTurn),
+    turnId: latestTurn.id,
+  };
+}
+
+function narratedTerminalSummary(
+  narration: readonly NarrationEvent[],
+  latestTurn: ConversationTurn & {
+    status: Extract<ConversationTurn["status"], "completed" | "cancelled" | "failed">;
+  },
+): EasyButtonTerminalSummaryRecord | null {
+  for (let index = narration.length - 1; index >= 0; index -= 1) {
+    const event = narration[index];
+    if (
+      event &&
+      event.kind === "final_summary" &&
+      event.turnId === latestTurn.id &&
+      event.finalSummary
+    ) {
+      return {
+        id: event.id,
+        status: latestTurn.status,
+        text: event.finalSummary.text,
+        turnId: latestTurn.id,
+      };
+    }
+  }
+  return null;
+}
+
+function agentTerminalSummary(
+  trajectory: readonly TrajectoryEvent[],
+  latestTurn: ConversationTurn & {
+    status: Extract<ConversationTurn["status"], "completed" | "cancelled" | "failed">;
+  },
+): EasyButtonTerminalSummaryRecord | null {
+  for (let index = trajectory.length - 1; index >= 0; index -= 1) {
+    const event = trajectory[index];
+    if (
+      event &&
+      event.turnId === latestTurn.id &&
+      event.agentMessageCompleted &&
+      event.agentMessageCompleted.text.trim()
+    ) {
+      return {
+        id: event.id,
+        status: latestTurn.status,
+        text: event.agentMessageCompleted.text,
+        turnId: latestTurn.id,
+      };
+    }
+  }
+  return null;
+}
+
+function terminalFallbackText(
+  turn: ConversationTurn & {
+    status: Extract<ConversationTurn["status"], "completed" | "cancelled" | "failed">;
+  },
+): string {
+  switch (turn.status) {
+    case "completed":
+      return "Work completed.";
+    case "cancelled":
+      return "Work cancelled.";
+    case "failed":
+      return turn.error?.message ?? "Work failed.";
   }
 }
 

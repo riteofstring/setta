@@ -155,7 +155,6 @@ function conversationSnapshot(conversationId: string): ConversationSnapshot {
       topicDescriptor: `${conversationId} descriptor`,
       updatedAt: timestamp,
     },
-    pendingApprovals: [],
     presentationProfile: {
       conversationId,
       narratorSpeechEnabled: false,

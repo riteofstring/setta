@@ -3,7 +3,6 @@ import {
   type ConversationEvent,
   type ConversationEventCursor,
   type ConversationEventPayload,
-  type ConversationPendingApproval,
   type ConversationSnapshot,
 } from "@generated/backend";
 
@@ -228,10 +227,6 @@ const payloadHandlers = {
     );
     return {
       ...snapshot,
-      pendingApprovals:
-        payload.turn.status === "running"
-          ? snapshot.pendingApprovals
-          : removePendingApprovalsForTurn(snapshot.pendingApprovals, payload.turn.id),
       turns: {
         hasEarlier: snapshot.turns.hasEarlier || turns.truncated,
         turns: turns.items,
@@ -510,52 +505,7 @@ function appendTrajectoryEvent(
       events: overflow > 0 ? events.slice(overflow) : events,
       hasEarlier: snapshot.trajectory.hasEarlier || overflow > 0,
     },
-    pendingApprovals: pendingApprovalsAfterTrajectoryEvent(snapshot.pendingApprovals, event),
   };
-}
-
-function pendingApprovalsAfterTrajectoryEvent(
-  current: readonly ConversationPendingApproval[],
-  event: ConversationPayloadOf<"conversation.trajectory.appended">["event"],
-): ConversationPendingApproval[] {
-  const turnId = event.turnId;
-  if (!turnId) {
-    return [...current];
-  }
-  const request = event.approvalRequested?.approval;
-  if (request) {
-    const next = current.filter(
-      (approval) => approval.turnId !== turnId || approval.approval.id !== request.id,
-    );
-    next.push({
-      approval: request,
-      sourceSequence: event.sequence,
-      turnId,
-    });
-    next.sort(
-      (left, right) =>
-        left.sourceSequence - right.sourceSequence ||
-        left.approval.id.localeCompare(right.approval.id),
-    );
-    return next;
-  }
-  const resolution = event.approvalResolved?.resolution;
-  if (resolution) {
-    return current.filter(
-      (approval) => approval.turnId !== turnId || approval.approval.id !== resolution.approvalId,
-    );
-  }
-  if (event.turnCompleted || event.turnFailed || event.turnInterrupted) {
-    return removePendingApprovalsForTurn(current, turnId);
-  }
-  return [...current];
-}
-
-function removePendingApprovalsForTurn(
-  current: readonly ConversationPendingApproval[],
-  turnId: string,
-): ConversationPendingApproval[] {
-  return current.filter((approval) => approval.turnId !== turnId);
 }
 
 function cloneSnapshot(snapshot: ConversationSnapshot): ConversationSnapshot {
@@ -563,7 +513,6 @@ function cloneSnapshot(snapshot: ConversationSnapshot): ConversationSnapshot {
     ...snapshot,
     artifacts: { ...snapshot.artifacts, artifacts: [...snapshot.artifacts.artifacts] },
     narration: { ...snapshot.narration, events: [...snapshot.narration.events] },
-    pendingApprovals: [...snapshot.pendingApprovals],
     queue: [...snapshot.queue],
     roleProfileOverrides: [...snapshot.roleProfileOverrides],
     sideConversations: [...snapshot.sideConversations],
