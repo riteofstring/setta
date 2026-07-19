@@ -8,9 +8,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -78,7 +78,7 @@ try {
   const result = dragResult(before, after, from, to);
   assertDragResult(result);
 
-  await assertCollapsedWorkspaceControlsClickable(context.client, artifactDir);
+  await assertWorkspaceControlsClickable(context.client);
   await captureScreenshot(context.client, join(artifactDir, "after.png"));
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
@@ -111,7 +111,7 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   await waitForState(
     client,
     workspaceIdExpression(),
@@ -215,29 +215,16 @@ async function windowPosition(client) {
   );
 }
 
-async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
-  const toggle = await elementCenter(client, '[data-testid="project-sidebar-toggle"]');
-  await dispatchPhysicalMouseClick(client, toggle);
-  await waitForProjectToggleLabel(client, "Show project sidebar");
-  await captureScreenshot(client, join(artifactDir, "collapsed-controls.png"));
-  const collapsedRegions = await sampleDragRegions(client);
-  assertWorkspaceControlsNotDraggable(collapsedRegions);
-  assertShellTopBarDragRegions(collapsedRegions);
+async function assertWorkspaceControlsClickable(client) {
+  const currentRegions = await sampleDragRegions(client);
+  assertWorkspaceControlsNotDraggable(currentRegions);
+  assertShellTopBarDragRegions(currentRegions);
   assertShellTopBarControlSizing(await shellTopBarControlMeasurements(client));
   await assertEffectiveWindowDragRegions(client);
 
-  const maximizeButton = await elementCenter(
-    client,
-    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
-  );
-  await dispatchPhysicalMouseClick(client, maximizeButton);
-  await waitForPaneMaximized(client, true);
-  const restoreButton = await elementCenter(
-    client,
-    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
-  );
-  await dispatchPhysicalMouseClick(client, restoreButton);
-  await waitForPaneMaximized(client, false);
+  await setPaneMaximized(client, false);
+  await setPaneMaximized(client, true);
+  await setPaneMaximized(client, false);
 
   const overviewButton = await elementCenter(client, ".workspace-toolbar-button");
   await dispatchPhysicalMouseClick(client, overviewButton);
@@ -261,9 +248,6 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
   const newFrameCloseButton = await elementCenter(client, ".workspace-toolbar-menu-button");
   await dispatchPhysicalMouseClick(client, newFrameCloseButton);
   await waitForNewFrameMenu(client, false);
-
-  await dispatchPhysicalMouseClick(client, toggle);
-  await waitForProjectToggleLabel(client, "Hide project sidebar");
 }
 
 async function waitForNewFrameMenu(client, expectedOpen) {
@@ -284,13 +268,19 @@ async function waitForPaneMaximized(client, expectedMaximized) {
   );
 }
 
-async function waitForProjectToggleLabel(client, label) {
-  await waitForState(
-    client,
-    `(() => document.querySelector('[data-testid="project-sidebar-toggle"]')?.getAttribute("aria-label") ?? "")()`,
-    (value) => value === label,
-    workflowTimeoutMs,
+async function setPaneMaximized(client, expectedMaximized) {
+  const currentMaximized = await client.evaluate(
+    `(() => Boolean(document.querySelector('[data-testid="workspace-pane-host"][data-visible="true"][data-maximized="true"]')))()`,
   );
+  if (currentMaximized === expectedMaximized) {
+    return;
+  }
+  const button = await elementCenter(
+    client,
+    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
+  );
+  await dispatchPhysicalMouseClick(client, button);
+  await waitForPaneMaximized(client, expectedMaximized);
 }
 
 async function elementCenter(client, selector) {
@@ -316,9 +306,9 @@ async function shellTopBarControlMeasurements(client) {
 // this models the ordered region math and checks the points that matter.
 async function assertEffectiveWindowDragRegions(client) {
   const targets = [
-    { name: "project-toggle", selector: '[data-testid="project-sidebar-toggle"]' },
     { name: "overview-button", selector: ".workspace-toolbar-button" },
     { name: "new-frame-button", selector: ".workspace-toolbar-menu-button" },
+    { name: "settings-button", selector: '[data-testid="shell-settings-button"]' },
     {
       name: "shell-top-bar-surface",
       offsetX: 600,
@@ -337,7 +327,7 @@ async function assertEffectiveWindowDragRegions(client) {
     "new-frame-button": false,
     "overview-button": false,
     "pane-title-bar": false,
-    "project-toggle": false,
+    "settings-button": false,
     "shell-top-bar-surface": true,
   };
   for (const [name, expectedDraggable] of Object.entries(expectations)) {
@@ -451,19 +441,11 @@ function assertShellTopBarDragRegions(regions) {
 }
 
 function assertShellTopBarControlSizing(measurements) {
-  const {
-    masterButton,
-    newFrameButton,
-    projectToggle,
-    settingsButton,
-    shellTopBar,
-    toolbarButton,
-    toolbarGap,
-  } = measurements;
+  const { masterButton, newFrameButton, settingsButton, shellTopBar, toolbarButton, toolbarGap } =
+    measurements;
   for (const [name, rect] of Object.entries({
     masterButton,
     newFrameButton,
-    projectToggle,
     settingsButton,
     shellTopBar,
     toolbarButton,
@@ -472,16 +454,10 @@ function assertShellTopBarControlSizing(measurements) {
       throw new Error(`missing shell top bar control measurement: ${name}`);
     }
   }
-  assertTopBarButtonRect(projectToggle, shellTopBar, "project toggle");
   assertTopBarButtonRect(masterButton, shellTopBar, "master button");
   assertTopBarButtonRect(settingsButton, shellTopBar, "settings button");
   assertTopBarButtonRect(toolbarButton, shellTopBar, "workspace toolbar button");
   assertTopBarButtonRect(newFrameButton, shellTopBar, "workspace toolbar menu button");
-  assertNearlyEqual(
-    masterButton.left - projectToggle.right,
-    shellTopBarButtonGapPx,
-    "project toggle to master horizontal gap",
-  );
   assertNearlyEqual(
     settingsButton.left - masterButton.right,
     shellTopBarButtonGapPx,

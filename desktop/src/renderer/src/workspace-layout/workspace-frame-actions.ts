@@ -1,12 +1,12 @@
 import { requestConversationCreation } from "../features/easy-button/conversation-creation-command";
 import type { ConversationPanePlacementDestination } from "./conversation-pane-coordinator";
 import type { WorkspaceLayoutStore, WorkspacePaneLimitState } from "./layout-store";
-import type { NonEasyButtonSurfaceKind, OpenPaneRequest, PaneId } from "./types";
+import type { NonConversationSurfaceKind, OpenPaneRequest, PaneId } from "./types";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 
 export type SurfaceFrameActionRequest = OpenPaneRequest & {
-  easyButtonConfig?: never;
-  surfaceKind?: NonEasyButtonSurfaceKind;
+  conversationConfig?: never;
+  surfaceKind?: NonConversationSurfaceKind;
 };
 
 export type WorkspaceFrameAction =

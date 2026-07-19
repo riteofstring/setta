@@ -13,10 +13,10 @@ import { backendProbe, waitForBackendState } from "./electron-workflow-harness.m
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchKeyEvent,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   repoRoot,
   reloadPage,
@@ -947,7 +947,7 @@ async function openWorkspace(client) {
     workflowTimeoutMs,
   );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,

@@ -8,12 +8,6 @@
 - Ask the user only when the user can make a meaningful choice, such as whether to change the current run or queue something as the next task. Do not ask the user to retry routing, schema, projection, or formatting work.
 - AI should still make judgment calls when judgment is needed. Product code should enforce basic invariants so bad JSON, invalid schema output, or routing-format mistakes do not break the UX.
 
-## Unreleased Product Policy
-
-- Setta is unreleased. There is no legacy code or legacy behavior to preserve.
-- Never spend effort on backward compatibility. Do not add compatibility shims, migrations, transitional adapters, dual-read/write paths, old-field aliases, silent compatibility fallbacks, or support for superseded behavior.
-- Change current contracts, data shapes, and implementations directly to the design the product should have now. Remove superseded code instead of preserving it alongside the replacement.
-
 ## Generation & Contracts
 
 - Generate TypeScript surfaces from Go-owned contracts or values programmatically; do not maintain hardcoded mirrors or scattered cross-language constants.
@@ -30,18 +24,16 @@
 
 ## Verification
 
-- Do not run automated tests or the test suite during implementation.
-- Run tests only when both conditions are true: the branch is ready to merge, and the user explicitly asks for tests. The user decides when verification begins.
-- When the user asks for tests, run the narrowest checks that exercise the changed behavior first. Broaden only after the implementation is stable, generated outputs change, or a focused check exposes cross-boundary risk.
-- When requested verification covers topic-conversation behavior, Codex harness behavior, provider protocol handling, run lifecycle, queueing, steering, approvals, event streaming, IPC/preload contracts, generated backend contracts, renderer conversation state, or topic-projection UI, include deterministic end-to-end app workflow tests through the production Electron/main/preload/renderer/HTTP/store paths. Use temporary app data; a scripted fake Codex/provider harness is fine, but unit, store, component, service, or HTTP-only coverage is insufficient.
+- During implementation, run the narrowest checks that exercise the changed behavior first. Broaden only after the implementation is stable, generated outputs change, or a focused check exposes cross-boundary risk.
+- For changes touching topic-conversation behavior, Codex harness behavior, provider protocol handling, run lifecycle, queueing, steering, approvals, event streaming, IPC/preload contracts, generated backend contracts, renderer conversation state, or topic-projection UI, deterministic end-to-end app workflow tests through the production Electron/main/preload/renderer/HTTP/store paths are required. Use temporary app data; a scripted fake Codex/provider harness is fine, but unit, store, component, service, or HTTP-only coverage is insufficient.
 - Topic-conversation workflow tests must cover the relevant parts of opening a workspace, creating a conversation, submitting input, receiving streamed assistant output, queueing during an active run, steering, completion/cancellation/failure, queued-work promotion or preservation, approvals when touched, and restart/reload behavior when persistence is touched.
-- When user-requested merge verification covers topic-conversation workflows, Codex harness behavior, provider protocol handling, run lifecycle, queueing, steering, approvals, or streaming, run the live Codex E2E tests when the local Codex CLI is signed in with ChatGPT auth. Live tests must not use `OPENAI_API_KEY`; if ChatGPT auth is unavailable, say the live-provider tests were skipped, and do not treat the skip as proof of provider integration.
+- For changes touching topic-conversation workflows, Codex harness behavior, provider protocol handling, run lifecycle, queueing, steering, approvals, or streaming, run the live Codex E2E tests when the local Codex CLI is signed in with ChatGPT auth. Live tests must not use `OPENAI_API_KEY`; if ChatGPT auth is unavailable, say the live-provider tests were skipped, and do not treat the skip as proof of provider integration.
 - Tests must use temporary directories, never mutate real git history in this repo or any non-disposable developer worktree, and exercise production paths instead of mocks or test-only paths. Skips must be narrow and justified; missing dependencies or capabilities should usually fail loudly.
 - Do not add tautological tests or generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
-- During user-requested merge verification, after a broad gate fails, fix the reported issue and rerun the narrowest relevant check first. Rerun the broad gate only when the change still requires it.
-- Do not run `./check_quality.sh`, `./scripts/check_supply_chain.sh`, or other automated verification gates unless the user explicitly asks for verification.
-- Formatting changed files is allowed during implementation, but formatting is not a reason to start the test suite or broader verification gates.
-- For documentation-only, planning-only, research-only, README-only, or AGENTS-only commits, inspect the diff; do not run automated checks unless the user asks.
+- After a broad gate fails, fix the reported issue and rerun the narrowest relevant check first. Rerun the broad gate only when the change still requires it.
+- Before committing source code, tests, scripts, generated inputs or outputs, build/lint/format configuration, or executable examples, run `./scripts/format.sh` and `./check_quality.sh --git-changes` by default. Use `./check_quality.sh --staged` when validating exactly the staged commit. Use `./check_quality.sh --all` only for broad implementation changes, generated contract changes, dependency/tooling changes, release-like commits, or when explicitly requested. One clean final run of the selected checks is sufficient unless new edits are made afterward.
+- Before committing dependency manifests, lockfiles, package manager configuration, Go module configuration, or supply-chain tooling, run `./scripts/check_supply_chain.sh`. For broad implementation commits or release-like commits, run it in addition to the format and quality gates.
+- For documentation-only, planning-only, research-only, README-only, or AGENTS-only commits that do not change executable examples, scripts, manifests, generated artifacts, or committed code paths, inspect the diff and run only directly relevant checks. If no automated check applies, say the full workflow was skipped because the change was documentation-only.
 
 ## UI Rules
 
@@ -59,5 +51,5 @@
 - Do not embed large blocks of executable code in string literals. Prefer normal source files, typed helpers, fixtures, or templates that can be formatted, linted, typechecked, and tested. Keep string-embedded code limited to small fixtures, small generated fragments, or APIs that explicitly require source text.
 - Add `try/except` or `try/catch` blocks only when they handle a specific failure path.
 - Prefer failing loudly and specifically over silent fallbacks, fake estimates, brittle keyword heuristics, or broad catch-all handling. Use provider or runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields instead of heuristics. Do not implement heuristic fallbacks without explicit approval.
-- Follow the unreleased-product policy: replace superseded behavior directly and remove the old implementation.
+- Never add backward-compatibility shims, legacy support paths, migrations, transitional adapters, dual-read/write paths, old-field aliases, silent compatibility fallbacks, or compatibility layers unless the developer explicitly asks for that exact compatibility work.
 - If behavior is unclear or a robust solution is not possible, stop and ask or present the real tradeoffs.

@@ -1,5 +1,10 @@
 export const electronWorkflows = [
   {
+    file: "app-pane-layout-workflow.test.mjs",
+    name: "app-pane-layout",
+    tiers: ["required"],
+  },
+  {
     file: "app-window-drag-workflow.test.mjs",
     name: "app-window-drag",
     tiers: ["required"],
