@@ -371,6 +371,10 @@ export class LocalMacOSVoiceListenerService {
     if (this.options.platform !== "darwin") {
       return unavailableReadiness(macOSUnavailableAvailability());
     }
+    const health = await this.options.helper.readHealth();
+    if (health.status !== "ready") {
+      return unavailableReadiness(listenerAvailabilityForUnavailableHealth(health));
+    }
     const { wakeModelPath, wakeModelSHA256, wakeRuntime } = this.options.configuration;
     if (wakeModelPath === null || wakeModelSHA256 === null || wakeRuntime === null) {
       return unavailableReadiness({
@@ -402,10 +406,6 @@ export class LocalMacOSVoiceListenerService {
         setupAction: null,
         status: "unavailable",
       });
-    }
-    const health = await this.options.helper.readHealth();
-    if (health.status !== "ready") {
-      return unavailableReadiness(listenerAvailabilityForUnavailableHealth(health));
     }
     return {
       availability: { status: "ready" },

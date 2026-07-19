@@ -137,6 +137,40 @@ describe("local macOS voice listener service", () => {
     }
   });
 
+  test("prioritizes the local voice setup path before missing wake resources", async () => {
+    const harness = await createHarness({
+      configuredWakeModelPath: null,
+      initialHealth: {
+        message: "The local macOS voice model has not been downloaded.",
+        modelPath: "/tmp/ggml-base.en.bin",
+        provider: "local_macos",
+        status: "missing_model",
+      },
+      wakeModelSHA256: null,
+      wakeRuntime: null,
+    });
+    try {
+      const enabled = await harness.service.updateSettings(true);
+
+      expect(enabled).toEqual({
+        availability: {
+          message: "The local macOS voice model has not been downloaded.",
+          setupAction: "download_local_macos_voice_model",
+          status: "unavailable",
+        },
+        enabled: true,
+        state: {
+          message: "The local macOS voice model has not been downloaded.",
+          status: "local_voice_not_ready",
+        },
+      });
+      expect(harness.helper.readHealth).toHaveBeenCalledOnce();
+      expect(harness.helper.startListener).not.toHaveBeenCalled();
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   test("keeps settings unavailable when the packaged wake model hash mismatches", async () => {
     const harness = await createHarness({ wakeModelSHA256: "0".repeat(64) });
     try {
@@ -154,7 +188,7 @@ describe("local macOS voice listener service", () => {
           status: "local_voice_not_ready",
         },
       });
-      expect(harness.helper.readHealth).not.toHaveBeenCalled();
+      expect(harness.helper.readHealth).toHaveBeenCalledOnce();
       expect(harness.helper.startListener).not.toHaveBeenCalled();
     } finally {
       await harness.cleanup();
@@ -163,6 +197,7 @@ describe("local macOS voice listener service", () => {
 });
 
 async function createHarness({
+  configuredWakeModelPath,
   initialHealth = {
     helperPath: "/tmp/setta-local-helper",
     modelPath: "/tmp/ggml-base.en.bin",
@@ -171,9 +206,12 @@ async function createHarness({
     status: "ready" as const,
   },
   wakeModelSHA256,
+  wakeRuntime = "onnx",
 }: {
+  configuredWakeModelPath?: string | null;
   initialHealth?: LocalMacOSVoiceHealth;
-  wakeModelSHA256?: string;
+  wakeModelSHA256?: string | null;
+  wakeRuntime?: "onnx" | "tflite" | null;
 } = {}) {
   const tempRoot = await mkdtemp(join(tmpdir(), "setta-listener-service-"));
   const wakeModelPath = join(tempRoot, "hey-setta.onnx");
@@ -204,9 +242,10 @@ async function createHarness({
   } satisfies LocalMacOSVoiceHelper;
   const service = new LocalMacOSVoiceListenerService({
     configuration: {
-      wakeModelPath,
-      wakeModelSHA256: wakeModelSHA256 ?? sha256(wakeModelBytes),
-      wakeRuntime: "onnx",
+      wakeModelPath:
+        configuredWakeModelPath === undefined ? wakeModelPath : configuredWakeModelPath,
+      wakeModelSHA256: wakeModelSHA256 === undefined ? sha256(wakeModelBytes) : wakeModelSHA256,
+      wakeRuntime,
     },
     helper,
     onEvent: (event) => {
