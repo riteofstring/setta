@@ -226,7 +226,7 @@ func requireWorkspacePaneBindingOwners(
 	bindings []WorkspacePaneBinding,
 ) error {
 	for _, binding := range bindings {
-		var ownerWorkspaceID string
+		var ownerWorkspaceID sql.NullString
 		err := tx.QueryRowContext(
 			ctx,
 			`SELECT workspace_id FROM conversations WHERE id = ?`,
@@ -238,11 +238,18 @@ func requireWorkspacePaneBindingOwners(
 		if err != nil {
 			return fmt.Errorf("read pane binding conversation %s: %w", binding.ConversationID, err)
 		}
-		if ownerWorkspaceID != workspaceID {
+		if !ownerWorkspaceID.Valid {
 			return stateConflict(
 				"conversation",
 				binding.ConversationID,
-				fmt.Sprintf("belongs to workspace %s, not %s", ownerWorkspaceID, workspaceID),
+				"has no workspace resource",
+			)
+		}
+		if ownerWorkspaceID.String != workspaceID {
+			return stateConflict(
+				"conversation",
+				binding.ConversationID,
+				fmt.Sprintf("belongs to workspace %s, not %s", ownerWorkspaceID.String, workspaceID),
 			)
 		}
 	}
