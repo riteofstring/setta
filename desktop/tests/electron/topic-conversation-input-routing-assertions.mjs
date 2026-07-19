@@ -220,6 +220,74 @@ function routedConversationInputDecisionSummary(state) {
   };
 }
 
+export function assertPaneClarificationExchange(state, root, reply) {
+  const initial = state.decisions[0];
+  const final = state.decisions[1];
+  assertEqualJSON(
+    {
+      clarificationInputId: final.clarificationInputId,
+      clarificationQuestion: initial.decision.clarify.question,
+      finalCommandKind: final.resultingCommand.kind,
+      finalCommandText: final.resultingCommand.sendToParent.authoredInput.text,
+      replyId: state.clarificationReply.input.id,
+      replyReplyToInputId: state.clarificationReply.input.replyToInputId,
+      replyStatus: state.clarificationReply.status,
+      rootId: state.input.input.id,
+      rootStatus: state.input.status,
+    },
+    {
+      clarificationInputId: reply.accepted.input.id,
+      clarificationQuestion: "Which exact pane request should I send?",
+      finalCommandKind: "send_to_parent",
+      finalCommandText: reply.accepted.input.text,
+      replyId: reply.accepted.input.id,
+      replyReplyToInputId: root.accepted.input.id,
+      replyStatus: "dispatched",
+      rootId: root.accepted.input.id,
+      rootStatus: "dispatched",
+    },
+    "pane clarification exchange",
+  );
+}
+
+export function duplicateConversationPaneId(surfaces, conversationId, originalPaneId) {
+  const duplicate = conversationRoutingSurfaces(surfaces, conversationId).find(
+    (surface) => surface.paneId !== originalPaneId,
+  );
+  if (!duplicate?.paneId) {
+    throw new Error(
+      `duplicate conversation pane was unavailable: ${JSON.stringify({ conversationId, originalPaneId, surfaces })}`,
+    );
+  }
+  return duplicate.paneId;
+}
+
+export function sharedPaneClarificationIsReady(
+  surfaces,
+  conversationId,
+  unrelatedConversationId,
+  question,
+) {
+  const conversation = conversationRoutingSurfaces(surfaces, conversationId);
+  const unrelated = conversationRoutingSurfaces(surfaces, unrelatedConversationId);
+  return (
+    conversation.length === 2 &&
+    conversation.every((surface) => surface.clarificationText === question) &&
+    unrelated.every((surface) => surface.clarificationText === "")
+  );
+}
+
+export function sharedPaneClarificationIsCleared(surfaces, conversationId) {
+  const conversation = conversationRoutingSurfaces(surfaces, conversationId);
+  return (
+    conversation.length === 2 && conversation.every((surface) => surface.clarificationText === "")
+  );
+}
+
+function conversationRoutingSurfaces(surfaces, conversationId) {
+  return surfaces.filter((surface) => surface.conversationId === conversationId);
+}
+
 const routeTextReaders = Object.freeze({
   answer_as_narrator: (route) => route.answerAsNarrator?.question,
   create_side_conversation: (route) => route.createSideConversation?.input?.text,

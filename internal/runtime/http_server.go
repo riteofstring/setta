@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"setta/internal/httpapi"
+	"setta/internal/webapp"
 )
 
 func newHTTPServer(config Config, services runtimeServices) *http.Server {
@@ -24,12 +25,12 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		RuntimeMetadata: httpapi.RuntimeMetadata{
 			InfrastructureProvider: services.infrastructureProvider,
 		},
-		SpeechService:      speechServiceWithCredentialPolicy(config.SpeechCredentialOwner, services.speechService),
+		SpeechService:      services.speechService,
 		WorkspaceUIService: services.workspaceUIService,
 		WorkspaceService:   services.workspaceService,
 	})
 	return &http.Server{
-		Handler:           apiHandler,
+		Handler:           webapp.NewHandler(apiHandler),
 		MaxHeaderBytes:    httpMaxHeaderBytes,
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 		ReadTimeout:       httpReadTimeout,

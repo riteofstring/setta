@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 64;
-export const backendContractSchemaHash = "sha256:c082c237f132bd3baf96f85b26fa187dfff6b85756b2993c9fc1f40548d8c5b6";
+export const backendProtocolVersion = 62;
+export const backendContractSchemaHash = "sha256:b8a2efd515a1dffde189434862afaa0b3ce2c3a7a654c563500df83707db6864";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -180,9 +180,9 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "browser" | "easy-button" | "empty-frame";
+export type SurfaceKind = "browser" | "easy-button" | "empty-frame" | "settings-dom";
 
-export const surfaceKindValues = ["browser", "easy-button", "empty-frame"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["browser", "easy-button", "empty-frame", "settings-dom"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
@@ -192,6 +192,8 @@ export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): Surfac
     case "easy-button":
       return decoded;
     case "empty-frame":
+      return decoded;
+    case "settings-dom":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1773,6 +1775,10 @@ export type WorkspaceUIPane = {
       surfaceKind: "empty-frame";
       easyButtonConfig: null;
     }
+  | {
+      surfaceKind: "settings-dom";
+      easyButtonConfig: null;
+    }
 );
 
 export interface WorkspaceUILayout {
@@ -3224,23 +3230,6 @@ export interface NarratorVoiceDefault {
   updatedAt: string;
 }
 
-export interface SpeechCredentialRequest {
-  apiKey: string;
-}
-
-export interface SpeechCredentialValidationResult {
-  provider: SpeechProvider;
-  valid: boolean;
-}
-
-export interface SpeechCredentialStatus {
-  provider: SpeechProvider;
-  providerStatus: SpeechProviderStatus;
-}
-
-export interface ClearDesktopSpeechCredentialRequest {
-}
-
 export interface CreateSpeechTranscriptionSessionRequest {
 }
 
@@ -3610,21 +3599,6 @@ export const backendEndpoints = {
     method: "POST",
     path: "/speech/voices/narrator-default/update",
     requestBodyLimitBytes: 4194304,
-  },
-  ValidateDesktopSpeechCredential: {
-    method: "POST",
-    path: "/speech/credentials/desktop/validate",
-    requestBodyLimitBytes: 16384,
-  },
-  LoadDesktopSpeechCredential: {
-    method: "POST",
-    path: "/speech/credentials/desktop/load",
-    requestBodyLimitBytes: 16384,
-  },
-  ClearDesktopSpeechCredential: {
-    method: "POST",
-    path: "/speech/credentials/desktop/clear",
-    requestBodyLimitBytes: 16384,
   },
   CreateSpeechTranscriptionSession: {
     method: "POST",
@@ -4141,6 +4115,16 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
       return {
         ...result,
         surfaceKind: "empty-frame",
+        easyButtonConfig: null,
+      };
+    }
+    case "settings-dom": {
+      if (result.easyButtonConfig !== null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is settings-dom");
+      }
+      return {
+        ...result,
+        surfaceKind: "settings-dom",
         easyButtonConfig: null,
       };
     }
@@ -6549,39 +6533,6 @@ export function decodeNarratorVoiceDefault(value: unknown): NarratorVoiceDefault
   };
 }
 
-export function decodeSpeechCredentialRequest(value: unknown): SpeechCredentialRequest {
-  const record = assertRecord(value, "SpeechCredentialRequest");
-  assertKnownFields(record, "SpeechCredentialRequest", ["apiKey"]);
-  return {
-    apiKey: decodeString(requireField(record, "apiKey", "SpeechCredentialRequest"), "SpeechCredentialRequest.apiKey"),
-  };
-}
-
-export function decodeSpeechCredentialValidationResult(value: unknown): SpeechCredentialValidationResult {
-  const record = assertRecord(value, "SpeechCredentialValidationResult");
-  assertKnownFields(record, "SpeechCredentialValidationResult", ["provider", "valid"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechCredentialValidationResult"), "SpeechCredentialValidationResult.provider"),
-    valid: decodeBoolean(requireField(record, "valid", "SpeechCredentialValidationResult"), "SpeechCredentialValidationResult.valid"),
-  };
-}
-
-export function decodeSpeechCredentialStatus(value: unknown): SpeechCredentialStatus {
-  const record = assertRecord(value, "SpeechCredentialStatus");
-  assertKnownFields(record, "SpeechCredentialStatus", ["provider", "providerStatus"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechCredentialStatus"), "SpeechCredentialStatus.provider"),
-    providerStatus: decodeSpeechProviderStatus(requireField(record, "providerStatus", "SpeechCredentialStatus"), "SpeechCredentialStatus.providerStatus"),
-  };
-}
-
-export function decodeClearDesktopSpeechCredentialRequest(value: unknown): ClearDesktopSpeechCredentialRequest {
-  const record = assertRecord(value, "ClearDesktopSpeechCredentialRequest");
-  assertKnownFields(record, "ClearDesktopSpeechCredentialRequest", []);
-  return {
-  };
-}
-
 export function decodeCreateSpeechTranscriptionSessionRequest(value: unknown): CreateSpeechTranscriptionSessionRequest {
   const record = assertRecord(value, "CreateSpeechTranscriptionSessionRequest");
   assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", []);
@@ -6832,9 +6783,6 @@ export interface BackendClient {
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   readNarratorVoiceDefault: (options?: BackendRequestOptions) => Promise<NarratorVoiceDefault>;
   updateNarratorVoiceDefault: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<NarratorVoiceDefault>;
-  validateDesktopSpeechCredential: (request: SpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialValidationResult>;
-  loadDesktopSpeechCredential: (request: SpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
-  clearDesktopSpeechCredential: (request: ClearDesktopSpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
   synthesizeSpeech: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
   readCodexAccount: (options?: BackendRequestOptions) => Promise<CodexAccountState>;
@@ -7319,33 +7267,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeNarratorVoiceDefault,
       endpoint: backendEndpoints.UpdateNarratorVoiceDefault,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    validateDesktopSpeechCredential: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechCredentialValidationResult,
-      endpoint: backendEndpoints.ValidateDesktopSpeechCredential,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    loadDesktopSpeechCredential: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechCredentialStatus,
-      endpoint: backendEndpoints.LoadDesktopSpeechCredential,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    clearDesktopSpeechCredential: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechCredentialStatus,
-      endpoint: backendEndpoints.ClearDesktopSpeechCredential,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
