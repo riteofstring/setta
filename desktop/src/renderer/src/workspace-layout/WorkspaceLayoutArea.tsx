@@ -91,7 +91,7 @@ import {
 } from "./workspace-availability-surface";
 import { useWorkspaceLayoutSnapshot, useWorkspaceLayoutTarget } from "./workspace-layout-state";
 import {
-  WorkspaceInitialEasyButtonPane,
+  WorkspaceInitialConversationPane,
   WorkspaceLayoutLoading,
   useWorkspaceUILayoutLoad,
   useWorkspaceUILayoutPersistence,
@@ -102,7 +102,7 @@ import type { PaneDropIntent, Rect } from "./types";
 const overviewDragThresholdPx = 6;
 export function WorkspaceLayoutArea({
   focusConversationRequest = null,
-  initialEasyButtonPaneStartup = null,
+  initialConversationPaneStartup = null,
   onConversationPresentationError,
   onOpenSettingsPage,
   placementPreflightRequest = null,
@@ -125,7 +125,7 @@ export function WorkspaceLayoutArea({
   if (layoutLoad.status === "loading") {
     return (
       <WorkspaceLayoutLoading
-        initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
+        initialConversationPaneStartup={initialConversationPaneStartup}
         mode={mode}
         platform={platform}
         workspaceId={workspaceId}
@@ -135,7 +135,7 @@ export function WorkspaceLayoutArea({
   return (
     <WorkspaceLayoutRuntimeArea
       focusConversationRequest={focusConversationRequest}
-      initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
+      initialConversationPaneStartup={initialConversationPaneStartup}
       initialLayout={layoutLoad.layout}
       initialMaximizedPaneId={layoutLoad.maximizedPaneId}
       layoutLoadError={layoutLoad.error}
@@ -158,7 +158,7 @@ export function WorkspaceLayoutArea({
 }
 function WorkspaceLayoutRuntimeArea({
   focusConversationRequest,
-  initialEasyButtonPaneStartup,
+  initialConversationPaneStartup,
   initialLayout,
   initialMaximizedPaneId,
   layoutLoadError,
@@ -890,7 +890,7 @@ function WorkspaceLayoutRuntimeArea({
       data-testid="workspace-layout-area"
       ref={rootRef}
     >
-      <WorkspaceInitialEasyButtonPane startup={initialEasyButtonPaneStartup} />
+      <WorkspaceInitialConversationPane startup={initialConversationPaneStartup} />
       <WorkspaceAvailabilityNotice workspaceId={workspaceId} workspaceName={workspaceName} />
       <WorkspaceLayoutRecoveryNotice
         message={layoutRecoveryMessage}

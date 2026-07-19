@@ -72,7 +72,7 @@
     const newConversationButton = findButtonByAriaLabel("New conversation");
     const newFrameButton = findButtonByAriaLabel("New frame");
     return {
-      easyButtonHostCount: hosts.filter((host) => host.surfaceKind === "easy-button").length,
+      easyButtonHostCount: hosts.filter((host) => host.surfaceKind === "conversation").length,
       emptyFrameHostCount: hosts.filter((host) => host.surfaceKind === "empty-frame").length,
       hosts,
       newConversationButtonEnabled:
@@ -201,7 +201,7 @@
       createControlPresent:
         document.querySelector('[data-testid="conversation-create-form"]') !== null,
       easyButtonPaneCount: visibleHosts.filter(
-        (host) => datasetValue(host, "surfaceKind") === "easy-button",
+        (host) => datasetValue(host, "surfaceKind") === "conversation",
       ).length,
       emptyFramePaneCount: visibleHosts.filter(
         (host) => datasetValue(host, "surfaceKind") === "empty-frame",

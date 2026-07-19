@@ -340,20 +340,20 @@ export function createReactDomSurfaceAdapter(
       pane,
       renderSurface,
       rootFactory,
-      easyButtonPaneCloseRequest(pane, options),
+      conversationPaneCloseRequest(pane, options),
     );
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
 
-function easyButtonPaneCloseRequest(
+function conversationPaneCloseRequest(
   pane: WorkspacePane,
   options: ReactDomSurfaceAdapterOptions,
 ): ((request: SurfacePaneCloseRequest) => Promise<SurfacePaneCloseResult>) | undefined {
-  if (pane.surfaceKind !== "easy-button") {
+  if (pane.surfaceKind !== "conversation") {
     return undefined;
   }
-  const conversationId = pane.easyButtonConfig.conversationId;
+  const conversationId = pane.conversationConfig.conversationId;
   const workspaceId = options.workspaceId;
   if (!workspaceId) {
     return undefined;
@@ -373,10 +373,10 @@ function reactDomSurfaceRenderFactory(
   options: ReactDomSurfaceAdapterOptions,
 ): ((state: ReactDomSurfaceState) => ReactNode) | undefined {
   switch (pane.surfaceKind) {
-    case "easy-button":
+    case "conversation":
       return () => (
         <EasyButtonSurface
-          conversationId={pane.easyButtonConfig.conversationId}
+          conversationId={pane.conversationConfig.conversationId}
           paneId={pane.paneId}
           speechCapture={options.speechCapture}
           speechPresentation={options.speechPresentation}

@@ -133,9 +133,9 @@ export function presentConversationPane(
     return { kind: "focused", paneId: existingPane.paneId };
   }
   const paneRequest = {
-    easyButtonConfig: { conversationId: request.conversationId },
+    conversationConfig: { conversationId: request.conversationId },
     subtitle: "Topic conversation",
-    surfaceKind: "easy-button",
+    surfaceKind: "conversation",
     title: request.title,
     tone: "cyan",
     widthSpec: { unit: "proportion", value: 1 },
@@ -218,9 +218,9 @@ function emptyFramePlacementPreflight(
 
 function conversationPaneRequest(conversationId: string, title: string) {
   return {
-    easyButtonConfig: { conversationId },
+    conversationConfig: { conversationId },
     subtitle: "Topic conversation",
-    surfaceKind: "easy-button",
+    surfaceKind: "conversation",
     title,
     tone: "cyan",
     widthSpec: { unit: "proportion", value: 1 },
@@ -235,8 +235,8 @@ function matchingConversationPane(
     .toScene()
     .panes.filter(
       (pane) =>
-        pane.surfaceKind === "easy-button" &&
-        pane.easyButtonConfig.conversationId === request.conversationId,
+        pane.surfaceKind === "conversation" &&
+        pane.conversationConfig.conversationId === request.conversationId,
     )
     .map((pane) => pane.paneId);
   if (matchingPaneIds.length > 1) {

@@ -299,7 +299,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const setInitialConversationError = useCallback((message: string | null) => {
     setConversationPresentationError(message);
   }, []);
-  const initialEasyButtonPaneStartup = useInitialEasyButtonPane({
+  const initialConversationPaneStartup = useInitialEasyButtonPane({
     activeWorkspaceIds,
     connectedRuntimeId: runtime.connectedRuntimeId,
     createConversation: createConversationRequest,
@@ -416,7 +416,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
             />
             <WorkspaceLayoutArea
               focusConversationRequest={workspaceConversationFocusRequest}
-              initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
+              initialConversationPaneStartup={initialConversationPaneStartup}
               onConversationPresentationError={setConversationPresentationError}
               onOpenSettingsPage={openSettingsPage}
               placementPreflightRequest={workspaceConversationPlacementPreflightRequest}

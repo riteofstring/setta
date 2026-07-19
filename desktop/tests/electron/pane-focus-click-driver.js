@@ -90,7 +90,7 @@
 
   function paneFocusCloseFirstEasyButtonPane() {
     const host = visiblePaneHosts().find(
-      (candidate) => candidate.dataset.surfaceKind === "easy-button",
+      (candidate) => candidate.dataset.surfaceKind === "conversation",
     );
     const closeButton = host?.querySelector('[data-workspace-pane-action="close"]');
     if (!(host instanceof HTMLElement) || !(closeButton instanceof HTMLButtonElement)) {

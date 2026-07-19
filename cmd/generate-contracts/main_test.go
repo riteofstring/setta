@@ -428,16 +428,19 @@ func TestRenderWorkspaceUIPaneRequiresDiscriminatedConversationBinding(t *testin
 	output := buffer.String()
 	for _, want := range []string{
 		"export type WorkspaceUIPane = {",
-		"surfaceKind: \"browser\";\n      easyButtonConfig: null;",
-		"surfaceKind: \"easy-button\";\n      easyButtonConfig: EasyButtonPaneConfig;",
-		"surfaceKind: \"empty-frame\";\n      easyButtonConfig: null;",
+		"surfaceKind: \"browser\";\n      conversationConfig: null;",
+		"surfaceKind: \"conversation\";\n      conversationConfig: WorkspaceConversationPaneConfig;",
+		"surfaceKind: \"empty-frame\";\n      conversationConfig: null;",
 		"switch (result.surfaceKind)",
-		"WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button",
-		"WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame",
+		"WorkspaceUIPane.conversationConfig is required when surfaceKind is conversation",
+		"WorkspaceUIPane.conversationConfig must be null when surfaceKind is empty-frame",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("generated workspace UI contract missing %q:\n%s", want, output)
 		}
+	}
+	if strings.Contains(output, "easy-button") || strings.Contains(output, "easyButtonConfig") {
+		t.Fatalf("generated workspace UI contract retained easy-button vocabulary:\n%s", output)
 	}
 	if strings.Contains(output, "settings-dom") {
 		t.Fatalf("generated workspace UI contract retained removed settings surface:\n%s", output)

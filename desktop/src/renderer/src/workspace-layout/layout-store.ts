@@ -370,7 +370,7 @@ export class WorkspaceLayoutStore {
       };
     }
     const count = this.toScene().panes.filter((pane) => pane.surfaceKind === surfaceKind).length;
-    if (surfaceKind === "easy-button") {
+    if (surfaceKind === "conversation") {
       return {
         allowed: true,
         count,
@@ -812,15 +812,15 @@ export class WorkspaceLayoutStore {
     request: OpenPaneRequest,
     targetPaneId: PaneId | null,
   ): string | null {
-    if (request.surfaceKind !== "easy-button" || !request.easyButtonConfig?.conversationId) {
+    if (request.surfaceKind !== "conversation" || !request.conversationConfig?.conversationId) {
       return null;
     }
-    const conversationId = request.easyButtonConfig.conversationId;
+    const conversationId = request.conversationConfig.conversationId;
     const existing = this.toScene().panes.find(
       (pane) =>
         pane.paneId !== targetPaneId &&
-        pane.surfaceKind === "easy-button" &&
-        pane.easyButtonConfig.conversationId === conversationId,
+        pane.surfaceKind === "conversation" &&
+        pane.conversationConfig.conversationId === conversationId,
     );
     return existing
       ? `conversation ${conversationId} is already bound to pane ${existing.paneId}`

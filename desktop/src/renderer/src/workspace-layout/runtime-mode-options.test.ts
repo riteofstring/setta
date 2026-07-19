@@ -88,7 +88,7 @@ describe("workspace runtime mode options", () => {
   test("keeps every visible workspace surface live in a moving resize frame", () => {
     const scene = generateBenchmarkScene({ paneCount: 10, targetVisiblePanes: 10 });
     const items = [
-      renderItem("conversation", "easy-button"),
+      renderItem("conversation", "conversation"),
       renderItem("browser", "browser"),
       renderItem("heavy", "fake-heavy-dom"),
       renderItem("light", "fake-dom"),

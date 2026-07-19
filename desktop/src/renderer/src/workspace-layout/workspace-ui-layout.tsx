@@ -3,7 +3,7 @@ import type { DesktopPlatform } from "@shared/types";
 import { LoaderCircle, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { InitialEasyButtonPaneStartup } from "../features/easy-button/initial-easy-button-pane";
+import type { InitialEasyButtonPaneStartup as InitialConversationPaneStartup } from "../features/easy-button/initial-easy-button-pane";
 import {
   appPaneLayoutFromWorkspaceScene,
   appPaneLayoutToWorkspaceUILayout,
@@ -35,12 +35,12 @@ export type WorkspaceUILayoutLoad =
     };
 
 export function WorkspaceLayoutLoading({
-  initialEasyButtonPaneStartup,
+  initialConversationPaneStartup,
   mode,
   platform,
   workspaceId,
 }: {
-  initialEasyButtonPaneStartup: InitialEasyButtonPaneStartup;
+  initialConversationPaneStartup: InitialConversationPaneStartup;
   mode: WorkspaceSceneMode;
   platform: DesktopPlatform;
   workspaceId: string;
@@ -58,15 +58,15 @@ export function WorkspaceLayoutLoading({
       data-workspace-id={workspaceId}
       data-testid="workspace-layout-area"
     >
-      <WorkspaceInitialEasyButtonPane startup={initialEasyButtonPaneStartup} />
+      <WorkspaceInitialConversationPane startup={initialConversationPaneStartup} />
     </section>
   );
 }
 
-export function WorkspaceInitialEasyButtonPane({
+export function WorkspaceInitialConversationPane({
   startup,
 }: {
-  startup: InitialEasyButtonPaneStartup;
+  startup: InitialConversationPaneStartup;
 }) {
   if (startup === null) {
     return null;
@@ -74,31 +74,31 @@ export function WorkspaceInitialEasyButtonPane({
   return (
     <article
       aria-busy="true"
-      aria-label="Easy Button conversation is starting"
+      aria-label="Conversation pane is starting"
       className="app-no-drag absolute inset-2 z-40 grid min-h-0 grid-rows-[42px_minmax(0,1fr)] overflow-hidden rounded-[20px] border border-cyan-400/50 bg-background shadow-2xl"
       data-startup-state={startup}
       data-testid="initial-easy-button-pane"
     >
       <header className="flex items-center gap-2 border-b border-cyan-400/30 px-4 text-sm text-foreground">
         <Sparkles aria-hidden="true" className="h-4 w-4 text-cyan-300" />
-        <span>Easy Button</span>
+        <span>Conversation</span>
       </header>
       <main className="grid place-items-center">
         <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
           <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
-          {initialEasyButtonStartupLabel(startup)}
+          {initialConversationStartupLabel(startup)}
         </p>
       </main>
     </article>
   );
 }
 
-function initialEasyButtonStartupLabel(startup: Exclude<InitialEasyButtonPaneStartup, null>) {
+function initialConversationStartupLabel(startup: Exclude<InitialConversationPaneStartup, null>) {
   switch (startup) {
     case "creating":
       return "Starting conversation…";
     case "loading":
-      return "Preparing Easy Button…";
+      return "Preparing conversation…";
     case "opening":
       return "Opening conversation…";
     default:
@@ -291,5 +291,5 @@ function layoutOperationErrorMessage(error: unknown): string {
 }
 
 function assertNever(value: never): never {
-  throw new Error(`Unhandled Easy Button startup state: ${String(value)}`);
+  throw new Error(`Unhandled conversation startup state: ${String(value)}`);
 }

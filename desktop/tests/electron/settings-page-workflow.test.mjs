@@ -322,7 +322,7 @@ async function waitForLayoutWithoutSettings(client, workspaceId) {
       state.workspaceId === workspaceId &&
       state.paneCount === 3 &&
       state.paneIds.length === 3 &&
-      countSurfaceKind(state, "easy-button") === 1 &&
+      countSurfaceKind(state, "conversation") === 1 &&
       countSurfaceKind(state, "empty-frame") === 2 &&
       state.presentationMode === "normal" &&
       !state.settingsPageOpen &&

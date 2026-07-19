@@ -147,13 +147,13 @@ function workspacePaneFromAppPane(
       return [
         {
           ...fields,
-          easyButtonConfig: { conversationId: pane.conversationConfig.conversationId },
-          surfaceKind: "easy-button",
+          conversationConfig: { conversationId: pane.conversationConfig.conversationId },
+          surfaceKind: "conversation",
         },
       ];
     case "browser":
     case "empty-frame":
-      return [{ ...fields, easyButtonConfig: null, surfaceKind: pane.surfaceKind }];
+      return [{ ...fields, conversationConfig: null, surfaceKind: pane.surfaceKind }];
     case "master":
       return [];
     default:
@@ -164,11 +164,11 @@ function workspacePaneFromAppPane(
 function appPaneFromWorkspacePane(pane: WorkspacePane, workspaceRootPath: string | null): AppPane {
   const fields = appPaneFieldsFromWorkspacePane(pane);
   switch (pane.surfaceKind) {
-    case "easy-button":
+    case "conversation":
       return {
         ...fields,
         conversationConfig: {
-          conversationId: pane.easyButtonConfig.conversationId,
+          conversationId: pane.conversationConfig.conversationId,
           presentationIdentity: {
             subtitle: pane.subtitle,
             title: pane.title,

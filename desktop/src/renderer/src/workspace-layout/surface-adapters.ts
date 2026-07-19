@@ -408,15 +408,15 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
 function conversationPaletteIdentitySourceMatchesPane(
   pane: WorkspacePane,
   sourceHost: HTMLElement,
-): pane is Extract<WorkspacePane, { surfaceKind: "easy-button" }> {
-  return pane.surfaceKind === "easy-button" && sourceHost.dataset.surfaceId === pane.surfaceId;
+): pane is Extract<WorkspacePane, { surfaceKind: "conversation" }> {
+  return pane.surfaceKind === "conversation" && sourceHost.dataset.surfaceId === pane.surfaceId;
 }
 
 function ensureConversationPaletteIdentityMatchesPane(
-  pane: Extract<WorkspacePane, { surfaceKind: "easy-button" }>,
+  pane: Extract<WorkspacePane, { surfaceKind: "conversation" }>,
   identity: ConversationPaletteIdentity | null,
 ): void {
-  const expectedConversationId = pane.easyButtonConfig.conversationId;
+  const expectedConversationId = pane.conversationConfig.conversationId;
   if (!identity || identity.conversationId === expectedConversationId) {
     return;
   }
@@ -584,7 +584,7 @@ type DefaultSurfaceAdapterFactory = (
 
 const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurfaceAdapterFactory>> = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
-  "easy-button": (pane, options) =>
+  conversation: (pane, options) =>
     createReactDomSurfaceAdapter(pane, undefined, {
       speechCapture: options.speechCapture,
       speechPresentation: options.speechPresentation,

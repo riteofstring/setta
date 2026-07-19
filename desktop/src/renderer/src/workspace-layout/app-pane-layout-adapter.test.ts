@@ -22,8 +22,8 @@ describe("app pane layout adapter", () => {
       initial.focusedPaneId,
     );
     const conversationPaneId = store.openPane({
-      easyButtonConfig: { conversationId: "conversation_api" },
-      surfaceKind: "easy-button",
+      conversationConfig: { conversationId: "conversation_api" },
+      surfaceKind: "conversation",
       subtitle: "Topic conversation",
       title: "Build the API",
       tone: "cyan",
@@ -148,13 +148,13 @@ describe("app pane layout adapter", () => {
     expect(restored.layout?.panes).toEqual([
       {
         columnId: "app_column_0",
-        easyButtonConfig: { conversationId: "conversation_api" },
+        conversationConfig: { conversationId: "conversation_api" },
         heat: 12,
         paneId: "app_pane_topic",
         sequence: 4,
         subtitle: "Topic conversation",
         surfaceId: "app_surface_topic",
-        surfaceKind: "easy-button",
+        surfaceKind: "conversation",
         title: "Build the API",
         tone: "cyan",
         weight: 1,

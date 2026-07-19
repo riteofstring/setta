@@ -38,7 +38,7 @@ export function WorkspaceNoWorkspaceState({
           <p className="text-xs leading-5 text-muted-foreground">
             {loading
               ? "Loading the active runtime session."
-              : "Setta needs a project folder before it can start an Easy Button conversation."}
+              : "Setta needs a project folder before it can start a conversation pane."}
           </p>
           {error ? <p className="text-xs leading-5 text-destructive">{error}</p> : null}
           <button

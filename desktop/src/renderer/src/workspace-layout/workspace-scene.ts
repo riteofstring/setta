@@ -46,7 +46,7 @@ interface CreatePaneInput {
   columnId: string;
   sequence: number;
   subtitle: string;
-  surfaceKind: Exclude<ProductSurfaceKind, "easy-button">;
+  surfaceKind: Exclude<ProductSurfaceKind, "conversation">;
   title: string;
   tone: WorkspacePane["tone"];
   weight?: number;
@@ -180,10 +180,10 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
     weight: pane.weight,
   };
   switch (pane.surfaceKind) {
-    case "easy-button":
+    case "conversation":
       return {
         ...fields,
-        easyButtonConfig: pane.easyButtonConfig,
+        conversationConfig: pane.conversationConfig,
         surfaceKind: pane.surfaceKind,
       };
     case "browser":
@@ -205,15 +205,15 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
     weight: pane.weight,
   };
   switch (pane.surfaceKind) {
-    case "easy-button":
+    case "conversation":
       return {
         ...fields,
-        easyButtonConfig: pane.easyButtonConfig,
+        conversationConfig: pane.conversationConfig,
         surfaceKind: pane.surfaceKind,
       };
     case "browser":
     case "empty-frame":
-      return { ...fields, easyButtonConfig: null, surfaceKind: pane.surfaceKind };
+      return { ...fields, conversationConfig: null, surfaceKind: pane.surfaceKind };
     default:
       return persistedDiagnosticPaneError(pane.surfaceKind);
   }

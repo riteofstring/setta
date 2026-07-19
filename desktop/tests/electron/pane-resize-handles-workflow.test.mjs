@@ -179,7 +179,7 @@ async function waitForInitialEasyButtonStartupToSettle(client) {
 function twoColumnLayout(workspaceId) {
   const panes = [0, 1].map((index) => ({
     columnId: `workspace_column_${index}`,
-    easyButtonConfig: null,
+    conversationConfig: null,
     heat: index * 37,
     paneId: `workspace_pane_${index}`,
     sequence: index,
@@ -226,8 +226,8 @@ function twoColumnAppLayout(workspaceId) {
   };
 }
 
-function appPaneFromWorkspacePane({ easyButtonConfig, ...pane }) {
-  void easyButtonConfig;
+function appPaneFromWorkspacePane({ conversationConfig, ...pane }) {
+  void conversationConfig;
   return {
     ...pane,
     conversationConfig: null,

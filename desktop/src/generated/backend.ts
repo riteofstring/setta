@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 70;
-export const backendContractSchemaHash = "sha256:c65693b579ff2270ab54b42b9fa96bb98a63a360666b6d4ba16a06623da6b764";
+export const backendProtocolVersion = 71;
+export const backendContractSchemaHash = "sha256:85e9639887e8fa52322608d464b2ca46b826316bbabe5f377eb0183edd6f510f";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -188,16 +188,16 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "browser" | "easy-button" | "empty-frame";
+export type SurfaceKind = "browser" | "conversation" | "empty-frame";
 
-export const surfaceKindValues = ["browser", "easy-button", "empty-frame"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["browser", "conversation", "empty-frame"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "browser":
       return decoded;
-    case "easy-button":
+    case "conversation":
       return decoded;
     case "empty-frame":
       return decoded;
@@ -1806,7 +1806,7 @@ export interface WorkspaceUIColumn {
   widthSpec: ColumnWidthSpec;
 }
 
-export interface EasyButtonPaneConfig {
+export interface WorkspaceConversationPaneConfig {
   conversationId: string;
 }
 
@@ -1823,15 +1823,15 @@ export type WorkspaceUIPane = {
 } & (
   | {
       surfaceKind: "browser";
-      easyButtonConfig: null;
+      conversationConfig: null;
     }
   | {
-      surfaceKind: "easy-button";
-      easyButtonConfig: EasyButtonPaneConfig;
+      surfaceKind: "conversation";
+      conversationConfig: WorkspaceConversationPaneConfig;
     }
   | {
       surfaceKind: "empty-frame";
-      easyButtonConfig: null;
+      conversationConfig: null;
     }
 );
 
@@ -4268,20 +4268,20 @@ export function decodeWorkspaceUIColumn(value: unknown): WorkspaceUIColumn {
   };
 }
 
-export function decodeEasyButtonPaneConfig(value: unknown): EasyButtonPaneConfig {
-  const record = assertRecord(value, "EasyButtonPaneConfig");
-  assertKnownFields(record, "EasyButtonPaneConfig", ["conversationId"]);
+export function decodeWorkspaceConversationPaneConfig(value: unknown): WorkspaceConversationPaneConfig {
+  const record = assertRecord(value, "WorkspaceConversationPaneConfig");
+  assertKnownFields(record, "WorkspaceConversationPaneConfig", ["conversationId"]);
   return {
-    conversationId: decodeString(requireField(record, "conversationId", "EasyButtonPaneConfig"), "EasyButtonPaneConfig.conversationId"),
+    conversationId: decodeString(requireField(record, "conversationId", "WorkspaceConversationPaneConfig"), "WorkspaceConversationPaneConfig.conversationId"),
   };
 }
 
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
-  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "easyButtonConfig", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "conversationConfig", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
   const result = {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
-    easyButtonConfig: decodeNullable(requireField(record, "easyButtonConfig", "WorkspaceUIPane"), "WorkspaceUIPane.easyButtonConfig", (item) => decodeEasyButtonPaneConfig(item)),
+    conversationConfig: decodeNullable(requireField(record, "conversationConfig", "WorkspaceUIPane"), "WorkspaceUIPane.conversationConfig", (item) => decodeWorkspaceConversationPaneConfig(item)),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
     paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPane"), "WorkspaceUIPane.paneId"),
     sequence: decodeInteger(requireField(record, "sequence", "WorkspaceUIPane"), "WorkspaceUIPane.sequence"),
@@ -4294,33 +4294,33 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   };
   switch (result.surfaceKind) {
     case "browser": {
-      if (result.easyButtonConfig !== null) {
-        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is browser");
+      if (result.conversationConfig !== null) {
+        throw new Error("WorkspaceUIPane.conversationConfig must be null when surfaceKind is browser");
       }
       return {
         ...result,
         surfaceKind: "browser",
-        easyButtonConfig: null,
+        conversationConfig: null,
       };
     }
-    case "easy-button": {
-      if (result.easyButtonConfig === null) {
-        throw new Error("WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button");
+    case "conversation": {
+      if (result.conversationConfig === null) {
+        throw new Error("WorkspaceUIPane.conversationConfig is required when surfaceKind is conversation");
       }
       return {
         ...result,
-        surfaceKind: "easy-button",
-        easyButtonConfig: result.easyButtonConfig,
+        surfaceKind: "conversation",
+        conversationConfig: result.conversationConfig,
       };
     }
     case "empty-frame": {
-      if (result.easyButtonConfig !== null) {
-        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame");
+      if (result.conversationConfig !== null) {
+        throw new Error("WorkspaceUIPane.conversationConfig must be null when surfaceKind is empty-frame");
       }
       return {
         ...result,
         surfaceKind: "empty-frame",
-        easyButtonConfig: null,
+        conversationConfig: null,
       };
     }
     default:

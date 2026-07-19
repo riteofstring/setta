@@ -200,12 +200,12 @@
       return [
         {
           ...fields,
-          easyButtonConfig: { conversationId: conversationConfig.conversationId },
-          surfaceKind: "easy-button",
+          conversationConfig: { conversationId: conversationConfig.conversationId },
+          surfaceKind: "conversation",
         },
       ];
     }
-    return [{ ...fields, easyButtonConfig: null }];
+    return [{ ...fields, conversationConfig: null }];
   }
 
   function workspaceColumnsFromAppColumns(columns, paneIds) {

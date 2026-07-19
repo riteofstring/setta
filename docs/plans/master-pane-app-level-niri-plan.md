@@ -304,6 +304,23 @@ workspace UI layout read/save usage from the shell path instead of bridging it.
 
 ### 2. Add Product Surface Kinds
 
+**Status:** Completed.
+
+Completed repository work:
+
+- Kept the app-level pane layout contract on `master` and `conversation` surface kinds, with
+  generated TypeScript rejecting removed `easy-button` app pane records.
+- Cut the older workspace UI pane contract over from `easy-button`/`easyButtonConfig` to
+  `conversation`/`conversationConfig`, regenerated the backend TypeScript surface, and bumped the
+  backend protocol version for the breaking contract shape.
+- Updated renderer workspace-layout scene types, pane normalization, pane store, surface adapter
+  routing, topic conversation presentation, and Electron workflow fixtures to use conversation pane
+  product records instead of persisted `easy-button` records.
+
+Remaining repository work:
+
+- None.
+
 Add `master` and `conversation` as product surface kinds.
 
 Remove `easy-button` from the persisted pane contract. Rename renderer concepts that are now

@@ -395,20 +395,20 @@ function twoPaneAppLayout(workspaceId, conversationId, workspaceRoot) {
     panes: [
       {
         columnId: "workspace_column_0",
-        easyButtonConfig: { conversationId },
+        conversationConfig: { conversationId },
         heat: 0,
         paneId: "workspace_pane_0",
         sequence: 0,
         subtitle: "topic conversation pane",
         surfaceId: "workspace_surface_0",
-        surfaceKind: "easy-button",
+        surfaceKind: "conversation",
         title: "Pane Focus Topic",
         tone: "cyan",
         weight: 1,
       },
       {
         columnId: "workspace_column_1",
-        easyButtonConfig: null,
+        conversationConfig: null,
         heat: 37,
         paneId: "workspace_pane_1",
         sequence: 1,
@@ -473,11 +473,11 @@ function appMasterPane() {
   };
 }
 
-function appConversationPane({ easyButtonConfig, ...pane }, workspaceRoot) {
+function appConversationPane({ conversationConfig, ...pane }, workspaceRoot) {
   return {
     ...pane,
     conversationConfig: {
-      conversationId: easyButtonConfig.conversationId,
+      conversationId: conversationConfig.conversationId,
       presentationIdentity: {
         subtitle: pane.subtitle,
         title: pane.title,
@@ -490,8 +490,8 @@ function appConversationPane({ easyButtonConfig, ...pane }, workspaceRoot) {
   };
 }
 
-function appEmptyPane({ easyButtonConfig, ...pane }) {
-  void easyButtonConfig;
+function appEmptyPane({ conversationConfig, ...pane }) {
+  void conversationConfig;
   return {
     ...pane,
     conversationConfig: null,

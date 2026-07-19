@@ -155,7 +155,7 @@ function shellLayoutRestored(state, workspaceId) {
         host.paneId === "app_shell_conversation" &&
         host.focused === "true" &&
         host.maximized === "true" &&
-        host.surfaceKind === "easy-button",
+        host.surfaceKind === "conversation",
     )
   );
 }

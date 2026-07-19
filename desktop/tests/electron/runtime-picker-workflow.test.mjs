@@ -300,7 +300,7 @@ async function waitForSurvivorWorkspacePanes(client, expectedWorkspaceId) {
       snapshot.paneIds.length === snapshot.paneCount &&
       snapshot.paneIds.every((paneId) => paneId !== "") &&
       snapshot.surfaceKinds.every((surfaceKind) =>
-        ["easy-button", "empty-frame"].includes(surfaceKind),
+        ["conversation", "empty-frame"].includes(surfaceKind),
       ),
     workflowTimeoutMs,
   );
@@ -319,7 +319,7 @@ function assertLocalWorkspacePanesSurvivedRuntimeSwitch(before, after) {
   const added = after.panes.filter((pane) => !beforeIds.has(pane.paneId));
   const valid =
     JSON.stringify(afterEmptyFrames) === JSON.stringify(beforeEmptyFrames) &&
-    added.every((pane) => pane.surfaceKind === "easy-button");
+    added.every((pane) => pane.surfaceKind === "conversation");
   if (!valid) {
     throw new Error(
       `local workspace panes changed after runtime switch: ${JSON.stringify({ added, after: after.panes, before: before.panes })}`,

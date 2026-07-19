@@ -137,7 +137,7 @@ try {
     await assertVisiblePaneClickFocusesWithoutReveal(
       context.client,
       multiRowSnapshot,
-      "easy-button",
+      "conversation",
     ),
   ];
   await captureScreenshot(context.client, join(artifactDir, "multirow-live-panes.png"));
@@ -379,10 +379,10 @@ function paneSnapshotHostsAreLive(snapshot) {
 function paneSnapshotSurvivorKindsMatch(snapshot) {
   const surfaceKinds = new Set(snapshot.intersectingHosts.map((host) => host.surfaceKind));
   return (
-    surfaceKinds.has("easy-button") &&
+    surfaceKinds.has("conversation") &&
     surfaceKinds.has("empty-frame") &&
     snapshot.intersectingHosts.every(
-      (host) => host.surfaceKind === "easy-button" || host.surfaceKind === "empty-frame",
+      (host) => host.surfaceKind === "conversation" || host.surfaceKind === "empty-frame",
     )
   );
 }
@@ -453,7 +453,7 @@ async function assertVisiblePaneClickFocusesWithoutReveal(client, snapshot, surf
   if (!target) {
     throw new Error(`no unfocused visible ${surfaceKind} host was available`);
   }
-  const horizontalClickFraction = surfaceKind === "easy-button" ? 0.25 : 0.5;
+  const horizontalClickFraction = surfaceKind === "conversation" ? 0.25 : 0.5;
   await dispatchMouseClick(client, {
     x: Math.round(target.rect.left + target.rect.width * horizontalClickFraction),
     y: Math.round(target.rect.top + target.rect.height / 2),
@@ -494,7 +494,7 @@ function ultraWideLayout(workspaceId, workspaceRoot, conversationIds) {
     const surfaceKind = productSurfaceKindForPane(index);
     return {
       columnId: `workspace_column_${index}`,
-      easyButtonConfig: nextPaneConfig(surfaceKind),
+      conversationConfig: nextPaneConfig(surfaceKind),
       heat: (index * 37) % 100,
       paneId: `workspace_pane_${index}`,
       sequence: index,
@@ -535,7 +535,7 @@ function multiRowLayout(workspaceId, workspaceRoot, conversationIds) {
     const surfaceKind = multiRowSurfaceKind(columnIndex, rowIndex);
     return {
       columnId: `multirow_column_${columnIndex}`,
-      easyButtonConfig: nextPaneConfig(surfaceKind),
+      conversationConfig: nextPaneConfig(surfaceKind),
       heat: (index * 41) % 100,
       paneId: `multirow_pane_${index}`,
       sequence: index,
@@ -574,7 +574,7 @@ function verticalStackLayout(workspaceId, workspaceRoot, conversationIds) {
     const surfaceKind = verticalStackSurfaceKind(index);
     return {
       columnId: "vertical_stack_column_0",
-      easyButtonConfig: nextPaneConfig(surfaceKind),
+      conversationConfig: nextPaneConfig(surfaceKind),
       heat: (index * 29) % 100,
       paneId: `vertical_pane_${index}`,
       sequence: index,
@@ -660,8 +660,8 @@ function appMasterPane() {
 }
 
 function appPaneFromWorkspacePane(pane, workspaceRoot) {
-  const { easyButtonConfig, ...appPaneFields } = pane;
-  if (pane.surfaceKind !== "easy-button") {
+  const { conversationConfig, ...appPaneFields } = pane;
+  if (pane.surfaceKind !== "conversation") {
     return {
       ...appPaneFields,
       conversationConfig: null,
@@ -671,7 +671,7 @@ function appPaneFromWorkspacePane(pane, workspaceRoot) {
   return {
     ...appPaneFields,
     conversationConfig: {
-      conversationId: easyButtonConfig.conversationId,
+      conversationId: conversationConfig.conversationId,
       presentationIdentity: {
         subtitle: pane.subtitle,
         title: pane.title,
@@ -685,21 +685,21 @@ function appPaneFromWorkspacePane(pane, workspaceRoot) {
 }
 
 function productSurfaceKindForPane(index) {
-  return ["empty-frame", "easy-button"][index % 2];
+  return ["empty-frame", "conversation"][index % 2];
 }
 
 function multiRowSurfaceKind(columnIndex, rowIndex) {
-  return (columnIndex + rowIndex) % 2 === 0 ? "empty-frame" : "easy-button";
+  return (columnIndex + rowIndex) % 2 === 0 ? "empty-frame" : "conversation";
 }
 
 function verticalStackSurfaceKind(index) {
-  return ["empty-frame", "easy-button"][index % 2];
+  return ["empty-frame", "conversation"][index % 2];
 }
 
 function createPaneConfigAllocator(conversationIds) {
   let nextConversationIndex = 0;
   return (surfaceKind) => {
-    if (surfaceKind !== "easy-button") {
+    if (surfaceKind !== "conversation") {
       return null;
     }
     const conversationId = conversationIds[nextConversationIndex] ?? "";

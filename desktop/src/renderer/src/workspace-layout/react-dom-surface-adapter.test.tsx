@@ -89,8 +89,8 @@ describe("workspace React DOM surface adapter", () => {
     const firstHost = createFakeHost();
     const secondHost = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("easy-button"),
-      () => "easy button surface",
+      fakePane("conversation"),
+      () => "conversation surface",
       rootFactory,
     );
 
@@ -117,7 +117,7 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("easy-button"),
+      fakePane("conversation"),
       () => "conversation surface",
       rootFactory,
     );
@@ -144,7 +144,7 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("easy-button"),
+      fakePane("conversation"),
       () => "conversation surface",
       rootFactory,
     );
@@ -227,7 +227,7 @@ describe("workspace React DOM surface adapter", () => {
     ]);
   });
 
-  test("mounts the easy button as an idle React DOM surface", () => {
+  test("mounts the conversation pane as an idle React DOM surface", () => {
     const root = new RecordingRoot([]);
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot() {
@@ -237,7 +237,7 @@ describe("workspace React DOM surface adapter", () => {
     const host = createFakeHost();
     const speechCapture = { start: vi.fn(async () => {}) };
     const speechPresentation = {} as GlobalSpeechPresentationSource;
-    const adapter = createReactDomSurfaceAdapter(fakePane("easy-button"), rootFactory, {
+    const adapter = createReactDomSurfaceAdapter(fakePane("conversation"), rootFactory, {
       speechCapture,
       speechPresentation,
       workspaceId: "workspace_test",
@@ -255,9 +255,9 @@ describe("workspace React DOM surface adapter", () => {
         workspaceId: string;
       }>(renderedNode)
     ) {
-      throw new Error("easy button surface did not render a React element");
+      throw new Error("conversation surface did not render a React element");
     }
-    expect(host.dataset.surfaceKind).toBe("easy-button");
+    expect(host.dataset.surfaceKind).toBe("conversation");
     expect(renderedNode.type).toBe(EasyButtonSurface);
     expect(renderedNode.props.conversationId).toBe("conversation_test");
     expect(renderedNode.props.paneId).toBe("pane");
@@ -300,10 +300,10 @@ function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
     tone: "cyan" as const,
     weight: 1,
   };
-  return surfaceKind === "easy-button"
+  return surfaceKind === "conversation"
     ? {
         ...fields,
-        easyButtonConfig: { conversationId: "conversation_test" },
+        conversationConfig: { conversationId: "conversation_test" },
         surfaceKind,
       }
     : { ...fields, surfaceKind };

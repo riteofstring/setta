@@ -1,52 +1,52 @@
-import type { EasyButtonPaneConfig } from "@generated/backend";
+import type { WorkspaceConversationPaneConfig } from "@generated/backend";
 
-import type { NonEasyButtonSurfaceKind, WorkspacePane, OpenPaneRequest } from "./types";
+import type { NonConversationSurfaceKind, WorkspacePane, OpenPaneRequest } from "./types";
 
 type WorkspacePaneSurface =
-  | { easyButtonConfig: EasyButtonPaneConfig; surfaceKind: "easy-button" }
-  | { surfaceKind: NonEasyButtonSurfaceKind };
+  | { conversationConfig: WorkspaceConversationPaneConfig; surfaceKind: "conversation" }
+  | { surfaceKind: NonConversationSurfaceKind };
 
 export function paneSurfaceForRequest(
   request: OpenPaneRequest,
   existing?: WorkspacePane,
 ): WorkspacePaneSurface {
   const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
-  const requestConfig = request.easyButtonConfig as EasyButtonPaneConfig | undefined;
-  if (request.surfaceKind !== "easy-button" && requestConfig) {
-    throw new Error("easyButtonConfig requires an explicit easy-button surfaceKind");
+  const requestConfig = request.conversationConfig as WorkspaceConversationPaneConfig | undefined;
+  if (request.surfaceKind !== "conversation" && requestConfig) {
+    throw new Error("conversationConfig requires an explicit conversation surfaceKind");
   }
-  if (surfaceKind === "easy-button") {
-    const config = resolvedEasyButtonConfig(request, existing);
-    validateEasyButtonConfig(config);
-    return { easyButtonConfig: config, surfaceKind };
+  if (surfaceKind === "conversation") {
+    const config = resolvedConversationConfig(request, existing);
+    validateConversationConfig(config);
+    return { conversationConfig: config, surfaceKind };
   }
   return { surfaceKind: surfaceKind ?? "empty-frame" };
 }
 
-function resolvedEasyButtonConfig(
+function resolvedConversationConfig(
   request: OpenPaneRequest,
   existing: WorkspacePane | undefined,
-): EasyButtonPaneConfig | undefined {
-  if (request.surfaceKind === "easy-button") {
-    return request.easyButtonConfig;
+): WorkspaceConversationPaneConfig | undefined {
+  if (request.surfaceKind === "conversation") {
+    return request.conversationConfig;
   }
-  if (existing?.surfaceKind === "easy-button") {
-    return existing.easyButtonConfig;
+  if (existing?.surfaceKind === "conversation") {
+    return existing.conversationConfig;
   }
   return undefined;
 }
 
-function validateEasyButtonConfig(
-  config: EasyButtonPaneConfig | undefined,
-): asserts config is EasyButtonPaneConfig {
+function validateConversationConfig(
+  config: WorkspaceConversationPaneConfig | undefined,
+): asserts config is WorkspaceConversationPaneConfig {
   if (!config) {
-    throw new Error("easy-button panes require an easyButtonConfig conversation binding");
+    throw new Error("conversation panes require a conversationConfig conversation binding");
   }
   if (config.conversationId.length === 0) {
-    throw new Error("easyButtonConfig.conversationId is required");
+    throw new Error("conversationConfig.conversationId is required");
   }
   if (config.conversationId.trim() !== config.conversationId) {
-    throw new Error("easyButtonConfig.conversationId must not have surrounding whitespace");
+    throw new Error("conversationConfig.conversationId must not have surrounding whitespace");
   }
 }
 
