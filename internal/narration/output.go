@@ -14,11 +14,11 @@ import (
 
 const (
 	MaxNarratorMilestonesPerCall         = 1
-	MaxNarratorMilestoneCharacters       = 200
-	MaxNarratorCurrentFocusCharacters    = 240
-	MaxNarratorFinalSummaryCharacters    = 480
-	MaxNarratorStatusReplyCharacters     = 400
-	MaxNarratorTopicDescriptorCharacters = 160
+	MaxNarratorMilestoneCharacters       = 240
+	MaxNarratorCurrentFocusCharacters    = 320
+	MaxNarratorFinalSummaryCharacters    = 1200
+	MaxNarratorStatusReplyCharacters     = 1200
+	MaxNarratorTopicDescriptorCharacters = 320
 )
 
 type CallOutputKind string

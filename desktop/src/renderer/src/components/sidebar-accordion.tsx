@@ -22,7 +22,6 @@ export interface SidebarSectionState {
 
 export function SidebarAccordionSection({
   action,
-  actionVisibility = "hover",
   children,
   height,
   onHeightChange,
@@ -33,7 +32,6 @@ export function SidebarAccordionSection({
   title,
 }: {
   action?: ReactNode;
-  actionVisibility?: "always" | "hover";
   children: ReactNode;
   height: number;
   onHeightChange: (height: number) => void;
@@ -68,13 +66,7 @@ export function SidebarAccordionSection({
           <span className="truncate">{title}</span>
         </button>
         {action ? (
-          <div
-            className={
-              actionVisibility === "always"
-                ? undefined
-                : "opacity-0 transition-opacity duration-75 ease-out group-hover/section:opacity-100 group-focus-within/section:opacity-100"
-            }
-          >
+          <div className="opacity-0 transition-opacity duration-75 ease-out group-hover/section:opacity-100 group-focus-within/section:opacity-100">
             {action}
           </div>
         ) : null}

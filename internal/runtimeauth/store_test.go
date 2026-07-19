@@ -95,6 +95,29 @@ func TestPairingTokenExpires(t *testing.T) {
 	}
 }
 
+func TestPairingTokenCanBeConsumedWithoutCreatingLegacyDeviceSession(t *testing.T) {
+	store := newTestStore(t)
+	_, pairingToken, err := store.CreatePairingToken(context.Background())
+	if err != nil {
+		t.Fatalf("create pairing token: %v", err)
+	}
+	consumed, err := store.ConsumePairingToken(context.Background(), pairingToken)
+	if err != nil || !consumed {
+		t.Fatalf("consume pairing token consumed=%v err=%v", consumed, err)
+	}
+	consumed, err = store.ConsumePairingToken(context.Background(), pairingToken)
+	if err != nil || consumed {
+		t.Fatalf("consume pairing token twice consumed=%v err=%v", consumed, err)
+	}
+	sessions, err := store.ListDeviceSessions(context.Background())
+	if err != nil {
+		t.Fatalf("list device sessions: %v", err)
+	}
+	if len(sessions) != 0 {
+		t.Fatalf("device sessions = %+v, want none", sessions)
+	}
+}
+
 func TestRevokedDeviceSessionStopsResolving(t *testing.T) {
 	store := newTestStore(t)
 	session, token, err := store.CreateDeviceSession(context.Background(), "Local desktop")
