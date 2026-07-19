@@ -246,10 +246,15 @@ Implemented on 2026-07-20:
     the run directory, requires the top-level and OCI descriptor manifest
     digests to match, and derives the immutable Fly registry reference without
     parsing human command output.
+14. The image publisher authenticates Fly's registry through an isolated
+    private Docker configuration, verifies the release binary against the
+    exact `SHA256SUMS` input before either command, pushes only linux/amd64 with
+    local Buildx, and reuses a prior result only when its private metadata is
+    already valid.
 
 Still required before a live create/deployment mutation:
 
-1. Add the checked-artifact image build/push command surface,
+1. Wire the checked-artifact image publisher into
    the manifest-gated provision command and staged-secret activation. The
    operator CLI intentionally exposes only `dry-run` and exact
    cleanup; it cannot create resources.
