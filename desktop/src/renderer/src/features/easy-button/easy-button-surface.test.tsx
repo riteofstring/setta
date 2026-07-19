@@ -207,6 +207,25 @@ describe("Easy Button topic conversation projection", () => {
     expect(html).not.toContain("The agent is preparing details.");
   });
 
+  test("shows only a compact terminal fallback while waiting for narrator summary", () => {
+    const snapshot = completedSnapshot("conversation_raw_done", "Raw done", "amber");
+    snapshot.narration.events = [];
+    snapshot.trajectory.events.push(
+      agentMessageCompletedTrajectory(
+        snapshot,
+        "The repo contains 267,153 physical source lines across 846 files. Largest languages: Go, TypeScript, JavaScript, Rust, CSS. The full breakdown is in the emitted table.",
+      ),
+    );
+
+    const view = easyButtonProjectionView(snapshot.conversation.id, readyProjection(snapshot));
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(view.terminalSummary?.id).toBe(`turn:${snapshot.turns.turns[0]!.id}`);
+    expect(view.terminalSummary?.text).toBe("Work completed.");
+    expect(html).toContain("Work completed.");
+    expect(html).not.toContain("267,153 physical source lines");
+  });
+
   test("renders the latest explicit narrator status reply without changing working state", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-11T20:00:10Z"));
@@ -1314,6 +1333,29 @@ function agentTextDelta(snapshot: ConversationSnapshot, text: string): Trajector
     },
     id: `trajectory_agent_text_${snapshot.conversation.id}`,
     kind: "agent_public_text_delta",
+    sequence: base.sequence + 1,
+    userInputAccepted: null,
+  };
+}
+
+function agentMessageCompletedTrajectory(
+  snapshot: ConversationSnapshot,
+  text: string,
+): TrajectoryEvent {
+  const base = userInputTrajectory(
+    snapshot.conversation.id,
+    snapshot.turns.turns[0]!.id,
+    snapshot.conversation.title,
+  );
+  return {
+    ...base,
+    actor: "agent",
+    agentMessageCompleted: {
+      providerItemId: "provider_agent_message",
+      text,
+    },
+    id: `trajectory_agent_message_${snapshot.conversation.id}`,
+    kind: "agent_message_completed",
     sequence: base.sequence + 1,
     userInputAccepted: null,
   };

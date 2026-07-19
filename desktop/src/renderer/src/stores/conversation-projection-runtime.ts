@@ -7,6 +7,7 @@ import { useConversationStore } from "./conversation-store";
 interface RetainedConversationProjection {
   generation: number;
   references: number;
+  sawActiveWork: boolean;
 }
 
 interface ScheduledProjectionFlush {
@@ -30,7 +31,7 @@ export function retainConversationProjection(
   if (current) {
     current.references += 1;
   } else {
-    const retained = { generation, references: 1 };
+    const retained = { generation, references: 1, sawActiveWork: false };
     retainedProjections.set(key, retained);
     void loadAndSubscribe(workspaceId, conversationId, retained);
   }
@@ -73,6 +74,7 @@ function handleConversationProjectionEvents(events: readonly ConversationEvent[]
   useConversationNavigatorStore.getState().applyEvents(events);
   const affected = new Map<string, { conversationId: string; workspaceId: string }>();
   for (const event of events) {
+    markRetainedActiveWork(event);
     affected.set(projectionKey(event.workspaceId, event.conversationId), {
       conversationId: event.conversationId,
       workspaceId: event.workspaceId,
@@ -153,6 +155,8 @@ async function loadAndSubscribe(
     if (!projectionIsRetained(workspaceId, conversationId, retained)) {
       return;
     }
+    retained.sawActiveWork =
+      retained.sawActiveWork || conversationHasActiveWork(snapshot.conversation.status);
     hydrateConversationProjectionSnapshot(snapshot);
     await window.setta.conversations.subscribe({
       conversationId,
@@ -180,11 +184,19 @@ function releaseConversationProjection(
     return;
   }
   retainedProjections.delete(key);
-  const snapshot = conversationSnapshotIncludingQueuedEvents(workspaceId, conversationId);
+  const queuedEvents = queuedConversationProjectionEvents(workspaceId, conversationId);
+  const snapshot = conversationSnapshotIncludingQueuedEvents(
+    workspaceId,
+    conversationId,
+    queuedEvents,
+  );
+  const observedLiveWork = retained.sawActiveWork || queuedEvents.some(eventHasActiveWork);
   void window.setta.conversations
     .release({
       conversationId,
-      keepAlive: snapshot ? conversationProjectionNeedsKeepAlive(snapshot) : false,
+      keepAlive: snapshot
+        ? conversationProjectionNeedsKeepAlive(snapshot, observedLiveWork)
+        : false,
       workspaceId,
     })
     .catch((error: unknown) => {
@@ -195,35 +207,74 @@ function releaseConversationProjection(
 function conversationSnapshotIncludingQueuedEvents(
   workspaceId: string,
   conversationId: string,
+  events = queuedConversationProjectionEvents(workspaceId, conversationId),
 ): ConversationSnapshot | null | undefined {
   const conversations = useConversationStore.getState().conversations;
-  const events = pendingEvents.filter(
-    (event) => event.workspaceId === workspaceId && event.conversationId === conversationId,
-  );
   if (events.length === 0) {
     return conversations.get(conversationId)?.snapshot;
   }
   return applyConversationEvents(conversations, events).get(conversationId)?.snapshot;
 }
 
-export function conversationProjectionNeedsKeepAlive(snapshot: ConversationSnapshot): boolean {
+export function conversationProjectionNeedsKeepAlive(
+  snapshot: ConversationSnapshot,
+  observedLiveWork = false,
+): boolean {
   if (!snapshot.presentationProfile.narratorSpeechEnabled) {
     return false;
   }
   const status = snapshot.conversation.status;
-  if (status === "working" || status === "waiting_for_approval") {
+  if (conversationHasActiveWork(status)) {
     return true;
   }
-  if (snapshot.narratorState.degradation?.retryable === false) {
-    return false;
+  return observedLiveWork && terminalTurnMissingFinalNarration(snapshot);
+}
+
+function markRetainedActiveWork(event: ConversationEvent): void {
+  if (!eventHasActiveWork(event)) {
+    return;
   }
-  const latestTurn = snapshot.turns.turns.at(-1);
-  if (!latestTurn) {
-    return false;
+  const retained = retainedProjections.get(projectionKey(event.workspaceId, event.conversationId));
+  if (retained) {
+    retained.sawActiveWork = true;
   }
-  return !snapshot.narration.events.some(
-    (event) => event.kind === "final_summary" && event.turnId === latestTurn.id,
+}
+
+function queuedConversationProjectionEvents(
+  workspaceId: string,
+  conversationId: string,
+): ConversationEvent[] {
+  return pendingEvents.filter(
+    (event) => event.workspaceId === workspaceId && event.conversationId === conversationId,
   );
+}
+
+function eventHasActiveWork(event: ConversationEvent): boolean {
+  return (
+    event.payload.type === "conversation.updated" &&
+    conversationHasActiveWork(event.payload.conversation.status)
+  );
+}
+
+function conversationHasActiveWork(
+  status: ConversationSnapshot["conversation"]["status"],
+): boolean {
+  return status === "working" || status === "waiting_for_approval";
+}
+
+function terminalTurnMissingFinalNarration(snapshot: ConversationSnapshot): boolean {
+  const summarizedTurnIds = new Set(
+    snapshot.narration.events
+      .filter((event) => event.kind === "final_summary" && event.turnId)
+      .map((event) => event.turnId),
+  );
+  let latestTerminalTurnId: string | null = null;
+  for (const turn of snapshot.turns.turns) {
+    if (turn.status === "completed" || turn.status === "cancelled" || turn.status === "failed") {
+      latestTerminalTurnId = turn.id;
+    }
+  }
+  return latestTerminalTurnId !== null && !summarizedTurnIds.has(latestTerminalTurnId);
 }
 
 function resyncConversationProjection(workspaceId: string, conversationId: string): Promise<void> {

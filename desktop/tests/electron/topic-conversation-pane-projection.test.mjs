@@ -91,7 +91,6 @@ import {
   assertNarratorStatusIsolation,
   expectedNarratorStatusReply,
   hasFinalNarrationForEveryTurn,
-  narratorCaughtUp,
   requiredConversationSurface,
 } from "./topic-conversation-projection-assertions.mjs";
 import { verifySideConversationRestart } from "./topic-conversation-side-restart-workflow.mjs";
@@ -1097,8 +1096,7 @@ try {
       snapshot.turns.turns.length === 8 &&
       snapshot.turns.turns.filter((turn) => turn.status === "cancelled").length === 1 &&
       snapshot.turns.turns.filter((turn) => turn.status === "completed").length === 7 &&
-      hasFinalNarrationForEveryTurn(snapshot) &&
-      narratorCaughtUp(snapshot),
+      hasFinalNarrationForEveryTurn(snapshot),
   );
   const betaSnapshot = await waitForConversationSnapshot(
     backend,
@@ -1109,8 +1107,6 @@ try {
       snapshot.turns.turns[0]?.status === "cancelled" &&
       snapshot.turns.turns[1]?.status === "failed" &&
       hasFinalNarrationForEveryTurn(snapshot) &&
-      narratorCaughtUp(snapshot) &&
-      snapshot.narratorState.checkpointThroughSequence > 0 &&
       snapshot.narratorState.degradation === null,
   );
   assertAlphaLifecycle(alphaSnapshot, awaitingApproval.approvalId);

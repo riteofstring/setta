@@ -1,5 +1,13 @@
 # Repository Guidelines
 
+## Product Philosophy
+
+- Setta should feel like it just works. The user should not have to deal with internal app failures.
+- When the user gives a request, the app should start the work, continue the current work, route the request somewhere useful, or ask a genuinely useful clarification question.
+- Do not show errors like "the narrator model returned an invalid decision." That is an internal implementation problem. The app should retry, repair the AI output, or use an obvious product rule when the right behavior is clear.
+- Ask the user only when the user can make a meaningful choice, such as whether to change the current run or queue something as the next task. Do not ask the user to retry routing, schema, projection, or formatting work.
+- AI should still make judgment calls when judgment is needed. Product code should enforce basic invariants so bad JSON, invalid schema output, or routing-format mistakes do not break the UX.
+
 ## Generation & Contracts
 
 - Generate TypeScript surfaces from Go-owned contracts or values programmatically; do not maintain hardcoded mirrors or scattered cross-language constants.

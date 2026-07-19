@@ -386,7 +386,7 @@ func prepareProjectionCall(context ProjectionContextBundle) (preparedCallRequest
 			frozen.RequestedChannel,
 		)
 	}
-	if !terminalFinalizesObservedCursor(frozen, frozen.EvaluationRange.End) {
+	if !terminalFinalizesObservedCursor(frozen) {
 		if err := frozen.ValidateObservedAdvance(frozen.EvaluationRange.End); err != nil {
 			return preparedCallRequest{}, err
 		}
@@ -566,8 +566,10 @@ func projectionInstructions(channel ProjectionChannel) string {
 	lines := []string{
 		"Act as Setta's narrator projector. Use only the supplied authoritative context JSON.",
 		"Current objective, constraints, and accepted steering override historical checkpoint text.",
-		"Emit at most one milestone only for a meaningful new user-facing result, blocker, or phase change.",
-		"For working projections, return an empty milestone list when no meaningful user-facing change occurred.",
+		"Milestones are shown in the Now rail and read aloud when narrator voice is enabled; treat each milestone as an audible interruption.",
+		"Emit at most one milestone only when the user learned a new result, a blocker needs user action, or the work entered a materially different phase.",
+		"Use semanticEvents as the only event feed for working projections; do not infer progress from raw trajectory gaps or cursor numbers.",
+		"For working projections, prefer an empty milestone list for normal progress, repeated blocked states, waiting updates, partial output streaming, or when semanticEvents do not show a meaningful change.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}
@@ -576,7 +578,9 @@ func projectionInstructions(channel ProjectionChannel) string {
 		lines = append(
 			lines,
 			"Return the terminal projection with exactly one finalSummary for this turn.",
-			"finalSummary states the outcome plus important evidence or caveats. If the turn failed or was stopped, say so directly.",
+			"For terminal projections, use currentInstructions.latestAssistantMessage, artifacts, turn status, and semanticEvents as the terminal snapshot.",
+			"finalSummary is one short sentence summarizing the outcome. If an artifact contains the detailed result, mention the artifact without repeating its contents.",
+			"If the turn failed or was stopped, say so directly and include only the important caveat.",
 		)
 	} else {
 		lines = append(

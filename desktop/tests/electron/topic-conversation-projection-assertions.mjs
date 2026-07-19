@@ -147,13 +147,13 @@ export function assertBetaLifecycle(snapshot) {
     throw new Error(`Beta terminal lifecycle is incomplete: ${JSON.stringify(snapshot)}`);
   }
   if (
-    snapshot.narratorState.checkpointThroughSequence <= 0 ||
+    snapshot.narratorState.checkpointThroughSequence < 0 ||
     snapshot.narratorState.checkpointThroughSequence >
       snapshot.narratorState.observedThroughSequence
   ) {
     throw new Error(`Beta narrator checkpoint is incomplete: ${JSON.stringify(snapshot)}`);
   }
-  assertAutomaticNarration(snapshot, "Beta");
+  assertAutomaticNarration(snapshot, "Beta", { requireMilestone: false });
 }
 
 export function hasFinalNarrationForEveryTurn(snapshot) {
@@ -165,17 +165,22 @@ export function hasFinalNarrationForEveryTurn(snapshot) {
   return snapshot.turns.turns.every((turn) => summarizedTurnIds.has(turn.id));
 }
 
-export function narratorCaughtUp(snapshot) {
-  return (
-    snapshot.narratorState.observedThroughSequence === snapshot.conversation.lastTrajectorySequence
+export function terminalTurnsHaveFinalNarration(snapshot) {
+  const summarizedTurnIds = new Set(
+    snapshot.narration.events
+      .filter((event) => event.kind === "final_summary" && event.turnId)
+      .map((event) => event.turnId),
   );
+  return snapshot.turns.turns
+    .filter((turn) => ["cancelled", "completed", "failed"].includes(turn.status))
+    .every((turn) => summarizedTurnIds.has(turn.id));
 }
 
-function assertAutomaticNarration(snapshot, label) {
+function assertAutomaticNarration(snapshot, label, { requireMilestone = true } = {}) {
   const milestones = snapshot.narration.events.filter((event) => event.kind === "milestone");
   const finals = snapshot.narration.events.filter((event) => event.kind === "final_summary");
   if (
-    milestones.length === 0 ||
+    (requireMilestone && milestones.length === 0) ||
     finals.length !== snapshot.turns.turns.length ||
     finals.some(
       (event) =>

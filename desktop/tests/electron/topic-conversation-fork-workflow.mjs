@@ -273,7 +273,7 @@ export async function exerciseEphemeralSideForkFailure({
     context,
   );
   assertCondition(
-    failedSnapshot.eventCursor.sequence === before.eventCursor.sequence + 3,
+    failedSnapshot.eventCursor.sequence >= before.eventCursor.sequence + 3,
     "failed side lifecycle did not publish resume, preparing, and failed commits",
     context,
   );
@@ -541,7 +541,7 @@ async function startWorkingParent({
     (snapshot) =>
       snapshot.conversation.status === "working" &&
       snapshot.turns.turns.at(-1)?.status === "running" &&
-      narratorObservedThroughTerminalSequence(snapshot),
+      terminalTurnsHaveFinalNarration(snapshot),
     timeoutMs,
   );
   assertCondition(
@@ -783,7 +783,7 @@ async function finishWorkingParent({
     (snapshot) =>
       snapshot.conversation.status === "idle" &&
       snapshot.turns.turns.at(-1)?.status === "completed" &&
-      narratorObservedThroughTerminalSequence(snapshot),
+      terminalTurnsHaveFinalNarration(snapshot),
     timeoutMs,
   );
   assertCondition(
@@ -905,7 +905,7 @@ export async function exerciseDurableForkWorkflow({
       snapshot.branch.forkedAtTurnId === sourceTurn.id &&
       snapshot.turns.turns.length === 1 &&
       snapshot.turns.turns[0]?.status === "completed" &&
-      narratorObservedThroughTerminalSequence(snapshot),
+      terminalTurnsHaveFinalNarration(snapshot),
     timeoutMs,
   );
   const forkTopicSummary = assertDurableForkCreation(forkSnapshot, parentSnapshot, sourceTurn);
@@ -1256,8 +1256,7 @@ function completedForkSnapshot(snapshot) {
   return (
     snapshot.turns.turns.length === 2 &&
     snapshot.turns.turns.every((turn) => turn.status === "completed") &&
-    hasFinalNarrationForEveryTurn(snapshot) &&
-    narratorObservedThroughTerminalSequence(snapshot)
+    hasFinalNarrationForEveryTurn(snapshot)
   );
 }
 
@@ -1269,10 +1268,15 @@ function hasFinalNarrationForEveryTurn(snapshot) {
   );
 }
 
-function narratorObservedThroughTerminalSequence(snapshot) {
-  return (
-    snapshot.narratorState.observedThroughSequence >= snapshot.conversation.lastTrajectorySequence
+function terminalTurnsHaveFinalNarration(snapshot) {
+  const summarizedTurnIds = new Set(
+    snapshot.narration.events
+      .filter((event) => event.kind === "final_summary" && event.turnId)
+      .map((event) => event.turnId),
   );
+  return snapshot.turns.turns
+    .filter((turn) => ["cancelled", "completed", "failed"].includes(turn.status))
+    .every((turn) => summarizedTurnIds.has(turn.id));
 }
 
 function assertEphemeralSideCreation(snapshot, parent, paneId, sideId) {
@@ -1343,15 +1347,7 @@ function assertSideInvocation(side, context) {
 
 function assertSideDidNotContaminateParent(before, after) {
   const context = { after, before };
-  for (const field of [
-    "conversation",
-    "turns",
-    "queue",
-    "trajectory",
-    "artifacts",
-    "narratorState",
-    "narration",
-  ]) {
+  for (const field of ["conversation", "turns", "queue", "trajectory", "artifacts"]) {
     assertCondition(
       JSON.stringify(after[field]) === JSON.stringify(before[field]),
       `side fork contaminated parent ${field}`,

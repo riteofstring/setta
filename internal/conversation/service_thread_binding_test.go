@@ -164,6 +164,84 @@ func TestConcurrentFirstParentSubmissionsCreateOneProviderThread(t *testing.T) {
 	}
 }
 
+func TestFirstParentTurnReplacesOrphanBlankProviderBinding(t *testing.T) {
+	store, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	created, err := service.CreateTopic(ctx, workspaceID, "Orphan blank binding")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	seedOrphanThreadBinding(t, store, created.Conversation.ID, created.Conversation.CreatedAt)
+
+	if _, err := service.sendTestTurn(ctx, workspaceID, created.Conversation.ID, "repair blank orphan"); err != nil {
+		t.Fatalf("SendTurn: %v", err)
+	}
+	runtime.waitForStart(t, "repair blank orphan")
+	completed := assertServiceSnapshot(t, service, workspaceID, created.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.ThreadBinding != nil && latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	if completed.ThreadBinding.ThreadID == "provider-thread-orphan" {
+		t.Fatalf("orphan provider binding was retained: %+v", completed.ThreadBinding)
+	}
+	if completed.ThreadBinding.LastTurnID == nil || *completed.ThreadBinding.LastTurnID != latestSnapshotTurn(completed).ID {
+		t.Fatalf("replacement binding last turn id = %v, latest turn = %+v", completed.ThreadBinding.LastTurnID, latestSnapshotTurn(completed))
+	}
+	if got := runtime.turnRequests(); len(got) != 1 || got[0].ProviderThreadID != completed.ThreadBinding.ThreadID {
+		t.Fatalf("turn requests = %+v, replacement binding = %+v", got, completed.ThreadBinding)
+	}
+	assertOperationOrder(t, runtime.operations(),
+		"thread/start:"+completed.ThreadBinding.ThreadID,
+		"thread/materialize:"+completed.ThreadBinding.ThreadID,
+		"turn/start:"+completed.ThreadBinding.ThreadID+":repair blank orphan",
+	)
+	if operations := runtime.operations(); containsOperation(operations, "thread/resume:provider-thread-orphan") {
+		t.Fatalf("orphan binding was resumed: %v", operations)
+	}
+}
+
+func TestFirstParentTurnRetriesOnceWhenProviderThreadMissingBeforeStart(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	created, err := service.CreateTopic(ctx, workspaceID, "Missing before first start")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	runtime.mu.Lock()
+	runtime.runProviderMissing = 1
+	runtime.mu.Unlock()
+
+	if _, err := service.sendTestTurn(ctx, workspaceID, created.Conversation.ID, "retry missing first turn"); err != nil {
+		t.Fatalf("SendTurn: %v", err)
+	}
+	runtime.waitForStart(t, "retry missing first turn")
+	completed := assertServiceSnapshot(t, service, workspaceID, created.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.ThreadBinding != nil && latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	requests := runtime.turnRequests()
+	if len(requests) != 2 {
+		t.Fatalf("turn requests = %+v, want original plus retry", requests)
+	}
+	firstThreadID := requests[0].ProviderThreadID
+	retryThreadID := requests[1].ProviderThreadID
+	if firstThreadID == retryThreadID {
+		t.Fatalf("retry reused missing provider thread %s", retryThreadID)
+	}
+	if completed.ThreadBinding.ThreadID != retryThreadID {
+		t.Fatalf("binding thread = %s, retry thread = %s", completed.ThreadBinding.ThreadID, retryThreadID)
+	}
+	if turn := latestSnapshotTurn(completed); turn.Error != nil || turn.ProviderTurnID == nil {
+		t.Fatalf("retried turn = %+v", turn)
+	}
+	assertOperationOrder(t, runtime.operations(),
+		"thread/start:"+firstThreadID,
+		"thread/materialize:"+firstThreadID,
+		"turn/start:"+firstThreadID+":retry missing first turn",
+		"thread/start:"+retryThreadID,
+		"thread/materialize:"+retryThreadID,
+		"turn/start:"+retryThreadID+":retry missing first turn",
+	)
+}
+
 func TestMissingHistoricalProviderThreadFailsWithoutReplacementOrReplay(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
@@ -219,6 +297,43 @@ func TestMissingHistoricalProviderThreadFailsWithoutReplacementOrReplay(t *testi
 		t.Fatalf("missing provider replayed input to provider: %+v", got)
 	}
 	assertOperationOrder(t, restartedRuntime.operations(), "thread/resume:"+threadID)
+}
+
+func seedOrphanThreadBinding(t *testing.T, store *Store, conversationID string, createdAt string) {
+	t.Helper()
+	_, err := store.Transact(context.Background(), "seed orphan provider binding", func(transaction *WriteTransaction) error {
+		binding := AgentThreadBinding{
+			ConversationID: conversationID,
+			Provider:       ProviderCodex,
+			ThreadID:       "provider-thread-orphan",
+			Status:         ThreadBindingStatusLinked,
+			CreatedAt:      createdAt,
+			ProviderMetadata: map[string]string{
+				"model": "gpt-5.6-sol",
+			},
+		}
+		if err := transaction.UpsertAgentThreadBinding(binding); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
+			"seed-orphan-provider-binding",
+			"conversation:"+conversationID,
+			binding,
+		))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed orphan provider binding: %v", err)
+	}
+}
+
+func containsOperation(operations []string, want string) bool {
+	for _, operation := range operations {
+		if operation == want {
+			return true
+		}
+	}
+	return false
 }
 
 func assertOperationOrder(t *testing.T, operations []string, want ...string) {

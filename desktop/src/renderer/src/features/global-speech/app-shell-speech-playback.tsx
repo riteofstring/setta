@@ -78,6 +78,9 @@ export function handlePlaybackConversationEvent(
   controller: AppShellSpeechPlaybackController,
   event: ConversationEvent,
 ): void {
+  if (conversationEventPreemptsAutomaticSpeech(event)) {
+    controller.preemptForUserInput();
+  }
   if (event.payload.type !== "conversation.narration.created") {
     return;
   }
@@ -97,6 +100,19 @@ export function handlePlaybackConversationEvent(
   );
   if (intent) {
     controller.enqueueAutomatic(intent);
+  }
+}
+
+function conversationEventPreemptsAutomaticSpeech(event: ConversationEvent): boolean {
+  if (event.payload.type !== "conversation.trajectory.appended") {
+    return false;
+  }
+  switch (event.payload.event.kind) {
+    case "user_input_accepted":
+    case "turn_steered":
+      return true;
+    default:
+      return false;
   }
 }
 
