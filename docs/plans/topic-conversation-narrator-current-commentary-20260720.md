@@ -264,6 +264,14 @@ This test should fail on the current architecture before the fix.
 
 ### Phase 2: Introduce semantic narrator events
 
+Status: Complete.
+
+Repository progress:
+
+- Added typed narrator semantic event contracts and live-commit derivation at the topic conversation boundary.
+- The semantic feed ignores raw text deltas, emits completed assistant-message progress, surfaces approvals and artifacts, and emits terminal task events with committed turn/artifact state.
+- Existing narration observer handoff now carries semantic events while keeping generation migration scoped to later phases.
+
 Add typed semantic narrator events at the conversation boundary.
 
 Convert raw trajectory into semantic events only for current live commits:

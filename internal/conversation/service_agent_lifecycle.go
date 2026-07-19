@@ -377,8 +377,9 @@ func (service *Service) commitTurnStart(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.snapshot.Conversation,
-			mutation.turn.ID,
+			mutation.turn,
 			mutation.events,
+			nil,
 			false,
 		)
 	}
@@ -606,8 +607,9 @@ func (service *Service) commitTurnTerminal(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn.ID,
+			mutation.turn,
 			[]TrajectoryEvent{mutation.trajectory},
+			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)
 	}
