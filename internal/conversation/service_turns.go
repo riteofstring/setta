@@ -44,7 +44,7 @@ func (service *Service) sendTurn(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if err := service.launchTurnLocked(ctx, workspaceSummary.RootPath, workspaceID, turn, 0); err != nil {
+	if err := service.launchTurnLocked(workspaceSummary.RootPath, workspaceID, turn, 0); err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
 			conversationID: conversationID,
 			turnID:         turn.ID,
@@ -354,9 +354,8 @@ func (service *Service) commitAcceptedTurn(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			mutation.trajectory,
-			nil,
 			false,
 		)
 	}
@@ -502,7 +501,6 @@ func (service *Service) SubmitApproval(
 }
 
 func (service *Service) launchTurnLocked(
-	ctx context.Context,
 	workspaceRoot string,
 	workspaceID string,
 	turn ConversationTurn,
@@ -516,18 +514,9 @@ func (service *Service) launchTurnLocked(
 	if err != nil {
 		return err
 	}
-	binding, err := service.ensureAgentThreadBindingLocked(
-		ctx,
-		workspaceID,
-		workspaceRoot,
-		snapshot,
-		turn,
-		invocation,
-	)
-	if err != nil {
-		return err
+	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+		return &CommandConflictError{ConversationID: turn.ConversationID, Reason: "agent thread is not linked"}
 	}
-	snapshot.ThreadBinding = &binding
 	active := &activeConversationTurn{
 		conversationID:   turn.ConversationID,
 		providerThreadID: snapshot.ThreadBinding.ThreadID,

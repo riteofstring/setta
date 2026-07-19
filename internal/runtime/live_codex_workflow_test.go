@@ -38,12 +38,11 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		WorkspaceID: opened.Workspace.ID,
 		Title:       "Live topic conversation",
 	}, http.StatusOK)
-	if created.ThreadBinding != nil {
-		t.Fatalf("created live topic eagerly linked provider thread: %+v", created.ThreadBinding)
+	if created.ThreadBinding == nil || created.ThreadBinding.ThreadID == "" {
+		t.Fatalf("created live topic has no provider thread binding: %+v", created.ThreadBinding)
 	}
 
 	var latestSnapshot conversation.ConversationSnapshot
-	providerThreadID := ""
 	for index, task := range []struct {
 		expected string
 		text     string
@@ -105,13 +104,8 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		if !runtimeTopicHasFinalNarration(snapshot, latestTurn.ID) {
 			t.Fatalf("live topic turn %s has no automatic narrator final summary", latestTurn.ID)
 		}
-		if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID == "" {
-			t.Fatalf("live topic turn %d has no provider thread binding: %+v", index+1, snapshot.ThreadBinding)
-		}
-		if providerThreadID == "" {
-			providerThreadID = snapshot.ThreadBinding.ThreadID
-		} else if snapshot.ThreadBinding.ThreadID != providerThreadID {
-			t.Fatalf("live topic provider thread changed across turns: before=%s after=%+v", providerThreadID, snapshot.ThreadBinding)
+		if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID != created.ThreadBinding.ThreadID {
+			t.Fatalf("live topic provider thread changed across turns: before=%+v after=%+v", created.ThreadBinding, snapshot.ThreadBinding)
 		}
 		latestSnapshot = snapshot
 	}

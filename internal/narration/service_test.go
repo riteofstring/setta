@@ -223,50 +223,6 @@ func newStatusServiceFixture(t *testing.T, providerErr error) statusServiceFixtu
 	}
 }
 
-func newBlankStatusServiceFixture(t *testing.T) statusServiceFixture {
-	t.Helper()
-	store, err := conversation.NewStore(t.TempDir())
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
-	conversationID := "conversation-blank-route"
-	seedBlankStatusServiceConversation(t, store, conversationID)
-	workspaceSummary := workspace.WorkspaceSummary{
-		ID:       "workspace-status-service",
-		RootPath: filepath.Clean(t.TempDir()),
-	}
-	provider := &statusServiceAgentRuntime{}
-	service, err := NewService(
-		store,
-		statusServiceWorkspaceResolver{summary: workspaceSummary},
-		provider,
-		WithServiceIDGenerator(func(prefix string) (string, error) {
-			return prefix + "-request", nil
-		}),
-	)
-	if err != nil {
-		_ = store.Close()
-		t.Fatalf("NewService: %v", err)
-	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		if err := service.Shutdown(ctx); err != nil {
-			t.Errorf("Shutdown: %v", err)
-		}
-		if err := store.Close(); err != nil {
-			t.Errorf("Close: %v", err)
-		}
-	})
-	return statusServiceFixture{
-		conversationID: conversationID,
-		provider:       provider,
-		service:        service,
-		store:          store,
-		workspace:      workspaceSummary,
-	}
-}
-
 func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conversationID string) {
 	t.Helper()
 	record := conversation.TopicConversation{
@@ -326,60 +282,6 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 	})
 	if err != nil {
 		t.Fatalf("seed status service conversation: %v", err)
-	}
-}
-
-func seedBlankStatusServiceConversation(
-	t *testing.T,
-	store *conversation.Store,
-	conversationID string,
-) {
-	t.Helper()
-	record := conversation.TopicConversation{
-		ID:              conversationID,
-		WorkspaceID:     "workspace-status-service",
-		Title:           "New conversation",
-		TopicDescriptor: "New conversation",
-		Status:          conversation.ConversationStatusIdle,
-		CreatedAt:       serviceTestTimestamp,
-		UpdatedAt:       serviceTestTimestamp,
-	}
-	narratorState := conversation.NarratorState{
-		ConversationID:  conversationID,
-		TopicDescriptor: record.TopicDescriptor,
-		Status:          conversation.NarratorStatusReady,
-		UpdatedAt:       serviceTestTimestamp,
-	}
-	presentation := conversation.ConversationPresentationProfile{
-		ConversationID:          conversationID,
-		PaletteSelection:        conversation.PresentationSelectionAutoDistinct,
-		ResolvedPaletteID:       conversationpalette.ConversationPaletteGreen,
-		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
-		ResolvedNarratorVoiceID: narrationTestVoiceIDPointer(speech.SpeechVoiceAlloy),
-		NarratorSpeechEnabled:   true,
-		UpdatedAt:               serviceTestTimestamp,
-	}
-	_, err := store.Transact(context.Background(), "seed blank routed conversation", func(tx *conversation.WriteTransaction) error {
-		if err := tx.InsertConversation(record); err != nil {
-			return err
-		}
-		if err := tx.InsertNarratorState(narratorState); err != nil {
-			return err
-		}
-		if err := tx.UpsertConversationPresentationProfile(presentation); err != nil {
-			return err
-		}
-		_, err := tx.AppendCommittedEvent(conversation.CommittedEventDraft{
-			ID:          "conversation-blank-seed-event",
-			StreamID:    "conversation:" + conversationID,
-			Kind:        string(conversation.ConversationEventTypeConversationUpdated),
-			Payload:     map[string]string{"conversationId": conversationID},
-			CommittedAt: serviceTestTimestamp,
-		})
-		return err
-	})
-	if err != nil {
-		t.Fatalf("seed blank conversation: %v", err)
 	}
 }
 
@@ -478,12 +380,12 @@ func (resolver statusServiceWorkspaceResolver) ResolveActiveWorkspace(
 }
 
 type statusServiceAgentRuntime struct {
-	mu                           sync.Mutex
-	lastRequest                  agent.FreshStructuredCallRequest
-	providerErr                  error
-	routeKinds                   []conversation.ConversationRouteDecisionKind
-	routeRequests                []agent.FreshStructuredCallRequest
-	invalidRouteOutputsRemaining int
+	mu                 sync.Mutex
+	lastRequest        agent.FreshStructuredCallRequest
+	providerErr        error
+	routeKinds         []conversation.ConversationRouteDecisionKind
+	routeRequests      []agent.FreshStructuredCallRequest
+	invalidRouteOutput bool
 }
 
 func (*statusServiceAgentRuntime) ResolveInvocation(
@@ -542,8 +444,7 @@ func (runtime *statusServiceAgentRuntime) runConversationRouteCall(
 	request agent.FreshStructuredCallRequest,
 ) (agent.FreshStructuredCallResult, error) {
 	runtime.routeRequests = append(runtime.routeRequests, request)
-	if runtime.invalidRouteOutputsRemaining > 0 {
-		runtime.invalidRouteOutputsRemaining--
+	if runtime.invalidRouteOutput {
 		return agent.FreshStructuredCallResult{
 			ProviderThreadID: "provider-router-thread",
 			ProviderTurnID:   "provider-router-turn",

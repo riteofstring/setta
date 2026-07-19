@@ -15,7 +15,7 @@ import {
   type SidebarSectionId,
   type SidebarSectionState,
 } from "./sidebar-accordion";
-import { ConversationSectionHeaderActions } from "./sidebar-header-actions";
+import { ProjectFolderButton } from "./sidebar-header-actions";
 import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
 import { SettaLogoMark } from "./setta-logo-mark";
 import {
@@ -24,6 +24,7 @@ import {
   type SidebarNavigationItem,
 } from "./workspace-sidebar-model";
 import { SidebarNavigationRow } from "./workspace-sidebar-navigation-rows";
+import type { ConversationPanePresentationRequest } from "../workspace-layout/conversation-pane-coordinator";
 
 const sidebarNavigationMaxHeight = 480;
 const sidebarNavigationRowHeight = 36;
@@ -38,15 +39,15 @@ interface WorkspaceSidebarProps {
   clearWorkspaceError?: () => void;
   closeWorkspace: (id: string) => Promise<void>;
   conversationPresentationError?: string | null;
-  createConversation: (workspaceId: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
   openMasterOverlay?: () => void;
-  openSettingsPage: () => void;
+  openSettingsPane: () => void;
   openWorkspacePath: (rootPath: string) => Promise<void>;
   presentConversation: (
     workspaceId: string,
     conversationId: string,
     title: string,
+    viewAction: ConversationPanePresentationRequest["viewAction"],
   ) => Promise<void>;
   recentWorkspaces: readonly WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
@@ -94,10 +95,9 @@ function WorkspaceSidebarContent({
   clearWorkspaceError,
   closeWorkspace,
   conversationPresentationError,
-  createConversation,
   openLocalFolder,
   openMasterOverlay,
-  openSettingsPage,
+  openSettingsPane,
   openWorkspacePath,
   presentConversation,
   recentWorkspaces,
@@ -158,9 +158,6 @@ function WorkspaceSidebarContent({
       [sectionId]: { ...current[sectionId], height, resized: true },
     }));
   }
-  async function createSelectedConversation() {
-    await createConversation(selectedWorkspaceId);
-  }
 
   return (
     <aside
@@ -192,15 +189,7 @@ function WorkspaceSidebarContent({
         style={noScrollAnchoringStyle}
       >
         <SidebarAccordionSection
-          action={
-            <ConversationSectionHeaderActions
-              busy={busy}
-              createConversation={createSelectedConversation}
-              disabled={selectedWorkspaceId.length === 0}
-              openLocalFolder={openLocalFolder}
-            />
-          }
-          actionVisibility="always"
+          action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
           height={sections.projects.height}
           onHeightChange={(height) => setSectionHeight("projects", height)}
           onOpenChange={(open) => setSectionOpen("projects", open)}
@@ -233,7 +222,7 @@ function WorkspaceSidebarContent({
           )}
         </SidebarAccordionSection>
       </div>
-      <SidebarFooterSettings onOpenSettings={openSettingsPage} visible={showFooterSettings} />
+      <SidebarFooterSettings onOpenSettings={openSettingsPane} visible={showFooterSettings} />
     </aside>
   );
 }
@@ -402,7 +391,12 @@ async function executeSidebarNavigationCommand(
       if (command.workspaceId !== actions.selectedWorkspaceId) {
         await actions.selectWorkspace(command.workspaceId);
       }
-      await actions.presentConversation(command.workspaceId, command.conversationId, command.title);
+      await actions.presentConversation(
+        command.workspaceId,
+        command.conversationId,
+        command.title,
+        command.viewAction,
+      );
       return;
     case "removeRecentWorkspace":
       await actions.removeRecent(command.workspaceId);

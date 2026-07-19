@@ -23,6 +23,7 @@ export type SidebarNavigationCommand =
       conversationId: string;
       title: string;
       type: "presentConversation";
+      viewAction: "focus-or-open" | "open-new-view";
       workspaceId: string;
     }
   | { type: "removeRecentWorkspace"; workspaceId: string };
@@ -44,6 +45,7 @@ export type SidebarNavigationItem =
   | {
       commands: {
         archive: SidebarNavigationCommand;
+        openNewView: SidebarNavigationCommand;
         primary: SidebarNavigationCommand;
       };
       focused: boolean;
@@ -52,7 +54,7 @@ export type SidebarNavigationItem =
       kind: "conversation";
       label: string;
       lineageParentTitle: string | null;
-      openPaneId: string | null;
+      openPaneCount: number;
       readOnly: boolean;
     }
   | {
@@ -215,6 +217,14 @@ function conversationItem(
         conversationId,
         title: item.conversation.title,
         type: "presentConversation",
+        viewAction: "focus-or-open",
+        workspaceId,
+      },
+      openNewView: {
+        conversationId,
+        title: item.conversation.title,
+        type: "presentConversation",
+        viewAction: "open-new-view",
         workspaceId,
       },
     },
@@ -226,7 +236,7 @@ function conversationItem(
     lineageParentTitle: item.branch
       ? (titlesByConversationId.get(item.branch.parentConversationId) ?? null)
       : null,
-    openPaneId: panes?.paneIdByConversationId.get(conversationId) ?? null,
+    openPaneCount: panes?.paneIdsByConversationId.get(conversationId)?.length ?? 0,
     readOnly: !workspaceAvailable,
   };
 }

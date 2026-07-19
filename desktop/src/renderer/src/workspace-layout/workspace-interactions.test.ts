@@ -287,14 +287,14 @@ describe("workspace pane click focus", () => {
 
   test("focuses another pane body without scrolling the layout", () => {
     const context = workspaceClickContext({
-      paneId: "browser-pane",
-      surfaceKind: "browser",
+      paneId: "settings-pane",
+      surfaceKind: "settings-dom",
     });
     const event = mouseEvent({ clientX: 240, clientY: 160, target: context.paneTarget });
 
     handleWorkspaceClick({ ...context, event });
 
-    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("browser-pane");
+    expect(context.runtime.store.focusPaneWithoutReveal).toHaveBeenCalledWith("settings-pane");
     expect(context.runtime.store.focusPane).not.toHaveBeenCalled();
     expect(context.runtime.store.ensureFocusedPaneVisible).not.toHaveBeenCalled();
   });

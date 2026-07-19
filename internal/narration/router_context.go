@@ -606,7 +606,6 @@ func conversationRouteContextAudit(
 	source conversation.ConversationRouterContextSource,
 ) conversation.ConversationRouteContextAudit {
 	audit := conversation.ConversationRouteContextAudit{
-		DecisionAuthority:            conversation.ConversationRouteDecisionAuthorityNarratorModel,
 		InputSequence:                source.Work.Input.Sequence,
 		LatestTrajectorySequence:     source.Conversation.LastTrajectorySequence,
 		AvailableTrajectoryRange:     cloneRouteRange(bundle.AvailableTrajectoryRange),

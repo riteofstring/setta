@@ -28,6 +28,7 @@ import type {
   KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
+  RuntimeAccessCredentialView,
   RuntimeRegistrySnapshot,
   RuntimeVersions,
   WorkspaceBrowserViewStats,
@@ -50,6 +51,7 @@ export const ipcChannels = {
   backendHealth: "backend:health",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
   runtimeCurrent: "runtimes:current",
+  runtimeCurrentCredential: "runtimes:current-runtime-credential",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
@@ -87,7 +89,6 @@ export const ipcEvents = {
   codexAccountChange: "codex-account:change",
   conversationEvent: "conversation:event",
   runtimeConnectionState: "runtimes:connection-state",
-  speechCredentialSettingsChanged: "speech:credential-settings-changed",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
 } as const;
@@ -153,6 +154,10 @@ interface IpcContract
   runtimeCurrent: {
     args: [];
     result: RuntimeRegistrySnapshot;
+  };
+  runtimeCurrentCredential: {
+    args: [];
+    result: RuntimeAccessCredentialView;
   };
   runtimeList: {
     args: [];
