@@ -230,6 +230,21 @@ The initial release bar should be product-driven, not benchmark-driven:
 
 ## Implementation Phases
 
+### Phase 0: Supply-Chain Baseline
+
+- Teach `./scripts/check_supply_chain.sh` to audit the existing local macOS
+  voice external artifact declarations.
+- Cover the whisper.cpp XCFramework declaration in
+  `scripts/build_local_macos_voice_helper.sh`.
+- Cover the default Whisper model declaration in
+  `desktop/src/main/local-macos-voice-model-download.ts`.
+- Require pinned artifact identity, source URL, expected SHA-256, expected byte
+  size when applicable, and owner file metadata.
+- Add focused tests for the artifact-audit parser/checker.
+
+Exit criteria: `./scripts/check_supply_chain.sh` fails loudly if either local
+voice external artifact loses its provenance or hash declaration.
+
 ### Phase 1: Engine Spike
 
 - Train or generate the first “Hey Setta” openWakeWord model.
