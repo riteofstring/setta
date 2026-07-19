@@ -172,9 +172,7 @@ describe("global speech presentation", () => {
       state: "unavailable",
     });
     expect(shellSpeechCaptureAction(capture)).toBe("open_voice_credential_settings");
-    expect(shellSpeechCaptureControlLabel(capture)).toBe(
-      "Set up OpenAI voice in Settings -> Voices",
-    );
+    expect(shellSpeechCaptureControlLabel(capture)).toBe("Open voice settings");
     expect(
       paneSpeechPresentation(capture, idlePlayback(), {
         conversationId: "conversation-alpha",
@@ -183,7 +181,7 @@ describe("global speech presentation", () => {
     ).toMatchObject({
       captureState: "unavailable",
       voiceControlDisabled: false,
-      voiceControlLabel: "Set up OpenAI voice in Settings -> Voices",
+      voiceControlLabel: "Open voice settings",
       voiceControlSetupAction: "open_voice_credential_settings",
     });
   });

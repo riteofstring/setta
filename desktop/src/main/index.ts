@@ -41,6 +41,7 @@ import {
   SpeechCredentialVault,
 } from "./speech-credential-vault";
 import { registerSpeechIpcHandlers } from "./speech-ipc";
+import { SpeechProviderSelectionStore } from "./speech-provider-selection-store";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
@@ -56,6 +57,7 @@ let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
 let speechCredentialCoordinator: SpeechCredentialCoordinator | null = null;
+let speechProviderSelectionStore: SpeechProviderSelectionStore | null = null;
 const backendRequests = createBackendRequestLifecycle();
 const localBackendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
@@ -217,6 +219,14 @@ function broadcastSpeechCredentialSettings(settings: unknown) {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) {
       window.webContents.send(ipcEvents.speechCredentialSettingsChanged, settings);
+    }
+  }
+}
+
+function broadcastSpeechProviderSelection(settings: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechProviderSelectionChanged, settings);
     }
   }
 }
@@ -561,9 +571,11 @@ function registerIpc() {
   registerSpeechIpcHandlers({
     ipcMain,
     ipcObserver,
+    onProviderSelectionChanged: broadcastSpeechProviderSelection,
     requireLocalMacOSVoiceHelper,
     requireBackendClient,
     requireSpeechCredentialCoordinator,
+    requireSpeechProviderSelectionStore,
   });
   registerMasterIpcHandlers({
     ipcMain,
@@ -689,6 +701,13 @@ function requireSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
   return speechCredentialCoordinator;
 }
 
+function requireSpeechProviderSelectionStore(): SpeechProviderSelectionStore {
+  if (!speechProviderSelectionStore) {
+    throw new Error("speech provider selection store is not ready");
+  }
+  return speechProviderSelectionStore;
+}
+
 function requireLocalMacOSVoiceHelper(): LocalMacOSVoiceHelper {
   if (!localMacOSVoiceHelper) {
     throw new Error("local macOS voice helper is not ready");
@@ -749,6 +768,10 @@ app.whenReady().then(async () => {
     repoRoot: repoRoot(),
   });
   speechCredentialCoordinator = createSpeechCredentialCoordinator();
+  speechProviderSelectionStore = new SpeechProviderSelectionStore(
+    app.getPath("userData"),
+    process.platform,
+  );
   localMacOSVoiceHelper = createLocalMacOSVoiceHelperFromEnvironment(
     process.env,
     process.platform,

@@ -52,7 +52,7 @@ export function speechAvailabilityForCapabilities(
 export function voiceProviderSetupActionLabel(action: VoiceProviderSetupAction): string {
   switch (action) {
     case "open_voice_credential_settings":
-      return "Set up OpenAI voice in Settings -> Voices";
+      return "Open voice settings";
     default:
       return assertNever(action);
   }

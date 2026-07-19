@@ -215,8 +215,7 @@ export function OpenAIVoiceConnectionCardView({
               OpenAI voice connection
             </h2>
             <p className="text-[11px] leading-4 text-muted-foreground">
-              Local desktop credential. Applies to Local only. OpenAI bills API usage separately
-              from ChatGPT.
+              Optional cloud voice provider. OpenAI bills API usage separately from ChatGPT.
             </p>
           </div>
         </div>

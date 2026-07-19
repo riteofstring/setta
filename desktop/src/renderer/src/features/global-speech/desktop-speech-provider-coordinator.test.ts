@@ -13,7 +13,7 @@ import type {
 } from "./voice-provider-boundary";
 
 describe("desktop speech provider coordinator", () => {
-  test("selects local macOS capture when local helper health is ready", async () => {
+  test("selects local macOS capture by default on macOS", async () => {
     const localSession = captureSession();
     const local = inputProvider("local_macos", {
       readCapabilities: vi.fn(async () => capabilities("local_macos")),
@@ -27,13 +27,6 @@ describe("desktop speech provider coordinator", () => {
       localMacOS: local,
       openAI,
       platform: "darwin",
-      readLocalMacOSVoiceHealth: async () => ({
-        helperPath: "/tmp/setta-local-helper",
-        modelPath: "/tmp/ggml-base.en.bin",
-        modelSHA256: "model-sha",
-        provider: "local_macos",
-        status: "ready",
-      }),
     });
 
     const selectedCapabilities = await provider.readCapabilities();
@@ -52,48 +45,49 @@ describe("desktop speech provider coordinator", () => {
     expect(openAI.readCapabilities).not.toHaveBeenCalled();
   });
 
-  test("falls back to OpenAI capture when local macOS health is not ready", async () => {
+  test("keeps local macOS capture selected when local health is not ready", async () => {
     const provider = createDesktopVoiceInputProvider({
       localMacOS: inputProvider("local_macos", {
-        readCapabilities: vi.fn(async () => capabilities("local_macos")),
+        readCapabilities: vi.fn(async () => ({
+          ...capabilities("local_macos"),
+          providerStatus: "not_configured" as const,
+        })),
       }),
       openAI: inputProvider("openai", {
         readCapabilities: vi.fn(async () => capabilities("openai")),
       }),
       platform: "darwin",
-      readLocalMacOSVoiceHealth: async () => ({
-        message: "The configured Whisper model file is missing.",
-        modelPath: "/tmp/missing.bin",
-        provider: "local_macos",
-        status: "missing_model",
-      }),
     });
 
     await expect(provider.readCapabilities()).resolves.toMatchObject({
-      voiceCatalog: { provider: "openai" },
+      providerStatus: "not_configured",
+      voiceCatalog: { provider: "local_macos" },
     });
-    expect(provider.id).toBe("openai");
+    expect(provider.id).toBe("local_macos");
   });
 
-  test("does not probe local helper health off macOS", async () => {
-    const readLocalMacOSVoiceHealth = vi.fn(async () => ({
-      helperPath: "/tmp/setta-local-helper",
-      modelPath: "/tmp/ggml-base.en.bin",
-      modelSHA256: "model-sha",
-      provider: "local_macos" as const,
-      status: "ready" as const,
-    }));
+  test("uses explicit OpenAI selection on macOS", async () => {
+    await expect(
+      selectDesktopVoiceProviderID({
+        platform: "darwin",
+        readProviderSelection: async () => ({
+          defaultProvider: "local_macos",
+          provider: "openai",
+          supportedProviders: ["local_macos", "openai"],
+        }),
+      }),
+    ).resolves.toBe("openai");
+  });
 
+  test("defaults to OpenAI off macOS", async () => {
     await expect(
       selectDesktopVoiceProviderID({
         platform: "linux",
-        readLocalMacOSVoiceHealth,
       }),
     ).resolves.toBe("openai");
-    expect(readLocalMacOSVoiceHealth).not.toHaveBeenCalled();
   });
 
-  test("selects local macOS output only when helper health is ready", async () => {
+  test("selects output from the explicit provider selection", async () => {
     const local = outputProvider("local_macos");
     const openAI = outputProvider("openai");
 
@@ -102,13 +96,6 @@ describe("desktop speech provider coordinator", () => {
         localMacOS: local,
         openAI,
         platform: "darwin",
-        readLocalMacOSVoiceHealth: async () => ({
-          helperPath: "/tmp/setta-local-helper",
-          modelPath: "/tmp/ggml-base.en.bin",
-          modelSHA256: "model-sha",
-          provider: "local_macos",
-          status: "ready",
-        }),
       }),
     ).resolves.toBe(local);
     await expect(
@@ -116,11 +103,10 @@ describe("desktop speech provider coordinator", () => {
         localMacOS: local,
         openAI,
         platform: "darwin",
-        readLocalMacOSVoiceHealth: async () => ({
-          helperPath: null,
-          message: "The local macOS voice helper is not installed.",
-          provider: "local_macos",
-          status: "helper_unavailable",
+        readProviderSelection: async () => ({
+          defaultProvider: "local_macos",
+          provider: "openai",
+          supportedProviders: ["local_macos", "openai"],
         }),
       }),
     ).resolves.toBe(openAI);
