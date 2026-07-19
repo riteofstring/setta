@@ -7,12 +7,16 @@ was closed as unobservable and the owner signed Option A on 2026-07-17. The
 Phase 2 offline build-out, live install loop, and provider conformance
 validation completed on the old base. Their provider-neutral implementation,
 the Phase 1c measurement driver, and the viability harnesses are now ported to
-the rebased `setta-3-sprites` branch. New-base runtime wiring is in progress:
-the local signed-credential authority is integrated at protocol version 63;
-desktop secure credential storage, setup/diagnostics/access-policy wiring, and
-the live Phase 1c measurements remain. Phase 3 comparison budgets remain
-deferred per `docs/plans/morning-decisions-20260717.md` while the end-to-end
-cloud UX viability path is proved.
+the rebased `setta-3-sprites` branch. The new-base Phase 2 implementation is
+complete offline at protocol version 64: signed runtime credentials, setup
+attestation, capability diagnostics, HTTPS origin/host policy, encrypted
+desktop identities, restart/revocation behavior, and production conversation
+workflows are wired and verified. A fresh live Sprite install/conformance run
+is still required to close the new-base Phase 2 exit; it remains explicitly
+owner-authorized because it is billable and destructive. Live Phase 1c
+measurements and Phase 3 comparison budgets remain deferred per
+`docs/plans/morning-decisions-20260717.md` while the end-to-end cloud UX
+viability path is proved.
 
 **Branch:** `setta-3-sprites`, created from `setta-3` at `92702eb7c` (the new
 Setta). Previous home: `setta-3-cloud-platform`, created from the old
@@ -69,10 +73,10 @@ a product rewrite, not an incremental move:
   same Go HTTP server).
 - Terminals are entirely absent: no PTY, WebSocket, or xterm code exists in
   Go or the desktop app. There is no terminal data plane to port onto.
-- The contract protocol snapshot is now version 62 (the old base was 7; the
-  previous branch's foundation slice set 11). Ported contract additions must
-  be re-applied on top of the new numbering and regenerated; "protocol v11"
-  references elsewhere in this document are old-base history.
+- The contract protocol snapshot began at version 62 on the new base and is
+  now version 64 after the credential-authority and runtime-foundation ports
+  (the old base was 7; the previous branch's foundation slice set 11).
+  "Protocol v11" references elsewhere in this document are old-base history.
 - The new base already ships remote-runtime plumbing this plan previously
   scheduled as ports: `setta pair` with single-use pairing tokens and
   `/pairing/complete`, SQLite device sessions with revocation and streaming
@@ -82,11 +86,12 @@ a product rewrite, not an incremental move:
   backends, desktop device-token storage (`known-runtimes.json`, mode 0600),
   a browser/PWA pairing path (token in `localStorage`), and
   infrastructure-provider detection (no Fly/Sprites entry yet).
-- The remote transport today is plain HTTP origins with long-lived bearer
-  device tokens. The credential authority gate (short-lived credentials,
-  epochs, separately revocable grants) still stands; it is now an upgrade of
-  the new base's existing seams instead of a parallel build. The web client's
-  `localStorage` token is a recorded gap for that gate.
+- The original new-base remote transport used plain HTTP origins with
+  long-lived bearer device tokens. The desktop now stores only an encrypted
+  device identity and resolves signed, expiring runtime credentials with
+  credential epochs and separately revocable grants. The web client's
+  `localStorage` token remains a recorded gap for the future browser/control-
+  plane credential authority.
 
 ### Port classification
 
@@ -1062,35 +1067,37 @@ and the latency budgets needed for the access-path decision.
 
 ### Phase 2: port the generic runtime foundation
 
-- [ ] Build the smallest repeatable developer loop that installs one signed
+- [x] Build the smallest repeatable developer loop that installs one signed
   local runtime build on a disposable test Sprite, verifies health, and rolls
   back by reinstalling the prior build. Do not wait for fleet orchestration.
-- [ ] Port runtime identity and feature reporting.
-- [ ] Port service/install verification without Tailscale assumptions and
+- [x] Port runtime identity and feature reporting.
+- [x] Port service/install verification without Tailscale assumptions and
   preserve the trusted-runtime/untrusted-workload identity separation proved
   in Phase 1.
-- [ ] Port provisioning seed/setup attestation with a provider-neutral name.
-- [ ] Port secure desktop credential storage for the selected user/device
+- [x] Port provisioning seed/setup attestation with a provider-neutral name.
+- [x] Port secure desktop credential storage for the selected user/device
   identity, but do not make a long-lived Sprite-local device token the product
   authority.
-- [ ] Make runtime endpoints accept provider-neutral HTTPS origins.
-- [ ] Implement the bounded credential issuer and runtime access-grant model
+- [x] Make runtime endpoints accept provider-neutral HTTPS origins.
+- [x] Implement the bounded credential issuer and runtime access-grant model
   from the credential authority gate, including epoch rotation and
   control-plane suspension semantics.
-- [ ] Preserve constant-time secret validation where opaque bootstrap or
+- [x] Preserve constant-time secret validation where opaque bootstrap or
   pairing secrets remain.
-- [ ] Add structured capability diagnostics for the Setta release, Codex
+- [x] Add structured capability diagnostics for the Setta release, Codex
   binary and authentication, workload-lease integration, policy, disk space,
   and protected runtime state.
-- [ ] Persist any session, run, queue, transcript, terminal replay, and
+- [x] Persist any session, run, queue, transcript, terminal replay, and
   reconnect state that must survive a cold wake under the protected persistent
   runtime path. Keep `/tmp` and process memory non-authoritative.
-- [ ] Add deterministic tests for bootstrapping, pairing, revocation, restart,
+- [x] Add deterministic tests for bootstrapping, pairing, revocation, restart,
   mismatched runtime identity, credential epochs, warm wake, confirmed-cold wake,
   and post-restore re-attestation.
 
 Exit: a freshly provisioned Sprite proves it is the intended runtime and can
-authenticate a Setta device without provider credentials.
+authenticate a Setta device without provider credentials. The implementation
+checklist is complete on the new base; this live exit proof remains pending
+explicit authorization for the billable, destructive Sprite run.
 
 ### Phase 3: choose and harden the client access path
 
@@ -1797,3 +1804,24 @@ Stop and reassess rather than hiding the problem if any of these occur:
   Next new-base slices: finish setup attestation, capability diagnostics, and
   HTTPS origin/host access-policy wiring; then reconcile desktop safeStorage
   credentials with the new runtime registry before Phase 3 UX viability work.
+- 2026-07-19 (new-base Phase 2 offline completion): Finished the runtime
+  foundation re-wire at protocol version 64. Runtime info now reports the
+  Go-owned feature set and structured diagnostics; setup attestation verifies
+  and consumes one-time seeds across restart; endpoint access enforces
+  configured HTTPS origins and Host values; and runtime configuration wires
+  Codex, release, disk, workload-lease, policy, and protected-state checks.
+  Reconciled the desktop credential slice with the rewritten registry:
+  `known-runtimes.json` contains only device-identity references, durable
+  identities and cached access credentials use Electron `safeStorage`, local
+  enrollment yields signed short-lived credentials, credentials refresh per
+  request, and revocation/restart recovery remain production-path behavior.
+  Protocol contracts were regenerated from the Go endpoint registry. The
+  runtime-picker workflow passed encrypted-storage, full Electron restart,
+  remote recovery, revocation, local fallback, and unreachable-runtime cases;
+  the global speech two-launch workflow and all seven deterministic topic-
+  conversation workflows passed; and the live ChatGPT-authenticated Codex
+  agent protocol, side isolation, and topic-conversation suites passed without
+  `OPENAI_API_KEY`. No live Sprite operation was run. The remaining Phase 2
+  gate is the explicitly authorized new-base live install/conformance proof;
+  Phase 3's Candidate A/B experiments and final access-path selection require
+  the deferred comparison budgets and live provider operations.
