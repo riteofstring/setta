@@ -104,18 +104,11 @@ export function subscribeSpeechCredentialCapabilityRefresh(
   setta: SettaAPI,
   controller: Pick<AppShellSpeechCaptureController, "refreshCapabilities">,
 ): () => void {
-  const unsubscribeCredential =
+  return (
     setta.speech.onCredentialSettingsChanged?.(() => {
       void controller.refreshCapabilities();
-    }) ?? (() => {});
-  const unsubscribeProvider =
-    setta.speech.onProviderSelectionChanged?.(() => {
-      void controller.refreshCapabilities();
-    }) ?? (() => {});
-  return () => {
-    unsubscribeCredential();
-    unsubscribeProvider();
-  };
+    }) ?? (() => {})
+  );
 }
 
 interface SpeechCaptureControllerDisposable {
@@ -200,7 +193,6 @@ function browserControllerDependencies(
       openAI: openAIProvider,
       platform: setta.app.platform,
       readLocalMacOSVoiceHealth: setta.speech.readLocalMacOSVoiceHealth,
-      readProviderSelection: setta.speech.readProviderSelection,
     }),
     clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
     createCaptureSessionId: () => globalThis.crypto.randomUUID(),

@@ -13,7 +13,6 @@ import {
   decodeLocalMacOSVoiceStartCaptureRequest,
   decodeSpeechCredentialProviderRequest,
   decodeSpeechCredentialSaveRequest,
-  decodeSpeechProviderSelectionUpdateRequest,
   type LocalMacOSVoiceCancelCaptureResult,
   type LocalMacOSVoiceCaptureFailure,
   type LocalMacOSVoiceFinishCaptureResult,
@@ -21,8 +20,6 @@ import {
   type LocalMacOSVoiceStartCaptureRequest,
   type SpeechCredentialProviderRequest,
   type SpeechCredentialSaveRequest,
-  type SpeechProviderSelectionSettings,
-  type SpeechProviderSelectionUpdateRequest,
   type SpeechCredentialSettings,
   type SpeechSynthesisIpcRequest,
   validateSpeechSynthesisOperationId,
@@ -60,39 +57,23 @@ interface SpeechCredentialIpcCoordinator {
   saveCredential: (request: SpeechCredentialSaveRequest) => Promise<SpeechCredentialSettings>;
 }
 
-interface SpeechProviderSelectionIpcStore {
-  read: () => Promise<SpeechProviderSelectionSettings>;
-  update: (
-    provider: SpeechProviderSelectionUpdateRequest["provider"],
-  ) => Promise<SpeechProviderSelectionSettings>;
-}
-
 interface SpeechIpcRegistration {
   ipcMain: Pick<IpcMain, "handle">;
   ipcObserver?: IpcObserver;
-  onProviderSelectionChanged?: (settings: SpeechProviderSelectionSettings) => void;
   requireLocalMacOSVoiceHelper: () => LocalMacOSVoiceHelper;
   requireBackendClient: () => BackendClient;
   requireSpeechCredentialCoordinator: () => SpeechCredentialIpcCoordinator;
-  requireSpeechProviderSelectionStore?: () => SpeechProviderSelectionIpcStore;
 }
 
 export function registerSpeechIpcHandlers({
   ipcMain,
   ipcObserver,
-  onProviderSelectionChanged,
   requireLocalMacOSVoiceHelper,
   requireBackendClient,
   requireSpeechCredentialCoordinator,
-  requireSpeechProviderSelectionStore,
 }: SpeechIpcRegistration): void {
   const synthesisOperations = new SpeechSynthesisOperations();
   const localCaptureSessions = new LocalMacOSCaptureSessions();
-  const requireProviderSelectionStore =
-    requireSpeechProviderSelectionStore ??
-    (() => {
-      throw new Error("speech provider selection store is not ready");
-    });
   handleIpc(ipcMain, "speechCancelSynthesis", async (_event, operationId) => {
     synthesisOperations.cancel(operationId);
   });
@@ -136,24 +117,6 @@ export function registerSpeechIpcHandlers({
     ipcMain,
     "speechReadCapabilities",
     async () => requireBackendClient().readSpeechCapabilities(),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "speechReadProviderSelection",
-    async () => requireProviderSelectionStore().read(),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "speechUpdateProviderSelection",
-    async (_event, request) => {
-      const settings = await requireProviderSelectionStore().update(
-        decodeSpeechProviderSelectionUpdateRequest(request).provider,
-      );
-      onProviderSelectionChanged?.(settings);
-      return settings;
-    },
     ipcObserver,
   );
   handleIpc(

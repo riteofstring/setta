@@ -693,7 +693,7 @@ describe("Easy Button topic conversation projection", () => {
         speakingSourceEventId: null,
         transcriptPreview: null,
         voiceControlDisabled: false,
-        voiceControlLabel: "Open voice settings",
+        voiceControlLabel: "Set up OpenAI voice in Settings -> Voices",
         voiceControlSetupAction: "open_voice_credential_settings",
       },
       { onOpenVoiceCredentialSettings: openVoiceCredentialSettings },
@@ -701,7 +701,7 @@ describe("Easy Button topic conversation projection", () => {
 
     expect(action.mode).toBe("talk");
     expect(action.disabled).toBe(false);
-    expect(action.label).toBe("Open voice settings");
+    expect(action.label).toBe("Set up OpenAI voice in Settings -> Voices");
     action.onClick?.();
     expect(openVoiceCredentialSettings).toHaveBeenCalledOnce();
     expect(requestVoiceCapture).not.toHaveBeenCalled();

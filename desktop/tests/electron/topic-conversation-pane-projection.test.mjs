@@ -60,10 +60,7 @@ import {
   updateMasterVoice,
 } from "./topic-conversation-narrator-voice-workflow.mjs";
 import { assertRecordedPaneLayouts } from "./topic-conversation-layout-recording.mjs";
-import {
-  saveOpenAIVoiceCredentialThroughSettingsAndClose,
-  selectOpenAIVoiceProvider,
-} from "./speech-credential-byok-workflow.mjs";
+import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDistinctConversationPalettes,
@@ -185,7 +182,6 @@ try {
     speechProvider.apiKey,
     workflowTimeoutMs,
   );
-  await selectOpenAIVoiceProvider(context.client);
   await captureScreenshot(context.client, join(artifactDir, "initial-easy-button-startup.png"));
   const initialConversation = await waitForInitialConversation(backend, workspaceId);
   await assertInitialEasyButtonExperience(context.client, initialConversation.conversation.id);

@@ -49,20 +49,14 @@ describe("app-shell speech capture provider lifetime", () => {
 });
 
 describe("app-shell speech capture provider credential refresh", () => {
-  test("refreshes capture capabilities after speech setup changes", async () => {
-    const credentialListeners: Array<() => void> = [];
-    const providerListeners: Array<() => void> = [];
-    const unsubscribeCredential = vi.fn();
-    const unsubscribeProvider = vi.fn();
+  test("refreshes capture capabilities after speech credential settings change", async () => {
+    const listeners: Array<() => void> = [];
+    const unsubscribe = vi.fn();
     const setta = {
       speech: {
         onCredentialSettingsChanged: vi.fn((next: () => void) => {
-          credentialListeners.push(next);
-          return unsubscribeCredential;
-        }),
-        onProviderSelectionChanged: vi.fn((next: () => void) => {
-          providerListeners.push(next);
-          return unsubscribeProvider;
+          listeners.push(next);
+          return unsubscribe;
         }),
       },
     } as unknown as SettaAPI;
@@ -71,21 +65,17 @@ describe("app-shell speech capture provider credential refresh", () => {
     };
 
     const cleanup = subscribeSpeechCredentialCapabilityRefresh(setta, controller);
-    const credentialListener = credentialListeners[0];
-    const providerListener = providerListeners[0];
-    if (!credentialListener || !providerListener) {
-      throw new Error("speech setup listeners were not subscribed");
+    const listener = listeners[0];
+    if (!listener) {
+      throw new Error("speech credential listener was not subscribed");
     }
-    credentialListener();
-    providerListener();
+    listener();
     await Promise.resolve();
     cleanup();
 
     expect(setta.speech.onCredentialSettingsChanged).toHaveBeenCalledOnce();
-    expect(setta.speech.onProviderSelectionChanged).toHaveBeenCalledOnce();
-    expect(controller.refreshCapabilities).toHaveBeenCalledTimes(2);
-    expect(unsubscribeCredential).toHaveBeenCalledOnce();
-    expect(unsubscribeProvider).toHaveBeenCalledOnce();
+    expect(controller.refreshCapabilities).toHaveBeenCalledOnce();
+    expect(unsubscribe).toHaveBeenCalledOnce();
   });
 });
 

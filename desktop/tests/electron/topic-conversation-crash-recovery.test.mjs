@@ -43,10 +43,7 @@ import {
   openMasterOverlayForSpeech,
   safeTopicConversationSurfaceStates,
 } from "./topic-conversation-speech-state-assertions.mjs";
-import {
-  saveOpenAIVoiceCredentialThroughSettingsAndClose,
-  selectOpenAIVoiceProvider,
-} from "./speech-credential-byok-workflow.mjs";
+import { saveOpenAIVoiceCredentialThroughSettingsAndClose } from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -93,7 +90,6 @@ try {
     speechProvider.apiKey,
     workflowTimeoutMs,
   );
-  await selectOpenAIVoiceProvider(context.client);
 
   const agentTopic = await createTopic(
     context.client,

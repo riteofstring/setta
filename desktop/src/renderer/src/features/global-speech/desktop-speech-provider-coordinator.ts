@@ -1,7 +1,7 @@
 import type { SpeechProvider } from "@generated/backend";
-import type { LocalMacOSVoiceHealth, SpeechProviderSelectionSettings } from "@shared/speech-ipc";
+import type { LocalMacOSVoiceHealth } from "@shared/speech-ipc";
 import type { DesktopPlatform } from "@shared/types";
-import { defaultDesktopSpeechProviderID, openAISpeechProviderID } from "@shared/speech-providers";
+import { localMacOSSpeechProviderID, openAISpeechProviderID } from "@shared/speech-providers";
 
 import type {
   SpeechCaptureSupport,
@@ -14,7 +14,6 @@ import type {
 export interface DesktopVoiceProviderSelectionDependencies {
   platform: DesktopPlatform;
   readLocalMacOSVoiceHealth?: () => Promise<LocalMacOSVoiceHealth>;
-  readProviderSelection?: () => Promise<SpeechProviderSelectionSettings>;
 }
 
 export interface DesktopVoiceInputProviderOptions extends DesktopVoiceProviderSelectionDependencies {
@@ -27,6 +26,7 @@ export interface DesktopVoiceOutputProviderOptions extends DesktopVoiceProviderS
   openAI: VoiceOutputProvider;
 }
 
+const localMacOSProvider = localMacOSSpeechProviderID();
 const openAIProvider = openAISpeechProviderID();
 
 export function createDesktopVoiceInputProvider(
@@ -44,10 +44,13 @@ export async function selectDesktopVoiceOutputProvider(
 export async function selectDesktopVoiceProviderID(
   dependencies: DesktopVoiceProviderSelectionDependencies,
 ): Promise<SpeechProvider> {
-  return (
-    (await dependencies.readProviderSelection?.())?.provider ??
-    defaultDesktopSpeechProviderID(dependencies.platform)
-  );
+  if (dependencies.platform !== "darwin" || !dependencies.readLocalMacOSVoiceHealth) {
+    return openAIProvider;
+  }
+  const health = await dependencies.readLocalMacOSVoiceHealth();
+  return health.provider === localMacOSProvider && health.status === "ready"
+    ? localMacOSProvider
+    : openAIProvider;
 }
 
 class DesktopVoiceInputProvider implements VoiceInputProvider {
