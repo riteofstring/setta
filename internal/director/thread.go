@@ -78,6 +78,15 @@ type DirectorTurnRequest struct {
 	Tools    []SettaTool
 }
 
+// DirectorProviderTurn is the provider-authored result of one turn. Model is
+// returned per turn rather than read from the thread binding: the user can
+// change the Director role while the provider thread remains alive, and graph
+// provenance must name the model that authored this reply.
+type DirectorProviderTurn struct {
+	ReplyText string
+	Model     string
+}
+
 // DirectorThreadPort is the consumer-owned half of the Director's provider
 // boundary. Provider identity, credentials, models, and accounting stay behind
 // it; what crosses is a tool catalog the Director owns and the text of one
@@ -85,8 +94,9 @@ type DirectorTurnRequest struct {
 type DirectorThreadPort interface {
 	StartDirectorThread(context.Context, DirectorThreadStart) (DirectorProviderThread, error)
 	// RunDirectorTurn runs one turn to completion and returns the assistant
-	// text it produced. Tool calls reach their handlers during the turn.
-	RunDirectorTurn(context.Context, DirectorTurnRequest) (string, error)
+	// text and model that produced it. Tool calls reach their handlers during
+	// the turn.
+	RunDirectorTurn(context.Context, DirectorTurnRequest) (DirectorProviderTurn, error)
 }
 
 // DirectorConversationStore is the durable home of the Director conversation.
@@ -270,7 +280,7 @@ func (thread *DirectorThread) Submit(
 	if err := thread.persistUserTurn(ctx, intent); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	reply, err := thread.provider.RunDirectorTurn(ctx, DirectorTurnRequest{
+	providerTurn, err := thread.provider.RunDirectorTurn(ctx, DirectorTurnRequest{
 		ThreadID: record.ThreadID,
 		TurnID:   intent.ID,
 		Text:     intent.Text,
@@ -279,7 +289,30 @@ func (thread *DirectorThread) Submit(
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	return thread.finishTurn(ctx, intent, record, strings.TrimSpace(reply), recorder)
+	// A prose-only answer may be exactly right, or it may be the failure mode
+	// this product replaced: answering an app-control request without acting.
+	// Setta does not guess from keywords. It asks the same Director thread to
+	// review the turn against its tool contract, act now when action was
+	// required, or repeat the conversational answer when it was not.
+	if len(recorder.recorded) == 0 {
+		providerTurn, err = thread.provider.RunDirectorTurn(ctx, DirectorTurnRequest{
+			ThreadID: record.ThreadID,
+			TurnID:   intent.ID,
+			Text:     directorToolUseReview,
+			Tools:    recorded,
+		})
+		if err != nil {
+			return DirectorTurnReceipt{}, err
+		}
+	}
+	return thread.finishTurn(
+		ctx,
+		intent,
+		record,
+		strings.TrimSpace(providerTurn.ReplyText),
+		providerTurn.Model,
+		recorder,
+	)
 }
 
 // finishTurn makes the Director's reply durable and reports the turn. The reply
@@ -292,6 +325,7 @@ func (thread *DirectorThread) finishTurn(
 	intent SubmittedIntent,
 	record conversation.DirectorThreadRecord,
 	reply string,
+	model string,
 	recorder *directorToolRecorder,
 ) (DirectorTurnReceipt, error) {
 	receipt := DirectorTurnReceipt{
@@ -305,6 +339,9 @@ func (thread *DirectorThread) finishTurn(
 	if reply == "" {
 		return receipt, nil
 	}
+	if err := validateIdentifier("director reply model", model); err != nil {
+		return DirectorTurnReceipt{}, err
+	}
 	entry, err := thread.textEntry(
 		conversation.DirectorConversationAssistantText,
 		intent.ID,
@@ -316,7 +353,7 @@ func (thread *DirectorThread) finishTurn(
 	}
 	entry.Text.Model = &conversation.DirectorConversationModel{
 		Provider: record.Provider,
-		Model:    record.Model,
+		Model:    model,
 		ThreadID: record.ThreadID,
 	}
 	if err := thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
@@ -359,12 +396,28 @@ func (thread *DirectorThread) persistToolCall(
 	}
 	entry.Tool = &conversation.DirectorConversationToolActivity{
 		Tool:    tool,
-		Payload: arguments,
+		Payload: durableDirectorToolArguments(tool, arguments),
 	}
 	if err := thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
 		return "", err
 	}
 	return entry.ID, nil
+}
+
+const redactedDirectorApprovalArguments = `{"redacted":true}`
+
+// durableDirectorToolArguments keeps typed approval answers out of the
+// app-scoped log. The recorder runs before the handler so a call remains visible
+// across a crash, which also means it runs before the handler can discover that
+// an approval is secret. Redacting every resolve_approval argument envelope is
+// the only boundary that cannot accidentally persist a credential supplied in
+// a malformed or refused call. The receipt still durably records which approval
+// action Setta accepted or refused.
+func durableDirectorToolArguments(tool string, arguments json.RawMessage) json.RawMessage {
+	if tool == "resolve_approval" {
+		return json.RawMessage(redactedDirectorApprovalArguments)
+	}
+	return append(json.RawMessage{}, arguments...)
 }
 
 // persistToolReceipt commits what the call reported, verbatim. Replaying the

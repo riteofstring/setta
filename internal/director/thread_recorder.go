@@ -20,10 +20,10 @@ import (
 // readable: the durable conversation says the Director called something and
 // never heard back, which is true, instead of losing the call entirely.
 //
-// A failed handler is not an error the turn aborts on. Setta hands the specific
-// reason back to the Director as the call's own result and lets the same turn
-// continue, which is what keeps recovery inside the Director conversation rather
-// than in a second router beside it.
+// A failed handler is not an error the turn aborts on. Setta hands an expected
+// refusal or a sanitized unexpected failure back to the Director as the call's
+// own result and lets the same turn continue, which is what keeps recovery
+// inside the Director conversation rather than in a second router beside it.
 
 type recordedDirectorToolCall struct {
 	tool      string
@@ -80,9 +80,9 @@ func (recorder *directorToolRecorder) record(tool SettaTool) SettaToolHandler {
 	}
 }
 
-// refuse turns a handler failure into the receipt the Director receives. The
-// message is the app's own specific reason, so the Director can call the right
-// tool or ask the user a real question instead of reporting an internal fault.
+// refuse turns a handler failure into the receipt the Director receives.
+// Product-rule rejections name the actionable reason; unexpected implementation
+// failures are sanitized before they reach the durable conversation.
 func (recorder *directorToolRecorder) refuse(
 	ctx context.Context,
 	callID string,
@@ -103,7 +103,11 @@ func directorToolRefusal(cause error) string {
 	if errors.Is(cause, ErrDirectorIntentRejected) {
 		return fmt.Sprintf("Setta refused this call: %s", cause)
 	}
-	return fmt.Sprintf("Setta could not complete this call: %s", cause)
+	// An unexpected store, provider, or execution error is not a tool receipt
+	// the user can act on. Keep its implementation text out of the durable
+	// Director conversation and graph while saying truthfully that the current
+	// app state must be checked before another attempt.
+	return "Setta could not complete this call. Check Setta's current state before trying again."
 }
 
 func (recorder *directorToolRecorder) append(

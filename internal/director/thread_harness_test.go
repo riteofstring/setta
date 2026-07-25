@@ -26,6 +26,12 @@ type scriptedDirectorToolCall struct {
 	rawArguments json.RawMessage
 }
 
+type scriptedDirectorTurn struct {
+	reply string
+	model string
+	calls []scriptedDirectorToolCall
+}
+
 type ranDirectorTurn struct {
 	ThreadID string
 	TurnID   string
@@ -34,10 +40,12 @@ type ranDirectorTurn struct {
 }
 
 type scriptedDirectorProvider struct {
-	reply   string
-	calls   []scriptedDirectorToolCall
-	err     error
-	turnErr error
+	reply    string
+	model    string
+	calls    []scriptedDirectorToolCall
+	scripted []scriptedDirectorTurn
+	err      error
+	turnErr  error
 
 	started []DirectorThreadStart
 	turns   []ranDirectorTurn
@@ -62,9 +70,9 @@ func (provider *scriptedDirectorProvider) StartDirectorThread(
 func (provider *scriptedDirectorProvider) RunDirectorTurn(
 	ctx context.Context,
 	request DirectorTurnRequest,
-) (string, error) {
+) (DirectorProviderTurn, error) {
 	if provider.err != nil {
-		return "", provider.err
+		return DirectorProviderTurn{}, provider.err
 	}
 	provider.turns = append(provider.turns, ranDirectorTurn{
 		ThreadID: request.ThreadID,
@@ -72,17 +80,29 @@ func (provider *scriptedDirectorProvider) RunDirectorTurn(
 		Text:     request.Text,
 		Tools:    request.Tools,
 	})
-	for _, call := range provider.calls {
+	reply := provider.reply
+	model := provider.model
+	calls := provider.calls
+	if index := len(provider.turns) - 1; index < len(provider.scripted) {
+		turn := provider.scripted[index]
+		reply = turn.reply
+		model = turn.model
+		calls = turn.calls
+	}
+	if model == "" {
+		model = "gpt-test"
+	}
+	for _, call := range calls {
 		receipt, err := provider.dispatch(ctx, request.Tools, call)
 		if err != nil {
-			return "", err
+			return DirectorProviderTurn{}, err
 		}
 		provider.receipts = append(provider.receipts, receipt)
 	}
 	if provider.turnErr != nil {
-		return "", provider.turnErr
+		return DirectorProviderTurn{}, provider.turnErr
 	}
-	return provider.reply, nil
+	return DirectorProviderTurn{ReplyText: reply, Model: model}, nil
 }
 
 func (provider *scriptedDirectorProvider) dispatch(
@@ -181,6 +201,12 @@ func (store *memoryDirectorConversationStore) kinds() []conversation.DirectorCon
 		kinds = append(kinds, entry.Kind)
 	}
 	return kinds
+}
+
+func (store *memoryDirectorConversationStore) snapshotEntries() []conversation.DirectorConversationEntry {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	return append([]conversation.DirectorConversationEntry{}, store.entries...)
 }
 
 func newDirectorThreadForTest(

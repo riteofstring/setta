@@ -122,9 +122,11 @@ type DirectorConversationText struct {
 }
 
 // DirectorConversationToolActivity is the payload of a tool call or its
-// receipt. Arguments and receipts are stored as the JSON the boundary carried,
-// so replaying the conversation into a new provider thread reproduces what the
-// Director already knows rather than a re-rendered summary of it.
+// receipt. Receipts are stored as the JSON the boundary carried. Tool arguments
+// are stored the same way except for approval answers, whose entire argument
+// envelope is redacted before it reaches the durable log because it may contain
+// a credential. Replay uses receipts rather than calls, so redaction does not
+// remove anything the rebuilt Director needs to know.
 type DirectorConversationToolActivity struct {
 	Tool    string          `json:"tool"`
 	Payload json.RawMessage `json:"payload"`

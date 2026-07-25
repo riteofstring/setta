@@ -182,25 +182,26 @@ func directorHistoryWithinBudget(
 
 const directorThreadInitialization = "Setta started this Director conversation. This is an inert history marker, not a request. Respond only to later user turns."
 
-// RunDirectorTurn runs one Director turn and returns the assistant text it
-// produced. Tool calls reach their Setta handlers while the turn runs, so by
-// the time this returns the app has already changed.
+// RunDirectorTurn runs one Director turn and returns the assistant text plus
+// the exact resolved model that authored it. Tool calls reach their Setta
+// handlers while the turn runs, so by the time this returns the app has already
+// changed.
 func (caller *directorThreadCaller) RunDirectorTurn(
 	ctx context.Context,
 	request director.DirectorTurnRequest,
-) (string, error) {
+) (director.DirectorProviderTurn, error) {
 	if caller == nil || caller.roles == nil || caller.provider == nil {
-		return "", errors.New("director thread caller is unavailable")
+		return director.DirectorProviderTurn{}, errors.New("director thread caller is unavailable")
 	}
 	if ctx == nil {
-		return "", errors.New("director turn context is required")
+		return director.DirectorProviderTurn{}, errors.New("director turn context is required")
 	}
 	invocation, maxInputBytes, err := caller.invocation(ctx)
 	if err != nil {
-		return "", err
+		return director.DirectorProviderTurn{}, err
 	}
 	if len(request.Text) > maxInputBytes {
-		return "", fmt.Errorf(
+		return director.DirectorProviderTurn{}, fmt.Errorf(
 			"%w: the submitted request needs %d bytes, and the Director role allows %d",
 			director.ErrDirectorIntentRejected,
 			len(request.Text),
@@ -209,11 +210,11 @@ func (caller *directorThreadCaller) RunDirectorTurn(
 	}
 	tools, err := directorDynamicTools(request.Tools)
 	if err != nil {
-		return "", err
+		return director.DirectorProviderTurn{}, err
 	}
 	clientInputID, err := caller.newID("director_turn")
 	if err != nil {
-		return "", err
+		return director.DirectorProviderTurn{}, err
 	}
 	sink := &directorTurnSink{}
 	result, err := caller.provider.RunTurn(ctx, agent.TurnRequest{
@@ -227,12 +228,15 @@ func (caller *directorThreadCaller) RunDirectorTurn(
 		DynamicTools:     tools,
 	}, sink)
 	if err != nil {
-		return "", fmt.Errorf("run director turn %s: %w", request.TurnID, err)
+		return director.DirectorProviderTurn{}, fmt.Errorf("run director turn %s: %w", request.TurnID, err)
 	}
 	if result.Outcome != agent.TurnOutcomeCompleted {
-		return "", fmt.Errorf("director turn %s ended as %s", request.TurnID, result.Outcome)
+		return director.DirectorProviderTurn{}, fmt.Errorf("director turn %s ended as %s", request.TurnID, result.Outcome)
 	}
-	return sink.replyText(), nil
+	return director.DirectorProviderTurn{
+		ReplyText: sink.replyText(),
+		Model:     invocation.Model,
+	}, nil
 }
 
 // invocation resolves the app-global Director role for one provider call. It is

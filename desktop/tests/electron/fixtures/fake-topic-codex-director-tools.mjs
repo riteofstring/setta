@@ -1,5 +1,7 @@
 import { nonEmptyString } from "./fake-topic-codex-app-server-helpers.mjs";
 
+export const directorInventedSecretApprovalAnswer = "invented-secret";
+
 const directorToolNames = [
   "archive_workstream",
   "cancel_run",
@@ -88,7 +90,12 @@ export function directorScenarioForTurn(text, injectedItems = []) {
       : null;
   }
   if (text === "Director create workspace workstream.") {
-    return scenario(["list_workspaces", "create_workspace"], "Created and selected Director root.");
+    return scenario([], "I created and selected the workstream.", 0, {
+      delayMs: 0,
+      reply: "Created and selected Director root.",
+      review: null,
+      steps: ["list_workspaces", "create_workspace"],
+    });
   }
   if (text === "Director create folderless.") {
     return scenario(["create_folderless"], "Created the folderless Director root.");
@@ -159,8 +166,8 @@ export function directorScenarioForTurn(text, injectedItems = []) {
   return null;
 }
 
-function scenario(steps, reply, delayMs = 0) {
-  return { delayMs, reply, steps };
+function scenario(steps, reply, delayMs = 0, review = null) {
+  return { delayMs, reply, review, steps };
 }
 
 export function directorToolCallForStep(scenarioValue, index, receipts) {
@@ -241,7 +248,12 @@ export function directorToolCallForStep(scenarioValue, index, receipts) {
     return {
       arguments: {
         answers: step.secret
-          ? [{ answers: ["invented-secret"], questionId: question?.questionId }]
+          ? [
+              {
+                answers: [directorInventedSecretApprovalAnswer],
+                questionId: question?.questionId,
+              },
+            ]
           : null,
         approvalId: approval.approvalId,
         decision: step.secret ? "answered" : "denied",

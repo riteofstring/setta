@@ -32,6 +32,16 @@ const directorThreadContract = "Rules:\n" +
 	"what you need from them. Do not report Setta's internal wording back as an error.\n" +
 	"- After acting, tell the user plainly what changed, using the receipt you got back."
 
+// directorToolUseReview is a private provider turn, not a second durable user
+// request. It keeps the judgment about whether app control was required inside
+// the established Director conversation.
+const directorToolUseReview = "Setta internal review: the preceding user request produced no Setta tool call. " +
+	"Re-evaluate that request against your developer contract in this same conversation. If it asked to " +
+	"change, select, inspect, or otherwise control app state, call the appropriate `setta` tool now, or ask " +
+	"one useful clarification when an authorized target is genuinely ambiguous. If it was correctly answered " +
+	"as conversation, explanation, or planning, repeat that answer without mentioning this review. Never claim " +
+	"that app state changed unless a Setta tool receipt confirms it."
+
 // DirectorThreadInstructions is the developer contract the Director thread runs
 // under.
 func DirectorThreadInstructions() string {

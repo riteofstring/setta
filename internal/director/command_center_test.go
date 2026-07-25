@@ -23,8 +23,11 @@ func (silentDirectorProvider) StartDirectorThread(
 	return DirectorProviderThread{}, errors.New("this dispatch must not reach the director conversation")
 }
 
-func (silentDirectorProvider) RunDirectorTurn(context.Context, DirectorTurnRequest) (string, error) {
-	return "", errors.New("this dispatch must not reach the director conversation")
+func (silentDirectorProvider) RunDirectorTurn(
+	context.Context,
+	DirectorTurnRequest,
+) (DirectorProviderTurn, error) {
+	return DirectorProviderTurn{}, errors.New("this dispatch must not reach the director conversation")
 }
 
 func newTestCommandCenter(t *testing.T, harness *registryHarness, registry *Registry) *CommandCenter {
@@ -435,13 +438,13 @@ func requireDirectorTurnInput(
 func TestCommandCenterSubmitAnswersWithoutStartingWork(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
-	provider := &scriptedDirectorProvider{reply: "Nothing is running right now."}
+	provider := &scriptedDirectorProvider{reply: "A workstream is a conversation where work runs."}
 	execution := &recordedExecution{}
 	center := newSubmittingCommandCenter(t, harness, registry, provider, execution)
 
-	turn := *dispatch(t, center, submit("what is running?", DecisionIntentModalityText)).Submit
+	turn := *dispatch(t, center, submit("what is a workstream?", DecisionIntentModalityText)).Submit
 
-	if turn.ReplyText != "Nothing is running right now." || len(turn.ToolCalls) != 0 {
+	if turn.ReplyText != "A workstream is a conversation where work runs." || len(turn.ToolCalls) != 0 {
 		t.Fatalf("answer = %+v", turn)
 	}
 	if len(execution.starts)+len(execution.sends)+len(execution.queues) != 0 {

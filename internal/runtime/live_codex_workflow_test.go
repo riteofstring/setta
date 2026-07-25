@@ -50,9 +50,9 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 		httpapi.DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
 			Kind: director.DirectorIntentSubmit,
 			Submit: &director.DirectorSubmitIntent{
-				Text: "First call setta.list_workspaces. Then use the returned workspace id to create and select " +
-					"an idle workstream titled Live Director workstream; set initialInput to null. " +
-					"After the tool succeeds, answer exactly DIRECTOR_TOOL_HISTORY and no other text.",
+				Text: "Create a new conversation titled Live Director workstream in the currently open " +
+					"workspace, and leave it idle. After it is created, answer exactly " +
+					"DIRECTOR_TOOL_HISTORY and no other text.",
 				Modality: director.DecisionIntentModalityText,
 			},
 		}},

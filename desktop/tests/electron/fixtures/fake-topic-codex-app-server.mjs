@@ -11,6 +11,7 @@ import {
   emitSimultaneousAudioHoldProgress,
   listCursorOffset,
   listLimit,
+  nonEmptyString,
   optionalNonNegativeIntegerEnvironment,
   validSideBoundary,
   validSideContextFrame,
@@ -815,11 +816,33 @@ function isCrashNarratorProjection(context) {
 }
 
 function emitDirectorTurnScenario(threadId, turnId, text, history) {
+  const thread = loadedThreads.get(threadId);
+  if (thread?.awaitingDirectorReview === true) {
+    const review =
+      thread?.pendingDirectorReview ??
+      (nonEmptyString(thread?.lastDirectorReply)
+        ? { delayMs: 0, reply: thread.lastDirectorReply, review: null, steps: [] }
+        : null);
+    if (review === null) {
+      completeTurn(threadId, turnId, "failed", "Director review had no preceding reply");
+      return;
+    }
+    thread.awaitingDirectorReview = false;
+    thread.pendingDirectorReview = null;
+    emitDirectorScenario(threadId, turnId, review);
+    return;
+  }
   const scenario = directorScenarioForTurn(text, history);
   if (scenario === null) {
     completeTurn(threadId, turnId, "failed", `unsupported Director turn ${text}`);
     return;
   }
+  thread.awaitingDirectorReview = scenario.steps.length === 0;
+  thread.pendingDirectorReview = scenario.review;
+  emitDirectorScenario(threadId, turnId, scenario);
+}
+
+function emitDirectorScenario(threadId, turnId, scenario) {
   const call = directorToolCallForStep(scenario, 0, []);
   if (call === null) {
     completeDirectorScenario(threadId, turnId, scenario);
@@ -1216,6 +1239,10 @@ function emitDirectorToolCall(threadId, turnId, scenario, index, receipts, call)
 }
 
 function completeDirectorTurn(threadId, turnId, reply) {
+  const thread = loadedThreads.get(threadId);
+  if (thread) {
+    thread.lastDirectorReply = reply;
+  }
   emitTextDelta(threadId, turnId, reply);
   emitAgentMessage(threadId, turnId, reply);
   completeTurn(threadId, turnId, "completed");

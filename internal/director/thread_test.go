@@ -78,6 +78,58 @@ func TestDirectorToolCallCreatesAndSelectsAWorkstream(t *testing.T) {
 	}
 }
 
+// TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameThread proves the
+// product does not accept the failure mode this architecture replaced. Setta
+// asks the persistent Director conversation to review a prose-only answer, and
+// the repair turn performs the app action without a second router or thread.
+func TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameThread(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	execution := &publishingStartExecution{harness: harness}
+	provider := &scriptedDirectorProvider{
+		scripted: []scriptedDirectorTurn{
+			{reply: "I created it.", model: "gpt-first-draft"},
+			{
+				reply: "Created and selected the parser rewrite.",
+				model: "gpt-first-draft",
+				calls: []scriptedDirectorToolCall{{
+					tool: "create_workstream",
+					arguments: map[string]any{
+						"title":        "Parser rewrite",
+						"workspaceId":  registryTestWorkspaceID,
+						"initialInput": nil,
+					},
+				}},
+			},
+		},
+	}
+	store := newDirectorConversationStoreForTest()
+	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+
+	receipt, err := thread.Submit(
+		context.Background(),
+		directorTurnIntent("Create a new conversation in setta."),
+	)
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if len(provider.turns) != 2 || provider.turns[1].Text != directorToolUseReview {
+		t.Fatalf("Director repair turns = %+v", provider.turns)
+	}
+	if len(receipt.ToolCalls) != 1 || !receipt.ToolCalls[0].Succeeded {
+		t.Fatalf("Director repair tool calls = %+v", receipt.ToolCalls)
+	}
+	if len(execution.starts) != 1 {
+		t.Fatalf("Director repair starts = %+v", execution.starts)
+	}
+	for _, entry := range store.snapshotEntries() {
+		if entry.Kind == conversation.DirectorConversationAssistantText &&
+			entry.Text.Text == "I created it." {
+			t.Fatal("the unverified prose claim became durable")
+		}
+	}
+}
+
 // TestDirectorTurnIsDurableInOrder proves the whole turn is kept: what the user
 // said, what the Director called, what Setta reported back, and what the
 // Director said about it.
@@ -173,18 +225,18 @@ func TestDirectorThreadIsReEstablishedFromDurableHistory(t *testing.T) {
 	registry := harness.start()
 	execution := &recordedExecution{}
 	store := newDirectorConversationStoreForTest()
-	first := &scriptedDirectorProvider{reply: "Nothing is running right now."}
+	first := &scriptedDirectorProvider{reply: "A workstream is a conversation where work runs."}
 	thread := newDirectorThreadForTest(t, harness, registry, first, execution, store)
-	if _, err := thread.Submit(context.Background(), directorTurnIntent("what is running?")); err != nil {
+	if _, err := thread.Submit(context.Background(), directorTurnIntent("what is a workstream?")); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
 	if len(first.started) != 1 || len(first.started[0].History) != 0 {
 		t.Fatalf("the first director thread replayed %+v", first.started)
 	}
 
-	restarted := &scriptedDirectorProvider{reply: "Still nothing."}
+	restarted := &scriptedDirectorProvider{reply: "It is also the unit shown in Setta's rails."}
 	rebuilt := newDirectorThreadForTest(t, harness, registry, restarted, execution, store)
-	if _, err := rebuilt.Submit(context.Background(), directorTurnIntent("still nothing?")); err != nil {
+	if _, err := rebuilt.Submit(context.Background(), directorTurnIntent("tell me more")); err != nil {
 		t.Fatalf("Submit after restart: %v", err)
 	}
 
@@ -194,9 +246,9 @@ func TestDirectorThreadIsReEstablishedFromDurableHistory(t *testing.T) {
 	established := restarted.started[0]
 	if len(established.History) != 2 ||
 		established.History[0].Assistant ||
-		established.History[0].Text != "what is running?" ||
+		established.History[0].Text != "what is a workstream?" ||
 		!established.History[1].Assistant ||
-		established.History[1].Text != "Nothing is running right now." {
+		established.History[1].Text != "A workstream is a conversation where work runs." {
 		t.Fatalf("replayed history = %+v", established.History)
 	}
 	if len(established.Tools) == 0 {
@@ -304,6 +356,108 @@ func TestDirectorToolsRejectTrailingJSONValues(t *testing.T) {
 	}
 	if !strings.Contains(receipt.ToolCalls[0].Summary, "exactly one value") {
 		t.Fatalf("refusal does not explain the malformed input: %q", receipt.ToolCalls[0].Summary)
+	}
+}
+
+func TestDirectorApprovalToolArgumentsAreRedactedBeforePersistence(t *testing.T) {
+	const privateAnswer = "director-invented-secret-answer"
+
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	provider := &scriptedDirectorProvider{
+		reply: "That approval is not available.",
+		calls: []scriptedDirectorToolCall{{
+			tool: "resolve_approval",
+			arguments: map[string]any{
+				"approvalId": "approval-secret",
+				"decision":   "answered",
+				"answers": []map[string]any{{
+					"questionId": "credential",
+					"answers":    []string{privateAnswer},
+				}},
+			},
+		}},
+	}
+	store := newDirectorConversationStoreForTest()
+	thread := newDirectorThreadForTest(
+		t,
+		harness,
+		registry,
+		provider,
+		&recordedExecution{},
+		store,
+	)
+
+	receipt, err := thread.Submit(
+		context.Background(),
+		directorTurnIntent("Answer the waiting secret approval."),
+	)
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if len(receipt.ToolCalls) != 1 || receipt.ToolCalls[0].Succeeded {
+		t.Fatalf("secret approval call = %+v", receipt.ToolCalls)
+	}
+	entries := store.snapshotEntries()
+	encoded, err := json.Marshal(entries)
+	if err != nil {
+		t.Fatalf("encode Director entries: %v", err)
+	}
+	if strings.Contains(string(encoded), privateAnswer) {
+		t.Fatalf("private approval answer reached the durable Director conversation: %s", encoded)
+	}
+	for _, entry := range entries {
+		if entry.Kind == conversation.DirectorConversationToolCall &&
+			string(entry.Tool.Payload) != string(redactedDirectorApprovalArguments) {
+			t.Fatalf("durable approval arguments = %s", entry.Tool.Payload)
+		}
+	}
+}
+
+func TestDirectorUnexpectedToolFailureDoesNotBecomePublicImplementationText(t *testing.T) {
+	const privateCause = "sqlite /private/profile/setta.db is locked"
+
+	summary := directorToolRefusal(errors.New(privateCause))
+
+	if strings.Contains(summary, privateCause) ||
+		summary != "Setta could not complete this call. Check Setta's current state before trying again." {
+		t.Fatalf("unexpected tool failure summary = %q", summary)
+	}
+}
+
+func TestDirectorReplyProvenanceUsesTheModelThatAuthoredEachTurn(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	provider := &scriptedDirectorProvider{reply: "A conversational answer.", model: "gpt-director-one"}
+	store := newDirectorConversationStoreForTest()
+	thread := newDirectorThreadForTest(
+		t,
+		harness,
+		registry,
+		provider,
+		&recordedExecution{},
+		store,
+	)
+
+	first := directorTurnIntent("Explain the first thing.")
+	if _, err := thread.Submit(context.Background(), first); err != nil {
+		t.Fatalf("first Submit: %v", err)
+	}
+	provider.model = "gpt-director-two"
+	second := directorTurnIntent("Explain the second thing.")
+	second.ID = "director-intent-2"
+	if _, err := thread.Submit(context.Background(), second); err != nil {
+		t.Fatalf("second Submit: %v", err)
+	}
+
+	var models []string
+	for _, entry := range store.snapshotEntries() {
+		if entry.Kind == conversation.DirectorConversationAssistantText {
+			models = append(models, entry.Text.Model.Model)
+		}
+	}
+	if len(models) != 2 || models[0] != "gpt-director-one" || models[1] != "gpt-director-two" {
+		t.Fatalf("durable Director reply models = %v", models)
 	}
 }
 
