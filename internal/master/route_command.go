@@ -3,9 +3,6 @@ package master
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
-
-	"setta/internal/applayout"
 )
 
 type PresentationIntentKind string
@@ -27,11 +24,10 @@ const (
 // master decision is validated. The model never authors workspace, pane, or
 // presentation metadata beyond the conversation id selected by its decision.
 type ConversationPresentationTarget struct {
-	ConversationID   string                                      `json:"conversationId"`
-	ResourceScope    RouteResourceScope                          `json:"resourceScope"`
-	ResourceBindings []applayout.ConversationPaneResourceBinding `json:"resourceBindings"`
-	Title            string                                      `json:"title"`
-	PreferredPaneID  *string                                     `json:"preferredPaneId"`
+	WorkspaceID     string  `json:"workspaceId"`
+	ConversationID  string  `json:"conversationId"`
+	Title           string  `json:"title"`
+	PreferredPaneID *string `json:"preferredPaneId"`
 }
 
 type MasterSendToAgentRouteCommand struct {
@@ -63,11 +59,9 @@ type MasterFocusConversationRouteCommand struct {
 }
 
 type MasterCreateConversationRouteCommand struct {
-	Target                ConversationPresentationTarget `json:"target"`
-	InitialInputID        string                         `json:"initialInputId"`
-	InitialInput          string                         `json:"initialInput"`
-	InitialInputModality  MasterInputModality            `json:"initialInputModality"`
-	InitialInputSubmitted string                         `json:"initialInputSubmittedAt"`
+	Target       ConversationPresentationTarget `json:"target"`
+	TurnID       string                         `json:"turnId"`
+	InitialInput string                         `json:"initialInput"`
 }
 
 type MasterCreateSideConversationRouteCommand struct {
@@ -86,8 +80,7 @@ type MasterForkConversationRouteCommand struct {
 }
 
 type MasterClarifyRouteCommand struct {
-	Question           string   `json:"question"`
-	CandidateTargetIDs []string `json:"candidateTargetIds"`
+	Question string `json:"question"`
 }
 
 type MasterAnswerGlobalRouteCommand struct {
@@ -163,13 +156,10 @@ type PresentationResolution struct {
 }
 
 func (target ConversationPresentationTarget) Validate() error {
+	if err := validateRouteReference("master presentation workspace id", target.WorkspaceID); err != nil {
+		return err
+	}
 	if err := validateRouteReference("master presentation conversation id", target.ConversationID); err != nil {
-		return err
-	}
-	if err := target.ResourceScope.Validate(); err != nil {
-		return err
-	}
-	if err := validatePresentationResourceBindings(target.ResourceBindings); err != nil {
 		return err
 	}
 	if err := validateRouteText("master presentation conversation title", target.Title, MaxRouteConversationTitle); err != nil {
@@ -179,36 +169,6 @@ func (target ConversationPresentationTarget) Validate() error {
 		return validateRouteReference("master presentation preferred pane id", *target.PreferredPaneID)
 	}
 	return nil
-}
-
-func validatePresentationResourceBindings(bindings []applayout.ConversationPaneResourceBinding) error {
-	if bindings == nil {
-		return errors.New("master presentation resource bindings must be an array")
-	}
-	for index, binding := range bindings {
-		if err := validatePresentationResourceBinding(binding); err != nil {
-			return fmt.Errorf("master presentation resource binding %d: %w", index, err)
-		}
-	}
-	return nil
-}
-
-func validatePresentationResourceBinding(binding applayout.ConversationPaneResourceBinding) error {
-	switch binding.Kind {
-	case applayout.ConversationPaneResourceBindingKindFolder:
-		if binding.Folder == nil {
-			return errors.New("folder binding requires a folder payload")
-		}
-		if binding.Folder.RootPath == "" {
-			return errors.New("folder binding requires a root path")
-		}
-		if !filepath.IsAbs(binding.Folder.RootPath) {
-			return fmt.Errorf("folder binding root path must be absolute: %s", binding.Folder.RootPath)
-		}
-		return nil
-	default:
-		return fmt.Errorf("unsupported resource binding kind %q", binding.Kind)
-	}
 }
 
 func (command RouteCommand) Validate() error {
@@ -338,34 +298,14 @@ func validateMasterCreateConversationCommand(command *MasterCreateConversationRo
 	if command.Target.PreferredPaneID != nil {
 		return errors.New("create-conversation command cannot prefer an existing pane")
 	}
-	if err := command.Target.Validate(); err != nil {
-		return err
-	}
-	if err := validateRouteReference("master route command initial input id", command.InitialInputID); err != nil {
-		return err
-	}
-	if err := validateMasterCommandInputModality(command.InitialInputModality); err != nil {
-		return err
-	}
-	submittedAt, err := normalizeTimestamp("master route command initial input submittedAt", command.InitialInputSubmitted)
-	if err != nil || submittedAt != command.InitialInputSubmitted {
-		return errors.New("master route command initial input submittedAt must be normalized")
-	}
-	return validateRouteText("master route command initial input", command.InitialInput, MaxRouteAuthoredInputBytes)
+	return validateMasterTurnCommand(command.Target, command.TurnID, command.InitialInput)
 }
 
 func validateMasterClarifyCommand(command *MasterClarifyRouteCommand) error {
 	if command == nil {
 		return errors.New("clarify command requires clarify")
 	}
-	if err := validateRouteText("master route command clarification", command.Question, MaxRouteQuestionBytes); err != nil {
-		return err
-	}
-	return validateBoundedRouteConversationTargetIDs(
-		"clarification candidate target",
-		command.CandidateTargetIDs,
-		MaxRouteConversationTargets,
-	)
+	return validateRouteText("master route command clarification", command.Question, MaxRouteQuestionBytes)
 }
 
 func validateMasterAnswerGlobalCommand(command *MasterAnswerGlobalRouteCommand) error {
@@ -387,9 +327,7 @@ func validateMasterFocusConversationDecision(command *MasterFocusConversationRou
 }
 
 func validateMasterCreateConversationDecision(command *MasterCreateConversationRouteCommand, decision *MasterCreateConversationRouteDecision) error {
-	if !command.Target.ResourceScope.Equal(decision.ResourceScope) ||
-		command.Target.Title != decision.ProposedTitle ||
-		command.InitialInput != decision.InitialInput {
+	if command.Target.WorkspaceID != decision.WorkspaceID || command.Target.Title != decision.ProposedTitle || command.InitialInput != decision.InitialInput {
 		return errors.New("master create-conversation command does not match its decision")
 	}
 	return nil
@@ -424,15 +362,6 @@ func validateMasterTurnCommand(target ConversationPresentationTarget, turnID str
 		return err
 	}
 	return validateRouteText("master route command authored input", input, MaxRouteAuthoredInputBytes)
-}
-
-func validateMasterCommandInputModality(modality MasterInputModality) error {
-	switch modality {
-	case MasterInputModalityText, MasterInputModalityVoice:
-		return nil
-	default:
-		return fmt.Errorf("unsupported master route command input modality %q", modality)
-	}
 }
 
 func validateMasterSideCommand(command *MasterCreateSideConversationRouteCommand) error {

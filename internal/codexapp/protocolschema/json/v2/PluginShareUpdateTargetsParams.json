@@ -38,8 +38,7 @@
     "PluginShareUpdateDiscoverability": {
       "enum": [
         "UNLISTED",
-        "PRIVATE",
-        "LISTED"
+        "PRIVATE"
       ],
       "type": "string"
     }

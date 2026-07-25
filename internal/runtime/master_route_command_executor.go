@@ -32,7 +32,6 @@ type masterRouteNarratorService interface {
 		string,
 		string,
 	) (conversation.ConversationSnapshot, error)
-	NotifyConversationInput(string) error
 }
 
 type masterRouteCommandExecutor struct {
@@ -65,16 +64,11 @@ func (executor *masterRouteCommandExecutor) ExecuteMasterRouteCommand(
 		return err
 	}
 	applied, err := executor.store.MasterRouteCommandApplied(ctx, record)
-	if err != nil {
+	if err != nil || applied {
 		return err
 	}
-	if !applied {
-		executeErr := executor.execute(ctx, record, resolvedPaneID)
-		if err := executor.verifyEffect(ctx, record, executeErr); err != nil {
-			return err
-		}
-	}
-	return executor.notifyFollowup(record)
+	executeErr := executor.execute(ctx, record, resolvedPaneID)
+	return executor.verifyEffect(ctx, record, executeErr)
 }
 
 func validateMasterRouteCommandExecution(
@@ -140,13 +134,9 @@ func (executor *masterRouteCommandExecutor) execute(
 	switch command.Kind {
 	case master.RouteDecisionKindAskNarrator:
 		payload := command.AskNarrator
-		workspaceID, err := masterRouteExecutorFolderWorkspaceID(payload.Target)
-		if err != nil {
-			return err
-		}
-		_, err = executor.narrator.AskRoutedStatus(
+		_, err := executor.narrator.AskRoutedStatus(
 			ctx,
-			workspaceID,
+			payload.Target.WorkspaceID,
 			payload.Target.ConversationID,
 			payload.RequestID,
 			payload.Question,
@@ -185,13 +175,9 @@ func (executor *masterRouteCommandExecutor) routedNarratorDegradationApplied(
 			payload.RequestID,
 		)
 	}
-	workspaceID, err := masterRouteExecutorFolderWorkspaceID(payload.Target)
-	if err != nil {
-		return false, err
-	}
 	snapshot, err := executor.store.ReadSnapshot(
 		ctx,
-		workspaceID,
+		payload.Target.WorkspaceID,
 		payload.Target.ConversationID,
 	)
 	if err != nil {
@@ -203,27 +189,6 @@ func (executor *masterRouteCommandExecutor) routedNarratorDegradationApplied(
 		return false, errors.New("verify master routed narrator degradation: durable state does not match the completed request")
 	}
 	return true, nil
-}
-
-func (executor *masterRouteCommandExecutor) notifyFollowup(record master.RouteDecisionRecord) error {
-	if record.ResultingCommand.Kind != master.RouteDecisionKindCreateConversation {
-		return nil
-	}
-	conversationID := record.ResultingCommand.CreateConversation.Target.ConversationID
-	if err := executor.narrator.NotifyConversationInput(conversationID); err != nil {
-		return fmt.Errorf("notify master-created conversation input %s: %w", conversationID, err)
-	}
-	return nil
-}
-
-func masterRouteExecutorFolderWorkspaceID(
-	target master.ConversationPresentationTarget,
-) (string, error) {
-	workspaceID, ok := target.ResourceScope.FolderWorkspaceID()
-	if !ok {
-		return "", fmt.Errorf("master route target %s has no folder resource", target.ConversationID)
-	}
-	return workspaceID, nil
 }
 
 var _ master.RouteCommandExecutor = (*masterRouteCommandExecutor)(nil)

@@ -13,21 +13,21 @@ type SubmitConversationInputRequest struct {
 }
 
 type ReadConversationInputRoutingStateRequest struct {
-	WorkspaceID    *string `json:"workspaceId"`
-	ConversationID string  `json:"conversationId"`
-	InputID        string  `json:"inputId"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	InputID        string `json:"inputId"`
 }
 
 type RetryConversationInputRequest struct {
-	WorkspaceID    *string `json:"workspaceId"`
-	ConversationID string  `json:"conversationId"`
-	InputID        string  `json:"inputId"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	InputID        string `json:"inputId"`
 }
 
 type DiscardConversationInputRequest struct {
-	WorkspaceID    *string `json:"workspaceId"`
-	ConversationID string  `json:"conversationId"`
-	InputID        string  `json:"inputId"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	InputID        string `json:"inputId"`
 }
 
 func (handler handler) submitConversationInput(response http.ResponseWriter, request *http.Request) {
@@ -74,18 +74,17 @@ func (handler handler) conversationInputRoutingState(
 	}
 	var state conversation.ConversationInputRoutingState
 	var err error
-	workspaceID := optionalWorkspaceID(payload.WorkspaceID)
 	if wait {
 		state, err = service.WaitInputState(
 			request.Context(),
-			workspaceID,
+			payload.WorkspaceID,
 			payload.ConversationID,
 			payload.InputID,
 		)
 	} else {
 		state, err = service.ReadInputState(
 			request.Context(),
-			workspaceID,
+			payload.WorkspaceID,
 			payload.ConversationID,
 			payload.InputID,
 		)
@@ -112,7 +111,7 @@ func (handler handler) retryConversationInput(response http.ResponseWriter, requ
 	}
 	state, err := service.RetryInput(
 		request.Context(),
-		optionalWorkspaceID(payload.WorkspaceID),
+		payload.WorkspaceID,
 		payload.ConversationID,
 		payload.InputID,
 	)
@@ -138,7 +137,7 @@ func (handler handler) discardConversationInput(response http.ResponseWriter, re
 	}
 	state, err := service.DiscardInput(
 		request.Context(),
-		optionalWorkspaceID(payload.WorkspaceID),
+		payload.WorkspaceID,
 		payload.ConversationID,
 		payload.InputID,
 	)
@@ -151,11 +150,4 @@ func (handler handler) discardConversationInput(response http.ResponseWriter, re
 		return
 	}
 	writeJSON(response, http.StatusOK, state)
-}
-
-func optionalWorkspaceID(workspaceID *string) string {
-	if workspaceID == nil {
-		return ""
-	}
-	return *workspaceID
 }

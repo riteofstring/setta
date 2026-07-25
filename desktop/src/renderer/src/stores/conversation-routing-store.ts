@@ -6,7 +6,6 @@ interface ConversationRoutingClarification {
 }
 
 interface ConversationRoutingFailure {
-  code: string;
   inputId: string;
   message: string;
   retryable: boolean;
@@ -33,7 +32,7 @@ interface ConversationRoutingResultUpdate {
   routingAttempt: number;
   routingFailure: ConversationRoutingFailure | null;
   sequence: number;
-  workspaceId: string | null;
+  workspaceId: string;
 }
 
 interface ConversationRoutingMasterReplyUpdate {
@@ -42,13 +41,13 @@ interface ConversationRoutingMasterReplyUpdate {
   masterReply: ConversationRoutingMasterReply;
   routingAttempt: number;
   sequence: number;
-  workspaceId: string | null;
+  workspaceId: string;
 }
 
 interface ConversationRoutingStore {
   applyResult: (update: ConversationRoutingResultUpdate) => void;
-  clearMasterReply: (workspaceId: string | null, conversationId: string) => void;
-  discardFailure: (workspaceId: string | null, conversationId: string, inputId: string) => void;
+  clearMasterReply: (workspaceId: string, conversationId: string) => void;
+  discardFailure: (workspaceId: string, conversationId: string, inputId: string) => void;
   presentations: ReadonlyMap<string, ConversationRoutingPresentationState>;
   resetRuntimeState: () => void;
   setMasterReply: (update: ConversationRoutingMasterReplyUpdate) => void;
@@ -118,13 +117,13 @@ export function conversationRoutingPresentation(
   workspaceId: string | null,
   conversationId: string | null,
 ): ConversationRoutingPresentationState | undefined {
-  if (!conversationId) {
+  if (!workspaceId || !conversationId) {
     return undefined;
   }
   return presentations.get(conversationRoutingKey(workspaceId, conversationId));
 }
 
-function conversationRoutingKey(workspaceId: string | null, conversationId: string): string {
+function conversationRoutingKey(workspaceId: string, conversationId: string): string {
   return JSON.stringify([workspaceId, conversationId]);
 }
 
@@ -140,7 +139,7 @@ function conversationRoutingResultIsOlder(
 
 function updatePresentation(
   state: ConversationRoutingStore,
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   update: (current: ConversationRoutingPresentationState) => ConversationRoutingPresentationState,
 ): ConversationRoutingStore | Pick<ConversationRoutingStore, "presentations"> {
