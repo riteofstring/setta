@@ -16,7 +16,52 @@ import (
 	"time"
 
 	"setta/internal/runtimeaccess"
+	"setta/internal/runtimeprovider"
 )
+
+func TestAdminBudgetUsageCutsOffLiveAuthorizationAndAuditsWithoutContent(t *testing.T) {
+	ctx := context.Background()
+	store, _, runtimeName, grant := seededControlPlane(t, ctx)
+	defer store.Close()
+	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
+	var audit bytes.Buffer
+	observer := newAdminTestObserver(t, &audit)
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer: observer, SocketPath: socketPath, Store: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	client := adminTestClient(socketPath)
+	authorization, err := store.AuthorizeClient(ctx, grant.Token)
+	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationAllowed {
+		t.Fatalf("authorization before budget = %+v, %v", authorization, err)
+	}
+	start := time.Date(2026, 7, 24, 21, 0, 0, 0, time.UTC)
+	adminTestRequest(t, client, "/v1/users/budget", AdminSetUserBudgetRequest{
+		UserID: "user-server", PeriodStart: start, PeriodEnd: start.Add(time.Hour),
+		CoveredLimitUSDMicros: 1_000, SafetyReserveUSDMicros: 100, CutoffExposureUSDMicros: 200,
+	}, "user_budget_set")
+	adminTestRequest(t, client, "/v1/usage/record", AdminRecordUsageRequest{
+		IdempotencyKey: "private-usage-key", UserID: "user-server", RuntimeName: runtimeName,
+		IntervalStart: start, IntervalEnd: start.Add(time.Minute),
+		MeasurementSource:    runtimeprovider.UsageBasisSettaConservative,
+		CoveredCostUSDMicros: 700,
+	}, "usage_recorded")
+	requireClosed(t, authorization.Invalidated, "budget cutoff")
+	requireAuthorizationOutcome(t, store, grant.Token, runtimeaccess.AuthorizationSuspended)
+	requireContentFreeControlPlaneAudit(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
+		{Action: ControlPlaneAuditBudgetSet, State: "enforced"},
+		{Action: ControlPlaneAuditUsageRecorded, State: "cutoff"},
+	}, []string{
+		"user-server",
+		runtimeName,
+		grant.Device.ID,
+		grant.Token,
+		"private-usage-key",
+	})
+}
 
 func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 	ctx := context.Background()

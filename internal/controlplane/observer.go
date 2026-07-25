@@ -87,6 +87,8 @@ const (
 	ControlPlaneAuditDeviceEnsured ControlPlaneAuditAction = "device_ensured"
 	ControlPlaneAuditDeviceRevoked ControlPlaneAuditAction = "device_revoked"
 	ControlPlaneAuditUserStatusSet ControlPlaneAuditAction = "user_status_set"
+	ControlPlaneAuditBudgetSet     ControlPlaneAuditAction = "budget_set"
+	ControlPlaneAuditUsageRecorded ControlPlaneAuditAction = "usage_recorded"
 )
 
 type ControlPlaneAuditObservation struct {

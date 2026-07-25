@@ -58,7 +58,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 5. SQLite uses foreign
+The `internal/controlplane` package owns schema version 6. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -99,7 +99,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 5 is a deliberate clean break;
+installed release explicitly. Schema version 6 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -121,6 +121,18 @@ publishes those events over cursor-resumable SSE and wakes connected readers
 only after the transaction commits; reconnects replay from SQLite without
 polling. Progress contains operation state, stable error codes, retryability,
 and timestamps, but no user, runtime, provider, or Sprite identifiers.
+
+Schema version 6 adds one fixed-period budget policy per user and immutable,
+idempotent conservative usage intervals. The policy records its covered limit,
+uncertainty reserve, and worst-case cutoff-lag exposure separately; only their
+remaining difference is spendable. Intervals must cover the active policy
+period contiguously, bind their complete request fingerprint, and accumulate
+integer micro-USD without overflow. Reaching the enforced threshold atomically
+suspends the user and runtime access, invalidates live grants, and publishes
+hosted-access suspension. The private administration boundary is the only
+production ingestion path and emits content-free `budget_set` and
+`usage_recorded` audit outcomes. Restart-safe provider-side suspend and retry
+remain required before this is a complete billable-compute cutoff.
 
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the

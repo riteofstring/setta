@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"setta/internal/runtimeprovider"
 )
 
 const maximumAdminRequestBytes = 16 * 1024
@@ -63,6 +65,25 @@ type AdminRevokeDeviceRequest struct {
 type AdminSetUserStatusRequest struct {
 	Status UserStatus `json:"status"`
 	UserID string     `json:"user_id"`
+}
+
+type AdminSetUserBudgetRequest struct {
+	UserID                  string    `json:"user_id"`
+	PeriodStart             time.Time `json:"period_start"`
+	PeriodEnd               time.Time `json:"period_end"`
+	CoveredLimitUSDMicros   int64     `json:"covered_limit_usd_micros"`
+	SafetyReserveUSDMicros  int64     `json:"safety_reserve_usd_micros"`
+	CutoffExposureUSDMicros int64     `json:"cutoff_exposure_usd_micros"`
+}
+
+type AdminRecordUsageRequest struct {
+	IdempotencyKey       string                     `json:"idempotency_key"`
+	UserID               string                     `json:"user_id"`
+	RuntimeName          string                     `json:"runtime_name"`
+	IntervalStart        time.Time                  `json:"interval_start"`
+	IntervalEnd          time.Time                  `json:"interval_end"`
+	MeasurementSource    runtimeprovider.UsageBasis `json:"measurement_source"`
+	CoveredCostUSDMicros int64                      `json:"covered_cost_usd_micros"`
 }
 
 type AdminEvent struct {
@@ -144,6 +165,9 @@ func adminHandler(store *Store, observer ControlPlaneObserver) http.Handler {
 		if handleRuntimeProgressAdminRoute(store, response, request) {
 			return
 		}
+		if handleBudgetAdminRoute(store, observer, response, request) {
+			return
+		}
 		switch request.URL.Path {
 		case "/v1/devices/ensure":
 			if !requireAdminMethod(response, request, http.MethodPost) {
@@ -167,6 +191,80 @@ func adminHandler(store *Store, observer ControlPlaneObserver) http.Handler {
 			response.WriteHeader(http.StatusNotFound)
 		}
 	})
+}
+
+func handleBudgetAdminRoute(
+	store *Store,
+	observer ControlPlaneObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) bool {
+	switch request.URL.Path {
+	case "/v1/users/budget":
+		if requireAdminMethod(response, request, http.MethodPost) {
+			response.Header().Set("Content-Type", "application/json")
+			handleAdminSetUserBudget(store, observer, response, request)
+		}
+		return true
+	case "/v1/usage/record":
+		if requireAdminMethod(response, request, http.MethodPost) {
+			response.Header().Set("Content-Type", "application/json")
+			handleAdminRecordUsage(store, observer, response, request)
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func handleAdminSetUserBudget(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	var payload AdminSetUserBudgetRequest
+	if !decodeAdminRequest(response, request, &payload) {
+		return
+	}
+	policy, err := store.SetUserBudgetPolicy(request.Context(), SetUserBudgetPolicyRequest(payload))
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditBudgetSet,
+		OccurredAt: policy.UpdatedAt,
+		State:      "enforced",
+	})
+	writeAdminJSON(response, AdminEvent{Event: "user_budget_set", Status: "enforced", UserID: payload.UserID})
+}
+
+func handleAdminRecordUsage(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	var payload AdminRecordUsageRequest
+	if !decodeAdminRequest(response, request, &payload) {
+		return
+	}
+	interval, err := store.RecordUsageInterval(request.Context(), RecordUsageIntervalRequest(payload))
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	state := "continue"
+	if interval.CutoffRequired {
+		state = "cutoff"
+	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditUsageRecorded,
+		OccurredAt: interval.RecordedAt,
+		State:      state,
+	})
+	writeAdminJSON(response, AdminEvent{Event: "usage_recorded", Status: state, UserID: payload.UserID})
 }
 
 func handleRuntimeProgressAdminRoute(

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"setta/internal/controlplane"
+	"setta/internal/runtimeprovider"
 )
 
 const adminRequestTimeout = 10 * time.Second
@@ -24,7 +25,7 @@ type adminClientConfig struct {
 
 func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|record-usage> [options]")
 		return 2
 	}
 	var err error
@@ -35,6 +36,10 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		err = adminRevokeDevice(context.Background(), args[1:], stdout, stderr)
 	case "set-user-status":
 		err = adminSetUserStatus(context.Background(), args[1:], stdout, stderr)
+	case "set-user-budget":
+		err = adminSetUserBudget(context.Background(), args[1:], stdout, stderr)
+	case "record-usage":
+		err = adminRecordUsage(context.Background(), args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown control-plane administration command %q\n", args[0])
 		return 2
@@ -44,6 +49,87 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+func adminSetUserBudget(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminSetUserBudgetRequest
+	var periodStart string
+	var periodEnd string
+	flagSet := flag.NewFlagSet("setta-control-plane admin set-user-budget", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.UserID, "user-id", "", "immutable Setta user identifier")
+	flagSet.StringVar(&periodStart, "period-start", "", "inclusive RFC3339 budget period start")
+	flagSet.StringVar(&periodEnd, "period-end", "", "exclusive RFC3339 budget period end")
+	flagSet.Int64Var(&payload.CoveredLimitUSDMicros, "limit-usd-micros", 0, "covered hard limit in micro-US dollars")
+	flagSet.Int64Var(&payload.SafetyReserveUSDMicros, "reserve-usd-micros", 0, "uncertainty reserve in micro-US dollars")
+	flagSet.Int64Var(&payload.CutoffExposureUSDMicros, "cutoff-exposure-usd-micros", 0, "worst-case cutoff-lag exposure in micro-US dollars")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("set-user-budget does not accept positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	var err error
+	payload.PeriodStart, err = time.Parse(time.RFC3339Nano, periodStart)
+	if err != nil {
+		return errors.New("budget period start must be RFC3339")
+	}
+	payload.PeriodEnd, err = time.Parse(time.RFC3339Nano, periodEnd)
+	if err != nil {
+		return errors.New("budget period end must be RFC3339")
+	}
+	return executeAdminRequest(ctx, config, "/v1/users/budget", payload, "user_budget_set", stdout)
+}
+
+func adminRecordUsage(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminRecordUsageRequest
+	var intervalStart string
+	var intervalEnd string
+	flagSet := flag.NewFlagSet("setta-control-plane admin record-usage", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.IdempotencyKey, "idempotency-key", "", "globally unique immutable interval key")
+	flagSet.StringVar(&payload.UserID, "user-id", "", "immutable Setta user identifier")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	flagSet.StringVar(&intervalStart, "interval-start", "", "inclusive RFC3339 interval start")
+	flagSet.StringVar(&intervalEnd, "interval-end", "", "exclusive RFC3339 interval end")
+	flagSet.Int64Var(&payload.CoveredCostUSDMicros, "covered-cost-usd-micros", 0, "conservatively accounted interval cost in micro-US dollars")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("record-usage does not accept positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	var err error
+	payload.IntervalStart, err = time.Parse(time.RFC3339Nano, intervalStart)
+	if err != nil {
+		return errors.New("usage interval start must be RFC3339")
+	}
+	payload.IntervalEnd, err = time.Parse(time.RFC3339Nano, intervalEnd)
+	if err != nil {
+		return errors.New("usage interval end must be RFC3339")
+	}
+	payload.MeasurementSource = runtimeprovider.UsageBasisSettaConservative
+	return executeAdminRequest(ctx, config, "/v1/usage/record", payload, "usage_recorded", stdout)
 }
 
 func adminEnsureDevice(

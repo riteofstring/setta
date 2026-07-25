@@ -53,6 +53,9 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"hosted_access_intents",
 			"hosted_access_capabilities",
 			"hosted_access_progress",
+			"user_budget_policies",
+			"usage_intervals",
+			"usage_intervals_runtime_window_idx",
 		); err != nil {
 			return err
 		}
@@ -306,5 +309,38 @@ CREATE TABLE IF NOT EXISTS hosted_access_progress (
   occurred_at TEXT NOT NULL,
   PRIMARY KEY(intent_id, cursor)
 );
+
+CREATE TABLE IF NOT EXISTS user_budget_policies (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  period_start TEXT NOT NULL,
+  period_end TEXT NOT NULL,
+  covered_limit_usd_micros INTEGER NOT NULL CHECK(covered_limit_usd_micros > 0),
+  safety_reserve_usd_micros INTEGER NOT NULL CHECK(safety_reserve_usd_micros >= 0),
+  cutoff_exposure_usd_micros INTEGER NOT NULL CHECK(cutoff_exposure_usd_micros >= 0),
+  accrued_usd_micros INTEGER NOT NULL DEFAULT 0 CHECK(accrued_usd_micros >= 0),
+  cutoff_required_at TEXT,
+  updated_at TEXT NOT NULL,
+  CHECK(period_end > period_start),
+  CHECK(safety_reserve_usd_micros + cutoff_exposure_usd_micros < covered_limit_usd_micros)
+);
+
+CREATE TABLE IF NOT EXISTS usage_intervals (
+  idempotency_key TEXT PRIMARY KEY,
+  request_fingerprint TEXT NOT NULL,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  runtime_name TEXT NOT NULL REFERENCES runtimes(name),
+  interval_start TEXT NOT NULL,
+  interval_end TEXT NOT NULL,
+  measurement_source TEXT NOT NULL CHECK(measurement_source = 'setta_conservative'),
+  covered_cost_usd_micros INTEGER NOT NULL CHECK(covered_cost_usd_micros >= 0),
+  cumulative_cost_usd_micros INTEGER NOT NULL CHECK(cumulative_cost_usd_micros >= 0),
+  enforced_budget_usd_micros INTEGER NOT NULL CHECK(enforced_budget_usd_micros > 0),
+  cutoff_required INTEGER NOT NULL CHECK(cutoff_required IN (0, 1)),
+  recorded_at TEXT NOT NULL,
+  CHECK(interval_end > interval_start)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS usage_intervals_runtime_window_idx
+  ON usage_intervals(runtime_name, interval_start, interval_end);
 
 `

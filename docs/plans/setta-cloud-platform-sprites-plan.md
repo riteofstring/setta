@@ -2327,3 +2327,18 @@ Stop and reassess rather than hiding the problem if any of these occur:
   queueing, steering, approvals, cancellation, failure, artifacts, and reload.
   Per-user hard budget enforcement remains open, so the combined Phase 5
   checklist item stays unchecked. No provider or cloud mutation ran.
+- 2026-07-24 (durable budget-access cutoff): Advanced the Go-owned usage and
+  budget boundary to control-plane schema version 6. A user policy now records
+  a fixed period, covered micro-USD limit, safety reserve, and separately
+  computed worst-case cutoff-lag exposure. The private administration boundary
+  accepts only contiguous, idempotent Setta-conservative usage intervals,
+  rejects conflicting replay, gaps, foreign runtimes, non-conservative sources,
+  active-period resets, and integer overflow, and persists cumulative cost and
+  the effective enforced budget. Reaching that threshold atomically suspends
+  the user and runtime access, invalidates live credentials, and pushes hosted
+  access suspension; restart tests preserve the policy and accounting state.
+  Content-free audits record only policy enforcement and continue/cutoff
+  outcomes. Provider-side suspend with durable retry/fencing and the trusted
+  reporter that derives each interval from the existing accounting ledger
+  remain open, so this does not yet close per-user hard budget enforcement or
+  the combined Phase 5 checklist item. No provider or cloud mutation ran.
