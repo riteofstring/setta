@@ -850,7 +850,7 @@ func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 	artifact.Kind = agent.EventKindActivityCompleted
 	artifact.Activity = &agent.ActivityEvent{
 		ProviderItemID: "provider-artifact-side-context",
-		Kind:           agent.ActivityKindArtifact,
+		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Side context result",
 		Summary:        "/tmp/side-context-result.md",
@@ -865,6 +865,8 @@ func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 		Kind:           agent.ActivityKindCommand,
 		Status:         "inProgress",
 		Title:          "sleep 12",
+		Command:        stringPointer("sleep 12"),
+		CWD:            stringPointer("/workspace/side-context"),
 	}
 	if err := sink.HandleAgentEvent(activity); err != nil {
 		return err
@@ -1005,7 +1007,7 @@ func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
 	artifact.Kind = agent.EventKindActivityCompleted
 	artifact.Activity = &agent.ActivityEvent{
 		ProviderItemID: "artifact-" + base.ProviderTurnID,
-		Kind:           agent.ActivityKindArtifact,
+		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Result file",
 		Summary:        "/tmp/result-" + base.ProviderTurnID + ".md",

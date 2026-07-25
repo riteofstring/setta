@@ -14,7 +14,9 @@ and the pure `DirectorGraphProjector` are committed in the same package (Phase 1
 items 8, 10, 11, and 12): `facts.go` owns the durable Director facts, `fixtures.go`
 owns the deterministic histories, and the projector plus its replay, ordering,
 lifecycle, provenance, redaction, resync, and recovery boundary tests cover every
-node kind and edge kind. The ownership,
+node kind and edge kind. The Codex adapter now delivers typed provider activities
+into that mapping, so `investigation` nodes, MCP tool calls, and hook executions
+are reachable from live work instead of only from fixtures. The ownership,
 surviving-path, and reusable-foundation inventories are committed in
 [`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md),
 the mockup fidelity checklist in
@@ -417,7 +419,7 @@ must be added as typed events or records; do not fill gaps by parsing text.
 | Validated Director route decision or command | `director_decision` | The model may choose only authorized decision kinds and targets; trusted code attaches ids and capabilities. |
 | `turn_queued`, `turn_promoted`, `turn_started`, `turn_steered` | `action` status updates plus selected-workstream milestones | Queue and run state should update one durable run node rather than create noisy duplicate nodes. |
 | `plan_changed` | `plan` plus step `milestone` nodes | Current provider plan steps do not have stable ids; initial step node ids should be derived from the source event id and step index unless the contract adds step ids. Codex `PlanDelta` is a provisional live text signal only; do not create authoritative plan nodes by concatenating deltas. |
-| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed` | `action`, `investigation`, or `delegation` | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, file changes, and generated media are `action`; web search and image view are `investigation`; subagents are `delegation`. Generating media is the action that produces an artifact, not the artifact: the `artifact` node appears when `artifact_emitted` names a durable artifact, because a node claiming to be an artifact without naming one has no provenance to open. Preserve trusted plugin/script attribution as evidence metadata. `other` is not visible until a typed owner assigns a precise semantic kind. |
+| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed` | `action`, `investigation`, or `delegation` | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, file changes, and generated media are `action`; web search and image view are `investigation`; subagents are `delegation`. Generating media is the action that produces an artifact, not the artifact: the `artifact` node appears when `artifact_emitted` names a durable artifact, because a node claiming to be an artifact without naming one has no provenance to open. Preserve trusted plugin/script attribution as evidence metadata. `other` is not visible until a typed owner assigns a precise semantic kind. The Codex adapter reports the provider's own activity kind, so this resolver reads a reported fact rather than a bucket the adapter chose; a collab-agent call stays `other` until Setta can name the receiver it addresses. |
 | `file_change_proposed`, `file_change_completed` | `action` with file-change evidence | Approval state comes from approval events, not inferred from file diffs. |
 | `approval_requested`, `approval_resolved` | `approval_required` | Secret answers and secret fields stay redacted in public graph state. |
 | Resource request and resolution records | `resource_required` | Add explicit Director/workstream records if the current source only exposes resource needs indirectly. |
@@ -843,7 +845,13 @@ Exit gate:
    `ValidateSourceFactCoverage` now proves the mapping runs in both directions, so a node kind
    nothing can produce fails loudly. `conversation.TrajectoryArtifactEmitted` carries the artifact's
    kind and title, because the graph could otherwise only label a result by resolving a second
-   record.**
+   record. The Codex adapter now reports typed provider activities instead of a coarse bucket:
+   `agent.ActivityKind` matches `conversation.TrajectoryActivityKind` one to one, commands carry
+   their reported directory and process id, MCP and dynamic tool calls carry server, tool, and
+   namespace, and hooks, MCP tool progress, and terminal interaction have normalizers. Before this,
+   the durable record collapsed searches and tool calls into `dynamic_tool`, so `investigation`
+   nodes were unreachable from live work and the run's working directory was assumed to be the
+   workspace root. Remaining normalizer work is item 14.**
 9. Generate TypeScript surfaces. **Director contracts are registered with the generator in
    `cmd/generate-contracts/contract_registry.go`; they reach `desktop/src/generated/backend.ts` when
    the Phase 3 endpoints and events make them reachable.**
@@ -861,6 +869,14 @@ Exit gate:
     prefix boundary of every fixture, resync conditions surface as typed `ReplayError` reasons rather
     than internal errors, and the fixtures are asserted to exercise every node kind and edge kind.**
 13. Build the exhaustive node/edge visual gallery from production contract fixtures.
+14. Adapt the remaining notifications the matrix marks `normalized` that still have no normalizer:
+    thread status, environment connection and disconnection, thread close, Guardian review and
+    warning, model verification, model safety buffering, and server-request resolution. Each needs a
+    durable Setta owner before it can be normalized — workstream/provider lifecycle records for the
+    thread and environment signals, a validation record for the Guardian and verification signals,
+    and approval reconciliation for `serverRequest/resolved` — so this is contract work, not another
+    adapter switch. `thread/environment/*` and `model/safetyBuffering/updated` also have to be
+    registered in `internal/codexapp/protocolschema/supported_protocol.json` before a decoder exists.
 
 Exit gate:
 
@@ -1027,8 +1043,8 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Finish Phase 1 with item 13, the exhaustive node/edge visual gallery. It is the one Phase 1 item
-   still open, and it is blocked on item 9: the Director contracts are registered with the generator
+1. Build the exhaustive node/edge visual gallery, Phase 1 item 13. It is blocked on item 9: the
+   Director contracts are registered with the generator
    but do not reach `desktop/src/generated/backend.ts` until the Phase 3 endpoints and events make
    them reachable, and a gallery must render generated contract values rather than a hand-maintained
    TypeScript mirror. `ProjectionFixtures()` is the production-contract fixture source the gallery
@@ -1037,9 +1053,9 @@ Setta 4 is complete when:
    plan-step identity, and workstream resource bindings. Moving `internal/master` off
    `internal/applayout` onto `director.WorkstreamResourceBinding` is Phase 3 rewiring, not a
    remaining contract gap.
-2. Register and adapt the notifications the matrix marks `normalized` that have no normalizer yet —
-   thread status, environment connection, Guardian and verification signals, hooks, MCP tool
-   progress, terminal interaction, and server-request resolution — as typed Setta events rather than
-   UI inference.
+2. Finish Phase 1 item 14. Hooks, MCP tool progress, and terminal interaction are adapted; the
+   remaining `normalized` notifications each need a durable Setta owner first, so start with the
+   workstream/provider lifecycle records that thread status, environment connection, and thread
+   close would commit into.
 3. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.
