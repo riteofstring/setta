@@ -2860,3 +2860,26 @@ Stop and reassess rather than hiding the problem if any of these occur:
   remains open for credential-epoch rotation, user export, reconciliation,
   checkpoint, restore, and the real release-upgrade workflow. No provider or
   cloud mutation ran.
+- 2026-07-25 (committed conversation outcome timing): Advanced the Phase 4
+  content-free latency instrumentation through the production conversation
+  service and runtime log boundary. Successful cancellation and approval
+  measurements begin when the typed service receives the command and end only
+  after the provider accepts it and the durable control trajectory plus public
+  event transaction commits. Artifact-availability measurements begin when the
+  service receives the provider artifact event and end only after the artifact,
+  trajectory, and public event commit together. The runtime JSONL record
+  contains exactly event kind, start and completion timestamps, and duration;
+  it contains no user, runtime, workspace, conversation, turn, approval,
+  artifact, provider, route, text, path, or credential field. The Candidate B
+  control workflow proves all three measurements through the authenticated
+  gateway while explicitly rejecting its fixture identifiers and content from
+  the runtime log. Ten race-instrumented repetitions passed, both complete
+  affected Go packages passed, the required `hosted-cloud-chat` Electron
+  workflow passed, and `./check_quality.sh --git-changes` passed file-length,
+  vet, tests, complexity, and dead-code checks. With `OPENAI_API_KEY` removed,
+  all four ChatGPT-authenticated live Codex gates passed: Electron, agent
+  protocol, side isolation, and topic conversation. The Phase 4 checkbox
+  remains open for authoritative steering timing from the routed input's
+  durable `AcceptedAt`, and for the remaining ensure/wake attribution and
+  identical authorized live-Sprite workload. No provider or cloud mutation
+  ran.
