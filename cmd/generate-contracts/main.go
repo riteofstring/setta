@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/applayout"
+	"setta/internal/controlplane"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
 	"setta/internal/workspaceui"
@@ -25,11 +25,9 @@ type contractSpec struct {
 	Interfaces                     []interfaceSpec
 	ProtocolVersion                int
 	SchemaHash                     string
-	StringAliases                  []stringAliasSpec
 	Unions                         []unionSpec
 	ValueSets                      []valueSetSpec
 	WorkspaceUILayoutSchemaVersion int
-	AppPaneLayoutSchemaVersion     int
 }
 
 type conversationSnapshotLimitSpec struct {
@@ -79,10 +77,6 @@ type valueSetSpec struct {
 	Values []string
 }
 
-type stringAliasSpec struct {
-	Name string
-}
-
 type contractCollector struct {
 	specs          []interfaceSpec
 	states         map[reflect.Type]visitState
@@ -91,8 +85,6 @@ type contractCollector struct {
 	unions         []unionSpec
 	usedUnions     map[reflect.Type]bool
 	valueSets      map[string]valueSetSpec
-	stringAliases  []stringAliasSpec
-	usedAliasNames map[string]bool
 	usedValueSets  []valueSetSpec
 	usedValueNames map[string]bool
 	fieldLiterals  map[reflect.Type]map[string]string
@@ -151,7 +143,6 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 		unionRegistry:  contractUnions(),
 		usedUnions:     map[reflect.Type]bool{},
 		valueSets:      valueSets,
-		usedAliasNames: map[string]bool{},
 		usedValueNames: map[string]bool{},
 		fieldLiterals:  map[reflect.Type]map[string]string{},
 	}
@@ -162,6 +153,11 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 	errorResponse, err := errorResponseSpec(schema.ErrorResponses, &collector)
 	if err != nil {
 		return contractSpec{}, err
+	}
+	for _, contractType := range controlplane.ContractTypes() {
+		if err := collector.add(contractType); err != nil {
+			return contractSpec{}, fmt.Errorf("control-plane contract %s: %w", contractType, err)
+		}
 	}
 	conversationPaletteCatalog, err := conversationPaletteCatalogSpecs(
 		collector.usedValueNames["ConversationPaletteID"],
@@ -187,11 +183,9 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 		Interfaces:                     collector.specs,
 		ProtocolVersion:                httpapi.ProtocolVersion,
 		SchemaHash:                     schemaHash,
-		StringAliases:                  collector.stringAliases,
 		Unions:                         collector.unions,
 		ValueSets:                      collector.usedValueSets,
 		WorkspaceUILayoutSchemaVersion: workspaceui.SchemaVersion,
-		AppPaneLayoutSchemaVersion:     applayout.SchemaVersion,
 	}, nil
 }
 func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractCollector) ([]endpointSpec, error) {
@@ -395,15 +389,7 @@ func (collector *contractCollector) addStringAlias(goType reflect.Type) error {
 	}
 	spec, ok := collector.valueSets[goType.Name()]
 	if !ok {
-		if err := collector.registerStructName(goType.Name(), goType); err != nil {
-			return err
-		}
-		if collector.usedAliasNames[goType.Name()] {
-			return nil
-		}
-		collector.usedAliasNames[goType.Name()] = true
-		collector.stringAliases = append(collector.stringAliases, stringAliasSpec{Name: goType.Name()})
-		return nil
+		return fmt.Errorf("named string contract type %s has no registered value set", goType)
 	}
 	if collector.usedValueNames[spec.Name] {
 		return nil
@@ -502,9 +488,7 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 	renderRuntimeImports(buffer, specs)
 	renderProtocolMetadata(buffer, specs)
 	renderWorkspaceUILayoutMetadata(buffer, specs.WorkspaceUILayoutSchemaVersion)
-	renderAppPaneLayoutMetadata(buffer, specs.AppPaneLayoutSchemaVersion)
 	renderConversationSnapshotLimits(buffer, specs.ConversationSnapshotLimits)
-	renderStringAliases(buffer, specs.StringAliases)
 	renderValueSets(buffer, specs.ValueSets)
 	renderConversationPaletteCatalog(buffer, specs.ConversationPaletteCatalog)
 	renderContractLiteralDecoder(buffer, specs.Interfaces)
@@ -536,10 +520,6 @@ func renderConversationSnapshotLimits(buffer *bytes.Buffer, limits conversationS
 
 func renderWorkspaceUILayoutMetadata(buffer *bytes.Buffer, schemaVersion int) {
 	fmt.Fprintf(buffer, "export const workspaceUILayoutSchemaVersion = %d;\n\n", schemaVersion)
-}
-
-func renderAppPaneLayoutMetadata(buffer *bytes.Buffer, schemaVersion int) {
-	fmt.Fprintf(buffer, "export const appPaneLayoutSchemaVersion = %d;\n\n", schemaVersion)
 }
 
 func renderProtocolMetadata(buffer *bytes.Buffer, specs contractSpec) {

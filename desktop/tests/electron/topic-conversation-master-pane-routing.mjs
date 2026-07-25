@@ -48,6 +48,7 @@ export async function exerciseMasterPaneRouting({
     client,
     route,
     timeoutMs,
+    workspaceId,
   });
   return { createdConversationId, forkConversationId, sideConversationId };
 }
@@ -135,58 +136,32 @@ async function exerciseMasterForkRoute({
   return snapshot.conversation.id;
 }
 
-async function exerciseMasterCreateRoute({ backend, client, route, timeoutMs }) {
+async function exerciseMasterCreateRoute({ backend, client, route, timeoutMs, workspaceId }) {
   const command = await route("Create Gamma topic.", "create_conversation");
   const created = command.createConversation;
   if (!created) {
     throw new Error("master create route omitted its trusted command");
   }
-  if (
-    created.target.resourceScope?.kind !== "folderless" ||
-    created.target.resourceBindings.length !== 0
-  ) {
-    throw new Error(`master create route was not folderless: ${JSON.stringify(created)}`);
-  }
   const snapshot = await waitForConversationSnapshot(
     backend,
-    null,
+    workspaceId,
     created.target.conversationId,
     (value) =>
-      value.conversation.title === "Gamma topic" &&
-      value.conversation.workspaceId === null &&
-      value.narration.events.some(
-        (event) =>
-          event.kind === "status_reply" &&
-          event.statusReply?.question === created.initialInput &&
-          event.statusReply?.text.includes("I can answer questions here"),
-      ),
+      value.conversation.title === "Gamma topic" && value.turns.turns[0]?.status === "completed",
     timeoutMs,
   );
-  await waitForConversationInputState(
-    backend,
-    null,
-    created.target.conversationId,
-    created.initialInputId,
-    (state) => state.input?.status === "dispatched",
-    timeoutMs,
-  );
-  await assertPresentedConversation(
-    client,
-    created.target.conversationId,
-    timeoutMs,
-    (value) => value.projectionStatus === "ready" && value.state === "idle",
-  );
+  await assertPresentedConversation(client, created.target.conversationId, timeoutMs);
   await closeConversationPane(client, created.target.conversationId);
   return snapshot.conversation.id;
 }
 
-async function assertPresentedConversation(
-  client,
-  conversationId,
-  timeoutMs,
-  ready = (value) => value.projectionStatus === "ready" && value.state === "complete",
-) {
-  const surface = await waitForConversationSurface(client, conversationId, ready, timeoutMs);
+async function assertPresentedConversation(client, conversationId, timeoutMs) {
+  const surface = await waitForConversationSurface(
+    client,
+    conversationId,
+    (value) => value.projectionStatus === "ready" && value.state === "complete",
+    timeoutMs,
+  );
   await waitForState(
     client,
     driverCallExpression("topicConversationNavigatorState", { conversationId }),
@@ -210,41 +185,10 @@ async function waitForConversationSurface(client, conversationId, ready, timeout
 
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready, timeoutMs) {
   return waitForBackendState(
-    async () => readConversationSnapshotForWait(backend, workspaceId, conversationId),
-    (value) => value !== null && ready(value),
-    timeoutMs,
-  );
-}
-
-function waitForConversationInputState(
-  backend,
-  workspaceId,
-  conversationId,
-  inputId,
-  ready,
-  timeoutMs,
-) {
-  return waitForBackendState(
-    async () =>
-      backend.post("/conversations/inputs/state/read", { conversationId, inputId, workspaceId }),
+    async () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
     ready,
     timeoutMs,
   );
-}
-
-async function readConversationSnapshotForWait(backend, workspaceId, conversationId) {
-  const response = await backend.request("POST", "/conversations/snapshot/read", {
-    conversationId,
-    workspaceId,
-  });
-  if (response.status === 404) {
-    return null;
-  }
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(`POST /conversations/snapshot/read returned ${response.status}: ${body}`);
-  }
-  return JSON.parse(body);
 }
 
 async function closeConversationPane(client, conversationId) {
