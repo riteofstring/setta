@@ -86,6 +86,45 @@ export function scriptedMasterClarificationConfirmationDecision(context, schema,
   return { conversationId: target.conversationId, kind: "focus_conversation" };
 }
 
+export function scriptedMasterFocusDecision(context, schema, input) {
+  const candidate = context.candidates?.[0];
+  const conversationId = masterFocusCandidateID(candidate);
+  if (
+    conversationId === "" ||
+    !masterFocusDecisionAllowed(context, schema, input, conversationId)
+  ) {
+    return null;
+  }
+  return { conversationId, kind: "focus_conversation" };
+}
+
+export function scriptedMasterFolderlessRecentFocusDecision(context, schema, input) {
+  const target = masterFolderQuestionTarget(context);
+  if (
+    input?.source !== "shell" ||
+    input?.modality !== "text" ||
+    !masterFolderQuestionTargetIsUsable(context, schema, target)
+  ) {
+    return null;
+  }
+  return { conversationId: target.conversationId, kind: "focus_conversation" };
+}
+
+export function scriptedMasterFolderlessClarificationDecision(context, schema) {
+  const target = masterFolderQuestionTarget(context);
+  if (
+    !context.allowedDecisionKinds?.includes("clarify") ||
+    !schema.includes('"clarify"') ||
+    !masterFolderQuestionTargetIsUsable(context, schema, target)
+  ) {
+    return null;
+  }
+  return {
+    kind: "clarify",
+    question: "Do you mean the conversation where you asked which folder you were in?",
+  };
+}
+
 function validStructuredMasterClarificationContext(clarification) {
   return (
     clarification === null ||
@@ -119,6 +158,56 @@ function masterClarificationConfirmationAllowed(context, schema, input, target) 
     target.allowedDecisionKinds?.includes("focus_conversation"),
     schema.includes(`"${target.conversationId}"`),
   ].every(Boolean);
+}
+
+function masterFocusDecisionAllowed(context, schema, input, conversationId) {
+  return [
+    input?.source === "shell",
+    input?.modality === "text",
+    masterRouteTargetCanFocus(context, conversationId),
+    schema.includes(`"${conversationId}"`),
+  ].every(Boolean);
+}
+
+function masterFocusCandidateID(candidate) {
+  return nonEmptyString(candidate?.conversationId) ? candidate.conversationId : "";
+}
+
+function masterRouteTargetCanFocus(context, conversationId) {
+  const target = context.conversationTargets?.find(
+    (item) => item.conversationId === conversationId,
+  );
+  return target?.allowedDecisionKinds?.includes("focus_conversation") === true;
+}
+
+function masterFolderQuestionTargetIsUsable(context, schema, target) {
+  if (
+    target?.resourceScope?.kind !== "folderless" ||
+    !target.allowedDecisionKinds?.includes("focus_conversation") ||
+    !schema.includes(`"${target.conversationId}"`)
+  ) {
+    return false;
+  }
+  return context.candidates?.some((candidate) => masterFolderQuestionCandidate(candidate, target));
+}
+
+function masterFolderQuestionTarget(context) {
+  const candidate = context.candidates?.find((item) => masterFolderQuestionCandidate(item));
+  return context.conversationTargets?.find(
+    (target) => target.conversationId === candidate?.conversationId,
+  );
+}
+
+function masterFolderQuestionCandidate(candidate, target = null) {
+  return [
+    target === null || candidate?.conversationId === target.conversationId,
+    candidate?.resourceScope?.kind === "folderless",
+    candidateRecentUserRequestText(candidate).toLowerCase().includes("what folder am i in"),
+  ].every(Boolean);
+}
+
+function candidateRecentUserRequestText(candidate) {
+  return (candidate?.recentUserRequests ?? []).map((excerpt) => excerpt.text ?? "").join("\n");
 }
 
 export function listCursorOffset(cursor) {

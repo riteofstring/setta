@@ -13,6 +13,9 @@ import {
   listLimit,
   optionalNonNegativeIntegerEnvironment,
   scriptedMasterClarificationConfirmationDecision,
+  scriptedMasterFocusDecision,
+  scriptedMasterFolderlessClarificationDecision,
+  scriptedMasterFolderlessRecentFocusDecision,
   validSideBoundary,
   validSideContextFrame,
   validStructuredMasterRouteContext,
@@ -604,6 +607,14 @@ const scriptedMasterRouteDecisionByText = new Map([
   ["Crash master route.", scriptedMasterCrashDecision],
   ["Focus Alpha topic.", scriptedMasterFocusDecision],
   ["Create Gamma topic.", scriptedMasterCreateDecision],
+  [
+    "Open the recent conversation where I asked what folder I was in.",
+    scriptedMasterFolderlessRecentFocusDecision,
+  ],
+  [
+    "Clarify the recent folder question conversation.",
+    scriptedMasterFolderlessClarificationDecision,
+  ],
   ["Open an Alpha side.", scriptedMasterSideDecision],
   ["Fork Alpha topic.", scriptedMasterForkDecision],
 ]);
@@ -712,21 +723,6 @@ function isShellVoiceMasterInput(input) {
     input?.source === "shell" &&
     (input?.modality === "voice" || input?.text === "Answer from folderless master.")
   );
-}
-
-function scriptedMasterFocusDecision(context, schema, input) {
-  const candidate = context.candidates?.[0];
-  const target = context.conversationTargets?.find(
-    (item) => item.conversationId === candidate?.conversationId,
-  );
-  const valid = [
-    input.source === "shell",
-    input.modality === "text",
-    nonEmptyString(candidate?.conversationId),
-    target?.allowedDecisionKinds?.includes("focus_conversation"),
-    schema.includes(`"${candidate?.conversationId}"`),
-  ].every(Boolean);
-  return valid ? { conversationId: candidate.conversationId, kind: "focus_conversation" } : null;
 }
 
 function scriptedMasterClarificationDecision(context, schema) {

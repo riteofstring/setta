@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, window */
 
 (() => {
-  const version = "setta-app-pane-layout-driver-v6";
+  const version = "setta-app-pane-layout-driver-v7";
   const conversationPaneNavigationRequestEvent = "setta:conversation-pane-navigation-request";
   let roundTripPromise = null;
 
@@ -29,6 +29,7 @@
       appPaneLayoutShellState,
       appPaneLayoutSubmitFolderlessConversationText,
       appPaneLayoutSubmitMasterText,
+      appPaneLayoutSubmitMasterTextForRecording,
       appPaneLayoutTranscriptState,
       appPaneLayoutVersion: version,
     });
@@ -189,6 +190,14 @@
   }
 
   async function appPaneLayoutSubmitMasterText({ expectedResultKind = "answer_global", text }) {
+    const submitted = appPaneLayoutSubmitMasterTextForRecording({ text });
+    if (submitted.status !== "passed") {
+      return submitted;
+    }
+    return waitForMasterRoutingResult({ expectedResultKind, text });
+  }
+
+  function appPaneLayoutSubmitMasterTextForRecording({ text }) {
     const composer = masterPaneComposer();
     if (!(composer instanceof HTMLTextAreaElement)) {
       return { reason: "missing-master-pane-composer", status: "failed" };
@@ -203,7 +212,7 @@
       return { reason: "disabled-master-send-button", status: "failed" };
     }
     send.click();
-    return waitForMasterRoutingResult({ expectedResultKind, text });
+    return { reason: "clicked", status: "passed" };
   }
 
   function masterPaneComposer() {

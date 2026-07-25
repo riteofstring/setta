@@ -90,6 +90,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "master-folderless-routing-workflow.test.mjs",
+    name: "master-folderless-routing",
+    tiers: ["required"],
+  },
+  {
     file: "instant-voice-capture-phase0-audioworklet.test.mjs",
     name: "instant-voice-capture-phase0-audioworklet",
     tiers: ["performance"],

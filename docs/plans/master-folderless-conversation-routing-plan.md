@@ -169,9 +169,9 @@ decide whether app-level conversation retrieval happens.
 
 ### 4. Make Route Targets Folderless-Capable
 
-**Repository status:** Partially implemented. Route targets, candidate contexts, audits, route
-authority, and focus/open decisions now use explicit resource scopes. Folderless agent-turn behavior
-that needs typed resource requests remains in phase 7.
+**Repository status:** Implemented. Route targets, candidate contexts, audits, route authority, and
+focus/open decisions now use explicit resource scopes, and folderless agent-turn behavior that needs
+typed resource requests is covered by phase 7.
 
 Change master route targets, candidate contexts, audits, and command validation so a target can be
 folderless.
@@ -191,9 +191,9 @@ Do not permit the model to invent resource bindings, workspace ids, pane ids, or
 
 ### 5. Present Conversation Panes From Resource Bindings
 
-**Repository status:** Partially implemented. Master presentation targets now carry resource scopes
-and trusted resource bindings, and folderless targets present with empty resource bindings. Production
-workflow coverage remains in phase 8.
+**Repository status:** Implemented. Master presentation targets now carry resource scopes and trusted
+resource bindings, folderless targets present with empty resource bindings, and production workflow
+coverage is covered by phase 8.
 
 Make master route commands and presentation intents open/focus conversation panes from trusted app
 state instead of a required workspace id.
@@ -255,6 +255,13 @@ The missing-folder path remains a typed resource request, not an internal error 
 all folderless conversation UX.
 
 ### 8. Verify Through Production Paths
+
+**Repository status:** Implemented. Focused backend tests cover the folderless
+index/retrieval/target/authority/clarification pieces, and the deterministic
+`master-folderless-routing` Electron workflow covers no-folder master submission, folderless
+master-created conversations, semantic content lookup, focus, reopen, clarification confirmation,
+folder-resource request surfacing, and the no-workspace-selection invariant. Broad deterministic and
+live-provider final-audit gates remain pending.
 
 Because this touches master routing, topic-conversation state, pane presentation, generated
 contracts, IPC/preload, renderer state, HTTP, and persistence, deterministic Electron E2E coverage is
