@@ -59,9 +59,8 @@
 
   function shellTopBarControlMeasurements() {
     return {
-      masterButton: measuredRect('[data-testid="master-overlay-button"]'),
+      masterButton: measuredRect('[data-testid="master-pane-button"]'),
       newFrameButton: measuredRect(".workspace-toolbar-menu-button"),
-      projectToggle: measuredRect('[data-testid="project-sidebar-toggle"]'),
       settingsButton: measuredRect('[data-testid="shell-settings-button"]'),
       shellTopBar: measuredRect('[data-testid="shell-top-bar"]'),
       toolbarButton: measuredRect(".workspace-toolbar-button"),

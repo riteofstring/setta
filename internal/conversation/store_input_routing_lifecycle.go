@@ -152,8 +152,10 @@ func (store *Store) RetryConversationInputRouting(
 	if ctx == nil {
 		return AcceptedConversationInput{}, errors.New("conversation input routing retry context is required")
 	}
-	if err := validateConversationInputReference("conversation input retry workspace id", workspaceID); err != nil {
-		return AcceptedConversationInput{}, err
+	if workspaceID != "" {
+		if err := validateConversationInputReference("conversation input retry workspace id", workspaceID); err != nil {
+			return AcceptedConversationInput{}, err
+		}
 	}
 	if err := validateConversationInputReference("conversation input retry conversation id", conversationID); err != nil {
 		return AcceptedConversationInput{}, err
@@ -334,8 +336,10 @@ func (store *Store) DiscardConversationInputRouting(
 	if ctx == nil {
 		return errors.New("conversation input discard context is required")
 	}
-	if err := validateConversationInputReference("conversation input discard workspace id", workspaceID); err != nil {
-		return err
+	if workspaceID != "" {
+		if err := validateConversationInputReference("conversation input discard workspace id", workspaceID); err != nil {
+			return err
+		}
 	}
 	if err := validateConversationInputReference("conversation input discard conversation id", conversationID); err != nil {
 		return err

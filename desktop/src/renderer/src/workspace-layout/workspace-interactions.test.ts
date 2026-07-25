@@ -345,6 +345,24 @@ describe("workspace pane click focus", () => {
     expect(click.stopPropagation).not.toHaveBeenCalled();
   });
 
+  test("focuses another pane when master close is non-destructive", async () => {
+    const context = masterCloseClickContext();
+
+    handleWorkspaceClick({ ...context, event: context.event });
+    await waitForMicrotask();
+
+    expect(context.event.preventDefault).toHaveBeenCalledOnce();
+    expect(context.event.stopPropagation).toHaveBeenCalledOnce();
+    expect(context.scheduler.pauseBenchmark).toHaveBeenCalledOnce();
+    expect(context.adapter.requestPaneClose).toHaveBeenCalledOnce();
+    expect(context.runtime.store.mostRecentlyFocusedPaneId).toHaveBeenCalledWith([
+      "conversation-pane",
+    ]);
+    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("conversation-pane");
+    expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
+    expect(context.runtime.store.closeFocusedPaneOrClearLastPane).not.toHaveBeenCalled();
+  });
+
   test("reveals top bar clicks on panes already focused by content", () => {
     const context = workspaceClickContext({ focusedPaneId: "pane" });
     const event = pointerEvent({ clientX: 240, clientY: 52, target: context.paneTarget });
@@ -431,6 +449,79 @@ function workspaceClickContext({
     scheduler,
     paneTarget,
     retargetedControlClick,
+    viewport,
+    viewportProvider: () => viewport,
+  };
+}
+
+function masterCloseClickContext() {
+  const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
+  const paneHost = new FakeElement({
+    rect: { bottom: 260, left: 100, right: 420, top: 40 },
+    surfaceKind: "master",
+  });
+  paneHost.dataset.paneId = "master-pane";
+  const closeButton = new FakeElement({
+    closestHost: paneHost,
+    paneAction: "close",
+  });
+  const scene = {
+    paneById: new Map([
+      [
+        "master-pane",
+        {
+          paneId: "master-pane",
+          surfaceId: "master-surface",
+          surfaceKind: "master",
+        },
+      ],
+      [
+        "conversation-pane",
+        {
+          paneId: "conversation-pane",
+          surfaceId: "conversation-surface",
+          surfaceKind: "conversation",
+        },
+      ],
+    ]),
+    panes: [
+      {
+        paneId: "master-pane",
+        surfaceId: "master-surface",
+        surfaceKind: "master",
+      },
+      {
+        paneId: "conversation-pane",
+        surfaceId: "conversation-surface",
+        surfaceKind: "conversation",
+      },
+    ],
+  };
+  const adapter = {
+    requestPaneClose: vi.fn(async () => ({ removePane: false })),
+  };
+  const store = {
+    closeFocusedPaneOrClearLastPane: vi.fn(),
+    ensureFocusedPaneVisible: vi.fn(),
+    focusPane: vi.fn(() => true),
+    getSnapshot: () => ({ presentationMode: "normal" }),
+    mostRecentlyFocusedPaneId: vi.fn(() => "conversation-pane"),
+    toScene: vi.fn(() => scene),
+  };
+  const runtime = {
+    mode: "workspace",
+    store,
+    surfaceRegistry: {
+      adapterFor: vi.fn(() => adapter),
+    },
+  } as unknown as WorkspaceRuntime;
+  const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
+  return {
+    adapter,
+    event: mouseEvent({ clientX: 240, clientY: 52, target: closeButton }),
+    runLayoutAction: (action: () => void) => action(),
+    runtime,
+    scheduler,
     viewport,
     viewportProvider: () => viewport,
   };
@@ -575,6 +666,12 @@ function keyboardEvent({
   };
 }
 
+function waitForMicrotask(): Promise<void> {
+  return new Promise((resolve) => {
+    queueMicrotask(resolve);
+  });
+}
+
 class FakeElement {
   readonly dataset: Record<string, string> = {};
   readonly classList = {
@@ -585,6 +682,7 @@ class FakeElement {
     private readonly options: {
       closestHost?: FakeElement;
       interactiveControl?: boolean;
+      paneAction?: string;
       pointTarget?: FakeElement;
       rect?: { bottom: number; left: number; right: number; top: number };
       surfaceKind?: string;
@@ -592,6 +690,9 @@ class FakeElement {
   ) {
     if (options.surfaceKind) {
       this.dataset.surfaceKind = options.surfaceKind;
+    }
+    if (options.paneAction) {
+      this.dataset.workspacePaneAction = options.paneAction;
     }
   }
 
@@ -602,9 +703,13 @@ class FakeElement {
   closest(selector: string): FakeElement | null {
     if (
       this.options.closestHost &&
-      selector === '[data-testid="workspace-pane-host"][data-visible="true"]'
+      (selector === '[data-testid="workspace-pane-host"][data-visible="true"]' ||
+        selector === '[data-testid="workspace-pane-host"]')
     ) {
       return this.options.closestHost;
+    }
+    if (this.options.paneAction && selector === "[data-workspace-pane-action]") {
+      return this;
     }
     if (
       this.options.interactiveControl &&

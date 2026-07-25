@@ -1,14 +1,19 @@
 package master
 
-import "testing"
+import (
+	"testing"
+
+	"setta/internal/applayout"
+)
 
 func TestPresentationIntentForCommandUsesTrustedPaneTargets(t *testing.T) {
 	paneID := "pane-alpha"
 	target := ConversationPresentationTarget{
-		WorkspaceID:     "workspace-alpha",
-		ConversationID:  "conversation-alpha",
-		Title:           "Alpha topic",
-		PreferredPaneID: &paneID,
+		WorkspaceID:      "workspace-alpha",
+		ConversationID:   "conversation-alpha",
+		ResourceBindings: testPresentationResourceBindings(),
+		Title:            "Alpha topic",
+		PreferredPaneID:  &paneID,
 	}
 	input := MasterInput{
 		ID:          "master-input-focus",
@@ -91,7 +96,7 @@ func TestPresentationIntentForMasterSideAllowsRendererToResolveParentPane(t *tes
 		Kind: RouteDecisionKindCreateSideConversation,
 		CreateSideConversation: &MasterCreateSideConversationRouteCommand{
 			Target: ConversationPresentationTarget{
-				WorkspaceID: "workspace-alpha", ConversationID: "conversation-alpha", Title: "Alpha topic",
+				WorkspaceID: "workspace-alpha", ConversationID: "conversation-alpha", ResourceBindings: testPresentationResourceBindings(), Title: "Alpha topic",
 			},
 			SideConversationID: "side-alpha",
 			TurnID:             "side-turn-alpha",
@@ -125,9 +130,10 @@ func TestRouteCommandRejectsDecisionPayloadDrift(t *testing.T) {
 		Kind: RouteDecisionKindSendToAgent,
 		SendToAgent: &MasterSendToAgentRouteCommand{
 			Target: ConversationPresentationTarget{
-				WorkspaceID:    "workspace-alpha",
-				ConversationID: "conversation-alpha",
-				Title:          "Alpha topic",
+				WorkspaceID:      "workspace-alpha",
+				ConversationID:   "conversation-alpha",
+				ResourceBindings: testPresentationResourceBindings(),
+				Title:            "Alpha topic",
 			},
 			TurnID:        "turn-alpha",
 			AuthoredInput: "Changed input.",
@@ -136,4 +142,11 @@ func TestRouteCommandRejectsDecisionPayloadDrift(t *testing.T) {
 	if err := command.ValidateDecision(decision); err == nil {
 		t.Fatal("RouteCommand.ValidateDecision accepted changed authored input")
 	}
+}
+
+func testPresentationResourceBindings() []applayout.ConversationPaneResourceBinding {
+	return []applayout.ConversationPaneResourceBinding{{
+		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
+		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
+	}}
 }

@@ -10,9 +10,9 @@ import { fileURLToPath } from "node:url";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   readLocalRuntimeAccess,
   stopElectronCdpContext,
@@ -223,7 +223,7 @@ async function ensureWorkspaceOpen(client) {
   if (validWorkspaceId(initialWorkspaceId)) {
     return initialWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),

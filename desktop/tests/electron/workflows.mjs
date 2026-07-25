@@ -1,5 +1,10 @@
 export const electronWorkflows = [
   {
+    file: "app-pane-layout-workflow.test.mjs",
+    name: "app-pane-layout",
+    tiers: ["required"],
+  },
+  {
     file: "app-window-drag-workflow.test.mjs",
     name: "app-window-drag",
     tiers: ["required"],
@@ -72,6 +77,11 @@ export const electronWorkflows = [
   {
     file: "local-macos-voice-capture-workflow.test.mjs",
     name: "local-macos-voice-capture",
+    tiers: ["required"],
+  },
+  {
+    file: "folderless-conversation-local-voice-workflow.test.mjs",
+    name: "folderless-conversation-local-voice",
     tiers: ["required"],
   },
   {

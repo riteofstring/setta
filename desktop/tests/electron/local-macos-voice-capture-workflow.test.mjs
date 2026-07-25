@@ -10,9 +10,9 @@ import process from "node:process";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -213,7 +213,7 @@ async function ensureWorkspaceOpen(client) {
   if (validWorkspaceId(initialWorkspaceId)) {
     return initialWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Choose project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -272,8 +272,18 @@ async function openMasterOverlay(client) {
   if (state.open) {
     return;
   }
-  await clickEnabledButtonByAria(client, "Open Ask Setta", workflowTimeoutMs);
-  await waitForSelector(client, '[data-testid="master-overlay"]');
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="master-pane-button"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error("Ask Setta could not be opened for its voice control");
+  }
+  await waitForSelector(client, '[data-testid="master-pane-surface"]');
 }
 
 async function clickMasterOverlayVoice(client) {

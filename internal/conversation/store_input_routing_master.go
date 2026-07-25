@@ -67,7 +67,7 @@ func readConversationRouteWorkspaceID(
 	tx *sql.Tx,
 	conversationID string,
 ) (string, error) {
-	var workspaceID string
+	var workspaceID sql.NullString
 	if err := tx.QueryRowContext(ctx, `
 SELECT workspace_id
 FROM conversations
@@ -75,7 +75,10 @@ WHERE id = ?
 `, conversationID).Scan(&workspaceID); err != nil {
 		return "", fmt.Errorf("read conversation route workspace %s: %w", conversationID, err)
 	}
-	return workspaceID, nil
+	if !workspaceID.Valid {
+		return "", fmt.Errorf("%w: %s", ErrConversationHasNoWorkspace, conversationID)
+	}
+	return workspaceID.String, nil
 }
 
 func masterInputModalityForConversationInput(
