@@ -146,13 +146,17 @@ Its production fixes and green broad deterministic evidence are committed, and
 the one live-provider attempt passed all four suites. The corrected in-frame
 WebGL probe passes the lifecycle and complete viewport/DPR submatrices, but the
 final broad performance attempt stopped on the probe's former sparse-graph
-calibration and was not restarted. Phase 4 therefore remains open for the
-unreached burst, compaction, occlusion, 100-workstream navigation, ten-minute
-sustained, and restart/replay rows. Visual evidence also exposed and the audit
-fixed a stale selected-workstream milestone that contradicted a running status;
-the focused shell tests and production Director Electron workflow pass after
-that final UI-only edit, and the earlier green broad deterministic gate was not
-duplicated.
+calibration and was not restarted. A follow-up graph-update selector is green
+and recorded in
+[`docs/reports/performance/setta-4-command-center-graph-update-performance-20260725.md`](../reports/performance/setta-4-command-center-graph-update-performance-20260725.md):
+the pushed text-delta burst, large live history compaction, and occlusion/resume
+rows now pass on the corrected production-shell probe. Phase 4 therefore remains
+open for the 100-workstream navigation, ten-minute sustained, and restart/replay
+performance rows plus side-by-side mockup review and any polish it finds. Visual
+evidence also exposed and the audit fixed a stale selected-workstream milestone
+that contradicted a running status; the focused shell tests and production
+Director Electron workflow pass after that final UI-only edit, and the earlier
+green broad deterministic gate was not duplicated.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1685,9 +1689,13 @@ Phase 3 audit verification:
    gates, and green lifecycle plus complete viewport/DPR measurements. Its final
    broad performance attempt stopped on an over-strict sparse-live-graph pixel
    threshold. That probe is corrected and narrowly verified, but the run was not
-   restarted under the audit's at-most-once rule. Burst, compaction, occlusion,
-   100-workstream navigation, ten-minute sustained activity, and restart/replay
-   remain before this item can be marked done.
+   restarted under the audit's at-most-once rule. A follow-up graph-update
+   measurement,
+   [`docs/reports/performance/setta-4-command-center-graph-update-performance-20260725.md`](../reports/performance/setta-4-command-center-graph-update-performance-20260725.md),
+   passes the pushed text-delta burst, large live history compaction, and
+   occlusion/resume rows on the corrected probe. 100-workstream navigation,
+   ten-minute sustained activity, and restart/replay remain before this item can
+   be marked done.
 
 Exit gate:
 
