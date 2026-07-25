@@ -207,8 +207,12 @@ func readMasterRouteCreateConversationEffect(
 	reader routeCommandEffectReader,
 	command *master.MasterCreateConversationRouteCommand,
 ) (bool, error) {
+	targetWorkspaceID, err := masterRouteCommandFolderWorkspaceID(command.Target)
+	if err != nil {
+		return false, err
+	}
 	var workspaceID, title string
-	err := reader.QueryRowContext(ctx, `
+	err = reader.QueryRowContext(ctx, `
 SELECT workspace_id, title
 FROM conversations
 WHERE id = ?
@@ -219,7 +223,7 @@ WHERE id = ?
 	if err != nil {
 		return false, err
 	}
-	if workspaceID != command.Target.WorkspaceID || title != command.Target.Title {
+	if workspaceID != targetWorkspaceID || title != command.Target.Title {
 		return false, stateConflict("master route conversation", command.Target.ConversationID, "stored effect does not match its command")
 	}
 	return readConversationRouteTurnEffect(ctx, reader, command.Target.ConversationID, command.TurnID, AuthoredInput{Text: command.InitialInput}, TurnDeliveryNormal)

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 76;
-export const backendContractSchemaHash = "sha256:9e9021b3658b07f45b91be45b91ceb6c5623e3ccb3f2125b22c93c7833085d6a";
+export const backendProtocolVersion = 77;
+export const backendContractSchemaHash = "sha256:9b293842fa5faaa439fd73034c647ee5c5be762d530b6b7004e880235c2a68e0";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1282,6 +1282,22 @@ export function decodeRouteDecisionKind(value: unknown, label = "RouteDecisionKi
     case "clarify":
       return decoded;
     case "answer_global":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RouteResourceScopeKind = "folderless" | "folder";
+
+export const routeResourceScopeKindValues = ["folderless", "folder"] as const satisfies readonly RouteResourceScopeKind[];
+
+export function decodeRouteResourceScopeKind(value: unknown, label = "RouteResourceScopeKind"): RouteResourceScopeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "folderless":
+      return decoded;
+    case "folder":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3157,15 +3173,25 @@ export interface ReadMasterInputRoutingStateRequest {
   inputId: string;
 }
 
+export interface RouteFolderResourceScope {
+  workspaceId: string;
+  workspaceName: string;
+}
+
+export interface RouteResourceScope {
+  kind: RouteResourceScopeKind;
+  folder: RouteFolderResourceScope | null;
+}
+
 export interface RouteCandidateAudit {
   conversationId: string;
-  workspaceId: string;
+  resourceScope: RouteResourceScope;
   lexicalRank: number | null;
 }
 
 export interface RouteTargetAuthority {
   conversationId: string;
-  workspaceId: string;
+  resourceScope: RouteResourceScope;
   allowedDecisionKinds: RouteDecisionKind[];
   completedForkTurnIds: string[];
 }
@@ -3209,8 +3235,8 @@ export interface RouteInvocationAudit {
 }
 
 export interface ConversationPresentationTarget {
-  workspaceId: string;
   conversationId: string;
+  resourceScope: RouteResourceScope;
   resourceBindings: ConversationPaneResourceBinding[];
   title: string;
   preferredPaneId: string | null;
@@ -6617,22 +6643,40 @@ export function decodeReadMasterInputRoutingStateRequest(value: unknown): ReadMa
   };
 }
 
+export function decodeRouteFolderResourceScope(value: unknown): RouteFolderResourceScope {
+  const record = assertRecord(value, "RouteFolderResourceScope");
+  assertKnownFields(record, "RouteFolderResourceScope", ["workspaceId", "workspaceName"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceId"),
+    workspaceName: decodeString(requireField(record, "workspaceName", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceName"),
+  };
+}
+
+export function decodeRouteResourceScope(value: unknown): RouteResourceScope {
+  const record = assertRecord(value, "RouteResourceScope");
+  assertKnownFields(record, "RouteResourceScope", ["kind", "folder"]);
+  return {
+    kind: decodeRouteResourceScopeKind(requireField(record, "kind", "RouteResourceScope"), "RouteResourceScope.kind"),
+    folder: decodeNullable(requireField(record, "folder", "RouteResourceScope"), "RouteResourceScope.folder", (item) => decodeRouteFolderResourceScope(item)),
+  };
+}
+
 export function decodeRouteCandidateAudit(value: unknown): RouteCandidateAudit {
   const record = assertRecord(value, "RouteCandidateAudit");
-  assertKnownFields(record, "RouteCandidateAudit", ["conversationId", "workspaceId", "lexicalRank"]);
+  assertKnownFields(record, "RouteCandidateAudit", ["conversationId", "resourceScope", "lexicalRank"]);
   return {
     conversationId: decodeString(requireField(record, "conversationId", "RouteCandidateAudit"), "RouteCandidateAudit.conversationId"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "RouteCandidateAudit"), "RouteCandidateAudit.workspaceId"),
+    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "RouteCandidateAudit")),
     lexicalRank: decodeNullable(requireField(record, "lexicalRank", "RouteCandidateAudit"), "RouteCandidateAudit.lexicalRank", (item) => decodeNumber(item, "RouteCandidateAudit.lexicalRank")),
   };
 }
 
 export function decodeRouteTargetAuthority(value: unknown): RouteTargetAuthority {
   const record = assertRecord(value, "RouteTargetAuthority");
-  assertKnownFields(record, "RouteTargetAuthority", ["conversationId", "workspaceId", "allowedDecisionKinds", "completedForkTurnIds"]);
+  assertKnownFields(record, "RouteTargetAuthority", ["conversationId", "resourceScope", "allowedDecisionKinds", "completedForkTurnIds"]);
   return {
     conversationId: decodeString(requireField(record, "conversationId", "RouteTargetAuthority"), "RouteTargetAuthority.conversationId"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "RouteTargetAuthority"), "RouteTargetAuthority.workspaceId"),
+    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "RouteTargetAuthority")),
     allowedDecisionKinds: decodeArray(requireField(record, "allowedDecisionKinds", "RouteTargetAuthority"), "RouteTargetAuthority.allowedDecisionKinds", (item) => decodeRouteDecisionKind(item, "RouteTargetAuthority.allowedDecisionKinds item")),
     completedForkTurnIds: decodeArray(requireField(record, "completedForkTurnIds", "RouteTargetAuthority"), "RouteTargetAuthority.completedForkTurnIds", (item) => decodeString(item, "RouteTargetAuthority.completedForkTurnIds item")),
   };
@@ -6690,10 +6734,10 @@ export function decodeRouteInvocationAudit(value: unknown): RouteInvocationAudit
 
 export function decodeConversationPresentationTarget(value: unknown): ConversationPresentationTarget {
   const record = assertRecord(value, "ConversationPresentationTarget");
-  assertKnownFields(record, "ConversationPresentationTarget", ["workspaceId", "conversationId", "resourceBindings", "title", "preferredPaneId"]);
+  assertKnownFields(record, "ConversationPresentationTarget", ["conversationId", "resourceScope", "resourceBindings", "title", "preferredPaneId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ConversationPresentationTarget"), "ConversationPresentationTarget.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationPresentationTarget"), "ConversationPresentationTarget.conversationId"),
+    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "ConversationPresentationTarget")),
     resourceBindings: decodeArray(requireField(record, "resourceBindings", "ConversationPresentationTarget"), "ConversationPresentationTarget.resourceBindings", (item) => decodeConversationPaneResourceBinding(item)),
     title: decodeString(requireField(record, "title", "ConversationPresentationTarget"), "ConversationPresentationTarget.title"),
     preferredPaneId: decodeNullable(requireField(record, "preferredPaneId", "ConversationPresentationTarget"), "ConversationPresentationTarget.preferredPaneId", (item) => decodeString(item, "ConversationPresentationTarget.preferredPaneId")),

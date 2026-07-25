@@ -84,7 +84,7 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			ActiveWorkspaceIDs:   []string{"workspace_test"},
 			TargetAuthorities: []master.RouteTargetAuthority{{
 				ConversationID:       "conversation_test",
-				WorkspaceID:          "workspace_test",
+				ResourceScope:        master.FolderRouteResourceScope("workspace_test", ""),
 				AllowedDecisionKinds: []master.RouteDecisionKind{master.RouteDecisionKindAskNarrator},
 				CompletedForkTurnIDs: []string{},
 			}},
@@ -113,8 +113,8 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			Kind: master.RouteDecisionKindAskNarrator,
 			AskNarrator: &master.MasterAskNarratorRouteCommand{
 				Target: master.ConversationPresentationTarget{
-					WorkspaceID:      "workspace_test",
 					ConversationID:   "conversation_test",
+					ResourceScope:    master.FolderRouteResourceScope("workspace_test", ""),
 					ResourceBindings: masterRouteExecutorTestResourceBindings(),
 					Title:            "Test conversation",
 				},

@@ -151,6 +151,8 @@ The topic index is derived state. Rebuild it from canonical conversations after 
 
 ### 3. Make Master Retrieval App-Scoped
 
+**Repository status:** Implemented.
+
 Stop using active workspaces as the gate for whether the master can retrieve candidates.
 
 Required behavior:
@@ -166,6 +168,10 @@ Required behavior:
 decide whether app-level conversation retrieval happens.
 
 ### 4. Make Route Targets Folderless-Capable
+
+**Repository status:** Partially implemented. Route targets, candidate contexts, audits, route
+authority, and focus/open decisions now use explicit resource scopes. Folderless agent-turn behavior
+that needs typed resource requests remains in phase 7.
 
 Change master route targets, candidate contexts, audits, and command validation so a target can be
 folderless.
@@ -184,6 +190,10 @@ Required changes:
 Do not permit the model to invent resource bindings, workspace ids, pane ids, or filesystem paths.
 
 ### 5. Present Conversation Panes From Resource Bindings
+
+**Repository status:** Partially implemented. Master presentation targets now carry resource scopes
+and trusted resource bindings, and folderless targets present with empty resource bindings. Production
+workflow coverage remains in phase 8.
 
 Make master route commands and presentation intents open/focus conversation panes from trusted app
 state instead of a required workspace id.

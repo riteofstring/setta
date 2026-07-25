@@ -236,9 +236,12 @@ describe("conversation pane coordinator", () => {
           target: {
             conversationId: "conversation_shared",
             preferredPaneId: "pane_shared",
+            resourceScope: {
+              folder: { workspaceId: "workspace_api", workspaceName: "" },
+              kind: "folder",
+            },
             resourceBindings: [{ folder: { rootPath: "/tmp/setta-api" }, kind: "folder" }],
             title: "Shared topic",
-            workspaceId: "workspace_api",
           },
         },
         id: "master-presentation:input_shared",

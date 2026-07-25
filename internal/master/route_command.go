@@ -27,8 +27,8 @@ const (
 // master decision is validated. The model never authors workspace, pane, or
 // presentation metadata beyond the conversation id selected by its decision.
 type ConversationPresentationTarget struct {
-	WorkspaceID      string                                      `json:"workspaceId"`
 	ConversationID   string                                      `json:"conversationId"`
+	ResourceScope    RouteResourceScope                          `json:"resourceScope"`
 	ResourceBindings []applayout.ConversationPaneResourceBinding `json:"resourceBindings"`
 	Title            string                                      `json:"title"`
 	PreferredPaneID  *string                                     `json:"preferredPaneId"`
@@ -160,10 +160,10 @@ type PresentationResolution struct {
 }
 
 func (target ConversationPresentationTarget) Validate() error {
-	if err := validateRouteReference("master presentation workspace id", target.WorkspaceID); err != nil {
+	if err := validateRouteReference("master presentation conversation id", target.ConversationID); err != nil {
 		return err
 	}
-	if err := validateRouteReference("master presentation conversation id", target.ConversationID); err != nil {
+	if err := target.ResourceScope.Validate(); err != nil {
 		return err
 	}
 	if err := validatePresentationResourceBindings(target.ResourceBindings); err != nil {
@@ -364,7 +364,8 @@ func validateMasterFocusConversationDecision(command *MasterFocusConversationRou
 }
 
 func validateMasterCreateConversationDecision(command *MasterCreateConversationRouteCommand, decision *MasterCreateConversationRouteDecision) error {
-	if command.Target.WorkspaceID != decision.WorkspaceID || command.Target.Title != decision.ProposedTitle || command.InitialInput != decision.InitialInput {
+	workspaceID, workspaceScoped := command.Target.ResourceScope.FolderWorkspaceID()
+	if !workspaceScoped || workspaceID != decision.WorkspaceID || command.Target.Title != decision.ProposedTitle || command.InitialInput != decision.InitialInput {
 		return errors.New("master create-conversation command does not match its decision")
 	}
 	return nil
