@@ -1303,7 +1303,7 @@ artifacts, disconnect, and resume from a durable cursor.
   those owners.
 - [x] Preserve ordered HTTP/SSE events, bounded backpressure, durable cursors,
   and push-based invalidation across the Candidate B gateway.
-- [ ] Add content-free latency instrumentation around ensure, wake, first
+- [x] Add content-free latency instrumentation around ensure, wake, first
   event, reconnect, replay, steering, cancellation, approval, and artifact
   availability.
 - [ ] Run deterministic local profiles and the identical fixed workload
@@ -2906,3 +2906,22 @@ Stop and reassess rather than hiding the problem if any of these occur:
   authorized live-Sprite workload; the local first-event, reconnect, replay,
   steering, cancellation, approval, and artifact-availability paths now have
   content-free timing. No provider or cloud mutation ran.
+- 2026-07-25 (Phase 4 latency-instrumentation closure): Closed the instrumentation
+  checkbox after an owner-boundary audit of the complete measurement chain.
+  Hosted access derives ensure-to-sync, sync-to-ready, and ensure-to-ready from
+  durable intent progress timestamps. Wake derives request-to-ready from the
+  stored wake request and the healthy observation that also requires the
+  observed release to match the desired release. Provider reconciliation emits
+  operation and attempt timing with typed progress kind/state and bounded error
+  code. The Candidate B gateway emits endpoint-registry-owned operation,
+  first-response, total request, reconnect, replay, route, transport, byte, and
+  result fields without request content or identity. The serving runtime now
+  emits committed steering, cancellation, approval, and artifact-availability
+  timing. None of these records retain user, runtime, operation, route,
+  provider-resource, workspace, conversation, turn, approval, artifact, text,
+  path, session, Task, or credential identifiers. The deterministic local and
+  Electron workflows prove every listed path. The adjacent Phase 4 fixed
+  live-Sprite workload and geography/capacity measurements remain open and are
+  not implied by this instrumentation closure. This was a documentation-only
+  owner-boundary audit after the clean code gates recorded above; no automated
+  check was repeated and no provider or cloud mutation ran.
