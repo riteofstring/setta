@@ -14,9 +14,10 @@ const (
 type SurfaceKind string
 
 const (
-	SurfaceKindBrowser      SurfaceKind = "browser"
-	SurfaceKindConversation SurfaceKind = "conversation"
-	SurfaceKindEmptyFrame   SurfaceKind = "empty-frame"
+	SurfaceKindBrowser     SurfaceKind = "browser"
+	SurfaceKindEasyButton  SurfaceKind = "easy-button"
+	SurfaceKindEmptyFrame  SurfaceKind = "empty-frame"
+	SurfaceKindSettingsDOM SurfaceKind = "settings-dom"
 )
 
 type PaneTone string
@@ -34,22 +35,22 @@ type ColumnWidthSpec struct {
 	Value float64         `json:"value"`
 }
 
-type WorkspaceConversationPaneConfig struct {
+type EasyButtonPaneConfig struct {
 	ConversationID string `json:"conversationId"`
 }
 
 type WorkspaceUIPane struct {
-	ColumnID           string                           `json:"columnId"`
-	ConversationConfig *WorkspaceConversationPaneConfig `json:"conversationConfig"`
-	Heat               int                              `json:"heat"`
-	PaneID             string                           `json:"paneId"`
-	Sequence           int                              `json:"sequence"`
-	Subtitle           string                           `json:"subtitle"`
-	SurfaceID          string                           `json:"surfaceId"`
-	SurfaceKind        SurfaceKind                      `json:"surfaceKind"`
-	Title              string                           `json:"title"`
-	Tone               PaneTone                         `json:"tone"`
-	Weight             float64                          `json:"weight"`
+	ColumnID         string                `json:"columnId"`
+	EasyButtonConfig *EasyButtonPaneConfig `json:"easyButtonConfig"`
+	Heat             int                   `json:"heat"`
+	PaneID           string                `json:"paneId"`
+	Sequence         int                   `json:"sequence"`
+	Subtitle         string                `json:"subtitle"`
+	SurfaceID        string                `json:"surfaceId"`
+	SurfaceKind      SurfaceKind           `json:"surfaceKind"`
+	Title            string                `json:"title"`
+	Tone             PaneTone              `json:"tone"`
+	Weight           float64               `json:"weight"`
 }
 
 type WorkspaceUIColumn struct {
@@ -104,18 +105,22 @@ func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
 		Variants: []ContractDiscriminatedStructVariant{
 			{
 				DiscriminatorValue: string(SurfaceKindBrowser),
-				Fields:             []ContractDiscriminatedStructField{{Name: "conversationConfig"}},
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
 			},
 			{
-				DiscriminatorValue: string(SurfaceKindConversation),
+				DiscriminatorValue: string(SurfaceKindEasyButton),
 				Fields: []ContractDiscriminatedStructField{{
-					Name:    "conversationConfig",
+					Name:    "easyButtonConfig",
 					NonNull: true,
 				}},
 			},
 			{
 				DiscriminatorValue: string(SurfaceKindEmptyFrame),
-				Fields:             []ContractDiscriminatedStructField{{Name: "conversationConfig"}},
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
+			},
+			{
+				DiscriminatorValue: string(SurfaceKindSettingsDOM),
+				Fields:             []ContractDiscriminatedStructField{{Name: "easyButtonConfig"}},
 			},
 		},
 	}}
@@ -134,8 +139,9 @@ func ContractValueSets() []ContractValueSet {
 			Name: "SurfaceKind",
 			Values: []string{
 				string(SurfaceKindBrowser),
-				string(SurfaceKindConversation),
+				string(SurfaceKindEasyButton),
 				string(SurfaceKindEmptyFrame),
+				string(SurfaceKindSettingsDOM),
 			},
 		},
 		{

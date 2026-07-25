@@ -61,21 +61,18 @@ func (service *Service) resolveWorkspaceNames(stored []StoredCandidate) ([]Candi
 	workspaceNames := make(map[string]string)
 	candidates := make([]Candidate, 0, len(stored))
 	for _, storedCandidate := range stored {
-		workspaceName := ""
-		if workspaceID, folderScoped := storedCandidate.Card.ResourceScope.FolderWorkspaceID(); folderScoped {
-			cachedName, ok := workspaceNames[workspaceID]
-			if !ok {
-				summary, err := service.workspaces.ResolveWorkspace(workspaceID)
-				if err != nil {
-					return nil, fmt.Errorf("resolve topic card workspace %s: %w", workspaceID, err)
-				}
-				if summary.ID != workspaceID || strings.TrimSpace(summary.DisplayName) == "" {
-					return nil, fmt.Errorf("workspace resolver returned invalid topic card workspace %s", workspaceID)
-				}
-				cachedName = summary.DisplayName
-				workspaceNames[workspaceID] = cachedName
+		workspaceID := storedCandidate.Card.WorkspaceID
+		workspaceName, ok := workspaceNames[workspaceID]
+		if !ok {
+			summary, err := service.workspaces.ResolveWorkspace(workspaceID)
+			if err != nil {
+				return nil, fmt.Errorf("resolve topic card workspace %s: %w", workspaceID, err)
 			}
-			workspaceName = cachedName
+			if summary.ID != workspaceID || strings.TrimSpace(summary.DisplayName) == "" {
+				return nil, fmt.Errorf("workspace resolver returned invalid topic card workspace %s", workspaceID)
+			}
+			workspaceName = summary.DisplayName
+			workspaceNames[workspaceID] = workspaceName
 		}
 		candidate := Candidate{
 			Card: TopicCard{

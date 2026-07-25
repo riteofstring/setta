@@ -113,20 +113,10 @@ type InvocationProviderReferences struct {
 	ResponseID *string `json:"responseId"`
 }
 
-type InvocationModelRerouteReason string
-
-const (
-	InvocationModelRerouteReasonHighRiskCyberActivity InvocationModelRerouteReason = "high_risk_cyber_activity"
-)
-
-var invocationModelRerouteReasons = []InvocationModelRerouteReason{
-	InvocationModelRerouteReasonHighRiskCyberActivity,
-}
-
 type InvocationModelReroute struct {
-	FromModelID string                       `json:"fromModelId"`
-	ToModelID   string                       `json:"toModelId"`
-	Reason      InvocationModelRerouteReason `json:"reason"`
+	FromModelID string `json:"fromModelId"`
+	ToModelID   string `json:"toModelId"`
+	Reason      string `json:"reason"`
 }
 
 type ResolvedInvocation struct {
@@ -319,17 +309,7 @@ func (reroute InvocationModelReroute) Validate() error {
 	if reroute.FromModelID == reroute.ToModelID {
 		return fmt.Errorf("model reroute must change model id")
 	}
-	validReason := false
-	for _, candidate := range invocationModelRerouteReasons {
-		if reroute.Reason == candidate {
-			validReason = true
-			break
-		}
-	}
-	if !validReason {
-		return fmt.Errorf("unsupported model reroute reason %q", reroute.Reason)
-	}
-	return nil
+	return validateIdentifier("model reroute reason", reroute.Reason)
 }
 
 func (invocation ResolvedInvocation) Validate() error {

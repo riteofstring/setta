@@ -193,13 +193,9 @@
               "type": "string"
             },
             "subpath": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/LegacyAppPathString"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           },
@@ -251,13 +247,9 @@
               "type": "string"
             },
             "subpath": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/LegacyAppPathString"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           },

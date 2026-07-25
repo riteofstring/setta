@@ -20,10 +20,6 @@ import {
   type SpeechPlaybackControllerDependencies,
   type SpeechPlaybackSnapshot,
 } from "./app-shell-speech-playback-controller";
-import { selectDesktopVoiceOutputProvider } from "./desktop-speech-provider-coordinator";
-import { createLocalMacOSSpeechOutputProvider } from "./local-macos-speech-output-provider";
-import { createOpenAIBackendSpeechOutputProvider } from "./openai-speech-output-provider";
-import type { VoiceOutputProvider } from "./voice-provider-boundary";
 
 export interface AppShellSpeechPlaybackContextValue {
   controller: AppShellSpeechPlaybackController;
@@ -82,9 +78,6 @@ export function handlePlaybackConversationEvent(
   controller: AppShellSpeechPlaybackController,
   event: ConversationEvent,
 ): void {
-  if (conversationEventPreemptsAutomaticSpeech(event)) {
-    controller.preemptForUserInput();
-  }
   if (event.payload.type !== "conversation.narration.created") {
     return;
   }
@@ -104,19 +97,6 @@ export function handlePlaybackConversationEvent(
   );
   if (intent) {
     controller.enqueueAutomatic(intent);
-  }
-}
-
-function conversationEventPreemptsAutomaticSpeech(event: ConversationEvent): boolean {
-  if (event.payload.type !== "conversation.trajectory.appended") {
-    return false;
-  }
-  switch (event.payload.event.kind) {
-    case "user_input_accepted":
-    case "turn_steered":
-      return true;
-    default:
-      return false;
   }
 }
 
@@ -195,8 +175,6 @@ function scheduleMicrotask(handler: () => void): void {
 }
 
 function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerDependencies {
-  const openAIOutputProvider = createOpenAIBackendSpeechOutputProvider(setta);
-  const localMacOSOutputProvider = createLocalMacOSSpeechOutputProvider(setta);
   return {
     createAbortController: () => new AbortController(),
     createAudio: (url) => new Audio(url),
@@ -211,23 +189,13 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
     now: () => Date.now(),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     synthesize: (request, signal) => {
+      if (!setta.speech.synthesize || !setta.speech.cancelSynthesis) {
+        return Promise.reject(new Error("the desktop speech synthesis boundary is unavailable"));
+      }
       const operationId = createSpeechSynthesisOperationId();
-      let outputProvider: VoiceOutputProvider | null = null;
       return abortableSpeechRequest(
-        async () => {
-          outputProvider = await selectDesktopVoiceOutputProvider({
-            localMacOS: localMacOSOutputProvider,
-            openAI: openAIOutputProvider,
-            platform: setta.app.platform,
-            readLocalMacOSVoiceHealth: setta.speech.readLocalMacOSVoiceHealth,
-            readProviderSelection: setta.speech.readProviderSelection,
-          });
-          if (signal.aborted) {
-            throw speechSynthesisStoppedError();
-          }
-          return outputProvider.synthesize(request, operationId);
-        },
-        () => outputProvider?.cancel(operationId) ?? Promise.resolve(),
+        () => setta.speech.synthesize!(request, operationId),
+        () => setta.speech.cancelSynthesis!(operationId),
         signal,
       );
     },
@@ -258,12 +226,12 @@ function abortableSpeechRequest<T>(
   signal: AbortSignal,
 ): Promise<T> {
   if (signal.aborted) {
-    return Promise.reject(speechSynthesisStoppedError());
+    return Promise.reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
   }
   return new Promise<T>((resolve, reject) => {
     const aborted = () => {
       void cancel().catch(() => undefined);
-      reject(speechSynthesisStoppedError());
+      reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
     };
     signal.addEventListener("abort", aborted, { once: true });
     void start().then(
@@ -277,8 +245,4 @@ function abortableSpeechRequest<T>(
       },
     );
   });
-}
-
-function speechSynthesisStoppedError(): DOMException {
-  return new DOMException("Speech synthesis was stopped.", "AbortError");
 }
