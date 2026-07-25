@@ -337,6 +337,8 @@ func startHostedControlPlaneServer(
 		MaxConcurrentRequests: 8,
 		MaxRequestBytes:       1 << 20,
 		Observer:              observer,
+		ReportingObserver:     observer,
+		ReportingStore:        store,
 		Routes:                store,
 		RuntimeTarget:         "127.0.0.1:7345",
 		Secrets:               secrets,

@@ -107,6 +107,7 @@ const (
 	ControlPlaneAuditRuntimeWakeObserved    ControlPlaneAuditAction = "runtime_wake_observed"
 	ControlPlaneAuditRuntimeHealthRecorded  ControlPlaneAuditAction = "runtime_health_recorded"
 	ControlPlaneAuditRuntimeReporterRotated ControlPlaneAuditAction = "runtime_reporting_credential_rotated"
+	ControlPlaneAuditRuntimeUsageReported   ControlPlaneAuditAction = "runtime_accounting_transition_recorded"
 )
 
 type ControlPlaneAuditObservation struct {

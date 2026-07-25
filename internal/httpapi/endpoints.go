@@ -131,6 +131,10 @@ func ControlPlaneEndpoints() []ContractEndpoint {
 	return endpoints
 }
 
+func RuntimeAccountingReportEndpoint() ContractEndpoint {
+	return controlPlaneEndpoints[0]
+}
+
 func Contracts() ContractSchema {
 	endpoints := make([]ContractEndpoint, len(apiEndpoints))
 	for index, endpoint := range apiEndpoints {

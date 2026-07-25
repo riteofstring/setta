@@ -10,8 +10,20 @@ import (
 
 	"setta/internal/httpapi"
 	"setta/internal/runtimeaccess"
+	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeprovider"
 )
+
+type RuntimeAccountingReportStore interface {
+	AuthorizeRuntimeReporter(
+		context.Context,
+		RuntimeReportingCredential,
+	) (string, bool, error)
+	RecordRuntimeAccountingEvent(
+		context.Context,
+		RecordRuntimeAccountingEventRequest,
+	) (runtimeaccounting.LedgerState, error)
+}
 
 type ServerConfig struct {
 	Attachments           runtimeaccess.GatewayAttachmentRecorder
@@ -21,6 +33,8 @@ type ServerConfig struct {
 	MaxConcurrentRequests int
 	MaxRequestBytes       int64
 	Observer              runtimeaccess.GatewayObserver
+	ReportingObserver     ControlPlaneAuditObserver
+	ReportingStore        RuntimeAccountingReportStore
 	Routes                interface {
 		ResolveRoute(context.Context, string) (RouteRecord, error)
 	}
@@ -66,11 +80,13 @@ func StartServer(config ServerConfig) (*Server, error) {
 		_ = routes.Close()
 		return nil, err
 	}
-	httpServer.Handler = controlPlaneHandler(boundedGatewayHandler(
+	httpServer.Handler = boundedGatewayHandler(controlPlaneHandler(
 		httpServer.Handler,
+		runtimeAccountingReportHandler(config.ReportingStore, config.ReportingObserver),
+	),
 		config.MaxConcurrentRequests,
 		config.MaxRequestBytes,
-	))
+	)
 	listener, err := net.Listen("tcp", config.ListenAddress)
 	if err != nil {
 		_ = routes.Close()
@@ -118,9 +134,8 @@ func (server *Server) Wait() error {
 }
 
 func validateServerConfig(config ServerConfig) error {
-	if config.Attachments == nil || config.Authorizer == nil || config.Observer == nil ||
-		config.Routes == nil || config.Secrets == nil || config.Dialer == nil {
-		return errors.New("control-plane server dependencies are required")
+	if err := validateServerDependencies(config); err != nil {
+		return err
 	}
 	if config.ListenAddress == "" {
 		return errors.New("control-plane listen address is required")
@@ -130,6 +145,17 @@ func validateServerConfig(config ServerConfig) error {
 	}
 	if config.MaxConcurrentRequests <= 0 || config.MaxRequestBytes <= 0 {
 		return errors.New("control-plane request ceilings must be positive")
+	}
+	return nil
+}
+
+func validateServerDependencies(config ServerConfig) error {
+	if config.Attachments == nil || config.Authorizer == nil || config.Observer == nil ||
+		config.Routes == nil || config.Secrets == nil || config.Dialer == nil {
+		return errors.New("control-plane server dependencies are required")
+	}
+	if config.ReportingObserver == nil || config.ReportingStore == nil {
+		return errors.New("control-plane reporting dependencies are required")
 	}
 	return nil
 }
@@ -157,7 +183,8 @@ func boundedGatewayHandler(next http.Handler, maximumConcurrent int, maximumBody
 	})
 }
 
-func controlPlaneHandler(gateway http.Handler) http.Handler {
+func controlPlaneHandler(gateway http.Handler, accountingReports http.Handler) http.Handler {
+	reportEndpoint := httpapi.RuntimeAccountingReportEndpoint()
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/healthz" {
 			if request.Method != http.MethodGet {
@@ -165,6 +192,10 @@ func controlPlaneHandler(gateway http.Handler) http.Handler {
 				return
 			}
 			response.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if request.URL.Path == reportEndpoint.Path {
+			accountingReports.ServeHTTP(response, request)
 			return
 		}
 		gateway.ServeHTTP(response, request)

@@ -174,6 +174,8 @@ func startControlPlaneServices(
 		MaxConcurrentRequests: config.MaxConcurrentRequest,
 		MaxRequestBytes:       config.MaxRequestBytes,
 		Observer:              alertingObserver,
+		ReportingObserver:     alertingObserver,
+		ReportingStore:        store,
 		Routes:                store,
 		RuntimeTarget:         config.RuntimeTarget,
 		Secrets:               secrets,
