@@ -320,9 +320,10 @@ type RecordRuntimeHealthRequest struct {
 }
 
 type RecordRuntimeHealthResult struct {
-	Runtime       Runtime
-	WakeCompleted bool
-	WakePending   bool
+	Runtime         Runtime
+	WakeCompleted   bool
+	WakePending     bool
+	WakeRequestedAt time.Time
 }
 
 type ScheduleRuntimeDeletionRequest struct {

@@ -215,6 +215,12 @@ operational log records only wake-requested, health-state, and wake-observed
 outcomes. Runtime, user, operation, release, route, and credential identifiers
 remain out of the audit stream.
 
+When trusted healthy evidence completes a pending wake, that same boundary also
+emits a typed wake interval from the durable wake-request timestamp through the
+committed health timestamp. The measurement contains only start, completion,
+and duration fields; degraded observations do not emit a completed interval,
+and negative intervals fail the observer.
+
 The installed Sprite runtime starts with explicit workload-lease enforcement.
 The shared agent runtime admits one provider turn at a time, acquires the
 trusted Sprites Tasks lease before opening a provider session, renews it at

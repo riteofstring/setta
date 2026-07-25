@@ -60,6 +60,7 @@ func TestRuntimeProgressPushesWakeHealthWithoutFalseUnhealthyTransition(t *testi
 	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
 	defer store.Close()
 	runtimeName := prepareDeletionRuntime(t, store, "progress-wake", "user-progress-wake")
+	wakeStartedAt := now
 	if _, err := store.RequestRuntimeWake(ctx, "progress-wake-operation", runtimeName); err != nil {
 		t.Fatal(err)
 	}
@@ -78,6 +79,7 @@ func TestRuntimeProgressPushesWakeHealthWithoutFalseUnhealthyTransition(t *testi
 		ObservedRelease: "test-release",
 	})
 	if err != nil || health.Runtime.WakeRequestedAt == nil ||
+		!health.WakeRequestedAt.Equal(wakeStartedAt) ||
 		!health.WakePending || health.WakeCompleted {
 		t.Fatalf("degraded wake health = %+v, %v", health, err)
 	}
@@ -93,6 +95,7 @@ func TestRuntimeProgressPushesWakeHealthWithoutFalseUnhealthyTransition(t *testi
 		ObservedRelease: "test-release",
 	})
 	if err != nil || health.Runtime.WakeRequestedAt != nil ||
+		!health.WakeRequestedAt.Equal(wakeStartedAt) ||
 		!health.WakePending || !health.WakeCompleted {
 		t.Fatalf("healthy wake state = %+v, %v", health, err)
 	}

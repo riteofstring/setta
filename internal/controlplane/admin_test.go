@@ -224,7 +224,7 @@ func TestAdminServerAuditsRuntimeWakeAndTrustedHealthWithoutContent(t *testing.T
 		t.Fatal(err)
 	}
 	requireRuntimeProgressStates(t, events, RuntimeProgressHealthy)
-	requireContentFreeControlPlaneAudit(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
+	requireContentFreeWakeAdministrationMeasurements(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
 		{Action: ControlPlaneAuditRuntimeWakeRequested, State: "requested"},
 		{Action: ControlPlaneAuditRuntimeHealthRecorded, State: string(RuntimeHealthDegraded)},
 		{Action: ControlPlaneAuditRuntimeWakeObserved, State: string(RuntimeHealthDegraded)},
@@ -593,6 +593,68 @@ func requireContentFreeControlPlaneAudit(
 	var extra map[string]any
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		t.Fatalf("control-plane audit trailing data = %v, %v", extra, err)
+	}
+}
+
+func requireContentFreeWakeAdministrationMeasurements(
+	t *testing.T,
+	encoded []byte,
+	wantAudits []ControlPlaneAuditMeasurement,
+	forbidden []string,
+) {
+	t.Helper()
+	text := string(encoded)
+	for _, value := range forbidden {
+		if strings.Contains(text, value) {
+			t.Fatalf("runtime wake measurement exposed %q: %s", value, text)
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	for index, expected := range wantAudits {
+		var measurement map[string]any
+		if err := decoder.Decode(&measurement); err != nil {
+			t.Fatalf("decode control-plane audit %d: %v", index, err)
+		}
+		requireControlPlaneAuditMeasurement(t, index, measurement, expected)
+	}
+	var timing map[string]any
+	if err := decoder.Decode(&timing); err != nil {
+		t.Fatalf("decode runtime wake timing: %v", err)
+	}
+	requireRuntimeWakeTimingMeasurement(t, timing)
+	var extra map[string]any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		t.Fatalf("runtime wake administration trailing data = %v, %v", extra, err)
+	}
+}
+
+func requireControlPlaneAuditMeasurement(
+	t *testing.T,
+	index int,
+	measurement map[string]any,
+	expected ControlPlaneAuditMeasurement,
+) {
+	t.Helper()
+	if len(measurement) != 4 ||
+		measurement["action"] != string(expected.Action) ||
+		measurement["event"] != "control_plane_audit" ||
+		measurement["state"] != expected.State ||
+		measurement["occurred_at"] == "" {
+		t.Fatalf("control-plane audit %d = %v, want %+v", index, measurement, expected)
+	}
+}
+
+func requireRuntimeWakeTimingMeasurement(t *testing.T, measurement map[string]any) {
+	t.Helper()
+	if len(measurement) != 4 ||
+		measurement["event"] != "runtime_wake_ready" ||
+		measurement["started_at"] == "" ||
+		measurement["completed_at"] == "" {
+		t.Fatalf("runtime wake timing = %v", measurement)
+	}
+	duration, ok := measurement["duration_ms"].(float64)
+	if !ok || duration < 0 {
+		t.Fatalf("runtime wake duration = %v", measurement["duration_ms"])
 	}
 }
 

@@ -57,6 +57,19 @@ type HostedAccessFailureMeasurement struct {
 	Retryable   bool                   `json:"retryable"`
 }
 
+type RuntimeWakeTiming struct {
+	CompletedAt time.Time
+	Duration    time.Duration
+	StartedAt   time.Time
+}
+
+type RuntimeWakeTimingMeasurement struct {
+	CompletedAt          time.Time `json:"completed_at"`
+	DurationMilliseconds float64   `json:"duration_ms"`
+	Event                string    `json:"event"`
+	StartedAt            time.Time `json:"started_at"`
+}
+
 type RuntimeAuditObservation struct {
 	AttemptCount      int
 	AttemptDuration   time.Duration
@@ -148,6 +161,10 @@ type RuntimeAuditObserver interface {
 	ObserveRuntimeAudit(RuntimeAuditObservation)
 }
 
+type RuntimeWakeObserver interface {
+	ObserveRuntimeWakeTiming(RuntimeWakeTiming)
+}
+
 type ControlPlaneAuditObserver interface {
 	ObserveControlPlaneAudit(ControlPlaneAuditObservation)
 }
@@ -160,6 +177,7 @@ type ControlPlaneObserver interface {
 	ControlPlaneAuditObserver
 	HostedAccessObserver
 	RuntimeAuditObserver
+	RuntimeWakeObserver
 }
 
 type AlertingObserver struct {
@@ -200,6 +218,10 @@ func (observer *AlertingObserver) ObserveRuntimeAudit(observation RuntimeAuditOb
 	for _, alert := range runtimeAuditAlerts(observation) {
 		observer.alerts.ObserveOperationalAlert(alert)
 	}
+}
+
+func (observer *AlertingObserver) ObserveRuntimeWakeTiming(timing RuntimeWakeTiming) {
+	observer.downstream.ObserveRuntimeWakeTiming(timing)
 }
 
 func runtimeAuditAlerts(observation RuntimeAuditObservation) []OperationalAlertObservation {
@@ -321,6 +343,24 @@ func (observer *JSONLinesObserver) ObserveRuntimeAudit(observation RuntimeAuditO
 		Retryable:                     observation.Retryable,
 		StartedAt:                     observation.StartedAt.UTC(),
 		State:                         observation.State,
+	})
+}
+
+func (observer *JSONLinesObserver) ObserveRuntimeWakeTiming(timing RuntimeWakeTiming) {
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	if observer.err != nil {
+		return
+	}
+	if timing.Duration < 0 {
+		observer.err = errors.New("runtime wake timing cannot be negative")
+		return
+	}
+	observer.err = observer.encoder.Encode(RuntimeWakeTimingMeasurement{
+		CompletedAt:          timing.CompletedAt.UTC(),
+		DurationMilliseconds: milliseconds(timing.Duration),
+		Event:                "runtime_wake_ready",
+		StartedAt:            timing.StartedAt.UTC(),
 	})
 }
 

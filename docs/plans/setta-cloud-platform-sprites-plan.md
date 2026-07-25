@@ -2570,3 +2570,15 @@ Stop and reassess rather than hiding the problem if any of these occur:
   and push notification. Suspension/export audits, scheduled accounting, and
   authenticated workload-lease reporting remain open, so the combined Phase
   5 item stays unchecked. No provider or cloud mutation ran.
+- 2026-07-25 (durable wake interval attribution): Extended the trusted health
+  boundary to carry the original durable wake-request timestamp out of the
+  same locked transaction that appends healthy progress. A completed wake now
+  emits one content-free `runtime_wake_ready` interval containing only start,
+  completion, and measured duration; degraded health preserves the pending
+  wake and emits no completed interval, while negative durations fail the
+  observer rather than being clamped. The private HTTP production-boundary test
+  verifies the exact field allowlist and rejects user, runtime, operation,
+  release, and credential identifiers. This closes local deterministic wake
+  attribution, while the broader Phase 4 latency checkbox remains open for the
+  authorized live workload comparison and remaining end-to-end outcome
+  intervals. No provider or cloud mutation ran.

@@ -251,3 +251,14 @@ func TestRuntimeAuditRejectsNegativeMeasuredIntervals(t *testing.T) {
 		t.Fatal("runtime audit accepted a negative measured interval")
 	}
 }
+
+func TestRuntimeWakeTimingRejectsNegativeMeasuredInterval(t *testing.T) {
+	observer, err := NewJSONLinesObserver(&bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	observer.ObserveRuntimeWakeTiming(RuntimeWakeTiming{Duration: -time.Nanosecond})
+	if observer.Err() == nil {
+		t.Fatal("runtime wake timing accepted a negative measured interval")
+	}
+}

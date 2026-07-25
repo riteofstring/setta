@@ -132,6 +132,10 @@ func (store *Store) recordRuntimeHealthLocked(
 	if err != nil {
 		return RecordRuntimeHealthResult{}, err
 	}
+	wakeRequestedAt, err := target.parsedWakeRequestedAt()
+	if err != nil {
+		return RecordRuntimeHealthResult{}, err
+	}
 	wakeCompleted := target.completesWake(request)
 	if err := writeRuntimeHealth(ctx, tx, request, wakeCompleted, now); err != nil {
 		return RecordRuntimeHealthResult{}, err
@@ -153,10 +157,22 @@ func (store *Store) recordRuntimeHealthLocked(
 		return RecordRuntimeHealthResult{}, err
 	}
 	return RecordRuntimeHealthResult{
-		Runtime:       runtime,
-		WakeCompleted: wakeCompleted,
-		WakePending:   target.wakeRequestedAt.Valid && len(target.wakeOperationIDs) != 0,
+		Runtime:         runtime,
+		WakeCompleted:   wakeCompleted,
+		WakePending:     target.wakeRequestedAt.Valid && len(target.wakeOperationIDs) != 0,
+		WakeRequestedAt: wakeRequestedAt,
 	}, nil
+}
+
+func (target runtimeHealthTarget) parsedWakeRequestedAt() (time.Time, error) {
+	if !target.wakeRequestedAt.Valid {
+		return time.Time{}, nil
+	}
+	value, err := time.Parse(time.RFC3339Nano, target.wakeRequestedAt.String)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse runtime wake request time: %w", err)
+	}
+	return value, nil
 }
 
 func (target runtimeHealthTarget) completesWake(request RecordRuntimeHealthRequest) bool {
