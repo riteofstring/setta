@@ -56,8 +56,9 @@
   .nlabel { position: absolute; transform: translateX(-50%); max-width: 300px; font: 12px/1.4 var(--sans); letter-spacing: 0.01em; text-align: center;
     padding: 3px 9px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     background: color-mix(in oklch, var(--bg) 86%, transparent); transition: opacity 0.28s ease; }   /* solid tint (no backdrop-filter); opacity animates the show->fade */
-  .nl-user { color: var(--accent-teal); border: 1px solid color-mix(in oklch, var(--accent-teal) 30%, transparent); }
   .nl-reason { color: var(--muted); border: 1px solid var(--border); font-size: 11.5px; max-width: 260px; }
+  .nl-you { border-color: color-mix(in oklch, var(--accent-teal) 34%, transparent); }
+  .nl-you .nl-mark { color: var(--accent-teal); }
   .nlabel.nl-sticky { z-index: 9; background: color-mix(in oklch, var(--bg) 90%, transparent); border-color: color-mix(in oklch, var(--accent-teal) 55%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,0.55); transition: top 120ms ease-out; }
   /* outcome summary: floats over the ✓/✗ node, mark on the left, click to expand the full result */
   .nl-outcome { transform: translate(-50%, -50%); pointer-events: auto; display: inline-flex; align-items: baseline; gap: 7px;
@@ -388,10 +389,21 @@ void main(){
   float failP=failing>0.5 ? smoothstep(0.0,0.35,failAge) : 0.0;   // was fine, now turning to failure
   vec2 pos; float psize; float palpha;
   if(failing>0.5 && failAge>0.0){
-    // executing node collapses: particles burst outward and fizzle (bigger, further, longer)
-    pos=center+vec2(a_dx,a_dy)*(0.02+failAge*0.16);
-    float life=clamp(1.0-failAge/1.7,0.0,1.0);
-    psize=(6.5+recent*10.0)*life; palpha=life*1.15;
+    if(a_role<0.5){
+      // failed node body stays put and gets eclipsed (rather than fizzling to nothing)
+      pos=center; psize=(40.0+recent*20.0+hover*38.0)*pop; palpha=1.0;
+    } else {
+      // particles burst outward, then get slowly sucked back into the eclipse while the node is focused
+      float burstP=exp(-failAge*2.2);
+      vec2 burstPos=center+vec2(a_dx,a_dy)*(0.02+failAge*0.16);
+      float t2=fract(failAge*0.25 + a_phase);
+      float ang=a_phase*6.2832 + t2*5.2 + failAge*0.7;
+      vec2 suckPos=center+vec2(cos(ang),sin(ang))*mix(0.085,0.004,t2);
+      float focus=clamp(recent*0.9+hover,0.0,1.0);
+      pos=mix(suckPos,burstPos,burstP);
+      palpha=mix(focus*(1.0-t2)*0.6, 1.15*exp(-failAge*1.2), burstP);
+      psize=mix((3.0+recent*3.5)*(0.35+(1.0-t2)*0.8), 6.5+recent*10.0, burstP);
+    }
   } else if(a_role<0.5){
     // node body — a clean ring. Listening node is large + calm (pulses only while receiving input).
     float listen=step(5.5,a_mode);
@@ -455,7 +467,7 @@ void main(){
   float succF=step(2.5,a_mode)*step(a_mode,3.5);
   psize*=(1.0+succF*0.5);                         // success flourish
   v_mode=a_mode; v_recent=recent; v_active=working; v_hover=hover; v_fail=failP; v_alpha=palpha*vis*a_open; v_isCore=step(a_role,0.5);
-  v_ecl=step(3.5,a_mode)*step(a_mode,4.5)*smoothstep(0.0,1.1,age)*step(a_role,0.5);   // failure body: eclipse progress
+  v_ecl=max(step(3.5,a_mode)*step(a_mode,4.5)*smoothstep(0.0,1.1,age), failP)*step(a_role,0.5);   // eclipse: outcome failures AND failed side nodes
   gl_Position=vec4(pos.x+u_xshift, pos.y,0.0,1.0);
   gl_PointSize=psize*u_dpr*vis;
 }`;
@@ -674,7 +686,7 @@ layout(location=1) in float by;
 layout(location=2) in float seed;
 layout(location=3) in float layer;
 uniform float u_time,u_cam,u_dpr,u_xshift,u_bgstyle,u_aspect;
-uniform vec2 u_nodes[24]; uniform int u_nodeCount;   // visible node positions (clip space) that dim the field around them
+uniform vec3 u_nodes[24]; uniform int u_nodeCount;   // visible nodes (clip x, clip y, halo radius) that dim the field around them
 out float v_a,v_t;
 void main(){
   float fl=u_bgstyle;                                 // 0 = drifting points, 1 = Control-style oily fluid
@@ -692,8 +704,8 @@ void main(){
   vec2 pc=p*2.0-1.0;
   gl_Position=vec4(pc.x + u_xshift*(0.35+depth*0.55), pc.y, 0.0,1.0);   // field slides on thread switch (parallax by depth)
   gl_PointSize=mix(5.0+layer*6.2, 7.0+layer*5.5, fl)*u_dpr;                            // big enough to survive the halftone; fluid stays modest
-  float nearN=0.0;                                                                     // subtle darkening only right around actual nodes
-  for(int i=0;i<u_nodeCount;i++){ float d=length((pc-u_nodes[i])*vec2(u_aspect,1.0)); nearN=max(nearN, smoothstep(0.17,0.02,d)); }
+  float nearN=0.0;                                                                     // subtle darkening only right around actual nodes (radius follows node size)
+  for(int i=0;i<u_nodeCount;i++){ float R=u_nodes[i].z; float d=length((pc-u_nodes[i].xy)*vec2(u_aspect,1.0)); nearN=max(nearN, smoothstep(R, R*0.15, d)); }
   v_a=(0.46+layer*0.52)*(0.8+0.2*sin(u_time*1.1+seed*44.0))*mix(1.0,0.72,fl)*(1.0-nearN*0.45);
   v_t=seed;
 }`;
@@ -710,7 +722,7 @@ const NBG=5200; const bgBuf=gl.createBuffer(), bgVao=gl.createVertexArray();
   gl.bindVertexArray(bgVao); gl.bindBuffer(gl.ARRAY_BUFFER,bgBuf); gl.bufferData(gl.ARRAY_BUFFER,A,gl.STATIC_DRAW);
   for(let i=0;i<4;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,16,i*4);} })();
 const bu=n=>gl.getUniformLocation(bgP,n); const BU={time:bu('u_time'),cam:bu('u_cam'),dpr:bu('u_dpr'),cyan:bu('u_cyan'),violet:bu('u_violet'),xshift:bu('u_xshift'),bgstyle:bu('u_bgstyle'),aspect:bu('u_aspect'),nodes:bu('u_nodes'),nodeCount:bu('u_nodeCount')};
-const bgNodes=new Float32Array(48);   // up to 24 visible node positions (clip space) for the field darkening
+const bgNodes=new Float32Array(72);   // up to 24 visible nodes (clip x, clip y, halo radius) for the field darkening
 const ptBuf=gl.createBuffer(),ptVao=gl.createVertexArray();
 const edBuf=gl.createBuffer(),edVao=gl.createVertexArray();
 function ptVaoSetup(){gl.bindVertexArray(ptVao);gl.bindBuffer(gl.ARRAY_BUFFER,ptBuf);const st=48;
@@ -765,15 +777,18 @@ function rebuild(){
 // unified node labels: one system for every node — show the text, then fade out to just the icon (configurable)
 function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c) return; c.innerHTML='';
   const mk=(cls,txt)=>{ const e=document.createElement('div'); e.className=cls; e.textContent=txt; c.appendChild(e); return e; };
+  const pillFor=(node,variant,markCh)=>{                       // input + outcome share one pill style
+    const el=document.createElement('div'); el.className='nlabel nl-outcome '+variant;
+    const mark=document.createElement('span'); mark.className='nl-mark'; mark.textContent=markCh;
+    const sum=document.createElement('span'); sum.className='nl-sum'; sum.textContent=node.label;
+    el.append(mark,sum);
+    el.addEventListener('click',ev=>{ ev.stopPropagation(); el.classList.toggle('expanded'); });   // expand the full text
+    c.appendChild(el); node.labelEl=el; return el; };
   for(const T of g.turns){
-    g.nodes[T.userId].labelEl = mk('nlabel nl-user', g.nodes[T.userId].label);
+    const u=g.nodes[T.userId], r=g.nodes[T.respId];
+    T.uLabel = pillFor(u,'nl-you','❯');
     for(const rid of T.reasonIds) g.nodes[rid].labelEl = mk('nlabel nl-reason', g.nodes[rid].label);
-    const r=g.nodes[T.respId]; const pill=document.createElement('div'); pill.className='nlabel nl-outcome '+(T.fail?'nl-fail':'nl-ok');
-    const mark=document.createElement('span'); mark.className='nl-mark'; mark.textContent=T.fail?'✕':'✓';
-    const sum=document.createElement('span'); sum.className='nl-sum'; sum.textContent=r.label;
-    pill.append(mark,sum);
-    pill.addEventListener('click',ev=>{ ev.stopPropagation(); pill.classList.toggle('expanded'); });   // expand the full result summary
-    c.appendChild(pill); r.labelEl=pill; T.uLabel=g.nodes[T.userId].labelEl; T.rLabel=pill; } }
+    T.rLabel = pillFor(r, T.fail?'nl-fail':'nl-ok', T.fail?'✕':'✓'); } }
 const STICKY_TOP=58, FADE_SPAN=0.42;
 function labelOpacity(n){ if(labelMode==='off') return 0; if(labelMode==='show') return 1; if(hovered===n) return 1;
   return Math.max(0, Math.min(1, 1-(autoCam-n.worldY)/FADE_SPAN)); }   // auto: fade to just the icon as the flow moves past
@@ -930,9 +945,10 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.viewport(0,0,fw,fh);
   gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
   let nc=0; for(const n of g.nodes){ if(nc>=24) break; if(growT<n.born||n.alpha<0.12) continue;   // dim the field only around visible nodes
-    const yy=-0.35+(camWorld-n.worldY); if(yy<-1.35||yy>1.35) continue; bgNodes[nc*2]=n.x; bgNodes[nc*2+1]=yy; nc++; }
+    const yy=-0.35+(camWorld-n.worldY); if(yy<-1.35||yy>1.35) continue;
+    bgNodes[nc*3]=n.x; bgNodes[nc*3+1]=yy; bgNodes[nc*3+2]=Math.max(0.05, (nodeCssDiam(n)/innerHeight)*1.9); nc++; }   // halo scales with the node's actual size
   gl.useProgram(bgP);gl.uniform1f(BU.time,growT);gl.uniform1f(BU.cam,camWorld);gl.uniform1f(BU.dpr,dpr);gl.uniform1f(BU.xshift,xShift);gl.uniform1f(BU.bgstyle,bgStyle);
-  gl.uniform1f(BU.aspect,canvas.width/canvas.height);gl.uniform2fv(BU.nodes,bgNodes);gl.uniform1i(BU.nodeCount,nc);
+  gl.uniform1f(BU.aspect,canvas.width/canvas.height);gl.uniform3fv(BU.nodes,bgNodes);gl.uniform1i(BU.nodeCount,nc);
   gl.uniform3fv(BU.cyan,CYAN);gl.uniform3fv(BU.violet,VIOLET);
   gl.bindVertexArray(bgVao);gl.drawArrays(gl.POINTS,0,NBG);
   gl.useProgram(edgeP);gl.uniform1f(EU.cam,camWorld);gl.uniform1f(EU.time,growT);
