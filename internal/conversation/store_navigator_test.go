@@ -246,7 +246,7 @@ func insertNavigatorConversation(
 func navigatorTestConversation(id string, title string, descriptor string, updatedAt string) TopicConversation {
 	return TopicConversation{
 		ID:              id,
-		WorkspaceID:     "workspace-1",
+		WorkspaceID:     stringPointer("workspace-1"),
 		Title:           title,
 		TopicDescriptor: descriptor,
 		Status:          ConversationStatusIdle,

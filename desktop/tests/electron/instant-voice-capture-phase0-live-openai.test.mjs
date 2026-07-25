@@ -12,10 +12,13 @@ import {
   captureScreenshot,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
+  readLocalRuntimeAccess,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
+  waitForState,
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
@@ -24,6 +27,7 @@ import {
   redactLiveOpenAIError,
 } from "./instant-voice-capture-live-openai-artifacts.mjs";
 import { resolveLiveOpenAIApiKey } from "./instant-voice-capture-live-openai-credentials.mjs";
+import { saveOpenAIVoiceCredentialThroughSettings } from "./speech-credential-byok-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "instant-voice-capture-phase0-live-openai";
@@ -33,6 +37,7 @@ const workletPath = join(scriptDir, "instant-voice-capture-phase0-audioworklet-w
 const expectedPhrase = "This is a live smoke test for instant voice capture.";
 const expectedTranscriptWords = ["live", "smoke", "instant", "voice", "capture"];
 const openAIBaseURL = "https://api.openai.com/v1";
+const workflowTimeoutMs = 60_000;
 
 if (options.help) {
   console.log(
@@ -42,6 +47,8 @@ if (options.help) {
 }
 
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
+const firstLaunchDir = join(artifactDir, "first-launch");
+const secondLaunchDir = join(artifactDir, "second-launch");
 await writeLatestRecordingPointer(workflowName, artifactDir);
 
 const resolvedCredential = await resolveLiveOpenAIApiKey({
@@ -74,79 +81,167 @@ if (!options.skipBuild) {
 
 const fixture = await createElectronFixture(workflowName);
 let context = null;
-let session = null;
+let firstLaunchSession = null;
+let firstLocalRuntimeAccess = null;
+let restoredSession = null;
+let secondLocalRuntimeAccess = null;
 let workflowError = null;
 
 try {
   context = await launchElectronCdpContext({
-    artifactDir,
-    extraEnv: {
-      OPENAI_API_KEY: apiKey,
-    },
+    artifactDir: firstLaunchDir,
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const capabilities = await context.client.evaluate("window.setta.speech.readCapabilities()");
-  assertSpeechCapabilities(capabilities);
-  session = await context.client.evaluate("window.setta.speech.createTranscriptionSession()");
-  assertTranscriptionSession(session);
+  const workspaceId = await ensureWorkspaceOpen(context.client);
+  const initialCapabilities = await context.client.evaluate(
+    "window.setta.speech.readCapabilities()",
+  );
+  assertUnconfiguredSpeechCapabilities(initialCapabilities);
+  firstLocalRuntimeAccess = await waitForLocalRuntimeAccess(context.client);
+  const credentialSetup = await saveOpenAIVoiceCredentialThroughSettings(
+    context.client,
+    apiKey,
+    workflowTimeoutMs,
+  );
+  const firstConfigured = await readConfiguredSpeechState(context.client);
+  firstLaunchSession = firstConfigured.session;
   const audio = await synthesizeLiveSmokeAudio({
     apiKey,
     input: expectedPhrase,
-    model: capabilities.synthesisModel,
-    voice: capabilities.voiceCatalog.voiceIds[0],
+    model: firstConfigured.capabilities.synthesisModel,
+    voice: firstConfigured.capabilities.voiceCatalog.voiceIds[0],
   });
-  const browserFixture = await readFile(browserFixturePath, "utf8");
-  const workletSource = await readFile(workletPath, "utf8");
-  await context.client.evaluate(browserFixture);
-  const result = await context.client.evaluate(
-    `globalThis.__settaInstantVoiceCaptureLiveOpenAI.run(${JSON.stringify({
-      audioBase64: audio.audioBase64,
-      expectedPhrase,
-      session,
-      transcriptTimeoutMs: 45_000,
-      workletSource,
-    })})`,
-  );
-  assertLiveSmokeResult(result);
+  const firstResult = await runLiveOpenAISmoke({
+    audio,
+    client: context.client,
+    session: firstLaunchSession,
+  });
+  await captureScreenshot(context.client, join(firstLaunchDir, "complete.png"));
+  await stopElectronCdpContext(context);
+  context = null;
+
+  context = await launchElectronCdpContext({
+    artifactDir: secondLaunchDir,
+    fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
+    visible: options.visible,
+  });
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  const restoredWorkspaceId = await ensureWorkspaceOpen(context.client);
+  secondLocalRuntimeAccess = await waitForLocalRuntimeAccess(context.client);
+  assertLocalRuntimeReplacement(firstLocalRuntimeAccess, secondLocalRuntimeAccess);
+  const restoredConfigured = await readConfiguredSpeechState(context.client);
+  restoredSession = restoredConfigured.session;
+  const restoredResult = await runLiveOpenAISmoke({
+    audio,
+    client: context.client,
+    session: restoredSession,
+  });
+  await captureScreenshot(context.client, join(secondLaunchDir, "complete.png"));
+
   const summary = {
     artifactDir,
+    credentialSetup,
+    credentialSource: resolvedCredential.source,
     expectedPhrase,
     expectedTranscriptWords,
-    result,
-    session: redactedSession(session),
+    firstLaunch: {
+      credentialSettings: firstConfigured.credentialSettings,
+      result: firstResult,
+      session: redactedSession(firstLaunchSession),
+      workspaceId,
+    },
+    restoredLaunch: {
+      credentialSettings: restoredConfigured.credentialSettings,
+      localRuntimeReplaced: true,
+      result: restoredResult,
+      session: redactedSession(restoredSession),
+      workspaceId: restoredWorkspaceId,
+    },
     status: "passed",
-    credentialSource: resolvedCredential.source,
     synthesis: {
       audioBytes: audio.audioBytes,
-      model: capabilities.synthesisModel,
-      voice: capabilities.voiceCatalog.voiceIds[0],
+      model: firstConfigured.capabilities.synthesisModel,
+      voice: firstConfigured.capabilities.voiceCatalog.voiceIds[0],
     },
     workflowName,
   };
   await writeJson(join(artifactDir, "summary.json"), summary);
-  await captureScreenshot(context.client, join(artifactDir, "complete.png"));
 } catch (error) {
   workflowError = error;
   await recordWorkflowFailure(error).catch(() => {});
 }
 await finalizeLiveOpenAIArtifacts({
   artifactDir,
+  cleanupFinalizers: [
+    async () => {
+      await rm(fixture.tempRoot, { force: true, recursive: true });
+    },
+  ],
   finalizers: [
     async () => {
       const currentContext = context;
       context = null;
       await stopElectronCdpContext(currentContext);
     },
-    async () => {
-      await rm(fixture.tempRoot, { force: true, recursive: true });
-    },
   ],
   markers: privateMarkers(),
+  scanRoots: [
+    {
+      description: "temporary-state",
+      markers: speechCredentialMarkers(),
+      root: fixture.tempRoot,
+    },
+  ],
   workflowError,
 });
 console.log(`Electron instant voice capture live OpenAI smoke passed: ${artifactDir}`);
+
+async function runLiveOpenAISmoke({ audio, client, session }) {
+  assertTranscriptionSession(session);
+  const browserFixture = await readFile(browserFixturePath, "utf8");
+  const workletSource = await readFile(workletPath, "utf8");
+  await client.evaluate(browserFixture);
+  const result = await client.evaluate(
+    `globalThis.__settaInstantVoiceCaptureLiveOpenAI.run(${JSON.stringify({
+      audioBase64: audio.audioBase64,
+      expectedPhrase,
+      session,
+      transcriptTimeoutMs: workflowTimeoutMs,
+      workletSource,
+    })})`,
+  );
+  assertLiveSmokeResult(result);
+  return result;
+}
+
+async function ensureWorkspaceOpen(client) {
+  const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
+  if (validWorkspaceId(initialWorkspaceId)) {
+    return initialWorkspaceId;
+  }
+  await openFixtureWorkspace(client, workflowTimeoutMs);
+  return waitForState(
+    client,
+    workspaceIdExpression(),
+    (workspaceId) => validWorkspaceId(workspaceId),
+    workflowTimeoutMs,
+  );
+}
+
+function workspaceIdExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+  })()`;
+}
+
+function validWorkspaceId(workspaceId) {
+  return workspaceId !== "" && workspaceId !== "empty";
+}
 
 async function recordWorkflowFailure(error) {
   if (context) {
@@ -156,14 +251,31 @@ async function recordWorkflowFailure(error) {
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     error: redactedError instanceof Error ? redactedError.message : String(redactedError),
-    session: session ? redactedSession(session) : null,
+    firstLaunchSession: firstLaunchSession ? redactedSession(firstLaunchSession) : null,
+    restoredSession: restoredSession ? redactedSession(restoredSession) : null,
     status: "failed",
     workflowName,
   });
 }
 
 function privateMarkers() {
-  return session ? [apiKey, session.clientSecret] : [apiKey];
+  const markers = speechCredentialMarkers();
+  for (const access of [firstLocalRuntimeAccess, secondLocalRuntimeAccess]) {
+    if (typeof access?.deviceToken === "string" && access.deviceToken !== "") {
+      markers.push(access.deviceToken);
+    }
+  }
+  return [...new Set(markers)];
+}
+
+function speechCredentialMarkers() {
+  const markers = [apiKey];
+  for (const session of [firstLaunchSession, restoredSession]) {
+    if (typeof session?.clientSecret === "string" && session.clientSecret !== "") {
+      markers.push(session.clientSecret);
+    }
+  }
+  return [...new Set(markers)];
 }
 
 async function synthesizeLiveSmokeAudio({ apiKey, input, model, voice }) {
@@ -199,7 +311,64 @@ async function synthesizeLiveSmokeAudio({ apiKey, input, model, voice }) {
   };
 }
 
-function assertSpeechCapabilities(capabilities) {
+function assertUnconfiguredSpeechCapabilities(capabilities) {
+  if (
+    !capabilities ||
+    capabilities.providerStatus !== "not_configured" ||
+    typeof capabilities.synthesisModel !== "string" ||
+    capabilities.synthesisModel === "" ||
+    !Array.isArray(capabilities.voiceCatalog?.voiceIds) ||
+    capabilities.voiceCatalog.voiceIds.length === 0
+  ) {
+    throw new Error(
+      `live OpenAI smoke received invalid initial speech capabilities: ${JSON.stringify(
+        capabilities,
+      )}`,
+    );
+  }
+}
+
+async function readConfiguredSpeechState(client) {
+  const credentialSettings = await waitForState(
+    client,
+    'window.setta.speech.readCredentialSettings({ provider: "openai" })',
+    (settings) => settings?.status === "configured",
+    workflowTimeoutMs,
+  );
+  const capabilities = await waitForState(
+    client,
+    "window.setta.speech.readCapabilities()",
+    (candidate) => candidate?.providerStatus === "configured",
+    workflowTimeoutMs,
+  );
+  assertConfiguredSpeechCapabilities(capabilities);
+  const session = await client.evaluate(
+    'window.setta.speech.createTranscriptionSession({ provider: "openai" })',
+  );
+  assertTranscriptionSession(session);
+  return {
+    capabilities,
+    credentialSettings,
+    session,
+  };
+}
+
+async function waitForLocalRuntimeAccess(client) {
+  await waitForState(
+    client,
+    "window.setta.runtimes.current()",
+    (snapshot) => {
+      if (snapshot?.switching || snapshot?.connection?.status !== "connected") {
+        return false;
+      }
+      return snapshot.runtimes?.find((runtime) => runtime.active)?.isLocal === true;
+    },
+    workflowTimeoutMs,
+  );
+  return readLocalRuntimeAccess(fixture.appDataDir);
+}
+
+function assertConfiguredSpeechCapabilities(capabilities) {
   if (
     !capabilities ||
     capabilities.providerStatus !== "configured" ||
@@ -226,6 +395,17 @@ function assertTranscriptionSession(value) {
   ) {
     throw new Error(
       `live OpenAI smoke received invalid transcription session: ${JSON.stringify(redactedSession(value))}`,
+    );
+  }
+}
+
+function assertLocalRuntimeReplacement(before, after) {
+  if (before.deviceToken === after.deviceToken) {
+    throw new Error(
+      `local runtime access did not change across app/backend restart: ${JSON.stringify({
+        firstBaseURL: before.baseURL,
+        secondBaseURL: after.baseURL,
+      })}`,
     );
   }
 }

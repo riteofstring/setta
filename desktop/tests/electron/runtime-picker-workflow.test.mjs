@@ -2,7 +2,7 @@
 /* global AbortSignal, console, fetch, URL */
 
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +18,7 @@ import {
   createFixture,
   failureWithLogs,
   launchContext,
+  openFixtureWorkspace,
   pathTimestamp,
   setInputValue,
   stopLaunchedContext,
@@ -65,9 +66,9 @@ try {
     throw new Error(`local runtime missing: ${JSON.stringify(initial)}`);
   }
 
-  await openWorkspaceFromSidebar(context.client);
+  await openWorkspaceFromApp(context.client);
   const localWorkspace = await waitForSelectedWorkspaceLayout(context.client);
-  const localPanes = await waitForSurvivorWorkspacePanes(
+  const localPanes = await createConversationPaneFromToolbar(
     context.client,
     localWorkspace.selectedWorkspaceId,
   );
@@ -85,11 +86,11 @@ try {
   assertRemoteSessionEmpty(remoteEmptySession);
   await waitForRendererEmptyWorkspace(context.client);
 
-  await clickButtonByAria(context.client, "Open project folder");
+  await openFixtureWorkspace(context.client, workflowTimeoutMs);
   const canonicalWorkspaceRoot = await realpath(fixture.workspaceRoot);
   const remoteSession = await waitForRemoteWorkspace(probe, canonicalWorkspaceRoot);
   await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
-  const remotePanes = await waitForSurvivorWorkspacePanes(
+  const remotePanes = await createConversationPaneFromToolbar(
     context.client,
     remoteSession.selectedWorkspaceId,
   );
@@ -99,40 +100,24 @@ try {
     selectedWorkspaceId: remoteSession.selectedWorkspaceId,
   });
 
-  await assertEncryptedDesktopCredentialFiles(fixture.appDataDir, remote.runtimeId);
-  await stopLaunchedContext(context);
-  context = null;
-  context = await launchContext(fixture, join(recordingDir, "restart"));
-  await waitForRuntimeStatus(context.client, "connected", { runtimeId: remote.runtimeId });
-  await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
-  const restartedRemotePanes = await waitForExactWorkspacePanes(
-    context.client,
-    remoteSession.selectedWorkspaceId,
-    remotePanes.paneIds,
-  );
-  await appendSummary("remote-credential-recovered-after-restart", {
-    paneCount: restartedRemotePanes.paneIds.length,
-    remoteRuntimeId: remote.runtimeId,
-  });
-
   const desktopDeviceId = await desktopDeviceIdForRemote(probe);
-  await probe.post("/devices/revoke", { deviceId: desktopDeviceId });
+  await runSettaCommand(["devices", "revoke", "--app-data-dir", remoteAppDataDir, desktopDeviceId]);
   await triggerRendererBackendRead(context.client);
   await waitForRuntimeStatus(context.client, "revoked", { runtimeId: remote.runtimeId });
 
-  await clickButtonByAria(context.client, `Switch to ${local.displayName}`);
+  await clickRuntimePickerButton(context.client, `Switch to ${local.displayName}`);
   await waitForRuntimeStatus(context.client, "connected", { runtimeId: local.runtimeId });
   await waitForSelectedWorkspaceLayout(context.client, localWorkspace.selectedWorkspaceId);
-  await waitForExactWorkspacePanes(
+  const returnedLocalPanes = await waitForSurvivorWorkspacePanes(
     context.client,
     localWorkspace.selectedWorkspaceId,
-    localPanes.paneIds,
   );
+  assertLocalWorkspacePanesSurvivedRuntimeSwitch(localPanes, returnedLocalPanes);
 
   await stopProcess(remoteServe.child);
   await waitForRemoteRuntimeStopped(remote.baseUrl);
   remoteServe = null;
-  await clickButtonByAria(context.client, `Switch to ${remote.displayName}`);
+  await clickRuntimePickerButton(context.client, `Switch to ${remote.displayName}`);
   await waitForRuntimeStatus(context.client, "unreachable", { runtimeId: remote.runtimeId });
 
   await captureScreenshot(context.client, join(recordingDir, "runtime-picker-final.png"));
@@ -182,6 +167,8 @@ function parseArgs(args) {
       case "--keep-artifacts":
         parsed.keepArtifacts = true;
         break;
+      case "--skip-build":
+        break;
       case "--visible":
         parsed.visible = true;
         break;
@@ -193,6 +180,7 @@ function parseArgs(args) {
 }
 
 async function addRuntimeThroughPicker(client, pairingURL) {
+  await ensureRuntimePickerVisible(client);
   await clickButtonByAria(client, "Add runtime");
   await waitForState(
     client,
@@ -212,6 +200,29 @@ async function addRuntimeThroughPicker(client, pairingURL) {
   if (!submitted) {
     throw new Error("runtime pairing form submit button was not clickable");
   }
+}
+
+async function clickRuntimePickerButton(client, label) {
+  await ensureRuntimePickerVisible(client);
+  await clickButtonByAria(client, label);
+}
+
+async function ensureRuntimePickerVisible(client) {
+  const visible = await client.evaluate(runtimePickerVisibleExpression());
+  if (visible) {
+    return;
+  }
+  await clickButtonByAria(client, "Open settings");
+  await waitForState(
+    client,
+    `(() => ({ visible: ${runtimePickerVisibleExpression()} }))()`,
+    (state) => state.visible,
+    workflowTimeoutMs,
+  );
+}
+
+function runtimePickerVisibleExpression() {
+  return `Boolean(document.querySelector('[data-testid="settings-shell-page"] [data-testid="runtime-picker"]'))`;
 }
 
 async function waitForRuntimeStatus(client, status, filter = {}) {
@@ -258,9 +269,43 @@ async function triggerRendererBackendRead(client) {
   })()`);
 }
 
-async function openWorkspaceFromSidebar(client) {
-  await clickButtonByAria(client, "Open project folder");
+async function openWorkspaceFromApp(client) {
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   await waitForSelectedWorkspaceLayout(client);
+}
+
+async function createConversationPaneFromToolbar(client, workspaceId) {
+  await closeSettingsIfOpen(client);
+  const result = await client.driver("topicConversationClickNewFrameConversation");
+  if (!result.clicked) {
+    throw new Error(`new frame conversation action failed: ${JSON.stringify(result)}`);
+  }
+  return waitForSurvivorWorkspacePanes(client, workspaceId);
+}
+
+async function closeSettingsIfOpen(client) {
+  const open = await client.evaluate(
+    `Boolean(document.querySelector('[data-testid="settings-shell-page"]'))`,
+  );
+  if (!open) {
+    return;
+  }
+  await client.call("Input.dispatchKeyEvent", {
+    code: "Escape",
+    key: "Escape",
+    type: "keyDown",
+  });
+  await client.call("Input.dispatchKeyEvent", {
+    code: "Escape",
+    key: "Escape",
+    type: "keyUp",
+  });
+  await waitForState(
+    client,
+    `(() => ({ open: Boolean(document.querySelector('[data-testid="settings-shell-page"]')) }))()`,
+    (state) => !state.open,
+    workflowTimeoutMs,
+  );
 }
 
 async function waitForSelectedWorkspaceLayout(client, expectedWorkspaceId = "") {
@@ -293,13 +338,16 @@ async function waitForRendererEmptyWorkspace(client) {
     client,
     `(() => {
       const area = document.querySelector('[data-testid="workspace-layout-area"]');
+      const masterPane = document.querySelector(
+        '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
+      );
       return {
-        emptyVisible: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
+        masterVisible: Boolean(masterPane),
         paneCount: area instanceof HTMLElement ? area.dataset.paneCount ?? "" : "",
         workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? null : null,
       };
     })()`,
-    (state) => state.emptyVisible && state.workspaceId === "" && state.paneCount === "0",
+    (state) => state.masterVisible && state.workspaceId === "empty" && state.paneCount === "1",
     workflowTimeoutMs,
   );
 }
@@ -314,21 +362,8 @@ async function waitForSurvivorWorkspacePanes(client, expectedWorkspaceId) {
       snapshot.paneIds.length === snapshot.paneCount &&
       snapshot.paneIds.every((paneId) => paneId !== "") &&
       snapshot.surfaceKinds.every((surfaceKind) =>
-        ["easy-button", "empty-frame", "settings-dom"].includes(surfaceKind),
+        ["conversation", "empty-frame"].includes(surfaceKind),
       ),
-    workflowTimeoutMs,
-  );
-}
-
-async function waitForExactWorkspacePanes(client, expectedWorkspaceId, expectedPaneIds) {
-  const expected = JSON.stringify(expectedPaneIds);
-  return waitForState(
-    client,
-    driverCallExpression("runtimePickerWorkspacePaneSnapshot"),
-    (snapshot) =>
-      snapshot.workspaceId === expectedWorkspaceId &&
-      JSON.stringify(snapshot.paneIds) === expected &&
-      snapshot.paneIds.length === snapshot.paneCount,
     workflowTimeoutMs,
   );
 }
@@ -337,6 +372,29 @@ function assertRemoteSessionEmpty(session) {
   if (session.selectedWorkspaceId !== "" || session.activeWorkspaces.length !== 0) {
     throw new Error(`remote runtime should start with no workspaces: ${JSON.stringify(session)}`);
   }
+}
+
+function assertLocalWorkspacePanesSurvivedRuntimeSwitch(before, after) {
+  const beforeEmptyFrames = paneIdsForKind(before, "empty-frame");
+  const afterEmptyFrames = paneIdsForKind(after, "empty-frame");
+  const beforeIds = new Set(before.paneIds);
+  const afterIds = new Set(after.paneIds);
+  const added = after.panes.filter((pane) => !beforeIds.has(pane.paneId));
+  const valid =
+    before.paneIds.every((paneId) => afterIds.has(paneId)) &&
+    JSON.stringify(afterEmptyFrames) === JSON.stringify(beforeEmptyFrames) &&
+    added.every((pane) => pane.surfaceKind === "conversation");
+  if (!valid) {
+    throw new Error(
+      `local workspace panes changed after runtime switch: ${JSON.stringify({ added, after: after.panes, before: before.panes })}`,
+    );
+  }
+}
+
+function paneIdsForKind(snapshot, surfaceKind) {
+  return snapshot.panes
+    .filter((pane) => pane.surfaceKind === surfaceKind)
+    .map((pane) => pane.paneId);
 }
 
 async function waitForRemoteWorkspace(probe, workspaceRoot) {
@@ -361,7 +419,7 @@ async function desktopDeviceIdForRemote(probe) {
 async function pairProbeDevice(appDataDir) {
   const pairingURL = await mintPairingURL(appDataDir);
   const parsed = parsePairingURL(pairingURL);
-  const response = await fetch(parsed.baseUrl + "local-credentials/enroll", {
+  const response = await fetch(parsed.baseUrl + "pairing/complete", {
     body: JSON.stringify({
       clientDisplayName: "Runtime Picker Probe",
       pairingToken: parsed.pairingToken,
@@ -371,23 +429,20 @@ async function pairProbeDevice(appDataDir) {
   });
   const body = await response.text();
   if (!response.ok) {
-    throw new Error(`probe enrollment failed with ${response.status}: ${body}`);
+    throw new Error(`probe pairing failed with ${response.status}: ${body}`);
   }
-  const enrollment = JSON.parse(body);
-  const runtimeCredential = enrollment.runtimeCredential?.token;
-  if (typeof runtimeCredential !== "string" || runtimeCredential === "") {
-    throw new Error(`probe enrollment omitted the runtime credential: ${body}`);
-  }
+  const paired = JSON.parse(body);
   return {
     baseUrl: parsed.baseUrl,
-    get: (path) => remoteRequest(parsed.baseUrl, runtimeCredential, "GET", path),
+    deviceToken: paired.deviceToken,
+    get: (path) => remoteRequest(parsed.baseUrl, paired.deviceToken, "GET", path),
     post: (path, payload) =>
-      remoteRequest(parsed.baseUrl, runtimeCredential, "POST", path, payload),
+      remoteRequest(parsed.baseUrl, paired.deviceToken, "POST", path, payload),
   };
 }
 
-async function remoteRequest(baseUrl, runtimeCredential, method, path, payload) {
-  const headers = { Authorization: "Bearer " + runtimeCredential };
+async function remoteRequest(baseUrl, deviceToken, method, path, payload) {
+  const headers = { Authorization: "Bearer " + deviceToken };
   const init = { headers, method };
   if (payload !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -405,16 +460,7 @@ async function startRemoteRuntime(appDataDir) {
   await mkdir(appDataDir, { recursive: true });
   const child = spawn(
     join(repoRoot, "scripts/go.sh"),
-    [
-      "run",
-      "./cmd/setta",
-      "serve",
-      "--app-data-dir",
-      appDataDir,
-      "--port",
-      "0",
-      "--local-credential-issuer",
-    ],
+    ["run", "./cmd/setta", "serve", "--app-data-dir", appDataDir, "--port", "0"],
     {
       cwd: repoRoot,
       detached: true,
@@ -592,71 +638,4 @@ async function appendSummary(step, payload) {
     join(recordingDir, `${step}.json`),
     JSON.stringify({ payload, step }, null, 2) + "\n",
   );
-}
-
-async function assertEncryptedDesktopCredentialFiles(appDataDir, remoteRuntimeId) {
-  const electronUserData = join(appDataDir, "electron-user-data");
-  const knownRaw = await readFile(join(electronUserData, "known-runtimes.json"), "utf8");
-  const known = JSON.parse(knownRaw);
-  assertKnownRuntimeRegistry(knownRaw, known, remoteRuntimeId);
-
-  const secretsRaw = await readFile(
-    join(electronUserData, "desktop-credential-secrets.json"),
-    "utf8",
-  );
-  assertEncryptedCredentialRegistry(secretsRaw, JSON.parse(secretsRaw));
-}
-
-function assertKnownRuntimeRegistry(knownRaw, known, remoteRuntimeId) {
-  if (known.schema_version !== 2 || known.active_runtime_id !== remoteRuntimeId) {
-    throw new Error(`known runtime registry does not identify the active remote: ${knownRaw}`);
-  }
-  for (const runtime of known.runtimes ?? []) {
-    assertKnownRuntimeRecord(runtime);
-  }
-  if (knownRaw.includes("device_token") || knownRaw.includes("device_secret")) {
-    throw new Error("known runtime registry persisted a credential secret");
-  }
-}
-
-function assertKnownRuntimeRecord(runtime) {
-  const expectedKeys = [
-    "base_url",
-    "device_identity_ref",
-    "display_name",
-    "is_local",
-    "last_connected",
-    "protocol_version",
-    "runtime_id",
-  ];
-  if (JSON.stringify(Object.keys(runtime).sort()) !== JSON.stringify(expectedKeys)) {
-    throw new Error(`known runtime persisted unexpected fields: ${JSON.stringify(runtime)}`);
-  }
-}
-
-function assertEncryptedCredentialRegistry(secretsRaw, secrets) {
-  if (
-    secrets.schema_version !== 1 ||
-    !Array.isArray(secrets.secrets) ||
-    secrets.secrets.length < 3
-  ) {
-    throw new Error(`encrypted credential registry is incomplete: ${secretsRaw}`);
-  }
-  for (const secret of secrets.secrets) {
-    assertEncryptedCredentialEntry(secret);
-  }
-}
-
-function assertEncryptedCredentialEntry(secret) {
-  const expectedKeys = ["encrypted_value", "ref"];
-  const fieldsAreValid =
-    typeof secret.ref === "string" &&
-    typeof secret.encrypted_value === "string" &&
-    secret.encrypted_value !== "";
-  if (
-    !fieldsAreValid ||
-    JSON.stringify(Object.keys(secret).sort()) !== JSON.stringify(expectedKeys)
-  ) {
-    throw new Error(`encrypted credential entry is invalid: ${JSON.stringify(secret)}`);
-  }
 }

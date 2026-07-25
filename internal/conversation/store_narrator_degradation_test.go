@@ -105,7 +105,7 @@ func TestSuccessfulNarratorRetryClearsDegradation(t *testing.T) {
 		t.Fatalf("commit successful narrator retry: %v", err)
 	}
 	if recovered.State.Status != NarratorStatusReady || recovered.State.Degradation != nil ||
-		recovered.State.ObservedThroughSequence != 8 ||
+		recovered.State.ObservedThroughSequence != narratorWorkingThroughSequence ||
 		recovered.State.CurrentFocus != degraded.CurrentFocus ||
 		recovered.State.LastInvocationAt == nil || *recovered.State.LastInvocationAt != narratorRetryTime {
 		t.Fatalf("recovered narrator state = %+v", recovered.State)
@@ -266,7 +266,7 @@ func assertNarratorDegradationPublication(
 	if last.ID != eventID || last.Kind != string(ConversationEventTypeNarratorStateUpdated) {
 		t.Fatalf("degradation publication = %+v", last)
 	}
-	decoded, err := conversationEventFromCommitted(last, "workspace-1", conversationID)
+	decoded, err := conversationEventFromCommitted(last, stringPointer("workspace-1"), conversationID)
 	if err != nil {
 		t.Fatalf("decode degradation publication: %v", err)
 	}
