@@ -69,8 +69,14 @@ func run(
 	unsetenv func(string) error,
 ) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane <serve|bootstrap|ensure-runtime|admin> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane <serve|backup|restore|bootstrap|ensure-runtime|admin> [options]")
 		return 2
+	}
+	if args[0] == "backup" {
+		return runBackup(args[1:], stdout, stderr)
+	}
+	if args[0] == "restore" {
+		return runRestore(args[1:], stdout, stderr)
 	}
 	if args[0] == "bootstrap" {
 		return runBootstrap(args[1:], stdin, stdout, stderr, getenv)

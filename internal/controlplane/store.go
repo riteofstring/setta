@@ -123,6 +123,10 @@ func (store *Store) Path() string {
 	return store.dbPath
 }
 
+func StoreDatabasePath(directory string) string {
+	return filepath.Join(filepath.Clean(directory), controlPlaneDatabaseName)
+}
+
 func (store *Store) Close() error {
 	if store == nil || store.db == nil {
 		return nil

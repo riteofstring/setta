@@ -1326,7 +1326,9 @@ measured, and independent of provider UI.
   and availability expectations. The 2026-07-20 foundation records and
   implements SQLite schema ownership, a separate filesystem secret store, the
   single Go deployment boundary, durable reconciler, expiring operation leases,
-  monotonic fencing, and explicit single-instance expectations; backup and
+  monotonic fencing, explicit single-instance expectations, a strict offline
+  backup/restore format, and a deterministic volume-loss restore drill.
+  Provisioned encrypted off-volume retention, measured recovery time, and
   failover remain open.
 - [ ] Define Go-owned user, entitlement, runtime, device, runtime-access-grant,
   operation, provider-observation, usage, and progress-event contracts.
@@ -2228,3 +2230,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   registered workflow passed immediately on the required narrow rerun. With
   `OPENAI_API_KEY` removed, all four ChatGPT-authenticated live Codex gates
   passed: Electron, agent protocol, side isolation, and topic conversation.
+- 2026-07-24 (control-plane volume-loss recovery): Added explicit offline
+  `setta-control-plane backup` and `restore` commands. Backup refuses a reachable
+  serving process and missing source state, snapshots SQLite through its
+  WAL-aware snapshot operation, copies only the exact sorted set of
+  database-referenced runtime secrets, writes `0700`/`0600` artifacts and a
+  versioned SHA-256 manifest, and never overwrites a destination. Restore
+  accepts only the closed manifest file set, rejects duplicate or unknown
+  fields, unsupported schemas, permission violations, extra/missing files,
+  invalid credentials, and checksum mismatches, then validates the restored
+  database and secret-reference equality through production readers. The
+  deterministic volume-loss drill proves the original client authorization,
+  runtime route credential, and ordered ready hosted-access progress survive.
+  Unreferenced secrets are deliberately excluded. The operator guide records
+  that this plaintext recovery artifact requires an encrypted trusted volume
+  and is neither authenticated untrusted input nor the Phase 7 user-data
+  export. Automated off-volume retention, recovery-time measurement,
+  replication, and failover remain open.

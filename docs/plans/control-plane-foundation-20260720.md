@@ -99,6 +99,19 @@ push after the durable transaction commits. Reconnects replay from SQLite.
 Ahead-of-history and malformed cursors fail instead of silently skipping
 events.
 
+The 2026-07-24 backup extension adds explicit offline `backup` and `restore`
+operator commands. Backup uses SQLite's snapshot operation rather than copying
+the database/WAL files, retains only the exact database-referenced runtime
+secrets under the same in-process consistency boundary, writes private files
+and a versioned checksum manifest, and refuses to overwrite a destination.
+Restore validates the complete closed file set, manifest fields, checksums,
+permissions, schema version, database schema, secret-reference equality, and
+every credential through the production readers before succeeding. The
+deterministic restore drill proves client authorization and ordered hosted
+access progress survive volume replacement. The artifact remains plaintext
+operator recovery material that must live on an encrypted trusted volume; it
+is not the Phase 7 user-project export format.
+
 The generated TypeScript surface contains only trusted user, project,
 workstream, client-device, and requested-capability references. Provider,
 Sprite, runtime, region, machine, endpoint, pairing, and wake fields are absent.
@@ -187,11 +200,15 @@ dry-run. The following work remains:
    attestation, credential issuance, and health before invoking bootstrap.
    Generalize those stages into the durable reconciler before using the
    control plane outside the bounded hosted measurement.
-3. Add backup/restore and record the single-instance failure expectations, or
-   explicitly constrain the hosted run to disposable measurement state.
-4. Extend the deterministic typed main-process fixture into the required
-   production Electron conversation workflow when hosted workstream execution
-   is wired; the current fixture proves only ensure/progress/bootstrap.
+3. Provision an encrypted off-volume backup schedule, retention policy, and
+   restore owner, then record a measured recovery-time objective. The local
+   backup/restore format and deterministic restore drill are implemented, but
+   automatic failover and replication are not.
+
+The deterministic fixture has since been extended through the registered
+production Electron hosted-cloud-chat workflow and Candidate B conversation,
+queueing, steering, approval, cancellation, artifact, restart, and cursor
+replay paths.
 
 Current availability is single instance on one durable volume. There is no
 failover, database replication, secret-store replication, or backup yet. A

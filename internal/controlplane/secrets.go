@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 const maximumSecretBytes = 16 * 1024
@@ -23,6 +24,7 @@ type MutableSecretStore interface {
 
 type FileSecretStore struct {
 	directory string
+	mu        sync.RWMutex
 }
 
 func OpenFileSecretStore(directory string) (*FileSecretStore, error) {
@@ -36,6 +38,12 @@ func OpenFileSecretStore(directory string) (*FileSecretStore, error) {
 }
 
 func (store *FileSecretStore) WriteSecret(ctx context.Context, reference string, secret []byte) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return store.writeSecret(ctx, reference, secret)
+}
+
+func (store *FileSecretStore) writeSecret(ctx context.Context, reference string, secret []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -77,6 +85,12 @@ func (store *FileSecretStore) WriteSecret(ctx context.Context, reference string,
 }
 
 func (store *FileSecretStore) ReadSecret(ctx context.Context, reference string) ([]byte, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	return store.readSecret(ctx, reference)
+}
+
+func (store *FileSecretStore) readSecret(ctx context.Context, reference string) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -144,6 +158,8 @@ func ensurePrivateDirectory(path string, label string) error {
 }
 
 func (store *FileSecretStore) DeleteSecret(ctx context.Context, reference string) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
