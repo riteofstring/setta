@@ -440,6 +440,11 @@ imports the fixtures.
 
 ### Phase 4 - Mockup-Faithful Command Center UI
 
+Status: in progress. The command center now names who the user is talking to,
+shows the folder the focused work runs in, and labels the workstream dots.
+Shell/mockup fidelity, the composer as the primary entry point, and the star
+field remain.
+
 Deliverables:
 
 - make the production shell visually line up with the mockup
@@ -457,6 +462,39 @@ Exit criteria:
   structure, motion, and hierarchy
 - common actions are visible in the graph and rails
 - no production screen suggests the old pane workspace
+
+#### Resolved: the app says who is being spoken to
+
+With nothing selected, the top bar read "Setta — Idle", the composer read
+"on: Setta", and the Now rail was headed "Setta": a title and a status for a
+workstream that does not exist, on the screen the user meets first. The Director
+is what is being spoken to in that state, so it is what the command center names
+— with a teal role marker, and the same accent the composer dot already pulses.
+
+The role treatment is a label, a dot, and an accent inside the same top bar,
+rail, and composer a workstream uses. The Director never becomes a workstream
+row for the same reason its graph lane is not one: it has no folder, no run, and
+no status of its own. It therefore has no dot in the strip and no place in the
+selection order — selection moves between workstreams, and the Director is who
+that selection is described to.
+
+#### Resolved: a workstream's folder is part of what it is
+
+Work runs somewhere, and until now the only way to see where was to open a
+resource request in the artifacts rail. The focused workstream's folder is drawn
+beside its title in the top bar and beside its status in the Now rail, named by
+the folder itself and carrying its absolute path on hover. A folderless
+workstream says "No folder" rather than nothing, because being folderless is a
+real state the Director can create on request, not missing information.
+
+The folder name is derived in the renderer from the workstream's own bound root
+path, not looked up in the workspace session. A workstream carries its binding
+whether or not that workspace is currently open, so a lookup could only add a
+way to render nothing for work that plainly has a folder.
+
+Dots became meaningful the same way: each names the workstream it selects, what
+that workstream is doing, and the folder it does it in, both as its accessible
+name and as its tooltip.
 
 ### Phase 5 - Cleanup
 

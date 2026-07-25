@@ -1,11 +1,4 @@
-import type { Workstream, WorkstreamStatus } from "@generated/backend";
-
-export interface DirectorComposerCommitment {
-  readonly active: boolean;
-  readonly status: WorkstreamStatus;
-  readonly statusLabel: string;
-  readonly title: string;
-}
+import type { WorkstreamStatus } from "@generated/backend";
 
 export const directorWorkstreamStatusLabels = {
   archived: "Archived",
@@ -18,28 +11,3 @@ export const directorWorkstreamStatusLabels = {
   queued: "Queued",
   running: "Running",
 } as const satisfies Record<WorkstreamStatus, string>;
-
-const activeComposerStatuses = new Set<WorkstreamStatus>([
-  "awaiting_approval",
-  "awaiting_resource",
-  "blocked",
-  "queued",
-  "running",
-]);
-
-export function directorComposerCommitment(
-  workstream: Workstream | null,
-): DirectorComposerCommitment {
-  const status = workstream?.status ?? "idle";
-  return {
-    active: activeComposerStatuses.has(status),
-    status,
-    statusLabel: directorWorkstreamStatusLabels[status],
-    title: workstreamTitle(workstream),
-  };
-}
-
-function workstreamTitle(workstream: Workstream | null): string {
-  const title = workstream?.title.trim();
-  return title && title.length > 0 ? title : "Setta";
-}

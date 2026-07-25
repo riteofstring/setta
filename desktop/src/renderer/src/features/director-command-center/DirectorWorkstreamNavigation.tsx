@@ -3,6 +3,7 @@ import type {
   DirectorReceipt,
   DirectorSnapshot,
   DirectorWorkstreamEntry,
+  Workstream,
   WorkstreamStatus,
 } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
@@ -12,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Circle,
+  Folder,
   LoaderCircle,
   PanelLeft,
   PanelRight,
@@ -24,6 +26,12 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { SettaLogoMark } from "../../components/setta-logo-mark";
+import {
+  directorFocus,
+  directorFocusFolder,
+  type DirectorFocus,
+  type DirectorFocusFolder,
+} from "./director-focus";
 import { directorWorkstreamStatusLabels } from "./director-workstream-status";
 
 export interface DirectorRailVisibility {
@@ -103,7 +111,7 @@ function WorkstreamNavigation({
   snapshot: DirectorSnapshot | null;
 }) {
   const navigation = directorWorkstreamNavigation(snapshot);
-  const selectedStatus = navigation.selected?.workstream.status ?? "idle";
+  const focus = directorFocus(navigation.selected?.workstream ?? null);
   const workstreamStripRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     centerSelectedWorkstreamDot(workstreamStripRef.current);
@@ -117,12 +125,16 @@ function WorkstreamNavigation({
         <ChevronLeft aria-hidden="true" size={16} />
       </IconButton>
       <div className="director-workstream-selector">
-        <div className="director-workstream-title">
-          <span>{navigation.selected?.workstream.title ?? "Setta"}</span>
-          <span>
-            {directorWorkstreamStatusLabels[selectedStatus]}
+        <div className="director-workstream-title" data-focus={focus.kind}>
+          {focus.kind === "director" ? (
+            <span aria-hidden="true" className="director-role-dot" />
+          ) : null}
+          <span className="director-focus-title">{focus.title}</span>
+          <span className="director-focus-meta">
+            {focusMetaLabel(focus)}
             {navigation.counter ? ` ${navigation.counter}` : ""}
           </span>
+          {focus.kind === "workstream" ? <WorkstreamFolderChip folder={focus.folder} /> : null}
         </div>
         <div
           aria-label="Visible workstreams"
@@ -160,19 +172,55 @@ function WorkstreamDot({
   selectedWorkstreamId: string | null;
 }) {
   const workstream = entry.workstream;
+  const labels = workstreamDotLabels(workstream);
   return (
     <span role="listitem">
       <button
         aria-current={workstream.id === selectedWorkstreamId ? "page" : undefined}
-        aria-label={`Select ${workstream.title}, ${directorWorkstreamStatusLabels[workstream.status]}`}
+        aria-label={labels.accessibleName}
         className="director-workstream-dot"
         data-status={workstream.status}
         data-workstream-id={workstream.id}
         onClick={() => dispatchDirectorIntent(dispatch, selectWorkstreamIntent(workstream.id))}
+        title={labels.tooltip}
         type="button"
       >
         <StatusGlyph status={workstream.status} />
       </button>
+    </span>
+  );
+}
+
+/**
+ * A dot is only meaningful if it says what it selects. Hovering or reading one
+ * names the workstream, what it is doing, and the folder it does it in.
+ */
+function workstreamDotLabels(workstream: Workstream): {
+  accessibleName: string;
+  tooltip: string;
+} {
+  const folder = directorFocusFolder(workstream.resourceScope);
+  const status = directorWorkstreamStatusLabels[workstream.status];
+  return {
+    accessibleName: `Select ${workstream.title}, ${status}, ${folder.label}`,
+    tooltip: `${workstream.title} — ${status} · ${folder.label}`,
+  };
+}
+
+function focusMetaLabel(focus: DirectorFocus): string {
+  return focus.kind === "director" ? focus.roleLabel : focus.statusLabel;
+}
+
+function WorkstreamFolderChip({ folder }: { folder: DirectorFocusFolder }) {
+  return (
+    <span
+      className="director-workstream-folder"
+      data-folder={folder.path === null ? "none" : "bound"}
+      title={folder.path ?? undefined}
+    >
+      <Folder aria-hidden="true" size={12} />
+      <span className="sr-only">Folder: </span>
+      <span>{folder.label}</span>
     </span>
   );
 }

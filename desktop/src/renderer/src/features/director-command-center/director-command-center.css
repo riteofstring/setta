@@ -2,6 +2,8 @@
   --director-rail-inline: 300px;
   --director-left-rail-inline: var(--director-rail-inline);
   --director-right-rail-inline: var(--director-rail-inline);
+  /* The Director's role accent. Workstreams keep the status palette. */
+  --director-role-accent: oklch(0.84 0.12 195);
   background:
     radial-gradient(circle at 50% 10%, oklch(0.25 0.06 230 / 0.42), transparent 34%),
     linear-gradient(180deg, oklch(0.11 0.01 260), oklch(0.07 0.006 260));
@@ -52,103 +54,6 @@
   outline-offset: 2px;
   pointer-events: auto;
   transform: translateY(0);
-}
-
-.director-command-center-top {
-  align-items: center;
-  background: linear-gradient(to bottom, oklch(0.08 0.012 255 / 0.84), oklch(0.08 0.012 255 / 0));
-  display: grid;
-  gap: 12px;
-  grid-template-columns: auto auto minmax(44px, 1fr);
-  inset-block-start: 0;
-  inset-inline: 0;
-  min-block-size: 44px;
-  padding-block: 0;
-  padding-inline: calc(env(safe-area-inset-left) + 14px) calc(env(safe-area-inset-right) + 14px);
-  position: absolute;
-  z-index: 34;
-}
-
-.director-command-center-chrome-shield {
-  inset: 0;
-  position: absolute;
-  z-index: -1;
-}
-
-.director-command-center-brand {
-  align-items: center;
-  display: inline-flex;
-  min-block-size: 34px;
-}
-
-.director-workstream-nav {
-  align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 40px minmax(190px, 1fr) 40px;
-  inline-size: clamp(300px, calc(100vw - 390px), 642px);
-  justify-self: start;
-  min-inline-size: 300px;
-}
-
-.director-workstream-selector {
-  align-items: center;
-  display: grid;
-  gap: 5px;
-  justify-items: center;
-  min-inline-size: 0;
-}
-
-.director-workstream-title {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-  justify-content: safe center;
-  min-inline-size: 0;
-  text-align: center;
-}
-
-.director-workstream-title span:first-child {
-  color: oklch(0.95 0.025 245);
-  font-size: 0.86rem;
-  font-weight: 650;
-  max-inline-size: min(28vw, 260px);
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.director-workstream-title span:last-child {
-  color: oklch(0.68 0.04 240);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.director-workstream-strip {
-  display: flex;
-  gap: 5px;
-  inline-size: 100%;
-  justify-content: safe center;
-  max-inline-size: 100%;
-  min-inline-size: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-}
-
-.director-workstream-strip::-webkit-scrollbar {
-  display: none;
-}
-
-.director-command-center-view-controls {
-  align-items: center;
-  display: inline-flex;
-  gap: 8px;
-  justify-content: end;
-  justify-self: end;
-  min-inline-size: 0;
 }
 
 .director-workstream-dot,
@@ -342,6 +247,19 @@
   justify-self: start;
   min-block-size: 32px;
   padding-inline: 10px;
+}
+
+.director-focus-facts {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-inline-size: 0;
+}
+
+.director-selected-folder {
+  font-size: 0.82rem;
+  max-inline-size: 100%;
 }
 
 .director-rail-summary {
@@ -948,32 +866,6 @@
 @media (max-width: 640px) {
   .director-command-center {
     grid-template-rows: minmax(0, 1fr);
-  }
-
-  .director-command-center-top {
-    gap: 8px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    padding-inline: 10px;
-  }
-
-  .director-workstream-nav {
-    grid-template-columns: 32px minmax(96px, 1fr) 32px;
-    inline-size: 100%;
-    min-inline-size: 0;
-  }
-
-  .director-command-center-view-controls {
-    gap: 5px;
-  }
-
-  .director-workstream-title span:first-child {
-    max-inline-size: min(38vw, 180px);
-  }
-}
-
-@media (max-width: 420px) {
-  .director-command-center-brand {
-    display: none;
   }
 }
 

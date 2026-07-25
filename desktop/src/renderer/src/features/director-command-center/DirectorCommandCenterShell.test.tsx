@@ -15,7 +15,6 @@ import {
   DirectorRefreshCoordinator,
   directorEventChangesVisibleState,
   directorGraphTimeSecondsAt,
-  directorCurrentWorkstreamSummary,
   effectiveDirectorRailVisibility,
 } from "./DirectorCommandCenterShell";
 import {
@@ -25,7 +24,7 @@ import {
 import { compactDirectorHistory } from "./DirectorHistoryOverlay";
 import { currentDirectorActivity } from "./DirectorNowActivityList";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
-import { directorComposerCommitment } from "./director-workstream-status";
+import { directorFocus, directorWorkstreamSummary } from "./director-focus";
 
 describe("Director command-center approval answers", () => {
   test("builds structured answers from public question definitions", () => {
@@ -153,9 +152,9 @@ describe("Director command-center shell view state", () => {
       publicSummary: "Waiting for a project folder before this work can start.",
     };
 
-    expect(directorCurrentWorkstreamSummary(running)).toBeNull();
+    expect(directorWorkstreamSummary(running)).toBeNull();
     expect(
-      directorCurrentWorkstreamSummary({
+      directorWorkstreamSummary({
         ...running,
         activeRunId: null,
         status: "awaiting_resource",
@@ -306,31 +305,45 @@ describe("Director command-center shell view state", () => {
     ).toBe("next");
   });
 
-  test("builds the composer commitment from selected workstream state", () => {
-    expect(directorComposerCommitment(null)).toEqual({
-      active: false,
-      status: "idle",
-      statusLabel: "Idle",
-      title: "Setta",
+  test("names the Director when no workstream is in focus", () => {
+    expect(directorFocus(null)).toEqual({
+      kind: "director",
+      roleLabel: "No workstream in focus",
+      title: "Director",
     });
+  });
 
-    expect(directorComposerCommitment(workstreamEntry(7, "running").workstream)).toEqual({
-      active: true,
-      status: "running",
-      statusLabel: "Running",
-      title: "Workstream 7",
-    });
-
+  test("carries the folder a focused workstream runs in", () => {
     expect(
-      directorComposerCommitment({
-        ...workstreamEntry(8, "awaiting_resource").workstream,
-        title: "   ",
+      directorFocus({
+        ...workstreamEntry(7, "running").workstream,
+        resourceScope: {
+          folder: { rootPath: "/Users/dev/code/setta", workspaceId: "workspace:1" },
+          kind: "folder",
+        },
       }),
     ).toEqual({
       active: true,
+      folder: { label: "setta", path: "/Users/dev/code/setta" },
+      kind: "workstream",
+      status: "running",
+      statusLabel: "Running",
+      summary: null,
+      title: "Workstream 7",
+    });
+
+    expect(directorFocus(workstreamEntry(8, "awaiting_resource").workstream)).toEqual({
+      active: true,
+      folder: { label: "No folder", path: null },
+      kind: "workstream",
       status: "awaiting_resource",
       statusLabel: "Needs folder",
-      title: "Setta",
+      summary: null,
+      title: "Workstream 8",
+    });
+
+    expect(directorFocus(workstreamEntry(9, "completed").workstream)).toMatchObject({
+      active: false,
     });
   });
 

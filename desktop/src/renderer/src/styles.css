@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./features/director-graph/render/director-graph.css";
 @import "./features/director-command-center/director-command-center.css";
+@import "./features/director-command-center/director-command-center-navigation.css";
 @import "./features/director-command-center/director-command-center-composer.css";
 @import "./features/director-command-center/director-command-center-activity.css";
 @import "./features/director-command-center/director-workstream-switch-transition.css";

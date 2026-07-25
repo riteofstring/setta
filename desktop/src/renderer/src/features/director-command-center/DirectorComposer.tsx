@@ -3,28 +3,61 @@ import { LoaderCircle, Mic, RotateCcw, Send, Square, X } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { voiceProviderSetupActionLabel } from "../global-speech/speech-capture-availability";
+import { directorTitle, type DirectorFocus } from "./director-focus";
 import type {
   DirectorSpeechCaptureController,
   DirectorSpeechCaptureSnapshot,
   DirectorSpeechCaptureState,
 } from "./director-speech-capture";
-import type { DirectorComposerCommitment } from "./director-workstream-status";
 
 export interface DirectorSpeechCaptureBinding {
   controller: DirectorSpeechCaptureController;
   snapshot: DirectorSpeechCaptureSnapshot;
 }
 
+/**
+ * The request always reaches the Director. What changes is the work it is being
+ * asked about, so the hint names the Director first and the workstream second.
+ */
+function DirectorComposerHint({ focus }: { focus: DirectorFocus }) {
+  if (focus.kind === "director") {
+    return (
+      <p className="director-composer-hint" data-active="false" data-focus="director">
+        <span aria-hidden="true" className="director-composer-hint-dot" />
+        <span className="director-composer-hint-copy">
+          <span className="director-composer-hint-role">{directorTitle}</span>
+          <span className="director-composer-hint-focus">{focus.roleLabel}</span>
+        </span>
+      </p>
+    );
+  }
+  return (
+    <p
+      className="director-composer-hint"
+      data-active={focus.active ? "true" : "false"}
+      data-focus="workstream"
+      data-status={focus.status}
+    >
+      <span aria-hidden="true" className="director-composer-hint-dot" />
+      <span className="director-composer-hint-copy">
+        <span className="director-composer-hint-role">{directorTitle}</span>
+        <span className="director-composer-hint-focus">on {focus.title}</span>
+        <span className="director-composer-hint-status">{focus.statusLabel}</span>
+      </span>
+    </p>
+  );
+}
+
 export function DirectorComposer({
-  commitment,
   dispatch,
   dispatching,
+  focus,
   onOpenVoiceCredentialSettings,
   speechCapture,
 }: {
-  commitment: DirectorComposerCommitment;
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   dispatching: boolean;
+  focus: DirectorFocus;
   onOpenVoiceCredentialSettings: () => void;
   speechCapture: DirectorSpeechCaptureBinding;
 }) {
@@ -62,17 +95,7 @@ export function DirectorComposer({
       data-voice-state={voice.state}
       onSubmit={submit}
     >
-      <p
-        className="director-composer-hint"
-        data-active={commitment.active ? "true" : "false"}
-        data-status={commitment.status}
-      >
-        <span aria-hidden="true" className="director-composer-hint-dot" />
-        <span className="director-composer-hint-copy">
-          <span>on: {commitment.title}</span>
-          <span>{commitment.statusLabel}</span>
-        </span>
-      </p>
+      <DirectorComposerHint focus={focus} />
       <div className="director-composer-pill">
         <div className="director-composer-input-stack">
           <label className="sr-only" htmlFor="director-composer-input">

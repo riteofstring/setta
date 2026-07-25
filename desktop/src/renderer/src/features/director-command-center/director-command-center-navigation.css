@@ -1,0 +1,187 @@
+/*
+ * The command center's top bar and the focus identity it renders: which
+ * conversation is in focus, what it is doing, and the folder it does it in.
+ * The Director role marker lives here too, because the Now rail shows the same
+ * identity the top bar does.
+ */
+
+.director-command-center-top {
+  align-items: center;
+  background: linear-gradient(to bottom, oklch(0.08 0.012 255 / 0.84), oklch(0.08 0.012 255 / 0));
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto auto minmax(44px, 1fr);
+  inset-block-start: 0;
+  inset-inline: 0;
+  min-block-size: 44px;
+  padding-block: 0;
+  padding-inline: calc(env(safe-area-inset-left) + 14px) calc(env(safe-area-inset-right) + 14px);
+  position: absolute;
+  z-index: 34;
+}
+
+.director-command-center-chrome-shield {
+  inset: 0;
+  position: absolute;
+  z-index: -1;
+}
+
+.director-command-center-brand {
+  align-items: center;
+  display: inline-flex;
+  min-block-size: 34px;
+}
+
+.director-workstream-nav {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 40px minmax(190px, 1fr) 40px;
+  inline-size: clamp(300px, calc(100vw - 390px), 642px);
+  justify-self: start;
+  min-inline-size: 300px;
+}
+
+.director-workstream-selector {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+  min-inline-size: 0;
+}
+
+.director-workstream-title {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: safe center;
+  min-inline-size: 0;
+  text-align: center;
+}
+
+.director-focus-title {
+  color: oklch(0.95 0.025 245);
+  font-size: 0.86rem;
+  font-weight: 650;
+  max-inline-size: min(28vw, 260px);
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.director-workstream-title[data-focus="director"] .director-focus-title {
+  color: color-mix(in oklch, var(--director-role-accent) 62%, oklch(0.96 0.01 240));
+}
+
+.director-focus-meta {
+  color: oklch(0.68 0.04 240);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
+ * The Director's own accent. It is the one role marker that separates the app
+ * conversation from a workstream, and it is the same teal the composer pulses.
+ */
+.director-role-dot {
+  align-self: center;
+  background: var(--director-role-accent);
+  block-size: 7px;
+  border-radius: 999px;
+  box-shadow: 0 0 12px color-mix(in oklch, var(--director-role-accent) 70%, transparent);
+  flex: none;
+  inline-size: 7px;
+}
+
+.director-workstream-folder,
+.director-selected-folder {
+  align-items: center;
+  color: oklch(0.7 0.035 245);
+  display: inline-flex;
+  gap: 6px;
+  min-inline-size: 0;
+}
+
+.director-workstream-folder {
+  font-size: 0.72rem;
+  max-inline-size: min(18vw, 180px);
+}
+
+.director-workstream-folder > span:last-child,
+.director-selected-folder > span:last-child {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.director-workstream-folder[data-folder="none"],
+.director-selected-folder[data-folder="none"] {
+  color: oklch(0.6 0.03 250);
+}
+
+.director-workstream-folder svg,
+.director-selected-folder svg {
+  color: oklch(0.62 0.05 235);
+  flex: none;
+}
+
+.director-workstream-strip {
+  display: flex;
+  gap: 5px;
+  inline-size: 100%;
+  justify-content: safe center;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.director-workstream-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.director-command-center-view-controls {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: end;
+  justify-self: end;
+  min-inline-size: 0;
+}
+
+@media (max-width: 640px) {
+  .director-command-center-top {
+    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding-inline: 10px;
+  }
+
+  .director-workstream-nav {
+    grid-template-columns: 32px minmax(96px, 1fr) 32px;
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  .director-command-center-view-controls {
+    gap: 5px;
+  }
+
+  .director-focus-title {
+    max-inline-size: min(38vw, 180px);
+  }
+
+  /* The rail keeps the folder at this width; the top bar has no room for it. */
+  .director-workstream-folder {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .director-command-center-brand {
+    display: none;
+  }
+}

@@ -4,12 +4,11 @@ import type {
   DirectorReceipt,
   DirectorSnapshot,
   Workstream,
-  WorkstreamStatus,
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import { ChevronDown, History } from "lucide-react";
+import { ChevronDown, Folder, History } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -58,10 +57,7 @@ import {
   useDirectorWorkstreamSwitchTransition,
   WorkstreamSwitchTransition,
 } from "./director-workstream-switch-transition";
-import {
-  directorComposerCommitment,
-  directorWorkstreamStatusLabels,
-} from "./director-workstream-status";
+import { directorFocus, type DirectorFocus } from "./director-focus";
 import {
   CommandCenterTopBar,
   directorWorkstreamKeyboardDirection,
@@ -107,20 +103,6 @@ const defaultRailVisibility = {
 
 const compactRailQuery = "(max-width: 760px)";
 const directorGraphCompositionId = "director-command-center";
-const currentWorkstreamSummaryRules = {
-  archived: "milestone",
-  awaiting_approval: "milestone",
-  awaiting_resource: "resource_required",
-  blocked: "milestone",
-  completed: "milestone",
-  failed: "milestone",
-  idle: "cancelled",
-  queued: null,
-  running: null,
-} as const satisfies Record<
-  WorkstreamStatus,
-  "cancelled" | "milestone" | "resource_required" | null
->;
 const directorEventVisibility = {
   "director.aggregates.updated": true,
   "director.approval.updated": true,
@@ -207,6 +189,7 @@ export function DirectorCommandCenterShell({
   );
   const packedSnapshot = useMemo(() => packDirectorGraphs(snapshotGraphs), [snapshotGraphs]);
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
+  const focus = directorFocus(snapshotView.selectedWorkstream);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
     setCanvas(host);
@@ -260,12 +243,12 @@ export function DirectorCommandCenterShell({
           <WorkstreamSwitchTransition transition={switchTransition} />
           <NowRail
             activity={snapshotView.activity}
+            focus={focus}
             history={snapshotView.history}
             loadState={director.loadState}
             message={director.message}
             onOpenHistory={openHistory}
             receiptText={director.receiptText}
-            workstream={snapshotView.selectedWorkstream}
           />
           <ArtifactsRail
             approvals={snapshotView.approvals}
@@ -279,9 +262,9 @@ export function DirectorCommandCenterShell({
             workspaceSession={workspaceBinding.session}
           />
           <DirectorComposer
-            commitment={directorComposerCommitment(snapshotView.selectedWorkstream)}
             dispatch={director.dispatch}
             dispatching={director.dispatching}
+            focus={focus}
             onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
             speechCapture={speechCapture}
           />
@@ -692,24 +675,24 @@ function useDirectorSpeechCapture({
 
 function NowRail({
   activity,
+  focus,
   history,
   loadState,
   message,
   onOpenHistory,
   receiptText,
-  workstream,
 }: {
   activity: DirectorNowActivity;
+  focus: DirectorFocus;
   history: DirectorHistory;
   loadState: DirectorLoadState;
   message: string | null;
   onOpenHistory: (trigger: HTMLButtonElement) => void;
   receiptText: string | null;
-  workstream: Workstream | null;
 }) {
   return (
     <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
-      <CurrentWorkstreamSummary workstream={workstream} />
+      <CurrentFocusSummary focus={focus} />
       <DirectorNowActivityList activity={activity} />
       <HistoryList history={history} onOpenHistory={onOpenHistory} />
       <div aria-live="polite" className="director-live-status" role="status">
@@ -719,19 +702,48 @@ function NowRail({
   );
 }
 
-function CurrentWorkstreamSummary({ workstream }: { workstream: Workstream | null }) {
-  const status = workstream?.status ?? "idle";
-  const summary = directorCurrentWorkstreamSummary(workstream);
+function CurrentFocusSummary({ focus }: { focus: DirectorFocus }) {
   return (
-    <section className="director-rail-section">
+    <section className="director-rail-section" data-focus={focus.kind}>
       <p className="director-rail-kicker">Now</p>
-      <h1>{workstream?.title ?? "Setta"}</h1>
-      <div className="director-selected-status">
-        <StatusGlyph status={status} />
-        <span>{directorWorkstreamStatusLabels[status]}</span>
-      </div>
-      {summary ? <CurrentWorkstreamSummaryDisclosure summary={summary} /> : null}
+      <h1>{focus.title}</h1>
+      {focus.kind === "director" ? (
+        <div className="director-selected-status">
+          <span aria-hidden="true" className="director-role-dot" />
+          <span>{focus.roleLabel}</span>
+        </div>
+      ) : (
+        <CurrentWorkstreamFacts focus={focus} />
+      )}
     </section>
+  );
+}
+
+function CurrentWorkstreamFacts({
+  focus,
+}: {
+  focus: Extract<DirectorFocus, { kind: "workstream" }>;
+}) {
+  return (
+    <>
+      <div className="director-focus-facts">
+        <div className="director-selected-status">
+          <StatusGlyph status={focus.status} />
+          <span>{focus.statusLabel}</span>
+        </div>
+        <div
+          className="director-selected-folder"
+          data-folder={focus.folder.path === null ? "none" : "bound"}
+        >
+          <Folder aria-hidden="true" size={14} />
+          <span className="sr-only">Folder: </span>
+          <span title={focus.folder.path ?? undefined}>{focus.folder.label}</span>
+        </div>
+      </div>
+      {focus.summary === null ? null : (
+        <CurrentWorkstreamSummaryDisclosure summary={focus.summary} />
+      )}
+    </>
   );
 }
 
@@ -745,21 +757,6 @@ function CurrentWorkstreamSummaryDisclosure({ summary }: { summary: string }) {
       <p className="director-rail-summary">{summary}</p>
     </details>
   );
-}
-
-export function directorCurrentWorkstreamSummary(workstream: Workstream | null): string | null {
-  const milestone = workstream?.lastMilestone;
-  if (!workstream || !milestone) {
-    return null;
-  }
-  const rule = currentWorkstreamSummaryRules[workstream.status];
-  if (rule === null) {
-    return null;
-  }
-  if (rule === "milestone") {
-    return milestone.publicSummary;
-  }
-  return milestone.kind === rule ? milestone.publicSummary : null;
 }
 
 function HistoryList({

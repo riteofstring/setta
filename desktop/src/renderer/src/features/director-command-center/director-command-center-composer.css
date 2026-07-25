@@ -65,10 +65,10 @@
 }
 
 .director-composer-hint-dot {
-  background: oklch(0.76 0.13 220);
+  background: var(--director-role-accent);
   block-size: 7px;
   border-radius: 999px;
-  box-shadow: 0 0 16px oklch(0.76 0.13 220 / 0.78);
+  box-shadow: 0 0 16px color-mix(in oklch, var(--director-role-accent) 78%, transparent);
   flex: none;
   inline-size: 7px;
 }
@@ -80,7 +80,14 @@
   min-inline-size: 0;
 }
 
-.director-composer-hint-copy span:first-child {
+.director-composer-hint-role {
+  color: color-mix(in oklch, var(--director-role-accent) 78%, oklch(0.96 0.01 240));
+  flex: none;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.director-composer-hint-focus {
   color: oklch(0.82 0.06 220);
   min-inline-size: 0;
   overflow: hidden;
@@ -88,7 +95,7 @@
   white-space: nowrap;
 }
 
-.director-composer-hint-copy span:last-child {
+.director-composer-hint-status {
   color: oklch(0.58 0.03 250);
   flex: none;
   font-size: 0.7rem;
