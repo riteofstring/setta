@@ -3164,3 +3164,34 @@ Stop and reassess rather than hiding the problem if any of these occur:
   No live provider test was run, no dependency file changed, and no provider or
   cloud mutation ran. Checkpoint retention remains open and out of scope; the
   pinned SDK still exposes no delete operation.
+- 2026-07-25 (desktop disk-admission reserve, named reason codes): Closed the
+  open owner decision on `--minimum-disk-free-mib` in favour of a nonzero
+  desktop default, so a local disk-pressure failure is as classifiable as a
+  hosted one. Disk admission had been hosted-only in practice: both desktop
+  entry points defaulted the flag to `0`, the gate is nil at `0`, and only the
+  hosted install path supplied a reserve from its signed manifest, so a local
+  user running out of storage received an opaque late failure while a hosted
+  user received a typed `runtime_disk_pressure` code. `DefaultConfig` now
+  carries a 1024 MiB reserve — the same reserve the signed hosted manifest
+  already uses, so one number means one thing on both paths — and both commands
+  default from that single owner rather than repeating the literal. Passing
+  `--minimum-disk-free-mib=0` remains an explicit opt-out that disables the gate
+  entirely, and the negative-value rejection is unchanged. The duplicated
+  `disk_space_below_minimum` literal became named constants at their owner in
+  `internal/runtime`, used at both the producing and matching sites, alongside
+  the sibling path-not-configured and unavailable codes; `AdmitTurn` dropped an
+  unreachable nil-reader fallback. Tests prove the gate maps to the named
+  constants, that the default installs a working gate, and that zero still
+  disables it. Because this seam is turn admission, the heavier gates ran: the
+  three affected Go packages, `./scripts/format.sh`,
+  `./check_quality.sh --git-changes`, the registered `hosted-cloud-chat`
+  Electron workflow, and, with `OPENAI_API_KEY` removed, all four
+  ChatGPT-authenticated live Codex gates — agent protocol, side isolation, topic
+  conversation, and the live Codex Electron workflow — all passed with real
+  provider authentication and no skips. One environmental caveat was identified
+  and is not a regression: the `hosted-cloud-chat` fixture builds its
+  control-plane admin socket under the OS temporary directory, which exceeds the
+  104-byte `sun_path` limit on a stock macOS `TMPDIR`, so the workflow fails
+  before startup unless `TMPDIR` is short. This is the same limit Slice 1
+  addressed for Go tests and is tracked as follow-up harness work. No dependency
+  file changed and no provider or cloud mutation ran.
