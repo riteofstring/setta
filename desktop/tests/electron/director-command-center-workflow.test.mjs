@@ -15,6 +15,7 @@ import {
   assertBuildExists,
   captureScreenshot,
   createElectronFixture,
+  dispatchKeyEvent,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
@@ -80,6 +81,7 @@ try {
   );
   assertProjectedDirectorCreation(projectedCreation, rootWorkstreamId);
   const workspaceSettings = await verifyWorkspaceSettings(context.client, workspaceId);
+  await verifyComposerQueuesWhileDirectorAnswers(context.client, fakeCodex.statePath);
 
   const normal = await submitDirector(context.client, "Director normal conversation.");
   assertEqual(
@@ -379,6 +381,7 @@ try {
       !snapshot.workstreams.some((entry) => entry.workstream.id === folderlessWorkstreamId) &&
       snapshot.aggregates.workstreamCount === 1,
   );
+  await assertDirectorFocusIsConsistent(context.client);
 
   const selectedRootTurn = await submitDirector(context.client, "Director select root.");
   const selectedRootCall = selectedRootTurn.submit?.toolCalls.find(
@@ -611,11 +614,119 @@ async function submitDirectorInComposer(client, text) {
   }
 }
 
+async function verifyComposerQueuesWhileDirectorAnswers(client, statePath) {
+  const delayed = "Director delayed conversation.";
+  const queued = "Director normal conversation.";
+  const prepared = await client.evaluate(`(() => {
+    const trigger = document.querySelector('button[aria-label="Open settings"]');
+    if (!(trigger instanceof HTMLButtonElement)) {
+      return false;
+    }
+    trigger.focus();
+    return true;
+  })()`);
+  if (!prepared) {
+    throw new Error("Director global typing check could not focus a shell control");
+  }
+  await dispatchKeyEvent(client, { code: "KeyD", key: "D", text: "D" });
+  await dispatchKeyEvent(client, { code: "KeyD", key: "D", type: "keyUp" });
+  await waitForState(
+    client,
+    `(() => {
+      const input = document.querySelector("#director-composer-input");
+      return {
+        focused: document.activeElement === input,
+        value: input instanceof HTMLTextAreaElement ? input.value : null
+      };
+    })()`,
+    (state) => state.focused && state.value === "D",
+    workflowTimeoutMs,
+  );
+
+  await submitDirectorInComposer(client, delayed);
+  await waitForState(
+    client,
+    `(() => {
+      const hint = document.querySelector(".director-composer-hint");
+      const input = document.querySelector("#director-composer-input");
+      return {
+        answering: hint?.getAttribute("data-answering") === "true",
+        disabled: input instanceof HTMLTextAreaElement ? input.disabled : null,
+        focused: document.activeElement === input
+      };
+    })()`,
+    (state) => state.answering && state.disabled === false && state.focused,
+    workflowTimeoutMs,
+  );
+  await submitDirectorInComposer(client, queued);
+  await waitForState(
+    client,
+    `(() => {
+      const hint = document.querySelector(".director-composer-hint");
+      const input = document.querySelector("#director-composer-input");
+      const status = document.querySelector(".director-live-status");
+      return {
+        answering: hint?.getAttribute("data-answering") === "true",
+        status: status?.textContent?.trim() ?? "",
+        value: input instanceof HTMLTextAreaElement ? input.value : null
+      };
+    })()`,
+    (state) =>
+      state.answering === false &&
+      state.status === "The Director can answer without acting." &&
+      state.value === "",
+    workflowTimeoutMs,
+  );
+
+  const providerState = JSON.parse(await readFile(statePath, "utf8"));
+  const submitted = providerState.methodLog
+    .filter((entry) => entry.method === "turn/start" && entry.isDirector === true)
+    .map((entry) => entry.inputText)
+    .filter((text) => text === delayed || text === queued)
+    .slice(-2);
+  assertDeepEqual(submitted, [delayed, queued], "queued Director composer turn order");
+}
+
 function submitDirector(client, text) {
   return dispatchDirector(client, {
     kind: "submit",
     submit: { modality: "text", text },
   });
+}
+
+async function assertDirectorFocusIsConsistent(client) {
+  const focus = await waitForState(
+    client,
+    `(() => ({
+      composerFocus:
+        document.querySelector(".director-composer-hint-focus")?.textContent?.trim() ?? "",
+      currentDots: document.querySelectorAll('.director-workstream-dot[aria-current="page"]').length,
+      headingCount: document.querySelectorAll("h1").length,
+      nowTitle: document.querySelector("#director-now-rail h2")?.textContent?.trim() ?? "",
+      topMeta: document.querySelector(".director-focus-meta")?.textContent?.trim() ?? "",
+      topTitle: document.querySelector(".director-focus-title")?.textContent?.trim() ?? ""
+    }))()`,
+    (state) =>
+      state.composerFocus === "No workstream in focus" &&
+      state.currentDots === 0 &&
+      state.headingCount === 1 &&
+      state.nowTitle === "Director" &&
+      state.topMeta === "No workstream in focus" &&
+      state.topTitle === "Director",
+    workflowTimeoutMs,
+  );
+  assertDeepEqual(
+    focus,
+    {
+      composerFocus: "No workstream in focus",
+      currentDots: 0,
+      headingCount: 1,
+      nowTitle: "Director",
+      topMeta: "No workstream in focus",
+      topTitle: "Director",
+    },
+    "Director focus after selected workstream archive",
+  );
 }
 
 async function readDirectorProviderLifecycle(statePath) {
@@ -957,8 +1068,59 @@ async function verifyCompactRailFocusRestoration(client) {
       (state) => state.collapsed && state.focusedTrigger && state.hidden,
       workflowTimeoutMs,
     );
+    await verifyMinimumCompactWidth(client);
   } finally {
     await client.call("Emulation.clearDeviceMetricsOverride");
+  }
+}
+
+async function verifyMinimumCompactWidth(client) {
+  await client.call("Emulation.setDeviceMetricsOverride", {
+    deviceScaleFactor: 1,
+    height: 720,
+    mobile: true,
+    width: 320,
+  });
+  const layout = await waitForState(
+    client,
+    `(() => {
+      const rect = (selector) => {
+        const node = document.querySelector(selector);
+        if (!(node instanceof HTMLElement)) {
+          return null;
+        }
+        const box = node.getBoundingClientRect();
+        return { left: box.left, right: box.right, width: box.width };
+      };
+      const title = document.querySelector(".director-focus-title");
+      return {
+        composer: rect(".director-composer"),
+        controls: rect(".director-command-center-view-controls"),
+        headingCount: document.querySelectorAll("h1").length,
+        metaHidden:
+          getComputedStyle(document.querySelector(".director-focus-meta")).display === "none",
+        navigation: rect(".director-workstream-nav"),
+        titleClipped:
+          title instanceof HTMLElement ? title.scrollWidth > title.clientWidth + 1 : true,
+        viewportWidth: window.innerWidth
+      };
+    })()`,
+    (state) =>
+      state.composer !== null &&
+      state.controls !== null &&
+      state.headingCount === 1 &&
+      state.metaHidden &&
+      state.navigation !== null &&
+      !state.titleClipped &&
+      state.viewportWidth === 320,
+    workflowTimeoutMs,
+  );
+  const described = JSON.stringify(layout);
+  if (layout.navigation.right > layout.controls.left + 1) {
+    throw new Error(`Director compact navigation overlapped view controls: ${described}`);
+  }
+  if (layout.composer.left < 0 || layout.composer.right > layout.viewportWidth) {
+    throw new Error(`Director compact composer escaped the viewport: ${described}`);
   }
 }
 

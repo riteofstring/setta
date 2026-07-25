@@ -96,7 +96,7 @@ function HistoryOverlay({ history, onClose }: { history: DirectorHistory; onClos
 
 function HistoryOverlayBody({ history }: { history: DirectorHistory }): ReactNode {
   if (history.length === 0) {
-    return <p className="director-rail-summary">No work has been selected.</p>;
+    return <p className="director-rail-summary">No workstream history yet.</p>;
   }
   return (
     <ol className="director-history-dialog-list">

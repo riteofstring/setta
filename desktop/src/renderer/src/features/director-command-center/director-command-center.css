@@ -236,7 +236,7 @@
   text-transform: uppercase;
 }
 
-.director-rail-section h1 {
+.director-rail-section h2 {
   font-size: clamp(1.35rem, 2vw, 2.1rem);
   font-weight: 650;
   line-height: 1.05;
@@ -406,6 +406,7 @@
 .director-resource-options button:disabled,
 .director-artifact-item:disabled,
 .director-composer button:disabled,
+.director-icon-button:disabled,
 .director-history-open:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -785,8 +786,7 @@
   flex: none;
 }
 
-[data-status="running"] .director-status-icon,
-.director-selected-status .director-status-icon {
+[data-status="running"] .director-status-icon {
   color: oklch(0.78 0.13 220);
 }
 

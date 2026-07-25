@@ -18,7 +18,11 @@ import {
   directorPendingWork,
   effectiveDirectorRailVisibility,
 } from "./DirectorCommandCenterShell";
-import { directorComposerHint, directorComposerTakesKeystroke } from "./DirectorComposer";
+import {
+  directorComposerHint,
+  directorComposerTakesKeystroke,
+  restoreFailedDirectorDraft,
+} from "./DirectorComposer";
 import {
   directorWorkstreamKeyboardDirection,
   directorWorkstreamNavigation,
@@ -234,6 +238,17 @@ describe("Director command-center shell view state", () => {
     expect(directorWorkstreamNavigation(snapshot).counter).toBe("201 total");
   });
 
+  test("does not invent a focused workstream when durable selection is empty", () => {
+    const snapshot = snapshotWithWorkstreams(2, 1);
+    snapshot.selectedWorkstreamId = null;
+
+    expect(directorWorkstreamNavigation(snapshot)).toMatchObject({
+      counter: null,
+      selected: null,
+      selectedIndex: -1,
+    });
+  });
+
   test("replays a resync requested while a Director snapshot refresh is in flight", async () => {
     const coordinator = new DirectorRefreshCoordinator();
     const states: string[] = [];
@@ -304,7 +319,7 @@ describe("Director command-center shell view state", () => {
         metaKey: true,
         targetIsEditable: true,
       }),
-    ).toBe("next");
+    ).toBeNull();
   });
 
   test("names the Director when no workstream is in focus", () => {
@@ -389,6 +404,13 @@ describe("Director command-center shell view state", () => {
     expect(directorComposerTakesKeystroke(keystroke({ key: "ArrowRight" }))).toBe(false);
     expect(directorComposerTakesKeystroke(keystroke({ ctrlKey: true, key: "c" }))).toBe(false);
     expect(directorComposerTakesKeystroke(keystroke({ key: "c", metaKey: true }))).toBe(false);
+  });
+
+  test("restores a failed request without replacing a newer draft", () => {
+    expect(restoreFailedDirectorDraft("", "First request")).toBe("First request");
+    expect(restoreFailedDirectorDraft("Second draft", "First request")).toBe(
+      "First request\n\nSecond draft",
+    );
   });
 
   test("classifies workstream switch transitions as view state", () => {

@@ -822,7 +822,7 @@ function emitDirectorTurnScenario(threadId, turnId, text, history) {
   }
   const call = directorToolCallForStep(scenario, 0, []);
   if (call === null) {
-    completeDirectorTurn(threadId, turnId, scenario.reply);
+    completeDirectorScenario(threadId, turnId, scenario);
     return;
   }
   emitDirectorToolCall(threadId, turnId, scenario, 0, [], call);
@@ -1151,9 +1151,7 @@ function handleDirectorToolCallResponse(requestId, pending, message) {
     );
     return;
   }
-  setImmediate(() =>
-    completeDirectorTurn(pending.threadId, pending.turnId, pending.scenario.reply),
-  );
+  setImmediate(() => completeDirectorScenario(pending.threadId, pending.turnId, pending.scenario));
 }
 
 function emitArtifact(threadId, turnId) {
@@ -1221,6 +1219,14 @@ function completeDirectorTurn(threadId, turnId, reply) {
   emitTextDelta(threadId, turnId, reply);
   emitAgentMessage(threadId, turnId, reply);
   completeTurn(threadId, turnId, "completed");
+}
+
+function completeDirectorScenario(threadId, turnId, scenario) {
+  if (scenario.delayMs > 0) {
+    setTimeout(() => completeDirectorTurn(threadId, turnId, scenario.reply), scenario.delayMs);
+    return;
+  }
+  completeDirectorTurn(threadId, turnId, scenario.reply);
 }
 
 function emitArtifactToolCall(threadId, turnId, scenario, index) {

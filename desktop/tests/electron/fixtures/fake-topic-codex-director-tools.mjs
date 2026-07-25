@@ -74,6 +74,9 @@ export function directorScenarioForTurn(text, injectedItems = []) {
   if (text === "Director normal conversation.") {
     return scenario([], "The Director can answer without acting.");
   }
+  if (text === "Director delayed conversation.") {
+    return scenario([], "The Director finished the delayed answer.", 600);
+  }
   if (text === "Remember DIRECTOR_HISTORY_OK and acknowledge it.") {
     return scenario([], "I will remember DIRECTOR_HISTORY_OK.");
   }
@@ -156,8 +159,8 @@ export function directorScenarioForTurn(text, injectedItems = []) {
   return null;
 }
 
-function scenario(steps, reply) {
-  return { reply, steps };
+function scenario(steps, reply, delayMs = 0) {
+  return { delayMs, reply, steps };
 }
 
 export function directorToolCallForStep(scenarioValue, index, receipts) {

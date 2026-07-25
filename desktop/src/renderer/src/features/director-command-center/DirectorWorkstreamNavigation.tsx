@@ -112,6 +112,8 @@ function WorkstreamNavigation({
 }) {
   const navigation = directorWorkstreamNavigation(snapshot);
   const focus = directorFocus(navigation.selected?.workstream ?? null);
+  const canMoveSelection =
+    navigation.total > 1 || (navigation.total === 1 && navigation.selected === null);
   const workstreamStripRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     centerSelectedWorkstreamDot(workstreamStripRef.current);
@@ -119,6 +121,7 @@ function WorkstreamNavigation({
   return (
     <nav aria-label="Workstreams" className="director-workstream-nav app-no-drag">
       <IconButton
+        disabled={!canMoveSelection}
         label="Previous workstream"
         onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("previous"))}
       >
@@ -129,7 +132,7 @@ function WorkstreamNavigation({
           {focus.kind === "director" ? (
             <span aria-hidden="true" className="director-role-dot" />
           ) : null}
-          <span className="director-focus-title">{focus.title}</span>
+          <h1 className="director-focus-title">{focus.title}</h1>
           <span className="director-focus-meta">
             {focusMetaLabel(focus)}
             {navigation.counter ? ` ${navigation.counter}` : ""}
@@ -153,6 +156,7 @@ function WorkstreamNavigation({
         </div>
       </div>
       <IconButton
+        disabled={!canMoveSelection}
         label="Next workstream"
         onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("next"))}
       >
@@ -235,7 +239,11 @@ function DirectorRailControls({
   railVisibility: DirectorRailVisibility;
 }) {
   return (
-    <div aria-label="View controls" className="director-command-center-view-controls app-no-drag">
+    <div
+      aria-label="View controls"
+      className="director-command-center-view-controls app-no-drag"
+      role="group"
+    >
       <IconButton
         controls="director-now-rail"
         expanded={railVisibility.now}
@@ -304,24 +312,21 @@ export function directorWorkstreamNavigation(snapshot: DirectorSnapshot | null) 
   }
   const entries = snapshot.workstreams;
   const selectedIndex = selectedWorkstreamIndex(entries, snapshot.selectedWorkstreamId);
-  const windowed = visibleWorkstreamEntries(entries, selectedIndex);
-  const selected = entries[selectedIndex] ?? null;
+  const windowed = visibleWorkstreamEntries(entries, Math.max(selectedIndex, 0));
+  const selected = selectedIndex < 0 ? null : (entries[selectedIndex] ?? null);
   const total = snapshot.aggregates.workstreamCount;
   const counter = workstreamNavigationCounter(snapshot, selectedIndex, total);
   return { counter, selected, selectedIndex, total, visibleEntries: windowed };
 }
 
 export function directorWorkstreamKeyboardDirection({
-  altKey,
-  ctrlKey,
   key,
-  metaKey,
   targetIsEditable,
 }: DirectorKeyboardNavigationInput): DirectorKeyboardDirection | null {
   if (key !== "ArrowLeft" && key !== "ArrowRight") {
     return null;
   }
-  if (targetIsEditable && !altKey && !ctrlKey && !metaKey) {
+  if (targetIsEditable) {
     return null;
   }
   return key === "ArrowLeft" ? "previous" : "next";
@@ -337,12 +342,14 @@ function dispatchDirectorIntent(
 function IconButton({
   children,
   controls,
+  disabled,
   expanded,
   label,
   onClick,
 }: {
   children: ReactNode;
   controls?: string;
+  disabled?: boolean;
   expanded?: boolean;
   label: string;
   onClick: (trigger: HTMLButtonElement) => void;
@@ -353,6 +360,7 @@ function IconButton({
       aria-expanded={expanded}
       aria-label={label}
       className="director-icon-button"
+      disabled={disabled}
       onClick={(event) => onClick(event.currentTarget)}
       title={label}
       type="button"
@@ -381,7 +389,7 @@ function emptyWorkstreamNavigation() {
   return {
     counter: null,
     selected: null,
-    selectedIndex: 0,
+    selectedIndex: -1,
     total: 0,
     visibleEntries: [],
   };
@@ -391,10 +399,7 @@ function selectedWorkstreamIndex(
   entries: readonly DirectorWorkstreamEntry[],
   selectedWorkstreamId: string | null,
 ): number {
-  return Math.max(
-    entries.findIndex((entry) => entry.workstream.id === selectedWorkstreamId),
-    0,
-  );
+  return entries.findIndex((entry) => entry.workstream.id === selectedWorkstreamId);
 }
 
 function visibleWorkstreamEntries(
@@ -416,6 +421,9 @@ function workstreamNavigationCounter(
     return null;
   }
   if (snapshot.hasMoreWorkstreams) {
+    return `${total} total`;
+  }
+  if (selectedIndex < 0) {
     return `${total} total`;
   }
   return `${Math.min(selectedIndex + 1, total)}/${total}`;

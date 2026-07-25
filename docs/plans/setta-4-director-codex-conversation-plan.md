@@ -549,6 +549,56 @@ where the composer begins, and the inset was the mockup's rail padding plus the
 composer's whole height again — it stopped rail content about a composer above
 where the mockup ends it.
 
+#### Resolved: the front door keeps one order
+
+Keeping the composer enabled exposed a renderer assumption the disabled state
+had hidden: two quick submissions could enter the provider concurrently even
+though they are turns in one Director conversation. Submissions now join a
+runtime-scoped FIFO before they cross the preload boundary. Direct durable
+commands stay independent, and changing runtimes retires the old queue so late
+work cannot enter the new Director conversation.
+
+A failed turn also no longer replaces text entered while it was in flight. The
+failed request is restored ahead of the newer draft, and the public message says
+that the turn did not finish instead of claiming the backend never accepted it.
+
+The shell now keeps the same focus identity everywhere when the selected
+workstream disappears: the top bar, Now rail, composer, dot strip, and heading
+hierarchy all return to the Director without selecting the first remaining
+workstream in the renderer. History empty states describe history rather than
+selection, modal history suppresses background shortcuts, and arrow navigation
+never takes over an editable field, even with modifiers.
+
+At the minimum supported compact width, the top bar explicitly gives its
+remaining column to workstream navigation after the brand leaves, hides
+secondary metadata, and keeps navigation separate from the view controls. The
+compact state is derived before first paint, so rails do not briefly render in
+their wide layout.
+
+#### Phase 4 audit verification
+
+After the coherent static review and corrections were stable, the applicable
+broad deterministic gate ran once:
+
+```sh
+./scripts/test_topic_conversation_workflows.sh --deterministic-only --keep-artifacts
+```
+
+It passed the production typecheck and Electron/Vite build; the Director,
+conversation, HTTP API, and runtime Go packages; all 72 desktop test files and
+570 tests; and the Director command-center, local Director voice, and microphone
+permission Electron workflows. The production-path artifacts are:
+
+- `.recordings/director-command-center/20260726T034250514Z/`
+- `.recordings/director-command-center-local-voice/20260726T034305461Z/`
+- `.recordings/microphone-permissions/20260726T034317113Z/`
+
+The already-green Phase 3 live-provider matrix postdates every backend and
+provider-protocol change in the current plan. Phase 4 changes only the renderer,
+styles, and deterministic Electron harness, so that external gate was not
+duplicated. The unavailable side-by-side desktop recording remains the release
+gate stated above and was not retried as repository verification.
+
 ### Phase 5 - Cleanup
 
 Deliverables:

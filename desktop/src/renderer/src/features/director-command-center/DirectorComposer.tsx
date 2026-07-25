@@ -95,6 +95,16 @@ export function focusDirectorComposer(ownerDocument: Document): void {
   ownerDocument.getElementById(directorComposerInputId)?.focus({ preventScroll: true });
 }
 
+/**
+ * Restores a request the backend did not finish without overwriting anything
+ * the user typed while that request was in flight.
+ */
+export function restoreFailedDirectorDraft(currentDraft: string, failedSubmission: string): string {
+  return currentDraft.trim().length === 0
+    ? failedSubmission
+    : `${failedSubmission}\n\n${currentDraft}`;
+}
+
 function DirectorComposerHint({ hint }: { hint: DirectorComposerHintCopy }) {
   return (
     <p className="director-composer-hint" data-answering={hint.answering ? "true" : "false"}>
@@ -131,7 +141,7 @@ export function DirectorComposer({
     try {
       await dispatch(submitIntent(submittedText));
     } catch {
-      setText(submittedText);
+      setText((current) => restoreFailedDirectorDraft(current, submittedText));
     }
   };
   const submit = (event: FormEvent<HTMLFormElement>): void => {

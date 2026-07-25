@@ -99,6 +99,11 @@ interface DirectorPendingWork {
 
 type DirectorPendingKind = "answering" | "command" | "none";
 
+interface DirectorSubmitQueue {
+  readonly epoch: symbol;
+  tail: Promise<void>;
+}
+
 interface DirectorRuntimeState {
   readonly loadState: DirectorLoadState;
   readonly message: string | null;
@@ -329,10 +334,15 @@ function useDirectorRuntime(
   const runtimeEpoch = useMemo(() => Symbol(runtimeId ?? "disconnected"), [runtimeId]);
   const runtimeEpochRef = useRef(runtimeEpoch);
   const pendingDispatchesRef = useRef(new Map<symbol, DirectorPendingKind>());
+  const submitQueueRef = useRef<DirectorSubmitQueue>({
+    epoch: runtimeEpoch,
+    tail: Promise.resolve(),
+  });
 
   useLayoutEffect(() => {
     runtimeEpochRef.current = runtimeEpoch;
     pendingDispatchesRef.current.clear();
+    submitQueueRef.current = { epoch: runtimeEpoch, tail: Promise.resolve() };
     setPending(idleDirectorPendingWork);
     setReceiptText(null);
     setSnapshot(null);
@@ -467,12 +477,21 @@ function useDirectorRuntime(
       }
       setMessage(null);
       try {
-        const receipt = await setta.director.dispatch(intent);
+        const dispatchIntent = (): Promise<DirectorReceipt> => {
+          if (runtimeEpochRef.current !== dispatchEpoch) {
+            return Promise.reject(new Error("Director runtime changed before dispatch"));
+          }
+          return setta.director.dispatch(intent);
+        };
+        const receipt =
+          intent.kind === "submit"
+            ? await enqueueDirectorSubmit(submitQueueRef.current, dispatchEpoch, dispatchIntent)
+            : await dispatchIntent();
         handleDirectorReceipt(intent, receipt, dispatchEpoch);
         return receipt;
       } catch (error) {
         if (runtimeEpochRef.current === dispatchEpoch) {
-          setMessage("The Director could not accept that request.");
+          setMessage(directorDispatchFailureMessage(intent));
         }
         throw error;
       } finally {
@@ -644,9 +663,11 @@ function useDirectorShellKeyboardNavigation({
         }
         return;
       }
+      if (historyOpen) {
+        return;
+      }
       const targetIsEditable = directorKeyboardTargetIsEditable(event.target);
       if (
-        !historyOpen &&
         directorComposerTakesKeystroke({
           altKey: event.altKey,
           ctrlKey: event.ctrlKey,
@@ -755,7 +776,7 @@ function CurrentFocusSummary({ focus }: { focus: DirectorFocus }) {
   return (
     <section className="director-rail-section" data-focus={focus.kind}>
       <p className="director-rail-kicker">Now</p>
-      <h1>{focus.title}</h1>
+      <h2>{focus.title}</h2>
       {focus.kind === "director" ? (
         <div className="director-selected-status">
           <span aria-hidden="true" className="director-role-dot" />
@@ -776,7 +797,7 @@ function CurrentWorkstreamFacts({
   return (
     <>
       <div className="director-focus-facts">
-        <div className="director-selected-status">
+        <div className="director-selected-status" data-status={focus.status}>
           <StatusGlyph status={focus.status} />
           <span>{focus.statusLabel}</span>
         </div>
@@ -837,7 +858,7 @@ function HistoryList({
           </button>
         </>
       ) : (
-        <p className="director-rail-summary">No work has been selected.</p>
+        <p className="director-rail-summary">No workstream history yet.</p>
       )}
     </section>
   );
@@ -904,6 +925,28 @@ export function directorPendingWork(pending: Iterable<DirectorPendingKind>): Dir
   return { answering, dispatching };
 }
 
+function enqueueDirectorSubmit(
+  queue: DirectorSubmitQueue,
+  dispatchEpoch: symbol,
+  operation: () => Promise<DirectorReceipt>,
+): Promise<DirectorReceipt> {
+  if (queue.epoch !== dispatchEpoch) {
+    return Promise.reject(new Error("Director submit queue belongs to another runtime"));
+  }
+  const queued = queue.tail.then(operation);
+  queue.tail = queued.then(
+    () => undefined,
+    () => undefined,
+  );
+  return queued;
+}
+
+function directorDispatchFailureMessage(intent: DirectorIntent): string {
+  return intent.kind === "submit"
+    ? "The Director could not finish that request. Try again."
+    : "That action did not finish. Try again.";
+}
+
 function dispatchDirectorIntent(
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>,
   intent: DirectorIntent,
@@ -945,13 +988,14 @@ export function effectiveDirectorRailVisibility({
 }
 
 function useCompactRailLayout(): boolean {
-  const [compact, setCompact] = useState(false);
+  const [compact, setCompact] = useState(
+    () => globalThis.window?.matchMedia?.(compactRailQuery).matches ?? false,
+  );
   useEffect(() => {
-    const matchMedia = globalThis.window?.matchMedia;
-    if (!matchMedia) {
+    const query = globalThis.window?.matchMedia?.(compactRailQuery);
+    if (!query) {
       return;
     }
-    const query = matchMedia(compactRailQuery);
     const update = (): void => {
       setCompact(query.matches);
     };

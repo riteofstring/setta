@@ -63,6 +63,8 @@
   color: oklch(0.95 0.025 245);
   font-size: 0.86rem;
   font-weight: 650;
+  line-height: 1.2;
+  margin: 0;
   max-inline-size: min(28vw, 260px);
   min-inline-size: 0;
   overflow: hidden;
@@ -78,6 +80,9 @@
   color: oklch(0.68 0.04 240);
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -161,7 +166,7 @@
   }
 
   .director-workstream-nav {
-    grid-template-columns: 32px minmax(96px, 1fr) 32px;
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
     inline-size: 100%;
     min-inline-size: 0;
   }
@@ -181,7 +186,15 @@
 }
 
 @media (max-width: 420px) {
+  .director-command-center-top {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .director-command-center-brand {
+    display: none;
+  }
+
+  .director-focus-meta {
     display: none;
   }
 }
