@@ -9,7 +9,7 @@ TEST_REPO="${TEST_TMP_DIR}/repo"
 TEST_BIN="${TEST_TMP_DIR}/bin"
 TEST_OUTPUT="${TEST_TMP_DIR}/output"
 TEST_REFERENCE_REPO="${TEST_TMP_DIR}/codex-reference"
-TEST_STATE="${TEST_TMP_DIR}/codex-call-count"
+TEST_CLAUDE_STATE="${TEST_TMP_DIR}/claude-call-count"
 
 mkdir -p \
   "${TEST_REPO}/scripts/automation/codex-loop" \
@@ -22,33 +22,42 @@ cp \
   "${TEST_REPO}/scripts/automation/codex-loop/run-plan-implementation-loop.sh"
 printf '# Test plan\n' >"${TEST_REPO}/docs/plan.md"
 
-cat >"${TEST_BIN}/codex" <<'FAKE_CODEX'
+cat >"${TEST_BIN}/claude" <<'FAKE_CLAUDE'
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${1:-}" != "exec" ]]; then
-  echo "expected codex exec" >&2
-  exit 1
-fi
-shift
-
-repo=""
-last_message=""
+repo="${PWD}"
 prompt=""
+print_mode="0"
+output_format=""
+model=""
+effort=""
+skip_permissions="0"
+no_session_persistence="0"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --cd|--output-last-message)
-      if [[ "$1" == "--cd" ]]; then
-        repo="$2"
-      else
-        last_message="$2"
-      fi
+    -p|--print)
+      print_mode="1"
+      shift
+      ;;
+    --output-format)
+      output_format="$2"
       shift 2
       ;;
-    --color|--model|--config)
+    --model)
+      model="$2"
       shift 2
       ;;
-    --ephemeral|--dangerously-bypass-approvals-and-sandbox)
+    --effort)
+      effort="$2"
+      shift 2
+      ;;
+    --dangerously-skip-permissions)
+      skip_permissions="1"
+      shift
+      ;;
+    --no-session-persistence)
+      no_session_persistence="1"
       shift
       ;;
     *)
@@ -58,45 +67,84 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "${print_mode}" != "1" ]]; then
+  echo "expected claude --print" >&2
+  exit 1
+fi
+if [[ "${output_format}" != "text" ]]; then
+  echo "expected text output format" >&2
+  exit 1
+fi
+if [[ "${effort}" != "xhigh" ]]; then
+  echo "effort = ${effort}, want xhigh" >&2
+  exit 1
+fi
+if [[ "${skip_permissions}" != "1" ]]; then
+  echo "expected --dangerously-skip-permissions" >&2
+  exit 1
+fi
+if [[ "${no_session_persistence}" != "1" ]]; then
+  echo "expected --no-session-persistence" >&2
+  exit 1
+fi
+
 call_count=0
-if [[ -f "${FAKE_CODEX_STATE}" ]]; then
-  read -r call_count <"${FAKE_CODEX_STATE}"
+if [[ -f "${FAKE_CLAUDE_STATE}" ]]; then
+  read -r call_count <"${FAKE_CLAUDE_STATE}"
 fi
 call_count="$((call_count + 1))"
-printf '%s\n' "${call_count}" >"${FAKE_CODEX_STATE}"
+printf '%s\n' "${call_count}" >"${FAKE_CLAUDE_STATE}"
+
+expected_model=""
+case "${call_count}" in
+  1|2|4)
+    expected_model="opus"
+    ;;
+  3|5)
+    expected_model="fable"
+    ;;
+  *)
+    echo "unexpected Claude call ${call_count}" >&2
+    exit 1
+    ;;
+esac
+if [[ "${model}" != "${expected_model}" ]]; then
+  echo "model = ${model}, want ${expected_model}" >&2
+  exit 1
+fi
 
 case "${call_count}" in
   1)
     git -C "${repo}" commit --allow-empty --quiet -m "test: coherent implementation batch"
-    printf 'Committed a coherent implementation batch.\n' >"${last_message}"
+    printf 'Committed a coherent implementation batch.\n'
     ;;
   2)
-    printf 'PLAN_PHASE_READY_FOR_AUDIT\n' >"${last_message}"
+    printf 'PLAN_PHASE_READY_FOR_AUDIT\n'
     ;;
   3)
     if [[ "${prompt}" != *"Audit the completed current phase"* ]]; then
-      echo "third call was not the phase audit" >&2
+      echo "third Claude call was not the phase audit" >&2
       exit 1
     fi
-    printf 'PLAN_PHASE_AUDIT_COMPLETE\n' >"${last_message}"
+    printf 'PLAN_PHASE_AUDIT_COMPLETE\n'
     ;;
   4)
-    printf 'PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT\n' >"${last_message}"
+    printf 'PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT\n'
     ;;
   5)
     if [[ "${prompt}" != *"final whole-plan audit"* ]]; then
-      echo "fifth call was not the final audit" >&2
+      echo "fifth Claude call was not the final audit" >&2
       exit 1
     fi
-    printf 'PLAN_IMPLEMENTATION_COMPLETE\n' >"${last_message}"
+    printf 'PLAN_IMPLEMENTATION_COMPLETE\n'
     ;;
   *)
-    echo "unexpected Codex call ${call_count}" >&2
+    echo "unexpected Claude call ${call_count}" >&2
     exit 1
     ;;
 esac
-FAKE_CODEX
-chmod +x "${TEST_BIN}/codex"
+FAKE_CLAUDE
+chmod +x "${TEST_BIN}/claude"
 
 git -C "${TEST_REPO}" init --quiet
 git -C "${TEST_REPO}" config user.name "Setta Loop Test"
@@ -105,7 +153,7 @@ git -C "${TEST_REPO}" add .
 git -C "${TEST_REPO}" commit --quiet -m "test: initialize repository"
 
 PATH="${TEST_BIN}:${PATH}" \
-  FAKE_CODEX_STATE="${TEST_STATE}" \
+  FAKE_CLAUDE_STATE="${TEST_CLAUDE_STATE}" \
   "${TEST_REPO}/scripts/automation/codex-loop/run-plan-implementation-loop.sh" \
   docs/plan.md \
   --codex-reference-repo "${TEST_REFERENCE_REPO}" \
@@ -113,9 +161,9 @@ PATH="${TEST_BIN}:${PATH}" \
   --progress-log-interval-seconds 0 \
   >"${TEST_TMP_DIR}/loop.log"
 
-read -r codex_call_count <"${TEST_STATE}"
-if [[ "${codex_call_count}" -ne 5 ]]; then
-  echo "Codex call count = ${codex_call_count}, want 5" >&2
+read -r claude_call_count <"${TEST_CLAUDE_STATE}"
+if [[ "${claude_call_count}" -ne 5 ]]; then
+  echo "Claude call count = ${claude_call_count}, want 5" >&2
   exit 1
 fi
 if [[ -e "${TEST_OUTPUT}/iteration-0001/agent-2.status.txt" ]]; then

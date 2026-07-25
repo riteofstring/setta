@@ -9,21 +9,22 @@ COMPLETION_SENTINEL="PLAN_IMPLEMENTATION_COMPLETE"
 FINAL_AUDIT_SENTINEL="PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT"
 PHASE_AUDIT_SENTINEL="PLAN_PHASE_READY_FOR_AUDIT"
 PHASE_COMPLETE_SENTINEL="PLAN_PHASE_AUDIT_COMPLETE"
-MODEL="gpt-5.5"
-AGENT_ONE_REASONING_EFFORT="xhigh"
-AGENT_TWO_REASONING_EFFORT="xhigh"
+AGENT_ONE_MODEL="opus"
+AGENT_ONE_EFFORT="xhigh"
+AGENT_TWO_MODEL="fable"
+AGENT_TWO_EFFORT="xhigh"
 OUTPUT_DIR=""
 INITIAL_RETRY_DELAY_SECONDS="15"
 MAX_RETRY_DELAY_SECONDS="300"
 PROGRESS_LOG_INTERVAL_SECONDS="120"
 CODEX_REFERENCE_REPO="${CODEX_REFERENCE_REPO:-/Users/kevin/Documents/AppDevelopment/reference_repos/codex}"
-ACTIVE_CODEX_PID=""
+ACTIVE_AGENT_PID=""
 
 usage() {
   cat <<'EOF'
 Usage: scripts/automation/codex-loop/run-plan-implementation-loop.sh PLAN_PATH [options]
 
-Runs fresh Codex agents in a loop for the repository-relative plan document
+Runs fresh Claude Code agents in a loop for the repository-relative plan document
 passed as PLAN_PATH.
 
 Agent 1 implements coherent batches from the current plan phase and uses
@@ -46,20 +47,21 @@ iteration. The loop has no iteration cap and does not stop before the separate
 whole-plan audit confirms completion. Operational script failures and manual
 termination still exit non-zero.
 
-This dedicated automation helper intentionally runs Codex in the current
-repository checkout with approvals and sandbox bypassed. That behavior is
+This dedicated automation helper intentionally runs Claude Code in the current
+repository checkout with permission checks bypassed. That behavior is
 acceptable here because the loop is for unattended repo-local plan execution
 where agents are expected to edit, verify, and commit directly in a clean
 working tree.
 
-Codex transcripts are written outside the repository to per-agent log files.
-The terminal prints loop status and periodic progress lines.
+Claude Code transcripts are written outside the repository to per-agent log
+files. The terminal prints loop status and periodic progress lines.
 
 Options:
   --output-dir PATH     Directory for per-iteration transcripts and last
                         messages. Must be outside the repository. Default:
                         mktemp directory under TMPDIR.
-  --model NAME          Codex model for both agents. Default: gpt-5.5.
+  --agent-1-model NAME  Claude model for Agent 1. Default: opus.
+  --agent-2-model NAME  Claude model for Agent 2. Default: fable.
   --codex-reference-repo PATH
                         Full Codex source checkout used for protocol/source
                         verification. Default:
@@ -137,25 +139,26 @@ require_clean_repo() {
   exit 1
 }
 
-stop_active_codex() {
-  if [[ -z "${ACTIVE_CODEX_PID}" ]] || ! kill -0 "${ACTIVE_CODEX_PID}" 2>/dev/null; then
+stop_active_agent() {
+  if [[ -z "${ACTIVE_AGENT_PID}" ]] || ! kill -0 "${ACTIVE_AGENT_PID}" 2>/dev/null; then
     return
   fi
 
-  kill "${ACTIVE_CODEX_PID}" 2>/dev/null || true
-  wait "${ACTIVE_CODEX_PID}" 2>/dev/null || true
-  ACTIVE_CODEX_PID=""
+  kill "${ACTIVE_AGENT_PID}" 2>/dev/null || true
+  wait "${ACTIVE_AGENT_PID}" 2>/dev/null || true
+  ACTIVE_AGENT_PID=""
 }
 
-trap 'stop_active_codex; exit 130' INT TERM
+trap 'stop_active_agent; exit 130' INT TERM
 
 run_agent() {
   local agent_name="$1"
   local prompt="$2"
   local attempt_prompt="${prompt}"
   local run_dir="$3"
-  local reasoning_effort="$4"
-  local must_finish_clean="$5"
+  local model="$4"
+  local effort="$5"
+  local must_finish_clean="$6"
   local transcript_file="${run_dir}/${agent_name}.transcript.log"
   local last_message_file="${run_dir}/${agent_name}.last-message.txt"
   local status_file="${run_dir}/${agent_name}.status.txt"
@@ -164,7 +167,7 @@ run_agent() {
   local retry_delay_seconds="${INITIAL_RETRY_DELAY_SECONDS}"
   local attempt_head=""
   local completed_head=""
-  local codex_pid=""
+  local agent_pid=""
   local start_epoch=""
   local last_progress_epoch=""
   local current_epoch=""
@@ -175,7 +178,7 @@ run_agent() {
   mkdir -p "${run_dir}"
   rm -f "${transcript_file}" "${last_message_file}" "${status_file}"
 
-  log_info "Starting ${agent_name}. Transcript: ${transcript_file}. Last message: ${last_message_file}"
+  log_info "Starting ${agent_name} via claude. Transcript: ${transcript_file}. Last message: ${last_message_file}"
 
   while true; do
     attempt_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
@@ -184,21 +187,25 @@ run_agent() {
       "${attempt}" \
       "$(timestamp_now)" >>"${transcript_file}"
 
-    codex exec \
-      --color never \
-      --cd "${ROOT_DIR}" \
-      --ephemeral \
-      --model "${MODEL}" \
-      --config "model_reasoning_effort=\"${reasoning_effort}\"" \
-      --dangerously-bypass-approvals-and-sandbox \
-      --output-last-message "${last_message_file}" \
-      "${attempt_prompt}" >>"${transcript_file}" 2>&1 &
-    codex_pid="$!"
-    ACTIVE_CODEX_PID="${codex_pid}"
+    (
+      cd "${ROOT_DIR}"
+      claude \
+        --print \
+        --output-format text \
+        --model "${model}" \
+        --effort "${effort}" \
+        --dangerously-skip-permissions \
+        --no-session-persistence \
+        "${attempt_prompt}" \
+        2> >(sed 's/^/[stderr] /' >>"${transcript_file}") |
+        tee "${last_message_file}" >>"${transcript_file}"
+    ) &
+    agent_pid="$!"
+    ACTIVE_AGENT_PID="${agent_pid}"
 
     start_epoch="$(date +%s)"
     last_progress_epoch="${start_epoch}"
-    while kill -0 "${codex_pid}" 2>/dev/null; do
+    while kill -0 "${agent_pid}" 2>/dev/null; do
       current_epoch="$(date +%s)"
       if [[ "${PROGRESS_LOG_INTERVAL_SECONDS}" -gt 0 ]] \
         && [[ "$((current_epoch - last_progress_epoch))" -ge "${PROGRESS_LOG_INTERVAL_SECONDS}" ]]; then
@@ -210,11 +217,11 @@ run_agent() {
     done
 
     set +e
-    wait "${codex_pid}"
+    wait "${agent_pid}"
     exit_code="$?"
     set -e
-    codex_pid=""
-    ACTIVE_CODEX_PID=""
+    agent_pid=""
+    ACTIVE_AGENT_PID=""
 
     completed_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
     last_message_state="missing"
@@ -292,9 +299,14 @@ while [[ $# -gt 0 ]]; do
       OUTPUT_DIR="$2"
       shift 2
       ;;
-    --model)
+    --agent-1-model)
       require_value "$1" "${2:-}"
-      MODEL="$2"
+      AGENT_ONE_MODEL="$2"
+      shift 2
+      ;;
+    --agent-2-model)
+      require_value "$1" "${2:-}"
+      AGENT_TWO_MODEL="$2"
       shift 2
       ;;
     --codex-reference-repo)
@@ -371,8 +383,8 @@ if [[ "${MAX_RETRY_DELAY_SECONDS}" -lt "${INITIAL_RETRY_DELAY_SECONDS}" ]]; then
   exit 1
 fi
 
-if ! command -v codex >/dev/null 2>&1; then
-  echo "codex CLI not found on PATH" >&2
+if ! command -v claude >/dev/null 2>&1; then
+  echo "claude CLI not found on PATH" >&2
   exit 1
 fi
 
@@ -407,13 +419,16 @@ AGENT_ONE_PROMPT="Before acting, inspect ${PLAN_PATH} and its recent commit hist
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
 log_info "Codex reference source: ${CODEX_REFERENCE_REPO}"
-log_info "Model: ${MODEL}"
-log_info "Agent 1 reasoning effort: ${AGENT_ONE_REASONING_EFFORT}"
-log_info "Agent 2 reasoning effort: ${AGENT_TWO_REASONING_EFFORT}"
+log_info "Agent 1 runner: claude"
+log_info "Agent 1 model: ${AGENT_ONE_MODEL}"
+log_info "Agent 1 effort: ${AGENT_ONE_EFFORT}"
+log_info "Agent 2 runner: claude"
+log_info "Agent 2 model: ${AGENT_TWO_MODEL}"
+log_info "Agent 2 effort: ${AGENT_TWO_EFFORT}"
+log_info "Dangerously skip permissions: enabled"
 log_info "Agent attempts: unlimited"
 log_info "Retry delays: ${INITIAL_RETRY_DELAY_SECONDS}s initial, ${MAX_RETRY_DELAY_SECONDS}s maximum"
 log_info "Progress log interval: ${PROGRESS_LOG_INTERVAL_SECONDS}s"
-log_info "Approvals/sandbox bypass: enabled"
 log_info "Iteration cap: none"
 log_info "Review cadence: phase and final audits only"
 log_info "Completion sentinel: ${COMPLETION_SENTINEL}"
@@ -437,7 +452,7 @@ while true; do
   log_info "Starting iteration ${iteration}."
   require_clean_repo "before iteration ${iteration}"
   iteration_start_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
-  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_REASONING_EFFORT}" 1
+  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_MODEL}" "${AGENT_ONE_EFFORT}" 1
   implementer_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
   implementer_message="$(trimmed_nonempty_message "${implementer_last_message}")"
   if [[ "${implementer_message}" == "${FINAL_AUDIT_SENTINEL}" ]] && repo_is_clean; then
@@ -459,7 +474,7 @@ while true; do
     iteration="$((iteration + 1))"
     continue
   fi
-  run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_REASONING_EFFORT}" 1
+  run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_MODEL}" "${AGENT_TWO_EFFORT}" 1
   require_clean_repo "after agent-2 review"
 
   reviewer_message="$(trimmed_nonempty_message "${reviewer_last_message}")"
