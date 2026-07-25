@@ -103,6 +103,11 @@ type AdminRecordRuntimeHealthRequest struct {
 	RuntimeName     string             `json:"runtime_name"`
 }
 
+type AdminRotateRuntimeReportingCredentialRequest struct {
+	Credential  RuntimeReportingCredential `json:"credential"`
+	RuntimeName string                     `json:"runtime_name"`
+}
+
 type AdminFinalizeRuntimeAccountingWindowRequest struct {
 	IdempotencyKey string    `json:"idempotency_key"`
 	RuntimeName    string    `json:"runtime_name"`
@@ -225,115 +230,6 @@ func adminHandler(
 			response.WriteHeader(http.StatusNotFound)
 		}
 	})
-}
-
-func handleRuntimeAdminRoute(
-	store *Store,
-	observer ControlPlaneObserver,
-	response http.ResponseWriter,
-	request *http.Request,
-) bool {
-	return handleRuntimeProgressAdminRoute(store, response, request) ||
-		handleRuntimePolicyAdminRoute(store, observer, response, request)
-}
-
-func handleRuntimePolicyAdminRoute(
-	store *Store,
-	observer ControlPlaneObserver,
-	response http.ResponseWriter,
-	request *http.Request,
-) bool {
-	switch request.URL.Path {
-	case "/v1/runtimes/wake":
-		if !requireAdminMethod(response, request, http.MethodPost) {
-			return true
-		}
-		response.Header().Set("Content-Type", "application/json")
-		var payload AdminRequestRuntimeWakeRequest
-		if !decodeAdminRequest(response, request, &payload) {
-			return true
-		}
-		runtime, err := store.RequestRuntimeWake(
-			request.Context(),
-			payload.IdempotencyKey,
-			payload.RuntimeName,
-		)
-		if err != nil {
-			writeAdminError(response)
-			return true
-		}
-		observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
-			Action:     ControlPlaneAuditRuntimeWakeRequested,
-			OccurredAt: runtime.UpdatedAt,
-			State:      "requested",
-		})
-		writeAdminJSON(response, AdminEvent{Event: "runtime_wake_requested", Status: "requested"})
-		return true
-	case "/v1/runtimes/health":
-		handleRuntimeHealthAdmin(store, observer, response, request)
-		return true
-	default:
-		return false
-	}
-}
-
-func handleRuntimeHealthAdmin(
-	store *Store,
-	observer ControlPlaneObserver,
-	response http.ResponseWriter,
-	request *http.Request,
-) {
-	if !requireAdminMethod(response, request, http.MethodPost) {
-		return
-	}
-	response.Header().Set("Content-Type", "application/json")
-	var payload AdminRecordRuntimeHealthRequest
-	if !decodeAdminRequest(response, request, &payload) {
-		return
-	}
-	result, err := store.RecordRuntimeHealth(request.Context(), RecordRuntimeHealthRequest{
-		RuntimeName:     payload.RuntimeName,
-		HealthState:     payload.HealthState,
-		ObservedRelease: payload.ObservedRelease,
-	})
-	if err != nil {
-		writeAdminError(response)
-		return
-	}
-	observeRuntimeHealthAdministration(observer, result)
-	writeAdminJSON(response, AdminEvent{
-		Event:  "runtime_health_recorded",
-		Status: string(result.Runtime.HealthState),
-	})
-}
-
-func observeRuntimeHealthAdministration(
-	observer ControlPlaneObserver,
-	result RecordRuntimeHealthResult,
-) {
-	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
-		Action:     ControlPlaneAuditRuntimeHealthRecorded,
-		OccurredAt: result.Runtime.UpdatedAt,
-		State:      string(result.Runtime.HealthState),
-	})
-	if result.WakePending {
-		state := string(result.Runtime.HealthState)
-		if result.WakeCompleted {
-			state = "completed"
-		}
-		observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
-			Action:     ControlPlaneAuditRuntimeWakeObserved,
-			OccurredAt: result.Runtime.UpdatedAt,
-			State:      state,
-		})
-	}
-	if result.WakeCompleted {
-		observer.ObserveRuntimeWakeTiming(RuntimeWakeTiming{
-			CompletedAt: result.Runtime.UpdatedAt,
-			Duration:    result.Runtime.UpdatedAt.Sub(result.WakeRequestedAt),
-			StartedAt:   result.WakeRequestedAt,
-		})
-	}
 }
 
 func handleRuntimeAccountingAdminRoute(

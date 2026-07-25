@@ -25,7 +25,7 @@ type adminClientConfig struct {
 
 func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|request-runtime-wake|record-runtime-health|record-usage|record-accounting-event|finalize-accounting-window> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|request-runtime-wake|record-runtime-health|rotate-runtime-reporting-credential|record-usage|record-accounting-event|finalize-accounting-window> [options]")
 		return 2
 	}
 	ctx := context.Background()
@@ -49,6 +49,9 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		"record-runtime-health": func() error {
 			return adminRecordRuntimeHealth(ctx, commandArgs, stdout, stderr)
 		},
+		"rotate-runtime-reporting-credential": func() error {
+			return adminRotateRuntimeReportingCredential(ctx, commandArgs, stdin, stdout, stderr)
+		},
 		"record-usage": func() error {
 			return adminRecordUsage(ctx, commandArgs, stdin, stdout, stderr)
 		},
@@ -70,6 +73,44 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+func adminRotateRuntimeReportingCredential(
+	ctx context.Context,
+	args []string,
+	stdin io.Reader,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminRotateRuntimeReportingCredentialRequest
+	flagSet := flag.NewFlagSet(
+		"setta-control-plane admin rotate-runtime-reporting-credential",
+		flag.ContinueOnError,
+	)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("rotate-runtime-reporting-credential accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	if err := decodeAdminStdin(stdin, &payload.Credential, "runtime reporting credential"); err != nil {
+		return err
+	}
+	return executeAdminRequest(
+		ctx,
+		config,
+		"/v1/runtimes/reporting-credential",
+		payload,
+		"runtime_reporting_credential_rotated",
+		stdout,
+	)
 }
 
 func adminRequestRuntimeWake(

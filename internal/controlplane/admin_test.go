@@ -117,6 +117,37 @@ func TestAdminRecordsRuntimeAccountingEventThroughPrivateBoundary(t *testing.T) 
 	}
 }
 
+func TestAdminRotatesRuntimeReportingCredentialWithoutContentBearingAudit(t *testing.T) {
+	ctx := context.Background()
+	store, _, runtimeName, _ := seededControlPlane(t, ctx)
+	defer store.Close()
+	credential := newTestRuntimeReportingCredential(t)
+	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
+	var audit bytes.Buffer
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer: newAdminTestObserver(t, &audit), PriceSchedule: adminTestPriceSchedule(),
+		SocketPath: socketPath, Store: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	adminTestRequest(
+		t,
+		adminTestClient(socketPath),
+		"/v1/runtimes/reporting-credential",
+		AdminRotateRuntimeReportingCredentialRequest{
+			Credential:  credential,
+			RuntimeName: runtimeName,
+		},
+		"runtime_reporting_credential_rotated",
+	)
+	requireRuntimeReporterAuthorization(t, store, credential, runtimeName, true)
+	requireContentFreeControlPlaneAudit(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
+		{Action: ControlPlaneAuditRuntimeReporterRotated, State: "rotated"},
+	}, []string{runtimeName, credential.Token})
+}
+
 func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 	ctx := context.Background()
 	store, _, runtimeName, first := seededControlPlane(t, ctx)

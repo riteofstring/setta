@@ -98,14 +98,15 @@ type RuntimeAuditMeasurement struct {
 type ControlPlaneAuditAction string
 
 const (
-	ControlPlaneAuditDeviceEnsured         ControlPlaneAuditAction = "device_ensured"
-	ControlPlaneAuditDeviceRevoked         ControlPlaneAuditAction = "device_revoked"
-	ControlPlaneAuditUserStatusSet         ControlPlaneAuditAction = "user_status_set"
-	ControlPlaneAuditBudgetSet             ControlPlaneAuditAction = "budget_set"
-	ControlPlaneAuditUsageRecorded         ControlPlaneAuditAction = "usage_recorded"
-	ControlPlaneAuditRuntimeWakeRequested  ControlPlaneAuditAction = "runtime_wake_requested"
-	ControlPlaneAuditRuntimeWakeObserved   ControlPlaneAuditAction = "runtime_wake_observed"
-	ControlPlaneAuditRuntimeHealthRecorded ControlPlaneAuditAction = "runtime_health_recorded"
+	ControlPlaneAuditDeviceEnsured          ControlPlaneAuditAction = "device_ensured"
+	ControlPlaneAuditDeviceRevoked          ControlPlaneAuditAction = "device_revoked"
+	ControlPlaneAuditUserStatusSet          ControlPlaneAuditAction = "user_status_set"
+	ControlPlaneAuditBudgetSet              ControlPlaneAuditAction = "budget_set"
+	ControlPlaneAuditUsageRecorded          ControlPlaneAuditAction = "usage_recorded"
+	ControlPlaneAuditRuntimeWakeRequested   ControlPlaneAuditAction = "runtime_wake_requested"
+	ControlPlaneAuditRuntimeWakeObserved    ControlPlaneAuditAction = "runtime_wake_observed"
+	ControlPlaneAuditRuntimeHealthRecorded  ControlPlaneAuditAction = "runtime_health_recorded"
+	ControlPlaneAuditRuntimeReporterRotated ControlPlaneAuditAction = "runtime_reporting_credential_rotated"
 )
 
 type ControlPlaneAuditObservation struct {

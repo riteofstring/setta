@@ -280,6 +280,7 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	}
 	socketPath := controlplane.AdminSocketPath(fixture.dataDirectory)
 	requireAdminWakeHealthWorkflow(t, store, socketPath, fixture.runtimeName)
+	requireAdminRuntimeReportingCredentialWorkflow(t, store, socketPath, fixture.runtimeName)
 	accountingTransition, err := json.Marshal(runtimeaccounting.ActivityTransition{
 		EventID: "admin-provider-begin", At: time.Now().UTC(),
 		Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventBegin,
@@ -322,6 +323,43 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	authorization, err = store.AuthorizeClient(context.Background(), credential.Token)
 	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationRevoked {
 		t.Fatalf("revoked authorization = %+v, %v", authorization, err)
+	}
+}
+
+func requireAdminRuntimeReportingCredentialWorkflow(
+	t *testing.T,
+	store *controlplane.Store,
+	socketPath string,
+	runtimeName string,
+) {
+	t.Helper()
+	reportingCredential, err := controlplane.NewRuntimeReportingCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportingPayload, err := json.Marshal(reportingCredential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportingOutput := runAdminTestCommand(t, []string{
+		"rotate-runtime-reporting-credential", "--socket", socketPath,
+		"--runtime-name", runtimeName,
+	}, reportingPayload)
+	if bytes.Contains(reportingOutput, []byte(reportingCredential.Token)) ||
+		bytes.Contains(reportingOutput, []byte(runtimeName)) {
+		t.Fatalf("runtime reporting credential output exposed private data: %s", reportingOutput)
+	}
+	reportingRuntime, authorized, err := store.AuthorizeRuntimeReporter(
+		context.Background(),
+		reportingCredential,
+	)
+	if err != nil || !authorized || reportingRuntime != runtimeName {
+		t.Fatalf(
+			"runtime reporter authorization = %q, %t, %v",
+			reportingRuntime,
+			authorized,
+			err,
+		)
 	}
 }
 
