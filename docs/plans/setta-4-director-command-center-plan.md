@@ -3,11 +3,15 @@
 **Date:** 2026-07-24
 **Status:** Approved direction; Phase 0 repository work and Phase 1 implementation
 are complete. Phase 1 remains at its audit boundary until the required broad
-verification has a post-fix green result. Phase 2 has started at its data
-boundary: the packed GPU render snapshot, its deterministic fixture generation,
-and its burst/cursor-replay fixtures are committed in
-`desktop/src/renderer/src/features/director-graph/` (Phase 2 items 2, 7, and the
-fixture-generation half of item 6). The WebGL2 renderer itself has not started.
+verification has a post-fix green result. Phase 2 owns the standalone renderer:
+the packed GPU render snapshot, its deterministic fixture generation, and its
+burst/cursor-replay fixtures are committed in
+`desktop/src/renderer/src/features/director-graph/` (items 2 and 7), and the
+WebGL2 renderer itself is committed in
+`desktop/src/renderer/src/features/director-graph/render/` (items 1, 3, 4, 5,
+and the instrumentation half of item 6). What remains in Phase 2 is measurement:
+canvas-pixel checks, the scale and viewport scenarios, profiling, and the hitch
+fixes those find (the rest of item 6, and items 8 through 10).
 The checked-in
 Codex protocol snapshot is refreshed and the provider
 notification adapter matrix is committed in `internal/agent/provider_notification_matrix.go`
@@ -944,6 +948,18 @@ Exit gate:
 ### Phase 2 — Prove the standalone 120 Hz renderer
 
 1. Implement the mockup's WebGL2 visual language as normal production source files.
+   **Done — `render/graph-visual-language.ts` and `render/graph-shaders.ts`.**
+   Every axis of the packed vocabulary has an exhaustive `satisfies` table —
+   mode colour, role sizing, emphasis, detail, and edge channel — and each table
+   is uploaded as a small uniform array indexed by the packed code, so no shader
+   branches on a semantic value and adding a contract value without a visual is
+   a compile error. The mockup's three inferences are replaced by typed columns:
+   glyphs come from the packed glyph code instead of regex-matching label text,
+   the large input node comes from the `input` role instead of a mode
+   comparison, and `struggle` is gone. Emphasis is a drawn difference, because
+   an interpretation has to stay visibly distinguishable from a runtime fact.
+   `render/graph-glyph-atlas.ts` rasterises one cell per packed glyph, in
+   vocabulary order, so the atlas index *is* the glyph code.
 2. Define the packed immutable GPU snapshot boundary. **Done —
    `desktop/src/renderer/src/features/director-graph/packed-graph-snapshot.ts` and
    `packed-graph-validation.ts`. Columns are typed arrays in durable event order,
@@ -963,16 +979,57 @@ Exit gate:
    hand-maintained contract mirror. Camera, selection, hover, fold, and animation
    phase stay out of the columns.**
 3. Implement the fullscreen graph canvas independently of production state.
+   **Done — `render/director-graph-renderer.ts`, `render/director-graph-canvas.ts`,
+   `render/graph-ladder-layout.ts`, `render/graph-scene-packer.ts`,
+   `render/graph-view-state.ts`, `render/graph-labels.ts`,
+   `render/graph-label-layer.ts`, and `render/DirectorGraphSurface.tsx`.** Five
+   passes compose the mockup: the drifting medium, edge beams, and node particle
+   clusters into a capped scene framebuffer, then the halftone/CRT post pass, then
+   glyphs alpha-blended on top. The ladder layout folds an answered turn onto its
+   outcome node and repositions only from the first turn that moved, so a frame's
+   work is proportional to what changed rather than to history. Camera follow,
+   look-back, hover, selection, and manual fold pins are view state and never
+   write back. Labels are pooled DOM over the canvas — one element per *visible*
+   label — and the question and outcome pills are focusable buttons, which is the
+   keyboard equivalent the fidelity checklist requires for the outcome-node click.
+   `DirectorGraphSurface.tsx` is the React mount and is listed in
+   `desktop/knip.json` `ignoreFiles` until Phase 4 items 1 and 6 mount it; that
+   entry is removed then, not extended.
 4. Add quality tiers, level of detail, buffer reuse, shader prewarming, and an idle scheduler.
-5. Reuse existing frame and long-task instrumentation where applicable.
+   **Done — `render/graph-quality.ts` and `render/graph-frame-scheduler.ts`.**
+   Three explicit tiers carry the performance matrix's clamps (device-pixel 1.5,
+   3.6 MP post, 2.3 MP scene, adaptive scale in [0.4, 1]); the scale moves first
+   because it is free, and a tier steps only once the scale has bottomed out or
+   has been comfortable at full. Level of detail is per node — role and history
+   compaction set the particle budget — and per frame: world positions grow
+   monotonically with node order, so the drawn slice is a binary-searched range
+   and the instance attributes bind at an offset instead of drawing all of
+   history. Buffers are reused: static instance columns upload only the range the
+   snapshot changed, and the only per-frame upload is one range of one RG32F node
+   state texture that the node, glyph, and edge passes all sample. Every pipeline
+   is exercised once before the first visible frame. The scheduler draws only
+   while something moves, stops entirely while hidden, and clamps the resume
+   delta so a sleep never fast-forwards the graph.
+5. Reuse existing frame and long-task instrumentation where applicable. **Done —
+   `render/graph-instrumentation.ts` rehomes the sampler, the long-task observer,
+   and the percentile convention rather than importing them.**
+   `workspace-layout/metrics.ts` is inside the Phase 5 deletion scope, so
+   importing it would tie the Setta 4 renderer to code that is being removed.
+   The percentile convention is deliberately the one the committed E2E budget
+   harness already asserts against.
 6. Add graph-specific fixture generation, CPU marks, GPU timer queries, and canvas-pixel checks.
-   **Fixture generation done — `packed-graph-scenes.ts` holds six deterministic
+   **Fixture generation, CPU marks, and GPU timer queries done.**
+   `packed-graph-scenes.ts` holds six deterministic
    scenes and `packed-graph-fixtures.ts` compiles a scene into the same ordered
    batch stream a live push would deliver, plus arbitrary-size scale scenes and a
    distinct-workstream set for the navigation scenario. Between them the scenes
    draw every value in the packed vocabulary, so adding a value without a fixture
-   that draws it fails the coverage test. CPU marks, GPU timer queries, and
-   canvas-pixel checks arrive with the canvas in item 3.**
+   that draws it fails the coverage test. `graph-instrumentation.ts` marks
+   projection, packing, upload, and draw separately and samples GPU frame time
+   through `EXT_disjoint_timer_query_webgl2`, discarding disjoint results rather
+   than reporting a wrong number. **Canvas-pixel checks are still open**: they
+   need a committed harness that drives the canvas in a real WebGL2 context, and
+   that harness lands with items 8 and 9.
 7. Add burst-update fixtures that simulate pushed event batches and cursor replay.
    **Done — `packed-graph-burst.ts`. Storm, steady, and replay-catch-up arrival
    profiles schedule a fixture's batches; `coalesceDeliveriesByFrame` merges a
@@ -982,6 +1039,9 @@ Exit gate:
    resuming from every cursor boundary is asserted to reach the same columns as a
    cold build of the whole stream.**
 8. Run the required scale and viewport scenarios against deterministic fixtures.
+   This needs the committed harness that item 6's canvas-pixel check also needs:
+   a real WebGL2 context driving `DirectorGraphCanvas` over the committed
+   fixtures, at the tiers in the performance matrix.
 9. Profile with browser/Chrome developer tools and GPU timer queries.
 10. Fix hitches before integrating live app state.
 
@@ -1125,10 +1185,10 @@ Setta 4 is complete when:
 ## Immediate Next Actions
 
 1. Clear the Phase 1 audit boundary with one post-fix required broad verification run.
-2. Continue Phase 2 at items 1, 3, and 4: the WebGL2 visual language, the fullscreen graph canvas
-   over the packed snapshot boundary, and its quality tiers, buffer reuse, shader prewarming, and
-   idle scheduler. The canvas consumes `PackedGraphSnapshot` and the committed fixtures; it needs no
-   production state and no Director endpoint.
+2. Continue Phase 2 at the rest of item 6 and items 8 through 10: commit the harness that drives
+   `DirectorGraphCanvas` over the committed fixtures in a real WebGL2 context, add its canvas-pixel
+   checks, run the scale and viewport scenarios at the matrix's tiers, profile, and fix what the
+   profile finds. The renderer itself needs no production state and no Director endpoint.
 3. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
    to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
    the gallery renders from. The four contract gaps the inventory found are already closed in

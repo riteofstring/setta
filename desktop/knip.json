@@ -17,7 +17,10 @@
     "vitest.config.ts"
   ],
   "ignore": ["out/**", "dist/**", "src/generated/**"],
-  "ignoreFiles": ["src/renderer/src/components/workspace-pane-split-overlay.tsx"],
+  "ignoreFiles": [
+    "src/renderer/src/components/workspace-pane-split-overlay.tsx",
+    "src/renderer/src/features/director-graph/render/DirectorGraphSurface.tsx"
+  ],
   "ignoreIssues": {
     "src/renderer/src/components/workspace-pane.tsx": ["exports", "types"]
   },

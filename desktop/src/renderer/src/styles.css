@@ -10,6 +10,7 @@
 @import "./features/easy-button/easy-button-motion-layout.css";
 @import "./features/easy-button/easy-button-conversation-controls.css";
 @import "./features/easy-button/easy-button-side-presentation.css";
+@import "./features/director-graph/render/director-graph.css";
 
 @theme inline {
   --color-background: var(--background);
