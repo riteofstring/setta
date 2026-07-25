@@ -43,12 +43,10 @@ func runtimeAccountingReportHandler(
 		if !decodeRuntimeAccountingReport(response, request, endpoint.RequestBodyLimitBytes, &transition) {
 			return
 		}
-		_, err = store.RecordRuntimeAccountingEvent(
+		_, err = store.RecordRuntimeAccountingReport(
 			request.Context(),
-			RecordRuntimeAccountingEventRequest{
-				RuntimeName: runtimeName,
-				Transition:  transition,
-			},
+			runtimeName,
+			transition,
 		)
 		if err != nil {
 			switch {

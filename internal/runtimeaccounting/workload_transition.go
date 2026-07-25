@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"setta/internal/runtimeprovider"
@@ -15,6 +16,27 @@ type workloadLeaseEventIdentity struct {
 	At        time.Time   `json:"at"`
 	ExpiresAt time.Time   `json:"expires_at,omitempty"`
 	Name      string      `json:"name"`
+}
+
+func ValidateWorkloadLeaseTransition(transition ActivityTransition) error {
+	if transition.Kind != ActivityWorkloadLease {
+		return errors.New("reported transition is not a workload lease")
+	}
+	recreated, err := NewWorkloadLeaseTransition(
+		transition.Action,
+		runtimeprovider.WorkloadLease{
+			Name:      transition.SubjectID,
+			ExpiresAt: transition.LeaseExpiresAt,
+		},
+		transition.At,
+	)
+	if err != nil {
+		return err
+	}
+	if recreated != transition {
+		return fmt.Errorf("%w: workload lease transition identity differs from its body", ErrInvalidEvent)
+	}
+	return nil
 }
 
 func NewWorkloadLeaseTransition(

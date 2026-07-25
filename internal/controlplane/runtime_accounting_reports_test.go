@@ -12,6 +12,7 @@ import (
 
 	"setta/internal/httpapi"
 	"setta/internal/runtimeaccounting"
+	"setta/internal/runtimeprovider"
 )
 
 func TestRuntimeAccountingReportsAuthenticatePersistAndReplayWithoutProviderDial(t *testing.T) {
@@ -30,11 +31,27 @@ func TestRuntimeAccountingReportsAuthenticatePersistAndReplayWithoutProviderDial
 	dialer := &testPrivateDialer{target: "127.0.0.1:1"}
 	server := startTestServer(t, store, secrets, dialer, observer, 4)
 	defer shutdownTestServer(t, server)
-	transition := runtimeaccounting.ActivityTransition{
-		EventID: "runtime-report-provider-begin",
-		At:      time.Date(2026, 7, 25, 19, 0, 0, 0, time.UTC),
-		Kind:    runtimeaccounting.ActivityProvider,
-		Action:  runtimeaccounting.EventBegin,
+	start := time.Now().UTC().Add(-time.Minute)
+	if _, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
+		RuntimeName: runtimeName,
+		Transition: runtimeaccounting.ActivityTransition{
+			EventID: "runtime-report-provider-begin",
+			At:      start,
+			Kind:    runtimeaccounting.ActivityProvider,
+			Action:  runtimeaccounting.EventBegin,
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	transition, err := runtimeaccounting.NewWorkloadLeaseTransition(
+		runtimeaccounting.EventBegin,
+		runtimeprovider.WorkloadLease{
+			Name: "setta-agent", StartedAt: start, ExpiresAt: start.Add(time.Minute),
+		},
+		start,
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
 	for attempt := 0; attempt < 2; attempt++ {
 		response := runtimeAccountingReportRequest(t, server, credential, transition)
@@ -44,7 +61,8 @@ func TestRuntimeAccountingReportsAuthenticatePersistAndReplayWithoutProviderDial
 		_ = response.Body.Close()
 	}
 	snapshot, err := store.RuntimeAccountingSnapshot(ctx, runtimeName)
-	if err != nil || snapshot.Ledger.LastSequence != 1 || !snapshot.Ledger.ProviderActive {
+	if err != nil || snapshot.Ledger.LastSequence != 2 ||
+		!snapshot.Ledger.ProviderActive || len(snapshot.Ledger.WorkloadLeases) != 1 {
 		t.Fatalf("runtime accounting snapshot = %+v, %v", snapshot, err)
 	}
 	if dialer.calls.Load() != 0 {
@@ -58,7 +76,7 @@ func TestRuntimeAccountingReportsAuthenticatePersistAndReplayWithoutProviderDial
 	conflict := transition
 	conflict.At = conflict.At.Add(time.Second)
 	response := runtimeAccountingReportRequest(t, server, credential, conflict)
-	if response.StatusCode != http.StatusConflict {
+	if response.StatusCode != http.StatusBadRequest {
 		t.Fatalf("conflicting runtime accounting report status = %d", response.StatusCode)
 	}
 	_ = response.Body.Close()

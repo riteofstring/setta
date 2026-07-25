@@ -19,9 +19,10 @@ type RuntimeAccountingReportStore interface {
 		context.Context,
 		RuntimeReportingCredential,
 	) (string, bool, error)
-	RecordRuntimeAccountingEvent(
+	RecordRuntimeAccountingReport(
 		context.Context,
-		RecordRuntimeAccountingEventRequest,
+		string,
+		runtimeaccounting.ActivityTransition,
 	) (runtimeaccounting.LedgerState, error)
 }
 

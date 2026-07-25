@@ -4,7 +4,7 @@
 import { execFile, spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { delimiter, dirname, join, resolve } from "node:path";
 import process from "node:process";
@@ -59,6 +59,8 @@ try {
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
       SETTA_HOSTED_ACCESS_SOCKET: controlPlane.socketPath,
       SETTA_SPRITES_WORKLOAD_LEASE_SOCKET: workloadLeases.socketPath,
+      SETTA_WORKLOAD_ACCOUNTING_CREDENTIAL_FILE: controlPlane.reportingCredentialFile,
+      SETTA_WORKLOAD_ACCOUNTING_URL: controlPlane.baseURL,
     },
     fixture,
     unsetEnv: ["OPENAI_API_KEY"],
@@ -74,6 +76,7 @@ try {
     client: context.client,
     dataDirectory: controlPlane.dataDirectory,
     fixture,
+    reportingCredentialFile: controlPlane.reportingCredentialFile,
     secretDirectory: controlPlane.secretDirectory,
   });
   const workspaceId = await openWorkspace(context.client);
@@ -240,6 +243,7 @@ async function ensureHostedPhoneAccess({
   client,
   dataDirectory,
   fixture: electronFixture,
+  reportingCredentialFile,
   secretDirectory,
 }) {
   const credential = {
@@ -321,6 +325,35 @@ async function ensureHostedPhoneAccess({
       intent.workstreamId,
     ],
     JSON.stringify(credential),
+  );
+  await execute(
+    binary,
+    [
+      "admin",
+      "rotate-runtime-reporting-credential",
+      "--runtime-name",
+      runtimeName,
+      "--socket",
+      join(dataDirectory, "admin.sock"),
+    ],
+    await readFile(reportingCredentialFile, "utf8"),
+  );
+  await execute(
+    binary,
+    [
+      "admin",
+      "record-accounting-event",
+      "--runtime-name",
+      runtimeName,
+      "--socket",
+      join(dataDirectory, "admin.sock"),
+    ],
+    JSON.stringify({
+      action: "begin",
+      at: new Date().toISOString(),
+      event_id: "electron-hosted-provider-begin",
+      kind: "provider",
+    }),
   );
   const progress = await waitForState(
     client,
@@ -499,6 +532,17 @@ async function startControlPlaneFixture(root) {
   ]);
   const dataDirectory = join(root, "control-plane", "data");
   const secretDirectory = join(root, "control-plane", "secrets");
+  const reportingCredentialFile = join(
+    root,
+    "control-plane",
+    "credentials",
+    "runtime-reporter.json",
+  );
+  await execute(binary, [
+    "generate-runtime-reporting-credential",
+    "--output",
+    reportingCredentialFile,
+  ]);
   const child = spawn(binary, ["serve", "--host", "127.0.0.1", "--port", "0"], {
     cwd: repositoryRoot,
     env: {
@@ -509,11 +553,13 @@ async function startControlPlaneFixture(root) {
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  await waitForControlPlaneReady(child);
+  const ready = await waitForControlPlaneReady(child);
   return {
+    baseURL: `http://${ready.address}`,
     binary,
     dataDirectory,
     process: child,
+    reportingCredentialFile,
     secretDirectory,
     socketPath: join(dataDirectory, "admin.sock"),
   };
@@ -534,7 +580,7 @@ async function waitForControlPlaneReady(child) {
     if (event.event !== "control_plane_ready") {
       throw new Error(`control-plane fixture returned an invalid event: ${buffered}`);
     }
-    return;
+    return event;
   }
   throw new Error("control-plane fixture exited before ready");
 }
