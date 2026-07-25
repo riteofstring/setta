@@ -85,7 +85,7 @@ func nullableConversationRouteSchema(schema map[string]any, description string) 
 	}
 }
 
-const conversationRouteKindSchemaDescription = "Select exactly one allowed routing label. send_to_parent starts actionable topic work while idle; queue_parent_turn preserves distinct follow-up work until the active turn completes; steer_parent_turn changes the active turn; answer_as_narrator delegates only an existing status or trajectory question; create_side_conversation isolates a bounded pane tangent; fork_conversation creates an explicitly durable child topic; escalate_to_master delegates an unrelated app-global request; clarify asks only for materially missing routing intent."
+const conversationRouteKindSchemaDescription = "Select exactly one allowed routing label. send_to_parent starts actionable topic work while idle or requests a folder resource for folderless filesystem work; queue_parent_turn preserves distinct follow-up work until the active turn completes; steer_parent_turn changes the active turn; answer_as_narrator delegates an existing status or trajectory question, or ordinary folderless non-filesystem chat; create_side_conversation isolates a bounded pane tangent; fork_conversation creates an explicitly durable child topic; escalate_to_master delegates an unrelated app-global request; clarify asks only for materially missing routing intent."
 
 func decodeConversationRouteOutput(
 	raw json.RawMessage,

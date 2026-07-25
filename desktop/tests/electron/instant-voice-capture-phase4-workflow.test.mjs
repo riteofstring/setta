@@ -13,10 +13,10 @@ import { backendProbe, waitForBackendState } from "./electron-workflow-harness.m
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchKeyEvent,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   repoRoot,
   reloadPage,
@@ -898,7 +898,7 @@ async function clickPaneSpeechControl(client, conversationId) {
 
 async function clickMasterOverlayVoice(client) {
   const clicked = await client.evaluate(`(() => {
-    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
+    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return false;
     }
@@ -947,7 +947,7 @@ async function openWorkspace(client) {
     workflowTimeoutMs,
   );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,

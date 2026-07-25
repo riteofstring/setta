@@ -62,9 +62,10 @@ func TestRuntimeServesDurableConversationNavigator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation store: %v", err)
 	}
+	workspaceID := "workspace-runtime"
 	topic := conversation.TopicConversation{
 		ID:          "conversation-runtime",
-		WorkspaceID: "workspace-runtime",
+		WorkspaceID: &workspaceID,
 		Title:       "Runtime topic",
 		Status:      conversation.ConversationStatusIdle,
 		CreatedAt:   "2026-07-11T20:00:00Z",
@@ -111,7 +112,7 @@ func TestRuntimeServesDurableConversationNavigator(t *testing.T) {
 		authenticatedRuntimeTestClient(ready.BootstrapToken, 5*time.Second),
 		"http://"+server.Addr(),
 		"/conversations/navigator/list",
-		httpapi.ListTopicConversationsRequest{WorkspaceID: topic.WorkspaceID, Limit: 80},
+		httpapi.ListTopicConversationsRequest{WorkspaceID: workspaceID, Limit: 80},
 		http.StatusOK,
 	)
 	if len(page.Items) != 1 || page.Items[0].Conversation.ID != topic.ID {

@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"setta/internal/conversationindex"
+	"setta/internal/workspace"
+	"setta/internal/workspacesession"
 )
 
 func TestRouteContextTargetIDsPreserveRequiredTargetsBeforeGlobalState(t *testing.T) {
@@ -68,7 +70,7 @@ func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 	service := &RouteService{newID: func(prefix string) (string, error) {
 		ordinal++
 		return fmt.Sprintf("%s-%d", prefix, ordinal), nil
-	}}
+	}, workspaces: routeServiceTestWorkspaces{}}
 	activeTurnID := "turn-active"
 	bundle := RouteContextBundle{ConversationTargets: []RouteConversationTarget{{
 		ConversationID:      "conversation-alpha",
@@ -119,4 +121,17 @@ func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 		fork.ForkConversation.Target.Title != "Fork of Alpha topic" {
 		t.Fatalf("fork route command = %+v err=%v", fork, err)
 	}
+}
+
+type routeServiceTestWorkspaces struct{}
+
+func (routeServiceTestWorkspaces) Session() workspacesession.WorkspaceSession {
+	return workspacesession.WorkspaceSession{}
+}
+
+func (routeServiceTestWorkspaces) ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error) {
+	return workspace.WorkspaceSummary{
+		ID:       id,
+		RootPath: "/tmp/setta-route-service-test/" + id,
+	}, nil
 }

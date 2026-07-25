@@ -6,7 +6,10 @@ import type {
   AppearanceMasterVoiceShortcut,
   AppearancePresetList,
   AppearanceSettings,
+  AppPaneLayout,
+  AppPaneLayoutReadResult,
   BackendHealth,
+  BindTopicConversationFolderRequest,
   CancelMasterInputRequest,
   CancelCodexLoginRequest,
   CodexAccountChangeEvent,
@@ -34,6 +37,7 @@ import type {
   ReadConversationArtifactRequest,
   ReadConversationSnapshotRequest,
   ReadMasterInputRoutingStateRequest,
+  ReadMasterTranscriptRequest,
   RefreshCodexAccountRequest,
   ReadConversationRoleConfigurationRequest,
   ReadWorkspaceRoleConfigurationRequest,
@@ -54,6 +58,7 @@ import type {
   SubmitConversationInputRequest,
   SubmitMasterInputRequest,
   SubmitTopicConversationApprovalRequest,
+  Transcript,
   UpdateAppearanceSettingsRequest,
   UpdateConversationRoleProfilesRequest,
   UpdateGlobalRoleProfilesRequest,
@@ -292,6 +297,10 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
+  appLayout: {
+    readPaneLayout: () => Promise<AppPaneLayoutReadResult>;
+    savePaneLayout: (layout: AppPaneLayout) => Promise<AppPaneLayout>;
+  };
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
     current: () => Promise<RuntimeRegistrySnapshot>;
@@ -302,6 +311,7 @@ export interface SettaAPI {
   };
   conversations: {
     archive: (request: ArchiveTopicConversationRequest) => Promise<ConversationSnapshot>;
+    bindFolder: (request: BindTopicConversationFolderRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     discardInput?: (
       request: DiscardConversationInputRequest,
@@ -333,6 +343,7 @@ export interface SettaAPI {
   master?: {
     cancelInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
     readActiveInteraction: () => Promise<ActiveShellInteraction>;
+    readTranscript: (request: ReadMasterTranscriptRequest) => Promise<Transcript>;
     resolvePresentation: (
       request: PresentationResolutionRequest,
     ) => Promise<PresentationResolution>;
