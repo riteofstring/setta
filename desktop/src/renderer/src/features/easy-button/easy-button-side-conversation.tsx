@@ -175,7 +175,7 @@ function sideCanSend(
   return (
     side.status === "active" &&
     !side.turnActive &&
-    Boolean(commands?.workspaceCommandsAvailable) &&
+    Boolean(commands?.available) &&
     !commands?.pending &&
     input.trim() !== ""
   );
@@ -185,7 +185,7 @@ function sideComposerInputDisabled(
   side: EasyButtonSideView,
   commands: EasyButtonConversationCommands | undefined,
 ): boolean {
-  return side.status !== "active" || side.turnActive || !commands?.workspaceCommandsAvailable;
+  return side.status !== "active" || side.turnActive || !commands?.available;
 }
 
 function ParentStatus({ status }: { status: SideConversation["parentStatus"] }) {

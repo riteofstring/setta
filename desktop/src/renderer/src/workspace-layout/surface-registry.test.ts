@@ -8,9 +8,9 @@ import { SurfaceRegistry } from "./surface-registry";
 import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type {
   FreezeReason,
-  ConversationWorkspacePane,
+  EasyButtonWorkspacePane,
   WorkspacePane,
-  NonConversationSurfaceKind,
+  NonEasyButtonSurfaceKind,
   PaneRenderItem,
   Rect,
   ResumeReason,
@@ -73,7 +73,7 @@ describe("workspace surface registry", () => {
     expect(host.dataset.surfaceKind).toBe("browser");
   });
 
-  test.each(["conversation", "empty-frame", "fake-dom", "fake-heavy-dom"] satisfies SurfaceKind[])(
+  test.each(["easy-button", "empty-frame", "fake-dom", "fake-heavy-dom"] satisfies SurfaceKind[])(
     "keeps %s adapters mounted for frozen runtime handoff",
     (surfaceKind) => {
       const pane = fakePane(surfaceKind);
@@ -329,8 +329,8 @@ describe("workspace surface registry", () => {
 
   test("keeps conversation palette identity on snapshot handoff", () => {
     const pane = {
-      ...fakePane("conversation"),
-      conversationConfig: { conversationId: "conversation_alpha" },
+      ...fakePane("easy-button"),
+      easyButtonConfig: { conversationId: "conversation_alpha" },
     };
     const adapter = new ConversationTexturedSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => adapter);
@@ -356,8 +356,8 @@ describe("workspace surface registry", () => {
 
   test("clears a stale conversation palette during snapshot handoff", () => {
     const pane = {
-      ...fakePane("conversation"),
-      conversationConfig: { conversationId: "conversation_alpha" },
+      ...fakePane("easy-button"),
+      easyButtonConfig: { conversationId: "conversation_alpha" },
     };
     const adapter = new ConversationTexturedSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => adapter);
@@ -377,13 +377,13 @@ describe("workspace surface registry", () => {
 
   test("does not copy another conversation identity from a recycled snapshot host", () => {
     const alpha = {
-      ...fakePane("conversation"),
-      conversationConfig: { conversationId: "conversation_alpha" },
+      ...fakePane("easy-button"),
+      easyButtonConfig: { conversationId: "conversation_alpha" },
       title: "Alpha pane",
     };
     const beta = {
-      ...fakePane("conversation", 1),
-      conversationConfig: { conversationId: "conversation_beta" },
+      ...fakePane("easy-button", 1),
+      easyButtonConfig: { conversationId: "conversation_beta" },
       title: "Beta pane",
     };
     const alphaAdapter = new ConversationTexturedSurfaceAdapter(alpha, "conversation_alpha", "sky");
@@ -611,7 +611,7 @@ describe("workspace surface registry", () => {
     }
   });
 
-  test.each(["conversation", "fake-heavy-dom"] satisfies SurfaceKind[])(
+  test.each(["easy-button", "fake-heavy-dom"] satisfies SurfaceKind[])(
     "prewarms bitmap snapshots for %s panes while idle",
     (surfaceKind) => {
       const captureRendererRegion = vi.fn().mockResolvedValue({
@@ -1006,11 +1006,11 @@ function requireFakeChild(children: FakeChildNode[], index: number): FakeChildNo
   return child;
 }
 
-function fakePane(surfaceKind: "conversation", sequence?: number): ConversationWorkspacePane;
+function fakePane(surfaceKind: "easy-button", sequence?: number): EasyButtonWorkspacePane;
 function fakePane(
-  surfaceKind: NonConversationSurfaceKind,
+  surfaceKind: NonEasyButtonSurfaceKind,
   sequence?: number,
-): Exclude<WorkspacePane, { surfaceKind: "conversation" }>;
+): Exclude<WorkspacePane, { surfaceKind: "easy-button" }>;
 function fakePane(surfaceKind: SurfaceKind, sequence?: number): WorkspacePane;
 function fakePane(surfaceKind: SurfaceKind, sequence = 0): WorkspacePane {
   const suffix = sequence === 0 ? "" : `-${sequence}`;
@@ -1025,10 +1025,10 @@ function fakePane(surfaceKind: SurfaceKind, sequence = 0): WorkspacePane {
     tone: "cyan" as const,
     weight: 1,
   };
-  return surfaceKind === "conversation"
+  return surfaceKind === "easy-button"
     ? {
         ...fields,
-        conversationConfig: { conversationId: `conversation${suffix || "_test"}` },
+        easyButtonConfig: { conversationId: `conversation${suffix || "_test"}` },
         surfaceKind,
       }
     : { ...fields, surfaceKind };

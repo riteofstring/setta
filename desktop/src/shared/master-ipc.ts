@@ -6,16 +6,13 @@ import type {
   PresentationResolution,
   PresentationResolutionRequest,
   ReadMasterInputRoutingStateRequest,
-  ReadMasterTranscriptRequest,
   ShellInteractionState,
   SubmitMasterInputRequest,
-  Transcript,
 } from "@generated/backend";
 
 export const masterIpcChannels = {
   masterCancelInput: "master:cancel-input",
   masterReadActiveInteraction: "master:read-active-interaction",
-  masterReadTranscript: "master:read-transcript",
   masterResolvePresentation: "master:resolve-presentation",
   masterSubmitInput: "master:submit-input",
   masterWaitInteraction: "master:wait-interaction",
@@ -30,10 +27,6 @@ export interface MasterIpcContract {
   masterReadActiveInteraction: {
     args: [];
     result: ActiveShellInteraction;
-  };
-  masterReadTranscript: {
-    args: [request: ReadMasterTranscriptRequest];
-    result: Transcript;
   };
   masterResolvePresentation: {
     args: [request: PresentationResolutionRequest];
