@@ -26,28 +26,9 @@ The product should:
 
 This is a product and architecture cutover, not a skin over the pane system.
 
-## Source Branches and Ownership
+## Design Direction
 
-### `setta-3`
-
-`setta-3` is the implementation source and the parent of `setta-4`. It owns the current production
-backend and the behavior that must survive the cutover:
-
-- app-scoped and folderless conversation routing
-- durable conversations, turns, queues, steering, cancellation, and recovery
-- approvals and typed resource requests
-- conversation event streams and projections
-- speech capture, playback, and credential storage
-- Master/Director reasoning foundations
-- Electron main/preload/renderer production paths
-
-Create `setta-4` directly from the final green `setta-3` commit. A direct branch preserves the real
-lineage; do not manufacture a merge commit.
-
-### `setta-3-fullscreen-conversation`
-
-This branch is frozen design evidence. Its
-`docs/mockups/fullscreen_conversation_concept.html` establishes the visual and interaction direction:
+The fullscreen conversation concept establishes the visual and interaction direction:
 
 - one fullscreen living reasoning stream
 - selected workstream navigation with adjacent context
@@ -57,26 +38,9 @@ This branch is frozen design evidence. Its
 - compact user/final-answer history
 - background workstreams represented without competing for the full screen
 
-The prototype uses **WebGL2**, GLSL shaders, buffers, instancing, and GPU timer queries. Setta 4 will
-begin with WebGL2 as well. Do not merge this branch wholesale, and do not port its prototype gallery
-or later Niri workspace integration. Reimplement the selected concepts against Setta 4 contracts.
-
-### `setta-3-sprites`
-
-This branch is a preserved behavior baseline and source for later ports. It contains useful
-runtime-provider, credential, installation, accounting, managed-runtime, and conformance work, but
-it diverged before many important `setta-3` changes and overlaps risky shared contracts.
-
-Do not merge it wholesale into either `setta-4` or `setta-4-sprites`.
-
-Standalone Sprites development may continue now on `setta-3-sprites-development`, created from the
-pushed `setta-3-sprites` tip. Its job is to finish and freeze a working hosted-runtime reference
-without merging current `setta-3`. Any later integration branch remains deferred until that
-working-state gate is complete and the owner explicitly starts it.
-
-After the Setta 4 Director UI is implemented, measured, and stable, create `setta-4-sprites` from that
-green Setta 4 checkpoint. Port Sprites capabilities in bounded slices against current Setta 4
-contracts.
+The initial renderer should use **WebGL2**, GLSL shaders, buffers, instancing, and GPU timer queries.
+Reimplement the selected concepts against Setta 4 contracts instead of treating prototype-only code
+as production architecture.
 
 ## Superseded Direction
 
@@ -104,8 +68,6 @@ This is an unreleased-product cutover.
 - No React state updates on each animation frame.
 - No polling where a push event can express the change.
 - No second WebGPU renderer until a measured limitation justifies it.
-- No wholesale merge from either the fullscreen prototype branch or Sprites.
-- No Director UI, Niri integration, or pane product work on the Sprites preparation branch.
 - No OpenAI API key requirement for the initial product path. Live Codex development and E2E use
   existing ChatGPT authentication and must not use `OPENAI_API_KEY`.
 
@@ -198,8 +160,8 @@ and persisted layout as the application-level authority.
 
 ### 3. Director Execution Port
 
-The Director should depend on a small consumer-owned execution boundary rather than provider- or
-Sprites-owned UI concepts.
+The Director should depend on a small consumer-owned execution boundary rather than provider-owned UI
+concepts.
 
 The execution boundary must cover:
 
@@ -409,40 +371,25 @@ Append immutable before/after reports under `docs/reports/performance/`. Include
 refresh rate, viewport, device pixel ratio, scenario, build identity, measurement method, p50/p95/p99
 CPU and GPU frame times, long tasks, dropped frames, memory behavior, and profiler artifacts.
 
-## Sprites Relationship
-
-Standalone development on `setta-3-sprites-development` may proceed without gating Setta 4. Its
-branch-local `docs/plans/setta-cloud-platform-sprites-plan.md` is the authority for reaching and
-freezing a working Sprites reference.
-
-The deferred [`setta-3-sprites-integration-plan.md`](setta-3-sprites-integration-plan.md) governs any
-later `setta-3` reconciliation and the selective Setta 4 port after the Director checkpoint.
-
-Setta 4 owns all new product-facing contracts. Sprites preparation must not implement the Director
-UI, integrate with Niri panes, or become an alternate Setta 4 base. After the Setta 4 checkpoint,
-create `setta-4-sprites` from Setta 4 and port only the behavior and infrastructure identified by the
-Sprites migration ledger.
-
 ## Implementation Sequence
 
 Each phase ends with a coherent boundary and explicit deletion or acceptance gate. Do not begin by
 deleting Niri; replace its product responsibilities first.
 
-### Phase 0 — Establish the Setta 4 baseline
+### Phase 0 — Establish the implementation baseline
 
-1. Finish and verify the intended `setta-3` baseline.
-2. Push or otherwise back up the source branches before surgery.
-3. Create `setta-4` directly from the green `setta-3` tip.
-4. Record exact source commits for `setta-3`, the fullscreen prototype, and Sprites.
-5. Inventory Niri/pane responsibilities and assign each one to retain, replace, or delete.
-6. Capture the current fullscreen prototype performance baseline before changing it.
+1. Confirm the current app can produce a reproducible desktop development build.
+2. Inventory Niri/pane responsibilities and assign each one to retain, replace, or delete.
+3. Identify the conversation, approval, resource, speech, credential, and Electron production paths
+   that must survive the cutover.
+4. Capture the current interaction and rendering performance baseline before changing renderer
+   assumptions.
 
 Exit gate:
 
-- clean `setta-4` lineage
 - reproducible desktop development build
-- branch/source manifest committed
 - Niri ownership inventory committed
+- retained/replaced/deleted production responsibilities documented
 - baseline performance report committed
 
 ### Phase 1 — Define truth before visuals
@@ -465,7 +412,7 @@ Exit gate:
 
 ### Phase 2 — Prove the standalone 120 Hz renderer
 
-1. Extract the useful WebGL2 concepts from the fullscreen prototype into normal source files.
+1. Implement the useful WebGL2 concepts as normal production source files.
 2. Define the packed immutable GPU snapshot boundary.
 3. Implement the fullscreen graph canvas independently of production state.
 4. Add quality tiers, level of detail, buffer reuse, shader prewarming, and an idle scheduler.
@@ -550,7 +497,7 @@ Exit gate:
 
 ### Phase 6 — Production-path verification and Setta 4 checkpoint
 
-When the implementation is ready to merge and the user asks verification to begin:
+When the implementation is ready for final verification and the user asks verification to begin:
 
 1. Run focused projector, registry, renderer, and Director boundary tests.
 2. Run deterministic Electron E2E through production
@@ -559,8 +506,8 @@ When the implementation is ready to merge and the user asks verification to begi
    requests, completion, cancellation, failure, retry/recovery, artifact arrival, workstream
    switching, and restart/replay.
 4. Run live Codex E2E with local ChatGPT auth and without `OPENAI_API_KEY`.
-5. Run final performance scenarios and compare them with both baselines.
-6. Run the repository's requested merge gates and inspect generated output.
+5. Run final performance scenarios and compare them with the recorded baselines.
+6. Run the repository's requested verification gates and inspect generated output.
 7. Freeze a named green Setta 4 checkpoint.
 
 The deterministic E2E suite is the product cutover proof. Component tests alone are insufficient.
@@ -578,14 +525,10 @@ Setta 4 is complete when:
 - Niri/manual pane control is absent from the production path
 - deterministic production Electron E2E covers the mission-critical lifecycle
 - live Codex E2E passes with ChatGPT auth and no OpenAI API key
-- a green checkpoint exists from which `setta-4-sprites` can begin
 
 ## Immediate Next Actions
 
 1. Review and accept this plan as the Setta 4 plan of record.
-2. Finish the final `setta-3` merge-ready verification when requested.
-3. Create `setta-4` from that verified commit.
-4. Commit the branch/source manifest and Niri ownership inventory.
-5. Start Phase 1 with the semantic node and edge contracts.
-6. Allow standalone Sprites development to proceed independently; keep integration deferred until
-   its working reference is green and pushed.
+2. Complete the Niri ownership inventory.
+3. Capture the current interaction and rendering performance baseline.
+4. Start Phase 1 with the semantic node and edge contracts.
