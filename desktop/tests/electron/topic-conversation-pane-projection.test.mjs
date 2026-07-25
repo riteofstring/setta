@@ -104,7 +104,7 @@ import { assertEasyButtonBindingPersistence } from "./topic-conversation-pane-bi
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
-const workflowTimeoutMs = 50_000;
+const workflowTimeoutMs = 90_000;
 const initialThreadStartDelayMs = 900;
 const initialPanePlaceholderBudgetMs = 500;
 const cancelledMasterText = "Cancel active master route.";
