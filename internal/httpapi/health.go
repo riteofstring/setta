@@ -10,9 +10,8 @@ type BackendMetadata struct {
 }
 
 type RuntimeMetadata struct {
-	ID                     string
-	DisplayName            string
-	InfrastructureProvider RuntimeInfrastructureProvider
+	ID          string
+	DisplayName string
 }
 
 type BackendHealth struct {
@@ -29,12 +28,4 @@ func (handler handler) health(response http.ResponseWriter, request *http.Reques
 		Version:         handler.metadata.Version,
 		ProtocolVersion: ProtocolVersion,
 	})
-}
-
-func UnknownRuntimeInfrastructureProvider() RuntimeInfrastructureProvider {
-	return RuntimeInfrastructureProvider{
-		ID:          "unknown",
-		DisplayName: "Unknown provider",
-		IconURL:     "",
-	}
 }

@@ -17,7 +17,7 @@ interface MasterVoiceModifierPattern {
   metaKey: boolean;
 }
 
-export function isMasterPaneFocusShortcut(event: MasterShortcutEvent): boolean {
+export function isMasterOverlayShortcut(event: MasterShortcutEvent): boolean {
   return (
     event.key.toLowerCase() === "k" &&
     !event.altKey &&
@@ -37,7 +37,7 @@ export function isMasterVoiceShortcut(
   );
 }
 
-export function masterPaneFocusShortcutLabel(platform: DesktopPlatform): string {
+export function masterOverlayShortcutLabel(platform: DesktopPlatform): string {
   return platform === "darwin" ? "⌘K" : "Ctrl+K";
 }
 
