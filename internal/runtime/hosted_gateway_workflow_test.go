@@ -263,6 +263,11 @@ func startHostedGateway(
 		CredentialSecretRef: "hosted_runtime",
 		DesiredRelease:      "hosted-test-release",
 		ObservedRelease:     "hosted-test-release",
+		Resources: runtimeprovider.RuntimeResources{
+			CPUCoreMillionths: 1_000_000,
+			MemoryBytes:       512_000_000,
+			StorageBytes:      10_000_000_000,
+		},
 	}); err != nil {
 		t.Fatal(err)
 	}
