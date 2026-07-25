@@ -29,7 +29,13 @@ func (service *Service) executeDurableForkDecision(
 		return ConversationSnapshot{}, err
 	}
 
-	source, err := service.prepareDurableForkSource(ctx, workspaceID, parentConversationID, forkedAtTurnID)
+	source, err := service.prepareDurableForkSource(
+		ctx,
+		workspaceID,
+		workspaceSummary.RootPath,
+		parentConversationID,
+		forkedAtTurnID,
+	)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -64,7 +70,7 @@ func (service *Service) executeDurableForkDecision(
 	now := service.timestamp()
 	conversation := TopicConversation{
 		ID:              childConversationID,
-		WorkspaceID:     workspaceID,
+		WorkspaceID:     &workspaceID,
 		Title:           title,
 		TopicDescriptor: title,
 		Status:          ConversationStatusIdle,
@@ -115,7 +121,7 @@ func (service *Service) executeDurableForkDecision(
 		return service.persistCreatedConversation(
 			ctx,
 			conversation,
-			binding,
+			&binding,
 			narrator,
 			presentation,
 			&branch,
@@ -171,6 +177,7 @@ type durableForkSource struct {
 func (service *Service) prepareDurableForkSource(
 	ctx context.Context,
 	workspaceID string,
+	workspaceRoot string,
 	parentConversationID string,
 	forkedAtTurnID string,
 ) (durableForkSource, error) {
@@ -202,8 +209,17 @@ func (service *Service) prepareDurableForkSource(
 			Reason:         "fork source must be a completed turn of the parent conversation",
 		}
 	}
+	binding, err := service.resumeParentAgentThreadForProviderOperationLocked(
+		ctx,
+		workspaceID,
+		workspaceRoot,
+		snapshot,
+	)
+	if err != nil {
+		return durableForkSource{}, err
+	}
 	return durableForkSource{
-		providerThreadID:   snapshot.ThreadBinding.ThreadID,
+		providerThreadID:   binding.ThreadID,
 		providerTurnID:     *turn.ProviderTurnID,
 		trajectorySequence: sourceTrajectorySequence,
 	}, nil

@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 
 import { useConversationPaneStore } from "../stores/conversation-pane-store";
 import {
+  preflightConversationPanePlacement,
   presentConversationPane,
+  type ConversationPanePlacementPreflightResult,
+  type ConversationPanePlacementRequest,
   type ConversationPanePresentationRequest,
   type ConversationPanePresentationResult,
 } from "./conversation-pane-coordinator";
@@ -14,11 +17,17 @@ export interface WorkspaceConversationFocusRequest extends ConversationPanePrese
   requestId: number;
 }
 
+export interface WorkspaceConversationPlacementPreflightRequest extends ConversationPanePlacementRequest {
+  complete: (result: ConversationPanePlacementPreflightResult) => void;
+  requestId: number;
+}
+
 interface ConversationPaneRuntimeOptions {
   focusRequest: WorkspaceConversationFocusRequest | null;
   focusedPaneId: PaneId;
   layoutRevision: number;
   onPresentationError?: (message: string | null) => void;
+  placementPreflightRequest: WorkspaceConversationPlacementPreflightRequest | null;
   runLayoutAction: (action: () => void) => Promise<boolean> | void;
   runtime: WorkspaceRuntime;
   stageViewport: () => Rect;
@@ -27,6 +36,7 @@ interface ConversationPaneRuntimeOptions {
 
 export function useConversationPaneRuntime(options: ConversationPaneRuntimeOptions): void {
   useConversationPaneIndex(options);
+  useConversationPanePlacementPreflight(options);
   useConversationPanePresentation(options);
 }
 
@@ -51,6 +61,29 @@ function useConversationPaneIndex({
     },
     [removeWorkspace, workspaceId],
   );
+}
+
+function useConversationPanePlacementPreflight({
+  placementPreflightRequest,
+  runtime,
+  workspaceId,
+}: ConversationPaneRuntimeOptions): void {
+  const lastPlacementRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (
+      !placementPreflightRequest ||
+      runtime.mode !== "workspace" ||
+      placementPreflightRequest.workspaceId !== workspaceId ||
+      placementPreflightRequest.requestId <= lastPlacementRequestIdRef.current
+    ) {
+      return;
+    }
+    lastPlacementRequestIdRef.current = placementPreflightRequest.requestId;
+    placementPreflightRequest.complete(
+      preflightConversationPanePlacement(runtime.store, placementPreflightRequest),
+    );
+  }, [placementPreflightRequest, runtime, workspaceId]);
 }
 
 function useConversationPanePresentation({

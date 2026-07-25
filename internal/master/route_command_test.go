@@ -1,14 +1,19 @@
 package master
 
-import "testing"
+import (
+	"testing"
+
+	"setta/internal/applayout"
+)
 
 func TestPresentationIntentForCommandUsesTrustedPaneTargets(t *testing.T) {
 	paneID := "pane-alpha"
 	target := ConversationPresentationTarget{
-		WorkspaceID:     "workspace-alpha",
-		ConversationID:  "conversation-alpha",
-		Title:           "Alpha topic",
-		PreferredPaneID: &paneID,
+		ConversationID:   "conversation-alpha",
+		ResourceScope:    FolderRouteResourceScope("workspace-alpha", ""),
+		ResourceBindings: testPresentationResourceBindings(),
+		Title:            "Alpha topic",
+		PreferredPaneID:  &paneID,
 	}
 	input := MasterInput{
 		ID:          "master-input-focus",
@@ -46,6 +51,35 @@ func TestPresentationIntentForCommandUsesTrustedPaneTargets(t *testing.T) {
 	}
 }
 
+func TestPresentationIntentForCommandAllowsFolderlessTargets(t *testing.T) {
+	input := MasterInput{
+		ID:          "master-input-folderless-open",
+		Text:        "Open the folderless topic.",
+		Modality:    MasterInputModalityText,
+		Source:      MasterInputSourceShell,
+		SubmittedAt: "2026-07-14T08:00:00Z",
+	}
+	intent, err := PresentationIntentForCommand(input, RouteCommand{
+		Kind: RouteDecisionKindFocusConversation,
+		FocusConversation: &MasterFocusConversationRouteCommand{
+			Target: ConversationPresentationTarget{
+				ConversationID:   "conversation-folderless",
+				ResourceScope:    FolderlessRouteResourceScope(),
+				ResourceBindings: []applayout.ConversationPaneResourceBinding{},
+				Title:            "Folderless topic",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("PresentationIntentForCommand: %v", err)
+	}
+	if intent.Kind != PresentationIntentKindOpenConversationPane ||
+		intent.OpenConversationPane == nil ||
+		len(intent.OpenConversationPane.Target.ResourceBindings) != 0 {
+		t.Fatalf("folderless presentation intent = %+v", intent)
+	}
+}
+
 func TestPresentationIntentForCommandPreservesEscalationDelivery(t *testing.T) {
 	workspaceID := "workspace-alpha"
 	conversationID := "conversation-alpha"
@@ -63,8 +97,11 @@ func TestPresentationIntentForCommandPreservesEscalationDelivery(t *testing.T) {
 		OriginatingConversationInputID: &conversationInputID,
 	}
 	intent, err := PresentationIntentForCommand(input, RouteCommand{
-		Kind:    RouteDecisionKindClarify,
-		Clarify: &MasterClarifyRouteCommand{Question: "Which topic should handle this?"},
+		Kind: RouteDecisionKindClarify,
+		Clarify: &MasterClarifyRouteCommand{
+			Question:           "Which topic should handle this?",
+			CandidateTargetIDs: []string{},
+		},
 	})
 	if err != nil {
 		t.Fatalf("PresentationIntentForCommand: %v", err)
@@ -91,7 +128,10 @@ func TestPresentationIntentForMasterSideAllowsRendererToResolveParentPane(t *tes
 		Kind: RouteDecisionKindCreateSideConversation,
 		CreateSideConversation: &MasterCreateSideConversationRouteCommand{
 			Target: ConversationPresentationTarget{
-				WorkspaceID: "workspace-alpha", ConversationID: "conversation-alpha", Title: "Alpha topic",
+				ConversationID:   "conversation-alpha",
+				ResourceScope:    FolderRouteResourceScope("workspace-alpha", ""),
+				ResourceBindings: testPresentationResourceBindings(),
+				Title:            "Alpha topic",
 			},
 			SideConversationID: "side-alpha",
 			TurnID:             "side-turn-alpha",
@@ -125,9 +165,10 @@ func TestRouteCommandRejectsDecisionPayloadDrift(t *testing.T) {
 		Kind: RouteDecisionKindSendToAgent,
 		SendToAgent: &MasterSendToAgentRouteCommand{
 			Target: ConversationPresentationTarget{
-				WorkspaceID:    "workspace-alpha",
-				ConversationID: "conversation-alpha",
-				Title:          "Alpha topic",
+				ConversationID:   "conversation-alpha",
+				ResourceScope:    FolderRouteResourceScope("workspace-alpha", ""),
+				ResourceBindings: testPresentationResourceBindings(),
+				Title:            "Alpha topic",
 			},
 			TurnID:        "turn-alpha",
 			AuthoredInput: "Changed input.",
@@ -136,4 +177,11 @@ func TestRouteCommandRejectsDecisionPayloadDrift(t *testing.T) {
 	if err := command.ValidateDecision(decision); err == nil {
 		t.Fatal("RouteCommand.ValidateDecision accepted changed authored input")
 	}
+}
+
+func testPresentationResourceBindings() []applayout.ConversationPaneResourceBinding {
+	return []applayout.ConversationPaneResourceBinding{{
+		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
+		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
+	}}
 }
