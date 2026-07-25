@@ -39,8 +39,12 @@ catalog, `internal/director/decision_call.go` owns the bytes the Director is sen
 `internal/runtime/director_decision_caller.go` runs one isolated structured turn
 per decision, and `internal/runtime/director_workstream_execution.go` is the local
 adapter behind the port. One typed text or voice request therefore travels from
-the shell's front door to a durable run. Cancellation, approval resolution, and
-resource-request resolution are the dispatched intents still outside the boundary.
+the shell's front door to a durable run. The three direct commands are committed
+in `internal/director/dispatch_execution.go`: `cancel_run`, `resolve_approval`,
+and `resolve_resource_request` complete item 6's move behind the boundary, so
+every primary user intent is now expressible without pane identity. Item 6's
+remaining product gap is recorded in the immediate next actions: work that could
+not start for want of a folder is not re-delivered when the folder arrives.
 Phase 2 owns the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
@@ -1263,9 +1267,11 @@ Exit gate:
    cursor, subscribe from that cursor, dispatch one intent. Five decisions are
    load-bearing:
    - The intent catalog is what the app can carry out: `submit`,
-     `select_workstream`, and `move_selection`. `submit` joined it once item 6's
+     `select_workstream`, `move_selection`, `cancel_run`, `resolve_approval`,
+     and `resolve_resource_request`. `submit` joined it once item 6's
      executor became reachable, because a dispatch that accepted work it could
-     not perform would be a stub in the product's front door.
+     not perform would be a stub in the product's front door; the three direct
+     commands joined it with their execution-port operations for the same reason.
    - `move_selection` is resolved by the app, not the caller. The renderer sends
      a direction; the registry resolves it over the same bounded, recency-ordered
      window the snapshot draws, so selection can only land on something the user
@@ -1410,20 +1416,68 @@ Exit gate:
    else crosses unchanged, because the Director does not interpret execution
    failures.
 
-   Still to move behind the boundary: cancellation, approval resolution, and
-   resource-request resolution, which are dispatched intents rather than routed
-   decisions.
+   **The three direct commands are committed** — `internal/director/dispatch_execution.go`,
+   the `CancelRun`/`ResolveApproval`/`BindWorkstreamResource` operations on the
+   execution port, the trusted resolutions in `registry_execution.go`, and
+   `CancelDirectorTurn`/`SubmitDirectorApproval` in
+   `internal/conversation/service_director_commands.go`. Cancelling a run,
+   answering an approval, and supplying a folder are the user acting on something
+   the command center is already showing them, so none of them is routed: there is
+   nothing for a model to decide, only trusted state to resolve and one port
+   operation to run. Five decisions are load-bearing:
+   - Cancelling names the run, not just the workstream. Setta promotes queued work
+     the moment a run ends, so a cancel that named only its workstream could stop
+     the successor — work the user never chose to stop. `ActiveRunTarget` rejects a
+     run the workstream has moved past, and the conversation service re-checks the
+     named turn inside the lock that read the active one, which is where the
+     remaining race actually closes.
+   - Resolving an approval carries structured answers. Setta's approval catalog
+     includes questions a run cannot continue without, so an approve/deny boundary
+     would leave every structured-input approval unanswerable through the command
+     center. The plan's secret boundary holds unchanged: answers reach the provider
+     path that asked for them, the conversation redacts them out of the durable
+     trajectory, and the app-scoped record still carries only that an answer was
+     secret.
+   - The app resolves what an approval belongs to. The shell names the approval;
+     the workstream, conversation, folder, and waiting run all come from the same
+     durable fold the rail drew it from, and an approval whose run has ended is
+     rejected rather than answered into a provider request that no longer exists.
+   - Cancelling and answering commit no Director fact. The conversation already
+     commits the interruption and the resolution durably, and the registry folds
+     those into the same rails the command came from, so a second Director record
+     of the same event could only disagree with it. Supplying a resource is the
+     exception, because no conversation event says the app's own request closed.
+   - Supplying a folder binds the durable substrate before the app records that it
+     has one, which is the opposite order to a decision. A decision is true whether
+     or not the work starts; a binding fact is a claim about what the workstream
+     can now reach, so committing it first would leave the registry asserting a
+     folder the conversation does not have. In this order a lost fact leaves the
+     request open — the state the user can act on again — and binding the same
+     folder twice is the same durable state, so acting on it again resolves it. The
+     folder itself is authorized against the workspaces the app can currently
+     reach, the same authority a Director decision's scope is checked against.
+
+   One product gap remains inside this item and is not a boundary gap: work that
+   could not start for want of a folder is not re-delivered when the folder
+   arrives. The workstream exists, is selectable, and can now run, but the request
+   the user made is not durably attached to the resource request, so their next
+   message is what starts the work. Closing it is a product decision rather than a
+   rewiring — whether the app re-sends the authored text or re-routes the original
+   intent through the Director — and it is recorded in the immediate next actions.
 7. Replace pane presentation intents with workstream presentation intents. **The
-   replacement exists and now carries work as well as presentation** —
-   `DirectorIntent` submits a request and moves app-wide selection by workstream
-   id or by direction, and no dispatched intent, receipt, or pushed event carries
-   a pane id. The Master presentation intent the pane shell still resolves leaves
-   when the shell stops dispatching Master input, which is Phase 4's cutover.
+   replacement exists and now carries work, control, and presentation** —
+   `DirectorIntent` submits a request, moves app-wide selection by workstream id
+   or by direction, cancels a run, answers an approval, and supplies a resource,
+   and no dispatched intent, receipt, or pushed event carries a pane id. The
+   Master presentation intent the pane shell still resolves leaves when the shell
+   stops dispatching Master input, which is Phase 4's cutover.
 8. Fan in current conversation and Master event streams through the Director registry without adding
    UI polling. **Done for the conversation side.** Every conversation's durable events reach the
    registry through one app-scoped follower that blocks on the store's committed-event wake, so
-   adding a workstream adds no subscription and no timer. The Master streams move with items 2, 3,
-   and 6, when the routing they carry moves behind the boundary.
+   adding a workstream adds no subscription and no timer. The routing the Master streams carry is now
+   behind the boundary, so those streams are retired by the same trigger as item 7: the shell stops
+   dispatching Master input at Phase 4's cutover, and what is left of them is deleted with the pane
+   code in Phase 5.
 9. Preserve strict trusted-target validation. **Done for the decision protocol —
    `internal/director/decision_validation.go` and the target invariants in `decision_authority.go`.**
    A target may offer `send_to_workstream` only with no active run, `queue_behind_run` and `steer_run`
@@ -1552,18 +1606,18 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Finish Phase 3 item 6 with the three dispatched intents the routed path does not cover:
-   cancellation, approval resolution, and resource-request resolution. Each is a direct dispatch
-   rather than a model decision, so each needs trusted state to resolve what it names — the active run
-   of a workstream, the workstream and run one pending approval belongs to, and the folder that closes
-   one open resource request — plus its own execution-port operation. Two design questions belong to
-   that pass: whether cancelling names the run the user saw (the conversation service currently
-   interrupts whichever run is active), and whether resolving an approval carries structured answers,
-   which is where the plan's secret-answer boundary applies. Retiring the Master presentation intent in
-   item 7 waits for Phase 4's shell cutover, and the remaining Master-to-Director renaming in item 2
-   should move with the code Phase 5 does not delete.
-   A submitted request has no shell-facing end-to-end coverage yet, because no renderer surface
-   dispatches one until Phase 4 items 1 and 2.
+1. Decide how a workstream resumes the work it could not start. Supplying a folder now closes the
+   durable resource request and binds the workstream, but the request the user made is not attached to
+   that request, so nothing restarts. The two candidate answers are different products: re-send the
+   authored text as the workstream's first run, or re-route the original intent through the Director
+   against the workstream's new authority. The first needs the user's words to become durable on the
+   resource request, which today only `DirectorDecisionCommitted.Answer` does; the second needs the
+   submitted intent to survive the request. This is a product decision, not rewiring, so it should be
+   brought to the user before either contract changes.
+   Retiring the Master presentation intent in item 7 waits for Phase 4's shell cutover, and the
+   remaining Master-to-Director renaming in item 2 should move with the code Phase 5 does not delete.
+   No dispatched intent has shell-facing end-to-end coverage yet, because no renderer surface
+   dispatches one until Phase 4 items 1 through 4.
 2. Build the exhaustive node/edge visual gallery. Its dependency is closed: the Director contracts
    are generated into `desktop/src/generated/backend.ts`, and `ProjectionFixtures()` is the
    production-contract source the gallery renders from. The four contract gaps the inventory found

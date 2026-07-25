@@ -145,6 +145,43 @@ func (service *Service) SteerDirectorTurn(
 	return service.steerTurn(ctx, workspaceID, conversationID, text, targetTurnID, decisionID)
 }
 
+// CancelDirectorTurn stops the turn the user asked to stop. The turn is named,
+// because the user cancelled the run they were shown and a conversation promotes
+// queued work as soon as the previous turn ends.
+func (service *Service) CancelDirectorTurn(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	targetTurnID string,
+) (ConversationSnapshot, error) {
+	if err := validateDirectorRequest(service, ctx); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if err := validateIdentifier("director cancelled turn id", targetTurnID); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.stopTurn(ctx, workspaceID, conversationID, targetTurnID)
+}
+
+// SubmitDirectorApproval answers one approval the named turn is waiting on.
+// Secret answers reach the provider path that requested them; the durable
+// resolution this writes carries them redacted.
+func (service *Service) SubmitDirectorApproval(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	targetTurnID string,
+	response ConversationApprovalResponse,
+) (ConversationSnapshot, error) {
+	if err := validateDirectorRequest(service, ctx); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if err := validateIdentifier("director approved turn id", targetTurnID); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.submitApproval(ctx, workspaceID, conversationID, targetTurnID, response)
+}
+
 // RecoverDirectorTurn restarts the work a failed turn was carrying. The failed
 // turn's own authored input is the work: the Director recovers a path, so
 // re-authoring the request the user already made would recover something else.

@@ -11,12 +11,15 @@ import (
 // to do. It is the boundary's own contract suite: every adapter is handed the
 // same requests, so a managed runtime has to accept exactly these.
 type recordedExecution struct {
-	starts   []WorkstreamStartRequest
-	sends    []WorkDeliveryRequest
-	queues   []WorkDeliveryRequest
-	steers   []SteerRunRequest
-	recovers []RecoverRunRequest
-	fail     error
+	starts    []WorkstreamStartRequest
+	sends     []WorkDeliveryRequest
+	queues    []WorkDeliveryRequest
+	steers    []SteerRunRequest
+	cancels   []CancelRunRequest
+	approvals []ResolveApprovalRequest
+	bindings  []BindWorkstreamResourceRequest
+	recovers  []RecoverRunRequest
+	fail      error
 }
 
 func (execution *recordedExecution) StartWorkstream(_ context.Context, request WorkstreamStartRequest) error {
@@ -36,6 +39,24 @@ func (execution *recordedExecution) QueueWork(_ context.Context, request WorkDel
 
 func (execution *recordedExecution) SteerRun(_ context.Context, request SteerRunRequest) error {
 	execution.steers = append(execution.steers, request)
+	return execution.fail
+}
+
+func (execution *recordedExecution) CancelRun(_ context.Context, request CancelRunRequest) error {
+	execution.cancels = append(execution.cancels, request)
+	return execution.fail
+}
+
+func (execution *recordedExecution) ResolveApproval(_ context.Context, request ResolveApprovalRequest) error {
+	execution.approvals = append(execution.approvals, request)
+	return execution.fail
+}
+
+func (execution *recordedExecution) BindWorkstreamResource(
+	_ context.Context,
+	request BindWorkstreamResourceRequest,
+) error {
+	execution.bindings = append(execution.bindings, request)
 	return execution.fail
 }
 

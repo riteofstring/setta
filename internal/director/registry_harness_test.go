@@ -405,6 +405,43 @@ func (harness *registryHarness) requestApproval(
 	)
 }
 
+// requestStructuredApproval asks a question the run cannot continue without, and
+// asks it as a secret. It is the approval shape that proves the command center
+// can answer at all: an approve/deny boundary would leave it outstanding forever.
+func (harness *registryHarness) requestStructuredApproval(
+	conversationID string,
+	turnID string,
+	approvalID string,
+) conversation.TrajectoryEvent {
+	return harness.appendTrajectory(
+		conversationID,
+		&turnID,
+		conversation.TrajectoryEventApprovalRequested,
+		conversation.TrajectoryActorAgent,
+		func(event *conversation.TrajectoryEvent) {
+			event.ApprovalRequested = &conversation.TrajectoryApprovalRequested{
+				Approval: conversation.TrajectoryApprovalRequest{
+					ID:             approvalID,
+					ProviderItemID: "item-" + approvalID,
+					Kind:           conversation.TrajectoryApprovalKindStructuredInput,
+					Title:          "Supply the deploy token",
+					Body:           "The deploy needs a token before it can continue.",
+					FilePaths:      []string{},
+					Questions: []conversation.TrajectoryApprovalQuestion{{
+						ID:          "question-token",
+						Header:      "Deploy token",
+						Question:    "Which token should the deploy use?",
+						Options:     []string{},
+						AllowsOther: true,
+						Secret:      true,
+					}},
+					RequestedAt: event.EmittedAt,
+				},
+			}
+		},
+	)
+}
+
 func (harness *registryHarness) resolveApproval(
 	conversationID string,
 	turnID string,

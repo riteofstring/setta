@@ -36,6 +36,15 @@ type directorWorkstreamCommands interface {
 		string,
 		string,
 	) (conversation.ConversationSnapshot, error)
+	CancelDirectorTurn(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
+	SubmitDirectorApproval(
+		context.Context,
+		string,
+		string,
+		string,
+		conversation.ConversationApprovalResponse,
+	) (conversation.ConversationSnapshot, error)
+	BindFolderResource(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	RecoverDirectorTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 }
 
@@ -133,6 +142,49 @@ func (execution *directorWorkstreamExecution) SteerRun(
 		request.Text,
 		request.TargetRunID,
 		request.DecisionID,
+	)
+	return directorExecutionError(err)
+}
+
+func (execution *directorWorkstreamExecution) CancelRun(
+	ctx context.Context,
+	request director.CancelRunRequest,
+) error {
+	_, err := execution.conversations.CancelDirectorTurn(
+		ctx,
+		request.WorkspaceID,
+		request.ConversationID,
+		request.RunID,
+	)
+	return directorExecutionError(err)
+}
+
+func (execution *directorWorkstreamExecution) ResolveApproval(
+	ctx context.Context,
+	request director.ResolveApprovalRequest,
+) error {
+	_, err := execution.conversations.SubmitDirectorApproval(
+		ctx,
+		request.WorkspaceID,
+		request.ConversationID,
+		request.RunID,
+		conversation.ConversationApprovalResponse{
+			ApprovalID: request.ApprovalID,
+			Decision:   request.Decision,
+			Answers:    request.Answers,
+		},
+	)
+	return directorExecutionError(err)
+}
+
+func (execution *directorWorkstreamExecution) BindWorkstreamResource(
+	ctx context.Context,
+	request director.BindWorkstreamResourceRequest,
+) error {
+	_, err := execution.conversations.BindFolderResource(
+		ctx,
+		request.WorkspaceID,
+		request.ConversationID,
 	)
 	return directorExecutionError(err)
 }

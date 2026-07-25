@@ -90,6 +90,36 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 	}}
 }
 
+// directorIntentPayloadFields pairs each intent kind with the payload field it
+// populates. The generated variants are derived from this one table, so adding
+// an intent cannot leave a payload the renderer may set beside another kind.
+var directorIntentPayloadFields = map[DirectorIntentKind]string{
+	DirectorIntentSubmit:                 "submit",
+	DirectorIntentSelectWorkstream:       "selectWorkstream",
+	DirectorIntentMoveSelection:          "moveSelection",
+	DirectorIntentCancelRun:              "cancelRun",
+	DirectorIntentResolveApproval:        "resolveApproval",
+	DirectorIntentResolveResourceRequest: "resolveResourceRequest",
+}
+
+func directorIntentContractVariants() []ContractDiscriminatedStructVariant {
+	variants := make([]ContractDiscriminatedStructVariant, 0, len(directorIntentKinds))
+	for _, kind := range directorIntentKinds {
+		fields := make([]ContractDiscriminatedStructField, 0, len(directorIntentKinds))
+		for _, other := range directorIntentKinds {
+			fields = append(fields, ContractDiscriminatedStructField{
+				Name:    directorIntentPayloadFields[other],
+				NonNull: other == kind,
+			})
+		}
+		variants = append(variants, ContractDiscriminatedStructVariant{
+			DiscriminatorValue: string(kind),
+			Fields:             fields,
+		})
+	}
+	return variants
+}
+
 // ContractDiscriminatedStructs registers the shapes whose kind decides which
 // payload is present, including the folderless scope that has none and the
 // dispatched intent, which the shell constructs rather than decodes.
@@ -98,32 +128,7 @@ func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
 		{
 			Type:          reflect.TypeFor[DirectorIntent](),
 			Discriminator: "kind",
-			Variants: []ContractDiscriminatedStructVariant{
-				{
-					DiscriminatorValue: string(DirectorIntentSubmit),
-					Fields: []ContractDiscriminatedStructField{
-						{Name: "submit", NonNull: true},
-						{Name: "selectWorkstream"},
-						{Name: "moveSelection"},
-					},
-				},
-				{
-					DiscriminatorValue: string(DirectorIntentSelectWorkstream),
-					Fields: []ContractDiscriminatedStructField{
-						{Name: "submit"},
-						{Name: "selectWorkstream", NonNull: true},
-						{Name: "moveSelection"},
-					},
-				},
-				{
-					DiscriminatorValue: string(DirectorIntentMoveSelection),
-					Fields: []ContractDiscriminatedStructField{
-						{Name: "submit"},
-						{Name: "selectWorkstream"},
-						{Name: "moveSelection", NonNull: true},
-					},
-				},
-			},
+			Variants:      directorIntentContractVariants(),
 		},
 		{
 			Type:          reflect.TypeFor[WorkstreamResourceBinding](),

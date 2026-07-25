@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"slices"
 	"time"
+
+	"setta/internal/conversation"
 )
 
 // The Director command center boundary.
@@ -27,6 +29,11 @@ import (
 // said and how they said it; the intent's identity and the moment it was
 // accepted are minted here, because an id a caller chose is an id product code
 // did not.
+//
+// The other intents are direct. Cancelling a run, answering an approval, and
+// supplying a folder are the user acting on something the command center is
+// already showing them, so there is nothing for a model to decide — only trusted
+// state to resolve and one execution-port operation to run.
 
 // ErrDirectorUnavailable reports that the command center cannot serve a request
 // because the app-scoped registry is not running, or because the Director could
@@ -51,12 +58,22 @@ const (
 	// DirectorIntentMoveSelection moves app-wide selection one step through the
 	// workstreams the command center is showing.
 	DirectorIntentMoveSelection DirectorIntentKind = "move_selection"
+	// DirectorIntentCancelRun stops the run a workstream is carrying now.
+	DirectorIntentCancelRun DirectorIntentKind = "cancel_run"
+	// DirectorIntentResolveApproval answers one approval a run is waiting on.
+	DirectorIntentResolveApproval DirectorIntentKind = "resolve_approval"
+	// DirectorIntentResolveResourceRequest supplies the resource one workstream
+	// is waiting for.
+	DirectorIntentResolveResourceRequest DirectorIntentKind = "resolve_resource_request"
 )
 
 var directorIntentKinds = []DirectorIntentKind{
 	DirectorIntentSubmit,
 	DirectorIntentSelectWorkstream,
 	DirectorIntentMoveSelection,
+	DirectorIntentCancelRun,
+	DirectorIntentResolveApproval,
+	DirectorIntentResolveResourceRequest,
 }
 
 // DirectorSelectionDirection is one step through the ordered workstreams.
@@ -95,20 +112,59 @@ type DirectorMoveSelectionIntent struct {
 	Direction DirectorSelectionDirection `json:"direction"`
 }
 
+// DirectorCancelRunIntent stops one named run. It carries the run the user was
+// looking at rather than only its workstream: work can be queued behind a run,
+// so between the frame the user saw and the dispatch they made, the run they
+// meant to stop can have finished and its successor started. Naming the run is
+// what keeps a cancel from stopping work the user never saw.
+type DirectorCancelRunIntent struct {
+	WorkstreamID string `json:"workstreamId"`
+	RunID        string `json:"runId"`
+}
+
+// DirectorResolveApprovalIntent answers one approval. It carries structured
+// answers because Setta's approval catalog includes questions a run cannot
+// continue without: a boundary that could only approve or deny would leave every
+// structured-input approval unanswerable through the command center.
+//
+// Secret answers travel here and reach the provider path that asked for them.
+// They never become durable: the conversation service redacts them out of the
+// trajectory, and the app-scoped approval record carries only that an answer was
+// secret.
+type DirectorResolveApprovalIntent struct {
+	ApprovalID string                                    `json:"approvalId"`
+	Decision   conversation.TrajectoryApprovalDecision   `json:"decision"`
+	Answers    []conversation.ConversationApprovalAnswer `json:"answers"`
+}
+
+// DirectorResolveResourceRequestIntent supplies the resource one open request is
+// waiting for. The user chooses a folder the app can currently reach by id;
+// trusted code resolves it into the binding, exactly as it does for a Director
+// decision, so no filesystem path crosses the boundary in either direction.
+type DirectorResolveResourceRequestIntent struct {
+	RequestID   string `json:"requestId"`
+	WorkspaceID string `json:"workspaceId"`
+}
+
 // DirectorIntent is one dispatched user intent. Kind selects exactly one
 // populated payload.
 type DirectorIntent struct {
-	Kind             DirectorIntentKind              `json:"kind"`
-	Submit           *DirectorSubmitIntent           `json:"submit"`
-	SelectWorkstream *DirectorSelectWorkstreamIntent `json:"selectWorkstream"`
-	MoveSelection    *DirectorMoveSelectionIntent    `json:"moveSelection"`
+	Kind                   DirectorIntentKind                    `json:"kind"`
+	Submit                 *DirectorSubmitIntent                 `json:"submit"`
+	SelectWorkstream       *DirectorSelectWorkstreamIntent       `json:"selectWorkstream"`
+	MoveSelection          *DirectorMoveSelectionIntent          `json:"moveSelection"`
+	CancelRun              *DirectorCancelRunIntent              `json:"cancelRun"`
+	ResolveApproval        *DirectorResolveApprovalIntent        `json:"resolveApproval"`
+	ResolveResourceRequest *DirectorResolveResourceRequestIntent `json:"resolveResourceRequest"`
 }
 
 // DirectorReceipt is what a dispatch reports back. The durable change reaches
 // the shell through the pushed stream like every other change, so the receipt
 // says only what the app decided the intent meant: which workstream is selected
 // now, or what carrying out a submitted request produced. A move with nowhere to
-// go returns the selection it kept.
+// go returns the selection it kept, and a direct command reports nothing at all,
+// because the user already knew what they asked for and the stream carries what
+// it changed.
 //
 // The receipt is not registered as a discriminated wire shape, because a
 // selection receipt's workstream is legitimately null when the registry holds
@@ -138,6 +194,12 @@ func ValidateDirectorIntent(intent DirectorIntent) error {
 		return validateIdentifier("director select workstream id", intent.SelectWorkstream.WorkstreamID)
 	case DirectorIntentMoveSelection:
 		return validateSelectionDirection(intent.MoveSelection.Direction)
+	case DirectorIntentCancelRun:
+		return validateCancelRunIntent(*intent.CancelRun)
+	case DirectorIntentResolveApproval:
+		return validateResolveApprovalIntent(*intent.ResolveApproval)
+	case DirectorIntentResolveResourceRequest:
+		return validateResolveResourceRequestIntent(*intent.ResolveResourceRequest)
 	default:
 		return fmt.Errorf("unknown director intent kind %q", intent.Kind)
 	}
@@ -148,9 +210,12 @@ func ValidateDirectorIntent(intent DirectorIntent) error {
 // from silently accepting a second populated payload beside it.
 func validateIntentPayloadPresence(intent DirectorIntent) error {
 	present := map[DirectorIntentKind]bool{
-		DirectorIntentSubmit:           intent.Submit != nil,
-		DirectorIntentSelectWorkstream: intent.SelectWorkstream != nil,
-		DirectorIntentMoveSelection:    intent.MoveSelection != nil,
+		DirectorIntentSubmit:                 intent.Submit != nil,
+		DirectorIntentSelectWorkstream:       intent.SelectWorkstream != nil,
+		DirectorIntentMoveSelection:          intent.MoveSelection != nil,
+		DirectorIntentCancelRun:              intent.CancelRun != nil,
+		DirectorIntentResolveApproval:        intent.ResolveApproval != nil,
+		DirectorIntentResolveResourceRequest: intent.ResolveResourceRequest != nil,
 	}
 	if _, known := present[intent.Kind]; !known {
 		return fmt.Errorf("unknown director intent kind %q", intent.Kind)
@@ -183,25 +248,63 @@ func validateSelectionDirection(direction DirectorSelectionDirection) error {
 	return nil
 }
 
+func validateCancelRunIntent(cancel DirectorCancelRunIntent) error {
+	if err := validateIdentifier("director cancel workstream id", cancel.WorkstreamID); err != nil {
+		return err
+	}
+	return validateIdentifier("director cancel run id", cancel.RunID)
+}
+
+// validateResolveApprovalIntent checks the answer against the conversation's own
+// approval rules rather than restating them. The conversation owns what a
+// decision may carry, so a second copy of that rule here could disagree with the
+// one the durable write enforces.
+func validateResolveApprovalIntent(resolve DirectorResolveApprovalIntent) error {
+	if err := validateIdentifier("director approval id", resolve.ApprovalID); err != nil {
+		return err
+	}
+	return conversation.ConversationApprovalResponse{
+		ApprovalID: resolve.ApprovalID,
+		Decision:   resolve.Decision,
+		Answers:    resolve.Answers,
+	}.Validate()
+}
+
+func validateResolveResourceRequestIntent(resolve DirectorResolveResourceRequestIntent) error {
+	if err := validateIdentifier("director resource request id", resolve.RequestID); err != nil {
+		return err
+	}
+	return validateIdentifier("director resource request workspace id", resolve.WorkspaceID)
+}
+
 // ValidateDirectorReceipt proves a receipt names a real selection or a real
 // outcome, and that it names only the one its dispatched kind produces.
 func ValidateDirectorReceipt(receipt DirectorReceipt) error {
-	if !slices.Contains(directorIntentKinds, receipt.Kind) {
-		return fmt.Errorf("unknown director intent kind %q", receipt.Kind)
-	}
-	if receipt.Kind == DirectorIntentSubmit {
+	switch receipt.Kind {
+	case DirectorIntentSubmit:
 		if receipt.Submit == nil || receipt.SelectedWorkstreamID != nil {
 			return fmt.Errorf("director receipt %q requires exactly its own outcome", receipt.Kind)
 		}
 		return receipt.Submit.Validate()
-	}
-	if receipt.Submit != nil {
-		return fmt.Errorf("director receipt %q must not carry a submitted outcome", receipt.Kind)
-	}
-	if receipt.SelectedWorkstreamID == nil {
+	case DirectorIntentSelectWorkstream, DirectorIntentMoveSelection:
+		if receipt.Submit != nil {
+			return fmt.Errorf("director receipt %q must not carry a submitted outcome", receipt.Kind)
+		}
+		if receipt.SelectedWorkstreamID == nil {
+			return nil
+		}
+		return validateIdentifier("director receipt selected workstream id", *receipt.SelectedWorkstreamID)
+	case DirectorIntentCancelRun, DirectorIntentResolveApproval, DirectorIntentResolveResourceRequest:
+		// A direct command has nothing to report. What it changed is durable, and
+		// it reaches the shell on the pushed stream like every other change, so a
+		// receipt that answered with app state here would be a second source of it.
+		if receipt.Submit != nil || receipt.SelectedWorkstreamID != nil {
+			return fmt.Errorf("director receipt %q reports an outcome the pushed stream owns", receipt.Kind)
+		}
 		return nil
+	default:
+		return fmt.Errorf("unknown director intent kind %q", receipt.Kind)
 	}
-	return validateIdentifier("director receipt selected workstream id", *receipt.SelectedWorkstreamID)
 }
 
 // CommandCenter is the application boundary the shell dispatches through.
@@ -344,7 +447,26 @@ func (center *CommandCenter) carryOut(
 		receipt.SelectedWorkstreamID = selected
 		return receipt, nil
 	default:
-		return DirectorReceipt{}, fmt.Errorf("unknown director intent kind %q", intent.Kind)
+		if err := center.command(ctx, intent); err != nil {
+			return DirectorReceipt{}, err
+		}
+		return receipt, nil
+	}
+}
+
+// command carries out one direct command. It reports nothing, because what it
+// changed is durable and arrives on the pushed stream; an unknown kind fails here
+// rather than being accepted as a dispatch that did nothing.
+func (center *CommandCenter) command(ctx context.Context, intent DirectorIntent) error {
+	switch intent.Kind {
+	case DirectorIntentCancelRun:
+		return center.executor.CancelRun(ctx, *intent.CancelRun)
+	case DirectorIntentResolveApproval:
+		return center.executor.ResolveApproval(ctx, *intent.ResolveApproval)
+	case DirectorIntentResolveResourceRequest:
+		return center.executor.ResolveResourceRequest(ctx, *intent.ResolveResourceRequest)
+	default:
+		return fmt.Errorf("unknown director intent kind %q", intent.Kind)
 	}
 }
 

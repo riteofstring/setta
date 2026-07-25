@@ -3,13 +3,16 @@ package director
 import (
 	"context"
 	"fmt"
+
+	"setta/internal/conversation"
 )
 
 // The Director execution port.
 //
 // This is the whole of what the Director needs the rest of the app to do:
 // create the durable substrate a workstream runs on, deliver work to it, steer
-// the run that is carrying work now, and restart work a durable failure
+// the run that is carrying work now, stop it, answer what it is waiting on,
+// supply a resource it does not have, and restart work a durable failure
 // interrupted. It is consumer-owned. Every request names Setta identities
 // trusted product code minted before the call — the conversation a workstream
 // executes on, the folder resource it is bound to, the run the work will be —
@@ -99,6 +102,42 @@ type RecoverRunRequest struct {
 	RunID string
 }
 
+// CancelRunRequest stops the run a workstream is carrying. The run is named
+// rather than left to the adapter to resolve, because the user cancelled the run
+// they were shown: a workstream can promote queued work the moment the previous
+// run ends, and stopping whichever run happens to be active would stop work they
+// never saw.
+type CancelRunRequest struct {
+	ConversationID string
+	WorkspaceID    string
+	// RunID is the run the user asked to stop.
+	RunID string
+}
+
+// ResolveApprovalRequest answers one approval the named run is waiting on.
+// Answers may contain secrets, which is why this is a request to the execution
+// port rather than a durable fact: the answer reaches the provider path that
+// asked for it, and the durable trajectory the adapter writes carries the
+// redacted resolution.
+type ResolveApprovalRequest struct {
+	ConversationID string
+	WorkspaceID    string
+	// RunID is the run waiting on the approval.
+	RunID      string
+	ApprovalID string
+	Decision   conversation.TrajectoryApprovalDecision
+	Answers    []conversation.ConversationApprovalAnswer
+}
+
+// BindWorkstreamResourceRequest attaches the folder resource the user supplied
+// to the durable substrate a workstream runs on. Setta runs work inside a
+// folder, so this is what turns a workstream that was waiting for one into a
+// workstream that can run.
+type BindWorkstreamResourceRequest struct {
+	ConversationID string
+	WorkspaceID    string
+}
+
 // WorkstreamExecution is the Director's execution boundary.
 type WorkstreamExecution interface {
 	// StartWorkstream creates the durable substrate a new workstream runs on.
@@ -109,6 +148,12 @@ type WorkstreamExecution interface {
 	QueueWork(ctx context.Context, request WorkDeliveryRequest) error
 	// SteerRun changes the instruction of the active run.
 	SteerRun(ctx context.Context, request SteerRunRequest) error
+	// CancelRun stops the named run.
+	CancelRun(ctx context.Context, request CancelRunRequest) error
+	// ResolveApproval answers one approval the named run is waiting on.
+	ResolveApproval(ctx context.Context, request ResolveApprovalRequest) error
+	// BindWorkstreamResource attaches a resource the user supplied.
+	BindWorkstreamResource(ctx context.Context, request BindWorkstreamResourceRequest) error
 	// RecoverRun restarts the work a durable failure interrupted.
 	RecoverRun(ctx context.Context, request RecoverRunRequest) error
 }

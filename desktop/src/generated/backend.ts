@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 85;
-export const backendContractSchemaHash = "sha256:fe42cfc69d9f34a245e19015d80e9c9c08b7314a66965db93a7566a122bff922";
+export const backendProtocolVersion = 86;
+export const backendContractSchemaHash = "sha256:3faa49c32d48592ebbef4c040963e72dfdfc2cba3878662cdafdcc3417922843";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1604,9 +1604,9 @@ export function decodeDirectorConnectionStatus(value: unknown, label = "Director
   }
 }
 
-export type DirectorIntentKind = "submit" | "select_workstream" | "move_selection";
+export type DirectorIntentKind = "submit" | "select_workstream" | "move_selection" | "cancel_run" | "resolve_approval" | "resolve_resource_request";
 
-export const directorIntentKindValues = ["submit", "select_workstream", "move_selection"] as const satisfies readonly DirectorIntentKind[];
+export const directorIntentKindValues = ["submit", "select_workstream", "move_selection", "cancel_run", "resolve_approval", "resolve_resource_request"] as const satisfies readonly DirectorIntentKind[];
 
 export function decodeDirectorIntentKind(value: unknown, label = "DirectorIntentKind"): DirectorIntentKind {
   const decoded = decodeString(value, label);
@@ -1616,6 +1616,12 @@ export function decodeDirectorIntentKind(value: unknown, label = "DirectorIntent
     case "select_workstream":
       return decoded;
     case "move_selection":
+      return decoded;
+    case "cancel_run":
+      return decoded;
+    case "resolve_approval":
+      return decoded;
+    case "resolve_resource_request":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3834,6 +3840,22 @@ export interface DirectorMoveSelectionIntent {
   direction: DirectorSelectionDirection;
 }
 
+export interface DirectorCancelRunIntent {
+  workstreamId: string;
+  runId: string;
+}
+
+export interface DirectorResolveApprovalIntent {
+  approvalId: string;
+  decision: TrajectoryApprovalDecision;
+  answers: ConversationApprovalAnswer[];
+}
+
+export interface DirectorResolveResourceRequestIntent {
+  requestId: string;
+  workspaceId: string;
+}
+
 export type DirectorIntent = {
 } & (
   | {
@@ -3841,18 +3863,54 @@ export type DirectorIntent = {
       submit: DirectorSubmitIntent;
       selectWorkstream: null;
       moveSelection: null;
+      cancelRun: null;
+      resolveApproval: null;
+      resolveResourceRequest: null;
     }
   | {
       kind: "select_workstream";
       submit: null;
       selectWorkstream: DirectorSelectWorkstreamIntent;
       moveSelection: null;
+      cancelRun: null;
+      resolveApproval: null;
+      resolveResourceRequest: null;
     }
   | {
       kind: "move_selection";
       submit: null;
       selectWorkstream: null;
       moveSelection: DirectorMoveSelectionIntent;
+      cancelRun: null;
+      resolveApproval: null;
+      resolveResourceRequest: null;
+    }
+  | {
+      kind: "cancel_run";
+      submit: null;
+      selectWorkstream: null;
+      moveSelection: null;
+      cancelRun: DirectorCancelRunIntent;
+      resolveApproval: null;
+      resolveResourceRequest: null;
+    }
+  | {
+      kind: "resolve_approval";
+      submit: null;
+      selectWorkstream: null;
+      moveSelection: null;
+      cancelRun: null;
+      resolveApproval: DirectorResolveApprovalIntent;
+      resolveResourceRequest: null;
+    }
+  | {
+      kind: "resolve_resource_request";
+      submit: null;
+      selectWorkstream: null;
+      moveSelection: null;
+      cancelRun: null;
+      resolveApproval: null;
+      resolveResourceRequest: DirectorResolveResourceRequestIntent;
     }
 );
 
@@ -7674,14 +7732,45 @@ export function decodeDirectorMoveSelectionIntent(value: unknown): DirectorMoveS
   };
 }
 
+export function decodeDirectorCancelRunIntent(value: unknown): DirectorCancelRunIntent {
+  const record = assertRecord(value, "DirectorCancelRunIntent");
+  assertKnownFields(record, "DirectorCancelRunIntent", ["workstreamId", "runId"]);
+  return {
+    workstreamId: decodeString(requireField(record, "workstreamId", "DirectorCancelRunIntent"), "DirectorCancelRunIntent.workstreamId"),
+    runId: decodeString(requireField(record, "runId", "DirectorCancelRunIntent"), "DirectorCancelRunIntent.runId"),
+  };
+}
+
+export function decodeDirectorResolveApprovalIntent(value: unknown): DirectorResolveApprovalIntent {
+  const record = assertRecord(value, "DirectorResolveApprovalIntent");
+  assertKnownFields(record, "DirectorResolveApprovalIntent", ["approvalId", "decision", "answers"]);
+  return {
+    approvalId: decodeString(requireField(record, "approvalId", "DirectorResolveApprovalIntent"), "DirectorResolveApprovalIntent.approvalId"),
+    decision: decodeTrajectoryApprovalDecision(requireField(record, "decision", "DirectorResolveApprovalIntent"), "DirectorResolveApprovalIntent.decision"),
+    answers: decodeArray(requireField(record, "answers", "DirectorResolveApprovalIntent"), "DirectorResolveApprovalIntent.answers", (item) => decodeConversationApprovalAnswer(item)),
+  };
+}
+
+export function decodeDirectorResolveResourceRequestIntent(value: unknown): DirectorResolveResourceRequestIntent {
+  const record = assertRecord(value, "DirectorResolveResourceRequestIntent");
+  assertKnownFields(record, "DirectorResolveResourceRequestIntent", ["requestId", "workspaceId"]);
+  return {
+    requestId: decodeString(requireField(record, "requestId", "DirectorResolveResourceRequestIntent"), "DirectorResolveResourceRequestIntent.requestId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "DirectorResolveResourceRequestIntent"), "DirectorResolveResourceRequestIntent.workspaceId"),
+  };
+}
+
 export function decodeDirectorIntent(value: unknown): DirectorIntent {
   const record = assertRecord(value, "DirectorIntent");
-  assertKnownFields(record, "DirectorIntent", ["kind", "submit", "selectWorkstream", "moveSelection"]);
+  assertKnownFields(record, "DirectorIntent", ["kind", "submit", "selectWorkstream", "moveSelection", "cancelRun", "resolveApproval", "resolveResourceRequest"]);
   const result = {
     kind: decodeDirectorIntentKind(requireField(record, "kind", "DirectorIntent"), "DirectorIntent.kind"),
     submit: decodeNullable(requireField(record, "submit", "DirectorIntent"), "DirectorIntent.submit", (item) => decodeDirectorSubmitIntent(item)),
     selectWorkstream: decodeNullable(requireField(record, "selectWorkstream", "DirectorIntent"), "DirectorIntent.selectWorkstream", (item) => decodeDirectorSelectWorkstreamIntent(item)),
     moveSelection: decodeNullable(requireField(record, "moveSelection", "DirectorIntent"), "DirectorIntent.moveSelection", (item) => decodeDirectorMoveSelectionIntent(item)),
+    cancelRun: decodeNullable(requireField(record, "cancelRun", "DirectorIntent"), "DirectorIntent.cancelRun", (item) => decodeDirectorCancelRunIntent(item)),
+    resolveApproval: decodeNullable(requireField(record, "resolveApproval", "DirectorIntent"), "DirectorIntent.resolveApproval", (item) => decodeDirectorResolveApprovalIntent(item)),
+    resolveResourceRequest: decodeNullable(requireField(record, "resolveResourceRequest", "DirectorIntent"), "DirectorIntent.resolveResourceRequest", (item) => decodeDirectorResolveResourceRequestIntent(item)),
   };
   switch (result.kind) {
     case "submit": {
@@ -7694,12 +7783,24 @@ export function decodeDirectorIntent(value: unknown): DirectorIntent {
       if (result.moveSelection !== null) {
         throw new Error("DirectorIntent.moveSelection must be null when kind is submit");
       }
+      if (result.cancelRun !== null) {
+        throw new Error("DirectorIntent.cancelRun must be null when kind is submit");
+      }
+      if (result.resolveApproval !== null) {
+        throw new Error("DirectorIntent.resolveApproval must be null when kind is submit");
+      }
+      if (result.resolveResourceRequest !== null) {
+        throw new Error("DirectorIntent.resolveResourceRequest must be null when kind is submit");
+      }
       return {
         ...result,
         kind: "submit",
         submit: result.submit,
         selectWorkstream: null,
         moveSelection: null,
+        cancelRun: null,
+        resolveApproval: null,
+        resolveResourceRequest: null,
       };
     }
     case "select_workstream": {
@@ -7712,12 +7813,24 @@ export function decodeDirectorIntent(value: unknown): DirectorIntent {
       if (result.moveSelection !== null) {
         throw new Error("DirectorIntent.moveSelection must be null when kind is select_workstream");
       }
+      if (result.cancelRun !== null) {
+        throw new Error("DirectorIntent.cancelRun must be null when kind is select_workstream");
+      }
+      if (result.resolveApproval !== null) {
+        throw new Error("DirectorIntent.resolveApproval must be null when kind is select_workstream");
+      }
+      if (result.resolveResourceRequest !== null) {
+        throw new Error("DirectorIntent.resolveResourceRequest must be null when kind is select_workstream");
+      }
       return {
         ...result,
         kind: "select_workstream",
         submit: null,
         selectWorkstream: result.selectWorkstream,
         moveSelection: null,
+        cancelRun: null,
+        resolveApproval: null,
+        resolveResourceRequest: null,
       };
     }
     case "move_selection": {
@@ -7730,12 +7843,114 @@ export function decodeDirectorIntent(value: unknown): DirectorIntent {
       if (result.moveSelection === null) {
         throw new Error("DirectorIntent.moveSelection is required when kind is move_selection");
       }
+      if (result.cancelRun !== null) {
+        throw new Error("DirectorIntent.cancelRun must be null when kind is move_selection");
+      }
+      if (result.resolveApproval !== null) {
+        throw new Error("DirectorIntent.resolveApproval must be null when kind is move_selection");
+      }
+      if (result.resolveResourceRequest !== null) {
+        throw new Error("DirectorIntent.resolveResourceRequest must be null when kind is move_selection");
+      }
       return {
         ...result,
         kind: "move_selection",
         submit: null,
         selectWorkstream: null,
         moveSelection: result.moveSelection,
+        cancelRun: null,
+        resolveApproval: null,
+        resolveResourceRequest: null,
+      };
+    }
+    case "cancel_run": {
+      if (result.submit !== null) {
+        throw new Error("DirectorIntent.submit must be null when kind is cancel_run");
+      }
+      if (result.selectWorkstream !== null) {
+        throw new Error("DirectorIntent.selectWorkstream must be null when kind is cancel_run");
+      }
+      if (result.moveSelection !== null) {
+        throw new Error("DirectorIntent.moveSelection must be null when kind is cancel_run");
+      }
+      if (result.cancelRun === null) {
+        throw new Error("DirectorIntent.cancelRun is required when kind is cancel_run");
+      }
+      if (result.resolveApproval !== null) {
+        throw new Error("DirectorIntent.resolveApproval must be null when kind is cancel_run");
+      }
+      if (result.resolveResourceRequest !== null) {
+        throw new Error("DirectorIntent.resolveResourceRequest must be null when kind is cancel_run");
+      }
+      return {
+        ...result,
+        kind: "cancel_run",
+        submit: null,
+        selectWorkstream: null,
+        moveSelection: null,
+        cancelRun: result.cancelRun,
+        resolveApproval: null,
+        resolveResourceRequest: null,
+      };
+    }
+    case "resolve_approval": {
+      if (result.submit !== null) {
+        throw new Error("DirectorIntent.submit must be null when kind is resolve_approval");
+      }
+      if (result.selectWorkstream !== null) {
+        throw new Error("DirectorIntent.selectWorkstream must be null when kind is resolve_approval");
+      }
+      if (result.moveSelection !== null) {
+        throw new Error("DirectorIntent.moveSelection must be null when kind is resolve_approval");
+      }
+      if (result.cancelRun !== null) {
+        throw new Error("DirectorIntent.cancelRun must be null when kind is resolve_approval");
+      }
+      if (result.resolveApproval === null) {
+        throw new Error("DirectorIntent.resolveApproval is required when kind is resolve_approval");
+      }
+      if (result.resolveResourceRequest !== null) {
+        throw new Error("DirectorIntent.resolveResourceRequest must be null when kind is resolve_approval");
+      }
+      return {
+        ...result,
+        kind: "resolve_approval",
+        submit: null,
+        selectWorkstream: null,
+        moveSelection: null,
+        cancelRun: null,
+        resolveApproval: result.resolveApproval,
+        resolveResourceRequest: null,
+      };
+    }
+    case "resolve_resource_request": {
+      if (result.submit !== null) {
+        throw new Error("DirectorIntent.submit must be null when kind is resolve_resource_request");
+      }
+      if (result.selectWorkstream !== null) {
+        throw new Error("DirectorIntent.selectWorkstream must be null when kind is resolve_resource_request");
+      }
+      if (result.moveSelection !== null) {
+        throw new Error("DirectorIntent.moveSelection must be null when kind is resolve_resource_request");
+      }
+      if (result.cancelRun !== null) {
+        throw new Error("DirectorIntent.cancelRun must be null when kind is resolve_resource_request");
+      }
+      if (result.resolveApproval !== null) {
+        throw new Error("DirectorIntent.resolveApproval must be null when kind is resolve_resource_request");
+      }
+      if (result.resolveResourceRequest === null) {
+        throw new Error("DirectorIntent.resolveResourceRequest is required when kind is resolve_resource_request");
+      }
+      return {
+        ...result,
+        kind: "resolve_resource_request",
+        submit: null,
+        selectWorkstream: null,
+        moveSelection: null,
+        cancelRun: null,
+        resolveApproval: null,
+        resolveResourceRequest: result.resolveResourceRequest,
       };
     }
     default:

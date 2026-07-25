@@ -437,6 +437,19 @@ func (service *Service) StopTurn(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
+	return service.stopTurn(ctx, workspaceID, conversationID, "")
+}
+
+// stopTurn interrupts the active turn, optionally requiring it to be the one the
+// caller named. Naming it matters when the caller acted on a turn it was shown:
+// a conversation promotes queued work as soon as the previous turn ends, so an
+// unnamed stop can interrupt a turn the caller never saw.
+func (service *Service) stopTurn(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	expectedTurnID string,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -445,6 +458,9 @@ func (service *Service) StopTurn(
 	defer lock.Unlock()
 	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if err := requireControlledTurn(conversationID, "stop", control.turn.ID, expectedTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := service.agent.InterruptTurn(ctx, agent.TurnControlRequest{
@@ -471,6 +487,20 @@ func (service *Service) SubmitApproval(
 	conversationID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
+	return service.submitApproval(ctx, workspaceID, conversationID, "", response)
+}
+
+// submitApproval answers one pending approval, optionally requiring it to belong
+// to the turn the caller named. An approval only exists while its own turn is
+// running, so a caller that was shown the turn should not answer for its
+// successor.
+func (service *Service) submitApproval(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	expectedTurnID string,
+	response ConversationApprovalResponse,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -482,6 +512,9 @@ func (service *Service) SubmitApproval(
 	defer lock.Unlock()
 	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if err := requireControlledTurn(conversationID, "approval", control.turn.ID, expectedTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	pending := pendingApprovalsForTurn(control.snapshot, control.turn.ID)

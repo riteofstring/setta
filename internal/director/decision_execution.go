@@ -125,7 +125,8 @@ func (executed ExecutedDecision) validatePublicText() error {
 	return nil
 }
 
-// DecisionExecutor carries out routed decisions.
+// DecisionExecutor carries out what the command center resolved: the decision a
+// routed request produced, and the commands the user dispatches directly.
 type DecisionExecutor struct {
 	registry  *Registry
 	execution WorkstreamExecution
@@ -186,13 +187,23 @@ func NewDecisionExecutor(
 	return executor, nil
 }
 
-// Execute carries out one routed intent.
-func (executor *DecisionExecutor) Execute(ctx context.Context, routed RoutedIntent) (ExecutedDecision, error) {
+// available reports whether the executor can reach the state and the port it
+// needs. It is checked before every effect, routed or dispatched, so a
+// half-assembled executor is a runtime condition rather than a nil dereference.
+func (executor *DecisionExecutor) available(ctx context.Context) error {
 	if executor == nil || executor.registry == nil || executor.execution == nil {
-		return ExecutedDecision{}, ErrDirectorUnavailable
+		return ErrDirectorUnavailable
 	}
 	if ctx == nil {
-		return ExecutedDecision{}, errors.New("director decision execution context is required")
+		return errors.New("director command execution context is required")
+	}
+	return nil
+}
+
+// Execute carries out one routed intent.
+func (executor *DecisionExecutor) Execute(ctx context.Context, routed RoutedIntent) (ExecutedDecision, error) {
+	if err := executor.available(ctx); err != nil {
+		return ExecutedDecision{}, err
 	}
 	if err := validateRoutedIntent(routed); err != nil {
 		return ExecutedDecision{}, err
