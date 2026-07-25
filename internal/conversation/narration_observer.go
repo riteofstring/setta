@@ -39,11 +39,8 @@ func (service *Service) observeCommittedTrajectory(
 		artifacts,
 		terminal,
 	)
-	if conversation.WorkspaceID == nil {
-		return
-	}
 	service.narration.ObserveCommittedTrajectory(NarrationTrajectoryObservation{
-		WorkspaceID:    *conversation.WorkspaceID,
+		WorkspaceID:    conversation.WorkspaceID,
 		ConversationID: conversation.ID,
 		TurnID:         turn.ID,
 		Trajectory:     cloned,

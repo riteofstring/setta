@@ -61,7 +61,7 @@
 
   function visiblePaneHosts() {
     return Array.from(document.querySelectorAll(visiblePaneHostSelector)).filter(
-      (host) => host instanceof HTMLElement && host.dataset.surfaceKind !== "master",
+      (host) => host instanceof HTMLElement,
     );
   }
 
@@ -90,7 +90,7 @@
 
   function paneFocusCloseFirstEasyButtonPane() {
     const host = visiblePaneHosts().find(
-      (candidate) => candidate.dataset.surfaceKind === "conversation",
+      (candidate) => candidate.dataset.surfaceKind === "easy-button",
     );
     const closeButton = host?.querySelector('[data-workspace-pane-action="close"]');
     if (!(host instanceof HTMLElement) || !(closeButton instanceof HTMLButtonElement)) {

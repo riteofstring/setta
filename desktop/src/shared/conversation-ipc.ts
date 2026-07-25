@@ -2,7 +2,6 @@ import type {
   AcceptedConversationInput,
   Artifact,
   ArchiveTopicConversationRequest,
-  BindTopicConversationFolderRequest,
   ConversationEventCursor,
   ConversationSnapshot,
   DiscardConversationInputRequest,
@@ -24,7 +23,6 @@ import type {
 
 export const conversationIpcChannels = {
   conversationArchiveTopic: "conversation:archive-topic",
-  conversationBindFolder: "conversation:bind-folder",
   conversationDiscardInput: "conversation:discard-input",
   conversationDisposeSide: "conversation:dispose-side",
   conversationCreateTopic: "conversation:create-topic",
@@ -58,10 +56,6 @@ export interface ConversationEventReleaseRequest {
 export interface ConversationIpc {
   conversationArchiveTopic: {
     args: [request: ArchiveTopicConversationRequest];
-    result: ConversationSnapshot;
-  };
-  conversationBindFolder: {
-    args: [request: BindTopicConversationFolderRequest];
     result: ConversationSnapshot;
   };
   conversationDisposeSide: {

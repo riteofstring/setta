@@ -39,7 +39,6 @@ describe("preload master API", () => {
     };
     const waitRequest = { inputId: request.input.id };
     const cancelRequest = { inputId: request.input.id };
-    const transcriptRequest = { limit: 20 };
     const resolutionRequest = {
       inputId: request.input.id,
       intentId: `master-presentation:${request.input.id}`,
@@ -48,7 +47,6 @@ describe("preload master API", () => {
 
     await api.master!.cancelInput(cancelRequest);
     await api.master!.readActiveInteraction();
-    await api.master!.readTranscript(transcriptRequest);
     await api.master!.resolvePresentation(resolutionRequest);
     await api.master!.submitInput(request);
     await api.master!.waitInteraction(waitRequest);
@@ -56,7 +54,6 @@ describe("preload master API", () => {
 
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterCancelInput, cancelRequest);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterReadActiveInteraction);
-    expect(invoke).toHaveBeenCalledWith(ipcChannels.masterReadTranscript, transcriptRequest);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterResolvePresentation, resolutionRequest);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterSubmitInput, request);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterWaitInteraction, waitRequest);

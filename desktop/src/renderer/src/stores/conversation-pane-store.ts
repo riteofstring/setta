@@ -47,10 +47,10 @@ function conversationPaneWorkspaceState(
   const paneIdByConversationId = new Map<string, string>();
   let focusedConversationId: string | null = null;
   for (const pane of scene.panes) {
-    if (pane.surfaceKind !== "conversation") {
+    if (pane.surfaceKind !== "easy-button") {
       continue;
     }
-    const conversationId = pane.conversationConfig.conversationId;
+    const conversationId = pane.easyButtonConfig.conversationId;
     if (paneIdByConversationId.has(conversationId)) {
       throw new Error(`Conversation ${conversationId} is bound to multiple panes.`);
     }

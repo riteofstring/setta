@@ -6,7 +6,7 @@ import type {
   RouteDecisionKind,
   ShellInteractionState,
 } from "@generated/backend";
-import type { DesktopPlatform } from "@shared/types";
+import type { DesktopPlatform, WorkspaceBrowserViewKeyEvent } from "@shared/types";
 import {
   ArrowUp,
   Check,
@@ -14,9 +14,11 @@ import {
   LoaderCircle,
   MessageCircleMore,
   RotateCcw,
+  Sparkles,
   Square,
   Trash2,
   Volume2,
+  X,
 } from "lucide-react";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -27,20 +29,18 @@ import type {
   MasterInteractionState,
 } from "./app-shell-master-controller";
 import {
-  MasterTranscriptEntries,
-  MasterTranscriptFailure,
-  MasterTranscriptHistory,
-  MasterTranscriptLoading,
-  visibleTranscriptEntries,
-} from "./app-shell-master-transcript-view";
-import { MasterSurfaceHeader } from "./app-shell-master-surface-header";
+  isMasterOverlayShortcut,
+  isMasterVoiceShortcut,
+  masterOverlayShortcutLabel,
+  masterVoiceShortcutLabel,
+} from "./master-shortcuts";
 import {
+  cancelMasterCaptureIfActive,
   createMasterVoiceModel,
+  executeMasterVoiceCommand,
   MasterVoiceButton,
   MasterVoiceStatus,
 } from "./master-voice-controls";
-import { MasterConversationPicker } from "./master-conversation-picker";
-import { useAppShellMasterShortcuts } from "./app-shell-master-shortcuts";
 import {
   type AppShellSpeechCaptureContextValue,
   useAppShellSpeechCapture,
@@ -50,6 +50,9 @@ import type { AppShellSpeechPlaybackController } from "../global-speech/app-shel
 import { useAppShellSpeechPlayback } from "../global-speech/app-shell-speech-playback";
 import { useAppearanceStore } from "../../stores/appearance-store";
 import { defaultShortcutsSettings } from "../../workspace-layout/workspace-shortcuts";
+
+export { isMasterOverlayShortcut, masterOverlayShortcutLabel } from "./master-shortcuts";
+
 export function AppShellMasterSurface({
   children,
   controller,
@@ -68,19 +71,63 @@ export function AppShellMasterSurface({
   );
   const speechCapture = useAppShellSpeechCapture();
   const speechCaptureController = speechCapture?.controller ?? null;
-  const masterVoiceShortcut = useMasterVoiceShortcut();
+  const masterVoiceShortcut = useAppearanceStore(
+    (state) =>
+      (state.draft ?? state.settings)?.shortcuts?.masterVoice ??
+      defaultShortcutsSettings.masterVoice,
+  );
   const openVoiceCredentialSettingsFromMaster = useCallback(() => {
     controller.closeOverlay();
     onOpenVoiceCredentialSettings();
   }, [controller, onOpenVoiceCredentialSettings]);
 
-  useAppShellMasterShortcuts({
+  useEffect(() => {
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) {
+        return;
+      }
+      if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
+        event.preventDefault();
+        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
+        return;
+      }
+      if (isMasterOverlayShortcut(event)) {
+        event.preventDefault();
+        controller.openOverlay();
+        return;
+      }
+      if (event.key === "Escape" && cancelMasterCaptureIfActive(speechCaptureController)) {
+        event.preventDefault();
+        return;
+      }
+      if (event.key === "Escape" && controller.getSnapshot().overlayOpen) {
+        event.preventDefault();
+        controller.closeOverlay();
+      }
+    };
+    const handleNativeViewKey = (event: WorkspaceBrowserViewKeyEvent) => {
+      if (isMasterVoiceShortcut(event, platform, masterVoiceShortcut)) {
+        executeMasterVoiceCommand(speechCaptureController, openVoiceCredentialSettingsFromMaster);
+        return;
+      }
+      if (isMasterOverlayShortcut(event)) {
+        controller.openOverlay();
+      }
+    };
+    const unsubscribeNativeViewKey =
+      window.setta.workspaceNativeViews?.onBrowserViewKey(handleNativeViewKey) ?? (() => {});
+    window.addEventListener("keydown", handleWindowKeyDown, { capture: true });
+    return () => {
+      unsubscribeNativeViewKey();
+      window.removeEventListener("keydown", handleWindowKeyDown, { capture: true });
+    };
+  }, [
     controller,
     masterVoiceShortcut,
     openVoiceCredentialSettingsFromMaster,
     platform,
     speechCaptureController,
-  });
+  ]);
 
   return (
     <>
@@ -99,11 +146,28 @@ export function AppShellMasterSurface({
   );
 }
 
-export function useMasterVoiceShortcut(): AppearanceMasterVoiceShortcut {
-  return useAppearanceStore(
-    (state) =>
-      (state.draft ?? state.settings)?.shortcuts?.masterVoice ??
-      defaultShortcutsSettings.masterVoice,
+export function MasterSidebarLauncher({
+  disabled,
+  onOpen,
+}: {
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      aria-label="Open Ask Setta"
+      className="setta-master-sidebar-launcher"
+      data-testid="master-sidebar-launcher"
+      disabled={disabled}
+      onClick={onOpen}
+      type="button"
+    >
+      <span aria-hidden="true" className="setta-master-sidebar-launcher-icon">
+        <Sparkles />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left">Ask Setta</span>
+      <MessageCircleMore aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-55" />
+    </button>
   );
 }
 
@@ -122,62 +186,14 @@ function MasterOverlay({
   snapshot: AppShellMasterSnapshot;
   speechCapture: AppShellSpeechCaptureContextValue | null;
 }) {
-  return (
-    <div className="setta-master-overlay-layer" data-testid="master-overlay-layer">
-      <div
-        aria-hidden="true"
-        className="setta-master-overlay-backdrop"
-        onMouseDown={() => controller.closeOverlay()}
-      />
-      <MasterSurfaceFrame
-        controller={controller}
-        focused
-        masterVoiceShortcut={masterVoiceShortcut}
-        onClose={controller.closeOverlay}
-        onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
-        platform={platform}
-        snapshot={snapshot}
-        speechCapture={speechCapture}
-        speechPlayback={null}
-        variant="overlay"
-      />
-    </div>
-  );
-}
-export function MasterSurfaceFrame({
-  controller,
-  focused,
-  masterVoiceShortcut,
-  onClose,
-  onOpenVoiceCredentialSettings,
-  platform,
-  snapshot,
-  speechCapture,
-  speechPlayback,
-  variant,
-}: {
-  controller: AppShellMasterController;
-  focused: boolean;
-  masterVoiceShortcut: AppearanceMasterVoiceShortcut;
-  onClose?: () => void;
-  onOpenVoiceCredentialSettings?: () => void;
-  platform: DesktopPlatform;
-  snapshot: AppShellMasterSnapshot;
-  speechCapture: AppShellSpeechCaptureContextValue | null;
-  speechPlayback: AppShellSpeechPlaybackController | null;
-  variant: "overlay" | "pane";
-}) {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [synchronousError, setSynchronousError] = useState<string | null>(null);
   const canSubmit = controller.canSubmitInput() && snapshot.draft.trim() !== "";
   const masterVoice = createMasterVoiceModel(speechCapture, platform, masterVoiceShortcut);
-  const headingId = masterSurfaceHeadingId(variant);
 
   useEffect(() => {
-    if (focused) {
-      composerRef.current?.focus();
-    }
-  }, [focused]);
+    composerRef.current?.focus();
+  }, []);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -209,130 +225,105 @@ export function MasterSurfaceFrame({
   }
 
   return (
-    <section
-      aria-labelledby={headingId}
-      aria-modal={variant === "overlay" ? true : undefined}
-      className={`setta-master-overlay${variant === "pane" ? " setta-master-pane" : ""}`}
-      data-master-overlay-state={variant === "overlay" ? "open" : undefined}
-      data-master-pane-state={variant === "pane" ? "ready" : undefined}
-      data-testid={variant === "pane" ? "master-pane-surface" : "master-overlay"}
-      role={variant === "overlay" ? "dialog" : "region"}
-    >
-      <MasterSurfaceHeader
-        headingId={headingId}
-        masterVoiceShortcut={masterVoiceShortcut}
-        onClose={onClose}
-        platform={platform}
-        variant={variant}
+    <div className="setta-master-overlay-layer" data-testid="master-overlay-layer">
+      <div
+        aria-hidden="true"
+        className="setta-master-overlay-backdrop"
+        onMouseDown={() => controller.closeOverlay()}
       />
+      <section
+        aria-labelledby="setta-master-overlay-title"
+        aria-modal="true"
+        className="setta-master-overlay"
+        data-master-overlay-state="open"
+        data-testid="master-overlay"
+        role="dialog"
+      >
+        <header className="setta-master-overlay-header">
+          <span aria-hidden="true" className="setta-master-overlay-mark">
+            <Sparkles />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="setta-master-overlay-eyebrow">Global master</div>
+            <h1 id="setta-master-overlay-title">Ask Setta</h1>
+          </div>
+          <span className="setta-master-overlay-shortcuts">
+            <kbd className="setta-master-overlay-shortcut">
+              Text {masterOverlayShortcutLabel(platform)}
+            </kbd>
+            <kbd className="setta-master-overlay-shortcut">
+              Voice {masterVoiceShortcutLabel(platform, masterVoiceShortcut)}
+            </kbd>
+          </span>
+          <button
+            aria-label="Close Ask Setta"
+            className="setta-master-overlay-icon-button"
+            onClick={() => controller.closeOverlay()}
+            type="button"
+          >
+            <X />
+          </button>
+        </header>
 
-      <MasterInteraction
-        controller={controller}
-        snapshot={snapshot}
-        speechPlayback={speechPlayback}
-      />
+        <MasterInteraction controller={controller} snapshot={snapshot} />
 
-      <MasterSurfaceFooter
-        canSubmit={canSubmit}
-        composerRef={composerRef}
-        controller={controller}
-        masterVoice={masterVoice}
-        onComposerKeyDown={handleComposerKeyDown}
-        onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
-        onSubmit={submit}
-        snapshot={snapshot}
-        synchronousError={synchronousError}
-      />
-    </section>
-  );
-}
-
-function masterSurfaceHeadingId(variant: "overlay" | "pane"): string {
-  return variant === "pane" ? "setta-master-pane-title" : "setta-master-overlay-title";
-}
-
-function MasterSurfaceFooter({
-  canSubmit,
-  composerRef,
-  controller,
-  masterVoice,
-  onComposerKeyDown,
-  onOpenVoiceCredentialSettings,
-  onSubmit,
-  snapshot,
-  synchronousError,
-}: {
-  canSubmit: boolean;
-  composerRef: { current: HTMLTextAreaElement | null };
-  controller: AppShellMasterController;
-  masterVoice: ReturnType<typeof createMasterVoiceModel>;
-  onComposerKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
-  onOpenVoiceCredentialSettings?: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  snapshot: AppShellMasterSnapshot;
-  synchronousError: string | null;
-}) {
-  return (
-    <footer className="setta-master-overlay-footer">
-      {snapshot.submission.type === "failed" ? (
-        <MasterSubmissionFailureActions controller={controller} snapshot={snapshot} />
-      ) : null}
-      {snapshot.cancellation.type === "failed" ? (
-        <MasterCancellationFailure controller={controller} snapshot={snapshot} />
-      ) : null}
-      {synchronousError ? (
-        <div className="setta-master-overlay-error" role="alert">
-          {synchronousError}
-        </div>
-      ) : null}
-      <MasterConversationPicker />
-      <MasterVoiceStatus model={masterVoice} />
-      <form className="setta-master-overlay-composer" onSubmit={onSubmit}>
-        <textarea
-          aria-label="Ask Setta"
-          onChange={(event) => controller.setDraft(event.target.value)}
-          onKeyDown={onComposerKeyDown}
-          placeholder={masterComposerPlaceholder(snapshot)}
-          ref={composerRef}
-          rows={2}
-          value={snapshot.draft}
-        />
-        <MasterVoiceButton
-          model={masterVoice}
-          onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
-        />
-        <button
-          aria-label="Send to Setta"
-          className="setta-master-overlay-send"
-          disabled={!canSubmit}
-          type="submit"
-        >
-          <ArrowUp />
-        </button>
-      </form>
-      <div className="setta-master-overlay-composer-hint">
-        <span>Enter to send · Shift+Enter for a new line</span>
-        <span>{masterConnectionLabel(snapshot)}</span>
-      </div>
-    </footer>
+        <footer className="setta-master-overlay-footer">
+          {snapshot.submission.type === "failed" ? (
+            <MasterSubmissionFailureActions controller={controller} snapshot={snapshot} />
+          ) : null}
+          {snapshot.cancellation.type === "failed" ? (
+            <MasterCancellationFailure controller={controller} snapshot={snapshot} />
+          ) : null}
+          {synchronousError ? (
+            <div className="setta-master-overlay-error" role="alert">
+              {synchronousError}
+            </div>
+          ) : null}
+          <MasterVoiceStatus model={masterVoice} />
+          <form className="setta-master-overlay-composer" onSubmit={submit}>
+            <textarea
+              aria-label="Ask Setta"
+              onChange={(event) => controller.setDraft(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              placeholder={masterComposerPlaceholder(snapshot)}
+              ref={composerRef}
+              rows={2}
+              value={snapshot.draft}
+            />
+            <MasterVoiceButton
+              model={masterVoice}
+              onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+            />
+            <button
+              aria-label="Send to Setta"
+              className="setta-master-overlay-send"
+              disabled={!canSubmit}
+              type="submit"
+            >
+              <ArrowUp />
+            </button>
+          </form>
+          <div className="setta-master-overlay-composer-hint">
+            <span>Enter to send · Shift+Enter for a new line</span>
+            <span>{masterConnectionLabel(snapshot)}</span>
+          </div>
+        </footer>
+      </section>
+    </div>
   );
 }
 
 function MasterInteraction({
   controller,
   snapshot,
-  speechPlayback,
 }: {
   controller: AppShellMasterController;
   snapshot: AppShellMasterSnapshot;
-  speechPlayback: AppShellSpeechPlaybackController | null;
 }) {
   const pendingInput = pendingSubmissionInput(snapshot);
-  const transcriptEntries = visibleTranscriptEntries(snapshot);
   if (pendingInput) {
     return (
       <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-        <MasterTranscriptEntries entries={transcriptEntries} />
         <MasterRequest input={pendingInput.input} />
         <MasterProgress state={pendingInput.state} />
       </div>
@@ -341,13 +332,7 @@ function MasterInteraction({
   switch (snapshot.interaction.type) {
     case "disconnected":
     case "idle":
-      return (
-        <InactiveMasterInteraction
-          controller={controller}
-          snapshot={snapshot}
-          transcriptEntries={transcriptEntries}
-        />
-      );
+      return <EmptyMasterInteraction />;
     case "loading":
       return (
         <InteractionStatus>
@@ -360,7 +345,6 @@ function MasterInteraction({
     case "observation_failed":
       return (
         <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-          <MasterTranscriptEntries entries={transcriptEntries} />
           <MasterRequest input={snapshot.interaction.state.input} />
           <InteractionFailure controller={controller} message={snapshot.interaction.message} />
           <MasterCancellationAction controller={controller} snapshot={snapshot} />
@@ -371,42 +355,11 @@ function MasterInteraction({
         <ActiveMasterInteraction
           controller={controller}
           snapshot={snapshot}
-          speechPlayback={speechPlayback}
           state={snapshot.interaction.state}
         />
       );
     default:
       return assertNever(snapshot.interaction);
-  }
-}
-
-function InactiveMasterInteraction({
-  controller,
-  snapshot,
-  transcriptEntries,
-}: {
-  controller: AppShellMasterController;
-  snapshot: AppShellMasterSnapshot;
-  transcriptEntries: ReturnType<typeof visibleTranscriptEntries>;
-}) {
-  if (transcriptEntries.length > 0) {
-    return <MasterTranscriptHistory entries={transcriptEntries} />;
-  }
-  switch (snapshot.transcript.type) {
-    case "loading":
-      return <MasterTranscriptLoading />;
-    case "failed":
-      return (
-        <MasterTranscriptFailure
-          message={snapshot.transcript.message}
-          onRetryTranscript={controller.retryTranscript}
-        />
-      );
-    case "disconnected":
-    case "ready":
-      return <EmptyMasterInteraction />;
-    default:
-      return assertNever(snapshot.transcript);
   }
 }
 
@@ -427,12 +380,10 @@ function EmptyMasterInteraction() {
 function ActiveMasterInteraction({
   controller,
   snapshot,
-  speechPlayback,
   state,
 }: {
   controller: AppShellMasterController;
   snapshot: AppShellMasterSnapshot;
-  speechPlayback: AppShellSpeechPlaybackController | null;
   state: ShellInteractionState;
 }) {
   return (
@@ -442,14 +393,8 @@ function ActiveMasterInteraction({
       data-master-routing-status={state.status}
       data-testid="master-active-interaction"
     >
-      <MasterTranscriptEntries entries={visibleTranscriptEntries(snapshot)} />
       <MasterRequest input={state.input} />
-      <MasterRoutingResult
-        controller={controller}
-        snapshot={snapshot}
-        speechPlayback={speechPlayback}
-        state={state}
-      />
+      <MasterRoutingResult controller={controller} snapshot={snapshot} state={state} />
     </div>
   );
 }
@@ -469,14 +414,13 @@ function MasterRequest({ input }: { input: MasterInput }) {
 function MasterRoutingResult({
   controller,
   snapshot,
-  speechPlayback,
   state,
 }: {
   controller: AppShellMasterController;
   snapshot: AppShellMasterSnapshot;
-  speechPlayback: AppShellSpeechPlaybackController | null;
   state: ShellInteractionState;
 }) {
+  const playback = useAppShellSpeechPlayback();
   switch (state.status) {
     case "accepted":
       return (
@@ -506,39 +450,28 @@ function MasterRoutingResult({
           </div>
         </div>
       );
-    case "decided":
-      return <DecidedMasterRoutingResult speechPlayback={speechPlayback} state={state} />;
+    case "decided": {
+      const result = masterDecisionResult(state);
+      return (
+        <div
+          className={`setta-master-overlay-result is-${result.tone}`}
+          data-master-result-kind={result.kind}
+          role="status"
+        >
+          <Check aria-hidden="true" />
+          <div>
+            <strong>{result.heading}</strong>
+            <p>{result.text}</p>
+          </div>
+          {result.kind === "answer_global" ? (
+            <MasterAnswerReplayButton controller={playback?.controller ?? null} state={state} />
+          ) : null}
+        </div>
+      );
+    }
     default:
       return assertNever(state.status);
   }
-}
-
-function DecidedMasterRoutingResult({
-  speechPlayback,
-  state,
-}: {
-  speechPlayback: AppShellSpeechPlaybackController | null;
-  state: ShellInteractionState;
-}) {
-  const playback = useAppShellSpeechPlayback();
-  const playbackController = speechPlayback ?? playback?.controller ?? null;
-  const result = masterDecisionResult(state);
-  return (
-    <div
-      className={`setta-master-overlay-result is-${result.tone}`}
-      data-master-result-kind={result.kind}
-      role="status"
-    >
-      <Check aria-hidden="true" />
-      <div>
-        <strong>{result.heading}</strong>
-        <p>{result.text}</p>
-      </div>
-      {result.kind === "answer_global" ? (
-        <MasterAnswerReplayButton controller={playbackController} state={state} />
-      ) : null}
-    </div>
-  );
 }
 
 function MasterAnswerReplayButton({

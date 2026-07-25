@@ -15,7 +15,6 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -111,11 +110,13 @@ import {
 } from "./topic-conversation-input-routing-assertions.mjs";
 import { exerciseCodexAccountNotificationWorkflow } from "./topic-conversation-codex-account-workflow.mjs";
 import { assertEasyButtonBindingPersistence } from "./topic-conversation-pane-binding-assertions.mjs";
+import { assertImmediateInitialEasyButtonPlaceholder } from "./topic-conversation-startup-placeholder-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
 const workflowTimeoutMs = 50_000;
 const initialThreadStartDelayMs = 900;
+const initialPanePlaceholderBudgetMs = 500;
 const cancelledMasterText = "Cancel active master route.";
 const shellClarificationText = "Clarify the shell topic.";
 const typedMasterOverlayText = "Focus Alpha topic.";
@@ -172,25 +173,21 @@ try {
   await context.client.installDriver();
   let backend = await backendProbe(firstLaunchDir);
   runtimeDeviceTokens.push(backend.deviceToken);
+  const workspaceOpenStartedAt = Date.now();
   const workspaceId = await openWorkspace(context.client);
-  const initialConversationStartedAt = Date.now();
-  await createConversationFromToolbar(context.client);
+  const initialPanePlaceholder = await assertImmediateInitialEasyButtonPlaceholder(
+    context.client,
+    workspaceOpenStartedAt,
+    initialPanePlaceholderBudgetMs,
+  );
   await saveOpenAIVoiceCredentialThroughSettingsAndClose(
     context.client,
     speechProvider.apiKey,
     workflowTimeoutMs,
   );
   await selectOpenAIVoiceProvider(context.client);
-  await captureScreenshot(
-    context.client,
-    join(artifactDir, "initial-conversation-pane-startup.png"),
-  );
+  await captureScreenshot(context.client, join(artifactDir, "initial-easy-button-startup.png"));
   const initialConversation = await waitForInitialConversation(backend, workspaceId);
-  const initialPaneStartup = {
-    conversationId: initialConversation.conversation.id,
-    explicitCreation: true,
-    latencyMs: Date.now() - initialConversationStartedAt,
-  };
   await assertInitialEasyButtonExperience(context.client, initialConversation.conversation.id);
   await assertNavigatorDoesNotOfferAnotherEasyButtonView(
     context.client,
@@ -1156,14 +1153,14 @@ try {
   });
 
   await waitForBackendState(
-    () => backend.get("/app/panes/layout"),
+    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
           pane.paneId === alphaRestartSide.parentPaneId &&
-          pane.conversationConfig?.conversationId === alpha.id,
+          pane.easyButtonConfig?.conversationId === alpha.id,
       ) === true &&
-      result.layout.panes.some((pane) => pane.conversationConfig?.conversationId === beta.id),
+      result.layout.panes.some((pane) => pane.easyButtonConfig?.conversationId === beta.id),
     workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));
@@ -1271,7 +1268,7 @@ try {
     masterEscalation,
     workingConversationInput: acceptedWorkingConversationInput,
     exhaustedVoice,
-    initialPaneStartup,
+    initialPanePlaceholder,
     noPaneTerminalSpeech,
     reloaded,
     reopenedWorking,
@@ -1326,23 +1323,26 @@ try {
 }
 
 async function openWorkspace(client) {
-  const current = await client.evaluate(workspaceIdExpression());
-  if (!validWorkspaceId(current)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+  const initial = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  if (!validWorkspaceId(initial.workspaceId)) {
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   }
-  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
+  const opened = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  return opened.workspaceId;
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
-}
-
-function workspaceIdExpression() {
-  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
-}
-
-async function createConversationFromToolbar(client) {
-  assertDriverAction(await client.driver("topicConversationClickNewFrameConversation"), "clicked");
 }
 
 async function waitForInitialConversation(backend, workspaceId) {
@@ -1389,12 +1389,13 @@ function initialEasyButtonExperienceReady(state) {
   return [
     !state.createControlPresent,
     !state.searchControlPresent,
+    !state.startupPanePresent,
     state.topBarSpeechStatusPresent,
     !state.voiceOffPresent,
     state.actionCount === 5,
     state.visiblePaneCount === 2,
     state.easyButtonPaneCount === 1,
-    state.emptyFramePaneCount === 0,
+    state.emptyFramePaneCount === 1,
     state.matchingSurfaceCount === 1,
   ].every(Boolean);
 }

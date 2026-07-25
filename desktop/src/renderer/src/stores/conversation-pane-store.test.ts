@@ -14,8 +14,8 @@ describe("conversation pane binding store", () => {
   test("indexes optional pane ids and the focused conversation without duplicate rows", () => {
     const store = workspaceStore();
     const paneId = store.openPane({
-      conversationConfig: { conversationId: "conversation_shared" },
-      surfaceKind: "conversation",
+      easyButtonConfig: { conversationId: "conversation_shared" },
+      surfaceKind: "easy-button",
     });
     store.focusPane(paneId);
 
@@ -113,13 +113,13 @@ function persistedConversationPane(
 ): WorkspaceUILayout["panes"][number] {
   return {
     columnId: "workspace_column_0",
-    conversationConfig: { conversationId: "conversation_shared" },
+    easyButtonConfig: { conversationId: "conversation_shared" },
     heat: 0,
     paneId,
     sequence,
     subtitle: "Topic conversation",
     surfaceId,
-    surfaceKind: "conversation",
+    surfaceKind: "easy-button",
     title: "Shared topic",
     tone: "cyan",
     weight: 1,

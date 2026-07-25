@@ -106,7 +106,7 @@ func masterRouteContextTestConversation(
 ) TopicConversation {
 	return TopicConversation{
 		ID:              id,
-		WorkspaceID:     stringPointer("workspace-route-context"),
+		WorkspaceID:     "workspace-route-context",
 		Title:           id,
 		TopicDescriptor: "Master route context coverage",
 		Status:          status,
@@ -657,7 +657,7 @@ func seedMasterRouteState(t *testing.T, store *Store) master.Session {
 	t.Helper()
 	conversation := TopicConversation{
 		ID:              "conversation-master-route",
-		WorkspaceID:     stringPointer("workspace-1"),
+		WorkspaceID:     "workspace-1",
 		Title:           "Master routing",
 		TopicDescriptor: "Strict global routing",
 		Status:          ConversationStatusIdle,

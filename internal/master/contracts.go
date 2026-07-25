@@ -108,15 +108,5 @@ func ContractValueSets() []ContractValueSet {
 				string(MasterReplyKindAnswer),
 			},
 		},
-		{
-			Name: "TranscriptEntryKind",
-			Values: []string{
-				string(TranscriptEntryKindUserInput),
-				string(TranscriptEntryKindAssistantReply),
-				string(TranscriptEntryKindActionReceipt),
-				string(TranscriptEntryKindCancellation),
-				string(TranscriptEntryKindFailure),
-			},
-		},
 	}
 }

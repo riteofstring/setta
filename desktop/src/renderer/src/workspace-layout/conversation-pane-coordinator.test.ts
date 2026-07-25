@@ -48,7 +48,7 @@ describe("conversation pane coordinator", () => {
     expect(store.toScene().totalPanes).toBe(paneCount);
   });
 
-  test("opens a typed conversation pane when the conversation has no pane", () => {
+  test("opens a typed Easy Button view when the conversation has no pane", () => {
     const store = workspaceStore();
     const initialPaneId = store.focusedPaneId();
 
@@ -62,10 +62,10 @@ describe("conversation pane coordinator", () => {
     const pane = store
       .toScene()
       .panes.find(
-        (candidate) => candidate.conversationConfig?.conversationId === "conversation_zero_panes",
+        (candidate) => candidate.easyButtonConfig?.conversationId === "conversation_zero_panes",
       );
     expect(pane).toMatchObject({
-      surfaceKind: "conversation",
+      surfaceKind: "easy-button",
       title: "Persistent topic",
     });
     expect(store.toScene().totalPanes).toBe(1);
@@ -94,34 +94,7 @@ describe("conversation pane coordinator", () => {
     expect(store.toScene().paneById.get(initialPaneId)?.surfaceKind).toBe("empty-frame");
   });
 
-  test("opens an explicitly folderless conversation pane without workspace-derived bindings", () => {
-    const store = workspaceStore();
-
-    const result = presentConversationPane(store, {
-      conversationId: "conversation_folderless",
-      destination: { kind: "new-pane" },
-      resourceBindings: [],
-      title: "Folderless topic",
-      workspaceId: "workspace_api",
-    });
-
-    expect(result.kind).toBe("opened");
-    const pane = store
-      .toScene()
-      .panes.find(
-        (candidate) => candidate.conversationConfig?.conversationId === "conversation_folderless",
-      );
-    expect(pane).toMatchObject({
-      conversationConfig: {
-        conversationId: "conversation_folderless",
-        resourceBindings: [],
-      },
-      surfaceKind: "conversation",
-      title: "Folderless topic",
-    });
-  });
-
-  test("opens newly created conversations beyond the former conversation pane cap", () => {
+  test("opens newly created conversations beyond the former Easy Button pane cap", () => {
     const store = workspaceStore();
 
     for (let index = 0; index < 11; index += 1) {
@@ -135,9 +108,9 @@ describe("conversation pane coordinator", () => {
       expect(result.kind).toBe("opened");
     }
 
-    expect(
-      store.toScene().panes.filter((pane) => pane.surfaceKind === "conversation"),
-    ).toHaveLength(11);
+    expect(store.toScene().panes.filter((pane) => pane.surfaceKind === "easy-button")).toHaveLength(
+      11,
+    );
     expect(
       preflightConversationPanePlacement(store, {
         destination: { kind: "new-pane" },
@@ -165,8 +138,8 @@ describe("conversation pane coordinator", () => {
 
     expect(result).toEqual({ kind: "opened", paneId: emptyPaneId });
     expect(store.toScene().paneById.get(emptyPaneId)).toMatchObject({
-      conversationConfig: { conversationId: "conversation_new" },
-      surfaceKind: "conversation",
+      easyButtonConfig: { conversationId: "conversation_new" },
+      surfaceKind: "easy-button",
       title: "New conversation",
     });
   });
@@ -192,7 +165,7 @@ describe("conversation pane coordinator", () => {
     expect(
       store
         .toScene()
-        .panes.some((pane) => pane.conversationConfig?.conversationId === "conversation_new"),
+        .panes.some((pane) => pane.easyButtonConfig?.conversationId === "conversation_new"),
     ).toBe(false);
   });
 
@@ -347,8 +320,8 @@ function duplicateConversationBindingLayout(): WorkspaceUILayout {
     focusedPaneId: "workspace_pane_0",
     panes: [
       persistedPane("workspace_pane_0", "workspace_surface_0", "empty-frame"),
-      persistedPane("workspace_pane_1", "workspace_surface_1", "conversation"),
-      persistedPane("workspace_pane_2", "workspace_surface_2", "conversation"),
+      persistedPane("workspace_pane_1", "workspace_surface_1", "easy-button"),
+      persistedPane("workspace_pane_2", "workspace_surface_2", "easy-button"),
     ],
     schemaVersion: workspaceUILayoutSchemaVersion,
     workspaceId: "workspace_api",
@@ -358,7 +331,7 @@ function duplicateConversationBindingLayout(): WorkspaceUILayout {
 function persistedPane(
   paneId: string,
   surfaceId: string,
-  surfaceKind: "conversation" | "empty-frame",
+  surfaceKind: "easy-button" | "empty-frame",
 ): WorkspaceUILayout["panes"][number] {
   const fields = {
     columnId: "workspace_column_0",
@@ -372,24 +345,24 @@ function persistedPane(
     tone: "cyan" as const,
     weight: 1,
   };
-  if (surfaceKind === "conversation") {
+  if (surfaceKind === "easy-button") {
     return {
       ...fields,
-      conversationConfig: { conversationId: "conversation_shared" },
-      surfaceKind: "conversation",
+      easyButtonConfig: { conversationId: "conversation_shared" },
+      surfaceKind: "easy-button",
     };
   }
   return {
     ...fields,
-    conversationConfig: null,
+    easyButtonConfig: null,
     surfaceKind: "empty-frame",
   };
 }
 
 function boundRequest(conversationId: string) {
   return {
-    conversationConfig: { conversationId },
-    surfaceKind: "conversation",
+    easyButtonConfig: { conversationId },
+    surfaceKind: "easy-button",
     title: conversationId,
   } as const;
 }
