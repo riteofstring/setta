@@ -2971,3 +2971,27 @@ Stop and reassess rather than hiding the problem if any of these occur:
   Codex gates passed. The Phase 3 checkbox remains open only for the explicitly
   separate live hosted attached-idle cost measurement; no Sprite or external
   infrastructure was touched.
+- 2026-07-25 (disk-pressure turn admission): Advanced the Phase 7 storage
+  exhaustion work with one shared admission boundary for topic, side, narrator,
+  and master agent turns. The installed hosted runtime now receives an explicit
+  positive minimum-free-storage reserve from signed measurement manifest schema
+  3; validation rejects a missing reserve or one that consumes the authorized
+  Sprite allocation. Before a workload lease, accounting interval, or provider
+  turn starts, the runtime reads the serving filesystem and fails closed with a
+  stable retryable `runtime_disk_pressure` or
+  `runtime_disk_inspection_failed` code. Primary and side conversations retain
+  that typed failure durably, and a later turn recovers without restart once
+  the filesystem observation is healthy. Deterministic unit and Candidate B
+  gateway tests prove recovery and prove denied work acquires no provider turn,
+  workload lease, or accounting interval. Ten race-instrumented focused
+  repetitions, all seven affected Go packages, the registered
+  `hosted-cloud-chat` Electron workflow, and
+  `./check_quality.sh --git-changes` passed. With `OPENAI_API_KEY` removed, all
+  four ChatGPT-authenticated live Codex gates passed: Electron, agent protocol,
+  side isolation, and topic conversation. Supply-chain checks passed Go
+  vulnerability, exact-version, lockfile, and release-age policies while still
+  reporting the pre-existing transitive ESLint
+  `brace-expansion <=5.0.7` advisory; no dependency file changed. The combined
+  Phase 7 checkbox remains open for the 100 GB ceiling, checkpoint retention,
+  cache cleanup, destructive full-disk recovery, and user-facing quota
+  behavior. No provider or cloud mutation ran.
