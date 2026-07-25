@@ -1330,7 +1330,7 @@ measured, and independent of provider UI.
   backup/restore format, and a deterministic volume-loss restore drill.
   Provisioned encrypted off-volume retention, measured recovery time, and
   failover remain open.
-- [ ] Define Go-owned user, entitlement, runtime, device, runtime-access-grant,
+- [x] Define Go-owned user, entitlement, runtime, device, runtime-access-grant,
   operation, provider-observation, usage, and progress-event contracts.
 - [x] Enforce one authoritative active runtime assignment per user with locked
   or atomic updates and durable idempotency keys. Test replacement with the old
@@ -2520,3 +2520,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   recovered only after lease expiry and restart, and suspension prevents any
   provider request. This closes the Phase 5 scripted-provider E2E checklist
   item. No provider or cloud mutation ran.
+- 2026-07-25 (control-plane contract ownership audit): Closed the Phase 5
+  Go-owned contract checklist after tracing every named record to its owning
+  production type and durable reader/writer. `internal/controlplane` owns
+  users, entitlements, runtimes, devices, runtime-access grants, fenced
+  operations, provider observations, conservative usage intervals, and ordered
+  progress events; `internal/runtimeprovider` and `internal/runtimeaccounting`
+  own the provider-neutral resource, usage, and evidence values embedded by
+  those records. The client-visible hosted-access intent and progress subset
+  is registered with `cmd/generate-contracts` and emitted from those Go types,
+  while administrative and provider-facing records remain internal rather
+  than acquiring a second TypeScript mirror. Existing restart, ownership,
+  idempotency, generated-contract, and cursor-replay tests are the
+  authoritative evidence. No executable files changed for this audit.
