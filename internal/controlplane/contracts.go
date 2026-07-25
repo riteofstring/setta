@@ -3,6 +3,7 @@
 package controlplane
 
 import (
+	"reflect"
 	"time"
 
 	"setta/internal/runtimeprovider"
@@ -12,6 +13,9 @@ type UserStatus string
 type RuntimeLifecycle string
 type RuntimeAccessState string
 type RuntimeOperationStatus string
+type HostedAccessCapability string
+type HostedAccessClientKind string
+type HostedAccessProgressState string
 
 const (
 	UserStatusActive    UserStatus = "active"
@@ -31,7 +35,101 @@ const (
 	RuntimeOperationSucceeded RuntimeOperationStatus = "succeeded"
 	RuntimeOperationFailed    RuntimeOperationStatus = "failed"
 	RuntimeOperationCanceled  RuntimeOperationStatus = "canceled"
+
+	HostedAccessCapabilityObserve   HostedAccessCapability = "observe"
+	HostedAccessCapabilitySteer     HostedAccessCapability = "steer"
+	HostedAccessCapabilityApprove   HostedAccessCapability = "approve"
+	HostedAccessCapabilityArtifacts HostedAccessCapability = "artifacts"
+
+	HostedAccessClientDesktop HostedAccessClientKind = "desktop"
+	HostedAccessClientPhone   HostedAccessClientKind = "phone"
+
+	HostedAccessProgressPreparingAccess HostedAccessProgressState = "preparing_access"
+	HostedAccessProgressSyncingProject  HostedAccessProgressState = "syncing_project"
+	HostedAccessProgressReadyOnPhone    HostedAccessProgressState = "ready_on_phone"
+	HostedAccessProgressNeedsAttention  HostedAccessProgressState = "needs_attention"
+	HostedAccessProgressSuspended       HostedAccessProgressState = "suspended"
 )
+
+var (
+	hostedAccessCapabilityValues = []HostedAccessCapability{
+		HostedAccessCapabilityObserve,
+		HostedAccessCapabilitySteer,
+		HostedAccessCapabilityApprove,
+		HostedAccessCapabilityArtifacts,
+	}
+	hostedAccessClientKindValues = []HostedAccessClientKind{
+		HostedAccessClientDesktop,
+		HostedAccessClientPhone,
+	}
+	hostedAccessProgressStateValues = []HostedAccessProgressState{
+		HostedAccessProgressPreparingAccess,
+		HostedAccessProgressSyncingProject,
+		HostedAccessProgressReadyOnPhone,
+		HostedAccessProgressNeedsAttention,
+		HostedAccessProgressSuspended,
+	}
+)
+
+type ContractValueSet struct {
+	Name   string
+	Values []string
+}
+
+type HostedAccessClient struct {
+	DeviceID string                 `json:"deviceId"`
+	Kind     HostedAccessClientKind `json:"kind"`
+}
+
+type EnsureHostedAccessIntent struct {
+	IdempotencyKey        string                   `json:"idempotencyKey"`
+	UserID                string                   `json:"userId"`
+	ProjectID             string                   `json:"projectId"`
+	WorkstreamID          string                   `json:"workstreamId"`
+	Client                HostedAccessClient       `json:"client"`
+	RequestedCapabilities []HostedAccessCapability `json:"requestedCapabilities"`
+}
+
+type HostedAccessProgress struct {
+	IntentID    string                    `json:"intentId"`
+	Cursor      string                    `json:"cursor"`
+	State       HostedAccessProgressState `json:"state"`
+	ReasonCode  string                    `json:"reasonCode"`
+	Retryable   bool                      `json:"retryable"`
+	OccurredAt  string                    `json:"occurredAt"`
+	AccessGrant *HostedAccessGrant        `json:"accessGrant"`
+}
+
+type HostedAccessGrant struct {
+	DeviceID            string                   `json:"deviceId"`
+	ProjectID           string                   `json:"projectId"`
+	WorkstreamID        string                   `json:"workstreamId"`
+	GrantedCapabilities []HostedAccessCapability `json:"grantedCapabilities"`
+	ExpiresAt           string                   `json:"expiresAt"`
+}
+
+func ContractTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[EnsureHostedAccessIntent](),
+		reflect.TypeFor[HostedAccessProgress](),
+	}
+}
+
+func ContractValueSets() []ContractValueSet {
+	return []ContractValueSet{
+		{Name: "HostedAccessCapability", Values: controlPlaneStringValues(hostedAccessCapabilityValues)},
+		{Name: "HostedAccessClientKind", Values: controlPlaneStringValues(hostedAccessClientKindValues)},
+		{Name: "HostedAccessProgressState", Values: controlPlaneStringValues(hostedAccessProgressStateValues)},
+	}
+}
+
+func controlPlaneStringValues[T ~string](values []T) []string {
+	result := make([]string, len(values))
+	for index, value := range values {
+		result[index] = string(value)
+	}
+	return result
+}
 
 type User struct {
 	ID                string

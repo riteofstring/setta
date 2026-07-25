@@ -1480,6 +1480,64 @@ export function decodeCodexAccountChangeReason(value: unknown, label = "CodexAcc
   }
 }
 
+export type HostedAccessClientKind = "desktop" | "phone";
+
+export const hostedAccessClientKindValues = ["desktop", "phone"] as const satisfies readonly HostedAccessClientKind[];
+
+export function decodeHostedAccessClientKind(value: unknown, label = "HostedAccessClientKind"): HostedAccessClientKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "desktop":
+      return decoded;
+    case "phone":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type HostedAccessCapability = "observe" | "steer" | "approve" | "artifacts";
+
+export const hostedAccessCapabilityValues = ["observe", "steer", "approve", "artifacts"] as const satisfies readonly HostedAccessCapability[];
+
+export function decodeHostedAccessCapability(value: unknown, label = "HostedAccessCapability"): HostedAccessCapability {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "observe":
+      return decoded;
+    case "steer":
+      return decoded;
+    case "approve":
+      return decoded;
+    case "artifacts":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type HostedAccessProgressState = "preparing_access" | "syncing_project" | "ready_on_phone" | "needs_attention" | "suspended";
+
+export const hostedAccessProgressStateValues = ["preparing_access", "syncing_project", "ready_on_phone", "needs_attention", "suspended"] as const satisfies readonly HostedAccessProgressState[];
+
+export function decodeHostedAccessProgressState(value: unknown, label = "HostedAccessProgressState"): HostedAccessProgressState {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "preparing_access":
+      return decoded;
+    case "syncing_project":
+      return decoded;
+    case "ready_on_phone":
+      return decoded;
+    case "needs_attention":
+      return decoded;
+    case "suspended":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export const conversationPaletteCatalog = {
   "sky": {"id":"sky","dark":{"conversationAccent":"oklch(0.846 0.1292 213.38)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.846 0.1292 213.38)"},"light":{"conversationAccent":"oklch(0.48 0.13 213.38)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 213.38)"}},
   "blue": {"id":"blue","dark":{"conversationAccent":"oklch(0.76 0.115 250)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.76 0.115 250)"},"light":{"conversationAccent":"oklch(0.48 0.13 250)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 250)"}},
@@ -3462,6 +3520,38 @@ export interface APIError {
 
 export interface ErrorResponse {
   error: APIError;
+}
+
+export interface HostedAccessClient {
+  deviceId: string;
+  kind: HostedAccessClientKind;
+}
+
+export interface EnsureHostedAccessIntent {
+  idempotencyKey: string;
+  userId: string;
+  projectId: string;
+  workstreamId: string;
+  client: HostedAccessClient;
+  requestedCapabilities: HostedAccessCapability[];
+}
+
+export interface HostedAccessGrant {
+  deviceId: string;
+  projectId: string;
+  workstreamId: string;
+  grantedCapabilities: HostedAccessCapability[];
+  expiresAt: string;
+}
+
+export interface HostedAccessProgress {
+  intentId: string;
+  cursor: string;
+  state: HostedAccessProgressState;
+  reasonCode: string;
+  retryable: boolean;
+  occurredAt: string;
+  accessGrant: HostedAccessGrant | null;
 }
 
 export type ConversationEventPayload =
@@ -7024,6 +7114,54 @@ export function decodeErrorResponse(value: unknown): ErrorResponse {
   assertKnownFields(record, "ErrorResponse", ["error"]);
   return {
     error: decodeAPIError(requireField(record, "error", "ErrorResponse")),
+  };
+}
+
+export function decodeHostedAccessClient(value: unknown): HostedAccessClient {
+  const record = assertRecord(value, "HostedAccessClient");
+  assertKnownFields(record, "HostedAccessClient", ["deviceId", "kind"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "HostedAccessClient"), "HostedAccessClient.deviceId"),
+    kind: decodeHostedAccessClientKind(requireField(record, "kind", "HostedAccessClient"), "HostedAccessClient.kind"),
+  };
+}
+
+export function decodeEnsureHostedAccessIntent(value: unknown): EnsureHostedAccessIntent {
+  const record = assertRecord(value, "EnsureHostedAccessIntent");
+  assertKnownFields(record, "EnsureHostedAccessIntent", ["idempotencyKey", "userId", "projectId", "workstreamId", "client", "requestedCapabilities"]);
+  return {
+    idempotencyKey: decodeString(requireField(record, "idempotencyKey", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.idempotencyKey"),
+    userId: decodeString(requireField(record, "userId", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.userId"),
+    projectId: decodeString(requireField(record, "projectId", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.projectId"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.workstreamId"),
+    client: decodeHostedAccessClient(requireField(record, "client", "EnsureHostedAccessIntent")),
+    requestedCapabilities: decodeArray(requireField(record, "requestedCapabilities", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.requestedCapabilities", (item) => decodeHostedAccessCapability(item, "EnsureHostedAccessIntent.requestedCapabilities item")),
+  };
+}
+
+export function decodeHostedAccessGrant(value: unknown): HostedAccessGrant {
+  const record = assertRecord(value, "HostedAccessGrant");
+  assertKnownFields(record, "HostedAccessGrant", ["deviceId", "projectId", "workstreamId", "grantedCapabilities", "expiresAt"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "HostedAccessGrant"), "HostedAccessGrant.deviceId"),
+    projectId: decodeString(requireField(record, "projectId", "HostedAccessGrant"), "HostedAccessGrant.projectId"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "HostedAccessGrant"), "HostedAccessGrant.workstreamId"),
+    grantedCapabilities: decodeArray(requireField(record, "grantedCapabilities", "HostedAccessGrant"), "HostedAccessGrant.grantedCapabilities", (item) => decodeHostedAccessCapability(item, "HostedAccessGrant.grantedCapabilities item")),
+    expiresAt: decodeString(requireField(record, "expiresAt", "HostedAccessGrant"), "HostedAccessGrant.expiresAt"),
+  };
+}
+
+export function decodeHostedAccessProgress(value: unknown): HostedAccessProgress {
+  const record = assertRecord(value, "HostedAccessProgress");
+  assertKnownFields(record, "HostedAccessProgress", ["intentId", "cursor", "state", "reasonCode", "retryable", "occurredAt", "accessGrant"]);
+  return {
+    intentId: decodeString(requireField(record, "intentId", "HostedAccessProgress"), "HostedAccessProgress.intentId"),
+    cursor: decodeString(requireField(record, "cursor", "HostedAccessProgress"), "HostedAccessProgress.cursor"),
+    state: decodeHostedAccessProgressState(requireField(record, "state", "HostedAccessProgress"), "HostedAccessProgress.state"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "HostedAccessProgress"), "HostedAccessProgress.reasonCode"),
+    retryable: decodeBoolean(requireField(record, "retryable", "HostedAccessProgress"), "HostedAccessProgress.retryable"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "HostedAccessProgress"), "HostedAccessProgress.occurredAt"),
+    accessGrant: decodeNullable(requireField(record, "accessGrant", "HostedAccessProgress"), "HostedAccessProgress.accessGrant", (item) => decodeHostedAccessGrant(item)),
   };
 }
 

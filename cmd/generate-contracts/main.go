@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/controlplane"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
 	"setta/internal/workspaceui"
@@ -152,6 +153,11 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 	errorResponse, err := errorResponseSpec(schema.ErrorResponses, &collector)
 	if err != nil {
 		return contractSpec{}, err
+	}
+	for _, contractType := range controlplane.ContractTypes() {
+		if err := collector.add(contractType); err != nil {
+			return contractSpec{}, fmt.Errorf("control-plane contract %s: %w", contractType, err)
+		}
 	}
 	conversationPaletteCatalog, err := conversationPaletteCatalogSpecs(
 		collector.usedValueNames["ConversationPaletteID"],
