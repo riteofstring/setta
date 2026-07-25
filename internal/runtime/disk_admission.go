@@ -45,19 +45,15 @@ func (gate runtimeDiskAdmissionGate) AdmitTurn(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	readStats := gate.readStats
-	if readStats == nil {
-		readStats = runtimeDiskStats
-	}
 	diagnostic := runtimeDiskSpaceDiagnosticWithReader(
 		gate.path,
 		gate.minimumFreeMiB,
-		readStats,
+		gate.readStats,
 	)
 	if diagnostic.Status == runtimecapability.DiagnosticStatusOK {
 		return nil
 	}
-	if diagnostic.ReasonCode == "disk_space_below_minimum" {
+	if diagnostic.ReasonCode == runtimeDiskSpaceBelowMinimumReasonCode {
 		return runtimeDiskAdmissionFailure{
 			code:    runtimeDiskPressureFailureCode,
 			message: "runtime free storage is below the configured minimum; free space and retry",

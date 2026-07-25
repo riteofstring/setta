@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"setta/internal/controlplane"
+	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -21,7 +22,6 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 
 	config, err := configFromArgs([]string{
 		"--app-data-dir", appDataDir,
-		"--minimum-disk-free-mib", "1024",
 		"--port", "0",
 		"--version", "test",
 	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
@@ -37,8 +37,29 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	if config.AppDataDir != appDataDir {
 		t.Fatalf("app data dir = %q, want %q", config.AppDataDir, appDataDir)
 	}
-	if config.MinimumDiskFreeMiB != 1_024 {
-		t.Fatalf("minimum free disk = %d MiB, want 1024", config.MinimumDiskFreeMiB)
+	if config.MinimumDiskFreeMiB != runtime.DefaultConfig().MinimumDiskFreeMiB ||
+		config.MinimumDiskFreeMiB <= 0 {
+		t.Fatalf(
+			"minimum free disk = %d MiB, want positive runtime default %d",
+			config.MinimumDiskFreeMiB,
+			runtime.DefaultConfig().MinimumDiskFreeMiB,
+		)
+	}
+}
+
+func TestConfigFromArgsAllowsExplicitDiskAdmissionOptOut(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	config, err := configFromArgs([]string{
+		"--app-data-dir", t.TempDir(),
+		"--minimum-disk-free-mib", "0",
+	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
+	}
+	if config.MinimumDiskFreeMiB != 0 {
+		t.Fatalf("minimum free disk = %d MiB, want explicit zero", config.MinimumDiskFreeMiB)
 	}
 }
 

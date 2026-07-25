@@ -15,7 +15,12 @@ import (
 	"setta/internal/runtimeprovider"
 )
 
-const diagnosticTimeFormat = time.RFC3339
+const (
+	diagnosticTimeFormat                        = time.RFC3339
+	runtimeDiskSpacePathNotConfiguredReasonCode = "disk_space_path_not_configured"
+	runtimeDiskSpaceUnavailableReasonCode       = "disk_space_unavailable"
+	runtimeDiskSpaceBelowMinimumReasonCode      = "disk_space_below_minimum"
+)
 
 type codexAccountReader interface {
 	Read(context.Context) (codexaccount.CodexAccountState, error)
@@ -344,20 +349,20 @@ func runtimeDiskSpaceDiagnosticWithReader(
 		MinimumFreeMiB: minimumFreeMiB,
 	}
 	if path == "" {
-		diagnostic.ReasonCode = "disk_space_path_not_configured"
+		diagnostic.ReasonCode = runtimeDiskSpacePathNotConfiguredReasonCode
 		return diagnostic
 	}
 	stats, err := readStats(path)
 	if err != nil {
 		diagnostic.Status = runtimecapability.DiagnosticStatusFailing
-		diagnostic.ReasonCode = "disk_space_unavailable"
+		diagnostic.ReasonCode = runtimeDiskSpaceUnavailableReasonCode
 		return diagnostic
 	}
 	diagnostic.AvailableMiB = bytesToMiB(stats.AvailableBytes)
 	diagnostic.TotalMiB = bytesToMiB(stats.TotalBytes)
 	if minimumFreeMiB > 0 && diagnostic.AvailableMiB < minimumFreeMiB {
 		diagnostic.Status = runtimecapability.DiagnosticStatusFailing
-		diagnostic.ReasonCode = "disk_space_below_minimum"
+		diagnostic.ReasonCode = runtimeDiskSpaceBelowMinimumReasonCode
 		return diagnostic
 	}
 	diagnostic.Status = runtimecapability.DiagnosticStatusOK

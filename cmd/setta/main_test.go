@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"setta/internal/httpapi"
+	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -45,7 +46,6 @@ func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 
 	options, err := serveOptionsFromArgs(context.Background(), []string{
 		"--app-data-dir", appDataDir,
-		"--minimum-disk-free-mib", "1024",
 		"--port", "0",
 	}, deps)
 	if err != nil {
@@ -57,11 +57,29 @@ func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 	if options.Port != 0 {
 		t.Fatalf("port = %d, want 0", options.Port)
 	}
-	if options.MinimumDiskFreeMiB != 1_024 {
-		t.Fatalf("minimum free disk = %d MiB, want 1024", options.MinimumDiskFreeMiB)
+	if options.MinimumDiskFreeMiB != runtime.DefaultConfig().MinimumDiskFreeMiB ||
+		options.MinimumDiskFreeMiB <= 0 {
+		t.Fatalf(
+			"minimum free disk = %d MiB, want positive runtime default %d",
+			options.MinimumDiskFreeMiB,
+			runtime.DefaultConfig().MinimumDiskFreeMiB,
+		)
 	}
 	if options.Host != "127.0.0.1" {
 		t.Fatalf("host = %q, want loopback", options.Host)
+	}
+}
+
+func TestServeOptionsAllowsExplicitDiskAdmissionOptOut(t *testing.T) {
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", t.TempDir(),
+		"--minimum-disk-free-mib", "0",
+	}, testDeps())
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if options.MinimumDiskFreeMiB != 0 {
+		t.Fatalf("minimum free disk = %d MiB, want explicit zero", options.MinimumDiskFreeMiB)
 	}
 }
 

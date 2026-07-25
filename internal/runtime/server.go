@@ -125,6 +125,9 @@ type runtimeAuthBootstrap struct {
 	localPairingToken string
 }
 
+// Keep the desktop reserve aligned with the signed hosted-manifest reserve.
+const defaultMinimumDiskFreeMiB = 1_024
+
 func DefaultConfig() Config {
 	return Config{
 		AppDataDir:                  "",
@@ -132,6 +135,7 @@ func DefaultConfig() Config {
 		CodexCommand:                "codex",
 		CodexDiagnosticsTimeout:     2 * time.Second,
 		Host:                        "127.0.0.1",
+		MinimumDiskFreeMiB:          defaultMinimumDiskFreeMiB,
 		Port:                        0,
 		Version:                     "dev",
 		WorkloadLeaseDiagnosticName: "setta-agent",
