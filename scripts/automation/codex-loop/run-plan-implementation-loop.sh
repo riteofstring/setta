@@ -9,8 +9,8 @@ COMPLETION_SENTINEL="PLAN_IMPLEMENTATION_COMPLETE"
 FINAL_AUDIT_SENTINEL="PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT"
 PHASE_AUDIT_SENTINEL="PLAN_PHASE_READY_FOR_AUDIT"
 PHASE_COMPLETE_SENTINEL="PLAN_PHASE_AUDIT_COMPLETE"
-AGENT_ONE_RUNNER="codex"
-AGENT_ONE_MODEL="gpt-5.5"
+AGENT_ONE_RUNNER="claude"
+AGENT_ONE_MODEL="claude-opus-5"
 AGENT_ONE_EFFORT="xhigh"
 AGENT_TWO_RUNNER="codex"
 AGENT_TWO_MODEL="gpt-5.6-sol"
@@ -49,8 +49,8 @@ iteration. The loop has no iteration cap and does not stop before the separate
 whole-plan audit confirms completion. Operational script failures and manual
 termination still exit non-zero.
 
-This dedicated automation helper intentionally runs Codex CLI agents in the current
-repository checkout with sandbox and approval checks bypassed. That behavior is
+This dedicated automation helper intentionally runs Claude Code and Codex CLI agents in the current
+repository checkout with permission checks bypassed. That behavior is
 acceptable here because the loop is for unattended repo-local plan execution
 where agents are expected to edit, verify, and commit directly in a clean
 working tree.
@@ -62,7 +62,7 @@ Options:
   --output-dir PATH     Directory for per-iteration transcripts and last
                         messages. Must be outside the repository. Default:
                         mktemp directory under TMPDIR.
-  --agent-1-model NAME  Codex model for Agent 1. Default: gpt-5.5.
+  --agent-1-model NAME  Claude model for Agent 1. Default: claude-opus-5.
   --agent-2-model NAME  Codex model for Agent 2. Default: gpt-5.6-sol.
   --codex-reference-repo PATH
                         Full Codex source checkout used for protocol/source
