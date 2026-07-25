@@ -28,7 +28,9 @@ This is a product and architecture cutover, not a skin over the pane system.
 
 ## Design Direction
 
-The fullscreen conversation concept establishes the visual and interaction direction:
+The committed fullscreen conversation mockup
+[`docs/mockups/fullscreen_conversation_concept.html`](../mockups/fullscreen_conversation_concept.html)
+establishes the visual and interaction direction:
 
 - one fullscreen living reasoning stream
 - selected workstream navigation with adjacent context
@@ -42,9 +44,9 @@ The initial renderer should use **WebGL2**, GLSL shaders, buffers, instancing, a
 Reimplement the selected concepts against Setta 4 contracts instead of treating prototype-only code
 as production architecture.
 
-Before shell implementation begins, the approved fullscreen design artifact must either be committed
-under `docs/mockups/` or this section must be expanded into a self-contained visual specification.
-Implementation should not depend on memory of an artifact that is absent from the branch.
+The mockup was copied from the frozen `setta-3-fullscreen-conversation` branch at commit
+`5d7c56780fc069979651cc2446f6d6b79c77a4fe`. It is design evidence, not production architecture to
+merge wholesale.
 
 ## Existing Foundations To Reuse
 
@@ -620,8 +622,8 @@ deleting Niri; replace its product responsibilities first.
    that must survive the cutover.
 4. Inventory existing Master, conversation, renderer projection, speech, and performance foundations
    that should be reused, rehomed, reshaped, or deleted.
-5. Commit the approved fullscreen concept artifact or expand this plan into a self-contained visual
-   specification.
+5. Keep the approved fullscreen concept artifact present under `docs/mockups/`, or expand this plan
+   into a self-contained visual specification if that artifact is superseded.
 6. Capture the current interaction and rendering performance baseline before changing renderer
    assumptions.
 7. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix.
@@ -806,7 +808,8 @@ Setta 4 is complete when:
 
 1. Complete the Niri ownership inventory.
 2. Complete the reusable foundation inventory.
-3. Commit the fullscreen design artifact or expand the design direction into a self-contained spec.
+3. Review the fullscreen mockup and promote any implementation-critical visual details into this
+   plan.
 4. Capture the current interaction and rendering performance baseline.
 5. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
    artifact, and speech contracts into the Setta 4 workstream and semantic graph contracts.
