@@ -7,11 +7,6 @@ const driverScriptPath = join(driverScriptDir, "browser-driver.js");
 const driverExtensionScripts = [
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.appPaneLayoutVersion === "setta-app-pane-layout-driver-v4"',
-    path: join(driverScriptDir, "app-pane-layout-driver.js"),
-  },
-  {
-    installedExpression:
       'globalThis.__settaE2EDriver?.appWindowDragVersion === "setta-app-window-drag-driver-v1"',
     path: join(driverScriptDir, "app-window-drag-driver.js"),
   },
@@ -27,18 +22,13 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.paneDragDropPerformanceVersion === "setta-pane-drag-drop-performance-driver-v3"',
+      'globalThis.__settaE2EDriver?.paneDragDropPerformanceVersion === "setta-pane-drag-drop-performance-driver-v2"',
     path: join(driverScriptDir, "pane-drag-drop-performance-driver.js"),
   },
   {
     installedExpression:
       'globalThis.__settaE2EDriver?.paneFocusClickVersion === "setta-pane-focus-click-driver-v1"',
     path: join(driverScriptDir, "pane-focus-click-driver.js"),
-  },
-  {
-    installedExpression:
-      'globalThis.__settaE2EDriver?.paneResizeHandlesVersion === "setta-pane-resize-handles-driver-v1"',
-    path: join(driverScriptDir, "pane-resize-handles-driver.js"),
   },
   {
     installedExpression:
@@ -57,7 +47,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.topicConversationPaneProjectionVersion === "setta-topic-conversation-pane-projection-driver-v33"',
+      'globalThis.__settaE2EDriver?.topicConversationPaneProjectionVersion === "setta-topic-conversation-pane-projection-driver-v32"',
     path: join(driverScriptDir, "topic-conversation-pane-projection-driver.js"),
   },
   {

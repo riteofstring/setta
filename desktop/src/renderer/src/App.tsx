@@ -1,19 +1,23 @@
-import type {
-  ConversationPaneResourceBinding,
-  PresentationIntent,
-  WorkspaceSession,
-} from "@generated/backend";
+import type { PresentationIntent, WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import { ArrowLeft, Settings, Sparkles } from "lucide-react";
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from "lucide-react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { isMobileViewportWidth } from "./app-layout";
+import {
+  compactProjectPaneWidth,
+  isMobileViewportWidth,
+  projectPaneDefaultWidth,
+  projectPaneMaxWidth,
+  projectPaneMinWidth,
+} from "./app-layout";
 import { useAppWindowDragHandlers } from "./app-window-drag";
 import { useViewportSize } from "./use-viewport-size";
+import { ResizablePane } from "./components/resizable-pane";
 import { SettingsPanel } from "./components/settings-panel";
 import { SettaLogoMark } from "./components/setta-logo-mark";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
+import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import {
   createAndPresentConversation,
   conversationCreationRequestEvent,
@@ -24,25 +28,23 @@ import {
   type ConversationCreationEventDetail,
   type ConversationCreationResult,
 } from "./features/easy-button/conversation-creation-command";
+import { useInitialEasyButtonPane } from "./features/easy-button/initial-easy-button-pane";
 import { AppShellMasterProvider } from "./features/global-master/app-shell-master";
 import type {
   AppShellMasterController,
   MasterInputFocusHints,
 } from "./features/global-master/app-shell-master-controller";
-import { AppShellMasterSurface } from "./features/global-master/app-shell-master-surface";
+import {
+  AppShellMasterSurface,
+  masterOverlayShortcutLabel,
+} from "./features/global-master/app-shell-master-surface";
 import { AppShellSpeechCaptureProvider } from "./features/global-speech/app-shell-speech-capture";
 import type { AppShellSpeechCaptureController } from "./features/global-speech/app-shell-speech-capture-controller";
 import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
-import type { AppShellSpeechPlaybackController } from "./features/global-speech/app-shell-speech-playback-controller";
 import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
 import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
-import {
-  masterPaneFocusRequestEvent,
-  requestMasterPaneFocus,
-} from "./workspace-layout/master-pane-focus";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
-import { emptyWorkspaceRuntimeId } from "./workspace-layout/workspace-layout-area-runtime";
 import type {
   WorkspaceConversationFocusRequest,
   WorkspaceConversationPlacementPreflightRequest,
@@ -57,7 +59,6 @@ import {
   type ConversationPanePresentationSuccess,
 } from "./workspace-layout/conversation-pane-coordinator";
 import { useAppearanceStore } from "./stores/appearance-store";
-import { useConversationNavigatorStore } from "./stores/conversation-navigator-store";
 import {
   type ConversationPaneWorkspaceState,
   useConversationPaneStore,
@@ -69,7 +70,12 @@ import {
   type SettingsShellRoute,
   useSettingsNavigationStore,
 } from "./stores/settings-navigation-store";
-import { workspaceAvailability, useWorkspaceStore } from "./stores/workspace-store";
+import {
+  type WorkspaceOperation,
+  type WorkspaceStatus,
+  workspaceAvailability,
+  useWorkspaceStore,
+} from "./stores/workspace-store";
 
 export function App() {
   const setta = readSettaApi();
@@ -80,27 +86,27 @@ export function App() {
 }
 
 function SettaApp({ setta }: { setta: SettaAPI }) {
-  const selectedWorkspaceId = useWorkspaceStore(
-    (state) => state.session?.selectedWorkspaceId ?? "",
+  const workspace = useWorkspaceViewState();
+  const activeWorkspaceIds = useMemo(
+    () => workspace.activeWorkspaces.map((activeWorkspace) => activeWorkspace.id),
+    [workspace.activeWorkspaces],
   );
-  const workspaceSession = useWorkspaceStore((state) => state.session);
-  const syncConversationNavigatorWorkspaces = useConversationNavigatorStore(
-    (state) => state.syncWorkspaces,
-  );
-  const activeConversationWorkspaceKey =
-    workspaceSession?.activeWorkspaces.map((workspace) => workspace.id).join("\u0000") ?? "";
-  const masterInputFocusHints = useMasterInputFocusHints(selectedWorkspaceId);
+  const masterInputFocusHints = useMasterInputFocusHints(workspace.selectedWorkspaceId);
   const platform = setta.app.platform;
   const viewport = useViewportSize();
   useAppearanceSettings();
   const runtime = useRuntimeLifecycle(setta);
+  const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
+  const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [workspaceConversationFocusRequest, setWorkspaceConversationFocusRequest] =
     useState<WorkspaceConversationFocusRequest | null>(null);
   const [
     workspaceConversationPlacementPreflightRequest,
     setWorkspaceConversationPlacementPreflightRequest,
   ] = useState<WorkspaceConversationPlacementPreflightRequest | null>(null);
-  const [, setConversationPresentationError] = useState<string | null>(null);
+  const [conversationPresentationError, setConversationPresentationError] = useState<string | null>(
+    null,
+  );
   const conversationPresentationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const conversationPlacementPreflightQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingConversationCreationsRef = useRef(new Set<string>());
@@ -113,7 +119,17 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   );
   const closeSettings = useSettingsNavigationStore((state) => state.closeSettings);
   const settingsPageOpen = settingsRoute.page === "settings";
+  const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
   const mobileViewport = isMobileViewportWidth(viewport.width);
+  const toggleProjectPane = useCallback(() => {
+    setProjectPaneOpen((current) => !current);
+  }, []);
+  // The mobile project pane is a full-screen overlay summoned from the bottom
+  // bar, so it starts closed at mobile widths and reopens as the regular side
+  // pane when the viewport widens again.
+  useEffect(() => {
+    setProjectPaneOpen(!mobileViewport);
+  }, [mobileViewport]);
   const captureSettingsFocusOrigin = useCallback(() => {
     settingsFocusRestoreRef.current = activeFocusableElement();
   }, []);
@@ -138,28 +154,16 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     }
     settingsRouteWasOpenRef.current = settingsPageOpen;
   }, [settingsPageOpen]);
-  useEffect(() => {
-    const workspaceIds =
-      activeConversationWorkspaceKey.length === 0
-        ? []
-        : activeConversationWorkspaceKey.split("\u0000");
-    void syncConversationNavigatorWorkspaces(workspaceIds);
-  }, [activeConversationWorkspaceKey, syncConversationNavigatorWorkspaces]);
-  useEffect(() => {
-    const closeSettingsForMasterPaneFocus = () => {
-      if (useSettingsNavigationStore.getState().route.page === "settings") {
-        closeSettings();
-      }
-    };
-    window.addEventListener(masterPaneFocusRequestEvent, closeSettingsForMasterPaneFocus);
-    return () =>
-      window.removeEventListener(masterPaneFocusRequestEvent, closeSettingsForMasterPaneFocus);
-  }, [closeSettings]);
   const applyConversationPresentationRequest = useCallback(
     async (
       request: ConversationPanePresentationRequest,
     ): Promise<ConversationPanePresentationSuccess> => {
-      await ensureConversationPresentationWorkspaceMounted(request.workspaceId);
+      if (useWorkspaceStore.getState().session?.selectedWorkspaceId !== request.workspaceId) {
+        await workspace.selectWorkspace(request.workspaceId);
+        if (useWorkspaceStore.getState().session?.selectedWorkspaceId !== request.workspaceId) {
+          throw new Error(`Setta could not select workspace ${request.workspaceId}.`);
+        }
+      }
       setConversationPresentationError(null);
       const result = await new Promise<ConversationPanePresentationResult>((resolve) => {
         setWorkspaceConversationFocusRequest((current) => ({
@@ -168,12 +172,15 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           requestId: (current?.requestId ?? 0) + 1,
         }));
       });
+      if (mobileViewport) {
+        setProjectPaneOpen(false);
+      }
       if (result.kind === "blocked") {
         throw new Error(result.reason);
       }
       return result;
     },
-    [],
+    [mobileViewport, workspace.selectWorkspace],
   );
   const presentConversationRequest = useCallback(
     (
@@ -216,9 +223,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       ),
     [dispatchConversationPlacementPreflightRequest],
   );
-  const ensureConversationWorkspaceAvailable = useCallback((workspaceId: string | null) => {
-    if (workspaceId === null) {
-      return;
+  const ensureConversationWorkspaceAvailable = useCallback((workspaceId: string) => {
+    if (workspaceId.length === 0) {
+      throw new Error(
+        "Setta needs an available project folder before it can start a new conversation.",
+      );
     }
     const availability = workspaceAvailability(useWorkspaceStore.getState().session, workspaceId);
     if (!availability) {
@@ -228,12 +237,17 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       throw new Error(availability.unavailableReason || `Workspace ${workspaceId} is unavailable.`);
     }
   }, []);
-  const presentAppLevelConversationRequest = useCallback(
-    async (
-      request: ConversationPanePresentationRequest,
-    ): Promise<ConversationPanePresentationSuccess> =>
-      presentConversationRequest(appLevelConversationPresentationRequest(request)),
-    [presentConversationRequest],
+  const ensureConversationWorkspaceSelected = useCallback(
+    async (workspaceId: string): Promise<void> => {
+      if (useWorkspaceStore.getState().session?.selectedWorkspaceId === workspaceId) {
+        return;
+      }
+      await workspace.selectWorkspace(workspaceId);
+      if (useWorkspaceStore.getState().session?.selectedWorkspaceId !== workspaceId) {
+        throw new Error(`Setta could not select workspace ${workspaceId}.`);
+      }
+    },
+    [workspace.selectWorkspace],
   );
   const createConversationRequest = useCallback<ConversationCreationCommand>(
     (request, lifecycle): Promise<ConversationCreationResult> => {
@@ -250,12 +264,16 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         assertCurrent: lifecycle?.assertCurrent,
         createConversation: (creationRequest) => setta.conversations.create(creationRequest),
         ensureWorkspaceAvailable: ensureConversationWorkspaceAvailable,
+        ensureWorkspaceSelected: ensureConversationWorkspaceSelected,
         preflightPlacement: preflightConversationPlacementRequest,
-        presentConversation: presentAppLevelConversationRequest,
+        presentConversation: presentConversationRequest,
         request,
       })
         .then((result) => {
           setConversationPresentationError(null);
+          if (mobileViewport) {
+            setProjectPaneOpen(false);
+          }
           return result;
         })
         .catch((error: unknown) => {
@@ -271,20 +289,59 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     },
     [
       ensureConversationWorkspaceAvailable,
+      ensureConversationWorkspaceSelected,
+      mobileViewport,
       preflightConversationPlacementRequest,
-      presentAppLevelConversationRequest,
+      presentConversationRequest,
       setta,
     ],
+  );
+  const setInitialConversationError = useCallback((message: string | null) => {
+    setConversationPresentationError(message);
+  }, []);
+  const initialEasyButtonPaneStartup = useInitialEasyButtonPane({
+    activeWorkspaceIds,
+    connectedRuntimeId: runtime.connectedRuntimeId,
+    createConversation: createConversationRequest,
+    onError: setInitialConversationError,
+    presentConversation: presentConversationRequest,
+    selectedWorkspaceId: workspace.selectedWorkspaceId,
+    selectedWorkspaceAvailable: workspace.selectedWorkspaceAvailable,
+  });
+  const presentConversation = useCallback(
+    async (workspaceId: string, conversationId: string, title: string): Promise<void> => {
+      try {
+        await presentConversationRequest({ conversationId, title, workspaceId });
+      } catch (error) {
+        setConversationPresentationError(
+          error instanceof Error ? error.message : "The conversation pane could not be opened.",
+        );
+      }
+    },
+    [presentConversationRequest],
+  );
+  const createConversation = useCallback(
+    async (workspaceId: string): Promise<void> => {
+      try {
+        await createConversationRequest({
+          destination: { kind: "new-pane" },
+          workspaceId,
+        });
+      } catch {
+        // createConversationRequest owns the visible failure state for this UI command.
+      }
+    },
+    [createConversationRequest],
   );
   const presentMasterIntent = useCallback(
     async (intent: PresentationIntent) => {
       const request = conversationPaneRequestForPresentationIntent(intent);
       if (request) {
-        return presentAppLevelConversationRequest(request);
+        return presentConversationRequest(request);
       }
       throw new Error(`Master presentation intent ${intent.id} has no conversation target.`);
     },
-    [presentAppLevelConversationRequest],
+    [presentConversationRequest],
   );
   useEffect(() => {
     const navigate = (event: Event) => {
@@ -292,11 +349,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       if (!detail?.request || detail.completion) {
         return;
       }
-      detail.completion = presentAppLevelConversationRequest(detail.request);
+      detail.completion = presentConversationRequest(detail.request);
     };
     window.addEventListener(conversationPaneNavigationRequestEvent, navigate);
     return () => window.removeEventListener(conversationPaneNavigationRequestEvent, navigate);
-  }, [presentAppLevelConversationRequest]);
+  }, [presentConversationRequest]);
   useEffect(() => {
     const create = (event: Event) => {
       const detail = (event as CustomEvent<ConversationCreationEventDetail>).detail;
@@ -312,16 +369,16 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
 
   const shell = ({
     master,
+    masterOverlayOpen = false,
     speechCapture,
-    speechPlayback,
     speechPresentation,
   }: {
     master?: AppShellMasterController;
+    masterOverlayOpen?: boolean;
     speechCapture?: AppShellSpeechCaptureController;
-    speechPlayback?: AppShellSpeechPlaybackController;
     speechPresentation?: GlobalSpeechPresentationSource;
   } = {}) => {
-    const workspaceShellHidden = settingsPageOpen;
+    const workspaceShellHidden = masterOverlayOpen || settingsPageOpen;
     return (
       <>
         <div
@@ -333,22 +390,40 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           <AppChromeControls
             globalSpeechAvailable={speechCapture !== undefined}
             master={master}
+            masterOverlayOpen={masterOverlayOpen}
             mobileViewport={mobileViewport}
             openVoiceCredentialSettings={openVoiceCredentialSettings}
             openSettingsPage={openSettingsPage}
             platform={platform}
+            projectPaneOpen={projectPaneOpen}
+            setProjectPaneOpen={setProjectPaneOpen}
           />
           <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+            <ProjectPane
+              clearConversationPresentationError={() => setConversationPresentationError(null)}
+              conversationPresentationError={conversationPresentationError}
+              createConversation={createConversation}
+              master={master}
+              mobileOverlay={mobileViewport}
+              open={projectPaneOpen}
+              openSettingsPage={openSettingsPage}
+              presentConversation={presentConversation}
+              setWidth={setProjectPaneWidth}
+              viewportWidth={viewport.width}
+              width={effectiveProjectPaneWidth}
+              runtimeUnavailable={runtime.controlsDisabled}
+              workspace={workspace}
+            />
             <WorkspaceLayoutArea
               focusConversationRequest={workspaceConversationFocusRequest}
-              masterController={master}
-              masterSpeechCapture={speechCapture}
-              masterSpeechPlayback={speechPlayback}
+              initialEasyButtonPaneStartup={initialEasyButtonPaneStartup}
               onConversationPresentationError={setConversationPresentationError}
               onOpenSettingsPage={openSettingsPage}
-              onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
               placementPreflightRequest={workspaceConversationPlacementPreflightRequest}
+              onToggleProjectPane={toggleProjectPane}
               platform={platform}
+              projectPaneOpen={projectPaneOpen}
+              projectPaneWidth={mobileViewport || !projectPaneOpen ? 0 : effectiveProjectPaneWidth}
               shellOverlayActive={workspaceShellHidden}
               speechCapture={speechCapture}
               speechPresentation={speechPresentation}
@@ -384,14 +459,15 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
             >
               {(speechCapture, speechPresentation) => (
                 <AppShellMasterSurface
+                  controller={master}
                   onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
                   platform={platform}
                 >
-                  {() =>
+                  {(masterOverlayOpen) =>
                     shell({
                       master,
+                      masterOverlayOpen,
                       speechCapture,
-                      speechPlayback: playback,
                       speechPresentation,
                     })
                   }
@@ -406,93 +482,35 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
 }
 
 function useMasterInputFocusHints(selectedWorkspaceId: string): MasterInputFocusHints {
-  const workspaceSession = useWorkspaceStore((state) => state.session);
-  const mountedPaneWorkspaceId = currentMountedPaneWorkspaceId(selectedWorkspaceId);
   const focusedWorkspacePanes = useConversationPaneStore((state) =>
-    state.workspaces.get(mountedPaneWorkspaceId),
+    state.workspaces.get(selectedWorkspaceId),
   );
-  return masterInputFocusHints(workspaceSession, focusedWorkspacePanes);
+  return masterInputFocusHints(optionalWorkspaceId(selectedWorkspaceId), focusedWorkspacePanes);
 }
 
 export function masterInputFocusHints(
-  workspaceSession: WorkspaceSession | null,
+  focusedWorkspaceId: string | null,
   focusedWorkspacePanes: ConversationPaneWorkspaceState | undefined,
 ): MasterInputFocusHints {
-  if (!focusedWorkspacePanes) {
+  if (!focusedWorkspaceId || !focusedWorkspacePanes) {
     return {
       focusedConversationId: null,
       focusedPaneId: null,
-      focusedWorkspaceId: null,
+      focusedWorkspaceId,
     };
   }
   return {
     focusedConversationId: focusedWorkspacePanes.focusedConversationId,
     focusedPaneId: focusedWorkspacePanes.focusedPaneId,
-    focusedWorkspaceId: focusedWorkspaceIdForResourceBindings(
-      workspaceSession,
-      focusedWorkspacePanes.focusedConversationResourceBindings,
-    ),
+    focusedWorkspaceId,
   };
 }
 
-function currentMountedPaneWorkspaceId(selectedWorkspaceId: string): string {
-  return selectedWorkspaceId.length > 0 ? selectedWorkspaceId : emptyWorkspaceRuntimeId;
-}
-
-function appLevelConversationPresentationRequest(
-  request: ConversationPanePresentationRequest,
-): ConversationPanePresentationRequest {
-  const session = useWorkspaceStore.getState().session;
-  return {
-    ...request,
-    resourceBindings: conversationPresentationResourceBindings(request, session),
-    workspaceId: currentMountedPaneWorkspaceId(session?.selectedWorkspaceId ?? ""),
-  };
-}
-
-async function ensureConversationPresentationWorkspaceMounted(
-  requestWorkspaceId: string,
-): Promise<void> {
-  const mountedWorkspaceId = currentMountedPaneWorkspaceId(
-    useWorkspaceStore.getState().session?.selectedWorkspaceId ?? "",
-  );
-  if (mountedWorkspaceId === requestWorkspaceId) {
-    return;
-  }
-  throw new Error(`The app pane scene ${requestWorkspaceId} is not mounted.`);
-}
-
-function conversationPresentationResourceBindings(
-  request: ConversationPanePresentationRequest,
-  session: WorkspaceSession | null,
-): ConversationPaneResourceBinding[] {
-  if (request.resourceBindings !== undefined) {
-    return request.resourceBindings;
-  }
-  if (request.workspaceId === emptyWorkspaceRuntimeId) {
-    return [];
-  }
-  const workspace = session?.activeWorkspaces.find(
-    (candidate) => candidate.id === request.workspaceId,
-  );
-  if (!workspace) {
-    throw new Error(`Workspace ${request.workspaceId} is not open.`);
-  }
-  return [{ folder: { rootPath: workspace.rootPath }, kind: "folder" }];
-}
-
-function focusedWorkspaceIdForResourceBindings(
-  workspaceSession: WorkspaceSession | null,
-  bindings: readonly ConversationPaneResourceBinding[] | null,
-): string | null {
-  const folderRootPath = bindings?.find((binding) => binding.kind === "folder")?.folder.rootPath;
-  if (!folderRootPath) {
+function optionalWorkspaceId(workspaceId: string): string | null {
+  if (workspaceId === "") {
     return null;
   }
-  return (
-    workspaceSession?.activeWorkspaces.find((workspace) => workspace.rootPath === folderRootPath)
-      ?.id ?? null
-  );
+  return workspaceId;
 }
 
 function readSettaApi(): SettaAPI | null {
@@ -580,7 +598,7 @@ function SettingsShellPage({
         <div aria-hidden="true" className="setta-settings-page-chrome-shield app-no-drag" />
         <button className="setta-settings-page-back app-no-drag" onClick={onBack} type="button">
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to panes</span>
+          <span>Back to workspace</span>
         </button>
         <h1 id="setta-settings-page-title" ref={headingRef} tabIndex={-1}>
           Settings
@@ -660,20 +678,126 @@ function useAppearanceSettings() {
   }, [loadAppearance]);
 }
 
+type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
+function ProjectPane({
+  clearConversationPresentationError,
+  conversationPresentationError,
+  createConversation,
+  master,
+  mobileOverlay,
+  open,
+  openSettingsPage,
+  presentConversation,
+  setWidth,
+  viewportWidth,
+  width,
+  runtimeUnavailable,
+  workspace,
+}: {
+  clearConversationPresentationError: () => void;
+  conversationPresentationError: string | null;
+  createConversation: (workspaceId: string) => Promise<void>;
+  master: AppShellMasterController | undefined;
+  mobileOverlay: boolean;
+  open: boolean;
+  openSettingsPage: () => void;
+  presentConversation: (
+    workspaceId: string,
+    conversationId: string,
+    title: string,
+  ) => Promise<void>;
+  setWidth: (width: number) => void;
+  viewportWidth: number;
+  width: number;
+  runtimeUnavailable: boolean;
+  workspace: WorkspaceViewState;
+}) {
+  if (!open) {
+    return null;
+  }
+
+  const sidebar = (
+    <WorkspaceSidebar
+      activeWorkspaces={workspace.activeWorkspaces}
+      busy={runtimeUnavailable || sidebarWorkspaceBusy(workspace.operation, workspace.status)}
+      clearConversationPresentationError={clearConversationPresentationError}
+      clearWorkspaceError={workspace.clearError}
+      closeWorkspace={workspace.closeWorkspace}
+      conversationPresentationError={conversationPresentationError}
+      createConversation={createConversation}
+      masterUnavailable={runtimeUnavailable}
+      openLocalFolder={workspace.openLocalFolder}
+      openMasterOverlay={master?.openOverlay}
+      openSettingsPage={openSettingsPage}
+      openWorkspacePath={workspace.openWorkspacePath}
+      presentConversation={presentConversation}
+      recentWorkspaces={workspace.recentWorkspaces}
+      removeRecent={workspace.removeRecent}
+      selectWorkspace={workspace.selectWorkspace}
+      selectedWorkspaceId={workspace.selectedWorkspaceId}
+      showFooterSettings={mobileOverlay}
+      showLogoHeader={mobileOverlay}
+      sidebarWidth={mobileOverlay ? viewportWidth : width}
+      workspaceError={workspace.error}
+      workspaceAvailabilities={workspace.workspaceAvailabilities}
+    />
+  );
+
+  if (mobileOverlay) {
+    // Full-screen project pane summoned from the workspace bottom bar; it
+    // stops above the bar so the toggle stays reachable to dismiss it.
+    return (
+      <div
+        className="fixed inset-x-0 top-0 z-[90] bg-background"
+        data-testid="mobile-project-pane"
+        style={{ bottom: "var(--workspace-mobile-bar-height)" }}
+      >
+        {sidebar}
+      </div>
+    );
+  }
+
+  return (
+    <ResizablePane
+      className="absolute inset-y-0 left-0 z-[80]"
+      label="Resize project sidebar"
+      maxWidth={projectPaneMaxWidth}
+      minWidth={projectPaneMinWidth}
+      onWidthChange={setWidth}
+      width={width}
+    >
+      <div className="h-full">{sidebar}</div>
+    </ResizablePane>
+  );
+}
+
+export function sidebarWorkspaceBusy(
+  operation: WorkspaceOperation,
+  status: WorkspaceStatus,
+): boolean {
+  return status === "loading" || (operation !== null && operation !== "selecting");
+}
+
 function AppChromeControls({
   globalSpeechAvailable,
   master,
+  masterOverlayOpen,
   mobileViewport,
   openVoiceCredentialSettings,
   openSettingsPage,
   platform,
+  projectPaneOpen,
+  setProjectPaneOpen,
 }: {
   globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
+  masterOverlayOpen: boolean;
   mobileViewport: boolean;
   openVoiceCredentialSettings: () => void;
   openSettingsPage: () => void;
   platform: DesktopPlatform;
+  projectPaneOpen: boolean;
+  setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   if (mobileViewport) {
     return null;
@@ -682,9 +806,12 @@ function AppChromeControls({
     <DesktopShellTopBar
       globalSpeechAvailable={globalSpeechAvailable}
       master={master}
+      masterOverlayOpen={masterOverlayOpen}
       onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
       onOpenSettings={openSettingsPage}
       platform={platform}
+      projectPaneOpen={projectPaneOpen}
+      setProjectPaneOpen={setProjectPaneOpen}
     />
   );
 }
@@ -692,17 +819,25 @@ function AppChromeControls({
 function DesktopShellTopBar({
   globalSpeechAvailable,
   master,
+  masterOverlayOpen,
   onOpenVoiceCredentialSettings,
   onOpenSettings,
   platform,
+  projectPaneOpen,
+  setProjectPaneOpen,
 }: {
   globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
+  masterOverlayOpen: boolean;
   onOpenVoiceCredentialSettings: () => void;
   onOpenSettings: () => void;
   platform: DesktopPlatform;
+  projectPaneOpen: boolean;
+  setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   const windowDragHandlers = useAppWindowDragHandlers();
+  const ProjectPaneIcon = projectPaneOpen ? PanelLeftClose : PanelLeftOpen;
+  const projectPaneLabel = projectPaneOpen ? "Hide project sidebar" : "Show project sidebar";
   return (
     <header
       className="setta-shell-top-bar app-drag"
@@ -714,13 +849,21 @@ function DesktopShellTopBar({
       <div aria-hidden="true" className="setta-shell-top-bar-chrome-shield app-no-drag" />
       <div className="setta-shell-top-bar-left">
         <TooltipProvider>
-          <div aria-label="Setta controls" className="setta-shell-top-bar-controls app-no-drag">
+          <div aria-label="Workspace controls" className="setta-shell-top-bar-controls app-no-drag">
+            <ShellTopBarButton
+              active={projectPaneOpen}
+              label={projectPaneLabel}
+              onClick={() => setProjectPaneOpen((current) => !current)}
+              testId="project-sidebar-toggle"
+            >
+              <ProjectPaneIcon className="h-3.5 w-3.5" />
+            </ShellTopBarButton>
             {master ? (
               <ShellTopBarButton
-                active={false}
-                label="Ask Setta"
-                onClick={() => requestMasterPaneFocus("chrome")}
-                testId="master-pane-button"
+                active={masterOverlayOpen}
+                label={`Ask Setta (${masterOverlayShortcutLabel(platform)})`}
+                onClick={master.openOverlay}
+                testId="master-overlay-button"
               >
                 <Sparkles className="h-3.5 w-3.5" />
               </ShellTopBarButton>
@@ -779,4 +922,67 @@ function ShellTopBarButton({
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );
+}
+
+function useWorkspaceViewState() {
+  const state = useWorkspaceStore((workspaceState) => workspaceState);
+  const selectedWorkspace = useSelectedWorkspace(state.session);
+  return workspaceViewState(state, selectedWorkspace);
+}
+
+function workspaceViewState(
+  state: ReturnType<typeof useWorkspaceStore.getState>,
+  selectedWorkspace: WorkspaceSession["activeWorkspaces"][number] | null,
+) {
+  return {
+    ...workspaceSessionViewState(state.session, selectedWorkspace),
+    busy: workspaceOperationBusy(state.operation, state.status),
+    clearError: state.clearError,
+    closeWorkspace: state.closeWorkspace,
+    error: state.error,
+    openLocalFolder: state.openLocalFolder,
+    openWorkspacePath: state.openWorkspacePath,
+    operation: state.operation,
+    removeRecent: state.removeRecent,
+    selectWorkspace: state.selectWorkspace,
+    status: state.status,
+  };
+}
+
+function workspaceSessionViewState(
+  session: WorkspaceSession | null,
+  selectedWorkspace: WorkspaceSession["activeWorkspaces"][number] | null,
+) {
+  if (!session) {
+    return {
+      activeWorkspaces: [],
+      recentWorkspaces: [],
+      selectedWorkspace,
+      selectedWorkspaceAvailable: false,
+      selectedWorkspaceId: "",
+      workspaceAvailabilities: [],
+    };
+  }
+  const selectedAvailability = workspaceAvailability(session, session.selectedWorkspaceId);
+  return {
+    activeWorkspaces: session.activeWorkspaces,
+    recentWorkspaces: session.recentWorkspaces,
+    selectedWorkspace,
+    selectedWorkspaceAvailable: selectedAvailability?.available ?? false,
+    selectedWorkspaceId: session.selectedWorkspaceId,
+    workspaceAvailabilities: session.workspaceAvailabilities,
+  };
+}
+
+function workspaceOperationBusy(operation: WorkspaceOperation, status: WorkspaceStatus): boolean {
+  return operation !== null || status === "loading";
+}
+
+function useSelectedWorkspace(session: WorkspaceSession | null) {
+  return useMemo(() => {
+    return (
+      session?.activeWorkspaces.find((workspace) => workspace.id === session.selectedWorkspaceId) ??
+      null
+    );
+  }, [session]);
 }

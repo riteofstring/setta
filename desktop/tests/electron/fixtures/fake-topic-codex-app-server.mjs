@@ -631,6 +631,7 @@ function scriptedMasterCrashDecision(context, schema) {
     ? { kind: "answer_global", text: "The crashed master route recovered exactly once." }
     : null;
 }
+
 function scriptedMasterRouteDecision(context, schema) {
   const input = context.input?.input;
   const scriptedDecision = scriptedMasterRouteDecisionByText.get(input?.text);
@@ -704,11 +705,9 @@ function masterTargetByTitle(context, title) {
 function masterInputNeedsClarification(input) {
   return input?.text === "Clarify the shell topic." || input?.source === "conversation_escalation";
 }
+
 function isShellVoiceMasterInput(input) {
-  return (
-    input?.source === "shell" &&
-    (input?.modality === "voice" || input?.text === "Answer from folderless master.")
-  );
+  return [input?.source === "shell", input?.modality === "voice"].every(Boolean);
 }
 
 function scriptedMasterFocusDecision(context, schema, input) {

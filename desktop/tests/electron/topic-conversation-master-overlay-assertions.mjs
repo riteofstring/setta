@@ -2,12 +2,12 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { driverCallExpression } from "./cdp-client.mjs";
 import { waitForBackendState } from "./electron-workflow-harness.mjs";
 import {
   captureScreenshot,
   clickEnabledButtonByAria,
   dispatchKeyEvent,
+  waitForSelector,
   waitForState,
 } from "./electron-cdp-harness.mjs";
 
@@ -19,9 +19,9 @@ export async function exerciseMasterOverlayEntryPoints({
   workspaceId,
   waitForNavigation = false,
 }) {
-  await assertMasterPaneEntryPoint(client, timeoutMs);
-  await focusMasterPaneFromGlobalShortcut(client, "", timeoutMs);
-  await setMasterPaneDraft(client, text, timeoutMs);
+  await assertFixedMasterLauncher(client, timeoutMs);
+  await openFromSidebarAndRetainDraft(client, text, timeoutMs);
+  await collapseProjectSidebar(client, timeoutMs);
   await openFromAppChrome(client, text, timeoutMs);
   await openFromGlobalShortcut(client, text, timeoutMs);
 
@@ -31,13 +31,13 @@ export async function exerciseMasterOverlayEntryPoints({
   assertRecordedTypedMasterInput(recorded, workspaceId);
 
   if (waitForNavigation) {
-    await waitForState(
-      client,
-      `(() => ({ overlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')) }))()`,
-      (state) => !state.overlayOpen,
-      timeoutMs,
-    );
+    await waitForMasterOverlayClosed(client, timeoutMs);
+  } else {
+    await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
+    await waitForMasterOverlayClosed(client, timeoutMs);
   }
+  await clickEnabledButtonByAria(client, "Show project sidebar", timeoutMs);
+  await waitForSelector(client, '[data-testid="master-sidebar-launcher"]', timeoutMs);
   return recorded;
 }
 
@@ -73,9 +73,10 @@ export async function exerciseMasterCancellation({
   timeoutMs,
   workspaceId,
 }) {
-  await assertMasterPaneEntryPoint(client, timeoutMs);
-  await focusMasterPaneFromGlobalShortcut(client, "", timeoutMs);
-  await setMasterPaneDraft(client, text, timeoutMs);
+  await assertFixedMasterLauncher(client, timeoutMs);
+  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
+  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
+  await setMasterOverlayDraft(client, text, timeoutMs);
   await clickEnabledButtonByAria(client, "Send to Setta", timeoutMs);
   await assertActiveMasterInteraction(client, { expectedText: text }, timeoutMs);
   const recorded = await waitForRecordedMasterOverlayInput(artifactDirectory, text, timeoutMs);
@@ -112,24 +113,22 @@ export async function exerciseMasterCancellation({
     timeoutMs,
   );
   await captureScreenshot(client, join(artifactDirectory, "master-route-cancelled.png"));
-  await focusMasterPaneFromGlobalShortcut(client, "", timeoutMs);
-  const restoredTranscript = await waitForState(
+  await closeMasterOverlay(client, timeoutMs);
+  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
+  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
+  const cleared = await waitForState(
     client,
     `(() => ({
-      cancellationPresent: Array.from(
-        document.querySelectorAll('[data-testid="master-transcript-entry"][data-master-transcript-kind="cancellation"]'),
-      ).some((entry) => entry.textContent?.includes("Request cancelled")),
       requestPresent: Boolean(document.querySelector('[data-testid="master-active-request"]')),
-      transcriptEntryCount: document.querySelectorAll('[data-testid="master-transcript-entry"]').length,
+      emptyPresent: Boolean(document.querySelector('.setta-master-overlay-empty')),
     }))()`,
-    (state) => !state.requestPresent && state.cancellationPresent,
+    (state) => !state.requestPresent && state.emptyPresent,
     timeoutMs,
   );
-  if (!restoredTranscript.cancellationPresent) {
-    throw new Error(
-      `cancelled master interaction did not restore as transcript: ${JSON.stringify(restoredTranscript)}`,
-    );
+  if (!cleared.emptyPresent) {
+    throw new Error(`cancelled master interaction did not clear: ${JSON.stringify(cleared)}`);
   }
+  await closeMasterOverlay(client, timeoutMs);
   return {
     activeProviderTurnId: activeProvider.turn.id,
     cancelled,
@@ -202,34 +201,56 @@ function topicTurnOrdinal(turnId) {
   return match ? Number(match[1]) : -1;
 }
 
-async function assertMasterPaneEntryPoint(client, timeoutMs) {
+async function assertFixedMasterLauncher(client, timeoutMs) {
   const state = await waitForState(
     client,
-    driverCallExpression("masterPaneState", { draft: "" }),
-    (candidate) => candidate.open && !candidate.overlayOpen,
+    `(() => {
+      const launcher = document.querySelector('[data-testid="master-sidebar-launcher"]');
+      const scroll = document.querySelector('[data-testid="sidebar-scrollable-sections"]');
+      return {
+        available: launcher instanceof HTMLButtonElement && !launcher.disabled,
+        insideScrollableNavigator: Boolean(launcher && scroll?.contains(launcher)),
+      };
+    })()`,
+    (candidate) => candidate.available,
     timeoutMs,
   );
-  if (!state.open || state.overlayOpen) {
-    throw new Error(`master pane entry point is not available: ${JSON.stringify(state)}`);
+  if (state.insideScrollableNavigator) {
+    throw new Error(
+      `master sidebar launcher is not fixed above navigation: ${JSON.stringify(state)}`,
+    );
   }
 }
 
-async function openFromAppChrome(client, text, timeoutMs) {
-  await clickMasterSurfaceEntry(client, "master-pane-button", timeoutMs);
+async function openFromSidebarAndRetainDraft(client, text, timeoutMs) {
+  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
+  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
+  await setMasterOverlayDraft(client, text, timeoutMs);
+  await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
+  await waitForMasterOverlayClosed(client, timeoutMs);
+}
+
+async function collapseProjectSidebar(client, timeoutMs) {
+  await clickEnabledButtonByAria(client, "Hide project sidebar", timeoutMs);
   await waitForState(
     client,
-    driverCallExpression("masterPaneState", { draft: text }),
-    (state) =>
-      state.open && state.draft === text && state.focused && !state.overlayOpen && state.maximized,
+    `(() => ({
+      launcherPresent: Boolean(document.querySelector('[data-testid="master-sidebar-launcher"]')),
+      reopenAvailable: Boolean(document.querySelector('[aria-label="Show project sidebar"]')),
+    }))()`,
+    (state) => !state.launcherPresent && state.reopenAvailable,
     timeoutMs,
   );
 }
 
-async function openFromGlobalShortcut(client, text, timeoutMs) {
-  await focusMasterPaneFromGlobalShortcut(client, text, timeoutMs);
+async function openFromAppChrome(client, text, timeoutMs) {
+  await clickMasterSurfaceEntry(client, "master-overlay-button", timeoutMs);
+  await waitForMasterOverlay(client, { draft: text, focused: true }, timeoutMs);
+  await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
+  await waitForMasterOverlayClosed(client, timeoutMs);
 }
 
-async function focusMasterPaneFromGlobalShortcut(client, text, timeoutMs) {
+async function openFromGlobalShortcut(client, text, timeoutMs) {
   await dispatchKeyEvent(client, { code: "KeyK", key: "k", modifiers: 2 });
   await dispatchKeyEvent(client, {
     code: "KeyK",
@@ -237,13 +258,10 @@ async function focusMasterPaneFromGlobalShortcut(client, text, timeoutMs) {
     modifiers: 2,
     type: "keyUp",
   });
-  await waitForState(
-    client,
-    driverCallExpression("masterPaneState", { draft: text }),
-    (state) =>
-      state.open && state.draft === text && state.focused && !state.overlayOpen && state.maximized,
-    timeoutMs,
-  );
+  const state = await waitForMasterOverlay(client, { draft: text, focused: true }, timeoutMs);
+  if (!state.shellInert || !state.nativeViewsOccluded) {
+    throw new Error(`master overlay did not isolate shell/native panes: ${JSON.stringify(state)}`);
+  }
 }
 
 async function clickMasterSurfaceEntry(client, testId, timeoutMs) {
@@ -269,9 +287,9 @@ async function clickMasterSurfaceEntry(client, testId, timeoutMs) {
   }
 }
 
-async function setMasterPaneDraft(client, text, timeoutMs) {
+async function setMasterOverlayDraft(client, text, timeoutMs) {
   const updated = await client.evaluate(`(() => {
-    const textarea = document.querySelector('[data-testid="master-pane-surface"] textarea[aria-label="Ask Setta"]');
+    const textarea = document.querySelector('[data-testid="master-overlay"] textarea[aria-label="Ask Setta"]');
     if (!(textarea instanceof HTMLTextAreaElement)) {
       return false;
     }
@@ -281,15 +299,27 @@ async function setMasterPaneDraft(client, text, timeoutMs) {
     return true;
   })()`);
   if (!updated) {
-    throw new Error("master pane draft could not be updated");
+    throw new Error("master overlay draft could not be updated");
   }
-  await waitForMasterPane(client, { draft: text, focused: true }, timeoutMs);
+  await waitForMasterOverlay(client, { draft: text, focused: true }, timeoutMs);
 }
 
-async function waitForMasterPane(client, { draft, focused }, timeoutMs) {
+async function waitForMasterOverlay(client, { draft, focused }, timeoutMs) {
   return waitForState(
     client,
-    driverCallExpression("masterPaneState", { draft }),
+    `(() => {
+      const overlay = document.querySelector('[data-testid="master-overlay"]');
+      const textarea = overlay?.querySelector('textarea[aria-label="Ask Setta"]');
+      const shell = document.querySelector('[aria-hidden="true"][inert]');
+      const workspace = document.querySelector('[data-testid="workspace-layout-area"]');
+      return {
+        draft: textarea instanceof HTMLTextAreaElement ? textarea.value : null,
+        focused: textarea === document.activeElement,
+        nativeViewsOccluded: workspace?.getAttribute("data-native-view-overlay-active") === "true",
+        open: Boolean(overlay),
+        shellInert: Boolean(shell),
+      };
+    })()`,
     (state) => state.open && state.draft === draft && state.focused === focused,
     timeoutMs,
   );
@@ -311,7 +341,14 @@ async function assertActiveMasterInteraction(
 ) {
   return waitForState(
     client,
-    driverCallExpression("topicConversationMasterActiveInteractionState"),
+    `(() => ({
+      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+      interactionCount: document.querySelectorAll('[data-testid="master-active-interaction"]').length,
+      legacyHistoryPresent: Boolean(document.querySelector('[aria-label="Recent master exchanges"]')),
+      requestCount: document.querySelectorAll('[data-testid="master-active-request"]').length,
+      requestText: document.querySelector('[data-testid="master-active-request"] p')?.textContent ?? null,
+      resultKind: document.querySelector('[data-master-result-kind]')?.getAttribute('data-master-result-kind') ?? null,
+    }))()`,
     (state) =>
       state.open &&
       state.interactionCount === 1 &&
@@ -347,7 +384,8 @@ export async function verifyRestoredMasterInteraction({
   expectedText,
   timeoutMs,
 }) {
-  await focusMasterPaneFromGlobalShortcut(client, "", timeoutMs);
+  await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
+  await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
   await captureActiveMasterInteraction({
     artifactPath,
     client,
@@ -358,6 +396,7 @@ export async function verifyRestoredMasterInteraction({
 }
 
 export async function closeMasterOverlay(client, timeoutMs) {
+  await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
   await waitForMasterOverlayClosed(client, timeoutMs);
 }
 
@@ -628,8 +667,7 @@ async function waitForRecordedMasterOverlayInput(artifactDirectory, text, timeou
 
 function assertRecordedTypedMasterInput(recorded, workspaceId) {
   const { accepted, request } = requiredRecordedMasterInput(recorded);
-  void workspaceId;
-  assertTypedMasterRequest(request, recorded);
+  assertTypedMasterRequest(request, workspaceId, recorded);
   if (
     accepted.input.id !== request.input.id ||
     accepted.replyDelivery.originatingWorkspaceId !== null ||
@@ -655,13 +693,12 @@ function requiredRecordedMasterInput(recorded) {
   return { accepted: recorded.accepted, request: recorded.request };
 }
 
-function assertTypedMasterRequest(request, recorded) {
+function assertTypedMasterRequest(request, workspaceId, recorded) {
   const input = request.input;
   if (
     input.source !== "shell" ||
     input.modality !== "text" ||
-    input.focusedWorkspaceId !== null ||
-    input.focusedConversationId !== null
+    input.focusedWorkspaceId !== workspaceId
   ) {
     throw new Error(`typed master overlay request drifted: ${JSON.stringify(recorded)}`);
   }

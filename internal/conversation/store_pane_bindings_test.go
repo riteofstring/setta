@@ -140,7 +140,7 @@ func TestStoreRejectsPaneBindingWhenPresentationNarratorStateIsMissing(t *testin
 
 	err = store.ReplaceWorkspacePaneBindings(
 		context.Background(),
-		*conversation.WorkspaceID,
+		conversation.WorkspaceID,
 		[]WorkspacePaneBinding{{
 			PaneID:         "pane-missing-narrator",
 			ConversationID: conversation.ID,

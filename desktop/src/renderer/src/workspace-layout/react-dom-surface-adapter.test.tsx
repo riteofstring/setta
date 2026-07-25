@@ -1,12 +1,8 @@
-import type { ConversationSnapshot } from "@generated/backend";
 import { isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { EasyButtonSurface } from "../features/easy-button/easy-button-conversation-surface";
-import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
-import { AppShellMasterPaneSurface } from "../features/global-master/app-shell-master-pane-surface";
+import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
-import { useWorkspaceStore } from "../stores/workspace-store";
 import { reactDomSurfaceHostChangedEvent } from "./react-dom-surface-events";
 import {
   createReactDomSurfaceAdapter,
@@ -18,7 +14,6 @@ import { createFakeHost } from "./test-dom-fakes";
 import type { WorkspacePane } from "./types";
 
 afterEach(() => {
-  useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true);
   vi.unstubAllGlobals();
 });
 
@@ -94,8 +89,8 @@ describe("workspace React DOM surface adapter", () => {
     const firstHost = createFakeHost();
     const secondHost = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("conversation"),
-      () => "conversation surface",
+      fakePane("easy-button"),
+      () => "easy button surface",
       rootFactory,
     );
 
@@ -122,7 +117,7 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("conversation"),
+      fakePane("easy-button"),
       () => "conversation surface",
       rootFactory,
     );
@@ -149,7 +144,7 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("conversation"),
+      fakePane("easy-button"),
       () => "conversation surface",
       rootFactory,
     );
@@ -232,7 +227,7 @@ describe("workspace React DOM surface adapter", () => {
     ]);
   });
 
-  test("mounts the conversation pane as an idle React DOM surface", () => {
+  test("mounts the easy button as an idle React DOM surface", () => {
     const root = new RecordingRoot([]);
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot() {
@@ -242,7 +237,7 @@ describe("workspace React DOM surface adapter", () => {
     const host = createFakeHost();
     const speechCapture = { start: vi.fn(async () => {}) };
     const speechPresentation = {} as GlobalSpeechPresentationSource;
-    const adapter = createReactDomSurfaceAdapter(fakePane("conversation"), rootFactory, {
+    const adapter = createReactDomSurfaceAdapter(fakePane("easy-button"), rootFactory, {
       speechCapture,
       speechPresentation,
       workspaceId: "workspace_test",
@@ -260,9 +255,9 @@ describe("workspace React DOM surface adapter", () => {
         workspaceId: string;
       }>(renderedNode)
     ) {
-      throw new Error("conversation surface did not render a React element");
+      throw new Error("easy button surface did not render a React element");
     }
-    expect(host.dataset.surfaceKind).toBe("conversation");
+    expect(host.dataset.surfaceKind).toBe("easy-button");
     expect(renderedNode.type).toBe(EasyButtonSurface);
     expect(renderedNode.props.conversationId).toBe("conversation_test");
     expect(renderedNode.props.paneId).toBe("pane");
@@ -270,155 +265,7 @@ describe("workspace React DOM surface adapter", () => {
     expect(renderedNode.props.speechPresentation).toBe(speechPresentation);
     expect(renderedNode.props.workspaceId).toBe("workspace_test");
   });
-
-  test("keeps explicitly folderless conversation panes folderless in a selected workspace", () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(
-      fakeConversationPane({ resourceBindings: [] }),
-      rootFactory,
-      { workspaceId: "workspace_selected" },
-    );
-
-    adapter.mount(host);
-
-    const renderedNode = root.renderedNodes.at(-1);
-    if (
-      !isValidElement<{
-        resourceBindings: [];
-        workspaceId: string | null;
-      }>(renderedNode)
-    ) {
-      throw new Error("conversation surface did not render a React element");
-    }
-    expect(renderedNode.type).toBe(EasyButtonSurface);
-    expect(renderedNode.props.resourceBindings).toEqual([]);
-    expect(renderedNode.props.workspaceId).toBe("workspace_selected");
-  });
-
-  test("keeps minimal live conversation panes bound to the selected workspace", () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(fakeConversationPane(), rootFactory, {
-      workspaceId: "workspace_selected",
-    });
-
-    adapter.mount(host);
-
-    const renderedNode = root.renderedNodes.at(-1);
-    if (
-      !isValidElement<{
-        resourceBindings?: unknown;
-        workspaceId: string | null;
-      }>(renderedNode)
-    ) {
-      throw new Error("conversation surface did not render a React element");
-    }
-    expect(renderedNode.type).toBe(EasyButtonSurface);
-    expect(renderedNode.props.resourceBindings).toBeUndefined();
-    expect(renderedNode.props.workspaceId).toBe("workspace_selected");
-  });
-
-  test("closes resource-bound conversation panes through the matching active workspace", async () => {
-    const read = vi.fn(async () => conversationSnapshot("conversation_test", "workspace_bound"));
-    vi.stubGlobal("window", { setta: { conversations: { read } } });
-    useWorkspaceStore.setState({
-      session: {
-        activeWorkspaces: [
-          {
-            displayName: "bound",
-            id: "workspace_bound",
-            lastOpenedAt: timestamp,
-            rootPath: "/tmp/bound",
-          },
-        ],
-        recentWorkspaces: [],
-        selectedWorkspaceId: "workspace_mounted",
-        workspaceAvailabilities: [
-          { available: true, unavailableReason: "", workspaceId: "workspace_bound" },
-        ],
-      },
-    });
-    const adapter = createReactDomSurfaceAdapter(
-      fakeConversationPane({
-        resourceBindings: [{ folder: { rootPath: "/tmp/bound" }, kind: "folder" }],
-      }),
-      undefined,
-      { workspaceId: "workspace_mounted" },
-    );
-
-    await expect(adapter.requestPaneClose({ confirm: () => true })).resolves.toEqual({
-      removePane: true,
-    });
-
-    expect(read).toHaveBeenCalledWith({
-      conversationId: "conversation_test",
-      workspaceId: "workspace_bound",
-    });
-  });
-
-  test("closes explicitly folderless conversation panes as view-only panes", async () => {
-    const read = vi.fn();
-    vi.stubGlobal("window", { setta: { conversations: { read } } });
-    const adapter = createReactDomSurfaceAdapter(
-      fakeConversationPane({ resourceBindings: [] }),
-      undefined,
-      { workspaceId: "workspace_selected" },
-    );
-
-    await expect(adapter.requestPaneClose({ confirm: () => true })).resolves.toEqual({
-      removePane: true,
-    });
-
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  test("mounts the master pane as a focused React DOM surface that cannot be removed", async () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const masterController = {} as AppShellMasterController;
-    const adapter = createReactDomSurfaceAdapter(fakePane("master"), rootFactory, {
-      masterController,
-      platform: "linux",
-    });
-
-    adapter.mount(host);
-    adapter.setFocused(true);
-    const closeResult = await adapter.requestPaneClose({ confirm: () => true });
-
-    const renderedNode = root.renderedNodes.at(-1);
-    if (
-      !isValidElement<{
-        controller: AppShellMasterController;
-        focused: boolean;
-      }>(renderedNode)
-    ) {
-      throw new Error("master surface did not render a React element");
-    }
-    expect(host.dataset.surfaceKind).toBe("master");
-    expect(renderedNode.type).toBe(AppShellMasterPaneSurface);
-    expect(renderedNode.props.controller).toBe(masterController);
-    expect(renderedNode.props.focused).toBe(true);
-    expect(closeResult).toEqual({ removePane: false });
-  });
 });
-
-const timestamp = "2026-07-22T20:00:00Z";
 
 class RecordingRoot implements ReactSurfaceRoot {
   readonly renderedNodes: ReactNode[] = [];
@@ -435,64 +282,6 @@ class RecordingRoot implements ReactSurfaceRoot {
   }
 }
 
-function conversationSnapshot(
-  conversationId: string,
-  workspaceId: string | null,
-): ConversationSnapshot {
-  return {
-    artifacts: { artifacts: [], hasEarlier: false },
-    branch: null,
-    conversation: {
-      archivedAt: null,
-      createdAt: timestamp,
-      id: conversationId,
-      lastTrajectorySequence: 1,
-      status: "working",
-      title: conversationId,
-      topicDescriptor: `${conversationId} descriptor`,
-      updatedAt: timestamp,
-      workspaceId,
-    },
-    eventCursor: { sequence: 0, streamId: `stream_${conversationId}` },
-    narration: { events: [], hasEarlier: false },
-    narratorState: {
-      checkpointText: "",
-      checkpointThroughSequence: 0,
-      conversationId,
-      currentFocus: "",
-      currentFocusRevision: 0,
-      currentFocusSourceSequence: 0,
-      degradation: null,
-      lastInvocationAt: null,
-      observedThroughSequence: 0,
-      status: "ready",
-      topicDescriptor: `${conversationId} descriptor`,
-      updatedAt: timestamp,
-    },
-    presentationProfile: {
-      conversationId,
-      narratorSpeechEnabled: false,
-      narratorVoiceReuse: null,
-      narratorVoiceSelection: "auto_distinct",
-      paletteReuse: null,
-      paletteSelection: "auto_distinct",
-      requestedNarratorVoiceId: null,
-      requestedPaletteId: null,
-      resolvedNarratorVoiceId: null,
-      resolvedPaletteId: "sky",
-      updatedAt: timestamp,
-    },
-    queue: [],
-    roleProfileOverrides: [],
-    schemaVersion: 1,
-    sideConversations: [],
-    sideEvents: { events: [], hasEarlier: false, limit: 200 },
-    threadBinding: null,
-    trajectory: { events: [], hasEarlier: false },
-    turns: { hasEarlier: false, turns: [] },
-  } as ConversationSnapshot;
-}
-
 function waitForMicrotask(): Promise<void> {
   return new Promise((resolve) => {
     queueMicrotask(resolve);
@@ -500,9 +289,6 @@ function waitForMicrotask(): Promise<void> {
 }
 
 function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
-  if (surfaceKind === "conversation") {
-    return fakeConversationPane();
-  }
   const fields = {
     columnId: "column",
     heat: 42,
@@ -514,35 +300,13 @@ function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
     tone: "cyan" as const,
     weight: 1,
   };
-  return { ...fields, surfaceKind };
-}
-
-function fakeConversationPane(
-  options: {
-    resourceBindings?: Extract<
-      WorkspacePane,
-      { surfaceKind: "conversation" }
-    >["conversationConfig"]["resourceBindings"];
-  } = {},
-): Extract<WorkspacePane, { surfaceKind: "conversation" }> {
-  return {
-    columnId: "column",
-    conversationConfig: {
-      conversationId: "conversation_test",
-      ...(options.resourceBindings === undefined
-        ? {}
-        : { resourceBindings: options.resourceBindings }),
-    },
-    heat: 42,
-    paneId: "pane",
-    sequence: 0,
-    subtitle: "test",
-    surfaceId: "surface",
-    surfaceKind: "conversation",
-    title: "Pane",
-    tone: "cyan",
-    weight: 1,
-  };
+  return surfaceKind === "easy-button"
+    ? {
+        ...fields,
+        easyButtonConfig: { conversationId: "conversation_test" },
+        surfaceKind,
+      }
+    : { ...fields, surfaceKind };
 }
 
 interface FakeChildNode {

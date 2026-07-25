@@ -84,7 +84,7 @@ describe("real workspace layout scene", () => {
     });
   });
 
-  test("serializes and restores an conversation pane binding", () => {
+  test("serializes and restores an easy button conversation binding", () => {
     const workspaceId = "workspace_api";
     const initial = createRealWorkspaceScene({
       storedLayout: null,
@@ -96,10 +96,10 @@ describe("real workspace layout scene", () => {
       initial.scene,
       initial.focusedPaneId,
     );
-    const conversationConfig = { conversationId: "conversation-1" };
+    const easyButtonConfig = { conversationId: "conversation-1" };
     const paneId = store.openPane({
-      conversationConfig,
-      surfaceKind: "conversation",
+      easyButtonConfig,
+      surfaceKind: "easy-button",
       title: "Topic",
     });
 
@@ -114,10 +114,10 @@ describe("real workspace layout scene", () => {
       workspaceName: "Ignored after restore",
     });
 
-    expect(persisted.panes.find((pane) => pane.paneId === paneId)?.conversationConfig).toEqual(
-      conversationConfig,
+    expect(persisted.panes.find((pane) => pane.paneId === paneId)?.easyButtonConfig).toEqual(
+      easyButtonConfig,
     );
-    expect(restored.scene.paneById.get(paneId)?.conversationConfig).toEqual(conversationConfig);
+    expect(restored.scene.paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
   });
 
   test("serializes and restores a Browser pane as a product surface", () => {
@@ -151,7 +151,7 @@ describe("real workspace layout scene", () => {
     });
 
     expect(persisted.panes.find((pane) => pane.paneId === paneId)).toMatchObject({
-      conversationConfig: null,
+      easyButtonConfig: null,
       surfaceKind: "browser",
     });
     expect(restored.scene.paneById.get(paneId)).toMatchObject({
@@ -161,7 +161,7 @@ describe("real workspace layout scene", () => {
     });
   });
 
-  test("opens and restores one conversation pane per conversation without a pane cap", () => {
+  test("opens and restores one easy button view per conversation without a pane cap", () => {
     const workspaceId = "workspace_api";
     const initial = createRealWorkspaceScene({
       storedLayout: null,
@@ -174,33 +174,33 @@ describe("real workspace layout scene", () => {
       initial.focusedPaneId,
       { paneLimits: defaultRealWorkspacePaneLimits },
     );
-    const conversationConfig = { conversationId: "conversation-1" };
+    const easyButtonConfig = { conversationId: "conversation-1" };
     const firstPaneId = store.openPane({
-      conversationConfig,
-      surfaceKind: "conversation",
+      easyButtonConfig,
+      surfaceKind: "easy-button",
       title: "Topic",
     });
     expect(() =>
       store.openPane({
-        conversationConfig,
-        surfaceKind: "conversation",
+        easyButtonConfig,
+        surfaceKind: "easy-button",
         title: "Topic copy",
       }),
     ).toThrow("conversation conversation-1 is already bound to pane");
 
     for (let index = 2; index <= 11; index += 1) {
       store.openPane({
-        conversationConfig: { conversationId: `conversation-${index}` },
-        surfaceKind: "conversation",
+        easyButtonConfig: { conversationId: `conversation-${index}` },
+        surfaceKind: "easy-button",
         title: `Topic ${index}`,
       });
     }
 
-    expect(store.paneLimitState({ surfaceKind: "conversation" })).toEqual({
+    expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
       allowed: true,
       count: 11,
       limit: null,
-      surfaceKind: "conversation",
+      surfaceKind: "easy-button",
     });
 
     const persisted = workspaceUILayoutFromScene(
@@ -214,10 +214,8 @@ describe("real workspace layout scene", () => {
       workspaceName: "Ignored after restore",
     });
 
-    expect(restored.scene.paneById.get(firstPaneId)?.conversationConfig).toEqual(
-      conversationConfig,
-    );
-    expect(restored.scene.panes.filter((pane) => pane.surfaceKind === "conversation")).toHaveLength(
+    expect(restored.scene.paneById.get(firstPaneId)?.easyButtonConfig).toEqual(easyButtonConfig);
+    expect(restored.scene.panes.filter((pane) => pane.surfaceKind === "easy-button")).toHaveLength(
       11,
     );
   });
@@ -269,7 +267,7 @@ function storedColumn(columnId: string, index: number, paneIds: string[]) {
 function storedPane(paneId: string, columnId: string, surfaceId: string, title: string) {
   return {
     columnId,
-    conversationConfig: null,
+    easyButtonConfig: null,
     heat: 0,
     paneId,
     sequence: 0,
