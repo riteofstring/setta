@@ -2100,3 +2100,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   artifacts, background leases, phone attach, revocation, budgets, and
   independently proven cleanup. Historical evidence remains unchanged. The
   branch still does not implement the Setta 4 Director or phone frontend.
+- 2026-07-24 (typed hosted-access foundation): Added Go-owned
+  ensure-hosted-access, client, capability, grant, and progress contracts and
+  generated their TypeScript surfaces. Schema version 2 durably records
+  provider-neutral intents, requested capabilities, and ordered progress.
+  The private Unix control boundary accepts strict intents and publishes
+  cursor-resumable SSE using in-process push plus SQLite replay, with malformed
+  and ahead-of-history cursors rejected. The verified bootstrap now commits
+  readiness through the serving process, closing a cross-process missed-wakeup
+  race found by the production fixture. That fixture builds and starts the
+  real control-plane deployable, submits the generated TypeScript request,
+  runs the real bootstrap command with private credential files, and observes
+  `preparing_access -> syncing_project -> ready_on_phone` with the bounded
+  phone grant. Its client request and progress contain no provider, Sprite,
+  runtime, region, machine, endpoint, pairing, or wake fields. No provider or
+  cloud operation ran. Workstream execution, steering, cancellation,
+  approvals, artifacts, failure progress, Electron conversation E2E, and the
+  explicitly authorized live hosted run remain open.

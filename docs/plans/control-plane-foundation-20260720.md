@@ -11,7 +11,7 @@ The boundary owns:
 - a SQLite authority for users, authoritative runtime assignment, devices,
   hashed client credentials, runtime-access grants, credential epochs,
   persistent fixed-window rate limits, idempotent assignment operations, and
-  durable ensure-runtime intents;
+  durable ensure-runtime and Director-hosted-access intents;
 - a separate private filesystem secret store for inner runtime credentials;
 - provider-confined private transports resolved from durable route metadata;
 - bounded request bodies, declared content-length enforcement, concurrent
@@ -56,7 +56,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 1. SQLite uses foreign
+The `internal/controlplane` package owns schema version 2. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -88,6 +88,24 @@ Provider existence and authenticated URL access complete `ensure-runtime` but
 do not mark the runtime ready. Signed release installation, attestation, the
 inner runtime credential, and health must still complete before a separate
 lifecycle transition can enable routing.
+
+The 2026-07-24 extension persists provider-neutral hosted-access intents,
+requested capability rows, and ordered progress events. The private Unix
+administration boundary accepts strict intent JSON and exposes cursor-resumable
+SSE without polling. The existing verified bootstrap now completes its
+ready-state mutation through the serving process rather than opening SQLite in
+a second process, so an established progress stream receives an in-process
+push after the durable transaction commits. Reconnects replay from SQLite.
+Ahead-of-history and malformed cursors fail instead of silently skipping
+events.
+
+The generated TypeScript surface contains only trusted user, project,
+workstream, client-device, and requested-capability references. Provider,
+Sprite, runtime, region, machine, endpoint, pairing, and wake fields are absent.
+A deterministic production-process fixture builds and starts
+`setta-control-plane`, submits the generated TypeScript intent, runs the real
+bootstrap command with private credential files, and observes
+`preparing_access -> syncing_project -> ready_on_phone` over SSE.
 
 Client credentials contain 256 bits of randomness. Only SHA-256 token digests
 enter SQLite. The restart-safe `bootstrap` operator command writes the raw
@@ -165,13 +183,15 @@ dry-run. The following work remains:
    command remain. The Fly organization and region remain intentionally
    unselected; read-only discovery exposed only the `personal` Fly
    organization, not a Fly organization named `setta-100`.
-2. Add signed runtime installation, attestation, credential issuance, and
-   health stages to the provisioning state machine before it may mark a runtime
-   ready.
+2. The live coordinator already orders signed runtime installation,
+   attestation, credential issuance, and health before invoking bootstrap.
+   Generalize those stages into the durable reconciler before using the
+   control plane outside the bounded hosted measurement.
 3. Add backup/restore and record the single-instance failure expectations, or
    explicitly constrain the hosted run to disposable measurement state.
-4. Exercise the web client through this control-plane server in a deterministic
-   production Electron workflow.
+4. Extend the deterministic typed main-process fixture into the required
+   production Electron conversation workflow when hosted workstream execution
+   is wired; the current fixture proves only ensure/progress/bootstrap.
 
 Current availability is single instance on one durable volume. There is no
 failover, database replication, secret-store replication, or backup yet. A
