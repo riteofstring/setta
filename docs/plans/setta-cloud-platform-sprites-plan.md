@@ -1416,7 +1416,7 @@ lose mutation intent, suspension, or budget enforcement.
 - [ ] Add push notifications for approval-needed, access-ready, run-finished,
   and failure events without including conversation, artifact, or repository
   content in the payload.
-- [ ] Verify the desktop can close while agents continue under renewable,
+- [x] Verify the desktop can close while agents continue under renewable,
   budget-bound workload leases.
 - [ ] Verify an idle desktop or phone disconnects according to policy, the
   Sprite becomes eligible to pause when no useful work remains, and the next
@@ -2753,3 +2753,29 @@ Stop and reassess rather than hiding the problem if any of these occur:
   clauses without claiming a Setta 4 phone UI exists. Both paths passed again
   in the clean schema-v15 full gate. This was a documentation-only evidence
   audit; no automated check was repeated and no provider or cloud mutation ran.
+- 2026-07-25 (client-independent leased work): Closed the Phase 6 desktop-close
+  requirement with a focused Candidate B production-path workflow. A bounded
+  phone grant submits a provider turn through the hosted control plane, waits
+  until the serving runtime reports both a running turn and its active
+  workload lease, then fully shuts down the gateway and closes its durable
+  Store while leaving the runtime alive. With no reachable client path, the
+  runtime renews the 100 ms lease through the same manager and accounting
+  reporter used by agent execution, completes the scripted Codex turn, records
+  the canonical lease end, and releases the provider hold. Restarting the
+  gateway from its original durable directories exposes the completed turn to
+  the same bounded device grant. The test explicitly requires a renewal after
+  gateway shutdown, so a lease renewed only while the client was attached
+  cannot satisfy it. Race instrumentation initially exposed an independent
+  Codex session hazard: a lossless dispatch could send while turn cleanup
+  closed the event channel. Session close now signals cancellation and waits
+  behind a send barrier before closing the channel; the focused close/send
+  test and the complete hosted workflow both pass under the Go race detector.
+  The fixture owns an explicit per-test turn-delay setting rather than using
+  event volume as a timing proxy. The registered `hosted-cloud-chat` Electron
+  workflow passed after the change, and `./check_quality.sh --git-changes`
+  passed Go vet/tests/dead-code, all 107 desktop files and 832 tests,
+  typecheck, production builds, formatting, complexity, and desktop dead-code
+  checks. This closes client independence under renewable, budget-bound
+  workload leases; it does not close the broader Phase 4 matrix for idle
+  reconnect, warm wake, process/backend loss, and control-plane restart. No
+  provider or cloud mutation ran.
