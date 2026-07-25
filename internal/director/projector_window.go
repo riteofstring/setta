@@ -90,9 +90,9 @@ func recentNodes(nodes []SemanticNode, limit int) []SemanticNode {
 	return nodes[len(nodes)-limit:]
 }
 
-// windowGraph keeps only the edges whose endpoints survived the window. A
-// delegated_to edge to another workstream is the one relationship whose target
-// lives elsewhere, so its target is not required to be present here.
+// windowGraph keeps only the edges whose endpoints both survived the window.
+// Both endpoints of an edge live in the same workstream, so an edge whose
+// target the window dropped would be drawn pointing at nothing.
 func windowGraph(full WorkstreamGraph, level WorkstreamDetailLevel, nodes []SemanticNode) WorkstreamGraph {
 	present := make(map[string]bool, len(nodes))
 	for _, node := range nodes {
@@ -100,10 +100,7 @@ func windowGraph(full WorkstreamGraph, level WorkstreamDetailLevel, nodes []Sema
 	}
 	edges := make([]SemanticEdge, 0, len(full.Edges))
 	for _, edge := range full.Edges {
-		if !present[edge.FromNodeID] {
-			continue
-		}
-		if edge.ToWorkstreamID == full.WorkstreamID && !present[edge.ToNodeID] {
+		if !present[edge.FromNodeID] || !present[edge.ToNodeID] {
 			continue
 		}
 		edges = append(edges, edge)

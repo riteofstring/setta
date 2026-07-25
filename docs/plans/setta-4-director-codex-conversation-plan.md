@@ -623,6 +623,49 @@ Exit criteria:
 - no code path exists only to preserve behavior from the superseded Director
   implementation
 
+#### Resolved: every workstream the Director creates answers to nobody
+
+The child and fork origins are gone, and nothing was given a product entry point
+to keep them. `CreateWorkstreamDecision` now carries the resource scope directly
+instead of an origin union whose two other arms no Setta tool could reach, so a
+created workstream chooses its folder and has no parent to inherit one from.
+`WorkstreamStartRequest` lost its origin, and `DirectorWorkstreamStart` lost the
+parent conversation and fork turn it passed to the conversation service.
+
+The fork points went with them. Trusted context offered every completed run of
+every workstream as a fork origin, and a `create_workstream` call could not name
+one, so the registry was folding, bounding, and validating a list the Director
+was never able to act on.
+
+The delegation projection follows, because it was the graph half of the same
+feature. A create decision no longer waits for the workstream it authorized to
+appear so it can draw an edge into it: the decision is committed in the Director
+lane, and the workstream anchor already says the work exists. The one delegation
+left is the provider's — a run to the subagent it handed work to — which never
+leaves the workstream that ran it. So a semantic edge is now a relationship
+inside one workstream: `SemanticEdge` carries a single `workstreamId`, both
+endpoints resolve in that workstream's graph, and the parent/child edge authority
+that existed only to license the crossing is gone. Snapshot windowing and delta
+validation drop their cross-workstream carve-outs with it.
+
+Durable parentage stays. It is written by the conversation router's own fork
+decisions, which is a different feature with its own entry point, and the
+registry still folds a branch record ahead of the conversation it describes. What
+went is the branch kind only the Director wrote: a `child` branch was durable
+parentage with no carried history, created by nothing else, and `director` as a
+branch decision source went with it.
+
+#### Verify in the phase audit
+
+- the decision-router deliverable above: what is left of `decision_*` is the
+  durable fact catalog, the trusted authority context, and the executor, which
+  Phase 1 recorded as the surface the tool layer uses directly — confirm no
+  router remnant survives beyond that
+- stale docs that describe the wrong Director model
+- `DirectorFactWorkstreamRegistered` is described in `source_mapping.go` as a
+  fixture/projector-catalog fact whose production anchors come from
+  `conversation.updated`; confirm whether production still commits it
+
 ### Phase 6 - Verification When Requested
 
 Per `AGENTS.md`, automated tests run only when the branch is ready to merge and

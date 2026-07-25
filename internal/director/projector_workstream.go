@@ -109,7 +109,7 @@ func (projector *DirectorGraphProjector) createWorkstreamAnchor(
 	rule SourceFactRule,
 ) error {
 	context := workstreamRecordContext(record, workstream, rule)
-	nodeID, err := projector.commitNode(context, nodeSpec{
+	_, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityWorkstream,
 		sourceID: record.WorkstreamID,
 		kind:     SemanticNodeWorkstream,
@@ -118,10 +118,7 @@ func (projector *DirectorGraphProjector) createWorkstreamAnchor(
 		summary:  record.Title,
 		evidence: EvidenceRuntimeFact,
 	})
-	if err != nil {
-		return err
-	}
-	return projector.resolveDelegation(context, nodeID)
+	return err
 }
 
 // updateWorkstreamAnchor advances durable title/provenance without making the

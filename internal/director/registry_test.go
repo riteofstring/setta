@@ -108,21 +108,10 @@ func TestNewWorkstreamIsAnchoredBeforeItRunsAnything(t *testing.T) {
 	defer subscription.Unsubscribe()
 
 	workstreamID := harness.createConversation("conversation-anchor", "Plan the migration", nil)
-	graph := awaitEvent(t, subscription, DirectorEventGraphUpdated)
-	if graph.GraphUpdated.WorkstreamID != workstreamID {
-		t.Fatalf("graph event names workstream %q, want %q", graph.GraphUpdated.WorkstreamID, workstreamID)
-	}
-	if len(graph.GraphUpdated.Nodes) != 1 {
-		t.Fatalf("registration published %d nodes, want the anchor", len(graph.GraphUpdated.Nodes))
-	}
-	anchor := graph.GraphUpdated.Nodes[0]
-	if anchor.Kind != SemanticNodeWorkstream || anchor.Status != SemanticNodeStatusActive {
-		t.Fatalf("anchor node = %q/%q", anchor.Kind, anchor.Status)
-	}
+	anchor, createdEventID := awaitAnchor(t, harness, subscription, workstreamID)
 	if anchor.PublicSummary != "Plan the migration" {
 		t.Fatalf("anchor summary = %q, want the workstream title", anchor.PublicSummary)
 	}
-	createdEventID := harness.lastEvent
 	if len(anchor.SourceEventIDs) != 1 || anchor.SourceEventIDs[0] != createdEventID {
 		t.Fatalf(
 			"anchor provenance = %v, want committed conversation event %q",
@@ -142,6 +131,19 @@ func TestNewWorkstreamIsAnchoredBeforeItRunsAnything(t *testing.T) {
 	if anchored := requireWorkstreamGraph(t, snapshot, workstreamID); len(anchored.Nodes) != 1 {
 		t.Fatalf("snapshot workstream graph = %+v, want the anchor", anchored)
 	}
+}
+
+// TestRenamingAWorkstreamAdvancesTheSameAnchor proves a rename changes what the
+// workstream is called without rewinding its causal chain: the anchor keeps its
+// identity and gains the renaming event as further provenance.
+func TestRenamingAWorkstreamAdvancesTheSameAnchor(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	workstreamID := harness.createConversation("conversation-anchor", "Plan the migration", nil)
+	anchor, createdEventID := awaitAnchor(t, harness, subscription, workstreamID)
 
 	harness.updateConversationTitle("conversation-anchor", "Migration plan")
 	renamedEventID := harness.lastEvent
@@ -163,12 +165,25 @@ func TestNewWorkstreamIsAnchoredBeforeItRunsAnything(t *testing.T) {
 			renamedEventID,
 		)
 	}
+
 	replayed := requireSnapshot(t, harness.start())
 	replayedAnchor := requireWorkstreamGraph(t, replayed, workstreamID).Nodes[0]
 	if replayedAnchor.PublicSummary != "Migration plan" ||
 		len(replayedAnchor.SourceEventIDs) != 2 {
 		t.Fatalf("replayed anchor = %+v", replayedAnchor)
 	}
+}
+
+// TestTheFirstGoalFollowsTheAnchor proves the workstream's first real fact
+// chains from the anchor rather than starting from nothing.
+func TestTheFirstGoalFollowsTheAnchor(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	workstreamID := harness.createConversation("conversation-anchor", "Plan the migration", nil)
+	anchor, _ := awaitAnchor(t, harness, subscription, workstreamID)
 
 	harness.startTurn("conversation-anchor", "turn-1")
 	accepted := harness.acceptInput("conversation-anchor", "turn-1", "plan the migration")
@@ -189,6 +204,29 @@ func TestNewWorkstreamIsAnchoredBeforeItRunsAnything(t *testing.T) {
 	if chained.SourceEventIDs[0] != accepted.ID {
 		t.Fatalf("goal edge provenance = %v, want the accepted input event", chained.SourceEventIDs)
 	}
+}
+
+// awaitAnchor takes the pushed anchor a just-created workstream publishes, and
+// the committed conversation event it was drawn from.
+func awaitAnchor(
+	t *testing.T,
+	harness *registryHarness,
+	subscription DirectorEventSubscription,
+	workstreamID string,
+) (SemanticNode, string) {
+	t.Helper()
+	graph := awaitEvent(t, subscription, DirectorEventGraphUpdated)
+	if graph.GraphUpdated.WorkstreamID != workstreamID {
+		t.Fatalf("graph event names workstream %q, want %q", graph.GraphUpdated.WorkstreamID, workstreamID)
+	}
+	if len(graph.GraphUpdated.Nodes) != 1 {
+		t.Fatalf("registration published %d nodes, want the anchor", len(graph.GraphUpdated.Nodes))
+	}
+	anchor := graph.GraphUpdated.Nodes[0]
+	if anchor.Kind != SemanticNodeWorkstream || anchor.Status != SemanticNodeStatusActive {
+		t.Fatalf("anchor node = %q/%q", anchor.Kind, anchor.Status)
+	}
+	return anchor, harness.lastEvent
 }
 
 func TestAwaitRunTerminalDoesNotReturnForTheInterruptionRequest(t *testing.T) {
@@ -949,56 +987,6 @@ func TestSelectedGraphClearsWhenItBecomesBackground(t *testing.T) {
 	for _, graph := range after.Graphs {
 		if graph.WorkstreamID == oldest {
 			t.Fatalf("background workstream retained graph %+v", graph)
-		}
-	}
-}
-
-func TestSnapshotOmitsDelegationWhoseChildIsOutsideTheWindow(t *testing.T) {
-	harness := newRegistryHarness(t)
-	parent := harness.createConversation("conversation-window-parent", "Parent", nil)
-	child, err := WorkstreamIDForConversation("conversation-window-child")
-	if err != nil {
-		t.Fatalf("WorkstreamIDForConversation: %v", err)
-	}
-	harness.appendFact(DirectorFactEvent{
-		Kind:         DirectorFactDecisionCommitted,
-		WorkstreamID: &parent,
-		Actor:        SemanticActorDirector,
-		DecisionCommitted: &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionCreateWorkstream,
-			IntentID:           "intent-window-child",
-			PublicSummary:      "Started a child workstream.",
-			TargetWorkstreamID: &child,
-		},
-	})
-	harness.publishBranch("conversation-window-child", "conversation-window-parent")
-	harness.createConversation("conversation-window-child", "Child", nil)
-	for index := 0; index < MaxSnapshotWorkstreams-1; index++ {
-		harness.createConversation(
-			fmt.Sprintf("conversation-window-filler-%03d", index),
-			fmt.Sprintf("Window filler %03d", index),
-			nil,
-		)
-	}
-	harness.appendFact(DirectorFactEvent{
-		Kind:         DirectorFactWorkstreamSelected,
-		WorkstreamID: &parent,
-		Actor:        SemanticActorUser,
-		WorkstreamSelected: &DirectorWorkstreamSelected{
-			PreviousWorkstreamID: nil,
-		},
-	})
-
-	snapshot := requireSnapshot(t, harness.start())
-	for _, entry := range snapshot.Workstreams {
-		if entry.Workstream.ID == child {
-			t.Fatalf("child workstream %s unexpectedly remained in the bounded window", child)
-		}
-	}
-	parentGraph := requireWorkstreamGraph(t, snapshot, parent)
-	for _, edge := range parentGraph.Edges {
-		if edge.ToWorkstreamID == child {
-			t.Fatalf("bounded parent graph retained delegation to omitted child: %+v", edge)
 		}
 	}
 }

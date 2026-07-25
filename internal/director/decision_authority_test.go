@@ -119,12 +119,6 @@ func TestDecisionTargetAuthorityMatchesRunState(t *testing.T) {
 		{"archived workstream offered as a target", func(target *WorkstreamDecisionTarget) {
 			target.Status = WorkstreamStatusArchived
 		}},
-		{"repeated fork point", func(target *WorkstreamDecisionTarget) {
-			target.ForkPoints = append(target.ForkPoints, target.ForkPoints[0])
-		}},
-		{"null fork points", func(target *WorkstreamDecisionTarget) {
-			target.ForkPoints = nil
-		}},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -181,39 +175,6 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 				Folder: &DecisionFolderResource{WorkspaceID: fixtureUnofferedWorkspace},
 			}),
 			detail: "is not an offered folder resource",
-		},
-		{
-			name: "forking a run that is not a fork point",
-			decision: DirectorDecision{
-				Kind: DirectorDecisionCreateWorkstream,
-				CreateWorkstream: &CreateWorkstreamDecision{
-					Origin: WorkstreamCreationOrigin{
-						Kind: WorkstreamCreationFork,
-						Fork: &ForkWorkstreamOrigin{
-							ParentWorkstreamID: fixtureIdleWorkstream,
-							ForkedAtRunID:      "run-imagined",
-						},
-					},
-					InitialInput:  "try the other approach",
-					ProposedTitle: "Alternate parser",
-				},
-			},
-			detail: "is not a fork point of workstream",
-		},
-		{
-			name: "hanging a child off a workstream that does not accept one",
-			decision: DirectorDecision{
-				Kind: DirectorDecisionCreateWorkstream,
-				CreateWorkstream: &CreateWorkstreamDecision{
-					Origin: WorkstreamCreationOrigin{
-						Kind:  WorkstreamCreationChild,
-						Child: &ChildWorkstreamOrigin{ParentWorkstreamID: fixtureActiveWorkstream},
-					},
-					InitialInput:  "chase the tangent",
-					ProposedTitle: "Tangent",
-				},
-			},
-			detail: "does not accept a child workstream",
 		},
 		{
 			name: "two payloads for one kind",

@@ -108,7 +108,7 @@ func projectTurnQueued(projector *DirectorGraphProjector, context factContext, e
 	if err != nil {
 		return err
 	}
-	return projector.addEdge(context, SemanticEdgeDependsOn, nodeID, context.workstream.id, blockedBehind)
+	return projector.addEdge(context, SemanticEdgeDependsOn, nodeID, blockedBehind)
 }
 
 func projectTurnPromoted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -676,10 +676,10 @@ func (projector *DirectorGraphProjector) commitPlanSteps(
 		}); err != nil {
 			return err
 		}
-		if err := projector.addEdge(context, SemanticEdgeDependsOn, planNodeID, context.workstream.id, stepNodeID); err != nil {
+		if err := projector.addEdge(context, SemanticEdgeDependsOn, planNodeID, stepNodeID); err != nil {
 			return err
 		}
-		if err := projector.addEdge(context, SemanticEdgeFollowedBy, previousStepID, context.workstream.id, stepNodeID); err != nil {
+		if err := projector.addEdge(context, SemanticEdgeFollowedBy, previousStepID, stepNodeID); err != nil {
 			return err
 		}
 		previousStepID = stepNodeID

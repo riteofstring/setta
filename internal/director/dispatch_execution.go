@@ -173,7 +173,6 @@ func (executor *DecisionExecutor) CreateWorkstream(
 	workspaceID := folder.WorkspaceID
 	if err := executor.execution.StartWorkstream(ctx, WorkstreamStartRequest{
 		ConversationID: conversationID,
-		Origin:         WorkstreamOrigin{Kind: WorkstreamCreationRoot},
 		Title:          intent.Title,
 		WorkspaceID:    &workspaceID,
 	}); err != nil {

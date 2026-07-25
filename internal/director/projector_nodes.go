@@ -153,17 +153,17 @@ func (projector *DirectorGraphProjector) chainFollowedBy(context factContext, no
 			from = runLast
 		}
 	}
-	return projector.addEdge(context, SemanticEdgeFollowedBy, from, context.workstream.id, node.ID)
+	return projector.addEdge(context, SemanticEdgeFollowedBy, from, node.ID)
 }
 
-// addEdge records one typed relationship. An edge to a node that does not exist
-// yet, or from a fact to itself, is not an error: a mapping rule states the
-// relationships a fact may create, never the ones it must.
+// addEdge records one typed relationship inside the workstream that owns both
+// endpoints. An edge to a node that does not exist yet, or from a fact to
+// itself, is not an error: a mapping rule states the relationships a fact may
+// create, never the ones it must.
 func (projector *DirectorGraphProjector) addEdge(
 	context factContext,
 	kind SemanticEdgeKind,
 	fromNodeID string,
-	toWorkstreamID string,
 	toNodeID string,
 ) error {
 	if fromNodeID == "" || toNodeID == "" || fromNodeID == toNodeID {
@@ -180,11 +180,7 @@ func (projector *DirectorGraphProjector) addEdge(
 	if _, exists := workstream.nodeIndex[fromNodeID]; !exists {
 		return fmt.Errorf("semantic edge %q starts at unknown node %q", kind, fromNodeID)
 	}
-	target, known := projector.workstreams[toWorkstreamID]
-	if !known {
-		return fmt.Errorf("semantic edge %q targets unknown workstream %q", kind, toWorkstreamID)
-	}
-	if _, exists := target.nodeIndex[toNodeID]; !exists {
+	if _, exists := workstream.nodeIndex[toNodeID]; !exists {
 		return fmt.Errorf("semantic edge %q ends at unknown node %q", kind, toNodeID)
 	}
 	edgeID := fmt.Sprintf("%s:%s->%s", kind, fromNodeID, toNodeID)
@@ -192,14 +188,13 @@ func (projector *DirectorGraphProjector) addEdge(
 		return nil
 	}
 	edge := SemanticEdge{
-		ID:               edgeID,
-		Kind:             kind,
-		FromWorkstreamID: workstream.id,
-		FromNodeID:       fromNodeID,
-		ToWorkstreamID:   toWorkstreamID,
-		ToNodeID:         toNodeID,
-		SourceEventIDs:   []string{context.eventID},
-		CreatedAt:        context.emittedAt,
+		ID:             edgeID,
+		Kind:           kind,
+		WorkstreamID:   workstream.id,
+		FromNodeID:     fromNodeID,
+		ToNodeID:       toNodeID,
+		SourceEventIDs: []string{context.eventID},
+		CreatedAt:      context.emittedAt,
 	}
 	if err := ValidateSemanticEdge(edge, projector.liveAuthority()); err != nil {
 		return err
@@ -228,40 +223,7 @@ func (projector *DirectorGraphProjector) recoverFrom(context factContext, recove
 		return nil
 	}
 	context.workstream.recoveryAnchor = ""
-	return projector.addEdge(context, SemanticEdgeRecoveredBy, anchor, context.workstream.id, recoveryNodeID)
-}
-
-// resolveDelegation draws the delegated_to edge a committed decision earned once
-// the work it authorized exists. A target that is not the deciding workstream or
-// one of its children is a routing target, not a delegation, so no edge is made.
-func (projector *DirectorGraphProjector) resolveDelegation(context factContext, targetNodeID string) error {
-	remaining := projector.pendingDelegation[:0]
-	for _, pending := range projector.pendingDelegation {
-		if pending.targetWorkstreamID != context.workstream.id {
-			remaining = append(remaining, pending)
-			continue
-		}
-		source, known := projector.workstreams[pending.decisionWorkstreamID]
-		if !known {
-			continue
-		}
-		parent := projector.workstreamParents[pending.targetWorkstreamID]
-		if parent == nil || *parent != pending.decisionWorkstreamID {
-			return fmt.Errorf(
-				"decision %s cannot delegate from workstream %s to non-child workstream %s",
-				pending.decisionNodeID,
-				pending.decisionWorkstreamID,
-				pending.targetWorkstreamID,
-			)
-		}
-		sourceContext := context
-		sourceContext.workstream = source
-		if err := projector.addEdge(sourceContext, SemanticEdgeDelegatedTo, pending.decisionNodeID, context.workstream.id, targetNodeID); err != nil {
-			return err
-		}
-	}
-	projector.pendingDelegation = remaining
-	return nil
+	return projector.addEdge(context, SemanticEdgeRecoveredBy, anchor, recoveryNodeID)
 }
 
 func completionTimestamp(status SemanticNodeStatus, previous *string, emittedAt string) *string {

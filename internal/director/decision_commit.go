@@ -69,7 +69,7 @@ func DecisionPublicSummary(context DirectorDecisionContext, decision DirectorDec
 func decisionSummaryText(context DirectorDecisionContext, decision DirectorDecision) (string, error) {
 	switch decision.Kind {
 	case DirectorDecisionCreateWorkstream:
-		return createWorkstreamSummary(context, *decision.CreateWorkstream)
+		return fmt.Sprintf("Started the workstream %q.", decision.CreateWorkstream.ProposedTitle), nil
 	case DirectorDecisionSendToWorkstream:
 		return targetSummary(context, decision.SendToWorkstream.WorkstreamID, "Sent new work to %q.")
 	case DirectorDecisionQueueBehindRun:
@@ -82,27 +82,6 @@ func decisionSummaryText(context DirectorDecisionContext, decision DirectorDecis
 		return recoverPathSummary(context, *decision.RecoverPath)
 	default:
 		return "", fmt.Errorf("unknown director decision kind %q", decision.Kind)
-	}
-}
-
-func createWorkstreamSummary(context DirectorDecisionContext, payload CreateWorkstreamDecision) (string, error) {
-	switch payload.Origin.Kind {
-	case WorkstreamCreationRoot:
-		return fmt.Sprintf("Started the workstream %q.", payload.ProposedTitle), nil
-	case WorkstreamCreationChild:
-		parent, found := context.Target(payload.Origin.Child.ParentWorkstreamID)
-		if !found {
-			return "", fmt.Errorf("unknown parent workstream %s", payload.Origin.Child.ParentWorkstreamID)
-		}
-		return fmt.Sprintf("Started the workstream %q under %q.", payload.ProposedTitle, parent.Title), nil
-	case WorkstreamCreationFork:
-		parent, found := context.Target(payload.Origin.Fork.ParentWorkstreamID)
-		if !found {
-			return "", fmt.Errorf("unknown fork parent workstream %s", payload.Origin.Fork.ParentWorkstreamID)
-		}
-		return fmt.Sprintf("Forked the workstream %q from %q.", payload.ProposedTitle, parent.Title), nil
-	default:
-		return "", fmt.Errorf("unknown workstream creation origin %q", payload.Origin.Kind)
 	}
 }
 

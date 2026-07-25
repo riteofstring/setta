@@ -17,8 +17,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 95;
-export const backendContractSchemaHash = "sha256:dec05b4101c495ba21e4239283816175bd550686f02217ea9e15b4304a019566";
+export const backendProtocolVersion = 96;
+export const backendContractSchemaHash = "sha256:cc0b5cdefddd83b15d14a27299d7c800d84de32e6a57390699ff30d712003756";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -943,32 +943,28 @@ export function decodeVoiceSelectionMode(value: unknown, label = "VoiceSelection
   }
 }
 
-export type BranchKind = "fork" | "child";
+export type BranchKind = "fork";
 
-export const branchKindValues = ["fork", "child"] as const satisfies readonly BranchKind[];
+export const branchKindValues = ["fork"] as const satisfies readonly BranchKind[];
 
 export function decodeBranchKind(value: unknown, label = "BranchKind"): BranchKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "fork":
       return decoded;
-    case "child":
-      return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type BranchDecisionSource = "conversation_router" | "director";
+export type BranchDecisionSource = "conversation_router";
 
-export const branchDecisionSourceValues = ["conversation_router", "director"] as const satisfies readonly BranchDecisionSource[];
+export const branchDecisionSourceValues = ["conversation_router"] as const satisfies readonly BranchDecisionSource[];
 
 export function decodeBranchDecisionSource(value: unknown, label = "BranchDecisionSource"): BranchDecisionSource {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "conversation_router":
-      return decoded;
-    case "director":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3136,9 +3132,8 @@ export interface SemanticNode {
 export interface SemanticEdge {
   id: string;
   kind: SemanticEdgeKind;
-  fromWorkstreamId: string;
+  workstreamId: string;
   fromNodeId: string;
-  toWorkstreamId: string;
   toNodeId: string;
   sourceEventIds: string[];
   createdAt: string;
@@ -6134,13 +6129,12 @@ export function decodeSemanticNode(value: unknown): SemanticNode {
 
 export function decodeSemanticEdge(value: unknown): SemanticEdge {
   const record = assertRecord(value, "SemanticEdge");
-  assertKnownFields(record, "SemanticEdge", ["id", "kind", "fromWorkstreamId", "fromNodeId", "toWorkstreamId", "toNodeId", "sourceEventIds", "createdAt"]);
+  assertKnownFields(record, "SemanticEdge", ["id", "kind", "workstreamId", "fromNodeId", "toNodeId", "sourceEventIds", "createdAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticEdge"), "SemanticEdge.id"),
     kind: decodeSemanticEdgeKind(requireField(record, "kind", "SemanticEdge"), "SemanticEdge.kind"),
-    fromWorkstreamId: decodeString(requireField(record, "fromWorkstreamId", "SemanticEdge"), "SemanticEdge.fromWorkstreamId"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "SemanticEdge"), "SemanticEdge.workstreamId"),
     fromNodeId: decodeString(requireField(record, "fromNodeId", "SemanticEdge"), "SemanticEdge.fromNodeId"),
-    toWorkstreamId: decodeString(requireField(record, "toWorkstreamId", "SemanticEdge"), "SemanticEdge.toWorkstreamId"),
     toNodeId: decodeString(requireField(record, "toNodeId", "SemanticEdge"), "SemanticEdge.toNodeId"),
     sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "SemanticEdge"), "SemanticEdge.sourceEventIds", (item) => decodeString(item, "SemanticEdge.sourceEventIds item")),
     createdAt: decodeString(requireField(record, "createdAt", "SemanticEdge"), "SemanticEdge.createdAt"),

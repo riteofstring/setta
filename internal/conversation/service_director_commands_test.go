@@ -2,77 +2,10 @@ package conversation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
 )
-
-// TestDirectorChildWorkstreamRecordsParentageWithoutHistory proves the Director
-// can delegate to a durable child that is not a fork. A fork carries one
-// completed parent run forward; a delegated child starts its own work, so it
-// records parentage and no fork point.
-func TestDirectorChildWorkstreamRecordsParentageWithoutHistory(t *testing.T) {
-	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
-	t.Cleanup(func() {
-		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		_ = service.Shutdown(shutdownContext)
-		_ = store.Close()
-	})
-	ctx := context.Background()
-
-	parent, err := service.CreateTopicWithOptionalWorkspace(ctx, &workspaceID, "Ship the release")
-	if err != nil {
-		t.Fatalf("create parent: %v", err)
-	}
-	child, err := service.StartDirectorWorkstream(ctx, DirectorWorkstreamStart{
-		ConversationID:       "conversation-director-child",
-		Title:                "Update the changelog",
-		WorkspaceID:          &workspaceID,
-		ParentConversationID: parent.Conversation.ID,
-	})
-	if err != nil {
-		t.Fatalf("StartDirectorWorkstream: %v", err)
-	}
-	if child.Branch == nil {
-		t.Fatal("a delegated child has no durable parentage")
-	}
-	if child.Branch.Kind != BranchKindChild ||
-		child.Branch.ParentConversationID != parent.Conversation.ID ||
-		child.Branch.DecisionSource != BranchDecisionSourceDirector {
-		t.Fatalf("child branch = %+v", child.Branch)
-	}
-	if child.Branch.ForkedAtTurnID != "" {
-		t.Fatalf("a delegated child carries fork point %q", child.Branch.ForkedAtTurnID)
-	}
-
-	reloaded, err := store.ReadSnapshot(ctx, workspaceID, "conversation-director-child")
-	if err != nil {
-		t.Fatalf("ReadSnapshot: %v", err)
-	}
-	if reloaded.Branch == nil || reloaded.Branch.Kind != BranchKindChild {
-		t.Fatalf("reloaded child branch = %+v", reloaded.Branch)
-	}
-	page, err := service.ListNavigatorPage(ctx, workspaceID, "Update the changelog", nil, 10)
-	if err != nil {
-		t.Fatalf("ListNavigatorPage: %v", err)
-	}
-	if len(page.Items) != 1 || page.Items[0].Branch == nil ||
-		page.Items[0].Branch.Kind != BranchKindChild {
-		t.Fatalf("navigator child lineage = %+v", page.Items)
-	}
-	if _, err := service.SendDirectorTurn(
-		ctx,
-		workspaceID,
-		child.Conversation.ID,
-		"first delegated work",
-		"turn-director-child-first",
-	); err != nil {
-		t.Fatalf("SendDirectorTurn: %v", err)
-	}
-	runtime.waitForStart(t, "first delegated work")
-}
 
 // TestDirectorFolderlessWorkstreamStartsWithoutAFolder proves a folderless
 // workstream is created rather than refused. It exists and is selectable; only
@@ -96,17 +29,6 @@ func TestDirectorFolderlessWorkstreamStartsWithoutAFolder(t *testing.T) {
 	}
 	if created.Conversation.WorkspaceID != nil || created.Branch != nil {
 		t.Fatalf("folderless root workstream = %+v", created.Conversation)
-	}
-
-	_, err = service.StartDirectorWorkstream(ctx, DirectorWorkstreamStart{
-		ConversationID:       "conversation-director-folderless-fork",
-		Title:                "Forked draft",
-		ParentConversationID: "conversation-director-folderless",
-		ForkedAtTurnID:       "turn-missing",
-	})
-	var resourceRequired *ResourceRequiredError
-	if !errors.As(err, &resourceRequired) || resourceRequired.ResourceKind != "folder" {
-		t.Fatalf("folderless fork error = %T %v, want folder ResourceRequiredError", err, err)
 	}
 }
 

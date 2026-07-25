@@ -25,21 +25,21 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parent.Conversation.ID,
-			Source:               BranchDecisionSourceDirector,
+			Source:               BranchDecisionSourceConversationRouter,
 		},
 		BranchDecision{
 			Kind: BranchDecisionKindForkConversation,
 			ForkConversation: &ForkConversationBranchDecision{
 				ForkedAtTurnID: latestSnapshotTurn(completed).ID,
-				ProposedTitle:  "Director-authored fork",
+				ProposedTitle:  "Router-authored fork",
 			},
 		},
 	)
 	if err != nil {
 		t.Fatalf("ExecuteBranchDecision fork: %v", err)
 	}
-	if forked.Branch == nil || forked.Branch.DecisionSource != BranchDecisionSourceDirector {
-		t.Fatalf("director fork audit = %+v", forked.Branch)
+	if forked.Branch == nil || forked.Branch.DecisionSource != BranchDecisionSourceConversationRouter {
+		t.Fatalf("routed fork audit = %+v", forked.Branch)
 	}
 
 	sided, err := service.ExecuteBranchDecision(

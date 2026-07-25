@@ -288,7 +288,7 @@ func projectApprovalRequested(projector *DirectorGraphProjector, context factCon
 	if !tracked {
 		context.workstream.approvalNodes[approval.ID] = nodeID
 	}
-	return projector.addEdge(context, SemanticEdgeBlockedBy, projector.approvalBlocked(context, approval.Kind), context.workstream.id, nodeID)
+	return projector.addEdge(context, SemanticEdgeBlockedBy, projector.approvalBlocked(context, approval.Kind), nodeID)
 }
 
 // approvalBlocked names what the approval is holding up: the file change it
@@ -419,7 +419,7 @@ func (projector *DirectorGraphProjector) commitSubagent(context factContext, sub
 	if _, exists := context.workstream.nodeIndex[runNodeID]; !exists {
 		return nil
 	}
-	return projector.addEdge(context, SemanticEdgeDelegatedTo, runNodeID, context.workstream.id, nodeID)
+	return projector.addEdge(context, SemanticEdgeDelegatedTo, runNodeID, nodeID)
 }
 
 func subagentNodeStatus(status conversation.SubagentStatus) (SemanticNodeStatus, error) {
@@ -475,7 +475,7 @@ func projectArtifactEmitted(projector *DirectorGraphProjector, context factConte
 	if _, exists := context.workstream.nodeIndex[runNodeID]; !exists {
 		return nil
 	}
-	return projector.addEdge(context, SemanticEdgeProduced, runNodeID, context.workstream.id, nodeID)
+	return projector.addEdge(context, SemanticEdgeProduced, runNodeID, nodeID)
 }
 
 func projectAgentLivenessChanged(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -549,7 +549,7 @@ func (projector *DirectorGraphProjector) projectAgentLivenessRecovery(
 	}
 	context.workstream.agentLivenessRecovery[runID] = nodeID
 	if blocked := context.workstream.agentLivenessBlock[runID]; blocked != "" {
-		return projector.addEdge(context, SemanticEdgeRecoveredBy, blocked, context.workstream.id, nodeID)
+		return projector.addEdge(context, SemanticEdgeRecoveredBy, blocked, nodeID)
 	}
 	return projector.recoverFrom(context, nodeID)
 }
@@ -831,13 +831,7 @@ func projectProviderValidationRecorded(projector *DirectorGraphProjector, contex
 	if !tracked {
 		context.workstream.validationNodes[validation.ID] = nodeID
 	}
-	return projector.addEdge(
-		context,
-		SemanticEdgeValidatedBy,
-		subjectNodeID,
-		context.workstream.id,
-		nodeID,
-	)
+	return projector.addEdge(context, SemanticEdgeValidatedBy, subjectNodeID, nodeID)
 }
 
 // validationSubject names the node the check covers. The provider names the item
@@ -963,5 +957,5 @@ func (projector *DirectorGraphProjector) blockActiveRun(context factContext, blo
 	if _, exists := context.workstream.nodeIndex[runNodeID]; !exists {
 		return nil
 	}
-	return projector.addEdge(context, SemanticEdgeBlockedBy, runNodeID, context.workstream.id, blockedNodeID)
+	return projector.addEdge(context, SemanticEdgeBlockedBy, runNodeID, blockedNodeID)
 }

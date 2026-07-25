@@ -74,42 +74,15 @@ func (execution *directorWorkstreamExecution) StartWorkstream(
 	ctx context.Context,
 	request director.WorkstreamStartRequest,
 ) error {
-	start, err := directorWorkstreamStart(request)
-	if err != nil {
-		return err
-	}
-	snapshot, err := execution.conversations.StartDirectorWorkstream(ctx, start)
+	snapshot, err := execution.conversations.StartDirectorWorkstream(
+		ctx,
+		conversation.DirectorWorkstreamStart{
+			ConversationID: request.ConversationID,
+			Title:          request.Title,
+			WorkspaceID:    request.WorkspaceID,
+		},
+	)
 	return execution.observe(ctx, request.ConversationID, snapshot, err)
-}
-
-// directorWorkstreamStart maps the authorized origin onto the durable parentage
-// the conversation service records. The origin kind decides, rather than the
-// presence of a parent field, so an origin this adapter has no mapping for fails
-// loudly instead of silently creating a root workstream.
-func directorWorkstreamStart(
-	request director.WorkstreamStartRequest,
-) (conversation.DirectorWorkstreamStart, error) {
-	start := conversation.DirectorWorkstreamStart{
-		ConversationID: request.ConversationID,
-		Title:          request.Title,
-		WorkspaceID:    request.WorkspaceID,
-	}
-	switch request.Origin.Kind {
-	case director.WorkstreamCreationRoot:
-		return start, nil
-	case director.WorkstreamCreationChild:
-		start.ParentConversationID = request.Origin.ParentConversationID
-		return start, nil
-	case director.WorkstreamCreationFork:
-		start.ParentConversationID = request.Origin.ParentConversationID
-		start.ForkedAtTurnID = request.Origin.ForkedAtRunID
-		return start, nil
-	default:
-		return conversation.DirectorWorkstreamStart{}, fmt.Errorf(
-			"unknown workstream creation origin %q",
-			request.Origin.Kind,
-		)
-	}
 }
 
 func (execution *directorWorkstreamExecution) SendWork(

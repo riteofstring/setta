@@ -95,17 +95,12 @@ func (state *registryState) snapshotEntries(
 // the user is having with the app, so a cold start draws what was said before it
 // draws the work that was asked for.
 func (state *registryState) snapshotGraphs(entries []DirectorWorkstreamEntry) ([]WorkstreamGraph, error) {
-	windowed := make(map[string]bool, len(entries)+1)
-	windowed[DirectorLaneID] = true
-	for _, entry := range entries {
-		windowed[entry.Workstream.ID] = true
-	}
 	graphs := make([]WorkstreamGraph, 0, len(entries)+1)
 	lane, err := state.projector.GraphFor(DirectorLaneID, WorkstreamDetailSelected)
 	if err != nil {
 		return nil, err
 	}
-	graphs = append(graphs, graphWithinWorkstreamWindow(lane, windowed))
+	graphs = append(graphs, lane)
 	for _, entry := range entries {
 		if entry.DetailLevel == WorkstreamDetailBackground {
 			continue
@@ -114,27 +109,9 @@ func (state *registryState) snapshotGraphs(entries []DirectorWorkstreamEntry) ([
 		if err != nil {
 			return nil, err
 		}
-		graphs = append(graphs, graphWithinWorkstreamWindow(graph, windowed))
+		graphs = append(graphs, graph)
 	}
 	return graphs, nil
-}
-
-// graphWithinWorkstreamWindow drops only cross-workstream edges whose target
-// row is outside this snapshot. The full projector keeps the relationship, but
-// a bounded snapshot cannot authorize or draw an endpoint it does not carry.
-func graphWithinWorkstreamWindow(
-	graph WorkstreamGraph,
-	windowed map[string]bool,
-) WorkstreamGraph {
-	edges := make([]SemanticEdge, 0, len(graph.Edges))
-	for _, edge := range graph.Edges {
-		if edge.ToWorkstreamID != graph.WorkstreamID && !windowed[edge.ToWorkstreamID] {
-			continue
-		}
-		edges = append(edges, edge)
-	}
-	graph.Edges = edges
-	return graph
 }
 
 // workstreamGraph answers with the projection of a registry row. Every

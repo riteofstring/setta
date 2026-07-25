@@ -9,9 +9,9 @@ import (
 //
 // Everything a Setta tool may name comes from here, and nothing here is
 // provider-authored. A target's AllowedDecisionKinds is the only action
-// authority it carries; its fork points and recoverable failures are the only
-// ids a create or recover action may reference. Every tool call is validated
-// against this context immediately before trusted code executes it.
+// authority it carries; its recoverable failures are the only ids a recover
+// action may reference. Every tool call is validated against this context
+// immediately before trusted code executes it.
 
 const (
 	// MaxDecisionWorkstreamTargets bounds the authoritative tool target set.
@@ -19,9 +19,6 @@ const (
 	// MaxDecisionWorkspaceOptions bounds the folder resources a new workstream
 	// may be scoped to.
 	MaxDecisionWorkspaceOptions = 64
-	// MaxDecisionForkPointsPerTarget bounds the completed runs one workstream
-	// offers as fork origins.
-	MaxDecisionForkPointsPerTarget = 8
 	// MaxDecisionRecoverableFailuresPerTarget bounds the durable failures one
 	// workstream offers for recovery.
 	MaxDecisionRecoverableFailuresPerTarget = 8
@@ -36,13 +33,6 @@ const (
 type DecisionWorkspaceOption struct {
 	WorkspaceID   string `json:"workspaceId"`
 	WorkspaceName string `json:"workspaceName"`
-}
-
-// DecisionForkPoint is one completed run a workstream offers as a fork origin.
-type DecisionForkPoint struct {
-	RunID        string `json:"runId"`
-	InputExcerpt string `json:"inputExcerpt"`
-	CompletedAt  string `json:"completedAt"`
 }
 
 // DecisionRecoverableFailure is one durable failure a workstream offers for
@@ -76,13 +66,11 @@ type WorkstreamDecisionTarget struct {
 	ActiveRunID    *string               `json:"activeRunId"`
 	QueuedRunCount int                   `json:"queuedRunCount"`
 	LastMilestone  *DecisionMilestone    `json:"lastMilestone"`
-	// AllowedDecisionKinds is the only action authority this target carries.
-	// It holds workstream-scoped kinds only; creating a workstream from this
-	// one is authorized by AllowsChildWorkstream and ForkPoints instead.
-	AllowedDecisionKinds  []DirectorDecisionKind       `json:"allowedDecisionKinds"`
-	AllowsChildWorkstream bool                         `json:"allowsChildWorkstream"`
-	ForkPoints            []DecisionForkPoint          `json:"forkPoints"`
-	RecoverableFailures   []DecisionRecoverableFailure `json:"recoverableFailures"`
+	// AllowedDecisionKinds is the only action authority this target carries. It
+	// holds workstream-scoped kinds only: creating a workstream is app-scoped
+	// authority, because every workstream the Director creates is independent.
+	AllowedDecisionKinds []DirectorDecisionKind       `json:"allowedDecisionKinds"`
+	RecoverableFailures  []DecisionRecoverableFailure `json:"recoverableFailures"`
 }
 
 // DecisionSummary is one prior decision supplied as continuity context.
@@ -186,10 +174,6 @@ func (context DirectorDecisionContext) validateTargetKindsAreAllowed(allowed map
 				return fmt.Errorf("workstream %s allows %q the context does not", target.WorkstreamID, kind)
 			}
 		}
-		if (target.AllowsChildWorkstream || len(target.ForkPoints) > 0) &&
-			!allowed[DirectorDecisionCreateWorkstream] {
-			return fmt.Errorf("workstream %s offers parentage the context does not allow", target.WorkstreamID)
-		}
 	}
 	return nil
 }
@@ -261,9 +245,6 @@ func (target WorkstreamDecisionTarget) Validate() error {
 		return err
 	}
 	if err := target.validateAllowedKinds(); err != nil {
-		return err
-	}
-	if err := validateDecisionForkPoints(target); err != nil {
 		return err
 	}
 	return validateDecisionRecoverableFailures(target)
@@ -355,33 +336,6 @@ func (target WorkstreamDecisionTarget) validateRunStateAuthority(allowed map[Dir
 			"decision target %s must offer recovery exactly when a failure is recoverable and no work is active or queued",
 			target.WorkstreamID,
 		)
-	}
-	return nil
-}
-
-func validateDecisionForkPoints(target WorkstreamDecisionTarget) error {
-	if target.ForkPoints == nil {
-		return fmt.Errorf("decision target %s fork points must be an array, not null", target.WorkstreamID)
-	}
-	if len(target.ForkPoints) > MaxDecisionForkPointsPerTarget {
-		return fmt.Errorf("decision target %s offers more than %d fork points",
-			target.WorkstreamID, MaxDecisionForkPointsPerTarget)
-	}
-	seen := map[string]bool{}
-	for _, point := range target.ForkPoints {
-		if err := validateIdentifier("decision fork point run id", point.RunID); err != nil {
-			return err
-		}
-		if seen[point.RunID] {
-			return fmt.Errorf("decision target %s repeats fork point %s", target.WorkstreamID, point.RunID)
-		}
-		seen[point.RunID] = true
-		if err := validateBoundedExcerpt("decision fork point excerpt", point.InputExcerpt); err != nil {
-			return err
-		}
-		if err := validateTimestamp("decision fork point completed at", point.CompletedAt); err != nil {
-			return err
-		}
 	}
 	return nil
 }

@@ -102,23 +102,6 @@ func TestCommittedDecisionTargetsFollowTheCatalog(t *testing.T) {
 			}
 		}
 	}
-	fork := DirectorDecision{
-		Kind: DirectorDecisionCreateWorkstream,
-		CreateWorkstream: &CreateWorkstreamDecision{
-			Origin: WorkstreamCreationOrigin{Kind: WorkstreamCreationFork, Fork: &ForkWorkstreamOrigin{
-				ParentWorkstreamID: fixtureIdleWorkstream, ForkedAtRunID: fixtureForkRunID,
-			}},
-			InitialInput:  "try the other approach",
-			ProposedTitle: "Alternate parser",
-		},
-	}
-	parent := DecisionParentWorkstreamID(fork)
-	if parent == nil || *parent != fixtureIdleWorkstream {
-		t.Fatalf("a fork must name its parent, got %v", parent)
-	}
-	if DecisionParentWorkstreamID(sendDecisionFixture(fixtureIdleWorkstream)) != nil {
-		t.Fatal("only a create decision has a parent")
-	}
 }
 
 func decisionFactFixture(committed DirectorDecisionCommitted, workstreamID *string) DirectorFactEvent {
@@ -133,13 +116,9 @@ func decisionFactFixture(committed DirectorDecisionCommitted, workstreamID *stri
 }
 
 // decisionFactWorkstream is where a decision happened, which is what the
-// executor commits the fact against. A root workstream was created before one
-// existed, and every other decision happened in the workstream it acted on.
+// executor commits the fact against. A created workstream did not exist when
+// the decision was made, so that fact belongs to the Director's own lane;
+// every other decision happened in the workstream it acted on.
 func decisionFactWorkstream(decision DirectorDecision) *string {
-	switch decision.Kind {
-	case DirectorDecisionCreateWorkstream:
-		return DecisionParentWorkstreamID(decision)
-	default:
-		return DecisionTargetWorkstreamID(decision)
-	}
+	return DecisionTargetWorkstreamID(decision)
 }

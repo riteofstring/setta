@@ -25,12 +25,6 @@ type DirectorWorkstreamStart struct {
 	// workspace is a folderless conversation, which is a first-class workstream
 	// that cannot run work until a folder is bound.
 	WorkspaceID *string
-	// ParentConversationID is the authorized parent, empty for a root
-	// workstream.
-	ParentConversationID string
-	// ForkedAtTurnID is the completed parent turn a fork carries forward, empty
-	// for every other origin.
-	ForkedAtTurnID string
 }
 
 // StartDirectorWorkstream creates the durable substrate for one new workstream.
@@ -47,58 +41,7 @@ func (service *Service) StartDirectorWorkstream(
 	if err := validateIdentifier("director workstream conversation id", request.ConversationID); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if request.ForkedAtTurnID != "" {
-		return service.startForkedDirectorWorkstream(ctx, request)
-	}
-	if request.ParentConversationID == "" {
-		return service.createTopicWithBranch(ctx, request.WorkspaceID, request.Title, request.ConversationID, nil)
-	}
-	if err := validateIdentifier("director parent conversation id", request.ParentConversationID); err != nil {
-		return ConversationSnapshot{}, err
-	}
-	branch := ConversationBranch{
-		ChildConversationID:  request.ConversationID,
-		ParentConversationID: request.ParentConversationID,
-		Kind:                 BranchKindChild,
-		DecisionSource:       BranchDecisionSourceDirector,
-		// A delegated child inherits no provider thread, so it carries no
-		// provider metadata to describe one.
-		ProviderMetadata: map[string]string{},
-		CreatedAt:        service.timestamp(),
-	}
-	return service.createTopicWithBranch(ctx, request.WorkspaceID, request.Title, request.ConversationID, &branch)
-}
-
-// startForkedDirectorWorkstream carries one completed parent run forward. A
-// fork resumes the parent's provider history, which only exists inside a folder
-// resource, so a folderless parent reports the resource its fork is waiting on
-// rather than failing.
-func (service *Service) startForkedDirectorWorkstream(
-	ctx context.Context,
-	request DirectorWorkstreamStart,
-) (ConversationSnapshot, error) {
-	if request.WorkspaceID == nil {
-		return ConversationSnapshot{}, &ResourceRequiredError{
-			ConversationID: request.ParentConversationID,
-			ResourceKind:   "folder",
-		}
-	}
-	return service.ExecuteBranchDecision(
-		ctx,
-		*request.WorkspaceID,
-		BranchDecisionExecutionScope{
-			ParentConversationID: request.ParentConversationID,
-			ChildConversationID:  &request.ConversationID,
-			Source:               BranchDecisionSourceDirector,
-		},
-		BranchDecision{
-			Kind: BranchDecisionKindForkConversation,
-			ForkConversation: &ForkConversationBranchDecision{
-				ForkedAtTurnID: request.ForkedAtTurnID,
-				ProposedTitle:  request.Title,
-			},
-		},
-	)
+	return service.createTopic(ctx, request.WorkspaceID, request.Title, request.ConversationID)
 }
 
 // SendDirectorTurn starts a run on a conversation with no active turn.

@@ -153,8 +153,9 @@ type DirectorFactEvent struct {
 	EmittedAt string             `json:"emittedAt"`
 	Kind      DirectorSourceFact `json:"kind"`
 	// WorkstreamID is the workstream the fact happened in. It is null only for a
-	// decision that started a root workstream: it was made before that workstream
-	// existed. Every other fact belongs to a workstream, so omitting it fails.
+	// decision that created a workstream: that decision was made before the
+	// workstream existed, so it happened in the Director's own lane. Every other
+	// fact belongs to a workstream, so omitting it fails.
 	WorkstreamID *string `json:"workstreamId"`
 	// RunID binds the fact to a durable run when one caused it, such as a
 	// resource request opened by work that could not start.
@@ -305,9 +306,9 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 
 // validateCommittedDecisionTarget requires the target the decision kind can act
 // on, and the workstream the decision was made in. Work and selection name a
-// target and happen in a workstream; a create names the workstream it minted,
-// and happens in the parent it delegated from or — for a root workstream — in
-// none, because it was decided before the workstream it created existed.
+// target and happen in a workstream; a create names the workstream it minted
+// and happens in no workstream, because it was decided before the workstream it
+// created existed.
 func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
 	payload := fact.DecisionCommitted
 	switch payload.Decision {
@@ -315,8 +316,13 @@ func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
 		if payload.TargetWorkstreamID == nil {
 			return fmt.Errorf("director fact %s decision %q requires a target workstream", fact.ID, payload.Decision)
 		}
-		if fact.WorkstreamID != nil && *payload.TargetWorkstreamID == *fact.WorkstreamID {
-			return fmt.Errorf("director fact %s cannot create its current workstream as a child", fact.ID)
+		if fact.WorkstreamID != nil {
+			return fmt.Errorf(
+				"director fact %s created workstream %s from inside workstream %s",
+				fact.ID,
+				*payload.TargetWorkstreamID,
+				*fact.WorkstreamID,
+			)
 		}
 		return nil
 	case DirectorDecisionSendToWorkstream,

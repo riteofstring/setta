@@ -46,19 +46,6 @@ func (err *WorkstreamResourceRequiredError) Error() string {
 	return fmt.Sprintf("workstream work requires a %s resource", err.Kind)
 }
 
-// WorkstreamOrigin is the durable parentage a new workstream is created with.
-// A root workstream has none; a child hangs off its parent, and a fork
-// additionally carries one completed run of that parent forward.
-type WorkstreamOrigin struct {
-	Kind WorkstreamCreationOriginKind
-	// ParentConversationID is the substrate of the authorized parent. It is
-	// empty exactly for a root origin.
-	ParentConversationID string
-	// ForkedAtRunID is the completed run a fork carries forward. It is empty
-	// for every other origin.
-	ForkedAtRunID string
-}
-
 // WorkstreamStartRequest creates the durable substrate for one new workstream.
 // It delivers no work: a folderless workstream exists and is selectable before
 // it can run anything, so creating it and starting its first run are separate
@@ -69,7 +56,6 @@ type WorkstreamStartRequest struct {
 	// WorkspaceID is the folder resource the workstream is scoped to, or nil
 	// for a folderless workstream.
 	WorkspaceID *string
-	Origin      WorkstreamOrigin
 }
 
 // WorkDeliveryRequest is one unit of work the Director authored for a

@@ -204,10 +204,10 @@ func resolveWorkstreamScope(
 		nil
 }
 
-// applyBranchCreated remembers a fork or child conversation's parentage. The
-// branch record is committed ahead of the conversation record it describes, so
-// the workstream is registered — and anchored in the graph — already knowing
-// where it came from.
+// applyBranchCreated remembers a forked conversation's parentage. The branch
+// record is committed ahead of the conversation record it describes, so the
+// workstream is registered — and anchored in the graph — already knowing where
+// it came from.
 func (state *registryState) applyBranchCreated(event conversation.CommittedEvent) ([]registryEffect, error) {
 	payload, err := decodeCommittedPayload[conversation.ConversationBranchCreatedEventPayload](event)
 	if err != nil {
@@ -248,9 +248,6 @@ func (state *registryState) applyTurnUpdated(event conversation.CommittedEvent) 
 			workstream.activeRunID = nil
 		}
 		workstream.lastTerminalRun = turn.Status
-		if turn.Status == conversation.TurnStatusCompleted {
-			workstream.recordForkPoint(turn, event.CommittedAt)
-		}
 	case conversation.TurnStatusQueued:
 		// The durable queue owns how much work is waiting.
 	default:

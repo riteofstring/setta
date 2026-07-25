@@ -13,9 +13,6 @@ const (
 	BranchDecisionKindForkConversation       BranchDecisionKind = "fork_conversation"
 
 	BranchDecisionSourceConversationRouter BranchDecisionSource = "conversation_router"
-	// BranchDecisionSourceDirector is the app-scoped Director command center,
-	// which delegates to a child workstream.
-	BranchDecisionSourceDirector BranchDecisionSource = "director"
 )
 
 // CreateSideConversationBranchDecision is deliberately empty. The model-owned
@@ -108,11 +105,5 @@ func (scope BranchDecisionExecutionScope) validateForkConversation() error {
 }
 
 func validBranchDecisionSource(source BranchDecisionSource) bool {
-	switch source {
-	case BranchDecisionSourceConversationRouter,
-		BranchDecisionSourceDirector:
-		return true
-	default:
-		return false
-	}
+	return source == BranchDecisionSourceConversationRouter
 }

@@ -421,35 +421,33 @@ func TestSelectionFactMustNameTheActualPreviousWorkstream(t *testing.T) {
 	}
 }
 
-func TestCreateDecisionCanRegisterOnlyItsOwnChild(t *testing.T) {
-	fixture := fixtureByName(t, "delegation")
-	projector := NewDirectorGraphProjector()
-	for _, event := range fixture.Events {
-		if event.Director != nil &&
-			event.Director.Kind == DirectorFactWorkstreamRegistered &&
-			event.Director.WorkstreamID != nil &&
-			*event.Director.WorkstreamID == "ws-child" {
-			registration := *event.Director
-			payload := *registration.WorkstreamRegistered
-			payload.ParentID = nil
-			registration.WorkstreamRegistered = &payload
-			err := projector.Apply(ProjectorEvent{Sequence: event.Sequence, Director: &registration})
-			if err == nil || !strings.Contains(err.Error(), "non-child workstream") {
-				t.Fatalf("non-child registration produced %v", err)
-			}
-			return
-		}
-		if err := projector.Apply(event); err != nil {
-			t.Fatalf("apply setup event: %v", err)
-		}
-	}
-	t.Fatal("delegation fixture has no child registration")
+// withSecondWorkstream appends a second, independent workstream to a fixture's
+// events. Workstreams the Director creates answer to nobody, so a test that
+// needs two of them registers the second rather than hanging it off the first.
+func withSecondWorkstream(fixture ProjectionFixture, workstreamID string, conversationID string) []ProjectorEvent {
+	events := append([]ProjectorEvent(nil), fixture.Events...)
+	return append(events, ProjectorEvent{
+		Sequence: len(events) + 1,
+		Director: &DirectorFactEvent{
+			ID:           "director-second-workstream",
+			EmittedAt:    "2026-07-24T12:59:00Z",
+			Kind:         DirectorFactWorkstreamRegistered,
+			WorkstreamID: &workstreamID,
+			Actor:        SemanticActorSystem,
+			WorkstreamRegistered: &DirectorWorkstreamRegistered{
+				Title:          "Second workstream",
+				ConversationID: conversationID,
+				ResourceScope:  folderlessScope(),
+			},
+		},
+	})
 }
 
 func TestInterpretationCannotCiteAnotherWorkstreamsFact(t *testing.T) {
 	fixture := fixtureByName(t, "delegation")
+	events := withSecondWorkstream(fixture, "ws-second", "conv-second")
 	projector := NewDirectorGraphProjector()
-	for _, event := range fixture.Events {
+	for _, event := range events {
 		if err := projector.Apply(event); err != nil {
 			t.Fatalf("apply fixture: %v", err)
 		}
@@ -460,7 +458,7 @@ func TestInterpretationCannotCiteAnotherWorkstreamsFact(t *testing.T) {
 		ID:           "director-cross-workstream-interpretation",
 		EmittedAt:    "2026-07-24T13:00:00Z",
 		Kind:         DirectorFactInterpretationPublished,
-		WorkstreamID: stringPointer("ws-child"),
+		WorkstreamID: stringPointer("ws-second"),
 		Actor:        SemanticActorDirector,
 		InterpretationPublished: &DirectorInterpretationPublished{
 			InterpretationID:    "interpretation-cross-workstream",
@@ -478,7 +476,7 @@ func TestInterpretationCannotCiteAnotherWorkstreamsFact(t *testing.T) {
 			},
 		},
 	}
-	err := projector.Apply(ProjectorEvent{Sequence: len(fixture.Events) + 1, Director: &fact})
+	err := projector.Apply(ProjectorEvent{Sequence: len(events) + 1, Director: &fact})
 	if err == nil || !strings.Contains(err.Error(), "without cross-workstream authority") {
 		t.Fatalf("cross-workstream interpretation produced %v", err)
 	}
@@ -868,7 +866,10 @@ func TestSupersededPlanStepsLeaveTheLiveWindow(t *testing.T) {
 	}
 }
 
-func TestDelegationCrossesOnlyIntoAChildWorkstream(t *testing.T) {
+// TestDelegationStaysInsideTheRunThatHandedItOut proves the one delegation the
+// product draws is the provider's: a subagent belongs to the run that started
+// it, so its edge never leaves the workstream that ran it.
+func TestDelegationStaysInsideTheRunThatHandedItOut(t *testing.T) {
 	fixture := fixtureByName(t, "delegation")
 	projection := projectFixture(t, fixture)
 	graph, err := projection.Graph("ws-parent", WorkstreamDetailSelected)
@@ -885,18 +886,18 @@ func TestDelegationCrossesOnlyIntoAChildWorkstream(t *testing.T) {
 	if _, found := nodeByID(graph, subagentNodeID); !found {
 		t.Fatalf("provider-backed subagent has no Setta event identity %q", subagentNodeID)
 	}
-	crossings := 0
+	delegations := 0
 	for _, edge := range graph.Edges {
-		if edge.ToWorkstreamID == edge.FromWorkstreamID {
+		if edge.Kind != SemanticEdgeDelegatedTo {
 			continue
 		}
-		crossings++
-		if edge.Kind != SemanticEdgeDelegatedTo || edge.ToWorkstreamID != "ws-child" {
-			t.Fatalf("unexpected cross-workstream edge %s of kind %q", edge.ID, edge.Kind)
+		delegations++
+		if edge.WorkstreamID != "ws-parent" || edge.ToNodeID != subagentNodeID {
+			t.Fatalf("delegation edge %s does not stay on the subagent it handed work to", edge.ID)
 		}
 	}
-	if crossings != 1 {
-		t.Fatalf("expected exactly one delegation across workstreams, got %d", crossings)
+	if delegations != 1 {
+		t.Fatalf("expected exactly one subagent delegation, got %d", delegations)
 	}
 }
 
@@ -1123,7 +1124,8 @@ func TestMilestoneKeepsBackgroundWorkstreamsActionable(t *testing.T) {
 
 func TestSelectionIsAppScopedAndNeverWritesGraphTruth(t *testing.T) {
 	fixture := fixtureByName(t, "delegation")
-	projection := projectFixture(t, fixture)
+	events := withSecondWorkstream(fixture, "ws-second", "conv-second")
+	projection := projectFixture(t, ProjectionFixture{Name: fixture.Name, Events: events})
 	if projection.SelectedWorkstreamID == nil || *projection.SelectedWorkstreamID != "ws-parent" {
 		t.Fatalf("expected ws-parent to be selected, got %v", projection.SelectedWorkstreamID)
 	}
@@ -1131,13 +1133,13 @@ func TestSelectionIsAppScopedAndNeverWritesGraphTruth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("graph: %v", err)
 	}
-	reselected := append(append([]ProjectorEvent(nil), fixture.Events...), ProjectorEvent{
-		Sequence: len(fixture.Events) + 1,
+	reselected := append(append([]ProjectorEvent(nil), events...), ProjectorEvent{
+		Sequence: len(events) + 1,
 		Director: &DirectorFactEvent{
 			ID:                 "director-reselect",
 			EmittedAt:          "2026-07-24T13:00:00Z",
 			Kind:               DirectorFactWorkstreamSelected,
-			WorkstreamID:       stringPointer("ws-child"),
+			WorkstreamID:       stringPointer("ws-second"),
 			Actor:              SemanticActorUser,
 			WorkstreamSelected: &DirectorWorkstreamSelected{PreviousWorkstreamID: stringPointer("ws-parent")},
 		},
@@ -1146,8 +1148,8 @@ func TestSelectionIsAppScopedAndNeverWritesGraphTruth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reselect: %v", err)
 	}
-	if after.SelectedWorkstreamID == nil || *after.SelectedWorkstreamID != "ws-child" {
-		t.Fatalf("expected ws-child to be selected, got %v", after.SelectedWorkstreamID)
+	if after.SelectedWorkstreamID == nil || *after.SelectedWorkstreamID != "ws-second" {
+		t.Fatalf("expected ws-second to be selected, got %v", after.SelectedWorkstreamID)
 	}
 	afterGraph, err := after.Graph("ws-parent", WorkstreamDetailSelected)
 	if err != nil {

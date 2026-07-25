@@ -83,13 +83,13 @@ func validateDirectorSnapshotEnvelope(snapshot DirectorSnapshot) error {
 // reference. The Director lane is in it and has no row: it is the scope the
 // Director's own conversation is drawn in, not work the registry lists.
 func validateSnapshotWorkstreams(snapshot DirectorSnapshot) (GraphAuthority, error) {
-	authority := GraphAuthority{WorkstreamParents: map[string]*string{DirectorLaneID: nil}}
+	authority := GraphAuthority{KnownWorkstreams: map[string]bool{DirectorLaneID: true}}
 	levelCounts := map[WorkstreamDetailLevel]int{}
 	for _, entry := range snapshot.Workstreams {
 		if err := validateSnapshotWorkstreamEntry(entry, snapshot.SelectedWorkstreamID, authority); err != nil {
 			return GraphAuthority{}, err
 		}
-		authority.WorkstreamParents[entry.Workstream.ID] = entry.Workstream.ParentID
+		authority.KnownWorkstreams[entry.Workstream.ID] = true
 		levelCounts[entry.DetailLevel]++
 	}
 	if err := validateSnapshotDetailCounts(snapshot, levelCounts); err != nil {
@@ -113,7 +113,7 @@ func validateSnapshotWorkstreamEntry(
 			entry.DetailLevel,
 		)
 	}
-	if _, duplicate := authority.WorkstreamParents[entry.Workstream.ID]; duplicate {
+	if authority.KnownWorkstreams[entry.Workstream.ID] {
 		return fmt.Errorf("director snapshot repeats workstream %q", entry.Workstream.ID)
 	}
 	if entry.DetailLevel != WorkstreamDetailSelected {
@@ -776,7 +776,7 @@ func validateGraphUpdateBounds(payload DirectorGraphUpdatedPayload) error {
 }
 
 func validateGraphDelta(payload DirectorGraphUpdatedPayload) error {
-	authority := GraphAuthority{WorkstreamParents: map[string]*string{payload.WorkstreamID: nil}}
+	authority := GraphAuthority{KnownWorkstreams: map[string]bool{payload.WorkstreamID: true}}
 	nodeIDs, err := validateGraphDeltaNodes(payload, authority)
 	if err != nil {
 		return err
@@ -819,27 +819,19 @@ func validateGraphDeltaNodes(
 func validateGraphDeltaEdges(payload DirectorGraphUpdatedPayload, authority GraphAuthority) error {
 	edgeIDs := make(map[string]bool, len(payload.Edges))
 	for _, edge := range payload.Edges {
-		if edge.FromWorkstreamID != payload.WorkstreamID {
+		if edge.WorkstreamID != payload.WorkstreamID {
 			return fmt.Errorf(
 				"director graph event for workstream %s carries edge %s owned by %q",
 				payload.WorkstreamID,
 				edge.ID,
-				edge.FromWorkstreamID,
+				edge.WorkstreamID,
 			)
 		}
 		if edgeIDs[edge.ID] {
 			return fmt.Errorf("director graph event for workstream %s repeats edge %q", payload.WorkstreamID, edge.ID)
 		}
 		edgeIDs[edge.ID] = true
-		edgeAuthority := authority
-		if edge.ToWorkstreamID != payload.WorkstreamID {
-			parent := payload.WorkstreamID
-			edgeAuthority.WorkstreamParents = map[string]*string{
-				payload.WorkstreamID: nil,
-				edge.ToWorkstreamID:  &parent,
-			}
-		}
-		if err := ValidateSemanticEdge(edge, edgeAuthority); err != nil {
+		if err := ValidateSemanticEdge(edge, authority); err != nil {
 			return err
 		}
 	}
@@ -871,8 +863,7 @@ func validateGraphDeltaRemovedReferences(
 	removed map[string]bool,
 ) error {
 	for _, edge := range payload.Edges {
-		if removed[edge.FromNodeID] ||
-			(edge.ToWorkstreamID == payload.WorkstreamID && removed[edge.ToNodeID]) {
+		if removed[edge.FromNodeID] || removed[edge.ToNodeID] {
 			return fmt.Errorf("director graph event edge %s references a node removed by the same event", edge.ID)
 		}
 	}

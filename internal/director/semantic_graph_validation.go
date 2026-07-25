@@ -15,16 +15,15 @@ import (
 // outside the window, so only the projector, which sees durable state, asserts
 // those id spaces.
 type GraphAuthority struct {
-	// WorkstreamParents maps every known workstream id to its parent, or to nil
-	// for a root workstream. It is always required.
-	WorkstreamParents map[string]*string
-	RunIDs            map[string]bool
-	ArtifactIDs       map[string]bool
+	// KnownWorkstreams holds every workstream id a graph may name, including
+	// the Director's own lane. It is always required.
+	KnownWorkstreams map[string]bool
+	RunIDs           map[string]bool
+	ArtifactIDs      map[string]bool
 }
 
 func (authority GraphAuthority) knowsWorkstream(workstreamID string) bool {
-	_, known := authority.WorkstreamParents[workstreamID]
-	return known
+	return authority.KnownWorkstreams[workstreamID]
 }
 
 func (authority GraphAuthority) knowsRun(runID string) bool {
@@ -39,11 +38,6 @@ func (authority GraphAuthority) knowsArtifact(artifactID string) bool {
 		return true
 	}
 	return authority.ArtifactIDs[artifactID]
-}
-
-func (authority GraphAuthority) isChildOf(childID string, parentID string) bool {
-	parent, known := authority.WorkstreamParents[childID]
-	return known && parent != nil && *parent == parentID
 }
 
 // ValidateSemanticNode rejects a node that could not have been projected from
@@ -309,22 +303,22 @@ func validateMonotonicUpdate(previous SemanticNode, next SemanticNode) error {
 	return nil
 }
 
-// ValidateSemanticEdge rejects an edge whose endpoints, direction, or
-// cross-workstream claim is not authorized.
+// ValidateSemanticEdge rejects an edge whose endpoints, direction, or owning
+// workstream is not authorized.
 func ValidateSemanticEdge(edge SemanticEdge, authority GraphAuthority) error {
 	if err := validateEdgeEndpoints(edge); err != nil {
 		return err
 	}
-	if err := validateEdgeWorkstreamReferences(edge, authority); err != nil {
+	if err := validateIdentifier("semantic edge workstream id", edge.WorkstreamID); err != nil {
 		return err
+	}
+	if !authority.knowsWorkstream(edge.WorkstreamID) {
+		return fmt.Errorf("semantic edge %s references unknown workstream %q", edge.ID, edge.WorkstreamID)
 	}
 	if err := requireSourceEventIDs(fmt.Sprintf("semantic edge %s", edge.ID), edge.SourceEventIDs); err != nil {
 		return err
 	}
-	if err := validateTimestamp("semantic edge created at", edge.CreatedAt); err != nil {
-		return err
-	}
-	return validateEdgeWorkstreamAuthority(edge, authority)
+	return validateTimestamp("semantic edge created at", edge.CreatedAt)
 }
 
 func validateEdgeEndpoints(edge SemanticEdge) error {
@@ -342,49 +336,6 @@ func validateEdgeEndpoints(edge SemanticEdge) error {
 	}
 	if edge.FromNodeID == edge.ToNodeID {
 		return fmt.Errorf("semantic edge %s connects node %q to itself", edge.ID, edge.FromNodeID)
-	}
-	return nil
-}
-
-func validateEdgeWorkstreamReferences(edge SemanticEdge, authority GraphAuthority) error {
-	if err := validateIdentifier("semantic edge from workstream id", edge.FromWorkstreamID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("semantic edge to workstream id", edge.ToWorkstreamID); err != nil {
-		return err
-	}
-	if !authority.knowsWorkstream(edge.FromWorkstreamID) {
-		return fmt.Errorf("semantic edge %s references unknown workstream %q", edge.ID, edge.FromWorkstreamID)
-	}
-	if !authority.knowsWorkstream(edge.ToWorkstreamID) {
-		return fmt.Errorf("semantic edge %s references unknown workstream %q", edge.ID, edge.ToWorkstreamID)
-	}
-	return nil
-}
-
-// validateEdgeWorkstreamAuthority enforces that delegation is the only typed
-// relationship allowed to cross a workstream boundary, and only from a parent
-// workstream to its own child.
-func validateEdgeWorkstreamAuthority(edge SemanticEdge, authority GraphAuthority) error {
-	if edge.FromWorkstreamID == edge.ToWorkstreamID {
-		return nil
-	}
-	if edge.Kind != SemanticEdgeDelegatedTo {
-		return fmt.Errorf(
-			"semantic edge %s of kind %q cannot cross from workstream %q to %q",
-			edge.ID,
-			edge.Kind,
-			edge.FromWorkstreamID,
-			edge.ToWorkstreamID,
-		)
-	}
-	if !authority.isChildOf(edge.ToWorkstreamID, edge.FromWorkstreamID) {
-		return fmt.Errorf(
-			"semantic edge %s delegates to workstream %q, which is not a child of %q",
-			edge.ID,
-			edge.ToWorkstreamID,
-			edge.FromWorkstreamID,
-		)
 	}
 	return nil
 }
@@ -451,16 +402,13 @@ func validateGraphEdges(graph WorkstreamGraph, authority GraphAuthority, nodeIDs
 			return fmt.Errorf("workstream graph %s repeats edge id %q", graph.WorkstreamID, edge.ID)
 		}
 		edgeIDs[edge.ID] = true
-		if edge.FromWorkstreamID != graph.WorkstreamID {
-			return fmt.Errorf("workstream graph %s contains edge %s owned by %q", graph.WorkstreamID, edge.ID, edge.FromWorkstreamID)
+		if edge.WorkstreamID != graph.WorkstreamID {
+			return fmt.Errorf("workstream graph %s contains edge %s owned by %q", graph.WorkstreamID, edge.ID, edge.WorkstreamID)
 		}
 		if !nodeIDs[edge.FromNodeID] {
 			return fmt.Errorf("workstream graph %s edge %s starts at unknown node %q", graph.WorkstreamID, edge.ID, edge.FromNodeID)
 		}
-		// A delegated_to edge is the one relationship whose target lives in
-		// another workstream's graph, so only same-workstream targets resolve
-		// here.
-		if edge.ToWorkstreamID == graph.WorkstreamID && !nodeIDs[edge.ToNodeID] {
+		if !nodeIDs[edge.ToNodeID] {
 			return fmt.Errorf("workstream graph %s edge %s ends at unknown node %q", graph.WorkstreamID, edge.ID, edge.ToNodeID)
 		}
 	}

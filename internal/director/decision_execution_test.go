@@ -240,9 +240,7 @@ func TestCreatingARootWorkstreamHappensInNoWorkstream(t *testing.T) {
 		t.Fatalf("execution starts = %+v", execution.starts)
 	}
 	started := execution.starts[0]
-	if started.Origin.Kind != WorkstreamCreationRoot ||
-		started.Origin.ParentConversationID != "" ||
-		started.WorkspaceID == nil ||
+	if started.WorkspaceID == nil ||
 		*started.WorkspaceID != registryTestWorkspaceID {
 		t.Fatalf("started workstream = %+v", started)
 	}

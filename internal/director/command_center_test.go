@@ -140,7 +140,7 @@ func TestCommandCenterCreatesAndSelectsWorkspaceWorkstream(t *testing.T) {
 	if start.WorkspaceID == nil || *start.WorkspaceID != registryTestWorkspaceID {
 		t.Fatalf("created workstream workspace = %v", start.WorkspaceID)
 	}
-	if start.Origin.Kind != WorkstreamCreationRoot || start.Title != "Setta" {
+	if start.Title != "Setta" {
 		t.Fatalf("created workstream request = %+v", start)
 	}
 	createdWorkstreamID, err := WorkstreamIDForConversation(start.ConversationID)

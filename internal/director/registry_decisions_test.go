@@ -78,12 +78,6 @@ func TestDecisionContextDerivesTargetAuthorityFromRunState(t *testing.T) {
 	}) {
 		t.Fatalf("idle target allows %v", idleTarget.AllowedDecisionKinds)
 	}
-	if len(idleTarget.ForkPoints) != 1 || idleTarget.ForkPoints[0].RunID != "turn-idle-1" {
-		t.Fatalf("idle target fork points = %+v", idleTarget.ForkPoints)
-	}
-	if idleTarget.ForkPoints[0].InputExcerpt != "do the work" {
-		t.Fatalf("fork point excerpt = %q, want the run's authored input", idleTarget.ForkPoints[0].InputExcerpt)
-	}
 
 	runningTarget := requireDecisionTarget(t, decisionContext, running)
 	if !slices.Equal(runningTarget.AllowedDecisionKinds, []DirectorDecisionKind{
@@ -95,9 +89,6 @@ func TestDecisionContextDerivesTargetAuthorityFromRunState(t *testing.T) {
 	}
 	if runningTarget.ActiveRunID == nil || *runningTarget.ActiveRunID != "turn-running-1" {
 		t.Fatalf("running target active run = %v", runningTarget.ActiveRunID)
-	}
-	if len(runningTarget.ForkPoints) != 0 {
-		t.Fatalf("a run that has not completed is offered as a fork point: %+v", runningTarget.ForkPoints)
 	}
 
 	failedTarget := requireDecisionTarget(t, decisionContext, failed)
@@ -363,9 +354,6 @@ func TestDecisionContextClosesRecoveryOnceItIsAddressed(t *testing.T) {
 	supersededTarget := requireDecisionTarget(t, addressed, superseded)
 	if len(supersededTarget.RecoverableFailures) != 0 {
 		t.Fatalf("a failure a later run moved past is still offered: %+v", supersededTarget.RecoverableFailures)
-	}
-	if len(supersededTarget.ForkPoints) != 1 || supersededTarget.ForkPoints[0].RunID != "turn-superseded-2" {
-		t.Fatalf("completed run is not a fork point: %+v", supersededTarget.ForkPoints)
 	}
 }
 

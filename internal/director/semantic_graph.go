@@ -142,8 +142,8 @@ type SemanticEdgeKind string
 const (
 	// SemanticEdgeFollowedBy orders visible facts inside one run or workstream.
 	SemanticEdgeFollowedBy SemanticEdgeKind = "followed_by"
-	// SemanticEdgeDelegatedTo connects a decision or subagent activity to the
-	// child workstream or delegation node that received the work.
+	// SemanticEdgeDelegatedTo connects a run to the delegation node that
+	// received work the provider handed to a subagent.
 	SemanticEdgeDelegatedTo SemanticEdgeKind = "delegated_to"
 	// SemanticEdgeDependsOn connects queued work and explicit prerequisites.
 	SemanticEdgeDependsOn SemanticEdgeKind = "depends_on"
@@ -216,18 +216,18 @@ type SemanticNode struct {
 	Interpretation *InterpretationMetadata `json:"interpretation"`
 }
 
-// SemanticEdge is one typed relationship between two nodes. Both endpoints
-// name their owning workstream, so crossing a workstream boundary is an
-// explicit claim the validator can check rather than an implicit id reference.
+// SemanticEdge is one typed relationship between two nodes of one workstream.
+// A relationship is something that happened inside a single workstream's own
+// causal chain, so an edge names the workstream that owns it and both endpoints
+// resolve inside that workstream's graph.
 type SemanticEdge struct {
-	ID               string           `json:"id"`
-	Kind             SemanticEdgeKind `json:"kind"`
-	FromWorkstreamID string           `json:"fromWorkstreamId"`
-	FromNodeID       string           `json:"fromNodeId"`
-	ToWorkstreamID   string           `json:"toWorkstreamId"`
-	ToNodeID         string           `json:"toNodeId"`
-	SourceEventIDs   []string         `json:"sourceEventIds"`
-	CreatedAt        string           `json:"createdAt"`
+	ID             string           `json:"id"`
+	Kind           SemanticEdgeKind `json:"kind"`
+	WorkstreamID   string           `json:"workstreamId"`
+	FromNodeID     string           `json:"fromNodeId"`
+	ToNodeID       string           `json:"toNodeId"`
+	SourceEventIDs []string         `json:"sourceEventIds"`
+	CreatedAt      string           `json:"createdAt"`
 }
 
 // WorkstreamGraph is the projected semantic graph for one workstream at the

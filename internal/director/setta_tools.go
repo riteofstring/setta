@@ -402,10 +402,7 @@ func (box *SettaToolbox) createWorkstream(intent SubmittedIntent) SettaToolHandl
 		decision := DirectorDecision{
 			Kind: DirectorDecisionCreateWorkstream,
 			CreateWorkstream: &CreateWorkstreamDecision{
-				Origin: WorkstreamCreationOrigin{
-					Kind: WorkstreamCreationRoot,
-					Root: &RootWorkstreamOrigin{ResourceScope: scope},
-				},
+				ResourceScope: scope,
 				InitialInput:  optionalSettaText(payload.InitialInput),
 				ProposedTitle: payload.Title,
 			},

@@ -80,9 +80,8 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:workstream:ws-gamma-\u003einput:trajectory-03",
           kind: "followed_by",
-          fromWorkstreamId: "ws-gamma",
+          workstreamId: "ws-gamma",
           fromNodeId: "workstream:ws-gamma",
-          toWorkstreamId: "ws-gamma",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -90,9 +89,8 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-gamma-1",
           kind: "followed_by",
-          fromWorkstreamId: "ws-gamma",
+          workstreamId: "ws-gamma",
           fromNodeId: "input:trajectory-03",
-          toWorkstreamId: "ws-gamma",
           toNodeId: "run:turn-gamma-1",
           sourceEventIds: ["trajectory-04"],
           createdAt: "2026-07-24T12:00:04Z",
@@ -100,9 +98,8 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run:turn-gamma-1-\u003efile_change:trajectory-05",
           kind: "followed_by",
-          fromWorkstreamId: "ws-gamma",
+          workstreamId: "ws-gamma",
           fromNodeId: "run:turn-gamma-1",
-          toWorkstreamId: "ws-gamma",
           toNodeId: "file_change:trajectory-05",
           sourceEventIds: ["trajectory-05"],
           createdAt: "2026-07-24T12:00:05Z",

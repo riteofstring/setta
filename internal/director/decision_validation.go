@@ -8,9 +8,9 @@ import (
 // Strict trusted-target validation.
 //
 // A decision passes only if current trusted context authorizes the exact kind,
-// target, fork point, failure, and resource scope it names. Tool refusals keep
-// that rejection inside the Director conversation so the Director can repair
-// its call or ask the user a useful question.
+// target, failure, and resource scope it names. Tool refusals keep that
+// rejection inside the Director conversation so the Director can repair its
+// call or ask the user a useful question.
 
 // ValidateDecisionAuthority rejects a decision the supplied context did not
 // authorize. It re-runs the decision's own shape validation first, so a caller
@@ -32,7 +32,7 @@ func ValidateDecisionAuthority(context DirectorDecisionContext, decision Directo
 func validateAuthorizedDecisionPayload(context DirectorDecisionContext, decision DirectorDecision) error {
 	switch decision.Kind {
 	case DirectorDecisionCreateWorkstream:
-		return validateAuthorizedCreation(context, decision.CreateWorkstream.Origin)
+		return validateAuthorizedScope(context, decision.CreateWorkstream.ResourceScope)
 	case DirectorDecisionSendToWorkstream:
 		return validateAuthorizedTargetKind(context, decision.Kind, decision.SendToWorkstream.WorkstreamID)
 	case DirectorDecisionQueueBehindRun:
@@ -76,19 +76,6 @@ func validateAuthorizedRecovery(context DirectorDecisionContext, payload Recover
 	return rejectedDecision(fmt.Sprintf("failure %s is not recoverable on workstream %s", payload.FailureEventID, payload.WorkstreamID))
 }
 
-func validateAuthorizedCreation(context DirectorDecisionContext, origin WorkstreamCreationOrigin) error {
-	switch origin.Kind {
-	case WorkstreamCreationRoot:
-		return validateAuthorizedScope(context, origin.Root.ResourceScope)
-	case WorkstreamCreationChild:
-		return validateAuthorizedChildParent(context, origin.Child.ParentWorkstreamID)
-	case WorkstreamCreationFork:
-		return validateAuthorizedForkPoint(context, *origin.Fork)
-	default:
-		return rejectedDecision(fmt.Sprintf("unknown workstream creation origin %q", origin.Kind))
-	}
-}
-
 func validateAuthorizedScope(context DirectorDecisionContext, scope DecisionResourceScope) error {
 	if scope.Kind == WorkstreamResourceScopeFolderless {
 		return nil
@@ -99,28 +86,4 @@ func validateAuthorizedScope(context DirectorDecisionContext, scope DecisionReso
 		}
 	}
 	return rejectedDecision(fmt.Sprintf("workspace %s is not an offered folder resource", scope.Folder.WorkspaceID))
-}
-
-func validateAuthorizedChildParent(context DirectorDecisionContext, parentID string) error {
-	target, found := context.Target(parentID)
-	if !found {
-		return rejectedDecision(fmt.Sprintf("parent workstream %s was not supplied by authoritative context", parentID))
-	}
-	if !target.AllowsChildWorkstream {
-		return rejectedDecision(fmt.Sprintf("workstream %s does not accept a child workstream", parentID))
-	}
-	return nil
-}
-
-func validateAuthorizedForkPoint(context DirectorDecisionContext, origin ForkWorkstreamOrigin) error {
-	target, found := context.Target(origin.ParentWorkstreamID)
-	if !found {
-		return rejectedDecision(fmt.Sprintf("fork parent %s was not supplied by authoritative context", origin.ParentWorkstreamID))
-	}
-	for _, point := range target.ForkPoints {
-		if point.RunID == origin.ForkedAtRunID {
-			return nil
-		}
-	}
-	return rejectedDecision(fmt.Sprintf("run %s is not a fork point of workstream %s", origin.ForkedAtRunID, origin.ParentWorkstreamID))
 }

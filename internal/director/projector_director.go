@@ -70,7 +70,7 @@ func (projector *DirectorGraphProjector) registerWorkstream(
 		sourceFact: string(fact.Kind),
 		edgeKinds:  edgeKinds,
 	}
-	nodeID, err := projector.commitNode(context, nodeSpec{
+	_, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityWorkstream,
 		sourceID: workstreamID,
 		kind:     SemanticNodeWorkstream,
@@ -79,13 +79,7 @@ func (projector *DirectorGraphProjector) registerWorkstream(
 		summary:  payload.Title,
 		evidence: EvidenceRuntimeFact,
 	})
-	if err != nil {
-		return err
-	}
-	// The work a decision delegated now exists, so the edge it earned lands on
-	// the anchor: the delegation is to the workstream, not to whichever fact it
-	// happens to produce first.
-	return projector.resolveDelegation(context, nodeID)
+	return err
 }
 
 // projectWorkstreamSelected changes app state and detail level. Selection is
@@ -116,7 +110,11 @@ func projectDecisionCommitted(projector *DirectorGraphProjector, context factCon
 	if err := projector.validateDecisionTarget(*payload); err != nil {
 		return err
 	}
-	nodeID, err := projector.commitNode(context, nodeSpec{
+	// The decision is drawn where it was made and nowhere else. Every workstream
+	// the Director creates is independent, so a decision has no work of another
+	// workstream's to point at: what it started is a lane of its own, and the
+	// workstream anchor already says the work exists.
+	_, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityDecision,
 		sourceID: fact.ID,
 		kind:     SemanticNodeDirectorDecision,
@@ -126,27 +124,7 @@ func projectDecisionCommitted(projector *DirectorGraphProjector, context factCon
 		evidence: EvidenceStructuredDeclaration,
 		chain:    true,
 	})
-	if err != nil {
-		return err
-	}
-	if payload.Decision != DirectorDecisionCreateWorkstream {
-		return nil
-	}
-	if context.workstream.id == DirectorLaneID {
-		// A root workstream has no parent, so the Director did not hand its own
-		// work down: it started work that answers to nobody. Claiming delegation
-		// here would invent a parentage the registry does not hold.
-		return nil
-	}
-	// The delegated_to edge is drawn when the authorized work exists. A decision
-	// that routes to a workstream which is neither itself nor one of its
-	// children is routing, not delegation, and earns no edge.
-	projector.pendingDelegation = append(projector.pendingDelegation, pendingDelegation{
-		decisionWorkstreamID: context.workstream.id,
-		decisionNodeID:       nodeID,
-		targetWorkstreamID:   *payload.TargetWorkstreamID,
-	})
-	return nil
+	return err
 }
 
 func (projector *DirectorGraphProjector) validateDecisionTarget(
@@ -190,7 +168,7 @@ func projectResourceRequestOpened(projector *DirectorGraphProjector, context fac
 	if err != nil {
 		return err
 	}
-	return projector.addEdge(context, SemanticEdgeBlockedBy, blockedNodeID, context.workstream.id, nodeID)
+	return projector.addEdge(context, SemanticEdgeBlockedBy, blockedNodeID, nodeID)
 }
 
 // blockedByResource names the work a missing resource is holding up. A
@@ -279,7 +257,7 @@ func projectValidationRecorded(projector *DirectorGraphProjector, context factCo
 	if err != nil {
 		return err
 	}
-	return projector.addEdge(context, SemanticEdgeValidatedBy, subjectNodeID, context.workstream.id, nodeID)
+	return projector.addEdge(context, SemanticEdgeValidatedBy, subjectNodeID, nodeID)
 }
 
 func projectRecoveryAttempted(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
@@ -320,7 +298,7 @@ func projectRecoveryAttempted(projector *DirectorGraphProjector, context factCon
 	if failedNodeID == context.workstream.recoveryAnchor {
 		context.workstream.recoveryAnchor = ""
 	}
-	if err := projector.addEdge(context, SemanticEdgeRecoveredBy, failedNodeID, context.workstream.id, nodeID); err != nil {
+	if err := projector.addEdge(context, SemanticEdgeRecoveredBy, failedNodeID, nodeID); err != nil {
 		return err
 	}
 	context.workstream.recoveryStatuses[payload.RecoveryID] = payload.Status

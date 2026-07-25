@@ -123,15 +123,6 @@ func classifyProviderThreadWithoutTurnHistory(
 	if snapshot.Branch == nil {
 		return providerThreadHistoryState{kind: providerThreadHistoryNone}
 	}
-	if snapshot.Branch.Kind == BranchKindChild {
-		if snapshot.ThreadBinding != nil {
-			return providerThreadHistoryState{
-				kind:   providerThreadHistoryBroken,
-				reason: "delegated child has an agent thread binding before its first provider turn",
-			}
-		}
-		return providerThreadHistoryState{kind: providerThreadHistoryNone}
-	}
 	if snapshot.Branch.Kind != BranchKindFork {
 		return providerThreadHistoryState{
 			kind: providerThreadHistoryBroken,

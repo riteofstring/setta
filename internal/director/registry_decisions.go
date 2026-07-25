@@ -14,45 +14,12 @@ import (
 // The tool catalog states what the Director may ask Setta to do; this is where
 // the app answers what it may do it to. Every value here is folded from the
 // durable log — the workstreams that exist, which of them is running, which
-// completed runs can be forked, which failures nothing recovered, and what the
-// Director already did — so tool authority is the same durable truth the rest
-// of the command center renders.
+// failures nothing recovered, and what the Director already did — so tool
+// authority is the same durable truth the rest of the command center renders.
 //
 // Nothing provider-authored reaches this file. A folder is offered as a
 // workspace id the app can currently reach, never as a path, and every id a
 // tool call may echo back already exists here.
-
-// recordForkPoint offers a completed run as a fork origin. The excerpt is the
-// input that run answered, which is how the Director tells two fork points of
-// the same workstream apart without reading its transcript.
-func (workstream *registryWorkstream) recordForkPoint(turn conversation.ConversationTurn, committedAt string) {
-	completedAt := committedAt
-	if turn.EndedAt != nil {
-		completedAt = *turn.EndedAt
-	}
-	excerpt := boundDecisionExcerpt(turn.AuthoredInput.Text)
-	if excerpt == "" {
-		// A run with no authored text cannot be described to the Director, and
-		// a fork point it cannot tell apart from another is worse than one it
-		// is not offered.
-		return
-	}
-	for index, existing := range workstream.forkPoints {
-		if existing.RunID == turn.ID {
-			workstream.forkPoints[index] = DecisionForkPoint{
-				RunID:        turn.ID,
-				InputExcerpt: excerpt,
-				CompletedAt:  completedAt,
-			}
-			return
-		}
-	}
-	workstream.forkPoints = append(workstream.forkPoints, DecisionForkPoint{
-		RunID:        turn.ID,
-		InputExcerpt: excerpt,
-		CompletedAt:  completedAt,
-	})
-}
 
 // recordRunFailure records the durable failure a recovery decision may name.
 // The public failure message is the only failure text that crosses this
@@ -262,20 +229,17 @@ func (workstream *registryWorkstream) decisionTarget() (WorkstreamDecisionTarget
 	if err != nil {
 		return WorkstreamDecisionTarget{}, err
 	}
-	forkPoints := recentDecisionForkPoints(workstream.forkPoints)
 	failures := recentDecisionFailures(workstream.recoverableFailures)
 	target := WorkstreamDecisionTarget{
-		WorkstreamID:          record.ID,
-		Title:                 boundDecisionExcerpt(record.Title),
-		Status:                record.Status,
-		ResourceScope:         scope,
-		ActiveRunID:           copyOptionalString(record.ActiveRunID),
-		QueuedRunCount:        record.QueuedRunCount,
-		LastMilestone:         decisionMilestoneFor(record.LastMilestone),
-		AllowedDecisionKinds:  targetDecisionKinds(record, failures),
-		AllowsChildWorkstream: true,
-		ForkPoints:            forkPoints,
-		RecoverableFailures:   failures,
+		WorkstreamID:         record.ID,
+		Title:                boundDecisionExcerpt(record.Title),
+		Status:               record.Status,
+		ResourceScope:        scope,
+		ActiveRunID:          copyOptionalString(record.ActiveRunID),
+		QueuedRunCount:       record.QueuedRunCount,
+		LastMilestone:        decisionMilestoneFor(record.LastMilestone),
+		AllowedDecisionKinds: targetDecisionKinds(record, failures),
+		RecoverableFailures:  failures,
 	}
 	if err := target.Validate(); err != nil {
 		return WorkstreamDecisionTarget{}, fmt.Errorf("materialize decision target %s: %w", record.ID, err)
@@ -362,13 +326,6 @@ func listedDecisions(decisions []DecisionSummary, listed map[string]bool) []Deci
 		summaries = append(summaries, summary)
 	}
 	return summaries
-}
-
-func recentDecisionForkPoints(points []DecisionForkPoint) []DecisionForkPoint {
-	if len(points) > MaxDecisionForkPointsPerTarget {
-		points = points[len(points)-MaxDecisionForkPointsPerTarget:]
-	}
-	return append([]DecisionForkPoint{}, points...)
 }
 
 func recentDecisionFailures(failures []DecisionRecoverableFailure) []DecisionRecoverableFailure {

@@ -29,12 +29,6 @@ func idleDecisionTarget() WorkstreamDecisionTarget {
 			DirectorDecisionSelectWorkstream,
 			DirectorDecisionSendToWorkstream,
 		},
-		AllowsChildWorkstream: true,
-		ForkPoints: []DecisionForkPoint{{
-			RunID:        fixtureForkRunID,
-			InputExcerpt: "rewrite the tokenizer",
-			CompletedAt:  "2026-07-24T10:00:00Z",
-		}},
 		RecoverableFailures: []DecisionRecoverableFailure{},
 	}
 }
@@ -52,7 +46,6 @@ func activeDecisionTarget() WorkstreamDecisionTarget {
 			DirectorDecisionQueueBehindRun,
 			DirectorDecisionSteerRun,
 		},
-		ForkPoints:          []DecisionForkPoint{},
 		RecoverableFailures: []DecisionRecoverableFailure{},
 	}
 }
@@ -68,7 +61,6 @@ func failedDecisionTarget() WorkstreamDecisionTarget {
 			DirectorDecisionSendToWorkstream,
 			DirectorDecisionRecoverPath,
 		},
-		ForkPoints: []DecisionForkPoint{},
 		RecoverableFailures: []DecisionRecoverableFailure{{
 			FailureEventID: fixtureFailureEventID,
 			PublicSummary:  "the run ended before it finished importing",
@@ -131,10 +123,7 @@ func createRootDecisionFixture(scope DecisionResourceScope) DirectorDecision {
 	return DirectorDecision{
 		Kind: DirectorDecisionCreateWorkstream,
 		CreateWorkstream: &CreateWorkstreamDecision{
-			Origin: WorkstreamCreationOrigin{
-				Kind: WorkstreamCreationRoot,
-				Root: &RootWorkstreamOrigin{ResourceScope: scope},
-			},
+			ResourceScope: scope,
 			InitialInput:  "draft the migration",
 			ProposedTitle: "Migration draft",
 		},

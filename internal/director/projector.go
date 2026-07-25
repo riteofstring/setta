@@ -94,7 +94,6 @@ type DirectorGraphProjector struct {
 	nodeBySourceEvent  map[string]string
 	trajectorySequence map[string]int
 	selected           *string
-	pendingDelegation  []pendingDelegation
 	directorTurnIDs    map[string]bool
 	directorToolCalls  map[string]directorToolCallProjection
 	// lane is the Director's own graph scope. It exists from the first frame
@@ -106,15 +105,6 @@ type DirectorGraphProjector struct {
 	// openTurnID is the durable turn that request belongs to. Calls, receipts,
 	// and replies must all name it so one turn cannot resolve another.
 	openTurnID string
-}
-
-// pendingDelegation remembers a committed decision until the target workstream
-// produces the run it delegated to. The edge cannot be drawn when the decision
-// commits, because the work it authorizes does not exist yet.
-type pendingDelegation struct {
-	decisionWorkstreamID string
-	decisionNodeID       string
-	targetWorkstreamID   string
 }
 
 // projectedWorkstream is the live graph of one workstream plus the small amount
@@ -404,7 +394,7 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 	if err != nil {
 		return err
 	}
-	// A decision that started a root workstream was made before that workstream
+	// A decision that created a workstream was made before that workstream
 	// existed, so it happened where the Director was: in its own lane, beside the
 	// request that asked for it.
 	workstream := projector.lane
@@ -460,10 +450,21 @@ func (projector *DirectorGraphProjector) workstreamForConversation(conversationI
 
 func (projector *DirectorGraphProjector) liveAuthority() GraphAuthority {
 	return GraphAuthority{
-		WorkstreamParents: projector.workstreamParents,
-		RunIDs:            projector.runIDs,
-		ArtifactIDs:       projector.artifactIDs,
+		KnownWorkstreams: projector.knownWorkstreams(),
+		RunIDs:           projector.runIDs,
+		ArtifactIDs:      projector.artifactIDs,
 	}
+}
+
+// knownWorkstreams is the id space a graph may name. It is derived from the
+// projected workstreams rather than kept alongside them, so a workstream the
+// projector does not hold can never be cited as authorized.
+func (projector *DirectorGraphProjector) knownWorkstreams() map[string]bool {
+	known := make(map[string]bool, len(projector.workstreams))
+	for id := range projector.workstreams {
+		known[id] = true
+	}
+	return known
 }
 
 // GraphProjection is an immutable snapshot of the projected graph. Callers
@@ -484,9 +485,9 @@ func (projector *DirectorGraphProjector) Projection() GraphProjection {
 		SelectedWorkstreamID: copyOptionalString(projector.selected),
 		WorkstreamIDs:        append([]string(nil), projector.order...),
 		Authority: GraphAuthority{
-			WorkstreamParents: copyParents(projector.workstreamParents),
-			RunIDs:            copyIDSet(projector.runIDs),
-			ArtifactIDs:       copyIDSet(projector.artifactIDs),
+			KnownWorkstreams: projector.knownWorkstreams(),
+			RunIDs:           copyIDSet(projector.runIDs),
+			ArtifactIDs:      copyIDSet(projector.artifactIDs),
 		},
 		graphs:     make(map[string]WorkstreamGraph, len(projector.workstreams)),
 		milestones: map[string]WorkstreamMilestone{},
@@ -565,14 +566,6 @@ func copyOptionalString(value *string) *string {
 	}
 	copied := *value
 	return &copied
-}
-
-func copyParents(parents map[string]*string) map[string]*string {
-	copied := make(map[string]*string, len(parents))
-	for id, parent := range parents {
-		copied[id] = copyOptionalString(parent)
-	}
-	return copied
 }
 
 func copyIDSet(ids map[string]bool) map[string]bool {

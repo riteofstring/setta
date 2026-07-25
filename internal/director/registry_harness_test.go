@@ -593,7 +593,7 @@ func (harness *registryHarness) publishBranch(childConversationID string, parent
 		ChildConversationID:      childConversationID,
 		ParentConversationID:     parentConversationID,
 		Kind:                     conversation.BranchKindFork,
-		DecisionSource:           conversation.BranchDecisionSourceDirector,
+		DecisionSource:           conversation.BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           "turn-parent",
 		SourceTrajectorySequence: 1,
 		ProviderMetadata:         map[string]string{},

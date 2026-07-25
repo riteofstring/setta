@@ -97,14 +97,7 @@ function applyWorkstreamRemoved(
     artifacts: snapshot.artifacts.filter((artifact) => artifact.workstreamId !== workstreamId),
     connection,
     eventCursor: cursor,
-    graphs: snapshot.graphs
-      .filter((graph) => graph.workstreamId !== workstreamId)
-      .map((graph) => ({
-        ...graph,
-        edges: graph.edges.filter(
-          (edge) => edge.fromWorkstreamId !== workstreamId && edge.toWorkstreamId !== workstreamId,
-        ),
-      })),
+    graphs: snapshot.graphs.filter((graph) => graph.workstreamId !== workstreamId),
     selectedWorkstreamId:
       snapshot.selectedWorkstreamId === workstreamId ? null : snapshot.selectedWorkstreamId,
     unresolvedApprovals: snapshot.unresolvedApprovals.filter(
@@ -253,7 +246,7 @@ function updateGraph(
         !removed.has(edge.fromNodeId) &&
         !removed.has(edge.toNodeId) &&
         liveNodeIds.has(edge.fromNodeId) &&
-        (edge.toWorkstreamId !== existing.workstreamId || liveNodeIds.has(edge.toNodeId)),
+        liveNodeIds.has(edge.toNodeId),
     ),
     (edge) => edge.id,
     payload.edges,

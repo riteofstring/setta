@@ -36,10 +36,6 @@ type registryWorkstream struct {
 	// repeating it.
 	blockedNodes map[string]bool
 	artifactIDs  []string
-	// forkPoints are the completed runs this workstream offers as fork
-	// origins, oldest first. Only a completed run can carry its history into a
-	// fork, so a running or failed one is not a fork point.
-	forkPoints []DecisionForkPoint
 	// recoverableFailures are the durable run failures nothing has recovered
 	// yet, oldest first. They are what makes recover_path an authorized
 	// decision, so a workstream that never failed cannot be asked to recover.

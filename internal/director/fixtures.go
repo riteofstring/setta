@@ -408,62 +408,37 @@ func (builder *fixtureBuilder) planChanged(
 		})
 }
 
-// delegationFixture covers both delegations the product has: a durable child
-// workstream, and a provider subagent that never earns its own address.
+// delegationFixture covers the one delegation the product has: a provider
+// subagent that does part of a run's work without ever earning its own address.
 func delegationFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const parentID = "ws-parent"
-	const childID = "ws-child"
-	const parentConversation = "conv-parent"
-	const childConversation = "conv-child"
-	const parentTurn = "turn-parent-1"
-	const childTurn = "turn-child-1"
-	builder.register(parentID, parentConversation, "Ship the release", folderScope("workspace-parent", "/repo/parent"))
-	builder.acceptInput(parentConversation, parentTurn, "Ship the release")
-	builder.startTurn(parentConversation, parentTurn)
-	builder.director(parentID, DirectorFactDecisionCommitted, SemanticActorDirector, func(fact *DirectorFactEvent) {
-		target := childID
-		fact.RunID = stringPointer(parentTurn)
-		fact.DecisionCommitted = &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionCreateWorkstream,
-			IntentID:           "intent-delta-1",
-			PublicSummary:      "Delegate the changelog to its own workstream",
-			TargetWorkstreamID: &target,
-		}
-	})
-	builder.director(childID, DirectorFactWorkstreamRegistered, SemanticActorDirector, func(fact *DirectorFactEvent) {
-		parent := parentID
-		fact.WorkstreamRegistered = &DirectorWorkstreamRegistered{
-			Title:          "Update the changelog",
-			ConversationID: childConversation,
-			ParentID:       &parent,
-			ResourceScope:  folderScope("workspace-parent", "/repo/parent"),
-		}
-	})
-	builder.acceptInput(childConversation, childTurn, "Update the changelog")
-	builder.startTurn(childConversation, childTurn)
+	const workstreamID = "ws-parent"
+	const conversationID = "conv-parent"
+	const turnID = "turn-parent-1"
+	builder.register(workstreamID, conversationID, "Ship the release", folderScope("workspace-parent", "/repo/parent"))
+	builder.acceptInput(conversationID, turnID, "Ship the release")
+	builder.startTurn(conversationID, turnID)
 	subagent := conversation.Subagent{
 		ID:               "subagent-parent-1",
 		ProviderThreadID: "provider-thread-1",
 		Status:           conversation.SubagentStatusRunning,
 		Message:          stringPointer("Checking the tag history"),
 	}
-	builder.trajectory(parentConversation, stringPointer(parentTurn), conversation.TrajectoryEventSubagentStarted, conversation.TrajectoryActorAgent,
+	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventSubagentStarted, conversation.TrajectoryActorAgent,
 		func(event *conversation.TrajectoryEvent) {
 			event.SubagentStarted = &conversation.TrajectorySubagentStarted{Subagent: subagent}
 		})
 	completed := subagent
 	completed.Status = conversation.SubagentStatusCompleted
 	completed.Message = stringPointer("Tag history is clean")
-	builder.trajectory(parentConversation, stringPointer(parentTurn), conversation.TrajectoryEventSubagentCompleted, conversation.TrajectoryActorAgent,
+	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventSubagentCompleted, conversation.TrajectoryActorAgent,
 		func(event *conversation.TrajectoryEvent) {
 			event.SubagentCompleted = &conversation.TrajectorySubagentCompleted{Subagent: completed}
 		})
-	builder.completeTurn(childConversation, childTurn)
-	builder.completeTurn(parentConversation, parentTurn)
+	builder.completeTurn(conversationID, turnID)
 	return ProjectionFixture{
 		Name:        "delegation",
-		Description: "A decision that delegates to a child workstream, plus a provider subagent inside the parent run.",
+		Description: "A provider subagent that runs inside a workstream's run and closes with it.",
 		Events:      builder.events,
 	}
 }

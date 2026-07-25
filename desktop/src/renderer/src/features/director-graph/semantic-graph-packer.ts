@@ -116,7 +116,7 @@ function graphEdges(graphs: readonly WorkstreamGraph[]): SemanticEdge[] {
 }
 
 function outgoingNodeIDs(edges: readonly SemanticEdge[]): ReadonlySet<string> {
-  return new Set(edges.map((edge) => `${edge.fromWorkstreamId}:${edge.fromNodeId}`));
+  return new Set(edges.map((edge) => `${edge.workstreamId}:${edge.fromNodeId}`));
 }
 
 function terminalSeconds(ordered: OrderedNode): number {
@@ -262,8 +262,8 @@ function edgeInputs(
 ): PackedGraphEdgeInput[] {
   return edges
     .map((edge) => {
-      const fromNodeId = `${edge.fromWorkstreamId}:${edge.fromNodeId}`;
-      const toNodeId = `${edge.toWorkstreamId}:${edge.toNodeId}`;
+      const fromNodeId = `${edge.workstreamId}:${edge.fromNodeId}`;
+      const toNodeId = `${edge.workstreamId}:${edge.toNodeId}`;
       const from = nodeIndexByID.get(fromNodeId);
       const to = nodeIndexByID.get(toNodeId);
       if (from === undefined || to === undefined) {

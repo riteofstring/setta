@@ -41,7 +41,7 @@ INSERT INTO conversation_branches (
 		branch.ParentConversationID,
 		branch.Kind,
 		branch.DecisionSource,
-		optionalBranchForkPoint(branch),
+		branch.ForkedAtTurnID,
 		branch.SourceTrajectorySequence,
 		providerMetadataJSON,
 		branch.CreatedAt,
@@ -52,14 +52,9 @@ INSERT INTO conversation_branches (
 	return transaction.recordStateMutation()
 }
 
-// requireBranchSource proves the parent state a branch claims. A fork must name
-// a completed run of its parent and cover the trajectory it carried forward; a
-// child carries neither, so there is nothing about the parent's history to
-// prove.
+// requireBranchSource proves the parent state a branch claims: it must name a
+// completed run of its parent and cover the trajectory it carried forward.
 func (transaction *WriteTransaction) requireBranchSource(branch ConversationBranch) error {
-	if branch.Kind == BranchKindChild {
-		return nil
-	}
 	if err := transaction.requireCompletedTurnBelongs(
 		branch.ForkedAtTurnID,
 		branch.ParentConversationID,
@@ -74,16 +69,6 @@ func (transaction *WriteTransaction) requireBranchSource(branch ConversationBran
 		"conversation branch",
 		branch.ChildConversationID,
 	)
-}
-
-// optionalBranchForkPoint writes the fork point a fork has and NULL for a child,
-// so the column says which branches carried history rather than storing an empty
-// reference that looks like one.
-func optionalBranchForkPoint(branch ConversationBranch) any {
-	if branch.Kind == BranchKindChild {
-		return nil
-	}
-	return branch.ForkedAtTurnID
 }
 
 func (transaction *WriteTransaction) InsertSideConversation(side SideConversation) error {

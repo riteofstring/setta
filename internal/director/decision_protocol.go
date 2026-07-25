@@ -65,53 +65,14 @@ type DecisionResourceScope struct {
 	Folder *DecisionFolderResource     `json:"folder"`
 }
 
-// WorkstreamCreationOriginKind is where a new workstream comes from.
-type WorkstreamCreationOriginKind string
-
-const (
-	// WorkstreamCreationRoot starts an independent workstream.
-	WorkstreamCreationRoot WorkstreamCreationOriginKind = "root"
-	// WorkstreamCreationChild starts a workstream under a parent, which the
-	// graph connects with a delegated_to edge.
-	WorkstreamCreationChild WorkstreamCreationOriginKind = "child"
-	// WorkstreamCreationFork starts a workstream from a completed run of a
-	// parent, carrying that run's history forward.
-	WorkstreamCreationFork WorkstreamCreationOriginKind = "fork"
-)
-
-// RootWorkstreamOrigin creates an independent workstream. Only a root
-// workstream chooses its own scope; a child or a fork inherits the parent's,
-// so the Director cannot rescope existing work.
-type RootWorkstreamOrigin struct {
-	ResourceScope DecisionResourceScope `json:"resourceScope"`
-}
-
-// ChildWorkstreamOrigin creates a durable child of an authorized parent.
-type ChildWorkstreamOrigin struct {
-	ParentWorkstreamID string `json:"parentWorkstreamId"`
-}
-
-// ForkWorkstreamOrigin creates a durable fork from one completed run of an
-// authorized parent.
-type ForkWorkstreamOrigin struct {
-	ParentWorkstreamID string `json:"parentWorkstreamId"`
-	ForkedAtRunID      string `json:"forkedAtRunId"`
-}
-
-// WorkstreamCreationOrigin selects exactly one origin payload.
-type WorkstreamCreationOrigin struct {
-	Kind  WorkstreamCreationOriginKind `json:"kind"`
-	Root  *RootWorkstreamOrigin        `json:"root"`
-	Child *ChildWorkstreamOrigin       `json:"child"`
-	Fork  *ForkWorkstreamOrigin        `json:"fork"`
-}
-
-// CreateWorkstreamDecision starts a workstream. The id, the resource binding,
-// and the registry record are attached by trusted product code afterwards.
+// CreateWorkstreamDecision starts a workstream. Every workstream the Director
+// creates is independent and chooses its own scope from the authorized
+// workspace set. The id, the resource binding, and the registry record are
+// attached by trusted product code afterwards.
 type CreateWorkstreamDecision struct {
-	Origin        WorkstreamCreationOrigin `json:"origin"`
-	InitialInput  string                   `json:"initialInput"`
-	ProposedTitle string                   `json:"proposedTitle"`
+	ResourceScope DecisionResourceScope `json:"resourceScope"`
+	InitialInput  string                `json:"initialInput"`
+	ProposedTitle string                `json:"proposedTitle"`
 }
 
 // SendToWorkstreamDecision sends work to an idle existing workstream.
@@ -212,7 +173,7 @@ func (decision DirectorDecision) validatePayload() error {
 // An idle workstream the user can start work in later is a real outcome, so
 // requiring first words here would force the Director to invent them.
 func validateCreateWorkstreamDecision(payload CreateWorkstreamDecision) error {
-	if err := validateWorkstreamCreationOrigin(payload.Origin); err != nil {
+	if err := validateDecisionResourceScope(payload.ResourceScope); err != nil {
 		return err
 	}
 	if payload.InitialInput != "" {
@@ -221,39 +182,6 @@ func validateCreateWorkstreamDecision(payload CreateWorkstreamDecision) error {
 		}
 	}
 	return validateDecisionText("proposed workstream title", payload.ProposedTitle, MaxDecisionTitleBytes)
-}
-
-func validateWorkstreamCreationOrigin(origin WorkstreamCreationOrigin) error {
-	present := map[WorkstreamCreationOriginKind]bool{
-		WorkstreamCreationRoot:  origin.Root != nil,
-		WorkstreamCreationChild: origin.Child != nil,
-		WorkstreamCreationFork:  origin.Fork != nil,
-	}
-	if _, known := present[origin.Kind]; !known {
-		return rejectedDecision(fmt.Sprintf("unknown workstream creation origin %q", origin.Kind))
-	}
-	for kind, populated := range present {
-		if populated != (kind == origin.Kind) {
-			return rejectedDecision(fmt.Sprintf("workstream creation origin %q must populate exactly its own payload", origin.Kind))
-		}
-	}
-	return validateCreationOriginPayload(origin)
-}
-
-func validateCreationOriginPayload(origin WorkstreamCreationOrigin) error {
-	switch origin.Kind {
-	case WorkstreamCreationRoot:
-		return validateDecisionResourceScope(origin.Root.ResourceScope)
-	case WorkstreamCreationChild:
-		return validateDecisionReference("child parent workstream id", origin.Child.ParentWorkstreamID)
-	case WorkstreamCreationFork:
-		if err := validateDecisionReference("fork parent workstream id", origin.Fork.ParentWorkstreamID); err != nil {
-			return err
-		}
-		return validateDecisionReference("forked at run id", origin.Fork.ForkedAtRunID)
-	default:
-		return rejectedDecision(fmt.Sprintf("unknown workstream creation origin %q", origin.Kind))
-	}
 }
 
 func validateDecisionResourceScope(scope DecisionResourceScope) error {
@@ -308,8 +236,8 @@ func validateDecisionText(label string, value string, maximum int) error {
 }
 
 // DecisionTargetWorkstreamID returns the existing workstream a decision acts
-// on. A create decision returns nothing even when it names a parent, because
-// its target is the workstream trusted code has not minted yet.
+// on. A create decision returns nothing, because its target is the workstream
+// trusted code has not minted yet.
 func DecisionTargetWorkstreamID(decision DirectorDecision) *string {
 	switch decision.Kind {
 	case DirectorDecisionSendToWorkstream:
@@ -322,22 +250,6 @@ func DecisionTargetWorkstreamID(decision DirectorDecision) *string {
 		return &decision.SelectWorkstream.WorkstreamID
 	case DirectorDecisionRecoverPath:
 		return &decision.RecoverPath.WorkstreamID
-	default:
-		return nil
-	}
-}
-
-// DecisionParentWorkstreamID returns the authorized parent a create decision
-// hangs its new workstream from.
-func DecisionParentWorkstreamID(decision DirectorDecision) *string {
-	if decision.Kind != DirectorDecisionCreateWorkstream {
-		return nil
-	}
-	switch decision.CreateWorkstream.Origin.Kind {
-	case WorkstreamCreationChild:
-		return &decision.CreateWorkstream.Origin.Child.ParentWorkstreamID
-	case WorkstreamCreationFork:
-		return &decision.CreateWorkstream.Origin.Fork.ParentWorkstreamID
 	default:
 		return nil
 	}

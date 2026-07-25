@@ -240,11 +240,14 @@ func (executor *DecisionExecutor) createWorkstream(
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	start, parent, err := executor.startRequest(authorized, conversationID, workstreamID)
+	start, err := executor.startRequest(authorized, conversationID)
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	committed, err := executor.commitDecision(ctx, authorized, parent, &workstreamID)
+	// The decision is committed in the Director's own lane. It was made before
+	// the workstream it creates existed, and the Director is where the user
+	// asked for it.
+	committed, err := executor.commitDecision(ctx, authorized, nil, &workstreamID)
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
@@ -286,53 +289,31 @@ func (executor *DecisionExecutor) createWorkstream(
 	})
 }
 
-// startRequest resolves the authorized origin into the durable substrate the
-// new workstream is created from. A root workstream chooses its own scope from
-// the authorized workspace enum; a child and a fork inherit their parent's, so
-// the decision cannot rescope existing work.
+// startRequest resolves the authorized scope into the durable substrate the new
+// workstream is created from. The scope comes from the authorized workspace
+// enum, so a folder the app is not currently offering cannot be started in.
 func (executor *DecisionExecutor) startRequest(
 	authorized AuthorizedDecision,
 	conversationID string,
-	workstreamID string,
-) (WorkstreamStartRequest, *string, error) {
-	decisionContext := authorized.Context
-	decision := authorized.Decision
-	payload := *decision.CreateWorkstream
+) (WorkstreamStartRequest, error) {
+	payload := *authorized.Decision.CreateWorkstream
 	start := WorkstreamStartRequest{
 		ConversationID: conversationID,
 		Title:          payload.ProposedTitle,
-		Origin:         WorkstreamOrigin{Kind: payload.Origin.Kind},
 	}
-	if payload.Origin.Kind == WorkstreamCreationRoot {
-		scope := payload.Origin.Root.ResourceScope
-		if scope.Kind != WorkstreamResourceScopeFolder {
-			return start, nil, nil
-		}
-		workspaceID := scope.Folder.WorkspaceID
-		if _, offered := offeredWorkspace(decisionContext, workspaceID); !offered {
-			return WorkstreamStartRequest{}, nil, fmt.Errorf(
-				"%w: workspace %s is not an authorized scope",
-				ErrDirectorIntentRejected,
-				workspaceID,
-			)
-		}
-		start.WorkspaceID = &workspaceID
-		return start, nil, nil
+	if payload.ResourceScope.Kind != WorkstreamResourceScopeFolder {
+		return start, nil
 	}
-	parentID := *DecisionParentWorkstreamID(decision)
-	if parentID == workstreamID {
-		return WorkstreamStartRequest{}, nil, fmt.Errorf("workstream %s cannot be its own parent", workstreamID)
+	workspaceID := payload.ResourceScope.Folder.WorkspaceID
+	if _, offered := offeredWorkspace(authorized.Context, workspaceID); !offered {
+		return WorkstreamStartRequest{}, fmt.Errorf(
+			"%w: workspace %s is not an authorized scope",
+			ErrDirectorIntentRejected,
+			workspaceID,
+		)
 	}
-	parent, err := executor.registry.ExecutionTarget(parentID)
-	if err != nil {
-		return WorkstreamStartRequest{}, nil, err
-	}
-	start.WorkspaceID = parent.WorkspaceID
-	start.Origin.ParentConversationID = parent.ConversationID
-	if payload.Origin.Kind == WorkstreamCreationFork {
-		start.Origin.ForkedAtRunID = payload.Origin.Fork.ForkedAtRunID
-	}
-	return start, &parent.WorkstreamID, nil
+	start.WorkspaceID = &workspaceID
+	return start, nil
 }
 
 // offeredWorkspace resolves one folder trusted context is currently offering.

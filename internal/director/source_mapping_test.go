@@ -27,7 +27,6 @@ func TestProjectorRejectsAnEdgeOmittedByTheSourceFactRule(t *testing.T) {
 		},
 		SemanticEdgeBlockedBy,
 		"run:from",
-		workstream.id,
 		"blocked:to",
 	)
 	if err == nil || !strings.Contains(err.Error(), "cannot create undeclared semantic edge") {

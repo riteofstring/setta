@@ -272,25 +272,14 @@ func (service *Service) CreateRoutedTopicWithOptionalWorkspace(
 	return service.createTopic(ctx, workspaceID, title, conversationID)
 }
 
+// createTopic creates a conversation with no durable parentage. A conversation
+// that carries a parent's provider history forward is created by the fork path
+// instead, which has the provider thread to bind.
 func (service *Service) createTopic(
 	ctx context.Context,
 	workspaceID *string,
 	title string,
 	conversationID string,
-) (ConversationSnapshot, error) {
-	return service.createTopicWithBranch(ctx, workspaceID, title, conversationID, nil)
-}
-
-// createTopicWithBranch creates a conversation and, when it has durable
-// parentage that carries no provider history, records that parentage in the
-// same transaction. A branch committed separately could describe a conversation
-// a rejected write never created.
-func (service *Service) createTopicWithBranch(
-	ctx context.Context,
-	workspaceID *string,
-	title string,
-	conversationID string,
-	branch *ConversationBranch,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -328,7 +317,7 @@ func (service *Service) createTopicWithBranch(
 		if presentationErr != nil {
 			return presentationErr
 		}
-		return service.persistCreatedConversation(ctx, conversation, nil, narrator, presentation, branch)
+		return service.persistCreatedConversation(ctx, conversation, nil, narrator, presentation, nil)
 	})
 	service.createMu.Unlock()
 	if err != nil {

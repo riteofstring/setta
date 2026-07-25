@@ -4,17 +4,14 @@ import "testing"
 
 const (
 	testParentWorkstream = "workstream-parent"
-	testChildWorkstream  = "workstream-child"
 	testOtherWorkstream  = "workstream-other"
 )
 
 func testAuthority() GraphAuthority {
-	parent := testParentWorkstream
 	return GraphAuthority{
-		WorkstreamParents: map[string]*string{
-			testParentWorkstream: nil,
-			testChildWorkstream:  &parent,
-			testOtherWorkstream:  nil,
+		KnownWorkstreams: map[string]bool{
+			testParentWorkstream: true,
+			testOtherWorkstream:  true,
 		},
 		RunIDs:      map[string]bool{"turn-1": true},
 		ArtifactIDs: map[string]bool{"artifact-1": true},
@@ -203,37 +200,28 @@ func TestSemanticNodeUpdatesPreserveIdentity(t *testing.T) {
 	}
 }
 
-func TestOnlyDelegationCrossesWorkstreams(t *testing.T) {
+// TestEdgesBelongToOneAuthorizedWorkstream proves an edge is a relationship
+// inside one workstream: it must name a workstream the authority knows, and it
+// cannot connect a node to itself.
+func TestEdgesBelongToOneAuthorizedWorkstream(t *testing.T) {
 	authority := testAuthority()
 	edge := SemanticEdge{
-		ID:               "edge-1",
-		Kind:             SemanticEdgeFollowedBy,
-		FromWorkstreamID: testParentWorkstream,
-		FromNodeID:       "node-a",
-		ToWorkstreamID:   testParentWorkstream,
-		ToNodeID:         "node-b",
-		SourceEventIDs:   []string{"event-1"},
-		CreatedAt:        "2026-07-24T12:00:00Z",
+		ID:             "edge-1",
+		Kind:           SemanticEdgeFollowedBy,
+		WorkstreamID:   testParentWorkstream,
+		FromNodeID:     "node-a",
+		ToNodeID:       "node-b",
+		SourceEventIDs: []string{"event-1"},
+		CreatedAt:      "2026-07-24T12:00:00Z",
 	}
 	if err := ValidateSemanticEdge(edge, authority); err != nil {
-		t.Fatalf("a same-workstream edge was rejected: %v", err)
+		t.Fatalf("a workstream-local edge was rejected: %v", err)
 	}
 
-	crossing := edge
-	crossing.ToWorkstreamID = testChildWorkstream
-	if err := ValidateSemanticEdge(crossing, authority); err == nil {
-		t.Fatal("followed_by must not cross a workstream boundary")
-	}
-
-	crossing.Kind = SemanticEdgeDelegatedTo
-	if err := ValidateSemanticEdge(crossing, authority); err != nil {
-		t.Fatalf("delegation to a child workstream was rejected: %v", err)
-	}
-
-	unrelated := crossing
-	unrelated.ToWorkstreamID = testOtherWorkstream
-	if err := ValidateSemanticEdge(unrelated, authority); err == nil {
-		t.Fatal("delegation must not reach an unrelated workstream")
+	unknown := edge
+	unknown.WorkstreamID = "workstream-invented"
+	if err := ValidateSemanticEdge(unknown, authority); err == nil {
+		t.Fatal("an edge must not name a workstream the authority does not know")
 	}
 
 	selfEdge := edge
@@ -258,14 +246,13 @@ func TestWorkstreamGraphRejectsDanglingAndForeignContent(t *testing.T) {
 
 	dangling := graph
 	dangling.Edges = []SemanticEdge{{
-		ID:               "edge-1",
-		Kind:             SemanticEdgeFollowedBy,
-		FromWorkstreamID: testParentWorkstream,
-		FromNodeID:       node.ID,
-		ToWorkstreamID:   testParentWorkstream,
-		ToNodeID:         "node-missing",
-		SourceEventIDs:   []string{"event-1"},
-		CreatedAt:        "2026-07-24T12:00:00Z",
+		ID:             "edge-1",
+		Kind:           SemanticEdgeFollowedBy,
+		WorkstreamID:   testParentWorkstream,
+		FromNodeID:     node.ID,
+		ToNodeID:       "node-missing",
+		SourceEventIDs: []string{"event-1"},
+		CreatedAt:      "2026-07-24T12:00:00Z",
 	}}
 	if err := ValidateWorkstreamGraph(dangling, authority); err == nil {
 		t.Fatal("an edge to a missing node must be rejected")
