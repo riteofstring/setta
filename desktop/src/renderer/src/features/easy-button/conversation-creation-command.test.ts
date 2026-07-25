@@ -19,7 +19,6 @@ describe("conversation creation command", () => {
       createAndPresentConversation({
         createConversation,
         ensureWorkspaceAvailable: vi.fn(),
-        ensureWorkspaceSelected: vi.fn(),
         hydrateSnapshot: vi.fn(),
         preflightPlacement,
         presentConversation: vi.fn(),
@@ -47,7 +46,6 @@ describe("conversation creation command", () => {
         ensureWorkspaceAvailable: vi.fn(() => {
           throw new Error("Workspace workspace_api is unavailable.");
         }),
-        ensureWorkspaceSelected: vi.fn(),
         hydrateSnapshot: vi.fn(),
         preflightPlacement,
         presentConversation: vi.fn(),
@@ -70,7 +68,6 @@ describe("conversation creation command", () => {
       createAndPresentConversation({
         createConversation: vi.fn().mockRejectedValue(new Error("conversation store unavailable")),
         ensureWorkspaceAvailable: vi.fn(),
-        ensureWorkspaceSelected: vi.fn(),
         hydrateSnapshot,
         preflightPlacement: vi.fn().mockResolvedValue(undefined),
         presentConversation,
@@ -97,7 +94,6 @@ describe("conversation creation command", () => {
       createAndPresentConversation({
         createConversation: vi.fn().mockResolvedValue(snapshot),
         ensureWorkspaceAvailable: vi.fn(),
-        ensureWorkspaceSelected: vi.fn(),
         hydrateSnapshot,
         preflightPlacement: vi.fn().mockResolvedValue(undefined),
         presentConversation,
@@ -121,6 +117,45 @@ describe("conversation creation command", () => {
     });
   });
 
+  test("creates folderless conversations in the empty app pane scene", async () => {
+    const snapshot = conversationSnapshot("conversation_folderless", null);
+    const createConversation = vi.fn().mockResolvedValue(snapshot);
+    const presentConversation = vi.fn().mockResolvedValue({
+      kind: "opened",
+      paneId: "workspace_pane_created",
+    });
+
+    await expect(
+      createAndPresentConversation({
+        createConversation,
+        ensureWorkspaceAvailable: vi.fn(),
+        hydrateSnapshot: vi.fn(),
+        preflightPlacement: vi.fn().mockResolvedValue(undefined),
+        presentConversation,
+        request: {
+          destination: { kind: "new-pane" },
+          workspaceId: null,
+        },
+      }),
+    ).resolves.toEqual({
+      conversationId: "conversation_folderless",
+      paneId: "workspace_pane_created",
+      workspaceId: null,
+    });
+
+    expect(createConversation).toHaveBeenCalledWith({
+      title: newConversationTitle,
+      workspaceId: null,
+    });
+    expect(presentConversation).toHaveBeenCalledWith({
+      conversationId: "conversation_folderless",
+      destination: { kind: "new-pane" },
+      resourceBindings: [],
+      title: newConversationTitle,
+      workspaceId: "empty",
+    });
+  });
+
   test("keeps the created conversation when presentation fails after creation", async () => {
     const snapshot = conversationSnapshot("conversation_created", "workspace_api");
     const hydrateSnapshot = vi.fn();
@@ -129,7 +164,6 @@ describe("conversation creation command", () => {
       createAndPresentConversation({
         createConversation: vi.fn().mockResolvedValue(snapshot),
         ensureWorkspaceAvailable: vi.fn(),
-        ensureWorkspaceSelected: vi.fn(),
         hydrateSnapshot,
         preflightPlacement: vi.fn().mockResolvedValue(undefined),
         presentConversation: vi
@@ -153,7 +187,6 @@ describe("conversation creation command", () => {
       createAndPresentConversation({
         createConversation: vi.fn().mockResolvedValue(snapshot),
         ensureWorkspaceAvailable: vi.fn(),
-        ensureWorkspaceSelected: vi.fn(),
         hydrateSnapshot,
         preflightPlacement: vi.fn().mockResolvedValue(undefined),
         presentConversation: vi.fn().mockRejectedValue(new Error("layout persistence failed")),
@@ -188,7 +221,6 @@ describe("conversation creation command", () => {
           return snapshot;
         }),
         ensureWorkspaceAvailable: vi.fn(),
-        ensureWorkspaceSelected: vi.fn(),
         hydrateSnapshot,
         preflightPlacement: vi.fn().mockResolvedValue(undefined),
         presentConversation,
@@ -261,7 +293,10 @@ describe("conversation creation command", () => {
   });
 });
 
-function conversationSnapshot(conversationId: string, workspaceId: string): ConversationSnapshot {
+function conversationSnapshot(
+  conversationId: string,
+  workspaceId: string | null,
+): ConversationSnapshot {
   return {
     conversation: {
       id: conversationId,

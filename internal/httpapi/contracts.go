@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"setta/internal/appearance"
+	"setta/internal/applayout"
 	"setta/internal/conversation"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
@@ -99,6 +100,10 @@ type ReadWorkspaceUILayoutRequest struct {
 
 type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
+}
+
+type SaveAppPaneLayoutRequest struct {
+	Layout applayout.AppPaneLayout `json:"layout"`
 }
 
 type ReadConversationSnapshotRequest struct {
