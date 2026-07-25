@@ -10,7 +10,6 @@ on:
       - "desktop/src/main/speech-credential-vault.ts"
       - "desktop/src/main/speech-credential-vault.test.ts"
       - "desktop/tests/electron/safe-storage-platform-probe.cjs"
-      - "docs/plans/byok-desktop-speech-credentials-20260717.md"
       - "docs/reports/byok-desktop-speech-safe-storage-20260718.md"
 
 permissions:
