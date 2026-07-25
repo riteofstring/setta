@@ -50,30 +50,71 @@ export function AppShellMasterPaneSurface({
 export function AppShellMasterPaneUnavailable() {
   return (
     <section
-      aria-labelledby="setta-master-pane-title"
-      className="setta-master-overlay setta-master-pane"
+      aria-label="Setta master"
+      className="conversation-presentation-identity easy-button-surface setta-master-pane-surface"
+      data-easy-button-state="complete"
+      data-easy-button-status="failed"
       data-master-pane-state="unavailable"
       data-testid="master-pane-surface"
       role="region"
     >
-      <header className="setta-master-overlay-header">
-        <span aria-hidden="true" className="setta-master-overlay-mark">
-          <Sparkles />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="setta-master-overlay-eyebrow">Global master</div>
-          <h1 id="setta-master-pane-title">Setta</h1>
+      <aside
+        className="easy-button-rail easy-button-rail-left setta-master-history-rail"
+        data-easy-button-rail-empty="true"
+      >
+        <p className="easy-button-rail-label">Conversation</p>
+      </aside>
+      <main className="easy-button-stage setta-master-stage">
+        <div className="easy-button-center setta-master-center">
+          <div className="easy-button-agent-chip-slot setta-master-agent-chip-slot">
+            <span className="easy-button-agent-chip setta-master-agent-chip">Global master</span>
+          </div>
+          <div className="easy-button-button-well setta-master-button-well">
+            <button
+              aria-label="Setta master unavailable"
+              className="easy-button-control setta-master-control"
+              data-master-voice-state="unavailable"
+              disabled
+              type="button"
+            >
+              <CircleAlert aria-hidden="true" />
+            </button>
+          </div>
+          <div className="easy-button-caption-slot setta-master-caption-slot">
+            <div
+              className="setta-master-overlay-interaction"
+              data-testid="master-active-interaction"
+            >
+              <div className="setta-master-overlay-empty" data-master-empty-tone="failed">
+                <span aria-hidden="true" className="setta-master-overlay-empty-icon">
+                  <Sparkles />
+                </span>
+                <h2>Master pane unavailable</h2>
+                <p>Setta could not connect this pane to the desktop master controller.</p>
+              </div>
+            </div>
+          </div>
         </div>
-      </header>
-      <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-        <div className="setta-master-overlay-empty">
-          <span aria-hidden="true" className="setta-master-overlay-empty-icon">
-            <CircleAlert />
-          </span>
-          <h2>Master pane unavailable</h2>
-          <p>Setta could not connect this pane to the desktop master controller.</p>
-        </div>
-      </div>
+      </main>
+      <aside className="easy-button-rail easy-button-rail-right setta-master-action-rail">
+        <p className="easy-button-rail-label">Topics</p>
+      </aside>
+      <footer className="easy-button-footer setta-master-footer">
+        <form className="easy-button-input-wrap setta-master-input-wrap">
+          <textarea
+            aria-label="Ask Setta"
+            className="easy-button-input setta-master-input"
+            disabled
+            placeholder="Master pane unavailable"
+            readOnly
+            rows={1}
+            value=""
+          />
+          <button className="easy-button-enter-chip setta-master-submit" disabled type="submit">
+            Send
+          </button>
+        </form>
+      </footer>
     </section>
   );
 }

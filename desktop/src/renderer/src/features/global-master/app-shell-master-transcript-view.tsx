@@ -1,5 +1,5 @@
 import type { MasterInputModality, TranscriptEntry } from "@generated/backend";
-import { Check, CircleAlert, LoaderCircle, RotateCcw, Square } from "lucide-react";
+import { Check, CircleAlert, Square } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { AppShellMasterSnapshot } from "./app-shell-master-controller";
@@ -27,45 +27,6 @@ export function MasterTranscriptEntries({ entries }: { entries: TranscriptEntry[
         <MasterTranscriptEntryView entry={entry} key={entry.payload.id} />
       ))}
     </>
-  );
-}
-
-export function MasterTranscriptHistory({ entries }: { entries: TranscriptEntry[] }) {
-  return (
-    <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-      <MasterTranscriptEntries entries={entries} />
-    </div>
-  );
-}
-
-export function MasterTranscriptLoading() {
-  return (
-    <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-      <div className="setta-master-overlay-progress" role="status">
-        <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
-        Loading the durable master transcript…
-      </div>
-    </div>
-  );
-}
-
-export function MasterTranscriptFailure({
-  message,
-  onRetryTranscript,
-}: {
-  message: string;
-  onRetryTranscript: () => void;
-}) {
-  return (
-    <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-      <div className="setta-master-overlay-restore-failure" role="alert">
-        <span>{message}</span>
-        <button onClick={onRetryTranscript} type="button">
-          <RotateCcw aria-hidden="true" />
-          Retry transcript
-        </button>
-      </div>
-    </div>
   );
 }
 

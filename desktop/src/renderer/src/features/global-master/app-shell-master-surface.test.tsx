@@ -28,8 +28,6 @@ describe("app-shell master surface", () => {
     expect(html).not.toContain('data-testid="master-overlay"');
     expect(html).toContain("Bring up the speech routing topic");
     expect(html).toContain("What should Setta bring into focus?");
-    expect(html).toContain("Ctrl+K");
-    expect(html).toContain("Ctrl+Shift+K");
     expect(html).toContain('data-testid="master-pane-voice-capture"');
 
     controller.submitText("Open the latest narrator conversation");

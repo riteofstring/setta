@@ -8,12 +8,11 @@ import type {
 } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import {
-  ArrowUp,
   Check,
   CircleAlert,
   LoaderCircle,
-  MessageCircleMore,
   RotateCcw,
+  Sparkles,
   Square,
   Trash2,
   Volume2,
@@ -28,12 +27,9 @@ import type {
 } from "./app-shell-master-controller";
 import {
   MasterTranscriptEntries,
-  MasterTranscriptFailure,
-  MasterTranscriptHistory,
-  MasterTranscriptLoading,
   visibleTranscriptEntries,
 } from "./app-shell-master-transcript-view";
-import { MasterSurfaceHeader } from "./app-shell-master-surface-header";
+import { masterPaneStatusTone, masterPaneViewState } from "./app-shell-master-pane-state";
 import {
   createMasterVoiceModel,
   MasterVoiceButton,
@@ -107,7 +103,6 @@ export function MasterSurfaceFrame({
   const [synchronousError, setSynchronousError] = useState<string | null>(null);
   const canSubmit = controller.canSubmitInput() && snapshot.draft.trim() !== "";
   const masterVoice = createMasterVoiceModel(speechCapture, platform, masterVoiceShortcut);
-  const headingId = masterSurfaceHeadingId();
 
   useEffect(() => {
     if (focused) {
@@ -146,31 +141,51 @@ export function MasterSurfaceFrame({
 
   return (
     <section
-      aria-labelledby={headingId}
-      className="setta-master-overlay setta-master-pane"
+      aria-label="Setta master"
+      className="conversation-presentation-identity easy-button-surface setta-master-pane-surface"
+      data-easy-button-state={masterPaneViewState(snapshot)}
+      data-easy-button-status={masterPaneStatusTone(snapshot)}
       data-master-pane-state="ready"
       data-testid="master-pane-surface"
       role="region"
     >
-      <MasterSurfaceHeader
-        headingId={headingId}
-        masterVoiceShortcut={masterVoiceShortcut}
-        platform={platform}
-      />
+      <MasterHistoryRail controller={controller} snapshot={snapshot} />
 
-      <MasterInteraction
-        controller={controller}
-        snapshot={snapshot}
-        speechPlayback={speechPlayback}
-      />
+      <main className="easy-button-stage setta-master-stage">
+        <div className="easy-button-center setta-master-center">
+          <div className="easy-button-agent-chip-slot setta-master-agent-chip-slot">
+            <span className="easy-button-agent-chip setta-master-agent-chip">Global master</span>
+          </div>
+          <div className="easy-button-button-well setta-master-button-well">
+            <MasterSwirlField />
+            <MasterVoiceButton
+              className="easy-button-control setta-master-control"
+              model={masterVoice}
+              onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+              testId="master-pane-voice-capture"
+            />
+          </div>
+          <div className="easy-button-caption-slot setta-master-caption-slot">
+            <MasterInteraction
+              controller={controller}
+              snapshot={snapshot}
+              speechPlayback={speechPlayback}
+            />
+          </div>
+        </div>
+      </main>
+
+      <aside className="easy-button-rail easy-button-rail-right setta-master-action-rail">
+        <p className="easy-button-rail-label">Topics</p>
+        <MasterConversationPicker />
+        <MasterVoiceStatus model={masterVoice} />
+      </aside>
 
       <MasterSurfaceFooter
         canSubmit={canSubmit}
         composerRef={composerRef}
         controller={controller}
-        masterVoice={masterVoice}
         onComposerKeyDown={handleComposerKeyDown}
-        onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
         onSubmit={submit}
         snapshot={snapshot}
         synchronousError={synchronousError}
@@ -179,17 +194,11 @@ export function MasterSurfaceFrame({
   );
 }
 
-function masterSurfaceHeadingId(): string {
-  return "setta-master-pane-title";
-}
-
 function MasterSurfaceFooter({
   canSubmit,
   composerRef,
   controller,
-  masterVoice,
   onComposerKeyDown,
-  onOpenVoiceCredentialSettings,
   onSubmit,
   snapshot,
   synchronousError,
@@ -197,15 +206,13 @@ function MasterSurfaceFooter({
   canSubmit: boolean;
   composerRef: { current: HTMLTextAreaElement | null };
   controller: AppShellMasterController;
-  masterVoice: ReturnType<typeof createMasterVoiceModel>;
   onComposerKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
-  onOpenVoiceCredentialSettings?: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   snapshot: AppShellMasterSnapshot;
   synchronousError: string | null;
 }) {
   return (
-    <footer className="setta-master-overlay-footer">
+    <footer className="easy-button-footer setta-master-footer">
       {snapshot.submission.type === "failed" ? (
         <MasterSubmissionFailureActions controller={controller} snapshot={snapshot} />
       ) : null}
@@ -217,36 +224,100 @@ function MasterSurfaceFooter({
           {synchronousError}
         </div>
       ) : null}
-      <MasterConversationPicker />
-      <MasterVoiceStatus model={masterVoice} />
-      <form className="setta-master-overlay-composer" onSubmit={onSubmit}>
+      <form className="easy-button-input-wrap setta-master-input-wrap" onSubmit={onSubmit}>
         <textarea
           aria-label="Ask Setta"
+          className="easy-button-input setta-master-input"
           onChange={(event) => controller.setDraft(event.target.value)}
           onKeyDown={onComposerKeyDown}
           placeholder={masterComposerPlaceholder(snapshot)}
           ref={composerRef}
-          rows={2}
+          rows={1}
           value={snapshot.draft}
-        />
-        <MasterVoiceButton
-          model={masterVoice}
-          onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
         />
         <button
           aria-label="Send to Setta"
-          className="setta-master-overlay-send"
+          className="easy-button-enter-chip setta-master-submit"
           disabled={!canSubmit}
           type="submit"
         >
-          <ArrowUp />
+          Send
         </button>
       </form>
-      <div className="setta-master-overlay-composer-hint">
-        <span>Enter to send · Shift+Enter for a new line</span>
-        <span>{masterConnectionLabel(snapshot)}</span>
-      </div>
+      <p className="setta-master-footer-status">{masterConnectionLabel(snapshot)}</p>
     </footer>
+  );
+}
+
+function MasterHistoryRail({
+  controller,
+  snapshot,
+}: {
+  controller: AppShellMasterController;
+  snapshot: AppShellMasterSnapshot;
+}) {
+  const transcriptEntries = visibleTranscriptEntries(snapshot);
+  const hasContent = transcriptEntries.length > 0 || snapshot.transcript.type !== "ready";
+  return (
+    <aside
+      className="easy-button-rail easy-button-rail-left setta-master-history-rail"
+      data-easy-button-rail-empty={hasContent ? "false" : "true"}
+    >
+      <p className="easy-button-rail-label">Conversation</p>
+      <div className="setta-master-history-list">
+        {transcriptEntries.length > 0 ? (
+          <MasterTranscriptEntries entries={transcriptEntries} />
+        ) : (
+          <MasterHistoryState controller={controller} snapshot={snapshot} />
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function MasterHistoryState({
+  controller,
+  snapshot,
+}: {
+  controller: AppShellMasterController;
+  snapshot: AppShellMasterSnapshot;
+}) {
+  switch (snapshot.transcript.type) {
+    case "loading":
+      return (
+        <div className="setta-master-rail-status" role="status">
+          <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
+          Loading master transcript…
+        </div>
+      );
+    case "failed":
+      return (
+        <div className="setta-master-rail-status is-failed" role="alert">
+          <span>{snapshot.transcript.message}</span>
+          <button onClick={controller.retryTranscript} type="button">
+            <RotateCcw aria-hidden="true" />
+            Retry transcript
+          </button>
+        </div>
+      );
+    case "disconnected":
+    case "ready":
+      return null;
+    default:
+      return assertNever(snapshot.transcript);
+  }
+}
+
+function MasterSwirlField() {
+  return (
+    <div aria-hidden="true" className="easy-button-swirl">
+      <div className="easy-button-swirl-inner">
+        <div className="easy-button-swirl-core" />
+        <div className="easy-button-swirl-layer easy-button-swirl-layer-1" />
+        <div className="easy-button-swirl-layer easy-button-swirl-layer-2" />
+        <div className="easy-button-swirl-layer easy-button-swirl-layer-3" />
+      </div>
+    </div>
   );
 }
 
@@ -260,11 +331,9 @@ function MasterInteraction({
   speechPlayback: AppShellSpeechPlaybackController | null;
 }) {
   const pendingInput = pendingSubmissionInput(snapshot);
-  const transcriptEntries = visibleTranscriptEntries(snapshot);
   if (pendingInput) {
     return (
       <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-        <MasterTranscriptEntries entries={transcriptEntries} />
         <MasterRequest input={pendingInput.input} />
         <MasterProgress state={pendingInput.state} />
       </div>
@@ -273,13 +342,7 @@ function MasterInteraction({
   switch (snapshot.interaction.type) {
     case "disconnected":
     case "idle":
-      return (
-        <InactiveMasterInteraction
-          controller={controller}
-          snapshot={snapshot}
-          transcriptEntries={transcriptEntries}
-        />
-      );
+      return <InactiveMasterInteraction snapshot={snapshot} />;
     case "loading":
       return (
         <InteractionStatus>
@@ -292,7 +355,6 @@ function MasterInteraction({
     case "observation_failed":
       return (
         <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-          <MasterTranscriptEntries entries={transcriptEntries} />
           <MasterRequest input={snapshot.interaction.state.input} />
           <InteractionFailure controller={controller} message={snapshot.interaction.message} />
           <MasterCancellationAction controller={controller} snapshot={snapshot} />
@@ -312,45 +374,43 @@ function MasterInteraction({
   }
 }
 
-function InactiveMasterInteraction({
-  controller,
-  snapshot,
-  transcriptEntries,
-}: {
-  controller: AppShellMasterController;
-  snapshot: AppShellMasterSnapshot;
-  transcriptEntries: ReturnType<typeof visibleTranscriptEntries>;
-}) {
-  if (transcriptEntries.length > 0) {
-    return <MasterTranscriptHistory entries={transcriptEntries} />;
-  }
+function InactiveMasterInteraction({ snapshot }: { snapshot: AppShellMasterSnapshot }) {
   switch (snapshot.transcript.type) {
     case "loading":
-      return <MasterTranscriptLoading />;
-    case "failed":
       return (
-        <MasterTranscriptFailure
-          message={snapshot.transcript.message}
-          onRetryTranscript={controller.retryTranscript}
-        />
+        <InteractionStatus>
+          <LoaderCircle aria-hidden="true" className="setta-master-overlay-spinner" />
+          Loading master transcript…
+        </InteractionStatus>
       );
+    case "failed":
+      return <EmptyMasterInteraction tone="failed" />;
     case "disconnected":
     case "ready":
-      return <EmptyMasterInteraction />;
+      return <EmptyMasterInteraction tone="ready" />;
     default:
       return assertNever(snapshot.transcript);
   }
 }
 
-function EmptyMasterInteraction() {
+function EmptyMasterInteraction({ tone }: { tone: "failed" | "ready" }) {
   return (
     <div className="setta-master-overlay-interaction" data-testid="master-active-interaction">
-      <div className="setta-master-overlay-empty">
+      <div className="setta-master-overlay-empty" data-master-empty-tone={tone}>
         <span aria-hidden="true" className="setta-master-overlay-empty-icon">
-          <MessageCircleMore />
+          {tone === "failed" ? <CircleAlert /> : <Sparkles />}
         </span>
-        <h2>What should Setta bring into focus?</h2>
-        <p>Find a recent topic, open a conversation, or start work somewhere new.</p>
+        {tone === "failed" ? (
+          <>
+            <h2>Master transcript unavailable</h2>
+            <p>Setta can keep working from the current pane.</p>
+          </>
+        ) : (
+          <>
+            <h2>What should Setta bring into focus?</h2>
+            <p>Find a recent topic, open a conversation, or start work somewhere new.</p>
+          </>
+        )}
       </div>
     </div>
   );
@@ -374,7 +434,6 @@ function ActiveMasterInteraction({
       data-master-routing-status={state.status}
       data-testid="master-active-interaction"
     >
-      <MasterTranscriptEntries entries={visibleTranscriptEntries(snapshot)} />
       <MasterRequest input={state.input} />
       <MasterRoutingResult
         controller={controller}
