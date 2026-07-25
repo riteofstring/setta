@@ -208,11 +208,8 @@ func validateUsageEvidenceRequest(
 	if err := validateIdentifier("user id", request.UserID); err != nil {
 		return err
 	}
-	if request.Evidence.Version != 1 ||
-		request.Evidence.RateCardVersion != schedule.Version ||
-		!validSHA256(request.Evidence.ConfigSHA256) ||
-		!validSHA256(request.Evidence.EventsSHA256) {
-		return errors.New("submitted usage evidence identity is invalid")
+	if err := runtimeaccounting.ValidateEvidenceIdentity(request.Evidence, schedule.Version); err != nil {
+		return err
 	}
 	if request.Evidence.Usage.Basis != runtimeprovider.UsageBasisSettaConservative {
 		return errors.New("hard budget evidence must be Setta-conservative")

@@ -2383,3 +2383,15 @@ Stop and reassess rather than hiding the problem if any of these occur:
   exact replay, conflicting artifact replay, and strict CLI decoding. Automatic
   event capture and scheduled submission remain open, so the combined Phase 5
   checklist item stays unchecked. No provider or cloud mutation ran.
+- 2026-07-24 (shared accounting finalization contract): Moved the versioned
+  accounting configuration, canonical configuration hash, budget-policy
+  conversion, evidence identity validation, and complete usage/cost/cutoff
+  finalization into the Go-owned `runtimeaccounting` package. The offline
+  `setta-runtime-accounting` tool now delegates to that shared path and still
+  verifies its persisted configuration hash and policy before accepting a
+  finalized restart state. Finalization rejects a foreign window, invalid
+  event digest, or provider/rate-card mismatch; the control plane consumes the
+  same evidence-version and SHA-256 identity rules. This removes a second
+  calculation path before adding online event ingestion. Durable push
+  ingestion and automatic producer instrumentation remain open. No provider or
+  cloud mutation ran.

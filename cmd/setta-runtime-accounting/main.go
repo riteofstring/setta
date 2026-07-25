@@ -14,40 +14,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"setta/internal/jsonio"
 	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimecost"
 	spritescost "setta/internal/runtimecost/sprites"
-	"setta/internal/runtimeprovider"
 )
 
 const (
-	configVersion     = 1
 	stateVersion      = 1
 	spritesRateCard   = "sprites-public-2026-07-14"
 	maximumEventBytes = 1 << 20
 )
 
-type config struct {
-	Version     int                                `json:"version"`
-	Provider    string                             `json:"provider"`
-	RateCard    string                             `json:"rate_card"`
-	RuntimeName string                             `json:"runtime_name"`
-	WindowStart time.Time                          `json:"window_start"`
-	WindowEnd   time.Time                          `json:"window_end"`
-	ObservedAt  time.Time                          `json:"observed_at"`
-	Ceilings    runtimeaccounting.ResourceCeilings `json:"ceilings"`
-	Budget      budgetConfig                       `json:"budget"`
-}
-
-type budgetConfig struct {
-	CoveredLimitUSDMicros  uint64                           `json:"covered_limit_usd_micros"`
-	SafetyReserveUSDMicros uint64                           `json:"safety_reserve_usd_micros"`
-	MaximumCutoffLag       string                           `json:"maximum_cutoff_lag"`
-	RequiredDimensions     []runtimeprovider.UsageDimension `json:"required_dimensions"`
-}
+type config = runtimeaccounting.EvidenceConfiguration
+type budgetConfig = runtimeaccounting.EvidenceBudgetConfiguration
 
 type experimentState struct {
 	Version      int                           `json:"version"`
@@ -252,28 +233,18 @@ func buildEvidence(
 	policy runtimeaccounting.BudgetPolicy,
 	closed runtimeaccounting.ClosedWindow,
 ) (*runtimeaccounting.Evidence, error) {
-	usage, err := runtimeaccounting.ConservativeObservation(
-		configuration.Provider,
-		configuration.RuntimeName,
-		closed,
-		configuration.ObservedAt,
-		configuration.Ceilings,
-	)
+	finalized, err := runtimeaccounting.FinalizeEvidence(configuration, eventsHash, schedule, closed)
 	if err != nil {
 		return nil, err
 	}
-	cost, err := runtimecost.Estimate(schedule, usage)
+	configuredPolicy, err := configuration.Budget.Policy()
 	if err != nil {
 		return nil, err
 	}
-	cutoff, err := runtimeaccounting.EvaluateCutoff(schedule, usage, configuration.Ceilings, policy)
-	if err != nil {
-		return nil, err
+	if finalized.ConfigSHA256 != configHash || !canonicalEqual(configuredPolicy, policy) {
+		return nil, errors.New("accounting finalization inputs are inconsistent")
 	}
-	return &runtimeaccounting.Evidence{
-		Version: 1, ConfigSHA256: configHash, EventsSHA256: eventsHash,
-		RateCardVersion: schedule.Version, Usage: usage, Cost: cost, Cutoff: cutoff,
-	}, nil
+	return &finalized, nil
 }
 
 func canonicalEqual(first any, second any) bool {
@@ -296,41 +267,25 @@ func loadConfiguration(name string) (config, string, runtimecost.PriceSchedule, 
 		return config{}, "", runtimecost.PriceSchedule{}, runtimeaccounting.BudgetPolicy{},
 			err
 	}
-	lag, err := time.ParseDuration(configuration.Budget.MaximumCutoffLag)
+	configHash, err := configuration.SHA256()
 	if err != nil {
 		return config{}, "", runtimecost.PriceSchedule{}, runtimeaccounting.BudgetPolicy{}, err
 	}
-	canonical, err := json.Marshal(configuration)
+	policy, err := configuration.Budget.Policy()
 	if err != nil {
 		return config{}, "", runtimecost.PriceSchedule{}, runtimeaccounting.BudgetPolicy{}, err
 	}
-	digest := sha256.Sum256(canonical)
-	policy := runtimeaccounting.BudgetPolicy{
-		CoveredLimitUSDMicros:  configuration.Budget.CoveredLimitUSDMicros,
-		SafetyReserveUSDMicros: configuration.Budget.SafetyReserveUSDMicros,
-		MaximumCutoffLag:       lag,
-		RequiredDimensions:     append([]runtimeprovider.UsageDimension(nil), configuration.Budget.RequiredDimensions...),
-	}
-	return configuration, hex.EncodeToString(digest[:]), spritescost.PublishedRates20260714(), policy, nil
+	return configuration, configHash, spritescost.PublishedRates20260714(), policy, nil
 }
 
 func validateConfiguration(configuration config) error {
-	if configuration.Version != configVersion {
-		return errors.New("invalid accounting configuration version")
+	if err := configuration.Validate(); err != nil {
+		return err
 	}
 	if configuration.Provider != spritescost.Provider || configuration.RateCard != spritesRateCard {
 		return errors.New("invalid accounting provider or rate card")
 	}
-	if configuration.WindowStart.IsZero() || !configuration.WindowEnd.After(configuration.WindowStart) {
-		return errors.New("invalid accounting window")
-	}
-	if configuration.ObservedAt.Before(configuration.WindowEnd) {
-		return errors.New("invalid accounting observation time")
-	}
-	if err := configuration.Ceilings.Validate(); err != nil {
-		return err
-	}
-	return runtimeprovider.ValidateManagedName(configuration.RuntimeName)
+	return nil
 }
 
 func applyEvents(name string, ledger *runtimeaccounting.Ledger) (string, error) {

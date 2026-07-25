@@ -271,7 +271,7 @@ func testConfig(t *testing.T) config {
 	}
 	start := time.Date(2026, time.July, 14, 12, 0, 0, 0, time.UTC)
 	return config{
-		Version: configVersion, Provider: "sprites", RateCard: spritesRateCard,
+		Version: runtimeaccounting.EvidenceConfigurationVersion, Provider: "sprites", RateCard: spritesRateCard,
 		RuntimeName: identity.Name, WindowStart: start, WindowEnd: start.Add(time.Hour),
 		ObservedAt: start.Add(time.Hour),
 		Ceilings: runtimeaccounting.ResourceCeilings{
