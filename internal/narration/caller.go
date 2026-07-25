@@ -475,14 +475,8 @@ func preparedContextIdentity(
 	if err := validateIdentifier("narrator call conversation id", conversationID); err != nil {
 		return preparedCallRequest{}, err
 	}
-	if workspaceID == "" {
-		if kind != RequestKindStatus {
-			return preparedCallRequest{}, fmt.Errorf("narrator %s call requires a workspace id", kind)
-		}
-	} else {
-		if err := validateIdentifier("narrator call workspace id", workspaceID); err != nil {
-			return preparedCallRequest{}, err
-		}
+	if err := validateIdentifier("narrator call workspace id", workspaceID); err != nil {
+		return preparedCallRequest{}, err
 	}
 	return preparedCallRequest{
 		kind:           kind,
@@ -602,7 +596,6 @@ func statusInstructions() string {
 	lines := []string{
 		"Act as Setta's narrator status responder. Use only the supplied read-only status context JSON.",
 		"Answer the exact question from authoritative current state and explicitly represented trajectory ranges.",
-		"If the conversation workspaceId is empty and the question is ordinary chat or a non-filesystem question, answer conversationally without implying that a folder is required.",
 		"Return one voice-ready status reply with current state, evidence, and blocker or next step when relevant.",
 		"Do not emit projection fields or claim to advance a cursor.",
 	}

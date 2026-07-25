@@ -15,7 +15,6 @@ import {
   validSideBoundary,
   validSideContextFrame,
 } from "./fake-topic-codex-app-server-helpers.mjs";
-import { createExactStructuredInputRoutes } from "./fake-topic-codex-input-routes.mjs";
 import * as restrictedThread from "./fake-topic-codex-restricted-thread.mjs";
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
@@ -509,60 +508,48 @@ function emitStructuredTurn(threadId, turnId, text, outputSchema) {
   if (holdStructuredTurnOnce(context)) {
     return;
   }
-  if (emitKnownStructuredTurn(threadId, turnId, context, outputSchema)) {
+  if (context.kind === "master_route") {
+    emitStructuredMasterRoute(threadId, turnId, context, outputSchema);
+    return;
+  }
+  if (context.kind === "input_route") {
+    emitStructuredInputRoute(threadId, turnId, context);
+    return;
+  }
+  if (context.kind === "status" && context.trigger === "explicit_status_requested") {
+    emitAgentMessage(
+      threadId,
+      turnId,
+      JSON.stringify({
+        kind: "status_reply",
+        sourceThroughSequence: context.sourceThroughSequence,
+        statusReply: "The topic is still working and has not been steered or interrupted.",
+      }),
+    );
+    completeTurn(threadId, turnId, "completed");
+    return;
+  }
+  if (context.kind === "focus") {
+    emitStructuredFocus(threadId, turnId, context);
+    return;
+  }
+  if (context.kind === "projection") {
+    emitStructuredProjection(threadId, turnId, context);
+    return;
+  }
+  if (context.kind === "checkpoint") {
+    emitAgentMessage(
+      threadId,
+      turnId,
+      JSON.stringify({
+        coveredThroughSequence: context.requestedRange.end,
+        historicalSummary: `Observed topic history through sequence ${context.requestedRange.end}.`,
+      }),
+    );
+    completeTurn(threadId, turnId, "completed");
     return;
   }
   completeTurn(threadId, turnId, "failed", `unsupported structured context ${context.kind}`);
-}
-
-function emitKnownStructuredTurn(threadId, turnId, context, outputSchema) {
-  const emitter = structuredTurnEmitters[context.kind];
-  return emitter ? emitter(threadId, turnId, context, outputSchema) : false;
-}
-
-const structuredTurnEmitters = {
-  checkpoint: emitStructuredCheckpoint,
-  focus: emitStructuredFocus,
-  input_route: emitStructuredInputRoute,
-  master_route: emitStructuredMasterRoute,
-  projection: emitStructuredProjection,
-  status: emitStructuredStatus,
-};
-
-function emitStructuredStatus(threadId, turnId, context) {
-  if (context.trigger !== "explicit_status_requested") {
-    return false;
-  }
-  emitAgentMessage(
-    threadId,
-    turnId,
-    JSON.stringify({
-      kind: "status_reply",
-      sourceThroughSequence: context.sourceThroughSequence,
-      statusReply: structuredStatusReply(context),
-    }),
-  );
-  completeTurn(threadId, turnId, "completed");
-  return true;
-}
-
-function structuredStatusReply(context) {
-  return context.authoritative?.conversation?.workspaceId === ""
-    ? "I can answer questions here, and I will ask for a folder only when work needs files."
-    : "The topic is still working and has not been steered or interrupted.";
-}
-
-function emitStructuredCheckpoint(threadId, turnId, context) {
-  emitAgentMessage(
-    threadId,
-    turnId,
-    JSON.stringify({
-      coveredThroughSequence: context.requestedRange.end,
-      historicalSummary: `Observed topic history through sequence ${context.requestedRange.end}.`,
-    }),
-  );
-  completeTurn(threadId, turnId, "completed");
-  return true;
 }
 
 function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
@@ -572,15 +559,14 @@ function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
   const decision = scriptedMasterRouteDecision(context, schema);
   if (!validStructuredMasterRouteContext(context, serialized, schema) || decision === null) {
     completeTurn(threadId, turnId, "failed", "master route context or schema drifted");
-    return true;
+    return;
   }
   if (!validMasterEscalationInput(input)) {
     completeTurn(threadId, turnId, "failed", "master escalation linkage drifted");
-    return true;
+    return;
   }
   emitAgentMessage(threadId, turnId, JSON.stringify({ decision }));
   completeTurn(threadId, turnId, "completed");
-  return true;
 }
 
 function validStructuredMasterRouteContext(context, serialized, schema) {
@@ -645,6 +631,7 @@ function scriptedMasterCrashDecision(context, schema) {
     ? { kind: "answer_global", text: "The crashed master route recovered exactly once." }
     : null;
 }
+
 function scriptedMasterRouteDecision(context, schema) {
   const input = context.input?.input;
   const scriptedDecision = scriptedMasterRouteDecisionByText.get(input?.text);
@@ -718,11 +705,9 @@ function masterTargetByTitle(context, title) {
 function masterInputNeedsClarification(input) {
   return input?.text === "Clarify the shell topic." || input?.source === "conversation_escalation";
 }
+
 function isShellVoiceMasterInput(input) {
-  return (
-    input?.source === "shell" &&
-    (input?.modality === "voice" || input?.text === "Answer from folderless master.")
-  );
+  return [input?.source === "shell", input?.modality === "voice"].every(Boolean);
 }
 
 function scriptedMasterFocusDecision(context, schema, input) {
@@ -772,7 +757,7 @@ function emitStructuredInputRoute(threadId, turnId, context) {
   ].every(Boolean);
   if (!valid) {
     completeTurn(threadId, turnId, "failed", "input router context drifted");
-    return true;
+    return;
   }
   const decision = structuredInputRouteDecision(context, routeKind, authoredInput);
   emitAgentMessage(
@@ -783,7 +768,6 @@ function emitStructuredInputRoute(threadId, turnId, context) {
     }),
   );
   completeTurn(threadId, turnId, "completed");
-  return true;
 }
 
 function structuredInputRouteDecision(context, routeKind, authoredInput) {
@@ -855,9 +839,27 @@ function structuredInputClarificationRouteKind(context, allowed) {
     : null;
 }
 
-const exactStructuredInputRoutes = createExactStructuredInputRoutes({
+const sideConversationInputs = new Set([
+  "fail side presentation",
+  "hold close while side creation is pending",
+  "hold pane-close side",
+  "hold restart side",
+  "side lifecycle answer",
+  "side provider failure",
+]);
+
+const steeringInputs = new Set([
   simultaneousCompletionInput,
-});
+  "finish the parent after side work",
+  "steer alpha now",
+]);
+
+const exactStructuredInputRoutes = [
+  { inputs: new Set(["What is the primary agent doing?"]), kind: "answer_as_narrator" },
+  { inputs: sideConversationInputs, kind: "create_side_conversation" },
+  { inputs: new Set(["Alpha topic fork"]), kind: "fork_conversation" },
+  { inputs: steeringInputs, kind: "steer_parent_turn" },
+];
 
 function conversationStatusRouteKind(context, allowed) {
   const status = context.authoritative?.conversation?.status;
@@ -922,7 +924,6 @@ function emitStructuredProjection(threadId, turnId, context) {
   }
   emitAgentMessage(threadId, turnId, JSON.stringify(output));
   completeTurn(threadId, turnId, "completed");
-  return true;
 }
 
 function emitStructuredFocus(threadId, turnId, context) {
@@ -940,7 +941,6 @@ function emitStructuredFocus(threadId, turnId, context) {
     }),
   );
   completeTurn(threadId, turnId, "completed");
-  return true;
 }
 function projectionMilestones(context, objective) {
   const steering = context.authoritative?.currentInstructions?.acceptedSteering ?? [];

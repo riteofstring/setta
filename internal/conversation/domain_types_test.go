@@ -17,7 +17,7 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	archivedAt := testTimeEnded
 	conversation := TopicConversation{
 		ID:                     "conversation-1",
-		WorkspaceID:            stringPointer("workspace-1"),
+		WorkspaceID:            "workspace-1",
 		Title:                  "Topic conversations",
 		TopicDescriptor:        "Implement the new aggregate.",
 		Status:                 ConversationStatusIdle,

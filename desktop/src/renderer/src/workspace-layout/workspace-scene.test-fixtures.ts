@@ -9,7 +9,7 @@ import { createRealWorkspaceScene, type RealWorkspaceSceneOptions } from "./work
 const layoutTestSurfaces = [
   { surfaceKind: "empty-frame", title: "Frame", tone: "cyan", weight: 1.6 },
   { surfaceKind: "empty-frame", title: "Frame 2", tone: "green", weight: 1 },
-  { surfaceKind: "conversation", title: "Topic", tone: "cyan", weight: 1 },
+  { surfaceKind: "easy-button", title: "Topic", tone: "cyan", weight: 1 },
   { surfaceKind: "browser", title: "Browser", tone: "slate", weight: 1 },
 ] as const satisfies readonly {
   surfaceKind: SurfaceKind;
@@ -55,12 +55,12 @@ function storedTestPane(
     tone: surface.tone,
     weight: surface.weight,
   };
-  if (surface.surfaceKind === "conversation") {
+  if (surface.surfaceKind === "easy-button") {
     return {
       ...fields,
-      conversationConfig: { conversationId: "conversation_layout_test" },
+      easyButtonConfig: { conversationId: "conversation_layout_test" },
       surfaceKind: surface.surfaceKind,
     };
   }
-  return { ...fields, conversationConfig: null, surfaceKind: surface.surfaceKind };
+  return { ...fields, easyButtonConfig: null, surfaceKind: surface.surfaceKind };
 }

@@ -291,7 +291,7 @@ func (service *RouteService) materializeClaimedInput(
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	targets = routeTargetsForWorkspaces(targets, retrieval.Scope.FolderResourceWorkspaceIDs)
+	targets = routeTargetsForWorkspaces(targets, retrieval.WorkspaceIDs)
 	if err := validateRequiredRouteTargets(work.Input.Input, candidates, targets); err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
@@ -340,15 +340,8 @@ func (service *RouteService) retrieveAvailableCandidates(
 		return workspaceSession, retrieval, queryTruncated, nil,
 			NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	retrieval.Scope = conversationindex.CandidateScopeFilter{
-		FolderResourceWorkspaceIDs: availableWorkspaceIDs,
-	}
-	retrieval, err = conversationindex.NormalizeCandidateRequest(retrieval)
-	if err != nil {
-		return workspaceSession, retrieval, queryTruncated, nil,
-			NewRouteAttemptFailure(RouteFailureKindInternal, err)
-	}
-	if len(retrieval.Scope.FolderResourceWorkspaceIDs) == 0 {
+	retrieval.WorkspaceIDs = availableWorkspaceIDs
+	if len(availableWorkspaceIDs) == 0 {
 		return workspaceSession, retrieval, queryTruncated, []conversationindex.Candidate{}, nil
 	}
 	candidates, err := service.candidates.RetrieveCandidates(ctx, retrieval)

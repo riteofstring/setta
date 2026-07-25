@@ -102,7 +102,7 @@ func TestNarratorSemanticQueuedTurnStartsWhenPromoted(t *testing.T) {
 func semanticTestConversation() TopicConversation {
 	return TopicConversation{
 		ID:                     "conversation-1",
-		WorkspaceID:            stringPointer("workspace-1"),
+		WorkspaceID:            "workspace-1",
 		Title:                  "Semantic narration",
 		Status:                 ConversationStatusWorking,
 		CreatedAt:              testTimeStarted,

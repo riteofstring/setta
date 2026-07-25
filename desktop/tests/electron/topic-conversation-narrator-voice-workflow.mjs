@@ -118,10 +118,10 @@ export async function exhaustNarratorVoiceCatalog(client, backend, workspaceId, 
       timeoutMs,
     );
     await waitForBackendState(
-      () => backend.get("/app/panes/layout"),
+      () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
       (result) =>
         result.layout?.panes.some(
-          (pane) => pane.conversationConfig?.conversationId === dormant.conversation.id,
+          (pane) => pane.easyButtonConfig?.conversationId === dormant.conversation.id,
         ) !== true,
       timeoutMs,
     );

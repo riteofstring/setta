@@ -23,7 +23,7 @@ let generation = 0;
 let scheduledFlush: ScheduledProjectionFlush | null = null;
 
 export function retainConversationProjection(
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
 ): () => void {
   const key = projectionKey(workspaceId, conversationId);
@@ -72,7 +72,7 @@ function handleConversationProjectionEvents(events: readonly ConversationEvent[]
   }
   useConversationStore.getState().applyEvents(events);
   useConversationNavigatorStore.getState().applyEvents(events);
-  const affected = new Map<string, { conversationId: string; workspaceId: string | null }>();
+  const affected = new Map<string, { conversationId: string; workspaceId: string }>();
   for (const event of events) {
     markRetainedActiveWork(event);
     affected.set(projectionKey(event.workspaceId, event.conversationId), {
@@ -145,7 +145,7 @@ function scheduleProjectionFlush(): void {
 }
 
 async function loadAndSubscribe(
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   retained: RetainedConversationProjection,
 ): Promise<void> {
@@ -172,7 +172,7 @@ async function loadAndSubscribe(
 
 function releaseConversationProjection(
   key: string,
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
 ): void {
   const retained = retainedProjections.get(key);
@@ -205,7 +205,7 @@ function releaseConversationProjection(
 }
 
 function conversationSnapshotIncludingQueuedEvents(
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   events = queuedConversationProjectionEvents(workspaceId, conversationId),
 ): ConversationSnapshot | null | undefined {
@@ -241,7 +241,7 @@ function markRetainedActiveWork(event: ConversationEvent): void {
 }
 
 function queuedConversationProjectionEvents(
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
 ): ConversationEvent[] {
   return pendingEvents.filter(
@@ -277,10 +277,7 @@ function terminalTurnMissingFinalNarration(snapshot: ConversationSnapshot): bool
   return latestTerminalTurnId !== null && !summarizedTurnIds.has(latestTerminalTurnId);
 }
 
-function resyncConversationProjection(
-  workspaceId: string | null,
-  conversationId: string,
-): Promise<void> {
+function resyncConversationProjection(workspaceId: string, conversationId: string): Promise<void> {
   const key = projectionKey(workspaceId, conversationId);
   const current = resyncs.get(key);
   if (current) {
@@ -307,7 +304,7 @@ function resyncConversationProjection(
 }
 
 async function refreshConversationProjectionUntilCurrent(
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   requestGeneration: number,
 ): Promise<void> {
@@ -345,7 +342,7 @@ function resyncRequirementsEqual(
 }
 
 function projectionIsRetained(
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   retained: RetainedConversationProjection,
 ): boolean {
@@ -355,6 +352,6 @@ function projectionIsRetained(
   );
 }
 
-function projectionKey(workspaceId: string | null, conversationId: string): string {
-  return `${workspaceId ?? "folderless"}\u0000${conversationId}`;
+function projectionKey(workspaceId: string, conversationId: string): string {
+  return `${workspaceId}\u0000${conversationId}`;
 }
