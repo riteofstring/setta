@@ -1361,10 +1361,12 @@ measured, and independent of provider UI.
   sessions, approaching hard budgets, and failed cutoff actions. Reuse the
   existing operational stack if one exists; do not introduce a second platform
   solely for this beta.
-- [ ] Add production-path E2E coverage with a scripted fake provider for
+- [x] Add production-path E2E coverage with a scripted fake provider for
   concurrent ensure calls, ambiguous create success, timeout, throttling,
   malformed responses, capacity failure, control-plane restart, lease expiry,
-  suspension, and orphan adoption.
+  suspension, and orphan adoption. The deterministic provider-protocol suite
+  uses the production Sprites SDK adapter, HTTP protocol, durable SQLite store,
+  and reconciler rather than an injected provider mock.
 - [ ] Keep the live Sprites test narrow, disposable, and explicitly gated.
 - [ ] Obtain a preliminary written Fly response before Phase 6. A response may
   bound the beta rather than promise unlimited scale, but silence or a rejected
@@ -2505,3 +2507,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   snapshot paths. Scheduled closure and authenticated in-runtime
   workload-lease production remain open, so the combined Phase 5 accounting
   item stays unchecked. No provider or cloud mutation ran.
+- 2026-07-25 (production provider-protocol E2E): Added a validated production
+  Sprites API-origin boundary: the official HTTPS origin remains the default,
+  arbitrary HTTP is rejected, and plaintext is accepted only for loopback.
+  This lets deterministic tests exercise the pinned SDK adapter, real HTTP
+  request and response contracts, durable SQLite operations, and reconciler
+  together instead of stopping at an injected provider interface. The suite
+  proves concurrent identical ensure calls issue one create, an ambiguous
+  create is adopted after restart without a second mutation, an existing
+  owned orphan is adopted, throttling and malformed JSON fail loudly, capacity
+  rejection is terminal at the configured attempt bound, a timed-out claim is
+  recovered only after lease expiry and restart, and suspension prevents any
+  provider request. This closes the Phase 5 scripted-provider E2E checklist
+  item. No provider or cloud mutation ran.

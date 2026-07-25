@@ -191,6 +191,16 @@ instead of being clamped or estimated. User, runtime, operation, route,
 credential, and provider-resource identifiers remain exclusively in durable
 control-plane state and are not copied into operational output.
 
+The deployable uses the official Sprites HTTPS API origin by default. A trusted
+deployment may set an explicit origin for a compatible provider endpoint;
+validation rejects credentials in the URL, paths, queries, fragments, and all
+unencrypted non-loopback origins. The deterministic provider-protocol E2E
+suite uses this same production adapter boundary against a loopback scripted
+server. It covers concurrent ensure collapse, ambiguous-create restart
+adoption, timeout and expired-lease recovery, throttling, malformed responses,
+capacity failure, suspension before provider access, and owned-orphan
+adoption.
+
 Successful private administration mutations also emit content-free audit
 records after commit for device creation, device revocation, suspension, and
 reactivation. They retain only a typed action, resulting state, and timestamp;
