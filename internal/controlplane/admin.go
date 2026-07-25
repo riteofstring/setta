@@ -19,6 +19,7 @@ const maximumAdminRequestBytes = 16 * 1024
 const adminSocketFileName = "admin.sock"
 
 type AdminServerConfig struct {
+	Observer   HostedAccessObserver
 	SocketPath string
 	Store      *Store
 }
@@ -86,7 +87,10 @@ func StartAdminServer(config AdminServerConfig) (*AdminServer, error) {
 		_ = listener.Close()
 		return nil, fmt.Errorf("protect control-plane administration socket: %w", err)
 	}
-	httpServer := &http.Server{Handler: adminHandler(config.Store), ReadHeaderTimeout: 5 * time.Second}
+	httpServer := &http.Server{
+		Handler:           adminHandler(config.Store, config.Observer),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	server := &AdminServer{httpServer: httpServer, listener: listener, done: make(chan error, 1)}
 	go func() {
 		err := httpServer.Serve(listener)
@@ -117,8 +121,8 @@ func (server *AdminServer) Wait() error {
 }
 
 func validateAdminServerConfig(config AdminServerConfig) error {
-	if config.Store == nil || config.SocketPath == "" || !filepath.IsAbs(config.SocketPath) {
-		return errors.New("control-plane administration requires a store and absolute socket path")
+	if config.Store == nil || config.Observer == nil || config.SocketPath == "" || !filepath.IsAbs(config.SocketPath) {
+		return errors.New("control-plane administration requires a store, observer, and absolute socket path")
 	}
 	if filepath.Dir(config.SocketPath) != filepath.Dir(config.Store.Path()) {
 		return errors.New("control-plane administration socket must share the private store directory")
@@ -131,9 +135,9 @@ func validateAdminServerConfig(config AdminServerConfig) error {
 	return nil
 }
 
-func adminHandler(store *Store) http.Handler {
+func adminHandler(store *Store, observer HostedAccessObserver) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if handleHostedAccessAdminRoute(store, response, request) {
+		if handleHostedAccessAdminRoute(store, observer, response, request) {
 			return
 		}
 		switch request.URL.Path {
@@ -163,6 +167,7 @@ func adminHandler(store *Store) http.Handler {
 
 func handleHostedAccessAdminRoute(
 	store *Store,
+	observer HostedAccessObserver,
 	response http.ResponseWriter,
 	request *http.Request,
 ) bool {
@@ -181,7 +186,7 @@ func handleHostedAccessAdminRoute(
 	case "/v1/hosted-access/complete":
 		if requireAdminMethod(response, request, http.MethodPost) {
 			response.Header().Set("Content-Type", "application/json")
-			handleAdminCompleteHostedAccess(store, response, request)
+			handleAdminCompleteHostedAccess(store, observer, response, request)
 		}
 		return true
 	default:
@@ -214,7 +219,12 @@ func handleAdminEnsureHostedAccess(store *Store, response http.ResponseWriter, r
 	writeAdminJSON(response, progress)
 }
 
-func handleAdminCompleteHostedAccess(store *Store, response http.ResponseWriter, request *http.Request) {
+func handleAdminCompleteHostedAccess(
+	store *Store,
+	observer HostedAccessObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
 	var payload AdminCompleteHostedAccessRequest
 	if !decodeAdminRequest(response, request, &payload) {
 		return
@@ -224,6 +234,12 @@ func handleAdminCompleteHostedAccess(store *Store, response http.ResponseWriter,
 		writeAdminError(response)
 		return
 	}
+	timing, err := store.HostedAccessTiming(request.Context(), payload.HostedAccessIntentID)
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	observer.ObserveHostedAccessTiming(timing)
 	writeAdminJSON(response, BootstrapEvent{
 		DeviceID:    created.Device.ID,
 		Event:       BootstrapReadyEvent,
@@ -240,6 +256,9 @@ func completeHostedAccess(
 		return CreatedDeviceGrant{}, err
 	}
 	if _, err := store.EnsureHostedAccessIntent(ctx, hostedAccessIntentFromAdmin(payload)); err != nil {
+		return CreatedDeviceGrant{}, err
+	}
+	if _, err := store.BeginHostedAccessSync(ctx, payload.HostedAccessIntentID); err != nil {
 		return CreatedDeviceGrant{}, err
 	}
 	if _, err := store.AssignRuntime(ctx, AssignRuntimeRequest{

@@ -22,7 +22,10 @@ func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 	store, _, runtimeName, first := seededControlPlane(t, ctx)
 	defer store.Close()
 	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
-	server, err := StartAdminServer(AdminServerConfig{SocketPath: socketPath, Store: store})
+	observer := newAdminTestObserver(t, io.Discard)
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer: observer, SocketPath: socketPath, Store: store,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,12 +64,15 @@ func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 }
 
 func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *testing.T) {
-	ctx := context.Background()
 	directory := t.TempDir()
 	store := openTestStore(t, directory, time.Now, RateLimit{})
 	defer store.Close()
 	socketPath := filepath.Join(directory, "admin.sock")
-	server, err := StartAdminServer(AdminServerConfig{SocketPath: socketPath, Store: store})
+	var measurements bytes.Buffer
+	observer := newAdminTestObserver(t, &measurements)
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer: observer, SocketPath: socketPath, Store: store,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,20 +93,20 @@ func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *tes
 	requirePreparingHostedAccess(t, first)
 
 	runtimeName := testRuntimeName(t, "typed-client-ready")
-	assignTestRuntime(t, store, "typed-client-runtime", intent.UserID, runtimeName, "typed_client_secret")
-	created, err := store.EnsureDeviceGrant(ctx, EnsureDeviceGrantRequest{
-		Credential:  credential,
-		UserID:      intent.UserID,
-		RuntimeName: runtimeName,
-		DisplayName: "Typed client phone",
-		GrantTTL:    time.Hour,
+	completeHostedAccessFromTypedClient(t, client, AdminCompleteHostedAccessRequest{
+		Credential:           credential,
+		CredentialEpoch:      1,
+		DeviceDisplayName:    "Typed client phone",
+		GrantTTL:             time.Hour,
+		HostedAccessIntentID: intent.IdempotencyKey,
+		IdempotencyKey:       "typed-client-runtime",
+		ProjectID:            intent.ProjectID,
+		RuntimeName:          runtimeName,
+		RuntimeSecretRef:     "typed_client_secret",
+		RuntimeTarget:        "127.0.0.1:7345",
+		UserID:               intent.UserID,
+		WorkstreamID:         intent.WorkstreamID,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.CompleteHostedAccessIntent(ctx, intent.IdempotencyKey, created); err != nil {
-		t.Fatal(err)
-	}
 	syncing := readHostedAccessTestEvent(t, stream)
 	if syncing.Cursor != "2" || syncing.State != HostedAccessProgressSyncingProject {
 		t.Fatalf("syncing event = %+v", syncing)
@@ -114,6 +120,74 @@ func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *tes
 	replayed := openHostedAccessTestStream(t, client, intent.IdempotencyKey, "2")
 	defer replayed.Close()
 	requireReadyHostedAccess(t, readHostedAccessTestEvent(t, replayed), credential.DeviceID)
+	requireContentFreeHostedAccessMeasurement(t, measurements.Bytes())
+}
+
+func newAdminTestObserver(t *testing.T, writer io.Writer) *JSONLinesObserver {
+	t.Helper()
+	observer, err := NewJSONLinesObserver(writer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return observer
+}
+
+func completeHostedAccessFromTypedClient(
+	t *testing.T,
+	client *http.Client,
+	payload AdminCompleteHostedAccessRequest,
+) {
+	t.Helper()
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.Post(
+		"http://unix/v1/hosted-access/complete",
+		"application/json",
+		bytes.NewReader(data),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var event BootstrapEvent
+	if err := json.NewDecoder(response.Body).Decode(&event); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK ||
+		event.Event != BootstrapReadyEvent ||
+		event.DeviceID != payload.Credential.DeviceID ||
+		event.RuntimeName != payload.RuntimeName {
+		t.Fatalf("hosted access complete response = %d %+v", response.StatusCode, event)
+	}
+}
+
+func requireContentFreeHostedAccessMeasurement(t *testing.T, encoded []byte) {
+	t.Helper()
+	var measurement map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	if err := decoder.Decode(&measurement); err != nil {
+		t.Fatal(err)
+	}
+	wantKeys := map[string]bool{
+		"completed_at":       true,
+		"ensure_to_ready_ms": true,
+		"ensure_to_sync_ms":  true,
+		"event":              true,
+		"sync_to_ready_ms":   true,
+	}
+	if len(measurement) != len(wantKeys) {
+		t.Fatalf("hosted access measurement fields = %v", measurement)
+	}
+	for key := range measurement {
+		if !wantKeys[key] {
+			t.Fatalf("hosted access measurement contains content-bearing field %q", key)
+		}
+	}
+	if measurement["event"] != "hosted_access_ready" {
+		t.Fatalf("hosted access measurement = %v", measurement)
+	}
 }
 
 func ensureHostedAccessFromTypedClient(

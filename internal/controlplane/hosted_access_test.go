@@ -146,6 +146,138 @@ func TestHostedAccessCompletionPublishesReadyGrantAcrossRestart(t *testing.T) {
 	requireReadyHostedAccess(t, persisted, credential.DeviceID)
 }
 
+func TestHostedAccessTimingMeasuresDurableProgressBoundaries(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, time.July, 24, 14, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	store := openTestStore(t, t.TempDir(), clock, RateLimit{})
+	defer store.Close()
+	intent, created := prepareTimedHostedAccess(t, ctx, store)
+	now = now.Add(125 * time.Millisecond)
+	syncing := beginTimedHostedAccessSync(t, ctx, store, intent.IdempotencyKey)
+	requireTimedHostedAccessSync(t, syncing)
+	requireTimedHostedAccessSync(t, beginTimedHostedAccessSync(t, ctx, store, intent.IdempotencyKey))
+	now = now.Add(375 * time.Millisecond)
+	completeTimedHostedAccess(t, ctx, store, intent.IdempotencyKey, created)
+	requireHostedAccessTiming(t, readHostedAccessTiming(t, ctx, store, intent.IdempotencyKey), now)
+	requireTimedHostedAccessEvents(t, readTimedHostedAccessEvents(t, ctx, store, intent.IdempotencyKey))
+}
+
+func prepareTimedHostedAccess(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+) (EnsureHostedAccessIntent, CreatedDeviceGrant) {
+	t.Helper()
+	intent := testHostedAccessIntent()
+	credential, err := NewDeviceCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent.Client.DeviceID = credential.DeviceID
+	if _, err := store.UpsertUser(ctx, intent.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.EnsureHostedAccessIntent(ctx, intent); err != nil {
+		t.Fatal(err)
+	}
+	runtimeName := testRuntimeName(t, "hosted-timing")
+	assignTestRuntime(t, store, "hosted-timing-runtime", intent.UserID, runtimeName, "hosted_timing_secret")
+	created, err := store.EnsureDeviceGrant(ctx, EnsureDeviceGrantRequest{
+		Credential:  credential,
+		UserID:      intent.UserID,
+		RuntimeName: runtimeName,
+		DisplayName: "Timed phone",
+		GrantTTL:    time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return intent, created
+}
+
+func beginTimedHostedAccessSync(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+	intentID string,
+) HostedAccessProgress {
+	t.Helper()
+	syncing, err := store.BeginHostedAccessSync(ctx, intentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return syncing
+}
+
+func requireTimedHostedAccessSync(t *testing.T, syncing HostedAccessProgress) {
+	t.Helper()
+	if syncing.Cursor != "2" || syncing.State != HostedAccessProgressSyncingProject {
+		t.Fatalf("syncing progress = %+v", syncing)
+	}
+}
+
+func completeTimedHostedAccess(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+	intentID string,
+	created CreatedDeviceGrant,
+) {
+	t.Helper()
+	if _, err := store.CompleteHostedAccessIntent(ctx, intentID, created); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func readHostedAccessTiming(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+	intentID string,
+) HostedAccessTiming {
+	t.Helper()
+	timing, err := store.HostedAccessTiming(ctx, intentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return timing
+}
+
+func requireHostedAccessTiming(t *testing.T, timing HostedAccessTiming, completedAt time.Time) {
+	t.Helper()
+	if timing.CompletedAt != completedAt ||
+		timing.EnsureToSync != 125*time.Millisecond ||
+		timing.SyncToReady != 375*time.Millisecond ||
+		timing.EnsureToReady != 500*time.Millisecond {
+		t.Fatalf("hosted access timing = %+v", timing)
+	}
+}
+
+func readTimedHostedAccessEvents(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+	intentID string,
+) []HostedAccessProgress {
+	t.Helper()
+	events, _, err := store.HostedAccessProgressAfter(ctx, intentID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return events
+}
+
+func requireTimedHostedAccessEvents(t *testing.T, events []HostedAccessProgress) {
+	t.Helper()
+	if len(events) != 3 ||
+		events[0].Cursor != "1" ||
+		events[1].Cursor != "2" ||
+		events[2].Cursor != "3" {
+		t.Fatalf("hosted access timing events = %+v", events)
+	}
+}
+
 func TestVersionOneControlPlaneDatabaseFailsWithoutCompatibilityMigration(t *testing.T) {
 	directory := t.TempDir()
 	store := openTestStore(t, directory, time.Now, RateLimit{})

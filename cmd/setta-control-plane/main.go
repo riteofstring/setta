@@ -167,6 +167,7 @@ func startControlPlaneServices(
 		return controlPlaneServices{}, fmt.Errorf("start control-plane gateway: %w", err)
 	}
 	admin, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
+		Observer:   observer,
 		SocketPath: controlplane.AdminSocketPath(config.DataDirectory),
 		Store:      store,
 	})

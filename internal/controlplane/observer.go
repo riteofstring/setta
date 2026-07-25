@@ -13,6 +13,7 @@ import (
 type GatewayMeasurement struct {
 	CompletedAt             time.Time                          `json:"completed_at"`
 	DurationMilliseconds    float64                            `json:"duration_ms"`
+	Event                   string                             `json:"event"`
 	Method                  runtimeaccess.GatewayRequestMethod `json:"method"`
 	ProviderTransportOpened bool                               `json:"provider_transport_opened"`
 	RequestBytes            int64                              `json:"request_bytes"`
@@ -20,6 +21,25 @@ type GatewayMeasurement struct {
 	Result                  runtimeaccess.GatewayRequestResult `json:"result"`
 	RouteResolved           bool                               `json:"route_resolved"`
 	Status                  int                                `json:"status"`
+}
+
+type HostedAccessTiming struct {
+	CompletedAt   time.Time
+	EnsureToSync  time.Duration
+	EnsureToReady time.Duration
+	SyncToReady   time.Duration
+}
+
+type HostedAccessTimingMeasurement struct {
+	CompletedAt               time.Time `json:"completed_at"`
+	EnsureToReadyMilliseconds float64   `json:"ensure_to_ready_ms"`
+	EnsureToSyncMilliseconds  float64   `json:"ensure_to_sync_ms"`
+	Event                     string    `json:"event"`
+	SyncToReadyMilliseconds   float64   `json:"sync_to_ready_ms"`
+}
+
+type HostedAccessObserver interface {
+	ObserveHostedAccessTiming(HostedAccessTiming)
 }
 
 type JSONLinesObserver struct {
@@ -44,6 +64,7 @@ func (observer *JSONLinesObserver) ObserveGatewayRequest(observation runtimeacce
 	observer.err = observer.encoder.Encode(GatewayMeasurement{
 		CompletedAt:             observation.CompletedAt.UTC(),
 		DurationMilliseconds:    float64(observation.Duration) / float64(time.Millisecond),
+		Event:                   "gateway_request",
 		Method:                  observation.Method,
 		ProviderTransportOpened: observation.ProviderTransportOpened,
 		RequestBytes:            observation.RequestBytes,
@@ -54,6 +75,25 @@ func (observer *JSONLinesObserver) ObserveGatewayRequest(observation runtimeacce
 	})
 }
 
+func (observer *JSONLinesObserver) ObserveHostedAccessTiming(timing HostedAccessTiming) {
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	if observer.err != nil {
+		return
+	}
+	observer.err = observer.encoder.Encode(HostedAccessTimingMeasurement{
+		CompletedAt:               timing.CompletedAt.UTC(),
+		EnsureToReadyMilliseconds: milliseconds(timing.EnsureToReady),
+		EnsureToSyncMilliseconds:  milliseconds(timing.EnsureToSync),
+		Event:                     "hosted_access_ready",
+		SyncToReadyMilliseconds:   milliseconds(timing.SyncToReady),
+	})
+}
+
+func milliseconds(duration time.Duration) float64 {
+	return float64(duration) / float64(time.Millisecond)
+}
+
 func (observer *JSONLinesObserver) Err() error {
 	observer.mu.Lock()
 	defer observer.mu.Unlock()
@@ -61,3 +101,4 @@ func (observer *JSONLinesObserver) Err() error {
 }
 
 var _ runtimeaccess.GatewayObserver = (*JSONLinesObserver)(nil)
+var _ HostedAccessObserver = (*JSONLinesObserver)(nil)

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (store *Store) EnsureHostedAccessIntent(
@@ -170,6 +171,10 @@ func (store *Store) CompleteHostedAccessIntent(
 		return HostedAccessProgress{}, err
 	}
 	if progress.State != HostedAccessProgressReadyOnPhone {
+		progress, err = ensureHostedAccessSyncing(ctx, tx, intentID, progress, now)
+		if err != nil {
+			return HostedAccessProgress{}, err
+		}
 		if err := appendHostedAccessReady(ctx, tx, intentID, progress, now); err != nil {
 			return HostedAccessProgress{}, err
 		}
@@ -183,6 +188,136 @@ func (store *Store) CompleteHostedAccessIntent(
 	}
 	store.notifyHostedAccessLocked(intentID)
 	return progress, nil
+}
+
+func ensureHostedAccessSyncing(
+	ctx context.Context,
+	tx *sql.Tx,
+	intentID string,
+	progress HostedAccessProgress,
+	now string,
+) (HostedAccessProgress, error) {
+	if progress.State != HostedAccessProgressPreparingAccess {
+		return progress, nil
+	}
+	if err := appendHostedAccessProgress(
+		ctx,
+		tx,
+		intentID,
+		progress,
+		HostedAccessProgressSyncingProject,
+		now,
+	); err != nil {
+		return HostedAccessProgress{}, err
+	}
+	return readLatestHostedAccessProgress(ctx, tx, intentID)
+}
+
+func (store *Store) BeginHostedAccessSync(
+	ctx context.Context,
+	intentID string,
+) (HostedAccessProgress, error) {
+	if err := validateIdentifier("hosted access intent id", intentID); err != nil {
+		return HostedAccessProgress{}, err
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return HostedAccessProgress{}, fmt.Errorf("begin hosted access sync: %w", err)
+	}
+	defer rollback(tx)
+	progress, err := readLatestHostedAccessProgress(ctx, tx, intentID)
+	if err != nil {
+		return HostedAccessProgress{}, err
+	}
+	if progress.State == HostedAccessProgressPreparingAccess {
+		if err := appendHostedAccessProgress(
+			ctx,
+			tx,
+			intentID,
+			progress,
+			HostedAccessProgressSyncingProject,
+			timestamp(store.clock().UTC()),
+		); err != nil {
+			return HostedAccessProgress{}, err
+		}
+		progress, err = readLatestHostedAccessProgress(ctx, tx, intentID)
+		if err != nil {
+			return HostedAccessProgress{}, err
+		}
+	}
+	if progress.State != HostedAccessProgressSyncingProject &&
+		progress.State != HostedAccessProgressReadyOnPhone {
+		return HostedAccessProgress{}, fmt.Errorf("hosted access cannot begin sync from state %q", progress.State)
+	}
+	if err := tx.Commit(); err != nil {
+		return HostedAccessProgress{}, fmt.Errorf("commit hosted access sync: %w", err)
+	}
+	store.notifyHostedAccessLocked(intentID)
+	return progress, nil
+}
+
+func (store *Store) HostedAccessTiming(ctx context.Context, intentID string) (HostedAccessTiming, error) {
+	if err := validateIdentifier("hosted access intent id", intentID); err != nil {
+		return HostedAccessTiming{}, err
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	rows, err := store.db.QueryContext(ctx, `
+SELECT state, occurred_at
+FROM hosted_access_progress
+WHERE intent_id = ?
+ORDER BY cursor
+`, intentID)
+	if err != nil {
+		return HostedAccessTiming{}, fmt.Errorf("read hosted access timing: %w", err)
+	}
+	defer rows.Close()
+	return readHostedAccessTimingRows(rows)
+}
+
+func readHostedAccessTimingRows(rows *sql.Rows) (HostedAccessTiming, error) {
+	states := []HostedAccessProgressState{
+		HostedAccessProgressPreparingAccess,
+		HostedAccessProgressSyncingProject,
+		HostedAccessProgressReadyOnPhone,
+	}
+	times := make([]time.Time, 0, len(states))
+	for rows.Next() {
+		var state HostedAccessProgressState
+		var occurredAt string
+		if err := rows.Scan(&state, &occurredAt); err != nil {
+			return HostedAccessTiming{}, fmt.Errorf("scan hosted access timing: %w", err)
+		}
+		if len(times) >= len(states) || state != states[len(times)] {
+			return HostedAccessTiming{}, errors.New("hosted access timing states are incomplete or out of order")
+		}
+		parsed, err := parseStoredTime(occurredAt)
+		if err != nil {
+			return HostedAccessTiming{}, fmt.Errorf("parse hosted access timing: %w", err)
+		}
+		times = append(times, parsed)
+	}
+	if err := rows.Err(); err != nil {
+		return HostedAccessTiming{}, fmt.Errorf("iterate hosted access timing: %w", err)
+	}
+	if len(times) != len(states) {
+		return HostedAccessTiming{}, errors.New("hosted access timing is not ready")
+	}
+	return hostedAccessTimingFromTimes(times)
+}
+
+func hostedAccessTimingFromTimes(times []time.Time) (HostedAccessTiming, error) {
+	if times[1].Before(times[0]) || times[2].Before(times[1]) {
+		return HostedAccessTiming{}, errors.New("hosted access timing timestamps are out of order")
+	}
+	return HostedAccessTiming{
+		CompletedAt:   times[2],
+		EnsureToSync:  times[1].Sub(times[0]),
+		EnsureToReady: times[2].Sub(times[0]),
+		SyncToReady:   times[2].Sub(times[1]),
+	}, nil
 }
 
 func (store *Store) HostedAccessProgressAfter(
@@ -369,24 +504,37 @@ func appendHostedAccessReady(
 	latest HostedAccessProgress,
 	now string,
 ) error {
-	if latest.State != HostedAccessProgressPreparingAccess {
+	if latest.State != HostedAccessProgressSyncingProject {
 		return fmt.Errorf("hosted access cannot become ready from state %q", latest.State)
 	}
+	return appendHostedAccessProgress(
+		ctx,
+		tx,
+		intentID,
+		latest,
+		HostedAccessProgressReadyOnPhone,
+		now,
+	)
+}
+
+func appendHostedAccessProgress(
+	ctx context.Context,
+	tx *sql.Tx,
+	intentID string,
+	latest HostedAccessProgress,
+	state HostedAccessProgressState,
+	now string,
+) error {
 	cursor, err := strconv.Atoi(latest.Cursor)
 	if err != nil {
 		return fmt.Errorf("parse hosted access cursor: %w", err)
 	}
-	for offset, state := range []HostedAccessProgressState{
-		HostedAccessProgressSyncingProject,
-		HostedAccessProgressReadyOnPhone,
-	} {
-		if _, err := tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, `
 INSERT INTO hosted_access_progress (
   intent_id, cursor, state, reason_code, retryable, occurred_at
 ) VALUES (?, ?, ?, '', 0, ?)
-`, intentID, cursor+offset+1, state, now); err != nil {
-			return fmt.Errorf("append hosted access progress: %w", err)
-		}
+`, intentID, cursor+1, state, now); err != nil {
+		return fmt.Errorf("append hosted access progress: %w", err)
 	}
 	return nil
 }

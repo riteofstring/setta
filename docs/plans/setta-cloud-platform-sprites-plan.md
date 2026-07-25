@@ -2151,3 +2151,17 @@ Stop and reassess rather than hiding the problem if any of these occur:
   resource mutation ran. The explicitly authorized disposable hosted run,
   content-free hosted measurement, independent cloud cleanup inventories, and
   full phone-attach credential exercise remain open.
+- 2026-07-24 (hosted readiness timing foundation): Split
+  `syncing_project` from completion so the private hosted-access boundary now
+  durably records the actual ensure-to-sync, sync-to-ready, and
+  ensure-to-ready intervals instead of assigning simultaneous synthetic
+  timestamps. Successful completion emits one content-free JSONL measurement
+  containing only the completion timestamp, interval durations, and typed
+  event discriminator. Deterministic clock tests prove the interval arithmetic,
+  ordered durable cursors, and idempotent sync replay; the production private
+  HTTP fixture proves the measurement excludes user, project, workstream,
+  device, runtime, token, and path fields. The real generated TypeScript client
+  fixture and registered hosted Electron workflow both passed after the
+  change. The broader Phase 4 latency checkbox remains open for wake, first
+  event, reconnect/replay, steering, cancellation, approval, artifact
+  availability, and an explicitly authorized identical live Sprite workload.

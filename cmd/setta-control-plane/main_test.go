@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -277,7 +278,13 @@ func startBootstrapAdminServer(
 	if err != nil {
 		t.Fatal(err)
 	}
+	observer, err := controlplane.NewJSONLinesObserver(io.Discard)
+	if err != nil {
+		_ = store.Close()
+		t.Fatal(err)
+	}
 	server, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
+		Observer:   observer,
 		SocketPath: controlplane.AdminSocketPath(dataDirectory),
 		Store:      store,
 	})
