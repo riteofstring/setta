@@ -229,6 +229,9 @@
   <div class="grp"><span>field</span>
     <button data-bg="0">points</button><button data-bg="1" class="on">fluid</button>
   </div>
+  <div class="grp"><span>threads</span>
+    <button data-th="1" class="on">1</button><button data-th="16">16</button><button data-th="64">64</button><button data-th="100">100</button>
+  </div>
   <div class="grp"><label><input type="checkbox" id="scan" /> scanline</label></div>
   <div class="grp"><label><input type="checkbox" id="listen" /> listen</label></div>
   <div class="grp"><span>speed</span><input id="speed" type="range" min="0.2" max="3" step="0.05" value="0.2" style="width:88px"></div>
@@ -274,7 +277,7 @@ const STEP=0.20, POP=0.38, FAIL_DELAY=1.1;
 const RESP_H=0.34, TURN_GAP=0.42;          // expanded spacing: reason->response gap, and gap after an open turn
 const COLLAPSE_GAP=0.18;                    // folded gap between outcome nodes (room for the question label under each)
 let INTERVAL=5.5, DEAD_INTERVAL=4.0;   // node dwell (driven by the speed slider, default slowest); animation durations stay fixed
-let collapseMode='ladder', labelMode='auto', bgStyle=1;   // dev-panel variations; fluid field is the default now
+let collapseMode='ladder', labelMode='auto', bgStyle=1, threadCount=1;   // dev-panel variations; fluid field is the default now
 function laneOffsets(K){if(K<=1)return[0];const s=0.30,st=-(K-1)/2*s,o=[];for(let i=0;i<K;i++)o.push(st+i*s);return o;}
 
 // A conversation is a THREAD of turns. Each turn is user-input node -> live reasoning graph -> final
@@ -338,6 +341,36 @@ function build(conv){
   return {nodes,edges,turns,lastBorn:clock};
 }
 
+// Parallel-threads view: N independent threads in a grid, each revealing on its own staggered clock.
+// Positions are baked here (nothing folds), so there is zero per-frame buffer repacking at high counts.
+function buildParallel(n){
+  const nodes=[],edges=[],turns=[];
+  const cols=Math.ceil(Math.sqrt(n)), rows=Math.ceil(n/cols);
+  const cellW=1.85/cols, cellH=1.95/rows, step=cellH/7.5;
+  const SCRIPT=[['think','read request'],['do','open engine'],['struggle','trace path'],['do','apply fix']];
+  const rng=mulberry32(97);
+  for(let t=0;t<n;t++){
+    const c=t%cols, r=Math.floor(t/cols);
+    const xB=(c-(cols-1)/2)*cellW, yB=r*cellH, fail=(t%7===3);
+    const turn={index:t,userId:-1,reasonIds:[],respId:-1,open:1,openTarget:1,manual:null,collapseStart:1e9,reasonSpan:0,fail};
+    let clock=rng()*6.0, row=0;                                  // staggered so threads run out of phase
+    const mk=(role,label,mode,born,ly,fails)=>{ const md=M[mode]!==undefined?M[mode]:mode; const id=nodes.length;
+      nodes.push({id,role,turn:t,x:xB,baseX:xB,label,mode:md,born,settleAt:born+0.75,
+        failAt:fails?FAIL_DELAY:999,localY:ly,worldY:yB+ly,alpha:1}); return id; };
+    turn.userId=mk('user','input','listening',clock,0); clock+=0.55; row=1;
+    let tip=turn.userId;
+    for(const s of SCRIPT){ const b=clock; clock+=0.55;
+      const id=mk('reason',s[1],s[0],b,row*step); turn.reasonIds.push(id);
+      edges.push({a:tip,b:id,childBorn:b,mode:(M[s[0]]!==undefined?M[s[0]]:s[0]),dead:false,conf:0.9,spine:false,turn:t});
+      tip=id; row++; }
+    const rb=clock, om=fail?'fail':'success';
+    turn.respId=mk('response','result',om,rb,row*step);
+    edges.push({a:tip,b:turn.respId,childBorn:rb,mode:M[om],dead:false,conf:0.9,spine:false,turn:t});
+    turns.push(turn);
+  }
+  return {nodes,edges,turns,lastBorn:10.0,parallel:true};
+}
+
 // ---- GL ----
 function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
   if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))fail(gl.getShaderInfoLog(o));return o;}
@@ -368,7 +401,7 @@ layout(location=8) in float a_speed;  // per-particle speed
 layout(location=9) in float a_role;   // 0 core orbiter, 1 emitted spark
 layout(location=10) in float a_failAt; // node age at which it fails (999 = never)
 layout(location=11) in float a_open;    // collapse visibility 0..1 (reason nodes fade as their turn folds)
-uniform float u_cam,u_time,u_dpr,u_hoverX,u_hoverWY,u_hoverOn,u_listen,u_pmode,u_xshift;
+uniform float u_cam,u_time,u_dpr,u_hoverX,u_hoverWY,u_hoverOn,u_listen,u_pmode,u_xshift,u_scale;
 out float v_mode,v_recent,v_alpha,v_active,v_hover,v_fail,v_isCore,v_ecl;
 void main(){
   if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }   // folded away
@@ -469,7 +502,7 @@ void main(){
   v_mode=a_mode; v_recent=recent; v_active=working; v_hover=hover; v_fail=failP; v_alpha=palpha*vis*a_open; v_isCore=step(a_role,0.5);
   v_ecl=max(step(3.5,a_mode)*step(a_mode,4.5)*smoothstep(0.0,1.1,age), failP)*step(a_role,0.5);   // eclipse: outcome failures AND failed side nodes
   gl_Position=vec4(pos.x+u_xshift, pos.y,0.0,1.0);
-  gl_PointSize=psize*u_dpr*vis;
+  gl_PointSize=psize*u_dpr*vis*u_scale;
 }`;
 const PT_FS=`#version 300 es
 precision highp float;
@@ -609,7 +642,7 @@ layout(location=6) in float a_icon;
 layout(location=7) in float a_cx;
 layout(location=8) in float a_cy;
 layout(location=9) in float a_open;   // collapse visibility 0..1
-uniform float u_cam,u_time,u_aspect,u_nicon,u_xshift;
+uniform float u_cam,u_time,u_aspect,u_nicon,u_xshift,u_scale;
 out vec2 v_uv; out float v_mode,v_reveal,v_fail;
 void main(){
   if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // folded away
@@ -618,7 +651,7 @@ void main(){
   float working=smoothstep(a_born,a_born+0.45,u_time)*(1.0-smoothstep(a_settle-0.35,a_settle+0.7,u_time));
   float rise=smoothstep(0.0,0.10,age); float settle=exp(-max(age-0.10,0.0)*6.0); float pop=rise*(1.0+0.55*settle);
   float failing=step(a_failAt,998.0); float failAge=age-a_failAt; v_fail=failing>0.5?smoothstep(0.0,0.35,failAge):0.0;
-  float halfY=(0.020+recent*0.006+working*0.017)*pop; float halfX=halfY/u_aspect;   // sits inside the ring with margin
+  float halfY=(0.020+recent*0.006+working*0.017)*pop*u_scale; float halfX=halfY/u_aspect;   // sits inside the ring with margin
   vec2 center=vec2(a_x, -0.35+(u_cam-a_worldY));
   if(center.y>1.35||center.y<-1.35){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // cull off-viewport icons
   vec2 pos=center+vec2(a_cx*halfX, a_cy*halfY);
@@ -668,7 +701,7 @@ const atlasTex=gl.createTexture();
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
 })();
-const iu=n=>gl.getUniformLocation(iconP,n); const IU={cam:iu('u_cam'),time:iu('u_time'),aspect:iu('u_aspect'),nicon:iu('u_nicon'),atlas:iu('u_atlas'),pixel:iu('u_pixel'),xshift:iu('u_xshift')};
+const iu=n=>gl.getUniformLocation(iconP,n); const IU={cam:iu('u_cam'),time:iu('u_time'),aspect:iu('u_aspect'),nicon:iu('u_nicon'),atlas:iu('u_atlas'),pixel:iu('u_pixel'),xshift:iu('u_xshift'),scale:iu('u_scale')};
 function iconFor(n){ const t=n.label.toLowerCase();
   if(n.mode===M.listening) return 11;
   if(n.mode===M.merge) return 7; if(n.mode===M.struggle) return 4; if(n.mode===M.success) return 5; if(n.mode===M.fail) return 6;
@@ -729,7 +762,7 @@ function ptVaoSetup(){gl.bindVertexArray(ptVao);gl.bindBuffer(gl.ARRAY_BUFFER,pt
   for(let i=0;i<12;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
 function edVaoSetup(){gl.bindVertexArray(edVao);gl.bindBuffer(gl.ARRAY_BUFFER,edBuf);const st=48;
   for(let i=0;i<12;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
-const EDGE_SEG=12;
+let EDGE_SEG=12;   // lowered as an LOD step when rendering many parallel threads
 
 let fbo=gl.createFramebuffer(),fboTex=gl.createTexture(),fw=0,fh=0;
 const MAX_BACKING_PIX=2300000;   // hard ceiling on the full-screen post pass — canvas still fills the display (upscaled)
@@ -747,7 +780,7 @@ function resize(){const dpr=Math.min(window.devicePixelRatio||1,1.5);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);}}
 window.addEventListener('resize',resize);
 
-const pu=n=>gl.getUniformLocation(ptP,n); const PU={cam:pu('u_cam'),time:pu('u_time'),dpr:pu('u_dpr'),hoverX:pu('u_hoverX'),hoverWY:pu('u_hoverWY'),hoverOn:pu('u_hoverOn'),listen:pu('u_listen'),pmode:pu('u_pmode'),xshift:pu('u_xshift')};
+const pu=n=>gl.getUniformLocation(ptP,n); const PU={cam:pu('u_cam'),time:pu('u_time'),dpr:pu('u_dpr'),hoverX:pu('u_hoverX'),hoverWY:pu('u_hoverWY'),hoverOn:pu('u_hoverOn'),listen:pu('u_listen'),pmode:pu('u_pmode'),xshift:pu('u_xshift'),scale:pu('u_scale')};
 const eu=n=>gl.getUniformLocation(edgeP,n); const EU={cam:eu('u_cam'),time:eu('u_time'),aspect:eu('u_aspect'),width:eu('u_width'),xshift:eu('u_xshift')};
 const ou=n=>gl.getUniformLocation(postP,n); const OU={tex:ou('u_tex'),bg:ou('u_bg'),pixel:ou('u_pixel'),scan:ou('u_scan'),pattern:ou('u_pattern'),time:ou('u_time'),glitch:ou('u_glitch')};
 
@@ -758,9 +791,13 @@ const BOOT_CONV={ seed:7, thread:[
   {u:'ok fix it, but no compat shims', reason:'RUN', r:'Reordering now swaps adjacent panes in place; the two long tasks on overview pan are gone. Committed (+18 −6).'} ] };
 let activeConv=BOOT_CONV;
 function rebuild(){
-  g=build(activeConv);
+  const parallel=threadCount>1;
+  EDGE_SEG = parallel ? (threadCount>=64?3:5) : 12;                 // LOD: fewer edge segments with many threads
+  g = parallel ? buildParallel(threadCount) : build(activeConv);
   // each node becomes a small particle system: core orbiters + emitted sparks (fixed randomness, positions animate)
-  const rng=mulberry32((activeConv.seed||seed)*911+13); const K=24; g.parts=[];
+  const rng=mulberry32((activeConv.seed||seed)*911+13);
+  const K = parallel ? (threadCount>=64?3:6) : 24;                  // LOD: fewer particles per node with many threads
+  g.parts=[];
   for(const n of g.nodes){ for(let j=0;j<K;j++){
     let role,dx,dy,speed; const phase=rng();
     if(j===0){ role=0; dx=0; dy=0; speed=0.6; }
@@ -772,7 +809,8 @@ function rebuild(){
   g._E=new Float32Array(g.edges.length*EDGE_SEG*6*12);
   g.icons=g.nodes.map(n=>({n,icon:iconFor(n)}));
   g._IC=new Float32Array(g.nodes.length*6*10); g.icCount=g.nodes.length*6;
-  layout(0); updateSceneBuffers(); buildNodeLabels();
+  layout(0); updateSceneBuffers();
+  if(parallel){ const c=document.getElementById('nodeLabels'); if(c) c.innerHTML=''; } else buildNodeLabels();
 }
 // unified node labels: one system for every node — show the text, then fade out to just the icon (configurable)
 function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c) return; c.innerHTML='';
@@ -806,7 +844,7 @@ function placeNodeLabel(n, el, place, opts){ opts=opts||{}; if(!el) return;
   el.style.display = out?'inline-flex':'block';
   el.style.opacity = op.toFixed(3);
   el.style.left=Math.round(s.x)+'px'; el.style.top=Math.round(top)+'px'; el.style.transform=tf; }
-function updateNodeLabels(){ if(!g.turns) return;
+function updateNodeLabels(){ if(!g.turns||g.parallel) return;   // no labels in the parallel-threads view
   let latest=null; for(const T of g.turns){ if(growT>=g.nodes[T.userId].born) latest=T; }   // the active turn's question sticks at the top
   for(const T of g.turns){
     placeNodeLabel(g.nodes[T.userId], T.uLabel, 'below', {question:true, sticky:T===latest, hideIfFolded:true});
@@ -814,6 +852,7 @@ function updateNodeLabels(){ if(!g.turns) return;
     placeNodeLabel(g.nodes[T.respId], T.rLabel, T.fail?'below':'over', {delay:0.9}); } }   // success over the node; failure below (eclipse stays visible)
 // dynamic layout: reasoning graph compresses into the user/AI ladder as each turn folds (open 1->0)
 function layout(dt){
+  if(g.parallel) return;   // parallel view: positions are baked, nothing folds -> no repack, stays smooth
   const started=g.turns.filter(T=>growT>=g.nodes[T.userId].born);
   const focusNewest=started.length?started[started.length-1].index:-1;
   for(const T of g.turns){
@@ -858,6 +897,7 @@ function updateSceneBuffers(){
 document.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{collapseMode=b.dataset.cm;sceneDirty=true;document.querySelectorAll('[data-cm]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-lm]').forEach(b=>b.onclick=()=>{labelMode=b.dataset.lm;document.querySelectorAll('[data-lm]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-bg]').forEach(b=>b.onclick=()=>{bgStyle=parseInt(b.dataset.bg);document.querySelectorAll('[data-bg]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{threadCount=parseInt(b.dataset.th);rebuild();growT=0;sceneDirty=true;document.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>{pattern=parseInt(b.dataset.pat);document.querySelectorAll('[data-pat]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ditherPx=parseFloat(b.dataset.px);document.querySelectorAll('[data-px]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{particleMode=parseInt(b.dataset.pm);document.querySelectorAll('[data-pm]').forEach(x=>x.classList.toggle('on',x===b));});
@@ -914,13 +954,17 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
     fpsEl.textContent=Math.round(frames/acc)+' fps'+(gpuMs?' · '+gpuMs.toFixed(2)+'ms gpu':'')+' · '+Math.round(renderScale*100)+'%';
     acc=0;frames=0;minDt=1;
   }
-  if(growT>g.lastBorn+FAIL_DELAY+6.0){ growT=0;autoCam=0;viewCam=0;detached=false; for(const T of g.turns){T.open=0;T.manual=null;} }   // replay the thread
+  if(growT>g.lastBorn+FAIL_DELAY+6.0){ growT=0; if(!g.parallel){autoCam=0;viewCam=0;detached=false;} for(const T of g.turns){T.open=g.parallel?1:0;T.manual=null;} }   // replay
   layout(dt);
-  if(sceneDirty || g.turns.some(T=>Math.abs(T.open-T.openTarget)>0.0016)){ updateSceneBuffers(); sceneDirty=false; }   // re-upload only while folding
-  let maxY=0;for(const n of g.nodes)if(n.born<=growT&&n.alpha>0.02&&n.worldY>maxY)maxY=n.worldY;
-  autoCam+=(maxY-autoCam)*Math.min(1,dt*2.2);          // live edge always tracks the newest node
-  if(!detached) viewCam=autoCam;                        // follow, unless you've scrolled up to look back
-  camWorld=viewCam;
+  if(sceneDirty || (!g.parallel && g.turns.some(T=>Math.abs(T.open-T.openTarget)>0.0016))){ updateSceneBuffers(); sceneDirty=false; }   // re-upload only while folding
+  if(g.parallel){ autoCam=1.25; viewCam=1.25; camWorld=1.25; }     // frame the whole grid; no follow
+  else {
+    let maxY=0;for(const n of g.nodes)if(n.born<=growT&&n.alpha>0.02&&n.worldY>maxY)maxY=n.worldY;
+    autoCam+=(maxY-autoCam)*Math.min(1,dt*2.2);          // live edge always tracks the newest node
+    if(!detached) viewCam=autoCam;                        // follow, unless you've scrolled up to look back
+    camWorld=viewCam;
+  }
+  const uiScale = g.parallel ? Math.max(0.13, 1.7/Math.ceil(Math.sqrt(threadCount))) : 1;
   updateNodeLabels();
 
   // ── conversation-switch channel-change transition ──
@@ -952,12 +996,12 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   gl.uniform3fv(BU.cyan,CYAN);gl.uniform3fv(BU.violet,VIOLET);
   gl.bindVertexArray(bgVao);gl.drawArrays(gl.POINTS,0,NBG);
   gl.useProgram(edgeP);gl.uniform1f(EU.cam,camWorld);gl.uniform1f(EU.time,growT);
-  gl.uniform1f(EU.aspect,canvas.width/canvas.height);gl.uniform1f(EU.width,0.0035);gl.uniform1f(EU.xshift,xShift);
+  gl.uniform1f(EU.aspect,canvas.width/canvas.height);gl.uniform1f(EU.width,0.0035*uiScale);gl.uniform1f(EU.xshift,xShift);
   gl.bindVertexArray(edVao);gl.drawArrays(gl.TRIANGLES,0,g.edges.length*EDGE_SEG*6);
   gl.useProgram(ptP);gl.uniform1f(PU.cam,camWorld);gl.uniform1f(PU.time,growT);gl.uniform1f(PU.dpr,dpr);gl.uniform1f(PU.xshift,xShift);
   hoverAmt+=((hovered?1:0)-hoverAmt)*Math.min(1,dt*7);   // ease the hover flare in/out
   if(hovered){hoverX=hovered.x;hoverWY=hovered.worldY;}
-  gl.uniform1f(PU.hoverX,hoverX);gl.uniform1f(PU.hoverWY,hoverWY);gl.uniform1f(PU.hoverOn,hoverAmt);gl.uniform1f(PU.listen,listenSim?1:0);gl.uniform1f(PU.pmode,particleMode);
+  gl.uniform1f(PU.hoverX,hoverX);gl.uniform1f(PU.hoverWY,hoverWY);gl.uniform1f(PU.hoverOn,hoverAmt);gl.uniform1f(PU.listen,listenSim?1:0);gl.uniform1f(PU.pmode,particleMode);gl.uniform1f(PU.scale,uiScale);
   gl.bindVertexArray(ptVao);gl.drawArrays(gl.POINTS,0,g.ptCount);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.disable(gl.BLEND);
@@ -967,7 +1011,7 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   // crisp icons on top (legible), barrel-aligned to the warped nodes
   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.useProgram(iconP);
-  gl.uniform1f(IU.cam,camWorld);gl.uniform1f(IU.time,growT);gl.uniform1f(IU.aspect,canvas.width/canvas.height);gl.uniform1f(IU.nicon,NICON);gl.uniform1f(IU.pixel,ditherPx);gl.uniform1f(IU.xshift,xShift);
+  gl.uniform1f(IU.cam,camWorld);gl.uniform1f(IU.time,growT);gl.uniform1f(IU.aspect,canvas.width/canvas.height);gl.uniform1f(IU.nicon,NICON);gl.uniform1f(IU.pixel,ditherPx);gl.uniform1f(IU.xshift,xShift);gl.uniform1f(IU.scale,uiScale);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.uniform1i(IU.atlas,1);
   gl.bindVertexArray(icVao);gl.drawArrays(gl.TRIANGLES,0,g.icCount);
   gl.disable(gl.BLEND);
