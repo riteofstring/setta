@@ -2165,3 +2165,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   change. The broader Phase 4 latency checkbox remains open for wake, first
   event, reconnect/replay, steering, cancellation, approval, artifact
   availability, and an explicitly authorized identical live Sprite workload.
+- 2026-07-24 (typed hosted-access failure progress): Added Go-owned
+  `runtime_assignment_rejected` and `device_grant_rejected` reason codes and
+  regenerated the TypeScript contract so successful progress carries `null`
+  while `needs_attention` carries one exhaustively decoded reason. The private
+  completion boundary now records a stage-specific, conservative
+  non-retryable failure instead of leaving the client stalled at
+  `syncing_project`; its SSE stream delivers the durable failure and then
+  closes. Production-boundary tests force an assignment idempotency conflict
+  and verify the ordered preparing, syncing, needs-attention sequence plus the
+  persisted reason. Store restart coverage proves the reason and terminal
+  state survive process loss, and TypeScript client tests prove strict failure
+  decoding. The larger typed-progress checkbox remains open for suspension,
+  export, and the Director/frontend projection.

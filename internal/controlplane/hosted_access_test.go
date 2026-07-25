@@ -163,6 +163,52 @@ func TestHostedAccessTimingMeasuresDurableProgressBoundaries(t *testing.T) {
 	requireTimedHostedAccessEvents(t, readTimedHostedAccessEvents(t, ctx, store, intent.IdempotencyKey))
 }
 
+func TestHostedAccessFailurePersistsTypedReasonAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	directory := t.TempDir()
+	store := openTestStore(t, directory, time.Now, RateLimit{})
+	intent := testHostedAccessIntent()
+	if _, err := store.UpsertUser(ctx, intent.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.EnsureHostedAccessIntent(ctx, intent); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.BeginHostedAccessSync(ctx, intent.IdempotencyKey); err != nil {
+		t.Fatal(err)
+	}
+	failure, err := store.FailHostedAccessIntent(
+		ctx,
+		intent.IdempotencyKey,
+		HostedAccessReasonDeviceGrantRejected,
+		false,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireHostedAccessFailure(t, failure, HostedAccessReasonDeviceGrantRejected)
+	replayed, err := store.FailHostedAccessIntent(
+		ctx,
+		intent.IdempotencyKey,
+		HostedAccessReasonDeviceGrantRejected,
+		false,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireHostedAccessFailure(t, replayed, HostedAccessReasonDeviceGrantRejected)
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	restarted := openTestStore(t, directory, time.Now, RateLimit{})
+	defer restarted.Close()
+	persisted, err := restarted.HostedAccessProgress(ctx, intent.IdempotencyKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireHostedAccessFailure(t, persisted, HostedAccessReasonDeviceGrantRejected)
+}
+
 func prepareTimedHostedAccess(
 	t *testing.T,
 	ctx context.Context,
@@ -316,7 +362,7 @@ func requirePreparingHostedAccess(t *testing.T, progress HostedAccessProgress) {
 	if progress.IntentID != "hosted-intent-1" ||
 		progress.Cursor != "1" ||
 		progress.State != HostedAccessProgressPreparingAccess ||
-		progress.ReasonCode != "" ||
+		progress.ReasonCode != nil ||
 		progress.Retryable ||
 		progress.AccessGrant != nil {
 		t.Fatalf("unexpected hosted access progress: %+v", progress)
@@ -328,7 +374,7 @@ func requireReadyHostedAccess(t *testing.T, progress HostedAccessProgress, devic
 	if progress.IntentID != "hosted-intent-1" ||
 		progress.Cursor != "3" ||
 		progress.State != HostedAccessProgressReadyOnPhone ||
-		progress.ReasonCode != "" ||
+		progress.ReasonCode != nil ||
 		progress.Retryable ||
 		progress.AccessGrant == nil ||
 		progress.AccessGrant.DeviceID != deviceID ||

@@ -1538,6 +1538,22 @@ export function decodeHostedAccessProgressState(value: unknown, label = "HostedA
   }
 }
 
+export type HostedAccessReasonCode = "runtime_assignment_rejected" | "device_grant_rejected";
+
+export const hostedAccessReasonCodeValues = ["runtime_assignment_rejected", "device_grant_rejected"] as const satisfies readonly HostedAccessReasonCode[];
+
+export function decodeHostedAccessReasonCode(value: unknown, label = "HostedAccessReasonCode"): HostedAccessReasonCode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "runtime_assignment_rejected":
+      return decoded;
+    case "device_grant_rejected":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export const conversationPaletteCatalog = {
   "sky": {"id":"sky","dark":{"conversationAccent":"oklch(0.846 0.1292 213.38)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.846 0.1292 213.38)"},"light":{"conversationAccent":"oklch(0.48 0.13 213.38)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 213.38)"}},
   "blue": {"id":"blue","dark":{"conversationAccent":"oklch(0.76 0.115 250)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.76 0.115 250)"},"light":{"conversationAccent":"oklch(0.48 0.13 250)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 250)"}},
@@ -3548,7 +3564,7 @@ export interface HostedAccessProgress {
   intentId: string;
   cursor: string;
   state: HostedAccessProgressState;
-  reasonCode: string;
+  reasonCode: HostedAccessReasonCode | null;
   retryable: boolean;
   occurredAt: string;
   accessGrant: HostedAccessGrant | null;
@@ -7158,7 +7174,7 @@ export function decodeHostedAccessProgress(value: unknown): HostedAccessProgress
     intentId: decodeString(requireField(record, "intentId", "HostedAccessProgress"), "HostedAccessProgress.intentId"),
     cursor: decodeString(requireField(record, "cursor", "HostedAccessProgress"), "HostedAccessProgress.cursor"),
     state: decodeHostedAccessProgressState(requireField(record, "state", "HostedAccessProgress"), "HostedAccessProgress.state"),
-    reasonCode: decodeString(requireField(record, "reasonCode", "HostedAccessProgress"), "HostedAccessProgress.reasonCode"),
+    reasonCode: decodeNullable(requireField(record, "reasonCode", "HostedAccessProgress"), "HostedAccessProgress.reasonCode", (item) => decodeHostedAccessReasonCode(item, "HostedAccessProgress.reasonCode")),
     retryable: decodeBoolean(requireField(record, "retryable", "HostedAccessProgress"), "HostedAccessProgress.retryable"),
     occurredAt: decodeString(requireField(record, "occurredAt", "HostedAccessProgress"), "HostedAccessProgress.occurredAt"),
     accessGrant: decodeNullable(requireField(record, "accessGrant", "HostedAccessProgress"), "HostedAccessProgress.accessGrant", (item) => decodeHostedAccessGrant(item)),

@@ -223,7 +223,7 @@ describe("preload workspace API", () => {
       cursor: "1",
       intentId: "intent-hosted",
       occurredAt: "2026-07-24T15:00:00Z",
-      reasonCode: "",
+      reasonCode: null,
       retryable: false,
       state: "preparing_access" as const,
     };

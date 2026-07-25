@@ -16,6 +16,7 @@ type RuntimeOperationStatus string
 type HostedAccessCapability string
 type HostedAccessClientKind string
 type HostedAccessProgressState string
+type HostedAccessReasonCode string
 
 const (
 	UserStatusActive    UserStatus = "active"
@@ -49,6 +50,10 @@ const (
 	HostedAccessProgressReadyOnPhone    HostedAccessProgressState = "ready_on_phone"
 	HostedAccessProgressNeedsAttention  HostedAccessProgressState = "needs_attention"
 	HostedAccessProgressSuspended       HostedAccessProgressState = "suspended"
+
+	HostedAccessReasonNone                      HostedAccessReasonCode = ""
+	HostedAccessReasonRuntimeAssignmentRejected HostedAccessReasonCode = "runtime_assignment_rejected"
+	HostedAccessReasonDeviceGrantRejected       HostedAccessReasonCode = "device_grant_rejected"
 )
 
 var (
@@ -68,6 +73,10 @@ var (
 		HostedAccessProgressReadyOnPhone,
 		HostedAccessProgressNeedsAttention,
 		HostedAccessProgressSuspended,
+	}
+	hostedAccessReasonCodeValues = []HostedAccessReasonCode{
+		HostedAccessReasonRuntimeAssignmentRejected,
+		HostedAccessReasonDeviceGrantRejected,
 	}
 )
 
@@ -94,7 +103,7 @@ type HostedAccessProgress struct {
 	IntentID    string                    `json:"intentId"`
 	Cursor      string                    `json:"cursor"`
 	State       HostedAccessProgressState `json:"state"`
-	ReasonCode  string                    `json:"reasonCode"`
+	ReasonCode  *HostedAccessReasonCode   `json:"reasonCode"`
 	Retryable   bool                      `json:"retryable"`
 	OccurredAt  string                    `json:"occurredAt"`
 	AccessGrant *HostedAccessGrant        `json:"accessGrant"`
@@ -120,6 +129,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "HostedAccessCapability", Values: controlPlaneStringValues(hostedAccessCapabilityValues)},
 		{Name: "HostedAccessClientKind", Values: controlPlaneStringValues(hostedAccessClientKindValues)},
 		{Name: "HostedAccessProgressState", Values: controlPlaneStringValues(hostedAccessProgressStateValues)},
+		{Name: "HostedAccessReasonCode", Values: controlPlaneStringValues(hostedAccessReasonCodeValues)},
 	}
 }
 

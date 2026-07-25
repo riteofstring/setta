@@ -17,6 +17,10 @@ const intent = {
 
 const preparing = progress("1", "preparing_access");
 const syncing = progress("2", "syncing_project");
+const needsAttention = {
+  ...progress("3", "needs_attention"),
+  reasonCode: "runtime_assignment_rejected",
+} as const satisfies HostedAccessProgress;
 const ready = {
   ...progress("3", "ready_on_phone"),
   accessGrant: {
@@ -58,6 +62,18 @@ describe("hosted access client", () => {
     const stream = streamHostedAccessProgress(fixture.socketPath, intent.idempotencyKey, "2");
     await expect(stream.next()).rejects.toThrow("cursor is invalid or out of order");
   });
+
+  it("decodes typed needs-attention progress", async () => {
+    fixture = await startFixture({ events: [preparing, syncing, needsAttention] });
+    const received: HostedAccessProgress[] = [];
+    for await (const event of streamHostedAccessProgress(
+      fixture.socketPath,
+      intent.idempotencyKey,
+    )) {
+      received.push(event);
+    }
+    expect(received).toEqual([preparing, syncing, needsAttention]);
+  });
 });
 
 function progress(cursor: string, state: HostedAccessProgress["state"]): HostedAccessProgress {
@@ -66,13 +82,15 @@ function progress(cursor: string, state: HostedAccessProgress["state"]): HostedA
     cursor,
     intentId: intent.idempotencyKey,
     occurredAt: "2026-07-24T18:00:00Z",
-    reasonCode: "",
+    reasonCode: null,
     retryable: false,
     state,
   };
 }
 
-async function startFixture(options: { eventID?: string } = {}): Promise<{
+async function startFixture(
+  options: { eventID?: string; events?: HostedAccessProgress[] } = {},
+): Promise<{
   close: () => Promise<void>;
   socketPath: string;
 }> {
@@ -85,7 +103,8 @@ async function startFixture(options: { eventID?: string } = {}): Promise<{
       return;
     }
     response.setHeader("Content-Type", "text/event-stream");
-    const events = request.headers["last-event-id"] === "2" ? [ready] : [preparing, syncing, ready];
+    const allEvents = options.events ?? [preparing, syncing, ready];
+    const events = request.headers["last-event-id"] === "2" ? allEvents.slice(2) : allEvents;
     for (const event of events) {
       response.write(
         `id: ${options.eventID ?? event.cursor}\nevent: hosted_access_progress\ndata: ${JSON.stringify(event)}\n\n`,

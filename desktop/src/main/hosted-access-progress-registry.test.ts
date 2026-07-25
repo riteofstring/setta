@@ -88,7 +88,7 @@ function readyProgress(): HostedAccessProgress {
     cursor: "3",
     intentId: "intent-hosted",
     occurredAt: "2026-07-24T15:00:00Z",
-    reasonCode: "",
+    reasonCode: null,
     retryable: false,
     state: "ready_on_phone",
   };

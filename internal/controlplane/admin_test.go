@@ -123,6 +123,109 @@ func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *tes
 	requireContentFreeHostedAccessMeasurement(t, measurements.Bytes())
 }
 
+func TestTypedHostedAccessClientReceivesDurableAssignmentFailure(t *testing.T) {
+	ctx := context.Background()
+	directory := t.TempDir()
+	store := openTestStore(t, directory, time.Now, RateLimit{})
+	defer store.Close()
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer:   newAdminTestObserver(t, io.Discard),
+		SocketPath: filepath.Join(directory, "admin.sock"),
+		Store:      store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	client := adminTestClient(server.listener.Addr().String())
+	credential, err := NewDeviceCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent := testHostedAccessIntent()
+	intent.Client.DeviceID = credential.DeviceID
+	requirePreparingHostedAccess(t, ensureHostedAccessFromTypedClient(t, client, intent))
+	assignTestRuntime(
+		t,
+		store,
+		"typed-client-conflict",
+		intent.UserID,
+		testRuntimeName(t, "existing-runtime"),
+		"existing_runtime_secret",
+	)
+	stream := openHostedAccessTestStream(t, client, intent.IdempotencyKey, "")
+	defer stream.Close()
+	requirePreparingHostedAccess(t, readHostedAccessTestEvent(t, stream))
+	response := postHostedAccessCompletion(t, client, AdminCompleteHostedAccessRequest{
+		Credential:           credential,
+		CredentialEpoch:      1,
+		DeviceDisplayName:    "Rejected phone",
+		GrantTTL:             time.Hour,
+		HostedAccessIntentID: intent.IdempotencyKey,
+		IdempotencyKey:       "typed-client-conflict",
+		ProjectID:            intent.ProjectID,
+		RuntimeName:          testRuntimeName(t, "conflicting-runtime"),
+		RuntimeSecretRef:     "conflicting_runtime_secret",
+		RuntimeTarget:        "127.0.0.1:7345",
+		UserID:               intent.UserID,
+		WorkstreamID:         intent.WorkstreamID,
+	})
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("hosted access failure status = %d", response.StatusCode)
+	}
+	syncing := readHostedAccessTestEvent(t, stream)
+	if syncing.State != HostedAccessProgressSyncingProject {
+		t.Fatalf("hosted access syncing event = %+v", syncing)
+	}
+	failure := readHostedAccessTestEvent(t, stream)
+	requireHostedAccessFailure(t, failure, HostedAccessReasonRuntimeAssignmentRejected)
+	if _, err := readHostedAccessEvent(stream); !errors.Is(err, io.EOF) {
+		t.Fatalf("failed progress stream read error = %v, want EOF", err)
+	}
+	persisted, err := store.HostedAccessProgress(ctx, intent.IdempotencyKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireHostedAccessFailure(t, persisted, HostedAccessReasonRuntimeAssignmentRejected)
+}
+
+func postHostedAccessCompletion(
+	t *testing.T,
+	client *http.Client,
+	payload AdminCompleteHostedAccessRequest,
+) *http.Response {
+	t.Helper()
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.Post(
+		"http://unix/v1/hosted-access/complete",
+		"application/json",
+		bytes.NewReader(data),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return response
+}
+
+func requireHostedAccessFailure(
+	t *testing.T,
+	progress HostedAccessProgress,
+	reason HostedAccessReasonCode,
+) {
+	t.Helper()
+	if progress.State != HostedAccessProgressNeedsAttention ||
+		progress.ReasonCode == nil ||
+		*progress.ReasonCode != reason ||
+		progress.Retryable ||
+		progress.AccessGrant != nil {
+		t.Fatalf("hosted access failure = %+v", progress)
+	}
+}
+
 func newAdminTestObserver(t *testing.T, writer io.Writer) *JSONLinesObserver {
 	t.Helper()
 	observer, err := NewJSONLinesObserver(writer)
@@ -138,18 +241,7 @@ func completeHostedAccessFromTypedClient(
 	payload AdminCompleteHostedAccessRequest,
 ) {
 	t.Helper()
-	data, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response, err := client.Post(
-		"http://unix/v1/hosted-access/complete",
-		"application/json",
-		bytes.NewReader(data),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	response := postHostedAccessCompletion(t, client, payload)
 	defer response.Body.Close()
 	var event BootstrapEvent
 	if err := json.NewDecoder(response.Body).Decode(&event); err != nil {

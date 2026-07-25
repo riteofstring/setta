@@ -271,7 +271,13 @@ func completeHostedAccess(
 		UpstreamAuthority:   payload.RuntimeTarget,
 		CredentialSecretRef: payload.RuntimeSecretRef,
 	}); err != nil {
-		return CreatedDeviceGrant{}, err
+		return CreatedDeviceGrant{}, recordHostedAccessFailure(
+			ctx,
+			store,
+			payload.HostedAccessIntentID,
+			HostedAccessReasonRuntimeAssignmentRejected,
+			err,
+		)
 	}
 	created, err := store.EnsureDeviceGrant(ctx, EnsureDeviceGrantRequest{
 		Credential:  payload.Credential,
@@ -281,12 +287,29 @@ func completeHostedAccess(
 		GrantTTL:    payload.GrantTTL,
 	})
 	if err != nil {
-		return CreatedDeviceGrant{}, err
+		return CreatedDeviceGrant{}, recordHostedAccessFailure(
+			ctx,
+			store,
+			payload.HostedAccessIntentID,
+			HostedAccessReasonDeviceGrantRejected,
+			err,
+		)
 	}
 	if _, err := store.CompleteHostedAccessIntent(ctx, payload.HostedAccessIntentID, created); err != nil {
 		return CreatedDeviceGrant{}, err
 	}
 	return created, nil
+}
+
+func recordHostedAccessFailure(
+	ctx context.Context,
+	store *Store,
+	intentID string,
+	reason HostedAccessReasonCode,
+	cause error,
+) error {
+	_, recordError := store.FailHostedAccessIntent(ctx, intentID, reason, false)
+	return errors.Join(cause, recordError)
 }
 
 func hostedAccessIntentFromAdmin(payload AdminCompleteHostedAccessRequest) EnsureHostedAccessIntent {
@@ -377,11 +400,16 @@ func writeHostedAccessEvents(
 			return false, err
 		}
 		flusher.Flush()
-		if event.State == HostedAccessProgressReadyOnPhone {
+		if hostedAccessProgressTerminal(event) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func hostedAccessProgressTerminal(progress HostedAccessProgress) bool {
+	return progress.State == HostedAccessProgressReadyOnPhone ||
+		(progress.State == HostedAccessProgressNeedsAttention && !progress.Retryable)
 }
 
 func handleAdminEnsureDevice(store *Store, response http.ResponseWriter, request *http.Request) {

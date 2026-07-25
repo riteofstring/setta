@@ -114,6 +114,7 @@ func readLatestHostedAccessProgress(
 ) (HostedAccessProgress, error) {
 	var progress HostedAccessProgress
 	var cursor int
+	var reasonCode string
 	var retryable int
 	err := querier.QueryRowContext(ctx, `
 SELECT intent_id, cursor, state, reason_code, retryable, occurred_at
@@ -125,7 +126,7 @@ LIMIT 1
 		&progress.IntentID,
 		&cursor,
 		&progress.State,
-		&progress.ReasonCode,
+		&reasonCode,
 		&retryable,
 		&progress.OccurredAt,
 	)
@@ -136,6 +137,7 @@ LIMIT 1
 		return HostedAccessProgress{}, fmt.Errorf("read hosted access progress: %w", err)
 	}
 	progress.Cursor = strconv.Itoa(cursor)
+	progress.ReasonCode = hostedAccessReasonCode(reasonCode)
 	progress.Retryable = retryable == 1
 	if progress.State == HostedAccessProgressReadyOnPhone {
 		grant, err := readHostedAccessGrant(ctx, querier, intentID)
@@ -206,6 +208,8 @@ func ensureHostedAccessSyncing(
 		intentID,
 		progress,
 		HostedAccessProgressSyncingProject,
+		HostedAccessReasonNone,
+		false,
 		now,
 	); err != nil {
 		return HostedAccessProgress{}, err
@@ -227,18 +231,43 @@ func (store *Store) BeginHostedAccessSync(
 		return HostedAccessProgress{}, fmt.Errorf("begin hosted access sync: %w", err)
 	}
 	defer rollback(tx)
+	progress, err := beginHostedAccessSync(
+		ctx,
+		tx,
+		intentID,
+		timestamp(store.clock().UTC()),
+	)
+	if err != nil {
+		return HostedAccessProgress{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return HostedAccessProgress{}, fmt.Errorf("commit hosted access sync: %w", err)
+	}
+	store.notifyHostedAccessLocked(intentID)
+	return progress, nil
+}
+
+func beginHostedAccessSync(
+	ctx context.Context,
+	tx *sql.Tx,
+	intentID string,
+	now string,
+) (HostedAccessProgress, error) {
 	progress, err := readLatestHostedAccessProgress(ctx, tx, intentID)
 	if err != nil {
 		return HostedAccessProgress{}, err
 	}
-	if progress.State == HostedAccessProgressPreparingAccess {
+	if progress.State == HostedAccessProgressPreparingAccess ||
+		(progress.State == HostedAccessProgressNeedsAttention && progress.Retryable) {
 		if err := appendHostedAccessProgress(
 			ctx,
 			tx,
 			intentID,
 			progress,
 			HostedAccessProgressSyncingProject,
-			timestamp(store.clock().UTC()),
+			HostedAccessReasonNone,
+			false,
+			now,
 		); err != nil {
 			return HostedAccessProgress{}, err
 		}
@@ -251,10 +280,87 @@ func (store *Store) BeginHostedAccessSync(
 		progress.State != HostedAccessProgressReadyOnPhone {
 		return HostedAccessProgress{}, fmt.Errorf("hosted access cannot begin sync from state %q", progress.State)
 	}
+	return progress, nil
+}
+
+func (store *Store) FailHostedAccessIntent(
+	ctx context.Context,
+	intentID string,
+	reason HostedAccessReasonCode,
+	retryable bool,
+) (HostedAccessProgress, error) {
+	if err := validateIdentifier("hosted access intent id", intentID); err != nil {
+		return HostedAccessProgress{}, err
+	}
+	if !slices.Contains(hostedAccessReasonCodeValues, reason) {
+		return HostedAccessProgress{}, fmt.Errorf("invalid hosted access failure reason %q", reason)
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return HostedAccessProgress{}, fmt.Errorf("begin hosted access failure: %w", err)
+	}
+	defer rollback(tx)
+	progress, err := readLatestHostedAccessProgress(ctx, tx, intentID)
+	if err != nil {
+		return HostedAccessProgress{}, err
+	}
+	if progress.State == HostedAccessProgressNeedsAttention {
+		return replayHostedAccessFailure(tx, progress, reason, retryable)
+	}
+	if progress.State == HostedAccessProgressReadyOnPhone {
+		return HostedAccessProgress{}, errors.New("ready hosted access cannot fail")
+	}
+	progress, err = appendHostedAccessFailure(ctx, tx, intentID, progress, reason, retryable, store.clock().UTC())
+	if err != nil {
+		return HostedAccessProgress{}, err
+	}
 	if err := tx.Commit(); err != nil {
-		return HostedAccessProgress{}, fmt.Errorf("commit hosted access sync: %w", err)
+		return HostedAccessProgress{}, fmt.Errorf("commit hosted access failure: %w", err)
 	}
 	store.notifyHostedAccessLocked(intentID)
+	return progress, nil
+}
+
+func appendHostedAccessFailure(
+	ctx context.Context,
+	tx *sql.Tx,
+	intentID string,
+	progress HostedAccessProgress,
+	reason HostedAccessReasonCode,
+	retryable bool,
+	now time.Time,
+) (HostedAccessProgress, error) {
+	if err := appendHostedAccessProgress(
+		ctx,
+		tx,
+		intentID,
+		progress,
+		HostedAccessProgressNeedsAttention,
+		reason,
+		retryable,
+		timestamp(now),
+	); err != nil {
+		return HostedAccessProgress{}, err
+	}
+	return readLatestHostedAccessProgress(ctx, tx, intentID)
+}
+
+func replayHostedAccessFailure(
+	tx *sql.Tx,
+	progress HostedAccessProgress,
+	reason HostedAccessReasonCode,
+	retryable bool,
+) (HostedAccessProgress, error) {
+	if progress.ReasonCode == nil ||
+		*progress.ReasonCode != reason ||
+		progress.Retryable != retryable {
+		return HostedAccessProgress{}, errors.New("hosted access failure replay does not match")
+	}
+	if err := tx.Commit(); err != nil {
+		return HostedAccessProgress{}, fmt.Errorf("commit hosted access failure replay: %w", err)
+	}
 	return progress, nil
 }
 
@@ -278,34 +384,69 @@ ORDER BY cursor
 }
 
 func readHostedAccessTimingRows(rows *sql.Rows) (HostedAccessTiming, error) {
-	states := []HostedAccessProgressState{
-		HostedAccessProgressPreparingAccess,
-		HostedAccessProgressSyncingProject,
-		HostedAccessProgressReadyOnPhone,
-	}
-	times := make([]time.Time, 0, len(states))
+	var accumulator hostedAccessTimingAccumulator
 	for rows.Next() {
 		var state HostedAccessProgressState
 		var occurredAt string
 		if err := rows.Scan(&state, &occurredAt); err != nil {
 			return HostedAccessTiming{}, fmt.Errorf("scan hosted access timing: %w", err)
 		}
-		if len(times) >= len(states) || state != states[len(times)] {
-			return HostedAccessTiming{}, errors.New("hosted access timing states are incomplete or out of order")
-		}
 		parsed, err := parseStoredTime(occurredAt)
 		if err != nil {
 			return HostedAccessTiming{}, fmt.Errorf("parse hosted access timing: %w", err)
 		}
-		times = append(times, parsed)
+		if err := accumulator.observe(state, parsed); err != nil {
+			return HostedAccessTiming{}, err
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return HostedAccessTiming{}, fmt.Errorf("iterate hosted access timing: %w", err)
 	}
-	if len(times) != len(states) {
+	if accumulator.ready.IsZero() {
 		return HostedAccessTiming{}, errors.New("hosted access timing is not ready")
 	}
-	return hostedAccessTimingFromTimes(times)
+	return hostedAccessTimingFromTimes([]time.Time{
+		accumulator.preparing,
+		accumulator.syncing,
+		accumulator.ready,
+	})
+}
+
+type hostedAccessTimingAccumulator struct {
+	preparing time.Time
+	syncing   time.Time
+	ready     time.Time
+}
+
+func (timing *hostedAccessTimingAccumulator) observe(
+	state HostedAccessProgressState,
+	occurredAt time.Time,
+) error {
+	if !timing.ready.IsZero() {
+		return errors.New("hosted access timing contains progress after readiness")
+	}
+	switch state {
+	case HostedAccessProgressPreparingAccess:
+		if !timing.preparing.IsZero() {
+			return errors.New("hosted access timing contains duplicate preparation")
+		}
+		timing.preparing = occurredAt
+	case HostedAccessProgressSyncingProject:
+		if timing.preparing.IsZero() {
+			return errors.New("hosted access sync precedes preparation")
+		}
+		timing.syncing = occurredAt
+	case HostedAccessProgressNeedsAttention:
+		timing.syncing = time.Time{}
+	case HostedAccessProgressReadyOnPhone:
+		if timing.preparing.IsZero() || timing.syncing.IsZero() {
+			return errors.New("hosted access readiness precedes preparation or sync")
+		}
+		timing.ready = occurredAt
+	default:
+		return fmt.Errorf("hosted access timing does not support state %q", state)
+	}
+	return nil
 }
 
 func hostedAccessTimingFromTimes(times []time.Time) (HostedAccessTiming, error) {
@@ -372,18 +513,20 @@ ORDER BY cursor
 	for rows.Next() {
 		var event HostedAccessProgress
 		var cursor int
+		var reasonCode string
 		var retryable int
 		if err := rows.Scan(
 			&event.IntentID,
 			&cursor,
 			&event.State,
-			&event.ReasonCode,
+			&reasonCode,
 			&retryable,
 			&event.OccurredAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan hosted access progress event: %w", err)
 		}
 		event.Cursor = strconv.Itoa(cursor)
+		event.ReasonCode = hostedAccessReasonCode(reasonCode)
 		event.Retryable = retryable == 1
 		events = append(events, event)
 	}
@@ -513,6 +656,8 @@ func appendHostedAccessReady(
 		intentID,
 		latest,
 		HostedAccessProgressReadyOnPhone,
+		HostedAccessReasonNone,
+		false,
 		now,
 	)
 }
@@ -523,6 +668,8 @@ func appendHostedAccessProgress(
 	intentID string,
 	latest HostedAccessProgress,
 	state HostedAccessProgressState,
+	reason HostedAccessReasonCode,
+	retryable bool,
 	now string,
 ) error {
 	cursor, err := strconv.Atoi(latest.Cursor)
@@ -532,11 +679,19 @@ func appendHostedAccessProgress(
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO hosted_access_progress (
   intent_id, cursor, state, reason_code, retryable, occurred_at
-) VALUES (?, ?, ?, '', 0, ?)
-`, intentID, cursor+1, state, now); err != nil {
+) VALUES (?, ?, ?, ?, ?, ?)
+`, intentID, cursor+1, state, reason, retryable, now); err != nil {
 		return fmt.Errorf("append hosted access progress: %w", err)
 	}
 	return nil
+}
+
+func hostedAccessReasonCode(value string) *HostedAccessReasonCode {
+	if value == "" {
+		return nil
+	}
+	reason := HostedAccessReasonCode(value)
+	return &reason
 }
 
 func readHostedAccessGrant(
