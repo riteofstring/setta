@@ -12,7 +12,7 @@ import {
 } from "../../workspace-layout/conversation-pane-coordinator";
 
 export async function applyConversationRoutingPresentation(
-  workspaceId: string,
+  workspaceId: string | null,
   state: ConversationInputRoutingState,
 ): Promise<void> {
   const result = conversationRoutingResult(state);
@@ -34,13 +34,21 @@ export async function applyConversationRoutingPresentation(
     case "create_side_conversation":
       return presentCreatedSideConversation(
         command.createSideConversation,
-        workspaceId,
+        requireConversationRouteWorkspace(command.kind, workspaceId),
         conversationId,
       );
     case "fork_conversation":
-      return presentForkedConversation(command.forkConversation, workspaceId);
+      return presentForkedConversation(
+        command.forkConversation,
+        requireConversationRouteWorkspace(command.kind, workspaceId),
+      );
     case "escalate_to_master":
-      return presentMasterEscalation(command.escalateToMaster, workspaceId, state, result);
+      return presentMasterEscalation(
+        command.escalateToMaster,
+        requireConversationRouteWorkspace(command.kind, workspaceId),
+        state,
+        result,
+      );
     case "answer_as_narrator":
     case "clarify":
     case "queue_parent_turn":
@@ -53,14 +61,14 @@ export async function applyConversationRoutingPresentation(
 }
 
 export function clearConversationRoutingMasterReply(
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
 ): void {
   useConversationRoutingStore.getState().clearMasterReply(workspaceId, conversationId);
 }
 
 export function discardConversationRoutingFailure(
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
   inputId: string,
 ): void {
@@ -75,7 +83,7 @@ interface ConversationRoutingResult {
   clarification: { inputId: string; question: string } | null;
   inputId: string;
   routingAttempt: number;
-  routingFailure: { inputId: string; message: string; retryable: boolean } | null;
+  routingFailure: { code: string; inputId: string; message: string; retryable: boolean } | null;
   sequence: number;
 }
 
@@ -117,20 +125,25 @@ function conversationInputClarification(
 function conversationRoutingFailure(
   state: ConversationInputRoutingState,
 ): ConversationRoutingResult["routingFailure"] {
-  const failed =
-    state.clarificationReply?.status === "failed"
-      ? state.clarificationReply
-      : state.input.status === "failed"
-        ? state.input
-        : null;
+  const failed = failedConversationRoutingInput(state);
   if (!failed) {
     return null;
   }
   return {
+    code: failed.failure?.code ?? "conversation_input_routing_failed",
     inputId: failed.input.id,
     message: failed.failure?.message ?? "Conversation input routing failed without a reason.",
     retryable: failed.failure?.retryable ?? false,
   };
+}
+
+function failedConversationRoutingInput(
+  state: ConversationInputRoutingState,
+): ConversationInputRoutingState["input"] | null {
+  if (state.clarificationReply?.status === "failed") {
+    return state.clarificationReply;
+  }
+  return state.input.status === "failed" ? state.input : null;
 }
 
 function assertConversationInputSettled(state: ConversationInputRoutingState): void {
@@ -153,6 +166,16 @@ function latestConversationRouteCommand(
   return command;
 }
 
+function requireConversationRouteWorkspace(
+  kind: ConversationRouteCommand["kind"],
+  workspaceId: string | null,
+): string {
+  if (!workspaceId) {
+    throw new Error(`Conversation routing command ${kind} requires a folder resource.`);
+  }
+  return workspaceId;
+}
+
 async function presentCreatedSideConversation(
   side: ConversationRouteCommand["createSideConversation"],
   workspaceId: string,
@@ -165,7 +188,6 @@ async function presentCreatedSideConversation(
     conversationId,
     preferredPaneId: side.parentPaneId,
     title: conversationTitle(conversationId),
-    viewAction: "focus-or-open",
     workspaceId,
   });
 }
@@ -180,7 +202,6 @@ async function presentForkedConversation(
   await presentConversationPane({
     conversationId: fork.childConversationId,
     title: fork.proposedTitle,
-    viewAction: "focus-or-open",
     workspaceId,
   });
 }

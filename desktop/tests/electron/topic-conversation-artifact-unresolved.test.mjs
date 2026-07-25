@@ -8,9 +8,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -61,7 +61,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  const backend = await backendProbe(artifactDir, context.client);
+  const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
   const topic = await createTopic(
     context.client,
@@ -116,26 +116,19 @@ try {
 }
 
 async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  const current = await client.evaluate(workspaceIdExpression());
+  if (!validWorkspaceId(current)) {
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
-  const opened = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  return opened.workspaceId;
+  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+function workspaceIdExpression() {
+  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
 }
 
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
