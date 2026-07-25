@@ -1424,9 +1424,9 @@ lose mutation intent, suspension, or budget enforcement.
 - [ ] Verify a Director request to make a project available on the phone
   provisions or wakes the required Sprite, grants the authenticated phone
   access, and reports readiness without exposing infrastructure choices.
-- [ ] Verify the phone can observe, steer, approve, and open artifacts through
+- [x] Verify the phone can observe, steer, approve, and open artifacts through
   the shared typed workstream contract.
-- [ ] Add the required deterministic cloud-chat Electron workflow through
+- [x] Add the required deterministic cloud-chat Electron workflow through
   main, preload, renderer, HTTP/event streams, runtime stores, and a scripted
   provider/Codex harness. Cover the ensure-hosted-access intent, folderless or
   project-bound workstream creation, streamed output, queueing, steering,
@@ -2732,3 +2732,24 @@ Stop and reassess rather than hiding the problem if any of these occur:
   credential identifiers. This was a documentation-only boundary audit after
   the clean schema-v15 full gate; no automated check was repeated and no
   provider or cloud mutation ran.
+- 2026-07-25 (phone workstream and cloud-chat workflow audit): Closed two stale
+  Phase 6 verification items from the already-required production-path suite.
+  The Candidate B lifecycle workflow authenticates with a bounded grant issued
+  to the `Hosted gateway phone`, creates and observes a project-bound
+  workstream, receives ordered state, steers an active turn, observes queued
+  promotion, denies an approval, cancels work, opens an artifact, observes a
+  provider failure, then restarts both the private gateway and serving runtime
+  and verifies the complete durable outcome. The registered
+  `hosted-cloud-chat` Electron workflow independently runs the real control
+  plane plus scripted Codex/Tasks boundaries through main, preload, renderer,
+  backend HTTP/event streams, and file-backed stores. It covers the typed phone
+  access intent, project-bound conversation creation, streamed completion,
+  queueing and promotion, steering, approval denial, cancellation, failure,
+  artifact projection, renderer reload/disconnect, hosted-progress cursor
+  replay, persistence, and balanced renewable workload leases. Main-process
+  tests also prove progress streams stop when their renderer is destroyed.
+  Taken together, the registered Electron workflow and its Candidate B
+  production companion cover the checklist's restart and minimal typed-phone
+  clauses without claiming a Setta 4 phone UI exists. Both paths passed again
+  in the clean schema-v15 full gate. This was a documentation-only evidence
+  audit; no automated check was repeated and no provider or cloud mutation ran.
