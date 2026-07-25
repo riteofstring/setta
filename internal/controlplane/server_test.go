@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -72,6 +73,18 @@ func TestControlPlaneServerRoutesRotatedSecretsAndRejectsBeforeDial(t *testing.T
 		strings.Contains(measurements.String(), runtimeName) ||
 		strings.Contains(measurements.String(), "/workspace-session") {
 		t.Fatalf("gateway measurement retained request content: %s", measurements.String())
+	}
+	decoder := json.NewDecoder(bytes.NewReader(measurements.Bytes()))
+	for measurementNumber := 0; measurementNumber < 3; measurementNumber++ {
+		var measurement GatewayMeasurement
+		if err := decoder.Decode(&measurement); err != nil {
+			t.Fatalf("decode gateway measurement %d: %v", measurementNumber+1, err)
+		}
+		if measurement.Operation != "WorkspaceSession" ||
+			!measurement.FirstResponseObserved ||
+			measurement.FirstResponseMilliseconds < 0 {
+			t.Fatalf("gateway measurement %d = %+v", measurementNumber+1, measurement)
+		}
 	}
 }
 

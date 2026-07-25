@@ -121,6 +121,15 @@ func Contracts() ContractSchema {
 	}
 }
 
+func GatewayOperation(method string, path string) string {
+	for _, endpoint := range apiEndpoints {
+		if endpoint.Method == method && endpoint.Path == path {
+			return endpoint.Name
+		}
+	}
+	return ""
+}
+
 func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 	for _, endpoint := range apiEndpoints {
 		route := endpoint

@@ -30,7 +30,7 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 	dialer.SetAddress(runtimeServer.Addr())
 	controlDirectory := t.TempDir()
 	secretDirectory := t.TempDir()
-	gateway, store, secrets, client, grant := startHostedGateway(
+	gateway, store, secrets, client, grant, initialMeasurements := startHostedGateway(
 		t,
 		controlDirectory,
 		secretDirectory,
@@ -120,6 +120,20 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 	}
 
 	shutdownHostedGateway(t, gateway, store)
+	requireHostedGatewayMeasurement(
+		t,
+		initialMeasurements,
+		"ConversationEventStream",
+		false,
+	)
+	requireHostedGatewayMeasurementsExclude(
+		t,
+		initialMeasurements,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		firstEvent.EventID,
+		"complete hosted gateway turn",
+	)
 	shutdownServer(t, runtimeServer)
 	runtimeServer, runtimeReady = startRuntimeTestServer(t, config)
 	defer shutdownServer(t, runtimeServer)
@@ -127,14 +141,14 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 	if err := secrets.WriteSecret(t.Context(), "hosted_runtime", []byte(runtimeReady.BootstrapToken)); err != nil {
 		t.Fatal(err)
 	}
-	gateway, store, _, client = restartHostedGateway(
+	var restartedMeasurements *bytes.Buffer
+	gateway, store, _, client, restartedMeasurements = restartHostedGateway(
 		t,
 		controlDirectory,
 		secretDirectory,
 		dialer,
 		grant.Token,
 	)
-	defer shutdownHostedGateway(t, gateway, store)
 	baseURL = "http://" + gateway.Addr().String()
 	replayedStream := openHostedConversationStream(
 		t,
@@ -144,7 +158,6 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 		created.Conversation.ID,
 		firstEvent.EventID,
 	)
-	defer replayedStream.body.Close()
 	replayed := readHostedConversationEvent(t, replayedStream.reader)
 	if replayed.Sequence <= firstEvent.Sequence {
 		t.Fatalf("replayed conversation sequence = %d, want > %d", replayed.Sequence, firstEvent.Sequence)
@@ -164,6 +177,24 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 		snapshot.Turns.Turns[0].Status != conversation.TurnStatusCompleted {
 		t.Fatalf("restarted hosted snapshot = %+v", snapshot.Turns.Turns)
 	}
+	if err := replayedStream.body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	shutdownHostedGateway(t, gateway, store)
+	requireHostedGatewayMeasurement(
+		t,
+		restartedMeasurements,
+		"ConversationEventStream",
+		true,
+	)
+	requireHostedGatewayMeasurementsExclude(
+		t,
+		restartedMeasurements,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		firstEvent.EventID,
+		replayed.EventID,
+	)
 }
 
 type hostedRuntimeDialer struct {
@@ -200,7 +231,14 @@ func startHostedGateway(
 	secretDirectory string,
 	dialer *hostedRuntimeDialer,
 	runtimeCredential string,
-) (*controlplane.Server, *controlplane.Store, *controlplane.FileSecretStore, *http.Client, controlplane.CreatedDeviceGrant) {
+) (
+	*controlplane.Server,
+	*controlplane.Store,
+	*controlplane.FileSecretStore,
+	*http.Client,
+	controlplane.CreatedDeviceGrant,
+	*bytes.Buffer,
+) {
 	t.Helper()
 	store, secrets := openHostedGatewayState(t, controlDirectory, secretDirectory)
 	if err := secrets.WriteSecret(t.Context(), "hosted_runtime", []byte(runtimeCredential)); err != nil {
@@ -234,8 +272,9 @@ func startHostedGateway(
 	if err != nil {
 		t.Fatal(err)
 	}
-	gateway := startHostedControlPlaneServer(t, store, secrets, dialer)
-	return gateway, store, secrets, authenticatedRuntimeTestClient(grant.Token, 10*time.Second), grant
+	measurements := &bytes.Buffer{}
+	gateway := startHostedControlPlaneServer(t, store, secrets, dialer, measurements)
+	return gateway, store, secrets, authenticatedRuntimeTestClient(grant.Token, 10*time.Second), grant, measurements
 }
 
 func restartHostedGateway(
@@ -244,11 +283,12 @@ func restartHostedGateway(
 	secretDirectory string,
 	dialer *hostedRuntimeDialer,
 	clientCredential string,
-) (*controlplane.Server, *controlplane.Store, *controlplane.FileSecretStore, *http.Client) {
+) (*controlplane.Server, *controlplane.Store, *controlplane.FileSecretStore, *http.Client, *bytes.Buffer) {
 	t.Helper()
 	store, secrets := openHostedGatewayState(t, controlDirectory, secretDirectory)
-	gateway := startHostedControlPlaneServer(t, store, secrets, dialer)
-	return gateway, store, secrets, authenticatedRuntimeTestClient(clientCredential, 10*time.Second)
+	measurements := &bytes.Buffer{}
+	gateway := startHostedControlPlaneServer(t, store, secrets, dialer, measurements)
+	return gateway, store, secrets, authenticatedRuntimeTestClient(clientCredential, 10*time.Second), measurements
 }
 
 func openHostedGatewayState(
@@ -274,9 +314,10 @@ func startHostedControlPlaneServer(
 	store *controlplane.Store,
 	secrets *controlplane.FileSecretStore,
 	dialer *hostedRuntimeDialer,
+	measurements *bytes.Buffer,
 ) *controlplane.Server {
 	t.Helper()
-	observer, err := controlplane.NewJSONLinesObserver(&bytes.Buffer{})
+	observer, err := controlplane.NewJSONLinesObserver(measurements)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,6 +336,52 @@ func startHostedControlPlaneServer(
 		t.Fatal(err)
 	}
 	return gateway
+}
+
+func requireHostedGatewayMeasurement(
+	t *testing.T,
+	encoded *bytes.Buffer,
+	operation string,
+	resumeRequested bool,
+) {
+	t.Helper()
+	decoder := json.NewDecoder(bytes.NewReader(encoded.Bytes()))
+	for decoder.More() {
+		var measurement controlplane.GatewayMeasurement
+		if err := decoder.Decode(&measurement); err != nil {
+			t.Fatal(err)
+		}
+		if measurement.Operation != operation ||
+			measurement.ResumeRequested != resumeRequested {
+			continue
+		}
+		if !measurement.FirstResponseObserved ||
+			measurement.FirstResponseMilliseconds < 0 ||
+			measurement.DurationMilliseconds < measurement.FirstResponseMilliseconds {
+			t.Fatalf("hosted gateway measurement = %+v", measurement)
+		}
+		return
+	}
+	t.Fatalf(
+		"missing hosted gateway measurement operation=%q resume=%t in %s",
+		operation,
+		resumeRequested,
+		encoded.String(),
+	)
+}
+
+func requireHostedGatewayMeasurementsExclude(
+	t *testing.T,
+	encoded *bytes.Buffer,
+	forbidden ...string,
+) {
+	t.Helper()
+	observations := encoded.String()
+	for _, value := range forbidden {
+		if value != "" && strings.Contains(observations, value) {
+			t.Fatalf("hosted gateway measurements contain private value %q: %s", value, observations)
+		}
+	}
 }
 
 func shutdownHostedGateway(t *testing.T, gateway *controlplane.Server, store *controlplane.Store) {

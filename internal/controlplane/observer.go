@@ -11,16 +11,20 @@ import (
 )
 
 type GatewayMeasurement struct {
-	CompletedAt             time.Time                          `json:"completed_at"`
-	DurationMilliseconds    float64                            `json:"duration_ms"`
-	Event                   string                             `json:"event"`
-	Method                  runtimeaccess.GatewayRequestMethod `json:"method"`
-	ProviderTransportOpened bool                               `json:"provider_transport_opened"`
-	RequestBytes            int64                              `json:"request_bytes"`
-	ResponseBytes           int64                              `json:"response_bytes"`
-	Result                  runtimeaccess.GatewayRequestResult `json:"result"`
-	RouteResolved           bool                               `json:"route_resolved"`
-	Status                  int                                `json:"status"`
+	CompletedAt               time.Time                          `json:"completed_at"`
+	DurationMilliseconds      float64                            `json:"duration_ms"`
+	Event                     string                             `json:"event"`
+	FirstResponseMilliseconds float64                            `json:"first_response_ms"`
+	FirstResponseObserved     bool                               `json:"first_response_observed"`
+	Method                    runtimeaccess.GatewayRequestMethod `json:"method"`
+	Operation                 string                             `json:"operation"`
+	ProviderTransportOpened   bool                               `json:"provider_transport_opened"`
+	RequestBytes              int64                              `json:"request_bytes"`
+	ResumeRequested           bool                               `json:"resume_requested"`
+	ResponseBytes             int64                              `json:"response_bytes"`
+	Result                    runtimeaccess.GatewayRequestResult `json:"result"`
+	RouteResolved             bool                               `json:"route_resolved"`
+	Status                    int                                `json:"status"`
 }
 
 type HostedAccessTiming struct {
@@ -76,16 +80,20 @@ func (observer *JSONLinesObserver) ObserveGatewayRequest(observation runtimeacce
 		return
 	}
 	observer.err = observer.encoder.Encode(GatewayMeasurement{
-		CompletedAt:             observation.CompletedAt.UTC(),
-		DurationMilliseconds:    float64(observation.Duration) / float64(time.Millisecond),
-		Event:                   "gateway_request",
-		Method:                  observation.Method,
-		ProviderTransportOpened: observation.ProviderTransportOpened,
-		RequestBytes:            observation.RequestBytes,
-		ResponseBytes:           observation.ResponseBytes,
-		Result:                  observation.Result,
-		RouteResolved:           observation.RouteResolved,
-		Status:                  observation.Status,
+		CompletedAt:               observation.CompletedAt.UTC(),
+		DurationMilliseconds:      float64(observation.Duration) / float64(time.Millisecond),
+		Event:                     "gateway_request",
+		FirstResponseMilliseconds: milliseconds(observation.FirstResponseDuration),
+		FirstResponseObserved:     observation.FirstResponseObserved,
+		Method:                    observation.Method,
+		Operation:                 observation.Operation,
+		ProviderTransportOpened:   observation.ProviderTransportOpened,
+		RequestBytes:              observation.RequestBytes,
+		ResumeRequested:           observation.ResumeRequested,
+		ResponseBytes:             observation.ResponseBytes,
+		Result:                    observation.Result,
+		RouteResolved:             observation.RouteResolved,
+		Status:                    observation.Status,
 	})
 }
 

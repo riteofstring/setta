@@ -341,6 +341,7 @@ func TestGatewayObservesContentFreeBandwidthAndTransportState(t *testing.T) {
 	runtimeName := testRuntimeName(t)
 	times := []time.Time{
 		time.Date(2026, time.July, 19, 19, 0, 0, 0, time.UTC),
+		time.Date(2026, time.July, 19, 19, 0, 0, int((10 * time.Millisecond).Nanoseconds()), time.UTC),
 		time.Date(2026, time.July, 19, 19, 0, 0, int((25 * time.Millisecond).Nanoseconds()), time.UTC),
 	}
 	clockCall := 0
@@ -354,6 +355,12 @@ func TestGatewayObservesContentFreeBandwidthAndTransportState(t *testing.T) {
 			clockCall++
 			return current
 		},
+		Classifier: GatewayRequestClassifierFunc(func(method string, path string) string {
+			if method != http.MethodPost || path != "/private" {
+				t.Fatalf("classified request = %s %s", method, path)
+			}
+			return "TestPrivateOperation"
+		}),
 		Observer: GatewayObserverFunc(func(observation GatewayRequestObservation) {
 			observations = append(observations, observation)
 		}),
@@ -381,6 +388,7 @@ func TestGatewayObservesContentFreeBandwidthAndTransportState(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "https://gateway.example/private?secret=query", strings.NewReader("request-body"))
 	request.Header.Set("Authorization", "Bearer client-secret-must-not-be-observed")
+	request.Header.Set("Last-Event-ID", "secret-cursor-must-not-be-observed")
 	response := httptest.NewRecorder()
 
 	gateway.serveHTTP(response, request)
@@ -392,11 +400,15 @@ func TestGatewayObservesContentFreeBandwidthAndTransportState(t *testing.T) {
 		t.Fatalf("observations = %d, want 1", len(observations))
 	}
 	want := GatewayRequestObservation{
-		CompletedAt:             times[1],
+		CompletedAt:             times[2],
 		Duration:                25 * time.Millisecond,
+		FirstResponseDuration:   10 * time.Millisecond,
+		FirstResponseObserved:   true,
 		Method:                  GatewayMethodPost,
+		Operation:               "TestPrivateOperation",
 		ProviderTransportOpened: true,
 		RequestBytes:            int64(len("request-body")),
+		ResumeRequested:         true,
 		ResponseBytes:           int64(len("response-body")),
 		Result:                  GatewayResultForwarded,
 		RouteResolved:           true,

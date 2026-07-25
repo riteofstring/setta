@@ -19,7 +19,7 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 	dialer.SetAddress(runtimeServer.Addr())
 	controlDirectory := t.TempDir()
 	secretDirectory := t.TempDir()
-	gateway, store, secrets, client, grant := startHostedGateway(
+	gateway, store, secrets, client, grant, measurements := startHostedGateway(
 		t,
 		controlDirectory,
 		secretDirectory,
@@ -163,6 +163,14 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 			afterPromotion.Artifacts.Artifacts,
 		)
 	}
+	artifact := readHostedConversationArtifact(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		afterPromotion.Artifacts.Artifacts[0].ID,
+	)
 
 	approvalInput := submitHostedConversationInput(
 		t,
@@ -315,6 +323,19 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 	}
 
 	shutdownHostedGateway(t, gateway, store)
+	requireHostedGatewayMeasurement(t, measurements, "SubmitConversationInput", false)
+	requireHostedGatewayMeasurement(t, measurements, "SubmitTopicConversationApproval", false)
+	requireHostedGatewayMeasurement(t, measurements, "StopTopicConversationTurn", false)
+	requireHostedGatewayMeasurement(t, measurements, "ReadConversationArtifact", false)
+	requireHostedGatewayMeasurementsExclude(
+		t,
+		measurements,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		artifact.ID,
+		"steer alpha now",
+		"command approval denial",
+	)
 	gateway = nil
 	store = nil
 	shutdownServer(t, runtimeServer)
@@ -325,7 +346,7 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 	if err := secrets.WriteSecret(t.Context(), "hosted_runtime", []byte(runtimeReady.BootstrapToken)); err != nil {
 		t.Fatal(err)
 	}
-	gateway, store, _, client = restartHostedGateway(
+	gateway, store, _, client, _ = restartHostedGateway(
 		t,
 		controlDirectory,
 		secretDirectory,
@@ -375,6 +396,33 @@ func requireHostedLifecycleRestartState(t *testing.T, snapshot conversation.Conv
 			snapshot.Trajectory,
 		)
 	}
+}
+
+func readHostedConversationArtifact(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	workspaceID string,
+	conversationID string,
+	artifactID string,
+) conversation.Artifact {
+	t.Helper()
+	artifact := postRuntimeJSON[conversation.Artifact](
+		t,
+		client,
+		baseURL,
+		"/conversations/artifacts/read",
+		httpapi.ReadConversationArtifactRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			ArtifactID:     artifactID,
+		},
+		http.StatusOK,
+	)
+	if artifact.ID != artifactID {
+		t.Fatalf("hosted artifact = %+v", artifact)
+	}
+	return artifact
 }
 
 func hostedApprovalResolutionPersisted(snapshot conversation.ConversationSnapshot) bool {

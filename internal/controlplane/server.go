@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 
+	"setta/internal/httpapi"
 	"setta/internal/runtimeaccess"
 	"setta/internal/runtimeprovider"
 )
@@ -50,6 +51,7 @@ func StartServer(config ServerConfig) (*Server, error) {
 	}
 	gateway, err := runtimeaccess.NewGateway(runtimeaccess.GatewayConfig{
 		Authorizer: config.Authorizer,
+		Classifier: runtimeaccess.GatewayRequestClassifierFunc(httpapi.GatewayOperation),
 		Observer:   config.Observer,
 		Routes:     routes,
 	})

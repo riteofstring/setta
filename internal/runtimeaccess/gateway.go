@@ -97,9 +97,13 @@ const (
 type GatewayRequestObservation struct {
 	CompletedAt             time.Time
 	Duration                time.Duration
+	FirstResponseDuration   time.Duration
+	FirstResponseObserved   bool
 	Method                  GatewayRequestMethod
+	Operation               string
 	ProviderTransportOpened bool
 	RequestBytes            int64
+	ResumeRequested         bool
 	ResponseBytes           int64
 	Result                  GatewayRequestResult
 	RouteResolved           bool
@@ -116,8 +120,19 @@ func (function GatewayObserverFunc) ObserveGatewayRequest(observation GatewayReq
 	function(observation)
 }
 
+type GatewayRequestClassifier interface {
+	ClassifyGatewayRequest(method string, path string) string
+}
+
+type GatewayRequestClassifierFunc func(method string, path string) string
+
+func (function GatewayRequestClassifierFunc) ClassifyGatewayRequest(method string, path string) string {
+	return function(method, path)
+}
+
 type GatewayConfig struct {
 	Authorizer ClientAuthorizer
+	Classifier GatewayRequestClassifier
 	Clock      func() time.Time
 	Observer   GatewayObserver
 	Routes     RuntimeRouteResolver
@@ -129,6 +144,7 @@ type GatewayConfig struct {
 // transport.
 type Gateway struct {
 	authorizer ClientAuthorizer
+	classifier GatewayRequestClassifier
 	clock      func() time.Time
 	observer   GatewayObserver
 	routes     RuntimeRouteResolver
@@ -150,6 +166,7 @@ func NewGateway(config GatewayConfig) (*Gateway, error) {
 	}
 	return &Gateway{
 		authorizer: config.Authorizer,
+		classifier: config.Classifier,
 		clock:      config.Clock,
 		observer:   config.Observer,
 		routes:     config.Routes,
@@ -159,13 +176,29 @@ func NewGateway(config GatewayConfig) (*Gateway, error) {
 func (gateway *Gateway) serveHTTP(response http.ResponseWriter, request *http.Request) {
 	startedAt := gateway.clock()
 	observation := GatewayRequestObservation{
-		Method: gatewayRequestMethod(request.Method),
-		Result: GatewayResultInvalidAuthorization,
-		Status: http.StatusInternalServerError,
+		Method:          gatewayRequestMethod(request.Method),
+		Operation:       gateway.classifyRequest(request.Method, request.URL.Path),
+		Result:          GatewayResultInvalidAuthorization,
+		ResumeRequested: request.Header.Get("Last-Event-ID") != "",
+		Status:          http.StatusInternalServerError,
 	}
-	observedResponse := &gatewayResponseWriter{ResponseWriter: response}
+	var firstResponseAt time.Time
+	observedResponse := &gatewayResponseWriter{
+		ResponseWriter: response,
+		firstWrite: func() {
+			firstResponseAt = gateway.clock()
+		},
+	}
 	var observedRequest *gatewayRequestBody
-	defer func() { gateway.completeObservation(startedAt, &observation, observedRequest, observedResponse) }()
+	defer func() {
+		gateway.completeObservation(
+			startedAt,
+			firstResponseAt,
+			&observation,
+			observedRequest,
+			observedResponse,
+		)
+	}()
 
 	credential, ok := bearerCredential(request.Header.Values("Authorization"))
 	if !ok {
@@ -243,17 +276,29 @@ func (gateway *Gateway) serveHTTP(response http.ResponseWriter, request *http.Re
 
 func (gateway *Gateway) completeObservation(
 	startedAt time.Time,
+	firstResponseAt time.Time,
 	observation *GatewayRequestObservation,
 	requestBody *gatewayRequestBody,
 	response *gatewayResponseWriter,
 ) {
 	observation.CompletedAt = gateway.clock()
 	observation.Duration = observation.CompletedAt.Sub(startedAt)
+	if !firstResponseAt.IsZero() {
+		observation.FirstResponseDuration = firstResponseAt.Sub(startedAt)
+		observation.FirstResponseObserved = true
+	}
 	if requestBody != nil {
 		observation.RequestBytes = requestBody.bytes
 	}
 	observation.ResponseBytes = response.bytes
 	gateway.observer.ObserveGatewayRequest(*observation)
+}
+
+func (gateway *Gateway) classifyRequest(method string, path string) string {
+	if gateway.classifier == nil {
+		return ""
+	}
+	return gateway.classifier.ClassifyGatewayRequest(method, path)
 }
 
 func observeGatewayRequestBody(request *http.Request) *gatewayRequestBody {
@@ -493,10 +538,18 @@ func (body *gatewayRequestBody) Read(buffer []byte) (int, error) {
 
 type gatewayResponseWriter struct {
 	http.ResponseWriter
-	bytes int64
+	bytes      int64
+	firstWrite func()
+	wrote      bool
 }
 
 func (writer *gatewayResponseWriter) Write(buffer []byte) (int, error) {
+	if !writer.wrote {
+		writer.wrote = true
+		if writer.firstWrite != nil {
+			writer.firstWrite()
+		}
+	}
 	written, err := writer.ResponseWriter.Write(buffer)
 	writer.bytes += int64(written)
 	return written, err

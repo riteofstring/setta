@@ -2208,3 +2208,23 @@ Stop and reassess rather than hiding the problem if any of these occur:
   retaining either process. Together with the existing cursor replay restart
   workflow, this directly closes the Phase 4 durable conversation/queue/
   approval/artifact/replay checkbox. The focused production-path test passed.
+- 2026-07-24 (content-free workstream access timing): Extended the production
+  Candidate B gateway observer with endpoint-registry-owned operation names,
+  first-response and total request durations, and a replay-requested boolean.
+  It does not retain paths, query strings, cursor values, headers, request or
+  response bodies, client identifiers, workspace or conversation identifiers,
+  runtime names, or credentials. The deterministic production-path workflows
+  now measure initial and cursor-resumed event streams, input submission,
+  steering submission, cancellation, approval resolution, and artifact reads;
+  they verify a first body byte is observed and explicitly reject fixture
+  identifiers, cursor values, and message text in the JSONL output. This closes
+  the gateway-side first-response/reconnect/replay and command-request portions
+  of the Phase 4 instrumentation work. The broader checkbox remains open for
+  provider ensure/wake attribution, outcome-level steering/cancellation/
+  approval/artifact availability timing, and the identical authorized live
+  Sprite workload. Focused Go and hosted Electron workflows passed; the full
+  quality gate passed every code-level layer and all twenty registered Electron
+  workflows except for one unrelated pane-close fixture deadline, whose exact
+  registered workflow passed immediately on the required narrow rerun. With
+  `OPENAI_API_KEY` removed, all four ChatGPT-authenticated live Codex gates
+  passed: Electron, agent protocol, side isolation, and topic conversation.
