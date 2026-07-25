@@ -2652,3 +2652,24 @@ Stop and reassess rather than hiding the problem if any of these occur:
   attachment-session age was added because the current product contracts do
   not own one; adding such a threshold would be the forbidden heuristic the
   implementation rules reject. No provider or cloud mutation ran.
+- 2026-07-25 (durable reconciliation-backlog warning): Advanced the clean-break
+  control-plane schema to version 14 with private operational-alert
+  deduplication and added a content-free `reconciliation_backlog` warning. The
+  threshold is the existing reconciler lease: an actionable provisioning,
+  deletion, or budget-cutoff operation must remain due and unserved for one
+  complete lease before it qualifies. Backlog evaluation and worker wake
+  timing now share one SQL-owned actionable-operation query, preventing
+  eligibility drift. After downtime, the reconciler records and emits the
+  warning before continuing in the same pass to the established highest-
+  priority work, so alerting never consumes an operation slot or delays cutoff,
+  accounting, deletion, or provisioning recovery. SQLite retains the private
+  operation kind and identity only for deduplication; output contains just the
+  warning signal, stable reason, severity, and timestamp. Repeated tests cover
+  the exact threshold, same-process replay, restart replay, recovery ordering,
+  and deletion-over-provisioning priority. The final broad gate passed all Go
+  packages, 832 desktop tests, builds/dead-code checks, and all 20 required
+  Electron workflows. Supply-chain results remain unchanged: Go, exact
+  versions, lockfile sync, and release-age checks pass, while the pre-existing
+  transitive ESLint `brace-expansion <=5.0.7` advisory keeps the audit nonzero.
+  Failure-spike aggregation and owner-defined Task/session maximum ages remain
+  open. No provider or cloud mutation ran.

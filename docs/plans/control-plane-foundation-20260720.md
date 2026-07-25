@@ -62,7 +62,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 13. SQLite uses foreign
+The `internal/controlplane` package owns schema version 14. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -105,7 +105,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 13 is a deliberate clean break;
+installed release explicitly. Schema version 14 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -223,6 +223,18 @@ gateway attachment changes, and runtime reports push the worker; no accounting
 polling path or second reconciler exists. Budget periods must continue the
 active ledger exactly, and a period-ending partial window is capped at the
 durable policy end.
+
+Schema version 14 adds durable content-free alert deduplication. The reconciler
+uses the same actionable-operation query for wake timing, claims, and backlog
+evaluation, so alert eligibility cannot drift from actual work eligibility. An
+operation becomes backlogged only after its due time has remained unserved for
+one complete reconciler lease; this reuses the worker's existing recovery
+contract instead of adding an unrelated age heuristic. After downtime, the
+worker records and emits one warning before continuing in the same pass to the
+highest-priority cutoff, accounting, deletion, or provisioning work. Alert
+output contains only the stable signal, reason, severity, and observation time;
+operation kind and identity remain solely in private SQLite deduplication
+state. Restart cannot repeat the warning or delay recovery.
 
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the
