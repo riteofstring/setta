@@ -493,7 +493,7 @@ void main(){
     body=mix(body, disc*(1.0-inSh)+disc*rim, v_ecl);
     col=mix(col, vec3(1.0,0.52,0.44), rim*v_ecl*0.9);   // hot corona rim
   }
-  float a=v_alpha*(glow*(0.26+v_recent*0.2)*(1.0-v_isCore*0.9)+body*(1.4+v_recent*0.6));
+  float a=v_alpha*(glow*(0.30+v_recent*0.22)*(1.0-v_isCore*0.72)+body*(1.4+v_recent*0.6));   // node bodies keep some bloom so their falloff survives the halftone
   col*=(baseCol+v_active*0.35+v_hover*0.6);
   o=vec4(col*a,a);
 }`;
@@ -705,8 +705,8 @@ void main(){
   gl_Position=vec4(pc.x + u_xshift*(0.35+depth*0.55), pc.y, 0.0,1.0);   // field slides on thread switch (parallax by depth)
   gl_PointSize=mix(5.0+layer*6.2, 7.0+layer*5.5, fl)*u_dpr;                            // big enough to survive the halftone; fluid stays modest
   float nearN=0.0;                                                                     // subtle darkening only right around actual nodes (radius follows node size)
-  for(int i=0;i<u_nodeCount;i++){ float R=u_nodes[i].z; float d=length((pc-u_nodes[i].xy)*vec2(u_aspect,1.0)); nearN=max(nearN, smoothstep(R, R*0.15, d)); }
-  v_a=(0.46+layer*0.52)*(0.8+0.2*sin(u_time*1.1+seed*44.0))*mix(1.0,0.72,fl)*(1.0-nearN*0.45);
+  for(int i=0;i<u_nodeCount;i++){ float R=u_nodes[i].z; float d=length((pc-u_nodes[i].xy)*vec2(u_aspect,1.0)); nearN=max(nearN, smoothstep(R, R*0.55, d)); }
+  v_a=(0.46+layer*0.52)*(0.8+0.2*sin(u_time*1.1+seed*44.0))*mix(1.0,0.72,fl)*(1.0-nearN*0.3);   // gentle, and it plateaus outside the node so it doesn't eat the node's own falloff
   v_t=seed;
 }`;
 const BG_FS=`#version 300 es
