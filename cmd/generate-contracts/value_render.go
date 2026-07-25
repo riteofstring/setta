@@ -40,15 +40,6 @@ func renderValueSets(buffer *bytes.Buffer, specs []valueSetSpec) {
 	}
 }
 
-func renderStringAliases(buffer *bytes.Buffer, specs []stringAliasSpec) {
-	for _, spec := range specs {
-		fmt.Fprintf(buffer, "export type %s = string;\n\n", spec.Name)
-		fmt.Fprintf(buffer, "export function decode%s(value: unknown, label = %q): %s {\n", spec.Name, spec.Name, spec.Name)
-		buffer.WriteString("  return decodeString(value, label);\n")
-		buffer.WriteString("}\n\n")
-	}
-}
-
 func literalList(values []string) string {
 	quoted := make([]string, 0, len(values))
 	for _, value := range values {

@@ -13,10 +13,6 @@ export interface EasyButtonControlAction {
   onClick: (() => void) | undefined;
 }
 
-export interface EasyButtonControlActionOptions {
-  onOpenVoiceCredentialSettings?: () => void;
-}
-
 /* The giant control is always the pane's voice/talk button — clicking it dictates
    into this conversation, and speaking while a run is working simply queues the
    follow-up. It stays on the capture affordance while this pane's request is
@@ -26,27 +22,11 @@ export function conversationControlAction(
   commands: EasyButtonConversationCommands | undefined,
   readOnly: boolean,
   speech: PaneSpeechPresentation | null | undefined,
-  options: EasyButtonControlActionOptions = {},
 ): EasyButtonControlAction {
   const bindings = conversationComposerBindings(readOnly ? undefined : commands);
-  if (speech?.voiceControlSetupAction === "open_voice_credential_settings") {
-    return voiceCredentialSetupAction(speech.voiceControlLabel, options);
-  }
   return paneHasActiveCaptureControl(speech)
     ? captureControlAction(bindings, speech)
     : talkControlAction(bindings, speech);
-}
-
-function voiceCredentialSetupAction(
-  label: string,
-  options: EasyButtonControlActionOptions,
-): EasyButtonControlAction {
-  return {
-    disabled: !options.onOpenVoiceCredentialSettings,
-    label,
-    mode: "talk",
-    onClick: options.onOpenVoiceCredentialSettings,
-  };
 }
 
 function paneHasActiveCaptureControl(speech: PaneSpeechPresentation | null | undefined): boolean {
@@ -75,9 +55,7 @@ function talkControlAction(
 ): EasyButtonControlAction {
   return {
     disabled:
-      !bindings.onVoiceCapture ||
-      !bindings.inputAvailable ||
-      (speech?.voiceControlDisabled ?? false),
+      !bindings.onVoiceCapture || !bindings.available || (speech?.voiceControlDisabled ?? false),
     label: speech?.voiceControlLabel ?? "Start a voice request for this conversation",
     mode: "talk",
     onClick: bindings.onVoiceCapture,

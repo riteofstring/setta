@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
-	"setta/internal/director"
+	"setta/internal/credissuer"
+	"setta/internal/localcredissuer"
 	"setta/internal/master"
 	"setta/internal/runtimeauth"
+	"setta/internal/runtimecapability"
+	"setta/internal/runtimesetup"
 	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -39,16 +41,9 @@ type WorkspaceUIService interface {
 	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
 }
 
-type AppPaneLayoutService interface {
-	ReadLayout() (applayout.AppPaneLayoutReadResult, error)
-	SaveLayout(layout applayout.AppPaneLayout) (applayout.AppPaneLayout, error)
-}
-
 type ConversationService interface {
 	CreateTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	CreateTopicWithOptionalWorkspace(context.Context, *string, string) (conversation.ConversationSnapshot, error)
 	ArchiveTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	BindFolderResource(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SendSideConversationTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 	DisposeSideConversation(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 	StopTurn(context.Context, string, string) (conversation.ConversationSnapshot, error)
@@ -66,14 +61,9 @@ type ConversationService interface {
 	) (conversation.ConversationPresentationProfile, error)
 	ReadArtifact(context.Context, string, string, string) (conversation.Artifact, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	ReadSnapshotByID(context.Context, string) (conversation.ConversationSnapshot, error)
 	SubscribeEvents(
 		conversation.ConversationEventCursor,
 		string,
-		string,
-	) (conversation.ConversationEventSubscription, error)
-	SubscribeEventsByID(
-		conversation.ConversationEventCursor,
 		string,
 	) (conversation.ConversationEventSubscription, error)
 }
@@ -118,21 +108,10 @@ type RoleConfigurationService interface {
 	) (conversation.RoleConfiguration, error)
 }
 
-// DirectorService is the Director command center boundary. It is deliberately
-// the whole app-scoped surface: dispatch one intent, read one bounded snapshot,
-// and subscribe from that snapshot's cursor. Nothing here names a pane, a
-// conversation, a provider, or an execution target.
-type DirectorService interface {
-	Dispatch(context.Context, director.DirectorIntent) (director.DirectorReceipt, error)
-	Snapshot() (director.DirectorSnapshot, error)
-	Subscribe(director.DirectorEventCursor) (director.DirectorEventSubscription, error)
-}
-
 type MasterInputService interface {
 	CancelInput(context.Context, string) (master.ShellInteractionState, error)
 	ReadActiveShellInteraction(context.Context) (master.ActiveShellInteraction, error)
 	ReadInputState(context.Context, string) (master.InputRoutingState, error)
-	ReadTranscript(context.Context, int) (master.Transcript, error)
 	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
 	WaitPresentationIntent(context.Context, string) (master.PresentationIntent, error)
 	ResolvePresentationIntent(context.Context, master.PresentationResolutionRequest) (master.PresentationResolution, error)
@@ -151,20 +130,7 @@ type SpeechService interface {
 		context.Context,
 		speech.VoiceSelectionRequest,
 	) (speech.NarratorVoiceDefault, error)
-	ValidateCredential(
-		context.Context,
-		speech.SpeechProvider,
-		string,
-		string,
-	) (speech.SpeechCredentialValidationResult, error)
-	LoadCredential(context.Context, speech.SpeechProvider, string) (speech.SpeechCredentialStatus, error)
-	ClearCredential(context.Context, speech.SpeechProvider) (speech.SpeechCredentialStatus, error)
-	CreateTranscriptionSession(
-		context.Context,
-		speech.SpeechProvider,
-		string,
-	) (speech.SpeechTranscriptionSession, error)
-	ResolveSynthesisInput(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechSynthesisInput, error)
+	CreateTranscriptionSession(context.Context, string) (speech.SpeechTranscriptionSession, error)
 	SynthesizeSpeech(context.Context, speech.SpeechSynthesisRequest) (speech.SpeechAudio, error)
 }
 
@@ -186,6 +152,21 @@ type RuntimeAuthService interface {
 	TouchDeviceSession(context.Context, string) (bool, error)
 }
 
+type RuntimeAccessService interface {
+	VerifyRuntimeAccessCredential(context.Context, string) (credissuer.VerifiedCredential, bool, error)
+	RevalidateRuntimeAccessCredential(context.Context, credissuer.VerifiedCredential) (bool, error)
+}
+
+// LocalCredentialIssuerService is available only when a local development
+// runtime explicitly opts into hosting the bounded proof-of-concept issuer.
+// Cloud runtimes must use the control-plane issuer and leave this service nil.
+type LocalCredentialIssuerService interface {
+	Enroll(context.Context, localcredissuer.EnrollRequest, int) (localcredissuer.EnrollResponse, error)
+	Refresh(context.Context, localcredissuer.RefreshRequest) (localcredissuer.RuntimeCredentialResponse, error)
+	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
+	RevokeDeviceSession(context.Context, string) (runtimeauth.DeviceSession, bool, error)
+}
+
 type RuntimeIdentity struct {
 	ID          string
 	DisplayName string
@@ -196,22 +177,34 @@ type RuntimeIdentityService interface {
 	UpdateRuntimeDisplayName(context.Context, string) (RuntimeIdentity, error)
 }
 
+type RuntimeSetupService interface {
+	CreateAttestation(context.Context, runtimesetup.AttestationChallenge) (runtimesetup.Attestation, runtimesetup.AttestationStatus, error)
+}
+
+type RuntimeDiagnosticsService interface {
+	RuntimeDiagnostics(context.Context) runtimecapability.RuntimeDiagnostics
+}
+
 type HandlerConfig struct {
 	AppearanceService            AppearanceService
-	AppPaneLayoutService         AppPaneLayoutService
 	Metadata                     BackendMetadata
 	ConversationInputService     ConversationInputService
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
-	DirectorService              DirectorService
 	RoleConfigurationService     RoleConfigurationService
 	MasterInputService           MasterInputService
 	CodexAccountService          CodexAccountService
 	PairingFailureLimiter        *PairingFailureLimiter
+	SetupAttestationLimiter      *PairingFailureLimiter
 	RevocationSweepInterval      time.Duration
+	LocalCredentialIssuer        LocalCredentialIssuerService
+	RuntimeAccessService         RuntimeAccessService
+	RuntimeEndpointAccess        RuntimeEndpointAccessConfig
 	RuntimeAuthService           RuntimeAuthService
+	RuntimeDiagnosticsService    RuntimeDiagnosticsService
 	RuntimeIdentityService       RuntimeIdentityService
 	RuntimeMetadata              RuntimeMetadata
+	RuntimeSetupService          RuntimeSetupService
 	SpeechService                SpeechService
 	WorkspaceUIService           WorkspaceUIService
 	WorkspaceService             WorkspaceService
@@ -219,55 +212,79 @@ type HandlerConfig struct {
 
 type handler struct {
 	appearanceService            AppearanceService
-	appPaneLayoutService         AppPaneLayoutService
 	metadata                     BackendMetadata
 	conversationInputService     ConversationInputService
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
-	directorService              DirectorService
 	roleConfigurationService     RoleConfigurationService
 	masterInputService           MasterInputService
 	codexAccountService          CodexAccountService
 	pairingFailureLimiter        *PairingFailureLimiter
+	setupAttestationLimiter      *PairingFailureLimiter
 	revocationSweepInterval      time.Duration
+	localCredentialIssuer        LocalCredentialIssuerService
+	runtimeAccessService         RuntimeAccessService
+	runtimeEndpointAccess        RuntimeEndpointAccessPolicy
 	runtimeAuthService           RuntimeAuthService
+	runtimeDiagnosticsService    RuntimeDiagnosticsService
 	runtimeIdentityService       RuntimeIdentityService
 	runtimeMetadata              RuntimeMetadata
+	runtimeSetupService          RuntimeSetupService
 	speechService                SpeechService
 	workspaceUIService           WorkspaceUIService
 	workspaceService             WorkspaceService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
+	handler, err := NewHandlerWithError(config)
+	if err != nil {
+		panic(err)
+	}
+	return handler
+}
+
+func NewHandlerWithError(config HandlerConfig) (http.Handler, error) {
 	pairingFailureLimiter := config.PairingFailureLimiter
 	if pairingFailureLimiter == nil {
 		pairingFailureLimiter = NewPairingFailureLimiter(10, time.Minute)
+	}
+	setupAttestationLimiter := config.SetupAttestationLimiter
+	if setupAttestationLimiter == nil {
+		setupAttestationLimiter = NewPairingFailureLimiter(30, time.Minute)
 	}
 	revocationSweepInterval := config.RevocationSweepInterval
 	if revocationSweepInterval <= 0 {
 		revocationSweepInterval = 30 * time.Second
 	}
+	runtimeEndpointAccess, err := NewRuntimeEndpointAccessPolicy(config.RuntimeEndpointAccess)
+	if err != nil {
+		return nil, err
+	}
 	apiHandler := handler{
 		appearanceService:            config.AppearanceService,
-		appPaneLayoutService:         config.AppPaneLayoutService,
 		metadata:                     config.Metadata,
 		conversationInputService:     config.ConversationInputService,
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
-		directorService:              config.DirectorService,
 		roleConfigurationService:     config.RoleConfigurationService,
 		masterInputService:           config.MasterInputService,
 		codexAccountService:          config.CodexAccountService,
 		pairingFailureLimiter:        pairingFailureLimiter,
+		setupAttestationLimiter:      setupAttestationLimiter,
 		revocationSweepInterval:      revocationSweepInterval,
+		localCredentialIssuer:        config.LocalCredentialIssuer,
+		runtimeAccessService:         config.RuntimeAccessService,
+		runtimeEndpointAccess:        runtimeEndpointAccess,
 		runtimeAuthService:           config.RuntimeAuthService,
+		runtimeDiagnosticsService:    config.RuntimeDiagnosticsService,
 		runtimeIdentityService:       config.RuntimeIdentityService,
 		runtimeMetadata:              config.RuntimeMetadata,
+		runtimeSetupService:          config.RuntimeSetupService,
 		speechService:                config.SpeechService,
 		workspaceUIService:           config.WorkspaceUIService,
 		workspaceService:             config.WorkspaceService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)
-	return mux
+	return runtimeEndpointAccess.Wrap(mux), nil
 }

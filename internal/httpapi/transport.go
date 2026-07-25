@@ -7,10 +7,8 @@ import (
 	"net/http"
 
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/appstate"
 	"setta/internal/conversation"
-	"setta/internal/director"
 	"setta/internal/jsonio"
 	"setta/internal/master"
 	"setta/internal/speech"
@@ -34,14 +32,6 @@ func requireWorkspaceUIService(response http.ResponseWriter, service WorkspaceUI
 	return service
 }
 
-func requireAppPaneLayoutService(response http.ResponseWriter, service AppPaneLayoutService) AppPaneLayoutService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "app_pane_layout_service_unavailable", "app pane layout service is not available")
-		return nil
-	}
-	return service
-}
-
 func requireAppearanceService(response http.ResponseWriter, service AppearanceService) AppearanceService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "appearance_service_unavailable", "appearance service is not available")
@@ -56,29 +46,6 @@ func requireConversationService(response http.ResponseWriter, service Conversati
 		return nil
 	}
 	return service
-}
-
-func requireDirectorService(response http.ResponseWriter, service DirectorService) DirectorService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "director_service_unavailable", "director command center is not available")
-		return nil
-	}
-	return service
-}
-
-// writeDirectorError separates the two failures the command center can have.
-// A rejected intent named something trusted state does not hold, which is the
-// caller's request to fix; an unavailable command center is a runtime condition
-// the shell retries rather than something the user did.
-func writeDirectorError(response http.ResponseWriter, code string, err error) {
-	switch {
-	case errors.Is(err, director.ErrDirectorIntentRejected):
-		writeError(response, http.StatusBadRequest, code, err.Error())
-	case errors.Is(err, director.ErrDirectorUnavailable):
-		writeError(response, http.StatusServiceUnavailable, "director_service_unavailable", err.Error())
-	default:
-		writeError(response, http.StatusInternalServerError, code, err.Error())
-	}
 }
 
 func requireConversationInputService(
@@ -215,18 +182,6 @@ func writeWorkspaceUIError(response http.ResponseWriter, code string, err error)
 	writeError(response, status, code, err.Error())
 }
 
-func writeAppPaneLayoutError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
-	if applayout.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_app_pane_layout_state", err.Error())
-		return
-	}
-	if applayout.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
-}
-
 func writeAppearanceError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
 	if appearance.IsCorruptSettingsError(err) {
@@ -251,10 +206,6 @@ func writeConversationError(response http.ResponseWriter, code string, err error
 	}
 	if conversation.IsCommandConflict(err) {
 		status = http.StatusConflict
-	}
-	if conversation.IsResourceRequired(err) {
-		writeError(response, http.StatusConflict, "conversation_resource_required", err.Error())
-		return
 	}
 	if conversation.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_conversation_state", err.Error())
@@ -358,22 +309,6 @@ func writeMasterInputStateError(response http.ResponseWriter, err error) {
 	writeError(response, http.StatusBadRequest, "invalid_master_input_state_request", err.Error())
 }
 
-func writeMasterTranscriptError(response http.ResponseWriter, err error) {
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_transcript_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "read_master_transcript_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_transcript_request", err.Error())
-}
-
 func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {
 	if conversation.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_speech_source_state", err.Error())
@@ -422,10 +357,6 @@ func speechErrorHTTPStatus(code speech.ErrorCode) int {
 		return http.StatusBadGateway
 	case speech.ErrorNotConfigured, speech.ErrorProviderUnavailable:
 		return http.StatusServiceUnavailable
-	case speech.ErrorCredentialInvalid:
-		return http.StatusBadRequest
-	case speech.ErrorCredentialManagementUnavailable:
-		return http.StatusForbidden
 	case speech.ErrorSourceUnavailable:
 		return http.StatusConflict
 	case speech.ErrorVoiceUnavailable:

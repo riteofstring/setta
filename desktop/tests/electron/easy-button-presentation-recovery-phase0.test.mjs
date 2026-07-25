@@ -12,9 +12,9 @@ import { backendProbe, waitForBackendState } from "./electron-workflow-harness.m
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -24,10 +24,6 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import {
-  saveOpenAIVoiceCredentialThroughSettingsAndClose,
-  selectOpenAIVoiceProvider,
-} from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDriverAction,
@@ -116,26 +112,20 @@ try {
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
+      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
-    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
   await context.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
 
-  const backend = await backendProbe(artifactDir);
+  const backend = await backendProbe(artifactDir, context.client);
   const workspaceId = await openWorkspace(context.client);
-  await saveOpenAIVoiceCredentialThroughSettingsAndClose(
-    context.client,
-    speechProvider.apiKey,
-    workflowTimeoutMs,
-  );
-  await selectOpenAIVoiceProvider(context.client);
   const topic = await createTopic(
     context.client,
     backend,
@@ -240,7 +230,7 @@ async function openWorkspace(client) {
     workflowTimeoutMs,
   );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,
@@ -354,7 +344,8 @@ function recoveryBaselineSnapshotReady(snapshot) {
     snapshot.conversation.status === "idle" &&
     snapshot.turns.turns.some((turn) => turn.status === "completed") &&
     snapshot.artifacts.artifacts.length >= 2 &&
-    snapshot.narration.events.some((event) => event.kind === "final_summary")
+    snapshot.narration.events.some((event) => event.kind === "final_summary") &&
+    snapshot.narratorState.observedThroughSequence === snapshot.conversation.lastTrajectorySequence
   );
 }
 

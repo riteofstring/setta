@@ -5,32 +5,34 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"setta/internal/codexapp"
+	"setta/internal/runtimeprovider"
 )
 
 type Config struct {
-	Command     string
-	Args        []string
-	Env         []string
-	ExcludedEnv []string
-	Manager     *codexapp.Manager
-	Version     string
+	Command               string
+	Args                  []string
+	Env                   []string
+	ExcludedEnv           []string
+	Manager               *codexapp.Manager
+	Version               string
+	WorkloadLeaseManager  runtimeprovider.WorkloadLeaseManager
+	WorkloadLeaseName     string
+	WorkloadLeaseReporter WorkloadLeaseReporter
+	WorkloadLeaseTTL      time.Duration
 }
 
 type Runtime struct {
 	manager *codexapp.Manager
 
-	mu              sync.Mutex
-	active          map[string]*activeTurn
-	attachedThreads map[string]threadAttachment
-	pending         map[string]pendingApproval
-}
+	mu      sync.Mutex
+	active  map[string]*activeTurn
+	pending map[string]pendingApproval
 
-type threadAttachment struct {
-	fingerprint string
-	generation  uint64
-	thread      Thread
+	workloadLease *workloadLeaseController
+	workloadSlot  chan struct{}
 }
 
 type activeTurn struct {
@@ -48,7 +50,6 @@ type pendingApproval struct {
 	message        codexapp.Message
 	questions      []ApprovalQuestion
 	permissions    map[string]any
-	superseded     bool
 }
 
 var ErrConversationTurnActive = errors.New("conversation already has an active provider turn")
@@ -78,12 +79,22 @@ func NewRuntime(config Config) *Runtime {
 			InitializeParams: initializeParams(version),
 		})
 	}
-	return &Runtime{
-		manager:         manager,
-		active:          map[string]*activeTurn{},
-		attachedThreads: map[string]threadAttachment{},
-		pending:         map[string]pendingApproval{},
+	runtime := &Runtime{
+		manager: manager,
+		active:  map[string]*activeTurn{},
+		pending: map[string]pendingApproval{},
 	}
+	if config.WorkloadLeaseManager != nil {
+		runtime.workloadLease = newWorkloadLeaseController(
+			config.WorkloadLeaseManager,
+			config.WorkloadLeaseReporter,
+			config.WorkloadLeaseName,
+			config.WorkloadLeaseTTL,
+		)
+		runtime.workloadSlot = make(chan struct{}, 1)
+		runtime.workloadSlot <- struct{}{}
+	}
+	return runtime
 }
 
 func (runtime *Runtime) Manager() *codexapp.Manager {
@@ -94,7 +105,9 @@ func initializeParams(version string) codexapp.InitializeParams {
 	title := "Setta"
 	experimental := true
 	requestAttestation := false
-	optOutNotificationMethods := providerNotificationOptOutMethods()
+	optOutNotificationMethods := []string{
+		codexapp.CodexNotificationThreadStarted,
+	}
 	return codexapp.InitializeParams{
 		ClientInfo: codexapp.ClientInfo{Name: "setta", Title: &title, Version: version},
 		Capabilities: &codexapp.InitializeCapabilities{
