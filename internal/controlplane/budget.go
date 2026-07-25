@@ -21,6 +21,7 @@ type UserBudgetPolicy struct {
 	CoveredLimitUSDMicros   int64
 	SafetyReserveUSDMicros  int64
 	CutoffExposureUSDMicros int64
+	MaximumCutoffLag        time.Duration
 	AccruedUSDMicros        int64
 	CutoffRequiredAt        *time.Time
 	UpdatedAt               time.Time
@@ -39,6 +40,7 @@ type SetUserBudgetPolicyRequest struct {
 	CoveredLimitUSDMicros   int64
 	SafetyReserveUSDMicros  int64
 	CutoffExposureUSDMicros int64
+	MaximumCutoffLag        time.Duration
 }
 
 type RecordUsageIntervalRequest struct {
@@ -79,21 +81,23 @@ func (store *Store) SetUserBudgetPolicy(
 	_, err := store.db.ExecContext(ctx, `
 INSERT INTO user_budget_policies (
   user_id, period_start, period_end, covered_limit_usd_micros,
-  safety_reserve_usd_micros, cutoff_exposure_usd_micros, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+  safety_reserve_usd_micros, cutoff_exposure_usd_micros,
+  maximum_cutoff_lag_ns, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(user_id) DO UPDATE SET
   period_start = excluded.period_start,
   period_end = excluded.period_end,
   covered_limit_usd_micros = excluded.covered_limit_usd_micros,
   safety_reserve_usd_micros = excluded.safety_reserve_usd_micros,
   cutoff_exposure_usd_micros = excluded.cutoff_exposure_usd_micros,
+  maximum_cutoff_lag_ns = excluded.maximum_cutoff_lag_ns,
   accrued_usd_micros = 0,
   cutoff_required_at = NULL,
   updated_at = excluded.updated_at
 WHERE user_budget_policies.period_end <= excluded.period_start
 `, request.UserID, timestamp(request.PeriodStart), timestamp(request.PeriodEnd),
 		request.CoveredLimitUSDMicros, request.SafetyReserveUSDMicros,
-		request.CutoffExposureUSDMicros, timestamp(now))
+		request.CutoffExposureUSDMicros, request.MaximumCutoffLag, timestamp(now))
 	if err != nil {
 		return UserBudgetPolicy{}, fmt.Errorf("set user budget policy: %w", err)
 	}
@@ -293,7 +297,8 @@ func validateUserBudgetPolicyRequest(request SetUserBudgetPolicyRequest) error {
 	}
 	if request.CoveredLimitUSDMicros <= 0 ||
 		request.SafetyReserveUSDMicros < 0 ||
-		request.CutoffExposureUSDMicros < 0 {
+		request.CutoffExposureUSDMicros < 0 ||
+		request.MaximumCutoffLag <= 0 {
 		return errors.New("user budget amounts are invalid")
 	}
 	reserved, err := addBudgetMicros(request.SafetyReserveUSDMicros, request.CutoffExposureUSDMicros)
@@ -436,7 +441,7 @@ func readUserBudgetPolicy(
 	err := query.QueryRowContext(ctx, `
 SELECT period_start, period_end, covered_limit_usd_micros,
        safety_reserve_usd_micros, cutoff_exposure_usd_micros,
-       accrued_usd_micros, cutoff_required_at, updated_at
+       maximum_cutoff_lag_ns, accrued_usd_micros, cutoff_required_at, updated_at
 FROM user_budget_policies WHERE user_id = ?
 `, userID).Scan(
 		&periodStart,
@@ -444,6 +449,7 @@ FROM user_budget_policies WHERE user_id = ?
 		&policy.CoveredLimitUSDMicros,
 		&policy.SafetyReserveUSDMicros,
 		&policy.CutoffExposureUSDMicros,
+		&policy.MaximumCutoffLag,
 		&policy.AccruedUSDMicros,
 		&cutoffRequiredAt,
 		&updated,
@@ -555,7 +561,8 @@ func sameBudgetPolicyRequest(policy UserBudgetPolicy, request SetUserBudgetPolic
 		policy.PeriodEnd.Equal(request.PeriodEnd) &&
 		policy.CoveredLimitUSDMicros == request.CoveredLimitUSDMicros &&
 		policy.SafetyReserveUSDMicros == request.SafetyReserveUSDMicros &&
-		policy.CutoffExposureUSDMicros == request.CutoffExposureUSDMicros
+		policy.CutoffExposureUSDMicros == request.CutoffExposureUSDMicros &&
+		policy.MaximumCutoffLag == request.MaximumCutoffLag
 }
 
 func addBudgetMicros(first int64, second int64) (int64, error) {

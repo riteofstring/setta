@@ -2356,3 +2356,13 @@ Stop and reassess rather than hiding the problem if any of these occur:
   success audits. The automatic trusted reporter that converts runtime ledger
   events and enforced ceilings into these intervals remains open, so the
   combined Phase 5 item stays unchecked. No provider or cloud mutation ran.
+- 2026-07-24 (enforced cutoff deadline): Advanced the clean-break schema to
+  version 8 so the policy persists the maximum provider cutoff lag beside the
+  separately reserved micro-USD exposure. A claimed cutoff derives its exact
+  deadline from the durable threshold timestamp, bounds inspect/suspend/verify
+  work by the remaining interval, and terminally records
+  `cutoff_deadline_exceeded` if work starts or completes too late. Deterministic
+  tests cover retry inside the window and loud failure at the boundary. This
+  prevents a hung provider request from silently invalidating the conservative
+  cost reserve; automatic trusted usage reporting and the failed-cutoff alert
+  path remain open. No provider or cloud mutation ran.

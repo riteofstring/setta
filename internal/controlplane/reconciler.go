@@ -105,7 +105,21 @@ func (reconciler *Reconciler) reconcileBudgetCutoffClaim(
 	operationCtx context.Context,
 	claim ClaimedBudgetCutoffOperation,
 ) error {
-	failure := reconciler.suspendBudgetRuntime(operationCtx, claim)
+	remaining := claim.DeadlineAt.Sub(reconciler.store.clock().UTC())
+	if remaining <= 0 {
+		return reconciler.deferBudgetCutoff(
+			parentCtx,
+			operationCtx,
+			claim,
+			&providerReconcileFailure{code: "cutoff_deadline_exceeded", permanent: true},
+		)
+	}
+	cutoffCtx, cancel := context.WithTimeout(operationCtx, remaining)
+	defer cancel()
+	failure := reconciler.suspendBudgetRuntime(cutoffCtx, claim)
+	if cutoffCtx.Err() != nil && operationCtx.Err() == nil {
+		failure = &providerReconcileFailure{code: "cutoff_deadline_exceeded", permanent: true}
+	}
 	if failure != nil {
 		return reconciler.deferBudgetCutoff(parentCtx, operationCtx, claim, failure)
 	}
@@ -218,6 +232,10 @@ func (reconciler *Reconciler) deferBudgetCutoff(
 		return nil
 	}
 	terminal := failure.permanent || claim.AttemptCount >= reconciler.maxAttempts
+	if !reconciler.store.clock().UTC().Before(claim.DeadlineAt) {
+		failure.code = "cutoff_deadline_exceeded"
+		terminal = true
+	}
 	err := reconciler.store.DeferBudgetCutoffOperation(
 		operationCtx,
 		claim,

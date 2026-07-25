@@ -70,6 +70,7 @@ func adminSetUserBudget(
 	flagSet.Int64Var(&payload.CoveredLimitUSDMicros, "limit-usd-micros", 0, "covered hard limit in micro-US dollars")
 	flagSet.Int64Var(&payload.SafetyReserveUSDMicros, "reserve-usd-micros", 0, "uncertainty reserve in micro-US dollars")
 	flagSet.Int64Var(&payload.CutoffExposureUSDMicros, "cutoff-exposure-usd-micros", 0, "worst-case cutoff-lag exposure in micro-US dollars")
+	flagSet.DurationVar(&payload.MaximumCutoffLag, "maximum-cutoff-lag", 0, "maximum allowed provider cutoff lag")
 	if err := flagSet.Parse(args); err != nil {
 		return err
 	}

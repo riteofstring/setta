@@ -319,6 +319,7 @@ CREATE TABLE IF NOT EXISTS user_budget_policies (
   covered_limit_usd_micros INTEGER NOT NULL CHECK(covered_limit_usd_micros > 0),
   safety_reserve_usd_micros INTEGER NOT NULL CHECK(safety_reserve_usd_micros >= 0),
   cutoff_exposure_usd_micros INTEGER NOT NULL CHECK(cutoff_exposure_usd_micros >= 0),
+  maximum_cutoff_lag_ns INTEGER NOT NULL CHECK(maximum_cutoff_lag_ns > 0),
   accrued_usd_micros INTEGER NOT NULL DEFAULT 0 CHECK(accrued_usd_micros >= 0),
   cutoff_required_at TEXT,
   updated_at TEXT NOT NULL,

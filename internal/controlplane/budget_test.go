@@ -65,6 +65,7 @@ func seedBudgetCutoffTest(
 	_, err = store.SetUserBudgetPolicy(ctx, SetUserBudgetPolicyRequest{
 		UserID: "user-budget", PeriodStart: now, PeriodEnd: now.Add(time.Hour),
 		CoveredLimitUSDMicros: 1_000, SafetyReserveUSDMicros: 100, CutoffExposureUSDMicros: 200,
+		MaximumCutoffLag: time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("SetUserBudgetPolicy: %v", err)
@@ -113,6 +114,7 @@ func TestUsageIntervalsRejectGapsConflictsAndNonConservativeEvidence(t *testing.
 	if _, err := store.SetUserBudgetPolicy(ctx, SetUserBudgetPolicyRequest{
 		UserID: "user-validation", PeriodStart: now, PeriodEnd: now.Add(time.Hour),
 		CoveredLimitUSDMicros: 1_000, SafetyReserveUSDMicros: 100, CutoffExposureUSDMicros: 100,
+		MaximumCutoffLag: time.Minute,
 	}); err != nil {
 		t.Fatalf("SetUserBudgetPolicy: %v", err)
 	}
@@ -152,6 +154,7 @@ func TestBudgetPolicyPersistsAcrossRestartAndCannotResetActivePeriod(t *testing.
 	request := SetUserBudgetPolicyRequest{
 		UserID: "user-restart", PeriodStart: now, PeriodEnd: now.Add(time.Hour),
 		CoveredLimitUSDMicros: 1_000, SafetyReserveUSDMicros: 100, CutoffExposureUSDMicros: 100,
+		MaximumCutoffLag: time.Minute,
 	}
 	if _, err := store.SetUserBudgetPolicy(ctx, request); err != nil {
 		t.Fatalf("SetUserBudgetPolicy: %v", err)

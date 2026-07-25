@@ -12,7 +12,8 @@ import (
 
 type ClaimedBudgetCutoffOperation struct {
 	RuntimeOperation
-	Identity runtimeprovider.ManagedIdentity
+	Identity   runtimeprovider.ManagedIdentity
+	DeadlineAt time.Time
 }
 
 func (store *Store) BudgetCutoffOperation(
@@ -99,7 +100,39 @@ WHERE idempotency_key = ?
 	if err != nil {
 		return ClaimedBudgetCutoffOperation{}, false, err
 	}
-	return ClaimedBudgetCutoffOperation{RuntimeOperation: operation, Identity: identity}, true, nil
+	deadlineAt, err := readBudgetCutoffDeadline(ctx, store.db, operation)
+	if err != nil {
+		return ClaimedBudgetCutoffOperation{}, false, err
+	}
+	return ClaimedBudgetCutoffOperation{
+		RuntimeOperation: operation,
+		Identity:         identity,
+		DeadlineAt:       deadlineAt,
+	}, true, nil
+}
+
+func readBudgetCutoffDeadline(
+	ctx context.Context,
+	querier runtimeOperationQuerier,
+	operation RuntimeOperation,
+) (time.Time, error) {
+	var cutoffRequiredAt string
+	var maximumCutoffLag time.Duration
+	err := querier.QueryRowContext(ctx, `
+SELECT cutoff_required_at, maximum_cutoff_lag_ns
+FROM user_budget_policies b
+JOIN budget_cutoff_operations o
+  ON o.user_id = b.user_id AND o.period_start = b.period_start
+WHERE o.idempotency_key = ? AND b.cutoff_required_at IS NOT NULL
+`, operation.IdempotencyKey).Scan(&cutoffRequiredAt, &maximumCutoffLag)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("read budget cutoff deadline: %w", err)
+	}
+	startedAt, err := parseStoredTime(cutoffRequiredAt)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse budget cutoff deadline: %w", err)
+	}
+	return startedAt.Add(maximumCutoffLag), nil
 }
 
 func (store *Store) CompleteBudgetCutoffOperation(

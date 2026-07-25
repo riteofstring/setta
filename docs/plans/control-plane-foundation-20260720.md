@@ -58,7 +58,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 7. SQLite uses foreign
+The `internal/controlplane` package owns schema version 8. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -99,7 +99,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 7 is a deliberate clean break;
+installed release explicitly. Schema version 8 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -137,7 +137,11 @@ the deterministic provider identity before mutation, adopts an already
 warm/cold or absent runtime after restart, verifies suspension after the
 provider call, and uses bounded retry, expiring claims, and monotonic fencing.
 Retry, terminal failure, and successful suspension are emitted through the
-content-free reconciliation observer. The trusted automatic reporter that
+content-free reconciliation observer. Schema version 8 persists the maximum
+cutoff lag beside its monetary exposure reserve. Each claim derives an exact
+deadline from the durable threshold time, bounds provider work by the remaining
+interval, and fails with `cutoff_deadline_exceeded` rather than pretending a
+late cutoff stayed inside the promised exposure. The trusted automatic reporter that
 derives intervals from the accounting ledger remains required before this is
 a complete billable-compute cutoff.
 

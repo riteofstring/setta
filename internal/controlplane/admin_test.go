@@ -42,6 +42,7 @@ func TestAdminBudgetUsageCutsOffLiveAuthorizationAndAuditsWithoutContent(t *test
 	adminTestRequest(t, client, "/v1/users/budget", AdminSetUserBudgetRequest{
 		UserID: "user-server", PeriodStart: start, PeriodEnd: start.Add(time.Hour),
 		CoveredLimitUSDMicros: 1_000, SafetyReserveUSDMicros: 100, CutoffExposureUSDMicros: 200,
+		MaximumCutoffLag: time.Minute,
 	}, "user_budget_set")
 	adminTestRequest(t, client, "/v1/usage/record", AdminRecordUsageRequest{
 		IdempotencyKey: "private-usage-key", UserID: "user-server", RuntimeName: runtimeName,

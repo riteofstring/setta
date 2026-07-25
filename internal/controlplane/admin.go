@@ -68,12 +68,13 @@ type AdminSetUserStatusRequest struct {
 }
 
 type AdminSetUserBudgetRequest struct {
-	UserID                  string    `json:"user_id"`
-	PeriodStart             time.Time `json:"period_start"`
-	PeriodEnd               time.Time `json:"period_end"`
-	CoveredLimitUSDMicros   int64     `json:"covered_limit_usd_micros"`
-	SafetyReserveUSDMicros  int64     `json:"safety_reserve_usd_micros"`
-	CutoffExposureUSDMicros int64     `json:"cutoff_exposure_usd_micros"`
+	UserID                  string        `json:"user_id"`
+	PeriodStart             time.Time     `json:"period_start"`
+	PeriodEnd               time.Time     `json:"period_end"`
+	CoveredLimitUSDMicros   int64         `json:"covered_limit_usd_micros"`
+	SafetyReserveUSDMicros  int64         `json:"safety_reserve_usd_micros"`
+	CutoffExposureUSDMicros int64         `json:"cutoff_exposure_usd_micros"`
+	MaximumCutoffLag        time.Duration `json:"maximum_cutoff_lag"`
 }
 
 type AdminRecordUsageRequest struct {

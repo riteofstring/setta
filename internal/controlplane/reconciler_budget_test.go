@@ -94,6 +94,28 @@ func TestBudgetCutoffExpiredLeaseUsesMonotonicFence(t *testing.T) {
 	}
 }
 
+func TestBudgetCutoffFailsLoudlyAtEnforcedDeadline(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 24, 22, 0, 0, 0, time.UTC)
+	store, runtimeName, operationID := seedBudgetCutoffOperation(t, ctx, &now)
+	defer store.Close()
+	now = now.Add(2 * time.Minute)
+	provider := activeBudgetTestProvider(runtimeName)
+	if processed, err := newTestReconciler(t, store, provider, 3).ReconcileOnce(ctx); err != nil || !processed {
+		t.Fatalf("deadline ReconcileOnce = %t, %v", processed, err)
+	}
+	requireBudgetCutoffStatus(
+		t,
+		store,
+		operationID,
+		RuntimeOperationFailed,
+		"cutoff_deadline_exceeded",
+	)
+	if provider.suspendCalls != 0 {
+		t.Fatalf("expired cutoff suspend calls = %d", provider.suspendCalls)
+	}
+}
+
 func seedBudgetCutoffOperation(
 	t *testing.T,
 	ctx context.Context,
@@ -116,6 +138,7 @@ func seedBudgetCutoffOperation(
 	policy := SetUserBudgetPolicyRequest{
 		UserID: "user-provider-budget", PeriodStart: *now, PeriodEnd: now.Add(time.Hour),
 		CoveredLimitUSDMicros: 1_000, SafetyReserveUSDMicros: 100, CutoffExposureUSDMicros: 200,
+		MaximumCutoffLag: 2 * time.Minute,
 	}
 	if _, err := store.SetUserBudgetPolicy(ctx, policy); err != nil {
 		t.Fatal(err)
