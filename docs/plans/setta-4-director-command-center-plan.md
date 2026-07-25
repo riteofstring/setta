@@ -63,11 +63,16 @@ or later Niri workspace integration. Reimplement the selected concepts against S
 
 ### `setta-3-sprites`
 
-This branch is behavior archaeology for a later phase. It contains useful runtime-provider,
-credential, installation, accounting, managed-runtime, and conformance work, but it diverged before
-many important `setta-3` changes and overlaps risky shared contracts.
+This branch is a preserved behavior baseline and source for later ports. It contains useful
+runtime-provider, credential, installation, accounting, managed-runtime, and conformance work, but
+it diverged before many important `setta-3` changes and overlaps risky shared contracts.
 
 Do not merge it wholesale into either `setta-4` or `setta-4-sprites`.
+
+Preparatory Sprites work may continue now on a separate `setta-3-sprites-integration` branch created
+from the pushed `setta-3-sprites` tip. That branch may merge current `setta-3` to reconcile backend
+contracts and package reusable infrastructure. It is an integration laboratory, not the Setta 4
+base, and it must not become a parallel frontend effort.
 
 After the Setta 4 Director UI is implemented, measured, and stable, create `setta-4-sprites` from that
 green Setta 4 checkpoint. Port Sprites capabilities in bounded slices against current Setta 4
@@ -100,6 +105,7 @@ This is an unreleased-product cutover.
 - No polling where a push event can express the change.
 - No second WebGPU renderer until a measured limitation justifies it.
 - No wholesale merge from either the fullscreen prototype branch or Sprites.
+- No Director UI, Niri integration, or pane product work on the Sprites preparation branch.
 - No OpenAI API key requirement for the initial product path. Live Codex development and E2E use
   existing ChatGPT authentication and must not use `OPENAI_API_KEY`.
 
@@ -403,6 +409,65 @@ Append immutable before/after reports under `docs/reports/performance/`. Include
 refresh rate, viewport, device pixel ratio, scenario, build identity, measurement method, p50/p95/p99
 CPU and GPU frame times, long tasks, dropped frames, memory behavior, and profiler artifacts.
 
+## Parallel Sprites Preparation Track
+
+Sprites preparation may proceed alongside Setta 4, but it must not gate the Director command center
+or compete with it as a product surface.
+
+### Purpose
+
+The preparation track exists to make Sprites behavior easier to inspect, test, and selectively port
+after the Setta 4 checkpoint. It may:
+
+- merge current `setta-3` into a new `setta-3-sprites-integration` branch
+- reconcile Go-owned HTTP, runtime, provider, capability, credential, and accounting contracts
+- regenerate TypeScript from the reconciled Go owners
+- preserve provider conformance and hosted-runtime lifecycle harnesses
+- align production Electron/main/preload transport where required by backend capabilities
+- isolate local and hosted execution behind consumer-owned interfaces
+- record source commits and behavior-to-owner mappings in a migration ledger
+- delete obsolete web/PWA, BYO/Tailscale, compatibility, and runtime-picker assumptions
+
+It must not:
+
+- change the Setta 4 branch topology
+- implement the fullscreen Director UI
+- integrate Sprites behavior into Niri panes
+- preserve obsolete frontend contracts merely to make the merge compile
+- invent compatibility adapters between divergent contract generations
+- claim that a green integration branch is safe to merge wholesale into Setta 4
+
+### Merge rule
+
+Keep the pushed `setta-3-sprites` tip as the preserved baseline. Create
+`setta-3-sprites-integration` from it and merge the current pushed `setta-3` commit there.
+
+Resolve conflicts by ownership:
+
+- current `setta-3` owns conversation, speech, Electron production paths, and current product
+  behavior
+- Sprites owns provider, hosted-runtime, credential, installation, accounting, lease, and
+  conformance behavior that has no newer owner
+- Go owner inputs are reconciled first; generated TypeScript and schema snapshots are regenerated,
+  never hand-merged
+- files removed by current product decisions remain removed unless the preparation scope defines a
+  current backend owner for them
+- tests must exercise the reconciled production boundary, not preserve an obsolete UI workflow
+
+### Deliverables
+
+The preparation track should produce:
+
+- a compiling integration branch with current generated contracts
+- a small local/hosted execution boundary that does not import Sprites UI concepts
+- provider conformance tests shared by the execution adapters
+- deterministic hosted lifecycle and failure fixtures
+- a migration ledger identifying reusable commits, packages, contracts, and tests
+- explicit dispositions for obsolete Sprites frontend and compatibility code
+
+The branch may continue beyond this point for backend experiments, but it remains non-gating and
+disposable. Setta 4 owns all new product-facing contracts.
+
 ## Implementation Sequence
 
 Each phase ends with a coherent boundary and explicit deletion or acceptance gate. Do not begin by
@@ -603,3 +668,5 @@ Setta 4 is complete when:
 3. Create `setta-4` from that verified commit.
 4. Commit the branch/source manifest and Niri ownership inventory.
 5. Start Phase 1 with the semantic node and edge contracts.
+6. In parallel, create `setta-3-sprites-integration` from the preserved Sprites tip and begin the
+   bounded backend reconciliation track.
