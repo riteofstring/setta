@@ -3214,3 +3214,27 @@ Stop and reassess rather than hiding the problem if any of these occur:
   fails. This is evidence for a later decision, not a decision. The affected
   packages, `./scripts/format.sh`, and `./check_quality.sh --git-changes`
   passed. No dependency file changed and no provider or cloud mutation ran.
+- 2026-07-25 (typed hosted lifecycle failure codes): Gave hosted provisioning
+  and cleanup the same classifiable failure shape the runtime turn path already
+  had, so an ephemeral failure card can explain itself. Both paths previously
+  returned bare strings such as "Sprites cleanup inventory request failed", which
+  the Director could only render as opaque text and could not use to separate
+  "retry in a moment" from "an operator must look at this". Hosted lifecycle
+  failures now carry a stable, content-free code and a retryable flag behind the
+  same interface-plus-`errors.As`-extractor shape as turn admission, with the
+  codes as named constants at the owning boundary. Provider request failures —
+  inspect, create reconciliation, inventory, and delete — are retryable.
+  Configuration, ownership, resource-shape, provider-identity, and
+  missing-recorded-resource failures are not, because retrying changes nothing
+  and an ownership or resource-shape mismatch is precisely the case where a human
+  must look, since it can indicate a billable orphan. The message text policy is
+  unchanged and content-free stays content-free: tests drive failures with
+  distinctive tokens, organization slugs, provider names, and provider-supplied
+  error text and prove none of it escapes through either the code or the
+  message, that a retryable and a non-retryable failure are distinguishable
+  through the extractor, and that existing wrapping and the `ErrProviderNotFound`
+  and `ErrAmbiguousInventory` sentinels still match. This slice was the plan's
+  one deliberate scope addition and was kept at the owner's direction so failures
+  are classifiable rather than opaque. The affected packages,
+  `./scripts/format.sh`, and `./check_quality.sh --git-changes` passed. No
+  dependency file changed and no provider or cloud mutation ran.
