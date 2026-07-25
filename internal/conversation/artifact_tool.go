@@ -353,7 +353,7 @@ func (service *Service) persistArtifactToolEmission(
 			err,
 		)
 	}
-	if err := service.commitArtifactToolEmission(ctx, snapshot, turn.ID, trajectory, artifact, publications); err != nil {
+	if err := service.commitArtifactToolEmission(ctx, snapshot, turn, trajectory, artifact, publications); err != nil {
 		return Artifact{}, newArtifactToolFailureError(
 			artifactToolFailurePersistenceFailure,
 			"artifact persistence failed before the artifact could be stored",
@@ -387,7 +387,7 @@ func (service *Service) requireActiveArtifactToolTurn(
 func (service *Service) commitArtifactToolEmission(
 	ctx context.Context,
 	snapshot ConversationSnapshot,
-	turnID string,
+	turn ConversationTurn,
 	trajectory TrajectoryEvent,
 	artifact Artifact,
 	publications []preparedPublication,
@@ -402,7 +402,13 @@ func (service *Service) commitArtifactToolEmission(
 		return appendPublications(transaction, publications)
 	})
 	if err == nil {
-		service.observeCommittedTrajectory(snapshot.Conversation, turnID, []TrajectoryEvent{trajectory}, false)
+		service.observeCommittedTrajectory(
+			snapshot.Conversation,
+			turn,
+			[]TrajectoryEvent{trajectory},
+			[]ArtifactMetadata{artifact.Metadata()},
+			false,
+		)
 	}
 	return err
 }

@@ -283,7 +283,7 @@ func (service *RouteService) materializeClaimedInput(
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	targetIDs, err := routeContextTargetIDs(work.Input.Input, candidates, contextConversationIDs)
+	targetIDs, err := routeContextTargetIDs(work, candidates, contextConversationIDs)
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateCorrupt, err)
 	}
@@ -291,7 +291,7 @@ func (service *RouteService) materializeClaimedInput(
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	targets = routeTargetsForWorkspaces(targets, retrieval.WorkspaceIDs)
+	targets = routeTargetsForCandidateScope(targets, retrieval.Scope)
 	if err := validateRequiredRouteTargets(work.Input.Input, candidates, targets); err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
@@ -340,9 +340,14 @@ func (service *RouteService) retrieveAvailableCandidates(
 		return workspaceSession, retrieval, queryTruncated, nil,
 			NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	retrieval.WorkspaceIDs = availableWorkspaceIDs
-	if len(availableWorkspaceIDs) == 0 {
-		return workspaceSession, retrieval, queryTruncated, []conversationindex.Candidate{}, nil
+	retrieval.Scope = conversationindex.CandidateScopeFilter{
+		IncludeFolderless:          true,
+		FolderResourceWorkspaceIDs: availableWorkspaceIDs,
+	}
+	retrieval, err = conversationindex.NormalizeCandidateRequest(retrieval)
+	if err != nil {
+		return workspaceSession, retrieval, queryTruncated, nil,
+			NewRouteAttemptFailure(RouteFailureKindInternal, err)
 	}
 	candidates, err := service.candidates.RetrieveCandidates(ctx, retrieval)
 	if err != nil {
@@ -352,17 +357,18 @@ func (service *RouteService) retrieveAvailableCandidates(
 	return workspaceSession, retrieval, queryTruncated, candidates, nil
 }
 
-func routeTargetsForWorkspaces(
+func routeTargetsForCandidateScope(
 	targets []RouteConversationTarget,
-	workspaceIDs []string,
+	scope conversationindex.CandidateScopeFilter,
 ) []RouteConversationTarget {
-	available := make(map[string]bool, len(workspaceIDs))
-	for _, workspaceID := range workspaceIDs {
+	available := make(map[string]bool, len(scope.FolderResourceWorkspaceIDs))
+	for _, workspaceID := range scope.FolderResourceWorkspaceIDs {
 		available[workspaceID] = true
 	}
 	filtered := make([]RouteConversationTarget, 0, len(targets))
 	for _, target := range targets {
-		if available[target.WorkspaceID] {
+		workspaceID, folderScoped := target.ResourceScope.FolderWorkspaceID()
+		if (!folderScoped && scope.IncludeFolderless) || (folderScoped && available[workspaceID]) {
 			filtered = append(filtered, target)
 		}
 	}
@@ -418,7 +424,10 @@ func (service *RouteService) validateDecisionWorkspace(decision RouteDecision) e
 	if decision.Kind != RouteDecisionKindCreateConversation {
 		return nil
 	}
-	workspaceID := decision.CreateConversation.WorkspaceID
+	workspaceID, folderScoped := decision.CreateConversation.ResourceScope.FolderWorkspaceID()
+	if !folderScoped {
+		return nil
+	}
 	resolved, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
 		return err
@@ -457,14 +466,14 @@ func (service *RouteService) failClaimedInput(
 }
 
 func routeContextTargetIDs(
-	input MasterInput,
+	work InputRoutingWork,
 	candidates []conversationindex.Candidate,
 	contextConversationIDs []string,
 ) ([]string, error) {
 	if err := validateRouteContextConversationIDs(contextConversationIDs); err != nil {
 		return nil, err
 	}
-	ids := requiredRouteContextTargetIDs(input, candidates)
+	ids := requiredRouteContextTargetIDs(work, candidates)
 	if len(ids) > MaxRouteConversationTargets {
 		return nil, fmt.Errorf("master route required targets exceed %d conversations", MaxRouteConversationTargets)
 	}
@@ -482,19 +491,34 @@ func validateRouteContextConversationIDs(conversationIDs []string) error {
 }
 
 func requiredRouteContextTargetIDs(
-	input MasterInput,
+	work InputRoutingWork,
 	candidates []conversationindex.Candidate,
 ) []string {
 	ids := make([]string, 0, MaxRouteConversationTargets)
 	for _, candidate := range candidates {
 		ids = append(ids, candidate.Card.ConversationID)
 	}
+	for _, conversationID := range clarificationCandidateTargetIDs(work) {
+		if !slices.Contains(ids, conversationID) {
+			ids = append(ids, conversationID)
+		}
+	}
+	input := work.Input.Input
 	for _, optional := range []*string{input.FocusedConversationID, input.OriginatingConversationID} {
 		if optional != nil && !slices.Contains(ids, *optional) {
 			ids = append(ids, *optional)
 		}
 	}
 	return ids
+}
+
+func clarificationCandidateTargetIDs(work InputRoutingWork) []string {
+	if work.PriorClarification == nil ||
+		work.PriorClarification.ResultingCommand.Kind != RouteDecisionKindClarify ||
+		work.PriorClarification.ResultingCommand.Clarify == nil {
+		return nil
+	}
+	return append([]string{}, work.PriorClarification.ResultingCommand.Clarify.CandidateTargetIDs...)
 }
 
 func appendRouteContextConversationIDs(ids []string, contextConversationIDs []string) []string {
@@ -534,7 +558,7 @@ func routeFailureMessage(kind RouteFailureKind) string {
 	case RouteFailureKindProviderUnavailable:
 		return "Global routing is temporarily unavailable because the master model could not be reached."
 	case RouteFailureKindProviderOutputInvalid:
-		return "Global routing is temporarily unavailable because the master model returned an invalid decision."
+		return "Global routing is temporarily unavailable."
 	case RouteFailureKindConfigurationInvalid:
 		return "Global routing is unavailable because the master model configuration is invalid."
 	case RouteFailureKindContextBudgetExceeded:
@@ -544,7 +568,7 @@ func routeFailureMessage(kind RouteFailureKind) string {
 	case RouteFailureKindStateCorrupt:
 		return "Global routing is unavailable because durable application state is invalid."
 	default:
-		return "Global routing is temporarily unavailable because an internal routing contract failed."
+		return "Global routing is temporarily unavailable."
 	}
 }
 

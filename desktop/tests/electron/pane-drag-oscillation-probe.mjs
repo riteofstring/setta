@@ -14,6 +14,7 @@ import {
   captureScreenshot,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -250,15 +251,7 @@ function currentFocused(scene) {
 async function ensureWorkspaceOpen(client) {
   const id = await client.evaluate(workspaceIdExpression());
   if (id && id !== "empty") return;
-  await waitForState(
-    client,
-    `(() => ({ ready: Boolean(Array.from(document.querySelectorAll("button")).find((b) => b.getAttribute("aria-label") === "Open project folder" && !b.disabled)) }))()`,
-    (v) => v.ready,
-    workflowTimeoutMs,
-  );
-  await client.evaluate(
-    `(() => { Array.from(document.querySelectorAll("button")).find((b) => b.getAttribute("aria-label") === "Open project folder")?.click(); return true; })()`,
-  );
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   await waitForState(
     client,
     workspaceIdExpression(),

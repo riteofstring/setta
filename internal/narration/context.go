@@ -10,7 +10,6 @@ import (
 
 var (
 	ErrContextBudgetExceeded = errors.New("narrator required context exceeds its byte budget")
-	ErrCheckpointRequired    = errors.New("narrator checkpoint maintenance is required before projection can advance")
 	ErrNoProjectionWork      = errors.New("narrator projection has no unobserved trajectory")
 	ErrNoCheckpointWork      = errors.New("narrator checkpoint has no observed trajectory to compact")
 )
@@ -46,13 +45,6 @@ type ContextBudgetError struct {
 	Reason        string
 }
 
-type CheckpointRequiredError struct {
-	CheckpointThroughSequence int
-	ObservedThroughSequence   int
-	NextUnobservedSequence    int
-	Reason                    string
-}
-
 type ConversationIdentity struct {
 	ConversationID           string                          `json:"conversationId"`
 	WorkspaceID              string                          `json:"workspaceId"`
@@ -64,11 +56,12 @@ type ConversationIdentity struct {
 }
 
 type CurrentInstructions struct {
-	TurnID           string                                  `json:"turnId"`
-	TurnStatus       conversation.TurnStatus                 `json:"turnStatus"`
-	Objective        conversation.AuthoredInput              `json:"objective"`
-	AcceptedSteering []conversation.NarratorAcceptedSteering `json:"acceptedSteering"`
-	Authority        ContextAuthority                        `json:"authority"`
+	TurnID                 string                                         `json:"turnId"`
+	TurnStatus             conversation.TurnStatus                        `json:"turnStatus"`
+	Objective              conversation.AuthoredInput                     `json:"objective"`
+	AcceptedSteering       []conversation.NarratorAcceptedSteering        `json:"acceptedSteering"`
+	LatestAssistantMessage *conversation.NarratorSemanticAssistantMessage `json:"latestAssistantMessage"`
+	Authority              ContextAuthority                               `json:"authority"`
 }
 
 type AuthoritativeContext struct {
@@ -120,8 +113,8 @@ type ProjectionContextBundle struct {
 	Authoritative            AuthoritativeContext                  `json:"authoritative"`
 	HistoricalCheckpoint     *HistoricalCheckpoint                 `json:"historicalCheckpoint"`
 	PreCallCursor            NarratorCursor                        `json:"preCallCursor"`
-	Trajectory               []conversation.TrajectoryEvent        `json:"trajectory"`
-	IncludedRange            conversation.TrajectorySequenceRange  `json:"includedRange"`
+	SemanticEvents           []conversation.NarratorSemanticEvent  `json:"semanticEvents"`
+	SemanticSourceRange      *conversation.TrajectorySequenceRange `json:"semanticSourceRange"`
 	EvaluationRange          conversation.TrajectorySequenceRange  `json:"evaluationRange"`
 	RemainingUnobservedRange *conversation.TrajectorySequenceRange `json:"remainingUnobservedRange"`
 	PriorMilestones          []PriorMilestone                      `json:"priorMilestones"`
@@ -171,6 +164,7 @@ type ProjectionContextRequest struct {
 	TurnID          string
 	Trigger         conversation.NarrationTrigger
 	ThroughSequence int
+	SemanticEvents  []conversation.NarratorSemanticEvent
 	Limits          ContextLimits
 }
 
@@ -233,20 +227,6 @@ func (err *ContextBudgetError) Unwrap() error {
 	return ErrContextBudgetExceeded
 }
 
-func (err *CheckpointRequiredError) Error() string {
-	return fmt.Sprintf(
-		"narrator checkpoint at %d must advance within observed cursor %d before sequence %d can be evaluated: %s",
-		err.CheckpointThroughSequence,
-		err.ObservedThroughSequence,
-		err.NextUnobservedSequence,
-		err.Reason,
-	)
-}
-
-func (err *CheckpointRequiredError) Unwrap() error {
-	return ErrCheckpointRequired
-}
-
 // ValidateObservedAdvance constrains a future working or terminal projection
 // commit to the contiguous evaluation window materialized for that call. The
 // output may stop within the window, but it cannot jump over an unevaluated
@@ -288,7 +268,42 @@ func validateProjectionContextRequest(request ProjectionContextRequest) error {
 	if request.ThroughSequence <= 0 {
 		return fmt.Errorf("narrator projection through sequence must be positive")
 	}
+	if err := validateProjectionContextSemanticEvents(request); err != nil {
+		return err
+	}
 	return request.Limits.Validate()
+}
+
+func validateProjectionContextSemanticEvents(request ProjectionContextRequest) error {
+	previous := 0
+	for index, event := range request.SemanticEvents {
+		if err := event.Validate(); err != nil {
+			return fmt.Errorf("narrator projection context semantic event %d: %w", index, err)
+		}
+		if event.ConversationID != request.ConversationID || event.TurnID != request.TurnID {
+			return fmt.Errorf(
+				"narrator projection context semantic event %d belongs to %s/%s, want %s/%s",
+				index,
+				event.ConversationID,
+				event.TurnID,
+				request.ConversationID,
+				request.TurnID,
+			)
+		}
+		if event.SourceTrajectoryRange.End > request.ThroughSequence {
+			return fmt.Errorf(
+				"narrator projection context semantic event %d source %d exceeds projection cutoff %d",
+				index,
+				event.SourceTrajectoryRange.End,
+				request.ThroughSequence,
+			)
+		}
+		if event.SemanticSequence <= previous {
+			return fmt.Errorf("narrator projection context semantic events must be strictly ordered")
+		}
+		previous = event.SemanticSequence
+	}
+	return nil
 }
 
 func validateFocusContextRequest(request FocusContextRequest) error {

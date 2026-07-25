@@ -110,6 +110,17 @@ describe("app-shell speech playback provider", () => {
     expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ kind: "error" }));
   });
 
+  test("drops automatic speech when live user input is accepted", () => {
+    const controller = playbackController();
+    const preempt = vi.spyOn(controller, "preemptForUserInput");
+
+    handlePlaybackConversationEvent(controller, trajectoryAppendedEvent("user_input_accepted"));
+    handlePlaybackConversationEvent(controller, trajectoryAppendedEvent("turn_steered"));
+    handlePlaybackConversationEvent(controller, trajectoryAppendedEvent("plan_changed"));
+
+    expect(preempt).toHaveBeenCalledTimes(2);
+  });
+
   test("fails specifically when a live narration stream has no hydrated profile", () => {
     expect(() =>
       handlePlaybackConversationEvent(playbackController(), narrationCreatedEvent()),
@@ -176,6 +187,32 @@ function narrationCreatedEvent(): ConversationEvent {
     },
     schemaVersion: 1,
     sequence: 1,
+    streamId: "conversation:conversation-playback",
+    workspaceId: "workspace-playback",
+  };
+}
+
+function trajectoryAppendedEvent(
+  kind: ConversationSnapshot["trajectory"]["events"][number]["kind"],
+): ConversationEvent {
+  return {
+    conversationId: "conversation-playback",
+    emittedAt: "2026-07-12T18:00:00Z",
+    eventId: `conversation:conversation-playback:${kind}`,
+    payload: {
+      event: {
+        actor: "user",
+        conversationId: "conversation-playback",
+        emittedAt: "2026-07-12T18:00:00Z",
+        id: `trajectory-${kind}`,
+        kind,
+        sequence: 2,
+        turnId: "turn-playback",
+      } as ConversationSnapshot["trajectory"]["events"][number],
+      type: "conversation.trajectory.appended",
+    },
+    schemaVersion: 1,
+    sequence: 2,
     streamId: "conversation:conversation-playback",
     workspaceId: "workspace-playback",
   };
