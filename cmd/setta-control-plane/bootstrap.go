@@ -56,7 +56,7 @@ func runBootstrap(
 	return 0
 }
 
-func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io.Reader, stdout io.Writer) (returnErr error) {
+func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io.Reader, stdout io.Writer) error {
 	credential, err := ensureDeviceCredential(config.ClientCredentialFile, config.ClientCredentialStdin, stdin)
 	if err != nil {
 		return err
@@ -65,15 +65,6 @@ func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io
 	if err != nil {
 		return err
 	}
-	store, err := controlplane.OpenStore(controlplane.StoreConfig{Directory: config.DataDirectory})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := store.Close(); err != nil && returnErr == nil {
-			returnErr = err
-		}
-	}()
 	secrets, err := controlplane.OpenFileSecretStore(config.SecretDirectory)
 	if err != nil {
 		return err
@@ -81,70 +72,36 @@ func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io
 	if err := secrets.WriteSecret(ctx, config.RuntimeSecretRef, runtimeCredential); err != nil {
 		return err
 	}
-	created, err := configureHostedAccess(ctx, store, config, credential)
+	var event controlplane.BootstrapEvent
+	err = executeAdminJSONRequest(
+		ctx,
+		adminClientConfig{SocketPath: controlplane.AdminSocketPath(config.DataDirectory)},
+		"/v1/hosted-access/complete",
+		controlplane.AdminCompleteHostedAccessRequest{
+			Credential:           credential,
+			CredentialEpoch:      config.CredentialEpoch,
+			DeviceDisplayName:    config.DeviceDisplayName,
+			GrantTTL:             config.GrantTTL,
+			HostedAccessIntentID: config.HostedAccessIntentID,
+			IdempotencyKey:       config.IdempotencyKey,
+			ProjectID:            config.ProjectID,
+			RuntimeName:          config.RuntimeName,
+			RuntimeSecretRef:     config.RuntimeSecretRef,
+			RuntimeTarget:        config.RuntimeTarget,
+			UserID:               config.UserID,
+			WorkstreamID:         config.WorkstreamID,
+		},
+		&event,
+	)
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(stdout).Encode(controlplane.BootstrapEvent{
-		DeviceID:    created.Device.ID,
-		Event:       controlplane.BootstrapReadyEvent,
-		RuntimeName: created.Grant.RuntimeName,
-	})
-}
-
-func configureHostedAccess(
-	ctx context.Context,
-	store *controlplane.Store,
-	config bootstrapConfig,
-	credential controlplane.DeviceCredential,
-) (controlplane.CreatedDeviceGrant, error) {
-	if _, err := store.UpsertUser(ctx, config.UserID); err != nil {
-		return controlplane.CreatedDeviceGrant{}, err
+	if event.Event != controlplane.BootstrapReadyEvent ||
+		event.DeviceID != credential.DeviceID ||
+		event.RuntimeName != config.RuntimeName {
+		return errors.New("control-plane hosted access completion response is invalid")
 	}
-	if _, err := store.EnsureHostedAccessIntent(ctx, controlplane.EnsureHostedAccessIntent{
-		IdempotencyKey: config.HostedAccessIntentID,
-		UserID:         config.UserID,
-		ProjectID:      config.ProjectID,
-		WorkstreamID:   config.WorkstreamID,
-		Client: controlplane.HostedAccessClient{
-			DeviceID: credential.DeviceID,
-			Kind:     controlplane.HostedAccessClientPhone,
-		},
-		RequestedCapabilities: []controlplane.HostedAccessCapability{
-			controlplane.HostedAccessCapabilityObserve,
-			controlplane.HostedAccessCapabilitySteer,
-			controlplane.HostedAccessCapabilityApprove,
-			controlplane.HostedAccessCapabilityArtifacts,
-		},
-	}); err != nil {
-		return controlplane.CreatedDeviceGrant{}, err
-	}
-	if _, err := store.AssignRuntime(ctx, controlplane.AssignRuntimeRequest{
-		IdempotencyKey:      config.IdempotencyKey,
-		UserID:              config.UserID,
-		RuntimeName:         config.RuntimeName,
-		Lifecycle:           controlplane.RuntimeLifecycleReady,
-		AccessState:         controlplane.RuntimeAccessEnabled,
-		CredentialEpoch:     config.CredentialEpoch,
-		UpstreamAuthority:   config.RuntimeTarget,
-		CredentialSecretRef: config.RuntimeSecretRef,
-	}); err != nil {
-		return controlplane.CreatedDeviceGrant{}, err
-	}
-	created, err := store.EnsureDeviceGrant(ctx, controlplane.EnsureDeviceGrantRequest{
-		Credential:  credential,
-		UserID:      config.UserID,
-		RuntimeName: config.RuntimeName,
-		DisplayName: config.DeviceDisplayName,
-		GrantTTL:    config.GrantTTL,
-	})
-	if err != nil {
-		return controlplane.CreatedDeviceGrant{}, err
-	}
-	if _, err := store.CompleteHostedAccessIntent(ctx, config.HostedAccessIntentID, created); err != nil {
-		return controlplane.CreatedDeviceGrant{}, err
-	}
-	return created, nil
+	return json.NewEncoder(stdout).Encode(event)
 }
 
 func bootstrapConfigFromArgs(

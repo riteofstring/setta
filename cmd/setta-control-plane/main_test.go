@@ -71,14 +71,18 @@ func TestConfigFromArgsAcceptsExplicitHostedCeilings(t *testing.T) {
 
 func TestBootstrapIsRestartSafeAndKeepsCredentialsInPrivateFiles(t *testing.T) {
 	fixture := newBootstrapFixture(t)
+	store, server := startBootstrapAdminServer(t, fixture.dataDirectory)
 	for attempt := 0; attempt < 2; attempt++ {
 		runBootstrapAttempt(t, fixture.args, fixture.runtimeName, attempt)
 	}
+	stopBootstrapAdminServer(t, store, server)
 	verifyBootstrapState(t, fixture)
 }
 
 func TestBootstrapAcceptsOnePinnedClientCredentialFromStdinAcrossRetries(t *testing.T) {
 	fixture := newBootstrapFixture(t)
+	store, server := startBootstrapAdminServer(t, fixture.dataDirectory)
+	defer stopBootstrapAdminServer(t, store, server)
 	credential, err := controlplane.NewDeviceCredential()
 	if err != nil {
 		t.Fatal(err)
@@ -151,29 +155,9 @@ func TestEnsureRuntimeCommandPersistsOneRestartSafeIntent(t *testing.T) {
 
 func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *testing.T) {
 	fixture := newBootstrapFixture(t)
+	store, server := startBootstrapAdminServer(t, fixture.dataDirectory)
+	defer stopBootstrapAdminServer(t, store, server)
 	runBootstrapAttempt(t, fixture.args, fixture.runtimeName, 0)
-	store, err := controlplane.OpenStore(controlplane.StoreConfig{Directory: fixture.dataDirectory})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer store.Close()
-	server, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
-		SocketPath: controlplane.AdminSocketPath(fixture.dataDirectory), Store: store,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		if err := server.Shutdown(ctx); err != nil {
-			t.Error(err)
-		}
-		if err := server.Wait(); err != nil {
-			t.Error(err)
-		}
-	}()
-
 	credential, err := controlplane.NewDeviceCredential()
 	if err != nil {
 		t.Fatal(err)
@@ -281,6 +265,45 @@ func runBootstrapAttempt(t *testing.T, args []string, runtimeName string, attemp
 	}
 	if event.Event != controlplane.BootstrapReadyEvent || event.RuntimeName != runtimeName {
 		t.Fatalf("bootstrap event = %+v", event)
+	}
+}
+
+func startBootstrapAdminServer(
+	t *testing.T,
+	dataDirectory string,
+) (*controlplane.Store, *controlplane.AdminServer) {
+	t.Helper()
+	store, err := controlplane.OpenStore(controlplane.StoreConfig{Directory: dataDirectory})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
+		SocketPath: controlplane.AdminSocketPath(dataDirectory),
+		Store:      store,
+	})
+	if err != nil {
+		_ = store.Close()
+		t.Fatal(err)
+	}
+	return store, server
+}
+
+func stopBootstrapAdminServer(
+	t *testing.T,
+	store *controlplane.Store,
+	server *controlplane.AdminServer,
+) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		t.Error(err)
+	}
+	if err := server.Wait(); err != nil {
+		t.Error(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Error(err)
 	}
 }
 

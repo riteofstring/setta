@@ -39,6 +39,21 @@ type AdminEnsureDeviceRequest struct {
 	UserID      string           `json:"user_id"`
 }
 
+type AdminCompleteHostedAccessRequest struct {
+	Credential           DeviceCredential `json:"credential"`
+	CredentialEpoch      uint64           `json:"credential_epoch"`
+	DeviceDisplayName    string           `json:"device_display_name"`
+	GrantTTL             time.Duration    `json:"grant_ttl"`
+	HostedAccessIntentID string           `json:"hosted_access_intent_id"`
+	IdempotencyKey       string           `json:"idempotency_key"`
+	ProjectID            string           `json:"project_id"`
+	RuntimeName          string           `json:"runtime_name"`
+	RuntimeSecretRef     string           `json:"runtime_secret_ref"`
+	RuntimeTarget        string           `json:"runtime_target"`
+	UserID               string           `json:"user_id"`
+	WorkstreamID         string           `json:"workstream_id"`
+}
+
 type AdminRevokeDeviceRequest struct {
 	DeviceID string `json:"device_id"`
 }
@@ -118,18 +133,10 @@ func validateAdminServerConfig(config AdminServerConfig) error {
 
 func adminHandler(store *Store) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if handleHostedAccessAdminRoute(store, response, request) {
+			return
+		}
 		switch request.URL.Path {
-		case "/v1/hosted-access/ensure":
-			if !requireAdminMethod(response, request, http.MethodPost) {
-				return
-			}
-			response.Header().Set("Content-Type", "application/json")
-			handleAdminEnsureHostedAccess(store, response, request)
-		case "/v1/hosted-access/events":
-			if !requireAdminMethod(response, request, http.MethodGet) {
-				return
-			}
-			handleAdminHostedAccessEvents(store, response, request)
 		case "/v1/devices/ensure":
 			if !requireAdminMethod(response, request, http.MethodPost) {
 				return
@@ -152,6 +159,34 @@ func adminHandler(store *Store) http.Handler {
 			response.WriteHeader(http.StatusNotFound)
 		}
 	})
+}
+
+func handleHostedAccessAdminRoute(
+	store *Store,
+	response http.ResponseWriter,
+	request *http.Request,
+) bool {
+	switch request.URL.Path {
+	case "/v1/hosted-access/ensure":
+		if requireAdminMethod(response, request, http.MethodPost) {
+			response.Header().Set("Content-Type", "application/json")
+			handleAdminEnsureHostedAccess(store, response, request)
+		}
+		return true
+	case "/v1/hosted-access/events":
+		if requireAdminMethod(response, request, http.MethodGet) {
+			handleAdminHostedAccessEvents(store, response, request)
+		}
+		return true
+	case "/v1/hosted-access/complete":
+		if requireAdminMethod(response, request, http.MethodPost) {
+			response.Header().Set("Content-Type", "application/json")
+			handleAdminCompleteHostedAccess(store, response, request)
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func requireAdminMethod(response http.ResponseWriter, request *http.Request, method string) bool {
@@ -177,6 +212,81 @@ func handleAdminEnsureHostedAccess(store *Store, response http.ResponseWriter, r
 		return
 	}
 	writeAdminJSON(response, progress)
+}
+
+func handleAdminCompleteHostedAccess(store *Store, response http.ResponseWriter, request *http.Request) {
+	var payload AdminCompleteHostedAccessRequest
+	if !decodeAdminRequest(response, request, &payload) {
+		return
+	}
+	created, err := completeHostedAccess(request.Context(), store, payload)
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	writeAdminJSON(response, BootstrapEvent{
+		DeviceID:    created.Device.ID,
+		Event:       BootstrapReadyEvent,
+		RuntimeName: created.Grant.RuntimeName,
+	})
+}
+
+func completeHostedAccess(
+	ctx context.Context,
+	store *Store,
+	payload AdminCompleteHostedAccessRequest,
+) (CreatedDeviceGrant, error) {
+	if _, err := store.UpsertUser(ctx, payload.UserID); err != nil {
+		return CreatedDeviceGrant{}, err
+	}
+	if _, err := store.EnsureHostedAccessIntent(ctx, hostedAccessIntentFromAdmin(payload)); err != nil {
+		return CreatedDeviceGrant{}, err
+	}
+	if _, err := store.AssignRuntime(ctx, AssignRuntimeRequest{
+		IdempotencyKey:      payload.IdempotencyKey,
+		UserID:              payload.UserID,
+		RuntimeName:         payload.RuntimeName,
+		Lifecycle:           RuntimeLifecycleReady,
+		AccessState:         RuntimeAccessEnabled,
+		CredentialEpoch:     payload.CredentialEpoch,
+		UpstreamAuthority:   payload.RuntimeTarget,
+		CredentialSecretRef: payload.RuntimeSecretRef,
+	}); err != nil {
+		return CreatedDeviceGrant{}, err
+	}
+	created, err := store.EnsureDeviceGrant(ctx, EnsureDeviceGrantRequest{
+		Credential:  payload.Credential,
+		UserID:      payload.UserID,
+		RuntimeName: payload.RuntimeName,
+		DisplayName: payload.DeviceDisplayName,
+		GrantTTL:    payload.GrantTTL,
+	})
+	if err != nil {
+		return CreatedDeviceGrant{}, err
+	}
+	if _, err := store.CompleteHostedAccessIntent(ctx, payload.HostedAccessIntentID, created); err != nil {
+		return CreatedDeviceGrant{}, err
+	}
+	return created, nil
+}
+
+func hostedAccessIntentFromAdmin(payload AdminCompleteHostedAccessRequest) EnsureHostedAccessIntent {
+	return EnsureHostedAccessIntent{
+		IdempotencyKey: payload.HostedAccessIntentID,
+		UserID:         payload.UserID,
+		ProjectID:      payload.ProjectID,
+		WorkstreamID:   payload.WorkstreamID,
+		Client: HostedAccessClient{
+			DeviceID: payload.Credential.DeviceID,
+			Kind:     HostedAccessClientPhone,
+		},
+		RequestedCapabilities: []HostedAccessCapability{
+			HostedAccessCapabilityObserve,
+			HostedAccessCapabilitySteer,
+			HostedAccessCapabilityApprove,
+			HostedAccessCapabilityArtifacts,
+		},
+	}
 }
 
 func handleAdminHostedAccessEvents(store *Store, response http.ResponseWriter, request *http.Request) {

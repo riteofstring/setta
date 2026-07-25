@@ -155,6 +155,26 @@ func executeAdminRequest(
 	wantEvent string,
 	stdout io.Writer,
 ) error {
+	var event controlplane.AdminEvent
+	if err := executeAdminJSONRequest(ctx, config, path, payload, &event); err != nil {
+		return err
+	}
+	if event.Event != wantEvent {
+		return errors.New("control-plane administration response was invalid")
+	}
+	if err := json.NewEncoder(stdout).Encode(event); err != nil {
+		return errors.New("write control-plane administration event failed")
+	}
+	return nil
+}
+
+func executeAdminJSONRequest(
+	ctx context.Context,
+	config adminClientConfig,
+	path string,
+	payload any,
+	target any,
+) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return errors.New("encode control-plane administration request failed")
@@ -180,12 +200,8 @@ func executeAdminRequest(
 	}
 	decoder := json.NewDecoder(io.LimitReader(response.Body, maximumBootstrapCredentialBytes+1))
 	decoder.DisallowUnknownFields()
-	var event controlplane.AdminEvent
-	if err := decoder.Decode(&event); err != nil || decoder.Decode(&struct{}{}) != io.EOF || event.Event != wantEvent {
+	if err := decoder.Decode(target); err != nil || decoder.Decode(&struct{}{}) != io.EOF {
 		return errors.New("control-plane administration response was invalid")
-	}
-	if err := json.NewEncoder(stdout).Encode(event); err != nil {
-		return errors.New("write control-plane administration event failed")
 	}
 	return nil
 }
