@@ -6,7 +6,6 @@ import {
   benchmarkHostPoolSizeFromSearch,
   benchmarkSceneOptionsFromSearch,
   hostPoolSizeForRuntime,
-  initialFocusedPaneIdForRuntime,
   presentationOptionsForRuntime,
   runtimePolicyBudgetForRuntime,
   runtimePolicyOptionsForRuntime,
@@ -74,24 +73,13 @@ describe("workspace runtime mode options", () => {
     expect(hostPoolSizeForRuntime("workspace", workspaceScene)).toBe(workspaceScene.totalPanes);
   });
 
-  test("restores the focused pane from the persisted real workspace scene", () => {
-    const engine = {
-      firstPaneId: () => "first_pane",
-    } as Parameters<typeof initialFocusedPaneIdForRuntime>[1];
-    const realScene = {
-      focusedPaneId: "persisted_pane",
-    } as Parameters<typeof initialFocusedPaneIdForRuntime>[2];
-
-    expect(initialFocusedPaneIdForRuntime("workspace", engine, realScene)).toBe("persisted_pane");
-  });
-
   test("keeps every visible workspace surface live in a moving resize frame", () => {
     const scene = generateBenchmarkScene({ paneCount: 10, targetVisiblePanes: 10 });
     const items = [
-      renderItem("conversation", "conversation"),
+      renderItem("conversation", "easy-button"),
       renderItem("browser", "browser"),
       renderItem("heavy", "fake-heavy-dom"),
-      renderItem("light", "fake-dom"),
+      renderItem("settings", "settings-dom"),
       renderItem("empty", "empty-frame"),
     ].map((item) => ({ ...item, resizing: true }));
     const policy = new PaneRuntimePolicy(
@@ -105,7 +93,7 @@ describe("workspace runtime mode options", () => {
       ["conversation", "live"],
       ["browser", "live"],
       ["heavy", "live"],
-      ["light", "live"],
+      ["settings", "live"],
       ["empty", "live"],
     ]);
     expect(summary.live).toBe(items.length);

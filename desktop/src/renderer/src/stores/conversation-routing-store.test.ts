@@ -80,7 +80,6 @@ describe("conversation routing presentation store", () => {
       inputId: "input_second",
       routingAttempt: 1,
       routingFailure: {
-        code: "conversation_router_state_unavailable",
         inputId: "input_second",
         message: "Stale retry failure",
         retryable: true,
@@ -158,7 +157,6 @@ describe("conversation routing presentation store", () => {
       inputId: "input_failed",
       routingAttempt: 1,
       routingFailure: {
-        code: "conversation_router_state_unavailable",
         inputId: "input_failed",
         message: "Routing failed",
         retryable: true,

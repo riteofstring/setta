@@ -3,35 +3,35 @@ import { describe, expect, test } from "vitest";
 import { decodeWorkspaceUIPane } from "@generated/backend";
 
 describe("generated workspace UI pane contract", () => {
-  test("decodes a bound conversation pane as a narrowed variant", () => {
+  test("decodes a bound easy button pane as a narrowed variant", () => {
     const pane = decodeWorkspaceUIPane(
-      workspacePane("conversation", { conversationId: "conversation_alpha" }),
+      workspacePane("easy-button", { conversationId: "conversation_alpha" }),
     );
 
-    expect(pane.surfaceKind).toBe("conversation");
-    if (pane.surfaceKind !== "conversation") {
+    expect(pane.surfaceKind).toBe("easy-button");
+    if (pane.surfaceKind !== "easy-button") {
       throw new Error("decoded the wrong workspace pane variant");
     }
-    expect(pane.conversationConfig.conversationId).toBe("conversation_alpha");
+    expect(pane.easyButtonConfig.conversationId).toBe("conversation_alpha");
   });
 
-  test("rejects a missing or misplaced conversation binding", () => {
-    expect(() => decodeWorkspaceUIPane(workspacePane("conversation", null))).toThrow(
-      "WorkspaceUIPane.conversationConfig is required when surfaceKind is conversation",
+  test("rejects a missing or misplaced easy button binding", () => {
+    expect(() => decodeWorkspaceUIPane(workspacePane("easy-button", null))).toThrow(
+      "WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button",
     );
     expect(() =>
       decodeWorkspaceUIPane(workspacePane("empty-frame", { conversationId: "conversation_alpha" })),
-    ).toThrow("WorkspaceUIPane.conversationConfig must be null when surfaceKind is empty-frame");
+    ).toThrow("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame");
   });
 });
 
 function workspacePane(
-  surfaceKind: "conversation" | "empty-frame",
-  conversationConfig: { conversationId: string } | null,
+  surfaceKind: "easy-button" | "empty-frame",
+  easyButtonConfig: { conversationId: string } | null,
 ) {
   return {
     columnId: "workspace_column_0",
-    conversationConfig,
+    easyButtonConfig,
     heat: 0,
     paneId: "workspace_pane_0",
     sequence: 0,

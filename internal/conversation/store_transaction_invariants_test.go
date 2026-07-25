@@ -147,7 +147,7 @@ func TestTransactionRejectsCrossWorkspaceFork(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedTransactionConversation(t, store)
 	child := transactionTestConversation("conversation-cross-workspace")
-	child.WorkspaceID = stringPointer("workspace-2")
+	child.WorkspaceID = "workspace-2"
 	branch := ConversationBranch{
 		ChildConversationID:      child.ID,
 		ParentConversationID:     seed.conversation.ID,
