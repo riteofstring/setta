@@ -181,6 +181,7 @@ function approvalEvent(sequence: number, status: "approved" | "pending"): Direct
         id: "approval:alpha",
         kind: "command",
         publicSummary: "Run command",
+        questions: [],
         requestedAt: "2026-07-25T17:00:00Z",
         resolvedAt: status === "pending" ? null : "2026-07-25T17:03:00Z",
         runId: "run:alpha",

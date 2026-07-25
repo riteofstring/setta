@@ -166,14 +166,12 @@ try {
     approvalSnapshot.unresolvedApprovals[0]?.id,
     "Director approval",
   );
-  await dispatchDirector(context.client, {
-    kind: "resolve_approval",
-    resolveApproval: {
-      answers: [{ answers: [secretApprovalAnswer], questionId: "scope" }],
-      approvalId,
-      decision: "answered",
-    },
-  });
+  assertEqual(
+    approvalSnapshot.unresolvedApprovals[0]?.questions[0]?.id,
+    "scope",
+    "Director approval question",
+  );
+  await answerDirectorApprovalInRail(context.client, approvalId, "scope", secretApprovalAnswer);
   const approved = await waitForConversationSnapshot(
     backend,
     workspaceId,
@@ -289,8 +287,20 @@ try {
     context.client,
     (snapshot) =>
       snapshot.selectedWorkstreamId === childWorkstreamId &&
-      snapshot.artifacts.some((artifact) => artifact.workstreamId === childWorkstreamId),
+      snapshot.artifacts.some(
+        (artifact) =>
+          artifact.workstreamId === childWorkstreamId && artifact.status === "available",
+      ),
   );
+  const openedArtifact = beforeRestart.artifacts.find(
+    (artifact) => artifact.workstreamId === childWorkstreamId && artifact.status === "available",
+  );
+  const openedArtifactId = requiredString(openedArtifact?.id, "Director artifact");
+  const artifactDetail = await openDirectorArtifactDetail(context.client, openedArtifactId);
+  assertEqual(artifactDetail.status, "loaded", "Director artifact detail status");
+  if (!artifactDetail.text.includes(openedArtifact.title)) {
+    throw new Error(`Director artifact detail omitted title: ${JSON.stringify(artifactDetail)}`);
+  }
   const rendererEvents = await readRendererEvents(context.client);
   assertDirectorEventSequence(initial.eventCursor, rendererEvents);
   assertEventKinds(rendererEvents, [
@@ -447,6 +457,74 @@ function selectWorkstream(client, workstreamId) {
     kind: "select_workstream",
     selectWorkstream: { workstreamId },
   });
+}
+
+async function answerDirectorApprovalInRail(client, approvalId, questionId, answer) {
+  const approvalSelector = `[data-approval-id="${approvalId}"]`;
+  await waitForSelector(client, approvalSelector);
+  const fieldSelector = `${approvalSelector} [name="${questionId}"]`;
+  const updated = await client.evaluate(`(() => {
+    const field = document.querySelector(${JSON.stringify(fieldSelector)});
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) {
+      return { ok: false, reason: "missing-question" };
+    }
+    const valueDescriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), "value");
+    valueDescriptor?.set?.call(field, ${JSON.stringify(answer)});
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    return { ok: true };
+  })()`);
+  if (!updated.ok) {
+    throw new Error(`Director approval rail did not update: ${JSON.stringify(updated)}`);
+  }
+  const answered = await client.evaluate(`(() => {
+    const approval = document.querySelector(${JSON.stringify(approvalSelector)});
+    if (!(approval instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-approval" };
+    }
+    const answerButton = Array.from(approval.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Answer" && !button.disabled
+    );
+    if (!(answerButton instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-answer-button" };
+    }
+    answerButton.click();
+    return { ok: true };
+  })()`);
+  if (!answered.ok) {
+    throw new Error(`Director approval rail did not submit: ${JSON.stringify(answered)}`);
+  }
+}
+
+async function openDirectorArtifactDetail(client, artifactId) {
+  await waitForSelector(client, `[data-artifact-id="${artifactId}"]`);
+  const opened = await client.evaluate(`(() => {
+    const artifact = Array.from(document.querySelectorAll("button[data-artifact-id]")).find(
+      (candidate) => candidate.getAttribute("data-artifact-id") === ${JSON.stringify(artifactId)}
+    );
+    if (!(artifact instanceof HTMLButtonElement) || artifact.disabled) {
+      return { ok: false, reason: artifact ? "disabled-artifact" : "missing-artifact" };
+    }
+    artifact.click();
+    return { ok: true };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(`Director artifact did not open: ${JSON.stringify(opened)}`);
+  }
+  return waitForState(
+    client,
+    `(() => {
+      const detail = Array.from(document.querySelectorAll(".director-artifact-detail")).find(
+        (candidate) => candidate.getAttribute("data-artifact-id") === ${JSON.stringify(artifactId)}
+      );
+      return {
+        status: detail?.getAttribute("data-artifact-load-state") ?? "",
+        text: detail?.textContent ?? ""
+      };
+    })()`,
+    (detail) => detail.status === "loaded",
+    workflowTimeoutMs,
+  );
 }
 
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {

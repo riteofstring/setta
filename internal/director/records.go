@@ -14,12 +14,13 @@ import (
 // input stays behind the approval's own encrypted owner: this record carries
 // only the public summary and the fact that an answer is secret.
 type ApprovalRequest struct {
-	ID            string                              `json:"id"`
-	WorkstreamID  string                              `json:"workstreamId"`
-	RunID         *string                             `json:"runId"`
-	Kind          conversation.TrajectoryApprovalKind `json:"kind"`
-	Status        ApprovalStatus                      `json:"status"`
-	PublicSummary string                              `json:"publicSummary"`
+	ID            string                                    `json:"id"`
+	WorkstreamID  string                                    `json:"workstreamId"`
+	RunID         *string                                   `json:"runId"`
+	Kind          conversation.TrajectoryApprovalKind       `json:"kind"`
+	Status        ApprovalStatus                            `json:"status"`
+	PublicSummary string                                    `json:"publicSummary"`
+	Questions     []conversation.TrajectoryApprovalQuestion `json:"questions"`
 	// Secret reports that the requested answer is a secret, so the resolution
 	// is redacted everywhere except the provider path that asked for it.
 	Secret         bool     `json:"secret"`
@@ -51,6 +52,8 @@ type ResourceRequest struct {
 type WorkstreamArtifact struct {
 	ID             string                    `json:"id"`
 	WorkstreamID   string                    `json:"workstreamId"`
+	ConversationID string                    `json:"conversationId"`
+	WorkspaceID    string                    `json:"workspaceId"`
 	RunID          *string                   `json:"runId"`
 	Kind           conversation.ArtifactKind `json:"kind"`
 	Status         ArtifactStatus            `json:"status"`
@@ -81,6 +84,9 @@ func ValidateApprovalRequest(request ApprovalRequest) error {
 	if err := validateTrimmedText("approval request public summary", request.PublicSummary); err != nil {
 		return err
 	}
+	if err := validateApprovalRequestQuestions(request); err != nil {
+		return err
+	}
 	if err := requireSourceEventIDs("approval request", request.SourceEventIDs); err != nil {
 		return err
 	}
@@ -90,6 +96,10 @@ func ValidateApprovalRequest(request ApprovalRequest) error {
 	if err := validateOptionalTimestamp("approval request resolved at", request.ResolvedAt); err != nil {
 		return err
 	}
+	return validateApprovalRequestResolution(request)
+}
+
+func validateApprovalRequestResolution(request ApprovalRequest) error {
 	resolved := request.Status != ApprovalStatusPending
 	if resolved != (request.ResolvedAt != nil) {
 		return fmt.Errorf("approval request %s resolution timestamp does not match status %q", request.ID, request.Status)
@@ -100,6 +110,21 @@ func ValidateApprovalRequest(request ApprovalRequest) error {
 			request.RequestedAt,
 			*request.ResolvedAt,
 		)
+	}
+	return nil
+}
+
+func validateApprovalRequestQuestions(request ApprovalRequest) error {
+	if request.Questions == nil {
+		return fmt.Errorf("approval request %s questions must be an array, not null", request.ID)
+	}
+	if request.Secret != hasSecretQuestion(request.Questions) {
+		return fmt.Errorf("approval request %s secret marker does not match its questions", request.ID)
+	}
+	for index, question := range request.Questions {
+		if err := question.Validate(); err != nil {
+			return fmt.Errorf("approval request %s question %d: %w", request.ID, index, err)
+		}
 	}
 	return nil
 }
@@ -168,13 +193,7 @@ func validateResourceRequestResolution(request ResourceRequest) error {
 // ValidateWorkstreamArtifact rejects an artifact record trusted code could not
 // have produced.
 func ValidateWorkstreamArtifact(artifact WorkstreamArtifact) error {
-	if err := validateIdentifier("workstream artifact id", artifact.ID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("workstream artifact workstream id", artifact.WorkstreamID); err != nil {
-		return err
-	}
-	if err := validateOptionalRunID("workstream artifact run id", artifact.RunID); err != nil {
+	if err := validateWorkstreamArtifactIdentity(artifact); err != nil {
 		return err
 	}
 	if !isArtifactKind(artifact.Kind) {
@@ -189,6 +208,29 @@ func ValidateWorkstreamArtifact(artifact WorkstreamArtifact) error {
 	if err := requireSourceEventIDs("workstream artifact", artifact.SourceEventIDs); err != nil {
 		return err
 	}
+	return validateWorkstreamArtifactTimestamps(artifact)
+}
+
+func validateWorkstreamArtifactIdentity(artifact WorkstreamArtifact) error {
+	if err := validateIdentifier("workstream artifact id", artifact.ID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("workstream artifact workstream id", artifact.WorkstreamID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("workstream artifact conversation id", artifact.ConversationID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("workstream artifact workspace id", artifact.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateOptionalRunID("workstream artifact run id", artifact.RunID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateWorkstreamArtifactTimestamps(artifact WorkstreamArtifact) error {
 	if err := validateTimestamp("workstream artifact created at", artifact.CreatedAt); err != nil {
 		return err
 	}

@@ -14,6 +14,7 @@ func TestDirectorRecordsRejectBackwardsTimestamps(t *testing.T) {
 		Kind:           conversation.TrajectoryApprovalKindCommand,
 		Status:         ApprovalStatusApproved,
 		PublicSummary:  "Run the release command",
+		Questions:      []conversation.TrajectoryApprovalQuestion{},
 		SourceEventIDs: []string{"event-1"},
 		RequestedAt:    "2026-07-24T12:00:00Z",
 		ResolvedAt:     &resolvedAt,
@@ -39,6 +40,8 @@ func TestDirectorRecordsRejectBackwardsTimestamps(t *testing.T) {
 	artifact := WorkstreamArtifact{
 		ID:             "artifact-1",
 		WorkstreamID:   testParentWorkstream,
+		ConversationID: "conversation-1",
+		WorkspaceID:    "workspace-1",
 		Kind:           conversation.ArtifactKindMarkdown,
 		Status:         ArtifactStatusAvailable,
 		Title:          "Release notes",

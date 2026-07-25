@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 87;
-export const backendContractSchemaHash = "sha256:2d9ee171f7cf3baace556cf6e958354f2539e33b6f6747dade0a77bfa4c05860";
+export const backendProtocolVersion = 88;
+export const backendContractSchemaHash = "sha256:cf978945d3e9e69bc7466b7f493f84c1395df8dad4ab428e9c01b7bbf5d7df39";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -3760,6 +3760,7 @@ export interface ApprovalRequest {
   kind: TrajectoryApprovalKind;
   status: ApprovalStatus;
   publicSummary: string;
+  questions: TrajectoryApprovalQuestion[];
   secret: boolean;
   sourceEventIds: string[];
   requestedAt: string;
@@ -3782,6 +3783,8 @@ export interface ResourceRequest {
 export interface WorkstreamArtifact {
   id: string;
   workstreamId: string;
+  conversationId: string;
+  workspaceId: string;
   runId: string | null;
   kind: ArtifactKind;
   status: ArtifactStatus;
@@ -7606,7 +7609,7 @@ export function decodeWorkstreamGraph(value: unknown): WorkstreamGraph {
 
 export function decodeApprovalRequest(value: unknown): ApprovalRequest {
   const record = assertRecord(value, "ApprovalRequest");
-  assertKnownFields(record, "ApprovalRequest", ["id", "workstreamId", "runId", "kind", "status", "publicSummary", "secret", "sourceEventIds", "requestedAt", "resolvedAt"]);
+  assertKnownFields(record, "ApprovalRequest", ["id", "workstreamId", "runId", "kind", "status", "publicSummary", "questions", "secret", "sourceEventIds", "requestedAt", "resolvedAt"]);
   return {
     id: decodeString(requireField(record, "id", "ApprovalRequest"), "ApprovalRequest.id"),
     workstreamId: decodeString(requireField(record, "workstreamId", "ApprovalRequest"), "ApprovalRequest.workstreamId"),
@@ -7614,6 +7617,7 @@ export function decodeApprovalRequest(value: unknown): ApprovalRequest {
     kind: decodeTrajectoryApprovalKind(requireField(record, "kind", "ApprovalRequest"), "ApprovalRequest.kind"),
     status: decodeApprovalStatus(requireField(record, "status", "ApprovalRequest"), "ApprovalRequest.status"),
     publicSummary: decodeString(requireField(record, "publicSummary", "ApprovalRequest"), "ApprovalRequest.publicSummary"),
+    questions: decodeArray(requireField(record, "questions", "ApprovalRequest"), "ApprovalRequest.questions", (item) => decodeTrajectoryApprovalQuestion(item)),
     secret: decodeBoolean(requireField(record, "secret", "ApprovalRequest"), "ApprovalRequest.secret"),
     sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "ApprovalRequest"), "ApprovalRequest.sourceEventIds", (item) => decodeString(item, "ApprovalRequest.sourceEventIds item")),
     requestedAt: decodeString(requireField(record, "requestedAt", "ApprovalRequest"), "ApprovalRequest.requestedAt"),
@@ -7640,10 +7644,12 @@ export function decodeResourceRequest(value: unknown): ResourceRequest {
 
 export function decodeWorkstreamArtifact(value: unknown): WorkstreamArtifact {
   const record = assertRecord(value, "WorkstreamArtifact");
-  assertKnownFields(record, "WorkstreamArtifact", ["id", "workstreamId", "runId", "kind", "status", "title", "sourceEventIds", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "WorkstreamArtifact", ["id", "workstreamId", "conversationId", "workspaceId", "runId", "kind", "status", "title", "sourceEventIds", "createdAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "WorkstreamArtifact"), "WorkstreamArtifact.id"),
     workstreamId: decodeString(requireField(record, "workstreamId", "WorkstreamArtifact"), "WorkstreamArtifact.workstreamId"),
+    conversationId: decodeString(requireField(record, "conversationId", "WorkstreamArtifact"), "WorkstreamArtifact.conversationId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkstreamArtifact"), "WorkstreamArtifact.workspaceId"),
     runId: decodeNullable(requireField(record, "runId", "WorkstreamArtifact"), "WorkstreamArtifact.runId", (item) => decodeString(item, "WorkstreamArtifact.runId")),
     kind: decodeArtifactKind(requireField(record, "kind", "WorkstreamArtifact"), "WorkstreamArtifact.kind"),
     status: decodeArtifactStatus(requireField(record, "status", "WorkstreamArtifact"), "WorkstreamArtifact.status"),

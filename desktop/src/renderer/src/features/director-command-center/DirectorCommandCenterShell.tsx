@@ -1,15 +1,9 @@
 import type {
-  ApprovalRequest,
-  ArtifactKind,
-  ConversationApprovalAnswer,
   DirectorEvent,
   DirectorIntent,
   DirectorReceipt,
   DirectorSnapshot,
-  ResourceRequest,
-  TrajectoryApprovalDecision,
   Workstream,
-  WorkstreamArtifact,
   WorkstreamGraph,
   WorkstreamStatus,
   WorkspaceSession,
@@ -21,8 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Circle,
-  FileText,
-  FolderOpen,
   LoaderCircle,
   Settings,
   Square,
@@ -57,6 +49,7 @@ import {
 } from "./director-command-center-state";
 import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
+import { ArtifactsRail } from "./DirectorArtifactsRail";
 
 interface DirectorCommandCenterShellProps {
   connectedRuntimeId: string | null;
@@ -104,13 +97,6 @@ const statusGlyphs = {
   queued: { Icon: Square, size: 13 },
   running: { Icon: LoaderCircle, size: 14 },
 } as const satisfies Record<WorkstreamStatus, { Icon: LucideIcon; size: number }>;
-
-const artifactLabels = {
-  bar_chart: "Chart",
-  file: "File",
-  markdown: "Markdown",
-  table: "Table",
-} as const satisfies Record<ArtifactKind, string>;
 
 export function DirectorCommandCenterShell({
   connectedRuntimeId,
@@ -178,6 +164,7 @@ export function DirectorCommandCenterShell({
           artifacts={director.snapshot?.artifacts ?? []}
           dispatch={director.dispatch}
           dispatching={director.dispatching}
+          readArtifact={setta.conversations.readArtifact}
           requests={director.snapshot?.unresolvedResourceRequests ?? []}
           workspaceSession={workspaceSession}
         />
@@ -508,156 +495,6 @@ function HistoryList({ history }: { history: ReturnType<typeof compactHistory> }
   );
 }
 
-function ArtifactsRail({
-  approvals,
-  artifacts,
-  dispatch,
-  dispatching,
-  requests,
-  workspaceSession,
-}: {
-  approvals: readonly ApprovalRequest[];
-  artifacts: readonly WorkstreamArtifact[];
-  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  dispatching: boolean;
-  requests: readonly ResourceRequest[];
-  workspaceSession: WorkspaceSession | null;
-}) {
-  return (
-    <aside aria-label="Artifacts" className="director-artifacts-rail">
-      <section className="director-rail-section">
-        <p className="director-rail-kicker">Approvals</p>
-        <div className="director-action-list">
-          {approvals.length === 0 ? (
-            <p className="director-rail-summary">No approvals are waiting.</p>
-          ) : (
-            approvals.map((approval) => (
-              <ApprovalItem
-                approval={approval}
-                dispatch={dispatch}
-                disabled={dispatching}
-                key={approval.id}
-              />
-            ))
-          )}
-        </div>
-      </section>
-      <section className="director-rail-section">
-        <p className="director-rail-kicker">Resources</p>
-        <div className="director-action-list">
-          {requests.length === 0 ? (
-            <p className="director-rail-summary">No folders are waiting.</p>
-          ) : (
-            requests.map((request) => (
-              <ResourceRequestItem
-                disabled={dispatching}
-                dispatch={dispatch}
-                key={request.id}
-                request={request}
-                workspaceSession={workspaceSession}
-              />
-            ))
-          )}
-        </div>
-      </section>
-      <section className="director-rail-section">
-        <p className="director-rail-kicker">Artifacts</p>
-        <div className="director-artifact-list">
-          {artifacts.slice(0, 8).map((artifact) => (
-            <article
-              className="director-artifact-item"
-              data-artifact-id={artifact.id}
-              data-artifact-kind={artifact.kind}
-              key={artifact.id}
-            >
-              <FileText aria-hidden="true" size={15} />
-              <div>
-                <p>{artifact.title}</p>
-                <span>{artifactLabels[artifact.kind]}</span>
-              </div>
-            </article>
-          ))}
-          {artifacts.length === 0 ? (
-            <p className="director-rail-summary">No artifacts yet.</p>
-          ) : null}
-        </div>
-      </section>
-    </aside>
-  );
-}
-
-function ApprovalItem({
-  approval,
-  disabled,
-  dispatch,
-}: {
-  approval: ApprovalRequest;
-  disabled: boolean;
-  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-}) {
-  const structured = approval.kind === "structured_input" || approval.kind === "mcp_elicitation";
-  return (
-    <article className="director-action-item" data-approval-id={approval.id}>
-      <p>{approval.publicSummary}</p>
-      <div className="director-action-controls">
-        <button
-          disabled={disabled}
-          onClick={() =>
-            dispatch(resolveApprovalIntent(approval.id, structured ? "cancelled" : "denied"))
-          }
-          type="button"
-        >
-          <X aria-hidden="true" size={14} />
-          <span>{structured ? "Cancel" : "Deny"}</span>
-        </button>
-        {structured ? null : (
-          <button
-            disabled={disabled}
-            onClick={() => dispatch(resolveApprovalIntent(approval.id, "approved"))}
-            type="button"
-          >
-            <Check aria-hidden="true" size={14} />
-            <span>Approve</span>
-          </button>
-        )}
-      </div>
-    </article>
-  );
-}
-
-function ResourceRequestItem({
-  disabled,
-  dispatch,
-  request,
-  workspaceSession,
-}: {
-  disabled: boolean;
-  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  request: ResourceRequest;
-  workspaceSession: WorkspaceSession | null;
-}) {
-  const workspaces = workspaceSession?.activeWorkspaces ?? [];
-  return (
-    <article className="director-action-item" data-resource-request-id={request.id}>
-      <p>{request.publicSummary}</p>
-      <div className="director-resource-options">
-        {workspaces.map((workspace) => (
-          <button
-            disabled={disabled}
-            key={workspace.id}
-            onClick={() => dispatch(resolveResourceRequestIntent(request.id, workspace.id))}
-            type="button"
-          >
-            <FolderOpen aria-hidden="true" size={14} />
-            <span>{workspace.displayName}</span>
-          </button>
-        ))}
-        {workspaces.length === 0 ? <span>No active folder</span> : null}
-      </div>
-    </article>
-  );
-}
-
 function IconButton({
   children,
   label,
@@ -745,34 +582,6 @@ function moveSelectionIntent(direction: "previous" | "next"): DirectorIntent {
     moveSelection: { direction },
     resolveApproval: null,
     resolveResourceRequest: null,
-    selectWorkstream: null,
-    submit: null,
-  };
-}
-
-function resolveApprovalIntent(
-  approvalId: string,
-  decision: TrajectoryApprovalDecision,
-  answers: ConversationApprovalAnswer[] = [],
-): DirectorIntent {
-  return {
-    cancelRun: null,
-    kind: "resolve_approval",
-    moveSelection: null,
-    resolveApproval: { answers, approvalId, decision },
-    resolveResourceRequest: null,
-    selectWorkstream: null,
-    submit: null,
-  };
-}
-
-function resolveResourceRequestIntent(requestId: string, workspaceId: string): DirectorIntent {
-  return {
-    cancelRun: null,
-    kind: "resolve_resource_request",
-    moveSelection: null,
-    resolveApproval: null,
-    resolveResourceRequest: { requestId, workspaceId },
     selectWorkstream: null,
     submit: null,
   };

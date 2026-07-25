@@ -55,6 +55,11 @@ function minimalSettaApi(platform: string) {
     app: {
       platform,
     },
+    conversations: {
+      readArtifact: async () => {
+        throw new Error("test artifact reader");
+      },
+    },
     director: {
       dispatch: async () => ({ kind: "submit", selectedWorkstreamId: null, submit: null }),
       onEvent: () => () => undefined,

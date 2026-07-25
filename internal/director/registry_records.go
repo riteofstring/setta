@@ -59,9 +59,10 @@ func (state *registryState) openApproval(
 		Kind:          approval.Kind,
 		Status:        ApprovalStatusPending,
 		PublicSummary: firstText(approval.Title, approvalSummaryFallback),
-		// A secret answer never leaves the approval surface that can redact it.
-		// The record carries only that one is expected, so the rail can say why
-		// the resolution is not shown.
+		Questions:     cloneApprovalQuestions(approval.Questions),
+		// A secret answer never becomes durable. The question catalog is public
+		// enough to render the form; this marker tells the rail to collect the
+		// answer in a secret field and explains the redacted resolution.
 		Secret:         hasSecretQuestion(approval.Questions),
 		SourceEventIDs: []string{event.ID},
 		RequestedAt:    approval.RequestedAt,
@@ -125,36 +126,18 @@ func (state *registryState) declareArtifact(
 		return nil, missingPayload(event)
 	}
 	emitted := event.ArtifactEmitted
+	workspaceID, err := workstreamArtifactWorkspaceID(workstream)
+	if err != nil {
+		return nil, err
+	}
+	identity := emittedArtifactIdentity(workstream, emitted, event.TurnID, workspaceID)
 	if record, exists := state.artifacts[emitted.ArtifactID]; exists {
-		if record.WorkstreamID != workstream.record.ID ||
-			!equalOptionalString(record.RunID, event.TurnID) ||
-			record.Kind != emitted.Kind ||
-			record.Title != emitted.Title {
-			return nil, fmt.Errorf(
-				"artifact %s was declared with conflicting ownership or identity",
-				emitted.ArtifactID,
-			)
-		}
-		next := *record
-		next.SourceEventIDs = appendUniqueStrings(record.SourceEventIDs, event.ID)
-		next.UpdatedAt = laterTimestamp(record.UpdatedAt, event.EmittedAt)
-		if err := ValidateWorkstreamArtifact(next); err != nil {
+		if err := updateDeclaredArtifact(record, identity, event); err != nil {
 			return nil, err
 		}
-		*record = next
 		return []registryEffect{{kind: effectArtifact, id: emitted.ArtifactID}}, nil
 	}
-	record := &WorkstreamArtifact{
-		ID:             emitted.ArtifactID,
-		WorkstreamID:   workstream.record.ID,
-		RunID:          copyOptionalString(event.TurnID),
-		Kind:           emitted.Kind,
-		Status:         ArtifactStatusDeclared,
-		Title:          emitted.Title,
-		SourceEventIDs: []string{event.ID},
-		CreatedAt:      event.EmittedAt,
-		UpdatedAt:      event.EmittedAt,
-	}
+	record := newDeclaredArtifact(identity, event)
 	if err := ValidateWorkstreamArtifact(*record); err != nil {
 		return nil, err
 	}
@@ -174,41 +157,19 @@ func (state *registryState) applyArtifactCreated(event conversation.CommittedEve
 	if err != nil {
 		return nil, err
 	}
-	record, exists := state.artifacts[metadata.ID]
+	workspaceID, err := workstreamArtifactWorkspaceID(workstream)
+	if err != nil {
+		return nil, err
+	}
+	identity := createdArtifactIdentity(workstream, metadata, workspaceID)
+	record, exists, err := state.artifactRecordForCreated(identity, metadata)
+	if err != nil {
+		return nil, err
+	}
+	if err := markArtifactAvailable(record, event); err != nil {
+		return nil, err
+	}
 	if !exists {
-		record = &WorkstreamArtifact{
-			ID:           metadata.ID,
-			WorkstreamID: workstream.record.ID,
-			RunID:        copyOptionalString(metadata.TurnID),
-			Kind:         metadata.Kind,
-			Status:       ArtifactStatusAvailable,
-			Title:        metadata.Title,
-			CreatedAt:    metadata.CreatedAt,
-			UpdatedAt:    metadata.CreatedAt,
-		}
-	} else if record.WorkstreamID != workstream.record.ID ||
-		!equalOptionalString(record.RunID, metadata.TurnID) ||
-		record.Kind != metadata.Kind ||
-		record.Title != metadata.Title {
-		return nil, fmt.Errorf(
-			"artifact %s was created with conflicting ownership or identity",
-			metadata.ID,
-		)
-	}
-	next := *record
-	next.Status = ArtifactStatusAvailable
-	next.SourceEventIDs = appendUniqueStrings(record.SourceEventIDs, event.ID)
-	next.UpdatedAt = laterTimestamp(record.UpdatedAt, event.CommittedAt)
-	if err := artifactLifecycle.validateTransition(record.Status, next.Status); err != nil {
-		return nil, err
-	}
-	if err := ValidateWorkstreamArtifact(next); err != nil {
-		return nil, err
-	}
-	if exists {
-		*record = next
-	} else {
-		*record = next
 		state.addArtifact(workstream, record)
 	}
 	if err := state.refreshWorkstream(workstream, event.CommittedAt); err != nil {
@@ -224,6 +185,149 @@ func (state *registryState) addArtifact(workstream *registryWorkstream, record *
 	state.artifacts[record.ID] = record
 	state.artifactOrder = append(state.artifactOrder, record.ID)
 	workstream.artifactIDs = append(workstream.artifactIDs, record.ID)
+}
+
+type artifactRecordIdentity struct {
+	id             string
+	workstreamID   string
+	conversationID string
+	workspaceID    string
+	runID          *string
+	kind           conversation.ArtifactKind
+	title          string
+}
+
+func emittedArtifactIdentity(
+	workstream *registryWorkstream,
+	emitted *conversation.TrajectoryArtifactEmitted,
+	runID *string,
+	workspaceID string,
+) artifactRecordIdentity {
+	return artifactRecordIdentity{
+		id:             emitted.ArtifactID,
+		workstreamID:   workstream.record.ID,
+		conversationID: workstream.conversationID,
+		workspaceID:    workspaceID,
+		runID:          runID,
+		kind:           emitted.Kind,
+		title:          emitted.Title,
+	}
+}
+
+func createdArtifactIdentity(
+	workstream *registryWorkstream,
+	metadata conversation.ArtifactMetadata,
+	workspaceID string,
+) artifactRecordIdentity {
+	return artifactRecordIdentity{
+		id:             metadata.ID,
+		workstreamID:   workstream.record.ID,
+		conversationID: metadata.ConversationID,
+		workspaceID:    workspaceID,
+		runID:          metadata.TurnID,
+		kind:           metadata.Kind,
+		title:          metadata.Title,
+	}
+}
+
+func updateDeclaredArtifact(
+	record *WorkstreamArtifact,
+	identity artifactRecordIdentity,
+	event conversation.TrajectoryEvent,
+) error {
+	if !artifactRecordMatchesIdentity(record, identity) {
+		return conflictingArtifactIdentityError(identity.id, "declared")
+	}
+	next := *record
+	next.SourceEventIDs = appendUniqueStrings(record.SourceEventIDs, event.ID)
+	next.UpdatedAt = laterTimestamp(record.UpdatedAt, event.EmittedAt)
+	if err := ValidateWorkstreamArtifact(next); err != nil {
+		return err
+	}
+	*record = next
+	return nil
+}
+
+func newDeclaredArtifact(
+	identity artifactRecordIdentity,
+	event conversation.TrajectoryEvent,
+) *WorkstreamArtifact {
+	return &WorkstreamArtifact{
+		ID:             identity.id,
+		WorkstreamID:   identity.workstreamID,
+		ConversationID: identity.conversationID,
+		WorkspaceID:    identity.workspaceID,
+		RunID:          copyOptionalString(identity.runID),
+		Kind:           identity.kind,
+		Status:         ArtifactStatusDeclared,
+		Title:          identity.title,
+		SourceEventIDs: []string{event.ID},
+		CreatedAt:      event.EmittedAt,
+		UpdatedAt:      event.EmittedAt,
+	}
+}
+
+func (state *registryState) artifactRecordForCreated(
+	identity artifactRecordIdentity,
+	metadata conversation.ArtifactMetadata,
+) (*WorkstreamArtifact, bool, error) {
+	record, exists := state.artifacts[identity.id]
+	if !exists {
+		return newAvailableArtifact(identity, metadata), false, nil
+	}
+	if !artifactRecordMatchesIdentity(record, identity) {
+		return nil, false, conflictingArtifactIdentityError(identity.id, "created")
+	}
+	return record, true, nil
+}
+
+func newAvailableArtifact(
+	identity artifactRecordIdentity,
+	metadata conversation.ArtifactMetadata,
+) *WorkstreamArtifact {
+	return &WorkstreamArtifact{
+		ID:             identity.id,
+		WorkstreamID:   identity.workstreamID,
+		ConversationID: identity.conversationID,
+		WorkspaceID:    identity.workspaceID,
+		RunID:          copyOptionalString(identity.runID),
+		Kind:           identity.kind,
+		Status:         ArtifactStatusAvailable,
+		Title:          identity.title,
+		CreatedAt:      metadata.CreatedAt,
+		UpdatedAt:      metadata.CreatedAt,
+	}
+}
+
+func markArtifactAvailable(record *WorkstreamArtifact, event conversation.CommittedEvent) error {
+	next := *record
+	next.Status = ArtifactStatusAvailable
+	next.SourceEventIDs = appendUniqueStrings(record.SourceEventIDs, event.ID)
+	next.UpdatedAt = laterTimestamp(record.UpdatedAt, event.CommittedAt)
+	if err := artifactLifecycle.validateTransition(record.Status, next.Status); err != nil {
+		return err
+	}
+	if err := ValidateWorkstreamArtifact(next); err != nil {
+		return err
+	}
+	*record = next
+	return nil
+}
+
+func artifactRecordMatchesIdentity(
+	record *WorkstreamArtifact,
+	identity artifactRecordIdentity,
+) bool {
+	return record.WorkstreamID == identity.workstreamID &&
+		record.ConversationID == identity.conversationID &&
+		record.WorkspaceID == identity.workspaceID &&
+		equalOptionalString(record.RunID, identity.runID) &&
+		record.Kind == identity.kind &&
+		record.Title == identity.title
+}
+
+func conflictingArtifactIdentityError(id string, verb string) error {
+	return fmt.Errorf("artifact %s was %s with conflicting ownership or identity", id, verb)
 }
 
 // applyDirectorFact folds the app-scoped facts no conversation can own.
@@ -417,4 +521,15 @@ func hasSecretQuestion(questions []conversation.TrajectoryApprovalQuestion) bool
 		}
 	}
 	return false
+}
+
+func workstreamArtifactWorkspaceID(workstream *registryWorkstream) (string, error) {
+	if workstream.record.ResourceScope.Kind != WorkstreamResourceScopeFolder ||
+		workstream.record.ResourceScope.Folder == nil {
+		return "", fmt.Errorf(
+			"workstream %s produced artifact without a folder resource",
+			workstream.record.ID,
+		)
+	}
+	return workstream.record.ResourceScope.Folder.WorkspaceID, nil
 }

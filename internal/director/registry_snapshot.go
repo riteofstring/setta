@@ -1,6 +1,10 @@
 package director
 
-import "fmt"
+import (
+	"fmt"
+
+	"setta/internal/conversation"
+)
 
 // The bounded app-scoped snapshot.
 //
@@ -192,6 +196,7 @@ func cloneApprovalRequest(record ApprovalRequest) ApprovalRequest {
 	cloned := record
 	cloned.RunID = copyOptionalString(record.RunID)
 	cloned.ResolvedAt = copyOptionalString(record.ResolvedAt)
+	cloned.Questions = cloneApprovalQuestions(record.Questions)
 	cloned.SourceEventIDs = append([]string{}, record.SourceEventIDs...)
 	return cloned
 }
@@ -212,6 +217,18 @@ func cloneWorkstreamArtifact(record WorkstreamArtifact) WorkstreamArtifact {
 	cloned := record
 	cloned.RunID = copyOptionalString(record.RunID)
 	cloned.SourceEventIDs = append([]string{}, record.SourceEventIDs...)
+	return cloned
+}
+
+func cloneApprovalQuestions(
+	questions []conversation.TrajectoryApprovalQuestion,
+) []conversation.TrajectoryApprovalQuestion {
+	cloned := make([]conversation.TrajectoryApprovalQuestion, 0, len(questions))
+	for _, question := range questions {
+		next := question
+		next.Options = append([]string{}, question.Options...)
+		cloned = append(cloned, next)
+	}
 	return cloned
 }
 

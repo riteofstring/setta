@@ -114,9 +114,12 @@ app-scoped `director` speaker, runtime synthesis resolves Director answer and
 clarification receipts from durable Director decision facts, and the production
 shell wraps the command center in the existing playback controller so accepted
 Director replies can be spoken from the same submitted text or voice intent.
-Structured approval answer collection, rich artifact detail opening, final
-mockup-fidelity work, and live integrated performance reporting remain Phase 4
-work.
+Structured approval answer collection and rich artifact detail opening are now
+committed: app-scoped approval records carry the public question catalog needed
+to answer structured approvals through the rail, and app-scoped artifact records
+carry the trusted workspace/conversation open target the rail uses to read typed
+payload details. Final mockup-fidelity work and live integrated performance
+reporting remain Phase 4 work.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1586,17 +1589,20 @@ Phase 3 audit verification:
 3. Implement previous/next and direct workstream selection. **Done for the initial shell** — the
    top navigation dispatches `move_selection` for previous/next and `select_workstream` for direct
    visible-workstream selection; no pane id crosses the renderer boundary.
-4. Render approvals and resource requests as first-class actionable state. **Partially done** — the
-   right rail renders generated `ApprovalRequest` and `ResourceRequest` records, dispatches
-   `resolve_approval` for approve/deny/cancel actions that do not require hidden question fields,
-   and dispatches `resolve_resource_request` against active workspace ids from the preload workspace
-   session. Structured approval answer collection remains because the app-scoped approval record
-   intentionally does not yet carry the question catalog needed to answer it.
-5. Render artifacts as typed outputs; open rich details in accessible DOM/native surfaces. **Partially
-   done** — typed artifact metadata is rendered in the rail from generated `WorkstreamArtifact`
-   records. Opening rich payload details remains, because the rail still needs a trusted
-   workstream-to-conversation/workspace resolution path before it can call the conversation artifact
-   reader.
+4. Render approvals and resource requests as first-class actionable state. **Done for the production
+   shell** — the right rail renders generated `ApprovalRequest` and `ResourceRequest` records,
+   dispatches `resolve_approval` for approve/deny/cancel actions, renders public structured
+   approval questions as labelled native form controls, dispatches answered approvals with
+   generated `ConversationApprovalAnswer` payloads through the Director boundary, and dispatches
+   `resolve_resource_request` against active workspace ids from the preload workspace session.
+   Secret answers stay in the provider path that requested them and remain redacted from durable
+   trajectory, Director events, and recordings.
+5. Render artifacts as typed outputs; open rich details in accessible DOM/native surfaces. **Done for
+   the production shell** — typed artifact metadata is rendered in the rail from generated
+   `WorkstreamArtifact` records, and those records now carry the trusted workspace and conversation
+   ids needed to call the existing conversation artifact reader. Available artifacts open a focusable
+   DOM detail surface with typed markdown, table, bar-chart, and file payload renderers; unavailable
+   artifacts remain listed but disabled until the durable payload exists.
 6. Integrate the WebGL2 canvas through packed snapshots, not component-level node state. **Done for
    the initial shell** — the shell packs generated `WorkstreamGraph` snapshots through
    `semantic-graph-packer.ts` and hands immutable packed snapshots to `DirectorGraphCanvas`; React
@@ -1708,8 +1714,8 @@ Setta 4 is complete when:
    remaining Master-to-Director renaming in item 2 should move with the code Phase 5 does not delete.
    Phase 3 has production-path Electron coverage that dispatches through the renderer preload,
    main-process IPC, HTTP, and durable store. The initial user-visible fullscreen renderer surface
-   now owns those dispatches for text, voice capture, selection, approval, resource, and graph
-   updates; the remaining shell work is structured approval answer collection, rich artifact
-   details, fidelity polish, and integrated performance reporting.
+   now owns those dispatches for text, voice capture, selection, approval, resource, artifact detail,
+   and graph updates; the remaining shell work is fidelity polish and integrated performance
+   reporting.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.
