@@ -110,7 +110,8 @@ interface EasyButtonConversationCommandOptions {
   projection: ConversationProjection | undefined;
   speechCapture: SpeechCaptureRequester | undefined;
   workspaceAvailable: boolean;
-  workspaceId: string | null;
+  workspaceId: string | null | undefined;
+  workspaceScopeResolved: boolean;
 }
 
 export function useEasyButtonConversationCommands({
@@ -119,8 +120,10 @@ export function useEasyButtonConversationCommands({
   projection,
   speechCapture,
   workspaceAvailable,
-  workspaceId,
+  workspaceId: unresolvedWorkspaceId,
+  workspaceScopeResolved,
 }: EasyButtonConversationCommandOptions): EasyButtonConversationCommands {
+  const workspaceId = workspaceScopeResolved ? (unresolvedWorkspaceId ?? null) : null;
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [pendingAcceptedInput, setPendingAcceptedInput] = useState<string | null>(null);
@@ -150,6 +153,7 @@ export function useEasyButtonConversationCommands({
     paneId,
     projection,
     workspaceId,
+    workspaceScopeResolved,
   });
   const canSubmit = conversationInputCanSubmit(inputAvailable, pending, input) && !failedInput;
   const applySettledRoutingState = useCallback(
@@ -626,12 +630,17 @@ function conversationInputAvailable({
   paneId,
   projection,
   workspaceId,
+  workspaceScopeResolved,
 }: {
   workspaceCommandsAvailable: boolean;
   paneId: string | null;
   projection: ConversationProjection | undefined;
   workspaceId: string | null;
+  workspaceScopeResolved: boolean;
 }): boolean {
+  if (!workspaceScopeResolved) {
+    return false;
+  }
   if (workspaceId !== null) {
     return workspaceCommandsAvailable;
   }

@@ -215,7 +215,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     this.unmount();
     this.container = null;
     if (root) {
-      deferReactRootUnmount(root);
+      root.unmount();
     }
     this.destroyed = true;
   }
@@ -456,12 +456,4 @@ function performanceNow(): number {
     return Date.now();
   }
   return performance.now();
-}
-
-function deferReactRootUnmount(root: ReactSurfaceRoot): void {
-  if (typeof queueMicrotask === "function") {
-    queueMicrotask(() => root.unmount());
-    return;
-  }
-  setTimeout(() => root.unmount(), 0);
 }

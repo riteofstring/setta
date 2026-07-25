@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 describe("workspace React DOM surface adapter", () => {
-  test("parks React root across host unmounts and tears it down on destroy", async () => {
+  test("parks React root across host unmounts and tears it down synchronously on destroy", async () => {
     const events: string[] = [];
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot(container) {
@@ -73,7 +73,6 @@ describe("workspace React DOM surface adapter", () => {
     expect(adapter.lifecycleState.mounted).toBe(true);
 
     adapter.destroy();
-    await waitForMicrotask();
 
     expect(events).toEqual([
       "create:workspace-react-dom-surface",
