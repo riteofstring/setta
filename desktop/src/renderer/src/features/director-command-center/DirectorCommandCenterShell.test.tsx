@@ -15,8 +15,10 @@ import {
   DirectorRefreshCoordinator,
   directorEventChangesVisibleState,
   directorGraphTimeSecondsAt,
+  directorPendingWork,
   effectiveDirectorRailVisibility,
 } from "./DirectorCommandCenterShell";
+import { directorComposerHint, directorComposerTakesKeystroke } from "./DirectorComposer";
 import {
   directorWorkstreamKeyboardDirection,
   directorWorkstreamNavigation,
@@ -323,7 +325,6 @@ describe("Director command-center shell view state", () => {
         },
       }),
     ).toEqual({
-      active: true,
       folder: { label: "setta", path: "/Users/dev/code/setta" },
       kind: "workstream",
       status: "running",
@@ -333,7 +334,6 @@ describe("Director command-center shell view state", () => {
     });
 
     expect(directorFocus(workstreamEntry(8, "awaiting_resource").workstream)).toEqual({
-      active: true,
       folder: { label: "No folder", path: null },
       kind: "workstream",
       status: "awaiting_resource",
@@ -341,10 +341,54 @@ describe("Director command-center shell view state", () => {
       summary: null,
       title: "Workstream 8",
     });
+  });
 
-    expect(directorFocus(workstreamEntry(9, "completed").workstream)).toMatchObject({
-      active: false,
+  test("keeps a Director turn from reading as a busy direct command", () => {
+    expect(directorPendingWork([])).toEqual({ answering: false, dispatching: false });
+    expect(directorPendingWork(["answering"])).toEqual({ answering: true, dispatching: false });
+    expect(directorPendingWork(["command", "command"])).toEqual({
+      answering: false,
+      dispatching: true,
     });
+    expect(directorPendingWork(["answering", "command"])).toEqual({
+      answering: true,
+      dispatching: true,
+    });
+  });
+
+  test("reports the Director's own turn in the composer hint", () => {
+    const workstream = directorFocus(workstreamEntry(4, "running").workstream);
+
+    expect(directorComposerHint(directorFocus(null), false)).toEqual({
+      answering: false,
+      focusText: "No workstream in focus",
+      role: "Director",
+      statusText: null,
+    });
+    expect(directorComposerHint(directorFocus(null), true)).toMatchObject({
+      answering: true,
+      statusText: "Answering",
+    });
+    expect(directorComposerHint(workstream, false)).toEqual({
+      answering: false,
+      focusText: "on Workstream 4",
+      role: "Director",
+      statusText: "Running",
+    });
+    expect(directorComposerHint(workstream, true)).toMatchObject({ statusText: "Answering" });
+  });
+
+  test("routes stray typing into the composer without eating app keystrokes", () => {
+    expect(directorComposerTakesKeystroke(keystroke({ key: "c" }))).toBe(true);
+    expect(directorComposerTakesKeystroke(keystroke({ key: "C" }))).toBe(true);
+    expect(directorComposerTakesKeystroke(keystroke({ key: "c", targetIsEditable: true }))).toBe(
+      false,
+    );
+    expect(directorComposerTakesKeystroke(keystroke({ key: " " }))).toBe(false);
+    expect(directorComposerTakesKeystroke(keystroke({ key: "Enter" }))).toBe(false);
+    expect(directorComposerTakesKeystroke(keystroke({ key: "ArrowRight" }))).toBe(false);
+    expect(directorComposerTakesKeystroke(keystroke({ ctrlKey: true, key: "c" }))).toBe(false);
+    expect(directorComposerTakesKeystroke(keystroke({ key: "c", metaKey: true }))).toBe(false);
   });
 
   test("classifies workstream switch transitions as view state", () => {
@@ -363,6 +407,19 @@ describe("Director command-center shell view state", () => {
     );
   });
 });
+
+function keystroke(
+  overrides: Partial<Parameters<typeof directorComposerTakesKeystroke>[0]>,
+): Parameters<typeof directorComposerTakesKeystroke>[0] {
+  return {
+    altKey: false,
+    ctrlKey: false,
+    key: "a",
+    metaKey: false,
+    targetIsEditable: false,
+    ...overrides,
+  };
+}
 
 function snapshotWithWorkstreams(count: number, selectedPosition: number): DirectorSnapshot {
   const workstreams = Array.from({ length: count }, (_, index) =>

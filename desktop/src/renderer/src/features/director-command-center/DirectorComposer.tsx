@@ -15,48 +15,110 @@ export interface DirectorSpeechCaptureBinding {
   snapshot: DirectorSpeechCaptureSnapshot;
 }
 
+/** What the composer's hint line says about who is listening, and to what. */
+export interface DirectorComposerHintCopy {
+  /** A request of ours is a turn in flight, so the Director is mid-answer. */
+  readonly answering: boolean;
+  readonly focusText: string;
+  readonly role: string;
+  readonly statusText: string | null;
+}
+
+/** A keystroke offered to the composer from wherever it actually landed. */
+export interface DirectorComposerKeystroke {
+  readonly altKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly key: string;
+  readonly metaKey: boolean;
+  readonly targetIsEditable: boolean;
+}
+
+export const directorComposerInputId = "director-composer-input";
+const directorAnsweringLabel = "Answering";
+
 /**
  * The request always reaches the Director. What changes is the work it is being
  * asked about, so the hint names the Director first and the workstream second.
+ *
+ * While a turn is in flight the status slot reports the Director rather than the
+ * workstream. What the user needs from the composer at that moment is whether
+ * the request they just sent has landed; the workstream's own status is on the
+ * top bar and in the Now rail either way.
  */
-function DirectorComposerHint({ focus }: { focus: DirectorFocus }) {
+export function directorComposerHint(
+  focus: DirectorFocus,
+  answering: boolean,
+): DirectorComposerHintCopy {
   if (focus.kind === "director") {
-    return (
-      <p className="director-composer-hint" data-active="false" data-focus="director">
-        <span aria-hidden="true" className="director-composer-hint-dot" />
-        <span className="director-composer-hint-copy">
-          <span className="director-composer-hint-role">{directorTitle}</span>
-          <span className="director-composer-hint-focus">{focus.roleLabel}</span>
-        </span>
-      </p>
-    );
+    return {
+      answering,
+      focusText: focus.roleLabel,
+      role: directorTitle,
+      statusText: answering ? directorAnsweringLabel : null,
+    };
   }
+  return {
+    answering,
+    focusText: `on ${focus.title}`,
+    role: directorTitle,
+    statusText: answering ? directorAnsweringLabel : focus.statusLabel,
+  };
+}
+
+/**
+ * Whether a keystroke that landed elsewhere belongs in the composer.
+ *
+ * The composer is the app's front door, so typing anywhere on the command
+ * center starts a request instead of being swallowed by whatever held focus.
+ * Only a plain printable character redirects: a modifier carries an app
+ * shortcut, a space activates the focused control, and an editable target is
+ * already taking the text.
+ */
+export function directorComposerTakesKeystroke({
+  altKey,
+  ctrlKey,
+  key,
+  metaKey,
+  targetIsEditable,
+}: DirectorComposerKeystroke): boolean {
+  if (targetIsEditable || altKey || ctrlKey || metaKey) {
+    return false;
+  }
+  return key.length === 1 && key !== " ";
+}
+
+/**
+ * Moves the caret into the composer. Called during the keydown that redirected,
+ * so the character itself lands in the composer as the default action.
+ */
+export function focusDirectorComposer(ownerDocument: Document): void {
+  ownerDocument.getElementById(directorComposerInputId)?.focus({ preventScroll: true });
+}
+
+function DirectorComposerHint({ hint }: { hint: DirectorComposerHintCopy }) {
   return (
-    <p
-      className="director-composer-hint"
-      data-active={focus.active ? "true" : "false"}
-      data-focus="workstream"
-      data-status={focus.status}
-    >
+    <p className="director-composer-hint" data-answering={hint.answering ? "true" : "false"}>
       <span aria-hidden="true" className="director-composer-hint-dot" />
       <span className="director-composer-hint-copy">
-        <span className="director-composer-hint-role">{directorTitle}</span>
-        <span className="director-composer-hint-focus">on {focus.title}</span>
-        <span className="director-composer-hint-status">{focus.statusLabel}</span>
+        <span className="director-composer-hint-role">{hint.role}</span>
+        <span className="director-composer-hint-focus">{hint.focusText}</span>
+        <span aria-live="polite" className="director-composer-hint-status">
+          {hint.statusText ?? ""}
+        </span>
       </span>
     </p>
   );
 }
 
 export function DirectorComposer({
+  answering,
   dispatch,
-  dispatching,
   focus,
   onOpenVoiceCredentialSettings,
   speechCapture,
 }: {
+  answering: boolean;
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  dispatching: boolean;
   focus: DirectorFocus;
   onOpenVoiceCredentialSettings: () => void;
   speechCapture: DirectorSpeechCaptureBinding;
@@ -95,16 +157,15 @@ export function DirectorComposer({
       data-voice-state={voice.state}
       onSubmit={submit}
     >
-      <DirectorComposerHint focus={focus} />
+      <DirectorComposerHint hint={directorComposerHint(focus, answering)} />
       <div className="director-composer-pill">
         <div className="director-composer-input-stack">
-          <label className="sr-only" htmlFor="director-composer-input">
+          <label className="sr-only" htmlFor={directorComposerInputId}>
             Ask the Director
           </label>
           <textarea
             aria-keyshortcuts="Enter"
-            disabled={dispatching}
-            id="director-composer-input"
+            id={directorComposerInputId}
             onChange={(event) => setText(event.target.value)}
             onKeyDown={submitOnEnter}
             placeholder="Ask the Director…"
@@ -151,7 +212,7 @@ export function DirectorComposer({
               <X aria-hidden="true" size={16} />
             </button>
           ) : null}
-          <button disabled={dispatching || text.trim().length === 0} type="submit">
+          <button disabled={text.trim().length === 0} type="submit">
             <Send aria-hidden="true" size={17} />
             <span>Send</span>
           </button>

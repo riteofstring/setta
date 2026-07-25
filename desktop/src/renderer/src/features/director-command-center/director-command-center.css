@@ -393,7 +393,6 @@
 .director-resource-options button:disabled,
 .director-artifact-item:disabled,
 .director-composer button:disabled,
-.director-composer textarea:disabled,
 .director-history-open:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -827,7 +826,7 @@
     animation: director-artifact-arrival 420ms cubic-bezier(0.2, 0, 0, 1) both;
   }
 
-  .director-composer-hint[data-active="true"] .director-composer-hint-dot {
+  .director-composer-hint[data-answering="true"] .director-composer-hint-dot {
     animation: director-composer-hint-pulse 1.6s ease-in-out infinite;
   }
 }

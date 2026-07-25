@@ -441,9 +441,11 @@ imports the fixtures.
 ### Phase 4 - Mockup-Faithful Command Center UI
 
 Status: in progress. The command center now names who the user is talking to,
-shows the folder the focused work runs in, and labels the workstream dots.
-Shell/mockup fidelity, the composer as the primary entry point, and the star
-field remain.
+shows the folder the focused work runs in, labels the workstream dots, and keeps
+the composer live as the app's front door. The star field is carried by the
+graph's ambient field, which holds the frame loop awake with no input; its
+side-by-side confirmation belongs to this phase's exit criteria. Shell/mockup
+fidelity and responsive tuning remain.
 
 Deliverables:
 
@@ -491,6 +493,33 @@ The folder name is derived in the renderer from the workstream's own bound root
 path, not looked up in the workspace session. A workstream carries its binding
 whether or not that workspace is currently open, so a lookup could only add a
 way to render nothing for work that plainly has a folder.
+
+#### Resolved: the front door never closes
+
+The composer used to disable itself for the whole of a Director turn. That threw
+the caret out to the document, and the arrow keys the user thought they were
+typing with silently became workstream selection instead. A submitted request is
+a turn of a conversation that already orders its own turns, so a request sent
+while the Director is answering is simply the next turn; the renderer was holding
+back work the backend was ready to accept in order.
+
+Typing anywhere on the command center now lands in the composer. Only a plain
+printable character redirects — a modifier carries an app shortcut, a space
+activates the control that has focus, and an editable target is already taking
+the text. The composer is deliberately not focused on open: the arrow keys have
+to keep meaning "move between workstreams" until the user is actually typing, and
+the first keystroke is what says they are.
+
+The one busy flag behind all of this is split, because its two halves wait
+differently. A Director turn runs for as long as the model takes and is now
+reported on the composer's own hint line: the dot pulses and the status slot
+names the Director rather than the workstream, which the top bar and the Now rail
+still carry. A direct command is a single durable write, and it is what disables
+the approval and resource controls it belongs to. Conflated, a slow Director turn
+locked the artifacts rail's approvals for the length of an answer.
+
+The workstream's `active` flag went with the old pulse. It described whether the
+work was live, and the composer's dot is the Director's.
 
 Dots became meaningful the same way: each names the workstream it selects, what
 that workstream is doing, and the folder it does it in, both as its accessible

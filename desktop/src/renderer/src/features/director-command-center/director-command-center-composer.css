@@ -101,6 +101,10 @@
   font-size: 0.7rem;
 }
 
+.director-composer-hint[data-answering="true"] .director-composer-hint-status {
+  color: color-mix(in oklch, var(--director-role-accent) 72%, oklch(0.96 0.01 240));
+}
+
 .director-composer textarea {
   background: transparent;
   border: 0;

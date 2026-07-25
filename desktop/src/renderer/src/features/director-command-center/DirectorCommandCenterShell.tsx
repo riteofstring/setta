@@ -34,7 +34,13 @@ import {
 } from "../director-graph/semantic-graph-packer";
 import { DirectorGraphSurface } from "../director-graph/render/DirectorGraphSurface";
 import type { DirectorGraphCanvas } from "../director-graph/render/director-graph-canvas";
-import { DirectorComposer, type DirectorSpeechCaptureBinding } from "./DirectorComposer";
+import {
+  DirectorComposer,
+  directorComposerInputId,
+  directorComposerTakesKeystroke,
+  focusDirectorComposer,
+  type DirectorSpeechCaptureBinding,
+} from "./DirectorComposer";
 import {
   compactDirectorHistory,
   DirectorHistoryOverlaySlot,
@@ -77,10 +83,26 @@ interface DirectorCommandCenterShellProps {
 
 type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
 
-interface DirectorRuntimeState {
+/**
+ * What the shell is waiting on, kept apart because the two wait differently.
+ *
+ * A submitted request is a turn of the Director conversation, which the
+ * conversation itself orders; it can run for as long as the model takes. A
+ * direct command is a single durable write. Folding both into one busy flag
+ * would let a slow Director turn lock the artifact rail's approvals, and would
+ * shut the app's front door for the whole time the Director was answering.
+ */
+interface DirectorPendingWork {
+  readonly answering: boolean;
   readonly dispatching: boolean;
+}
+
+type DirectorPendingKind = "answering" | "command" | "none";
+
+interface DirectorRuntimeState {
   readonly loadState: DirectorLoadState;
   readonly message: string | null;
+  readonly pending: DirectorPendingWork;
   readonly receiptText: string | null;
   readonly snapshot: DirectorSnapshot | null;
 }
@@ -115,15 +137,16 @@ const directorEventVisibility = {
   "director.workstream.removed": true,
   "director.workstream.updated": true,
 } as const satisfies Record<DirectorEvent["kind"], boolean>;
-const directorIntentBusyState = {
-  cancel_run: true,
-  create_workstream: true,
-  move_selection: false,
-  resolve_approval: true,
-  resolve_resource_request: true,
-  select_workstream: false,
-  submit: true,
-} as const satisfies Record<DirectorIntent["kind"], boolean>;
+const directorIntentPendingKinds = {
+  cancel_run: "command",
+  create_workstream: "command",
+  move_selection: "none",
+  resolve_approval: "command",
+  resolve_resource_request: "command",
+  select_workstream: "none",
+  submit: "answering",
+} as const satisfies Record<DirectorIntent["kind"], DirectorPendingKind>;
+const idleDirectorPendingWork: DirectorPendingWork = { answering: false, dispatching: false };
 
 export class DirectorRefreshCoordinator {
   private inFlight = false;
@@ -222,7 +245,7 @@ export function DirectorCommandCenterShell({
         className="director-command-center-content"
         inert={historyOpen || undefined}
       >
-        <a className="director-command-center-skip" href="#director-composer-input">
+        <a className="director-command-center-skip" href={`#${directorComposerInputId}`}>
           Skip to composer
         </a>
         <CommandCenterTopBar
@@ -254,7 +277,7 @@ export function DirectorCommandCenterShell({
             approvals={snapshotView.approvals}
             artifacts={snapshotView.artifacts}
             dispatch={director.dispatch}
-            dispatching={director.dispatching}
+            dispatching={director.pending.dispatching}
             openLocalFolder={workspaceBinding.openLocalFolder}
             openWorkspacePath={workspaceBinding.openWorkspacePath}
             readArtifact={setta.conversations.readArtifact}
@@ -262,8 +285,8 @@ export function DirectorCommandCenterShell({
             workspaceSession={workspaceBinding.session}
           />
           <DirectorComposer
+            answering={director.pending.answering}
             dispatch={director.dispatch}
-            dispatching={director.dispatching}
             focus={focus}
             onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
             speechCapture={speechCapture}
@@ -290,7 +313,7 @@ function useDirectorRuntime(
   const [loadState, setLoadState] = useState<DirectorLoadState>("loading");
   const [message, setMessage] = useState<string | null>(null);
   const [receiptText, setReceiptText] = useState<string | null>(null);
-  const [dispatching, setDispatching] = useState(false);
+  const [pending, setPending] = useState<DirectorPendingWork>(idleDirectorPendingWork);
   const snapshotRef = useRef<DirectorSnapshot | null>(null);
   const setSnapshot = useCallback((next: DirectorSnapshot | null) => {
     snapshotRef.current = next;
@@ -298,12 +321,12 @@ function useDirectorRuntime(
   }, []);
   const runtimeEpoch = useMemo(() => Symbol(runtimeId ?? "disconnected"), [runtimeId]);
   const runtimeEpochRef = useRef(runtimeEpoch);
-  const busyDispatchesRef = useRef(new Set<symbol>());
+  const pendingDispatchesRef = useRef(new Map<symbol, DirectorPendingKind>());
 
   useLayoutEffect(() => {
     runtimeEpochRef.current = runtimeEpoch;
-    busyDispatchesRef.current.clear();
-    setDispatching(false);
+    pendingDispatchesRef.current.clear();
+    setPending(idleDirectorPendingWork);
     setReceiptText(null);
     setSnapshot(null);
     setLoadState("loading");
@@ -410,27 +433,30 @@ function useDirectorRuntime(
     [setta, speechPlayback],
   );
 
-  const finishBusyDispatch = useCallback((busyToken: symbol | null, dispatchEpoch: symbol) => {
-    if (busyToken === null) {
-      return;
-    }
-    busyDispatchesRef.current.delete(busyToken);
-    if (runtimeEpochRef.current === dispatchEpoch) {
-      setDispatching(busyDispatchesRef.current.size > 0);
-    }
-  }, []);
+  const finishPendingDispatch = useCallback(
+    (pendingToken: symbol | null, dispatchEpoch: symbol) => {
+      if (pendingToken === null) {
+        return;
+      }
+      pendingDispatchesRef.current.delete(pendingToken);
+      if (runtimeEpochRef.current === dispatchEpoch) {
+        setPending(directorPendingWork(pendingDispatchesRef.current.values()));
+      }
+    },
+    [],
+  );
 
   const dispatch = useCallback(
     async (intent: DirectorIntent): Promise<DirectorReceipt> => {
-      const usesBusyState = directorIntentUsesBusyState(intent);
-      const busyToken = usesBusyState ? Symbol(intent.kind) : null;
+      const pendingKind = directorIntentPendingKinds[intent.kind];
+      const pendingToken = pendingKind === "none" ? null : Symbol(intent.kind);
       const dispatchEpoch = runtimeEpoch;
       if (intent.kind === "submit") {
         speechPlayback.preemptForUserInput();
       }
-      if (busyToken !== null) {
-        busyDispatchesRef.current.add(busyToken);
-        setDispatching(true);
+      if (pendingToken !== null) {
+        pendingDispatchesRef.current.set(pendingToken, pendingKind);
+        setPending(directorPendingWork(pendingDispatchesRef.current.values()));
       }
       setMessage(null);
       try {
@@ -443,13 +469,13 @@ function useDirectorRuntime(
         }
         throw error;
       } finally {
-        finishBusyDispatch(busyToken, dispatchEpoch);
+        finishPendingDispatch(pendingToken, dispatchEpoch);
       }
     },
-    [finishBusyDispatch, handleDirectorReceipt, runtimeEpoch, setta, speechPlayback],
+    [finishPendingDispatch, handleDirectorReceipt, runtimeEpoch, setta, speechPlayback],
   );
 
-  return { dispatch, dispatching, loadState, message, receiptText, snapshot };
+  return { dispatch, loadState, message, pending, receiptText, snapshot };
 }
 
 function useDirectorWorkspaceBinding(setta: SettaAPI): {
@@ -611,12 +637,28 @@ function useDirectorShellKeyboardNavigation({
         }
         return;
       }
+      const targetIsEditable = directorKeyboardTargetIsEditable(event.target);
+      if (
+        !historyOpen &&
+        directorComposerTakesKeystroke({
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          key: event.key,
+          metaKey: event.metaKey,
+          targetIsEditable,
+        })
+      ) {
+        // No preventDefault: the keystroke's own default action types the
+        // character into whatever now holds focus, which is the composer.
+        focusDirectorComposer(globalThis.document);
+        return;
+      }
       const direction = directorWorkstreamKeyboardDirection({
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
         key: event.key,
         metaKey: event.metaKey,
-        targetIsEditable: directorKeyboardTargetIsEditable(event.target),
+        targetIsEditable,
       });
       if (direction === null) {
         return;
@@ -845,8 +887,14 @@ export function directorEventChangesVisibleState(event: DirectorEvent): boolean 
   return directorEventVisibility[event.kind];
 }
 
-function directorIntentUsesBusyState(intent: DirectorIntent): boolean {
-  return directorIntentBusyState[intent.kind];
+export function directorPendingWork(pending: Iterable<DirectorPendingKind>): DirectorPendingWork {
+  let answering = false;
+  let dispatching = false;
+  for (const kind of pending) {
+    answering ||= kind === "answering";
+    dispatching ||= kind === "command";
+  }
+  return { answering, dispatching };
 }
 
 function dispatchDirectorIntent(

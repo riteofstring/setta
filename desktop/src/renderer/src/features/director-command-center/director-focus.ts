@@ -47,8 +47,6 @@ export type DirectorFocus =
     }
   | {
       readonly kind: "workstream";
-      /** The workstream is carrying work, or is waiting on the user to unblock it. */
-      readonly active: boolean;
       readonly folder: DirectorFocusFolder;
       readonly status: WorkstreamStatus;
       readonly statusLabel: string;
@@ -61,20 +59,11 @@ export const directorTitle = "Director";
 const directorNoWorkstreamLabel = "No workstream in focus";
 const folderlessLabel = "No folder";
 
-const activeWorkstreamStatuses = new Set<WorkstreamStatus>([
-  "awaiting_approval",
-  "awaiting_resource",
-  "blocked",
-  "queued",
-  "running",
-]);
-
 export function directorFocus(workstream: Workstream | null): DirectorFocus {
   if (workstream === null) {
     return { kind: "director", roleLabel: directorNoWorkstreamLabel, title: directorTitle };
   }
   return {
-    active: activeWorkstreamStatuses.has(workstream.status),
     folder: directorFocusFolder(workstream.resourceScope),
     kind: "workstream",
     status: workstream.status,
