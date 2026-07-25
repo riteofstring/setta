@@ -16,6 +16,7 @@ describe("conversation IPC handlers", () => {
     const snapshot = { conversation: { id: "conversation_api" } };
     const backendMethods = {
       archiveTopicConversation: vi.fn(async () => snapshot),
+      bindTopicConversationFolder: vi.fn(async () => snapshot),
       disposeSideConversation: vi.fn(async () => snapshot),
       discardConversationInput: vi.fn(async () => ({
         clarificationReply: null,
@@ -137,6 +138,7 @@ describe("conversation IPC handlers", () => {
       workspaceId: "workspace_api",
     });
     await invokeHandler(handlers, ipcChannels.conversationArchiveTopic, target);
+    await invokeHandler(handlers, ipcChannels.conversationBindFolder, target);
     await invokeHandler(handlers, ipcChannels.conversationReadSnapshot, target);
     await invokeHandler(handlers, ipcChannels.conversationStopTurn, target);
     const inputRequest = conversationInputRequest();
@@ -185,6 +187,7 @@ describe("conversation IPC handlers", () => {
       workspaceId: "workspace_api",
     });
     expect(backendMethods.archiveTopicConversation).toHaveBeenCalledWith(target);
+    expect(backendMethods.bindTopicConversationFolder).toHaveBeenCalledWith(target);
     expect(backendMethods.readConversationSnapshot).toHaveBeenCalledWith(target);
     expect(backendMethods.stopTopicConversationTurn).toHaveBeenCalledWith(target);
     expect(backendMethods.submitConversationInput).toHaveBeenCalledWith(inputRequest);

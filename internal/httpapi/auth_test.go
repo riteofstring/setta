@@ -287,7 +287,7 @@ func conversationAuthTestEvent(t *testing.T, service *httpTestConversationServic
 		Sequence:       1,
 		EventID:        eventID,
 		EmittedAt:      httpConversationTestTime,
-		WorkspaceID:    "workspace-api",
+		WorkspaceID:    httpTestStringPointer("workspace-api"),
 		ConversationID: "conversation-api",
 		Payload: conversation.ConversationUpdatedEventPayload{
 			Type:         conversation.ConversationEventTypeConversationUpdated,

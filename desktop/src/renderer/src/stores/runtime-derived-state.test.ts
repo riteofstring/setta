@@ -36,8 +36,10 @@ describe("runtime-derived renderer state reset", () => {
           "workspace_local",
           {
             focusedConversationId: "conversation_local",
+            focusedConversationResourceBindings: [],
             focusedPaneId: "pane_local",
             paneIdByConversationId: new Map([["conversation_local", "pane_local"]]),
+            resourceBindingsByConversationId: new Map([["conversation_local", []]]),
           },
         ],
       ]),

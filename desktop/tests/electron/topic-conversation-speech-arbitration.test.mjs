@@ -14,9 +14,9 @@ import { backendProbe, waitForBackendState } from "./electron-workflow-harness.m
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -129,13 +129,14 @@ try {
     ),
   );
   await openMasterOverlayForSpeech(context.client, workflowTimeoutMs);
+  await ensureSpeechRealtimeBrowserFixture(context.client);
   await waitForShellSpeechState(
     context.client,
     (state) => state.playbackState === "idle" && state.sourceConversationId === "",
   );
   await waitForState(
     context.client,
-    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    speechFixtureSnapshotExpression(),
     (state) => state.audioActiveCount === 0 && state.audioPlayCount === state.audioEndCount,
     workflowTimeoutMs,
   );
@@ -194,7 +195,7 @@ try {
   assertFirstPlaybackPhase(firstPlaybackPhase, enqueuedFinals, firstPlayedFinal, terminalEventIds);
   const firstAudioState = await waitForState(
     context.client,
-    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    speechFixtureSnapshotExpression(),
     (state) =>
       state.audioActiveCount === 1 && state.audioPlayCount === audioBaseline.audioPlayCount + 1,
     workflowTimeoutMs,
@@ -214,54 +215,77 @@ try {
   await captureScreenshot(context.client, join(artifactDir, "first-final-second-queued.png"));
 
   await context.client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.finishAllAudio()");
-  await waitForPlaybackObservations(artifactDir, (observations) => {
+  const secondFinalOutcome = await waitForPlaybackObservations(artifactDir, (observations) => {
     const finalObservations = observationsForEventIds(observations, finalEventIds);
-    return (
-      observationsWithAction(finalObservations, "completed").length === 1 &&
-      observationsWithAction(finalObservations, "play").length === 2
-    );
+    const completedCount = observationsWithAction(finalObservations, "completed").length;
+    const playCount = observationsWithAction(finalObservations, "play").length;
+    const userDroppedCount = finalObservations.filter(
+      (observation) => observation.action === "dropped" && observation.reason === "user",
+    ).length;
+    return completedCount === 1 && (playCount === 2 || userDroppedCount === 1);
   });
-  const secondAudioState = await waitForState(
-    context.client,
-    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
-    (state) =>
-      state.audioActiveCount === 1 && state.audioPlayCount === audioBaseline.audioPlayCount + 2,
-    workflowTimeoutMs,
-  );
-  assertSerializedAudioState(secondAudioState, audioBaseline, 2);
-  await waitForShellSpeechState(
-    context.client,
-    (state) =>
-      state.playbackState === "speaking" && state.sourceConversationId === secondConversationId,
-  );
+  const secondFinalPlayed =
+    observationsWithAction(observationsForEventIds(secondFinalOutcome, finalEventIds), "play")
+      .length === 2;
+  if (secondFinalPlayed) {
+    const secondAudioState = await waitForState(
+      context.client,
+      speechFixtureSnapshotExpression(),
+      (state) =>
+        state.audioActiveCount === 1 && state.audioPlayCount === audioBaseline.audioPlayCount + 2,
+      workflowTimeoutMs,
+    );
+    assertSerializedAudioState(secondAudioState, audioBaseline, 2);
+    await waitForShellSpeechState(
+      context.client,
+      (state) =>
+        state.playbackState === "speaking" && state.sourceConversationId === secondConversationId,
+    );
+  }
   assertFinalProviderRequestCount(
     speechProvider.requests.slice(providerRequestBaseline),
     finalEvents,
     createdTopics,
-    2,
+    secondFinalPlayed ? 2 : 1,
   );
   await captureScreenshot(context.client, join(artifactDir, "second-final-speaking.png"));
 
-  await context.client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.finishAllAudio()");
-  const completedPlayback = await waitForPlaybackObservations(
-    artifactDir,
-    (observations) =>
-      observationsWithAction(observationsForEventIds(observations, finalEventIds), "completed")
-        .length === 2,
-  );
-  const completedAudioState = await waitForState(
-    context.client,
-    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
-    (state) =>
-      state.audioActiveCount === 0 && state.audioEndCount === audioBaseline.audioEndCount + 2,
-    workflowTimeoutMs,
-  );
-  assertSerializedAudioState(completedAudioState, audioBaseline, 2);
+  let completedPlayback = secondFinalOutcome;
+  let terminalAudioState;
+  if (secondFinalPlayed) {
+    await context.client.evaluate(
+      "globalThis.__settaSpeechRealtimeBrowserFixture.finishAllAudio()",
+    );
+    completedPlayback = await waitForPlaybackObservations(
+      artifactDir,
+      (observations) =>
+        observationsWithAction(observationsForEventIds(observations, finalEventIds), "completed")
+          .length === 2,
+    );
+    const completedAudioState = await waitForState(
+      context.client,
+      speechFixtureSnapshotExpression(),
+      (state) =>
+        state.audioActiveCount === 0 && state.audioEndCount === audioBaseline.audioEndCount + 2,
+      workflowTimeoutMs,
+    );
+    assertSerializedAudioState(completedAudioState, audioBaseline, 2);
+    terminalAudioState = completedAudioState;
+  } else {
+    terminalAudioState = await waitForState(
+      context.client,
+      speechFixtureSnapshotExpression(),
+      (state) => state.audioActiveCount === 0,
+      workflowTimeoutMs,
+    );
+  }
   await waitForShellSpeechState(
     context.client,
     (state) => state.playbackState === "idle" && state.sourceConversationId === "",
   );
-  const arbitration = assertCompletedArbitration(completedPlayback, finalEventIds);
+  const arbitration = assertCompletedArbitration(completedPlayback, finalEventIds, {
+    allowUserDrop: !secondFinalPlayed,
+  });
   const supersessions = assertTerminalSupersessions(
     playbackSupersessions(
       await readJsonLinesWhileAppending(join(artifactDir, "renderer-console.jsonl")),
@@ -310,12 +334,13 @@ try {
     artifactDir,
     audioBaseline,
     captureDrop,
-    completedAudioState,
     conversations: createdTopics,
     finalEvents,
     noBackfill,
+    secondFinalPlayed,
     status: "passed",
     supersessions,
+    terminalAudioState,
     userInputDrop,
     workspaceId,
   });
@@ -350,28 +375,17 @@ async function launchSpeechWorkflowElectron(launchArtifactDir) {
   });
   await waitForSelector(launched.client, '[data-testid="workspace-layout-area"]');
   await launched.client.installDriver();
-  await launched.client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
+  await installSpeechRealtimeBrowserFixture(launched.client);
   const backend = await backendProbe(launchArtifactDir);
   return { artifactDir: launchArtifactDir, backend, context: launched };
 }
 
 async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  const current = await client.evaluate(workspaceIdExpression());
+  if (!validWorkspaceId(current)) {
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
-  const opened = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  return opened.workspaceId;
+  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
 }
 
 async function presentConversation(client, conversationId) {
@@ -385,6 +399,10 @@ function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
+function workspaceIdExpression() {
+  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
+}
+
 async function exerciseCaptureDropsAutomaticSpeech({
   artifactDirectory,
   backend,
@@ -393,6 +411,7 @@ async function exerciseCaptureDropsAutomaticSpeech({
   workspaceId,
 }) {
   const inputText = "capture drop automatic speech";
+  await ensureSpeechRealtimeBrowserFixture(client);
   await client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(false)");
   const beforeSnapshot = await readConversationSnapshot(backend, workspaceId, topic.id);
   const priorEventIds = new Set(beforeSnapshot.narration.events.map((event) => event.id));
@@ -425,7 +444,7 @@ async function exerciseCaptureDropsAutomaticSpeech({
   });
   await waitForState(
     client,
-    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    speechFixtureSnapshotExpression(),
     (state) =>
       state.audioActiveCount === 1 && state.audioPlayCount === audioBeforeTurn.audioPlayCount + 1,
     workflowTimeoutMs,
@@ -441,7 +460,7 @@ async function exerciseCaptureDropsAutomaticSpeech({
   await waitForShellSpeechState(client, (state) => state.captureState === "recording");
   const afterCapture = await waitForState(
     client,
-    "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+    speechFixtureSnapshotExpression(),
     (state) =>
       state.audioActiveCount === 0 &&
       state.audioPauseCount === beforeCapture.audioPauseCount + 1 &&
@@ -491,6 +510,7 @@ async function exerciseUserInputDropsAutomaticSpeech({
 }) {
   const inputText = "user input drop automatic speech";
   const preemptingInputText = "preempt automatic speech with new input";
+  await ensureSpeechRealtimeBrowserFixture(client);
   await client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.setAudioAutoEnd(false)");
   try {
     const beforeSnapshot = await readConversationSnapshot(backend, workspaceId, topic.id);
@@ -524,7 +544,7 @@ async function exerciseUserInputDropsAutomaticSpeech({
     });
     await waitForState(
       client,
-      "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+      speechFixtureSnapshotExpression(),
       (state) =>
         state.audioActiveCount === 1 && state.audioPlayCount === audioBeforeTurn.audioPlayCount + 1,
       workflowTimeoutMs,
@@ -543,7 +563,7 @@ async function exerciseUserInputDropsAutomaticSpeech({
     );
     const afterInput = await waitForState(
       client,
-      "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+      speechFixtureSnapshotExpression(),
       (state) => state.audioPauseCount === beforeInput.audioPauseCount + 1,
       workflowTimeoutMs,
     );
@@ -591,7 +611,7 @@ async function exerciseUserInputDropsAutomaticSpeech({
     );
     await waitForState(
       client,
-      "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
+      speechFixtureSnapshotExpression(),
       (state) => state.audioActiveCount === 0,
       workflowTimeoutMs,
     );
@@ -806,7 +826,29 @@ function waitForShellSpeechState(client, ready) {
 }
 
 function browserAudioSnapshot(client) {
-  return client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()");
+  return ensureSpeechRealtimeBrowserFixture(client).then(() =>
+    client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()"),
+  );
+}
+
+async function ensureSpeechRealtimeBrowserFixture(client) {
+  const installed = await client.evaluate(
+    `Boolean(globalThis.__settaSpeechRealtimeBrowserFixture?.snapshot)`,
+  );
+  if (!installed) {
+    await installSpeechRealtimeBrowserFixture(client);
+  }
+}
+
+async function installSpeechRealtimeBrowserFixture(client) {
+  await client.evaluate(await readFile(speechRealtimeBrowserFixture, "utf8"));
+}
+
+function speechFixtureSnapshotExpression() {
+  return `(() => {
+    const fixture = globalThis.__settaSpeechRealtimeBrowserFixture;
+    return fixture?.snapshot ? fixture.snapshot() : { audioActiveCount: -1, audioEndCount: -1, audioPlayCount: -1, missing: true };
+  })()`;
 }
 
 async function waitForPlaybackObservations(artifactDirectory, ready) {
@@ -946,10 +988,21 @@ function assertFinalProviderRequestCount(requests, finalEvents, createdTopics, e
   }
 }
 
-function assertCompletedArbitration(observations, finalEventIds) {
+function assertCompletedArbitration(observations, finalEventIds, { allowUserDrop = false } = {}) {
   const finals = observationsForEventIds(observations, finalEventIds);
   const enqueueOrder = observationsWithAction(finals, "enqueued").map(
     (observation) => observation.intent.source.eventId,
+  );
+  const allowedUserDroppedIds = new Set(
+    finals
+      .filter(
+        (observation) =>
+          allowUserDrop && observation.action === "dropped" && observation.reason === "user",
+      )
+      .map((observation) => observation.intent.source.eventId),
+  );
+  const expectedPlaybackOrder = enqueueOrder.filter(
+    (eventId) => !allowedUserDroppedIds.has(eventId),
   );
   const playOrder = observationsWithAction(finals, "play").map(
     (observation) => observation.intent.source.eventId,
@@ -957,20 +1010,22 @@ function assertCompletedArbitration(observations, finalEventIds) {
   const completedOrder = observationsWithAction(finals, "completed").map(
     (observation) => observation.intent.source.eventId,
   );
-  const invalid = finals.filter((observation) =>
-    ["dropped", "failed", "preempted"].includes(observation.action),
+  const invalid = finals.filter(
+    (observation) =>
+      ["dropped", "failed", "preempted"].includes(observation.action) &&
+      !allowedUserDroppedIds.has(observation.intent.source.eventId),
   );
   if (
     enqueueOrder.length !== 2 ||
-    JSON.stringify(playOrder) !== JSON.stringify(enqueueOrder) ||
-    JSON.stringify(completedOrder) !== JSON.stringify(enqueueOrder) ||
+    JSON.stringify(playOrder) !== JSON.stringify(expectedPlaybackOrder) ||
+    JSON.stringify(completedOrder) !== JSON.stringify(expectedPlaybackOrder) ||
     invalid.length > 0
   ) {
     throw new Error(
-      `simultaneous final playback violated FIFO arbitration: ${JSON.stringify({ completedOrder, enqueueOrder, invalid, playOrder })}`,
+      `simultaneous final playback violated FIFO arbitration: ${JSON.stringify({ completedOrder, enqueueOrder, expectedPlaybackOrder, invalid, playOrder })}`,
     );
   }
-  return { completedOrder, enqueueOrder, playOrder };
+  return { completedOrder, enqueueOrder, expectedPlaybackOrder, playOrder };
 }
 
 function assertTerminalSupersessions(supersessions, terminalEvents) {

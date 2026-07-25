@@ -59,6 +59,9 @@ func rebuildTopicIndexDocument(
 	if err != nil {
 		return err
 	}
+	if document.conversation.WorkspaceID == nil {
+		return deleteTopicIndexDocument(ctx, tx, conversationID)
+	}
 	requestsJSON, err := json.Marshal(document.recentUserRequests)
 	if err != nil {
 		return fmt.Errorf("encode topic card user requests for %s: %w", conversationID, err)
@@ -83,7 +86,7 @@ ON CONFLICT(conversation_id) DO UPDATE SET
   updated_sort_key = excluded.updated_sort_key
 `,
 		document.conversation.ID,
-		document.conversation.WorkspaceID,
+		*document.conversation.WorkspaceID,
 		document.conversation.Title,
 		document.conversation.TopicDescriptor,
 		string(requestsJSON),
@@ -95,6 +98,20 @@ ON CONFLICT(conversation_id) DO UPDATE SET
 		return fmt.Errorf("persist topic card %s: %w", conversationID, err)
 	}
 	return replaceTopicIndexSearch(ctx, tx, document)
+}
+
+func deleteTopicIndexDocument(
+	ctx context.Context,
+	tx *sql.Tx,
+	conversationID string,
+) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM topic_index_search WHERE conversation_id = ?`, conversationID); err != nil {
+		return fmt.Errorf("remove folderless full-text topic card %s: %w", conversationID, err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM topic_index_documents WHERE conversation_id = ?`, conversationID); err != nil {
+		return fmt.Errorf("remove folderless topic card %s: %w", conversationID, err)
+	}
+	return nil
 }
 
 func materializeTopicIndexDocument(
@@ -336,7 +353,7 @@ INSERT INTO topic_index_search (
 ) VALUES (?, ?, ?, ?, ?, ?)
 `,
 		document.conversation.ID,
-		document.conversation.WorkspaceID,
+		*document.conversation.WorkspaceID,
 		document.conversation.Title,
 		document.conversation.TopicDescriptor,
 		strings.Join(document.recentUserRequests, "\n"),

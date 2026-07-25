@@ -619,7 +619,7 @@ func assertNarratorOutputPublications(t *testing.T, store *Store, seed narratorC
 		if event.Kind != string(wantKinds[index]) {
 			t.Fatalf("publication kind %d = %s, want %s", index, event.Kind, wantKinds[index])
 		}
-		decoded, err := conversationEventFromCommitted(event, "workspace-1", seed.conversationID)
+		decoded, err := conversationEventFromCommitted(event, stringPointer("workspace-1"), seed.conversationID)
 		if err != nil {
 			t.Fatalf("decode narrator publication %s: %v", event.ID, err)
 		}

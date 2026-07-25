@@ -1,9 +1,16 @@
-import type { ConversationSnapshot, SideConversation } from "@generated/backend";
+import type {
+  ConversationSnapshot,
+  OpenWorkspaceResponse,
+  SideConversation,
+} from "@generated/backend";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { useConversationStore } from "../../stores/conversation-store";
-import { requestEasyButtonPaneClose } from "./easy-button-conversation-commands";
+import {
+  bindFolderResourceForConversation,
+  requestEasyButtonPaneClose,
+} from "./easy-button-conversation-commands";
 
 const workspaceId = "workspace_topic";
 const timestamp = "2026-07-11T20:00:00Z";
@@ -122,6 +129,71 @@ describe("Easy Button conversation commands", () => {
     expect(disposeSide).not.toHaveBeenCalled();
     expect(cancelActiveConversationCapture).not.toHaveBeenCalled();
   });
+
+  test("binds a folderless conversation to the selected folder and pane", async () => {
+    const snapshot = conversationSnapshot("conversation_bind_folder");
+    snapshot.conversation.workspaceId = "workspace_bound";
+    const opened = openWorkspaceResponse("workspace_bound", "/tmp/setta-bound");
+    const bindFolder = vi.fn(async () => snapshot);
+    const hydrateSnapshot = vi.fn();
+    const loadWorkspaceSession = vi.fn(async () => {});
+    const openLocalFolder = vi.fn(async () => opened);
+    const requestPaneFolderBinding = vi.fn(async () => {});
+
+    await expect(
+      bindFolderResourceForConversation(
+        { conversationId: snapshot.conversation.id, paneId: "pane_bind_folder" },
+        {
+          bindFolder,
+          hydrateSnapshot,
+          loadWorkspaceSession,
+          openLocalFolder,
+          requestPaneFolderBinding,
+        },
+      ),
+    ).resolves.toEqual({ workspaceId: "workspace_bound" });
+
+    expect(openLocalFolder).toHaveBeenCalledOnce();
+    expect(bindFolder).toHaveBeenCalledWith({
+      conversationId: snapshot.conversation.id,
+      workspaceId: "workspace_bound",
+    });
+    expect(hydrateSnapshot).toHaveBeenCalledWith(snapshot);
+    expect(requestPaneFolderBinding).toHaveBeenCalledWith({
+      conversationId: snapshot.conversation.id,
+      paneId: "pane_bind_folder",
+      rootPath: "/tmp/setta-bound",
+      workspaceId: "workspace_bound",
+    });
+    expect(loadWorkspaceSession).toHaveBeenCalledOnce();
+  });
+
+  test("leaves folderless conversation state untouched when folder selection is cancelled", async () => {
+    const bindFolder = vi.fn();
+    const hydrateSnapshot = vi.fn();
+    const loadWorkspaceSession = vi.fn(async () => {});
+    const openLocalFolder = vi.fn(async () => null);
+    const requestPaneFolderBinding = vi.fn(async () => {});
+
+    await expect(
+      bindFolderResourceForConversation(
+        { conversationId: "conversation_cancel_folder", paneId: "pane_cancel_folder" },
+        {
+          bindFolder,
+          hydrateSnapshot,
+          loadWorkspaceSession,
+          openLocalFolder,
+          requestPaneFolderBinding,
+        },
+      ),
+    ).resolves.toBeNull();
+
+    expect(openLocalFolder).toHaveBeenCalledOnce();
+    expect(bindFolder).not.toHaveBeenCalled();
+    expect(hydrateSnapshot).not.toHaveBeenCalled();
+    expect(requestPaneFolderBinding).not.toHaveBeenCalled();
+    expect(loadWorkspaceSession).not.toHaveBeenCalled();
+  });
 });
 
 function conversationSnapshot(conversationId: string): ConversationSnapshot {
@@ -177,6 +249,24 @@ function conversationSnapshot(conversationId: string): ConversationSnapshot {
     trajectory: { events: [], hasEarlier: false },
     turns: { hasEarlier: false, turns: [] },
   } as ConversationSnapshot;
+}
+
+function openWorkspaceResponse(id: string, rootPath: string): OpenWorkspaceResponse {
+  const workspace = {
+    displayName: rootPath.split("/").at(-1) ?? rootPath,
+    id,
+    lastOpenedAt: timestamp,
+    rootPath,
+  };
+  return {
+    session: {
+      activeWorkspaces: [workspace],
+      recentWorkspaces: [],
+      selectedWorkspaceId: id,
+      workspaceAvailabilities: [{ available: true, unavailableReason: "", workspaceId: id }],
+    },
+    workspace,
+  };
 }
 
 function sideConversation(snapshot: ConversationSnapshot, parentPaneId: string): SideConversation {

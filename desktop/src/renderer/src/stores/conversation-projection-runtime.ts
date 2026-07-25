@@ -74,6 +74,9 @@ function handleConversationProjectionEvents(events: readonly ConversationEvent[]
   useConversationNavigatorStore.getState().applyEvents(events);
   const affected = new Map<string, { conversationId: string; workspaceId: string }>();
   for (const event of events) {
+    if (event.workspaceId === null) {
+      continue;
+    }
     markRetainedActiveWork(event);
     affected.set(projectionKey(event.workspaceId, event.conversationId), {
       conversationId: event.conversationId,
@@ -90,6 +93,9 @@ function handleConversationProjectionEvents(events: readonly ConversationEvent[]
 
 export function hydrateConversationProjectionSnapshot(snapshot: ConversationSnapshot): void {
   const { id: conversationId, workspaceId } = snapshot.conversation;
+  if (workspaceId === null) {
+    return;
+  }
   useConversationStore.getState().hydrateSnapshot(workspaceId, conversationId, snapshot);
   useConversationNavigatorStore.getState().upsertSnapshot(snapshot);
 }
@@ -231,6 +237,9 @@ export function conversationProjectionNeedsKeepAlive(
 }
 
 function markRetainedActiveWork(event: ConversationEvent): void {
+  if (event.workspaceId === null) {
+    return;
+  }
   if (!eventHasActiveWork(event)) {
     return;
   }

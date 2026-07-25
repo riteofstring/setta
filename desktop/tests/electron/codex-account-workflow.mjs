@@ -20,7 +20,7 @@ export async function runCodexAccountWorkflow({
 
   const signedOut = await backend.get("/codex/account");
   assertSignedOut(signedOut);
-  await clickButtonByText(client, "Back to workspace");
+  await clickButtonByText(client, "Back to panes");
   await waitForSettingsShellClosed(client);
 }
 
