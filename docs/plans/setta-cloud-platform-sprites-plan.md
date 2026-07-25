@@ -62,11 +62,49 @@ Complete and prove the existing Sprites-first hosted runtime path:
 Frontend redesign, Niri removal, Director UI work, and `setta-3` reconciliation
 remain outside this branch.
 
+### Director-managed product model
+
+The user does not create, select, pair, wake, or manage a Sprite. The user asks
+the Director for an outcome. For example:
+
+> "I want to access this project from my phone."
+
+The Director resolves the referenced project or workstream, determines whether
+hosted execution and remote access are required, checks trusted entitlement and
+capability state, and submits a typed ensure-hosted-access intent. The control
+plane then provisions or wakes the user's Sprite, installs or updates the Setta
+runtime, binds the project, issues the minimum revocable client access, and
+reports typed progress. When ready, the Director tells the user that the
+project is available on the phone.
+
+Infrastructure choices remain internal:
+
+- no provider or runtime picker
+- no cloud setup wizard
+- no Fly credentials or organization concepts shown to the user
+- no manual endpoint entry, pairing code, region, machine-size, or wake control
+- no requirement that the user understand whether work is local or hosted
+
+The user may ask what Setta is doing or why hosted access is needed. The
+Director should answer in product terms such as availability, security, cost,
+and expected readiness, not expose provider plumbing.
+
+The future phone client uses the same Director/workstream model as desktop at a
+phone-appropriate presentation density. This plan does not select native,
+cross-platform, or other phone UI technology. It owns the backend capability
+that makes an authenticated workstream available from another device.
+
+This branch implements and proves the provider, control-plane, credential,
+execution, and event boundaries behind that experience. It does not implement
+the Setta 4 Director frontend.
+
 ### Working-state gate
 
 Sprites is in a working state when:
 
 - the deterministic offline provider and hosted lifecycle suites pass
+- a deterministic typed-client fixture proves that an ensure-hosted-access
+  intent reaches ready-on-phone state without provider-facing client fields
 - one explicitly authorized disposable live run provisions the exact bounded
   resources, installs and pairs the signed runtime, serves the Candidate B
   gateway, completes the fixed HTTP/SSE lifecycle workload, and tears down
@@ -232,40 +270,47 @@ therefore prohibited; port by slice:
 
 ## Product Decision
 
-Setta should offer a cloud computer that feels like part of Setta, not like a
-cloud-provider setup exercise.
+Sprites is an internal Setta capability, not a product the user operates.
 
 The v1 model is:
 
 ```text
-one Setta user
-  -> one persistent CPU Sprite
-  -> multiple repositories, conversations, terminals, agents, and previews
-  -> paired desktop and phone clients
-  -> optional temporary Runpod GPU workers for GPU-specific jobs
+user intent
+  -> Director resolves project/workstream and required capabilities
+  -> Setta control plane ensures hosted access when needed
+  -> one persistent CPU Sprite per entitled user
+  -> authenticated desktop or phone workstream access
+  -> optional bounded GPU worker for a Director-approved GPU job
 ```
 
-The user signs into Setta and asks to work. Setta selects, provisions, wakes,
-and connects the appropriate runtime. Ordinary users do not select a cloud
-provider, paste a provider API key, install Tailscale, choose a VM, or manage a
-runtime picker.
+The user signs into Setta and asks the Director for an outcome. A request to
+make a project available on the phone may cause Setta to provision a Sprite,
+install the runtime, bind the project, and grant the phone access. The same
+infrastructure may also support work that should continue after the desktop
+closes. These are consequences of user intent, not infrastructure tasks the
+user performs.
 
 One logical runtime per user does not mean one continuously running VM per
 user. A Sprite preserves its filesystem while idle and wakes on demand.
+Provisioning must be entitlement- and intent-driven; signing up alone does not
+create a paid runtime.
 
 ## Simplicity Rule
 
-Cloud Dev must be simpler than the infrastructure it hides. The ordinary user
-signs in, opens a repository or conversation, and works from desktop or phone.
-There is no provider setup or runtime management flow.
+The user should not have to think about where work runs. The ordinary flow is:
+ask the Director, receive useful progress, respond only to meaningful approval
+or resource questions, and use the resulting workstream from desktop or phone.
+There is no provider setup, runtime management, or manual device-to-runtime
+pairing flow.
 
 The private-beta implementation starts with one CPU provider, one Sprite per
 user, one Go control-plane deployable plus its database and secret store, one
 runtime release line, one beta package, and one active agent workload per user.
 If Candidate B wins, keep its thin gateway in that deployable until measured
-scale or isolation requires a split. Desktop and phone use the same control and
-runtime protocols. Each new service or abstraction must remove more complexity
-than it adds or satisfy a recorded security, durability, or cost gate.
+scale or isolation requires a split. Desktop and phone use the same typed
+control, workstream, and runtime protocols even when their presentations
+differ. Each new service or abstraction must remove more complexity than it
+adds or satisfy a recorded security, durability, or cost gate.
 
 ## Why Sprites Is the First CPU Provider
 
@@ -331,8 +376,9 @@ The documented metering minima are 6.25% CPU and 0.25 GB of memory for each
 second that a Sprite is active. At both minima, continuously active compute has
 an approximate floor of $0.0153 per hour, or $11.18 over 730 active hours,
 before hot storage, actual workload use, gateway bandwidth, support, or margin.
-This is not a cost forecast. It is an early warning that an idle-looking client,
-terminal, preview, or forgotten heartbeat can still create material cost.
+This is not a cost forecast. It is an early warning that an idle-looking
+client, forgotten workstream subscription, or stale workload lease can still
+create material cost.
 
 Before provider adapter work begins, Phase 1a must turn these public rates into
 a small assumptions table for three cases: retained but cold, attached but not
@@ -393,17 +439,19 @@ evidence is recorded in this plan.
    entitlement, provider mapping, or deletion schedule.
 5. The Setta control plane stores only the metadata needed to provision,
    authenticate, route, meter, suspend, and delete runtimes. It does not store
-   terminal contents or repository contents in its metadata database. It may
+   conversation content, artifact contents, or repository contents in its
+   metadata database. It may
    authorize and track the encrypted off-provider backup/export path in Phase
    7, but backup contents belong in a dedicated data store with explicit
    retention and deletion behavior.
 6. The Fly organization token is server-side only. It must never be shipped to
-   Electron, a browser, a phone, a Sprite, logs, generated fixtures, or a
-   prompt.
+   any desktop or phone client, a Sprite, logs, generated fixtures, or a prompt.
 7. Setta runtime authentication remains mandatory even if Fly provides a
    network authentication layer.
-8. Runtime selection is an internal policy decision. Keep a registry boundary,
-   but do not make ordinary users select a runtime or provider.
+8. Execution placement is a Director/control-plane policy decision based on
+   trusted capability, entitlement, availability, security, and cost state.
+   Keep a registry boundary, but do not make ordinary users select a runtime or
+   provider.
 9. Provisioning is idempotent. Retried sign-in, webhook, wake, or ensure calls
    must converge on the same runtime.
 10. Destruction is never an automatic response to a transient provider,
@@ -448,15 +496,16 @@ evidence is recorded in this plan.
     and `/tmp` are caches, not durable session, transcript, queue, or replay
     state.
 20. Keep private-beta scheduling deliberately small: one active agent workload
-    per user by default, using the existing queue semantics for additional
-    work, plus measured hard caps for terminals and previews. Do not build a
+    per user by default, using durable queue semantics for additional work and
+    bounded leases for background continuation. Do not build or expose a
     general resource scheduler for v1.
 21. Start with one private-beta package, one included usage allowance, and one
     hard cost cap. Do not add tiers, metered overages, or machine-size choices
     until measured demand justifies them.
-22. Ordinary users see one automatic Cloud Dev experience from desktop or
-    phone. Provider, region, machine size, runtime, Task, checkpoint, and
-    gateway controls remain internal or operator-only.
+22. Ordinary users interact with the Director and their workstreams from
+    desktop or phone. Provider, region, machine size, runtime, Task,
+    checkpoint, gateway, pairing, and wake controls remain internal or
+    operator-only.
 23. Provider portability is a standing constraint, not a migration project.
     No provider SDK type, endpoint, status label, or counter crosses
     `internal/runtimeprovider`; provider-specific concepts stay
@@ -485,6 +534,14 @@ evidence is recorded in this plan.
 ## Branch and Commit Protocol
 
 ### Phase 0 branch and worktree creation
+
+2026-07-24 amendment: the commands and branch names in the historical account
+below explain how the original platform work was created. They are not the
+current execution instruction. Active work now runs on
+`setta-3-sprites-development` in
+`/Users/jeff/Documents/_projects/setta.setta-3-sprites`, from the preserved
+`c8254b1f2` baseline. Do not merge current `setta-3` during the development
+completion track.
 
 New platform branches must use the repository's worktree helper rather than
 reusing an existing feature worktree. From a clean worktree checked out at the
@@ -616,11 +673,11 @@ resulting edits are complete.
 - Do not merge `setta-3-cloud-runs-2` wholesale.
 - Do not cherry-pick generated files without their Go owner changes. Regenerate
   generated contracts on this branch.
-- Do not repeatedly merge the active Easy Button branch.
-- Resolve platform work against `setta-3`; integrate the Easy Button product
-  only after its owners declare a stable checkpoint.
-- Avoid changing chats, workflows, conversation UI, or presentation code just
-  to demonstrate provisioning.
+- Do not merge current `setta-3` during the working-state completion track.
+- Treat the Setta 4 Director and phone clients as future consumers of typed
+  backend capabilities, not implementation targets on this branch.
+- Avoid changing conversation UI, presentation code, or provider-facing UI
+  merely to demonstrate provisioning.
 
 ## Reusable Work Inventory
 
@@ -807,12 +864,12 @@ availability, WebSocket, and support responsibility.
 
 ### Gate criteria
 
-Do not choose by taste. Measure both with the same terminal workload and
-record:
+Do not choose by taste. Measure both with the same fixed authenticated
+workstream HTTP/SSE workload and record:
 
 - warm and cold connection latency;
-- interactive terminal p50/p95;
-- reconnect behavior across sleep/wake;
+- interactive request p50/p95 and first-event p50/p95;
+- stream reconnect and durable-cursor replay across sleep/wake;
 - whether unauthenticated requests to private and public Sprite URLs wake
   compute, plus rate limiting;
 - provider token exposure analysis;
@@ -836,10 +893,11 @@ bounded background work that must continue after every client disconnects.
 
 Recurring disconnect and reconnect is normal operation, not merely failure
 recovery. Before choosing the access path, define one simple policy for idle UI
-event streams, terminals, and previews: when each disconnects or closes, what
-state persists, what the user sees, and how quickly the next interaction
-reconnects. Measure attached-idle cost separately from active agent cost. Do not
-keep a Sprite awake solely to make the UI appear continuously connected.
+event streams, artifact transfers, and Director/workstream subscriptions: when
+each disconnects or closes, what state persists, what the user sees, and how
+quickly the next interaction reconnects. Measure attached-idle cost separately
+from active agent cost. Do not keep a Sprite awake solely to make the UI appear
+continuously connected.
 
 ### Credential authority gate
 
@@ -862,17 +920,17 @@ product authority. Before selecting an access path, define and prove:
 The control plane should start small:
 
 ```text
-Clerk-authenticated client
+Director-authorized ensure-hosted-access intent
   -> Setta control plane
        -> user/runtime/device/entitlement records
        -> idempotent runtime reconciler
        -> Fly Sprites API
        -> optional access gateway, only if Candidate B wins
 
-desktop or phone
-  -> selected authenticated runtime data path
+authenticated desktop or phone client
+  -> Director/workstream data path selected by Setta
        -> Setta runtime inside the user's Sprite
-       -> repositories, agents, terminals, previews, artifacts
+       -> projects, conversations, agents, approvals, artifacts
 ```
 
 The first provisioning entry point should behave like:
@@ -917,7 +975,7 @@ requirements rather than later polish:
 
 - one hardware-isolated Sprite per user;
 - a protected Setta runtime identity distinct from the identity used by Codex,
-  terminals, previews, and arbitrary workspace processes;
+  agents, project processes, artifact tools, and other untrusted workloads;
 - no untrusted write access to runtime authentication, release, audit, usage,
   or service-control state;
 - an explicit capability and permission map for management-socket and other
@@ -1204,16 +1262,16 @@ passed, teardown was verified, and the organization returned to empty.
   remains only as regression evidence.
 - [x] Add authentication, credential-epoch, revocation, rate-limit,
   suspension, log-redaction, and wake-abuse tests for the selected path.
-- [ ] Apply the connection and idle policy to UI event streams, terminals, and
-  previews. Measure recurring reconnect behavior and attached-idle cost; do not
-  create Tasks merely to preserve idle client attachments. The current web UI
-  now closes SSE while hidden, page-cached, or offline and resumes once from the
-  last accepted cursor without polling. Terminals are shelved, previews and
-  future desktop-cloud wiring still need application, and attached-idle cost
-  still requires a hosted measurement.
-- [ ] Verify desktop and a representative real mobile device, using a minimal
-  test client, can reconnect after the laptop closes and across a mobile
-  network transition. This does not select the product phone architecture.
+- [ ] Apply the connection and idle policy to Director/workstream event
+  streams and artifact transfers. Measure recurring reconnect behavior and
+  attached-idle cost; do not create Tasks merely to preserve idle client
+  attachments. Resume once from the last accepted durable cursor without
+  polling. Attached-idle cost still requires a hosted measurement.
+- [ ] Verify desktop and a representative real phone, using a minimal typed
+  test client, can receive access after an ensure-hosted-access intent,
+  reconnect after the desktop closes, and recover across a mobile network
+  transition. This proves the backend capability without selecting the product
+  phone UI technology.
 
 The remaining hosted-gateway measurement now has a fail-closed deployment,
 authorization, teardown, and inventory design in
@@ -1233,38 +1291,33 @@ Exit: the selected path has pre-declared latency, revocation, security, wake,
 and cost behavior, and no Fly signup, provider token, or manual endpoint entry
 is required by the end user.
 
-### Phase 4: port and validate the terminal data plane
+### Phase 4: validate the Director/workstream execution data plane
 
-2026-07-17 re-scope: the new base has no terminal subsystem, so this phase as
-written has no port target. The product's interactive data plane is now the
-conversation and master event streams plus the speech realtime path. Phase
-4's purpose — validate the interactive data plane over the selected access
-path against the recorded budgets — transfers to those surfaces: measure
-conversation event-stream latency, reconnect, replay/persistence across warm
-and cold wake, and backend-crash recovery through production paths. Whether
-terminals return to the product is an owner decision; until then the
-terminal-specific checklist below is shelved together with the replay slice
-(`71725cfa6`), and the checklist items should be read as applying to the
-conversation/master streams where they generalize (reconnect policy,
-budgets, crash behavior, multi-device attachment).
+The Sprites branch does not implement the Setta 4 Director frontend. It proves
+the typed hosted capability the Director will consume: ensure access, submit
+work, receive ordered public events, steer or cancel, resolve approvals, obtain
+artifacts, disconnect, and resume from a durable cursor.
 
-- [ ] Port the Go-owned duplex terminal protocol and regenerate TypeScript.
-- [ ] Port backend WebSocket loops, tickets, ordering, replay, and bounded
-  backpressure.
-- [ ] Port Electron and browser stream clients.
-- [ ] Port renderer scheduling and content-free latency instrumentation.
-- [ ] Run deterministic local latency profiles.
-- [ ] Run the identical workload against the Sprite over the access path
-  selected in Phase 3 and compare it with the recorded budgets.
-- [ ] Verify reload, recurring idle reconnect, warm wake, confirmed-cold wake,
-  multi-pane output, terminal close, and backend crash behavior through
-  production paths. Prove expected transcript and replay state survives even
-  though processes and `/tmp` do not.
-- [ ] Choose and test the multi-device terminal resize policy so desktop and
-  phone attachments cannot continuously resize one shared PTY.
+- [ ] Define Go-owned ensure-hosted-access, capability/progress, and
+  workstream-execution boundaries; generate any TypeScript consumers from
+  those owners.
+- [ ] Preserve ordered HTTP/SSE events, bounded backpressure, durable cursors,
+  and push-based invalidation across the Candidate B gateway.
+- [ ] Add content-free latency instrumentation around ensure, wake, first
+  event, reconnect, replay, steering, cancellation, approval, and artifact
+  availability.
+- [ ] Run deterministic local profiles and the identical fixed workload
+  against the Sprite over the selected access path.
+- [ ] Verify desktop disconnect, phone attach, recurring idle reconnect, warm
+  wake, simulated process loss, backend crash, and control-plane restart
+  through production boundaries.
+- [ ] Prove conversation, queue, approval, artifact, and replay state survives
+  without process memory or `/tmp`.
+- [ ] Prove a phone access request does not expose provider identity,
+  endpoint, pairing, or wake controls to the client contract.
 
-Exit: remote terminal behavior is correct and measured on the selected access
-path.
+Exit: the hosted Director/workstream capability is correct, resumable,
+measured, and independent of provider UI.
 
 ### Phase 5: implement the minimal control plane
 
@@ -1330,14 +1383,18 @@ lose mutation intent, suspension, or budget enforcement.
   projection, failed-payment grace, cancellation, and refund/operator flows.
 - [ ] Define the beta eligibility rule that permits Sprite creation and the
   capability thresholds that require verified payment or stronger identity.
-- [ ] Resolve the user's runtime automatically.
+- [ ] Accept a typed Director ensure-hosted-access intent containing only
+  trusted user, project/workstream, client, and requested-capability
+  references. Resolve, provision, wake, bind, and grant access idempotently.
+- [ ] Resolve execution placement automatically from trusted entitlement,
+  capability, availability, security, and cost state.
 - [ ] Enforce the initial one-active-agent limit through existing queue
-  semantics and measured terminal/preview caps. Keep those limits automatic;
+  semantics and bounded background-work leases. Keep those limits automatic;
   do not expose a scheduler or runtime-sizing UI.
-- [ ] Show only high-level states: preparing, waking, ready, needs attention,
-  suspended, and exporting.
-- [ ] Keep provider names, machine sizes, and runtime selection out of the
-  ordinary flow.
+- [ ] Publish typed Director progress such as preparing access, syncing the
+  project, ready on phone, needs attention, suspended, and exporting.
+- [ ] Keep provider names, machine sizes, endpoints, pairing, wake controls,
+  and runtime selection out of the ordinary client contract.
 - [ ] Preserve an internal diagnostics surface for support and development.
 - [ ] Define who pays for model usage; implement the Codex installation,
   version, ChatGPT login/logout or alternative model credential flow, and
@@ -1345,28 +1402,34 @@ lose mutation intent, suspension, or budget enforcement.
 - [ ] Implement a user secrets flow with scoped connectors or brokered secrets;
   do not require users to paste long-lived secrets into an agent prompt or
   unprotected Sprite environment.
-- [ ] Record the selected phone architecture and secure credential storage.
-  Add push notifications for approval-needed, run-finished, and failure events
-  without including repository or terminal content in the payload.
+- [ ] Define a phone client credential contract using platform-secure storage,
+  revocable device identity, bounded runtime grants, and automatic rotation.
+  Do not select phone UI technology in this backend plan.
+- [ ] Add push notifications for approval-needed, access-ready, run-finished,
+  and failure events without including conversation, artifact, or repository
+  content in the payload.
 - [ ] Verify the desktop can close while agents continue under renewable,
   budget-bound workload leases.
 - [ ] Verify an idle desktop or phone disconnects according to policy, the
   Sprite becomes eligible to pause when no useful work remains, and the next
   interaction reconnects without asking the user to manage the runtime.
-- [ ] Verify the phone can observe, steer, approve, open artifacts, and use a
-  terminal through the recorded phone architecture.
+- [ ] Verify a Director request to make a project available on the phone
+  provisions or wakes the required Sprite, grants the authenticated phone
+  access, and reports readiness without exposing infrastructure choices.
+- [ ] Verify the phone can observe, steer, approve, and open artifacts through
+  the shared typed workstream contract.
 - [ ] Add the required deterministic cloud-chat Electron workflow through
   main, preload, renderer, HTTP/event streams, runtime stores, and a scripted
-  provider/Codex harness. Cover workspace open, chat creation, streamed output,
-  queueing, steering, approvals, completion, cancellation, failure, queued
-  promotion or preservation, reload, runtime restart, and persistence.
+  provider/Codex harness. Cover the ensure-hosted-access intent, folderless or
+  project-bound workstream creation, streamed output, queueing, steering,
+  approvals, completion, cancellation, failure, queued promotion or
+  preservation, desktop disconnect, phone attach, reload, runtime restart, and
+  persistence.
 - [ ] Run the live Electron and backend Codex E2E gates with ChatGPT auth when
   available, without `OPENAI_API_KEY`; record a narrow skip when unavailable.
-- [ ] Integrate with Easy Button only after its owners declare a stable
-  checkpoint.
 
-Exit: cloud development behaves like a Setta capability, not a cloud setup
-wizard.
+Exit: hosted access behaves like a Director capability invoked by user intent,
+not a cloud setup wizard or runtime-management flow.
 
 ### Phase 7: implement durability and small-fleet operations
 
@@ -1451,40 +1514,43 @@ uncontrolled paid Pod running.
 The first end-to-end demonstration is complete only when all of the following
 happen in one disposable test account:
 
-1. Setta ensures a Sprite without asking the user for Fly credentials.
-2. The selected root/workload boundary prevents workspace code from reaching
-   protected Setta state or forbidden management operations while normal
-   package and container workflows still work.
-3. The Setta runtime installs and becomes healthy.
-4. A real repository is opened from desktop.
-5. A terminal and one active agent run inside the Sprite; additional agent work
-   queues without exposing scheduling controls to the user.
-6. The active agent acquires and renews a budget-bound Sprite workload lease.
-7. The laptop application closes and every client disconnects.
-8. Work continues without a client, completes, and releases the workload
-   lease; a simulated runtime crash proves a stale lease expires.
-9. The phone reconnects through the recorded phone architecture and observes
-   the same workspace.
-10. Idle UI streams disconnect according to policy and the Sprite becomes
-    eligible to pause without losing its filesystem.
-11. A normal warm wake reconnects automatically.
-12. A confirmed-cold wake restarts Services and restores the expected transcript,
-    queue, and replay state without relying on process memory or `/tmp`.
-13. A device or credential epoch is revoked in the control plane.
-14. A whole-Sprite safety checkpoint is created, a deliberate breakage is
-    introduced, the impact warning is shown, and the checkpoint restores the
-    workspace.
-15. Post-restore attestation applies the current desired release and credential
-    epoch; the revoked access is not resurrected.
-16. The selected access path proves suspension, WebSocket reconnection, and
-    credential redaction through its production path.
-17. A hostile or forgotten activity mechanism hits the hard budget and the
+1. A user-level intent asks the Director capability to make an identified
+   project or workstream available on the user's phone.
+2. Setta validates trusted identity, entitlement, project/workstream
+   authority, and requested capability without asking for Fly credentials,
+   provider choice, region, endpoint, or runtime selection.
+3. The control plane idempotently ensures the user's Sprite, installs the
+   signed Setta runtime, proves health and identity, binds the requested
+   project/workstream, and issues the minimum revocable phone access.
+4. The selected root/workload boundary prevents project and agent code from
+   reaching protected Setta state or forbidden management operations while
+   representative development work still succeeds.
+5. The phone attaches through the typed workstream contract and receives
+   ordered public events without learning the provider endpoint or credential.
+6. One agent run streams output; additional work queues without exposing
+   scheduling or infrastructure controls.
+7. The phone steers or cancels work, resolves an approval, and opens an
+   artifact through production boundaries.
+8. The desktop and phone disconnect. Authorized background work continues
+   under a budget-bound lease, completes, and releases the lease; a simulated
+   runtime crash proves a stale lease expires.
+9. Idle subscriptions disconnect according to policy and the Sprite becomes
+   eligible to pause without losing durable workstream or project state.
+10. A normal wake and simulated process-loss recovery reconnect from durable
+    cursors without relying on process memory or `/tmp`.
+11. A device grant and credential epoch are revoked; new requests and existing
+    streams lose access within the recorded budgets.
+12. A whole-Sprite safety checkpoint and restore applies the current desired
+    release and credential epoch without resurrecting revoked access.
+13. A hostile or forgotten activity mechanism reaches the hard budget and the
     control plane stops further billable compute without deleting user data.
-18. The test records placement, warm/cold wake and terminal latency,
-    attached-idle and active Task time, CPU/memory measurements,
-    storage/checkpoint growth, gateway bandwidth when applicable, and actual
-    provider cost.
-19. The disposable Sprite is destroyed intentionally and verified absent.
+14. The test records placement, ensure/wake/first-event/reconnect latency,
+    attached-idle and active-lease time, CPU/memory measurements,
+    storage/checkpoint growth, gateway bandwidth, and actual provider cost.
+15. Cleanup revokes run-owned grants and destroys the disposable Sprite,
+    gateway Machine, volume, and App.
+16. Independent inventories verify all run-owned provider resources and local
+    credential copies are absent.
 
 This demonstrates technical viability. It does not by itself prove provider
 permission, public scale, billing correctness, abuse operations, or durable
@@ -1508,6 +1574,9 @@ backup safety.
 - A Setta-funded GPU subscription before provider permission and cost controls.
 - Production deployment hosting for applications created in Setta.
 - Treating a PWA as the predetermined mobile application architecture.
+- Implementing the Setta 4 Director or phone frontend on this branch.
+- Exposing provider, runtime, endpoint, pairing, wake, or machine controls to
+  ordinary desktop or phone users.
 - Rebuilding the active Easy Button conversation experience on this branch.
 - Backward compatibility with the abandoned BYO-cloud setup flow.
 
@@ -1538,8 +1607,9 @@ Stop and reassess rather than hiding the problem if any of these occur:
   the promised per-user hard budget.
 - Further billable compute cannot be stopped within the hard-budget deadline
   without permanently deleting the user's Sprite.
-- Attached-idle terminals, previews, or clients make the one-package beta
-  economics unworkable even with deliberate disconnect/reconnect.
+- Attached-idle workstream subscriptions, artifact transfers, or clients make
+  the one-package beta economics unworkable even with deliberate
+  disconnect/reconnect.
 - The documented network policy can be bypassed through raw IP, alternate
   resolution, privilege changes, or another tested path and Setta cannot close
   the gap without a new operationally affordable enforcement layer.
@@ -1547,8 +1617,9 @@ Stop and reassess rather than hiding the problem if any of these occur:
   gateway alternative is operationally unaffordable.
 - Neither provider-native placement nor a workable regional strategy can meet
   the recorded interactive latency budgets for intended beta users.
-- The fixed Sprite shape cannot support the initial one-agent workload plus
-  bounded terminals and previews without unacceptable contention.
+- The fixed Sprite shape cannot support the initial one-agent workload,
+  Director/workstream services, and bounded artifact transfer without
+  unacceptable contention.
 - The provider API changes too quickly to support a small stable adapter.
 - Support or abuse obligations exceed what two founders can operate during a
   capped private beta.
@@ -2018,3 +2089,14 @@ Stop and reassess rather than hiding the problem if any of these occur:
   region/cost/availability/attached-idle measurement and a real-device network
   transition remain. Evidence is in `phase3-offline-hardening-20260719.md` and
   `../reports/performance/cloud-event-stream-idle-policy-20260719.md`.
+- 2026-07-24 (Director-managed product reconciliation): Replaced active
+  runtime-picker, provider-wizard, PWA, terminal, and pane assumptions with an
+  intent-driven hosted capability. The user asks the Director for an outcome,
+  such as making a project available on the phone; Setta resolves placement,
+  ensures the Sprite and project binding, grants revocable phone access, and
+  reports typed readiness without exposing infrastructure. Reframed the
+  interactive data plane and acceptance scenario around authenticated
+  workstream HTTP/SSE, durable cursors, steering, cancellation, approvals,
+  artifacts, background leases, phone attach, revocation, budgets, and
+  independently proven cleanup. Historical evidence remains unchanged. The
+  branch still does not implement the Setta 4 Director or phone frontend.
