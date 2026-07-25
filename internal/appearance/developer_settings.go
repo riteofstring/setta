@@ -4,6 +4,7 @@ import "fmt"
 
 type AppearanceDeveloperSettings struct {
 	AllowResizedPanesToOverflowViewport bool `json:"allowResizedPanesToOverflowViewport"`
+	EnableWorkspaceRows                 bool `json:"enableWorkspaceRows"`
 	OverviewCardMaxWidthPx              int  `json:"overviewCardMaxWidthPx"`
 	OverviewCardMinWidthPx              int  `json:"overviewCardMinWidthPx"`
 	ShowPerformanceStats                bool `json:"showPerformanceStats"`

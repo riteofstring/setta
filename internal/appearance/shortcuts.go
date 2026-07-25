@@ -6,6 +6,8 @@ type AppearanceWorkspaceNavigationShortcut string
 type AppearanceMasterVoiceShortcut string
 
 const (
+	WorkspaceNavigationModArrows     AppearanceWorkspaceNavigationShortcut = "mod_arrows"
+	WorkspaceNavigationCtrlArrows    AppearanceWorkspaceNavigationShortcut = "ctrl_arrows"
 	WorkspaceNavigationModAltArrows  AppearanceWorkspaceNavigationShortcut = "mod_alt_arrows"
 	WorkspaceNavigationCtrlAltArrows AppearanceWorkspaceNavigationShortcut = "ctrl_alt_arrows"
 )
@@ -17,6 +19,8 @@ const (
 )
 
 var workspaceNavigationShortcutValues = []AppearanceWorkspaceNavigationShortcut{
+	WorkspaceNavigationModArrows,
+	WorkspaceNavigationCtrlArrows,
 	WorkspaceNavigationModAltArrows,
 	WorkspaceNavigationCtrlAltArrows,
 }

@@ -83,6 +83,20 @@ describe("appearance store", () => {
     expect(settings.developer.allowResizedPanesToOverflowViewport).toBe(false);
   });
 
+  test("updates the draft workspace rows setting", () => {
+    const settings = testAppearanceSettings();
+    useAppearanceStore.setState({
+      draft: settings,
+      settings,
+      status: "ready",
+    });
+
+    useAppearanceStore.getState().setEnableWorkspaceRows(true);
+
+    expect(useAppearanceStore.getState().draft?.developer.enableWorkspaceRows).toBe(true);
+    expect(settings.developer.enableWorkspaceRows).toBe(false);
+  });
+
   test("updates the draft overview card width bounds", () => {
     const settings = testAppearanceSettings();
     useAppearanceStore.setState({
@@ -157,6 +171,7 @@ function testAppearanceSettings(): AppearanceSettings {
     },
     developer: {
       allowResizedPanesToOverflowViewport: false,
+      enableWorkspaceRows: false,
       overviewCardMaxWidthPx: 460,
       overviewCardMinWidthPx: 280,
       showPerformanceStats: false,

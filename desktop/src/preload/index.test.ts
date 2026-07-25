@@ -130,6 +130,8 @@ describe("preload workspace API", () => {
     const batch: WorkspaceBrowserViewBatch = {
       focusedSurfaceId: "surface_browser",
       masterVoiceShortcut: "mod_shift_k",
+      workspaceNavigationShortcut: "mod_arrows",
+      workspaceRowsEnabled: false,
       totalBrowserPanes: 24,
       updates: [],
       visibleBrowserPanes: 6,

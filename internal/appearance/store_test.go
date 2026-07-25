@@ -28,8 +28,8 @@ func TestDefaultSettingsValidate(t *testing.T) {
 	if settings.Developer.OverviewCardMaxWidthPx != defaultOverviewCardMaxWidthPx {
 		t.Fatalf("default overview card max width = %d, want %d", settings.Developer.OverviewCardMaxWidthPx, defaultOverviewCardMaxWidthPx)
 	}
-	if settings.Shortcuts.WorkspaceNavigation != WorkspaceNavigationModAltArrows {
-		t.Fatalf("default workspace navigation shortcut = %q, want %q", settings.Shortcuts.WorkspaceNavigation, WorkspaceNavigationModAltArrows)
+	if settings.Shortcuts.WorkspaceNavigation != WorkspaceNavigationModArrows {
+		t.Fatalf("default workspace navigation shortcut = %q, want %q", settings.Shortcuts.WorkspaceNavigation, WorkspaceNavigationModArrows)
 	}
 	if settings.Shortcuts.MasterVoice != MasterVoiceModShiftK {
 		t.Fatalf("default master voice shortcut = %q, want %q", settings.Shortcuts.MasterVoice, MasterVoiceModShiftK)

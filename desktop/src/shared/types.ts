@@ -4,6 +4,7 @@ import type {
   ActiveShellInteraction,
   ArchiveTopicConversationRequest,
   AppearanceMasterVoiceShortcut,
+  AppearanceWorkspaceNavigationShortcut,
   AppearancePresetList,
   AppearanceSettings,
   BackendHealth,
@@ -162,6 +163,8 @@ export interface WorkspaceBrowserViewUpdate {
 export interface WorkspaceBrowserViewBatch {
   focusedSurfaceId: string | null;
   masterVoiceShortcut: AppearanceMasterVoiceShortcut;
+  workspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut;
+  workspaceRowsEnabled: boolean;
   totalBrowserPanes: number;
   updates: WorkspaceBrowserViewUpdate[];
   visibleBrowserPanes: number;

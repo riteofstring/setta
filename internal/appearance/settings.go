@@ -200,12 +200,13 @@ func DefaultSettings() AppearanceSettings {
 		},
 		Developer: AppearanceDeveloperSettings{
 			AllowResizedPanesToOverflowViewport: false,
+			EnableWorkspaceRows:                 false,
 			OverviewCardMaxWidthPx:              defaultOverviewCardMaxWidthPx,
 			OverviewCardMinWidthPx:              defaultOverviewCardMinWidthPx,
 			ShowPerformanceStats:                false,
 		},
 		Shortcuts: AppearanceShortcutsSettings{
-			WorkspaceNavigation: WorkspaceNavigationModAltArrows,
+			WorkspaceNavigation: WorkspaceNavigationModArrows,
 			MasterVoice:         MasterVoiceModShiftK,
 		},
 	}
@@ -287,7 +288,7 @@ func Normalize(settings AppearanceSettings) AppearanceSettings {
 		settings.Developer.OverviewCardMaxWidthPx = defaultOverviewCardMaxWidthPx
 	}
 	if settings.Shortcuts.WorkspaceNavigation == "" {
-		settings.Shortcuts.WorkspaceNavigation = WorkspaceNavigationModAltArrows
+		settings.Shortcuts.WorkspaceNavigation = WorkspaceNavigationModArrows
 	}
 	if settings.Shortcuts.MasterVoice == "" {
 		settings.Shortcuts.MasterVoice = MasterVoiceModShiftK

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 69;
-export const backendContractSchemaHash = "sha256:71f96c14b6b9635be2cfbfd7d2a296e64aa22579fb58ed0198da220035e73910";
+export const backendProtocolVersion = 70;
+export const backendContractSchemaHash = "sha256:ef19fd6e3c0a55546fb4b28c32c131351011134245275f3afc92ed77d4ffa8ca";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -70,13 +70,17 @@ export function decodeAppearanceColorMode(value: unknown, label = "AppearanceCol
   }
 }
 
-export type AppearanceWorkspaceNavigationShortcut = "mod_alt_arrows" | "ctrl_alt_arrows";
+export type AppearanceWorkspaceNavigationShortcut = "mod_arrows" | "ctrl_arrows" | "mod_alt_arrows" | "ctrl_alt_arrows";
 
-export const appearanceWorkspaceNavigationShortcutValues = ["mod_alt_arrows", "ctrl_alt_arrows"] as const satisfies readonly AppearanceWorkspaceNavigationShortcut[];
+export const appearanceWorkspaceNavigationShortcutValues = ["mod_arrows", "ctrl_arrows", "mod_alt_arrows", "ctrl_alt_arrows"] as const satisfies readonly AppearanceWorkspaceNavigationShortcut[];
 
 export function decodeAppearanceWorkspaceNavigationShortcut(value: unknown, label = "AppearanceWorkspaceNavigationShortcut"): AppearanceWorkspaceNavigationShortcut {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "mod_arrows":
+      return decoded;
+    case "ctrl_arrows":
+      return decoded;
     case "mod_alt_arrows":
       return decoded;
     case "ctrl_alt_arrows":
@@ -1622,6 +1626,7 @@ export interface AppearanceFontScheme {
 
 export interface AppearanceDeveloperSettings {
   allowResizedPanesToOverflowViewport: boolean;
+  enableWorkspaceRows: boolean;
   overviewCardMaxWidthPx: number;
   overviewCardMinWidthPx: number;
   showPerformanceStats: boolean;
@@ -3903,9 +3908,10 @@ export function decodeAppearanceFontScheme(value: unknown): AppearanceFontScheme
 
 export function decodeAppearanceDeveloperSettings(value: unknown): AppearanceDeveloperSettings {
   const record = assertRecord(value, "AppearanceDeveloperSettings");
-  assertKnownFields(record, "AppearanceDeveloperSettings", ["allowResizedPanesToOverflowViewport", "overviewCardMaxWidthPx", "overviewCardMinWidthPx", "showPerformanceStats"]);
+  assertKnownFields(record, "AppearanceDeveloperSettings", ["allowResizedPanesToOverflowViewport", "enableWorkspaceRows", "overviewCardMaxWidthPx", "overviewCardMinWidthPx", "showPerformanceStats"]);
   return {
     allowResizedPanesToOverflowViewport: decodeBoolean(requireField(record, "allowResizedPanesToOverflowViewport", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.allowResizedPanesToOverflowViewport"),
+    enableWorkspaceRows: decodeBoolean(requireField(record, "enableWorkspaceRows", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.enableWorkspaceRows"),
     overviewCardMaxWidthPx: decodeInteger(requireField(record, "overviewCardMaxWidthPx", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.overviewCardMaxWidthPx"),
     overviewCardMinWidthPx: decodeInteger(requireField(record, "overviewCardMinWidthPx", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.overviewCardMinWidthPx"),
     showPerformanceStats: decodeBoolean(requireField(record, "showPerformanceStats", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.showPerformanceStats"),
