@@ -19,7 +19,7 @@ const maximumAdminRequestBytes = 16 * 1024
 const adminSocketFileName = "admin.sock"
 
 type AdminServerConfig struct {
-	Observer   HostedAccessObserver
+	Observer   ControlPlaneObserver
 	SocketPath string
 	Store      *Store
 }
@@ -136,7 +136,7 @@ func validateAdminServerConfig(config AdminServerConfig) error {
 	return nil
 }
 
-func adminHandler(store *Store, observer HostedAccessObserver) http.Handler {
+func adminHandler(store *Store, observer ControlPlaneObserver) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if handleHostedAccessAdminRoute(store, observer, response, request) {
 			return
@@ -150,19 +150,19 @@ func adminHandler(store *Store, observer HostedAccessObserver) http.Handler {
 				return
 			}
 			response.Header().Set("Content-Type", "application/json")
-			handleAdminEnsureDevice(store, response, request)
+			handleAdminEnsureDevice(store, observer, response, request)
 		case "/v1/devices/revoke":
 			if !requireAdminMethod(response, request, http.MethodPost) {
 				return
 			}
 			response.Header().Set("Content-Type", "application/json")
-			handleAdminRevokeDevice(store, response, request)
+			handleAdminRevokeDevice(store, observer, response, request)
 		case "/v1/users/status":
 			if !requireAdminMethod(response, request, http.MethodPost) {
 				return
 			}
 			response.Header().Set("Content-Type", "application/json")
-			handleAdminSetUserStatus(store, response, request)
+			handleAdminSetUserStatus(store, observer, response, request)
 		default:
 			response.WriteHeader(http.StatusNotFound)
 		}
@@ -185,7 +185,7 @@ func handleRuntimeProgressAdminRoute(
 
 func handleHostedAccessAdminRoute(
 	store *Store,
-	observer HostedAccessObserver,
+	observer ControlPlaneObserver,
 	response http.ResponseWriter,
 	request *http.Request,
 ) bool {
@@ -239,7 +239,7 @@ func handleAdminEnsureHostedAccess(store *Store, response http.ResponseWriter, r
 
 func handleAdminCompleteHostedAccess(
 	store *Store,
-	observer HostedAccessObserver,
+	observer ControlPlaneObserver,
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
@@ -268,7 +268,7 @@ func handleAdminCompleteHostedAccess(
 func completeHostedAccess(
 	ctx context.Context,
 	store *Store,
-	observer HostedAccessObserver,
+	observer ControlPlaneObserver,
 	payload AdminCompleteHostedAccessRequest,
 ) (CreatedDeviceGrant, error) {
 	if _, err := store.UpsertUser(ctx, payload.UserID); err != nil {
@@ -556,7 +556,12 @@ func writeRuntimeProgressEvents(
 	return false, nil
 }
 
-func handleAdminEnsureDevice(store *Store, response http.ResponseWriter, request *http.Request) {
+func handleAdminEnsureDevice(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
 	var payload AdminEnsureDeviceRequest
 	if !decodeAdminRequest(response, request, &payload) {
 		return
@@ -569,10 +574,20 @@ func handleAdminEnsureDevice(store *Store, response http.ResponseWriter, request
 		writeAdminError(response)
 		return
 	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditDeviceEnsured,
+		OccurredAt: time.Now(),
+		State:      "active",
+	})
 	writeAdminEvent(response, AdminEvent{DeviceID: created.Device.ID, Event: "device_ensured"})
 }
 
-func handleAdminRevokeDevice(store *Store, response http.ResponseWriter, request *http.Request) {
+func handleAdminRevokeDevice(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
 	var payload AdminRevokeDeviceRequest
 	if !decodeAdminRequest(response, request, &payload) {
 		return
@@ -581,10 +596,20 @@ func handleAdminRevokeDevice(store *Store, response http.ResponseWriter, request
 		writeAdminError(response)
 		return
 	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditDeviceRevoked,
+		OccurredAt: time.Now(),
+		State:      "revoked",
+	})
 	writeAdminEvent(response, AdminEvent{DeviceID: payload.DeviceID, Event: "device_revoked"})
 }
 
-func handleAdminSetUserStatus(store *Store, response http.ResponseWriter, request *http.Request) {
+func handleAdminSetUserStatus(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
 	var payload AdminSetUserStatusRequest
 	if !decodeAdminRequest(response, request, &payload) {
 		return
@@ -593,6 +618,11 @@ func handleAdminSetUserStatus(store *Store, response http.ResponseWriter, reques
 		writeAdminError(response)
 		return
 	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditUserStatusSet,
+		OccurredAt: time.Now(),
+		State:      string(payload.Status),
+	})
 	writeAdminEvent(response, AdminEvent{Event: "user_status_set", Status: string(payload.Status), UserID: payload.UserID})
 }
 

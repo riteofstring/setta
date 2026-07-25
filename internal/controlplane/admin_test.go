@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,7 +23,8 @@ func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 	store, _, runtimeName, first := seededControlPlane(t, ctx)
 	defer store.Close()
 	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
-	observer := newAdminTestObserver(t, io.Discard)
+	var audit bytes.Buffer
+	observer := newAdminTestObserver(t, &audit)
 	server, err := StartAdminServer(AdminServerConfig{
 		Observer: observer, SocketPath: socketPath, Store: store,
 	})
@@ -61,6 +63,19 @@ func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 		Status: UserStatusActive, UserID: "user-server",
 	}, "user_status_set")
 	requireAuthorizationOutcome(t, store, secondCredential.Token, runtimeaccess.AuthorizationAllowed)
+	requireContentFreeControlPlaneAudit(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
+		{Action: ControlPlaneAuditDeviceEnsured, State: "active"},
+		{Action: ControlPlaneAuditDeviceRevoked, State: "revoked"},
+		{Action: ControlPlaneAuditUserStatusSet, State: string(UserStatusSuspended)},
+		{Action: ControlPlaneAuditUserStatusSet, State: string(UserStatusActive)},
+	}, []string{
+		"user-server",
+		runtimeName,
+		first.Device.ID,
+		secondCredential.DeviceID,
+		secondCredential.Token,
+		"Hosted lifecycle replacement",
+	})
 }
 
 func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *testing.T) {
@@ -339,6 +354,39 @@ func requireContentFreeHostedAccessFailureMeasurement(t *testing.T, encoded []by
 		measurement["reason_code"] != string(HostedAccessReasonRuntimeAssignmentRejected) ||
 		measurement["retryable"] != false {
 		t.Fatalf("hosted access failure measurement = %v", measurement)
+	}
+}
+
+func requireContentFreeControlPlaneAudit(
+	t *testing.T,
+	encoded []byte,
+	want []ControlPlaneAuditMeasurement,
+	forbidden []string,
+) {
+	t.Helper()
+	text := string(encoded)
+	for _, value := range forbidden {
+		if strings.Contains(text, value) {
+			t.Fatalf("control-plane audit exposed %q: %s", value, text)
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	for index, expected := range want {
+		var measurement map[string]any
+		if err := decoder.Decode(&measurement); err != nil {
+			t.Fatalf("decode control-plane audit %d: %v", index, err)
+		}
+		if len(measurement) != 4 ||
+			measurement["action"] != string(expected.Action) ||
+			measurement["event"] != "control_plane_audit" ||
+			measurement["state"] != expected.State ||
+			measurement["occurred_at"] == "" {
+			t.Fatalf("control-plane audit %d = %v, want %+v", index, measurement, expected)
+		}
+	}
+	var extra map[string]any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		t.Fatalf("control-plane audit trailing data = %v, %v", extra, err)
 	}
 }
 

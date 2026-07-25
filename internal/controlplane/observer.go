@@ -74,6 +74,27 @@ type RuntimeAuditMeasurement struct {
 	State        RuntimeProgressState `json:"state"`
 }
 
+type ControlPlaneAuditAction string
+
+const (
+	ControlPlaneAuditDeviceEnsured ControlPlaneAuditAction = "device_ensured"
+	ControlPlaneAuditDeviceRevoked ControlPlaneAuditAction = "device_revoked"
+	ControlPlaneAuditUserStatusSet ControlPlaneAuditAction = "user_status_set"
+)
+
+type ControlPlaneAuditObservation struct {
+	Action     ControlPlaneAuditAction
+	OccurredAt time.Time
+	State      string
+}
+
+type ControlPlaneAuditMeasurement struct {
+	Action     ControlPlaneAuditAction `json:"action"`
+	Event      string                  `json:"event"`
+	OccurredAt time.Time               `json:"occurred_at"`
+	State      string                  `json:"state"`
+}
+
 type HostedAccessObserver interface {
 	ObserveHostedAccessFailure(HostedAccessFailureObservation)
 	ObserveHostedAccessTiming(HostedAccessTiming)
@@ -81,6 +102,16 @@ type HostedAccessObserver interface {
 
 type RuntimeAuditObserver interface {
 	ObserveRuntimeAudit(RuntimeAuditObservation)
+}
+
+type ControlPlaneAuditObserver interface {
+	ObserveControlPlaneAudit(ControlPlaneAuditObservation)
+}
+
+type ControlPlaneObserver interface {
+	ControlPlaneAuditObserver
+	HostedAccessObserver
+	RuntimeAuditObserver
 }
 
 type JSONLinesObserver struct {
@@ -166,6 +197,20 @@ func (observer *JSONLinesObserver) ObserveRuntimeAudit(observation RuntimeAuditO
 	})
 }
 
+func (observer *JSONLinesObserver) ObserveControlPlaneAudit(observation ControlPlaneAuditObservation) {
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	if observer.err != nil {
+		return
+	}
+	observer.err = observer.encoder.Encode(ControlPlaneAuditMeasurement{
+		Action:     observation.Action,
+		Event:      "control_plane_audit",
+		OccurredAt: observation.OccurredAt.UTC(),
+		State:      observation.State,
+	})
+}
+
 func milliseconds(duration time.Duration) float64 {
 	return float64(duration) / float64(time.Millisecond)
 }
@@ -177,5 +222,6 @@ func (observer *JSONLinesObserver) Err() error {
 }
 
 var _ runtimeaccess.GatewayObserver = (*JSONLinesObserver)(nil)
+var _ ControlPlaneObserver = (*JSONLinesObserver)(nil)
 var _ HostedAccessObserver = (*JSONLinesObserver)(nil)
 var _ RuntimeAuditObserver = (*JSONLinesObserver)(nil)

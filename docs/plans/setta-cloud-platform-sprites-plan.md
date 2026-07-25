@@ -2293,3 +2293,13 @@ Stop and reassess rather than hiding the problem if any of these occur:
   identifiers in output. Wake, suspension, budget-cutoff audit, typed
   intervals, workload leases, and hard budget enforcement remain open under
   the combined Phase 5 checklist item. No provider or cloud mutation ran.
+- 2026-07-24 (content-free administration audit): Added post-commit audit
+  records to the private administration boundary for device creation, device
+  revocation, user suspension, and user reactivation. The shared JSONL output
+  contains only the typed action, resulting state, timestamp, and audit event
+  discriminator; deterministic production-boundary tests reject user, runtime,
+  device, token, display-name, and route identifiers. Wake audit remains
+  deferred because no product mutation boundary invokes the durable wake
+  method yet; inventing a test-only or hidden production path would not prove
+  the requirement. Budget-cutoff audit and the rest of the combined Phase 5
+  checklist item remain open. No provider or cloud mutation ran.

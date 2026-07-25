@@ -129,6 +129,12 @@ attempt number, and attempt start time. User, runtime, operation, route,
 credential, and provider-resource identifiers remain exclusively in durable
 control-plane state and are not copied into operational output.
 
+Successful private administration mutations also emit content-free audit
+records after commit for device creation, device revocation, suspension, and
+reactivation. They retain only a typed action, resulting state, and timestamp;
+the response may carry the administrator-requested identifier, but the shared
+operational log does not.
+
 The 2026-07-24 extension persists provider-neutral hosted-access intents,
 requested capability rows, and ordered progress events. The private Unix
 administration boundary accepts strict intent JSON and exposes cursor-resumable
