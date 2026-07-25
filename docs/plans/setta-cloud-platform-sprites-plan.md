@@ -1354,7 +1354,7 @@ measured, and independent of provider UI.
   separate private file secret store, never SQLite.
 - [x] Publish push-based provisioning, wake, reconciliation, and deletion
   progress. Do not add a polling watch.
-- [ ] Add content-free audit events, typed measurement intervals, workload
+- [x] Add content-free audit events, typed measurement intervals, workload
   lease enforcement, and per-user hard budget enforcement.
 - [ ] Add a minimal alert path for provisioning and wake failure spikes,
   reconciliation backlog, provider errors, unexpectedly old Tasks or active
@@ -2608,3 +2608,30 @@ Stop and reassess rather than hiding the problem if any of these occur:
   evidence submission, remaining aggregate alerts, and authorized live-provider
   validation stay open, so the combined Phase 5 accounting checkbox remains
   unchecked. No provider or cloud mutation ran.
+- 2026-07-25 (automatic fixed-window accounting): Advanced the clean-break
+  control-plane schema to version 13 and closed the remaining Phase 5
+  accounting automation gap. The production reconciler now owns one-minute
+  fixed-window scheduling through its existing event/timer loop, gives an
+  already-due hard-budget cutoff priority, closes the earliest due ledger
+  before other provider work, submits the finalized server-derived evidence,
+  and emits only the existing content-free usage outcome. Accounting producers
+  and policy changes push the worker; no polling loop or competing consumer was
+  added. Each ledger now retains an exact durable start-of-window boundary.
+  Closure replays and verifies canonical events from that boundary, splits at
+  the half-open window end, and preserves later events in the next ledger, so a
+  delayed event or process restart cannot stretch an earlier interval or lose
+  usage. The scheduler catches up contiguous empty or active windows, caps the
+  final partial window at the policy end, derives deterministic idempotency
+  keys, rejects discontinuous period rollover, and resumes from the same next
+  boundary after restart. Repeated focused tests cover delayed events,
+  timer/wakeup execution, restart continuation, deterministic replay, and
+  policy-end capping. The final broad gate passed all Go packages, 832 desktop
+  tests, build/dead-code checks, and all 20 required Electron workflows. Two
+  earlier broad attempts encountered unrelated Electron harness flakes in the
+  runtime-picker and pane-projection workflows; each passed its immediate
+  isolated rerun before the clean final gate. Supply-chain checks passed Go
+  vulnerability, exact-version, lockfile, and release-age policies but still
+  report the pre-existing transitive ESLint `brace-expansion <=5.0.7`
+  advisory; this slice changed no dependency file. Remaining aggregate alerts
+  and explicitly authorized live-provider validation stay open. No provider or
+  cloud mutation ran.

@@ -62,7 +62,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 12. SQLite uses foreign
+The `internal/controlplane` package owns schema version 13. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -105,7 +105,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 12 is a deliberate clean break;
+installed release explicitly. Schema version 13 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -200,6 +200,22 @@ a no-op; a body that does not match its deterministic event identity is
 rejected. Runtime credential generation, private-socket rotation, installer
 provisioning, and runtime service arguments all keep the raw token out of
 process arguments, responses, SQLite, and shared logs.
+
+Schema version 13 adds a durable start-of-window accounting ledger beside the
+current event-applied ledger. The existing event/timer-driven reconciler uses a
+one-minute production window, prioritizes an already-required budget cutoff,
+and then closes the earliest due accounting window before other provider work.
+Each closure replays the canonical durable events from the exact boundary,
+verifies that replay against the current ledger, splits events at the requested
+half-open window end, finalizes evidence with the server-owned price schedule,
+records the contiguous budget interval, and advances both ledgers in one
+transaction. Events that arrive after an overdue boundary therefore remain
+attributed to their correct fixed window after a pause or restart instead of
+stretching the earlier interval. Policy creation, the first accounting event,
+gateway attachment changes, and runtime reports push the worker; no accounting
+polling path or second reconciler exists. Budget periods must continue the
+active ledger exactly, and a period-ending partial window is capped at the
+durable policy end.
 
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the
