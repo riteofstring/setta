@@ -8,6 +8,7 @@ import type {
   DirectorSpeechCaptureSnapshot,
   DirectorSpeechCaptureState,
 } from "./director-speech-capture";
+import type { DirectorComposerCommitment } from "./director-workstream-status";
 
 export interface DirectorSpeechCaptureBinding {
   controller: DirectorSpeechCaptureController;
@@ -15,11 +16,13 @@ export interface DirectorSpeechCaptureBinding {
 }
 
 export function DirectorComposer({
+  commitment,
   dispatch,
   dispatching,
   onOpenVoiceCredentialSettings,
   speechCapture,
 }: {
+  commitment: DirectorComposerCommitment;
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   dispatching: boolean;
   onOpenVoiceCredentialSettings: () => void;
@@ -45,6 +48,17 @@ export function DirectorComposer({
       onSubmit={submit}
     >
       <div className="director-composer-input-stack">
+        <p
+          className="director-composer-hint"
+          data-active={commitment.active ? "true" : "false"}
+          data-status={commitment.status}
+        >
+          <span aria-hidden="true" className="director-composer-hint-dot" />
+          <span className="director-composer-hint-copy">
+            <span>on: {commitment.title}</span>
+            <span>{commitment.statusLabel}</span>
+          </span>
+        </p>
         <label className="sr-only" htmlFor="director-composer-input">
           Ask the Director
         </label>

@@ -131,7 +131,10 @@ with a reduced-motion opacity path and no durable graph mutation. The Now rail
 now renders the selected workstream's current activity as a bounded,
 newest-first list projected from typed semantic graph nodes, with item
 disclosure, recency emphasis, graph-mode colour, and no aggregate-counter
-substitute for the mockup's activity stream. The first integrated production-shell
+substitute for the mockup's activity stream. The bottom composer now carries a
+typed `on:` commitment hint from the selected workstream record and is capped to
+the mockup's 620 px command-pill width while preserving the compact mobile
+layout. The first integrated production-shell
 performance guardrail is committed as the `director-command-center-performance`
 Electron workflow, with focused lifecycle and 100-workstream navigation results
 recorded in
@@ -1605,7 +1608,11 @@ Phase 3 audit verification:
    the selected `WorkstreamGraph`'s typed semantic nodes, keeps only five current
    items, expands the newest by default, lets each item disclose contract-backed
    actor/evidence/source metadata, and colours the activity marker from the same
-   semantic graph mode mapping the WebGL2 canvas uses. Phase 5 still owns
+   semantic graph mode mapping the WebGL2 canvas uses. A fourth composer-fidelity
+   pass adds the mockup's compact `on:` line above the input from selected
+   workstream state, marks active/actionable statuses with a reduced-motion-safe
+   signal dot, and constrains the bottom composer to the mockup's 620 px maximum
+   without losing the compact phone layout. Phase 5 still owns
    deleting the old pane modules; they are no longer the primary app mount.
 2. Connect speech capture and playback through the same Director intents as text. **Done for
    Director receipt playback** — the production shell now owns a Director-specific speech capture
@@ -1765,8 +1772,9 @@ Setta 4 is complete when:
    now owns those dispatches for text, voice capture, selection, approval, resource, artifact detail,
    and graph updates; a first focused integrated performance workflow now covers lifecycle and
    100-workstream navigation. A follow-up Now-rail fidelity pass now renders the selected graph's
-   current semantic activity directly in the rail instead of aggregate counters. The remaining shell
-   work is side-by-side fidelity review, any review-driven polish, and the full integrated
+   current semantic activity directly in the rail instead of aggregate counters. A composer fidelity
+   pass now restores the typed `on:` commitment line and bounded 620 px command input. The remaining
+   shell work is side-by-side fidelity review, any review-driven polish, and the full integrated
    performance audit.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

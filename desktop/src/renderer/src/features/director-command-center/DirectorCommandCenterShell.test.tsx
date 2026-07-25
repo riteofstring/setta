@@ -17,6 +17,7 @@ import {
 } from "./DirectorCommandCenterShell";
 import { currentDirectorActivity } from "./DirectorNowActivityList";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
+import { directorComposerCommitment } from "./director-workstream-status";
 
 describe("Director command-center approval answers", () => {
   test("builds structured answers from public question definitions", () => {
@@ -155,6 +156,34 @@ describe("Director command-center shell view state", () => {
         targetIsEditable: true,
       }),
     ).toBe("next");
+  });
+
+  test("builds the composer commitment from selected workstream state", () => {
+    expect(directorComposerCommitment(null)).toEqual({
+      active: false,
+      status: "idle",
+      statusLabel: "Idle",
+      title: "Setta",
+    });
+
+    expect(directorComposerCommitment(workstreamEntry(7, "running").workstream)).toEqual({
+      active: true,
+      status: "running",
+      statusLabel: "Running",
+      title: "Workstream 7",
+    });
+
+    expect(
+      directorComposerCommitment({
+        ...workstreamEntry(8, "awaiting_resource").workstream,
+        title: "   ",
+      }),
+    ).toEqual({
+      active: true,
+      status: "awaiting_resource",
+      statusLabel: "Needs folder",
+      title: "Setta",
+    });
   });
 
   test("classifies workstream switch transitions as view state", () => {

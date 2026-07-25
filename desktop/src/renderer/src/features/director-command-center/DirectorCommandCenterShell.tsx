@@ -67,6 +67,10 @@ import {
   useDirectorWorkstreamSwitchTransition,
   WorkstreamSwitchTransition,
 } from "./director-workstream-switch-transition";
+import {
+  directorComposerCommitment,
+  directorWorkstreamStatusLabels,
+} from "./director-workstream-status";
 
 interface DirectorCommandCenterShellProps {
   connectedRuntimeId: string | null;
@@ -124,18 +128,6 @@ const unwindowedWorkstreamLimit = 24;
 const graphClock = {
   secondsAt: (timestampMs: number) => timestampMs / 1000,
 };
-
-const statusLabels = {
-  archived: "Archived",
-  awaiting_approval: "Approval",
-  awaiting_resource: "Needs folder",
-  blocked: "Blocked",
-  completed: "Done",
-  failed: "Failed",
-  idle: "Idle",
-  queued: "Queued",
-  running: "Running",
-} as const satisfies Record<WorkstreamStatus, string>;
 
 const statusGlyphs = {
   archived: { Icon: Circle, size: 12 },
@@ -250,6 +242,7 @@ export function DirectorCommandCenterShell({
           workspaceSession={workspaceSession}
         />
         <DirectorComposer
+          commitment={directorComposerCommitment(snapshotView.selectedWorkstream)}
           dispatch={director.dispatch}
           dispatching={director.dispatching}
           onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
@@ -607,7 +600,7 @@ function CommandCenterTopBar({
           <div className="director-workstream-title">
             <span>{navigation.selected?.workstream.title ?? "Setta"}</span>
             <span>
-              {statusLabels[selectedStatus]}
+              {directorWorkstreamStatusLabels[selectedStatus]}
               {navigation.counter ? ` ${navigation.counter}` : ""}
             </span>
           </div>
@@ -619,7 +612,7 @@ function CommandCenterTopBar({
                     item.entry.workstream.id === snapshot?.selectedWorkstreamId ? "page" : undefined
                   }
                   aria-label={`Select ${item.entry.workstream.title}, ${
-                    statusLabels[item.entry.workstream.status]
+                    directorWorkstreamStatusLabels[item.entry.workstream.status]
                   }`}
                   className="director-workstream-dot"
                   data-status={item.entry.workstream.status}
@@ -699,7 +692,7 @@ function CurrentWorkstreamSummary({ workstream }: { workstream: Workstream | nul
       <h1>{workstream?.title ?? "Setta"}</h1>
       <div className="director-selected-status">
         <StatusGlyph status={status} />
-        <span>{statusLabels[status]}</span>
+        <span>{directorWorkstreamStatusLabels[status]}</span>
       </div>
       {workstream?.lastMilestone ? (
         <p className="director-rail-summary">{workstream.lastMilestone.publicSummary}</p>
