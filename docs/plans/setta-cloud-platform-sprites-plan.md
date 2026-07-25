@@ -2820,3 +2820,21 @@ Stop and reassess rather than hiding the problem if any of these occur:
   The combined Phase 7 operator checkbox remains open for metadata inspection,
   user export, checkpoint, restore, and release-upgrade controls. No provider
   or cloud mutation ran.
+- 2026-07-25 (sanitized runtime metadata inspection): Advanced the Phase 7
+  operator-tool surface with `inspect-runtime-metadata` over the private Unix
+  administration boundary. The server resolves the exact Setta-managed runtime
+  and returns a strictly validated projection containing only lifecycle,
+  access, health, desired and observed release, derived release status,
+  provider-neutral resource ceilings, optional deletion schedule, and update
+  time. Runtime and user identities, credential epoch and material, secret
+  references, upstream routing authority, provider identity, and repository
+  data are absent from both the response contract and the content-free
+  `runtime_metadata_inspected` audit. The real CLI rejects inconsistent typed
+  responses before printing them. Production admin-client/server tests prove
+  the exact projection, forbidden-field and forbidden-value redaction,
+  content-free audit, and absence of a durable mutation. Both paths passed ten
+  race-instrumented repetitions, both complete Go packages passed, and
+  `./check_quality.sh --git-changes` passed file-length, vet, tests,
+  complexity, and dead-code checks. The combined Phase 7 operator checkbox
+  remains open for user export, checkpoint, restore, and release-upgrade
+  controls. No provider or cloud mutation ran.
