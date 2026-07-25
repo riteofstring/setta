@@ -1,7 +1,7 @@
 /* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, window */
 
 (() => {
-  const version = "setta-app-pane-layout-driver-v5";
+  const version = "setta-app-pane-layout-driver-v6";
   const conversationPaneNavigationRequestEvent = "setta:conversation-pane-navigation-request";
   let roundTripPromise = null;
 
@@ -16,6 +16,7 @@
       appPaneLayoutConversationPaneState,
       appPaneLayoutCreateFolderlessConversationFromMaster,
       appPaneLayoutFolderlessConversationPaneState,
+      appPaneLayoutFolderlessConversationVoiceState,
       appPaneLayoutMasterFocusState,
       appPaneLayoutOpenConversationFromMaster,
       appPaneLayoutPaneInvariantState,
@@ -24,6 +25,7 @@
       appPaneLayoutReopenFolderlessConversation,
       appPaneLayoutRequestFolderlessConversationFolder,
       appPaneLayoutRoundTrip,
+      appPaneLayoutStartFolderlessConversationVoice,
       appPaneLayoutShellState,
       appPaneLayoutSubmitFolderlessConversationText,
       appPaneLayoutSubmitMasterText,
@@ -161,6 +163,29 @@
 
   async function appPaneLayoutFolderlessConversationPaneState({ conversationId }) {
     return folderlessConversationPaneState(conversationId);
+  }
+
+  async function appPaneLayoutFolderlessConversationVoiceState({ conversationId }) {
+    const persisted = await folderlessConversationVoicePersistedState(conversationId);
+    return {
+      ...folderlessConversationVoiceDomState(conversationId),
+      resourceBindings: persisted.resourceBindings,
+      workspaceId: persisted.workspaceId,
+    };
+  }
+
+  async function appPaneLayoutStartFolderlessConversationVoice({ conversationId }) {
+    const before = await appPaneLayoutFolderlessConversationVoiceState({ conversationId });
+    const surface = conversationPaneSurface(conversationId);
+    const control = surface?.querySelector('[data-testid="easy-button-control"]');
+    if (!(control instanceof HTMLButtonElement)) {
+      return { ...before, clicked: false, reason: "missing-voice-control" };
+    }
+    if (control.disabled) {
+      return { ...before, clicked: false, reason: "disabled-voice-control" };
+    }
+    control.click();
+    return { ...before, clicked: true, reason: "clicked" };
   }
 
   async function appPaneLayoutSubmitMasterText({ expectedResultKind = "answer_global", text }) {
@@ -662,6 +687,79 @@
 
   function elementTextContent(element) {
     return element instanceof HTMLElement ? (element.textContent ?? "") : "";
+  }
+
+  function datasetValue(element, key) {
+    return element instanceof HTMLElement ? (element.dataset[key] ?? "") : "";
+  }
+
+  async function folderlessConversationVoicePersistedState(conversationId) {
+    if (!conversationId) {
+      return { resourceBindings: null, workspaceId: undefined };
+    }
+    const [snapshot, persisted] = await Promise.all([
+      readFolderlessConversationSnapshot(conversationId),
+      persistedFolderlessConversationState(conversationId),
+    ]);
+    return {
+      resourceBindings: persisted.resourceBindings,
+      workspaceId: snapshot?.conversation?.workspaceId,
+    };
+  }
+
+  function folderlessConversationVoiceDomState(conversationId) {
+    const surface = conversationPaneSurface(conversationId);
+    const elements = folderlessConversationVoiceElements(surface);
+    return {
+      captureScope: datasetValue(surface, "easyButtonCaptureScope"),
+      captureState: datasetValue(surface, "easyButtonCapture"),
+      conversationId,
+      folderResourceRequestPresent: elements.folderResource instanceof HTMLElement,
+      ...folderlessVoiceInputState(elements.input),
+      paneId: datasetValue(surface?.closest('[data-testid="workspace-pane-host"]'), "paneId"),
+      responseText: elementTextContent(elements.statusReply),
+      speechActivityText: elementTextContent(elements.speechActivity),
+      speechTranscriptText: elementTextContent(elements.speechTranscript),
+      status: surface instanceof HTMLElement ? "passed" : "pending",
+      ...folderlessVoiceControlState(elements.control),
+      workspaceLayoutId: datasetValue(
+        document.querySelector('[data-testid="workspace-layout-area"]'),
+        "workspaceId",
+      ),
+    };
+  }
+
+  function folderlessConversationVoiceElements(surface) {
+    return {
+      control: surface?.querySelector('[data-testid="easy-button-control"]'),
+      folderResource: surface?.querySelector('[data-testid="easy-button-folder-resource"]'),
+      input: surface?.querySelector('[data-testid="easy-button-input"]'),
+      speechActivity: surface?.querySelector('[data-testid="easy-button-speech-activity"]'),
+      speechTranscript: surface?.querySelector('[data-testid="easy-button-speech-transcript"]'),
+      statusReply: surface?.querySelector('[data-testid="easy-button-status-reply"]'),
+    };
+  }
+
+  function folderlessVoiceControlState(control) {
+    if (!(control instanceof HTMLButtonElement)) {
+      return {
+        voiceControlAvailable: false,
+        voiceControlLabel: "",
+        voiceControlPresent: false,
+      };
+    }
+    return {
+      voiceControlAvailable: !control.disabled,
+      voiceControlLabel: control.getAttribute("aria-label") ?? "",
+      voiceControlPresent: true,
+    };
+  }
+
+  function folderlessVoiceInputState(input) {
+    if (!(input instanceof HTMLInputElement)) {
+      return { inputAvailable: false, inputValue: "" };
+    }
+    return { inputAvailable: !input.disabled, inputValue: input.value };
   }
 
   function folderlessConversationResponseReady({

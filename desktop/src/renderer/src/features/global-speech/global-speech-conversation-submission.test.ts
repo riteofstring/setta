@@ -137,6 +137,41 @@ describe("global speech conversation submission", () => {
     expect(harness.controller.getSnapshot().completedTranscript).toBeNull();
   });
 
+  test("submits folderless pane transcripts without inventing a workspace", async () => {
+    const settleConversationInput = vi.fn(async () => {});
+    const harness = createHarness({ settleConversationInput });
+
+    harness.controller.submitTranscript({
+      captureSessionId: "capture_folderless",
+      request: conversationSpeechCaptureRequest(null, "conversation_folderless", "pane_folderless"),
+      runtimeId: "runtime_alpha",
+      transcript: "what can you help with?",
+    });
+    await waitForSubmission(harness.controller, "accepted");
+
+    expect(harness.requests).toEqual([
+      {
+        input: {
+          conversationId: "conversation_folderless",
+          id: "capture_folderless",
+          modality: "voice",
+          replyToInputId: null,
+          sourcePaneId: "pane_folderless",
+          submittedAt: "2026-07-12T18:00:00.12Z",
+          text: "what can you help with?",
+        },
+      },
+    ]);
+    expect(settleConversationInput).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        request: expect.objectContaining({
+          destination: expect.objectContaining({ workspaceId: null }),
+        }),
+      }),
+    );
+  });
+
   test("runtime reset invalidates a late submission result", async () => {
     const pending = deferred<AcceptedConversationInput>();
     const harness = createHarness({ submitConversationInput: () => pending.promise });

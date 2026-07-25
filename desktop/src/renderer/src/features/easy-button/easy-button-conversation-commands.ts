@@ -37,7 +37,6 @@ import {
 } from "./conversation-routing-presentation";
 
 export interface EasyButtonConversationCommands {
-  available: boolean;
   canSubmit: boolean;
   clarificationQuestion: string | null;
   disposeSide: (sideConversationId: string) => void;
@@ -62,6 +61,7 @@ export interface EasyButtonConversationCommands {
     decision: TrajectoryApprovalDecision,
     answers: ConversationApprovalAnswer[],
   ) => void;
+  workspaceCommandsAvailable: boolean;
 }
 
 interface PendingSideCreation {
@@ -143,9 +143,10 @@ export function useEasyButtonConversationCommands({
       setError(value);
     }
   };
-  const available = workspaceAvailable && conversationCommandsAvailable(workspaceId, projection);
+  const workspaceCommandsAvailable =
+    workspaceAvailable && conversationWorkspaceCommandsAvailable(workspaceId, projection);
   const inputAvailable = conversationInputAvailable({
-    available,
+    workspaceCommandsAvailable,
     paneId,
     projection,
     workspaceId,
@@ -255,7 +256,7 @@ export function useEasyButtonConversationCommands({
   }
 
   function requireTarget(): { conversationId: string; workspaceId: string } {
-    if (!available || !conversationId || !workspaceId) {
+    if (!workspaceCommandsAvailable || !conversationId || !workspaceId) {
       throw new Error("Conversation commands require a ready topic conversation.");
     }
     return { conversationId, workspaceId };
@@ -318,12 +319,11 @@ export function useEasyButtonConversationCommands({
   }
 
   return {
-    available,
     canSubmit,
     clarificationQuestion: clarification?.question ?? null,
     discardFailedInput: () => void discardFailedInput(),
     disposeSide: (sideConversationId) => {
-      if (!available || pending || !paneId) {
+      if (!workspaceCommandsAvailable || pending || !paneId) {
         return;
       }
       const target = requireTarget();
@@ -362,7 +362,7 @@ export function useEasyButtonConversationCommands({
       void presentRelatedConversation(workspaceId, targetConversationId, title, setScopedError);
     },
     requestVoiceCapture: createVoiceCaptureCommand({
-      available: conversationVoiceCaptureAvailable(available, clarification),
+      available: conversationVoiceCaptureAvailable(inputAvailable, clarification),
       conversationId,
       paneId,
       setError: setScopedError,
@@ -372,7 +372,7 @@ export function useEasyButtonConversationCommands({
     retryFailedInput: () => void retryFailedInput(),
     routingFailure: conversationRoutingFailurePresentation(failedInput),
     sendSide: async (sideConversationId, text) => {
-      if (!available || pending) {
+      if (!workspaceCommandsAvailable || pending) {
         return false;
       }
       const target = requireTarget();
@@ -389,7 +389,7 @@ export function useEasyButtonConversationCommands({
     },
     setInput: setConversationInput,
     stop: () => {
-      if (!available || pending) {
+      if (!workspaceCommandsAvailable || pending) {
         return;
       }
       const target = requireTarget();
@@ -403,7 +403,7 @@ export function useEasyButtonConversationCommands({
       void runInput();
     },
     submitApproval: (approval, decision, answers) => {
-      if (!available || pending) {
+      if (!workspaceCommandsAvailable || pending) {
         return;
       }
       const target = requireTarget();
@@ -421,6 +421,7 @@ export function useEasyButtonConversationCommands({
         false,
       );
     },
+    workspaceCommandsAvailable,
   };
 
   async function runFolderBindingForFailure(inputId: string): Promise<void> {
@@ -606,7 +607,7 @@ function conversationFolderResourceFailure(
   return { inputId: failure.inputId };
 }
 
-function conversationCommandsAvailable(
+function conversationWorkspaceCommandsAvailable(
   workspaceId: string | null,
   projection: ConversationProjection | undefined,
 ): boolean {
@@ -621,18 +622,18 @@ function conversationCommandsAvailable(
 }
 
 function conversationInputAvailable({
-  available,
+  workspaceCommandsAvailable,
   paneId,
   projection,
   workspaceId,
 }: {
-  available: boolean;
+  workspaceCommandsAvailable: boolean;
   paneId: string | null;
   projection: ConversationProjection | undefined;
   workspaceId: string | null;
 }): boolean {
   if (workspaceId !== null) {
-    return available;
+    return workspaceCommandsAvailable;
   }
   return paneId !== null && (projection?.snapshot?.conversation.archivedAt ?? null) === null;
 }
@@ -903,7 +904,7 @@ function cancelPaneSpeechCapture(
 
 export function requestEasyButtonSpeechCapture(
   speechCapture: SpeechCaptureRequester,
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
   paneId: string,
 ): Promise<void> {
@@ -925,7 +926,7 @@ function createVoiceCaptureCommand({
   speechCapture: SpeechCaptureRequester | undefined;
   workspaceId: string | null;
 }): (() => void) | undefined {
-  if (!available || !workspaceId || !paneId || !speechCapture) {
+  if (!available || !paneId || !speechCapture) {
     return undefined;
   }
   return () => {

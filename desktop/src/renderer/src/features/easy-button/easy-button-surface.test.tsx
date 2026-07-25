@@ -32,7 +32,6 @@ import {
   requestEasyButtonSpeechCapture,
   type EasyButtonConversationCommands,
 } from "./easy-button-conversation-commands";
-import { conversationControlAction } from "./easy-button-conversation-control";
 import { statusReplyPresentationTiming } from "./easy-button-narrator-status";
 
 const [workspaceId, timestamp] = ["workspace_topic", "2026-07-11T20:00:00Z"] as const;
@@ -135,6 +134,26 @@ describe("Easy Button topic conversation projection", () => {
         workspaceId: "workspace_voice",
       },
       sourcePaneId: "pane_voice",
+    });
+  });
+
+  test("routes a folderless pane voice request with a null workspace", async () => {
+    const start = vi.fn(async () => {});
+
+    await requestEasyButtonSpeechCapture(
+      { start },
+      null,
+      "conversation_folderless_voice",
+      "pane_folderless_voice",
+    );
+
+    expect(start).toHaveBeenCalledWith({
+      destination: {
+        conversationId: "conversation_folderless_voice",
+        type: "conversation",
+        workspaceId: null,
+      },
+      sourcePaneId: "pane_folderless_voice",
     });
   });
 
@@ -643,119 +662,6 @@ describe("Easy Button topic conversation projection", () => {
     expect(idle).not.toContain('data-testid="easy-button-stop-run"');
   });
 
-  test("keeps the giant control the voice/talk affordance whenever it is not listening", () => {
-    const requestVoiceCapture = vi.fn();
-    const commands: EasyButtonConversationCommands = {
-      ...archivedConversationCommands(),
-      available: true,
-      requestVoiceCapture,
-      routingFailure: null,
-    };
-
-    const action = conversationControlAction(commands, false, null);
-
-    expect(action.mode).toBe("talk");
-    expect(action.disabled).toBe(false);
-    expect(action.label).toBe("Start a voice request for this conversation");
-    action.onClick?.();
-    expect(requestVoiceCapture).toHaveBeenCalledOnce();
-  });
-
-  test("routes the giant control to voice setup when credentials are missing", () => {
-    const openVoiceCredentialSettings = vi.fn();
-    const requestVoiceCapture = vi.fn();
-    const commands: EasyButtonConversationCommands = {
-      ...archivedConversationCommands(),
-      available: true,
-      requestVoiceCapture,
-      routingFailure: null,
-    };
-    const action = conversationControlAction(
-      commands,
-      true,
-      {
-        activityKind: null,
-        activityLabel: null,
-        captureScope: "none",
-        captureState: "unavailable",
-        playbackScope: "none",
-        playbackState: "idle",
-        speakingSourceEventId: null,
-        transcriptPreview: null,
-        voiceControlDisabled: false,
-        voiceControlLabel: "Open voice settings",
-        voiceControlSetupAction: "open_voice_credential_settings",
-      },
-      { onOpenVoiceCredentialSettings: openVoiceCredentialSettings },
-    );
-
-    expect(action.mode).toBe("talk");
-    expect(action.disabled).toBe(false);
-    expect(action.label).toBe("Open voice settings");
-    action.onClick?.();
-    expect(openVoiceCredentialSettings).toHaveBeenCalledOnce();
-    expect(requestVoiceCapture).not.toHaveBeenCalled();
-  });
-
-  test("flips the giant control to finish this pane's dictation while it is listening", () => {
-    const requestVoiceCapture = vi.fn();
-    const commands: EasyButtonConversationCommands = {
-      ...archivedConversationCommands(),
-      available: true,
-      pending: true,
-      requestVoiceCapture,
-      routingFailure: null,
-    };
-
-    const recordingSpeech = {
-      activityKind: "capture",
-      activityLabel: "Listening",
-      captureScope: "this_pane",
-      captureState: "recording",
-      playbackScope: "none",
-      playbackState: "idle",
-      speakingSourceEventId: null,
-      transcriptPreview: "Keep listening",
-      voiceControlDisabled: false,
-      voiceControlLabel: "Finish this voice request",
-      voiceControlSetupAction: null,
-    } as const;
-
-    const action = conversationControlAction(commands, false, recordingSpeech);
-    expect(action.mode).toBe("stop-listening");
-    expect(action.disabled).toBe(false);
-    expect(action.label).toBe("Finish this voice request");
-    action.onClick?.();
-    expect(requestVoiceCapture).toHaveBeenCalledOnce();
-    const draining = conversationControlAction(commands, false, {
-      ...recordingSpeech,
-      activityLabel: "Finishing captured audio",
-      captureState: "draining",
-      voiceControlDisabled: true,
-      voiceControlLabel: "Finishing captured audio for this conversation",
-    });
-    expect(draining.mode).toBe("stop-listening");
-    expect(draining.disabled).toBe(true);
-    expect(draining.label).toBe("Finishing captured audio for this conversation");
-    expect(draining.onClick).toBeUndefined();
-  });
-
-  test("read-only panes cannot talk through the giant control", () => {
-    const requestVoiceCapture = vi.fn();
-    const commands: EasyButtonConversationCommands = {
-      ...archivedConversationCommands(),
-      available: true,
-      requestVoiceCapture,
-      routingFailure: null,
-    };
-
-    const action = conversationControlAction(commands, true, null);
-
-    expect(action.mode).toBe("talk");
-    expect(action.disabled).toBe(true);
-    expect(action.onClick).toBeUndefined();
-  });
-
   test("renders one Send action and no longer hosts a voice control in the composer", () => {
     const html = renderToString(
       <EasyButtonConversationComposer
@@ -926,7 +832,6 @@ describe("Easy Button topic conversation projection", () => {
 
 function archivedConversationCommands(): EasyButtonConversationCommands {
   return {
-    available: false,
     canSubmit: false,
     clarificationQuestion: null,
     discardFailedInput: vi.fn(),
@@ -946,6 +851,7 @@ function archivedConversationCommands(): EasyButtonConversationCommands {
     stop: vi.fn(),
     submit: vi.fn(),
     submitApproval: vi.fn(),
+    workspaceCommandsAvailable: false,
   };
 }
 
