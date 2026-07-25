@@ -42,6 +42,33 @@ The initial renderer should use **WebGL2**, GLSL shaders, buffers, instancing, a
 Reimplement the selected concepts against Setta 4 contracts instead of treating prototype-only code
 as production architecture.
 
+Before shell implementation begins, the approved fullscreen design artifact must either be committed
+under `docs/mockups/` or this section must be expanded into a self-contained visual specification.
+Implementation should not depend on memory of an artifact that is absent from the branch.
+
+## Existing Foundations To Reuse
+
+Setta 4 starts from current production systems, not from a blank rewrite. Reuse or rehome these
+foundations where their ownership is already correct, while still changing contracts directly when
+the Director product needs a better shape:
+
+- `internal/master` already owns global intent routing, strict structured output schemas, trusted
+  route authority, durable route decisions, clarification, cancellation, and route recovery records.
+- `internal/conversation` already owns durable conversations, folderless conversations, local input
+  routing, turns, queues, steering, cancellation, failures, approvals, artifacts, trajectory events,
+  snapshots, event cursors, side conversations, narration, and replay.
+- renderer conversation projection code already loads bounded snapshots, subscribes from durable
+  cursors, batches event application per animation frame, preserves referential stability across
+  unrelated conversations, and handles resync requirements.
+- speech code already owns fast capture/playback paths, desktop voice credential storage, provider
+  selection, credential validation, and safe credential restoration into the local runtime.
+- existing performance recorders and reports already measure renderer frame time, long tasks, DOM
+  growth, event projection bounds, and production Electron workflows.
+
+These foundations are inputs to the cutover, not legacy contracts to preserve. Setta 4 should rename,
+move, delete, or reshape them directly when pane ownership or Master terminology conflicts with the
+Director command center.
+
 ## Superseded Direction
 
 For the Setta 4 client, this plan supersedes product direction in documents that assume:
@@ -94,6 +121,55 @@ summaries. Background workstreams expose only actionable aggregate state, such a
 awaiting approval, failed, or complete.
 
 The UI may animate and spatially organize meaning, but it must never invent meaning.
+
+## Director Decision Protocol
+
+The Director decision protocol is the product rule for turning user intent into work. The current
+Master route decision catalog is the starting point, but Setta 4 must express decisions in
+Director/workstream language and remove pane presentation authority from the model-facing contract.
+
+For a submitted text or voice intent, the Director must produce exactly one typed decision:
+
+- answer directly from app-visible state
+- create a new folderless or resource-bound workstream
+- send work to an idle existing workstream
+- queue work behind an active workstream
+- steer an active run
+- ask a meaningful clarification question
+- select or focus an existing workstream
+- retry or recover a failed routing/execution path when durable state proves that is the right next
+  action
+
+The model may select only from decision kinds and targets authorized by trusted application state.
+Provider ids, renderer commands, pane ids, resource paths, approval ids, artifact ids, and execution
+leases must be added only by trusted product code after the model decision validates.
+
+Clarification is a product action, not a schema repair path. Ask the user only when their answer can
+change the outcome in a meaningful way, such as choosing between plausible workstreams or deciding
+whether to steer active work versus queue follow-up work.
+
+## Model Output Recovery
+
+Invalid model output is an implementation failure to repair or route around, not a user-facing
+decision point.
+
+Structured Director and worker declarations must be validated before side effects. If a structured
+decision or declaration is malformed, unauthorized, stale, or missing required provenance:
+
+1. Reject it before committing product effects.
+2. Retry once with the same authoritative context plus a public-safe validation diagnostic.
+3. If state changed during the call, rematerialize trusted context and retry once against the current
+   allowed decisions.
+4. If a deterministic product invariant resolves the request without model judgment, commit a
+   product-invariant decision. Examples include routing to the only allowed target, sending to an
+   idle selected workstream when no other target is authorized, or preserving already queued work
+   after a restart.
+5. If the request still cannot be resolved, create a durable recovery or blocked state with a useful
+   public summary, or ask a meaningful clarification question.
+
+Do not show raw schema, JSON, routing, projection, or provider-format errors to the user. Do not add
+keyword heuristics as recovery. Recovery must be driven by typed validation errors, trusted runtime
+metadata, durable state, or explicit product invariants.
 
 ## Architectural Boundaries
 
@@ -155,6 +231,17 @@ A workstream registry should project canonical backend state into:
 Conversation identity, workstream identity, and resource binding must be explicit. A filesystem
 workspace may be a resource of a workstream; it is not the prerequisite or identity for one.
 
+The current conversation snapshot, event subscription, and navigator stores are reusable inputs, but
+they are not the final registry. The Setta 4 registry must add:
+
+- first-class folderless workstreams in the app-wide list
+- a selected workstream persisted without pane identity
+- app-wide aggregation of unresolved approvals, unresolved resource requests, artifacts, failures,
+  and active/running/blocked counts
+- app-scoped snapshot versioning and cursor recovery
+- narrow selectors that keep unrelated workstreams referentially stable
+- explicit mapping from existing conversation identity to workstream identity for the initial cutover
+
 The registry replaces app-pane observation, pane-scene routing context, pane focus/open resolution,
 and persisted layout as the application-level authority.
 
@@ -194,6 +281,122 @@ WebGL2 renderer
 The projector is deterministic and independently testable. Replaying the same ordered events must
 produce the same semantic graph. Rendering code receives an immutable packed snapshot and owns no
 business decisions.
+
+## Visualization Projection Model
+
+The command-center graph is a live semantic map of Setta workstreams. It is not a visualization of
+raw provider packets, hidden model reasoning, token deltas, or every stored transcript item.
+
+### Workstream identity
+
+`workstream_id` is a Setta-owned durable identity. For the initial cutover, existing conversation
+identity may be mapped one-to-one into a workstream registry record, but the renderer must receive a
+workstream id and must not depend on pane ids.
+
+`run_id` is the durable Setta turn/run identity. Provider thread ids, provider turn ids, provider
+item ids, leases, and execution details remain evidence metadata behind trusted contracts. They are
+not user-facing graph identities.
+
+A durable child conversation or fork becomes a child workstream connected by a `delegated_to` edge. A
+provider subagent without a durable Setta conversation remains a `delegation` node inside the parent
+workstream; it does not become a background workstream until product state gives it a durable
+address.
+
+### Initial event mapping
+
+The first graph projector should implement this mapping from Go-owned facts. Missing source facts
+must be added as typed events or records; do not fill gaps by parsing text.
+
+| Source fact | Graph output | Notes |
+| --- | --- | --- |
+| Director/workstream creation, selection, and resource binding records | workstream status and registry membership | Add explicit records where the current conversation model has no app-scoped owner. |
+| `user_input_accepted` | `user_goal` | The input event owns the user-authored summary and starts the visible causal chain. |
+| Validated Director route decision or command | `director_decision` | The model may choose only authorized decision kinds and targets; trusted code attaches ids and capabilities. |
+| `turn_queued`, `turn_promoted`, `turn_started`, `turn_steered` | `action` status updates plus selected-workstream milestones | Queue and run state should update one durable run node rather than create noisy duplicate nodes. |
+| `plan_changed` | `plan` plus step `milestone` nodes | Current provider plan steps do not have stable ids; initial step node ids should be derived from the source event id and step index unless the contract adds step ids. |
+| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed` | `action`, `investigation`, `delegation`, or `artifact` | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, and file changes are `action`; web search and image view are `investigation`; subagents are `delegation`; generated media is `artifact`. `other` is not visible until a typed owner assigns a precise semantic kind. |
+| `file_change_proposed`, `file_change_completed` | `action` with file-change evidence | Approval state comes from approval events, not inferred from file diffs. |
+| `approval_requested`, `approval_resolved` | `approval_required` | Secret answers and secret fields stay redacted in public graph state. |
+| Resource request and resolution records | `resource_required` | Add explicit Director/workstream records if the current source only exposes resource needs indirectly. |
+| `artifact_emitted` | `artifact` | Connect from the producing run/action with a `produced` edge. |
+| `agent_liveness_changed`, `provider_lifecycle_changed` | `blocked`, `recovery`, or status update | Only typed lost/unavailable/reconciling/retryable states become visible nodes. Ready/attached states update metadata. |
+| `model_rerouted` | `recovery` or `milestone` | Use the typed reroute reason/status; do not infer risk from surrounding text. |
+| `turn_completed`, `turn_failed`, `turn_interrupted` | `completed`, `failed`, or `cancelled` | Terminal run state closes the visible causal chain for that run. |
+| `public_reasoning_summary_updated`, `agent_message_completed` | public summaries and detail surfaces | These update accessible text and summaries; they do not create nodes by default. |
+
+### Edge derivation
+
+Edges are derived from durable identity and event causality:
+
+- `followed_by` connects ordered visible facts inside one run or workstream.
+- `delegated_to` connects a Director decision or subagent activity to a durable child workstream or
+  subagent node.
+- `depends_on` connects queued work, resource waits, and explicit prerequisites.
+- `blocked_by` connects blocked/recovery/action nodes to approvals, resources, provider lifecycle,
+  or execution failures.
+- `produced` connects actions or completed runs to artifacts.
+- `validated_by` connects actions to explicit validation facts.
+- `recovered_by` connects failed, interrupted, or unavailable states to retry/recovery actions.
+
+Visual proximity, animation, force-layout attraction, or text similarity must not create semantic
+edges.
+
+### Level of detail and compaction
+
+The selected workstream renders the full recent semantic trajectory. Adjacent or recent workstreams
+render current status, last meaningful milestone, unresolved blockers, and produced artifacts.
+Background workstreams render aggregate state only: active, queued, blocked, awaiting approval,
+failed, complete, and counts.
+
+Old history should compact only from durable summaries, explicit compaction events, or Director
+interpretations with provenance. The renderer may hide detail for performance, but it must not
+replace durable facts with unsourced generated summaries.
+
+### Packed render snapshot
+
+The semantic graph snapshot owns ids, kinds, statuses, evidence classes, source event ids, public
+summaries, and edge meaning. The packed GPU snapshot owns numeric handles, typed arrays, positions,
+colors, glyph indices, edge endpoints, and level-of-detail buckets.
+
+Selection, hover, camera position, animation phase, and expansion state are view state. They can
+influence rendering, but they must not write back into semantic graph truth.
+
+## Live Update Model
+
+The live graph should be push-driven end to end. It should not use renderer polling, app-state
+polling, or periodic HTTP refreshes for ordinary updates.
+
+The existing Setta/Codex path already has the pieces for a non-polling implementation:
+
+1. Codex exposes turn progress as stream/notification events such as turn started, item updated,
+   plan updated, and turn completed.
+2. `codexapp.Manager` routes provider notifications into scoped session event channels.
+3. `agent.Runtime` reads `session.Events()` and normalizes provider notifications into typed Setta
+   agent events.
+4. Conversation services commit typed trajectory, approval, artifact, routing, and lifecycle events
+   into the durable store.
+5. Store commits call a committed-event wake notification after the transaction is durable.
+6. Backend subscriptions read from a cursor, then block on the committed-event wake channel when no
+   events are available. That wait is not polling; it is an event-driven sleep with replay from the
+   durable cursor.
+7. Electron main/preload forwards committed events through the typed conversation subscription IPC.
+8. The renderer loads a snapshot with its cursor, subscribes from that cursor, batches pushed events
+   into projection work, and requests animation frames only while visible changes or motion require
+   drawing.
+
+Setta 4 should extend this pattern to an app-scoped Director subscription instead of creating a new
+timer loop. The Director command center should expose:
+
+- an initial app-scoped snapshot with a durable cursor
+- a pushed committed-event stream from that cursor
+- an explicit `resync_required` event when cursor replay cannot continue
+- backpressure rules that keep semantic events lossless and allow only non-semantic text or process
+  output deltas to be best effort
+- renderer-side frame batching so a burst of provider events produces at most one semantic projection
+  flush per frame
+
+Provider liveness timeouts, if needed, belong in backend runtime reconciliation and must emit typed
+lifecycle events. They are not a reason for the renderer to poll conversation state.
 
 ## Semantic Node Contract
 
@@ -300,6 +503,26 @@ A development gallery should render deterministic fixtures for every valid node,
 evidence class, and relevant combination. Gallery fixtures are produced from real contract shapes,
 not a parallel mock vocabulary.
 
+## Privacy And Durable Data Boundaries
+
+Setta 4 must distinguish public coordination state from private or sensitive implementation data.
+
+Durable semantic events and graph nodes may contain user-authored requests, public assistant output,
+public reasoning summaries, public Director interpretations, artifact metadata and payloads, approval
+and resource request metadata, and non-secret approval resolutions.
+
+They must not contain:
+
+- hidden chain-of-thought or reconstructed private reasoning
+- OpenAI API keys, voice-provider credentials, ephemeral transcription secrets, or runtime tokens
+- raw provider protocol payloads that may contain credentials or unrelated private context
+- secret approval answers, except through an explicit encrypted owner contract
+- unsanitized diagnostic blobs in user-visible summaries, recordings, or performance reports
+
+Secret structured-input answers may be sent to the provider path that requested them, but public
+trajectory events, graph nodes, renderer snapshots, recordings, and logs must carry redacted state
+and enough provenance to explain what happened without revealing the secret.
+
 ## Rendering and Performance Contract
 
 ### Renderer choice
@@ -371,6 +594,19 @@ Append immutable before/after reports under `docs/reports/performance/`. Include
 refresh rate, viewport, device pixel ratio, scenario, build identity, measurement method, p50/p95/p99
 CPU and GPU frame times, long tasks, dropped frames, memory behavior, and profiler artifacts.
 
+### Measurement ownership
+
+Reuse the existing Electron workflow recorder, renderer frame sampler, long-task observer, DOM budget
+checks, and append-only performance report format where they fit. The WebGL2 graph renderer also
+requires new measurement ownership:
+
+- deterministic graph fixture generation at the packed snapshot boundary
+- CPU marks for projection, packing, buffer upload, and draw submission
+- GPU timer-query sampling where the platform supports it
+- canvas-pixel checks for nonblank rendering and correct framing
+- an explicit target hardware, display refresh-rate, viewport, and device-pixel-ratio matrix before
+  Phase 2 exits
+
 ## Implementation Sequence
 
 Each phase ends with a coherent boundary and explicit deletion or acceptance gate. Do not begin by
@@ -382,32 +618,51 @@ deleting Niri; replace its product responsibilities first.
 2. Inventory Niri/pane responsibilities and assign each one to retain, replace, or delete.
 3. Identify the conversation, approval, resource, speech, credential, and Electron production paths
    that must survive the cutover.
-4. Capture the current interaction and rendering performance baseline before changing renderer
+4. Inventory existing Master, conversation, renderer projection, speech, and performance foundations
+   that should be reused, rehomed, reshaped, or deleted.
+5. Commit the approved fullscreen concept artifact or expand this plan into a self-contained visual
+   specification.
+6. Capture the current interaction and rendering performance baseline before changing renderer
    assumptions.
+7. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix.
 
 Exit gate:
 
 - reproducible desktop development build
 - Niri ownership inventory committed
 - retained/replaced/deleted production responsibilities documented
+- reusable foundation inventory committed
+- fullscreen design direction is present in the branch
 - baseline performance report committed
+- target performance matrix committed
 
-### Phase 1 — Define truth before visuals
+### Phase 1 — Extend truth before visuals
 
-1. Define Go-owned workstream, node, edge, evidence, status, and interpretation contracts.
-2. Map existing production events to the initial node catalog.
-3. Identify missing typed runtime events; add explicit events instead of UI inference.
-4. Generate TypeScript surfaces.
-5. Build deterministic event histories covering every node lifecycle.
-6. Implement the pure `DirectorGraphProjector`.
-7. Add replay, ordering, invalid-transition, and provenance boundary tests.
-8. Build the exhaustive node/edge visual gallery from production contract fixtures.
+1. Start from existing Go-owned conversation statuses, input routing decisions, turn lifecycles,
+   trajectory events, approval records, artifact records, snapshots, cursors, and Master route
+   decisions.
+2. Define the missing Go-owned workstream, node, edge, evidence, status, and interpretation
+   contracts.
+3. Define lifecycle tables for workstreams, runs, queue items, approvals, resource requests,
+   artifacts, semantic nodes, and recovery states.
+4. Codify the initial source-fact-to-node mapping in Go-owned contracts.
+5. Define the app-scoped Director snapshot, cursor, event, and `resync_required` contracts.
+6. Identify missing typed runtime events; add explicit events instead of UI inference.
+7. Generate TypeScript surfaces.
+8. Build deterministic event histories covering every node lifecycle and live replay boundary.
+9. Implement the pure `DirectorGraphProjector`.
+10. Add replay, ordering, invalid-transition, provenance, redaction, live resync, and recovery
+    boundary tests.
+11. Build the exhaustive node/edge visual gallery from production contract fixtures.
 
 Exit gate:
 
 - every displayed semantic value has a defined owner and provenance
 - replay is deterministic
+- the app-scoped live graph subscription is cursored and push-driven
+- lifecycle transitions are explicit and validated
 - no graph node depends on keyword heuristics or private reasoning
+- invalid model output resolves through typed recovery policy
 - exhaustive visual mappings compile without a fallback case
 
 ### Phase 2 — Prove the standalone 120 Hz renderer
@@ -416,34 +671,47 @@ Exit gate:
 2. Define the packed immutable GPU snapshot boundary.
 3. Implement the fullscreen graph canvas independently of production state.
 4. Add quality tiers, level of detail, buffer reuse, shader prewarming, and an idle scheduler.
-5. Run the required scale and viewport scenarios against deterministic fixtures.
-6. Profile with browser/Chrome developer tools and GPU timer queries.
-7. Fix hitches before integrating live app state.
+5. Reuse existing frame and long-task instrumentation where applicable.
+6. Add graph-specific fixture generation, CPU marks, GPU timer queries, and canvas-pixel checks.
+7. Add burst-update fixtures that simulate pushed event batches and cursor replay.
+8. Run the required scale and viewport scenarios against deterministic fixtures.
+9. Profile with browser/Chrome developer tools and GPU timer queries.
+10. Fix hitches before integrating live app state.
 
 Exit gate:
 
 - the target hardware sustains the 120 Hz budgets in representative motion
 - p95 and p99 frame time, long tasks, memory, and dropped frames are recorded
 - phone-scale and high-DPI behavior are bounded
+- graph fixture harness and report template are committed
+- burst updates do not produce per-event React renders or animation-frame floods
 - no business logic exists in the renderer
 
 ### Phase 3 — Introduce the Director Command Center
 
-1. Rename product-facing Master concepts to Director where they represent the new product role.
-2. Implement the deep `DirectorCommandCenter` boundary.
-3. Add the app-scoped workstream registry with push subscriptions and durable cursors.
-4. Move folderless routing, clarification, conversation creation, queueing, steering, cancellation,
-   approval, and resource requests behind the boundary.
-5. Replace pane presentation intents with workstream presentation intents.
-6. Preserve strict trusted-target validation.
-7. Keep current conversation stores and event streams as canonical inputs where their ownership is
+1. Adapt the existing Master route decision catalog into the Director decision protocol.
+2. Rename product-facing Master concepts to Director where they represent the new product role.
+3. Implement the deep `DirectorCommandCenter` boundary.
+4. Add the app-scoped workstream registry with push subscriptions and durable cursors.
+5. Include folderless and resource-bound conversations as first-class workstreams.
+6. Move folderless routing, clarification, conversation creation, queueing, steering, cancellation,
+   approval, resource requests, model-output recovery, and product-invariant decisions behind the
+   boundary.
+7. Replace pane presentation intents with workstream presentation intents.
+8. Fan in current conversation and Master event streams through the Director registry without adding
+   UI polling.
+9. Preserve strict trusted-target validation.
+10. Keep current conversation stores and event streams as canonical inputs where their ownership is
    already correct.
 
 Exit gate:
 
 - all primary user intents can be expressed without pane identity
+- folderless workstreams appear in the app-scoped registry
+- the Director registry delivers app-scoped live updates from durable cursors without polling
 - 100 background workstreams do not cause unrelated renderer rerenders
 - reload reconstructs the same selected workstream and semantic graph
+- malformed Director output does not surface as an internal routing/schema error
 - local execution passes the Director execution contract suite
 
 ### Phase 4 — Build the native fullscreen shell
@@ -454,13 +722,17 @@ Exit gate:
 4. Render approvals and resource requests as first-class actionable state.
 5. Render artifacts as typed outputs; open rich details in accessible DOM/native surfaces.
 6. Integrate the WebGL2 canvas through packed snapshots, not component-level node state.
-7. Reprofile all required live scenarios and record a second append-only report.
+7. Connect the live Director subscription to graph projection, packing, buffer updates, and frame
+   scheduling.
+8. Reprofile all required live scenarios and record a second append-only report.
 
 Exit gate:
 
 - the fullscreen workflow covers ordinary chat and active agent work
 - the UI remains useful when no folder has been selected
 - semantic facts and Director interpretations are visually distinguishable
+- live provider, routing, approval, artifact, and lifecycle events appear without user refresh or
+  renderer polling
 - keyboard, pointer, voice, focus, and screen-reader paths are explicit
 - integrated performance still meets the frame-time budgets
 
@@ -518,8 +790,12 @@ Setta 4 is complete when:
 
 - a user can open the app with no selected folder and start useful work immediately
 - the Director can route, create, delegate, steer, cancel, clarify, and recover through typed paths
+- invalid model outputs recover or become useful durable state without exposing internal errors
 - approvals, resources, artifacts, and outcomes are durable and actionable
+- public semantic state respects credential, secret, and private-reasoning boundaries
 - every semantic node and edge has real meaning, provenance, and deterministic replay
+- live graph updates are pushed from durable provider/conversation events and do not depend on
+  renderer polling
 - the fullscreen WebGL2 command center meets the measured 120 Hz budgets on target hardware
 - the experience scales down to a phone-sized viewport without adopting the old pane model
 - Niri/manual pane control is absent from the production path
@@ -528,7 +804,9 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Review and accept this plan as the Setta 4 plan of record.
-2. Complete the Niri ownership inventory.
-3. Capture the current interaction and rendering performance baseline.
-4. Start Phase 1 with the semantic node and edge contracts.
+1. Complete the Niri ownership inventory.
+2. Complete the reusable foundation inventory.
+3. Commit the fullscreen design artifact or expand the design direction into a self-contained spec.
+4. Capture the current interaction and rendering performance baseline.
+5. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
+   artifact, and speech contracts into the Setta 4 workstream and semantic graph contracts.
