@@ -1308,7 +1308,7 @@ artifacts, disconnect, and resume from a durable cursor.
   availability.
 - [ ] Run deterministic local profiles and the identical fixed workload
   against the Sprite over the selected access path.
-- [ ] Verify desktop disconnect, phone attach, recurring idle reconnect, warm
+- [x] Verify desktop disconnect, phone attach, recurring idle reconnect, warm
   wake, simulated process loss, backend crash, and control-plane restart
   through production boundaries.
 - [x] Prove conversation, queue, approval, artifact, and replay state survives
@@ -2925,3 +2925,27 @@ Stop and reassess rather than hiding the problem if any of these occur:
   not implied by this instrumentation closure. This was a documentation-only
   owner-boundary audit after the clean code gates recorded above; no automated
   check was repeated and no provider or cloud mutation ran.
+- 2026-07-25 (Phase 4 restart-matrix closure): Closed the production-boundary
+  restart matrix after adding the remaining recurring-idle-reconnect proof.
+  Candidate B now restarts both serving runtime and durable gateway state,
+  reconnects an authenticated SSE client three consecutive times at the exact
+  current cursor while no event is available, then holds a fourth connection
+  open and proves later submitted work advances the durable sequence and
+  completes. The test exposed a production defect: the gateway copied an
+  upstream SSE status but did not flush it until body bytes arrived, so an idle
+  client could not finish connecting. The gateway now flushes valid
+  `text/event-stream` headers immediately while continuing to define
+  first-response timing by actual body bytes. Zero-byte client disconnects
+  remain explicitly measured as downstream stream failures rather than being
+  relabeled successful forwards. This proof joins the existing registered
+  hosted Electron workflow and Candidate B coverage for desktop disconnect,
+  bounded phone attach, administrative warm wake, runtime and gateway restart,
+  simulated provider-process loss, backend crash recovery, cursor replay, and
+  durable state restoration. The focused gateway and complete production
+  workflow passed ten race-instrumented repetitions; both affected Go packages
+  passed; the registered `hosted-cloud-chat` Electron workflow passed; and
+  `./check_quality.sh --git-changes` passed formatting, file-length, vet, test,
+  complexity, and dead-code gates. With `OPENAI_API_KEY` removed, all four
+  ChatGPT-authenticated live Codex gates passed again: Electron, agent protocol,
+  side isolation, and topic conversation. The adjacent identical authorized
+  live-Sprite workload remains open. No provider or cloud mutation ran.
