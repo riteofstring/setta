@@ -2799,3 +2799,24 @@ Stop and reassess rather than hiding the problem if any of these occur:
   --git-changes` passed the focused Go vet, test, and dead-code gate. No
   production behavior, generated contract, dependency, provider, or cloud
   resource changed.
+- 2026-07-25 (runtime deletion operator control): Advanced the Phase 7
+  operator-tool surface with explicit `schedule-runtime-deletion` and
+  `cancel-runtime-deletion` commands over the existing private Unix
+  administration boundary. Scheduling requires the exact Setta-managed runtime
+  name, a globally immutable idempotency key, and a future RFC3339 timestamp;
+  it atomically moves access to `delete_scheduled`, creates the existing fenced
+  deletion operation and progress event, invalidates live authorization, and
+  pushes the established reconciler wake. Cancellation delegates to the
+  store-owned cancellation transaction and requires an explicit non-deletion
+  target access state, so the tool does not guess whether access should return
+  enabled, suspended, or export-only. Neither command prints runtime identity,
+  operation identity, provider state, or repository content. The shared JSONL
+  observer emits only `runtime_deletion_scheduled` or
+  `runtime_deletion_cancelled`, the resulting state, and the timestamp.
+  Production admin-client/server tests prove schedule state, exact timestamp,
+  cancellation, output redaction, and content-free audits; both paths passed
+  ten race-instrumented repetitions, both complete Go packages passed, and
+  `./check_quality.sh --git-changes` passed vet, tests, and dead-code checks.
+  The combined Phase 7 operator checkbox remains open for metadata inspection,
+  user export, checkpoint, restore, and release-upgrade controls. No provider
+  or cloud mutation ran.
