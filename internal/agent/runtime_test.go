@@ -29,8 +29,10 @@ func TestInitializeParamsPreservesProductionCapabilities(t *testing.T) {
 		t.Fatal("opt-out notification methods are nil")
 	}
 	methods := *capabilities.OptOutNotificationMethods
-	if len(methods) != 1 || methods[0] != codexapp.CodexNotificationThreadStarted {
-		t.Fatalf("opt-out notification methods = %v, want [%s]", methods, codexapp.CodexNotificationThreadStarted)
+	if len(methods) != 2 ||
+		methods[0] != codexapp.CodexNotificationItemReasoningTextDelta ||
+		methods[1] != codexapp.CodexNotificationThreadStarted {
+		t.Fatalf("opt-out notification methods = %v, want private reasoning deltas and %s", methods, codexapp.CodexNotificationThreadStarted)
 	}
 }
 

@@ -93,9 +93,7 @@ func initializeParams(version string) codexapp.InitializeParams {
 	title := "Setta"
 	experimental := true
 	requestAttestation := false
-	optOutNotificationMethods := []string{
-		codexapp.CodexNotificationThreadStarted,
-	}
+	optOutNotificationMethods := providerNotificationOptOutMethods()
 	return codexapp.InitializeParams{
 		ClientInfo: codexapp.ClientInfo{Name: "setta", Title: &title, Version: version},
 		Capabilities: &codexapp.InitializeCapabilities{

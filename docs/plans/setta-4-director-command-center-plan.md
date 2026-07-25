@@ -1,7 +1,10 @@
 # Setta 4 Director Command Center — Plan of Record
 
 **Date:** 2026-07-24
-**Status:** Approved direction; Phase 0 repository work is complete. The ownership,
+**Status:** Approved direction; Phase 0 repository work is complete and Phase 1 has
+started. The checked-in Codex protocol snapshot is refreshed and the provider
+notification adapter matrix is committed in `internal/agent/provider_notification_matrix.go`
+(Phase 1 items 2 and 3). The ownership,
 surviving-path, and reusable-foundation inventories are committed in
 [`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md),
 the mockup fidelity checklist in
@@ -116,12 +119,13 @@ Director command center.
 
 ### Codex protocol baseline
 
-At this review, Setta's checked-in Codex app-server protocol snapshot records upstream commit
-`2b9c05046038c038ec6bddb9db7d11394995372d`, while the local Codex reference repo is at
-`99744cfe04`. Phase 1 must refresh the checked-in protocol snapshot, record the upstream commit used,
-and regenerate affected surfaces before implementing the Director execution adapter or graph mapping.
+Setta's checked-in Codex app-server protocol snapshot records upstream commit
+`99744cfe04806ebaa1e5d08e3e790070f852472b` in `internal/codexapp/protocolschema/UPSTREAM`. The
+refresh regenerated `internal/codexapp/protocol_gen.go`; no generated TypeScript surface changed,
+because Codex protocol types stay behind the Go execution adapter and are not part of the renderer
+contract surface.
 
-The current Codex reference adds or sharpens app metadata/read APIs, environment connection and
+That refresh added or sharpened app metadata/read APIs, environment connection and
 status signals, exact raw response usage notifications, Guardian review and warning notifications,
 model verification and safety-buffering notifications, plugin/script attribution on command
 executions, and experimental thread realtime. These are provider adapter inputs. They do not become
@@ -423,11 +427,21 @@ The Codex adapter must translate provider notifications into Setta-owned typed e
 execution port. Raw provider payloads, provider ids, leases, response ids, and realtime session ids
 remain evidence metadata behind trusted contracts.
 
+`internal/agent/provider_notification_matrix.go` is the committed matrix. Every server notification
+in the checked-in snapshot has exactly one rule stating the maximum authority the adapter has over
+it: `normalized` (may become typed Setta agent events), `evidence` (accounting, context, and detail
+surfaces only), `transport` (ephemeral live UI only), `private` (never delivered), `host` (owned by a
+Setta service outside the Director execution port), or `unowned` (ignored until a typed owner exists).
+The matrix drives the protocol-level notification opt-out list, and a normalizer may exist only for a
+method the matrix marks `normalized`, so refreshing the snapshot cannot introduce a provider signal
+that reaches product state without a decision. The rules below are the product reasoning behind those
+dispositions.
+
 - `PlanDelta` is experimental and explicitly non-authoritative. The completed plan item or a
   Setta-owned `plan_changed` event owns durable plan state.
 - `ReasoningTextDelta` is private reasoning and must not be persisted, displayed, summarized into
-  graph state, or used as graph evidence. Reasoning summary notifications may update public summaries
-  only.
+  graph state, or used as graph evidence. Setta opts out of its delivery at initialize so it is never
+  received. Reasoning summary notifications may update public summaries only.
 - `RawResponseCompleted`, `RawResponseItemCompleted`, and `ThreadTokenUsageUpdated` are telemetry or
   evidence inputs, not visible semantic facts by default.
 - `ContextCompactedNotification` is deprecated upstream. Prefer the durable `ContextCompaction` item
@@ -789,11 +803,14 @@ Exit gate:
    trajectory events, approval records, artifact records, snapshots, cursors, and Master route
    decisions.
 2. Refresh the checked-in Codex app-server protocol snapshot from the current reference repo, record
-   the upstream commit used, and regenerate affected Go and TypeScript surfaces.
+   the upstream commit used, and regenerate affected Go and TypeScript surfaces. **Done — snapshot at
+   upstream `99744cfe04806ebaa1e5d08e3e790070f852472b`; `internal/codexapp/protocol_gen.go`
+   regenerated; no TypeScript surface is affected.**
 3. Define the Codex-to-Setta provider notification adapter matrix for thread status, environment
    connection/status, plan deltas, reasoning summaries and private reasoning, raw response usage,
    Guardian review/warning, model verification, model safety buffering, context compaction, command
-   attribution, and thread realtime.
+   attribution, and thread realtime. **Done — `internal/agent/provider_notification_matrix.go`
+   classifies every notification in the snapshot and bounds what the adapter may do with each one.**
 4. Define the missing Go-owned workstream, node, edge, evidence, status, and interpretation
    contracts.
 5. Define lifecycle tables for workstreams, runs, queue items, approvals, resource requests,
@@ -973,13 +990,14 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Refresh the Codex app-server protocol snapshot, record the upstream commit used, and regenerate
-   affected Go and TypeScript surfaces.
-2. Define the Codex-to-Setta provider notification adapter matrix.
-3. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
+1. Continue Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
    artifact, speech, realtime, lifecycle, and telemetry contracts into the Setta 4 workstream and
    semantic graph contracts, closing the four contract gaps the inventory found: durable
    resource-request records, the app-scoped workstream registry, plan-step identity, and workstream
    resource bindings that free `internal/master` from `internal/applayout`.
-4. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
+2. Register and adapt the notifications the matrix marks `normalized` that have no normalizer yet —
+   thread status, environment connection, Guardian and verification signals, hooks, MCP tool
+   progress, terminal interaction, and server-request resolution — as typed Setta events rather than
+   UI inference.
+3. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

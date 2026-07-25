@@ -233,6 +233,81 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationWindowsSandboxSetupCompleted,
 }
 
+// CodexUpstreamNotificationValues lists every server notification method in the
+// checked-in Codex protocol snapshot, including unregistered methods.
+var CodexUpstreamNotificationValues = []string{
+	"account/login/completed",
+	"account/rateLimits/updated",
+	"account/updated",
+	"app/list/updated",
+	"command/exec/outputDelta",
+	"configWarning",
+	"deprecationNotice",
+	"error",
+	"externalAgentConfig/import/completed",
+	"externalAgentConfig/import/progress",
+	"fs/changed",
+	"fuzzyFileSearch/sessionCompleted",
+	"fuzzyFileSearch/sessionUpdated",
+	"guardianWarning",
+	"hook/completed",
+	"hook/started",
+	"item/agentMessage/delta",
+	"item/autoApprovalReview/completed",
+	"item/autoApprovalReview/started",
+	"item/commandExecution/outputDelta",
+	"item/commandExecution/terminalInteraction",
+	"item/completed",
+	"item/fileChange/outputDelta",
+	"item/fileChange/patchUpdated",
+	"item/mcpToolCall/progress",
+	"item/plan/delta",
+	"item/reasoning/summaryPartAdded",
+	"item/reasoning/summaryTextDelta",
+	"item/reasoning/textDelta",
+	"item/started",
+	"mcpServer/oauthLogin/completed",
+	"mcpServer/startupStatus/updated",
+	"model/rerouted",
+	"model/safetyBuffering/updated",
+	"model/verification",
+	"process/exited",
+	"process/outputDelta",
+	"remoteControl/status/changed",
+	"serverRequest/resolved",
+	"skills/changed",
+	"thread/archived",
+	"thread/closed",
+	"thread/compacted",
+	"thread/deleted",
+	"thread/environment/connected",
+	"thread/environment/disconnected",
+	"thread/goal/cleared",
+	"thread/goal/updated",
+	"thread/name/updated",
+	"thread/realtime/closed",
+	"thread/realtime/error",
+	"thread/realtime/itemAdded",
+	"thread/realtime/outputAudio/delta",
+	"thread/realtime/sdp",
+	"thread/realtime/started",
+	"thread/realtime/transcript/delta",
+	"thread/realtime/transcript/done",
+	"thread/settings/updated",
+	"thread/started",
+	"thread/status/changed",
+	"thread/tokenUsage/updated",
+	"thread/unarchived",
+	"turn/completed",
+	"turn/diff/updated",
+	"turn/moderationMetadata",
+	"turn/plan/updated",
+	"turn/started",
+	"warning",
+	"windows/worldWritableWarning",
+	"windowsSandbox/setupCompleted",
+}
+
 type AbsolutePathBuf = string
 
 type AccountLoginCompletedNotification struct {
@@ -548,7 +623,6 @@ type AppMetadata struct {
 	Categories                 *[]string        `json:"categories,omitempty"`
 	Developer                  *string          `json:"developer,omitempty"`
 	FirstPartyRequiresInstall  *bool            `json:"firstPartyRequiresInstall,omitempty"`
-	FirstPartyType             *string          `json:"firstPartyType,omitempty"`
 	Review                     *AppReview       `json:"review,omitempty"`
 	Screenshots                *[]AppScreenshot `json:"screenshots,omitempty"`
 	SeoDescription             *string          `json:"seoDescription,omitempty"`
@@ -1344,6 +1418,7 @@ type ExternalAgentConfigImportItemTypeFailure struct {
 	ItemType     ExternalAgentConfigMigrationItemType `json:"itemType"`
 	Message      string                               `json:"message"`
 	Source       *string                              `json:"source,omitempty"`
+	SubErrorType *string                              `json:"subErrorType,omitempty"`
 }
 
 func validateExternalAgentConfigImportItemTypeFailure(raw json.RawMessage, name string) error {
@@ -1427,6 +1502,7 @@ const (
 	ExternalAgentConfigMigrationItemTypeSUBAGENTS       ExternalAgentConfigMigrationItemType = "SUBAGENTS"
 	ExternalAgentConfigMigrationItemTypeHOOKS           ExternalAgentConfigMigrationItemType = "HOOKS"
 	ExternalAgentConfigMigrationItemTypeCOMMANDS        ExternalAgentConfigMigrationItemType = "COMMANDS"
+	ExternalAgentConfigMigrationItemTypeMEMORY          ExternalAgentConfigMigrationItemType = "MEMORY"
 	ExternalAgentConfigMigrationItemTypeSESSIONS        ExternalAgentConfigMigrationItemType = "SESSIONS"
 )
 
@@ -1796,6 +1872,7 @@ const (
 	HookEventNamePreCompact        HookEventName = "preCompact"
 	HookEventNamePostCompact       HookEventName = "postCompact"
 	HookEventNameSessionStart      HookEventName = "sessionStart"
+	HookEventNameSessionEnd        HookEventName = "sessionEnd"
 	HookEventNameUserPromptSubmit  HookEventName = "userPromptSubmit"
 	HookEventNameSubagentStart     HookEventName = "subagentStart"
 	HookEventNameSubagentStop      HookEventName = "subagentStop"
@@ -2057,6 +2134,7 @@ type InputModality string
 const (
 	InputModalityText  InputModality = "text"
 	InputModalityImage InputModality = "image"
+	InputModalityAudio InputModality = "audio"
 )
 
 type InternalChatMessageMetadataPassthrough struct {
@@ -2687,7 +2765,6 @@ type McpToolCallAppContext struct {
 	ConnectorId string  `json:"connectorId"`
 	LinkId      *string `json:"linkId,omitempty"`
 	ResourceUri *string `json:"resourceUri,omitempty"`
-	TemplateId  *string `json:"templateId,omitempty"`
 }
 
 func validateMcpToolCallAppContext(raw json.RawMessage, name string) error {
@@ -3313,6 +3390,7 @@ type RateLimitSnapshot struct {
 	Primary              *RateLimitWindow           `json:"primary,omitempty"`
 	RateLimitReachedType *RateLimitReachedType      `json:"rateLimitReachedType,omitempty"`
 	Secondary            *RateLimitWindow           `json:"secondary,omitempty"`
+	SpendControlReached  *bool                      `json:"spendControlReached,omitempty"`
 }
 
 func validateRateLimitSnapshot(raw json.RawMessage, name string) error {
@@ -3372,6 +3450,7 @@ type RealtimeConversationVersion string
 const (
 	RealtimeConversationVersionV1 RealtimeConversationVersion = "v1"
 	RealtimeConversationVersionV2 RealtimeConversationVersion = "v2"
+	RealtimeConversationVersionV3 RealtimeConversationVersion = "v3"
 )
 
 type ReasoningEffort = string
@@ -3813,29 +3892,31 @@ func DecodeTextRange(raw json.RawMessage) (TextRange, error) {
 }
 
 type Thread struct {
-	AgentNickname  *string            `json:"agentNickname,omitempty"`
-	AgentRole      *string            `json:"agentRole,omitempty"`
-	CliVersion     string             `json:"cliVersion"`
-	CreatedAt      int                `json:"createdAt"`
-	CWD            AbsolutePathBuf    `json:"cwd"`
-	Ephemeral      bool               `json:"ephemeral"`
-	Extra          *ThreadExtra       `json:"extra,omitempty"`
-	ForkedFromId   *string            `json:"forkedFromId,omitempty"`
-	GitInfo        *GitInfo           `json:"gitInfo,omitempty"`
-	HistoryMode    *ThreadHistoryMode `json:"historyMode,omitempty"`
-	ID             string             `json:"id"`
-	ModelProvider  string             `json:"modelProvider"`
-	Name           *string            `json:"name,omitempty"`
-	ParentThreadId *string            `json:"parentThreadId,omitempty"`
-	Path           *string            `json:"path,omitempty"`
-	Preview        string             `json:"preview"`
-	RecencyAt      *int               `json:"recencyAt,omitempty"`
-	SessionId      string             `json:"sessionId"`
-	Source         SessionSource      `json:"source"`
-	Status         ThreadStatus       `json:"status"`
-	ThreadSource   *ThreadSource      `json:"threadSource,omitempty"`
-	Turns          []Turn             `json:"turns"`
-	UpdatedAt      int                `json:"updatedAt"`
+	AgentNickname        *string            `json:"agentNickname,omitempty"`
+	AgentRole            *string            `json:"agentRole,omitempty"`
+	CanAcceptDirectInput *bool              `json:"canAcceptDirectInput,omitempty"`
+	CliVersion           string             `json:"cliVersion"`
+	CreatedAt            int                `json:"createdAt"`
+	CWD                  AbsolutePathBuf    `json:"cwd"`
+	Ephemeral            bool               `json:"ephemeral"`
+	Extra                *ThreadExtra       `json:"extra,omitempty"`
+	ForkedFromId         *string            `json:"forkedFromId,omitempty"`
+	GitInfo              *GitInfo           `json:"gitInfo,omitempty"`
+	HistoryMode          *ThreadHistoryMode `json:"historyMode,omitempty"`
+	ID                   string             `json:"id"`
+	IsPinned             *bool              `json:"isPinned,omitempty"`
+	ModelProvider        string             `json:"modelProvider"`
+	Name                 *string            `json:"name,omitempty"`
+	ParentThreadId       *string            `json:"parentThreadId,omitempty"`
+	Path                 *string            `json:"path,omitempty"`
+	Preview              string             `json:"preview"`
+	RecencyAt            *int               `json:"recencyAt,omitempty"`
+	SessionId            string             `json:"sessionId"`
+	Source               SessionSource      `json:"source"`
+	Status               ThreadStatus       `json:"status"`
+	ThreadSource         *ThreadSource      `json:"threadSource,omitempty"`
+	Turns                []Turn             `json:"turns"`
+	UpdatedAt            int                `json:"updatedAt"`
 }
 
 func validateThread(raw json.RawMessage, name string) error {
@@ -4471,7 +4552,9 @@ type CommandExecutionThreadItem struct {
 	DurationMs       *int                    `json:"durationMs,omitempty"`
 	ExitCode         *int                    `json:"exitCode,omitempty"`
 	ID               string                  `json:"id"`
+	PluginId         *string                 `json:"pluginId,omitempty"`
 	ProcessId        *string                 `json:"processId,omitempty"`
+	ScriptPath       *string                 `json:"scriptPath,omitempty"`
 	Source           *CommandExecutionSource `json:"source,omitempty"`
 	Status           CommandExecutionStatus  `json:"status"`
 	Type             ThreadItemType          `json:"type"`
@@ -4647,10 +4730,11 @@ func DecodeSubAgentActivityThreadItem(raw json.RawMessage) (SubAgentActivityThre
 }
 
 type WebSearchThreadItem struct {
-	Action *WebSearchAction `json:"action,omitempty"`
-	ID     string           `json:"id"`
-	Query  string           `json:"query"`
-	Type   ThreadItemType   `json:"type"`
+	Action  *WebSearchAction   `json:"action,omitempty"`
+	ID      string             `json:"id"`
+	Query   string             `json:"query"`
+	Results *[]json.RawMessage `json:"results,omitempty"`
+	Type    ThreadItemType     `json:"type"`
 }
 
 func validateWebSearchThreadItem(raw json.RawMessage, name string) error {
@@ -5078,6 +5162,7 @@ type ThreadListParams struct {
 	Archived       *bool                `json:"archived,omitempty"`
 	Cursor         *string              `json:"cursor,omitempty"`
 	CWD            *ThreadListCwdFilter `json:"cwd,omitempty"`
+	IsPinned       *bool                `json:"isPinned,omitempty"`
 	Limit          *int                 `json:"limit,omitempty"`
 	ModelProviders *[]string            `json:"modelProviders,omitempty"`
 	SearchTerm     *string              `json:"searchTerm,omitempty"`
@@ -5476,6 +5561,7 @@ type ThreadResumeResponse struct {
 	CWD                     AbsolutePathBuf          `json:"cwd"`
 	InitialTurnsPage        *TurnsPage               `json:"initialTurnsPage,omitempty"`
 	InstructionSources      []LegacyAppPathString    `json:"instructionSources,omitempty"`
+	ItemsBackwardsCursor    *string                  `json:"itemsBackwardsCursor,omitempty"`
 	Model                   string                   `json:"model"`
 	ModelProvider           string                   `json:"modelProvider"`
 	MultiAgentMode          *MultiAgentMode          `json:"multiAgentMode,omitempty"`
@@ -5484,6 +5570,7 @@ type ThreadResumeResponse struct {
 	Sandbox                 SandboxPolicy            `json:"sandbox"`
 	ServiceTier             *string                  `json:"serviceTier,omitempty"`
 	Thread                  Thread                   `json:"thread"`
+	TurnsBackwardsCursor    *string                  `json:"turnsBackwardsCursor,omitempty"`
 }
 
 func validateThreadResumeResponse(raw json.RawMessage, name string) error {
@@ -5986,11 +6073,12 @@ const (
 )
 
 type TokenUsageBreakdown struct {
-	CachedInputTokens     int `json:"cachedInputTokens"`
-	InputTokens           int `json:"inputTokens"`
-	OutputTokens          int `json:"outputTokens"`
-	ReasoningOutputTokens int `json:"reasoningOutputTokens"`
-	TotalTokens           int `json:"totalTokens"`
+	CacheWriteInputTokens *int `json:"cacheWriteInputTokens,omitempty"`
+	CachedInputTokens     int  `json:"cachedInputTokens"`
+	InputTokens           int  `json:"inputTokens"`
+	OutputTokens          int  `json:"outputTokens"`
+	ReasoningOutputTokens int  `json:"reasoningOutputTokens"`
+	TotalTokens           int  `json:"totalTokens"`
 }
 
 func validateTokenUsageBreakdown(raw json.RawMessage, name string) error {
@@ -6193,8 +6281,9 @@ func DecodeTurnDiffUpdatedNotification(raw json.RawMessage) (TurnDiffUpdatedNoti
 }
 
 type TurnEnvironmentParams struct {
-	CWD           LegacyAppPathString `json:"cwd"`
-	EnvironmentId string              `json:"environmentId"`
+	CWD                   LegacyAppPathString    `json:"cwd"`
+	EnvironmentId         string                 `json:"environmentId"`
+	RuntimeWorkspaceRoots *[]LegacyAppPathString `json:"runtimeWorkspaceRoots,omitempty"`
 }
 
 func validateTurnEnvironmentParams(raw json.RawMessage, name string) error {
