@@ -134,7 +134,15 @@ disclosure, recency emphasis, graph-mode colour, and no aggregate-counter
 substitute for the mockup's activity stream. The bottom composer now carries a
 typed `on:` commitment hint from the selected workstream record and is capped to
 the mockup's 620 px command-pill width while preserving the compact mobile
-layout. The first integrated production-shell
+layout. A first review-driven chrome/composer/rail fidelity pass is committed:
+the graph stage now fills the viewport under floating 44 px top chrome, the
+selected workstream navigation is a compact title/dot group instead of a
+stretched title strip, desktop rails use fixed 300 px mockup geometry with the
+right rail's masked fade and pointer-transparent Now blank space, and the
+composer separates the `on:` hint from the 620 px command pill. Its focused
+lifecycle selector is recorded in
+[`docs/reports/performance/setta-4-command-center-chrome-fidelity-20260725.md`](../reports/performance/setta-4-command-center-chrome-fidelity-20260725.md).
+The first integrated production-shell
 performance guardrail is committed as the `director-command-center-performance`
 Electron workflow, with focused lifecycle and 100-workstream navigation results
 recorded in
@@ -1633,7 +1641,16 @@ Phase 3 audit verification:
    pass adds the mockup's compact `on:` line above the input from selected
    workstream state, marks active/actionable statuses with a reduced-motion-safe
    signal dot, and constrains the bottom composer to the mockup's 620 px maximum
-   without losing the compact phone layout. Phase 5 still owns
+   without losing the compact phone layout. A first review-driven
+   chrome/composer/rail fidelity pass now moves the graph back to a true
+   viewport-filling stage under floating 44 px top chrome, keeps the top
+   workstream navigation as a compact selected-title group, restores fixed
+   300 px desktop rail geometry with the right rail's masked fade and
+   pointer-transparent Now blank space, separates the composer `on:` line from
+   the command pill, and splits the composer CSS into its own checked stylesheet.
+   The focused lifecycle selector is recorded in
+   [`docs/reports/performance/setta-4-command-center-chrome-fidelity-20260725.md`](../reports/performance/setta-4-command-center-chrome-fidelity-20260725.md).
+   Phase 5 still owns
    deleting the old pane modules; they are no longer the primary app mount.
 2. Connect speech capture and playback through the same Director intents as text. **Done for
    Director receipt playback** — the production shell now owns a Director-specific speech capture
@@ -1810,7 +1827,10 @@ Setta 4 is complete when:
    and graph updates; a first focused integrated performance workflow now covers lifecycle and
    100-workstream navigation. A follow-up Now-rail fidelity pass now renders the selected graph's
    current semantic activity directly in the rail instead of aggregate counters. A composer fidelity
-   pass now restores the typed `on:` commitment line and bounded 620 px command input. The remaining
+   pass now restores the typed `on:` commitment line and bounded 620 px command input. A first
+   review-driven chrome/composer/rail pass now restores full-canvas shell geometry, fixed-width rail
+   proportions, and the separated composer hint/pill structure, with focused lifecycle evidence in
+   [`docs/reports/performance/setta-4-command-center-chrome-fidelity-20260725.md`](../reports/performance/setta-4-command-center-chrome-fidelity-20260725.md). The remaining
    integrated performance rows now pass in the production workflow, including 100-workstream
    navigation, ten-minute sustained activity, and restart/replay. The remaining shell work is
    side-by-side fidelity review and any review-driven polish.

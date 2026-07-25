@@ -62,75 +62,77 @@ export function DirectorComposer({
       data-voice-state={voice.state}
       onSubmit={submit}
     >
-      <div className="director-composer-input-stack">
-        <p
-          className="director-composer-hint"
-          data-active={commitment.active ? "true" : "false"}
-          data-status={commitment.status}
-        >
-          <span aria-hidden="true" className="director-composer-hint-dot" />
-          <span className="director-composer-hint-copy">
-            <span>on: {commitment.title}</span>
-            <span>{commitment.statusLabel}</span>
-          </span>
-        </p>
-        <label className="sr-only" htmlFor="director-composer-input">
-          Ask the Director
-        </label>
-        <textarea
-          aria-keyshortcuts="Enter"
-          disabled={dispatching}
-          id="director-composer-input"
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={submitOnEnter}
-          placeholder="Ask the Director…"
-          rows={1}
-          value={text}
-        />
-        <span aria-atomic="true" className="sr-only" role="status">
-          {voiceAnnouncement}
+      <p
+        className="director-composer-hint"
+        data-active={commitment.active ? "true" : "false"}
+        data-status={commitment.status}
+      >
+        <span aria-hidden="true" className="director-composer-hint-dot" />
+        <span className="director-composer-hint-copy">
+          <span>on: {commitment.title}</span>
+          <span>{commitment.statusLabel}</span>
         </span>
-        {voice.status === null ? null : (
-          <p aria-hidden="true" className="director-composer-voice-status">
-            <span>{voice.status}</span>
-            {voice.transcriptPreview === null ? null : (
-              <span className="director-composer-transcript">{voice.transcriptPreview}</span>
-            )}
-          </p>
-        )}
-      </div>
-      <div className="director-composer-controls">
-        <button
-          aria-label={voice.controlLabel}
-          className="director-composer-voice-button"
-          disabled={voice.action === null}
-          onClick={() =>
-            executeDirectorVoiceAction(
-              speechCapture.controller,
-              voice.action,
-              onOpenVoiceCredentialSettings,
-            )
-          }
-          title={voice.controlLabel}
-          type="button"
-        >
-          <DirectorVoiceGlyph state={voice.state} />
-        </button>
-        {voice.discardFailedSubmission ? (
+      </p>
+      <div className="director-composer-pill">
+        <div className="director-composer-input-stack">
+          <label className="sr-only" htmlFor="director-composer-input">
+            Ask the Director
+          </label>
+          <textarea
+            aria-keyshortcuts="Enter"
+            disabled={dispatching}
+            id="director-composer-input"
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={submitOnEnter}
+            placeholder="Ask the Director…"
+            rows={1}
+            value={text}
+          />
+          <span aria-atomic="true" className="sr-only" role="status">
+            {voiceAnnouncement}
+          </span>
+          {voice.status === null ? null : (
+            <p aria-hidden="true" className="director-composer-voice-status">
+              <span>{voice.status}</span>
+              {voice.transcriptPreview === null ? null : (
+                <span className="director-composer-transcript">{voice.transcriptPreview}</span>
+              )}
+            </p>
+          )}
+        </div>
+        <div className="director-composer-controls">
           <button
-            aria-label="Discard failed voice request"
-            className="director-composer-discard-voice-button"
-            onClick={speechCapture.controller.discardSubmission}
-            title="Discard failed voice request"
+            aria-label={voice.controlLabel}
+            className="director-composer-voice-button"
+            disabled={voice.action === null}
+            onClick={() =>
+              executeDirectorVoiceAction(
+                speechCapture.controller,
+                voice.action,
+                onOpenVoiceCredentialSettings,
+              )
+            }
+            title={voice.controlLabel}
             type="button"
           >
-            <X aria-hidden="true" size={16} />
+            <DirectorVoiceGlyph state={voice.state} />
           </button>
-        ) : null}
-        <button disabled={dispatching || text.trim().length === 0} type="submit">
-          <Send aria-hidden="true" size={17} />
-          <span>Send</span>
-        </button>
+          {voice.discardFailedSubmission ? (
+            <button
+              aria-label="Discard failed voice request"
+              className="director-composer-discard-voice-button"
+              onClick={speechCapture.controller.discardSubmission}
+              title="Discard failed voice request"
+              type="button"
+            >
+              <X aria-hidden="true" size={16} />
+            </button>
+          ) : null}
+          <button disabled={dispatching || text.trim().length === 0} type="submit">
+            <Send aria-hidden="true" size={17} />
+            <span>Send</span>
+          </button>
+        </div>
       </div>
     </form>
   );
