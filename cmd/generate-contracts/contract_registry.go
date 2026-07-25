@@ -6,11 +6,11 @@ import (
 	"reflect"
 
 	"setta/internal/appearance"
+	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/master"
 	"setta/internal/runtimeauth"
-	"setta/internal/runtimecapability"
 	"setta/internal/speech"
 	"setta/internal/workspaceui"
 	"setta/internal/workspaceui/conversationpalette"
@@ -62,6 +62,26 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 
 func contractDiscriminatedStructs() map[reflect.Type]discriminatedStructSpec {
 	result := map[reflect.Type]discriminatedStructSpec{}
+	for _, contract := range applayout.ContractDiscriminatedStructs() {
+		variants := make([]discriminatedStructVariant, 0, len(contract.Variants))
+		for _, variant := range contract.Variants {
+			fields := make([]discriminatedStructField, 0, len(variant.Fields))
+			for _, field := range variant.Fields {
+				fields = append(fields, discriminatedStructField{
+					Name:    field.Name,
+					NonNull: field.NonNull,
+				})
+			}
+			variants = append(variants, discriminatedStructVariant{
+				DiscriminatorValue: variant.DiscriminatorValue,
+				Fields:             fields,
+			})
+		}
+		result[contract.Type] = discriminatedStructSpec{
+			Discriminator: contract.Discriminator,
+			Variants:      variants,
+		}
+	}
 	for _, contract := range workspaceui.ContractDiscriminatedStructs() {
 		variants := make([]discriminatedStructVariant, 0, len(contract.Variants))
 		for _, variant := range contract.Variants {
@@ -95,6 +115,9 @@ func contractValueSets() []contractValueSet {
 	for _, set := range appearance.ContractValueSets() {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
+	for _, set := range applayout.ContractValueSets() {
+		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
+	}
 	for _, set := range codexaccount.ContractValueSets() {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
@@ -105,9 +128,6 @@ func contractValueSets() []contractValueSet {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range runtimeauth.ContractValueSets() {
-		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range runtimecapability.ContractValueSets() {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range speech.ContractValueSets() {

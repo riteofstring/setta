@@ -7,20 +7,36 @@ import (
 	"fmt"
 )
 
+var ErrConversationHasNoWorkspace = errors.New("topic conversation has no workspace resource")
+
 func (store *Store) ReadConversationWorkspaceID(
 	ctx context.Context,
 	conversationID string,
 ) (string, error) {
-	if store == nil {
-		return "", errors.New("conversation store is required")
-	}
-	if ctx == nil {
-		return "", errors.New("conversation workspace read context is required")
-	}
-	if err := validateIdentifier("conversation workspace read conversation id", conversationID); err != nil {
+	workspaceID, err := store.ReadConversationWorkspaceBindingID(ctx, conversationID)
+	if err != nil {
 		return "", err
 	}
-	var workspaceID string
+	if workspaceID == nil {
+		return "", fmt.Errorf("%w: %s", ErrConversationHasNoWorkspace, conversationID)
+	}
+	return *workspaceID, nil
+}
+
+func (store *Store) ReadConversationWorkspaceBindingID(
+	ctx context.Context,
+	conversationID string,
+) (*string, error) {
+	if store == nil {
+		return nil, errors.New("conversation store is required")
+	}
+	if ctx == nil {
+		return nil, errors.New("conversation workspace read context is required")
+	}
+	if err := validateIdentifier("conversation workspace read conversation id", conversationID); err != nil {
+		return nil, err
+	}
+	var workspaceID sql.NullString
 	err := store.read(ctx, "read conversation workspace", func(ctx context.Context, reader *sql.Conn) error {
 		err := reader.QueryRowContext(ctx, `SELECT workspace_id FROM conversations WHERE id = ?`, conversationID).Scan(&workspaceID)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -28,7 +44,7 @@ func (store *Store) ReadConversationWorkspaceID(
 		}
 		return err
 	})
-	return workspaceID, err
+	return optionalScannedString(workspaceID), err
 }
 
 func (store *Store) ReadConversationRouterContextSource(
@@ -316,6 +332,16 @@ func readConversationRouterAllowedDecisionKinds(
 	narrator NarratorContextSource,
 	forkPoints []ConversationRouterForkPoint,
 ) ([]ConversationRouteDecisionKind, error) {
+	if narrator.Conversation.WorkspaceID == nil {
+		allowed := []ConversationRouteDecisionKind{
+			ConversationRouteDecisionKindSendToParent,
+			ConversationRouteDecisionKindAnswerAsNarrator,
+		}
+		if work.ClarificationReply == nil {
+			allowed = append(allowed, ConversationRouteDecisionKindClarify)
+		}
+		return allowed, nil
+	}
 	allowed, err := readConversationRouterParentDecisionKinds(ctx, reader, work, narrator)
 	if err != nil {
 		return nil, err
