@@ -14,10 +14,12 @@ import {
   directorEventChangesVisibleState,
   directorGraphTimeSecondsAt,
   directorCurrentWorkstreamSummary,
-  directorWorkstreamKeyboardDirection,
-  directorWorkstreamNavigation,
   effectiveDirectorRailVisibility,
 } from "./DirectorCommandCenterShell";
+import {
+  directorWorkstreamKeyboardDirection,
+  directorWorkstreamNavigation,
+} from "./DirectorWorkstreamNavigation";
 import { compactDirectorHistory } from "./DirectorHistoryOverlay";
 import { currentDirectorActivity } from "./DirectorNowActivityList";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";

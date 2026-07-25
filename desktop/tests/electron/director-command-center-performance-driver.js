@@ -1,4 +1,4 @@
-/* global CSS, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, PerformanceObserver, Uint32Array, Uint8Array, WheelEvent, document, performance, requestAnimationFrame, window */
+/* global CSS, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, PerformanceObserver, WheelEvent, document, performance, requestAnimationFrame, window */
 
 (() => {
   const version = "setta-director-command-center-performance-driver-v2";
@@ -284,11 +284,37 @@
   function graphPixelSnapshot(pixels, width, height) {
     const columns = 32;
     const rows = 32;
+    const minimumSparseGraphLitCellRatio = 2 / (columns * rows);
+    const minimumSparseGraphPeakCellLuminance = 0.03;
+    const grid = sampleGraphPixelGrid(pixels, width, height, columns, rows);
+    const peakLuminance = normalizeGraphPixelCells(grid.cellLuminance, grid.cellCounts);
+    const litPixelRatio = graphPixelLitCellRatio(grid.cellLuminance, peakLuminance);
+    return {
+      available: true,
+      digest: grid.digest.toString(16).padStart(8, "0"),
+      litPixelRatio,
+      // Live command-center graphs can contain one sparse active trajectory;
+      // the dense deterministic gallery's mean-cell threshold is not valid for
+      // them. Peak energy plus occupied cells distinguishes a presented graph
+      // from the cleared non-preserved buffer (both values are zero there).
+      ok: sparseGraphPixelsPresent({
+        litPixelRatio,
+        minimumSparseGraphLitCellRatio,
+        minimumSparseGraphPeakCellLuminance,
+        peakLuminance,
+        peakPixelLuminance: grid.peakPixelLuminance,
+      }),
+      peakLuminance,
+      peakPixelLuminance: grid.peakPixelLuminance,
+    };
+  }
+
+  function sampleGraphPixelGrid(pixels, width, height, columns, rows) {
     const cellLuminance = new Array(columns * rows).fill(0);
     const cellCounts = new Uint32Array(columns * rows);
-    const stride = Math.max(1, Math.floor(Math.sqrt((width * height) / 400_000)));
-    let peakPixelLuminance = 0;
+    const stride = graphPixelSampleStride(width, height);
     let digest = 2_166_136_261;
+    let peakPixelLuminance = 0;
     for (let y = 0; y < height; y += stride) {
       const row = Math.min(rows - 1, Math.floor((y / height) * rows));
       for (let x = 0; x < width; x += stride) {
@@ -309,27 +335,40 @@
         digest = hashPixelByte(digest, alpha);
       }
     }
+    return { cellCounts, cellLuminance, digest, peakPixelLuminance };
+  }
+
+  function graphPixelSampleStride(width, height) {
+    return Math.max(1, Math.floor(Math.sqrt((width * height) / 400_000)));
+  }
+
+  function normalizeGraphPixelCells(cellLuminance, cellCounts) {
     let peakLuminance = 0;
     for (let index = 0; index < cellLuminance.length; index += 1) {
       const count = cellCounts[index] ?? 0;
       cellLuminance[index] = count === 0 ? 0 : (cellLuminance[index] ?? 0) / count;
       peakLuminance = Math.max(peakLuminance, cellLuminance[index] ?? 0);
     }
+    return peakLuminance;
+  }
+
+  function graphPixelLitCellRatio(cellLuminance, peakLuminance) {
     const litThreshold = Math.max(0.01, peakLuminance * 0.1);
-    const litPixelRatio =
-      cellLuminance.filter((value) => value >= litThreshold).length / cellLuminance.length;
-    return {
-      available: true,
-      digest: digest.toString(16).padStart(8, "0"),
-      litPixelRatio,
-      // Live command-center graphs can contain one sparse active trajectory;
-      // the dense deterministic gallery's mean-cell threshold is not valid for
-      // them. Peak energy plus occupied cells distinguishes a presented graph
-      // from the cleared non-preserved buffer (both values are zero there).
-      ok: peakPixelLuminance >= 0.1 && litPixelRatio >= 0.005,
-      peakLuminance,
-      peakPixelLuminance,
-    };
+    return cellLuminance.filter((value) => value >= litThreshold).length / cellLuminance.length;
+  }
+
+  function sparseGraphPixelsPresent({
+    litPixelRatio,
+    minimumSparseGraphLitCellRatio,
+    minimumSparseGraphPeakCellLuminance,
+    peakLuminance,
+    peakPixelLuminance,
+  }) {
+    return (
+      peakPixelLuminance >= 0.1 &&
+      peakLuminance >= minimumSparseGraphPeakCellLuminance &&
+      litPixelRatio >= minimumSparseGraphLitCellRatio
+    );
   }
 
   function hashPixelByte(digest, value) {

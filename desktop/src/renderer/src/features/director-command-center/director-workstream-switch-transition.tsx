@@ -56,15 +56,12 @@ export function WorkstreamSwitchTransition({
 }: {
   transition: DirectorWorkstreamSwitchTransition;
 }) {
-  if (!transition.active || transition.direction === null) {
-    return null;
-  }
   return (
     <div
       aria-hidden="true"
       className="director-workstream-transition"
-      data-direction={transition.direction}
-      key={transition.key}
+      data-active={transition.active && transition.direction !== null ? "true" : "false"}
+      data-direction={transition.direction ?? undefined}
     />
   );
 }

@@ -139,8 +139,8 @@ performance guardrail is committed as the `director-command-center-performance`
 Electron workflow, with focused lifecycle and 100-workstream navigation results
 recorded in
 [`docs/reports/performance/setta-4-command-center-integrated-performance-20260725.md`](../reports/performance/setta-4-command-center-integrated-performance-20260725.md).
-Side-by-side mockup review, any polish it finds, and the full live integrated
-performance audit remain Phase 4 work. The coherent Phase 4 audit is recorded in
+Side-by-side mockup review and any polish it finds remain Phase 4 work. The
+coherent Phase 4 audit is recorded in
 [`docs/reports/performance/setta-4-command-center-phase4-audit-20260725.md`](../reports/performance/setta-4-command-center-phase4-audit-20260725.md).
 Its production fixes and green broad deterministic evidence are committed, and
 the one live-provider attempt passed all four suites. The corrected in-frame
@@ -151,12 +151,17 @@ and recorded in
 [`docs/reports/performance/setta-4-command-center-graph-update-performance-20260725.md`](../reports/performance/setta-4-command-center-graph-update-performance-20260725.md):
 the pushed text-delta burst, large live history compaction, and occlusion/resume
 rows now pass on the corrected production-shell probe. Phase 4 therefore remains
-open for the 100-workstream navigation, ten-minute sustained, and restart/replay
-performance rows plus side-by-side mockup review and any polish it finds. Visual
-evidence also exposed and the audit fixed a stale selected-workstream milestone
-that contradicted a running status; the focused shell tests and production
-Director Electron workflow pass after that final UI-only edit, and the earlier
-green broad deterministic gate was not duplicated.
+open for side-by-side mockup review and any polish it finds. The remaining
+repository-actionable integrated performance rows are green and recorded in
+[`docs/reports/performance/setta-4-command-center-remaining-performance-20260725.md`](../reports/performance/setta-4-command-center-remaining-performance-20260725.md):
+100-workstream navigation, ten-minute sustained activity, and restart/replay now
+pass after the selection path stopped replacing graph buffers or toggling action
+busy state, the switch transition became stable view-state DOM, and the
+sparse-live graph probe accepted one-node graphs across tiers without accepting
+cleared buffers. Visual evidence also exposed and the audit fixed a stale
+selected-workstream milestone that contradicted a running status; the focused
+shell tests and production Director Electron workflow pass after that final
+UI-only edit, and the earlier green broad deterministic gate was not duplicated.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1670,7 +1675,7 @@ Phase 3 audit verification:
    treats graph updates as semantic deltas, advances the durable cursor, and triggers a fresh
    snapshot/subscription on `resync_required` or sequence drift.
 8. Reprofile all required live scenarios and record a second append-only report.
-   **Started for the production shell** —
+   **Done for repository-actionable integrated rows** —
    `desktop/tests/electron/director-command-center-performance.test.mjs` is now
    registered as a focused Electron `performance` workflow. It drives the real
    command-center shell through Electron main, preload, HTTP, durable store,
@@ -1693,9 +1698,13 @@ Phase 3 audit verification:
    measurement,
    [`docs/reports/performance/setta-4-command-center-graph-update-performance-20260725.md`](../reports/performance/setta-4-command-center-graph-update-performance-20260725.md),
    passes the pushed text-delta burst, large live history compaction, and
-   occlusion/resume rows on the corrected probe. 100-workstream navigation,
-   ten-minute sustained activity, and restart/replay remain before this item can
-   be marked done.
+   occlusion/resume rows on the corrected probe. The remaining
+   repository-actionable rows are green in
+   [`docs/reports/performance/setta-4-command-center-remaining-performance-20260725.md`](../reports/performance/setta-4-command-center-remaining-performance-20260725.md):
+   100-workstream navigation passes at laptop and emulated 4K, ten-minute
+   sustained activity passes at laptop with no measured heap growth, and
+   restart/durable replay passes at laptop and harness-standard. Real 4K, 6K,
+   and phone hardware stay release gates, not repository-actionable blockers.
 
 Exit gate:
 
@@ -1802,7 +1811,8 @@ Setta 4 is complete when:
    100-workstream navigation. A follow-up Now-rail fidelity pass now renders the selected graph's
    current semantic activity directly in the rail instead of aggregate counters. A composer fidelity
    pass now restores the typed `on:` commitment line and bounded 620 px command input. The remaining
-   shell work is side-by-side fidelity review, any review-driven polish, and the full integrated
-   performance audit.
+   integrated performance rows now pass in the production workflow, including 100-workstream
+   navigation, ten-minute sustained activity, and restart/replay. The remaining shell work is
+   side-by-side fidelity review and any review-driven polish.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

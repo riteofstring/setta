@@ -3,40 +3,15 @@ import type {
   DirectorIntent,
   DirectorReceipt,
   DirectorSnapshot,
-  DirectorWorkstreamEntry,
   Workstream,
   WorkstreamStatus,
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import {
-  AlertTriangle,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Circle,
-  History,
-  LoaderCircle,
-  PanelLeft,
-  PanelRight,
-  Settings,
-  Square,
-  X,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { History } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
-import { SettaLogoMark } from "../../components/setta-logo-mark";
-import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import { useWorkspaceStore } from "../../stores/workspace-store";
 import { subscribeSpeechCapabilityRefresh } from "../global-speech/app-shell-speech-capture";
@@ -76,6 +51,13 @@ import {
   directorComposerCommitment,
   directorWorkstreamStatusLabels,
 } from "./director-workstream-status";
+import {
+  CommandCenterTopBar,
+  directorWorkstreamKeyboardDirection,
+  moveSelectionIntent,
+  StatusGlyph,
+  type DirectorRailVisibility,
+} from "./DirectorWorkstreamNavigation";
 
 interface DirectorCommandCenterShellProps {
   connectedRuntimeId: string | null;
@@ -105,21 +87,7 @@ interface DirectorCommandCenterSnapshotView {
   readonly selectedWorkstream: Workstream | null;
 }
 
-export interface DirectorRailVisibility {
-  readonly artifacts: boolean;
-  readonly now: boolean;
-}
-
 type DirectorCompactRail = "artifacts" | "now" | null;
-type DirectorKeyboardDirection = "next" | "previous";
-
-interface DirectorKeyboardNavigationInput {
-  readonly altKey: boolean;
-  readonly ctrlKey: boolean;
-  readonly key: string;
-  readonly metaKey: boolean;
-  readonly targetIsEditable: boolean;
-}
 
 const defaultRailVisibility = {
   artifacts: true,
@@ -127,20 +95,41 @@ const defaultRailVisibility = {
 } as const satisfies DirectorRailVisibility;
 
 const compactRailQuery = "(max-width: 760px)";
-const maxVisibleWorkstreamDots = 19;
-const unwindowedWorkstreamLimit = 24;
-
-const statusGlyphs = {
-  archived: { Icon: Circle, size: 12 },
-  awaiting_approval: { Icon: AlertTriangle, size: 14 },
-  awaiting_resource: { Icon: AlertTriangle, size: 14 },
-  blocked: { Icon: AlertTriangle, size: 14 },
-  completed: { Icon: Check, size: 14 },
-  failed: { Icon: X, size: 14 },
-  idle: { Icon: Circle, size: 12 },
-  queued: { Icon: Square, size: 13 },
-  running: { Icon: LoaderCircle, size: 14 },
-} as const satisfies Record<WorkstreamStatus, { Icon: LucideIcon; size: number }>;
+const directorGraphCompositionId = "director-command-center";
+const currentWorkstreamSummaryRules = {
+  archived: "milestone",
+  awaiting_approval: "milestone",
+  awaiting_resource: "resource_required",
+  blocked: "milestone",
+  completed: "milestone",
+  failed: "milestone",
+  idle: "cancelled",
+  queued: null,
+  running: null,
+} as const satisfies Record<
+  WorkstreamStatus,
+  "cancelled" | "milestone" | "resource_required" | null
+>;
+const directorEventVisibility = {
+  "director.aggregates.updated": true,
+  "director.approval.updated": true,
+  "director.artifact.updated": true,
+  "director.graph.updated": true,
+  "director.resync_required": true,
+  "director.resource_request.updated": true,
+  "director.selection.changed": true,
+  "director.text.delta": false,
+  "director.workstream.removed": true,
+  "director.workstream.updated": true,
+} as const satisfies Record<DirectorEvent["kind"], boolean>;
+const directorIntentBusyState = {
+  cancel_run: true,
+  move_selection: false,
+  resolve_approval: true,
+  resolve_resource_request: true,
+  select_workstream: false,
+  submit: true,
+} as const satisfies Record<DirectorIntent["kind"], boolean>;
 
 export function DirectorCommandCenterShell({
   connectedRuntimeId,
@@ -175,15 +164,11 @@ export function DirectorCommandCenterShell({
     toggleRail,
   } = useDirectorRailDisclosure();
   const snapshotGraphs = director.snapshot?.graphs;
-  const selectedWorkstreamId = director.snapshot?.selectedWorkstreamId ?? null;
   const graphTimeSecondsAt = useMemo(
     () => directorGraphTimeSecondsAt(director.snapshot),
     [director.snapshot?.connection.lastEventAt, snapshotGraphs],
   );
-  const packedSnapshot = useMemo(
-    () => packDirectorGraphs(snapshotGraphs, selectedWorkstreamId),
-    [selectedWorkstreamId, snapshotGraphs],
-  );
+  const packedSnapshot = useMemo(() => packDirectorGraphs(snapshotGraphs), [snapshotGraphs]);
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
@@ -372,25 +357,34 @@ function useDirectorRuntime(
 
   const dispatch = useCallback(
     async (intent: DirectorIntent): Promise<DirectorReceipt> => {
-      speechPlayback.preemptForUserInput();
-      setDispatching(true);
+      const usesBusyState = directorIntentUsesBusyState(intent);
+      if (intent.kind === "submit") {
+        speechPlayback.preemptForUserInput();
+      }
+      if (usesBusyState) {
+        setDispatching(true);
+      }
       setMessage(null);
       try {
         const receipt = await setta.director.dispatch(intent);
         setReceiptText(receipt.submit?.publicText || null);
-        void enqueueDirectorSpeechPlayback({
-          controller: speechPlayback,
-          readMasterVoiceSelection: setta.speech.readMasterVoiceSelection,
-          receipt,
-        }).catch((error: unknown) => {
-          console.info(`Director speech playback unavailable: ${directorErrorMessage(error)}`);
-        });
+        if (intent.kind === "submit") {
+          void enqueueDirectorSpeechPlayback({
+            controller: speechPlayback,
+            readMasterVoiceSelection: setta.speech.readMasterVoiceSelection,
+            receipt,
+          }).catch((error: unknown) => {
+            console.info(`Director speech playback unavailable: ${directorErrorMessage(error)}`);
+          });
+        }
         return receipt;
       } catch (error) {
         setMessage("The Director could not accept that request.");
         throw error;
       } finally {
-        setDispatching(false);
+        if (usesBusyState) {
+          setDispatching(false);
+        }
       }
     },
     [setta, speechPlayback],
@@ -585,110 +579,6 @@ function useDirectorSpeechCapture({
   return { controller, snapshot };
 }
 
-function CommandCenterTopBar({
-  dispatch,
-  onToggleRail,
-  onOpenSettingsPage,
-  platform,
-  railVisibility,
-  snapshot,
-}: {
-  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  onToggleRail: (rail: Exclude<DirectorCompactRail, null>) => void;
-  onOpenSettingsPage: () => void;
-  platform: DesktopPlatform;
-  railVisibility: DirectorRailVisibility;
-  snapshot: DirectorSnapshot | null;
-}) {
-  const windowDragHandlers = useAppWindowDragHandlers();
-  const navigation = directorWorkstreamNavigation(snapshot);
-  const selectedStatus = navigation.selected?.workstream.status ?? "idle";
-  return (
-    <header
-      className="director-command-center-top app-drag"
-      data-desktop-platform={platform}
-      data-setta-shell-title-bar="true"
-      data-testid="director-command-center-top-bar"
-      {...windowDragHandlers}
-    >
-      <div aria-hidden="true" className="director-command-center-chrome-shield app-no-drag" />
-      <div className="director-command-center-brand">
-        <SettaLogoMark height={13} />
-      </div>
-      <nav aria-label="Workstreams" className="director-workstream-nav app-no-drag">
-        <IconButton
-          label="Previous workstream"
-          onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("previous"))}
-        >
-          <ChevronLeft aria-hidden="true" size={16} />
-        </IconButton>
-        <div className="director-workstream-selector">
-          <div className="director-workstream-title">
-            <span>{navigation.selected?.workstream.title ?? "Setta"}</span>
-            <span>
-              {directorWorkstreamStatusLabels[selectedStatus]}
-              {navigation.counter ? ` ${navigation.counter}` : ""}
-            </span>
-          </div>
-          <div aria-label="Visible workstreams" className="director-workstream-strip" role="list">
-            {navigation.visibleEntries.map((item) => (
-              <span key={item.entry.workstream.id} role="listitem">
-                <button
-                  aria-current={
-                    item.entry.workstream.id === snapshot?.selectedWorkstreamId ? "page" : undefined
-                  }
-                  aria-label={`Select ${item.entry.workstream.title}, ${
-                    directorWorkstreamStatusLabels[item.entry.workstream.status]
-                  }`}
-                  className="director-workstream-dot"
-                  data-status={item.entry.workstream.status}
-                  data-workstream-id={item.entry.workstream.id}
-                  onClick={() =>
-                    dispatchDirectorIntent(
-                      dispatch,
-                      selectWorkstreamIntent(item.entry.workstream.id),
-                    )
-                  }
-                  type="button"
-                >
-                  <StatusGlyph status={item.entry.workstream.status} />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-        <IconButton
-          label="Next workstream"
-          onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("next"))}
-        >
-          <ChevronRight aria-hidden="true" size={16} />
-        </IconButton>
-      </nav>
-      <div aria-label="View controls" className="director-command-center-view-controls app-no-drag">
-        <IconButton
-          controls="director-now-rail"
-          expanded={railVisibility.now}
-          label={railVisibility.now ? "Hide Now rail" : "Show Now rail"}
-          onClick={() => onToggleRail("now")}
-        >
-          <PanelLeft aria-hidden="true" size={16} />
-        </IconButton>
-        <IconButton
-          controls="director-artifacts-rail"
-          expanded={railVisibility.artifacts}
-          label={railVisibility.artifacts ? "Hide Artifacts rail" : "Show Artifacts rail"}
-          onClick={() => onToggleRail("artifacts")}
-        >
-          <PanelRight aria-hidden="true" size={16} />
-        </IconButton>
-        <IconButton label="Open settings" onClick={onOpenSettingsPage}>
-          <Settings aria-hidden="true" size={16} />
-        </IconButton>
-      </div>
-    </header>
-  );
-}
-
 function NowRail({
   activity,
   history,
@@ -739,23 +629,14 @@ export function directorCurrentWorkstreamSummary(workstream: Workstream | null):
   if (!workstream || !milestone) {
     return null;
   }
-  switch (workstream.status) {
-    case "running":
-    case "queued":
-      return null;
-    case "awaiting_resource":
-      return milestone.kind === "resource_required" ? milestone.publicSummary : null;
-    case "awaiting_approval":
-    case "blocked":
-    case "failed":
-    case "completed":
-    case "archived":
-      return milestone.publicSummary;
-    case "idle":
-      return milestone.kind === "cancelled" ? milestone.publicSummary : null;
-    default:
-      return exhaustiveWorkstreamStatus(workstream.status);
+  const rule = currentWorkstreamSummaryRules[workstream.status];
+  if (rule === null) {
+    return null;
   }
+  if (rule === "milestone") {
+    return milestone.publicSummary;
+  }
+  return milestone.kind === rule ? milestone.publicSummary : null;
 }
 
 function HistoryList({
@@ -793,57 +674,13 @@ function HistoryList({
   );
 }
 
-function IconButton({
-  children,
-  controls,
-  expanded,
-  label,
-  onClick,
-}: {
-  children: ReactNode;
-  controls?: string;
-  expanded?: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-controls={controls}
-      aria-expanded={expanded}
-      aria-label={label}
-      className="director-icon-button"
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
-function StatusGlyph({ status }: { status: WorkstreamStatus }) {
-  const { Icon, size } = statusGlyphs[status];
-  return (
-    <Icon
-      aria-hidden="true"
-      className={
-        status === "running" ? "director-status-icon director-spinner" : "director-status-icon"
-      }
-      size={size}
-    />
-  );
-}
-
-function packDirectorGraphs(
-  graphs: DirectorSnapshot["graphs"] | undefined,
-  selectedWorkstreamId: string | null,
-) {
+function packDirectorGraphs(graphs: DirectorSnapshot["graphs"] | undefined) {
   if (graphs === undefined || graphs.length === 0) {
-    return emptyPackedGraphSnapshot(selectedWorkstreamId ?? "director-empty");
+    return emptyPackedGraphSnapshot(directorGraphCompositionId);
   }
   return packSemanticGraphComposition({
     graphs,
-    workstreamId: selectedWorkstreamId ?? "director",
+    workstreamId: directorGraphCompositionId,
   });
 }
 
@@ -885,23 +722,11 @@ function timestampSeconds(value: string | null): number | null {
 }
 
 export function directorEventChangesVisibleState(event: DirectorEvent): boolean {
-  const kind = event.kind;
-  switch (kind) {
-    case "director.text.delta":
-      return false;
-    case "director.aggregates.updated":
-    case "director.approval.updated":
-    case "director.artifact.updated":
-    case "director.graph.updated":
-    case "director.resync_required":
-    case "director.resource_request.updated":
-    case "director.selection.changed":
-    case "director.workstream.removed":
-    case "director.workstream.updated":
-      return true;
-    default:
-      return exhaustiveDirectorEventKind(kind);
-  }
+  return directorEventVisibility[event.kind];
+}
+
+function directorIntentUsesBusyState(intent: DirectorIntent): boolean {
+  return directorIntentBusyState[intent.kind];
 }
 
 function dispatchDirectorIntent(
@@ -926,43 +751,6 @@ function loadStateMessage(state: DirectorLoadState): string {
   }
 }
 
-function selectWorkstreamIntent(workstreamId: string): DirectorIntent {
-  return {
-    cancelRun: null,
-    kind: "select_workstream",
-    moveSelection: null,
-    resolveApproval: null,
-    resolveResourceRequest: null,
-    selectWorkstream: { workstreamId },
-    submit: null,
-  };
-}
-
-function moveSelectionIntent(direction: "previous" | "next"): DirectorIntent {
-  return {
-    cancelRun: null,
-    kind: "move_selection",
-    moveSelection: { direction },
-    resolveApproval: null,
-    resolveResourceRequest: null,
-    selectWorkstream: null,
-    submit: null,
-  };
-}
-
-export function directorWorkstreamNavigation(snapshot: DirectorSnapshot | null) {
-  if (snapshot === null) {
-    return emptyWorkstreamNavigation();
-  }
-  const entries = snapshot.workstreams;
-  const selectedIndex = selectedWorkstreamIndex(entries, snapshot.selectedWorkstreamId);
-  const windowed = visibleWorkstreamEntries(entries, selectedIndex);
-  const selected = entries[selectedIndex] ?? null;
-  const total = snapshot.aggregates.workstreamCount;
-  const counter = workstreamNavigationCounter(snapshot, selectedIndex, total);
-  return { counter, selected, selectedIndex, total, visibleEntries: windowed };
-}
-
 export function effectiveDirectorRailVisibility({
   compact,
   compactRail,
@@ -979,78 +767,6 @@ export function effectiveDirectorRailVisibility({
     artifacts: compactRail === "artifacts",
     now: compactRail === "now",
   };
-}
-
-export function directorWorkstreamKeyboardDirection({
-  altKey,
-  ctrlKey,
-  key,
-  metaKey,
-  targetIsEditable,
-}: DirectorKeyboardNavigationInput): DirectorKeyboardDirection | null {
-  if (key !== "ArrowLeft" && key !== "ArrowRight") {
-    return null;
-  }
-  if (targetIsEditable && !altKey && !ctrlKey && !metaKey) {
-    return null;
-  }
-  return key === "ArrowLeft" ? "previous" : "next";
-}
-
-function windowWorkstreamEntries(
-  entries: readonly DirectorWorkstreamEntry[],
-  selectedIndex: number,
-) {
-  const half = Math.floor(maxVisibleWorkstreamDots / 2);
-  const start = Math.max(
-    0,
-    Math.min(selectedIndex - half, entries.length - maxVisibleWorkstreamDots),
-  );
-  return entries.slice(start, start + maxVisibleWorkstreamDots).map((entry, index) => ({
-    entry,
-    position: start + index + 1,
-  }));
-}
-
-function emptyWorkstreamNavigation() {
-  return {
-    counter: null,
-    selected: null,
-    selectedIndex: 0,
-    total: 0,
-    visibleEntries: [],
-  };
-}
-
-function selectedWorkstreamIndex(
-  entries: readonly DirectorWorkstreamEntry[],
-  selectedWorkstreamId: string | null,
-): number {
-  return Math.max(
-    entries.findIndex((entry) => entry.workstream.id === selectedWorkstreamId),
-    0,
-  );
-}
-
-function visibleWorkstreamEntries(
-  entries: readonly DirectorWorkstreamEntry[],
-  selectedIndex: number,
-) {
-  if (entries.length > unwindowedWorkstreamLimit) {
-    return windowWorkstreamEntries(entries, selectedIndex);
-  }
-  return entries.map((entry, index) => ({ entry, position: index + 1 }));
-}
-
-function workstreamNavigationCounter(
-  snapshot: DirectorSnapshot,
-  selectedIndex: number,
-  total: number,
-): string | null {
-  if (snapshot.workstreams.length <= unwindowedWorkstreamLimit && !snapshot.hasMoreWorkstreams) {
-    return null;
-  }
-  return `${Math.min(selectedIndex + 1, total)}/${total}`;
 }
 
 function useCompactRailLayout(): boolean {
@@ -1083,14 +799,6 @@ function directorKeyboardTargetIsEditable(target: EventTarget | null): boolean {
 
 function exhaustiveLoadState(state: never): never {
   throw new Error(`unsupported Director load state ${state}`);
-}
-
-function exhaustiveDirectorEventKind(kind: never): never {
-  throw new Error(`unsupported Director event kind ${kind}`);
-}
-
-function exhaustiveWorkstreamStatus(status: never): never {
-  throw new Error(`unsupported workstream status ${status}`);
 }
 
 function directorErrorMessage(error: unknown): string {
