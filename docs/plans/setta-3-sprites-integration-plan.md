@@ -1,7 +1,7 @@
 # Setta Sprites Integration — Plan of Record
 
 **Date:** 2026-07-24
-**Status:** Approved direction; integration work has not started.
+**Status:** Deferred until the standalone Sprites working-state gate is complete.
 
 ## Relationship to Setta 4
 
@@ -9,19 +9,44 @@ This document owns the Sprites preparation and migration strategy. The
 [`setta-4-director-command-center-plan.md`](setta-4-director-command-center-plan.md) owns the Setta 4
 product, Director, semantic graph, fullscreen UI, Niri removal, and performance work.
 
-The two tracks may proceed in parallel, but they have different authority:
+Setta 4 and standalone Sprites development may proceed in parallel, but they have different
+authority:
 
 - Setta 4 is the product-critical path and owns all new product-facing contracts.
-- Sprites preparation is a non-gating backend integration laboratory.
+- `setta-3-sprites-development` owns completion of the standalone Sprites reference.
+- The integration work in this document must not begin until that reference is green and pushed.
 - A green Sprites integration branch is a source of evidence and portable behavior, not a wholesale
   merge source for Setta 4.
 - The eventual `setta-4-sprites` branch starts from a green Setta 4 checkpoint, never from a Sprites
   branch.
 
+## Blocking Prerequisite
+
+Finish Sprites on `setta-3-sprites-development` before creating an integration branch or merging
+current `setta-3`.
+
+The authoritative development plan is
+`docs/plans/setta-cloud-platform-sprites-plan.md` on the `setta-3-sprites-development` branch. Its
+2026-07-24 development-first amendment defines the working-state gate, the bounded Candidate B live
+continuation, cleanup proof, and the frozen reference checkpoint.
+
+Integration becomes eligible only when:
+
+- the deterministic offline provider and hosted lifecycle suites pass
+- an explicitly authorized live Candidate B run completes its fixed lifecycle workload
+- independent inventories prove all run-owned provider resources and credentials are absent
+- the relevant local and hosted conformance and production conversation paths are green
+- content-free performance, reliability, placement, and cost evidence is recorded
+- the development branch has a clean, pushed working checkpoint
+
+Completion of this prerequisite does not automatically authorize integration. It only makes the
+integration plan actionable.
+
 ## Objective
 
-Preserve and harden the useful Sprites machinery now so it is easy to inspect, run, test, and
-selectively port after the Setta 4 Director UI stabilizes.
+After the blocking prerequisite, reconcile the working Sprites reference with current `setta-3` so
+its useful machinery is easy to inspect, test, and selectively port after the Setta 4 Director UI
+stabilizes.
 
 The work should leave us with:
 
@@ -47,16 +72,17 @@ c8254b1f2 runtime: remove legacy BYO cloud compatibility
 
 Do not merge `setta-3` directly into that preserved branch.
 
-### Active preparation branch
+### Future integration branch
 
-Create:
+Only after the blocking prerequisite and explicit owner direction, create:
 
 ```text
 setta-3-sprites-integration
 ```
 
-from `c8254b1f2`, then merge the current pushed `setta-3` tip into it. Record both exact parent
-commits in the migration ledger before resolving conflicts.
+from the frozen working checkpoint on `setta-3-sprites-development`, then merge the selected current
+`setta-3` tip into it. Record both exact parent commits in the migration ledger before resolving
+conflicts.
 
 The integration branch may be reset or replaced before it is shared if the first merge approach
 proves structurally wrong. Once published and used by others, preserve its history normally.
@@ -187,10 +213,13 @@ change it before porting.
 
 ## Implementation Sequence
 
+This sequence is deferred until the blocking prerequisite is complete and the owner explicitly
+starts integration.
+
 ### Phase 0 — Create the preparation branch and ledger
 
-1. Confirm `setta-3-sprites` and `setta-3` are pushed and clean.
-2. Create `setta-3-sprites-integration` from `c8254b1f2`.
+1. Confirm the frozen `setta-3-sprites-development` checkpoint and `setta-3` are pushed and clean.
+2. Create `setta-3-sprites-integration` from the frozen working checkpoint.
 3. Create a migration ledger recording:
    - source commit
    - behavior or capability
@@ -361,8 +390,8 @@ The preparation track is complete when:
 
 ## Immediate Next Actions
 
-1. Create `setta-3-sprites-integration` from `c8254b1f2`.
-2. Add the initial migration ledger and source-commit manifest.
-3. Merge the current pushed `setta-3` tip without committing.
-4. Resolve the Go owner and deletion conflicts before generated outputs.
-5. Regenerate contracts, inspect the merge, and commit the first coherent integration checkpoint.
+1. Continue standalone development on `setta-3-sprites-development`.
+2. Complete the working-state gate in its Sprites plan of record.
+3. Freeze and push the working reference checkpoint.
+4. Revisit this merge forecast against that checkpoint and the then-current `setta-3`.
+5. Begin Phase 0 only under explicit owner direction.

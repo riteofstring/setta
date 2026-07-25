@@ -69,10 +69,10 @@ it diverged before many important `setta-3` changes and overlaps risky shared co
 
 Do not merge it wholesale into either `setta-4` or `setta-4-sprites`.
 
-Preparatory Sprites work may continue now on a separate `setta-3-sprites-integration` branch created
-from the pushed `setta-3-sprites` tip. That branch may merge current `setta-3` to reconcile backend
-contracts and package reusable infrastructure. It is an integration laboratory, not the Setta 4
-base, and it must not become a parallel frontend effort.
+Standalone Sprites development may continue now on `setta-3-sprites-development`, created from the
+pushed `setta-3-sprites` tip. Its job is to finish and freeze a working hosted-runtime reference
+without merging current `setta-3`. Any later integration branch remains deferred until that
+working-state gate is complete and the owner explicitly starts it.
 
 After the Setta 4 Director UI is implemented, measured, and stable, create `setta-4-sprites` from that
 green Setta 4 checkpoint. Port Sprites capabilities in bounded slices against current Setta 4
@@ -411,10 +411,12 @@ CPU and GPU frame times, long tasks, dropped frames, memory behavior, and profil
 
 ## Sprites Relationship
 
-The standalone
-[`setta-3-sprites-integration-plan.md`](setta-3-sprites-integration-plan.md) governs both the
-non-gating preparation work that may proceed now and the selective Setta 4 port after the Director
-checkpoint.
+Standalone development on `setta-3-sprites-development` may proceed without gating Setta 4. Its
+branch-local `docs/plans/setta-cloud-platform-sprites-plan.md` is the authority for reaching and
+freezing a working Sprites reference.
+
+The deferred [`setta-3-sprites-integration-plan.md`](setta-3-sprites-integration-plan.md) governs any
+later `setta-3` reconciliation and the selective Setta 4 port after the Director checkpoint.
 
 Setta 4 owns all new product-facing contracts. Sprites preparation must not implement the Director
 UI, integrate with Niri panes, or become an alternate Setta 4 base. After the Setta 4 checkpoint,
@@ -585,5 +587,5 @@ Setta 4 is complete when:
 3. Create `setta-4` from that verified commit.
 4. Commit the branch/source manifest and Niri ownership inventory.
 5. Start Phase 1 with the semantic node and edge contracts.
-6. Begin the non-gating preparation track defined in
-   [`setta-3-sprites-integration-plan.md`](setta-3-sprites-integration-plan.md).
+6. Allow standalone Sprites development to proceed independently; keep integration deferred until
+   its working reference is green and pushed.
