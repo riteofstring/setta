@@ -84,6 +84,13 @@ var directorConversationEntryKinds = []DirectorConversationEntryKind{
 	DirectorConversationToolReceipt,
 }
 
+// DirectorConversationEntryKinds returns the complete durable entry catalog.
+// Projectors use the same catalog to prove every entry kind has a source
+// mapping instead of maintaining a second list.
+func DirectorConversationEntryKinds() []DirectorConversationEntryKind {
+	return append([]DirectorConversationEntryKind(nil), directorConversationEntryKinds...)
+}
+
 // DirectorConversationModel attributes an assistant reply to the provider
 // thread that produced it. The Director's words are model-authored, so what
 // said them is durable beside them: a reply the app later shows as the

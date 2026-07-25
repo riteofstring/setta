@@ -368,7 +368,29 @@ func (registry *Registry) visibleLevelChangeEffects(
 	registry.publishedLevels[workstreamID] = level
 	effects := []registryEffect{{kind: effectWorkstream, id: workstreamID}}
 	if level == WorkstreamDetailBackground {
-		return effects, true, nil
+		if !wasWindowed || !hadLevel || previousLevel == WorkstreamDetailBackground {
+			return effects, true, nil
+		}
+		previous, err := registry.state.workstreamGraph(workstreamID, previousLevel)
+		if err != nil {
+			return nil, false, err
+		}
+		removed := append([]string{}, appliedGraphChange.RemovedNodeIDs...)
+		for _, node := range previous.Nodes {
+			removed = append(removed, node.ID)
+		}
+		removed = uniqueStrings(removed)
+		if len(removed) == 0 {
+			return effects, true, nil
+		}
+		return append(effects, registryEffect{
+			kind: effectGraph,
+			id:   workstreamID,
+			graph: GraphChange{
+				WorkstreamID:   workstreamID,
+				RemovedNodeIDs: removed,
+			},
+		}), true, nil
 	}
 	graph, err := registry.state.workstreamGraph(workstreamID, level)
 	if err != nil {
@@ -600,13 +622,15 @@ func (registry *Registry) workstreamEvent(workstreamID string, emittedAt string)
 // edges rather than a replacement graph is what keeps a burst of provider events
 // from rebuilding a scene once per event.
 //
-// A background workstream receives none of this: it renders aggregate status,
-// and its status already travels in its registry row. A change larger than one
-// event's bound is split rather than truncated, because a delta that drops part
-// of itself would leave the renderer holding a graph that never existed.
+// A background workstream receives no additions: it renders aggregate status,
+// and its status already travels in its registry row. It does receive removals
+// when it moves from a visible level to background, so the renderer cannot keep
+// drawing stale detail. A change larger than one event's bound is split rather
+// than truncated, because a delta that drops part of itself would leave the
+// renderer holding a graph that never existed.
 func (registry *Registry) graphEvents(change GraphChange, emittedAt string) ([]DirectorEvent, error) {
 	level := registry.detailLevelFor(change.WorkstreamID)
-	if level == WorkstreamDetailBackground {
+	if level == WorkstreamDetailBackground && len(change.RemovedNodeIDs) == 0 {
 		return nil, nil
 	}
 	maxNodes := MaxSnapshotGraphNodes

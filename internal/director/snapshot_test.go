@@ -480,6 +480,29 @@ func TestGraphEventsCarryContentDeltas(t *testing.T) {
 		t.Fatal("a graph event that changes nothing must be rejected")
 	}
 
+	backgroundClear := event
+	backgroundClear.GraphUpdated = &DirectorGraphUpdatedPayload{
+		WorkstreamID:   testParentWorkstream,
+		DetailLevel:    WorkstreamDetailBackground,
+		Nodes:          []SemanticNode{},
+		Edges:          []SemanticEdge{},
+		RemovedNodeIDs: []string{"node-to-clear"},
+	}
+	if err := ValidateDirectorEvent(backgroundClear); err != nil {
+		t.Fatalf("a background graph clear was rejected: %v", err)
+	}
+	backgroundAddition := event
+	backgroundAddition.GraphUpdated = &DirectorGraphUpdatedPayload{
+		WorkstreamID:   testParentWorkstream,
+		DetailLevel:    WorkstreamDetailBackground,
+		Nodes:          []SemanticNode{testNode()},
+		Edges:          []SemanticEdge{},
+		RemovedNodeIDs: []string{},
+	}
+	if err := ValidateDirectorEvent(backgroundAddition); err == nil {
+		t.Fatal("a background graph event added visible detail")
+	}
+
 	foreign := event
 	node := testNode()
 	node.WorkstreamID = testOtherWorkstream

@@ -17,12 +17,6 @@ import (
 // app-scoped order, so this fold is the whole mapping from durable truth to what
 // the command center shows.
 
-// registrationFactPrefix derives the id of the registration fact a conversation
-// produces. Registration is derived rather than written: the durable conversation
-// record already says a workstream exists, and a second durable record of the
-// same fact could disagree with it.
-const registrationFactPrefix = "director-fact:workstream_registered:"
-
 // WorkspaceResources is the folder metadata the registry reads. Resolving a
 // bound folder and offering one to new work are different questions: a
 // workstream keeps its folder resource after the folder is closed, so lookups
@@ -117,17 +111,9 @@ func (state *registryState) applyConversationUpdated(
 	}
 	var effects []registryEffect
 	workstream, known := state.workstreams[state.byConversation[record.ID]]
+	anchorChanged := !known
 	if !known {
 		workstream, err = state.registerConversation(record, workspaces)
-		if err != nil {
-			return nil, err
-		}
-		// A registered workstream is graph state immediately: the user made it,
-		// so it is on the canvas before it has been asked for anything.
-		if err := state.projectWorkstream(workstream); err != nil {
-			return nil, err
-		}
-		effects, err = state.collectGraphChanges()
 		if err != nil {
 			return nil, err
 		}
@@ -138,6 +124,20 @@ func (state *registryState) applyConversationUpdated(
 		}
 		workstream.record.ResourceScope = scope
 		workstream.record.ResourceBindings = bindings
+		anchorChanged = workstream.record.Title != record.Title
+	}
+	// The conversation record is the durable fact that a workstream exists and
+	// what it is currently called. The first record creates the anchor, and a
+	// later title change advances it without treating unrelated run/status
+	// record updates as new graph evidence.
+	if anchorChanged {
+		if err := state.projectWorkstreamRecord(event, workstream, record); err != nil {
+			return nil, err
+		}
+		effects, err = state.collectGraphChanges()
+		if err != nil {
+			return nil, err
+		}
 	}
 	workstream.record.Title = record.Title
 	workstream.archived = record.ArchivedAt != nil
@@ -406,23 +406,22 @@ func (state *registryState) collectGraphChanges() ([]registryEffect, error) {
 	return effects, nil
 }
 
-// projectWorkstream registers a workstream in the graph projector as soon as
-// the registry admits it. Registration is derived rather than written: the
-// durable conversation record already says the workstream exists, and a second
-// durable record of the same fact could disagree with it.
-func (state *registryState) projectWorkstream(workstream *registryWorkstream) error {
-	fact := DirectorFactEvent{
-		ID:           registrationFactPrefix + workstream.record.ID,
-		EmittedAt:    workstream.record.CreatedAt,
-		Kind:         DirectorFactWorkstreamRegistered,
-		WorkstreamID: &workstream.record.ID,
-		Actor:        SemanticActorSystem,
-		WorkstreamRegistered: &DirectorWorkstreamRegistered{
-			Title:          workstream.record.Title,
-			ConversationID: workstream.conversationID,
-			ParentID:       copyOptionalString(workstream.record.ParentID),
-			ResourceScope:  workstream.record.ResourceScope,
-		},
+// projectWorkstreamRecord projects the canonical conversation.updated event
+// instead of manufacturing a registration fact id. SourceEventIDs are durable
+// event ids by contract, so the anchor must point back to the record the store
+// actually committed.
+func (state *registryState) projectWorkstreamRecord(
+	event conversation.CommittedEvent,
+	workstream *registryWorkstream,
+	record conversation.TopicConversation,
+) error {
+	projection := WorkstreamRecordProjection{
+		ID:             event.ID,
+		EmittedAt:      event.CommittedAt,
+		WorkstreamID:   workstream.record.ID,
+		ConversationID: workstream.conversationID,
+		Title:          record.Title,
+		ParentID:       copyOptionalString(workstream.record.ParentID),
 	}
-	return state.applyProjectorEvent(ProjectorEvent{Director: &fact})
+	return state.applyProjectorEvent(ProjectorEvent{WorkstreamRecord: &projection})
 }

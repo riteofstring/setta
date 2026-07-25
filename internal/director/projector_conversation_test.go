@@ -96,6 +96,33 @@ func laneNode(t *testing.T, projector *DirectorGraphProjector, identity Semantic
 	return projector.lane.nodes[index]
 }
 
+func laneFollowedBy(
+	t *testing.T,
+	projector *DirectorGraphProjector,
+	fromIdentity SemanticNodeIdentity,
+	fromSourceID string,
+	toIdentity SemanticNodeIdentity,
+	toSourceID string,
+) bool {
+	t.Helper()
+	from, err := SemanticNodeID(fromIdentity, fromSourceID)
+	if err != nil {
+		t.Fatalf("from SemanticNodeID: %v", err)
+	}
+	to, err := SemanticNodeID(toIdentity, toSourceID)
+	if err != nil {
+		t.Fatalf("to SemanticNodeID: %v", err)
+	}
+	for _, edge := range projector.lane.edges {
+		if edge.Kind == SemanticEdgeFollowedBy &&
+			edge.FromNodeID == from &&
+			edge.ToNodeID == to {
+			return true
+		}
+	}
+	return false
+}
+
 // TestDirectorTurnIsProjectedIntoItsOwnLane proves the Director's conversation
 // is real graph state: the request, the tool it called, the receipt that
 // resolved the call, and the reply are all drawn, in the order they happened,
@@ -202,5 +229,140 @@ func TestDirectorToolReceiptRequiresItsCall(t *testing.T) {
 	err := projector.Apply(ProjectorEvent{Sequence: 2, DirectorConversation: &receipt})
 	if err == nil {
 		t.Fatal("a receipt resolved a call that was never recorded")
+	}
+}
+
+// TestDirectorToolReceiptDoesNotRewindTheLane proves resolving an earlier call
+// does not make the reply skip durable work the handler committed before the
+// receipt. This is the production create order: request, call, decision,
+// workstream record, receipt, reply.
+func TestDirectorToolReceiptDoesNotRewindTheLane(t *testing.T) {
+	turn := directorLaneTurn(true)
+	projector := NewDirectorGraphProjector()
+	for index := 0; index < 2; index++ {
+		entry := turn[index]
+		if err := projector.Apply(ProjectorEvent{
+			Sequence:             index + 1,
+			DirectorConversation: &entry,
+		}); err != nil {
+			t.Fatalf("apply director entry %s: %v", entry.ID, err)
+		}
+	}
+	target := "workstream:conversation-created"
+	decision := DirectorFactEvent{
+		ID:        "decision-create",
+		EmittedAt: "2026-07-25T12:00:01.5Z",
+		Kind:      DirectorFactDecisionCommitted,
+		Actor:     SemanticActorDirector,
+		DecisionCommitted: &DirectorDecisionCommitted{
+			Decision:           DirectorDecisionCreateWorkstream,
+			IntentID:           "director-intent-1",
+			PublicSummary:      "Started the workstream \"Parser rewrite\".",
+			TargetWorkstreamID: &target,
+		},
+	}
+	if err := projector.Apply(ProjectorEvent{Sequence: 3, Director: &decision}); err != nil {
+		t.Fatalf("apply create decision: %v", err)
+	}
+	for index := 2; index < len(turn); index++ {
+		entry := turn[index]
+		if err := projector.Apply(ProjectorEvent{
+			Sequence:             index + 2,
+			DirectorConversation: &entry,
+		}); err != nil {
+			t.Fatalf("apply director entry %s: %v", entry.ID, err)
+		}
+	}
+
+	for _, edge := range []struct {
+		fromIdentity SemanticNodeIdentity
+		fromSource   string
+		toIdentity   SemanticNodeIdentity
+		toSource     string
+	}{
+		{SemanticNodeIdentityDirectorTurn, "entry-request", SemanticNodeIdentityToolCall, "entry-call"},
+		{SemanticNodeIdentityToolCall, "entry-call", SemanticNodeIdentityDecision, "decision-create"},
+		{SemanticNodeIdentityDecision, "decision-create", SemanticNodeIdentityDirectorReply, "entry-reply"},
+	} {
+		if !laneFollowedBy(
+			t,
+			projector,
+			edge.fromIdentity,
+			edge.fromSource,
+			edge.toIdentity,
+			edge.toSource,
+		) {
+			t.Fatalf(
+				"director lane omitted followed_by %s:%s -> %s:%s: %+v",
+				edge.fromIdentity,
+				edge.fromSource,
+				edge.toIdentity,
+				edge.toSource,
+				projector.lane.edges,
+			)
+		}
+	}
+	if laneFollowedBy(
+		t,
+		projector,
+		SemanticNodeIdentityToolCall,
+		"entry-call",
+		SemanticNodeIdentityDirectorReply,
+		"entry-reply",
+	) {
+		t.Fatalf("the receipt rewound the reply around the decision: %+v", projector.lane.edges)
+	}
+}
+
+func TestDirectorToolReceiptMustMatchOneUnresolvedCall(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(*conversation.DirectorConversationEntry)
+	}{
+		{
+			name: "turn",
+			mutate: func(entry *conversation.DirectorConversationEntry) {
+				entry.TurnID = "director-intent-other"
+			},
+		},
+		{
+			name: "tool",
+			mutate: func(entry *conversation.DirectorConversationEntry) {
+				entry.Tool.Tool = "rename_workstream"
+			},
+		},
+		{
+			name: "payload tool",
+			mutate: func(entry *conversation.DirectorConversationEntry) {
+				entry.Tool.Payload = json.RawMessage(
+					`{"tool":"rename_workstream","summary":"Renamed it."}`,
+				)
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			turn := directorLaneTurn(true)
+			projector := projectDirectorLane(t, turn[:2])
+			receipt := turn[2]
+			testCase.mutate(&receipt)
+			if err := projector.Apply(ProjectorEvent{
+				Sequence:             3,
+				DirectorConversation: &receipt,
+			}); err == nil {
+				t.Fatalf("a receipt with mismatched %s resolved the call", testCase.name)
+			}
+		})
+	}
+
+	turn := directorLaneTurn(true)
+	projector := projectDirectorLane(t, turn[:3])
+	duplicate := turn[2]
+	duplicate.ID = "entry-receipt-duplicate"
+	duplicate.RecordedAt = "2026-07-25T12:00:02.5Z"
+	if err := projector.Apply(ProjectorEvent{
+		Sequence:             4,
+		DirectorConversation: &duplicate,
+	}); err == nil {
+		t.Fatal("a second receipt resolved the same call")
 	}
 }

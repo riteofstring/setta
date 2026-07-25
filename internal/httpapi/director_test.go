@@ -193,9 +193,14 @@ type httpTestDirectorService struct {
 func newHTTPTestDirectorService() *httpTestDirectorService {
 	return &httpTestDirectorService{
 		snapshot: director.DirectorSnapshot{
-			SchemaVersion:              director.DirectorContractSchemaVersion,
-			Workstreams:                []director.DirectorWorkstreamEntry{},
-			Graphs:                     []director.WorkstreamGraph{},
+			SchemaVersion: director.DirectorContractSchemaVersion,
+			Workstreams:   []director.DirectorWorkstreamEntry{},
+			Graphs: []director.WorkstreamGraph{{
+				WorkstreamID: director.DirectorLaneID,
+				DetailLevel:  director.WorkstreamDetailSelected,
+				Nodes:        []director.SemanticNode{},
+				Edges:        []director.SemanticEdge{},
+			}},
 			UnresolvedApprovals:        []director.ApprovalRequest{},
 			UnresolvedResourceRequests: []director.ResourceRequest{},
 			Artifacts:                  []director.WorkstreamArtifact{},

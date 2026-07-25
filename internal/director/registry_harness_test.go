@@ -30,6 +30,7 @@ type registryHarness struct {
 	accepted   map[string]string
 	workspaces map[string]workspace.WorkspaceSummary
 	records    map[string]conversation.TopicConversation
+	lastEvent  string
 }
 
 func newRegistryHarness(t *testing.T) *registryHarness {
@@ -147,6 +148,7 @@ func (harness *registryHarness) publish(
 		if err != nil {
 			return err
 		}
+		harness.lastEvent = eventID
 		_, err = transaction.AppendCommittedEvent(conversation.CommittedEventDraft{
 			ID:          eventID,
 			StreamID:    streamID,

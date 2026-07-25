@@ -281,11 +281,11 @@ an empty dynamic-tool set into the spawned session
 restart would therefore come back able to talk and unable to act.
 
 Setta owns the Director conversation instead of the provider. Director user
-turns, assistant replies, tool calls, and tool receipts are durable in
-`director_conversation_entries`, and the first turn of each app run starts a
-fresh provider thread with the `setta` namespace attached and that history
-replayed into it. `director_thread` records which provider thread is carrying
-the conversation now.
+turns, assistant replies, tool calls, and tool receipts are durable in the
+app-scoped committed log, and the first turn of each app run starts a fresh
+provider thread with the `setta` namespace attached and that history replayed
+into it. `director_thread` records which provider thread is carrying the
+conversation now.
 
 This keeps a single path, so MCP is not needed for the Director. It should be
 revisited only if Codex adds dynamic tools to thread resume, or if the Director
@@ -377,11 +377,14 @@ is drawn as itself, before anything has been asked of it.
 
 The registry projects it when it admits the workstream rather than when the
 workstream produces its first graph fact, so the anchor and its pushed delta
-arrive with the conversation record. Parentage is therefore published ahead of
-the conversation record it describes: a reader that admits work as soon as it
-exists must know where that work came from before it draws it. A create decision
-draws its `delegated_to` edge onto the child's anchor, which is what the decision
-delegated to, rather than onto whichever fact the child happens to produce first.
+arrive with the conversation record. The committed `conversation.updated` event
+owns the anchor's provenance, and a later rename advances that same anchor
+without rewinding the workstream's causal chain. Parentage is therefore
+published ahead of the conversation record it describes: a reader that admits
+work as soon as it exists must know where that work came from before it draws
+it. A create decision draws its `delegated_to` edge onto the child's anchor,
+which is what the decision delegated to, rather than onto whichever fact the
+child happens to produce first.
 
 #### Resolved: the Director is drawn in a lane of its own
 

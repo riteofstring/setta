@@ -209,8 +209,9 @@ type DirectorGraphUpdatedPayload struct {
 	DetailLevel  WorkstreamDetailLevel `json:"detailLevel"`
 	Nodes        []SemanticNode        `json:"nodes"`
 	Edges        []SemanticEdge        `json:"edges"`
-	// RemovedNodeIDs are nodes compacted out of the live window. They are not
-	// deletions of durable history.
+	// RemovedNodeIDs are nodes compacted out of the live window or cleared when
+	// a workstream moves to background detail. They are not deletions of durable
+	// history.
 	RemovedNodeIDs []string `json:"removedNodeIds"`
 }
 

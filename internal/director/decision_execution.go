@@ -27,9 +27,9 @@ import (
 //     the affordance the pane world could only derive from a routing failure
 //     code.
 //
-// The Director's own reply is committed as an app-scoped decision that happens
-// in no workstream, because prose starts work nowhere. It is still durable: the
-// answer is what the user was told, and it is what their next request answers.
+// The Director's reply is not a decision. It is durable once, in the Director
+// conversation, because prose is what the user was told and never proof that
+// app state changed.
 
 // resourceRequestSummaries are the public sentences a blocked-on-resource
 // workstream shows. They are keyed by the typed resource kind rather than

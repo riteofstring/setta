@@ -68,6 +68,50 @@ describe("Director command-center state", () => {
     expect(removed.graphs[0]?.nodes.map((record) => record.id)).toEqual(["done"]);
     expect(removed.graphs[0]?.edges).toEqual([]);
   });
+
+  test("retains cross-workstream edges until their target leaves the live window", () => {
+    const parentDecision = node("decision", "director_decision");
+    const childAnchor = {
+      ...node("child-anchor", "workstream"),
+      runId: null,
+      workstreamId: "workstream:child",
+    };
+    const delegated: WorkstreamGraph["edges"][number] = {
+      createdAt: "2026-07-25T17:01:00Z",
+      fromNodeId: parentDecision.id,
+      fromWorkstreamId: "workstream:alpha",
+      id: "edge:decision-child",
+      kind: "delegated_to",
+      sourceEventIds: ["event:delegation"],
+      toNodeId: childAnchor.id,
+      toWorkstreamId: "workstream:child",
+    };
+    const initial = snapshot();
+    initial.graphs = [
+      {
+        ...initial.graphs[0]!,
+        edges: [delegated],
+        nodes: [parentDecision],
+      },
+      {
+        detailLevel: "adjacent",
+        edges: [],
+        hasEarlier: false,
+        nodes: [childAnchor],
+        workstreamId: "workstream:child",
+      },
+    ];
+
+    const parentUpdated = applyDirectorEvent(initial, graphEvent(1, [node("later")], []));
+    expect(parentUpdated.graphs[0]?.edges).toEqual([delegated]);
+
+    const childRemoved = applyDirectorEvent(parentUpdated, {
+      ...baseEvent(2, "director.workstream.removed"),
+      workstreamRemoved: { workstreamId: "workstream:child" },
+    });
+    expect(childRemoved.graphs.map((graph) => graph.workstreamId)).toEqual(["workstream:alpha"]);
+    expect(childRemoved.graphs[0]?.edges).toEqual([]);
+  });
 });
 
 function snapshot(): DirectorSnapshot {

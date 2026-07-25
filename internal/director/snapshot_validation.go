@@ -736,10 +736,16 @@ func validateGraphUpdateDetailLevel(payload DirectorGraphUpdatedPayload) error {
 	if payload.DetailLevel != WorkstreamDetailBackground {
 		return nil
 	}
-	if !graphChangeIsEmpty(payload.Nodes, payload.Edges, payload.RemovedNodeIDs) {
-		return fmt.Errorf("background workstream %s must not receive graph content", payload.WorkstreamID)
+	if len(payload.Nodes) > 0 || len(payload.Edges) > 0 {
+		return fmt.Errorf("background workstream %s must not receive graph additions", payload.WorkstreamID)
 	}
-	return fmt.Errorf("background workstream %s must receive aggregate updates instead of graph events", payload.WorkstreamID)
+	if len(payload.RemovedNodeIDs) == 0 {
+		return fmt.Errorf(
+			"background workstream %s must receive graph removals or aggregate updates",
+			payload.WorkstreamID,
+		)
+	}
+	return nil
 }
 
 func validateGraphUpdateBounds(payload DirectorGraphUpdatedPayload) error {

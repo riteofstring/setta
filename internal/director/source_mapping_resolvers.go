@@ -218,10 +218,16 @@ func PlanStepNodeID(sourceEventID string, stepIndex int) (string, error) {
 // Adding a trajectory event kind, activity kind, or lifecycle status without a
 // decision here fails loudly.
 func ValidateSourceFactCoverage() error {
+	if err := validateWorkstreamRecordFactCoverage(); err != nil {
+		return err
+	}
 	if err := validateTrajectoryFactCoverage(); err != nil {
 		return err
 	}
 	if err := validateDirectorFactCoverage(); err != nil {
+		return err
+	}
+	if err := validateDirectorConversationFactCoverage(); err != nil {
 		return err
 	}
 	if err := validateResolverCoverage(); err != nil {
@@ -236,10 +242,14 @@ func ValidateSourceFactCoverage() error {
 // a renderer ends up inventing a source for it.
 func validateNodeKindCoverage() error {
 	produced := make(map[SemanticNodeKind]bool, len(semanticNodeKinds))
+	markProducedNodeKind(produced, workstreamRecordFactRule)
 	for _, rule := range trajectoryFactRules {
 		markProducedNodeKind(produced, rule)
 	}
 	for _, rule := range directorFactRules {
+		markProducedNodeKind(produced, rule)
+	}
+	for _, rule := range directorConversationFactRules {
 		markProducedNodeKind(produced, rule)
 	}
 	if err := markResolvedNodeKinds(produced); err != nil {
@@ -318,6 +328,13 @@ func validateTrajectoryFactCoverage() error {
 	return nil
 }
 
+func validateWorkstreamRecordFactCoverage() error {
+	return validateSourceFactRule(
+		string(conversation.ConversationEventTypeConversationUpdated),
+		workstreamRecordFactRule,
+	)
+}
+
 func validateDirectorFactCoverage() error {
 	for _, fact := range directorSourceFacts {
 		rule, err := DirectorFactRule(fact)
@@ -333,6 +350,27 @@ func validateDirectorFactCoverage() error {
 			"source fact mapping has %d rules for %d director facts",
 			len(directorFactRules),
 			len(directorSourceFacts),
+		)
+	}
+	return nil
+}
+
+func validateDirectorConversationFactCoverage() error {
+	kinds := conversation.DirectorConversationEntryKinds()
+	for _, kind := range kinds {
+		rule, err := DirectorConversationFactRule(kind)
+		if err != nil {
+			return err
+		}
+		if err := validateSourceFactRule(string(kind), rule); err != nil {
+			return err
+		}
+	}
+	if len(directorConversationFactRules) != len(kinds) {
+		return fmt.Errorf(
+			"source fact mapping has %d rules for %d director conversation entry kinds",
+			len(directorConversationFactRules),
+			len(kinds),
 		)
 	}
 	return nil

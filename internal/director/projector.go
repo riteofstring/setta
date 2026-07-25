@@ -20,12 +20,14 @@ import (
 const MaxNodePublicSummaryRunes = 240
 
 // ProjectorEvent is one durable fact at its position in the app-scoped stream.
-// Exactly one of the three owners is populated: conversation trajectory events
-// own what happened inside a conversation, Director facts own app-scoped truth,
-// and Director conversation entries own the dialogue the user is having with
-// the app itself.
+// Exactly one of the four owners is populated: workstream records own the
+// durable existence and current title of a workstream, conversation trajectory
+// events own what happened inside it, Director facts own app-scoped truth, and
+// Director conversation entries own the dialogue the user is having with the
+// app itself.
 type ProjectorEvent struct {
 	Sequence             int
+	WorkstreamRecord     *WorkstreamRecordProjection
 	Trajectory           *conversation.TrajectoryEvent
 	Director             *DirectorFactEvent
 	DirectorConversation *conversation.DirectorConversationEntry
@@ -36,6 +38,7 @@ type ProjectorEvent struct {
 func (event ProjectorEvent) owners() int {
 	count := 0
 	for _, populated := range []bool{
+		event.WorkstreamRecord != nil,
 		event.Trajectory != nil,
 		event.Director != nil,
 		event.DirectorConversation != nil,
@@ -50,6 +53,8 @@ func (event ProjectorEvent) owners() int {
 // sourceEventID is the durable id of whichever fact the event carries.
 func (event ProjectorEvent) sourceEventID() string {
 	switch {
+	case event.WorkstreamRecord != nil:
+		return event.WorkstreamRecord.ID
 	case event.Trajectory != nil:
 		return event.Trajectory.ID
 	case event.Director != nil:
@@ -90,12 +95,17 @@ type DirectorGraphProjector struct {
 	trajectorySequence map[string]int
 	selected           *string
 	pendingDelegation  []pendingDelegation
+	directorTurnIDs    map[string]bool
+	directorToolCalls  map[string]directorToolCallProjection
 	// lane is the Director's own graph scope. It exists from the first frame
 	// because the Director conversation exists from the first frame; what it
 	// holds is only ever what the user and the Director actually did.
 	lane *projectedWorkstream
 	// openTurnNodeID is the Director request the lane has not closed yet.
 	openTurnNodeID string
+	// openTurnID is the durable turn that request belongs to. Calls, receipts,
+	// and replies must all name it so one turn cannot resolve another.
+	openTurnID string
 }
 
 // pendingDelegation remembers a committed decision until the target workstream
@@ -184,6 +194,8 @@ func NewDirectorGraphProjector() *DirectorGraphProjector {
 		sourceEventOwners:  map[string]string{},
 		nodeBySourceEvent:  map[string]string{},
 		trajectorySequence: map[string]int{},
+		directorTurnIDs:    map[string]bool{},
+		directorToolCalls:  map[string]directorToolCallProjection{},
 		lane:               lane,
 	}
 }
@@ -214,6 +226,8 @@ func (projector *DirectorGraphProjector) Apply(event ProjectorEvent) error {
 	}
 	var err error
 	switch {
+	case event.WorkstreamRecord != nil:
+		err = projector.applyWorkstreamRecord(*event.WorkstreamRecord)
 	case event.Trajectory != nil:
 		err = projector.applyTrajectory(event.Sequence, *event.Trajectory)
 	case event.Director != nil:
@@ -227,6 +241,8 @@ func (projector *DirectorGraphProjector) Apply(event ProjectorEvent) error {
 	projector.lastSequence = event.Sequence
 	projector.sourceEventIDs[sourceEventID] = true
 	switch {
+	case event.WorkstreamRecord != nil:
+		projector.sourceEventOwners[sourceEventID] = event.WorkstreamRecord.WorkstreamID
 	case event.Trajectory != nil:
 		projector.sourceEventOwners[sourceEventID] = projector.byConversation[event.Trajectory.ConversationID]
 	case event.Director != nil:

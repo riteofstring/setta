@@ -53,6 +53,12 @@ var directorConversationActors = map[conversation.DirectorConversationEntryKind]
 	conversation.DirectorConversationAssistantText: SemanticActorDirector,
 }
 
+type directorToolCallProjection struct {
+	turnID   string
+	tool     string
+	resolved bool
+}
+
 func (projector *DirectorGraphProjector) applyDirectorConversation(
 	entry conversation.DirectorConversationEntry,
 ) error {
@@ -87,6 +93,9 @@ func projectDirectorUserTurn(
 	context factContext,
 	entry conversation.DirectorConversationEntry,
 ) error {
+	if projector.directorTurnIDs[entry.TurnID] {
+		return fmt.Errorf("director turn %s records more than one user request", entry.TurnID)
+	}
 	nodeID, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityDirectorTurn,
 		sourceID: entry.ID,
@@ -103,7 +112,9 @@ func projectDirectorUserTurn(
 	if err := projector.closeDirectorTurn(context); err != nil {
 		return err
 	}
+	projector.directorTurnIDs[entry.TurnID] = true
 	projector.openTurnNodeID = nodeID
+	projector.openTurnID = entry.TurnID
 	return nil
 }
 
@@ -115,7 +126,10 @@ func projectDirectorToolCall(
 	context factContext,
 	entry conversation.DirectorConversationEntry,
 ) error {
-	_, err := projector.commitNode(context, nodeSpec{
+	if err := projector.requireOpenDirectorTurn(entry); err != nil {
+		return err
+	}
+	nodeID, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityToolCall,
 		sourceID: entry.ID,
 		kind:     SemanticNodeAction,
@@ -125,7 +139,17 @@ func projectDirectorToolCall(
 		evidence: EvidenceRuntimeFact,
 		chain:    true,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	projector.directorToolCalls[entry.ID] = directorToolCallProjection{
+		turnID: entry.TurnID,
+		tool:   entry.Tool.Tool,
+	}
+	if nodeID == "" {
+		return fmt.Errorf("director tool call %s produced no node", entry.ID)
+	}
+	return nil
 }
 
 // projectDirectorToolReceipt resolves the call it answers. A refused call is a
@@ -136,31 +160,79 @@ func projectDirectorToolReceipt(
 	context factContext,
 	entry conversation.DirectorConversationEntry,
 ) error {
-	nodeID, err := SemanticNodeID(SemanticNodeIdentityToolCall, *entry.Tool.CallID)
-	if err != nil {
+	if err := projector.requireOpenDirectorTurn(entry); err != nil {
 		return err
 	}
-	if _, exists := projector.lane.nodeIndex[nodeID]; !exists {
+	callID := *entry.Tool.CallID
+	call, exists := projector.directorToolCalls[callID]
+	if !exists {
 		return fmt.Errorf(
 			"director tool receipt %s answers call %s, which was never recorded",
 			entry.ID,
-			*entry.Tool.CallID,
+			callID,
 		)
+	}
+	if call.resolved {
+		return fmt.Errorf("director tool receipt %s answers call %s twice", entry.ID, callID)
+	}
+	if entry.TurnID != call.turnID {
+		return fmt.Errorf(
+			"director tool receipt %s belongs to turn %s, not call %s turn %s",
+			entry.ID,
+			entry.TurnID,
+			callID,
+			call.turnID,
+		)
+	}
+	if entry.Tool.Tool != call.tool {
+		return fmt.Errorf(
+			"director tool receipt %s reports %s, not call %s tool %s",
+			entry.ID,
+			entry.Tool.Tool,
+			callID,
+			call.tool,
+		)
+	}
+	nodeID, err := SemanticNodeID(SemanticNodeIdentityToolCall, *entry.Tool.CallID)
+	if err != nil {
+		return err
 	}
 	var receipt SettaToolReceipt
 	if err := json.Unmarshal(entry.Tool.Payload, &receipt); err != nil {
 		return fmt.Errorf("decode setta tool receipt %s: %w", entry.ID, err)
 	}
+	if receipt.Tool != call.tool {
+		return fmt.Errorf(
+			"director tool receipt %s payload reports %s, not call %s tool %s",
+			entry.ID,
+			receipt.Tool,
+			callID,
+			call.tool,
+		)
+	}
+	if err := validateTrimmedText("director tool receipt summary", receipt.Summary); err != nil {
+		return err
+	}
 	status := SemanticNodeStatusFailed
 	if entry.Tool.Succeeded {
 		status = SemanticNodeStatusSucceeded
 	}
+	chainAnchor := projector.lane.lastNodeID
 	_, err = projector.commitNode(context, nodeSpec{
 		nodeID:  nodeID,
 		status:  status,
 		summary: receipt.Summary,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	// Resolving an earlier call updates that node without moving chronological
+	// time backwards. A decision the handler committed between the call and its
+	// receipt remains what the next Director fact follows.
+	projector.lane.lastNodeID = chainAnchor
+	call.resolved = true
+	projector.directorToolCalls[callID] = call
+	return nil
 }
 
 // projectDirectorReply draws what the Director told the user and closes the
@@ -172,6 +244,9 @@ func projectDirectorReply(
 	context factContext,
 	entry conversation.DirectorConversationEntry,
 ) error {
+	if err := projector.requireOpenDirectorTurn(entry); err != nil {
+		return err
+	}
 	metadata := InterpretationMetadata{
 		InterpretedBy: SemanticActorDirector,
 		Model: InterpretationModelIdentity{
@@ -211,6 +286,7 @@ func (projector *DirectorGraphProjector) closeDirectorTurn(context factContext) 
 		return nil
 	}
 	projector.openTurnNodeID = ""
+	projector.openTurnID = ""
 	anchorNodeID := projector.lane.lastNodeID
 	appliedNodeID := projector.nodeBySourceEvent[context.eventID]
 	if _, err := projector.commitNode(context, nodeSpec{
@@ -222,6 +298,27 @@ func (projector *DirectorGraphProjector) closeDirectorTurn(context factContext) 
 	projector.lane.lastNodeID = anchorNodeID
 	if appliedNodeID != "" {
 		projector.nodeBySourceEvent[context.eventID] = appliedNodeID
+	}
+	return nil
+}
+
+func (projector *DirectorGraphProjector) requireOpenDirectorTurn(
+	entry conversation.DirectorConversationEntry,
+) error {
+	if projector.openTurnID == "" {
+		return fmt.Errorf(
+			"director conversation entry %s of kind %s has no open user turn",
+			entry.ID,
+			entry.Kind,
+		)
+	}
+	if entry.TurnID != projector.openTurnID {
+		return fmt.Errorf(
+			"director conversation entry %s belongs to turn %s, want open turn %s",
+			entry.ID,
+			entry.TurnID,
+			projector.openTurnID,
+		)
 	}
 	return nil
 }

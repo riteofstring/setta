@@ -82,12 +82,12 @@ type DirectorWorkstreamResourceBound struct {
 }
 
 // DirectorDecisionCommitted is a Director decision that already passed trusted
-// validation. Trusted code derives its ids and public summary. Tool arguments
-// and answer text may originate from provider output.
+// validation. Trusted code derives its ids and public summary; provider output
+// can request an action but does not author the durable fact.
 type DirectorDecisionCommitted struct {
 	Decision DirectorDecisionKind `json:"decision"`
 	// IntentID is the submitted intent this decision served. A tool-using turn
-	// can commit several action decisions and then an answer under the same id.
+	// can commit several action decisions under the same id.
 	IntentID      string `json:"intentId"`
 	PublicSummary string `json:"publicSummary"`
 	// TargetWorkstreamID is the authorized target trusted code attached. It is
@@ -153,9 +153,7 @@ type DirectorFactEvent struct {
 	EmittedAt string             `json:"emittedAt"`
 	Kind      DirectorSourceFact `json:"kind"`
 	// WorkstreamID is the workstream the fact happened in. It is null only for a
-	// Director decision that happened in none: an answer and a clarification are
-	// the Director talking to the user rather than work inside a workstream, and
-	// a decision that started a root workstream was made before that workstream
+	// decision that started a root workstream: it was made before that workstream
 	// existed. Every other fact belongs to a workstream, so omitting it fails.
 	WorkstreamID *string `json:"workstreamId"`
 	// RunID binds the fact to a durable run when one caused it, such as a
@@ -197,9 +195,9 @@ func ValidateDirectorFactEvent(fact DirectorFactEvent) error {
 	return validateDirectorFactPayload(fact)
 }
 
-// validateDirectorFactWorkstream requires the workstream every fact but an
-// app-scoped decision happens in. The payload is checked first, because whether
-// a decision is app-scoped is a property of the decision it committed.
+// validateDirectorFactWorkstream requires the workstream every fact but a root
+// creation decision happens in. The payload is checked first, because whether a
+// decision is app-scoped is a property of the decision it committed.
 func validateDirectorFactWorkstream(fact DirectorFactEvent) error {
 	if fact.WorkstreamID != nil {
 		return validateIdentifier("director fact workstream id", *fact.WorkstreamID)

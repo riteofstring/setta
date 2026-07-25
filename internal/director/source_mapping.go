@@ -129,6 +129,20 @@ type SourceFactRule struct {
 	Note          string
 }
 
+// workstreamRecordFactRule maps the durable conversation record that owns a
+// workstream's existence and current title. Registration facts remain part of
+// the fixture/projector catalog, but production anchors are sourced from the
+// real conversation.updated event the registry folded.
+var workstreamRecordFactRule = SourceFactRule{
+	Disposition:   SourceFactUpsertsNode,
+	Resolution:    SourceFactResolutionFixed,
+	NodeKind:      SemanticNodeWorkstream,
+	NodeIdentity:  SemanticNodeIdentityWorkstream,
+	EdgeKinds:     []SemanticEdgeKind{SemanticEdgeDelegatedTo},
+	EvidenceClass: EvidenceRuntimeFact,
+	Note:          "A durable conversation record creates the workstream anchor, and later record updates advance its title and provenance.",
+}
+
 // DirectorSourceFact is a durable Director-owned fact that has no conversation
 // trajectory event, because the app-scoped registry owns it.
 type DirectorSourceFact string
@@ -539,6 +553,12 @@ func DirectorConversationFactRule(
 		return SourceFactRule{}, fmt.Errorf("no source fact rule for director conversation entry kind %q", kind)
 	}
 	return rule, nil
+}
+
+// WorkstreamRecordFactRule returns the rule for the durable conversation
+// record that owns a workstream anchor.
+func WorkstreamRecordFactRule() SourceFactRule {
+	return workstreamRecordFactRule
 }
 
 // DirectorSourceFacts returns the ordered Director-owned fact catalog.

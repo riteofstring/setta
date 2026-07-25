@@ -75,6 +75,10 @@ try {
     created.workstreams[0]?.workstream.id,
     "workspace-scoped Director workstream",
   );
+  const projectedCreation = await waitForDirectorSnapshot(context.client, (snapshot) =>
+    hasProjectedDirectorCreation(snapshot, rootWorkstreamId),
+  );
+  assertProjectedDirectorCreation(projectedCreation, rootWorkstreamId);
   const workspaceSettings = await verifyWorkspaceSettings(context.client, workspaceId);
 
   const normal = await submitDirector(context.client, "Director normal conversation.");
@@ -347,6 +351,21 @@ try {
     folderlessWorkstreamId,
     (workstream) => workstream.title === "Resolved draft",
   );
+  const renamedProjection = await waitForDirectorSnapshot(context.client, (snapshot) => {
+    const graph = snapshot.graphs.find(
+      (candidate) => candidate.workstreamId === folderlessWorkstreamId,
+    );
+    return graph?.nodes.some(
+      (node) =>
+        node.kind === "workstream" &&
+        node.publicSummary === "Resolved draft" &&
+        node.sourceEventIds.length >= 2,
+    );
+  });
+  const renamedAnchor = renamedProjection.graphs
+    .find((graph) => graph.workstreamId === folderlessWorkstreamId)
+    ?.nodes.find((node) => node.kind === "workstream");
+  assertEqual(renamedAnchor?.publicSummary, "Resolved draft", "renamed workstream anchor");
 
   const archivedTurn = await submitDirector(context.client, "Director archive selected.");
   const archivedCall = archivedTurn.submit?.toolCalls.find(
@@ -405,6 +424,7 @@ try {
     "director.workstream.removed",
     "director.workstream.updated",
   ]);
+  assertGraphUpdates(rendererEvents, ["director", rootWorkstreamId]);
   assertExcludes(JSON.stringify(rendererEvents), secretApprovalAnswer, "Director pushed events");
   const durableBeforeRestart = comparableDirectorSnapshot(beforeRestart);
   await writeJson(join(artifactDir, "before-restart.json"), durableBeforeRestart);
@@ -1023,6 +1043,111 @@ function assertEventKinds(events, requiredKinds) {
   if (missing.length > 0) {
     throw new Error(`Director renderer events omitted kinds: ${missing.join(", ")}`);
   }
+}
+
+function assertGraphUpdates(events, requiredWorkstreamIds) {
+  const actual = new Set(
+    events
+      .filter((event) => event.kind === "director.graph.updated")
+      .map((event) => event.graphUpdated?.workstreamId),
+  );
+  const missing = requiredWorkstreamIds.filter((workstreamId) => !actual.has(workstreamId));
+  if (missing.length > 0) {
+    throw new Error(`Director pushed graph updates omitted: ${missing.join(", ")}`);
+  }
+}
+
+function hasProjectedDirectorCreation(snapshot, workstreamId) {
+  try {
+    assertProjectedDirectorCreation(snapshot, workstreamId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function assertProjectedDirectorCreation(snapshot, workstreamId) {
+  const lane = snapshot.graphs.find((graph) => graph.workstreamId === "director");
+  const workstream = snapshot.graphs.find((graph) => graph.workstreamId === workstreamId);
+  if (!lane || !workstream) {
+    throw new Error(
+      `Director creation omitted graph scopes: ${JSON.stringify({
+        graphs: snapshot.graphs.map((graph) => graph.workstreamId),
+        workstreamId,
+      })}`,
+    );
+  }
+  const request = requiredGraphNode(
+    lane,
+    (node) =>
+      node.kind === "user_goal" && node.publicSummary === "Director create workspace workstream.",
+    "Director creation request",
+  );
+  const listed = requiredGraphNode(
+    lane,
+    (node) => node.kind === "action" && node.publicSummary.includes("workspace(s) are open"),
+    "Director list_workspaces call",
+  );
+  const created = requiredGraphNode(
+    lane,
+    (node) =>
+      node.kind === "action" && node.publicSummary === 'Started the workstream "Director root".',
+    "Director create_workstream call",
+  );
+  const decision = requiredGraphNode(
+    lane,
+    (node) =>
+      node.kind === "director_decision" &&
+      node.publicSummary === 'Started the workstream "Director root".',
+    "Director create decision",
+  );
+  const reply = requiredGraphNode(
+    lane,
+    (node) =>
+      node.kind === "milestone" && node.publicSummary === "Created and selected Director root.",
+    "Director creation reply",
+  );
+  for (const [from, to, label] of [
+    [request, listed, "request to list_workspaces"],
+    [listed, created, "list_workspaces to create_workstream"],
+    [created, decision, "create_workstream to decision"],
+    [decision, reply, "decision to reply"],
+  ]) {
+    if (
+      !lane.edges.some(
+        (edge) =>
+          edge.kind === "followed_by" && edge.fromNodeId === from.id && edge.toNodeId === to.id,
+      )
+    ) {
+      throw new Error(`Director creation graph omitted ${label}: ${JSON.stringify(lane.edges)}`);
+    }
+  }
+  const anchor = requiredGraphNode(
+    workstream,
+    (node) =>
+      node.kind === "workstream" &&
+      node.status === "active" &&
+      node.publicSummary === "Director root",
+    "created workstream anchor",
+  );
+  if (
+    anchor.sourceEventIds.length === 0 ||
+    anchor.sourceEventIds.some((eventId) =>
+      eventId.startsWith("director-fact:workstream_registered:"),
+    )
+  ) {
+    throw new Error(
+      `workstream anchor did not carry committed provenance: ${JSON.stringify(anchor)}`,
+    );
+  }
+}
+
+function requiredGraphNode(graph, matches, label) {
+  const node = graph.nodes.find(matches);
+  if (!node) {
+    throw new Error(`${label} was missing: ${JSON.stringify(graph.nodes)}`);
+  }
+  return node;
 }
 
 function comparableDirectorSnapshot(snapshot) {
