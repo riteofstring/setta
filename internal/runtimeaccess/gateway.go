@@ -114,6 +114,16 @@ type GatewayObserver interface {
 	ObserveGatewayRequest(GatewayRequestObservation)
 }
 
+type GatewayAttachment struct {
+	ID          string
+	RuntimeName string
+}
+
+type GatewayAttachmentRecorder interface {
+	BeginGatewayAttachment(context.Context, string) (GatewayAttachment, error)
+	EndGatewayAttachment(context.Context, GatewayAttachment) error
+}
+
 type GatewayObserverFunc func(GatewayRequestObservation)
 
 func (function GatewayObserverFunc) ObserveGatewayRequest(observation GatewayRequestObservation) {
@@ -131,11 +141,12 @@ func (function GatewayRequestClassifierFunc) ClassifyGatewayRequest(method strin
 }
 
 type GatewayConfig struct {
-	Authorizer ClientAuthorizer
-	Classifier GatewayRequestClassifier
-	Clock      func() time.Time
-	Observer   GatewayObserver
-	Routes     RuntimeRouteResolver
+	Attachments GatewayAttachmentRecorder
+	Authorizer  ClientAuthorizer
+	Classifier  GatewayRequestClassifier
+	Clock       func() time.Time
+	Observer    GatewayObserver
+	Routes      RuntimeRouteResolver
 }
 
 // Gateway is the Phase 3 HTTP/SSE routing boundary. The hosting deployable must
@@ -143,17 +154,21 @@ type GatewayConfig struct {
 // route contracts; provider credentials remain confined to each route's
 // transport.
 type Gateway struct {
-	authorizer ClientAuthorizer
-	classifier GatewayRequestClassifier
-	clock      func() time.Time
-	observer   GatewayObserver
-	routes     RuntimeRouteResolver
+	attachments GatewayAttachmentRecorder
+	authorizer  ClientAuthorizer
+	classifier  GatewayRequestClassifier
+	clock       func() time.Time
+	observer    GatewayObserver
+	routes      RuntimeRouteResolver
 }
 
 // NewGateway constructs the private-access routing core.
 func NewGateway(config GatewayConfig) (*Gateway, error) {
 	if config.Authorizer == nil {
 		return nil, fmt.Errorf("client authorizer is required")
+	}
+	if config.Attachments == nil {
+		return nil, fmt.Errorf("gateway attachment recorder is required")
 	}
 	if config.Routes == nil {
 		return nil, fmt.Errorf("runtime route resolver is required")
@@ -165,11 +180,12 @@ func NewGateway(config GatewayConfig) (*Gateway, error) {
 		config.Clock = time.Now
 	}
 	return &Gateway{
-		authorizer: config.Authorizer,
-		classifier: config.Classifier,
-		clock:      config.Clock,
-		observer:   config.Observer,
-		routes:     config.Routes,
+		attachments: config.Attachments,
+		authorizer:  config.Authorizer,
+		classifier:  config.Classifier,
+		clock:       config.Clock,
+		observer:    config.Observer,
+		routes:      config.Routes,
 	}, nil
 }
 
@@ -267,11 +283,42 @@ func (gateway *Gateway) serveHTTP(response http.ResponseWriter, request *http.Re
 	if err != nil {
 		observation.Result = GatewayResultRuntimeUnavailable
 		observation.Status = http.StatusBadGateway
-		writeGatewayError(observedResponse, observation.Status, string(observation.Result))
+		writeGatewayError(response, observation.Status, string(observation.Result))
 		return
 	}
 	defer upstreamResponse.Body.Close()
-	forwardGatewayResponse(observedResponse, upstreamResponse, &observation)
+	gateway.forwardAttachedResponse(
+		requestContext,
+		authorization.RuntimeName,
+		observedResponse,
+		upstreamResponse,
+		&observation,
+	)
+}
+
+func (gateway *Gateway) forwardAttachedResponse(
+	ctx context.Context,
+	runtimeName string,
+	response *gatewayResponseWriter,
+	upstreamResponse *http.Response,
+	observation *GatewayRequestObservation,
+) {
+	attachment, err := gateway.attachments.BeginGatewayAttachment(
+		ctx,
+		runtimeName,
+	)
+	if err != nil {
+		observation.Result = GatewayResultRuntimeUnavailable
+		observation.Status = http.StatusBadGateway
+		writeGatewayError(response, observation.Status, string(observation.Result))
+		return
+	}
+	defer func() {
+		if err := gateway.attachments.EndGatewayAttachment(context.Background(), attachment); err != nil {
+			observation.Result = GatewayResultRuntimeStreamFailed
+		}
+	}()
+	forwardGatewayResponse(response, upstreamResponse, observation)
 }
 
 func (gateway *Gateway) completeObservation(

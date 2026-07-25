@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
+	"setta/internal/runtimeaccess"
 	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeprovider"
 )
@@ -26,6 +28,93 @@ type RecordRuntimeAccountingEventRequest struct {
 type RuntimeAccountingSnapshot struct {
 	Ledger       runtimeaccounting.LedgerState
 	EventsSHA256 string
+}
+
+func (store *Store) BeginGatewayAttachment(
+	ctx context.Context,
+	runtimeName string,
+) (runtimeaccess.GatewayAttachment, error) {
+	if err := runtimeprovider.ValidateManagedName(runtimeName); err != nil {
+		return runtimeaccess.GatewayAttachment{}, err
+	}
+	attachmentID, err := randomIdentifier("attachment")
+	if err != nil {
+		return runtimeaccess.GatewayAttachment{}, err
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return runtimeaccess.GatewayAttachment{}, fmt.Errorf("begin gateway attachment: %w", err)
+	}
+	defer rollback(tx)
+	now := store.clock().UTC()
+	ledger, found, err := readRuntimeAccountingLedger(ctx, tx, runtimeName)
+	if err != nil {
+		return runtimeaccess.GatewayAttachment{}, err
+	}
+	if !found || !ledger.Snapshot().ProviderActive {
+		if err := store.recordProviderAccountingBeginTx(
+			ctx, tx, runtimeName, "provider-gateway:"+attachmentID, now, now,
+		); err != nil {
+			return runtimeaccess.GatewayAttachment{}, err
+		}
+	}
+	if _, err := store.recordRuntimeAccountingTransitionTx(ctx, tx, RecordRuntimeAccountingEventRequest{
+		RuntimeName: runtimeName,
+		Transition: runtimeaccounting.ActivityTransition{
+			EventID: "attachment-begin:" + attachmentID, At: now,
+			Kind: runtimeaccounting.ActivityAttachment, Action: runtimeaccounting.EventBegin,
+			SubjectID: attachmentID,
+		},
+	}, now); err != nil {
+		return runtimeaccess.GatewayAttachment{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return runtimeaccess.GatewayAttachment{}, fmt.Errorf("commit gateway attachment: %w", err)
+	}
+	return runtimeaccess.GatewayAttachment{ID: attachmentID, RuntimeName: runtimeName}, nil
+}
+
+func (store *Store) EndGatewayAttachment(
+	ctx context.Context,
+	attachment runtimeaccess.GatewayAttachment,
+) error {
+	if err := runtimeprovider.ValidateManagedName(attachment.RuntimeName); err != nil {
+		return err
+	}
+	if err := validateIdentifier("gateway attachment id", attachment.ID); err != nil {
+		return err
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin gateway attachment end: %w", err)
+	}
+	defer rollback(tx)
+	ledger, found, err := readRuntimeAccountingLedger(ctx, tx, attachment.RuntimeName)
+	if err != nil {
+		return err
+	}
+	if !found || !slices.Contains(ledger.Snapshot().Attachments, attachment.ID) {
+		return nil
+	}
+	now := store.clock().UTC()
+	if _, err := store.recordRuntimeAccountingTransitionTx(ctx, tx, RecordRuntimeAccountingEventRequest{
+		RuntimeName: attachment.RuntimeName,
+		Transition: runtimeaccounting.ActivityTransition{
+			EventID: "attachment-end:" + attachment.ID, At: now,
+			Kind: runtimeaccounting.ActivityAttachment, Action: runtimeaccounting.EventEnd,
+			SubjectID: attachment.ID,
+		},
+	}, now); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit gateway attachment end: %w", err)
+	}
+	return nil
 }
 
 func (store *Store) recordProviderAccountingBeginTx(

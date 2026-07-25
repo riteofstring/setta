@@ -325,6 +325,7 @@ func startHostedControlPlaneServer(
 		t.Fatal(err)
 	}
 	gateway, err := controlplane.StartServer(controlplane.ServerConfig{
+		Attachments:           store,
 		Authorizer:            store,
 		Dialer:                dialer,
 		ListenAddress:         "127.0.0.1:0",

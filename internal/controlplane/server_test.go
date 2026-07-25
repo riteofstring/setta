@@ -59,6 +59,7 @@ func TestControlPlaneServerRoutesRotatedSecretsAndRejectsBeforeDial(t *testing.T
 	if innerAuthorization.Load() != "Bearer runtime-secret-two" {
 		t.Fatalf("rotated inner authorization = %q", innerAuthorization.Load())
 	}
+	requireBalancedGatewayAccounting(t, ctx, store, runtimeName, 5)
 	dialsBeforeDenial := dialer.calls.Load()
 	response = gatewayRequest(t, server, "missing-client-token", "/workspace-session")
 	if response.StatusCode != http.StatusUnauthorized {
@@ -85,6 +86,22 @@ func TestControlPlaneServerRoutesRotatedSecretsAndRejectsBeforeDial(t *testing.T
 			measurement.FirstResponseMilliseconds < 0 {
 			t.Fatalf("gateway measurement %d = %+v", measurementNumber+1, measurement)
 		}
+	}
+}
+
+func requireBalancedGatewayAccounting(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+	runtimeName string,
+	lastSequence uint64,
+) {
+	t.Helper()
+	accounting, err := store.RuntimeAccountingSnapshot(ctx, runtimeName)
+	if err != nil || !accounting.Ledger.ProviderActive ||
+		len(accounting.Ledger.Attachments) != 0 ||
+		accounting.Ledger.LastSequence != lastSequence {
+		t.Fatalf("gateway accounting = %+v, %v", accounting, err)
 	}
 }
 
@@ -174,6 +191,7 @@ func TestControlPlaneServerRejectsUnboundedBodiesBeforeProviderDial(t *testing.T
 		t.Fatalf("NewJSONLinesObserver: %v", err)
 	}
 	server, err := StartServer(ServerConfig{
+		Attachments:           store,
 		Authorizer:            store,
 		Dialer:                dialer,
 		ListenAddress:         "127.0.0.1:0",
@@ -265,6 +283,7 @@ func startTestServer(
 ) *Server {
 	t.Helper()
 	server, err := StartServer(ServerConfig{
+		Attachments:           store,
 		Authorizer:            store,
 		Dialer:                dialer,
 		ListenAddress:         "127.0.0.1:0",

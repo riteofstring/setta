@@ -347,6 +347,7 @@ func TestGatewayObservesContentFreeBandwidthAndTransportState(t *testing.T) {
 	clockCall := 0
 	var observations []GatewayRequestObservation
 	gateway, err := NewGateway(GatewayConfig{
+		Attachments: testGatewayAttachmentRecorder{},
 		Authorizer: clientAuthorizerFunc(func(context.Context, string) (ClientAuthorization, error) {
 			return ClientAuthorization{Outcome: AuthorizationAllowed, RuntimeName: runtimeName}, nil
 		}),
@@ -422,6 +423,7 @@ func TestGatewayObservesContentFreeBandwidthAndTransportState(t *testing.T) {
 func TestGatewayObservesDenialBeforeRouteOrProviderTransport(t *testing.T) {
 	var observation GatewayRequestObservation
 	gateway, err := NewGateway(GatewayConfig{
+		Attachments: testGatewayAttachmentRecorder{},
 		Authorizer: clientAuthorizerFunc(func(context.Context, string) (ClientAuthorization, error) {
 			t.Fatal("authorizer called without a credential")
 			return ClientAuthorization{}, nil
@@ -474,6 +476,7 @@ func TestGatewayRequiresProductionBoundaryDependencies(t *testing.T) {
 		return ClientAuthorization{Outcome: AuthorizationAllowed, RuntimeName: runtimeName}, nil
 	})
 	observer := GatewayObserverFunc(func(GatewayRequestObservation) {})
+	attachments := testGatewayAttachmentRecorder{}
 	routes := runtimeRouteResolverFunc(func(context.Context, string) (RuntimeRoute, error) {
 		return RuntimeRoute{}, nil
 	})
@@ -481,9 +484,10 @@ func TestGatewayRequiresProductionBoundaryDependencies(t *testing.T) {
 		name   string
 		config GatewayConfig
 	}{
-		{name: "authorizer", config: GatewayConfig{Observer: observer, Routes: routes}},
-		{name: "observer", config: GatewayConfig{Authorizer: authorizer, Routes: routes}},
-		{name: "routes", config: GatewayConfig{Authorizer: authorizer, Observer: observer}},
+		{name: "attachments", config: GatewayConfig{Authorizer: authorizer, Observer: observer, Routes: routes}},
+		{name: "authorizer", config: GatewayConfig{Attachments: attachments, Observer: observer, Routes: routes}},
+		{name: "observer", config: GatewayConfig{Attachments: attachments, Authorizer: authorizer, Routes: routes}},
+		{name: "routes", config: GatewayConfig{Attachments: attachments, Authorizer: authorizer, Observer: observer}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -498,6 +502,19 @@ func TestGatewayRequiresProductionBoundaryDependencies(t *testing.T) {
 }
 
 type clientAuthorizerFunc func(context.Context, string) (ClientAuthorization, error)
+
+type testGatewayAttachmentRecorder struct{}
+
+func (testGatewayAttachmentRecorder) BeginGatewayAttachment(
+	_ context.Context,
+	runtimeName string,
+) (GatewayAttachment, error) {
+	return GatewayAttachment{ID: "attachment", RuntimeName: runtimeName}, nil
+}
+
+func (testGatewayAttachmentRecorder) EndGatewayAttachment(context.Context, GatewayAttachment) error {
+	return nil
+}
 
 func (function clientAuthorizerFunc) AuthorizeClient(ctx context.Context, credential string) (ClientAuthorization, error) {
 	return function(ctx, credential)
@@ -528,9 +545,10 @@ func (recorder *flushingRecorder) Flush() {
 func newTestGateway(t *testing.T, authorizer ClientAuthorizer, routes RuntimeRouteResolver) *Gateway {
 	t.Helper()
 	gateway, err := NewGateway(GatewayConfig{
-		Authorizer: authorizer,
-		Observer:   GatewayObserverFunc(func(GatewayRequestObservation) {}),
-		Routes:     routes,
+		Attachments: testGatewayAttachmentRecorder{},
+		Authorizer:  authorizer,
+		Observer:    GatewayObserverFunc(func(GatewayRequestObservation) {}),
+		Routes:      routes,
 	})
 	if err != nil {
 		t.Fatalf("NewGateway: %v", err)

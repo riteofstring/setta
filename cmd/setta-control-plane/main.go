@@ -162,6 +162,7 @@ func startControlPlaneServices(
 		return controlPlaneServices{}, fmt.Errorf("configure runtime reconciler: %w", err)
 	}
 	server, err := controlplane.StartServer(controlplane.ServerConfig{
+		Attachments:           store,
 		Authorizer:            store,
 		Dialer:                provider,
 		ListenAddress:         net.JoinHostPort(config.Host, strconv.Itoa(config.Port)),

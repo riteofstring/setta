@@ -2431,3 +2431,18 @@ Stop and reassess rather than hiding the problem if any of these occur:
   harmless. A production-boundary test exercises the actual CLI, Unix HTTP
   server, strict decoder, durable store, and snapshot reader. Runtime service
   and gateway producer wiring remain open. No provider or cloud mutation ran.
+- 2026-07-24 (gateway attachment and warm-wake accounting): Made the
+  production gateway require a durable attachment recorder. After an
+  authenticated upstream response proves the private runtime is reachable, the
+  control plane atomically records a provider begin when needed and a unique
+  attachment begin; response streaming completion records attachment end.
+  Concurrent callers do not supply timestamps or sequence, so the store clock
+  serializes both without ordering races. Cutoff or deletion may clear open
+  attachments first, in which case the eventual stream cleanup safely adopts
+  the durable end state. Accounting failure before forwarding fails the
+  request; cleanup failure marks the content-free gateway outcome as a stream
+  failure. Production-path tests prove two authenticated requests create one
+  provider interval and balanced attachment intervals while denial still opens
+  neither provider transport nor accounting activity. In-runtime workload
+  lease production, fixed-window closure, and automatic evidence submission
+  remain open. No provider or cloud mutation ran.

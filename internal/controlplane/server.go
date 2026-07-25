@@ -14,6 +14,7 @@ import (
 )
 
 type ServerConfig struct {
+	Attachments           runtimeaccess.GatewayAttachmentRecorder
 	Authorizer            runtimeaccess.ClientAuthorizer
 	Dialer                runtimeprovider.PrivateAccessDialer
 	ListenAddress         string
@@ -50,10 +51,11 @@ func StartServer(config ServerConfig) (*Server, error) {
 		return nil, err
 	}
 	gateway, err := runtimeaccess.NewGateway(runtimeaccess.GatewayConfig{
-		Authorizer: config.Authorizer,
-		Classifier: runtimeaccess.GatewayRequestClassifierFunc(httpapi.GatewayOperation),
-		Observer:   config.Observer,
-		Routes:     routes,
+		Attachments: config.Attachments,
+		Authorizer:  config.Authorizer,
+		Classifier:  runtimeaccess.GatewayRequestClassifierFunc(httpapi.GatewayOperation),
+		Observer:    config.Observer,
+		Routes:      routes,
 	})
 	if err != nil {
 		_ = routes.Close()
@@ -116,7 +118,8 @@ func (server *Server) Wait() error {
 }
 
 func validateServerConfig(config ServerConfig) error {
-	if config.Authorizer == nil || config.Observer == nil || config.Routes == nil || config.Secrets == nil || config.Dialer == nil {
+	if config.Attachments == nil || config.Authorizer == nil || config.Observer == nil ||
+		config.Routes == nil || config.Secrets == nil || config.Dialer == nil {
 		return errors.New("control-plane server dependencies are required")
 	}
 	if config.ListenAddress == "" {
