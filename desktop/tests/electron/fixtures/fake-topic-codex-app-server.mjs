@@ -7,26 +7,51 @@ import {
   threadHasArtifactTool,
 } from "./fake-topic-artifact-tool.mjs";
 import { artifactToolResponseAction } from "./fake-topic-artifact-turns.mjs";
+import {
+  emitSimultaneousAudioHoldProgress,
+  listCursorOffset,
+  listLimit,
+  optionalNonNegativeIntegerEnvironment,
+  scriptedMasterClarificationConfirmationDecision,
+  scriptedMasterFocusDecision,
+  scriptedMasterFolderlessClarificationDecision,
+  scriptedMasterFolderlessRecentFocusDecision,
+  validSideBoundary,
+  validSideContextFrame,
+  validStructuredMasterRouteContext,
+} from "./fake-topic-codex-app-server-helpers.mjs";
+import { createExactStructuredInputRoutes } from "./fake-topic-codex-input-routes.mjs";
+import * as restrictedThread from "./fake-topic-codex-restricted-thread.mjs";
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
   "SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS",
 );
-const turnDelayMs = optionalNonNegativeIntegerEnvironment("SETTA_E2E_TOPIC_CODEX_TURN_DELAY_MS");
 const persistedState = readPersistedState();
 let threadCounter = persistedState.threadCounter;
 let turnCounter = persistedState.turnCounter;
 let approvalCounter = persistedState.approvalCounter;
+let crashCounter = persistedState.crashCounter;
 let toolCallCounter = persistedState.toolCallCounter;
-const threads = new Map(persistedState.threads.map((thread) => [thread.id, thread]));
+let processGeneration = persistedState.processGeneration + 1;
+let methodSequence = persistedState.methodLog.reduce(
+  (max, entry) => Math.max(max, entry.sequence ?? 0),
+  0,
+);
+const methodLog = [...persistedState.methodLog];
+const durableThreads = new Map(persistedState.threads.map((thread) => [thread.id, thread]));
+const loadedThreads = new Map();
 const turns = new Map(persistedState.turns.map((turn) => [turn.id, turn]));
 const heldTurns = new Map();
 const pendingApprovals = new Map();
 const pendingToolCalls = new Map();
+const crashAfterCompletedTurns = new Set();
+const failedDirectorInputs = new Set();
 const simultaneousCompletionInput = "complete simultaneous audio now";
 const pendingSimultaneousCompletions = [];
 const heldStructuredKeys = new Set(persistedState.heldStructuredKeys);
 const heldTurnStartKeys = new Set(persistedState.heldTurnStartKeys);
 let account = null;
+persistState();
 const methodHandlers = new Map([
   ["account/login/start", startAccountLogin],
   ["account/logout", logoutAccount],
@@ -40,6 +65,7 @@ const methodHandlers = new Map([
   ["thread/start", startThread],
   ["thread/resume", resumeThread],
   ["thread/read", readThread],
+  ["thread/list", listThreads],
   ["thread/unsubscribe", unsubscribeThread],
   ["thread/backgroundTerminals/terminate", terminateBackgroundTerminals],
   ["turn/start", startTurn],
@@ -124,7 +150,11 @@ function readConfig(message) {
   });
 }
 function unsubscribeThread(message) {
-  respond(message.id, { status: "unsubscribed" });
+  const threadId = requiredString(message.params ?? {}, "threadId");
+  recordProviderMethod("thread/unsubscribe", message.params ?? {}, { threadId });
+  const status = loadedThreads.delete(threadId) ? "unsubscribed" : "notLoaded";
+  persistState();
+  respond(message.id, { status });
 }
 function terminateBackgroundTerminals(message) {
   respond(message.id, { terminated: true });
@@ -133,13 +163,14 @@ function startThread(message) {
   const params = message.params ?? {};
   const restricted = params.allowProviderModelFallback === false;
   if (restricted) {
-    assertRestrictedThreadParams(params, true);
+    restrictedThread.assertRestrictedThreadParams(params, true);
   }
   const delayInitialResponse = threadCounter === 0 && initialThreadStartDelayMs > 0;
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
   const state = startThreadState(params, threadId, restricted);
-  threads.set(threadId, state);
+  loadedThreads.set(threadId, state);
+  recordProviderMethod("thread/start", params, { threadId });
   persistState();
   const sendResponse = () =>
     respond(message.id, threadOperationResponse(fakeThread(threadId), state));
@@ -149,17 +180,6 @@ function startThread(message) {
   }
   sendResponse();
 }
-function optionalNonNegativeIntegerEnvironment(name) {
-  const raw = process.env[name] ?? "";
-  if (raw === "") {
-    return 0;
-  }
-  const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`${name} must be a non-negative integer`);
-  }
-  return value;
-}
 function startThreadState(params, threadId, restricted) {
   return {
     approvalPolicy: params.approvalPolicy ?? null,
@@ -168,7 +188,7 @@ function startThreadState(params, threadId, restricted) {
     dynamicTools: params.dynamicTools ?? [],
     ephemeral: params.ephemeral === true,
     id: threadId,
-    model: requiredString(params, "model"),
+    model: params.model ?? "gpt-5.6-sol",
     reasoningEffort: params.config?.model_reasoning_effort ?? null,
     restricted,
     runtimeWorkspaceRoots: params.runtimeWorkspaceRoots ?? [],
@@ -184,9 +204,10 @@ function startThreadServiceTier(params, restricted) {
 function forkThread(message) {
   const params = message.params ?? {};
   const parentThreadId = requiredString(params, "threadId");
-  const parent = threads.get(parentThreadId);
+  recordProviderMethod("thread/fork", params, { threadId: parentThreadId });
+  const parent = loadedThreads.get(parentThreadId);
   if (!parent) {
-    respondError(message.id, -32602, `unknown parent thread ${parentThreadId}`);
+    respondThreadNotFound(message.id, "thread/fork", parentThreadId);
     return;
   }
   const ephemeral = params.ephemeral === true;
@@ -195,8 +216,12 @@ function forkThread(message) {
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
   const state = forkThreadState(params, parent, parentThreadId, threadId, ephemeral, sourceTurnIds);
-  threads.set(threadId, state);
-  persistState();
+  loadedThreads.set(threadId, state);
+  if (!ephemeral) {
+    materializeDurableThread(state);
+  } else {
+    persistState();
+  }
   const thread = fakeThread(threadId);
   thread.turns = state.turnIds.map((turnId) => turns.get(turnId));
   respond(message.id, threadOperationResponse(thread, state));
@@ -215,7 +240,7 @@ function forkThreadState(params, parent, parentThreadId, threadId, ephemeral, so
     ephemeral,
     forkedFromId: parentThreadId,
     id: threadId,
-    model: requiredString(params, "model"),
+    model: params.model ?? parent.model,
     reasoningEffort: config.model_reasoning_effort ?? null,
     sandbox: params.sandbox ?? null,
     serviceTier: params.serviceTier ?? null,
@@ -236,7 +261,7 @@ function durableForkSourceTurns(message, parent) {
 
 function ephemeralSideSourceTurns(message, parent) {
   const params = message.params ?? {};
-  if (parent.turnIds.length === 0) {
+  if (parent.turnIds.length === 0 || parent.noSideRollout === true) {
     respondError(message.id, -32602, `no rollout found for thread id ${parent.id}`);
     return null;
   }
@@ -253,7 +278,7 @@ function validEphemeralSideSettings(params) {
   return [
     !Object.hasOwn(params, "lastTurnId"),
     params.model === "gpt-5.6-luna",
-    params.approvalPolicy === "on-request",
+    params.approvalPolicy === "never",
     params.sandbox === "read-only",
     params.serviceTier === null,
     config.model_reasoning_effort === "medium",
@@ -262,6 +287,12 @@ function validEphemeralSideSettings(params) {
 }
 
 function injectThreadItems(message) {
+  const params = message.params ?? {};
+  const threadId = requiredString(params, "threadId");
+  recordProviderMethod("thread/inject_items", params, { threadId });
+  if (injectTopicThreadInitialization(message)) {
+    return;
+  }
   if (injectRestrictedThreadInitialization(message)) {
     return;
   }
@@ -288,10 +319,34 @@ function injectThreadItems(message) {
   respond(message.id, {});
 }
 
+function injectTopicThreadInitialization(message) {
+  const params = message.params ?? {};
+  const threadId = requiredString(params, "threadId");
+  const thread = loadedThreads.get(threadId);
+  if (!thread || thread.ephemeral || thread.restricted) {
+    return false;
+  }
+  const items = params.items;
+  if (
+    !Array.isArray(items) ||
+    items.length !== 1 ||
+    !injectedMessageText(items[0], "user").includes(
+      "Setta initialized this durable topic conversation thread",
+    )
+  ) {
+    respondError(message.id, -32602, "topic thread initialization drifted");
+    return true;
+  }
+  thread.materialized = true;
+  materializeDurableThread(thread);
+  respond(message.id, {});
+  return true;
+}
+
 function injectRestrictedThreadInitialization(message) {
   const params = message.params ?? {};
   const threadId = requiredString(params, "threadId");
-  const thread = threads.get(threadId);
+  const thread = loadedThreads.get(threadId);
   if (!thread?.restricted || thread.ephemeral) {
     return false;
   }
@@ -307,7 +362,7 @@ function injectRestrictedThreadInitialization(message) {
     return true;
   }
   thread.materialized = true;
-  persistState();
+  materializeDurableThread(thread);
   respond(message.id, {});
   return true;
 }
@@ -315,9 +370,9 @@ function injectRestrictedThreadInitialization(message) {
 function sideContextInjectionRequest(message) {
   const params = message.params ?? {};
   const threadId = requiredString(params, "threadId");
-  const thread = threads.get(threadId);
+  const thread = loadedThreads.get(threadId);
   if (!thread || thread.ephemeral !== true || !thread.forkedFromId) {
-    respondError(message.id, -32602, `thread ${threadId} is not an ephemeral side fork`);
+    respondThreadNotFound(message.id, "thread/inject_items", threadId);
     return;
   }
   const items = params.items;
@@ -326,15 +381,6 @@ function sideContextInjectionRequest(message) {
     return null;
   }
   return { items, thread };
-}
-
-function validSideBoundary(boundary, context) {
-  return [
-    boundary.includes("Side conversation boundary."),
-    boundary.includes("Everything before this boundary is inherited history"),
-    boundary.includes("Only messages submitted after this boundary are active"),
-    context.includes("typed SideInFlightContextFrame"),
-  ].every(Boolean);
 }
 
 function injectedMessageText(item, role) {
@@ -351,77 +397,80 @@ function injectedMessageText(item, role) {
   return content.text;
 }
 
-function validSideContextFrame(frame) {
-  if (
-    frame?.type !== "side_in_flight_context_frame" ||
-    !Number.isInteger(frame.sourceTrajectorySequence) ||
-    frame.sourceTrajectorySequence < 0 ||
-    !Array.isArray(frame.acceptedSteering) ||
-    !Array.isArray(frame.activeActivities) ||
-    !Array.isArray(frame.pendingApprovals) ||
-    !Array.isArray(frame.artifacts)
-  ) {
-    return false;
-  }
-  const serialized = JSON.stringify(frame);
-  return ![
-    '"providerItemId"',
-    '"providerThreadId"',
-    '"providerTurnId"',
-    '"processId"',
-    '"privateReasoning"',
-    '"rawToolOutput"',
-  ].some((forbidden) => serialized.includes(forbidden));
-}
-
 function resumeThread(message) {
   const params = message.params ?? {};
   const threadId = requiredString(params, "threadId");
-  const state = threads.get(threadId) ?? {
-    ephemeral: false,
-    id: threadId,
-    model: "gpt-5.6-sol",
-    turnIds: [],
-  };
-  if (state.restricted) {
-    if (!state.materialized) {
-      respondError(message.id, -32602, `no rollout found for thread id ${threadId}`);
-      return;
-    }
-    assertRestrictedThreadParams(params, false);
-    state.approvalPolicy = params.approvalPolicy;
-    state.cwd = requiredString(params, "cwd");
-    state.model = requiredString(params, "model");
-    state.reasoningEffort = params.config?.model_reasoning_effort ?? null;
-    state.runtimeWorkspaceRoots = params.runtimeWorkspaceRoots ?? [];
-    state.sandbox = params.sandbox;
-    state.serviceTier = params.serviceTier === null ? "default" : params.serviceTier;
+  recordProviderMethod("thread/resume", params, { threadId });
+  if (params.excludeTurns !== true) {
+    throw new Error("thread/resume must set excludeTurns: true");
   }
-  threads.set(threadId, state);
+  const state = durableThreads.get(threadId);
+  if (!state || state.ephemeral === true) {
+    respondThreadNotFound(message.id, "thread/resume", threadId);
+    return;
+  }
+  if (!validateRestrictedThreadResume(message.id, threadId, state, params)) return;
+  restrictedThread.applyResumeParams(state, params);
+  loadedThreads.set(threadId, state);
   persistState();
   respond(message.id, threadOperationResponse(fakeThread(threadId), state));
 }
 
+function validateRestrictedThreadResume(messageId, threadId, state, params) {
+  if (!state.restricted) return true;
+  if (!state.materialized) {
+    respondThreadNotFound(messageId, "thread/resume", threadId);
+    return false;
+  }
+  restrictedThread.assertRestrictedThreadParams(params, false);
+  state.runtimeWorkspaceRoots = params.runtimeWorkspaceRoots ?? [];
+  return true;
+}
+
 function readThread(message) {
   const threadId = requiredString(message.params, "threadId");
-  const threadState = threads.get(threadId);
+  recordProviderMethod("thread/read", message.params ?? {}, { threadId });
+  const threadState = loadedThreads.get(threadId);
   if (!threadState) {
-    respondError(message.id, -32602, `unknown thread ${threadId}`);
+    if (durableThreads.has(threadId)) {
+      respondError(message.id, -32600, `thread not loaded: ${threadId}`);
+    } else {
+      respondThreadNotFound(message.id, "thread/read", threadId);
+    }
     return;
   }
   const thread = fakeThread(threadId);
-  thread.turns = threadState.turnIds.map((turnId) => turns.get(turnId));
+  if (message.params?.includeTurns === true) {
+    thread.turns = threadState.turnIds.map((turnId) => turns.get(turnId));
+  }
   thread.status = thread.turns.some((turn) => turn?.status === "inProgress")
     ? { activeFlags: [], type: "active" }
     : { type: "idle" };
   respond(message.id, { thread });
 }
 
+function listThreads(message) {
+  const params = message.params ?? {};
+  recordProviderMethod("thread/list", params, {});
+  const allThreads = [...durableThreads.values()].filter((thread) => thread.ephemeral !== true);
+  const start = listCursorOffset(params.cursor);
+  const limit = listLimit(params.limit);
+  const page = allThreads.slice(start, start + limit);
+  const nextOffset = start + page.length;
+  respond(message.id, {
+    backwardsCursor: null,
+    data: page.map((thread) => fakeThread(thread.id)),
+    nextCursor: nextOffset < allThreads.length ? String(nextOffset) : null,
+  });
+}
+
 function startTurn(message) {
   const threadId = requiredString(message.params, "threadId");
-  const thread = threads.get(threadId);
+  const text = turnInputText(message.params);
+  recordProviderMethod("turn/start", message.params ?? {}, { inputText: text, threadId });
+  const thread = loadedThreads.get(threadId);
   if (!thread) {
-    respondError(message.id, -32602, `unknown thread ${threadId}`);
+    respondThreadNotFound(message.id, "turn/start", threadId);
     return;
   }
   turnCounter += 1;
@@ -429,19 +478,26 @@ function startTurn(message) {
   const turn = fakeTurn(turnId, "inProgress");
   turns.set(turnId, turn);
   thread.turnIds.push(turnId);
+  if (text === "complete parent before side fork no rollout") thread.noSideRollout = true;
+  if (text === "provider lifecycle crash idle turn") {
+    crashAfterCompletedTurns.add(turnId);
+  }
+  if (!thread.ephemeral && !durableThreads.has(threadId)) {
+    thread.materialized = true;
+    materializeDurableThread(thread);
+  }
   persistState();
-  const text = turnInputText(message.params);
   if (holdTurnStartOnce(text)) {
     return;
   }
   respond(message.id, { turn });
-  setTimeout(() => {
+  setImmediate(() => {
     if (message.params?.outputSchema) {
       emitStructuredTurn(threadId, turnId, text, message.params.outputSchema);
       return;
     }
     emitTurnScenario(threadId, turnId, text);
-  }, turnDelayMs);
+  });
 }
 
 function holdTurnStartOnce(text) {
@@ -459,49 +515,162 @@ function emitStructuredTurn(threadId, turnId, text, outputSchema) {
   if (holdStructuredTurnOnce(context)) {
     return;
   }
-  if (context.kind === "master_route") {
-    emitStructuredMasterRoute(threadId, turnId, context, outputSchema);
-    return;
-  }
-  if (context.kind === "input_route") {
-    emitStructuredInputRoute(threadId, turnId, context);
-    return;
-  }
-  if (context.kind === "status" && context.trigger === "explicit_status_requested") {
-    emitAgentMessage(
-      threadId,
-      turnId,
-      JSON.stringify({
-        kind: "status_reply",
-        sourceThroughSequence: context.sourceThroughSequence,
-        statusReply:
-          "The primary topic agent is still working and has not been steered or interrupted.",
-      }),
-    );
-    completeTurn(threadId, turnId, "completed");
-    return;
-  }
-  if (context.kind === "focus") {
-    emitStructuredFocus(threadId, turnId, context);
-    return;
-  }
-  if (context.kind === "projection") {
-    emitStructuredProjection(threadId, turnId, context);
-    return;
-  }
-  if (context.kind === "checkpoint") {
-    emitAgentMessage(
-      threadId,
-      turnId,
-      JSON.stringify({
-        coveredThroughSequence: context.requestedRange.end,
-        historicalSummary: `Observed topic history through sequence ${context.requestedRange.end}.`,
-      }),
-    );
-    completeTurn(threadId, turnId, "completed");
+  if (emitKnownStructuredTurn(threadId, turnId, context, outputSchema)) {
     return;
   }
   completeTurn(threadId, turnId, "failed", `unsupported structured context ${context.kind}`);
+}
+
+function emitKnownStructuredTurn(threadId, turnId, context, outputSchema) {
+  const emitter = structuredTurnEmitters[context.kind];
+  return emitter ? emitter(threadId, turnId, context, outputSchema) : false;
+}
+
+const structuredTurnEmitters = {
+  checkpoint: emitStructuredCheckpoint,
+  director_decision: emitStructuredDirectorDecision,
+  focus: emitStructuredFocus,
+  input_route: emitStructuredInputRoute,
+  master_route: emitStructuredMasterRoute,
+  projection: emitStructuredProjection,
+  status: emitStructuredStatus,
+};
+
+function emitStructuredDirectorDecision(threadId, turnId, context, outputSchema) {
+  const decision = scriptedDirectorDecision(context, outputSchema);
+  if (decision === null) {
+    completeTurn(threadId, turnId, "failed", "director decision context or schema drifted");
+    return true;
+  }
+  emitAgentMessage(threadId, turnId, JSON.stringify({ decision }));
+  completeTurn(threadId, turnId, "completed");
+  return true;
+}
+
+function scriptedDirectorDecision(context, outputSchema) {
+  const text = context.intent?.text;
+  const schema = JSON.stringify(outputSchema);
+  const serialized = JSON.stringify(context);
+  if (
+    !Array.isArray(context.allowedDecisionKinds) ||
+    serialized.includes('"rootPath"') ||
+    !schema.includes('"decision"')
+  ) {
+    return null;
+  }
+  if (text === "Director repair malformed." && context.validationDiagnostic === null) {
+    return { kind: "not_a_director_decision" };
+  }
+  if (text === "Director repair malformed.") {
+    return context.validationDiagnostic && context.allowedDecisionKinds.includes("answer_directly")
+      ? { kind: "answer_directly", text: "The malformed decision was repaired." }
+      : null;
+  }
+  if (text === "Director create folderless.") {
+    return context.allowedDecisionKinds.includes("create_workstream")
+      ? {
+          initialInput: "director folderless first work",
+          kind: "create_workstream",
+          origin: {
+            kind: "root",
+            root: { resourceScope: { kind: "folderless" } },
+          },
+          proposedTitle: "Director root",
+        }
+      : null;
+  }
+  if (text?.startsWith("local transcript for ")) {
+    return context.allowedDecisionKinds.includes("answer_directly")
+      ? { kind: "answer_directly", text: "The Director received the voice request." }
+      : null;
+  }
+  const selected = context.workstreams?.find(
+    (target) => target.workstreamId === context.selectedWorkstreamId,
+  );
+  if (text === "Director create child.") {
+    return selected?.allowsChildWorkstream &&
+      context.allowedDecisionKinds.includes("create_workstream")
+      ? {
+          initialInput: "director child work",
+          kind: "create_workstream",
+          origin: {
+            child: { parentWorkstreamId: selected.workstreamId },
+            kind: "child",
+          },
+          proposedTitle: "Director child",
+        }
+      : null;
+  }
+  const workDecisions = new Map([
+    ["Director send hold.", ["send_to_workstream", "director hold"]],
+    ["Director queue next.", ["queue_behind_run", "director queued"]],
+    ["Director steer now.", ["steer_run", "finish director hold"]],
+    ["Director send cancel hold.", ["send_to_workstream", "director hold cancel"]],
+    ["Director request approval.", ["send_to_workstream", "director approval"]],
+    ["Director fail.", ["send_to_workstream", "director fail"]],
+    ["Director artifact.", ["send_to_workstream", "director artifact"]],
+    ["Director graph burst.", ["send_to_workstream", "director graph burst"]],
+    [
+      "Director text burst.",
+      ["send_to_workstream", "Profile exactly 2000 conversation events for pane 1."],
+    ],
+    ["Director sustained.", ["send_to_workstream", "director sustained profile"]],
+  ]);
+  const workDecision = workDecisions.get(text);
+  if (workDecision) {
+    const [kind, authoredInput] = workDecision;
+    return selected?.allowedDecisionKinds?.includes(kind)
+      ? { authoredInput, kind, workstreamId: selected.workstreamId }
+      : null;
+  }
+  if (text === "Director recover.") {
+    const failure = selected?.recoverableFailures?.[0];
+    return selected?.allowedDecisionKinds?.includes("recover_path") &&
+      nonEmptyString(failure?.failureEventId)
+      ? {
+          failureEventId: failure.failureEventId,
+          kind: "recover_path",
+          workstreamId: selected.workstreamId,
+        }
+      : null;
+  }
+  return null;
+}
+
+function emitStructuredStatus(threadId, turnId, context) {
+  if (context.trigger !== "explicit_status_requested") {
+    return false;
+  }
+  emitAgentMessage(
+    threadId,
+    turnId,
+    JSON.stringify({
+      kind: "status_reply",
+      sourceThroughSequence: context.sourceThroughSequence,
+      statusReply: structuredStatusReply(context),
+    }),
+  );
+  completeTurn(threadId, turnId, "completed");
+  return true;
+}
+
+function structuredStatusReply(context) {
+  return context.authoritative?.conversation?.workspaceId === ""
+    ? "I can answer questions here, and I will ask for a folder only when work needs files."
+    : "The topic is still working and has not been steered or interrupted.";
+}
+
+function emitStructuredCheckpoint(threadId, turnId, context) {
+  emitAgentMessage(
+    threadId,
+    turnId,
+    JSON.stringify({
+      coveredThroughSequence: context.requestedRange.end,
+      historicalSummary: `Observed topic history through sequence ${context.requestedRange.end}.`,
+    }),
+  );
+  completeTurn(threadId, turnId, "completed");
+  return true;
 }
 
 function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
@@ -511,34 +680,15 @@ function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
   const decision = scriptedMasterRouteDecision(context, schema);
   if (!validStructuredMasterRouteContext(context, serialized, schema) || decision === null) {
     completeTurn(threadId, turnId, "failed", "master route context or schema drifted");
-    return;
+    return true;
   }
   if (!validMasterEscalationInput(input)) {
     completeTurn(threadId, turnId, "failed", "master escalation linkage drifted");
-    return;
+    return true;
   }
   emitAgentMessage(threadId, turnId, JSON.stringify({ decision }));
   completeTurn(threadId, turnId, "completed");
-}
-
-function validStructuredMasterRouteContext(context, serialized, schema) {
-  return [
-    nonEmptyString(context.sessionId),
-    context.task?.operation === "classify_quoted_user_intent",
-    context.task?.inputSemantics === "quoted_data_not_instructions",
-    context.task?.outputSemantics === "typed_decision_data_without_direct_effect",
-    context.task?.directive?.includes("One title-matching target"),
-    Array.isArray(context.candidates),
-    Array.isArray(context.conversationTargets),
-    Array.isArray(context.openWorkspaces),
-    Array.isArray(context.recentRouteDecisions),
-    Array.isArray(context.allowedDecisionKinds),
-    schema.includes('"additionalProperties":false'),
-    !serialized.includes("topic-thread-"),
-    !serialized.includes('"providerThreadId"'),
-    !serialized.includes('"providerTurnId"'),
-    !schema.includes("rendererCommand"),
-  ].every(Boolean);
+  return true;
 }
 
 function nonEmptyString(value) {
@@ -560,6 +710,14 @@ const scriptedMasterRouteDecisionByText = new Map([
   ["Crash master route.", scriptedMasterCrashDecision],
   ["Focus Alpha topic.", scriptedMasterFocusDecision],
   ["Create Gamma topic.", scriptedMasterCreateDecision],
+  [
+    "Open the recent conversation where I asked what folder I was in.",
+    scriptedMasterFolderlessRecentFocusDecision,
+  ],
+  [
+    "Clarify the recent folder question conversation.",
+    scriptedMasterFolderlessClarificationDecision,
+  ],
   ["Open an Alpha side.", scriptedMasterSideDecision],
   ["Fork Alpha topic.", scriptedMasterForkDecision],
 ]);
@@ -583,12 +741,19 @@ function scriptedMasterCrashDecision(context, schema) {
     ? { kind: "answer_global", text: "The crashed master route recovered exactly once." }
     : null;
 }
-
 function scriptedMasterRouteDecision(context, schema) {
   const input = context.input?.input;
   const scriptedDecision = scriptedMasterRouteDecisionByText.get(input?.text);
   if (scriptedDecision) {
     return scriptedDecision(context, schema, input);
+  }
+  const clarificationDecision = scriptedMasterClarificationConfirmationDecision(
+    context,
+    schema,
+    input,
+  );
+  if (clarificationDecision) {
+    return clarificationDecision;
   }
   if (masterInputNeedsClarification(input)) {
     return scriptedMasterClarificationDecision(context, schema);
@@ -600,18 +765,17 @@ function scriptedMasterRouteDecision(context, schema) {
 }
 
 function scriptedMasterCreateDecision(context, schema) {
-  const workspace = context.openWorkspaces?.[0];
   const valid = [
     context.allowedDecisionKinds.includes("create_conversation"),
-    nonEmptyString(workspace?.workspaceId),
-    schema.includes(`"${workspace?.workspaceId}"`),
+    schema.includes('"resourceScope"'),
+    schema.includes('"folderless"'),
   ].every(Boolean);
   return valid
     ? {
         initialInput: "Start the Gamma topic from the global master.",
         kind: "create_conversation",
         proposedTitle: "Gamma topic",
-        workspaceId: workspace.workspaceId,
+        resourceScope: { kind: "folderless" },
       }
     : null;
 }
@@ -655,26 +819,13 @@ function masterTargetByTitle(context, title) {
 }
 
 function masterInputNeedsClarification(input) {
-  return input?.text === "Clarify the shell topic." || input?.source === "conversation_escalation";
+  return input?.text === "Clarify Alpha." || input?.source === "conversation_escalation";
 }
-
 function isShellVoiceMasterInput(input) {
-  return [input?.source === "shell", input?.modality === "voice"].every(Boolean);
-}
-
-function scriptedMasterFocusDecision(context, schema, input) {
-  const candidate = context.candidates?.[0];
-  const target = context.conversationTargets?.find(
-    (item) => item.conversationId === candidate?.conversationId,
+  return (
+    input?.source === "shell" &&
+    (input?.modality === "voice" || input?.text === "Answer from folderless master.")
   );
-  const valid = [
-    input.source === "shell",
-    input.modality === "text",
-    nonEmptyString(candidate?.conversationId),
-    target?.allowedDecisionKinds?.includes("focus_conversation"),
-    schema.includes(`"${candidate?.conversationId}"`),
-  ].every(Boolean);
-  return valid ? { conversationId: candidate.conversationId, kind: "focus_conversation" } : null;
 }
 
 function scriptedMasterClarificationDecision(context, schema) {
@@ -703,13 +854,13 @@ function emitStructuredInputRoute(threadId, turnId, context) {
   const routeKind = structuredInputRouteKind(context, allowed);
   const valid = [
     Array.isArray(allowed),
-    validStructuredRouteInput(input, routeKind),
+    validStructuredRouteInput(context, input, routeKind),
     validStructuredRouteHistory(context, routeKind),
     structuredRouteContextIsRedacted(serialized),
   ].every(Boolean);
   if (!valid) {
     completeTurn(threadId, turnId, "failed", "input router context drifted");
-    return;
+    return true;
   }
   const decision = structuredInputRouteDecision(context, routeKind, authoredInput);
   emitAgentMessage(
@@ -720,6 +871,7 @@ function emitStructuredInputRoute(threadId, turnId, context) {
     }),
   );
   completeTurn(threadId, turnId, "completed");
+  return true;
 }
 
 function structuredInputRouteDecision(context, routeKind, authoredInput) {
@@ -791,27 +943,9 @@ function structuredInputClarificationRouteKind(context, allowed) {
     : null;
 }
 
-const sideConversationInputs = new Set([
-  "fail side presentation",
-  "hold close while side creation is pending",
-  "hold pane-close side",
-  "hold restart side",
-  "side lifecycle answer",
-  "side provider failure",
-]);
-
-const steeringInputs = new Set([
+const exactStructuredInputRoutes = createExactStructuredInputRoutes({
   simultaneousCompletionInput,
-  "finish the parent after side work",
-  "steer alpha now",
-]);
-
-const exactStructuredInputRoutes = [
-  { inputs: new Set(["What is the primary agent doing?"]), kind: "answer_as_narrator" },
-  { inputs: sideConversationInputs, kind: "create_side_conversation" },
-  { inputs: new Set(["Alpha topic fork"]), kind: "fork_conversation" },
-  { inputs: steeringInputs, kind: "steer_parent_turn" },
-];
+});
 
 function conversationStatusRouteKind(context, allowed) {
   const status = context.authoritative?.conversation?.status;
@@ -838,13 +972,20 @@ function activeStructuredInputRouteKind(context, allowed) {
   return allowed.includes("queue_parent_turn") ? "queue_parent_turn" : null;
 }
 
-function validStructuredRouteInput(input, routeKind) {
+function validStructuredRouteInput(context, input, routeKind) {
   return (
     typeof input?.text === "string" &&
     ["text", "voice"].includes(input.modality) &&
-    input.hasSourcePane === true &&
+    validStructuredRouteInputSource(context, input) &&
     routeKind !== null
   );
+}
+
+function validStructuredRouteInputSource(context, input) {
+  if (input?.hasSourcePane === true) {
+    return true;
+  }
+  return input?.hasSourcePane === false && context.authoritative?.conversation?.workspaceId === "";
 }
 
 function validStructuredRouteHistory(context, routeKind) {
@@ -861,22 +1002,22 @@ function structuredRouteContextIsRedacted(serialized) {
     !serialized.includes('"processId":"')
   );
 }
-
 function emitStructuredProjection(threadId, turnId, context) {
-  const objective = context.authoritative?.currentInstructions?.objective?.text ?? "topic work";
-  const observedThroughSequence = context.evaluationRange.end;
+  const objective = objectiveSubject(
+    (context.authoritative?.currentInstructions?.objective?.text ?? "topic work").trim(),
+  );
   const output = {
     kind: "working_projection",
-    milestones: projectionMilestones(context, objective, observedThroughSequence),
-    observedThroughSequence,
+    milestones: projectionMilestones(context, objective),
   };
   if (context.requestedChannel === "terminal_projection") {
     output.kind = "terminal_projection";
-    output.milestones = [];
-    output.finalSummary = `Narrator completed ${objective}.`;
+    delete output.milestones;
+    output.finalSummary = terminalProjectionSummary(context, objective);
   }
   emitAgentMessage(threadId, turnId, JSON.stringify(output));
   completeTurn(threadId, turnId, "completed");
+  return true;
 }
 
 function emitStructuredFocus(threadId, turnId, context) {
@@ -894,21 +1035,27 @@ function emitStructuredFocus(threadId, turnId, context) {
     }),
   );
   completeTurn(threadId, turnId, "completed");
+  return true;
 }
-function projectionMilestones(context, objective, observedThroughSequence) {
-  const simultaneousCompletionSteering =
-    context.authoritative?.currentInstructions?.acceptedSteering?.some(
-      (steering) => steering.input?.text === simultaneousCompletionInput,
-    );
-  if (context.requestedChannel !== "terminal_projection" && simultaneousCompletionSteering) {
-    return [];
-  }
-  if (context.priorMilestones?.length > 0) {
-    return [];
-  }
-  return [`Narrator evaluated ${objective} through sequence ${observedThroughSequence}.`];
+function projectionMilestones(context, objective) {
+  const steering = context.authoritative?.currentInstructions?.acceptedSteering ?? [];
+  const suppress =
+    context.requestedChannel !== "terminal_projection" &&
+    steering.some((item) => item.input?.text === simultaneousCompletionInput);
+  if (suppress || context.priorMilestones?.length > 0) return [];
+  return [`${objectiveSubject(objective)} has visible progress.`];
 }
-
+function terminalProjectionSummary(context, objective) {
+  const subject = objectiveSubject(objective);
+  const status = context.authoritative?.currentInstructions?.turnStatus;
+  if (status === "completed") return `${subject} completed.`;
+  if (status === "cancelled") return `${subject} stopped before completion.`;
+  if (status === "failed") return `${subject} failed; the reported error remains visible.`;
+  return `${subject} reached a terminal state.`;
+}
+function objectiveSubject(objective) {
+  return objective === "" ? "Topic work" : objective[0].toUpperCase() + objective.slice(1);
+}
 function holdStructuredTurnOnce(context) {
   const key = structuredHoldKey(context);
   if (key === null || heldStructuredKeys.has(key)) {
@@ -918,7 +1065,6 @@ function holdStructuredTurnOnce(context) {
   persistState();
   return true;
 }
-
 function structuredHoldKey(context) {
   if (isCancelledMasterRoute(context)) {
     return "master:cancel-route";
@@ -951,6 +1097,14 @@ function isCrashNarratorProjection(context) {
 }
 
 function emitTurnScenario(threadId, turnId, text) {
+  if (text === "director graph burst") {
+    emitDirectorGraphBurst(threadId, turnId);
+    return;
+  }
+  if (text === "director sustained profile") {
+    emitDirectorSustainedProfile(threadId, turnId);
+    return;
+  }
   const profiledEventCount = performanceEventCount(text);
   if (profiledEventCount !== null) {
     emitProfiledTurn(threadId, turnId, text, profiledEventCount, 0);
@@ -963,6 +1117,7 @@ function emitTurnScenario(threadId, turnId, text) {
     }
   }
   if (text.includes("hold")) {
+    emitSimultaneousAudioHoldProgress(emitAgentMessage, threadId, turnId, text);
     heldTurns.set(turnId, { threadId, text });
     return;
   }
@@ -978,12 +1133,70 @@ function emitTurnScenario(threadId, turnId, text) {
     return;
   }
   emitLegacyArtifactIfRequested(threadId, turnId, text);
+  if (text === "director fail" && failedDirectorInputs.has(text)) {
+    emitAgentMessage(threadId, turnId, "Recovered director fail.");
+    completeTurn(threadId, turnId, "completed");
+    return;
+  }
   if (text.includes("fail")) {
+    if (text === "director fail") {
+      failedDirectorInputs.add(text);
+    }
     completeTurn(threadId, turnId, "failed", "Scripted topic failure");
     return;
   }
   emitAgentMessage(threadId, turnId, `Completed ${text}.`);
   completeTurn(threadId, turnId, "completed");
+}
+
+function emitDirectorGraphBurst(threadId, turnId) {
+  const commandCount = 405;
+  for (let index = 0; index < commandCount; index += 1) {
+    const itemId = `director-burst-command-${turnId}-${String(index + 1).padStart(3, "0")}`;
+    notify("item/started", {
+      item: directorBurstCommand(itemId, "inProgress", null),
+      startedAtMs: Date.now(),
+      threadId,
+      turnId,
+    });
+    notify("item/completed", {
+      completedAtMs: Date.now(),
+      item: directorBurstCommand(itemId, "completed", 0),
+      threadId,
+      turnId,
+    });
+  }
+  emitAgentMessage(threadId, turnId, "Completed the Director graph burst.");
+  completeTurn(threadId, turnId, "completed");
+}
+
+function directorBurstCommand(itemId, status, exitCode) {
+  return {
+    aggregatedOutput: "",
+    command: "printf director-burst",
+    commandActions: [],
+    cwd: "/tmp",
+    exitCode,
+    id: itemId,
+    status,
+    type: "commandExecution",
+  };
+}
+
+function emitDirectorSustainedProfile(threadId, turnId, startedAt = Date.now(), index = 0) {
+  const configuredDuration = Number.parseInt(
+    process.env.SETTA_E2E_DIRECTOR_SUSTAINED_MS ?? "60000",
+    10,
+  );
+  const durationMs =
+    Number.isInteger(configuredDuration) && configuredDuration > 0 ? configuredDuration : 60_000;
+  emitTextDelta(threadId, turnId, `sustained-${String(index + 1).padStart(4, "0")} `);
+  if (Date.now() - startedAt >= durationMs) {
+    emitAgentMessage(threadId, turnId, "Completed the sustained Director profile.");
+    completeTurn(threadId, turnId, "completed");
+    return;
+  }
+  setTimeout(() => emitDirectorSustainedProfile(threadId, turnId, startedAt, index + 1), 50);
 }
 
 function performanceEventCount(text) {
@@ -1066,7 +1279,7 @@ function interruptTurn(message) {
   if (!held) {
     const threadId = requiredString(message.params, "threadId");
     const persistedTurn = turns.get(turnId);
-    const persistedThread = threads.get(threadId);
+    const persistedThread = loadedThreads.get(threadId) ?? durableThreads.get(threadId);
     if (persistedTurn?.status !== "inProgress" || !persistedThread?.turnIds.includes(turnId)) {
       respondError(message.id, -32602, `turn ${turnId} is not interruptible`);
       return;
@@ -1182,17 +1395,17 @@ function emitTextDelta(threadId, turnId, delta) {
   });
 }
 
-function emitAgentMessage(threadId, turnId, text) {
+function emitAgentMessage(threadId, turnId, text, itemId = `agent-${turnId}`) {
   notify("item/completed", {
     completedAtMs: Date.now(),
-    item: { id: `agent-${turnId}`, text, type: "agentMessage" },
+    item: { id: itemId, text, type: "agentMessage" },
     threadId,
     turnId,
   });
 }
 
 function emitArtifactToolCall(threadId, turnId, scenario, index) {
-  const thread = threads.get(threadId);
+  const thread = loadedThreads.get(threadId) ?? durableThreads.get(threadId);
   if (!threadHasArtifactTool(thread)) {
     completeTurn(threadId, turnId, "failed", "setta.emit_artifact was not registered");
     return;
@@ -1230,13 +1443,22 @@ function completeTurn(threadId, turnId, status, message = "") {
   turns.set(turnId, turn);
   persistState();
   notify("turn/completed", { threadId, turn });
+  if (status === "completed" && crashAfterCompletedTurns.has(turnId)) {
+    crashAfterCompletedTurns.delete(turnId);
+    crashCounter += 1;
+    persistState();
+    setImmediate(() => process.exit(42));
+  }
 }
 
 function readPersistedState() {
   const empty = {
     approvalCounter: 0,
+    crashCounter: 0,
     heldStructuredKeys: [],
     heldTurnStartKeys: [],
+    methodLog: [],
+    processGeneration: 0,
     threadCounter: 0,
     toolCallCounter: 0,
     threads: [],
@@ -1247,19 +1469,23 @@ function readPersistedState() {
     return empty;
   }
   const state = JSON.parse(readFileSync(persistedStatePath, "utf8"));
+  state.crashCounter ??= 0;
   if (!persistedStateIsValid(state)) {
     throw new Error("fake topic Codex state is malformed");
   }
   interruptStaleDurableTurns(state);
-  writePersistedStateAtomically(state);
+  writeFileSync(persistedStatePath, `${JSON.stringify(state)}\n`, "utf8");
   return state;
 }
 
 function persistedStateIsValid(state) {
   return [
     Number.isInteger(state.approvalCounter),
+    Number.isInteger(state.crashCounter),
     Array.isArray(state.heldStructuredKeys),
     Array.isArray(state.heldTurnStartKeys),
+    Array.isArray(state.methodLog),
+    Number.isInteger(state.processGeneration),
     Number.isInteger(state.threadCounter),
     Number.isInteger(state.toolCallCounter),
     Number.isInteger(state.turnCounter),
@@ -1285,22 +1511,58 @@ function persistState() {
   if (persistedStatePath === "") {
     return;
   }
-  writePersistedStateAtomically({
+  const payload = `${JSON.stringify({
     approvalCounter,
+    crashCounter,
     heldStructuredKeys: [...heldStructuredKeys],
     heldTurnStartKeys: [...heldTurnStartKeys],
+    methodLog,
+    processGeneration,
     threadCounter,
-    threads: [...threads.values()],
+    threads: [...durableThreads.values()],
     toolCallCounter,
     turnCounter,
     turns: [...turns.values()],
-  });
+  })}\n`;
+  const tempPath = `${persistedStatePath}.tmp`;
+  writeFileSync(tempPath, payload, "utf8");
+  renameSync(tempPath, persistedStatePath);
 }
 
-function writePersistedStateAtomically(state) {
-  const temporaryPath = `${persistedStatePath}.${process.pid}.tmp`;
-  writeFileSync(temporaryPath, `${JSON.stringify(state)}\n`, "utf8");
-  renameSync(temporaryPath, persistedStatePath);
+function materializeDurableThread(thread) {
+  if (thread.ephemeral === true) {
+    return;
+  }
+  durableThreads.set(thread.id, thread);
+  persistState();
+}
+
+function recordProviderMethod(method, params = {}, extra = {}) {
+  methodSequence += 1;
+  methodLog.push(providerMethodLogEntry(method, params, extra));
+  persistState();
+}
+
+function providerMethodLogEntry(method, params, extra) {
+  return {
+    archived: firstDefined(params.archived),
+    cursor: firstDefined(params.cursor),
+    excludeTurns: firstDefined(params.excludeTurns),
+    generation: processGeneration,
+    includeTurns: firstDefined(params.includeTurns),
+    inputText: firstDefined(extra.inputText),
+    method,
+    sequence: methodSequence,
+    threadId: firstDefined(extra.threadId, params.threadId),
+    turnId: firstDefined(extra.turnId, params.turnId, params.expectedTurnId),
+  };
+}
+
+function firstDefined(...values) {
+  for (const value of values) {
+    if (value !== undefined) return value;
+  }
+  return null;
 }
 
 function fakeModel(id, effort, isDefault) {
@@ -1318,7 +1580,7 @@ function fakeModel(id, effort, isDefault) {
 }
 
 function fakeThread(threadId) {
-  const state = threads.get(threadId);
+  const state = loadedThreads.get(threadId) ?? durableThreads.get(threadId);
   return {
     cliVersion: "fake",
     createdAt: 1,
@@ -1339,123 +1601,18 @@ function fakeThread(threadId) {
 
 function threadOperationResponse(thread, state) {
   return {
-    approvalPolicy: state.approvalPolicy ?? "on-request",
+    approvalPolicy: state.approvalPolicy ?? "never",
     approvalsReviewer: "user",
     cwd: state.cwd ?? "/tmp/setta-topic-codex",
     instructionSources: [],
     model: state.model,
     modelProvider: "fake",
-    reasoningEffort: state.reasoningEffort ?? modelReasoningEffort(state.model),
+    reasoningEffort: state.reasoningEffort ?? restrictedThread.modelReasoningEffort(state.model),
     runtimeWorkspaceRoots: state.runtimeWorkspaceRoots ?? [],
-    sandbox: sandboxPolicy(state.sandbox ?? "workspace-write"),
+    sandbox: restrictedThread.sandboxPolicy(state.sandbox ?? "workspace-write"),
     serviceTier: state.serviceTier ?? null,
     thread,
   };
-}
-
-function assertRestrictedThreadParams(params, starting) {
-  const config = requiredObject(params, "config");
-  assertRestrictedThreadPolicies(params);
-  assertRestrictedThreadConfig(config);
-  assertRestrictedThreadCapabilities(params);
-  if (starting) {
-    assertRestrictedThreadStartCapabilities(params);
-  }
-}
-
-function assertRestrictedThreadPolicies(params) {
-  assertCondition(params.approvalPolicy === "never", "approval policy");
-  assertCondition(params.sandbox === "read-only", "sandbox policy");
-  assertCondition(Object.hasOwn(params, "serviceTier"), "service tier override");
-  assertCondition(typeof params.model === "string" && params.model !== "", "exact model");
-  const baseInstructions = requiredString(params, "baseInstructions");
-  assertCondition(
-    baseInstructions.includes("restricted Setta reasoning component"),
-    "controlled base instructions",
-  );
-}
-
-function assertRestrictedThreadConfig(config) {
-  const features = requiredObject(config, "features");
-  const orchestrator = requiredObject(config, "orchestrator");
-  const orchestratorMcp = requiredObject(orchestrator, "mcp");
-  const orchestratorSkills = requiredObject(orchestrator, "skills");
-  const mcpServers = requiredObject(config, "mcp_servers");
-  const configuredServer = requiredObject(mcpServers, "configured-topic-server");
-  assertCondition(typeof config.model_reasoning_effort === "string", "reasoning effort");
-  assertCondition(config.project_doc_max_bytes === 0, "project instructions");
-  assertCondition(config.web_search === "disabled", "web search");
-  assertCondition(orchestratorMcp.enabled === false, "orchestrator MCP");
-  assertCondition(orchestratorSkills.enabled === false, "orchestrator skills");
-  assertCondition(configuredServer.enabled === false, "configured MCP server");
-  assertRestrictedFeatures(features);
-}
-
-function assertRestrictedFeatures(features) {
-  assertCondition(features.apps === false, "apps feature");
-  assertCondition(features.auth_elicitation === false, "auth elicitation feature");
-  assertCondition(features.browser_use === false, "browser feature");
-  assertCondition(features.hooks === false, "hooks feature");
-  assertCondition(features.multi_agent === false, "multi-agent feature");
-  assertCondition(features.plugins === false, "plugins feature");
-  assertCondition(features.secret_auth_storage === false, "secret auth storage feature");
-  assertCondition(features.shell_snapshot === false, "shell snapshot feature");
-  assertCondition(features.shell_tool === false, "shell feature");
-  assertCondition(features.tool_call_mcp_elicitation === false, "MCP elicitation feature");
-  assertCondition(features.unified_exec === false, "unified exec feature");
-}
-
-function assertRestrictedThreadCapabilities(params) {
-  assertEmptyArray(params.runtimeWorkspaceRoots, "runtime workspace roots");
-}
-
-function assertRestrictedThreadStartCapabilities(params) {
-  assertCondition(params.ephemeral === true || params.ephemeral === false, "durability override");
-  assertEmptyArray(params.dynamicTools, "dynamic tools");
-  assertEmptyArray(params.environments, "turn environments");
-  assertEmptyArray(params.selectedCapabilityRoots, "capability roots");
-}
-
-function requiredObject(value, field) {
-  const result = value?.[field];
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    throw new Error(`${field} must be an object`);
-  }
-  return result;
-}
-
-function assertEmptyArray(value, label) {
-  assertCondition(Array.isArray(value) && value.length === 0, label);
-}
-
-function assertCondition(condition, label) {
-  if (!condition) throw new Error(`restricted thread ${label} boundary drifted`);
-}
-
-function sandboxPolicy(mode) {
-  switch (mode) {
-    case "read-only":
-      return { networkAccess: false, type: "readOnly" };
-    case "workspace-write":
-      return {
-        excludeSlashTmp: false,
-        excludeTmpdirEnvVar: false,
-        networkAccess: false,
-        type: "workspaceWrite",
-        writableRoots: [],
-      };
-    case "danger-full-access":
-      return { type: "dangerFullAccess" };
-    default:
-      throw new Error(`unsupported sandbox mode ${mode}`);
-  }
-}
-
-function modelReasoningEffort(model) {
-  if (model === "gpt-5.4-mini") return "low";
-  if (model === "gpt-5.6-terra") return "medium";
-  if (model === "gpt-5.6-luna") return "medium";
-  return "high";
 }
 
 function fakeTurn(turnId, status) {
@@ -1484,6 +1641,10 @@ function respond(id, result) {
 
 function respondError(id, code, message) {
   write({ error: { code, message }, id, jsonrpc: "2.0" });
+}
+
+function respondThreadNotFound(id, method, threadId) {
+  respondError(id, -32600, `no rollout found for thread id ${threadId}`);
 }
 
 function notify(method, params) {

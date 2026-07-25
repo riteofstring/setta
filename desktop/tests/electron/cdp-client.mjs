@@ -7,6 +7,11 @@ const driverScriptPath = join(driverScriptDir, "browser-driver.js");
 const driverExtensionScripts = [
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.appPaneLayoutVersion === "setta-app-pane-layout-driver-v7"',
+    path: join(driverScriptDir, "app-pane-layout-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.appWindowDragVersion === "setta-app-window-drag-driver-v1"',
     path: join(driverScriptDir, "app-window-drag-driver.js"),
   },
@@ -22,7 +27,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.paneDragDropPerformanceVersion === "setta-pane-drag-drop-performance-driver-v2"',
+      'globalThis.__settaE2EDriver?.paneDragDropPerformanceVersion === "setta-pane-drag-drop-performance-driver-v3"',
     path: join(driverScriptDir, "pane-drag-drop-performance-driver.js"),
   },
   {
@@ -32,8 +37,18 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.paneResizeHandlesVersion === "setta-pane-resize-handles-driver-v1"',
+    path: join(driverScriptDir, "pane-resize-handles-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.runtimePickerVersion === "setta-runtime-picker-driver-v1"',
     path: join(driverScriptDir, "runtime-picker-driver.js"),
+  },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.settingsPageVersion === "setta-settings-page-driver-v3"',
+    path: join(driverScriptDir, "settings-page-driver.js"),
   },
   {
     installedExpression:
@@ -42,7 +57,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.topicConversationPaneProjectionVersion === "setta-topic-conversation-pane-projection-driver-v28"',
+      'globalThis.__settaE2EDriver?.topicConversationPaneProjectionVersion === "setta-topic-conversation-pane-projection-driver-v33"',
     path: join(driverScriptDir, "topic-conversation-pane-projection-driver.js"),
   },
   {
@@ -57,8 +72,18 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
+      'globalThis.__settaE2EDriver?.speechCredentialByokVersion === "setta-speech-credential-byok-driver-v1"',
+    path: join(driverScriptDir, "speech-credential-byok-driver.js"),
+  },
+  {
+    installedExpression:
       'globalThis.__settaE2EDriver?.topicConversationPerformanceVersion === "setta-topic-conversation-performance-driver-v2"',
     path: join(driverScriptDir, "topic-conversation-performance-driver.js"),
+  },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.directorCommandCenterPerformanceVersion === "setta-director-command-center-performance-driver-v3"',
+    path: join(driverScriptDir, "director-command-center-performance-driver.js"),
   },
 ];
 

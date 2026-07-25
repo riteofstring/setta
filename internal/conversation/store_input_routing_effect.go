@@ -270,6 +270,13 @@ func readConversationRouteSideEffect(
 		// different provider operation.
 		return true, nil
 	}
+	if metadata.status == SideConversationStatusDisposing &&
+		metadata.disposedAt != nil && metadata.activeTurnID == nil {
+		// Closing the owning pane can dispose a router-created side before its
+		// first routed side turn is durably accepted. The user-visible terminal
+		// effect is the disposed side, so replaying would resurrect closed work.
+		return true, nil
+	}
 
 	event, err := scanSideConversationEventEffect(ctx, reader, command.SideConversationID, command.TurnID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -286,6 +293,8 @@ type conversationRouteSideMetadata struct {
 	parentPaneID         string
 	source               BranchDecisionSource
 	status               SideConversationStatus
+	activeTurnID         *string
+	disposedAt           *string
 }
 
 func readConversationRouteSideMetadata(
@@ -294,8 +303,10 @@ func readConversationRouteSideMetadata(
 	sideConversationID string,
 ) (conversationRouteSideMetadata, bool, error) {
 	var metadata conversationRouteSideMetadata
+	var activeTurnID, disposedAt sql.NullString
 	err := reader.QueryRowContext(ctx, `
-SELECT parent_conversation_id, parent_pane_id, decision_source, status
+SELECT parent_conversation_id, parent_pane_id, decision_source, status,
+       active_turn_id, disposed_at
 FROM side_conversations
 WHERE id = ?
 `, sideConversationID).Scan(
@@ -303,10 +314,14 @@ WHERE id = ?
 		&metadata.parentPaneID,
 		&metadata.source,
 		&metadata.status,
+		&activeTurnID,
+		&disposedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return conversationRouteSideMetadata{}, false, nil
 	}
+	metadata.activeTurnID = optionalScannedString(activeTurnID)
+	metadata.disposedAt = optionalScannedString(disposedAt)
 	return metadata, err == nil, err
 }
 
@@ -379,7 +394,7 @@ func readConversationRouteForkEffect(
 	command := record.ResultingCommand.ForkConversation
 	var parentConversationID string
 	var source BranchDecisionSource
-	var forkedAtTurnID string
+	var forkedAtTurnID sql.NullString
 	err := reader.QueryRowContext(ctx, `
 SELECT parent_conversation_id, decision_source, forked_at_turn_id
 FROM conversation_branches
@@ -393,7 +408,8 @@ WHERE child_conversation_id = ?
 	}
 	if parentConversationID != record.ConversationID ||
 		source != BranchDecisionSourceConversationRouter ||
-		forkedAtTurnID != command.ForkedAtTurnID {
+		!forkedAtTurnID.Valid ||
+		forkedAtTurnID.String != command.ForkedAtTurnID {
 		return false, stateConflict("conversation route fork", command.ChildConversationID, "stored effect does not match its command")
 	}
 	return readConversationRouteTurnEffect(

@@ -4,8 +4,9 @@
     "eslint.config.mjs",
     "src/main/index.ts",
     "src/preload/index.ts",
-    "src/renderer/public/sw.js",
     "src/renderer/src/main.tsx",
+    "src/renderer/src/features/director-graph/harness/director-graph-harness-main.tsx",
+    "src/renderer/src/features/director-graph/gallery/director-graph-gallery-main.tsx",
     "vitest.config.ts"
   ],
   "project": [
@@ -18,9 +19,38 @@
     "vitest.config.ts"
   ],
   "ignore": ["out/**", "dist/**", "src/generated/**"],
-  "ignoreFiles": ["src/renderer/src/components/workspace-pane-split-overlay.tsx"],
+  "ignoreFiles": [
+    "src/renderer/src/app-layout.ts",
+    "src/renderer/src/components/workspace-pane-split-overlay.tsx",
+    "src/renderer/src/features/easy-button/conversation-creation-command.ts",
+    "src/renderer/src/features/global-master/app-shell-master.tsx",
+    "src/renderer/src/features/global-speech/app-shell-speech-capture.tsx",
+    "src/renderer/src/features/global-speech/app-shell-speech-playback.tsx",
+    "src/renderer/src/features/global-speech/app-shell-speech-status.tsx",
+    "src/renderer/src/use-viewport-size.ts",
+    "src/renderer/src/workspace-layout/**"
+  ],
   "ignoreIssues": {
-    "src/renderer/src/components/workspace-pane.tsx": ["exports", "types"]
+    "src/renderer/src/components/workspace-pane.tsx": ["exports", "types"],
+    "src/renderer/src/features/easy-button/conversation-creation-command.ts": ["exports", "types"],
+    "src/renderer/src/features/global-master/app-shell-master-controller-types.ts": ["types"],
+    "src/renderer/src/features/global-master/app-shell-master-controller.ts": ["types"],
+    "src/renderer/src/features/global-speech/app-shell-speech-capture.tsx": ["exports"],
+    "src/renderer/src/features/global-speech/app-shell-speech-playback.tsx": ["exports"],
+    "src/renderer/src/features/global-speech/app-shell-speech-status.tsx": ["exports"],
+    "src/renderer/src/workspace-layout/conversation-pane-coordinator.ts": ["exports", "types"],
+    "src/renderer/src/workspace-layout/conversation-pane-resource-binding.ts": ["exports"],
+    "src/renderer/src/workspace-layout/master-pane-focus.ts": ["exports"],
+    "src/renderer/src/workspace-layout/pane-drag-reorder.ts": ["exports", "types"],
+    "src/renderer/src/workspace-layout/pane-resize-session.ts": ["exports"],
+    "src/renderer/src/workspace-layout/pane-resize-target.ts": ["exports"],
+    "src/renderer/src/workspace-layout/performance-report.ts": ["exports"],
+    "src/renderer/src/workspace-layout/runtime-mode-options.ts": ["exports"],
+    "src/renderer/src/workspace-layout/workspace-interactions.ts": ["exports"],
+    "src/renderer/src/workspace-layout/workspace-layout-area-runtime.ts": ["exports"],
+    "src/renderer/src/workspace-layout/workspace-overview-ghost.ts": ["exports"],
+    "src/renderer/src/workspace-layout/workspace-runtime.ts": ["exports"],
+    "src/renderer/src/workspace-layout/workspace-ui-layout.tsx": ["exports"]
   },
   "ignoreDependencies": ["@types/node", "@types/react", "@types/react-dom", "tailwindcss", "vite"]
 }

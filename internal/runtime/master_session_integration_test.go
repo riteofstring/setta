@@ -14,6 +14,7 @@ func TestRuntimeFoundationRestoresDurableRestrictedMasterSession(t *testing.T) {
 	installRuntimeMasterCodexFixture(t)
 	config := DefaultConfig()
 	config.AppDataDir = appDataDir
+	config.SpeechCredentialOwner = SpeechCredentialOwnerElectronVault
 	config.Version = "master-session-integration-test"
 
 	first := newTestRuntimeFoundation(t, config)
@@ -108,6 +109,9 @@ func writeRuntimeMasterCodexHelper(t *testing.T, binDir string) {
 	for _, name := range []string{
 		"fake-topic-artifact-tool.mjs",
 		"fake-topic-artifact-turns.mjs",
+		"fake-topic-codex-app-server-helpers.mjs",
+		"fake-topic-codex-input-routes.mjs",
+		"fake-topic-codex-restricted-thread.mjs",
 	} {
 		fixture := readRuntimeMasterCodexFixture(t, name)
 		if err := os.WriteFile(filepath.Join(binDir, name), fixture, 0o600); err != nil {

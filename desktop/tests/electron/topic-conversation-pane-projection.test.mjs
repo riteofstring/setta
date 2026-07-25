@@ -5,7 +5,6 @@ import { readFile } from "node:fs/promises";
 import { basename, delimiter, dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { setTimeout as delay } from "node:timers/promises";
 
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
@@ -16,6 +15,7 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -37,11 +37,20 @@ import {
   closeMasterOverlay,
   createPersistentMasterClarification,
   exerciseMasterOverlayEntryPoints,
-  readJsonLinesWhileAppending,
   verifyRestoredMasterInteraction,
   waitForMasterRouteDecision,
 } from "./topic-conversation-master-overlay-assertions.mjs";
 import { exerciseMasterPaneRouting } from "./topic-conversation-master-pane-routing.mjs";
+import {
+  assertRecordedMasterSynthesis,
+  assertRecordedNarrationSynthesis,
+  waitForAutomaticNarrationStatusPlayback,
+  waitForMasterProviderRequest,
+  waitForNarrationProviderRequest,
+  waitForRecordedConversationKeepAlive,
+  waitForRecordedMasterSpeechSynthesis,
+  waitForRecordedSpeechSynthesis,
+} from "./topic-conversation-narration-speech-assertions.mjs";
 import {
   assertDistinctNarratorVoices,
   assertInactiveNarratorVoiceCapacityReleased,
@@ -52,6 +61,10 @@ import {
   updateMasterVoice,
 } from "./topic-conversation-narrator-voice-workflow.mjs";
 import { assertRecordedPaneLayouts } from "./topic-conversation-layout-recording.mjs";
+import {
+  saveOpenAIVoiceCredentialThroughSettingsAndClose,
+  selectOpenAIVoiceProvider,
+} from "./speech-credential-byok-workflow.mjs";
 import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDistinctConversationPalettes,
@@ -80,14 +93,11 @@ import {
   assertDeniedApproval,
   assertIndependentWorkingTopics,
   assertNarratorStatusIsolation,
-  assertRunningTurn,
   expectedNarratorStatusReply,
   hasFinalNarrationForEveryTurn,
-  narratorCaughtUp,
   requiredConversationSurface,
 } from "./topic-conversation-projection-assertions.mjs";
 import { verifySideConversationRestart } from "./topic-conversation-side-restart-workflow.mjs";
-import { exerciseSharedPaneClarification } from "./topic-conversation-shared-routing-presentation.mjs";
 import {
   assertChangedConversationInputConflicts,
   assertDispatchedConversationInputRoutingState,
@@ -104,12 +114,11 @@ import { assertEasyButtonBindingPersistence } from "./topic-conversation-pane-bi
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-pane-projection";
-const workflowTimeoutMs = 90_000;
+const workflowTimeoutMs = 50_000;
 const initialThreadStartDelayMs = 900;
-const initialPanePlaceholderBudgetMs = 500;
 const cancelledMasterText = "Cancel active master route.";
-const shellClarificationText = "Clarify the shell topic.";
-const typedMasterOverlayText = "Focus Alpha topic.";
+const shellClarificationText = "Clarify Alpha.";
+const typedMasterOverlayText = "Yes, that one.";
 const paneSpeechTranscript = "  Keep this pane transcript exact.  ";
 const secretApprovalAnswer = "setta-private-approval-answer-20260714";
 const speechRealtimeBrowserFixture = join(
@@ -139,6 +148,7 @@ let context = null;
 let noPaneTerminalSpeech;
 let shellMasterOverlayInput;
 let shellMasterInput;
+let shellMasterSpeech;
 let cancelledMasterInput;
 let sharedMasterSessionId;
 let statusCapturePreemption;
@@ -149,29 +159,40 @@ try {
   context = await launchElectronCdpContext({
     artifactDir: firstLaunchDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS: String(initialThreadStartDelayMs),
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  let backend = await backendProbe(firstLaunchDir, context.client);
-  runtimeDeviceTokens.push(await backend.currentRuntimeCredential());
-  const workspaceOpenStartedAt = Date.now();
+  let backend = await backendProbe(firstLaunchDir);
+  runtimeDeviceTokens.push(backend.deviceToken);
   const workspaceId = await openWorkspace(context.client);
-  const initialPanePlaceholder = await assertImmediateInitialEasyButtonPlaceholder(
+  const initialConversationStartedAt = Date.now();
+  await createConversationFromToolbar(context.client);
+  await saveOpenAIVoiceCredentialThroughSettingsAndClose(
     context.client,
-    workspaceOpenStartedAt,
+    speechProvider.apiKey,
+    workflowTimeoutMs,
   );
-  await captureScreenshot(context.client, join(artifactDir, "initial-easy-button-startup.png"));
+  await selectOpenAIVoiceProvider(context.client);
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "initial-conversation-pane-startup.png"),
+  );
   const initialConversation = await waitForInitialConversation(backend, workspaceId);
+  const initialPaneStartup = {
+    conversationId: initialConversation.conversation.id,
+    explicitCreation: true,
+    latencyMs: Date.now() - initialConversationStartedAt,
+  };
   await assertInitialEasyButtonExperience(context.client, initialConversation.conversation.id);
-  await assertNavigatorOpensAnotherEasyButtonView(
+  await assertNavigatorDoesNotOfferAnotherEasyButtonView(
     context.client,
     initialConversation.conversation.id,
   );
@@ -197,10 +218,19 @@ try {
   }
   const reassignedPage = await waitForBackendState(
     async () => listTopics(backend, workspaceId),
-    (page) => narratorVoice(page, alpha.id) === "ballad" && narratorVoice(page, beta.id) === "ash",
+    (page) => {
+      const alphaVoice = narratorVoice(page, alpha.id);
+      const betaVoice = narratorVoice(page, beta.id);
+      return (
+        [alphaVoice, betaVoice].every((voice) => voice && voice !== masterVoice.resolvedVoiceId) &&
+        alphaVoice !== betaVoice
+      );
+    },
     workflowTimeoutMs,
   );
   alpha.narratorVoiceId = narratorVoice(reassignedPage, alpha.id);
+  beta.narratorVoiceId = narratorVoice(reassignedPage, beta.id);
+  assertDistinctNarratorVoices(alpha, beta, masterVoice.resolvedVoiceId);
   const betaVoice = await context.client.driver("presentationConfigurationUpdateNarratorVoice", {
     conversationId: beta.id,
     selection: { requestedVoiceId: "cedar", selection: "exact" },
@@ -247,6 +277,7 @@ try {
     artifactDirectory: firstLaunchDir,
     backend,
     client: context.client,
+    expectedCandidateTargetId: alpha.id,
     text: shellClarificationText,
     timeoutMs: workflowTimeoutMs,
     workspaceId,
@@ -258,19 +289,19 @@ try {
   context = await launchElectronCdpContext({
     artifactDir: secondLaunchDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS: String(initialThreadStartDelayMs),
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  backend = await backendProbe(secondLaunchDir, context.client);
-  runtimeDeviceTokens.push(await backend.currentRuntimeCredential());
+  backend = await backendProbe(secondLaunchDir);
+  runtimeDeviceTokens.push(backend.deviceToken);
   await assertPersistedMasterCancellation(backend, cancelledMasterInput);
   const restoredWorkspaceId = await openWorkspace(context.client);
   if (restoredWorkspaceId !== workspaceId) {
@@ -432,18 +463,6 @@ try {
   );
   speechProvider.assertHealthy();
 
-  const duplicated = await exerciseSharedPaneClarification({
-    artifactDir,
-    backend,
-    client: context.client,
-    conversation: alpha,
-    originalPaneId: alphaPaneId,
-    otherConversationId: beta.id,
-    recordingDir: secondLaunchDir,
-    timeoutMs: workflowTimeoutMs,
-    workspaceId,
-  });
-
   assertDriverAction(
     await context.client.driver("topicConversationSubmit", {
       conversationId: alpha.id,
@@ -534,7 +553,7 @@ try {
     const alphaSurfaces = conversationSurfaces(surfaces, alpha.id);
     const betaSurfaces = conversationSurfaces(surfaces, beta.id);
     return (
-      alphaSurfaces.length === 2 &&
+      alphaSurfaces.length === 1 &&
       betaSurfaces.length === 1 &&
       alphaSurfaces.every(
         (surface) =>
@@ -562,13 +581,14 @@ try {
     timeoutMs: workflowTimeoutMs,
     workspaceId,
   });
-  statusSpeechPlayback = await waitForAutomaticNarrationStatusPlayback(
-    context.client,
-    speechProvider,
-    synthesisRequestCountBeforeStatus,
-    expectedNarratorStatusReply,
-    alpha.narratorVoiceId,
-  );
+  statusSpeechPlayback = await waitForAutomaticNarrationStatusPlayback({
+    client: context.client,
+    initialRequestCount: synthesisRequestCountBeforeStatus,
+    provider: speechProvider,
+    resolvedVoiceId: alpha.narratorVoiceId,
+    text: expectedNarratorStatusReply,
+    timeoutMs: workflowTimeoutMs,
+  });
   await verifyNarratorPlaybackPresentation({
     artifactPath: join(artifactDir, "global-playback-attribution.png"),
     client: context.client,
@@ -582,10 +602,11 @@ try {
   if (!statusEvent) {
     throw new Error("status narration event was unavailable for automatic playback");
   }
-  const recordedStatusSynthesis = await waitForRecordedSpeechSynthesis(
-    secondLaunchDir,
-    statusEvent.id,
-  );
+  const recordedStatusSynthesis = await waitForRecordedSpeechSynthesis({
+    artifactDirectory: secondLaunchDir,
+    narrationEventId: statusEvent.id,
+    timeoutMs: workflowTimeoutMs,
+  });
   assertRecordedNarrationSynthesis(
     recordedStatusSynthesis,
     alpha.id,
@@ -702,19 +723,17 @@ try {
   await submitAndWaitForQueue(context.client, alpha.id, "approval alpha", 3);
 
   await closeConversationPane(context.client, alpha.id);
-  await closeConversationPane(context.client, alpha.id);
   await waitForConversationSurfaces(
     context.client,
     (surfaces) => conversationSurfaces(surfaces, alpha.id).length === 0,
   );
   assertNavigator(await waitForNavigator(context.client, alpha.id, 0, workflowTimeoutMs), alpha, 0);
-  const closedWorkingSnapshot = await waitForConversationSnapshot(
+  const closedConversationSnapshot = await waitForConversationSnapshot(
     backend,
     workspaceId,
     alpha.id,
-    (snapshot) => snapshot.conversation.status === "working" && snapshot.queue.length === 3,
+    (snapshot) => snapshot.turns.turns.some((turn) => turn.authoredInput.text === "approval alpha"),
   );
-  assertRunningTurn(closedWorkingSnapshot, "closed working conversation");
 
   assertDriverAction(
     await context.client.driver("topicConversationPresentFromNavigator", {
@@ -722,14 +741,75 @@ try {
     }),
     "clicked",
   );
+  await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) => surface.projectionStatus === "ready" && surface.paletteId === alpha.paletteId,
+  );
+  const reopenedBeforeApproval = await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) =>
+      surface.projectionStatus === "ready" &&
+      surface.paletteId === alpha.paletteId &&
+      (surface.approvalId !== "" || surface.state === "working"),
+  );
+  if (reopenedBeforeApproval.approvalId === "") {
+    assertDriverAction(
+      await context.client.driver("topicConversationStop", {
+        conversationId: alpha.id,
+      }),
+      "stopped",
+    );
+    await waitForConversationSnapshot(backend, workspaceId, alpha.id, (snapshot) =>
+      snapshot.turns.turns.some(
+        (turn) => turn.authoredInput.text === "hold alpha" && turn.status === "cancelled",
+      ),
+    );
+  }
+  await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) =>
+      surface.approvalId !== "" &&
+      surface.artifactCount === 1 &&
+      surface.artifactText.includes("artifact.png") &&
+      surface.helperText === "Waiting for approval",
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationRespondApproval", {
+      answer: secretApprovalAnswer,
+      conversationId: alpha.id,
+    }),
+    "answered",
+  );
+  const reopenedApprovalComplete = await waitForConversationSurface(
+    context.client,
+    alpha.id,
+    (surface) =>
+      surface.state === "complete" &&
+      surface.status === "completed" &&
+      surface.summaryText === "Approval alpha completed.",
+  );
+  if (reopenedApprovalComplete.artifactCount !== 1) {
+    throw new Error(
+      `Alpha artifact was not retained after reopened approval: ${JSON.stringify(
+        reopenedApprovalComplete,
+      )}`,
+    );
+  }
+  assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId: alpha.id,
+      text: "hold alpha after reopen",
+    }),
+    "submitted",
+  );
   const reopenedWorking = await waitForConversationSurface(
     context.client,
     alpha.id,
-    (surface) => surface.state === "working" && surface.queueCount === 3,
+    (surface) => surface.state === "working" && surface.paletteId === alpha.paletteId,
   );
-  if (reopenedWorking.paletteId !== alpha.paletteId) {
-    throw new Error(`reopened Alpha palette changed: ${JSON.stringify(reopenedWorking)}`);
-  }
 
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -740,7 +820,6 @@ try {
     (surface) =>
       surface.projectionStatus === "ready" &&
       surface.state === "working" &&
-      surface.queueCount === 3 &&
       surface.paletteId === alpha.paletteId,
   );
   await waitForConversationSurface(
@@ -765,6 +844,28 @@ try {
     timeoutMs: workflowTimeoutMs,
     workspaceId,
   });
+  await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    alpha.id,
+    (snapshot) =>
+      snapshot.conversation.status === "idle" &&
+      snapshot.turns.turns.some(
+        (turn) =>
+          turn.authoredInput.text === "hold alpha after reopen" && turn.status === "completed",
+      ) &&
+      snapshot.trajectory.events.some(
+        (event) =>
+          event.kind === "turn_steered" && event.turnSteered?.input?.text === "steer alpha now",
+      ),
+  );
+  assertDriverAction(
+    await context.client.driver("topicConversationSubmit", {
+      conversationId: alpha.id,
+      text: "approval alpha after steer",
+    }),
+    "submitted",
+  );
   const awaitingApproval = await waitForConversationSurface(
     context.client,
     alpha.id,
@@ -787,7 +888,7 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "completed" &&
-      surface.summaryText === "Narrator completed approval alpha.",
+      surface.summaryText === "Approval alpha after steer completed.",
   );
   if (alphaComplete.artifactCount !== 1) {
     throw new Error(`Alpha artifact was not retained: ${JSON.stringify(alphaComplete)}`);
@@ -818,7 +919,7 @@ try {
       surface.state === "complete" &&
       surface.status === "completed" &&
       surface.approvalId === "" &&
-      surface.summaryText === "Narrator completed command approval denial.",
+      surface.summaryText === "Command approval denial completed.",
   );
 
   const masterPaneRoutes = await exerciseMasterPaneRouting({
@@ -837,7 +938,11 @@ try {
     context.client,
     (surfaces) => conversationSurfaces(surfaces, beta.id).length === 0,
   );
-  await waitForRecordedConversationKeepAlive(secondLaunchDir, beta.id);
+  await waitForRecordedConversationKeepAlive({
+    artifactDirectory: secondLaunchDir,
+    conversationId: beta.id,
+    timeoutMs: workflowTimeoutMs,
+  });
   await context.client.evaluate(
     `window.setta.conversations.stop(${JSON.stringify({ conversationId: beta.id, workspaceId })})`,
   );
@@ -858,22 +963,24 @@ try {
   if (!noPaneFinal) {
     throw new Error("terminal narration was unavailable after stopping a pane-free conversation");
   }
-  const recordedNoPaneSynthesis = await waitForRecordedSpeechSynthesis(
-    secondLaunchDir,
-    noPaneFinal.id,
-  );
+  const recordedNoPaneSynthesis = await waitForRecordedSpeechSynthesis({
+    artifactDirectory: secondLaunchDir,
+    narrationEventId: noPaneFinal.id,
+    timeoutMs: workflowTimeoutMs,
+  });
   assertRecordedNarrationSynthesis(
     recordedNoPaneSynthesis,
     beta.id,
     noPaneFinal.id,
     beta.narratorVoiceId,
   );
-  noPaneTerminalSpeech = await waitForNarrationProviderRequest(
-    speechProvider,
-    synthesisRequestCountBeforeNoPaneStop,
-    noPaneFinal.finalSummary.text,
-    beta.narratorVoiceId,
-  );
+  noPaneTerminalSpeech = await waitForNarrationProviderRequest({
+    initialRequestCount: synthesisRequestCountBeforeNoPaneStop,
+    provider: speechProvider,
+    resolvedVoiceId: beta.narratorVoiceId,
+    text: noPaneFinal.finalSummary.text,
+    timeoutMs: workflowTimeoutMs,
+  });
   assertDriverAction(
     await context.client.driver("topicConversationPresentFromNavigator", {
       conversationId: beta.id,
@@ -886,7 +993,7 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "stopped" &&
-      surface.summaryText === "Narrator completed hold beta.",
+      surface.summaryText === "Hold beta stopped before completion.",
   );
   assertDriverAction(
     await context.client.driver("topicConversationSubmit", {
@@ -910,11 +1017,13 @@ try {
     (surface) =>
       surface.state === "complete" &&
       surface.status === "failed" &&
-      surface.summaryText === "Narrator completed narration backlog fail beta.",
+      surface.summaryText ===
+        "Narration backlog fail beta failed; the reported error remains visible.",
   );
 
   await closeConversationPane(context.client, alpha.id);
   await closeConversationPane(context.client, beta.id);
+  await closeConversationPane(context.client, initialConversation.conversation.id);
   await waitForConversationSurfaces(context.client, (surfaces) => surfaces.length === 0);
   await installScriptedRealtimeBrowser(context.client);
   shellMasterInput = await exercisePaneFreeShellCapture({
@@ -943,6 +1052,30 @@ try {
     expectedText: paneSpeechTranscript,
     timeoutMs: workflowTimeoutMs,
   });
+  const masterAnswerText = voiceMasterRoute.decision?.resultingCommand?.answerGlobal?.text;
+  if (typeof masterAnswerText !== "string" || masterAnswerText === "") {
+    throw new Error(`master answer text is missing: ${JSON.stringify(voiceMasterRoute)}`);
+  }
+  const synthesisRequestCountBeforeMasterReplay = speechProvider.requests.length;
+  await clickEnabledButtonByAria(context.client, "Replay master answer", workflowTimeoutMs);
+  const recordedMasterSynthesis = await waitForRecordedMasterSpeechSynthesis({
+    artifactDirectory: secondLaunchDir,
+    inputId: shellMasterInput.accepted.input.id,
+    timeoutMs: workflowTimeoutMs,
+  });
+  assertRecordedMasterSynthesis(
+    recordedMasterSynthesis,
+    shellMasterInput.accepted.input.id,
+    masterVoice.resolvedVoiceId,
+  );
+  shellMasterSpeech = await waitForMasterProviderRequest({
+    initialRequestCount: synthesisRequestCountBeforeMasterReplay,
+    provider: speechProvider,
+    resolvedVoiceId: masterVoice.resolvedVoiceId,
+    text: masterAnswerText,
+    timeoutMs: workflowTimeoutMs,
+  });
+  await context.client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.finishAllAudio()");
   await closeMasterOverlay(context.client, workflowTimeoutMs);
   assertDriverAction(
     await context.client.driver("topicConversationPresentFromNavigator", {
@@ -968,10 +1101,10 @@ try {
     workspaceId,
     alpha.id,
     (snapshot) =>
-      snapshot.turns.turns.length === 7 &&
-      snapshot.turns.turns.every((turn) => turn.status === "completed") &&
-      hasFinalNarrationForEveryTurn(snapshot) &&
-      narratorCaughtUp(snapshot),
+      snapshot.turns.turns.length === 8 &&
+      snapshot.turns.turns.filter((turn) => turn.status === "cancelled").length === 1 &&
+      snapshot.turns.turns.filter((turn) => turn.status === "completed").length === 7 &&
+      hasFinalNarrationForEveryTurn(snapshot),
   );
   const betaSnapshot = await waitForConversationSnapshot(
     backend,
@@ -982,8 +1115,6 @@ try {
       snapshot.turns.turns[0]?.status === "cancelled" &&
       snapshot.turns.turns[1]?.status === "failed" &&
       hasFinalNarrationForEveryTurn(snapshot) &&
-      narratorCaughtUp(snapshot) &&
-      snapshot.narratorState.checkpointThroughSequence > 0 &&
       snapshot.narratorState.degradation === null,
   );
   assertAlphaLifecycle(alphaSnapshot, awaitingApproval.approvalId);
@@ -1026,14 +1157,14 @@ try {
   });
 
   await waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
           pane.paneId === alphaRestartSide.parentPaneId &&
-          pane.easyButtonConfig?.conversationId === alpha.id,
+          pane.conversationConfig?.conversationId === alpha.id,
       ) === true &&
-      result.layout.panes.some((pane) => pane.easyButtonConfig?.conversationId === beta.id),
+      result.layout.panes.some((pane) => pane.conversationConfig?.conversationId === beta.id),
     workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));
@@ -1135,20 +1266,20 @@ try {
     beta,
     betaFailed,
     betaSnapshot,
-    closedWorkingSnapshot,
+    closedConversationSnapshot,
     concurrent,
     conversationInput: acceptedConversationInput,
     masterEscalation,
     workingConversationInput: acceptedWorkingConversationInput,
-    duplicated,
     exhaustedVoice,
-    initialPanePlaceholder,
+    initialPaneStartup,
     noPaneTerminalSpeech,
     reloaded,
     reopenedWorking,
     reloadedWorking,
     reloadedSideFailure,
     shellMasterInput,
+    shellMasterSpeech,
     shellMasterOverlayInput,
     masterPaneRoutes,
     sideFailure,
@@ -1196,26 +1327,23 @@ try {
 }
 
 async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  const current = await client.evaluate(workspaceIdExpression());
+  if (!validWorkspaceId(current)) {
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
-  const opened = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  return opened.workspaceId;
+  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+function workspaceIdExpression() {
+  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
+}
+
+async function createConversationFromToolbar(client) {
+  assertDriverAction(await client.driver("topicConversationClickNewFrameConversation"), "clicked");
 }
 
 async function waitForInitialConversation(backend, workspaceId) {
@@ -1262,127 +1390,28 @@ function initialEasyButtonExperienceReady(state) {
   return [
     !state.createControlPresent,
     !state.searchControlPresent,
-    !state.startupPanePresent,
     state.topBarSpeechStatusPresent,
     !state.voiceOffPresent,
     state.actionCount === 5,
-    state.visiblePaneCount === 1,
+    state.visiblePaneCount === 2,
     state.easyButtonPaneCount === 1,
     state.emptyFramePaneCount === 0,
     state.matchingSurfaceCount === 1,
   ].every(Boolean);
 }
 
-async function assertImmediateInitialEasyButtonPlaceholder(client, workspaceOpenStartedAt) {
-  const state = await waitForState(
-    client,
-    driverCallExpression("topicConversationStartupState", { conversationId: "" }),
-    (candidate) => candidate.startupPanePresent,
-    initialPanePlaceholderBudgetMs,
-  );
-  const latencyMs = Date.now() - workspaceOpenStartedAt;
-  if (latencyMs > initialPanePlaceholderBudgetMs) {
+async function assertNavigatorDoesNotOfferAnotherEasyButtonView(client, conversationId) {
+  const before = await waitForNavigator(client, conversationId, 1, workflowTimeoutMs);
+  if (before.duplicateViewButtonCount !== 0) {
     throw new Error(
-      `initial Easy Button placeholder missed its ${initialPanePlaceholderBudgetMs}ms budget: ${latencyMs}ms`,
+      `navigator exposed ${before.duplicateViewButtonCount} duplicate-view controls for ${conversationId}`,
     );
   }
-  return { latencyMs, startupState: state.startupState };
-}
-
-async function assertNavigatorOpensAnotherEasyButtonView(client, conversationId) {
   assertDriverAction(
-    await client.driver("topicConversationOpenNewViewFromNavigator", { conversationId }),
+    await client.driver("topicConversationPresentFromNavigator", { conversationId }),
     "clicked",
   );
-  await waitForNavigator(client, conversationId, 2, workflowTimeoutMs);
-  await closeConversationPane(client, conversationId);
   await waitForNavigator(client, conversationId, 1, workflowTimeoutMs);
-}
-
-async function waitForAutomaticNarrationStatusPlayback(
-  client,
-  provider,
-  initialRequestCount,
-  text,
-  resolvedVoiceId,
-) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < workflowTimeoutMs) {
-    const request = provider.requests
-      .slice(initialRequestCount)
-      .find(
-        (candidate) =>
-          candidate.path === "/v1/audio/speech" &&
-          candidate.input === text &&
-          candidate.voice === resolvedVoiceId,
-      );
-    if (request) {
-      const audio = await waitForState(
-        client,
-        "globalThis.__settaSpeechRealtimeBrowserFixture.snapshot()",
-        (state) => state.audioPlayCount > state.audioEndCount,
-        workflowTimeoutMs,
-      );
-      provider.assertHealthy();
-      return { audio, providerRequest: request };
-    }
-    await client.evaluate("globalThis.__settaSpeechRealtimeBrowserFixture.finishAllAudio()");
-    await delay(20);
-  }
-  throw new Error("automatic narrator status playback did not reach the speech provider");
-}
-
-async function waitForNarrationProviderRequest(
-  provider,
-  initialRequestCount,
-  text,
-  resolvedVoiceId,
-) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < workflowTimeoutMs) {
-    const request = provider.requests
-      .slice(initialRequestCount)
-      .find(
-        (candidate) =>
-          candidate.path === "/v1/audio/speech" &&
-          candidate.input === text &&
-          candidate.voice === resolvedVoiceId,
-      );
-    if (request) {
-      provider.assertHealthy();
-      return request;
-    }
-    await delay(20);
-  }
-  throw new Error("pane-free terminal narration playback did not reach the speech provider");
-}
-
-function assertRecordedNarrationSynthesis(
-  event,
-  conversationId,
-  narrationEventId,
-  resolvedVoiceId,
-) {
-  const operation = event.args?.[0];
-  if (
-    event.channel !== "speech:synthesize" ||
-    typeof operation?.operationId !== "string" ||
-    !operation.operationId.startsWith("speech_") ||
-    operation.request?.resolvedVoiceId !== resolvedVoiceId
-  ) {
-    throw new Error(`automatic narration synthesis source drifted: ${JSON.stringify(event)}`);
-  }
-  assertRecordedNarratorSource(operation.request.source, conversationId, narrationEventId, event);
-}
-
-function assertRecordedNarratorSource(source, conversationId, narrationEventId, event) {
-  if (
-    source?.speaker !== "narrator" ||
-    source.conversationId !== conversationId ||
-    source.eventId !== narrationEventId
-  ) {
-    throw new Error(`automatic narration synthesis source drifted: ${JSON.stringify(event)}`);
-  }
 }
 
 async function installScriptedRealtimeBrowser(client) {
@@ -1390,43 +1419,6 @@ async function installScriptedRealtimeBrowser(client) {
   await client.evaluate(
     `globalThis.__settaSpeechRealtimeBrowserFixture.setTranscript(${JSON.stringify(paneSpeechTranscript)})`,
   );
-}
-
-async function waitForRecordedSpeechSynthesis(artifactDirectory, narrationEventId) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < workflowTimeoutMs) {
-    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
-    const synthesis = events.find(
-      (event) =>
-        event.type === "ipc_start" &&
-        event.channel === "speech:synthesize" &&
-        event.args?.[0]?.request?.source?.eventId === narrationEventId,
-    );
-    if (synthesis) {
-      return synthesis;
-    }
-    await delay(20);
-  }
-  throw new Error(`speech synthesis IPC was not recorded for narration ${narrationEventId}`);
-}
-
-async function waitForRecordedConversationKeepAlive(artifactDirectory, conversationId) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < workflowTimeoutMs) {
-    const events = await readJsonLinesWhileAppending(join(artifactDirectory, "ipc.jsonl"));
-    const release = events.find(
-      (event) =>
-        event.type === "ipc_start" &&
-        event.channel === "conversation:release-events" &&
-        event.args?.[0]?.conversationId === conversationId &&
-        event.args[0].keepAlive === true,
-    );
-    if (release && events.some((event) => event.type === "ipc_finish" && event.id === release.id)) {
-      return release;
-    }
-    await delay(20);
-  }
-  throw new Error(`conversation stream was not retained for pane-free work ${conversationId}`);
 }
 
 async function submitAndWaitForQueue(client, conversationId, text, queueCount) {
@@ -1442,10 +1434,10 @@ async function submitAndWaitForQueue(client, conversationId, text, queueCount) {
 }
 
 async function closeConversationPane(client, conversationId) {
-  assertDriverAction(
-    await client.driver("topicConversationCloseOneBoundPane", { conversationId }),
-    "clicked",
-  );
+  const closed = await client.driver("appPaneLayoutCloseConversationPane", { conversationId });
+  if (closed?.status !== "passed") {
+    throw new Error(`conversation pane did not close: ${JSON.stringify(closed)}`);
+  }
 }
 
 async function waitForConversationSurfaces(client, ready) {

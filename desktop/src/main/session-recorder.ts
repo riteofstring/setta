@@ -64,16 +64,12 @@ const sensitiveRecordingKeys = new Set([
   "client_secret",
   "deviceToken",
   "device_token",
-  "deviceSecret",
-  "device_secret",
   "iconDataUrl",
   "icon_data_url",
   "imageDataUrl",
   "image_data_url",
   "loginId",
   "login_id",
-  "localPairingToken",
-  "local_pairing_token",
   "pairingToken",
   "pairing_token",
   "userCode",
@@ -85,7 +81,9 @@ const sensitiveIpcStartTypes = new Map<string, string>([
   [ipcChannels.appOpenExternalUrl, "external_url"],
   [ipcChannels.codexAccountStartLogin, "codex_account_login_request"],
   [ipcChannels.conversationSubmitApproval, "conversation_approval_submission"],
+  [ipcChannels.directorDispatchIntent, "director_intent_submission"],
   [ipcChannels.runtimeAddByPairingUrl, "runtime_pairing_url"],
+  [ipcChannels.speechSaveCredential, "speech_credential_save"],
 ]);
 const sensitiveRecordingEventTypes = new Map<string, string>([
   ["external_url_open_blocked", "external_url"],
@@ -563,6 +561,7 @@ function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
     turnId: event.turnId,
     turnInterruptionReason: summarizeTurnInterruptionReason(event),
     turnInvocation: summarizeTurnInvocation(event),
+    validation: summarizeTrajectoryValidation(event),
   };
 }
 
@@ -635,7 +634,22 @@ function summarizeProviderLifecycle(event: TrajectoryEvent) {
   }
   return {
     provider: event.providerLifecycleChanged.lifecycle.provider,
+    reason: event.providerLifecycleChanged.lifecycle.reason,
     status: event.providerLifecycleChanged.lifecycle.status,
+  };
+}
+
+function summarizeTrajectoryValidation(event: TrajectoryEvent) {
+  if (event.validationRecorded === null) {
+    return null;
+  }
+  const validation = event.validationRecorded.validation;
+  return {
+    id: validation.id,
+    kind: validation.kind,
+    risk: validation.risk,
+    status: validation.status,
+    subject: validation.subject,
   };
 }
 

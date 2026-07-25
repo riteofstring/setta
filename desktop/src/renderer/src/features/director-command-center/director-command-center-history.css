@@ -1,0 +1,73 @@
+.director-history-open {
+  background: oklch(0.12 0.014 252 / 0.66);
+  justify-content: center;
+  padding-inline: 10px;
+}
+
+.director-history-overlay {
+  align-items: center;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  justify-items: center;
+  padding: 18px;
+  position: relative;
+  z-index: 42;
+}
+
+.director-history-backdrop {
+  background: oklch(0.03 0.006 260 / 0.68);
+  border: 0;
+  cursor: pointer;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+}
+
+.director-history-dialog {
+  background: oklch(0.105 0.012 252 / 0.95);
+  border: 1px solid oklch(0.4 0.04 250 / 0.82);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px oklch(0 0 0 / 0.45);
+  display: grid;
+  gap: 14px;
+  inline-size: min(620px, 100%);
+  max-block-size: min(720px, calc(100vh - 48px));
+  overflow: hidden auto;
+  padding: 14px;
+  position: relative;
+}
+
+.director-history-dialog header {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 38px;
+}
+
+.director-history-dialog h2 {
+  color: oklch(0.94 0.025 245);
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.2;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.director-history-dialog-list {
+  display: grid;
+  gap: 9px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.director-history-dialog-list li {
+  background: oklch(0.12 0.012 252 / 0.74);
+  border: 1px solid oklch(0.34 0.026 250 / 0.7);
+  border-radius: 8px;
+  color: oklch(0.84 0.025 250);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  padding: 9px 10px;
+}

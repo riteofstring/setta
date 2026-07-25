@@ -136,6 +136,9 @@ export const useConversationNavigatorStore = create<ConversationNavigatorStore>(
     },
     upsertSnapshot: (snapshot) => {
       const workspaceId = snapshot.conversation.workspaceId;
+      if (workspaceId === null) {
+        return;
+      }
       if (snapshot.conversation.archivedAt !== null) {
         set((state) => removeNavigatorConversation(state, workspaceId, snapshot.conversation.id));
         return;
@@ -179,6 +182,9 @@ function navigatorEventsPatch(
 ): ConversationNavigatorStore | Pick<ConversationNavigatorStore, "workspaces"> {
   let next: Record<string, ConversationNavigatorWorkspaceState | undefined> | null = null;
   for (const event of events) {
+    if (event.workspaceId === null) {
+      continue;
+    }
     const workspaces = next ?? state.workspaces;
     const workspace = workspaces[event.workspaceId];
     if (!workspace) {
@@ -307,7 +313,7 @@ function assertNavigatorPageOwnership(page: NavigatorPage, workspaceId: string) 
       );
     }
     if (item.branch && item.branch.childConversationId !== item.conversation.id) {
-      throw new Error(`Conversation ${item.conversation.id} has mismatched fork lineage.`);
+      throw new Error(`Conversation ${item.conversation.id} has mismatched branch lineage.`);
     }
   }
 }

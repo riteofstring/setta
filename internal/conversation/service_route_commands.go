@@ -15,7 +15,6 @@ func (service *Service) ExecuteRouteCommand(
 	workspaceID string,
 	conversationID string,
 	decisionID string,
-	acceptedAt string,
 	command ConversationRouteCommand,
 ) (ConversationSnapshot, error) {
 	if err := validateRouteCommandExecution(
@@ -49,10 +48,6 @@ func (service *Service) ExecuteRouteCommand(
 		)
 	case ConversationRouteDecisionKindSteerParentTurn:
 		payload := command.SteerParentTurn
-		startedAt, err := validateTimestamp("routed steering input acceptedAt", acceptedAt)
-		if err != nil {
-			return ConversationSnapshot{}, err
-		}
 		return service.steerTurn(
 			ctx,
 			workspaceID,
@@ -60,7 +55,6 @@ func (service *Service) ExecuteRouteCommand(
 			payload.AuthoredInput.Text,
 			payload.TargetTurnID,
 			decisionID,
-			&startedAt,
 		)
 	case ConversationRouteDecisionKindCreateSideConversation:
 		return service.executeRoutedSideConversation(
