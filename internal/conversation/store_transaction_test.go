@@ -582,7 +582,7 @@ func appendTestOutboxEvents(t *testing.T, store *Store, drafts []CommittedEventD
 func transactionTestConversation(id string) TopicConversation {
 	return TopicConversation{
 		ID:          id,
-		WorkspaceID: stringPointer("workspace-1"),
+		WorkspaceID: "workspace-1",
 		Title:       "Transaction helpers",
 		Status:      ConversationStatusIdle,
 		CreatedAt:   testTimeStarted,

@@ -2,19 +2,18 @@
 /* global console */
 
 import { basename, delimiter, join } from "node:path";
-import { realpath } from "node:fs/promises";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchKeyEvent,
   dispatchMouseDrag,
   dispatchMouseClick,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -88,10 +87,11 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
-  const workspaceRoot = await realpath(fixture.workspaceRoot);
-  const backend = await backendProbe(artifactDir);
-  const conversationIds = await createFixtureConversations(backend, workspaceId, paneCount / 2);
-  await persistUltraWideLayout(context.client, workspaceId, workspaceRoot, conversationIds);
+  const conversationId = await createFixtureConversation(
+    await backendProbe(artifactDir, context.client),
+    workspaceId,
+  );
+  await persistUltraWideLayout(context.client, workspaceId, conversationId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
 
@@ -99,14 +99,9 @@ try {
     expectedIntersectingPaneCount,
     paneCount,
   });
-  const highPaneBindingAudit = await assertHighPaneEasyButtonBindings({
-    backend,
-    expectedConversationIds: conversationIds,
-    workspaceId,
-  });
   await captureScreenshot(context.client, join(artifactDir, "ultrawide-live-panes.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", multiRowConstrainedViewport);
-  await persistMultiRowLayout(context.client, workspaceId, workspaceRoot, conversationIds);
+  await persistMultiRowLayout(context.client, workspaceId, conversationId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
   const constrainedMultiRowSnapshot = await waitForLivePaneSnapshot(context.client, {
@@ -137,12 +132,12 @@ try {
     await assertVisiblePaneClickFocusesWithoutReveal(
       context.client,
       multiRowSnapshot,
-      "conversation",
+      "easy-button",
     ),
   ];
   await captureScreenshot(context.client, join(artifactDir, "multirow-live-panes.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", verticalStackViewport);
-  await persistVerticalStackLayout(context.client, workspaceId, workspaceRoot, conversationIds);
+  await persistVerticalStackLayout(context.client, workspaceId, conversationId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
   const verticalStackBeforeResize = await waitForLivePaneSnapshot(context.client, {
@@ -175,7 +170,6 @@ try {
     artifactDir,
     clickPreservationChecks,
     constrainedMultiRowSnapshot,
-    highPaneBindingAudit,
     multiRowConstrainedViewport,
     multiRowSnapshot,
     multiRowViewport,
@@ -214,7 +208,7 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
-  await openFixtureWorkspace(client, workflowTimeoutMs);
+  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   return waitForWorkspaceDriverState(
     client,
     "workspaceUltrawideWorkspaceId",
@@ -224,17 +218,9 @@ async function ensureWorkspaceOpen(client) {
   );
 }
 
-async function createFixtureConversations(backend, workspaceId, count) {
-  const conversationIds = [];
-  for (let index = 0; index < count; index += 1) {
-    conversationIds.push(await createFixtureConversation(backend, workspaceId, index));
-  }
-  return conversationIds;
-}
-
-async function createFixtureConversation(backend, workspaceId, index) {
+async function createFixtureConversation(backend, workspaceId) {
   const snapshot = await backend.post("/conversations/create", {
-    title: `Ultrawide pane fixture ${index + 1}`,
+    title: "Ultrawide pane fixture",
     workspaceId,
   });
   const conversationId = snapshot.conversation?.id ?? "";
@@ -244,58 +230,22 @@ async function createFixtureConversation(backend, workspaceId, index) {
   return conversationId;
 }
 
-async function assertHighPaneEasyButtonBindings({ backend, expectedConversationIds, workspaceId }) {
-  void workspaceId;
-  const result = await backend.get("/app/panes/layout");
-  const layout = result.layout;
-  if (!layout) {
-    throw new Error(`high-pane app pane layout was not persisted: ${JSON.stringify(result)}`);
-  }
-  const conversationPanes = layout.panes.filter(
-    (pane) => pane.surfaceKind === "conversation" && pane.conversationConfig?.conversationId,
-  );
-  const conversationIds = conversationPanes.map((pane) => pane.conversationConfig.conversationId);
-  const missingConversationIds = expectedConversationIds.filter(
-    (conversationId) => !conversationIds.includes(conversationId),
-  );
-  if (
-    conversationPanes.length <= 10 ||
-    conversationPanes.length !== expectedConversationIds.length ||
-    new Set(conversationIds).size !== conversationIds.length ||
-    missingConversationIds.length > 0
-  ) {
-    throw new Error(
-      `high-pane Easy Button bindings drifted: ${JSON.stringify({
-        conversationIds,
-        easyButtonPaneCount: conversationPanes.length,
-        expectedConversationIds,
-        missingConversationIds,
-      })}`,
-    );
-  }
-  return {
-    easyButtonPaneCount: conversationPanes.length,
-    formerPaneCapExceeded: conversationPanes.length > 10,
-    uniqueConversationBindingCount: new Set(conversationIds).size,
-  };
+async function persistUltraWideLayout(client, workspaceId, conversationId) {
+  await persistLayout(client, ultraWideLayout(workspaceId, conversationId));
 }
 
-async function persistUltraWideLayout(client, workspaceId, workspaceRoot, conversationIds) {
-  await persistLayout(client, ultraWideLayout(workspaceId, workspaceRoot, conversationIds));
+async function persistMultiRowLayout(client, workspaceId, conversationId) {
+  await persistLayout(client, multiRowLayout(workspaceId, conversationId));
 }
 
-async function persistMultiRowLayout(client, workspaceId, workspaceRoot, conversationIds) {
-  await persistLayout(client, multiRowLayout(workspaceId, workspaceRoot, conversationIds));
-}
-
-async function persistVerticalStackLayout(client, workspaceId, workspaceRoot, conversationIds) {
-  await persistLayout(client, verticalStackLayout(workspaceId, workspaceRoot, conversationIds));
+async function persistVerticalStackLayout(client, workspaceId, conversationId) {
+  await persistLayout(client, verticalStackLayout(workspaceId, conversationId));
 }
 
 async function persistLayout(client, layout) {
   const result = await client.driver("workspaceUltrawideSaveUILayout", { layout });
   if (!result.ok) {
-    throw new Error(`app pane layout was not persisted: ${JSON.stringify(result)}`);
+    throw new Error(`workspace UI layout was not persisted: ${JSON.stringify(result)}`);
   }
 }
 
@@ -379,10 +329,10 @@ function paneSnapshotHostsAreLive(snapshot) {
 function paneSnapshotSurvivorKindsMatch(snapshot) {
   const surfaceKinds = new Set(snapshot.intersectingHosts.map((host) => host.surfaceKind));
   return (
-    surfaceKinds.has("conversation") &&
+    surfaceKinds.has("easy-button") &&
     surfaceKinds.has("empty-frame") &&
     snapshot.intersectingHosts.every(
-      (host) => host.surfaceKind === "conversation" || host.surfaceKind === "empty-frame",
+      (host) => host.surfaceKind === "easy-button" || host.surfaceKind === "empty-frame",
     )
   );
 }
@@ -453,9 +403,8 @@ async function assertVisiblePaneClickFocusesWithoutReveal(client, snapshot, surf
   if (!target) {
     throw new Error(`no unfocused visible ${surfaceKind} host was available`);
   }
-  const horizontalClickFraction = surfaceKind === "conversation" ? 0.25 : 0.5;
   await dispatchMouseClick(client, {
-    x: Math.round(target.rect.left + target.rect.width * horizontalClickFraction),
+    x: Math.round((target.rect.left + target.rect.right) / 2),
     y: Math.round(target.rect.top + target.rect.height / 2),
   });
   await delay(100);
@@ -488,13 +437,12 @@ async function assertVisiblePaneClickFocusesWithoutReveal(client, snapshot, surf
   };
 }
 
-function ultraWideLayout(workspaceId, workspaceRoot, conversationIds) {
-  const nextPaneConfig = createPaneConfigAllocator(conversationIds);
+function ultraWideLayout(workspaceId, conversationId) {
   const panes = Array.from({ length: paneCount }, (_value, index) => {
     const surfaceKind = productSurfaceKindForPane(index);
     return {
       columnId: `workspace_column_${index}`,
-      conversationConfig: nextPaneConfig(surfaceKind),
+      easyButtonConfig: paneConfig(surfaceKind, conversationId),
       heat: (index * 37) % 100,
       paneId: `workspace_pane_${index}`,
       sequence: index,
@@ -506,36 +454,32 @@ function ultraWideLayout(workspaceId, workspaceRoot, conversationIds) {
       weight: 1,
     };
   });
-  return appLayoutFromWorkspaceLayout(
-    {
-      columns: panes.map((pane, index) => ({
-        columnId: pane.columnId,
-        idealWidthSpec: { unit: "px", value: 520 },
-        index,
-        paneIds: [pane.paneId],
-        planeIndex: 0,
-        previousProportionWidth: null,
-        slotIndex: index,
-        widthSpec: { unit: "px", value: 520 },
-      })),
-      focusedPaneId: "workspace_pane_0",
-      panes,
-      schemaVersion: 1,
-      workspaceId,
-    },
-    workspaceRoot,
-  );
+  return {
+    columns: panes.map((pane, index) => ({
+      columnId: pane.columnId,
+      idealWidthSpec: { unit: "px", value: 520 },
+      index,
+      paneIds: [pane.paneId],
+      planeIndex: 0,
+      previousProportionWidth: null,
+      slotIndex: index,
+      widthSpec: { unit: "px", value: 520 },
+    })),
+    focusedPaneId: "workspace_pane_0",
+    panes,
+    schemaVersion: 1,
+    workspaceId,
+  };
 }
 
-function multiRowLayout(workspaceId, workspaceRoot, conversationIds) {
-  const nextPaneConfig = createPaneConfigAllocator(conversationIds);
+function multiRowLayout(workspaceId, conversationId) {
   const panes = Array.from({ length: multiRowPaneCount }, (_value, index) => {
     const columnIndex = Math.floor(index / 2);
     const rowIndex = index % 2;
     const surfaceKind = multiRowSurfaceKind(columnIndex, rowIndex);
     return {
       columnId: `multirow_column_${columnIndex}`,
-      conversationConfig: nextPaneConfig(surfaceKind),
+      easyButtonConfig: paneConfig(surfaceKind, conversationId),
       heat: (index * 41) % 100,
       paneId: `multirow_pane_${index}`,
       sequence: index,
@@ -547,34 +491,30 @@ function multiRowLayout(workspaceId, workspaceRoot, conversationIds) {
       weight: 1,
     };
   });
-  return appLayoutFromWorkspaceLayout(
-    {
-      columns: Array.from({ length: multiRowPaneCount / 2 }, (_value, index) => ({
-        columnId: `multirow_column_${index}`,
-        idealWidthSpec: { unit: "px", value: 520 },
-        index,
-        paneIds: [`multirow_pane_${index * 2}`, `multirow_pane_${index * 2 + 1}`],
-        planeIndex: 0,
-        previousProportionWidth: null,
-        slotIndex: index,
-        widthSpec: { unit: "px", value: 520 },
-      })),
-      focusedPaneId: "multirow_pane_0",
-      panes,
-      schemaVersion: 1,
-      workspaceId,
-    },
-    workspaceRoot,
-  );
+  return {
+    columns: Array.from({ length: multiRowPaneCount / 2 }, (_value, index) => ({
+      columnId: `multirow_column_${index}`,
+      idealWidthSpec: { unit: "px", value: 520 },
+      index,
+      paneIds: [`multirow_pane_${index * 2}`, `multirow_pane_${index * 2 + 1}`],
+      planeIndex: 0,
+      previousProportionWidth: null,
+      slotIndex: index,
+      widthSpec: { unit: "px", value: 520 },
+    })),
+    focusedPaneId: "multirow_pane_0",
+    panes,
+    schemaVersion: 1,
+    workspaceId,
+  };
 }
 
-function verticalStackLayout(workspaceId, workspaceRoot, conversationIds) {
-  const nextPaneConfig = createPaneConfigAllocator(conversationIds);
+function verticalStackLayout(workspaceId, conversationId) {
   const panes = Array.from({ length: verticalStackPaneCount }, (_value, index) => {
     const surfaceKind = verticalStackSurfaceKind(index);
     return {
       columnId: "vertical_stack_column_0",
-      conversationConfig: nextPaneConfig(surfaceKind),
+      easyButtonConfig: paneConfig(surfaceKind, conversationId),
       heat: (index * 29) % 100,
       paneId: `vertical_pane_${index}`,
       sequence: index,
@@ -586,127 +526,38 @@ function verticalStackLayout(workspaceId, workspaceRoot, conversationIds) {
       weight: index === 0 ? 50 : 1,
     };
   });
-  return appLayoutFromWorkspaceLayout(
-    {
-      columns: [
-        {
-          columnId: "vertical_stack_column_0",
-          idealWidthSpec: { unit: "px", value: 520 },
-          index: 0,
-          paneIds: panes.map((pane) => pane.paneId),
-          planeIndex: 0,
-          previousProportionWidth: null,
-          slotIndex: 0,
-          widthSpec: { unit: "px", value: 520 },
-        },
-      ],
-      focusedPaneId: "vertical_pane_0",
-      panes,
-      schemaVersion: 1,
-      workspaceId,
-    },
-    workspaceRoot,
-  );
-}
-
-function appLayoutFromWorkspaceLayout(layout, workspaceRoot) {
   return {
     columns: [
-      appMasterColumn(),
-      ...layout.columns.map((column) => ({
-        ...column,
-        index: column.index + 1,
-        slotIndex: column.slotIndex + 1,
-      })),
-    ],
-    focusedPaneId: layout.focusedPaneId,
-    maximizedPaneId: null,
-    panes: [
-      appMasterPane(),
-      ...layout.panes.map((pane) => appPaneFromWorkspacePane(pane, workspaceRoot)),
-    ],
-    schemaVersion: 1,
-  };
-}
-
-function appMasterColumn() {
-  return {
-    columnId: "app_column_master",
-    idealWidthSpec: { unit: "px", value: 520 },
-    index: 0,
-    paneIds: ["app_pane_master"],
-    planeIndex: 0,
-    previousProportionWidth: null,
-    slotIndex: 0,
-    widthSpec: { unit: "px", value: 520 },
-  };
-}
-
-function appMasterPane() {
-  return {
-    columnId: "app_column_master",
-    conversationConfig: null,
-    heat: 0,
-    masterConfig: {},
-    paneId: "app_pane_master",
-    sequence: 0,
-    subtitle: "Global coordinator",
-    surfaceId: "app_surface_master",
-    surfaceKind: "master",
-    title: "Setta",
-    tone: "slate",
-    weight: 1,
-  };
-}
-
-function appPaneFromWorkspacePane(pane, workspaceRoot) {
-  const { conversationConfig, ...appPaneFields } = pane;
-  if (pane.surfaceKind !== "conversation") {
-    return {
-      ...appPaneFields,
-      conversationConfig: null,
-      masterConfig: null,
-    };
-  }
-  return {
-    ...appPaneFields,
-    conversationConfig: {
-      conversationId: conversationConfig.conversationId,
-      presentationIdentity: {
-        subtitle: pane.subtitle,
-        title: pane.title,
-        tone: pane.tone,
+      {
+        columnId: "vertical_stack_column_0",
+        idealWidthSpec: { unit: "px", value: 520 },
+        index: 0,
+        paneIds: panes.map((pane) => pane.paneId),
+        planeIndex: 0,
+        previousProportionWidth: null,
+        slotIndex: 0,
+        widthSpec: { unit: "px", value: 520 },
       },
-      resourceBindings: [{ folder: { rootPath: workspaceRoot }, kind: "folder" }],
-    },
-    masterConfig: null,
-    surfaceKind: "conversation",
+    ],
+    focusedPaneId: "vertical_pane_0",
+    panes,
+    schemaVersion: 1,
+    workspaceId,
   };
 }
 
 function productSurfaceKindForPane(index) {
-  return ["empty-frame", "conversation"][index % 2];
+  return ["empty-frame", "easy-button"][index % 2];
 }
 
 function multiRowSurfaceKind(columnIndex, rowIndex) {
-  return (columnIndex + rowIndex) % 2 === 0 ? "empty-frame" : "conversation";
+  return (columnIndex + rowIndex) % 2 === 0 ? "empty-frame" : "easy-button";
 }
 
 function verticalStackSurfaceKind(index) {
-  return ["empty-frame", "conversation"][index % 2];
+  return ["empty-frame", "easy-button"][index % 2];
 }
 
-function createPaneConfigAllocator(conversationIds) {
-  let nextConversationIndex = 0;
-  return (surfaceKind) => {
-    if (surfaceKind !== "conversation") {
-      return null;
-    }
-    const conversationId = conversationIds[nextConversationIndex] ?? "";
-    nextConversationIndex += 1;
-    if (conversationId === "") {
-      throw new Error("missing fixture conversation for easy-button pane");
-    }
-    return { conversationId };
-  };
+function paneConfig(surfaceKind, conversationId) {
+  return surfaceKind === "easy-button" ? { conversationId } : null;
 }

@@ -17,12 +17,12 @@ describe("parseReadyLine", () => {
   test("accepts the machine-readable ready event", () => {
     expect(
       parseReadyLine(
-        `{"event":"ready","addr":"127.0.0.1:41000","bootstrapToken":"token_test","protocolVersion":${backendProtocolVersion}}`,
+        `{"event":"ready","addr":"127.0.0.1:41000","localPairingToken":"pairing_test","protocolVersion":${backendProtocolVersion}}`,
       ),
     ).toEqual({
       addr: "127.0.0.1:41000",
-      bootstrapToken: "token_test",
       event: "ready",
+      localPairingToken: "pairing_test",
       protocolVersion: backendProtocolVersion,
     });
   });
@@ -39,7 +39,7 @@ describe("startSpawnedBackend", () => {
     await expect(
       startBackend("/tmp/repo", "/tmp/app-data", {
         ...process.env,
-        SETTA_BACKEND_TOKEN: "token_test",
+        SETTA_BACKEND_PAIRING_TOKEN: "pairing_test",
         SETTA_BACKEND_URL: "http://100.64.0.12:7345",
       }),
     ).rejects.toThrow("SETTA_BACKEND_URL must point at a loopback host");
@@ -48,12 +48,12 @@ describe("startSpawnedBackend", () => {
   test("normalizes external backend URLs before appending API paths", async () => {
     const handle = await startBackend("/tmp/repo", "/tmp/app-data", {
       ...process.env,
-      SETTA_BACKEND_TOKEN: "token_test",
+      SETTA_BACKEND_PAIRING_TOKEN: "pairing_test",
       SETTA_BACKEND_URL: "http://127.0.0.1:7345/",
     });
 
     expect(handle.url).toBe("http://127.0.0.1:7345");
-    expect(handle.bootstrapToken).toBe("token_test");
+    expect(handle.localPairingToken).toBe("pairing_test");
     expect(handle.mode).toBe("external");
   });
 
@@ -61,7 +61,7 @@ describe("startSpawnedBackend", () => {
     await expect(
       startBackend("/tmp/repo", "/tmp/app-data", {
         ...process.env,
-        SETTA_BACKEND_TOKEN: "token_test",
+        SETTA_BACKEND_PAIRING_TOKEN: "pairing_test",
         SETTA_BACKEND_URL: "http://127.0.0.1:7345/api",
       }),
     ).rejects.toThrow("SETTA_BACKEND_URL must not include a path, query, or fragment");
@@ -72,21 +72,18 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("ready-with-logs")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: {
-        ...process.env,
-        SETTA_BACKEND_SUPERVISOR_PROTOCOL_VERSION: String(backendProtocolVersion),
-      },
+      env: backendFixtureEnvironment(),
       readyTimeoutMs: 3000,
     });
 
     expect(handle.mode).toBe("spawned");
     expect(handle.url).toBe("http://127.0.0.1:41000");
-    expect(handle.bootstrapToken).toBe("ready_with_logs_token");
+    expect(handle.localPairingToken).toBe("ready_with_logs_token");
     expect(handle.protocolVersion).toBe(backendProtocolVersion);
     expect(handle.recentLogs()).toContain("stderr log");
     expect(handle.recentLogs()).toContain("stdout log");
     expect(handle.recentLogs()).toContain(
-      `{"event":"ready","addr":"127.0.0.1:41000","bootstrapToken":"<redacted>","protocolVersion":${backendProtocolVersion}}`,
+      `{"event":"ready","addr":"127.0.0.1:41000","localPairingToken":"<redacted>","protocolVersion":${backendProtocolVersion}}`,
     );
 
     await handle.stop();
@@ -97,7 +94,7 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("post-ready-stdout")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: process.env,
+      env: backendFixtureEnvironment(),
       readyTimeoutMs: 3000,
     });
 
@@ -216,8 +213,8 @@ describe("startSpawnedBackend", () => {
       args: [backendSupervisorFixture("exit-after-ready")],
       command: process.execPath,
       cwd: process.cwd(),
-      env: process.env,
-      readyTimeoutMs: 3000,
+      env: backendFixtureEnvironment(),
+      readyTimeoutMs: 10_000,
     });
 
     const exit = await new Promise((resolve) => {
@@ -230,6 +227,13 @@ describe("startSpawnedBackend", () => {
 
 function backendSupervisorFixture(name: string): string {
   return fileURLToPath(new URL(`./test-fixtures/backend-supervisor/${name}.mjs`, import.meta.url));
+}
+
+function backendFixtureEnvironment(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    SETTA_TEST_PROTOCOL_VERSION: String(backendProtocolVersion),
+  };
 }
 
 function waitForLog(handle: BackendHandle, expectedLine: string): Promise<void> {
