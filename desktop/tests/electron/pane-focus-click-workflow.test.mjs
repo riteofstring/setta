@@ -2,7 +2,6 @@
 /* global console */
 
 import { basename, join } from "node:path";
-import { realpath } from "node:fs/promises";
 import process from "node:process";
 
 import { backendProbe } from "./electron-workflow-harness.mjs";
@@ -10,10 +9,10 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchMouseClick,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -138,11 +137,17 @@ async function waitForWorkspaceLayoutArea(client) {
 }
 
 async function openSeededWorkspaceInRenderer(client, workspaceId) {
-  const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
-  if (initialWorkspaceId === workspaceId) {
+  const initialState = await waitForLoggedState(
+    client,
+    seededWorkspaceOpenStateExpression(),
+    "seeded workspace visible or open button",
+    (state) => state.workspaceId === workspaceId || state.openButtonReady,
+    (state) => ({ ...state, expectedWorkspaceId: workspaceId }),
+  );
+  if (initialState.workspaceId === workspaceId) {
     return;
   }
-  await openFixtureWorkspace(client, workflowTimeoutMs);
+  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   await waitForLoggedState(
     client,
     workspaceIdExpression(),
@@ -153,18 +158,17 @@ async function openSeededWorkspaceInRenderer(client, workspaceId) {
 }
 
 async function seedTwoPaneWorkspaceLayout(backend, workspaceRoot) {
-  const canonicalWorkspaceRoot = await realpath(workspaceRoot);
-  const opened = await backend.post("/workspaces/open", { rootPath: canonicalWorkspaceRoot });
+  const opened = await backend.post("/workspaces/open", { rootPath: workspaceRoot });
   const workspaceId = opened.workspace?.id ?? "";
   if (workspaceId === "") {
     throw new Error(`workspace open response missing id: ${JSON.stringify(opened)}`);
   }
   const conversationId = await createFixtureConversation(backend, workspaceId);
-  const layout = twoPaneAppLayout(workspaceId, conversationId, canonicalWorkspaceRoot);
-  const saved = await backend.post("/app/panes/layout/save", { layout });
-  if (saved.focusedPaneId !== layout.focusedPaneId) {
+  const layout = twoPaneWorkspaceUILayout(workspaceId, conversationId);
+  const saved = await backend.post("/workspaces/ui/layout/save", { layout });
+  if (saved.workspaceId !== workspaceId) {
     throw new Error(
-      `saved app layout focus ${saved.focusedPaneId} did not match ${layout.focusedPaneId}`,
+      `saved layout workspace ${saved.workspaceId} did not match opened workspace ${workspaceId}`,
     );
   }
   return workspaceId;
@@ -348,8 +352,21 @@ function workspaceIdExpression() {
   })()`;
 }
 
-function twoPaneAppLayout(workspaceId, conversationId, workspaceRoot) {
-  const layout = {
+function seededWorkspaceOpenStateExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === "Open project folder",
+    );
+    return {
+      openButtonReady: button instanceof HTMLButtonElement && !button.disabled,
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+    };
+  })()`;
+}
+
+function twoPaneWorkspaceUILayout(workspaceId, conversationId) {
+  return {
     columns: [
       {
         columnId: "workspace_column_0",
@@ -376,20 +393,20 @@ function twoPaneAppLayout(workspaceId, conversationId, workspaceRoot) {
     panes: [
       {
         columnId: "workspace_column_0",
-        conversationConfig: { conversationId },
+        easyButtonConfig: { conversationId },
         heat: 0,
         paneId: "workspace_pane_0",
         sequence: 0,
         subtitle: "topic conversation pane",
         surfaceId: "workspace_surface_0",
-        surfaceKind: "conversation",
+        surfaceKind: "easy-button",
         title: "Pane Focus Topic",
         tone: "cyan",
         weight: 1,
       },
       {
         columnId: "workspace_column_1",
-        conversationConfig: null,
+        easyButtonConfig: null,
         heat: 37,
         paneId: "workspace_pane_1",
         sequence: 1,
@@ -403,79 +420,5 @@ function twoPaneAppLayout(workspaceId, conversationId, workspaceRoot) {
     ],
     schemaVersion: 1,
     workspaceId,
-  };
-  return {
-    columns: [
-      appMasterColumn(),
-      ...layout.columns.map((column) => ({
-        ...column,
-        index: column.index + 1,
-        slotIndex: column.slotIndex + 1,
-      })),
-    ],
-    focusedPaneId: layout.focusedPaneId,
-    maximizedPaneId: null,
-    panes: [
-      appMasterPane(),
-      appConversationPane(layout.panes[0], workspaceRoot),
-      appEmptyPane(layout.panes[1]),
-    ],
-    schemaVersion: 1,
-  };
-}
-
-function appMasterColumn() {
-  return {
-    columnId: "app_column_master",
-    idealWidthSpec: { unit: "px", value: 520 },
-    index: 0,
-    paneIds: ["app_pane_master"],
-    planeIndex: 0,
-    previousProportionWidth: null,
-    slotIndex: 0,
-    widthSpec: { unit: "px", value: 520 },
-  };
-}
-
-function appMasterPane() {
-  return {
-    columnId: "app_column_master",
-    conversationConfig: null,
-    heat: 0,
-    masterConfig: {},
-    paneId: "app_pane_master",
-    sequence: 0,
-    subtitle: "Global coordinator",
-    surfaceId: "app_surface_master",
-    surfaceKind: "master",
-    title: "Setta",
-    tone: "slate",
-    weight: 1,
-  };
-}
-
-function appConversationPane({ conversationConfig, ...pane }, workspaceRoot) {
-  return {
-    ...pane,
-    conversationConfig: {
-      conversationId: conversationConfig.conversationId,
-      presentationIdentity: {
-        subtitle: pane.subtitle,
-        title: pane.title,
-        tone: pane.tone,
-      },
-      resourceBindings: [{ folder: { rootPath: workspaceRoot }, kind: "folder" }],
-    },
-    masterConfig: null,
-    surfaceKind: "conversation",
-  };
-}
-
-function appEmptyPane({ conversationConfig, ...pane }) {
-  void conversationConfig;
-  return {
-    ...pane,
-    conversationConfig: null,
-    masterConfig: null,
   };
 }

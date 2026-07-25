@@ -21,7 +21,7 @@ import {
   workspaceFrameActionAllowed,
   workspaceFrameActionLimitState,
 } from "./workspace-frame-actions";
-import type { WorkspacePane, NonConversationSurfaceKind } from "./types";
+import type { WorkspacePane, NonEasyButtonSurfaceKind } from "./types";
 
 export function WorkspaceToolbar({
   onFrameAction,
@@ -292,7 +292,7 @@ function shortcutLabelForAction(actionId: string): string | null {
 function openPaneRequest(
   title: string,
   subtitle: string,
-  surfaceKind: NonConversationSurfaceKind,
+  surfaceKind: NonEasyButtonSurfaceKind,
   tone: WorkspacePane["tone"],
 ): SurfaceFrameActionRequest {
   return {

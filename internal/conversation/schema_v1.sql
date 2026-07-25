@@ -1,6 +1,6 @@
 CREATE TABLE conversations (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT,
+  workspace_id TEXT NOT NULL,
   title TEXT NOT NULL,
   topic_descriptor TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL CHECK (status IN ('idle', 'working', 'waiting_for_approval', 'failed')),

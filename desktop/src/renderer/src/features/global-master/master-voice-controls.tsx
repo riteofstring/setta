@@ -73,13 +73,13 @@ export function MasterVoiceStatus({ model }: { model: MasterVoiceModel }) {
   }
   return (
     <div
-      className="setta-master-pane-voice-status"
+      className="setta-master-overlay-voice-status"
       data-master-voice-state={model.state}
-      data-testid="master-pane-voice-status"
+      data-testid="master-overlay-voice-status"
       role={model.state === "failed" ? "alert" : "status"}
     >
       <MasterVoiceStatusGlyph state={model.state} />
-      <span className="setta-master-pane-voice-status-text">
+      <span className="setta-master-overlay-voice-status-text">
         {model.statusLabel}
         {model.transcript ? (
           <span className="setta-master-overlay-voice-transcript">"{model.transcript}"</span>
@@ -90,15 +90,11 @@ export function MasterVoiceStatus({ model }: { model: MasterVoiceModel }) {
 }
 
 export function MasterVoiceButton({
-  className = "setta-master-overlay-voice-button",
   model,
   onOpenVoiceCredentialSettings,
-  testId = "master-pane-voice-capture",
 }: {
-  className?: string;
   model: MasterVoiceModel;
   onOpenVoiceCredentialSettings?: () => void;
-  testId?: string;
 }) {
   const disabled =
     model.action === null ||
@@ -106,9 +102,8 @@ export function MasterVoiceButton({
   return (
     <button
       aria-label={model.controlLabel}
-      className={className}
-      data-master-voice-state={model.state}
-      data-testid={testId}
+      className="setta-master-overlay-voice-button"
+      data-testid="master-overlay-voice-capture"
       disabled={disabled}
       onClick={() => executeMasterVoiceAction(model, onOpenVoiceCredentialSettings)}
       title={model.controlLabel}

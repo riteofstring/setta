@@ -12,9 +12,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -66,8 +66,9 @@ try {
   context = launch.context;
   let backend = launch.backend;
   const workspaceId = await openWorkspace(context.client);
+  await waitForInitialNavigator(backend, workspaceId);
 
-  const created = await createConversationThroughToolbar({
+  const created = await createConversationThroughHeader({
     backend,
     client: context.client,
     workspaceId,
@@ -293,25 +294,43 @@ async function launchWorkflowElectron() {
 }
 
 async function openWorkspace(client) {
-  const current = await client.evaluate(workspaceIdExpression());
-  if (!validWorkspaceId(current)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+  const initial = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  if (!validWorkspaceId(initial.workspaceId)) {
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   }
-  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
+  const opened = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  return opened.workspaceId;
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
-function workspaceIdExpression() {
-  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
+async function waitForInitialNavigator(backend, workspaceId) {
+  await waitForBackendState(
+    () => listTopics(backend, workspaceId),
+    (page) => page.items.length >= 1,
+    workflowTimeoutMs,
+  );
 }
 
-async function createConversationThroughToolbar({ backend, client, workspaceId }) {
+async function createConversationThroughHeader({ backend, client, workspaceId }) {
   const before = await listTopics(backend, workspaceId);
   const beforeIds = new Set(before.items.map((item) => item.conversation.id));
-  assertDriverAction(await client.driver("topicConversationClickNewFrameConversation"), "clicked");
+  assertDriverAction(
+    await client.driver("topicConversationClickNewConversationHeader", { clicks: 1 }),
+    "clicked",
+  );
   const page = await waitForBackendState(
     () => listTopics(backend, workspaceId),
     (current) => newConversationItems(current, beforeIds).length === 1,
@@ -384,7 +403,7 @@ function assertUnlinkedCreatedConversation(snapshot) {
 
 async function exerciseConcurrentFirstSubmissions({ backend, client, statePath, workspaceId }) {
   const before = await readFakeCodexState(statePath);
-  const conversation = await createConversationThroughToolbar({ backend, client, workspaceId });
+  const conversation = await createConversationThroughHeader({ backend, client, workspaceId });
   await Promise.allSettled([
     client.driver("topicConversationSubmit", {
       conversationId: conversation.id,
@@ -429,7 +448,7 @@ async function exerciseConcurrentFirstSubmissions({ backend, client, statePath, 
 }
 
 async function prepareMissingHistoricalThread({ backend, client, statePath, workspaceId }) {
-  const conversation = await createConversationThroughToolbar({ backend, client, workspaceId });
+  const conversation = await createConversationThroughHeader({ backend, client, workspaceId });
   await submitTopicInput(client, conversation.id, "missing historical foundation");
   const completed = await waitForConversationSnapshot(
     backend,
@@ -449,7 +468,7 @@ async function prepareMissingHistoricalThread({ backend, client, statePath, work
 }
 
 async function prepareStaleBlankThreadBinding({ backend, client, workspaceId }) {
-  const conversation = await createConversationThroughToolbar({ backend, client, workspaceId });
+  const conversation = await createConversationThroughHeader({ backend, client, workspaceId });
   await waitForPersistedConversationPane(backend, workspaceId, conversation.id, workflowTimeoutMs);
   assertUnlinkedCreatedConversation(
     await readConversationSnapshot(backend, workspaceId, conversation.id),
