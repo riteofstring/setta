@@ -173,6 +173,33 @@ func TestEnsureRuntimeCommandPersistsOneRestartSafeIntent(t *testing.T) {
 	}
 }
 
+func TestEnsureRuntimeCommandRejectsStorageAboveProductCeilingBeforePersistence(t *testing.T) {
+	root := t.TempDir()
+	dataDirectory := filepath.Join(root, "data")
+	identity, err := runtimeprovider.NewManagedIdentity("control-plane-storage-ceiling")
+	if err != nil {
+		t.Fatalf("NewManagedIdentity: %v", err)
+	}
+	var stderr bytes.Buffer
+	exitCode := runEnsureRuntime([]string{
+		"--data-dir", dataDirectory,
+		"--idempotency-key", "storage-ceiling-operation",
+		"--runtime-name", identity.Name,
+		"--runtime-release", "storage-ceiling-release",
+		"--runtime-secret-ref", "storage_ceiling_secret",
+		"--cpu-core-millionths", "1000000",
+		"--memory-bytes", "512000000",
+		"--storage-bytes", "100000000001",
+		"--user-id", "user-storage-ceiling",
+	}, &bytes.Buffer{}, &stderr, mapEnvironment(nil))
+	if exitCode != 2 || !strings.Contains(stderr.String(), "100 GB product ceiling") {
+		t.Fatalf("ensure-runtime exit = %d, stderr = %q", exitCode, stderr.String())
+	}
+	if _, err := os.Stat(dataDirectory); !os.IsNotExist(err) {
+		t.Fatalf("control-plane data directory exists after rejected ceiling: %v", err)
+	}
+}
+
 func TestProductionServicesEmitContentFreeProviderAlerts(t *testing.T) {
 	provider := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		http.Error(response, "provider unavailable", http.StatusServiceUnavailable)

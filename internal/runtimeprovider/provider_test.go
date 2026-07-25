@@ -12,7 +12,7 @@ func TestRuntimeResourcesRequirePositiveDurableLimits(t *testing.T) {
 	valid := RuntimeResources{
 		CPUCoreMillionths: 1_000_000,
 		MemoryBytes:       512_000_000,
-		StorageBytes:      10_000_000_000,
+		StorageBytes:      MaximumPersistentStorageBytes,
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("Validate valid resources: %v", err)
@@ -22,6 +22,11 @@ func TestRuntimeResourcesRequirePositiveDurableLimits(t *testing.T) {
 		"missing memory":   {CPUCoreMillionths: 1, StorageBytes: 1},
 		"missing storage":  {CPUCoreMillionths: 1, MemoryBytes: 1},
 		"integer overflow": {CPUCoreMillionths: math.MaxUint64, MemoryBytes: 1, StorageBytes: 1},
+		"storage ceiling": {
+			CPUCoreMillionths: 1,
+			MemoryBytes:       1,
+			StorageBytes:      MaximumPersistentStorageBytes + 1,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := resources.Validate(); !errors.Is(err, ErrInvalidContract) {

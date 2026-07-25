@@ -34,6 +34,7 @@ func TestDryRunRendersCompletePlanWithoutCredentialsOrStateMutation(t *testing.T
 		FlyAppName:          "setta-gateway-dry-run",
 		ResourcePrefix:      "setta-gateway-dry-run",
 		SpriteResources:     commandTestSpriteResources(),
+		MinimumDiskFreeMiB:  1_024,
 		AuthorizedWorkload: []string{
 			"hosted-candidate-b-http-sse",
 			"controlled-unauthenticated-wake",
@@ -70,7 +71,8 @@ func TestDryRunRendersCompletePlanWithoutCredentialsOrStateMutation(t *testing.T
 	if err := json.Unmarshal(stdout.Bytes(), &plan); err != nil {
 		t.Fatalf("decode dry-run: %v", err)
 	}
-	if len(plan.Actions) != 20 || plan.Shape.MachineCount != 1 || plan.Shape.ScheduledSnapshots {
+	if len(plan.Actions) != 20 || plan.Shape.MachineCount != 1 || plan.Shape.ScheduledSnapshots ||
+		plan.MinimumDiskFreeMiB != 1_024 {
 		t.Fatalf("dry-run plan = %+v", plan)
 	}
 	if _, err := os.Stat(filepath.Join(directory, "state.json")); !os.IsNotExist(err) {
@@ -202,6 +204,7 @@ func writeCommandTestManifest(
 		FlyAppName:          "setta-gateway-" + runID,
 		ResourcePrefix:      "setta-gateway-" + runID,
 		SpriteResources:     commandTestSpriteResources(),
+		MinimumDiskFreeMiB:  1_024,
 		AuthorizedWorkload: []string{
 			"hosted-candidate-b-http-sse",
 			"controlled-unauthenticated-wake",

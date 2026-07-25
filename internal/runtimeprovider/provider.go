@@ -132,6 +132,8 @@ type RuntimeResources struct {
 	StorageBytes      uint64 `json:"storage_bytes"`
 }
 
+const MaximumPersistentStorageBytes = uint64(100_000_000_000)
+
 func (resources RuntimeResources) Validate() error {
 	if resources.CPUCoreMillionths == 0 || resources.MemoryBytes == 0 || resources.StorageBytes == 0 {
 		return fmt.Errorf("%w: runtime resource limits must be positive", ErrInvalidContract)
@@ -140,6 +142,12 @@ func (resources RuntimeResources) Validate() error {
 		resources.MemoryBytes > math.MaxInt64 ||
 		resources.StorageBytes > math.MaxInt64 {
 		return fmt.Errorf("%w: runtime resource limits exceed the durable integer range", ErrInvalidContract)
+	}
+	if resources.StorageBytes > MaximumPersistentStorageBytes {
+		return fmt.Errorf(
+			"%w: persistent runtime storage exceeds the 100 GB product ceiling",
+			ErrInvalidContract,
+		)
 	}
 	return nil
 }

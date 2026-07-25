@@ -125,6 +125,13 @@ func TestLoadManifestRejectsExpandedWorkloadDurationAndReserve(t *testing.T) {
 			now: testAuthorizedAt.Add(time.Minute),
 		},
 		{
+			name: "storage exceeds product ceiling",
+			mutate: func(manifest *Manifest) {
+				manifest.SpriteResources.StorageBytes = runtimeprovider.MaximumPersistentStorageBytes + 1
+			},
+			now: testAuthorizedAt.Add(time.Minute),
+		},
+		{
 			name:   "cleanup reserve",
 			mutate: func(*Manifest) {},
 			now:    testAuthorizedAt.Add(105 * time.Minute),
