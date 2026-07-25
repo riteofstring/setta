@@ -1298,10 +1298,10 @@ the typed hosted capability the Director will consume: ensure access, submit
 work, receive ordered public events, steer or cancel, resolve approvals, obtain
 artifacts, disconnect, and resume from a durable cursor.
 
-- [ ] Define Go-owned ensure-hosted-access, capability/progress, and
+- [x] Define Go-owned ensure-hosted-access, capability/progress, and
   workstream-execution boundaries; generate any TypeScript consumers from
   those owners.
-- [ ] Preserve ordered HTTP/SSE events, bounded backpressure, durable cursors,
+- [x] Preserve ordered HTTP/SSE events, bounded backpressure, durable cursors,
   and push-based invalidation across the Candidate B gateway.
 - [ ] Add content-free latency instrumentation around ensure, wake, first
   event, reconnect, replay, steering, cancellation, approval, and artifact
@@ -1313,7 +1313,7 @@ artifacts, disconnect, and resume from a durable cursor.
   through production boundaries.
 - [ ] Prove conversation, queue, approval, artifact, and replay state survives
   without process memory or `/tmp`.
-- [ ] Prove a phone access request does not expose provider identity,
+- [x] Prove a phone access request does not expose provider identity,
   endpoint, pairing, or wake controls to the client contract.
 
 Exit: the hosted Director/workstream capability is correct, resumable,
@@ -1425,7 +1425,7 @@ lose mutation intent, suspension, or budget enforcement.
   approvals, completion, cancellation, failure, queued promotion or
   preservation, desktop disconnect, phone attach, reload, runtime restart, and
   persistence.
-- [ ] Run the live Electron and backend Codex E2E gates with ChatGPT auth when
+- [x] Run the live Electron and backend Codex E2E gates with ChatGPT auth when
   available, without `OPENAI_API_KEY`; record a narrow skip when unavailable.
 
 Exit: hosted access behaves like a Director capability invoked by user intent,
@@ -2117,3 +2117,37 @@ Stop and reassess rather than hiding the problem if any of these occur:
   cloud operation ran. Workstream execution, steering, cancellation,
   approvals, artifacts, failure progress, Electron conversation E2E, and the
   explicitly authorized live hosted run remain open.
+- 2026-07-24 (hosted workstream and desktop proof): Added production-path
+  Candidate B conversation tests through the authenticated gateway, real
+  runtime, durable stores, and scripted Codex protocol. They prove HTTP/SSE
+  replay after control-plane and runtime restart plus queueing, steering,
+  queued promotion, artifacts, approval denial, cancellation, and failure.
+  Added the desktop hosted-access main/preload/renderer IPC boundary with
+  generated progress decoding, push streams, replay cursors, and cancellation
+  on release or renderer destruction. The registered `hosted-cloud-chat`
+  Electron workflow starts the real control-plane deployable, reaches
+  `preparing_access -> syncing_project -> ready_on_phone`, then exercises the
+  production renderer/store/HTTP/event path for streamed conversation work,
+  queue promotion, steering, artifact projection, approval denial,
+  cancellation, failure, reload persistence, and hosted-progress replay. Its
+  client surface was checked for provider-facing fields and its temporary
+  state was sent to macOS Trash. Focused Candidate B tests, all 107 desktop
+  unit files (831 tests), typecheck, build, dead-code checks, and the dedicated
+  Electron workflow passed. ChatGPT-authenticated live Codex gates ran with
+  `OPENAI_API_KEY` removed: side isolation passed in 39.7 seconds and the
+  three-case backend conversation/control/restart/artifact matrix passed in
+  101.4 seconds. The agent active-fork case first hit its 240-second provider
+  deadline, then passed on the required narrow rerun in 59.1 seconds; the
+  initial timeout remains recorded as a transient live-provider failure. A
+  dedicated production Electron gate then completed a ChatGPT-authenticated
+  Codex turn with `OPENAI_API_KEY` removed, projected the exact completion
+  marker through the renderer, and verified the durable agent message and
+  narrator catch-up boundary. Its first assertion attempts found two test
+  expectation errors after the live turn had completed (terminal output lives
+  in `summaryText`, and narrator catch-up must be awaited); the corrected
+  narrow rerun passed.
+  Commits `2fad2326b`, `2178de216`, and `fc302ab02` contain the replay,
+  lifecycle-control, and Electron slices. No Fly, Sprite, or other cloud
+  resource mutation ran. The explicitly authorized disposable hosted run,
+  content-free hosted measurement, independent cloud cleanup inventories, and
+  full phone-attach credential exercise remain open.

@@ -20,6 +20,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "live-codex-electron-workflow.test.mjs",
+    name: "live-codex-electron",
+    tiers: ["live-codex"],
+  },
+  {
     file: "topic-conversation-artifact-unresolved.test.mjs",
     name: "topic-conversation-artifact-unresolved",
     tiers: ["required"],
