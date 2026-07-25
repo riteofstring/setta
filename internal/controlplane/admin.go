@@ -92,6 +92,13 @@ type AdminRecordRuntimeAccountingEventRequest struct {
 	Transition  runtimeaccounting.ActivityTransition `json:"transition"`
 }
 
+type AdminFinalizeRuntimeAccountingWindowRequest struct {
+	IdempotencyKey string    `json:"idempotency_key"`
+	RuntimeName    string    `json:"runtime_name"`
+	UserID         string    `json:"user_id"`
+	WindowEnd      time.Time `json:"window_end"`
+}
+
 type AdminEvent struct {
 	DeviceID string `json:"device_id,omitempty"`
 	Event    string `json:"event"`
@@ -178,7 +185,7 @@ func adminHandler(
 		if handleRuntimeProgressAdminRoute(store, response, request) {
 			return
 		}
-		if handleRuntimeAccountingAdminRoute(store, response, request) {
+		if handleRuntimeAccountingAdminRoute(store, observer, priceSchedule, response, request) {
 			return
 		}
 		if handleBudgetAdminRoute(store, observer, priceSchedule, response, request) {
@@ -211,26 +218,78 @@ func adminHandler(
 
 func handleRuntimeAccountingAdminRoute(
 	store *Store,
+	observer ControlPlaneAuditObserver,
+	priceSchedule runtimecost.PriceSchedule,
 	response http.ResponseWriter,
 	request *http.Request,
 ) bool {
-	if request.URL.Path != "/v1/runtime-accounting/events" {
+	switch request.URL.Path {
+	case "/v1/runtime-accounting/events":
+		if !requireAdminMethod(response, request, http.MethodPost) {
+			return true
+		}
+		response.Header().Set("Content-Type", "application/json")
+		var payload AdminRecordRuntimeAccountingEventRequest
+		if !decodeAdminRequest(response, request, &payload) {
+			return true
+		}
+		if _, err := store.RecordRuntimeAccountingEvent(request.Context(), RecordRuntimeAccountingEventRequest(payload)); err != nil {
+			writeAdminError(response)
+			return true
+		}
+		writeAdminJSON(response, AdminEvent{Event: "runtime_accounting_event_recorded", Status: "accepted"})
+		return true
+	case "/v1/runtime-accounting/windows/finalize":
+		if !requireAdminMethod(response, request, http.MethodPost) {
+			return true
+		}
+		response.Header().Set("Content-Type", "application/json")
+		handleAdminFinalizeRuntimeAccountingWindow(store, observer, priceSchedule, response, request)
+		return true
+	default:
 		return false
 	}
-	if !requireAdminMethod(response, request, http.MethodPost) {
-		return true
-	}
-	response.Header().Set("Content-Type", "application/json")
-	var payload AdminRecordRuntimeAccountingEventRequest
+}
+
+func handleAdminFinalizeRuntimeAccountingWindow(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	priceSchedule runtimecost.PriceSchedule,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	var payload AdminFinalizeRuntimeAccountingWindowRequest
 	if !decodeAdminRequest(response, request, &payload) {
-		return true
+		return
 	}
-	if _, err := store.RecordRuntimeAccountingEvent(request.Context(), RecordRuntimeAccountingEventRequest(payload)); err != nil {
+	finalized, err := store.FinalizeRuntimeAccountingWindow(
+		request.Context(),
+		FinalizeRuntimeAccountingWindowRequest{
+			IdempotencyKey: payload.IdempotencyKey,
+			UserID:         payload.UserID,
+			RuntimeName:    payload.RuntimeName,
+			WindowEnd:      payload.WindowEnd,
+		},
+		priceSchedule,
+	)
+	if err != nil {
 		writeAdminError(response)
-		return true
+		return
 	}
-	writeAdminJSON(response, AdminEvent{Event: "runtime_accounting_event_recorded", Status: "accepted"})
-	return true
+	state := "continue"
+	if finalized.Interval.CutoffRequired {
+		state = "cutoff"
+	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditUsageRecorded,
+		OccurredAt: finalized.FinalizedAt,
+		State:      state,
+	})
+	writeAdminJSON(response, AdminEvent{
+		Event:  "runtime_accounting_window_finalized",
+		Status: state,
+		UserID: payload.UserID,
+	})
 }
 
 func handleBudgetAdminRoute(

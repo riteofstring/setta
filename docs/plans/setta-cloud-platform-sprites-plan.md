@@ -2488,3 +2488,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   self-consistent evidence built for a larger runtime, and a mismatched durable
   exposure reserve. Event-stream/window authenticity and automatic submission
   remain the next boundary; no provider or cloud mutation ran.
+- 2026-07-25 (atomic accounting-window finalization): Advanced the clean-break
+  control-plane schema to version 11 and made stored events the evidence source.
+  For each runtime, the control plane now closes the next contiguous ledger
+  window, verifies and hashes the complete newly assigned canonical event
+  sequence, derives conservative usage from the persisted resource shape,
+  finalizes cost and cutoff against its durable policy and server-owned price
+  schedule, records the budget interval, advances the ledger, and persists the
+  evidence in one transaction. Failure rolls back every artifact; exact replay
+  is harmless, changed replay conflicts, and restart preserves the next event
+  and window positions. Committed windows compact the bounded ledger replay
+  index without discarding the durable event registry. A strict
+  `setta-control-plane admin finalize-accounting-window` command exposes only
+  the window identity and end time over the private Unix socket; a
+  production-boundary test exercises CLI, HTTP, store, finalization, and
+  snapshot paths. Scheduled closure and authenticated in-runtime
+  workload-lease production remain open, so the combined Phase 5 accounting
+  item stays unchecked. No provider or cloud mutation ran.

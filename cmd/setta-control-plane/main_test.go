@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -222,6 +223,84 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	authorization, err = store.AuthorizeClient(context.Background(), credential.Token)
 	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationRevoked {
 		t.Fatalf("revoked authorization = %+v, %v", authorization, err)
+	}
+}
+
+func TestAdminFinalizesStoredAccountingThroughProductionSocket(t *testing.T) {
+	fixture := newBootstrapFixture(t)
+	store, server := startBootstrapAdminServer(t, fixture.dataDirectory)
+	defer stopBootstrapAdminServer(t, store, server)
+	runBootstrapAttempt(t, fixture.args, fixture.runtimeName, 0)
+	start := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+	end := start.Add(time.Minute)
+	schedule := controlPlanePriceSchedule()
+	configuration := runtimeaccounting.EvidenceConfiguration{
+		Version:  runtimeaccounting.EvidenceConfigurationVersion,
+		Provider: schedule.Provider, RateCard: schedule.Version,
+		RuntimeName: fixture.runtimeName, WindowStart: start, WindowEnd: end, ObservedAt: end,
+		Ceilings: runtimeaccounting.ResourceCeilings{
+			CPUCoreMillionths: runtimeaccounting.EnforcedBound{Enforced: true, Value: 1_000_000},
+			MemoryBytes:       runtimeaccounting.EnforcedBound{Enforced: true, Value: 512_000_000},
+			HotStorageBytes:   runtimeaccounting.EnforcedBound{Enforced: true, Value: 10_000_000_000},
+		},
+		Budget: runtimeaccounting.EvidenceBudgetConfiguration{
+			CoveredLimitUSDMicros: 100_000, SafetyReserveUSDMicros: 500,
+			MaximumCutoffLag: time.Minute.String(),
+			RequiredDimensions: []runtimeprovider.UsageDimension{
+				runtimeprovider.UsageDimensionCPU,
+				runtimeprovider.UsageDimensionMemory,
+				runtimeprovider.UsageDimensionHotStorage,
+			},
+		},
+	}
+	expected, err := runtimeaccounting.FinalizeEvidence(
+		configuration,
+		"0000000000000000000000000000000000000000000000000000000000000000",
+		schedule,
+		runtimeaccounting.ClosedWindow{
+			Window:         runtimeprovider.UsageWindow{Start: start, End: end},
+			ProviderActive: time.Minute,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	socketPath := controlplane.AdminSocketPath(fixture.dataDirectory)
+	runAdminTestCommand(t, []string{
+		"set-user-budget", "--socket", socketPath,
+		"--user-id", "user-bootstrap",
+		"--period-start", start.Format(time.RFC3339Nano),
+		"--period-end", start.Add(time.Hour).Format(time.RFC3339Nano),
+		"--limit-usd-micros", "100000",
+		"--reserve-usd-micros", "500",
+		"--cutoff-exposure-usd-micros", fmt.Sprint(expected.Cutoff.CutoffExposureUSDMicros),
+		"--maximum-cutoff-lag", "1m",
+	}, nil)
+	transition, err := json.Marshal(runtimeaccounting.ActivityTransition{
+		EventID: "production-provider-begin", At: start,
+		Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventBegin,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runAdminTestCommand(t, []string{
+		"record-accounting-event", "--socket", socketPath,
+		"--runtime-name", fixture.runtimeName,
+	}, transition)
+	output := runAdminTestCommand(t, []string{
+		"finalize-accounting-window", "--socket", socketPath,
+		"--idempotency-key", "production-window",
+		"--user-id", "user-bootstrap",
+		"--runtime-name", fixture.runtimeName,
+		"--window-end", end.Format(time.RFC3339Nano),
+	}, nil)
+	if bytes.Contains(output, []byte(fixture.runtimeName)) ||
+		bytes.Contains(output, []byte("production-window")) {
+		t.Fatalf("accounting finalization output exposed internal identity: %s", output)
+	}
+	snapshot, err := store.RuntimeAccountingSnapshot(context.Background(), fixture.runtimeName)
+	if err != nil || !snapshot.Ledger.WindowStart.Equal(end) {
+		t.Fatalf("accounting after finalization = %+v, %v", snapshot, err)
 	}
 }
 

@@ -73,6 +73,16 @@ func TestAdminRecordsRuntimeAccountingEventThroughPrivateBoundary(t *testing.T) 
 	ctx := context.Background()
 	store, _, runtimeName, _ := seededControlPlane(t, ctx)
 	defer store.Close()
+	start := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
+	evidence := testAdminUsageEvidence(t, runtimeName, start)
+	if _, err := store.SetUserBudgetPolicy(ctx, SetUserBudgetPolicyRequest{
+		UserID: "user-server", PeriodStart: start, PeriodEnd: start.Add(time.Hour),
+		CoveredLimitUSDMicros: 100_000, SafetyReserveUSDMicros: testEvidenceSafetyReserve,
+		CutoffExposureUSDMicros: int64(evidence.Cutoff.CutoffExposureUSDMicros),
+		MaximumCutoffLag:        time.Minute,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
 	server, err := StartAdminServer(AdminServerConfig{
 		Observer: newAdminTestObserver(t, io.Discard), PriceSchedule: adminTestPriceSchedule(),
@@ -83,17 +93,26 @@ func TestAdminRecordsRuntimeAccountingEventThroughPrivateBoundary(t *testing.T) 
 	}
 	defer shutdownAdminTestServer(t, server)
 	event := accountingEvent(
-		1, "private-provider-begin", time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC),
+		1, "private-provider-begin", start,
 		runtimeaccounting.ActivityProvider, runtimeaccounting.EventBegin, "",
 	)
-	adminTestRequest(t, adminTestClient(socketPath), "/v1/runtime-accounting/events",
+	client := adminTestClient(socketPath)
+	adminTestRequest(t, client, "/v1/runtime-accounting/events",
 		AdminRecordRuntimeAccountingEventRequest{
 			RuntimeName: runtimeName, Transition: accountingTransition(event),
 		},
 		"runtime_accounting_event_recorded",
 	)
+	adminTestRequest(t, client, "/v1/runtime-accounting/windows/finalize",
+		AdminFinalizeRuntimeAccountingWindowRequest{
+			IdempotencyKey: "private-window", UserID: "user-server",
+			RuntimeName: runtimeName, WindowEnd: start.Add(time.Minute),
+		},
+		"runtime_accounting_window_finalized",
+	)
 	snapshot, err := store.RuntimeAccountingSnapshot(ctx, runtimeName)
-	if err != nil || snapshot.Ledger.LastSequence != 1 {
+	if err != nil || snapshot.Ledger.LastSequence != 1 ||
+		!snapshot.Ledger.WindowStart.Equal(start.Add(time.Minute)) {
 		t.Fatalf("runtime accounting snapshot = %+v, %v", snapshot, err)
 	}
 }

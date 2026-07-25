@@ -96,17 +96,18 @@ type OpenWorkloadLease struct {
 // LedgerState is a versioned restart snapshot. Call RestoreLedger rather than
 // constructing state directly.
 type LedgerState struct {
-	Version        int                 `json:"version"`
-	WindowStart    time.Time           `json:"window_start"`
-	LastEventAt    time.Time           `json:"last_event_at"`
-	LastSequence   uint64              `json:"last_sequence"`
-	AppliedEvents  []AppliedEvent      `json:"applied_events,omitempty"`
-	ProviderActive bool                `json:"provider_active"`
-	Attachments    []string            `json:"attachments,omitempty"`
-	WorkloadLeases []OpenWorkloadLease `json:"workload_leases,omitempty"`
-	ProviderTime   time.Duration       `json:"provider_time"`
-	AttachedIdle   time.Duration       `json:"attached_idle"`
-	WorkloadTime   time.Duration       `json:"workload_time"`
+	Version             int                 `json:"version"`
+	WindowStart         time.Time           `json:"window_start"`
+	LastEventAt         time.Time           `json:"last_event_at"`
+	LastSequence        uint64              `json:"last_sequence"`
+	AppliedSequenceBase uint64              `json:"applied_sequence_base"`
+	AppliedEvents       []AppliedEvent      `json:"applied_events,omitempty"`
+	ProviderActive      bool                `json:"provider_active"`
+	Attachments         []string            `json:"attachments,omitempty"`
+	WorkloadLeases      []OpenWorkloadLease `json:"workload_leases,omitempty"`
+	ProviderTime        time.Duration       `json:"provider_time"`
+	AttachedIdle        time.Duration       `json:"attached_idle"`
+	WorkloadTime        time.Duration       `json:"workload_time"`
 }
 
 // Ledger integrates activity classes without double-counting overlapping
@@ -134,7 +135,7 @@ func NewLedger(start time.Time) (*Ledger, error) {
 	}
 	return &Ledger{
 		state: LedgerState{
-			Version:     1,
+			Version:     2,
 			WindowStart: start,
 			LastEventAt: start,
 		},
@@ -232,6 +233,15 @@ func (ledger *Ledger) Close(end time.Time) (ClosedWindow, error) {
 	ledger.state.AttachedIdle = 0
 	ledger.state.WorkloadTime = 0
 	return closed, nil
+}
+
+// CompactAppliedEvents discards the bounded in-memory replay index after its
+// events have been durably committed to an external idempotency registry.
+// Sequence continuity and open activity state are preserved.
+func (ledger *Ledger) CompactAppliedEvents() {
+	clear(ledger.appliedEvents)
+	ledger.state.AppliedSequenceBase = ledger.state.LastSequence
+	ledger.state.AppliedEvents = nil
 }
 
 func (ledger *Ledger) validateCommonEvent(event ActivityEvent) error {
@@ -432,8 +442,10 @@ func validateLedgerState(state LedgerState) error {
 }
 
 func validateLedgerStateHeader(state LedgerState) error {
-	if state.Version != 1 || state.WindowStart.IsZero() || state.LastEventAt.Before(state.WindowStart) ||
-		state.LastSequence != uint64(len(state.AppliedEvents)) || len(state.AppliedEvents) > maximumLedgerEvents {
+	if state.Version != 2 || state.WindowStart.IsZero() || state.LastEventAt.Before(state.WindowStart) ||
+		state.AppliedSequenceBase > state.LastSequence ||
+		state.LastSequence-state.AppliedSequenceBase != uint64(len(state.AppliedEvents)) ||
+		len(state.AppliedEvents) > maximumLedgerEvents {
 		return fmt.Errorf("%w: invalid ledger snapshot", ErrInvalidEvent)
 	}
 	return nil

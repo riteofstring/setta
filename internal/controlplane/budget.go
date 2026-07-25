@@ -158,8 +158,17 @@ func (store *Store) applyUsageIntervalLocked(
 	if err != nil {
 		return UsageInterval{}, err
 	}
+	store.applyUsageIntervalEffectsLocked(interval, deviceIDs, hostedIntentIDs)
+	return interval, nil
+}
+
+func (store *Store) applyUsageIntervalEffectsLocked(
+	interval UsageInterval,
+	deviceIDs []string,
+	hostedIntentIDs []string,
+) {
 	if interval.CutoffRequired {
-		store.invalidateRuntimeLocked(request.RuntimeName)
+		store.invalidateRuntimeLocked(interval.RuntimeName)
 		store.notifyOperationWakeLocked()
 		for _, deviceID := range deviceIDs {
 			store.invalidateDeviceLocked(deviceID)
@@ -168,7 +177,6 @@ func (store *Store) applyUsageIntervalLocked(
 			store.notifyHostedAccessLocked(intentID)
 		}
 	}
-	return interval, nil
 }
 
 func (store *Store) RecordUsageEvidence(
@@ -251,6 +259,22 @@ func (store *Store) recordUsageIntervalLocked(
 		return UsageInterval{}, nil, fmt.Errorf("begin usage interval: %w", err)
 	}
 	defer rollback(tx)
+	interval, hostedIntentIDs, err := store.recordUsageIntervalTx(ctx, tx, request, fingerprint)
+	if err != nil {
+		return UsageInterval{}, nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return UsageInterval{}, nil, fmt.Errorf("commit usage interval: %w", err)
+	}
+	return interval, hostedIntentIDs, nil
+}
+
+func (store *Store) recordUsageIntervalTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	request recordUsageIntervalRequest,
+	fingerprint string,
+) (UsageInterval, []string, error) {
 	replayed, found, err := replayUsageInterval(ctx, tx, request.IdempotencyKey, fingerprint)
 	if err != nil {
 		return UsageInterval{}, nil, err
@@ -269,7 +293,7 @@ func (store *Store) recordUsageIntervalLocked(
 	if err != nil {
 		return UsageInterval{}, nil, err
 	}
-	hostedIntentIDs, err := persistUsageInterval(ctx, tx, interval, fingerprint)
+	hostedIntentIDs, err := writeUsageInterval(ctx, tx, interval, fingerprint)
 	if err != nil {
 		return UsageInterval{}, nil, err
 	}
@@ -292,7 +316,7 @@ func replayUsageInterval(
 	return replayed.interval, true, nil
 }
 
-func persistUsageInterval(
+func writeUsageInterval(
 	ctx context.Context,
 	tx *sql.Tx,
 	interval UsageInterval,
@@ -320,9 +344,6 @@ func persistUsageInterval(
 		if err := insertBudgetCutoffOperation(ctx, tx, interval); err != nil {
 			return nil, err
 		}
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit usage interval: %w", err)
 	}
 	return hostedIntentIDs, nil
 }

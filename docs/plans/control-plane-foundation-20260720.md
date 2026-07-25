@@ -58,7 +58,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 10. SQLite uses foreign
+The `internal/controlplane` package owns schema version 11. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -101,7 +101,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 10 is a deliberate clean break;
+installed release explicitly. Schema version 11 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -168,6 +168,19 @@ durable budget policy, and requires the durable cutoff-exposure reserve to
 equal the recomputed result. A finalized artifact therefore cannot substitute
 a larger resource shape, forge its cutoff decision, or rely on an
 operator-supplied reserve that understates the enforced runtime.
+
+Schema version 11 adds immutable finalized accounting windows. The control
+plane closes a runtime's restart-safe ledger, verifies and hashes the complete
+new canonical event sequence, derives evidence from the persisted resource
+shape, durable budget policy, and server-owned price schedule, records the
+contiguous budget interval, advances the ledger, and persists the evidence in
+one SQLite transaction. Any failure rolls all of those changes back. Exact
+request replay returns the original artifact; a changed request conflicts.
+After the durable event range is committed, the ledger compacts its bounded
+in-memory replay index while preserving sequence continuity and open provider,
+attachment, and workload-lease activity. A strict private administration
+command triggers closure without accepting evidence, quantities, resource
+limits, rates, or cutoff output from the caller.
 
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the

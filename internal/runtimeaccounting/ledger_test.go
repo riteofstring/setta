@@ -75,6 +75,32 @@ func TestLedgerRestartReplayAndWindowRolloverDoNotDrift(t *testing.T) {
 	}
 }
 
+func TestLedgerCompactsReplayIndexWithoutLosingContinuity(t *testing.T) {
+	start := testStart()
+	ledger := newTestLedger(t, start)
+	if err := ledger.Apply(testEvent(
+		1, "provider-start", start,
+		ActivityProvider, EventBegin, "", time.Time{},
+	)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ledger.Close(start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	ledger.CompactAppliedEvents()
+	state := ledger.Snapshot()
+	if len(state.AppliedEvents) != 0 || state.LastSequence != 1 ||
+		!state.ProviderActive || !state.WindowStart.Equal(start.Add(time.Minute)) {
+		t.Fatalf("compacted ledger = %+v", state)
+	}
+	if err := ledger.Apply(testEvent(
+		2, "provider-end", start.Add(2*time.Minute),
+		ActivityProvider, EventEnd, "", time.Time{},
+	)); err != nil {
+		t.Fatalf("Apply after compaction: %v", err)
+	}
+}
+
 func TestWorkloadLeaseExpiryAndRenewalSurviveRestart(t *testing.T) {
 	start := testStart()
 	ledger := newTestLedger(t, start)

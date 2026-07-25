@@ -25,7 +25,7 @@ type adminClientConfig struct {
 
 func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|record-usage> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|record-usage|record-accounting-event|finalize-accounting-window> [options]")
 		return 2
 	}
 	var err error
@@ -42,6 +42,8 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		err = adminRecordUsage(context.Background(), args[1:], stdin, stdout, stderr)
 	case "record-accounting-event":
 		err = adminRecordAccountingEvent(context.Background(), args[1:], stdin, stdout, stderr)
+	case "finalize-accounting-window":
+		err = adminFinalizeAccountingWindow(context.Background(), args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown control-plane administration command %q\n", args[0])
 		return 2
@@ -51,6 +53,46 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+func adminFinalizeAccountingWindow(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminFinalizeRuntimeAccountingWindowRequest
+	var windowEnd string
+	flagSet := flag.NewFlagSet("setta-control-plane admin finalize-accounting-window", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.IdempotencyKey, "idempotency-key", "", "globally unique immutable accounting window key")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	flagSet.StringVar(&payload.UserID, "user-id", "", "immutable Setta user identifier")
+	flagSet.StringVar(&windowEnd, "window-end", "", "exclusive RFC3339 accounting window end")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("finalize-accounting-window accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	var err error
+	payload.WindowEnd, err = time.Parse(time.RFC3339Nano, windowEnd)
+	if err != nil {
+		return errors.New("accounting window end must be RFC3339")
+	}
+	return executeAdminRequest(
+		ctx,
+		config,
+		"/v1/runtime-accounting/windows/finalize",
+		payload,
+		"runtime_accounting_window_finalized",
+		stdout,
+	)
 }
 
 func adminRecordAccountingEvent(
