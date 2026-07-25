@@ -12,6 +12,7 @@ import (
 	"setta/internal/controlplane"
 	"setta/internal/runtimeaccess"
 	"setta/internal/runtimeprovider"
+	"setta/internal/unixsockettest"
 )
 
 func TestBackupAndRestoreCommandsRoundTripOfflineControlPlane(t *testing.T) {
@@ -155,7 +156,7 @@ func runRestoreCommandRoundTrip(
 }
 
 func TestBackupCommandRejectsRunningControlPlane(t *testing.T) {
-	dataDirectory := t.TempDir()
+	dataDirectory := unixsockettest.TempDir(t, "admin.sock")
 	socketPath := controlplane.AdminSocketPath(dataDirectory)
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"setta/internal/runtimeaccess"
 	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeprovider"
+	"setta/internal/unixsockettest"
 )
 
 func TestConfigFromArgsRequiresDurableBoundariesAndProviderSecret(t *testing.T) {
@@ -205,7 +206,7 @@ func TestProductionServicesEmitContentFreeProviderAlerts(t *testing.T) {
 		http.Error(response, "provider unavailable", http.StatusServiceUnavailable)
 	}))
 	defer provider.Close()
-	root := t.TempDir()
+	root := unixsockettest.TempDir(t, filepath.Join("data", "admin.sock"))
 	dataDirectory := filepath.Join(root, "data")
 	store, err := controlplane.OpenStore(controlplane.StoreConfig{Directory: dataDirectory})
 	if err != nil {
@@ -743,7 +744,7 @@ type bootstrapFixture struct {
 
 func newBootstrapFixture(t *testing.T) bootstrapFixture {
 	t.Helper()
-	root := t.TempDir()
+	root := unixsockettest.TempDir(t, filepath.Join("data", "admin.sock"))
 	runtimeCredentialFile := filepath.Join(root, "input", "runtime-credential")
 	if err := os.MkdirAll(filepath.Dir(runtimeCredentialFile), 0o700); err != nil {
 		t.Fatalf("create runtime credential directory: %v", err)

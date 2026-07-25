@@ -20,6 +20,7 @@ import (
 	"setta/internal/runtimecost"
 	spritescost "setta/internal/runtimecost/sprites"
 	"setta/internal/runtimeprovider"
+	"setta/internal/unixsockettest"
 )
 
 func TestAdminBudgetUsageCutsOffLiveAuthorizationAndAuditsWithoutContent(t *testing.T) {
@@ -574,7 +575,7 @@ func requireEncodedRuntimeMetadataIsSanitized(
 }
 
 func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *testing.T) {
-	directory := t.TempDir()
+	directory := unixsockettest.TempDir(t, "admin.sock")
 	store := openTestStore(t, directory, time.Now, RateLimit{})
 	defer store.Close()
 	socketPath := filepath.Join(directory, "admin.sock")
@@ -637,7 +638,7 @@ func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *tes
 
 func TestTypedHostedAccessClientReceivesDurableAssignmentFailure(t *testing.T) {
 	ctx := context.Background()
-	directory := t.TempDir()
+	directory := unixsockettest.TempDir(t, "admin.sock")
 	store := openTestStore(t, directory, time.Now, RateLimit{})
 	defer store.Close()
 	var measurements bytes.Buffer
@@ -708,7 +709,7 @@ func TestTypedHostedAccessClientReceivesDurableAssignmentFailure(t *testing.T) {
 }
 
 func TestTypedHostedAccessClientReceivesTerminalUserSuspension(t *testing.T) {
-	directory := t.TempDir()
+	directory := unixsockettest.TempDir(t, "admin.sock")
 	store := openTestStore(t, directory, time.Now, RateLimit{})
 	defer store.Close()
 	socketPath := filepath.Join(directory, "admin.sock")

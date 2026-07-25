@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"setta/internal/runtimeprovider"
+	"setta/internal/unixsockettest"
 )
 
 func TestWorkloadLeaseLifecycleOverManagementSocket(t *testing.T) {
@@ -160,15 +160,7 @@ func TestNewWorkloadLeaseClientRejectsUnsafeSocketPath(t *testing.T) {
 func newTestWorkloadLeaseClient(t *testing.T, handler http.Handler) *WorkloadLeaseClient {
 	t.Helper()
 
-	socketDir, err := os.MkdirTemp("/tmp", "wl")
-	if err != nil {
-		t.Fatalf("create short socket dir: %v", err)
-	}
-	t.Cleanup(func() {
-		if removeErr := os.RemoveAll(socketDir); removeErr != nil {
-			t.Errorf("remove short socket dir: %v", removeErr)
-		}
-	})
+	socketDir := unixsockettest.TempDir(t, "api.sock")
 	socketPath := filepath.Join(socketDir, "api.sock")
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {

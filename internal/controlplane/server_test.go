@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"setta/internal/unixsockettest"
 )
 
 func TestControlPlaneServerRoutesRotatedSecretsAndRejectsBeforeDial(t *testing.T) {
@@ -250,7 +252,7 @@ func seededControlPlane(
 	ctx context.Context,
 ) (*Store, *FileSecretStore, string, CreatedDeviceGrant) {
 	t.Helper()
-	directory := t.TempDir()
+	directory := unixsockettest.TempDir(t, "admin.sock")
 	store := openTestStore(t, directory, time.Now, RateLimit{})
 	secrets, err := OpenFileSecretStore(directory + "/secrets")
 	if err != nil {

@@ -7,10 +7,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/unixsockettest"
 )
 
 func TestAdminRuntimeProgressSSEReplaysAndResumesWithoutProviderFields(t *testing.T) {
-	directory := t.TempDir()
+	directory := unixsockettest.TempDir(t, "admin.sock")
 	store := openTestStore(t, directory, time.Now, RateLimit{})
 	defer store.Close()
 	runtimeName := prepareDeletionRuntime(t, store, "admin-progress", "user-admin-progress")
