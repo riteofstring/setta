@@ -109,26 +109,171 @@ func (store *Store) RecordRuntimeHealth(
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	return store.recordRuntimeHealthLocked(ctx, request)
+}
+
+type runtimeHealthTarget struct {
+	desiredRelease   string
+	wakeOperationIDs []string
+	wakeRequestedAt  sql.NullString
+}
+
+func (store *Store) recordRuntimeHealthLocked(
+	ctx context.Context,
+	request RecordRuntimeHealthRequest,
+) (Runtime, error) {
 	now := timestamp(store.clock().UTC())
-	result, err := store.db.ExecContext(ctx, `
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Runtime{}, fmt.Errorf("begin runtime health observation: %w", err)
+	}
+	defer rollback(tx)
+	target, err := readRuntimeHealthTarget(ctx, tx, request.RuntimeName)
+	if err != nil {
+		return Runtime{}, err
+	}
+	wakeCompleted := target.completesWake(request)
+	if err := writeRuntimeHealth(ctx, tx, request, wakeCompleted, now); err != nil {
+		return Runtime{}, err
+	}
+	if wakeCompleted {
+		if err := appendHealthyWakeProgress(ctx, tx, target.wakeOperationIDs, now); err != nil {
+			return Runtime{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return Runtime{}, fmt.Errorf("commit runtime health observation: %w", err)
+	}
+	store.invalidateRuntimeLocked(request.RuntimeName)
+	if wakeCompleted {
+		store.notifyRuntimeProgressOperationsLocked(target.wakeOperationIDs)
+	}
+	return store.readRuntimeLocked(ctx, request.RuntimeName)
+}
+
+func (target runtimeHealthTarget) completesWake(request RecordRuntimeHealthRequest) bool {
+	return target.wakeRequestedAt.Valid &&
+		len(target.wakeOperationIDs) != 0 &&
+		request.HealthState == RuntimeHealthHealthy &&
+		request.ObservedRelease == target.desiredRelease
+}
+
+func (store *Store) notifyRuntimeProgressOperationsLocked(operationIDs []string) {
+	for _, operationID := range operationIDs {
+		store.notifyRuntimeProgressLocked(operationID)
+	}
+}
+
+func readRuntimeHealthTarget(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+) (runtimeHealthTarget, error) {
+	var target runtimeHealthTarget
+	err := tx.QueryRowContext(ctx, `
+SELECT desired_release, wake_requested_at
+FROM runtimes WHERE name = ?
+`, runtimeName).Scan(
+		&target.desiredRelease,
+		&target.wakeRequestedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return runtimeHealthTarget{}, ErrNotFound
+	}
+	if err != nil {
+		return runtimeHealthTarget{}, fmt.Errorf("read runtime health target: %w", err)
+	}
+	target.wakeOperationIDs, err = readPendingWakeOperationIDs(ctx, tx, runtimeName)
+	if err != nil {
+		return runtimeHealthTarget{}, err
+	}
+	return target, nil
+}
+
+func readPendingWakeOperationIDs(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, `
+SELECT operation_id
+FROM runtime_progress
+WHERE kind = ? AND state = ? AND operation_id IN (
+  SELECT idempotency_key
+  FROM operations
+  WHERE runtime_name = ? AND kind = 'request_runtime_wake'
+)
+AND cursor = (
+  SELECT MAX(latest.cursor)
+  FROM runtime_progress latest
+  WHERE latest.operation_id = runtime_progress.operation_id
+)
+ORDER BY operation_id
+`, RuntimeProgressWakeRuntime, RuntimeProgressWakeRequested, runtimeName)
+	if err != nil {
+		return nil, fmt.Errorf("read pending runtime wake operations: %w", err)
+	}
+	defer rows.Close()
+	var operationIDs []string
+	for rows.Next() {
+		var operationID string
+		if err := rows.Scan(&operationID); err != nil {
+			return nil, fmt.Errorf("scan pending runtime wake operation: %w", err)
+		}
+		operationIDs = append(operationIDs, operationID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate pending runtime wake operations: %w", err)
+	}
+	return operationIDs, nil
+}
+
+func appendHealthyWakeProgress(
+	ctx context.Context,
+	tx *sql.Tx,
+	operationIDs []string,
+	now string,
+) error {
+	for _, operationID := range operationIDs {
+		if err := appendRuntimeProgress(
+			ctx,
+			tx,
+			operationID,
+			RuntimeProgressWakeRuntime,
+			RuntimeProgressHealthy,
+			"",
+			false,
+			now,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeRuntimeHealth(
+	ctx context.Context,
+	tx *sql.Tx,
+	request RecordRuntimeHealthRequest,
+	wakeCompleted bool,
+	now string,
+) error {
+	result, err := tx.ExecContext(ctx, `
 UPDATE runtimes
-SET health_state = ?, observed_release = ?, wake_requested_at = NULL,
+SET health_state = ?, observed_release = ?,
+    wake_requested_at = CASE WHEN ? THEN NULL ELSE wake_requested_at END,
     last_ready_at = CASE
       WHEN ? = ? AND desired_release <> '' AND desired_release = ? THEN ?
       ELSE last_ready_at
     END,
     updated_at = ?
 WHERE name = ?
-`, request.HealthState, request.ObservedRelease, request.HealthState,
+`, request.HealthState, request.ObservedRelease, wakeCompleted, request.HealthState,
 		RuntimeHealthHealthy, request.ObservedRelease, now, now, request.RuntimeName)
 	if err != nil {
-		return Runtime{}, fmt.Errorf("record runtime health: %w", err)
+		return fmt.Errorf("record runtime health: %w", err)
 	}
-	if err := requireOneRow(result, "record runtime health"); err != nil {
-		return Runtime{}, err
-	}
-	store.invalidateRuntimeLocked(request.RuntimeName)
-	return store.readRuntimeLocked(ctx, request.RuntimeName)
+	return requireOneRow(result, "record runtime health")
 }
 
 func (store *Store) RequestRuntimeWake(
@@ -186,10 +331,23 @@ VALUES (?, 'request_runtime_wake', ?, ?, ?, ?)
 `, idempotencyKey, userID, runtimeName, fingerprint, now); err != nil {
 		return Runtime{}, fmt.Errorf("record runtime wake operation: %w", err)
 	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		idempotencyKey,
+		RuntimeProgressWakeRuntime,
+		RuntimeProgressWakeRequested,
+		"",
+		false,
+		now,
+	); err != nil {
+		return Runtime{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return Runtime{}, fmt.Errorf("commit runtime wake request: %w", err)
 	}
 	store.invalidateRuntimeLocked(runtimeName)
+	store.notifyRuntimeProgressLocked(idempotencyKey)
 	return store.readRuntimeLocked(ctx, runtimeName)
 }
 

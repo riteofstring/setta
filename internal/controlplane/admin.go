@@ -141,6 +141,9 @@ func adminHandler(store *Store, observer HostedAccessObserver) http.Handler {
 		if handleHostedAccessAdminRoute(store, observer, response, request) {
 			return
 		}
+		if handleRuntimeProgressAdminRoute(store, response, request) {
+			return
+		}
 		switch request.URL.Path {
 		case "/v1/devices/ensure":
 			if !requireAdminMethod(response, request, http.MethodPost) {
@@ -164,6 +167,20 @@ func adminHandler(store *Store, observer HostedAccessObserver) http.Handler {
 			response.WriteHeader(http.StatusNotFound)
 		}
 	})
+}
+
+func handleRuntimeProgressAdminRoute(
+	store *Store,
+	response http.ResponseWriter,
+	request *http.Request,
+) bool {
+	if request.URL.Path != "/v1/runtime-progress/events" {
+		return false
+	}
+	if requireAdminMethod(response, request, http.MethodGet) {
+		handleAdminRuntimeProgressEvents(store, response, request)
+	}
+	return true
 }
 
 func handleHostedAccessAdminRoute(
@@ -426,6 +443,117 @@ func hostedAccessProgressTerminal(progress HostedAccessProgress) bool {
 	return progress.State == HostedAccessProgressReadyOnPhone ||
 		progress.State == HostedAccessProgressSuspended ||
 		(progress.State == HostedAccessProgressNeedsAttention && !progress.Retryable)
+}
+
+func handleAdminRuntimeProgressEvents(
+	store *Store,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	query := request.URL.Query()
+	operationID := query.Get("operationId")
+	if len(query) != 1 || operationID == "" {
+		writeAdminError(response)
+		return
+	}
+	cursor := request.Header.Get("Last-Event-ID")
+	events, update, err := store.RuntimeProgressAfter(request.Context(), operationID, cursor)
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	flusher, ok := response.(http.Flusher)
+	if !ok {
+		writeAdminError(response)
+		return
+	}
+	response.Header().Set("Content-Type", "text/event-stream")
+	response.Header().Set("Cache-Control", "no-store")
+	response.WriteHeader(http.StatusOK)
+	streamRuntimeProgressEvents(
+		request.Context(),
+		store,
+		response,
+		flusher,
+		operationID,
+		cursor,
+		events,
+		update,
+	)
+}
+
+func streamRuntimeProgressEvents(
+	ctx context.Context,
+	store *Store,
+	response http.ResponseWriter,
+	flusher http.Flusher,
+	operationID string,
+	cursor string,
+	events []RuntimeProgress,
+	update <-chan struct{},
+) {
+	for {
+		terminal, writeErr := writeRuntimeProgressEvents(response, flusher, events)
+		if len(events) != 0 {
+			cursor = events[len(events)-1].Cursor
+		}
+		if writeErr != nil || terminal {
+			return
+		}
+		if runtimeProgressCursorEnded(ctx, store, operationID, cursor, events) {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-update:
+		}
+		var err error
+		events, update, err = store.RuntimeProgressAfter(ctx, operationID, cursor)
+		if err != nil {
+			return
+		}
+	}
+}
+
+func runtimeProgressCursorEnded(
+	ctx context.Context,
+	store *Store,
+	operationID string,
+	cursor string,
+	events []RuntimeProgress,
+) bool {
+	if len(events) != 0 || cursor == "" {
+		return false
+	}
+	terminal, err := store.runtimeProgressCursorTerminal(ctx, operationID, cursor)
+	return err != nil || terminal
+}
+
+func writeRuntimeProgressEvents(
+	response http.ResponseWriter,
+	flusher http.Flusher,
+	events []RuntimeProgress,
+) (bool, error) {
+	for _, event := range events {
+		data, err := json.Marshal(event)
+		if err != nil {
+			return false, err
+		}
+		if _, err := fmt.Fprintf(
+			response,
+			"id: %s\nevent: runtime_progress\ndata: %s\n\n",
+			event.Cursor,
+			data,
+		); err != nil {
+			return false, err
+		}
+		flusher.Flush()
+		if runtimeProgressTerminal(event.State) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func handleAdminEnsureDevice(store *Store, response http.ResponseWriter, request *http.Request) {

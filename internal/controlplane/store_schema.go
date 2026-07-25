@@ -48,6 +48,7 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"runtime_deletion_operations",
 			"runtime_deletion_operations_due_idx",
 			"runtime_deletion_operations_active_idx",
+			"runtime_progress",
 			"provider_observations",
 			"hosted_access_intents",
 			"hosted_access_capabilities",
@@ -242,6 +243,29 @@ CREATE INDEX IF NOT EXISTS runtime_deletion_operations_due_idx
 CREATE UNIQUE INDEX IF NOT EXISTS runtime_deletion_operations_active_idx
   ON runtime_deletion_operations(runtime_name)
   WHERE status IN ('pending', 'running', 'retry_wait');
+
+CREATE TABLE IF NOT EXISTS runtime_progress (
+  operation_id TEXT NOT NULL,
+  cursor INTEGER NOT NULL CHECK(cursor > 0),
+  kind TEXT NOT NULL CHECK(kind IN ('ensure_runtime', 'wake_runtime', 'delete_runtime')),
+  state TEXT NOT NULL CHECK(state IN (
+    'queued', 'reconciling', 'retrying', 'provisioned', 'wake_requested',
+    'healthy', 'deletion_scheduled', 'deleted', 'failed', 'canceled'
+  )),
+  error_code TEXT NOT NULL,
+  retryable INTEGER NOT NULL CHECK(retryable IN (0, 1)),
+  occurred_at TEXT NOT NULL,
+  CHECK(
+    (kind = 'ensure_runtime' AND state IN (
+      'queued', 'reconciling', 'retrying', 'provisioned', 'failed', 'canceled'
+    )) OR
+    (kind = 'wake_runtime' AND state IN ('wake_requested', 'healthy', 'failed')) OR
+    (kind = 'delete_runtime' AND state IN (
+      'deletion_scheduled', 'reconciling', 'retrying', 'deleted', 'failed', 'canceled'
+    ))
+  ),
+  PRIMARY KEY(operation_id, cursor)
+);
 
 CREATE TABLE IF NOT EXISTS provider_observations (
   runtime_name TEXT PRIMARY KEY REFERENCES runtimes(name),

@@ -38,6 +38,7 @@ func (store *Store) ScheduleRuntimeDeletion(
 	if created {
 		store.invalidateRuntimeLocked(request.RuntimeName)
 		store.notifyOperationWakeLocked()
+		store.notifyRuntimeProgressLocked(request.IdempotencyKey)
 	}
 	return runtime, nil
 }
@@ -51,26 +52,38 @@ func (store *Store) scheduleRuntimeDeletionLocked(
 		return Runtime{}, false, fmt.Errorf("begin runtime deletion schedule: %w", err)
 	}
 	defer rollback(tx)
-	userID, err := readDeletionRuntimeOwner(ctx, tx, request.RuntimeName)
+	created, err := writeRuntimeDeletionSchedule(ctx, tx, request, timestamp(store.clock().UTC()))
 	if err != nil {
 		return Runtime{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Runtime{}, false, fmt.Errorf("commit runtime deletion schedule: %w", err)
+	}
+	runtime, err := store.readRuntimeLocked(ctx, request.RuntimeName)
+	return runtime, created, err
+}
+
+func writeRuntimeDeletionSchedule(
+	ctx context.Context,
+	tx *sql.Tx,
+	request ScheduleRuntimeDeletionRequest,
+	now string,
+) (bool, error) {
+	userID, err := readDeletionRuntimeOwner(ctx, tx, request.RuntimeName)
+	if err != nil {
+		return false, err
 	}
 	fingerprint := deletionFingerprint(userID, request)
 	replayed, err := runtimeDeletionReplay(ctx, tx, request, userID, fingerprint)
 	if err != nil {
-		return Runtime{}, false, err
+		return false, err
 	}
 	if replayed {
-		if err := tx.Rollback(); err != nil {
-			return Runtime{}, false, fmt.Errorf("close replayed runtime deletion schedule: %w", err)
-		}
-		runtime, readErr := store.readRuntimeLocked(ctx, request.RuntimeName)
-		return runtime, false, readErr
+		return false, nil
 	}
 	if err := requireNoActiveRuntimeDeletion(ctx, tx, request.RuntimeName); err != nil {
-		return Runtime{}, false, err
+		return false, err
 	}
-	now := timestamp(store.clock().UTC())
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO runtime_deletion_operations (
   idempotency_key, user_id, runtime_name, request_fingerprint, status,
@@ -78,7 +91,19 @@ INSERT INTO runtime_deletion_operations (
 ) VALUES (?, ?, ?, ?, ?, 0, 0, ?, '', ?, ?)
 `, request.IdempotencyKey, userID, request.RuntimeName, fingerprint,
 		RuntimeOperationPending, timestamp(request.ScheduledAt), now, now); err != nil {
-		return Runtime{}, false, fmt.Errorf("record runtime deletion operation: %w", err)
+		return false, fmt.Errorf("record runtime deletion operation: %w", err)
+	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		request.IdempotencyKey,
+		RuntimeProgressDeleteRuntime,
+		RuntimeProgressDeletionScheduled,
+		"",
+		false,
+		now,
+	); err != nil {
+		return false, err
 	}
 	result, err := tx.ExecContext(ctx, `
 UPDATE runtimes
@@ -86,16 +111,12 @@ SET access_state = ?, deletion_scheduled_at = ?, updated_at = ?
 WHERE name = ?
 `, RuntimeAccessDeleteScheduled, timestamp(request.ScheduledAt), now, request.RuntimeName)
 	if err != nil {
-		return Runtime{}, false, fmt.Errorf("record runtime deletion schedule: %w", err)
+		return false, fmt.Errorf("record runtime deletion schedule: %w", err)
 	}
 	if err := requireOneRow(result, "record runtime deletion schedule"); err != nil {
-		return Runtime{}, false, err
+		return false, err
 	}
-	if err := tx.Commit(); err != nil {
-		return Runtime{}, false, fmt.Errorf("commit runtime deletion schedule: %w", err)
-	}
-	runtime, err := store.readRuntimeLocked(ctx, request.RuntimeName)
-	return runtime, true, err
+	return true, nil
 }
 
 func (store *Store) CancelRuntimeDeletion(
@@ -124,29 +145,12 @@ func (store *Store) cancelRuntimeDeletionLocked(
 		return Runtime{}, fmt.Errorf("begin runtime deletion cancellation: %w", err)
 	}
 	defer rollback(tx)
-	var idempotencyKey string
-	var status RuntimeOperationStatus
-	err = tx.QueryRowContext(ctx, `
-SELECT idempotency_key, status
-FROM runtime_deletion_operations
-WHERE runtime_name = ?
-ORDER BY created_at DESC, idempotency_key DESC
-LIMIT 1
-`, runtimeName).Scan(&idempotencyKey, &status)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Runtime{}, ErrNotFound
-	}
+	idempotencyKey, status, err := readRuntimeDeletionForCancellation(ctx, tx, runtimeName)
 	if err != nil {
-		return Runtime{}, fmt.Errorf("read active runtime deletion: %w", err)
+		return Runtime{}, err
 	}
-	if status == RuntimeOperationRunning {
-		return Runtime{}, errors.New("running runtime deletion cannot be canceled")
-	}
-	if status == RuntimeOperationSucceeded {
-		return Runtime{}, errors.New("completed runtime deletion cannot be canceled")
-	}
-	if status == RuntimeOperationCanceled {
-		return Runtime{}, ErrNotFound
+	if err := validateRuntimeDeletionCancellation(status); err != nil {
+		return Runtime{}, err
 	}
 	now := timestamp(store.clock().UTC())
 	if err := cancelDeletionOperation(ctx, tx, idempotencyKey, status, now); err != nil {
@@ -166,8 +170,47 @@ WHERE name = ? AND access_state = ?
 	if err := tx.Commit(); err != nil {
 		return Runtime{}, fmt.Errorf("commit runtime deletion cancellation: %w", err)
 	}
+	if status != RuntimeOperationFailed {
+		store.notifyRuntimeProgressLocked(idempotencyKey)
+	}
 	store.invalidateRuntimeLocked(runtimeName)
 	return store.readRuntimeLocked(ctx, runtimeName)
+}
+
+func readRuntimeDeletionForCancellation(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+) (string, RuntimeOperationStatus, error) {
+	var idempotencyKey string
+	var status RuntimeOperationStatus
+	err := tx.QueryRowContext(ctx, `
+SELECT idempotency_key, status
+FROM runtime_deletion_operations
+WHERE runtime_name = ?
+ORDER BY created_at DESC, idempotency_key DESC
+LIMIT 1
+`, runtimeName).Scan(&idempotencyKey, &status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", ErrNotFound
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("read active runtime deletion: %w", err)
+	}
+	return idempotencyKey, status, nil
+}
+
+func validateRuntimeDeletionCancellation(status RuntimeOperationStatus) error {
+	if status == RuntimeOperationRunning {
+		return errors.New("running runtime deletion cannot be canceled")
+	}
+	if status == RuntimeOperationSucceeded {
+		return errors.New("completed runtime deletion cannot be canceled")
+	}
+	if status == RuntimeOperationCanceled {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func cancelDeletionOperation(
@@ -189,7 +232,19 @@ WHERE idempotency_key = ? AND status IN (?, ?)
 	if err != nil {
 		return fmt.Errorf("cancel runtime deletion operation: %w", err)
 	}
-	return requireOneRow(result, "cancel runtime deletion operation")
+	if err := requireOneRow(result, "cancel runtime deletion operation"); err != nil {
+		return err
+	}
+	return appendRuntimeProgress(
+		ctx,
+		tx,
+		idempotencyKey,
+		RuntimeProgressDeleteRuntime,
+		RuntimeProgressCanceled,
+		"",
+		false,
+		now,
+	)
 }
 
 func readDeletionRuntimeOwner(ctx context.Context, tx *sql.Tx, runtimeName string) (string, error) {
@@ -354,6 +409,18 @@ WHERE idempotency_key = ?
 	if err := requireOneRow(result, "claim runtime deletion"); err != nil {
 		return ClaimedRuntimeDeletionOperation{}, false, err
 	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		idempotencyKey,
+		RuntimeProgressDeleteRuntime,
+		RuntimeProgressReconciling,
+		"",
+		false,
+		timestamp(now),
+	); err != nil {
+		return ClaimedRuntimeDeletionOperation{}, false, err
+	}
 	operation, err := readRuntimeDeletionOperation(ctx, tx, idempotencyKey)
 	if err != nil {
 		return ClaimedRuntimeDeletionOperation{}, false, err
@@ -361,6 +428,7 @@ WHERE idempotency_key = ?
 	if err := tx.Commit(); err != nil {
 		return ClaimedRuntimeDeletionOperation{}, false, fmt.Errorf("commit runtime deletion claim: %w", err)
 	}
+	store.notifyRuntimeProgressLocked(idempotencyKey)
 	identity, err := runtimeprovider.ManagedIdentityFromName(operation.RuntimeName)
 	if err != nil {
 		return ClaimedRuntimeDeletionOperation{}, false, err
@@ -416,10 +484,23 @@ WHERE name = ? AND access_state = ?
 	if err := requireOneRow(result, "record deleted runtime state"); err != nil {
 		return err
 	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		claim.IdempotencyKey,
+		RuntimeProgressDeleteRuntime,
+		RuntimeProgressDeleted,
+		"",
+		false,
+		now,
+	); err != nil {
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit runtime deletion completion: %w", err)
 	}
 	store.invalidateRuntimeLocked(claim.RuntimeName)
+	store.notifyRuntimeProgressLocked(claim.IdempotencyKey)
 	return nil
 }
 
@@ -438,14 +519,21 @@ func (store *Store) DeferRuntimeDeletionOperation(
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin runtime deletion deferral: %w", err)
+	}
+	defer rollback(tx)
 	status := RuntimeOperationRetryWait
+	progressState := RuntimeProgressRetrying
 	var completedAt any
 	if terminal {
 		status = RuntimeOperationFailed
+		progressState = RuntimeProgressFailed
 		completedAt = timestamp(store.clock().UTC())
 	}
 	now := store.clock().UTC()
-	result, err := store.db.ExecContext(ctx, `
+	result, err := tx.ExecContext(ctx, `
 UPDATE runtime_deletion_operations
 SET status = ?, lease_owner = NULL, lease_expires_at = NULL,
     next_attempt_at = ?, last_error_code = ?, updated_at = ?, completed_at = ?
@@ -460,9 +548,25 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
 	if err := requireFenceRow(result); err != nil {
 		return err
 	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		claim.IdempotencyKey,
+		RuntimeProgressDeleteRuntime,
+		progressState,
+		errorCode,
+		!terminal,
+		timestamp(now),
+	); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit runtime deletion deferral: %w", err)
+	}
 	if !terminal {
 		store.notifyOperationWakeLocked()
 	}
+	store.notifyRuntimeProgressLocked(claim.IdempotencyKey)
 	return nil
 }
 

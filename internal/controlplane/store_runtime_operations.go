@@ -29,13 +29,18 @@ func (store *Store) EnsureRuntimeIntent(
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	operation, created, previousRuntime, previousEpoch, err := store.ensureRuntimeIntentLocked(ctx, request, assignment)
+	operation, created, previousRuntime, previousEpoch, canceledOperationIDs, err :=
+		store.ensureRuntimeIntentLocked(ctx, request, assignment)
 	if err != nil {
 		return RuntimeOperation{}, err
 	}
 	if created {
 		store.invalidateChangedAssignmentLocked(previousRuntime, previousEpoch, assignment)
 		store.notifyOperationWakeLocked()
+		store.notifyRuntimeProgressLocked(request.IdempotencyKey)
+		for _, operationID := range canceledOperationIDs {
+			store.notifyRuntimeProgressLocked(operationID)
+		}
 	}
 	return operation, nil
 }
@@ -44,30 +49,31 @@ func (store *Store) ensureRuntimeIntentLocked(
 	ctx context.Context,
 	request EnsureRuntimeRequest,
 	assignment AssignRuntimeRequest,
-) (RuntimeOperation, bool, string, uint64, error) {
+) (RuntimeOperation, bool, string, uint64, []string, error) {
 	previousRuntime, previousEpoch, err := store.readAssignmentStateLocked(ctx, request.UserID, request.RuntimeName)
 	if err != nil {
-		return RuntimeOperation{}, false, "", 0, err
+		return RuntimeOperation{}, false, "", 0, nil, err
 	}
 	tx, err := store.db.BeginTx(ctx, nil)
 	if err != nil {
-		return RuntimeOperation{}, false, "", 0, fmt.Errorf("begin ensure runtime intent: %w", err)
+		return RuntimeOperation{}, false, "", 0, nil, fmt.Errorf("begin ensure runtime intent: %w", err)
 	}
 	defer rollback(tx)
 	replayed, err := ensureRuntimeReplay(ctx, tx, request)
 	if err != nil {
-		return RuntimeOperation{}, false, "", 0, err
+		return RuntimeOperation{}, false, "", 0, nil, err
 	}
 	if replayed {
 		operation, readErr := readRuntimeOperation(ctx, tx, request.IdempotencyKey)
-		return operation, false, previousRuntime, previousEpoch, readErr
+		return operation, false, previousRuntime, previousEpoch, nil, readErr
 	}
 	now := store.clock().UTC()
 	if err := writeProvisioningAssignment(ctx, tx, assignment, timestamp(now)); err != nil {
-		return RuntimeOperation{}, false, "", 0, err
+		return RuntimeOperation{}, false, "", 0, nil, err
 	}
-	if err := cancelReplacedRuntimeOperations(ctx, tx, request, previousRuntime, now); err != nil {
-		return RuntimeOperation{}, false, "", 0, err
+	canceledOperationIDs, err := cancelReplacedRuntimeOperations(ctx, tx, request, previousRuntime, now)
+	if err != nil {
+		return RuntimeOperation{}, false, "", 0, nil, err
 	}
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO runtime_operations (
@@ -76,13 +82,25 @@ INSERT INTO runtime_operations (
 ) VALUES (?, ?, ?, ?, ?, 0, 0, ?, '', ?, ?)
 `, request.IdempotencyKey, request.UserID, request.RuntimeName, ensureRuntimeFingerprint(request),
 		RuntimeOperationPending, timestamp(now), timestamp(now), timestamp(now)); err != nil {
-		return RuntimeOperation{}, false, "", 0, fmt.Errorf("record ensure runtime intent: %w", err)
+		return RuntimeOperation{}, false, "", 0, nil, fmt.Errorf("record ensure runtime intent: %w", err)
+	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		request.IdempotencyKey,
+		RuntimeProgressEnsureRuntime,
+		RuntimeProgressQueued,
+		"",
+		false,
+		timestamp(now),
+	); err != nil {
+		return RuntimeOperation{}, false, "", 0, nil, err
 	}
 	if err := tx.Commit(); err != nil {
-		return RuntimeOperation{}, false, "", 0, fmt.Errorf("commit ensure runtime intent: %w", err)
+		return RuntimeOperation{}, false, "", 0, nil, fmt.Errorf("commit ensure runtime intent: %w", err)
 	}
 	operation, err := store.readRuntimeOperationLocked(ctx, request.IdempotencyKey)
-	return operation, true, previousRuntime, previousEpoch, err
+	return operation, true, previousRuntime, previousEpoch, canceledOperationIDs, err
 }
 
 func writeProvisioningAssignment(
@@ -135,17 +153,24 @@ func cancelReplacedRuntimeOperations(
 	request EnsureRuntimeRequest,
 	previousRuntime string,
 	now time.Time,
-) error {
+) ([]string, error) {
 	if previousRuntime != "" && previousRuntime != request.RuntimeName {
 		if _, err := tx.ExecContext(ctx, `
 UPDATE runtimes
 SET lifecycle = ?, access_state = ?, updated_at = ?
 WHERE name = ? AND user_id = ?
 `, RuntimeLifecycleDeleting, RuntimeAccessSuspended, timestamp(now), previousRuntime, request.UserID); err != nil {
-			return fmt.Errorf("mark replaced runtime deleting: %w", err)
+			return nil, fmt.Errorf("mark replaced runtime deleting: %w", err)
 		}
 	}
-	_, err := tx.ExecContext(ctx, `
+	canceledOperationIDs, err := readReplacedRuntimeOperationIDs(ctx, tx, request)
+	if err != nil {
+		return nil, err
+	}
+	if err := appendCanceledRuntimeProgress(ctx, tx, canceledOperationIDs, now); err != nil {
+		return nil, err
+	}
+	_, err = tx.ExecContext(ctx, `
 UPDATE runtime_operations
 SET status = ?, lease_owner = NULL, lease_expires_at = NULL,
     updated_at = ?, completed_at = ?
@@ -153,7 +178,64 @@ WHERE user_id = ? AND runtime_name <> ? AND status IN (?, ?, ?)
 `, RuntimeOperationCanceled, timestamp(now), timestamp(now), request.UserID, request.RuntimeName,
 		RuntimeOperationPending, RuntimeOperationRunning, RuntimeOperationRetryWait)
 	if err != nil {
-		return fmt.Errorf("cancel replaced runtime operations: %w", err)
+		return nil, fmt.Errorf("cancel replaced runtime operations: %w", err)
+	}
+	return canceledOperationIDs, nil
+}
+
+func readReplacedRuntimeOperationIDs(
+	ctx context.Context,
+	tx *sql.Tx,
+	request EnsureRuntimeRequest,
+) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, `
+SELECT idempotency_key
+FROM runtime_operations
+WHERE user_id = ? AND runtime_name <> ? AND status IN (?, ?, ?)
+ORDER BY idempotency_key
+`, request.UserID, request.RuntimeName, RuntimeOperationPending,
+		RuntimeOperationRunning, RuntimeOperationRetryWait)
+	if err != nil {
+		return nil, fmt.Errorf("read replaced runtime operations: %w", err)
+	}
+	var canceledOperationIDs []string
+	for rows.Next() {
+		var operationID string
+		if err := rows.Scan(&operationID); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan replaced runtime operation: %w", err)
+		}
+		canceledOperationIDs = append(canceledOperationIDs, operationID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("iterate replaced runtime operations: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close replaced runtime operations: %w", err)
+	}
+	return canceledOperationIDs, nil
+}
+
+func appendCanceledRuntimeProgress(
+	ctx context.Context,
+	tx *sql.Tx,
+	operationIDs []string,
+	now time.Time,
+) error {
+	for _, operationID := range operationIDs {
+		if err := appendRuntimeProgress(
+			ctx,
+			tx,
+			operationID,
+			RuntimeProgressEnsureRuntime,
+			RuntimeProgressCanceled,
+			"",
+			false,
+			timestamp(now),
+		); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -245,6 +327,18 @@ WHERE idempotency_key = ?
 	if err := requireOneRow(result, "claim runtime operation"); err != nil {
 		return ClaimedRuntimeOperation{}, false, err
 	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		idempotencyKey,
+		RuntimeProgressEnsureRuntime,
+		RuntimeProgressReconciling,
+		"",
+		false,
+		timestamp(now),
+	); err != nil {
+		return ClaimedRuntimeOperation{}, false, err
+	}
 	operation, err := readRuntimeOperation(ctx, tx, idempotencyKey)
 	if err != nil {
 		return ClaimedRuntimeOperation{}, false, err
@@ -252,6 +346,7 @@ WHERE idempotency_key = ?
 	if err := tx.Commit(); err != nil {
 		return ClaimedRuntimeOperation{}, false, fmt.Errorf("commit runtime operation claim: %w", err)
 	}
+	store.notifyRuntimeProgressLocked(idempotencyKey)
 	identity, err := runtimeprovider.ManagedIdentityFromName(operation.RuntimeName)
 	if err != nil {
 		return ClaimedRuntimeOperation{}, false, err

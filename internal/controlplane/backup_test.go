@@ -30,6 +30,7 @@ type backupRoundTripFixture struct {
 	now             time.Time
 	root            string
 	runtimeName     string
+	runtimeProgress string
 	secrets         *FileSecretStore
 	store           *Store
 }
@@ -95,6 +96,17 @@ func newBackupRoundTripFixture(t *testing.T) backupRoundTripFixture {
 	if _, err := store.CompleteHostedAccessIntent(t.Context(), intent.IdempotencyKey, grant); err != nil {
 		t.Fatal(err)
 	}
+	runtimeProgress := "backup-runtime-wake"
+	if _, err := store.RequestRuntimeWake(t.Context(), runtimeProgress, runtimeName); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.RecordRuntimeHealth(t.Context(), RecordRuntimeHealthRequest{
+		RuntimeName:     runtimeName,
+		HealthState:     RuntimeHealthHealthy,
+		ObservedRelease: "backup-release",
+	}); err != nil {
+		t.Fatal(err)
+	}
 	return backupRoundTripFixture{
 		backupDirectory: filepath.Join(root, "backup"),
 		grant:           grant,
@@ -103,6 +115,7 @@ func newBackupRoundTripFixture(t *testing.T) backupRoundTripFixture {
 		now:             now,
 		root:            root,
 		runtimeName:     runtimeName,
+		runtimeProgress: runtimeProgress,
 		secrets:         secrets,
 		store:           store,
 	}
@@ -175,6 +188,20 @@ func restoreAndVerifyRoundTripBackup(
 		progress.AccessGrant == nil || progress.AccessGrant.DeviceID != fixture.grant.Device.ID {
 		t.Fatalf("restored hosted access progress = %+v, %v", progress, err)
 	}
+	runtimeProgress, _, err := restoredStore.RuntimeProgressAfter(
+		t.Context(),
+		fixture.runtimeProgress,
+		"",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireRuntimeProgressStates(
+		t,
+		runtimeProgress,
+		RuntimeProgressWakeRequested,
+		RuntimeProgressHealthy,
+	)
 	verifyRestoredRuntimePolicy(t, restoredStore, fixture)
 	restoredSecretStore, err := OpenFileSecretStore(restoredSecrets)
 	if err != nil {
@@ -290,7 +317,7 @@ func TestControlPlaneRestoreRejectsTamperingAndDuplicateFields(t *testing.T) {
 	duplicate := []byte(`{
 		"schema_version": 1,
 		"schema_version": 1,
-		"control_plane_schema_version": 4,
+		"control_plane_schema_version": 5,
 		"created_at": "2026-07-24T21:00:00Z",
 		"database_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"secrets": []

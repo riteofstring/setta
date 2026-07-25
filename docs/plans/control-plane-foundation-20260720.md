@@ -58,7 +58,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 4. SQLite uses foreign
+The `internal/controlplane` package owns schema version 5. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -99,7 +99,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 4 is a deliberate clean break;
+installed release explicitly. Schema version 5 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -112,6 +112,15 @@ a claim starts, and can recover a terminally failed schedule. Candidate B wake
 execution remains the authenticated private runtime dial itself; recording a
 wake request therefore does not mark an otherwise healthy sleeping runtime
 unhealthy.
+
+Schema version 5 adds provider-neutral, ordered runtime progress for ensure,
+wake, and deletion operations. Durable cursors cover queued work,
+reconciliation attempts, bounded retries, successful readiness or deletion,
+terminal failure, and cancellation. The private Unix administration boundary
+publishes those events over cursor-resumable SSE and wakes connected readers
+only after the transaction commits; reconnects replay from SQLite without
+polling. Progress contains operation state, stable error codes, retryability,
+and timestamps, but no user, runtime, provider, or Sprite identifiers.
 
 The 2026-07-24 extension persists provider-neutral hosted-access intents,
 requested capability rows, and ordered progress events. The private Unix

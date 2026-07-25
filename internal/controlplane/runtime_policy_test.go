@@ -257,7 +257,7 @@ func TestRuntimePolicyRejectsInvalidTransitionsAndOldSchema(t *testing.T) {
 
 	oldDirectory := t.TempDir()
 	oldStore := openTestStore(t, oldDirectory, func() time.Time { return now }, RateLimit{})
-	if _, err := oldStore.db.ExecContext(ctx, "PRAGMA user_version = 3"); err != nil {
+	if _, err := oldStore.db.ExecContext(ctx, "PRAGMA user_version = 4"); err != nil {
 		t.Fatal(err)
 	}
 	if err := oldStore.Close(); err != nil {
@@ -265,7 +265,7 @@ func TestRuntimePolicyRejectsInvalidTransitionsAndOldSchema(t *testing.T) {
 	}
 	if reopened, err := OpenStore(StoreConfig{Directory: filepath.Clean(oldDirectory)}); err == nil {
 		reopened.Close()
-		t.Fatal("version 3 control-plane database was silently migrated")
+		t.Fatal("version 4 control-plane database was silently migrated")
 	}
 }
 

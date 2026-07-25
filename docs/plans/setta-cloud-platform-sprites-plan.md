@@ -1352,7 +1352,7 @@ measured, and independent of provider UI.
   removes the environment entry before serving, and retains the credential
   only inside the provider adapter process. Runtime credentials live in the
   separate private file secret store, never SQLite.
-- [ ] Publish push-based provisioning, wake, reconciliation, and deletion
+- [x] Publish push-based provisioning, wake, reconciliation, and deletion
   progress. Do not add a polling watch.
 - [ ] Add content-free audit events, typed measurement intervals, workload
   lease enforcement, and per-user hard budget enforcement.
@@ -2270,3 +2270,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   ambiguous-destroy tests close the independent-state Phase 5 checkbox. Push
   progress and deletion audit events remain under their separate open
   checkboxes. No provider or cloud mutation ran.
+- 2026-07-24 (durable push-based runtime progress): Advanced the deliberate
+  clean-break control-plane schema to version 5 with ordered, provider-neutral
+  progress for ensure-runtime, wake, and deletion operations. Durable cursors
+  now record queued or scheduled work, every reconciliation claim, bounded
+  retries with stable error codes, provisioned, healthy, deleted, failed, and
+  canceled terminal outcomes. The private Unix administration boundary exposes
+  cursor-resumable SSE and pushes only after the durable transaction commits;
+  reconnects replay from SQLite, malformed or ahead-of-history cursors fail
+  explicitly, and no polling watch was added. Focused tests prove retry and
+  completion pushes, wake completion only after healthy desired-release
+  observation, ambiguous deletion retry and restart replay, strict cursor
+  handling, content-free SSE payloads, and backup/restore persistence. No
+  provider or cloud mutation ran.

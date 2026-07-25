@@ -143,9 +143,22 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
 	if err := requireFenceRow(result); err != nil {
 		return err
 	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		claim.IdempotencyKey,
+		RuntimeProgressEnsureRuntime,
+		RuntimeProgressProvisioned,
+		"",
+		false,
+		timestamp(now),
+	); err != nil {
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit runtime operation completion: %w", err)
 	}
+	store.notifyRuntimeProgressLocked(claim.IdempotencyKey)
 	return nil
 }
 
@@ -164,14 +177,21 @@ func (store *Store) DeferRuntimeOperation(
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin runtime operation deferral: %w", err)
+	}
+	defer rollback(tx)
 	status := RuntimeOperationRetryWait
+	progressState := RuntimeProgressRetrying
 	var completedAt any
 	if terminal {
 		status = RuntimeOperationFailed
+		progressState = RuntimeProgressFailed
 		completedAt = timestamp(store.clock().UTC())
 	}
 	now := store.clock().UTC()
-	result, err := store.db.ExecContext(ctx, `
+	result, err := tx.ExecContext(ctx, `
 UPDATE runtime_operations
 SET status = ?, lease_owner = NULL, lease_expires_at = NULL,
     next_attempt_at = ?, last_error_code = ?, updated_at = ?, completed_at = ?
@@ -185,9 +205,25 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
 	if err := requireFenceRow(result); err != nil {
 		return err
 	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		claim.IdempotencyKey,
+		RuntimeProgressEnsureRuntime,
+		progressState,
+		errorCode,
+		!terminal,
+		timestamp(now),
+	); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit runtime operation deferral: %w", err)
+	}
 	if !terminal {
 		store.notifyOperationWakeLocked()
 	}
+	store.notifyRuntimeProgressLocked(claim.IdempotencyKey)
 	return nil
 }
 

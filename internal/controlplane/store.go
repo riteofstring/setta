@@ -26,7 +26,7 @@ import (
 
 const (
 	controlPlaneDatabaseName = "control-plane.sqlite"
-	controlPlaneStoreVersion = 4
+	controlPlaneStoreVersion = 5
 	sqliteDriverName         = "sqlite"
 	defaultGrantTTL          = 24 * time.Hour
 )
@@ -49,15 +49,16 @@ type StoreConfig struct {
 }
 
 type Store struct {
-	clock         func() time.Time
-	db            *sql.DB
-	dbPath        string
-	rateLimit     RateLimit
-	mu            sync.Mutex
-	closed        bool
-	invalidations map[grantKey]*grantInvalidation
-	hostedUpdates map[string]chan struct{}
-	operationWake chan struct{}
+	clock          func() time.Time
+	db             *sql.DB
+	dbPath         string
+	rateLimit      RateLimit
+	mu             sync.Mutex
+	closed         bool
+	invalidations  map[grantKey]*grantInvalidation
+	hostedUpdates  map[string]chan struct{}
+	runtimeUpdates map[string]chan struct{}
+	operationWake  chan struct{}
 }
 
 type grantKey struct {
@@ -102,13 +103,14 @@ func OpenStore(config StoreConfig) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1)
 	store := &Store{
-		clock:         config.Clock,
-		db:            db,
-		dbPath:        dbPath,
-		rateLimit:     config.RateLimit,
-		invalidations: map[grantKey]*grantInvalidation{},
-		hostedUpdates: map[string]chan struct{}{},
-		operationWake: make(chan struct{}, 1),
+		clock:          config.Clock,
+		db:             db,
+		dbPath:         dbPath,
+		rateLimit:      config.RateLimit,
+		invalidations:  map[grantKey]*grantInvalidation{},
+		hostedUpdates:  map[string]chan struct{}{},
+		runtimeUpdates: map[string]chan struct{}{},
+		operationWake:  make(chan struct{}, 1),
 	}
 	if err := store.configureDatabase(context.Background()); err != nil {
 		_ = db.Close()
@@ -149,6 +151,10 @@ func (store *Store) Close() error {
 		close(update)
 	}
 	store.hostedUpdates = nil
+	for _, update := range store.runtimeUpdates {
+		close(update)
+	}
+	store.runtimeUpdates = nil
 	if err := store.db.Close(); err != nil {
 		return fmt.Errorf("close control-plane database: %w", err)
 	}

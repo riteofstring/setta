@@ -15,6 +15,8 @@ type RuntimeAccessState string
 type RuntimeHealthState string
 type RuntimeReleaseStatus string
 type RuntimeOperationStatus string
+type RuntimeProgressKind string
+type RuntimeProgressState string
 type EntitlementState string
 type HostedAccessCapability string
 type HostedAccessClientKind string
@@ -51,6 +53,21 @@ const (
 	RuntimeOperationSucceeded RuntimeOperationStatus = "succeeded"
 	RuntimeOperationFailed    RuntimeOperationStatus = "failed"
 	RuntimeOperationCanceled  RuntimeOperationStatus = "canceled"
+
+	RuntimeProgressEnsureRuntime RuntimeProgressKind = "ensure_runtime"
+	RuntimeProgressWakeRuntime   RuntimeProgressKind = "wake_runtime"
+	RuntimeProgressDeleteRuntime RuntimeProgressKind = "delete_runtime"
+
+	RuntimeProgressQueued            RuntimeProgressState = "queued"
+	RuntimeProgressReconciling       RuntimeProgressState = "reconciling"
+	RuntimeProgressRetrying          RuntimeProgressState = "retrying"
+	RuntimeProgressProvisioned       RuntimeProgressState = "provisioned"
+	RuntimeProgressWakeRequested     RuntimeProgressState = "wake_requested"
+	RuntimeProgressHealthy           RuntimeProgressState = "healthy"
+	RuntimeProgressDeletionScheduled RuntimeProgressState = "deletion_scheduled"
+	RuntimeProgressDeleted           RuntimeProgressState = "deleted"
+	RuntimeProgressFailed            RuntimeProgressState = "failed"
+	RuntimeProgressCanceled          RuntimeProgressState = "canceled"
 
 	EntitlementActive     EntitlementState = "active"
 	EntitlementGrace      EntitlementState = "grace"
@@ -317,6 +334,16 @@ type RuntimeOperation struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	CompletedAt    *time.Time
+}
+
+type RuntimeProgress struct {
+	OperationID string               `json:"operationId"`
+	Cursor      string               `json:"cursor"`
+	Kind        RuntimeProgressKind  `json:"kind"`
+	State       RuntimeProgressState `json:"state"`
+	ErrorCode   string               `json:"errorCode"`
+	Retryable   bool                 `json:"retryable"`
+	OccurredAt  string               `json:"occurredAt"`
 }
 
 type ProviderObservation struct {
