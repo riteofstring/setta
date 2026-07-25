@@ -58,6 +58,7 @@ type Session struct {
 	events  chan Event
 	done    chan struct{}
 
+	sendMu        sync.RWMutex
 	mu            sync.Mutex
 	once          sync.Once
 	closed        bool
@@ -509,6 +510,8 @@ func (session *Session) Close() {
 		session.manager.mu.Lock()
 		delete(session.manager.sessions, session.id)
 		session.manager.mu.Unlock()
+		session.sendMu.Lock()
+		defer session.sendMu.Unlock()
 		session.mu.Lock()
 		session.closed = true
 		close(session.events)
@@ -522,6 +525,8 @@ func (session *Session) closeWithEvent(event Event) {
 		session.manager.mu.Lock()
 		delete(session.manager.sessions, session.id)
 		session.manager.mu.Unlock()
+		session.sendMu.Lock()
+		defer session.sendMu.Unlock()
 		session.mu.Lock()
 		if event.Class == "" {
 			event.Class = EventClassLifecycle
@@ -620,6 +625,8 @@ func (session *Session) sendNonblocking(event Event) bool {
 }
 
 func (session *Session) sendBlocking(event Event, cancel <-chan struct{}) (delivered bool) {
+	session.sendMu.RLock()
+	defer session.sendMu.RUnlock()
 	session.mu.Lock()
 	if session.closed {
 		session.mu.Unlock()

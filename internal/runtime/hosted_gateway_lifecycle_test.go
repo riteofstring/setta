@@ -1,13 +1,145 @@
 package runtime
 
 import (
+	"context"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
+	"setta/internal/runtimeaccounting"
+	"setta/internal/runtimeprovider"
+	"setta/internal/runtimeprovider/runtimetest"
 )
+
+func TestCandidateBGatewayWorkContinuesAfterGatewayDisconnect(t *testing.T) {
+	t.Setenv("SETTA_E2E_TOPIC_CODEX_TURN_DELAY_MS", "1500")
+	installRuntimeMasterCodexFixture(t)
+	leases := newHostedSynchronizedWorkloadLeaseManager()
+	reports := newHostedObservedWorkloadLeaseReporter()
+	config := testConfig(t)
+	config.Version = "hosted-gateway-disconnected-work"
+	config.WorkloadLeaseManager = leases
+	config.WorkloadLeaseReporter = reports
+	config.WorkloadLeaseTTL = 100 * time.Millisecond
+	runtimeServer, runtimeReady := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, runtimeServer)
+
+	dialer := &hostedRuntimeDialer{}
+	dialer.SetAddress(runtimeServer.Addr())
+	controlDirectory := t.TempDir()
+	secretDirectory := t.TempDir()
+	gateway, store, _, client, grant, _ := startHostedGateway(
+		t,
+		controlDirectory,
+		secretDirectory,
+		dialer,
+		runtimeReady.BootstrapToken,
+	)
+	defer func() {
+		if gateway != nil {
+			shutdownHostedGateway(t, gateway, store)
+		}
+	}()
+
+	baseURL := "http://" + gateway.Addr().String()
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](
+		t,
+		client,
+		baseURL,
+		"/workspaces/open",
+		httpapi.OpenWorkspaceRequest{RootPath: t.TempDir()},
+		http.StatusOK,
+	)
+	created := postRuntimeJSON[conversation.ConversationSnapshot](
+		t,
+		client,
+		baseURL,
+		"/conversations/create",
+		httpapi.CreateTopicConversationRequest{
+			WorkspaceID: opened.Workspace.ID,
+			Title:       "Hosted disconnected work",
+		},
+		http.StatusOK,
+	)
+	accepted := submitHostedConversationInput(
+		t,
+		client,
+		baseURL,
+		created.Conversation.ID,
+		"hosted-disconnected-work",
+		"complete hosted work after disconnect",
+	)
+	requireRuntimeLiveRouteKind(
+		t,
+		waitForRuntimeLiveConversationRoute(
+			t,
+			client,
+			baseURL,
+			opened.Workspace.ID,
+			created.Conversation.ID,
+			accepted,
+		),
+		conversation.ConversationRouteDecisionKindSendToParent,
+	)
+	waitForRuntimeLiveConversationSnapshot(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		"hosted leased turn running",
+		func(snapshot conversation.ConversationSnapshot) bool {
+			return len(snapshot.Turns.Turns) == 1 &&
+				snapshot.Turns.Turns[0].Status == conversation.TurnStatusRunning &&
+				hostedWorkloadLeaseActive(t, leases)
+		},
+	)
+
+	shutdownHostedGateway(t, gateway, store)
+	gateway = nil
+	store = nil
+	if !hostedWorkloadLeaseActive(t, leases) {
+		t.Fatal("workload lease was released when the hosted gateway disconnected")
+	}
+	renewalsBeforeDisconnect := hostedWorkloadLeaseRenewalCount(reports.snapshot())
+	reports.waitFor(t, "renewal after hosted gateway disconnect", func(actions []runtimeaccounting.EventAction) bool {
+		return hostedWorkloadLeaseRenewalCount(actions) > renewalsBeforeDisconnect
+	})
+	reports.waitFor(t, "lease end after disconnected turn completion", func(actions []runtimeaccounting.EventAction) bool {
+		return actions[len(actions)-1] == runtimeaccounting.EventEnd
+	})
+	if hostedWorkloadLeaseActive(t, leases) {
+		t.Fatal("workload lease remained active after the disconnected turn completed")
+	}
+
+	gateway, store, _, client, _ = restartHostedGateway(
+		t,
+		controlDirectory,
+		secretDirectory,
+		dialer,
+		grant.Token,
+	)
+	baseURL = "http://" + gateway.Addr().String()
+	reconnected := postRuntimeJSON[conversation.ConversationSnapshot](
+		t,
+		client,
+		baseURL,
+		"/conversations/snapshot/read",
+		httpapi.ReadConversationSnapshotRequest{
+			WorkspaceID:    opened.Workspace.ID,
+			ConversationID: created.Conversation.ID,
+		},
+		http.StatusOK,
+	)
+	if len(reconnected.Turns.Turns) != 1 ||
+		reconnected.Turns.Turns[0].Status != conversation.TurnStatusCompleted {
+		t.Fatalf("reconnected hosted turn = %+v, want one completed turn", reconnected.Turns.Turns)
+	}
+	reports.requireRenewedLifecycle(t)
+}
 
 func TestCandidateBGatewayConversationControls(t *testing.T) {
 	installRuntimeMasterCodexFixture(t)
@@ -366,6 +498,145 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 		http.StatusOK,
 	)
 	requireHostedLifecycleRestartState(t, restarted)
+}
+
+type hostedSynchronizedWorkloadLeaseManager struct {
+	mu      sync.Mutex
+	manager *runtimetest.LeaseManager
+}
+
+func newHostedSynchronizedWorkloadLeaseManager() *hostedSynchronizedWorkloadLeaseManager {
+	return &hostedSynchronizedWorkloadLeaseManager{
+		manager: runtimetest.NewLeaseManager(time.Now),
+	}
+}
+
+func (manager *hostedSynchronizedWorkloadLeaseManager) Acquire(
+	ctx context.Context,
+	request runtimeprovider.WorkloadLeaseRequest,
+) (runtimeprovider.WorkloadLease, error) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	return manager.manager.Acquire(ctx, request)
+}
+
+func (manager *hostedSynchronizedWorkloadLeaseManager) Renew(
+	ctx context.Context,
+	name string,
+	ttl time.Duration,
+) (runtimeprovider.WorkloadLease, error) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	return manager.manager.Renew(ctx, name, ttl)
+}
+
+func (manager *hostedSynchronizedWorkloadLeaseManager) Inspect(
+	ctx context.Context,
+	name string,
+) (runtimeprovider.WorkloadLease, bool, error) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	return manager.manager.Inspect(ctx, name)
+}
+
+func (manager *hostedSynchronizedWorkloadLeaseManager) Release(
+	ctx context.Context,
+	name string,
+) error {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	return manager.manager.Release(ctx, name)
+}
+
+func hostedWorkloadLeaseActive(
+	t *testing.T,
+	manager runtimeprovider.WorkloadLeaseManager,
+) bool {
+	t.Helper()
+	_, active, err := manager.Inspect(t.Context(), "setta-agent")
+	if err != nil {
+		t.Fatalf("inspect hosted workload lease: %v", err)
+	}
+	return active
+}
+
+type hostedObservedWorkloadLeaseReporter struct {
+	mu      sync.Mutex
+	actions []runtimeaccounting.EventAction
+	changed chan struct{}
+}
+
+func newHostedObservedWorkloadLeaseReporter() *hostedObservedWorkloadLeaseReporter {
+	return &hostedObservedWorkloadLeaseReporter{changed: make(chan struct{}, 1)}
+}
+
+func (reporter *hostedObservedWorkloadLeaseReporter) RecordTransition(
+	_ context.Context,
+	transition runtimeaccounting.ActivityTransition,
+) error {
+	if err := runtimeaccounting.ValidateWorkloadLeaseTransition(transition); err != nil {
+		return err
+	}
+	reporter.mu.Lock()
+	defer reporter.mu.Unlock()
+	reporter.actions = append(reporter.actions, transition.Action)
+	select {
+	case reporter.changed <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+func (reporter *hostedObservedWorkloadLeaseReporter) snapshot() []runtimeaccounting.EventAction {
+	reporter.mu.Lock()
+	defer reporter.mu.Unlock()
+	return append([]runtimeaccounting.EventAction(nil), reporter.actions...)
+}
+
+func (reporter *hostedObservedWorkloadLeaseReporter) waitFor(
+	t *testing.T,
+	label string,
+	matches func([]runtimeaccounting.EventAction) bool,
+) {
+	t.Helper()
+	deadline := time.NewTimer(15 * time.Second)
+	defer deadline.Stop()
+	for {
+		actions := reporter.snapshot()
+		if len(actions) > 0 && matches(actions) {
+			return
+		}
+		select {
+		case <-reporter.changed:
+		case <-deadline.C:
+			t.Fatalf("timed out waiting for %s; actions = %v", label, reporter.snapshot())
+		}
+	}
+}
+
+func (reporter *hostedObservedWorkloadLeaseReporter) requireRenewedLifecycle(t *testing.T) {
+	t.Helper()
+	actions := reporter.snapshot()
+	if len(actions) < 3 ||
+		actions[0] != runtimeaccounting.EventBegin ||
+		actions[len(actions)-1] != runtimeaccounting.EventEnd {
+		t.Fatalf("hosted workload lease actions = %v, want begin, renewal(s), end", actions)
+	}
+	for _, action := range actions[1 : len(actions)-1] {
+		if action != runtimeaccounting.EventRenew {
+			t.Fatalf("hosted workload lease actions = %v, want only renewals between begin and end", actions)
+		}
+	}
+}
+
+func hostedWorkloadLeaseRenewalCount(actions []runtimeaccounting.EventAction) int {
+	count := 0
+	for _, action := range actions {
+		if action == runtimeaccounting.EventRenew {
+			count++
+		}
+	}
+	return count
 }
 
 func requireHostedLifecycleRestartState(t *testing.T, snapshot conversation.ConversationSnapshot) {

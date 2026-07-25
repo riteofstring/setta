@@ -489,6 +489,48 @@ func TestManagerLosslessDispatchBlocksUntilSessionDrains(t *testing.T) {
 	}
 }
 
+func TestSessionCloseUnblocksConcurrentLosslessSend(t *testing.T) {
+	manager := newTestManager("steady")
+	defer shutdownTestManager(t, manager)
+
+	session, err := manager.NewSession(context.Background())
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+	for range cap(session.events) {
+		session.events <- Event{Kind: EventNotification}
+	}
+
+	sendDone := make(chan bool, 1)
+	go func() {
+		sendDone <- session.sendBlocking(Event{Kind: EventNotification}, nil)
+	}()
+	select {
+	case delivered := <-sendDone:
+		t.Fatalf("lossless send returned before close: delivered=%t", delivered)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	closeDone := make(chan struct{})
+	go func() {
+		session.Close()
+		close(closeDone)
+	}()
+	select {
+	case delivered := <-sendDone:
+		if delivered {
+			t.Fatal("lossless send delivered after session close began")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("session close did not unblock lossless send")
+	}
+	select {
+	case <-closeDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("session close did not finish after lossless send returned")
+	}
+}
+
 func TestManagerLosslessDispatchDeliversPendingLagMarkerAfterFullQueueDrains(t *testing.T) {
 	manager := newTestManager("steady")
 	defer shutdownTestManager(t, manager)
