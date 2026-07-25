@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"time"
 
 	"setta/internal/runtimeaccounting"
@@ -35,19 +36,22 @@ type accountingWindowPosition struct {
 }
 
 type accountingWindowInputs struct {
-	Runtime      Runtime
-	Policy       UserBudgetPolicy
-	Ledger       *runtimeaccounting.Ledger
-	Closed       runtimeaccounting.ClosedWindow
-	EventsSHA256 string
-	Position     accountingWindowPosition
+	Runtime       Runtime
+	Policy        UserBudgetPolicy
+	Ledger        *runtimeaccounting.Ledger
+	BoundaryState runtimeaccounting.LedgerState
+	Closed        runtimeaccounting.ClosedWindow
+	EndSequence   uint64
+	EventsSHA256  string
+	Position      accountingWindowPosition
 }
 
 type accountingWindowState struct {
-	Runtime  Runtime
-	Policy   UserBudgetPolicy
-	Ledger   *runtimeaccounting.Ledger
-	Position accountingWindowPosition
+	Runtime        Runtime
+	Policy         UserBudgetPolicy
+	Ledger         *runtimeaccounting.Ledger
+	BoundaryLedger *runtimeaccounting.Ledger
+	Position       accountingWindowPosition
 }
 
 func (store *Store) FinalizeRuntimeAccountingWindow(
@@ -104,7 +108,6 @@ func (store *Store) finalizeRuntimeAccountingWindowTx(
 	if err != nil {
 		return FinalizedRuntimeAccountingWindow{}, nil, err
 	}
-	inputs.Ledger.CompactAppliedEvents()
 	evidence, err := finalizeStoredRuntimeAccountingEvidence(
 		inputs.Runtime, inputs.Policy, schedule, inputs.Closed, inputs.EventsSHA256, now,
 	)
@@ -139,7 +142,7 @@ func (store *Store) finalizeRuntimeAccountingWindowTx(
 	}
 	if err := persistFinalizedRuntimeAccountingWindow(
 		ctx, tx, request, fingerprint, inputs.Position.StartSequence,
-		inputs.Ledger.Snapshot().LastSequence, finalized, inputs.Ledger.Snapshot(),
+		inputs.EndSequence, finalized, inputs.Ledger.Snapshot(), inputs.BoundaryState,
 	); err != nil {
 		return FinalizedRuntimeAccountingWindow{}, nil, err
 	}
@@ -159,18 +162,25 @@ func loadAccountingWindowInputs(
 	if err != nil {
 		return accountingWindowInputs{}, err
 	}
-	closed, err := state.Ledger.Close(request.WindowEnd)
+	ledger, boundaryState, closed, endSequence, err := replayAccountingWindow(
+		ctx,
+		tx,
+		request.RuntimeName,
+		request.WindowEnd,
+		state,
+	)
 	if err != nil {
 		return accountingWindowInputs{}, err
 	}
 	eventsSHA256, err := hashRuntimeAccountingEventRange(
-		ctx, tx, request.RuntimeName, state.Position.StartSequence, state.Ledger.Snapshot().LastSequence,
+		ctx, tx, request.RuntimeName, state.Position.StartSequence, endSequence,
 	)
 	if err != nil {
 		return accountingWindowInputs{}, err
 	}
 	return accountingWindowInputs{
-		Runtime: state.Runtime, Policy: state.Policy, Ledger: state.Ledger, Closed: closed,
+		Runtime: state.Runtime, Policy: state.Policy, Ledger: ledger,
+		BoundaryState: boundaryState, Closed: closed, EndSequence: endSequence,
 		EventsSHA256: eventsSHA256, Position: state.Position,
 	}, nil
 }
@@ -198,16 +208,175 @@ func readAccountingWindowState(
 	if !found {
 		return accountingWindowState{}, errors.New("runtime accounting ledger is unavailable")
 	}
+	boundaryLedger, err := readRuntimeAccountingBoundary(ctx, tx, request.RuntimeName)
+	if err != nil {
+		return accountingWindowState{}, err
+	}
 	position, err := readAccountingWindowPosition(ctx, tx, request.RuntimeName)
 	if err != nil {
 		return accountingWindowState{}, err
 	}
-	if position.PreviousEnd != nil && !ledger.Snapshot().WindowStart.Equal(*position.PreviousEnd) {
+	if position.PreviousEnd != nil &&
+		!boundaryLedger.Snapshot().WindowStart.Equal(*position.PreviousEnd) {
 		return accountingWindowState{}, errors.New("runtime accounting window does not continue its finalized history")
 	}
 	return accountingWindowState{
-		Runtime: runtime, Policy: policy, Ledger: ledger, Position: position,
+		Runtime: runtime, Policy: policy, Ledger: ledger,
+		BoundaryLedger: boundaryLedger, Position: position,
 	}, nil
+}
+
+func readRuntimeAccountingBoundary(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+) (*runtimeaccounting.Ledger, error) {
+	var encoded []byte
+	if err := tx.QueryRowContext(ctx, `
+SELECT boundary_state_json
+FROM runtime_accounting_ledgers
+WHERE runtime_name = ?
+`, runtimeName).Scan(&encoded); err != nil {
+		return nil, fmt.Errorf("read runtime accounting boundary: %w", err)
+	}
+	var state runtimeaccounting.LedgerState
+	if err := json.Unmarshal(encoded, &state); err != nil {
+		return nil, fmt.Errorf("decode runtime accounting boundary: %w", err)
+	}
+	ledger, err := runtimeaccounting.RestoreLedger(state)
+	if err != nil {
+		return nil, fmt.Errorf("restore runtime accounting boundary: %w", err)
+	}
+	return ledger, nil
+}
+
+func replayAccountingWindow(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+	windowEnd time.Time,
+	state accountingWindowState,
+) (
+	*runtimeaccounting.Ledger,
+	runtimeaccounting.LedgerState,
+	runtimeaccounting.ClosedWindow,
+	uint64,
+	error,
+) {
+	events, err := readRuntimeAccountingEventsAfter(
+		ctx,
+		tx,
+		runtimeName,
+		state.Position.StartSequence,
+	)
+	if err != nil {
+		return nil, runtimeaccounting.LedgerState{}, runtimeaccounting.ClosedWindow{}, 0, err
+	}
+	if err := verifyAccountingLedgerEvents(state, events); err != nil {
+		return nil, runtimeaccounting.LedgerState{}, runtimeaccounting.ClosedWindow{}, 0,
+			err
+	}
+	return closeReplayedAccountingWindow(state, events, windowEnd)
+}
+
+func verifyAccountingLedgerEvents(
+	state accountingWindowState,
+	events []runtimeaccounting.ActivityEvent,
+) error {
+	verified, err := runtimeaccounting.RestoreLedger(state.BoundaryLedger.Snapshot())
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if err := verified.Apply(event); err != nil {
+			return err
+		}
+	}
+	if !reflect.DeepEqual(verified.Snapshot(), state.Ledger.Snapshot()) {
+		return errors.New("runtime accounting ledger does not match its durable event stream")
+	}
+	return nil
+}
+
+func closeReplayedAccountingWindow(
+	state accountingWindowState,
+	events []runtimeaccounting.ActivityEvent,
+	windowEnd time.Time,
+) (
+	*runtimeaccounting.Ledger,
+	runtimeaccounting.LedgerState,
+	runtimeaccounting.ClosedWindow,
+	uint64,
+	error,
+) {
+	ledger, err := runtimeaccounting.RestoreLedger(state.BoundaryLedger.Snapshot())
+	if err != nil {
+		return nil, runtimeaccounting.LedgerState{}, runtimeaccounting.ClosedWindow{}, 0, err
+	}
+	endSequence := state.Position.StartSequence
+	nextEvent := 0
+	for nextEvent < len(events) && !events[nextEvent].At.After(windowEnd) {
+		if err := ledger.Apply(events[nextEvent]); err != nil {
+			return nil, runtimeaccounting.LedgerState{}, runtimeaccounting.ClosedWindow{}, 0, err
+		}
+		endSequence = events[nextEvent].Sequence
+		nextEvent++
+	}
+	closed, err := ledger.Close(windowEnd)
+	if err != nil {
+		return nil, runtimeaccounting.LedgerState{}, runtimeaccounting.ClosedWindow{}, 0, err
+	}
+	ledger.CompactAppliedEvents()
+	boundaryState := ledger.Snapshot()
+	for ; nextEvent < len(events); nextEvent++ {
+		if err := ledger.Apply(events[nextEvent]); err != nil {
+			return nil, runtimeaccounting.LedgerState{}, runtimeaccounting.ClosedWindow{}, 0, err
+		}
+	}
+	return ledger, boundaryState, closed, endSequence, nil
+}
+
+func readRuntimeAccountingEventsAfter(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+	startSequence uint64,
+) ([]runtimeaccounting.ActivityEvent, error) {
+	rows, err := tx.QueryContext(ctx, `
+SELECT sequence, event_json
+FROM runtime_accounting_events
+WHERE runtime_name = ? AND sequence > ?
+ORDER BY sequence
+`, runtimeName, startSequence)
+	if err != nil {
+		return nil, fmt.Errorf("read accounting replay events: %w", err)
+	}
+	defer rows.Close()
+	events := make([]runtimeaccounting.ActivityEvent, 0)
+	nextSequence := startSequence + 1
+	for rows.Next() {
+		var sequence uint64
+		var encoded []byte
+		if err := rows.Scan(&sequence, &encoded); err != nil {
+			return nil, fmt.Errorf("scan accounting replay event: %w", err)
+		}
+		if sequence != nextSequence {
+			return nil, errors.New("accounting replay event sequence is incomplete")
+		}
+		var event runtimeaccounting.ActivityEvent
+		if err := json.Unmarshal(encoded, &event); err != nil {
+			return nil, fmt.Errorf("decode accounting replay event: %w", err)
+		}
+		if event.Sequence != sequence {
+			return nil, errors.New("accounting replay event sequence does not match its record")
+		}
+		events = append(events, event)
+		nextSequence++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate accounting replay events: %w", err)
+	}
+	return events, nil
 }
 
 func validateFinalizeRuntimeAccountingWindowRequest(request FinalizeRuntimeAccountingWindowRequest) error {
@@ -382,6 +551,7 @@ func persistFinalizedRuntimeAccountingWindow(
 	endSequence uint64,
 	finalized FinalizedRuntimeAccountingWindow,
 	ledger runtimeaccounting.LedgerState,
+	boundaryState runtimeaccounting.LedgerState,
 ) error {
 	evidenceJSON, err := json.Marshal(finalized.Evidence)
 	if err != nil {
@@ -390,6 +560,10 @@ func persistFinalizedRuntimeAccountingWindow(
 	ledgerJSON, err := json.Marshal(ledger)
 	if err != nil {
 		return fmt.Errorf("encode closed accounting ledger: %w", err)
+	}
+	boundaryJSON, err := json.Marshal(boundaryState)
+	if err != nil {
+		return fmt.Errorf("encode accounting boundary ledger: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO runtime_accounting_windows (
@@ -405,9 +579,9 @@ INSERT INTO runtime_accounting_windows (
 	}
 	result, err := tx.ExecContext(ctx, `
 UPDATE runtime_accounting_ledgers
-SET state_json = ?, updated_at = ?
+SET state_json = ?, boundary_state_json = ?, updated_at = ?
 WHERE runtime_name = ?
-`, ledgerJSON, timestamp(finalized.FinalizedAt), request.RuntimeName)
+`, ledgerJSON, boundaryJSON, timestamp(finalized.FinalizedAt), request.RuntimeName)
 	if err != nil {
 		return fmt.Errorf("advance runtime accounting ledger: %w", err)
 	}

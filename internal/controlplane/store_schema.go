@@ -389,6 +389,7 @@ CREATE INDEX IF NOT EXISTS budget_cutoff_operations_due_idx
 CREATE TABLE IF NOT EXISTS runtime_accounting_ledgers (
   runtime_name TEXT PRIMARY KEY REFERENCES runtimes(name),
   state_json BLOB NOT NULL,
+  boundary_state_json BLOB NOT NULL,
   updated_at TEXT NOT NULL
 );
 

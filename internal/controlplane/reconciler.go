@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"setta/internal/runtimecost"
 	"setta/internal/runtimeprovider"
 )
 
@@ -18,50 +19,87 @@ type RuntimeReconcilerProvider interface {
 }
 
 type ReconcilerConfig struct {
-	LeaseDuration    time.Duration
-	MaxAttempts      int
-	OperationTimeout time.Duration
-	Observer         RuntimeAuditObserver
-	Provider         RuntimeReconcilerProvider
-	RetryDelay       time.Duration
-	Store            *Store
-	WorkerID         string
+	AccountingObserver ControlPlaneAuditObserver
+	AccountingWindow   time.Duration
+	LeaseDuration      time.Duration
+	MaxAttempts        int
+	OperationTimeout   time.Duration
+	Observer           RuntimeAuditObserver
+	PriceSchedule      runtimecost.PriceSchedule
+	Provider           RuntimeReconcilerProvider
+	RetryDelay         time.Duration
+	Store              *Store
+	WorkerID           string
 }
 
 type Reconciler struct {
-	leaseDuration    time.Duration
-	maxAttempts      int
-	operationTimeout time.Duration
-	observer         RuntimeAuditObserver
-	provider         RuntimeReconcilerProvider
-	retryDelay       time.Duration
-	store            *Store
-	workerID         string
+	accountingObserver ControlPlaneAuditObserver
+	accountingWindow   time.Duration
+	leaseDuration      time.Duration
+	maxAttempts        int
+	operationTimeout   time.Duration
+	observer           RuntimeAuditObserver
+	priceSchedule      runtimecost.PriceSchedule
+	provider           RuntimeReconcilerProvider
+	retryDelay         time.Duration
+	store              *Store
+	workerID           string
 }
 
 func NewReconciler(config ReconcilerConfig) (*Reconciler, error) {
-	if config.Store == nil || config.Provider == nil || config.Observer == nil {
-		return nil, errors.New("runtime reconciler requires a store, provider, and observer")
-	}
-	if err := validateIdentifier("reconciler worker id", config.WorkerID); err != nil {
+	if err := validateReconcilerConfig(config); err != nil {
 		return nil, err
 	}
-	if config.LeaseDuration <= 0 || config.RetryDelay <= 0 || config.OperationTimeout <= 0 || config.MaxAttempts <= 0 {
-		return nil, errors.New("runtime reconciler durations and attempt ceiling must be positive")
+	return &Reconciler{
+		accountingObserver: config.AccountingObserver,
+		accountingWindow:   config.AccountingWindow,
+		leaseDuration:      config.LeaseDuration,
+		maxAttempts:        config.MaxAttempts,
+		operationTimeout:   config.OperationTimeout,
+		observer:           config.Observer,
+		priceSchedule:      config.PriceSchedule,
+		provider:           config.Provider,
+		retryDelay:         config.RetryDelay,
+		store:              config.Store,
+		workerID:           config.WorkerID,
+	}, nil
+}
+
+func validateReconcilerConfig(config ReconcilerConfig) error {
+	if err := validateReconcilerDependencies(config); err != nil {
+		return err
+	}
+	if err := validateIdentifier("reconciler worker id", config.WorkerID); err != nil {
+		return err
+	}
+	if err := validateReconcilerLimits(config); err != nil {
+		return err
+	}
+	if err := runtimecost.ValidatePriceSchedule(config.PriceSchedule); err != nil {
+		return fmt.Errorf("runtime reconciler price schedule: %w", err)
+	}
+	return nil
+}
+
+func validateReconcilerDependencies(config ReconcilerConfig) error {
+	if config.Store == nil || config.Provider == nil || config.Observer == nil ||
+		config.AccountingObserver == nil {
+		return errors.New(
+			"runtime reconciler requires a store, provider, and accounting observers",
+		)
+	}
+	return nil
+}
+
+func validateReconcilerLimits(config ReconcilerConfig) error {
+	if config.AccountingWindow <= 0 || config.LeaseDuration <= 0 ||
+		config.RetryDelay <= 0 || config.OperationTimeout <= 0 || config.MaxAttempts <= 0 {
+		return errors.New("runtime reconciler durations and attempt ceiling must be positive")
 	}
 	if config.OperationTimeout >= config.LeaseDuration {
-		return nil, errors.New("runtime reconciler operation timeout must be shorter than its lease")
+		return errors.New("runtime reconciler operation timeout must be shorter than its lease")
 	}
-	return &Reconciler{
-		leaseDuration:    config.LeaseDuration,
-		maxAttempts:      config.MaxAttempts,
-		operationTimeout: config.OperationTimeout,
-		observer:         config.Observer,
-		provider:         config.Provider,
-		retryDelay:       config.RetryDelay,
-		store:            config.Store,
-		workerID:         config.WorkerID,
-	}, nil
+	return nil
 }
 
 func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
@@ -77,6 +115,16 @@ func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 	}
 	if found {
 		return true, reconciler.reconcileBudgetCutoffClaim(ctx, operationCtx, cutoff)
+	}
+	accounting, found, err := reconciler.store.NextAccountingWindow(
+		operationCtx,
+		reconciler.accountingWindow,
+	)
+	if err != nil {
+		return false, err
+	}
+	if found && !accounting.WindowEnd.After(reconciler.store.clock().UTC()) {
+		return true, reconciler.finalizeScheduledAccountingWindow(operationCtx, accounting)
 	}
 	deletion, found, err := reconciler.store.ClaimRuntimeDeletionOperation(
 		operationCtx,
@@ -98,6 +146,35 @@ func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 		return found, err
 	}
 	return true, reconciler.reconcileProvisioningClaim(ctx, operationCtx, claim)
+}
+
+func (reconciler *Reconciler) finalizeScheduledAccountingWindow(
+	ctx context.Context,
+	window ScheduledAccountingWindow,
+) error {
+	finalized, err := reconciler.store.FinalizeRuntimeAccountingWindow(
+		ctx,
+		FinalizeRuntimeAccountingWindowRequest{
+			IdempotencyKey: window.IdempotencyKey,
+			RuntimeName:    window.RuntimeName,
+			UserID:         window.UserID,
+			WindowEnd:      window.WindowEnd,
+		},
+		reconciler.priceSchedule,
+	)
+	if err != nil {
+		return err
+	}
+	state := "continue"
+	if finalized.Interval.CutoffRequired {
+		state = "cutoff"
+	}
+	reconciler.accountingObserver.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditUsageRecorded,
+		OccurredAt: finalized.FinalizedAt,
+		State:      state,
+	})
+	return nil
 }
 
 func (reconciler *Reconciler) reconcileBudgetCutoffClaim(
@@ -573,7 +650,7 @@ func normalizeOperationError(
 }
 
 func (reconciler *Reconciler) waitForWork(ctx context.Context) error {
-	next, found, err := reconciler.store.NextRuntimeOperationAt(ctx)
+	next, found, err := reconciler.nextWorkAt(ctx)
 	if err != nil {
 		return err
 	}
@@ -585,7 +662,7 @@ func (reconciler *Reconciler) waitForWork(ctx context.Context) error {
 			return nil
 		}
 	}
-	delay := time.Until(next)
+	delay := next.Sub(reconciler.store.clock().UTC())
 	if delay < 0 {
 		delay = 0
 	}
@@ -599,6 +676,25 @@ func (reconciler *Reconciler) waitForWork(ctx context.Context) error {
 	case <-timer.C:
 		return nil
 	}
+}
+
+func (reconciler *Reconciler) nextWorkAt(ctx context.Context) (time.Time, bool, error) {
+	nextOperation, operationFound, err := reconciler.store.NextRuntimeOperationAt(ctx)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	accounting, accountingFound, err := reconciler.store.NextAccountingWindow(
+		ctx,
+		reconciler.accountingWindow,
+	)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if accountingFound &&
+		(!operationFound || accounting.WindowEnd.Before(nextOperation)) {
+		return accounting.WindowEnd, true, nil
+	}
+	return nextOperation, operationFound, nil
 }
 
 func validateManagedObservation(

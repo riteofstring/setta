@@ -126,15 +126,22 @@ func newObservedTestReconciler(
 	maximumAttempts int,
 ) *Reconciler {
 	t.Helper()
+	accountingObserver, err := NewJSONLinesObserver(io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
 	reconciler, err := NewReconciler(ReconcilerConfig{
-		LeaseDuration:    time.Minute,
-		MaxAttempts:      maximumAttempts,
-		OperationTimeout: 30 * time.Second,
-		Observer:         observer,
-		Provider:         provider,
-		RetryDelay:       time.Minute,
-		Store:            store,
-		WorkerID:         "audit-test-worker",
+		AccountingObserver: accountingObserver,
+		AccountingWindow:   time.Minute,
+		LeaseDuration:      time.Minute,
+		MaxAttempts:        maximumAttempts,
+		OperationTimeout:   30 * time.Second,
+		Observer:           observer,
+		PriceSchedule:      adminTestPriceSchedule(),
+		Provider:           provider,
+		RetryDelay:         time.Minute,
+		Store:              store,
+		WorkerID:           "audit-test-worker",
 	})
 	if err != nil {
 		t.Fatal(err)

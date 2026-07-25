@@ -31,6 +31,7 @@ const (
 	defaultReconcilerLease       = 2 * time.Minute
 	defaultReconcilerOperation   = 90 * time.Second
 	defaultReconcilerRetry       = 30 * time.Second
+	defaultAccountingWindow      = time.Minute
 	defaultReconcilerAttempts    = 10
 )
 
@@ -173,14 +174,17 @@ func startControlPlaneServices(
 		return controlPlaneServices{}, err
 	}
 	reconciler, err := controlplane.NewReconciler(controlplane.ReconcilerConfig{
-		LeaseDuration:    defaultReconcilerLease,
-		MaxAttempts:      defaultReconcilerAttempts,
-		OperationTimeout: defaultReconcilerOperation,
-		Observer:         alertingObserver,
-		Provider:         provider,
-		RetryDelay:       defaultReconcilerRetry,
-		Store:            store,
-		WorkerID:         workerID,
+		AccountingObserver: alertingObserver,
+		AccountingWindow:   defaultAccountingWindow,
+		LeaseDuration:      defaultReconcilerLease,
+		MaxAttempts:        defaultReconcilerAttempts,
+		OperationTimeout:   defaultReconcilerOperation,
+		Observer:           alertingObserver,
+		PriceSchedule:      controlPlanePriceSchedule(),
+		Provider:           provider,
+		RetryDelay:         defaultReconcilerRetry,
+		Store:              store,
+		WorkerID:           workerID,
 	})
 	if err != nil {
 		return controlPlaneServices{}, fmt.Errorf("configure runtime reconciler: %w", err)

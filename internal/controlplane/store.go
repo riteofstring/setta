@@ -26,7 +26,7 @@ import (
 
 const (
 	controlPlaneDatabaseName = "control-plane.sqlite"
-	controlPlaneStoreVersion = 12
+	controlPlaneStoreVersion = 13
 	sqliteDriverName         = "sqlite"
 	defaultGrantTTL          = 24 * time.Hour
 )

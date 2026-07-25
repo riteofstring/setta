@@ -246,10 +246,17 @@ func newTimedProtocolReconciler(
 		t.Fatal(err)
 	}
 	reconciler, err := NewReconciler(ReconcilerConfig{
-		LeaseDuration: 2 * time.Second, MaxAttempts: 3,
-		OperationTimeout: 500 * time.Millisecond,
-		Observer:         observer, Provider: adapter,
-		RetryDelay: time.Minute, Store: store, WorkerID: workerID,
+		AccountingObserver: observer,
+		AccountingWindow:   time.Minute,
+		LeaseDuration:      2 * time.Second,
+		MaxAttempts:        3,
+		OperationTimeout:   500 * time.Millisecond,
+		Observer:           observer,
+		PriceSchedule:      adminTestPriceSchedule(),
+		Provider:           adapter,
+		RetryDelay:         time.Minute,
+		Store:              store,
+		WorkerID:           workerID,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -419,14 +419,17 @@ func newTestReconciler(
 		t.Fatalf("NewJSONLinesObserver: %v", err)
 	}
 	reconciler, err := NewReconciler(ReconcilerConfig{
-		LeaseDuration:    time.Minute,
-		MaxAttempts:      maximumAttempts,
-		OperationTimeout: 30 * time.Second,
-		Observer:         observer,
-		Provider:         provider,
-		RetryDelay:       time.Minute,
-		Store:            store,
-		WorkerID:         "test-worker",
+		AccountingObserver: observer,
+		AccountingWindow:   time.Minute,
+		LeaseDuration:      time.Minute,
+		MaxAttempts:        maximumAttempts,
+		OperationTimeout:   30 * time.Second,
+		Observer:           observer,
+		PriceSchedule:      adminTestPriceSchedule(),
+		Provider:           provider,
+		RetryDelay:         time.Minute,
+		Store:              store,
+		WorkerID:           "test-worker",
 	})
 	if err != nil {
 		t.Fatalf("NewReconciler: %v", err)

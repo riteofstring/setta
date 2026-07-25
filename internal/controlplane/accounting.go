@@ -73,6 +73,7 @@ func (store *Store) BeginGatewayAttachment(
 	if err := tx.Commit(); err != nil {
 		return runtimeaccess.GatewayAttachment{}, fmt.Errorf("commit gateway attachment: %w", err)
 	}
+	store.notifyOperationWakeLocked()
 	return runtimeaccess.GatewayAttachment{ID: attachmentID, RuntimeName: runtimeName}, nil
 }
 
@@ -114,6 +115,7 @@ func (store *Store) EndGatewayAttachment(
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit gateway attachment end: %w", err)
 	}
+	store.notifyOperationWakeLocked()
 	return nil
 }
 
@@ -187,6 +189,7 @@ func (store *Store) recordRuntimeAccountingEventLocked(
 	if err := tx.Commit(); err != nil {
 		return runtimeaccounting.LedgerState{}, fmt.Errorf("commit runtime accounting event: %w", err)
 	}
+	store.notifyOperationWakeLocked()
 	return state, nil
 }
 
@@ -239,8 +242,69 @@ func prepareRuntimeAccountingLedger(
 	if found {
 		return ledger, request.Transition.Event(ledger.Snapshot().LastSequence + 1), false, nil
 	}
-	ledger, err = runtimeaccounting.NewLedger(request.Transition.At)
+	windowStart, err := initialRuntimeAccountingWindowStart(
+		ctx,
+		tx,
+		request.RuntimeName,
+		request.Transition.At,
+	)
+	if err != nil {
+		return nil, runtimeaccounting.ActivityEvent{}, false, err
+	}
+	ledger, err = runtimeaccounting.NewLedger(windowStart)
 	return ledger, request.Transition.Event(1), false, err
+}
+
+func initialRuntimeAccountingWindowStart(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+	eventAt time.Time,
+) (time.Time, error) {
+	var periodStartRaw string
+	var periodEndRaw string
+	var previousEndRaw sql.NullString
+	err := tx.QueryRowContext(ctx, `
+SELECT b.period_start, b.period_end, MAX(i.interval_end)
+FROM runtimes r
+JOIN user_budget_policies b ON b.user_id = r.user_id
+LEFT JOIN usage_intervals i
+  ON i.user_id = r.user_id AND i.budget_period_start = b.period_start
+WHERE r.name = ?
+GROUP BY b.period_start, b.period_end
+`, runtimeName).Scan(&periodStartRaw, &periodEndRaw, &previousEndRaw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return eventAt, nil
+	}
+	if err != nil {
+		return time.Time{}, fmt.Errorf("read initial runtime accounting period: %w", err)
+	}
+	periodStart, err := parseStoredTime(periodStartRaw)
+	if err != nil {
+		return time.Time{}, err
+	}
+	periodEnd, err := parseStoredTime(periodEndRaw)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if eventAt.Before(periodStart) || !eventAt.Before(periodEnd) {
+		return time.Time{}, errors.New(
+			"runtime accounting event is outside the configured budget period",
+		)
+	}
+	if previousEndRaw.Valid {
+		previousEnd, err := parseStoredTime(previousEndRaw.String)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if eventAt.Before(previousEnd) {
+			return time.Time{}, errors.New(
+				"runtime accounting event precedes the current budget position",
+			)
+		}
+		return previousEnd, nil
+	}
+	return periodStart, nil
 }
 
 func (store *Store) RuntimeAccountingSnapshot(
@@ -363,6 +427,14 @@ func persistRuntimeAccountingEvent(
 	if err != nil {
 		return fmt.Errorf("encode runtime accounting ledger: %w", err)
 	}
+	initialLedger, err := runtimeaccounting.NewLedger(state.WindowStart)
+	if err != nil {
+		return err
+	}
+	encodedBoundary, err := json.Marshal(initialLedger.Snapshot())
+	if err != nil {
+		return fmt.Errorf("encode runtime accounting boundary: %w", err)
+	}
 	recordedTimestamp := timestamp(recordedAt)
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO runtime_accounting_events (
@@ -372,10 +444,12 @@ INSERT INTO runtime_accounting_events (
 		return fmt.Errorf("insert runtime accounting event: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
-INSERT INTO runtime_accounting_ledgers (runtime_name, state_json, updated_at)
-VALUES (?, ?, ?)
+INSERT INTO runtime_accounting_ledgers (
+  runtime_name, state_json, boundary_state_json, updated_at
+)
+VALUES (?, ?, ?, ?)
 ON CONFLICT(runtime_name) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at
-`, runtimeName, encodedState, recordedTimestamp); err != nil {
+`, runtimeName, encodedState, encodedBoundary, recordedTimestamp); err != nil {
 		return fmt.Errorf("write runtime accounting ledger: %w", err)
 	}
 	return nil

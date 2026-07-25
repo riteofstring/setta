@@ -86,8 +86,18 @@ func (store *Store) SetUserBudgetPolicy(
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	existing, matched, err := store.matchExistingBudgetPolicyLocked(ctx, request)
+	if err != nil {
+		return UserBudgetPolicy{}, err
+	}
+	if matched {
+		return existing, nil
+	}
+	if err := store.validateBudgetPeriodLedgerStartLocked(ctx, request); err != nil {
+		return UserBudgetPolicy{}, err
+	}
 	now := store.clock().UTC()
-	_, err := store.db.ExecContext(ctx, `
+	_, err = store.db.ExecContext(ctx, `
 INSERT INTO user_budget_policies (
   user_id, period_start, period_end, covered_limit_usd_micros,
   safety_reserve_usd_micros, cutoff_exposure_usd_micros,
@@ -117,7 +127,58 @@ WHERE user_budget_policies.period_end <= excluded.period_start
 	if !sameBudgetPolicyRequest(policy, request) {
 		return UserBudgetPolicy{}, ErrIdempotencyConflict
 	}
+	store.notifyOperationWakeLocked()
 	return policy, nil
+}
+
+func (store *Store) matchExistingBudgetPolicyLocked(
+	ctx context.Context,
+	request SetUserBudgetPolicyRequest,
+) (UserBudgetPolicy, bool, error) {
+	existing, err := readUserBudgetPolicy(ctx, store.db, request.UserID)
+	if errors.Is(err, ErrNotFound) {
+		return UserBudgetPolicy{}, false, nil
+	}
+	if err != nil {
+		return UserBudgetPolicy{}, false, err
+	}
+	if sameBudgetPolicyRequest(existing, request) {
+		return existing, true, nil
+	}
+	if request.PeriodStart.Before(existing.PeriodEnd) {
+		return UserBudgetPolicy{}, false, ErrIdempotencyConflict
+	}
+	return UserBudgetPolicy{}, false, nil
+}
+
+func (store *Store) validateBudgetPeriodLedgerStartLocked(
+	ctx context.Context,
+	request SetUserBudgetPolicyRequest,
+) error {
+	var stateJSON []byte
+	err := store.db.QueryRowContext(ctx, `
+SELECT l.state_json
+FROM users u
+JOIN runtime_accounting_ledgers l ON l.runtime_name = u.active_runtime_name
+WHERE u.id = ?
+`, request.UserID).Scan(&stateJSON)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read active runtime accounting ledger: %w", err)
+	}
+	var state runtimeaccounting.LedgerState
+	if err := json.Unmarshal(stateJSON, &state); err != nil {
+		return fmt.Errorf("decode active runtime accounting ledger: %w", err)
+	}
+	if _, err := runtimeaccounting.RestoreLedger(state); err != nil {
+		return err
+	}
+	if !state.WindowStart.Equal(request.PeriodStart) {
+		return errors.New("budget period must continue the active runtime accounting ledger")
+	}
+	return nil
 }
 
 func (store *Store) UserBudgetPolicy(ctx context.Context, userID string) (UserBudgetPolicy, error) {
