@@ -124,7 +124,11 @@ selection with bounded windowing, Now and Artifacts rails are view-state
 disclosures that collapse to accessible compact drawers on phone-sized
 viewports, the compact history opens a focus-managed dialog, and shell-level
 keyboard handling routes workstream arrows without fighting text editing while
-`Escape` dismisses transient chrome. The first integrated production-shell
+`Escape` dismisses transient chrome. Workstream switching now carries an
+explicit Phase 4 view-state transition: selected-id changes briefly dim the
+rails and dot strip and render a pointer-transparent signal tear over the graph,
+with a reduced-motion opacity path and no durable graph mutation. The first
+integrated production-shell
 performance guardrail is committed as the `director-command-center-performance`
 Electron workflow, with focused lifecycle and 100-workstream navigation results
 recorded in
@@ -1589,8 +1593,12 @@ Phase 3 audit verification:
    selected title plus status-dot navigation, bounded large workstream sets to a 19-dot window with
    an `i/N` counter, added view-state Now/Artifacts disclosure controls that become compact drawers
    on phone-sized viewports, and moved compact history into a focus-managed dialog reachable from
-   the Now rail. Phase 5 still owns deleting the old pane modules; they are no longer the primary
-   app mount.
+   the Now rail. A second chrome-fidelity pass adds the mockup's deliberate
+   workstream-switch transition as view state over the graph: rails and dots dim
+   briefly, a signal tear renders below the rails, reduced-motion users get an
+   opacity-only path, and the selected workstream snapshot still advances only
+   from pushed Director state. Phase 5 still owns deleting the old pane modules;
+   they are no longer the primary app mount.
 2. Connect speech capture and playback through the same Director intents as text. **Done for
    Director receipt playback** — the production shell now owns a Director-specific speech capture
    controller, reuses the existing desktop voice provider/capability/credential paths, preserves a

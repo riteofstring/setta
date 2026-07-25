@@ -11,6 +11,7 @@ import {
   directorWorkstreamNavigation,
   effectiveDirectorRailVisibility,
 } from "./DirectorCommandCenterShell";
+import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
 
 describe("Director command-center approval answers", () => {
   test("builds structured answers from public question definitions", () => {
@@ -127,6 +128,22 @@ describe("Director command-center shell view state", () => {
         targetIsEditable: true,
       }),
     ).toBe("next");
+  });
+
+  test("classifies workstream switch transitions as view state", () => {
+    const entries = snapshotWithWorkstreams(3, 2).workstreams;
+
+    expect(directorWorkstreamSwitchTransition(null, "workstream:1", entries)).toBeNull();
+    expect(directorWorkstreamSwitchTransition("workstream:1", "workstream:1", entries)).toBeNull();
+    expect(directorWorkstreamSwitchTransition("workstream:1", "workstream:3", entries)).toBe(
+      "next",
+    );
+    expect(directorWorkstreamSwitchTransition("workstream:3", "workstream:1", entries)).toBe(
+      "previous",
+    );
+    expect(directorWorkstreamSwitchTransition("workstream:missing", "workstream:2", entries)).toBe(
+      "jump",
+    );
   });
 });
 

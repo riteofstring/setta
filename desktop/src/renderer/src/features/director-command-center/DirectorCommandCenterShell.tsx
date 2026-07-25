@@ -58,6 +58,10 @@ import {
 import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
 import { ArtifactsRail } from "./DirectorArtifactsRail";
+import {
+  useDirectorWorkstreamSwitchTransition,
+  WorkstreamSwitchTransition,
+} from "./director-workstream-switch-transition";
 
 interface DirectorCommandCenterShellProps {
   connectedRuntimeId: string | null;
@@ -176,6 +180,7 @@ export function DirectorCommandCenterShell({
     [director.snapshot],
   );
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
+  const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
     setCanvas(host);
   }, []);
@@ -199,6 +204,8 @@ export function DirectorCommandCenterShell({
       data-desktop-platform={platform}
       data-now-rail={railAttributes.now}
       data-testid="director-command-center-shell"
+      data-workstream-switch-direction={switchTransition.direction ?? undefined}
+      data-workstream-switching={switchTransition.active ? "true" : "false"}
     >
       <a className="director-command-center-skip" href="#director-composer-input">
         Skip to composer
@@ -217,6 +224,7 @@ export function DirectorCommandCenterShell({
           onReady={onGraphReady}
           timeSecondsAt={graphClock.secondsAt}
         />
+        <WorkstreamSwitchTransition transition={switchTransition} />
         <NowRail
           history={snapshotView.history}
           loadState={director.loadState}
