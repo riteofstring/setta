@@ -1,8 +1,17 @@
 import type { PresentationIntent, WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import { ArrowLeft, PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from "lucide-react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, ErrorInfo, ReactNode, SetStateAction } from "react";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   compactProjectPaneWidth,
@@ -77,6 +86,10 @@ import {
   useWorkspaceStore,
 } from "./stores/workspace-store";
 
+const PrototypeGalleryPage = lazy(
+  () => import("./features/prototype-gallery/prototype-gallery-page"),
+);
+
 export function App() {
   const setta = readSettaApi();
   if (!setta) {
@@ -97,7 +110,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   useAppearanceSettings();
   const runtime = useRuntimeLifecycle(setta);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
-  const [projectPaneOpen, setProjectPaneOpen] = useState(true);
+  const [projectPaneOpen, setProjectPaneOpen] = useState(false);
   const [workspaceConversationFocusRequest, setWorkspaceConversationFocusRequest] =
     useState<WorkspaceConversationFocusRequest | null>(null);
   const [
@@ -111,24 +124,28 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const conversationPlacementPreflightQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingConversationCreationsRef = useRef(new Set<string>());
   const settingsFocusRestoreRef = useRef<HTMLElement | null>(null);
-  const settingsRouteWasOpenRef = useRef(false);
+  const utilityRouteWasOpenRef = useRef(false);
   const settingsRoute = useSettingsNavigationStore((state) => state.route);
   const openSettings = useSettingsNavigationStore((state) => state.openSettings);
   const openVoiceProviderSelection = useSettingsNavigationStore(
     (state) => state.openVoiceProviderSelection,
   );
   const closeSettings = useSettingsNavigationStore((state) => state.closeSettings);
-  const settingsPageOpen = settingsRoute.page === "settings";
+  const returnToDeveloperSettings = useSettingsNavigationStore(
+    (state) => state.returnToDeveloperSettings,
+  );
+  const utilityPageOpen = settingsRoute.page !== "workspace";
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
   const mobileViewport = isMobileViewportWidth(viewport.width);
   const toggleProjectPane = useCallback(() => {
     setProjectPaneOpen((current) => !current);
   }, []);
-  // The mobile project pane is a full-screen overlay summoned from the bottom
-  // bar, so it starts closed at mobile widths and reopens as the regular side
-  // pane when the viewport widens again.
+  // The project pane is summoned explicitly. Keep it closed on launch and when
+  // entering the mobile layout so the focused chat owns the app surface.
   useEffect(() => {
-    setProjectPaneOpen(!mobileViewport);
+    if (mobileViewport) {
+      setProjectPaneOpen(false);
+    }
   }, [mobileViewport]);
   const captureSettingsFocusOrigin = useCallback(() => {
     settingsFocusRestoreRef.current = activeFocusableElement();
@@ -145,15 +162,15 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     closeSettings();
   }, [closeSettings]);
   useEffect(() => {
-    if (settingsPageOpen && !settingsRouteWasOpenRef.current && !settingsFocusRestoreRef.current) {
+    if (utilityPageOpen && !utilityRouteWasOpenRef.current && !settingsFocusRestoreRef.current) {
       settingsFocusRestoreRef.current = activeFocusableElement();
     }
-    if (!settingsPageOpen && settingsRouteWasOpenRef.current) {
+    if (!utilityPageOpen && utilityRouteWasOpenRef.current) {
       restoreFocus(settingsFocusRestoreRef.current);
       settingsFocusRestoreRef.current = null;
     }
-    settingsRouteWasOpenRef.current = settingsPageOpen;
-  }, [settingsPageOpen]);
+    utilityRouteWasOpenRef.current = utilityPageOpen;
+  }, [utilityPageOpen]);
   const applyConversationPresentationRequest = useCallback(
     async (
       request: ConversationPanePresentationRequest,
@@ -378,7 +395,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     speechCapture?: AppShellSpeechCaptureController;
     speechPresentation?: GlobalSpeechPresentationSource;
   } = {}) => {
-    const workspaceShellHidden = masterOverlayOpen || settingsPageOpen;
+    const workspaceShellHidden = masterOverlayOpen || utilityPageOpen;
     return (
       <>
         <div
@@ -432,6 +449,13 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         </div>
         {settingsRoute.page === "settings" ? (
           <SettingsShellPage onBack={closeSettingsPage} platform={platform} route={settingsRoute} />
+        ) : null}
+        {settingsRoute.page === "prototype-gallery" ? (
+          <PrototypeGalleryErrorBoundary onBack={returnToDeveloperSettings}>
+            <Suspense fallback={<UtilityPageLoading label="Loading visual prototypes" />}>
+              <PrototypeGalleryPage onBack={returnToDeveloperSettings} platform={platform} />
+            </Suspense>
+          </PrototypeGalleryErrorBoundary>
         ) : null}
       </>
     );
@@ -545,6 +569,80 @@ function AppRuntimeContractError() {
 }
 
 type SettingsPageRoute = Extract<SettingsShellRoute, { page: "settings" }>;
+
+interface PrototypeGalleryErrorBoundaryProps {
+  children: ReactNode;
+  onBack: () => void;
+}
+
+interface PrototypeGalleryErrorBoundaryState {
+  failed: boolean;
+}
+
+class PrototypeGalleryErrorBoundary extends Component<
+  PrototypeGalleryErrorBoundaryProps,
+  PrototypeGalleryErrorBoundaryState
+> {
+  override state: PrototypeGalleryErrorBoundaryState = { failed: false };
+
+  static getDerivedStateFromError(): PrototypeGalleryErrorBoundaryState {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.error("Visual prototype gallery failed to load.", error, errorInfo);
+  }
+
+  override render() {
+    if (!this.state.failed) {
+      return this.props.children;
+    }
+
+    return (
+      <section className="fixed inset-0 z-[70] grid place-items-center bg-background px-6 text-foreground">
+        <div aria-hidden="true" className="app-drag absolute inset-x-0 top-0 h-12" />
+        <article
+          className="relative grid max-w-md gap-4 rounded-lg border border-border bg-card p-5 shadow-2xl"
+          role="alert"
+        >
+          <header className="grid gap-1.5">
+            <h1 className="text-sm font-semibold">Visual prototypes could not be opened.</h1>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Return to Developer settings, or reload Setta to try loading the gallery again.
+            </p>
+          </header>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="min-h-10 rounded-sm border border-border px-3 text-xs font-semibold outline-none transition-[scale,background-color] hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
+              onClick={this.props.onBack}
+              type="button"
+            >
+              Back to Developer settings
+            </button>
+            <button
+              className="min-h-10 rounded-sm bg-primary px-3 text-xs font-semibold text-primary-foreground outline-none transition-[scale,opacity] hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]"
+              onClick={() => window.location.reload()}
+              type="button"
+            >
+              Reload Setta
+            </button>
+          </div>
+        </article>
+      </section>
+    );
+  }
+}
+
+function UtilityPageLoading({ label }: { label: string }) {
+  return (
+    <div
+      className="fixed inset-0 z-[70] grid place-items-center bg-background text-xs text-muted-foreground"
+      role="status"
+    >
+      {label}
+    </div>
+  );
+}
 
 function SettingsShellPage({
   onBack,

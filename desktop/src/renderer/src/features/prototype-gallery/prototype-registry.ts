@@ -1,0 +1,160 @@
+import type { PrototypeCategory, PrototypeDefinition } from "./prototype-types";
+
+export const prototypeCategories = [
+  { id: "niri-background", label: "Niri atmospheres" },
+  { id: "agent-form", label: "Agent forms" },
+  { id: "thinking-backdrop", label: "Thinking backdrops" },
+] as const satisfies readonly { id: PrototypeCategory; label: string }[];
+
+export const prototypes = [
+  {
+    accessibilityDescription: "Slow translucent veils drift diagonally behind a quiet niri pane grid.",
+    category: "niri-background",
+    description: "Broad gaseous veils cross on multi-minute compositor cycles.",
+    id: "veil-drift",
+    motionCost: "compositor-only",
+    name: "Veil Drift",
+    renderer: { kind: "css", variant: "veil-drift" },
+    supportsAgentState: false,
+  },
+  {
+    accessibilityDescription: "A dim folded nebula ribbon rotates behind the pane field.",
+    category: "niri-background",
+    description: "A masked conic ribbon folds through a low-chroma nebula.",
+    id: "nebula-fold",
+    motionCost: "compositor-only",
+    name: "Nebula Fold",
+    renderer: { kind: "css", variant: "nebula-fold" },
+    supportsAgentState: false,
+  },
+  {
+    accessibilityDescription: "Two sparse fields of dust move at subtly different depths.",
+    category: "niri-background",
+    description: "Particle-like parallax without particles, canvas, or JavaScript.",
+    id: "dust-parallax",
+    motionCost: "compositor-only",
+    name: "Dust Parallax",
+    renderer: { kind: "css", variant: "dust-parallax" },
+    supportsAgentState: false,
+  },
+  {
+    accessibilityDescription: "Long cyan and violet currents drift behind the workspace panes.",
+    category: "niri-background",
+    description: "Elongated aurora sheets counter-drift without animated blur.",
+    id: "aurora-current",
+    motionCost: "compositor-only",
+    name: "Aurora Current",
+    renderer: { kind: "css", variant: "aurora-current" },
+    supportsAgentState: false,
+  },
+  {
+    accessibilityDescription: "A dark spherical intelligence rotates within a luminous orbital cage.",
+    category: "agent-form",
+    description: "A deep-space intelligence mapped as a responsive spherical lattice.",
+    id: "orbital-lattice",
+    motionCost: "bounded-webgl",
+    name: "Orbital Lattice",
+    renderer: { kind: "webgl2", shader: "orbital-lattice" },
+    supportsAgentState: true,
+  },
+  {
+    accessibilityDescription: "A translucent geometric bloom folds open and inward.",
+    category: "agent-form",
+    description: "Conversation represented as a breathing, folding field of petals.",
+    id: "folding-bloom",
+    motionCost: "bounded-webgl",
+    name: "Folding Bloom",
+    renderer: { kind: "webgl2", shader: "folding-bloom" },
+    supportsAgentState: true,
+  },
+  {
+    accessibilityDescription: "Braided luminous loops twist into an abstract thought knot.",
+    category: "agent-form",
+    description: "Interdependent reasoning paths converge into a shifting knot.",
+    id: "thought-knot",
+    motionCost: "bounded-webgl",
+    name: "Thought Knot",
+    renderer: { kind: "webgl2", shader: "thought-knot" },
+    supportsAgentState: true,
+  },
+  {
+    accessibilityDescription: "A segmented monolith and small shards hover in a starless threshold.",
+    category: "agent-form",
+    description: "Brutalist slabs dislocate under thought inside a restrained astral void.",
+    id: "signal-polyhedron",
+    motionCost: "bounded-webgl",
+    name: "Astral Monolith",
+    renderer: { kind: "webgl2", shader: "signal-polyhedron" },
+    supportsAgentState: true,
+  },
+  {
+    accessibilityDescription: "A dark event horizon bends a distant star field around a signal ring.",
+    category: "agent-form",
+    description: "A gravitational lens corrals distant signals into a controlled horizon.",
+    id: "quantum-lens",
+    motionCost: "bounded-webgl",
+    name: "Event Horizon",
+    renderer: { kind: "webgl2", shader: "quantum-lens" },
+    supportsAgentState: true,
+  },
+  {
+    accessibilityDescription: "Small luminous nodes exchange signals along faint filaments.",
+    category: "agent-form",
+    description: "A conversation visualized as an active constellation of agents.",
+    id: "conversation-constellation",
+    motionCost: "bounded-webgl",
+    name: "Conversation Constellation",
+    renderer: { kind: "webgl2", shader: "conversation-constellation" },
+    supportsAgentState: true,
+  },
+  {
+    accessibilityDescription: "Large low-resolution text shapes form an unreadable background echo.",
+    category: "thinking-backdrop",
+    description: "Reasoning-shaped typography rasterized beyond practical readability.",
+    id: "raster-echo",
+    motionCost: "redraw-on-change",
+    name: "Raster Echo",
+    renderer: { kind: "canvas2d", variant: "raster-echo" },
+    supportsAgentState: false,
+  },
+  {
+    accessibilityDescription: "Faint horizontal text bands are repeatedly interrupted by redactions.",
+    category: "thinking-backdrop",
+    description: "A slow status stream concealed by shifting blocks and masks.",
+    id: "redacted-stream",
+    motionCost: "redraw-on-change",
+    name: "Redacted Stream",
+    renderer: { kind: "canvas2d", variant: "redacted-stream" },
+    supportsAgentState: false,
+  },
+  {
+    accessibilityDescription: "Blurred text fragments gather around the pane edges only.",
+    category: "thinking-backdrop",
+    description: "A peripheral chorus that keeps the conversation center pristine.",
+    id: "peripheral-chorus",
+    motionCost: "redraw-on-change",
+    name: "Peripheral Chorus",
+    renderer: { kind: "canvas2d", variant: "peripheral-chorus" },
+    supportsAgentState: false,
+  },
+  {
+    accessibilityDescription: "Overlapping low-resolution text is obscured by scanlines and dither.",
+    category: "thinking-backdrop",
+    description: "A layered memory surface that implies thought without exposing it.",
+    id: "scanline-palimpsest",
+    motionCost: "redraw-on-change",
+    name: "Scanline Palimpsest",
+    renderer: { kind: "canvas2d", variant: "scanline-palimpsest" },
+    supportsAgentState: false,
+  },
+] as const satisfies readonly PrototypeDefinition[];
+
+export type PrototypeID = (typeof prototypes)[number]["id"];
+
+export function findPrototype(id: string): (typeof prototypes)[number] | null {
+  return prototypes.find((prototype) => prototype.id === id) ?? null;
+}
+
+export function prototypesForCategory(category: PrototypeCategory) {
+  return prototypes.filter((prototype) => prototype.category === category);
+}

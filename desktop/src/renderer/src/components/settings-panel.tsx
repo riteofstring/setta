@@ -50,6 +50,7 @@ import {
 import { settingsSubtabs, type SettingsSubtab } from "./settings-subtabs";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { PrototypeGalleryLauncher } from "../features/prototype-gallery/prototype-gallery-launcher";
 import { cn } from "../lib/utils";
 import {
   appearanceSettingsEqual,
@@ -125,6 +126,7 @@ function SettingsSubtabContent({
     (state) => state.setClampResizedPanesToViewport,
   );
   const setMode = useAppearanceStore((state) => state.setMode);
+  const setEnableWorkspaceRows = useAppearanceStore((state) => state.setEnableWorkspaceRows);
   const setMasterVoiceShortcut = useAppearanceStore((state) => state.setMasterVoiceShortcut);
   const setOverviewCardWidthBounds = useAppearanceStore(
     (state) => state.setOverviewCardWidthBounds,
@@ -138,17 +140,25 @@ function SettingsSubtabContent({
   const contentBySubtab = {
     "codex-account": <CodexAccountSettings />,
     developer: (
-      <DeveloperSettingsEditor
-        developer={draft?.developer ?? null}
-        dirty={dirty}
-        error={error}
-        onClampResizedPanesToViewportChange={setClampResizedPanesToViewport}
-        onOverviewCardWidthBoundsChange={setOverviewCardWidthBounds}
-        onRevert={revertDraft}
-        onSave={saveDraft}
-        onShowPerformanceStatsChange={setShowPerformanceStats}
-        status={status}
-      />
+      <div className="grid gap-3">
+        <DeveloperSettingsEditor
+          developer={draft?.developer ?? null}
+          dirty={dirty}
+          error={error}
+          onClampResizedPanesToViewportChange={setClampResizedPanesToViewport}
+          onEnableWorkspaceRowsChange={setEnableWorkspaceRows}
+          onOverviewCardWidthBoundsChange={setOverviewCardWidthBounds}
+          onRevert={revertDraft}
+          onSave={saveDraft}
+          onShowPerformanceStatsChange={setShowPerformanceStats}
+          status={status}
+        />
+        <PrototypeGalleryLauncher
+          focusRequest={
+            focusRequest?.target === "prototype_gallery_launcher" ? focusRequest : null
+          }
+        />
+      </div>
     ),
     roles: <RoleConfigurationSettings />,
     speech: <PresentationConfigurationSettings focusRequest={focusRequest} />,

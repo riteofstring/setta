@@ -2,7 +2,10 @@ import { create } from "zustand";
 
 import type { SettingsSubtab } from "../components/settings-subtabs";
 
-type SettingsFocusTarget = "openai_voice_connection" | "voice_provider_selection";
+type SettingsFocusTarget =
+  | "openai_voice_connection"
+  | "prototype_gallery_launcher"
+  | "voice_provider_selection";
 
 export type SettingsShellRoute =
   | {
@@ -13,6 +16,9 @@ export type SettingsShellRoute =
       page: "settings";
       requestId: number;
       subtab: SettingsSubtab;
+    }
+  | {
+      page: "prototype-gallery";
     };
 
 interface OpenSettingsRequest {
@@ -36,8 +42,10 @@ interface SettingsNavigationStore {
   completeRequest: (requestId: number) => void;
   lastSubtab: SettingsSubtab;
   nextRequestId: number;
+  openPrototypeGallery: () => void;
   openSettings: (request?: OpenSettingsRequest) => void;
   request: SettingsNavigationRequest | null;
+  returnToDeveloperSettings: () => void;
   route: SettingsShellRoute;
   setActiveSubtab: (subtab: SettingsSubtab) => void;
   openOpenAIVoiceConnection: () => void;
@@ -61,6 +69,12 @@ export const useSettingsNavigationStore = create<SettingsNavigationStore>((set) 
         : state,
     ),
   lastSubtab: initialSettingsSubtab,
+  openPrototypeGallery: () =>
+    set({
+      lastSubtab: "developer",
+      request: null,
+      route: { page: "prototype-gallery" },
+    }),
   openOpenAIVoiceConnection: () =>
     set((state) => ({
       lastSubtab: "speech",
@@ -113,6 +127,25 @@ export const useSettingsNavigationStore = create<SettingsNavigationStore>((set) 
     }),
   nextRequestId: 1,
   request: null,
+  returnToDeveloperSettings: () =>
+    set((state) => {
+      const requestId = state.nextRequestId;
+      return {
+        lastSubtab: "developer",
+        nextRequestId: requestId + 1,
+        request: {
+          focusTarget: "prototype_gallery_launcher",
+          requestId,
+          subtab: "developer",
+        },
+        route: {
+          focusTarget: "prototype_gallery_launcher",
+          page: "settings",
+          requestId,
+          subtab: "developer",
+        },
+      };
+    }),
   route: { page: "workspace" },
   setActiveSubtab: (subtab) =>
     set((state) => ({

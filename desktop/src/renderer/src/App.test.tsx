@@ -48,8 +48,8 @@ describe("workspace renderer states", () => {
     expect(html).toContain("setta-shell-top-bar-logo");
     expect(html).not.toContain('data-testid="shell-icon-rail"');
     expect(html).not.toContain('data-testid="shell-chrome-plate"');
-    expect(html).toContain('aria-label="Hide project sidebar"');
-    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('aria-label="Show project sidebar"');
+    expect(html).toContain('aria-pressed="false"');
     expect(html).toContain('data-testid="project-sidebar-toggle"');
     expect(html).toContain('data-testid="shell-settings-button"');
     expect(html).toContain('data-testid="workspace-layout-area"');
@@ -86,7 +86,7 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain('data-testid="shell-icon-rail"');
     expect(html).not.toContain('data-testid="shell-chrome-plate"');
     expect(html).toContain('data-desktop-platform="win32"');
-    expect(html).toContain('aria-label="Hide project sidebar"');
+    expect(html).toContain('aria-label="Show project sidebar"');
   });
 
   test("caps project pane widths at compact viewport sizes without growing stored widths", () => {
