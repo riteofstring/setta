@@ -1,7 +1,10 @@
 # Setta 4 Director Command Center — Plan of Record
 
 **Date:** 2026-07-24
-**Status:** Approved direction; implementation has not started.
+**Status:** Approved direction; Phase 0 in progress. The ownership, surviving-path,
+and reusable-foundation inventories are committed in
+[`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md).
+No source cutover work has started.
 
 ## Product Decision
 
@@ -733,26 +736,33 @@ deleting Niri; replace its product responsibilities first.
 ### Phase 0 — Establish the implementation baseline
 
 1. Confirm the current app can produce a reproducible desktop development build.
-2. Inventory Niri/pane responsibilities and assign each one to retain, replace, or delete.
+2. Inventory Niri/pane responsibilities and assign each one to retain, replace, or delete. **Done —
+   inventory section 1.**
 3. Identify the conversation, approval, resource, speech, credential, and Electron production paths
-   that must survive the cutover.
+   that must survive the cutover. **Done — inventory section 2.**
 4. Inventory existing Master, conversation, renderer projection, speech, and performance foundations
-   that should be reused, rehomed, reshaped, or deleted.
+   that should be reused, rehomed, reshaped, or deleted. **Done — inventory section 3.**
 5. Keep the approved fullscreen concept artifact present under `docs/mockups/`, or expand this plan
-   into a self-contained visual specification if that artifact is superseded.
+   into a self-contained visual specification if that artifact is superseded. **Done —
+   `docs/mockups/fullscreen_conversation_concept.html`.**
 6. Convert the approved mockup into a fidelity checklist that separates required production UX from
    prototype-only fake data, dev controls, and demo scripts.
 7. Capture the current interaction and rendering performance baseline before changing renderer
    assumptions.
 8. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix.
 
+The committed inventory is
+[`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md).
+Its section 4 lists the contract gaps Phase 1 must close, and its section 5 records the verification
+that needs an interactive desktop session.
+
 Exit gate:
 
 - reproducible desktop development build
-- Niri ownership inventory committed
-- retained/replaced/deleted production responsibilities documented
-- reusable foundation inventory committed
-- fullscreen design direction is present in the branch
+- Niri ownership inventory committed — met
+- retained/replaced/deleted production responsibilities documented — met
+- reusable foundation inventory committed — met
+- fullscreen design direction is present in the branch — met
 - mockup fidelity checklist is committed
 - baseline performance report committed
 - target performance matrix committed
@@ -947,14 +957,13 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Complete the Niri ownership inventory.
-2. Complete the reusable foundation inventory.
-3. Convert the fullscreen mockup into a committed fidelity checklist: required production UX,
+1. Convert the fullscreen mockup into a committed fidelity checklist: required production UX,
    prototype-only demo behavior, typed-state requirements for every visual mode, and any known
    implementation risks to matching the mockup.
-4. Capture the current interaction and rendering performance baseline.
-5. Refresh the Codex app-server protocol snapshot and define the Codex-to-Setta provider notification
+2. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix.
+3. Capture the current interaction and rendering performance baseline.
+4. Refresh the Codex app-server protocol snapshot and define the Codex-to-Setta provider notification
    adapter matrix.
-6. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
+5. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
    artifact, speech, realtime, lifecycle, and telemetry contracts into the Setta 4 workstream and
    semantic graph contracts.
