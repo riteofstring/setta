@@ -51,7 +51,7 @@ describe("workspace browser-pane layout engine", () => {
     expect(scene.columns).toHaveLength(100);
     expect(scene.paneById.get("workspace_pane_0")?.surfaceKind).toBe("fake-dom");
     expect(scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("fake-heavy-dom");
-    expect(scene.paneById.get("workspace_pane_2")?.surfaceKind).toBe("fake-dom");
+    expect(scene.paneById.get("workspace_pane_2")?.surfaceKind).toBe("settings-dom");
     expect(scene.paneById.get("workspace_pane_3")?.surfaceKind).toBe("fake-dom");
     expect(scene.paneById.get("workspace_pane_4")?.surfaceKind).toBe("fake-heavy-dom");
     expect(scene.paneById.get("workspace_pane_5")?.surfaceKind).toBe("fake-heavy-dom");
@@ -392,12 +392,12 @@ describe("real workspace layout column sizing", () => {
     const engine = createRealEngine();
     const before = engine.toScene();
     const invalidRequest = {
-      surfaceKind: "conversation",
+      surfaceKind: "easy-button",
       title: "Missing binding",
     } as unknown as OpenPaneRequest;
 
     expect(() => engine.openPaneNearPane("workspace_pane_0", "right", invalidRequest)).toThrow(
-      "conversation panes require a conversationConfig conversation binding",
+      "easy-button panes require an easyButtonConfig conversation binding",
     );
     expect(engine.toScene().columns).toEqual(before.columns);
     expect(engine.toScene().panes).toEqual(before.panes);
@@ -959,9 +959,9 @@ describe("real workspace layout column sizing", () => {
     });
     const engine = new WorkspaceLikeLayoutEngine(scene);
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
-    store.focusPaneBySurfaceKind("browser");
+    store.focusPaneBySurfaceKind("settings-dom");
     const firstLowerPaneId = store.splitFocusedPaneToPlane("down");
-    store.focusPaneBySurfaceKind("conversation");
+    store.focusPaneBySurfaceKind("easy-button");
 
     const focusedPaneIdBeforeSplit = store.focusedPaneId();
     const secondLowerPaneId = store.splitFocusedPaneToPlane("down");
@@ -1025,7 +1025,7 @@ describe("real workspace layout column sizing", () => {
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
     store.splitFocusedPaneToPlane("down");
 
-    store.focusPaneBySurfaceKind("browser");
+    store.focusPaneBySurfaceKind("settings-dom");
     const focusedPaneBeforeMove = store.focusedPaneId();
     store.moveFocus("right", { ...viewport, width: 1200 });
 
@@ -1213,7 +1213,7 @@ describe("real workspace layout column sizing", () => {
     const engine = new WorkspaceLikeLayoutEngine(scene);
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
 
-    store.focusPaneBySurfaceKind("browser");
+    store.focusPaneBySurfaceKind("settings-dom");
     store.ensureFocusedPaneVisible({ ...viewport, width: 1200 });
     store.snapScrollToTarget();
     store.ensureFocusedPaneVisible({ ...viewport, width: 900 });
@@ -1392,8 +1392,8 @@ function createSparseGeneratedPaneScene(): WorkspaceScene {
       sequence: 8,
       subtitle: "Old",
       surfaceId: "workspace_surface_8",
-      surfaceKind: "browser",
-      title: "Browser",
+      surfaceKind: "settings-dom",
+      title: "Settings",
       tone: "cyan",
       weight: 1,
     },

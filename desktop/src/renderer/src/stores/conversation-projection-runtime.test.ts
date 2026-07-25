@@ -78,43 +78,6 @@ describe("conversation projection runtime", () => {
     expect(useConversationStore.getState().conversations.size).toBe(0);
   });
 
-  test("stops retained streams when the runtime generation resets", async () => {
-    const release = vi.fn().mockResolvedValue(undefined);
-    const subscribe = vi.fn().mockResolvedValue(undefined);
-    installConversationAPI(
-      vi.fn().mockResolvedValue(conversationSnapshot(0)),
-      {},
-      {
-        release,
-        subscribe,
-      },
-    );
-    const releaseProjection = retainConversationProjection(workspaceId, conversationId);
-    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledOnce());
-
-    resetConversationProjectionRuntime();
-    expect(release).toHaveBeenCalledTimes(1);
-    expect(release).toHaveBeenCalledWith({
-      conversationId,
-      keepAlive: false,
-      workspaceId,
-    });
-
-    const releaseProjectionAfterReset = retainConversationProjection(workspaceId, conversationId);
-    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledTimes(2));
-    releaseProjection();
-    expect(release).toHaveBeenCalledTimes(1);
-
-    releaseProjectionAfterReset();
-
-    expect(release).toHaveBeenCalledTimes(2);
-    expect(release).toHaveBeenLastCalledWith({
-      conversationId,
-      keepAlive: false,
-      workspaceId,
-    });
-  });
-
   test("applies at most one bounded event batch per animation frame", () => {
     useConversationStore
       .getState()
@@ -185,94 +148,32 @@ describe("conversation projection runtime", () => {
     });
   });
 
-  test("retains a queued terminal release that observed live work before flush", async () => {
-    const scheduler = manualFrameScheduler();
-    const release = vi.fn().mockResolvedValue(undefined);
-    const subscribe = vi.fn().mockResolvedValue(undefined);
-    installConversationAPI(
-      vi.fn().mockResolvedValue(terminalConversationSnapshot()),
-      scheduler.windowOverrides,
-      { release, subscribe },
-    );
-    const releaseProjection = retainConversationProjection(workspaceId, conversationId);
-    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledOnce());
-    const working = conversationUpdatedEvent(2);
-    if (working.payload.type !== "conversation.updated") {
-      throw new Error("working fixture must update a conversation");
-    }
-    working.payload.conversation.status = "working";
-    const terminal = conversationUpdatedEvent(3);
-    if (terminal.payload.type !== "conversation.updated") {
-      throw new Error("terminal fixture must update a conversation");
-    }
-    terminal.payload.conversation.status = "idle";
-
-    enqueueConversationProjectionEvent(working);
-    enqueueConversationProjectionEvent(terminal);
-    releaseProjection();
-
-    expect(projectionSnapshot()?.conversation.status).toBe("idle");
-    expect(release).toHaveBeenCalledWith({
-      conversationId,
-      keepAlive: true,
-      workspaceId,
-    });
-  });
-
-  test("retains speech streams only while released conversations still have active work", () => {
+  test("retains terminal speech streams only while final narration can still arrive", () => {
     const working = conversationSnapshot(1);
     working.conversation.status = "working";
     expect(conversationProjectionNeedsKeepAlive(working)).toBe(true);
 
-    const waiting = conversationSnapshot(1);
-    waiting.conversation.status = "waiting_for_approval";
-    expect(conversationProjectionNeedsKeepAlive(waiting)).toBe(true);
-
     const terminal = terminalConversationSnapshot();
+    expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(true);
+
+    terminal.narration.events.push({
+      conversationId,
+      id: "narration_final",
+      kind: "final_summary",
+      turnId: "turn_terminal",
+    } as ConversationSnapshot["narration"]["events"][number]);
     expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
 
-    terminal.conversation.status = "failed";
+    terminal.narration.events = [];
+    terminal.narratorState.status = "degraded";
+    terminal.narratorState.degradation = {
+      retryable: false,
+    } as NonNullable<ConversationSnapshot["narratorState"]["degradation"]>;
     expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
 
-    working.presentationProfile.narratorSpeechEnabled = false;
-    expect(conversationProjectionNeedsKeepAlive(working)).toBe(false);
-
+    terminal.narratorState.degradation = null;
     terminal.presentationProfile.narratorSpeechEnabled = false;
     expect(conversationProjectionNeedsKeepAlive(terminal)).toBe(false);
-  });
-
-  test("retains a live terminal stream until final narration arrives", () => {
-    const terminal = terminalConversationSnapshot();
-    expect(conversationProjectionNeedsKeepAlive(terminal, true)).toBe(true);
-    expect(conversationProjectionNeedsKeepAlive(terminal, false)).toBe(false);
-
-    terminal.narration.events.push({
-      conversationId,
-      id: "final_summary_terminal",
-      kind: "final_summary",
-      trigger: "turn_terminal",
-      turnId: "turn_terminal",
-    } as ConversationSnapshot["narration"]["events"][number]);
-
-    expect(conversationProjectionNeedsKeepAlive(terminal, true)).toBe(false);
-  });
-
-  test("does not retain a live terminal stream for an older missing summary", () => {
-    const terminal = terminalConversationSnapshot();
-    terminal.turns.turns.unshift({
-      conversationId,
-      id: "turn_older_missing_summary",
-      status: "completed",
-    } as ConversationSnapshot["turns"]["turns"][number]);
-    terminal.narration.events.push({
-      conversationId,
-      id: "final_summary_terminal",
-      kind: "final_summary",
-      trigger: "turn_terminal",
-      turnId: "turn_terminal",
-    } as ConversationSnapshot["narration"]["events"][number]);
-
-    expect(conversationProjectionNeedsKeepAlive(terminal, true)).toBe(false);
   });
 });
 

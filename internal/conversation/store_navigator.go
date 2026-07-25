@@ -238,11 +238,10 @@ func scanNavigatorItems(rows *sql.Rows, dbPath string) ([]NavigatorItem, error) 
 	items := make([]NavigatorItem, 0)
 	for rows.Next() {
 		var row navigatorRow
-		var workspaceID sql.NullString
 		var archivedAt sql.NullString
 		if err := rows.Scan(
 			&row.conversation.ID,
-			&workspaceID,
+			&row.conversation.WorkspaceID,
 			&row.conversation.Title,
 			&row.conversation.TopicDescriptor,
 			&row.conversation.Status,
@@ -272,7 +271,6 @@ func scanNavigatorItems(rows *sql.Rows, dbPath string) ([]NavigatorItem, error) 
 		); err != nil {
 			return nil, err
 		}
-		row.conversation.WorkspaceID = optionalScannedString(workspaceID)
 		row.conversation.ArchivedAt = optionalScannedString(archivedAt)
 		item, err := navigatorItemFromRow(row)
 		if err != nil {
@@ -303,8 +301,8 @@ func navigatorItemFromRow(row navigatorRow) (NavigatorItem, error) {
 		PresentationProfile: profile,
 		Branch:              branch,
 	}
-	if row.conversation.WorkspaceID == nil {
-		return NavigatorItem{}, errors.New("conversation navigator row has no workspace resource")
+	if err := item.Validate(row.conversation.WorkspaceID); err != nil {
+		return NavigatorItem{}, err
 	}
 	return item, nil
 }

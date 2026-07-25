@@ -182,7 +182,6 @@ func validateLayout(layout WorkspaceUILayout, path string) error {
 func validatePanes(panes []WorkspaceUIPane, path string) (map[string]WorkspaceUIPane, error) {
 	panesByID := map[string]WorkspaceUIPane{}
 	surfaceIDs := map[string]bool{}
-	conversationPaneIDs := map[string]string{}
 	for index, pane := range panes {
 		if err := validatePane(pane, index, path); err != nil {
 			return nil, err
@@ -194,19 +193,6 @@ func validatePanes(panes []WorkspaceUIPane, path string) (map[string]WorkspaceUI
 			return nil, corruptStateErrorf(path, "duplicate surfaceId %s", pane.SurfaceID)
 		}
 		surfaceIDs[pane.SurfaceID] = true
-		if pane.SurfaceKind == SurfaceKindConversation {
-			conversationID := pane.ConversationConfig.ConversationID
-			if existingPaneID, ok := conversationPaneIDs[conversationID]; ok {
-				return nil, corruptStateErrorf(
-					path,
-					"conversation %s is bound to multiple conversation panes: %s and %s",
-					conversationID,
-					existingPaneID,
-					pane.PaneID,
-				)
-			}
-			conversationPaneIDs[conversationID] = pane.PaneID
-		}
 		panesByID[pane.PaneID] = pane
 	}
 	return panesByID, nil
@@ -219,7 +205,7 @@ func validatePane(pane WorkspaceUIPane, index int, path string) error {
 	if err := validatePaneValues(pane, index, path); err != nil {
 		return err
 	}
-	return validatePaneConversationConfig(pane, index, path)
+	return validatePaneEasyButtonConfig(pane, index, path)
 }
 
 func validatePaneRequiredFields(pane WorkspaceUIPane, index int, path string) error {
@@ -257,22 +243,22 @@ func validatePaneValues(pane WorkspaceUIPane, index int, path string) error {
 	return nil
 }
 
-func validatePaneConversationConfig(pane WorkspaceUIPane, index int, path string) error {
-	config := pane.ConversationConfig
-	if pane.SurfaceKind == SurfaceKindConversation && config == nil {
-		return corruptStateErrorf(path, "panes[%d].conversationConfig is required for conversation panes", index)
+func validatePaneEasyButtonConfig(pane WorkspaceUIPane, index int, path string) error {
+	config := pane.EasyButtonConfig
+	if pane.SurfaceKind == SurfaceKindEasyButton && config == nil {
+		return corruptStateErrorf(path, "panes[%d].easyButtonConfig is required for easy-button panes", index)
 	}
-	if pane.SurfaceKind != SurfaceKindConversation && config != nil {
-		return corruptStateErrorf(path, "panes[%d].conversationConfig is only valid for conversation panes", index)
+	if pane.SurfaceKind != SurfaceKindEasyButton && config != nil {
+		return corruptStateErrorf(path, "panes[%d].easyButtonConfig is only valid for easy-button panes", index)
 	}
 	if config == nil {
 		return nil
 	}
 	if config.ConversationID == "" {
-		return corruptStateErrorf(path, "panes[%d].conversationConfig.conversationId is required", index)
+		return corruptStateErrorf(path, "panes[%d].easyButtonConfig.conversationId is required", index)
 	}
 	if strings.TrimSpace(config.ConversationID) != config.ConversationID {
-		return corruptStateErrorf(path, "panes[%d].conversationConfig.conversationId must not have surrounding whitespace", index)
+		return corruptStateErrorf(path, "panes[%d].easyButtonConfig.conversationId must not have surrounding whitespace", index)
 	}
 	return nil
 }
@@ -429,7 +415,7 @@ func validColumnWidthUnit(unit ColumnWidthUnit) bool {
 
 func validSurfaceKind(kind SurfaceKind) bool {
 	switch kind {
-	case SurfaceKindBrowser, SurfaceKindConversation, SurfaceKindEmptyFrame:
+	case SurfaceKindBrowser, SurfaceKindEasyButton, SurfaceKindEmptyFrame, SurfaceKindSettingsDOM:
 		return true
 	default:
 		return false
