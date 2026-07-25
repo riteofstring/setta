@@ -9,6 +9,7 @@ import (
 	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
+	"setta/internal/director"
 	"setta/internal/master"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
@@ -117,6 +118,16 @@ type RoleConfigurationService interface {
 	) (conversation.RoleConfiguration, error)
 }
 
+// DirectorService is the Director command center boundary. It is deliberately
+// the whole app-scoped surface: dispatch one intent, read one bounded snapshot,
+// and subscribe from that snapshot's cursor. Nothing here names a pane, a
+// conversation, a provider, or an execution target.
+type DirectorService interface {
+	Dispatch(context.Context, director.DirectorIntent) (director.DirectorReceipt, error)
+	Snapshot() (director.DirectorSnapshot, error)
+	Subscribe(director.DirectorEventCursor) (director.DirectorEventSubscription, error)
+}
+
 type MasterInputService interface {
 	CancelInput(context.Context, string) (master.ShellInteractionState, error)
 	ReadActiveShellInteraction(context.Context) (master.ActiveShellInteraction, error)
@@ -192,6 +203,7 @@ type HandlerConfig struct {
 	ConversationInputService     ConversationInputService
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
+	DirectorService              DirectorService
 	RoleConfigurationService     RoleConfigurationService
 	MasterInputService           MasterInputService
 	CodexAccountService          CodexAccountService
@@ -212,6 +224,7 @@ type handler struct {
 	conversationInputService     ConversationInputService
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
+	directorService              DirectorService
 	roleConfigurationService     RoleConfigurationService
 	masterInputService           MasterInputService
 	codexAccountService          CodexAccountService
@@ -241,6 +254,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		conversationInputService:     config.ConversationInputService,
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
+		directorService:              config.DirectorService,
 		roleConfigurationService:     config.RoleConfigurationService,
 		masterInputService:           config.MasterInputService,
 		codexAccountService:          config.CodexAccountService,

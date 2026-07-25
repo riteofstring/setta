@@ -64,6 +64,7 @@ type ReadyEvent struct {
 
 type Server struct {
 	closeConversationStore func() error
+	closeDirectorRegistry  func()
 	closeRuntimeAuth       func() error
 	drainConversationTurns func(context.Context) error
 	drainMasterRouting     func(context.Context) error
@@ -86,6 +87,7 @@ type runtimeServices struct {
 	conversationInputService *conversation.InputService
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
+	directorServices         directorServices
 	masterInputService       *master.Service
 	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
@@ -203,6 +205,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 
 	server := &Server{
 		closeConversationStore: services.conversationStore.Close,
+		closeDirectorRegistry:  func() { closeDirectorServices(services.directorServices) },
 		closeRuntimeAuth:       services.authStore.Close,
 		drainConversationTurns: services.conversationService.Shutdown,
 		drainMasterRouting:     services.masterRouteService.Shutdown,
@@ -268,6 +271,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		conversationInputService: baseServices.conversationInputService,
 		conversationIndexService: baseServices.conversationIndexService,
 		conversationStore:        baseServices.conversationStore,
+		directorServices:         baseServices.directorServices,
 		masterInputService:       baseServices.masterInputService,
 		masterRouteService:       baseServices.masterRouteService,
 		masterSessionService:     baseServices.masterSessionService,
@@ -322,6 +326,7 @@ func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	_ = server.shutdownNarration(shutdownCtx)
 	_ = server.shutdownMasterRouting(shutdownCtx)
 	_ = server.shutdownSpeech(shutdownCtx)
+	server.shutdownDirectorRegistry()
 	_ = server.shutdownConversationStore()
 	_ = server.shutdownRuntimeAuth()
 	_ = server.shutdownCodex(shutdownCtx)
@@ -405,6 +410,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownMasterRouting(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSpeech(ctx))
+	server.shutdownDirectorRegistry()
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationStore())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownRuntimeAuth())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
@@ -433,6 +439,14 @@ func (server *Server) shutdownCodex(ctx context.Context) error {
 		return nil
 	}
 	return server.codexManager.Shutdown(ctx)
+}
+
+// shutdownDirectorRegistry stops the app-scoped follower before the durable log
+// it is blocked on closes.
+func (server *Server) shutdownDirectorRegistry() {
+	if server.closeDirectorRegistry != nil {
+		server.closeDirectorRegistry()
+	}
 }
 
 func (server *Server) shutdownRuntimeAuth() error {

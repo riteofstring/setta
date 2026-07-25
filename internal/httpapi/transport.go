@@ -10,6 +10,7 @@ import (
 	"setta/internal/applayout"
 	"setta/internal/appstate"
 	"setta/internal/conversation"
+	"setta/internal/director"
 	"setta/internal/jsonio"
 	"setta/internal/master"
 	"setta/internal/speech"
@@ -55,6 +56,29 @@ func requireConversationService(response http.ResponseWriter, service Conversati
 		return nil
 	}
 	return service
+}
+
+func requireDirectorService(response http.ResponseWriter, service DirectorService) DirectorService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "director_service_unavailable", "director command center is not available")
+		return nil
+	}
+	return service
+}
+
+// writeDirectorError separates the two failures the command center can have.
+// A rejected intent named something trusted state does not hold, which is the
+// caller's request to fix; an unavailable command center is a runtime condition
+// the shell retries rather than something the user did.
+func writeDirectorError(response http.ResponseWriter, code string, err error) {
+	switch {
+	case errors.Is(err, director.ErrDirectorIntentRejected):
+		writeError(response, http.StatusBadRequest, code, err.Error())
+	case errors.Is(err, director.ErrDirectorUnavailable):
+		writeError(response, http.StatusServiceUnavailable, "director_service_unavailable", err.Error())
+	default:
+		writeError(response, http.StatusInternalServerError, code, err.Error())
+	}
 }
 
 func requireConversationInputService(

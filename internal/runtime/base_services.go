@@ -30,6 +30,7 @@ type runtimeBaseServices struct {
 	conversationInputService *conversation.InputService
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
+	directorServices         directorServices
 	masterInputService       *master.Service
 	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
@@ -68,6 +69,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		conversationInputService: foundation.conversationInputService,
 		conversationIndexService: foundation.conversationIndexService,
 		conversationStore:        foundation.conversationStore,
+		directorServices:         foundation.directorServices,
 		masterInputService:       foundation.masterInputService,
 		masterRouteService:       foundation.masterRouteService,
 		masterSessionService:     foundation.masterSessionService,
@@ -90,6 +92,7 @@ func shutdownRuntimeFoundation(foundation runtimeFoundation, timeout time.Durati
 	managerCtx, cancelManager := context.WithTimeout(context.Background(), timeout)
 	_ = foundation.codexManager.Shutdown(managerCtx)
 	cancelManager()
+	closeDirectorServices(foundation.directorServices)
 	_ = foundation.conversationStore.Close()
 }
 
@@ -101,6 +104,7 @@ type runtimeFoundation struct {
 	conversationInputService *conversation.InputService
 	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
+	directorServices         directorServices
 	masterInputService       *master.Service
 	masterRouteService       *master.RouteService
 	masterSessionService     *master.SessionService
@@ -182,6 +186,11 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	}
 	conversationService := conversationServices.conversationService
 	conversationInputService := conversationServices.conversationInputService
+	directorRuntime, err := newDirectorServices(conversationStore, workspaceService)
+	if err != nil {
+		shutdownRuntimeConversationServices(config, conversationStore, conversationService, narratorService)
+		return runtimeFoundation{}, err
+	}
 	foundation := runtimeFoundation{
 		appearanceService:        appearanceService,
 		appPaneLayoutService:     appPaneLayoutService,
@@ -190,6 +199,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		conversationInputService: conversationInputService,
 		conversationIndexService: conversationIndexService,
 		conversationStore:        conversationStore,
+		directorServices:         directorRuntime,
 		masterSessionService:     masterSessionService,
 		narratorService:          narratorService,
 		roleConfigurationService: roleConfigurationService,

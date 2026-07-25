@@ -184,7 +184,7 @@ func folderlessScope() WorkstreamResourceScope {
 func folderScope(workspaceID string, rootPath string) WorkstreamResourceScope {
 	return WorkstreamResourceScope{
 		Kind:   WorkstreamResourceScopeFolder,
-		Folder: &FolderResourceBinding{WorkspaceID: workspaceID, RootPath: rootPath},
+		Folder: &WorkstreamFolderResource{WorkspaceID: workspaceID, RootPath: rootPath},
 	}
 }
 
@@ -576,7 +576,7 @@ func resourceRequestFixture() ProjectionFixture {
 	})
 	binding := WorkstreamResourceBinding{
 		Kind:   WorkstreamResourceKindFolder,
-		Folder: &FolderResourceBinding{WorkspaceID: "workspace-zeta", RootPath: "/repo/zeta"},
+		Folder: &WorkstreamFolderResource{WorkspaceID: "workspace-zeta", RootPath: "/repo/zeta"},
 	}
 	builder.director(workstreamID, DirectorFactResourceRequestResolved, SemanticActorUser, func(fact *DirectorFactEvent) {
 		fact.ResourceRequestResolved = &DirectorResourceRequestResolved{

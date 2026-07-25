@@ -132,7 +132,7 @@ func (registry *Registry) DecisionContext(intent SubmittedIntent) (DirectorDecis
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	if !registry.started {
-		return DirectorDecisionContext{}, fmt.Errorf("director registry is not started")
+		return DirectorDecisionContext{}, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
 	}
 	return registry.state.decisionContext(intent, workspaces)
 }

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 83;
-export const backendContractSchemaHash = "sha256:a52f57f01f4e65c693f031910af4cc3f222b6a99098f2eac68c914cd125caa16";
+export const backendProtocolVersion = 84;
+export const backendContractSchemaHash = "sha256:212e4287c258326cea94f021a736adc2480d2db7c1724d067d63cc09beeed717";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1300,6 +1300,406 @@ export function decodeRoleProfileSourceKind(value: unknown, label = "RoleProfile
     case "workspace":
       return decoded;
     case "conversation":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkstreamStatus = "idle" | "running" | "queued" | "awaiting_approval" | "awaiting_resource" | "blocked" | "failed" | "completed" | "archived";
+
+export const workstreamStatusValues = ["idle", "running", "queued", "awaiting_approval", "awaiting_resource", "blocked", "failed", "completed", "archived"] as const satisfies readonly WorkstreamStatus[];
+
+export function decodeWorkstreamStatus(value: unknown, label = "WorkstreamStatus"): WorkstreamStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "idle":
+      return decoded;
+    case "running":
+      return decoded;
+    case "queued":
+      return decoded;
+    case "awaiting_approval":
+      return decoded;
+    case "awaiting_resource":
+      return decoded;
+    case "blocked":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "archived":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkstreamResourceScopeKind = "folderless" | "folder";
+
+export const workstreamResourceScopeKindValues = ["folderless", "folder"] as const satisfies readonly WorkstreamResourceScopeKind[];
+
+export function decodeWorkstreamResourceScopeKind(value: unknown, label = "WorkstreamResourceScopeKind"): WorkstreamResourceScopeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "folderless":
+      return decoded;
+    case "folder":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkstreamResourceKind = "folder";
+
+export const workstreamResourceKindValues = ["folder"] as const satisfies readonly WorkstreamResourceKind[];
+
+export function decodeWorkstreamResourceKind(value: unknown, label = "WorkstreamResourceKind"): WorkstreamResourceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "folder":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticNodeKind = "user_goal" | "director_decision" | "plan" | "milestone" | "delegation" | "investigation" | "action" | "resource_required" | "approval_required" | "artifact" | "validation" | "blocked" | "retry" | "recovery" | "completed" | "failed" | "cancelled";
+
+export const semanticNodeKindValues = ["user_goal", "director_decision", "plan", "milestone", "delegation", "investigation", "action", "resource_required", "approval_required", "artifact", "validation", "blocked", "retry", "recovery", "completed", "failed", "cancelled"] as const satisfies readonly SemanticNodeKind[];
+
+export function decodeSemanticNodeKind(value: unknown, label = "SemanticNodeKind"): SemanticNodeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "user_goal":
+      return decoded;
+    case "director_decision":
+      return decoded;
+    case "plan":
+      return decoded;
+    case "milestone":
+      return decoded;
+    case "delegation":
+      return decoded;
+    case "investigation":
+      return decoded;
+    case "action":
+      return decoded;
+    case "resource_required":
+      return decoded;
+    case "approval_required":
+      return decoded;
+    case "artifact":
+      return decoded;
+    case "validation":
+      return decoded;
+    case "blocked":
+      return decoded;
+    case "retry":
+      return decoded;
+    case "recovery":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkstreamDetailLevel = "selected" | "adjacent" | "background";
+
+export const workstreamDetailLevelValues = ["selected", "adjacent", "background"] as const satisfies readonly WorkstreamDetailLevel[];
+
+export function decodeWorkstreamDetailLevel(value: unknown, label = "WorkstreamDetailLevel"): WorkstreamDetailLevel {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "selected":
+      return decoded;
+    case "adjacent":
+      return decoded;
+    case "background":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticActor = "user" | "director" | "worker" | "provider" | "system";
+
+export const semanticActorValues = ["user", "director", "worker", "provider", "system"] as const satisfies readonly SemanticActor[];
+
+export function decodeSemanticActor(value: unknown, label = "SemanticActor"): SemanticActor {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "user":
+      return decoded;
+    case "director":
+      return decoded;
+    case "worker":
+      return decoded;
+    case "provider":
+      return decoded;
+    case "system":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticNodeStatus = "pending" | "active" | "waiting" | "succeeded" | "failed" | "cancelled";
+
+export const semanticNodeStatusValues = ["pending", "active", "waiting", "succeeded", "failed", "cancelled"] as const satisfies readonly SemanticNodeStatus[];
+
+export function decodeSemanticNodeStatus(value: unknown, label = "SemanticNodeStatus"): SemanticNodeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "active":
+      return decoded;
+    case "waiting":
+      return decoded;
+    case "succeeded":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type EvidenceClass = "runtime_fact" | "structured_declaration" | "director_interpretation";
+
+export const evidenceClassValues = ["runtime_fact", "structured_declaration", "director_interpretation"] as const satisfies readonly EvidenceClass[];
+
+export function decodeEvidenceClass(value: unknown, label = "EvidenceClass"): EvidenceClass {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "runtime_fact":
+      return decoded;
+    case "structured_declaration":
+      return decoded;
+    case "director_interpretation":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticEdgeKind = "followed_by" | "delegated_to" | "depends_on" | "blocked_by" | "produced" | "validated_by" | "recovered_by";
+
+export const semanticEdgeKindValues = ["followed_by", "delegated_to", "depends_on", "blocked_by", "produced", "validated_by", "recovered_by"] as const satisfies readonly SemanticEdgeKind[];
+
+export function decodeSemanticEdgeKind(value: unknown, label = "SemanticEdgeKind"): SemanticEdgeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "followed_by":
+      return decoded;
+    case "delegated_to":
+      return decoded;
+    case "depends_on":
+      return decoded;
+    case "blocked_by":
+      return decoded;
+    case "produced":
+      return decoded;
+    case "validated_by":
+      return decoded;
+    case "recovered_by":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ApprovalStatus = "pending" | "approved" | "approved_for_session" | "denied" | "cancelled" | "answered" | "superseded";
+
+export const approvalStatusValues = ["pending", "approved", "approved_for_session", "denied", "cancelled", "answered", "superseded"] as const satisfies readonly ApprovalStatus[];
+
+export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): ApprovalStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "approved":
+      return decoded;
+    case "approved_for_session":
+      return decoded;
+    case "denied":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "answered":
+      return decoded;
+    case "superseded":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ResourceRequestStatus = "requested" | "resolved" | "cancelled";
+
+export const resourceRequestStatusValues = ["requested", "resolved", "cancelled"] as const satisfies readonly ResourceRequestStatus[];
+
+export function decodeResourceRequestStatus(value: unknown, label = "ResourceRequestStatus"): ResourceRequestStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "requested":
+      return decoded;
+    case "resolved":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ArtifactStatus = "declared" | "available" | "unresolved";
+
+export const artifactStatusValues = ["declared", "available", "unresolved"] as const satisfies readonly ArtifactStatus[];
+
+export function decodeArtifactStatus(value: unknown, label = "ArtifactStatus"): ArtifactStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "declared":
+      return decoded;
+    case "available":
+      return decoded;
+    case "unresolved":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DirectorConnectionStatus = "connected" | "reconnecting" | "disconnected";
+
+export const directorConnectionStatusValues = ["connected", "reconnecting", "disconnected"] as const satisfies readonly DirectorConnectionStatus[];
+
+export function decodeDirectorConnectionStatus(value: unknown, label = "DirectorConnectionStatus"): DirectorConnectionStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "connected":
+      return decoded;
+    case "reconnecting":
+      return decoded;
+    case "disconnected":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DirectorIntentKind = "select_workstream" | "move_selection";
+
+export const directorIntentKindValues = ["select_workstream", "move_selection"] as const satisfies readonly DirectorIntentKind[];
+
+export function decodeDirectorIntentKind(value: unknown, label = "DirectorIntentKind"): DirectorIntentKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "select_workstream":
+      return decoded;
+    case "move_selection":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DirectorSelectionDirection = "previous" | "next";
+
+export const directorSelectionDirectionValues = ["previous", "next"] as const satisfies readonly DirectorSelectionDirection[];
+
+export function decodeDirectorSelectionDirection(value: unknown, label = "DirectorSelectionDirection"): DirectorSelectionDirection {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "previous":
+      return decoded;
+    case "next":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DirectorEventKind = "director.workstream.updated" | "director.workstream.removed" | "director.selection.changed" | "director.graph.updated" | "director.approval.updated" | "director.resource_request.updated" | "director.artifact.updated" | "director.aggregates.updated" | "director.text.delta" | "director.resync_required";
+
+export const directorEventKindValues = ["director.workstream.updated", "director.workstream.removed", "director.selection.changed", "director.graph.updated", "director.approval.updated", "director.resource_request.updated", "director.artifact.updated", "director.aggregates.updated", "director.text.delta", "director.resync_required"] as const satisfies readonly DirectorEventKind[];
+
+export function decodeDirectorEventKind(value: unknown, label = "DirectorEventKind"): DirectorEventKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "director.workstream.updated":
+      return decoded;
+    case "director.workstream.removed":
+      return decoded;
+    case "director.selection.changed":
+      return decoded;
+    case "director.graph.updated":
+      return decoded;
+    case "director.approval.updated":
+      return decoded;
+    case "director.resource_request.updated":
+      return decoded;
+    case "director.artifact.updated":
+      return decoded;
+    case "director.aggregates.updated":
+      return decoded;
+    case "director.text.delta":
+      return decoded;
+    case "director.resync_required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DirectorTextSurface = "assistant_message" | "reasoning_summary" | "process_output";
+
+export const directorTextSurfaceValues = ["assistant_message", "reasoning_summary", "process_output"] as const satisfies readonly DirectorTextSurface[];
+
+export function decodeDirectorTextSurface(value: unknown, label = "DirectorTextSurface"): DirectorTextSurface {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "assistant_message":
+      return decoded;
+    case "reasoning_summary":
+      return decoded;
+    case "process_output":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DirectorResyncReason = "collection_window_overflow" | "event_before_snapshot" | "event_schema_changed" | "event_sequence_gap" | "event_stream_changed" | "server_required";
+
+export const directorResyncReasonValues = ["collection_window_overflow", "event_before_snapshot", "event_schema_changed", "event_sequence_gap", "event_stream_changed", "server_required"] as const satisfies readonly DirectorResyncReason[];
+
+export function decodeDirectorResyncReason(value: unknown, label = "DirectorResyncReason"): DirectorResyncReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "collection_window_overflow":
+      return decoded;
+    case "event_before_snapshot":
+      return decoded;
+    case "event_schema_changed":
+      return decoded;
+    case "event_sequence_gap":
+      return decoded;
+    case "event_stream_changed":
+      return decoded;
+    case "server_required":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3172,6 +3572,286 @@ export interface UpdateConversationRoleProfilesRequest {
   updates: RoleProfileUpdate[];
 }
 
+export interface WorkstreamFolderResource {
+  workspaceId: string;
+  rootPath: string;
+}
+
+export type WorkstreamResourceScope = {
+} & (
+  | {
+      kind: "folderless";
+      folder: null;
+    }
+  | {
+      kind: "folder";
+      folder: WorkstreamFolderResource;
+    }
+);
+
+export type WorkstreamResourceBinding = {
+} & (
+  | {
+      kind: "folder";
+      folder: WorkstreamFolderResource;
+    }
+);
+
+export interface WorkstreamMilestone {
+  nodeId: string;
+  kind: SemanticNodeKind;
+  publicSummary: string;
+  occurredAt: string;
+}
+
+export interface Workstream {
+  id: string;
+  title: string;
+  status: WorkstreamStatus;
+  parentId: string | null;
+  conversationId: string;
+  resourceScope: WorkstreamResourceScope;
+  resourceBindings: WorkstreamResourceBinding[];
+  activeRunId: string | null;
+  queuedRunCount: number;
+  unresolvedApprovalCount: number;
+  unresolvedResourceRequestCount: number;
+  artifactCount: number;
+  lastMilestone: WorkstreamMilestone | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DirectorWorkstreamEntry {
+  workstream: Workstream;
+  detailLevel: WorkstreamDetailLevel;
+}
+
+export interface InterpretationModelIdentity {
+  provider: string;
+  model: string;
+  runtimeId: string;
+}
+
+export interface InterpretationMetadata {
+  interpretedBy: SemanticActor;
+  model: InterpretationModelIdentity;
+  confidence: number | null;
+  interpretedAt: string;
+}
+
+export interface SemanticNode {
+  id: string;
+  kind: SemanticNodeKind;
+  workstreamId: string;
+  runId: string | null;
+  actor: SemanticActor;
+  status: SemanticNodeStatus;
+  publicSummary: string;
+  evidenceClass: EvidenceClass;
+  sourceEventIds: string[];
+  artifactIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  interpretation: InterpretationMetadata | null;
+}
+
+export interface SemanticEdge {
+  id: string;
+  kind: SemanticEdgeKind;
+  fromWorkstreamId: string;
+  fromNodeId: string;
+  toWorkstreamId: string;
+  toNodeId: string;
+  sourceEventIds: string[];
+  createdAt: string;
+}
+
+export interface WorkstreamGraph {
+  workstreamId: string;
+  detailLevel: WorkstreamDetailLevel;
+  nodes: SemanticNode[];
+  edges: SemanticEdge[];
+  hasEarlier: boolean;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  workstreamId: string;
+  runId: string | null;
+  kind: TrajectoryApprovalKind;
+  status: ApprovalStatus;
+  publicSummary: string;
+  secret: boolean;
+  sourceEventIds: string[];
+  requestedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface ResourceRequest {
+  id: string;
+  workstreamId: string;
+  runId: string | null;
+  kind: WorkstreamResourceKind;
+  status: ResourceRequestStatus;
+  publicSummary: string;
+  resolvedBinding: WorkstreamResourceBinding | null;
+  sourceEventIds: string[];
+  requestedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface WorkstreamArtifact {
+  id: string;
+  workstreamId: string;
+  runId: string | null;
+  kind: ArtifactKind;
+  status: ArtifactStatus;
+  title: string;
+  sourceEventIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DirectorAggregates {
+  workstreamCount: number;
+  runningCount: number;
+  queuedCount: number;
+  blockedCount: number;
+  awaitingApprovalCount: number;
+  awaitingResourceCount: number;
+  failedCount: number;
+  unresolvedApprovalCount: number;
+  unresolvedResourceRequestCount: number;
+  artifactCount: number;
+}
+
+export interface DirectorConnectionState {
+  status: DirectorConnectionStatus;
+  lastEventAt: string | null;
+}
+
+export interface DirectorEventCursor {
+  streamId: string;
+  sequence: number;
+}
+
+export interface DirectorSnapshot {
+  schemaVersion: number;
+  selectedWorkstreamId: string | null;
+  workstreams: DirectorWorkstreamEntry[];
+  hasMoreWorkstreams: boolean;
+  graphs: WorkstreamGraph[];
+  unresolvedApprovals: ApprovalRequest[];
+  unresolvedResourceRequests: ResourceRequest[];
+  artifacts: WorkstreamArtifact[];
+  aggregates: DirectorAggregates;
+  connection: DirectorConnectionState;
+  eventCursor: DirectorEventCursor;
+}
+
+export interface DirectorSelectWorkstreamIntent {
+  workstreamId: string;
+}
+
+export interface DirectorMoveSelectionIntent {
+  direction: DirectorSelectionDirection;
+}
+
+export type DirectorIntent = {
+} & (
+  | {
+      kind: "select_workstream";
+      selectWorkstream: DirectorSelectWorkstreamIntent;
+      moveSelection: null;
+    }
+  | {
+      kind: "move_selection";
+      selectWorkstream: null;
+      moveSelection: DirectorMoveSelectionIntent;
+    }
+);
+
+export interface DispatchDirectorIntentRequest {
+  intent: DirectorIntent;
+}
+
+export interface DirectorReceipt {
+  kind: DirectorIntentKind;
+  selectedWorkstreamId: string | null;
+}
+
+export interface DirectorWorkstreamUpdatedPayload {
+  entry: DirectorWorkstreamEntry;
+}
+
+export interface DirectorWorkstreamRemovedPayload {
+  workstreamId: string;
+}
+
+export interface DirectorSelectionChangedPayload {
+  selectedWorkstreamId: string | null;
+}
+
+export interface DirectorGraphUpdatedPayload {
+  workstreamId: string;
+  detailLevel: WorkstreamDetailLevel;
+  nodes: SemanticNode[];
+  edges: SemanticEdge[];
+  removedNodeIds: string[];
+}
+
+export interface DirectorApprovalUpdatedPayload {
+  approval: ApprovalRequest;
+}
+
+export interface DirectorResourceRequestUpdatedPayload {
+  resourceRequest: ResourceRequest;
+}
+
+export interface DirectorArtifactUpdatedPayload {
+  artifact: WorkstreamArtifact;
+}
+
+export interface DirectorAggregatesUpdatedPayload {
+  aggregates: DirectorAggregates;
+}
+
+export interface DirectorTextDeltaPayload {
+  workstreamId: string;
+  runId: string | null;
+  surface: DirectorTextSurface;
+  text: string;
+}
+
+export interface DirectorResyncRequiredPayload {
+  reason: DirectorResyncReason;
+  requestedStreamId: string;
+  requestedSequence: number;
+  currentStreamId: string;
+  currentSequence: number;
+}
+
+export interface DirectorEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  emittedAt: string;
+  kind: DirectorEventKind;
+  workstreamUpdated: DirectorWorkstreamUpdatedPayload | null;
+  workstreamRemoved: DirectorWorkstreamRemovedPayload | null;
+  selectionChanged: DirectorSelectionChangedPayload | null;
+  graphUpdated: DirectorGraphUpdatedPayload | null;
+  approvalUpdated: DirectorApprovalUpdatedPayload | null;
+  resourceRequestUpdated: DirectorResourceRequestUpdatedPayload | null;
+  artifactUpdated: DirectorArtifactUpdatedPayload | null;
+  aggregatesUpdated: DirectorAggregatesUpdatedPayload | null;
+  textDelta: DirectorTextDeltaPayload | null;
+  resyncRequired: DirectorResyncRequiredPayload | null;
+}
+
 export interface MasterInput {
   id: string;
   text: string;
@@ -3968,6 +4648,19 @@ export const backendEndpoints = {
     method: "POST",
     path: "/conversations/roles/update",
     requestBodyLimitBytes: 4194304,
+  },
+  ReadDirectorSnapshot: {
+    method: "GET",
+    path: "/director/snapshot",
+  },
+  DispatchDirectorIntent: {
+    method: "POST",
+    path: "/director/intents/dispatch",
+    requestBodyLimitBytes: 4194304,
+  },
+  DirectorEventStream: {
+    method: "GET",
+    path: "/director/events",
   },
   ReadActiveMasterShellInteraction: {
     method: "GET",
@@ -6584,6 +7277,487 @@ export function decodeUpdateConversationRoleProfilesRequest(value: unknown): Upd
   };
 }
 
+export function decodeWorkstreamFolderResource(value: unknown): WorkstreamFolderResource {
+  const record = assertRecord(value, "WorkstreamFolderResource");
+  assertKnownFields(record, "WorkstreamFolderResource", ["workspaceId", "rootPath"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkstreamFolderResource"), "WorkstreamFolderResource.workspaceId"),
+    rootPath: decodeString(requireField(record, "rootPath", "WorkstreamFolderResource"), "WorkstreamFolderResource.rootPath"),
+  };
+}
+
+export function decodeWorkstreamResourceScope(value: unknown): WorkstreamResourceScope {
+  const record = assertRecord(value, "WorkstreamResourceScope");
+  assertKnownFields(record, "WorkstreamResourceScope", ["kind", "folder"]);
+  const result = {
+    kind: decodeWorkstreamResourceScopeKind(requireField(record, "kind", "WorkstreamResourceScope"), "WorkstreamResourceScope.kind"),
+    folder: decodeNullable(requireField(record, "folder", "WorkstreamResourceScope"), "WorkstreamResourceScope.folder", (item) => decodeWorkstreamFolderResource(item)),
+  };
+  switch (result.kind) {
+    case "folderless": {
+      if (result.folder !== null) {
+        throw new Error("WorkstreamResourceScope.folder must be null when kind is folderless");
+      }
+      return {
+        ...result,
+        kind: "folderless",
+        folder: null,
+      };
+    }
+    case "folder": {
+      if (result.folder === null) {
+        throw new Error("WorkstreamResourceScope.folder is required when kind is folder");
+      }
+      return {
+        ...result,
+        kind: "folder",
+        folder: result.folder,
+      };
+    }
+    default:
+      throw new Error("WorkstreamResourceScope.kind is unsupported: " + result.kind);
+  }
+}
+
+export function decodeWorkstreamResourceBinding(value: unknown): WorkstreamResourceBinding {
+  const record = assertRecord(value, "WorkstreamResourceBinding");
+  assertKnownFields(record, "WorkstreamResourceBinding", ["kind", "folder"]);
+  const result = {
+    kind: decodeWorkstreamResourceKind(requireField(record, "kind", "WorkstreamResourceBinding"), "WorkstreamResourceBinding.kind"),
+    folder: decodeNullable(requireField(record, "folder", "WorkstreamResourceBinding"), "WorkstreamResourceBinding.folder", (item) => decodeWorkstreamFolderResource(item)),
+  };
+  switch (result.kind) {
+    case "folder": {
+      if (result.folder === null) {
+        throw new Error("WorkstreamResourceBinding.folder is required when kind is folder");
+      }
+      return {
+        ...result,
+        kind: "folder",
+        folder: result.folder,
+      };
+    }
+    default:
+      throw new Error("WorkstreamResourceBinding.kind is unsupported: " + result.kind);
+  }
+}
+
+export function decodeWorkstreamMilestone(value: unknown): WorkstreamMilestone {
+  const record = assertRecord(value, "WorkstreamMilestone");
+  assertKnownFields(record, "WorkstreamMilestone", ["nodeId", "kind", "publicSummary", "occurredAt"]);
+  return {
+    nodeId: decodeString(requireField(record, "nodeId", "WorkstreamMilestone"), "WorkstreamMilestone.nodeId"),
+    kind: decodeSemanticNodeKind(requireField(record, "kind", "WorkstreamMilestone"), "WorkstreamMilestone.kind"),
+    publicSummary: decodeString(requireField(record, "publicSummary", "WorkstreamMilestone"), "WorkstreamMilestone.publicSummary"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "WorkstreamMilestone"), "WorkstreamMilestone.occurredAt"),
+  };
+}
+
+export function decodeWorkstream(value: unknown): Workstream {
+  const record = assertRecord(value, "Workstream");
+  assertKnownFields(record, "Workstream", ["id", "title", "status", "parentId", "conversationId", "resourceScope", "resourceBindings", "activeRunId", "queuedRunCount", "unresolvedApprovalCount", "unresolvedResourceRequestCount", "artifactCount", "lastMilestone", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "Workstream"), "Workstream.id"),
+    title: decodeString(requireField(record, "title", "Workstream"), "Workstream.title"),
+    status: decodeWorkstreamStatus(requireField(record, "status", "Workstream"), "Workstream.status"),
+    parentId: decodeNullable(requireField(record, "parentId", "Workstream"), "Workstream.parentId", (item) => decodeString(item, "Workstream.parentId")),
+    conversationId: decodeString(requireField(record, "conversationId", "Workstream"), "Workstream.conversationId"),
+    resourceScope: decodeWorkstreamResourceScope(requireField(record, "resourceScope", "Workstream")),
+    resourceBindings: decodeArray(requireField(record, "resourceBindings", "Workstream"), "Workstream.resourceBindings", (item) => decodeWorkstreamResourceBinding(item)),
+    activeRunId: decodeNullable(requireField(record, "activeRunId", "Workstream"), "Workstream.activeRunId", (item) => decodeString(item, "Workstream.activeRunId")),
+    queuedRunCount: decodeInteger(requireField(record, "queuedRunCount", "Workstream"), "Workstream.queuedRunCount"),
+    unresolvedApprovalCount: decodeInteger(requireField(record, "unresolvedApprovalCount", "Workstream"), "Workstream.unresolvedApprovalCount"),
+    unresolvedResourceRequestCount: decodeInteger(requireField(record, "unresolvedResourceRequestCount", "Workstream"), "Workstream.unresolvedResourceRequestCount"),
+    artifactCount: decodeInteger(requireField(record, "artifactCount", "Workstream"), "Workstream.artifactCount"),
+    lastMilestone: decodeNullable(requireField(record, "lastMilestone", "Workstream"), "Workstream.lastMilestone", (item) => decodeWorkstreamMilestone(item)),
+    createdAt: decodeString(requireField(record, "createdAt", "Workstream"), "Workstream.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "Workstream"), "Workstream.updatedAt"),
+  };
+}
+
+export function decodeDirectorWorkstreamEntry(value: unknown): DirectorWorkstreamEntry {
+  const record = assertRecord(value, "DirectorWorkstreamEntry");
+  assertKnownFields(record, "DirectorWorkstreamEntry", ["workstream", "detailLevel"]);
+  return {
+    workstream: decodeWorkstream(requireField(record, "workstream", "DirectorWorkstreamEntry")),
+    detailLevel: decodeWorkstreamDetailLevel(requireField(record, "detailLevel", "DirectorWorkstreamEntry"), "DirectorWorkstreamEntry.detailLevel"),
+  };
+}
+
+export function decodeInterpretationModelIdentity(value: unknown): InterpretationModelIdentity {
+  const record = assertRecord(value, "InterpretationModelIdentity");
+  assertKnownFields(record, "InterpretationModelIdentity", ["provider", "model", "runtimeId"]);
+  return {
+    provider: decodeString(requireField(record, "provider", "InterpretationModelIdentity"), "InterpretationModelIdentity.provider"),
+    model: decodeString(requireField(record, "model", "InterpretationModelIdentity"), "InterpretationModelIdentity.model"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "InterpretationModelIdentity"), "InterpretationModelIdentity.runtimeId"),
+  };
+}
+
+export function decodeInterpretationMetadata(value: unknown): InterpretationMetadata {
+  const record = assertRecord(value, "InterpretationMetadata");
+  assertKnownFields(record, "InterpretationMetadata", ["interpretedBy", "model", "confidence", "interpretedAt"]);
+  return {
+    interpretedBy: decodeSemanticActor(requireField(record, "interpretedBy", "InterpretationMetadata"), "InterpretationMetadata.interpretedBy"),
+    model: decodeInterpretationModelIdentity(requireField(record, "model", "InterpretationMetadata")),
+    confidence: decodeNullable(requireField(record, "confidence", "InterpretationMetadata"), "InterpretationMetadata.confidence", (item) => decodeNumber(item, "InterpretationMetadata.confidence")),
+    interpretedAt: decodeString(requireField(record, "interpretedAt", "InterpretationMetadata"), "InterpretationMetadata.interpretedAt"),
+  };
+}
+
+export function decodeSemanticNode(value: unknown): SemanticNode {
+  const record = assertRecord(value, "SemanticNode");
+  assertKnownFields(record, "SemanticNode", ["id", "kind", "workstreamId", "runId", "actor", "status", "publicSummary", "evidenceClass", "sourceEventIds", "artifactIds", "createdAt", "updatedAt", "completedAt", "interpretation"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticNode"), "SemanticNode.id"),
+    kind: decodeSemanticNodeKind(requireField(record, "kind", "SemanticNode"), "SemanticNode.kind"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "SemanticNode"), "SemanticNode.workstreamId"),
+    runId: decodeNullable(requireField(record, "runId", "SemanticNode"), "SemanticNode.runId", (item) => decodeString(item, "SemanticNode.runId")),
+    actor: decodeSemanticActor(requireField(record, "actor", "SemanticNode"), "SemanticNode.actor"),
+    status: decodeSemanticNodeStatus(requireField(record, "status", "SemanticNode"), "SemanticNode.status"),
+    publicSummary: decodeString(requireField(record, "publicSummary", "SemanticNode"), "SemanticNode.publicSummary"),
+    evidenceClass: decodeEvidenceClass(requireField(record, "evidenceClass", "SemanticNode"), "SemanticNode.evidenceClass"),
+    sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "SemanticNode"), "SemanticNode.sourceEventIds", (item) => decodeString(item, "SemanticNode.sourceEventIds item")),
+    artifactIds: decodeArray(requireField(record, "artifactIds", "SemanticNode"), "SemanticNode.artifactIds", (item) => decodeString(item, "SemanticNode.artifactIds item")),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticNode"), "SemanticNode.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticNode"), "SemanticNode.updatedAt"),
+    completedAt: decodeNullable(requireField(record, "completedAt", "SemanticNode"), "SemanticNode.completedAt", (item) => decodeString(item, "SemanticNode.completedAt")),
+    interpretation: decodeNullable(requireField(record, "interpretation", "SemanticNode"), "SemanticNode.interpretation", (item) => decodeInterpretationMetadata(item)),
+  };
+}
+
+export function decodeSemanticEdge(value: unknown): SemanticEdge {
+  const record = assertRecord(value, "SemanticEdge");
+  assertKnownFields(record, "SemanticEdge", ["id", "kind", "fromWorkstreamId", "fromNodeId", "toWorkstreamId", "toNodeId", "sourceEventIds", "createdAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticEdge"), "SemanticEdge.id"),
+    kind: decodeSemanticEdgeKind(requireField(record, "kind", "SemanticEdge"), "SemanticEdge.kind"),
+    fromWorkstreamId: decodeString(requireField(record, "fromWorkstreamId", "SemanticEdge"), "SemanticEdge.fromWorkstreamId"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "SemanticEdge"), "SemanticEdge.fromNodeId"),
+    toWorkstreamId: decodeString(requireField(record, "toWorkstreamId", "SemanticEdge"), "SemanticEdge.toWorkstreamId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "SemanticEdge"), "SemanticEdge.toNodeId"),
+    sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "SemanticEdge"), "SemanticEdge.sourceEventIds", (item) => decodeString(item, "SemanticEdge.sourceEventIds item")),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticEdge"), "SemanticEdge.createdAt"),
+  };
+}
+
+export function decodeWorkstreamGraph(value: unknown): WorkstreamGraph {
+  const record = assertRecord(value, "WorkstreamGraph");
+  assertKnownFields(record, "WorkstreamGraph", ["workstreamId", "detailLevel", "nodes", "edges", "hasEarlier"]);
+  return {
+    workstreamId: decodeString(requireField(record, "workstreamId", "WorkstreamGraph"), "WorkstreamGraph.workstreamId"),
+    detailLevel: decodeWorkstreamDetailLevel(requireField(record, "detailLevel", "WorkstreamGraph"), "WorkstreamGraph.detailLevel"),
+    nodes: decodeArray(requireField(record, "nodes", "WorkstreamGraph"), "WorkstreamGraph.nodes", (item) => decodeSemanticNode(item)),
+    edges: decodeArray(requireField(record, "edges", "WorkstreamGraph"), "WorkstreamGraph.edges", (item) => decodeSemanticEdge(item)),
+    hasEarlier: decodeBoolean(requireField(record, "hasEarlier", "WorkstreamGraph"), "WorkstreamGraph.hasEarlier"),
+  };
+}
+
+export function decodeApprovalRequest(value: unknown): ApprovalRequest {
+  const record = assertRecord(value, "ApprovalRequest");
+  assertKnownFields(record, "ApprovalRequest", ["id", "workstreamId", "runId", "kind", "status", "publicSummary", "secret", "sourceEventIds", "requestedAt", "resolvedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "ApprovalRequest"), "ApprovalRequest.id"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "ApprovalRequest"), "ApprovalRequest.workstreamId"),
+    runId: decodeNullable(requireField(record, "runId", "ApprovalRequest"), "ApprovalRequest.runId", (item) => decodeString(item, "ApprovalRequest.runId")),
+    kind: decodeTrajectoryApprovalKind(requireField(record, "kind", "ApprovalRequest"), "ApprovalRequest.kind"),
+    status: decodeApprovalStatus(requireField(record, "status", "ApprovalRequest"), "ApprovalRequest.status"),
+    publicSummary: decodeString(requireField(record, "publicSummary", "ApprovalRequest"), "ApprovalRequest.publicSummary"),
+    secret: decodeBoolean(requireField(record, "secret", "ApprovalRequest"), "ApprovalRequest.secret"),
+    sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "ApprovalRequest"), "ApprovalRequest.sourceEventIds", (item) => decodeString(item, "ApprovalRequest.sourceEventIds item")),
+    requestedAt: decodeString(requireField(record, "requestedAt", "ApprovalRequest"), "ApprovalRequest.requestedAt"),
+    resolvedAt: decodeNullable(requireField(record, "resolvedAt", "ApprovalRequest"), "ApprovalRequest.resolvedAt", (item) => decodeString(item, "ApprovalRequest.resolvedAt")),
+  };
+}
+
+export function decodeResourceRequest(value: unknown): ResourceRequest {
+  const record = assertRecord(value, "ResourceRequest");
+  assertKnownFields(record, "ResourceRequest", ["id", "workstreamId", "runId", "kind", "status", "publicSummary", "resolvedBinding", "sourceEventIds", "requestedAt", "resolvedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "ResourceRequest"), "ResourceRequest.id"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "ResourceRequest"), "ResourceRequest.workstreamId"),
+    runId: decodeNullable(requireField(record, "runId", "ResourceRequest"), "ResourceRequest.runId", (item) => decodeString(item, "ResourceRequest.runId")),
+    kind: decodeWorkstreamResourceKind(requireField(record, "kind", "ResourceRequest"), "ResourceRequest.kind"),
+    status: decodeResourceRequestStatus(requireField(record, "status", "ResourceRequest"), "ResourceRequest.status"),
+    publicSummary: decodeString(requireField(record, "publicSummary", "ResourceRequest"), "ResourceRequest.publicSummary"),
+    resolvedBinding: decodeNullable(requireField(record, "resolvedBinding", "ResourceRequest"), "ResourceRequest.resolvedBinding", (item) => decodeWorkstreamResourceBinding(item)),
+    sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "ResourceRequest"), "ResourceRequest.sourceEventIds", (item) => decodeString(item, "ResourceRequest.sourceEventIds item")),
+    requestedAt: decodeString(requireField(record, "requestedAt", "ResourceRequest"), "ResourceRequest.requestedAt"),
+    resolvedAt: decodeNullable(requireField(record, "resolvedAt", "ResourceRequest"), "ResourceRequest.resolvedAt", (item) => decodeString(item, "ResourceRequest.resolvedAt")),
+  };
+}
+
+export function decodeWorkstreamArtifact(value: unknown): WorkstreamArtifact {
+  const record = assertRecord(value, "WorkstreamArtifact");
+  assertKnownFields(record, "WorkstreamArtifact", ["id", "workstreamId", "runId", "kind", "status", "title", "sourceEventIds", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkstreamArtifact"), "WorkstreamArtifact.id"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "WorkstreamArtifact"), "WorkstreamArtifact.workstreamId"),
+    runId: decodeNullable(requireField(record, "runId", "WorkstreamArtifact"), "WorkstreamArtifact.runId", (item) => decodeString(item, "WorkstreamArtifact.runId")),
+    kind: decodeArtifactKind(requireField(record, "kind", "WorkstreamArtifact"), "WorkstreamArtifact.kind"),
+    status: decodeArtifactStatus(requireField(record, "status", "WorkstreamArtifact"), "WorkstreamArtifact.status"),
+    title: decodeString(requireField(record, "title", "WorkstreamArtifact"), "WorkstreamArtifact.title"),
+    sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "WorkstreamArtifact"), "WorkstreamArtifact.sourceEventIds", (item) => decodeString(item, "WorkstreamArtifact.sourceEventIds item")),
+    createdAt: decodeString(requireField(record, "createdAt", "WorkstreamArtifact"), "WorkstreamArtifact.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "WorkstreamArtifact"), "WorkstreamArtifact.updatedAt"),
+  };
+}
+
+export function decodeDirectorAggregates(value: unknown): DirectorAggregates {
+  const record = assertRecord(value, "DirectorAggregates");
+  assertKnownFields(record, "DirectorAggregates", ["workstreamCount", "runningCount", "queuedCount", "blockedCount", "awaitingApprovalCount", "awaitingResourceCount", "failedCount", "unresolvedApprovalCount", "unresolvedResourceRequestCount", "artifactCount"]);
+  return {
+    workstreamCount: decodeInteger(requireField(record, "workstreamCount", "DirectorAggregates"), "DirectorAggregates.workstreamCount"),
+    runningCount: decodeInteger(requireField(record, "runningCount", "DirectorAggregates"), "DirectorAggregates.runningCount"),
+    queuedCount: decodeInteger(requireField(record, "queuedCount", "DirectorAggregates"), "DirectorAggregates.queuedCount"),
+    blockedCount: decodeInteger(requireField(record, "blockedCount", "DirectorAggregates"), "DirectorAggregates.blockedCount"),
+    awaitingApprovalCount: decodeInteger(requireField(record, "awaitingApprovalCount", "DirectorAggregates"), "DirectorAggregates.awaitingApprovalCount"),
+    awaitingResourceCount: decodeInteger(requireField(record, "awaitingResourceCount", "DirectorAggregates"), "DirectorAggregates.awaitingResourceCount"),
+    failedCount: decodeInteger(requireField(record, "failedCount", "DirectorAggregates"), "DirectorAggregates.failedCount"),
+    unresolvedApprovalCount: decodeInteger(requireField(record, "unresolvedApprovalCount", "DirectorAggregates"), "DirectorAggregates.unresolvedApprovalCount"),
+    unresolvedResourceRequestCount: decodeInteger(requireField(record, "unresolvedResourceRequestCount", "DirectorAggregates"), "DirectorAggregates.unresolvedResourceRequestCount"),
+    artifactCount: decodeInteger(requireField(record, "artifactCount", "DirectorAggregates"), "DirectorAggregates.artifactCount"),
+  };
+}
+
+export function decodeDirectorConnectionState(value: unknown): DirectorConnectionState {
+  const record = assertRecord(value, "DirectorConnectionState");
+  assertKnownFields(record, "DirectorConnectionState", ["status", "lastEventAt"]);
+  return {
+    status: decodeDirectorConnectionStatus(requireField(record, "status", "DirectorConnectionState"), "DirectorConnectionState.status"),
+    lastEventAt: decodeNullable(requireField(record, "lastEventAt", "DirectorConnectionState"), "DirectorConnectionState.lastEventAt", (item) => decodeString(item, "DirectorConnectionState.lastEventAt")),
+  };
+}
+
+export function decodeDirectorEventCursor(value: unknown): DirectorEventCursor {
+  const record = assertRecord(value, "DirectorEventCursor");
+  assertKnownFields(record, "DirectorEventCursor", ["streamId", "sequence"]);
+  return {
+    streamId: decodeString(requireField(record, "streamId", "DirectorEventCursor"), "DirectorEventCursor.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "DirectorEventCursor"), "DirectorEventCursor.sequence"),
+  };
+}
+
+export function decodeDirectorSnapshot(value: unknown): DirectorSnapshot {
+  const record = assertRecord(value, "DirectorSnapshot");
+  assertKnownFields(record, "DirectorSnapshot", ["schemaVersion", "selectedWorkstreamId", "workstreams", "hasMoreWorkstreams", "graphs", "unresolvedApprovals", "unresolvedResourceRequests", "artifacts", "aggregates", "connection", "eventCursor"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "DirectorSnapshot"), "DirectorSnapshot.schemaVersion"),
+    selectedWorkstreamId: decodeNullable(requireField(record, "selectedWorkstreamId", "DirectorSnapshot"), "DirectorSnapshot.selectedWorkstreamId", (item) => decodeString(item, "DirectorSnapshot.selectedWorkstreamId")),
+    workstreams: decodeArray(requireField(record, "workstreams", "DirectorSnapshot"), "DirectorSnapshot.workstreams", (item) => decodeDirectorWorkstreamEntry(item)),
+    hasMoreWorkstreams: decodeBoolean(requireField(record, "hasMoreWorkstreams", "DirectorSnapshot"), "DirectorSnapshot.hasMoreWorkstreams"),
+    graphs: decodeArray(requireField(record, "graphs", "DirectorSnapshot"), "DirectorSnapshot.graphs", (item) => decodeWorkstreamGraph(item)),
+    unresolvedApprovals: decodeArray(requireField(record, "unresolvedApprovals", "DirectorSnapshot"), "DirectorSnapshot.unresolvedApprovals", (item) => decodeApprovalRequest(item)),
+    unresolvedResourceRequests: decodeArray(requireField(record, "unresolvedResourceRequests", "DirectorSnapshot"), "DirectorSnapshot.unresolvedResourceRequests", (item) => decodeResourceRequest(item)),
+    artifacts: decodeArray(requireField(record, "artifacts", "DirectorSnapshot"), "DirectorSnapshot.artifacts", (item) => decodeWorkstreamArtifact(item)),
+    aggregates: decodeDirectorAggregates(requireField(record, "aggregates", "DirectorSnapshot")),
+    connection: decodeDirectorConnectionState(requireField(record, "connection", "DirectorSnapshot")),
+    eventCursor: decodeDirectorEventCursor(requireField(record, "eventCursor", "DirectorSnapshot")),
+  };
+}
+
+export function decodeDirectorSelectWorkstreamIntent(value: unknown): DirectorSelectWorkstreamIntent {
+  const record = assertRecord(value, "DirectorSelectWorkstreamIntent");
+  assertKnownFields(record, "DirectorSelectWorkstreamIntent", ["workstreamId"]);
+  return {
+    workstreamId: decodeString(requireField(record, "workstreamId", "DirectorSelectWorkstreamIntent"), "DirectorSelectWorkstreamIntent.workstreamId"),
+  };
+}
+
+export function decodeDirectorMoveSelectionIntent(value: unknown): DirectorMoveSelectionIntent {
+  const record = assertRecord(value, "DirectorMoveSelectionIntent");
+  assertKnownFields(record, "DirectorMoveSelectionIntent", ["direction"]);
+  return {
+    direction: decodeDirectorSelectionDirection(requireField(record, "direction", "DirectorMoveSelectionIntent"), "DirectorMoveSelectionIntent.direction"),
+  };
+}
+
+export function decodeDirectorIntent(value: unknown): DirectorIntent {
+  const record = assertRecord(value, "DirectorIntent");
+  assertKnownFields(record, "DirectorIntent", ["kind", "selectWorkstream", "moveSelection"]);
+  const result = {
+    kind: decodeDirectorIntentKind(requireField(record, "kind", "DirectorIntent"), "DirectorIntent.kind"),
+    selectWorkstream: decodeNullable(requireField(record, "selectWorkstream", "DirectorIntent"), "DirectorIntent.selectWorkstream", (item) => decodeDirectorSelectWorkstreamIntent(item)),
+    moveSelection: decodeNullable(requireField(record, "moveSelection", "DirectorIntent"), "DirectorIntent.moveSelection", (item) => decodeDirectorMoveSelectionIntent(item)),
+  };
+  switch (result.kind) {
+    case "select_workstream": {
+      if (result.selectWorkstream === null) {
+        throw new Error("DirectorIntent.selectWorkstream is required when kind is select_workstream");
+      }
+      if (result.moveSelection !== null) {
+        throw new Error("DirectorIntent.moveSelection must be null when kind is select_workstream");
+      }
+      return {
+        ...result,
+        kind: "select_workstream",
+        selectWorkstream: result.selectWorkstream,
+        moveSelection: null,
+      };
+    }
+    case "move_selection": {
+      if (result.selectWorkstream !== null) {
+        throw new Error("DirectorIntent.selectWorkstream must be null when kind is move_selection");
+      }
+      if (result.moveSelection === null) {
+        throw new Error("DirectorIntent.moveSelection is required when kind is move_selection");
+      }
+      return {
+        ...result,
+        kind: "move_selection",
+        selectWorkstream: null,
+        moveSelection: result.moveSelection,
+      };
+    }
+    default:
+      throw new Error("DirectorIntent.kind is unsupported: " + result.kind);
+  }
+}
+
+export function decodeDispatchDirectorIntentRequest(value: unknown): DispatchDirectorIntentRequest {
+  const record = assertRecord(value, "DispatchDirectorIntentRequest");
+  assertKnownFields(record, "DispatchDirectorIntentRequest", ["intent"]);
+  return {
+    intent: decodeDirectorIntent(requireField(record, "intent", "DispatchDirectorIntentRequest")),
+  };
+}
+
+export function decodeDirectorReceipt(value: unknown): DirectorReceipt {
+  const record = assertRecord(value, "DirectorReceipt");
+  assertKnownFields(record, "DirectorReceipt", ["kind", "selectedWorkstreamId"]);
+  return {
+    kind: decodeDirectorIntentKind(requireField(record, "kind", "DirectorReceipt"), "DirectorReceipt.kind"),
+    selectedWorkstreamId: decodeNullable(requireField(record, "selectedWorkstreamId", "DirectorReceipt"), "DirectorReceipt.selectedWorkstreamId", (item) => decodeString(item, "DirectorReceipt.selectedWorkstreamId")),
+  };
+}
+
+export function decodeDirectorWorkstreamUpdatedPayload(value: unknown): DirectorWorkstreamUpdatedPayload {
+  const record = assertRecord(value, "DirectorWorkstreamUpdatedPayload");
+  assertKnownFields(record, "DirectorWorkstreamUpdatedPayload", ["entry"]);
+  return {
+    entry: decodeDirectorWorkstreamEntry(requireField(record, "entry", "DirectorWorkstreamUpdatedPayload")),
+  };
+}
+
+export function decodeDirectorWorkstreamRemovedPayload(value: unknown): DirectorWorkstreamRemovedPayload {
+  const record = assertRecord(value, "DirectorWorkstreamRemovedPayload");
+  assertKnownFields(record, "DirectorWorkstreamRemovedPayload", ["workstreamId"]);
+  return {
+    workstreamId: decodeString(requireField(record, "workstreamId", "DirectorWorkstreamRemovedPayload"), "DirectorWorkstreamRemovedPayload.workstreamId"),
+  };
+}
+
+export function decodeDirectorSelectionChangedPayload(value: unknown): DirectorSelectionChangedPayload {
+  const record = assertRecord(value, "DirectorSelectionChangedPayload");
+  assertKnownFields(record, "DirectorSelectionChangedPayload", ["selectedWorkstreamId"]);
+  return {
+    selectedWorkstreamId: decodeNullable(requireField(record, "selectedWorkstreamId", "DirectorSelectionChangedPayload"), "DirectorSelectionChangedPayload.selectedWorkstreamId", (item) => decodeString(item, "DirectorSelectionChangedPayload.selectedWorkstreamId")),
+  };
+}
+
+export function decodeDirectorGraphUpdatedPayload(value: unknown): DirectorGraphUpdatedPayload {
+  const record = assertRecord(value, "DirectorGraphUpdatedPayload");
+  assertKnownFields(record, "DirectorGraphUpdatedPayload", ["workstreamId", "detailLevel", "nodes", "edges", "removedNodeIds"]);
+  return {
+    workstreamId: decodeString(requireField(record, "workstreamId", "DirectorGraphUpdatedPayload"), "DirectorGraphUpdatedPayload.workstreamId"),
+    detailLevel: decodeWorkstreamDetailLevel(requireField(record, "detailLevel", "DirectorGraphUpdatedPayload"), "DirectorGraphUpdatedPayload.detailLevel"),
+    nodes: decodeArray(requireField(record, "nodes", "DirectorGraphUpdatedPayload"), "DirectorGraphUpdatedPayload.nodes", (item) => decodeSemanticNode(item)),
+    edges: decodeArray(requireField(record, "edges", "DirectorGraphUpdatedPayload"), "DirectorGraphUpdatedPayload.edges", (item) => decodeSemanticEdge(item)),
+    removedNodeIds: decodeArray(requireField(record, "removedNodeIds", "DirectorGraphUpdatedPayload"), "DirectorGraphUpdatedPayload.removedNodeIds", (item) => decodeString(item, "DirectorGraphUpdatedPayload.removedNodeIds item")),
+  };
+}
+
+export function decodeDirectorApprovalUpdatedPayload(value: unknown): DirectorApprovalUpdatedPayload {
+  const record = assertRecord(value, "DirectorApprovalUpdatedPayload");
+  assertKnownFields(record, "DirectorApprovalUpdatedPayload", ["approval"]);
+  return {
+    approval: decodeApprovalRequest(requireField(record, "approval", "DirectorApprovalUpdatedPayload")),
+  };
+}
+
+export function decodeDirectorResourceRequestUpdatedPayload(value: unknown): DirectorResourceRequestUpdatedPayload {
+  const record = assertRecord(value, "DirectorResourceRequestUpdatedPayload");
+  assertKnownFields(record, "DirectorResourceRequestUpdatedPayload", ["resourceRequest"]);
+  return {
+    resourceRequest: decodeResourceRequest(requireField(record, "resourceRequest", "DirectorResourceRequestUpdatedPayload")),
+  };
+}
+
+export function decodeDirectorArtifactUpdatedPayload(value: unknown): DirectorArtifactUpdatedPayload {
+  const record = assertRecord(value, "DirectorArtifactUpdatedPayload");
+  assertKnownFields(record, "DirectorArtifactUpdatedPayload", ["artifact"]);
+  return {
+    artifact: decodeWorkstreamArtifact(requireField(record, "artifact", "DirectorArtifactUpdatedPayload")),
+  };
+}
+
+export function decodeDirectorAggregatesUpdatedPayload(value: unknown): DirectorAggregatesUpdatedPayload {
+  const record = assertRecord(value, "DirectorAggregatesUpdatedPayload");
+  assertKnownFields(record, "DirectorAggregatesUpdatedPayload", ["aggregates"]);
+  return {
+    aggregates: decodeDirectorAggregates(requireField(record, "aggregates", "DirectorAggregatesUpdatedPayload")),
+  };
+}
+
+export function decodeDirectorTextDeltaPayload(value: unknown): DirectorTextDeltaPayload {
+  const record = assertRecord(value, "DirectorTextDeltaPayload");
+  assertKnownFields(record, "DirectorTextDeltaPayload", ["workstreamId", "runId", "surface", "text"]);
+  return {
+    workstreamId: decodeString(requireField(record, "workstreamId", "DirectorTextDeltaPayload"), "DirectorTextDeltaPayload.workstreamId"),
+    runId: decodeNullable(requireField(record, "runId", "DirectorTextDeltaPayload"), "DirectorTextDeltaPayload.runId", (item) => decodeString(item, "DirectorTextDeltaPayload.runId")),
+    surface: decodeDirectorTextSurface(requireField(record, "surface", "DirectorTextDeltaPayload"), "DirectorTextDeltaPayload.surface"),
+    text: decodeString(requireField(record, "text", "DirectorTextDeltaPayload"), "DirectorTextDeltaPayload.text"),
+  };
+}
+
+export function decodeDirectorResyncRequiredPayload(value: unknown): DirectorResyncRequiredPayload {
+  const record = assertRecord(value, "DirectorResyncRequiredPayload");
+  assertKnownFields(record, "DirectorResyncRequiredPayload", ["reason", "requestedStreamId", "requestedSequence", "currentStreamId", "currentSequence"]);
+  return {
+    reason: decodeDirectorResyncReason(requireField(record, "reason", "DirectorResyncRequiredPayload"), "DirectorResyncRequiredPayload.reason"),
+    requestedStreamId: decodeString(requireField(record, "requestedStreamId", "DirectorResyncRequiredPayload"), "DirectorResyncRequiredPayload.requestedStreamId"),
+    requestedSequence: decodeInteger(requireField(record, "requestedSequence", "DirectorResyncRequiredPayload"), "DirectorResyncRequiredPayload.requestedSequence"),
+    currentStreamId: decodeString(requireField(record, "currentStreamId", "DirectorResyncRequiredPayload"), "DirectorResyncRequiredPayload.currentStreamId"),
+    currentSequence: decodeInteger(requireField(record, "currentSequence", "DirectorResyncRequiredPayload"), "DirectorResyncRequiredPayload.currentSequence"),
+  };
+}
+
+export function decodeDirectorEvent(value: unknown): DirectorEvent {
+  const record = assertRecord(value, "DirectorEvent");
+  assertKnownFields(record, "DirectorEvent", ["schemaVersion", "streamId", "sequence", "eventId", "emittedAt", "kind", "workstreamUpdated", "workstreamRemoved", "selectionChanged", "graphUpdated", "approvalUpdated", "resourceRequestUpdated", "artifactUpdated", "aggregatesUpdated", "textDelta", "resyncRequired"]);
+  const result: DirectorEvent = {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "DirectorEvent"), "DirectorEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "DirectorEvent"), "DirectorEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "DirectorEvent"), "DirectorEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "DirectorEvent"), "DirectorEvent.eventId"),
+    emittedAt: decodeString(requireField(record, "emittedAt", "DirectorEvent"), "DirectorEvent.emittedAt"),
+    kind: decodeDirectorEventKind(requireField(record, "kind", "DirectorEvent"), "DirectorEvent.kind"),
+    workstreamUpdated: decodeNullable(requireField(record, "workstreamUpdated", "DirectorEvent"), "DirectorEvent.workstreamUpdated", (item) => decodeDirectorWorkstreamUpdatedPayload(item)),
+    workstreamRemoved: decodeNullable(requireField(record, "workstreamRemoved", "DirectorEvent"), "DirectorEvent.workstreamRemoved", (item) => decodeDirectorWorkstreamRemovedPayload(item)),
+    selectionChanged: decodeNullable(requireField(record, "selectionChanged", "DirectorEvent"), "DirectorEvent.selectionChanged", (item) => decodeDirectorSelectionChangedPayload(item)),
+    graphUpdated: decodeNullable(requireField(record, "graphUpdated", "DirectorEvent"), "DirectorEvent.graphUpdated", (item) => decodeDirectorGraphUpdatedPayload(item)),
+    approvalUpdated: decodeNullable(requireField(record, "approvalUpdated", "DirectorEvent"), "DirectorEvent.approvalUpdated", (item) => decodeDirectorApprovalUpdatedPayload(item)),
+    resourceRequestUpdated: decodeNullable(requireField(record, "resourceRequestUpdated", "DirectorEvent"), "DirectorEvent.resourceRequestUpdated", (item) => decodeDirectorResourceRequestUpdatedPayload(item)),
+    artifactUpdated: decodeNullable(requireField(record, "artifactUpdated", "DirectorEvent"), "DirectorEvent.artifactUpdated", (item) => decodeDirectorArtifactUpdatedPayload(item)),
+    aggregatesUpdated: decodeNullable(requireField(record, "aggregatesUpdated", "DirectorEvent"), "DirectorEvent.aggregatesUpdated", (item) => decodeDirectorAggregatesUpdatedPayload(item)),
+    textDelta: decodeNullable(requireField(record, "textDelta", "DirectorEvent"), "DirectorEvent.textDelta", (item) => decodeDirectorTextDeltaPayload(item)),
+    resyncRequired: decodeNullable(requireField(record, "resyncRequired", "DirectorEvent"), "DirectorEvent.resyncRequired", (item) => decodeDirectorResyncRequiredPayload(item)),
+  };
+  assertTaggedUnionBranch("DirectorEvent", result.kind, {
+    "director.workstream.updated": result.workstreamUpdated,
+    "director.workstream.removed": result.workstreamRemoved,
+    "director.selection.changed": result.selectionChanged,
+    "director.graph.updated": result.graphUpdated,
+    "director.approval.updated": result.approvalUpdated,
+    "director.resource_request.updated": result.resourceRequestUpdated,
+    "director.artifact.updated": result.artifactUpdated,
+    "director.aggregates.updated": result.aggregatesUpdated,
+    "director.text.delta": result.textDelta,
+    "director.resync_required": result.resyncRequired,
+  });
+  return result;
+}
+
 export function decodeMasterInput(value: unknown): MasterInput {
   const record = assertRecord(value, "MasterInput");
   assertKnownFields(record, "MasterInput", ["id", "text", "modality", "source", "submittedAt", "focusedWorkspaceId", "focusedConversationId", "focusedPaneId", "originatingWorkspaceId", "originatingConversationId", "originatingPaneId", "originatingConversationInputId"]);
@@ -7607,6 +8781,8 @@ export interface BackendClient {
   updateWorkspaceRoleProfiles: (request: UpdateWorkspaceRoleProfilesRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
   readConversationRoleConfiguration: (request: ReadConversationRoleConfigurationRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
   updateConversationRoleProfiles: (request: UpdateConversationRoleProfilesRequest, options?: BackendRequestOptions) => Promise<RoleConfiguration>;
+  readDirectorSnapshot: (options?: BackendRequestOptions) => Promise<DirectorSnapshot>;
+  dispatchDirectorIntent: (request: DispatchDirectorIntentRequest, options?: BackendRequestOptions) => Promise<DirectorReceipt>;
   readActiveMasterShellInteraction: (options?: BackendRequestOptions) => Promise<ActiveShellInteraction>;
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   cancelMasterInput: (request: CancelMasterInputRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
@@ -8027,6 +9203,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRoleConfiguration,
       endpoint: backendEndpoints.UpdateConversationRoleProfiles,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readDirectorSnapshot: (options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeDirectorSnapshot,
+      endpoint: backendEndpoints.ReadDirectorSnapshot,
+      fetchImpl,
+      requestPayload: undefined,
+      signal: options?.signal,
+    }),
+    dispatchDirectorIntent: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeDirectorReceipt,
+      endpoint: backendEndpoints.DispatchDirectorIntent,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

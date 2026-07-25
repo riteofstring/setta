@@ -20,7 +20,14 @@ the same durable fold the command center renders, and the router turns one
 submitted intent into one authorized decision, repairing invalid model output
 through the typed ladder instead of surfacing it. The router deliberately does
 not commit the decision, because a decision fact and the work it describes
-belong in one durable transaction.
+belong in one durable transaction. Item 3's dispatch surface is committed in
+`internal/director/command_center.go`, `internal/httpapi/director_handlers.go`,
+and `desktop/src/main/director-*.ts`: `DirectorCommandCenter` is the one boundary
+the shell talks to, three endpoints carry it, and the desktop forwards the
+app-scoped subscription through typed IPC. The Director contracts are therefore
+reachable in `desktop/src/generated/backend.ts` at protocol version 84, which is
+what Phase 1 item 13's visual gallery was waiting for. Executing a routed
+decision remains item 6.
 Phase 2 owns the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
@@ -936,9 +943,9 @@ Exit gate:
     cross-workstream provenance and delegation authority are validated, and the fixtures are asserted
     to exercise every node kind and edge kind.**
 13. Build the exhaustive node/edge visual gallery from production contract fixtures. **Deferred to
-    Phase 3 after item 9's endpoint reachability exists. `ProjectionFixtures()` remains the
-    production-contract source. This dependency-bound visual integration is not a Phase 1 contract
-    or projector gap.**
+    Phase 3, and now unblocked: the Phase 3 item 3 endpoints put the Director contracts in
+    `desktop/src/generated/backend.ts`. `ProjectionFixtures()` remains the production-contract
+    source. This dependency-bound visual integration is not a Phase 1 contract or projector gap.**
 14. Adapt the remaining notifications the matrix marks `normalized` that still have no normalizer.
     **Done.** `thread/environment/*` and `model/safetyBuffering/updated` are registered in
     `internal/codexapp/protocolschema/supported_protocol.json`, and `ThreadStatus` is generated as a
@@ -1233,10 +1240,43 @@ Exit gate:
    a workstream the question never named. `WorkstreamDecisionTarget.LastMilestone`
    became `DecisionMilestone`, which drops the graph node id: a node id is a
    renderer identity, and it carried approval and artifact ids into the one
-   place that must contain none. The remaining half of this item is the dispatch
-   surface, the HTTP endpoints and IPC that make the registered Director
-   contracts reachable to `desktop/src/generated/backend.ts`, and executing a
-   routed decision, which moves with item 6.
+   place that must contain none.
+
+   **The dispatch surface is committed** — `internal/director/command_center.go`,
+   `internal/httpapi/director_handlers.go`, `internal/runtime/director_services.go`,
+   `desktop/src/shared/director-ipc.ts`, and `desktop/src/main/director-*.ts`.
+   `CommandCenter` is `dispatch`/`getSnapshot`/`subscribe` and nothing else, and
+   three endpoints carry the whole boundary: read one bounded snapshot with its
+   cursor, subscribe from that cursor, dispatch one intent. Five decisions are
+   load-bearing:
+   - The intent catalog is what the app can carry out today: `select_workstream`
+     and `move_selection`. Submitting work is not in it, because executing a
+     routed decision is item 6, and a dispatch that accepted work it could not
+     perform would be a stub in the product's front door.
+   - `move_selection` is resolved by the app, not the caller. The renderer sends
+     a direction; the registry resolves it over the same bounded, recency-ordered
+     window the snapshot draws, so selection can only land on something the user
+     can see. It clamps at both ends rather than wrapping, and with nothing
+     selected either direction starts at the most recent workstream.
+   - Selection no longer restamps the workstream's `UpdatedAt`. Selecting is not
+     a change to the work, and stamping it made the selected workstream the most
+     recently changed one — so the ordered strip the user navigates reshuffled
+     under the keystroke that navigated it.
+   - The boundary separates a rejected intent from an unavailable command center
+     with typed errors (`ErrDirectorIntentRejected`, `ErrDirectorUnavailable`),
+     so the shell can tell the caller's mistake from a runtime condition instead
+     of reading an error string.
+   - The subscription is required to carry a cursor, and a resync ends the
+     desktop stream rather than reconnecting. A subscriber with no cursor has no
+     snapshot to apply events to, and retrying a cursor the server just refused
+     would only ask to resync again.
+
+   `internal/director/FolderResourceBinding` became `WorkstreamFolderResource`:
+   the generated TypeScript surface is one namespace, and the pane world's
+   `applayout.FolderResourceBinding` still owns that name until Phase 5 deletes
+   it. Executing a routed decision — creating the workstream, sending, queueing,
+   steering, or recovering, and committing `DirectorDecisionCommitted` in the
+   same transaction as that work — is item 6.
 4. Add the app-scoped workstream registry with push subscriptions and durable cursors. **Done —
    `internal/director/registry*.go`.** The registry folds the durable committed log into the
    app-scoped state and publishes what changed. Five decisions are load-bearing:
@@ -1269,7 +1309,11 @@ Exit gate:
 6. Move folderless routing, clarification, conversation creation, queueing, steering, cancellation,
    approval, resource requests, model-output recovery, and product-invariant decisions behind the
    boundary.
-7. Replace pane presentation intents with workstream presentation intents.
+7. Replace pane presentation intents with workstream presentation intents. **The
+   replacement exists** — `DirectorIntent` moves app-wide selection by workstream
+   id or by direction, and no dispatched intent, receipt, or pushed event carries
+   a pane id. The Master presentation intent the pane shell still resolves leaves
+   with item 6's routing.
 8. Fan in current conversation and Master event streams through the Director registry without adding
    UI polling. **Done for the conversation side.** Every conversation's durable events reach the
    registry through one app-scoped follower that blocks on the store's committed-event wake, so
@@ -1403,19 +1447,18 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Continue Phase 3 at item 3's remaining half: the dispatch surface, and the HTTP endpoints and IPC
-   that make the registered Director contracts reachable to `desktop/src/generated/backend.ts`.
-   `Registry.Snapshot`, `Registry.Subscribe`, and `Registry.SelectWorkstream` are the registry half
-   of `getSnapshot`, `subscribe`, and one intent, and `DecisionRouter.Route` resolves a submitted
-   intent into the decision a dispatch carries out. Executing a `RoutedIntent` — creating the
-   workstream, sending, queueing, steering, or recovering, and committing `DirectorDecisionCommitted`
-   in the same transaction as that work — is item 6, together with folderless routing, clarification,
-   approvals, and resource requests. The remaining Master-to-Director renaming in item 2 moves with
-   that work rather than ahead of it.
-2. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
-   to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
-   the gallery renders from. The four contract gaps the inventory found are already closed in
-   `internal/director`; moving `internal/master` onto `director.WorkstreamResourceBinding` is Phase 3
-   rewiring, not a remaining contract gap.
+1. Continue Phase 3 at item 6: execute a `RoutedIntent`. `DecisionRouter.Route` already resolves a
+   submitted intent into one authorized decision, and `CommandCenter.Dispatch` is the surface that
+   carries it out — creating the workstream, sending, queueing, steering, or recovering, and
+   committing `DirectorDecisionCommitted` in the same durable transaction as that work. Folderless
+   routing, clarification, cancellation, approvals, resource requests, and product-invariant
+   decisions move behind the boundary with it, and the `submit` intent joins the dispatch catalog
+   there rather than ahead of the execution that answers it. The remaining Master-to-Director
+   renaming in item 2, and retiring the Master presentation intent in item 7, move with that work.
+2. Build the exhaustive node/edge visual gallery. Its dependency is closed: the Director contracts
+   are generated into `desktop/src/generated/backend.ts`, and `ProjectionFixtures()` is the
+   production-contract source the gallery renders from. The four contract gaps the inventory found
+   are already closed in `internal/director`; moving `internal/master` onto
+   `director.WorkstreamResourceBinding` is Phase 3 rewiring, not a remaining contract gap.
 3. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

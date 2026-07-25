@@ -26,6 +26,8 @@ import {
 } from "./codex-account-event-stream";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
+import { DirectorEventRegistry } from "./director-event-registry";
+import { registerDirectorIpcHandlers } from "./director-ipc";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import {
   createLocalMacOSVoiceHelperFromEnvironment,
@@ -77,6 +79,18 @@ const conversationEvents = new ConversationEventRegistry({
   },
   recordEvent: (event) => {
     recorder?.recordConversationEvent(event);
+  },
+});
+const directorEvents = new DirectorEventRegistry({
+  backendConnection: () => {
+    const runtime = activeRuntime();
+    if (!runtime) {
+      throw new Error(runtimeUnavailableMessage());
+    }
+    return { baseURL: runtime.baseUrl, fetchImpl: backendFetch() };
+  },
+  recordEvent: (event) => {
+    recorder?.recordAppEvent("director_event", event);
   },
 });
 const compactWindowMinHeight = 320;
@@ -180,7 +194,11 @@ async function beforeRuntimeSwitch() {
 async function stopBackendEventStreams() {
   const accountStream = codexAccountEventStream;
   codexAccountEventStream = null;
-  await Promise.all([accountStream?.stop(), conversationEvents.stopAll()]);
+  await Promise.all([
+    accountStream?.stop(),
+    conversationEvents.stopAll(),
+    directorEvents.stopAll(),
+  ]);
 }
 
 function startBackendEventStreams() {
@@ -600,6 +618,12 @@ function registerIpc() {
   });
   registerConversationIpcHandlers({
     conversationEvents,
+    ipcMain,
+    ipcObserver,
+    requireBackendClient,
+  });
+  registerDirectorIpcHandlers({
+    directorEvents,
     ipcMain,
     ipcObserver,
     requireBackendClient,

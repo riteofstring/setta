@@ -232,10 +232,22 @@ func (state *registryState) applyDirectorFact(event conversation.CommittedEvent)
 		return nil, err
 	}
 	effects = append(effects, factEffects...)
-	if err := state.refreshWorkstream(workstream, fact.EmittedAt); err != nil {
+	if err := state.refreshWorkstream(workstream, directorFactChangedAt(workstream, fact)); err != nil {
 		return nil, err
 	}
 	return append(effects, registryEffect{kind: effectWorkstream, id: workstream.record.ID}), nil
+}
+
+// directorFactChangedAt is when the fact changed the workstream's own work.
+// Selection is the exception: it changes which workstream the app is showing,
+// not the work. Stamping it would make the selected workstream the most recently
+// changed one, so the recency-ordered list the user navigates would reshuffle
+// under every selection — including the one the keystroke just made.
+func directorFactChangedAt(workstream *registryWorkstream, fact DirectorFactEvent) string {
+	if fact.Kind == DirectorFactWorkstreamSelected {
+		return workstream.record.UpdatedAt
+	}
+	return fact.EmittedAt
 }
 
 func (state *registryState) applyDirectorFactRecords(

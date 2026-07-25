@@ -8,6 +8,7 @@ import (
 	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
+	"setta/internal/director"
 	"setta/internal/master"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
@@ -88,6 +89,9 @@ var apiEndpoints = []endpoint{
 	post[UpdateWorkspaceRoleProfilesRequest, conversation.RoleConfiguration]("UpdateWorkspaceRoleProfiles", "/workspaces/roles/update", handler.updateWorkspaceRoleProfiles),
 	post[ReadConversationRoleConfigurationRequest, conversation.RoleConfiguration]("ReadConversationRoleConfiguration", "/conversations/roles/read", handler.readConversationRoleConfiguration),
 	post[UpdateConversationRoleProfilesRequest, conversation.RoleConfiguration]("UpdateConversationRoleProfiles", "/conversations/roles/update", handler.updateConversationRoleProfiles),
+	get[director.DirectorSnapshot]("ReadDirectorSnapshot", "/director/snapshot", handler.readDirectorSnapshot),
+	post[DispatchDirectorIntentRequest, director.DirectorReceipt]("DispatchDirectorIntent", "/director/intents/dispatch", handler.dispatchDirectorIntent),
+	streamEvent[director.DirectorEvent]("DirectorEventStream", "/director/events", handler.directorEventStream),
 	get[master.ActiveShellInteraction]("ReadActiveMasterShellInteraction", "/master/interaction/active", handler.readActiveMasterShellInteraction),
 	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
 	post[CancelMasterInputRequest, master.ShellInteractionState]("CancelMasterInput", "/master/inputs/cancel", handler.cancelMasterInput),

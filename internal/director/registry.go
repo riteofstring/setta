@@ -285,7 +285,7 @@ func (registry *Registry) Snapshot() (DirectorSnapshot, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	if !registry.started {
-		return DirectorSnapshot{}, errors.New("director registry is not started")
+		return DirectorSnapshot{}, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
 	}
 	return registry.state.registrySnapshot(
 		registry.connectionState(),
@@ -308,7 +308,7 @@ func (registry *Registry) Subscribe(cursor DirectorEventCursor) (DirectorEventSu
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	if !registry.started {
-		return nil, errors.New("director registry is not started")
+		return nil, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
 	}
 	subscription := newRegistrySubscription(registry)
 	if reason, required := registry.resyncReasonFor(cursor); required {
@@ -346,52 +346,6 @@ func (registry *Registry) removeSubscription(subscription *registrySubscription)
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	delete(registry.subscribers, subscription)
-}
-
-// SelectWorkstream moves app-wide selection. Selection is persisted app state
-// with no pane identity: it is committed as a durable Director fact and reaches
-// the registry through the same fold every other fact does.
-func (registry *Registry) SelectWorkstream(ctx context.Context, workstreamID string) error {
-	registry.selectMutex.Lock()
-	defer registry.selectMutex.Unlock()
-
-	registry.mutex.Lock()
-	if !registry.started {
-		registry.mutex.Unlock()
-		return errors.New("director registry is not started")
-	}
-	if _, known := registry.state.workstreams[workstreamID]; !known {
-		registry.mutex.Unlock()
-		return fmt.Errorf("workstream %s is not in the registry", workstreamID)
-	}
-	previous := copyOptionalString(registry.pendingSelection)
-	if previous != nil && *previous == workstreamID {
-		registry.mutex.Unlock()
-		return nil
-	}
-	emittedAt := registry.timestamp()
-	registry.mutex.Unlock()
-
-	factID, err := registry.newID("director-fact")
-	if err != nil {
-		return err
-	}
-	fact := DirectorFactEvent{
-		ID:                 factID,
-		EmittedAt:          emittedAt,
-		Kind:               DirectorFactWorkstreamSelected,
-		WorkstreamID:       workstreamID,
-		Actor:              SemanticActorUser,
-		WorkstreamSelected: &DirectorWorkstreamSelected{PreviousWorkstreamID: previous},
-	}
-	if err := AppendDirectorFact(ctx, registry.facts, fact); err != nil {
-		return err
-	}
-	registry.mutex.Lock()
-	selected := workstreamID
-	registry.pendingSelection = &selected
-	registry.mutex.Unlock()
-	return nil
 }
 
 func (registry *Registry) timestamp() string {

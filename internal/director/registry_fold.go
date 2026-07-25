@@ -166,7 +166,7 @@ func resolveWorkstreamScope(
 			*workspaceID,
 		)
 	}
-	folder := FolderResourceBinding{WorkspaceID: summary.ID, RootPath: summary.RootPath}
+	folder := WorkstreamFolderResource{WorkspaceID: summary.ID, RootPath: summary.RootPath}
 	return WorkstreamResourceScope{Kind: WorkstreamResourceScopeFolder, Folder: &folder},
 		[]WorkstreamResourceBinding{{Kind: WorkstreamResourceKindFolder, Folder: &folder}},
 		nil

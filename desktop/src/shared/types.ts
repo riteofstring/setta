@@ -22,6 +22,10 @@ import type {
   ClearDesktopSpeechCredentialRequest,
   CreateSpeechTranscriptionSessionRequest,
   CreateTopicConversationRequest,
+  DirectorEvent,
+  DirectorIntent,
+  DirectorReceipt,
+  DirectorSnapshot,
   DiscardConversationInputRequest,
   DisposeSideConversationRequest,
   ListTopicConversationsRequest,
@@ -73,6 +77,7 @@ import type {
   ConversationEventReleaseRequest,
   ConversationEventSubscriptionRequest,
 } from "./conversation-ipc";
+import type { DirectorEventSubscriptionRequest } from "./director-ipc";
 import type {
   LocalMacOSVoiceCancelCaptureResult,
   LocalMacOSVoiceFinishCaptureResult,
@@ -339,6 +344,12 @@ export interface SettaAPI {
     waitInputState?: (
       request: ReadConversationInputRoutingStateRequest,
     ) => Promise<ConversationInputRoutingState>;
+  };
+  director: {
+    dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+    onEvent: (listener: (event: DirectorEvent) => void) => () => void;
+    readSnapshot: () => Promise<DirectorSnapshot>;
+    subscribe: (request: DirectorEventSubscriptionRequest) => Promise<void>;
   };
   master?: {
     cancelInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;

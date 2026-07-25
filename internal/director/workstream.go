@@ -95,9 +95,9 @@ var workstreamResourceKinds = []WorkstreamResourceKind{
 	WorkstreamResourceKindFolder,
 }
 
-// FolderResourceBinding binds a workstream to a filesystem workspace. The
+// WorkstreamFolderResource binds a workstream to a filesystem workspace. The
 // workspace is a resource of the workstream, never its identity.
-type FolderResourceBinding struct {
+type WorkstreamFolderResource struct {
 	WorkspaceID string `json:"workspaceId"`
 	RootPath    string `json:"rootPath"`
 }
@@ -106,14 +106,14 @@ type FolderResourceBinding struct {
 // resource binding. Trusted product code attaches bindings after a decision
 // validates; model output never supplies a resource path.
 type WorkstreamResourceBinding struct {
-	Kind   WorkstreamResourceKind `json:"kind"`
-	Folder *FolderResourceBinding `json:"folder"`
+	Kind   WorkstreamResourceKind    `json:"kind"`
+	Folder *WorkstreamFolderResource `json:"folder"`
 }
 
 // WorkstreamResourceScope is the resolved scope a workstream currently runs in.
 type WorkstreamResourceScope struct {
 	Kind   WorkstreamResourceScopeKind `json:"kind"`
-	Folder *FolderResourceBinding      `json:"folder"`
+	Folder *WorkstreamFolderResource   `json:"folder"`
 }
 
 // WorkstreamMilestone is the last meaningful public fact of a workstream. It is
@@ -337,7 +337,7 @@ func ValidateWorkstreamResourceBinding(binding WorkstreamResourceBinding) error 
 		if binding.Folder == nil {
 			return fmt.Errorf("folder resource binding requires a folder payload")
 		}
-		return validateFolderResourceBinding(*binding.Folder)
+		return validateWorkstreamFolderResource(*binding.Folder)
 	default:
 		return fmt.Errorf("unknown workstream resource kind %q", binding.Kind)
 	}
@@ -354,13 +354,13 @@ func validateWorkstreamResourceScope(scope WorkstreamResourceScope) error {
 		if scope.Folder == nil {
 			return fmt.Errorf("folder workstream scope requires a folder binding")
 		}
-		return validateFolderResourceBinding(*scope.Folder)
+		return validateWorkstreamFolderResource(*scope.Folder)
 	default:
 		return fmt.Errorf("unknown workstream resource scope kind %q", scope.Kind)
 	}
 }
 
-func validateFolderResourceBinding(folder FolderResourceBinding) error {
+func validateWorkstreamFolderResource(folder WorkstreamFolderResource) error {
 	if err := validateIdentifier("folder resource workspace id", folder.WorkspaceID); err != nil {
 		return err
 	}

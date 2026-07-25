@@ -57,6 +57,8 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ResourceRequestStatus", Values: stringValues(resourceRequestStatuses)},
 		{Name: "ArtifactStatus", Values: stringValues(artifactStatuses)},
 		{Name: "RecoveryStatus", Values: stringValues(recoveryStatuses)},
+		{Name: "DirectorIntentKind", Values: stringValues(directorIntentKinds)},
+		{Name: "DirectorSelectionDirection", Values: stringValues(directorSelectionDirections)},
 		{Name: "DirectorEventKind", Values: stringValues(directorEventKinds)},
 		{Name: "DirectorResyncReason", Values: stringValues(directorResyncReasons)},
 		{Name: "DirectorConnectionStatus", Values: stringValues(directorConnectionStatuses)},
@@ -85,10 +87,31 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 	}}
 }
 
-// ContractDiscriminatedStructs registers the resource shapes whose kind decides
-// which payload is present, including the folderless scope that has none.
+// ContractDiscriminatedStructs registers the shapes whose kind decides which
+// payload is present, including the folderless scope that has none and the
+// dispatched intent, which the shell constructs rather than decodes.
 func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
 	return []ContractDiscriminatedStruct{
+		{
+			Type:          reflect.TypeFor[DirectorIntent](),
+			Discriminator: "kind",
+			Variants: []ContractDiscriminatedStructVariant{
+				{
+					DiscriminatorValue: string(DirectorIntentSelectWorkstream),
+					Fields: []ContractDiscriminatedStructField{
+						{Name: "selectWorkstream", NonNull: true},
+						{Name: "moveSelection"},
+					},
+				},
+				{
+					DiscriminatorValue: string(DirectorIntentMoveSelection),
+					Fields: []ContractDiscriminatedStructField{
+						{Name: "selectWorkstream"},
+						{Name: "moveSelection", NonNull: true},
+					},
+				},
+			},
+		},
 		{
 			Type:          reflect.TypeFor[WorkstreamResourceBinding](),
 			Discriminator: "kind",

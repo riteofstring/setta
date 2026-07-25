@@ -69,7 +69,7 @@ func TestFolderlessWorkstreamsAreFirstClass(t *testing.T) {
 	bound := testWorkstream("workstream-bound")
 	bound.ResourceScope = WorkstreamResourceScope{
 		Kind:   WorkstreamResourceScopeFolder,
-		Folder: &FolderResourceBinding{WorkspaceID: "workspace-1", RootPath: "/tmp/setta-project"},
+		Folder: &WorkstreamFolderResource{WorkspaceID: "workspace-1", RootPath: "/tmp/setta-project"},
 	}
 	if err := ValidateWorkstream(bound); err != nil {
 		t.Fatalf("a folder-bound workstream was rejected: %v", err)
@@ -84,7 +84,7 @@ func TestFolderlessWorkstreamsAreFirstClass(t *testing.T) {
 	relative := testWorkstream("workstream-relative")
 	relative.ResourceScope = WorkstreamResourceScope{
 		Kind:   WorkstreamResourceScopeFolder,
-		Folder: &FolderResourceBinding{WorkspaceID: "workspace-1", RootPath: "relative/path"},
+		Folder: &WorkstreamFolderResource{WorkspaceID: "workspace-1", RootPath: "relative/path"},
 	}
 	if err := ValidateWorkstream(relative); err == nil {
 		t.Fatal("a relative folder root must be rejected")
@@ -375,7 +375,7 @@ func TestUnresolvedRecordsMustActuallyBeUnresolved(t *testing.T) {
 	request.ResolvedAt = stringPointer("2026-07-24T12:00:05Z")
 	request.ResolvedBinding = &WorkstreamResourceBinding{
 		Kind:   WorkstreamResourceKindFolder,
-		Folder: &FolderResourceBinding{WorkspaceID: "workspace-1", RootPath: "/tmp/setta-project"},
+		Folder: &WorkstreamFolderResource{WorkspaceID: "workspace-1", RootPath: "/tmp/setta-project"},
 	}
 	resolved.UnresolvedResourceRequests = []ResourceRequest{request}
 	if err := ValidateDirectorSnapshot(resolved); err == nil {

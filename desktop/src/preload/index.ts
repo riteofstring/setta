@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import { decodeCodexAccountChangeEvent, decodeConversationEvent } from "@generated/backend";
+import {
+  decodeCodexAccountChangeEvent,
+  decodeConversationEvent,
+  decodeDirectorEvent,
+} from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import {
   decodeLocalMacOSVoiceModelDownloadStatus,
@@ -98,6 +102,20 @@ const api: SettaAPI = {
     submitApproval: (request) => invoke("conversationSubmitApproval", request),
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
     updatePresentation: (request) => invoke("conversationUpdatePresentation", request),
+  },
+  director: {
+    dispatch: (intent) => invoke("directorDispatchIntent", intent),
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeDirectorEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.directorEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.directorEvent, handler);
+      };
+    },
+    readSnapshot: () => invoke("directorReadSnapshot"),
+    subscribe: (request) => invoke("directorSubscribeEvents", request),
   },
   master: {
     cancelInput: (request) => invoke("masterCancelInput", request),

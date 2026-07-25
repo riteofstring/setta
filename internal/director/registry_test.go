@@ -161,8 +161,12 @@ func TestRegistrySelectionIsDurable(t *testing.T) {
 	subscription := subscribeFromSnapshot(t, registry)
 	defer subscription.Unsubscribe()
 
-	if err := registry.SelectWorkstream(context.Background(), second); err != nil {
+	selected, err := registry.SelectWorkstream(context.Background(), second)
+	if err != nil {
 		t.Fatalf("SelectWorkstream: %v", err)
+	}
+	if selected == nil || *selected != second {
+		t.Fatalf("SelectWorkstream reports selection %v, want %q", selected, second)
 	}
 	selection := awaitEvent(t, subscription, DirectorEventSelectionChanged)
 	if selection.SelectionChanged.SelectedWorkstreamID == nil ||
