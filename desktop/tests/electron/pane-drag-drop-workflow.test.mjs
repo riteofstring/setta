@@ -12,7 +12,6 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -57,10 +56,10 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
+  await waitForInitialEasyButtonStartupToSettle(context.client);
   await persistFourColumnLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await context.client.installDriver();
   await waitForNormalPaneHosts(context.client, 4);
   await captureScreenshot(context.client, join(artifactDir, "normal-before.png"));
 
@@ -358,7 +357,7 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
-  await openFixtureWorkspace(client, workflowTimeoutMs);
+  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -369,15 +368,24 @@ async function ensureWorkspaceOpen(client) {
 
 async function persistFourColumnLayout(client, workspaceId) {
   await client.evaluate(`(async () => {
-    await window.setta.appLayout.savePaneLayout(${JSON.stringify(fourColumnAppLayout(workspaceId))});
+    await window.setta.workspace.saveUILayout(${JSON.stringify(fourColumnLayout(workspaceId))});
     return true;
   })()`);
+}
+
+async function waitForInitialEasyButtonStartupToSettle(client) {
+  await waitForState(
+    client,
+    "Boolean(document.querySelector('[data-testid=\"initial-easy-button-pane\"]'))",
+    (present) => !present,
+    workflowTimeoutMs,
+  );
 }
 
 function fourColumnLayout(workspaceId) {
   const panes = Array.from({ length: 4 }, (_value, index) => ({
     columnId: `workspace_column_${index}`,
-    conversationConfig: null,
+    easyButtonConfig: null,
     heat: (index * 37) % 100,
     paneId: `workspace_pane_${index}`,
     sequence: index,
@@ -403,63 +411,6 @@ function fourColumnLayout(workspaceId) {
     panes,
     schemaVersion: 1,
     workspaceId,
-  };
-}
-
-function fourColumnAppLayout(workspaceId) {
-  const layout = fourColumnLayout(workspaceId);
-  return {
-    columns: [
-      appMasterColumn(),
-      ...layout.columns.map((column) => ({
-        ...column,
-        index: column.index + 1,
-        slotIndex: column.slotIndex + 1,
-      })),
-    ],
-    focusedPaneId: layout.focusedPaneId,
-    maximizedPaneId: null,
-    panes: [appMasterPane(), ...layout.panes.map(appPaneFromWorkspacePane)],
-    schemaVersion: 1,
-  };
-}
-
-function appPaneFromWorkspacePane({ conversationConfig, ...pane }) {
-  void conversationConfig;
-  return {
-    ...pane,
-    conversationConfig: null,
-    masterConfig: null,
-  };
-}
-
-function appMasterColumn() {
-  return {
-    columnId: "app_column_master",
-    idealWidthSpec: { unit: "px", value: 520 },
-    index: 0,
-    paneIds: ["app_pane_master"],
-    planeIndex: 0,
-    previousProportionWidth: null,
-    slotIndex: 0,
-    widthSpec: { unit: "px", value: 520 },
-  };
-}
-
-function appMasterPane() {
-  return {
-    columnId: "app_column_master",
-    conversationConfig: null,
-    heat: 0,
-    masterConfig: {},
-    paneId: "app_pane_master",
-    sequence: 0,
-    subtitle: "Global coordinator",
-    surfaceId: "app_surface_master",
-    surfaceKind: "master",
-    title: "Setta",
-    tone: "slate",
-    weight: 1,
   };
 }
 
@@ -732,7 +683,15 @@ function workspaceIdExpression() {
 }
 
 function layoutSnapshotExpression() {
-  return driverCallExpression("paneDragDropPersistedWorkspaceLayout");
+  return `(async () => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const workspaceId = area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+    if (!workspaceId || workspaceId === "empty") {
+      return { layout: null, workspaceId };
+    }
+    const result = await window.setta.workspace.readUILayout(workspaceId);
+    return { layout: result.layout, workspaceId };
+  })()`;
 }
 
 function frameMetricsExpression() {
@@ -750,5 +709,57 @@ function frameMetricsResetExpression() {
 }
 
 function paneSnapshotExpression() {
-  return driverCallExpression("paneDragDropPaneSnapshot");
+  return `(() => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
+    const stageRect = stage instanceof HTMLElement
+      ? stage.getBoundingClientRect()
+      : { left: 0, top: 0, width: 0, height: 0 };
+    const ghost = document.querySelector('[data-workspace-overview-ghost]');
+    const ghostHost = ghost instanceof HTMLElement
+      ? (() => {
+          const rect = ghost.getBoundingClientRect();
+          return {
+            placement: ghost.dataset.overviewGhostPlacement ?? "",
+            paneId: ghost.dataset.overviewGhostPaneId ?? "",
+            rect: { height: rect.height, left: rect.left, top: rect.top, width: rect.width },
+          };
+        })()
+      : null;
+    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
+      .map((host) => {
+        const rect = host.getBoundingClientRect();
+        return {
+          dragSource: host.dataset.dragSource === "true",
+          dropAxis: host.dataset.dropAxis ?? "",
+          dropPreview: host.dataset.dropPreview === "true",
+          dropTarget: host.dataset.dropTarget ?? "",
+          focused: host.dataset.focused === "true",
+          paneId: host.dataset.paneId ?? "",
+          presentationMode: host.dataset.presentationMode ?? "",
+          rect: {
+            height: rect.height,
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+          },
+        };
+      });
+    return {
+      focusedPaneId: visibleHosts.find((host) => host.focused)?.paneId ?? "",
+      ghost: ghostHost,
+      mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
+      overviewDragging: area instanceof HTMLElement ? area.dataset.overviewDragging ?? "" : "",
+      paneDragging: area instanceof HTMLElement ? area.dataset.paneDragging ?? "" : "",
+      stageRect: {
+        height: stageRect.height,
+        left: stageRect.left,
+        top: stageRect.top,
+        width: stageRect.width,
+      },
+      visibleHosts,
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+    };
+  })()`;
 }

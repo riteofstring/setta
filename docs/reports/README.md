@@ -1,11 +1,11 @@
 # Reports
 
-This folder contains historical verification reports and measurements. Reports
-are retained as evidence for past implementation work; they are not active plans
-or current product direction.
+This folder contains historical verification reports and measurements.
 
 Use `docs/reports/performance/` for append-only before/after performance
 measurements from performance-relevant refactors.
 
-Historical reports may reference plan documents that have since been removed.
-The current plan of record is `docs/plans/setta-4-director-command-center-plan.md`.
+Retained performance reports:
+
+- `pixi-workspace-visual-smoke.md`: current Pixi visual smoke log referenced by
+  the workflow graph visual tooling guide.

@@ -23,13 +23,6 @@ func (server *Server) shutdownMasterRouting(ctx context.Context) error {
 	return server.drainMasterRouting(ctx)
 }
 
-func (server *Server) shutdownSpeech(ctx context.Context) error {
-	if server.drainSpeech == nil {
-		return nil
-	}
-	return server.drainSpeech(ctx)
-}
-
 func (server *Server) shutdownConversationStore() error {
 	if server.closeConversationStore != nil {
 		return server.closeConversationStore()

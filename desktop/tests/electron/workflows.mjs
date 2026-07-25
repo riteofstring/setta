@@ -1,32 +1,17 @@
 export const electronWorkflows = [
   {
-    file: "app-pane-layout-workflow.test.mjs",
-    name: "app-pane-layout",
-    tiers: ["required"],
-  },
-  {
     file: "app-window-drag-workflow.test.mjs",
     name: "app-window-drag",
     tiers: ["required"],
   },
   {
-    file: "settings-page-workflow.test.mjs",
-    name: "settings-page",
+    file: "settings-pane-workflow.test.mjs",
+    name: "settings-pane",
     tiers: ["required"],
   },
   {
     file: "topic-conversation-pane-projection.test.mjs",
     name: "topic-conversation-pane-projection",
-    tiers: ["required"],
-  },
-  {
-    file: "topic-conversation-creation-workflow.test.mjs",
-    name: "topic-conversation-creation",
-    tiers: ["required"],
-  },
-  {
-    file: "topic-conversation-provider-thread-lifecycle.test.mjs",
-    name: "topic-conversation-provider-thread-lifecycle",
     tiers: ["required"],
   },
   {
@@ -75,24 +60,14 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "local-macos-voice-capture-workflow.test.mjs",
-    name: "local-macos-voice-capture",
-    tiers: ["required"],
-  },
-  {
-    file: "folderless-conversation-local-voice-workflow.test.mjs",
-    name: "folderless-conversation-local-voice",
-    tiers: ["required"],
-  },
-  {
     file: "topic-conversation-speech-arbitration.test.mjs",
     name: "topic-conversation-speech-arbitration",
     tiers: ["required"],
   },
   {
-    file: "master-folderless-routing-workflow.test.mjs",
-    name: "master-folderless-routing",
-    tiers: ["required"],
+    file: "instant-voice-capture-phase0-baseline.test.mjs",
+    name: "instant-voice-capture-phase0-baseline",
+    tiers: ["performance"],
   },
   {
     file: "instant-voice-capture-phase0-audioworklet.test.mjs",
