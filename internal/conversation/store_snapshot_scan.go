@@ -15,10 +15,10 @@ type sqlScanner interface {
 
 func scanTopicConversation(scanner sqlScanner) (TopicConversation, error) {
 	var value TopicConversation
-	var workspaceID, archivedAt sql.NullString
+	var archivedAt sql.NullString
 	err := scanner.Scan(
 		&value.ID,
-		&workspaceID,
+		&value.WorkspaceID,
 		&value.Title,
 		&value.TopicDescriptor,
 		&value.Status,
@@ -27,7 +27,6 @@ func scanTopicConversation(scanner sqlScanner) (TopicConversation, error) {
 		&archivedAt,
 		&value.LastTrajectorySequence,
 	)
-	value.WorkspaceID = optionalScannedString(workspaceID)
 	value.ArchivedAt = optionalScannedString(archivedAt)
 	return value, err
 }
@@ -162,7 +161,6 @@ var trajectoryPayloadTargets = map[TrajectoryEventKind]func(*TrajectoryEvent) an
 	TrajectoryEventArtifactEmitted:               func(event *TrajectoryEvent) any { return &event.ArtifactEmitted },
 	TrajectoryEventAgentLivenessChanged:          func(event *TrajectoryEvent) any { return &event.AgentLivenessChanged },
 	TrajectoryEventProviderLifecycleChanged:      func(event *TrajectoryEvent) any { return &event.ProviderLifecycleChanged },
-	TrajectoryEventValidationRecorded:            func(event *TrajectoryEvent) any { return &event.ValidationRecorded },
 	TrajectoryEventModelRerouted:                 func(event *TrajectoryEvent) any { return &event.ModelRerouted },
 }
 
