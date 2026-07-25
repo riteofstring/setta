@@ -94,35 +94,6 @@ func TestConversationRouteCommandExecutorRejectsMissingAtomicMasterEffect(t *tes
 	}
 }
 
-func TestConversationRouteCommandExecutorRunsFolderlessNarratorAnswer(t *testing.T) {
-	store := &routeCommandExecutorStore{
-		applied: []bool{false, true},
-	}
-	narratorService := &routeCommandExecutorNarrator{}
-	executor, err := newConversationRouteCommandExecutor(
-		store,
-		&routeCommandExecutorConversations{},
-		narratorService,
-	)
-	if err != nil {
-		t.Fatalf("newConversationRouteCommandExecutor: %v", err)
-	}
-
-	if err := executor.ExecuteConversationRouteCommand(
-		context.Background(),
-		routedNarratorStatusDecisionRecord(),
-	); err != nil {
-		t.Fatalf("ExecuteConversationRouteCommand: %v", err)
-	}
-	if narratorService.folderlessCalls != 1 || narratorService.calls != 0 {
-		t.Fatalf(
-			"narrator calls = workspace:%d folderless:%d",
-			narratorService.calls,
-			narratorService.folderlessCalls,
-		)
-	}
-}
-
 func routedNarratorStatusDecisionRecord() conversation.ConversationRouteDecisionRecord {
 	invocation := routedNarratorInvocation()
 	return conversation.ConversationRouteDecisionRecord{
@@ -213,28 +184,9 @@ func (store *routeCommandExecutorStore) ReadConversationWorkspaceID(
 	return store.workspaceID, nil
 }
 
-func (store *routeCommandExecutorStore) ReadConversationWorkspaceBindingID(
-	_ context.Context,
-	_ string,
-) (*string, error) {
-	if store.workspaceID == "" {
-		return nil, nil
-	}
-	workspaceID := store.workspaceID
-	return &workspaceID, nil
-}
-
 func (store *routeCommandExecutorStore) ReadSnapshot(
 	_ context.Context,
 	_ string,
-	_ string,
-) (conversation.ConversationSnapshot, error) {
-	store.snapshotReads++
-	return store.snapshot, nil
-}
-
-func (store *routeCommandExecutorStore) ReadSnapshotByID(
-	_ context.Context,
 	_ string,
 ) (conversation.ConversationSnapshot, error) {
 	store.snapshotReads++
@@ -254,9 +206,8 @@ func (*routeCommandExecutorConversations) ExecuteRouteCommand(
 }
 
 type routeCommandExecutorNarrator struct {
-	calls           int
-	folderlessCalls int
-	err             error
+	calls int
+	err   error
 }
 
 func (service *routeCommandExecutorNarrator) AskRoutedStatus(
@@ -267,15 +218,5 @@ func (service *routeCommandExecutorNarrator) AskRoutedStatus(
 	string,
 ) (conversation.ConversationSnapshot, error) {
 	service.calls++
-	return conversation.ConversationSnapshot{}, service.err
-}
-
-func (service *routeCommandExecutorNarrator) AskRoutedFolderlessStatus(
-	context.Context,
-	string,
-	string,
-	string,
-) (conversation.ConversationSnapshot, error) {
-	service.folderlessCalls++
 	return conversation.ConversationSnapshot{}, service.err
 }

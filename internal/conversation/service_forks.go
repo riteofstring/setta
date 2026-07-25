@@ -70,7 +70,7 @@ func (service *Service) executeDurableForkDecision(
 	now := service.timestamp()
 	conversation := TopicConversation{
 		ID:              childConversationID,
-		WorkspaceID:     &workspaceID,
+		WorkspaceID:     workspaceID,
 		Title:           title,
 		TopicDescriptor: title,
 		Status:          ConversationStatusIdle,

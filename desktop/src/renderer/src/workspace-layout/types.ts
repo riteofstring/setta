@@ -1,21 +1,13 @@
-import type {
-  AppPaneSurfaceKind,
-  ConversationPaneResourceBinding,
-  WorkspaceConversationPaneConfig as GeneratedWorkspaceConversationPaneConfig,
-} from "@generated/backend";
+import type { EasyButtonPaneConfig, SurfaceKind as PersistedSurfaceKind } from "@generated/backend";
 
 export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
 
-export type ProductSurfaceKind = AppPaneSurfaceKind;
+export type ProductSurfaceKind = PersistedSurfaceKind;
 type DiagnosticSurfaceKind = "fake-dom" | "fake-heavy-dom" | "snapshot";
 export type SurfaceKind = ProductSurfaceKind | DiagnosticSurfaceKind;
-export type NonConversationSurfaceKind = Exclude<SurfaceKind, "conversation">;
-
-export interface WorkspaceConversationPaneConfig extends GeneratedWorkspaceConversationPaneConfig {
-  resourceBindings?: ConversationPaneResourceBinding[];
-}
+export type NonEasyButtonSurfaceKind = Exclude<SurfaceKind, "easy-button">;
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 
@@ -59,16 +51,16 @@ interface WorkspacePaneFields {
   weight: number;
 }
 
-export type ConversationWorkspacePane = WorkspacePaneFields & {
-  conversationConfig: WorkspaceConversationPaneConfig;
-  surfaceKind: "conversation";
+export type EasyButtonWorkspacePane = WorkspacePaneFields & {
+  easyButtonConfig: EasyButtonPaneConfig;
+  surfaceKind: "easy-button";
 };
 
 export type WorkspacePane =
-  | ConversationWorkspacePane
+  | EasyButtonWorkspacePane
   | (WorkspacePaneFields & {
-      conversationConfig?: never;
-      surfaceKind: NonConversationSurfaceKind;
+      easyButtonConfig?: never;
+      surfaceKind: NonEasyButtonSurfaceKind;
     });
 
 export interface WorkspaceColumn {
@@ -110,12 +102,12 @@ interface OpenPaneRequestFields {
 
 export type OpenPaneRequest =
   | (OpenPaneRequestFields & {
-      conversationConfig: WorkspaceConversationPaneConfig;
-      surfaceKind: "conversation";
+      easyButtonConfig: EasyButtonPaneConfig;
+      surfaceKind: "easy-button";
     })
   | (OpenPaneRequestFields & {
-      conversationConfig?: never;
-      surfaceKind?: NonConversationSurfaceKind;
+      easyButtonConfig?: never;
+      surfaceKind?: NonEasyButtonSurfaceKind;
     });
 
 export type PaneInsertionPlacement = "above" | "below" | "right";
@@ -150,7 +142,7 @@ export type PaneDropIntent =
       targetPaneId: PaneId;
     };
 
-export type PaneLimitPolicy = Partial<Record<Exclude<SurfaceKind, "conversation">, number>>;
+export type PaneLimitPolicy = Partial<Record<Exclude<SurfaceKind, "easy-button">, number>>;
 
 export interface LayoutFrameInput {
   focusedPaneId: PaneId;

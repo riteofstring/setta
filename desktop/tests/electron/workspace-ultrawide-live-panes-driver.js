@@ -25,8 +25,8 @@
   }
 
   async function workspaceUltrawideSaveUILayout({ layout }) {
-    await window.setta.appLayout.savePaneLayout(layout);
-    const readback = await window.setta.appLayout.readPaneLayout();
+    await window.setta.workspace.saveUILayout(layout);
+    const readback = await window.setta.workspace.readUILayout(layout.workspaceId);
     return {
       ok: readback.layout?.panes?.length === layout.panes.length,
       readbackPaneCount: readback.layout?.panes?.length ?? 0,
@@ -37,15 +37,14 @@
     const area = workspaceLayoutArea();
     const stageRect = presentationStageRect();
     const hosts = visiblePaneHosts();
-    const workspacePaneIds = new Set(hosts.map((host) => host.paneId));
     return {
       focusedPaneId: focusedPaneId(hosts),
       intersectingHosts: intersectingHosts(hosts, stageRect),
       mode: datasetValue(area, "presentationMode"),
-      resizeHandles: paneResizeHandles(workspacePaneIds),
+      resizeHandles: paneResizeHandles(),
       runtimeStates: hostRuntimeStates(hosts),
       stageRect,
-      totalPanes: hosts.length,
+      totalPanes: paneCount(area),
       visibleHosts: hosts,
       workspaceId: workspaceUltrawideWorkspaceId(),
       workspaceMode: datasetValue(area, "workspaceMode"),
@@ -70,18 +69,17 @@
     return hosts.filter((host) => rectsIntersect(host.rect, stageRect));
   }
 
+  function paneCount(area) {
+    return Number(datasetValue(area, "paneCount") || "0");
+  }
+
   function datasetValue(element, key) {
     return element?.dataset[key] ?? "";
   }
 
   function visiblePaneHosts() {
     return Array.from(document.querySelectorAll(paneHostSelector))
-      .filter(
-        (host) =>
-          host instanceof HTMLElement &&
-          host.dataset.visible === "true" &&
-          host.dataset.surfaceKind !== "master",
-      )
+      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
       .map(paneHostSnapshot);
   }
 
@@ -99,15 +97,9 @@
     };
   }
 
-  function paneResizeHandles(workspacePaneIds) {
+  function paneResizeHandles() {
     return Array.from(document.querySelectorAll(".workspace-pane-resize-handle"))
-      .filter(
-        (handle) =>
-          handle instanceof HTMLElement &&
-          workspacePaneIds.has(handle.dataset.paneId ?? "") &&
-          (handle.dataset.adjacentPaneId === "" ||
-            workspacePaneIds.has(handle.dataset.adjacentPaneId ?? "")),
-      )
+      .filter((handle) => handle instanceof HTMLElement)
       .map((handle) => {
         const rect = rectFor(handle);
         return {
