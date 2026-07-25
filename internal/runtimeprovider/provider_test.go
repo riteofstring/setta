@@ -12,7 +12,7 @@ func TestRuntimeResourcesRequirePositiveDurableLimits(t *testing.T) {
 	valid := RuntimeResources{
 		CPUCoreMillionths: 1_000_000,
 		MemoryBytes:       512_000_000,
-		StorageBytes:      MaximumPersistentStorageBytes,
+		StorageBytes:      MaximumPersistentStorageBytes + 1,
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("Validate valid resources: %v", err)
@@ -22,17 +22,27 @@ func TestRuntimeResourcesRequirePositiveDurableLimits(t *testing.T) {
 		"missing memory":   {CPUCoreMillionths: 1, StorageBytes: 1},
 		"missing storage":  {CPUCoreMillionths: 1, MemoryBytes: 1},
 		"integer overflow": {CPUCoreMillionths: math.MaxUint64, MemoryBytes: 1, StorageBytes: 1},
-		"storage ceiling": {
-			CPUCoreMillionths: 1,
-			MemoryBytes:       1,
-			StorageBytes:      MaximumPersistentStorageBytes + 1,
-		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := resources.Validate(); !errors.Is(err, ErrInvalidContract) {
 				t.Fatalf("Validate error = %v, want ErrInvalidContract", err)
 			}
 		})
+	}
+}
+
+func TestRuntimeResourcesProvisioningRequestStorageCeiling(t *testing.T) {
+	valid := RuntimeResources{
+		CPUCoreMillionths: 1_000_000,
+		MemoryBytes:       512_000_000,
+		StorageBytes:      MaximumPersistentStorageBytes,
+	}
+	if err := valid.ValidateProvisioningRequest(); err != nil {
+		t.Fatalf("ValidateProvisioningRequest boundary resources: %v", err)
+	}
+	valid.StorageBytes++
+	if err := valid.ValidateProvisioningRequest(); !errors.Is(err, ErrInvalidContract) {
+		t.Fatalf("ValidateProvisioningRequest overflow error = %v, want ErrInvalidContract", err)
 	}
 }
 

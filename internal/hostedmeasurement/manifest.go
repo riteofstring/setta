@@ -148,7 +148,7 @@ func validateManifestIdentity(manifest Manifest) error {
 	if err := validateManifestNames(manifest); err != nil {
 		return err
 	}
-	if err := manifest.SpriteResources.Validate(); err != nil {
+	if err := manifest.SpriteResources.ValidateProvisioningRequest(); err != nil {
 		return fmt.Errorf("validate manifest Sprite resources: %w", err)
 	}
 	if manifest.MinimumDiskFreeMiB <= 0 {

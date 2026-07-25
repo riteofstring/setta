@@ -131,5 +131,5 @@ func validateEnsureRuntimeConfig(config ensureRuntimeConfig) error {
 		config.RuntimeRelease == "" || config.RuntimeSecretRef == "" || config.UserID == "" {
 		return errors.New("ensure-runtime identity, runtime, release, secret reference, epoch, and idempotency key are required")
 	}
-	return config.Resources.Validate()
+	return config.Resources.ValidateProvisioningRequest()
 }

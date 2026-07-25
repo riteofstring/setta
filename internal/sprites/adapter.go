@@ -137,7 +137,7 @@ func (adapter *Adapter) Create(
 	if err := request.Identity.Validate(); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
 	}
-	if err := request.Resources.Validate(); err != nil {
+	if err := request.Resources.ValidateProvisioningRequest(); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
 	}
 

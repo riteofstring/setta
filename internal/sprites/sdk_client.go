@@ -94,7 +94,7 @@ func spriteConfig(resources runtimeprovider.RuntimeResources) (spritessdk.Sprite
 		bytesPerMB     = uint64(1_000_000)
 		bytesPerGB     = uint64(1_000_000_000)
 	)
-	if err := resources.Validate(); err != nil {
+	if err := resources.ValidateProvisioningRequest(); err != nil {
 		return spritessdk.SpriteConfig{}, err
 	}
 	if resources.CPUCoreMillionths%coreMillionths != 0 ||

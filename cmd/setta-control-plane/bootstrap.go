@@ -215,7 +215,7 @@ func validateBootstrapConfig(config bootstrapConfig) error {
 	if config.CredentialEpoch == 0 || config.GrantTTL <= 0 || config.GrantTTL > 30*24*time.Hour {
 		return errors.New("bootstrap credential epoch and grant TTL are out of bounds")
 	}
-	return config.Resources.Validate()
+	return config.Resources.ValidateProvisioningRequest()
 }
 
 func validateBootstrapPaths(config bootstrapConfig) error {

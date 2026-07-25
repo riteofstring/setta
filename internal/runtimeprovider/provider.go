@@ -143,6 +143,14 @@ func (resources RuntimeResources) Validate() error {
 		resources.StorageBytes > math.MaxInt64 {
 		return fmt.Errorf("%w: runtime resource limits exceed the durable integer range", ErrInvalidContract)
 	}
+	return nil
+}
+
+// ValidateProvisioningRequest applies Setta's product policy to a new runtime request.
+func (resources RuntimeResources) ValidateProvisioningRequest() error {
+	if err := resources.Validate(); err != nil {
+		return err
+	}
 	if resources.StorageBytes > MaximumPersistentStorageBytes {
 		return fmt.Errorf(
 			"%w: persistent runtime storage exceeds the 100 GB product ceiling",
