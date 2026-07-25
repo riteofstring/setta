@@ -1,13 +1,33 @@
 import { conversationSurfaces } from "./topic-conversation-fork-workflow.mjs";
 
 export const expectedNarratorStatusReply =
-  "The topic is still working and has not been steered or interrupted.";
+  "The primary topic agent is still working and has not been steered or interrupted.";
+
+export function assertDuplicateConversationPalette(surfaces, conversationId) {
+  const duplicates = conversationSurfaces(surfaces, conversationId);
+  const palettes = new Set(duplicates.map((surface) => surface.paletteId));
+  const paneIds = new Set(duplicates.map((surface) => surface.paneId));
+  if (
+    duplicates.length !== 2 ||
+    palettes.size !== 1 ||
+    paneIds.size !== 2 ||
+    palettes.has("") ||
+    duplicates.some(
+      (surface) =>
+        surface.hostAccentDark === "" ||
+        surface.hostConversationId !== conversationId ||
+        surface.hostPaletteId !== surface.paletteId,
+    )
+  ) {
+    throw new Error(`duplicate topic views diverged: ${JSON.stringify(duplicates)}`);
+  }
+}
 
 export function assertIndependentWorkingTopics(surfaces, alphaId, betaId) {
   const alpha = conversationSurfaces(surfaces, alphaId);
   const beta = conversationSurfaces(surfaces, betaId);
   if (
-    alpha.length !== 1 ||
+    alpha.length !== 2 ||
     beta.length !== 1 ||
     alpha.some((surface) => !surfaceIsWorkingWithoutCenterProgress(surface)) ||
     beta.some((surface) => !surfaceIsWorkingWithoutCenterProgress(surface))
@@ -147,13 +167,13 @@ export function assertBetaLifecycle(snapshot) {
     throw new Error(`Beta terminal lifecycle is incomplete: ${JSON.stringify(snapshot)}`);
   }
   if (
-    snapshot.narratorState.checkpointThroughSequence < 0 ||
+    snapshot.narratorState.checkpointThroughSequence <= 0 ||
     snapshot.narratorState.checkpointThroughSequence >
       snapshot.narratorState.observedThroughSequence
   ) {
     throw new Error(`Beta narrator checkpoint is incomplete: ${JSON.stringify(snapshot)}`);
   }
-  assertAutomaticNarration(snapshot, "Beta", { requireMilestone: false });
+  assertAutomaticNarration(snapshot, "Beta");
 }
 
 export function hasFinalNarrationForEveryTurn(snapshot) {
@@ -165,29 +185,22 @@ export function hasFinalNarrationForEveryTurn(snapshot) {
   return snapshot.turns.turns.every((turn) => summarizedTurnIds.has(turn.id));
 }
 
-export function terminalTurnsHaveFinalNarration(snapshot) {
-  const summarizedTurnIds = new Set(
-    snapshot.narration.events
-      .filter((event) => event.kind === "final_summary" && event.turnId)
-      .map((event) => event.turnId),
+export function narratorCaughtUp(snapshot) {
+  return (
+    snapshot.narratorState.observedThroughSequence === snapshot.conversation.lastTrajectorySequence
   );
-  return snapshot.turns.turns
-    .filter((turn) => ["cancelled", "completed", "failed"].includes(turn.status))
-    .every((turn) => summarizedTurnIds.has(turn.id));
 }
 
-function assertAutomaticNarration(snapshot, label, { requireMilestone = true } = {}) {
+function assertAutomaticNarration(snapshot, label) {
   const milestones = snapshot.narration.events.filter((event) => event.kind === "milestone");
   const finals = snapshot.narration.events.filter((event) => event.kind === "final_summary");
   if (
-    (requireMilestone && milestones.length === 0) ||
+    milestones.length === 0 ||
     finals.length !== snapshot.turns.turns.length ||
     finals.some(
       (event) =>
         event.trigger !== "turn_terminal" ||
-        typeof event.finalSummary?.text !== "string" ||
-        event.finalSummary.text === "" ||
-        event.finalSummary.text.startsWith("Narrator ") ||
+        !event.finalSummary?.text.startsWith("Narrator completed ") ||
         event.resolvedInvocation?.resolved?.modelId !== "gpt-5.4-mini",
     )
   ) {

@@ -27,8 +27,7 @@ func (service *Service) persistArtifactToolFailure(
 	if err != nil {
 		return err
 	}
-	turn, err := findConversationTurn(snapshot, turnID)
-	if err != nil {
+	if _, err := findConversationTurn(snapshot, turnID); err != nil {
 		return err
 	}
 	now := service.timestamp()
@@ -56,7 +55,7 @@ func (service *Service) persistArtifactToolFailure(
 		return appendPublications(transaction, publications)
 	})
 	if err == nil {
-		service.observeCommittedTrajectory(snapshot.Conversation, turn, []TrajectoryEvent{trajectory}, nil, false)
+		service.observeCommittedTrajectory(snapshot.Conversation, turnID, []TrajectoryEvent{trajectory}, false)
 	}
 	return err
 }
